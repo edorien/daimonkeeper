@@ -37,6 +37,7 @@
 #include "config_spritecolors.h"
 #include "config_terrain.h"
 #include "config_keeperfx.h"
+#include "editor_callbacks.h" // is_active(), for the compute_cells_away() diagnostic below
 #include "creature_graphics.h"
 #include "creature_states.h"
 #include "creature_states_combt.h"
@@ -559,6 +560,23 @@ static long compute_cells_away(void) // For overhead view, not for 1st person vi
         ncells_a = xcell + (ycell >> 1);
     }
     ncells_a += 2;
+    // docs/refactor/editor/phase4/05-live-test-fixes.md -- confirmed live
+    // this clamp is NOT the zoom-out dropout's cause (no WARNLOG fired in a
+    // session where the dropout reproduced). Kept as a new-peak tracker
+    // rather than removed outright -- cheap, harmless, editor-only, and
+    // still worth knowing if some other map/camera combination ever does
+    // reach it. New-peak-triggered (not edge-triggered on the clamp
+    // itself) so a session's log shows the actual growth curve toward
+    // whatever ncells_a really reaches, not just a single crossing.
+    if (editor_callbacks->is_active())
+    {
+        static long s_peak_ncells_a = 0;
+        if (ncells_a > s_peak_ncells_a)
+        {
+            s_peak_ncells_a = ncells_a;
+            WARNLOG("Editor camera horizon-scan new peak: wants %ld cells (clamp %d, MINMAX_LENGTH=%d)", ncells_a, MAX_I_CAN_SEE_OVERHEAD, MINMAX_LENGTH);
+        }
+    }
     if (ncells_a > MAX_I_CAN_SEE_OVERHEAD) {
         ncells_a = MAX_I_CAN_SEE_OVERHEAD;
     }
@@ -4946,6 +4964,26 @@ void draw_map_volume_box(long cor1_x, long cor1_y, long cor2_x, long cor2_y, lon
     map_volume_box.color = color;
 }
 
+// docs/refactor/editor/04-views-camera-overlays.md -- same camera-relative
+// offset + rotpers() recipe do_map_who_for_thing() already uses to place a
+// thing's sprite on screen (map_x_pos/map_y_pos/map_z_pos and
+// camera_matrix are this file's own private per-frame render state, hence
+// this wrapper living here rather than exposing them directly).
+TbBool project_world_position_to_screen(MapCoord x, MapCoord y, MapCoord z, long *screen_x, long *screen_y)
+{
+    struct EngineCoord ecor;
+    ecor.clip_flags = 0;
+    ecor.x = (x - map_x_pos);
+    ecor.z = (map_y_pos - y);
+    ecor.y = (z - map_z_pos);
+    rotpers(&ecor, &camera_matrix);
+    if (ecor.clip_flags != 0)
+        return false;
+    *screen_x = ecor.view_width;
+    *screen_y = ecor.view_height;
+    return true;
+}
+
 /**
  * Some objects have a secondary sprite drawn on top, that is positioned relative to the original sprite and scaled differently.
  * @param jspr the base sprite
@@ -6857,6 +6895,32 @@ void draw_view(struct Camera *cam, unsigned char a2)
     long y = cam->mappos.y.val;
     long z = cam->mappos.z.val;
 
+    // docs/refactor/editor/phase4/05-live-test-fixes.md -- second diagnostic
+    // candidate for the zoom-out render dropout, now that the horizon-scan
+    // clamp (compute_cells_away(), above) was confirmed NOT the cause (no
+    // WARNLOG fired despite the dropout reproducing live). getpoly/
+    // poly_pool_end gate dozens of separate terrain-column/polygon
+    // insertion points throughout this file (get_bucket_item() plus many
+    // inline "if (getpoly < poly_pool_end)" checks) -- if the pool fills up
+    // partway through a frame's terrain generation, every later insertion
+    // in iteration order silently no-ops, which could plausibly produce a
+    // clean "everything past this point just doesn't render" cutoff.
+    // Measures the frame that just finished (getpoly is about to reset) --
+    // editor-only, new-peak-triggered (not a single threshold edge) so a
+    // session's log shows the actual usage growth curve -- first live
+    // result crossed 50% (8728656/16777216) with the dropout already
+    // present, nowhere near exhaustion, so this may turn out to be a red
+    // herring too; the peak curve will show whether it ever gets close.
+    if (editor_callbacks->is_active() && (getpoly != NULL))
+    {
+        static size_t s_peak_used = 0;
+        size_t used = (size_t)(getpoly - poly_pool);
+        if (used > s_peak_used)
+        {
+            s_peak_used = used;
+            WARNLOG("Editor poly pool new peak usage %lu / %lu bytes", (unsigned long)used, (unsigned long)sizeof(poly_pool));
+        }
+    }
     getpoly = poly_pool;
     memset(buckets, 0, sizeof(buckets));
     if (map_volume_box.visible)

@@ -140,19 +140,19 @@ target_link_libraries(kfx_common_opts INTERFACE kfx_sdl3)
 # kfx_link_dependencies() (Dependencies.cmake) but with INTERFACE instead of
 # PRIVATE linkage since kfx_common_opts has no compiled sources of its own.
 if(WIN32)
-    target_link_libraries(kfx_common_opts INTERFACE
-        libavformat_static libavcodec_static libswresample_static libavutil_static
-        openal_static astronomy_static enet6_static miniupnpc_static natpmp_static
-        curl_static spng_static centijson_static minizip_static zlib_static
-        luajit_static)
+    target_link_libraries(kfx_common_opts INTERFACE kfx_win32_static_deps)
 else()
     target_link_libraries(kfx_common_opts INTERFACE
         kfx_ffmpeg kfx_openal kfx_luajit
         kfx_spng kfx_minizip PkgConfig::ZLIB
-        astronomy_static centijson_static enet6_static curl_static
+        astronomy_static centijson_static enet6_static kfx_curl
         kfx_miniupnpc kfx_natpmp)
 endif()
 target_link_libraries(kfx_common_opts INTERFACE centitoml)
+# tinyfiledialogs (Dependencies.cmake) -- same OBJECT-library INTERFACE-
+# propagation story as centitoml above: kfx_platform's bflib_filedialogs.cpp
+# #includes tinyfiledialogs.h directly.
+target_link_libraries(kfx_common_opts INTERFACE tinyfiledialogs)
 # imgui (Dependencies.cmake, Phase A of docs/refactor/renderer/
 # 04-imgui-gui-foundation.md) -- same OBJECT-library INTERFACE-propagation
 # story as centitoml above: kfx_platform's ImGuiContext.cpp #includes
@@ -290,8 +290,11 @@ if((KFX_BUILD_TESTS OR KFX_FUNCTESTING) AND KFX_TEST_COVERAGE)
     target_link_options(kfx_common_opts INTERFACE --coverage)
 
     kfx_fetch(lcov "https://github.com/linux-test-project/lcov/releases/download/v1.16/lcov-1.16.tar.gz")
-    set(KFX_LCOV_BIN "${CMAKE_BINARY_DIR}/deps/lcov/lcov-1.16/bin/lcov")
-    set(KFX_GENHTML_BIN "${CMAKE_BINARY_DIR}/deps/lcov/lcov-1.16/bin/genhtml")
+    # Derived from D (Dependencies.cmake), not a separately hardcoded path:
+    # kfx_fetch(<dir> ...) always extracts to "${D}/<dir>", so this has to
+    # track whatever D actually is rather than assume CMAKE_BINARY_DIR/deps.
+    set(KFX_LCOV_BIN "${D}/lcov/lcov-1.16/bin/lcov")
+    set(KFX_GENHTML_BIN "${D}/lcov/lcov-1.16/bin/genhtml")
 
     # geninfo (what `lcov --capture` invokes) checks each source line
     # against a regex -- lcov_excl_line, defaulting to the literal string
@@ -336,8 +339,9 @@ add_subdirectory(src/kfx_editor)
 # whole local coverage workflow as one target -- `ctest` then
 # `cmake --build <dir> --target coverage`. Placed after every
 # add_subdirectory(src/kfx_*) call above since it DEPENDS on their
-# *_utest targets by name -- all ten now exist (kfx_apploop/kfx_script
-# landed in stage-06/07; see docs/Architecture/testing-harness.md).
+# *_utest targets by name -- all eleven now exist (kfx_apploop/kfx_script
+# landed in stage-06/07, kfx_editor's own suite added later; see
+# docs/Architecture/testing-harness.md).
 if(KFX_BUILD_TESTS AND KFX_TEST_COVERAGE)
     add_custom_target(coverage
         COMMAND ${CMAKE_COMMAND} -E env perl "${KFX_LCOV_BIN}"
@@ -356,6 +360,7 @@ if(KFX_BUILD_TESTS AND KFX_TEST_COVERAGE)
             kfx_platform_utest kfx_config_utest kfx_pathfinding_utest
             kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest
             kfx_frontend_utest kfx_script_utest kfx_apploop_utest
+            kfx_editor_utest
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
         COMMENT "Capturing coverage and rendering HTML report (coverage-html/index.html)"
         # Without VERBATIM, the Ninja/Makefile generators emit the
@@ -524,6 +529,11 @@ kfx_link_dependencies(keeperfx_hvlog)
 # directly here too, the same way the pre-Stage-1 CMakeLists.txt always did.
 target_link_libraries(keeperfx PRIVATE centitoml)
 target_link_libraries(keeperfx_hvlog PRIVATE centitoml)
+
+# tinyfiledialogs: same two-levels-of-INTERFACE-indirection object-linking
+# gap as centitoml just above.
+target_link_libraries(keeperfx PRIVATE tinyfiledialogs)
+target_link_libraries(keeperfx_hvlog PRIVATE tinyfiledialogs)
 
 # imgui: same two-levels-of-INTERFACE-indirection object-linking gap as
 # centitoml just above -- link its compiled object directly onto the final

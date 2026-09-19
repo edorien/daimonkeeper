@@ -64,10 +64,14 @@ res/keeperfx_icon.ico
 /deps/miniupnpc
 /deps/libnatpmp
 /deps/*.tar.gz
-# CMake's own fetches (deps/CMakeLists.txt / CMakeLists.txt): Windows
-# mingw32-suffixed dirs (distinct from the Makefile-fetched ones above so
-# the two can't collide if the same checkout is configured for both
-# platforms) and the SDL2-family mingw-devel tarball staging.
+# CMake's own fetches (build/cmake/modules/Dependencies.cmake): every
+# third-party dependency's download+build output, kept outside out/<platform>
+# so deleting that build tree doesn't force a re-download/rebuild from
+# source of ffmpeg/curl/openal/luajit/etc. too. One dir per platform (mingw32
+# cross-compile vs native lin64) since they use different toolchains for the
+# same dependencies, same reasoning /out/* needs separate linux/windows trees.
+/deps/.cache-mingw32/
+/deps/.cache-lin64/
 /deps/*-mingw32
 /deps/*-mingw32.tar.gz
 /deps/*-mingw

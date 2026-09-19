@@ -108,6 +108,71 @@ enum PlayerStates {
     // (packets_input.c) is wired to the resource-checked placement path.
     PSt_EditorPlaceTrap,
     PSt_EditorPlaceDoor,
+    // §2.4 -- the Terrain tool's "Rectangle" mode (toggle alongside "Brush",
+    // the existing continuous drag-paint PSt_PlaceTerrain already does).
+    // A separate work state rather than a flag on PSt_PlaceTerrain because
+    // the two need genuinely different PCtr_LBtn* handling shapes: Brush
+    // paints on every Held frame, Rectangle only tracks the drag and
+    // commits the whole marked box once, on Release.
+    PSt_EditorPlaceTerrainRect,
+    // §2.10 -- Eyedropper. Same "kfx_editor watches for its own click, no
+    // packets_cheats.c dispatch" shape as Objects (F17-adjacent: the picked
+    // kind+owner aren't known until the click happens, so there's nothing
+    // for a per-work-state case to read back) -- this case exists only for
+    // cursor-highlight feedback and to keep a stray click from falling
+    // through to whatever tool was active before.
+    PSt_EditorEyedropper,
+    // §2.2 -- "Clear to Earth" area op: same mark-a-box/commit-on-release
+    // shape as PSt_EditorPlaceTerrainRect (Rectangle mode), just with a
+    // fixed target kind/owner (SlbT_EARTH/neutral) instead of the picker's
+    // current selection -- a separate work state rather than a parameter
+    // on the Rectangle one so the toolbox's mode row can offer it as its
+    // own button.
+    PSt_EditorRectClearEarth,
+    // §2.2 -- "Delete Things Inside" area op. Same mark-a-box/commit shape
+    // as Clear Earth, but the release handler sweeps every subtile in the
+    // box for things to delete rather than repainting slabs.
+    PSt_EditorRectDeleteThings,
+    // §2.2 -- "Set Owner" area op. Same mark-a-box/commit shape again; the
+    // handler properly transfers room ownership (delete_room_slab() then
+    // re-place with the new owner -- see editor_set_owner_rect()'s own
+    // comment) and skips ownerless kinds.
+    PSt_EditorRectSetOwner,
+    // §2.4 -- "Brush" (grab region -> stamp). Unlike every other tool
+    // above, capture and stamp happen entirely client-side in kfx_editor,
+    // calling the same sim mutation primitives (place_slab_type_on_map()
+    // etc.) directly rather than through a packet -- the doc's own
+    // sanctioned "single-player-local exception" (D2) for when queuing a
+    // large stamp as a burst of packets, one per turn, would be visibly
+    // janky. This work state exists only so a stray click doesn't fall
+    // through to whatever tool was active before (same reason
+    // PSt_EditorPlaceObject/PSt_EditorEyedropper exist) -- no dispatch of
+    // its own.
+    PSt_EditorStamp,
+    // §2.10 -- Query. Not `PSt_QueryAll`: that state's classic dispatch
+    // (packets_cheats.c) calls query_thing()/query_room() for anything
+    // that isn't a creature, both of which show a classic (unmigrated)
+    // GMnu_MSG_BOX popup -- jarring inside an otherwise all-ImGui editor.
+    // Creature queries are fine as-is (GMnu_CREATURE_QUERY1-4 *are*
+    // ImGui-migrated, per frontgui_ingame_creature.cpp's own
+    // creature_query_panel()) -- kfx_editor calls query_creature()
+    // directly for those. For everything else, kfx_editor reads the
+    // thing/room itself and renders its own small ImGui inspector instead
+    // of going through query_thing()/query_room() at all. Like Object/
+    // Eyedropper/Stamp, this state exists only so a stray click doesn't
+    // fall through to whatever tool was active before -- no dispatch of
+    // its own.
+    PSt_EditorQuery,
+    // docs/refactor/editor/05-script-and-level-settings.md's "per-slab
+    // texture paint" item -- same "client-side direct mutation, work
+    // state exists only for click routing, no dispatch of its own" shape
+    // as PSt_EditorStamp right above (see that constant's own comment for
+    // the full D2 single-player-local-exception rationale).
+    PSt_EditorPaintTexture,
+    // phase5/06-slices6-8-points-tool.md -- the Points tool (lights, action
+    // points, effect generators). Same "client-side direct mutation, work
+    // state exists only for click routing" shape as PSt_EditorPaintTexture.
+    PSt_EditorPlacePoint,
     PSt_ListEnd
 };
 

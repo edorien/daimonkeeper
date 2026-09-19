@@ -1,7 +1,14 @@
 # Phase 8 — in-editor GUI layout
 
-Status: **proposal.** Feeds phase 2 (toolbox) and phase 5 (property panels). The in-session
-editor GUI is the ImGui panel set `editor_frame()` submits over the live engine render.
+Status: **superseded.** This doc's full redesign (icon tool rail, moving the whole palette onto
+the game's reused sidebar/minimap column, splitter inspector) was never built — the tab-strip
+toolbox actually built in phase 2/9
+([`09-toolbox-remainder.md`](09-toolbox-remainder.md)) is the accepted direction instead, and the
+toolbox panel/tab-strip layout stays as-is. Only this doc's **menu-bar and dialog** ideas (§2's
+menu bar row, §5's New/Open/Save As dialogs) were carried forward, into
+[`phase3/02-slice3-dialogs-menubar.md`](phase3/02-slice3-dialogs-menubar.md) — kept below for
+reference on those two points; treat everything else here (the rail, the reused control column,
+the splitter inspector) as an abandoned proposal, not a plan.
 
 Design stance (settled with the user): **reuse the running game's own HUD furniture — the
 right-side control column, the scanner minimap, the room/trap/power sprite-grid panels — in

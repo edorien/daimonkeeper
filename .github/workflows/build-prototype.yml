@@ -83,11 +83,26 @@ jobs:
           libzstd-dev \
           zlib1g-dev
 
+    # Dependencies.cmake builds several deps from source regardless of the
+    # apt packages above (centijson/astronomy/enet6 have no distro package at
+    # all; ffmpeg is always built minimal-from-source; curl needs
+    # libcurl4-openssl-dev, not installed here) -- cache their build output
+    # (deps/.cache-lin64/, not out/_deps: Dependencies.cmake deliberately
+    # caches outside the out/ build tree) so a re-run doesn't recompile
+    # ffmpeg/curl/etc. from scratch. Keyed on Dependencies.cmake's hash so a
+    # version bump invalidates it; shared with every other native-Linux job
+    # below, which build the identical dependency set.
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: deps/.cache-lin64
+        key: ${{ runner.os }}-kfx-deps-lin64-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
+
     - name: Configure and build
       run: |
         set -eux
         cmake -S . -B out -G Ninja -DCMAKE_BUILD_TYPE=Debug -DKFX_BUILD_TESTS=ON
-        cmake --build out --target kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest -j"$(nproc)"
+        cmake --build out --target kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest -j"$(nproc)"
 
     - name: Run tests
       run: ctest --test-dir out --output-on-failure
@@ -151,12 +166,21 @@ jobs:
           libzstd-dev \
           zlib1g-dev
 
+    # See unit-tests' identical cache step above for why this is needed;
+    # same key too -- it's a repo-relative path independent of build dir
+    # (out/ vs out/coverage/), so this job and unit-tests share one cache.
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: deps/.cache-lin64
+        key: ${{ runner.os }}-kfx-deps-lin64-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
+
     - name: Configure and build (instrumented)
       run: |
         set -eux
         cmake -S . -B out/coverage -G Ninja -DKFX_OS=linux -DCMAKE_BUILD_TYPE=Debug \
           -DKFX_BUILD_TESTS=ON -DKFX_TEST_COVERAGE=ON
-        cmake --build out/coverage --target kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest -j"$(nproc)"
+        cmake --build out/coverage --target kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest -j"$(nproc)"
 
     - name: Run tests
       run: ctest --test-dir out/coverage --output-on-failure
@@ -189,6 +213,19 @@ jobs:
         set -eux
         sudo apt update
         sudo apt install -y build-essential g++-mingw-w64-i686 cmake ninja-build libpng16-16t64 7zip
+
+    # Dependencies.cmake now cross-compiles every non-SDL3 third-party dep
+    # from source for this mingw32 target (ffmpeg/curl/openal/luajit
+    # included) -- cache the build output (deps/.cache-mingw32/, not
+    # out/_deps: Dependencies.cmake deliberately caches outside the out/
+    # build tree) so a re-run doesn't redo all of that. Shared with every
+    # other mingw32 job in this file and in build-alpha/release-patch-
+    # unsigned.yml, which all run the identical mingw32 configure+build.
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: deps/.cache-mingw32
+        key: ${{ runner.os }}-kfx-deps-mingw32-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
 
     - name: Configure and build package
       run: |
@@ -243,6 +280,16 @@ jobs:
         set -eux
         sudo apt update
         sudo apt install -y build-essential g++-mingw-w64-i686 ninja-build
+
+    # See build-prototype's identical cache step above for why this is
+    # needed; same key too -- deps/.cache-mingw32/ is a repo-relative path
+    # independent of build dir (out/ vs build/), so this job shares that
+    # job's cache.
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: deps/.cache-mingw32
+        key: ${{ runner.os }}-kfx-deps-mingw32-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
 
     - name: Configure
       run: cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake -DCMAKE_BUILD_TYPE=Release
@@ -312,6 +359,14 @@ jobs:
           libssl-dev \
           libzstd-dev \
           zlib1g-dev
+
+    # See unit-tests' identical cache step above for why this is needed;
+    # same key too, shared across every native-Linux job in this file.
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: deps/.cache-lin64
+        key: ${{ runner.os }}-kfx-deps-lin64-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
 
     - name: Build
       run: |

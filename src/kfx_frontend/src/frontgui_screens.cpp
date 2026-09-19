@@ -123,7 +123,6 @@ namespace {
             case FeSt_NET_SERVICE:
             case FeSt_NET_SESSION:
             case FeSt_NET_START:
-            case FeSt_EDITOR:
                 return true;
             default:
                 return false;
@@ -642,29 +641,93 @@ namespace {
         FeHeading(get_string(frontend_button_info[FEBtn_DefineKeys].capstr_idx));
         FeSeparator();
 
-        bool open = FeBeginListBox("##definekeys_list", ImVec2(520, 320));
-        if (open)
+        // docs/refactor/editor/10-definable-keybindings.md -- editor
+        // keybindings get their own tab/table (editor_key_settings[]/
+        // settings.editor_kbkeys[]) rather than sharing the ~90-entry
+        // gameplay list -- same FeBeginTabBar/FeTab wrapper the settings
+        // screen's own Game/Graphics/Sound/Mouse tabs and the editor
+        // toolbox's own tool-strip tabs already use.
+        bool tabbar_open = FeBeginTabBar("##DefineKeysTabs");
+        if (tabbar_open)
         {
-            uint8_t count = num_definable_keys();
-            for (long key_id = 0; key_id < count; key_id++)
+            if (FeTab("Game"))
             {
-                char keytext[96];
-                frontend_format_key_binding(key_id, keytext, sizeof(keytext));
-                char label[192];
-                std::snprintf(label, sizeof(label), "%-32s %s", get_string(game_key_settings[key_id].string_id), keytext);
-                if (FeListRow(label, defining_a_key && defining_a_key_id == key_id))
+                bool open = FeBeginListBox("##definekeys_list", ImVec2(520, 320));
+                if (open)
                 {
-                    // Mirrors frontend_define_key() (frontmenu_options.c):
-                    // define_key_input() (frontend.cpp's input dispatch)
-                    // does the actual capture, unchanged by which draw path
-                    // is active.
-                    defining_a_key = 1;
-                    defining_a_key_id = key_id;
-                    lbInkey = KC_UNASSIGNED;
+                    // docs/refactor/editor/10-definable-keybindings.md §2.2
+                    // -- loops every key_id and filters by
+                    // binding_menu_visibility directly (same shape the
+                    // "Editor" tab below already uses), rather than relying
+                    // on num_definable_keys()'s own count-of-visible-entries
+                    // plus an implicit "they're all a contiguous prefix"
+                    // assumption. That assumption held by convention, not
+                    // enforcement, and broke it for Gkey_EditorEraseTool
+                    // when this doc's first draft tried inserting a new
+                    // visible key mid-array -- filtering per-entry removes
+                    // the assumption instead of just avoiding tripping it.
+                    for (long key_id = 0; key_id < GAME_KEYS_COUNT; key_id++)
+                    {
+                        if (game_key_settings[key_id].binding_menu_visibility != BMV_Visible)
+                            continue;
+                        char keytext[96];
+                        frontend_format_key_binding(key_id, keytext, sizeof(keytext));
+                        char label[192];
+                        // docs/refactor/editor/10-definable-keybindings.md
+                        // (D6) -- same label_literal-first precedent as
+                        // this file's own setting-schema rendering
+                        // (frontgui_screens.cpp's options list,
+                        // "opt->label_literal ? opt->label_literal :
+                        // get_string(opt->label_stridx)") for a binding
+                        // that has no slot in the classic localized
+                        // GUIStr_* table yet.
+                        const struct GamekeySettings *gks = &game_key_settings[key_id];
+                        std::snprintf(label, sizeof(label), "%-32s %s", gks->label_literal ? gks->label_literal : get_string(gks->string_id), keytext);
+                        if (FeListRow(label, defining_a_key && !defining_editor_key && defining_a_key_id == key_id))
+                        {
+                            // Mirrors frontend_define_key()
+                            // (frontmenu_options.c): define_key_input()
+                            // (frontend.cpp's input dispatch) does the
+                            // actual capture, unchanged by which draw path
+                            // is active.
+                            defining_a_key = 1;
+                            defining_editor_key = false;
+                            defining_a_key_id = key_id;
+                            lbInkey = KC_UNASSIGNED;
+                        }
+                    }
                 }
+                FeEndListBox(open);
+                FeEndTab();
+            }
+            if (FeTab("Editor"))
+            {
+                bool open = FeBeginListBox("##definekeys_editor_list", ImVec2(520, 320));
+                if (open)
+                {
+                    for (long key_id = 0; key_id < EDITOR_GAME_KEYS_COUNT; key_id++)
+                    {
+                        if (editor_key_settings[key_id].binding_menu_visibility != BMV_Visible)
+                            continue;
+                        char keytext[96];
+                        frontend_format_editor_key_binding(key_id, keytext, sizeof(keytext));
+                        char label[192];
+                        const struct GamekeySettings *gks = &editor_key_settings[key_id];
+                        std::snprintf(label, sizeof(label), "%-32s %s", gks->label_literal ? gks->label_literal : get_string(gks->string_id), keytext);
+                        if (FeListRow(label, defining_a_key && defining_editor_key && defining_a_key_id == key_id))
+                        {
+                            defining_a_key = 1;
+                            defining_editor_key = true;
+                            defining_a_key_id = key_id;
+                            lbInkey = KC_UNASSIGNED;
+                        }
+                    }
+                }
+                FeEndListBox(open);
+                FeEndTab();
             }
         }
-        FeEndListBox(open);
+        FeEndTabBar(tabbar_open);
 
         FeSeparator();
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuRetToOptions].capstr_idx)))
@@ -1403,11 +1466,23 @@ namespace {
             FeSeparator();
             const ImVec2 btn_size(220, 0);
             FeCenterNextItem(btn_size.x);
+            // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md --
+            // used to route through FeSt_EDITOR's New/Open browser; that
+            // screen is retired now that New/Open/Save live inside the
+            // editor's own File menu (editor_dialogs.cpp), so this jumps
+            // straight into a blank New Map with the same defaults the old
+            // browser's own "New Map" button used. File > Open (in-session)
+            // covers picking an existing level instead.
             if (FeButton("Editor", btn_size))
             {
                 s_tools_modal_open = false;
                 ImGui::CloseCurrentPopup();
-                request_frontend_state(FeSt_EDITOR);
+                editor_pending_lvnum = EDITOR_SCRATCH_LEVEL_NUMBER;
+                editor_pending_is_new = true;
+                editor_pending_new_map_w = 85;
+                editor_pending_new_map_h = 85;
+                editor_pending_new_map_texture = 0;
+                request_frontend_state(FeSt_START_EDITOR);
             }
             FeCenterNextItem(btn_size.x);
             if (FeButton("Back", btn_size))
@@ -1549,89 +1624,12 @@ namespace {
         ImGui::End();
     }
 
-    // docs/refactor/editor/01-entry-and-editor-session.md §2 -- the in-game
-    // level editor's project browser. New/Open both stash their target
-    // into the plain editor_pending_* globals (frontend.h -- see that
-    // header's own comment on why these aren't KfxFrontendState fields)
-    // and request FeSt_START_EDITOR; kfx_apploop's `case FeSt_START_EDITOR:`
-    // (game_session_loop.cpp) reads them back to call
-    // startup_local_game_for_editor(). Open Map lists campaign.freeplay_levels
-    // -- the same list Free Play uses -- rather than a dedicated "writable
-    // maps" enumeration; thumbnails (land_preview_build_minimap, F14) are
-    // phase-3 polish, not needed to open a map for editing.
-    void frontgui_editorbrowser_frame()
-    {
-        ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-        ImGui::Begin("##FeEditor", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
-
-        FeHeading("Editor");
-        FeSeparator();
-
-        const ImVec2 btn_size(260, 0);
-        FeCenterNextItem(btn_size.x);
-        if (FeButton("New Map", btn_size))
-        {
-            editor_pending_lvnum = EDITOR_SCRATCH_LEVEL_NUMBER;
-            editor_pending_is_new = true;
-            editor_pending_new_map_w = 85;
-            editor_pending_new_map_h = 85;
-            editor_pending_new_map_texture = 0;
-            request_frontend_state(FeSt_START_EDITOR);
-        }
-
-        if ((campaign.freeplay_levels_count > 0) || (campaign.single_levels_count > 0))
-        {
-            FeSeparator();
-            // FeBeginListBox, not FeBeginScrollArea -- every other fixed-row
-            // select list in this file (freeplay_level_list, campaign_list,
-            // ...) uses this inside an AlwaysAutoResize window; the
-            // BeginChild-based scroll areas are only ever used in fixed-size
-            // windows elsewhere (frontgui_options_frame, in-game overlays).
-            // Found live: FeBeginScrollArea's child window inside an
-            // AlwaysAutoResize parent left the Editor browser a black,
-            // unresponsive screen.
-            //
-            // Single-player campaign levels are listed here too (not just
-            // freeplay_levels) so a known-good level (e.g. the campaign's
-            // map00001) can be opened as a diagnostic baseline against a
-            // blank New Map -- same editor session path either way.
-            bool open = FeBeginListBox("##FeEditorOpenList", ImVec2(btn_size.x, 200));
-            if (open)
-            {
-                for (unsigned long i = 0; i < campaign.single_levels_count; i++)
-                {
-                    char label[32];
-                    snprintf(label, sizeof(label), "Open Level %lu", (unsigned long)campaign.single_levels[i]);
-                    if (FeListRow(label, false))
-                    {
-                        editor_pending_lvnum = campaign.single_levels[i];
-                        editor_pending_is_new = false;
-                        request_frontend_state(FeSt_START_EDITOR);
-                    }
-                }
-                for (unsigned long i = 0; i < campaign.freeplay_levels_count; i++)
-                {
-                    char label[32];
-                    snprintf(label, sizeof(label), "Open Map %lu", (unsigned long)campaign.freeplay_levels[i]);
-                    if (FeListRow(label, false))
-                    {
-                        editor_pending_lvnum = campaign.freeplay_levels[i];
-                        editor_pending_is_new = false;
-                        request_frontend_state(FeSt_START_EDITOR);
-                    }
-                }
-            }
-            FeEndListBox(open);
-        }
-
-        FeSeparator();
-        FeCenterNextItem(btn_size.x);
-        if (FeButton("Back", btn_size))
-            request_frontend_state(FeSt_MAIN_MENU);
-
-        ImGui::End();
-    }
+    // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- the
+    // pre-session New/Open browser this comment used to describe
+    // (frontgui_editorbrowser_frame, FeSt_EDITOR) is retired: New/Open/Save
+    // now live inside the editor's own File menu (kfx_editor/editor_dialogs.cpp),
+    // reached once a session is already running. Tools -> Editor (above)
+    // jumps straight into a blank New Map instead of showing a picker first.
 
     // Renders one "name ......... value" row -- shared by both stat blocks
     // (the always-visible main_stats_data and the scrollable
@@ -2095,7 +2093,6 @@ void FrontendImGuiFrame(void)
         case FeSt_NET_SERVICE:    frontgui_netservice_frame(); break;
         case FeSt_NET_SESSION:    frontgui_netsession_frame(); break;
         case FeSt_NET_START:      frontgui_netstart_frame(); break;
-        case FeSt_EDITOR:         frontgui_editorbrowser_frame(); break;
         default: break;
     }
 

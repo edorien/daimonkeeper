@@ -57,9 +57,26 @@ struct GamekeySettings {
     uint8_t default_mods;
     TbControllerButtons default_controller_buttons;
     uint8_t binding_menu_visibility;
+    // docs/refactor/editor/10-definable-keybindings.md (D6, first slice) --
+    // same escape hatch struct SettingOption's own label_literal already
+    // has (config_settingschema.h, rendered by frontgui_screens.cpp's
+    // "opt->label_literal ? opt->label_literal : get_string(opt->label_stridx)"):
+    // a brand-new binding's label doesn't have a slot in the classic
+    // localized GUIStr_* table (that's generated from .po/.pot files via
+    // `make pkg-languages`, not something to regenerate for one new key),
+    // so it can show real English text immediately instead of a blank
+    // label until someone runs that pipeline. NULL for every existing
+    // entry -- they already have a real string_id from the original game.
+    const char* label_literal;
 };
 
 extern const struct GamekeySettings game_key_settings[GAME_KEYS_COUNT];
+
+// docs/refactor/editor/10-definable-keybindings.md -- editor keybindings'
+// own separate table, same struct shape as game_key_settings[] above but a
+// distinct array/enum (EditorGameKeys, globals.h) so the editor isn't
+// sharing (or fighting over) the ~90-entry gameplay key space.
+extern const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT];
 
 struct GameSettings {
     unsigned char video_detail_level;
@@ -73,6 +90,7 @@ struct GameSettings {
     unsigned char roomflags_on;
     unsigned short gamma_correction;
     struct GameKey kbkeys[GAME_KEYS_COUNT];
+    struct GameKey editor_kbkeys[EDITOR_GAME_KEYS_COUNT];
     TbBool tooltips_on;
     unsigned char first_person_move_invert;
     unsigned char first_person_move_sensitivity;

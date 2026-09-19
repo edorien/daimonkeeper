@@ -109,6 +109,13 @@ TbBool player_place_door_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
 TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
 
 void level_lost_go_first_person(PlayerNumber plyr_idx);
+// docs/refactor/editor/04-views-camera-overlays.md -- View > 1st Person.
+// Same spectator-creature setup as level_lost_go_first_person() above, but
+// spawns at an explicit position instead of searching for an existing
+// owned creature to derive one from -- an editor session's map may have no
+// creatures at all (a fresh New Map), where level_lost_go_first_person()
+// would silently no-op.
+void level_editor_go_spectator_at(PlayerNumber plyr_idx, MapCoord pos_x, MapCoord pos_y);
 long packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool allowed);
 
 extern unsigned char zoom_to_heart_palette[768];

@@ -437,6 +437,52 @@ void FeEndTab()
 }
 
 // ----------------------------------------------------------------------
+// Menu bar
+// ----------------------------------------------------------------------
+
+// docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- BeginMainMenuBar
+// (not a plain child window with ImGuiWindowFlags_MenuBar) since the editor's
+// bar is meant to sit full-width at the very top of the screen with no
+// enclosing FeBeginPanel/Begin of its own; this is the one wrapper in this
+// file that doesn't need a parent Begin() at all.
+bool FeBeginMenuBar()
+{
+    FeStylePushFont(FeFont_Body);
+    bool open = ImGui::BeginMainMenuBar();
+    if (!open)
+        FeStylePopFont();
+    return open;
+}
+
+void FeEndMenuBar(bool was_open)
+{
+    if (!was_open)
+        return;
+    ImGui::EndMainMenuBar();
+    FeStylePopFont();
+}
+
+bool FeBeginMenu(const char *label, bool enabled)
+{
+    return ImGui::BeginMenu(label, enabled);
+}
+
+void FeEndMenu(bool was_open)
+{
+    if (!was_open)
+        return;
+    ImGui::EndMenu();
+}
+
+bool FeMenuItem(const char *label, const char *shortcut, bool enabled)
+{
+    bool clicked = ImGui::MenuItem(label, shortcut, false, enabled);
+    if (clicked)
+        do_sound_menu_click();
+    return clicked;
+}
+
+// ----------------------------------------------------------------------
 // Modals
 // ----------------------------------------------------------------------
 

@@ -9,32 +9,35 @@
 // KFX_BUILD_TESTS is native-Linux-only (docs/Architecture/testing-
 // harness.md §2), so a bare POSIX filename is fine here.
 //
-// Deliberately a bare filename with no directory component, not an
-// absolute /tmp/... path: found by testing (a real REQUIRE(h != nullptr)
-// failure, not a hunch) that LbFileOpen(..., Lb_FILE_MODE_NEW) is
-// actually broken for any path starting with '/' -- create_directory_for_
-// file() does `strchr(fname, '/')`, finds the *leading* slash first, and
-// calls `mkdir("")` for that empty first component, which fails with
-// ENOENT (confirmed directly, not just read) and aborts the whole open
-// before fopen() is ever reached. Not fixed here (same "record, don't
-// fix outside scope" discipline as docs/refactor/todo/two-remaining-
-// layering-violations.md) -- worth a real bug report, since every
-// production LbFileOpen(..., Lb_FILE_MODE_NEW) caller in this codebase
-// happens to use relative paths, so this has stayed latent.
+// A bare filename with no directory component for most of the tests below
+// (KFX_BUILD_TESTS is native-Linux-only, docs/Architecture/testing-
+// harness.md §2, so a bare POSIX filename is fine).
 //
-// create_directory_for_file()/LbFileMakeFullPath() and the case-
-// insensitive-fallback path inside LbFileOpen/LbFileLength/LbFileDelete
-// (find_case_insensitive_file(), Linux/non-Windows only) aren't attempted
-// here beyond that: the former needs a multi-level throwaway directory
-// tree, the latter would need two same-named-but-cased files on disk to
-// actually exercise the fallback branch, both more fixture setup than
-// the straight-line open/read/write/seek/eof/length/delete lifecycle
-// below.
+// docs/refactor/editor/phase3/00-slice1-native-save.md hit, and fixed,
+// the absolute-path bug this comment used to just document: an fname
+// starting with '/' put the *leading* slash first in create_directory_
+// for_file()'s own strchr() scan, so it called mkdir("") for that empty
+// first component -- always ENOENT, aborting the whole open before
+// fopen() was ever reached. Every production LbFileOpen(...,
+// Lb_FILE_MODE_NEW) caller in this codebase happens to use relative
+// paths (prepare_file_fmtpath()'s own campaign-relative resolution), so
+// it stayed latent until a map-content writer needed to target an
+// arbitrary absolute scratch/test directory. See the "absolute path"
+// test below for the regression coverage this fix earned.
+//
+// LbFileMakeFullPath() and the case-insensitive-fallback path inside
+// LbFileOpen/LbFileLength/LbFileDelete (find_case_insensitive_file(),
+// Linux/non-Windows only) still aren't attempted here: the latter would
+// need two same-named-but-cased files on disk to actually exercise the
+// fallback branch, more fixture setup than the straight-line open/read/
+// write/seek/eof/length/delete lifecycle below.
 #include <catch2/catch_test_macros.hpp>
 
 #include "bflib_fileio.h"
 
 #include <cstdio>
+#include <cstdlib>
+#include <string>
 #include <cstring>
 #include <unistd.h>
 
@@ -145,4 +148,35 @@ TEST_CASE("LbDirectoryCurrent fills the buffer with an absolute path", "[kfx_pla
     char buf[1024];
     CHECK(LbDirectoryCurrent(buf, sizeof(buf)) == 1);
     CHECK(buf[0] == '/');
+}
+
+namespace {
+// Regression coverage for the absolute-path bug this file's own header
+// comment used to just document (now fixed in create_directory_for_file()).
+// A multi-level throwaway tree under a unique mkdtemp() root, so the test
+// also exercises the "create every missing intermediate directory" half
+// of create_directory_for_file(), not just "don't choke on a leading '/'".
+struct ScratchAbsoluteTree {
+    char root[64];
+    std::string nested_file;
+    ScratchAbsoluteTree() {
+        std::strcpy(root, "/tmp/kfx_platform_utest_absdir_XXXXXX");
+        REQUIRE(mkdtemp(root) != nullptr);
+        nested_file = std::string(root) + "/a/b/c/leaf.bin";
+    }
+    ~ScratchAbsoluteTree() {
+        std::string cmd = "rm -rf " + std::string(root);
+        system(cmd.c_str()); // best-effort cleanup, not asserted
+    }
+};
+}
+
+TEST_CASE_METHOD(ScratchAbsoluteTree, "LbFileOpen in NEW mode creates every missing intermediate directory for an absolute path", "[kfx_platform][bflib_fileio]") {
+    TbFileHandle h = LbFileOpen(nested_file.c_str(), Lb_FILE_MODE_NEW);
+    REQUIRE(h != nullptr);
+    const char *payload = "abs path works";
+    CHECK(LbFileWrite(h, payload, std::strlen(payload)) == (long)std::strlen(payload));
+    CHECK(LbFileClose(h) == 1);
+    CHECK(LbFileExists(nested_file.c_str()) != 0);
+    CHECK(LbFileLength(nested_file.c_str()) == (long)std::strlen(payload));
 }

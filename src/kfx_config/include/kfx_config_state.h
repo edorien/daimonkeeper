@@ -182,6 +182,33 @@ struct KfxConfigState {
 #define CAMERA_ZOOM_MIN 520 // Originally 4100, adjusted for view distance
 #define FRONTVIEW_CAMERA_ZOOM_MAX 65536
 #define FRONTVIEW_CAMERA_ZOOM_MIN 3000 // Originally 16384, adjusted for view distance
+// docs/refactor/editor/04-views-camera-overlays.md -- editor camera profile.
+// A map-editing session wants to zoom out further than gameplay's own hard
+// floor (CAMERA_ZOOM_MIN) ever allows, to see more of the map at once while
+// placing far-apart features.
+//
+// Reminder since it's tripped up manual retuning before: LOWER means
+// further ZOOMED OUT (more of the map visible, everything smaller on
+// screen) -- see engine_camera.h's own "zoom max is zoomed in... zoom min
+// is zoomed out" comment. 100 is a MORE extreme zoom-out than 350, not a
+// safer/more conservative one.
+//
+// Found live: this value broke terrain rendering at extreme zoom-out on a
+// large, open map (part of the screen went solid black) at every value
+// tried so far below stock (130, then 350, then -- worse again -- 100).
+// Root cause (engine_render.c, engine_camera.h): compute_cells_away()
+// derives how many subtile-scale "cells" away the visible screen edges are
+// from the camera, and how far that can grow before it stops mattering
+// depends on how much open, revealed floor extends in the camera's own
+// view direction -- not on this constant's exact value. MAX_I_CAN_SEE_
+// OVERHEAD (the hard clamp compute_cells_away() hits) is what actually
+// needed raising, not this number -- see MINMAX_LENGTH's own comment
+// (engine_camera.h) for that fix (512 -> 2048, done alongside this).
+// Reset to a cautious value again -- closer to the stock floor (520) than
+// any previous attempt -- pending live-test confirmation that the
+// MINMAX_LENGTH headroom fixes the dropout at all before pushing back
+// toward a more useful (lower/further-out) number.
+#define EDITOR_CAMERA_ZOOM_MIN 450
 
 #pragma pack()
 /******************************************************************************/

@@ -253,6 +253,128 @@ enum TbPacketAction {
         // switch during input() itself, not from a later render-phase callback.
         PckA_EditorPlaceTrap,
         PckA_EditorPlaceDoor,
+        // §2.4 -- Terrain "Rectangle" mode: PSt_EditorPlaceTerrainRect tracks
+        // a drag (start subtile recorded client-side in packets_cheats.c on
+        // PCtr_LBtnClick) and sends this once, on release, to apply the
+        // chosen slab kind to the whole marked box in one action. All 6 of
+        // the packet's scalar slots are used: pos_x/pos_y (already the
+        // release point, courtesy of the normal input path) is corner 2;
+        // actn_par1/actn_par2 (int32, full range like PckA_EditorPlaceObject)
+        // is the recorded drag-start corner 1; actn_par3/actn_par4 (int16)
+        // are slab kind and owner.
+        PckA_EditorPlaceTerrainRect,
+        // §2.10 -- Eyedropper: kfx_editor reads the slab under the click
+        // itself (get_slabmap_block()/slabmap_owner(), kfx_sim -- a lower
+        // layer, same "read world truth directly" precedent
+        // handle_object_placement_click() established for screen_to_map())
+        // and sends the result here so the server-side selection
+        // (ustate->cheatselection) picks up both kind (actn_par1) and
+        // owner (actn_par2) atomically -- can't use the two existing
+        // PckA_CheatSwitchTerrain/PckA_CheatSwitchPlayer verbs for this,
+        // since only one action fits in the per-turn packet slot per click.
+        PckA_EditorEyedropperTerrain,
+        // §2.7 (deferred item, now done) -- Ctrl+LMB on an existing door
+        // toggles its lock via lock_door()/unlock_door() (thing_doors.c)
+        // instead of placing a new one. Carries the door thing's own index
+        // (actn_par1) rather than a position -- PSt_EditorPlaceDoor's
+        // dispatch (packets_cheats.c) already resolved which door via
+        // find_base_thing_on_mapwho() before sending this, so the handler
+        // doesn't need to re-derive it from a slab position.
+        PckA_EditorToggleDoorLock,
+        // §4 -- Undo (v1: placements only -- see editor_journal.cpp's own
+        // header comment for why terrain paint/fill/rectangle and Redo are
+        // both deferred). kfx_editor sends this in response to Ctrl+Z,
+        // carrying the thing index of the most recently journaled
+        // placement (actn_par1) -- the journal itself lives client-side in
+        // kfx_editor, populated via EditorJournalCallbacks::record_placement,
+        // called from every editor placement handler below right after its
+        // own create_*() call succeeds.
+        PckA_EditorUndo,
+        // §2.2 -- "Clear to Earth" area op. Same corner-carrying shape as
+        // PckA_EditorPlaceTerrainRect (actn_par1/actn_par2 = drag-start
+        // corner, pos_x/pos_y = release corner), minus the kind/owner
+        // params -- always SlbT_EARTH/neutral, nothing to carry.
+        PckA_EditorRectClearEarth,
+        // §2.2 -- "Delete Things Inside". Same corner-carrying shape as
+        // PckA_EditorRectClearEarth -- no per-thing params needed, the
+        // handler sweeps and deletes whatever it finds in the box.
+        PckA_EditorRectDeleteThings,
+        // §2.2 -- "Set Owner". Same corner-carrying shape, plus the target
+        // owner in actn_par3 (int16 -- plenty for a player number).
+        PckA_EditorRectSetOwner,
+        // §4 -- Redo counterparts for the four placement verbs that read
+        // position from the packet's own *ambient* pos_x/pos_y rather than
+        // a param (PckA_CheatMakeCreature/_MakeDigger/PckA_EditorPlaceTrap/
+        // _PlaceDoor). Found live: writing the recorded position directly
+        // onto the local packet before resending one of *those* verbs
+        // didn't work -- get_dungeon_control_nonaction_inputs() (called
+        // every real turn from input(), which runs again before the
+        // render-phase-originated packet is actually processed) overwrites
+        // pos_x/pos_y with whatever the mouse cursor is over *then*,
+        // clobbering the recorded value the same way editor_journal.cpp's
+        // render-phase write intended to survive but couldn't -- same root
+        // cause class as the original PckA_EditorPlaceObject bug. Fix:
+        // carry position explicitly instead, same shape as
+        // PckA_EditorPlaceObject already does (actn_par1/actn_par2, full
+        // int32 range) -- these four verbs exist purely so Redo has an
+        // explicit-position counterpart for creation calls whose *normal*
+        // (non-redo) verb can't be changed to take one without touching
+        // the classic (non-editor) cheat menu's own use of
+        // PckA_CheatMakeCreature/_MakeDigger.
+        PckA_EditorRedoCreature,
+        PckA_EditorRedoDigger,
+        PckA_EditorRedoTrap,
+        PckA_EditorRedoDoor,
+        // docs/refactor/editor/09-toolbox-remainder.md §1 -- Eyedropper's
+        // thing-sampling slice. Same "kfx_editor already resolved this
+        // client-side, sync atomically" shape as PckA_EditorEyedropperTerrain,
+        // generalised to a thing instead of a slab: class (actn_par1, small
+        // enough for the full int32 slot but really just a ThingClass),
+        // owner (actn_par2), model (actn_par3, ThingModel is int16_t so fits
+        // exactly). Object sampling never sends this -- there's no
+        // server-side "chosen object" field to sync (F17, same gap
+        // PckA_EditorPlaceObject's own picker already works around), so it
+        // stays a purely local selection update in kfx_editor.
+        PckA_EditorEyedropperThing,
+        // docs/refactor/editor/09-toolbox-remainder.md §1 -- Object
+        // placement's value-property slice, scoped to gold amount (the one
+        // genuinely per-instance property the data model already has a
+        // field for -- thing->valuable.gold_stored, read back by
+        // gold_object_typical_value()/add_gold_to_pile(); "spellbook power"/
+        // "special kind" from the original design have no per-instance
+        // field to tweak here, so they're not attempted). Re-targets an
+        // EXISTING gold-family object by index (actn_par1, same thing_idx-
+        // keyed shape as PckA_EditorUndo/PckA_EditorToggleDoorLock) with a
+        // new stored value (actn_par2, full int32 range -- a modded gold
+        // rule could plausibly exceed actn_par3/4's int16_t) rather than
+        // folding a 5th field into PckA_EditorPlaceObject itself -- that
+        // packet's 4 param slots are already full (int32 x/y + int16 model/
+        // owner). kfx_editor sends this instead of PckA_EditorPlaceObject
+        // when a click lands on an existing gold object rather than empty
+        // ground (a square can only hold one object, so placing a *new* one
+        // there would fail anyway).
+        PckA_EditorSetGoldValue,
+        // docs/refactor/editor/09-toolbox-remainder.md §1 -- position-edit
+        // follow-up (live-tester feedback: needed fine height control to
+        // move a wall torch up its wall, not just re-place it at subtile
+        // granularity). Generic thing_idx + x/y/z rather than an
+        // object-specific verb, since Lights and Action Points (still
+        // not-started toolbox entries, doc §2) will need the same X/Y/Z
+        // editing once those tools exist. x/y need the full int32 range
+        // position already established elsewhere in this enum (actn_par1/
+        // actn_par2); thing_idx (THINGS_COUNT is 12288, comfortably under
+        // int16_t's range) and z (map height is bounded far below a map's
+        // horizontal extent) both fit actn_par3/actn_par4.
+        PckA_EditorSetThingPosition,
+        // docs/refactor/editor/04-views-camera-overlays.md -- View > 1st
+        // Person. Same "explicit position, full int32 range" shape as
+        // PckA_EditorPlaceObject (actn_par1/actn_par2 = x/y): the plain
+        // PckA_GoSpectator relies on level_lost_go_first_person() finding
+        // an existing owned creature to derive a spawn position from,
+        // which an editor session's map often doesn't have (a fresh New
+        // Map has none at all) -- this carries the position explicitly
+        // instead (the current camera's own center, from kfx_editor).
+        PckA_EditorGoSpectator,
 };
 
 /** Packet flags for non-action player operation. */

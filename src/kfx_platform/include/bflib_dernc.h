@@ -58,6 +58,14 @@ extern "C" {
 long LbFileLengthRnc(const char *fname);
 long LbFileLoadAt(const char *fname, void *buffer);
 long LbFileSaveAt(const char *fname, const void *buffer,unsigned long len);
+// docs/refactor/editor/phase3/05-slice6-atomic-write-lif.md -- write to a
+// sibling `<fname>.tmp` first, then rename it over `fname`, so a failure
+// partway through (crash, disk full, ...) leaves the *original* file
+// untouched instead of a half-written/corrupt one. Needed now that Save/
+// Save As/Level Settings/Playtest are all real, user-facing, overwrite-
+// risking actions (the plain LbFileSaveAt() every MapContentWriter file
+// used until now writes in place, with no such guarantee).
+TbBool LbFileSaveAtomic(const char *fname, const void *buffer, unsigned long len);
 long UnpackM1(void *buffer, unsigned long bufsize);
 /******************************************************************************/
 #ifndef COMPRESSOR

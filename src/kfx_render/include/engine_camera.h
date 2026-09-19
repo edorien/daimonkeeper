@@ -45,7 +45,32 @@ struct Thing;
 // of their real consumers (config_keeperfx.c writes them; kfx_net's
 // packets.c/net_game.c also read them).
 #include "kfx_config_state.h"
-#define MINMAX_LENGTH 512 // Originally 64, adjusted for view distance
+// docs/refactor/editor/04-views-camera-overlays.md -- bumped 512 -> 2048
+// (originally 64, already bumped once "for view distance") after the
+// editor's own looser zoom-out (EDITOR_CAMERA_ZOOM_MIN, kfx_config_state.h)
+// hit this array's real role: it isn't just a scratch buffer size, it's the
+// hard ceiling (MAX_I_CAN_SEE_OVERHEAD, engine_render.c, = (MINMAX_LENGTH/
+// 2)-2) on how many subtile-scale "cells" compute_cells_away() can ever
+// report before find_gamut()'s per-row horizon scan just stops generating
+// terrain for the rest of the screen -- found live as a clean horizontal
+// dropout to black at extreme editor zoom-out on a large, open map (a
+// smaller/more enclosed map may never approach the ceiling at all, which is
+// exactly why gameplay's own CAMERA_ZOOM_MIN never surfaced this: the
+// budget needed to stay under the clamp depends on the map's own layout,
+// not just the zoom value, so no fixed EDITOR_CAMERA_ZOOM_MIN can dodge
+// this for every map -- raising the ceiling itself is the real fix).
+// Cost, measured directly rather than assumed: minmaxs[]/ecs1[]/ecs2[] are
+// the only arrays sized off this constant (struct EngineCol is 18 *
+// sizeof(EngineCoord) = 504 bytes; ecs1/ecs2 go from ~251KB each at 512 to
+// ~1MB each at 2048, minmaxs[] itself from 4KB to 16KB) -- a few MB of
+// static memory, all global/static (not stack, no overflow risk), and
+// completely free at every zoom level compute_cells_away()'s own clamp
+// (`if (ncells_a > MAX_I_CAN_SEE_OVERHEAD) ncells_a = ...`) already keeps
+// well under today, i.e. every existing gameplay zoom level: the per-frame
+// horizon-scan cost is bounded by however far ncells_a actually reaches,
+// not by this array's max capacity, so normal (non-editor) play is
+// unaffected either way.
+#define MINMAX_LENGTH 2048
 #define MINMAX_ALMOST_HALF ((MINMAX_LENGTH/2)-1)
 #define CAMERA_TILT_DEFAULT -266
 #define CAMERA_TILT_MIN -350

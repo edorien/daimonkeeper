@@ -142,16 +142,26 @@ int create_directory_for_file(const char * fname)
   const char * separator = strchr(fname, '/');
 
   while (separator != NULL) {
-    memcpy(tmp, fname, separator - fname);
-    tmp[separator - fname] = 0;
+    // Found live (docs/refactor/editor/phase3/00-slice1-native-save.md):
+    // an fname starting with '/' (an absolute path) puts the very first
+    // separator at fname itself, giving an empty prefix here -- mkdir("")
+    // always fails with something other than EEXIST, so every previous
+    // caller of this function (always relative paths, via
+    // prepare_file_fmtpath()'s own campaign-relative resolution) happened
+    // to never hit it. Skip that empty leading-root segment rather than
+    // trying to "create" it.
+    if (separator != fname) {
+      memcpy(tmp, fname, separator - fname);
+      tmp[separator - fname] = 0;
 #if defined(_WIN32)
-    if (mkdir(tmp) != 0) {
+      if (mkdir(tmp) != 0) {
 #else
-    if (mkdir(tmp, 0755) != 0) {
+      if (mkdir(tmp, 0755) != 0) {
 #endif
-      if (errno != EEXIST) {
-        free(tmp);
-        return 0;
+        if (errno != EEXIST) {
+          free(tmp);
+          return 0;
+        }
       }
     }
     separator = strchr(++separator, '/');

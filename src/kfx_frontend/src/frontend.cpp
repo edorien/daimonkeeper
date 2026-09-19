@@ -466,6 +466,30 @@ TbBool editor_pending_is_new = false;
 MapSlabCoord editor_pending_new_map_w = 85;
 MapSlabCoord editor_pending_new_map_h = 85;
 long editor_pending_new_map_texture = 0;
+TbBool editor_pending_relaunch = false;
+TbBool editor_pending_playtest = false;
+
+void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
+    MapSlabCoord new_map_w, MapSlabCoord new_map_h, long new_map_texture)
+{
+    editor_pending_lvnum = lvnum;
+    editor_pending_is_new = is_new;
+    editor_pending_new_map_w = new_map_w;
+    editor_pending_new_map_h = new_map_h;
+    editor_pending_new_map_texture = new_map_texture;
+    editor_pending_relaunch = true;
+}
+
+// docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md --
+// set_selected_level_number() is the same primitive the `-level`
+// command-line argument uses (main.cpp) to steer which level a normal
+// FeSt_START_KPRLEVEL game-start loads (main_game.c's get_selected_level_number()
+// callers).
+void frontend_request_editor_playtest(LevelNumber lvnum)
+{
+    set_selected_level_number(lvnum);
+    editor_pending_playtest = true;
+}
 
 // *** SPRITES ***
 // font_sprites/frontend_font/button_sprites/winfont moved to kfx_render's
@@ -2885,8 +2909,6 @@ void frontend_shutdown_state(FrontendMenuState pstate)
     case FeSt_MP_MAPPACK_SELECT:
         turn_off_menu(GMnu_MP_MAPPACK_SELECT);
         break;
-    case FeSt_EDITOR: // ImGui-only browser (§1) -- no classic menu to turn off
-        break;
     case FeSt_START_KPRLEVEL:
     case FeSt_START_MPLEVEL:
     case FeSt_START_EDITOR:
@@ -2993,10 +3015,6 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
       case FeSt_PACKET_DEMO:
       case FeSt_START_MPLEVEL:
       case FeSt_START_EDITOR:
-          break;
-      case FeSt_EDITOR:
-          // ImGui-only browser (§1) -- no classic menu, no GMnu_* to turn on.
-          set_pointer_graphic_menu();
           break;
       case FeSt_STORY_POEM:
       case FeSt_STORY_BIRTHDAY:
@@ -3116,7 +3134,6 @@ static const char * menu_state_str(FrontendMenuState state)
         case FeSt_CAMPAIGN_INTRO: return "FeSt_CAMPAIGN_INTRO";
         case FeSt_MAPPACK_SELECT: return "FeSt_MAPPACK_SELECT";
         case FeSt_MP_MAPPACK_SELECT: return "FeSt_MP_MAPPACK_SELECT";
-        case FeSt_EDITOR: return "FeSt_EDITOR";
         case FeSt_START_EDITOR: return "FeSt_START_EDITOR";
         case FeSt_FONT_TEST: return "FeSt_FONT_TEST";
     }
@@ -3361,11 +3378,6 @@ void frontend_input(void)
         break;
     case FeSt_LEVEL_STATS:
         if (!frontend_imgui_screen_active(FeSt_LEVEL_STATS))
-            get_gui_inputs(0);
-        input_consumed = frontscreen_end_input(false);
-        break;
-    case FeSt_EDITOR:
-        if (!frontend_imgui_screen_active(FeSt_EDITOR))
             get_gui_inputs(0);
         input_consumed = frontscreen_end_input(false);
         break;
@@ -3715,7 +3727,6 @@ short frontend_draw(void)
     case FeSt_NET_SERVICE:
     case FeSt_NET_SESSION:
     case FeSt_NET_START:
-    case FeSt_EDITOR:
         // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md Phase D:
         // the backdrop used to stay on the software path even when
         // migrated (§3.3 point 2/§3.4 of the other doc) -- only draw_gui()
@@ -3967,8 +3978,6 @@ void frontend_update(short *finish_menu)
     case FeSt_PACKET_DEMO:
         *finish_menu = 1;
         break;
-    case FeSt_EDITOR:
-        break;
     case FeSt_QUIT_GAME:
         *finish_menu = 1;
         exit_keeper = 1;
@@ -4132,11 +4141,6 @@ FrontendMenuState get_menu_state_when_back_from_substate(FrontendMenuState subst
         return FeSt_FEOPTIONS;
     case FeSt_CREDITS:
         return FeSt_MAIN_MENU;
-    case FeSt_EDITOR:
-        // §2's "Back -> FeSt_MAIN_MENU" -- same generic Esc/right-click
-        // "go back" path frontscreen_end_input() uses for every other
-        // browser reached straight from the main menu.
-        return FeSt_MAIN_MENU;
     default:
         return FeSt_MAIN_MENU;
     }
@@ -4150,6 +4154,34 @@ FrontendMenuState get_startup_menu_state(void)
 {
   struct PlayerInfo *player;
   LevelNumber lvnum;
+  // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- an
+  // in-session File > New/Open quit-and-relaunch (frontend.h's own comment
+  // on editor_pending_relaunch) takes priority over every other branch in
+  // this function, including the general "quit always goes to
+  // FeSt_MAIN_MENU" one further down: the player *did* send
+  // PckA_QuitToMainMenu (PlaF6_PlyrHasQuit gets set too), but this quit was
+  // requested by the editor itself to swap levels, not a real "leave the
+  // editor" -- FeSt_START_EDITOR re-runs the same bootstrap
+  // (game_session_loop.cpp) that the initial Tools -> Editor entry uses.
+  // Checked first, ahead of every other branch's own state/player reads,
+  // so this stays cheaply callable/testable on its own.
+  if (editor_pending_relaunch)
+  {
+      editor_pending_relaunch = false;
+      SYNCLOG("Editor relaunch state selected");
+      return FeSt_START_EDITOR;
+  }
+  // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md --
+  // same priority/placement reasoning as editor_pending_relaunch just
+  // above, targeting a normal single-player game start (FeSt_START_KPRLEVEL)
+  // on whatever level frontend_request_editor_playtest() already set via
+  // set_selected_level_number(), instead of re-entering the editor.
+  if (editor_pending_playtest)
+  {
+      editor_pending_playtest = false;
+      SYNCLOG("Editor playtest state selected");
+      return FeSt_START_KPRLEVEL;
+  }
   if (game_flags2 & GF2_Server)
   {
       game_flags2 &= ~GF2_Server;
@@ -4358,7 +4390,6 @@ TbBool should_use_delta_time_on_menu(void)
         case FeSt_LAND_VIEW:
         case FeSt_NETLAND_VIEW:
         case FeSt_TORTURE:
-        case FeSt_EDITOR:
             return true;
         default:
             return false;

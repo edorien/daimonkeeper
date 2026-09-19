@@ -276,7 +276,7 @@ static enum LandPreviewMinimapColor land_preview_minimap_owner_color(unsigned ch
     }
 }
 
-static void land_preview_free_minimap(void)
+void land_preview_free_minimap(void)
 {
     if (land_preview_minimap_kind != NULL)
     {
@@ -307,7 +307,7 @@ static void land_preview_free_minimap(void)
  * This function never touches kfx_sim_state -- only get_slab_kind_stats()
  * (static per-kind category/fill_style/block_flags classification).
  */
-static TbBool land_preview_build_minimap(LevelNumber lvnum)
+TbBool land_preview_build_minimap(LevelNumber lvnum)
 {
     land_preview_free_minimap();
 
@@ -387,6 +387,39 @@ static enum LandPreviewMinimapColor land_preview_minimap_slab_color(long x, long
     if (slabst->category == SlbAtCtg_Obstacle)
         return LPMC_Obstacle;
     return LPMC_Rock;
+}
+
+// docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- the Open Map
+// dialog (kfx_editor/editor_dialogs.cpp) draws its own lightweight thumbnail
+// per row via ImGui's draw list (a handful of filled rects, not the full
+// ornate-frame/pan/zoom LandPreviewPanel machinery this file's own
+// land_preview_load() drives) -- these three thin exports are all it needs:
+// the minimap's dimensions and an RGB lookup per slab, reusing this file's
+// own colour tables so a thumbnail matches the real in-game minimap
+// palette. Width/height are 0 if land_preview_build_minimap() hasn't been
+// called yet (or failed) -- callers should check before indexing.
+long land_preview_minimap_width(void)
+{
+    return land_preview_minimap_map_w;
+}
+
+long land_preview_minimap_height(void)
+{
+    return land_preview_minimap_map_h;
+}
+
+void land_preview_minimap_pixel_rgb(long x, long y, unsigned char *r, unsigned char *g, unsigned char *b)
+{
+    enum LandPreviewMinimapColor color = LPMC_Rock;
+    if ((land_preview_minimap_kind != NULL) && (land_preview_minimap_owner != NULL)
+        && (x >= 0) && (x < land_preview_minimap_map_w) && (y >= 0) && (y < land_preview_minimap_map_h))
+    {
+        color = land_preview_minimap_slab_color(x, y);
+    }
+    const TbPixel *px = &land_preview_minimap_colours[color];
+    *r = px->r;
+    *g = px->g;
+    *b = px->b;
 }
 
 /******************************************************************************/

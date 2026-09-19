@@ -490,16 +490,39 @@ unsigned long remove_unwanted_things_from_wall_slab(MapSlabCoord slb_x, MapSlabC
                             destroy_object(thing);
                             removed_num++;
                         }
-                        else
+                        else if (!move_creature_to_nearest_valid_position(thing))
                         {
-                            move_creature_to_nearest_valid_position(thing);
+                            // Found live via the in-game editor: painting a
+                            // large solid area (e.g. a Terrain Rectangle of
+                            // Rock) over things can leave nowhere valid
+                            // nearby to relocate to -- every neighbouring
+                            // slab can be mid-conversion in the same
+                            // operation too. Left in place, the object
+                            // stays permanently embedded in solid rock
+                            // (reappearing if a path is ever dug back
+                            // through) instead of just being lost -- worse,
+                            // a thing at a position other code assumes is
+                            // always walkable (pathfinding, AI) is a
+                            // latent crash, not just a cosmetic oddity.
+                            destroy_object(thing);
+                            removed_num++;
                         }
                         break;
                     }
                     case TCls_Creature:
                     case TCls_DeadCreature:
                     {
-                        move_creature_to_nearest_valid_position(thing);
+                        if (!move_creature_to_nearest_valid_position(thing))
+                        {
+                            // Same reasoning as the TCls_Object branch
+                            // above -- destroy_object() is the established
+                            // "generic thing deletion, safe for creatures
+                            // too" call this codebase already uses
+                            // elsewhere (PckA_EditorUndo, the eraser tool's
+                            // own PSt_DestroyThing dispatch).
+                            destroy_object(thing);
+                            removed_num++;
+                        }
                         break;
                     }
                     case TCls_EffectElem:

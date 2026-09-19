@@ -71,16 +71,29 @@ directly (set the flag), not round-trip through the toggle packet.
 
 ## F2 — derived `.dat`/`.clm`/`.wib` are regenerable (resolves O1, de-risks R1)
 
+**Update (phase 3 slice 1, implemented and empirically tested against a real stock level — see
+[`phase3/00-slice1-native-save.md`](phase3/00-slice1-native-save.md)):** two corrections below.
+Line number drifted (1292 → 1315, function unchanged). More importantly: **reinforced corners
+are *not* covered by this function** — `fill_in_reinforced_corners()` is reachable only via the
+digger-specific `place_and_process_pretty_wall_slab()` ("prettify this wall after a real dig"),
+never from `place_single_slab_type_on_map()` itself. This was confirmed as a real, non-fatal gap
+in practice: reloading a `regenerate_derived_map_data()`-saved map logs ~250+
+`update_slabset_column_indices: column:N referenced in slabset.toml but not present in
+columnset.toml` errors — some slab-style column variants a real map's shipped `.clm` provides
+pre-baked aren't reproduced by the runtime regen path alone. Non-fatal (falls back to something,
+doesn't crash), but exactly the kind of stock-map divergence the S1 spike below was meant to
+size — now a named, confirmed-real target for it, not a hypothetical.
+
 **The runtime already rebuilds a slab's columns from config on every dig/build.**
 `place_single_slab_type_on_map()`
-([`map_blocks.c:1292`](../../../src/kfx_sim/src/map_blocks.c)) takes `(slbkind, slb_x, slb_y,
+([`map_blocks.c:1315`](../../../src/kfx_sim/src/map_blocks.c)) takes `(slbkind, slb_x, slb_y,
 plyr_idx)` and produces the full 3×3 column set for that slab from
 `kfx_sim_state.slabset[]` (the game-wide slab→column template table, built from
 `slabset.toml` / `columnset.toml` by `load_slab_datclm_files()`
 [`lvl_filesdk1.c:1029`](../../../src/kfx_sim/src/lvl_filesdk1.c)), applying:
 neighbour-aware fortified-wall variants, `place_single_slab_modify_column_near_liquid`,
-torches (`slab_kind_has_torches`), room prettiness, style set, reinforced corners
-(`fill_in_reinforced_corners`). `place_slab_columns()` → `find_column`/`create_column`
+torches (`slab_kind_has_torches`), room prettiness, style set. **Not** reinforced corners — see
+the update note above. `place_slab_columns()` → `find_column`/`create_column`
 dedupes into `kfx_sim_state.columns_data[]` and `update_map_collide()` sets collision.
 
 `.wib` (wibble) has an explicit auto-generator already: `initialise_map_wlb_auto()`
@@ -92,16 +105,23 @@ generates blank entries" / "easy"), and ADiKtEd's note "*.clm and .dat files are
 auto-generated, nearly perfectly*". The classic tools regenerate this because it *is*
 derivable; KeeperFX derives it better because it's the engine.
 
-**Current blocker:** `load_level_file()` calls `load_map_data_file` (`.dat`) +
-`load_column_file` (`.clm`) and treats absence as failure
-([`lvl_filesdk1.c:709`/`672`](../../../src/kfx_sim/src/lvl_filesdk1.c)). There is **no
-"regenerate on missing" path today** — that's the one piece of new `kfx_sim` code.
+**Current blocker — corrected:** `load_level_file()` calls `load_map_data_file` (`.dat`) +
+`load_column_file` (`.clm`), but **discards both return values** — it does not "treat absence as
+failure"; it silently ignores it, leaving an empty column table rather than erroring. There was
+**no "regenerate on missing" path today** either way — that's the one piece of new `kfx_sim`
+code.
 
-**Design (confirmed viable):** `regenerate_derived_map_data()` in `kfx_sim` = after `.slb` +
-`.own` + `.inf` load, `for each slab: place_single_slab_type_on_map(slb->kind, x, y,
-slabmap_owner(slb))`, then `init_columns()` + `initialise_map_wlb_auto()`. In
-`load_level_file`, when `.dat`/`.clm` are absent, call it instead of the file loaders.
-`editor_save_map` writes only `.slb`/`.own`; the derived files are never written.
+**Implemented** ([`phase3/00-slice1-native-save.md`](phase3/00-slice1-native-save.md)):
+`regenerate_derived_map_data()` in `kfx_sim`/`lvl_filesdk1.c`. Must run *after*
+`load_map_slab_file()` sets real slab kinds (the earliest point they exist), not "after `.slb` +
+`.own` + `.inf` load" as originally designed here — `load_map_slab_file()` runs much later in
+`load_level_file()`'s own sequence. Body: `for each slab: place_single_slab_type_on_map(slb->kind,
+x, y, slabmap_owner(slb))`, with a bounds check that fails loudly on a genuinely out-of-range
+slab kind rather than silently clamping. Doesn't separately call `init_columns()`/
+`initialise_map_wlb_auto()` — both already run unconditionally elsewhere in `load_level_file()`'s
+own sequence regardless of this path. `load_level_file()` now propagates `false` if regen fails,
+closing the silent-corruption gap. `editor_save_map` writes only `.slb`/`.own`; the derived files
+are never written.
 
 **Spike S1 still required** to prove *byte/graphics equivalence* on a stock map (regen vs
 loaded `.clm`), because the stock `.clm` files may encode hand-tweaks the slabset table

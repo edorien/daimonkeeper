@@ -1,0 +1,496 @@
+/******************************************************************************/
+// Free implementation of Bullfrog's Dungeon Keeper strategy game.
+/******************************************************************************/
+/** @file map_content_reader.cpp
+ *     See map_content_reader.h.
+ * @par Comment:
+ *     None.
+ */
+/******************************************************************************/
+#include "pre_inc.h"
+#include "map_content_reader.h"
+
+#include "bflib_dernc.h"
+#include "bflib_fileio.h"
+// deps/centitoml/toml.h declares toml_parse() with no extern "C" guard of
+// its own (unlike deps/centijson/include/value.h, which does) -- every
+// existing include site is a plain .c file, where this is a non-issue.
+// This is the first .cpp in the codebase to actually call toml_parse()
+// (rather than just the already-guarded value_*() accessors), so the
+// include needs an explicit extern "C" wrapper here to get C linkage
+// matching toml_api.c's own compiled definition; without it the link step
+// looks for a C++-mangled symbol that doesn't exist.
+extern "C" {
+#include "value_util.h"
+}
+
+#include <cstdio>
+#include <cstring>
+#include <vector>
+#include <string>
+
+#include "post_inc.h"
+
+namespace {
+
+std::string build_path(const char *dir, LevelNumber lvnum, const char *ext)
+{
+    char buf[64];
+    snprintf(buf, sizeof(buf), "/map%05lu.%s", (unsigned long)lvnum, ext);
+    return std::string(dir) + buf;
+}
+
+// Loads a whole file into a NUL-terminated buffer (one extra byte over the
+// file's own length) -- toml_parse() takes a plain C string, and this also
+// works unmodified for the raw .slb/.own/.inf binary readers below (they
+// only ever index within the real file length, never read the trailing
+// NUL as data).
+bool load_whole_file(const std::string &path, std::vector<char> &out)
+{
+    long len = LbFileLength(path.c_str());
+    if (len < 0)
+        return false;
+    out.resize((size_t)len + 1);
+    if (len > 0)
+    {
+        long got = LbFileLoadAt(path.c_str(), out.data());
+        if (got != len)
+            return false;
+    }
+    out[(size_t)len] = '\0';
+    return true;
+}
+
+// The inverse of value_read_stl_coord() (src/kfx_config/include/
+// value_util.h) -- shared here rather than only in the writer's
+// append_stl_coord(), since the reader needs the same [whole,sub] pairing
+// convention to interpret what it parses.
+MapCoord read_stl_coord(VALUE *dict, const char *key)
+{
+    return value_read_stl_coord(value_dict_get(dict, key));
+}
+
+long read_int_default(VALUE *dict, const char *key, long def)
+{
+    VALUE *v = value_dict_get(dict, key);
+    if ((v == NULL) || (value_type(v) != VALUE_INT32))
+        return def;
+    return value_int32(v);
+}
+
+} // namespace
+
+bool MapContentReader::read(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    bool result = true;
+    if (!read_slabs(content, dir, lvnum)) result = false;
+    if (!read_ownership(content, dir, lvnum)) result = false;
+    if (!read_texture(content, dir, lvnum)) result = false;
+    if (!read_slab_texture(content, dir, lvnum)) result = false;
+    if (!read_script(content, dir, lvnum)) result = false;
+    if (!read_things(content, dir, lvnum)) result = false;
+    if (!read_lights(content, dir, lvnum)) result = false;
+    if (!read_action_points(content, dir, lvnum)) result = false;
+    if (!read_level_info(content, dir, lvnum)) result = false;
+    return result;
+}
+
+bool MapContentReader::read_slabs(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "slb"), buf))
+        return false;
+    size_t needed = (size_t)(content.map_tiles_x * content.map_tiles_y) * 2;
+    if (buf.size() < needed + 1) // +1 for load_whole_file's trailing NUL
+        return false;
+    content.slab_kind.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
+    size_t i = 0;
+    for (long y = 0; y < content.map_tiles_y; y++)
+    {
+        for (long x = 0; x < content.map_tiles_x; x++)
+        {
+            unsigned n = (unsigned char)buf[i] | ((unsigned char)buf[i + 1] << 8);
+            content.slab_kind[content.slab_index(x, y)] = (SlabKind)n;
+            i += 2;
+        }
+    }
+    return true;
+}
+
+bool MapContentReader::read_ownership(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "own"), buf))
+        return false;
+    long subtiles_x = content.map_tiles_x * STL_PER_SLB;
+    long subtiles_y = content.map_tiles_y * STL_PER_SLB;
+    size_t needed = (size_t)((subtiles_y + 1) * (subtiles_x + 1));
+    if (buf.size() < needed + 1)
+        return false;
+    content.slab_owner.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
+    long row_stride = subtiles_x + 1;
+    for (long y = 0; y < content.map_tiles_y; y++)
+    {
+        for (long x = 0; x < content.map_tiles_x; x++)
+        {
+            // Every subtile of a slab shares that slab's owner byte
+            // (write_ownership()'s own fill pattern) -- the slab's
+            // top-left subtile is as representative as any other.
+            size_t i = (size_t)(y * STL_PER_SLB * row_stride + x * STL_PER_SLB);
+            content.slab_owner[content.slab_index(x, y)] = (PlayerNumber)(unsigned char)buf[i];
+        }
+    }
+    return true;
+}
+
+bool MapContentReader::read_texture(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "inf"), buf))
+        return false;
+    if (buf.size() < 2) // +1 trailing NUL over the real 1-byte payload
+        return false;
+    content.texture_id = (unsigned char)buf[0];
+    return true;
+}
+
+bool MapContentReader::read_slab_texture(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    content.slab_texture.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "slx"), buf))
+        return true; // no .slx on disk -- no per-slab overrides, not a read failure
+    size_t needed = (size_t)(content.map_tiles_x * content.map_tiles_y);
+    if (buf.size() < needed + 1) // malformed/short -- same guard load_ext_slabs() itself uses live
+        return true;
+    for (size_t i = 0; i < needed; i++)
+        content.slab_texture[i] = (unsigned char)buf[i];
+    return true;
+}
+
+bool MapContentReader::read_script(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "txt"), buf))
+    {
+        content.script_text.clear();
+        return true; // no .txt on disk -- nothing to preserve, not a read failure
+    }
+    content.script_text.assign(buf.data(), buf.size() - 1); // drop load_whole_file's trailing NUL
+    return true;
+}
+
+bool KfxNativeMapContentReader::read_things(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "tngfx"), buf))
+        return false;
+
+    VALUE root;
+    char err[255] = "";
+    if (toml_parse(buf.data(), err, sizeof(err), &root))
+        return false;
+
+    VALUE *arr = value_dict_get(&root, "thing");
+    size_t count = (value_type(arr) == VALUE_ARRAY) ? value_array_size(arr) : 0;
+    content.things.clear();
+    content.things.reserve(count);
+    for (size_t k = 0; k < count; k++)
+    {
+        VALUE *d = value_array_get(arr, k);
+        if (value_type(d) != VALUE_DICT)
+            continue;
+        MapThingRecord t;
+        t.thing_class = (ThingClass)read_int_default(d, "ThingType", 0);
+        t.model = (ThingModel)read_int_default(d, "Subtype", 0);
+        t.owner = (PlayerNumber)read_int_default(d, "Ownership", 0);
+        t.pos_x = read_stl_coord(d, "SubtileX");
+        t.pos_y = read_stl_coord(d, "SubtileY");
+        t.pos_z = read_stl_coord(d, "SubtileZ");
+        t.parent_tile = read_int_default(d, "ParentTile", -1);
+        t.orientation = read_int_default(d, "Orientation", 0);
+        if (t.thing_class == TCls_Creature)
+        {
+            t.creature_level = (int)read_int_default(d, "CreatureLevel", 1) - 1;
+            t.creature_gold = read_int_default(d, "CreatureGold", 0);
+            t.creature_health_percent = (int)read_int_default(d, "CreatureInitialHealth", 0);
+            VALUE *name = value_dict_get(d, "CreatureName");
+            if ((name != NULL) && (value_type(name) == VALUE_STRING))
+                t.creature_name = value_string(name);
+        }
+        if (t.thing_class == TCls_Object)
+        {
+            t.herogate_number = read_int_default(d, "HerogateNumber", 0);
+            t.custom_box_kind = read_int_default(d, "CustomBox", 0);
+            t.gold_value = read_int_default(d, "GoldValue", 0);
+        }
+        if (t.thing_class == TCls_EffectGen)
+            t.effect_range = read_stl_coord(d, "EffectRange");
+        if (t.thing_class == TCls_Door)
+        {
+            t.door_orientation = read_int_default(d, "DoorOrientation", 0);
+            t.door_locked = read_int_default(d, "DoorLocked", 0) != 0;
+        }
+        content.things.push_back(t);
+    }
+    value_fini(&root);
+    return true;
+}
+
+bool KfxNativeMapContentReader::read_lights(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "lgtfx"), buf))
+        return false;
+
+    VALUE root;
+    char err[255] = "";
+    if (toml_parse(buf.data(), err, sizeof(err), &root))
+        return false;
+
+    VALUE *arr = value_dict_get(&root, "light");
+    size_t count = (value_type(arr) == VALUE_ARRAY) ? value_array_size(arr) : 0;
+    content.lights.clear();
+    content.lights.reserve(count);
+    for (size_t k = 0; k < count; k++)
+    {
+        VALUE *d = value_array_get(arr, k);
+        if (value_type(d) != VALUE_DICT)
+            continue;
+        MapLightRecord l;
+        l.is_dynamic = value_coerce_bool(value_dict_get(d, "Dynamic"));
+        l.pos_x = read_stl_coord(d, "SubtileX");
+        l.pos_y = read_stl_coord(d, "SubtileY");
+        l.pos_z = read_stl_coord(d, "SubtileZ");
+        l.range = read_stl_coord(d, "LightRange");
+        l.intensity = (unsigned long)read_int_default(d, "LightIntensity", 0);
+        l.parent_tile = (unsigned long)read_int_default(d, "ParentTile", 0);
+        content.lights.push_back(l);
+    }
+    value_fini(&root);
+    return true;
+}
+
+bool KfxNativeMapContentReader::read_action_points(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "aptfx"), buf))
+        return false;
+
+    VALUE root;
+    char err[255] = "";
+    if (toml_parse(buf.data(), err, sizeof(err), &root))
+        return false;
+
+    VALUE *arr = value_dict_get(&root, "actionpoint");
+    size_t count = (value_type(arr) == VALUE_ARRAY) ? value_array_size(arr) : 0;
+    content.action_points.clear();
+    content.action_points.reserve(count);
+    for (size_t k = 0; k < count; k++)
+    {
+        VALUE *d = value_array_get(arr, k);
+        if (value_type(d) != VALUE_DICT)
+            continue;
+        MapActionPointRecord a;
+        a.point_number = read_int_default(d, "PointNumber", 0);
+        a.pos_x = read_stl_coord(d, "SubtileX");
+        a.pos_y = read_stl_coord(d, "SubtileY");
+        a.range = read_stl_coord(d, "PointRange");
+        content.action_points.push_back(a);
+    }
+    value_fini(&root);
+    return true;
+}
+
+// .lof is a classic key=value command format, not TOML (see
+// map_content_writer.cpp's own write_level_info() comment) -- a small
+// line parser matching exactly what that function emits, not a reuse of
+// level_lof_file_parse() (which registers into the real campaign/
+// LevelInformation structures, a much bigger job out of scope here).
+bool KfxNativeMapContentReader::read_level_info(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "lof"), buf))
+        return false;
+
+    char *line = std::strtok(buf.data(), "\r\n");
+    while (line != NULL)
+    {
+        char *eq = std::strchr(line, '=');
+        if (eq != NULL)
+        {
+            *eq = '\0';
+            char *key = line;
+            char *value = eq + 1;
+            while ((*key == ' ') || (*key == '\t')) key++;
+            char *key_end = key + std::strlen(key);
+            while ((key_end > key) && ((key_end[-1] == ' ') || (key_end[-1] == '\t'))) *--key_end = '\0';
+            while ((*value == ' ') || (*value == '\t')) value++;
+
+            if (std::strcmp(key, "NAME_TEXT") == 0)
+                content.level_info.name_text = value;
+            else if (std::strcmp(key, "KIND") == 0)
+                content.level_info.is_multiplayer = (std::strcmp(value, "MULTI") == 0);
+            else if (std::strcmp(key, "PLAYERS") == 0)
+                content.level_info.players = atoi(value);
+            else if (std::strcmp(key, "DESCRIPTION") == 0)
+                content.level_info.description_text = value;
+        }
+        line = std::strtok(NULL, "\r\n");
+    }
+    return true;
+}
+
+// --- ClassicMapContentReader ------------------------------------------------
+// Mirrors ClassicMapContentWriter's own byte packing exactly (map_content_
+// writer.cpp) -- see that file's header comment for the field-layout
+// source (thing_create_thing()/light_create_light()/
+// actnpoint_create_actnpoint(), not the TOML-path "_adv" callbacks).
+
+namespace {
+
+unsigned read_u8(const std::vector<char> &buf, size_t off) { return (unsigned char)buf[off]; }
+unsigned read_u16le(const std::vector<char> &buf, size_t off)
+{
+    return (unsigned char)buf[off] | ((unsigned)(unsigned char)buf[off + 1] << 8);
+}
+unsigned long read_u32le(const std::vector<char> &buf, size_t off)
+{
+    return (unsigned long)(unsigned char)buf[off]
+        | ((unsigned long)(unsigned char)buf[off + 1] << 8)
+        | ((unsigned long)(unsigned char)buf[off + 2] << 16)
+        | ((unsigned long)(unsigned char)buf[off + 3] << 24);
+}
+
+const size_t kLegacyThingSize = 21;
+const size_t kLegacyLightSize = 20;
+const size_t kLegacyActionPointSize = 8;
+
+} // namespace
+
+bool ClassicMapContentReader::read_things(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "tng"), buf))
+        return false;
+    if (buf.size() < 3) // 2-byte count + trailing NUL
+        return false;
+    unsigned count = read_u16le(buf, 0);
+    size_t off = 2;
+    content.things.clear();
+    content.things.reserve(count);
+    for (unsigned k = 0; k < count; k++)
+    {
+        if (off + kLegacyThingSize > buf.size() - 1) // -1 for the trailing NUL
+            break;
+        MapThingRecord t;
+        t.pos_x = (MapCoord)read_u16le(buf, off + 0);
+        t.pos_y = (MapCoord)read_u16le(buf, off + 2);
+        t.pos_z = (MapCoord)read_u16le(buf, off + 4);
+        t.thing_class = (ThingClass)read_u8(buf, off + 6);
+        t.model = (ThingModel)read_u8(buf, off + 7);
+        t.owner = (PlayerNumber)read_u8(buf, off + 8);
+        unsigned range = read_u16le(buf, off + 9);
+        unsigned index = read_u16le(buf, off + 11);
+        unsigned char params[8];
+        for (int i = 0; i < 8; i++)
+            params[i] = (unsigned char)read_u8(buf, off + 13 + i);
+
+        t.parent_tile = (long)index; // Object/Trap/EffectGen only, per the writer
+        if (t.thing_class == TCls_EffectGen)
+            t.effect_range = (MapCoord)range;
+        if (t.thing_class == TCls_Object)
+        {
+            // Can't tell HerogateNumber from CustomBox back apart from the
+            // raw bytes alone (both are "params[1]") -- same ambiguity the
+            // production classic loader has, resolved there by checking
+            // the *model*'s own object-class flags after creation
+            // (object_is_hero_gate()/thing_is_custom_special_box()).
+            // MapContent has no such check on hand here; stored as
+            // herogate_number, the more common case for a map's own
+            // "extra" objects -- a real limitation of round-tripping
+            // classic custom-box maps through this reader, not the writer
+            // (which always writes the correct one), worth revisiting if
+            // custom boxes become a real test case.
+            t.herogate_number = params[1];
+        }
+        else if (t.thing_class == TCls_Creature)
+        {
+            t.creature_level = (int)params[1];
+        }
+        else if (t.thing_class == TCls_Door)
+        {
+            t.door_orientation = params[0];
+            t.door_locked = params[1] != 0;
+        }
+        content.things.push_back(t);
+        off += kLegacyThingSize;
+    }
+    return true;
+}
+
+bool ClassicMapContentReader::read_lights(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "lgt"), buf))
+        return false;
+    if (buf.size() < 5)
+        return false;
+    unsigned long count = read_u32le(buf, 0);
+    size_t off = 4;
+    content.lights.clear();
+    content.lights.reserve(count);
+    for (unsigned long k = 0; k < count; k++)
+    {
+        if (off + kLegacyLightSize > buf.size() - 1)
+            break;
+        MapLightRecord l;
+        l.range = (MapCoord)read_u16le(buf, off + 0); // radius
+        l.intensity = read_u8(buf, off + 2);
+        // off+3 = flags, off+4..9 = 3x unused i16 -- not round-tripped,
+        // matches the writer's own "not implemented" scope.
+        l.pos_x = (MapCoord)read_u16le(buf, off + 10);
+        l.pos_y = (MapCoord)read_u16le(buf, off + 12);
+        l.pos_z = (MapCoord)read_u16le(buf, off + 14);
+        // off+16 = unused
+        l.is_dynamic = read_u8(buf, off + 17) != 0;
+        l.parent_tile = read_u16le(buf, off + 18);
+        content.lights.push_back(l);
+        off += kLegacyLightSize;
+    }
+    return true;
+}
+
+bool ClassicMapContentReader::read_action_points(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "apt"), buf))
+        return false;
+    if (buf.size() < 5)
+        return false;
+    unsigned long count = read_u32le(buf, 0);
+    size_t off = 4;
+    content.action_points.clear();
+    content.action_points.reserve(count);
+    for (unsigned long k = 0; k < count; k++)
+    {
+        if (off + kLegacyActionPointSize > buf.size() - 1)
+            break;
+        MapActionPointRecord a;
+        a.pos_x = (MapCoord)read_u16le(buf, off + 0);
+        a.pos_y = (MapCoord)read_u16le(buf, off + 2);
+        a.range = (MapCoord)read_u16le(buf, off + 4);
+        a.point_number = (long)read_u16le(buf, off + 6);
+        content.action_points.push_back(a);
+        off += kLegacyActionPointSize;
+    }
+    return true;
+}
+
+// .lif isn't written this slice (ClassicMapContentWriter::write_level_info()'s
+// own comment) -- nothing to read back either.
+bool ClassicMapContentReader::read_level_info(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    (void)content; (void)dir; (void)lvnum;
+    return true;
+}

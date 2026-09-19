@@ -79,6 +79,7 @@
 #include "local_camera.h"
 #include "packets.h"
 #include "console_cmd.h"
+#include "editor_callbacks.h"
 #include "engine_redraw.h"
 #include "frontgui_ingame_panel.h" // ingame_panel_minimap_screen_pos -- GUI_POSITION minimap hit-test
 
@@ -137,6 +138,11 @@ static void get_creature_control_nonaction_inputs(void);
 static short zoom_shortcuts(void);
 static short get_bookmark_inputs(void);
 static void process_cheat_mode_selection_inputs(void);
+// docs/refactor/editor/10-definable-keybindings.md -- forward-declared here
+// (defined further down, alongside is_editor_key_pressed()) since
+// get_movement_inputs() above their definition needs
+// get_dual_context_key_axis_value() already.
+static float get_dual_context_key_axis_value(long game_key_id, long editor_key_id, TbBool ignore_mods);
 /******************************************************************************/
 #ifdef __cplusplus
 }
@@ -144,8 +150,11 @@ static void process_cheat_mode_selection_inputs(void);
 /******************************************************************************/
 static void get_movement_inputs(float* out_movement_x, float* out_movement_y, TbBool ignore_mods)
 {
-    float movement_x = get_game_key_axis_value(Gkey_MoveRight,ignore_mods) - get_game_key_axis_value(Gkey_MoveLeft,ignore_mods);
-    float movement_y = get_game_key_axis_value(Gkey_MoveDown, ignore_mods) - get_game_key_axis_value(Gkey_MoveUp, ignore_mods);
+    // docs/refactor/editor/10-definable-keybindings.md -- reads
+    // settings.editor_kbkeys[]/EditorGameKeys instead while an editor
+    // session is active, via is_dual_context_key_pressed()'s own dispatch rule.
+    float movement_x = get_dual_context_key_axis_value(Gkey_MoveRight, Gkey_EditorMoveRight, ignore_mods) - get_dual_context_key_axis_value(Gkey_MoveLeft, Gkey_EditorMoveLeft, ignore_mods);
+    float movement_y = get_dual_context_key_axis_value(Gkey_MoveDown, Gkey_EditorMoveDown, ignore_mods) - get_dual_context_key_axis_value(Gkey_MoveUp, Gkey_EditorMoveUp, ignore_mods);
 
     // Handle horizontal movement - just accumulate for local camera
     float move_mag_x = fabsf(movement_x);
@@ -336,18 +345,108 @@ TbControllerButtons get_game_key_controller_buttons(long key_id)
     return settings.kbkeys[key_id].controller_buttons;
 }
 
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// checker, reading settings.editor_kbkeys[]/EditorGameKeys instead of
+// settings.kbkeys[]/GameKeys. A deliberately simpler is_game_key_pressed():
+// none of that function's special-casing applies here (no
+// GuiLayer_OneClickBridgeBuild interaction, no modifier-only "hold as a
+// mod key" bindings like Gkey_RotateMod/Gkey_SpeedMod, no hardcoded
+// alternate-key fallbacks) -- just "is the bound key/button down."
+int is_editor_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods)
+{
+    if ((key_id < 0) || (key_id >= EDITOR_GAME_KEYS_COUNT))
+        return 0;
+
+    int32_t val = settings.editor_kbkeys[key_id].code;
+    int result = 0;
+    if ((ignore_mods) || (key_modifiers == settings.editor_kbkeys[key_id].mods))
+    {
+        result = lbKeyOn[val];
+    }
+    if (result)
+    {
+        if (clear_pressed)
+            clear_key_pressed(val);
+        return result;
+    }
+
+    const TbControllerButtons ctrl_buttons_gamekey = settings.editor_kbkeys[key_id].controller_buttons;
+    if (ctrl_buttons_gamekey == 0 || controller_button_state == 0)
+        return 0;
+
+    const TbControllerButtons mod_buttons = CBtn_A|CBtn_B|CBtn_X|CBtn_Y;
+    if (ignore_mods || (controller_button_state & mod_buttons) == (ctrl_buttons_gamekey & mod_buttons))
+        result = (controller_button_state & ctrl_buttons_gamekey) == ctrl_buttons_gamekey;
+
+    if (result && clear_pressed)
+        controller_button_state &= ~ctrl_buttons_gamekey;
+
+    return result;
+}
+
 float get_game_key_axis_value(long key_id, TbBool ignore_mods)
 {
     if ((key_id == Gkey_MoveRight && is_key_pressed(KC_RIGHT, KMod_DONTCARE)) ||
         (key_id == Gkey_MoveLeft  && is_key_pressed(KC_LEFT, KMod_DONTCARE)) ||
         (key_id == Gkey_MoveDown  && is_key_pressed(KC_DOWN, KMod_DONTCARE)) ||
         (key_id == Gkey_MoveUp    && is_key_pressed(KC_UP, KMod_DONTCARE)) ||
-    (is_key_pressed(settings.kbkeys[key_id].code, ignore_mods?KMod_DONTCARE:settings.kbkeys[key_id].mods))) 
+    (is_key_pressed(settings.kbkeys[key_id].code, ignore_mods?KMod_DONTCARE:settings.kbkeys[key_id].mods)))
     {
             return 1.0f;
     }
 
     return cbtn_axis_value(get_game_key_controller_buttons(key_id));
+}
+
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// counterparts to get_game_key_controller_buttons()/get_game_key_axis_value()
+// above, reading settings.editor_kbkeys[]/EditorGameKeys. Same arrow-key
+// hardcoded fallback for the four move keys as the gameplay version (arrow
+// keys pan the camera regardless of rebinding, in the editor same as in
+// normal play).
+static TbControllerButtons get_editor_key_controller_buttons(long key_id)
+{
+    if ((key_id < 0) || (key_id >= EDITOR_GAME_KEYS_COUNT))
+        return 0;
+    return settings.editor_kbkeys[key_id].controller_buttons;
+}
+
+static float get_editor_key_axis_value(long key_id, TbBool ignore_mods)
+{
+    if ((key_id == Gkey_EditorMoveRight && is_key_pressed(KC_RIGHT, KMod_DONTCARE)) ||
+        (key_id == Gkey_EditorMoveLeft  && is_key_pressed(KC_LEFT, KMod_DONTCARE)) ||
+        (key_id == Gkey_EditorMoveDown  && is_key_pressed(KC_DOWN, KMod_DONTCARE)) ||
+        (key_id == Gkey_EditorMoveUp    && is_key_pressed(KC_UP, KMod_DONTCARE)) ||
+    (is_key_pressed(settings.editor_kbkeys[key_id].code, ignore_mods?KMod_DONTCARE:settings.editor_kbkeys[key_id].mods)))
+    {
+            return 1.0f;
+    }
+
+    return cbtn_axis_value(get_editor_key_controller_buttons(key_id));
+}
+
+// docs/refactor/editor/10-definable-keybindings.md -- single dispatch point
+// for "read this camera/console key from whichever table applies right
+// now": settings.editor_kbkeys[]/EditorGameKeys while an editor session is
+// active (editor_callbacks->is_active(), the one inbound edge into
+// kfx_editor this file needs -- kfx_editor is ranked above kfx_frontend,
+// so it can't be called directly), settings.kbkeys[]/GameKeys otherwise.
+// Centralised here rather than inlined at each of
+// get_isometric_view_nonaction_inputs()'s own call sites so the dispatch
+// rule has exactly one definition to get right, not a dozen easy-to-miss
+// copies.
+static int is_dual_context_key_pressed(long game_key_id, long editor_key_id, TbBool clear_pressed, TbBool ignore_mods)
+{
+    if (editor_callbacks->is_active())
+        return is_editor_key_pressed(editor_key_id, clear_pressed, ignore_mods);
+    return is_game_key_pressed(game_key_id, clear_pressed, ignore_mods);
+}
+
+static float get_dual_context_key_axis_value(long game_key_id, long editor_key_id, TbBool ignore_mods)
+{
+    if (editor_callbacks->is_active())
+        return get_editor_key_axis_value(editor_key_id, ignore_mods);
+    return get_game_key_axis_value(game_key_id, ignore_mods);
 }
 
 /**
@@ -764,7 +863,10 @@ static short get_global_inputs(void)
   {
       set_players_packet_action(player, PckA_DumpHeldThingToOldPos, 0, 0, 0, 0);
   }
-  if (is_game_key_pressed(Gkey_ToggleConsole, true, false)) {
+  // docs/refactor/editor/10-definable-keybindings.md -- reads
+  // settings.editor_kbkeys[]/EditorGameKeys instead while an editor
+  // session is active.
+  if (is_dual_context_key_pressed(Gkey_ToggleConsole, Gkey_EditorToggleConsole, true, false)) {
     debug_display_consolelog = !debug_display_consolelog;
   }
   return false;
@@ -1303,20 +1405,34 @@ static TbBool get_dungeon_control_action_inputs(void)
         process_sell_roomspace_inputs(player->id_number);
     }
 
-    // Zooming cannot be done paused because it's a player instance.
-    if (is_game_key_pressed(Gkey_ZoomToFight, true, false))
+    // docs/refactor/editor/10-definable-keybindings.md -- found live: "H"
+    // (Gkey_ZoomRoomHeart, one of zoom_shortcuts()'s own room-kind keys)
+    // still zoomed the camera to "my next room of that kind" while an
+    // editor session was open, same for Gkey_ZoomToFight/Gkey_ZoomCrAnnoyed
+    // -- none of these have an editor equivalent or make sense during
+    // editing (they all zoom based on the current player's own *dungeon
+    // ownership*, a gameplay concept an editor session, single-player-local
+    // and often not even representing a real player's dungeon, doesn't
+    // have a meaningful answer for). Skipped outright rather than
+    // duplicated into EditorGameKeys, unlike the camera/console keys above
+    // -- there's no editor-side action to bind these to.
+    if (!editor_callbacks->is_active())
     {
-        zoom_to_fight(player->id_number);
-        return true;
-    }
-    if (is_game_key_pressed(Gkey_ZoomCrAnnoyed, true, false))
-    {
-        zoom_to_next_annoyed_creature();
-        return true;
-    }
-    if (zoom_shortcuts())
-    {
-        return true;
+        // Zooming cannot be done paused because it's a player instance.
+        if (is_game_key_pressed(Gkey_ZoomToFight, true, false))
+        {
+            zoom_to_fight(player->id_number);
+            return true;
+        }
+        if (is_game_key_pressed(Gkey_ZoomCrAnnoyed, true, false))
+        {
+            zoom_to_next_annoyed_creature();
+            return true;
+        }
+        if (zoom_shortcuts())
+        {
+            return true;
+        }
     }
     get_status_panel_keyboard_action_inputs();
     return false;
@@ -2152,8 +2268,15 @@ static void get_isometric_view_nonaction_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
     struct Packet* packet = get_local_packet();
-    int rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
-    int speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
+    // docs/refactor/editor/10-definable-keybindings.md -- every
+    // is_game_key_pressed() call in this function reads from
+    // settings.editor_kbkeys[]/EditorGameKeys instead while an editor
+    // session is active, via is_dual_context_key_pressed()'s own dispatch rule --
+    // this is the camera-control function that runs during an editor
+    // session (the toolbox overlays the same isometric dungeon view normal
+    // play uses), so it's the one place this actually needs wiring.
+    int rotate_pressed = is_dual_context_key_pressed(Gkey_RotateMod, Gkey_EditorRotateMod, false, true);
+    int speed_pressed = is_dual_context_key_pressed(Gkey_SpeedMod, Gkey_EditorSpeedMod, false, true);
     if ((player->allocflags & PlaF_KeyboardInputDisabled) != 0)
       return;
     if (speed_pressed != 0)
@@ -2170,49 +2293,49 @@ static void get_isometric_view_nonaction_inputs(void)
 
         if (rotate_pressed)
         {
-            if (is_game_key_pressed(Gkey_MoveLeft, false, no_mods) || is_key_pressed(KC_LEFT, KMod_DONTCARE))
+            if (is_dual_context_key_pressed(Gkey_MoveLeft, Gkey_EditorMoveLeft, false, no_mods) || is_key_pressed(KC_LEFT, KMod_DONTCARE))
             {
                 if (rotate_around_mouse_option == RotateAroundMouse_MovementKeys)
                     set_packet_control(packet, PCtr_ViewRotatePos);
                 set_packet_control(packet, PCtr_ViewRotateCW);
                 rotating = true;
             }
-            if (is_game_key_pressed(Gkey_MoveRight, false, no_mods) || is_key_pressed(KC_RIGHT, KMod_DONTCARE))
+            if (is_dual_context_key_pressed(Gkey_MoveRight, Gkey_EditorMoveRight, false, no_mods) || is_key_pressed(KC_RIGHT, KMod_DONTCARE))
             {
                 if (rotate_around_mouse_option == RotateAroundMouse_MovementKeys)
                     set_packet_control(packet, PCtr_ViewRotatePos);
                 set_packet_control(packet, PCtr_ViewRotateCCW);
                 rotating = true;
             }
-            if (is_game_key_pressed(Gkey_MoveUp, false, no_mods) || is_key_pressed(KC_UP, KMod_DONTCARE))
+            if (is_dual_context_key_pressed(Gkey_MoveUp, Gkey_EditorMoveUp, false, no_mods) || is_key_pressed(KC_UP, KMod_DONTCARE))
                 set_packet_control(packet, PCtr_ViewZoomIn);
-            if (is_game_key_pressed(Gkey_MoveDown, false, no_mods) || is_key_pressed(KC_DOWN, KMod_DONTCARE))
+            if (is_dual_context_key_pressed(Gkey_MoveDown, Gkey_EditorMoveDown, false, no_mods) || is_key_pressed(KC_DOWN, KMod_DONTCARE))
                 set_packet_control(packet, PCtr_ViewZoomOut);
         } else
         {
-            if (is_game_key_pressed(Gkey_RotateCW, false, false))
+            if (is_dual_context_key_pressed(Gkey_RotateCW, Gkey_EditorRotateCW, false, false))
             {
                 if (rotate_around_mouse_option == RotateAroundMouse_RotationKeys)
                     set_packet_control(packet, PCtr_ViewRotatePos);
                 set_packet_control(packet, PCtr_ViewRotateCW);
                 rotating = true;
             }
-            if (is_game_key_pressed(Gkey_RotateCCW, false, false))
+            if (is_dual_context_key_pressed(Gkey_RotateCCW, Gkey_EditorRotateCCW, false, false))
             {
                 if (rotate_around_mouse_option == RotateAroundMouse_RotationKeys)
                     set_packet_control(packet, PCtr_ViewRotatePos);
                 set_packet_control(packet, PCtr_ViewRotateCCW);
                 rotating = true;
             }
-            if (is_game_key_pressed(Gkey_ZoomIn, false, false))
+            if (is_dual_context_key_pressed(Gkey_ZoomIn, Gkey_EditorZoomIn, false, false))
                 set_packet_control(packet, PCtr_ViewZoomIn);
-            if (is_game_key_pressed(Gkey_ZoomOut, false, false))
+            if (is_dual_context_key_pressed(Gkey_ZoomOut, Gkey_EditorZoomOut, false, false))
                 set_packet_control(packet, PCtr_ViewZoomOut);
-            if (is_game_key_pressed(Gkey_TiltUp, false, false))
+            if (is_dual_context_key_pressed(Gkey_TiltUp, Gkey_EditorTiltUp, false, false))
                 set_packet_control(packet, PCtr_ViewTiltUp);
-            if (is_game_key_pressed(Gkey_TiltDown, false, false))
+            if (is_dual_context_key_pressed(Gkey_TiltDown, Gkey_EditorTiltDown, false, false))
                 set_packet_control(packet, PCtr_ViewTiltDown);
-            if (is_game_key_pressed(Gkey_TiltReset, false, false))
+            if (is_dual_context_key_pressed(Gkey_TiltReset, Gkey_EditorTiltReset, false, false))
                 set_packet_control(packet, PCtr_ViewTiltReset);
 
             get_movement_inputs(&camera_movement_x, &camera_movement_y, no_mods);

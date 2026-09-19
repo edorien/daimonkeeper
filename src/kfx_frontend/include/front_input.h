@@ -85,6 +85,10 @@ extern long old_my;
 void input(void);
 short get_screen_capture_inputs(void);
 int is_game_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods);
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// checker (settings.editor_kbkeys[]/EditorGameKeys, globals.h), not
+// GameKeys/settings.kbkeys[].
+int is_editor_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods);
 short game_is_busy_doing_gui_string_input(void);
 short get_gui_inputs(short gameplay_on);
 #define ZOOM_KEY_ROOMS_COUNT   15

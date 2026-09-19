@@ -18,6 +18,9 @@ target_link_libraries(kfx_pathfinding_utest PRIVATE
     kfx_bfdebug_std
     kfx_common_opts
     centitoml
+    tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --
+                     # kfx_platform now links bflib_filedialogs.cpp, which
+                     # needs tinyfiledialogs's compiled object.
     Catch2::Catch2WithMain)
 
 include(CTest)

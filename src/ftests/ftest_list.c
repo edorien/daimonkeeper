@@ -30,6 +30,12 @@
 #include "tests/ftest_net_enet_loopback_join.h"
 #include "tests/ftest_gui_packet_parity.h"
 #include "tests/ftest_gui_seam_ingame.h"
+#include "tests/ftest_editor_place_creature.h"
+#include "tests/ftest_editor_paint_terrain.h"
+#include "tests/ftest_editor_undo.h"
+#include "tests/ftest_editor_save_reload.h"
+#include "tests/ftest_editor_points.h"
+#include "tests/ftest_editor_script_commands.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
 
 #include "post_inc.h"
@@ -64,6 +70,33 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="net_resync_fake_multiplayer",         .init_func=ftest_net_resync_fake_multiplayer_init,      .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="gui_packet_parity",                   .init_func=ftest_gui_packet_parity_init,                .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="gui_seam_ingame",                     .init_func=ftest_gui_seam_ingame_init,                  .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="editor_place_creature",                .init_func=ftest_editor_place_creature_init,            .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_paint_terrain",                 .init_func=ftest_editor_paint_terrain_init,             .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_undo",                          .init_func=ftest_editor_undo_init,                      .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_save_reload",                   .init_func=ftest_editor_save_reload_init,               .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_points",                        .init_func=ftest_editor_points_init,                    .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_script_commands",               .init_func=ftest_editor_script_commands_init,           .level_file="keeporig", .level=1,  .frame_skip=8 },
+
+         // editor_fill (PckA_EditorFloodFill) has no ftest coverage: unlike
+         // PckA_EditorPlaceTerrainRect (one explicit corner + one ambient
+         // corner) or the Redo* verbs (fully explicit), FloodFill's seed
+         // position is carried *only* in the packet's ambient pos_x/pos_y,
+         // with no actn_par-based alternative at all. Found live while
+         // building ftest_editor_paint_terrain.c: an ftest action can never
+         // observe that ambient value in the first place (ftest_update()
+         // runs before input() each tick, and clear_packets() wipes it
+         // right after process_packets() consumes it, so a test's own read
+         // always sees the just-wiped 0 -- only process_packets() itself,
+         // running between those two points, ever sees the real value).
+         // Worse, probing it (not committed) showed it isn't even steerable
+         // via camera position under the SDL dummy video driver -- it
+         // converges to a fixed subtile-120 X regardless of camera target,
+         // with Y pinned right at the map's own border. With no way to read,
+         // predict, or control where the flood would start, there is no
+         // sound way to pre-carve a bounded test patch for it. Same category
+         // of exclusion as Brush/Stamp (docs/refactor/editor/09-toolbox-
+         // remainder.md): a real gap in ftest coverage, not a silently
+         // skipped one.
 
          // GUI/cursor-dependent, not headless-safe: drives mouse-cursor/thing-under-hand
          // selection (ftest_util_center_cursor_over_dungeon_view(), player->thing_under_hand)

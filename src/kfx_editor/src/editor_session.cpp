@@ -15,6 +15,15 @@
 #include "pre_inc.h"
 #include "kfx_editor.h"
 #include "editor_toolbox.h"
+#include "editor_journal.h"
+#include "editor_menubar.h"
+#include "editor_dialogs.h"
+#include "editor_overlay.h"
+#include "editor_script.h"
+#include "editor_availability.h"
+#include "editor_message_helper.h"
+#include "editor_command_browser.h"
+#include "editor_points.h"
 
 #include "kfx_sim_state.h"
 #include "player_data.h"
@@ -28,18 +37,76 @@
 #include "config_terrain.h" // make_all_rooms_free/make_available_all_researchable_rooms
 #include "config_magic.h" // make_all_powers_cost_free/make_available_all_researchable_powers
 #include "config_keeperfx.h" // Ft_SkipHeartZoom
+#include "config.h" // get_level_fgroup/prepare_file_fmtpath -- editor_level_save_dir()
+#include "config_campaigns.h" // struct LevelInformation, get_level_info()
+#include "bflib_fileio.h" // LbFileLength -- read_level_script_text()
+#include "bflib_dernc.h" // LbFileLoadAt -- read_level_script_text()
 #include "frontgui_widgets.h"
 #include <imgui.h>
+#include <cstring>
+#include <string>
+#include <vector>
 #include "post_inc.h"
 
 /******************************************************************************/
 namespace {
     bool s_editor_active = false;
     bool s_editor_dirty = false;
-    bool s_show_editor_menu = false;
+    // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- set in
+    // editor_open(), read by File > Save and the Save As dialog
+    // (editor_dialogs.cpp) via editor_current_lvnum()/editor_current_save_dir().
+    LevelNumber s_editor_lvnum = 0;
+    char s_editor_save_dir[512] = "";
+    // docs/refactor/editor/phase3/03-slice4-file-dialogs.md -- best-effort
+    // read from get_level_info() in editor_open() (empty if this level has
+    // no .lof yet); kept current by editor_set_current_level_name() after a
+    // successful Save As.
+    char s_editor_level_name[LINEMSG_SIZE] = "";
+    // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md
+    // -- same best-effort-read/kept-current pattern as the name above, set
+    // from the Level Settings dialog now instead.
+    int s_editor_level_players = 1;
+    bool s_editor_level_is_multiplayer = false;
+    // docs/refactor/editor/05-script-and-level-settings.md §1 -- same
+    // best-effort-read/kept-current pattern as level name above; DESCRIPTION
+    // was already a recognized .lof keyword and an existing
+    // LevelInformation::description field, just never wired to anything.
+    char s_editor_level_description[LEVEL_DESCRIPTION_LEN] = "";
+    // docs/refactor/editor/05-script-and-level-settings.md §0 -- read once
+    // in editor_open() (direct disk read, independent of whatever
+    // kfx_script's own live-parsed representation of the script looks
+    // like), then carried through every subsequent Save/Save As this
+    // session so editor_save_map() can write it back verbatim instead of
+    // destroying it. Editable mid-session via editor_set_current_level_
+    // script_text() (§4.1's script text editor Apply action).
+    std::string s_editor_script_text;
+
+    // Direct disk read of a level's own map%05lu.txt, independent of
+    // MapContentReader (that class snapshots a *saved* map's files for
+    // in-memory inspection/testing; here the goal is simpler -- read one
+    // file into a string before the editor might overwrite it). Missing
+    // file -> empty string, same "nothing to preserve" convention
+    // MapContentReader::read_script() (kfx_sim) uses.
+    std::string read_level_script_text(const char *dir, LevelNumber lvnum)
+    {
+        char path[600];
+        snprintf(path, sizeof(path), "%s/map%05lu.txt", dir, (unsigned long)lvnum);
+        long len = LbFileLength(path);
+        if (len <= 0)
+            return std::string();
+        std::vector<char> buf((size_t)len);
+        long got = LbFileLoadAt(path, buf.data());
+        if (got != len)
+            return std::string();
+        return std::string(buf.data(), (size_t)len);
+    }
     // Restored in editor_close() -- see editor_open()'s own comment on why
     // Ft_SkipHeartZoom is forced on for the session.
     bool s_prev_skip_heart_zoom = false;
+    // Restored in editor_close()/editor_deactivate() -- see editor_open()'s
+    // own comment on why the normal in-game GUI is force-hidden for the
+    // session.
+    bool s_prev_show_gui = true;
 
     // §3's planned "Preview motion" affordance -- toggled from the editor
     // menu below. While on, editor_frame() stops re-forcing
@@ -63,39 +130,128 @@ namespace {
             return;
         kfx_sim_state.simulation_suspended = false;
         set_skip_heart_zoom_feature(s_prev_skip_heart_zoom);
+        set_flag_value(kfx_sim_state.operation_flags, GOF_ShowGui, s_prev_show_gui);
         s_editor_active = false;
-        s_show_editor_menu = false;
     }
+}
 
-    void editor_menu_frame(void)
-    {
-        ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-        ImGui::Begin("##EditorMenu", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+// docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- reproduces the
+// pattern ftest_editor_save_reload.c had duplicated inline: get_level_fgroup()
+// always resolves to FGrp_CmpgLvls regardless of lvnum, prepare_file_fmtpath()
+// gives the full file path, and editor_save_map() itself only wants the
+// *directory*, so this strips the filename back off. prepare_file_fmtpath()'s
+// return is a reused buffer, copied into `out` right away, not held across
+// calls. Exported (not anonymous-namespace) so a Catch2 test can exercise it
+// directly, same convention as editor_journal_test_force_active() (editor_journal.h).
+void editor_level_save_dir(LevelNumber lvnum, char *out, size_t out_size)
+{
+    short fgroup = get_level_fgroup(lvnum);
+    char *p = prepare_file_fmtpath(fgroup, "map%05lu.slb", (unsigned long)lvnum);
+    strncpy(out, p, out_size - 1);
+    out[out_size - 1] = '\0';
+    char *last_slash = strrchr(out, '/');
+    if (last_slash != nullptr)
+        *last_slash = '\0';
+}
 
-        FeHeading(s_editor_dirty ? "Editor *" : "Editor");
-        FeSeparator();
+LevelNumber editor_current_lvnum(void)
+{
+    return s_editor_lvnum;
+}
 
-        const ImVec2 btn_size(220, 0);
-        // Save/Save As/Playtest all need editor_save_map() (phase 3, the map
-        // serializer) -- there is nothing to write to disk yet, so they're
-        // visible but disabled rather than missing entirely.
-        ImGui::BeginDisabled(true);
-        FeButton("Save", btn_size);
-        FeButton("Save As", btn_size);
-        FeButton("Playtest", btn_size);
-        ImGui::EndDisabled();
+const char *editor_current_save_dir(void)
+{
+    return s_editor_save_dir;
+}
 
-        // §3's "Preview motion" -- see s_preview_motion's own comment.
-        FeCheckbox("Preview Motion (unpause)", &s_preview_motion);
+const char *editor_current_level_name(void)
+{
+    return s_editor_level_name;
+}
 
-        if (FeButton("Resume Editing", btn_size))
-            s_show_editor_menu = false;
-        if (FeButton("Exit to Main Menu", btn_size))
-            editor_close();
+const char *editor_current_level_script_text(void)
+{
+    return s_editor_script_text.c_str();
+}
 
-        ImGui::End();
-    }
+void editor_set_current_level_script_text(const char *script_text)
+{
+    s_editor_script_text = (script_text != nullptr) ? script_text : "";
+}
+
+int editor_current_level_players(void)
+{
+    return s_editor_level_players;
+}
+
+const char *editor_current_level_description(void)
+{
+    return s_editor_level_description;
+}
+
+TbBool editor_current_level_is_multiplayer(void)
+{
+    return s_editor_level_is_multiplayer;
+}
+
+void editor_set_current_lvnum_and_dir(LevelNumber lvnum, const char *dir)
+{
+    s_editor_lvnum = lvnum;
+    strncpy(s_editor_save_dir, dir, sizeof(s_editor_save_dir) - 1);
+    s_editor_save_dir[sizeof(s_editor_save_dir) - 1] = '\0';
+}
+
+void editor_set_current_level_name(const char *name)
+{
+    strncpy(s_editor_level_name, (name != nullptr) ? name : "", sizeof(s_editor_level_name) - 1);
+    s_editor_level_name[sizeof(s_editor_level_name) - 1] = '\0';
+}
+
+void editor_set_current_level_players(int players)
+{
+    s_editor_level_players = players;
+}
+
+void editor_set_current_level_is_multiplayer(TbBool is_multiplayer)
+{
+    s_editor_level_is_multiplayer = is_multiplayer != 0;
+}
+
+void editor_set_current_level_description(const char *description)
+{
+    strncpy(s_editor_level_description, (description != nullptr) ? description : "", sizeof(s_editor_level_description) - 1);
+    s_editor_level_description[sizeof(s_editor_level_description) - 1] = '\0';
+}
+
+TbBool editor_is_dirty(void)
+{
+    return s_editor_dirty;
+}
+
+// Internal cross-file use only (same library, not part of kfx_editor.h's
+// outside-caller surface) -- lets editor_journal.cpp's record_placement/
+// record_rect_terrain mark the session dirty on every forward edit.
+void editor_mark_dirty(void)
+{
+    s_editor_dirty = true;
+}
+
+void editor_clear_dirty(void)
+{
+    s_editor_dirty = false;
+}
+
+// §3's "Preview motion" affordance -- moved from the Esc-hub into the new
+// View menu (editor_menubar.cpp) this slice; see s_preview_motion's own
+// comment for what it actually does.
+TbBool editor_preview_motion(void)
+{
+    return s_preview_motion;
+}
+
+void editor_set_preview_motion(TbBool on)
+{
+    s_preview_motion = on != 0;
 }
 
 void editor_open(LevelNumber lvnum, TbBool is_new)
@@ -104,8 +260,32 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
     s_editor_active = true;
     // A freshly created blank map has nothing saved yet -- starts dirty.
     s_editor_dirty = is_new != 0;
-    s_show_editor_menu = false;
     s_preview_motion = false;
+    s_editor_lvnum = lvnum;
+    editor_level_save_dir(lvnum, s_editor_save_dir, sizeof(s_editor_save_dir));
+    // docs/refactor/editor/phase3/03-slice4-file-dialogs.md -- best-effort:
+    // get_level_info() only has an entry once this level's own .lof has
+    // been scanned in (editor_save_map()'s own find_and_load_lof_files()
+    // call, or a real level's shipped .lof) -- a genuinely new/unsaved
+    // level has none yet, which is exactly when starting from an empty
+    // name is correct anyway.
+    {
+        struct LevelInformation *lvinfo = get_level_info(lvnum);
+        editor_set_current_level_name((lvinfo != NULL) ? lvinfo->name : "");
+        editor_set_current_level_players((lvinfo != NULL) ? (int)lvinfo->players : 1);
+        editor_set_current_level_is_multiplayer((lvinfo != NULL) && ((lvinfo->level_type & LvKind_IsMulti) != 0));
+        editor_set_current_level_description((lvinfo != NULL) ? lvinfo->description : "");
+    }
+    // docs/refactor/editor/05-script-and-level-settings.md §0 -- a genuinely
+    // new map has no .txt yet (read_level_script_text() correctly returns
+    // empty), which is exactly when editor_save_map()'s own empty-script
+    // stub is the right thing to write.
+    s_editor_script_text = read_level_script_text(s_editor_save_dir, lvnum);
+    // §4 -- a previous session's journal entries reference thing indices
+    // that mean nothing (or worse, something else entirely, once slots are
+    // reused) in this one.
+    editor_journal_reset();
+    editor_points_reset();
 
     // §3, revised after live testing: simulation_suspended alone, *not*
     // GOF_Paused, is what freezes the sim now. game_session_loop.cpp's
@@ -140,6 +320,17 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
     // few turns through. Restored in editor_close().
     s_prev_skip_heart_zoom = get_skip_heart_zoom_feature();
     set_skip_heart_zoom_feature(true);
+
+    // User feedback: rendering both the normal in-game GUI (sidebar,
+    // minimap, tab panel) and the editor's own File/Edit/View menu bar +
+    // toolbox offers no benefit -- an editor session has no use for the
+    // gameplay HUD at all. Force-hidden regardless of the player's own
+    // Options > Graphics GUI preference (the same flag Tab/Ctrl+Tab
+    // toggles during normal play, ingame_panel_frame()'s own early-return
+    // gate) -- restored on close so it doesn't leak into a later normal
+    // play session.
+    s_prev_show_gui = flag_is_set(kfx_sim_state.operation_flags, GOF_ShowGui);
+    clear_flag(kfx_sim_state.operation_flags, GOF_ShowGui);
 
     // No "enable cheats" step needed (docs/refactor/editor/
     // 07-investigation-findings.md F10) -- the underlying PckA_Cheat*
@@ -226,32 +417,38 @@ void editor_frame(void)
     // turn can run.
     kfx_sim_state.simulation_suspended = !s_preview_motion;
 
-    // F10, not Escape: found live -- front_input.c's get_options_menu_inputs()
-    // (the normal in-game pause menu) reads raw lbKeyOn[]/is_key_pressed(),
-    // completely independent of ImGui's own key-event tracking here, so
+    // Was an F10 keypress originally (front_input.c's
+    // get_options_menu_inputs(), the normal in-game pause menu, reads raw
+    // lbKeyOn[]/is_key_pressed() independent of ImGui's own key tracking, so
     // both this menu and the normal GMnu_OPTIONS pause launcher opened at
-    // once on the same Escape press. kfx_frontend can't be made to skip its
-    // own handler while the editor is active without a new callback (it's
-    // ranked below kfx_editor); picking a key the base game has no default
-    // binding for sidesteps the conflict entirely. Temporary -- D6
-    // (docs/refactor/editor/02-editing-toolbox.md §3) makes every editor
-    // shortcut a definable Gkey_Editor* key; this is a placeholder default.
-    if (ImGui::IsKeyPressed(ImGuiKey_F10, false))
-        s_show_editor_menu = !s_show_editor_menu;
+    // once on the same Escape press), then a toolbox "Menu" button opening
+    // an Esc-equivalent hub modal (editor_open_menu()); retired in
+    // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md once every
+    // item that hub carried (Save/Save As/Exit -> File, Preview Motion ->
+    // View) had a real home in the new menu bar instead.
 
     // docs/refactor/editor/02-editing-toolbox.md -- shown whenever the
     // session is active, same as the original editor's always-visible
-    // toolbox; the Esc menu (below) is a separate, independently toggled
-    // window layered on top of it.
+    // toolbox.
+    editor_menubar_frame();
     editor_toolbox_frame();
-
-    if (s_show_editor_menu)
-        editor_menu_frame();
+    editor_journal_frame();
+    editor_dialogs_frame();
+    editor_overlay_frame();
+    editor_script_frame();
+    editor_availability_frame();
+    editor_message_helper_frame();
+    editor_command_browser_frame();
 }
 
 void editor_notify_playtest_end(void)
 {
-    // Playtest itself needs editor_save_map() to a scratch slot (§6, phase
-    // 3) -- nothing to reload from yet, so this is a no-op until then.
+    // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md
+    // -- Playtest itself is implemented (editor_dialogs.cpp), but a
+    // playtest session quitting/winning/losing still just lands wherever a
+    // normal single-player game would (main menu, level stats, ...), not
+    // back in the editor -- that needs a "return to editor" ribbon/session
+    // hand-off this hook would drive, deliberately not built this slice
+    // (kept a no-op; see that doc's own scope note on why).
 }
 /******************************************************************************/

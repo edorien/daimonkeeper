@@ -24,6 +24,9 @@ target_link_libraries(kfx_frontend_utest PRIVATE
     kfx_bfdebug_std
     kfx_common_opts
     centitoml
+    tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --
+                     # kfx_platform now links bflib_filedialogs.cpp, which
+                     # needs tinyfiledialogs's compiled object.
     imgui # same two-levels-of-INTERFACE-indirection object-linking gap as
           # centitoml above -- kfx_platform (ImGuiContext.cpp) and
           # kfx_frontend (frontgui_style.cpp/frontgui_widgets.cpp/

@@ -185,34 +185,77 @@ enum FrontendMenuStates {
   FeSt_CAMPAIGN_INTRO,
   FeSt_MAPPACK_SELECT,
   FeSt_MP_MAPPACK_SELECT,
-  // docs/refactor/editor/01-entry-and-editor-session.md §2 -- the in-game
-  // level editor's ImGui-only project browser (New/Open/Back) and its
-  // transient "start the session" state, mirroring the
-  // FeSt_LEVEL_SELECT -> FeSt_START_KPRLEVEL pair. No classic-menu
-  // (`-classicmenu`) equivalent -- the editor requires the ImGui menu.
-  FeSt_EDITOR,
+  // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- the
+  // transient "start the (editor) session" state, reached either from the
+  // main menu's Tools -> Editor (a blank New Map) or from an in-session
+  // File > New/Open relaunch (frontend_request_editor_relaunch(), below).
+  // No classic-menu (`-classicmenu`) equivalent -- the editor requires the
+  // ImGui menu. FeSt_EDITOR (the old pre-session New/Open browser this
+  // state used to hand off from) is retired -- New/Open/Save now live
+  // inside the editor's own File menu instead.
   FeSt_START_EDITOR,
   // Special testing states
   FeSt_FONT_TEST          = 255,
 };
 
 // docs/refactor/editor/01-entry-and-editor-session.md §2/§4 -- the hand-off
-// from the FeSt_EDITOR browser to kfx_apploop's `case FeSt_START_EDITOR:`
-// (game_session_loop.cpp), which reads these to call
-// startup_local_game_for_editor(). Plain frontend-internal globals, not
-// KfxFrontendState fields -- transient for the one frame between the
-// browser click and apploop consuming them, so they have no business in
-// that struct's save-game/resync blob (mirrors net_service_index_selected's
-// own reasoning, not save_game_slot's -- that one really is persisted).
+// to kfx_apploop's `case FeSt_START_EDITOR:` (game_session_loop.cpp), which
+// reads these to call startup_local_game_for_editor(). Plain frontend-
+// internal globals, not KfxFrontendState fields -- transient for the one
+// frame between the request and apploop consuming them, so they have no
+// business in that struct's save-game/resync blob (mirrors
+// net_service_index_selected's own reasoning, not save_game_slot's -- that
+// one really is persisted).
 extern LevelNumber editor_pending_lvnum;
 extern TbBool editor_pending_is_new;
 extern MapSlabCoord editor_pending_new_map_w;
 extern MapSlabCoord editor_pending_new_map_h;
 extern long editor_pending_new_map_texture;
 
+// docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- an in-session
+// File > New/Open (kfx_editor/editor_dialogs.cpp) sets this (via
+// frontend_request_editor_relaunch() below) before sending the normal
+// PckA_QuitToMainMenu quit packet. get_startup_menu_state() (frontend.cpp)
+// checks it ahead of its usual "quit always goes to FeSt_MAIN_MENU" branch,
+// routing back into FeSt_START_EDITOR (above) instead so the same bootstrap
+// that runs for the initial Tools -> Editor entry re-runs for the new
+// lvnum/is_new/size -- FeSt_START_EDITOR's handler
+// (game_session_loop.cpp) only runs from the frontend loop, never
+// mid-session, so this quit-and-relaunch round trip is the real mechanism,
+// not a shortcut around it.
+extern TbBool editor_pending_relaunch;
+
+// Stashes editor_pending_lvnum/is_new/new_map_w/new_map_h/new_map_texture
+// and sets editor_pending_relaunch -- callable directly from kfx_editor
+// (ranks above kfx_frontend, same downward-call pattern editor_mapsave.cpp
+// already uses for kfx_sim). Caller still has to actually trigger the quit
+// itself (editor_close(), kfx_editor) right after -- this only stashes the
+// target, it doesn't request the transition on its own.
+void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
+    MapSlabCoord new_map_w, MapSlabCoord new_map_h, long new_map_texture);
+
 // New Map's scratch level number until Save (phase 3) assigns it a real
 // slot -- see docs/refactor/editor/00-overview.md O2/F4.
 #define EDITOR_SCRATCH_LEVEL_NUMBER 900001
+// docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md --
+// Playtest's own scratch slot, distinct from EDITOR_SCRATCH_LEVEL_NUMBER
+// (New Map) so playtesting an already-named/numbered level never
+// overwrites it, and playtesting while editing a *different* in-progress
+// map (e.g. still on EDITOR_SCRATCH_LEVEL_NUMBER itself) never collides
+// with that either.
+#define EDITOR_PLAYTEST_LEVEL_NUMBER 900002
+
+// Same quit-and-relaunch mechanism as frontend_request_editor_relaunch()
+// above, targeting FeSt_START_KPRLEVEL (a normal single-player game start)
+// instead of FeSt_START_EDITOR -- reuses the exact same primitive the
+// `-level` command-line launch argument uses (main.cpp's "level" parsing),
+// set_selected_level_number(), not a new mechanism. The caller
+// (kfx_editor) is responsible for having already saved `lvnum` to disk --
+// this only stashes the target and requests the transition; editor_close()
+// still has to actually send the quit packet right after, same as
+// frontend_request_editor_relaunch()'s own contract.
+extern TbBool editor_pending_playtest;
+void frontend_request_editor_playtest(LevelNumber lvnum);
 
 enum IngameButtonDesignationIDs {
     BID_INFO_TAB = BID_DEFAULT+1,

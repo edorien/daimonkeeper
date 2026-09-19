@@ -540,6 +540,36 @@ long LbFileSaveAt(const char *fname, const void *buffer,unsigned long len)
   return result;
 }
 
+TbBool LbFileSaveAtomic(const char *fname, const void *buffer, unsigned long len)
+{
+  char tmp_fname[DISKPATH_SIZE * 2];
+  snprintf(tmp_fname, sizeof(tmp_fname), "%s.tmp", fname);
+
+  long written = LbFileSaveAt(tmp_fname, buffer, len);
+  if ((written < 0) || ((unsigned long)written != len))
+  {
+    LbFileDelete(tmp_fname);
+    return false;
+  }
+
+  // ISO C rename() on Windows (unlike POSIX) fails outright if the
+  // destination already exists -- LbFileDelete() first so this still
+  // works cross-platform for the common "re-save over an existing file"
+  // case, without reaching for a Windows-only replace API. The gap this
+  // leaves (a crash between the delete and the rename) is a well-known,
+  // accepted trade-off for this approach; still strictly safer than the
+  // in-place write it replaces, which could leave a half-written file
+  // even on ordinary success paths (partial LbFileWrite, disk full).
+  if (LbFileExists(fname))
+      LbFileDelete(fname);
+  if (rename(tmp_fname, fname) != 0)
+  {
+    LbFileDelete(tmp_fname);
+    return false;
+  }
+  return true;
+}
+
 // Moved from kfx_net's net_checksums.c (stage 13.3) -- see the doc
 // comment at its declaration in bflib_dernc.h.
 #define CHECKSUM_ADD(checksum, value) checksum = ((checksum << 5) | (checksum >> 27)) ^ (unsigned long)(value)

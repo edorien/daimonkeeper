@@ -34,6 +34,15 @@ struct EditorCallbacks {
        new_map/is_new mirror what the FeSt_EDITOR browser (kfx_frontend)
        stashed before requesting FeSt_START_EDITOR. */
     void (*request_open)(LevelNumber lvnum, TbBool is_new);
+    /* docs/refactor/editor/10-definable-keybindings.md -- lets kfx_frontend's
+       front_input.c ask "is an editor session currently active" so it can
+       read camera/console keys from settings.editor_kbkeys[]/
+       EditorGameKeys instead of settings.kbkeys[]/GameKeys, without
+       depending on kfx_editor.h directly (kfx_editor is ranked above
+       kfx_frontend too). Mirrors kfx_editor.h's own editor_is_active() --
+       same no-op-until-wired convention as every other callback here
+       (false, not a NULL-deref, until setup_game() wires the real one). */
+    TbBool (*is_active)(void);
 };
 void set_editor_callbacks(const struct EditorCallbacks *callbacks);
 extern const struct EditorCallbacks *editor_callbacks;

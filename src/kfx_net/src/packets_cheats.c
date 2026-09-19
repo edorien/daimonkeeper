@@ -34,6 +34,7 @@
 #include "config_effects.h"
 #include "map_utils.h"
 #include "map_blocks.h"
+#include "map_data.h"
 #include "magic_powers.h"
 #include "room_util.h"
 #include "room_workshop.h"
@@ -46,12 +47,218 @@
 #include "config_crtrmodel.h"
 #include "thing_objects.h"
 #include "thing_doors.h"
+#include "thing_list.h"
+#include "engine_render.h"
+#include "render_overlay.h"
+#include "editor_journal_callbacks.h"
+#include <stdlib.h>
 #include "post_inc.h"
 
 extern void clear_input(struct Packet* packet);
 
 /******************************************************************************/
 TbBool terrain_details = false;
+// docs/refactor/editor/02-editing-toolbox.md §2.4 -- Terrain "Rectangle"
+// mode's drag-start corner, recorded on PCtr_LBtnClick and consumed on
+// PCtr_LBtnRelease. File-scope static, single-player-editor-only state
+// (same precedent as terrain_details above), not a UserState field: it's
+// transient per-drag bookkeeping, not a persisted selection.
+static MapSubtlCoord s_rect_drag_stl_x = -1;
+static MapSubtlCoord s_rect_drag_stl_y = -1;
+
+// Shared by every "mark a box by dragging, commit once on release" tool
+// (Terrain Rectangle mode, Clear-to-Earth -- §2.2/§2.4) so the drag-state
+// machine (record the start on Click, draw a live preview box while
+// dragging, recognise a valid Release) isn't duplicated per op. Returns
+// true exactly on the frame a completed drag should be committed, with
+// *out_drag_stl_x/y set to the recorded start -- the caller still packs
+// that into its own verb's params (same reasoning as
+// PckA_EditorPlaceTerrainRect's own comment: corner 1 can't just be
+// pos_x/pos_y like corner 2 is, since a packet has only one position
+// field). Box-bounds computation for the actual mutation stays with each
+// verb's own handler, not here, since it needs the packet's own
+// (already-int32) corners, not this function's subtile-precision ones.
+static TbBool editor_rect_drag_update(PlayerNumber plyr_idx, struct Packet *pckt,
+    MapSubtlCoord stl_x, MapSubtlCoord stl_y, MapSlabCoord slb_x, MapSlabCoord slb_y,
+    MapSubtlCoord *out_drag_stl_x, MapSubtlCoord *out_drag_stl_y)
+{
+    if ((pckt->control_flags & PCtr_LBtnClick) != 0)
+    {
+        s_rect_drag_stl_x = stl_x;
+        s_rect_drag_stl_y = stl_y;
+    }
+    if ((s_rect_drag_stl_x >= 0) && is_my_player_number(plyr_idx) && !render_overlay->game_is_busy_doing_gui())
+    {
+        MapSlabCoord drag_slb_x = subtile_slab(s_rect_drag_stl_x);
+        MapSlabCoord drag_slb_y = subtile_slab(s_rect_drag_stl_y);
+        MapSlabCoord box_beg_x = min(drag_slb_x, slb_x);
+        MapSlabCoord box_beg_y = min(drag_slb_y, slb_y);
+        MapSlabCoord box_end_x = max(drag_slb_x, slb_x) + 1;
+        MapSlabCoord box_end_y = max(drag_slb_y, slb_y) + 1;
+        int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+        draw_map_volume_box(subtile_coord(slab_subtile(box_beg_x, 0), 0), subtile_coord(slab_subtile(box_beg_y, 0), 0),
+            subtile_coord(slab_subtile(box_end_x, 0), 0), subtile_coord(slab_subtile(box_end_y, 0), 0), floor_height_z, SLC_YELLOW);
+    }
+    if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0) && (s_rect_drag_stl_x >= 0))
+    {
+        *out_drag_stl_x = s_rect_drag_stl_x;
+        *out_drag_stl_y = s_rect_drag_stl_y;
+        s_rect_drag_stl_x = -1;
+        s_rect_drag_stl_y = -1;
+        return true;
+    }
+    return false;
+}
+
+// Shared by PckA_EditorPlaceTerrainRect and PckA_EditorRectClearEarth's
+// handlers: applies one slab kind/owner to every slab in a box, deleting
+// any room slab first exactly like PSt_PlaceTerrain's own single-tile path
+// does (same per-tile mutation PckA_CheatPlaceTerrain uses, just looped
+// over an area instead of one tile).
+static void editor_apply_slab_rect(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y,
+    MapSlabCoord box_end_x, MapSlabCoord box_end_y, SlabKind kind, PlayerNumber owner)
+{
+    TbBool animated = slab_kind_is_animated(kind);
+    for (MapSlabCoord sy = box_beg_y; sy <= box_end_y; sy++)
+    {
+        for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
+        {
+            MapSubtlCoord tile_stl_x = slab_subtile(sx, 0);
+            MapSubtlCoord tile_stl_y = slab_subtile(sy, 0);
+            if (subtile_is_room(tile_stl_x, tile_stl_y))
+            {
+                delete_room_slab(sx, sy, true);
+            }
+            if (animated)
+            {
+                place_animating_slab_type_on_map(kind, 0, tile_stl_x, tile_stl_y, owner);
+            }
+            else
+            {
+                place_slab_type_on_map(kind, tile_stl_x, tile_stl_y, owner, 0);
+            }
+            do_slab_efficiency_alteration(sx, sy);
+        }
+    }
+}
+
+// docs/refactor/editor/09-toolbox-remainder.md §1 -- rect-terrain-op undo.
+// Snapshots each slab's pre-mutation kind+owner into a heap buffer (box
+// size is unbounded -- a drag can span the whole map, so this can't be a
+// fixed-size stack array) and hands it to kfx_editor's journal via the
+// callback, which copies it into its own std::vector before this function
+// frees it. Called by PckA_EditorPlaceTerrainRect/_RectClearEarth/
+// _RectSetOwner's own handlers *before* applying the mutation -- capturing
+// the "before" state has to happen here, synchronously in this per-turn
+// dispatch, since kfx_editor's journal has no other visibility into "a
+// rect op is about to happen" (unlike thing placement, whose journal call
+// happens *after* success, since there's nothing to snapshot beforehand).
+static void editor_snapshot_slab_rect(unsigned char pcktype, MapSlabCoord box_beg_x, MapSlabCoord box_beg_y,
+    MapSlabCoord box_end_x, MapSlabCoord box_end_y, SlabKind new_kind, PlayerNumber new_owner)
+{
+    long width = box_end_x - box_beg_x + 1;
+    long height = box_end_y - box_beg_y + 1;
+    long count = width * height;
+    struct EditorRectSlabSnapshot *before = malloc(sizeof(struct EditorRectSlabSnapshot) * (size_t)count);
+    if (before == NULL)
+        return;
+    long i = 0;
+    for (MapSlabCoord sy = box_beg_y; sy <= box_end_y; sy++)
+    {
+        for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
+        {
+            struct SlabMap *slb = get_slabmap_block(sx, sy);
+            before[i].kind = slb->kind;
+            before[i].owner = (unsigned char)slabmap_owner(slb);
+            i++;
+        }
+    }
+    editor_journal->record_rect_terrain(pcktype, box_beg_x, box_beg_y, box_end_x, box_end_y, new_kind, new_owner, before, count);
+    free(before);
+}
+
+// §2.2 -- "Delete Things Inside" area op's handler. Unlike
+// editor_apply_slab_rect() above (a per-slab loop), this needs a *thing*
+// enumeration -- walks every subtile in the box's own mapwho linked list
+// (the same get_mapwho_thing_index()/next_on_mapblk traversal
+// find_base_thing_on_mapwho() already does for one subtile, generalized to
+// sweep an area) and deletes whatever it finds, via the eraser tool's own
+// per-class dispatch (PSt_DestroyThing above: destroy_door() for doors,
+// destroy_effect_thing() for effects, destroy_object() -- which falls
+// through to delete_thing_structure() -- for everything else). Skips the
+// Dungeon Heart specifically: losing it outright via a big box drag would
+// be a much harder mistake to recover from than any other thing this op
+// might catch.
+static void editor_delete_things_in_rect(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y,
+    MapSlabCoord box_end_x, MapSlabCoord box_end_y)
+{
+    for (MapSlabCoord sy = box_beg_y; sy <= box_end_y; sy++)
+    {
+        for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
+        {
+            for (int sub_y = 0; sub_y < STL_PER_SLB; sub_y++)
+            {
+                for (int sub_x = 0; sub_x < STL_PER_SLB; sub_x++)
+                {
+                    struct Map *mapblk = get_map_block_at(slab_subtile(sx, sub_x), slab_subtile(sy, sub_y));
+                    long i = get_mapwho_thing_index(mapblk);
+                    while (i != 0)
+                    {
+                        struct Thing *thing = thing_get(i);
+                        if (thing_is_invalid(thing))
+                            break;
+                        // Capture next before this thing might be deleted --
+                        // deletion invalidates next_on_mapblk on `thing` itself.
+                        i = thing->next_on_mapblk;
+                        if (thing_is_dungeon_heart(thing))
+                            continue;
+                        if (thing->class_id == TCls_Door)
+                            destroy_door(thing);
+                        else if (thing->class_id == TCls_Effect)
+                            destroy_effect_thing(thing);
+                        else
+                            destroy_object(thing);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// §2.2 -- "Set Owner" area op's handler. Room slabs need real ownership
+// transfer, not a raw owner-byte rewrite (rooms carry dungeon-tracking
+// state -- area totals, slab lists, room index -- keyed by owner). User's
+// own suggested approach: delete_room_slab() first (tears the room slab
+// down to ground *and* properly updates the old owner's room-area
+// accounting/slab list -- the exact same call Paint/Clear Earth already
+// make for a *kind* change, just applied here for an owner-only change
+// instead), then place_slab_type_on_map() with the *same* kind but the
+// *new* owner rebuilds it as a room the new owner actually owns. Ownerless
+// kinds (rock, gems, lava, ...) are skipped, same check
+// PckA_CheatSwitchTerrain's own "no ownership" handling uses elsewhere in
+// this file -- setting an owner on them wouldn't mean anything.
+static void editor_set_owner_rect(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y,
+    MapSlabCoord box_end_x, MapSlabCoord box_end_y, PlayerNumber owner)
+{
+    for (MapSlabCoord sy = box_beg_y; sy <= box_end_y; sy++)
+    {
+        for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
+        {
+            MapSubtlCoord tile_stl_x = slab_subtile(sx, 0);
+            MapSubtlCoord tile_stl_y = slab_subtile(sy, 0);
+            struct SlabMap *slb = get_slabmap_block(sx, sy);
+            if (slab_kind_has_no_ownership(slb->kind))
+                continue;
+            SlabKind kind = slb->kind;
+            if (subtile_is_room(tile_stl_x, tile_stl_y))
+            {
+                delete_room_slab(sx, sy, true);
+            }
+            place_slab_type_on_map(kind, tile_stl_x, tile_stl_y, owner, 0);
+            do_slab_efficiency_alteration(sx, sy);
+        }
+    }
+}
 /******************************************************************************/
 
 TbBool packets_process_cheats(
@@ -710,6 +917,73 @@ TbBool packets_process_cheats(
             unset_packet_control(pckt, PCtr_LBtnRelease);
             break;
         }
+        case PSt_EditorPlaceTerrainRect:
+        {
+            // §2.4 -- "Rectangle" mode: mark a box by dragging, commit the
+            // whole box in one action on release, instead of Brush's
+            // continuous per-tile paint above. Reuses the exact same
+            // picker/selection state as PSt_PlaceTerrain
+            // (chosen_terrain_kind/chosen_player) -- only the click
+            // handling differs, so switching the toolbox's Brush/Rectangle
+            // toggle just changes which of these two work states the
+            // Terrain tool button sends. Drag-tracking factored into
+            // editor_rect_drag_update(), shared with Clear-to-Earth below.
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_terrain(plyr_idx, stl_x, stl_y);
+            MapSubtlCoord drag_stl_x, drag_stl_y;
+            if (editor_rect_drag_update(plyr_idx, pckt, stl_x, stl_y, slb_x, slb_y, &drag_stl_x, &drag_stl_y))
+            {
+                PlayerNumber id = (slab_kind_has_no_ownership(ustate->cheatselection.chosen_terrain_kind)) ? kfx_config_state.neutral_player_num : ustate->cheatselection.chosen_player;
+                set_packet_action(pckt, PckA_EditorPlaceTerrainRect, drag_stl_x, drag_stl_y, ustate->cheatselection.chosen_terrain_kind, id);
+            }
+            unset_packet_control(pckt, PCtr_LBtnRelease);
+            break;
+        }
+        case PSt_EditorRectClearEarth:
+        {
+            // §2.2 -- "Clear to Earth" area op: same drag/commit shape as
+            // Rectangle mode above, fixed target kind/owner instead of the
+            // picker's current selection.
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_terrain(plyr_idx, stl_x, stl_y);
+            MapSubtlCoord drag_stl_x, drag_stl_y;
+            if (editor_rect_drag_update(plyr_idx, pckt, stl_x, stl_y, slb_x, slb_y, &drag_stl_x, &drag_stl_y))
+            {
+                set_packet_action(pckt, PckA_EditorRectClearEarth, drag_stl_x, drag_stl_y, 0, 0);
+            }
+            unset_packet_control(pckt, PCtr_LBtnRelease);
+            break;
+        }
+        case PSt_EditorRectDeleteThings:
+        {
+            // §2.2 -- "Delete Things Inside" area op: same drag/commit
+            // shape as Clear Earth, but the release handler sweeps for
+            // things rather than repainting slabs.
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_terrain(plyr_idx, stl_x, stl_y);
+            MapSubtlCoord drag_stl_x, drag_stl_y;
+            if (editor_rect_drag_update(plyr_idx, pckt, stl_x, stl_y, slb_x, slb_y, &drag_stl_x, &drag_stl_y))
+            {
+                set_packet_action(pckt, PckA_EditorRectDeleteThings, drag_stl_x, drag_stl_y, 0, 0);
+            }
+            unset_packet_control(pckt, PCtr_LBtnRelease);
+            break;
+        }
+        case PSt_EditorRectSetOwner:
+        {
+            // §2.2 -- "Set Owner" area op: same drag/commit shape again,
+            // target owner is the bottom bar's own chosen_player (no new
+            // picker needed).
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_terrain(plyr_idx, stl_x, stl_y);
+            MapSubtlCoord drag_stl_x, drag_stl_y;
+            if (editor_rect_drag_update(plyr_idx, pckt, stl_x, stl_y, slb_x, slb_y, &drag_stl_x, &drag_stl_y))
+            {
+                set_packet_action(pckt, PckA_EditorRectSetOwner, drag_stl_x, drag_stl_y, ustate->cheatselection.chosen_player, 0);
+            }
+            unset_packet_control(pckt, PCtr_LBtnRelease);
+            break;
+        }
         case PSt_EditorFill:
         {
             // docs/refactor/editor/02-editing-toolbox.md §2.3 -- reuses
@@ -735,6 +1009,35 @@ TbBool packets_process_cheats(
             // CheatSelection (F17) for this switch to read back. Just the
             // usual cursor-highlight, so hovering shows the same
             // solid/non-solid feedback other placement tools give.
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_thing(plyr_idx, stl_x, stl_y);
+            break;
+        case PSt_EditorEyedropper:
+            // §2.10 -- same "no dispatch here, kfx_editor watches its own
+            // click" shape as Objects: the picked kind/owner aren't known
+            // until the click happens. Reuse the Terrain highlight so
+            // hovering shows the same cursor feedback the Terrain tool has.
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_terrain(plyr_idx, stl_x, stl_y);
+            break;
+        case PSt_EditorStamp:
+            // §2.4 -- capture (RMB-drag) and stamp (LMB-click) both happen
+            // entirely in kfx_editor (handle_brush_capture_and_stamp(),
+            // editor_toolbox.cpp), calling sim mutation primitives
+            // directly rather than through a packet -- see this work
+            // state's own comment (config_players.h) for why. Just the
+            // usual cursor highlight here.
+            player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
+            tag_cursor_blocks_place_terrain(plyr_idx, stl_x, stl_y);
+            break;
+        case PSt_EditorQuery:
+            // §2.10 -- no dispatch here on purpose: kfx_editor handles the
+            // whole query (creature or otherwise) itself, directly, to
+            // avoid the classic GMnu_MSG_BOX popup query_thing()/
+            // query_room() would otherwise show -- see this work state's
+            // own comment (config_players.h). Just the usual cursor
+            // highlight, so hovering something shows the same feedback
+            // other tools give.
             player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
             tag_cursor_blocks_place_thing(plyr_idx, stl_x, stl_y);
             break;
@@ -774,9 +1077,26 @@ TbBool packets_process_cheats(
             player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
             allowed = (find_door_angle(stl_x, stl_y, ustate->cheatselection.chosen_player) != -1);
             tag_cursor_blocks_place_door(plyr_idx, stl_x, stl_y);
-            if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0) && allowed)
+            if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0))
             {
-                set_packet_action(pckt, PckA_EditorPlaceDoor, ustate->chosen_door_kind, ustate->cheatselection.chosen_player, 0, 0);
+                // §2.7's own deferred "Ctrl+LMB toggles lock" item. Checked
+                // first, before normal placement: a Ctrl-click on a square
+                // that already has a door toggles its lock instead of
+                // trying (and, per the `allowed` gate above, likely
+                // failing anyway, since a slab already occupied by a door
+                // can still pass find_door_angle()) to place a second one
+                // on top of it.
+                struct Thing *doortng = find_base_thing_on_mapwho(TCls_Door, 0, stl_x, stl_y);
+                TbBool ctrl_held = (net_callbacks->is_key_pressed(KC_LCONTROL, KMod_DONTCARE) != 0)
+                    || (net_callbacks->is_key_pressed(KC_RCONTROL, KMod_DONTCARE) != 0);
+                if (ctrl_held && !thing_is_invalid(doortng))
+                {
+                    set_packet_action(pckt, PckA_EditorToggleDoorLock, doortng->index, 0, 0, 0);
+                }
+                else if (allowed)
+                {
+                    set_packet_action(pckt, PckA_EditorPlaceDoor, ustate->chosen_door_kind, ustate->cheatselection.chosen_player, 0, 0);
+                }
             }
             unset_packet_control(pckt, PCtr_LBtnRelease);
             break;
@@ -935,6 +1255,59 @@ TbBool process_player_global_cheats_packet_action(PlayerNumber plyr_idx, struct 
       case PckA_CheatSwitchDoor:
         {
             ustate->chosen_door_kind = pckt->actn_par1;
+            return false;
+        }
+      case PckA_EditorEyedropperTerrain:
+        {
+            // §2.10. kfx_editor already resolved the sampled slab's kind
+            // and owner client-side (screen_to_map() + a direct
+            // get_slabmap_block()/slabmap_owner() read, same "read world
+            // truth directly" precedent as handle_object_placement_click())
+            // -- no world position needed here, just apply both atomically,
+            // same shape as PckA_CheatSwitchTerrain but also syncing owner
+            // in the same action so the two can't fall out of sync from a
+            // single click (only one action fits the per-turn packet slot).
+            ustate->cheatselection.chosen_terrain_kind = pckt->actn_par1;
+            ustate->cheatselection.chosen_player = pckt->actn_par2;
+            return false;
+        }
+        case PckA_EditorEyedropperThing:
+        {
+            // docs/refactor/editor/09-toolbox-remainder.md §1. kfx_editor
+            // already resolved which thing was under the cursor and its
+            // class/model/owner client-side (same get_creature_near()/
+            // get_nearest_thing_at_position() detection Query's own
+            // handle_query_click() uses) -- just write the sampled value
+            // into whichever server-side field the matching picker reads,
+            // same shape as PckA_EditorEyedropperTerrain above. A hero
+            // creature (owner PLAYER_GOOD) only updates chosen_hero_kind --
+            // PLAYER_GOOD isn't a selectable dungeon owner, so chosen_player
+            // stays whatever the bottom bar already had it at.
+            ThingClass sampled_class = (ThingClass)pckt->actn_par1;
+            PlayerNumber sampled_owner = (PlayerNumber)pckt->actn_par2;
+            ThingModel sampled_model = (ThingModel)pckt->actn_par3;
+            switch (sampled_class)
+            {
+                case TCls_Creature:
+                    if (sampled_owner == PLAYER_GOOD)
+                        ustate->cheatselection.chosen_hero_kind = sampled_model;
+                    else
+                    {
+                        ustate->cheatselection.chosen_creature_kind = sampled_model;
+                        ustate->cheatselection.chosen_player = sampled_owner;
+                    }
+                    break;
+                case TCls_Trap:
+                    ustate->chosen_trap_kind = sampled_model;
+                    ustate->cheatselection.chosen_player = sampled_owner;
+                    break;
+                case TCls_Door:
+                    ustate->chosen_door_kind = sampled_model;
+                    ustate->cheatselection.chosen_player = sampled_owner;
+                    break;
+                default:
+                    break;
+            }
             return false;
         }
         case PckA_CheatAllDoors:
@@ -1174,6 +1547,12 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
                 // above can move mappos again without re-syncing it -- same
                 // two-step pattern as create_owned_special_digger().
                 thing->previous_mappos = thing->mappos;
+                // §4 -- journal the placement so Ctrl+Z can undo/redo it.
+                // Position already lives in actn_par1/actn_par2 (this verb
+                // never reads pos_x/pos_y), so pos_x/pos_y here are unused
+                // by Redo for this verb -- passed as 0 for consistency.
+                editor_journal->record_placement(thing->index, PckA_EditorPlaceObject,
+                    pckt->actn_par1, pckt->actn_par2, pckt->actn_par3, pckt->actn_par4, 0, 0);
             }
             break;
         }
@@ -1189,7 +1568,22 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             y = (pckt->pos_y);
             stl_x = coord_subtile(x);
             stl_y = coord_subtile(y);
-            player_place_trap_without_check_at(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true);
+            if (player_place_trap_without_check_at(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true))
+            {
+                // §4 -- player_place_trap_without_check_at() returns only a
+                // TbBool, not the created thing, so re-find it by the
+                // position+model we just placed (the same
+                // find_base_thing_on_mapwho() lookup thing_doors.c's own
+                // key-management code already uses for doors below).
+                thing = find_base_thing_on_mapwho(TCls_Trap, pckt->actn_par1, stl_x, stl_y);
+                if (!thing_is_invalid(thing))
+                    // §4. This verb reads position from the packet's own
+                    // ambient pos_x/pos_y (x/y, captured above) rather than
+                    // a param -- recorded explicitly so Redo can restore it
+                    // (see editor_journal.cpp's own comment).
+                    editor_journal->record_placement(thing->index, PckA_EditorPlaceTrap,
+                        pckt->actn_par1, pckt->actn_par2, 0, 0, x, y);
+            }
             break;
         }
         case PckA_EditorPlaceDoor:
@@ -1198,7 +1592,159 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             y = (pckt->pos_y);
             stl_x = coord_subtile(x);
             stl_y = coord_subtile(y);
-            player_place_door_without_check_at(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true);
+            if (player_place_door_without_check_at(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true))
+            {
+                // §4 -- same "returns only a TbBool" gap as Trap above.
+                thing = find_base_thing_on_mapwho(TCls_Door, 0, stl_x, stl_y);
+                if (!thing_is_invalid(thing))
+                    // §4. Same ambient-position reasoning as Trap above.
+                    editor_journal->record_placement(thing->index, PckA_EditorPlaceDoor,
+                        pckt->actn_par1, pckt->actn_par2, 0, 0, x, y);
+            }
+            break;
+        }
+        case PckA_EditorToggleDoorLock:
+        {
+            // §2.7's deferred lock-toggle item. actn_par1 is the door
+            // thing's own index -- PSt_EditorPlaceDoor's dispatch already
+            // resolved which door via find_base_thing_on_mapwho(), so no
+            // position/re-lookup needed here.
+            thing = thing_get(pckt->actn_par1);
+            if (!thing_is_invalid(thing) && (thing->class_id == TCls_Door))
+            {
+                if (thing->door.is_locked)
+                    unlock_door(thing);
+                else
+                    lock_door(thing);
+            }
+            break;
+        }
+        case PckA_EditorUndo:
+        {
+            // §4. Same per-class dispatch PSt_DestroyThing's own eraser
+            // uses below: doors need destroy_door() (removes the animating
+            // slab overlay + re-triangulates navigation, which a raw
+            // delete_thing_structure() wouldn't); everything else this
+            // journal ever records (creature/hero/digger/object/trap) is
+            // safe via the generic destroy_object() -> delete_thing_structure()
+            // path, same as the eraser's own "default:" branch for those
+            // classes (minus the spellbook/workshop-crate refund handling,
+            // which never applies to a thing this journal placed).
+            thing = thing_get(pckt->actn_par1);
+            if (!thing_is_invalid(thing))
+            {
+                if (thing->class_id == TCls_Door)
+                    destroy_door(thing);
+                else
+                    destroy_object(thing);
+            }
+            break;
+        }
+        case PckA_EditorSetGoldValue:
+        {
+            // docs/refactor/editor/09-toolbox-remainder.md §1. kfx_editor
+            // already resolved that the click landed on an existing
+            // gold-family object (get_nearest_thing_at_position(), same
+            // detection precedent as Query/Eyedropper's own thing lookups)
+            // rather than empty ground -- just apply the new value here,
+            // re-validating class/genre server-side rather than trusting
+            // the client's own resolution blindly.
+            thing = thing_get(pckt->actn_par1);
+            if (!thing_is_invalid(thing) && (thing->class_id == TCls_Object) && object_is_gold(thing))
+            {
+                thing->valuable.gold_stored = (pckt->actn_par2 < 0) ? 0 : pckt->actn_par2;
+            }
+            break;
+        }
+        case PckA_EditorSetThingPosition:
+        {
+            // docs/refactor/editor/09-toolbox-remainder.md §1. kfx_editor
+            // already resolved which thing to move client-side -- just
+            // reposition it via move_thing_in_map() (thing_navigate.h),
+            // which handles the mapwho re-link when the move crosses a
+            // subtile boundary, same as any other in-world thing move
+            // rather than a raw thing->mappos write.
+            thing = thing_get(pckt->actn_par3);
+            if (!thing_is_invalid(thing))
+            {
+                struct Coord3d newpos;
+                newpos.x.val = pckt->actn_par1;
+                newpos.y.val = pckt->actn_par2;
+                newpos.z.val = pckt->actn_par4;
+                move_thing_in_map(thing, &newpos);
+            }
+            break;
+        }
+        case PckA_EditorPlaceTerrainRect:
+        {
+            // §2.4. Corner 2 is the packet's own pos_x/pos_y (the release
+            // point, untouched by set_packet_action() -- see
+            // PSt_EditorPlaceTerrainRect's own comment); corner 1 is the
+            // recorded drag-start, carried explicitly in actn_par1/actn_par2
+            // since pos_x/pos_y can't hold two points at once. Applies the
+            // chosen slab kind (actn_par3) + owner (actn_par4) to every
+            // slab in the box via editor_apply_slab_rect() (shared with
+            // PckA_EditorRectClearEarth below).
+            MapSubtlCoord drag_stl_x = pckt->actn_par1;
+            MapSubtlCoord drag_stl_y = pckt->actn_par2;
+            MapSubtlCoord end_stl_x = coord_subtile(pckt->pos_x);
+            MapSubtlCoord end_stl_y = coord_subtile(pckt->pos_y);
+            MapSlabCoord box_beg_x = min(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_beg_y = min(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            MapSlabCoord box_end_x = max(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_end_y = max(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            editor_snapshot_slab_rect(PckA_EditorPlaceTerrainRect, box_beg_x, box_beg_y, box_end_x, box_end_y, pckt->actn_par3, pckt->actn_par4);
+            editor_apply_slab_rect(box_beg_x, box_beg_y, box_end_x, box_end_y, pckt->actn_par3, pckt->actn_par4);
+            break;
+        }
+        case PckA_EditorRectClearEarth:
+        {
+            // §2.2. Same corner layout as PckA_EditorPlaceTerrainRect
+            // above, fixed to SlbT_EARTH/neutral instead of packet-carried
+            // kind/owner.
+            MapSubtlCoord drag_stl_x = pckt->actn_par1;
+            MapSubtlCoord drag_stl_y = pckt->actn_par2;
+            MapSubtlCoord end_stl_x = coord_subtile(pckt->pos_x);
+            MapSubtlCoord end_stl_y = coord_subtile(pckt->pos_y);
+            MapSlabCoord box_beg_x = min(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_beg_y = min(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            MapSlabCoord box_end_x = max(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_end_y = max(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            editor_snapshot_slab_rect(PckA_EditorRectClearEarth, box_beg_x, box_beg_y, box_end_x, box_end_y, SlbT_EARTH, kfx_config_state.neutral_player_num);
+            editor_apply_slab_rect(box_beg_x, box_beg_y, box_end_x, box_end_y, SlbT_EARTH, kfx_config_state.neutral_player_num);
+            break;
+        }
+        case PckA_EditorRectDeleteThings:
+        {
+            // §2.2. Same corner layout as PckA_EditorRectClearEarth above.
+            MapSubtlCoord drag_stl_x = pckt->actn_par1;
+            MapSubtlCoord drag_stl_y = pckt->actn_par2;
+            MapSubtlCoord end_stl_x = coord_subtile(pckt->pos_x);
+            MapSubtlCoord end_stl_y = coord_subtile(pckt->pos_y);
+            MapSlabCoord box_beg_x = min(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_beg_y = min(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            MapSlabCoord box_end_x = max(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_end_y = max(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            editor_delete_things_in_rect(box_beg_x, box_beg_y, box_end_x, box_end_y);
+            break;
+        }
+        case PckA_EditorRectSetOwner:
+        {
+            // §2.2. Same corner layout as PckA_EditorRectClearEarth above.
+            MapSubtlCoord drag_stl_x = pckt->actn_par1;
+            MapSubtlCoord drag_stl_y = pckt->actn_par2;
+            MapSubtlCoord end_stl_x = coord_subtile(pckt->pos_x);
+            MapSubtlCoord end_stl_y = coord_subtile(pckt->pos_y);
+            MapSlabCoord box_beg_x = min(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_beg_y = min(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            MapSlabCoord box_end_x = max(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
+            MapSlabCoord box_end_y = max(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+            // new_kind is unused for this pcktype (Set Owner never changes
+            // a slab's kind, only its owner) -- 0 is a harmless sentinel,
+            // ignored by the journal's own Redo dispatch (editor_journal.cpp
+            // reads slab kind fresh per-slab for PckA_EditorRectSetOwner).
+            editor_snapshot_slab_rect(PckA_EditorRectSetOwner, box_beg_x, box_beg_y, box_end_x, box_end_y, 0, pckt->actn_par3);
+            editor_set_owner_rect(box_beg_x, box_beg_y, box_end_x, box_end_y, pckt->actn_par3);
             break;
         }
         case PckA_CheatMakeCreature:
@@ -1226,6 +1772,15 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
                 thing->mappos.z.val = get_thing_height_at(thing, &thing->mappos);
                 thing->previous_mappos = thing->mappos;
                 set_creature_level(thing, exp);
+                // §4. Unconditional -- this verb is also the classic cheat
+                // menu's own "Make Creature", not editor-exclusive;
+                // editor_journal->record_placement() no-ops itself outside
+                // an active editor session (same convention as every other
+                // EditorJournalCallbacks/EditorCallbacks implementation).
+                // Position is ambient (x/y, captured above) -- recorded
+                // explicitly so Redo can restore it.
+                editor_journal->record_placement(thing->index, PckA_CheatMakeCreature,
+                    pckt->actn_par1, pckt->actn_par2, 0, 0, x, y);
             }
             break;
         }
@@ -1237,6 +1792,72 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             if (!thing_is_invalid(thing))
             {
                 set_creature_level(thing, pckt->actn_par2);
+                editor_journal->record_placement(thing->index, PckA_CheatMakeDigger,
+                    pckt->actn_par1, pckt->actn_par2, 0, 0, x, y);
+            }
+            break;
+        }
+        case PckA_EditorRedoCreature:
+        {
+            // §4 -- Redo counterpart for PckA_CheatMakeCreature: identical
+            // logic, but position comes from actn_par1/actn_par2 (full
+            // int32 range, set explicitly by editor_journal.cpp's Redo)
+            // instead of the packet's own ambient pos_x/pos_y, which
+            // can't reliably carry a value from a previous turn through to
+            // this one (see this verb's own enum comment).
+            pos.x.val = pckt->actn_par1;
+            pos.y.val = pckt->actn_par2;
+            pos.z.val = 0;
+            PlayerNumber id = pckt->actn_par4;
+            unsigned char exp = pckt->actn_par4 >> 8;
+            thing = create_creature(&pos, pckt->actn_par3, id);
+            if (!thing_is_invalid(thing))
+            {
+                thing->mappos.z.val = get_thing_height_at(thing, &thing->mappos);
+                thing->previous_mappos = thing->mappos;
+                set_creature_level(thing, exp);
+                editor_journal->record_placement(thing->index, PckA_CheatMakeCreature,
+                    pckt->actn_par3, pckt->actn_par4, 0, 0, pckt->actn_par1, pckt->actn_par2);
+            }
+            break;
+        }
+        case PckA_EditorRedoDigger:
+        {
+            // §4 -- Redo counterpart for PckA_CheatMakeDigger.
+            thing = create_owned_special_digger(pckt->actn_par1, pckt->actn_par2, pckt->actn_par3);
+            if (!thing_is_invalid(thing))
+            {
+                set_creature_level(thing, pckt->actn_par4);
+                editor_journal->record_placement(thing->index, PckA_CheatMakeDigger,
+                    pckt->actn_par3, pckt->actn_par4, 0, 0, pckt->actn_par1, pckt->actn_par2);
+            }
+            break;
+        }
+        case PckA_EditorRedoTrap:
+        {
+            // §4 -- Redo counterpart for PckA_EditorPlaceTrap.
+            MapSubtlCoord redo_stl_x = coord_subtile(pckt->actn_par1);
+            MapSubtlCoord redo_stl_y = coord_subtile(pckt->actn_par2);
+            if (player_place_trap_without_check_at(redo_stl_x, redo_stl_y, pckt->actn_par4, pckt->actn_par3, true))
+            {
+                thing = find_base_thing_on_mapwho(TCls_Trap, pckt->actn_par3, redo_stl_x, redo_stl_y);
+                if (!thing_is_invalid(thing))
+                    editor_journal->record_placement(thing->index, PckA_EditorPlaceTrap,
+                        pckt->actn_par3, pckt->actn_par4, 0, 0, pckt->actn_par1, pckt->actn_par2);
+            }
+            break;
+        }
+        case PckA_EditorRedoDoor:
+        {
+            // §4 -- Redo counterpart for PckA_EditorPlaceDoor.
+            MapSubtlCoord redo_stl_x = coord_subtile(pckt->actn_par1);
+            MapSubtlCoord redo_stl_y = coord_subtile(pckt->actn_par2);
+            if (player_place_door_without_check_at(redo_stl_x, redo_stl_y, pckt->actn_par4, pckt->actn_par3, true))
+            {
+                thing = find_base_thing_on_mapwho(TCls_Door, 0, redo_stl_x, redo_stl_y);
+                if (!thing_is_invalid(thing))
+                    editor_journal->record_placement(thing->index, PckA_EditorPlaceDoor,
+                        pckt->actn_par3, pckt->actn_par4, 0, 0, pckt->actn_par1, pckt->actn_par2);
             }
             break;
         }
@@ -1359,6 +1980,11 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             {
                 change_creature_owner(thing, pckt->actn_par1);
             }
+            break;
+        }
+        case PckA_EditorGoSpectator:
+        {
+            level_editor_go_spectator_at(plyr_idx, pckt->actn_par1, pckt->actn_par2);
             break;
         }
         default:

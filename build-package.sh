@@ -19,6 +19,17 @@
 # Windows pass is skipped with a warning and the Linux + coverage passes
 # still run, since they need nothing Windows-specific.
 #
+# The coverage pass is unit-test-only by default (out/coverage/). Setting
+# KFX_FTEST_DATA_DIR to a real, proprietary KeeperFX install (not part of
+# this repo -- docs/Architecture/testing-harness.md §7.3) additionally
+# builds the ftest-driven coverage tree (out/coverage-ftest/, real
+# gameplay simulation via src/ftests/ instead of isolated unit tests) and
+# merges both into out/coverage-merged/ (scripts/merge_coverage.sh, §7.6)
+# -- the two sources hit mostly different lines (§7.7), so the merged
+# report is substantially more complete than either alone:
+#
+#   KFX_FTEST_DATA_DIR=/path/to/keeperfx/install ./build-package.sh
+#
 # Network access is needed: pkg-enginegfx clones dkfans/FXGraphics, and a
 # first run fetches every third-party dependency (see build-cmake.sh) --
 # once per build tree (out/windows/, out/linux/, out/coverage/ each fetch
@@ -83,7 +94,7 @@ build_platform_package() {
 
 build_coverage() {
     local build_dir="out/coverage"
-    local utest_targets="kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest"
+    local utest_targets="kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest"
 
     echo "==> [coverage] Configuring (native Linux, instrumented)"
     cmake -S . -B "$build_dir" -G Ninja -DKFX_OS=linux -DCMAKE_BUILD_TYPE=Debug \
@@ -106,6 +117,35 @@ build_coverage() {
     cmake --build "$build_dir" --target coverage
 
     echo "==> [coverage] Report: $build_dir/coverage-html/index.html"
+}
+
+# docs/Architecture/testing-harness.md §7: a second, independent coverage
+# source -- runs the real compiled game through src/ftests/'s registered
+# functional tests instead of Catch2 unit tests -- merged with the
+# unit-test tree's report by scripts/merge_coverage.sh (§7.6) into one
+# combined out/coverage-merged report, since the two sources hit mostly
+# different lines (§7.7: 6.34%/36.2% unit-only/merged, last measured).
+# Needs KFX_FUNCTESTING+KFX_TEST_COVERAGE in their own tree (out/
+# coverage-ftest, not out/coverage: §7.1, the two options are mutually
+# exclusive in one configure) and KFX_FTEST_DATA_DIR pointing at a real,
+# proprietary KeeperFX install (§7.3) -- gated on that being set (see the
+# main flow below), since most local runs and every CI run don't have one.
+build_ftest_coverage() {
+    local build_dir="out/coverage-ftest"
+
+    echo "==> [coverage-ftest] Configuring (native Linux, instrumented)"
+    cmake -S . -B "$build_dir" -G Ninja -DKFX_OS=linux -DCMAKE_BUILD_TYPE=Debug \
+        -DKFX_BUILD_TESTS=OFF -DKFX_FUNCTESTING=ON -DKFX_TEST_COVERAGE=ON \
+        -DKFX_FTEST_DATA_DIR="$KFX_FTEST_DATA_DIR"
+
+    # `coverage` here is a single target (§7.4): it stages the ftest data
+    # subset, runs `keeperfx -ftests -headless -exitonfailedtest` itself,
+    # then captures/renders -- no separate ctest step, unlike build_coverage
+    # above.
+    echo "==> [coverage-ftest] Building keeperfx, staging data, running ftests, generating report"
+    cmake --build "$build_dir" --target coverage
+
+    echo "==> [coverage-ftest] Report: $build_dir/coverage-html/index.html"
 }
 
 WINDOWS_STATUS="skipped (SKIP_WINDOWS=1)"
@@ -131,7 +171,14 @@ fi
 
 if [ "${SKIP_COVERAGE:-0}" != "1" ]; then
     build_coverage
-    COVERAGE_STATUS="built -> out/coverage/coverage-html/index.html"
+    COVERAGE_STATUS="built -> out/coverage/coverage-html/index.html (unit tests only; set KFX_FTEST_DATA_DIR for a merged report)"
+
+    if [ -n "${KFX_FTEST_DATA_DIR:-}" ]; then
+        build_ftest_coverage
+        echo "==> [coverage-merged] Merging unit-test + ftest reports"
+        scripts/merge_coverage.sh out/coverage out/coverage-ftest out/coverage-merged
+        COVERAGE_STATUS="built -> out/coverage-merged/coverage-html/index.html (merged unit-test + ftest)"
+    fi
 fi
 
 echo

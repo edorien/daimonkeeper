@@ -47,86 +47,130 @@ extern "C" {
 // file's own config_settings.h; the data itself belongs with them, and
 // this file is the lowest-ranked real consumer.
 const struct GamekeySettings game_key_settings[GAME_KEYS_COUNT] = {
-    {"MoveUp",                GUIStr_CtrlUp,                  KC_W, KMod_NONE,               CBtn_LS_UP,               BMV_Visible,        },       // Gkey_MoveUp
-    {"MoveDown",              GUIStr_CtrlDown,                KC_S, KMod_NONE,               CBtn_LS_DOWN,             BMV_Visible,        },       // Gkey_MoveDown
-    {"MoveLeft",              GUIStr_CtrlLeft,                KC_A, KMod_NONE,               CBtn_LS_LEFT,             BMV_Visible,        },       // Gkey_MoveLeft
-    {"MoveRight",             GUIStr_CtrlRight,               KC_D, KMod_NONE,               CBtn_LS_RIGHT,            BMV_Visible,        },       // Gkey_MoveRight
-    {"RotateMod",             GUIStr_CtrlRotate,              KC_LCONTROL, KMod_NONE,        CBtn_B,                   BMV_Visible,        },       // Gkey_RotateMod
-    {"SpeedMod",              GUIStr_CtrlSpeed,               KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        },       // Gkey_SpeedMod
-    {"RotateCW",              GUIStr_CtrlRotateLeft,          KC_DELETE, KMod_NONE,          CBtn_A|CBtn_DPAD_LEFT,    BMV_Visible,        },       // Gkey_RotateCW
-    {"RotateCCW",             GUIStr_CtrlRotateRight,         KC_PGDOWN, KMod_NONE,          CBtn_A|CBtn_DPAD_RIGHT,   BMV_Visible,        },       // Gkey_RotateCCW
-    {"ZoomIn",                GUIStr_CtrlZoomIn,              KC_HOME, KMod_NONE,            CBtn_A|CBtn_DPAD_UP,      BMV_Visible,        },       // Gkey_ZoomIn
-    {"ZoomOut",               GUIStr_CtrlZoomOut,             KC_END, KMod_NONE,             CBtn_A|CBtn_DPAD_DOWN,    BMV_Visible,        },       // Gkey_ZoomOut
-    {"ZoomRoomTreasure",      CpgStr_RoomKind1+0,             KC_T, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomTreasure
-    {"ZoomRoomLibrary",       CpgStr_RoomKind1+1,             KC_L, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomLibrary
-    {"ZoomRoomLair",          CpgStr_RoomKind1+2,             KC_L, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomLair
-    {"ZoomRoomPrison",        CpgStr_RoomKind1+3,             KC_P, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomPrison
-    {"ZoomRoomTorture",       CpgStr_RoomKind1+4,             KC_T, KMod_ALT,                CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomTorture
-    {"ZoomRoomTraining",      CpgStr_RoomKind1+5,             KC_T, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomTraining
-    {"ZoomRoomHeart",         CpgStr_RoomKind1+6,             KC_H, KMod_NONE,               CBtn_Y,                   BMV_Visible,        },       // Gkey_ZoomRoomHeart
-    {"ZoomRoomWorkshop",      CpgStr_RoomKind1+7,             KC_W, KMod_ALT,                CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomWorkshop
-    {"ZoomRoomScavenger",     CpgStr_RoomKind1+8,             KC_S, KMod_ALT,                CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomScavenger
-    {"ZoomRoomTemple",        CpgStr_RoomKind1+9,             KC_T, KMod_CONTROL,            CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomTemple
-    {"ZoomRoomGraveyard",     CpgStr_RoomKind1+10,            KC_G, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomGraveyard
-    {"ZoomRoomBarracks",      CpgStr_RoomKind1+11,            KC_B, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomBarracks
-    {"ZoomRoomHatchery",      CpgStr_RoomKind1+12,            KC_H, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomHatchery
-    {"ZoomRoomGuardPost",     CpgStr_RoomKind1+13,            KC_G, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomGuardPost
-    {"ZoomRoomBridge",        CpgStr_RoomKind1+14,            KC_B, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomBridge
-    {"ZoomRoomPortal",        CpgStr_RoomKind2,               KC_P, KMod_CONTROL,            CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomRoomPortal
-    {"ZoomToFight",           GUIStr_StateFight,              KC_F, KMod_NONE,               CBtn_X,                   BMV_Visible,        },       // Gkey_ZoomToFight
-    {"ZoomCrAnnoyed",         GUIStr_StateAnnoyed,            KC_A, KMod_ALT,                CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomCrAnnoyed
-    {"CrtrContrlMod",         CpgStr_PowerKind1,              KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        },       // Gkey_CrtrContrlMod
-    {"CrtrQueryMod",          GUIStr_Query,                   KC_Q, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_CrtrQueryMod
-    {"DumpToOldPos",          GUIStr_UndoPickup,              KC_BACK, KMod_NONE,            CBtn_NONE,                BMV_Visible,        },       // Gkey_DumpToOldPos
-    {"TogglePause",           GUIStr_Pause,                   KC_P, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_TogglePause
-    {"SwitchToMap",           GUIStr_Map,                     KC_M, KMod_NONE,               CBtn_LEFTSTICK,           BMV_Visible,        },       // Gkey_SwitchToMap
-    {"ToggleMessage",         GUIStr_ToggleMessage,           KC_E, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_ToggleMessage
-    {"SnapCamera",            GUIStr_SnapCamera,              KC_MOUSE3, KMod_NONE,          CBtn_NONE,                BMV_Visible,        },       // Gkey_SnapCamera
-    {"BestRoomSpace",         GUIStr_BestRoomSpace,           KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        },       // Gkey_BestRoomSpace
-    {"SquareRoomSpace",       GUIStr_SquareRoomSpace,         KC_LCONTROL, KMod_NONE,        CBtn_B,                   BMV_Visible,        },       // Gkey_SquareRoomSpace
-    {"RoomSpaceIncSize",      GUIStr_RoomSpaceIncrease,       KC_MOUSEWHEEL_DOWN, KMod_NONE, CBtn_NONE,                BMV_Visible,        },       // Gkey_RoomSpaceIncSize
-    {"RoomSpaceDecSize",      GUIStr_RoomSpaceDecrease,       KC_MOUSEWHEEL_UP, KMod_NONE,   CBtn_NONE,                BMV_Visible,        },       // Gkey_RoomSpaceDecSize
-    {"SellTrapOnSubtile",     GUIStr_SellTrapOnSubtile,       KC_LALT, KMod_NONE,            CBtn_NONE,                BMV_Visible,        },       // Gkey_SellTrapOnSubtile
-    {"TiltUp",                GUIStr_CtrlTiltUp,              KC_PGUP, KMod_SHIFT,           CBtn_NONE,                BMV_Visible,        },       // Gkey_TiltUp
-    {"TiltDown",              GUIStr_CtrlTiltDown,            KC_PGDOWN, KMod_SHIFT,         CBtn_NONE,                BMV_Visible,        },       // Gkey_TiltDown
-    {"TiltReset",             GUIStr_CtrlTiltReset,           KC_INSERT, KMod_SHIFT,         CBtn_NONE,                BMV_Visible,        },       // Gkey_TiltReset
-    {"Ascend",                GUIStr_CtrlAscend,              KC_X, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_Ascend
-    {"Descend",               GUIStr_CtrlDescend,             KC_Z, KMod_NONE,               CBtn_NONE,                BMV_Visible,        },       // Gkey_Descend
-    {"ScreenRecord",          GUIStr_ScreenRecord,            KC_M, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ScreenRecord,
-    {"ScreenShot",            GUIStr_ScreenShot,              KC_C, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ScreenShot,
-    {"FrameSkipIncrease",     GUIStr_FrameSkipIncrease,       KC_ADD, KMod_CONTROL,          CBtn_NONE,                BMV_Visible,        },       // Gkey_FrameSkipIncrease,
-    {"FrameSkipDecrease",     GUIStr_FrameSkipDecrease,       KC_SUBTRACT, KMod_CONTROL,     CBtn_NONE,                BMV_Visible,        },       // Gkey_FrameSkipDecrease,
-    {"ZoomMinimapIn",         GUIStr_ZoomMinimapIn,           KC_ADD, KMod_NONE,             CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomMinimapIn,
-    {"ZoomMinimapOut",        GUIStr_ZoomMinimapOut,          KC_SUBTRACT, KMod_NONE,        CBtn_NONE,                BMV_Visible,        },       // Gkey_ZoomMinimapOut,
-    {"ToggleGui",             GUIStr_ToggleGui,               KC_TAB, KMod_CONTROL,          CBtn_NONE,                BMV_Visible,        },       // Gkey_ToggleGui,
-    {"ToggleTooltips",        GUIStr_ToggleTooltips,          KC_F8, KMod_NONE,              CBtn_NONE,                BMV_Visible,        },       // Gkey_ToggleTooltips,
-    {"ExitGame",              GUIStr_ExitGame,                KC_X,   KMod_ALT,              CBtn_START|CBtn_BACK,     BMV_Visible,        },       // Gkey_ExitGame,
-    {"DisablePacketMode",     GUIStr_DisablePacketMode,       KC_T,   KMod_ALT,              CBtn_NONE,                BMV_Visible,        },       // Gkey_DisablePacketMode,
-    {"ToggleConsole",         GUIStr_ToggleConsole,           KC_GRAVE, KMod_NONE,           CBtn_NONE,                BMV_Visible,        },       // Gkey_ToggleConsole,
-    {"FinishLevel",           GUIStr_FinishLevel,             KC_SPACE, KMod_NONE,           CBtn_BACK,                BMV_Visible,        },       // Gkey_FinishLevel,
-    {"ToggleHeroHealthFlower",GUIStr_ToggleHeroHealthFlowers, KC_F, KMod_ALT,                CBtn_NONE,                BMV_Visible,        },       // Gkey_ToggleHeroHealthFlowers,
-    {"TeleportLastWorkroom",  GUIStr_TeleportLastWorkroom,    KC_SEMICOLON, KMod_NONE,       CBtn_NONE,                BMV_Visible,        },       // Gkey_TeleportLastWorkroom,
-    {"TeleportCallToArms",    GUIStr_TeleportCallToArms,      KC_SLASH, KMod_NONE,           CBtn_NONE,                BMV_Visible,        },       // Gkey_TeleportCallToArms,
-    {"TeleportDefault",       GUIStr_TeleportDefault,         KC_COMMA, KMod_NONE,           CBtn_NONE,                BMV_Visible,        },       // Gkey_TeleportDefault,
-    {"CheatMenu1",            GUIStr_MnuUnused,               KC_NUMPADENTER, KMod_NONE,     CBtn_NONE,                BMV_Hidden,         },       // Gkey_CheatMenu1,
-    {"CheatMenu2",            GUIStr_MnuUnused,               KC_F12, KMod_NONE,             CBtn_NONE,                BMV_Hidden,         },       // Gkey_CheatMenu2,
-    {"LVShowAllEnsigns",      GUIStr_MnuUnused,               KC_F11, KMod_CONTROL,          CBtn_NONE,                BMV_Hidden,         },       // Gkey_LVShowAllEnsigns,
-    {"LVNextLevel",           GUIStr_MnuUnused,               KC_F10, KMod_CONTROL,          CBtn_NONE,                BMV_Hidden,         },       // Gkey_LVNextLevel,
-    {"LVPrevLevel",           GUIStr_MnuUnused,               KC_F9,  KMod_CONTROL,          CBtn_NONE,                BMV_Hidden,         },       // Gkey_LVPrevLevel,
+    {"MoveUp",                GUIStr_CtrlUp,                  KC_W, KMod_NONE,               CBtn_LS_UP,               BMV_Visible,        NULL, },       // Gkey_MoveUp
+    {"MoveDown",              GUIStr_CtrlDown,                KC_S, KMod_NONE,               CBtn_LS_DOWN,             BMV_Visible,        NULL, },       // Gkey_MoveDown
+    {"MoveLeft",              GUIStr_CtrlLeft,                KC_A, KMod_NONE,               CBtn_LS_LEFT,             BMV_Visible,        NULL, },       // Gkey_MoveLeft
+    {"MoveRight",             GUIStr_CtrlRight,               KC_D, KMod_NONE,               CBtn_LS_RIGHT,            BMV_Visible,        NULL, },       // Gkey_MoveRight
+    {"RotateMod",             GUIStr_CtrlRotate,              KC_LCONTROL, KMod_NONE,        CBtn_B,                   BMV_Visible,        NULL, },       // Gkey_RotateMod
+    {"SpeedMod",              GUIStr_CtrlSpeed,               KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        NULL, },       // Gkey_SpeedMod
+    {"RotateCW",              GUIStr_CtrlRotateLeft,          KC_DELETE, KMod_NONE,          CBtn_A|CBtn_DPAD_LEFT,    BMV_Visible,        NULL, },       // Gkey_RotateCW
+    {"RotateCCW",             GUIStr_CtrlRotateRight,         KC_PGDOWN, KMod_NONE,          CBtn_A|CBtn_DPAD_RIGHT,   BMV_Visible,        NULL, },       // Gkey_RotateCCW
+    {"ZoomIn",                GUIStr_CtrlZoomIn,              KC_HOME, KMod_NONE,            CBtn_A|CBtn_DPAD_UP,      BMV_Visible,        NULL, },       // Gkey_ZoomIn
+    {"ZoomOut",               GUIStr_CtrlZoomOut,             KC_END, KMod_NONE,             CBtn_A|CBtn_DPAD_DOWN,    BMV_Visible,        NULL, },       // Gkey_ZoomOut
+    {"ZoomRoomTreasure",      CpgStr_RoomKind1+0,             KC_T, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomTreasure
+    {"ZoomRoomLibrary",       CpgStr_RoomKind1+1,             KC_L, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomLibrary
+    {"ZoomRoomLair",          CpgStr_RoomKind1+2,             KC_L, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomLair
+    {"ZoomRoomPrison",        CpgStr_RoomKind1+3,             KC_P, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomPrison
+    {"ZoomRoomTorture",       CpgStr_RoomKind1+4,             KC_T, KMod_ALT,                CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomTorture
+    {"ZoomRoomTraining",      CpgStr_RoomKind1+5,             KC_T, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomTraining
+    {"ZoomRoomHeart",         CpgStr_RoomKind1+6,             KC_H, KMod_NONE,               CBtn_Y,                   BMV_Visible,        NULL, },       // Gkey_ZoomRoomHeart
+    {"ZoomRoomWorkshop",      CpgStr_RoomKind1+7,             KC_W, KMod_ALT,                CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomWorkshop
+    {"ZoomRoomScavenger",     CpgStr_RoomKind1+8,             KC_S, KMod_ALT,                CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomScavenger
+    {"ZoomRoomTemple",        CpgStr_RoomKind1+9,             KC_T, KMod_CONTROL,            CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomTemple
+    {"ZoomRoomGraveyard",     CpgStr_RoomKind1+10,            KC_G, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomGraveyard
+    {"ZoomRoomBarracks",      CpgStr_RoomKind1+11,            KC_B, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomBarracks
+    {"ZoomRoomHatchery",      CpgStr_RoomKind1+12,            KC_H, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomHatchery
+    {"ZoomRoomGuardPost",     CpgStr_RoomKind1+13,            KC_G, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomGuardPost
+    {"ZoomRoomBridge",        CpgStr_RoomKind1+14,            KC_B, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomBridge
+    {"ZoomRoomPortal",        CpgStr_RoomKind2,               KC_P, KMod_CONTROL,            CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomRoomPortal
+    {"ZoomToFight",           GUIStr_StateFight,              KC_F, KMod_NONE,               CBtn_X,                   BMV_Visible,        NULL, },       // Gkey_ZoomToFight
+    {"ZoomCrAnnoyed",         GUIStr_StateAnnoyed,            KC_A, KMod_ALT,                CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomCrAnnoyed
+    {"CrtrContrlMod",         CpgStr_PowerKind1,              KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        NULL, },       // Gkey_CrtrContrlMod
+    {"CrtrQueryMod",          GUIStr_Query,                   KC_Q, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_CrtrQueryMod
+    {"DumpToOldPos",          GUIStr_UndoPickup,              KC_BACK, KMod_NONE,            CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_DumpToOldPos
+    {"TogglePause",           GUIStr_Pause,                   KC_P, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TogglePause
+    {"SwitchToMap",           GUIStr_Map,                     KC_M, KMod_NONE,               CBtn_LEFTSTICK,           BMV_Visible,        NULL, },       // Gkey_SwitchToMap
+    {"ToggleMessage",         GUIStr_ToggleMessage,           KC_E, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ToggleMessage
+    {"SnapCamera",            GUIStr_SnapCamera,              KC_MOUSE3, KMod_NONE,          CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_SnapCamera
+    {"BestRoomSpace",         GUIStr_BestRoomSpace,           KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        NULL, },       // Gkey_BestRoomSpace
+    {"SquareRoomSpace",       GUIStr_SquareRoomSpace,         KC_LCONTROL, KMod_NONE,        CBtn_B,                   BMV_Visible,        NULL, },       // Gkey_SquareRoomSpace
+    {"RoomSpaceIncSize",      GUIStr_RoomSpaceIncrease,       KC_MOUSEWHEEL_DOWN, KMod_NONE, CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_RoomSpaceIncSize
+    {"RoomSpaceDecSize",      GUIStr_RoomSpaceDecrease,       KC_MOUSEWHEEL_UP, KMod_NONE,   CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_RoomSpaceDecSize
+    {"SellTrapOnSubtile",     GUIStr_SellTrapOnSubtile,       KC_LALT, KMod_NONE,            CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_SellTrapOnSubtile
+    {"TiltUp",                GUIStr_CtrlTiltUp,              KC_PGUP, KMod_SHIFT,           CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TiltUp
+    {"TiltDown",              GUIStr_CtrlTiltDown,            KC_PGDOWN, KMod_SHIFT,         CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TiltDown
+    {"TiltReset",             GUIStr_CtrlTiltReset,           KC_INSERT, KMod_SHIFT,         CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TiltReset
+    {"Ascend",                GUIStr_CtrlAscend,              KC_X, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_Ascend
+    {"Descend",               GUIStr_CtrlDescend,             KC_Z, KMod_NONE,               CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_Descend
+    {"ScreenRecord",          GUIStr_ScreenRecord,            KC_M, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ScreenRecord,
+    {"ScreenShot",            GUIStr_ScreenShot,              KC_C, KMod_SHIFT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ScreenShot,
+    {"FrameSkipIncrease",     GUIStr_FrameSkipIncrease,       KC_ADD, KMod_CONTROL,          CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_FrameSkipIncrease,
+    {"FrameSkipDecrease",     GUIStr_FrameSkipDecrease,       KC_SUBTRACT, KMod_CONTROL,     CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_FrameSkipDecrease,
+    {"ZoomMinimapIn",         GUIStr_ZoomMinimapIn,           KC_ADD, KMod_NONE,             CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomMinimapIn,
+    {"ZoomMinimapOut",        GUIStr_ZoomMinimapOut,          KC_SUBTRACT, KMod_NONE,        CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ZoomMinimapOut,
+    {"ToggleGui",             GUIStr_ToggleGui,               KC_TAB, KMod_CONTROL,          CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ToggleGui,
+    {"ToggleTooltips",        GUIStr_ToggleTooltips,          KC_F8, KMod_NONE,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ToggleTooltips,
+    {"ExitGame",              GUIStr_ExitGame,                KC_X,   KMod_ALT,              CBtn_START|CBtn_BACK,     BMV_Visible,        NULL, },       // Gkey_ExitGame,
+    {"DisablePacketMode",     GUIStr_DisablePacketMode,       KC_T,   KMod_ALT,              CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_DisablePacketMode,
+    {"ToggleConsole",         GUIStr_ToggleConsole,           KC_GRAVE, KMod_NONE,           CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ToggleConsole,
+    {"FinishLevel",           GUIStr_FinishLevel,             KC_SPACE, KMod_NONE,           CBtn_BACK,                BMV_Visible,        NULL, },       // Gkey_FinishLevel,
+    {"ToggleHeroHealthFlower",GUIStr_ToggleHeroHealthFlowers, KC_F, KMod_ALT,                CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_ToggleHeroHealthFlowers,
+    {"TeleportLastWorkroom",  GUIStr_TeleportLastWorkroom,    KC_SEMICOLON, KMod_NONE,       CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TeleportLastWorkroom,
+    {"TeleportCallToArms",    GUIStr_TeleportCallToArms,      KC_SLASH, KMod_NONE,           CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TeleportCallToArms,
+    {"TeleportDefault",       GUIStr_TeleportDefault,         KC_COMMA, KMod_NONE,           CBtn_NONE,                BMV_Visible,        NULL, },       // Gkey_TeleportDefault,
+    {"CheatMenu1",            GUIStr_MnuUnused,               KC_NUMPADENTER, KMod_NONE,     CBtn_NONE,                BMV_Hidden,         NULL, },       // Gkey_CheatMenu1,
+    {"CheatMenu2",            GUIStr_MnuUnused,               KC_F12, KMod_NONE,             CBtn_NONE,                BMV_Hidden,         NULL, },       // Gkey_CheatMenu2,
+    {"LVShowAllEnsigns",      GUIStr_MnuUnused,               KC_F11, KMod_CONTROL,          CBtn_NONE,                BMV_Hidden,         NULL, },       // Gkey_LVShowAllEnsigns,
+    {"LVNextLevel",           GUIStr_MnuUnused,               KC_F10, KMod_CONTROL,          CBtn_NONE,                BMV_Hidden,         NULL, },       // Gkey_LVNextLevel,
+    {"LVPrevLevel",           GUIStr_MnuUnused,               KC_F9,  KMod_CONTROL,          CBtn_NONE,                BMV_Hidden,         NULL, },       // Gkey_LVPrevLevel,
     //TODO these are currently fixed, as controllers can't be reconfigured yet
-    {"NextInstance",          GUIStr_NextInstance,            KC_UNASSIGNED, KMod_NONE,      CBtn_RIGHTSHOULDER,       BMV_ControllerOnly, },       // Gkey_NextInstance,
-    {"PrevInstance",          GUIStr_PrevInstance,            KC_UNASSIGNED, KMod_NONE,      CBtn_LEFTSHOULDER,        BMV_ControllerOnly, },       // Gkey_PrevInstance,
-    {"ButtonSnapLeft",        GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_LEFT,           BMV_ControllerOnly, },       // Gkey_ButtonSnapLeft,
-    {"ButtonSnapRight",       GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_RIGHT,          BMV_ControllerOnly, },       // Gkey_ButtonSnapRight,
-    {"ButtonSnapUp",          GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_UP,             BMV_ControllerOnly, },       // Gkey_ButtonSnapUp,
-    {"ButtonSnapDown",        GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_DOWN,           BMV_ControllerOnly, },       // Gkey_ButtonSnapDown,
-    {"PauseMenu",             GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_START,               BMV_ControllerOnly, },       // Gkey_PauseMenu,
-    {"LeftClick",             GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_R2,                  BMV_ControllerOnly, },       // Gkey_LeftClick,
-    {"RightClick",            GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_L2,                  BMV_ControllerOnly, },       // Gkey_RightClick,
-    {"MouseUp",               GUIStr_CtrlUp,                  KC_UNASSIGNED, KMod_NONE,      CBtn_RS_UP,               BMV_ControllerOnly, },       // Gkey_MouseUp
-    {"MouseDown",             GUIStr_CtrlDown,                KC_UNASSIGNED, KMod_NONE,      CBtn_RS_DOWN,             BMV_ControllerOnly, },       // Gkey_MouseDown
-    {"MouseLeft",             GUIStr_CtrlLeft,                KC_UNASSIGNED, KMod_NONE,      CBtn_RS_LEFT,             BMV_ControllerOnly, },       // Gkey_MouseLeft
-    {"MouseRight",            GUIStr_CtrlRight,               KC_UNASSIGNED, KMod_NONE,      CBtn_RS_RIGHT,            BMV_ControllerOnly, },       // Gkey_MouseRight
+    {"NextInstance",          GUIStr_NextInstance,            KC_UNASSIGNED, KMod_NONE,      CBtn_RIGHTSHOULDER,       BMV_ControllerOnly, NULL, },       // Gkey_NextInstance,
+    {"PrevInstance",          GUIStr_PrevInstance,            KC_UNASSIGNED, KMod_NONE,      CBtn_LEFTSHOULDER,        BMV_ControllerOnly, NULL, },       // Gkey_PrevInstance,
+    {"ButtonSnapLeft",        GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_LEFT,           BMV_ControllerOnly, NULL, },       // Gkey_ButtonSnapLeft,
+    {"ButtonSnapRight",       GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_RIGHT,          BMV_ControllerOnly, NULL, },       // Gkey_ButtonSnapRight,
+    {"ButtonSnapUp",          GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_UP,             BMV_ControllerOnly, NULL, },       // Gkey_ButtonSnapUp,
+    {"ButtonSnapDown",        GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_DPAD_DOWN,           BMV_ControllerOnly, NULL, },       // Gkey_ButtonSnapDown,
+    {"PauseMenu",             GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_START,               BMV_ControllerOnly, NULL, },       // Gkey_PauseMenu,
+    {"LeftClick",             GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_R2,                  BMV_ControllerOnly, NULL, },       // Gkey_LeftClick,
+    {"RightClick",            GUIStr_Keeper,                  KC_UNASSIGNED, KMod_NONE,      CBtn_L2,                  BMV_ControllerOnly, NULL, },       // Gkey_RightClick,
+    {"MouseUp",               GUIStr_CtrlUp,                  KC_UNASSIGNED, KMod_NONE,      CBtn_RS_UP,               BMV_ControllerOnly, NULL, },       // Gkey_MouseUp
+    {"MouseDown",             GUIStr_CtrlDown,                KC_UNASSIGNED, KMod_NONE,      CBtn_RS_DOWN,             BMV_ControllerOnly, NULL, },       // Gkey_MouseDown
+    {"MouseLeft",             GUIStr_CtrlLeft,                KC_UNASSIGNED, KMod_NONE,      CBtn_RS_LEFT,             BMV_ControllerOnly, NULL, },       // Gkey_MouseLeft
+    {"MouseRight",            GUIStr_CtrlRight,               KC_UNASSIGNED, KMod_NONE,      CBtn_RS_RIGHT,            BMV_ControllerOnly, NULL, },       // Gkey_MouseRight
+};
+
+// docs/refactor/editor/10-definable-keybindings.md -- editor keybindings'
+// own table (EditorGameKeys, globals.h), separate from game_key_settings[]
+// above. KC_DELETE (the manual's own suggested eraser default) is already
+// Gkey_RotateCW's default in game_key_settings[] -- found while first
+// picking a default for this key, before it had its own separate table;
+// KC_R ("Remove") is free. label_literal (not GUIStr_Empty via string_id)
+// supplies the Define-Keys menu label -- see GamekeySettings's own comment
+// for why.
+const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
+    {"EditorEraseTool",       GUIStr_Empty,                   KC_R, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Erase Tool", },  // Gkey_EditorEraseTool,
+    // Camera/console keys, duplicated from game_key_settings[] rather than
+    // shared with it (docs/refactor/editor/10-definable-keybindings.md) --
+    // get_isometric_view_nonaction_inputs()/the console-toggle check
+    // (front_input.c) read these instead of the Gkey_* originals while an
+    // editor session is active. Defaults copied verbatim from the matching
+    // game_key_settings[] row -- duplicating a physical default key across
+    // two independent tables causes no collision (that's the whole point
+    // of separate storage), and reusing the *same* GUIStr_* label as the
+    // gameplay counterpart is correct here (unlike EditorEraseTool above,
+    // "Move Up"/"Rotate CW"/etc. mean the exact same thing in both tables,
+    // so there's a real localized string to reuse, not a label-less new
+    // concept needing label_literal).
+    {"EditorMoveUp",          GUIStr_CtrlUp,                  KC_W, KMod_NONE,               CBtn_LS_UP,               BMV_Visible,        NULL, },  // Gkey_EditorMoveUp
+    {"EditorMoveDown",        GUIStr_CtrlDown,                KC_S, KMod_NONE,               CBtn_LS_DOWN,             BMV_Visible,        NULL, },  // Gkey_EditorMoveDown
+    {"EditorMoveLeft",        GUIStr_CtrlLeft,                KC_A, KMod_NONE,               CBtn_LS_LEFT,             BMV_Visible,        NULL, },  // Gkey_EditorMoveLeft
+    {"EditorMoveRight",       GUIStr_CtrlRight,               KC_D, KMod_NONE,               CBtn_LS_RIGHT,            BMV_Visible,        NULL, },  // Gkey_EditorMoveRight
+    {"EditorRotateMod",       GUIStr_CtrlRotate,              KC_LCONTROL, KMod_NONE,        CBtn_B,                   BMV_Visible,        NULL, },  // Gkey_EditorRotateMod
+    {"EditorSpeedMod",        GUIStr_CtrlSpeed,               KC_LSHIFT, KMod_NONE,          CBtn_A,                   BMV_Visible,        NULL, },  // Gkey_EditorSpeedMod
+    {"EditorRotateCW",        GUIStr_CtrlRotateLeft,          KC_DELETE, KMod_NONE,          CBtn_A|CBtn_DPAD_LEFT,    BMV_Visible,        NULL, },  // Gkey_EditorRotateCW
+    {"EditorRotateCCW",       GUIStr_CtrlRotateRight,         KC_PGDOWN, KMod_NONE,          CBtn_A|CBtn_DPAD_RIGHT,   BMV_Visible,        NULL, },  // Gkey_EditorRotateCCW
+    {"EditorZoomIn",          GUIStr_CtrlZoomIn,              KC_HOME, KMod_NONE,            CBtn_A|CBtn_DPAD_UP,      BMV_Visible,        NULL, },  // Gkey_EditorZoomIn
+    {"EditorZoomOut",         GUIStr_CtrlZoomOut,             KC_END, KMod_NONE,             CBtn_A|CBtn_DPAD_DOWN,    BMV_Visible,        NULL, },  // Gkey_EditorZoomOut
+    {"EditorTiltUp",          GUIStr_CtrlTiltUp,              KC_PGUP, KMod_SHIFT,           CBtn_NONE,                BMV_Visible,        NULL, },  // Gkey_EditorTiltUp
+    {"EditorTiltDown",        GUIStr_CtrlTiltDown,            KC_PGDOWN, KMod_SHIFT,         CBtn_NONE,                BMV_Visible,        NULL, },  // Gkey_EditorTiltDown
+    {"EditorTiltReset",       GUIStr_CtrlTiltReset,           KC_INSERT, KMod_SHIFT,         CBtn_NONE,                BMV_Visible,        NULL, },  // Gkey_EditorTiltReset
+    {"EditorToggleConsole",   GUIStr_ToggleConsole,           KC_GRAVE, KMod_NONE,           CBtn_NONE,                BMV_Visible,        NULL, },  // Gkey_EditorToggleConsole,
+    // Tool-switch hotkeys (docs/refactor/editor/10-definable-keybindings.md)
+    // -- editor-specific tool names, no existing GUIStr_*, so label_literal
+    // like EditorEraseTool above rather than a gameplay-shared string.
+    {"EditorTerrainTool",     GUIStr_Empty,                   KC_T, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Terrain Tool", },     // Gkey_EditorTerrainTool,
+    {"EditorQueryTool",       GUIStr_Empty,                   KC_Q, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Query Tool", },       // Gkey_EditorQueryTool,
+    {"EditorEyedropperTool",  GUIStr_Empty,                   KC_E, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Eyedropper Tool", },  // Gkey_EditorEyedropperTool,
 };
 
 // Mirror engine_camera.h's camera zoom/tilt bounds, used here only as
@@ -490,6 +534,14 @@ void setup_default_settings(void)
         settings.kbkeys[i].mods = game_key_settings[i].default_mods;
         settings.kbkeys[i].controller_buttons = game_key_settings[i].default_controller_buttons;
     }
+    // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+    // separate table.
+    for (int i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
+    {
+        settings.editor_kbkeys[i].code = editor_key_settings[i].default_code;
+        settings.editor_kbkeys[i].mods = editor_key_settings[i].default_mods;
+        settings.editor_kbkeys[i].controller_buttons = editor_key_settings[i].default_controller_buttons;
+    }
 }
 
 TbBool load_settings(void)
@@ -598,6 +650,35 @@ TbBool load_settings(void)
         }
     }
 
+    /* [editor_keys] -- docs/refactor/editor/10-definable-keybindings.md,
+       same shape as [keys] above but editor keybindings' own separate
+       TOML section/array, not sharing game_key_settings[]'s namespace. */
+    vsec = value_dict_get(&root, "editor_keys");
+    if (vsec)
+    {
+        for (int i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
+        {
+            val = value_dict_get(vsec, editor_key_settings[i].toml_name);
+            if (val && value_type(val) == VALUE_DICT)
+            {
+                VALUE *vcode = value_dict_get(val, "code");
+                VALUE *vmods = value_dict_get(val, "mods");
+                VALUE *vcontroller_buttons = value_dict_get(val, "controller_buttons");
+                if (vcode && value_type(vcode) == VALUE_STRING)
+                    settings.editor_kbkeys[i].code = name_to_keycode(value_string(vcode));
+                if (vmods && value_type(vmods) == VALUE_STRING)
+                    settings.editor_kbkeys[i].mods = name_to_kmod(value_string(vmods));
+                if (vcontroller_buttons)
+                {
+                    if (value_type(vcontroller_buttons) == VALUE_STRING)
+                        settings.editor_kbkeys[i].controller_buttons = name_to_controller_buttons(value_string(vcontroller_buttons));
+                    else if (value_type(vcontroller_buttons) == VALUE_INT32)
+                        settings.editor_kbkeys[i].controller_buttons = (TbControllerButtons)(unsigned int)value_int32(vcontroller_buttons);
+                }
+            }
+        }
+    }
+
     value_fini(&root);
 
     // sanity checks
@@ -668,6 +749,21 @@ short save_settings(void)
         TOSAVE("%s = { code = \"%s\", mods = \"%s\", controller_buttons = \"%s\" }\n",
             game_key_settings[i].toml_name,
             keycode_to_name(settings.kbkeys[i].code),
+            mods_buf,
+            controller_buttons_buf);
+    }
+    // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+    // section, same shape as [keys] above but not sharing its namespace.
+    TOSAVE("\n[editor_keys]\n");
+    for (int i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
+    {
+        char mods_buf[32];
+        char controller_buttons_buf[512];
+        kmod_to_name(settings.editor_kbkeys[i].mods, mods_buf, sizeof(mods_buf));
+        controller_buttons_to_name(settings.editor_kbkeys[i].controller_buttons, controller_buttons_buf, sizeof(controller_buttons_buf));
+        TOSAVE("%s = { code = \"%s\", mods = \"%s\", controller_buttons = \"%s\" }\n",
+            editor_key_settings[i].toml_name,
+            keycode_to_name(settings.editor_kbkeys[i].code),
             mods_buf,
             controller_buttons_buf);
     }

@@ -111,6 +111,24 @@ void land_preview_draw(struct GuiButton *gbtn);
 // afterward, so the legacy screen (which never touches this) is
 // unaffected. extra_den <= 0 is treated as 1 (no change).
 void land_preview_set_frame_extra_scale_den(long extra_den);
+
+// docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- exported for
+// the editor's Open Map dialog (kfx_editor, ranks above kfx_frontend) to
+// draw its own lightweight per-row thumbnail, without pulling in the full
+// LandPreviewPanel pan/zoom/ornate-frame machinery land_preview_load()
+// drives. Reads a level's map%05u.slb/.own files directly off disk (see
+// the .c file's own comment) -- never touches kfx_sim_state, safe to call
+// just for browsing. Returns false (and leaves the minimap empty) if the
+// level has no .slb file at all.
+TbBool land_preview_build_minimap(LevelNumber lvnum);
+void land_preview_free_minimap(void);
+// 0 if land_preview_build_minimap() hasn't been called yet, or failed.
+long land_preview_minimap_width(void);
+long land_preview_minimap_height(void);
+// Out-of-range x/y (or an empty minimap) returns SlbT_ROCK's own colour
+// rather than asserting -- callers should still check width()/height()
+// first to size their loop, this is just a safety net.
+void land_preview_minimap_pixel_rgb(long x, long y, unsigned char *r, unsigned char *g, unsigned char *b);
 /******************************************************************************/
 #ifdef __cplusplus
 }

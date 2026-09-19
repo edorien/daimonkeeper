@@ -18,6 +18,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "bflib_dernc.h"
+#include "bflib_fileio.h" // LbFileExists -- LbFileSaveAtomic's own .tmp-cleanup test
 
 #include <cstdio>
 #include <cstring>
@@ -97,4 +98,49 @@ TEST_CASE("calculate_file_checksum returns 0 for a nonexistent file", "[kfx_plat
     // -1 -- confirmed empirically, not assumed, since it's not obvious
     // from the macro alone.
     CHECK(calculate_file_checksum("kfx_platform_utest_dernc_definitely_missing.bin") == (TbBigChecksum)-1);
+}
+
+// docs/refactor/editor/phase3/05-slice6-atomic-write-lif.md --
+// LbFileSaveAtomic()'s own scratch file, plus its "<file>.tmp" sibling --
+// cleaned up on both ends of the fixture the same way ScratchFile above
+// cleans kTestFile, so a failed assertion mid-test still doesn't leak a
+// stray .tmp file for the next test run to trip over.
+namespace {
+const char *kAtomicTestFile = "kfx_platform_utest_dernc_atomic_test.bin";
+const char *kAtomicTestFileTmp = "kfx_platform_utest_dernc_atomic_test.bin.tmp";
+
+struct ScratchAtomicFile {
+    ScratchAtomicFile() { std::remove(kAtomicTestFile); std::remove(kAtomicTestFileTmp); }
+    ~ScratchAtomicFile() { std::remove(kAtomicTestFile); std::remove(kAtomicTestFileTmp); }
+};
+}
+
+TEST_CASE_METHOD(ScratchAtomicFile, "LbFileSaveAtomic writes a new file whose content round-trips", "[kfx_platform][bflib_dernc]") {
+    const char *payload = "atomic write, first time";
+    CHECK(LbFileSaveAtomic(kAtomicTestFile, payload, std::strlen(payload)));
+
+    char read_back[64] = {0};
+    long loaded = LbFileLoadAt(kAtomicTestFile, read_back);
+    CHECK(loaded == (long)std::strlen(payload));
+    CHECK(std::strncmp(read_back, payload, std::strlen(payload)) == 0);
+}
+
+TEST_CASE_METHOD(ScratchAtomicFile, "LbFileSaveAtomic replaces an existing file's content", "[kfx_platform][bflib_dernc]") {
+    const char *original = "the original content, somewhat longer than the replacement";
+    LbFileSaveAt(kAtomicTestFile, original, std::strlen(original));
+
+    const char *replacement = "replaced";
+    CHECK(LbFileSaveAtomic(kAtomicTestFile, replacement, std::strlen(replacement)));
+
+    char read_back[128] = {0};
+    long loaded = LbFileLoadAt(kAtomicTestFile, read_back);
+    CHECK(loaded == (long)std::strlen(replacement));
+    CHECK(std::strncmp(read_back, replacement, std::strlen(replacement)) == 0);
+}
+
+TEST_CASE_METHOD(ScratchAtomicFile, "LbFileSaveAtomic leaves no .tmp sibling behind after a successful save", "[kfx_platform][bflib_dernc]") {
+    const char *payload = "no leftovers";
+    REQUIRE(LbFileSaveAtomic(kAtomicTestFile, payload, std::strlen(payload)));
+    CHECK(LbFileExists(kAtomicTestFileTmp) == 0);
+    CHECK(LbFileExists(kAtomicTestFile) != 0);
 }

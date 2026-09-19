@@ -43,6 +43,7 @@
 #include "thing_physics.h"
 #include "power_hand.h"
 #include "player_utils.h"
+#include "map_columns.h" // get_floor_height_at() -- level_editor_go_spectator_at()
 #include "config_players.h"
 #include "room_workshop.h"
 #include "magic_powers.h"
@@ -1449,6 +1450,31 @@ void level_lost_go_first_person(PlayerNumber plyr_idx)
         return;
     }
     struct Coord3d mappos = spawn_creatng->mappos;
+    thing = create_and_control_creature_as_controller(player, spectator_breed, &mappos);
+    if (thing_is_invalid(thing)) {
+        ERRORLOG("Unable to create spectator creature");
+        return;
+    }
+    move_creature_to_nearest_valid_position(thing);
+    cctrl = creature_control_get_from_thing(thing);
+    cctrl->creature_control_flags |= CCFlg_NoCompControl;
+    SYNCDBG(8,"Finished");
+}
+
+void level_editor_go_spectator_at(PlayerNumber plyr_idx, MapCoord pos_x, MapCoord pos_y)
+{
+    struct CreatureControl *cctrl;
+    struct PlayerInfo *player;
+    struct Thing *thing;
+    ThingModel spectator_breed;
+    SYNCDBG(6,"Starting for player %d",(int)plyr_idx);
+    player = get_player(plyr_idx);
+    spectator_breed = get_players_spectator_model(plyr_idx);
+    player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(get_player_active_camera(player));
+    struct Coord3d mappos;
+    mappos.x.val = pos_x;
+    mappos.y.val = pos_y;
+    mappos.z.val = get_floor_height_at(&mappos);
     thing = create_and_control_creature_as_controller(player, spectator_breed, &mappos);
     if (thing_is_invalid(thing)) {
         ERRORLOG("Unable to create spectator creature");

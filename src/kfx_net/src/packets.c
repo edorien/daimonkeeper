@@ -53,6 +53,7 @@
 #include "config_terrain.h"
 #include "config_settings.h"
 #include "config_keeperfx.h"
+#include "editor_callbacks.h" // is_active(), for the editor's own looser zoom-out floor
 #include "player_instances.h"
 #include "player_computer.h"
 #include "player_data.h"
@@ -437,7 +438,16 @@ void process_camera_controls(struct Camera* cam, const struct Packet* pckt, stru
             break;
         }
     }
-    const int32_t zoom_min = max(CAMERA_ZOOM_MIN, kfx_config_state.zoom_distance_setting);
+    // docs/refactor/editor/04-views-camera-overlays.md -- editor camera
+    // profile. An editor session bypasses the gameplay zoom_distance_setting
+    // comfort floor (which can restrict a player's own zoom-out well above
+    // the true hard floor) and uses EDITOR_CAMERA_ZOOM_MIN instead -- looser
+    // than CAMERA_ZOOM_MIN itself, since gameplay's own hard floor was tuned
+    // for play, not for surveying a whole map while editing. zoom_max is
+    // left at the gameplay value; no evidence yet that the zoom-in limit
+    // needs loosening too.
+    const int32_t zoom_min = editor_callbacks->is_active() ? EDITOR_CAMERA_ZOOM_MIN
+        : max(CAMERA_ZOOM_MIN, kfx_config_state.zoom_distance_setting);
     const int32_t zoom_max = CAMERA_ZOOM_MAX;
     const TbBool use_zoom_pos = flag_is_set(pckt->control_flags, PCtr_ViewZoomPos | PCtr_MapCoordsValid);
     const MapCoord zoom_x = use_zoom_pos ? pckt->pos_x : -1;

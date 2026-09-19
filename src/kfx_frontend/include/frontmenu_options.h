@@ -76,6 +76,9 @@ void frontend_define_key_maintain(struct GuiButton *gbtn);
 void frontend_draw_define_key_scroll_tab(struct GuiButton *gbtn);
 void frontend_draw_define_key(struct GuiButton *gbtn);
 void frontend_format_key_binding(long key_id, char *text, size_t text_size);
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// counterpart (settings.editor_kbkeys[]/EditorGameKeys, globals.h).
+void frontend_format_editor_key_binding(long key_id, char *text, size_t text_size);
 uint8_t num_definable_keys(void);
 void frontend_set_mouse_sensitivity(struct GuiButton *gbtn);
 void frontend_invert_mouse(struct GuiButton *gbtn);

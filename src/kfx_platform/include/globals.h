@@ -1611,6 +1611,57 @@ enum GameKeys {
     GAME_KEYS_COUNT
 };
 
+// docs/refactor/editor/10-definable-keybindings.md -- a separate key-binding
+// namespace/storage for the in-game level editor, instead of folding editor
+// shortcuts into GameKeys/game_key_settings[]/settings.kbkeys[] above. Most
+// editor functions have no gameplay counterpart to collide with, so sharing
+// one flat ~90-entry table just eats into that shared key space for no
+// benefit -- separate storage means the editor can pick whatever keys make
+// sense for it without the insertion-ordering/contiguity care
+// GameKeys/BMV_Visible needed (see 10's own §2.2), and vice versa.
+// Persisted, defaulted, and displayed the same way as GameKeys (a parallel
+// settings.editor_kbkeys[EDITOR_GAME_KEYS_COUNT] + editor_key_settings[]
+// table + its own Define-Keys-menu tab), just never mixed into the same
+// array or enum.
+enum EditorGameKeys {
+    Gkey_EditorEraseTool = 0,
+    // docs/refactor/editor/10-definable-keybindings.md -- camera/console
+    // keys duplicated in from GameKeys, not shared with it: an editor
+    // session's own camera navigation (get_isometric_view_nonaction_inputs(),
+    // front_input.c) and console toggle read these instead of the gameplay
+    // Gkey_MoveUp/etc. once an editor session is active, so the two can be
+    // rebound independently -- the whole point of separate storage (10's
+    // own intro) only pays off if editor code actually reads from it
+    // instead of silently falling through to the gameplay table for
+    // everything except the one tool shortcut added so far.
+    Gkey_EditorMoveUp,
+    Gkey_EditorMoveDown,
+    Gkey_EditorMoveLeft,
+    Gkey_EditorMoveRight,
+    Gkey_EditorRotateMod,
+    Gkey_EditorSpeedMod,
+    Gkey_EditorRotateCW,
+    Gkey_EditorRotateCCW,
+    Gkey_EditorZoomIn,
+    Gkey_EditorZoomOut,
+    Gkey_EditorTiltUp,
+    Gkey_EditorTiltDown,
+    Gkey_EditorTiltReset,
+    Gkey_EditorToggleConsole,
+    // docs/refactor/editor/10-definable-keybindings.md -- tool-switch
+    // hotkeys, first 3 of the toolbox's 12 tools (plus Gkey_EditorEraseTool
+    // above): the ones toggled back to constantly *and* usable standalone,
+    // with no follow-up model-picker click needed the way
+    // Creature/Object/Trap/Door/Fill/Stamp all need -- picked as the
+    // highest-value subset rather than giving all 12 tools a hotkey
+    // (diminishing returns once a tool's own picker click dominates the
+    // total action anyway). More can be added later if needed.
+    Gkey_EditorTerrainTool,
+    Gkey_EditorQueryTool,
+    Gkey_EditorEyedropperTool,
+    EDITOR_GAME_KEYS_COUNT
+};
+
 /**
  * Type to store menu number.
  */

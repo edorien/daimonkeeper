@@ -30,6 +30,18 @@ jobs:
         sudo apt update
         sudo apt install -y build-essential g++-mingw-w64-i686 cmake ninja-build libpng16-16t64 7zip
 
+    # Dependencies.cmake cross-compiles every non-SDL3 third-party dep from
+    # source for this mingw32 target (ffmpeg/curl/openal/luajit included) --
+    # cache the build output (deps/.cache-mingw32/, not out/_deps:
+    # Dependencies.cmake deliberately caches outside the out/ build tree)
+    # so a re-run doesn't redo all of that. Shared with build-prototype.yml
+    # and build-release-patch-unsigned.yml's identical mingw32 build.
+    - name: Cache third-party dependencies
+      uses: actions/cache@v4
+      with:
+        path: deps/.cache-mingw32
+        key: ${{ runner.os }}-kfx-deps-mingw32-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
+
     - name: Build gfx
       run: |
         set -eux

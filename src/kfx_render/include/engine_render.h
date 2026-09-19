@@ -32,7 +32,25 @@ extern "C" {
 struct PlayerInfo;
 struct Camera;
 /******************************************************************************/
-#define POLY_POOL_SIZE 16777216 // Originally 262144, adjusted for view distance
+// docs/refactor/editor/phase4/05-live-test-fixes.md -- bumped 16777216 ->
+// 67108864 (4x) after live-testing confirmed this, not the horizon-scan
+// clamp (MAX_I_CAN_SEE_OVERHEAD/MINMAX_LENGTH -- ruled out first, that fix
+// stays for its own sake but didn't touch this bug), is the real cause of
+// the editor's zoom-out render dropout: a diagnostic added to
+// engine_render.c's draw_view() (editor_callbacks->is_active()-gated, a
+// peak-usage WARNLOG) confirmed poly_pool filling to exactly
+// 16777216/16777216 bytes during a reproduction, at which point every one
+// of the dozens of "if (getpoly < poly_pool_end)" terrain-column insertion
+// checks throughout engine_render.c starts silently no-op'ing for the rest
+// of that frame -- a clean "everything past this point in iteration order
+// just doesn't render" cutoff, matching the reported symptom exactly. Cost
+// is a single global/static byte array (`poly_pool[]`), no stack or
+// per-frame-scan-cost concern (same "measure it, it's cheap" reasoning
+// already applied to MINMAX_LENGTH): going from 16MB to 64MB is trivial on
+// any system this fork targets, and normal (non-editor) gameplay's own
+// usage -- which the array's history says has never approached even the
+// old 16MB ceiling -- is completely unaffected either way.
+#define POLY_POOL_SIZE 67108864 // Originally 262144, adjusted for view distance
 #define Z_DRAW_DISTANCE_MAX 65536 // Originally 11232, adjusted for view distance
 #define BUCKETS_COUNT 4098 // Originally 704, adjusted for view distance. (65536/16)+2
 #define BUCKETS_STEP 16 // Bucket size in Z steps
@@ -156,6 +174,18 @@ void setup_rotate_stuff(long a1, long a2, long a3, long a4, long a5, long a6, lo
 void process_keeper_sprite(short x, short y, unsigned short a3, short kspr_angle, unsigned char a5, long a6);
 void draw_status_sprites(long a1, long a2, struct Thing *thing);
 void draw_map_volume_box(long cor1_x, long cor1_y, long cor2_x, long cor2_y, long floor_height_z, unsigned char color);
+// docs/refactor/editor/04-views-camera-overlays.md -- world-space overlay
+// projection primitive. Unlike draw_map_volume_box() above (which just sets
+// state consumed *during* this frame's own 3D render pass), this is meant
+// to be called *after* that pass already ran, from an ImGui overlay drawn
+// on top of the finished frame (map_x_pos/map_y_pos/map_z_pos/
+// camera_matrix are already current for the frame just rendered by the
+// time any ImGui callback runs -- confirmed via RendererSoftware.cpp's own
+// present-step ordering). Returns false (screen_x/screen_y left
+// unmodified) when the point is behind the camera or off the visible
+// frustum/screen edges, mirroring rotpers()'s own clip_flags convention
+// (any nonzero flag means "don't draw this").
+TbBool project_world_position_to_screen(MapCoord x, MapCoord y, MapCoord z, long *screen_x, long *screen_y);
 
 void update_engine_settings(struct PlayerInfo *player);
 void draw_view(struct Camera *cam, unsigned char a2);

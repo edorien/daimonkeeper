@@ -21,6 +21,9 @@ target_link_libraries(kfx_platform_utest PRIVATE
     imgui # same two-levels-of-INTERFACE-indirection object-linking gap as
           # centitoml elsewhere (root CMakeLists.txt) -- kfx_platform now
           # links ImGuiContext.cpp, which needs imgui's compiled object.
+    tinyfiledialogs # same gap -- kfx_platform now links
+                    # bflib_filedialogs.cpp, which needs tinyfiledialogs's
+                    # compiled object.
     Catch2::Catch2WithMain)
 
 include(CTest)

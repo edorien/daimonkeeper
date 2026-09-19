@@ -48,6 +48,18 @@ long convert_old_column_file(LevelNumber lv_num);
 
 TbBool load_map_file(LevelNumber lvnum);
 
+// docs/refactor/editor/phase3/00-slice1-native-save.md -- general loader
+// robustness, not editor-specific: derives every slab's columns (col_idx/
+// columns_data[]) from its own kind via place_single_slab_type_on_map(),
+// the same per-slab primitive create_blank_map()'s own "Pass 2" loop
+// already uses to build a brand-new map's geometry from nothing but slab
+// kinds. load_level_file() calls this when .dat/.clm are absent instead of
+// silently proceeding with an empty column table. Returns false (without
+// partially regenerating the rest of the map) if any slab's kind is out of
+// range for the current config -- a genuinely corrupt/unregenerable map,
+// not something to clamp-and-continue.
+TbBool regenerate_derived_map_data(void);
+
 // docs/refactor/editor/01-entry-and-editor-session.md §5 -- builds a fresh,
 // editable blank map (earth interior, rock border, neutral ownership) at
 // lvnum instead of reading one from disk. Called from kfx_game's

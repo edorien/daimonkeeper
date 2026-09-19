@@ -586,8 +586,20 @@ TbBool level_lof_file_parse(const char *fname, char *buf, long len)
               }
             }
             break;
-        case 10: // AUTHOR
         case 11: // DESCRIPTION
+            // docs/refactor/editor/05-script-and-level-settings.md -- the
+            // struct field already existed (LevelInformation::description,
+            // config_campaigns.h) but nothing populated it; AUTHOR has no
+            // equivalent field yet and stays ignored below, same as DATE/
+            // MAP_FORMAT_VERSION.
+            if (get_conf_parameter_whole(buf,&pos,len,lvinfo->description,LEVEL_DESCRIPTION_LEN) <= 0)
+            {
+              WARNMSG("Couldn't read \"%s\" parameter in LOF file '%s'.",
+                  COMMAND_TEXT(cmd_num),fname);
+              break;
+            }
+            break;
+        case 10: // AUTHOR
         case 12: // DATE
         case 14: // MAP_FORMAT_VERSION
             // As for now, ignore these
@@ -1439,6 +1451,38 @@ void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short 
     SYNCDBG(19, "Finished");
 }
 
+// docs/refactor/editor/phase3/00-slice1-native-save.md -- see this
+// function's own declaration (lvl_filesdk1.h) for why it exists. Mirrors
+// create_blank_map()'s own "Pass 2" loop (this file, below): every slab's
+// kind is already final by the time this runs (called from load_level_file()
+// only after load_map_slab_file() has set every slb->kind from .slb), so
+// deriving columns from it needs no neighbour-kind ordering care beyond
+// what place_single_slab_type_on_map() itself already does per slab.
+//
+// Deliberately does NOT also call initialise_map_collides()/
+// initialise_map_health()/initialise_extra_slab_info() -- load_map_slab_file()
+// already calls all three unconditionally, and both are purely functions of
+// each slab's own kind (not the column table this regenerates), so they're
+// already correct regardless of whether .dat/.clm were present.
+TbBool regenerate_derived_map_data(void)
+{
+    for (MapSlabCoord y = 0; y < kfx_sim_state.map_tiles_y; y++)
+    {
+        for (MapSlabCoord x = 0; x < kfx_sim_state.map_tiles_x; x++)
+        {
+            struct SlabMap *slb = get_slabmap_block(x, y);
+            if (slb->kind >= kfx_config_state.conf.slab_conf.slab_types_count)
+            {
+                ERRORLOG("Cannot regenerate derived map data: slab (%ld,%ld) has invalid kind %d",
+                    (long)x, (long)y, (int)slb->kind);
+                return false;
+            }
+            place_single_slab_type_on_map(slb->kind, x, y, slabmap_owner(slb));
+        }
+    }
+    return true;
+}
+
 static TbBool load_level_file(LevelNumber lvnum)
 {
     TbBool result;
@@ -1450,9 +1494,15 @@ static TbBool load_level_file(LevelNumber lvnum)
         result = true;
         struct GameCampaign *campgn = &campaign;
         load_map_string_data(campgn, lvnum, fgroup);
-        load_map_data_file(lvnum);
+        // .dat/.clm success is tracked (not discarded, as it used to be --
+        // docs/refactor/editor/phase3/00-slice1-native-save.md) so the
+        // column table can be regenerated from slab kinds below once
+        // load_map_slab_file() has set them, instead of silently loading
+        // with an empty/stale column table when either file is absent (a
+        // KFX-native editor save never writes .dat/.clm at all).
+        TbBool has_dat = load_map_data_file(lvnum);
         load_map_flag_file(lvnum);
-        load_column_file(lvnum);
+        TbBool has_clm = load_column_file(lvnum);
         init_whole_blocks();
         load_slab_file();
         init_columns();
@@ -1477,13 +1527,23 @@ static TbBool load_level_file(LevelNumber lvnum)
         }
         if (!load_map_slab_file(lvnum))
           result = false;
+        // Regenerate the column table from the slab kinds load_map_slab_file()
+        // just set, above, if .dat/.clm weren't both available -- see
+        // regenerate_derived_map_data()'s own comment. Only reachable once
+        // slab kinds are final, which is why this can't run any earlier in
+        // this function. A regen failure is a genuine load failure (an
+        // honest error), not silently proceeding with an incomplete map.
+        else if ((!has_dat || !has_clm) && !regenerate_derived_map_data())
+          result = false;
         if (new_format)
         {
-            result = load_tngfx_file(lvnum);
+            if (!load_tngfx_file(lvnum))
+                result = false;
         }
         else
         {
-            result = load_thing_file(lvnum);
+            if (!load_thing_file(lvnum))
+                result = false;
         }
         reinitialise_map_rooms();
         ceiling_init();

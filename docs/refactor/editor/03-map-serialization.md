@@ -1,9 +1,19 @@
 # Phase 3 — map serialization (Save / Load / New) and verification
 
-Status: **not started.** The bulk of `kfx_editor`'s non-UI code — but **mechanical**: every
-writer is the byte-for-byte mirror of an existing `kfx_sim` `load_*` reader (KFX-native *and*
-classic-binary loaders both still present). Depends on phase 1. Unblocks a genuinely useful
-editor.
+Status: **all 7 slices done.** Save (both formats), the menu bar, New/Open/Save/Save As dialogs,
+native file pickers, Level Settings, Playtest, the Save As overwrite confirm, atomic file writes,
+real `.lif` Free Play discovery, and `verify_map()` are all implemented and passing their own test
+suites; a live click-through pass by the user is still pending on the whole dialog/menu-bar
+surface. Every item from the original §8 "what must exist after phase 3" list is either built or
+a deliberately-scoped-out, explicitly-documented deferral (room/portal checks, script checks,
+classic vanilla ID-range enforcement, a "target mode" selector, the tile-highlight overlay —
+each with its own reasoning in the relevant slice doc, not silently dropped). See
+[`phase3/00-slice1-native-save.md`](phase3/00-slice1-native-save.md) through
+[`phase3/06-slice7-verify-map.md`](phase3/06-slice7-verify-map.md) for what actually landed in
+each slice, including several corrections to this doc's own pre-implementation claims (flagged
+inline below where they matter) found by re-verifying against the current code before/while
+building — trust the tracking docs over this one on any conflict.
+Depends on phase 1.
 
 Goal: `editor_save_map(lvnum, dir, flags)` in `kfx_editor` — the mirror of `kfx_sim`'s
 `load_map_file()` — in **two output formats** (KFX-native TOML and classic binary — D5/F20),
@@ -51,24 +61,38 @@ count field, then a `<name>` array of flat dicts. Hand-emit — no TOML writer l
 `SubtileX/Y`, `PointRange`).
 
 Classic-binary layouts (from `file formats.doc`, for the deferred O6 "Export classic" only —
-confirm against the readers if/when built):
-- **`.slb`** — 85×85 × `u16` LE, low byte = slab kind, row-major.
+confirm against the readers if/when built; **corrected against the actual reader code**, see
+[`phase3/00-slice1-native-save.md`](phase3/00-slice1-native-save.md)'s "ground-truth corrections"
+for the full detail):
+- **`.slb`** — 85×85 × `u16` LE, the **full 16 bits are the slab kind** (not "low byte = kind" —
+  `load_map_slab_file()` reads `n = lword(&buf[i])` and assigns it whole), row-major.
 - **`.own`** — subtile-map, one owner byte per subtile.
-- **`.apt`** — `u32` count, 8-byte entries: 6-byte *Location* + `u16` AP number.
+- **`.apt`** — `u32` count, 8-byte entries: a **4-byte 2D** *Location* (`LegacyCoord2d`, not the
+  6-byte 3D one things/lights use) **+ `u16 range` + `u16 num`** (the doc originally omitted
+  `range` entirely).
 - **`.tng`** — `u16` count, 21-byte entries: Location, type, subtype, owner, 12 type-specific.
 - **`.lgt`** — `u32` count, 20-byte entries.
-- **`.dat`** `u16` subtile-map (−clm index) / **`.clm`** `u64` count + 24-byte entries /
-  **`.wib`** `u8` subtile-map — *regenerated, never written (§2).*
+- **`.dat`** `u16` subtile-map (−clm index) / **`.clm`** **`u32` count + 4 reserved bytes** (not a
+  `u64` count) + 24-byte entries / **`.wib`** `u8` subtile-map — *regenerated, never written
+  (§2).*
 - *Location*: `sx tx sy ty sz tz` — `tx,ty` subtile, `sx,sy` sub-subtile, `tz` cubes above
-  floor, `sz` height within cube.
+  floor, `sz` height within cube. (This 6-byte form is `LegacyCoord3d`, used by `.tng`/`.lgt`
+  only — `.apt` uses the 4-byte 2D `LegacyCoord2d` instead, see above.)
 
-**Key fact:** the current loader **requires `.dat` and `.clm`** — `load_map_data_file()` /
-`load_column_file()` return `false` if the file is absent and `load_level_file()` propagates
-failure. And the engine already regenerates columns from slabs at runtime:
+**Key fact — corrected:** the loader does **not** actually require `.dat`/`.clm` to load
+successfully today. `load_map_data_file()`/`load_column_file()` do return `false` when the file
+is absent, but `load_level_file()` **discards both return values** and its final result gets
+separately clobbered by whichever `load_tngfx_file`/`load_thing_file` call runs last — so a
+missing `.dat`/`.clm` **silently produces a broken/blank-looking map** (empty column table)
+rather than a load failure. This is arguably worse than "requires and fails" — it was fixed as
+part of slice 1 (both the missing regen path *and* this silent-corruption bug), not just
+"taught to regenerate." And the engine already regenerates columns from slabs at runtime:
 `create_columns_from_list()` ([`lvl_filesdk1.c:1013`](../../../src/kfx_sim/src/lvl_filesdk1.c)),
-`init_columns()` ([`map_columns.c:378`](../../../src/kfx_sim/src/map_columns.c)), and per-slab
-in `place_slab_type_on_map()` → `update_map_collide()`
-([`slab_data.c:609`](../../../src/kfx_sim/src/slab_data.c)).
+`init_columns()` ([`map_columns.c:378`](../../../src/kfx_sim/src/map_columns.c) — **not**
+neighbour-aware itself; it's a slab-agnostic bitfield-finalization pass over whatever
+`columns_data[]` entries already exist, the neighbour-aware derivation is
+`place_single_slab_type_on_map()` alone, below), and per-slab in `place_slab_type_on_map()` →
+`update_map_collide()` ([`slab_data.c:609`](../../../src/kfx_sim/src/slab_data.c)).
 
 ## 2. Decision O1 — regenerate derived data (RESOLVED, see [`07`](07-investigation-findings.md) F2)
 
@@ -88,16 +112,27 @@ Teach the loader to regenerate `.dat` / `.clm` / `.wib` from `.slb` when they're
 - `file formats.doc` lists CLM/WIB/APT as engine-generatable; ADiKtEd's own note: "*.clm and
   .dat files are now auto-generated, nearly perfectly*".
 
-**Current blocker (the one piece of new `kfx_sim` code):** `load_level_file()` calls
-`load_map_data_file` (`.dat`) + `load_column_file` (`.clm`) and treats absence as failure
-([`lvl_filesdk1.c:709`/`672`](../../../src/kfx_sim/src/lvl_filesdk1.c)) — there is **no
-regenerate-on-missing path today**.
+**Current blocker (the one piece of new `kfx_sim` code) — corrected, see the "key fact" note in
+§1 above:** it's not that absence is treated as failure — it's that absence is silently
+*ignored*, propagating no failure at all while leaving the column table empty. There was **no
+regenerate-on-missing path today** either way.
 
-**Implementation:** `regenerate_derived_map_data()` in `kfx_sim` (general loader robustness,
-not editor-specific) = after `.slb`/`.own`/`.inf` load,
-`for each slab: place_single_slab_type_on_map(slb->kind, x, y, slabmap_owner(x,y))` →
-`init_columns()` → `initialise_map_wlb_auto()`. In `load_level_file`, when `.dat`/`.clm` are
-absent, call it instead of the file loaders.
+**Implemented** (slice 1 — [`phase3/00-slice1-native-save.md`](phase3/00-slice1-native-save.md)):
+`regenerate_derived_map_data()` in `kfx_sim`/`lvl_filesdk1.c` (general loader robustness, not
+editor-specific). One correction from the original plan: it can only run **after**
+`load_map_slab_file()` has set real slab kinds from `.slb` (that's the earliest point they exist),
+not "after `.slb`/`.own`/`.inf` load" as originally phrased — `load_map_slab_file()` itself is
+called much later in `load_level_file()`'s own sequence than `.dat`/`.clm`/`.flg` are attempted.
+Body: `for each slab: place_single_slab_type_on_map(slb->kind, x, y, slabmap_owner(slb))`, with a
+bounds check that fails loudly (returns `false`) rather than silently clamping an out-of-range
+slab kind. Does **not** additionally call `init_columns()`/`initialise_map_wlb_auto()` itself —
+`init_columns()` already ran earlier in `load_level_file()`'s own sequence regardless of path, and
+`load_map_slab_file()` already unconditionally calls `initialise_map_collides()`/
+`initialise_map_health()`/`initialise_extra_slab_info()` (which itself falls back to
+`initialise_map_wlb_auto()` when `.wlb` is absent) right after setting slab kinds — both are pure
+functions of each slab's own kind, independent of the column table this function populates, so
+nothing needed duplicating. `load_level_file()` calls it when `.dat`/`.clm` are absent and now
+**propagates a `false` result if it fails**, closing the silent-corruption gap for good.
 
 **Spike S1 is now a *validation* spike, not feasibility:** load a stock map normally vs with
 `.clm` ignored + regen; diff the column table / collision / wibble. If a few stock maps encode
@@ -109,10 +144,24 @@ regeneration in-memory and dumping the arrays. Same code, just also persisted.
 
 ## 3. `editor_save_map()` — structure
 
-New files under `src/kfx_editor/src/` — `editor_mapsave.c` (orchestration + verify) and
-`editor_mapwrite_*.c` (the `write_*` functions, one group per format family). Public entry
-`bool editor_save_map(LevelNumber lvnum, const char *dir, unsigned flags)` in
-`kfx_editor.h`. It reads `kfx_sim` state directly.
+**Revised for slice 1** (the user's own steer, given this is also a preliminary step toward a
+structured map/game-state format an LLM could read or produce): the actual `write_*` format
+knowledge does **not** live in `kfx_editor` as originally planned here. It's a small virtual
+class family — `MapContentWriter` (abstract) + `KfxNativeMapContentWriter` (concrete, this
+slice) — living in **`kfx_sim`** (`map_content_writer.h`/`.cpp`, alongside the `load_*` readers
+it mirrors), operating on a plain-data `MapContent` snapshot (`map_content.h`, also `kfx_sim`)
+decoupled from live `kfx_sim_state`. A `MapContentReader`/`KfxNativeMapContentReader` pair mirrors
+it for the read side, reusing CentiTOML's real `toml_parse()`. See
+[`phase3/00-slice1-native-save.md`](phase3/00-slice1-native-save.md) for the full design
+rationale (Strategy pattern, modeled on this codebase's own `LensEffect`/`IPlatform` style;
+classic-binary is a named, deferred future subclass, not a base-class rework).
+
+`kfx_editor` keeps only the thin orchestration: `src/kfx_editor/src/editor_mapsave.cpp`
+snapshots live state into a `MapContent` (the one place that must cross into `kfx_render` for
+lights, which `kfx_sim` itself can't reach) and hands it to `KfxNativeMapContentWriter`. Public
+entry (as actually shipped, simpler than originally planned — no `flags` param yet, since
+`verify_map()`/format-selection aren't in scope this slice): `TbBool editor_save_map(LevelNumber
+lvnum, const char *dir)` in `kfx_editor.h`.
 
 1. `verify_map()` (§5) — abort with a report on `VERIF_ERROR` unless `flags & SAVE_FORCE`.
    This also computes `map_is_legacy_compatible()` (§5.1 / [`07`](07-investigation-findings.md)

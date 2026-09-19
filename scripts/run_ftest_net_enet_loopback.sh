@@ -126,8 +126,11 @@ echo "Refreshing $KEEPERFX_DIR/coverage.info..."
 # exclusion pattern) so this drop-in-refreshes the same coverage.info/
 # coverage-html a normal `cmake --build <dir> --target coverage` run
 # produces -- just with the loopback pair's contribution folded in too.
-LCOV_BIN="$KEEPERFX_DIR/deps/lcov/lcov-1.16/bin/lcov"
-GENHTML_BIN="$KEEPERFX_DIR/deps/lcov/lcov-1.16/bin/genhtml"
+# kfx_fetch() (Dependencies.cmake) caches lcov under deps/.cache-lin64/
+# prebuilt/, not per-build-tree -- deliberately outside out/<platform> so
+# deleting/recreating a build tree doesn't force a re-download.
+LCOV_BIN="$REPO_ROOT/deps/.cache-lin64/prebuilt/lcov/lcov-1.16/bin/lcov"
+GENHTML_BIN="$REPO_ROOT/deps/.cache-lin64/prebuilt/lcov/lcov-1.16/bin/genhtml"
 if [ ! -x "$LCOV_BIN" ]; then
     echo "warning: no fetched lcov at $LCOV_BIN -- run 'cmake --build $KEEPERFX_DIR --target coverage' once first to fetch it, then re-run this script" >&2
     exit 0

@@ -1,5 +1,10 @@
 # Phase 2 — the editing toolbox
 
+See [`09-toolbox-remainder.md`](09-toolbox-remainder.md) for the current consolidated punch
+list (scoped-down first slices + not-started items), rather than reconstructing it from the
+blow-by-blow status notes below -- every tool works, but several things called for in this doc
+are narrower than originally scoped or not started at all.
+
 Status: **first slice implemented** (`src/kfx_editor/src/editor_toolbox.cpp` +
 `editor_toolbox.h`), covering §5 items 1-4 only: the toolbox panel itself
 (tool strip + picker + bottom bar, shown whenever `editor_is_active()`),
@@ -193,6 +198,59 @@ world-mutation logic for the common cases — it adds:
 - Area ops on a marked rect: **set owner**, **fill with slab**, **clear to earth**, **delete
   things inside**.
 
+**"Fill with slab" and "Clear to Earth" implemented; "set owner" and "delete things inside"
+deferred.** Didn't reuse the roomspace-drag machinery above after all -- see §2.4's own status
+note (Terrain Rectangle mode, which *is* "fill with slab" on a marked rect) for why: that
+system is tightly coupled to digging/gold-cost/highlight-mode concerns a raw area op has no use
+for. "Clear to Earth" reuses the exact same drag-tracking the Rectangle mode built (factored out
+into a shared `editor_rect_drag_update()` helper in `packets_cheats.c` once there were two
+consumers) via a new `PSt_EditorRectClearEarth` work state + `PckA_EditorRectClearEarth` verb --
+fixed target (`SlbT_EARTH`/neutral) instead of the picker's current selection, applied via a
+second shared helper, `editor_apply_slab_rect()` (also now used by Rectangle mode's own
+handler). Toolbox: the Brush/Rectangle toggle became a 3-way Terrain mode row (Brush/Rectangle/
+Clear Earth); the palette hides itself in Clear Earth mode since there's no kind to pick.
+
+"Set owner" deferred: re-applying a slab's *own* kind with a new owner via the same
+`place_slab_type_on_map()` primitive Paint/Clear Earth use is fine for plain terrain, but a
+slab that's currently part of a *room* needs a real room-ownership transfer, not a raw
+kind-rewrite -- rooms carry their own dungeon-tracking state beyond the slab's `owner` byte, and
+blindly re-deriving via `delete_room_slab()` + `place_slab_type_on_map()` (Paint's own approach
+for a *kind change*) would destroy and rebuild the room just to reassign it, which is likely
+correct-by-accident at best. Needs a dedicated per-room-aware path, not investigated yet.
+
+**"Delete Things Inside" implemented.** Needed the genuinely different mechanism flagged above:
+`editor_delete_things_in_rect()` (`packets_cheats.c`) walks every subtile in the box's own
+mapwho linked list -- the same `get_mapwho_thing_index()`/`next_on_mapblk` traversal
+`find_base_thing_on_mapwho()` already does for one subtile, generalized to sweep the whole area
+-- and deletes whatever it finds via the eraser tool's own per-class dispatch
+(`destroy_door()`/`destroy_effect_thing()`/`destroy_object()`, same split `PSt_DestroyThing`
+already uses). One deliberate exception: skips the Dungeon Heart specifically -- losing it via
+a big careless box-drag would be a much harder mistake to recover from than any other thing this
+op might catch. New `PSt_EditorRectDeleteThings` work state + `PckA_EditorRectDeleteThings`
+verb reuse the exact same corner-carrying packet shape and `editor_rect_drag_update()` helper as
+Clear Earth. Toolbox mode row is now 4-way (Brush/Rectangle/Clear Earth/Delete Things); palette
+hidden for both Clear Earth and Delete Things, since neither has a kind to pick.
+
+**"Set owner" implemented, including real room-ownership transfer.** All four area ops from
+this section's own list are now done. First pass skipped room slabs entirely, treating room
+ownership transfer as unsolved; user pushed back and supplied the fix directly: `delete_room_slab()`
+first (the exact same call Paint/Clear Earth already make for a *kind* change -- it properly
+tears the room slab down to ground *and* updates the old owner's room-area accounting/slab
+list, not just the raw slab), then `place_slab_type_on_map()` with the *same* kind but the
+*new* owner, which rebuilds it as a room the new owner actually owns. `editor_set_owner_rect()`
+(`packets_cheats.c`) now does exactly this: reads the slab's own current kind (`get_slabmap_block()`),
+calls `delete_room_slab(sx, sy, true)` first only when the slab is currently a room
+(`subtile_is_room()`), then `place_slab_type_on_map(kind, ..., new_owner, 0)` unconditionally.
+Ownerless kinds (rock, gems, lava, ...) are still skipped, same check `PckA_CheatSwitchTerrain`
+uses elsewhere. Owner comes from the bottom bar's existing `chosen_player` selector -- no new
+picker needed, which is also why the terrain palette itself is hidden in Set Owner mode (kind
+picker would be misleading; owner selector stays visible since the bottom bar renders
+unconditionally). New `PSt_EditorRectSetOwner` work state + `PckA_EditorRectSetOwner` verb,
+same shape as the other three area ops. Toolbox mode row is now 5-way (Brush/Rectangle/Clear
+Earth/Delete Things/Set Owner).
+
+Not yet live-confirmed.
+
 ### 2.3 Fill (flood)
 - New `PSt_EditorFill` + `PckA_EditorFloodFill` carrying `pos_x/pos_y` (seed) + `actn_par1`
   (slab kind) + `actn_par2` (owner) — all fits one packet. The **handler** does the 4-connected
@@ -232,6 +290,83 @@ mutation path Terrain itself uses). Toolbox: a new "Fill" entry in the tool stri
   rectangle math room placement uses, applies the chosen slab kind to the whole box on
   release) -- reuse the geometry, not room placement's gold-cost logic, which doesn't apply to
   raw terrain.
+
+**Rectangle mode implemented** (the general Brush capture/stamp/clipboard feature above it is
+still future work -- this is only the specific follow-up the user asked for). Ended up *not*
+reusing room placement's roomspace-drag machinery after all: that system (`packets_input.c`'s
+`PSt_BuildRoom` path -- `get_dungeon_highlight_user_roomspace`, `check_roomspace_for_diggable_slabs`,
+`apply_roomspace_dig_tag_selection`, `drag_mode`, etc.) is tightly coupled to
+digging/gold-cost/highlight-mode concerns that don't apply to raw terrain, and untangling "just
+the geometry" from it risked exactly the kind of subtle bug the original note above was already
+worried about. Built a small self-contained mechanism instead:
+
+- New `PSt_EditorPlaceTerrainRect` work state (separate from `PSt_PlaceTerrain`, since Brush and
+  Rectangle need genuinely different `PCtr_LBtn*` handling shapes -- paint-every-Held-frame vs.
+  track-then-commit-once-on-Release) and `PckA_EditorPlaceTerrainRect` packet verb, both
+  appended per the usual never-renumber rule.
+- Toolbox: a "Brush"/"Rectangle" toggle above the Terrain picker only (not shown for Fill, which
+  reuses the same picker but has no rectangle mode); switching modes re-sends
+  `set_work_state()` immediately, and the Terrain tool-strip button itself now sends whichever
+  of the two states the toggle currently selects.
+- `packets_cheats.c`'s new `PSt_EditorPlaceTerrainRect` case tracks the drag: records the
+  start subtile in a file-scope static (`s_rect_drag_stl_x/y` -- transient per-drag bookkeeping,
+  not a persisted selection, so a `UserState` field felt like the wrong home for it) on
+  `PCtr_LBtnClick`, draws a live preview box via `draw_map_volume_box()`/`floor_height_for_volume_box()`
+  (the same primitive `tag_cursor_blocks_place_trap`/`_door` call internally -- no need for the
+  full roomspace apparatus just to draw a box) on every `Held` frame, and on `Release` sends
+  `PckA_EditorPlaceTerrainRect` with the drag-start corner in `actn_par1`/`actn_par2` (int32,
+  same "needs full range" reasoning as `PckA_EditorPlaceObject`) and slab kind/owner in
+  `actn_par3`/`actn_par4` -- the release corner itself travels as the packet's own `pos_x`/`pos_y`,
+  which `set_packet_action()` leaves untouched, so all 6 of the packet's scalar slots together
+  carry both corners plus kind and owner in one packet.
+- The handler applies the chosen kind to every slab in the resulting box with the same
+  per-tile mutation `PckA_CheatPlaceTerrain` already uses for one tile (`place_slab_type_on_map`/
+  `place_animating_slab_type_on_map` + `do_slab_efficiency_alteration`), deleting any room slab
+  first exactly like `PSt_PlaceTerrain`'s own single-tile path does.
+
+Not yet live-confirmed.
+
+**Brush (grab region → stamp), first slice implemented — terrain slabs only, no things/lights/
+APs capture yet.** New "Stamp" tool in the tool strip (named "Stamp" in the UI to avoid
+colliding with the Terrain tool's own "Brush" *mode* above, a completely different thing --
+doc references here still say "Brush" per this section's own numbering). Unlike every other
+tool this phase, capture and stamp both happen **entirely client-side in `kfx_editor`**
+(`handle_brush_capture_and_stamp()`, `editor_toolbox.cpp`), calling sim mutation primitives
+(`place_slab_type_on_map()` etc., `kfx_sim`) **directly** rather than through a packet -- this
+is the doc's own sanctioned fallback above (D2, single-player-local exception) for when the
+buffer can't fit in one packet's params. Went straight to the direct-call fallback rather than
+attempting the "burst of packets, queued over frames" design first: `set_players_packet_action()`
+overwrites the single per-turn packet slot (documented repeatedly elsewhere in this codebase),
+so safely queuing a multi-item burst needs a real turn-boundary signal kfx_editor doesn't have
+-- dispatching one queued packet per *render* frame risks the same same-turn clobber Eyedropper's
+own bug already demonstrated, since multiple render frames can land inside one logic turn.
+Calling the mutations directly sidesteps that entirely (same "read/mutate world truth directly
+from kfx_editor" precedent `screen_to_map()`/`handle_eyedropper_click()` already established).
+
+- **Capture**: RMB-drag draws a live preview box (same `draw_map_volume_box()`/
+  `floor_height_for_volume_box()` primitives the Rectangle-family tools use), and on release
+  reads every slab in the box directly (`get_slabmap_block()`/`slabmap_owner()`) into a local
+  `std::vector<BrushSlabEntry>` (`{dx, dy, kind, owner}`, relative to the box's own top-left).
+  Skips `SlbT_BRIDGE`/`SlbT_GEMS`/`SlbT_GUARDPOST` per the doc's own "Gems/Guard Post/Bridge
+  don't survive a grab" restriction (engine-derived slabs, not meaningfully re-stampable).
+- **Stamp**: LMB click re-applies the captured buffer anchored at the cursor's current slab,
+  looping the exact same per-tile mutation `editor_apply_slab_rect()` uses (delete any room
+  slab first, animated-kind check, `place_slab_type_on_map`/`place_animating_slab_type_on_map`,
+  `do_slab_efficiency_alteration`) -- except skipping any target tile that's currently
+  `SlbT_DUNGHEART`/`_WALL` or `SlbT_ENTRANCE`/`_WALL`, per the doc's "can't stamp over a Heart
+  or Portal" restriction.
+- A new minimal `PSt_EditorStamp` work state exists only so a stray click doesn't fall through
+  to whatever tool was active before (same reason `PSt_EditorPlaceObject`/`PSt_EditorEyedropper`
+  exist) -- no dispatch of its own, since nothing here goes through a packet.
+
+**Deliberately deferred** (first-slice scope, matching every other tool this phase): capturing
+things/lights/APs alongside slabs; the undo journal's own "records one stamp entry regardless"
+design (this tool doesn't call `editor_journal->record_placement()` at all yet, since it never
+creates a *thing* the existing journal knows how to journal -- a batch/compound journal entry
+type would be needed for a true one-undo-per-stamp experience); a stamp-preview ghost at the
+cursor before committing (only the capture-drag itself previews).
+
+Not yet live-confirmed.
 
 ### 2.5 Creatures / Heroes / Diggers
 - **Tools:** `PSt_MkBadCreatr` / `PSt_MkGoodCreatr` / `PSt_MkDigger` (all live).
@@ -368,9 +503,18 @@ Also fixed `create_trap()` (`thing_traps.c`) and `create_door()` (`thing_doors.c
 after, same two-step pattern as `create_owned_special_digger()`; doors need no second sync since
 their z is a fixed constant, never corrected afterward.
 
-**Deferred to a later pass**: Ctrl+LMB door-lock toggle (`PckA_EditorToggleDoorLock`), trap
-occupancy validation ("not on an occupied square"), door occupancy/wall-adjacency-quality
-checks beyond the bare orientation gate. Not yet live-confirmed.
+**Ctrl+LMB door-lock toggle implemented.** `PSt_EditorPlaceDoor`'s dispatch now checks, before
+its usual placement branch, whether Ctrl is held (`net_callbacks->is_key_pressed(KC_LCONTROL/
+KC_RCONTROL, KMod_DONTCARE)`) and a door already exists at the clicked square
+(`find_base_thing_on_mapwho(TCls_Door, 0, stl_x, stl_y)`) -- if so, sends
+`PckA_EditorToggleDoorLock` (carrying the door thing's own index, not a position, since the
+dispatch already resolved which door) instead of a placement action; its handler flips
+`lock_door()`/`unlock_door()` (`thing_doors.c`) based on `door.is_locked`. Checked first so a
+Ctrl-click on an occupied square toggles the lock rather than attempting (and likely failing
+anyway) to place a second door on top.
+
+**Deferred to a later pass**: trap occupancy validation ("not on an occupied square"), door
+occupancy/wall-adjacency-quality checks beyond the bare orientation gate. Not yet live-confirmed.
 
 ### 2.8 Lights & effect emitters
 - Covered in [`05-script-and-level-settings.md`](05-script-and-level-settings.md) §2 (they need
@@ -389,6 +533,56 @@ checks beyond the bare orientation gate. Not yet live-confirmed.
   explicit eraser tool.
 - **Eyedropper:** click a slab/thing → set the active tool + picker to match it (quality-of-
   life, not in the original; cheap given `cheatselection`).
+
+**Query finalized -- no longer reaches the classic message box.** `PSt_QueryAll`'s own dispatch
+(`packets_cheats.c`) calls `query_thing()`/`query_room()` for anything that isn't a creature,
+and both call `create_message_box()` -- a classic (unmigrated) `GMnu_MSG_BOX` popup, jarring
+inside an otherwise all-ImGui editor session. Found live: "please finalise query tool first, as
+it uses the legacy gui somehow." Creature queries themselves are actually fine as-is --
+`GMnu_CREATURE_QUERY1`-`4` *are* ImGui-migrated already (`frontgui_ingame_creature.cpp`'s
+`creature_query_panel()`, part of the separate in-game-GUI migration project, further along
+than this doc's own earlier "hasn't been migrated yet" note assumed) -- so the only real gap was
+non-creature queries (objects/traps/doors/rooms/slabs).
+
+Fix: new `PSt_EditorQuery` work state (same "kfx_editor handles the click itself, no
+`packets_cheats.c` dispatch" shape Object/Eyedropper/Stamp established) replaces `PSt_QueryAll`
+for the editor's Query tool. `handle_query_click()` (`editor_toolbox.cpp`) reads the
+creature-or-thing-or-room at the clicked position directly (`get_creature_near()`/
+`get_nearest_thing_at_position()`/`subtile_room_get()`, same precedence `PSt_QueryAll`'s own
+dispatch uses) -- for a creature, calls `query_creature()` directly (a plain function, no
+world mutation, so safe to call outside a packet per the same "single-player-local exception"
+reasoning Brush/Stamp already used; correctly opens the already-migrated ImGui panel); for
+anything else, populates a small `QueryResult` struct with the same fields `query_thing()`/
+`query_room()` themselves compute (title, name, owner, health, one or two extra class-specific
+lines) and renders it in a plain ImGui panel (`draw_query_inspector()`) instead of ever calling
+`query_thing()`/`query_room()` at all. Not yet live-confirmed.
+
+**Eyedropper (terrain only) implemented.** Same "kfx_editor watches for its own click, no
+`packets_cheats.c` dispatch" shape Objects established -- new `PSt_EditorEyedropper` work state
+(cursor-highlight only, reusing the Terrain tool's own `tag_cursor_blocks_place_terrain`) and a
+`handle_eyedropper_click()` in `editor_toolbox.cpp`. Unlike Object placement, this one *reads*
+rather than writes: samples the slab under the cursor directly via `get_slabmap_block()`/
+`slabmap_owner()` (`kfx_sim` -- fair game from `kfx_editor`, same "read world truth directly"
+precedent `screen_to_map()` already established for cursor position), updates the toolbox's own
+local shadow (`s_selected_terrain_kind`/`s_selected_owner`) so the Terrain picker's highlight
+jumps to match immediately, and sends the sampled kind+owner to the server in one new verb
+(`PckA_EditorEyedropperTerrain`, applying both atomically to `ustate->cheatselection`) rather
+than the two existing `PckA_CheatSwitchTerrain`/`PckA_CheatSwitchPlayer` verbs -- only one
+action fits the per-turn packet slot per click, so picking both values needs one verb, not two.
+
+**Confirmed live: first version broken -- "clicking with eyedropper selected defaults to
+placing last selected terrain".** Root cause: that version also auto-switched back to the
+Terrain work state in the *same* click, via a second `set_players_packet_action()` call
+(`PckA_SetPlyrState`) right after the sample's own call. Both write through the single per-turn
+packet slot documented everywhere else in this file ("only one action fits per click") -- the
+second call silently clobbered the first before either was processed, so the sample never went
+out at all, `work_state` flipped back to `PSt_PlaceTerrain` immediately, and the very click that
+was supposed to sample instead painted with the stale previous selection. **Fixed** by dropping
+the auto-switch entirely: `handle_eyedropper_click()` now only sends the one sample packet, and
+the toolbox stays on the Eyedropper tool after a pick -- one extra click (Terrain/Brush/
+Rectangle) to resume painting, trading a little polish for correctness under the one-action-
+per-click constraint. Thing eyedropping (sample a placed creature/object/trap/door's model) not
+implemented -- terrain slabs only for this first pass. Not yet re-confirmed live.
 
 ## 3. Toolbox UI layout
 
@@ -416,6 +610,33 @@ appear in the Define Keys menu automatically (classic + ImGui `frontgui_defineke
 the editor reads them via the normal `is_key_pressed` path. Bump `GAME_KEYS_COUNT`; these live
 in the settings file, not the sim blob ([`07`](07-investigation-findings.md) D6).
 
+**Editor menu moved off its F10 placeholder, sidestepping D6 for this one shortcut.** The menu
+(Save/Save As/Playtest/Preview Motion/Exit) was reachable only via a hardcoded F10 keypress,
+explicitly flagged from the start as a temporary stand-in for D6's real definable-keybinding
+work (F10 was picked purely because the base game has no default binding there, to dodge a
+conflict with the normal in-game pause menu's own raw-key Escape handling — not a considered
+default). Per user ask, replaced with a **"Menu" button in the toolbox header** instead of
+waiting on D6: `editor_open_menu()` (`kfx_editor.h`, implemented in `editor_session.cpp`) sets
+the same `s_show_editor_menu` flag the F10 handler used to, called from a new button next to the
+"Toolbox" heading (`editor_toolbox.cpp`). A button has no Escape-key conflict to sidestep in the
+first place, so this closes the placeholder gap for this specific shortcut without needing D6's
+full `Gkey_Editor*`/settings-file machinery — D6 itself (every *other* tool shortcut becoming a
+definable key) remains undone.
+
+The menu itself also became a real modal in the same pass (`FeOpenModal`/`FeBeginModal`/
+`FeEndModal` — the same wrapper `frontgui_screens.cpp`'s own confirm/define-key popups use)
+instead of a plain `ImGui::Begin()` window, so it now blocks interaction with the toolbox behind
+it while open, matching how a menu should behave.
+
+**Collapsed to a single "Back" button, dropping the menu's own "Exit to Main Menu".** The modal
+originally had two closing buttons -- "Resume Editing" (close the modal) and "Exit to Main
+Menu" (`editor_close()`, quit the session). Per user ask: exiting the editor already has its own
+route -- the normal in-game pause menu's own Exit to Main Menu (Esc), which already works
+correctly for an editor session (`editor_frame()`'s own safety-net comment covers that path) --
+so a second quit button inside this menu was a redundant second route to the same place, not a
+second capability. Both buttons collapsed into one "Back" that just closes the modal; quitting
+the editor now happens only via the classic pause menu. Not yet live-confirmed.
+
 ## 4. Command journal (undo/redo)
 
 Design the toolbox around a journal from the start (O4):
@@ -427,6 +648,95 @@ Design the toolbox around a journal from the start (O4):
 - Cap the journal (e.g. 200 entries) or snapshot-and-truncate.
 - Ship undo/redo in this phase if the inverse capture is straightforward for terrain + thing
   place/delete (the 90% case); defer brush/fill/area-op undo to phase 6 if fiddly.
+
+**First slice implemented — Undo only, thing placement only.** Investigated the full design
+above and concluded most of it wasn't "straightforward" enough to ship alongside everything
+else this phase, so scoped down deliberately rather than skip it entirely:
+
+- **Terrain (paint/fill/rectangle) undo deferred.** All three dispatch entirely server-side
+  from `packets_cheats.c`'s per-work-state switch, running once per `input()` call regardless of
+  whether kfx_editor did anything that frame -- there's no client-visible "this is one deliberate
+  stroke" boundary to journal against (a held drag fires the exact same per-tile dispatch every
+  turn the button stays down). Journaling every individual tile-write would make one Undo press
+  revert one tile of a many-tile stroke, which is arguably worse than no undo at all for this
+  case. Matches the doc's own "defer brush/fill/area-op undo... if fiddly" allowance -- this
+  turned out to be exactly that fiddly case.
+- **What *is* implemented**: creature/hero/digger, object, trap, and door placement are each a
+  one-shot "create exactly one thing" action with a clean, class-correct inverse (delete that
+  thing), so these get real Undo (Ctrl+Z, edge-triggered via `ImGui::IsKeyPressed(ImGuiKey_Z,
+  false)` -- same convention `editor_frame()`'s own F10 toggle already uses -- checked in a new
+  `editor_journal_frame()`, called from `editor_frame()`).
+- **Cross-layer plumbing**: the journal itself lives in `kfx_editor` (new `editor_journal.cpp`/
+  `.h`) as the doc specifies, but the actual placements happen in `packets_cheats.c` (`kfx_net`,
+  a lower layer) -- so a new callback struct, `EditorJournalCallbacks`
+  (`kfx_config/include/editor_journal_callbacks.h`), lets it report a placement upward without
+  an `#include` violation, exactly the same shape `EditorCallbacks` already established for
+  `editor_open()`. Wired once in `main.cpp`'s `setup_game()`. The callback is always non-NULL
+  (a no-op default until wired, same convention); `editor_journal_record_placement()`'s own
+  implementation checks `editor_is_active()` internally, since two of the five instrumented
+  verbs (`PckA_CheatMakeCreature`/`_MakeDigger`) are also the classic (non-editor) cheat menu's
+  own verbs and must stay no-ops there.
+- **Journal**: a capped (200, per the doc) plain array of entries in `editor_journal.cpp`,
+  reset on `editor_open()` (a previous session's indices mean nothing, or worse something else
+  entirely once slots are reused, in a new one). Undo pops the most recent entry and sends new
+  verb `PckA_EditorUndo` (carrying the thing index); its handler reuses the eraser tool's own
+  per-class deletion split (`destroy_door()` for `TCls_Door`, `destroy_object()` -- which itself
+  falls through to `delete_thing_structure()` -- for everything else this journal ever records).
+- **`player_place_trap_without_check_at()`/`player_place_door_without_check_at()` return only a
+  `TbBool`**, not the created thing, so their two call sites re-find it by the position+model
+  just placed via `find_base_thing_on_mapwho()` -- the same lookup `thing_doors.c`'s own
+  spinning-key management already uses for doors -- before journaling it.
+
+**Redo implemented afterward** (originally deferred here as "distinctly bigger than the rest of
+this slice" -- came back to it once Undo/the rest of phase 2 was solid). The blocker really was
+what the original note said: `PckA_CheatMakeCreature`/`_MakeDigger`/`PckA_EditorPlaceTrap`/
+`_PlaceDoor` all read position from the packet's own *ambient* `pos_x`/`pos_y` rather than a
+param (only `PckA_EditorPlaceObject` carries position in its own `actn_par1`/`actn_par2`), so
+blindly replaying just `par1`-`4` later would place at wherever the cursor happens to be *then*.
+`record_placement()` now takes the *entire* creating packet's shape (`pcktype`, `par1`-`4`,
+`pos_x`, `pos_y`), not just the thing index, so the journal entry has everything needed to
+resend the identical action.
+
+**First fix attempt confirmed broken live**: "placing a creature, then undo, then redo causes
+the creature to appear at the current position of the cursor, rather than the original
+location". That attempt wrote the recorded `pos_x`/`pos_y` directly onto the local packet
+(`get_local_packet()`) before calling `set_players_packet_action()` for the *original* creation
+verb, reasoning that `set_players_packet_action()` never touches `pos_x`/`pos_y` so the two
+writes would compose safely. True as far as it went, but incomplete: that write happens from
+this render-phase callback (`editor_journal_frame()`, called from `editor_frame()`), and
+`get_dungeon_control_nonaction_inputs()` -- called from `input()` for the *next* real turn,
+which runs again before this render-phase-originated packet is actually processed --
+unconditionally overwrites `pos_x`/`pos_y` with whatever's under the mouse *then*. Same "packet
+field written from the wrong phase gets clobbered before it's read" bug class as the original
+`PckA_EditorPlaceObject` issue, just one layer removed (that one was about *reading* a stale
+field; this one is a *write* silently overwritten before the read it was meant for).
+
+**Fixed properly**: four new dedicated Redo verbs (`PckA_EditorRedoCreature`/`_RedoDigger`/
+`_RedoTrap`/`_RedoDoor`) that carry position explicitly in `actn_par1`/`actn_par2` instead --
+same shape `PckA_EditorPlaceObject` already uses, and the only shape that survives the
+multi-frame gap between kfx_editor deciding the value and the packet actually being processed.
+Couldn't just add an explicit-position param to the *existing* verbs
+(`PckA_CheatMakeCreature`/`_MakeDigger` in particular), since those are also the classic
+(non-editor) cheat menu's own verbs and changing their param layout would touch that unrelated
+path too. Redo now switches on the journaled `entry.pcktype`: `PckA_EditorPlaceObject` resends
+verbatim (no ambient-position problem to begin with); the other four map to their dedicated
+Redo counterpart, repacking `entry.par1`/`par2` (the original model/kind + owner) into the new
+verb's `actn_par3`/`actn_par4` and `entry.pos_x`/`pos_y` into `actn_par1`/`actn_par2`. Each new
+verb's handler mirrors its non-redo counterpart's logic exactly (including re-journaling on
+success via `record_placement()`, using the *original* verb name so future undo/redo chains
+stay consistent).
+
+Ctrl+Y triggers Redo (same edge-triggered `ImGui::IsKeyPressed` pattern as Undo). Undo pushes
+the popped entry onto a separate redo stack; **undo-of-a-redo (and redo-of-a-redo) both fall
+out for free** -- Redo's resent action flows through the exact same `packets_cheats.c` handler
+any fresh placement does, which already calls `record_placement()` on success, so the newly
+(re)created thing gets journaled again automatically with no special-case bookkeeping. One
+accepted gap: a genuinely new placement doesn't clear the redo stack (most undo/redo systems
+do) -- detecting "this call is a fresh click, not Redo replaying an old entry" would need a
+flag surviving across the turn boundary between Redo sending the packet and the server actually
+processing it, not attempted here.
+
+Not yet re-confirmed live.
 
 ## 5. What must exist after phase 2
 
@@ -448,6 +758,45 @@ Design the toolbox around a journal from the start (O4):
   slab kinds + ownership + that columns/collision updated (walkability query).
 - ftest `editor_place_creature`: place 3 imps for player 0 at level 5, assert count, owner,
   experience; delete one, assert count.
+
+**First slice implemented** (`src/ftests/tests/ftest_editor_place_creature.{h,c}`, registered in
+`ftest_list.c`) -- one creature rather than three, and undo rather than delete, but exercises
+the real path end to end: `editor_open()` called directly (safe on an already-loaded level --
+its `lvnum` param is only used for a log line), a creature placed via `PckA_EditorRedoCreature`,
+asserted (model/owner/`exp_level`), then removed via `PckA_EditorUndo` and asserted gone.
+
+Two things worth recording for whoever writes the next editor ftest:
+- **Deliberately dispatches via `PckA_EditorRedoCreature`, not `PckA_CheatMakeCreature`** (the
+  verb a real toolbox click actually sends). `PckA_CheatMakeCreature` reads its target position
+  from the packet's own *ambient* `pos_x`/`pos_y`, which `get_dungeon_control_nonaction_inputs()`
+  (called from `input()`, which the test framework's own loop runs every real turn regardless of
+  what a test action wants) unconditionally overwrites from whatever the headless cursor position
+  happens to be -- the exact bug class this session's own Redo work found and fixed. A test
+  action setting the packet directly has the identical timing exposure, so it needs the
+  identical fix: `PckA_EditorRedoCreature` carries position explicitly in `actn_par1`/
+  `actn_par2` instead, immune to the overwrite, while still exercising real production code (the
+  same handler Ctrl+Y uses, journaling included).
+- **`editor_open()` freezes `get_gameturn()`.** It sets `kfx_sim_state.simulation_suspended =
+  true`, and `get_gameturn()` (`game_legacy_get_gameturn()` → `kfx_game_state.play_gameturn`)
+  only increments inside `game_session_loop.cpp`'s own `!GOF_Paused && !simulation_suspended`
+  gate -- so the moment an editor session opens, the turn counter stops advancing for good.
+  `ftest.c`'s own action scheduler gates moving to the *next* queued action on `get_gameturn() >=
+  intended_start_at_game_turn` (computed once, at init time, as each action's own `turn_delay`
+  accumulated on top of the previous one) -- so any action appended with `turn_delay > 0` *after*
+  the point where `editor_open()` runs would stall the test forever waiting for a turn that will
+  never come (the same failure shape `ftest_list.c` already documents for
+  `bug_invisible_units_cant_select`, just a different root cause). Fix used here: every action
+  after opening the editor uses `turn_delay=0` and polls via `FTRs_Repeat_Current_Action`
+  instead -- safe because `process_packets()` (which is what actually dispatches
+  `PckA_EditorRedoCreature`/`PckA_EditorUndo`) runs unconditionally at the very top of `update()`,
+  *before* the `simulation_suspended` check, so it keeps running every real loop iteration
+  regardless of the frozen turn counter. Repeating the *current* action isn't gated by
+  `get_gameturn()` reaching anything new, only by the condition that was already true once.
+
+**Confirmed passing** against a real KeeperFX install (`-DKFX_FUNCTESTING=ON` build,
+`./keeperfx_hvlog -ftests editor_place_creature -exitonfailedtest -headless`): all 5 actions
+executed at the same (frozen, per the `simulation_suspended` note above) game turn 20, exit code
+0, `keeperfx.log` shows `FTest: [20] ftest_update: Test editor_place_creature passed!`.
 - ftest `editor_fill`: enclosed earth pocket, flood with path, assert bounded by walls.
 - ftest `editor_brush`: grab a 3×3 room+creatures, stamp elsewhere, assert deep-equal.
 - ftest `editor_undo`: paint → undo → assert original slab; place thing → undo → assert gone.

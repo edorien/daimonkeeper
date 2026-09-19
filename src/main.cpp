@@ -123,6 +123,7 @@
 #include "front_lvlstats.h"
 #include "game_callbacks.h"
 #include "editor_callbacks.h" // docs/refactor/editor/01-entry-and-editor-session.md
+#include "editor_journal_callbacks.h" // docs/refactor/editor/02-editing-toolbox.md §4
 #include "kfx_editor.h"
 #include "front_fmvids.h"
 #include "thing_stats.h"
@@ -1635,8 +1636,17 @@ short setup_game(void)
   // startup_local_game_for_editor()'s coroutine finishes.
   static const struct EditorCallbacks editor_callbacks_impl = {
       &editor_open,
+      &editor_is_active,
   };
   set_editor_callbacks(&editor_callbacks_impl);
+  // docs/refactor/editor/02-editing-toolbox.md §4 -- lets packets_cheats.c
+  // (kfx_net) record a placement into kfx_editor's undo journal without
+  // depending on kfx_editor.h directly, same shape as EditorCallbacks above.
+  static const struct EditorJournalCallbacks editor_journal_callbacks_impl = {
+      &editor_journal_record_placement,
+      &editor_journal_record_rect_terrain,
+  };
+  set_editor_journal_callbacks(&editor_journal_callbacks_impl);
   kfx_config_state.gui_blink_rate = keeperfx_ui_config.gui_blink_rate;
   kfx_config_state.neutral_flash_rate = keeperfx_ui_config.neutral_flash_rate;
   creature_status_size = keeperfx_ui_config.creature_status_size;

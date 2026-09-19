@@ -54,6 +54,12 @@ TbBool wheel_scrolled_down;
 unsigned long key_modifiers;
 int defining_a_key;
 long defining_a_key_id;
+// docs/refactor/editor/10-definable-keybindings.md -- which table
+// defining_a_key_id indexes into: false = settings.kbkeys[]/GameKeys
+// (game_key_settings[]), true = settings.editor_kbkeys[]/EditorGameKeys
+// (editor_key_settings[]). Both tables start at index 0, so this
+// discriminator is required, not just a convenience.
+TbBool defining_editor_key;
 
 long left_button_held_x;
 long left_button_held_y;
@@ -185,6 +191,10 @@ struct KeyToStringInit key_to_string_init[] = {
 // An array of the defined keys, when an indexed key is true in this array,
 // it should be highlighted in font color #3 in the list, to show that it was swapped
 TbBool defined_keys_that_have_been_swapped[GAME_KEYS_COUNT] = { false };
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// parallel swapped-flag array, same purpose as the one above but for
+// settings.editor_kbkeys[]/EditorGameKeys.
+TbBool defined_editor_keys_that_have_been_swapped[EDITOR_GAME_KEYS_COUNT] = { false };
 /******************************************************************************/
 
 static void get_button_snapping_inputs(void)
@@ -501,29 +511,67 @@ void update_key_modifiers(void)
   key_modifiers = key_mods;
 }
 
-void swap_assigned_keys(long current_key_id, struct GameKey* current_kbk, long new_key_id, unsigned char new_key, unsigned int new_mods)
+// docs/refactor/editor/10-definable-keybindings.md -- swap-on-conflict/
+// modifier-group logic (below) is now parameterized on which binding table
+// it operates over, rather than hardcoded to settings.kbkeys[]/
+// GAME_KEYS_COUNT, so set_game_key() and set_editor_game_key() share one
+// implementation instead of the editor keeping a simplified copy with no
+// collision handling. `swapped` mirrors `keys` 1:1 (defined_keys_that_have_
+// been_swapped/defined_editor_keys_that_have_been_swapped) -- the "recently
+// swapped, highlight it" UI flag array. Shaped so a third table (e.g. a
+// future Possession-mode key set) could reuse this by constructing one more
+// struct KeyBindingTable, not by copy-pasting these functions again.
+struct KeyBindingTable {
+    struct GameKey *keys;
+    TbBool *swapped;
+    long count;
+};
+
+// Resolved lazily (not a single static-initialized const) purely so the two
+// getters below sit next to each other and read the same way -- there's no
+// actual runtime cost or staleness risk, settings.kbkeys[]/editor_kbkeys[]
+// don't move.
+static const struct KeyBindingTable *get_game_key_table(void)
+{
+    static struct KeyBindingTable kt;
+    kt.keys = settings.kbkeys;
+    kt.swapped = defined_keys_that_have_been_swapped;
+    kt.count = GAME_KEYS_COUNT;
+    return &kt;
+}
+
+static const struct KeyBindingTable *get_editor_key_table(void)
+{
+    static struct KeyBindingTable kt;
+    kt.keys = settings.editor_kbkeys;
+    kt.swapped = defined_editor_keys_that_have_been_swapped;
+    kt.count = EDITOR_GAME_KEYS_COUNT;
+    return &kt;
+}
+
+static void swap_assigned_keys_in(const struct KeyBindingTable *kt, long current_key_id, struct GameKey* current_kbk, long new_key_id, unsigned char new_key, unsigned int new_mods)
 {
     struct GameKey* kbk_swap = current_kbk;
-    current_kbk = &settings.kbkeys[new_key_id];
-    kbk_swap->code = current_kbk->code;
-    kbk_swap->mods = current_kbk->mods;
-    current_kbk->code = new_key;
-    current_kbk->mods = new_mods;
-    defined_keys_that_have_been_swapped[current_key_id] = true;
-    if (defined_keys_that_have_been_swapped[new_key_id])
+    struct GameKey* new_kbk = &kt->keys[new_key_id];
+    kbk_swap->code = new_kbk->code;
+    kbk_swap->mods = new_kbk->mods;
+    new_kbk->code = new_key;
+    new_kbk->mods = new_mods;
+    kt->swapped[current_key_id] = true;
+    if (kt->swapped[new_key_id])
     {
-        defined_keys_that_have_been_swapped[new_key_id] = false;
+        kt->swapped[new_key_id] = false;
     }
 }
 
-void assign_key(long key_id, unsigned char key, unsigned int mods)
+static void assign_key_in(const struct KeyBindingTable *kt, long key_id, unsigned char key, unsigned int mods)
 {
-    struct GameKey* kbk = &settings.kbkeys[key_id];
+    struct GameKey* kbk = &kt->keys[key_id];
     kbk->code = key;
     kbk->mods = mods;
-    if (defined_keys_that_have_been_swapped[key_id])
+    if (kt->swapped[key_id])
     {
-        defined_keys_that_have_been_swapped[key_id] = false;
+        kt->swapped[key_id] = false;
     }
 }
 
@@ -549,53 +597,54 @@ int mod_key_to_normal_key(unsigned int mods)
     }
     return ncode;
 }
-void check_and_assign_mod_keys_group(long key_id, unsigned int mods, long reference_key_ids[], long reference_key_count)
+
+static void check_and_assign_mod_keys_group_in(const struct KeyBindingTable *kt, long key_id, unsigned int mods, long reference_key_ids[], long reference_key_count)
 {
     int ncode = mod_key_to_normal_key(mods);
     // Do not allow the key if it is used as other mod key by any in reference_key_ids[]
     struct GameKey *kbk;
     for (long i = 0; i < reference_key_count; i++)
     {
-        kbk = &settings.kbkeys[reference_key_ids[i]];
+        kbk = &kt->keys[reference_key_ids[i]];
         if ((reference_key_ids[i] != key_id) && (kbk->code == ncode))
         {
-            swap_assigned_keys(reference_key_ids[i], kbk, key_id, ncode, 0);
+            swap_assigned_keys_in(kt, reference_key_ids[i], kbk, key_id, ncode, 0);
             return;
         }
     }
-    assign_key(key_id, ncode, 0);
+    assign_key_in(kt, key_id, ncode, 0);
 }
 
-void check_and_assign_mod_keys(long key_id, unsigned int mods, long reference_key_id)
+static void check_and_assign_mod_keys_in(const struct KeyBindingTable *kt, long key_id, unsigned int mods, long reference_key_id)
 {
     // This only works for a pair of adjacent "linked" keys (i.e Speed/Rotate and Query/Possess)
     int ncode = mod_key_to_normal_key(mods);
     // Do not allow the key if it is used as other mod key
     long other_key_id = ((unsigned int)(key_id - reference_key_id) < 1) + reference_key_id;
-    struct GameKey* kbk = &settings.kbkeys[other_key_id];
+    struct GameKey* kbk = &kt->keys[other_key_id];
     if (kbk->code != ncode)
     {
-        assign_key(key_id, ncode, 0);
+        assign_key_in(kt, key_id, ncode, 0);
     }
     else
     {
-        swap_assigned_keys(other_key_id, kbk, key_id, ncode, 0);
+        swap_assigned_keys_in(kt, other_key_id, kbk, key_id, ncode, 0);
     }
 }
 
-void check_and_assign_normal_keys(long key_id, unsigned char key, unsigned int mods, unsigned int set_mod)
+static void check_and_assign_normal_keys_in(const struct KeyBindingTable *kt, long key_id, unsigned char key, unsigned int mods, unsigned int set_mod)
 {
-    struct GameKey  *kbk;
-    for (long i = 0; i < GAME_KEYS_COUNT; i++)
+    struct GameKey *kbk;
+    for (long i = 0; i < kt->count; i++)
     {
-        kbk = &settings.kbkeys[i];
+        kbk = &kt->keys[i];
         if ((i != key_id) && (kbk->code == key) && (kbk->mods == mods))
         {
-            swap_assigned_keys(i, kbk, key_id, key, (set_mod ? mods & (KMod_SHIFT|KMod_CONTROL|KMod_ALT) : 0));
+            swap_assigned_keys_in(kt, i, kbk, key_id, key, (set_mod ? mods & (KMod_SHIFT|KMod_CONTROL|KMod_ALT) : 0));
             return;
         }
     }
-    assign_key(key_id, key, (set_mod ? mods & (KMod_SHIFT|KMod_CONTROL|KMod_ALT) : 0));
+    assign_key_in(kt, key_id, key, (set_mod ? mods & (KMod_SHIFT|KMod_CONTROL|KMod_ALT) : 0));
 }
 
 long set_game_key(long key_id, unsigned char key, unsigned int mods)
@@ -604,14 +653,15 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
     {
       return 0;
     }
+    const struct KeyBindingTable *kt = get_game_key_table();
 
-    struct GameKey *kbk = &settings.kbkeys[key_id];
+    struct GameKey *kbk = &kt->keys[key_id];
     if ((kbk->code == key && kbk->mods == mods)
         || (mods != KC_UNASSIGNED && kbk->code == mod_key_to_normal_key(mods)))
     {
         kbk->code = KC_UNASSIGNED;
         kbk->mods = KC_UNASSIGNED;
-        defined_keys_that_have_been_swapped[key_id] = false;
+        kt->swapped[key_id] = false;
         return 1;
     }
 
@@ -621,12 +671,12 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
         if ((mods & KMod_SHIFT) || (mods & KMod_CONTROL) || (mods & KMod_ALT))
         {
             long reference_key_ids[3] = {Gkey_SellTrapOnSubtile, Gkey_SquareRoomSpace, Gkey_BestRoomSpace};
-            check_and_assign_mod_keys_group(key_id, mods, reference_key_ids, 3);
+            check_and_assign_mod_keys_group_in(kt, key_id, mods, reference_key_ids, 3);
             return 1;
         }
         else
         {
-            check_and_assign_normal_keys(key_id, key, mods, 0);
+            check_and_assign_normal_keys_in(kt, key_id, key, mods, 0);
             return 1;
         }
     }
@@ -635,12 +685,12 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
     {
         if ((mods & KMod_SHIFT) || (mods & KMod_CONTROL) || (mods & KMod_ALT))
         {
-            check_and_assign_mod_keys(key_id, mods, Gkey_RotateMod);
+            check_and_assign_mod_keys_in(kt, key_id, mods, Gkey_RotateMod);
             return 1;
         }
         else
         {
-            check_and_assign_normal_keys(key_id, key, mods, 0);
+            check_and_assign_normal_keys_in(kt, key_id, key, mods, 0);
             return 1;
         }
     }
@@ -649,12 +699,12 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
     {
         if ((mods & KMod_SHIFT) || (mods & KMod_CONTROL) || (mods & KMod_ALT))
         {
-            check_and_assign_mod_keys(key_id, mods, Gkey_CrtrContrlMod);
+            check_and_assign_mod_keys_in(kt, key_id, mods, Gkey_CrtrContrlMod);
             return 1;
         }
         else
         {
-            check_and_assign_normal_keys(key_id, key, mods, 0);
+            check_and_assign_normal_keys_in(kt, key_id, key, mods, 0);
             return 1;
         }
     }
@@ -671,9 +721,48 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
         {
             return 0;
         }
-        check_and_assign_normal_keys(key_id, key, mods, 1);
+        check_and_assign_normal_keys_in(kt, key_id, key, mods, 1);
         return 1;
     }
+}
+
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// counterpart to set_game_key() above, now sharing its swap-on-conflict
+// logic via the same check_and_assign_normal_keys_in()/KeyBindingTable
+// machinery instead of silently allowing collisions. No modifier-key-group
+// handling (check_and_assign_mod_keys*_in(), the "allow binding to a bare
+// Shift/Ctrl/Alt" flexibility Gkey_RotateMod/SpeedMod etc. get) -- none of
+// the current editor keys need that, so it's not wired up here, though the
+// generalized helpers would support it if a future editor key ever does.
+long set_editor_game_key(long key_id, unsigned char key, unsigned int mods)
+{
+    if (!key_to_string[key])
+    {
+        return 0;
+    }
+    const struct KeyBindingTable *kt = get_editor_key_table();
+
+    struct GameKey *kbk = &kt->keys[key_id];
+    if ((kbk->code == key && kbk->mods == mods)
+        || (mods != KC_UNASSIGNED && kbk->code == mod_key_to_normal_key(mods)))
+    {
+        kbk->code = KC_UNASSIGNED;
+        kbk->mods = KC_UNASSIGNED;
+        kt->swapped[key_id] = false;
+        return 1;
+    }
+    if (key == KC_LSHIFT || key == KC_RSHIFT || key == KC_LCONTROL || key == KC_RCONTROL || key == KC_LALT || key == KC_RALT)
+    {
+        return 0;
+    }
+    if (((mods & KMod_SHIFT) && (mods & KMod_CONTROL))
+     || ((mods & KMod_SHIFT) && (mods & KMod_ALT))
+     || ((mods & KMod_CONTROL) && (mods & KMod_ALT)))
+    {
+        return 0;
+    }
+    check_and_assign_normal_keys_in(kt, key_id, key, mods, 1);
+    return 1;
 }
 
 void define_key_input(void)
@@ -692,7 +781,10 @@ void define_key_input(void)
   if (lbInkey != KC_UNASSIGNED)
   {
       update_key_modifiers();
-      if ( set_game_key(defining_a_key_id, lbInkey, key_modifiers) )
+      long assigned = defining_editor_key
+          ? set_editor_game_key(defining_a_key_id, lbInkey, key_modifiers)
+          : set_game_key(defining_a_key_id, lbInkey, key_modifiers);
+      if (assigned)
         defining_a_key = 0;
       lbInkey = KC_UNASSIGNED;
   }

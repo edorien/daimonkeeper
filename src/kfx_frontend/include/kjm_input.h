@@ -41,6 +41,10 @@ struct TbSpriteSheet;
 extern unsigned long key_modifiers;
 extern int defining_a_key;
 extern long defining_a_key_id;
+// docs/refactor/editor/10-definable-keybindings.md -- which table
+// defining_a_key_id indexes into (false = game_key_settings[]/
+// settings.kbkeys[], true = editor_key_settings[]/settings.editor_kbkeys[]).
+extern TbBool defining_editor_key;
 
 extern long left_button_held_x;
 extern long left_button_held_y;
@@ -74,6 +78,9 @@ extern long key_to_string[256];
 #pragma pack()
 /******************************************************************************/
 extern TbBool defined_keys_that_have_been_swapped[];
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// parallel array (settings.editor_kbkeys[]/EditorGameKeys).
+extern TbBool defined_editor_keys_that_have_been_swapped[];
 extern TbBool wheel_scrolled_up;
 extern TbBool wheel_scrolled_down;
 

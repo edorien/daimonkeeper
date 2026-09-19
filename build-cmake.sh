@@ -4,11 +4,15 @@
 #
 #   KFX_OS=windows (default)  32-bit MinGW-w64 (i686) Windows binary, using the
 #                             same compiler/flags/prebuilt deps as `make`.
-#   KFX_OS=linux              native x86_64 Linux ELF (pkg-config deps + prebuilt lin64 static libs)
-#                             (system/pkg-config deps + prebuilt lin64 static libs).
+#   KFX_OS=linux              native x86_64 Linux ELF (system/pkg-config deps,
+#                             falling back to a from-source build for anything
+#                             not found on the system).
 #
-# Third-party deps are downloaded automatically on first run (into deps/); the
-# Windows build needs no vcpkg, the Linux build needs the usual -dev packages.
+# Third-party deps are downloaded and built from source automatically on
+# first run (build/cmake/modules/Dependencies.cmake); neither platform needs
+# vcpkg or manually-fetched prebuilt archives. The Linux build additionally
+# tries system/pkg-config packages first for the deps that are commonly
+# packaged, only falling back to a source build when one isn't found.
 #
 # Usage:
 #   ./build-cmake.sh                     # Windows keeperfx (standard log)

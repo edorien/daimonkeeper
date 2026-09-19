@@ -122,4 +122,17 @@ void FeOpenModal(const char *name);
 bool FeBeginModal(const char *name);
 void FeEndModal(bool was_open);
 
+// --- Menu bar: a top-anchored pull-down bar (kfx_editor's File/Edit/View/
+// Script bar). Same "only call End if Begin returned true" contract as the
+// tab family above -- FeEndMenuBar(was_open)/FeEndMenu(was_open) mirror
+// FeEndTabBar/FeEndTab.
+bool FeBeginMenuBar();
+void FeEndMenuBar(bool was_open);
+bool FeBeginMenu(const char *label, bool enabled = true);
+void FeEndMenu(bool was_open);
+// Returns true the frame it's clicked. `shortcut` is display-only text
+// (e.g. "Ctrl+S") shown right-aligned -- callers still own their own
+// keybinding handling, this doesn't register one.
+bool FeMenuItem(const char *label, const char *shortcut = nullptr, bool enabled = true);
+
 #endif // FRONTGUI_WIDGETS_H

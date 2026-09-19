@@ -39,22 +39,15 @@ for f in "$UNIT_INFO" "$FTEST_INFO"; do
     fi
 done
 
-# Either tree's fetched lcov works (kfx_fetch() pins the same version,
-# 1.16, everywhere) -- prefer the unit-test tree's, fall back to the
-# ftest tree's, so this works even if only one tree ever built the
-# coverage target that triggers the lcov_fetch().
-LCOV=""
-GENHTML=""
-for tree in "$UNIT_TREE" "$FTEST_TREE"; do
-    candidate="$tree/deps/lcov/lcov-1.16/bin/lcov"
-    if [ -x "$candidate" ]; then
-        LCOV="$candidate"
-        GENHTML="$tree/deps/lcov/lcov-1.16/bin/genhtml"
-        break
-    fi
-done
-if [ -z "$LCOV" ]; then
-    echo "merge_coverage.sh: couldn't find a fetched lcov under either tree's deps/lcov/ --" \
+# kfx_fetch() (build/cmake/modules/Dependencies.cmake) caches lcov under
+# deps/.cache-lin64/prebuilt/, not per-build-tree -- deliberately outside
+# out/<platform> so deleting/recreating a build tree doesn't force a
+# re-download, same reasoning as every other dependency there. One shared
+# copy regardless of which tree (or both) actually triggered the fetch.
+LCOV="deps/.cache-lin64/prebuilt/lcov/lcov-1.16/bin/lcov"
+GENHTML="deps/.cache-lin64/prebuilt/lcov/lcov-1.16/bin/genhtml"
+if [ ! -x "$LCOV" ]; then
+    echo "merge_coverage.sh: couldn't find a fetched lcov at $LCOV --" \
          "configure at least one tree with -DKFX_TEST_COVERAGE=ON first." >&2
     exit 1
 fi

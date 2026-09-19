@@ -132,15 +132,18 @@ void frontend_draw_define_key_scroll_tab(struct GuiButton *gbtn)
     frontend_draw_scroll_tab(gbtn, kfx_frontend_state.define_key_scroll_offset, frontend_define_keys_menu_items_visible-2, num_definable_keys());
 }
 
-// Formats settings.kbkeys[key_id]'s bound key (+ modifiers) as display
-// text, e.g. "Ctrl + F1" or "Mouse Button 3". Split out of
-// frontend_draw_define_key() (the legacy draw_call) so kfx_frontend's
-// ImGui FeSt_FEDEFINE_KEYS screen (docs/refactor/renderer/
-// 04-imgui-gui-foundation.md Phase D) can produce the exact same label
-// rather than duplicating the mods/mouse-button/key-name logic.
-void frontend_format_key_binding(long key_id, char *text, size_t text_size)
+// Formats a bound key (+ modifiers) as display text, e.g. "Ctrl + F1" or
+// "Mouse Button 3". Split out of frontend_draw_define_key() (the legacy
+// draw_call) so kfx_frontend's ImGui FeSt_FEDEFINE_KEYS screen
+// (docs/refactor/renderer/04-imgui-gui-foundation.md Phase D) can produce
+// the exact same label rather than duplicating the mods/mouse-button/
+// key-name logic. Takes the raw binding rather than an index/table so
+// frontend_format_key_binding() (settings.kbkeys[]) and
+// frontend_format_editor_key_binding() (settings.editor_kbkeys[], docs/
+// refactor/editor/10-definable-keybindings.md) can share it.
+static void format_key_binding(const struct GameKey *kbk, char *text, size_t text_size)
 {
-    unsigned char mods = settings.kbkeys[key_id].mods;
+    unsigned char mods = kbk->mods;
     text[0] = '\0';
     if (mods & KMod_CONTROL)
     {
@@ -155,7 +158,7 @@ void frontend_format_key_binding(long key_id, char *text, size_t text_size)
         str_appendf(text, text_size, "%s + ", get_string(GUIStr_KeyShift));
     }
 
-    unsigned char code = settings.kbkeys[key_id].code;
+    unsigned char code = kbk->code;
     const char* keytext;
     char chbuf[2];
     char mouse_button_label[255] = "";
@@ -209,6 +212,18 @@ void frontend_format_key_binding(long key_id, char *text, size_t text_size)
       }
     }
     str_append(text, text_size, keytext);
+}
+
+void frontend_format_key_binding(long key_id, char *text, size_t text_size)
+{
+    format_key_binding(&settings.kbkeys[key_id], text, text_size);
+}
+
+// docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
+// counterpart, settings.editor_kbkeys[] instead of settings.kbkeys[].
+void frontend_format_editor_key_binding(long key_id, char *text, size_t text_size)
+{
+    format_key_binding(&settings.editor_kbkeys[key_id], text, text_size);
 }
 
 void frontend_draw_define_key(struct GuiButton *gbtn)
