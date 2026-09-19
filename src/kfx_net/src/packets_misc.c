@@ -29,13 +29,19 @@
 #include "config_settings.h"
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
+#include "config_keeperfx.h"
+#include "player_utils.h"
+#include "slab_data.h"
+#include "dungeon_data.h"
+#include "tasks_list.h"
+#include "spdigger_stack.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 /******************************************************************************/
-#define PACKET_TURN_SIZE (PACKETS_COUNT*sizeof(struct Packet) + sizeof(TbBigChecksum))
+#define PACKET_TURN_MAX_SIZE (MAX_NET_USERS*sizeof(struct Packet) + sizeof(TbBigChecksum))
 #define MULTIPLAYER_PAUSE_COOLDOWN_MS 500
 unsigned long initial_replay_seed;
 unsigned long last_pause_toggle_time = 0;
@@ -93,6 +99,23 @@ void clear_packets(void)
     }
 }
 
+static int packet_saved_users(NetUserId *users)
+{
+    int n = 0;
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        if (kfx_net_state.packet_save_head.user_players[user] >= 0)
+            users[n++] = user;
+    }
+    return n;
+}
+
+static int packet_turn_size(void)
+{
+    NetUserId users[MAX_NET_USERS];
+    return packet_saved_users(users) * sizeof(struct Packet) + sizeof(TbBigChecksum);
+}
+
 TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
 {
     memset(centry, 0, sizeof(struct CatalogueEntry));
@@ -114,7 +137,7 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
         return false;
     }
     kfx_net_state.packet_file_pos = LbFilePosition(kfx_net_state.packet_save_fp);
-    kfx_net_state.turns_stored = (LbFileLengthHandle(kfx_net_state.packet_save_fp) - kfx_net_state.packet_file_pos) / PACKET_TURN_SIZE;
+    kfx_net_state.turns_stored = (LbFileLengthHandle(kfx_net_state.packet_save_fp) - kfx_net_state.packet_file_pos) / packet_turn_size();
     if ((kfx_net_state.packet_checksum_verify) && (!kfx_net_state.packet_save_head.chksum_available))
     {
         WARNMSG("PacketSave checksum not available, checking disabled.");
@@ -129,16 +152,48 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
     return true;
 }
 
+void restore_users_from_packet_save(void)
+{
+    TbBool local_mapped = false;
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        set_net_user_player_number(user, -1);
+    }
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        PlayerNumber plyr_idx = kfx_net_state.packet_save_head.user_players[user];
+        if (plyr_idx < 0)
+            continue;
+        if ((plyr_idx >= PLAYERS_COUNT)
+         || !flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(plyr_idx)))
+        {
+            WARNLOG("Packet file maps user %d to player %d, which the file says does not exist",
+                (int)user, (int)plyr_idx);
+            continue;
+        }
+        set_net_user_player_number(user, plyr_idx);
+        struct PlayerInfo *player = get_player(plyr_idx);
+        player->user_id = user;
+        snprintf(player->player_name, sizeof(player->player_name), "%s",
+            kfx_net_state.packet_save_head.user_names[user]);
+        init_user_state(user);
+        local_mapped |= (plyr_idx == my_player_number);
+        SYNCLOG("Replay user %d -> player %d", (int)user, (int)plyr_idx);
+    }
+    if (!local_mapped)
+    {
+        set_net_user_player_number(SOLO_HUMAN_ID, my_player_number);
+        get_player(my_player_number)->user_id = SOLO_HUMAN_ID;
+        init_user_state(SOLO_HUMAN_ID);
+        SYNCLOG("Replay local user %d -> player %d (not in the recorded map)",
+            (int)SOLO_HUMAN_ID, (int)my_player_number);
+    }
+}
+
 void post_init_packets(void)
 {
     SYNCDBG(6,"Starting");
     initialize_packet_history();
-    if ((kfx_net_state.packet_load_enable) && (kfx_net_state.packet_load_initialized))
-    {
-        struct CatalogueEntry centry;
-        open_packet_file_for_load(kfx_net_state.packet_fname, &centry);
-        kfx_net_state.pckt_gameturn = 0;
-    }
     clear_packets();
 }
 
@@ -166,13 +221,38 @@ TbBigChecksum compute_replay_integrity(void)
             }
         }
     }
+    for (MapSlabCoord slb_y = 0; slb_y < kfx_sim_state.map_tiles_y; slb_y++)
+    {
+        for (MapSlabCoord slb_x = 0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
+        {
+            const struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
+            sum += (ulong)slb->kind + (ulong)slb->owner + (ulong)slb->health;
+        }
+    }
+    for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
+    {
+        const struct PlayerInfo* player = get_player(plyr_idx);
+        if (!player_exists(player))
+            continue;
+        const struct Dungeon* dungeon = get_players_dungeon(player);
+        if (dungeon_invalid(dungeon))
+            continue;
+        for (size_t i = 0; i < MAPTASKS_COUNT; i++)
+        {
+            const struct MapTask* task = &dungeon->task_list[i];
+            if (task->kind != SDDigTask_None)
+                sum += (ulong)task->kind + (ulong)task->coords;
+        }
+    }
     return sum;
 }
 
 short save_packets(void)
 {
-    const int turn_data_size = PACKET_TURN_SIZE;
-    unsigned char pckt_buf[PACKET_TURN_SIZE+4];
+    NetUserId users[MAX_NET_USERS];
+    const int nusers = packet_saved_users(users);
+    const int turn_data_size = nusers * sizeof(struct Packet) + sizeof(TbBigChecksum);
+    unsigned char pckt_buf[PACKET_TURN_MAX_SIZE+4];
     TbBigChecksum chksum;
     SYNCDBG(6,"Starting");
     if (kfx_net_state.packet_checksum_verify)
@@ -181,17 +261,17 @@ short save_packets(void)
         chksum = 0;
     LbFileSeek(kfx_net_state.packet_save_fp, 0, Lb_FILE_SEEK_END);
     // Prepare data in the buffer
-    for (int i = 0; i < PACKETS_COUNT; i++)
-        memcpy(&pckt_buf[i*sizeof(struct Packet)], &sim_packets[i], sizeof(struct Packet));
-    memcpy(&pckt_buf[PACKETS_COUNT*sizeof(struct Packet)], &chksum, sizeof(TbBigChecksum));
+    for (int i = 0; i < nusers; i++)
+        memcpy(&pckt_buf[i*sizeof(struct Packet)], &sim_packets[users[i]], sizeof(struct Packet));
+    memcpy(&pckt_buf[nusers*sizeof(struct Packet)], &chksum, sizeof(TbBigChecksum));
     // Write buffer into file
     if (LbFileWrite(kfx_net_state.packet_save_fp, &pckt_buf, turn_data_size) != turn_data_size)
     {
         ERRORLOG("Packet file write error");
     }
-    for (int i = 0; i < PACKETS_COUNT; i++) {
-        if (sim_packets[i].action == PckA_PlyrMsgEnd) {
-            if (LbFileWrite(kfx_net_state.packet_save_fp, get_player(i)->mp_pending_message, PLAYER_MP_MESSAGE_LEN) != PLAYER_MP_MESSAGE_LEN) {
+    for (int i = 0; i < nusers; i++) {
+        if (sim_packets[users[i]].action == PckA_PlyrMsgEnd) {
+            if (LbFileWrite(kfx_net_state.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) != PLAYER_MP_MESSAGE_LEN) {
                 ERRORLOG("Chat message file write error");
             }
         }
@@ -200,6 +280,17 @@ short save_packets(void)
     {
         ERRORLOG("Unable to flush PacketSave File");
         return false;
+    }
+    if (packetsave_max_kb > 0)
+    {
+        int pos = LbFilePosition(kfx_net_state.packet_save_fp);
+        if ((pos >= 0) && ((uint32_t)pos >= packetsave_max_kb * 1024))
+        {
+            WARNLOG("PacketSave reached the %u KB limit at turn %u; recording stopped",
+                packetsave_max_kb, get_gameturn());
+            close_packet_file();
+            kfx_net_state.packet_save_enable = false;
+        }
     }
     return true;
 }
@@ -268,6 +359,16 @@ TbBool open_new_packet_file_for_save(void)
     kfx_net_state.packet_save_head.default_imprison_tendency = IMPRISON_BUTTON_DEFAULT;
     kfx_net_state.packet_save_head.default_flee_tendency = FLEE_BUTTON_DEFAULT;
     kfx_net_state.packet_save_head.highlight_mode = settings.highlight_mode;
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+        kfx_net_state.packet_save_head.user_players[user] = get_net_user_player_number(user);
+    kfx_net_state.packet_save_head.recording_user = get_local_user();
+    kfx_net_state.packet_save_head.frontend_alliances = net_callbacks->get_frontend_alliances();
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        const char *name = network_user_name(user);
+        snprintf(kfx_net_state.packet_save_head.user_names[user],
+            sizeof(kfx_net_state.packet_save_head.user_names[user]), "%s", (name != NULL) ? name : "");
+    }
     for (int i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
@@ -300,11 +401,29 @@ TbBool open_new_packet_file_for_save(void)
     return true;
 }
 
+static TbBool turn_has_quit_packet(void)
+{
+    for (NetUserId i = 0; i < MAX_NET_USERS; i++)
+    {
+        switch (sim_packets[i].action)
+        {
+        case PckA_QuitToMainMenu:
+        case PckA_ForceApplicationClose:
+            return true;
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
 void load_packets_for_turn(GameTurn nturn)
 {
     SYNCDBG(19,"Starting");
-    const int turn_data_size = PACKET_TURN_SIZE;
-    unsigned char pckt_buf[PACKET_TURN_SIZE+4];
+    NetUserId users[MAX_NET_USERS];
+    const int nusers = packet_saved_users(users);
+    const int turn_data_size = nusers * sizeof(struct Packet) + sizeof(TbBigChecksum);
+    unsigned char pckt_buf[PACKET_TURN_MAX_SIZE+4];
     if (nturn >= kfx_net_state.turns_stored)
     {
         ERRORDBG(18,"Out of turns to load from Packet File");
@@ -319,21 +438,21 @@ void load_packets_for_turn(GameTurn nturn)
         return;
     }
     kfx_net_state.packet_file_pos += turn_data_size;
-    for (long i = 0; i < PACKETS_COUNT; i++)
-        memcpy(&sim_packets[i], &pckt_buf[i * sizeof(struct Packet)], sizeof(struct Packet));
-    for (long i = 0; i < PACKETS_COUNT; i++) {
-        if (sim_packets[i].action == PckA_PlyrMsgEnd) {
-            if (LbFileRead(kfx_net_state.packet_save_fp, get_player(i)->mp_pending_message, PLAYER_MP_MESSAGE_LEN) == PLAYER_MP_MESSAGE_LEN) {
+    for (int i = 0; i < nusers; i++)
+        memcpy(&sim_packets[users[i]], &pckt_buf[i * sizeof(struct Packet)], sizeof(struct Packet));
+    for (int i = 0; i < nusers; i++) {
+        if (sim_packets[users[i]].action == PckA_PlyrMsgEnd) {
+            if (LbFileRead(kfx_net_state.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) == PLAYER_MP_MESSAGE_LEN) {
                 kfx_net_state.packet_file_pos += PLAYER_MP_MESSAGE_LEN;
             } else {
                 ERRORDBG(18,"Cannot read chat message from Packet File");
             }
         }
     }
-    TbBigChecksum tot_chksum = llong(&pckt_buf[PACKETS_COUNT * sizeof(struct Packet)]);
+    TbBigChecksum tot_chksum = llong(&pckt_buf[nusers * sizeof(struct Packet)]);
     if (kfx_net_state.turns_fastforward > 0)
         kfx_net_state.turns_fastforward--;
-    if (kfx_net_state.packet_checksum_verify)
+    if (kfx_net_state.packet_checksum_verify && !turn_has_quit_packet())
     {
         if (compute_replay_integrity() != tot_chksum)
         {
@@ -383,6 +502,7 @@ void disable_packet_mode(void)
     close_packet_file();
     kfx_net_state.packet_load_enable = false;
     kfx_net_state.packet_save_enable = false;
+    remap_local_user_to_solo();
     net_callbacks->show_onscreen_msg(2*kfx_sim_state.turns_per_second, "Packet mode disabled");
     net_callbacks->set_gui_visible(true);
 }

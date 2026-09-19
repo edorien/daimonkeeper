@@ -87,6 +87,7 @@ TbBool config_network_is_active(void)
 }
 short api_enabled = false;
 uint16_t api_port = 5599;
+uint32_t packetsave_max_kb = 0;
 unsigned long features_enabled = 0;
 TbBool exit_on_lua_error = false;
 TbBool FLEE_BUTTON_DEFAULT = false;
@@ -223,6 +224,7 @@ const struct NamedCommand conf_commands[] = {
   {"GUI_POSITION"                  , 55},
   {"GUI_ICON_PACK"                 , 56},
   {"MINIMAP_CORNER"                , 57},
+  {"PACKETSAVE_MAX_SIZE"           , 58}, // upstream id 52 collides with the fork's UI_FONT_SCALE
   {NULL,                   0},
   };
 
@@ -1184,6 +1186,18 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               keeperfx_ui_config.minimap_corner = i;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+          }
+          break;
+      case 58: // PACKETSAVE_MAX_SIZE
+          i = -1;
+          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+          {
+            i = atoi(word_buf);
+          }
+          if (i >= 0) {
+              packetsave_max_kb = i;
+          } else {
+              CONFWRNLOG("Invalid \"%s\" value in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
       case ccr_comment:

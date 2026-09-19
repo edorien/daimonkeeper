@@ -111,7 +111,7 @@ TEST_CASE_METHOD(ResetChecksumState, "checksums_different is false when a client
     sim_packets[0].checksum = 0xAABBCCDD;
     make_active_client(1);
     sim_packets[1].checksum = 0xAABBCCDD;
-    sim_packets[1].action = 1; // non-empty, so is_packet_empty() doesn't short-circuit to "missing"
+    sim_packets[1].action = PckA_TogglePause; // non-empty (and not a quit), so is_packet_empty() doesn't short-circuit to "missing"
     CHECK_FALSE(checksums_different());
 }
 
@@ -119,7 +119,7 @@ TEST_CASE_METHOD(ResetChecksumState, "checksums_different is true when a client'
     sim_packets[0].checksum = 0xAABBCCDD;
     make_active_client(1);
     sim_packets[1].checksum = 0x11223344;
-    sim_packets[1].action = 1;
+    sim_packets[1].action = PckA_TogglePause;
     CHECK(checksums_different());
 }
 
@@ -134,7 +134,7 @@ TEST_CASE_METHOD(ResetChecksumState, "checksums_different skips a player marked 
     make_active_client(1);
     kfx_sim_state.players[1].allocflags |= PlaF_CompCtrl;
     sim_packets[1].checksum = 0x11223344; // would mismatch, but the player is skipped entirely
-    sim_packets[1].action = 1;
+    sim_packets[1].action = PckA_TogglePause;
     CHECK_FALSE(checksums_different());
 }
 
@@ -143,6 +143,25 @@ TEST_CASE_METHOD(ResetChecksumState, "checksums_different skips a player whose n
     kfx_sim_state.players[1].allocflags |= PlaF_Allocated;
     // net_user_info[1].network_user_active left at 0 -- not an active network slot.
     sim_packets[1].checksum = 0x11223344;
-    sim_packets[1].action = 1;
+    sim_packets[1].action = PckA_TogglePause;
+    CHECK_FALSE(checksums_different());
+}
+
+// Upstream #5300: a user whose packet for this turn is a quit/force-close is dropping
+// (and the host sometimes emits checksum-less packets for such users), so their
+// checksum is not validated and cannot raise a desync.
+TEST_CASE_METHOD(ResetChecksumState, "checksums_different ignores a user whose packet is PckA_QuitToMainMenu", "[kfx_net][net_checksums]") {
+    sim_packets[0].checksum = 0xAABBCCDD;
+    make_active_client(1);
+    sim_packets[1].checksum = 0x11223344; // would mismatch...
+    sim_packets[1].action = PckA_QuitToMainMenu; // ...but the user is leaving
+    CHECK_FALSE(checksums_different());
+}
+
+TEST_CASE_METHOD(ResetChecksumState, "checksums_different ignores a user whose packet is PckA_ForceApplicationClose", "[kfx_net][net_checksums]") {
+    sim_packets[0].checksum = 0xAABBCCDD;
+    make_active_client(1);
+    sim_packets[1].checksum = 0; // the host's spoofed drop packet carries no checksum
+    sim_packets[1].action = PckA_ForceApplicationClose;
     CHECK_FALSE(checksums_different());
 }

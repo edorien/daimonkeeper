@@ -120,6 +120,10 @@ struct GameCallbacks {
        logic evaluated between the read and the reset. */
     long (*get_intralvl_next_level)(void);
     void (*clear_intralvl_next_level)(void);
+
+    /* frontend.h -- frontend_alliances: a replay (-packetload, #5317) restores the
+       alliance selection it was recorded with before setup_alliances() runs. */
+    void (*set_frontend_alliances)(char alliances);
 };
 void set_game_callbacks(const struct GameCallbacks *callbacks);
 extern const struct GameCallbacks *game_callbacks;

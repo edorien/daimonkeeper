@@ -257,6 +257,14 @@ jobs:
         name: ${{ env.ZIP_NAME }}
         path: dist/**
 
+    - name: Upload debug symbols
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ZIP_NAME }}-symbols
+        path: |
+          out/keeperfx.exe.debug
+          out/keeperfx_hvlog.exe.debug
+
   # CMake is the canonical, cross-platform build description (single
   # GLOB source list for main.cpp/ftests + src/kfx_*/CMakeLists.txt for
   # everything else -- see build/cmake/modules/Dependencies.cmake and

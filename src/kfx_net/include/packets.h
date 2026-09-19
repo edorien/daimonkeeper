@@ -82,7 +82,7 @@ struct PacketEx
 /******************************************************************************/
 void force_application_close(void);
 TbBool is_mouse_on_map(struct Packet* pckt);
-void remember_cursor_subtile(struct PlayerInfo *player);
+void remember_cursor_subtile(NetUserId user);
 struct Thing *get_thing_under_hand(struct PlayerInfo *player, MapCoord x, MapCoord y);
 TbBool process_dungeon_control_packet_clicks(NetUserId user);
 TbBool process_user_dungeon_control_packet_action(NetUserId user);
@@ -96,6 +96,7 @@ void process_camera_action(struct Camera *cams, const struct Packet *pckt);
 void process_first_person_look(struct Thing *thing, const struct Packet *pckt, long current_horizontal, long current_vertical, long *out_horizontal, long *out_vertical, long *out_roll);
 TbBool can_process_creature_input(struct Thing *thing);
 void exchange_packets(void);
+TbBool is_desync_warning_active(void);
 void process_packets(void);
 void set_local_packet_turn(void);
 void clear_packets(void);
@@ -108,7 +109,7 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry);
 short save_packets(void);
 void close_packet_file(void);
 TbBool reinit_packets_after_load(void);
-TbBool packets_process_cheats(PlayerNumber plyr_idx, MapCoord x, MapCoord y,
+TbBool packets_process_cheats(NetUserId user, PlayerNumber plyr_idx, MapCoord x, MapCoord y,
     struct Packet* pckt, MapSubtlCoord stl_x, MapSubtlCoord stl_y, MapSlabCoord slb_x, MapSlabCoord slb_y);
 void disable_packet_mode(void);
 /******************************************************************************/

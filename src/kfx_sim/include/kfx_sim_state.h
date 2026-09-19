@@ -41,6 +41,7 @@
 #include "actionpt.h"
 #include "map_events.h"
 #include "config.h"
+#include "game_time.h" // struct GameTime
 
 // struct TimerTime moved here from kfx_frontend_state.h (stage 13.2,
 // docs/refactor/stage-13-enforce-and-document.md) -- the only global of
@@ -350,6 +351,9 @@ struct KfxSimState {
     TbBool TimerGame;
     TbBool TimerNoReset;
     TbBool TimerFreeze;
+    TbBool TimerGameReal;          // -timer game real: draw in-game time (seconds) instead of turns
+    unsigned long GameSeconds;
+    struct GameTime GameT;
 
     /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
        stage-13-enforce-and-document.md) -- message-display buffers

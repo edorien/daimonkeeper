@@ -425,7 +425,7 @@ extern char gui_error_text[256];
 extern long net_number_of_services;
 extern long net_number_of_players;
 extern long net_number_of_enum_players;
-extern long net_level_hilighted;
+extern long net_level_highlighted;
 extern struct NetMessage net_message[NET_MESSAGES_COUNT];
 extern long net_number_of_messages;
 // net_session_index_active_id moved to net_main.h (kfx_net) -- see there.

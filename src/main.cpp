@@ -603,6 +603,8 @@ static void set_speech_queue_limit(int limit) { g_speech_queue_limit = limit; }
 // directly. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 static void set_host_packet_received(long double value) { host_packet_received = value; }
+static char net_callbacks_get_frontend_alliances(void) { return frontend_alliances; }
+static void game_callbacks_set_frontend_alliances(char alliances) { frontend_alliances = alliances; }
 
 // Wrapper registered with kfx_config's RenderOverlayCallbacks
 // (render_overlay.h); engine_render.c can't reach kfx_apploop's
@@ -798,6 +800,12 @@ static struct Navigation *pathfinding_world_creature_get_navigation(struct Thing
 static struct Ariadne *pathfinding_world_creature_get_ariadne_state(struct Thing *creatng)
 {
     return &creature_control_get_from_thing(creatng)->arid;
+}
+static TbBool pathfinding_world_creature_steps_into_toxic_terrain(struct Thing *thing, const struct Coord3d *pos)
+{
+    return !flag_is_set(thing->alloc_flags, TAlF_IsControlled)
+        && !terrain_toxic_for_creature_at_position(thing, thing->mappos.x.stl.num, thing->mappos.y.stl.num)
+        && terrain_toxic_for_creature_at_position(thing, pos->x.stl.num, pos->y.stl.num);
 }
 static short pathfinding_world_creature_get_max_speed(const struct Thing *creatng)
 {
@@ -1074,8 +1082,8 @@ static TbBool net_callbacks_frontnet_service_selected(int service)
 
 static void net_callbacks_clear_player_lightning_palette(struct PlayerInfo *player)
 {
-    PaletteSetPlayerPalette(player, engine_palette);
-    player->additional_flags &= ~PlaAF_LightningPaletteIsActive;
+    PaletteSetUserPalette(player->user_id, engine_palette);
+    get_player_user_state(player)->additional_flags &= ~UsrAF_LightningPaletteIsActive;
 }
 
 static TbBool net_callbacks_lua_script_active(void)
@@ -1424,7 +1432,7 @@ short setup_game(void)
       &frontstats_initialise,
       &GetMouseX, &GetMouseY, &is_mouse_pressed_lrbutton, &is_key_pressed, &mouse_is_over_panel_map,
       &sim_feedback_is_left_button_held,
-      &PaletteSetPlayerPalette, &PaletteApplyPainToPlayer,
+      &PaletteSetUserPalette, &PaletteApplyPainToPlayer,
       &toggle_status_menu, &turn_off_roaming_menus, &initialise_tab_tags_and_menu,
       &init_gui, &set_gui_visible, &update_player_objectives, &create_message_box,
       &turn_on_menu, &turn_off_menu, &turn_off_query_menus, &turn_off_all_menus,
@@ -1448,7 +1456,7 @@ short setup_game(void)
       &sim_feedback_get_selected_level_number,
       &sim_feedback_get_level_number,
       &sim_feedback_get_play_gameturn,
-      &update_time, &get_game_time, &get_zoom_key_room_order,
+      &update_time, &get_game_time, &player_has_enemies_to_defeat, &get_zoom_key_room_order,
       &get_history_packet,
       &setup_eye_lens, &lens_is_ready, &lens_get_render_target,
       &lens_get_render_target_width, &lens_get_render_target_height, &draw_lens_effect,
@@ -1494,6 +1502,7 @@ short setup_game(void)
       &pathfinding_world_get_nav_thing_can_travel_over_lava, &pathfinding_world_set_nav_thing_can_travel_over_lava,
       &pathfinding_world_get_nav_thing_is_flying, &pathfinding_world_set_nav_thing_is_flying,
       &subtile_has_abyss_on_top,
+      &pathfinding_world_creature_steps_into_toxic_terrain,
   };
   set_pathfinding_world_callbacks(&pathfinding_world_impl);
   static const struct SpriteLookupCallbacks sprite_lookup_impl = {
@@ -1578,7 +1587,7 @@ short setup_game(void)
       &resync_export_game_state, &resync_import_game_state,
       &resync_export_frontend_state, &resync_import_frontend_state,
 
-      &network_yield_draw_gameplay, &network_yield_waiting_gameplay_packets,
+      &network_yield_poll_gameplay, &network_yield_waiting_gameplay_packets,
       &network_yield_draw_frontend,
       &output_message,
       &erstat_inc, &show_onscreen_msg_plain, &is_onscreen_msg_visible,
@@ -1586,6 +1595,7 @@ short setup_game(void)
       &load_game_chunks, &fill_game_catalogue_entry, &save_packet_chunks,
       &draw_out_of_sync_box, &process_frontend_chat_message,
       &set_host_packet_received,
+      &net_callbacks_get_frontend_alliances,
   };
   set_net_callbacks(&net_callbacks_impl);
   static const struct GameCallbacks game_callbacks_impl = {
@@ -1627,6 +1637,7 @@ short setup_game(void)
       &save_frontend_state, &load_frontend_state, &reset_frontend_state,
       &get_frontend_state_size,
       &get_intralvl_next_level, &clear_intralvl_next_level,
+      &game_callbacks_set_frontend_alliances,
   };
   set_game_callbacks(&game_callbacks_impl);
   // docs/refactor/editor/01-entry-and-editor-session.md §4 -- the one
@@ -2096,6 +2107,11 @@ static short process_command_line(unsigned short argc, char *argv[])
           {
               kfx_sim_state.TimerGame = true;
               narg++;
+              if (strcasecmp(pr3str, "real") == 0)
+              {
+                  kfx_sim_state.TimerGameReal = true;
+                  narg++;
+              }
           }
           else if (strcasecmp(pr2str, "continuous") == 0)
           {

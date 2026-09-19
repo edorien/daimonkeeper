@@ -32,6 +32,7 @@
 #include "power_specials.h"
 #include "power_process.h"
 #include "player_data.h"
+#include "packet_data.h"
 #include "dungeon_data.h"
 #include "room_garden.h"
 #include "thing_objects.h"
@@ -556,7 +557,8 @@ void draw_power_hand(void)
     struct Room *room;
     struct RoomConfigStats* roomst;
     player = get_my_player();
-    if ((player->display_flags & PlaF6_DisplayNeedsUpdate) != 0)
+    struct UserState* ustate = get_user_state(get_local_user());
+    if (local_state.display_needs_update)
         return;
     if (kfx_sim_state.small_map_state == 2)
         return;
@@ -602,7 +604,7 @@ void draw_power_hand(void)
     thing = thing_get(player->hand_thing_idx);
     if (!thing_exists(thing))
     {
-        if ((local_thing_under_hand > 0) && (player->work_state == PSt_CtrlDungeon)) {
+        if ((local_state.local_thing_under_hand > 0) && (player->work_state == PSt_CtrlDungeon)) {
             sim_feedback->process_keeper_sprite(sim_feedback->GetMouseX()+scale_ui_value(60*global_hand_scale), sim_feedback->GetMouseY()+scale_ui_value(40*global_hand_scale),
               kfx_config_state.conf.power_hand_conf.pwrhnd_cfg_stats[player->hand_idx].anim_idx[HndA_Hover], 0, 0, scale_ui_value(64*global_hand_scale));
         }
@@ -617,16 +619,16 @@ void draw_power_hand(void)
         return;
     }
     SYNCDBG(7,"Drawing hand %s index %d", thing_model_name(thing), (int)thing->index);
-    if ((player->additional_flags & PlaAF_ChosenSubTileIsHigh) != 0)
+    if ((ustate->additional_flags & UsrAF_ChosenSubTileIsHigh) != 0)
     {
         draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(18*global_hand_scale), sim_feedback->GetMouseY());
         return;
     }
     if (player->work_state != PSt_HoldInHand)
     {
-      TbBool draw_hand = (local_thing_under_hand > 0);
+      TbBool draw_hand = (local_state.local_thing_under_hand > 0);
       if ((player->work_state == PSt_CtrlDungeon) && !power_hand_is_empty(player)) {
-        draw_hand = (player->primary_cursor_state != CSt_DoorKey) && (player->secondary_cursor_state != CSt_DoorKey);
+        draw_hand = (ustate->primary_cursor_state != CSt_DoorKey) && (ustate->secondary_cursor_state != CSt_DoorKey);
       }
       if ((player->work_state != PSt_CtrlDungeon) || !draw_hand)
       {
@@ -639,7 +641,7 @@ void draw_power_hand(void)
           } else
           if (player->work_state == PSt_CtrlDungeon)
           {
-            if ((player->secondary_cursor_state == CSt_DoorKey) || (player->primary_cursor_state == CSt_DoorKey))
+            if ((ustate->secondary_cursor_state == CSt_DoorKey) || (ustate->primary_cursor_state == CSt_DoorKey))
             {
               draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(18*global_hand_scale), sim_feedback->GetMouseY());
             }

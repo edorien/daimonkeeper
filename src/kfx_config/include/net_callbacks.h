@@ -73,7 +73,7 @@ struct NetCallbacks {
     /* front_input.h */
     TbBool (*process_cheat_heart_health_inputs)(HitPoints *value, HitPoints max_health);
 
-    /* front_simple.h -- clears PlaAF_LightningPaletteIsActive and restores
+    /* front_simple.h -- clears UsrAF_LightningPaletteIsActive and restores
        the player's normal palette in one step. */
     void (*clear_player_lightning_palette)(struct PlayerInfo *player);
 
@@ -123,7 +123,7 @@ struct NetCallbacks {
        into src/main.cpp before kfx_apploop existed; that was a real
        kfx_net -> app_entry violation invisible to check_layering.py
        (which only scans #include edges, not extern declarations). */
-    void (*network_yield_draw_gameplay)(void);
+    void (*network_yield_poll_gameplay)(void); /* input poll only; sets exit_keeper if the OS asked to quit */
     void (*network_yield_waiting_gameplay_packets)(void);
     void (*network_yield_draw_frontend)(void);
 
@@ -156,11 +156,16 @@ struct NetCallbacks {
     /* game_session_loop.h (kfx_apploop) -- net_exchange_common.c updates
        the host-packet-received timestamp kfx_apploop's multiplayer
        clock-adjust logic reads each frame; same same-file-bare-extern
-       violation shape as network_yield_draw_gameplay above, found by
+       violation shape as network_yield_poll_gameplay above, found by
        scripts/check_layering_symbols.py (docs/refactor/todo/
        check-layering-symbol-level-blind-spot.md) rather than by
        inspection like the rest of this struct. */
     void (*set_host_packet_received)(long double value);
+
+    /* frontend.h -- frontend_alliances (the lobby's alliance selection). Recorded into
+       -packetsave replay headers by kfx_net's packets_misc.c (#5317); kfx_frontend owns
+       the variable, kfx_net is below it. */
+    char (*get_frontend_alliances)(void);
 };
 void set_net_callbacks(const struct NetCallbacks *callbacks);
 extern const struct NetCallbacks *net_callbacks;

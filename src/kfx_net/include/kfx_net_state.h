@@ -23,6 +23,8 @@
 #include "thing_list.h"
 #include "player_data.h"
 #include "room_data.h"
+#include "dungeon_data.h" // DUNGEONS_COUNT
+#include "tasks_list.h" // struct MapTask, MAPTASKS_COUNT
 #include "packets.h"
 
 #ifdef __cplusplus
@@ -105,6 +107,7 @@ struct DesyncChecksums {
     TbBigChecksum doors;
     TbBigChecksum rooms;
     TbBigChecksum players;
+    TbBigChecksum dig_tasks;
     TbBigChecksum action_seed;
     TbBigChecksum ai_seed;
     TbBigChecksum player_seed;
@@ -118,6 +121,8 @@ struct LogDetailedSnapshot {
     int player_count;
     struct LogRoomDesyncInfo rooms[ROOMS_COUNT];
     int room_count;
+    struct MapTask dig_tasks[DUNGEONS_COUNT][MAPTASKS_COUNT];
+    unsigned short dig_task_counts[DUNGEONS_COUNT];
 };
 
 #pragma pack(1)
@@ -138,7 +143,6 @@ struct KfxNetState {
     uint32_t log_things_end_turn;
     uint32_t turns_packetoff;
     PlayerNumber local_plyr_idx;
-    unsigned char packet_load_initialized; // something with packetload
 
     // Per-turn input packets moved to kfx_sim's sim_packets[] (packet_data.h,
     // docs/refactor/todo/remove-symbol-level-layering-residuals.md) --

@@ -26,6 +26,7 @@
 #define DK_SIM_FEEDBACK_H
 
 #include "bflib_basics.h"
+#include "game_time.h" // struct GameTime
 #include "bflib_sound.h"
 #include "bflib_keybrd.h"
 #include "bflib_netsp.h"
@@ -52,12 +53,6 @@ typedef struct VALUE VALUE;
 // value from get_game_time(), needed complete at both the callback
 // signature here and player_utils.c's call site. See
 // docs/refactor/stage-13-enforce-and-document.md.
-struct GameTime {
-    unsigned char Seconds;
-    unsigned char Minutes;
-    unsigned char Hours;
-};
-
 struct SimFeedbackCallbacks {
     /* gui_topmsg.h -- see enum ErrorStatisticEntries in globals.h */
     long (*report_error_stat)(int stat_num);
@@ -112,9 +107,9 @@ struct SimFeedbackCallbacks {
 
     /* cursor_tag.h -- roomspace_prediction.c/player_compchecks.c/
        player_comptask.c/roomspace.c/thing_doors.c */
-    unsigned char (*tag_cursor_blocks_dig)(struct PlayerInfo *player, const struct Packet *pckt, struct RoomSpace *render_roomspace, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
+    unsigned char (*tag_cursor_blocks_dig)(struct PlayerInfo *player, NetUserId user, const struct Packet *pckt, struct RoomSpace *render_roomspace, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
     TbBool (*tag_cursor_blocks_place_door)(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-    TbBool (*tag_cursor_blocks_place_room)(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
+    TbBool (*tag_cursor_blocks_place_room)(NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
     TbBool (*tag_cursor_blocks_sell_area)(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
 
     /* engine_redraw.h */
@@ -184,7 +179,7 @@ struct SimFeedbackCallbacks {
     /* vidfade.h -- palette-flash functions called from kfx_sim
        (player_instances.c/power_process.c/thing_creature.c/
        thing_effects.c/thing_shots.c/thing_stats.c). */
-    void (*PaletteSetPlayerPalette)(struct PlayerInfo *player, unsigned char *pal);
+    void (*PaletteSetUserPalette)(NetUserId user, unsigned char *pal);
     void (*PaletteApplyPainToPlayer)(struct PlayerInfo *player, long intense);
 
     /* frontend.h -- called from kfx_sim (creature_control.c/player_data.c/
@@ -279,7 +274,9 @@ struct SimFeedbackCallbacks {
 
     /* front_input.h */
     void (*update_time)(void);
-    struct GameTime (*get_game_time)(unsigned long turns, unsigned long fps);
+    void (*get_game_time)(struct GameTime *GT, unsigned long turns, unsigned long fps);
+    /* net_game.h -- kfx_net owns the rule for who still counts as an opponent (dropped users do not) */
+    TbBool (*player_has_enemies_to_defeat)(const struct PlayerInfo *player);
     unsigned short (*get_zoom_key_room_order)(long idx);
 
     /* net_exchange_gameplay.h */

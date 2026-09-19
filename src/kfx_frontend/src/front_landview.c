@@ -97,6 +97,9 @@ char level_name[88];
 // reader/writer of every field. See
 // docs/refactor/stage-13-enforce-and-document.md.
 struct MapLevelInfo map_info;
+
+static TbPixel netfont_palette_remap[PALETTE_COLORS];
+static unsigned char netfont_source_palette[PALETTE_SIZE];
 /******************************************************************************/
 #ifdef __cplusplus
 }
@@ -114,6 +117,36 @@ void draw_map_screen(void)
         scale_value_landview(LANDVIEW_MAP_WIDTH), scale_value_landview(LANDVIEW_MAP_HEIGHT),
         -scale_value_landview(map_info.screen_shift_x), -scale_value_landview(map_info.screen_shift_y),
         map_screen,LANDVIEW_MAP_WIDTH,LANDVIEW_MAP_HEIGHT);
+}
+
+TbBool init_netfont_palette_remap(void)
+{
+    const char *fname = prepare_file_path(FGrp_LandView, "rgmap00.pal");
+
+    if (LbFileLoadAt(fname, netfont_source_palette) != PALETTE_SIZE)
+    {
+        ERRORLOG("Unable to load rgmap00.PAL for NETFONT");
+        return false;
+    }
+    return true;
+}
+
+/* Upstream (#5253) snaps each source colour to the nearest index of frontend_palette
+ * (LbPaletteFindColour) because its remap tables were index->index. Here a remap is a
+ * 256-entry TbPixel lookup (see lbSpriteReMapPtr), so the source colour is used as-is. */
+static void make_palette_remap(TbPixel *remap, const unsigned char *source_palette)
+{
+    for (int i = 0; i < PALETTE_COLORS; i++)
+    {
+        remap[i] = TbPixel_RGB(
+            chan6_to_8(source_palette[i * 3 + 0]),
+            chan6_to_8(source_palette[i * 3 + 1]),
+            chan6_to_8(source_palette[i * 3 + 2]));
+    }
+}
+
+void pop_palette_remap(void){
+    make_palette_remap(netfont_palette_remap, netfont_source_palette);
 }
 
 const struct TbSprite * get_map_ensign(long idx)
@@ -369,7 +402,7 @@ const struct TbSprite *get_ensign_sprite_for_level(struct LevelInformation *lvin
     {
         int frame = 0;
         if (lvinfo->level_type & LvKind_IsMulti){
-            if ((fe_net_level_selected == lvinfo->lvnum) || (net_level_hilighted == lvinfo->lvnum))
+            if ((fe_net_level_selected == lvinfo->lvnum) || (net_level_highlighted == lvinfo->lvnum))
                 frame = 1;
         } else {
             frame = anim_frame & 3;
@@ -468,7 +501,7 @@ const struct TbSprite *get_ensign_sprite_for_level(struct LevelInformation *lvin
                     ensign_sprite_index = 5;
                     break;
                 }
-                if ((fe_net_level_selected == lvinfo->lvnum) || (net_level_hilighted == lvinfo->lvnum))
+                if ((fe_net_level_selected == lvinfo->lvnum) || (net_level_highlighted == lvinfo->lvnum))
                     ensign_sprite_index++;
                 if (ensign_type == EnsCoop)
                 {
@@ -1144,7 +1177,11 @@ TbBool frontmap_load(void)
         frontend_load_data_reset();
         return false;
     }
-    if (!load_map_ensign_sprites())
+    TbBool ensigns_loaded = load_map_ensign_sprites();
+    init_netfont_palette_remap();
+    pop_palette_remap();
+    map_font = load_spritesheet("ldata/netfont.dat", "ldata/netfont.tab");
+    if (!ensigns_loaded)
     {
         ERRORLOG("Unable to load Land View Screen sprites");
         frontend_load_data_reset();
@@ -1203,7 +1240,8 @@ void frontmap_draw(void)
     } else
     {
         draw_map_screen();
-        draw_map_level_ensigns();
+        draw_map_level_ensigns();        
+        draw_map_level_descriptions();
         set_pointer_graphic_spland(0);
         compressed_window_draw();
     }
@@ -1298,10 +1336,44 @@ void set_level_name_text(LevelNumber lvnum, const char *lv_name)
         return;
     }
     if ((lv_name != NULL) && (strlen(lv_name) > 0)) {
-        snprintf(level_name, sizeof(level_name), "%s %d: %s", get_string(GUIStr_MnuLevel), (int)lvinfo->lvnum, lv_name);
+        if (lvinfo->level_type & LvKind_IsMulti)
+            snprintf(level_name, sizeof(level_name), "%s %d: %s", get_string(GUIStr_MnuLevel), (int)lvinfo->lvnum, lv_name);
+        else             
+            snprintf(level_name, sizeof(level_name), "%s", lv_name);
         return;
     }
     snprintf(level_name, sizeof(level_name), "%s %d", get_string(GUIStr_MnuLevel), (int)lvinfo->lvnum);
+}
+
+int order_number_for_bonus_level(LevelNumber bn_lvnum)
+{
+  int orderNum = 1;
+  if (bn_lvnum < 1) return -1;
+  for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+  {
+    if (campaign.bonus_levels[i] == bn_lvnum)
+    {
+      return orderNum;
+    }
+    else if (campaign.bonus_levels[i] != 0)
+    {
+      orderNum++;
+    }
+  }
+  return -1;
+}
+
+const char* get_level_description(struct LevelInformation *lvinfo)
+{
+    if (lvinfo == NULL)
+        return NULL;
+
+    if (lvinfo->name_stridx > 0)
+        return get_string(lvinfo->name_stridx);
+    else
+        return lvinfo->name;
+ 
+    return "";
 }
 
 /**
@@ -1309,27 +1381,28 @@ void set_level_name_text(LevelNumber lvnum, const char *lv_name)
  */
 void draw_map_level_descriptions(void)
 {
-  if ((fe_net_level_selected > 0) || (net_level_hilighted > 0))
+  if ((fe_net_level_selected > 0) || (net_level_highlighted > 0) || (mouse_over_lvnum > 0))
   {
     RendererSetDrawFlags(0);
-    LevelNumber lvnum = fe_net_level_selected;
+    LevelNumber lvnum = (mouse_over_lvnum > 0) ? mouse_over_lvnum : (fe_net_level_selected > 0) ? fe_net_level_selected : net_level_highlighted;
     if (lvnum <= 0)
-      lvnum = net_level_hilighted;
+      lvnum = net_level_highlighted;
     struct LevelInformation* lvinfo = get_level_info(lvnum);
     if (lvinfo == NULL)
       return;
-    const char* lv_name;
-    if (lvinfo->name_stridx > 0)
-        lv_name = get_string(lvinfo->name_stridx);
-    else
-      lv_name = lvinfo->name;
+    const char* lv_name = get_level_description(lvinfo); 
     set_level_name_text(lvnum, lv_name);
     long w = LbTextStringWidth(level_name);
     long x = lvinfo->ensign_x - (long)map_info.screen_shift_x;
     long y = lvinfo->ensign_y - (long)map_info.screen_shift_y - 8;
     long h = LbTextHeight(level_name);
     LbDrawBox(scale_value_landview(x-4), scale_value_landview(y), scale_value_landview(w+8), scale_value_landview(h), resolve_indexed_pixel(0, RendererGetActivePalette()));
+
+    lbSpriteReMapPtr = netfont_palette_remap;
+    RendererSetDrawFlags(Lb_TEXT_REMAP);
+
     LbTextDrawResized(scale_value_landview(x), scale_value_landview(y), units_per_pixel_landview, level_name);
+    RendererSetDrawFlags(0);
   }
 }
 
@@ -1410,6 +1483,7 @@ void frontmap_unload(void)
     set_pointer_graphic_none();
     unload_map_and_window();
     free_spritesheet(&map_flag);
+    free_spritesheet(&map_font);
     StopAllSamples();
     stop_description_speech();
     stop_music(false);

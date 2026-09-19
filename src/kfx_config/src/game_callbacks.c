@@ -73,6 +73,7 @@ static void noop_reset_frontend_state(void) {}
 static size_t noop_get_frontend_state_size(void) { return 0; }
 static long noop_get_intralvl_next_level(void) { return 0; }
 static void noop_clear_intralvl_next_level(void) {}
+static void noop_set_frontend_alliances(char alliances) {}
 
 static const struct GameCallbacks default_game_callbacks = {
     &noop_toggle_main_cheat_menu,
@@ -133,6 +134,7 @@ static const struct GameCallbacks default_game_callbacks = {
     &noop_get_frontend_state_size,
     &noop_get_intralvl_next_level,
     &noop_clear_intralvl_next_level,
+    &noop_set_frontend_alliances,
 };
 const struct GameCallbacks *game_callbacks = &default_game_callbacks;
 

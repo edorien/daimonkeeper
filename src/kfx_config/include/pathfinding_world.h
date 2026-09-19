@@ -130,6 +130,11 @@ struct PathfindingWorldCallbacks {
        the Abyss, #5169): ariadne_update.c needs to know whether a subtile
        has abyss on top of it to mark it NAVMAP_ABYSS in the nav tree. */
     TbBool (*subtile_has_abyss_on_top)(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
+
+    /* thing_navigate.h -- #5310 (abyss/lava wallhug): true when an uncontrolled creature
+       standing on safe terrain would step onto terrain that is toxic for it at `pos`.
+       ariadne_creature_blocked_by_wall_at() treats that as a wall. */
+    TbBool (*creature_steps_into_toxic_terrain)(struct Thing *thing, const struct Coord3d *pos);
 };
 void set_pathfinding_world_callbacks(const struct PathfindingWorldCallbacks *callbacks);
 extern const struct PathfindingWorldCallbacks *pathfinding_world;

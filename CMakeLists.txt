@@ -575,6 +575,12 @@ if(WIN32)
     # block; relinking it here is harmless.
     target_link_libraries(keeperfx PRIVATE winmm mingw32 imagehlp ws2_32 dbghelp bcrypt ole32 uuid)
     target_link_libraries(keeperfx_hvlog PRIVATE winmm mingw32 imagehlp ws2_32 dbghelp bcrypt ole32 uuid)
+
+    # Ship the Windows exes without their debug symbols (#5318): objcopy splits
+    # them into <exe>.debug next to the binary (CI uploads those as a separate
+    # "-symbols" artifact). No-op for MSVC/non-Windows, see Helpers.cmake.
+    apply_keeperfx_debug_split(keeperfx)
+    apply_keeperfx_debug_split(keeperfx_hvlog)
 elseif(UNIX AND NOT APPLE)
     target_link_options(keeperfx PRIVATE -rdynamic -Wl,-Map,keeperfx.map)
     target_link_options(keeperfx_hvlog PRIVATE -rdynamic -Wl,-Map,keeperfx_hvlog.map)

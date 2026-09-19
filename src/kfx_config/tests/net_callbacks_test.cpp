@@ -65,7 +65,7 @@ TEST_CASE("the default net_callbacks table's every stub is a safe no-op returnin
     net_callbacks->lua_set_random_seed(0);
     net_callbacks->lua_cleanup_serialized_data();
 
-    net_callbacks->network_yield_draw_gameplay();
+    net_callbacks->network_yield_poll_gameplay();
     net_callbacks->network_yield_waiting_gameplay_packets();
     net_callbacks->network_yield_draw_frontend();
     CHECK_FALSE(net_callbacks->output_message(0, 0));

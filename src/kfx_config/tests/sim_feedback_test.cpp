@@ -52,7 +52,7 @@ TEST_CASE("the default sim_feedback table's every stub is a safe no-op returning
     sim_feedback->hide_map_volume_box();
     sim_feedback->reset_box_lag_compensation();
 
-    CHECK(sim_feedback->tag_cursor_blocks_dig(nullptr, nullptr, nullptr, 0, 0, 0) == 0);
+    CHECK(sim_feedback->tag_cursor_blocks_dig(nullptr, 0, nullptr, nullptr, 0, 0, 0) == 0);
     CHECK_FALSE(sim_feedback->tag_cursor_blocks_place_door(0, 0, 0));
     CHECK_FALSE(sim_feedback->tag_cursor_blocks_place_room(0, 0, 0, 0));
     CHECK_FALSE(sim_feedback->tag_cursor_blocks_sell_area(0, 0, 0, 0));
@@ -92,7 +92,7 @@ TEST_CASE("the default sim_feedback table's every stub is a safe no-op returning
     CHECK(sim_feedback->is_key_pressed(0, 0) == 0);
     CHECK_FALSE(sim_feedback->mouse_is_over_panel_map(0, 0));
     CHECK_FALSE(sim_feedback->is_left_button_held());
-    sim_feedback->PaletteSetPlayerPalette(nullptr, nullptr);
+    sim_feedback->PaletteSetUserPalette(0, nullptr);
     sim_feedback->PaletteApplyPainToPlayer(nullptr, 0);
     CHECK(sim_feedback->toggle_status_menu(0) == 0);
     sim_feedback->turn_off_roaming_menus();
@@ -143,8 +143,10 @@ TEST_CASE("the default sim_feedback table's every stub is a safe no-op returning
     CHECK(sim_feedback->get_level_number() == 0);
     CHECK(sim_feedback->get_play_gameturn() == 0);
     sim_feedback->update_time();
-    struct GameTime gt = sim_feedback->get_game_time(0, 0);
+    struct GameTime gt;
+    sim_feedback->get_game_time(&gt, 0, 0);
     CHECK(gt.Hours == 0);
+    CHECK_FALSE(sim_feedback->player_has_enemies_to_defeat(nullptr));
     CHECK(sim_feedback->get_zoom_key_room_order(0) == 0);
     CHECK(sim_feedback->get_history_packet(0, 0) == nullptr);
 

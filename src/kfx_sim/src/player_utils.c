@@ -123,10 +123,11 @@ void set_player_as_won_level(struct PlayerInfo *player)
         {
             sim_feedback->show_real_time_taken();
         }
-        struct GameTime GameT = sim_feedback->get_game_time(dungeon->lvstats.hopes_dashed, kfx_sim_state.turns_per_second);
+        struct GameTime GT;
+        sim_feedback->get_game_time(&GT, dungeon->lvstats.hopes_dashed, kfx_sim_state.turns_per_second);
         SYNCMSG("Won level %u. Total turns taken: %lu (%02u:%02u:%02u at %d fps). Real time elapsed: %02u:%02u:%02u:%03u.",
             sim_feedback->get_loaded_level_number(), dungeon->lvstats.hopes_dashed,
-            GameT.Hours, GameT.Minutes, GameT.Seconds, kfx_sim_state.turns_per_second,
+            GT.Hours, GT.Minutes, GT.Seconds, kfx_sim_state.turns_per_second,
             kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
       }
   }
@@ -141,7 +142,7 @@ void set_player_as_won_level(struct PlayerInfo *player)
     if (lord_of_the_land_in_prison_or_tortured())
     {
         SYNCLOG("Lord Of The Land kept captive. Torture tower unlocked.");
-        player->additional_flags |= PlaAF_UnlockedLordTorture;
+        get_user_state(player->user_id)->additional_flags |= UsrAF_UnlockedLordTorture;
     }
     sim_feedback->play_sound_message(SMsg_LevelWon, 0);
   }
@@ -785,6 +786,8 @@ void init_user_state(NetUserId user)
         return;
     }
     memset(ustate, 0, sizeof(*ustate));
+    ustate->teleport_destination = 19;
+    ustate->battleid = 1;
     struct InitLight ilght;
     memset(&ilght, 0, sizeof(struct InitLight));
     ilght.radius = 2560;
@@ -808,6 +811,7 @@ void init_player(struct PlayerInfo *player, short no_explore)
         local_state.minimap_pos_x = 11;
         local_state.minimap_pos_y = 11;
         local_state.minimap_zoom = settings.minimap_zoom;
+        local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
         sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
         local_state.main_palette = engine_palette;
     }
@@ -815,7 +819,6 @@ void init_player(struct PlayerInfo *player, short no_explore)
     player->work_state = PSt_CtrlDungeon;
     player->isometric_view_zoom_level = settings.isometric_view_zoom_level;
     player->frontview_zoom_level = settings.frontview_zoom_level;
-    player->isometric_tilt = settings.isometric_tilt;
     if (is_my_player(player))
     {
         // Read keeperfx_ui_config directly rather than via a kfx_sim_state
@@ -839,7 +842,6 @@ void init_player(struct PlayerInfo *player, short no_explore)
     player->roomspace_width = 1;
     player->roomspace_height = 1;
     player->roomspace_detection_looseness = DEFAULT_USER_ROOMSPACE_DETECTION_LOOSENESS;
-    player->user_defined_roomspace_width = DEFAULT_USER_ROOMSPACE_WIDTH;
     switch (kfx_sim_state.game_kind)
     {
     case GKind_LocalGame:
@@ -1403,12 +1405,6 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx)
     }
 }
 
-void set_player_roomspace_size(struct PlayerInfo *player, long size) {
-    player->user_defined_roomspace_width = size;
-    player->roomspace_width = size;
-    player->roomspace_height = size;
-}
-
 void check_players_won(void)
 {
   SYNCDBG(8,"Starting");
@@ -1423,29 +1419,12 @@ void check_players_won(void)
         if (!player_exists(curPlayer) || (curPlayer->is_active != 1) || (curPlayer->victory_state != VicS_Undecided))
             continue;
 
-        // check if any other player is still alive
-        TbBool LivingOpponent = false;
-        for (PlayerNumber secondPlayerIdx = 0; secondPlayerIdx < PLAYERS_COUNT; ++secondPlayerIdx)
-        {
-            if (secondPlayerIdx == playerIdx)
-                continue;
+        // kfx_net owns the "who still counts as an opponent" rule (a dropped user no longer does)
+        if (sim_feedback->player_has_enemies_to_defeat(curPlayer))
+            continue;
 
-            struct PlayerInfo* otherPlayer = get_player(secondPlayerIdx);
-            if (player_exists(otherPlayer) && otherPlayer->victory_state == VicS_Undecided)
-            {
-                struct Thing* heartng = get_player_soul_container(secondPlayerIdx);
-                if (heartng->active_state != ObSt_BeingDestroyed)
-                {
-                    LivingOpponent = true;
-                    break;
-                }
-            }
-        }
-        if (LivingOpponent == false)
-        {
-            set_player_as_won_level(curPlayer);
-            return;
-        }
+        set_player_as_won_level(curPlayer);
+        return;
     }
 }
 

@@ -48,7 +48,7 @@ void game_loop(void);
 /* Called via NetCallbacks (src/kfx_config/include/net_callbacks.h) by
  * kfx_net while blocked on network I/O -- kfx_net is ranked below
  * kfx_apploop, so it cannot call these directly. */
-void network_yield_draw_gameplay(void);
+void network_yield_poll_gameplay(void);
 void network_yield_waiting_gameplay_packets(void);
 void network_yield_draw_frontend(void);
 

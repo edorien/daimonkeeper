@@ -69,8 +69,6 @@ void process_players(void);
 
 void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx);
 
-void set_player_roomspace_size(struct PlayerInfo *player, long size);
-
 void check_players_won(void);
 void check_players_lost(void);
 void blast_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);

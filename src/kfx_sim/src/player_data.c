@@ -18,6 +18,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "player_data.h"
+#include "packet_data.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
@@ -94,7 +95,7 @@ unsigned char possession_hit_colours[] = {133, 89, 167, 141,  31,  31, 110,  54,
 unsigned short const player_cubes[] = {0x00C0, 0x00C1, 0x00C2, 0x00C3, 0x00C7, 0x00C6 };
 
 struct PlayerInfo bad_player;
-short local_thing_under_hand;
+
 struct LocalState local_state;
 struct UserState bad_user_state;
 
@@ -181,7 +182,35 @@ struct UserState *get_player_user_state(const struct PlayerInfo *player)
 {
     if ((player == NULL) || player_invalid(player))
         return INVALID_USER_STATE;
+    // Upstream (#5248) instead scans get_net_user_player_number() for the lowest-id user
+    // owning this player; that lives in kfx_net, above kfx_sim. PlayerInfo::user_id is
+    // the same 1-1 mapping (set in setup_players_from_startup_packets(), SOLO_HUMAN_ID
+    // in solo), so keep the direct lookup.
     return get_user_state(player->user_id);
+}
+
+/**
+ * Inverse of PlayerInfo::user_id: which player does this network user control?
+ * kfx_sim/kfx_render-side stand-in for kfx_net's get_net_user_player_number()
+ * (kfx_net is ranked above both); same 1-1 mapping, read from PlayerInfo::user_id
+ * exactly as get_local_user() does.
+ * @return The player's number, or -1 for a user without a player.
+ */
+PlayerNumber get_user_player_number(NetUserId user)
+{
+    if (user < 0)
+        return -1;
+    for (int i = 0; i < PLAYERS_COUNT; i++) {
+        const struct PlayerInfo *player = &kfx_sim_state.players[i];
+        if (player->user_id == user)
+            return player->id_number;
+    }
+    return -1;
+}
+
+struct UserState *get_local_user_state(void)
+{
+    return get_user_state(get_local_user());
 }
 
 TbBool user_state_invalid(const struct UserState *ustate)
@@ -537,8 +566,9 @@ void set_player_mode(struct PlayerInfo *player, unsigned short nview)
   if (player->view_type == nview)
     return;
   player->view_type = nview;
-  player->allocflags &= ~PlaF_CreaturePassengerMode;
-  player->first_person_unfreeze_delay = 0;
+  struct UserState* ustate = get_player_user_state(player);
+  ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
+  ustate->first_person_unfreeze_delay = 0;
   if (is_my_player(player))
   {
     kfx_sim_state.view_mode_flags &= ~GNFldD_CreaturePasngr;
@@ -595,8 +625,9 @@ void set_player_mode(struct PlayerInfo *player, unsigned short nview)
 
 void reset_player_mode(struct PlayerInfo *player, unsigned short nview)
 {
+  struct UserState* ustate = get_player_user_state(player);
   player->view_type = nview;
-  player->first_person_unfreeze_delay = 0;
+  ustate->first_person_unfreeze_delay = 0;
   switch (nview)
   {
     case PVT_DungeonTop:

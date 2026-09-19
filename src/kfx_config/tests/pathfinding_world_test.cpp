@@ -44,6 +44,7 @@ TEST_CASE("the default pathfinding_world table's every stub is a safe no-op retu
     CHECK(pathfinding_world->get_thing_height_at(nullptr, nullptr) == 0);
     CHECK(pathfinding_world->get_floor_height_under_thing_at(nullptr, nullptr) == 0);
     CHECK_FALSE(pathfinding_world->creature_can_travel_over_lava(nullptr));
+    CHECK_FALSE(pathfinding_world->creature_steps_into_toxic_terrain(nullptr, nullptr));
     CHECK(std::string(pathfinding_world->thing_model_name(nullptr)).empty());
 
     struct Coord3d pos = pathfinding_world->thing_get_position(nullptr);

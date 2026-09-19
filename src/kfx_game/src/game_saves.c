@@ -140,7 +140,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     light_export_system_state(&kfx_game_state.lightst);
     { // Info chunk
         hdr.id = SGC_InfoBlock;
-        hdr.ver = 0;
+        hdr.ver = CATALOGUE_ENTRY_VER;
         hdr.len = sizeof(struct CatalogueEntry);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, centry, sizeof(struct CatalogueEntry)) == sizeof(struct CatalogueEntry))
@@ -220,7 +220,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     long chunks_done = 0;
     { // Packet file header
         hdr.id = SGC_PacketHeader;
-        hdr.ver = 0;
+        hdr.ver = PACKET_SAVE_HEAD_VER;
         hdr.len = sizeof(struct PacketSaveHead);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, &kfx_net_state.packet_save_head, sizeof(struct PacketSaveHead)) == sizeof(struct PacketSaveHead))
@@ -228,7 +228,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     }
     { // Info chunk
         hdr.id = SGC_InfoBlock;
-        hdr.ver = 0;
+        hdr.ver = CATALOGUE_ENTRY_VER;
         hdr.len = sizeof(struct CatalogueEntry);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, centry, sizeof(struct CatalogueEntry)) == sizeof(struct CatalogueEntry))
@@ -280,14 +280,25 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     }
     { // Packet file data start indicator
         hdr.id = SGC_PacketData;
-        hdr.ver = 0;
-        hdr.len = 0;
+        hdr.ver = PACKET_VER;
+        hdr.len = 0; // unbounded
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
             chunks_done |= SGF_PacketData;
     }
     if ((chunks_done != SGF_PacketStart) && (chunks_done != SGF_PacketContinue))
         return false;
     return true;
+}
+
+static TbBool chunk_version_ok(TbFileHandle fhandle, const struct FileChunkHeader *hdr, unsigned expected)
+{
+    if (hdr->ver == expected)
+        return true;
+    WARNLOG("Chunk %04x is version %u, expected %u; skipping it",
+        (unsigned)hdr->id, (unsigned)hdr->ver, (unsigned)expected);
+    if (LbFileSeek(fhandle, hdr->len, Lb_FILE_SEEK_CURRENT) < 0)
+        LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
+    return false;
 }
 
 int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
@@ -301,6 +312,8 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
         switch (hdr.id)
         {
         case SGC_InfoBlock:
+            if (!chunk_version_ok(fhandle, &hdr, CATALOGUE_ENTRY_VER))
+                break;
             if (load_catalogue_entry(fhandle, &hdr, centry))
             {
                 chunks_done |= SGF_InfoBlock;
@@ -389,6 +402,8 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
             }
             break;
         case SGC_PacketHeader:
+            if (!chunk_version_ok(fhandle, &hdr, PACKET_SAVE_HEAD_VER))
+                break;
             if (hdr.len != sizeof(struct PacketSaveHead))
             {
                 if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
@@ -404,6 +419,8 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
             }
             break;
         case SGC_PacketData:
+            if (!chunk_version_ok(fhandle, &hdr, PACKET_VER))
+                break;
             if (hdr.len != 0)
             {
                 if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
@@ -596,8 +613,9 @@ TbBool load_game(long slot_num)
     calculate_moon_phase(false,false);
     update_extra_levels_visibility();
     struct PlayerInfo* player = get_my_player();
-    clear_flag(player->additional_flags, PlaAF_LightningPaletteIsActive);
-    clear_flag(player->additional_flags, PlaAF_FreezePaletteIsActive);
+    struct UserState* ustate = get_user_state(get_local_user());
+    clear_flag(ustate->additional_flags, UsrAF_LightningPaletteIsActive);
+    clear_flag(ustate->additional_flags, UsrAF_FreezePaletteIsActive);
     local_state.view_type = PVT_None;
     local_state.palette_fade_step_pain = 0;
     local_state.palette_fade_step_possession = 0;
@@ -605,10 +623,11 @@ TbBool load_game(long slot_num)
     local_state.minimap_pos_x = 11;
     local_state.minimap_pos_y = 11;
     local_state.minimap_zoom = settings.minimap_zoom;
+    local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
     // Reinitialize lens first (restores lens_palette pointer from config)
     reinitialise_eye_lens(kfx_sim_state.applied_lens_type);
     // Apply the appropriate palette (lens palette if active, otherwise engine default)
-    PaletteSetPlayerPalette(player, local_state.lens_palette ? local_state.lens_palette : engine_palette);
+    PaletteSetUserPalette(player->user_id, local_state.lens_palette ? local_state.lens_palette : engine_palette);
     init_local_cameras(player);
     // Update the lights system state
     light_import_system_state(&kfx_game_state.lightst);
@@ -645,7 +664,14 @@ TbBool fill_game_catalogue_entry(struct CatalogueEntry *centry,const char *textn
     centry->level_num = get_loaded_level_number();
     snprintf(centry->textname, SAVE_TEXTNAME_LEN, "%s", textname);
     snprintf(centry->campaign_name, LINEMSG_SIZE, "%s", campaign.name);
-    snprintf(centry->campaign_fname, DISKPATH_SIZE, "%s", campaign.fname);
+    const char *cmpgn_pfx = "";
+    for (int i = 0; i < CampgnT_COUNT; i++) {
+        if ((cmpgn_fgroup[i] == campaign.fgroup) && (cmpgn_prefix[i] != NULL)) {
+            cmpgn_pfx = cmpgn_prefix[i];
+            break;
+        }
+    }
+    snprintf(centry->campaign_fname, DISKPATH_SIZE, "%s%s", cmpgn_pfx, campaign.fname);
     game_callbacks->get_high_score_entry(centry->player_name, PLAYER_NAME_LENGTH);
     set_flag(centry->flags, CEF_InUse);
     centry->game_ver_major = VER_MAJOR;

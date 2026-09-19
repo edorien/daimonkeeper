@@ -192,3 +192,46 @@ TEST_CASE_METHOD(ResetSimAndConfig, "subtile_is_door reads the SlbAtFlg_IsDoor m
     get_map_block_at(2, 2)->flags |= SlbAtFlg_IsDoor;
     CHECK(subtile_is_door(2, 2));
 }
+
+// reveal_map_area()/conceal_map_area() refresh the minimap by calling
+// config_reload_callbacks->panel_map_update(x, y, w, h) -- a position plus a
+// WIDTH/HEIGHT, not an end corner (upstream #5302 fixed the calls that passed
+// end coordinates). The rect they touch is half-open ([start, end)), so
+// w = end - start.
+namespace {
+struct PanelMapUpdateSpy {
+    static inline long calls;
+    static inline long x, y, w, h;
+    static void record(long px, long py, long pw, long ph) { calls++; x = px; y = py; w = pw; h = ph; }
+
+    struct ConfigReloadCallbacks callbacks;
+    PanelMapUpdateSpy() {
+        callbacks = *config_reload_callbacks; // keep the default no-ops for everything else
+        calls = 0; x = y = w = h = -1;
+        callbacks.panel_map_update = &PanelMapUpdateSpy::record;
+        set_config_reload_callbacks(&callbacks);
+    }
+    ~PanelMapUpdateSpy() { set_config_reload_callbacks(nullptr); }
+};
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "reveal_map_area reports its refreshed rect to panel_map_update as x,y,w,h", "[kfx_sim][map_data]") {
+    PanelMapUpdateSpy spy;
+    // slabs 1..1 (subtiles 3..5) on a 10x10-subtile map -> half-open rect [3,6) x [3,6)
+    reveal_map_area(0, 3, 5, 3, 5);
+    REQUIRE(PanelMapUpdateSpy::calls >= 1); // per-subtile helpers may refresh too; the area call is the last one
+    CHECK(PanelMapUpdateSpy::x == 3);
+    CHECK(PanelMapUpdateSpy::y == 3);
+    CHECK(PanelMapUpdateSpy::w == 3);
+    CHECK(PanelMapUpdateSpy::h == 3);
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "conceal_map_area reports its refreshed rect to panel_map_update as x,y,w,h", "[kfx_sim][map_data]") {
+    PanelMapUpdateSpy spy;
+    conceal_map_area(0, 3, 5, 3, 5, true);
+    REQUIRE(PanelMapUpdateSpy::calls >= 1); // per-subtile helpers may refresh too; the area call is the last one
+    CHECK(PanelMapUpdateSpy::x == 3);
+    CHECK(PanelMapUpdateSpy::y == 3);
+    CHECK(PanelMapUpdateSpy::w == 3);
+    CHECK(PanelMapUpdateSpy::h == 3);
+}

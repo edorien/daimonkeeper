@@ -61,6 +61,8 @@ enum CampaignTypes {
     CampgnT_Campaign,
     CampgnT_Mappack,
     CampgnT_MultiplayerMappack,
+    
+    CampgnT_COUNT,
 };
 
 /******************************************************************************/
@@ -77,6 +79,7 @@ struct CreditsItem {
  * Structure for storing campaign configuration.
  */
 struct GameCampaign {
+  short fgroup;
   char name[LINEMSG_SIZE];
   char display_name[LINEMSG_SIZE];
   char description[CAMPAIGN_DESCRIPTION_LEN];
@@ -172,6 +175,8 @@ extern struct GameCampaign campaign;
 extern struct CampaignsList campaigns_list;
 extern struct CampaignsList mappacks_list;
 extern struct CampaignsList mp_mappacks_list;
+extern const enum TbFileGroups cmpgn_fgroup[CampgnT_COUNT];
+extern const char* cmpgn_prefix[CampgnT_COUNT];
 extern const struct NamedCommand cmpgn_map_commands[];
 extern const struct NamedCommand cmpgn_map_ensign_flag_options[];
 extern const struct NamedCommand cmpgn_map_cmnds_kind[];

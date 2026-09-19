@@ -866,7 +866,7 @@ TbBool cmd_reveal(PlayerNumber plyr_idx, char * args)
                                 subtile_slab(stl_y + r - radius_offset)
         );
         reveal_map_rect(player->id_number, stl_x - radius_offset, stl_x + r - radius_offset, stl_y - radius_offset, stl_y + r - radius_offset);
-        config_reload_callbacks->panel_map_update(stl_x - radius_offset, stl_x + r - radius_offset, stl_y - radius_offset, stl_y + r - radius_offset);
+        config_reload_callbacks->panel_map_update(stl_x - radius_offset, stl_y - radius_offset, r, r);
     } else {
         reveal_whole_map(player);
     }

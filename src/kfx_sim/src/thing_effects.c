@@ -777,7 +777,7 @@ void effect_generate_effect_elements(const struct Thing *thing)
         } else
         {
             player = get_my_player();
-            sim_feedback->PaletteSetPlayerPalette(player, engine_palette);
+            sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
             LbPaletteStopOpenFade();
         }
         break;

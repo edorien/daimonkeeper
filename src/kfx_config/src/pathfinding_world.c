@@ -70,6 +70,7 @@ static void noop_set_nav_thing_can_travel_over_lava(long can_travel) {}
 static long noop_get_nav_thing_is_flying(void) { return 0; }
 static void noop_set_nav_thing_is_flying(long is_flying) {}
 static TbBool noop_subtile_has_abyss_on_top(MapSubtlCoord stl_x, MapSubtlCoord stl_y) { return false; }
+static TbBool noop_creature_steps_into_toxic_terrain(struct Thing *thing, const struct Coord3d *pos) { return false; }
 
 static const struct PathfindingWorldCallbacks default_pathfinding_world = {
     &noop_get_map_size_x,
@@ -129,6 +130,7 @@ static const struct PathfindingWorldCallbacks default_pathfinding_world = {
     &noop_get_nav_thing_is_flying,
     &noop_set_nav_thing_is_flying,
     &noop_subtile_has_abyss_on_top,
+    &noop_creature_steps_into_toxic_terrain,
 };
 const struct PathfindingWorldCallbacks *pathfinding_world = &default_pathfinding_world;
 

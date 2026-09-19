@@ -105,7 +105,7 @@ extern "C" {
 }
 #endif
 /******************************************************************************/
-extern TbBool process_player_global_cheats_packet_action(PlayerNumber plyr_idx, struct Packet* pckt);
+extern TbBool process_user_global_cheats_packet_action(NetUserId user, struct Packet* pckt);
 extern TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_idx, struct Packet* pckt);
 /******************************************************************************/
 TbBool unpausing_in_progress = 0;
@@ -158,7 +158,7 @@ void update_double_click_detection(NetUserId user)
 TbBool process_dungeon_control_packet_spell_overcharge(NetUserId user)
 {
     struct PlayerInfo* player = get_player(get_net_user_player_number(user));
-    struct UserState* ustate = get_player_user_state(player);
+    struct UserState* ustate = get_user_state(user);
     const PlayerNumber plyr_idx = player->id_number;
     struct Dungeon* dungeon = get_players_dungeon(player);
     SYNCDBG(6,"Starting for player %d state %s",(int)plyr_idx,player_state_code_name(player->work_state));
@@ -215,37 +215,34 @@ TbBool process_dungeon_control_packet_spell_overcharge(NetUserId user)
     return false;
 }
 
+static int32_t resync_attempt_count = 0;
+
+TbBool is_desync_warning_active(void)
+{
+    return resync_attempt_count >= RESYNC_LIMIT_BEFORE_COOLDOWN && (kfx_sim_state.system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0;
+}
+
 static TbBool resync_game_allowed(void)
 {
-    static int32_t resync_attempt_count = 0;
     static TbClockMSec resync_cooldown_end = 0;
     static GameTurn resync_last_turn = 0;
-    static TbBool resync_cooldown_warned = false;
     TbClockMSec now = LbTimerClock();
     GameTurn turn = get_gameturn();
 
     if (turn < resync_last_turn) {
         resync_attempt_count = 0;
         resync_cooldown_end = 0;
-        resync_cooldown_warned = false;
     }
     resync_last_turn = turn;
 
-    if (resync_attempt_count >= RESYNC_LIMIT_BEFORE_COOLDOWN) {
-        if ((int32_t)(now - resync_cooldown_end) < 0) {
-            if (!resync_cooldown_warned) {
-                sim_feedback->show_onscreen_msg(10 * kfx_sim_state.turns_per_second, "Game may be in a desynced state.");
-                resync_cooldown_warned = true;
-            }
-            return false;
-        }
+    if (resync_attempt_count >= RESYNC_LIMIT_BEFORE_COOLDOWN && (int32_t)(now - resync_cooldown_end) < 0) {
+        return false;
     }
 
     if (resync_attempt_count < RESYNC_LIMIT_BEFORE_COOLDOWN) {
         resync_attempt_count++;
     }
     resync_cooldown_end = now + RESYNC_COOLDOWN_MS;
-    resync_cooldown_warned = false;
     return true;
 }
 
@@ -277,6 +274,7 @@ void process_pause_packet(long curr_pause, long new_pause)
   if ( can )
   {
       player = get_my_player();
+      struct UserState* ustate = get_user_state(get_local_user());
       set_flag_value(kfx_sim_state.operation_flags, GOF_Paused, curr_pause);
       if ((kfx_sim_state.operation_flags & GOF_Paused) != 0) {
           set_flag_value(kfx_sim_state.operation_flags, GOF_WorldInfluence, new_pause);
@@ -298,7 +296,7 @@ void process_pause_packet(long curr_pause, long new_pause)
       }
       if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
       {
-          if ((player->additional_flags & PlaAF_LightningPaletteIsActive) != 0)
+          if ((ustate->additional_flags & UsrAF_LightningPaletteIsActive) != 0)
           {
               net_callbacks->clear_player_lightning_palette(player);
           }
@@ -582,6 +580,8 @@ TbBool process_user_global_packet_action(NetUserId user)
   PlayerNumber plyr_idx = get_net_user_player_number(user);
   struct PlayerInfo* player = get_player(plyr_idx);
   struct Packet* pckt = get_packet(user);
+  struct UserState* ustate = get_user_state(user);
+  struct UserState* local_ustate = get_local_user_state();
   SYNCDBG(6,"Processing user %d action %d",(int)user,(int)pckt->action);
   struct Dungeon *dungeon;
   struct Thing *thing;
@@ -631,9 +631,9 @@ TbBool process_user_global_packet_action(NetUserId user)
         if (victory_state == VicS_WonLevel) {
           player->victory_state = VicS_WonLevel;
           if (kfx_config_state.conf.rules[player->id_number].gameplay.winner_tortures_loser) {
-              get_my_player()->additional_flags |= PlaAF_UnlockedLordTorture;
+              local_ustate->additional_flags |= UsrAF_UnlockedLordTorture;
           } else {
-              get_my_player()->additional_flags &= ~PlaAF_UnlockedLordTorture;
+              local_ustate->additional_flags &= ~UsrAF_UnlockedLordTorture;
           }
           quit_game = 1;
           return 0;
@@ -641,7 +641,7 @@ TbBool process_user_global_packet_action(NetUserId user)
         TbBool host_packet = player->user_id == SERVER_ID;
         if (!my_player) {
           if (host_packet && (player->victory_state != VicS_LostLevel)) {
-            get_my_player()->additional_flags &= ~PlaAF_UnlockedLordTorture;
+            local_ustate->additional_flags &= ~UsrAF_UnlockedLordTorture;
             quit_game = 1;
           }
           return 0;
@@ -672,7 +672,7 @@ TbBool process_user_global_packet_action(NetUserId user)
       player->mp_pending_message[0] = '\0';
       return 0;
   case PckA_PlyrMsgClear:
-      player->allocflags &= ~PlaF_NewMPMessage;
+      get_user_state(user)->init_flags &= ~UsrIF_NewMPMessage;
       LbStopTextInput();
       memset(player->mp_message_text, 0, PLAYER_MP_MESSAGE_LEN);
       return 0;
@@ -932,7 +932,7 @@ TbBool process_user_global_packet_action(NetUserId user)
     case PckA_SetRoomspaceWholeRoom:
     case PckA_SetRoomspaceSubtile:
     {
-        apply_roomspace_packet_action(player, pckt);
+        apply_roomspace_packet_action(player, user, pckt);
         return false;
     }
     case PckA_RoomspaceHighlightToggle:
@@ -956,40 +956,22 @@ TbBool process_user_global_packet_action(NetUserId user)
             // exit out of click and drag mode
             if (player->render_roomspace.drag_mode)
             {
-                get_player_user_state(player)->cursor_button_down = 0;
-                player->one_click_lock_cursor = false;
+                ustate->cursor_button_down = 0;
+                ustate->one_click_lock_cursor = false;
                 if ((pckt->control_flags & PCtr_LBtnHeld) == PCtr_LBtnHeld)
                 {
-                    player->ignore_next_PCtr_LBtnRelease = true;
+                    ustate->ignore_next_PCtr_LBtnRelease = true;
                 }
             }
             player->render_roomspace.drag_mode = false;
         }
         player->roomspace_highlight_mode = pckt->actn_par1;
-        switch (pckt->actn_par1)
-        {
-            case box_placement_mode:
-            {
-                reset_dungeon_build_room_ui_variables(plyr_idx);
-                player->roomspace_width = player->roomspace_height = pckt->actn_par2;
-                break;
-            }
-            case roomspace_detection_mode:
-            {
-                set_player_roomspace_size(player, pckt->actn_par2);
-                break;
-            }
-            case drag_placement_mode: // drag
-            {
-                if (pckt->actn_par2 == 1)
-                {
-                    player->roomspace_width = 1;
-                    player->roomspace_height = 1;
-                }
-                break;
-            }
+        if (pckt->actn_par1 == box_placement_mode) {
+            reset_dungeon_build_room_ui_variables(plyr_idx);
         }
-        player->roomspace_no_default = true;
+        if (pckt->actn_par1 == box_placement_mode || pckt->actn_par1 == roomspace_detection_mode || (pckt->actn_par1 == drag_placement_mode && pckt->actn_par2 == 1)) {
+            player->roomspace_width = player->roomspace_height = pckt->actn_par2;
+        }
         return false;
     }
     case PckA_PlyrQueryCreature:
@@ -998,7 +980,7 @@ TbBool process_user_global_packet_action(NetUserId user)
         return false;
     }
     default:
-      return process_player_global_cheats_packet_action(plyr_idx, pckt);
+      return process_user_global_cheats_packet_action(user, pckt);
   }
 }
 
@@ -1181,6 +1163,7 @@ TbBool can_process_creature_input(struct Thing *thing)
 
 void process_user_creature_control_packet_control(NetUserId user)
 {
+    struct UserState* ustate = get_user_state(user);
     const PlayerNumber plyr_idx = get_net_user_player_number(user);
     SYNCDBG(6,"Starting");
     struct InstanceInfo *inst_inf;
@@ -1288,7 +1271,7 @@ void process_user_creature_control_packet_control(NetUserId user)
                 }
             }
         }
-        if (player->first_person_unfreeze_delay <= 0)
+        if (ustate->first_person_unfreeze_delay <= 0)
         {
             long new_horizontal, new_vertical, new_roll;
             process_first_person_look(cctng, pckt, cctng->move_angle_xy, cctng->move_angle_z, &new_horizontal, &new_vertical, &new_roll);
@@ -1296,7 +1279,7 @@ void process_user_creature_control_packet_control(NetUserId user)
             cctng->move_angle_z = new_vertical;
             ccctrl->roll = new_roll;
         }
-        else --player->first_person_unfreeze_delay;
+        else --ustate->first_person_unfreeze_delay;
     }
     else
     {
@@ -1304,7 +1287,7 @@ void process_user_creature_control_packet_control(NetUserId user)
         // frozen for this duration after the creature is allowed to move again.
         // Apply this same delay to the creature's move_angle_{xy,z}, to keep it
         // synchronized.
-        player->first_person_unfreeze_delay = kfx_net_state.input_lag_turns;
+        ustate->first_person_unfreeze_delay = kfx_net_state.input_lag_turns;
     }
 
     if ((thing_is_creature(cctng) && !creature_is_dying(cctng)) && (cctng->active_state != CrSt_CreatureUnconscious))
@@ -1400,7 +1383,7 @@ void process_user_creature_control_packet_action(NetUserId user)
   struct Packet *pckt;
   long i;
   player = get_player(plyr_idx);
-  struct UserState* ustate = get_player_user_state(player);
+  struct UserState* ustate = get_user_state(user);
   pckt = get_packet(user);
   SYNCDBG(6,"Processing player %d action %d",(int)plyr_idx,(int)pckt->action);
   switch (pckt->action)
@@ -1489,7 +1472,7 @@ void process_user_creature_control_packet_action(NetUserId user)
     }
     case PckA_SwitchTeleportDest:
     {
-        player->teleport_destination = pckt->actn_par1;
+        ustate->teleport_destination = pckt->actn_par1;
         break;
     }
     case PckA_SelectFPPickup:
@@ -1499,7 +1482,7 @@ void process_user_creature_control_packet_action(NetUserId user)
     }
     case PckA_SetNearestTeleport:
     {
-        player->nearest_teleport = pckt->actn_par1;
+        ustate->nearest_teleport = pckt->actn_par1;
         break;
     }
   }
@@ -1553,9 +1536,10 @@ void exchange_packets(void)
     update_turn_checksums();
     update_local_dig_tag_prediction();
     store_packet_history(local_user, get_local_packet());
+    host_spoof_dropped_user_packets();
     if (kfx_sim_state.game_kind != GKind_LocalGame)
     {
-        if (!kfx_net_state.packet_load_enable || kfx_net_state.packet_load_initialized)
+        if (!kfx_net_state.packet_load_enable)
         {
             struct Packet* my_packet = get_local_packet();
             const char* player_name = (local_user == SERVER_ID) ? "Host" : "Client";

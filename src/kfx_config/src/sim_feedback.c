@@ -41,9 +41,9 @@ static void noop_mark_event_button_read(EventIndex evidx) {}
 static TbBool noop_is_battle_creature_over_active(void) { return false; }
 static void noop_hide_map_volume_box(void) {}
 static void noop_reset_box_lag_compensation(void) {}
-static unsigned char noop_tag_cursor_blocks_dig(struct PlayerInfo *player, const struct Packet *pckt, struct RoomSpace *render_roomspace, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return 0; }
+static unsigned char noop_tag_cursor_blocks_dig(struct PlayerInfo *player, NetUserId user, const struct Packet *pckt, struct RoomSpace *render_roomspace, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return 0; }
 static TbBool noop_tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y) { return false; }
-static TbBool noop_tag_cursor_blocks_place_room(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return false; }
+static TbBool noop_tag_cursor_blocks_place_room(NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return false; }
 static TbBool noop_tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return false; }
 static void noop_set_engine_view(struct PlayerInfo *player, long val) {}
 static void noop_setup_engine_window(long x1, long y1, long x2, long y2) {}
@@ -74,7 +74,7 @@ static short noop_is_mouse_pressed_lrbutton(void) { return 0; }
 static short noop_is_key_pressed(TbKeyCode key, TbKeyMods kmodif) { return 0; }
 static TbBool noop_mouse_is_over_panel_map(ScreenCoord x, ScreenCoord y) { return false; }
 static TbBool noop_is_left_button_held(void) { return false; }
-static void noop_PaletteSetPlayerPalette(struct PlayerInfo *player, unsigned char *pal) {}
+static void noop_PaletteSetUserPalette(NetUserId user, unsigned char *pal) {}
 static void noop_PaletteApplyPainToPlayer(struct PlayerInfo *player, long intense) {}
 static unsigned long noop_toggle_status_menu(short visible) { return 0; }
 static void noop_turn_off_roaming_menus(void) {}
@@ -109,7 +109,8 @@ static LevelNumber noop_get_selected_level_number(void) { return 0; }
 static LevelNumber noop_get_level_number(void) { return 0; }
 static GameTurn noop_get_play_gameturn(void) { return 0; }
 static void noop_update_time(void) {}
-static struct GameTime noop_get_game_time(unsigned long turns, unsigned long fps) { struct GameTime t = {0,0,0}; return t; }
+static void noop_get_game_time(struct GameTime *GT, unsigned long turns, unsigned long fps) { GT->Seconds = 0; GT->Minutes = 0; GT->Hours = 0; }
+static TbBool noop_player_has_enemies_to_defeat(const struct PlayerInfo *player) { return false; }
 static unsigned short noop_get_zoom_key_room_order(long idx) { return 0; }
 static const struct Packet *noop_get_history_packet(NetUserId user, GameTurn turn) { return NULL; }
 static void noop_setup_eye_lens(long nlens) {}
@@ -210,7 +211,7 @@ static const struct SimFeedbackCallbacks default_sim_feedback = {
     &noop_is_key_pressed,
     &noop_mouse_is_over_panel_map,
     &noop_is_left_button_held,
-    &noop_PaletteSetPlayerPalette,
+    &noop_PaletteSetUserPalette,
     &noop_PaletteApplyPainToPlayer,
     &noop_toggle_status_menu,
     &noop_turn_off_roaming_menus,
@@ -257,7 +258,7 @@ static const struct SimFeedbackCallbacks default_sim_feedback = {
     &noop_get_selected_level_number,
     &noop_get_level_number,
     &noop_get_play_gameturn,
-    &noop_update_time, &noop_get_game_time, &noop_get_zoom_key_room_order,
+    &noop_update_time, &noop_get_game_time, &noop_player_has_enemies_to_defeat, &noop_get_zoom_key_room_order,
     &noop_get_history_packet,
     &noop_setup_eye_lens,
     &noop_lens_is_ready,

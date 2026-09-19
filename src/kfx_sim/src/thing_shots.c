@@ -46,6 +46,7 @@
 #include "power_process.h"
 #include "script_hooks.h"
 #include "sim_feedback.h"
+#include "packet_data.h"
 #include "creature_states.h"
 #include "creature_groups.h"
 #include "room_util.h"
@@ -100,7 +101,6 @@ TbBool detonate_shot(struct Thing *shotng, TbBool destroy)
     SYNCDBG(8,"Starting for %s index %d owner %d",thing_model_name(shotng),(int)shotng->index,(int)shotng->owner);
     struct Thing* castng = get_parent_thing(shotng);
     TRACE_THING(castng);
-    struct PlayerInfo* myplyr = get_my_player();
     KeepPwrLevel power_level;
     long damage;
     // If the shot has area_range, then make area damage
@@ -153,7 +153,7 @@ TbBool detonate_shot(struct Thing *shotng, TbBool destroy)
     case ShM_GodLightning:
     case ShM_GodLightBall:
         if (sim_feedback->get_lens_mode() != 0) {
-            sim_feedback->PaletteSetPlayerPalette(myplyr, engine_palette);
+            sim_feedback->PaletteSetUserPalette(get_local_user(), engine_palette);
         }
         break;
     case ShM_TrapTNT:
@@ -1711,16 +1711,14 @@ TngUpdateRet update_shot(struct Thing *thing)
         {
             case ShUL_Lightning:
             {
-                struct PlayerInfo* player;
                 if (sim_feedback->lightning_is_close_to_player(myplyr, &thing->mappos))
                 {
                   if (is_my_player_number(thing->owner))
                   {
-                      player = get_player(thing->owner);
                       if ((thing->parent_idx > 0) && (myplyr->controlled_thing_idx == thing->parent_idx))
                       {
-                          sim_feedback->PaletteSetPlayerPalette(player, lightning_palette);
-                          myplyr->additional_flags |= PlaAF_LightningPaletteIsActive;
+                          sim_feedback->PaletteSetUserPalette(get_local_user(), lightning_palette);
+                          get_user_state(get_local_user())->additional_flags |= UsrAF_LightningPaletteIsActive;
                       }
                   }
                 }

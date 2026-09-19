@@ -102,7 +102,8 @@ float get_game_key_axis_value(long key_id, TbBool ignore_mods);
 void toggle_hero_health_flowers(void);
 void update_time(void);
 // struct GameTime moved to sim_feedback.h (kfx_config) -- see include below.
-struct GameTime get_game_time(unsigned long turns, unsigned long fps);
+void get_game_time(struct GameTime *GT, unsigned long turns, unsigned long fps);
+void update_game_time(struct GameTime *GT, unsigned long *gameseconds);
 
 /******************************************************************************/
 #ifdef __cplusplus

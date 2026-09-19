@@ -22,6 +22,7 @@
 #include "bflib_basics.h"
 #include "globals.h"
 #include "bflib_video.h"
+#include "bflib_netsp.h" // NetUserId
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,7 +76,7 @@ void compute_rgb2idx_table(TbRGBColorTable ctab,unsigned char *spal);
 long PaletteFadePlayer(struct PlayerInfo *player);
 void PaletteApplyPainToPlayer(struct PlayerInfo *player, long intense);
 
-void PaletteSetPlayerPalette(struct PlayerInfo *player, unsigned char *pal);
+void PaletteSetUserPalette(NetUserId user, unsigned char *pal);
 TbBool set_gamma(char corrlvl, TbBool do_set);
 
 /******************************************************************************/

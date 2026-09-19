@@ -197,7 +197,7 @@ void send_network_chat_message(NetUserId sender, const char *message)
 struct PlayerInfo *prepare_network_chat_message(int player_id, const char *message)
 {
     struct PlayerInfo *player = get_player(player_id);
-    player->allocflags &= ~PlaF_NewMPMessage;
+    get_player_user_state(player)->init_flags &= ~UsrIF_NewMPMessage;
     if (message[0] != '\0') {
         memcpy(player->mp_message_text, message, PLAYER_MP_MESSAGE_LEN);
         memcpy(player->mp_message_text_last, message, PLAYER_MP_MESSAGE_LEN);
@@ -375,7 +375,12 @@ TbError exchange_frame_block(enum NetMessageType msg_type, void *send_buf, void 
         if (frontend_exchange) {
             net_callbacks->network_yield_draw_frontend();
         } else {
-            net_callbacks->network_yield_draw_gameplay();
+            // Gameplay-time wait: only poll input (no draw -- rendering here was the
+            // #5282 startup-sync crash), so ESC/window-close can still abort the wait.
+            net_callbacks->network_yield_poll_gameplay();
+            if (quit_game || exit_keeper) {
+                break;
+            }
         }
         SDL_Delay(1);
     }

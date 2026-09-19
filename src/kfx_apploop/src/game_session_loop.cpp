@@ -136,6 +136,7 @@ void update(void)
         return;
     }
     player = get_my_player();
+    struct UserState *ustate = get_user_state(get_local_user());
 
     // docs/refactor/editor/01-entry-and-editor-session.md §3 -- simulation_suspended
     // checked here directly, not just via editor_frame()'s GOF_Paused
@@ -150,10 +151,10 @@ void update(void)
         for (int i = 1; i < EVENTS_COUNT; i++) {
             kfx_sim_state.event[i].flags &= ~EvF_BtnFalling;
         }
-        if (flag_is_set(player->additional_flags,PlaAF_LightningPaletteIsActive))
+        if (flag_is_set(ustate->additional_flags,UsrAF_LightningPaletteIsActive))
         {
-            PaletteSetPlayerPalette(player, engine_palette);
-            clear_flag(player->additional_flags, PlaAF_LightningPaletteIsActive);
+            PaletteSetUserPalette(player->user_id, engine_palette);
+            clear_flag(ustate->additional_flags, UsrAF_LightningPaletteIsActive);
         }
         clear_active_dungeons_stats();
         update_creature_pool_state();
@@ -527,6 +528,42 @@ static void gameplay_loop_logic()
 #endif
 
     update_gameplay_delta_time();
+    if (timer_enabled())
+    {
+        if (kfx_sim_state.TimerGame)
+        {
+            TbBool won_level = (get_my_player()->victory_state == VicS_WonLevel);
+            if (!won_level)
+            {
+                TimerTurns = get_gameturn();
+            }
+            if (kfx_sim_state.TimerGameReal)
+            {
+                if (!won_level)
+                {
+                    if (TimerTurns != 0)
+                    {
+                        uint32_t turns = kfx_sim_state.turns_per_second;
+                        if (kfx_net_state.frame_skip > 0)
+                        {
+                            turns *= kfx_net_state.frame_skip;
+                        }
+                        if (TimerTurns % turns == 0)
+                        {
+                            update_game_time(&kfx_sim_state.GameT, &kfx_sim_state.GameSeconds);
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (!kfx_sim_state.TimerFreeze)
+            {
+                update_time();
+            }
+        }
+    }
     if (kfx_net_state.process_turn_time > kfx_sim_state.turns_per_second + 1)
         kfx_net_state.process_turn_time = kfx_sim_state.turns_per_second + 1;
 
@@ -591,9 +628,13 @@ static void gameplay_loop_timestep()
     }
 }
 
-void network_yield_draw_gameplay(void)
+void network_yield_poll_gameplay(void)
 {
-    gameplay_loop_draw();
+    // Deliberately no gameplay_loop_draw(): drawing while the startup sync is still
+    // exchanging frames could render half-initialised state (upstream #5282).
+    if (!poll_inputs()) {
+        exit_keeper = 1;
+    }
 }
 
 void network_yield_waiting_gameplay_packets(void)
@@ -629,7 +670,7 @@ void keeper_gameplay_loop(void)
     struct PlayerInfo *player;
     SYNCDBG(5,"Starting");
     player = get_my_player();
-    PaletteSetPlayerPalette(player, engine_palette);
+    PaletteSetUserPalette(player->user_id, engine_palette);
     if ((kfx_sim_state.operation_flags & GOF_SingleLevel) != 0) {
         initialise_eye_lenses();
     }
@@ -750,7 +791,7 @@ static TbBool wait_at_frontend(void)
     #endif
 
     // Prepare to enter PacketLoad game
-    if ((kfx_net_state.packet_load_enable) && (!kfx_net_state.packet_load_initialized))
+    if (kfx_net_state.packet_load_enable)
     {
       faststartup_saved_packet_game();
       return true;
@@ -1007,6 +1048,10 @@ void game_loop(void)
       starttime = LbTimerClock();
       dungeon->lvstats.start_time = starttime;
       dungeon->lvstats.end_time = starttime;
+      kfx_sim_state.GameSeconds = 0;
+      kfx_sim_state.GameT.Seconds = 0;
+      kfx_sim_state.GameT.Minutes = 0;
+      kfx_sim_state.GameT.Hours = 0;
       if (!kfx_sim_state.TimerNoReset)
       {
           if (is_feature_on(Ft_SkipHeartZoom))

@@ -455,6 +455,7 @@ static float get_dual_context_key_axis_value(long game_key_id, long editor_key_i
 static short get_players_message_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
+    struct UserState* ustate = get_local_user_state();
 
     if (is_key_pressed(KC_RETURN, KMod_NONE)) {
         memcpy(player->mp_pending_message, player->mp_message_text, PLAYER_MP_MESSAGE_LEN);
@@ -462,13 +463,13 @@ static short get_players_message_inputs(void)
         if (network_is_active()) {
             send_network_chat_message(get_local_user(), player->mp_message_text);
         }
-        player->allocflags &= ~PlaF_NewMPMessage;
+        ustate->init_flags &= ~UsrIF_NewMPMessage;
         memset(player->mp_message_text, 0, PLAYER_MP_MESSAGE_LEN);
         clear_key_pressed(KC_RETURN);
         LbStopTextInput();
     } else if (is_key_pressed(KC_ESCAPE, KMod_DONTCARE)) {
         set_players_packet_action(player, PckA_PlyrMsgClear, 0, 0, 0, 0);
-        player->allocflags &= ~PlaF_NewMPMessage;
+        ustate->init_flags &= ~UsrIF_NewMPMessage;
         memset(player->mp_message_text, 0, PLAYER_MP_MESSAGE_LEN);
         clear_key_pressed(KC_ESCAPE);
         LbStopTextInput();
@@ -739,7 +740,8 @@ static short get_global_inputs(void)
     return false;
   struct PlayerInfo* player = get_my_player();
   unsigned char view_type = get_local_view_type(player);
-  if ((player->allocflags & PlaF_NewMPMessage) != 0)
+  struct UserState* ustate = get_local_user_state();
+  if ((ustate->init_flags & UsrIF_NewMPMessage) != 0)
   {
     get_players_message_inputs();
     return true;
@@ -756,7 +758,7 @@ static short get_global_inputs(void)
               clear_key_pressed(KC_RETURN);
               return true;
           }
-        player->allocflags |= PlaF_NewMPMessage;
+        ustate->init_flags |= UsrIF_NewMPMessage;
         LbStartTextInput();
         clear_key_pressed(KC_RETURN);
         return true;
@@ -852,9 +854,10 @@ static short get_global_inputs(void)
         if ( timer_enabled() )
         {
             update_time();
-            struct GameTime GameT = get_game_time(get_gameturn(), kfx_sim_state.turns_per_second);
+            struct GameTime GT;
+            get_game_time(&GT, get_gameturn(), kfx_sim_state.turns_per_second);
             SYNCMSG("Finished level %d. Total turns taken: %u (%02u:%02u:%02u at %d fps). Real time elapsed: %02u:%02u:%02u:%03u.",
-                kfx_sim_state.loaded_level_number, get_gameturn(), GameT.Hours, GameT.Minutes, GameT.Seconds, kfx_sim_state.turns_per_second, kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
+                kfx_sim_state.loaded_level_number, get_gameturn(), GT.Hours, GT.Minutes, GT.Seconds, kfx_sim_state.turns_per_second, kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
         }
         set_players_packet_action(player, PckA_FinishGame, player->victory_state, 0, 0, 0);
         return true;
@@ -878,7 +881,8 @@ static TbBool get_level_lost_inputs(void)
     struct PlayerInfo* player = get_my_player();
     unsigned char view_type = get_local_view_type(player);
     struct Camera* camera = get_local_active_camera(player);
-    if ((player->allocflags & PlaF_NewMPMessage) != 0)
+    struct UserState* ustate = get_local_user_state();
+    if ((ustate->init_flags & UsrIF_NewMPMessage) != 0)
     {
       get_players_message_inputs();
       return true;
@@ -887,7 +891,7 @@ static TbBool get_level_lost_inputs(void)
     {
       if (is_key_pressed(KC_RETURN,KMod_NONE))
       {
-        player->allocflags |= PlaF_NewMPMessage;
+        ustate->init_flags |= UsrIF_NewMPMessage;
         LbStartTextInput();
         clear_key_pressed(KC_RETURN);
         return true;
@@ -1365,6 +1369,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
 static TbBool get_dungeon_control_action_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
+    struct UserState* ustate = get_local_user_state();
     if (get_players_packet_action(player) != PckA_None)
         return true;
     int mm_units_per_px;
@@ -1391,7 +1396,7 @@ static TbBool get_dungeon_control_action_inputs(void)
 
     if (player->work_state == PSt_CtrlDungeon)
     {
-        if ((player->primary_cursor_state == CSt_PickAxe) || (player->primary_cursor_state == CSt_PowerHand))
+        if ((ustate->primary_cursor_state == CSt_PickAxe) || (ustate->primary_cursor_state == CSt_PowerHand))
         {
             process_highlight_roomspace_inputs(player->id_number);
         }
@@ -1599,7 +1604,7 @@ static short get_creature_control_action_inputs(void)
 {
     SYNCDBG(6,"Starting");
     struct PlayerInfo* player = get_my_player();
-    struct UserState* ustate = get_player_user_state(player);
+    struct UserState* ustate = get_local_user_state();
     if (get_players_packet_action(player) != PckA_None)
         return 1;
     if ( ((kfx_sim_state.operation_flags & GOF_Paused) == 0) || ((kfx_sim_state.operation_flags & GOF_WorldInfluence) != 0))
@@ -1921,20 +1926,20 @@ static short get_creature_control_action_inputs(void)
         }
         if (is_key_pressed(KC_LALT,KMod_DONTCARE))
         {
-            if (!player->nearest_teleport)
+            if (!ustate->nearest_teleport)
             {
                 set_players_packet_action(player, PckA_SetNearestTeleport, true, 0, 0, 0);
             }
         }
         else
         {
-            if (player->nearest_teleport)
+            if (ustate->nearest_teleport)
             {
                 set_players_packet_action(player, PckA_SetNearestTeleport, false, 0, 0, 0);
             }
         }
         player->thing_under_hand = 0;
-        local_thing_under_hand = 0;
+        local_state.local_thing_under_hand = 0;
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (cctrl->active_instance_id == CrInst_FIRST_PERSON_DIG)
         {
@@ -1983,7 +1988,7 @@ static short get_creature_control_action_inputs(void)
                     }
                 }
             }
-            local_thing_under_hand = player->thing_under_hand;
+            local_state.local_thing_under_hand = player->thing_under_hand;
             if (ustate->selected_fp_thing_pickup != player->thing_under_hand)
             {
                 set_players_packet_action(player, PckA_SelectFPPickup, player->thing_under_hand, 0, 0, 0);
@@ -2032,13 +2037,13 @@ static void set_packet_action_for_thing_under_hand(struct Packet* pckt)
 {
     NetUserId user = get_local_user();
     struct PlayerInfo* player = get_my_player();
-    struct UserState* ustate = get_player_user_state(player);
-    if ((get_local_view_type(player) != PVT_DungeonTop) || ((pckt->control_flags & PCtr_Gui) != 0) || (local_thing_under_hand <= 0) || (pckt->action != PckA_None) || (get_gameturn() - hand_pick_pending_turn <= kfx_net_state.input_lag_turns)) {
+    struct UserState* ustate = get_local_user_state();
+    if ((get_local_view_type(player) != PVT_DungeonTop) || ((pckt->control_flags & PCtr_Gui) != 0) || (local_state.local_thing_under_hand <= 0) || (pckt->action != PckA_None) || (get_gameturn() - hand_pick_pending_turn <= kfx_net_state.input_lag_turns)) {
         return;
     }
     int32_t cursor_state = (pckt->additional_packet_values & PCAdV_ContextMask) >> 1;
-    if (right_button_released && (player->work_state == PSt_CtrlDungeon) && (cursor_state == CSt_PowerHand) && power_hand_is_empty(player) && !player->one_click_lock_cursor && thing_slappable(thing_get(local_thing_under_hand), player->id_number)) {
-        set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_thing_under_hand, 0, 0);
+    if (right_button_released && (player->work_state == PSt_CtrlDungeon) && (cursor_state == CSt_PowerHand) && power_hand_is_empty(player) && !ustate->one_click_lock_cursor && thing_slappable(thing_get(local_state.local_thing_under_hand), player->id_number)) {
+        set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_state.local_thing_under_hand, 0, 0);
         return;
     }
     if (!left_button_released) {
@@ -2057,21 +2062,21 @@ static void set_packet_action_for_thing_under_hand(struct Packet* pckt)
     switch (work_state) {
         case PSt_CtrlDungeon:
             if ((pckt->additional_packet_values & PCAdV_CrtrContrlPressed) != 0) {
-                set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_POSSESS, local_thing_under_hand, 0, 0);
+                set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_POSSESS, local_state.local_thing_under_hand, 0, 0);
             } else if (((pckt->additional_packet_values & PCAdV_CrtrQueryPressed) == 0) && (cursor_state == CSt_PowerHand)) {
-                set_packet_action(pckt, PckA_UsePwrHandPick, local_thing_under_hand, 0, 0, 0);
+                set_packet_action(pckt, PckA_UsePwrHandPick, local_state.local_thing_under_hand, 0, 0, 0);
                 hand_pick_pending_turn = get_gameturn();
             }
             break;
         case PSt_Slap:
-            set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_thing_under_hand, 0, 0);
+            set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_state.local_thing_under_hand, 0, 0);
             break;
         case PSt_CtrlDirect:
         case PSt_FreeCtrlDirect:
-            set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_POSSESS, local_thing_under_hand, 0, 0);
+            set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_POSSESS, local_state.local_thing_under_hand, 0, 0);
             break;
         case PST_CastPowerOnTarget:
-            set_packet_action(pckt, PckA_UsePwrOnThing, pwkind, local_thing_under_hand, 0, 0);
+            set_packet_action(pckt, PckA_UsePwrOnThing, pwkind, local_state.local_thing_under_hand, 0, 0);
             break;
     }
 }
@@ -2266,7 +2271,6 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rot
 
 static void get_isometric_view_nonaction_inputs(void)
 {
-    struct PlayerInfo* player = get_my_player();
     struct Packet* packet = get_local_packet();
     // docs/refactor/editor/10-definable-keybindings.md -- every
     // is_game_key_pressed() call in this function reads from
@@ -2277,7 +2281,7 @@ static void get_isometric_view_nonaction_inputs(void)
     // play uses), so it's the one place this actually needs wiring.
     int rotate_pressed = is_dual_context_key_pressed(Gkey_RotateMod, Gkey_EditorRotateMod, false, true);
     int speed_pressed = is_dual_context_key_pressed(Gkey_SpeedMod, Gkey_EditorSpeedMod, false, true);
-    if ((player->allocflags & PlaF_KeyboardInputDisabled) != 0)
+    if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) != 0)
       return;
     if (speed_pressed != 0)
         packet->additional_packet_values |= PCAdV_SpeedupPressed;
@@ -2348,13 +2352,12 @@ static void get_isometric_view_nonaction_inputs(void)
 static void get_overhead_view_nonaction_inputs(void)
 {
     SYNCDBG(19,"Starting");
-    struct PlayerInfo* player = get_my_player();
     struct Packet* pckt = get_local_packet();
     long my = kfx_game_state.my_mouse_y;
     long mx = kfx_game_state.my_mouse_x;
     int rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
     int speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
-    if ((player->allocflags & PlaF_KeyboardInputDisabled) == 0)
+    if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) == 0)
     {
         if (speed_pressed)
           pckt->additional_packet_values |= PCAdV_SpeedupPressed;
@@ -2380,13 +2383,12 @@ static void get_front_view_nonaction_inputs(void)
 {
     static TbClockMSec last_rotate_left_time = 0;
     static TbClockMSec last_rotate_right_time = 0;
-    struct PlayerInfo* player = get_my_player();
     struct Packet* pckt = get_local_packet();
     int rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
     int speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
     TbBool no_mods = ((rotate_pressed != 0) || (speed_pressed != 0) || (check_current_gui_layer(GuiLayer_OneClick)));
 
-    if ((player->allocflags & PlaF_KeyboardInputDisabled) != 0)
+    if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) != 0)
       return;
     if (speed_pressed != 0)
       pckt->additional_packet_values |= PCAdV_SpeedupPressed;
@@ -2455,6 +2457,7 @@ static TbBool get_player_coords_and_context(struct Coord3d *pos, unsigned char *
   unsigned long x;
   unsigned long y;
   struct PlayerInfo* player = get_my_player();
+  struct UserState* ustate = get_local_user_state();
   TbBool hand_is_empty = power_hand_is_empty(player);
   if ((kfx_render_state.pointer_x < 0) || (kfx_render_state.pointer_y < 0)
    || (kfx_render_state.pointer_x >= local_state.engine_window_width/pixel_size)
@@ -2473,7 +2476,7 @@ static TbBool get_player_coords_and_context(struct Coord3d *pos, unsigned char *
 
   struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
   struct SlabConfigStats* slabst = get_slab_stats(slb);
-  if (slab_kind_is_door(slb->kind) && (slabmap_owner(slb) == player->id_number) && (!player->one_click_lock_cursor))
+  if (slab_kind_is_door(slb->kind) && (slabmap_owner(slb) == player->id_number) && (!ustate->one_click_lock_cursor))
   {
     *context = CSt_DoorKey;
     pos->x.val = (x<<8) + kfx_render_state.top_pointed_at_frac_x;
@@ -2491,13 +2494,13 @@ static TbBool get_player_coords_and_context(struct Coord3d *pos, unsigned char *
     pos->x.val = (x<<8) + kfx_render_state.top_pointed_at_frac_x;
     pos->y.val = (y<<8) + kfx_render_state.top_pointed_at_frac_y;
   } else
-  if (((slb_x >= kfx_sim_state.map_tiles_x) || (slb_y >= kfx_sim_state.map_tiles_y)) && (!player->one_click_lock_cursor))
+  if (((slb_x >= kfx_sim_state.map_tiles_x) || (slb_y >= kfx_sim_state.map_tiles_y)) && (!ustate->one_click_lock_cursor))
   {
     *context = CSt_DefaultArrow;
     pos->x.val = (kfx_render_state.block_pointed_at_x<<8) + kfx_render_state.pointed_at_frac_x;
     pos->y.val = (kfx_render_state.block_pointed_at_y<<8) + kfx_render_state.pointed_at_frac_y;
   } else
-  if (((slabst->block_flags & (SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) || (player->one_click_lock_cursor))
+  if (((slabst->block_flags & (SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) || (ustate->one_click_lock_cursor))
   {
     *context = CSt_PickAxe;
     pos->x.val = (x<<8) + kfx_render_state.top_pointed_at_frac_x;
@@ -2508,11 +2511,11 @@ static TbBool get_player_coords_and_context(struct Coord3d *pos, unsigned char *
     pos->y.val = (kfx_render_state.block_pointed_at_y<<8) + kfx_render_state.pointed_at_frac_y;
     *context = CSt_PowerHand;
   }
-  if ((*context == CSt_PowerHand) && (!player->one_click_lock_cursor))
+  if ((*context == CSt_PowerHand) && (!ustate->one_click_lock_cursor))
   {
     struct Thing* thing = get_nearest_thing_for_hand_or_slap(player->id_number, pos->x.val, pos->y.val);
     if (!thing_is_invalid(thing)) {
-      local_thing_under_hand = thing->index;
+      local_state.local_thing_under_hand = thing->index;
     } else
     if (hand_is_empty)
     {
@@ -2538,7 +2541,7 @@ static void get_dungeon_control_nonaction_inputs(void)
   struct Camera* camera = get_local_active_camera(player);
   struct Packet* pckt = get_local_packet();
   if (get_gameturn() - hand_pick_pending_turn > kfx_net_state.input_lag_turns) {
-    local_thing_under_hand = 0;
+    local_state.local_thing_under_hand = 0;
   }
   unset_packet_control(pckt, PCtr_MapCoordsValid);
   // screen_to_map()/get_player_coords_and_context() are pure screen->world
@@ -2578,14 +2581,14 @@ static void get_dungeon_control_nonaction_inputs(void)
             case PSt_DestroyThing:
             case PSt_CreatrInfoAll:
             {
-                local_thing_under_hand = player->thing_under_hand;
+                local_state.local_thing_under_hand = player->thing_under_hand;
                 break;
             }
             case PSt_OrderCreatr:
             {
                 if ( (player->controlled_thing_idx == 0) || (player->thing_under_hand == player->controlled_thing_idx) )
                 {
-                    local_thing_under_hand = player->thing_under_hand;
+                    local_state.local_thing_under_hand = player->thing_under_hand;
                 }
                 break;
             }
@@ -2593,7 +2596,7 @@ static void get_dungeon_control_nonaction_inputs(void)
             {
                 struct Thing* thing = get_thing_under_hand(player, pos.x.val, pos.y.val);
                 if (!thing_is_invalid(thing)) {
-                    local_thing_under_hand = thing->index;
+                    local_state.local_thing_under_hand = thing->index;
                 }
                 break;
             }
@@ -2610,7 +2613,7 @@ static void get_dungeon_control_nonaction_inputs(void)
       set_packet_control(pckt, PCtr_ViewZoomPos);
   if (rotate_around_mouse_option == RotateAroundMouse_Always)
       set_packet_control(pckt, PCtr_ViewRotatePos);
-  if ((player->allocflags & PlaF_NewMPMessage) == 0)
+  if ((get_local_user_state()->init_flags & UsrIF_NewMPMessage) == 0)
   {
       switch (camera->view_mode)
       {
@@ -2688,7 +2691,7 @@ static TbBool get_packet_load_demo_inputs(void)
 static void get_creature_control_nonaction_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
-    if ((player->allocflags & PlaF_CreaturePassengerMode) != 0)
+    if ((get_local_user_state()->init_flags & UsrIF_CreaturePassengerMode) != 0)
     {
         return;
     }
@@ -2803,6 +2806,7 @@ static void get_player_gui_clicks(void)
   if ( ((kfx_sim_state.operation_flags & GOF_Paused) != 0) && ((kfx_sim_state.operation_flags & GOF_WorldInfluence) == 0))
     return;
   struct PlayerInfo *player = get_my_player();
+  struct UserState *ustate = get_local_user_state();
   switch (get_local_view_type(player))
   {
   case PVT_CreaturePasngr:
@@ -2814,12 +2818,12 @@ static void get_player_gui_clicks(void)
           if (a_menu_window_is_active())
           {
             kfx_sim_state.view_mode_flags &= ~GNFldD_CreaturePasngr;
-            player->allocflags &= ~PlaF_CreaturePassengerMode;
+            ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
             turn_off_all_window_menus();
           } else
           {
             kfx_sim_state.view_mode_flags |= GNFldD_CreaturePasngr;
-            player->allocflags |= PlaF_CreaturePassengerMode;
+            ustate->init_flags |= UsrIF_CreaturePassengerMode;
             turn_on_menu(GMnu_QUERY);
           }
         }
@@ -2837,7 +2841,7 @@ static void get_player_gui_clicks(void)
           {
               if (player->work_state == PSt_CtrlDungeon)
               {
-                  switch (player->primary_cursor_state)
+                  switch (ustate->primary_cursor_state)
                   {
                       case CSt_PickAxe:
                       {
@@ -2863,7 +2867,7 @@ static void get_player_gui_clicks(void)
                          {
                              if (!a_menu_window_is_active())
                              {
-                                if (flag_is_set(player->additional_flags, PlaAF_ChosenSubTileIsHigh))
+                                if (flag_is_set(ustate->additional_flags, UsrAF_ChosenSubTileIsHigh))
                                 {
                                     if (!left_button_held)
                                     {
@@ -2942,7 +2946,7 @@ static short get_inputs(void)
         return get_packet_load_game_inputs();
     }
     struct PlayerInfo* player = get_my_player();
-    if ((player->allocflags & PlaF_MouseInputDisabled) != 0)
+    if ((get_local_user_state()->init_flags & UsrIF_MouseInputDisabled) != 0)
     {
         SYNCDBG(5,"Starting for creature fade");
         set_players_packet_position(get_local_packet(), 0, 0 , 0);
@@ -3035,7 +3039,7 @@ static short get_inputs(void)
         {
           if (!network_is_active())
             kfx_sim_state.operation_flags &= ~GOF_Paused;
-          local_state.status_menu_restore = toggle_status_menu(0); // store current status menu visibility, and hide the status menu (when the map is visible) [duplicate? unneeded?]
+          set_map_ui_hidden(true, false);
           set_players_packet_action(player, PckA_SetViewType, PVT_MapScreen, 0,0,0);
         }
         return false;
@@ -3233,7 +3237,7 @@ short get_gui_inputs(short gameplay_on)
 static void process_cheat_mode_selection_inputs(void)
 {
     struct PlayerInfo *player = get_my_player();
-    struct UserState* ustate = get_player_user_state(player);
+    struct UserState* ustate = get_local_user_state();
     unsigned char new_value;
     struct CreatureModelConfig* crconf;
     // player selection
@@ -3671,15 +3675,24 @@ void update_time(void)
     kfx_sim_state.Timer.Hours = time / 60;
 }
 
-struct GameTime get_game_time(unsigned long turns, unsigned long fps)
+void get_game_time(struct GameTime *GT, unsigned long turns, unsigned long fps)
 {
-    struct GameTime GameT;
     unsigned long time = turns / fps;
-    GameT.Seconds = time % 60;
+    GT->Seconds = time % 60;
     time /= 60;
-    GameT.Minutes = time % 60;
-    GameT.Hours = time / 60;
-    return GameT;
+    GT->Minutes = time % 60;
+    GT->Hours = time / 60;
+}
+
+void update_game_time(struct GameTime *GT, unsigned long *gameseconds)
+{
+    unsigned long seconds = *gameseconds;
+    seconds++;
+    *gameseconds = seconds;
+    GT->Seconds = seconds % 60;
+    seconds /= 60;
+    GT->Minutes = seconds % 60;
+    GT->Hours = seconds / 60;
 }
 
 /******************************************************************************/

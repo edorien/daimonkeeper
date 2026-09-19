@@ -475,6 +475,7 @@ enum GUIStrings {
     GUIStr_FxdataZipNotLoaded,
     GUIStr_FxdataZipInstallAsMod,
     GUIStr_NetLobbyConnectionLost,
+    GUIStr_NetOutOfSync,
     GUIStr_MnuEnterLand,
     GUIStr_MnuPlayLevel,
     // docs/refactor/renderer/04-imgui-gui-foundation.md §6.3 -- Phase G

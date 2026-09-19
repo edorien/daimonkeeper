@@ -183,3 +183,35 @@ concrete per-cluster coverage decisions, conflict resolutions, and the
 follow-up it spun off (`src/kfx_net/tests/net_checksums_test.cpp`, broken by
 the *previous* merge, needing a real fixture redesign beyond this workflow's
 mechanical-rename cases).
+
+## Handling a GPU / renderer-branch commit inside the range (2026-09-19 merge)
+
+Upstream sometimes lands large renderer-backend work (the OpenGL commits, `opengl-renderer-review.md`)
+that this fork deliberately rejected. Do not `git merge origin/master` in one go for such a range:
+
+1. Work in a **separate worktree/branch** (`git worktree add ../<dir> -b merge-upstream-<date>`), not the
+   shared dirty tree. Keep a per-commit ledger (`docs/merge-checks/upstream-merge-<date>.md`).
+2. Classify every commit in the range by files touched (`git show --numstat`). Merge **non-GPU commits in
+   batches** by SHA (`git merge <sha> --no-commit --no-ff`, resolve, commit) and **each GPU commit alone**.
+3. A GPU commit is recorded with `git merge -s ours --no-commit <sha>` (keeps ancestry, imports nothing),
+   *then* hand-port only hunks that are demonstrable software-path bug fixes. Read its non-GL hunks in full.
+   Put doubtful ones (visual redesigns, state-machine hardening) in the ledger as flagged candidates.
+   `-s ours` fails silently ("Merge with strategy ours failed", producing a one-parent commit) if anything is
+   staged — do it on a clean index and check `git log -1 --format=%P` shows two parents.
+4. Some later "non-GPU" commits only repair the GPU commit's own regressions or gate GPU-only functions
+   (`08816fbef`, `b8344493e`): record them `-s ours` too, after checking our tree really lacks the bug.
+5. Author does not decide: a commit by the GPU author can still be pure perf/profiling that changes
+   simulation order (`702188136` reorders `update_things`) — review the logic, not the label.
+
+Mechanics that saved time:
+* For a file this fork deleted/relocated, `git diff <sha>~1 <sha> -- <old path> | sed 's#a/old#a/new#;s#b/old#b/new#' | patch -p1 -F3 -l`
+  applies onto the new path; then read every "fuzz 3" hunk — some land in the wrong function.
+* Never `git add <dir>` while conflicts remain in it (it marks conflicted files resolved). Use
+  `git grep -n '^<<<<<<<'` as the source of truth; `git checkout HEAD -- <file>` if you staged one by accident.
+* When upstream calls a higher layer (kfx_net from kfx_sim/kfx_render), add a lower-layer helper reading
+  `PlayerInfo::user_id` (`get_user_player_number`) or a callback member — not a new upward include.
+* Positional callback-struct initialisers in `main.cpp`/`*_callbacks.c`: insert the new member at the same
+  position in the struct, the no-op table, and `setup_game()`.
+* Coverage-first still applies per fix: write the test, prove it fails (`git stash push <src>`), apply the fix.
+  Watch for tests that pass "by accident" after a semantic change (`checksums_different` tests that used the
+  magic `action = 1`, which is `PckA_QuitToMainMenu`).

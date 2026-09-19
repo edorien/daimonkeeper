@@ -1893,6 +1893,9 @@ static TbBool ariadne_creature_reached_position(const struct Thing *thing, const
 
 static long ariadne_creature_blocked_by_wall_at(struct Thing *thing, const struct Coord3d *pos)
 {
+    if (pathfinding_world->creature_steps_into_toxic_terrain(thing, pos)) {
+        return true;
+    }
     struct Coord3d mvpos;
     long zmem;
     long ret;
@@ -2245,21 +2248,7 @@ static AriadneReturn ariadne_init_wallhug(struct Thing *thing, struct Ariadne *a
         arid->manoeuvre_state = AridUpSStM_ContinueWallhug;
         return AridRet_OK;
     }
-    long cannot_move;
-    {
-        MapCoord tng_z_mem;
-        struct Coord3d cur_pos = pathfinding_world->thing_get_position(thing);
-        tng_z_mem = cur_pos.z.val;
-        struct Coord3d mvpos;
-        mvpos.x.val = arid->next_position.x.val;
-        mvpos.y.val = arid->next_position.y.val;
-        mvpos.z.val = pathfinding_world->get_floor_height_under_thing_at(thing, &cur_pos);
-        cur_pos.z.val = mvpos.z.val;
-        pathfinding_world->thing_set_position(thing, &cur_pos);
-        cannot_move = pathfinding_world->creature_cannot_move_directly_to(thing, &mvpos);
-        cur_pos.z.val = tng_z_mem;
-        pathfinding_world->thing_set_position(thing, &cur_pos);
-    }
+    long cannot_move = ariadne_creature_blocked_by_wall_at(thing, &arid->next_position);
     if ( cannot_move )
     {
         struct Coord3d pos2;
@@ -2945,7 +2934,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
 
     thing_pos.z.val = potentional_next_pos_3d.z.val;
     pathfinding_world->thing_set_position(thing, &thing_pos);
-    TbBool cant_move_to_pos_directly = pathfinding_world->creature_cannot_move_directly_to(thing, &potentional_next_pos_3d);
+    TbBool cant_move_to_pos_directly = ariadne_creature_blocked_by_wall_at(thing, &potentional_next_pos_3d);
 
     if (cant_move_to_pos_directly)
     {
@@ -2961,7 +2950,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
         potentional_next_pos_3d.z.val = pathfinding_world->get_floor_height_under_thing_at(thing, &thing_pos);
         thing_pos.z.val = potentional_next_pos_3d.z.val;
         pathfinding_world->thing_set_position(thing, &thing_pos);
-        cant_move_to_pos_directly = pathfinding_world->creature_cannot_move_directly_to(thing, &potentional_next_pos_3d);
+        cant_move_to_pos_directly = ariadne_creature_blocked_by_wall_at(thing, &potentional_next_pos_3d);
 
         thing_pos = original_mappos;
         pathfinding_world->thing_set_position(thing, &thing_pos);

@@ -130,7 +130,7 @@ dispatcher, from a debug console command that manually advances a turn"
 declares (`update`, `find_frame_rate`,
 `packet_load_find_frame_rate`, `display_should_be_updated_this_turn`,
 `keeper_screen_swap`, `keeper_wait_for_next_turn`,
-`keeper_gameplay_loop`, `game_loop`, `network_yield_draw_gameplay`,
+`keeper_gameplay_loop`, `game_loop`, `network_yield_poll_gameplay`,
 `network_yield_waiting_gameplay_packets`, `network_yield_draw_frontend`,
 `host_packet_received`, `interpolate_time`) finds **zero** matches. The
 call this comment describes has apparently been removed or moved

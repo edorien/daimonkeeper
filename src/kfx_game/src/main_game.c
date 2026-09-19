@@ -559,7 +559,12 @@ TbBool startup_saved_packet_game(void)
 {
     struct CatalogueEntry centry;
     clear_packets();
-    open_packet_file_for_load(kfx_net_state.packet_fname,&centry);
+    if (!open_packet_file_for_load(kfx_net_state.packet_fname,&centry))
+    {
+        ERRORLOG("Cannot replay \"%s\": unreadable, or written by an incompatible version",
+            kfx_net_state.packet_fname);
+        return false;
+    }
     if (!change_campaign(CampgnT_Default, centry.campaign_fname))
     {
         ERRORLOG("Unable to load campaign associated with packet file");
@@ -587,11 +592,19 @@ TbBool startup_saved_packet_game(void)
         WARNLOG("Packet file was created with different version of the game; this rarely works");
     }
     kfx_sim_state.game_kind = GKind_LocalGame;
-    if (!flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(kfx_net_state.local_plyr_idx))
-        || flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(kfx_net_state.local_plyr_idx)))
-        my_player_number = 0;
-    else
-        my_player_number = kfx_net_state.local_plyr_idx;
+    {
+        PlayerNumber view_plyr = -1;
+        NetUserId rec_user = kfx_net_state.packet_save_head.recording_user;
+        if (!start_params.force_player_num && (rec_user >= 0) && (rec_user < MAX_NET_USERS))
+            view_plyr = kfx_net_state.packet_save_head.user_players[rec_user];
+        if (view_plyr < 0)
+            view_plyr = kfx_net_state.local_plyr_idx;
+        if (!flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(view_plyr))
+            || flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(view_plyr)))
+            my_player_number = 0;
+        else
+            my_player_number = view_plyr;
+    }
     settings.isometric_view_zoom_level = kfx_net_state.packet_save_head.isometric_view_zoom_level;
     settings.frontview_zoom_level = kfx_net_state.packet_save_head.frontview_zoom_level;
     settings.isometric_tilt = kfx_net_state.packet_save_head.isometric_tilt;
@@ -601,10 +614,12 @@ TbBool startup_saved_packet_game(void)
     set_skip_heart_zoom_feature(kfx_net_state.packet_save_head.skip_heart_zoom);
     if (!init_level())
         return false;
-    setup_zombie_players();//TODO GUI What about packet file from network game? No zombies there..
+    setup_zombie_players();
     init_players();
-    get_my_player()->user_id = SOLO_HUMAN_ID;
-    init_user_state(get_my_player()->user_id);
+    restore_users_from_packet_save();
+    game_callbacks->set_frontend_alliances(kfx_net_state.packet_save_head.frontend_alliances);
+    game_callbacks->setup_alliances();
+    are_disconnect_victories_allowed();
     if (kfx_net_state.active_players_count == 1)
         kfx_sim_state.game_kind = GKind_LocalGame;
     if (kfx_net_state.turns_stored < kfx_net_state.turns_fastforward)
@@ -831,7 +846,6 @@ void clear_complete_game(void)
     kfx_net_state.turns_packetoff = -1;
     kfx_net_state.local_plyr_idx = default_loc_player;
     kfx_net_state.packet_checksum_verify = start_params.packet_checksum_verify;
-    kfx_net_state.packet_load_initialized = 0;
     // Set levels to 0, as we may not have the campaign loaded yet
     set_continue_level_number(first_singleplayer_level());
     if ((start_params.operation_flags & GOF_SingleLevel) != 0)

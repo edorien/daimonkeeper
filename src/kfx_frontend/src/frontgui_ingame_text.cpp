@@ -97,7 +97,10 @@ void draw_onscreen_banner(void)
     const bool oos  = (kfx_sim_state.system_flags & GSF_NetGameNoSync) != 0;
     const bool seed = (kfx_sim_state.system_flags & GSF_NetSeedNoSync) != 0;
     const bool banner = onscreen_banner_visible() && onscreen_msg_text[0] != '\0';
-    if (!banner && !oos && !seed)
+    // Upstream #5320: a one-line "Multiplayer is out of sync." warning once resyncing has
+    // given up (replaces the per-frame ERRORLOG spam), drawn where classic gui_topmsg.c does.
+    const bool desync_warning = is_desync_warning_active();
+    if (!banner && !desync_warning && !oos && !seed)
         return;
 
     const ImGuiIO &io = ImGui::GetIO();
@@ -108,6 +111,8 @@ void draw_onscreen_banner(void)
         FeStylePushFont(FeFont_Body);
         if (banner)
             ImGui::TextUnformatted(onscreen_msg_text);
+        if (desync_warning)
+            ImGui::TextUnformatted(get_string(GUIStr_NetOutOfSync));
         if (oos || seed)
         {
             const ImU32 red = ImGui::GetColorU32(ImVec4(0.90f, 0.20f, 0.15f, 1.0f));
@@ -125,7 +130,7 @@ void draw_onscreen_banner(void)
 void draw_mp_chat_line(void)
 {
     const struct PlayerInfo *player = get_my_player();
-    if (player == nullptr || (player->allocflags & PlaF_NewMPMessage) == 0)
+    if (player == nullptr || (get_local_user_state()->init_flags & UsrIF_NewMPMessage) == 0)
         return;
     char text[sizeof(player->mp_message_text) + 4];
     std::snprintf(text, sizeof(text), ">%s_", player->mp_message_text);

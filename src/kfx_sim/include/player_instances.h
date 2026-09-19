@@ -81,6 +81,7 @@ struct PlayerInstanceInfo { // sizeof = 44
 extern struct PlayerInstanceInfo player_instance_info[PLAYER_INSTANCES_COUNT];
 /******************************************************************************/
 void set_player_instance(struct PlayerInfo *player, long ninum, TbBool force);
+void set_map_ui_hidden(TbBool status_menu, TbBool tooltips);
 void turn_off_query(PlayerNumber plyr_idx);
 long filter_creatures_owned_by_keepers(const struct Thing *thing, MaxTngFilterParam param, long a3);
 void process_player_instance(struct PlayerInfo *player);

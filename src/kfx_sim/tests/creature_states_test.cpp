@@ -382,3 +382,52 @@ TEST_CASE_METHOD(ResetSimAndConfig, "creature_is_hostile_to_creature is suppress
     creature_control_get(1)->group_leader_idx = 9; // any positive value marks group membership
     CHECK_FALSE(creature_is_hostile_to_creature(fightng, enmtng)); // group membership suppresses hostility
 }
+
+// The per-scan hostility memo (creature_hostility_memo_begin/end_scan) must never change an
+// answer: inside a scan creature_is_hostile_towards() has to equal the plain loop for every
+// hostile_towards table shape and enemy model.
+TEST_CASE_METHOD(ResetSimAndConfig, "creature_is_hostile_towards gives identical answers inside and outside a memoized scan", "[kfx_sim][creature_states]") {
+    struct Thing *fightng = make_creature(1, 1, 0);
+    struct Thing *enmtng = make_creature(2, 2, 1);
+    struct CreatureModelConfig *crconf = &kfx_config_state.conf.crtr_conf.model[0];
+
+    for (int variant = 0; variant < 4; variant++) {
+        std::memset(crconf->hostile_towards, 0, sizeof(crconf->hostile_towards));
+        if (variant == 1) crconf->hostile_towards[0] = 7;
+        if (variant == 2) crconf->hostile_towards[CREATURE_TYPES_MAX - 1] = CREATURE_ANY;
+        if (variant == 3) crconf->hostile_towards[3] = 5;
+        for (int model = 0; model < CREATURE_TYPES_MAX; model++) {
+            enmtng->model = model;
+            const TbBool plain = creature_is_hostile_towards(fightng, enmtng);
+            creature_hostility_memo_begin_scan();
+            const TbBool first = creature_is_hostile_towards(fightng, enmtng);
+            const TbBool memoized = creature_is_hostile_towards(fightng, enmtng);
+            creature_hostility_memo_end_scan();
+            CHECK(first == plain);
+            CHECK(memoized == plain);
+        }
+    }
+    // an all-empty table is only "hostile" to model 0 (the loop's zero == zero match)
+    std::memset(crconf->hostile_towards, 0, sizeof(crconf->hostile_towards));
+    enmtng->model = 0;
+    CHECK(creature_is_hostile_towards(fightng, enmtng));
+    enmtng->model = 9;
+    CHECK_FALSE(creature_is_hostile_towards(fightng, enmtng));
+}
+
+TEST_CASE_METHOD(ResetSimAndConfig, "the hostility memo is dropped between scans so config changes are seen", "[kfx_sim][creature_states]") {
+    struct Thing *fightng = make_creature(1, 1, 0);
+    struct Thing *enmtng = make_creature(2, 2, 1);
+    enmtng->model = 7;
+    struct CreatureModelConfig *crconf = &kfx_config_state.conf.crtr_conf.model[0];
+    std::memset(crconf->hostile_towards, 0, sizeof(crconf->hostile_towards));
+
+    creature_hostility_memo_begin_scan();
+    CHECK_FALSE(creature_is_hostile_towards(fightng, enmtng)); // memo: "all empty"
+    creature_hostility_memo_end_scan();
+
+    crconf->hostile_towards[0] = 7;
+    creature_hostility_memo_begin_scan(); // new scan -> memo cleared
+    CHECK(creature_is_hostile_towards(fightng, enmtng));
+    creature_hostility_memo_end_scan();
+}

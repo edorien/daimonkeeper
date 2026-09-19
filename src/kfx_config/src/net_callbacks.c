@@ -22,6 +22,7 @@ static void noop_set_gui_visible(TbBool visible) {}
 static unsigned char noop_get_default_tag_mode(void) { return 0; }
 static TbBool noop_is_frontend_starting_mp_level(void) { return false; }
 static TbBool noop_is_frontend_at_initial_state(void) { return false; }
+static char noop_get_frontend_alliances(void) { return 0; }
 
 static void noop_display_attempting_to_join_message(int remaining_s) {}
 static TbBool noop_attempting_to_join_cancel_requested(void) { return false; }
@@ -62,7 +63,7 @@ static TbBool noop_resync_import_game_state(const char *data, size_t len) { retu
 static const char *noop_resync_export_frontend_state(size_t *len) { *len = 0; return ""; }
 static TbBool noop_resync_import_frontend_state(const char *data, size_t len) { return true; }
 
-static void noop_network_yield_draw_gameplay(void) {}
+static void noop_network_yield_poll_gameplay(void) {}
 static void noop_network_yield_waiting_gameplay_packets(void) {}
 static void noop_network_yield_draw_frontend(void) {}
 static TbBool noop_output_message(SoundSmplTblID smpl_idx, long duration) { return false; }
@@ -131,7 +132,7 @@ static const struct NetCallbacks default_net_callbacks = {
     &noop_resync_export_frontend_state,
     &noop_resync_import_frontend_state,
 
-    &noop_network_yield_draw_gameplay,
+    &noop_network_yield_poll_gameplay,
     &noop_network_yield_waiting_gameplay_packets,
     &noop_network_yield_draw_frontend,
     &noop_output_message,
@@ -149,6 +150,7 @@ static const struct NetCallbacks default_net_callbacks = {
     &noop_draw_out_of_sync_box,
     &noop_process_frontend_chat_message,
     &noop_set_host_packet_received,
+    &noop_get_frontend_alliances,
 };
 const struct NetCallbacks *net_callbacks = &default_net_callbacks;
 

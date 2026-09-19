@@ -1697,6 +1697,7 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
     if (slist == NULL) {
         return INVALID_THING;
     }
+    creature_hostility_memo_begin_scan();
     long i = slist->index;
     unsigned long k = 0;
     while (i != 0)
@@ -1735,6 +1736,7 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
             break;
         }
     }
+    creature_hostility_memo_end_scan();
     return retng;
 }
 

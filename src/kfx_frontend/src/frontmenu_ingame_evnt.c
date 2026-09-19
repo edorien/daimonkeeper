@@ -151,11 +151,10 @@ void gui_next_battle(struct GuiButton *gbtn)
 
 void gui_get_creature_in_battle(struct GuiButton *gbtn)
 {
-    struct PlayerInfo* myplyr = get_my_player();
     if (battle_creature_over <= 0) {
         return;
     }
-    PowerKind pwkind = get_player_user_state(myplyr)->chosen_power_kind;
+    PowerKind pwkind = get_local_user_state()->chosen_power_kind;
     struct Thing* thing = thing_get(battle_creature_over);
     if (!thing_exists(thing)) {
         WARNLOG("Nonexisting thing %d in battle",(int)battle_creature_over);
@@ -458,18 +457,17 @@ void draw_timer(void)
     char text[32];
     if (kfx_sim_state.TimerGame)
     {
-        if (get_my_player()->victory_state != VicS_WonLevel)
+        if (kfx_sim_state.TimerGameReal)
         {
-            TimerTurns = get_gameturn();
+            snprintf(text, sizeof(text), "%02d:%02d:%02d", kfx_sim_state.GameT.Hours, kfx_sim_state.GameT.Minutes, kfx_sim_state.GameT.Seconds);
         }
-        snprintf(text, sizeof(text), "%08ld", TimerTurns);
+        else
+        {
+            snprintf(text, sizeof(text), "%08ld", TimerTurns);
+        }
     }
     else
     {
-        if (!kfx_sim_state.TimerFreeze)
-        {
-            update_time();
-        }
         snprintf(text, sizeof(text), "%02d:%02d:%02d", kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds);
     }
     LbTextSetFont(winfont);

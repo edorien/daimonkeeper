@@ -200,6 +200,10 @@ void update_local_cameras(void)
     memcpy(previous_local_cameras, destination_local_cameras, sizeof(previous_local_cameras));
     if (pckt != NULL) {
         render_overlay->process_camera_action(destination_local_cameras, pckt);
+        // Skip interpolation for parchment jumps, while retaining it for minimap dragging.
+        if (pckt->action == PckA_ZoomFromMap) {
+            memcpy(previous_local_cameras, destination_local_cameras, sizeof(previous_local_cameras));
+        }
     }
 
     int active_cam_idx = get_local_active_camera(player) - local_cameras;
@@ -222,7 +226,10 @@ void update_local_cameras(void)
         }
     }
     if (local_camera_move_cam != cam) {
-        render_overlay->process_camera_controls(cam, pckt, player, true);
+        // Same as the packet camera: a parchment map jump ignores the packet's camera controls.
+        if (pckt->action != PckA_ZoomFromMap) {
+            render_overlay->process_camera_controls(cam, pckt, player, true);
+        }
         view_process_camera_inertia(cam);
     }
 

@@ -159,7 +159,7 @@ TEST_CASE_METHOD(ResetStates, "remember_cursor_subtile updates cursor_subtile_x/
     player->user_id = 1;
     sim_packets[1].pos_x = 5 * 256;
     sim_packets[1].pos_y = 7 * 256;
-    remember_cursor_subtile(player);
+    remember_cursor_subtile(1);
     CHECK(get_player_user_state(player)->cursor_subtile_x == 5);
     CHECK(get_player_user_state(player)->cursor_subtile_y == 7);
 }
@@ -169,11 +169,11 @@ TEST_CASE_METHOD(ResetStates, "remember_cursor_subtile carries the old position 
     player->user_id = 1;
     get_player_user_state(player)->cursor_subtile_x = 2;
     get_player_user_state(player)->cursor_subtile_y = 3;
-    player->interpolated_tagging = false;
+    get_user_state(1)->interpolated_tagging = false;
     sim_packets[1].pos_x = 9 * 256;
     sim_packets[1].pos_y = 9 * 256;
     sim_packets[1].control_flags = 0; // no LBtnHeld/LBtnRelease
-    remember_cursor_subtile(player);
+    remember_cursor_subtile(1);
     CHECK(get_player_user_state(player)->previous_cursor_subtile_x == 2);
     CHECK(get_player_user_state(player)->previous_cursor_subtile_y == 3);
 }
@@ -183,11 +183,11 @@ TEST_CASE_METHOD(ResetStates, "remember_cursor_subtile snaps previous_cursor_sub
     player->user_id = 1;
     get_player_user_state(player)->cursor_subtile_x = 2;
     get_player_user_state(player)->cursor_subtile_y = 3;
-    player->interpolated_tagging = false;
+    get_user_state(1)->interpolated_tagging = false;
     sim_packets[1].pos_x = 9 * 256;
     sim_packets[1].pos_y = 9 * 256;
     sim_packets[1].control_flags = PCtr_LBtnHeld;
-    remember_cursor_subtile(player);
+    remember_cursor_subtile(1);
     CHECK(get_player_user_state(player)->previous_cursor_subtile_x == 9);
     CHECK(get_player_user_state(player)->previous_cursor_subtile_y == 9);
 }
@@ -197,16 +197,16 @@ TEST_CASE_METHOD(ResetStates, "remember_cursor_subtile sets interpolated_tagging
     player->user_id = 1;
     get_player_user_state(player)->mouse_on_map = true;
     sim_packets[1].control_flags = PCtr_LBtnClick;
-    remember_cursor_subtile(player);
-    CHECK(player->interpolated_tagging);
+    remember_cursor_subtile(1);
+    CHECK(get_user_state(1)->interpolated_tagging);
 }
 
 TEST_CASE_METHOD(ResetStates, "remember_cursor_subtile clears interpolated_tagging when the mouse is off the map", "[kfx_net][packets_misc]") {
     struct PlayerInfo* player = &kfx_sim_state.players[0];
     player->user_id = 1;
     get_player_user_state(player)->mouse_on_map = false;
-    player->interpolated_tagging = true;
+    get_user_state(1)->interpolated_tagging = true;
     sim_packets[1].control_flags = PCtr_LBtnClick;
-    remember_cursor_subtile(player);
-    CHECK_FALSE(player->interpolated_tagging);
+    remember_cursor_subtile(1);
+    CHECK_FALSE(get_user_state(1)->interpolated_tagging);
 }
