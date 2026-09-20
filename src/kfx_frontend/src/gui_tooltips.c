@@ -76,7 +76,7 @@ static inline void reset_scrolling_tooltip(void)
     clear_flag(tool_tip_box.flags, TTip_NeedReset);
 }
 
-void set_gui_tooltip_box_fmt(int bxtype,const char *format, ...)
+KFX_PRINTF_FORMAT(2, 3) void set_gui_tooltip_box_fmt(int bxtype,const char *format, ...)
 {
   set_flag(tool_tip_box.flags, TTip_Visible);
   va_list val;

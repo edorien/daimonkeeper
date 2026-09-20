@@ -13,6 +13,8 @@
 #include "highscores.h"
 #include "config_campaigns.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
@@ -73,4 +75,17 @@ TEST_CASE_METHOD(HiscoreFixture, "get_level_highest_score returns 0 when no entr
     campaign.hiscore_table[0].score = 100;
 
     CHECK(get_level_highest_score(999) == 0);
+}
+
+// The table is written to / read from disk as a raw array of struct HighScore
+// (highscores.c: LbFileSaveAt/LbFileLoadAt of hiscore_count * sizeof(...)), and
+// load_high_score_table() rejects a file whose length is not exactly that. The
+// original game (and 32-bit Windows builds) use 72-byte entries; a `long score`
+// made them 80 bytes on 64-bit Linux, so every existing table was discarded.
+TEST_CASE("struct HighScore keeps the original 72-byte on-disk layout on every ABI", "[kfx_config][highscores][lp64]") {
+    CHECK(sizeof(struct HighScore) == 72);
+    CHECK(offsetof(struct HighScore, score) == 0);
+    CHECK(offsetof(struct HighScore, name) == 4);
+    CHECK(offsetof(struct HighScore, lvnum) == 4 + HISCORE_NAME_LENGTH);
+    CHECK(sizeof(((struct HighScore *)nullptr)->score) == 4);
 }

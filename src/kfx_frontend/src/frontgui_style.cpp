@@ -365,8 +365,19 @@ void FeStyleEnsureInit()
         refresh_fonts_if_changed();
 }
 
+namespace {
+    bool s_test_default_font = false;
+}
+
+void FeStyleTestUseDefaultFont(bool use_default)
+{
+    s_test_default_font = use_default;
+}
+
 void FeStylePushFont(FeFontRole role)
 {
+    if (s_test_default_font)
+        return;
     FeStyleEnsureInit();
 
     // §4.3: derive from actual window height, not a fixed reference --
@@ -415,6 +426,8 @@ void FeStylePushFont(FeFontRole role)
 
 void FeStylePopFont()
 {
+    if (s_test_default_font)
+        return;
     ImGui::PopFont();
 }
 

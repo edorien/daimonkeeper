@@ -87,7 +87,7 @@ When merging new commits from upstream (`origin`, dkfans/keeperfx) into this for
 kfx_platform → kfx_config → kfx_sim → kfx_render → kfx_net → kfx_game → kfx_frontend → kfx_script → kfx_apploop → app_entry (main.cpp)
 ```
 
-(`kfx_script` and `kfx_apploop` are special-ranked: allowed to depend on anything below, nothing depends on them.) Each `src/kfx_<name>/` directory *is* its CMake OBJECT library — the physical file location determines build-target membership, there's no separate hand-maintained file list.
+(`kfx_script` and `kfx_apploop` are special-ranked: allowed to depend on anything below, nothing depends on them. `kfx_editor` — the in-game level editor, see `docs/refactor/editor/` and architecture.md §2.9a — sits above `kfx_apploop`, just below `app_entry`.) Each `src/kfx_<name>/` directory *is* its CMake OBJECT library — the physical file location determines build-target membership, there's no separate hand-maintained file list.
 
 **Never let a lower-ranked library `#include` a higher-ranked one.** When a lower layer genuinely needs to call into a higher one (state read, UI action, sound, Lua event), use the callback-struct pattern instead: declare a `*Callbacks` struct (almost always in `kfx_config/include/`), implement it in the higher layer, wire it up once in `src/main.cpp::setup_game()` via `set_*_callbacks()`. `main.cpp` is the deliberate exception — the one file allowed to `#include` every layer, because it's the composition root where cross-layer wiring is isolated. Full callback-struct catalog and the (small, documented) list of accepted irreducible violations: architecture.md §5 and §8.2.
 

@@ -52,6 +52,29 @@ else()
     set(CPACK_GENERATOR "TGZ")
 endif()
 
+# Package only the "runtime"/"gamedata" components defined below -- the same
+# two build-cmake.sh/build-package.sh already request via `cmake --install
+# ... --component runtime|gamedata`. Without this, CPack's archive generators
+# default to a monolithic (non-component) install: CMAKE_INSTALL_COMPONENT is
+# left unset for that run, which satisfies every generated install()
+# COMPONENT rule's "OR NOT CMAKE_INSTALL_COMPONENT" fallback branch -- not
+# just this project's own runtime/gamedata rules, but also every third-party
+# FetchContent dependency's (zlib, spng, openal-soft, curl, ...) own
+# unrequested install() rules, tagged into the implicit "Unspecified"
+# component by their own CMakeLists.txt. Those often resolve to an absolute
+# DESTINATION baked in at configure time (e.g. zlib's install() rules land at
+# literal /usr/local/lib, /usr/local/include, ...) rather than one relative
+# to CPACK_INSTALL_PREFIX, so a monolithic install tries to write straight to
+# the host's system directories -- and fails outright wherever that requires
+# privileges the build doesn't have. Switching to component-mode packaging
+# runs the install once per named component, with CMAKE_INSTALL_COMPONENT
+# always set to one of them, so the "Unspecified" rules' fallback branch never
+# matches and they're never invoked; ALL_COMPONENTS_IN_ONE keeps the existing
+# single flat archive instead of splitting into one archive per component.
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+set(CPACK_COMPONENTS_ALL runtime gamedata)
+
 # --- Install rules ---------------------------------------------------------
 
 # COMPONENT runtime tags exactly what build-cmake.sh's `cmake --install

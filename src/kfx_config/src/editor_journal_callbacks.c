@@ -22,9 +22,12 @@ static void noop_record_rect_terrain(unsigned char pcktype,
     SlabKind new_kind, PlayerNumber new_owner,
     const struct EditorRectSlabSnapshot *before, long count) {}
 
+static void noop_record_door_lock(long thing_idx, TbBool was_locked) {}
+
 static const struct EditorJournalCallbacks default_editor_journal_callbacks = {
     &noop_record_placement,
     &noop_record_rect_terrain,
+    &noop_record_door_lock,
 };
 const struct EditorJournalCallbacks *editor_journal = &default_editor_journal_callbacks;
 

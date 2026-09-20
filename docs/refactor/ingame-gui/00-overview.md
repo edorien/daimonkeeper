@@ -12,7 +12,8 @@ migrated — see below), or the layering graph.
 
 This is the "separate, longer-term project" that
 [`../renderer/04-imgui-gui-foundation.md`](../renderer/04-imgui-gui-foundation.md) §2.3 / §10 and
-[`../renderer/03-gpu-renderer.md`](../renderer/03-gpu-renderer.md) §B3 both explicitly defer to.
+[`../renderer/gpu-v2/01-phase-b-2d-compositing.md`](../renderer/gpu-v2/01-phase-b-2d-compositing.md)
+§B3 both explicitly defer to.
 Stage 4 migrated the whole main-menu frontend to real Dear ImGui widgets; stage 4 §2.3 drew the
 line there deliberately, calling the in-game GUI *"gameplay-critical, latency-sensitive, over live
 3D content, chrome entangled with game state — a port, not a reskin"*. Stage 4 §2.3 originally
@@ -37,7 +38,7 @@ Nothing below has to be rebuilt — stage 4 (`../renderer/04-imgui-gui-foundatio
 - **The ImGui context is already live during gameplay.** `RendererImGuiEnabled()` is a
   session-global flag set once from `!use_classic_menu()`, and
   `RendererSoftware::PresentFrame()` new-frames + renders ImGui on *every* present, in-game
-  included (`../renderer/03-gpu-renderer.md:182`). The overlay compositing path this project needs
+  included (`../renderer/gpu-v2/00-overview.md`). The overlay compositing path this project needs
   already runs; today it just submits nothing while a level is loaded.
 - **The wrapper layer** — `frontgui_widgets.{h,cpp}`'s `FeBeginPanel` / `FeButton` / `FeSlider` /
   `FeCheckbox` / `FeBeginListBox` / `FeBeginScrollArea` / `FeHeading` / … — exists, is styled
@@ -276,7 +277,8 @@ that the menus did not:
    half-pixel or one-frame cursor offset makes tile-precise digging and creature-dropping feel
    wrong. This must be treated as a hard acceptance gate on every phase, and is the natural place
    to finish stage 3's "fold the legacy `bflib_mspointer.cpp` path into one GPU-composited cursor
-   draw at the game's tracked position" item (`../renderer/03-gpu-renderer.md` §B-cursor) rather
+   draw at the game's tracked position" item
+   (`../renderer/gpu-v2/01-phase-b-2d-compositing.md` §B-cursor) rather
    than carrying two cursor code paths.
 
    **Landed 2026-09-07:** in-game, `FeStyleGetCursorImage` now mirrors the game's *current* pointer
@@ -572,9 +574,9 @@ grows a golden-trace row + ImGui-path assertion per migrated menu. ([06](06-tab-
   the "in-game GUI is a separate project, revisited **after** GPU work" deferral is superseded:
   this project runs **before** stage 3 Phase B. Record that, that it picked the project up, and
   how the two settings UIs converged (one `frontgui_options_frame()` window, schema context gate).
-- [`../renderer/03-gpu-renderer.md`](../renderer/03-gpu-renderer.md) §B3 — route 1 ("wait for the
-  in-game-GUI-as-ImGui project") is the confirmed sequencing; B3 is subsumed; §B-cursor
-  unification moves into this project.
+- [`../renderer/gpu-v2/01-phase-b-2d-compositing.md`](../renderer/gpu-v2/01-phase-b-2d-compositing.md)
+  §B3 — route 1 ("wait for the in-game-GUI-as-ImGui project") is the confirmed sequencing; B3 is
+  subsumed; §B-cursor unification moves into this project.
 - [`../renderer/00-overview.md`](../renderer/00-overview.md) roadmap table — add this initiative,
   sequenced before stage 3 Phase B.
 - [`docs/Architecture/architecture.md`](../../Architecture/architecture.md) §5 — if any new

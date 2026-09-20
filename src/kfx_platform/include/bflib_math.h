@@ -72,7 +72,12 @@ long LbCosL(long x);
 long LbSqrL(long x);
 int32_t LbArcTanAngle(int32_t x,int32_t y);
 long LbMathOperation(unsigned char opkind, long first_operand, long second_operand);
-unsigned long LbRandomSeries(unsigned long range, uint32_t *seed, const char *func_name, unsigned long place);
+/** Advance *seed and return a value in [0, range). Range and result are uint32_t (== the 32-bit `unsigned long`
+ *  of the Windows build), not `unsigned long`: callers do arithmetic on the result (`RANDOM(11) - 5`,
+ *  `(RANDOM(20) - 10) / 2`, ...) and on the range (a negative int converted to unsigned), and those wrap at
+ *  32 bits there. With a 64-bit unsigned long the same source gave different numbers, i.e. a different
+ *  simulation, on Linux. */
+uint32_t LbRandomSeries(uint32_t range, uint32_t *seed, const char *func_name, unsigned long place);
 TbBool LbNumberSignsSame(long num_a, long num_b);
 char LbCompareMultiplications(long mul1a, long mul1b, long mul2a, long mul2b);
 long LbDiagonalLength(long a, long b);

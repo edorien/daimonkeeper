@@ -1,7 +1,10 @@
 # In-game Level Editor — investigation and roadmap
 
-Status: **investigation / planning. No implementation started.** This is the shared-context +
-decisions index; each phase gets its own numbered doc as it is worked. Scope: a level editor
+Status: **built.** The editor exists and is in live use (phases 1-6 done; gaps found afterwards
+are tracked in [`fx-plans/00-audit-and-index.md`](fx-plans/00-audit-and-index.md); the user guide is
+`docs/level_editor.txt`, the architecture note `docs/Architecture/architecture.md` §2.9a). This
+document is the original shared-context +
+decisions index, kept as the record of intent; each phase gets its own numbered doc as it is worked. Scope: a level editor
 reachable from the frontend main menu (**Tools → Editor**) that runs *inside the engine* —
 reusing the live sim, the real renderer, and the existing cheat/debug player-state machinery —
 rather than a separate application.

@@ -1247,7 +1247,21 @@ TbBool player_place_trap_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl
     {
         set_coords_to_slab_center(&pos, subtile_slab(stl_x), subtile_slab(stl_y));
     }
-    delete_room_slabbed_objects(get_slab_number(subtile_slab(stl_x), subtile_slab(stl_y)));
+    return player_place_trap_at_pos_without_check(&pos, plyr_idx, tngmodel, free);
+}
+
+TbBool player_place_trap_at_subtile_without_check(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free)
+{
+    struct Coord3d pos;
+    set_coords_to_subtile_center(&pos, stl_x, stl_y, 1);
+    return player_place_trap_at_pos_without_check(&pos, plyr_idx, tngmodel, free);
+}
+
+TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos_in, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free)
+{
+    struct TrapConfigStats* trap_cfg = get_trap_model_stats(tngmodel);
+    struct Coord3d pos = *pos_in;
+    delete_room_slabbed_objects(get_slab_number(subtile_slab(coord_subtile(pos.x.val)), subtile_slab(coord_subtile(pos.y.val))));
     struct Thing* traptng = create_trap(&pos, tngmodel, plyr_idx);
     if (thing_is_invalid(traptng))
     {

@@ -360,9 +360,24 @@ TbBool use_relative_mouse_mode(void)
  * the retired RendererImGuiEnabled(); nothing outside the in-game HUD
  * (menus, options, load/save) reads it.
  */
+static TbBool force_imgui_hud = false;
+
 TbBool ingame_gui_use_classic_hud(void)
 {
+  if (force_imgui_hud)
+    return false;
   return (strcasecmp(keeperfx_ui_config.gui_icon_pack, "CLASSIC") == 0);
+}
+
+/**
+ * Overrides GUI_ICON_PACK=CLASSIC while true: the level editor is built on
+ * the ImGui HUD (its windows, sidebar-free full-screen view and icon
+ * tiles), so an active editor session always uses it whatever the player
+ * chose. The saved setting is untouched and applies again once cleared.
+ */
+void ingame_gui_force_imgui_hud(TbBool force)
+{
+  force_imgui_hud = force;
 }
 
 /**

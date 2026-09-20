@@ -42,3 +42,6 @@ target_include_directories(kfx_editor_utest PRIVATE "${CMAKE_SOURCE_DIR}/deps/Im
 include(CTest)
 include(Catch)
 catch_discover_tests(kfx_editor_utest TEST_PREFIX "kfx_editor.")
+
+# editor_lua_support_test.cpp scans the shipped Lua stub files.
+target_compile_definitions(kfx_editor_utest PRIVATE KFX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

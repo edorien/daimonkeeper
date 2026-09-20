@@ -613,3 +613,21 @@ void query_room(struct Room *room)
 }
 
 /******************************************************************************/
+
+void place_slab_type_replacing_room(SlabKind slbkind, MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber owner)
+{
+    const MapSubtlCoord stl_x = slab_subtile(slb_x, 0);
+    const MapSubtlCoord stl_y = slab_subtile(slb_y, 0);
+    if (subtile_is_room(stl_x, stl_y))
+        delete_room_slab(slb_x, slb_y, true);
+    if (slab_kind_is_room(slbkind))
+    {
+        place_slab_type_on_map(SlbT_EARTH, stl_x, stl_y, kfx_config_state.neutral_player_num, 0);
+        do_slab_efficiency_alteration(slb_x, slb_y);
+    }
+    if (slab_kind_is_animated(slbkind))
+        place_animating_slab_type_on_map(slbkind, 0, stl_x, stl_y, owner);
+    else
+        place_slab_type_on_map(slbkind, stl_x, stl_y, owner, 0);
+    do_slab_efficiency_alteration(slb_x, slb_y);
+}

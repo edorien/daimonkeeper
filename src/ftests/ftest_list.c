@@ -36,6 +36,12 @@
 #include "tests/ftest_editor_save_reload.h"
 #include "tests/ftest_editor_points.h"
 #include "tests/ftest_editor_script_commands.h"
+#include "tests/ftest_editor_palette.h"
+#include "tests/ftest_editor_thumbs.h"
+#include "tests/ftest_editor_strokes.h"
+#include "tests/ftest_editor_session.h"
+#include "tests/ftest_editor_brush.h"
+#include "tests/ftest_skirmish_setup.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
 
 #include "post_inc.h"
@@ -76,6 +82,13 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="editor_save_reload",                   .init_func=ftest_editor_save_reload_init,               .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="editor_points",                        .init_func=ftest_editor_points_init,                    .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="editor_script_commands",               .init_func=ftest_editor_script_commands_init,           .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_palette",                       .init_func=ftest_editor_palette_init,                   .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_strokes",                       .init_func=ftest_editor_strokes_init,                   .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_session",                       .init_func=ftest_editor_session_init,                   .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="editor_brush",                         .init_func=ftest_editor_brush_init,                     .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="skirmish_setup_override",              .init_func=ftest_skirmish_setup_init,                   .pre_start_func=ftest_skirmish_setup_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="skirmish_setup_locks",                 .init_func=ftest_skirmish_setup_locks_init,             .pre_start_func=ftest_skirmish_setup_locks_pre_start,   .level_file="dk2maps",  .level=220, .frame_skip=8 },
+         { .test_name="editor_thumbs",                        .init_func=ftest_editor_thumbs_init,                    .level_file="keeporig", .level=1,  .frame_skip=8 },
 
          // editor_fill (PckA_EditorFloodFill) has no ftest coverage: unlike
          // PckA_EditorPlaceTerrainRect (one explicit corner + one ambient

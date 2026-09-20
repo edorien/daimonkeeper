@@ -263,16 +263,6 @@ enum TbPacketAction {
         // is the recorded drag-start corner 1; actn_par3/actn_par4 (int16)
         // are slab kind and owner.
         PckA_EditorPlaceTerrainRect,
-        // §2.10 -- Eyedropper: kfx_editor reads the slab under the click
-        // itself (get_slabmap_block()/slabmap_owner(), kfx_sim -- a lower
-        // layer, same "read world truth directly" precedent
-        // handle_object_placement_click() established for screen_to_map())
-        // and sends the result here so the server-side selection
-        // (ustate->cheatselection) picks up both kind (actn_par1) and
-        // owner (actn_par2) atomically -- can't use the two existing
-        // PckA_CheatSwitchTerrain/PckA_CheatSwitchPlayer verbs for this,
-        // since only one action fits in the per-turn packet slot per click.
-        PckA_EditorEyedropperTerrain,
         // §2.7 (deferred item, now done) -- Ctrl+LMB on an existing door
         // toggles its lock via lock_door()/unlock_door() (thing_doors.c)
         // instead of placing a new one. Carries the door thing's own index
@@ -325,17 +315,6 @@ enum TbPacketAction {
         PckA_EditorRedoDigger,
         PckA_EditorRedoTrap,
         PckA_EditorRedoDoor,
-        // docs/refactor/editor/09-toolbox-remainder.md §1 -- Eyedropper's
-        // thing-sampling slice. Same "kfx_editor already resolved this
-        // client-side, sync atomically" shape as PckA_EditorEyedropperTerrain,
-        // generalised to a thing instead of a slab: class (actn_par1, small
-        // enough for the full int32 slot but really just a ThingClass),
-        // owner (actn_par2), model (actn_par3, ThingModel is int16_t so fits
-        // exactly). Object sampling never sends this -- there's no
-        // server-side "chosen object" field to sync (F17, same gap
-        // PckA_EditorPlaceObject's own picker already works around), so it
-        // stays a purely local selection update in kfx_editor.
-        PckA_EditorEyedropperThing,
         // docs/refactor/editor/09-toolbox-remainder.md §1 -- Object
         // placement's value-property slice, scoped to gold amount (the one
         // genuinely per-instance property the data model already has a

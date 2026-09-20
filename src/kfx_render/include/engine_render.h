@@ -190,6 +190,7 @@ TbBool project_world_position_to_screen(MapCoord x, MapCoord y, MapCoord z, long
 void update_engine_settings(struct PlayerInfo *player);
 void draw_view(struct Camera *cam, unsigned char a2);
 void draw_frontview_engine(struct Camera *cam);
+TbBool render_keepsprite_indexed(unsigned short kspr_n, unsigned char frame, unsigned char *outbuf);
 
 void update_block_pointed(int i,long x, long x_frac, long y, long y_frac);
 void update_blocks_pointed(void);

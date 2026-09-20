@@ -37,6 +37,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <cstring>
 #include <unistd.h>
@@ -165,8 +166,8 @@ struct ScratchAbsoluteTree {
         nested_file = std::string(root) + "/a/b/c/leaf.bin";
     }
     ~ScratchAbsoluteTree() {
-        std::string cmd = "rm -rf " + std::string(root);
-        system(cmd.c_str()); // best-effort cleanup, not asserted
+        std::error_code ec;
+        std::filesystem::remove_all(root, ec); // best-effort cleanup, not asserted
     }
 };
 }

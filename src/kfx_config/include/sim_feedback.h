@@ -26,6 +26,7 @@
 #define DK_SIM_FEEDBACK_H
 
 #include "bflib_basics.h"
+#include "compiler_compat.h"
 #include "game_time.h" // struct GameTime
 #include "bflib_sound.h"
 #include "bflib_keybrd.h"
@@ -70,7 +71,7 @@ struct SimFeedbackCallbacks {
     void (*clear_messages_from_player)(char msg_type, PlayerNumber plyr_idx);
     void (*targeted_message_add)(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *msg);
     void (*message_add)(char msg_type, short idx, const char *msg);
-    void (*message_add_fmt)(char msg_type, short idx, const char *fmt_str, ...);
+    void (*message_add_fmt)(char msg_type, short idx, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
     void (*zero_messages)(void);
     void (*show_real_time_taken)(void);
 

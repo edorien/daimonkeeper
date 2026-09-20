@@ -98,6 +98,7 @@
 #include "config_keeperfx.h"
 #include "kfx_frontend_state.h"
 #include "game_lifecycle.h"
+#include "frontgui_skirmish_setup.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -468,6 +469,7 @@ MapSlabCoord editor_pending_new_map_h = 85;
 long editor_pending_new_map_texture = 0;
 TbBool editor_pending_relaunch = false;
 TbBool editor_pending_playtest = false;
+TbBool editor_playtest_running = false;
 
 void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
     MapSlabCoord new_map_w, MapSlabCoord new_map_h, long new_map_texture)
@@ -3370,6 +3372,10 @@ void frontend_input(void)
         FrontendImGuiLandPreviewInput(FeSt_MAPPACK_SELECT);
         if (!frontend_imgui_screen_active(FeSt_MAPPACK_SELECT))
             get_gui_inputs(0);
+        // Skirmish's Setup tab uses right-click on its tiles (off / -1): don't let the generic
+        // "right-click = back" in frontscreen_end_input() also fire while the mouse is over it.
+        if (frontend_freeplay_is_skirmish() && frontgui_skirmish_setup_captures_right_click())
+            right_button_clicked = 0;
         input_consumed = frontscreen_end_input(false);
         break;
     case FeSt_MP_MAPPACK_SELECT:
@@ -4181,8 +4187,20 @@ FrontendMenuState get_startup_menu_state(void)
   if (editor_pending_playtest)
   {
       editor_pending_playtest = false;
+      editor_playtest_running = true;
       SYNCLOG("Editor playtest state selected");
       return FeSt_START_KPRLEVEL;
+  }
+  // The playtest game has ended (win, lose or quit): back to the editor,
+  // on the scratch level the playtest ran (editor_open() restores the
+  // session's real identity from it).
+  if (editor_playtest_running)
+  {
+      editor_playtest_running = false;
+      editor_pending_lvnum = EDITOR_PLAYTEST_LEVEL_NUMBER;
+      editor_pending_is_new = false;
+      SYNCLOG("Editor return from playtest");
+      return FeSt_START_EDITOR;
   }
   if (game_flags2 & GF2_Server)
   {

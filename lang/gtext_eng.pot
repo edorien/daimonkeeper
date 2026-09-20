@@ -5940,403 +5940,404 @@ msgstr ""
 #: guitext:1123
 msgctxt "Network game message"
 msgid "Multiplayer is out of sync."
+msgstr ""
 
 #: guitext:1124
 msgctxt "Menu interface, Land selection item"
 msgid "Enter this land"
 msgstr ""
 
-#: guitext:1124
+#: guitext:1125
 msgctxt "Menu interface, Free play item"
 msgid "Play this level"
 msgstr ""
 
-#: guitext:1125
+#: guitext:1126
 msgctxt "Settings menu item"
 msgid "Freeze Game When Focus Lost"
 msgstr ""
 
-#: guitext:1126
+#: guitext:1127
 msgctxt "Settings menu item"
 msgid "Pause Music When Game Paused"
 msgstr ""
 
-#: guitext:1127
+#: guitext:1128
 msgctxt "Settings menu item"
 msgid "Mute Audio When Focus Lost"
 msgstr ""
 
-#: guitext:1128
+#: guitext:1129
 msgctxt "Settings menu item"
 msgid "Alternative Mouse Input"
 msgstr ""
 
-#: guitext:1129
+#: guitext:1130
 msgctxt "Settings menu item"
 msgid "Unlock Cursor When Paused"
 msgstr ""
 
-#: guitext:1130
+#: guitext:1131
 msgctxt "Settings menu item"
 msgid "Lock Cursor In Possession"
 msgstr ""
 
-#: guitext:1131
+#: guitext:1132
 msgctxt "Settings menu item"
 msgid "GUI Blink Rate"
 msgstr ""
 
-#: guitext:1132
+#: guitext:1133
 msgctxt "Settings menu item"
 msgid "Creature Status Icon Size"
 msgstr ""
 
-#: guitext:1133
+#: guitext:1134
 msgctxt "Settings menu item"
 msgid "Display Number"
 msgstr ""
 
-#: guitext:1134
+#: guitext:1135
 msgctxt "Settings menu item"
 msgid "Enable Cheat Commands"
 msgstr ""
 
-#: guitext:1135
+#: guitext:1136
 msgctxt "Settings menu item"
 msgid "Censorship"
 msgstr ""
 
-#: guitext:1136
+#: guitext:1137
 msgctxt "Settings menu item"
 msgid "Flee Button Default"
 msgstr ""
 
-#: guitext:1137
+#: guitext:1138
 msgctxt "Settings menu item"
 msgid "Imprison Button Default"
 msgstr ""
 
-#: guitext:1138
+#: guitext:1139
 msgctxt "Settings menu item"
 msgid "Line Box Size"
 msgstr ""
 
-#: guitext:1139
+#: guitext:1140
 msgctxt "Settings menu item"
 msgid "Neutral Flash Rate"
 msgstr ""
 
-#: guitext:1140
+#: guitext:1141
 msgctxt "Settings menu item"
 msgid "Atmospheric Sounds"
 msgstr ""
 
-#: guitext:1141
+#: guitext:1142
 msgctxt "Settings menu item"
 msgid "Use CD Music"
 msgstr ""
 
-#: guitext:1142
+#: guitext:1143
 msgctxt "Settings menu item"
 msgid "Cursor Edge Camera Panning"
 msgstr ""
 
-#: guitext:1143
+#: guitext:1144
 msgctxt "Settings menu item"
 msgid "Right-Click Tag Mode Toggle"
 msgstr ""
 
-#: guitext:1144
+#: guitext:1145
 msgctxt "Settings menu item"
 msgid "Atmospheric Sound Volume"
 msgstr ""
 
-#: guitext:1145
+#: guitext:1146
 msgctxt "Settings menu item"
 msgid "Atmospheric Sound Frequency"
 msgstr ""
 
-#: guitext:1146
+#: guitext:1147
 msgctxt "Settings menu item"
 msgid "Default Tag Mode"
 msgstr ""
 
-#: guitext:1147
+#: guitext:1148
 msgctxt "Settings menu item"
 msgid "Language"
 msgstr ""
 
-#: guitext:1148
+#: guitext:1149
 msgctxt "Settings menu item"
 msgid "Delta Time"
 msgstr ""
 
-#: guitext:1149
+#: guitext:1150
 msgctxt "Settings menu item"
 msgid "Zoom To Mouse"
 msgstr ""
 
-#: guitext:1150
+#: guitext:1151
 msgctxt "Settings menu item"
 msgid "Rotate Around Mouse"
 msgstr ""
 
-#: guitext:1151
+#: guitext:1152
 msgctxt "Settings menu item"
 msgid "Screenshot Format"
 msgstr ""
 
-#: guitext:1152
+#: guitext:1153
 msgctxt "Settings menu item"
 msgid "Hand Size"
 msgstr ""
 
-#: guitext:1153
+#: guitext:1154
 msgctxt "Settings menu item"
 msgid "Resize Movies"
 msgstr ""
 
-#: guitext:1154
+#: guitext:1155
 msgctxt "Settings menu item"
 msgid "Pointer Sensitivity"
 msgstr ""
 
-#: guitext:1155
+#: guitext:1156
 msgctxt "Settings menu item"
 msgid "Show Splash Screens"
 msgstr ""
 
-#: guitext:1156
+#: guitext:1157
 msgctxt "Settings menu item"
 msgid "Show Intro"
 msgstr ""
 
-#: guitext:1157
+#: guitext:1158
 msgctxt "Settings menu item"
 msgid "Auto Frame Rate"
 msgstr ""
 
-#: guitext:1158
+#: guitext:1159
 msgctxt "Settings menu item"
 msgid "Frame Rate Limit"
 msgstr ""
 
-#: guitext:1159
+#: guitext:1160
 msgctxt "Settings menu help text"
 msgid "Pause the game automatically when the window loses focus (single-player only)."
 msgstr ""
 
-#: guitext:1160
+#: guitext:1161
 msgctxt "Settings menu help text"
 msgid "Show the legal notice and publisher logo screens on startup."
 msgstr ""
 
-#: guitext:1161
+#: guitext:1162
 msgctxt "Settings menu help text"
 msgid "Play the introduction movie on startup."
 msgstr ""
 
-#: guitext:1162
+#: guitext:1163
 msgctxt "Settings menu help text"
 msgid "Enable hidden cheat commands."
 msgstr ""
 
-#: guitext:1163
+#: guitext:1164
 msgctxt "Settings menu help text"
 msgid "Reduce blood and violence in the game."
 msgstr ""
 
-#: guitext:1164
+#: guitext:1165
 msgctxt "Settings menu help text"
 msgid "Default state of the creature flee-combat button."
 msgstr ""
 
-#: guitext:1165
+#: guitext:1166
 msgctxt "Settings menu help text"
 msgid "Default state of the creature imprison-instead-of-kill button."
 msgstr ""
 
-#: guitext:1166
+#: guitext:1167
 msgctxt "Settings menu help text"
 msgid "Language used for in-game text."
 msgstr ""
 
-#: guitext:1167
+#: guitext:1168
 msgctxt "Settings menu help text"
 msgid "Use frame-time-based movement instead of fixed per-turn movement."
 msgstr ""
 
-#: guitext:1168
+#: guitext:1169
 msgctxt "Settings menu help text"
 msgid "Which monitor the game window opens on."
 msgstr ""
 
-#: guitext:1169
+#: guitext:1170
 msgctxt "Settings menu help text"
 msgid "Match the frame rate to the display's own refresh rate."
 msgstr ""
 
-#: guitext:1170
+#: guitext:1171
 msgctxt "Settings menu help text"
 msgid "Cap the frame rate at a fixed number of frames per second. 0 means uncapped."
 msgstr ""
 
-#: guitext:1171
+#: guitext:1172
 msgctxt "Settings menu help text"
 msgid "How fast flashing UI elements blink."
 msgstr ""
 
-#: guitext:1172
+#: guitext:1173
 msgctxt "Settings menu help text"
 msgid "Size of the creature health/status icons shown above creatures."
 msgstr ""
 
-#: guitext:1173
+#: guitext:1174
 msgctxt "Settings menu help text"
 msgid "Size of the room/tunnel outline box shown while building."
 msgstr ""
 
-#: guitext:1174
+#: guitext:1175
 msgctxt "Settings menu help text"
 msgid "How fast unclaimed (neutral) tiles flash."
 msgstr ""
 
-#: guitext:1175
+#: guitext:1176
 msgctxt "Settings menu help text"
 msgid "Pause the music when the game is paused."
 msgstr ""
 
-#: guitext:1176
+#: guitext:1177
 msgctxt "Settings menu help text"
 msgid "Mute all audio when the window loses focus."
 msgstr ""
 
-#: guitext:1177
+#: guitext:1178
 msgctxt "Settings menu help text"
 msgid "Play random ambient dungeon sound effects."
 msgstr ""
 
-#: guitext:1178
+#: guitext:1179
 msgctxt "Settings menu help text"
 msgid "Play music from an audio CD instead of the bundled music files."
 msgstr ""
 
-#: guitext:1179
+#: guitext:1180
 msgctxt "Settings menu help text"
 msgid "Volume of atmospheric ambient sound effects."
 msgstr ""
 
-#: guitext:1180
+#: guitext:1181
 msgctxt "Settings menu help text"
 msgid "How often atmospheric ambient sound effects play."
 msgstr ""
 
-#: guitext:1181
+#: guitext:1182
 msgctxt "Settings menu help text"
 msgid "Mouse cursor movement speed."
 msgstr ""
 
-#: guitext:1182
+#: guitext:1183
 msgctxt "Settings menu help text"
 msgid "Disable automatic mouse cursor recentring, for alternative input devices."
 msgstr ""
 
-#: guitext:1183
+#: guitext:1184
 msgctxt "Settings menu help text"
 msgid "Free the mouse cursor from the window while the game is paused."
 msgstr ""
 
-#: guitext:1184
+#: guitext:1185
 msgctxt "Settings menu help text"
 msgid "Lock the mouse cursor to the window while possessing a creature."
 msgstr ""
 
-#: guitext:1185
+#: guitext:1186
 msgctxt "Settings menu help text"
 msgid "Pan the camera when the mouse cursor reaches the edge of the screen."
 msgstr ""
 
-#: guitext:1186
+#: guitext:1187
 msgctxt "Settings menu help text"
 msgid "Use right-click to toggle between single and drag tagging modes."
 msgstr ""
 
-#: guitext:1187
+#: guitext:1188
 msgctxt "Settings menu help text"
 msgid "Default mode for tagging tiles to dig or claim."
 msgstr ""
 
-#: guitext:1188
+#: guitext:1189
 msgctxt "Settings menu help text"
 msgid "Zoom the camera toward the mouse cursor instead of the screen centre."
 msgstr ""
 
-#: guitext:1189
+#: guitext:1190
 msgctxt "Settings menu help text"
 msgid "Rotate the camera around the mouse cursor instead of the screen centre."
 msgstr ""
 
-#: guitext:1190
+#: guitext:1191
 msgctxt "Settings menu help text"
 msgid "File format used when saving screenshots."
 msgstr ""
 
-#: guitext:1191
+#: guitext:1192
 msgctxt "Settings menu help text"
 msgid "Size of the hand cursor and the creatures/objects it is holding."
 msgstr ""
 
-#: guitext:1192
+#: guitext:1193
 msgctxt "Settings menu help text"
 msgid "How cutscene videos are scaled to fit the screen."
 msgstr ""
 
-#: guitext:1193
+#: guitext:1194
 msgctxt "Settings menu item"
 msgid "In-game Resolution"
 msgstr ""
 
-#: guitext:1194
+#: guitext:1195
 msgctxt "Settings menu help text"
 msgid "The screen resolution used in fullscreen mode. Needs a restart to take effect."
 msgstr ""
 
-#: guitext:1195
+#: guitext:1196
 msgctxt "Settings menu item"
 msgid "UI Text Size"
 msgstr ""
 
-#: guitext:1196
+#: guitext:1197
 msgctxt "Settings menu help text"
 msgid "Scales the size of menu text and the settings screen, as a percentage."
 msgstr ""
 
-#: guitext:1197
+#: guitext:1198
 msgctxt "Settings menu item"
 msgid "Reset Campaign Progress"
 msgstr ""
 
-#: guitext:1198
+#: guitext:1199
 msgctxt "Settings menu help text"
 msgid "Permanently erases which levels are unlocked in every campaign. This cannot be undone."
 msgstr ""
 
-#: guitext:1199
+#: guitext:1200
 msgctxt "Settings menu item"
 msgid "Shadows"
 msgstr ""
 
-#: guitext:1200
+#: guitext:1201
 msgctxt "Settings menu help text"
 msgid "Sets the quality of creature and object shadows."
 msgstr ""
 
-#: guitext:1201
+#: guitext:1202
 msgctxt "Settings menu item"
 msgid "View Distance"
 msgstr ""
 
-#: guitext:1202
+#: guitext:1203
 msgctxt "Settings menu help text"
 msgid "Sets how far the dungeon view renders before fading to fog."
 msgstr ""

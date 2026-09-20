@@ -22,6 +22,7 @@
 #include "editor_script.h"
 #include "editor_script_commands.h"
 #include "editor_script_names.h"
+#include "editor_lua_stubs.h"
 #include "kfx_editor.h"
 #include "frontgui_widgets.h"
 #include "lvl_script_lib.h"
@@ -197,11 +198,104 @@ void draw_commands_tab()
         ImGui::TextUnformatted(e.tmpl.c_str());
         if (FeButton("Insert at cursor", ImVec2(180, 0)))
             insert_command(e);
+        ImGui::SameLine();
+        if (FeButton("Insert into Lua", ImVec2(180, 0)))
+        {
+            // The engine runs a classic command from Lua via RunDKScriptCommand.
+            std::string arg;
+            for (char c : e.tmpl)
+            {
+                if (c == '"' || c == '\\')
+                    arg += '\\';
+                arg += c;
+            }
+            s_status = editor_lua_insert_at_cursor(("RunDKScriptCommand(\"" + arg + "\")").c_str())
+                ? "Inserted as RunDKScriptCommand in the Lua tab -- press Apply there to keep it."
+                : "Open Script > Edit Script on a level with a Lua script to insert.";
+        }
     }
     else
     {
         FeBodyText("Select a command (double-click inserts it).");
     }
+}
+
+int s_lua_sel = -1;
+std::string s_lua_group_sel; // empty = all
+
+void draw_lua_tab()
+{
+    const std::vector<LuaFunctionDoc> &cat = editor_lua_stub_catalog();
+    std::vector<std::string> groups;
+    for (const LuaFunctionDoc &f : cat)
+        if (groups.empty() || groups.back() != f.group)
+            groups.push_back(f.group);
+
+    if (ImGui::BeginChild("##LuaGroups", ImVec2(210, -130), ImGuiChildFlags_Borders))
+    {
+        char label[96];
+        snprintf(label, sizeof(label), "All (%zu)", cat.size());
+        if (ImGui::Selectable(label, s_lua_group_sel.empty()))
+            s_lua_group_sel.clear();
+        for (const std::string &g : groups)
+        {
+            size_t n = 0;
+            for (const LuaFunctionDoc &f : cat)
+                n += (f.group == g);
+            snprintf(label, sizeof(label), "%s (%zu)", g.c_str(), n);
+            if (ImGui::Selectable(label, s_lua_group_sel == g))
+                s_lua_group_sel = g;
+        }
+    }
+    ImGui::EndChild();
+    ImGui::SameLine();
+
+    auto insert = [](const LuaFunctionDoc &f) {
+        s_status = editor_lua_insert_at_cursor(editor_lua_call_template(f).c_str())
+            ? "Inserted at the cursor in the Lua tab -- press Apply there to keep it."
+            : "Open Script > Edit Script on a level with a Lua script to insert.";
+    };
+    if (ImGui::BeginChild("##LuaList", ImVec2(0, -130), ImGuiChildFlags_Borders))
+    {
+        std::string last;
+        for (size_t i = 0; i < cat.size(); i++)
+        {
+            const LuaFunctionDoc &f = cat[i];
+            if (!s_lua_group_sel.empty() && f.group != s_lua_group_sel)
+                continue;
+            if (!contains_nocase(f.name, s_filter) && !contains_nocase(f.doc, s_filter))
+                continue;
+            if (s_lua_group_sel.empty() && f.group != last)
+            {
+                ImGui::SeparatorText(f.group.c_str());
+                last = f.group;
+            }
+            std::string row = editor_lua_signature(f) + "##lua" + std::to_string(i);
+            if (ImGui::Selectable(row.c_str(), s_lua_sel == (int)i, ImGuiSelectableFlags_AllowDoubleClick))
+            {
+                s_lua_sel = (int)i;
+                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                    insert(f);
+            }
+        }
+    }
+    ImGui::EndChild();
+
+    if (s_lua_sel >= 0 && s_lua_sel < (int)cat.size())
+    {
+        const LuaFunctionDoc &f = cat[(size_t)s_lua_sel];
+        FeSubheading(f.name.c_str());
+        ImGui::TextWrapped("%s", f.doc.empty() ? "No description in the stub file." : f.doc.c_str());
+        for (const LuaParamDoc &p : f.params)
+            ImGui::TextWrapped("  %s%s  %s  %s", p.name.c_str(), p.optional ? "?" : "", p.type.c_str(),
+                p.description.c_str());
+        if (!f.returns.empty())
+            ImGui::TextWrapped("  returns %s", f.returns.c_str());
+        if (FeButton("Insert at cursor", ImVec2(180, 0)))
+            insert(f);
+    }
+    else
+        FeBodyText("Select a function (double-click inserts it into the Lua tab).");
 }
 
 void draw_values_tab()
@@ -304,6 +398,11 @@ extern "C" void editor_command_browser_frame(void)
             if (FeTab("Commands"))
             {
                 draw_commands_tab();
+                FeEndTab();
+            }
+            if (FeTab("Lua"))
+            {
+                draw_lua_tab();
                 FeEndTab();
             }
             if (FeTab("Values"))

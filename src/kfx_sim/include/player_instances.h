@@ -106,6 +106,10 @@ void set_player_zoom_to_position(struct PlayerInfo *player,struct Coord3d *pos);
 struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, RoomKind rkind, int slabs_left);
 TbBool player_place_trap_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel);
 TbBool player_place_trap_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
+/** Places a trap at exactly this subtile, whatever the trap's own PlaceOnSubtile setting: shipped campaign
+ *  maps have several traps per slab (level editor). */
+TbBool player_place_trap_at_subtile_without_check(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
+TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
 TbBool player_place_door_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel);
 TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
 

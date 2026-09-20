@@ -22,6 +22,7 @@
 #include "light_data.h" // lish.light_enabled, View > Lights
 #include "gui_parchment.h" // zoom_to_parchment_map()/zoom_from_parchment_map(), View > Map View
 #include "editor_overlay.h" // View > Slab Grid/Coordinates/Ownership Tint
+#include "editor_toolbox.h" // View > Toolbox
 #include "editor_script.h" // Script > Edit Script...
 #include "editor_availability.h" // Script > Availability...
 #include "editor_message_helper.h" // Script > Objective / Message...
@@ -81,6 +82,11 @@ void editor_menubar_frame(void)
         {
             struct PlayerInfo *player = get_my_player();
 
+            bool toolbox_cb = editor_toolbox_is_open();
+            if (FeCheckbox("Toolbox", &toolbox_cb))
+                editor_toolbox_set_open(toolbox_cb);
+            FeSeparator();
+
             // docs/refactor/editor/04-views-camera-overlays.md -- "Plan"
             // (the cursor-following zoom-box magnifier) and "full map" from
             // the original design turned out to be the same engine screen,
@@ -88,13 +94,10 @@ void editor_menubar_frame(void)
             // unconditionally as part of redraw_parchment_view() whenever
             // PVT_MapScreen is active -- there's no separate "map without
             // the magnifier" mode to toggle independently. One item covers
-            // both. FeMenuItem + a leading "[x]"/"[ ]" marker, not
-            // FeCheckbox -- same convention Preview Motion below already
-            // established (no FeCheckbox precedent in this pull-down).
+            // both. A checkbox, like every other toggle in this menu.
             bool map_view_on = (player->view_type == PVT_MapScreen);
-            char map_label[32];
-            snprintf(map_label, sizeof(map_label), "%s Map View", map_view_on ? "[x]" : "[ ]");
-            if (FeMenuItem(map_label))
+            bool map_label_cb = map_view_on;
+            if (FeCheckbox("Map View", &map_label_cb))
             {
                 if (map_view_on)
                     zoom_from_parchment_map();
@@ -112,9 +115,8 @@ void editor_menubar_frame(void)
             // currently looking -- rather than tracking a separate cursor
             // position, which nothing in kfx_editor does yet.
             bool first_person_on = (player->view_type == PVT_CreatureContrl);
-            char fp_label[32];
-            snprintf(fp_label, sizeof(fp_label), "%s 1st Person", first_person_on ? "[x]" : "[ ]");
-            if (FeMenuItem(fp_label))
+            bool fp_label_cb = first_person_on;
+            if (FeCheckbox("1st Person", &fp_label_cb))
             {
                 if (first_person_on)
                 {
@@ -137,9 +139,8 @@ void editor_menubar_frame(void)
             }
 
             bool lights_on = (lish.light_enabled != 0);
-            char lights_label[32];
-            snprintf(lights_label, sizeof(lights_label), "%s Lights", lights_on ? "[x]" : "[ ]");
-            if (FeMenuItem(lights_label))
+            bool lights_label_cb = lights_on;
+            if (FeCheckbox("Lights", &lights_label_cb))
                 set_players_packet_action(player, PckA_ToggleLights, 0, 0, 0, 0);
 
             // No Low Walls (cluedo) item here -- settings.video_cluedo_mode is
@@ -151,58 +152,47 @@ void editor_menubar_frame(void)
 
             // docs/refactor/editor/04-views-camera-overlays.md phase 4
             // slice 4 -- world-space overlays, each independently
-            // toggleable. Same "[x]"/"[ ]" FeMenuItem convention as every
-            // other checkable item in this menu.
+            // toggleable. Checkboxes, like every other toggle in this menu.
             bool grid_on = editor_overlay_slab_grid_enabled();
-            char grid_label[24];
-            snprintf(grid_label, sizeof(grid_label), "%s Slab Grid", grid_on ? "[x]" : "[ ]");
-            if (FeMenuItem(grid_label))
+            bool grid_label_cb = grid_on;
+            if (FeCheckbox("Slab Grid", &grid_label_cb))
                 editor_overlay_set_slab_grid_enabled(!grid_on);
 
             bool coords_on = editor_overlay_coordinates_enabled();
-            char coords_label[24];
-            snprintf(coords_label, sizeof(coords_label), "%s Coordinates", coords_on ? "[x]" : "[ ]");
-            if (FeMenuItem(coords_label))
+            bool coords_label_cb = coords_on;
+            if (FeCheckbox("Coordinates", &coords_label_cb))
                 editor_overlay_set_coordinates_enabled(!coords_on);
 
             bool tint_on = editor_overlay_ownership_tint_enabled();
-            char tint_label[24];
-            snprintf(tint_label, sizeof(tint_label), "%s Ownership Tint", tint_on ? "[x]" : "[ ]");
-            if (FeMenuItem(tint_label))
+            bool tint_label_cb = tint_on;
+            if (FeCheckbox("Ownership Tint", &tint_label_cb))
                 editor_overlay_set_ownership_tint_enabled(!tint_on);
 
             // docs/refactor/editor/04-views-camera-overlays.md phase 4
             // slice 5 -- marker overlays, same toggle convention as above.
             bool things_on = editor_overlay_thing_markers_enabled();
-            char things_label[24];
-            snprintf(things_label, sizeof(things_label), "%s Thing Markers", things_on ? "[x]" : "[ ]");
-            if (FeMenuItem(things_label))
+            bool things_label_cb = things_on;
+            if (FeCheckbox("Thing Markers", &things_label_cb))
                 editor_overlay_set_thing_markers_enabled(!things_on);
 
             bool lightm_on = editor_overlay_light_markers_enabled();
-            char lightm_label[24];
-            snprintf(lightm_label, sizeof(lightm_label), "%s Light Markers", lightm_on ? "[x]" : "[ ]");
-            if (FeMenuItem(lightm_label))
+            bool lightm_label_cb = lightm_on;
+            if (FeCheckbox("Light Markers", &lightm_label_cb))
                 editor_overlay_set_light_markers_enabled(!lightm_on);
 
             bool apm_on = editor_overlay_ap_herogate_markers_enabled();
-            char apm_label[32];
-            snprintf(apm_label, sizeof(apm_label), "%s AP / Hero Gate Markers", apm_on ? "[x]" : "[ ]");
-            if (FeMenuItem(apm_label))
+            bool apm_label_cb = apm_on;
+            if (FeCheckbox("AP / Hero Gate Markers", &apm_label_cb))
                 editor_overlay_set_ap_herogate_markers_enabled(!apm_on);
 
             FeSeparator();
 
             // §3's "Preview motion" -- moved here from the Esc-hub this
             // slice (editor_session.cpp's own s_preview_motion comment for
-            // what it does). FeMenuItem, not FeCheckbox -- this file has no
-            // FeCheckbox precedent for showing a checked state inside a
-            // pull-down; a leading marker in the label is the plain-ImGui
-            // convention for that instead.
+            // what it does). A checkbox, like every other toggle in this menu.
             bool on = editor_preview_motion();
-            char label[40];
-            snprintf(label, sizeof(label), "%s Preview Motion (unpause)", on ? "[x]" : "[ ]");
-            if (FeMenuItem(label))
+            bool label_cb = on;
+            if (FeCheckbox("Preview Motion (unpause)", &label_cb))
                 editor_set_preview_motion(!on);
         }
         FeEndMenu(view_open);
@@ -221,6 +211,10 @@ void editor_menubar_frame(void)
                 editor_dialogs_open_command_browser();
             if (FeMenuItem("Objective / Message..."))
                 editor_dialogs_open_message_helper();
+            FeSeparator();
+            bool wrap_cb = editor_script_word_wrap();
+            if (FeCheckbox("Word Wrap", &wrap_cb))
+                editor_script_set_word_wrap(wrap_cb);
         }
         FeEndMenu(script_open);
 

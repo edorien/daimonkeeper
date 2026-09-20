@@ -115,7 +115,7 @@ TbBool erstat_check(void)
     if (sdiff != 0)
     {
 #if (BFDEBUG_LEVEL > 0)
-        show_onscreen_msg(kfx_sim_state.turns_per_second,"%s, %ld occurrences",erstat[stat_num].msg,sdiff);
+        show_onscreen_msg(kfx_sim_state.turns_per_second,"%s, %d occurrences",erstat[stat_num].msg,sdiff);
 #else
         WARNLOG("%s, %d occurrences",erstat[stat_num].msg,sdiff);
 #endif

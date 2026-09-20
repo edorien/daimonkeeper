@@ -4,6 +4,7 @@
 #include "bflib_guibtns.h" // do_sound_menu_click -- menu hover/click sound feedback lives in the wrapper, not per-screen (§5.2)
 #include "fe_noise.h"       // fe::fbm -- procedural marble list background
 #include <imgui_internal.h> // GImGui->NavCursorVisible -- no public getter; the wrapper is the one place ImGui internals are allowed
+#include <cfloat>
 #include <cmath>            // std::sin
 #include "post_inc.h"
 
@@ -324,6 +325,31 @@ bool FeTextInput(const char *label, char *buf, size_t buf_size)
     return changed;
 }
 
+bool FeInputInt(const char *label, int *v, int step, int step_fast, int v_min, int v_max)
+{
+    FeStylePushFont(FeFont_Body);
+    bool changed = ImGui::InputInt(label, v, step, step_fast);
+    FeStylePopFont();
+    if (changed)
+    {
+        if (*v < v_min)
+            *v = v_min;
+        if (*v > v_max)
+            *v = v_max;
+    }
+    return changed;
+}
+
+bool FeCollapsingHeader(const char *label, bool default_open)
+{
+    FeStylePushFont(FeFont_Body);
+    const bool open = ImGui::CollapsingHeader(label, default_open ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_None);
+    FeStylePopFont();
+    if (ImGui::IsItemClicked())
+        do_sound_menu_click();
+    return open;
+}
+
 bool FeKeybindRow(const char *action_label, const char *key_label, bool capturing)
 {
     FeStylePushFont(FeFont_Body);
@@ -431,6 +457,14 @@ bool FeTab(const char *label)
     return open;
 }
 
+bool FeTabEx(const char *label, bool select)
+{
+    bool open = ImGui::BeginTabItem(label, nullptr, select ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None);
+    if (open && ImGui::IsItemActivated())
+        do_sound_menu_click();
+    return open;
+}
+
 void FeEndTab()
 {
     ImGui::EndTabItem();
@@ -495,6 +529,17 @@ bool FeBeginModal(const char *name)
 {
     FeStylePushFont(FeFont_Body);
     bool open = ImGui::BeginPopupModal(name, nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    if (!open)
+        FeStylePopFont();
+    return open;
+}
+
+bool FeBeginModalResizable(const char *name, const ImVec2 &size, const ImVec2 &min_size)
+{
+    FeStylePushFont(FeFont_Body);
+    ImGui::SetNextWindowSize(size, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(min_size, ImVec2(FLT_MAX, FLT_MAX));
+    bool open = ImGui::BeginPopupModal(name, nullptr, ImGuiWindowFlags_NoSavedSettings);
     if (!open)
         FeStylePopFont();
     return open;

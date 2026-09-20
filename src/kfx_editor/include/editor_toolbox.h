@@ -15,6 +15,8 @@
 #ifndef DK_EDITOR_TOOLBOX_H
 #define DK_EDITOR_TOOLBOX_H
 
+#include "bflib_basics.h" // TbBool
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,6 +25,11 @@ extern "C" {
 // Submits the tool-strip/picker/bottom-bar panel. Called every frame from
 // editor_frame() while editor_is_active(); does not check that itself.
 void editor_toolbox_frame(void);
+
+// The toolbox window can be closed (its title-bar X) and re-opened from the
+// View menu. Closing only hides the panel; the active tool stays active.
+TbBool editor_toolbox_is_open(void);
+void editor_toolbox_set_open(TbBool open);
 
 /******************************************************************************/
 #ifdef __cplusplus

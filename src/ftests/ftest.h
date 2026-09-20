@@ -47,6 +47,14 @@ typedef unsigned char TbBool; //redefine rather than include extraneus header in
  */
 typedef TbBool (*FTest_Init_Func)();
 
+/**
+ * @brief Functional Test Pre-Start Func (optional) -
+ * Runs once per test run, after the test's campaign/mappack and level number are selected and *before* the
+ * level is loaded. Use it for anything that has to be in place at level load -- e.g. installing a script
+ * override (level_script_override.h). Level data is NOT available yet; use init_func for that.
+ */
+typedef void (*FTest_PreStart_Func)();
+
 struct FTestActionArgs
 {
     GameTurn intended_start_at_game_turn;
@@ -98,6 +106,12 @@ struct FTestConfig {
      * 
      */
     FTest_Init_Func init_func;
+
+    /**
+     * @brief Optional hook run after the level is selected but before it loads (see FTest_PreStart_Func)
+     *
+     */
+    FTest_PreStart_Func pre_start_func;
 
     /**
      * @brief The campaign or mappack this test uses

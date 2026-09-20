@@ -45,6 +45,9 @@ void FeStyleEnsureInit();
 // size passed here, not the loaded font set.
 void FeStylePushFont(FeFontRole role);
 void FeStylePopFont();
+// Test-only: make FeStylePushFont/FeStylePopFont balanced no-ops (ImGui's default font stays
+// active) so screen code can run in a headless unit-test frame with no game fonts on disk.
+void FeStyleTestUseDefaultFont(bool use_default);
 
 // True once Exocet was found and loaded; false while running on the
 // Cinzel fallback (§4.1 point 1 -- the fallback is the common case and the

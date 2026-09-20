@@ -22,6 +22,8 @@
 #include "pre_inc.h"
 #include "kfx_editor.h"
 #include "editor_map_snapshot.h"
+#include "editor_resize.h"
+#include "frontend.h" // relaunch onto the scratch level
 
 #include "map_content.h"
 #include "map_content_writer.h"
@@ -35,10 +37,14 @@
 #include "creature_control.h"
 #include "actionpt.h"
 #include "slab_data.h"
+#include "map_data.h"
+#include "map_columns.h"
 #include "light_data.h"
 #include "editor_points.h"
 #include "lvl_filesdk1.h"
 
+#include <cstdlib>
+#include <cstring>
 #include "post_inc.h"
 
 namespace {
@@ -205,6 +211,51 @@ void snapshot_level_info(MapContent &content, const char *level_name, int level_
     // empty leaves it unset" convention level_name already established.
     if (level_description != nullptr)
         content.level_info.description_text = level_description;
+    content.level_info.author_text = editor_current_level_author();
+}
+
+// The classic file set also carries the column table, the per-subtile column
+// index and the wibble map (see MapContent::derived_*): serialised here in the
+// exact layout load_column_file() / load_map_data_file() / load_map_wibble_file()
+// read (lvl_filesdk1.c). The column table is written up to the highest column
+// any subtile (or the engine's "unrevealed" column) refers to.
+void snapshot_derived_files(MapContent &content)
+{
+    const long stl_x = kfx_sim_state.map_subtiles_x + 1;
+    const long stl_y = kfx_sim_state.map_subtiles_y + 1;
+    content.derived_dat.assign((size_t)(2 * stl_x * stl_y), 0);
+    content.derived_wib.assign((size_t)(stl_x * stl_y), 0);
+    long highest = labs((long)kfx_sim_state.unrevealed_column_idx);
+    size_t d = 0;
+    size_t w = 0;
+    for (long y = 0; y < stl_y; y++)
+    {
+        for (long x = 0; x < stl_x; x++)
+        {
+            const struct Map *mapblk = get_map_block_at(x, y);
+            // In memory col_idx is the column's index into columns_data[]; the
+            // file stores it negated as a 16-bit word (load_map_data_file()).
+            const long col = (long)mapblk->col_idx;
+            if (col > highest)
+                highest = col;
+            const unsigned short packed = (unsigned short)(-col);
+            content.derived_dat[d++] = (unsigned char)(packed & 0xFF);
+            content.derived_dat[d++] = (unsigned char)(packed >> 8);
+            content.derived_wib[w++] = (unsigned char)get_mapblk_wibble_value(mapblk);
+        }
+    }
+    if (highest < 0)
+        highest = 0;
+    if (highest >= COLUMNS_COUNT)
+        highest = COLUMNS_COUNT - 1;
+    // Shipped files always carry 2048 columns; the header count is that too.
+    const unsigned long count = (highest < 2047) ? 2048UL : (unsigned long)highest + 1;
+    content.derived_clm.assign(8 + count * sizeof(struct Column), 0);
+    content.derived_clm[0] = (unsigned char)(count & 0xFF);
+    content.derived_clm[1] = (unsigned char)((count >> 8) & 0xFF);
+    content.derived_clm[2] = (unsigned char)((count >> 16) & 0xFF);
+    content.derived_clm[3] = (unsigned char)((count >> 24) & 0xFF);
+    std::memcpy(&content.derived_clm[8], &kfx_sim_state.columns_data[0], count * sizeof(struct Column));
 }
 
 void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name, int level_players, TbBool level_is_multiplayer,
@@ -231,6 +282,7 @@ void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name
         }
     }
     content.texture_id = kfx_config_state.texture_id;
+    snapshot_derived_files(content);
 
     snapshot_things(content);
     snapshot_lights(content);
@@ -241,6 +293,8 @@ void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name
     // session; MapContentWriter::write_script() writes this verbatim
     // instead of overwriting a real script with the empty stub.
     content.script_text = editor_current_level_script_text();
+    content.lua_text = editor_current_level_lua_text();
+    content.has_lua = editor_current_level_has_lua();
     (void)lvnum;
 }
 
@@ -249,6 +303,11 @@ void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name
 TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat format,
     const char *level_name, int level_players, TbBool level_is_multiplayer, const char *level_description)
 {
+    // A running motion preview has moved things off where the mapmaker put them.
+    if (editor_preview_motion())
+        editor_set_preview_motion(false);
+    if (editor_preview_restore_pending())
+        return false; // still in 1st Person: leave it first, so the map is saved as placed
     MapContent content;
     snapshot_map(content, lvnum, level_name, level_players, level_is_multiplayer, level_description);
 
@@ -292,6 +351,8 @@ TbBool editor_save_level_info(LevelNumber lvnum, const char *dir,
     const char *level_name, int level_players, TbBool level_is_multiplayer, const char *level_description)
 {
     MapContent content;
+    content.map_tiles_x = kfx_sim_state.map_tiles_x; // the .lof carries MAPSIZE
+    content.map_tiles_y = kfx_sim_state.map_tiles_y;
     snapshot_level_info(content, level_name, level_players, level_is_multiplayer, level_description);
 
     // Any concrete writer works -- write_level_info_only() is
@@ -313,4 +374,40 @@ void editor_snapshot_current_map(MapContent &content)
     snapshot_map(content, editor_current_lvnum(), editor_current_level_name(),
         editor_current_level_players(), editor_current_level_is_multiplayer(),
         editor_current_level_description());
+}
+
+extern "C" TbBool editor_resize_preview(long new_w, long new_h, TbBool centered, int *dropped_things, int *dropped_lights, int *dropped_points)
+{
+    MapContent content;
+    editor_snapshot_current_map(content);
+    EditorResizeReport rep;
+    if (!editor_resize_content(content, new_w, new_h, centered != 0, kfx_config_state.neutral_player_num, &rep))
+        return false;
+    if (dropped_things != NULL) *dropped_things = rep.things_dropped;
+    if (dropped_lights != NULL) *dropped_lights = rep.lights_dropped;
+    if (dropped_points != NULL) *dropped_points = rep.action_points_dropped;
+    return true;
+}
+
+extern "C" TbBool editor_resize_map(long new_w, long new_h, TbBool centered)
+{
+    if (editor_preview_motion())
+        editor_set_preview_motion(false);
+    if (editor_preview_restore_pending())
+        return false;
+    MapContent content;
+    editor_snapshot_current_map(content);
+    if (!editor_resize_content(content, new_w, new_h, centered != 0, kfx_config_state.neutral_player_num, NULL))
+        return false;
+    char dir[512];
+    editor_level_save_dir(EDITOR_PLAYTEST_LEVEL_NUMBER, dir, sizeof(dir));
+    KfxNativeMapContentWriter writer;
+    if (!writer.write(content, dir, EDITOR_PLAYTEST_LEVEL_NUMBER))
+        return false;
+    find_and_load_lof_files();
+    // The resized copy opens as this same level, unsaved (as after a playtest).
+    editor_playtest_begin();
+    frontend_request_editor_relaunch(EDITOR_PLAYTEST_LEVEL_NUMBER, false, 0, 0, 0);
+    editor_close();
+    return true;
 }

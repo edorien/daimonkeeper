@@ -84,6 +84,12 @@ bool FeSlider(const char *label, float *v, float v_min, float v_max, const char 
 bool FeCheckbox(const char *label, bool *v);
 bool FeCombo(const char *label, int *current_item, const char *const items[], int items_count);
 bool FeTextInput(const char *label, char *buf, size_t buf_size);
+// Integer entry with -/+ buttons (`step`, `step_fast` with Ctrl). The value is clamped to
+// [v_min, v_max] after any edit. Returns true when the value changed.
+bool FeInputInt(const char *label, int *v, int step, int step_fast, int v_min, int v_max);
+// A collapsible section header (the Skirmish setup tab's General/Availability/...). Returns true
+// while the section is open -- draw its content only then; there is no End call.
+bool FeCollapsingHeader(const char *label, bool default_open = false);
 // capturing: caller-owned "waiting for the next keypress" state; the row
 // shows "Press a key..." instead of key_label while true. Returns true on
 // the frame its button is clicked (caller flips its own capturing flag).
@@ -115,11 +121,19 @@ void FeHelpTooltip(const char *text);
 bool FeBeginTabBar(const char *label);
 void FeEndTabBar(bool was_open);
 bool FeTab(const char *label);
+// Same, but `select` forces this tab to become the selected one this frame
+// (ImGuiTabItemFlags_SetSelected) -- for code that changes what is active
+// (e.g. the editor's eyedropper) and wants the tab UI to follow.
+bool FeTabEx(const char *label, bool select);
 void FeEndTab();
 
 // --- Modals: error box, add-session box, "press a key".
 void FeOpenModal(const char *name);
 bool FeBeginModal(const char *name);
+// Same, but the user can resize it (drag the corner) -- for dialogs whose
+// content can outgrow an auto-sized box at larger font sizes. `size` is the
+// first-open size; the popup remembers what the user chose while it lives.
+bool FeBeginModalResizable(const char *name, const ImVec2 &size, const ImVec2 &min_size);
 void FeEndModal(bool was_open);
 
 // --- Menu bar: a top-anchored pull-down bar (kfx_editor's File/Edit/View/

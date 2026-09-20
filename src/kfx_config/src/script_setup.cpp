@@ -1,8 +1,8 @@
 /******************************************************************************/
 // Free implementation of Bullfrog's Dungeon Keeper strategy game.
 /******************************************************************************/
-/** @file editor_script_managed.cpp
- *     See editor_script_managed.h.
+/** @file script_setup.cpp
+ *     See script_setup.h.
  * @par Purpose:
  *     docs/refactor/editor/05-script-and-level-settings.md §4.2. No
  *     existing generic single-line script-command parser is reusable here
@@ -18,7 +18,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
-#include "editor_script_managed.h"
+#include "script_setup.h"
 
 #include "bflib_basics.h" // NamedCommand, get_rid
 #include "config_creature.h" // creature_desc, creature_code_name
@@ -104,14 +104,116 @@ int parse_availability_player(const std::string &token)
     return (idx >= 0) ? idx : -2;
 }
 
+const char *const kOperators[] = { "==", "!=", ">=", "<=", ">", "<" };
+
+// "IF(PLAYER0, GAME_TURN > 125)" -> clause. False for anything the rule
+// editor doesn't model (other argument shapes, non-numeric values, ...).
+bool parse_if_clause(const std::string &line, WinLoseClause &out)
+{
+    if (line.compare(0, 2, "IF") != 0)
+        return false;
+    size_t p = 2;
+    while (p < line.size() && isspace((unsigned char)line[p]))
+        p++;
+    if (p >= line.size() || line[p] != '(')
+        return false;
+    std::vector<std::string> args = split_args(line.substr(p));
+    if (args.size() != 2)
+        return false;
+    const int player = parse_player_index(args[0]);
+    if (player < 0)
+        return false;
+    // Two-character operators first so ">=" is not read as ">".
+    size_t at = std::string::npos, oplen = 0;
+    const char *found = nullptr;
+    for (const char *op : kOperators)
+    {
+        const size_t pos = args[1].find(op);
+        if (pos != std::string::npos && (at == std::string::npos || pos < at || (pos == at && strlen(op) > oplen)))
+        {
+            at = pos;
+            oplen = strlen(op);
+            found = op;
+        }
+    }
+    if (found == nullptr)
+        return false;
+    const std::string var = trim(args[1].substr(0, at));
+    const std::string val = trim(args[1].substr(at + oplen));
+    if (var.empty() || val.empty())
+        return false;
+    for (char c : var)
+        if (!isalnum((unsigned char)c) && c != '_')
+            return false;
+    size_t i = (val[0] == '-') ? 1 : 0;
+    if (i >= val.size())
+        return false;
+    for (; i < val.size(); i++)
+        if (!isdigit((unsigned char)val[i]))
+            return false;
+    out.player = player;
+    out.variable = var;
+    out.op = found;
+    out.value = atoi(val.c_str());
+    return true;
+}
+
 } // namespace
 
-const char *editor_availability_command_name(int kind)
+std::vector<DuplicateWinLose> script_setup_find_duplicate_win_lose(const std::string &script_text)
+{
+    std::vector<DuplicateWinLose> issues;
+    const std::string body = script_setup_extract_region(script_text);
+    if (body.empty())
+        return issues;
+    const ManagedSetupValues values = script_setup_parse(body, 1);
+    bool managed_win = false, managed_lose = false;
+    for (const WinLoseRule &r : values.rules)
+        (r.win ? managed_win : managed_lose) = true;
+    if (!managed_win && !managed_lose)
+        return issues;
+
+    const size_t begin_pos = script_text.find(kBeginMarker);
+    size_t end_pos = script_text.find(kEndMarker, begin_pos);
+    end_pos = (end_pos == std::string::npos) ? begin_pos : end_pos + strlen(kEndMarker);
+    size_t line_no = 0, pos = 0;
+    while (pos <= script_text.size())
+    {
+        const size_t nl = script_text.find('\n', pos);
+        const std::string line = trim(script_text.substr(pos, nl == std::string::npos ? std::string::npos : nl - pos));
+        const bool outside = pos < begin_pos || pos >= end_pos;
+        if (outside && ((line == "WIN_GAME" && managed_win) || (line == "LOSE_GAME" && managed_lose)))
+        {
+            DuplicateWinLose d;
+            d.line = line_no;
+            d.win = (line == "WIN_GAME");
+            issues.push_back(d);
+        }
+        if (nl == std::string::npos)
+            break;
+        pos = nl + 1;
+        line_no++;
+    }
+    return issues;
+}
+
+std::string script_setup_trim(const std::string &s) { return trim(s); }
+std::vector<std::string> script_setup_split_args(const std::string &line) { return split_args(line); }
+bool script_setup_parse_if_clause(const std::string &line, WinLoseClause &out) { return parse_if_clause(line, out); }
+
+const char *const *script_setup_win_lose_operators(int *count)
+{
+    if (count != nullptr)
+        *count = (int)(sizeof(kOperators) / sizeof(kOperators[0]));
+    return kOperators;
+}
+
+const char *script_setup_availability_command_name(int kind)
 {
     return ((kind >= 0) && (kind < AvailKind_Count)) ? kAvailCommandNames[kind] : "";
 }
 
-const struct NamedCommand *editor_availability_desc(int kind)
+const struct NamedCommand *script_setup_availability_desc(int kind)
 {
     switch (kind)
     {
@@ -124,9 +226,9 @@ const struct NamedCommand *editor_availability_desc(int kind)
     }
 }
 
-const char *editor_availability_item_name(int kind, int item)
+const char *script_setup_availability_item_name(int kind, int item)
 {
-    const struct NamedCommand *desc = editor_availability_desc(kind);
+    const struct NamedCommand *desc = script_setup_availability_desc(kind);
     if (desc == nullptr)
         return "";
     for (int i = 0; desc[i].name != nullptr; i++)
@@ -137,7 +239,7 @@ const char *editor_availability_item_name(int kind, int item)
     return "";
 }
 
-AvailabilityEntry *editor_availability_find(ManagedSetupValues &values, int kind, int player, int item)
+AvailabilityEntry *script_setup_availability_find(ManagedSetupValues &values, int kind, int player, int item)
 {
     for (size_t i = 0; i < values.availability.size(); i++)
     {
@@ -148,7 +250,7 @@ AvailabilityEntry *editor_availability_find(ManagedSetupValues &values, int kind
     return nullptr;
 }
 
-std::string editor_script_extract_managed_region(const std::string &script_text)
+std::string script_setup_extract_region(const std::string &script_text)
 {
     size_t begin_pos = script_text.find(kBeginMarker);
     if (begin_pos == std::string::npos)
@@ -163,7 +265,7 @@ std::string editor_script_extract_managed_region(const std::string &script_text)
     return script_text.substr(body_start, end_pos - body_start);
 }
 
-std::string editor_script_replace_managed_region(const std::string &script_text, const std::string &new_body)
+std::string script_setup_replace_region(const std::string &script_text, const std::string &new_body)
 {
     size_t begin_pos = script_text.find(kBeginMarker);
     size_t body_start = (begin_pos != std::string::npos) ? script_text.find('\n', begin_pos) : std::string::npos;
@@ -188,12 +290,43 @@ std::string editor_script_replace_managed_region(const std::string &script_text,
     return result;
 }
 
-ManagedSetupValues editor_script_parse_managed_setup(const std::string &managed_body, int players)
+int script_setup_level_version(const std::string &script_text)
+{
+    // The engine pre-scans the whole file for LEVEL_VERSION before running
+    // anything else (preload_script), so position is irrelevant; last wins.
+    int version = 0;
+    size_t line_start = 0;
+    while (line_start <= script_text.size())
+    {
+        const size_t line_end = script_text.find('\n', line_start);
+        const std::string line = trim(script_text.substr(line_start,
+            (line_end == std::string::npos) ? std::string::npos : line_end - line_start));
+        if (line.compare(0, 13, "LEVEL_VERSION") == 0)
+        {
+            const std::vector<std::string> args = split_args(line);
+            if (args.size() == 1 && !args[0].empty())
+                version = atoi(args[0].c_str());
+        }
+        if (line_end == std::string::npos)
+            break;
+        line_start = line_end + 1;
+    }
+    return version;
+}
+
+ManagedSetupValues script_setup_parse(const std::string &managed_body, int players, int level_version)
 {
     ManagedSetupValues values;
     values.generate_speed = 0;
     values.start_money.assign((size_t)((players > 0) ? players : 0), 0);
     values.max_creatures.assign((size_t)((players > 0) ? players : 0), 0);
+
+    // Win/lose rule blocks: IF(..) [IF(..)...] WIN_GAME|LOSE_GAME ENDIF...
+    // A block is a rule only if it holds nothing else.
+    WinLoseRule pending;
+    int depth = 0;
+    bool rule_ok = true;
+    bool have_result = false;
 
     size_t line_start = 0;
     while (line_start <= managed_body.size())
@@ -205,7 +338,39 @@ ManagedSetupValues editor_script_parse_managed_setup(const std::string &managed_
         if (line.empty())
             continue;
 
-        if (line.compare(0, 18, "SET_GENERATE_SPEED") == 0)
+        if (line.compare(0, 2, "IF") == 0 && line.size() > 2 && (line[2] == '(' || isspace((unsigned char)line[2])))
+        {
+            WinLoseClause c;
+            if (depth == 0)
+            {
+                pending = WinLoseRule();
+                rule_ok = true;
+                have_result = false;
+            }
+            if (have_result || !parse_if_clause(line, c))
+                rule_ok = false;
+            else
+                pending.clauses.push_back(c);
+            depth++;
+        }
+        else if (depth > 0 && (line == "WIN_GAME" || line == "LOSE_GAME"))
+        {
+            if (have_result)
+                rule_ok = false;
+            pending.win = (line == "WIN_GAME");
+            have_result = true;
+        }
+        else if (depth > 0 && line == "ENDIF")
+        {
+            depth--;
+            if (depth == 0 && rule_ok && have_result && !pending.clauses.empty())
+                values.rules.push_back(pending);
+        }
+        else if (depth > 0)
+        {
+            rule_ok = false; // some other command inside a block: not a plain rule
+        }
+        else if (line.compare(0, 18, "SET_GENERATE_SPEED") == 0)
         {
             std::vector<std::string> args = split_args(line);
             if (!args.empty())
@@ -252,20 +417,28 @@ ManagedSetupValues editor_script_parse_managed_setup(const std::string &managed_
                 if (args.size() < 4)
                     break;
                 int player = parse_availability_player(args[0]);
-                long item = get_rid(editor_availability_desc(kind), args[1].c_str());
+                long item = get_rid(script_setup_availability_desc(kind), args[1].c_str());
                 if (player == -2 || item <= 0)
                     break;
+                int a = atoi(args[2].c_str());
+                int b = atoi(args[3].c_str());
+                if (level_version <= 0 && kind == AvailKind_Creature)
+                {
+                    // v0 CREATURE_AVAILABLE ignores arg 3, arg 4 is "available".
+                    a = b;
+                    b = 0;
+                }
                 // Later line for the same (kind, player, item) wins, matching
                 // the engine's own last-writer-wins execution order.
-                AvailabilityEntry *existing = editor_availability_find(values, kind, player, (int)item);
+                AvailabilityEntry *existing = script_setup_availability_find(values, kind, player, (int)item);
                 if (existing != nullptr)
                 {
-                    existing->a = atoi(args[2].c_str());
-                    existing->b = atoi(args[3].c_str());
+                    existing->a = a;
+                    existing->b = b;
                 }
                 else
                 {
-                    AvailabilityEntry e = { kind, player, (int)item, atoi(args[2].c_str()), atoi(args[3].c_str()) };
+                    AvailabilityEntry e = { kind, player, (int)item, a, b };
                     values.availability.push_back(e);
                 }
                 break;
@@ -276,7 +449,7 @@ ManagedSetupValues editor_script_parse_managed_setup(const std::string &managed_
     return values;
 }
 
-std::string editor_script_generate_managed_setup(const ManagedSetupValues &values, int players)
+std::string script_setup_generate(const ManagedSetupValues &values, int players, int level_version)
 {
     char line[256];
     std::string body;
@@ -326,7 +499,7 @@ std::string editor_script_generate_managed_setup(const ManagedSetupValues &value
                 const AvailabilityEntry &e = values.availability[i];
                 if (e.kind != kind || ((e.player < 0) != (pass == 0)))
                     continue;
-                const char *item_name = editor_availability_item_name(kind, e.item);
+                const char *item_name = script_setup_availability_item_name(kind, e.item);
                 if (item_name[0] == '\0')
                     continue;
                 char player_name[24];
@@ -334,9 +507,32 @@ std::string editor_script_generate_managed_setup(const ManagedSetupValues &value
                     snprintf(player_name, sizeof(player_name), "ALL_PLAYERS");
                 else
                     snprintf(player_name, sizeof(player_name), "PLAYER%d", e.player);
-                snprintf(line, sizeof(line), "%s(%s,%s,%d,%d)\n", kAvailCommandNames[kind], player_name, item_name, e.a, e.b);
+                // v0 CREATURE_AVAILABLE(p,c,_,available) has no force flag.
+                const bool v0_creature = (level_version <= 0) && (kind == AvailKind_Creature);
+                snprintf(line, sizeof(line), "%s(%s,%s,%d,%d)\n", kAvailCommandNames[kind], player_name, item_name,
+                    e.a, v0_creature ? e.a : e.b);
                 body += line;
             }
+        }
+    }
+    for (size_t r = 0; r < values.rules.size(); r++)
+    {
+        const WinLoseRule &rule = values.rules[r];
+        if (rule.clauses.empty())
+            continue;
+        std::string indent;
+        for (const WinLoseClause &c : rule.clauses)
+        {
+            snprintf(line, sizeof(line), "%sIF(PLAYER%d,%s %s %d)\n", indent.c_str(), c.player, c.variable.c_str(),
+                c.op.c_str(), c.value);
+            body += line;
+            indent += "\t";
+        }
+        body += indent + (rule.win ? "WIN_GAME\n" : "LOSE_GAME\n");
+        for (size_t i = rule.clauses.size(); i-- > 0;)
+        {
+            indent.pop_back();
+            body += indent + "ENDIF\n";
         }
     }
     return body;

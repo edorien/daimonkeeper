@@ -77,6 +77,12 @@ DATE = 2010-01-01
  while <y> is 120..840. Both ENSIGN_ commands should have identical coordinates.
  The <number of keepers> option should include human player,
  so for example if there's one enemy, value should be "2".
+ Optional: SKIRMISH_SETUP = LOCKED
+ Skirmish has a "Setup" tab where the player can change starting gold, creature and room availability,
+ win rules and the computer opponents before playing. It works out by itself whether a map is suitable,
+ and locks the few settings a map's script changes while it runs. If your map's script has logic the tab
+ cannot see, add "SKIRMISH_SETUP = LOCKED" to the LOF file to switch the tab off for that map
+ ("SKIRMISH_SETUP = ALLOW" states that customising is fine; it currently changes nothing).
  Examples of LOF files can be found in "levels" folder of keeperFX - here's one of them:
 ---
 ; KeeperFX Level Overview File (LOF)

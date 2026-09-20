@@ -73,6 +73,11 @@ struct EditorJournalCallbacks {
         long box_beg_x, long box_beg_y, long box_end_x, long box_end_y,
         SlabKind new_kind, PlayerNumber new_owner,
         const struct EditorRectSlabSnapshot *before, long count);
+    /* fx-plans/00 item A7 -- a door's lock is about to be toggled
+       (Ctrl+click in the Door tool); `was_locked` is the state before.
+       Called by the packet handler before it toggles. No-ops outside an
+       active editor session. */
+    void (*record_door_lock)(long thing_idx, TbBool was_locked);
 };
 void set_editor_journal_callbacks(const struct EditorJournalCallbacks *callbacks);
 extern const struct EditorJournalCallbacks *editor_journal;

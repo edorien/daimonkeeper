@@ -358,6 +358,42 @@ extracted from `src/main.cpp` in stage 12.5.
   on network I/O (kfx_net is lower-ranked than kfx_apploop, so it can't call
   these directly).
 
+### 2.9a `kfx_editor` — the in-game level editor
+
+**Owns:** the level editor, reachable from the main menu (Tools → Editor).
+**Depends on:** everything below (rank 9, the highest library; only
+`app_entry` ranks above it). Nothing includes it back; the one inbound edge is
+`main.cpp`, which calls `editor_frame()` from the ImGui frame callback and
+wires the `EditorCallbacks` / `EditorJournalCallbacks` implementations.
+Full plan and history: `docs/refactor/editor/` (start with `00-overview.md`;
+open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/level_editor.txt`.
+
+- **Session** (`editor_session.cpp`): `editor_open()` / `editor_close()`,
+  dirty flag, current level number/folder/name/script text. The simulation is
+  frozen with `kfx_sim_state.simulation_suspended` (a neutral flag that stops
+  the per-turn update while packets and rendering keep running).
+- **Toolbox** (`editor_toolbox.cpp`, `editor_icon_grid.cpp`,
+  `editor_palette.cpp`, `editor_thumbs.cpp`): nested tab bars of tools; icon
+  palettes built from the live config, so modded slabs, rooms, creatures and
+  objects appear automatically. Editing goes through the normal packet stream
+  (`PckA_Editor*` verbs beside the cheat verbs) or, for area/stroke tools,
+  direct calls into `kfx_sim` (single-player-local).
+- **Undo/redo** (`editor_journal.cpp`): placement entries, rect-terrain
+  snapshots, stroke-level slab diffs and point (light / action point / effect
+  generator) entries.
+- **Save/load** (`editor_mapsave.cpp` + `kfx_sim`'s `map_content_*`): a
+  `MapContent` snapshot written by `KfxNativeMapContentWriter` or
+  `ClassicMapContentWriter` (Auto picks by `map_is_legacy_compatible()`);
+  `verify_map_content()` reports problems. Files the editor does not save
+  (`.lua`, per-level `*.cfg`, ...) are listed by `editor_sidecars.cpp` so Save
+  As can warn and Playtest can carry them.
+- **Scripts** (`editor_script*.cpp`): text editor with syntax colouring, the
+  managed setup region, availability grid, objective/message helper, command
+  browser and a validator that reads the engine's own `command_desc[]`.
+- **Playtest**: saves to a scratch level number, launches it as a normal game,
+  and returns to the editor when the game ends
+  (`editor_playtest_running`, `frontend.cpp`).
+
 ### 2.10 `app_entry` — `src/main.cpp` + `src/native_entry.cpp`
 
 **Owns:** the composition root. Two free-standing files under `src/` (aside

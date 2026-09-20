@@ -629,6 +629,17 @@ TbBool level_lof_file_parse(const char *fname, char *buf, long len)
                   COMMAND_TEXT(cmd_num),fname);
             }
             break;
+        case 15: // SKIRMISH_SETUP
+            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+            {
+                k = get_id(cmpgn_map_skirmish_setup_options, word_buf);
+                if (k >= 0)
+                    lvinfo->skirmish_setup = (unsigned char)k;
+                else
+                    WARNMSG("Invalid value '%s' for \"%s\" in LOF file '%s'.", word_buf,
+                        COMMAND_TEXT(cmd_num),fname);
+            }
+            break;
         case ccr_comment:
             break;
         case ccr_endOfFile:

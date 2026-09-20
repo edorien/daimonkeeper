@@ -69,6 +69,38 @@ const char *editor_journal_describe_redo(int index_from_top);
 struct EditorPointSnapshot;
 void editor_journal_record_point(TbBool placed, const struct EditorPointSnapshot *snap);
 
+// fx-plans/00 item A7 -- an inspector edit of a point (position, radius,
+// number, kind, ...): `before` and `after` are the snapshots either side of it
+// (after.id is the id the point has now).
+void editor_journal_record_point_edit(const struct EditorPointSnapshot *before, const struct EditorPointSnapshot *after);
+
+// fx-plans/00 item A7 -- property edits of an existing thing. The three
+// values are the ones the editor can change: an object's position, a gold
+// pile's amount and a door's lock.
+struct EditorThingProps {
+    long x, y, z;
+    long gold;
+    int locked;
+};
+// Journals an edit already applied (or about to be) to thing `thing_idx`;
+// a no-op when before and after are equal.
+void editor_journal_record_thing_edit(long thing_idx, const struct EditorThingProps *before, const struct EditorThingProps *after);
+// The current values of a thing (only the ones its class has are meaningful).
+void editor_journal_thing_props(long thing_idx, struct EditorThingProps *out);
+
+// fx-plans/00 item A7 -- stroke-level undo for tools that change slabs
+// without a single explicit box (free-hand terrain paint, Fill, Stamp, Paint
+// Texture, Reinforce). begin() snapshots every slab's kind/owner/texture;
+// end() diffs against it and, if anything changed, journals one entry that
+// Ctrl+Z / Ctrl+Y move back and forth. end() returns true if it recorded one.
+void editor_journal_stroke_begin(void);
+TbBool editor_journal_stroke_open(void);
+TbBool editor_journal_stroke_end(const char *label);
+
+// Preview Motion support: remember the map and its things, and put them back.
+void editor_journal_preview_begin(void);
+void editor_journal_preview_restore(void);
+
 // Test-only seam (docs/refactor/testing/stage-02-testability-and-fakes.md's
 // "Pattern A", adapted): record_placement()/record_rect_terrain() both gate
 // on editor_is_active(), which reads a real session flag with no exported

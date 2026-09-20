@@ -109,7 +109,15 @@ const struct NamedCommand cmpgn_map_commands[] = {
   {"DATE",               12},
   {"MAPSIZE",            13},
   {"MAP_FORMAT_VERSION", 14},
+  {"SKIRMISH_SETUP",     15}, // ALLOW | LOCKED: may the Skirmish setup tab customise this level (LOF files only)
   {NULL,                  0},
+  };
+
+const struct NamedCommand cmpgn_map_skirmish_setup_options[] = {
+  {"AUTO",   SkirmishSetup_Auto},
+  {"ALLOW",  SkirmishSetup_Allow},
+  {"LOCKED", SkirmishSetup_Locked},
+  {NULL,     0},
   };
 
 const struct NamedCommand cmpgn_map_ensign_flag_options[] = {
@@ -197,6 +205,7 @@ void clear_level_info(struct LevelInformation *lvinfo)
   lvinfo->state = LvSt_Hidden;
   lvinfo->location = LvLc_VarLevels;
   lvinfo->mapsize_x = CAMPAIGNS_DEFAULT_MAP_SIZE;
+  lvinfo->skirmish_setup = SkirmishSetup_Auto;
   lvinfo->mapsize_y = CAMPAIGNS_DEFAULT_MAP_SIZE;
 }
 
@@ -1021,8 +1030,15 @@ short parse_campaign_map_block(long lvnum, unsigned long lvoptions, char *buf, l
             }
             break;
         case 10: // AUTHOR
+            // Read for the level editor's Level Settings; the game itself does not show it.
+            if (get_conf_parameter_whole(buf,&pos,len,lvinfo->author,LEVEL_AUTHOR_LEN) <= 0)
+            {
+                CONFWRNLOG("Couldn't read \"%s\" parameter in [%s] block of '%s' file.",
+                    COMMAND_TEXT(cmd_num),block_buf,config_textname);
+            }
+            break;
         case 12: // DATE
-            // As for now, ignore these
+            // As for now, ignore this
             break;
         case 11: // DESCRIPTION
             if (get_conf_parameter_whole(buf,&pos,len,lvinfo->description,LEVEL_DESCRIPTION_LEN) <= 0)
@@ -1056,6 +1072,17 @@ short parse_campaign_map_block(long lvnum, unsigned long lvoptions, char *buf, l
                     COMMAND_TEXT(cmd_num),block_buf,config_textname);
             }
             break;       
+        case 15: // SKIRMISH_SETUP
+            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+            {
+                k = get_id(cmpgn_map_skirmish_setup_options, word_buf);
+                if (k >= 0)
+                    lvinfo->skirmish_setup = (unsigned char)k;
+                else
+                    CONFWRNLOG("Invalid value '%s' for \"%s\" in [%s] block of '%s' file.", word_buf,
+                        COMMAND_TEXT(cmd_num),block_buf,config_textname);
+            }
+            break;
         case ccr_comment:
             break;
         case ccr_endOfFile:

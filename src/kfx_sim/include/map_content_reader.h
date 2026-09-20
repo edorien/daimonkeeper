@@ -58,6 +58,9 @@ protected:
     // leaves script_text empty, which write_script() (map_content_writer.h)
     // treats as "no real script to preserve, safe to write the empty stub".
     bool read_script(MapContent &content, const char *dir, LevelNumber lvnum);
+    // fx-plans/02-lua-scripts.md L1 -- map%05lu.lua verbatim (bytes, BOM and
+    // CRLF included). Missing file: has_lua false, lua_text empty.
+    bool read_lua(MapContent &content, const char *dir, LevelNumber lvnum);
 
     virtual bool read_things(MapContent &content, const char *dir, LevelNumber lvnum) = 0;
     virtual bool read_lights(MapContent &content, const char *dir, LevelNumber lvnum) = 0;

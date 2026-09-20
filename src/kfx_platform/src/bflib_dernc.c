@@ -437,7 +437,7 @@ long LbFileLengthRnc(const char *fname)
     if (header_read != sizeof(header))
     {
 #if (BFDEBUG_LEVEL > 19)
-        LbSyncLog("%s: cannot read even %d bytes\n", fname, sizeof(header));
+        LbSyncLog("%s: cannot read even %d bytes\n", fname, (int)sizeof(header));
 #endif
         if (header_read < 0)
         {

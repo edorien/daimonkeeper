@@ -1624,7 +1624,7 @@ static void set_hand_rule_check(const struct ScriptLine* scline)
             SCRPTERRLOG("Invalid hand rule: '%s'", scline->tp[4]);
             return;
         }
-        param = hr_type == HandRule_AffectedBy ? 0 : atol(param_name);
+        param = hr_type == HandRule_AffectedBy ? 0 : script_atol(param_name);
         if (hr_type == HandRule_AtActionPoint && action_point_number_to_index(param) == -1)
         {
             SCRPTERRLOG("Unknown action point param for hand rule: '%d'", param);
@@ -1970,7 +1970,7 @@ static void create_effect_process(struct ScriptContext *context)
     struct Coord3d pos;
     if (!get_coords_at_location(&pos, context->value->ulongs[1],true))
     {
-        SCRPTWRNLOG("Could not find location %lu to create effect", context->value->ulongs[1]);
+        SCRPTWRNLOG("Could not find location %u to create effect", context->value->ulongs[1]);
         return;
     }
     script_create_effect(&pos,context->value->shorts[0],context->value->longs[2]);
@@ -4565,7 +4565,7 @@ static void if_check(const struct ScriptLine *scline)
         double_var_mode = false;
 
         char* text;
-        value = strtol(scline->tp[3], &text, 0);
+        value = script_strtol(scline->tp[3], &text, 0);
         if (text != &scline->tp[3][strlen(scline->tp[3])]) {
             SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[3], value);
         }
@@ -4659,7 +4659,7 @@ static void if_available_check(const struct ScriptLine *scline)
         double_var_mode = false;
 
         char* text;
-        value = strtol(scline->tp[3], &text, 0);
+        value = script_strtol(scline->tp[3], &text, 0);
         if (text != &scline->tp[3][strlen(scline->tp[3])]) {
             SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[3], value);
         }
@@ -4769,7 +4769,7 @@ static void if_controls_check(const struct ScriptLine *scline)
         double_var_mode = false;
 
         char* text;
-        value = strtol(scline->tp[3], &text, 0);
+        value = script_strtol(scline->tp[3], &text, 0);
         if (text != &scline->tp[3][strlen(scline->tp[3])]) {
             SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[3], value);
         }
@@ -5986,7 +5986,7 @@ static void quick_message_check(const struct ScriptLine* scline)
     }
     snprintf(kfx_sim_state.quick_messages[scline->np[0]], MESSAGE_TEXT_LEN, "%s", scline->tp[1]);
     value->longs[0]= scline->np[0];
-	get_chat_icon_from_value(scline->tp[2], &value->shorts[4], &value->chars[6]);    
+	get_chat_icon_from_value(scline->tp[2], &value->shorts[4], &value->chars[6]);
     PROCESS_SCRIPT_VALUE(scline->command);
 }
 
@@ -6054,7 +6054,7 @@ static void change_slab_texture_check(const struct ScriptLine* scline)
     {
         if (parameter_is_number(scline->tp[2]))
         {
-            texture_id = atol(scline->tp[2]) + 1;
+            texture_id = script_atol(scline->tp[2]) + 1;
         }
         else
         {

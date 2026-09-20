@@ -85,7 +85,7 @@ extern "C" {
 // buffer isn't practical; these two local functions keep the exact
 // same call-site shape (drop-in same name/signature as the real
 // gui_msgs.h functions) while routing through the callback.
-static void message_add_fmt(char type, PlayerNumber plyr_idx, const char *fmt_str, ...)
+KFX_PRINTF_FORMAT(3, 4) static void message_add_fmt(char type, PlayerNumber plyr_idx, const char *fmt_str, ...)
 {
     char buf[MESSAGE_TEXT_LEN];
     va_list val;
@@ -95,7 +95,7 @@ static void message_add_fmt(char type, PlayerNumber plyr_idx, const char *fmt_st
     sim_feedback->message_add(type, plyr_idx, buf);
 }
 
-static void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *fmt_str, ...)
+KFX_PRINTF_FORMAT(5, 6) static void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *fmt_str, ...)
 {
     char buf[MESSAGE_TEXT_LEN];
     va_list val;
@@ -608,7 +608,7 @@ TbBool cmd_timer_switch(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_turn(PlayerNumber plyr_idx, char * args)
 {
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "turn %ld", get_gameturn());
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "turn %u", (unsigned)get_gameturn());
     return true;
 }
 
@@ -631,7 +631,7 @@ TbBool cmd_game_save(PlayerNumber plyr_idx, char * args)
     long slot_num = (pr1str != NULL) ? atoi(pr1str) : 0;
     if (slot_num < 0 || slot_num >= SAVE_SLOTS_LIMIT)
     {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%d] exceeds [%d,%d)", slot_num, 0, SAVE_SLOTS_LIMIT);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%ld] exceeds [%d,%d)", slot_num, 0, SAVE_SLOTS_LIMIT);
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -656,7 +656,7 @@ TbBool cmd_game_load(PlayerNumber plyr_idx, char * args)
     long slot_num = (pr1str != NULL) ? atoi(pr1str) : 0;
     if (slot_num < 0 || slot_num >= SAVE_SLOTS_LIMIT)
     {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%d] exceeds [%d,%d)", slot_num, 0, SAVE_SLOTS_LIMIT);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%ld] exceeds [%d,%d)", slot_num, 0, SAVE_SLOTS_LIMIT);
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -666,10 +666,10 @@ TbBool cmd_game_load(PlayerNumber plyr_idx, char * args)
             set_flag_value(kfx_sim_state.operation_flags, GOF_Paused, Pause); // unpause, because games are saved whilst paused
             return true;
         } else {
-            targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %d", slot_num);
+            targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %ld", slot_num);
         }
     } else {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %d", slot_num);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %ld", slot_num);
     }
     return false;
 }
@@ -931,7 +931,7 @@ TbBool cmd_player_score(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "dungeon is invalid");
         return false;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Player %d score: %ld", id,
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Player %d score: %d", id,
                             dungeon->total_score);
     return true;
 }
@@ -952,7 +952,7 @@ TbBool cmd_player_flag(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     unsigned char flg_id = (pr2str != NULL) ? atoi(pr2str) : 0;
     if (flg_id >= SCRIPT_FLAGS_COUNT) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "script flag [%d] exceeds");
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "script flag [%d] exceeds", (int)flg_id);
         return false;
     }
     char * pr3str = strsep_param_with_space(&args);
@@ -994,7 +994,7 @@ TbBool cmd_give_trap(PlayerNumber plyr_idx, char * args)
     char * pr1str = strsep_param_with_space(&args);
     long id = get_trap_number_for_command(pr1str);
     if (id <= 0 || id > kfx_config_state.conf.trapdoor_conf.trap_types_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "trap number [%d] exceeds (%d,%d]", id, 0, kfx_config_state.conf.trapdoor_conf.trap_types_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "trap number [%ld] exceeds (%d,%d]", id, 0, kfx_config_state.conf.trapdoor_conf.trap_types_count);
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -1020,7 +1020,7 @@ TbBool cmd_give_door(PlayerNumber plyr_idx, char * args)
     char * pr1str = strsep_param_with_space(&args);
     long id = get_door_number_for_command(pr1str);
     if (id <= 0 || id > kfx_config_state.conf.trapdoor_conf.door_types_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "door number [%d] exceeds (%d, %d])", id, 0, kfx_config_state.conf.trapdoor_conf.door_types_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "door number [%ld] exceeds (%d, %d])", id, 0, kfx_config_state.conf.trapdoor_conf.door_types_count);
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -1232,7 +1232,7 @@ TbBool cmd_create_creature(PlayerNumber plyr_idx, char * args)
         }
     }
     if (crmodel <= 0 || crmodel >= kfx_config_state.conf.crtr_conf.model_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "creature model [%d] exceeds (%d, %d)", crmodel, 0, kfx_config_state.conf.crtr_conf.model_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "creature model [%ld] exceeds (%d, %d)", crmodel, 0, kfx_config_state.conf.crtr_conf.model_count);
         return false;
     }
     struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
@@ -1726,7 +1726,7 @@ TbBool cmd_player_heart_health(PlayerNumber plyr_idx, char * args)
     if (pr2str == NULL) {
         float percent = ((float) thing->health / (float)objst->health) * 100;
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY,
-                                "Player %d heart health: %ld (%.2f per cent)", id, thing->health, percent);
+                                "Player %d heart health: %d (%.2f per cent)", id, thing->health, percent);
         return true;
     }
     HitPoints Health = atoi(pr2str);
@@ -1948,9 +1948,9 @@ TbBool cmd_mapwho_info(PlayerNumber plyr_idx, char * args)
     struct Thing * thing = thing_get(thing_id);
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "first_thing:%d %s", thing_id,
                             thing_class_and_model_name(thing->class_id, thing->model));
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "flags: %02x,filled: %d, wib: %d, col: %04ld", block->flags,
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "flags: %02x,filled: %d, wib: %d, col: %04d", block->flags,
                             block->filled_subtiles, block->wibble_value, block->col_idx);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "mapwho: %04ld, rev: %d", block->mapwho, block->revealed);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "mapwho: %04d, rev: %d", block->mapwho, block->revealed);
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "stl_x: %d, stl_y:%d", pos.x.stl.num,
                             pos.y.stl.num);
     return true;
@@ -2442,7 +2442,7 @@ TbBool cmd_get_action_point_pos(PlayerNumber plyr_idx, char * args)
         return false;
     }
     struct ActionPoint * actionpt = action_point_get(idx);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Action Point idx: %ld num: %ld X: %d Y: %d", idx, num, actionpt->mappos.x.stl.num, actionpt->mappos.y.stl.num);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Action Point idx: %d num: %ld X: %d Y: %d", idx, num, actionpt->mappos.x.stl.num, actionpt->mappos.y.stl.num);
     return true;
 }
 

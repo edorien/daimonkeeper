@@ -1659,6 +1659,15 @@ enum EditorGameKeys {
     Gkey_EditorTerrainTool,
     Gkey_EditorQueryTool,
     Gkey_EditorEyedropperTool,
+    // fx-plans/00 item A11 -- the remaining tools that have no follow-up click
+    // to make a hotkey pointless: Fill, Stamp, Points, Creature, Thing and
+    // Reinforce (the last is a button tool, so the hotkey only opens it).
+    Gkey_EditorFillTool,
+    Gkey_EditorStampTool,
+    Gkey_EditorPointsTool,
+    Gkey_EditorCreatureTool,
+    Gkey_EditorThingTool,
+    Gkey_EditorReinforceTool,
     EDITOR_GAME_KEYS_COUNT
 };
 

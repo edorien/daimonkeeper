@@ -381,10 +381,16 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 WARNLOG("Incompatible KfxGameState chunk");
                 break;
             }
-            if (LbFileRead(fhandle, &kfx_game_state, sizeof(struct KfxGameState)) == sizeof(struct KfxGameState)) {
-                chunks_done |= SGF_KfxGameState;
-            } else {
-                WARNLOG("Could not read KfxGameState chunk");
+            {
+                // gui_cheat_box_2 is a pointer into this process's static gui_boxes[]; the saved value is
+                // from another run and would be dereferenced by gui_box_is_not_valid(). Keep the live one.
+                struct GuiBox *live_cheat_box_2 = kfx_game_state.gui_cheat_box_2;
+                if (LbFileRead(fhandle, &kfx_game_state, sizeof(struct KfxGameState)) == sizeof(struct KfxGameState)) {
+                    chunks_done |= SGF_KfxGameState;
+                } else {
+                    WARNLOG("Could not read KfxGameState chunk");
+                }
+                kfx_game_state.gui_cheat_box_2 = live_cheat_box_2;
             }
             break;
         case SGC_KfxFrontendState:

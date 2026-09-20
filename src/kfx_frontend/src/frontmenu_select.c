@@ -48,6 +48,8 @@
 #include "bflib_sound.h"  // play_sample, get_emitter_id, S3DGetSoundEmitter, Non3DEmitter, NORMAL_PITCH
 #include "config_settings.h" // settings.music_volume
 #include "config_keeperfx.h" // features_enabled, Ft_AdvAmbSound
+#include "skirmish_setup.h"
+#include "level_script_override.h"
 #include "post_inc.h"
 
 #include <string.h> // strcmp
@@ -558,6 +560,20 @@ int frontend_freeplay_enter_resolve(void)
 {
     if (freeplay_highlighted_level <= 0)
         return -1;
+    // docs/refactor/skirmish/: the Setup tab's edits become a one-shot script override
+    // for exactly this level (installed if anything changed, cleared otherwise -- also
+    // clears a stale one when this is ordinary Free play). Blocked outright while the
+    // tab reports errors (e.g. a Replace with no win rule).
+    if (frontend_freeplay_is_skirmish())
+    {
+        if (skirmish_setup_play_blocked(freeplay_highlighted_level))
+            return -1;
+        skirmish_setup_install_for_play(freeplay_highlighted_level);
+    }
+    else
+    {
+        level_script_override_clear();
+    }
     kfx_sim_state.selected_level_number = freeplay_highlighted_level;
     // Mirrors front_landview_multiplayer.c's own frontnetmap_update()
     // (`if (!fe_network_active) fe_computer_players = 1;`), the level-pick

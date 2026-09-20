@@ -35,4 +35,21 @@ namespace {
     const int kTexturePackItemCount = (int)(sizeof(kTexturePackItems) / sizeof(kTexturePackItems[0]));
 }
 
+
+#include "globals.h"
+
+// Every texture pack the current level can use: the built-in ids 0-14 always,
+// plus any higher id whose tmapaNNN.dat can be found by the engine's own pack
+// search (level folder, campaign config, standard data, mods -- so packs that
+// come with a campaign or mod appear without being listed anywhere).
+struct EditorTexturePackChoice
+{
+    int id;
+    const char *label; // valid until the next call
+};
+int editor_texture_pack_choices(LevelNumber lvnum, const EditorTexturePackChoice **out);
+
+// A combo over those choices that reads and writes the texture id itself.
+bool editor_texture_pack_combo(const char *label, int *texture_id, LevelNumber lvnum);
+
 #endif

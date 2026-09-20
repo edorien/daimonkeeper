@@ -8150,6 +8150,11 @@ static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr)
  * @param lines_max Max lines to be written into output buffer.
  * @param scanln Length of scanline (length of line in output buffer).
  */
+// When set, sprite_to_sbuff() copies the sprite's palette indices instead of
+// writing the 0xFF silhouette mask the shadow renderer wants. Only
+// render_keepsprite_indexed() turns it on, for the duration of one decode.
+static TbBool sprite_to_sbuff_copy_colour = false;
+
 static void sprite_to_sbuff(const TbSpriteData sprdata, unsigned char *outbuf, int lines_max, int scanln)
 {
     unsigned char *out_lnstart;
@@ -8161,6 +8166,36 @@ static void sprite_to_sbuff(const TbSpriteData sprdata, unsigned char *outbuf, i
     out = outbuf;
     out_lnstart = outbuf;
     cval = 0;
+    if (sprite_to_sbuff_copy_colour)
+    {
+        // Same run-length format as below: negative = skip that many
+        // transparent pixels, positive = that many literal palette bytes,
+        // zero = end of line.
+        while (lines_max > 0)
+        {
+            while (1)
+            {
+                cval = *(const signed char *)sprd;
+                sprd++;
+                if (cval == 0)
+                    break;
+                if (cval < 0)
+                {
+                    out += -cval;
+                }
+                else
+                {
+                    memcpy(out, sprd, cval);
+                    out += cval;
+                    sprd += cval;
+                }
+            }
+            out_lnstart += scanln;
+            out = out_lnstart;
+            lines_max--;
+        }
+        return;
+    }
     while (lines_max > 0)
     {
       while ( 1 )
@@ -8400,6 +8435,26 @@ static void draw_keepsprite_unscaled_in_buffer(unsigned short kspr_n, short angl
             sprite_to_sbuff(sprite_data, &outbuf[0], kspr->SHeight, 256);
         }
     }
+}
+
+/**
+ * Decodes one frame of thing animation `kspr_n` (a keepersprite animation
+ * number, the value a thing's anim_sprite holds) into `outbuf` as palette
+ * indices, 256 bytes per row, index 0 transparent -- the routine the
+ * renderer uses for creature shadows (there it writes only a silhouette
+ * mask; here sprite_to_sbuff() is switched to copy the colours), exposed so
+ * the editor's palette can show a thing's sprite. `outbuf` must be zeroed and hold at least
+ * 256*256 bytes. Returns false if the animation does not exist.
+ */
+TbBool render_keepsprite_indexed(unsigned short kspr_n, unsigned char frame, unsigned char *outbuf)
+{
+    struct KeeperSprite *kspr_arr = keepersprite_array(kspr_n);
+    if ((kspr_arr == NULL) || (kspr_arr->FramesCount == 0))
+        return false;
+    sprite_to_sbuff_copy_colour = true;
+    draw_keepsprite_unscaled_in_buffer(kspr_n, 0, frame, outbuf);
+    sprite_to_sbuff_copy_colour = false;
+    return true;
 }
 
 static void update_frontview_pointed_block(unsigned long laaa, unsigned char qdrant, long w, long h, long qx, long qy)

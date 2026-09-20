@@ -16,6 +16,13 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "editor_dialogs.h"
+#include "editor_sidecars.h"
+#include "editor_lua_validate.h"
+#include "editor_script.h"
+#include "editor_mappack.h"
+#include "thing_list.h"
+#include "thing_objects.h"
+#include "editor_script_validate.h"
 #include "kfx_editor.h"
 
 #include "frontend.h" // frontend_request_editor_relaunch, EDITOR_SCRATCH_LEVEL_NUMBER
@@ -34,12 +41,15 @@
 #include "kfx_config_state.h" // kfx_config_state.texture_id -- base texture set
 #include "engine_textures.h" // load_texture_map_file -- live-preview a texture set change
 #include "editor_texture_packs.h" // kTexturePackItems -- shared with editor_toolbox.cpp's Paint Texture tool
-#include "editor_script_managed.h" // managed setup region parse/generate -- §4.2
+#include "editor_script_names.h"
+#include "script_setup.h" // managed setup region parse/generate -- §4.2
 #include "config_creature.h" // creature_desc/creature_code_name -- creature pool picker
 
 #include <imgui.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 #include "post_inc.h"
 
@@ -53,6 +63,7 @@ namespace {
     int s_new_map_w = 85;
     int s_new_map_h = 85;
     int s_new_map_texture = 0;
+    bool s_new_map_lua = false;
 
     int s_save_as_format = 0; // index into kFormatItems below
     // Destination for Save As -- defaults to the session's own save dir
@@ -76,6 +87,8 @@ namespace {
     // "one modal hands off to the next, never nested" pattern the
     // unsaved-changes confirm below already established.
     bool s_show_overwrite_confirm = false;
+    bool s_show_sidecar_confirm = false;
+    std::vector<std::string> s_sidecars; // files Save As would leave behind
     LevelNumber s_pending_save_lvnum = 0;
     char s_pending_save_dir[512] = "";
     int s_pending_save_format = 0;
@@ -91,7 +104,7 @@ namespace {
 
     void show_dialog_error(const char *msg)
     {
-        strncpy(s_dialog_error, msg, sizeof(s_dialog_error) - 1);
+        snprintf(s_dialog_error, sizeof(s_dialog_error), "%s", msg);
         s_dialog_error[sizeof(s_dialog_error) - 1] = '\0';
         s_show_dialog_error = true;
     }
@@ -154,7 +167,8 @@ namespace {
             ImGui::InputInt("Width (slabs)", &s_new_map_w);
             ImGui::SetNextItemWidth(120);
             ImGui::InputInt("Height (slabs)", &s_new_map_h);
-            FeCombo("Texture set", &s_new_map_texture, kTexturePackItems, kTexturePackItemCount);
+            editor_texture_pack_combo("Texture set", &s_new_map_texture, editor_current_lvnum());
+            FeCheckbox("Lua script (instead of a .txt script)", &s_new_map_lua);
             FeSeparator();
 
             const ImVec2 btn_size(140, 0);
@@ -164,6 +178,7 @@ namespace {
                 MapSlabCoord h = (MapSlabCoord)((s_new_map_h > 0) ? s_new_map_h : 85);
                 s_show_new_map = false;
                 ImGui::CloseCurrentPopup();
+                editor_set_new_map_lua(s_new_map_lua);
                 request_relaunch(EDITOR_SCRATCH_LEVEL_NUMBER, true, w, h, (long)s_new_map_texture);
             }
             ImGui::SameLine();
@@ -314,9 +329,14 @@ namespace {
     // there" reasoning.
     void do_save_as(LevelNumber lvnum, const char *dir, enum EditorSaveFormat fmt, const char *name)
     {
+        const bool into_editor_maps = editor_maps_is_dir(dir);
+        if (into_editor_maps)
+            editor_maps_ensure_dir();
         if (editor_save_map(lvnum, dir, fmt, name, editor_current_level_players(), editor_current_level_is_multiplayer(),
                 editor_current_level_description()))
         {
+            if (into_editor_maps)
+                editor_maps_register();
             // Standard "Save As" semantics: this becomes the session's own
             // identity from now on, same as editor_set_current_lvnum_and_dir()'s
             // own comment.
@@ -328,6 +348,69 @@ namespace {
         {
             show_dialog_error("Save failed -- check the destination folder is writable.");
         }
+    }
+
+    // Second half of Save As, once the sidecar warning (if any) is settled:
+    // the overwrite check, then the save itself. Works off the s_pending_save_*
+    // values the dialog stashed.
+    // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md --
+    // overwrite confirm: check for an existing map%05lu.slb at the target
+    // before writing. The directory is an arbitrary path (possibly picked via
+    // Browse...), not necessarily fgroup-relative, so the check path is built
+    // directly rather than through editor_level_save_dir().
+    void continue_save_as(void)
+    {
+        enum EditorSaveFormat fmt = EdSaveFmt_Auto;
+        if (s_pending_save_format == 1)
+            fmt = EdSaveFmt_ForceKeeperFX;
+        else if (s_pending_save_format == 2)
+            fmt = EdSaveFmt_ForceClassic;
+        char check_path[600];
+        snprintf(check_path, sizeof(check_path), "%s/map%05lu.slb", s_pending_save_dir, (unsigned long)s_pending_save_lvnum);
+        if (LbFileExists(check_path))
+            s_show_overwrite_confirm = true;
+        else
+            do_save_as(s_pending_save_lvnum, s_pending_save_dir, fmt, s_pending_save_name);
+    }
+
+    void draw_sidecar_confirm(void)
+    {
+        if (!s_show_sidecar_confirm)
+            return;
+        FeOpenModal("##EditorSidecarConfirm");
+        bool open = FeBeginModal("##EditorSidecarConfirm");
+        if (open)
+        {
+            FeHeading("Files that will not be copied");
+            FeSeparator();
+            FeBodyText("This level has files the editor does not save. Save As writes the map"
+                " to the new location only; these stay behind:");
+            const size_t shown = (s_sidecars.size() < 8) ? s_sidecars.size() : 8;
+            for (size_t i = 0; i < shown; i++)
+                FeBodyText(s_sidecars[i].c_str());
+            if (s_sidecars.size() > shown)
+            {
+                char more[48];
+                snprintf(more, sizeof(more), "... and %zu more", s_sidecars.size() - shown);
+                FeBodyText(more);
+            }
+            FeBodyText("Copy them yourself if the new level needs them.");
+            FeSeparator();
+            const ImVec2 btn_size(140, 0);
+            if (FeButton("Save anyway", btn_size))
+            {
+                s_show_sidecar_confirm = false;
+                ImGui::CloseCurrentPopup();
+                continue_save_as();
+            }
+            ImGui::SameLine();
+            if (FeButton("Cancel", btn_size))
+            {
+                s_show_sidecar_confirm = false;
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        FeEndModal(open);
     }
 
     void draw_save_as_dialog(void)
@@ -350,7 +433,7 @@ namespace {
                 const char *picked = platform_pick_folder_dialog("Save map into folder", s_save_as_dir);
                 if (picked != NULL)
                 {
-                    strncpy(s_save_as_dir, picked, sizeof(s_save_as_dir) - 1);
+                    snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", picked);
                     s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
                 }
             }
@@ -368,35 +451,24 @@ namespace {
             const ImVec2 btn_size(140, 0);
             if (FeButton("Save", btn_size))
             {
-                enum EditorSaveFormat fmt = EdSaveFmt_Auto;
-                if (s_save_as_format == 1)
-                    fmt = EdSaveFmt_ForceKeeperFX;
-                else if (s_save_as_format == 2)
-                    fmt = EdSaveFmt_ForceClassic;
                 LevelNumber save_lvnum = (LevelNumber)((s_save_as_lvnum > 0) ? s_save_as_lvnum : 1);
 
-                // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md
-                // -- overwrite confirm: check for an existing map%05lu.slb
-                // at the target before writing. s_save_as_dir is an
-                // arbitrary path (possibly picked via Browse...), not
-                // necessarily fgroup-relative, so this builds the check
-                // path directly rather than reusing editor_level_save_dir().
-                char check_path[600];
-                snprintf(check_path, sizeof(check_path), "%s/map%05lu.slb", s_save_as_dir, (unsigned long)save_lvnum);
-                if (LbFileExists(check_path))
-                {
-                    s_pending_save_lvnum = save_lvnum;
-                    strncpy(s_pending_save_dir, s_save_as_dir, sizeof(s_pending_save_dir) - 1);
-                    s_pending_save_dir[sizeof(s_pending_save_dir) - 1] = '\0';
-                    s_pending_save_format = s_save_as_format;
-                    strncpy(s_pending_save_name, s_save_as_name, sizeof(s_pending_save_name) - 1);
-                    s_pending_save_name[sizeof(s_pending_save_name) - 1] = '\0';
-                    s_show_overwrite_confirm = true;
-                }
+                // Files the editor doesn't save (Lua, rules, ...) would be
+                // left behind by a move: warn first, then continue as usual.
+                s_pending_save_lvnum = save_lvnum;
+                snprintf(s_pending_save_dir, sizeof(s_pending_save_dir), "%s", s_save_as_dir);
+                s_pending_save_dir[sizeof(s_pending_save_dir) - 1] = '\0';
+                s_pending_save_format = s_save_as_format;
+                snprintf(s_pending_save_name, sizeof(s_pending_save_name), "%s", s_save_as_name);
+                s_pending_save_name[sizeof(s_pending_save_name) - 1] = '\0';
+                s_sidecars.clear();
+                if (editor_save_is_relocation(editor_current_save_dir(), (unsigned long)editor_current_lvnum(),
+                        s_save_as_dir, (unsigned long)save_lvnum))
+                    s_sidecars = editor_find_sidecars(editor_current_save_dir(), (unsigned long)editor_current_lvnum());
+                if (!s_sidecars.empty())
+                    s_show_sidecar_confirm = true;
                 else
-                {
-                    do_save_as(save_lvnum, s_save_as_dir, fmt, s_save_as_name);
-                }
+                    continue_save_as();
                 s_show_save_as = false;
                 ImGui::CloseCurrentPopup();
             }
@@ -521,6 +593,7 @@ namespace {
     // was already a recognized .lof keyword and an existing LevelInformation
     // field, just never wired up on either side before this slice.
     char s_level_settings_description[LEVEL_DESCRIPTION_LEN] = "";
+    char s_level_settings_author[LEVEL_AUTHOR_LEN] = "";
     // docs/refactor/editor/05-script-and-level-settings.md's deferred "base
     // texture set" item -- turned out not to need any new persistence at
     // all: snapshot_map() (editor_mapsave.cpp) already reads kfx_config_
@@ -532,6 +605,11 @@ namespace {
     // multiplayer/description (those exist independently of any live
     // engine state kfx_editor could just read directly).
     int s_level_settings_texture_id = 0;
+    // Resize (fx-plans/00 A14): the size fields, and the confirm that lists what would be lost.
+    int s_resize_w = 85, s_resize_h = 85;
+    bool s_resize_centered = false;
+    bool s_show_resize_confirm = false;
+    int s_resize_things = 0, s_resize_lights = 0, s_resize_points = 0;
 
     // docs/refactor/editor/05-script-and-level-settings.md §4.2 -- the
     // "managed setup region" fields: buffered here exactly like every
@@ -552,19 +630,195 @@ namespace {
     // clicked (same shadow-selection shape editor_toolbox.cpp's own
     // s_selected_creature_kind already uses for its picker).
     int s_level_settings_pool_add_index = 0;
+    // Win/lose rules (fx: managed block). Variable names offered by the
+    // clause combos are the engine's script variables, plus any name a rule
+    // already uses.
+    std::vector<WinLoseRule> s_level_settings_rules;
+    std::vector<std::string> s_win_var_names;
+
+    std::vector<std::string> collect_win_var_names(const std::vector<WinLoseRule> &rules)
+    {
+        std::vector<std::string> names;
+        for (const ScriptNameGroup &g : editor_script_collect_name_groups())
+            if (g.title == "Variables")
+                names = g.names;
+        for (const WinLoseRule &r : rules)
+            for (const WinLoseClause &c : r.clauses)
+                if (std::find(names.begin(), names.end(), c.variable) == names.end())
+                    names.push_back(c.variable);
+        return names;
+    }
+
+    void draw_win_lose_rules(int script_players)
+    {
+        FeHeading("Win / Lose Conditions");
+        FeCaption("Written to this script's setup block. Conditions written by hand elsewhere in the script are left alone.");
+        static const char *const kResult[] = { "Win", "Lose" };
+        static const char *const kPlayerNames[] = { "PLAYER0", "PLAYER1", "PLAYER2", "PLAYER3", "PLAYER4", "PLAYER5", "PLAYER6" };
+        int op_count = 0;
+        const char *const *ops = script_setup_win_lose_operators(&op_count);
+        std::vector<const char *> var_ptrs;
+        for (const std::string &n : s_win_var_names)
+            var_ptrs.push_back(n.c_str());
+        const int player_count = (script_players < 7) ? script_players : 7;
+
+        for (size_t r = 0; r < s_level_settings_rules.size(); r++)
+        {
+            WinLoseRule &rule = s_level_settings_rules[r];
+            ImGui::PushID((int)(1000 + r));
+            int result = rule.win ? 0 : 1;
+            ImGui::SetNextItemWidth(80);
+            if (FeCombo("##result", &result, kResult, 2))
+                rule.win = (result == 0);
+            ImGui::SameLine();
+            FeBodyText("when");
+            for (size_t c = 0; c < rule.clauses.size(); c++)
+            {
+                WinLoseClause &cl = rule.clauses[c];
+                ImGui::PushID((int)c);
+                if (c > 0)
+                    FeBodyText("   and");
+                int pl = (cl.player < player_count) ? cl.player : 0;
+                ImGui::SetNextItemWidth(100);
+                if (FeCombo("##player", &pl, kPlayerNames, player_count > 0 ? player_count : 1))
+                    cl.player = pl;
+                ImGui::SameLine();
+                int vi = 0;
+                for (size_t k = 0; k < s_win_var_names.size(); k++)
+                    if (s_win_var_names[k] == cl.variable)
+                        vi = (int)k;
+                ImGui::SetNextItemWidth(210);
+                if (!var_ptrs.empty() && FeCombo("##var", &vi, var_ptrs.data(), (int)var_ptrs.size()))
+                    cl.variable = s_win_var_names[(size_t)vi];
+                ImGui::SameLine();
+                int oi = 0;
+                for (int k = 0; k < op_count; k++)
+                    if (cl.op == ops[k])
+                        oi = k;
+                ImGui::SetNextItemWidth(70);
+                if (FeCombo("##op", &oi, ops, op_count))
+                    cl.op = ops[oi];
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(100);
+                ImGui::InputInt("##value", &cl.value);
+                if (rule.clauses.size() > 1)
+                {
+                    ImGui::SameLine();
+                    if (FeButton("x", ImVec2(28, 0)))
+                    {
+                        rule.clauses.erase(rule.clauses.begin() + (long)c);
+                        ImGui::PopID();
+                        break;
+                    }
+                }
+                ImGui::PopID();
+            }
+            if (FeButton("Add 'and' condition", ImVec2(180, 0)))
+                rule.clauses.push_back(WinLoseClause());
+            ImGui::SameLine();
+            const bool remove = FeButton("Remove rule", ImVec2(140, 0));
+            ImGui::PopID();
+            if (remove)
+            {
+                s_level_settings_rules.erase(s_level_settings_rules.begin() + (long)r);
+                break;
+            }
+            FeSeparator();
+        }
+        if (FeButton("Add rule", ImVec2(140, 0)))
+        {
+            WinLoseRule rule;
+            rule.clauses.push_back(WinLoseClause());
+            s_level_settings_rules.push_back(rule);
+        }
+        ImGui::SameLine();
+        if (FeButton("Add standard rules", ImVec2(180, 0)))
+        {
+            // Lose when your own dungeon is destroyed; win when every other
+            // keeper's is.
+            WinLoseRule lose;
+            lose.win = false;
+            lose.clauses.push_back(WinLoseClause());
+            s_level_settings_rules.push_back(lose);
+            if (script_players > 1)
+            {
+                WinLoseRule win;
+                for (int p = 1; p < script_players; p++)
+                {
+                    WinLoseClause c;
+                    c.player = p;
+                    win.clauses.push_back(c);
+                }
+                s_level_settings_rules.push_back(win);
+            }
+        }
+    }
+
+    void draw_resize_confirm(void)
+    {
+        if (!s_show_resize_confirm)
+            return;
+        FeOpenModal("##EditorResizeConfirm");
+        bool open = FeBeginModal("##EditorResizeConfirm");
+        if (open)
+        {
+            FeHeading("Resize map");
+            FeSeparator();
+            char msg[160];
+            snprintf(msg, sizeof(msg), "Resize to %d x %d slabs. New ground is solid rock.", s_resize_w, s_resize_h);
+            FeBodyText(msg);
+            if (s_resize_things + s_resize_lights + s_resize_points > 0)
+            {
+                snprintf(msg, sizeof(msg), "Removed: %d things, %d lights, %d action points.",
+                    s_resize_things, s_resize_lights, s_resize_points);
+                FeBodyText(msg);
+            }
+            FeBodyText("The editor reopens the resized map; it stays unsaved until you save.");
+            FeSeparator();
+            const ImVec2 btn_size(140, 0);
+            if (FeButton("Resize", btn_size))
+            {
+                s_show_resize_confirm = false;
+                s_show_level_settings = false;
+                ImGui::CloseCurrentPopup();
+                if (!editor_resize_map(s_resize_w, s_resize_h, s_resize_centered))
+                    show_dialog_error("Couldn't resize the map (leave 1st Person first, and check the folder is writable).");
+            }
+            ImGui::SameLine();
+            if (FeButton("Cancel", btn_size))
+            {
+                s_show_resize_confirm = false;
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        FeEndModal(open);
+    }
 
     void draw_level_settings_dialog(void)
     {
         if (!s_show_level_settings)
             return;
         FeOpenModal("##EditorLevelSettings");
-        bool open = FeBeginModal("##EditorLevelSettings");
+        bool open = FeBeginModalResizable("##EditorLevelSettings", ImVec2(620, 560), ImVec2(520, 380));
         if (open)
         {
             FeHeading("Level Settings");
             FeSeparator();
+            // Kept in step with the Players field every frame, so raising or
+            // lowering it grows/shrinks the per-player rows on the Script
+            // Setup tab (already-entered values for surviving indices stay).
+            int script_players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
+            if ((int)s_level_settings_start_money.size() != script_players)
+                s_level_settings_start_money.resize((size_t)script_players, 0);
+            if ((int)s_level_settings_max_creatures.size() != script_players)
+                s_level_settings_max_creatures.resize((size_t)script_players, 0);
+            bool tabs = FeBeginTabBar("##LevelSettingsTabs");
+            if (tabs && FeTab("Level"))
+            {
+            ImGui::BeginChild("##LevelTab", ImVec2(0, -48.0f), ImGuiChildFlags_None);
             FeTextInput("Level Name", s_level_settings_name, sizeof(s_level_settings_name));
             FeTextInput("Description", s_level_settings_description, sizeof(s_level_settings_description));
+            FeTextInput("Author", s_level_settings_author, sizeof(s_level_settings_author));
             ImGui::SetNextItemWidth(120);
             ImGui::InputInt("Players", &s_level_settings_players);
             FeCheckbox("Multiplayer", &s_level_settings_multiplayer);
@@ -577,24 +831,56 @@ namespace {
                 snprintf(map_size_label, sizeof(map_size_label), "Map size: %d x %d",
                     (int)kfx_sim_state.map_tiles_x, (int)kfx_sim_state.map_tiles_y);
                 FeBodyText(map_size_label);
+                ImGui::SetNextItemWidth(90);
+                ImGui::InputInt("New width", &s_resize_w);
+                ImGui::SetNextItemWidth(90);
+                ImGui::InputInt("New height", &s_resize_h);
+                FeCheckbox("Keep the old map centred", &s_resize_centered);
+                if (FeButton("Resize...", ImVec2(140, 0)))
+                {
+                    s_resize_things = s_resize_lights = s_resize_points = 0;
+                    if (editor_resize_preview(s_resize_w, s_resize_h, s_resize_centered, &s_resize_things, &s_resize_lights, &s_resize_points))
+                    {
+                        s_show_resize_confirm = true;
+                        s_show_level_settings = false; // one modal at a time
+                        ImGui::CloseCurrentPopup();
+                    }
+                    else
+                        show_dialog_error("That size is not supported (8 to 170 slabs each way).");
+                }
             }
-            FeCombo("Base Texture Set", &s_level_settings_texture_id, kTexturePackItems, kTexturePackItemCount);
-            FeSeparator();
-
-            // docs/refactor/editor/05-script-and-level-settings.md §4.2 --
-            // reactive to the Players field above: resized every frame
-            // (not just on open) so raising/lowering Players while this
-            // dialog is still open immediately grows/shrinks the per-
-            // player rows below, preserving already-entered values for
-            // indices that still exist (std::vector::resize's own
-            // behaviour already does exactly that).
-            int script_players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
-            if ((int)s_level_settings_start_money.size() != script_players)
-                s_level_settings_start_money.resize((size_t)script_players, 0);
-            if ((int)s_level_settings_max_creatures.size() != script_players)
-                s_level_settings_max_creatures.resize((size_t)script_players, 0);
-
+            {
+                // Which keepers have a Dungeon Heart on the map (read-only).
+                bool has_heart[PLAYERS_COUNT] = {};
+                for (ThingIndex ti = 1; ti < THINGS_COUNT; ti++)
+                {
+                    const struct Thing *t = thing_get(ti);
+                    if (thing_exists(t) && (t->class_id == TCls_Object) && thing_is_dungeon_heart(t) && (t->owner < PLAYERS_COUNT))
+                        has_heart[t->owner] = true;
+                }
+                char hearts[96] = "Dungeon Hearts:";
+                int shown = 0;
+                for (int p = 0; p < PLAYERS_COUNT; p++)
+                    if (has_heart[p] && p != kfx_config_state.neutral_player_num)
+                    {
+                        char one[16];
+                        snprintf(one, sizeof(one), " P%d", p + 1);
+                        strncat(hearts, one, sizeof(hearts) - strlen(hearts) - 1);
+                        shown++;
+                    }
+                if (shown == 0)
+                    strncat(hearts, " none", sizeof(hearts) - strlen(hearts) - 1);
+                FeBodyText(hearts);
+            }
+            editor_texture_pack_combo("Base Texture Set", &s_level_settings_texture_id, editor_current_lvnum());
+            ImGui::EndChild();
+            FeEndTab();
+            }
+            if (tabs && FeTab("Script Setup"))
+            {
+            ImGui::BeginChild("##ScriptTab", ImVec2(0, -48.0f), ImGuiChildFlags_None);
             FeHeading("Script Setup");
+            editor_lua_override_banner();
             ImGui::SetNextItemWidth(140);
             ImGui::InputInt("Generation Speed", &s_level_settings_generate_speed);
             for (int i = 0; i < script_players; i++)
@@ -665,11 +951,19 @@ namespace {
                 }
             }
             FeSeparator();
+            draw_win_lose_rules(script_players);
+            ImGui::EndChild();
+            FeEndTab();
+            }
+            FeEndTabBar(tabs);
+            FeSeparator();
 
             const ImVec2 btn_size(140, 0);
             if (FeButton("Apply", btn_size))
             {
                 int players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
+                // Before the .lof write below, which reads the session's author.
+                editor_set_current_level_author(s_level_settings_author);
                 if (editor_save_level_info(editor_current_lvnum(), editor_current_save_dir(),
                         s_level_settings_name, players, s_level_settings_multiplayer, s_level_settings_description))
                 {
@@ -714,14 +1008,17 @@ namespace {
                     // availability grid's lines (slice 5) survive this
                     // dialog's Apply -- only the four fields this dialog
                     // owns are overwritten.
-                    ManagedSetupValues managed_values = editor_script_parse_managed_setup(
-                        editor_script_extract_managed_region(editor_current_level_script_text()), script_players);
+                    ManagedSetupValues managed_values = script_setup_parse(
+                        script_setup_extract_region(editor_current_level_script_text()), script_players,
+                        script_setup_level_version(editor_current_level_script_text()));
                     managed_values.generate_speed = s_level_settings_generate_speed;
                     managed_values.start_money = s_level_settings_start_money;
                     managed_values.max_creatures = s_level_settings_max_creatures;
                     managed_values.creature_pool = s_level_settings_creature_pool;
-                    std::string new_body = editor_script_generate_managed_setup(managed_values, script_players);
-                    std::string new_script = editor_script_replace_managed_region(
+                    managed_values.rules = s_level_settings_rules;
+                    std::string new_body = script_setup_generate(managed_values, script_players,
+                        script_setup_level_version(editor_current_level_script_text()));
+                    std::string new_script = script_setup_replace_region(
                         editor_current_level_script_text(), new_body);
                     editor_set_current_level_script_text(new_script.c_str());
                     editor_mark_dirty();
@@ -784,6 +1081,12 @@ namespace {
                         editor_current_level_name(), editor_current_level_players(), editor_current_level_is_multiplayer(),
                         editor_current_level_description()))
                 {
+                    // The level's sidecars (Lua, rules, ...) are keyed by
+                    // level number, so give the scratch level its own copies.
+                    editor_remove_sidecars(playtest_dir, (unsigned long)EDITOR_PLAYTEST_LEVEL_NUMBER);
+                    editor_copy_sidecars(editor_current_save_dir(), (unsigned long)editor_current_lvnum(),
+                        playtest_dir, (unsigned long)EDITOR_PLAYTEST_LEVEL_NUMBER);
+                    editor_playtest_begin();
                     frontend_request_editor_playtest(EDITOR_PLAYTEST_LEVEL_NUMBER);
                     editor_close();
                 }
@@ -926,16 +1229,29 @@ void editor_dialogs_open_open_map(void)
 void editor_dialogs_open_save_as(void)
 {
     s_save_as_format = 0;
-    strncpy(s_save_as_dir, editor_current_save_dir(), sizeof(s_save_as_dir) - 1);
+    snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", editor_current_save_dir());
     s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
     s_save_as_lvnum = (int)editor_current_lvnum();
-    strncpy(s_save_as_name, editor_current_level_name(), sizeof(s_save_as_name) - 1);
+    if (editor_current_lvnum() == EDITOR_SCRATCH_LEVEL_NUMBER)
+    {
+        // A map that was never saved goes into the Editor Maps mappack by default.
+        snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", editor_maps_dir().c_str());
+        s_save_as_lvnum = (int)editor_maps_next_free_number(s_save_as_dir);
+    }
+    snprintf(s_save_as_name, sizeof(s_save_as_name), "%s", editor_current_level_name());
     s_save_as_name[sizeof(s_save_as_name) - 1] = '\0';
     s_show_save_as = true;
 }
 
 void editor_dialogs_save_now(void)
 {
+    // An untitled new map has nowhere to be saved yet: ask (the dialog offers
+    // the Editor Maps folder and the next free number).
+    if (editor_current_lvnum() == EDITOR_SCRATCH_LEVEL_NUMBER)
+    {
+        editor_dialogs_open_save_as();
+        return;
+    }
     // Reuses the session's own current name/players/is_multiplayer -- a
     // plain Save must not blank out settings Save As/Level Settings already
     // set (or ones read back from an existing .lof when the session
@@ -961,13 +1277,17 @@ void editor_dialogs_request_exit(void)
 
 void editor_dialogs_open_level_settings(void)
 {
-    strncpy(s_level_settings_name, editor_current_level_name(), sizeof(s_level_settings_name) - 1);
+    snprintf(s_level_settings_name, sizeof(s_level_settings_name), "%s", editor_current_level_name());
     s_level_settings_name[sizeof(s_level_settings_name) - 1] = '\0';
     s_level_settings_players = editor_current_level_players();
     s_level_settings_multiplayer = editor_current_level_is_multiplayer() != 0;
-    strncpy(s_level_settings_description, editor_current_level_description(), sizeof(s_level_settings_description) - 1);
+    snprintf(s_level_settings_description, sizeof(s_level_settings_description), "%s", editor_current_level_description());
     s_level_settings_description[sizeof(s_level_settings_description) - 1] = '\0';
+    snprintf(s_level_settings_author, sizeof(s_level_settings_author), "%s", editor_current_level_author());
+    s_level_settings_author[sizeof(s_level_settings_author) - 1] = '\0';
     s_level_settings_texture_id = (int)kfx_config_state.texture_id;
+    s_resize_w = (int)kfx_sim_state.map_tiles_x;
+    s_resize_h = (int)kfx_sim_state.map_tiles_y;
     // docs/refactor/editor/05-script-and-level-settings.md §4.2 -- read
     // back from whatever managed region the current script already has
     // (all-zero/empty pool for a level that's never had this Applied
@@ -976,12 +1296,15 @@ void editor_dialogs_open_level_settings(void)
     // s_level_settings_players is already set above, in time to size
     // start_money/max_creatures correctly for parse.
     {
-        std::string managed_body = editor_script_extract_managed_region(editor_current_level_script_text());
-        ManagedSetupValues managed_values = editor_script_parse_managed_setup(managed_body, s_level_settings_players);
+        std::string managed_body = script_setup_extract_region(editor_current_level_script_text());
+        ManagedSetupValues managed_values = script_setup_parse(managed_body, s_level_settings_players,
+            script_setup_level_version(editor_current_level_script_text()));
         s_level_settings_generate_speed = managed_values.generate_speed;
         s_level_settings_start_money = managed_values.start_money;
         s_level_settings_max_creatures = managed_values.max_creatures;
         s_level_settings_creature_pool = managed_values.creature_pool;
+        s_level_settings_rules = managed_values.rules;
+        s_win_var_names = collect_win_var_names(s_level_settings_rules);
     }
     s_show_level_settings = true;
 }
@@ -996,6 +1319,25 @@ void editor_dialogs_open_verify_map(void)
     MapContent content;
     editor_snapshot_current_map(content);
     s_verify_issues = verify_map_content(content);
+    // The script's own problems (unknown commands, unclosed IF) belong in the
+    // same report; they carry no map position.
+    for (const ScriptIssue &si : editor_script_validate_engine(content.script_text))
+    {
+        MapVerifyIssue issue;
+        issue.severity = (si.severity == ScrIssue_Error) ? MVI_Error : MVI_Warn;
+        issue.message = "Script line " + std::to_string(si.line + 1) + ": " + si.message;
+        s_verify_issues.push_back(issue);
+    }
+    if (content.has_lua)
+    {
+        for (const ScriptIssue &si : editor_lua_validate_engine(content.lua_text, editor_current_save_dir()))
+        {
+            MapVerifyIssue issue;
+            issue.severity = (si.severity == ScrIssue_Error) ? MVI_Error : MVI_Warn;
+            issue.message = "Lua line " + std::to_string(si.line + 1) + ": " + si.message;
+            s_verify_issues.push_back(issue);
+        }
+    }
     s_show_verify_map = true;
 }
 
@@ -1005,6 +1347,8 @@ void editor_dialogs_frame(void)
     draw_open_map_dialog();
     draw_save_as_dialog();
     draw_overwrite_confirm();
+    draw_sidecar_confirm();
+    draw_resize_confirm();
     draw_level_settings_dialog();
     draw_playtest_confirm();
     draw_verify_map_dialog();

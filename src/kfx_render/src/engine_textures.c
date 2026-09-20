@@ -131,21 +131,21 @@ static char *prepare_letter_one_file_path_for_mod(unsigned long tmapidx, char le
 
     if (mod_state->cmpg_lvls)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05lu.tmap%c%03d.dat", (unsigned long)lvnum, letter, tmapidx);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05lu.tmap%c%03lu.dat", (unsigned long)lvnum, letter, tmapidx);
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
 
     if (mod_state->cmpg_config)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgConfig, "tmap%c%03d.dat", letter, tmapidx);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgConfig, "tmap%c%03lu.dat", letter, tmapidx);
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
 
     if (mod_state->std_data)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_StdData, "tmap%c%03d.dat", letter, tmapidx);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_StdData, "tmap%c%03lu.dat", letter, tmapidx);
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
@@ -181,7 +181,7 @@ static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, Le
             return fname;
     }
 
-    fname = prepare_file_fmtpath(fgroup, "map%05lu.tmap%c%03d.dat",(unsigned long)lvnum, letter, tmapidx);
+    fname = prepare_file_fmtpath(fgroup, "map%05lu.tmap%c%03lu.dat",(unsigned long)lvnum, letter, tmapidx);
     if (LbFileExists(fname))
         return fname;
 
@@ -192,7 +192,7 @@ static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, Le
             return fname;
     }
 
-    fname = prepare_file_fmtpath(FGrp_CmpgConfig, "tmap%c%03d.dat", letter, tmapidx);
+    fname = prepare_file_fmtpath(FGrp_CmpgConfig, "tmap%c%03lu.dat", letter, tmapidx);
     if (LbFileExists(fname))
         return fname;
 
@@ -203,8 +203,14 @@ static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, Le
             return fname;
     }
 
-    fname = prepare_file_fmtpath(FGrp_StdData, "tmap%c%03d.dat", letter, tmapidx);
+    fname = prepare_file_fmtpath(FGrp_StdData, "tmap%c%03lu.dat", letter, tmapidx);
     return fname;
+}
+
+TbBool texture_pack_available(unsigned long tmapidx, LevelNumber lvnum, short fgroup)
+{
+    char* fname = prepare_letter_one_file_path(tmapidx, 'a', lvnum, fgroup);
+    return (fname != NULL) && LbFileExists(fname);
 }
 
 static TbBool load_letter_one_file(unsigned long tmapidx, char letter, void *dst, LevelNumber lvnum, short fgroup)

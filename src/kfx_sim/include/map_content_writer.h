@@ -78,6 +78,10 @@ protected:
     // script_text is empty (a genuinely new map, or nothing was read), so a
     // reload's later load_script() step still has something valid to find.
     bool write_script(const MapContent &content, const char *dir, LevelNumber lvnum);
+    // fx-plans/02-lua-scripts.md L1 -- writes lua_text verbatim when has_lua,
+    // and removes a stale map%05lu.lua when the map has none, so a Save As
+    // over an existing number can't leave a foreign Lua script running.
+    bool write_lua(const MapContent &content, const char *dir, LevelNumber lvnum);
     // docs/refactor/editor/phase3/03-slice4-file-dialogs.md -- .lof
     // (NAME_TEXT/KIND/PLAYERS) is format-independent (a KFX-editor
     // auto-discovery/metadata sidecar, not part of either map-data format
@@ -98,6 +102,15 @@ protected:
     // warning if the name field comes back empty.
     bool write_lif(const MapContent &content, const char *dir, LevelNumber lvnum);
 
+    // Files the *other* format leaves behind. The loader prefers the KeeperFX
+    // .tngfx/.lgtfx/.aptfx and any existing .clm/.dat/.wib, so a stale copy from
+    // an earlier save in the other format would silently override this save.
+    // Called after a successful write.
+    virtual void remove_stale_files(const char *dir, LevelNumber lvnum) = 0;
+
+    // No-op in the base class; the classic writer writes .clm/.dat/.wib.
+    virtual bool write_derived_data(const MapContent &content, const char *dir, LevelNumber lvnum);
+
     virtual bool write_things(const MapContent &content, const char *dir, LevelNumber lvnum) = 0;
     virtual bool write_lights(const MapContent &content, const char *dir, LevelNumber lvnum) = 0;
     virtual bool write_action_points(const MapContent &content, const char *dir, LevelNumber lvnum) = 0;
@@ -112,6 +125,7 @@ protected:
 class KfxNativeMapContentWriter : public MapContentWriter
 {
 protected:
+    void remove_stale_files(const char *dir, LevelNumber lvnum) override;
     bool write_things(const MapContent &content, const char *dir, LevelNumber lvnum) override;
     bool write_lights(const MapContent &content, const char *dir, LevelNumber lvnum) override;
     bool write_action_points(const MapContent &content, const char *dir, LevelNumber lvnum) override;
@@ -129,6 +143,8 @@ protected:
 class ClassicMapContentWriter : public MapContentWriter
 {
 protected:
+    void remove_stale_files(const char *dir, LevelNumber lvnum) override;
+    bool write_derived_data(const MapContent &content, const char *dir, LevelNumber lvnum) override;
     bool write_things(const MapContent &content, const char *dir, LevelNumber lvnum) override;
     bool write_lights(const MapContent &content, const char *dir, LevelNumber lvnum) override;
     bool write_action_points(const MapContent &content, const char *dir, LevelNumber lvnum) override;

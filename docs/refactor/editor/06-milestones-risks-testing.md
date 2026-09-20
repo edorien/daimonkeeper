@@ -1,6 +1,11 @@
 # Phase 6 — MVP cut line, sequencing, risks, testing, packaging
 
-Status: **not started.** Cross-cutting. Read alongside 00–05.
+Status: **historical -- the MVP and everything after it is built.** What was actually built,
+slice by slice, is in `phase3`-`phase6`; what remains (and what was found later) is tracked in
+[`fx-plans/00-audit-and-index.md`](fx-plans/00-audit-and-index.md). The testing strategy below was
+largely followed: Catch2 for pure logic (`kfx_sim`/`kfx_editor` tests) and the `editor_*` ftests
+(`src/ftests/tests/ftest_editor_*.cpp`) for stock-map round trips, the frozen-sim invariant, strokes,
+undo and Preview. Read alongside 00–05.
 
 ---
 

@@ -119,26 +119,11 @@ static TbBool editor_rect_drag_update(PlayerNumber plyr_idx, struct Packet *pckt
 static void editor_apply_slab_rect(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y,
     MapSlabCoord box_end_x, MapSlabCoord box_end_y, SlabKind kind, PlayerNumber owner)
 {
-    TbBool animated = slab_kind_is_animated(kind);
     for (MapSlabCoord sy = box_beg_y; sy <= box_end_y; sy++)
     {
         for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
         {
-            MapSubtlCoord tile_stl_x = slab_subtile(sx, 0);
-            MapSubtlCoord tile_stl_y = slab_subtile(sy, 0);
-            if (subtile_is_room(tile_stl_x, tile_stl_y))
-            {
-                delete_room_slab(sx, sy, true);
-            }
-            if (animated)
-            {
-                place_animating_slab_type_on_map(kind, 0, tile_stl_x, tile_stl_y, owner);
-            }
-            else
-            {
-                place_slab_type_on_map(kind, tile_stl_x, tile_stl_y, owner, 0);
-            }
-            do_slab_efficiency_alteration(sx, sy);
+            place_slab_type_replacing_room(kind, sx, sy, owner);
         }
     }
 }
@@ -245,18 +230,10 @@ static void editor_set_owner_rect(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y
     {
         for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
         {
-            MapSubtlCoord tile_stl_x = slab_subtile(sx, 0);
-            MapSubtlCoord tile_stl_y = slab_subtile(sy, 0);
             struct SlabMap *slb = get_slabmap_block(sx, sy);
             if (slab_kind_has_no_ownership(slb->kind))
                 continue;
-            SlabKind kind = slb->kind;
-            if (subtile_is_room(tile_stl_x, tile_stl_y))
-            {
-                delete_room_slab(sx, sy, true);
-            }
-            place_slab_type_on_map(kind, tile_stl_x, tile_stl_y, owner, 0);
-            do_slab_efficiency_alteration(sx, sy);
+            place_slab_type_replacing_room(slb->kind, sx, sy, owner);
         }
     }
 }
@@ -1055,7 +1032,8 @@ TbBool packets_process_cheats(
             // there's nothing here that *must* be checked before placing.
             player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
             tag_cursor_blocks_place_trap(plyr_idx, stl_x, stl_y, ustate->chosen_trap_kind);
-            if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0))
+            if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0)
+                && thing_is_invalid(find_base_thing_on_mapwho(TCls_Trap, 0, stl_x, stl_y))) // one trap per subtile
             {
                 set_packet_action(pckt, PckA_EditorPlaceTrap, ustate->chosen_trap_kind, ustate->cheatselection.chosen_player, 0, 0);
             }
@@ -1088,15 +1066,17 @@ TbBool packets_process_cheats(
                 // failing anyway, since a slab already occupied by a door
                 // can still pass find_door_angle()) to place a second one
                 // on top of it.
-                struct Thing *doortng = find_base_thing_on_mapwho(TCls_Door, 0, stl_x, stl_y);
+                // A door sits on its slab's centre subtile, wherever the click landed.
+                struct Thing *doortng = find_base_thing_on_mapwho(TCls_Door, 0, slab_subtile(subtile_slab(stl_x), 1), slab_subtile(subtile_slab(stl_y), 1));
                 TbBool ctrl_held = (net_callbacks->is_key_pressed(KC_LCONTROL, KMod_DONTCARE) != 0)
                     || (net_callbacks->is_key_pressed(KC_RCONTROL, KMod_DONTCARE) != 0);
                 if (ctrl_held && !thing_is_invalid(doortng))
                 {
                     set_packet_action(pckt, PckA_EditorToggleDoorLock, doortng->index, 0, 0, 0);
                 }
-                else if (allowed)
+                else if (allowed && thing_is_invalid(doortng))
                 {
+                    // Never a second door on a square that already has one.
                     set_packet_action(pckt, PckA_EditorPlaceDoor, ustate->chosen_door_kind, ustate->cheatselection.chosen_player, 0, 0);
                 }
             }
@@ -1260,59 +1240,6 @@ TbBool process_user_global_cheats_packet_action(NetUserId user, struct Packet* p
             ustate->chosen_door_kind = pckt->actn_par1;
             return false;
         }
-      case PckA_EditorEyedropperTerrain:
-        {
-            // §2.10. kfx_editor already resolved the sampled slab's kind
-            // and owner client-side (screen_to_map() + a direct
-            // get_slabmap_block()/slabmap_owner() read, same "read world
-            // truth directly" precedent as handle_object_placement_click())
-            // -- no world position needed here, just apply both atomically,
-            // same shape as PckA_CheatSwitchTerrain but also syncing owner
-            // in the same action so the two can't fall out of sync from a
-            // single click (only one action fits the per-turn packet slot).
-            ustate->cheatselection.chosen_terrain_kind = pckt->actn_par1;
-            ustate->cheatselection.chosen_player = pckt->actn_par2;
-            return false;
-        }
-        case PckA_EditorEyedropperThing:
-        {
-            // docs/refactor/editor/09-toolbox-remainder.md §1. kfx_editor
-            // already resolved which thing was under the cursor and its
-            // class/model/owner client-side (same get_creature_near()/
-            // get_nearest_thing_at_position() detection Query's own
-            // handle_query_click() uses) -- just write the sampled value
-            // into whichever server-side field the matching picker reads,
-            // same shape as PckA_EditorEyedropperTerrain above. A hero
-            // creature (owner PLAYER_GOOD) only updates chosen_hero_kind --
-            // PLAYER_GOOD isn't a selectable dungeon owner, so chosen_player
-            // stays whatever the bottom bar already had it at.
-            ThingClass sampled_class = (ThingClass)pckt->actn_par1;
-            PlayerNumber sampled_owner = (PlayerNumber)pckt->actn_par2;
-            ThingModel sampled_model = (ThingModel)pckt->actn_par3;
-            switch (sampled_class)
-            {
-                case TCls_Creature:
-                    if (sampled_owner == PLAYER_GOOD)
-                        ustate->cheatselection.chosen_hero_kind = sampled_model;
-                    else
-                    {
-                        ustate->cheatselection.chosen_creature_kind = sampled_model;
-                        ustate->cheatselection.chosen_player = sampled_owner;
-                    }
-                    break;
-                case TCls_Trap:
-                    ustate->chosen_trap_kind = sampled_model;
-                    ustate->cheatselection.chosen_player = sampled_owner;
-                    break;
-                case TCls_Door:
-                    ustate->chosen_door_kind = sampled_model;
-                    ustate->cheatselection.chosen_player = sampled_owner;
-                    break;
-                default:
-                    break;
-            }
-            return false;
-        }
         case PckA_CheatAllDoors:
         {
             make_available_all_doors(plyr_idx);
@@ -1417,7 +1344,7 @@ TbBool process_user_global_cheats_packet_action(NetUserId user, struct Packet* p
 // (matches the original editor's own flood-fill rule). Iterative BFS with
 // static (not stack-allocated, not recursive) queue/visited buffers sized
 // to the largest possible map, so a large flood can't stack-overflow.
-static void editor_flood_fill_terrain(MapSlabCoord seed_x, MapSlabCoord seed_y, SlabKind target_kind, PlayerNumber owner)
+void editor_flood_fill_terrain(MapSlabCoord seed_x, MapSlabCoord seed_y, SlabKind target_kind, PlayerNumber owner)
 {
     static MapSlabCoord queue_x[MAX_TILES_X * MAX_TILES_Y];
     static MapSlabCoord queue_y[MAX_TILES_X * MAX_TILES_Y];
@@ -1489,15 +1416,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             stl_y = coord_subtile(y);
             slb_x = subtile_slab(stl_x);
             slb_y = subtile_slab(stl_y);
-            if (slab_kind_is_animated(pckt->actn_par1))
-            {
-                place_animating_slab_type_on_map(pckt->actn_par1, 0, stl_x, stl_y, pckt->actn_par2);
-            }
-            else
-            {
-                place_slab_type_on_map(pckt->actn_par1, stl_x, stl_y, pckt->actn_par2, 0);
-            }
-            do_slab_efficiency_alteration(slb_x, slb_y);
+            place_slab_type_replacing_room(pckt->actn_par1, slb_x, slb_y, pckt->actn_par2);
             break;
         }
         case PckA_EditorFloodFill:
@@ -1571,7 +1490,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             y = (pckt->pos_y);
             stl_x = coord_subtile(x);
             stl_y = coord_subtile(y);
-            if (player_place_trap_without_check_at(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true))
+            if (player_place_trap_at_subtile_without_check(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true))
             {
                 // §4 -- player_place_trap_without_check_at() returns only a
                 // TbBool, not the created thing, so re-find it by the
@@ -1597,8 +1516,12 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             stl_y = coord_subtile(y);
             if (player_place_door_without_check_at(stl_x, stl_y, pckt->actn_par2, pckt->actn_par1, true))
             {
-                // §4 -- same "returns only a TbBool" gap as Trap above.
-                thing = find_base_thing_on_mapwho(TCls_Door, 0, stl_x, stl_y);
+                // §4 -- same "returns only a TbBool" gap as Trap above. A door
+                // sits on its slab's centre subtile, whichever subtile the
+                // click landed on -- looking at the clicked one missed it
+                // (so the placement was never journaled and Undo undid the
+                // previous edit instead).
+                thing = find_base_thing_on_mapwho(TCls_Door, 0, slab_subtile(subtile_slab(stl_x), 1), slab_subtile(subtile_slab(stl_y), 1));
                 if (!thing_is_invalid(thing))
                     // §4. Same ambient-position reasoning as Trap above.
                     editor_journal->record_placement(thing->index, PckA_EditorPlaceDoor,
@@ -1615,6 +1538,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             thing = thing_get(pckt->actn_par1);
             if (!thing_is_invalid(thing) && (thing->class_id == TCls_Door))
             {
+                editor_journal->record_door_lock(thing->index, thing->door.is_locked != 0);
                 if (thing->door.is_locked)
                     unlock_door(thing);
                 else
@@ -1841,7 +1765,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             // §4 -- Redo counterpart for PckA_EditorPlaceTrap.
             MapSubtlCoord redo_stl_x = coord_subtile(pckt->actn_par1);
             MapSubtlCoord redo_stl_y = coord_subtile(pckt->actn_par2);
-            if (player_place_trap_without_check_at(redo_stl_x, redo_stl_y, pckt->actn_par4, pckt->actn_par3, true))
+            if (player_place_trap_at_subtile_without_check(redo_stl_x, redo_stl_y, pckt->actn_par4, pckt->actn_par3, true))
             {
                 thing = find_base_thing_on_mapwho(TCls_Trap, pckt->actn_par3, redo_stl_x, redo_stl_y);
                 if (!thing_is_invalid(thing))
@@ -1857,7 +1781,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             MapSubtlCoord redo_stl_y = coord_subtile(pckt->actn_par2);
             if (player_place_door_without_check_at(redo_stl_x, redo_stl_y, pckt->actn_par4, pckt->actn_par3, true))
             {
-                thing = find_base_thing_on_mapwho(TCls_Door, 0, redo_stl_x, redo_stl_y);
+                thing = find_base_thing_on_mapwho(TCls_Door, 0, slab_subtile(subtile_slab(redo_stl_x), 1), slab_subtile(subtile_slab(redo_stl_y), 1));
                 if (!thing_is_invalid(thing))
                     editor_journal->record_placement(thing->index, PckA_EditorPlaceDoor,
                         pckt->actn_par3, pckt->actn_par4, 0, 0, pckt->actn_par1, pckt->actn_par2);

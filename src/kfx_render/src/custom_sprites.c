@@ -389,7 +389,7 @@ void show_ignored_fxdata_zip_messages(void)
 
 void load_sprites_for_multi_front(LevelNumber lvnum)
 {
-    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05lu.zip", lvnum);
+    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05d.zip", lvnum);
     if (LbFileExists(fname))
         load_file_sprites(fname, "lof map file", campaign_load_flags);
 }
@@ -427,7 +427,7 @@ static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *
 
     if (mod_state->cmpg_lvls)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05lu.zip", lvnum);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05d.zip", lvnum);
         if (strlen(fname) > 0 && LbFileExists(fname))
         {
             sprintf(desc, "Mod[%s] CmpgLvls file", mod_item->name);
@@ -585,7 +585,7 @@ void init_custom_sprites(LevelNumber lvnum)
         load_sprites_for_mod_list(lvnum, mods_conf.after_campaign_item, mods_conf.after_campaign_cnt, normal_load_flags);
     }
 
-    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05lu.zip", lvnum);
+    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05d.zip", lvnum);
     if (LbFileExists(fname))
         load_file_sprites(fname, "Main CmpgLvls file", normal_load_flags);
 
@@ -2944,6 +2944,18 @@ const struct TbSprite *get_panel_sprite(short sprite_idx)
         return get_sprite(custom_sprites, sprite_idx);
     }
     return &bad_icon;
+}
+
+TbBool is_panel_sprite_drawable(short sprite_idx)
+{
+    // Same branches as get_panel_sprite(), minus the &bad_icon fallback: true only when the index
+    // resolves to a real sprite right now (the base sheet has fewer than GUI_PANEL_SPRITES_COUNT
+    // entries, and custom icons only exist once their zips are loaded -- at level start).
+    if ((sprite_idx >= 0) && (sprite_idx < num_sprites(gui_panel_sprites))) {
+        return true;
+    }
+    sprite_idx -= GUI_PANEL_SPRITES_COUNT;
+    return (sprite_idx >= 0) && (sprite_idx < num_sprites(custom_sprites));
 }
 
 int is_custom_icon(short icon_idx)

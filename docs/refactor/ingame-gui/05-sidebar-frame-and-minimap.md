@@ -300,7 +300,7 @@ positions — safe to keep, just redirect the destination.
   the `render_overlay` seam.
 - **Screenshot / capture** — the minimap texture is composited at present time; stage 3's B1
   "capture includes the overlay" work needs to be done or the minimap is missing from screenshots
-  (`../renderer/03-gpu-renderer.md` §B1). Coordinate.
+  (`../renderer/gpu-v2/01-phase-b-2d-compositing.md` §B1). Coordinate.
 
 ## 5. Checklist
 

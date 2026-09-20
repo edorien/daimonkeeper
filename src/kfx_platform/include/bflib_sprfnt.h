@@ -21,6 +21,7 @@
 #define BFLIB_SPRFNT_H
 
 #include "bflib_basics.h"
+#include "compiler_compat.h"
 #include "globals.h"
 
 #ifdef __cplusplus
@@ -83,7 +84,7 @@ TbBool LbTextDrawResized(int posx, int posy, int units_per_px, const char *text)
 /** The text draw itself. LbTextDrawResized routes through the renderer first;
  *  the renderer calls this when it is time to actually put pixels down. */
 TbBool LbTextDrawResizedImmediate(int posx, int posy, int units_per_px, const char *text);
-TbBool LbTextDrawResizedFmt(int posx, int posy, int units_per_px, const char *fmt, ...);
+TbBool LbTextDrawResizedFmt(int posx, int posy, int units_per_px, const char *fmt, ...) KFX_PRINTF_FORMAT(4, 5);
 int LbTextHeight(const char *text);
 int LbTextLineHeight(void);
 int LbTextSetWindow(int posx, int posy, int width, int height);

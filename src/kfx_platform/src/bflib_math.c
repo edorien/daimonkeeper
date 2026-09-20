@@ -752,11 +752,11 @@ long LbMathOperation(unsigned char opkind, long first_operand, long second_opera
   }
 }
 
-unsigned long LbRandomSeries(unsigned long range, uint32_t *seed, const char *func_name, unsigned long place)
+uint32_t LbRandomSeries(uint32_t range, uint32_t *seed, const char *func_name, unsigned long place)
 {
   if (range == 0)
     return 0;
-  unsigned long i = 9377 * (*seed) + 9439;
+  uint32_t i = 9377 * (*seed) + 9439;
 #ifndef FUNCTESTING // don't modify seeds when functional testing is enabled
   *seed = (i >> 13) | (i << ((sizeof(int32_t) * 8) - 13));
 #endif // FUNCTESTING

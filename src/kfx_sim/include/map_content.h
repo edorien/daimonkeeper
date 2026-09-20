@@ -111,8 +111,10 @@ struct MapLevelInfo
     // was already a recognized .lof keyword and an existing
     // LevelInformation::description field (config_campaigns.h), just never
     // wired up on either the read or write side before this. AUTHOR has no
-    // equivalent LevelInformation field yet -- deferred, not added here.
+    // equivalent LevelInformation field until the editor's author item
+    // (fx-plans/00 A5) added LevelInformation::author.
     std::string description_text;
+    std::string author_text;
 };
 
 // The full snapshot: everything editor_save_map()'s KFX-native path
@@ -133,6 +135,15 @@ struct MapContent
     // zero). Sized map_tiles_x * map_tiles_y like slab_kind/slab_owner above.
     std::vector<unsigned char> slab_texture;
 
+    // The derived map files a classic (vanilla-compatible) save also carries,
+    // captured verbatim from the live session: .clm (column table), .dat
+    // (column index per subtile) and .wib (wibble per subtile). Empty means
+    // "not captured" and nothing is written: KeeperFX regenerates them from the
+    // slabs on load (regenerate_derived_map_data()), but other tools cannot.
+    std::vector<unsigned char> derived_clm;
+    std::vector<unsigned char> derived_dat;
+    std::vector<unsigned char> derived_wib;
+
     std::vector<MapThingRecord> things;
     std::vector<MapLightRecord> lights;
     std::vector<MapActionPointRecord> action_points;
@@ -147,6 +158,14 @@ struct MapContent
     // MapContentWriter::write_script() fall back to its own empty-script
     // stub rather than truncating a real script to nothing.
     std::string script_text;
+
+    // docs/refactor/editor/fx-plans/02-lua-scripts.md §3 -- the map's own
+    // map%05lu.lua, an opaque verbatim byte blob like script_text. has_lua
+    // separates "no file" from "empty file": the writer only creates a .lua
+    // when one existed or the user added one, and removes a stale one when
+    // the map has none.
+    std::string lua_text;
+    bool has_lua = false;
 
     long slab_index(long x, long y) const { return y * map_tiles_x + x; }
 };

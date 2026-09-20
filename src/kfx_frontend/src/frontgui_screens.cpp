@@ -2,6 +2,9 @@
 #include "frontgui_screens.h"
 #include "frontgui_ingame.h" // Phase 0: the in-game HUD/menu ImGui arm
 #include "frontgui_widgets.h"
+#include "frontgui_skirmish_setup.h" // Skirmish Setup tab (docs/refactor/skirmish/)
+#include "skirmish_setup.h"
+#include "main_game.h" // default_loc_player -- the Skirmish human slot
 #include "frontgui_deferred.h" // FeDeferredQueue
 #include "frontgui_offscreen.h" // FeOffscreenTarget -- land-preview raster capture
 #include "frontgui_style.h"
@@ -801,14 +804,14 @@ namespace {
                         finalize_high_score_entry(true);
                     ImGui::SameLine();
                     char scoretext[64];
-                    std::snprintf(scoretext, sizeof(scoretext), "%ld", hs->score);
+                    std::snprintf(scoretext, sizeof(scoretext), "%d", (int)hs->score);
                     ImGui::TextUnformatted(scoretext);
                     ImGui::PopID();
                 }
                 else
                 {
                     char label[160];
-                    std::snprintf(label, sizeof(label), "%2lu. %-24s %8ld", i + 1, hs->name, hs->score);
+                    std::snprintf(label, sizeof(label), "%2lu. %-24s %8d", i + 1, hs->name, (int)hs->score);
                     FeListRow(label, false);
                 }
             }
@@ -1382,23 +1385,65 @@ namespace {
 
         ImGui::SameLine();
         ImGui::BeginGroup();
-        // See frontgui_campaignselect_frame's own comment on the 0.75/0.20
-        // split -- same fixed-size-frame-decoration issue, same fix.
-        draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, content_h * 0.75f));
-        draw_select_detail_panel(nullptr, content_h * 0.20f); // no campaign-level fallback -- see draw_select_detail_panel's comment
+        if (is_skirmish)
+        {
+            // docs/refactor/skirmish/: Skirmish gets a tab bar -- the usual map
+            // preview/description, and a Setup tab (General / Availability /
+            // Win-Lose / Slots & AI) that customises the level's script setup.
+            // Free play keeps the plain layout below.
+            skirmish_setup_sync(freeplay_highlighted_level, default_loc_player);
+            const bool tabs_open = FeBeginTabBar("##SkirmishTabs");
+            const float tab_h = ImGui::GetFrameHeightWithSpacing();
+            const float body_h = content_h - tab_h;
+            if (tabs_open)
+            {
+                if (FeTab("Map"))
+                {
+                    draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, body_h * 0.75f));
+                    draw_select_detail_panel(nullptr, body_h * 0.20f);
+                    FeEndTab();
+                }
+                const std::string setup_label = std::string(skirmish_setup_is_changed() ? "Setup *" : "Setup") + "###SkirmishSetupTab";
+                if (FeTab(setup_label.c_str()))
+                {
+                    frontgui_skirmish_setup_draw(body_h);
+                    FeEndTab();
+                }
+            }
+            FeEndTabBar(tabs_open);
+        }
+        else
+        {
+            // See frontgui_campaignselect_frame's own comment on the 0.75/0.20
+            // split -- same fixed-size-frame-decoration issue, same fix.
+            draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, content_h * 0.75f));
+            draw_select_detail_panel(nullptr, content_h * 0.20f); // no campaign-level fallback -- see draw_select_detail_panel's comment
+        }
         ImGui::EndGroup();
 
         FeSeparator();
         // Return on the left, Play on the right -- see
         // frontgui_campaignselect_frame's own comment on this order.
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuReturnToMain].capstr_idx)))
+        {
+            if (is_skirmish)
+                skirmish_setup_forget();
             request_frontend_state(FeSt_MAIN_MENU);
+        }
         ImGui::SameLine();
+        const bool play_blocked = is_skirmish && skirmish_setup_play_blocked(freeplay_highlighted_level);
+        ImGui::BeginDisabled(play_blocked);
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuPlayLevel].capstr_idx)))
         {
             int next_state = frontend_freeplay_enter_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
+        }
+        ImGui::EndDisabled();
+        if (play_blocked)
+        {
+            ImGui::SameLine();
+            FeCaption(frontgui_skirmish_setup_status());
         }
         // Explicit breathing room below the button row -- see
         // frontgui_campaignselect_frame's own comment on this same fix.

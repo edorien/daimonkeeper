@@ -37,6 +37,9 @@ void setup_texture_block_mem(void);
 short init_animating_texture_maps(void);
 short update_animating_texture_maps(void);
 TbBool load_texture_map_file(unsigned long tmapidx, LevelNumber lvnum, short fgroup);
+/** True when a texture pack with this index can be found through the same search the loader uses
+ *  (level folder, campaign config, standard data, and the mods in between). */
+TbBool texture_pack_available(unsigned long tmapidx, LevelNumber lvnum, short fgroup);
 
 void scale_tmap2(long texture_block_index, long flags, long fade_level, long screen_x, long screen_y, long scaled_width, long scaled_height);
 void draw_texture(int32_t texture_x, int32_t texture_y, int32_t texture_width, int32_t texture_height, int32_t texture_block_index, int32_t flags, int32_t fade_level);

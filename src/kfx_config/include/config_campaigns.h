@@ -43,6 +43,7 @@ extern "C" {
 #define CAMPAIGN_FNAME_LEN           64
 #define CAMPAIGN_DESCRIPTION_LEN    256
 #define LEVEL_DESCRIPTION_LEN       256
+#define LEVEL_AUTHOR_LEN            64
 
 enum CreditsItemKind {
     CIK_None,
@@ -136,10 +137,22 @@ struct GameCampaign {
   char soundtrack_fname[DISKPATH_SIZE];
 };
 
+// Written verbatim to the campaign's high-score file (highscores.c), so the
+// layout is the file format: {score, name[64], lvnum} = 72 bytes/entry as in
+// the original game. `score` was a plain `long`, which made sizeof 80 on
+// 64-bit Linux (LP64) and rejected every 72-byte file written by Windows/Wine
+// (or the original game) as "bad", regenerating -- i.e. wiping -- the table.
+// Keep it (and lvnum) fixed-width; see highscores_test.cpp.
 struct HighScore {
-  long score;
+  int32_t score;
   char name[HISCORE_NAME_LENGTH];
   LevelNumber lvnum;
+};
+
+enum SkirmishSetupOption {
+  SkirmishSetup_Auto = 0, /**< not stated: the tab classifies the script itself */
+  SkirmishSetup_Allow,    /**< author says the tab may be used (no extra effect today) */
+  SkirmishSetup_Locked,   /**< author disables the tab for this level */
 };
 
 struct LevelInformation {
@@ -150,6 +163,7 @@ struct LevelInformation {
   char land_window[DISKPATH_SIZE];
   char name[LINEMSG_SIZE];
   char description[LEVEL_DESCRIPTION_LEN];
+  char author[LEVEL_AUTHOR_LEN];
   TextStringId name_stridx;
   long players;
   long ensign_x;
@@ -162,6 +176,8 @@ struct LevelInformation {
   unsigned short location;
   int mapsize_x;
   int mapsize_y;  
+  /** Author's say over the Skirmish setup tab (.lof SKIRMISH_SETUP): a SkirmishSetupOption. */
+  unsigned char skirmish_setup;
 };
 
 struct CampaignsList {
@@ -179,6 +195,7 @@ extern const enum TbFileGroups cmpgn_fgroup[CampgnT_COUNT];
 extern const char* cmpgn_prefix[CampgnT_COUNT];
 extern const struct NamedCommand cmpgn_map_commands[];
 extern const struct NamedCommand cmpgn_map_ensign_flag_options[];
+extern const struct NamedCommand cmpgn_map_skirmish_setup_options[];
 extern const struct NamedCommand cmpgn_map_cmnds_kind[];
 extern const struct NamedCommand cmpgn_human_player_options[];
 /******************************************************************************/

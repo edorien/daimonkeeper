@@ -22,4 +22,8 @@ class TextEditor;
 // language to `editor`; `enable` false removes colouring instead.
 void editor_script_syntax_apply(TextEditor &editor, bool enable);
 
+// Same for the Lua tab: the stock Lua language plus the KeeperFX API and
+// engine names as known identifiers.
+void editor_lua_syntax_apply(TextEditor &editor, bool enable);
+
 #endif

@@ -16,8 +16,9 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "editor_availability.h"
-#include "editor_script_managed.h"
+#include "script_setup.h"
 #include "kfx_editor.h"
+#include "editor_script.h"
 
 #include "frontgui_widgets.h"
 
@@ -88,7 +89,7 @@ const char *label_of(CellState s)
 
 void set_cell(int kind, int player, int item, CellState state)
 {
-    AvailabilityEntry *e = editor_availability_find(s_values, kind, player, item);
+    AvailabilityEntry *e = script_setup_availability_find(s_values, kind, player, item);
     if (state == Cell_Unset)
     {
         if (e != nullptr)
@@ -111,7 +112,7 @@ void set_cell(int kind, int player, int item, CellState state)
 
 void draw_kind_table(int kind)
 {
-    const struct NamedCommand *desc = editor_availability_desc(kind);
+    const struct NamedCommand *desc = script_setup_availability_desc(kind);
     int columns = 2 + s_players; // name, ALL, P0..
     if (ImGui::BeginChild("##AvailScroll", ImVec2(0, -40)))
     {
@@ -146,7 +147,7 @@ void draw_kind_table(int kind)
                     int player = c - 1; // column 1 == ALL (-1)
                     ImGui::TableSetColumnIndex(c + 1);
                     ImGui::PushID(item * 16 + c);
-                    CellState cur = state_of(kind, editor_availability_find(s_values, kind, player, item));
+                    CellState cur = state_of(kind, script_setup_availability_find(s_values, kind, player, item));
                     if (ImGui::Button(label_of(cur), ImVec2(56, 0)))
                         set_cell(kind, player, item, next_state(kind, cur));
                     ImGui::PopID();
@@ -165,8 +166,9 @@ void editor_dialogs_open_availability(void)
     s_players = editor_current_level_players();
     if (s_players < 1)
         s_players = 1;
-    s_values = editor_script_parse_managed_setup(
-        editor_script_extract_managed_region(editor_current_level_script_text()), s_players);
+    s_values = script_setup_parse(
+        script_setup_extract_region(editor_current_level_script_text()), s_players,
+        script_setup_level_version(editor_current_level_script_text()));
     s_show_availability = true;
 }
 
@@ -178,6 +180,7 @@ void editor_availability_frame(void)
     bool open = s_show_availability;
     if (ImGui::Begin("Availability", &open, ImGuiWindowFlags_NoSavedSettings))
     {
+        editor_lua_override_banner();
         FeBodyText("Click a cell to cycle: - (unset) > Avail > Rsrch > Off. ALL applies to every player; a P column overrides it.");
         bool tabs = FeBeginTabBar("##AvailTabs");
         if (tabs)
@@ -198,11 +201,13 @@ void editor_availability_frame(void)
         {
             // Re-parse the live block so the four Level Settings fields
             // (edited elsewhere) are preserved; only availability is ours.
-            ManagedSetupValues current = editor_script_parse_managed_setup(
-                editor_script_extract_managed_region(editor_current_level_script_text()), s_players);
+            ManagedSetupValues current = script_setup_parse(
+                script_setup_extract_region(editor_current_level_script_text()), s_players,
+                script_setup_level_version(editor_current_level_script_text()));
             current.availability = s_values.availability;
-            std::string body = editor_script_generate_managed_setup(current, s_players);
-            std::string script = editor_script_replace_managed_region(editor_current_level_script_text(), body);
+            std::string body = script_setup_generate(current, s_players,
+                script_setup_level_version(editor_current_level_script_text()));
+            std::string script = script_setup_replace_region(editor_current_level_script_text(), body);
             editor_set_current_level_script_text(script.c_str());
             editor_mark_dirty();
         }

@@ -171,6 +171,12 @@ const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
     {"EditorTerrainTool",     GUIStr_Empty,                   KC_T, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Terrain Tool", },     // Gkey_EditorTerrainTool,
     {"EditorQueryTool",       GUIStr_Empty,                   KC_Q, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Query Tool", },       // Gkey_EditorQueryTool,
     {"EditorEyedropperTool",  GUIStr_Empty,                   KC_E, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Eyedropper Tool", },  // Gkey_EditorEyedropperTool,
+    {"EditorFillTool",        GUIStr_Empty,                   KC_F, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Fill Tool", },        // Gkey_EditorFillTool,
+    {"EditorStampTool",       GUIStr_Empty,                   KC_B, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Stamp Tool", },       // Gkey_EditorStampTool,
+    {"EditorPointsTool",      GUIStr_Empty,                   KC_L, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Points Tool", },      // Gkey_EditorPointsTool,
+    {"EditorCreatureTool",    GUIStr_Empty,                   KC_C, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Creature Tool", },    // Gkey_EditorCreatureTool,
+    {"EditorThingTool",       GUIStr_Empty,                   KC_O, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Thing Tool", },       // Gkey_EditorThingTool,
+    {"EditorReinforceTool",   GUIStr_Empty,                   KC_N, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Reinforce Tool", },   // Gkey_EditorReinforceTool,
 };
 
 // Mirror engine_camera.h's camera zoom/tilt bounds, used here only as

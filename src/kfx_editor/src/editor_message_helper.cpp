@@ -59,6 +59,7 @@ extern "C" void editor_message_helper_frame(void)
     bool open = s_show;
     if (ImGui::Begin("Objective / Message", &open, ImGuiWindowFlags_NoSavedSettings))
     {
+        editor_lua_override_banner();
         FeCombo("Kind", &s_kind, kKindLabels, MsgKind_Count);
 
         ImGui::InputInt("Number (0-255)", &s_number);

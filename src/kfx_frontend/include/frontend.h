@@ -255,6 +255,9 @@ void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
 // still has to actually send the quit packet right after, same as
 // frontend_request_editor_relaunch()'s own contract.
 extern TbBool editor_pending_playtest;
+// Set while a playtest launched from the editor is running: when the game
+// ends, the frontend goes back to the editor (on the playtest's scratch level).
+extern TbBool editor_playtest_running;
 void frontend_request_editor_playtest(LevelNumber lvnum);
 
 enum IngameButtonDesignationIDs {

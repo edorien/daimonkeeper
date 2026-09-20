@@ -371,38 +371,33 @@ namespace {
         clear_selection();
     }
 
-    // Applies an edited snapshot over the selected point. Lights/effect
-    // generators are recreated (see file comment); action points are edited
-    // in place since nothing else refers to their slot.
-    void apply_edit(const EditorPointSnapshot &before, EditorPointSnapshot after)
+    // Edits point `before` into `after`, without UI: action points in place,
+    // lights and effect generators by delete + recreate (which gives them a
+    // new id, written back into `after`). Returns an error text, or NULL.
+    // Shared by the inspector and by undo/redo of an edit.
+    const char *replace_point(const EditorPointSnapshot &before, EditorPointSnapshot &after)
     {
-        editor_mark_dirty();
         if (before.kind == EPK_ActionPoint)
         {
             struct ActionPoint *apt = find_action_point(before.id);
             if (apt == NULL)
-                return;
+                return "That action point no longer exists.";
             if (after.id != before.id)
             {
                 struct ActionPoint *other = find_action_point(after.id);
                 if ((after.id <= 0) || (after.id > 65535) || (other != NULL))
-                {
-                    s_status = "That action point number is already in use (or invalid).";
-                    return;
-                }
+                    return "That action point number is already in use (or invalid).";
                 apt->num = (ActionPointNumber)after.id;
-                select_point(EPK_ActionPoint, after.id);
             }
             apt->mappos.x.val = (MapCoord)clamp_long(after.x, 0, 65535);
             apt->mappos.y.val = (MapCoord)clamp_long(after.y, 0, 65535);
             apt->range = (unsigned short)clamp_long(after.radius, 0, 65535);
-            s_status = "";
-            return;
+            return NULL;
         }
-        // Recreate. Try the new parameters first; if that fails (out of
-        // slots) put the original back so the edit never loses a point.
+        // Try the new parameters first; if that fails (out of slots) put
+        // the original back so the edit never loses a point.
         if (!editor_points_delete(&before))
-            return;
+            return "That point no longer exists.";
         after.id = 0;
         if (!editor_points_create(&after))
         {
@@ -412,11 +407,25 @@ namespace {
                 select_point(restore.kind, restore.id);
             else
                 clear_selection();
-            s_status = "Edit failed; no free slot for the recreated point.";
+            return "Edit failed; no free slot for the recreated point.";
+        }
+        return NULL;
+    }
+
+    // Applies an edited snapshot over the selected point, journaled as one
+    // undoable edit.
+    void apply_edit(const EditorPointSnapshot &before, EditorPointSnapshot after)
+    {
+        editor_mark_dirty();
+        const char *err = replace_point(before, after);
+        if (err != NULL)
+        {
+            s_status = err;
             return;
         }
         s_status = "";
         select_point(after.kind, after.id);
+        editor_journal_record_point_edit(&before, &after);
     }
 
     void draw_inspector()
@@ -686,6 +695,51 @@ extern "C" TbBool editor_points_create(struct EditorPointSnapshot *snap)
     }
 }
 
+extern "C" int editor_points_capture_in_box(long x0, long y0, long x1, long y1, struct EditorPointSnapshot *out, int max)
+{
+    refresh_owned_lights();
+    int n = 0;
+    for (long i = 1; i < LIGHTS_COUNT && n < max; i++)
+    {
+        EditorPointSnapshot snap;
+        if (read_point(EPK_Light, i, &snap) && snap.x >= x0 && snap.x < x1 && snap.y >= y0 && snap.y < y1)
+            out[n++] = snap;
+    }
+    for (ActionPointId i = 1; i < ACTN_POINTS_COUNT && n < max; i++)
+    {
+        const struct ActionPoint *apt = action_point_get(i);
+        if (!action_point_exists(apt))
+            continue;
+        EditorPointSnapshot snap;
+        if (read_point(EPK_ActionPoint, apt->num, &snap) && snap.x >= x0 && snap.x < x1 && snap.y >= y0 && snap.y < y1)
+            out[n++] = snap;
+    }
+    for (ThingIndex i = 1; i < THINGS_COUNT && n < max; i++)
+    {
+        EditorPointSnapshot snap;
+        if (read_point(EPK_EffectGen, i, &snap) && snap.x >= x0 && snap.x < x1 && snap.y >= y0 && snap.y < y1)
+            out[n++] = snap;
+    }
+    return n;
+}
+
+extern "C" TbBool editor_points_stamp(const struct EditorPointSnapshot *snap, long dx, long dy)
+{
+    EditorPointSnapshot copy = *snap;
+    copy.x += dx;
+    copy.y += dy;
+    if (copy.x < 0 || copy.y < 0)
+        return false;
+    if (copy.kind == EPK_ActionPoint)
+        copy.id = 0; // next free number: the copy must not steal the original's
+    if (copy.kind == EPK_Light)
+        copy.parent = 0; // a slab attachment refers to the original's slab
+    if (!editor_points_create(&copy))
+        return false;
+    editor_journal_record_point(true, &copy);
+    return true;
+}
+
 extern "C" TbBool editor_points_delete(const struct EditorPointSnapshot *snap)
 {
     refresh_owned_lights();
@@ -827,4 +881,14 @@ extern "C" void editor_points_frame(void)
 
     if (!io.WantCaptureKeyboard && (s_sel_kind >= 0) && ImGui::IsKeyPressed(ImGuiKey_Delete, false))
         delete_selected();
+}
+
+// Undo/redo of an inspector edit: turns the point `from` into `to` (writing a
+// recreated point's new id into `to`). False if `from` is no longer there.
+extern "C" TbBool editor_points_replace(const struct EditorPointSnapshot *from, struct EditorPointSnapshot *to)
+{
+    const char *err = replace_point(*from, *to);
+    if (err == NULL)
+        select_point(to->kind, to->id);
+    return err == NULL;
 }

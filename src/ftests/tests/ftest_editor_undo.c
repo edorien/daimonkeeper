@@ -12,6 +12,10 @@
 #include "player_instances.h"
 #include "thing_list.h"
 #include "kfx_editor.h"
+#include "editor_journal.h"
+#include "map_blocks.h"
+#include "slab_data.h"
+#include "config_terrain.h"
 
 #include "post_inc.h"
 
@@ -58,6 +62,9 @@ FTestActionResult ftest_editor_undo_action004__undo(struct FTestActionArgs* cons
 FTestActionResult ftest_editor_undo_action005__assert_undone(struct FTestActionArgs* const args);
 FTestActionResult ftest_editor_undo_action006__redo(struct FTestActionArgs* const args);
 FTestActionResult ftest_editor_undo_action007__assert_redone(struct FTestActionArgs* const args);
+FTestActionResult ftest_editor_undo_action008__place_door(struct FTestActionArgs* const args);
+FTestActionResult ftest_editor_undo_action009__assert_door_then_undo(struct FTestActionArgs* const args);
+FTestActionResult ftest_editor_undo_action010__assert_door_undone(struct FTestActionArgs* const args);
 
 TbBool ftest_editor_undo_init()
 {
@@ -68,6 +75,9 @@ TbBool ftest_editor_undo_init()
     ftest_append_action(ftest_editor_undo_action005__assert_undone, 0, &ftest_editor_undo__vars);
     ftest_append_action(ftest_editor_undo_action006__redo, 0, &ftest_editor_undo__vars);
     ftest_append_action(ftest_editor_undo_action007__assert_redone, 0, &ftest_editor_undo__vars);
+    ftest_append_action(ftest_editor_undo_action008__place_door, 0, &ftest_editor_undo__vars);
+    ftest_append_action(ftest_editor_undo_action009__assert_door_then_undo, 0, &ftest_editor_undo__vars);
+    ftest_append_action(ftest_editor_undo_action010__assert_door_undone, 0, &ftest_editor_undo__vars);
     return true;
 }
 
@@ -211,6 +221,72 @@ FTestActionResult ftest_editor_undo_action007__assert_redone(struct FTestActionA
         return FTRs_Go_To_Next_Action;
     }
 
+    return FTRs_Go_To_Next_Action;
+}
+
+// Undoing a door placement (what the toolbox's Undo button does) must leave the
+// owner's claimed path -- not rock. A corridor gives the door a valid orientation.
+#define DOOR_SLB_X 30
+#define DOOR_SLB_Y 80
+
+FTestActionResult ftest_editor_undo_action008__place_door(struct FTestActionArgs* const args)
+{
+    struct ftest_editor_undo__variables* const vars = args->data;
+    for (int k = -1; k <= 1; k++)
+    {
+        place_slab_type_on_map(SlbT_ROCK, slab_subtile(DOOR_SLB_X + k, 0), slab_subtile(DOOR_SLB_Y - 1, 0), vars->owner, 0);
+        place_slab_type_on_map(SlbT_ROCK, slab_subtile(DOOR_SLB_X + k, 0), slab_subtile(DOOR_SLB_Y + 1, 0), vars->owner, 0);
+    }
+    for (int k = -1; k <= 1; k++)
+        place_slab_type_on_map(SlbT_CLAIMED, slab_subtile(DOOR_SLB_X + k, 0), slab_subtile(DOOR_SLB_Y, 0), vars->owner, 0);
+    for (int k = -2; k <= 2; k++)
+        for (int m = -2; m <= 2; m++)
+            do_slab_efficiency_alteration(DOOR_SLB_X + k, DOOR_SLB_Y + m);
+    struct Coord3d pos;
+    set_coords_to_slab_center(&pos, DOOR_SLB_X, DOOR_SLB_Y);
+    struct PlayerInfo* player = get_player(vars->owner);
+    set_players_packet_action(player, PckA_EditorRedoDoor, pos.x.val, pos.y.val, 1, vars->owner);
+    vars->poll_count = 0;
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult ftest_editor_undo_action009__assert_door_then_undo(struct FTestActionArgs* const args)
+{
+    struct ftest_editor_undo__variables* const vars = args->data;
+    struct Thing* door = find_base_thing_on_mapwho(TCls_Door, 0, slab_subtile(DOOR_SLB_X, 1), slab_subtile(DOOR_SLB_Y, 1));
+    if (thing_is_invalid(door))
+    {
+        if (++vars->poll_count > 40)
+        {
+            FTEST_FAIL_TEST("Door never appeared at slab (%d,%d)", DOOR_SLB_X, DOOR_SLB_Y);
+            return FTRs_Go_To_Next_Action;
+        }
+        return FTRs_Repeat_Current_Action;
+    }
+    editor_journal_do_undo(); // the toolbox's Undo button
+    vars->poll_count = 0;
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult ftest_editor_undo_action010__assert_door_undone(struct FTestActionArgs* const args)
+{
+    struct ftest_editor_undo__variables* const vars = args->data;
+    struct Thing* door = find_base_thing_on_mapwho(TCls_Door, 0, slab_subtile(DOOR_SLB_X, 1), slab_subtile(DOOR_SLB_Y, 1));
+    if (!thing_is_invalid(door))
+    {
+        if (++vars->poll_count > 40)
+        {
+            FTEST_FAIL_TEST("The door is still there after Undo");
+            return FTRs_Go_To_Next_Action;
+        }
+        return FTRs_Repeat_Current_Action;
+    }
+    const struct SlabMap* slb = get_slabmap_block(DOOR_SLB_X, DOOR_SLB_Y);
+    if (slb->kind != SlbT_CLAIMED || slabmap_owner(slb) != vars->owner)
+    {
+        FTEST_FAIL_TEST("Undoing a door placement left slab kind %d, owner %d; expected the claimed path (%d) owned by %d",
+            (int)slb->kind, (int)slabmap_owner(slb), (int)SlbT_CLAIMED, (int)vars->owner);
+    }
     return FTRs_Go_To_Next_Action;
 }
 

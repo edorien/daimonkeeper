@@ -38,6 +38,10 @@ void recompute_rooms_count_in_dungeons(void);
 void process_rooms(void);
 
 TbBool delete_room_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, TbBool is_destroyed);
+/** Paints a slab the way the level editor needs: any room on it is deleted, and when the new kind is
+ *  a room the slab first goes back to plain earth, so the room is built on clean ground. Painting a
+ *  room over an existing room otherwise left the middle of the area purple. */
+void place_slab_type_replacing_room(SlabKind slbkind, MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber owner);
 TbBool replace_slab_from_script(MapSlabCoord slb_x, MapSlabCoord slb_y, unsigned char slabkind);
 void change_slab_owner_from_script(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);
 TbBool check_and_asimilate_thing_by_room(struct Thing *thing);

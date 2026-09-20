@@ -328,6 +328,8 @@ TbBool unlock_cursor_when_game_paused(void);
 TbBool lock_cursor_in_possession(void);
 TbBool use_relative_mouse_mode(void);
 TbBool ingame_gui_use_classic_hud(void);
+/** While set, ingame_gui_use_classic_hud() reports false regardless of GUI_ICON_PACK (the editor forces the ImGui HUD). */
+void ingame_gui_force_imgui_hud(TbBool force);
 TbBool pause_music_when_game_paused(void);
 TbBool mute_audio_on_focus_lost(void);
 // Had real external linkage but no header declaration at all; added

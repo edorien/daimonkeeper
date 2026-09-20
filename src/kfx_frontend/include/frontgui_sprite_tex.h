@@ -26,6 +26,17 @@ void *FeSpriteTexture(short sprite_idx, int *out_w, int *out_h);
 // by the in-game message queue's per-type icons.
 void *FeGuiPanelTexture(short sprite_idx, int *out_w, int *out_h);
 
+// True when FeGuiPanelTexture() can produce a real picture for this panel sprite right now: the in-game
+// sheet has it, or -- in the menu, where that sheet is not loaded -- the base sheet has it (custom
+// campaign/mod icons never do until a level has loaded their zips). Use it to fall back to a text tile
+// instead of the engine's magenta checkerboard placeholder.
+bool FeGuiPanelSpriteAvailable(short sprite_idx);
+
+// Drops the menu's private copy of the panel sheet (loaded lazily by FeGuiPanelTexture() when the
+// in-game sheet is absent). Normally unnecessary -- it is released automatically once the in-game sheet
+// exists -- but lets a caller (and tests) return to the "nothing loaded" state.
+void FeGuiPanelReleaseMenuSheet();
+
 // A menu button drawn as a GUI sprite icon, with an optional localized text
 // label to the icon's right (label == nullptr -> icon only). Mirrors
 // fe_text_button()'s behaviour: transparent hit box, blood-red highlight

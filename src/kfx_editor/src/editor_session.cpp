@@ -14,6 +14,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "kfx_editor.h"
+#include "frontend.h" // EDITOR_PLAYTEST_LEVEL_NUMBER -- playtest return
 #include "editor_toolbox.h"
 #include "editor_journal.h"
 #include "editor_menubar.h"
@@ -24,6 +25,7 @@
 #include "editor_message_helper.h"
 #include "editor_command_browser.h"
 #include "editor_points.h"
+#include "editor_thumbs.h"
 
 #include "kfx_sim_state.h"
 #include "player_data.h"
@@ -36,9 +38,12 @@
 #include "config_trapdoor.h" // make_available_all_doors/traps
 #include "config_terrain.h" // make_all_rooms_free/make_available_all_researchable_rooms
 #include "config_magic.h" // make_all_powers_cost_free/make_available_all_researchable_powers
-#include "config_keeperfx.h" // Ft_SkipHeartZoom
+#include "config_keeperfx.h" // Ft_SkipHeartZoom, ingame_gui_force_imgui_hud
+#include "engine_redraw.h" // setup_engine_window
+#include "bflib_video.h" // MyScreenWidth/MyScreenHeight
 #include "config.h" // get_level_fgroup/prepare_file_fmtpath -- editor_level_save_dir()
 #include "config_campaigns.h" // struct LevelInformation, get_level_info()
+#include "editor_lua_support.h"
 #include "bflib_fileio.h" // LbFileLength -- read_level_script_text()
 #include "bflib_dernc.h" // LbFileLoadAt -- read_level_script_text()
 #include "frontgui_widgets.h"
@@ -72,6 +77,7 @@ namespace {
     // was already a recognized .lof keyword and an existing
     // LevelInformation::description field, just never wired to anything.
     char s_editor_level_description[LEVEL_DESCRIPTION_LEN] = "";
+    char s_editor_level_author[LEVEL_AUTHOR_LEN] = "";
     // docs/refactor/editor/05-script-and-level-settings.md §0 -- read once
     // in editor_open() (direct disk read, independent of whatever
     // kfx_script's own live-parsed representation of the script looks
@@ -80,6 +86,10 @@ namespace {
     // destroying it. Editable mid-session via editor_set_current_level_
     // script_text() (§4.1's script text editor Apply action).
     std::string s_editor_script_text;
+    // fx-plans/02-lua-scripts.md L1 -- same idea for map%05lu.lua.
+    std::string s_editor_lua_text;
+    bool s_editor_has_lua = false;
+    bool s_new_map_lua = false;
 
     // Direct disk read of a level's own map%05lu.txt, independent of
     // MapContentReader (that class snapshots a *saved* map's files for
@@ -87,10 +97,10 @@ namespace {
     // file into a string before the editor might overwrite it). Missing
     // file -> empty string, same "nothing to preserve" convention
     // MapContentReader::read_script() (kfx_sim) uses.
-    std::string read_level_script_text(const char *dir, LevelNumber lvnum)
+    std::string read_level_text_file(const char *dir, LevelNumber lvnum, const char *ext)
     {
         char path[600];
-        snprintf(path, sizeof(path), "%s/map%05lu.txt", dir, (unsigned long)lvnum);
+        snprintf(path, sizeof(path), "%s/map%05lu.%s", dir, (unsigned long)lvnum, ext);
         long len = LbFileLength(path);
         if (len <= 0)
             return std::string();
@@ -99,6 +109,10 @@ namespace {
         if (got != len)
             return std::string();
         return std::string(buf.data(), (size_t)len);
+    }
+    std::string read_level_script_text(const char *dir, LevelNumber lvnum)
+    {
+        return read_level_text_file(dir, lvnum, "txt");
     }
     // Restored in editor_close() -- see editor_open()'s own comment on why
     // Ft_SkipHeartZoom is forced on for the session.
@@ -132,6 +146,8 @@ namespace {
         set_skip_heart_zoom_feature(s_prev_skip_heart_zoom);
         set_flag_value(kfx_sim_state.operation_flags, GOF_ShowGui, s_prev_show_gui);
         s_editor_active = false;
+        // The GUI_ICON_PACK=CLASSIC override (see editor_open()) ends with the session.
+        ingame_gui_force_imgui_hud(false);
     }
 }
 
@@ -147,7 +163,7 @@ void editor_level_save_dir(LevelNumber lvnum, char *out, size_t out_size)
 {
     short fgroup = get_level_fgroup(lvnum);
     char *p = prepare_file_fmtpath(fgroup, "map%05lu.slb", (unsigned long)lvnum);
-    strncpy(out, p, out_size - 1);
+    snprintf(out, out_size, "%s", p);
     out[out_size - 1] = '\0';
     char *last_slash = strrchr(out, '/');
     if (last_slash != nullptr)
@@ -169,6 +185,27 @@ const char *editor_current_level_name(void)
     return s_editor_level_name;
 }
 
+void editor_set_new_map_lua(TbBool on)
+{
+    s_new_map_lua = on != 0;
+}
+
+TbBool editor_current_level_has_lua(void)
+{
+    return s_editor_has_lua;
+}
+
+const char *editor_current_level_lua_text(void)
+{
+    return s_editor_lua_text.c_str();
+}
+
+void editor_set_current_level_lua_text(const char *lua_text, TbBool has_lua)
+{
+    s_editor_lua_text = (lua_text != nullptr) ? lua_text : "";
+    s_editor_has_lua = has_lua;
+}
+
 const char *editor_current_level_script_text(void)
 {
     return s_editor_script_text.c_str();
@@ -184,6 +221,17 @@ int editor_current_level_players(void)
     return s_editor_level_players;
 }
 
+const char *editor_current_level_author(void)
+{
+    return s_editor_level_author;
+}
+
+void editor_set_current_level_author(const char *author)
+{
+    snprintf(s_editor_level_author, sizeof(s_editor_level_author), "%s", (author != nullptr) ? author : "");
+    s_editor_level_author[sizeof(s_editor_level_author) - 1] = '\0';
+}
+
 const char *editor_current_level_description(void)
 {
     return s_editor_level_description;
@@ -197,13 +245,13 @@ TbBool editor_current_level_is_multiplayer(void)
 void editor_set_current_lvnum_and_dir(LevelNumber lvnum, const char *dir)
 {
     s_editor_lvnum = lvnum;
-    strncpy(s_editor_save_dir, dir, sizeof(s_editor_save_dir) - 1);
+    snprintf(s_editor_save_dir, sizeof(s_editor_save_dir), "%s", dir);
     s_editor_save_dir[sizeof(s_editor_save_dir) - 1] = '\0';
 }
 
 void editor_set_current_level_name(const char *name)
 {
-    strncpy(s_editor_level_name, (name != nullptr) ? name : "", sizeof(s_editor_level_name) - 1);
+    snprintf(s_editor_level_name, sizeof(s_editor_level_name), "%s", (name != nullptr) ? name : "");
     s_editor_level_name[sizeof(s_editor_level_name) - 1] = '\0';
 }
 
@@ -219,7 +267,7 @@ void editor_set_current_level_is_multiplayer(TbBool is_multiplayer)
 
 void editor_set_current_level_description(const char *description)
 {
-    strncpy(s_editor_level_description, (description != nullptr) ? description : "", sizeof(s_editor_level_description) - 1);
+    snprintf(s_editor_level_description, sizeof(s_editor_level_description), "%s", (description != nullptr) ? description : "");
     s_editor_level_description[sizeof(s_editor_level_description) - 1] = '\0';
 }
 
@@ -249,20 +297,92 @@ TbBool editor_preview_motion(void)
     return s_preview_motion;
 }
 
+// Preview Motion changes the map (creatures walk, portals spawn, imps dig), so
+// turning it on remembers everything and turning it off puts it back. While a
+// 1st Person view still controls a creature the restore waits (deleting the
+// possessed creature would be unsafe); editor_frame() finishes it.
+namespace {
+    bool s_preview_restore_pending = false;
+
+    void try_finish_preview_restore(void)
+    {
+        if (!s_preview_restore_pending)
+            return;
+        if (get_my_player()->view_type == PVT_CreatureContrl)
+            return;
+        editor_journal_preview_restore();
+        s_preview_restore_pending = false;
+    }
+}
+
+TbBool editor_preview_restore_pending(void)
+{
+    return s_preview_restore_pending;
+}
+
 void editor_set_preview_motion(TbBool on)
 {
-    s_preview_motion = on != 0;
+    const bool want = (on != 0);
+    if (want == s_preview_motion)
+        return;
+    s_preview_motion = want;
+    if (want)
+        editor_journal_preview_begin();
+    else
+    {
+        s_preview_restore_pending = true;
+        try_finish_preview_restore();
+    }
+}
+
+namespace {
+    // Identity of the level being edited when a playtest was launched: the
+    // playtest runs a scratch copy, and coming back re-opens that copy but
+    // must go on being "the real level, with unsaved changes".
+    struct PlaytestOrigin
+    {
+        bool pending = false;
+        LevelNumber lvnum = 0;
+        char dir[512] = "";
+    } s_playtest_origin;
+}
+
+void editor_playtest_begin(void)
+{
+    s_playtest_origin.pending = true;
+    s_playtest_origin.lvnum = s_editor_lvnum;
+    snprintf(s_playtest_origin.dir, sizeof(s_playtest_origin.dir), "%s", s_editor_save_dir);
+    s_playtest_origin.dir[sizeof(s_playtest_origin.dir) - 1] = '\0';
 }
 
 void editor_open(LevelNumber lvnum, TbBool is_new)
 {
     SYNCDBG(0, "Opening editor session for level %lu (new=%d)", (unsigned long)lvnum, (int)is_new);
     s_editor_active = true;
+    // The editor is built on the ImGui HUD: ignore GUI_ICON_PACK=CLASSIC
+    // for the length of the session (the saved setting is left alone).
+    ingame_gui_force_imgui_hud(true);
+    // The classic HUD insets the 3D view by its sidebar width; the ImGui HUD
+    // composites over the full screen. Re-establish the engine window now
+    // that the inset is gone, rather than waiting for the next view change.
+    setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
     // A freshly created blank map has nothing saved yet -- starts dirty.
     s_editor_dirty = is_new != 0;
     s_preview_motion = false;
+    s_preview_restore_pending = false;
     s_editor_lvnum = lvnum;
     editor_level_save_dir(lvnum, s_editor_save_dir, sizeof(s_editor_save_dir));
+    if (s_playtest_origin.pending && lvnum == EDITOR_PLAYTEST_LEVEL_NUMBER)
+    {
+        // Returning from a playtest: the map on screen is the scratch copy of
+        // the level the user was editing. Keep editing that level, and treat
+        // it as unsaved (the edits so far exist only in the scratch copy).
+        s_editor_lvnum = s_playtest_origin.lvnum;
+        snprintf(s_editor_save_dir, sizeof(s_editor_save_dir), "%s", s_playtest_origin.dir);
+        s_editor_save_dir[sizeof(s_editor_save_dir) - 1] = '\0';
+        s_editor_dirty = true;
+    }
+    s_playtest_origin.pending = false;
     // docs/refactor/editor/phase3/03-slice4-file-dialogs.md -- best-effort:
     // get_level_info() only has an entry once this level's own .lof has
     // been scanned in (editor_save_map()'s own find_and_load_lof_files()
@@ -275,17 +395,35 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
         editor_set_current_level_players((lvinfo != NULL) ? (int)lvinfo->players : 1);
         editor_set_current_level_is_multiplayer((lvinfo != NULL) && ((lvinfo->level_type & LvKind_IsMulti) != 0));
         editor_set_current_level_description((lvinfo != NULL) ? lvinfo->description : "");
+        editor_set_current_level_author((lvinfo != NULL) ? lvinfo->author : "");
     }
     // docs/refactor/editor/05-script-and-level-settings.md §0 -- a genuinely
     // new map has no .txt yet (read_level_script_text() correctly returns
     // empty), which is exactly when editor_save_map()'s own empty-script
     // stub is the right thing to write.
     s_editor_script_text = read_level_script_text(s_editor_save_dir, lvnum);
+    {
+        char lua_path[600];
+        snprintf(lua_path, sizeof(lua_path), "%s/map%05lu.lua", s_editor_save_dir, (unsigned long)lvnum);
+        s_editor_has_lua = (LbFileLength(lua_path) >= 0);
+        s_editor_lua_text = s_editor_has_lua ? read_level_text_file(s_editor_save_dir, lvnum, "lua") : std::string();
+    }
+    if (is_new)
+    {
+        // A blank map starts from nothing: any .lua left in the scratch slot
+        // is stale, and the Lua option starts a Lua-only level.
+        s_editor_has_lua = s_new_map_lua;
+        s_editor_lua_text = s_new_map_lua ? editor_lua_template() : std::string();
+        if (s_new_map_lua)
+            s_editor_script_text.clear();
+        s_new_map_lua = false;
+    }
     // §4 -- a previous session's journal entries reference thing indices
     // that mean nothing (or worse, something else entirely, once slots are
     // reused) in this one.
     editor_journal_reset();
     editor_points_reset();
+    editor_thumbs_reset();
 
     // §3, revised after live testing: simulation_suspended alone, *not*
     // GOF_Paused, is what freezes the sim now. game_session_loop.cpp's
@@ -416,6 +554,7 @@ void editor_frame(void)
     // unless Preview Motion is on, in which case leave it lifted so a real
     // turn can run.
     kfx_sim_state.simulation_suspended = !s_preview_motion;
+    try_finish_preview_restore();
 
     // Was an F10 keypress originally (front_input.c's
     // get_options_menu_inputs(), the normal in-game pause menu, reads raw

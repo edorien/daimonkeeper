@@ -50,6 +50,8 @@ void editor_frame(void);
 // Playtest (§6) hook: called when a playtest session ends (win/lose/quit),
 // so "Return to editor" can reload the pre-playtest scratch-slot state.
 void editor_notify_playtest_end(void);
+/** Called just before a playtest launches: remembers which level is being edited so the return from the playtest re-opens it. */
+void editor_playtest_begin(void);
 
 // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- session state
 // tracked since editor_open(), read by File > Save / the Save As dialog
@@ -75,6 +77,7 @@ TbBool editor_current_level_is_multiplayer(void);
 // already existed on LevelInformation, just wasn't read/written anywhere
 // until this slice).
 const char *editor_current_level_description(void);
+const char *editor_current_level_author(void);
 // docs/refactor/editor/05-script-and-level-settings.md §0 -- the level's
 // own map%05lu.txt, read verbatim from disk in editor_open() (and editable
 // via the §4.1 script text editor's own Apply action, see the setter
@@ -87,13 +90,31 @@ const char *editor_current_level_script_text(void);
 // it, same as every other content edit (placing things, painting terrain)
 // rather than Level Settings' own immediate-write-to-disk shape.
 void editor_set_current_level_script_text(const char *script_text);
+// docs/refactor/editor/fx-plans/02-lua-scripts.md L1 -- the level's own
+// map%05lu.lua, read verbatim in editor_open() and written back by every
+// save. has_lua distinguishes "no file" from "empty file"; setting text
+// with has_lua true creates the file on the next save.
+// New Map's "Lua script" option: the next editor_open(..., is_new) starts with
+// the Lua template and no .txt. One-shot.
+void editor_set_new_map_lua(TbBool on);
+TbBool editor_current_level_has_lua(void);
+const char *editor_current_level_lua_text(void);
+void editor_set_current_level_lua_text(const char *lua_text, TbBool has_lua);
 TbBool editor_is_dirty(void);
 
 // §3's "Preview motion" affordance (editor_session.cpp's own s_preview_motion
 // comment) -- moved from the Esc-equivalent hub into the new View menu
 // (editor_menubar.cpp) this slice.
 TbBool editor_preview_motion(void);
+
+/** Level Settings > Resize. `dropped_*` (each may be NULL) receive how many things, lights and action points
+ *  would be lost. editor_resize_map() writes the resized copy to a scratch level and reopens the editor on it,
+ *  keeping this level's identity and marking it unsaved. False if the size is unsupported or the write failed. */
+TbBool editor_resize_preview(long new_w, long new_h, TbBool centered, int *dropped_things, int *dropped_lights, int *dropped_points);
+TbBool editor_resize_map(long new_w, long new_h, TbBool centered);
 void editor_set_preview_motion(TbBool on);
+/** True while turning Preview Motion off is waiting for a 1st Person view to end. */
+TbBool editor_preview_restore_pending(void);
 
 // Internal cross-file use only (same library, not part of this header's
 // outside-caller surface) -- declared here so another file in this library
@@ -123,6 +144,7 @@ void editor_set_current_level_is_multiplayer(TbBool is_multiplayer);
 // read-back-on-open/kept-current-by-whoever-last-changed-it pattern as
 // name/players/multiplayer above.
 void editor_set_current_level_description(const char *description);
+void editor_set_current_level_author(const char *author);
 
 // Pure path logic (no live session needed) -- given lvnum, fills `out` with
 // the directory editor_save_map()'s own `dir` parameter expects for that
@@ -153,6 +175,10 @@ void editor_journal_record_rect_terrain(unsigned char pcktype,
     long box_beg_x, long box_beg_y, long box_end_x, long box_end_y,
     SlabKind new_kind, PlayerNumber new_owner,
     const struct EditorRectSlabSnapshot *before, long count);
+
+// fx-plans/00 item A7 -- door-lock toggle counterpart (EditorJournalCallbacks::
+// record_door_lock): called before the toggle, journals it for undo.
+void editor_journal_record_door_lock(long thing_idx, TbBool was_locked);
 
 // docs/refactor/editor/phase3/01-slice2-classic-save.md -- Auto picks
 // ClassicMapContentWriter when map_is_legacy_compatible() (src/kfx_sim/

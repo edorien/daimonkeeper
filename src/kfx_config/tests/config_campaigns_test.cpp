@@ -59,6 +59,7 @@ TEST_CASE("clear_level_info resets a level entry to its documented defaults", "[
     CHECK(lvinfo.state == LvSt_Hidden);
     CHECK(lvinfo.mapsize_x == 85); // CAMPAIGNS_DEFAULT_MAP_SIZE, duplicated from kfx_sim's map_data.h
     CHECK(lvinfo.mapsize_y == 85);
+    CHECK(lvinfo.skirmish_setup == SkirmishSetup_Auto); // .lof SKIRMISH_SETUP absent = classify automatically
 }
 
 TEST_CASE_METHOD(ZeroedCampaign, "add_single_level_to_campaign appends and returns the slot index", "[kfx_config][config_campaigns]") {

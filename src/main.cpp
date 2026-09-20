@@ -1656,6 +1656,7 @@ short setup_game(void)
   static const struct EditorJournalCallbacks editor_journal_callbacks_impl = {
       &editor_journal_record_placement,
       &editor_journal_record_rect_terrain,
+      &editor_journal_record_door_lock,
   };
   set_editor_journal_callbacks(&editor_journal_callbacks_impl);
   kfx_config_state.gui_blink_rate = keeperfx_ui_config.gui_blink_rate;

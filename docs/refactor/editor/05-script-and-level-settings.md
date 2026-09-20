@@ -276,7 +276,7 @@ user script region, or edits `map*.creature.cfg` directly, is a clean **v2** add
 7. Managed setup region + availability helper grid.
 8. (Time permitting) objective/message helper.
 
-## 5a. Suggested slicing (not started — for when this phase begins)
+## 5a. Slicing (as planned; all slices are now done, see the status line at the top)
 
 Bigger than any prior phase (four real subsystems, not overlays on one), so more slices than
 usual. Ordered by dependency, not by section number above:

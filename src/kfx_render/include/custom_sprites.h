@@ -65,6 +65,8 @@ const struct TbSprite *get_new_icon_sprite(short sprite_idx);
 const struct TbSprite *get_panel_sprite(short sprite_idx);
 struct TbSpriteSheet *load_custom_sheet_from_zip(const char *path, const unsigned char *palette);
 int is_custom_icon(short icon_idx);
+/** True when get_panel_sprite(sprite_idx) would return a real sprite rather than the engine's magenta checkerboard placeholder (bad_icon). */
+TbBool is_panel_sprite_drawable(short sprite_idx);
 int get_custom_icon_frame_count(short icon_idx);
 // Lens overlay data structure
 struct LensOverlayData {

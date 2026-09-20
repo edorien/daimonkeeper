@@ -113,6 +113,10 @@ TbBool packets_process_cheats(NetUserId user, PlayerNumber plyr_idx, MapCoord x,
     struct Packet* pckt, MapSubtlCoord stl_x, MapSubtlCoord stl_y, MapSlabCoord slb_x, MapSlabCoord slb_y);
 void disable_packet_mode(void);
 /******************************************************************************/
+// The editor's Fill tool (PckA_EditorFloodFill), callable directly so a test
+// can drive it: the packet carries the seed only in the ambient cursor field.
+void editor_flood_fill_terrain(MapSlabCoord seed_x, MapSlabCoord seed_y, SlabKind target_kind, PlayerNumber owner);
+
 #ifdef __cplusplus
 }
 #endif

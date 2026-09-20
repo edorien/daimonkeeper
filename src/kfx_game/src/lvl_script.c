@@ -30,6 +30,7 @@
 #include "bflib_math.h"
 #include "engine_camera.h"
 #include "lvl_filesdk1.h"
+#include "level_script_override.h"
 #include "main_game.h"
 #include "game_callbacks.h"
 
@@ -240,6 +241,21 @@ long get_players_range_f(long plr_range_id, int *plr_start, int *plr_end, const 
     return -2;
 }
 
+long script_strtol(const char *text, char **endptr, int base)
+{
+    long long value = strtoll(text, endptr, base);
+    if (value > INT32_MAX)
+        return INT32_MAX;
+    if (value < INT32_MIN)
+        return INT32_MIN;
+    return (long)value;
+}
+
+long script_atol(const char *text)
+{
+    return script_strtol(text, NULL, 10);
+}
+
 static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *scline, int idx, TbBool extended)
 {
     switch (toupper(type_chr))
@@ -247,7 +263,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
         case 'N': //Number
         {
             char* text;
-            scline->np[idx] = strtol(scline->tp[idx], &text, 0);
+            scline->np[idx] = script_strtol(scline->tp[idx], &text, 0);
             //Extended number allows for a custom sprite string
             if (!extended)
             {
@@ -503,7 +519,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                         fi++;
                         if (funscline->tp[fi][0] != '\0')
                         {
-                            funscline->np[fi] = atol(funscline->tp[fi]);
+                            funscline->np[fi] = script_atol(funscline->tp[fi]);
                         }
                         if (!script_command_param_to_number(chr, funscline, fi, false)) {
                             SCRPTERRLOG("Parameter %d of function \"%s\" within command \"%s\" has unexpected range end value; discarding command", fi+1, funcmd_desc->textptr, scline->tcmnd);
@@ -526,7 +542,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                         }
                         if (funscline->np[fi] == '\0')
                         {
-                            funscline->np[fi] = atol(funscline->tp[fi]);
+                            funscline->np[fi] = script_atol(funscline->tp[fi]);
                         }
                         ranges[ri].min = funscline->np[fi];
                         ranges[ri].max = funscline->np[fi];
@@ -538,8 +554,8 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                 // Old RANDOM command accepts only one range, and gives only numbers
                 fi = 0;
                 {
-                    ranges[fi].min = atol(funscline->tp[0]);
-                    ranges[fi].max = atol(funscline->tp[1]);
+                    ranges[fi].min = script_atol(funscline->tp[0]);
+                    ranges[fi].max = script_atol(funscline->tp[1]);
                 }
                 if (ranges[fi].max < ranges[fi].min) {
                     SCRPTWRNLOG("Range definition in argument of function \"%s\" within command \"%s\" should have lower value first", funcmd_desc->textptr, scline->tcmnd);
@@ -873,6 +889,70 @@ static char* process_multiline_comment(char *buf, char *buffer_end_pointer)
     return buf;
 }
 
+/** Source of the level's classic script text: the in-memory override's masked
+ * script when one is installed for this level (docs/refactor/skirmish/,
+ * level_script_override.h), else map%05u.txt from disk. Either way the result
+ * is a writable, zero-padded buffer the caller free()s; *len is its length.
+ */
+static char* load_level_script_text(long lvnum, int32_t *len)
+{
+    if (level_script_override_matches(lvnum))
+    {
+        const char *masked = level_script_override_masked();
+        size_t n = strlen(masked);
+        char* buf = (char*)calloc(n + 16, 1);
+        if (buf != NULL)
+        {
+            memcpy(buf, masked, n);
+            *len = (int32_t)n;
+            return buf;
+        }
+        // Out of memory: fall through to the shipped script rather than fail the level.
+    }
+    *len = 1;
+    return (char*)load_single_map_file_to_buffer(lvnum, "txt", len, LMFF_None);
+}
+
+/** Scans the override's prelude (if any) before the file's own lines.
+ * The prelude is always v1 syntax, so level_file_version is forced to 1 for
+ * its lines only and restored to whatever it was on entry -- the file's own
+ * version (which preload_script() leaves behind for load_script(), and which
+ * the file's LEVEL_VERSION line sets) must not be disturbed. Nothing to do
+ * when no override is installed for this level.
+ */
+static void scan_level_script_prelude(long lvnum, TbBool preloaded)
+{
+    if (!level_script_override_matches(lvnum))
+        return;
+    const char *src = level_script_override_prelude();
+    size_t n = strlen(src);
+    char* copy = (char*)calloc(n + 2, 1);
+    if (copy == NULL)
+        return;
+    memcpy(copy, src, n);
+    if (!preloaded)
+        JUSTLOG("Level %ld: running the Skirmish setup override (prelude %ld bytes, file script masked)", lvnum, (long)n);
+    long saved_version = level_file_version;
+    long saved_line = text_line_number;
+    level_file_version = 1;
+    text_line_number = 0; // prelude errors read "line 0..n": distinct from the file's own lines
+    char* line = copy;
+    while (*line != '\0')
+    {
+        char* end = strchr(line, '\n');
+        if (end != NULL)
+            *end = '\0';
+        script_scan_line(line, preloaded, 1);
+        text_line_number++;
+        if (end == NULL)
+            break;
+        line = end + 1;
+    }
+    level_file_version = saved_version;
+    text_line_number = saved_line;
+    free(copy);
+}
+
 static void parse_txt_data(char *script_data, long script_len)
 {// Process the file lines
     text_line_number = 1;
@@ -915,14 +995,21 @@ TbBool preload_script(long lvnum)
   next_command_reusable = 0;
   level_file_version = DEFAULT_LEVEL_VERSION;
   clear_quick_messages();
-  // Load the file
+  if (level_script_override_is_set() && !level_script_override_matches(lvnum))
+  {
+      // Installed for some other level and never consumed: must not leak into this one.
+      WARNLOG("Discarding a stale level script override (was for level %ld, loading %ld)", (long)level_script_override_level(), lvnum);
+      level_script_override_clear();
+  }
+  // Load the file (or the override's masked copy of it)
   int32_t script_len = 1;
-  char* script_data = (char*)load_single_map_file_to_buffer(lvnum, "txt", &script_len, LMFF_None);
+  char* script_data = load_level_script_text(lvnum, &script_len);
   if (script_data == NULL)
   {
       // Here we could load lua instead
       return false;
   }
+  scan_level_script_prelude(lvnum, true);
   parse_txt_data(script_data, script_len);
   SYNCDBG(8,"Finished");
   return true;
@@ -944,11 +1031,17 @@ short load_script(long lvnum)
     reset_creature_max_levels();
     reset_script_timers_and_flags();
     reset_hand_rules();
-    // Load the file
+    // Load the file (or the override's masked copy of it)
     int32_t script_len = 1;
-    char* script_data = (char*)load_single_map_file_to_buffer(lvnum, "txt", &script_len, LMFF_None);
+    char* script_data = load_level_script_text(lvnum, &script_len);
     if (script_data == NULL)
+    {
+      level_script_override_clear();
       return false;
+    }
+    // Skirmish setup override: prelude first (forced v1, version restored), then the file's lines
+    scan_level_script_prelude(lvnum, false);
+    text_line_number = 1;
     // Process the file lines
     char* buf = script_data;
     char* buffer_end_pointer = script_data + script_len;
@@ -977,6 +1070,9 @@ short load_script(long lvnum)
       buf = p;
     }
     free(script_data);
+    // One-shot: the level's script has now been executed. Anything left installed would
+    // leak into whatever level loads next.
+    level_script_override_clear();
     if (kfx_game_state.script.win_conditions_num == 0 && luascript_loaded == false)
       WARNMSG("No WIN GAME conditions in script file.");
     if (get_script_current_condition() != CONDITION_ALWAYS)

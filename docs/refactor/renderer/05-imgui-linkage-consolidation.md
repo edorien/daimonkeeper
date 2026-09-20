@@ -1,7 +1,8 @@
 # Stage 5 — Consolidate ImGui linkage into one library
 
 Status: **planning, not started.** Pure refactor — no behaviour change, no visible change.
-Prerequisite for [03-gpu-renderer.md](03-gpu-renderer.md) Phase B (risk **R1**/**R6**): the capture
+Prerequisite for [gpu-v2/00-overview.md](gpu-v2/00-overview.md) Phase B (risk
+[**R1**/**R6**](gpu-v2/08-risks.md)): the capture
 path, the in-game HUD submission, and the Phase C geometry façade all get simpler if exactly one
 library talks to ImGui. Cleans up a [04-imgui-gui-foundation.md](04-imgui-gui-foundation.md)
 architecture decision (§3.1) that Phases A–G outgrew.
@@ -37,7 +38,7 @@ Consequences:
   nothing to do with rendering.
 - Every new `imgui`-symbol reference from `kfx_frontend` risks a fresh "undefined symbol in
   `kfx_foo_utest`" break (stage 4 hit this repeatedly — see its Phase A/B notes).
-- [03-gpu-renderer.md](03-gpu-renderer.md)'s Phase B work (capture read-back, in-game HUD submit)
+- [gpu-v2/01-phase-b-2d-compositing.md](gpu-v2/01-phase-b-2d-compositing.md)'s work (capture read-back, in-game HUD submit)
   would have to be split across the `kfx_platform`/`kfx_frontend` boundary, threaded through
   callbacks, because the compositing call site (`RendererSoftware::PresentFrame`) is in
   `kfx_platform` but the ImGui knowledge is in `kfx_frontend`.
@@ -183,8 +184,9 @@ where `renderer_overlay_impl` is a `static const RendererOverlayCallbacks` whose
    window/renderer and return — the frontend side keeps the current `s_window == window &&
    s_renderer == renderer` fast-path.
 3. **Reentrancy guard stays in `kfx_platform`**, around the whole `ensure/begin/submit/render`
-   block — the ~20 nested `RendererPresentFrame()` call sites ([03](03-gpu-renderer.md) R1) are
-   unaffected by this refactor and must stay that way.
+   block — the ~21 nested `RendererPresentFrame()` call sites
+   ([gpu-v2/08-risks.md](gpu-v2/08-risks.md) R1) are unaffected by this refactor and must stay
+   that way.
 4. **Event-forwarding gate.** `bflib_inputctrl.cpp` keeps its `ev.type != SDL_EVENT_MOUSE_MOTION`
    filter and its `is_active()` gate; only the function names change.
 5. **Debug flags.** `-imguidemo` (`DFlg_ImGuiDemo`) routes through `set_demo_visible`;
@@ -230,20 +232,24 @@ comment hits. Add that as a one-line assertion in the stage's verification, or a
 
 ---
 
-## What this does *not* do — the ~20 present call sites
+## What this does *not* do — the ~21 present call sites
 
-[03](03-gpu-renderer.md) R1 lists ~20 `RendererPresentFrame()` call sites across `kfx_apploop`,
-`kfx_net`, `kfx_frontend`, `kfx_platform`, `kfx_render`. **None of them link or reference ImGui** —
-they call the `kfx_platform` façade, which is exactly what this refactor keeps as the single
-choke point. Consolidating those call sites themselves (fewer, better-named present entry points;
-a single "present with overlay" vs "present raw backdrop only" distinction) is a **separate,
-optional cleanup** — worth doing for R1's audit burden, not required for the linkage goal, and not
-in this stage's scope. If it's taken up later:
+[gpu-v2/08-risks.md](gpu-v2/08-risks.md) R1 lists ~21 `RendererPresentFrame()` call sites across
+`kfx_apploop`, `kfx_net`, `kfx_frontend`, `kfx_platform`, `kfx_render`. **None of them link or
+reference ImGui** — they call the `kfx_platform` façade, which is exactly what this refactor keeps
+as the single choke point. Consolidating those call sites themselves is a **separate phase**,
+scoped in [gpu-v2/06-call-site-consolidation.md](gpu-v2/06-call-site-consolidation.md) — not
+required for *this* stage's linkage goal, but no longer optional overall: Phase C's GPU-submission
+façade needs it (see that document for why). It is sequenced directly after this stage and before
+Phase C.0. Summary of that document's plan:
 - The genuinely-necessary ones are the progress/stepping presents: Smacker frame stepping
   (`bflib_fmvids.cpp`, `front_fmvids.c`), net resync progress (`net_exchange_gameplay.c`,
-  `packets_misc.c`), loading screens (`front_simple.c`), landview transitions (`front_landview.c`).
-- `game_session_loop.cpp`'s 7 are the real loop bodies and a couple of edge-case redraws — those
-  could plausibly collapse to 2–3.
+  `packets_misc.c`), loading screens (`front_simple.c`), landview transitions (`front_landview.c`) —
+  these route through one new `RendererPresentStepFrame()` entry point rather than being
+  physically merged.
+- `game_session_loop.cpp`'s 8 are the real loop bodies and a couple of edge-case redraws — those
+  collapse to 2–3 via a new `RendererPresentGameFrame()` entry point, the one place a genuine
+  physical reduction is worthwhile.
 
 ---
 
@@ -266,8 +272,10 @@ in this stage's scope. If it's taken up later:
 
 - [04-imgui-gui-foundation.md](04-imgui-gui-foundation.md) §3.1 — the "`kfx_platform` owns the
   ImGui context" decision is superseded; record that ownership moved to `kfx_frontend` and why.
-- [03-gpu-renderer.md](03-gpu-renderer.md) R1/R6 — note the linkage is consolidated; Phase B's
+- [gpu-v2/08-risks.md](gpu-v2/08-risks.md) R1/R6 — note the linkage is consolidated; Phase B's
   capture and HUD work is now single-library.
+- [gpu-v2/06-call-site-consolidation.md](gpu-v2/06-call-site-consolidation.md) — this stage is its
+  named prerequisite; link back once both have landed.
 - [architecture.md](../../Architecture/architecture.md) §5 callback catalogue — add
   `RendererOverlayCallbacks`.
 - [00-overview.md](00-overview.md) — add this stage to the roadmap.

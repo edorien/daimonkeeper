@@ -3,3 +3,5 @@
 // Gives fixture-file-backed tests (value_util_test.cpp) an absolute path
 // to this test directory's fixtures/ subdirectory.
 #define KFX_CONFIG_TEST_FIXTURES_DIR "@CMAKE_CURRENT_SOURCE_DIR@/fixtures"
+// Repo root, for corpus tests over the shipped core_files/ scripts.
+#define KFX_CONFIG_TEST_REPO_ROOT "@CMAKE_SOURCE_DIR@"

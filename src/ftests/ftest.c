@@ -305,6 +305,10 @@ TbBool ftest_setup_test(struct FTestConfig* const test_config)
     else
     {
         set_selected_level_number(selected_level);
+        if(test_config->pre_start_func)
+        {
+            test_config->pre_start_func();
+        }
     }
 
     ftest_clear_actions();

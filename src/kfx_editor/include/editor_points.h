@@ -67,6 +67,10 @@ void editor_points_reset(void);
 // longer matches the snapshot.
 TbBool editor_points_create(struct EditorPointSnapshot *snap);
 TbBool editor_points_delete(const struct EditorPointSnapshot *snap);
+// Undo/redo of an inspector edit: turns the point `from` into `to` (a
+// recreated light / effect generator gets a new id, written back into `to`).
+// False if `from` no longer exists.
+TbBool editor_points_replace(const struct EditorPointSnapshot *from, struct EditorPointSnapshot *to);
 const char *editor_points_describe(const struct EditorPointSnapshot *snap, TbBool placed);
 
 // Lights the session owns on behalf of a thing (its own light) or a player
@@ -74,6 +78,15 @@ const char *editor_points_describe(const struct EditorPointSnapshot *snap, TbBoo
 // `owned` must have LIGHTS_COUNT entries. Shared with the map snapshot so a
 // save never persists a torch's own light as a second, level-owned copy.
 void editor_points_mark_thing_owned_lights(unsigned char *owned);
+
+// fx-plans/00 item A9 -- Stamp captures and re-places points. Collects the
+// level's lights, action points and effect generators whose position lies in
+// [x0,x1) x [y0,y1) (raw map units); returns how many were written (at most
+// `max`).
+int editor_points_capture_in_box(long x0, long y0, long x1, long y1, struct EditorPointSnapshot *out, int max);
+// Re-creates a captured point shifted by (dx, dy) raw units and journals it.
+// Action points get the next free number. Returns true on success.
+TbBool editor_points_stamp(const struct EditorPointSnapshot *snap, long dx, long dy);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -62,3 +62,18 @@ TEST_CASE_METHOD(RelaunchTestGuard, "get_startup_menu_state's relaunch branch is
     // set up a fixture for. Just confirming the relaunch flag itself isn't
     // spuriously true is the point of this case.
 }
+
+TEST_CASE_METHOD(RelaunchTestGuard, "a finished playtest returns to the editor on the scratch level", "[kfx_frontend][editor_relaunch]") {
+    editor_pending_playtest = false;
+    editor_playtest_running = false;
+    frontend_request_editor_playtest(EDITOR_PLAYTEST_LEVEL_NUMBER);
+
+    // First call launches the playtest game...
+    CHECK(get_startup_menu_state() == FeSt_START_KPRLEVEL);
+    CHECK(editor_playtest_running == true);
+    // ...the next one, once that game ended, goes back to the editor.
+    CHECK(get_startup_menu_state() == FeSt_START_EDITOR);
+    CHECK(editor_pending_lvnum == EDITOR_PLAYTEST_LEVEL_NUMBER);
+    CHECK(editor_pending_is_new == false);
+    CHECK(editor_playtest_running == false);
+}

@@ -153,8 +153,8 @@ renderer itself:
   applicable.** This fork has no `IUIRenderer::ResolveSprite()`-style pointer-keyed sprite cache
   yet (that's upstream's GL-era addition), so there's nothing to invalidate today. Recorded as a
   requirement for whenever this fork builds the equivalent cache (Phase B's planned
-  sprite→GPU-texture cache, [`../refactor/renderer/gpu-v2/03-gpu-renderer.md`](../refactor/renderer/gpu-v2/03-gpu-renderer.md)) —
-  see that document's R10.
+  sprite→GPU-texture cache, [`../refactor/renderer/gpu-v2/03-pixel-format-and-texture-cache.md`](../refactor/renderer/gpu-v2/03-pixel-format-and-texture-cache.md)) —
+  see [`gpu-v2/08-risks.md`](../refactor/renderer/gpu-v2/08-risks.md)'s R10.
 - **Dead-code / warning cleanup (`7c90a67bf`)** — `bflib_math.c`'s `bitScanReverse()` MSVC branch
   used `DWORD` (pulling in `<windows.h>` just for the typedef); replaced with `unsigned long`.
   `bflib_crash.c` dropped a redundant `#include <imagehlp.h>` (superseded by the `<dbghelp.h>`
@@ -174,7 +174,7 @@ renderer itself:
   systemic `RendererScreenWidth()`/`RendererScreenHeight()` stride mix-up across
   `bflib_fmvids.cpp`/`bflib_sprfnt.c`/`engine_redraw.c`) doesn't apply — this fork has no such
   accessor pair — but the mix-up itself is recorded as a naming-hygiene lesson in
-  [`../refactor/renderer/gpu-v2/03-gpu-renderer.md`](../refactor/renderer/gpu-v2/03-gpu-renderer.md) §3
+  [`../refactor/renderer/gpu-v2/05-reviewed-branch-lessons.md`](../refactor/renderer/gpu-v2/05-reviewed-branch-lessons.md)
   for whenever Phase C adds its own stride/dimension accessors.
 
 **Reviewed, renderer-touching, and deliberately *not* applied** (per the instruction to discuss

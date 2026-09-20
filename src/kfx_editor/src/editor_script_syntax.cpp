@@ -31,6 +31,7 @@
 #include "editor_script_syntax.h"
 #include "editor_script_commands.h"
 #include "editor_script_names.h"
+#include "editor_lua_support.h"
 #include "lvl_script_lib.h"
 #include "lvl_script_commands.h"
 
@@ -158,6 +159,36 @@ void editor_script_syntax_apply(TextEditor &editor, bool enable)
             continue; // action point numbers are plain numbers
         for (const std::string &n : g.names)
             language.identifiers.insert(lower(n));
+    }
+    editor.SetLanguage(&language);
+}
+
+void editor_lua_syntax_apply(TextEditor &editor, bool enable)
+{
+    static TextEditor::Language language;
+    static bool initialised = false;
+
+    if (!enable)
+    {
+        editor.SetLanguage(nullptr);
+        return;
+    }
+    if (!initialised)
+    {
+        language = *TextEditor::Language::Lua();
+        initialised = true;
+    }
+    // KeeperFX API functions/constants from the stub files, and the engine's
+    // player/creature/room/... names, in the "known identifier" colour.
+    language.identifiers = TextEditor::Language::Lua()->identifiers;
+    for (const std::string &n : editor_lua_api_names())
+        language.identifiers.insert(n);
+    for (const ScriptNameGroup &g : editor_script_collect_name_groups())
+    {
+        if (g.per_level)
+            continue;
+        for (const std::string &n : g.names)
+            language.identifiers.insert(n);
     }
     editor.SetLanguage(&language);
 }

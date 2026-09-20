@@ -1,0 +1,113 @@
+KeeperFX in-game level editor
+=============================
+
+The editor runs inside the game: open it from the main menu with
+Tools -> Editor, then choose New Map or open an existing level. The game world
+is frozen while you edit (nothing spawns, nothing moves); View -> Preview
+Motion (unpause) lets it run.
+
+Files: a map is saved as the usual map<NNNNN>.* files. The editor writes the
+classic Dungeon Keeper format when the map uses nothing KeeperFX-specific
+(Auto), or the KeeperFX format otherwise; Save As lets you force either.
+Maps you save appear in Free Play automatically. Editing a shipped level and
+saving over it changes the game's copy: use Save As with a new level number.
+
+Menus
+-----
+File      New, Open, Save (Ctrl+S), Save As, Level Settings, Verify Map,
+          Playtest (Ctrl+P), Exit to Main Menu.
+Edit      Undo (Ctrl+Z), Redo (Ctrl+Y).
+View      Toolbox (show/hide), Map View, 1st Person, Lights, Slab Grid,
+          Coordinates, Ownership Tint, the marker overlays, Preview Motion.
+Script    Edit Script, Availability, Commands, Objective / Message.
+
+The toolbox
+-----------
+Tabs along the top; the tab you are on is the active tool. The owner row at the
+bottom chooses who owns what you place (the four keepers, neutral, or Hero);
+the number row chooses a creature's experience level.
+
+Terrain    Brush (paint by dragging), Rectangle (mark a box), Fill (flood
+           fill). Palettes: Terrain, Rooms, Walls, Other. Right-click while
+           painting turns a slab back to earth.
+Things     Creature (evil, heroes, other), Thing (Spells, Specials, Traps &
+           Doors, Decor) and Points (lights, action points, effect
+           generators: click to place, drag to size, Del to delete).
+           A right-click in Creature or Thing deletes the thing under the
+           cursor. Ctrl+click a door to lock or unlock it.
+Utility    Eyedropper (E; picks a slab or thing and switches to its tool),
+           Stamp (right-drag to capture an area, click to stamp it: slabs,
+           things and points), Paint Tex (per-slab texture), Query (Q),
+           Erase (R).
+Area       Clear (area to earth), Delete (things in an area), Owner (give an
+           area an owner), Reinforce (wall in an owner's dungeon perimeter).
+History    The undo list.
+
+Undo covers placements, area operations, paint strokes, fills, stamps, texture
+painting, reinforcing, deleting things (a restored creature keeps its level,
+health and owner; a door its lock), and property edits: an object's position or
+gold amount, a door's lock, and any change made in the Points inspector.
+
+Level Settings
+--------------
+Two tabs. Level: name, description, author, players, multiplayer, map size
+(with Resize) and base texture set. Script Setup: start gold, maximum creatures,
+generation speed, the creature pool, and Win / Lose Conditions. These are
+written into a marked block at the top of the level's script; everything you
+write outside that block is left alone.
+
+A win/lose condition is "Win (or Lose) when PLAYERn VARIABLE op value", e.g.
+Lose when PLAYER0 ALL_DUNGEONS_DESTROYED == 1, or Win when PLAYER0 MONEY > 5000.
+"Add 'and' condition" nests another IF so several must hold. "Add standard
+rules" adds: lose when your dungeon is destroyed, win when every other keeper's
+is. Conditions you wrote by hand elsewhere in the script are not touched; if the
+script also has its own WIN_GAME (or LOSE_GAME) outside the block, Validate and
+Verify Map warn that the level has two. The Level Settings window can be resized
+by dragging its corner.
+
+Scripts
+-------
+Script -> Edit Script opens the level's script. Validate reports unknown
+commands, unclosed IF blocks and suspicious argument counts (click a problem to
+jump to its line); Reload discards unapplied edits. Script -> Commands lists
+every command with its signature, and inserts one at the cursor. Verify Map
+includes the script's problems.
+
+The Script Editor has two tabs: Script (.txt) and Lua (.lua). A level with no
+Lua script can get one from "Add Lua script" (Remove Lua script deletes it on
+the next Save). Lua is coloured, with KeeperFX functions and names highlighted;
+with the cursor on a require "module" line, "Open required file" asks whether to
+open that module read-only (default), edit the original, or edit a copy (placed
+in the levels folder, where it replaces the module for every level there). Edited
+modules are saved from their own tab with Save file. Apply commits both tabs; Validate checks the
+.txt or the Lua tab (Lua syntax errors, calls to unknown functions, and
+classic commands passed to RunDKScriptCommand); Verify Map reports both.
+Script > Commands has a Lua page listing the engine's Lua functions with their
+documentation; double-click inserts a call at the Lua tab's cursor.
+Script > Commands > "Insert into Lua" puts any classic command into the Lua tab as
+RunDKScriptCommand("..."). On a level with a Lua script, the Script Setup,
+Availability and Objective/Message helpers note that Lua may override them.
+New Map has a "Lua script" option (a Lua template and no .txt). The Lua tab has
+a Snippets menu (event handlers built from the API) and Find (Ctrl+F).
+Script > Word Wrap wraps long lines in every tab. Save, Save As and Playtest carry the .lua. A level that
+also has per-level *.cfg files (rules, creatures, ...), a sound config or
+sprite zip keeps them when you Save in place. Save As to another level number
+or folder does not copy them: the editor warns and lists them.
+
+Playtest
+--------
+File -> Playtest saves the map to a scratch level (with the level's extra files)
+and starts it as a normal game. When the game ends, or you quit it, you are
+back in the editor with your unsaved changes.
+
+From a blank map to a playable level
+------------------------------------
+1. New Map: choose a size and texture set.
+2. Terrain -> Rooms: place a Dungeon Heart for player 1 and a Portal, then
+   dig out floor and rooms; Area -> Reinforce walls the edges in.
+3. Things: place creatures, traps, doors, spellbooks and gold; Points for
+   action points and hero gates (Thing -> Decor -> HERO_GATE).
+4. Level Settings: name, players, start gold, creature pool; Script ->
+   Availability for rooms, spells, traps and doors.
+5. Script: add WIN_GAME / LOSE_GAME conditions.
+6. File -> Verify Map, then Save As and Playtest.

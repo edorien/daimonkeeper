@@ -78,6 +78,29 @@ long read_int_default(VALUE *dict, const char *key, long def)
     return value_int32(v);
 }
 
+// The game's own loader (lvl_filesdk1.c load_kfx_toml_file) accepts two layouts for these lists: an
+// array of tables (`[[thing]]`, what the editor writes) and numbered tables (`[thing0]`, `[thing1]`, ...
+// with `[common] ThingsCount = N`, what hand-authored maps such as the dk2maps pack use). The reader used
+// to know only the first, so such maps opened with no things/lights/action points at all.
+size_t native_record_count(VALUE *root, const char *array_name, const char *count_field)
+{
+    VALUE *arr = value_dict_get(root, array_name);
+    if (value_type(arr) == VALUE_ARRAY)
+        return value_array_size(arr);
+    const long n = value_int32(value_dict_get(value_dict_get(root, "common"), count_field));
+    return (n > 0) ? (size_t)n : 0;
+}
+
+VALUE *native_record_at(VALUE *root, const char *array_name, const char *numbered_fmt, size_t k)
+{
+    VALUE *arr = value_dict_get(root, array_name);
+    if (value_type(arr) == VALUE_ARRAY)
+        return value_array_get(arr, k);
+    char key[64];
+    snprintf(key, sizeof(key), numbered_fmt, (int)k);
+    return value_dict_get(root, key);
+}
+
 } // namespace
 
 bool MapContentReader::read(MapContent &content, const char *dir, LevelNumber lvnum)
@@ -88,6 +111,7 @@ bool MapContentReader::read(MapContent &content, const char *dir, LevelNumber lv
     if (!read_texture(content, dir, lvnum)) result = false;
     if (!read_slab_texture(content, dir, lvnum)) result = false;
     if (!read_script(content, dir, lvnum)) result = false;
+    if (!read_lua(content, dir, lvnum)) result = false;
     if (!read_things(content, dir, lvnum)) result = false;
     if (!read_lights(content, dir, lvnum)) result = false;
     if (!read_action_points(content, dir, lvnum)) result = false;
@@ -180,6 +204,20 @@ bool MapContentReader::read_script(MapContent &content, const char *dir, LevelNu
     return true;
 }
 
+bool MapContentReader::read_lua(MapContent &content, const char *dir, LevelNumber lvnum)
+{
+    std::vector<char> buf;
+    if (!load_whole_file(build_path(dir, lvnum, "lua"), buf) || buf.empty())
+    {
+        content.lua_text.clear();
+        content.has_lua = false;
+        return true; // no .lua on disk -- not a read failure
+    }
+    content.lua_text.assign(buf.data(), buf.size() - 1); // drop load_whole_file's trailing NUL
+    content.has_lua = true;
+    return true;
+}
+
 bool KfxNativeMapContentReader::read_things(MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::vector<char> buf;
@@ -191,18 +229,26 @@ bool KfxNativeMapContentReader::read_things(MapContent &content, const char *dir
     if (toml_parse(buf.data(), err, sizeof(err), &root))
         return false;
 
-    VALUE *arr = value_dict_get(&root, "thing");
-    size_t count = (value_type(arr) == VALUE_ARRAY) ? value_array_size(arr) : 0;
+    const size_t count = native_record_count(&root, "thing", "ThingsCount");
     content.things.clear();
     content.things.reserve(count);
     for (size_t k = 0; k < count; k++)
     {
-        VALUE *d = value_array_get(arr, k);
+        VALUE *d = native_record_at(&root, "thing", "thing%d", k);
         if (value_type(d) != VALUE_DICT)
             continue;
         MapThingRecord t;
-        t.thing_class = (ThingClass)read_int_default(d, "ThingType", 0);
-        t.model = (ThingModel)read_int_default(d, "Subtype", 0);
+        // Same forms the game's own loader accepts (thing_factory.c thing_create_thing_adv): ThingType as an
+        // integer or a class name ("Object", "Creature", ...), and the model as `Subtype` (integer) or
+        // `SubtypeStringID` (a name). Hand-authored maps (e.g. the dk2maps pack) use the name forms; reading
+        // only integers turned every one of their things into class 0.
+        const int cls = value_parse_class(value_dict_get(d, "ThingType"));
+        t.thing_class = (ThingClass)((cls >= 0) ? cls : 0);
+        int model = -1;
+        VALUE *subtype_name = value_dict_get(d, "SubtypeStringID");
+        if ((cls >= 0) && (subtype_name != NULL) && (value_type(subtype_name) == VALUE_STRING))
+            model = value_parse_model(cls, subtype_name);
+        t.model = (ThingModel)((model >= 0) ? model : read_int_default(d, "Subtype", 0));
         t.owner = (PlayerNumber)read_int_default(d, "Ownership", 0);
         t.pos_x = read_stl_coord(d, "SubtileX");
         t.pos_y = read_stl_coord(d, "SubtileY");
@@ -248,13 +294,12 @@ bool KfxNativeMapContentReader::read_lights(MapContent &content, const char *dir
     if (toml_parse(buf.data(), err, sizeof(err), &root))
         return false;
 
-    VALUE *arr = value_dict_get(&root, "light");
-    size_t count = (value_type(arr) == VALUE_ARRAY) ? value_array_size(arr) : 0;
+    const size_t count = native_record_count(&root, "light", "LightsCount");
     content.lights.clear();
     content.lights.reserve(count);
     for (size_t k = 0; k < count; k++)
     {
-        VALUE *d = value_array_get(arr, k);
+        VALUE *d = native_record_at(&root, "light", "light%d", k);
         if (value_type(d) != VALUE_DICT)
             continue;
         MapLightRecord l;
@@ -282,13 +327,12 @@ bool KfxNativeMapContentReader::read_action_points(MapContent &content, const ch
     if (toml_parse(buf.data(), err, sizeof(err), &root))
         return false;
 
-    VALUE *arr = value_dict_get(&root, "actionpoint");
-    size_t count = (value_type(arr) == VALUE_ARRAY) ? value_array_size(arr) : 0;
+    const size_t count = native_record_count(&root, "actionpoint", "ActionPointsCount");
     content.action_points.clear();
     content.action_points.reserve(count);
     for (size_t k = 0; k < count; k++)
     {
-        VALUE *d = value_array_get(arr, k);
+        VALUE *d = native_record_at(&root, "actionpoint", "actionpoint%d", k);
         if (value_type(d) != VALUE_DICT)
             continue;
         MapActionPointRecord a;
@@ -335,6 +379,8 @@ bool KfxNativeMapContentReader::read_level_info(MapContent &content, const char 
                 content.level_info.players = atoi(value);
             else if (std::strcmp(key, "DESCRIPTION") == 0)
                 content.level_info.description_text = value;
+            else if (std::strcmp(key, "AUTHOR") == 0)
+                content.level_info.author_text = value;
         }
         line = std::strtok(NULL, "\r\n");
     }

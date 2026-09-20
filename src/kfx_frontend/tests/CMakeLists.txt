@@ -33,6 +33,9 @@ target_link_libraries(kfx_frontend_utest PRIVATE
           # frontgui_stylesheet_test.cpp) both need imgui's compiled object.
     Catch2::Catch2WithMain)
 
+# Repo root, for tests that run against the shipped game data in core_files/ (skipped when absent).
+target_compile_definitions(kfx_frontend_utest PRIVATE KFX_TEST_REPO_ROOT="${CMAKE_SOURCE_DIR}")
+
 include(CTest)
 include(Catch)
 catch_discover_tests(kfx_frontend_utest TEST_PREFIX "kfx_frontend.")

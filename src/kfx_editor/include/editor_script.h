@@ -62,6 +62,21 @@ TbBool editor_script_insert_token_at_cursor(const char *token);
 // directly (returns false).
 bool editor_script_insert_block_at_cursor(const char *block);
 
+// Script > Word Wrap: wraps long lines in every tab of the script editor
+// (both script formats, and read-only modules).
+// Inserts `text` at the Lua tab's cursor (replacing its selection) and shows
+// that tab. False, and nothing happens, unless the script editor is open and
+// the level has a Lua script.
+bool editor_lua_insert_at_cursor(const char *text);
+
+// One caption line, drawn only when the level has a Lua script: the helpers
+// (setup block, availability, messages) write classic commands to the .txt,
+// which run before Lua's OnGameStart and so can be overridden by it.
+void editor_lua_override_banner();
+
+bool editor_script_word_wrap();
+void editor_script_set_word_wrap(bool on);
+
 #endif
 
 #endif

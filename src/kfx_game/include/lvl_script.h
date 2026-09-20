@@ -125,9 +125,15 @@ struct ScriptValue {
     char chars[32];
     short shorts[16];
     unsigned short ushorts[16];
-    long longs[8];
+    // 32-bit on every platform. The layout of this union -- which byte ranges each command's fields
+    // occupy (e.g. an index in longs[0] with a player in chars[4], a chat-icon type in chars[6]) -- was
+    // written for the original 32-bit Windows build, where `long` is 4 bytes. With a plain `long`, 64-bit
+    // Linux made longs[0] eight bytes wide and those neighbouring fields landed inside it: a QUICK_MESSAGE
+    // with icon None (type 6) turned message index 2 into 2 | (6 << 48) and the game crashed in
+    // message_add() (biervampir's faction boxes). Do not widen these.
+    int32_t longs[8];
     long long longlongs[4];
-    unsigned long ulongs[8];
+    uint32_t ulongs[8];
     unsigned long long ulonglongs[4];
   };
 };
@@ -206,6 +212,12 @@ short clear_script(void);
 short load_script(long lvl_num);
 TbBool script_scan_line(char *line,TbBool preloaded, long file_version);
 TbBool preload_script(long lvnum);
+/** strtol()/atol() for numbers written in a script. The script language was defined on 32-bit `long`,
+ *  where strtol() saturates at +-2^31 (3000000000 reads as 2147483647). On LP64 it would keep the full
+ *  value and the later store into a 32-bit ScriptValue slot would wrap it (3000000000 -> -1294967296).
+ *  These clamp to the int32 range on every platform, so a script means the same thing everywhere. */
+long script_strtol(const char *text, char **endptr, int base);
+long script_atol(const char *text);
 /******************************************************************************/
 
 struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsigned char valtype, short validx);

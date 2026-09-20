@@ -137,6 +137,8 @@ MapContent build_sample_content()
     c.level_info.name_text = "Slice 1 Round-Trip";
     c.level_info.players = 3;
     c.level_info.is_multiplayer = true;
+    c.level_info.description_text = "A test level";
+    c.level_info.author_text = "Map Maker";
 
     // docs/refactor/editor/05-script-and-level-settings.md §0 -- a real
     // classic-format script snippet (comment + an IF/ENDIF block), not just
@@ -214,6 +216,8 @@ TEST_CASE_METHOD(ScratchDir, "KfxNativeMapContentWriter/Reader round-trips a syn
     CHECK(loaded.level_info.name_text == original.level_info.name_text);
     CHECK(loaded.level_info.players == original.level_info.players);
     CHECK(loaded.level_info.is_multiplayer == original.level_info.is_multiplayer);
+    CHECK(loaded.level_info.description_text == original.level_info.description_text);
+    CHECK(loaded.level_info.author_text == original.level_info.author_text);
 
     CHECK(loaded.script_text == original.script_text);
 }
@@ -296,6 +300,69 @@ TEST_CASE_METHOD(ScratchDir, "KfxNativeMapContentReader leaves script_text empty
     CHECK(loaded.script_text.empty());
 }
 
+// fx-plans/02-lua-scripts.md L1 -- the .lua is an opaque byte blob that both
+// formats carry, and a Lua-only level never gets an invented .txt.
+TEST_CASE_METHOD(ScratchDir, "map .lua round-trips byte-identically in both formats", "[kfx_sim][map_content]") {
+    std::string lua = "\xEF\xBB\xBF-- caf\xC3\xA9\r\nfunction OnGameStart()\r\nend\r\n";
+    lua.append(1 << 20, 'x'); // 1 MB
+    for (int fmt = 0; fmt < 2; fmt++)
+    {
+        MapContent content = build_sample_content();
+        content.lua_text = lua;
+        content.has_lua = true;
+        KfxNativeMapContentWriter native;
+        ClassicMapContentWriter classic;
+        MapContentWriter &w = (fmt == 0) ? (MapContentWriter &)native : (MapContentWriter &)classic;
+        REQUIRE(w.write(content, path, 46));
+        CHECK(read_whole_file(std::string(path) + "/map00046.lua") == lua);
+
+        MapContent loaded;
+        loaded.map_tiles_x = content.map_tiles_x;
+        loaded.map_tiles_y = content.map_tiles_y;
+        KfxNativeMapContentReader reader;
+        reader.read(loaded, path, 46);
+        CHECK(loaded.has_lua);
+        CHECK(loaded.lua_text == lua);
+    }
+}
+
+TEST_CASE_METHOD(ScratchDir, "an empty .lua is kept and a missing one is not invented or left stale", "[kfx_sim][map_content]") {
+    struct stat st;
+    std::string lua_path = std::string(path) + "/map00047.lua";
+    KfxNativeMapContentWriter writer;
+
+    MapContent content = build_sample_content();
+    content.has_lua = true; // empty file
+    REQUIRE(writer.write(content, path, 47));
+    REQUIRE(stat(lua_path.c_str(), &st) == 0);
+    CHECK(st.st_size == 0);
+    MapContent loaded;
+    loaded.map_tiles_x = content.map_tiles_x;
+    loaded.map_tiles_y = content.map_tiles_y;
+    KfxNativeMapContentReader reader;
+    reader.read(loaded, path, 47);
+    CHECK(loaded.has_lua);
+    CHECK(loaded.lua_text.empty());
+
+    content.has_lua = false; // stale file removed
+    REQUIRE(writer.write(content, path, 47));
+    CHECK(stat(lua_path.c_str(), &st) != 0);
+    reader.read(loaded, path, 47);
+    CHECK_FALSE(loaded.has_lua);
+}
+
+TEST_CASE_METHOD(ScratchDir, "a Lua-only level is not given a stub .txt", "[kfx_sim][map_content]") {
+    MapContent content = build_sample_content();
+    content.script_text.clear();
+    content.lua_text = "function OnGameStart() end\n";
+    content.has_lua = true;
+    KfxNativeMapContentWriter writer;
+    REQUIRE(writer.write(content, path, 48));
+    struct stat st;
+    CHECK(stat((std::string(path) + "/map00048.txt").c_str(), &st) != 0);
+    CHECK(stat((std::string(path) + "/map00048.lua").c_str(), &st) == 0);
+}
+
 // docs/refactor/editor/05-script-and-level-settings.md's "per-slab texture
 // paint" item -- slab_texture's own boundary cases, same shape as
 // script_text's pair above: a missing .slx means "no overrides", not a
@@ -327,4 +394,45 @@ TEST_CASE_METHOD(ScratchDir, "KfxNativeMapContentWriter always writes .slx, even
     struct stat st;
     CHECK(stat(slx_path.c_str(), &st) == 0); // file exists, unlike write_script()'s own skip-when-empty case
     CHECK(read_whole_file(slx_path).size() == 16);
+}
+
+// A save in one format must not leave the other format's files behind: the
+// loader prefers .tngfx/.lgtfx/.aptfx and any existing .clm/.dat/.wib, so a
+// stale copy would silently replace what was just saved.
+TEST_CASE_METHOD(ScratchDir, "saving in one format removes the other format's files", "[kfx_sim][map_content]") {
+    MapContent content = build_sample_content();
+    KfxNativeMapContentWriter native;
+    ClassicMapContentWriter classic;
+    std::string dir = path;
+    auto exists = [&](const char *ext) {
+        struct stat st;
+        return stat((dir + "/map00042." + ext).c_str(), &st) == 0;
+    };
+    REQUIRE(native.write(content, path, 42));
+    REQUIRE(exists("tngfx"));
+    content.derived_dat.assign(8, 1);
+    REQUIRE(classic.write(content, path, 42));
+    CHECK_FALSE(exists("tngfx"));
+    CHECK_FALSE(exists("lgtfx"));
+    CHECK_FALSE(exists("aptfx"));
+    CHECK(exists("tng"));
+    CHECK(exists("dat"));
+    REQUIRE(native.write(content, path, 42));
+    CHECK(exists("tngfx"));
+    CHECK_FALSE(exists("tng"));
+    CHECK_FALSE(exists("dat"));
+}
+
+// The loader takes the map size from the .lof, so the writer must put it there.
+TEST_CASE_METHOD(ScratchDir, "the .lof carries MAPSIZE", "[kfx_sim][map_content]") {
+    MapContent content = build_sample_content();
+    KfxNativeMapContentWriter writer;
+    REQUIRE(writer.write(content, path, 5));
+    std::string lof = std::string(path) + "/map00005.lof";
+    FILE *f = fopen(lof.c_str(), "rb");
+    REQUIRE(f != nullptr);
+    char buf[1024] = {};
+    size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    CHECK(std::string(buf, n).find("MAPSIZE = 4 4") != std::string::npos);
 }
