@@ -470,6 +470,9 @@ int64_t editor_pending_new_map_texture = 0;
 TbBool editor_pending_relaunch = false;
 TbBool editor_pending_playtest = false;
 TbBool editor_playtest_running = false;
+TbBool content_tool_play_running = false;
+int64_t content_tool_return_tool = -1;
+int64_t content_tool_reopen_tool = -1;
 
 void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
     MapSlabCoord new_map_w, MapSlabCoord new_map_h, int64_t new_map_texture)
@@ -487,9 +490,16 @@ void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
 // command-line argument uses (main.cpp) to steer which level a normal
 // FeSt_START_KPRLEVEL game-start loads (main_game.c's get_selected_level_number()
 // callers).
-void frontend_request_editor_playtest(LevelNumber lvnum)
+namespace {
+uint8_t s_playtest_pack = 0;
+char s_playtest_campaign[DISKPATH_SIZE] = "";
+}
+
+void frontend_request_editor_playtest(LevelNumber lvnum, uint8_t pack, const char *campaign_fname)
 {
     set_selected_level_number(lvnum);
+    s_playtest_pack = pack;
+    snprintf(s_playtest_campaign, sizeof(s_playtest_campaign), "%s", campaign_fname != nullptr ? campaign_fname : "");
     editor_pending_playtest = true;
 }
 
@@ -4188,6 +4198,15 @@ FrontendMenuState get_startup_menu_state(void)
   {
       editor_pending_playtest = false;
       editor_playtest_running = true;
+      // docs/refactor/editor/fx-plans/03-content-editors-foundation.md §10 -- "Test as part of": the campaign
+      // the playtest runs under, so its CONFIGS_LOCATION / CREATURES_LOCATION / strings apply. The editor puts
+      // the previous campaign back once it has re-opened.
+      if (s_playtest_campaign[0] != '\0')
+      {
+          if (!change_campaign(s_playtest_pack, s_playtest_campaign))
+              WARNLOG("Playtest: could not switch to campaign \"%s\"", s_playtest_campaign);
+          s_playtest_campaign[0] = '\0';
+      }
       SYNCLOG("Editor playtest state selected");
       return FeSt_START_KPRLEVEL;
   }
@@ -4201,6 +4220,15 @@ FrontendMenuState get_startup_menu_state(void)
       editor_pending_is_new = false;
       SYNCLOG("Editor return from playtest");
       return FeSt_START_EDITOR;
+  }
+  // A game a content tool (Campaign editor) started to try a level has ended: back to the main menu, which opens the tool again.
+  if (content_tool_play_running)
+  {
+      content_tool_play_running = false;
+      content_tool_reopen_tool = content_tool_return_tool;
+      content_tool_return_tool = -1;
+      SYNCLOG("Return from a content tool's game to the main menu");
+      return FeSt_MAIN_MENU;
   }
   if (game_flags2 & GF2_Server)
   {

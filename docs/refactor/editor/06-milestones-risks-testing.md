@@ -96,7 +96,7 @@ still runs during phase 1/2 but now only *sizes* a fallback, it doesn't gate the
 
 ## 5. Docs & packaging
 
-- User-facing: a `docs/level_editor.txt` (sits beside `docs/custom_levels_play.txt`,
+- User-facing: a `docs/map_editor.txt` (sits beside `docs/custom_levels_play.txt`,
   `docs/creating_campaigns.txt`) — how to open the editor, the tools, saving, playtesting,
   where maps go, the script helpers, and a "from blank map to playable level" walkthrough
   mirroring the original manual's checklist (§6 of `Dungeon Keeper Editor Manual.doc`).

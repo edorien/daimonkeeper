@@ -94,7 +94,7 @@ Answers to the first review (all confirmed):
 | S2 | Are creature model files layered per level? | **Answered** (§2.2): yes, `map%05d.<name>.cfg` |
 | S3 | Lua config templates | Open: list the Lua-coupled keys per file while building each schema; read-only |
 | S4 | Which keys the running game re-reads mid-session | Open, only needed if live apply is ever wanted (v1: no) |
-| S6 | `change_campaign()` from an editor session; scratch level vs campaign level folders (§10) | Open; before the Playtest-as-campaign slice |
+| S6 | `change_campaign()` from an editor session; scratch level vs campaign level folders (§10) | **Done** (§8c): the scratch level is found through the campaign; config layering verified by ftest |
 | S5 | Merge rule for list-shaped keys (`Research`, `Cost`, `Power`, `Creatures`, `[sacrifices]`) | Open; before F4 (research) and 06 |
 
 ## 3. Scope: what a target is
@@ -159,7 +159,7 @@ optionally a level inside it. Default: the last-used target (remembered in the e
 | Main menu Tools modal | "Editor" → "Map Editor" |
 | Map editor menu bar / window titles / dialogs | "Editor" wording → "Map Editor" where the tool is named |
 | Key-binding tab | "Editor" → "Map Editor" (`frontgui_screens.cpp:703`) and the `Editor:` prefixes in `config_settings.c` descriptions |
-| `docs/level_editor.txt` | Retitled "Map Editor", file renamed `docs/map_editor.txt` (update links), new "Content editors" chapter |
+| `docs/map_editor.txt` | Retitled "Map Editor", file renamed `docs/map_editor.txt` (update links), new "Content editors" chapter |
 | Architecture / CLAUDE.md | one-line mentions |
 
 ## 6. Save, Save As, Playtest, Verify
@@ -194,16 +194,146 @@ optionally a level inside it. Default: the last-used target (remembered in the e
 
 | Slice | Content | Size |
 |---|---|---|
-| **F0** | Rename to *Map Editor* (§5 table); Tools modal lists the new entries (greyed "coming soon" until built); `Tools` menu in the map editor bar; `ContentToolsCallbacks` skeleton and an empty *content_tools* window host. | small |
+| **F0** (done) | Rename to *Map Editor* (§5 table); Tools modal lists the new entries (greyed "coming soon" until built); `Tools` menu in the map editor bar; `ContentToolsCallbacks` skeleton and an empty *content_tools* window host. | small |
 | **W0–W5** | The content layer of [10](10-config-content-model-and-writers.md) (lossless document, schema reflection, layer stack, writer parent + `TableConfigWriter` + `TrapDoorConfigWriter` + `RulesConfigWriter`, anchor and read-back tests). **Replaces the former F1 and F2.** | large (see 10 §8) |
-| **F3** | **Raw config editor**: pick a file, edit the target's layer as text with `.cfg` colouring, Validate (schema diagnostics), Apply. Includes the target picker (level / campaign) and the "effective view" side pane. Ships first as the immediate escape hatch for everything (also `.toml` files as plain text). | medium |
-| **F4** | **Rules editor** (`rules.cfg` `[game] [computer] [creatures] [magic] [rooms] [workers] [health] [research] [sacrifices]`): first structured editor, grouped as the file groups it; proves widgets, source badges, Reset, Playtest round trip. | medium |
-| **F5** | Playtest campaign context (§10): session campaign context, "Test as part of", `change_campaign` round trip and restore. | small-medium (after S6) |
+| **F3** (done) | **Raw config editor**: pick a file, edit the target's layer as text with `.cfg` colouring, Validate (schema diagnostics), Apply. Includes the target picker (level / campaign) and the "effective view" side pane. Ships first as the immediate escape hatch for everything (also `.toml` files as plain text). | medium |
+| **F4** (done) | **Rules editor** (`rules.cfg` `[game] [computer] [creatures] [magic] [rooms] [workers] [health] [research] [sacrifices]`): first structured editor, grouped as the file groups it; proves widgets, source badges, Reset, Playtest round trip. | medium |
+| **F5** (done) | Playtest campaign context (§10): session campaign context, "Test as part of", `change_campaign` round trip and restore. | small-medium (after S6) |
 | then | [05 trap/door] → [07 room] → [06 spell/ability] → [04 creature]; [08 campaign] and [09 text] in parallel (they need only F0 and the content layer, [10]). | see each plan |
 
 Acceptance for F0, W0–W5, F3–F4: rename done and searchable; a level with `map%05d.rules.cfg` opens in the Rules
 editor showing Level/Campaign/Base values; changing `[game] PayDaySpeed`, Save, Playtest: the running
 game uses it; Reset removes the key and, if it was the last, the file.
+
+## 8a. F0 and F3 results (done)
+
+**F0 (rename, Tools menus, host)**
+
+- **Rename:** the main menu's Tools modal says *Map Editor*; the key-binding tab is *Map Editor* and its
+  action descriptions read `Map Editor: ...` (the `keeperfx.cfg` key names are unchanged); `docs/level_editor.txt`
+  is now `docs/map_editor.txt` (all links updated) with a new *Content editors* chapter. The library, files and
+  CMake targets keep their names.
+- **`ContentToolsCallbacks`** (`kfx_config/include/content_tools_callbacks.h`, `src/content_tools_callbacks.c`):
+  `is_available(tool)`, `open(tool)`, `frame()`, `is_open()`, plus the `ContentTool` enum and `content_tool_label()`.
+  Implemented in `kfx_editor` (`content_tools.cpp`), wired in `main.cpp::setup_game()`; no-ops until wired.
+- **Main menu Tools modal:** Map Editor, then every content tool; unbuilt ones are greyed with a "Coming soon"
+  tooltip. The main menu calls `frame()` after its own window, so tool windows sit over the menu.
+- **Map Editor `Tools` menu:** the same list (`(coming soon)` suffix on unbuilt ones); opens the tool with the
+  Level target preselected to the map being edited. `editor_session.cpp` calls `content_tools_frame()`.
+
+**F3 (raw config editor, tool *Config Files*)**
+
+- **Target picker (standalone):** every campaign and mappack the game knows (`content_list_campaigns()` reads
+  `campaigns_list` / `mappacks_list`; locations resolved as the loader does: install path or runtime directory +
+  the campaign's `CONFIGS_LOCATION`, `CREATURES_LOCATION`, `LEVELS_LOCATION`), an optional level of it, the layer
+  (Base read-only / Campaign / Level; layers the target does not have are disabled) and the file. The last campaign
+  is remembered for the run (settings persistence is not done). **Map Editor host:** the map's own folder and number
+  are the Level layer, no Campaign layer; an unsaved scratch map shows only Base with a note.
+- **Files:** every `*.cfg` and `*.toml` of the base config directory plus every creature model file; files with a
+  schema get validation and key colouring, the rest are plain text with structural checks.
+- **Editing:** `.cfg` colouring (`;` comments, `[blocks]`, key names known to the schema), effective-values pane
+  with the source layer of each value and the value it replaces (tooltip), "only keys in this layer" filter, text
+  filter. **Problems** list from the whole-document validator (`cfgc_validate_document`: duplicate blocks that the
+  loader never reads, unknown blocks/keys, keys outside a block, unrecognised lines, ranges, names), refreshed after
+  a short pause in typing; clicking a problem jumps to its line.
+- **Buttons:** *Apply* (atomic write via `WriteBatch`; an empty text deletes the file), *Revert*, *Delete file*
+  (two clicks), *Close*; unsaved changes prompt on Open and Close. Base files are never written (the session
+  refuses; the editor is read-only there).
+- **Code:** `content_target` (pure builders + campaign list), `content_raw` (`RawConfigSession`: open, validate,
+  effective rows, apply, delete; no ImGui), `content_tools` (ImGui host and window); `cfgc_validate` in
+  `kfx_config` (unit tested, and the backing of the JSON `validate` operation).
+- **Tests:** Catch2 for the validator (structure, values, registry names, base files clean) and the target/raw
+  session logic (open/edit/validate/apply/delete, base refused, missing layer, plain files); ftest
+  `config_content_tool_smoke` draws the window in both hosts inside a running editor session (asserts real ImGui
+  frames ran).
+- **Not covered by tests, needs a live look:** the main menu path (Tools modal buttons, window over the menu) and
+  the visual layout at different UI font scales.
+
+## 8b. F4 results (done)
+
+**Built** (kfx_config): `cfgc_help` (help text from the base file's comments above each key: `cfgc_extract_help`),
+`cfgc_make_writer(schema, kind)` (the dedicated child where there is one, else a `TableConfigWriter` with the
+standard header). **kfx_editor:** `content_struct` (`StructuredSession`: the logic behind every form editor, no UI),
+`content_picker` (the shared target picker: campaign/map pack, level, layer, and the centred main-menu-style window
+frame; the Config Files editor now uses it too), `content_rules` (the window). Tool *Rules Editor* is available in
+both Tools menus.
+
+- **`StructuredSession`:** opens one layer of a file for a target; `value_of(section, key)` gives the text, whether
+  any layer sets it, the source layer, whether this layer overrides it, the value beneath, and "same as beneath";
+  pending edits (`set`, `reset`, `set_list`, `reset_list`) are kept until `apply`; an edit that returns a key to what
+  is already there (its file value, or the inherited/default one) vanishes; `diagnostics()` reports what the loader
+  would clamp; `apply()` goes through the kind's writer and `WriteBatch` (so no-op elimination, spacing, comment
+  and delete-when-empty rules are the writer's) and re-reads the layers. Keys are written in the spelling the files
+  already use.
+- **Rules editor window:** one tab per block of rules.cfg (Game, Creatures, Rooms, Magic, Computer, Workers,
+  Health), plus Research and Sacrifices as list editors (one line per entry, add/remove/up/down; a reset returns to
+  the layer beneath; a sacrifices edit carries the block's other keys, since the block replaces the lower one
+  whole). Each row: key (grey when inherited), a widget by kind (checkbox for 0/1, number box with the range,
+  drop-down for known names, text otherwise), a badge (`Base`, `Campaign`, `Level`, `default`, `edited`, and
+  "was X" / "same as before" when overriding), and Reset. The base file's comment is the hover help. Keys that
+  no loader reads are hidden unless "Show keys with no effect" is ticked. Values outside the range the game
+  accepts turn the key red. Apply, Revert, Close; target and layer are locked while there are unapplied changes.
+- **Tests:** Catch2 for `cfgc_help` and `StructuredSession` (views, pending/vanishing edits, apply and reload, reset
+  deleting the generated file, diagnostics, lists, base read-only, missing layer); ftest
+  `config_content_rules_editor` (acceptance: the session edits `[game] PayDaySpeed` at level scope before the level
+  loads; the running game uses it) and the smoke ftest now draws the Rules editor in both hosts.
+- **Follow-up (same slice):** keys the loader does not read are drawn in a distinct purple with a "no effect" badge
+  and a tooltip saying why; their widgets are locked (they can be viewed and reset, not edited). The Sacrifices tab
+  is now a recipe editor: per reward kind, each recipe is a **Result drop-down** (creatures, spells or the unique
+  functions, by kind) and up to six **Victim drop-downs** of creatures, with `+`/`-` to add or drop a victim and
+  Up/Down/Remove/Add recipe per kind. The names come from `content_names` (traps, doors, objects, slabs, rooms,
+  shots, spells, powers, specials from their `Name =` lines and the creature list from `creature.cfg`
+  `[common] Creatures`, every layer up to the edited one); a value that is not in the list stays selectable, marked
+  "(unknown)", so nothing is lost. Backing this, the schema describes a recipe line (`CfgFieldSpec::repeat_last`: the
+  result part, then a creature part that repeats) and the validator checks every victim and a recipe's minimum of one.
+  Sacrifice recipes have no Up/Down (their order does not matter).
+- **Research tab:** works on items, not text. Each row is a fixed item label (ROOM/MAGIC/CREATURE and name), a points
+  box, the running total, Up/Down and drag-to-reorder (the order is the order the game offers them), and Remove. New
+  items are added from two drop-downs (room, spell; creatures are not offered, though an existing CREATURE line is kept) that list only what is not in the list yet, so
+  nothing can be added twice; an existing repeated item is marked "(repeated)". Tools: Sort by cost, Scale all
+  costs to N %. A summary shows the item count, total points, and how many rooms and spells are not in the list
+  (never researchable).
+- **Needs a live look:** the form layout and column positions at other UI font scales; the tooltip and badge text.
+
+## 8c. F5 results (done): Playtest campaign context, and spike S6
+
+**S6 findings**
+
+- The scratch level (`EDITOR_PLAYTEST_LEVEL_NUMBER`, 900002) is found **through the current campaign**: its files
+  live in that campaign's `LEVELS_LOCATION` folder (`get_level_fgroup()` is always `FGrp_CmpgLvls`). So today's Playtest
+  already ran the map under whichever campaign happened to be loaded (the default one) and dropped
+  `map900002.*` into that campaign's folder, never removing it.
+- Under a campaign, the real loader applies that campaign's `CONFIGS_LOCATION` layer **and** the scratch level's own
+  `map900002.<file>` layer (verified by the ftest `config_content_scratch_level`: a copy of keeporig level 1 as
+  map900002 with a level-scope rules edit and a campaign-scope trapdoor edit; both read back live).
+- The "no campaign" case is the **Editor Maps** map pack: it has a `LEVELS_LOCATION` and nothing else, so the
+  playtest gets base + level layers only.
+- The editor's return from a playtest re-loads the scratch map through the same campaign, so the campaign must stay
+  current until the editor has re-opened.
+
+**Built**
+
+- **Playtest confirm: "Test as part of"** drop-down: *None (base rules only)* (= Editor Maps) or any campaign or map pack the game
+  knows; the default is the campaign the map belongs to (found from its folder, `content_find_campaign_for_dir`),
+  else None. A short note says the campaign's own configuration applies.
+- On Playtest, the map is saved as the scratch level into **the chosen campaign's levels folder** (Editor Maps folder
+  for None; the pack is registered if needed) with its sidecars, then `frontend_request_editor_playtest(level, pack,
+  fname)`; the frontend's playtest state switches to that campaign (`change_campaign`) just before the level starts.
+- On return, `editor_open()` (once the scratch map is loaded) **puts the previous campaign back and removes the
+  scratch `map900002.*` files** from that folder (previously left behind).
+- The menu bar shows the map's campaign next to its name.
+- **Tests:** Catch2 for finding a campaign from a folder; the frontend relaunch tests use the new signature; ftest
+  `config_content_scratch_level` (S6, config layering half).
+- **Not covered by tests (live check):** the whole Playtest round trip through the frontend states (campaign switch
+  before the level, restore after the editor re-opens, scratch cleanup) and the drop-down.
+- **Deliberately not done:** Level Settings display of the campaign, remembering the choice across sessions, and the
+  Campaign Editor's *Play level...* (plan 08).
+
+## 8d. Shared entity window
+
+The Trap and Door and Spell and Ability editors are configurations of one window (`content_entity`: `EntityConfig` with
+modes, group functions, read-only keys, links to other entities' files, comparison columns). New entity editors (Room 07, Creature
+04) should be a config plus a `group_of` function, not new window code.
 
 ## 9. The Rules editor (F4) in brief
 

@@ -193,6 +193,8 @@ extern struct CampaignsList mappacks_list;
 extern struct CampaignsList mp_mappacks_list;
 extern const enum TbFileGroups cmpgn_fgroup[CampgnT_COUNT];
 extern const char* cmpgn_prefix[CampgnT_COUNT];
+extern const struct NamedCommand cmpgn_common_commands[];
+extern const struct NamedCommand cmpgn_level_markers_options[];
 extern const struct NamedCommand cmpgn_map_commands[];
 extern const struct NamedCommand cmpgn_map_ensign_flag_options[];
 extern const struct NamedCommand cmpgn_map_skirmish_setup_options[];

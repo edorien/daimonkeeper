@@ -11,6 +11,10 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "editor_menubar.h"
+#include "content_tools.h"
+#include "content_target.h"
+#include <string>
+#include <vector>
 #include "kfx_editor.h"
 #include "editor_journal.h"
 #include "editor_dialogs.h"
@@ -218,18 +222,49 @@ void editor_menubar_frame(void)
         }
         FeEndMenu(script_open);
 
+        // docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5 -- the content editors, opened on
+        // this map (its level layer preselected). Unbuilt tools are listed greyed out.
+        bool tools_open = FeBeginMenu("Tools");
+        if (tools_open)
+        {
+            for (int64_t t = 0; t < ContentTool_Count; t++)
+            {
+                const bool available = content_tools_is_available((int)t);
+                std::string label = content_tool_label((int)t);
+                if (!available)
+                    label += " (coming soon)";
+                if (FeMenuItem(label.c_str(), nullptr, available))
+                    content_tools_open_for_map((int)t);
+            }
+        }
+        FeEndMenu(tools_open);
+
         // Map name + dirty marker (08-gui-layout.md's own mockup) -- real
         // now that lvnum/dirty/name are all tracked (editor_session.cpp).
         // Falls back to the lvnum alone when no name has been set yet
         // (Level Settings/Save As, or none found in an existing .lof).
-        char title[64];
+        // The campaign or map pack the map belongs to (found from its folder; plan 03 §10), looked up when the
+        // folder changes.
+        static std::string s_campaign_dir;
+        static std::string s_campaign_label;
+        if (s_campaign_dir != editor_current_save_dir())
+        {
+            s_campaign_dir = editor_current_save_dir();
+            s_campaign_label.clear();
+            const std::vector<ContentCampaign> all = content_list_campaigns();
+            if (const ContentCampaign *c = content_find_campaign_for_dir(all, s_campaign_dir))
+                s_campaign_label = c->name;
+        }
+        char title[160];
         const char *name = editor_current_level_name();
         if (name[0] != '\0')
-            snprintf(title, sizeof(title), "%s (Level %" PRIu64 ")%s",
-                name, (uint64_t)editor_current_lvnum(), editor_is_dirty() ? " *" : "");
+            snprintf(title, sizeof(title), "%s (Level %" PRIu64 ")%s%s%s",
+                name, (uint64_t)editor_current_lvnum(), editor_is_dirty() ? " *" : "",
+                s_campaign_label.empty() ? "" : "  -  ", s_campaign_label.c_str());
         else
-            snprintf(title, sizeof(title), "Level %" PRIu64 "%s",
-                (uint64_t)editor_current_lvnum(), editor_is_dirty() ? " *" : "");
+            snprintf(title, sizeof(title), "Level %" PRIu64 "%s%s%s",
+                (uint64_t)editor_current_lvnum(), editor_is_dirty() ? " *" : "",
+                s_campaign_label.empty() ? "" : "  -  ", s_campaign_label.c_str());
         FeMenuItem(title, nullptr, false);
     }
     FeEndMenuBar(bar_open);

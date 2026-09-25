@@ -220,6 +220,7 @@ void clear_sacrifice_recipes(void);
 TbBool add_sacrifice_victim(struct SacrificeRecipe *sac, ThingModel crtr_idx);
 
 extern const struct NamedCommand rules_sacrifices_commands[];
+extern const struct NamedCommand rules_research_commands[];
 extern const struct NamedCommand sacrifice_unique_desc[];
 
 extern const struct NamedField* ruleblocks[8];

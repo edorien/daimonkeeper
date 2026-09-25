@@ -1,8 +1,8 @@
-KeeperFX in-game level editor
-=============================
+KeeperFX Map Editor
+===================
 
-The editor runs inside the game: open it from the main menu with
-Tools -> Editor, then choose New Map or open an existing level. The game world
+The Map Editor runs inside the game: open it from the main menu with
+Tools -> Map Editor, then choose New Map or open an existing level. The game world
 is frozen while you edit (nothing spawns, nothing moves); View -> Preview
 Motion (unpause) lets it run.
 
@@ -97,7 +97,9 @@ or folder does not copy them: the editor warns and lists them.
 Playtest
 --------
 File -> Playtest saves the map to a scratch level (with the level's extra files)
-and starts it as a normal game. When the game ends, or you quit it, you are
+and starts it as a normal game. "Test as part of" chooses the campaign or map pack the
+test runs under, so that campaign's own configuration (rules, creatures, traps, ...)
+applies; None uses the base rules only. The default is the campaign the map belongs to. When the game ends, or you quit it, you are
 back in the editor with your unsaved changes.
 
 From a blank map to a playable level
@@ -111,3 +113,54 @@ From a blank map to a playable level
    Availability for rooms, spells, traps and doors.
 5. Script: add WIN_GAME / LOSE_GAME conditions.
 6. File -> Verify Map, then Save As and Playtest.
+
+Content editors (Tools menu)
+----------------------------
+The main menu's Tools list and the Map Editor's own Tools menu open the content
+editors. They change configuration, not the map:
+
+Config Files: pick a campaign or map pack (and a level), a layer (Base,
+Campaign or Level) and a file, then edit that layer's file as text. Base files
+are shown but never written. The right-hand pane shows the effective values,
+with the layer each one comes from; the Problems list marks what the game would
+clamp, ignore or skip, by line (click a problem to jump to it). Apply writes the
+file (an empty file is deleted); Revert goes back to the file on disk. From the
+Map Editor the Level layer is the map you are editing (save the map once first).
+
+Rules Editor: rules.cfg as a form (Game, Creatures, Rooms, Magic, Computer, Workers,
+Health, Research, Sacrifices). Pick a campaign or map pack, a level and the Campaign
+or Level layer. Each value shows where it comes from (Base, Campaign, Level or
+default), hover a name for its description, Reset returns a value to what the layer
+beneath gives. Nothing is written until Apply; a value equal to the one beneath is
+not written at all.
+
+Text Editor: the language strings of a campaign or level (level names, objectives). Pick the
+campaign or map pack, a level, the layer (Campaign needs the campaign's own string file for the
+language; Level always works) and the language. The table shows each string, the layer it comes from
+and where it is used; edit it in the box below (word wrap only changes how it is shown). Add string
+takes the next unused id. Languages with a multi-byte code page (Japanese, Chinese, Korean) can be
+read but not edited.
+
+Trap and Door Editor, Spell and Ability Editor (powers, spells, shots, specials and the
+creatures' abilities) and Creature Editor: forms for those definitions with the same layers,
+Reset and Apply; each has a "Compare all" table. The Creature Editor also has a per-level stat
+preview.
+
+Room Editor: the rooms (cost, health, capacity rules, roles), the terrain slabs (digging, ownership,
+block flags) and the block health table of terrain.cfg, with the same layers, Reset and Apply.
+
+Campaign Editor: pick a campaign to edit its identity keys (Apply / Revert cover every tab), its levels (list,
+name, players, ensign, whether the map files exist) and a Check list: level lists that disagree,
+missing map files, shared configuration folders (editing them changes the other campaigns too),
+entries no list uses, missing land-view images and string files, and lines the game cannot read.
+The Levels tab edits the single, bonus and extra lists and each level's entry (name, players, ensign, positions),
+adds map files of the campaign's folder, reorders, removes a level from the campaign (never deletes map files) and opens a
+level in the Map Editor. "New campaign..." creates an empty campaign; "New map in this campaign" starts a blank map whose
+Save As offers that campaign. In the Map Editor, File > Save As can save into any campaign (and adds the level to it).
+The Land view tab shows the campaign's land picture with every level's ensign: pick a level, then click or drag on the
+picture to place its ensign (overview position, or the zoom position). A land-view picture can be a PNG (1280 x 960)
+named like the image (rgmap01.png): the game and the editor use it instead of rgmap01.raw + rgmap01.pal.
+"Give this campaign its own configuration" copies shared configuration folders so the campaign no longer shares them.
+
+Note for campaign authors: a campaign's own files live beside its levels; edit
+them with the campaign selected, not the individual level.

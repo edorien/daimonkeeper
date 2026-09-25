@@ -123,6 +123,8 @@
 #include "front_lvlstats.h"
 #include "game_callbacks.h"
 #include "editor_callbacks.h" // docs/refactor/editor/01-entry-and-editor-session.md
+#include "content_tools_callbacks.h" // docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5
+#include "content_tools.h"
 #include "editor_journal_callbacks.h" // docs/refactor/editor/02-editing-toolbox.md §4
 #include "kfx_editor.h"
 #include "front_fmvids.h"
@@ -1650,6 +1652,15 @@ int64_t setup_game(void)
       &editor_is_active,
   };
   set_editor_callbacks(&editor_callbacks_impl);
+  // docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5 -- the main menu's Tools modal
+  // (kfx_frontend, ranked below kfx_editor) opens and draws the content editors through this.
+  static const struct ContentToolsCallbacks content_tools_callbacks_impl = {
+      &content_tools_is_available,
+      &content_tools_open,
+      &content_tools_frame,
+      &content_tools_is_open,
+  };
+  set_content_tools_callbacks(&content_tools_callbacks_impl);
   // docs/refactor/editor/02-editing-toolbox.md §4 -- lets packets_cheats.c
   // (kfx_net) record a placement into kfx_editor's undo journal without
   // depending on kfx_editor.h directly, same shape as EditorCallbacks above.

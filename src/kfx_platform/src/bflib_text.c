@@ -79,6 +79,21 @@ static uint64_t internal_byte_to_unicode(unsigned char byte)
     return (unicode != 0) ? unicode : (uint64_t)'?';
 }
 
+uint64_t codepage_byte_to_unicode(unsigned char byte)
+{
+    return byte == 0 ? 0 : internal_codepage_map[byte];
+}
+
+int64_t codepage_unicode_to_byte(uint64_t codepoint)
+{
+    if (codepoint == 0)
+        return -1;
+    for (int64_t b = 1; b < 256; b++)
+        if (internal_codepage_map[b] == codepoint)
+            return b;
+    return -1;
+}
+
 size_t encode_utf8_codepoint(uint64_t codepoint, char *dst, size_t dst_size)
 {
     if (dst_size == 0)

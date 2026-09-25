@@ -42,6 +42,7 @@
 #include "tests/ftest_editor_session.h"
 #include "tests/ftest_editor_brush.h"
 #include "tests/ftest_skirmish_setup.h"
+#include "tests/ftest_config_content.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
 
 #include "post_inc.h"
@@ -88,6 +89,19 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="editor_brush",                         .init_func=ftest_editor_brush_init,                     .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="skirmish_setup_override",              .init_func=ftest_skirmish_setup_init,                   .pre_start_func=ftest_skirmish_setup_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="skirmish_setup_locks",                 .init_func=ftest_skirmish_setup_locks_init,             .pre_start_func=ftest_skirmish_setup_locks_pre_start,   .level_file="dk2maps",  .level=220, .frame_skip=8 },
+         { .test_name="config_content_anchor",                 .init_func=ftest_config_content_anchor_init,            .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="config_content_readback",              .init_func=ftest_config_content_readback_init,          .pre_start_func=ftest_config_content_readback_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_reset",                 .init_func=ftest_config_content_reset_init,             .pre_start_func=ftest_config_content_reset_pre_start,    .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_tool_smoke",             .init_func=ftest_config_content_tool_smoke_init,        .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="config_content_rules_editor",          .init_func=ftest_config_content_rules_editor_init,      .pre_start_func=ftest_config_content_rules_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_trapdoor_editor",       .init_func=ftest_config_content_trapdoor_editor_init,   .pre_start_func=ftest_config_content_trapdoor_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_spell_editor",          .init_func=ftest_config_content_spell_editor_init,      .pre_start_func=ftest_config_content_spell_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_creature_editor",       .init_func=ftest_config_content_creature_editor_init,   .pre_start_func=ftest_config_content_creature_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_landview_png",         .init_func=ftest_config_content_landview_png_init,      .pre_start_func=ftest_config_content_landview_png_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_campaign_editor",       .init_func=ftest_config_content_campaign_editor_init,   .pre_start_func=ftest_config_content_campaign_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_text_editor",           .init_func=ftest_config_content_text_editor_init,       .pre_start_func=ftest_config_content_text_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_room_editor",           .init_func=ftest_config_content_room_editor_init,       .pre_start_func=ftest_config_content_room_editor_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
+         { .test_name="config_content_scratch_level",         .init_func=ftest_config_content_scratch_level_init,     .pre_start_func=ftest_config_content_scratch_level_pre_start, .level_file="keeporig", .level=900002, .frame_skip=8 },
          { .test_name="editor_thumbs",                        .init_func=ftest_editor_thumbs_init,                    .level_file="keeporig", .level=1,  .frame_skip=8 },
 
          // editor_fill (PckA_EditorFloodFill) has no ftest coverage: unlike

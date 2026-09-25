@@ -366,7 +366,7 @@ extracted from `src/main.cpp` in stage 12.5.
 `main.cpp`, which calls `editor_frame()` from the ImGui frame callback and
 wires the `EditorCallbacks` / `EditorJournalCallbacks` implementations.
 Full plan and history: `docs/refactor/editor/` (start with `00-overview.md`;
-open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/level_editor.txt`.
+open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/map_editor.txt`.
 
 - **Session** (`editor_session.cpp`): `editor_open()` / `editor_close()`,
   dirty flag, current level number/folder/name/script text. The simulation is

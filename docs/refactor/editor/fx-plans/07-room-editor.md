@@ -1,6 +1,6 @@
 # FX plan 07 — room editor (and slabs)
 
-Status: **plan, first pass.** Nothing built. Depends on [03](03-content-editors-foundation.md).
+Status: **R1-R4 and R5 (menu entry) built** (§9). Not built: icon grids/thumbnails, the Map Editor palette marker and Verify line, "N slabs of this kind on the map". Depends on [03](03-content-editors-foundation.md).
 
 ## 1. Goal
 
@@ -81,3 +81,26 @@ changing room shape rules, texture packs (already in Level Settings).
 | Changing `Roles` / `BlockFlags` breaks AI, pathing or digging in ways a mapmaker cannot see | *Advanced* only, inline warnings, "reset all advanced" button |
 | `SlabAssign` mismatch (two rooms building on one slab kind) | validate in the effective config |
 | Terrain edits change the meaning of a saved map | show "N slabs of this kind on the map" in the Map Editor host |
+
+## 9. Built (results)
+
+**Room Editor** (both Tools menus), a configuration of the shared entity window (`content_entity`; `content_rooms`):
+
+- **Rooms** (17): tabs **Build** (`Cost`, `Health`, `SlabAssign`, `Properties` flags, `PanelTabIndex`), **Capacity** (`TotalCapacity`,
+  `UsedCapacity`, `StorageHeight`, `SlabSynergy`), **Roles** (the role flags, with a warning that they drive creatures and the computer
+  players), **Look and sound**, **Advanced**, and **Compare all** (cost, health, storage height, capacity rule, panel position). A room's
+  `SlabAssign` shows what slab it is built on (block flags, diggable, ownable, health index), read only, from the same file. Warnings when two rooms
+  share a panel position or a slab kind (plan 07 §8).
+- **Terrain** (62 slabs): **Digging** (`IsDiggable`, `BlockHealthIndex`, `Indestructible`, `GoldHeld`; a note that it changes every slab of that kind
+  on the map), **Ownership**, **Block flags** (with a warning about pathing and digging), **Look and type**, and **Compare all**.
+- **Health table**: the `[block_health]` block as one item (its ten values: how many hits each block kind takes); a slab's `BlockHealthIndex` is the
+  position in it. The entity window gained *single-block* modes and per-tab notes for this.
+- Everything else is as in the other editors: layers with badges, Reset, Apply / Revert, "keys with no effect" toggle.
+
+**Tests:** Catch2 for the tab grouping (every key of room, slab and health table lands in a tab); ftest `config_content_room_editor` (R2/R3 acceptance:
+a room's `Cost`, a slab's `GoldHeld` and a `[block_health]` value edited at level scope before the level loads; the running game uses all three,
+including the health table in the sim's live `block_health[]`); the smoke ftest draws every mode and tab in both hosts; the existing anchor covers
+the 17 rooms and 62 slabs (block counts, names, about 850 values).
+
+**Not built:** room/slab icon grids and thumbnails (phase 6), the Map Editor palette marker, the Verify Map line, "N slabs of this kind on the map",
+"reset all advanced".

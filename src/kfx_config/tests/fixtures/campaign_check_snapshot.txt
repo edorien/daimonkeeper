@@ -1,0 +1,23 @@
+AbyssGuardians.cfg:172 not_a_header: this line looks like a block header but has other characters before it, so the game does not see the block
+ancntkpr.cfg:10 location_shared: CREATURES_LOCATION is shared with origlegacy, postanck; editing it changes them too
+ancntkpr.cfg:11 location_shared: CONFIGS_LOCATION is shared with origlegacy, postanck; editing it changes them too
+dak_21map.cfg:311 entry_unused: [map00102] describes level 102, which no level list contains
+dak_21map.cfg:319 entry_unused: [map00103] describes level 103, which no level list contains
+dak_21map.cfg:327 entry_unused: [map00104] describes level 104, which no level list contains
+dzjr06lv.cfg:12 location_shared: CONFIGS_LOCATION is shared with jdkmaps8, keeporig, lqizgood, pstunded, revlord, twinkprs, undedkpr; editing it changes them too
+jdkmaps8.cfg:9 location_shared: CREATURES_LOCATION is shared with keeporig, pstunded, revlord, undedkpr; editing it changes them too
+jdkmaps8.cfg:10 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, keeporig, lqizgood, pstunded, revlord, twinkprs, undedkpr; editing it changes them too
+keeporig.cfg:13 location_shared: CREATURES_LOCATION is shared with jdkmaps8, pstunded, revlord, undedkpr; editing it changes them too
+keeporig.cfg:16 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, jdkmaps8, lqizgood, pstunded, revlord, twinkprs, undedkpr; editing it changes them too
+lqizgood.cfg:11 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, jdkmaps8, keeporig, pstunded, revlord, twinkprs, undedkpr; editing it changes them too
+origlegacy.cfg:6 location_shared: CREATURES_LOCATION is shared with ancntkpr, postanck; editing it changes them too
+origlegacy.cfg:7 location_shared: CONFIGS_LOCATION is shared with ancntkpr, postanck; editing it changes them too
+postanck.cfg:11 location_shared: CREATURES_LOCATION is shared with ancntkpr, origlegacy; editing it changes them too
+postanck.cfg:12 location_shared: CONFIGS_LOCATION is shared with ancntkpr, origlegacy; editing it changes them too
+pstunded.cfg:10 location_shared: CREATURES_LOCATION is shared with jdkmaps8, keeporig, revlord, undedkpr; editing it changes them too
+pstunded.cfg:11 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, jdkmaps8, keeporig, lqizgood, revlord, twinkprs, undedkpr; editing it changes them too
+revlord.cfg:10 location_shared: CREATURES_LOCATION is shared with jdkmaps8, keeporig, pstunded, undedkpr; editing it changes them too
+revlord.cfg:11 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, jdkmaps8, keeporig, lqizgood, pstunded, twinkprs, undedkpr; editing it changes them too
+twinkprs.cfg:10 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, jdkmaps8, keeporig, lqizgood, pstunded, revlord, undedkpr; editing it changes them too
+undedkpr.cfg:10 location_shared: CREATURES_LOCATION is shared with jdkmaps8, keeporig, pstunded, revlord; editing it changes them too
+undedkpr.cfg:11 location_shared: CONFIGS_LOCATION is shared with dzjr06lv, jdkmaps8, keeporig, lqizgood, pstunded, revlord, twinkprs; editing it changes them too

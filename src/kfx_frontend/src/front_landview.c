@@ -62,6 +62,7 @@
 #include "game_lifecycle.h"
 #include "script_hooks.h"
 #include "custom_sprites.h"
+#include "landview_image.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1014,23 +1015,35 @@ TbBool load_map_and_window(LevelNumber lvnum)
         ERRORLOG("No Land View file names for level %" PRId64,(int64_t)(lvnum));
         return false;
     }
-    // Prepare full file name and load the image
-    char* fname = prepare_file_fmtpath(FGrp_LandView, "%s.raw", land_view);
-    int64_t flen = LbFileLengthRnc(fname);
-    if (flen < 1024)
-    {
-        ERRORLOG("Land Map background \"%s.raw\" doesn't exist or is too small",land_view);
+    // A PNG of the same name takes the place of the .raw + .pal pair (an indexed PNG as it is, other PNGs quantised to 256
+    // colours; must be 1280 x 960), so authors need no converter.
+    uint8_t png_palette[PALETTE_SIZE];
+    char png_base[DISKPATH_SIZE];
+    snprintf(png_base, sizeof(png_base), "%s", prepare_file_fmtpath(FGrp_LandView, "%s", land_view));
+    const int png_result = landview_load_png_indexed(png_base, (uint8_t *)kfx_frontend_state.land_map_start, png_palette);
+    if (png_result < 0)
         return false;
-    }
-    if (flen > 1228997)
+    char* fname;
+    if (png_result == 0)
     {
-        ERRORLOG("Not enough memory in game structure for Land Map background \"%s.raw\"",land_view);
-        return false;
-    }
-    if (LbFileLoadAt(fname, kfx_frontend_state.land_map_start) != flen)
-    {
-        ERRORLOG("Unable to load Land Map background \"%s.raw\"",land_view);
-        return false;
+        // Prepare full file name and load the image
+        fname = prepare_file_fmtpath(FGrp_LandView, "%s.raw", land_view);
+        int64_t flen = LbFileLengthRnc(fname);
+        if (flen < 1024)
+        {
+            ERRORLOG("Land Map background \"%s.raw\" doesn't exist or is too small",land_view);
+            return false;
+        }
+        if (flen > 1228997)
+        {
+            ERRORLOG("Not enough memory in game structure for Land Map background \"%s.raw\"",land_view);
+            return false;
+        }
+        if (LbFileLoadAt(fname, kfx_frontend_state.land_map_start) != flen)
+        {
+            ERRORLOG("Unable to load Land Map background \"%s.raw\"",land_view);
+            return false;
+        }
     }
     map_screen = kfx_frontend_state.land_map_start;
     // Texture blocks memory isn't used here, so reuse it instead of allocating
@@ -1055,12 +1068,18 @@ TbBool load_map_and_window(LevelNumber lvnum)
     // Update length, so that it corresponds to map_window pointer
     map_window_len -= WINDOW_Y_SIZE*sizeof(int32_t);
     // Load palette
-    fname = prepare_file_fmtpath(FGrp_LandView,"%s.pal",land_view);
-    if (LbFileLoadAt(fname, frontend_palette) != PALETTE_SIZE)
+    if (png_result == 1)
     {
-        ERRORLOG("Unable to load Land Map palette \"%s.pal\"",land_view);
-        unload_map_and_window();
-        return false;
+        memcpy(frontend_palette, png_palette, PALETTE_SIZE);
+    } else
+    {
+        fname = prepare_file_fmtpath(FGrp_LandView,"%s.pal",land_view);
+        if (LbFileLoadAt(fname, frontend_palette) != PALETTE_SIZE)
+        {
+            ERRORLOG("Unable to load Land Map palette \"%s.pal\"",land_view);
+            unload_map_and_window();
+            return false;
+        }
     }
     SYNCDBG(9,"Finished");
     return true;

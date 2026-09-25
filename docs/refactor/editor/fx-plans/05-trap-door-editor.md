@@ -1,6 +1,6 @@
 # FX plan 05 — trap and door editor
 
-Status: **plan, first pass.** Nothing built. Depends on [03](03-content-editors-foundation.md). The
+Status: **T1, T2, T4 (partly) and T5 (menu entry) built** (§9); icon pickers with thumbnails, the workshop-layout list and the manufacture hint are not. Depends on [03](03-content-editors-foundation.md). The
 smallest and best-supported of the entity editors (its file is fully table-driven), so it is the
 recommended **first** editor after the Rules editor.
 
@@ -95,3 +95,35 @@ Lua); animations; rewriting the linked shot from here (that is the Spell and Abi
 | `PanelTabIndex` collisions (two items on one workshop tile) | Validate: warn when two items share an index in the effective config |
 | A door's `SlabKind` pointing at a slab kind that is not animated | Validate against `terrain.cfg` `Animated`/`IsDoor` in the effective config |
 | Editing Lua-coupled keys | Read-only, with the Lua function name shown |
+
+## 9. Built (results)
+
+**Window** (`content_trapdoor`, tool *Trap and Door Editor*, in both Tools menus): the shared target picker (campaign /
+level / layer), a **Traps | Doors** switch, an item list on the left (`trapN  NAME`, marked `*` when this layer has the
+block or an edit is pending), and on the right the item form in the plan's tabs: **Build** (manufacture, selling, crate,
+panel tab index), **Behaviour** (trigger, activation, effect, shots, reload, health, ..., and for traps the linked shot),
+**Placement**, **Look & sound**, **Advanced**, and **Compare all** (every item of the mode side by side: cost, level,
+health, shots, reload, selling value, and the linked shot's damage; each value coloured by the layer it comes from).
+Apply / Revert / Close, "Show keys with no effect", and the locked target while edits are pending work as in the Rules
+editor. `Name` is shown, never edited; the two function keys (`ActivationLuaFunc`, `UpdateFunction`) are read only.
+
+**Shared form row** (`content_form`): the Rules editor's row was extracted so every structured editor uses one. New
+widgets for this editor: a name drop-down for keys whose names come from other files (`Crate` from the objects, a
+door's `SlabKind` as one drop-down per slab, `EffectType` etc. from their lists), and a **flag popup** with a checkbox
+per name for flag lists (a door's `Properties`).
+
+**Linked shot** (T4): a trap's `EffectType` is looked up in `magic.cfg` (every layer) and its `Damage`, `Speed`, `Health`,
+`HitType` are shown read only, with a note pointing at where to change them. A PanelTabIndex shared by two items of a
+mode is called out (plan 05 §8).
+
+**Schema fix found on the way:** a value's position within a multi-value key is the row order in the field table (how the
+loader assigns words), not the table's `argnum`; door `SlabKind` has both rows at `argnum 0`, so it was modelled with one
+part instead of two. Now two, tested.
+
+**Tests:** Catch2 for the tab grouping (every trap and door key lands in a tab) and the block listing/marking; ftest
+`config_content_trapdoor_editor` (T2 acceptance: the session edits `trap1` and `door1` Health at level scope before the level
+loads and the running game uses both); the smoke ftest draws every tab for traps and doors in both hosts; the T1
+correctness anchor is the existing `config_content_anchor` (base + layers against the live `trap`/`door` tables).
+
+**Not built:** icon pickers with thumbnails (`Crate`, door slabs, sprites; needs phase 6 thumbnails), the workshop-layout
+(4x4 panel) list, the manufacture-time hint, the Thing palette marker and the Verify Map line (T5's other half).

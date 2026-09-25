@@ -145,3 +145,21 @@ TEST_CASE("read_utf_8_codepoint_f falls back to '?' for a stray continuation byt
     CHECK(cp == '?');
     CHECK(seq_len == 1);
 }
+
+TEST_CASE("the game's code page maps every byte it defines back to the same byte", "[kfx_platform][bflib_text]") {
+    int mapped = 0;
+    for (int b = 1; b < 256; b++)
+    {
+        const uint64_t cp = codepage_byte_to_unicode((unsigned char)b);
+        if (cp == 0)
+            continue; // an unmapped byte: decodes as '?', has no reverse
+        mapped++;
+        CHECK(codepage_unicode_to_byte(cp) == b);
+    }
+    CHECK(mapped > 230);
+    CHECK(codepage_byte_to_unicode(0) == 0);
+    CHECK(codepage_unicode_to_byte('A') == 'A');
+    CHECK(codepage_unicode_to_byte(0x00E9) == 0x82); // e acute
+    CHECK(codepage_unicode_to_byte(0x4E2D) == -1);   // a Chinese character: not in this page
+    CHECK(codepage_unicode_to_byte(0) == -1);
+}

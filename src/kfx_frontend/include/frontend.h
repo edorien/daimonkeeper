@@ -258,7 +258,20 @@ extern TbBool editor_pending_playtest;
 // Set while a playtest launched from the editor is running: when the game
 // ends, the frontend goes back to the editor (on the playtest's scratch level).
 extern TbBool editor_playtest_running;
-void frontend_request_editor_playtest(LevelNumber lvnum);
+/** Playtest `lvnum`. A non-empty `campaign_fname` makes that campaign (`pack`: a CampgnT_* value) the current one
+ *  before the level starts, so its config, creature and string layers apply to the playtest. */
+void frontend_request_editor_playtest(LevelNumber lvnum, uint8_t pack, const char *campaign_fname);
+/** From the main menu: make `campaign_fname` (`pack`: a CampgnT_* value) the current campaign and open its level `lvnum` in
+ *  the Map Editor (`is_new`: a blank map instead, `lvnum` ignored). Applied at the start of the next frame, like the other frontend transitions. */
+// A content tool (Campaign editor) started a game to try a level: set while it runs, so that when it ends (win, lose or quit) the
+// frontend returns to the main menu with that tool open again (content_tool_reopen_tool: a ContentTool value, -1 = none).
+extern TbBool content_tool_play_running;
+extern int64_t content_tool_return_tool; // the tool to reopen when that game ends (set by the request)
+extern int64_t content_tool_reopen_tool; // set once it has ended; the main menu opens the tool and clears it
+/** From the main menu: make `campaign_fname` (`pack`: a CampgnT_* value) the current campaign and play its level `lvnum` as a normal
+ *  single-player game; when the game ends the main menu comes back with content tool `tool` open. Applied at the start of the next frame. */
+void frontend_request_content_tool_play(uint8_t pack, const char *campaign_fname, LevelNumber lvnum, int64_t tool);
+void frontend_request_map_editor_open(uint8_t pack, const char *campaign_fname, LevelNumber lvnum, TbBool is_new);
 
 enum IngameButtonDesignationIDs {
     BID_INFO_TAB = BID_DEFAULT+1,

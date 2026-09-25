@@ -41,6 +41,9 @@ void editor_dialogs_open_playtest_confirm(void);
 // then shows the resulting issue list. Purely informational.
 void editor_dialogs_open_verify_map(void);
 void editor_dialogs_frame(void);
+/** The campaign (its .cfg file name) the next Save As of an untitled map offers first; "" for Editor Maps. Set by the
+ *  Campaign editor's "New map in this campaign"; used once. */
+void editor_dialogs_set_default_campaign(const char *campaign_fname);
 
 /******************************************************************************/
 #ifdef __cplusplus

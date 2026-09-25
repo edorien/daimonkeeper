@@ -43,7 +43,7 @@ ftest-covered, but not yet live-tested by the user.
 | B2 Frozen-sim invariant | **Done** (`editor_session`: 400 frames, game turn and a world checksum unchanged). |
 | B3 blank map / views / overlay toggles | **Blank map done** (`editor_session`: create_blank_map, size, all neutral rock, no things, save and reload in both formats). Views and overlay toggles are ImGui-drawn and not headless-testable. |
 | B4 Stock-map regression | **Done** for the 14 shipped keeporig maps in both formats (`editor_session`); other campaigns were not swept. |
-| B5 User guide | **Done** (`docs/level_editor.txt`). |
+| B5 User guide | **Done** (`docs/map_editor.txt`). |
 | B6 Architecture / CLAUDE.md | **Done** (architecture.md §2.9a, one line in CLAUDE.md). |
 | B7 Language strings | **Not done:** about 300 English labels; translating them needs new string IDs and a translation pass, which is a project decision rather than an editor bug. |
 | B8 "Editor Maps" mappack | **Done.** A map that was never saved defaults to `levels/editormaps/` (next free level number) when you save; the first save writes `levels/editormaps.cfg` (mappack "Editor Maps") and rescans the pack list, so it can be picked in Free Play or the Open dialog's Browse. Ctrl+S on an untitled map opens Save As. |
@@ -83,7 +83,7 @@ Ordered by how much a mapmaker would notice. Verified against the code unless ma
 | B2 | **Frozen-sim invariant** ftest (`editor_session_enter`: 10 000 frames, `play_gameturn` and state checksum unchanged on three stock maps). Not written. | `01` §8, `06` §4 (risk R2) |
 | B3 | `editor_blank_map`, `editor_views`, `editor_overlay_toggles` ftests. Not written. Only 8 editor ftests exist (place_creature, paint_terrain, undo, save_reload, points, script_commands, palette, thumbs). | `01` §8, `04` §7 |
 | B4 | **Stock-map save/reload regression** across every campaign map. | `06` §4 (R1/R3) |
-| B5 | **User guide** `docs/level_editor.txt`. Does not exist. | `06` §5 |
+| B5 | **User guide** `docs/map_editor.txt`. Does not exist. | `06` §5 |
 | B6 | **`docs/Architecture/architecture.md` has no editor section** (zero mentions), nor does `CLAUDE.md`. `kfx_editor` is in `check_layering.py` only. | `06` §5 |
 | B7 | **Language strings** for editor labels (`pkg-languages`); everything is English literals. | `01` §1, `10` §3 |
 | B8 | "Editor Maps" mappack as the default save bucket; sample maps. | `00` O2, `06` §5 |

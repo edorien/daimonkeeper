@@ -28,6 +28,8 @@ void classify(CfgLine &line)
     line.name.clear();
     line.value.clear();
     line.has_equals = false;
+    line.value_begin = 0;
+    line.value_end = 0;
 
     size_t i = 0;
     // A UTF-8 byte order mark is part of the text but not of the syntax.
@@ -85,6 +87,18 @@ void classify(CfgLine &line)
         while (end > k && (is_blank_char(line.text[end - 1]) || line.text[end - 1] == '\r'))
             end--;
         line.value = line.text.substr(k, end - k);
+        // The value proper stops at an inline comment: a ';' at its start or after a blank.
+        size_t vend = end;
+        for (size_t p = k; p < end; p++)
+            if (line.text[p] == ';' && (p == k || is_blank_char(line.text[p - 1])))
+            {
+                vend = p;
+                break;
+            }
+        while (vend > k && is_blank_char(line.text[vend - 1]))
+            vend--;
+        line.value_begin = k;
+        line.value_end = vend;
         return;
     }
     line.kind = CfgLine_Other;
@@ -178,6 +192,37 @@ std::vector<int64_t> ConfigDocument::key_lines(int64_t section_index) const
         if (lines_[(size_t)i].kind == CfgLine_Key)
             out.push_back(i);
     return out;
+}
+
+void ConfigDocument::replace_line(size_t index, const std::string &text)
+{
+    if (index >= lines_.size())
+        return;
+    lines_[index].text = text;
+    classify(lines_[index]);
+    rebuild_index();
+}
+
+void ConfigDocument::insert_line(size_t index, const std::string &text, const std::string &eol)
+{
+    if (index > lines_.size())
+        index = lines_.size();
+    if (index == lines_.size() && !lines_.empty() && lines_.back().eol.empty())
+        lines_.back().eol = eol;
+    CfgLine line;
+    line.text = text;
+    line.eol = eol;
+    classify(line);
+    lines_.insert(lines_.begin() + (std::ptrdiff_t)index, std::move(line));
+    rebuild_index();
+}
+
+void ConfigDocument::erase_line(size_t index)
+{
+    if (index >= lines_.size())
+        return;
+    lines_.erase(lines_.begin() + (std::ptrdiff_t)index);
+    rebuild_index();
 }
 
 std::string ConfigDocument::dominant_eol() const

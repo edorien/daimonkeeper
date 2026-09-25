@@ -185,6 +185,8 @@ extern const struct NamedCommand room_roles_desc[];
 // See docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 
 extern const struct NamedFieldSet terrain_room_named_fields_set;
+extern const struct NamedFieldSet terrain_slab_named_fields_set;
+extern const struct NamedCommand terrain_health_commands[]; // keys of the [block_health] block
 /******************************************************************************/
 struct SlabConfigStats *get_slab_kind_stats(SlabKind slab_kind);
 struct SlabConfigStats *get_slab_stats(const struct SlabMap *slb);

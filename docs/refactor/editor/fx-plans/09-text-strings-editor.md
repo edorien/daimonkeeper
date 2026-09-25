@@ -1,6 +1,6 @@
 # FX plan 09 — text (language strings) editor
 
-Status: **plan, first pass.** Nothing built. Added after the first review of the content editors
+Status: **T-S1 spike, X1, X2 and most of X3 built** (§10). Not built: the game-layout preview (T-S2, X5), Import, *Add language*, the message-helper hook (X4's second half) and Verify Map's line. Added after the first review of the content editors
 (decision 4 in [03](03-content-editors-foundation.md) §1): a campaign's level names and mission
 objectives live in its language string file, so authoring a campaign needs to edit it. Depends on
 [03](03-content-editors-foundation.md) F0 (Tools menu); the layered reader is a sibling of `ConfigStack` ([10]),
@@ -139,3 +139,40 @@ audio, font or code-page tooling beyond conversion, automatic translation.
 | Renumbering breaks references | Ids are positions and are never renumbered; deleting a string blanks it (inherit) |
 | A shared campaign string file (several campaigns point at one file) | Same sharing check as the config folders ([08] §4) |
 | Language fallback surprises (campaign has no file for the player's language) | The viewer states which file is used per language, including the English fallback |
+
+## 10. Built (results)
+
+**Spike T-S1 findings.** Every language except Japanese, Chinese (both) and Korean shares **one** single-byte code page (the table in
+`bflib_text.c`, a mix of Latin, Cyrillic and Polish letters; the language does not select a different table). Decoding maps a byte to a
+codepoint; a few bytes are unmapped and decode as `?` (the one lossy case). The reverse conversion needed for editing is built:
+`codepage_unicode_to_byte()` / `codepage_byte_to_unicode()` in kfx_platform (a test proves every mapped byte round trips). The four
+CJK languages go through iconv / Win32 and have no reverse here, so they are **shown, never edited**.
+
+**kfx_config `cfgc_strings`** (X1): `StringsFile` (NUL-separated entries, the ordinal is the id; byte-preserving: any bytes parse and
+serialise identically; `serialize_for_write()` pads to the loader's 16-byte minimum), the codec (`cfgc_strings_decode` / `encode`; the
+encoder reports characters the code page cannot hold and leaves them out), and `StringsStack` (level, then campaign, then base; an empty entry
+inherits). Gate: **every shipped language string file (over 30: `gtext_*`, `text_*`, `map%05d.<lang>.dat`) round-trips byte for byte.**
+
+**kfx_editor** (X2/X3): `content_strings` (`StringsSession`: effective text per id with its layer and the text beneath, pending edits that
+vanish when they equal what the layer has, next free id = the smallest id from 1 that no layer defines, diagnostics for characters the code
+page cannot hold and ids beyond the 2000 the game reads, atomic write of the edited layer's file where untouched entries stay byte for byte and
+line breaks are stored as CR LF like the shipped files; a level file left with nothing in it is removed), path and language helpers
+(`content_target` now reads each campaign's `[strings]` lines and level `NAME_ID`s), and a **usage scan** (campaign level names, and the
+`DISPLAY_OBJECTIVE` / `DISPLAY_INFORMATION` commands of the campaign's level scripts; `QUICK_OBJECTIVE` carries its text inline and is not a
+string id).
+
+**Text Editor window** (both Tools menus): target picker (campaign or map pack, level, layer), language picker (the base languages plus the
+campaign's), filter box and *This layer's strings* / *In use* / *Used but empty* filters, a table (id, text on one line, the layer it comes
+from, where it is used), and an edit box (the shared text widget with **word wrap as a view option only**; a line break is a real line break in
+the string), Reset string, **Add string** (next free id), Apply / Revert / Close, and the reason when a layer is read only (base; a campaign that
+uses the base strings; a campaign with no file for the language; a multi-byte language). A campaign layer is editable only when the campaign
+has its own `[strings]` file for the language (adding the `[strings]` line needs the campaign editor, plan 08).
+
+**Tests:** Catch2 for the file model and codec (round trips, edits, trimming, the 16-byte padding, every mapped byte, the stack), the corpus
+round trip, the session (views, byte-preserving campaign edit, level file create/remove, vanishing edits, unrepresentable characters stop the
+write, read-only reasons, next free id, usage scan); ftest `config_content_text_editor` (X2 acceptance: a level string file with an accented letter
+and a line break is written before the level loads, and the real `get_string()` returns it as UTF-8; an untouched base string is unchanged); the
+smoke ftest draws the window for several languages and ids in both hosts.
+
+**Not built:** the preview with the game's own layout and font (T-S2, X5), Import and *Add language*, the message helper's "store in the string file"
+and Verify Map's line (X4's second half), text-id resolution beside `NameTextID` fields in the other editors, adding a `[strings]` line.

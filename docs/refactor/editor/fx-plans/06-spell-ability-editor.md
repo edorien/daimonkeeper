@@ -1,6 +1,6 @@
 # FX plan 06 — spell and ability editor
 
-Status: **plan, first pass.** Nothing built. Depends on [03](03-content-editors-foundation.md).
+Status: **S1, S2 and S3 built** for magic.cfg (powers, spells, shots, specials; §9), on the shared entity window. **Abilities (S4) are built** too (creature instances, written to creature.cfg; §10). The graph / Used-by panel (S5) are not. Depends on [03](03-content-editors-foundation.md).
 "Spells" here means everything the player or a creature can cast or fire; "abilities" are the
 creature **instances** (what a creature can do: swing, fire a shot, cast, heal).
 
@@ -104,3 +104,39 @@ sound editing; changing function bindings.
 | Per-level array semantics (`Cost` 9 values vs `Power` 10) | Fixed lengths from the schema; validate on Apply |
 | Instances live in another file (`creature.cfg`) than the rest of the tab | Badge each instance row with its target file; the write path is tested for both scopes |
 | Large surface (five kinds) | S1+S2 ship alone; the rest are independent |
+
+## 9. Built (results)
+
+**Window** (*Spell and Ability Editor*, in both Tools menus): the shared entity window
+(`content_entity`: picker, a mode switch, an entity list with layer markers, grouped form tabs, read-only summaries of linked
+entities, a *Compare all* table, Apply / Revert / Close). Modes: **Powers** (tabs Cost and strength, Casting, Look and sound,
+Advanced), **Spells** (Effect, Duration and aura, Advanced), **Shots** (Damage, Hit rules, Effects and sound, Size and physics,
+Advanced), **Specials**. Tab grouping is `spells_group_of()`, tested to place every key of the four kinds.
+
+- **Per-level arrays:** a power's `Cost` (9 values) and `Power` (10) are drawn as a row of small boxes with a curve under the
+  key, edited cell by cell (each cell clamped to its range), written back as one line. (Confirmed from the field table: the
+  first nine `Power` cells map to the loader's strength array and the duplicated last one is the loader's own quirk.)
+- **Links (read-only summaries):** a power's `Spell` shows that spell's duration, damage, shot model and self-cast; a spell's
+  `ShotModel` shows the shot's damage, speed, range and hit type; each with a note on where to change it. A trap's `EffectType`
+  (05) uses the same mechanism. Compare tables include the linked shot's damage; panel-position clashes are called out.
+- **Read only:** function-pointer keys (`UseFunction`, `CastExpandFunc`, `HitThingFunc`, the logic functions).
+- **Unspecified keys:** spells and specials have no curated grammar yet (hand-written key tables, plan §4); their plain
+  numbers get number boxes (inferred from the current value), the rest are text. A curated schema is still open.
+- **Shared code:** the Trap and Door editor was re-expressed as a configuration of the same entity window (its old window code
+  is gone); the form row gained the array widget.
+- **Tests:** Catch2 for the grouping and the array shapes; ftest `config_content_spell_editor` (S2 acceptance: the session
+  edits power2's first `Cost` cell and shot1's `Damage` at level scope before the level loads; the running game uses both);
+  the smoke ftest draws every mode and tab in both hosts; the existing anchor covers the shot and power tables' loading.
+- **Not built:** Abilities (creature instances in creature.cfg: needs a creature.cfg schema), the graph and *Used by* panel
+  with the shared-shot confirm, spell/special curated schemas, balance sorting.
+
+## 10. Abilities (S4, built)
+
+The **Abilities** mode of the Spell and Ability Editor lists the `[instanceN]` blocks of `creature.cfg` (the editor's window now
+holds one open file per mode, so powers/spells/shots/specials write `magic.cfg` and abilities write `creature.cfg`; Apply writes
+each dirty file in turn, atomically per file). Tabs: **Timing** (`Time`, `ActionTime`, `ResetTime`), **First person**,
+**Targeting** (`RangeMin`/`RangeMax` as numbers or names, `PrimaryTarget`, `Properties` flags, priorities), **Look and sound**,
+**Advanced** (function names, read only). The `Function` key's second word is looked up: an ability that fires a shot or casts a
+spell shows that shot's or spell's numbers, read only, with a pointer to the Shots / Spells tab. The instance names are the registry
+the creature editor's `Powers` slots draw from. The curated `creature` schema (plan 04 §10) provides the key shapes.
+Tests: grouping of every instance key; ftest `config_content_creature_editor` covers an ability's Time at level scope.

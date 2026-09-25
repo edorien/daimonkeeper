@@ -78,3 +78,8 @@ void editor_maps_register(void)
     // The pack list is read at start-up; scan again so the new pack can be picked now.
     load_campaigns_list(&mappacks_list, FGrp_VarLevels, "mappacks", "mappck_order.txt");
 }
+
+const char *editor_maps_pack_fname(void)
+{
+    return kPackCfgName;
+}

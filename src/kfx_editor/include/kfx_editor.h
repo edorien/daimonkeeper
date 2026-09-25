@@ -52,6 +52,9 @@ void editor_frame(void);
 void editor_notify_playtest_end(void);
 /** Called just before a playtest launches: remembers which level is being edited so the return from the playtest re-opens it. */
 void editor_playtest_begin(void);
+/** Same, for a playtest that runs under another campaign: the current campaign is put back, and the scratch copy of the
+ *  map in `scratch_dir` (that campaign's levels folder) is removed, once the editor has re-opened. */
+void editor_playtest_begin_in_campaign(const char *scratch_dir);
 
 // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- session state
 // tracked since editor_open(), read by File > Save / the Save As dialog

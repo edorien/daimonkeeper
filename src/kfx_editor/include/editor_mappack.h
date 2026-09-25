@@ -25,6 +25,9 @@ bool editor_maps_ensure_dir(void);
  *  makes the game re-scan the mappack list so the pack can be opened at once. */
 void editor_maps_register(void);
 
+/** File name of the Editor Maps mappack ("editormaps.cfg"), as the mappack list knows it. */
+const char *editor_maps_pack_fname(void);
+
 /** True if `dir` is the Editor Maps folder. */
 bool editor_maps_is_dir(const char *dir);
 

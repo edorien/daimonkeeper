@@ -42,6 +42,10 @@ struct CfgLine
     // CfgLine_Key only: the value text after the separator, trailing blanks removed.
     std::string value;
     bool has_equals = false;
+    // CfgLine_Key only: the value proper is text[value_begin, value_end) -- no separator, no trailing
+    // blanks, no inline ";" comment. Both are the end of the key when the value is empty.
+    size_t value_begin = 0;
+    size_t value_end = 0;
 };
 
 // A "[name]" block: its header line and the lines up to (not including) the
@@ -73,6 +77,14 @@ public:
 
     // Line indices of the keys in a block, in file order.
     std::vector<int64_t> key_lines(int64_t section_index) const;
+
+    // Editing. Each keeps the index consistent (sections and key lines are re-derived).
+    // Replaces a line's text and re-classifies it; the line ending stays.
+    void replace_line(size_t index, const std::string &text);
+    // Inserts before `index` (index == size appends). When appending after a last line that has no
+    // line ending, that line receives `eol` first so the two stay separate lines.
+    void insert_line(size_t index, const std::string &text, const std::string &eol);
+    void erase_line(size_t index);
 
     // Predominant line ending ("\r\n" or "\n"); "\n" for an empty document.
     std::string dominant_eol() const;

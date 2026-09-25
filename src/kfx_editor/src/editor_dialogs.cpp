@@ -21,6 +21,8 @@
 #include "editor_lua_validate.h"
 #include "editor_script.h"
 #include "editor_mappack.h"
+#include "content_target.h"
+#include "content_campaign_ops.h"
 #include "thing_list.h"
 #include "thing_objects.h"
 #include "editor_script_validate.h"
@@ -80,6 +82,14 @@ namespace {
     // above, per the user's own ask. Defaults to the session's own current
     // name each time the dialog opens.
     char s_save_as_name[LINEMSG_SIZE] = "";
+    // Where the map goes: 0 = Editor Maps, 1..N = campaigns (s_save_as_camps[i-1]), N+1 = another folder. A campaign target
+    // also registers the level in the campaign's lists (0 = single, 1 = extra, 2 = not listed).
+    std::vector<ContentCampaign> s_save_as_camps;
+    int64_t s_save_as_target = 0;
+    int64_t s_save_as_list = 0;
+    std::string s_default_camp;     // Save As of an untitled map starts on this campaign (see editor_dialogs_set_default_campaign)
+    std::string s_pending_camp;     // the campaign the pending save registers into ("" = none)
+    int64_t s_pending_list = 0;
 
     // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md
     // -- Save As's own overwrite confirm. Stashed here (not reusing
@@ -338,6 +348,13 @@ namespace {
         {
             if (into_editor_maps)
                 editor_maps_register();
+            if (!s_pending_camp.empty() && s_pending_list != 2)
+            {
+                std::string err;
+                if (!content_campaign_register_level(s_pending_camp, (int64_t)lvnum,
+                        s_pending_list == 1 ? CampList_Extra : CampList_Single, name, &err))
+                    show_dialog_error(("The map was saved, but adding it to the campaign failed: " + err).c_str());
+            }
             // Standard "Save As" semantics: this becomes the session's own
             // identity from now on, same as editor_set_current_lvnum_and_dir()'s
             // own comment.
@@ -428,8 +445,49 @@ namespace {
             // editor_save_map()'s `dir` is a plain filesystem directory (no
             // campaign/lvnum resolution on the write side at all, unlike
             // Open), so a native folder picker just sets it directly.
+            {
+                // Save into: Editor Maps, one of the campaigns, or any folder.
+                std::vector<std::string> names;
+                names.push_back("Editor Maps");
+                for (const ContentCampaign &c : s_save_as_camps)
+                    names.push_back(c.name);
+                names.push_back("Another folder...");
+                std::vector<const char *> ptrs;
+                for (const std::string &n : names)
+                    ptrs.push_back(n.c_str());
+                int64_t t = s_save_as_target;
+                if (FeCombo("Save into", &t, ptrs.data(), (int64_t)ptrs.size()) && t != s_save_as_target)
+                {
+                    s_save_as_target = t;
+                    if (t == 0)
+                    {
+                        snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", editor_maps_dir().c_str());
+                        s_save_as_lvnum = (int64_t)editor_maps_next_free_number(s_save_as_dir);
+                    }
+                    else if (t <= (int64_t)s_save_as_camps.size())
+                    {
+                        const ContentCampaign &c = s_save_as_camps[(size_t)t - 1];
+                        snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", c.levels_dir.c_str());
+                        s_save_as_lvnum = content_campaign_next_level(c.fname, s_save_as_list == 1 ? CampList_Extra : CampList_Single);
+                    }
+                    s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
+                }
+                if (s_save_as_target >= 1 && s_save_as_target <= (int64_t)s_save_as_camps.size())
+                {
+                    static const char *kListItems[] = { "Single level", "Extra level", "Not listed" };
+                    int64_t l = s_save_as_list;
+                    if (FeCombo("Add to the campaign as", &l, kListItems, 3) && l != s_save_as_list)
+                    {
+                        s_save_as_list = l;
+                        if (l != 2)
+                            s_save_as_lvnum = content_campaign_next_level(s_save_as_camps[(size_t)s_save_as_target - 1].fname,
+                                l == 1 ? CampList_Extra : CampList_Single);
+                    }
+                }
+            }
             FeBodyText(s_save_as_dir);
-            if (FeButton("Browse...", ImVec2(140, 0)))
+            const bool other_folder = s_save_as_target > (int64_t)s_save_as_camps.size();
+            if (other_folder && FeButton("Browse...", ImVec2(140, 0)))
             {
                 const char *picked = platform_pick_folder_dialog("Save map into folder", s_save_as_dir);
                 if (picked != NULL)
@@ -457,6 +515,10 @@ namespace {
                 // Files the editor doesn't save (Lua, rules, ...) would be
                 // left behind by a move: warn first, then continue as usual.
                 s_pending_save_lvnum = save_lvnum;
+                s_pending_camp.clear();
+                s_pending_list = s_save_as_list;
+                if (s_save_as_target >= 1 && s_save_as_target <= (int64_t)s_save_as_camps.size())
+                    s_pending_camp = s_save_as_camps[(size_t)s_save_as_target - 1].fname;
                 snprintf(s_pending_save_dir, sizeof(s_pending_save_dir), "%s", s_save_as_dir);
                 s_pending_save_dir[sizeof(s_pending_save_dir) - 1] = '\0';
                 s_pending_save_format = s_save_as_format;
@@ -1050,6 +1112,11 @@ namespace {
     // whichever is actually true for the current session instead of
     // unconditionally warning about a limitation that no longer exists.
     bool s_show_playtest_confirm = false;
+    // "Test as part of" (docs/refactor/editor/fx-plans/03-content-editors-foundation.md §10): the campaign or map pack
+    // the playtest runs under, so its configs, creatures and strings apply. Entry 0 is "no campaign": the Editor
+    // Maps pack, which has none of those layers; entry i+1 is s_playtest_campaigns[i].
+    std::vector<ContentCampaign> s_playtest_campaigns;
+    int64_t s_playtest_choice = 0;
 
     void draw_playtest_confirm(void)
     {
@@ -1073,22 +1140,54 @@ namespace {
             }
             FeSeparator();
 
+            // Which campaign the map is tested as part of.
+            std::vector<std::string> names;
+            names.push_back("None (base rules only)");
+            for (const ContentCampaign &c : s_playtest_campaigns)
+                names.push_back((c.is_mappack ? "[map pack] " : "") + c.name);
+            std::vector<const char *> ptrs;
+            for (const std::string &n : names)
+                ptrs.push_back(n.c_str());
+            FeCaption("Test as part of");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(320.0);
+            FeCombo("##playtestcampaign", &s_playtest_choice, ptrs.data(), (int64_t)ptrs.size());
+            FeCaption("The campaign's own configuration (rules, creatures, traps, ...) applies to the test.");
+            FeSeparator();
+
             const ImVec2 btn_size(140, 0);
             if (FeButton("Playtest", btn_size))
             {
-                char playtest_dir[512];
-                editor_level_save_dir(EDITOR_PLAYTEST_LEVEL_NUMBER, playtest_dir, sizeof(playtest_dir));
-                if (editor_save_map(EDITOR_PLAYTEST_LEVEL_NUMBER, playtest_dir, EdSaveFmt_Auto,
+                // Where the scratch copy of the map goes: the chosen campaign's levels folder (the level is found
+                // through the campaign), or the Editor Maps folder for "none".
+                std::string playtest_dir;
+                uint8_t pack = CampgnT_Mappack;
+                std::string pack_fname;
+                if (s_playtest_choice <= 0 || (size_t)s_playtest_choice > s_playtest_campaigns.size())
+                {
+                    editor_maps_ensure_dir();
+                    editor_maps_register();
+                    playtest_dir = editor_maps_dir();
+                    pack_fname = editor_maps_pack_fname();
+                }
+                else
+                {
+                    const ContentCampaign &c = s_playtest_campaigns[(size_t)s_playtest_choice - 1];
+                    playtest_dir = c.levels_dir;
+                    pack = c.is_mappack ? CampgnT_Mappack : CampgnT_Campaign;
+                    pack_fname = c.fname;
+                }
+                if (!playtest_dir.empty() && editor_save_map(EDITOR_PLAYTEST_LEVEL_NUMBER, playtest_dir.c_str(), EdSaveFmt_Auto,
                         editor_current_level_name(), editor_current_level_players(), editor_current_level_is_multiplayer(),
                         editor_current_level_description()))
                 {
                     // The level's sidecars (Lua, rules, ...) are keyed by
                     // level number, so give the scratch level its own copies.
-                    editor_remove_sidecars(playtest_dir, (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
+                    editor_remove_sidecars(playtest_dir.c_str(), (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
                     editor_copy_sidecars(editor_current_save_dir(), (uint64_t)editor_current_lvnum(),
-                        playtest_dir, (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
-                    editor_playtest_begin();
-                    frontend_request_editor_playtest(EDITOR_PLAYTEST_LEVEL_NUMBER);
+                        playtest_dir.c_str(), (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
+                    editor_playtest_begin_in_campaign(playtest_dir.c_str());
+                    frontend_request_editor_playtest(EDITOR_PLAYTEST_LEVEL_NUMBER, pack, pack_fname.c_str());
                     editor_close();
                 }
                 else
@@ -1241,7 +1340,38 @@ void editor_dialogs_open_save_as(void)
     }
     snprintf(s_save_as_name, sizeof(s_save_as_name), "%s", editor_current_level_name());
     s_save_as_name[sizeof(s_save_as_name) - 1] = '\0';
+    s_save_as_camps.clear();
+    for (const ContentCampaign &c : content_list_campaigns())
+        if (!c.is_mappack && !c.levels_dir.empty())
+            s_save_as_camps.push_back(c);
+    s_save_as_list = 0;
+    // Start on the target the session's folder belongs to: a campaign's levels folder, Editor Maps, or another folder.
+    s_save_as_target = (int64_t)s_save_as_camps.size() + 1;
+    if (editor_maps_is_dir(s_save_as_dir) || editor_current_lvnum() == EDITOR_SCRATCH_LEVEL_NUMBER)
+        s_save_as_target = 0;
+    else if (const ContentCampaign *own = content_find_campaign_for_dir(s_save_as_camps, s_save_as_dir))
+    {
+        s_save_as_target = (int64_t)(own - s_save_as_camps.data()) + 1;
+        s_save_as_list = 2; // re-saving its own level: the lists already have it
+    }
+    if (editor_current_lvnum() == EDITOR_SCRATCH_LEVEL_NUMBER && !s_default_camp.empty())
+    {
+        for (size_t i = 0; i < s_save_as_camps.size(); i++)
+            if (s_save_as_camps[i].fname == s_default_camp)
+            {
+                s_save_as_target = (int64_t)i + 1;
+                snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", s_save_as_camps[i].levels_dir.c_str());
+                s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
+                s_save_as_lvnum = content_campaign_next_level(s_default_camp, CampList_Single);
+            }
+        s_default_camp.clear();
+    }
     s_show_save_as = true;
+}
+
+void editor_dialogs_set_default_campaign(const char *campaign_fname)
+{
+    s_default_camp = campaign_fname != nullptr ? campaign_fname : "";
 }
 
 void editor_dialogs_save_now(void)
@@ -1313,6 +1443,17 @@ void editor_dialogs_open_level_settings(void)
 void editor_dialogs_open_playtest_confirm(void)
 {
     s_show_playtest_confirm = true;
+    // The campaigns and map packs the game knows, without the Editor Maps pack (that is the "none" entry). The default
+    // is the campaign the map belongs to, found from its folder.
+    const std::vector<ContentCampaign> all = content_list_campaigns();
+    s_playtest_campaigns.clear();
+    for (const ContentCampaign &c : all)
+        if (c.fname != editor_maps_pack_fname())
+            s_playtest_campaigns.push_back(c);
+    s_playtest_choice = 0;
+    const ContentCampaign *own = content_find_campaign_for_dir(s_playtest_campaigns, editor_current_save_dir());
+    if (own != nullptr)
+        s_playtest_choice = (int64_t)(own - s_playtest_campaigns.data()) + 1;
 }
 
 void editor_dialogs_open_verify_map(void)

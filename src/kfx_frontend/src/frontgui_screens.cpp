@@ -1,5 +1,6 @@
 #include "pre_inc.h"
 #include "frontgui_screens.h"
+#include "content_tools_callbacks.h"
 #include "frontgui_ingame.h" // Phase 0: the in-game HUD/menu ImGui arm
 #include "frontgui_widgets.h"
 #include "frontgui_skirmish_setup.h" // Skirmish Setup tab (docs/refactor/skirmish/)
@@ -100,6 +101,45 @@ namespace {
         int64_t i = s_pending_net_service_index;
         s_pending_net_service_index = -1;
         frontnet_service_select_by_index(i);
+    }
+
+    // "Open in Map Editor" from a content tool (Campaign editor): the campaign and level to open.
+    char s_open_editor_campaign[DISKPATH_SIZE] = "";
+    uint8_t s_open_editor_pack = 0;
+    LevelNumber s_open_editor_level = 0;
+    TbBool s_open_editor_new = false;
+
+    void run_pending_open_in_map_editor(void)
+    {
+        if (!change_campaign(s_open_editor_pack, s_open_editor_campaign))
+        {
+            WARNLOG("Open in Map Editor: could not switch to campaign \"%s\"", s_open_editor_campaign);
+            return;
+        }
+        editor_pending_lvnum = s_open_editor_new ? EDITOR_SCRATCH_LEVEL_NUMBER : s_open_editor_level;
+        editor_pending_is_new = s_open_editor_new;
+        editor_pending_new_map_w = 85;
+        editor_pending_new_map_h = 85;
+        editor_pending_new_map_texture = 0;
+        request_frontend_state(FeSt_START_EDITOR);
+    }
+
+    // "Play" from a content tool: the campaign and level to start.
+    char s_play_campaign[DISKPATH_SIZE] = "";
+    uint8_t s_play_pack = 0;
+    LevelNumber s_play_level = 0;
+
+    void run_pending_content_tool_play(void)
+    {
+        if (!change_campaign(s_play_pack, s_play_campaign))
+        {
+            WARNLOG("Play: could not switch to campaign \"%s\"", s_play_campaign);
+            content_tool_return_tool = -1;
+            return;
+        }
+        set_selected_level_number(s_play_level);
+        content_tool_play_running = true;
+        request_frontend_state(FeSt_START_KPRLEVEL);
     }
 
     void run_pending_net_return_to_session_menu(void)
@@ -703,7 +743,7 @@ namespace {
                 FeEndListBox(open);
                 FeEndTab();
             }
-            if (FeTab("Editor"))
+            if (FeTab("Map Editor"))
             {
                 bool open = FeBeginListBox("##definekeys_editor_list", ImVec2(520, 320));
                 if (open)
@@ -1518,7 +1558,7 @@ namespace {
             // straight into a blank New Map with the same defaults the old
             // browser's own "New Map" button used. File > Open (in-session)
             // covers picking an existing level instead.
-            if (FeButton("Editor", btn_size))
+            if (FeButton("Map Editor", btn_size))
             {
                 s_tools_modal_open = false;
                 ImGui::CloseCurrentPopup();
@@ -1528,6 +1568,27 @@ namespace {
                 editor_pending_new_map_h = 85;
                 editor_pending_new_map_texture = 0;
                 request_frontend_state(FeSt_START_EDITOR);
+            }
+            // docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5 -- the content editors need no
+            // map; they open as windows over the menu. Tools that are not built yet are listed greyed out.
+            for (int64_t t = 0; t < ContentTool_Count; t++)
+            {
+                const bool available = content_tools_callbacks->is_available((int)t);
+                FeCenterNextItem(btn_size.x);
+                if (!available)
+                    ImGui::BeginDisabled();
+                if (FeButton(content_tool_label((int)t), btn_size))
+                {
+                    s_tools_modal_open = false;
+                    ImGui::CloseCurrentPopup();
+                    content_tools_callbacks->open((int)t);
+                }
+                if (!available)
+                {
+                    ImGui::EndDisabled();
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        ImGui::SetTooltip("Coming soon");
+                }
             }
             FeCenterNextItem(btn_size.x);
             if (FeButton("Back", btn_size))
@@ -1541,6 +1602,20 @@ namespace {
 
     void frontgui_mainmenu_frame()
     {
+        // Back from a game a content tool started: open the tool again.
+        if (content_tool_reopen_tool >= 0)
+        {
+            const int tool = (int)content_tool_reopen_tool;
+            content_tool_reopen_tool = -1;
+            content_tools_callbacks->open(tool);
+        }
+        // A content editor window (Tools) takes the screen: the menu behind it would show through and
+        // could be clicked by mistake, so it is not drawn while a tool is open.
+        if (content_tools_callbacks->is_open())
+        {
+            content_tools_callbacks->frame();
+            return;
+        }
         ImGuiIO &io = ImGui::GetIO();
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeMainMenu", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
@@ -1667,6 +1742,9 @@ namespace {
         draw_tools_modal();
 
         ImGui::End();
+        // The content editor windows (docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5), if any
+        // are open: separate windows over the menu, drawn after the menu window is closed.
+        content_tools_callbacks->frame();
     }
 
     // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- the
@@ -2016,6 +2094,24 @@ namespace {
         }
         FeEndModal(open);
     }
+}
+
+void frontend_request_content_tool_play(uint8_t pack, const char *campaign_fname, LevelNumber lvnum, int64_t tool)
+{
+    snprintf(s_play_campaign, sizeof(s_play_campaign), "%s", campaign_fname != nullptr ? campaign_fname : "");
+    s_play_pack = pack;
+    s_play_level = lvnum;
+    content_tool_return_tool = tool;
+    request_pending_action(&run_pending_content_tool_play);
+}
+
+void frontend_request_map_editor_open(uint8_t pack, const char *campaign_fname, LevelNumber lvnum, TbBool is_new)
+{
+    snprintf(s_open_editor_campaign, sizeof(s_open_editor_campaign), "%s", campaign_fname != nullptr ? campaign_fname : "");
+    s_open_editor_pack = pack;
+    s_open_editor_level = lvnum;
+    s_open_editor_new = is_new;
+    request_pending_action(&run_pending_open_in_map_editor);
 }
 
 TbBool frontend_imgui_screen_active(int64_t state)

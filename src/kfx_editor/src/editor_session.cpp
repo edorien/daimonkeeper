@@ -14,6 +14,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "kfx_editor.h"
+#include "content_tools.h"
 #include "frontend.h" // EDITOR_PLAYTEST_LEVEL_NUMBER -- playtest return
 #include "editor_toolbox.h"
 #include "editor_journal.h"
@@ -48,7 +49,9 @@
 #include "bflib_dernc.h" // LbFileLoadAt -- read_level_script_text()
 #include "frontgui_widgets.h"
 #include <imgui.h>
+#include <cctype>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include "post_inc.h"
@@ -344,6 +347,12 @@ namespace {
         bool pending = false;
         LevelNumber lvnum = 0;
         char dir[512] = "";
+        // A playtest under another campaign (docs/refactor/editor/fx-plans/03 §10): the campaign to put back and the
+        // folder holding the scratch copy of the map, which is removed once the editor has re-opened.
+        bool restore_campaign = false;
+        uint8_t restore_pack = 0;
+        char restore_fname[512] = "";
+        char scratch_dir[512] = "";
     } s_playtest_origin;
 }
 
@@ -353,6 +362,44 @@ void editor_playtest_begin(void)
     s_playtest_origin.lvnum = s_editor_lvnum;
     snprintf(s_playtest_origin.dir, sizeof(s_playtest_origin.dir), "%s", s_editor_save_dir);
     s_playtest_origin.dir[sizeof(s_playtest_origin.dir) - 1] = '\0';
+}
+
+void editor_playtest_begin_in_campaign(const char *scratch_dir)
+{
+    editor_playtest_begin();
+    // The campaign that is current now comes back after the playtest.
+    s_playtest_origin.restore_campaign = true;
+    switch (campaign.fgroup)
+    {
+    case FGrp_VarLevels: s_playtest_origin.restore_pack = CampgnT_Mappack; break;
+    case FGrp_MpLevels: s_playtest_origin.restore_pack = CampgnT_MultiplayerMappack; break;
+    default: s_playtest_origin.restore_pack = CampgnT_Campaign; break;
+    }
+    snprintf(s_playtest_origin.restore_fname, sizeof(s_playtest_origin.restore_fname), "%s", campaign.fname);
+    snprintf(s_playtest_origin.scratch_dir, sizeof(s_playtest_origin.scratch_dir), "%s", scratch_dir != nullptr ? scratch_dir : "");
+}
+
+namespace {
+// Removes the scratch level's own files ("map900002.*") from `dir`; nothing else is touched.
+void remove_scratch_level(const char *dir)
+{
+    if (dir == nullptr || dir[0] == '\0')
+        return;
+    char prefix[32];
+    snprintf(prefix, sizeof(prefix), "map%05" PRIu64 ".", (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
+    std::error_code ec;
+    std::vector<std::filesystem::path> doomed;
+    for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
+    {
+        std::string name = it->path().filename().string();
+        for (char &c : name)
+            c = (char)std::tolower((unsigned char)c);
+        if (name.compare(0, strlen(prefix), prefix) == 0 && it->is_regular_file(ec))
+            doomed.push_back(it->path());
+    }
+    for (const std::filesystem::path &p : doomed)
+        std::filesystem::remove(p, ec);
+}
 }
 
 void editor_open(LevelNumber lvnum, TbBool is_new)
@@ -381,6 +428,15 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
         snprintf(s_editor_save_dir, sizeof(s_editor_save_dir), "%s", s_playtest_origin.dir);
         s_editor_save_dir[sizeof(s_editor_save_dir) - 1] = '\0';
         s_editor_dirty = true;
+    }
+    if (s_playtest_origin.pending && lvnum == EDITOR_PLAYTEST_LEVEL_NUMBER && s_playtest_origin.restore_campaign)
+    {
+        // Back from a playtest under another campaign: the scratch map is loaded, so put the previous campaign
+        // back and remove the scratch copy from that campaign's folder.
+        remove_scratch_level(s_playtest_origin.scratch_dir);
+        if (!change_campaign(s_playtest_origin.restore_pack, s_playtest_origin.restore_fname))
+            WARNLOG("Could not restore campaign \"%s\" after the playtest", s_playtest_origin.restore_fname);
+        s_playtest_origin.restore_campaign = false;
     }
     s_playtest_origin.pending = false;
     // docs/refactor/editor/phase3/03-slice4-file-dialogs.md -- best-effort:
@@ -578,6 +634,7 @@ void editor_frame(void)
     editor_availability_frame();
     editor_message_helper_frame();
     editor_command_browser_frame();
+    content_tools_frame();
 }
 
 void editor_notify_playtest_end(void)

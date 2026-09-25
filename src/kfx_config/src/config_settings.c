@@ -138,7 +138,7 @@ const struct GamekeySettings game_key_settings[GAME_KEYS_COUNT] = {
 // supplies the Define-Keys menu label -- see GamekeySettings's own comment
 // for why.
 const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
-    {"EditorEraseTool",       GUIStr_Empty,                   KC_R, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Erase Tool", },  // Gkey_EditorEraseTool,
+    {"EditorEraseTool",       GUIStr_Empty,                   KC_R, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Erase Tool", },  // Gkey_EditorEraseTool,
     // Camera/console keys, duplicated from game_key_settings[] rather than
     // shared with it (docs/refactor/editor/10-definable-keybindings.md) --
     // get_isometric_view_nonaction_inputs()/the console-toggle check
@@ -168,15 +168,15 @@ const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
     // Tool-switch hotkeys (docs/refactor/editor/10-definable-keybindings.md)
     // -- editor-specific tool names, no existing GUIStr_*, so label_literal
     // like EditorEraseTool above rather than a gameplay-shared string.
-    {"EditorTerrainTool",     GUIStr_Empty,                   KC_T, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Terrain Tool", },     // Gkey_EditorTerrainTool,
-    {"EditorQueryTool",       GUIStr_Empty,                   KC_Q, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Query Tool", },       // Gkey_EditorQueryTool,
-    {"EditorEyedropperTool",  GUIStr_Empty,                   KC_E, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Eyedropper Tool", },  // Gkey_EditorEyedropperTool,
-    {"EditorFillTool",        GUIStr_Empty,                   KC_F, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Fill Tool", },        // Gkey_EditorFillTool,
-    {"EditorStampTool",       GUIStr_Empty,                   KC_B, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Stamp Tool", },       // Gkey_EditorStampTool,
-    {"EditorPointsTool",      GUIStr_Empty,                   KC_L, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Points Tool", },      // Gkey_EditorPointsTool,
-    {"EditorCreatureTool",    GUIStr_Empty,                   KC_C, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Creature Tool", },    // Gkey_EditorCreatureTool,
-    {"EditorThingTool",       GUIStr_Empty,                   KC_O, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Thing Tool", },       // Gkey_EditorThingTool,
-    {"EditorReinforceTool",   GUIStr_Empty,                   KC_N, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Editor: Switch to Reinforce Tool", },   // Gkey_EditorReinforceTool,
+    {"EditorTerrainTool",     GUIStr_Empty,                   KC_T, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Terrain Tool", },     // Gkey_EditorTerrainTool,
+    {"EditorQueryTool",       GUIStr_Empty,                   KC_Q, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Query Tool", },       // Gkey_EditorQueryTool,
+    {"EditorEyedropperTool",  GUIStr_Empty,                   KC_E, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Eyedropper Tool", },  // Gkey_EditorEyedropperTool,
+    {"EditorFillTool",        GUIStr_Empty,                   KC_F, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Fill Tool", },        // Gkey_EditorFillTool,
+    {"EditorStampTool",       GUIStr_Empty,                   KC_B, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Stamp Tool", },       // Gkey_EditorStampTool,
+    {"EditorPointsTool",      GUIStr_Empty,                   KC_L, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Points Tool", },      // Gkey_EditorPointsTool,
+    {"EditorCreatureTool",    GUIStr_Empty,                   KC_C, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Creature Tool", },    // Gkey_EditorCreatureTool,
+    {"EditorThingTool",       GUIStr_Empty,                   KC_O, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Thing Tool", },       // Gkey_EditorThingTool,
+    {"EditorReinforceTool",   GUIStr_Empty,                   KC_N, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Reinforce Tool", },   // Gkey_EditorReinforceTool,
 };
 
 // Mirror engine_camera.h's camera zoom/tilt bounds, used here only as
