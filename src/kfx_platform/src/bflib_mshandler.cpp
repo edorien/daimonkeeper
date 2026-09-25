@@ -105,8 +105,6 @@ bool MouseStateHandler::SetMousePosition(int64_t x, int64_t y)
 
 bool MouseStateHandler::SetPosition(int64_t x, int64_t y)
 {
-    int64_t prev_x;
-    int64_t prev_y;
     int64_t mx;
     int64_t my;
     if (!this->installed)
@@ -134,20 +132,8 @@ bool MouseStateHandler::SetPosition(int64_t x, int64_t y)
     if ((mx == mspos.x) && (my == mspos.y))
       return true;
     //Change the position
-    prev_x = mspos.x;
     mspos.x = mx;
-    prev_y = mspos.y;
     mspos.y = my;
-    if ((mssprite != NULL) && (this->installed))
-    {
-      //show_onscreen_msg(5, "POS %3d x %3d CLIP %3d x %3d WINDOW %3d x %3d", (int64_t)(x),(int64_t)(y),(int64_t)(mx),(int64_t)(my),(int64_t)(lbDisplay.MouseWindowX),(int64_t)(lbDisplay.MouseWindowY));
-      if (!pointer.OnMove())
-      {
-        mspos.x = prev_x;
-        mspos.y = prev_y;
-        return false;
-      }
-    }
     return true;
 }
 
@@ -178,10 +164,6 @@ bool MouseStateHandler::SetPointer(const struct TbSprite *spr, struct TbPoint *p
         hotspot.y = point->y;
       }
       pointer.Initialise(spr, &mspos, &hotspot);
-      if ((mssprite != NULL) && (this->installed))
-      {
-        pointer.OnMove();
-      }
     } else
     {
       pointer.Release();
@@ -237,32 +219,5 @@ bool MouseStateHandler::SetPointerOffset(int64_t x, int64_t y)
 struct TbPoint *MouseStateHandler::GetPointerOffset(void)
 {
     return &hotspot;
-}
-
-bool MouseStateHandler::PointerBeginSwap(void)
-{
-    std::lock_guard<std::mutex> guard(lock);
-    if ((!lbMouseInstalled) || (lbMouseOffline))
-      return true;
-    if ((mssprite != NULL) && (this->installed))
-    {
-      swap = 1;
-      pointer.OnBeginSwap();
-    }
-    return true;
-}
-
-bool MouseStateHandler::PointerEndSwap(void)
-{
-    std::lock_guard<std::mutex> guard(lock);
-    if ((mssprite != NULL) && (this->installed))
-    {
-      if (swap)
-      {
-        swap = false;
-        pointer.OnEndSwap();
-      }
-    }
-    return true;
 }
 /******************************************************************************/

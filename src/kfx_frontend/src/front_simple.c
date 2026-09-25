@@ -176,7 +176,7 @@ TbBool copy_raw8_image_to_screen_center(const unsigned char *buf, const int64_t 
     RendererUnlockFramebuffer();
 
     // Swap video buffers to make the image visible
-    RendererPresentFrame();
+    RendererPresentStepFrame();
 
     return true;
 }
@@ -330,7 +330,7 @@ TbBool draw_clear_screen(void)
     LbPaletteDataFillBlack(palette_buf);
     RendererPaletteSet(palette_buf);
     RendererClearScreen(0);
-    RendererPresentFrame();
+    RendererPresentStepFrame();
     return true;
 }
 

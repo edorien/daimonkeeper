@@ -47,13 +47,9 @@ typedef TbBool (*MoviePollInputsFn)(void);
 typedef void (*MovieClearKeyPressedFn)(int64_t key);
 
 TbBool play_smk(const char * filename, int64_t flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn);
-int64_t anim_stop(void);
-int64_t anim_record(void);
-/* screenbuf's caller (scrcapt.c) hands over RendererGetFramebuffer()'s
- * TbPixel* directly, not a legacy 8bpp byte buffer -- see the definition's
- * comment for why the signature reflects that but the FLI encoder behind
- * it does not. */
-TbBool anim_record_frame(TbPixel * screenbuf, unsigned char * palette);
+// anim_stop/anim_record/anim_record_frame (the FLI/FLC movie-recording
+// encoder) retired -- docs/refactor/renderer/gpu-v2/
+// 01-phase-b-2d-compositing.md B2.
 
 #ifdef __cplusplus
 }

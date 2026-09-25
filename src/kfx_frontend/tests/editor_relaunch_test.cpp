@@ -77,3 +77,21 @@ TEST_CASE_METHOD(RelaunchTestGuard, "a finished playtest returns to the editor o
     CHECK(editor_pending_is_new == false);
     CHECK(editor_playtest_running == false);
 }
+
+// Regression coverage for a latent bug found while working on
+// docs/refactor/editor/fx-plans/08-campaign-editor.md §12.10: editor playtest is a
+// normal single-player start (frontend.cpp's own comment on the editor_pending_playtest
+// branch), so it must not inherit a stale fe_computer_players=1 left behind by an earlier
+// Skirmish match or Campaign-Editor test play -- both of which reach FeSt_START_KPRLEVEL
+// without visiting FeSt_LAND_VIEW (frontmap_load()'s own reset, front_landview.c) either.
+TEST_CASE_METHOD(RelaunchTestGuard, "editor playtest resets a stale fe_computer_players before starting", "[kfx_frontend][editor_relaunch]") {
+    editor_pending_playtest = false;
+    editor_playtest_running = false;
+    fe_computer_players = 1; // simulates a leftover Skirmish/content-tool-play flag from earlier this session
+    frontend_request_editor_playtest(EDITOR_PLAYTEST_LEVEL_NUMBER, 0, "");
+
+    CHECK(get_startup_menu_state() == FeSt_START_KPRLEVEL);
+    CHECK(fe_computer_players == 0);
+
+    fe_computer_players = 0;
+}

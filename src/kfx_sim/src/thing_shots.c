@@ -1841,6 +1841,7 @@ struct Thing *create_shot(struct Coord3d *pos, ThingModel model, int64_t owner)
         ilght.intensity = shotst->light_intensity;
         ilght.is_dynamic = 1;
         ilght.flags = shotst->light_flags;
+        ilght.colour_r = shotst->light_colour_r; ilght.colour_g = shotst->light_colour_g; ilght.colour_b = shotst->light_colour_b;
         thing->light_id = sim_feedback->light_create_light(&ilght);
         if (thing->light_id == 0) {
             // Being out of free lights is quite common - so info instead of warning here

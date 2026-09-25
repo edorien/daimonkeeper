@@ -409,6 +409,16 @@ void frontend_campaign_select(struct GuiButton *gbtn)
  */
 int64_t frontend_land_selection_enter_resolve(void)
 {
+    // Single-player-only entry point (Campaign Select's "Enter this land",
+    // and Continue Game via frontend_load_continue_game_resolve() routing
+    // here) -- must not inherit a stale fe_computer_players=1 left behind by
+    // an earlier Skirmish match (frontend_freeplay_enter_resolve() below) or
+    // Campaign-Editor test play (run_pending_content_tool_play(),
+    // frontgui_screens.cpp): unlike those, this path reaches FeSt_START_KPRLEVEL
+    // directly, bypassing FeSt_LAND_VIEW (frontmap_load()'s own reset,
+    // front_landview.c) entirely. Set unconditionally, even on the early-return
+    // below, so this stays correct regardless of what else changes here.
+    fe_computer_players = 0;
     if (land_selection_highlighted_campaign == NULL)
         return -1;
     if (!frontend_start_new_campaign(land_selection_highlighted_campaign->fname))
@@ -579,9 +589,11 @@ int64_t frontend_freeplay_enter_resolve(void)
     // (`if (!fe_network_active) fe_computer_players = 1;`), the level-pick
     // commit Skirmish used to go through before it was routed directly
     // into this screen -- without it a skirmish level would start with no
-    // computer opponents at all.
-    if (frontend_freeplay_is_skirmish())
-        fe_computer_players = 1;
+    // computer opponents at all. Set explicitly either way (not just the
+    // Skirmish branch) -- a plain, non-Skirmish Free play level is single-
+    // dungeon and must not inherit a stale 1 left by an earlier Skirmish
+    // visit this session.
+    fe_computer_players = frontend_freeplay_is_skirmish() ? 1 : 0;
     return FeSt_START_KPRLEVEL;
 }
 

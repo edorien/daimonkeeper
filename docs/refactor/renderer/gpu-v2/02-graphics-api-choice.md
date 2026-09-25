@@ -161,3 +161,72 @@ justified answer.
   does not by itself favor raw GL/Vulkan: both still need shader source in some form, and GL's
   "compile GLSL at runtime" convenience doesn't offset losing dependency-free
   Vulkan/D3D12/Metal coverage.
+
+## Forcing Vulkan as the SDL_GPU backend (pre-Phase-C decision, checked directly)
+
+The recommendation above ("SDL_GPU") is an API-shape choice, not a backend choice — SDL_GPU still
+auto-selects a per-platform driver. Checked directly against the vendored source
+(`out/coverage/_deps/sdl3-src/src/gpu/SDL_gpu.c:314`), the built-in priority order is
+`Private > Metal > D3D12 > Vulkan`, so **on Windows this defaults to D3D12, not Vulkan** — only
+native Linux (no D3D12/Metal compiled in) reaches Vulkan by default today. Overriding this is a one-line
+decision, not new engineering: `SDL_gpu.c:610-625` reads `SDL_HINT_GPU_DRIVER` (env var
+`SDL_GPU_DRIVER`, or the `SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING` device-creation property) and does
+an exact-name match against `backends[]` before falling through to the priority order — setting it to
+`"vulkan"` forces Vulkan on Windows too.
+
+**Recommendation: force Vulkan via this hint on every platform, not just take Linux's default.** Two
+independent reasons converge on this, not just a stated preference:
+- **Shader delivery** ([above](#option-3--sdl_gpu-sdl3s-own-cross-platform-gpu-api--recommended))
+  is Phase C's one real open cost. A single Vulkan-only target means authoring/cross-compiling to
+  SPIR-V alone — D3D12's DXBC/DXIL and Metal's MSL never need to exist. This turns C.0's "shader
+  delivery" decision from a 3-backend problem into a 1-backend problem.
+- **[Ray tracing](#future-hardware-ray-tracing-out-of-scope-for-phase-c), below** — the extension
+  surface a future RT effort would need is a Vulkan concept; standardizing on Vulkan now, even
+  though C.1–C.4 never touch it, avoids a platform fork later.
+- **Trade-off, not free**: Vulkan driver quality on Windows is vendor-dependent (unlike D3D12, which
+  Windows 10+ guarantees) — this needs the C.0 spike's smoke test run against real Windows hardware,
+  not just CI's likely-software/virtualized GPU, before being treated as settled. Record the spike's
+  actual finding in this section when C.0 lands; don't leave this bullet as the final word.
+
+## Future: hardware ray tracing (out of scope for Phase C)
+
+The user's brief for this project eventually wants enhanced lighting, possibly ray-traced. This is
+explicitly **not** Phase C.0–C.5 scope (04's IR/bucket-order design is a painter's-algorithm
+rasterizer with no depth buffer even in C.1–C.4, and depth buffering itself is deferred to C.5 — see
+[04-architecture-and-ir-boundary.md](04-architecture-and-ir-boundary.md)). But because SDL_GPU is
+being adopted now as Phase C's foundation, it's worth checking directly whether that foundation is
+compatible with RT ever landing on top of it later, rather than discovering a wall after C.1–C.4 ship.
+
+**Checked directly against the vendored SDL3 3.4.12 source — no ray-tracing surface exists in
+SDL_GPU today**: `grep -rni "raytrac|ray_trac|AccelerationStructure"` across
+`include/SDL3/SDL_gpu.h` and `src/gpu/` returns nothing. There is no acceleration-structure object,
+no ray-tracing pipeline type, no trace-rays command — SDL_GPU's public surface is graphics +
+compute pipelines only.
+
+**There is a partial, documented escape hatch, and a real gap next to it:**
+- `SDL_CreateGPUDeviceWithProperties`'s `SDL_PROP_GPU_DEVICE_CREATE_VULKAN_OPTIONS_POINTER`
+  (`SDL_GPUVulkanOptions`, `SDL_gpu.h:2386-2411`, since SDL 3.4.0) *does* let an app request extra
+  Vulkan instance/device extensions and 1.1+ feature-struct chains at device-creation time — so
+  requesting `VK_KHR_ray_tracing_pipeline`/`VK_KHR_acceleration_structure`/
+  `VK_KHR_deferred_host_operations` and their feature structs is plausible in principle.
+- But `SDL_GetGPUDeviceProperties()` (`SDL_gpu.h:2577-2582`) — the only public way to query a live
+  `SDL_GPUDevice`'s properties back — exposes only `name`/`driver_name`/`driver_version`/
+  `driver_info` **strings**. Nothing in the public API returns the underlying `VkInstance`/
+  `VkPhysicalDevice`/`VkDevice`/`VkQueue`/`VkCommandBuffer` handles. So even with the extensions
+  enabled, there is no documented, supported way to issue the raw `vkCmdBuildAccelerationStructures`/
+  `vkCmdTraceRaysKHR` calls RT actually needs against the same device SDL_GPU is driving.
+
+**Conclusion, recorded now rather than assumed later:** hardware RT is not an incremental SDL_GPU
+feature this project can grow into — it is a **separate raw-Vulkan-owned device/path**, sitting
+beside or instead of `RendererGpu3D`'s SDL_GPU device, whenever it's actually pursued (well past
+C.5). This does not block starting Phase C — SDL_GPU remains the right choice for C.1–C.4's
+rasterizer, and RT is explicitly future/stretch work, not this stage's job. It does mean two things
+worth keeping in mind while building C.1–C.4, so the eventual fork is cheap rather than a rewrite:
+keep `WorldFrame` (the IR) and the [texture/sprite cache](03-pixel-format-and-texture-cache.md)
+backend-API-agnostic (they already are, per [04](04-architecture-and-ir-boundary.md)) so a future
+RT path can reuse them without depending on `RendererGpu3D`'s specific SDL_GPU device object, and
+don't let `RendererGpu3D` assume it is the only possible GPU-backed `IRenderer` implementation
+forever. Re-verify this finding against whatever SDL3 version is vendored at that future point —
+SDL_GPU is still an actively developed API (this section itself cites a "since SDL 3.4.0" feature
+that didn't exist a few minor versions ago) and could grow RT support before this project ever
+reaches it.

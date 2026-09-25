@@ -1147,7 +1147,7 @@ TbBool frontmap_update_zoom(void)
         {
             frontend_set_state(map_info.state_trigger);
             RendererClearScreen(0);
-            RendererPresentFrame();
+            RendererPresentStepFrame();
             map_info.state_trigger = FeSt_INITIAL;
             return true;
         }

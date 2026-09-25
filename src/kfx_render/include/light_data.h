@@ -81,6 +81,9 @@ struct Light {
   GameTurn last_turn_moved;
   GameTurn last_turn_randomized;
   TbBool reset_interpolation;
+  // gpu-v2 lighting pass: 0,0,0 = white (see InitLight). Appended at the end; struct Light is part of the
+  // lish blob that net resync memcpy's, so this changes its size (both peers run the same build).
+  unsigned char colour_r, colour_g, colour_b;
 };
 
 // struct InitLight moved to kfx_config_state.h (stage 13.3, docs/refactor/
@@ -186,6 +189,14 @@ TbBool lights_stats_debug_dump(void);
 void light_signal_stat_light_update_in_area(int64_t x1, int64_t y1, int64_t x2, int64_t y2);
 
 int64_t light_count_lights();
+
+// gpu-v2 Phase C.5 lighting pass -- see light_data.c. light_perpixel_active(): per-pixel lighting
+// is on for this frame (Vulkan renderer, standard perspective). light_perpixel_get(): the dynamic
+// lights collected by the last light_render_area() as x,y,z,radius,intensity floats (5 per light),
+// plus the solid-column height of every subtile in subtiles (grid_w x grid_h bytes, indexed
+// by subtile number); false if the last update was classic.
+TbBool light_perpixel_active(void);
+TbBool light_perpixel_get(const float **lights, int64_t *count, const unsigned char **heights, int64_t *grid_w, int64_t *grid_h);
 
 // Moved from game_lghtshdw.h (stage 13.3) alongside struct LightsShadows.
 int64_t get_subtile_lightness(const struct LightsShadows * lish, MapSubtlCoord stl_x, MapSubtlCoord stl_y);

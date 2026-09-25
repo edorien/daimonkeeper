@@ -1125,6 +1125,7 @@ struct Thing *create_trap(struct Coord3d *pos, ThingModel trpkind, PlayerNumber 
         ilght.intensity = trapst->light_intensity;
         ilght.is_dynamic = 1;
         ilght.flags = trapst->light_flag;
+        ilght.colour_r = trapst->light_colour_r; ilght.colour_g = trapst->light_colour_g; ilght.colour_b = trapst->light_colour_b;
         thing->light_id = sim_feedback->light_create_light(&ilght);
         if (thing->light_id <= 0) {
             SYNCDBG(8,"Cannot allocate dynamic light to %s.",thing_model_name(thing));

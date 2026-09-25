@@ -26,6 +26,7 @@
 #include "bflib_video.h"
 #include "bflib_sound.h"
 #include "bflib_fmvids.h"
+#include "renderer/RendererManager.h" // RENDERER's row
 
 #include <cstring>
 #include <cstdio>
@@ -508,6 +509,25 @@ TEST_CASE_METHOD(ResetConfigReloadCallbacks, "SCREENSHOT reuses scrshot_type[] a
     setting_option_apply_enum_index(opt, 1); // BMP == 2
     CHECK(fake_format == 2);
     CHECK(opt->get_enum() == 2);
+}
+
+// gpu-v2 Phase C.1: unlike SCREENSHOT/INGAME_RES above, RENDERER's
+// get_enum/set_enum call RendererGetDesiredType/RendererSetDesiredType
+// (renderer/RendererManager.h) directly -- kfx_platform is a layer *below*
+// kfx_config, so no config_reload_callbacks indirection is needed. No
+// ResetConfigReloadCallbacks fixture required for the same reason.
+TEST_CASE("RENDERER reuses renderer_type[] and round-trips through RendererGetDesiredType/RendererSetDesiredType", "[kfx_config][config_settingschema]") {
+    RendererSetDesiredType(RENDERER_SOFTWARE); // known starting state
+    const struct SettingOption *opt = find_option("RENDERER");
+    REQUIRE(opt != nullptr);
+    CHECK(opt->enum_table == renderer_type);
+
+    CHECK(setting_option_enum_current_index(opt) == 0); // SOFTWARE == 1, index 0
+    setting_option_apply_enum_index(opt, 1); // VULKAN == RENDERER_GPU3D
+    CHECK(RendererGetDesiredType() == RENDERER_GPU3D);
+    CHECK(opt->get_enum() == RENDERER_GPU3D);
+
+    RendererSetDesiredType(RENDERER_SOFTWARE); // leave global state as found
 }
 
 TEST_CASE_METHOD(ResetConfigReloadCallbacks, "HAND_SIZE presents global_hand_scale as an integer percentage, matching HAND_SIZE's own keeperfx.cfg format", "[kfx_config][config_settingschema]") {

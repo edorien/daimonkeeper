@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -29,9 +30,9 @@ void add_levels(std::vector<int64_t> &out, const LevelNumber *list, uint64_t cou
 }
 
 // Reads the campaign file for what the text editor needs: its [strings] lines and the NAME_ID of every level entry.
-void read_campaign_file(ContentCampaign &cc, const std::string &root, bool mappack)
+void read_campaign_file(ContentCampaign &cc, const std::string &root)
 {
-    cc.cfg_file = content_resolve_location(root, std::string(mappack ? "levels/" : "campgns/") + cc.fname);
+    cc.cfg_file = content_resolve_location(root, std::string(content_kind_folder(cc.kind)) + "/" + cc.fname);
     std::ifstream f(cc.cfg_file, std::ios::binary);
     if (!f)
         return;
@@ -57,7 +58,7 @@ void read_campaign_file(ContentCampaign &cc, const std::string &root, bool mappa
             }
 }
 
-void list_from(std::vector<ContentCampaign> &out, const struct CampaignsList &clist, bool mappack, const std::string &root)
+void list_from(std::vector<ContentCampaign> &out, const struct CampaignsList &clist, ContentKind kind, const std::string &root)
 {
     for (uint64_t i = 0; i < clist.items_num; i++)
     {
@@ -67,11 +68,12 @@ void list_from(std::vector<ContentCampaign> &out, const struct CampaignsList &cl
         if (cc.name.empty())
             cc.name = c.fname;
         cc.fname = c.fname;
-        cc.is_mappack = mappack;
+        cc.kind = kind;
+        cc.is_mappack = kind != ContentKind_Campaign;
         cc.cfg_dir = content_resolve_location(root, c.configs_location);
         cc.crtr_dir = content_resolve_location(root, c.creatures_location);
         cc.levels_dir = content_resolve_location(root, c.levels_location);
-        read_campaign_file(cc, root, mappack);
+        read_campaign_file(cc, root);
         add_levels(cc.levels, c.single_levels, c.single_levels_count);
         add_levels(cc.levels, c.multi_levels, c.multi_levels_count);
         add_levels(cc.levels, c.bonus_levels, c.bonus_levels_index);
@@ -84,6 +86,11 @@ void list_from(std::vector<ContentCampaign> &out, const struct CampaignsList &cl
 }
 
 } // namespace
+
+const char *content_kind_folder(ContentKind kind)
+{
+    return kind == ContentKind_Campaign ? "campgns" : kind == ContentKind_FreePlay ? "levels" : "multiplayer";
+}
 
 std::string content_resolve_location(const std::string &root, const std::string &location)
 {
@@ -104,8 +111,8 @@ std::vector<ContentCampaign> content_list_campaigns(void)
 {
     std::vector<ContentCampaign> out;
     const std::string root = content_root();
-    list_from(out, campaigns_list, false, root);
-    list_from(out, mappacks_list, true, root);
+    list_from(out, campaigns_list, ContentKind_Campaign, root);
+    list_from(out, mappacks_list, ContentKind_FreePlay, root);
     return out;
 }
 
@@ -160,4 +167,91 @@ ConfigTarget content_target_for_map(const std::string &base_dir, const std::stri
     t.level_dir = level_dir;
     t.level_number = level_number;
     return t;
+}
+
+namespace {
+
+// A ContentCampaign read straight from a .cfg file the game did not list.
+bool from_file(ContentCampaign &cc, const std::string &root, ContentKind kind, const std::string &fname)
+{
+    cc.kind = kind;
+    cc.is_mappack = kind != ContentKind_Campaign;
+    cc.fname = fname;
+    cc.listed = false;
+    read_campaign_file(cc, root);
+    std::ifstream f(cc.cfg_file, std::ios::binary);
+    if (!f)
+        return false;
+    std::stringstream ss;
+    ss << f.rdbuf();
+    const ConfigContent c = read_config_content(ConfigDocument::parse(ss.str()), "campaign", false);
+    const CfgContentSection *common = c.find_section("common");
+    if (common == nullptr)
+        return false;
+    auto value = [&](const char *key) {
+        const std::string *v = common->last_value(key);
+        return v != nullptr ? *v : std::string();
+    };
+    auto trimmed = [](std::string v) {
+        while (!v.empty() && (v.back() == ' ' || v.back() == '\t' || v.back() == '\r'))
+            v.pop_back();
+        return v;
+    };
+    cc.name = trimmed(value("NAME"));
+    if (cc.name.empty())
+        cc.name = fname;
+    cc.cfg_dir = content_resolve_location(root, trimmed(value("CONFIGS_LOCATION")));
+    cc.crtr_dir = content_resolve_location(root, trimmed(value("CREATURES_LOCATION")));
+    cc.levels_dir = content_resolve_location(root, trimmed(value("LEVELS_LOCATION")));
+    if (kind == ContentKind_Campaign)
+    {
+        for (const char *key : {"SINGLE_LEVELS", "BONUS_LEVELS", "EXTRA_LEVELS"})
+        {
+            std::istringstream in(value(key));
+            for (long long n; in >> n;)
+                if (n > 0)
+                    cc.levels.push_back((int64_t)n);
+        }
+        std::sort(cc.levels.begin(), cc.levels.end());
+        cc.levels.erase(std::unique(cc.levels.begin(), cc.levels.end()), cc.levels.end());
+    }
+    return true;
+}
+
+} // namespace
+
+std::vector<ContentCampaign> content_list_everything(void)
+{
+    std::vector<ContentCampaign> out;
+    const std::string root = content_root();
+    list_from(out, campaigns_list, ContentKind_Campaign, root);
+    list_from(out, mappacks_list, ContentKind_FreePlay, root);
+    list_from(out, mp_mappacks_list, ContentKind_Multiplayer, root);
+    // The .cfg files the game did not list.
+    for (ContentKind kind : {ContentKind_Campaign, ContentKind_FreePlay, ContentKind_Multiplayer})
+    {
+        std::error_code ec;
+        std::vector<std::string> names;
+        for (std::filesystem::directory_iterator it(content_resolve_location(root, content_kind_folder(kind)), ec), end; !ec && it != end; it.increment(ec))
+            if (it->is_regular_file(ec) && it->path().extension() == ".cfg")
+                names.push_back(it->path().filename().string());
+        std::sort(names.begin(), names.end());
+        for (const std::string &n : names)
+        {
+            bool known = false;
+            for (const ContentCampaign &c : out)
+            {
+                std::string a = c.fname, b = n;
+                std::transform(a.begin(), a.end(), a.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
+                std::transform(b.begin(), b.end(), b.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
+                if (c.kind == kind && a == b)
+                    known = true;
+            }
+            ContentCampaign cc;
+            if (!known && from_file(cc, root, kind, n))
+                out.push_back(std::move(cc));
+        }
+    }
+    std::stable_sort(out.begin(), out.end(), [](const ContentCampaign &a, const ContentCampaign &b) { return a.kind < b.kind; });
+    return out;
 }

@@ -383,3 +383,49 @@ Suggested by the user: let the game load the land-view background as a **PNG**, 
 - **Per-level speech** (`SPEECH = before after`, files of the campaign's speech folder): two text boxes with a found / not-in-the-speech-folder hint; both names are needed (the loader reads two). The checker gained `landview_missing` / `landview_frame` for `LAND_VIEW`, `speech_pair` and `speech_missing` for `SPEECH` (the last excluded from the committed snapshot because the original speech files are not in the repository).
 - **K5c, Play from this level** (Levels tab, main menu host, nothing pending): makes the campaign current and starts the level through the normal single-player start (`frontend_request_content_tool_play`, deferred like the other transitions); when that game ends (win, lose or quit) `get_startup_menu_state` returns to the main menu, which opens the Campaign Editor again (`content_tool_play_running` / `content_tool_return_tool` / `content_tool_reopen_tool`); the editor reopens on the campaign it was showing. The plan's separate "play campaign from level N" is this same button: the game's own progression decides what follows a win, and the return happens whenever the game ends.
 - Tests: checker tests for the per-level entries; ftest `config_content_campaign_editor` also drives the frontend's end-of-game branch (main menu state, tool to reopen, flags cleared). The start itself (a real game run from the menu) is not driven by an ftest.
+
+### 12.9 Free-play and multiplayer packs, copy / move a level (K6)
+
+- **All three kinds in one editor**: `content_list_everything()` returns the campaigns, free-play packs (`levels/`) and multiplayer packs (`multiplayer/`) the game lists **plus the `.cfg` files it does not list** (a campaign with no single level, a pack with no map with a `.lif`), marked "not listed". Identity, Config files, Check and the menu order work for every kind (the order files are `campgn_order.txt`, `mappck_order.txt`, `mp_mappck_order.txt`; per kind, since the same file name can exist in `levels/` and `multiplayer/`). The Land view tab is for campaigns only.
+- **Pack Levels page**: the levels of a pack are the map files of its folder (`map%05d.slb`): number, name (the `.lof` `NAME_TEXT`, else the `.lif` line), players, author, file count. Open in Map Editor, Play (a free-play level starts as a normal single-player game; a multiplayer level now plays too -- see §12.10 -- with a "Play (with default AI)" label), *New map in this pack* (Save As offers the pack first), Copy to....
+- **New pack wizard**: the New campaign dialog has a Kind combo (campaign, free-play pack, multiplayer pack). A pack file (`cfgc_new_pack_text`) has name, levels folder, optional own configuration / creature folders, human player and the `[strings]` / `[speech]` blocks the game needs; a new pack is not listed by the game until it has a map, and the editor says so.
+- **Save As** lists every campaign and pack; a pack target offers the first free number of its folder and needs no list entry, only a rescan of the game's lists.
+- **Copy / move** (`content_campaign_copy_level`, `cfgc_plan_level_copy`): every file of level N (`map%05d.*`: map files, the level's own `.rules.cfg`, strings, script, in any letter case) is copied to the target folder as level M in one `WriteBatch`; refused when M already has files there. A campaign target lists the level (single or extra) with an entry named like the source's; *move* (campaign source, another target) also takes the level out of the source's lists and removes its `[map]` entry -- **the source's files always stay** (decision d). Available on the campaign Levels page ("Copy / move to...") and the pack Levels page ("Copy to...").
+- **Bug fixed on the way**: the original game's map files are upper case (`MAP00007.SLB`); every "does this map exist" test (checker, Levels page, add-from-folder, next number) now compares file names without regard to case (`cfgc_file_exists_ci`, `cfgc_level_files`, `cfgc_level_numbers_in_dir`).
+- Tests: unit tests (level files found and renamed in any case, the staged copy, a taken number and a missing source refused, removing a level from a campaign file, the pack file text, order helpers); ftest `config_content_campaign_editor` creates a pack (known but not listed, id taken per kind), copies a level into it and into the campaign as an extra level, refuses a taken number, moves a level to another campaign (lists, entry, files).
+- Not built: copying a level's `[map]` entry positions (the copy gets a default ensign), free-play packs' own land or menu images (they have none).
+
+### 12.10 Playing a multiplayer level with default AI; land-selection fallback; doc corrections
+
+Follow-up work from a review of §12.1-§12.9, not a numbered slice of its own.
+
+- **Multiplayer levels now play from the pack Levels page** (decision: "in the manner done for the
+  skirmish route, with default AI" -- Skirmish's own non-networked start,
+  `frontend_freeplay_enter_resolve()`, fills the other dungeons with the default computer AI rather
+  than requiring a real network session, since a multiplayer map has no single-player script of its
+  own). The Play button is no longer restricted to free-play packs; for a multiplayer pack it reads
+  "Play (with default AI)". `run_pending_content_tool_play()` (`frontgui_screens.cpp`) sets
+  `fe_computer_players = 1` before the transition when `pack == CampgnT_MultiplayerMappack`, the same
+  flag `frontend_freeplay_enter_resolve()` sets for a non-networked Skirmish start
+  (`front_landview_multiplayer.c`'s own `if (!fe_network_active) fe_computer_players = 1;` is the
+  precedent this mirrors). Not covered by an ftest (starting a real game is not driven by one anywhere
+  in this plan, per §12.8); not live-tested in this session either.
+- **Land selection without a land-view picture**: a real gap found while building the Land view tab --
+  see `docs/refactor/gui/05-campaign-progress-and-landview.md` §16 for the investigation and the fix
+  (a plain level list replaces the picture on the main menu's own Campaign Select screen when a
+  campaign has none, locked levels shown disabled, bonus/extra levels only listed once unlocked). Not
+  part of the Campaign Editor itself -- it's the player-facing screen the Campaign Editor's own Land
+  view page (§12.6/K7) exists to keep working, so the two are documented together.
+- **Doc corrections**: `docs/Architecture/architecture.md` had never been updated for this plan's own
+  work -- §2.2 (`kfx_config`) was missing the whole `cfgc_*` content layer (schema, writer, validator,
+  the campaign/pack family) and had a stale source/header count; §2.4 (`kfx_render`) was missing
+  `landview_image` (§12.6/K7a) and its count; §2.9a (`kfx_editor`) had no mention of the content
+  editors at all (`content_tools`/`content_picker`/`content_form`/`content_entity`/`content_struct`
+  plus every individual editor, this plan's `content_campaign`/`content_campaign_ops` included). All
+  three fixed. `docs/map_editor.txt` already covered PNG land views and the pack/copy-move features
+  from §12.6/§12.9's own updates; nothing further needed there.
+
+Verification: unit suites (`kfx_config_utest`, `kfx_editor_utest`), `check_layering.py --strict`, a
+clean `keeperfx`/`keeperfx_hvlog` build (native Linux, `-DKFX_FUNCTESTING=ON` tree) and the mingw
+cross-compile, and the existing ftest suite for regressions (nothing here changes production load
+paths the suite already exercises).

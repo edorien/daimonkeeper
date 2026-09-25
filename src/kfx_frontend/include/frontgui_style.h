@@ -3,7 +3,7 @@
 
 #include "bflib_basics.h" // TbBool
 
-struct ImGuiCursorImage; // gui/ImGuiContext.h (kfx_platform) -- forward declared only, see .cpp
+struct ImGuiCursorImage; // gui/FrontendImGui.h -- forward declared only, see .cpp
 
 // Typography and ImGuiStyle for the ImGui frontend
 // (docs/refactor/renderer/04-imgui-gui-foundation.md §4, Phase B). Pure
@@ -61,8 +61,9 @@ bool FeStyleUsingExocet();
 // into an off-screen RGBA buffer via RendererSwapFramebufferTarget, the
 // same seam the eye-lens effect uses -- so the ImGui-drawn cursor (found
 // live: ImGui's own built-in one is a generic arrow, mismatched against
-// the game's actual cursor everywhere else) matches it exactly. Register
-// with RendererSetCursorImageCallback() once, from main.cpp.
+// the game's actual cursor everywhere else) matches it exactly. Called
+// directly from FrontendImGui.cpp's per-frame cursor refresh (same
+// library, no callback needed).
 TbBool FeStyleGetCursorImage(struct ImGuiCursorImage *out);
 
 // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md Phase A: decodes

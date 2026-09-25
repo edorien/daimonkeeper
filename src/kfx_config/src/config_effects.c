@@ -130,6 +130,9 @@ static void load_effects(VALUE *value, int64_t flags)
             CONDITIONAL_ASSIGN_INT_SCALED(section,"LightRadius"   ,effcst->ilght.radius, CONFIG_COORD_PER_STL);
             CONDITIONAL_ASSIGN_INT(section,"LightIntensity",effcst->ilght.intensity );
             CONDITIONAL_ASSIGN_INT(section,"LightFlags"    ,effcst->ilght.flags   );
+            CONDITIONAL_ASSIGN_INT(section,"LightRed"      ,effcst->ilght.colour_r);
+            CONDITIONAL_ASSIGN_INT(section,"LightGreen"    ,effcst->ilght.colour_g);
+            CONDITIONAL_ASSIGN_INT(section,"LightBlue"     ,effcst->ilght.colour_b);
             CONDITIONAL_ASSIGN_INT(section,"ElementsCount" ,effcst->elements_count  );
             CONDITIONAL_ASSIGN_INT(section,"AlwaysGenerate",effcst->always_generate );
             CONDITIONAL_ASSIGN_INT(section,"HitType",effcst->effect_hit_type);
@@ -277,6 +280,9 @@ static void load_effectelements(VALUE *value, int64_t flags)
             CONDITIONAL_ASSIGN_INT_SCALED(section,"LightRadius",    effelcst->light_radius, CONFIG_COORD_PER_STL);
             CONDITIONAL_ASSIGN_INT(section,"LightIntensity", effelcst->light_intensity  );
             CONDITIONAL_ASSIGN_INT(section,"LightFlags",     effelcst->light_flags   );
+            CONDITIONAL_ASSIGN_INT(section,"LightRed",       effelcst->light_colour_r);
+            CONDITIONAL_ASSIGN_INT(section,"LightGreen",     effelcst->light_colour_g);
+            CONDITIONAL_ASSIGN_INT(section,"LightBlue",      effelcst->light_colour_b);
             CONDITIONAL_ASSIGN_INT(section,"AffectedByWind", effelcst->affected_by_wind );
         }
     }

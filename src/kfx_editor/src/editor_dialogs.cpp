@@ -87,6 +87,8 @@ namespace {
     std::vector<ContentCampaign> s_save_as_camps;
     int64_t s_save_as_target = 0;
     int64_t s_save_as_list = 0;
+    ContentKind s_default_kind = ContentKind_Campaign;
+    ContentKind s_pending_kind = ContentKind_Campaign;
     std::string s_default_camp;     // Save As of an untitled map starts on this campaign (see editor_dialogs_set_default_campaign)
     std::string s_pending_camp;     // the campaign the pending save registers into ("" = none)
     int64_t s_pending_list = 0;
@@ -348,7 +350,9 @@ namespace {
         {
             if (into_editor_maps)
                 editor_maps_register();
-            if (!s_pending_camp.empty() && s_pending_list != 2)
+            if (!s_pending_camp.empty() && s_pending_kind != ContentKind_Campaign)
+                content_campaign_rescan_lists(); // a pack: its levels are the map files, only the game's list changes
+            else if (!s_pending_camp.empty() && s_pending_list != 2)
             {
                 std::string err;
                 if (!content_campaign_register_level(s_pending_camp, (int64_t)lvnum,
@@ -450,7 +454,7 @@ namespace {
                 std::vector<std::string> names;
                 names.push_back("Editor Maps");
                 for (const ContentCampaign &c : s_save_as_camps)
-                    names.push_back(c.name);
+                    names.push_back(std::string(c.kind == ContentKind_Campaign ? "" : c.kind == ContentKind_FreePlay ? "[free play] " : "[multiplayer] ") + c.name);
                 names.push_back("Another folder...");
                 std::vector<const char *> ptrs;
                 for (const std::string &n : names)
@@ -468,11 +472,14 @@ namespace {
                     {
                         const ContentCampaign &c = s_save_as_camps[(size_t)t - 1];
                         snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", c.levels_dir.c_str());
-                        s_save_as_lvnum = content_campaign_next_level(c.fname, s_save_as_list == 1 ? CampList_Extra : CampList_Single);
+                        s_save_as_lvnum = c.kind == ContentKind_Campaign
+                            ? content_campaign_next_level(c.fname, s_save_as_list == 1 ? CampList_Extra : CampList_Single)
+                            : content_pack_next_level(c);
                     }
                     s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
                 }
-                if (s_save_as_target >= 1 && s_save_as_target <= (int64_t)s_save_as_camps.size())
+                if (s_save_as_target >= 1 && s_save_as_target <= (int64_t)s_save_as_camps.size()
+                    && s_save_as_camps[(size_t)s_save_as_target - 1].kind == ContentKind_Campaign)
                 {
                     static const char *kListItems[] = { "Single level", "Extra level", "Not listed" };
                     int64_t l = s_save_as_list;
@@ -518,7 +525,10 @@ namespace {
                 s_pending_camp.clear();
                 s_pending_list = s_save_as_list;
                 if (s_save_as_target >= 1 && s_save_as_target <= (int64_t)s_save_as_camps.size())
+                {
                     s_pending_camp = s_save_as_camps[(size_t)s_save_as_target - 1].fname;
+                    s_pending_kind = s_save_as_camps[(size_t)s_save_as_target - 1].kind;
+                }
                 snprintf(s_pending_save_dir, sizeof(s_pending_save_dir), "%s", s_save_as_dir);
                 s_pending_save_dir[sizeof(s_pending_save_dir) - 1] = '\0';
                 s_pending_save_format = s_save_as_format;
@@ -1341,8 +1351,8 @@ void editor_dialogs_open_save_as(void)
     snprintf(s_save_as_name, sizeof(s_save_as_name), "%s", editor_current_level_name());
     s_save_as_name[sizeof(s_save_as_name) - 1] = '\0';
     s_save_as_camps.clear();
-    for (const ContentCampaign &c : content_list_campaigns())
-        if (!c.is_mappack && !c.levels_dir.empty())
+    for (const ContentCampaign &c : content_list_everything())
+        if (!c.levels_dir.empty() && !editor_maps_is_dir(c.levels_dir.c_str())) // Editor Maps has its own entry
             s_save_as_camps.push_back(c);
     s_save_as_list = 0;
     // Start on the target the session's folder belongs to: a campaign's levels folder, Editor Maps, or another folder.
@@ -1357,21 +1367,23 @@ void editor_dialogs_open_save_as(void)
     if (editor_current_lvnum() == EDITOR_SCRATCH_LEVEL_NUMBER && !s_default_camp.empty())
     {
         for (size_t i = 0; i < s_save_as_camps.size(); i++)
-            if (s_save_as_camps[i].fname == s_default_camp)
+            if (s_save_as_camps[i].fname == s_default_camp && s_save_as_camps[i].kind == s_default_kind)
             {
                 s_save_as_target = (int64_t)i + 1;
                 snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", s_save_as_camps[i].levels_dir.c_str());
                 s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
-                s_save_as_lvnum = content_campaign_next_level(s_default_camp, CampList_Single);
+                s_save_as_lvnum = s_save_as_camps[i].kind == ContentKind_Campaign ? content_campaign_next_level(s_default_camp, CampList_Single)
+                                                                                   : content_pack_next_level(s_save_as_camps[i]);
             }
         s_default_camp.clear();
     }
     s_show_save_as = true;
 }
 
-void editor_dialogs_set_default_campaign(const char *campaign_fname)
+void editor_dialogs_set_default_campaign(const char *campaign_fname, int kind)
 {
     s_default_camp = campaign_fname != nullptr ? campaign_fname : "";
+    s_default_kind = (ContentKind)kind;
 }
 
 void editor_dialogs_save_now(void)

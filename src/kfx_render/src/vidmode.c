@@ -682,7 +682,7 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
     load_pointer_file(hi_res);
   }
   RendererClearScreen(0);
-  RendererPresentFrame();
+  RendererPresentStepFrame();
   update_screen_mode_data(new_mdinfo->Width, new_mdinfo->Height);
   if (render_overlay->is_parchment_loaded())
     render_overlay->reload_parchment_file(hi_res);
@@ -861,7 +861,7 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
     }
   }
   RendererClearScreen(0);
-  RendererPresentFrame();
+  RendererPresentStepFrame();
   update_screen_mode_data(new_mdinfo->Width, new_mdinfo->Height);
   RendererSetDrawFlags(flg_mem);
   force_video_mode_reset = false;

@@ -275,8 +275,24 @@ TbBool keeper_screen_swap(void)
       memset(lbDisplay.WScreen, 0, scanline_len*scrmove_y);
       RendererUnlockFramebuffer();
     }*/
-  RendererPresentFrame();
+  RendererPresentGameFrame();
   return true;
+}
+
+// docs/refactor/renderer/gpu-v2/06-call-site-consolidation.md: the
+// "blank the screen and show it" transition present -- identical
+// `RendererClearScreen(0); RendererPresentGameFrame();` pair, previously
+// repeated verbatim at five separate points in this file (entering/
+// leaving wait_at_frontend()'s frontend loop, its FeSt_LOAD_GAME branch,
+// and entering/leaving keeper_gameplay_loop() from game_loop()). Shared
+// here so the file has one physical present call for this pattern
+// instead of five, without touching the (genuinely distinct) per-tick
+// presents in keeper_screen_swap()/network_yield_draw_frontend()/
+// wait_at_frontend()'s own loop body above and below.
+static void keeper_clear_screen_and_present(void)
+{
+    RendererClearScreen(0);
+    RendererPresentGameFrame();
 }
 
 /**
@@ -662,7 +678,7 @@ void network_yield_draw_frontend(void)
         frontnet_start_input();
     }
     frontend_draw();
-    RendererPresentFrame();
+    RendererPresentGameFrame();
 }
 
 void keeper_gameplay_loop(void)
@@ -810,8 +826,7 @@ static TbBool wait_at_frontend(void)
       exit_keeper = 1;
       return true;
     }
-    RendererClearScreen(0);
-    RendererPresentFrame();
+    keeper_clear_screen_and_present();
     if (frontend_load_data() != Lb_SUCCESS)
     {
       ERRORLOG("Unable to load frontend data");
@@ -866,7 +881,7 @@ static TbBool wait_at_frontend(void)
       if ((!finish_menu) && (LbIsActive()))
       {
         frontend_draw();
-        RendererPresentFrame();
+        RendererPresentGameFrame();
       }
 
       if (!SoundDisabled)
@@ -894,8 +909,7 @@ static TbBool wait_at_frontend(void)
     } while (!finish_menu);
 
     LbPaletteFade(0, 8, Lb_PALETTE_FADE_CLOSED);
-    RendererClearScreen(0);
-    RendererPresentFrame();
+    keeper_clear_screen_and_present();
     FrontendMenuState prev_state;
     prev_state = frontend_menu_state;
     frontend_set_state(FeSt_INITIAL);
@@ -932,8 +946,7 @@ static TbBool wait_at_frontend(void)
     case FeSt_LOAD_GAME:
           flgmem = kfx_frontend_state.save_game_slot;
           clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
-          RendererClearScreen(0);
-          RendererPresentFrame();
+          keeper_clear_screen_and_present();
           level_load_time_phase(LevelLoadTime_Data);
           if (!load_game(kfx_frontend_state.save_game_slot))
           {
@@ -1064,13 +1077,11 @@ void game_loop(void)
           }
           memset(&kfx_sim_state.Timer, 0, sizeof(kfx_sim_state.Timer));
       }
-      RendererClearScreen(0);
-      RendererPresentFrame();
+      keeper_clear_screen_and_present();
       kfx_net_state.frame_skip = 0;
       keeper_gameplay_loop();
       set_pointer_graphic_none();
-      RendererClearScreen(0);
-      RendererPresentFrame();
+      keeper_clear_screen_and_present();
       stop_atmos_sounds();
       stop_music(true);
       stop_streamed_samples();
@@ -1097,10 +1108,6 @@ void game_loop(void)
       kfx_net_state.packet_save_enable = false;
     } // end while
 
-    // Stop the movie recording if it's on
-    if ((kfx_sim_state.system_flags & GSF_CaptureMovie) != 0) {
-        movie_record_stop();
-    }
     ShutDownSDLAudio();
     SYNCDBG(7,"Done");
 }

@@ -633,6 +633,9 @@ int64_t menu_is_active(int64_t idx);
 TbBool a_menu_window_is_active(void);
 int64_t game_is_busy_doing_gui(void);
 void set_gui_visible(TbBool visible);
+// Re-applies the engine window's viewport inset for the current
+// ingame_gui_use_classic_hud() state -- see its own comment (frontend.cpp).
+void refresh_engine_window_for_gui_style(void);
 void toggle_gui(void);
 void add_message(int64_t plyr_idx, char *msg);
 uint64_t toggle_status_menu(int64_t visib);

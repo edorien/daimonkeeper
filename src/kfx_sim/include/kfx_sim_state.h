@@ -188,6 +188,11 @@ enum GameSystemFlags {
     GSF_NetworkActive    = 0x0001,
     GSF_NetGameNoSync    = 0x0002,
     GSF_NetSeedNoSync    = 0x0004,
+    // Retired (docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md
+    // B2) -- nothing sets this bit any more. Kept defined rather than
+    // deleted since removing a plain #define-style bitmask value has no
+    // renumbering effect on its siblings anyway (each is its own literal,
+    // not auto-incremented), so there is nothing to gain by deleting it.
     GSF_CaptureMovie     = 0x0008,
     GSF_CaptureSShot     = 0x0010,
     GSF_AllowOnePlayer   = 0x0040,

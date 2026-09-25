@@ -486,7 +486,7 @@ void set_packet_pause_toggle()
         MULTIPLAYER_LOG("set_packet_pause_toggle: broadcasting unpause");
         unpausing_in_progress = 1;
         keeper_screen_redraw();
-        RendererPresentFrame();
+        RendererPresentStepFrame();
         LbNetwork_BroadcastUnpause();
         if (network_is_host()) {
             process_pause_packet(0, 0);

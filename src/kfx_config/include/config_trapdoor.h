@@ -107,6 +107,7 @@ struct TrapConfigStats {
     int64_t light_radius; // Creates light if not null.
     unsigned char light_intensity;
     unsigned char light_flag;
+    unsigned char light_colour_r, light_colour_g, light_colour_b; /* per-pixel lighting colour, 0,0,0 = white */
     unsigned char transparency_flag; // Transparency in lower 2 bits.
     int64_t shot_shift_x;
     int64_t shot_shift_y;

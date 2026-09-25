@@ -373,7 +373,19 @@ void randomise_swipe_graphic_direction()
     local_state.swipe_sprite_drawLR = UNSYNC_RANDOM(2); // equal chance to be left-to-right or right-to-left
 }
 
+static void draw_swipe_graphic_impl(void);
+
+/* gpu-v2: the swipe is a translucent overlay drawn over the finished scene; with the Vulkan
+ * renderer it must be recorded onto the GPU image (see RendererOverlayBegin) rather than blended
+ * against the transparent CPU layer, which turned the whole view into flat colour. */
 void draw_swipe_graphic(void)
+{
+    RendererOverlayBegin();
+    draw_swipe_graphic_impl();
+    RendererOverlayEnd();
+}
+
+static void draw_swipe_graphic_impl(void)
 {
     struct PlayerInfo* myplyr = get_my_player();
     struct Thing* thing = thing_get(myplyr->controlled_thing_idx);
@@ -4363,6 +4375,29 @@ void draw_creature_view(struct Thing *thing)
       draw_swipe_graphic();
       return;
   }
+  // GPU world renderer (gpu-v2 Phase C.3): keep the scene on the GPU rather
+  // than redirecting the whole engine into a CPU buffer. Render normally,
+  // read the finished frame (GPU layer + CPU overlays) back into the lens
+  // source buffer, then run the unchanged CPU lens post-pass over it. The
+  // per-effect decision is 'CPU post-pass over a read-back frame' -- see
+  // docs/refactor/renderer/gpu-v2/07-phased-delivery.md.
+  if (RendererWorldFrameActive())
+  {
+      TbPixel* srcmem = sim_feedback->lens_get_render_target();
+      uint64_t src_width = sim_feedback->lens_get_render_target_width();
+      sim_feedback->engine(player, render_cam);
+      draw_swipe_graphic();
+      int64_t vw = local_state.engine_window_width / pixel_size;
+      int64_t vh = local_state.engine_window_height / pixel_size;
+      int64_t vx = local_state.engine_window_x / pixel_size;
+      int64_t vy = local_state.engine_window_y / pixel_size;
+      memset(srcmem, 0, src_width * sim_feedback->lens_get_render_target_height() * sizeof(TbPixel));
+      RendererCopyFrameRect(srcmem, src_width, vx, vy, vw, vh);
+      sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
+      sim_feedback->draw_lens_effect(RendererGetFramebuffer() + vy * lbDisplay.GraphicsScreenWidth + vx,
+          lbDisplay.GraphicsScreenWidth, srcmem, src_width, vw, vh, vx, kfx_sim_state.applied_lens_type);
+      return;
+  }
   // So there is an eye lens - we have to put a buffer in place of screen,
   // draw on that buffer, an then copy it to screen applying lens effect.
   TbPixel* scrmem = sim_feedback->lens_get_render_target();
@@ -6804,6 +6839,9 @@ void create_light_for_possession(struct Thing *creatng)
     ilght.intensity = 36;
     ilght.radius = 2560;
     ilght.is_dynamic = 1;
+    ilght.colour_r = kfx_config_state.conf.rules[creatng->owner].gameplay.possession_light_r;
+    ilght.colour_g = kfx_config_state.conf.rules[creatng->owner].gameplay.possession_light_g;
+    ilght.colour_b = kfx_config_state.conf.rules[creatng->owner].gameplay.possession_light_b;
     creatng->light_id = sim_feedback->light_create_light(&ilght);
     if (creatng->light_id != 0) {
         sim_feedback->light_set_light_never_cache(creatng->light_id);

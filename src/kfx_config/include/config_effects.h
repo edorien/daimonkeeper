@@ -117,6 +117,7 @@ struct EffectElementConfigStats {
     int64_t light_radius;
     unsigned char light_intensity;
     int64_t light_flags;
+    unsigned char light_colour_r, light_colour_g, light_colour_b; /* per-pixel lighting colour, 0,0,0 = white */
     unsigned char affected_by_wind;
 };
 

@@ -258,6 +258,9 @@ struct InitLight { // sizeof=0x14
     struct Coord3d mappos;
     unsigned char is_dynamic;
     SlabCodedCoords attached_slb;
+    /* gpu-v2 lighting pass: light colour, 0..255 per channel; all zero (the default) means white. Only the
+     * Vulkan renderer's per-pixel lighting uses it -- classic lighting is scalar. */
+    unsigned char colour_r, colour_g, colour_b;
 };
 
 struct Thing;

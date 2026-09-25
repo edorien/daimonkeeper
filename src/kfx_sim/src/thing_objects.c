@@ -187,6 +187,7 @@ struct Thing *create_object(const struct Coord3d *pos, ThingModel model, int64_t
         ilight.intensity = objst->ilght.intensity;
         ilight.flags = objst->ilght.flags;
         ilight.is_dynamic = objst->ilght.is_dynamic;
+        ilight.colour_r = objst->ilght.colour_r; ilight.colour_g = objst->ilght.colour_g; ilight.colour_b = objst->ilght.colour_b;
         thing->light_id = sim_feedback->light_create_light(&ilight);
         if (thing->light_id == 0) {
             SYNCDBG(8,"Cannot allocate light to %s",thing_model_name(thing));
@@ -444,6 +445,7 @@ void update_all_objects_of_model(ThingModel model)
             ilight.intensity = objst->ilght.intensity;
             ilight.flags = objst->ilght.flags;
             ilight.is_dynamic = objst->ilght.is_dynamic;
+            ilight.colour_r = objst->ilght.colour_r; ilight.colour_g = objst->ilght.colour_g; ilight.colour_b = objst->ilght.colour_b;
             thing->light_id = sim_feedback->light_create_light(&ilight);
         }
     }

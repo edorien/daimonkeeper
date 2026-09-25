@@ -53,6 +53,9 @@ AffectedByWind = 1
 LightRadius = 2
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 1
 AlwaysGenerate = 0
 
@@ -71,6 +74,9 @@ AffectedByWind = 1
 LightRadius = 4
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 5
 AlwaysGenerate = 0
 
@@ -89,6 +95,9 @@ AffectedByWind = 1
 LightRadius = 8
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 10
 AlwaysGenerate = 0
 
@@ -107,6 +116,9 @@ AffectedByWind = 1
 LightRadius = 10
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 6
 AlwaysGenerate = 0
 
@@ -125,6 +137,9 @@ AffectedByWind = 1
 LightRadius = 10
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 10
 AlwaysGenerate = 0
 
@@ -287,6 +302,9 @@ AffectedByWind = 1
 LightRadius = 10
 LightIntensity = 52
 LightFlags = 0
+LightRed = 255
+LightGreen = 70
+LightBlue = 60
 ElementsCount = 20
 AlwaysGenerate = 0
 
@@ -809,6 +827,9 @@ AffectedByWind = 0
 LightRadius = 10
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 110
+LightBlue = 40
 ElementsCount = 2
 AlwaysGenerate = 0
 
@@ -845,6 +866,9 @@ AffectedByWind = 1
 LightRadius = 10
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 4
 AlwaysGenerate = 0
 
@@ -935,6 +959,9 @@ AffectedByWind = 1
 LightRadius = 16
 LightIntensity = 50
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 10
 AlwaysGenerate = 0
 
@@ -971,6 +998,9 @@ AffectedByWind = 1
 LightRadius = 8
 LightIntensity = 45
 LightFlags = 1
+LightRed = 255
+LightGreen = 150
+LightBlue = 60
 ElementsCount = 5
 AlwaysGenerate = 0
 
@@ -1259,6 +1289,9 @@ AffectedByWind = 1
 LightRadius = 10
 LightIntensity = 52
 LightFlags = 0
+LightRed = 150
+LightGreen = 200
+LightBlue = 255
 ElementsCount = 20
 AlwaysGenerate = 0
 
@@ -1475,6 +1508,9 @@ AffectedByWind = 1
 LightRadius = 10
 LightIntensity = 52
 LightFlags = 0
+LightRed = 200
+LightGreen = 120
+LightBlue = 255
 ElementsCount = 8
 AlwaysGenerate = 0
 
@@ -2594,6 +2630,9 @@ TransformModel = 0
 LightRadius = 5
 LightIntensity = 52
 LightFlags = 0
+LightRed = 255
+LightGreen = 110
+LightBlue = 40
 AffectedByWind = 1
 
 [effectElement31]

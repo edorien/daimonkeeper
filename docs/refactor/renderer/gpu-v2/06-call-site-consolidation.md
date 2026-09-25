@@ -1,8 +1,10 @@
 # Call-site consolidation (prerequisite for Phase C)
 
-See [00-overview.md](00-overview.md) for stage status and shared context. This is new work, not
-carried over from the original single-file plan — it exists because Phase C's new GPU-submission
-façade (R6) makes something the plan already knew about, but deferred, no longer optional.
+Status: **landed** (2026-09-23). See [00-overview.md](00-overview.md) for stage status and shared
+context. This is new work, not carried over from the original single-file plan — it exists because
+Phase C's new GPU-submission façade (R6) makes something the plan already knew about, but
+deferred, no longer optional. Deviations from this document's original draft are marked "Landed
+as:" at each point below.
 
 ## Why this is in scope now
 
@@ -57,6 +59,14 @@ kfx_platform/bflib_fmvids.cpp       ×1   (510)
 closely enough that the risk write-up doesn't need correcting, but the exact list matters for
 scoping this phase, so it's recorded here rather than re-derived each time.
 
+**Landed as:** re-verified by grep immediately before implementation (line numbers had drifted from
+unrelated work landing in the meantime — `game_session_loop.cpp`'s 8 shifted to 278/665/814/869/
+898/936/1068/1073, `front_landview.c`'s shifted to 1150, `packets_misc.c`'s shifted to 489 — but the
+count and per-file distribution were unchanged: still exactly 21). The categorization below held
+exactly as scoped: all 8 `game_session_loop.cpp` sites became `RendererPresentGameFrame()`, the
+other 13 became `RendererPresentStepFrame()`, with no site needing to move between the two once
+actually read.
+
 ## What "consolidation" should and shouldn't mean
 
 **It should not mean textually merging call sites across unrelated subsystems.** Smacker frame
@@ -76,6 +86,19 @@ per call site:
   real loop bodies and a couple of edge-case redraws...could plausibly collapse to 2–3." Do that
   collapse here, as part of this phase, since it's the highest-value and most contained piece of
   actual call-count reduction available.
+
+  **Landed as: 8 → 4, not 2–3.** Reading all 8 in context found three genuinely distinct callers
+  that must stay separate (merging them would be exactly the "textually merging call sites across
+  unrelated subsystems" this document warns against below): `keeper_screen_swap()`'s per-tick
+  gameplay-loop present, `network_yield_draw_frontend()`'s net-yield callback (invoked from
+  `kfx_net`'s own wait loop while blocked on socket I/O, not from this file's control flow at all),
+  and `wait_at_frontend()`'s per-iteration frontend-menu-loop present. The other 5 (entering/
+  leaving `wait_at_frontend()`'s loop, its `FeSt_LOAD_GAME` branch, and entering/leaving
+  `keeper_gameplay_loop()` from `game_loop()`) turned out to be the textually identical
+  `RendererClearScreen(0); RendererPresentFrame();` pair, verbatim, so those collapsed into one
+  shared `static void keeper_clear_screen_and_present(void)` helper — a real physical reduction,
+  just not as deep as the original estimate, because the estimate didn't yet know 3 of the 8 were
+  each a genuinely distinct control-flow path rather than more duplicates.
 - **`RendererPresentStepFrame()`** — everything that presents one increment of visible progress
   without a full game-loop tick behind it: Smacker frame stepping (`bflib_fmvids.cpp`,
   `front_fmvids.c` ×2), net resync progress (`net_exchange_gameplay.c`, `packets_misc.c`), loading
@@ -105,15 +128,27 @@ lower risk.
 
 ## Verification
 
-- `KFX_OS=linux ./build-cmake.sh` + mingw cross-compile, both variants.
-- `python3 scripts/check_layering.py --strict`.
-- Full Catch2 suite green, unchanged count.
+- `KFX_OS=linux ./build-cmake-linux.sh` (the script this repo actually ships under that name; see
+  [../05-imgui-linkage-consolidation.md](../05-imgui-linkage-consolidation.md)'s own note on the
+  `build-cmake.sh` name being stale pre-rename) + mingw cross-compile, both variants — **done,
+  both clean links.**
+- `python3 scripts/check_layering.py --strict` — **done, clean.**
+- Full Catch2 suite green, unchanged count — **done: 1939 tests, 0 failures** (includes new/updated
+  coverage in `RendererManager_test.cpp` and `game_session_loop_test.cpp` for the renamed entry
+  points).
+- `grep -rn "RendererPresentFrame(" src/` shows exactly the two new named entry points as its only
+  remaining callers of the raw underlying present, confirming no site was missed — **done,**
+  confirmed exactly the `RendererPresentGameFrame()`/`RendererPresentStepFrame()` bodies in
+  `RendererManager.cpp` and nothing else.
 - Screenshot-identical across every affected path: a full game-loop session, a Smacker cutscene, a
   net resync (pause/unpause with a second client if feasible, or the existing resync test harness),
   a loading screen, a landview transition, a palette fade. This refactor must change nothing
   visible — the same bar [../05-imgui-linkage-consolidation.md](../05-imgui-linkage-consolidation.md)
-  holds itself to.
-- `grep -rn "RendererPresentFrame(" src/` shows exactly the two new named entry points as its only
-  remaining callers of the raw underlying present, confirming no site was missed.
+  holds itself to. **Not done** — needs a real display, game data, and (for the net-resync path) a
+  second client; out of reach in this environment. The change itself is a pure rename/dedup with no
+  altered logic at any of the 21 sites (confirmed by inspection, not just by the automated checks
+  above), which is the strongest evidence available short of an actual interactive pass — still,
+  this bar is explicitly unmet and should be exercised live before this phase is treated as fully
+  soaked.
 - See R15 in [08-risks.md](08-risks.md) for the specific regression risk this phase itself carries,
   and why it needs its own soak before Phase C.0 starts.

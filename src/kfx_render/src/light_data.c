@@ -25,6 +25,8 @@
 #include "bflib_planar.h"
 
 #include "engine_render.h"
+#include "engine_lenses.h"           // rotpers, rotpers_standard
+#include "renderer/RendererManager.h" // RendererPerPixelLightingActive
 #include "player_data.h"
 #include "map_data.h"
 
@@ -183,6 +185,7 @@ int64_t light_create_light(struct InitLight *ilght)
     lgt->mappos.z.val = ilght->mappos.z.val;
     lgt->radius = ilght->radius;
     lgt->intensity = ilght->intensity;
+    lgt->colour_r = ilght->colour_r; lgt->colour_g = ilght->colour_g; lgt->colour_b = ilght->colour_b;
     lgt->flags2 |= ilght->flags << 1;
     lgt->reset_interpolation = true;
     lgt->last_turn_moved = 0;
@@ -227,6 +230,9 @@ TbBool light_create_light_adv(VALUE *init_data)
     lgt->radius = value_read_stl_coord(value_dict_get(init_data, "LightRange"));;
     lgt->intensity = value_uint32(value_dict_get(init_data, "LightIntensity"));
     lgt->attached_slb = value_uint32(value_dict_get(init_data, "ParentTile"));
+    lgt->colour_r = value_uint32(value_dict_get(init_data, "LightRed"));
+    lgt->colour_g = value_uint32(value_dict_get(init_data, "LightGreen"));
+    lgt->colour_b = value_uint32(value_dict_get(init_data, "LightBlue"));
     lgt->reset_interpolation = true;
     lgt->last_turn_moved = 0;
 
@@ -1998,6 +2004,8 @@ static int64_t light_render_light_static(struct Light *lgt, int64_t radius, int6
 }
 
 
+static TbBool light_pp_skip_dynamic; /* see the per-pixel lighting block above light_render_area() */
+static TbBool light_has_colour(const struct Light *lgt);
 static char light_render_light(struct Light* lgt)
 {
   const struct Coord3d original_mappos = lgt->mappos;
@@ -2069,7 +2077,15 @@ static char light_render_light(struct Light* lgt)
 
   if ( (radius > 0) && (render_intensity > 0) )
   {
-    if ( is_dynamic )
+    if ( is_dynamic && light_pp_skip_dynamic )
+    {
+      /* per-pixel lighting: this light is evaluated on the GPU, not baked into the grid */
+    }
+    else if ( !is_dynamic && light_pp_skip_dynamic && light_has_colour(lgt) )
+    {
+      /* per-pixel lighting: a coloured static light is evaluated on the GPU, not baked into the grid */
+    }
+    else if ( is_dynamic )
     {
       if ( (lgt->flags & LgtF_NeverCached) != 0 )
       {
@@ -2156,8 +2172,111 @@ static char light_render_light(struct Light* lgt)
   return lighting_tables_idx;
 }
 
+/* gpu-v2 Phase C.5 lighting pass (per-pixel lighting, Vulkan renderer only).
+ * When active for a frame the dynamic lights are not rendered into the
+ * per-subtile lightness grid at all (their state -- interpolation, flicker,
+ * radius oscillation -- is still advanced by light_render_light(), only the
+ * grid/shadow-cache work is skipped). Instead their parameters are collected
+ * for the GPU, which evaluates each per pixel and casts a shadow ray from the
+ * pixel to the light through a height field of the map's solid columns
+ * (rebuilt here each frame around the camera). Static lights stay baked. */
+#define LIGHT_PP_MAX 256
+#define LIGHT_PP_FLOATS 8 /* x, y, z, radius, intensity, r, g, b */
+static float light_pp_lights[LIGHT_PP_MAX * LIGHT_PP_FLOATS];
+static int64_t light_pp_count = 0;
+static unsigned char light_pp_heights[(MAX_SUBTILES_X + 1) * (MAX_SUBTILES_Y + 1)];
+static int64_t light_pp_grid_w = 0;
+static int64_t light_pp_grid_h = 0;
+static TbBool light_pp_valid = false;
+
+TbBool light_perpixel_active(void)
+{
+    // Only the standard perspective is supported by the GPU position reconstruction.
+    return RendererPerPixelLightingActive() && (rotpers == rotpers_standard);
+}
+
+TbBool light_perpixel_get(const float **lights, int64_t *count, const unsigned char **heights, int64_t *grid_w, int64_t *grid_h)
+{
+    if (!light_pp_valid)
+        return false;
+    *lights = light_pp_lights;
+    *count = light_pp_count;
+    *heights = light_pp_heights;
+    *grid_w = light_pp_grid_w;
+    *grid_h = light_pp_grid_h;
+    return true;
+}
+
+/* Record a dynamic light for per-pixel evaluation. Called after light_render_light(),
+ * so the interpolation/randomisation state it maintains is current; mirrors the
+ * (radius, render_intensity) it passed to the classic renderer. */
+/* A light with an explicit colour is evaluated per pixel even when static (see light_render_light). */
+static TbBool light_has_colour(const struct Light *lgt)
+{
+    return (lgt->colour_r | lgt->colour_g | lgt->colour_b) != 0;
+}
+
+static void light_perpixel_add(const struct Light *lgt)
+{
+    if (light_pp_count >= LIGHT_PP_MAX || (lgt->flags & LgtF_Allocated) == 0 || lgt->radius <= 0)
+        return;
+    int64_t render_intensity = lgt->intensity << 8;
+    if ((lgt->flags2 & 0xFE) != 0)
+        render_intensity = ((lgt->intensity - 1) << 8) + interpolate_synced(lgt->previous_intensity_random, lgt->intensity_random);
+    if (render_intensity <= 0)
+        return;
+    float *out = &light_pp_lights[light_pp_count * LIGHT_PP_FLOATS];
+    const TbBool dynamic = (lgt->flags & LgtF_Dynamic) != 0;
+    out[0] = dynamic ? (float)interpolate_synced(lgt->previous_mappos.x.val, lgt->mappos.x.val) : (float)lgt->mappos.x.val;
+    out[1] = dynamic ? (float)interpolate_synced(lgt->previous_mappos.y.val, lgt->mappos.y.val) : (float)lgt->mappos.y.val;
+    out[2] = (float)lgt->mappos.z.val;
+    out[3] = (float)lgt->radius;
+    out[4] = (float)render_intensity / 256.0f; // 8.8 lightness -> 0..63 shade units
+    if (light_has_colour(lgt))
+    {
+        out[5] = lgt->colour_r / 255.0f; out[6] = lgt->colour_g / 255.0f; out[7] = lgt->colour_b / 255.0f;
+    } else
+    {
+        out[5] = out[6] = out[7] = 1.0f; // classic white
+    }
+    light_pp_count++;
+}
+
+/* Solid column height (in subtiles) of every subtile in the area -- what a shadow ray must clear. */
+static void light_perpixel_build_heights(MapSubtlCoord startx, MapSubtlCoord starty, MapSubtlCoord endx, MapSubtlCoord endy)
+{
+    light_pp_grid_w = kfx_sim_state.map_subtiles_x + 1;
+    light_pp_grid_h = kfx_sim_state.map_subtiles_y + 1;
+    memset(light_pp_heights, 0, (size_t)(light_pp_grid_w * light_pp_grid_h));
+    for (MapSubtlCoord y = starty; y <= endy; y++)
+    {
+        for (MapSubtlCoord x = startx; x <= endx; x++)
+        {
+            const struct Map *mapblk = get_map_block_at(x, y);
+            if (mapblk == NULL)
+                continue;
+            const int64_t h = get_column_floor_filled_subtiles(get_map_column(mapblk));
+            light_pp_heights[get_subtile_number(x, y)] = (unsigned char)((h > 255) ? 255 : ((h < 0) ? 0 : h));
+        }
+    }
+}
+
 static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSubtlCoord endx, MapSubtlCoord endy)
 {
+  const TbBool per_pixel = light_perpixel_active();
+  light_pp_count = 0;
+  light_pp_valid = false;
+  light_pp_skip_dynamic = per_pixel;
+  {
+    // Switching per-pixel lighting on or off changes which static lights are baked into stat_light_map
+    // (coloured ones are skipped while it is on): rebuild the static map once at the transition.
+    static TbBool per_pixel_before = false;
+    if (per_pixel != per_pixel_before)
+    {
+      per_pixel_before = per_pixel;
+      light_stat_refresh();
+    }
+  }
   struct Light *lgt;
   int64_t range;
   MapSubtlDelta half_width_y;
@@ -2285,8 +2404,23 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
           lgt->flags |= LgtF_NeedUpdate;
         }
         light_render_light(lgt);
+        if (per_pixel)
+          light_perpixel_add(lgt);
       }
     }
+  }
+
+  light_pp_skip_dynamic = false;
+  if (per_pixel)
+  {
+    // Coloured static lights (torches, mushrooms, ...) were skipped when baking; hand them to the GPU too.
+    for ( lgt = &lish.lights[kfx_sim_state.thing_lists[TngList_StaticLights].index]; lgt > lish.lights; lgt = &lish.lights[lgt->next_in_list] )
+    {
+      if (light_has_colour(lgt))
+        light_perpixel_add(lgt);
+    }
+    light_perpixel_build_heights(startx, starty, endx, endy);
+    light_pp_valid = true;
   }
 }
 

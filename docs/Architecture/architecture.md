@@ -162,7 +162,7 @@ zip / version helpers. **Depends on:** external libs only (SDL3, enet, zlib, …
 
 **Owns:** config-file loading, **and** the callback-struct declarations that let
 lower/adjacent layers reach state or behavior owned above them without a direct
-`#include`. **Depends on:** `kfx_platform`. **36 sources / 39 headers.**
+`#include`. **Depends on:** `kfx_platform`. **60 sources / 61 headers.**
 
 - `config_*` loaders: `config.c` (the master), plus `config_creature`,
   `config_crtrmodel`, `config_crtrstates`, `config_cubes`, `config_effects`,
@@ -171,6 +171,27 @@ lower/adjacent layers reach state or behavior owned above them without a direct
   `config_settings`, `config_slabsets`, `config_sounds`, `config_spritecolors`,
   `config_strings`, `config_terrain`, `config_textures`, `config_translation`,
   `config_trapdoor`, `config_campaigns`, `config_compp`.
+- **Content layer** (`cfgc_*`; plan:
+  `docs/refactor/editor/fx-plans/03-content-editors-foundation.md`, the
+  campaign-specific pieces in `08-campaign-editor.md`): a second,
+  engine-decoupled read/write layer over the same `.cfg` files, built for the
+  in-game content editors (`kfx_editor`'s `content_*`, see §2.9a) — the
+  engine's own `config_*` loaders above never call into it, and it never
+  calls into them. `cfgc_document` (lossless line-level parse/edit of a
+  `.cfg` file), `cfgc_content`/`cfgc_stack` (typed field access, merging the
+  base/campaign/level layers), `cfgc_schema`/`cfgc_schema_engine` (+
+  `_creature`, `_campaign`, `_shapes`: reflection off the engine's own field
+  tables plus curated value shapes) and `cfgc_validate` (per-file
+  diagnostics: what the loader would clamp, ignore or skip), `cfgc_writer`/
+  `cfgc_writebatch` (patch-in-place writes that leave an untouched file byte
+  for byte; staged, atomic multi-file commits), `cfgc_help` (help text mined
+  from the base files' own comments) and `cfgc_strings` (the byte-preserving
+  language string files). The campaign/mappack family:
+  `cfgc_campaign_check` (the validator: level lists, shared folders, land
+  view, `[strings]`/`[speech]`), `cfgc_campaign_levels` (the level-list
+  model: add/move/remove, number allocation, default entries) and
+  `cfgc_campaign_edit` (new-campaign/pack text, giving a campaign its own
+  configuration folders, copying/moving a level's files).
 - **Callback-struct homes** (see §5): `config.h` (`ConfigReloadCallbacks`),
   `sim_feedback.h`, `game_callbacks.h`, `net_callbacks.h`, `render_overlay.h`,
   `script_hooks.h`, `sprite_lookup.h`, `dungeon_availability.h`,
@@ -242,7 +263,7 @@ pathfinding_world.h`, 51 entries) that lets it query map/door/creature/
 ### 2.4 `kfx_render` — rendering
 
 **Owns:** the 3D engine, lighting, textures, sprites, video modes. **Depends
-on:** `kfx_sim`, `kfx_platform`. **26 sources / 24 headers.**
+on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
 
 - Engine: `engine_render` (the big one — bucketed polygon/sprite renderer),
   `engine_arrays`, `engine_camera`, `engine_textures`, `engine_lenses`,
@@ -253,6 +274,12 @@ on:** `kfx_sim`, `kfx_platform`. **26 sources / 24 headers.**
   `DisplacementEffect`, `PaletteEffect`, `LuaLensEffect`; plus `lens_api`.
 - Video: `vidmode` (+ `_data`), `vidfade`, `scrcapt`, `spritesheet`,
   `custom_sprites`, `cursor_tag`, `local_camera`.
+- `landview_image` — decodes a land-view background from a PNG (indexed as
+  it is, anything else quantised to 256 colours) or the classic `.raw` +
+  `.pal` pair; shared by the game's own land-view loader (`kfx_frontend`)
+  and the Campaign Editor's Land view page (`kfx_editor`), so both read the
+  same image the same way (docs/refactor/editor/fx-plans/08-campaign-editor.md
+  §12.6).
 - `kfx_render_state.h/.c` — lens/lighting/palette state migrated out of
   `struct Game`.
 
@@ -393,6 +420,29 @@ open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/map_editor.tx
 - **Playtest**: saves to a scratch level number, launches it as a normal game,
   and returns to the editor when the game ends
   (`editor_playtest_running`, `frontend.cpp`).
+- **Content editors** (`content_*.cpp`; plan:
+  `docs/refactor/editor/fx-plans/03-content-editors-foundation.md`, the
+  Campaign Editor in `08-campaign-editor.md`; user guide:
+  `docs/map_editor.txt`'s "Content editors" chapter): a second family of
+  tools, reached from the main menu's own Tools list as well as the Map
+  Editor's Tools menu, that edit configuration rather than the map — built
+  on `kfx_config`'s `cfgc_*` layer (see §2.2), not on the map-editing
+  machinery above. `content_tools.cpp` is the host (window management,
+  dispatch by `ContentTool`, wired to the frontend through
+  `ContentToolsCallbacks`, `content_tools_callbacks.h`, `kfx_config`);
+  `content_picker.cpp` (target picker: campaign/pack, level, layer),
+  `content_target.cpp` (`ConfigTarget`/`ContentCampaign`, the game's
+  campaign lists turned into resolved directories), `content_struct.cpp` /
+  `content_form.cpp` / `content_entity.cpp` (a session over a
+  `StructuredSession`, form rows and popups, and the shared entity-editor
+  window that several editors below configure rather than reimplement) are
+  the shared plumbing. Editors: `content_raw`/`content_tools` (raw Config
+  Files editor), `content_rules`, `content_trapdoor`, `content_spells`,
+  `content_creature`, `content_text` (+ `content_strings`,
+  `content_names`), `content_rooms`, and `content_campaign` (+
+  `content_campaign_ops` — the campaign/pack file operations: create,
+  register a saved level, menu order, copy/move a level — kept apart from
+  the drawing code so ftests can drive them directly).
 
 ### 2.10 `app_entry` — `src/main.cpp` + `src/native_entry.cpp`
 
@@ -577,6 +627,7 @@ Platform-level callback structs (declared in `kfx_platform`, also wired in
 | `MapZipCallbacks`      | `custom_zip.h`       | zip I/O → game (resolve map-zip paths)                                                 |
 | `ReceiveCallbacks`     | `bflib_netsession.h` | enet session → net (receive path)                                                      |
 | `InputFocusPredicates` | `bflib_inputctrl.h`  | input → game (focus-loss / pause / possession predicates)                              |
+| `RendererImGuiCallbacks` | `renderer/RendererManager.h` | renderer → frontend (ImGui context lifecycle/per-frame submission/input feed; `kfx_frontend`'s `gui/FrontendImGui.cpp` owns the real ImGui context — see [05-imgui-linkage-consolidation.md](../refactor/renderer/05-imgui-linkage-consolidation.md)) |
 
 ### 5.2 Wiring (composition root)
 
@@ -585,6 +636,7 @@ functions defined in `main.cpp` and registers them:
 
 ```c
 set_input_focus_predicates(&input_focus_predicates);
+set_renderer_imgui_callbacks(&renderer_imgui_callbacks_impl);
 set_sound_state_callbacks(&sound_state_callback_table);
 set_map_zip_callbacks(&map_zip_callback_table);
 set_power_grant_revoke_callbacks(add_power_to_player, remove_power_from_player);

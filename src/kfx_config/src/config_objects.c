@@ -154,6 +154,9 @@ static const struct NamedField objects_named_fields[] = {
     {"FLAMEANIMATIONOFFSET",     2, field_t(struct ObjectConfigStats, flame.td_add_x),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
     {"FLAMEANIMATIONOFFSET",     3, field_t(struct ObjectConfigStats, flame.td_add_y),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
     {"FLAMETRANSPARENCYFLAGS",   0, field_t(struct ObjectConfigStats, flame.transparency_flags),      0, INT32_MIN,UINT32_MAX, NULL,                        value_transpflg, assign_default},
+    {"LIGHTRED",                 0, field_t(struct ObjectConfigStats, ilght.colour_r),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
+    {"LIGHTGREEN",               0, field_t(struct ObjectConfigStats, ilght.colour_g),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
+    {"LIGHTBLUE",                0, field_t(struct ObjectConfigStats, ilght.colour_b),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
     {"LIGHTFLAGS",               0, field_t(struct ObjectConfigStats, ilght.flags),                   0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
     {NULL},
 };

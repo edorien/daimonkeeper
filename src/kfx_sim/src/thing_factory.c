@@ -461,6 +461,9 @@ struct Thing *create_thing_at_position_then_move_to_valid_and_add_light(struct C
         }
         ilght.is_dynamic = 1;
         ilght.radius = 2560;
+        ilght.colour_r = kfx_config_state.conf.rules[thing->owner].gameplay.hero_light_r;
+        ilght.colour_g = kfx_config_state.conf.rules[thing->owner].gameplay.hero_light_g;
+        ilght.colour_b = kfx_config_state.conf.rules[thing->owner].gameplay.hero_light_b;
         thing->light_id = sim_feedback->light_create_light(&ilght);
         if (thing->light_id != 0) {
             sim_feedback->light_set_light_never_cache(thing->light_id);

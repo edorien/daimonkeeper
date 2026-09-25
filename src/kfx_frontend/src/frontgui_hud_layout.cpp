@@ -11,6 +11,7 @@ HudLayout s_current = {};
 double s_last_w = -1.0, s_last_h = -1.0;
 HudBottomWidthMode s_last_b_width_mode = HudBottomWidth_Normal;
 HudMinimalCorner s_last_corner = HudMinimalCorner_UpperLeft;
+HudMinimalCorner s_last_panel_corner = HudMinimalCorner_UpperLeft;
 
 HudRect rect(double x0, double y0, double x1, double y1) { return HudRect{x0, y0, x1, y1}; }
 
@@ -143,18 +144,21 @@ void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, doub
 
 // docs/refactor/ingame-gui/13-minimal-layout.md: no persistent panel at
 // all -- a corner-pinned minimap+gold+event-marker cluster (upper-left or
-// upper-right, `corner`), and a free-floating button cluster + pop-up
-// panel in the diagonally opposite (bottom) corner. Both clusters are
-// auto-resize ImGui windows in practice (frontgui_ingame_panel.cpp /
-// frontgui_ingame_tabcontent.cpp), so most of what this builds are anchor
-// points for SetNextWindowPos() rather than boxes those windows are
-// clipped into -- HudRegion_TabStrip's rect is nominal (only its corner is
-// read); HudRegion_TabContent's *is* a real sized rect, since the pop-up
-// isn't docked against anything else that already has one.
-void build_minimal(HudLayout *o, HudMinimalCorner corner, double w, double h)
+// upper-right, `corner`), and a free-floating button cluster + pop-up panel
+// in its own corner (upper-left or upper-right, `panel_corner`, independent
+// of `corner` -- MINIMAP_CORNER / PANEL_CORNER, config_keeperfx.h). Both
+// clusters are auto-resize ImGui windows in practice
+// (frontgui_ingame_panel.cpp / frontgui_ingame_tabcontent.cpp), so most of
+// what this builds are anchor points for SetNextWindowPos() rather than
+// boxes those windows are clipped into -- HudRegion_TabStrip's rect is
+// nominal (only its corner is read); HudRegion_TabContent's *is* a real
+// sized rect, since the pop-up isn't docked against anything else that
+// already has one.
+void build_minimal(HudLayout *o, HudMinimalCorner corner, HudMinimalCorner panel_corner, double w, double h)
 {
     o->kind = HudLayout_Minimal;
     const bool right = (corner == HudMinimalCorner_UpperRight);
+    const bool panel_right = (panel_corner == HudMinimalCorner_UpperRight);
 
     // Minimap cluster: same proportional-clamp shape as the other two
     // layouts' own sizing (there: panel width off h; region-A side off
@@ -187,21 +191,22 @@ void build_minimal(HudLayout *o, HudMinimalCorner corner, double w, double h)
     const double ev_y0 = gold_y0 + gold_h + pad;
     o->region[HudRegion_Events] = rect(mm_x0, ev_y0, mm_x1, h - pad);
 
-    // Button cluster + pop-up: the diagonally opposite (bottom) corner.
-    // TabStrip's rect is nominal -- draw_button_cluster_minimal() only
-    // reads its (x1,y1) corner (bottom-right if buttons are bottom-right,
-    // i.e. minimap upper-left) as the auto-resize window's pivot point.
-    // cluster_sz must match draw_button_cluster_minimal()'s own button
-    // size exactly (both files comment this) -- the pop-up's own bottom
-    // edge is computed from it below, and an earlier flat 44px guess left
-    // too little clearance once the cluster window's real height (that
-    // function now forces WindowPadding to (0,0) so its true size is
-    // exactly cluster_sz) was accounted for: the pop-up (opened after the
-    // cluster, so topmost wherever they touch) silently ate clicks meant
-    // for the row underneath (live-tested: "not possible to select a
-    // different one, once one is open").
+    // Button cluster + pop-up: always the bottom edge, left or right per
+    // `panel_corner` (independent of the minimap's `corner`). TabStrip's
+    // rect is nominal -- draw_button_cluster_minimal() only reads its
+    // (x1,y1) corner (bottom-right if panel_right, bottom-left otherwise)
+    // as the auto-resize window's pivot point. cluster_sz must match
+    // draw_button_cluster_minimal()'s own button size exactly (both files
+    // comment this) -- the pop-up's own bottom edge is computed from it
+    // below, and an earlier flat 44px guess left too little clearance once
+    // the cluster window's real height (that function now forces
+    // WindowPadding to (0,0) so its true size is exactly cluster_sz) was
+    // accounted for: the pop-up (opened after the cluster, so topmost
+    // wherever they touch) silently ate clicks meant for the row underneath
+    // (live-tested: "not possible to select a different one, once one is
+    // open").
     const double cluster_sz = 40.0;
-    const double cluster_x = right ? pad : (w - pad);
+    const double cluster_x = panel_right ? (w - pad) : pad;
     o->region[HudRegion_TabStrip] = rect(cluster_x, h - pad, cluster_x, h - pad);
 
     // Pop-up panel: sized off the vertical layout's own panel width/height
@@ -221,7 +226,7 @@ void build_minimal(HudLayout *o, HudMinimalCorner corner, double w, double h)
     const double popup_w = vertical_panel_width(w, h);
     const double popup_bottom = h - pad - cluster_sz - pad;
     const double popup_h = std::min(std::max(h * 0.62 * content_frac, 220.0), popup_bottom - pad);
-    const double popup_x0 = right ? pad : (w - pad - popup_w);
+    const double popup_x0 = panel_right ? (w - pad - popup_w) : pad;
     o->region[HudRegion_TabContent] = rect(popup_x0, popup_bottom - popup_h, popup_x0 + popup_w, popup_bottom);
 
     // Full-screen 3D under the ImGui HUD -- no panel silhouette at all.
@@ -242,7 +247,8 @@ void build_stub(HudLayout *o, HudPanelLayout kind, double w, double h)
 } // namespace
 
 void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, double display_w, double display_h)
+                      HudMinimalCorner corner, HudMinimalCorner panel_corner,
+                      double display_w, double display_h)
 {
     if (out == nullptr)
         return;
@@ -250,7 +256,7 @@ void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_
     {
         case HudLayout_VerticalRight:     build_vertical_right(out, display_w, display_h);   break;
         case HudLayout_HorizontalBottom:  build_horizontal_bottom(out, b_width_mode, display_w, display_h); break;
-        case HudLayout_Minimal:           build_minimal(out, corner, display_w, display_h);   break;
+        case HudLayout_Minimal:           build_minimal(out, corner, panel_corner, display_w, display_h); break;
         default:                          build_stub(out, kind, display_w, display_h);        break;
     }
 }
@@ -258,16 +264,18 @@ void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_
 const HudLayout &hud_layout_current(void) { return s_current; }
 
 void hud_layout_frame(HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, double display_w, double display_h)
+                      HudMinimalCorner corner, HudMinimalCorner panel_corner,
+                      double display_w, double display_h)
 {
     if (kind == s_current.kind && b_width_mode == s_last_b_width_mode && corner == s_last_corner
-     && display_w == s_last_w && display_h == s_last_h)
+     && panel_corner == s_last_panel_corner && display_w == s_last_w && display_h == s_last_h)
         return;
     s_last_w = display_w;
     s_last_h = display_h;
     s_last_b_width_mode = b_width_mode;
     s_last_corner = corner;
-    hud_layout_build(&s_current, kind, b_width_mode, corner, display_w, display_h);
+    s_last_panel_corner = panel_corner;
+    hud_layout_build(&s_current, kind, b_width_mode, corner, panel_corner, display_w, display_h);
 }
 
 extern "C" int64_t hud_layout_viewport_inset(void)

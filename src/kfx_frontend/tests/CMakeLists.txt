@@ -28,9 +28,9 @@ target_link_libraries(kfx_frontend_utest PRIVATE
                      # kfx_platform now links bflib_filedialogs.cpp, which
                      # needs tinyfiledialogs's compiled object.
     imgui # same two-levels-of-INTERFACE-indirection object-linking gap as
-          # centitoml above -- kfx_platform (ImGuiContext.cpp) and
-          # kfx_frontend (frontgui_style.cpp/frontgui_widgets.cpp/
-          # frontgui_stylesheet_test.cpp) both need imgui's compiled object.
+          # centitoml above -- kfx_frontend (gui/FrontendImGui.cpp/
+          # frontgui_style.cpp/frontgui_widgets.cpp/frontgui_stylesheet_test.cpp)
+          # needs imgui's compiled object.
     Catch2::Catch2WithMain)
 
 # Repo root, for tests that run against the shipped game data in core_files/ (skipped when absent).

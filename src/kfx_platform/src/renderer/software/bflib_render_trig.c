@@ -4453,6 +4453,13 @@ void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint
     NOLOG("Pb(%ld,%ld,%ld)", point_b->X, point_b->Y, point_b->S);
     NOLOG("Pc(%ld,%ld,%ld)", point_c->X, point_c->Y, point_c->S);
 
+    // gpu-v2 Phase C.2: creature shadows record into the GPU world frame
+    // instead, while one is being built (the vec window is then the frame's
+    // window -- see RendererWorldFrameBegin()).
+    if (vec_mode == VM_SpriteTranslucent && RendererWorldFrameCapturing()
+        && RendererWorldFrameAddShadowTri(point_a, point_b, point_c, vec_map, vec_shade))
+        return;
+
     opt_a = point_a;
     opt_b = point_b;
     opt_c = point_c;

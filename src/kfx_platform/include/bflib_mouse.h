@@ -138,8 +138,10 @@ TbResult LbMouseSetWindow(int64_t x, int64_t y, int64_t width, int64_t height);
 TbResult LbMouseChangeMoveRatio(int64_t ratio_x, int64_t ratio_y);
 
 void mouseControl(uint64_t action, struct TbPoint *pos);
-TbResult LbMouseOnBeginSwap(void);
-TbResult LbMouseOnEndSwap(void);
+// LbMouseOnBeginSwap/LbMouseOnEndSwap retired -- they existed only to
+// bracket the legacy CPU-buffer cursor draw around present, which
+// docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md's cursor
+// unification removed (see bflib_mspointer.hpp's own comment).
 /******************************************************************************/
 #ifdef __cplusplus
 }

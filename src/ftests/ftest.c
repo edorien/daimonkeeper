@@ -447,13 +447,20 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
     // process test init/actions
     if(vars->current_state == FTSt_TestIsProcessingActions)
     {
-        if(!flag_is_set(start_params.functest_flags, FTF_LevelLoaded))
+        // pre_start_func (run during setup, before the level starts loading) may already have failed
+        // the test via FTEST_FAIL_TEST. Catch that here, before waiting on FTF_LevelLoaded: a failed
+        // setup can leave the level in a state that never finishes loading (or loads into garbage), so
+        // waiting for FTF_LevelLoaded in that case would hang forever instead of honouring
+        // -exitonfailedtest.
+        TbBool setup_already_failed = flag_is_set(start_params.functest_flags, FTF_TestFailed);
+
+        if(!setup_already_failed && !flag_is_set(start_params.functest_flags, FTF_LevelLoaded))
         {
             FTESTLOG("Waiting for level load...");
             return FTSt_TestIsProcessingActions;
         }
 
-        if(vars->pending_init != NULL)
+        if(!setup_already_failed && vars->pending_init != NULL)
         {
             message_add_fmt(MsgType_Player, PLAYER0, "Initializing Functional Test %s", vars->pending_init->test_name);
             FTESTLOG("Initializing Functional Test %s", vars->pending_init->test_name);
@@ -476,7 +483,7 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
         }
 
         const uint64_t ftest_actions_length = sizeof(vars->actions_func_list) / sizeof(vars->actions_func_list[0]);
-        if(vars->current_action < ftest_actions_length)
+        if(!setup_already_failed && vars->current_action < ftest_actions_length)
         {
             //get next valid test action
             FTest_Action_Func test_action = NULL;
@@ -554,9 +561,14 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
                 --current_test_config->repeat_n_times;
             }
 
+            // Only quit out of a level that was actually entered -- a pre_start_func failure means no
+            // level (and no active player session) ever loaded, so there is nothing to quit.
+            if(flag_is_set(start_params.functest_flags, FTF_LevelLoaded))
+            {
+                ftest_quit_game();
+            }
             clear_flag(start_params.functest_flags, FTF_TestFailed);
             clear_flag(start_params.functest_flags, FTF_LevelLoaded);
-            ftest_quit_game();
             return ftest_change_state(FTSt_TestHasCompletedActions_LoadNextTest);
         }
 

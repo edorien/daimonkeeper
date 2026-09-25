@@ -24,6 +24,7 @@
 #include "bflib_render.h"
 #include "bflib_sprite.h"
 #include "engine_lenses.h"
+#include "renderer/WorldFrame.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -195,6 +196,7 @@ TbBool render_keepsprite_indexed(int64_t kspr_n, unsigned char frame, unsigned c
 void update_block_pointed(int64_t i,int64_t x, int64_t x_frac, int64_t y, int64_t y_frac);
 void update_blocks_pointed(void);
 void engine(struct PlayerInfo *player, struct Camera *cam);
+
 /******************************************************************************/
 #ifdef __cplusplus
 }

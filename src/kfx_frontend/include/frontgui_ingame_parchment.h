@@ -16,8 +16,9 @@ extern "C" {
 
 void ingame_parchment_frame(void);
 
-// True while the ImGui parchment view owns the whole screen -- wired into
-// main.cpp's RendererSetScreenOwnedCallback so PresentFrame() skips the
+// True while the ImGui parchment view owns the whole screen -- checked by
+// FrontendImGuiScreenOwned() (gui/FrontendImGui.cpp), the screen_owned
+// member of main.cpp's RendererImGuiCallbacks, so PresentFrame() skips the
 // (now-empty) framebuffer blit and ImGui draws the cursor itself.
 TbBool ingame_parchment_active(void);
 

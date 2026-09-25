@@ -31,7 +31,7 @@
 #include "bflib_planar.h"
 #include "bflib_sndlib.h"
 #include "bflib_mshandler.hpp"
-#include "gui/ImGuiContext.h"
+#include "renderer/RendererManager.h" // renderer_imgui_callbacks
 #include <SDL3/SDL.h>
 #include "post_inc.h"
 
@@ -536,12 +536,12 @@ TbBool LbPollInputs(void)
         // Motion events are the one deliberate exception: the game's own
         // grab-warp mouse handling (below, "Warp-based relative motion")
         // makes a raw motion event's absolute x/y meaningless whenever the
-        // cursor nears a window edge -- ImGuiContextNewFrame() feeds ImGui
-        // the game's own tracked position instead (ImGuiMousePositionFn,
-        // ImGuiContext.h), once per frame, so forwarding these here would
-        // just fight that override with stale/warped values.
-        if (ImGuiContextIsActive() && ev.type != SDL_EVENT_MOUSE_MOTION)
-            ImGuiContextProcessEvent(&ev);
+        // cursor nears a window edge -- FrontendImGuiBeginFrame() feeds
+        // ImGui the game's own tracked position instead, once per frame,
+        // so forwarding these here would just fight that override with
+        // stale/warped values.
+        if (renderer_imgui_callbacks->is_active() && ev.type != SDL_EVENT_MOUSE_MOTION)
+            renderer_imgui_callbacks->process_event(&ev);
         process_event(&ev);
     }
 

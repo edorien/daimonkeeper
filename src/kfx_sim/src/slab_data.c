@@ -611,7 +611,16 @@ void update_map_collide(SlabKind slbkind, MapSubtlCoord stl_x, MapSubtlCoord stl
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     struct Column* colmn = get_map_column(mapblk);
     if (column_invalid(colmn)) {
-        ERRORLOG("Invalid column at (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
+        // A columnset.toml gap that slabset.toml references (see update_slabset_column_indices())
+        // leaves every subtile using that column unresolved -- logging each one individually has
+        // driven a single ftest into writing 900k+ duplicate lines across its many map loads. Cap it.
+        static int64_t s_invalid_column_warnings = 0;
+        if (s_invalid_column_warnings < 20)
+        {
+            ERRORLOG("Invalid column at (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
+            if (++s_invalid_column_warnings == 20)
+                ERRORLOG("Invalid column: suppressing further identical warnings for this run");
+        }
     }
     uint64_t smask = colmn->solidmask;
     MapSubtlCoord stl_z;

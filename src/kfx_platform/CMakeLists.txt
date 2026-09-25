@@ -42,11 +42,6 @@ list(APPEND KFX_PLATFORM_SOURCES_CXX ${KFX_PLATFORM_SOURCES_CXX_RENDERER})
 # rather than .cpp, so it needs its own glob too.
 file(GLOB KFX_PLATFORM_SOURCES_C_RENDERER_SW "${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/software/*.c")
 list(APPEND KFX_PLATFORM_SOURCES_C ${KFX_PLATFORM_SOURCES_C_RENDERER_SW})
-# gui/ (docs/refactor/renderer/04-imgui-gui-foundation.md, Phase A) -- the
-# ImGuiContext lifecycle service. One directory deeper than the plain glob
-# above, same reason as platform/ and renderer/.
-file(GLOB KFX_PLATFORM_SOURCES_CXX_GUI "${CMAKE_CURRENT_SOURCE_DIR}/src/gui/*.cpp")
-list(APPEND KFX_PLATFORM_SOURCES_CXX ${KFX_PLATFORM_SOURCES_CXX_GUI})
 
 # Platform-exclusive exceptions -- PlatformWindows.cpp/PlatformLinux.cpp
 # are each only buildable/relevant for their own OS (matches upstream's

@@ -202,3 +202,43 @@ std::string cfgc_campaign_add_level(const std::string &file_text, int64_t n, Cam
         *changed = out != file_text;
     return out;
 }
+
+std::string cfgc_campaign_remove_level(const std::string &file_text, int64_t n, bool remove_entry, bool *changed)
+{
+    ConfigDocument doc = ConfigDocument::parse(file_text);
+    const ConfigContent content = read_config_content(doc, "campaign", false);
+    CampaignLevels lv = cfgc_read_levels(content);
+    ChangeSet cs;
+    bool touched = false;
+    for (size_t i = 0; i < lv.single.size(); i++)
+    {
+        if (lv.single[i] == n)
+        {
+            cfgc_levels_remove(lv, CampList_Single, i);
+            touched = true;
+            break;
+        }
+        if (lv.bonus[i] == n)
+        {
+            cfgc_levels_set_bonus(lv, i, 0);
+            touched = true;
+            break;
+        }
+    }
+    for (size_t i = 0; i < lv.extra.size(); i++)
+        if (lv.extra[i] == n)
+        {
+            cfgc_levels_remove(lv, CampList_Extra, i);
+            touched = true;
+            break;
+        }
+    if (touched)
+        cs = cfgc_levels_changes(content, lv);
+    if (remove_entry && content.find_section("map", n) != nullptr)
+        cs.reset_section("map" + std::to_string(n));
+    cfgc_make_writer(build_engine_schema(), "campaign")->apply(doc, cs, nullptr);
+    const std::string out = doc.serialize();
+    if (changed != nullptr)
+        *changed = out != file_text;
+    return out;
+}

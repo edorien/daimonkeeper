@@ -2681,6 +2681,29 @@ TbBool toggle_first_person_menu(TbBool visible)
   }
 }
 
+// The ImGui HUD composites over a full-screen engine window (also the only
+// way a horizontal HUD layout works); the classic sprite GUI insets the
+// engine window by the sidebar's width. Split out of set_gui_visible() so a
+// live GUI_ICON_PACK change (frontgui_ingame.cpp's ingame_imgui_frame(),
+// which polls ingame_gui_use_classic_hud() every frame) can re-apply the
+// inset too -- without this, switching classic HUD on/off mid-session left
+// the engine window at whatever inset the last GOF_ShowGui toggle had
+// computed, showing as a black strip where the 3D view no longer reaches
+// but nothing (sidebar or otherwise) draws over it either (live-tested).
+void refresh_engine_window_for_gui_style(void)
+{
+  if (((kfx_sim_state.view_mode_flags & GNFldD_StatusPanelDisplay) != 0)
+      && ((kfx_sim_state.operation_flags & GOF_ShowGui) != 0)
+      && ingame_gui_use_classic_hud())
+  {
+      setup_engine_window(status_panel_width, 0, MyScreenWidth, MyScreenHeight);
+  }
+  else
+  {
+      setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
+  }
+}
+
 void set_gui_visible(TbBool visible)
 {
   SYNCDBG(6,"Starting");
@@ -2703,19 +2726,7 @@ void set_gui_visible(TbBool visible)
       toggle_status_menu(is_visbl);
       break;
   }
-  // The ImGui HUD composites over a full-screen engine window (also the
-  // only way a horizontal HUD layout works); the classic sprite GUI insets
-  // the engine window by the sidebar's width.
-  if (((kfx_sim_state.view_mode_flags & GNFldD_StatusPanelDisplay) != 0)
-      && ((kfx_sim_state.operation_flags & GOF_ShowGui) != 0)
-      && ingame_gui_use_classic_hud())
-  {
-      setup_engine_window(status_panel_width, 0, MyScreenWidth, MyScreenHeight);
-  }
-  else
-  {
-      setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
-  }
+  refresh_engine_window_for_gui_style();
 }
 
 void toggle_gui(void)
@@ -4207,6 +4218,10 @@ FrontendMenuState get_startup_menu_state(void)
               WARNLOG("Playtest: could not switch to campaign \"%s\"", s_playtest_campaign);
           s_playtest_campaign[0] = '\0';
       }
+      // Editor playtest is always a normal single-player start (this branch's own
+      // comment above) -- must not inherit a stale fe_computer_players=1 left by
+      // an earlier Skirmish match or Campaign-Editor test play this session.
+      fe_computer_players = 0;
       SYNCLOG("Editor playtest state selected");
       return FeSt_START_KPRLEVEL;
   }
@@ -4227,6 +4242,11 @@ FrontendMenuState get_startup_menu_state(void)
       content_tool_play_running = false;
       content_tool_reopen_tool = content_tool_return_tool;
       content_tool_return_tool = -1;
+      // run_pending_content_tool_play() (frontgui_screens.cpp) may have set this for a multiplayer level's
+      // default-AI start; nothing on the way back through here consumes or resets it (unlike a real
+      // single-player campaign entry, which does via frontmap_load()) -- clear it explicitly so it can't
+      // leak into whatever the player starts next from the main menu.
+      fe_computer_players = 0;
       SYNCLOG("Return from a content tool's game to the main menu");
       return FeSt_MAIN_MENU;
   }

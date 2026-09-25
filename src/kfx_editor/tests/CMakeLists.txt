@@ -29,8 +29,9 @@ target_link_libraries(kfx_editor_utest PRIVATE
     tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --
                      # kfx_platform now links bflib_filedialogs.cpp, which
                      # needs tinyfiledialogs's compiled object.
-    imgui # kfx_platform's ImGuiContext.cpp (and, transitively, kfx_editor's
-          # own ImGui-driven toolbox code) reference imgui symbols -- same
+    imgui # kfx_frontend's gui/FrontendImGui.cpp (this target links
+          # kfx_frontend for real) and, transitively, kfx_editor's own
+          # ImGui-driven toolbox code reference imgui symbols -- same
           # two-levels-of-INTERFACE-indirection object-linking gap as
           # centitoml above.
     Catch2::Catch2WithMain)

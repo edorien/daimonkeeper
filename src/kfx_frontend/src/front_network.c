@@ -229,7 +229,7 @@ void draw_out_of_sync_box(int64_t a1, int64_t a2, int64_t box_width)
         LbDrawBox(text_x, text_y, 2*max_width, 16*units_per_px/16, resolve_indexed_pixel(0, RendererGetActivePalette()));
         LbDrawBox(text_x, text_y, 2*min_width, 16*units_per_px/16, resolve_indexed_pixel(133, RendererGetActivePalette()));
         RendererUnlockFramebuffer();
-        RendererPresentFrame();
+        RendererPresentStepFrame();
     }
 }
 
@@ -620,7 +620,7 @@ void display_attempting_to_join_message(int64_t remaining_s)
         draw_text_box(msg);
         RendererUnlockFramebuffer();
     }
-    RendererPresentFrame();
+    RendererPresentStepFrame();
 }
 
 void reset_attempting_to_join_cancel(void)

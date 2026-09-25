@@ -143,10 +143,11 @@ TEST_CASE_METHOD(AppLoopFixture, "packet_load_find_frame_rate accumulates incr u
 }
 
 TEST_CASE_METHOD(AppLoopFixture, "keeper_screen_swap presents the frame and returns true", "[kfx_apploop][game_session_loop]") {
-    // RendererPresentFrame() (kfx_platform's RendererManager.cpp) guards
-    // on its own static s_active_renderer, which defaults to nullptr and
-    // is never set in this test binary (no RendererSetActive() call) --
-    // so this is a safe no-op here, not a real rendering-surface call.
+    // RendererPresentGameFrame() (kfx_platform's RendererManager.cpp,
+    // wrapping the underlying present) guards on its own static
+    // s_active_renderer, which defaults to nullptr and is never set in
+    // this test binary (no RendererSetActive() call) -- so this is a safe
+    // no-op here, not a real rendering-surface call.
     CHECK(keeper_screen_swap());
 }
 

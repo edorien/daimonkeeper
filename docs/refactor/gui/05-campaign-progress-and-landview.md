@@ -708,3 +708,48 @@ from every version of this function so far.
 
 Verification: all four build configs, `check_layering.py --strict`, and the full 1553-test ctest
 suite (no new cases) pass.
+
+## 16. Land selection without a land-view picture (campaign editor follow-up)
+
+Building the Campaign Editor's own Land view page (`docs/refactor/editor/fx-plans/08-campaign-editor.md`
+§12.6/K7) turned up a real gap in this screen: a campaign whose `LAND_VIEW_START` is unset, or whose
+image is missing/broken, leaves `land_preview_load(&land_preview, SINGLEPLAYER_NOTSTARTED, true)`
+failing outright at Campaign Select. Its own fallback (`land_preview_build_minimap()`, §3.2's "common
+case for an individual freeplay level" path) cannot help here: it builds a minimap from a *level's* own
+`map%05d.slb`/`.own` files, and there is no such level for the campaign overview itself
+(`SINGLEPLAYER_NOTSTARTED` is not a real level number). `land_preview.loaded` stays `false`, and
+`draw_land_preview_panel()`/`draw_landview_slider()` both bail out immediately (their own
+`!panel->loaded` / "fewer than 2 stops" early-outs) — the screen showed an empty picture area, but
+critically **you could still click "Enter this land"**: `frontend_land_selection_enter_resolve()`
+doesn't require a highlighted ensign at all, it falls back to `first_singleplayer_level()` when
+`land_preview.highlighted_lvnum == SINGLEPLAYER_NOTSTARTED`. So the screen wasn't broken as in
+unusable, just silently unable to let you pick anything other than the first level — no way to jump to
+a later unlocked level, replay one, or reach an unlocked bonus/extra level, exactly the situation the
+user asked to fix.
+
+Fix (`frontgui_campaignselect_frame()`, `frontgui_screens.cpp`): when a campaign is highlighted and
+`land_preview.loaded` is false, the picture/slider column is replaced by a plain scrollable list of the
+campaign's levels (`draw_land_selection_level_list()`) instead of the picture. Every single level is
+listed, using the same name resolution the detail panel and the ensign hit-test already use
+(`name_stridx` else `name`); a locked one (`LevelInformation::state != LvSt_Visible` — the same gate
+`land_preview_ensign_at()` uses for which ensigns are even clickable on a working picture) is shown
+disabled (`ImGui::BeginDisabled`), not omitted — the player can see the campaign's full level sequence,
+just can't select past where they've unlocked. A bonus or extra level is only listed once unlocked
+(labelled "(bonus)"/"(extra)"): unlike single levels, these are a discovered reward, and listing a
+locked one by name (even disabled) would spoil that it exists before the player finds it — the working
+picture never draws an ensign for one either, for the same reason. Selecting a row sets
+`land_preview.highlighted_lvnum` exactly like clicking an ensign does (plus the same description-speech
+preview, `play_description_speech()`), so "Enter this land" commits it through the existing,
+unmodified `frontend_land_selection_enter_resolve()` path — no change needed there.
+
+Free play (`FeSt_MAPPACK_SELECT`) does not need the same fix: it has no campaign-overview picture at
+all, only each level's own art (already covered by the minimap fallback) or, missing that, the level
+list itself already used as the row source.
+
+**Not unit-tested**: this is a `kfx_frontend` menu-screen change (same class as §12-§15 above) with no
+existing ftest harness reaching FeSt_CAMPAIGN_SELECT's ImGui draw path; not live-tested against a real
+broken campaign in this session either.
+
+Verification: `kfx_editor_utest`/`kfx_config_utest` (no regressions; this file isn't covered by either
+suite), `check_layering.py --strict`, and a clean build of `keeperfx`/`keeperfx_hvlog` (native Linux,
+`-DKFX_FUNCTESTING=ON` tree) and the mingw cross-compile.

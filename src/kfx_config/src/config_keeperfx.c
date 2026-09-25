@@ -32,6 +32,7 @@
 #include "bflib_fmvids.h"
 #include "bflib_sprfnt.h"
 #include "config_campaigns.h"
+#include "renderer/RendererManager.h" // RendererSetDesiredType, RENDERER_SOFTWARE/RENDERER_GPU3D
 #include "kfx_config_state.h"
 #include "moonphase.h"
 #include "matchmaking_config.h"
@@ -73,6 +74,7 @@ struct KeeperFxUiConfig keeperfx_ui_config = {
     .hud_position = 1, // HudPos_Left
     .gui_icon_pack = "NONE",
     .minimap_corner = 1, // HudMinimalCorner_UpperLeft
+    .panel_corner = 2, // HudMinimalCorner_UpperRight -- matches the pre-decoupling diagonally-opposite default
 };
 static NetworkIsActiveFn g_network_is_active_fn = NULL;
 
@@ -132,6 +134,26 @@ const struct NamedCommand scrshot_type[] = {
   {NULL,  0},
   };
 
+// RENDERER -- gpu-v2 Phase C.1 (docs/refactor/renderer/gpu-v2/07-phased-delivery.md).
+// Unlike SCREENSHOT/INGAME_RES above, this doesn't need a config_reload_callbacks
+// indirection: RendererSetDesiredType() (renderer/RendererManager.h) lives in
+// kfx_platform, a layer *below* kfx_config, so this file can call it directly.
+// Same 1-based-sentinel reasoning as hud_position_type[] etc. above --
+// RENDERER_SOFTWARE's own value (1) still works as a real, non-zero match.
+const struct NamedCommand renderer_type[] = {
+  {"SOFTWARE", RENDERER_SOFTWARE},
+  {"VULKAN",   RENDERER_GPU3D},
+  {NULL,       0},
+  };
+
+// LIGHTING -- gpu-v2 Phase C.5 lighting pass. 1-based like renderer_type[]: value 1 =
+// RENDERER_LIGHTING_CLASSIC, 2 = RENDERER_LIGHTING_PERPIXEL (config value - 1 is the mode).
+const struct NamedCommand lighting_type[] = {
+  {"CLASSIC",  1},
+  {"PERPIXEL", 2},
+  {NULL,       0},
+  };
+
 const struct NamedCommand atmos_volume[] = {
   {"LOW",     64},
   {"MEDIUM", 128},
@@ -165,6 +187,22 @@ const struct NamedCommand hud_position_type[] = {
 const struct NamedCommand minimap_corner_type[] = {
   {"UPPER_LEFT",  1}, // HudMinimalCorner_UpperLeft
   {"UPPER_RIGHT", 2}, // HudMinimalCorner_UpperRight
+  {NULL,  0},
+  };
+
+// PANEL_CORNER -- Minimal layout only (docs/refactor/ingame-gui/13-minimal-layout.md):
+// which bottom corner the free-floating button cluster + its pop-up panel
+// sit in, independently of MINIMAP_CORNER above -- LOWER_* rather than
+// MINIMAP_CORNER's UPPER_* since this cluster is always pinned to the
+// bottom edge (build_minimal(), frontgui_hud_layout.cpp); only left/right
+// is actually a choice. Same underlying HudMinimalCorner_UpperLeft/
+// UpperRight values as minimap_corner_type (that enum is just "left" vs.
+// "right" internally), same 1-based-sentinel reasoning, kept as its own
+// table since the two options are independently user-facing
+// (config_settingschema.c) and read differently.
+const struct NamedCommand panel_corner_type[] = {
+  {"LOWER_LEFT",  1}, // HudMinimalCorner_UpperLeft
+  {"LOWER_RIGHT", 2}, // HudMinimalCorner_UpperRight
   {NULL,  0},
   };
 
@@ -225,6 +263,10 @@ const struct NamedCommand conf_commands[] = {
   {"GUI_ICON_PACK"                 , 56},
   {"MINIMAP_CORNER"                , 57},
   {"PACKETSAVE_MAX_SIZE"           , 58}, // upstream id 52 collides with the fork's UI_FONT_SCALE
+  {"PANEL_CORNER"                  , 59},
+  {"RENDERER"                      , 60},
+  {"GPU_TRUE_DEPTH"                , 61},
+  {"LIGHTING"                      , 62},
   {NULL,                   0},
   };
 
@@ -1213,6 +1255,44 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               packetsave_max_kb = i;
           } else {
               CONFWRNLOG("Invalid \"%s\" value in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+          }
+          break;
+      case 59: // PANEL_CORNER -- Minimal layout only
+                // (docs/refactor/ingame-gui/13-minimal-layout.md).
+          i = recognize_conf_parameter(buf, &pos, len, panel_corner_type);
+          if (i > 0)
+          {
+              keeperfx_ui_config.panel_corner = i;
+          } else {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+          }
+          break;
+      case 60: // RENDERER -- gpu-v2 Phase C.1
+          i = recognize_conf_parameter(buf, &pos, len, renderer_type);
+          if (i > 0)
+          {
+              RendererSetDesiredType((RendererType)i);
+          } else {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+          }
+          break;
+      case 61: // GPU_TRUE_DEPTH -- gpu-v2 Phase C.5 (experimental, no options-menu row)
+          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
+          if (i <= 0)
+          {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
+                COMMAND_TEXT(cmd_num),config_textname);
+              break;
+          }
+          RendererSetTrueDepth(i == 1);
+          break;
+      case 62: // LIGHTING -- gpu-v2 Phase C.5
+          i = recognize_conf_parameter(buf, &pos, len, lighting_type);
+          if (i > 0)
+          {
+              RendererSetLightingMode((int)(i - 1));
+          } else {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
       case ccr_comment:

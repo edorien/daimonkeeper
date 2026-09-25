@@ -1,9 +1,14 @@
 #include "pre_inc.h"
-#include "gui/ImGuiContext.h"
+#include "gui/FrontendImGui.h"
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include <SDL3/SDL.h>
+#include "kjm_input.h"       // GetMouseX/GetMouseY
+#include "frontend.h"        // frontend_menu_state
+#include "frontgui_screens.h" // frontend_imgui_screen_active
+#include "frontgui_ingame_parchment.h" // ingame_parchment_active
+#include "frontgui_style.h"  // FeStyleGetCursorImage
 #include "post_inc.h"
 
 namespace {
@@ -11,16 +16,13 @@ namespace {
     bool s_demo_visible = false;
     SDL_Window*   s_window   = nullptr;
     SDL_Renderer* s_renderer = nullptr;
-    ImGuiMousePositionFn s_mouse_position_fn = nullptr;
-    ImGuiCursorImageFn s_cursor_image_fn = nullptr;
     SDL_Texture* s_cursor_texture = nullptr;
     int64_t s_cursor_w = 0, s_cursor_h = 0;
     int64_t s_cursor_hotspot_x = 0, s_cursor_hotspot_y = 0;
     bool s_cursor_native_size = false;
-    bool s_cursor_have = false;          // callback produced an image this frame
+    bool s_cursor_have = false;          // FeStyleGetCursorImage produced an image this frame
     uint64_t s_cursor_serial = 0xFFFFFFFFu;
     int64_t s_cursor_tex_w = 0, s_cursor_tex_h = 0;
-    ImGuiScreenOwnedFn s_screen_owned_fn = nullptr;
 
     void shutdown_backends()
     {
@@ -52,11 +54,9 @@ namespace {
     void refresh_cursor_texture()
     {
         s_cursor_have = false;
-        if (s_cursor_image_fn == nullptr)
-            return;
 
         ImGuiCursorImage img = {};
-        if (!s_cursor_image_fn(&img) || img.rgba == nullptr || img.width <= 0 || img.height <= 0)
+        if (!FeStyleGetCursorImage(&img) || img.rgba == nullptr || img.width <= 0 || img.height <= 0)
             return;
 
         if (s_cursor_texture == nullptr || img.width != s_cursor_tex_w || img.height != s_cursor_tex_h)
@@ -93,7 +93,7 @@ namespace {
 
 extern "C" {
 
-TbBool ImGuiContextEnsure(SDL_Window *window, SDL_Renderer *renderer)
+TbBool FrontendImGuiEnsure(SDL_Window *window, SDL_Renderer *renderer)
 {
     if (window == nullptr || renderer == nullptr)
         return 0;
@@ -151,44 +151,29 @@ TbBool ImGuiContextEnsure(SDL_Window *window, SDL_Renderer *renderer)
     return 1;
 }
 
-void ImGuiContextShutdown(void)
+void FrontendImGuiRendererDestroying(void)
 {
     shutdown_backends();
 }
 
-TbBool ImGuiContextIsActive(void)
+TbBool FrontendImGuiIsActive(void)
 {
     return s_active ? 1 : 0;
 }
 
-void ImGuiContextProcessEvent(const SDL_Event *event)
+void FrontendImGuiProcessEvent(const SDL_Event *event)
 {
     if (!s_active || event == nullptr)
         return;
     ImGui_ImplSDL3_ProcessEvent(event);
 }
 
-void ImGuiContextSetMousePositionCallback(ImGuiMousePositionFn fn)
+TbBool FrontendImGuiScreenOwned(void)
 {
-    s_mouse_position_fn = fn;
+    return frontend_imgui_screen_active(frontend_menu_state) || ingame_parchment_active();
 }
 
-void ImGuiContextSetCursorImageCallback(ImGuiCursorImageFn fn)
-{
-    s_cursor_image_fn = fn;
-}
-
-void ImGuiContextSetScreenOwnedCallback(ImGuiScreenOwnedFn fn)
-{
-    s_screen_owned_fn = fn;
-}
-
-TbBool ImGuiContextScreenOwned(void)
-{
-    return (s_screen_owned_fn != nullptr) && s_screen_owned_fn();
-}
-
-void ImGuiContextNewFrame(void)
+void FrontendImGuiBeginFrame(void)
 {
     if (!s_active)
         return;
@@ -197,47 +182,45 @@ void ImGuiContextNewFrame(void)
 
     // Override whatever position raw (possibly warp-confused) motion
     // events produced with the game's own tracked position, before
-    // NewFrame() drains the queued input events -- see this function's
-    // declaration comment (ImGuiContext.h) for why.
-    if (s_mouse_position_fn != nullptr)
-    {
-        int64_t x = 0, y = 0;
-        s_mouse_position_fn(&x, &y);
-        ImGui::GetIO().AddMousePosEvent((double)x, (double)y);
-    }
+    // NewFrame() drains the queued input events -- the game's own mouse
+    // handling (bflib_inputctrl.cpp) grab-warps the OS cursor back toward
+    // the window centre whenever it nears an edge ("warp-based relative
+    // motion"), tracking its real logical position via accumulated deltas
+    // instead of the OS cursor's absolute position, so a raw motion event's
+    // absolute x/y doesn't reflect it.
+    ImGui::GetIO().AddMousePosEvent((double)GetMouseX(), (double)GetMouseY());
 
     ImGui::NewFrame();
 
     // ImGui's own built-in software cursor (io.MouseDrawCursor) is a
     // generic arrow -- visibly mismatched against the game's actual cursor
     // sprite everywhere else, found live. Draw that same sprite ourselves
-    // instead: io.MouseDrawCursor stays permanently false, and whenever
-    // the pointer is over ImGui content (§3.3: the game's own cursor is
-    // baked into the software backdrop *before* ImGui composites on top of
-    // it, so it needs a stand-in exactly then) the cursor image callback's
-    // texture is drawn via the foreground draw list, always on top
-    // regardless of which window is current. WantCaptureMouse reflects
-    // last frame's window layout (queried right after NewFrame, before
-    // this frame's content is submitted) -- the standard way to read it,
-    // and window layouts are stable frame to frame so the one-frame lag
-    // isn't visible in practice.
+    // instead, via the foreground draw list, always on top regardless of
+    // which window is current: io.MouseDrawCursor stays permanently false.
+    //
+    // docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md's cursor
+    // unification: this used to draw only while io.WantCaptureMouse or
+    // FrontendImGuiScreenOwned() was true, falling back to a second,
+    // entirely separate cursor mechanism the rest of the time --
+    // bflib_mspointer.cpp's LbI_PointerHandler blitting the sprite
+    // straight into the locked framebuffer, gated on the exact inverse
+    // condition. Two coexisting draws, kept from visibly doubling up only
+    // by those gates staying each other's precise complement -- found
+    // live to already be racy (R7, docs/refactor/renderer/gpu-v2/
+    // 08-risks.md): OnBeginSwap() (the old legacy draw) ran at the very
+    // start of PresentFrame(), before this frame's own begin_frame() had
+    // recomputed WantCaptureMouse, so a WantCaptureMouse transition
+    // between two frames could pass through a frame where both drew, or
+    // neither did. Now there is exactly one cursor mechanism, drawn
+    // unconditionally (gated only on a valid image existing at all, via
+    // s_cursor_have below) -- bflib_mspointer.cpp no longer draws
+    // anything, only tracks position/sprite/hotspot state (still needed:
+    // FeStyleGetCursorImage()'s call to LbMouseGetSprite() and
+    // GetPointerHotspot() below both read it).
     ImGuiIO &io = ImGui::GetIO();
     io.MouseDrawCursor = false;
     refresh_cursor_texture();
-    // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md: found live,
-    // "cursor only appears when hovering over menus, disappears over
-    // background" -- WantCaptureMouse alone is only true over the actual
-    // centred menu panel, not the surrounding backdrop area, which is
-    // itself drawn by ImGui now (draw_menu_backdrop(), frontgui_screens.cpp)
-    // but isn't a real window/doesn't set WantCaptureMouse. The legacy
-    // cursor draw that used to fall back to over that backdrop area
-    // (bflib_mspointer.cpp) gets painted over by that same backdrop image,
-    // drawn after it in the frame. ImGuiContextScreenOwned() is true for
-    // exactly those screens (no live legacy content underneath at all), so
-    // draw the ImGui cursor unconditionally there -- there's no legacy
-    // fallback left to defer to on any part of the screen.
-    bool want_cursor = io.WantCaptureMouse || ImGuiContextScreenOwned();
-    if (want_cursor && s_cursor_have && s_cursor_texture != nullptr && s_cursor_h > 0)
+    if (s_cursor_have && s_cursor_texture != nullptr && s_cursor_h > 0)
     {
         if (s_cursor_native_size)
         {
@@ -253,9 +236,11 @@ void ImGuiContextNewFrame(void)
         // The texture holds the sprite at its native pixel size (built
         // once, cached). This used to be rescaled through
         // scale_ui_value_lofi() -- the same legacy DK-asset scale
-        // LbI_PointerHandler::OnBeginSwap (bflib_mspointer.cpp) uses for the
-        // cursor outside ImGui content -- specifically to avoid a visible
-        // pop crossing the ImGui/legacy boundary. But that scale is tuned
+        // LbI_PointerHandler::OnBeginSwap (bflib_mspointer.cpp) used for
+        // the cursor outside ImGui content, back when that was a second,
+        // separate draw path (retired by the cursor-unification pass that
+        // added the comment above this block) -- specifically to avoid a
+        // visible pop crossing the ImGui/legacy boundary. But that scale is tuned
         // for bitmap UI stretched proportionally from a 640x400 reference
         // (units_per_pixel_ui, vidmode.c's update_screen_mode_data(): grows
         // roughly with io.DisplaySize.y/25), while ImGui content is laid
@@ -264,22 +249,8 @@ void ImGuiContextNewFrame(void)
         // The two happen to roughly agree around 640x480 (where this was
         // last tuned) but diverge sharply at higher resolutions -- found
         // live at 1080p+ as a cursor large enough to obscure the very
-        // button it's meant to click. Kfx_platform can't reach
-        // FeStylePushFont directly (kfx_config/kfx_frontend sit above it),
-        // so this re-derives the same shape locally against io.DisplaySize,
-        // trading the old "matches the legacy cursor exactly" guarantee for
-        // "stays clickable-sized against ImGui content", which matters more
-        // here since ImGui is where every clickable control now lives.
-        // Found live, twice, in opposite directions: 1.2x made the cursor
-        // "significantly too large" (tried right after switching the
-        // sprite source to MousePG_Arrow, frontgui_style.cpp), then 0.7x
-        // (tried as a smaller, more conservative correction) came back
-        // "tiny" once the black-cursor palette bug was also reported --
-        // the sprite source has since reverted to GFS_cursor_horny (same
-        // file's own comment), which has different native dimensions
-        // again, so neither prior data point necessarily still applies.
-        // 1.0x -- roughly matching body-text height -- is a fresh middle
-        // ground, not yet confirmed live either way.
+        // button it's meant to click. 1.0x -- roughly matching body-text
+        // height -- is the current middle ground.
         double ref_px = io.DisplaySize.y / 32.0;
         if (ref_px < 11.0) ref_px = 11.0;
         if (ref_px > 96.0) ref_px = 96.0;
@@ -299,7 +270,7 @@ void ImGuiContextNewFrame(void)
         ImGui::ShowDemoWindow(&s_demo_visible);
 }
 
-void ImGuiContextRender(void)
+void FrontendImGuiRender(void)
 {
     if (!s_active)
         return;
@@ -307,53 +278,23 @@ void ImGuiContextRender(void)
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), s_renderer);
 }
 
-void ImGuiContextSetDemoVisible(TbBool visible)
+void FrontendImGuiSetDemoVisible(TbBool visible)
 {
     s_demo_visible = (visible != 0);
 }
 
-TbBool ImGuiContextWantCaptureMouse(void)
+TbBool FrontendImGuiWantCaptureMouse(void)
 {
     if (!s_active)
         return 0;
     return ImGui::GetIO().WantCaptureMouse ? 1 : 0;
 }
 
-TbBool ImGuiContextWantCaptureKeyboard(void)
+TbBool FrontendImGuiWantCaptureKeyboard(void)
 {
     if (!s_active)
         return 0;
     return ImGui::GetIO().WantCaptureKeyboard ? 1 : 0;
-}
-
-void* ImGuiContextCreateTexture(int64_t width, int64_t height)
-{
-    if (!s_active || width <= 0 || height <= 0)
-        return nullptr;
-    SDL_Texture *tex = SDL_CreateTexture(s_renderer, SDL_PIXELFORMAT_RGBA32,
-        SDL_TEXTUREACCESS_STREAMING, width, height);
-    if (tex == nullptr)
-        return nullptr;
-    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
-    // Unlike the cursor's NEAREST (a small overlay meant to stay crisp at
-    // 1:1), this texture is scaled/zoomed map content -- LINEAR matches
-    // the plan doc's own §5.1 decision ("Ship the low-resolution chrome
-    // as-is. Linear filtering...") for upscaled art in this migration.
-    SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_LINEAR);
-    return (void*)tex;
-}
-
-void ImGuiContextUpdateTexture(void *texture, const void *rgba_data, int64_t width, int64_t height)
-{
-    if (texture == nullptr || rgba_data == nullptr)
-        return;
-    SDL_UpdateTexture((SDL_Texture*)texture, nullptr, rgba_data, width * 4);
-}
-
-void ImGuiContextDestroyTexture(void *texture)
-{
-    if (texture != nullptr)
-        SDL_DestroyTexture((SDL_Texture*)texture);
 }
 
 } // extern "C"

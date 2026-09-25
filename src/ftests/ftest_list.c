@@ -42,6 +42,7 @@
 #include "tests/ftest_editor_session.h"
 #include "tests/ftest_editor_brush.h"
 #include "tests/ftest_skirmish_setup.h"
+#include "tests/ftest_harness_setup_failure.h"
 #include "tests/ftest_config_content.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
 
@@ -89,6 +90,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="editor_brush",                         .init_func=ftest_editor_brush_init,                     .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="skirmish_setup_override",              .init_func=ftest_skirmish_setup_init,                   .pre_start_func=ftest_skirmish_setup_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="skirmish_setup_locks",                 .init_func=ftest_skirmish_setup_locks_init,             .pre_start_func=ftest_skirmish_setup_locks_pre_start,   .level_file="dk2maps",  .level=220, .frame_skip=8 },
+         { .test_name="harness_setup_failure",                .init_func=ftest_harness_setup_failure_init,            .pre_start_func=ftest_harness_setup_failure_pre_start,  .level_file="keeporig", .level=1,   .frame_skip=8 },
          { .test_name="config_content_anchor",                 .init_func=ftest_config_content_anchor_init,            .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="config_content_readback",              .init_func=ftest_config_content_readback_init,          .pre_start_func=ftest_config_content_readback_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
          { .test_name="config_content_reset",                 .init_func=ftest_config_content_reset_init,             .pre_start_func=ftest_config_content_reset_pre_start,    .level_file="keeporig", .level=1, .frame_skip=8 },

@@ -27,10 +27,10 @@ TbBool frontend_imgui_screen_active(int64_t state);
 // ImGui isn't driving `state`.
 void FrontendImGuiLandPreviewInput(int64_t state);
 
-// The registered RendererImGuiFrameFn callback (RendererManager.h):
-// dispatches to the active migrated screen's submission, plus the Phase B
-// style-sheet debug overlay (independent of migration state -- see
-// frontgui_stylesheet_test.h).
+// The submit member of main.cpp's RendererImGuiCallbacks (via app_imgui_frame,
+// renderer/RendererManager.h): dispatches to the active migrated screen's
+// submission, plus the Phase B style-sheet debug overlay (independent of
+// migration state -- see frontgui_stylesheet_test.h).
 void FrontendImGuiFrame(void);
 
 // docs/refactor/ingame-gui/02-pause-menu-and-options.md: submit the shared

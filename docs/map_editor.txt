@@ -160,7 +160,12 @@ Save As offers that campaign. In the Map Editor, File > Save As can save into an
 The Land view tab shows the campaign's land picture with every level's ensign: pick a level, then click or drag on the
 picture to place its ensign (overview position, or the zoom position). A land-view picture can be a PNG (1280 x 960)
 named like the image (rgmap01.png): the game and the editor use it instead of rgmap01.raw + rgmap01.pal.
+The Campaign Editor also lists free-play and multiplayer map packs (a pack's levels are the map files of its folder);
+"New campaign..." can create a campaign or a pack, and "Copy / move to..." copies a level (all of its files) to another campaign or
+pack under a new number (a move also takes it out of the source campaign's lists; map files are never deleted).
 "Give this campaign its own configuration" copies shared configuration folders so the campaign no longer shares them.
+A pack's Levels page can also Play a level directly: a free-play level starts as a normal game, a multiplayer level
+plays with the default computer AI filling the other dungeons (the same way Skirmish does), labelled "Play (with default AI)".
 
 Note for campaign authors: a campaign's own files live beside its levels; edit
 them with the campaign selected, not the individual level.

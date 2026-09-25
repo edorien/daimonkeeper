@@ -5,7 +5,8 @@
 #include "config.h"        // prepare_file_path
 #include "config_keeperfx.h" // keeperfx_ui_config.ui_font_scale_pct
 #include "bflib_fileio.h"  // LbFileExists, LbFileFindFirst
-#include "renderer/RendererManager.h" // ImGuiCursorImage, RendererSwapFramebufferTarget/RestoreFramebufferTarget
+#include "renderer/RendererManager.h" // RendererSwapFramebufferTarget/RestoreFramebufferTarget
+#include "gui/FrontendImGui.h" // ImGuiCursorImage
 #include "bflib_video.h"   // TbGraphicsWindow, LbScreen{Store,Load,Set}GraphicsWindow
 #include "bflib_vidraw.h"  // LbSpriteDrawImmediate
 #include "bflib_sprite.h"  // struct TbSprite
@@ -555,14 +556,16 @@ namespace {
 
 namespace {
     // ---- in-game cursor: mirror the game's *current* pointer sprite -----
-    // Over an ImGui panel / the parchment map the game's own framebuffer
-    // cursor is hidden, so ImGui draws the cursor itself -- and it must be
-    // whatever the game currently has (arrow / pickaxe / power hand / a
-    // per-spell pointer / deny mark), not the frontend gauntlet. In-game
-    // the pointer_sprites decode correctly against the ambient (engine)
-    // palette, so no palette override is needed here (unlike the frontend
-    // GFS_cursor_horny path). Scaled to scale_ui_value_lofi() -- the same
-    // size LbI_PointerHandler draws it at outside ImGui content.
+    // ImGui draws the cursor unconditionally now (docs/refactor/renderer/
+    // gpu-v2/01-phase-b-2d-compositing.md's cursor unification -- see
+    // gui/FrontendImGui.cpp), so it must be whatever the game currently
+    // has (arrow / pickaxe / power hand / a per-spell pointer / deny
+    // mark), not the frontend gauntlet. In-game the pointer_sprites decode
+    // correctly against the ambient (engine) palette, so no palette
+    // override is needed here (unlike the frontend GFS_cursor_horny
+    // path). Scaled to scale_ui_value_lofi() -- the same size the
+    // now-retired legacy framebuffer cursor (LbI_PointerHandler,
+    // bflib_mspointer.cpp) used to draw it at.
     std::vector<TbPixel> s_ig_cursor_pixels;
     int64_t s_ig_w = 0, s_ig_h = 0;
     const void *s_ig_last_spr = nullptr;

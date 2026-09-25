@@ -18,6 +18,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "engine_lenses.h"
+#include "renderer/WorldFrame.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
@@ -77,10 +78,13 @@ void perspective_standard(struct XYZ *cor, struct PolyPoint *ppt)
     ppt->X = view_width_over_2 + cor->x;
     ppt->Y = view_height_over_2 - cor->y;
   }
+  ppt->Z = worldframe_depth_from_view_z(cor->z);
 }
 
 void perspective_fisheye(struct XYZ *cor, struct PolyPoint *ppt)
-{ }
+{
+    ppt->Z = worldframe_depth_from_view_z(cor->z);
+}
 
 void pers_set_transform_matrix(struct EngineCoord *epos, const struct M33 *matx)
 {

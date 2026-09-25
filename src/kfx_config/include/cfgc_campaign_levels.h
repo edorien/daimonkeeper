@@ -65,4 +65,8 @@ ChangeSet cfgc_default_entry(int64_t level, int64_t slot, const std::string &nam
  *  when it has none. An already listed level only gets the entry. `changed` (may be null) says whether the text differs. */
 std::string cfgc_campaign_add_level(const std::string &file_text, int64_t n, CampaignListKind kind, const std::string &name, bool *changed);
 
+/** The campaign file text with level `n` taken out of the lists (a single level's bonus level goes with it; a bonus level only frees its
+ *  slot) and, with `remove_entry`, its `[mapNNNNN]` entry removed. `changed` (may be null) says whether the text differs. */
+std::string cfgc_campaign_remove_level(const std::string &file_text, int64_t n, bool remove_entry, bool *changed);
+
 #endif

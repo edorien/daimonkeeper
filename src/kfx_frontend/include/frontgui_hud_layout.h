@@ -40,9 +40,11 @@ enum HudBottomWidthMode {
 };
 
 // Minimal only (docs/refactor/ingame-gui/13-minimal-layout.md): which upper
-// corner the minimap (+ gold + event markers, stacked with it) sits in. The
-// button cluster + pop-up panel always take the diagonally opposite
-// (bottom) corner -- one setting drives both, not two independent choices.
+// corner a cluster sits in. Used for both the minimap (+ gold + event
+// markers) cluster and, independently, the button cluster + pop-up panel --
+// build_minimal() takes one of these for each (MINIMAP_CORNER /
+// PANEL_CORNER, config_keeperfx.h), so either may take either corner,
+// including both sharing one.
 enum HudMinimalCorner {
     HudMinimalCorner_UpperLeft = 0,  // default
     HudMinimalCorner_UpperRight,
@@ -83,21 +85,24 @@ struct HudLayout {
 
 // Recompute every region rect for `kind` at the given display size.
 // `b_width_mode` only matters for HudLayout_HorizontalBottom (see
-// HudBottomWidthMode above); `corner` only matters for HudLayout_Minimal
-// (see HudMinimalCorner above) -- pass HudBottomWidth_Normal /
-// HudMinimalCorner_UpperLeft for every kind they don't apply to. Cheap --
-// call it on resize / layout switch / width-mode / corner change, not per
-// frame.
+// HudBottomWidthMode above); `corner` (the minimap cluster) and
+// `panel_corner` (the button cluster + pop-up) only matter for
+// HudLayout_Minimal (see HudMinimalCorner above) -- pass
+// HudBottomWidth_Normal / HudMinimalCorner_UpperLeft for every kind/param
+// they don't apply to. Cheap -- call it on resize / layout switch /
+// width-mode / corner change, not per frame.
 void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, double display_w, double display_h);
+                      HudMinimalCorner corner, HudMinimalCorner panel_corner,
+                      double display_w, double display_h);
 
 // The process-wide current layout, rebuilt by hud_layout_frame() when
-// `kind`, `b_width_mode`, `corner`, or the display size changes.
+// `kind`, `b_width_mode`, either corner, or the display size changes.
 // hud_layout_frame() must run once per ImGui frame before any region is
 // laid out.
 const HudLayout &hud_layout_current(void);
 void hud_layout_frame(HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, double display_w, double display_h);
+                      HudMinimalCorner corner, HudMinimalCorner panel_corner,
+                      double display_w, double display_h);
 inline const HudRect &hud_region_rect(HudRegion r) { return hud_layout_current().region[r]; }
 
 #endif // __cplusplus

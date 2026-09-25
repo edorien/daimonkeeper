@@ -20,6 +20,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "renderer/RendererManager.h"
+#include "renderer/WorldFrame.h"
 #include "bflib_vidraw.h"
 
 #include <string.h>
@@ -1235,6 +1236,16 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int64_t s
 TbResult LbSpriteDrawRemapUsingScalingData(int64_t posx, int64_t posy, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing at (%" PRId64 ",%" PRId64 ")",(int64_t)(posx),(int64_t)(posy));
+    {
+        // gpu-v2 Phase C.2: record for the GPU world frame instead, when one is being built.
+        const int64_t draw_flags = RendererGetDrawFlags();
+        uint32_t mode = WFS_SOLID;
+        if ((draw_flags & Lb_SPRITE_TRANSPAR4) != 0) mode = WFS_GHOST1;
+        else if ((draw_flags & Lb_SPRITE_TRANSPAR8) != 0) mode = WFS_GHOST2;
+        const TbPixel no_colour = { 0, 0, 0, 0 };
+        if (SwCaptureSprite(posx, posy, src_buf->data, src_buf->width, src_buf->height, mode, cmap, no_colour))
+            return 0;
+    }
     int64_t *xstep;
     int64_t *ystep;
     int64_t scanline;

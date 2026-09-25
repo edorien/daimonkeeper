@@ -227,20 +227,6 @@ TbResult LbMouseSuspend(void)
   return Lb_SUCCESS;
 }
 
-TbResult LbMouseOnBeginSwap(void)
-{
-    if (!pointerHandler.PointerBeginSwap())
-        return Lb_FAIL;
-    return Lb_SUCCESS;
-}
-
-TbResult LbMouseOnEndSwap(void)
-{
-    if (!pointerHandler.PointerEndSwap())
-        return Lb_FAIL;
-    return Lb_SUCCESS;
-}
-
 void mouseControl(uint64_t action, struct TbPoint *pos)
 {
     struct TbPoint dstPos;

@@ -22,15 +22,11 @@
 #include "bflib_basics.h"
 #include "bflib_fileio.h"
 #include "bflib_dernc.h"
-#include "bflib_fmvids.h"
 #include "bflib_video.h"
-#include "bflib_sprite.h"
-#include "bflib_sprfnt.h"
 #include "bflib_vidsurface.h"
 #include "globals.h"
 
 #include "sim_feedback.h"
-#include "render_overlay.h"
 #include "config.h"
 
 #include <string.h>
@@ -40,26 +36,18 @@
 /******************************************************************************/
 
 unsigned char screenshot_format = 1;
-unsigned char cap_palette[768];
 
 /******************************************************************************/
+// docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md B2:
+// RendererScheduleScreenshot() no longer touches lbDrawSurface here at
+// all -- the actual capture happens later, post-composite, inside
+// RendererSoftware::PresentFrame() (so it sees the ImGui overlay). The
+// old LbScreenIsLocked()/RendererLockFramebuffer() dance existed only to
+// guarantee lbDrawSurface was safe to read synchronously right here,
+// which is meaningless now that this just queues a request.
 TbBool take_screenshot(char *fname)
 {
-    TbBool lock_mem = LbScreenIsLocked();
-    if (!lock_mem)
-    {
-        if (RendererLockFramebuffer() != Lb_SUCCESS)
-        {
-            ERRORLOG("Can't lock canvas");
-            return false;
-        }
-    }
-    TbBool success = RendererScheduleScreenshot(fname, screenshot_format);
-    if (!lock_mem)
-    {
-        RendererUnlockFramebuffer();
-    }
-    return success;
+    return RendererScheduleScreenshot(fname, screenshot_format);
 }
 
 TbBool cumulative_screen_shot(void)
@@ -103,40 +91,8 @@ TbBool cumulative_screen_shot(void)
     return ret;
 }
 
-TbBool movie_record_start(void)
-{
-  if ( anim_record() )
-  {
-      set_flag(kfx_sim_state.system_flags, GSF_CaptureMovie);
-      return true;
-  }
-  return false;
-}
-
-TbBool movie_record_stop(void)
-{
-    clear_flag(kfx_sim_state.system_flags, GSF_CaptureMovie);
-    anim_stop();
-    return true;
-}
-
-TbBool movie_record_frame(void)
-{
-    int64_t lock_mem = LbScreenIsLocked();
-    if (!lock_mem)
-    {
-        if (RendererLockFramebuffer() != Lb_SUCCESS)
-            return false;
-  }
-  RendererPaletteGet(cap_palette);
-  int64_t result = anim_record_frame(RendererGetFramebuffer(), cap_palette);
-  if (!lock_mem)
-    RendererUnlockFramebuffer();
-  return result;
-}
-
 /**
- * Captures the screen to make a gameplay movie or screenshot image.
+ * Captures the screen to make a screenshot image.
  * @return Returns 0 if no capturing was performed, nonzero otherwise.
  */
 TbBool perform_any_screen_capturing(void)
@@ -147,16 +103,18 @@ TbBool perform_any_screen_capturing(void)
       captured |= cumulative_screen_shot();
       clear_flag(kfx_sim_state.system_flags, GSF_CaptureSShot);
     }
-    if ((kfx_sim_state.system_flags & GSF_CaptureMovie) != 0)
-    {
-      captured |= movie_record_frame();
-    }
-    // Draw a text with bitmap font
-    if (captured) {
-        //Set font; if winfont isn't loaded, it should be NULL, so text will just be invisible
-        render_overlay->set_winfont();
-        LbTextDraw(600*units_per_pixel/16, 4*units_per_pixel/16, "REC");
-    }
+    // docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md B2:
+    // movie recording (GSF_CaptureMovie) retired -- nothing sets that
+    // flag any more, see kfx_sim_state.h's own comment on it. The "REC"
+    // flash this used to draw here (via LbTextDraw, straight into
+    // lbDrawSurface) is dropped rather than ported to an ImGui draw:
+    // cumulative_screen_shot() above already raises a "File saved"/
+    // "Cannot save" on-screen message through show_onscreen_msg(), which
+    // -- unlike this legacy CPU-buffer text -- is already correctly
+    // composited (via the in-game ImGui HUD's text overlay,
+    // frontgui_ingame_text.cpp, for every migrated session) and visible
+    // in a post-composite screenshot; a second, purely decorative "REC"
+    // indicator would be redundant with it.
     return captured;
 }
 

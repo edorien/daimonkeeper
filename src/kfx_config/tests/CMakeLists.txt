@@ -31,10 +31,6 @@ target_link_libraries(kfx_config_utest PRIVATE
     tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --
                      # kfx_platform now links bflib_filedialogs.cpp, which
                      # needs tinyfiledialogs's compiled object.
-    imgui # kfx_platform's ImGuiContext.cpp (and, transitively for some
-          # *_utest targets, kfx_frontend's frontgui_*.cpp) reference imgui
-          # symbols -- same two-levels-of-INTERFACE-indirection object-linking
-          # gap as centitoml above.
     Catch2::Catch2WithMain)
 target_include_directories(kfx_config_utest PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 

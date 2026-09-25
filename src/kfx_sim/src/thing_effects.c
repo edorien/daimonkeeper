@@ -173,6 +173,7 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
         ilght.intensity = eestat->light_intensity;
         ilght.is_dynamic = 1;
         ilght.flags = eestat->light_flags;
+        ilght.colour_r = eestat->light_colour_r; ilght.colour_g = eestat->light_colour_g; ilght.colour_b = eestat->light_colour_b;
         thing->light_id = sim_feedback->light_create_light(&ilght);
         if (thing->light_id <= 0) {
             SYNCDBG(8,"Cannot allocate dynamic light to %s.",thing_model_name(thing));

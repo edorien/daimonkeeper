@@ -21,6 +21,7 @@
 #include "pre_inc.h"
 #include "renderer/software/SwDrawTarget.h"
 #include "renderer/RendererManager.h"
+#include "renderer/WorldFrame.h" // WorldFrameSpriteMode
 #include "bflib_vidraw.h"
 
 #include <string.h>
@@ -64,10 +65,14 @@ unsigned char *dither_end;
 TbPixel *lbSpriteReMapPtr;
 TbPixel lbSpriteRemapTable[256];
 int64_t scale_up;
+/* What the current lbSpriteRemapTable holds: a plain shade table (the per-pixel-lit capture path can
+ * undo it and shade per pixel instead) or something else (tint, flash, ghost). */
+static int lb_remap_is_shade = 0;
 /******************************************************************************/
 
 void SetupSpriteRemapGhost(uint8_t ref_index, uint8_t strength)
 {
+    lb_remap_is_shade = 0;
     const unsigned char *palette = RendererGetActivePalette();
     /* resolve_indexed_pixel(), not expand_indexed_pixel(): ref_index is a tint
      * reference colour, not a sprite texel, so palette index 0 is a normal
@@ -89,6 +94,7 @@ void SetupSpriteRemapGhost(uint8_t ref_index, uint8_t strength)
 
 void SetupSpriteRemapShade(int64_t shade)
 {
+    lb_remap_is_shade = 1;
     const unsigned char *palette = RendererGetActivePalette();
     for (int64_t i = 0; i < 256; i++) {
         lbSpriteRemapTable[i] = render_shade(expand_indexed_pixel((uint8_t)i, palette), shade);
@@ -98,6 +104,7 @@ void SetupSpriteRemapShade(int64_t shade)
 
 void SetupSpriteRemapWhiteFlash(void)
 {
+    lb_remap_is_shade = 0;
     const unsigned char *palette = RendererGetActivePalette();
     for (int64_t i = 0; i < 256; i++) {
         lbSpriteRemapTable[i] = render_flash_blend(expand_indexed_pixel((uint8_t)i, palette), 48, 48, 48);
@@ -107,6 +114,7 @@ void SetupSpriteRemapWhiteFlash(void)
 
 void SetupSpriteRemapRedFlash(void)
 {
+    lb_remap_is_shade = 0;
     const unsigned char *palette = RendererGetActivePalette();
     for (int64_t i = 0; i < 256; i++) {
         lbSpriteRemapTable[i] = render_flash_blend(expand_indexed_pixel((uint8_t)i, palette), 20, -10, -10);
@@ -170,6 +178,9 @@ void LbDrawHVLine(int64_t xpos1, int64_t ypos1, int64_t xpos2, int64_t ypos2, Tb
     if ( ypos2 > height_max )
       ypos2 = SwTargetWindowHeight() - 1;
   }
+  if (!(RendererGetDrawFlags() & (Lb_SPRITE_TRANSPAR4 | Lb_SPRITE_TRANSPAR8)) &&
+      SwCaptureRect(xpos1, ypos1, xpos2 - xpos1 + 1, ypos2 - ypos1 + 1, colour))
+    return;
   //And now to drawing
   TbPixel *screen_ptr = SwTargetGraphicsWindowPtr() + xpos1 +
           SwTargetScanline() * ypos1;
@@ -269,6 +280,7 @@ void LbDrawBoxClip(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixe
   if ( (int64_t)height <= 0 )
       return;
 
+  const int64_t ypos_clipped = ypos;
   ypos = SwTargetScanline() * (SwTargetWindowY() + ypos);
   int64_t xpos = x;
   if ( x >= SwTargetWindowWidth() )
@@ -281,6 +293,9 @@ void LbDrawBoxClip(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixe
   if ( (int64_t)(width + xpos) > SwTargetWindowWidth() )
       width -= width + xpos - SwTargetWindowWidth();
   if ( (int64_t)width <= 0 )
+      return;
+  if (!(RendererGetDrawFlags() & (Lb_SPRITE_TRANSPAR4 | Lb_SPRITE_TRANSPAR8)) &&
+      SwCaptureRect(xpos, ypos_clipped, (int64_t)width, (int64_t)height, colour))
       return;
   //And now let's start drawing
   TbPixel *screen_ptr = &SwTargetWScreen()[SwTargetWindowX()] + xpos + ypos;
@@ -1834,6 +1849,8 @@ int64_t LbTiledSpriteHeight(struct TiledSprite *bigspr, PanelSpriteLookupFn pane
 
 void LbDrawPixel(int64_t x, int64_t y, TbPixel colour)
 {
+    if (SwCaptureRect(x, y, 1, 1, colour))
+        return;
     SwTargetGraphicsWindowPtr()[x + SwTargetScanline() * y] = colour;
 }
 
@@ -2086,6 +2103,132 @@ void LbDrawCircle(int64_t x, int64_t y, int64_t radius, TbPixel colour)
         LbDrawCircleOutline(x, y, radius, colour);
     else
         LbDrawCircleFilled(x, y, radius, colour);
+}
+
+/******************************************************************************/
+/* gpu-v2 Phase C.2: while a GPU world frame is being recorded (see
+ * RendererWorldFrameBegin()), the scaled-sprite dispatchers call this instead
+ * of rasterizing. It turns the scaling step tables the CPU path would have
+ * used (xsteps_array/ysteps_array, already flipped/clipped for this draw)
+ * into per-destination-column/row source lookups, so the GPU reproduces the
+ * same source->destination pixel mapping, and records the sprite through
+ * RendererWorldFrameAddSprite(). Returns true when the draw was recorded (the
+ * caller then skips its CPU rasterization), false to let the CPU draw. */
+#define CAPTURE_MAX_DST 4096
+TbBool SwCaptureSprite(int64_t posx, int64_t posy, const unsigned char *rle, int64_t width, int64_t height,
+                       uint32_t mode, const TbPixel *cmap, TbPixel colour)
+{
+    static uint16_t xmap[CAPTURE_MAX_DST];
+    static uint16_t ymap[CAPTURE_MAX_DST];
+    static uint32_t cmap32[256];
+
+    if (!RendererWorldFrameCapturing() || rle == NULL || width <= 0 || height <= 0)
+        return false;
+    // Sprite coordinates are relative to the graphics window; the recorded
+    // frame is relative to the rasterizer's vec window. They coincide while
+    // the engine draws the world view -- if not, leave this draw to the CPU.
+    if (SwTargetGraphicsWindowPtr() != RendererWorldFrameWindow())
+        return false;
+
+    const int64_t flags = RendererGetDrawFlags();
+    const TbBool flip_h = (flags & Lb_SPRITE_FLIP_HORIZ) != 0;
+    const TbBool flip_v = (flags & Lb_SPRITE_FLIP_VERTIC) != 0;
+
+    int64_t min_x = INT64_MAX, max_x = INT64_MIN, min_y = INT64_MAX, max_y = INT64_MIN;
+    for (int64_t j = 0; j < width; j++)
+    {
+        const int64_t idx = flip_h ? (posx + width - 1 - j) : (posx + j);
+        if (idx < 0 || idx >= SPRITE_SCALING_XSTEPS) continue;
+        const int64_t pos = xsteps_array[2 * idx], dup = xsteps_array[2 * idx + 1];
+        if (dup <= 0) continue;
+        if (pos < min_x) min_x = pos;
+        if (pos + dup > max_x) max_x = pos + dup;
+    }
+    for (int64_t j = 0; j < height; j++)
+    {
+        const int64_t idx = flip_v ? (posy + height - 1 - j) : (posy + j);
+        if (idx < 0 || idx >= SPRITE_SCALING_YSTEPS) continue;
+        const int64_t pos = ysteps_array[2 * idx], dup = ysteps_array[2 * idx + 1];
+        if (dup <= 0) continue;
+        if (pos < min_y) min_y = pos;
+        if (pos + dup > max_y) max_y = pos + dup;
+    }
+    if (max_x <= min_x || max_y <= min_y)
+        return true; // fully clipped away: nothing to draw, nothing left for the CPU either
+    const int64_t dst_w = max_x - min_x, dst_h = max_y - min_y;
+    if (dst_w > CAPTURE_MAX_DST || dst_h > CAPTURE_MAX_DST || width > 0xFFFE || height > 0xFFFE)
+        return false;
+
+    for (int64_t i = 0; i < dst_w; i++) xmap[i] = 0xFFFF;
+    for (int64_t i = 0; i < dst_h; i++) ymap[i] = 0xFFFF;
+    for (int64_t j = 0; j < width; j++)
+    {
+        const int64_t idx = flip_h ? (posx + width - 1 - j) : (posx + j);
+        if (idx < 0 || idx >= SPRITE_SCALING_XSTEPS) continue;
+        const int64_t pos = xsteps_array[2 * idx], dup = xsteps_array[2 * idx + 1];
+        for (int64_t k = 0; k < dup; k++)
+            if (pos + k >= min_x && pos + k < max_x) xmap[pos + k - min_x] = (uint16_t)j;
+    }
+    for (int64_t j = 0; j < height; j++)
+    {
+        const int64_t idx = flip_v ? (posy + height - 1 - j) : (posy + j);
+        if (idx < 0 || idx >= SPRITE_SCALING_YSTEPS) continue;
+        const int64_t pos = ysteps_array[2 * idx], dup = ysteps_array[2 * idx + 1];
+        for (int64_t k = 0; k < dup; k++)
+            if (pos + k >= min_y && pos + k < max_y) ymap[pos + k - min_y] = (uint16_t)j;
+    }
+
+    const uint32_t *cmap_ptr = NULL;
+    if (cmap != NULL)
+    {
+        for (int i = 0; i < 256; i++)
+            cmap32[i] = (uint32_t)cmap[i].r | ((uint32_t)cmap[i].g << 8) | ((uint32_t)cmap[i].b << 16) | ((uint32_t)cmap[i].a << 24);
+        cmap_ptr = cmap32;
+    }
+    uint32_t rgba = (uint32_t)colour.r | ((uint32_t)colour.g << 8) | ((uint32_t)colour.b << 16) | ((uint32_t)colour.a << 24);
+    // Per-pixel lighting (see RendererSpriteLightSet): an opaque thing sprite is recorded as WFS_LIT with
+    // its base shade so the GPU can light it per pixel -- with its palette colours if it was plainly shaded,
+    // or its tint/flash colour table if it was tinted.
+    const int64_t lit_shade = RendererSpriteLightGet();
+    if (mode == WFS_SOLID && lit_shade >= 0 && RendererWorldFrameHasLighting() &&
+        (cmap == NULL || cmap == lbSpriteReMapPtr))
+    {
+        mode = WFS_LIT;
+        if (cmap != NULL && lb_remap_is_shade)
+            cmap_ptr = NULL; // a plain shade table: use the palette colours and shade per pixel instead
+        // else: a tint / flash table -- kept as the sprite's colour table, lit on top of it
+        rgba = (uint32_t)lit_shade; // base shade x256 (8.8)
+    }
+    RendererWorldFrameAddSprite(rle, (int32_t)width, (int32_t)height, (int32_t)min_x, (int32_t)min_y, (int32_t)dst_w, (int32_t)dst_h,
+                                xmap, ymap, cmap_ptr, mode, rgba);
+    return true;
+}
+
+/* gpu-v2 Phase C.5: a solid rectangle (window-relative, clipped to the window)
+ * drawn while a world frame is being recorded -- selection outlines, health
+ * bars, room flags -- recorded as a one-colour 1x1 sprite stretched to the rect,
+ * so it lands in painter's order between the terrain/sprites around it instead
+ * of on top of everything. Returns true when recorded (or fully clipped). */
+static const unsigned char capture_solid_1x1[3] = { 1, 1, 0 };
+static uint16_t capture_zero_map[CAPTURE_MAX_DST];
+TbBool SwCaptureRect(int64_t x, int64_t y, int64_t w, int64_t h, TbPixel colour)
+{
+    if (!RendererWorldFrameCapturing() || colour.a != 255)
+        return false;
+    if (SwTargetGraphicsWindowPtr() != RendererWorldFrameWindow())
+        return false;
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > SwTargetWindowWidth()) w = SwTargetWindowWidth() - x;
+    if (y + h > SwTargetWindowHeight()) h = SwTargetWindowHeight() - y;
+    if (w <= 0 || h <= 0)
+        return true;
+    if (w > CAPTURE_MAX_DST || h > CAPTURE_MAX_DST)
+        return false;
+    const uint32_t rgba = (uint32_t)colour.r | ((uint32_t)colour.g << 8) | ((uint32_t)colour.b << 16) | ((uint32_t)colour.a << 24);
+    RendererWorldFrameAddSprite(capture_solid_1x1, 1, 1, (int32_t)x, (int32_t)y, (int32_t)w, (int32_t)h,
+                                capture_zero_map, capture_zero_map, NULL, WFS_ONECOLOUR, rgba);
+    return true;
 }
 
 void setup_steps(int64_t posx, int64_t posy, const struct TbSourceBuffer * src_buf, int64_t **xstep, int64_t **ystep, int64_t *scanline)

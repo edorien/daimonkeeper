@@ -1033,8 +1033,9 @@ bool minimal_cluster_button(const char *sid, int64_t spr, bool colorize, const c
 
 // `anchor` is HudRegion_TabStrip's nominal rect -- both its corners are
 // the same point (build_minimal()'s own construction), read as the
-// auto-resize window's pivot: bottom-right if the cluster is in the
-// bottom-right (minimap upper-left), bottom-left if upper-right.
+// auto-resize window's pivot: bottom-right if `cluster_on_right`
+// (PANEL_CORNER == upper-right), bottom-left otherwise. Independent of
+// where the minimap cluster sits (MINIMAP_CORNER).
 void draw_button_cluster_minimal(const HudRect &anchor, bool cluster_on_right)
 {
     struct TabSpec {
@@ -1109,6 +1110,7 @@ void draw_panel_minimal(const HudLayout &hl)
     // drew fine, which is what made this specific bug non-obvious).
     const HudRect whole = { mm_r.x0, mm_r.y0, mm_r.x1, ev_r.y1 };
     const bool corner_on_right = (keeperfx_ui_config.minimap_corner == 2); // HudMinimalCorner_UpperRight
+    const bool panel_on_right = (keeperfx_ui_config.panel_corner == 2); // HudMinimalCorner_UpperRight -- independent of corner_on_right
 
     // Framebuffer-swap raster -- must run before any ImGui window is open.
     const auto saved_menu_rect = s_menu_rect;
@@ -1138,8 +1140,9 @@ void draw_panel_minimal(const HudLayout &hl)
 
     ImGui::End();
 
-    // Diagonally opposite (bottom) corner -- own window, own pivot.
-    draw_button_cluster_minimal(hl.region[HudRegion_TabStrip], !corner_on_right);
+    // Its own (bottom) corner, independent of the minimap's -- own window,
+    // own pivot (PANEL_CORNER, config_keeperfx.h).
+    draw_button_cluster_minimal(hl.region[HudRegion_TabStrip], panel_on_right);
 
     const HudRect &tc = hl.region[HudRegion_TabContent];
     ingame_tabcontent_draw(tc.x0, tc.y0, tc.w(), tc.h());
@@ -1218,7 +1221,8 @@ void ingame_panel_frame(void)
     {
         const ImGuiIO &io = ImGui::GetIO();
         hud_layout_frame(HudLayout_HorizontalBottom, determine_bottom_width_mode(),
-                         HudMinimalCorner_UpperLeft, io.DisplaySize.x, io.DisplaySize.y);
+                         HudMinimalCorner_UpperLeft, HudMinimalCorner_UpperLeft,
+                         io.DisplaySize.x, io.DisplaySize.y);
         draw_panel_horizontal(hud_layout_current());
     }
     else if (keeperfx_ui_config.hud_position == 4) // HudPos_Minimal
@@ -1226,7 +1230,10 @@ void ingame_panel_frame(void)
         const ImGuiIO &io = ImGui::GetIO();
         const HudMinimalCorner corner = (keeperfx_ui_config.minimap_corner == 2)
             ? HudMinimalCorner_UpperRight : HudMinimalCorner_UpperLeft;
-        hud_layout_frame(HudLayout_Minimal, HudBottomWidth_Normal, corner, io.DisplaySize.x, io.DisplaySize.y);
+        const HudMinimalCorner panel_corner = (keeperfx_ui_config.panel_corner == 2)
+            ? HudMinimalCorner_UpperRight : HudMinimalCorner_UpperLeft;
+        hud_layout_frame(HudLayout_Minimal, HudBottomWidth_Normal, corner, panel_corner,
+                         io.DisplaySize.x, io.DisplaySize.y);
         draw_panel_minimal(hud_layout_current());
     }
     else

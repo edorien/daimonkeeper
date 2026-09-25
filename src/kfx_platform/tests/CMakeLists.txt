@@ -18,13 +18,21 @@ target_link_libraries(kfx_platform_utest PRIVATE
     kfx_platform
     kfx_bfdebug_std
     kfx_common_opts
-    imgui # same two-levels-of-INTERFACE-indirection object-linking gap as
-          # centitoml elsewhere (root CMakeLists.txt) -- kfx_platform now
-          # links ImGuiContext.cpp, which needs imgui's compiled object.
-    tinyfiledialogs # same gap -- kfx_platform now links
+    # No imgui link here any more -- docs/refactor/renderer/
+    # 05-imgui-linkage-consolidation.md moved ImGui context/backend
+    # ownership (gui/ImGuiContext.cpp) out of kfx_platform into
+    # kfx_frontend's gui/FrontendImGui.cpp; nothing left in kfx_platform
+    # references an imgui symbol.
+    tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml
+                    # elsewhere (root CMakeLists.txt) -- kfx_platform now links
                     # bflib_filedialogs.cpp, which needs tinyfiledialogs's
                     # compiled object.
     Catch2::Catch2WithMain)
+
+# Manual GPU verification program (see its header comment) -- deliberately not
+# registered with ctest: it needs a real Vulkan device and a window.
+add_executable(gpu3d_verify gpu/gpu3d_verify.cpp)
+target_link_libraries(gpu3d_verify PRIVATE kfx_platform kfx_bfdebug_std kfx_common_opts tinyfiledialogs)
 
 include(CTest)
 include(Catch)

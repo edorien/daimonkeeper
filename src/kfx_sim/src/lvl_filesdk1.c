@@ -1001,6 +1001,12 @@ TbBool update_slabset_column_indices(struct Column *cols, int64_t ccount)
 {
     struct Column lcolmn;
     memset(&lcolmn,0,sizeof(struct Column));
+    // slabset.toml/columnset.toml are fixed, session-wide config -- a gap between them doesn't
+    // change across the many level (re)loads that call this function, so re-logging the exact
+    // same missing IDs on every single call is pure noise (and, at scale, a real performance
+    // problem: it has driven a single ftest into writing 300k+ duplicate log lines). Report each
+    // missing column ID once per process instead.
+    static unsigned char s_warned_missing_column[COLUMNS_COUNT / 8 + 1];
     for (int64_t i = 0; i < kfx_sim_state.slabset_num; i++)
     {
         struct SlabSet* sset = &kfx_sim_state.slabset[i];
@@ -1026,7 +1032,13 @@ TbBool update_slabset_column_indices(struct Column *cols, int64_t ccount)
                     ncol = 0;
                 if (ncol == 0)
                 {
-                    ERRORLOG("column:%" PRId64 " referenced in slabset.toml but not present in columnset.toml",(int64_t)(-n));
+                    int64_t missing = -n;
+                    if ((missing >= 0) && (missing < COLUMNS_COUNT)
+                        && !(s_warned_missing_column[missing / 8] & (1 << (missing % 8))))
+                    {
+                        s_warned_missing_column[missing / 8] |= (unsigned char)(1 << (missing % 8));
+                        ERRORLOG("column:%" PRId64 " referenced in slabset.toml but not present in columnset.toml",(int64_t)(missing));
+                    }
                     continue;
                 }
             }

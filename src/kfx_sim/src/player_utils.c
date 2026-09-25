@@ -794,6 +794,9 @@ void init_user_state(NetUserId user)
     ilght.intensity = 48;
     ilght.flags = 5;
     ilght.is_dynamic = 1;
+    ilght.colour_r = kfx_config_state.conf.rules[0].gameplay.cursor_light_r;
+    ilght.colour_g = kfx_config_state.conf.rules[0].gameplay.cursor_light_g;
+    ilght.colour_b = kfx_config_state.conf.rules[0].gameplay.cursor_light_b;
     int64_t idx = sim_feedback->light_create_light(&ilght);
     ustate->cursor_light_idx = idx;
     if (idx != 0) {

@@ -18,7 +18,11 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "renderer/RendererManager.h"
+#include "renderer/RendererProfile.h"
 #include <stddef.h>
+#include <stdlib.h>
+#include <math.h>
+#include <string.h>
 
 #include "engine_render.h"
 #include "globals.h"
@@ -2451,6 +2455,7 @@ static void create_line_segment(struct EngineCoord *start, struct EngineCoord *e
     if (pixel_size > 0)
     {
         poly->p.X = start->view_width;
+        poly->p.Z = worldframe_depth_from_view_z(start->z);
         poly->p.Y = start->view_height;
         poly->p.U = end->view_width;
         poly->p.V = end->view_height;
@@ -2937,6 +2942,7 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
                 buckets[divided_z] = &triangle_bucket_near_1->b;
                 triangle_bucket_near_1->block = textr_idx;
                 triangle_bucket_near_1->vertex_first.X = engine_coordinate_1->view_width;
+                triangle_bucket_near_1->vertex_first.Z = worldframe_depth_from_view_z(engine_coordinate_1->z);
                 triangle_bucket_near_1->vertex_first.Y = engine_coordinate_1->view_height;
                 triangle_bucket_near_1->vertex_first.U = texture_scroll.x.val;
                 triangle_bucket_near_1->vertex_first.V = texture_scroll.y.val;
@@ -2963,6 +2969,7 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_near_1->vertex_first.S = apply_lighting_to_triangle_nearby_1;
                 triangle_bucket_near_1->vertex_second.X = engine_coordinate_2->view_width;
+                triangle_bucket_near_1->vertex_second.Z = worldframe_depth_from_view_z(engine_coordinate_2->z);
                 triangle_bucket_near_1->vertex_second.Y = engine_coordinate_2->view_height;
                 triangle_bucket_near_1->vertex_second.U = 0x1FFFFF + texture_scroll.x.val;
                 triangle_bucket_near_1->vertex_second.V = texture_scroll.y.val;
@@ -2989,6 +2996,7 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_near_1->vertex_second.S = apply_lighting_to_triangle_nearby_2;
                 triangle_bucket_near_1->vertex_third.X = engine_coordinate_3->view_width;
+                triangle_bucket_near_1->vertex_third.Z = worldframe_depth_from_view_z(engine_coordinate_3->z);
                 triangle_bucket_near_1->vertex_third.Y = engine_coordinate_3->view_height;
                 triangle_bucket_near_1->vertex_third.U = 0x1FFFFF + texture_scroll.x.val;
                 triangle_bucket_near_1->vertex_third.V = 0x1FFFFF + texture_scroll.y.val;
@@ -3287,6 +3295,7 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_far->block = textr_idx;
                 triangle_bucket_far->vertex_first.X = engine_coordinate_1->view_width;
+                triangle_bucket_far->vertex_first.Z = worldframe_depth_from_view_z(engine_coordinate_1->z);
                 triangle_bucket_far->vertex_first.Y = engine_coordinate_1->view_height;
                 triangle_bucket_far->vertex_first.U = texture_scroll.x.val;
                 triangle_bucket_far->vertex_first.V = texture_scroll.y.val;
@@ -3313,6 +3322,7 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_far->vertex_first.S = apply_lighting_to_triangle_far_1;
                 triangle_bucket_far->vertex_second.X = engine_coordinate_2->view_width;
+                triangle_bucket_far->vertex_second.Z = worldframe_depth_from_view_z(engine_coordinate_2->z);
                 triangle_bucket_far->vertex_second.Y = engine_coordinate_2->view_height;
                 triangle_bucket_far->vertex_second.U = 0x1FFFFF + texture_scroll.x.val;
                 triangle_bucket_far->vertex_second.V = texture_scroll.y.val;
@@ -3339,6 +3349,7 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_far->vertex_second.S = apply_lighting_to_triangle_far_2;
                 triangle_bucket_far->vertex_third.X = engine_coordinate_3->view_width;
+                triangle_bucket_far->vertex_third.Z = worldframe_depth_from_view_z(engine_coordinate_3->z);
                 triangle_bucket_far->vertex_third.Y = engine_coordinate_3->view_height;
                 triangle_bucket_far->vertex_third.U = 0x1FFFFF + texture_scroll.x.val;
                 triangle_bucket_far->vertex_third.V = 0x1FFFFF + texture_scroll.y.val;
@@ -3407,6 +3418,8 @@ static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct 
                 triangle_bucket_near_1->block = argument4;
 
                 triangle_bucket_near_1->vertex_first.X = engine_coordinate_1->view_width;
+
+                triangle_bucket_near_1->vertex_first.Z = worldframe_depth_from_view_z(engine_coordinate_1->z);
                 triangle_bucket_near_1->vertex_first.Y = engine_coordinate_1->view_height;
                 triangle_bucket_near_1->vertex_first.U = 0x1FFFFF + texture_scroll.x.val;
                 triangle_bucket_near_1->vertex_first.V = 0x1FFFFF + texture_scroll.y.val;
@@ -3433,6 +3446,7 @@ static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_near_1->vertex_first.S = apply_lighting_to_triangle_nearby_1;
                 triangle_bucket_near_1->vertex_second.X = engine_coordinate_2->view_width;
+                triangle_bucket_near_1->vertex_second.Z = worldframe_depth_from_view_z(engine_coordinate_2->z);
                 triangle_bucket_near_1->vertex_second.Y = engine_coordinate_2->view_height;
                 triangle_bucket_near_1->vertex_second.U = texture_scroll.x.val;
                 triangle_bucket_near_1->vertex_second.V = 0x1FFFFF + texture_scroll.y.val;
@@ -3459,6 +3473,7 @@ static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_near_1->vertex_second.S = apply_lighting_to_triangle_nearby_2;
                 triangle_bucket_near_1->vertex_third.X = engine_coordinate_3->view_width;
+                triangle_bucket_near_1->vertex_third.Z = worldframe_depth_from_view_z(engine_coordinate_3->z);
                 triangle_bucket_near_1->vertex_third.Y = engine_coordinate_3->view_height;
                 triangle_bucket_near_1->vertex_third.U = texture_scroll.x.val;
                 triangle_bucket_near_1->vertex_third.V = texture_scroll.y.val;
@@ -3757,6 +3772,8 @@ static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct 
                 triangle_bucket_far->block = argument4;
 
                 triangle_bucket_far->vertex_first.X = engine_coordinate_1->view_width;
+
+                triangle_bucket_far->vertex_first.Z = worldframe_depth_from_view_z(engine_coordinate_1->z);
                 triangle_bucket_far->vertex_first.Y = engine_coordinate_1->view_height;
                 triangle_bucket_far->vertex_first.U = 0x1FFFFF + texture_scroll.x.val;
                 triangle_bucket_far->vertex_first.V = 0x1FFFFF + texture_scroll.y.val;
@@ -3783,6 +3800,7 @@ static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_far->vertex_first.S = apply_lighting_to_triangle_far_1;
                 triangle_bucket_far->vertex_second.X = engine_coordinate_2->view_width;
+                triangle_bucket_far->vertex_second.Z = worldframe_depth_from_view_z(engine_coordinate_2->z);
                 triangle_bucket_far->vertex_second.Y = engine_coordinate_2->view_height;
                 triangle_bucket_far->vertex_second.U = texture_scroll.x.val;
                 triangle_bucket_far->vertex_second.V = 0x1FFFFF + texture_scroll.y.val;
@@ -3809,6 +3827,7 @@ static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct 
 
                 triangle_bucket_far->vertex_second.S = apply_lighting_to_triangle_far_2;
                 triangle_bucket_far->vertex_third.X = engine_coordinate_3->view_width;
+                triangle_bucket_far->vertex_third.Z = worldframe_depth_from_view_z(engine_coordinate_3->z);
                 triangle_bucket_far->vertex_third.Y = engine_coordinate_3->view_height;
                 triangle_bucket_far->vertex_third.U = texture_scroll.x.val;
                 triangle_bucket_far->vertex_third.V = texture_scroll.y.val;
@@ -4014,6 +4033,7 @@ static void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct
 
     // P1
     kspr->vertex_first.X = ecor1.view_width;
+    kspr->vertex_first.Z = worldframe_depth_from_view_z(ecor1.z);
     kspr->vertex_first.Y = ecor1.view_height;
     kspr->vertex_first.U = 0;
     kspr->vertex_first.V = TO_FIXED(dim_oh - 1);
@@ -4021,6 +4041,7 @@ static void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct
 
     // P2
     kspr->vertex_second.X = ecor2.view_width;
+    kspr->vertex_second.Z = worldframe_depth_from_view_z(ecor2.z);
     kspr->vertex_second.Y = ecor2.view_height;
     kspr->vertex_second.U = 0;
     kspr->vertex_second.V = 0;
@@ -4028,6 +4049,7 @@ static void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct
 
     // P3
     kspr->vertex_third.X = ecor3.view_width;
+    kspr->vertex_third.Z = worldframe_depth_from_view_z(ecor3.z);
     kspr->vertex_third.Y = ecor3.view_height;
     kspr->vertex_third.U = TO_FIXED(dim_ow - 1);
     kspr->vertex_third.V = 0;
@@ -4035,6 +4057,7 @@ static void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct
 
     // P4
     kspr->vertex_fourth.X = ecor4.view_width;
+    kspr->vertex_fourth.Z = worldframe_depth_from_view_z(ecor4.z);
     kspr->vertex_fourth.Y = ecor4.view_height;
     kspr->vertex_fourth.U = TO_FIXED(dim_ow - 1);
     kspr->vertex_fourth.V = TO_FIXED(dim_oh - 1);
@@ -4350,18 +4373,21 @@ static void do_a_gpoly_gourad_tr(struct EngineCoord *ec1, struct EngineCoord *ec
                 ec3_fieldA = (4 * (a5 + 0x4000) * ec3_fieldA) >> 17;
             }
             polypoint1->X = ec1->view_width;
+            polypoint1->Z = worldframe_depth_from_view_z(ec1->z);
             polypoint1->Y = ec1->view_height;
             polypoint1->U = texture_scroll.x.val;
             polypoint1->V = texture_scroll.y.val;
             polypoint1->S = ec1_fieldA << 8;
             polypoint2 = &polygon_bucket_ptr->vertex_second;
             polygon_bucket_ptr->vertex_second.X = ec2->view_width;
+            polygon_bucket_ptr->vertex_second.Z = worldframe_depth_from_view_z(ec2->z);
             polypoint3 = &polygon_bucket_ptr->vertex_third;
             polypoint2->Y = ec2->view_height;
             polypoint2->U = 0x1FFFFF + texture_scroll.x.val;
             polypoint2->V = texture_scroll.y.val;
             polypoint2->S = ec2_fieldA << 8;
             polypoint3->X = ec3->view_width;
+            polypoint3->Z = worldframe_depth_from_view_z(ec3->z);
             polypoint3->Y = ec3->view_height;
             polypoint3->U = 0x1FFFFF + texture_scroll.x.val;
             polypoint3->V = 0x1FFFFF + texture_scroll.y.val;
@@ -4399,16 +4425,19 @@ static void do_a_gpoly_unlit_tr(struct EngineCoord *ec1, struct EngineCoord *ec2
             buckets[bucket_index] = &current_polygon_bucket->b;
             current_polygon_bucket->block = textr_id;
             current_polygon_bucket->vertex_first.X = ec1->view_width;
+            current_polygon_bucket->vertex_first.Z = worldframe_depth_from_view_z(ec1->z);
             current_polygon_bucket->vertex_first.Y = ec1->view_height;
             current_polygon_bucket->vertex_first.U = 0;
             current_polygon_bucket->vertex_first.V = 0;
             current_polygon_bucket->vertex_first.S = (ec1->shade_intensity + 3072) << 8;
             current_polygon_bucket->vertex_second.X = ec2->view_width;
+            current_polygon_bucket->vertex_second.Z = worldframe_depth_from_view_z(ec2->z);
             current_polygon_bucket->vertex_second.Y = ec2->view_height;
             current_polygon_bucket->vertex_second.U = 0x1FFFFF;
             current_polygon_bucket->vertex_second.V = 0;
             current_polygon_bucket->vertex_second.S = (ec2->shade_intensity + 3072) << 8;
             polygon_bucket->vertex_third.X = ec3->view_width;
+            polygon_bucket->vertex_third.Z = worldframe_depth_from_view_z(ec3->z);
             polygon_bucket->vertex_third.Y = ec3->view_height;
             polygon_bucket->vertex_third.U = 0x1FFFFF;
             polygon_bucket->vertex_third.V = 0x1FFFFF;
@@ -4444,16 +4473,19 @@ static void do_a_gpoly_unlit_bl(struct EngineCoord *ec1, struct EngineCoord *ec2
         buckets[bucket_index] = &current_polygon_bucket->b;
         current_polygon_bucket->block = textr_id;
         current_polygon_bucket->vertex_first.X = ec1->view_width;
+        current_polygon_bucket->vertex_first.Z = worldframe_depth_from_view_z(ec1->z);
         current_polygon_bucket->vertex_first.Y = ec1->view_height;
         current_polygon_bucket->vertex_first.U = 0x1FFFFF;
         current_polygon_bucket->vertex_first.V = 0x1FFFFF;
         current_polygon_bucket->vertex_first.S = (ec1->shade_intensity + 3072) << 8;
         current_polygon_bucket->vertex_second.X = ec2->view_width;
+        current_polygon_bucket->vertex_second.Z = worldframe_depth_from_view_z(ec2->z);
         current_polygon_bucket->vertex_second.Y = ec2->view_height;
         current_polygon_bucket->vertex_second.U = 0;
         current_polygon_bucket->vertex_second.V = 0x1FFFFF;
         current_polygon_bucket->vertex_second.S = (ec2->shade_intensity + 3072) << 8;
         current_polygon_bucket->vertex_third.X = ec3->view_width;
+        current_polygon_bucket->vertex_third.Z = worldframe_depth_from_view_z(ec3->z);
         current_polygon_bucket->vertex_third.Y = ec3->view_height;
         current_polygon_bucket->vertex_third.U = 0;
         current_polygon_bucket->vertex_third.V = 0;
@@ -4507,18 +4539,21 @@ static void do_a_gpoly_gourad_bl(struct EngineCoord *ec1, struct EngineCoord *ec
                 ec3_fieldA = (4 * (a5 + 0x4000) * ec3_fieldA) >> 17;
             }
             polypoint1->X = ec1->view_width;
+            polypoint1->Z = worldframe_depth_from_view_z(ec1->z);
             polypoint2 = &poly_ptr->vertex_second;
             polypoint1->Y = ec1->view_height;
             polypoint1->U = 0x1FFFFF + texture_scroll.x.val;
             polypoint1->V = 0x1FFFFF + texture_scroll.y.val;
             polypoint1->S = ec1_fieldA << 8;
             poly_ptr->vertex_second.X = ec2->view_width;
+            poly_ptr->vertex_second.Z = worldframe_depth_from_view_z(ec2->z);
             polypoint3 = &poly_ptr->vertex_third;
             polypoint2->Y = ec2->view_height;
             polypoint2->U = texture_scroll.x.val;
             polypoint2->V = 0x1FFFFF + texture_scroll.y.val;
             polypoint2->S = ec2_fieldA << 8;
             polypoint3->X = ec3->view_width;
+            polypoint3->Z = worldframe_depth_from_view_z(ec3->z);
             polypoint3->Y = ec3->view_height;
             polypoint3->U = texture_scroll.x.val;
             polypoint3->V = texture_scroll.y.val;
@@ -5914,6 +5949,105 @@ static void draw_clipped_line(int64_t x1, int64_t y1, int64_t x2, int64_t y2, un
     }
 }
 
+// gpu-v2 Phase C.1: while a GPU world frame is being recorded (see
+// RendererWorldFrameBegin(), display_drawlist()), every textured world-view
+// triangle -- isometric QK_PolygonStandard and the first-person
+// QK_PolygonNearFP subdivision alike all funnel through here with vec_map
+// already set to the block's texture -- is recorded in draw order instead of
+// being rasterized on the CPU; RendererGpu3D draws them on the GPU. Sprites
+// are recorded the same way, from the software sprite dispatchers.
+/* gpu-v2 Phase C.5 lighting pass: hand the recorded world frame this frame's
+ * per-pixel lighting inputs (see light_data.c, RendererWorldFrameSetLighting).
+ * The GPU rebuilds each pixel's map position from its depth and screen
+ * position, so the view->map transform is needed: the engine's world->view
+ * transform is affine (rotpers_standard's matrix step), so it is measured by
+ * projecting four probe points through the engine's own routine rather than
+ * re-derived, then inverted here. */
+static int light_pp_compare_distance(const void *a, const void *b)
+{
+    const float *la = (const float *)a, *lb = (const float *)b;
+    const double dax = la[0] - map_x_pos, day = la[1] - map_y_pos, dbx = lb[0] - map_x_pos, dby = lb[1] - map_y_pos;
+    const double da = dax * dax + day * day, db = dbx * dbx + dby * dby;
+    return (da < db) ? -1 : ((da > db) ? 1 : 0);
+}
+
+static void submit_perpixel_lighting(void)
+{
+    const float *lights;
+    int64_t light_count;
+    const unsigned char *heights;
+    int64_t grid_w, grid_h;
+    if (!RendererWorldFrameCapturing() || !light_perpixel_active() || !light_perpixel_get(&lights, &light_count, &heights, &grid_w, &grid_h))
+        return;
+
+    // World->view is view = M * e + t, with e = (x - map_x_pos, z - map_z_pos, map_y_pos - y).
+    const struct EngineCoord saved_origin = object_origin;
+    object_origin.x = object_origin.y = object_origin.z = 0;
+    const double step = 8192.0;
+    double view[4][3];
+    for (int p = 0; p < 4; p++)
+    {
+        struct EngineCoord ec;
+        memset(&ec, 0, sizeof(ec));
+        ec.x = (p == 1) ? (int64_t)step : 0;
+        ec.y = (p == 2) ? (int64_t)step : 0;
+        ec.z = (p == 3) ? (int64_t)step : 0;
+        pers_set_transform_matrix(&ec, &camera_matrix);
+        view[p][0] = (double)ec.x; view[p][1] = (double)ec.y; view[p][2] = (double)ec.z;
+    }
+    object_origin = saved_origin;
+    double m[3][3];
+    for (int col = 0; col < 3; col++)
+        for (int row = 0; row < 3; row++)
+            m[row][col] = (view[col + 1][row] - view[0][row]) / step;
+    const double det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+                     - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+                     + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    if (fabs(det) < 1e-9)
+        return;
+    double inv[3][3];
+    inv[0][0] =  (m[1][1] * m[2][2] - m[1][2] * m[2][1]) / det;
+    inv[0][1] = -(m[0][1] * m[2][2] - m[0][2] * m[2][1]) / det;
+    inv[0][2] =  (m[0][1] * m[1][2] - m[0][2] * m[1][1]) / det;
+    inv[1][0] = -(m[1][0] * m[2][2] - m[1][2] * m[2][0]) / det;
+    inv[1][1] =  (m[0][0] * m[2][2] - m[0][2] * m[2][0]) / det;
+    inv[1][2] = -(m[0][0] * m[1][2] - m[0][2] * m[1][0]) / det;
+    inv[2][0] =  (m[1][0] * m[2][1] - m[1][1] * m[2][0]) / det;
+    inv[2][1] = -(m[0][0] * m[2][1] - m[0][1] * m[2][0]) / det;
+    inv[2][2] =  (m[0][0] * m[1][1] - m[0][1] * m[1][0]) / det;
+    const double *t = view[0];
+    // e = inv * (view - t); map x = map_x_pos + e.x; map y = map_y_pos - e.z.
+    // e.y is height above map_z_pos: map z = map_z_pos + e.y.
+    double map_x[4], map_y[4], map_z[4];
+    for (int k = 0; k < 3; k++)
+    {
+        map_x[k] = inv[0][k];
+        map_y[k] = -inv[2][k];
+        map_z[k] = inv[1][k];
+    }
+    map_x[3] = (double)map_x_pos - (inv[0][0] * t[0] + inv[0][1] * t[1] + inv[0][2] * t[2]);
+    map_y[3] = (double)map_y_pos + (inv[2][0] * t[0] + inv[2][1] * t[1] + inv[2][2] * t[2]);
+    map_z[3] = (double)map_z_pos - (inv[1][0] * t[0] + inv[1][1] * t[1] + inv[1][2] * t[2]);
+
+    // Nearest lights first: the GPU takes at most WORLDFRAME_MAX_LIGHTS.
+    static float sorted[256 * 8];
+    if (light_count > 256) light_count = 256;
+    memcpy(sorted, lights, (size_t)light_count * 8 * sizeof(float));
+    qsort(sorted, (size_t)light_count, 8 * sizeof(float), light_pp_compare_distance);
+
+    const double fade[4] = { (double)fade_min, (double)fade_max, (double)fade_scaler, (double)fade_range };
+    RendererWorldFrameSetLighting(map_x, map_y, map_z, (double)lens, (double)view_width_over_2, (double)view_height_over_2,
+                                  fade, sorted, light_count, heights, grid_w, grid_h);
+}
+
+static void world_draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c)
+{
+    if (RendererWorldFrameCapturing())
+        RendererWorldFrameAddPoly(point_a, point_b, point_c, vec_map);
+    else
+        draw_gpoly(point_a, point_b, point_c);
+}
+
 static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon_data)
 {
     struct XYZ coord_a;
@@ -5938,7 +6072,7 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
     {
     case 0:
         vec_mode = VM_QuadTextured;
-        draw_gpoly(&polygon_data->vertex_first,&polygon_data->vertex_second,&polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first,&polygon_data->vertex_second,&polygon_data->vertex_third);
         break;
     case 1:
         vec_mode = VM_QuadTextured;
@@ -5949,8 +6083,8 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_a.V = (polygon_data->vertex_second.V + polygon_data->vertex_first.V) >> 1;
         point_a.S = (polygon_data->vertex_second.S + polygon_data->vertex_first.S) >> 1;
         perspective(&coord_a, &point_a);
-        draw_gpoly(&polygon_data->vertex_first, &point_a, &polygon_data->vertex_third);
-        draw_gpoly(&point_a, &polygon_data->vertex_second, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_a, &polygon_data->vertex_third);
+        world_draw_gpoly(&point_a, &polygon_data->vertex_second, &polygon_data->vertex_third);
         break;
     case 2:
         vec_mode = VM_QuadTextured;
@@ -5961,8 +6095,8 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_a.V = (polygon_data->vertex_third.V + polygon_data->vertex_second.V) >> 1;
         point_a.S = (polygon_data->vertex_third.S + polygon_data->vertex_second.S) >> 1;
         perspective(&coord_a, &point_a);
-        draw_gpoly(&polygon_data->vertex_first, &polygon_data->vertex_second, &point_a);
-        draw_gpoly(&polygon_data->vertex_first, &point_a, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &polygon_data->vertex_second, &point_a);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_a, &polygon_data->vertex_third);
         break;
     case 3:
         vec_mode = VM_QuadTextured;
@@ -5973,8 +6107,8 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_a.V = (polygon_data->vertex_third.V + polygon_data->vertex_first.V) >> 1;
         point_a.S = (polygon_data->vertex_third.S + polygon_data->vertex_first.S) >> 1;
         perspective(&coord_a, &point_a);
-        draw_gpoly(&polygon_data->vertex_first, &polygon_data->vertex_second, &point_a);
-        draw_gpoly(&point_a, &polygon_data->vertex_second, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &polygon_data->vertex_second, &point_a);
+        world_draw_gpoly(&point_a, &polygon_data->vertex_second, &polygon_data->vertex_third);
         break;
     case 4:
         vec_mode = VM_QuadTextured;
@@ -5999,10 +6133,10 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_c.V = (polygon_data->vertex_third.V + polygon_data->vertex_first.V) >> 1;
         point_c.S = (polygon_data->vertex_third.S + polygon_data->vertex_first.S) >> 1;
         perspective(&coord_c, &point_c);
-        draw_gpoly(&polygon_data->vertex_first, &point_a, &point_c);
-        draw_gpoly(&point_a, &polygon_data->vertex_second, &point_b);
-        draw_gpoly(&point_a, &point_b, &point_c);
-        draw_gpoly(&point_c, &point_b, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_a, &point_c);
+        world_draw_gpoly(&point_a, &polygon_data->vertex_second, &point_b);
+        world_draw_gpoly(&point_a, &point_b, &point_c);
+        world_draw_gpoly(&point_c, &point_b, &polygon_data->vertex_third);
         break;
     case 5:
         vec_mode = VM_QuadTextured;
@@ -6027,10 +6161,10 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_c.V = (point_a.V + polygon_data->vertex_second.V) >> 1;
         point_c.S = (point_a.S + polygon_data->vertex_second.S) >> 1;
         perspective(&coord_c, &point_c);
-        draw_gpoly(&polygon_data->vertex_first, &point_b, &polygon_data->vertex_third);
-        draw_gpoly(&point_b, &point_a, &polygon_data->vertex_third);
-        draw_gpoly(&point_a, &point_c, &polygon_data->vertex_third);
-        draw_gpoly(&point_c, &polygon_data->vertex_second, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_b, &polygon_data->vertex_third);
+        world_draw_gpoly(&point_b, &point_a, &polygon_data->vertex_third);
+        world_draw_gpoly(&point_a, &point_c, &polygon_data->vertex_third);
+        world_draw_gpoly(&point_c, &polygon_data->vertex_second, &polygon_data->vertex_third);
         break;
     case 6:
         vec_mode = VM_QuadTextured;
@@ -6055,10 +6189,10 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_c.V = (point_a.V + polygon_data->vertex_third.V) >> 1;
         point_c.S = (point_a.S + polygon_data->vertex_third.S) >> 1;
         perspective(&coord_c, &point_c);
-        draw_gpoly(&polygon_data->vertex_first, &polygon_data->vertex_second, &point_b);
-        draw_gpoly(&polygon_data->vertex_first, &point_b, &point_a);
-        draw_gpoly(&polygon_data->vertex_first, &point_a, &point_c);
-        draw_gpoly(&polygon_data->vertex_first, &point_c, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &polygon_data->vertex_second, &point_b);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_b, &point_a);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_a, &point_c);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_c, &polygon_data->vertex_third);
         break;
     case 7:
         vec_mode = VM_QuadTextured;
@@ -6083,10 +6217,10 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_c.V = (point_a.V + polygon_data->vertex_first.V) >> 1;
         point_c.S = (point_a.S + polygon_data->vertex_first.S) >> 1;
         perspective(&coord_c, &point_c);
-        draw_gpoly(&polygon_data->vertex_second, &polygon_data->vertex_third, &point_b);
-        draw_gpoly(&polygon_data->vertex_second, &point_b, &point_a);
-        draw_gpoly(&polygon_data->vertex_second, &point_a, &point_c);
-        draw_gpoly(&polygon_data->vertex_second, &point_c, &polygon_data->vertex_first);
+        world_draw_gpoly(&polygon_data->vertex_second, &polygon_data->vertex_third, &point_b);
+        world_draw_gpoly(&polygon_data->vertex_second, &point_b, &point_a);
+        world_draw_gpoly(&polygon_data->vertex_second, &point_a, &point_c);
+        world_draw_gpoly(&polygon_data->vertex_second, &point_c, &polygon_data->vertex_first);
         break;
     case 8:
         vec_mode = VM_QuadTextured;
@@ -6125,12 +6259,12 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_e.V = (point_a.V + polygon_data->vertex_second.V) >> 1;
         point_e.S = (point_a.S + polygon_data->vertex_second.S) >> 1;
         perspective(&coord_e, &point_e);
-        draw_gpoly(&polygon_data->vertex_first, &point_d, &point_c);
-        draw_gpoly(&point_d, &point_a, &point_c);
-        draw_gpoly(&point_a, &point_e, &point_b);
-        draw_gpoly(&point_e, &polygon_data->vertex_second, &point_b);
-        draw_gpoly(&point_a, &point_b, &point_c);
-        draw_gpoly(&point_c, &point_b, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_d, &point_c);
+        world_draw_gpoly(&point_d, &point_a, &point_c);
+        world_draw_gpoly(&point_a, &point_e, &point_b);
+        world_draw_gpoly(&point_e, &polygon_data->vertex_second, &point_b);
+        world_draw_gpoly(&point_a, &point_b, &point_c);
+        world_draw_gpoly(&point_c, &point_b, &polygon_data->vertex_third);
         break;
     case 9:
         vec_mode = VM_QuadTextured;
@@ -6169,12 +6303,12 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_e.V = (point_b.V + polygon_data->vertex_third.V) >> 1;
         point_e.S = (point_b.S + polygon_data->vertex_third.S) >> 1;
         perspective(&coord_e, &point_e);
-        draw_gpoly(&polygon_data->vertex_first, &point_a, &point_c);
-        draw_gpoly(&point_a, &point_b, &point_c);
-        draw_gpoly(&point_a, &polygon_data->vertex_second, &point_d);
-        draw_gpoly(&point_a, &point_d, &point_b);
-        draw_gpoly(&point_c, &point_b, &point_e);
-        draw_gpoly(&point_c, &point_e, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_a, &point_c);
+        world_draw_gpoly(&point_a, &point_b, &point_c);
+        world_draw_gpoly(&point_a, &polygon_data->vertex_second, &point_d);
+        world_draw_gpoly(&point_a, &point_d, &point_b);
+        world_draw_gpoly(&point_c, &point_b, &point_e);
+        world_draw_gpoly(&point_c, &point_e, &polygon_data->vertex_third);
         break;
     case 10:
         vec_mode = VM_QuadTextured;
@@ -6213,12 +6347,12 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_e.V = (point_c.V + polygon_data->vertex_first.V) >> 1;
         point_e.S = (point_c.S + polygon_data->vertex_first.S) >> 1;
         perspective(&coord_e, &point_e);
-        draw_gpoly(&point_a, &polygon_data->vertex_second, &point_b);
-        draw_gpoly(&point_a, &point_b, &point_c);
-        draw_gpoly(&polygon_data->vertex_first, &point_a, &point_e);
-        draw_gpoly(&point_e, &point_a, &point_c);
-        draw_gpoly(&point_c, &point_b, &point_d);
-        draw_gpoly(&point_d, &point_b, &polygon_data->vertex_third);
+        world_draw_gpoly(&point_a, &polygon_data->vertex_second, &point_b);
+        world_draw_gpoly(&point_a, &point_b, &point_c);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_a, &point_e);
+        world_draw_gpoly(&point_e, &point_a, &point_c);
+        world_draw_gpoly(&point_c, &point_b, &point_d);
+        world_draw_gpoly(&point_d, &point_b, &polygon_data->vertex_third);
         break;
     case 11: // Flickers in 1st person (before flicker_fix() was applied)
         vec_mode = VM_QuadTextured;
@@ -6306,22 +6440,22 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
         point_l.V = (point_b.V + point_c.V) >> 1;
         point_l.S = (point_b.S + point_c.S) >> 1;
         perspective(&coord_d, &point_l);
-        draw_gpoly(&polygon_data->vertex_first, &point_d, &point_i);
-        draw_gpoly(&point_d, &point_a, &point_j);
-        draw_gpoly(&point_a, &point_e, &point_k);
-        draw_gpoly(&point_e, &polygon_data->vertex_second, &point_f);
-        draw_gpoly(&point_d, &point_j, &point_i);
-        draw_gpoly(&point_a, &point_k, &point_j);
-        draw_gpoly(&point_e, &point_f, &point_k);
-        draw_gpoly(&point_i, &point_j, &point_c);
-        draw_gpoly(&point_j, &point_k, &point_l);
-        draw_gpoly(&point_k, &point_f, &point_b);
-        draw_gpoly(&point_j, &point_l, &point_c);
-        draw_gpoly(&point_k, &point_b, &point_l);
-        draw_gpoly(&point_c, &point_l, &point_h);
-        draw_gpoly(&point_l, &point_b, &point_g);
-        draw_gpoly(&point_l, &point_g, &point_h);
-        draw_gpoly(&point_h, &point_g, &polygon_data->vertex_third);
+        world_draw_gpoly(&polygon_data->vertex_first, &point_d, &point_i);
+        world_draw_gpoly(&point_d, &point_a, &point_j);
+        world_draw_gpoly(&point_a, &point_e, &point_k);
+        world_draw_gpoly(&point_e, &polygon_data->vertex_second, &point_f);
+        world_draw_gpoly(&point_d, &point_j, &point_i);
+        world_draw_gpoly(&point_a, &point_k, &point_j);
+        world_draw_gpoly(&point_e, &point_f, &point_k);
+        world_draw_gpoly(&point_i, &point_j, &point_c);
+        world_draw_gpoly(&point_j, &point_k, &point_l);
+        world_draw_gpoly(&point_k, &point_f, &point_b);
+        world_draw_gpoly(&point_j, &point_l, &point_c);
+        world_draw_gpoly(&point_k, &point_b, &point_l);
+        world_draw_gpoly(&point_c, &point_l, &point_h);
+        world_draw_gpoly(&point_l, &point_b, &point_g);
+        world_draw_gpoly(&point_l, &point_g, &point_h);
+        world_draw_gpoly(&point_h, &point_g, &polygon_data->vertex_third);
         break;
     case 12:
         vec_mode = VM_SolidColor;
@@ -6707,10 +6841,15 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
     SYNCDBG(9,"Starting");
     render_problems = 0;
     kfx_render_state.thing_pointed_at = 0;
+    RPROF_BEGIN(RPS_DRAWLIST);
+    RendererWorldFrameBegin();
+    submit_perpixel_lighting();
 
     // The bucket list is the final step in drawing something to the screen. Visuals are added to the bucket list in previous functions.
     for (bucket_num = BUCKETS_COUNT-1; bucket_num > 0; bucket_num--)
     {
+        if (buckets[bucket_num] != NULL)
+            RendererWorldFrameSetDepth(bucket_num, BUCKETS_COUNT);
         for (item.b = buckets[bucket_num]; item.b != NULL; item.b = item.b->next)
         {
             //JUSTLOG("%d",(int)item.b->kind);
@@ -6719,7 +6858,7 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
             case QK_PolygonStandard: // All textured polygons for isometric and 'far' textures in 1st person view
                 vec_mode = VM_QuadTextured;
                 vec_map = block_ptrs[item.polygonStandard->block];
-                draw_gpoly(&item.polygonStandard->vertex_first, &item.polygonStandard->vertex_second, &item.polygonStandard->vertex_third);
+                world_draw_gpoly(&item.polygonStandard->vertex_first, &item.polygonStandard->vertex_second, &item.polygonStandard->vertex_third);
                 break;
             case QK_PolygonNearFP: // 'Near' textured polygons (closer to camera) in 1st person view
                 draw_subdivided_near_polygon(item.polygonNearFP);
@@ -6773,6 +6912,8 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
             }
         }
     }
+    RendererWorldFrameEnd();
+    RPROF_END(RPS_DRAWLIST);
     if (render_problems > 0)
       WARNLOG("Incurred %" PRIu64 " rendering problems; last was with poly kind %" PRId64,(uint64_t)(render_problems),(int64_t)(render_prob_kind));
 }
@@ -7023,8 +7164,8 @@ static void draw_texturedquad_block(struct BucketKindTexturedQuad *txquad)
     point_c.U = orient_to_mapU4[txquad->orient] + txquad->texture_scroll.x.val;
     point_c.V = orient_to_mapV4[txquad->orient] + txquad->texture_scroll.y.val;
     point_c.S = txquad->shade_intensity3;
-    draw_gpoly(&point_a, &point_d, &point_b);
-    draw_gpoly(&point_a, &point_b, &point_c);
+    world_draw_gpoly(&point_a, &point_d, &point_b);
+    world_draw_gpoly(&point_a, &point_b, &point_c);
 }
 
 static void display_fast_drawlist(struct Camera *cam) // Draws frontview only. Not isometric or 1st person view.
@@ -7959,6 +8100,11 @@ static void prepare_jonty_remap_and_scale(int64_t *scale, const struct BucketKin
     }
     shade_factor = shade >> 8;
     *scale = (thelens * (int64_t)thing->sprite_size) / fade;
+    // gpu-v2 lighting pass: a shaded (not emissive) thing sprite is recorded for
+    // per-pixel lighting with its base shade (8.8); see RendererSpriteLightSet. Cleared by draw_jonty_mapwho().
+    // (Tinted sprites too: the tint table is kept and lit on top -- frozen, flashing, ...)
+    if ((thing->rendering_flags & TRF_Unshaded) == 0)
+        RendererSpriteLightSet(shade);
     if ((thing->rendering_flags & (TRF_Tint_1|TRF_Tint_2)) != 0)
     {
         RendererAddDrawFlags(Lb_SPRITE_REMAP);
@@ -8033,6 +8179,7 @@ static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr)
     }
     else
       angle = thing->move_angle_xy;
+    RendererSpriteLightClear();
     prepare_jonty_remap_and_scale(&scaled_size, jspr);
     EngineSpriteDrawUsingAlpha = 0;
     switch (thing->rendering_flags & (TRF_Transpar_Flags))
@@ -8139,6 +8286,7 @@ static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr)
             break;
         }
     }
+    RendererSpriteLightClear();
     RendererSetDrawFlags(flg_mem);
     EngineSpriteDrawUsingAlpha = alpha_mem;
 }

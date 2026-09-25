@@ -14,14 +14,21 @@
 
 file(GLOB KFX_FRONTEND_SOURCES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 file(GLOB KFX_FRONTEND_SOURCES_CXX "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+# gui/ (docs/refactor/renderer/05-imgui-linkage-consolidation.md) -- the
+# FrontendImGui lifecycle service, moved here from kfx_platform's gui/
+# ImGuiContext.{h,cpp} so exactly one library owns ImGui context/backend
+# ownership. One directory deeper than the plain glob above, same reason
+# kfx_platform's own per-subdirectory globs exist (platform/, renderer/).
+file(GLOB KFX_FRONTEND_SOURCES_CXX_GUI "${CMAKE_CURRENT_SOURCE_DIR}/src/gui/*.cpp")
+list(APPEND KFX_FRONTEND_SOURCES_CXX ${KFX_FRONTEND_SOURCES_CXX_GUI})
 set(KFX_FRONTEND_SOURCES ${KFX_FRONTEND_SOURCES_C} ${KFX_FRONTEND_SOURCES_CXX})
 
 add_library(kfx_frontend STATIC ${KFX_FRONTEND_SOURCES})
-target_link_libraries(kfx_frontend PRIVATE kfx_common_opts kfx_bfdebug_std)
+target_link_libraries(kfx_frontend PRIVATE kfx_common_opts kfx_bfdebug_std imgui)
 target_include_directories(kfx_frontend PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 add_library(kfx_frontend_hvlog STATIC ${KFX_FRONTEND_SOURCES})
-target_link_libraries(kfx_frontend_hvlog PRIVATE kfx_common_opts kfx_bfdebug_hvlog)
+target_link_libraries(kfx_frontend_hvlog PRIVATE kfx_common_opts kfx_bfdebug_hvlog imgui)
 target_include_directories(kfx_frontend_hvlog PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 list(APPEND KFX_OBJECT_LIBS_STD kfx_frontend)

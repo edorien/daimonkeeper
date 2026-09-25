@@ -42,8 +42,6 @@ class MouseStateHandler {
     bool SetPointerOffset(int64_t x, int64_t y);
     struct TbPoint *GetPointerOffset(void);
     bool SetMouseWindow(int64_t x, int64_t y,int64_t width, int64_t height);
-    bool PointerBeginSwap(void);
-    bool PointerEndSwap(void);
  protected:
     bool SetPosition(int64_t x, int64_t y);
     bool SetPointer(const struct TbSprite *spr, struct TbPoint *pt);
@@ -54,7 +52,6 @@ class MouseStateHandler {
     struct TbPoint mspos;
     struct TbPoint hotspot;
     class LbI_PointerHandler pointer;
-    bool swap;
     };
 
 /******************************************************************************/

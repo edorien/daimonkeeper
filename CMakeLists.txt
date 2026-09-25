@@ -154,14 +154,17 @@ target_link_libraries(kfx_common_opts INTERFACE centitoml)
 # #includes tinyfiledialogs.h directly.
 target_link_libraries(kfx_common_opts INTERFACE tinyfiledialogs)
 # imgui (Dependencies.cmake, Phase A of docs/refactor/renderer/
-# 04-imgui-gui-foundation.md) -- same OBJECT-library INTERFACE-propagation
-# story as centitoml above: kfx_platform's ImGuiContext.cpp #includes
-# imgui.h/imgui_impl_sdl3.h/imgui_impl_sdlrenderer3.h directly, so its
-# include dirs need to reach that compilation via this same INTERFACE
-# chain. The compiled object itself is linked directly onto the final
-# executables below, for the same reason centitoml's is (see that
+# 04-imgui-gui-foundation.md): no longer propagated to every target here.
+# docs/refactor/renderer/05-imgui-linkage-consolidation.md moved ImGui
+# context/backend ownership out of kfx_platform (gui/ImGuiContext.cpp) and
+# into kfx_frontend (gui/FrontendImGui.cpp), the one library that submits
+# real ImGui widgets -- it links `imgui` directly now
+# (src/kfx_frontend/CMakeLists.txt), and kfx_editor (which also submits
+# ImGui widgets) already gets imgui's include dirs transitively through its
+# own imgui_color_text_edit link. The compiled object is still linked
+# directly onto the final executables below, for the same
+# two-levels-of-INTERFACE-indirection reason centitoml's is (see that
 # target_link_libraries(keeperfx PRIVATE centitoml) comment).
-target_link_libraries(kfx_common_opts INTERFACE imgui)
 # kfx_platform (stage 3) physically moved out of directly under src/ into
 # its own include/ directory; every other kfx_* component and both
 # executables still need to find its headers (e.g. #include
@@ -272,8 +275,18 @@ if(KFX_FUNCTESTING)
     # main.cpp and src/ftests/* itself are the only consumers now that
     # KFX_BUILD_TESTS is guaranteed OFF whenever this is ON (see above) --
     # a plain OBJECT library linked only into keeperfx/keeperfx_hvlog below.
+    #
+    # imgui: some src/ftests/tests/*.cpp exercise real ImGui-driven editor/
+    # frontend screens directly (e.g. ftest_config_content.cpp's
+    # ImGui::GetFrameCount() smoke checks) -- this used to be picked up for
+    # free via kfx_common_opts's old blanket `INTERFACE imgui` propagation
+    # (removed by docs/refactor/renderer/05-imgui-linkage-consolidation.md,
+    # which moved ImGui ownership from kfx_platform to kfx_frontend and
+    # made that propagation kfx_frontend's/kfx_editor's own problem instead
+    # of everyone's), so kfx_ftests needs its own direct link now, same as
+    # kfx_frontend's.
     add_library(kfx_ftests OBJECT ${KEEPERFX_FTESTS_C} ${KEEPERFX_FTESTS_CXX})
-    target_link_libraries(kfx_ftests PRIVATE kfx_common_opts)
+    target_link_libraries(kfx_ftests PRIVATE kfx_common_opts imgui)
 endif()
 
 # docs/refactor/testing/comprehensive/stage-05-coverage-tooling.md: opt-in
@@ -537,7 +550,10 @@ target_link_libraries(keeperfx_hvlog PRIVATE tinyfiledialogs)
 
 # imgui: same two-levels-of-INTERFACE-indirection object-linking gap as
 # centitoml just above -- link its compiled object directly onto the final
-# executables too.
+# executables too. (kfx_frontend and kfx_editor both submit real ImGui
+# widgets and link `imgui` themselves for its include dirs, but as STATIC
+# libraries neither reliably carries the OBJECT library's compiled object
+# through to here on its own.)
 target_link_libraries(keeperfx PRIVATE imgui)
 target_link_libraries(keeperfx_hvlog PRIVATE imgui)
 

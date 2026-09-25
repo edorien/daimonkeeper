@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "cfgc_campaign_check.h"
+#include "cfgc_campaign_edit.h"
 #include "cfgc_content.h"
 #include "kfx_config_test_paths.h" // KFX_CONFIG_TEST_REPO_ROOT
 
@@ -117,7 +118,7 @@ TEST_CASE("the shipped campaigns' findings match the committed snapshot", "[cfgc
     std::vector<Item> items;
     CampaignCheckEnv env;
     env.root = root.string();
-    env.file_exists = [](const std::string &p) { return fs::is_regular_file(p); };
+    env.file_exists = [](const std::string &p) { return cfgc_file_exists_ci(p); };
     env.dir_exists = [](const std::string &p) { return fs::is_directory(p); };
     env.file_size = [](const std::string &p) { std::error_code ec; const auto n = fs::file_size(p, ec); return ec ? (int64_t)-1 : (int64_t)n; };
     std::vector<fs::path> files;
@@ -257,4 +258,38 @@ TEST_CASE("per-level land view and speech entries are checked", "[cfgc_campaign_
     for (const CfgDiagnostic &x : d)
         missing += x.code == "speech_missing";
     CHECK(missing == 2); // a.mp3 and ok2.mp3
+}
+
+TEST_CASE("level files are found and copied under a new number, in any letter case", "[cfgc_campaign_check]")
+{
+    const fs::path tmp = fs::temp_directory_path() / "kfx_level_copy_test";
+    fs::remove_all(tmp);
+    fs::create_directories(tmp / "src");
+    fs::create_directories(tmp / "dst");
+    for (const char *n : {"MAP00007.SLB", "MAP00007.TNG", "map00007.rules.cfg", "map00070.slb", "map00007x.slb"})
+        std::ofstream(tmp / "src" / n, std::ios::binary) << n;
+    std::ofstream(tmp / "dst" / "map00009.slb") << "x";
+
+    CHECK(cfgc_level_files((tmp / "src").string(), 7).size() == 3);
+    CHECK(cfgc_level_numbers_in_dir((tmp / "src").string()) == std::vector<int64_t>({7, 70}));
+    CHECK(cfgc_file_exists_ci((tmp / "src" / "map00007.slb").string()));
+    CHECK_FALSE(cfgc_file_exists_ci((tmp / "src" / "map00008.slb").string()));
+    CHECK(cfgc_level_file_rename("MAP00007.SLB", 7, 12) == "MAP00012.SLB");
+    CHECK(cfgc_level_file_rename("map00007.rules.cfg", 7, 12) == "map00012.rules.cfg");
+    CHECK(cfgc_level_file_rename("other.cfg", 7, 12) == "other.cfg");
+
+    WriteBatch batch;
+    std::string err;
+    REQUIRE(cfgc_plan_level_copy((tmp / "src").string(), 7, (tmp / "dst").string(), 12, batch, &err));
+    CHECK(batch.ops().size() == 3);
+    CHECK_FALSE(fs::exists(tmp / "dst" / "MAP00012.SLB")); // staged only
+    REQUIRE(batch.commit(&err));
+    CHECK(fs::exists(tmp / "dst" / "MAP00012.SLB"));
+    CHECK(fs::exists(tmp / "dst" / "map00012.rules.cfg"));
+
+    WriteBatch again;
+    CHECK_FALSE(cfgc_plan_level_copy((tmp / "src").string(), 7, (tmp / "dst").string(), 12, again, &err)); // taken
+    CHECK_FALSE(cfgc_plan_level_copy((tmp / "src").string(), 8, (tmp / "dst").string(), 13, again, &err)); // no source
+    CHECK(again.empty());
+    fs::remove_all(tmp);
 }

@@ -31,12 +31,16 @@ front_network,front_simple}.cpp/.c`, `kfx_platform/{bflib_video.c,bflib_fmvids.c
   the two obvious ones — this is exactly the audit burden
   [06-call-site-consolidation.md](06-call-site-consolidation.md) exists to shrink from "~21 sites"
   to "2 named entry points."
-- **Mitigation, sequenced ahead of Phase B:**
-  [../05-imgui-linkage-consolidation.md](../05-imgui-linkage-consolidation.md) moves all ImGui
-  knowledge into `kfx_frontend` behind one `RendererOverlayCallbacks` struct, so the overlay begin/
-  submit/render is a single choke point and Phase B's additions live in one library instead of
-  straddling the `kfx_platform`/`kfx_frontend` seam. It does *not* reduce the call-site count
-  itself — [06-call-site-consolidation.md](06-call-site-consolidation.md) is the phase that does.
+- **Mitigation, sequenced ahead of Phase B — both landed 2026-09-23:**
+  [../05-imgui-linkage-consolidation.md](../05-imgui-linkage-consolidation.md) moved all ImGui
+  knowledge into `kfx_frontend` behind one `RendererImGuiCallbacks` struct (named that, not
+  `RendererOverlayCallbacks` as originally sketched — see that document's own note), so the overlay
+  begin/submit/render is a single choke point and Phase B's additions live in one library instead
+  of straddling the `kfx_platform`/`kfx_frontend` seam. It did *not* reduce the call-site count
+  itself — [06-call-site-consolidation.md](06-call-site-consolidation.md), landed immediately after
+  it, is the phase that did: the raw `RendererPresentFrame()` is `static` now, reachable only
+  through `RendererPresentGameFrame()`/`RendererPresentStepFrame()`, so this risk's "~21 sites, each
+  independently audited" framing is obsolete — it's 2 entry points now.
 
 ### R2 — `SDL_Renderer` is single-threaded; keep every present on the main thread
 
@@ -103,7 +107,7 @@ this façade's design, and per [02-graphics-api-choice.md](02-graphics-api-choic
 explicit device/buffer/texture/pipeline objects are a good match for it — the façade wraps SDL_GPU
 primitives, it doesn't invent a parallel abstraction over them.
 
-### R7 — Two cursor draws still coexist
+### R7 — Two cursor draws still coexist — **resolved 2026-09-23**
 
 The legacy `bflib_mspointer.cpp` path still blits the software cursor into `lbDrawSurface`
 **unlocked**, and the ImGui overlay draws its own cursor via `GetForegroundDrawList()->AddImage()`
@@ -111,6 +115,26 @@ while `WantCaptureMouse`. Stage 4 killed the *visible* double-cursor by syncing 
 still render. A post-composite `SDL_RenderReadPixels` screenshot (B2) can therefore capture two
 cursors depending on timing. Phase B's cursor unification is the real fix; until it lands, capture
 tests will show this.
+
+**Resolved as:** confirmed live (by reading the code, not assumed) that the two gates
+(`lbPointerAdvancedDraw && lbInteruptMouse && !RendererWantCaptureMouse() && !RendererScreenOwned()`
+in `bflib_mspointer.cpp`'s `OnMove()`, and the ImGui side's `io.WantCaptureMouse ||
+FrontendImGuiScreenOwned()`) were exactly this risk's predicted race: `OnBeginSwap()` ran at the
+very start of `RendererSoftware::PresentFrame()`, gated on *last* frame's `WantCaptureMouse`, before
+that frame's own `begin_frame()` had recomputed it for the ImGui side's gate a few lines later —
+so a `WantCaptureMouse` transition between two frames really could produce a frame with both drawn
+or neither. Also found live: `lbPointerAdvancedDraw` (gating `bflib_mspointer.cpp`'s `Draw`/
+`Backup`/`Undraw` double-buffered redraw path) was never set `true` anywhere in the codebase, and
+its one live call site for `SetHotspot()` (`vidmode.c`) ran before `LbMouseSetup()`, while
+`pointer.is_active` was still false — so that entire code path (the surface-pair backup/restore
+machinery, `ScopedScreenSurface`, `LbScreenSurface*`/`struct SSurface` in `bflib_vidsurface.c`) was
+already 100% dead, not just redundant, confirmed by grep before deleting rather than assumed.
+Fixed by removing the legacy CPU-buffer cursor draw entirely (`bflib_mspointer.cpp`/`.hpp` now only
+track position/sprite/hotspot, used via `LbMouseGetSprite()`/`GetPointerHotspot()`/`GetMouseX/Y()`;
+`LbMouseOnBeginSwap/EndSwap` and `MouseStateHandler::PointerBeginSwap/EndSwap` — which only ever
+bracketed that draw — are gone too) and making `gui/FrontendImGui.cpp`'s ImGui-overlay cursor draw
+unconditional (gated only on a valid cursor image existing, via `s_cursor_have`) instead of on
+`WantCaptureMouse`/`ScreenOwned`. One cursor mechanism now, not two kept in sync by matching gates.
 
 ### R8 — FMV / cutscene frames get ImGui submission too
 
@@ -166,7 +190,7 @@ thread." None of this is a reason a render thread can't work — it's a reason i
 design pass with this codebase's actual present-path shape in hand, not adoption because an
 external branch happened to include one. See Phase C.5 in [07-phased-delivery.md](07-phased-delivery.md).
 
-### R13 — `GUI_ICON_PACK=CLASSIC`'s compositing assumption doesn't survive Phase C unmodified
+### R13 — `GUI_ICON_PACK=CLASSIC`'s compositing assumption doesn't survive Phase C unmodified — **mitigated 2026-09-24 (C.1: Vulkan + CLASSIC falls back to Software with a logged warning; see 07)**
 
 Per [04-architecture-and-ir-boundary.md](04-architecture-and-ir-boundary.md)'s note: the legacy
 sprite HUD draws directly into `lbDrawSurface`, assuming that buffer already holds the rendered 3D
@@ -212,8 +236,24 @@ SDL":
   mismatch between CI and a contributor's machine) that this codebase's asset pipeline
   (`mingw32-make pkg-*`) has no precedent for. Scope this as real work in C.0's exit criteria, not
   as a footnote.
+- **Backend selection isn't automatically "Vulkan," and RT isn't reachable from SDL_GPU at all —
+  both checked directly against the vendored SDL3 3.4.12 source, 2026-09-23.** SDL_GPU's own
+  driver-priority order (`SDL_gpu.c:314`) picks D3D12 over Vulkan on Windows; only Linux reaches
+  Vulkan by default. Forcing Vulkan everywhere via `SDL_HINT_GPU_DRIVER` is a one-line, C.0-scoped
+  decision (see [02](02-graphics-api-choice.md#forcing-vulkan-as-the-sdl_gpu-backend-pre-phase-c-decision-checked-directly)),
+  not something that falls out of "use SDL_GPU" automatically. Separately: SDL_GPU has **no**
+  ray-tracing surface today (no acceleration structures, no RT pipeline, no trace-rays command —
+  confirmed via `grep` across `SDL_gpu.h`/`src/gpu/`), and the one property-query function it
+  exposes (`SDL_GetGPUDeviceProperties`) gives back only name/driver strings, not the native
+  `VkDevice`/`VkQueue` handles an RT extension would need to issue real ray-tracing commands. If
+  hardware-RT-enhanced lighting is ever pursued, it is a **new raw-Vulkan-owned device/path**, not
+  an incremental `RendererGpu3D` feature — see
+  [02](02-graphics-api-choice.md#future-hardware-ray-tracing-out-of-scope-for-phase-c) and
+  [07](07-phased-delivery.md)'s C.6 row. Not a blocker to Phase C.1–C.4 (rasterization only, no RT
+  dependency), but keep `WorldFrame`/the texture cache backend-agnostic while building them so that
+  future fork is cheap.
 
-### R15 — The call-site-consolidation phase is itself a regression risk if rushed (new)
+### R15 — The call-site-consolidation phase is itself a regression risk if rushed (new) — **landed 2026-09-23, live soak still pending**
 
 [06-call-site-consolidation.md](06-call-site-consolidation.md) touches ~21 call sites across five
 libraries (`kfx_apploop`, `kfx_net`, `kfx_frontend`, `kfx_platform`, `kfx_render`) purely to reduce
@@ -230,3 +270,12 @@ path (listed in [06](06-call-site-consolidation.md)'s verification section), lan
 reviewed, soaked phase, and do not bundle it into the same PR as any Phase C.0 GPU code, so a
 regression here is trivially bisectable to "the consolidation" rather than tangled up with "the new
 GPU seam."
+
+**Landed as:** the automated half of this mitigation is done — both toolchains build clean,
+`check_layering.py --strict` is clean, the full Catch2 suite (1939 tests) is green, and the
+call-site grep confirms no site was missed. The interactive half — screenshot-identical across a
+full game-loop session, a Smacker cutscene, a net resync, a loading screen, a landview transition,
+a palette fade — was **not** exercised (no display/game-data access in the implementing
+environment); [06](06-call-site-consolidation.md)'s verification section tracks this as
+outstanding. Land this on its own commit, separate from any Phase C.0 work as this risk already
+recommends, and run that live pass before treating this phase as fully soaked.

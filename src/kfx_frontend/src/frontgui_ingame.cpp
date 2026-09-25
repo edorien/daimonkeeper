@@ -83,6 +83,26 @@ bool game_is_running(void)
         || kfx_sim_state.game_kind == GKind_MultiGame;
 }
 
+// The pause-menu family (the launcher + the screens it opens). Reachable
+// via GUI_ICON_PACK=CLASSIC's sidebar just like the modern one -- unlike the
+// rest of menu_is_migrated()'s entries (the sidebar frame/tabs themselves,
+// and the objective/battle/confirm boxes), classic-sidebar players still get
+// the modern ImGui Options/Load/Save/Quit screens rather than the retired
+// sprite ones.
+bool menu_is_options_family(MenuID menu_id)
+{
+    switch (menu_id)
+    {
+        case GMnu_OPTIONS:
+        case GMnu_QUIT:
+        case GMnu_LOAD:
+        case GMnu_SAVE:
+            return true;
+        default:
+            return false;
+    }
+}
+
 // The migrated-menu registry. Grows one entry per phase.
 bool menu_is_migrated(MenuID menu_id)
 {
@@ -522,7 +542,11 @@ extern "C" void ingame_options_back_to_launcher(void)
 
 extern "C" TbBool ingame_imgui_menu_active(MenuID menu_id)
 {
-    return (!ingame_gui_use_classic_hud() && game_is_running() && menu_is_migrated(menu_id)) ? 1 : 0;
+    // GUI_ICON_PACK=CLASSIC only reverts the sidebar and the rest of
+    // menu_is_migrated()'s registry -- the options/quit/load/save family
+    // stays on the ImGui path regardless (see menu_is_options_family()).
+    const bool classic_gated = ingame_gui_use_classic_hud() && !menu_is_options_family(menu_id);
+    return (!classic_gated && game_is_running() && menu_is_migrated(menu_id)) ? 1 : 0;
 }
 
 extern "C" TbBool ingame_imgui_wants_mouse(void)
@@ -536,7 +560,7 @@ extern "C" TbBool ingame_imgui_wants_mouse(void)
 
 extern "C" TbBool ingame_imgui_modal_active(void)
 {
-    if (ingame_gui_use_classic_hud() || !game_is_running())
+    if (!game_is_running())
         return 0;
     // The topmost turned-on monopoly menu owns input. Walk the menu stack
     // from the top down: if the first monopoly menu found is a migrated
@@ -556,7 +580,10 @@ extern "C" TbBool ingame_imgui_modal_active(void)
         if (gmnu->visual_state == 0 || gmnu->visual_state == 3
             || !gmnu->is_turned_on || !gmnu->is_monopoly_menu)
             continue;
-        return menu_is_migrated(gmnu->ident) ? 1 : 0;
+        // See ingame_imgui_menu_active(): classic sidebar still hands the
+        // options/quit/load/save family to ImGui.
+        const bool classic_gated = ingame_gui_use_classic_hud() && !menu_is_options_family(gmnu->ident);
+        return (!classic_gated && menu_is_migrated(gmnu->ident)) ? 1 : 0;
     }
     return 0;
 }
@@ -567,8 +594,31 @@ extern "C" void ingame_imgui_frame(void)
     // s_pending's comment.
     apply_deferred();
 
-    if (ingame_gui_use_classic_hud() || !game_is_running())
+    if (!game_is_running())
         return;
+
+    // GUI_ICON_PACK=CLASSIC reverts the sidebar frame (and the rest of the
+    // ImGui-owned HUD below it) to its sprite-based predecessor, but the
+    // options/quit/load/save family -- screen-centered popups with no
+    // dependency on sidebar layout -- stays on the ImGui path either way
+    // (see menu_is_options_family()).
+    const TbBool classic_hud = ingame_gui_use_classic_hud();
+
+    // GUI_ICON_PACK can now be flipped live from this very Options menu
+    // (menu_is_options_family() above) -- unlike a GOF_ShowGui toggle (Tab),
+    // that doesn't otherwise touch the engine window's viewport inset, so
+    // poll for the transition here and re-apply it (frontend.cpp's own
+    // comment on refresh_engine_window_for_gui_style()).
+    {
+        static bool s_last_classic_hud = false;
+        static bool s_have_last = false;
+        if (!s_have_last || s_last_classic_hud != (bool)classic_hud)
+        {
+            s_have_last = true;
+            s_last_classic_hud = (bool)classic_hud;
+            refresh_engine_window_for_gui_style();
+        }
+    }
 
     // Collapse the settings sub-view whenever the launcher itself is gone
     // (Esc, or any other close of GMnu_OPTIONS).
@@ -581,35 +631,44 @@ extern "C" void ingame_imgui_frame(void)
 
     refresh_cache_if_stale();
 
-    // The HUD windows composite over live gameplay -- no window border
-    // (the frontend's gold edge line, style.WindowBorderSize, read as a
-    // stray line down the sidebar / around the chat box in-game). The
-    // modal panels below (quit / options / save / load / objective /
-    // battle) keep it.
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0);
+    if (!classic_hud)
+    {
+        // The HUD windows composite over live gameplay -- no window border
+        // (the frontend's gold edge line, style.WindowBorderSize, read as a
+        // stray line down the sidebar / around the chat box in-game). The
+        // modal panels below (quit / options / save / load / objective /
+        // battle) keep it.
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0);
 
-    // Phase 4: the always-on sidebar frame. Phase 5's active-tab body is
-    // drawn inside its window (frontgui_ingame_panel.cpp) -- one window,
-    // no z-order seam between frame and grid.
-    ingame_panel_frame();
+        // Phase 4: the always-on sidebar frame. Phase 5's active-tab body is
+        // drawn inside its window (frontgui_ingame_panel.cpp) -- one window,
+        // no z-order seam between frame and grid.
+        ingame_panel_frame();
 
-    // Phase 7: the full-screen parchment / overhead map (own view-mode gate).
-    ingame_parchment_frame();
+        // Phase 7: the full-screen parchment / overhead map (own view-mode gate).
+        ingame_parchment_frame();
 
-    // Phase 2: debug / script-visible overlays (own *_enabled() gates,
-    // no menu involvement) -- draw regardless of which menu is up.
-    ingame_debug_overlays_frame();
-    // Phase 2: cheat / service box menus (their own GuiBox machinery).
-    ingame_boxmenu_frame();
-    // Phase 3: loose status text (Paused caption, onscreen warning banner).
-    ingame_text_overlays_frame();
+        // Phase 2: debug / script-visible overlays (own *_enabled() gates,
+        // no menu involvement) -- draw regardless of which menu is up.
+        ingame_debug_overlays_frame();
+        // Phase 2: cheat / service box menus (their own GuiBox machinery).
+        ingame_boxmenu_frame();
+        // Phase 3: loose status text (Paused caption, onscreen warning banner).
+        ingame_text_overlays_frame();
 
-    ImGui::PopStyleVar();
+        ImGui::PopStyleVar();
+    }
 
     for (int64_t i = 0; i < ACTIVE_MENUS_COUNT; i++)
     {
         const struct GuiMenu *gmnu = &active_menus[i];
         if (!menu_slot_is_migrated_and_on(gmnu))
+            continue;
+        // Classic sidebar: only the options/quit/load/save family below is
+        // still ImGui-owned -- everything else in menu_is_migrated()'s
+        // registry (sidebar tabs, objective/battle boxes, ...) falls back
+        // to its legacy sprite draw instead.
+        if (classic_hud && !menu_is_options_family(gmnu->ident))
             continue;
         switch (gmnu->ident)
         {
@@ -634,6 +693,9 @@ extern "C" void ingame_imgui_frame(void)
     }
 
     // Phase 3: context tooltip -- last, so it sits on top of the menus.
+    // (Self-gated on classic_hud -- frontgui_ingame_text.cpp's
+    // ingame_tooltip_frame() -- since the classic sidebar/tab content it
+    // would normally annotate isn't drawn here.)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0);
     ingame_tooltip_frame();
     ImGui::PopStyleVar();

@@ -1758,15 +1758,25 @@ otherwise it will be built against chrome this stage is retiring.
 
 ### 3.1 Where the code lives (layering)
 
-`scripts/check_layering.py` governs `src/kfx_*` inter-library includes only; third-party headers
-are unconstrained. The split that respects the ladder:
+**Superseded 2026-09-23** by
+[05-imgui-linkage-consolidation.md](05-imgui-linkage-consolidation.md) (landed): ImGui context
+ownership described below as living in `kfx_platform` moved to `kfx_frontend` instead — see that
+doc for the full rationale (in short: the original split still left every ImGui-adjacent call
+threaded through a `kfx_platform`/`kfx_frontend` callback boundary for no benefit, since
+`kfx_frontend` was always the only real widget-submitting consumer). The description below is kept
+as a historical record of Phase A's original design, not the current shape.
 
-- **`kfx_platform`** owns the ImGui *context*: creating/destroying it, `ImGui_ImplSDL3_*` and
+`scripts/check_layering.py` governs `src/kfx_*` inter-library includes only; third-party headers
+are unconstrained. The split that respected the ladder, as originally shipped in Phase A:
+
+- **`kfx_platform`** owned the ImGui *context*: creating/destroying it, `ImGui_ImplSDL3_*` and
   `ImGui_ImplSDLRenderer3_*` lifecycle, feeding SDL events, new-frame/render. It already owns the
   `SDL_Window` (`WindowSystemSDL`) and the `SDL_Renderer` (`RendererSoftware::m_renderer`), which
-  are exactly what both backends need. Expose a narrow `extern "C"`-friendly service alongside
-  `RendererManager` — e.g. `src/kfx_platform/{include,src}/gui/ImGuiContext.{h,cpp}` — so nothing
-  above has to `#include <imgui.h>` for lifecycle.
+  are exactly what both backends need. A narrow `extern "C"`-friendly service alongside
+  `RendererManager` — `src/kfx_platform/{include,src}/gui/ImGuiContext.{h,cpp}` — kept nothing
+  above having to `#include <imgui.h>` for lifecycle. **Now:** that service is
+  `src/kfx_frontend/{include,src}/gui/FrontendImGui.{h,cpp}` instead; `kfx_platform` reaches it
+  through the `RendererImGuiCallbacks` struct (`renderer/RendererManager.h`).
 - **`kfx_frontend`** owns the *screens* and the §5 wrapper layer: it includes `imgui.h` and submits
   widgets. This is upward-legal (frontend ranks above platform) and keeps menu authoring in the
   library that already owns menu behaviour.

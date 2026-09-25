@@ -78,7 +78,7 @@ int64_t play_smacker_file(char *filename, FrontendMenuState nstate)
     {
       LbMouseChangeSprite(NULL);
       RendererClearScreen(0);
-      RendererPresentFrame();
+      RendererPresentStepFrame();
     } else
     {
       ERRORLOG("Can't enter movies video mode to play a Smacker file");
@@ -107,7 +107,7 @@ int64_t play_smacker_file(char *filename, FrontendMenuState nstate)
     memset(frontend_palette, 0, PALETTE_SIZE);
   }
   RendererClearScreen(0);
-  RendererPresentFrame();
+  RendererPresentStepFrame();
   RendererPaletteSet(frontend_palette);
   if (nstate >= 0)
     frontend_set_state(nstate);

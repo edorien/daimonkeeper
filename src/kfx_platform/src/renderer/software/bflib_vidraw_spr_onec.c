@@ -21,6 +21,7 @@
 #include "pre_inc.h"
 #include "renderer/software/SwDrawTarget.h"
 #include "renderer/RendererManager.h"
+#include "renderer/WorldFrame.h"
 #include "bflib_vidraw.h"
 
 #include <string.h>
@@ -51,6 +52,8 @@ extern "C" {
  */
 static inline TbPixel ghost_blend_1(TbPixel colour, TbPixel dest)
 {
+    if (dest.a != 255)
+        return render_ghost_blend(colour, dest); // transparent GPU-layer window: alpha-aware (see bflib_render.h)
     return TbPixel_RGB(
         (uint8_t)((colour.r + 2 * dest.r) / 3),
         (uint8_t)((colour.g + 2 * dest.g) / 3),
@@ -69,6 +72,8 @@ static inline TbPixel ghost_blend_1(TbPixel colour, TbPixel dest)
  */
 static inline TbPixel ghost_blend_2(TbPixel colour, TbPixel dest)
 {
+    if (dest.a != 255)
+        return render_ghost_blend_2(colour, dest);
     return TbPixel_RGB(
         (uint8_t)((2 * colour.r + dest.r) / 3),
         (uint8_t)((2 * colour.g + dest.g) / 3),
@@ -1264,6 +1269,12 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int64
 TbResult LbSpriteDrawOneColourUsingScalingData(int64_t posx, int64_t posy, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing at (%" PRId64 ",%" PRId64 ")",(int64_t)(posx),(int64_t)(posy));
+    if ((RendererGetDrawFlags() & (Lb_SPRITE_TRANSPAR4 | Lb_SPRITE_TRANSPAR8)) == 0)
+    {
+        // gpu-v2 Phase C.2: record for the GPU world frame instead, when one is being built.
+        if (SwCaptureSprite(posx, posy, sprite->Data, sprite->SWidth, sprite->SHeight, WFS_ONECOLOUR, NULL, colour))
+            return 0;
+    }
     int64_t *xstep;
     int64_t *ystep;
     int64_t scanline;

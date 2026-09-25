@@ -20,6 +20,7 @@
 #include "frontgui_screens.h"
 #include "frontgui_ingame_parchment.h"
 #include "frontgui_style.h"
+#include "gui/FrontendImGui.h"
 #include "globals.h"
 #include "bflib_sprite.h"
 #include "thing_data.h"
@@ -1298,6 +1299,32 @@ int64_t setup_game(void)
       return 0;
   }
 
+  // gpu-v2 Phase C.1 (docs/refactor/renderer/gpu-v2/07-phased-delivery.md):
+  // RendererInit(RENDERER_SOFTWARE) above already brought up an active
+  // renderer for the pre-config-load splash/legal screens -- load_configuration()
+  // just above is the earliest point RENDERER's cfg value (and R13's
+  // GUI_ICON_PACK=CLASSIC check) is actually known, so the real backend
+  // swap (if the user asked for one) happens here, not earlier.
+  {
+      RendererType desired = RendererGetDesiredType();
+      // R13 (docs/refactor/renderer/gpu-v2/08-risks.md, gpu-v2/04's
+      // "CLASSIC's compositing assumption doesn't survive Phase C
+      // unmodified"): CLASSIC's draw calls assume they're painting directly
+      // onto a lbDrawSurface that already contains the CPU-rasterized 3D
+      // scene -- once RendererGpu3D is active that's no longer true. Fail
+      // clearly (fall back, logged) rather than let a broken frame render.
+      if (desired == RENDERER_GPU3D && ingame_gui_use_classic_hud())
+      {
+          WARNLOG("RENDERER=VULKAN is incompatible with GUI_ICON_PACK=CLASSIC (R13) -- falling back to the software renderer");
+          desired = RENDERER_SOFTWARE;
+      }
+      if (desired != RendererGetActiveType() && RendererInit(desired) == 0)
+      {
+          ERRORLOG("Renderer initialisation error.");
+          return 0;
+      }
+  }
+
   #ifdef FUNCTESTING
     start_params.startup_flags &= ~SFlg_Legal;
     start_params.startup_flags &= ~SFlg_FX;
@@ -1313,47 +1340,50 @@ int64_t setup_game(void)
   bf_sprfnt_set_fxdata_dir(prepare_file_path(FGrp_FxData, ""));
   bf_sndlib_set_audio_config(get_language_lwrstr(install_info.lang_id), is_feature_on(Ft_NoCdMusic));
   bf_sound_set_atmos_config(AtmosStart, AtmosEnd, AtmosRepeat, atmos_sounds_enabled());
+  // docs/refactor/renderer/05-imgui-linkage-consolidation.md: ImGui context/
+  // backend ownership lives in kfx_frontend (gui/FrontendImGui.{h,cpp}) --
+  // kfx_platform can't call up into it directly (layering), so
+  // RendererSoftware::PresentFrame/bflib_inputctrl.cpp/bflib_mspointer.cpp
+  // reach it through this one RendererImGuiCallbacks struct instead, the
+  // same *Callbacks-in-kfx_platform, registered-here pattern
+  // renderer_draw_callbacks_impl below already uses. Its members are thin
+  // wrappers around FrontendImGui*'s real functions -- the mouse-position
+  // and cursor-image queries used to be separate callbacks registered from
+  // here too, but now that the context itself lives in kfx_frontend, it
+  // calls GetMouseX()/GetMouseY() (kjm_input.h) and FeStyleGetCursorImage()
+  // directly instead, both same-library kfx_frontend calls -- see
+  // FrontendImGui.cpp.
+  //
+  // submit stays a wrapper defined here (app_imgui_frame), not
+  // FrontendImGuiFrame directly: kfx_editor ranks above kfx_apploop, so it
+  // can't register its own ImGui-frame callback the way FrontendImGuiFrame
+  // itself could -- main.cpp (the composition root, the one file allowed
+  // to #include every layer) wraps the single registered callback instead.
+  // editor_frame() no-ops unless editor_is_active().
+  static const struct RendererImGuiCallbacks renderer_imgui_callbacks_impl = {
+      &FrontendImGuiEnsure,
+      &FrontendImGuiRendererDestroying,
+      &FrontendImGuiBeginFrame,
+      &app_imgui_frame,
+      &FrontendImGuiRender,
+      &FrontendImGuiProcessEvent,
+      &FrontendImGuiIsActive,
+      &FrontendImGuiWantCaptureMouse,
+      &FrontendImGuiWantCaptureKeyboard,
+      &FrontendImGuiScreenOwned,
+      &FrontendImGuiSetDemoVisible,
+  };
+  set_renderer_imgui_callbacks(&renderer_imgui_callbacks_impl);
   // docs/refactor/renderer/04-imgui-gui-foundation.md §3.5/§7 Phase A --
   // kfx_platform can't call kfx_config's is_feature_on() itself (kfx_config
-  // ranks above kfx_platform), so push the resolved flags down through
-  // RendererManager's setters instead. ImGui itself is unconditional now
-  // (every frontend menu needs it, and the in-game HUD's own classic-vs-
-  // ImGui choice, GUI_ICON_PACK's "CLASSIC" value, is decided per-draw-call
+  // ranks above kfx_platform), so push the resolved flag down through the
+  // struct above instead. ImGui itself is unconditional now (every
+  // frontend menu needs it, and the in-game HUD's own classic-vs-ImGui
+  // choice, GUI_ICON_PACK's "CLASSIC" value, is decided per-draw-call
   // inside kfx_frontend -- see ingame_gui_use_classic_hud()) -- there is no
   // longer a session-wide "ImGui enabled" switch to push down here.
   RendererSetImGuiDemoVisible((start_params.debug_flags & DFlg_ImGuiDemo) != 0);
-  // Phase C (§7): FrontendImGuiFrame dispatches to the active migrated
-  // screen (and still runs the Phase B style-sheet debug overlay),
-  // registered once as the RendererImGuiFrameFn callback so kfx_platform's
-  // PresentFrame can submit it without calling up into kfx_frontend
-  // directly.
-  RendererSetImGuiFrameCallback(&app_imgui_frame);
   FeStyleSheetSetVisible((start_params.debug_flags & DFlg_ImGuiStyleSheet) != 0);
-  // Found live during Phase D testing: raw SDL motion events snap ImGui's
-  // cursor to the window centre whenever the game's own grab-warp mouse
-  // handling recentres the OS cursor near an edge (RendererManager.h's own
-  // comment has the full story) -- feed it GetMouseX()/GetMouseY() (the
-  // same tracked position the legacy cursor sprite already draws at)
-  // instead. A non-capturing lambda converts to the plain function pointer
-  // RendererMousePositionFn needs.
-  RendererSetMousePositionCallback([](int64_t *x, int64_t *y) {
-      *x = GetMouseX();
-      *y = GetMouseY();
-  });
-  // Also found live: ImGui's own built-in cursor is a generic arrow,
-  // visibly mismatched against the game's actual cursor sprite everywhere
-  // else -- FeStyleGetCursorImage() (frontgui_style.cpp) renders
-  // GFS_cursor_horny into an RGBA buffer for ImGui to draw instead.
-  RendererSetCursorImageCallback(&FeStyleGetCursorImage);
-  // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md Phase C: tells
-  // RendererSoftware::PresentFrame() (and the cursor code) whether the
-  // *current* frontend screen is one of the 15 states fully migrated to
-  // ImGui -- frontend_imgui_screen_active() itself needs the state to
-  // check, so a plain non-capturing lambda (same idiom as the mouse
-  // position callback above) reads the live frontend_menu_state global.
-  RendererSetScreenOwnedCallback([]() -> TbBool {
-      return frontend_imgui_screen_active(frontend_menu_state) || ingame_parchment_active();
-  });
   static const struct InputFocusPredicates input_focus_predicates = {
       &freeze_game_on_focus_lost, &mute_audio_on_focus_lost,
       &unlock_cursor_when_game_paused, &lock_cursor_in_possession,
@@ -2340,6 +2370,12 @@ int64_t kfxmain(int64_t argc, char *argv[])
 {
   try {
   LbBullfrogMain(argc, argv);
+  } catch (const std::exception &e)
+  {
+      char msg[512];
+      snprintf(msg, sizeof(msg), "Exception raised: %s", e.what());
+      error_dialog(__func__, 1, msg);
+      return 1;
   } catch (...)
   {
       error_dialog(__func__, 1, "Exception raised!");

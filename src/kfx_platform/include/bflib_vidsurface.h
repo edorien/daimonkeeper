@@ -5,7 +5,7 @@
 /** @file bflib_vidsurface.h
  *     Header file for bflib_vidsurface.c.
  * @par Purpose:
- *     Graphics surfaces support.
+ *     The main drawing surface.
  * @par Comment:
  *     Just a header file - #defines, typedefs, function prototypes etc.
  * @author   Tomasz Lis
@@ -28,23 +28,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct SDL_Surface;
-struct TbRect;
-
-struct SSurface {
-    struct SDL_Surface * surf_data;
-    uint64_t locks_count;
-    TbBytePitch pitch;
-};
 /******************************************************************************/
 extern struct SDL_Surface * lbDrawSurface;
-/******************************************************************************/
-void LbScreenSurfaceInit(struct SSurface *surf);
-TbResult LbScreenSurfaceCreate(struct SSurface *surf, uint64_t w, uint64_t h);
-TbResult LbScreenSurfaceRelease(struct SSurface *surf);
-TbResult LbScreenSurfaceBlit(struct SSurface *surf, uint64_t x, uint64_t y,
-    struct TbRect *rect, uint64_t blflags);
-void *LbScreenSurfaceLock(struct SSurface *surf);
-TbResult LbScreenSurfaceUnlock(struct SSurface *surf);
 /******************************************************************************/
 #ifdef __cplusplus
 }

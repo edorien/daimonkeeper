@@ -9,6 +9,9 @@
 #include "cfgc_campaign_levels.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -142,4 +145,131 @@ std::string cfgc_order_file_text(const std::string &old_text, const std::vector<
     for (const std::string &n : order)
         out += n + eol;
     return out;
+}
+
+namespace {
+
+std::string lower_of(std::string s)
+{
+    for (char &c : s)
+        c = (char)std::tolower((unsigned char)c);
+    return s;
+}
+
+std::string prefix_of(int64_t n)
+{
+    char buf[32];
+    snprintf(buf, sizeof(buf), "map%05lld.", (long long)n);
+    return buf;
+}
+
+} // namespace
+
+bool cfgc_file_exists_ci(const std::string &path)
+{
+    std::error_code ec;
+    if (fs::is_regular_file(path, ec))
+        return true;
+    const fs::path p(path);
+    const std::string want = lower_of(p.filename().string());
+    for (fs::directory_iterator it(p.parent_path().empty() ? fs::path(".") : p.parent_path(), ec), end; !ec && it != end; it.increment(ec))
+        if (lower_of(it->path().filename().string()) == want && it->is_regular_file(ec))
+            return true;
+    return false;
+}
+
+std::vector<std::string> cfgc_level_files(const std::string &dir, int64_t n)
+{
+    std::vector<std::string> out;
+    const std::string prefix = prefix_of(n);
+    std::error_code ec;
+    for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
+    {
+        const std::string name = it->path().filename().string();
+        if (it->is_regular_file(ec) && lower_of(name).compare(0, prefix.size(), prefix) == 0)
+            out.push_back(name);
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+std::vector<int64_t> cfgc_level_numbers_in_dir(const std::string &dir)
+{
+    std::vector<int64_t> out;
+    std::error_code ec;
+    for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
+    {
+        const std::string name = lower_of(it->path().filename().string());
+        if (name.size() == 12 && name.compare(0, 3, "map") == 0 && name.compare(8, 4, ".slb") == 0)
+        {
+            const int64_t n = std::atoll(name.substr(3, 5).c_str());
+            if (n > 0)
+                out.push_back(n);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+std::string cfgc_level_file_rename(const std::string &name, int64_t from, int64_t to)
+{
+    const std::string prefix = prefix_of(from);
+    if (lower_of(name).compare(0, prefix.size(), prefix) != 0)
+        return name;
+    std::string head = prefix_of(to);
+    if (name.compare(0, 3, "MAP") == 0)
+        head = "MAP" + head.substr(3);
+    return head + name.substr(prefix.size());
+}
+
+bool cfgc_plan_level_copy(const std::string &src_dir, int64_t from, const std::string &dst_dir, int64_t to, WriteBatch &batch,
+    std::string *error)
+{
+    const std::vector<std::string> files = cfgc_level_files(src_dir, from);
+    if (files.empty())
+    {
+        if (error != nullptr)
+            *error = "Level " + std::to_string(from) + " has no files in " + src_dir + ".";
+        return false;
+    }
+    if (!cfgc_level_files(dst_dir, to).empty())
+    {
+        if (error != nullptr)
+            *error = "Level " + std::to_string(to) + " already has files in " + dst_dir + ".";
+        return false;
+    }
+    WriteBatch staged;
+    for (const std::string &f : files)
+    {
+        std::ifstream in((fs::path(src_dir) / f).string(), std::ios::binary);
+        std::stringstream ss;
+        ss << in.rdbuf();
+        if (!in && !in.eof())
+        {
+            if (error != nullptr)
+                *error = "Could not read " + f + ".";
+            return false;
+        }
+        staged.put((fs::path(dst_dir) / cfgc_level_file_rename(f, from, to)).generic_string(), ss.str());
+    }
+    for (const WriteBatch::Op &op : staged.ops())
+        batch.put(op.path, op.bytes);
+    return true;
+}
+
+std::string cfgc_new_pack_text(const std::string &name, const std::string &id, const std::string &folder, const std::string &human_player,
+    bool own_config)
+{
+    std::string t;
+    t += "; KeeperFX map pack file -- written by the map editor.\n\n[common]\n";
+    t += "NAME = " + name + "\n";
+    t += "LEVELS_LOCATION = " + folder + "/" + id + "\n";
+    if (own_config)
+    {
+        t += "CONFIGS_LOCATION = " + folder + "/" + id + "_cfg\n";
+        t += "CREATURES_LOCATION = " + folder + "/" + id + "_crtr\n";
+    }
+    t += "HUMAN_PLAYER = " + human_player + "\n";
+    t += "\n[strings]\nENG = fxdata/gtext_eng.dat\n\n[speech]\nENG = campgns/keeporig_eng\n";
+    return t;
 }

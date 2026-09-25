@@ -247,10 +247,17 @@ struct KeeperFxUiConfig {
     // which upper corner the minimap+gold+event-marker cluster sits in --
     // 1 = upper-left (default), 2 = upper-right (same 1-based-sentinel
     // reasoning as hud_position above; see minimap_corner_type[]'s own
-    // comment, config_keeperfx.c). The button cluster + pop-up panel
-    // always take the diagonally opposite corner -- this one setting
-    // drives both. KeeperFX-only.
+    // comment, config_keeperfx.c). KeeperFX-only.
     int64_t minimap_corner;
+    // Minimal layout only (hud_position == 4, config_settingschema.c
+    // PANEL_CORNER row, docs/refactor/ingame-gui/13-minimal-layout.md):
+    // which bottom corner the free-floating button cluster + its pop-up
+    // panel sit in (always the bottom edge -- only left/right is a choice)
+    // -- 1 = lower-left, 2 = lower-right (default, same 1-based-sentinel
+    // reasoning as hud_position above; see panel_corner_type[]'s own
+    // comment, config_keeperfx.c). Independent of minimap_corner -- either
+    // may pick either corner, including both sharing one. KeeperFX-only.
+    int64_t panel_corner;
 };
 extern struct KeeperFxUiConfig keeperfx_ui_config;
 
@@ -275,8 +282,12 @@ extern const struct NamedCommand scrshot_type[];
 extern const struct NamedCommand atmos_volume[];
 extern const struct NamedCommand atmos_freq[];
 extern const struct NamedCommand tag_modes[];
+// RENDERER (gpu-v2 Phase C.1) -- same reuse as above.
+extern const struct NamedCommand renderer_type[];
+extern const struct NamedCommand lighting_type[];
 extern const struct NamedCommand hud_position_type[];
 extern const struct NamedCommand minimap_corner_type[];
+extern const struct NamedCommand panel_corner_type[];
 extern char cmd_char;
 extern int64_t api_enabled;
 extern int64_t api_port;

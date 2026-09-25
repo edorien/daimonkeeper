@@ -33,9 +33,8 @@ extern unsigned char screenshot_format;
 TbBool perform_any_screen_capturing(void);
 TbBool take_screenshot(char *fname);
 TbBool cumulative_screen_shot(void);
-
-TbBool movie_record_start(void);
-TbBool movie_record_stop(void);
+// movie_record_start/stop/frame (FLC movie recording) retired --
+// docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md B2.
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -122,6 +122,16 @@ struct CampaignState
     std::set<std::string> removed;
     std::string reload_fname; // campaign to select again after a rescan
     std::string last_fname;   // the campaign shown last: the window opens on it again
+    ContentKind last_kind = ContentKind_Campaign;
+    // Map pack levels page: the levels found in the folder, and the copy / move dialog
+    std::vector<PackLevel> pack_levels;
+    int64_t pack_sel = -1;
+    int64_t copy_target = 0;
+    int64_t copy_number = 1;
+    int64_t copy_list = 0;
+    bool copy_remove = false;
+    std::string copy_error;
+    int64_t new_kind = 0;
     int64_t sel = -1;         // selected row of `levels`
     int64_t add_pick = 0;     // index into the unlisted map files
     // Config files page: the campaign's files (cached; rebuilt after a change).
@@ -198,7 +208,7 @@ CampaignCheckEnv make_env(const ContentCampaign &camp)
     CampaignCheckEnv env;
     env.root = content_root();
     env.own_fname = camp.fname;
-    env.file_exists = [](const std::string &p) { std::error_code ec; return fs::is_regular_file(p, ec); };
+    env.file_exists = [](const std::string &p) { return cfgc_file_exists_ci(p); };
     env.dir_exists = [](const std::string &p) { std::error_code ec; return fs::is_directory(p, ec); };
     env.file_size = [](const std::string &p) {
         std::error_code ec;
@@ -221,7 +231,7 @@ void rebuild_view(const ContentCampaign &camp);
 
 void fill_row(LevelRow &r, const ContentCampaign &camp)
 {
-    r.has_map = !camp.levels_dir.empty() && fs::is_regular_file(camp.levels_dir + "/map" + five(r.number) + ".slb");
+    r.has_map = !camp.levels_dir.empty() && cfgc_file_exists_ci(camp.levels_dir + "/map" + five(r.number) + ".slb");
     if (const CfgContentSection *e = s_cs.view.find_section("map", r.number))
     {
         r.has_entry = true;
@@ -290,6 +300,11 @@ void load()
     s_cs.idx = std::max<int64_t>(0, std::min<int64_t>(s_cs.idx, (int64_t)s_cs.campaigns.size() - 1));
     const ContentCampaign &camp = s_cs.campaigns[(size_t)s_cs.idx];
     s_cs.last_fname = camp.fname;
+    s_cs.last_kind = camp.kind;
+    s_cs.pack_levels.clear();
+    s_cs.pack_sel = -1;
+    if (camp.kind != ContentKind_Campaign)
+        s_cs.pack_levels = content_pack_levels(camp);
     if (camp.cfg_file.empty() || !fs::is_regular_file(camp.cfg_file))
     {
         s_cs.status = "The campaign's .cfg file could not be found.";
@@ -589,23 +604,19 @@ bool apply_pending(const ContentCampaign &camp, std::string *error)
 void rescan_lists()
 {
     // The lists are read at start-up; read them again so the change shows without a restart.
-    load_campaigns_list(&campaigns_list, FGrp_Campgn, "campaigns", "campgn_order.txt");
+    content_campaign_rescan_lists();
 }
 
-void reselect(const std::string &fname)
+void reselect(const std::string &fname, ContentKind kind = ContentKind_Campaign)
 {
-    s_cs.everyone = content_list_campaigns();
-    s_cs.campaigns.clear();
-    for (const ContentCampaign &c : s_cs.everyone)
-        if (!c.is_mappack)
-            s_cs.campaigns.push_back(c);
+    s_cs.everyone = content_list_everything();
+    s_cs.campaigns = s_cs.everyone;
     for (size_t i = 0; i < s_cs.campaigns.size(); i++)
-        if (s_cs.campaigns[i].fname == fname)
+        if (s_cs.campaigns[i].fname == fname && s_cs.campaigns[i].kind == kind)
             s_cs.idx = (int64_t)i;
     s_cs.loaded = false;
 }
 
-// Copies the shared configuration / creature folders to the campaign's own and points the two keys at them.
 bool apply_own_config(const ContentCampaign &camp, std::string *error)
 {
     WriteBatch batch;
@@ -633,10 +644,11 @@ bool apply_own_config(const ContentCampaign &camp, std::string *error)
 void finish_write(const ContentCampaign &camp, const char *what)
 {
     const std::string fname = camp.fname;
+    const ContentKind kind = camp.kind;
     s_cs.edits.clear();
     s_cs.removed.clear();
     rescan_lists();
-    reselect(fname);
+    reselect(fname, kind);
     s_cs.status = what;
 }
 
@@ -719,24 +731,18 @@ void draw_identity(const ContentCampaign &camp)
     draw_menu_order(camp);
 }
 
+void open_copy_modal(const ContentCampaign &camp);
+void draw_copy_modal(const ContentCampaign &camp, int64_t from);
+
 // The map files of the campaign's levels folder that no list refers to.
 std::vector<int64_t> unlisted_maps(const ContentCampaign &camp, const CampaignLevels &lv)
 {
     std::vector<int64_t> out;
-    std::error_code ec;
     if (camp.levels_dir.empty())
         return out;
-    for (fs::directory_iterator it(camp.levels_dir, ec), end; !ec && it != end; it.increment(ec))
-    {
-        const std::string name = it->path().filename().string();
-        if (name.size() == 12 && name.compare(0, 3, "map") == 0 && name.compare(8, 4, ".slb") == 0)
-        {
-            const int64_t n = std::atoll(name.substr(3, 5).c_str());
-            if (n > 0 && !lv.listed(n))
-                out.push_back(n);
-        }
-    }
-    std::sort(out.begin(), out.end());
+    for (int64_t n : cfgc_level_numbers_in_dir(camp.levels_dir))
+        if (!lv.listed(n))
+            out.push_back(n);
     return out;
 }
 
@@ -1081,6 +1087,12 @@ void draw_levels(const ContentCampaign &camp)
         FeOpenModal("Remove level");
     }
     ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(row == nullptr || dirty());
+    if (FeButton("Copy / move to...", ImVec2(0, 0)))
+        open_copy_modal(camp);
+    ImGui::EndDisabled();
+    draw_copy_modal(camp, row != nullptr ? row->number : 0);
     if (!s_cs.map_host)
     {
         ImGui::SameLine();
@@ -1104,7 +1116,7 @@ void draw_levels(const ContentCampaign &camp)
         ImGui::BeginDisabled(dirty());
         if (FeButton("New map in this campaign", ImVec2(0, 0)))
         {
-            editor_dialogs_set_default_campaign(camp.fname.c_str());
+            editor_dialogs_set_default_campaign(camp.fname.c_str(), (int)ContentKind_Campaign);
             frontend_request_map_editor_open(CampgnT_Campaign, camp.fname.c_str(), 0, true);
             s_cs.open = false;
         }
@@ -1462,10 +1474,10 @@ void draw_files(const ContentCampaign &camp)
 void draw_menu_order(const ContentCampaign &camp)
 {
     size_t pos = 0, count = 0;
-    if (!content_campaign_menu_position(camp.fname, &pos, &count))
+    if (!camp.listed || !content_campaign_menu_position(camp.fname, &pos, &count, camp.kind))
         return;
     char info[96];
-    snprintf(info, sizeof(info), "Place in the campaign menu: %zu of %zu", pos + 1, count);
+    snprintf(info, sizeof(info), "Place in the %s menu: %zu of %zu", camp.kind == ContentKind_Campaign ? "campaign" : "map pack", pos + 1, count);
     FeCaption(info);
     for (const int delta : {-1, +1})
     {
@@ -1474,13 +1486,195 @@ void draw_menu_order(const ContentCampaign &camp)
         if (FeButton(delta < 0 ? "Move up" : "Move down", ImVec2(0, 0)))
         {
             std::string err;
-            if (content_campaign_move_in_menu(camp.fname, delta, &err))
+            if (content_campaign_move_in_menu(camp.fname, delta, &err, camp.kind))
                 finish_write(camp, "Menu order changed.");
             else
                 s_cs.status = err;
         }
         ImGui::EndDisabled();
     }
+}
+
+int64_t pack_code(ContentKind kind)
+{
+    return kind == ContentKind_Multiplayer ? (int64_t)CampgnT_MultiplayerMappack : (int64_t)CampgnT_Mappack;
+}
+
+// The dialog that copies (or moves) a level to a campaign or pack. `from` is a level of `camp`.
+void draw_copy_modal(const ContentCampaign &camp, int64_t from)
+{
+    const bool modal = FeBeginModal("Copy level");
+    if (!modal)
+    {
+        FeEndModal(modal);
+        return;
+    }
+    FeHeading("Copy level to");
+    FeSeparator();
+    std::vector<std::string> names;
+    for (const ContentCampaign &c : s_cs.campaigns)
+        names.push_back(std::string(c.kind == ContentKind_Campaign ? "" : c.kind == ContentKind_FreePlay ? "[free play] " : "[multiplayer] ") + c.name);
+    std::vector<const char *> ptrs;
+    for (const std::string &n : names)
+        ptrs.push_back(n.c_str());
+    s_cs.copy_target = std::min<int64_t>(s_cs.copy_target, (int64_t)ptrs.size() - 1);
+    const ContentCampaign &target = s_cs.campaigns[(size_t)std::max<int64_t>(0, s_cs.copy_target)];
+    auto suggest = [&]() {
+        const CampaignListKind kind = s_cs.copy_list == 1 ? CampList_Extra : CampList_Single;
+        s_cs.copy_number = target.kind == ContentKind_Campaign ? content_campaign_next_level(target.fname, kind) : content_pack_next_level(target);
+        if (target.kind == ContentKind_Campaign && target.cfg_file == camp.cfg_file)
+            s_cs.copy_number = cfgc_next_level_number(cfgc_read_levels(s_cs.content), kind);
+    };
+    FeCaption("Copy level");
+    ImGui::SameLine();
+    ImGui::Text("%lld", (long long)from);
+    ImGui::SetNextItemWidth(form_col(28));
+    int64_t t = s_cs.copy_target;
+    if (FeCombo("##copytarget", &t, ptrs.data(), (int64_t)ptrs.size()) && t != s_cs.copy_target)
+    {
+        s_cs.copy_target = t;
+        suggest();
+    }
+    if (target.kind == ContentKind_Campaign)
+    {
+        static const char *const lists[] = {"Single level", "Extra level"};
+        FeCaption("List it as");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(form_col(14));
+        int64_t l = s_cs.copy_list;
+        if (FeCombo("##copylist", &l, lists, 2) && l != s_cs.copy_list)
+        {
+            s_cs.copy_list = l;
+            suggest();
+        }
+    }
+    FeCaption("New level number");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(form_col(8));
+    ImGui::InputScalar("##copynumber", ImGuiDataType_S64, &s_cs.copy_number);
+    const bool can_move = camp.kind == ContentKind_Campaign && !(target.kind == ContentKind_Campaign && target.cfg_file == camp.cfg_file);
+    if (can_move)
+        FeCheckbox("Also take it out of this campaign's lists (its map files stay)", &s_cs.copy_remove);
+    FeCaption("The map files and the level's own files are copied; the original stays where it is.");
+    if (!s_cs.copy_error.empty())
+        FeCaption(s_cs.copy_error.c_str());
+    FeSeparator();
+    ImGui::BeginDisabled(s_cs.copy_number < 1);
+    if (FeButton("Copy", ImVec2(110, 0)))
+    {
+        std::string err;
+        if (content_campaign_copy_level(camp, from, target, s_cs.copy_number, s_cs.copy_list == 1 ? CampList_Extra : CampList_Single,
+                can_move && s_cs.copy_remove, &err))
+        {
+            const std::string fname = camp.fname;
+            const ContentKind kind = camp.kind;
+            reselect(fname, kind);
+            s_cs.status = "Level " + std::to_string(from) + " copied to " + target.name + " as level " + std::to_string(s_cs.copy_number) + ".";
+            s_cs.copy_error.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        else
+            s_cs.copy_error = err;
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (FeButton("Cancel", ImVec2(110, 0)))
+    {
+        s_cs.copy_error.clear();
+        ImGui::CloseCurrentPopup();
+    }
+    FeEndModal(modal);
+}
+
+void open_copy_modal(const ContentCampaign &camp)
+{
+    // Start on the same campaign / pack, with the next free number there.
+    s_cs.copy_target = s_cs.idx;
+    s_cs.copy_list = 0;
+    s_cs.copy_remove = false;
+    s_cs.copy_error.clear();
+    s_cs.copy_number = camp.kind == ContentKind_Campaign ? cfgc_next_level_number(cfgc_read_levels(s_cs.content), CampList_Single)
+                                                          : content_pack_next_level(camp);
+    FeOpenModal("Copy level");
+}
+
+// A map pack's Levels page: its levels are the map files of its folder.
+void draw_pack_levels(const ContentCampaign &camp)
+{
+    if (!camp.listed)
+        FeCaption("The game lists a pack once it has a map with a .lif file: save a map into it (Map Editor, File > Save As).");
+    const PackLevel *row = (s_cs.pack_sel >= 0 && s_cs.pack_sel < (int64_t)s_cs.pack_levels.size()) ? &s_cs.pack_levels[(size_t)s_cs.pack_sel] : nullptr;
+    if (!s_cs.map_host)
+    {
+        ImGui::BeginDisabled(row == nullptr || dirty());
+        if (FeButton("Open in Map Editor", ImVec2(0, 0)))
+        {
+            frontend_request_map_editor_open((uint8_t)pack_code(camp.kind), camp.fname.c_str(), (LevelNumber)row->number, false);
+            s_cs.open = false;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(row == nullptr || dirty());
+        // A multiplayer level has no single-player script of its own; the game fills the other dungeons with the
+        // default computer AI, the same as Skirmish does for a non-networked start (run_pending_content_tool_play()).
+        if (FeButton(camp.kind == ContentKind_Multiplayer ? "Play (with default AI)" : "Play", ImVec2(0, 0)))
+        {
+            frontend_request_content_tool_play((uint8_t)pack_code(camp.kind), camp.fname.c_str(), (LevelNumber)row->number, ContentTool_Campaign);
+            s_cs.open = false;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(dirty());
+        if (FeButton("New map in this pack", ImVec2(0, 0)))
+        {
+            editor_dialogs_set_default_campaign(camp.fname.c_str(), (int)camp.kind);
+            frontend_request_map_editor_open((uint8_t)pack_code(camp.kind), camp.fname.c_str(), 0, true);
+            s_cs.open = false;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+    }
+    ImGui::BeginDisabled(row == nullptr || dirty());
+    if (FeButton("Copy to...", ImVec2(0, 0)))
+        open_copy_modal(camp);
+    ImGui::EndDisabled();
+    if (row != nullptr)
+        draw_copy_modal(camp, row->number);
+    else
+        draw_copy_modal(camp, 0);
+
+    if (s_cs.pack_levels.empty())
+    {
+        FeCaption("This pack has no maps yet.");
+        return;
+    }
+    if (!ImGui::BeginTable("##packlevels", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable))
+        return;
+    ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, form_col(8));
+    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("Players", ImGuiTableColumnFlags_WidthFixed, form_col(6));
+    ImGui::TableSetupColumn("Author", ImGuiTableColumnFlags_WidthFixed, form_col(14));
+    ImGui::TableSetupColumn("Files", ImGuiTableColumnFlags_WidthFixed, form_col(5));
+    ImGui::TableHeadersRow();
+    for (size_t i = 0; i < s_cs.pack_levels.size(); i++)
+    {
+        const PackLevel &l = s_cs.pack_levels[i];
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        char label[48];
+        snprintf(label, sizeof(label), "%lld###pack%zu", (long long)l.number, i);
+        if (ImGui::Selectable(label, s_cs.pack_sel == (int64_t)i, ImGuiSelectableFlags_SpanAllColumns))
+            s_cs.pack_sel = (int64_t)i;
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(l.name.c_str());
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(l.players.c_str());
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(l.author.c_str());
+        ImGui::TableNextColumn();
+        ImGui::Text("%zu", l.files);
+    }
+    ImGui::EndTable();
 }
 
 void draw_check()
@@ -1520,6 +1714,11 @@ void draw_new_campaign_modal()
     {
         FeHeading("New campaign");
         FeSeparator();
+        static const char *const kinds[] = {"Campaign", "Free-play map pack", "Multiplayer map pack"};
+        FeCaption("Kind");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(form_col(20));
+        FeCombo("##newkind", &s_cs.new_kind, kinds, 3);
         FeCaption("Name");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(form_col(26));
@@ -1537,21 +1736,26 @@ void draw_new_campaign_modal()
         FeCombo("##newhuman", &s_cs.new_human, colours, 8);
         FeCheckbox("Its own configuration and creature folders", &s_cs.new_own_config);
         const std::string id = s_cs.new_id;
+        const ContentKind new_kind = (ContentKind)s_cs.new_kind;
         const bool valid_id = !id.empty() && id == cfgc_campaign_id_from_name(id);
         if (!valid_id)
             FeCaption("The file name may hold letters, digits and underscores only.");
-        else if (!content_campaign_id_free(id))
+        else if (!content_campaign_id_free(id, new_kind))
             FeCaption("A campaign with that file name already exists.");
         else if (!s_cs.new_error.empty())
             FeCaption(s_cs.new_error.c_str());
         FeSeparator();
-        ImGui::BeginDisabled(!valid_id || !content_campaign_id_free(id) || s_cs.new_name[0] == '\0');
+        ImGui::BeginDisabled(!valid_id || !content_campaign_id_free(id, new_kind) || s_cs.new_name[0] == '\0');
         if (FeButton("Create", ImVec2(110, 0)))
         {
-            if (content_campaign_create(s_cs.new_name, id, colours[s_cs.new_human], s_cs.new_own_config, &s_cs.new_error))
+            const bool created = new_kind == ContentKind_Campaign
+                ? content_campaign_create(s_cs.new_name, id, colours[s_cs.new_human], s_cs.new_own_config, &s_cs.new_error)
+                : content_pack_create(s_cs.new_name, id, new_kind, colours[s_cs.new_human], s_cs.new_own_config, &s_cs.new_error);
+            if (created)
             {
-                reselect(id + ".cfg");
-                s_cs.status = "Campaign created; add levels on the Levels page.";
+                reselect(id + ".cfg", new_kind);
+                s_cs.status = new_kind == ContentKind_Campaign ? "Campaign created; add levels on the Levels page."
+                                                              : "Pack created; save a map into it (New map in this pack) to have the game list it.";
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -1580,7 +1784,8 @@ void draw_window()
         std::vector<std::string> names;
         std::vector<const char *> ptrs;
         for (const ContentCampaign &c : s_cs.campaigns)
-            names.push_back(c.name);
+            names.push_back(std::string(c.kind == ContentKind_Campaign ? "" : c.kind == ContentKind_FreePlay ? "[free play] " : "[multiplayer] ")
+                + c.name + (c.listed ? "" : " (not listed)"));
         for (const std::string &n : names)
             ptrs.push_back(n.c_str());
         int64_t sel = s_cs.idx;
@@ -1659,7 +1864,10 @@ void draw_window()
         }
         if (FeTab("Levels"))
         {
-            draw_levels(camp);
+            if (camp.kind == ContentKind_Campaign)
+                draw_levels(camp);
+            else
+                draw_pack_levels(camp);
             FeEndTab();
         }
         if (FeTab("Config files"))
@@ -1667,7 +1875,7 @@ void draw_window()
             draw_files(camp);
             FeEndTab();
         }
-        if (FeTab("Land view"))
+        if (camp.kind == ContentKind_Campaign && FeTab("Land view"))
         {
             draw_land(camp);
             FeEndTab();
@@ -1690,13 +1898,10 @@ void content_campaign_open(bool map_host)
 {
     s_cs.open = true;
     s_cs.map_host = map_host;
-    s_cs.everyone = content_list_campaigns();
-    s_cs.campaigns.clear();
-    for (const ContentCampaign &c : s_cs.everyone)
-        if (!c.is_mappack)
-            s_cs.campaigns.push_back(c);
+    s_cs.everyone = content_list_everything();
+    s_cs.campaigns = s_cs.everyone;
     for (size_t i = 0; i < s_cs.campaigns.size(); i++)
-        if (s_cs.campaigns[i].fname == s_cs.last_fname)
+        if (s_cs.campaigns[i].fname == s_cs.last_fname && s_cs.campaigns[i].kind == s_cs.last_kind)
             s_cs.idx = (int64_t)i;
     s_cs.loaded = false;
     s_cs.status.clear();

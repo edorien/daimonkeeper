@@ -126,3 +126,23 @@ TEST_CASE("adding a saved level to a campaign file", "[cfgc_campaign_levels]")
     CHECK(cfgc_read_levels(content_of(bare)).single == std::vector<int64_t>({5}));
     CHECK(content_of(bare).find_section("map", 5) != nullptr);
 }
+
+TEST_CASE("removing a level from a campaign file", "[cfgc_campaign_levels]")
+{
+    const std::string text = "[common]\nSINGLE_LEVELS = 1 2 3\nBONUS_LEVELS = 0 7 0\nEXTRA_LEVELS = 50\n\n[map00002]\nNAME_TEXT = Two\n\n[map00007]\nNAME_TEXT = B\n";
+    bool changed = false;
+    const std::string a = cfgc_campaign_remove_level(text, 2, true, &changed);
+    CHECK(changed);
+    const CampaignLevels lv = cfgc_read_levels(content_of(a));
+    CHECK(lv.single == std::vector<int64_t>({1, 3}));
+    CHECK(lv.bonus == std::vector<int64_t>({0, 0}));
+    CHECK(content_of(a).find_section("map", 2) == nullptr);
+    // A bonus level only frees its slot; an extra level leaves the extra list (which is then dropped).
+    const CampaignLevels b = cfgc_read_levels(content_of(cfgc_campaign_remove_level(text, 7, false, nullptr)));
+    CHECK(b.single == std::vector<int64_t>({1, 2, 3}));
+    CHECK(b.bonus == std::vector<int64_t>({0, 0, 0}));
+    const std::string c = cfgc_campaign_remove_level(text, 50, false, nullptr);
+    CHECK(c.find("EXTRA_LEVELS") == std::string::npos);
+    cfgc_campaign_remove_level(text, 99, true, &changed);
+    CHECK_FALSE(changed);
+}

@@ -27,6 +27,7 @@
 #include "config.h" // get_level_info/get_first_level_info et al
 #include "frontmenu_select.h"
 #include "frontmenu_landpreview.h"
+#include "front_landview.h" // play_description_speech
 #include "game_campaign_progress.h" // Phase C: the Campaign Select land-view-graphics slider
 #include "bflib_guibtns.h" // struct GuiButton, for the two synthetic gbtns land preview rendering needs
 #include "bflib_video.h" // TbGraphicsWindow, LbScreen{Store,Load,Set}GraphicsWindow, TbPixel
@@ -138,6 +139,11 @@ namespace {
             return;
         }
         set_selected_level_number(s_play_level);
+        // A multiplayer map has no single-player script of its own: fill the other dungeons with the default computer
+        // AI, the same way Skirmish does for a non-networked start (frontend_freeplay_enter_resolve(), frontmenu_select.c).
+        // Set explicitly either way (not just the multiplayer-pack branch) -- a single-player campaign level played
+        // via "Play" must not inherit a stale 1 left by an earlier Skirmish/multiplayer test-play this session.
+        fe_computer_players = (s_play_pack == CampgnT_MultiplayerMappack) ? 1 : 0;
         content_tool_play_running = true;
         request_frontend_state(FeSt_START_KPRLEVEL);
     }
@@ -1132,6 +1138,57 @@ namespace {
         }
     }
 
+    // Fallback for a campaign with no usable land-view picture (LAND_VIEW_START
+    // missing, or its .raw/.pal/.png broken -- land_preview_load() then fails
+    // both its picture load and its per-level minimap fallback, since there is
+    // no single level to build a minimap from for the campaign overview
+    // itself): list the campaign's levels by name instead of drawing them as
+    // ensigns on a picture. Every single level is listed (locked ones
+    // disabled, same LvSt_Visible gate land_preview_ensign_at() uses for a
+    // picture's ensigns); a bonus/extra level is listed only once unlocked,
+    // so this never spoils one that has not been found yet. Selecting a row
+    // sets land_preview.highlighted_lvnum exactly like clicking an ensign
+    // does, so "Enter this land" (frontend_land_selection_enter_resolve)
+    // starts it the same way either path reaches that state.
+    void draw_land_selection_level_list(ImVec2 size)
+    {
+        bool open = FeBeginListBox("##land_level_list", size);
+        if (open)
+        {
+            struct LevelInformation *lvinfo = get_first_level_info();
+            while (lvinfo != nullptr)
+            {
+                if (lvinfo->lvnum != 0)
+                {
+                    const bool is_single = (lvinfo->level_type & LvKind_IsSingle) != 0;
+                    const bool is_side = (lvinfo->level_type & (LvKind_IsBonus | LvKind_IsExtra)) != 0;
+                    const bool unlocked = lvinfo->state == LvSt_Visible;
+                    if (is_single || (is_side && unlocked))
+                    {
+                        const char *name = (lvinfo->name_stridx > 0) ? get_string(lvinfo->name_stridx) : lvinfo->name;
+                        char label[LINEMSG_SIZE + 24];
+                        if (lvinfo->level_type & LvKind_IsBonus)
+                            snprintf(label, sizeof(label), "%s (bonus)", name);
+                        else if (lvinfo->level_type & LvKind_IsExtra)
+                            snprintf(label, sizeof(label), "%s (extra)", name);
+                        else
+                            snprintf(label, sizeof(label), "%s", name);
+                        const bool selected = (lvinfo->lvnum == land_preview.highlighted_lvnum);
+                        ImGui::BeginDisabled(!unlocked);
+                        if (FeListRow(label, selected))
+                        {
+                            land_preview.highlighted_lvnum = lvinfo->lvnum;
+                            play_description_speech(lvinfo->lvnum, 1);
+                        }
+                        ImGui::EndDisabled();
+                    }
+                }
+                lvinfo = get_next_level_info(lvinfo);
+            }
+        }
+        FeEndListBox(open);
+    }
+
     // Detail panel content: the highlighted level's name+description if an
     // ensign/level is highlighted, otherwise the highlighted campaign's
     // own -- same fallback frontend_draw_land_selection_detail/
@@ -1289,8 +1346,27 @@ namespace {
         FeStylePopFont();
         double spacing_y = ImGui::GetStyle().ItemSpacing.y;
         double split_h = content_h - slider_h - 2.0 * spacing_y;
-        draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, split_h * 0.79));
-        draw_landview_slider(land_selection_highlighted_campaign);
+        if (land_selection_highlighted_campaign != nullptr && !land_preview.loaded)
+        {
+            // No land-view picture could be loaded for this campaign at all (see
+            // draw_land_selection_level_list()'s own comment) -- the slider has
+            // nothing to browse either (it only ever steps through per-level art
+            // over that same picture), so this replaces both, reusing their
+            // combined height budget so the total stays what content_h reserved
+            // (see this function's own comment on why that budget is load-bearing:
+            // the window can never scroll, so overrunning it just clips).
+            FeStylePushFont(FeFont_Caption);
+            double caption_h = ImGui::GetTextLineHeightWithSpacing();
+            FeStylePopFont();
+            FeCaption("This campaign has no land-view picture; pick a level:");
+            draw_land_selection_level_list(
+                ImVec2(ImGui::GetContentRegionAvail().x, split_h * 0.79 + slider_h + spacing_y - caption_h));
+        }
+        else
+        {
+            draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, split_h * 0.79));
+            draw_landview_slider(land_selection_highlighted_campaign);
+        }
         draw_select_detail_panel(land_selection_highlighted_campaign, split_h * 0.21);
         ImGui::EndGroup();
 

@@ -9,6 +9,7 @@
 #ifndef DK_CFGC_CAMPAIGN_EDIT_H
 #define DK_CFGC_CAMPAIGN_EDIT_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -38,5 +39,30 @@ std::vector<std::string> cfgc_move_in_order(std::vector<std::string> order, size
 /** Pure: the text of an order file (campgn_order.txt): the `#` comment lines at the top of `old_text` kept, then one name per line
  *  in `order`, with the file's own line ending. */
 std::string cfgc_order_file_text(const std::string &old_text, const std::vector<std::string> &order);
+
+/** A file exists, the last name compared without regard to letter case (the original game's files are upper case, and Linux
+ *  file systems care). */
+bool cfgc_file_exists_ci(const std::string &path);
+
+/** The files of level `n` in `dir`: every name that starts with `map%05d.` (any letter case), sorted -- the map files and the level's own
+ *  configuration, strings and script files. */
+std::vector<std::string> cfgc_level_files(const std::string &dir, int64_t n);
+
+/** The level numbers that have a map%05d.slb (any letter case) in `dir`, sorted. */
+std::vector<int64_t> cfgc_level_numbers_in_dir(const std::string &dir);
+
+/** Pure: `name` (a file of level `from`) renamed for level `to`, keeping the rest of the name and its letter case. */
+std::string cfgc_level_file_rename(const std::string &name, int64_t from, int64_t to);
+
+/** Queues a copy of every file of level `from` in `src_dir` to `dst_dir` as level `to`. Fails, queueing nothing, when the source has no
+ *  level files or the destination already has files of level `to`. */
+bool cfgc_plan_level_copy(const std::string &src_dir, int64_t from, const std::string &dst_dir, int64_t to, WriteBatch &batch,
+    std::string *error);
+
+/** Pure: the text of a new, empty map pack file (free-play `levels/<id>.cfg` or multiplayer `multiplayer/<id>.cfg`; `folder` is "levels" or
+ *  "multiplayer"): name, its levels folder `<folder>/<id>`, optional own `_cfg` / `_crtr` folders, human player, and the `[strings]` /
+ *  `[speech]` blocks the game needs. Its levels are the map files of the folder, so there are no lists. */
+std::string cfgc_new_pack_text(const std::string &name, const std::string &id, const std::string &folder, const std::string &human_player,
+    bool own_config);
 
 #endif

@@ -222,7 +222,7 @@ TbResult LbPaletteFadeStep(unsigned char *from_palette,unsigned char *to_palette
     }
     LbScreenWaitVbi();
     TbResult ret = RendererPaletteSet(palette);
-    RendererPresentFrame();
+    RendererPresentStepFrame();
     return ret;
 }
 

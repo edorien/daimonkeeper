@@ -69,6 +69,12 @@ struct PolyPoint {
     int64_t U; // Texture UV mapping, U coordinate
     int64_t V; // Texture UV mapping, V coordinate
     int64_t S; // Shininess / brightness of the point
+    // gpu-v2 Phase C.5: depth of the point, 0 = near .. WORLDFRAME_DEPTH_ONE
+    // = far, hyperbolic in view-space z so it interpolates linearly across the
+    // screen (see worldframe_depth_from_view_z, renderer/WorldFrame.h). Filled
+    // where the engine has the view-space z; consumed only by the GPU renderer's
+    // depth buffer -- the CPU rasterizer ignores it.
+    int64_t Z;
 };
 
 struct GtBlock { // sizeof = 48
@@ -144,8 +150,38 @@ static inline TbPixel render_shade(TbPixel sample, int64_t shade)
  * 2*dest) / 3`, `ref` weighted 1/3, `dest` (the pixel already on screen)
  * weighted 2/3. See 02a-pixel-format-design.md §2.2.
  */
+/**
+ * gpu-v2 (found during possession testing): with a GPU world renderer the CPU
+ * framebuffer's world window is a *transparent* layer composited over the GPU
+ * image, so a translucent CPU draw (the possession swipe, ghost boxes) can find
+ * a destination that is not opaque. Blending "ref at weight w" over such a pixel
+ * is the standard 'over' operator on straight alpha -- and when dest is opaque
+ * (always, with the Software renderer) it reduces exactly to the classic
+ * formula, alpha staying 255. ref_weight is 0..255 (85 = 1/3, 170 = 2/3).
+ */
+static inline TbPixel render_blend_over_weight(TbPixel ref, TbPixel dest, int64_t ref_weight)
+{
+    if (dest.a == 255)
+        return TbPixel_RGBA(
+            (uint8_t)((ref.r * ref_weight + dest.r * (255 - ref_weight)) / 255),
+            (uint8_t)((ref.g * ref_weight + dest.g * (255 - ref_weight)) / 255),
+            (uint8_t)((ref.b * ref_weight + dest.b * (255 - ref_weight)) / 255),
+            255);
+    const int64_t dst_part = (dest.a * (255 - ref_weight)) / 255; // dest's surviving coverage
+    const int64_t a_out = ref_weight + dst_part;
+    if (a_out <= 0)
+        return TbPixel_RGBA(0, 0, 0, 0);
+    return TbPixel_RGBA(
+        (uint8_t)((ref.r * ref_weight + dest.r * dst_part) / a_out),
+        (uint8_t)((ref.g * ref_weight + dest.g * dst_part) / a_out),
+        (uint8_t)((ref.b * ref_weight + dest.b * dst_part) / a_out),
+        (uint8_t)a_out);
+}
+
 static inline TbPixel render_ghost_blend(TbPixel ref, TbPixel dest)
 {
+    if (dest.a != 255)
+        return render_blend_over_weight(ref, dest, 85);
     return TbPixel_RGBA(
         (uint8_t)((ref.r + 2 * dest.r) / 3),
         (uint8_t)((ref.g + 2 * dest.g) / 3),
@@ -163,6 +199,8 @@ static inline TbPixel render_ghost_blend(TbPixel ref, TbPixel dest)
  */
 static inline TbPixel render_ghost_blend_2(TbPixel ref, TbPixel dest)
 {
+    if (dest.a != 255)
+        return render_blend_over_weight(ref, dest, 170);
     return TbPixel_RGBA(
         (uint8_t)((2 * ref.r + dest.r) / 3),
         (uint8_t)((2 * ref.g + dest.g) / 3),

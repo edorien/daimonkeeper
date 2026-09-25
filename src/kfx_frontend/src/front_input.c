@@ -44,7 +44,6 @@
 #include "frontmenu_ingame_tabs.h"
 #include "frontmenu_ingame_map.h"
 #include "frontmenu_ingame_evnt.h"
-#include "scrcapt.h"
 #include "player_instances.h"
 #include "config_players.h"
 #include "config_creature.h"
@@ -519,13 +518,14 @@ static void get_options_menu_inputs(void)
  */
 int64_t get_screen_capture_inputs(void)
 {
-  if (is_game_key_pressed(Gkey_ScreenRecord, true, false))
-  {
-      if ((kfx_sim_state.system_flags & GSF_CaptureMovie) != 0)
-        movie_record_stop();
-      else
-        movie_record_start();
-  }
+  // FLC movie recording retired (docs/refactor/renderer/gpu-v2/
+  // 01-phase-b-2d-compositing.md B2) -- anim_record() had unconditionally
+  // failed since stage 2's true-colour migration anyway, so this key
+  // press never actually started a recording in any build a user could
+  // have run. Still consumed here (not just deleted outright) rather than
+  // renumbering every Gkey_* value after Gkey_ScreenRecord in globals.h
+  // and the "ScreenRecord" row in config_settings.c's keybinding table.
+  is_game_key_pressed(Gkey_ScreenRecord, true, false);
   if (is_game_key_pressed(Gkey_ScreenShot, true, false))
   {
       set_flag(kfx_sim_state.system_flags, GSF_CaptureSShot);

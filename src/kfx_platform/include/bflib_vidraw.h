@@ -211,6 +211,11 @@ void LbDrawCircle(int64_t x, int64_t y, int64_t radius, TbPixel colour);
 
 void setup_vecs(TbPixel *screenbuf, unsigned char *nvec_map,
         uint64_t line_len, uint64_t width, uint64_t height);
+/** gpu-v2 Phase C.2: records a scaled sprite draw into the GPU world frame instead of rasterizing it (see bflib_vidraw.c). `mode` is enum WorldFrameSpriteMode (renderer/WorldFrame.h). */
+TbBool SwCaptureSprite(int64_t posx, int64_t posy, const unsigned char *rle, int64_t width, int64_t height,
+                       uint32_t mode, const TbPixel *cmap, TbPixel colour);
+/** gpu-v2 Phase C.5: records a solid window-relative rectangle into the GPU world frame (selection lines, bars) instead of drawing it. */
+TbBool SwCaptureRect(int64_t x, int64_t y, int64_t w, int64_t h, TbPixel colour);
 void setup_steps(int64_t posx, int64_t posy, const struct TbSourceBuffer * src_buf, int64_t **xstep, int64_t **ystep, int64_t *scanline);
 void setup_outbuf(const int64_t *xstep, const int64_t *ystep, TbPixel **outbuf, int64_t *outheight);
 TbResult LbSpriteDrawUsingScalingData(int64_t posx, int64_t posy, const struct TbSourceBuffer *);

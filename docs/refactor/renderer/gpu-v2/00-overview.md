@@ -2,13 +2,34 @@
 
 Status: **Phase A landed** (with stage 2). **Phase B3 (in-game HUD) landed** via the separate
 [in-game-GUI-as-ImGui project](../../ingame-gui/00-overview.md), run ahead of this stage by
-explicit agreement. What's left of Phase B is B1 (frontend backdrop cost) and B2 (capture path),
-both not started, plus cursor unification (R7). **Phase C is scoped in detail** across
+explicit agreement. **The [imgui-linkage-consolidation](../05-imgui-linkage-consolidation.md) and
+[call-site-consolidation](06-call-site-consolidation.md) prerequisites have both landed**
+(2026-09-23, steps 1–2 of the sequence below) — automated verification clean on both; the
+interactive screenshot-identical soak for step 2 is still outstanding (R15), and should run before
+Phase C work builds further on it. **Phase B is fully landed** (2026-09-23: B1, B2, and cursor
+unification). B1: most of it turned out already done by a separate project this doc hadn't
+cross-referenced; the one genuinely open piece (skip the CPU→GPU present-texture upload on
+`RendererScreenOwned()` frames, since it was never drawn) is fixed. B2: screenshots now capture the
+actual composited output (post-ImGui-render, pre-present) instead of the CPU backdrop alone; FLC
+movie recording — already permanently broken since stage 2, confirmed by reading the code, not
+assumed — is formally retired (confirmed with the user before deleting it) rather than rebuilt on
+the new capture path. Cursor (R7): the legacy CPU-buffer cursor draw
+(`bflib_mspointer.cpp`/`LbScreenSurfaceBlit`) turned out to already be entirely dead code (its
+gating flag was never set `true` anywhere), and its coexistence with the ImGui-overlay cursor was a
+real one-frame race, not just redundancy — both findings from reading the code, not assumed. Now
+there is exactly one cursor draw, unconditional, in `gui/FrontendImGui.cpp`. **Phase B is now fully
+verified except for interactive/live checks** (a real screenshot showing the overlay, a real session
+showing exactly one cursor, a live frame-time number for B1's saved upload) — none possible without
+a display/game data in the implementing environment; tracked per-item in
+[01-phase-b-2d-compositing.md](01-phase-b-2d-compositing.md)'s own verification section. **C.0
+(seam + IR skeleton) has landed** (2026-09-23) — see [07](07-phased-delivery.md)'s C.0 row for the
+full "Landed as" note; in short, the `WorldFrame` IR and `IRenderer::SubmitWorldFrame()` exist and
+are unit-tested, scoped to `QK_PolygonStandard` only (not the full bucket set the original C.0 text
+implied), and deliberately not yet wired into the live present path — see that note for why. The
+SDL_GPU smoke-test spike, the Vulkan-forcing decision, and the shader-delivery decision are all
+recorded there too. **C.1 has landed** (2026-09-24): `RendererGpu3D`, the Options → Graphics renderer switch, a GPU block-texture cache, and live wiring — with Vulkan selected the game's terrain renders on the GPU (verified in the real game against the software renderer); **C.2 has landed too** (same day): sprites, effects and creature shadows now draw on the GPU in terrain's draw order, so walls occlude creatures correctly (see 07's C.2 note). **C.3 landed** (lens effects stay CPU post-passes, fed by a GPU read-back; not yet run live). **Lighting pass v1 landed** (Options → Graphics → Lighting: Classic | Per-pixel; terrain only, see 07). **C.4 audit done** (one resize bug fixed; full-session live pass still owed by a human). **C.5 first slice landed** (selection lines/boxes now occluded by walls via the op stream; depth buffer and render thread deliberately not built — need profiling first). Remaining CPU-only: front view, ghost-blended boxes; there is still no frame-time measurement and no Windows/Vulkan run. **The rest of Phase C is scoped in detail** across
 [04](04-architecture-and-ir-boundary.md)–[07](07-phased-delivery.md), informed by a review of an
-external attempt at the same problem; not started. **A call-site-consolidation prerequisite
-(new, [06](06-call-site-consolidation.md)) is scoped ahead of Phase C.0**, to shrink the ~20
-`RendererPresentFrame()` call sites before the GPU-submission façade has to thread through all of
-them.
+external attempt at the same problem; not started.
 
 This directory (`gpu-v2/`) is the **single source of truth for the whole GPU-acceleration stage**,
 superseding [`../03-gpu-renderer.md`](../03-gpu-renderer.md) (kept as a pointer back here — see its
@@ -39,29 +60,29 @@ The sub-plans above are written to be independently reviewable, but they aren't 
 *land* — each step below is easier or safer because of the one before it. This is the recommended
 order, not a restatement of the file list:
 
-1. **[`../05-imgui-linkage-consolidation.md`](../05-imgui-linkage-consolidation.md)** — not
-   started. Foundation for everything after it: moves all ImGui knowledge into `kfx_frontend`
-   behind one choke point. Nothing below should start before this lands, since both step 2 and
-   Phase B assume it.
-2. **[`06-call-site-consolidation.md`](06-call-site-consolidation.md)** — Pre-C.0. Do this
-   immediately after step 1, *before* Phase B, not just before Phase C. Collapsing the ~21
-   `RendererPresentFrame()` call sites down to `RendererPresentGameFrame()` /
-   `RendererPresentStepFrame()` makes B2's capture-read-back hook a two-entry-point change instead
-   of a 21-site audit, and it means neither Phase B nor Phase C.0 has to touch the same call sites
-   a second time to add its own obligations. Land and soak this on its own (R15) before anything
-   else in this list.
+1. **[`../05-imgui-linkage-consolidation.md`](../05-imgui-linkage-consolidation.md)** — **landed**
+   (2026-09-23). Foundation for everything after it: moved all ImGui knowledge into `kfx_frontend`
+   (`gui/FrontendImGui.{h,cpp}`) behind one choke point, the `RendererImGuiCallbacks` struct. Step
+   2 and Phase B can now proceed.
+2. **[`06-call-site-consolidation.md`](06-call-site-consolidation.md)** — **landed** (2026-09-23).
+   Collapsed the 21 `RendererPresentFrame()` call sites down to `RendererPresentGameFrame()` /
+   `RendererPresentStepFrame()` (the raw present is `static` now, reachable only through those two)
+   — makes B2's capture-read-back hook a two-entry-point change instead of a 21-site audit, and
+   means neither Phase B nor Phase C.0 has to touch the same call sites a second time to add its
+   own obligations. Automated verification (both toolchains, layering, full Catch2 suite, the
+   call-site grep) is clean; the interactive screenshot-identical soak (R15) is **not yet done** —
+   run it live before starting step 3/4 (Phase B) or step 6+ (Phase C).
 3. **[`01-phase-b-2d-compositing.md`](01-phase-b-2d-compositing.md) B1** (frontend backdrop) —
-   small, self-contained, no dependency on step 2 beyond it being a cleaner base to build on. Can
-   slot in here or be deferred past step 4 if something else is more urgent; it doesn't block
-   anything downstream.
-4. **[`01-phase-b-2d-compositing.md`](01-phase-b-2d-compositing.md) B2** (capture path) — now
-   blocking (screenshots/movies miss the ImGui overlay today), and cheaper than the original
-   scoping assumed once step 2 has landed: the post-composite read-back only needs reasoning about
-   two present entry points, not an open-ended call-site list.
-5. **[`01-phase-b-2d-compositing.md`](01-phase-b-2d-compositing.md) cursor unification** — same
-   file, same phase; fold the legacy software cursor into the ImGui-overlay cursor mechanism.
-   Ordered last within Phase B only because it's the smallest and least urgent of the three, not
-   because it depends on B1/B2.
+   **landed** (2026-09-23). Both toolchains, layering, full Catch2 suite clean; the backdrop-as-
+   texture half was already done by another project, the present-texture-upload-skip half is new.
+4. **[`01-phase-b-2d-compositing.md`](01-phase-b-2d-compositing.md) B2** (capture path) —
+   **landed** (2026-09-23). Both toolchains, layering, full Catch2 suite clean; a real
+   screenshot-contains-the-overlay check is still outstanding (no display available). FLC movie
+   recording retired, by explicit user confirmation, rather than rebuilt on the new capture path.
+5. **[`01-phase-b-2d-compositing.md`](01-phase-b-2d-compositing.md) cursor unification** —
+   **landed** (2026-09-23). Both toolchains, layering, full Catch2 suite clean (1934 tests). The
+   legacy software cursor path turned out to already be dead code end to end; deleted rather than
+   folded in, since there was nothing live left to fold.
 6. **[`02-graphics-api-choice.md`](02-graphics-api-choice.md) + Phase C.0**
    ([`07-phased-delivery.md`](07-phased-delivery.md)) — the seam/IR skeleton, plus the two open
    items 02 leaves for C.0 specifically: the SDL_GPU smoke-test spike on both CI targets, the
@@ -120,6 +141,20 @@ rather than changing underneath it mid-design.
 >   non-optional: every one of those ~20 sites is a place the façade's reentrancy/threading
 >   contract (R1, R2, R12) has to hold, and each one silently exempts itself if consolidation stays
 >   undone. Scoped as its own phase, sequenced before C.0.
+
+> **Revision note (2026-09-23), steps 1–2 landed.**
+> [05-imgui-linkage-consolidation.md](../05-imgui-linkage-consolidation.md) and
+> [06-call-site-consolidation.md](06-call-site-consolidation.md) both landed, in that order, each
+> its own commit. Automated verification (native Linux + mingw Windows builds, `check_layering.py
+> --strict`, full Catch2 suite, the grep checks each doc specifies) is clean for both. Two
+> deliberate deviations from the original drafts, both recorded in place with "Landed as:" notes:
+> the shared callback struct is named `RendererImGuiCallbacks` (not `RendererOverlayCallbacks` —
+> collides with `kfx_config`'s pre-existing, unrelated `RenderOverlayCallbacks`), and the
+> `game_session_loop.cpp` physical-reduction estimate landed at 8→4 call sites, not the "2–3"
+> originally guessed. One thing genuinely not done yet: 06's interactive screenshot-identical soak
+> (R15) needs a real display, game data, and a second network client, none of which were available
+> in the implementing environment — run that pass before relying on this consolidation for Phase
+> B/C work.
 
 ---
 

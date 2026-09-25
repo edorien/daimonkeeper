@@ -22,7 +22,6 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
-#include "bflib_planar.h"
 #include <SDL3/SDL.h>
 #include "post_inc.h"
 
@@ -31,160 +30,18 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-/** Internal screen surface structure. */
 /** Internal drawing surface structure.
  *  Sometimes may be same as screen surface. */
 SDL_Surface * lbDrawSurface;
 
 /******************************************************************************/
-void LbScreenSurfaceInit(struct SSurface *surf)
-{
-  surf->surf_data = NULL;
-  surf->pitch = (TbBytePitch){0};
-  surf->locks_count = 0;
-}
-
-TbResult LbScreenSurfaceCreate(struct SSurface *surf,uint64_t w,uint64_t h)
-{
-    // SDL3: surface->format is an SDL_PixelFormat enum which fully describes the
-    // layout, so SDL_CreateSurface() takes it directly (no explicit masks).
-    SDL_PixelFormat format = SDL_PIXELFORMAT_UNKNOWN;
-
-    if (lbDrawSurface != NULL) {
-        format = lbDrawSurface->format;
-    }
-    surf->surf_data = SDL_CreateSurface(w, h, format);
-
-    if (surf->surf_data == NULL) {
-        ERRORLOG("Failed to create surface.");
-        return Lb_FAIL;
-    }
-    surf->locks_count = 0;
-    surf->pitch = (TbBytePitch){ surf->surf_data->pitch };
-
-    //moved color key control to blt_surface()
-
-    return Lb_SUCCESS;
-}
-
-TbResult LbScreenSurfaceRelease(struct SSurface *surf)
-{
-  if (surf->surf_data == NULL) {
-      return Lb_FAIL;
-  }
-
-  SDL_DestroySurface(surf->surf_data);
-  surf->surf_data = NULL;
-
-  return Lb_SUCCESS;
-}
-
-TbResult LbScreenSurfaceBlit(struct SSurface *surf, uint64_t x, uint64_t y,
-    struct TbRect *rect, uint64_t blflags)
-{
-    // Convert TbRect to SDL rectangles
-    SDL_Rect srcRect;
-
-    srcRect.x = rect->left;
-    srcRect.y = rect->top;
-    srcRect.w = rect->right - rect->left;
-    srcRect.h = rect->bottom - rect->top;
-
-    SDL_Rect destRect;
-    destRect.x = x;
-    destRect.y = y;
-    destRect.w = srcRect.w;
-    destRect.h = srcRect.h;
-
-    // Set blit parameters
-
-    if ((blflags & 0x02) != 0) {
-      //TODO: see how/if to handle this, I interpret this as "blit directly to primary rather than back"
-      //secSurf = surface3;
-      //I think it can simply be deleted as not even the mouse pointer code is using it and there's no way
-      //to access front buffer in SDL
-    }
-
-    // The colour key must be a pixel value already mapped to this surface's
-    // own format -- literal 255 only ever meant that for an 8bpp indexed
-    // surface (palette index 255). The surface is RGBA32 now (matching the
-    // TbPixel_RGB(255,255,255,255) marker LbI_PointerHandler::Initialise()
-    // fills the backing buffer with), so map it properly instead.
-    Uint32 colour_key = SDL_MapSurfaceRGBA(surf->surf_data, 255, 255, 255, 255);
-    if ((blflags & 0x04) != 0) {
-        //enable color key
-        SDL_SetSurfaceColorKey(surf->surf_data, true, colour_key);
-    }
-    else {
-        //disable color key
-        SDL_SetSurfaceColorKey(surf->surf_data, false, colour_key);
-    }
-
-    if ((blflags & 0x10) != 0) {
-        //TODO: see if this can/should be handled
-        //probably it can just be deleted
-        //dwTrans |= DDBLTFAST_WAIT;
-    }
-
-    const TbBool is_indexed = (SDL_BITSPERPIXEL(surf->surf_data->format) == 8);
-    SDL_Palette * paletteBackup = NULL;
-    if (is_indexed) {
-        paletteBackup = SDL_GetSurfacePalette(surf->surf_data);
-        SDL_SetSurfacePalette(surf->surf_data, SDL_GetSurfacePalette(lbDrawSurface));
-    }
-
-    bool blresult;
-    //the blit
-    if ((blflags & 0x08) != 0) {
-        //surface to screen
-        blresult = SDL_BlitSurface(surf->surf_data, &srcRect, lbDrawSurface, &destRect);
-    }
-    else {
-        //screen to surface
-        blresult = SDL_BlitSurface(lbDrawSurface, &destRect, surf->surf_data, &srcRect);
-    }
-
-    //restore palette
-    if (is_indexed) {
-        SDL_SetSurfacePalette(surf->surf_data, paletteBackup);
-    }
-
-    if (!blresult) {
-        //Blitting mouse cursor will occasionally fail, so there's no point in logging this
-        ERRORDBG(11,"Blit failed: %s",SDL_GetError());
-        return Lb_FAIL;
-    }
-    return Lb_SUCCESS;
-}
-
-void *LbScreenSurfaceLock(struct SSurface *surf)
-{
-    if (surf->surf_data == NULL) {
-        return NULL;
-    }
-
-    if (!SDL_LockSurface(surf->surf_data)) {
-        ERRORLOG("Failed to lock surface");
-        return NULL;
-    }
-
-    surf->locks_count++;
-    surf->pitch = (TbBytePitch){ surf->surf_data->pitch };
-    return surf->surf_data->pixels;
-}
-
-TbResult LbScreenSurfaceUnlock(struct SSurface *surf)
-{
-    if (surf->locks_count == 0) {
-        return Lb_SUCCESS;
-    }
-    if (surf->surf_data == NULL) {
-        return Lb_FAIL;
-    }
-    SDL_UnlockSurface(surf->surf_data);
-    surf->locks_count--;
-    return Lb_SUCCESS;
-}
+// The LbScreenSurface*()/struct SSurface family that used to live here --
+// a small SDL_Surface RAII+blit wrapper -- was only ever used by
+// bflib_mspointer.cpp's legacy CPU-buffer cursor draw (two off-screen
+// surfaces for backup/restore around each blit), retired by
+// docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md's cursor
+// unification (confirmed unused elsewhere by grep before deleting, not
+// assumed).
 /******************************************************************************/
 #ifdef __cplusplus
 }

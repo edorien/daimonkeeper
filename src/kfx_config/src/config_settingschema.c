@@ -45,6 +45,7 @@
 #include "globals.h"      // FGrp_FxData
 #include "config.h"       // prepare_file_path -- UI_FONT's fxdata/font/ scan
 #include "platform/PlatformManager.h" // INGAME_RES modes, UI_FONT sub-dir scan
+#include "renderer/RendererManager.h" // RENDERER -- RendererGetDesiredType/RendererSetDesiredType
 
 #include <stdio.h>
 #include <string.h>
@@ -157,6 +158,15 @@ static int64_t get_minimap_corner(void) { return keeperfx_ui_config.minimap_corn
 static void set_minimap_corner(int64_t val) { keeperfx_ui_config.minimap_corner = (int64_t)val; }
 static TbBool minimap_corner_enabled(void) { return keeperfx_ui_config.hud_position == 4; }
 
+// PANEL_CORNER (case 59, config_keeperfx.c): the button cluster + pop-up
+// panel's own (always-bottom) corner, independent of MINIMAP_CORNER above --
+// reuses panel_corner_type[]'s LOWER_LEFT/LOWER_RIGHT tokens rather than
+// minimap_corner_type[]'s UPPER_* ones, since this cluster only ever sits on
+// the bottom edge. Same is_enabled gate.
+static int64_t get_panel_corner(void) { return keeperfx_ui_config.panel_corner; }
+static void set_panel_corner(int64_t val) { keeperfx_ui_config.panel_corner = (int64_t)val; }
+static TbBool panel_corner_enabled(void) { return keeperfx_ui_config.hud_position == 4; }
+
 // UI_FONT (case 53, config_keeperfx.c): the ImGui-frontend typeface. Like
 // INGAME_RES, its list can't be a compile-time constant -- it's "AUTO",
 // "Cinzel" (bundled), "Exocet" (only when the DK2 files are present in
@@ -255,9 +265,12 @@ static void set_ui_font(int64_t idx)
 // reachable (some players prefer it outright). ingame_gui_use_classic_hud()
 // (config_keeperfx.h/.c) is what every in-game HUD draw call now checks
 // instead of the old RendererImGuiEnabled() to decide which renderer to
-// use for *this one session*; nothing else (menus, options, load/save)
-// reads it. Reserved the same way "NONE" is -- added unconditionally before
-// the folder scan below, not sourced from an actual fxdata/gui/CLASSIC/
+// use for *this one session* -- except the options/quit/load/save family
+// (frontgui_ingame.cpp's menu_is_options_family()), which stays on the
+// modern ImGui screens regardless: those are self-contained popups with no
+// dependency on sidebar layout, so classic-sidebar players still get them.
+// Reserved the same way "NONE" is -- added unconditionally before the
+// folder scan below, not sourced from an actual fxdata/gui/CLASSIC/
 // directory.
 #define GUI_ICON_PACK_MAX_ENTRIES 32
 #define GUI_ICON_PACK_NAME_LEN 48
@@ -590,6 +603,35 @@ static void set_ingame_res(int64_t val)
         ERRORLOG("Couldn't register video mode \"%s\" chosen from the settings screen.", word_buf);
 }
 
+// RENDERER (gpu-v2 Phase C.1) is SApply_NeedsRestart, same reasoning as
+// INGAME_RES above: read back the *desired* (pending) choice, not
+// RendererGetActiveType() -- the active backend doesn't actually change
+// until next launch, and reading it here would make the combo immediately
+// revert to the old choice the instant a new one is picked. Unlike
+// INGAME_RES/SCREENSHOT, no config_reload_callbacks indirection is needed:
+// RendererManager.h's functions live in kfx_platform, a layer *below*
+// kfx_config, so this file can call them directly.
+static int64_t get_renderer(void)
+{
+    return (int64_t)RendererGetDesiredType();
+}
+
+static void set_renderer(int64_t val)
+{
+    RendererSetDesiredType((RendererType)val);
+}
+
+// LIGHTING (gpu-v2 Phase C.5): config values are 1-based (see lighting_type[]).
+static int64_t get_lighting(void)
+{
+    return (int64_t)RendererGetLightingMode() + 1;
+}
+
+static void set_lighting(int64_t val)
+{
+    RendererSetLightingMode((int)(val - 1));
+}
+
 // POINTER_SENSITIVITY's own config-key parsing (case 9, config_keeperfx.c)
 // stores an integer percentage in the file (0-10000) but scales it by
 // 256/100 before handing it to set_base_mouse_sensitivity -- same
@@ -920,6 +962,25 @@ const struct SettingOption setting_options[] = {
         .ensure_enum_table = &ensure_ingame_res_enum,
     },
     {
+        // gpu-v2 Phase C.1 (docs/refactor/renderer/gpu-v2/07-phased-delivery.md):
+        // The 3D view (terrain, sprites, shadows) renders on the GPU; a few
+        // CPU-only overlays remain, hence the honest help text.
+        .cfg_key = "RENDERER", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_NeedsRestart,
+        .label_literal = "Renderer",
+        .help_literal = "Software (CPU) or Vulkan (GPU). Vulkan is experimental and "
+                        "falls back to Software if no GPU is available.",
+        .enum_table = renderer_type, .get_enum = &get_renderer, .set_enum = &set_renderer,
+    },
+    {
+        // gpu-v2 Phase C.5 lighting pass. Applies live; only has an effect with the Vulkan renderer.
+        .cfg_key = "LIGHTING", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Lighting",
+        .help_literal = "Classic: lights are baked into the map per tile. Per-pixel: dynamic lights "
+                        "(torches, spells, lava) are calculated per pixel, giving smoother light "
+                        "pools. Vulkan renderer only; experimental.",
+        .enum_table = lighting_type, .get_enum = &get_lighting, .set_enum = &set_lighting,
+    },
+    {
         .cfg_key = "UI_FONT_SCALE", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetUiFontScale,
         .help_stridx = GUIStr_HelpUiFontScale,
@@ -947,10 +1008,18 @@ const struct SettingOption setting_options[] = {
     {
         .cfg_key = "MINIMAP_CORNER", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
         .label_literal = "Minimap Corner",
-        .help_literal = "Minimal layout only: which upper corner the minimap sits in. The button "
-                        "cluster takes the opposite corner.",
+        .help_literal = "Minimal layout only: which upper corner the minimap sits in.",
         .enum_table = minimap_corner_type, .get_enum = &get_minimap_corner, .set_enum = &set_minimap_corner,
         .is_enabled = &minimap_corner_enabled,
+    },
+    {
+        .cfg_key = "PANEL_CORNER", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
+        .label_literal = "Panel Corner",
+        .help_literal = "Minimal layout only: which upper corner the button cluster and its "
+                        "pop-up panel sit in. Independent of Minimap Corner -- either may share "
+                        "a corner or take opposite ones.",
+        .enum_table = panel_corner_type, .get_enum = &get_panel_corner, .set_enum = &set_panel_corner,
+        .is_enabled = &panel_corner_enabled,
     },
     {
         .cfg_key = "GUI_ICON_PACK", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,

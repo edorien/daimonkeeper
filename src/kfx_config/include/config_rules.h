@@ -103,6 +103,11 @@ struct GameRulesConfig {
     uint64_t easter_egg_speech_interval;
     int64_t global_ambient_light;
     int64_t thing_minimum_illumination;
+    /* Colours (0..255 per channel; 0 0 0 = white) of the engine's built-in lights, used by the Vulkan
+     * renderer's per-pixel lighting only: the light carried by a possessed creature, by hero creatures, and by the player's cursor. */
+    int64_t possession_light_r, possession_light_g, possession_light_b;
+    int64_t hero_light_r, hero_light_g, hero_light_b;
+    int64_t cursor_light_r, cursor_light_g, cursor_light_b;
     TbBool light_enabled;
     int64_t creatures_count;
 };

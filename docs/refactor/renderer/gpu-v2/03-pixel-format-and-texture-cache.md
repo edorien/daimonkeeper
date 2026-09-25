@@ -90,3 +90,13 @@ cache) and needed unchanged by Phase C — one cache, two population paths, not 
   `RendererPaletteSet` and eviction keyed on it. Phase C's static-level-texture cache entries need
   the identical generation-counter invalidation as sprite entries, since level lighting also
   mutates the active palette — see R10 in [08-risks.md](08-risks.md).
+
+## Landed as (C.1, 2026-09-24)
+
+The static-level-geometry half of this cache exists in `RendererGpu3D` (`kfx_platform`): a 2D-array texture of
+32×32 RGBA layers keyed by `block_ptrs[]` pointer, palette-resolved once at upload. Two deliberate deviations
+from the design above: it is **not shared with a sprite cache** (no sprite cache exists yet — sprites are still
+CPU-drawn, C.2), and invalidation is **content comparison rather than a generation counter** — each block's palette
+indices are compared per frame and the whole cache flushed when the 768-byte palette changes, which handles both
+palette fades/lighting churn and in-place animated-texture rewrites without a counter on `RendererPaletteSet`.
+Details and verification: [07](07-phased-delivery.md)'s C.1 second-slice note.

@@ -1,6 +1,16 @@
 # Stage 5 — Consolidate ImGui linkage into one library
 
-Status: **planning, not started.** Pure refactor — no behaviour change, no visible change.
+Status: **landed.** Pure refactor — no behaviour change, no visible change. ImGui
+context/backend ownership moved from `kfx_platform/{include,src}/gui/ImGuiContext.{h,cpp}` to
+`kfx_frontend/{include,src}/gui/FrontendImGui.{h,cpp}`, behind the new
+`RendererImGuiCallbacks` struct (`renderer/RendererManager.h`) -- named that way, not
+`RendererOverlayCallbacks` as originally sketched below, to avoid colliding with the
+pre-existing, unrelated `RenderOverlayCallbacks` (`kfx_config/include/render_overlay.h`,
+architecture.md §5.1). `kfx_imgui.h` (the `kfximgui::` int64_t/double-vs-int/float wrapper
+templates) moved alongside it, from `kfx_platform/include/` to `kfx_frontend/include/`, for the
+same reason -- it was already only ever consumed by `kfx_frontend`/`kfx_editor`, never
+`kfx_platform` itself. A few implementation details below turned out to differ from what
+shipped; search this file for "Landed as:" notes at each such point.
 Prerequisite for [gpu-v2/00-overview.md](gpu-v2/00-overview.md) Phase B (risk
 [**R1**/**R6**](gpu-v2/08-risks.md)): the capture
 path, the in-game HUD submission, and the Phase C geometry façade all get simpler if exactly one
@@ -77,6 +87,16 @@ wrapper — none include `imgui.h` themselves):
 | `bflib_mspointer.cpp` (×2) | `ImGuiContextWantCaptureMouse` | `renderer_overlay->want_capture_mouse` |
 | `RendererManager.cpp` façades | `ImGuiContextSetDemoVisible`, `ImGuiContextCreateTexture`/`UpdateTexture`/`DestroyTexture` | see below |
 | `RendererManager.h` | `#include "gui/ImGuiContext.h"` for `ImGuiCursorImage`/`ImGuiCursorImageFn` types | deleted (callback removed) |
+| `bflib_mspointer.cpp` (×2), `RendererSoftware::PresentFrame()` | `RendererScreenOwned()`/`ImGuiContextScreenOwned` (added after this table was first written) | `renderer_imgui_callbacks->screen_owned`, via the unchanged `RendererScreenOwned()` facade |
+
+**Landed as:** the code had grown an `ImGuiContextScreenOwned`/`RendererScreenOwnedFn` pair (docs/
+refactor/renderer/05-imgui-owned-menu-backdrop.md Phase C) between this table's original draft and
+implementation — not listed above. It folds into the same struct as `screen_owned`, queried by both
+`RendererSoftware::PresentFrame()` (the legacy-blit skip) and `bflib_mspointer.cpp` (the legacy-cursor
+skip) — it can't be one of the "disappears entirely, called directly" cases below despite
+`frontend_imgui_screen_active()`/`ingame_parchment_active()` both being `kfx_frontend` functions,
+because those two `kfx_platform` call sites need the query from outside `FrontendImGui.cpp`'s own
+per-frame block.
 
 Two couplings that are *already* upward callbacks (registered from `main.cpp`) but consumed inside
 `kfx_platform`'s `ImGuiContext.cpp` today — these **disappear entirely**, because after the move
@@ -85,7 +105,10 @@ Two couplings that are *already* upward callbacks (registered from `main.cpp`) b
 - `RendererSetCursorImageCallback` / `ImGuiCursorImageFn` → `FrontendImGui.cpp` calls
   `FeStyleGetCursorImage()` directly (`frontgui_style.cpp`, same library).
 - `RendererSetMousePositionCallback` / `ImGuiMousePositionFn` → `FrontendImGui.cpp` calls
-  `GetMouseX()`/`GetMouseY()` directly (`bflib_mouse.h`, `kfx_platform`, downward-legal).
+  `GetMouseX()`/`GetMouseY()` directly. **Landed as:** these live in `kfx_frontend/include/
+  kjm_input.h`, not `bflib_mouse.h`/`kfx_platform` as this paragraph originally assumed — same
+  library either way, so the "no callback needed" conclusion still holds, just for a same-library
+  rather than downward-legal reason.
 
 The dynamic-texture helpers (`RendererCreateDynamicTexture` etc.) are **pure SDL** — no ImGui
 symbol — so they stay in `kfx_platform` unchanged. Their handles are `SDL_Texture*` cast to
@@ -110,18 +133,26 @@ callback struct points at.
 `kfx_frontend`'s existing `FrontendImGuiFrame()` (`frontgui_screens.cpp`, the current
 `RendererImGuiFrameFn`) stays as the *submission* body and becomes the struct's `submit` member.
 
-### New: `RendererOverlayCallbacks` in `renderer/RendererManager.h`
+### New: `RendererImGuiCallbacks` in `renderer/RendererManager.h`
 
 Mirrors the existing `RendererDrawCallbacks` pattern exactly (`RendererManager.h:149-153`,
 `RendererManager.cpp:21-27`) — a `struct` of function pointers, an `extern const
-RendererOverlayCallbacks *renderer_overlay;` defaulting to an all-noop static, and a
-`set_renderer_overlay_callbacks()` setter. SDL types are fine in this header (`kfx_platform` owns
+RendererImGuiCallbacks *renderer_imgui_callbacks;` defaulting to an all-noop static, and a
+`set_renderer_imgui_callbacks()` setter. SDL types are fine in this header (`kfx_platform` owns
 SDL); no ImGui type appears.
 
+**Landed as:** named `RendererImGuiCallbacks` / `renderer_imgui_callbacks`, not
+`RendererOverlayCallbacks` / `renderer_overlay` as sketched here — `kfx_config/include/
+render_overlay.h` already declares an unrelated `RenderOverlayCallbacks` struct + `render_overlay`
+extern (architecture.md §5.1, `kfx_render` → frontend debug-overlay/parchment/panel-sprite draws),
+and the two names differ only by "Renderer" vs "Render" — too easy to typo one for the other.
+`screen_owned` is also added as a struct member (see the coupling-surface table above); it isn't in
+the snippet below because this section predates that predicate existing at all.
+
 ```c
-struct RendererOverlayCallbacks {
+struct RendererImGuiCallbacks {
     // lifecycle -- from RendererSoftware
-    void (*ensure)(struct SDL_Window *window, struct SDL_Renderer *renderer);
+    TbBool (*ensure)(struct SDL_Window *window, struct SDL_Renderer *renderer);
     void (*renderer_destroying)(void);   // MUST run before SDL_DestroyRenderer
     // per-frame -- from RendererSoftware::PresentFrame, bracketing submit()
     void (*begin_frame)(void);
@@ -132,46 +163,70 @@ struct RendererOverlayCallbacks {
     TbBool (*is_active)(void);
     TbBool (*want_capture_mouse)(void);
     TbBool (*want_capture_keyboard)(void);
+    TbBool (*screen_owned)(void);
     // debug
     void (*set_demo_visible)(TbBool visible);
 };
 ```
 
 Retire `RendererImGuiFrameFn` / `RendererSetImGuiFrameCallback` / `RendererRunImGuiFrameCallback`
-and the four `RendererSet{CursorImage,MousePosition}Callback` / `RendererSetImGuiDemoVisible`
-entry points — all folded into this one struct + setter.
+and the four `RendererSet{CursorImage,MousePosition,ScreenOwned}Callback` /
+`RendererSetImGuiDemoVisible` entry points — all folded into this one struct + setter (`ensure` is
+`TbBool`-returning, not `void`, per the note on `PresentFrame()`'s gating below).
 
 ### `PresentFrame()` after the change
 
 ```
 // backdrop already blitted + SDL_RenderTexture'd
-static bool s_presenting_overlay = false;                 // reentrancy guard, unchanged intent
-if (!s_presenting_overlay && RendererImGuiEnabled()) {
-    s_presenting_overlay = true;
-    renderer_overlay->ensure(lbWindow, m_renderer);       // lazy, idempotent (frontend side)
-    renderer_overlay->begin_frame();
-    renderer_overlay->submit();
-    renderer_overlay->render();
-    s_presenting_overlay = false;
+static bool s_presenting_imgui_frame = false;   // reentrancy guard, unchanged name/intent
+if (!s_presenting_imgui_frame && renderer_imgui_callbacks->ensure(lbWindow, m_renderer)) {
+    s_presenting_imgui_frame = true;
+    renderer_imgui_callbacks->begin_frame();
+    renderer_imgui_callbacks->submit();
+    renderer_imgui_callbacks->render();
+    s_presenting_imgui_frame = false;
 }
 SDL_RenderPresent(m_renderer);
 ```
 
-No `ImGuiContextEnsure` return value is consulted; the frontend side no-ops cleanly if the
-window/renderer isn't ready. Same "null until `setup_game()` wires it" behaviour as today's
-`RendererImGuiFrameFn`.
+**Landed as:** `ensure`'s `TbBool` return value **is** still consulted (this paragraph originally
+said to drop it) — `RendererImGuiEnabled()` referenced just above doesn't exist any more (retired
+2026-09-12 per this stage's own overview doc, well before this stage landed), so there is no other
+gate available, and this is meant to be a pure no-behaviour-change refactor: today's code only ever
+calls `submit()`/`RendererRunImGuiFrameCallback()` when `ImGuiContextEnsure()` actually succeeded
+(context created, backends initialised), and `FrontendImGuiFrame()` submits real `ImGui::` widget
+calls that are only safe with a live context. Always calling `begin_frame()`/`submit()`/`render()`
+regardless of `ensure`'s result — even though each no-ops internally on `!s_active` — would still
+call `submit()` (and therefore real `ImGui::` widget code) with no context active, which
+`ImGui::Begin()`-family calls do not tolerate. The default no-op `RendererImGuiCallbacks` (active
+before `main.cpp::setup_game()` registers the real one, and in every `*_utest` binary) has `ensure`
+return `0` unconditionally, so the whole block is skipped rather than attempting a real context
+against a null/absent window — same "inert until `setup_game()` wires it" outcome the "no return
+value consulted" framing was going for, just via the gate staying in place instead of being
+removed.
 
 ### `main.cpp` wiring
 
-The four scattered `RendererSet*` calls (`main.cpp:1277,1283,1292,1300`) collapse to one:
+Four of the five scattered `RendererSet*` registration calls (`RendererSetImGuiFrameCallback`,
+`RendererSetMousePositionCallback`, `RendererSetCursorImageCallback`,
+`RendererSetScreenOwnedCallback`) collapse to one:
 
 ```c
-set_renderer_overlay_callbacks(&renderer_overlay_impl);   // in setup_game(), next to renderer_draw_callbacks_impl
+set_renderer_imgui_callbacks(&renderer_imgui_callbacks_impl);   // in setup_game(), next to renderer_draw_callbacks_impl
 ```
 
-where `renderer_overlay_impl` is a `static const RendererOverlayCallbacks` whose members are thin
-`extern "C"` wrappers around `FrontendImGui*` functions — the same shape as
-`render_overlay_impl` (`main.cpp:1463`) and `renderer_draw_callbacks_impl` (`main.cpp:2187`).
+where `renderer_imgui_callbacks_impl` is a `static const RendererImGuiCallbacks` whose members are
+mostly `FrontendImGui*` function pointers directly (no wrapper needed — same shape as
+`renderer_draw_callbacks_impl`), except `submit`, which stays `&app_imgui_frame` (a small
+`main.cpp`-local wrapper, unchanged from before this stage): `kfx_editor` ranks above
+`kfx_apploop`/`kfx_frontend`, so `FrontendImGuiFrame()` itself can't also call `editor_frame()` —
+only `main.cpp`, the composition root, can see both.
+
+**Landed as:** the fifth call, `RendererSetImGuiDemoVisible((start_params.debug_flags &
+DFlg_ImGuiDemo) != 0)`, does **not** fold into the struct literal above — it's not a callback
+*registration* like the other four, it's a state-*setting* call (pushing the resolved `-imguidemo`
+flag through the newly-registered `set_demo_visible` member), so it stays a separate statement
+right after `set_renderer_imgui_callbacks()`, same as it always was.
 
 ---
 
@@ -196,19 +251,33 @@ where `renderer_overlay_impl` is a `static const RendererOverlayCallbacks` whose
 
 ## CMake changes
 
-- `CMakeLists.txt:164` — remove `target_link_libraries(kfx_common_opts INTERFACE imgui)`.
-- `src/kfx_frontend/CMakeLists.txt` — add `target_link_libraries(kfx_frontend PRIVATE imgui)` and,
-  if the STATIC-lib-vs-OBJECT-lib symbol-resolution gap bites the same way it does for `centitoml`,
-  `target_sources(kfx_frontend PRIVATE $<TARGET_OBJECTS:imgui>)` or the equivalent the other
-  libraries use. `PRIVATE` is correct: nothing above `kfx_frontend` includes `imgui.h`.
-- `CMakeLists.txt:524-525` — keep `target_link_libraries(keeperfx[_hvlog] PRIVATE imgui)` (final
+- `CMakeLists.txt` — remove `target_link_libraries(kfx_common_opts INTERFACE imgui)`.
+- `src/kfx_frontend/CMakeLists.txt` — add `target_link_libraries(kfx_frontend[_hvlog] PRIVATE
+  imgui)`, plus a `src/gui/*.cpp` glob (mirroring `kfx_platform`'s own per-subdirectory glob
+  pattern) so `gui/FrontendImGui.cpp` gets picked up. **Landed as:** the plain
+  `target_link_libraries` line was enough — no `$<TARGET_OBJECTS:imgui>` workaround needed.
+  That workaround is for object files disappearing through *multiple* levels of `INTERFACE`
+  indirection (`centitoml`'s own comment: "doesn't reliably make it through two levels..."); this
+  is one direct `OBJECT`-library dependency on a `STATIC` library, which bundles fine, and
+  `kfx_editor` was already proving the same thing indirectly (via `imgui_color_text_edit`'s
+  `PUBLIC` link to `imgui`) before this stage touched anything. The final executables' own direct
+  `imgui` link (next bullet) is the actual safety net either way.
+- `CMakeLists.txt` — keep `target_link_libraries(keeperfx[_hvlog] PRIVATE imgui)` (final
   executables still need the object; same reason `centitoml` is linked there).
-- Delete the `imgui` link line from the 7 unrelated `src/kfx_*/tests/CMakeLists.txt`
-  (`kfx_sim`, `kfx_game`, `kfx_net`, `kfx_config`, `kfx_render`, `kfx_script`, `kfx_apploop`) —
-  keep it only in `kfx_frontend/tests/` (and `kfx_script_utest` / `kfx_apploop_utest` if they
-  link `kfx_frontend`'s objects and hit the gap).
-- `kfx_platform/tests/CMakeLists.txt` — remove the `imgui` line; move the two ImGui-related cases
-  out of `RendererManager_test.cpp` (see Tests below).
+- Delete the `imgui` link line from the 5 unrelated `src/kfx_*/tests/CMakeLists.txt`
+  (`kfx_sim`, `kfx_game`, `kfx_net`, `kfx_config`, `kfx_render` — none of these link the real
+  `kfx_frontend` library, only a lightweight `kfx_frontend_state_test_stub`) — keep it in
+  `kfx_frontend/tests/`, `kfx_script_utest`, `kfx_apploop_utest` and `kfx_editor_utest` (all four
+  link `kfx_frontend`'s real objects).
+- `kfx_platform/tests/CMakeLists.txt` — remove the `imgui` line.
+- `src/kfx_platform/include/kfx_imgui.h` → `src/kfx_frontend/include/kfx_imgui.h` (`git mv`): this
+  header (the `kfximgui::` int64_t/double-vs-int/float wrapper templates) was never consumed by
+  anything in `kfx_platform` itself, only `kfx_frontend`/`kfx_editor` — physically living under
+  `kfx_platform/include/` was a pure organizational artifact of every `kfx_*/include/` directory
+  being globally propagated to every target (`CMakeLists.txt`'s `target_include_directories
+  (kfx_common_opts INTERFACE ...)` block, unrelated to the per-library link graph
+  `check_layering.py` actually polices), not a real dependency — but it would still have shown up
+  as a false hit in this stage's own `grep -rlE 'imgui|ImGui' src/kfx_platform` verification below.
 - `deps/imgui` / `Dependencies.cmake` — unchanged.
 
 ## Layering check
@@ -223,12 +292,20 @@ comment hits. Add that as a one-line assertion in the stage's verification, or a
 - `RendererManager_test.cpp` — the "enabled flag round-trips" case can stay (it's just the bool).
   The "`RendererSetImGuiDemoVisible` safe with no context" case moves to `kfx_frontend_utest`
   against `FrontendImGui`, or is dropped.
-- New `kfx_frontend_utest` coverage: `set_renderer_overlay_callbacks(nullptr-members)` /
-  default-noop safety, mirroring `render_overlay_test.cpp` and `RendererManager_test.cpp:122`'s
-  `RendererDrawCallbacks` fake-struct pattern.
-- `net_resync_test.cpp:125` already builds a fake `RenderOverlayCallbacks` — the new struct's fake
-  will look the same.
+
+**Landed as:** kept (and extended) in `kfx_platform/tests/RendererManager_test.cpp` instead of
+moving — it's exercising `RendererManager.h`'s own facade + default no-op struct, which is still
+entirely `kfx_platform`-local and needs no ImGui symbol either way; a `kfx_frontend_utest` copy
+would just be redundant. Added a `set_renderer_imgui_callbacks(&fake)`-based case (mirroring
+`RendererDrawCallbacks`'s own fake-struct test right above it) and a separate
+`FrontendImGui_test.cpp` in `kfx_frontend/tests/` exercising `FrontendImGui*`'s own
+no-active-context safety.
+
 - Full suite must stay green; this is a no-behaviour-change refactor.
+
+(The two bullets this replaced described `kfx_frontend_utest`-side coverage for the struct wiring
+itself and drew an analogy to `net_resync_test.cpp`'s unrelated `RenderOverlayCallbacks` fake — see
+the "Landed as" note above for what actually shipped instead.)
 
 ---
 
@@ -255,10 +332,12 @@ Phase C.0. Summary of that document's plan:
 
 ## Verification
 
-- `KFX_OS=linux ./build-cmake.sh` + mingw cross-compile, both variants — the link-graph change is
-  the main risk, so a clean link on both toolchains is the primary signal.
+- `KFX_OS=linux ./build-cmake-linux.sh` (the script this repo actually ships under that name now;
+  `./build-cmake.sh` elsewhere in this doc/CLAUDE.md is a stale pre-rename name) + mingw
+  cross-compile, both variants — the link-graph change is the main risk, so a clean link on both
+  toolchains is the primary signal.
 - `python3 scripts/check_layering.py --strict`.
-- Full Catch2 suite green, unchanged count.
+- Full Catch2 suite green, unchanged count (plus the new coverage under Tests above).
 - `grep -rlE 'imgui|ImGui' src/kfx_platform src/kfx_sim src/kfx_render src/kfx_net src/kfx_config
   src/kfx_game` → comment-only hits (no `#include`, no symbol).
 - **Screenshot-identical** frontend across every migrated screen (main menu, all Options tabs,
@@ -266,16 +345,21 @@ Phase C.0. Summary of that document's plan:
   (`-imguistyle`) debug windows — this refactor must change nothing visible.
 - Interactive smoke: open Options, change a setting, resize the window, toggle fullscreen (renderer
   teardown/rebuild path — constraint 1), play a cutscene (nested present + `renderer_destroying`
-  ordering), all with ImGui on; then `-classicmenu` once to confirm the noop path.
+  ordering). **Landed as:** the `-classicmenu` mention here is stale — it was already retired
+  (2026-09-12, `docs/refactor/ingame-gui/00-overview.md` §1/§8, predating this stage landing) by the
+  time this stage started; there is no noop-frontend-path smoke check left to run.
 
 ## Cross-references to update once implemented
 
-- [04-imgui-gui-foundation.md](04-imgui-gui-foundation.md) §3.1 — the "`kfx_platform` owns the
-  ImGui context" decision is superseded; record that ownership moved to `kfx_frontend` and why.
-- [gpu-v2/08-risks.md](gpu-v2/08-risks.md) R1/R6 — note the linkage is consolidated; Phase B's
-  capture and HUD work is now single-library.
+- [04-imgui-gui-foundation.md](04-imgui-gui-foundation.md) §3.1 — **done**: the "`kfx_platform` owns
+  the ImGui context" decision is superseded; ownership moved to `kfx_frontend`
+  (`gui/FrontendImGui.{h,cpp}`) and why is recorded there.
+- [gpu-v2/08-risks.md](gpu-v2/08-risks.md) R1/R6 — **done**: noted the linkage is consolidated;
+  Phase B's capture and HUD work is now single-library.
 - [gpu-v2/06-call-site-consolidation.md](gpu-v2/06-call-site-consolidation.md) — this stage is its
-  named prerequisite; link back once both have landed.
-- [architecture.md](../../Architecture/architecture.md) §5 callback catalogue — add
-  `RendererOverlayCallbacks`.
-- [00-overview.md](00-overview.md) — add this stage to the roadmap.
+  named prerequisite; link back once 06 itself lands too (not yet).
+- [architecture.md](../../Architecture/architecture.md) §5 callback catalogue — **done**: added
+  `RendererImGuiCallbacks` (not `RendererOverlayCallbacks` — see the naming note above).
+- [00-overview.md](00-overview.md) — **done**: this stage's status/sequence entries updated.
+- [gpu-v2/00-overview.md](gpu-v2/00-overview.md) — **done**: step 1 of the proposed implementation
+  sequence marked landed.

@@ -150,7 +150,7 @@ TbError process_network_unpause_message(void)
     MULTIPLAYER_LOG("ProcessMessage NETMSG_UNPAUSE: applying unpause");
     unpausing_in_progress = 1;
     keeper_screen_redraw();
-    RendererPresentFrame();
+    RendererPresentStepFrame();
     if (network_is_host()) {
         LbNetwork_BroadcastUnpause();
     }

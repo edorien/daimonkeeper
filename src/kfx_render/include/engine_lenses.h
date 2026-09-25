@@ -56,6 +56,7 @@ extern RotPers_Func rotpers;
 extern Perspect_Func perspective_routines[];
 extern RotPers_Func rotpers_routines[];
 /******************************************************************************/
+void pers_set_transform_matrix(struct EngineCoord *epos, const struct M33 *matx);
 void perspective_standard(struct XYZ *cor, struct PolyPoint *ppt);
 void perspective_fisheye(struct XYZ *cor, struct PolyPoint *ppt);
 void rotpers_parallel(struct EngineCoord *epos, const struct M33 *matx);

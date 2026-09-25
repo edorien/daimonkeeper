@@ -13,6 +13,7 @@
 #include <vector>
 #include <imgui.h>
 #include "content_campaign_ops.h"
+#include "cfgc_campaign_edit.h"
 #include <spng.h>
 
 extern "C" {
@@ -1011,6 +1012,9 @@ static std::vector<int64_t> s_cm_levels_after;
 static int64_t s_cm_next_before = 0, s_cm_next_after = 0, s_cm_files_none = 0, s_cm_files_count = 0;
 static bool s_cm_menu_ok = false, s_cm_menu_moved = false, s_cm_rules_created = false;
 static std::string s_cm_rules_text;
+static bool s_pk_created = false, s_pk_listed = false, s_pk_id_taken = false, s_pk_copy_pack = false, s_pk_copy_extra = false, s_pk_copy_taken = false;
+static bool s_pk_extra_file = false, s_pk_moved = false, s_pk_src_lists = false, s_pk_dst_lists = false;
+static int64_t s_pk_pack_levels = 0;
 static int64_t s_cm_return_state = -1, s_cm_reopen_tool = -1;
 static bool s_cm_play_cleared = false;
 static bool s_cm_created = false, s_cm_id_free_after = true, s_cm_created_dirs = false;
@@ -1143,6 +1147,46 @@ void ftest_config_content_campaign_editor_pre_start()
                     s_cm_levels_after.push_back(n);
     bool lv_exists = false;
     s_cm_levels_text = slurp(s_cm_file, lv_exists);
+    // Map packs and copying a level between campaigns and packs.
+    {
+        for (const char *d : {"/levels/ft_pack", "/levels/ft_pack_cfg", "/levels/ft_pack_crtr"})
+            fs::remove_all(root + d);
+        fs::remove(root + "/levels/ft_pack.cfg");
+        std::string perr;
+        s_pk_created = content_pack_create("FT Pack", "ft_pack", ContentKind_FreePlay, "RED", true, &perr);
+        auto find_c = [](const char *fname, ContentKind kind) {
+            for (const ContentCampaign &c : content_list_everything())
+                if (c.fname == fname && c.kind == kind)
+                    return c;
+            return ContentCampaign();
+        };
+        const ContentCampaign pack = find_c("ft_pack.cfg", ContentKind_FreePlay);
+        s_pk_listed = !pack.fname.empty() && !pack.listed; // an empty pack is known to the editor, not to the game
+        s_pk_id_taken = !content_campaign_id_free("ft_pack", ContentKind_FreePlay) && content_campaign_id_free("ft_pack", ContentKind_Multiplayer);
+        const ContentCampaign camp = find_c("ft_camp.cfg", ContentKind_Campaign);
+        // Copy level 1 into the pack as level 1, and into the campaign as an extra level 20.
+        std::string cerr1, cerr2, cerr3;
+        s_pk_copy_pack = content_campaign_copy_level(camp, 1, pack, content_pack_next_level(pack), CampList_Single, false, &cerr1);
+        s_pk_copy_extra = content_campaign_copy_level(camp, 1, camp, 20, CampList_Extra, false, &cerr2);
+        s_pk_copy_taken = !content_campaign_copy_level(camp, 1, camp, 20, CampList_Extra, false, &cerr3); // 20 has files now
+        s_pk_pack_levels = (int64_t)content_pack_levels(find_c("ft_pack.cfg", ContentKind_FreePlay)).size();
+        s_pk_extra_file = cfgc_file_exists_ci(s_cm_dir + "/map00020.slb");
+        // Move level 2 into ft_newcamp: its lists gain it, the source's lose it and its entry; the source's files stay.
+        const ContentCampaign other = find_c("ft_newcamp.cfg", ContentKind_Campaign);
+        std::string cerr4;
+        s_pk_moved = content_campaign_copy_level(find_c("ft_camp.cfg", ContentKind_Campaign), 2, other, 2, CampList_Single, true, &cerr4);
+        bool ex = false;
+        const std::string src_after = slurp(s_cm_file, ex);
+        const ConfigContent sc = read_config_content(ConfigDocument::parse(src_after), "campaign", false);
+        s_pk_src_lists = !cfgc_read_levels(sc).listed(2) && sc.find_section("map", 2) == nullptr && cfgc_file_exists_ci(s_cm_dir + "/map00002.slb");
+        const std::string dst_after = slurp(other.cfg_file, ex);
+        s_pk_dst_lists = cfgc_read_levels(read_config_content(ConfigDocument::parse(dst_after), "campaign", false)).listed(2);
+        fs::remove_all(root + "/levels/ft_pack");
+        fs::remove_all(root + "/levels/ft_pack_cfg");
+        fs::remove_all(root + "/levels/ft_pack_crtr");
+        fs::remove(root + "/levels/ft_pack.cfg");
+        content_campaign_rescan_lists();
+    }
     content_campaign_test_select("ft_camp.cfg"); // the file changed behind the window: open it again
     if (!content_campaign_test_own_config())
     {
@@ -1186,6 +1230,11 @@ FTestActionResult ftest_config_content_campaign_editor_action001__check(struct F
             && s_cm_rules_created && s_cm_rules_text.compare(0, 2, "; ") == 0, 1);
         CHECK_EQ("the end of a game the Campaign editor started returns to the main menu and reopens the editor",
             s_cm_return_state == (int64_t)FeSt_MAIN_MENU && s_cm_reopen_tool == (int64_t)ContentTool_Campaign && s_cm_play_cleared, 1);
+        CHECK_EQ("a map pack is created and known to the editor before the game lists it, its id taken per kind", s_pk_created && s_pk_listed && s_pk_id_taken, 1);
+        CHECK_EQ("a level is copied into a pack and into a campaign as an extra level, and a taken number is refused",
+            s_pk_copy_pack && s_pk_copy_extra && s_pk_copy_taken && s_pk_pack_levels == 1 && s_pk_extra_file, 1);
+        CHECK_EQ("a move lists the level in the target, takes it out of the source's lists and entry, and keeps its files",
+            s_pk_moved && s_pk_src_lists && s_pk_dst_lists, 1);
         CHECK_EQ("its id is taken afterwards", !s_cm_id_free_after, 1);
         CHECK_EQ("the first map saved into it takes level 1", s_cm_new_first == 1, 1);
         CHECK_EQ("the next level number is after the listed ones, and a listed level with no map yet is offered first", s_cm_next_before == 4 && s_cm_next_after == 4, 1);
