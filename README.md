@@ -14,8 +14,10 @@ executables; over the years the entire codebase was rewritten in C/C++. This
 fork continues from that rewritten codebase and focuses on **structural
 modernization**: `src/` has been refactored from one flat 266-file directory
 into a set of internal libraries with a strict, enforced dependency graph, the
-platform layer has moved to SDL3, and the build now produces first-class
-**native Linux** binaries alongside the Windows build, all driven by CMake.
+platform layer has moved to SDL3, the build now produces first-class
+**native Linux** binaries alongside the Windows build (all driven by CMake), and
+the game now ships an **in-game level, content and campaign editor** plus an
+optional **GPU (Vulkan) renderer** with dynamic lighting and soft shadows.
 
 KeeperFX is a standalone game but requires a copy of the original Dungeon Keeper
 data files as proof of ownership. These can be copied from an old CD or from a
@@ -56,28 +58,37 @@ This fork additionally provides:
   third-party dependencies fetched and built automatically
 - A **layered architecture**: `src/` is split into internal libraries
   (`kfx_platform`, `kfx_config`, `kfx_pathfinding`, `kfx_sim`, `kfx_render`,
-  `kfx_net`, `kfx_game`, `kfx_frontend`, `kfx_script`, `kfx_apploop`) with a
-  one-directional, acyclic dependency graph enforced in CI
+  `kfx_net`, `kfx_game`, `kfx_frontend`, `kfx_script`, `kfx_apploop`,
+  `kfx_editor`) with a one-directional, acyclic dependency graph enforced in CI
 - The old ~176-field `struct Game` god-object broken up into per-library state
+- **64-bit clean**: `long`/pointer-width assumptions removed (64-bit integers and
+  doubles throughout, pointer-free state blobs), with a lint ratchet to keep it so
+- **32-bit software renderer** (no more single 8-bit palette per frame) and an
+  optional **GPU renderer** (SDL_GPU/Vulkan, selectable under Options → Graphics)
+  with per-pixel coloured dynamic lights, shadow rays and soft shadows
+- **Dear ImGui front end and HUD**: every menu screen is ImGui, plus a reworked
+  in-game sidebar/HUD (classic look still selectable via `GUI_ICON_PACK`)
+- **Map Editor** (main menu → Tools): terrain, things, rooms, doors, traps, undo,
+  map resize, script and **Lua** editing with validation, level settings,
+  classic-format and KeeperFX-format save, and one-click playtest
+- **Content editors**: raw config editor, rules, creature, trap/door,
+  spell/ability, room, text/string and **campaign** editors (new-campaign wizard,
+  levels, land views, speech), with schema validation and a lossless `.cfg` model
+- **Skirmish setup tab**: per-level rules, availability, win/lose conditions and
+  AI slots, layered over the level's own script
 - Frontend/Options-screen and campaign-progress reworks
+- Catch2 unit tests per library, alongside the in-game functional tests
 - Note: Multiplayer is **not** compatible with original KeeperFX
 
-## Roadmap
+Still in progress or planned: finishing the GPU renderer (depth-buffer rollout,
+more effects), bringing the modernised HUD further into line with the classic
+look, and later AI and pathfinding optimisation plus features shown in early
+*Dungeon Keeper* previews that never shipped (e.g. hero mode, an AI Keeper with
+cross-session memory).
 
-Direction of this fork. "AI-assisted" means the work was carried out with heavy
-use of AI coding tools.
+## Screenshots
 
-| Phase                         | Status                | Scope                                                                                                                                                                                                                                                                       |
-| ----------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1. Refactor**               | done · AI-assisted    | Split the codebase into separate libraries with an enforced dependency graph; fix the declaration mess (functions not declared in headers, etc.); replace the 3 build systems across 2 platforms with a single CMake build; add a test harness with >50% function coverage. |
-| **2. Render enhancement**     | done · AI-assisted    | Compare the decompiled `keepd3d.exe` against `keeper.exe` and `keeper95.exe` and work out the 8→32-bit conversion tables; move to a 32-bit renderer while staying software-based, skipping the Direct3D version's extreme anisotropic filtering and antialiasing.           |
-| **3. Modernise the GUI**      | done · AI-assisted    | Switch to a vector-based GUI; collapse the multi-screen campaign / scenario / skirmish flows into single screens; make every setting controllable from within the game. Reworked sidebar plus a horizontal DK2-style / DK-beta layout with floating icons.                  |
-| **3b. Skirmish setup screen** | planned · AI-assisted | Dedicated skirmish setup screen.                                                                                                                                                                                                                                            |
-| **3c. Legacy consistency**    | planned               | Bring the modernised in-game GUI back into line with the legacy look where it drifted.                                                                                                                                                                                      |
-| **4. In-game editors**        | planned               | Level editor and script editor inside the game.                                                                                                                                                                                                                             |
-| **5. The fun bit**            | planned               | Optimise the AI & pathfinding<br/>Try to implement features Molyneux showed in early previews that never shipped: e.g. hero mode (heroes invading the dungeon before the level starts), AI Keeper with cross-session memory.                                                |
-
-### Phase 3 — single-screen menu flows
+### Single-screen menu flows
 
 The old multi-screen campaign / scenario routes are now one screen each: pick a
 campaign or map pack on the left, preview the land or level on the right, enter.
@@ -86,7 +97,8 @@ campaign or map pack on the left, preview the land or level on the right, enter.
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [![Land selection screen](docs/assets/landview.png)](docs/assets/landview.png) | [![Scenarios screen](docs/assets/scenario.png)](docs/assets/scenario.png) |
 
-Reworked sidebar and HUD over the 32-bit software renderer from phase 2.
+Reworked sidebar and HUD over the 32-bit renderer (screenshots
+predate the editors and the GPU lighting work).
 
 [![In-game GUI](docs/assets/ingame.png)](docs/assets/ingame.png)
 
@@ -146,7 +158,6 @@ shell). It does not do the Linux build or the coverage pass.
 
 - Build details, layout and conventions: [CLAUDE.md](CLAUDE.md)
 - Architecture (authoritative, kept current): [docs/Architecture/architecture.md](docs/Architecture/architecture.md)
-- Refactor history and design rationale: [docs/refactor/](docs/refactor/)
 - Layering check (CI-blocking): `python3 scripts/check_layering.py --strict`
 
 Tests:
@@ -154,6 +165,8 @@ Tests:
 - In-game functional tests: `src/ftests/` (run with `-ftests`) — see
   [src/ftests/README.md](src/ftests/README.md)
 - Standalone CUnit programs: `tests/`
+- Per-library Catch2 unit tests: `src/kfx_*/tests/` (`KFX_BUILD_TESTS=ON`, native
+  Linux)
 
 ## Components
 
