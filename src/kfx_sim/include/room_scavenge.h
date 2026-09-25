@@ -33,7 +33,7 @@ extern "C" {
 
 #pragma pack()
 /******************************************************************************/
-long get_scavenge_effect(PlayerNumber owner);
+int64_t get_scavenge_effect(PlayerNumber owner);
 /******************************************************************************/
 #ifdef __cplusplus
 }

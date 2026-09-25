@@ -148,18 +148,18 @@ enum ObjectsDrawClasses {
 };
 /******************************************************************************/
 struct CallToArmsGraphics {
-    int birth_anim_idx;
-    int alive_anim_idx;
-    int leave_anim_idx;
+    int64_t birth_anim_idx;
+    int64_t alive_anim_idx;
+    int64_t leave_anim_idx;
 };
 
 /******************************************************************************/
 // object_update_functions_desc moved to config_objects.c -- its only real
 // consumer. See docs/refactor/stage-13-enforce-and-document.md.
-void set_call_to_arms_graphics(PlayerNumber plyr_idx, int birth_anim_idx, int alive_anim_idx, int leave_anim_idx);
+void set_call_to_arms_graphics(PlayerNumber plyr_idx, int64_t birth_anim_idx, int64_t alive_anim_idx, int64_t leave_anim_idx);
 
 /******************************************************************************/
-struct Thing *create_object(const struct Coord3d *pos, ThingModel model, unsigned short owner, long parent_idx);
+struct Thing *create_object(const struct Coord3d *pos, ThingModel model, int64_t owner, int64_t parent_idx);
 void destroy_object(struct Thing *thing);
 TngUpdateRet update_object(struct Thing *thing);
 void update_all_objects_of_model(ThingModel model);
@@ -203,12 +203,12 @@ TbBool object_is_ignored_by_imps(const struct Thing* thing);
 TbBool creature_remove_lair_totem_from_room(struct Thing *creatng, struct Room *room);
 TbBool delete_lair_totem(struct Thing *lairtng);
 
-struct Thing *create_coloured_object(const struct Coord3d *pos, PlayerNumber plyr_idx, long parent_idx, ThingModel base_model);
+struct Thing *create_coloured_object(const struct Coord3d *pos, PlayerNumber plyr_idx, int64_t parent_idx, ThingModel base_model);
 
-int get_wealth_size_of_gold_hoard_object(const struct Thing *objtng);
-int get_wealth_size_of_gold_hoard_model(ThingModel objmodel);
-int get_wealth_size_of_gold_amount(GoldAmount value);
-int get_wealth_size_types_count(void);
+int64_t get_wealth_size_of_gold_hoard_object(const struct Thing *objtng);
+int64_t get_wealth_size_of_gold_hoard_model(ThingModel objmodel);
+int64_t get_wealth_size_of_gold_amount(GoldAmount value);
+int64_t get_wealth_size_types_count(void);
 struct Thing *create_gold_hoard_object(const struct Coord3d *pos, PlayerNumber plyr_idx, GoldAmount value);
 struct Thing *find_gold_hoard_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 struct Thing *create_gold_hoarde(struct Room *room, const struct Coord3d *pos, GoldAmount value);
@@ -216,10 +216,10 @@ GoldAmount add_gold_to_hoarde(struct Thing *thing, struct Room *room, GoldAmount
 GoldAmount remove_gold_from_hoarde(struct Thing *thing, struct Room *room, GoldAmount amount);
 GoldAmount gold_being_dropped_at_treasury(struct Thing* thing, struct Room* room);
 
-struct Thing *drop_gold_pile(long value, struct Coord3d *pos);
-struct Thing *create_gold_pot_at(long pos_x, long pos_y, PlayerNumber plyr_idx);
-TbBool add_gold_to_pile(struct Thing *thing, long value);
-struct Thing* create_gold_pile(struct Coord3d* pos, PlayerNumber plyr_idx, long value);
+struct Thing *drop_gold_pile(int64_t value, struct Coord3d *pos);
+struct Thing *create_gold_pot_at(int64_t pos_x, int64_t pos_y, PlayerNumber plyr_idx);
+TbBool add_gold_to_pile(struct Thing *thing, int64_t value);
+struct Thing* create_gold_pile(struct Coord3d* pos, PlayerNumber plyr_idx, int64_t value);
 GoldAmount gold_object_typical_value(struct Thing *thing);
 
 void set_call_to_arms_as_birthing(struct Thing *objtng);

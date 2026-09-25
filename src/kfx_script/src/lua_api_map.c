@@ -21,15 +21,15 @@
 /**********************************************/
 
 static int map_tostring(lua_State *L) {
-    lua_pushfstring(L, "Map(%dx%d)", kfx_sim_state.map_tiles_x, kfx_sim_state.map_tiles_y);
+    lua_pushfstring(L, "Map(%" PRId64 "x%" PRId64 ")", (int64_t)(kfx_sim_state.map_tiles_x), (int64_t)(kfx_sim_state.map_tiles_y));
     return 1;
 }
 
 //read creature pool from a map
 static void push_map_pool(lua_State *L) {
     lua_newtable(L);
-    for (int i = 0; i < CREATURE_TYPES_MAX; i++) {
-        int n = kfx_sim_state.pool.crtr_kind[i];
+    for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++) {
+        int64_t n = kfx_sim_state.pool.crtr_kind[i];
         if (n <= 0) continue;
         lua_pushstring(L, get_conf_parameter_text(creature_desc, i));
         lua_pushinteger(L, n);
@@ -45,7 +45,7 @@ static int map_get_field(lua_State *L){
     struct LevelInformation *lv_inf = get_level_info(lv_number);
 
     const char *map_name = "";
-    unsigned long ltype  = 0;
+    uint64_t ltype  = 0;
     if (lv_inf) {
         map_name = lv_inf->name;
         ltype    = lv_inf->level_type;
@@ -101,7 +101,7 @@ static int map_set_field(lua_State *L) {
             // Store as 1-based internally (texture_id + 1) to match string input convention.
             // Negative values mean no-op — leave kfx_config_state.texture_id unchanged.
             // TODO: align with PLAYER:set_texture() where negative values trigger a reset.
-            long texture_id = lua_tointeger(L, 3);
+            int64_t texture_id = lua_tointeger(L, 3);
             if (texture_id >= 0)
             {
                 kfx_config_state.texture_id = texture_id + 1;
@@ -111,7 +111,7 @@ static int map_set_field(lua_State *L) {
             // String input is 1-based and uses texture_pack_desc values ("STANDARD"=1, "ANCIENT"=2, ...).
             // Subtract 1 to get the 0-based filename index.
             // "NONE"=0 has no file, so skip the load.
-            long texture_id = luaL_checkNamedCommand(L, 3, texture_pack_desc);
+            int64_t texture_id = luaL_checkNamedCommand(L, 3, texture_pack_desc);
             kfx_config_state.texture_id = texture_id;
             if (texture_id > 0)
                 load_texture_map_file(texture_id - 1, lvnumb, get_level_fgroup(lvnumb));

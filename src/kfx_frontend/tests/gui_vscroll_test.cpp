@@ -21,7 +21,7 @@
 
 namespace {
 struct CatalogueFixture {
-    static const int kCapacity = 32;
+    static const int64_t kCapacity = 32;
     struct CatalogueEntry entries[kCapacity]{};
 
     CatalogueFixture() {
@@ -35,7 +35,7 @@ struct CatalogueFixture {
         save_game_catalogue_count = 0;
     }
 
-    void mark_in_use(int slot) { entries[slot].flags |= CEF_InUse; }
+    void mark_in_use(int64_t slot) { entries[slot].flags |= CEF_InUse; }
 
     void activate_save_menu() {
         active_menus[0].ident = GMnu_SAVE;

@@ -61,9 +61,9 @@ const struct DemoItem demo_item[] = {
  *    change screen mode.
  * @return Returns false if fatal error occurred and program execution should end.
  */
-short play_smacker_file(char *filename, FrontendMenuState nstate)
+int64_t play_smacker_file(char *filename, FrontendMenuState nstate)
 {
-  unsigned int movie_flags = 0;
+  uint64_t movie_flags = 0;
   if (resize_movies_enabled())
   {
     movie_flags |= vid_scale_flags; // get new scaling settings from command line
@@ -71,7 +71,7 @@ short play_smacker_file(char *filename, FrontendMenuState nstate)
   if ( SoundDisabled )
     movie_flags |= SMK_NoSound;
 
-  short result = 1;
+  int64_t result = 1;
   if ((result)&&(nstate>-2))
   {
     if ( setup_screen_mode_minimal(get_screen_vidmode()) )
@@ -177,7 +177,7 @@ TbBool ea_video(void)
 
 void demo(void)
 {
-    static long index = 0;
+    static int64_t index = 0;
     char *fname;
     switch (demo_item[index].kind)
     {

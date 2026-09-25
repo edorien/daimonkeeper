@@ -55,9 +55,9 @@ extern "C" {
 #define RNC_HEADER_LEN 18
 
 /******************************************************************************/
-long LbFileLengthRnc(const char *fname);
-long LbFileLoadAt(const char *fname, void *buffer);
-long LbFileSaveAt(const char *fname, const void *buffer,unsigned long len);
+int64_t LbFileLengthRnc(const char *fname);
+int64_t LbFileLoadAt(const char *fname, void *buffer);
+int64_t LbFileSaveAt(const char *fname, const void *buffer,uint64_t len);
 // docs/refactor/editor/phase3/05-slice6-atomic-write-lif.md -- write to a
 // sibling `<fname>.tmp` first, then rename it over `fname`, so a failure
 // partway through (crash, disk full, ...) leaves the *original* file
@@ -65,15 +65,15 @@ long LbFileSaveAt(const char *fname, const void *buffer,unsigned long len);
 // Save As/Level Settings/Playtest are all real, user-facing, overwrite-
 // risking actions (the plain LbFileSaveAt() every MapContentWriter file
 // used until now writes in place, with no such guarantee).
-TbBool LbFileSaveAtomic(const char *fname, const void *buffer, unsigned long len);
-long UnpackM1(void *buffer, unsigned long bufsize);
+TbBool LbFileSaveAtomic(const char *fname, const void *buffer, uint64_t len);
+int64_t UnpackM1(void *buffer, uint64_t bufsize);
 /******************************************************************************/
 #ifndef COMPRESSOR
-long rnc_unpack (const void *packed, void *unpacked, unsigned int flags);
+int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags);
 #else
-long rnc_unpack (const void *packed, void *unpacked, unsigned int flags, int32_t *leeway);
+int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags, int64_t *leeway);
 #endif
-long rnc_crc (void *data, unsigned long len);
+int64_t rnc_crc (void *data, uint64_t len);
 
 // Moved from kfx_net's net_checksums.c/.h (stage 13.3) -- a generic
 // file-checksum utility with no real kfx_net dependency, only

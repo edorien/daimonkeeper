@@ -25,7 +25,7 @@
 
 class FeOffscreenTarget {
 public:
-    FeOffscreenTarget(TbPixel *buf, int w, int h, unsigned char *palette = nullptr);
+    FeOffscreenTarget(TbPixel *buf, int64_t w, int64_t h, unsigned char *palette = nullptr);
     ~FeOffscreenTarget();
     FeOffscreenTarget(const FeOffscreenTarget &) = delete;
     FeOffscreenTarget &operator=(const FeOffscreenTarget &) = delete;

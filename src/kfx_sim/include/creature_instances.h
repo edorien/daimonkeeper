@@ -96,9 +96,9 @@ enum CreatureInstances {
 
 struct Thing;
 
-typedef long (*Creature_Instf_Func)(struct Thing *, int32_t *);
-typedef TbBool (*Creature_Validate_Func)(struct Thing *, struct Thing *, CrInstance, int32_t, int32_t);
-typedef TbBool (*Creature_Target_Search_Func)(struct Thing *, CrInstance, ThingIndex **, uint16_t *, int32_t, int32_t);
+typedef int64_t (*Creature_Instf_Func)(struct Thing *, int64_t *);
+typedef TbBool (*Creature_Validate_Func)(struct Thing *, struct Thing *, CrInstance, int64_t, int64_t);
+typedef TbBool (*Creature_Target_Search_Func)(struct Thing *, CrInstance, ThingIndex **, int64_t *, int64_t, int64_t);
 
 // struct InstanceInfo moved to kfx_config's instance_info.h (stage
 // 13.3) -- see there.
@@ -133,7 +133,7 @@ TbBool creature_has_ranged_object_weapon(const struct Thing *creatng);
 TbBool creature_has_weapon_for_postal(const struct Thing *creatng);
 TbBool creature_has_melee_attack(const struct Thing *creatng);
 
-CrInstance creature_instance_get_available_id_for_pos(struct Thing *thing, int req_avail_pos);
+CrInstance creature_instance_get_available_id_for_pos(struct Thing *thing, int64_t req_avail_pos);
 
 TbBool instance_draws_possession_swipe(CrInstance inum);
 TbBool instance_is_disarming_weapon(CrInstance inum);
@@ -145,27 +145,27 @@ TbBool instance_is_melee_attack(CrInstance inum);
 void delay_teleport(struct Thing *creatng);
 void delay_heal_sleep(struct Thing *creatng);
 
-void script_set_creature_instance(ThingModel crmodel, short slot, int instance, short level);
+void script_set_creature_instance(ThingModel crmodel, int64_t slot, int64_t instance, int64_t level);
 /******************************************************************************/
-TbBool validate_source_basic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_source_generic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_source_even_in_prison(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
+TbBool validate_source_basic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_source_generic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_source_even_in_prison(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
 
-TbBool validate_target_basic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_generic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_even_in_prison(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_benefits_from_missile_defense(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_benefits_from_defensive(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_benefits_from_higher_altitude(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_benefits_from_offensive(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_benefits_from_wind(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_benefits_from_healing(struct Thing *source, struct Thing *target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_non_idle(struct Thing* source, struct Thing* target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_takes_gas_damage(struct Thing* source, struct Thing* target, CrInstance inst_idx, int32_t param1, int32_t param2);
-TbBool validate_target_requires_cleansing(struct Thing* source, struct Thing* target, CrInstance inst_idx, int32_t param1, int32_t param2);
+TbBool validate_target_basic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_generic(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_even_in_prison(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_benefits_from_missile_defense(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_benefits_from_defensive(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_benefits_from_higher_altitude(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_benefits_from_offensive(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_benefits_from_wind(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_benefits_from_healing(struct Thing *source, struct Thing *target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_non_idle(struct Thing* source, struct Thing* target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_takes_gas_damage(struct Thing* source, struct Thing* target, CrInstance inst_idx, int64_t param1, int64_t param2);
+TbBool validate_target_requires_cleansing(struct Thing* source, struct Thing* target, CrInstance inst_idx, int64_t param1, int64_t param2);
 
-TbBool search_target_generic(struct Thing *source, CrInstance inst_idx, ThingIndex **targets, uint16_t *found_count, int32_t param1, int32_t param2);
-TbBool search_target_ranged_heal(struct Thing *source, CrInstance inst_idx, ThingIndex **targets, uint16_t *found_count, int32_t param1, int32_t param2);
+TbBool search_target_generic(struct Thing *source, CrInstance inst_idx, ThingIndex **targets, int64_t *found_count, int64_t param1, int64_t param2);
+TbBool search_target_ranged_heal(struct Thing *source, CrInstance inst_idx, ThingIndex **targets, int64_t *found_count, int64_t param1, int64_t param2);
 
 /******************************************************************************/
 #ifdef __cplusplus

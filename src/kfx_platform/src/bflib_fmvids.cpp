@@ -53,10 +53,10 @@ inline TbPixel expand_pal8_pixel(uint8_t index, const unsigned char *pal8)
  * further down (double_h) -- the four SMK_PixelDoubleWidth / SMK_PixelDoubleLine
  * combinations copy_to_screen() dispatches on all reduce to this one loop.
  * dst_shift is unused when double_h is false. */
-void copy_to_screen_row_ex(unsigned char *srcbuf, TbPixel *dstbuf, long width, long dst_shift,
+void copy_to_screen_row_ex(unsigned char *srcbuf, TbPixel *dstbuf, int64_t width, int64_t dst_shift,
                             const unsigned char *palette, bool double_w, bool double_h)
 {
-	for (long i = 0; i < width; i++) {
+	for (int64_t i = 0; i < width; i++) {
 		const TbPixel px = expand_pal8_pixel(srcbuf[i], palette);
 		if (double_w) {
 			dstbuf[2*i]     = px;
@@ -74,11 +74,11 @@ void copy_to_screen_row_ex(unsigned char *srcbuf, TbPixel *dstbuf, long width, l
 	}
 }
 
-void copy_to_screen(const AVFrame & frame, const int flags, const unsigned char *palette)
+void copy_to_screen(const AVFrame & frame, const int64_t flags, const unsigned char *palette)
 {
 	const auto src_pitch = frame.linesize[0];
 	auto srcbuf = frame.data[0];
-	long screen_buffer_center_offset;
+	int64_t screen_buffer_center_offset;
 	if (flags & (SMK_PixelDoubleLine | SMK_InterlaceLine)) {
 		screen_buffer_center_offset = lbDisplay.GraphicsScreenWidth * ((LbScreenHeight() - 2 * frame.height) >> 1);
 	} else {
@@ -91,15 +91,15 @@ void copy_to_screen(const AVFrame & frame, const int flags, const unsigned char 
 	auto dstbuf = &RendererGetFramebuffer()[screen_buffer_center_offset + ((LbScreenWidth() - w) >> 1)];
 	if (flags & SMK_PixelDoubleLine) {
 		const bool double_w = (flags & SMK_PixelDoubleWidth) != 0;
-		for (int h = frame.height; h > 0; h--) {
+		for (int64_t h = frame.height; h > 0; h--) {
 			copy_to_screen_row_ex(srcbuf, dstbuf, frame.width, lbDisplay.GraphicsScreenWidth, palette, double_w, true);
 			dstbuf += 2 * lbDisplay.GraphicsScreenWidth;
 			srcbuf += src_pitch;
 		}
 	} else {
 		const bool double_w = (flags & SMK_PixelDoubleWidth) != 0;
-		const long dstbuf_step = (flags & SMK_InterlaceLine) ? 2 * lbDisplay.GraphicsScreenWidth : lbDisplay.GraphicsScreenWidth;
-		for (int h = frame.height; h > 0; h--) {
+		const int64_t dstbuf_step = (flags & SMK_InterlaceLine) ? 2 * lbDisplay.GraphicsScreenWidth : lbDisplay.GraphicsScreenWidth;
+		for (int64_t h = frame.height; h > 0; h--) {
 			copy_to_screen_row_ex(srcbuf, dstbuf, frame.width, lbDisplay.GraphicsScreenWidth, palette, double_w, false);
 			dstbuf += dstbuf_step;
 			srcbuf += src_pitch;
@@ -107,18 +107,18 @@ void copy_to_screen(const AVFrame & frame, const int flags, const unsigned char 
 	}
 }
 
-void copy_to_screen_scaled(const AVFrame & frame, const int flags, const unsigned char *palette)
+void copy_to_screen_scaled(const AVFrame & frame, const int64_t flags, const unsigned char *palette)
 {
 	const auto src_pitch = frame.linesize[0];
 	const auto src_buf = frame.data[0];
 	const auto dst_buf = &RendererGetFramebuffer()[0];
 	// Compute scaling ratio -> Output co-ordinates and output size
-	const int scanline = lbDisplay.GraphicsScreenWidth;
-	const int nlines = lbDisplay.GraphicsScreenHeight;
-	int spw = 0;
-	int sph = 0;
-	int dst_width = 0;
-	int dst_height = 0;
+	const int64_t scanline = lbDisplay.GraphicsScreenWidth;
+	const int64_t nlines = lbDisplay.GraphicsScreenHeight;
+	int64_t spw = 0;
+	int64_t sph = 0;
+	int64_t dst_width = 0;
+	int64_t dst_height = 0;
 
 	if ((flags & SMK_FullscreenStretch) && !(flags & SMK_FullscreenFit)) {
 		// Use full screen resolution and fill the whole canvas by "stretching"
@@ -126,17 +126,17 @@ void copy_to_screen_scaled(const AVFrame & frame, const int flags, const unsigne
 		dst_height = nlines;
 	} else {
 		// Calculate the correct output size
-		int in_width = frame.width;
-		int in_height = frame.height;
-		float units_per_px = 0;
+		int64_t in_width = frame.width;
+		int64_t in_height = frame.height;
+		double units_per_px = 0;
 		// relative aspect ratio difference between the source frame and destination frame
-		const float relative_ar_difference = (in_width * 1.0 / in_height * 1.0) / (scanline * 1.0 / nlines * 1.0);
+		const double relative_ar_difference = (in_width * 1.0 / in_height * 1.0) / (scanline * 1.0 / nlines * 1.0);
 		// when keeping aspect ratio, instead of stretching, this is inverted depending on if we want to crop or fit
-		float comparison_ratio = 1;
+		double comparison_ratio = 1;
 		if ((flags & SMK_FullscreenStretch) && (flags & SMK_FullscreenFit)) {
 			// stretch source from 320x200(16:10) to 320x240 (4:3) (i.e. vertical x 1.2) - "preserve *original* aspect ratio mode"
 			if (frame.width == 320 && frame.height == 200) {
-				in_height = (int)(in_height * 1.2);
+				in_height = (int64_t)(in_height * 1.2);
 			}
 		}
 		if ((flags & SMK_FullscreenCrop) && !(flags & SMK_FullscreenFit)) {
@@ -163,17 +163,17 @@ void copy_to_screen_scaled(const AVFrame & frame, const int flags, const unsigne
 					// make sure the multiple is integer divisible by 5. Use 5x as a minimum,
 					// otherwise there will be no video (resolutions smaller than 1600x1200
 					// will have a cropped image from a buffer of that size).
-					units_per_px = (max(5, (int)(units_per_px / 16.0 / 5.0) * 5) * 16);
+					units_per_px = (max(5, (int64_t)(units_per_px / 16.0 / 5.0) * 5) * 16);
 				}
 			}
 			// scale to the nearest integer multiple of the source resolution.
-			units_per_px = ((int)(units_per_px / 16.0) * 16);
+			units_per_px = ((int64_t)(units_per_px / 16.0) * 16);
 		}
 		// Starting point coords and width for the destination buffer (based on desired aspect ratio)
-		spw = (int)((scanline - in_width * units_per_px / 16.0) / 2.0);
-		sph = (int)((nlines - in_height * units_per_px / 16.0) / 2.0);
-		dst_width = (int)(in_width * units_per_px / 16.0);
-		dst_height = (int)(in_height * units_per_px / 16.0);
+		spw = (int64_t)((scanline - in_width * units_per_px / 16.0) / 2.0);
+		sph = (int64_t)((nlines - in_height * units_per_px / 16.0) / 2.0);
+		dst_width = (int64_t)(in_width * units_per_px / 16.0);
+		dst_height = (int64_t)(in_height * units_per_px / 16.0);
 	}
 
 	/* Letterbox bars. Was memset(...,0,...) writing palette index 0 to a
@@ -182,41 +182,41 @@ void copy_to_screen_scaled(const AVFrame & frame, const int flags, const unsigne
 	 * this uses an opaque black rather than expand_indexed_pixel(0, ...). */
 	const TbPixel clear_px = TbPixel_RGB(0, 0, 0);
 	// Clearing top of the canvas
-	for (int sh = 0; sh < sph; sh++) {
-		for (int i = 0; i < scanline; i++) dst_buf[sh * scanline + i] = clear_px;
+	for (int64_t sh = 0; sh < sph; sh++) {
+		for (int64_t i = 0; i < scanline; i++) dst_buf[sh * scanline + i] = clear_px;
 	}
 	// Clearing bottom of the canvas
 	// (Note: it must be done before drawing, to make sure we won't overwrite last line)
-	for (int sh = sph + dst_height; sh < nlines; sh++) {
-		for (int i = 0; i < scanline; i++) dst_buf[sh * scanline + i] = clear_px;
+	for (int64_t sh = sph + dst_height; sh < nlines; sh++) {
+		for (int64_t i = 0; i < scanline; i++) dst_buf[sh * scanline + i] = clear_px;
 	}
 	// Now drawing
 	auto dhstart = sph;
-	for (int sh = 0; sh < frame.height; sh++) {
+	for (int64_t sh = 0; sh < frame.height; sh++) {
 		const auto dhend = sph + (dst_height * (sh + 1) / frame.height);
 		const auto src = &src_buf[sh * src_pitch];
 		// make for(k=0;k<dhend-dhstart;k++) but restrict k to draw area
 		const auto mhmin = max(0, -dhstart);
 		const auto mhmax = min(dhend - dhstart, nlines - dhstart);
-		for (int k = mhmin; k < mhmax; k++) {
+		for (int64_t k = mhmin; k < mhmax; k++) {
 			const auto dst = &dst_buf[(dhstart + k) * scanline];
-			int dwstart = spw;
+			int64_t dwstart = spw;
 			if (dwstart > 0) {
-				for (int i = 0; i < dwstart; i++) dst[i] = clear_px;
+				for (int64_t i = 0; i < dwstart; i++) dst[i] = clear_px;
 			}
-			for (int sw = 0; sw < frame.width; sw++) {
+			for (int64_t sw = 0; sw < frame.width; sw++) {
 				const auto dwend = spw + (dst_width * (sw + 1) / frame.width);
 				// make for(i=0;i<dwend-dwstart;i++) but restrict i to draw area
 				const auto mwmin = max(0, -dwstart);
 				const auto mwmax = min(dwend - dwstart, scanline - dwstart);
 				const TbPixel src_px = expand_pal8_pixel(src[sw], palette);
-				for (int i = mwmin; i < mwmax; i++) {
+				for (int64_t i = mwmin; i < mwmax; i++) {
 					dst[dwstart+i] = src_px;
 				}
 				dwstart = dwend;
 			}
 			if (dwstart < scanline) {
-				for (int i = 0; i < scanline-dwstart; i++) dst[dwstart+i] = clear_px;
+				for (int64_t i = 0; i < scanline-dwstart; i++) dst[dwstart+i] = clear_px;
 			}
 		}
 		dhstart = dhend;
@@ -246,19 +246,19 @@ struct movie_t {
 	// SDL3 pushes audio through an SDL_AudioStream rather than SDL_QueueAudio().
 	SDL_AudioStream* m_sdl_audio_stream = nullptr;
 
-	int m_audio_index;
-	int m_video_index;
-	int m_flags;
+	int64_t m_audio_index;
+	int64_t m_video_index;
+	int64_t m_flags;
 
-	int m_output_audio_channels;
-	int m_output_audio_frequency;
+	int64_t m_output_audio_channels;
+	int64_t m_output_audio_frequency;
 	AVChannelLayout m_output_audio_layout;
 	AVSampleFormat m_output_audio_format;
 
 	MoviePollInputsFn m_poll_inputs;
 	MovieClearKeyPressedFn m_clear_key_pressed;
 
-	movie_t(const char * filename, const int flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn) {
+	movie_t(const char * filename, const int64_t flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn) {
 		m_flags = flags;
 		m_poll_inputs = poll_inputs_fn;
 		m_clear_key_pressed = clear_key_pressed_fn;
@@ -318,7 +318,7 @@ struct movie_t {
 		}
 	}
 
-	AVChannelLayout channels_to_ffmpeg_layout(int channels) {
+	AVChannelLayout channels_to_ffmpeg_layout(int64_t channels) {
 		switch (channels) {
 			case 1: return AV_CHANNEL_LAYOUT_MONO;
 			case 2: return AV_CHANNEL_LAYOUT_STEREO;
@@ -382,7 +382,7 @@ struct movie_t {
 		}
 	}
 
-	int find_best_stream(AVMediaType type) {
+	int64_t find_best_stream(AVMediaType type) {
 		return av_find_best_stream(m_format_context, type, -1, -1, nullptr, 0);
 	}
 
@@ -603,7 +603,7 @@ struct movie_t {
 
 } // local
 
-extern "C" TbBool play_smk(const char * filename, const int flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn) {
+extern "C" TbBool play_smk(const char * filename, const int64_t flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn) {
 	try {
 		lbDisplay.LeftButton = 0; // hack?
 		movie_t movie(filename, flags, poll_inputs_fn, clear_key_pressed_fn);
@@ -631,38 +631,38 @@ enum {
 
 #pragma pack(1)
 struct AnimFLIHeader { // sizeof=0x80
-	unsigned long dsize;
+	uint32_t dsize;
 	unsigned short magic;
 	unsigned short frames;
 	short width;
 	short height;
 	unsigned short depth;
 	unsigned short flags;
-	unsigned long speed;
+	uint32_t speed;
 	short reserved2;
-	unsigned long created;
-	unsigned long creator;
-	unsigned long updated;
-	unsigned long updater;
+	uint32_t created;
+	uint32_t creator;
+	uint32_t updated;
+	uint32_t updater;
 	short aspectx;
 	short aspecty;
 	char reserved3[38];
-	unsigned long oframe1;
-	unsigned long oframe2;
+	uint32_t oframe1;
+	uint32_t oframe2;
 	char reserved4[40];
 };
 #pragma pack()
 
 #pragma pack(1)
 struct AnimFLIChunk { //sizeof=0x6
-	long csize;
+	int32_t csize;
 	unsigned short ctype;
 };
 #pragma pack()
 
 #pragma pack(1)
 struct AnimFLIPrefix { //sizeof=0x6
-	long csize;
+	int32_t csize;
 	unsigned short ctype;
 	short nchunks;
 	char reserved[8];
@@ -670,18 +670,18 @@ struct AnimFLIPrefix { //sizeof=0x6
 #pragma pack()
 
 struct Animation {
-	long state_flags;
+	int64_t state_flags;
 	unsigned char *videobuf;
 	unsigned char *chunkdata;
 	unsigned char *buffer_write_pointer;
 	TbFileHandle inpfhndl;
 	TbFileHandle outfhndl;
-	short compression_level;
-	short unusedparam;
+	int64_t compression_level;
+	int64_t unusedparam;
 	unsigned char palette[768];
-	long frame_count;
-	long buffer_size;
-	long unusedfield324;
+	int64_t frame_count;
+	int64_t buffer_size;
+	int64_t unusedfield324;
 	AnimFLIHeader header;
 	AnimFLIChunk chunk;
 	AnimFLIPrefix prefix;
@@ -695,7 +695,7 @@ Animation animation;
  * Writes the data into FLI animation.
  * @return Returns false on error, true on success.
  */
-short anim_write_data(void *buf, long size)
+int64_t anim_write_data(void *buf, int64_t size)
 {
 	return LbFileWrite(animation.outfhndl,buf,size) == size;
 }
@@ -704,7 +704,7 @@ short anim_write_data(void *buf, long size)
  * Stores data into FLI buffer.
  * @return Returns false on error, true on success.
  */
-short anim_store_data(void *buf, long size)
+int64_t anim_store_data(void *buf, int64_t size)
 {
 	memcpy(animation.buffer_write_pointer, buf, size);
 	animation.buffer_write_pointer += size;
@@ -715,7 +715,7 @@ short anim_store_data(void *buf, long size)
  * Reads the data from FLI animation.
  * @return Returns false on error, true on success.
  */
-short anim_read_data(void *buf, long size)
+int64_t anim_read_data(void *buf, int64_t size)
 {
 	if (buf == NULL) {
 		LbFileSeek(animation.inpfhndl,size,Lb_FILE_SEEK_CURRENT);
@@ -726,27 +726,27 @@ short anim_read_data(void *buf, long size)
 	return false;
 }
 
-long anim_make_FLI_COPY(unsigned char *screenbuf)
+int64_t anim_make_FLI_COPY(unsigned char *screenbuf)
 {
-	int scrpoints = animation.header.height * animation.header.width;
+	int64_t scrpoints = animation.header.height * animation.header.width;
 	memcpy(animation.buffer_write_pointer, screenbuf, scrpoints);
 	animation.buffer_write_pointer += scrpoints;
 	return scrpoints;
 }
 
-long anim_make_FLI_COLOUR256(unsigned char *palette)
+int64_t anim_make_FLI_COLOUR256(unsigned char *palette)
 {
 	if (memcmp(animation.palette, palette, 768) == 0) {
 		return 0;
 	}
-	unsigned short *change_count;
+	int64_t *change_count;
 	unsigned char *kept_count;
-	short colridx;
-	short change_chunk_len;
-	short kept_chunk_len;
+	int64_t colridx;
+	int64_t change_chunk_len;
+	int64_t kept_chunk_len;
 	change_chunk_len = 0;
 	kept_chunk_len = 0;
-	change_count = (unsigned short *)animation.buffer_write_pointer;
+	change_count = (int64_t *)animation.buffer_write_pointer;
 	kept_count = NULL;
 	animation.buffer_write_pointer += 2;
 	for (colridx = 0; colridx < 256; colridx++) {
@@ -785,12 +785,12 @@ long anim_make_FLI_COLOUR256(unsigned char *palette)
  * Compress data into FLI's BRUN block (8-bit Run-Length compression).
  * @return Returns unpacked size of the block which was compressed.
  */
-long anim_make_FLI_BRUN(unsigned char *screenbuf) {
+int64_t anim_make_FLI_BRUN(unsigned char *screenbuf) {
 	unsigned char *blk_begin = animation.buffer_write_pointer;
-	short w;
-	short h;
-	short k;
-	short count;
+	int64_t w;
+	int64_t h;
+	int64_t k;
+	int64_t count;
 	unsigned char *sbuf = screenbuf;
 	for ( h = animation.header.height; h>0; h-- ) {
 		animation.buffer_write_pointer++;
@@ -850,7 +850,7 @@ long anim_make_FLI_BRUN(unsigned char *screenbuf) {
  * Compress data into FLI's SS2 block.
  * @return Returns unpacked size of the block which was compressed.
  */
-long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
+int64_t anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 {
 	unsigned char *blk_begin;
 	blk_begin=animation.buffer_write_pointer;
@@ -858,36 +858,36 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 	unsigned char *pbuf;
 	unsigned char *cbf;
 	unsigned char *pbf;
-	short h;
-	short w;
-	short k;
-	short nsame;
-	short ndiff;
-	short wend;
-	short wendt;
+	int64_t h;
+	int64_t w;
+	int64_t k;
+	int64_t nsame;
+	int64_t ndiff;
+	int64_t wend;
+	int64_t wendt;
 	cbuf = curdat;
 	pbuf = prvdat;
-	unsigned short *lines_count;
-	unsigned short *pckt_count;
-	lines_count = (unsigned short *)animation.buffer_write_pointer;
+	int64_t *lines_count;
+	int64_t *pckt_count;
+	lines_count = (int64_t *)animation.buffer_write_pointer;
 	animation.buffer_write_pointer += 2;
-	pckt_count = (unsigned short *)animation.buffer_write_pointer;
+	pckt_count = (int64_t *)animation.buffer_write_pointer;
 
 	wend = 0;
 	for (h=animation.header.height; h>0; h--) {
 		cbf = cbuf;
 		pbf = pbuf;
 		if (wend == 0) {
-			pckt_count = (unsigned short *)animation.buffer_write_pointer;
+			pckt_count = (int64_t *)animation.buffer_write_pointer;
 			animation.buffer_write_pointer += 2;
 			(*lines_count)++;
 		}
 		for (w=animation.header.width;w>0;) {
 			for ( k=0; w>0; k++) {
-				if ( *(unsigned short *)(pbf+2*(long)k) != *(unsigned short *)(cbf+2*(long)k) ) break;
+				if ( *(int64_t *)(pbf+2*(int64_t)k) != *(int64_t *)(cbf+2*(int64_t)k) ) break;
 				w -= 2;
 			}
-			if (2*(long)k == animation.header.width) {
+			if (2*(int64_t)k == animation.header.width) {
 				wend--;
 				cbf += LbGraphicsScreenWidth();
 				pbf += LbGraphicsScreenWidth();
@@ -896,7 +896,7 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 			if ( w > 0 ) {
 				if (wend != 0) {
 					(*pckt_count) = wend;
-					pckt_count = (unsigned short *)animation.buffer_write_pointer;
+					pckt_count = (int64_t *)animation.buffer_write_pointer;
 					animation.buffer_write_pointer += 2;
 				}
 				wendt = 2*k;
@@ -913,11 +913,11 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 				pbf += wendt;
 				for (nsame=0; nsame<127; nsame++) {
 					if (w <= 2) break;
-					if ((*(unsigned short *)(pbf+2*nsame+0) == *(unsigned short *)(cbf+2*nsame+0)) &&
-						(*(unsigned short *)(pbf+2*nsame+2) == *(unsigned short *)(cbf+2*nsame+2))) {
+					if ((*(int64_t *)(pbf+2*nsame+0) == *(int64_t *)(cbf+2*nsame+0)) &&
+						(*(int64_t *)(pbf+2*nsame+2) == *(int64_t *)(cbf+2*nsame+2))) {
 						break;
 					}
-					if ( *(unsigned short *)(cbf+2*nsame+2) != *(unsigned short *)(cbf) ) break;
+					if ( *(int64_t *)(cbf+2*nsame+2) != *(int64_t *)(cbf) ) break;
 					w -= 2;
 				}
 				if (nsame > 0) {
@@ -929,7 +929,7 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 					animation.buffer_write_pointer++;
 					*(unsigned char *)animation.buffer_write_pointer = -nsame;
 					animation.buffer_write_pointer++;
-					*(unsigned short *)animation.buffer_write_pointer = *(unsigned short *)cbf;
+					*(int64_t *)animation.buffer_write_pointer = *(int64_t *)cbf;
 					animation.buffer_write_pointer+=2;
 					pbf += 2*nsame;
 					cbf += 2*nsame;
@@ -942,9 +942,9 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 					} else {
 						for (ndiff=0; ndiff<127; ndiff++) {
 							if (w <= 0) break;
-							if ( *(unsigned short *)(pbf+2*ndiff) == *(unsigned short *)(cbf+2*ndiff) )  break;
-							if ((*(unsigned short *)(cbf+2*(ndiff+1)) == *(unsigned short *)(cbf+2*ndiff)) &&
-							(*(unsigned short *)(cbf+2*(ndiff+2)) == *(unsigned short *)(cbf+2*ndiff)) ) {
+							if ( *(int64_t *)(pbf+2*ndiff) == *(int64_t *)(cbf+2*ndiff) )  break;
+							if ((*(int64_t *)(cbf+2*(ndiff+1)) == *(int64_t *)(cbf+2*ndiff)) &&
+							(*(int64_t *)(cbf+2*(ndiff+2)) == *(int64_t *)(cbf+2*ndiff)) ) {
 								break;
 							}
 							w -= 2;
@@ -955,10 +955,10 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 						animation.buffer_write_pointer++;
 						*(unsigned char *)animation.buffer_write_pointer = ndiff;
 						animation.buffer_write_pointer++;
-						memcpy(animation.buffer_write_pointer, cbf, 2*(long)ndiff);
-						animation.buffer_write_pointer += 2*(long)ndiff;
-						pbf += 2*(long)ndiff;
-						cbf += 2*(long)ndiff;
+						memcpy(animation.buffer_write_pointer, cbf, 2*(int64_t)ndiff);
+						animation.buffer_write_pointer += 2*(int64_t)ndiff;
+						pbf += 2*(int64_t)ndiff;
+						cbf += 2*(int64_t)ndiff;
 						wend = 0;
 						(*pckt_count)++;
 					}
@@ -981,7 +981,7 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
 		(*lines_count)--;
 	}
 	// Make the data size even
-	animation.buffer_write_pointer = (unsigned char *)(((size_t)animation.buffer_write_pointer + 1) & 0xFFFFFFFE);
+	animation.buffer_write_pointer = (unsigned char *)(((size_t)animation.buffer_write_pointer + 1) & ~(size_t)1); // round up to even (was a 32-bit mask that would truncate a 64-bit pointer)
 	return animation.buffer_write_pointer - blk_begin;
 }
 
@@ -989,7 +989,7 @@ long anim_make_FLI_SS2(unsigned char *curdat, unsigned char *prvdat)
  * Compress data into FLI's LC block.
  * @return Returns unpacked size of the block which was compressed.
  */
-long anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
+int64_t anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
 {
 	unsigned char *blk_begin;
 	blk_begin=animation.buffer_write_pointer;
@@ -998,16 +998,16 @@ long anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
 	unsigned char *cbf;
 	unsigned char *pbf;
 	unsigned char *outptr;
-	short h;
-	short w;
-	short hend;
-	short wend;
-	short hdim;
-	short wendt;
-	short k;
-	short nsame;
-	short ndiff;
-	int blksize;
+	int64_t h;
+	int64_t w;
+	int64_t hend;
+	int64_t wend;
+	int64_t hdim;
+	int64_t wendt;
+	int64_t k;
+	int64_t nsame;
+	int64_t ndiff;
+	int64_t blksize;
 
 	cbuf = curdat;
 	pbuf = prvdat;
@@ -1023,7 +1023,7 @@ long anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
 	}
 	if (hend != 0) {
 		hend = animation.header.height - hend;
-		blksize = animation.header.width * (long)(animation.header.height-1);
+		blksize = animation.header.width * (int64_t)(animation.header.height-1);
 		cbuf = curdat+blksize;
 		pbuf = prvdat+blksize;
 		for (h=animation.header.height; h>0; h--) {
@@ -1037,12 +1037,12 @@ long anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
 			pbuf -= LbGraphicsScreenWidth();
 		}
 		hdim = h - hend;
-		blksize = animation.header.width * (long)hend;
+		blksize = animation.header.width * (int64_t)hend;
 		cbuf = curdat+blksize;
 		pbuf = prvdat+blksize;
-		*(unsigned short *)animation.buffer_write_pointer = hend;
+		*(int64_t *)animation.buffer_write_pointer = hend;
 		animation.buffer_write_pointer += 2;
-		*(unsigned short *)animation.buffer_write_pointer = hdim;
+		*(int64_t *)animation.buffer_write_pointer = hdim;
 		animation.buffer_write_pointer += 2;
 
 		for (h = hdim; h>0; h--) {
@@ -1126,15 +1126,15 @@ long anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
 			pbuf += LbGraphicsScreenWidth();
 		}
 	} else {
-		*(short *)animation.buffer_write_pointer = 0;
+		*(int64_t *)animation.buffer_write_pointer = 0;
 		animation.buffer_write_pointer += 2;
-		*(short *)animation.buffer_write_pointer = 1;
+		*(int64_t *)animation.buffer_write_pointer = 1;
 		animation.buffer_write_pointer += 2;
 		*(char *)animation.buffer_write_pointer = 0;
 		animation.buffer_write_pointer++;
 	}
 	// Make the data size even
-	animation.buffer_write_pointer = (unsigned char *)(((size_t)animation.buffer_write_pointer + 1) & 0xFFFFFFFE);
+	animation.buffer_write_pointer = (unsigned char *)(((size_t)animation.buffer_write_pointer + 1) & ~(size_t)1); // round up to even (was a 32-bit mask that would truncate a 64-bit pointer)
 	return animation.buffer_write_pointer - blk_begin;
 }
 
@@ -1143,9 +1143,9 @@ long anim_make_FLI_LC(unsigned char *curdat, unsigned char *prvdat)
  * and height of animation. The buffer of returned size is big enough
  * to store one frame of any kind (any compression).
  */
-long anim_buffer_size(int width,int height,int bpp)
+int64_t anim_buffer_size(int64_t width,int64_t height,int64_t bpp)
 {
-	int n = (bpp>>3);
+	int64_t n = (bpp>>3);
 	if (bpp%8) n++;
 	return abs(width)*abs(height)*n + 32767;
 }
@@ -1155,7 +1155,7 @@ long anim_buffer_size(int width,int height,int bpp)
  * and height of animation. The buffer of returned size is big enough
  * to store one frame of any kind (any compression).
  */
-short anim_format_matches(int width,int height,int bpp)
+int64_t anim_format_matches(int64_t width,int64_t height,int64_t bpp)
 {
 	if (width != animation.header.width) {
 		return false;
@@ -1167,7 +1167,7 @@ short anim_format_matches(int width,int height,int bpp)
 	return true;
 }
 
-short anim_open(char *fname, int arg1, short arg2, int width, int height, int bpp, unsigned int flags)
+int64_t anim_open(char *fname, int64_t arg1, int64_t arg2, int64_t width, int64_t height, int64_t bpp, uint64_t flags)
 {
 	if ( flags & animation.state_flags ) {
 		ERRORLOG("Cannot record movie");
@@ -1182,7 +1182,7 @@ short anim_open(char *fname, int arg1, short arg2, int width, int height, int bp
 			ERRORLOG("Cannot allocate video buffer.");
 			return false;
 		}
-		long max_chunk_size = anim_buffer_size(width,height,bpp);
+		int64_t max_chunk_size = anim_buffer_size(width,height,bpp);
 		animation.chunkdata = static_cast<unsigned char *>(calloc(max_chunk_size, 1));
 		if (animation.chunkdata==NULL) {
 			ERRORLOG("Cannot allocate chunk buffer.");
@@ -1236,7 +1236,7 @@ short anim_open(char *fname, int arg1, short arg2, int width, int height, int bp
 			return false;
 		}
 		// Now we can allocate chunk buffer
-		long max_chunk_size = anim_buffer_size(animation.header.width,animation.header.height,animation.header.depth);
+		int64_t max_chunk_size = anim_buffer_size(animation.header.width,animation.header.height,animation.header.depth);
 		animation.chunkdata = static_cast<unsigned char *>(calloc(max_chunk_size, 1));
 		if (animation.chunkdata==NULL) {
 			return false;
@@ -1253,7 +1253,7 @@ short anim_open(char *fname, int arg1, short arg2, int width, int height, int bp
 				return false;
 			}
 		} else {
-			LbFileSeek(animation.inpfhndl, -sizeof(AnimFLIChunk), Lb_FILE_SEEK_CURRENT);
+			LbFileSeek(animation.inpfhndl, -(int64_t)sizeof(AnimFLIChunk), Lb_FILE_SEEK_CURRENT);
 		}
 		animation.frame_count = 0;
 	}
@@ -1263,13 +1263,13 @@ short anim_open(char *fname, int arg1, short arg2, int width, int height, int bp
 TbBool anim_make_next_frame(unsigned char *screenbuf, unsigned char *palette)
 {
 	SYNCDBG(7,"Starting");
-	unsigned long max_chunk_size;
+	uint64_t max_chunk_size;
 	unsigned char *dataptr;
-	long brun_size;
-	long lc_size;
-	long ss2_size;
-	int width = animation.header.width;
-	int height = animation.header.height;
+	int64_t brun_size;
+	int64_t lc_size;
+	int64_t ss2_size;
+	int64_t width = animation.header.width;
+	int64_t height = animation.header.height;
 	animation.buffer_write_pointer = animation.chunkdata;
 	max_chunk_size = anim_buffer_size(width,height,animation.header.depth);
 	memset(animation.chunkdata, 0, max_chunk_size);
@@ -1297,7 +1297,7 @@ TbBool anim_make_next_frame(unsigned char *screenbuf, unsigned char *palette)
 		subchnk = (AnimFLIChunk *)animation.buffer_write_pointer;
 		anim_store_data(&animation.subchunk, sizeof(AnimFLIChunk));
 	}
-	int scrpoints = animation.header.height * (long)animation.header.width;
+	int64_t scrpoints = animation.header.height * (int64_t)animation.header.width;
 	if (animation.frame_count == 0) {
 		if ( anim_make_FLI_BRUN(screenbuf) ) {
 			prefx->nchunks++;
@@ -1364,7 +1364,7 @@ TbBool anim_make_next_frame(unsigned char *screenbuf, unsigned char *palette)
 
 } // local
 
-extern "C" short anim_stop()
+extern "C" int64_t anim_stop()
 {
 	SYNCLOG("Finishing movie recording.");
 	if ( ((animation.state_flags & 0x01)==0) || (!animation.outfhndl)) {
@@ -1404,7 +1404,7 @@ extern "C" TbBool anim_record_frame(TbPixel *screenbuf, unsigned char *palette)
 	return anim_make_next_frame((unsigned char *)screenbuf, palette);
 }
 
-extern "C" short anim_record()
+extern "C" int64_t anim_record()
 {
 	SYNCDBG(7,"Starting");
 	char finalname[255] = "";
@@ -1412,9 +1412,9 @@ extern "C" short anim_record()
 		ERRORLOG("Cannot record movie in non-8bit screen mode");
 		return 0;
 	}
-	int idx;
+	int64_t idx;
 	for (idx=0; idx < 10000; idx++) {
-		snprintf(finalname, sizeof(finalname), "%s/game%04d.flc","scrshots",idx);
+		snprintf(finalname, sizeof(finalname), "%s/game%04" PRId64 ".flc","scrshots",(int64_t)(idx));
 		if (LbFileExists(finalname)) {
 			continue;
 		}

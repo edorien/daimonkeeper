@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 static struct FtestCapturedPacket s_buf[FTEST_PACKET_CAPTURE_MAX];
-static int s_count = 0;
+static int64_t s_count = 0;
 static TbBool s_recording = 0;
 static TbBool s_have_last_turn = 0;
 static GameTurn s_last_turn = 0; /* capture at most once per game turn */
@@ -70,7 +70,7 @@ void ftest_packet_capture_tick(void)
 
     if (s_count >= FTEST_PACKET_CAPTURE_MAX)
     {
-        FTESTLOG("buffer full (%d), dropping turn %lu", FTEST_PACKET_CAPTURE_MAX, (unsigned long)turn);
+        FTESTLOG("buffer full (%" PRId64 "), dropping turn %" PRIu64, (int64_t)(FTEST_PACKET_CAPTURE_MAX), (uint64_t)turn);
         return;
     }
 
@@ -79,12 +79,12 @@ void ftest_packet_capture_tick(void)
     s_count++;
 }
 
-int ftest_packet_capture_count(void)
+int64_t ftest_packet_capture_count(void)
 {
     return s_count;
 }
 
-const struct FtestCapturedPacket *ftest_packet_capture_at(int idx)
+const struct FtestCapturedPacket *ftest_packet_capture_at(int64_t idx)
 {
     if (idx < 0 || idx >= s_count)
         return NULL;
@@ -93,33 +93,33 @@ const struct FtestCapturedPacket *ftest_packet_capture_at(int idx)
 
 void ftest_packet_capture_dump(void)
 {
-    FTESTLOG("captured %d packet(s)", s_count);
-    for (int i = 0; i < s_count; i++)
+    FTESTLOG("captured %" PRId64 " packet(s)", (int64_t)(s_count));
+    for (int64_t i = 0; i < s_count; i++)
     {
         const struct Packet *p = &s_buf[i].packet;
-        FTESTLOG("  [%d] turn=%lu action=%u par=%d/%d/%d/%d ctrl=%08x gui=%d",
-                 i, (unsigned long)s_buf[i].turn, (unsigned)p->action,
-                 (int)p->actn_par1, (int)p->actn_par2, (int)p->actn_par3, (int)p->actn_par4,
-                 (unsigned)p->control_flags, (int)((p->control_flags & PCtr_Gui) != 0));
+        FTESTLOG("  [%" PRId64 "] turn=%" PRIu64 " action=%" PRIu64 " par=%" PRId64 "/%" PRId64 "/%" PRId64 "/%" PRId64 " ctrl=%08" PRIx64 " gui=%" PRId64,
+                 (int64_t)(i), (uint64_t)s_buf[i].turn, (uint64_t)p->action,
+                 (int64_t)p->actn_par1, (int64_t)p->actn_par2, (int64_t)p->actn_par3, (int64_t)p->actn_par4,
+                 (uint64_t)p->control_flags, (int64_t)((p->control_flags & PCtr_Gui) != 0));
     }
 }
 
-static TbBool par_ok(int32_t want, int32_t got)
+static TbBool par_ok(int64_t want, int64_t got)
 {
     return (want == FTEST_PKT_ANY) || (want == got);
 }
 
-static TbBool pars_ok(const struct Packet *p, int32_t par1, int32_t par2, int32_t par3, int32_t par4)
+static TbBool pars_ok(const struct Packet *p, int64_t par1, int64_t par2, int64_t par3, int64_t par4)
 {
     return par_ok(par1, p->actn_par1) && par_ok(par2, p->actn_par2)
-        && par_ok(par3, (int32_t)p->actn_par3) && par_ok(par4, (int32_t)p->actn_par4);
+        && par_ok(par3, (int64_t)p->actn_par3) && par_ok(par4, (int64_t)p->actn_par4);
 }
 
 TbBool ftest_packet_expect_once(unsigned char action,
-                                int32_t par1, int32_t par2, int32_t par3, int32_t par4)
+                                int64_t par1, int64_t par2, int64_t par3, int64_t par4)
 {
-    int matches = 0;
-    for (int i = 0; i < s_count; i++)
+    int64_t matches = 0;
+    for (int64_t i = 0; i < s_count; i++)
     {
         const struct Packet *p = &s_buf[i].packet;
         if (p->action == action && pars_ok(p, par1, par2, par3, par4))
@@ -127,8 +127,8 @@ TbBool ftest_packet_expect_once(unsigned char action,
     }
     if (matches != 1)
     {
-        FTEST_FAIL_TEST("expected exactly 1 packet with action=%u pars=%d/%d/%d/%d, found %d",
-                        (unsigned)action, (int)par1, (int)par2, (int)par3, (int)par4, matches);
+        FTEST_FAIL_TEST("expected exactly 1 packet with action=%" PRIu64 " pars=%" PRId64 "/%" PRId64 "/%" PRId64 "/%" PRId64 ", found %" PRId64,
+                        (uint64_t)action, (int64_t)par1, (int64_t)par2, (int64_t)par3, (int64_t)par4, (int64_t)(matches));
         ftest_packet_capture_dump();
         return 0;
     }
@@ -137,12 +137,12 @@ TbBool ftest_packet_expect_once(unsigned char action,
 
 TbBool ftest_packet_expect_absent(unsigned char action)
 {
-    for (int i = 0; i < s_count; i++)
+    for (int64_t i = 0; i < s_count; i++)
     {
         if (s_buf[i].packet.action == action)
         {
-            FTEST_FAIL_TEST("expected no packet with action=%u, found one at turn %lu",
-                            (unsigned)action, (unsigned long)s_buf[i].turn);
+            FTEST_FAIL_TEST("expected no packet with action=%" PRIu64 ", found one at turn %" PRIu64,
+                            (uint64_t)action, (uint64_t)s_buf[i].turn);
             ftest_packet_capture_dump();
             return 0;
         }
@@ -150,10 +150,10 @@ TbBool ftest_packet_expect_absent(unsigned char action)
     return 1;
 }
 
-TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, int n)
+TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, int64_t n)
 {
-    int ai = 0;
-    for (int i = 0; i < s_count; i++)
+    int64_t ai = 0;
+    for (int64_t i = 0; i < s_count; i++)
     {
         const struct Packet *p = &s_buf[i].packet;
         if (p->action == PckA_None)
@@ -161,7 +161,7 @@ TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, i
 
         if (ai >= n)
         {
-            FTEST_FAIL_TEST("trace has more than %d action packet(s)", n);
+            FTEST_FAIL_TEST("trace has more than %" PRId64 " action packet(s)", (int64_t)(n));
             ftest_packet_capture_dump();
             return 0;
         }
@@ -170,10 +170,10 @@ TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, i
         const TbBool gui_ok = !e->require_gui_flag || ((p->control_flags & PCtr_Gui) != 0);
         if (p->action != e->action || !pars_ok(p, e->par1, e->par2, e->par3, e->par4) || !gui_ok)
         {
-            FTEST_FAIL_TEST("trace[%d] mismatch: got action=%u pars=%d/%d/%d/%d gui=%d",
-                            ai, (unsigned)p->action,
-                            (int)p->actn_par1, (int)p->actn_par2, (int)p->actn_par3, (int)p->actn_par4,
-                            (int)((p->control_flags & PCtr_Gui) != 0));
+            FTEST_FAIL_TEST("trace[%" PRId64 "] mismatch: got action=%" PRIu64 " pars=%" PRId64 "/%" PRId64 "/%" PRId64 "/%" PRId64 " gui=%" PRId64,
+                            (int64_t)(ai), (uint64_t)p->action,
+                            (int64_t)p->actn_par1, (int64_t)p->actn_par2, (int64_t)p->actn_par3, (int64_t)p->actn_par4,
+                            (int64_t)((p->control_flags & PCtr_Gui) != 0));
             ftest_packet_capture_dump();
             return 0;
         }
@@ -181,7 +181,7 @@ TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, i
     }
     if (ai != n)
     {
-        FTEST_FAIL_TEST("trace has %d action packet(s), expected %d", ai, n);
+        FTEST_FAIL_TEST("trace has %" PRId64 " action packet(s), expected %" PRId64, (int64_t)(ai), (int64_t)(n));
         ftest_packet_capture_dump();
         return 0;
     }

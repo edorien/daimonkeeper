@@ -81,7 +81,7 @@ void snapshot_thing(const struct Thing *thing, MapThingRecord &t)
             t.creature_level = cctrl->exp_level;
             t.creature_gold = thing->creature.gold_carried;
             t.creature_health_percent = (cctrl->max_health > 0)
-                ? (int)((long)thing->health * 100 / cctrl->max_health) : 0;
+                ? (int64_t)((int64_t)thing->health * 100 / cctrl->max_health) : 0;
             if (cctrl->creature_name[0] != '\0')
                 t.creature_name = cctrl->creature_name;
             break;
@@ -145,7 +145,7 @@ TbBool thing_class_is_saveable(ThingClass class_id)
 
 void snapshot_things(MapContent &content)
 {
-    for (long i = 0; i < THINGS_COUNT; i++)
+    for (int64_t i = 0; i < THINGS_COUNT; i++)
     {
         struct Thing *thing = thing_get(i);
         if (!thing_exists(thing))
@@ -165,7 +165,7 @@ void snapshot_lights(MapContent &content)
     // as a level light too would duplicate it on every save/reload cycle.
     unsigned char owned[LIGHTS_COUNT];
     editor_points_mark_thing_owned_lights(owned);
-    for (long i = 1; i < LIGHTS_COUNT; i++)
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
         const struct Light *lgt = &lish.lights[i];
         if ((lgt->flags & LgtF_Allocated) == 0)
@@ -179,14 +179,14 @@ void snapshot_lights(MapContent &content)
         l.pos_z = lgt->mappos.z.val;
         l.range = lgt->radius;
         l.intensity = lgt->intensity;
-        l.parent_tile = (unsigned long)lgt->attached_slb;
+        l.parent_tile = (uint64_t)lgt->attached_slb;
         content.lights.push_back(l);
     }
 }
 
 void snapshot_action_points(MapContent &content)
 {
-    for (long i = 0; i < ACTN_POINTS_COUNT; i++)
+    for (int64_t i = 0; i < ACTN_POINTS_COUNT; i++)
     {
         const struct ActionPoint *apt = &kfx_sim_state.action_points[i];
         if (!apt->exists)
@@ -200,7 +200,7 @@ void snapshot_action_points(MapContent &content)
     }
 }
 
-void snapshot_level_info(MapContent &content, const char *level_name, int level_players, TbBool level_is_multiplayer,
+void snapshot_level_info(MapContent &content, const char *level_name, int64_t level_players, TbBool level_is_multiplayer,
     const char *level_description)
 {
     if (level_name != nullptr)
@@ -221,24 +221,24 @@ void snapshot_level_info(MapContent &content, const char *level_name, int level_
 // any subtile (or the engine's "unrevealed" column) refers to.
 void snapshot_derived_files(MapContent &content)
 {
-    const long stl_x = kfx_sim_state.map_subtiles_x + 1;
-    const long stl_y = kfx_sim_state.map_subtiles_y + 1;
+    const int64_t stl_x = kfx_sim_state.map_subtiles_x + 1;
+    const int64_t stl_y = kfx_sim_state.map_subtiles_y + 1;
     content.derived_dat.assign((size_t)(2 * stl_x * stl_y), 0);
     content.derived_wib.assign((size_t)(stl_x * stl_y), 0);
-    long highest = labs((long)kfx_sim_state.unrevealed_column_idx);
+    int64_t highest = labs((int64_t)kfx_sim_state.unrevealed_column_idx);
     size_t d = 0;
     size_t w = 0;
-    for (long y = 0; y < stl_y; y++)
+    for (int64_t y = 0; y < stl_y; y++)
     {
-        for (long x = 0; x < stl_x; x++)
+        for (int64_t x = 0; x < stl_x; x++)
         {
             const struct Map *mapblk = get_map_block_at(x, y);
             // In memory col_idx is the column's index into columns_data[]; the
             // file stores it negated as a 16-bit word (load_map_data_file()).
-            const long col = (long)mapblk->col_idx;
+            const int64_t col = (int64_t)mapblk->col_idx;
             if (col > highest)
                 highest = col;
-            const unsigned short packed = (unsigned short)(-col);
+            const int64_t packed = (int64_t)(-col);
             content.derived_dat[d++] = (unsigned char)(packed & 0xFF);
             content.derived_dat[d++] = (unsigned char)(packed >> 8);
             content.derived_wib[w++] = (unsigned char)get_mapblk_wibble_value(mapblk);
@@ -249,16 +249,21 @@ void snapshot_derived_files(MapContent &content)
     if (highest >= COLUMNS_COUNT)
         highest = COLUMNS_COUNT - 1;
     // Shipped files always carry 2048 columns; the header count is that too.
-    const unsigned long count = (highest < 2047) ? 2048UL : (unsigned long)highest + 1;
-    content.derived_clm.assign(8 + count * sizeof(struct Column), 0);
+    const uint64_t count = (highest < 2047) ? 2048U : (uint64_t)highest + 1;
+    content.derived_clm.assign(8 + count * sizeof(struct LegacyColumn), 0);
     content.derived_clm[0] = (unsigned char)(count & 0xFF);
     content.derived_clm[1] = (unsigned char)((count >> 8) & 0xFF);
     content.derived_clm[2] = (unsigned char)((count >> 16) & 0xFF);
     content.derived_clm[3] = (unsigned char)((count >> 24) & 0xFF);
-    std::memcpy(&content.derived_clm[8], &kfx_sim_state.columns_data[0], count * sizeof(struct Column));
+    for (uint64_t k = 0; k < count; k++)
+    {
+        struct LegacyColumn lcol;
+        column_to_legacy(&lcol, &kfx_sim_state.columns_data[k]);
+        std::memcpy(&content.derived_clm[8 + k * sizeof(lcol)], &lcol, sizeof(lcol));
+    }
 }
 
-void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name, int level_players, TbBool level_is_multiplayer,
+void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name, int64_t level_players, TbBool level_is_multiplayer,
     const char *level_description)
 {
     content.map_tiles_x = kfx_sim_state.map_tiles_x;
@@ -266,9 +271,9 @@ void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name
     content.slab_kind.assign((size_t)(content.map_tiles_x * content.map_tiles_y), SlbT_ROCK);
     content.slab_owner.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
     content.slab_texture.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
-    for (long y = 0; y < content.map_tiles_y; y++)
+    for (int64_t y = 0; y < content.map_tiles_y; y++)
     {
-        for (long x = 0; x < content.map_tiles_x; x++)
+        for (int64_t x = 0; x < content.map_tiles_x; x++)
         {
             const struct SlabMap *slb = get_slabmap_block(x, y);
             content.slab_kind[content.slab_index(x, y)] = slb->kind;
@@ -301,7 +306,7 @@ void snapshot_map(MapContent &content, LevelNumber lvnum, const char *level_name
 } // namespace
 
 TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat format,
-    const char *level_name, int level_players, TbBool level_is_multiplayer, const char *level_description)
+    const char *level_name, int64_t level_players, TbBool level_is_multiplayer, const char *level_description)
 {
     // A running motion preview has moved things off where the mapmaker put them.
     if (editor_preview_motion())
@@ -348,7 +353,7 @@ TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat
 }
 
 TbBool editor_save_level_info(LevelNumber lvnum, const char *dir,
-    const char *level_name, int level_players, TbBool level_is_multiplayer, const char *level_description)
+    const char *level_name, int64_t level_players, TbBool level_is_multiplayer, const char *level_description)
 {
     MapContent content;
     content.map_tiles_x = kfx_sim_state.map_tiles_x; // the .lof carries MAPSIZE
@@ -376,7 +381,7 @@ void editor_snapshot_current_map(MapContent &content)
         editor_current_level_description());
 }
 
-extern "C" TbBool editor_resize_preview(long new_w, long new_h, TbBool centered, int *dropped_things, int *dropped_lights, int *dropped_points)
+extern "C" TbBool editor_resize_preview(int64_t new_w, int64_t new_h, TbBool centered, int64_t *dropped_things, int64_t *dropped_lights, int64_t *dropped_points)
 {
     MapContent content;
     editor_snapshot_current_map(content);
@@ -389,7 +394,7 @@ extern "C" TbBool editor_resize_preview(long new_w, long new_h, TbBool centered,
     return true;
 }
 
-extern "C" TbBool editor_resize_map(long new_w, long new_h, TbBool centered)
+extern "C" TbBool editor_resize_map(int64_t new_w, int64_t new_h, TbBool centered)
 {
     if (editor_preview_motion())
         editor_set_preview_motion(false);

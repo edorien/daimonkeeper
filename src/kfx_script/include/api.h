@@ -16,7 +16,7 @@ extern "C"
 {
 #endif
 
-    int api_init_server();
+    int64_t api_init_server();
     void api_update_server();
     void api_close_server();
 
@@ -26,12 +26,12 @@ extern "C"
     size_t get_max_flags();
 
     void api_clear_all_subscriptions();
-    int api_is_subscribed_to_event(const char *event_name);
-    int api_subscribe_event(const char *event_name);
-    int api_unsubscribe_event(const char *event_name);
-    int api_is_subscribed_to_var(PlayerNumber plyr_idx, unsigned char valtype, short validx);
-    int api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char valtype, short validx);
-    int api_unsubscribe_var(PlayerNumber plyr_idx, unsigned char valtype, short validx);
+    int64_t api_is_subscribed_to_event(const char *event_name);
+    int64_t api_subscribe_event(const char *event_name);
+    int64_t api_unsubscribe_event(const char *event_name);
+    int64_t api_is_subscribed_to_var(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
+    int64_t api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char valtype, int64_t validx);
+    int64_t api_unsubscribe_var(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
 
 #ifdef __cplusplus
 }

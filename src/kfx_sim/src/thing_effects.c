@@ -57,9 +57,9 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-long const bounce_table[] = { -160, -160, -120, -120, -80, -40, -20, 0, 20, 40, 80, 120, 120, 160, 160, 160 };
+int64_t const bounce_table[] = { -160, -160, -120, -120, -80, -40, -20, 0, 20, 40, 80, 120, 120, 160, 160, 160 };
 /** Effects used when creating new imps. Every player color has different index. */
-const int birth_effect_element[] = { TngEffElm_RedPuff, TngEffElm_BluePuff, TngEffElm_GreenPuff, TngEffElm_YellowPuff, TngEffElm_WhitePuff, TngEffElm_WhitePuff,
+const int64_t birth_effect_element[] = { TngEffElm_RedPuff, TngEffElm_BluePuff, TngEffElm_GreenPuff, TngEffElm_YellowPuff, TngEffElm_WhitePuff, TngEffElm_WhitePuff,
                                      TngEffElm_PurplePuff,TngEffElm_BlackPuff,TngEffElm_OrangePuff };
 /******************************************************************************/
 TbBool thing_is_effect(const struct Thing *thing)
@@ -80,7 +80,7 @@ struct EffectElementConfigStats *get_effect_element_model_stats(ThingModel tngmo
 
 struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmodel, PlayerNumber owner)
 {
-    long i;
+    int64_t i;
     if (!i_can_allocate_free_thing_structure(TCls_EffectElem)) {
         return INVALID_THING;
     }
@@ -92,7 +92,7 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
     memset(&ilght, 0, sizeof(struct InitLight));
     struct Thing* thing = allocate_free_thing_structure(TCls_EffectElem);
     if (thing->index == 0) {
-        ERRORDBG(8,"Should be able to allocate effect element %d for player %d, but failed.",(int)eelmodel,(int)owner);
+        ERRORDBG(8,"Should be able to allocate effect element %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)eelmodel,(int64_t)owner);
         return INVALID_THING;
     }
     thing->class_id = TCls_EffectElem;
@@ -110,8 +110,8 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
 
     if (eestat->sprite_idx != -1)
     {
-        i = UNSYNC_RANDOM(eestat->sprite_size_max  - (int)eestat->sprite_size_min  + 1);
-        long n = UNSYNC_RANDOM(eestat->sprite_speed_max - (int)eestat->sprite_speed_min + 1);
+        i = UNSYNC_RANDOM(eestat->sprite_size_max  - (int64_t)eestat->sprite_size_min  + 1);
+        int64_t n = UNSYNC_RANDOM(eestat->sprite_speed_max - (int64_t)eestat->sprite_speed_min + 1);
         set_thing_draw(thing, eestat->sprite_idx, eestat->sprite_speed_min + n, eestat->sprite_size_min + i, 0, 0, eestat->draw_class);
         set_flag_value(thing->rendering_flags, TRF_Unshaded, eestat->unshaded);
         thing->rendering_flags ^= (thing->rendering_flags ^ (TRF_Transpar_8 * eestat->transparent)) & (TRF_Transpar_Flags);
@@ -130,7 +130,7 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
 
     if (eestat->lifespan > 0)
     {
-        i = UNSYNC_RANDOM(eestat->lifespan_random - (long)eestat->lifespan + 1);
+        i = UNSYNC_RANDOM(eestat->lifespan_random - (int64_t)eestat->lifespan + 1);
         thing->health = eestat->lifespan + i;
     } else
     {
@@ -150,12 +150,12 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
         thing->sprite_size_max = eestat->sprite_size_max;
         if (eestat->size_change == TSC_ChangeSizeContinuously)
         {
-            thing->transformation_speed = 2 * (eestat->sprite_size_max - (long)eestat->sprite_size_min) / thing->health;
+            thing->transformation_speed = 2 * (eestat->sprite_size_max - (int64_t)eestat->sprite_size_min) / thing->health;
             thing->size_change |= TSC_ChangeSizeContinuously;
         }
         else
         {
-            thing->transformation_speed = (eestat->sprite_size_max - (long)eestat->sprite_size_min) / thing->health;
+            thing->transformation_speed = (eestat->sprite_size_max - (int64_t)eestat->sprite_size_min) / thing->health;
             thing->size_change &= ~TSC_ChangeSizeContinuously;
         }
         thing->sprite_size = eestat->sprite_size_min;
@@ -188,7 +188,7 @@ void process_spells_affected_by_effect_elements(struct Thing *thing)
     struct CreatureModelConfig* crconf;
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     GameTurnDelta dturn;
-    long angle;
+    int64_t angle;
     MapCoordDelta shift_x;
     MapCoordDelta shift_y;
     struct Coord3d pos;
@@ -197,7 +197,7 @@ void process_spells_affected_by_effect_elements(struct Thing *thing)
     // Effect elements related to Rebound.
     if (creature_under_spell_effect(thing, CSAfF_Rebound))
     {
-        int diamtr = 4 * thing->clipbox_size_xy / 2;
+        int64_t diamtr = 4 * thing->clipbox_size_xy / 2;
         dturn = get_gameturn() - thing->creation_turn;
         MapCoord cor_z_max = thing->clipbox_size_z + (thing->clipbox_size_z * kfx_config_state.conf.crtr_conf.exp.size_increase_on_exp * cctrl->exp_level) / 80; //effect is 25% larger than unit
 
@@ -206,10 +206,10 @@ void process_spells_affected_by_effect_elements(struct Thing *thing)
         GameTurnDelta dtadd = 0;
         unsigned char cframe = get_gameturn() % nframes;
         pos.z.val = thing->mappos.z.val;
-        int radius = diamtr / 2;
+        int64_t radius = diamtr / 2;
         while (pos.z.val < cor_z_max + thing->mappos.z.val)
         {
-            angle = (abs(dturn + dtadd) & 7) << 8;
+            angle = (llabs(dturn + dtadd) & 7) << 8;
             shift_x =  (radius * LbSinL(angle) >> 8) >> 8;
             shift_y = -(radius * LbCosL(angle) >> 8) >> 8;
             pos.x.val = thing->mappos.x.val + shift_x;
@@ -226,21 +226,21 @@ void process_spells_affected_by_effect_elements(struct Thing *thing)
     // Effect elements related to Slow.
     if (creature_under_spell_effect(thing, CSAfF_Slow))
     {
-        int diamtr = 4 * thing->clipbox_size_xy / 2;
+        int64_t diamtr = 4 * thing->clipbox_size_xy / 2;
         MapCoord cor_z_max = thing->clipbox_size_z + (thing->clipbox_size_z * kfx_config_state.conf.crtr_conf.exp.size_increase_on_exp * cctrl->exp_level) / 80; //effect is 20% smaller than unit
-        int i = cor_z_max / 64; //64 is the vertical speed of the circle.
+        int64_t i = cor_z_max / 64; //64 is the vertical speed of the circle.
         if (i <= 1)
           i = 1;
         dturn = get_gameturn() - thing->creation_turn;
-        int vrange = i;
+        int64_t vrange = i;
         if (dturn % (2 * i) < vrange)
             pos.z.val = thing->mappos.z.val + cor_z_max / vrange * (dturn % vrange);
         else
             pos.z.val = thing->mappos.z.val + cor_z_max / vrange * (vrange - (dturn % vrange));
-        int radius = diamtr / 2;
+        int64_t radius = diamtr / 2;
         for (i=0; i < 16; i++)
         {
-            angle = (abs(i) & 0xF) << 7;
+            angle = (llabs(i) & 0xF) << 7;
             shift_x =  (radius * LbSinL(angle) >> 8) >> 8;
             shift_y = -(radius * LbCosL(angle) >> 8) >> 8;
             pos.x.val = thing->mappos.x.val + shift_x;
@@ -325,12 +325,12 @@ void process_spells_affected_by_effect_elements(struct Thing *thing)
 void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct Coord3d *next_pos)
 {
     struct EffectElementConfigStats* eestat = get_effect_element_model_stats(thing->model);
-    long blocked_flags = get_thing_blocked_flags_at(thing, next_pos);
+    int64_t blocked_flags = get_thing_blocked_flags_at(thing, next_pos);
     slide_thing_against_wall_at(thing, next_pos, blocked_flags);
     if ( ((blocked_flags & SlbBloF_WalledZ) != 0) && eestat->movable && eestat->impacts )
     {
         struct Thing* efftng = thing;
-        long cube_id = get_top_cube_at(next_pos->x.stl.num, next_pos->y.stl.num, NULL);
+        int64_t cube_id = get_top_cube_at(next_pos->x.stl.num, next_pos->y.stl.num, NULL);
         ThingModel effmodel;
         if (cube_is_water(cube_id))
         {
@@ -339,7 +339,7 @@ void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct C
               efftng = create_effect(prev_pos, effmodel, thing->owner);
               TRACE_THING(efftng);
           }
-          long sample_id = eestat->water_snd_smpid;
+          int64_t sample_id = eestat->water_snd_smpid;
           if (sample_id > 0) {
               sim_feedback->thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->water_loudness);
           }
@@ -353,7 +353,7 @@ void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct C
                 efftng = create_effect(prev_pos, effmodel, thing->owner);
                 TRACE_THING(efftng);
             }
-            long sample_id = eestat->lava_snd_smpid;
+            int64_t sample_id = eestat->lava_snd_smpid;
             if (sample_id > 0) {
                 sim_feedback->thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->lava_loudness);
             }
@@ -366,7 +366,7 @@ void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct C
                 efftng = create_effect(prev_pos, effmodel, thing->owner);
                 TRACE_THING(efftng);
             }
-            long sample_id = eestat->solidgnd_snd_smpid;
+            int64_t sample_id = eestat->solidgnd_snd_smpid;
             if (sample_id > 0) {
                 sim_feedback->thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->solidgnd_loudness);
             }
@@ -402,12 +402,12 @@ TngUpdateRet move_effect_element(struct Thing *thing)
     return TUFRet_Modified;
 }
 
-void change_effect_element_into_another(struct Thing *thing, long nmodel)
+void change_effect_element_into_another(struct Thing *thing, int64_t nmodel)
 {
     SYNCDBG(18,"Starting");
     struct EffectElementConfigStats* eestat = get_effect_element_model_stats(nmodel);
-    int speed = eestat->sprite_speed_min + UNSYNC_RANDOM(eestat->sprite_speed_max - eestat->sprite_speed_min + 1);
-    int scale = eestat->sprite_size_min + UNSYNC_RANDOM(eestat->sprite_size_max - eestat->sprite_size_min + 1);
+    int64_t speed = eestat->sprite_speed_min + UNSYNC_RANDOM(eestat->sprite_speed_max - eestat->sprite_speed_min + 1);
+    int64_t scale = eestat->sprite_size_min + UNSYNC_RANDOM(eestat->sprite_size_max - eestat->sprite_size_min + 1);
     thing->model = nmodel;
     set_thing_draw(thing, eestat->sprite_idx, speed, scale, eestat->animate_once, 0, ODC_Default);
     thing->rendering_flags ^= (thing->rendering_flags ^ TRF_Unshaded * eestat->unshaded) & TRF_Unshaded;
@@ -425,7 +425,7 @@ void change_effect_element_into_another(struct Thing *thing, long nmodel)
 
 TngUpdateRet update_effect_element(struct Thing *elemtng)
 {
-    long i;
+    int64_t i;
     SYNCDBG(18,"Starting");
     TRACE_THING(elemtng);
     struct EffectElementConfigStats* eestats = get_effect_element_model_stats(elemtng->model);
@@ -446,7 +446,7 @@ TngUpdateRet update_effect_element(struct Thing *elemtng)
     // Set dynamic properties of the effect
     if (!eestats->animate_on_floor)
     {
-        if (elemtng->floor_height >= (int)elemtng->mappos.z.val)
+        if (elemtng->floor_height >= (int64_t)elemtng->mappos.z.val)
           elemtng->anim_speed = 0;
     }
     if (eestats->movable)
@@ -519,14 +519,14 @@ TngUpdateRet update_effect_element(struct Thing *elemtng)
             elemtng->veloc_base.z.val = bounce_table[health];
         } else
         {
-            ERRORLOG("Illegal effect element bounce life: %d", (int)health);
+            ERRORLOG("Illegal effect element bounce life: %" PRId64, (int64_t)health);
         }
         move_effect_element(elemtng);
         break;
     case 5:
         break;
     default:
-        ERRORLOG("Invalid effect element move type %d of model %d!",(int)eestats->move_type, elemtng->model);
+        ERRORLOG("Invalid effect element move type %" PRId64 " of model %" PRId64 "!",(int64_t)eestats->move_type, (int64_t)(elemtng->model));
         move_effect_element(elemtng);
         break;
     }
@@ -536,7 +536,7 @@ TngUpdateRet update_effect_element(struct Thing *elemtng)
     i = get_angle_yz_to_vec(&elemtng->veloc_base);
     if (i > DEGREES_180)
       i -= DEGREES_180;
-    long prop_val = i / DEGREES_22_5;
+    int64_t prop_val = i / DEGREES_22_5;
     elemtng->move_angle_xy = get_angle_xy_to_vec(&elemtng->veloc_base);
     elemtng->current_frame = prop_val;
     elemtng->anim_speed = 0;
@@ -545,18 +545,18 @@ TngUpdateRet update_effect_element(struct Thing *elemtng)
     return TUFRet_Modified;
 }
 
-struct Thing *create_effect_generator(struct Coord3d *pos, ThingModel model, unsigned short range, unsigned short owner, long parent_idx)
+struct Thing *create_effect_generator(struct Coord3d *pos, ThingModel model, int64_t range, int64_t owner, int64_t parent_idx)
 {
 
     if (!i_can_allocate_free_thing_structure(TCls_EffectGen))
     {
-        ERRORDBG(3,"Cannot create effect generator model %d for player %d. There are too many things allocated.",(int)model,(int)owner);
+        ERRORDBG(3,"Cannot create effect generator model %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)model,(int64_t)owner);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* effgentng = allocate_free_thing_structure(TCls_EffectGen);
     if (effgentng->index == 0) {
-        ERRORDBG(3,"Should be able to allocate effect generator %d for player %d, but failed.",(int)model,(int)owner);
+        ERRORDBG(3,"Should be able to allocate effect generator %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)model,(int64_t)owner);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
@@ -578,9 +578,9 @@ struct Thing *create_effect_generator(struct Coord3d *pos, ThingModel model, uns
 
 }
 
-long move_effect(struct Thing *efftng)
+int64_t move_effect(struct Thing *efftng)
 {
-    int blocked_flags;
+    int64_t blocked_flags;
     struct Coord3d pos;
 
     MapCoordDelta velocity_x = efftng->velocity.x.val;
@@ -673,7 +673,7 @@ void update_effect_light_intensity(struct Thing *thing)
   {
       if (thing->health < 4)
       {
-          long i = sim_feedback->light_get_light_intensity(thing->light_id);
+          int64_t i = sim_feedback->light_get_light_intensity(thing->light_id);
           sim_feedback->light_set_light_intensity(thing->light_id, (3*i)/4);
       }
   }
@@ -684,19 +684,19 @@ unsigned char temp_pal[768];
 void effect_generate_effect_elements(const struct Thing *thing)
 {
     const struct EffectConfigStats* effcst = get_effect_model_stats(thing->model);
-    SYNCDBG(18,"Preparing Effect, Generation Type %d",(int)effcst->generation_type);
-    unsigned long arg;
+    SYNCDBG(18,"Preparing Effect, Generation Type %" PRId64,(int64_t)effcst->generation_type);
+    uint64_t arg;
     struct Thing* elemtng;
     switch (effcst->generation_type)
     {
     case 1:
     {
-        unsigned long argZ;
+        uint64_t argZ;
         for (unsigned char i = 0; i < effcst->elements_count; i++)
         {
             if (effcst->kind_min <= 0)
                 continue;
-            long n = effcst->kind_min + UNSYNC_RANDOM(effcst->kind_max - effcst->kind_min + 1);
+            int64_t n = effcst->kind_min + UNSYNC_RANDOM(effcst->kind_max - effcst->kind_min + 1);
             elemtng = create_effect_element(&thing->mappos, n, thing->owner);
             TRACE_THING(elemtng);
             if (thing_is_invalid(elemtng))
@@ -704,13 +704,13 @@ void effect_generate_effect_elements(const struct Thing *thing)
             arg = UNSYNC_RANDOM(DEGREES_360);
             argZ = UNSYNC_RANDOM(DEGREES_180);
             // Setting XY acceleration
-            long k = abs(effcst->accel_xy_max - effcst->accel_xy_min);
+            int64_t k = llabs(effcst->accel_xy_max - effcst->accel_xy_min);
             if (k <= 1) k = 1;
-            long mag = effcst->accel_xy_min + UNSYNC_RANDOM(k);
+            int64_t mag = effcst->accel_xy_min + UNSYNC_RANDOM(k);
             elemtng->veloc_push_add.x.val += distance_with_angle_to_coord_x(mag,arg);
             elemtng->veloc_push_add.y.val += distance_with_angle_to_coord_y(mag,arg);
             // Setting Z acceleration
-            k = abs(effcst->accel_z_max - effcst->accel_z_min);
+            k = llabs(effcst->accel_z_max - effcst->accel_z_min);
             if (k <= 1) k = 1;
             mag = effcst->accel_z_min + UNSYNC_RANDOM(k);
             elemtng->veloc_push_add.z.val += distance_with_angle_to_coord_z(mag,argZ);
@@ -721,11 +721,11 @@ void effect_generate_effect_elements(const struct Thing *thing)
     }
     case 2:
     {
-        long k = 0;
+        int64_t k = 0;
         struct Coord3d pos;
-        for (long i=0; i < effcst->elements_count; i++)
+        for (int64_t i=0; i < effcst->elements_count; i++)
         {
-            long n = effcst->kind_min + UNSYNC_RANDOM(effcst->kind_max - effcst->kind_min + 1);
+            int64_t n = effcst->kind_min + UNSYNC_RANDOM(effcst->kind_max - effcst->kind_min + 1);
             HitPoints mag = effcst->start_health - thing->health;
             arg = (mag << 7) + k/effcst->elements_count;
             set_coords_to_cylindric_shift(&pos, &thing->mappos, mag, arg, 0);
@@ -739,11 +739,11 @@ void effect_generate_effect_elements(const struct Thing *thing)
     }
     case 3:
     {
-        long k = 0;
+        int64_t k = 0;
         struct Coord3d pos;
-        for (long i=0; i < effcst->elements_count; i++)
+        for (int64_t i=0; i < effcst->elements_count; i++)
         {
-            long n = effcst->kind_min + UNSYNC_RANDOM(effcst->kind_max - effcst->kind_min + 1);
+            int64_t n = effcst->kind_min + UNSYNC_RANDOM(effcst->kind_max - effcst->kind_min + 1);
             HitPoints mag = thing->health;
             arg = (mag << 7) + k/effcst->elements_count;
             set_coords_to_cylindric_shift(&pos, &thing->mappos, 16*mag, arg, 0);
@@ -785,7 +785,7 @@ void effect_generate_effect_elements(const struct Thing *thing)
     case 5:
         break;
     default:
-        ERRORLOG("Unknown Effect Generation Type %d",(int)effcst->generation_type);
+        ERRORLOG("Unknown Effect Generation Type %" PRId64,(int64_t)effcst->generation_type);
         break;
     }
 }
@@ -803,7 +803,7 @@ TngUpdateRet process_effect_generator(struct Thing *thing)
     }
     if ( !sim_feedback->any_player_close_enough_to_see(&thing->mappos) )
     {
-        SYNCDBG(18,"No player sees %s at (%d,%d,%d)",thing_model_name(thing),(int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num,(int)thing->mappos.z.stl.num);
+        SYNCDBG(18,"No player sees %s at (%" PRId64 ",%" PRId64 ",%" PRId64 ")",thing_model_name(thing),(int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num,(int64_t)thing->mappos.z.stl.num);
         return TUFRet_Modified;
     }
     if (thing->effect_generator.generation_delay > 0)
@@ -813,20 +813,20 @@ TngUpdateRet process_effect_generator(struct Thing *thing)
         return TUFRet_Modified;
     }
     struct EffectGeneratorConfigStats* egenstat = get_effectgenerator_model_stats(thing->model);
-    for (long i = 0; i < egenstat->generation_amount; i++)
+    for (int64_t i = 0; i < egenstat->generation_amount; i++)
     {
-        long deviation_angle = UNSYNC_RANDOM(DEGREES_360);
-        long deviation_mag = UNSYNC_RANDOM(thing->effect_generator.range + 1);
+        int64_t deviation_angle = UNSYNC_RANDOM(DEGREES_360);
+        int64_t deviation_mag = UNSYNC_RANDOM(thing->effect_generator.range + 1);
         struct Coord3d pos;
         set_coords_to_cylindric_shift(&pos, &thing->mappos, deviation_mag, deviation_angle, 0);
-        SYNCDBG(18,"The %s creates effect %d at (%d,%d,%d)", thing_model_name(thing), egenstat->effect_model, (int)pos.x.val,(int)pos.y.val,(int)pos.z.val);
+        SYNCDBG(18,"The %s creates effect %" PRId64 " at (%" PRId64 ",%" PRId64 ",%" PRId64 ")", thing_model_name(thing), (int64_t)(egenstat->effect_model), (int64_t)pos.x.val,(int64_t)pos.y.val,(int64_t)pos.z.val);
         struct Thing* elemtng = create_used_effect_or_element(&pos, egenstat->effect_model, thing->owner, thing->index);
         TRACE_THING(elemtng);
         if (thing_is_invalid(elemtng))
             break;
         elemtng->clipbox_size_xy = 20;
         elemtng->clipbox_size_z = 20;
-        long k;
+        int64_t k;
         if (egenstat->ignore_terrain)
         {
             k = egenstat->spawn_height;
@@ -842,14 +842,14 @@ TngUpdateRet process_effect_generator(struct Thing *thing)
         elemtng->mappos.z.val = k;
         if ( thing_in_wall_at(elemtng, &elemtng->mappos) )
         {
-            SYNCDBG(18,"The %s created effect %d/%d in wall, removing",thing_model_name(thing),(int)i,(int)egenstat->generation_amount);
+            SYNCDBG(18,"The %s created effect %" PRId64 "/%" PRId64 " in wall, removing",thing_model_name(thing),(int64_t)i,(int64_t)egenstat->generation_amount);
             delete_thing_structure(elemtng, 0);
         } else
         {
-            SYNCDBG(18,"The %s created effect %d/%d, index %d",thing_model_name(thing),(int)i,(int)egenstat->generation_amount,(int)elemtng->index);
-            long acc_x = egenstat->acc_x_min + UNSYNC_RANDOM(egenstat->acc_x_max - egenstat->acc_x_min + 1);
-            long acc_y = egenstat->acc_y_min + UNSYNC_RANDOM(egenstat->acc_y_max - egenstat->acc_y_min + 1);
-            long acc_z = egenstat->acc_z_min + UNSYNC_RANDOM(egenstat->acc_z_max - egenstat->acc_z_min + 1);
+            SYNCDBG(18,"The %s created effect %" PRId64 "/%" PRId64 ", index %" PRId64,thing_model_name(thing),(int64_t)i,(int64_t)egenstat->generation_amount,(int64_t)elemtng->index);
+            int64_t acc_x = egenstat->acc_x_min + UNSYNC_RANDOM(egenstat->acc_x_max - egenstat->acc_x_min + 1);
+            int64_t acc_y = egenstat->acc_y_min + UNSYNC_RANDOM(egenstat->acc_y_max - egenstat->acc_y_min + 1);
+            int64_t acc_z = egenstat->acc_z_min + UNSYNC_RANDOM(egenstat->acc_z_max - egenstat->acc_z_min + 1);
             elemtng->veloc_push_add.x.val += acc_x;
             elemtng->veloc_push_add.y.val += acc_y;
             elemtng->veloc_push_add.z.val += acc_z;
@@ -878,7 +878,7 @@ struct Thing *create_effect(const struct Coord3d *pos, ThingModel effmodel, Play
     struct EffectConfigStats* effcst = get_effect_model_stats(effmodel);
     struct Thing* thing = allocate_free_thing_structure(TCls_Effect);
     if (thing->index == 0) {
-        ERRORDBG(8,"Should be able to allocate effect %d (%s) for player %d, but failed.",(int)effmodel,effect_code_name(effmodel),(int)owner);
+        ERRORDBG(8,"Should be able to allocate effect %" PRId64 " (%s) for player %" PRId64 ", but failed.",(int64_t)effmodel,effect_code_name(effmodel),(int64_t)owner);
         return INVALID_THING;
     }
     thing->creation_turn = get_gameturn();
@@ -988,16 +988,16 @@ TbBool destroy_effect_thing(struct Thing *efftng)
  * @note If the function returns true, the effect might have caused death of the target.
  */
 TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, const struct Coord3d *pos,
-    MapCoordDelta max_dist, HitPoints max_damage, long blow_strength, struct ShotConfigStats* shotst)
+    MapCoordDelta max_dist, HitPoints max_damage, int64_t blow_strength, struct ShotConfigStats* shotst)
 {
-    unsigned long shot_model_flags = shotst->model_flags;
+    uint64_t shot_model_flags = shotst->model_flags;
     PlayerNumber owner = tngsrc->owner;
     if (thing_is_deployed_door(tngdst))
     {
         return explosion_affecting_door(tngsrc, tngdst, pos, max_dist, max_damage, blow_strength, owner);
     }
     TbBool affected = false;
-    SYNCDBG(17,"Starting for %s, max damage %d, max blow %d, owner %d",thing_model_name(tngdst),(int)max_damage,(int)blow_strength,(int)owner);
+    SYNCDBG(17,"Starting for %s, max damage %" PRId64 ", max blow %" PRId64 ", owner %" PRId64,thing_model_name(tngdst),(int64_t)max_damage,(int64_t)blow_strength,(int64_t)owner);
     if (nowibble_line_of_sight_3d(pos, &tngdst->mappos))
     {
         // Friendly fire usually causes less damage and at smaller distance
@@ -1014,7 +1014,7 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
                 if (max_damage > 0)
                 {
                     HitPoints damage = get_radially_decaying_value(max_damage, max_dist / 4, 3 * max_dist / 4, distance) + 1;
-                    SYNCDBG(7,"Causing %d damage to %s at distance %d",(int)damage,thing_model_name(tngdst),(int)distance);
+                    SYNCDBG(7,"Causing %" PRId64 " damage to %s at distance %" PRId64,(int64_t)damage,thing_model_name(tngdst),(int64_t)distance);
                     apply_damage_to_thing_and_display_health(tngdst, damage, owner);
                     if (flag_is_set(shotst->model_flags,ShMF_LifeDrain))
                     {
@@ -1068,7 +1068,7 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
             if (thing_is_dungeon_heart(tngdst))
             {
                 HitPoints damage = get_radially_decaying_value(max_damage, max_dist / 4, 3 * max_dist / 4, distance) + 1;
-                SYNCDBG(7,"Causing %d damage to %s at distance %d",(int)damage,thing_model_name(tngdst),(int)distance);
+                SYNCDBG(7,"Causing %" PRId64 " damage to %s at distance %" PRId64,(int64_t)damage,thing_model_name(tngdst),(int64_t)distance);
                 apply_damage_to_thing(tngdst, damage, -1);
                 affected = true;
                 event_create_event_or_update_nearby_existing_event(tngdst->mappos.x.val, tngdst->mappos.y.val,EvKind_HeartAttacked, tngdst->owner, 0);
@@ -1079,16 +1079,16 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
                 }
             } else // Explosions move creatures and other things
             {
-                int adjusted_blow_strength = blow_strength;
+                int64_t adjusted_blow_strength = blow_strength;
                 if (kfx_config_state.conf.rules[tngdst->owner].magic.weight_calculate_push > 0)
                 {
-                    int weight = compute_creature_weight(tngdst);
+                    int64_t weight = compute_creature_weight(tngdst);
                     adjusted_blow_strength = weight_calculated_push_strenght(weight, blow_strength);
                 }
 
 
-                long move_angle = get_angle_xy_to(pos, &tngdst->mappos);
-                long move_dist = 0;
+                int64_t move_angle = get_angle_xy_to(pos, &tngdst->mappos);
+                int64_t move_dist = 0;
                // long adjusted_max_dist = max_dist;
                 if (blow_strength > 0)
                 {
@@ -1112,10 +1112,10 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
 }
 
 TbBool explosion_affecting_door(struct Thing *tngsrc, struct Thing *tngdst, const struct Coord3d *pos,
-    MapCoordDelta max_dist, HitPoints max_damage, long blow_strength, PlayerNumber owner)
+    MapCoordDelta max_dist, HitPoints max_damage, int64_t blow_strength, PlayerNumber owner)
 {
     TbBool affected = false;
-    SYNCDBG(17,"Starting for %s, max damage %d, max blow %d, owner %d",thing_model_name(tngdst),(int)max_damage,(int)blow_strength,(int)owner);
+    SYNCDBG(17,"Starting for %s, max damage %" PRId64 ", max blow %" PRId64 ", owner %" PRId64,thing_model_name(tngdst),(int64_t)max_damage,(int64_t)blow_strength,(int64_t)owner);
     if (tngdst->class_id != TCls_Door)
     {
         ERRORLOG("%s is trying to damage %s which is not a door",thing_model_name(tngsrc),thing_model_name(tngdst));
@@ -1133,12 +1133,12 @@ TbBool explosion_affecting_door(struct Thing *tngsrc, struct Thing *tngdst, cons
             {
                 HitPoints absorbed = reduce_damage_for_midas(tngdst->owner, damage, doorst->health);
                 damage -= absorbed;
-                for (int i = absorbed; i > 0; i -= 32)
+                for (int64_t i = absorbed; i > 0; i -= 32)
                 {
                     create_effect(pos, TngEff_CoinFountain, tngdst->owner);
                 }
             }
-            SYNCDBG(7,"Causing %d damage to %s at distance %d",(int)damage,thing_model_name(tngdst),(int)distance);
+            SYNCDBG(7,"Causing %" PRId64 " damage to %s at distance %" PRId64,(int64_t)damage,thing_model_name(tngdst),(int64_t)distance);
             apply_damage_to_thing(tngdst, damage, -1);
             affected = true;
         }
@@ -1156,16 +1156,16 @@ TbBool explosion_affecting_door(struct Thing *tngsrc, struct Thing *tngdst, cons
  * @param blow_strength The strength of hitwave blowing creatures out of affected area.
  * @param shotst the shot information used to determine damage, bow and spell effects
  */
-long explosion_effect_affecting_map_block(struct Thing *efftng, struct Thing *tngsrc, struct Map *mapblk,
-    MapCoordDelta max_dist, HitPoints max_damage, long blow_strength, struct ShotConfigStats* shotst)
+int64_t explosion_effect_affecting_map_block(struct Thing *efftng, struct Thing *tngsrc, struct Map *mapblk,
+    MapCoordDelta max_dist, HitPoints max_damage, int64_t blow_strength, struct ShotConfigStats* shotst)
 {
     if (!thing_exists(tngsrc)) //Shooter may already be dead
     {
         tngsrc = efftng;
     }
-    long num_affected = 0;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t num_affected = 0;
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1212,10 +1212,10 @@ long explosion_effect_affecting_map_block(struct Thing *efftng, struct Thing *tn
  */
 void word_of_power_affecting_area(struct Thing *efftng, struct Thing *tngsrc, struct Coord3d *pos)
 {
-    long stl_xmin;
-    long stl_xmax;
-    long stl_ymin;
-    long stl_ymax;
+    int64_t stl_xmin;
+    int64_t stl_xmax;
+    int64_t stl_ymin;
+    int64_t stl_ymax;
     // Effect causes area damage only on its birth turn
     if (efftng->creation_turn != get_gameturn()) {
         return;
@@ -1243,11 +1243,11 @@ void word_of_power_affecting_area(struct Thing *efftng, struct Thing *tngsrc, st
         ERRORLOG("Word of power shot configuration does not include area influence.");
         return;
     }
-    SYNCDBG(8,"Starting for %s index %d owner %d",thing_model_name(efftng),(int)efftng->index,(int)efftng->owner);
+    SYNCDBG(8,"Starting for %s index %" PRId64 " owner %" PRId64,thing_model_name(efftng),(int64_t)efftng->index,(int64_t)efftng->owner);
     MapCoordDelta max_dist = shotst->area_range * COORD_PER_STL;
     {
         // Make sure the subtile is rounded up, unless the range is really close to lower value
-        long stl_range = coord_subtile(max_dist + COORD_PER_STL * 9 / 10);
+        int64_t stl_range = coord_subtile(max_dist + COORD_PER_STL * 9 / 10);
         // Position on subtile is not at its start, so add 1 to max values while ignoring the position
         stl_xmin = pos->x.stl.num - stl_range;
         stl_xmax = pos->x.stl.num + stl_range + 1;
@@ -1278,9 +1278,9 @@ void word_of_power_affecting_area(struct Thing *efftng, struct Thing *tngsrc, st
     if (stl_ymax > kfx_sim_state.map_subtiles_y) {
       stl_ymax = kfx_sim_state.map_subtiles_y;
     }
-    for (long stl_y = stl_ymin; stl_y <= stl_ymax; stl_y++)
+    for (int64_t stl_y = stl_ymin; stl_y <= stl_ymax; stl_y++)
     {
-        for (long stl_x = stl_xmin; stl_x <= stl_xmax; stl_x++)
+        for (int64_t stl_x = stl_xmin; stl_x <= stl_xmax; stl_x++)
         {
             struct Map* mapblk = get_map_block_at(stl_x, stl_y);
             explosion_effect_affecting_map_block(efftng, tngsrc, mapblk, max_dist, shotst->area_damage, shotst->area_blow, shotst);
@@ -1314,17 +1314,17 @@ TbBool area_effect_can_affect_thing(const struct Thing *thing, HitTargetFlags hi
  * @param blow_strength The strength of hitwave blowing creatures out of affected area.
  * @param hit_targets Defines which things are affected.
  */
-long explosion_affecting_map_block(struct Thing *tngsrc, const struct Map *mapblk, const struct Coord3d *pos,
-    MapCoord max_dist, HitPoints max_damage, long blow_strength, HitTargetFlags hit_targets)
+int64_t explosion_affecting_map_block(struct Thing *tngsrc, const struct Map *mapblk, const struct Coord3d *pos,
+    MapCoord max_dist, HitPoints max_damage, int64_t blow_strength, HitTargetFlags hit_targets)
 {
     PlayerNumber owner;
     if (thing_exists(tngsrc))
         owner = tngsrc->owner;
     else
         owner = -1;
-    long num_affected = 0;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t num_affected = 0;
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1379,14 +1379,14 @@ long explosion_affecting_map_block(struct Thing *tngsrc, const struct Map *mapbl
  * @param hit_targets Defines which things are affected.
  * @return Gives number of things which were affected by the explosion.
  */
-long explosion_affecting_area(struct Thing *tngsrc, const struct Coord3d *pos, MapCoord max_dist,
-    HitPoints max_damage, long blow_strength, HitTargetFlags hit_targets)
+int64_t explosion_affecting_area(struct Thing *tngsrc, const struct Coord3d *pos, MapCoord max_dist,
+    HitPoints max_damage, int64_t blow_strength, HitTargetFlags hit_targets)
 {
     MapSubtlCoord start_x;
     MapSubtlCoord start_y;
     if (hit_targets == HitTF_None)
     {
-        ERRORLOG("The %s tries to affect area up to distance %d with invalid hit type %d",thing_model_name(tngsrc),(int)max_dist,(int)hit_targets);
+        ERRORLOG("The %s tries to affect area up to distance %" PRId64 " with invalid hit type %" PRId64,thing_model_name(tngsrc),(int64_t)max_dist,(int64_t)hit_targets);
         return 0;
     }
     MapSubtlCoord range_stl = (max_dist + 5 * COORD_PER_STL / 6) / COORD_PER_STL;
@@ -1406,7 +1406,7 @@ long explosion_affecting_area(struct Thing *tngsrc, const struct Coord3d *pos, M
       end_y = kfx_sim_state.map_subtiles_y;
     if (flag_is_set(start_params.debug_flags,DFlg_ShotsDamage))
         create_price_effect(pos, my_player_number, max_damage);
-    long num_affected = 0;
+    int64_t num_affected = 0;
     for (MapSubtlCoord stl_y = start_y; stl_y <= end_y; stl_y++)
     {
         for (MapSubtlCoord stl_x = start_x; stl_x <= end_x; stl_x++)
@@ -1419,10 +1419,10 @@ long explosion_affecting_area(struct Thing *tngsrc, const struct Coord3d *pos, M
 }
 
 TbBool poison_cloud_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, const struct Coord3d *pos,
-    MapCoordDelta max_dist, HitPoints max_damage, long blow_strength, unsigned char area_affect_type, PlayerNumber owner, SpellKind spell_idx)
+    MapCoordDelta max_dist, HitPoints max_damage, int64_t blow_strength, unsigned char area_affect_type, PlayerNumber owner, SpellKind spell_idx)
 {
     TbBool affected = false;
-    SYNCDBG(17,"Starting for %s, max damage %d, max blow %d, owner %d",thing_model_name(tngdst),(int)max_damage,(int)blow_strength,(int)owner);
+    SYNCDBG(17,"Starting for %s, max damage %" PRId64 ", max blow %" PRId64 ", owner %" PRId64,thing_model_name(tngdst),(int64_t)max_damage,(int64_t)blow_strength,(int64_t)owner);
     if (thing_is_creature(tngdst))
     {
         if (creature_is_immune_to_spell_effect(tngdst, CSAfF_PoisonCloud)) {
@@ -1448,7 +1448,7 @@ TbBool poison_cloud_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, 
                     {
                         HitPoints damage;
                         damage = get_radially_decaying_value(max_damage, max_dist / 4, 3 * max_dist / 4, distance) + 1;
-                        SYNCDBG(7, "Causing %d damage to %s at distance %d", (int)damage, thing_model_name(tngdst), (int)distance);
+                        SYNCDBG(7, "Causing %" PRId64 " damage to %s at distance %" PRId64, (int64_t)damage, thing_model_name(tngdst), (int64_t)distance);
                         apply_damage_to_thing_and_display_health(tngdst, damage, tngsrc->owner);
                     }
                     break;
@@ -1457,7 +1457,7 @@ TbBool poison_cloud_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, 
                     {
                         HitPoints damage;
                         damage = get_radially_decaying_value(max_damage, 3 * max_dist / 4, max_dist / 4, distance) + 1;
-                        SYNCDBG(7, "Causing %d damage to %s at distance %d", (int)damage, thing_model_name(tngdst), (int)distance);
+                        SYNCDBG(7, "Causing %" PRId64 " damage to %s at distance %" PRId64, (int64_t)damage, thing_model_name(tngdst), (int64_t)distance);
                         apply_damage_to_thing_and_display_health(tngdst, damage, tngsrc->owner);
                     }
                     spconf = get_spell_config(spell_idx);
@@ -1486,17 +1486,17 @@ TbBool poison_cloud_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, 
     return affected;
 }
 
-long poison_cloud_affecting_map_block(struct Thing *tngsrc, const struct Map *mapblk, const struct Coord3d *pos,
-    MapCoord max_dist, HitPoints max_damage, long blow_strength, HitTargetFlags hit_targets, unsigned char area_affect_type, SpellKind spell_idx)
+int64_t poison_cloud_affecting_map_block(struct Thing *tngsrc, const struct Map *mapblk, const struct Coord3d *pos,
+    MapCoord max_dist, HitPoints max_damage, int64_t blow_strength, HitTargetFlags hit_targets, unsigned char area_affect_type, SpellKind spell_idx)
 {
     PlayerNumber owner;
     if (thing_exists(tngsrc))
         owner = tngsrc->owner;
     else
         owner = -1;
-    long num_affected = 0;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t num_affected = 0;
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1531,9 +1531,9 @@ long poison_cloud_affecting_map_block(struct Thing *tngsrc, const struct Map *ma
     return num_affected;
 }
 
-long poison_cloud_affecting_area(struct Thing *tngsrc, struct Coord3d *pos, long max_dist, long max_damage, unsigned char area_affect_type, SpellKind spell_idx)
+int64_t poison_cloud_affecting_area(struct Thing *tngsrc, struct Coord3d *pos, int64_t max_dist, int64_t max_damage, unsigned char area_affect_type, SpellKind spell_idx)
 {
-    int dmg_divider = 10;
+    int64_t dmg_divider = 10;
     if (thing_is_effect(tngsrc)) {
         const struct EffectConfigStats* effcst = get_effect_model_stats(tngsrc->model);
         dmg_divider = max(effcst->start_health,1);
@@ -1566,7 +1566,7 @@ long poison_cloud_affecting_area(struct Thing *tngsrc, struct Coord3d *pos, long
     if (end_y > kfx_sim_state.map_subtiles_y) {
         end_y = kfx_sim_state.map_subtiles_y;
     }
-    long num_affected = 0;
+    int64_t num_affected = 0;
     for (MapSubtlCoord stl_y = start_y; stl_y <= end_y; stl_y++)
     {
         for (MapSubtlCoord stl_x = start_x; stl_x <= end_x; stl_x++)
@@ -1615,17 +1615,17 @@ TngUpdateRet update_effect(struct Thing *efftng)
     return move_effect(efftng);
 }
 
-struct Thing *create_price_effect(const struct Coord3d *pos, long plyr_idx, long price)
+struct Thing *create_price_effect(const struct Coord3d *pos, int64_t plyr_idx, int64_t price)
 {
     struct Thing* elemtng = create_effect_element(pos, TngEffElm_Price, plyr_idx);
     TRACE_THING(elemtng);
     if (!thing_is_invalid(elemtng)) {
-        elemtng->price_effect.number = abs(price);
+        elemtng->price_effect.number = llabs(price);
     }
     return elemtng;
 }
 
-struct Thing *script_create_effect(struct Coord3d *pos, EffectOrEffElModel mdl, long val)
+struct Thing *script_create_effect(struct Coord3d *pos, EffectOrEffElModel mdl, int64_t val)
 {
     TbBool Price = (mdl == -(TngEffElm_Price));
     if (Price)
@@ -1690,14 +1690,14 @@ static void process_fx_line(struct ScriptFxLine *fx_line)
 void process_fx_lines()
 {
     SYNCDBG(6,"Starting");
-    for (int i = 0; i < kfx_sim_state.active_fx_lines; i++)
+    for (int64_t i = 0; i < kfx_sim_state.active_fx_lines; i++)
     {
         if (kfx_sim_state.fx_lines[i].used)
         {
             process_fx_line(&kfx_sim_state.fx_lines[i]);
         }
     }
-    for (int i = kfx_sim_state.active_fx_lines; i > 0; i--)
+    for (int64_t i = kfx_sim_state.active_fx_lines; i > 0; i--)
     {
         if (kfx_sim_state.fx_lines[i-1].used)
         {
@@ -1710,7 +1710,7 @@ void process_fx_lines()
 void create_effects_line(TbMapLocation from, TbMapLocation to, char curvature, unsigned char spatial_stepping, unsigned char temporal_stepping, EffectOrEffElModel effct_id)
 {
     struct ScriptFxLine *fx_line = NULL;
-    for (int i = 0; i < (sizeof(kfx_sim_state.fx_lines) / sizeof(kfx_sim_state.fx_lines[0])); i++)
+    for (int64_t i = 0; i < (sizeof(kfx_sim_state.fx_lines) / sizeof(kfx_sim_state.fx_lines[0])); i++)
     {
         if (!kfx_sim_state.fx_lines[i].used)
         {
@@ -1727,7 +1727,7 @@ void create_effects_line(TbMapLocation from, TbMapLocation to, char curvature, u
     }
     find_location_pos(from, PLAYER_NEUTRAL, &fx_line->from, __func__);
     find_location_pos(to  , PLAYER_NEUTRAL, &fx_line->to, __func__);
-    fx_line->curvature = (int)curvature;
+    fx_line->curvature = (int64_t)curvature;
     fx_line->spatial_step = spatial_stepping * 32;
     fx_line->steps_per_turn = temporal_stepping;
     fx_line->effect = effct_id;
@@ -1739,15 +1739,15 @@ void create_effects_line(TbMapLocation from, TbMapLocation to, char curvature, u
         fx_line->steps_per_turn = 32 * 255; // whole map
     }
 
-    int dx = fx_line->to.x.val - fx_line->from.x.val;
-    int dy = fx_line->to.y.val - fx_line->from.y.val;
+    int64_t dx = fx_line->to.x.val - fx_line->from.x.val;
+    int64_t dy = fx_line->to.y.val - fx_line->from.y.val;
     if ((dx * dx + dy * dy) != 0)
     {
         double len = sqrt((double)dx * dx + (double)dy * dy);
-        fx_line->total_steps = (int)(len / fx_line->spatial_step) + 1;
+        fx_line->total_steps = (int64_t)(len / fx_line->spatial_step) + 1;
 
-        int d_cx = -dy * fx_line->curvature / 32;
-        int d_cy = +dx * fx_line->curvature / 32;
+        int64_t d_cx = -dy * fx_line->curvature / 32;
+        int64_t d_cy = +dx * fx_line->curvature / 32;
         fx_line->cx = (fx_line->to.x.val + fx_line->from.x.val - d_cx)/2;
         fx_line->cy = (fx_line->to.y.val + fx_line->from.y.val - d_cy)/2;
     }
@@ -1787,10 +1787,10 @@ void process_keeper_spell_aura(struct Thing *thing)
         return;
     }
     struct Coord3d pos;
-    long amp;
-    long direction;
-    long delta_x;
-    long delta_y;
+    int64_t amp;
+    int64_t direction;
+    int64_t delta_x;
+    int64_t delta_y;
     amp = 5 * thing->clipbox_size_xy / 8;
     direction = THING_RANDOM(thing, DEGREES_360);
     delta_x = (amp * LbSinL(direction) >> 8);
@@ -1815,8 +1815,8 @@ void affect_nearby_friends_with_alarm(struct Thing *traptng)
         return;
     }
     struct Dungeon *dungeon;
-    unsigned long k;
-    int i;
+    uint64_t k;
+    int64_t i;
     dungeon = get_players_num_dungeon(traptng->owner);
     k = 0;
     i = dungeon->creatr_list_start;
@@ -1867,7 +1867,7 @@ void affect_nearby_friends_with_alarm(struct Thing *traptng)
 
 TngUpdateRet damage_creatures_with_physical_force(struct Thing *thing, ModTngFilterParam param)
 {
-    SYNCDBG(18,"Starting for %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(18,"Starting for %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     if (thing_is_picked_up(thing) || thing_is_dragged_or_pulled(thing))
     {
         return TUFRet_Unchanged;
@@ -1911,7 +1911,7 @@ TbBool valid_cave_in_position(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSub
     return (plyr_idx == kfx_config_state.neutral_player_num) || (slabmap_owner(slb) == kfx_config_state.neutral_player_num) || (slabmap_owner(slb) == plyr_idx);
 }
 
-long update_cave_in(struct Thing *thing)
+int64_t update_cave_in(struct Thing *thing)
 {
     thing->health--;
     thing->rendering_flags |= TRF_Invisible;
@@ -1929,7 +1929,7 @@ long update_cave_in(struct Thing *thing)
     owner = thing->owner;
     if ((get_gameturn() % 3) == 0)
     {
-        int n;
+        int64_t n;
         n = GAME_RANDOM(AROUND_TILES_COUNT);
         pos.x.val = thing->mappos.x.val + GAME_RANDOM(704) * around[n].delta_x;
         pos.y.val = thing->mappos.y.val + GAME_RANDOM(704) * around[n].delta_y;
@@ -1976,7 +1976,7 @@ long update_cave_in(struct Thing *thing)
     {
         if ((powerst->duration < 10) || ((thing->health % (powerst->duration / 10)) == 0))
         {
-            int round_idx;
+            int64_t round_idx;
             round_idx = THING_RANDOM(thing, AROUND_TILES_COUNT);
             set_coords_to_slab_center(&pos, subtile_slab(thing->mappos.x.val + 3 * around[round_idx].delta_x), subtile_slab(thing->mappos.y.val + 3 * around[round_idx].delta_y));
             if (subtile_has_slab(coord_subtile(pos.x.val), coord_subtile(pos.y.val)) && valid_cave_in_position(thing->owner, coord_subtile(pos.x.val), coord_subtile(pos.y.val)))
@@ -1985,7 +1985,7 @@ long update_cave_in(struct Thing *thing)
                 ncavitng = get_cavein_at_subtile_owned_by(coord_subtile(pos.x.val), coord_subtile(pos.y.val), -1);
                 if (thing_is_invalid(ncavitng))
                 {
-                    long dist;
+                    int64_t dist;
                     struct Coord3d pos2;
                     pos2.x.val = subtile_coord(thing->cave_in.x,0);
                     pos2.y.val = subtile_coord(thing->cave_in.y,0);
@@ -2011,7 +2011,7 @@ long update_cave_in(struct Thing *thing)
     return 1;
 }
 
-void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, long delta_step, long num_per_step, short ef_or_efel_model, ThingIndex parent_idx)
+void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, int64_t delta_step, int64_t num_per_step, int64_t ef_or_efel_model, ThingIndex parent_idx)
 {
   MapCoordDelta dist_x;
   MapCoordDelta dist_y;
@@ -2019,9 +2019,9 @@ void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, long delta_st
   dist_x = pos2->x.val - (MapCoordDelta)pos1->x.val;
   dist_y = pos2->y.val - (MapCoordDelta)pos1->y.val;
   dist_z = pos2->z.val - (MapCoordDelta)pos1->z.val;
-  int delta_x;
-  int delta_y;
-  int delta_z;
+  int64_t delta_x;
+  int64_t delta_y;
+  int64_t delta_z;
   if (delta_step <= 0)
       delta_step = 1;
   if (dist_x >= 0)
@@ -2047,7 +2047,7 @@ void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, long delta_st
     // and sign is stored in delta_x,delta_y,delta_z.
     if ((dist_x != 0) || (dist_y != 0) || (dist_z != 0))
     {
-        int nsteps;
+        int64_t nsteps;
         // Find max dimension, and scale deltas to it
         if ((dist_z > dist_x) && (dist_z > dist_y))
         {
@@ -2074,8 +2074,8 @@ void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, long delta_st
             delta_z = dist_z * delta_z / (dist_x + dist_y + dist_z);
         }
 
-        int sprsize = 0;
-        int delta_size = 0;
+        int64_t sprsize = 0;
+        int64_t delta_size = 0;
 
         struct EffectElementConfigStats *eestat;
         if (ef_or_efel_model < 0)
@@ -2085,18 +2085,18 @@ void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, long delta_st
             sprsize = (eestat->sprite_size_min << 8);
         }
 
-        int deviat;
+        int64_t deviat;
         deviat = 1;
         struct Coord3d curpos;
         curpos.x.val = pos1->x.val;
         curpos.y.val = pos1->y.val;
         curpos.z.val = pos1->z.val;
-        int i;
+        int64_t i;
         for (i=nsteps+1; i > 0; i--)
         {
-            int devrange;
+            int64_t devrange;
             devrange = 2 * deviat;
-            int k;
+            int64_t k;
             for (k = num_per_step; k > 0; k--)
             {
                 struct Coord3d tngpos;
@@ -2122,14 +2122,14 @@ void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, long delta_st
     }
 }
 
-void draw_lightning(const struct Coord3d *pos1, const struct Coord3d *pos2, long eeinterspace, EffectOrEffElModel ef_or_efel_model)
+void draw_lightning(const struct Coord3d *pos1, const struct Coord3d *pos2, int64_t eeinterspace, EffectOrEffElModel ef_or_efel_model)
 {
     MapCoordDelta dist_x = pos2->x.val - pos1->x.val;
     MapCoordDelta dist_y = pos2->y.val - pos1->y.val;
     MapCoordDelta dist_z = pos2->z.val - pos1->z.val;
-    int delta_x;
-    int delta_y;
-    int delta_z;
+    int64_t delta_x;
+    int64_t delta_y;
+    int64_t delta_z;
     if (eeinterspace <= 0)
         eeinterspace = 1;
     if (dist_x >= 0) {
@@ -2152,7 +2152,7 @@ void draw_lightning(const struct Coord3d *pos1, const struct Coord3d *pos2, long
     }
     if ((dist_x != 0) || (dist_y != 0) || (dist_z != 0))
     {
-        int nsteps;
+        int64_t nsteps;
         if ((dist_z >= dist_x) && (dist_z >= dist_y))
         {
             nsteps = dist_z / eeinterspace;
@@ -2170,14 +2170,14 @@ void draw_lightning(const struct Coord3d *pos1, const struct Coord3d *pos2, long
             delta_x = dist_x * delta_x / dist_y;
             delta_z = delta_z * dist_z / dist_y;
         }
-        int deviat_x = 0;
-        int deviat_y = 0;
-        int deviat_z = 0;
+        int64_t deviat_x = 0;
+        int64_t deviat_y = 0;
+        int64_t deviat_z = 0;
         struct Coord3d curpos;
         curpos.x.val = pos1->x.val + UNSYNC_RANDOM(eeinterspace/4);
         curpos.y.val = pos1->y.val + UNSYNC_RANDOM(eeinterspace/4);
         curpos.z.val = pos1->z.val + UNSYNC_RANDOM(eeinterspace/4);
-        for (int i=nsteps+1; i > 0; i--)
+        for (int64_t i=nsteps+1; i > 0; i--)
         {
             struct Coord3d tngpos;
             tngpos.x.val = curpos.x.val + deviat_x;
@@ -2203,7 +2203,7 @@ void draw_lightning(const struct Coord3d *pos1, const struct Coord3d *pos2, long
                 deviat_z += 32;
             }
             MapCoordDelta dist = get_chessboard_3d_distance(&curpos, pos2);
-            int deviat_limit = 128;
+            int64_t deviat_limit = 128;
             if (dist < 1024)
               deviat_limit = (dist * 128) / 1024;
             // Limit deviations

@@ -78,10 +78,10 @@ TbBool cumulative_screen_shot(void)
         ERRORLOG("Screenshot format incorrectly set.");
         return false;
     }
-    unsigned long i;
+    uint64_t i;
     for (i = 0; i < 10000; i++)
     {
-        snprintf(fname, sizeof(fname), "scrshots/scr%05lu.%s", i, fext);
+        snprintf(fname, sizeof(fname), "scrshots/scr%05" PRIu64 ".%s", (uint64_t)(i), fext);
         if (!LbFileExists(fname)) break;
     }
     if (i >= 10000)
@@ -122,14 +122,14 @@ TbBool movie_record_stop(void)
 
 TbBool movie_record_frame(void)
 {
-    short lock_mem = LbScreenIsLocked();
+    int64_t lock_mem = LbScreenIsLocked();
     if (!lock_mem)
     {
         if (RendererLockFramebuffer() != Lb_SUCCESS)
             return false;
   }
   RendererPaletteGet(cap_palette);
-  short result = anim_record_frame(RendererGetFramebuffer(), cap_palette);
+  int64_t result = anim_record_frame(RendererGetFramebuffer(), cap_palette);
   if (!lock_mem)
     RendererUnlockFramebuffer();
   return result;

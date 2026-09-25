@@ -36,14 +36,14 @@ enum EditorPointKind {
 // never trusts `id` alone -- delete_point() re-checks position (and model,
 // for effect generators) before touching anything.
 struct EditorPointSnapshot {
-    int kind;
-    long id;
-    long x, y, z;     // raw map units (256 per subtile)
-    long radius;      // light radius / action point range / effect range, raw units
-    int intensity;    // lights only
-    int model;        // effect generators only
-    int owner;        // effect generators only
-    long parent;      // light attached_slb / effect generator parent_idx
+    int64_t kind;
+    int64_t id;
+    int64_t x, y, z;     // raw map units (256 per subtile)
+    int64_t radius;      // light radius / action point range / effect range, raw units
+    int64_t intensity;    // lights only
+    int64_t model;        // effect generators only
+    int64_t owner;        // effect generators only
+    int64_t parent;      // light attached_slb / effect generator parent_idx
 };
 
 // Toolbox panel: kind selector, default parameters for new points, counts
@@ -57,7 +57,7 @@ void editor_points_frame(void);
 
 // How many effect generator kinds the picker offers (test seam: the picker
 // once came up empty because it read a count the loader never sets).
-int editor_points_effectgen_kind_count(void);
+int64_t editor_points_effectgen_kind_count(void);
 
 // Drops the selection (a new/opened level invalidates every id).
 void editor_points_reset(void);
@@ -83,10 +83,10 @@ void editor_points_mark_thing_owned_lights(unsigned char *owned);
 // level's lights, action points and effect generators whose position lies in
 // [x0,x1) x [y0,y1) (raw map units); returns how many were written (at most
 // `max`).
-int editor_points_capture_in_box(long x0, long y0, long x1, long y1, struct EditorPointSnapshot *out, int max);
+int64_t editor_points_capture_in_box(int64_t x0, int64_t y0, int64_t x1, int64_t y1, struct EditorPointSnapshot *out, int64_t max);
 // Re-creates a captured point shifted by (dx, dy) raw units and journals it.
 // Action points get the next free number. Returns true on success.
-TbBool editor_points_stamp(const struct EditorPointSnapshot *snap, long dx, long dy);
+TbBool editor_points_stamp(const struct EditorPointSnapshot *snap, int64_t dx, int64_t dy);
 
 /******************************************************************************/
 #ifdef __cplusplus

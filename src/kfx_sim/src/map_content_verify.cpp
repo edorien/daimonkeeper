@@ -90,7 +90,7 @@ void check_dungeon_hearts(const MapContent &content, std::vector<MapVerifyIssue>
         if (!has_heart)
         {
             char msg[80];
-            snprintf(msg, sizeof(msg), "Player %d has no Dungeon Heart", (int)owner);
+            snprintf(msg, sizeof(msg), "Player %" PRId64 " has no Dungeon Heart", (int64_t)owner);
             add(issues, MVI_Error, msg);
         }
     }
@@ -103,15 +103,15 @@ void check_embedded_things(const MapContent &content, std::vector<MapVerifyIssue
 {
     for (const MapThingRecord &t : content.things)
     {
-        long sx = (t.pos_x >> 8) / STL_PER_SLB;
-        long sy = (t.pos_y >> 8) / STL_PER_SLB;
+        int64_t sx = (t.pos_x >> 8) / STL_PER_SLB;
+        int64_t sy = (t.pos_y >> 8) / STL_PER_SLB;
         if ((sx < 0) || (sx >= content.map_tiles_x) || (sy < 0) || (sy >= content.map_tiles_y))
             continue;
         if (slab_is_blocking(content.slab_kind[content.slab_index(sx, sy)]))
         {
             char msg[96];
-            snprintf(msg, sizeof(msg), "A thing (class %d) is embedded in an impenetrable slab at slab (%ld,%ld)",
-                (int)t.thing_class, sx, sy);
+            snprintf(msg, sizeof(msg), "A thing (class %" PRId64 ") is embedded in an impenetrable slab at slab (%" PRId64 ",%" PRId64 ")",
+                (int64_t)t.thing_class, (int64_t)(sx), (int64_t)(sy));
             add_at(issues, MVI_Error, msg, t.pos_x, t.pos_y);
         }
     }
@@ -120,18 +120,18 @@ void check_embedded_things(const MapContent &content, std::vector<MapVerifyIssue
 // WARN_THRESHOLD_NUM/DEN: 90% of cap -- a judgment call (F18 states the
 // hard caps, not a "getting close" threshold), chosen so a mapmaker gets
 // some runway to notice before actually hitting the wall.
-void check_cap(std::vector<MapVerifyIssue> &issues, long count, long cap, const char *what)
+void check_cap(std::vector<MapVerifyIssue> &issues, int64_t count, int64_t cap, const char *what)
 {
     if (count >= cap)
     {
         char msg[96];
-        snprintf(msg, sizeof(msg), "%ld %s exceeds the engine limit of %ld", count, what, cap);
+        snprintf(msg, sizeof(msg), "%" PRId64 " %s exceeds the engine limit of %" PRId64, (int64_t)(count), what, (int64_t)(cap));
         add(issues, MVI_Error, msg);
     }
     else if (count * 10 >= cap * 9)
     {
         char msg[112];
-        snprintf(msg, sizeof(msg), "%ld %s is close to the engine limit of %ld", count, what, cap);
+        snprintf(msg, sizeof(msg), "%" PRId64 " %s is close to the engine limit of %" PRId64, (int64_t)(count), what, (int64_t)(cap));
         add(issues, MVI_Warn, msg);
     }
 }
@@ -140,40 +140,40 @@ void check_cap(std::vector<MapVerifyIssue> &issues, long count, long cap, const 
 // kfx_sim, which ranks below kfx_render, so mirrored here. Dynamic lights
 // (spell effects, creature glows) share these slots at runtime, so hitting
 // the cap on saved static lights alone already leaves nothing for them.
-const long kLightSlots = 2048;
+const int64_t kLightSlots = 2048;
 
 void check_counts(const MapContent &content, std::vector<MapVerifyIssue> &issues)
 {
-    long creature_count = 0;
+    int64_t creature_count = 0;
     for (const MapThingRecord &t : content.things)
         if (t.thing_class == TCls_Creature)
             creature_count++;
 
-    check_cap(issues, (long)content.things.size(), THINGS_COUNT, "things");
+    check_cap(issues, (int64_t)content.things.size(), THINGS_COUNT, "things");
     check_cap(issues, creature_count, CREATURES_COUNT, "creatures");
-    check_cap(issues, (long)content.action_points.size(), ACTN_POINTS_COUNT, "action points");
-    check_cap(issues, (long)content.lights.size(), kLightSlots, "lights");
+    check_cap(issues, (int64_t)content.action_points.size(), ACTN_POINTS_COUNT, "action points");
+    check_cap(issues, (int64_t)content.lights.size(), kLightSlots, "lights");
 }
 
 void check_duplicate_action_points(const MapContent &content, std::vector<MapVerifyIssue> &issues)
 {
-    std::set<long> seen, duplicates;
+    std::set<int64_t> seen, duplicates;
     for (const MapActionPointRecord &a : content.action_points)
     {
         if (!seen.insert(a.point_number).second)
             duplicates.insert(a.point_number);
     }
-    for (long num : duplicates)
+    for (int64_t num : duplicates)
     {
         char msg[80];
-        snprintf(msg, sizeof(msg), "Action point number %ld is used more than once", num);
+        snprintf(msg, sizeof(msg), "Action point number %" PRId64 " is used more than once", (int64_t)(num));
         add(issues, MVI_Warn, msg);
     }
 }
 
 void check_duplicate_herogates(const MapContent &content, std::vector<MapVerifyIssue> &issues)
 {
-    std::set<long> seen, duplicates;
+    std::set<int64_t> seen, duplicates;
     for (const MapThingRecord &t : content.things)
     {
         if ((t.thing_class != TCls_Object) || (t.herogate_number == 0))
@@ -181,19 +181,19 @@ void check_duplicate_herogates(const MapContent &content, std::vector<MapVerifyI
         if (!seen.insert(t.herogate_number).second)
             duplicates.insert(t.herogate_number);
     }
-    for (long num : duplicates)
+    for (int64_t num : duplicates)
     {
         char msg[80];
-        snprintf(msg, sizeof(msg), "Hero gate number %ld is used more than once", num);
+        snprintf(msg, sizeof(msg), "Hero gate number %" PRId64 " is used more than once", (int64_t)(num));
         add(issues, MVI_Warn, msg);
     }
 }
 
 void check_border(const MapContent &content, std::vector<MapVerifyIssue> &issues)
 {
-    for (long y = 0; y < content.map_tiles_y; y++)
+    for (int64_t y = 0; y < content.map_tiles_y; y++)
     {
-        for (long x = 0; x < content.map_tiles_x; x++)
+        for (int64_t x = 0; x < content.map_tiles_x; x++)
         {
             bool on_border = (x == 0) || (y == 0) || (x == content.map_tiles_x - 1) || (y == content.map_tiles_y - 1);
             if (!on_border)

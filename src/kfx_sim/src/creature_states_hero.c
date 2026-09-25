@@ -83,13 +83,13 @@ TbBool has_available_enemy_dungeon_heart(struct Thing *thing, PlayerNumber plyr_
     return false;
 }
 
-long good_find_best_enemy_dungeon(struct Thing* creatng)
+int64_t good_find_best_enemy_dungeon(struct Thing* creatng)
 {
     PlayerNumber best_plyr_idx = -1;
     PlayerNumber backup_plyr_idx = -1;
     struct PlayerInfo* player;
     struct Dungeon* dungeon;
-    long best_score = INT32_MIN;
+    int64_t best_score = INT32_MIN;
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
         if (player_is_friendly_or_defeated(plyr_idx, creatng->owner)) {
@@ -107,7 +107,7 @@ long good_find_best_enemy_dungeon(struct Thing* creatng)
         {
 
             dungeon = get_players_dungeon(player);
-            long score;
+            int64_t score;
             if (player_exists(player) && !dungeon_invalid(dungeon) && (creatng->owner != plyr_idx))
             {
                 score = dungeon->total_score;
@@ -140,10 +140,10 @@ long good_find_best_enemy_dungeon(struct Thing* creatng)
  * @param thing The hero.
  * @return Gives 1 if the hero was ordered to go into treasure room, 0 otherwise.
  */
-long check_out_hero_has_money_for_treasure_room(struct Thing* thing)
+int64_t check_out_hero_has_money_for_treasure_room(struct Thing* thing)
 {
     struct Room* room;
-    SYNCDBG(8, "Starting for %s index %d", thing_model_name(thing), (int)thing->index);
+    SYNCDBG(8, "Starting for %s index %" PRId64, thing_model_name(thing), (int64_t)thing->index);
     //If the hero doesn't have any money - then just return
     if (thing->creature.gold_carried <= 0) {
         return 0;
@@ -171,7 +171,7 @@ TbBool good_setup_wander_to_exit(struct Thing *creatng)
         struct Room* dstroom = find_nearest_room_of_role_for_thing_with_spare_capacity(creatng, creatng->owner, RoRoF_PowersStorage, NavRtF_Default, 1);
         if (!(room_is_invalid(dstroom)) && find_random_valid_position_for_thing_in_room_avoiding_object(creatng, dstroom, &pos))
         {
-            SYNCLOG("Can't find a library for hero %s index %d to place stolen spellbook", thing_model_name(creatng), (int)creatng->index);
+            SYNCLOG("Can't find a library for hero %s index %" PRId64 " to place stolen spellbook", thing_model_name(creatng), (int64_t)creatng->index);
             if (dstroom == get_room_thing_is_on(creatng))
             {
                 if (dstroom->owner == creatng->owner)
@@ -216,20 +216,20 @@ TbBool good_setup_wander_to_exit(struct Thing *creatng)
     struct Thing* gatetng = find_best_hero_gate_to_navigate_to(creatng);
     if (thing_is_invalid(gatetng))
     {
-        SYNCLOG("Can't find any exit gate for hero %s index %d",thing_model_name(creatng),(int)creatng->index);
+        SYNCLOG("Can't find any exit gate for hero %s index %" PRId64,thing_model_name(creatng),(int64_t)creatng->index);
         return false;
     }
     if (!setup_person_move_to_coord(creatng, &gatetng->mappos, NavRtF_Default))
     {
-        WARNLOG("Hero %s index %d can't move to exit gate %d at (%d,%d).",thing_model_name(creatng),(int)creatng->index,
-            (int)gatetng->index, (int)gatetng->mappos.x.stl.num, (int)gatetng->mappos.y.stl.num);
+        WARNLOG("Hero %s index %" PRId64 " can't move to exit gate %" PRId64 " at (%" PRId64 ",%" PRId64 ").",thing_model_name(creatng),(int64_t)creatng->index,
+            (int64_t)gatetng->index, (int64_t)gatetng->mappos.x.stl.num, (int64_t)gatetng->mappos.y.stl.num);
         return false;
     }
     creatng->continue_state = CrSt_GoodLeaveThroughExitDoor;
     return true;
 }
 
-TbBool good_setup_attack_rooms(struct Thing *creatng, long dngn_id)
+TbBool good_setup_attack_rooms(struct Thing *creatng, int64_t dngn_id)
 {
     struct Room* room = find_nearest_room_to_vandalise(creatng, dngn_id, NavRtF_Default);
     if (room_is_invalid(room))
@@ -239,12 +239,12 @@ TbBool good_setup_attack_rooms(struct Thing *creatng, long dngn_id)
     struct Coord3d pos;
     if (!find_random_valid_position_for_thing_in_room(creatng, room, &pos) || !creature_can_navigate_to_with_storage(creatng, &pos, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d cannot destroy %s because it cannot reach position within it",thing_model_name(creatng),(int)creatng->index,room_code_name(room->kind));
+        ERRORLOG("The %s index %" PRId64 " cannot destroy %s because it cannot reach position within it",thing_model_name(creatng),(int64_t)creatng->index,room_code_name(room->kind));
         return false;
     }
     if (!setup_random_head_for_room(creatng, room, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d cannot destroy %s because it cannot head for it",thing_model_name(creatng),(int)creatng->index,room_code_name(room->kind));
+        ERRORLOG("The %s index %" PRId64 " cannot destroy %s because it cannot head for it",thing_model_name(creatng),(int64_t)creatng->index,room_code_name(room->kind));
         return false;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
@@ -253,7 +253,7 @@ TbBool good_setup_attack_rooms(struct Thing *creatng, long dngn_id)
     return true;
 }
 
-TbBool good_setup_sabotage_rooms(struct Thing* creatng, short dngn_id)
+TbBool good_setup_sabotage_rooms(struct Thing* creatng, int64_t dngn_id)
 {
     struct Room* room = find_nearest_room_to_vandalise(creatng, dngn_id, NavRtF_Default);
     if (room_is_invalid(room))
@@ -263,12 +263,12 @@ TbBool good_setup_sabotage_rooms(struct Thing* creatng, short dngn_id)
     struct Coord3d pos;
     if (!find_random_valid_position_for_thing_in_room(creatng, room, &pos) || !creature_can_navigate_to_with_storage(creatng, &pos, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d cannot destroy %s because it cannot reach position within it", thing_model_name(creatng), (int)creatng->index, room_code_name(room->kind));
+        ERRORLOG("The %s index %" PRId64 " cannot destroy %s because it cannot reach position within it", thing_model_name(creatng), (int64_t)creatng->index, room_code_name(room->kind));
         return false;
     }
     if (!setup_random_head_for_room(creatng, room, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d cannot destroy %s because it cannot head for it", thing_model_name(creatng), (int)creatng->index, room_code_name(room->kind));
+        ERRORLOG("The %s index %" PRId64 " cannot destroy %s because it cannot head for it", thing_model_name(creatng), (int64_t)creatng->index, room_code_name(room->kind));
         return false;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
@@ -287,12 +287,12 @@ TbBool good_setup_defend_rooms(struct Thing* creatng)
     struct Coord3d pos;
     if (!find_random_valid_position_for_thing_in_room(creatng, room, &pos) || !creature_can_navigate_to_with_storage(creatng, &pos, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d cannot defend %s because it cannot reach position within it", thing_model_name(creatng), (int)creatng->index, room_code_name(room->kind));
+        ERRORLOG("The %s index %" PRId64 " cannot defend %s because it cannot reach position within it", thing_model_name(creatng), (int64_t)creatng->index, room_code_name(room->kind));
         return false;
     }
     if (!setup_random_head_for_room(creatng, room, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d cannot defend %s because it cannot head for it", thing_model_name(creatng), (int)creatng->index, room_code_name(room->kind));
+        ERRORLOG("The %s index %" PRId64 " cannot defend %s because it cannot head for it", thing_model_name(creatng), (int64_t)creatng->index, room_code_name(room->kind));
         return false;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
@@ -301,24 +301,24 @@ TbBool good_setup_defend_rooms(struct Thing* creatng)
     return true;
 }
 
-TbBool good_setup_loot_treasure_room(struct Thing *thing, long dngn_id)
+TbBool good_setup_loot_treasure_room(struct Thing *thing, int64_t dngn_id)
 {
     struct Room* room = find_random_room_of_role_with_used_capacity_creature_can_navigate_to(thing, dngn_id, RoRoF_GoldStorage, NavRtF_Default);
     if (room_is_invalid(room))
     {
-        SYNCDBG(6,"No accessible player %d treasure room found",(int)dngn_id);
+        SYNCDBG(6,"No accessible player %" PRId64 " treasure room found",(int64_t)dngn_id);
         return false;
     }
     struct Coord3d pos;
     if (!find_random_valid_position_for_thing_in_room(thing, room, &pos))
     {
-        SYNCDBG(6,"No position for %s index %d in %s owned by player %d",
-            thing_model_name(thing),(int)thing->index,room_code_name(room->kind),(int)room->owner);
+        SYNCDBG(6,"No position for %s index %" PRId64 " in %s owned by player %" PRId64,
+            thing_model_name(thing),(int64_t)thing->index,room_code_name(room->kind),(int64_t)room->owner);
         return false;
     }
     if (!setup_person_move_to_coord(thing, &pos, NavRtF_Default))
     {
-        WARNLOG("Cannot setup move to player %d treasure room",(int)dngn_id);
+        WARNLOG("Cannot setup move to player %" PRId64 " treasure room",(int64_t)dngn_id);
         return false;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
@@ -327,25 +327,25 @@ TbBool good_setup_loot_treasure_room(struct Thing *thing, long dngn_id)
     return true;
 }
 
-TbBool good_setup_loot_research_room(struct Thing *thing, long dngn_id)
+TbBool good_setup_loot_research_room(struct Thing *thing, int64_t dngn_id)
 {
     struct Room* room = find_random_room_of_role_with_used_capacity_creature_can_navigate_to(thing, dngn_id, RoRoF_PowersStorage, NavRtF_Default);
     if (room_is_invalid(room))
     {
-        SYNCDBG(6,"No accessible player %d library found",(int)dngn_id);
+        SYNCDBG(6,"No accessible player %" PRId64 " library found",(int64_t)dngn_id);
         return false;
     }
     struct Coord3d pos;
     if (!find_random_valid_position_for_thing_in_room(thing, room, &pos))
     {
-        SYNCDBG(6,"No position for %s index %d in %s owned by player %d",
-            thing_model_name(thing),(int)thing->index,room_code_name(room->kind),(int)room->owner);
+        SYNCDBG(6,"No position for %s index %" PRId64 " in %s owned by player %" PRId64,
+            thing_model_name(thing),(int64_t)thing->index,room_code_name(room->kind),(int64_t)room->owner);
         return false;
     }
     if (!setup_person_move_to_coord(thing, &pos, NavRtF_Default))
     {
-        SYNCDBG(6,"Cannot setup move %s index %d to %s owned by player %d",
-            thing_model_name(thing),(int)thing->index,room_code_name(room->kind),(int)room->owner);
+        SYNCDBG(6,"Cannot setup move %s index %" PRId64 " to %s owned by player %" PRId64,
+            thing_model_name(thing),(int64_t)thing->index,room_code_name(room->kind),(int64_t)room->owner);
         return false;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
@@ -354,12 +354,12 @@ TbBool good_setup_loot_research_room(struct Thing *thing, long dngn_id)
     return true;
 }
 
-long get_wanderer_possible_targets_count_in_list(long first_thing_idx, struct Thing *wanderer)
+int64_t get_wanderer_possible_targets_count_in_list(int64_t first_thing_idx, struct Thing *wanderer)
 {
-    long victims_count = 0;
+    int64_t victims_count = 0;
     // Get the amount of possible targets
-    unsigned long k = 0;
-    long i = first_thing_idx;
+    uint64_t k = 0;
+    int64_t i = first_thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -391,13 +391,13 @@ long get_wanderer_possible_targets_count_in_list(long first_thing_idx, struct Th
     return victims_count;
 }
 
-TbBool wander_to_specific_possible_target_in_list(long first_thing_idx, struct Thing *wanderer, long specific_target)
+TbBool wander_to_specific_possible_target_in_list(int64_t first_thing_idx, struct Thing *wanderer, int64_t specific_target)
 {
-    long target_match = specific_target;
+    int64_t target_match = specific_target;
     // Find the target
-    unsigned long k = 0;
-    long i = first_thing_idx;
-    long matched_thing_idx = i;
+    uint64_t k = 0;
+    int64_t i = first_thing_idx;
+    int64_t matched_thing_idx = i;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -422,7 +422,7 @@ TbBool wander_to_specific_possible_target_in_list(long first_thing_idx, struct T
             // If it is the one, try moving to it
             if (setup_person_move_to_coord(wanderer, &thing->mappos, NavRtF_Default))
             {
-                SYNCDBG(8,"The %s index %d wanders towards %s index %d",thing_model_name(wanderer),(int)wanderer->index,thing_model_name(thing),(int)thing->index);
+                SYNCDBG(8,"The %s index %" PRId64 " wanders towards %s index %" PRId64,thing_model_name(wanderer),(int64_t)wanderer->index,thing_model_name(thing),(int64_t)thing->index);
                 return true;
             }
             // If we've got the right creature, but moving failed for some reason, try next one.
@@ -453,25 +453,25 @@ TbBool wander_to_specific_possible_target_in_list(long first_thing_idx, struct T
  * @param wanderer
  * @return
  */
-TbBool setup_wanderer_move_to_random_creature_from_list(long first_thing_idx, struct Thing *wanderer)
+TbBool setup_wanderer_move_to_random_creature_from_list(int64_t first_thing_idx, struct Thing *wanderer)
 {
-    long possible_targets = get_wanderer_possible_targets_count_in_list(first_thing_idx, wanderer);
+    int64_t possible_targets = get_wanderer_possible_targets_count_in_list(first_thing_idx, wanderer);
     // Select random target
     if (possible_targets < 1) {
-        SYNCDBG(4,"The %s index %d cannot wander to creature, there are no targets",thing_model_name(wanderer),(int)wanderer->index);
+        SYNCDBG(4,"The %s index %" PRId64 " cannot wander to creature, there are no targets",thing_model_name(wanderer),(int64_t)wanderer->index);
         return false;
     }
-    long target_match = THING_RANDOM(wanderer, possible_targets);
+    int64_t target_match = THING_RANDOM(wanderer, possible_targets);
     if ( wander_to_specific_possible_target_in_list(first_thing_idx, wanderer, target_match) )
     {
         return true;
     }
-    WARNLOG("The %s index %d cannot wander to creature, it seem all %d creatures were not navigable",
-        thing_model_name(wanderer),(int)wanderer->index,(int)possible_targets);
+    WARNLOG("The %s index %" PRId64 " cannot wander to creature, it seem all %" PRId64 " creatures were not navigable",
+        thing_model_name(wanderer),(int64_t)wanderer->index,(int64_t)possible_targets);
     return false;
 }
 
-TbBool good_setup_wander_to_creature(struct Thing *wanderer, long dngn_id)
+TbBool good_setup_wander_to_creature(struct Thing *wanderer, int64_t dngn_id)
 {
     SYNCDBG(7,"Starting");
     struct Dungeon* dungeon = get_dungeon(dngn_id);
@@ -480,8 +480,8 @@ TbBool good_setup_wander_to_creature(struct Thing *wanderer, long dngn_id)
         wanderer->continue_state = CrSt_GoodWanderToCreatureCombat;
         return true;
     }
-    SYNCDBG(4,"The %s index %d cannot wander to player %d creatures",thing_model_name(wanderer),
-        (int)wanderer->index,(int)dngn_id);
+    SYNCDBG(4,"The %s index %" PRId64 " cannot wander to player %" PRId64 " creatures",thing_model_name(wanderer),
+        (int64_t)wanderer->index,(int64_t)dngn_id);
     return false;
 }
 
@@ -492,7 +492,7 @@ TbBool good_setup_wander_to_creature(struct Thing *wanderer, long dngn_id)
  * @param dngn_id
  * @return
  */
-TbBool good_setup_wander_to_spdigger(struct Thing *wanderer, long dngn_id)
+TbBool good_setup_wander_to_spdigger(struct Thing *wanderer, int64_t dngn_id)
 {
     SYNCDBG(7,"Starting");
     struct Dungeon* dungeon = get_dungeon(dngn_id);
@@ -501,11 +501,11 @@ TbBool good_setup_wander_to_spdigger(struct Thing *wanderer, long dngn_id)
         wanderer->continue_state = CrSt_GoodWanderToCreatureCombat;
         return true;
     }
-    SYNCDBG(4,"Cannot wander to player %d creatures",(int)dngn_id);
+    SYNCDBG(4,"Cannot wander to player %" PRId64 " creatures",(int64_t)dngn_id);
     return false;
 }
 
-short good_arrived_at_attack_room(struct Thing *thing)
+int64_t good_arrived_at_attack_room(struct Thing *thing)
 {
     struct Room* room = get_room_thing_is_on(thing);
     // If the current tile can be destroyed
@@ -523,12 +523,12 @@ short good_arrived_at_attack_room(struct Thing *thing)
     return 0;
 }
 
-short good_attack_room(struct Thing *thing)
+int64_t good_attack_room(struct Thing *thing)
 {
     // Debug code to find incorrect states
     if (!is_hero_thing(thing))
     {
-        ERRORLOG("Non hero %s index %d owner %d - reset",thing_model_name(thing),(int)thing->index,(int)thing->owner);
+        ERRORLOG("Non hero %s index %" PRId64 " owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
         return 0;
     }
@@ -551,11 +551,11 @@ short good_attack_room(struct Thing *thing)
         return 1;
     }
     // Otherwise, search around for a tile to destroy
-    long m = THING_RANDOM(thing, SMALL_AROUND_SLAB_LENGTH);
-    for (long n = 0; n < SMALL_AROUND_SLAB_LENGTH; n++)
+    int64_t m = THING_RANDOM(thing, SMALL_AROUND_SLAB_LENGTH);
+    for (int64_t n = 0; n < SMALL_AROUND_SLAB_LENGTH; n++)
     {
-        MapSlabCoord slb_x = base_slb_x + (long)small_around[m].delta_x;
-        MapSlabCoord slb_y = base_slb_y + (long)small_around[m].delta_y;
+        MapSlabCoord slb_x = base_slb_x + (int64_t)small_around[m].delta_x;
+        MapSlabCoord slb_y = base_slb_y + (int64_t)small_around[m].delta_y;
         room = slab_room_get(slb_x, slb_y);
         if (room_exists(room) && !players_creatures_tolerate_each_other(thing->owner, room->owner) && !room_cannot_vandalise(room->kind))
         {
@@ -571,12 +571,12 @@ short good_attack_room(struct Thing *thing)
     return 0;
 }
 
-short good_back_at_start(struct Thing *thing)
+int64_t good_back_at_start(struct Thing *thing)
 {
     // Debug code to find incorrect states
     if (!is_hero_thing(thing))
     {
-        ERRORLOG("Non hero thing %ld, %s, owner %ld - reset",(long)thing->index,thing_model_name(thing),(long)thing->owner);
+        ERRORLOG("Non hero thing %" PRId64 ", %s, owner %" PRId64 " - reset",(int64_t)thing->index,thing_model_name(thing),(int64_t)thing->owner);
         set_start_state(thing);
         return false;
     }
@@ -586,8 +586,8 @@ short good_back_at_start(struct Thing *thing)
         return 1;
     }
     SubtlCodedCoords stl_num = get_subtile_number(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
-    long m = THING_RANDOM(thing, AROUND_MAP_LENGTH);
-    for (long n = 0; n < AROUND_MAP_LENGTH; n++)
+    int64_t m = THING_RANDOM(thing, AROUND_MAP_LENGTH);
+    for (int64_t n = 0; n < AROUND_MAP_LENGTH; n++)
     {
         struct Map* mapblk = get_map_block_at_pos(stl_num + kfx_sim_state.around_map[m]);
         // Per-block code
@@ -615,20 +615,20 @@ TbBool good_can_move_to_dungeon_heart(struct Thing *creatng, PlayerNumber plyr_i
     struct PlayerInfo* player = get_player(plyr_idx);
     if (!player_exists(player))
     {
-        SYNCDBG(3,"The %s index %d cannot move to inactive player %d heart", thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        SYNCDBG(3,"The %s index %" PRId64 " cannot move to inactive player %" PRId64 " heart", thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     struct Thing* heartng = get_player_soul_container(plyr_idx);
     TRACE_THING(heartng);
     if (!thing_exists(heartng))
     {
-        SYNCDBG(3,"The %s index %d cannot move to player %d which has no heart", thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        SYNCDBG(3,"The %s index %" PRId64 " cannot move to player %" PRId64 " which has no heart", thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     return creature_can_navigate_to(creatng, &heartng->mappos, NavRtF_Default);
 }
 
-short good_arrived_at_attack_dungeon_heart(struct Thing* creatng)
+int64_t good_arrived_at_attack_dungeon_heart(struct Thing* creatng)
 {
     creatng->continue_state = CrSt_GoodDoingNothing;
     if (creature_look_for_enemy_heart_combat(creatng))
@@ -638,7 +638,7 @@ short good_arrived_at_attack_dungeon_heart(struct Thing* creatng)
     return move_to_position(creatng);
 }
 
-short good_arrived_at_combat(struct Thing* creatng)
+int64_t good_arrived_at_combat(struct Thing* creatng)
 {
     creatng->continue_state = CrSt_GoodDoingNothing;
     if (creature_look_for_combat(creatng))
@@ -654,26 +654,26 @@ TbBool good_setup_wander_to_dungeon_heart(struct Thing *creatng, PlayerNumber pl
     TRACE_THING(creatng);
     if (creatng->owner == plyr_idx)
     {
-        ERRORLOG("The %s index %d tried to wander to own (%d) heart", thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        ERRORLOG("The %s index %" PRId64 " tried to wander to own (%" PRId64 ") heart", thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     struct PlayerInfo* player = get_player(plyr_idx);
     if (!player_exists(player))
     {
-        WARNLOG("The %s index %d tried to wander to inactive player (%d) heart", thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        WARNLOG("The %s index %" PRId64 " tried to wander to inactive player (%" PRId64 ") heart", thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     struct Thing* heartng = get_player_soul_container(plyr_idx);
     TRACE_THING(heartng);
     if (!thing_exists(heartng))
     {
-        WARNLOG("The %s index %d tried to wander to player %d which has no heart", thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        WARNLOG("The %s index %" PRId64 " tried to wander to player %" PRId64 " which has no heart", thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     if (!setup_person_move_to_coord(creatng, &heartng->mappos, NavRtF_Default))
     {
-        WARNLOG("Hero %s index %d can't move to heart %d at (%d,%d).", thing_model_name(creatng), (int)creatng->index,
-            (int)heartng->index, (int)heartng->mappos.x.stl.num, (int)heartng->mappos.y.stl.num);
+        WARNLOG("Hero %s index %" PRId64 " can't move to heart %" PRId64 " at (%" PRId64 ",%" PRId64 ").", thing_model_name(creatng), (int64_t)creatng->index,
+            (int64_t)heartng->index, (int64_t)heartng->mappos.x.stl.num, (int64_t)heartng->mappos.y.stl.num);
         return false;
     }
     creatng->continue_state = CrSt_GoodWanderToObjectCombat;
@@ -686,20 +686,20 @@ TbBool good_setup_rush_to_dungeon_heart(struct Thing* creatng, PlayerNumber plyr
     TRACE_THING(creatng);
     if (creatng->owner == plyr_idx)
     {
-        ERRORLOG("The %s index %d tried to wander to own (%d) heart", thing_model_name(creatng), (int)creatng->index, (int)plyr_idx);
+        ERRORLOG("The %s index %" PRId64 " tried to wander to own (%" PRId64 ") heart", thing_model_name(creatng), (int64_t)creatng->index, (int64_t)plyr_idx);
         return false;
     }
     struct PlayerInfo* player = get_player(plyr_idx);
     if (!player_exists(player))
     {
-        WARNLOG("The %s index %d tried to wander to inactive player (%d) heart", thing_model_name(creatng), (int)creatng->index, (int)plyr_idx);
+        WARNLOG("The %s index %" PRId64 " tried to wander to inactive player (%" PRId64 ") heart", thing_model_name(creatng), (int64_t)creatng->index, (int64_t)plyr_idx);
         return false;
     }
     struct Thing* heartng = get_player_soul_container(plyr_idx);
     TRACE_THING(heartng);
     if (!thing_exists(heartng))
     {
-        WARNLOG("The %s index %d tried to wander to player %d which has no heart", thing_model_name(creatng), (int)creatng->index, (int)plyr_idx);
+        WARNLOG("The %s index %" PRId64 " tried to wander to player %" PRId64 " which has no heart", thing_model_name(creatng), (int64_t)creatng->index, (int64_t)plyr_idx);
         return false;
     }
     set_creature_object_snipe(creatng, heartng);
@@ -713,14 +713,14 @@ TbBool good_setup_wander_to_own_heart(struct Thing* creatng)
     TRACE_THING(heartng);
     if (!thing_exists(heartng))
     {
-        WARNLOG("The %s index %d tried to wander to player %d which has no heart", thing_model_name(creatng), (int)creatng->index, creatng->owner);
+        WARNLOG("The %s index %" PRId64 " tried to wander to player %" PRId64 " which has no heart", thing_model_name(creatng), (int64_t)creatng->index, (int64_t)(creatng->owner));
         return false;
     }
 
     if (!setup_person_move_to_coord(creatng, &heartng->mappos, NavRtF_Default))
     {
-        WARNLOG("Hero %s index %d can't move to heart %d at (%d,%d).", thing_model_name(creatng), (int)creatng->index,
-            (int)heartng->index, (int)heartng->mappos.x.stl.num, (int)heartng->mappos.y.stl.num);
+        WARNLOG("Hero %s index %" PRId64 " can't move to heart %" PRId64 " at (%" PRId64 ",%" PRId64 ").", thing_model_name(creatng), (int64_t)creatng->index,
+            (int64_t)heartng->index, (int64_t)heartng->mappos.x.stl.num, (int64_t)heartng->mappos.y.stl.num);
         return false;
     }
     creatng->continue_state = CrSt_PatrolHere;
@@ -730,21 +730,21 @@ TbBool good_setup_wander_to_own_heart(struct Thing* creatng)
 TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber target_plyr_idx)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    SYNCDBG(8,"The %s index %d performing task %d",thing_model_name(creatng),(int)creatng->index,(int)cctrl->party.objective);
+    SYNCDBG(8,"The %s index %" PRId64 " performing task %" PRId64,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)cctrl->party.objective);
     switch (cctrl->party.objective)
     {
     case CHeroTsk_AttackRooms:
         if (good_setup_attack_rooms(creatng, target_plyr_idx)) {
             return true;
         }
-        SYNCDBG(8,"Can't attack player %d rooms, switching to attack heart", (int)target_plyr_idx);
+        SYNCDBG(8,"Can't attack player %" PRId64 " rooms, switching to attack heart", (int64_t)target_plyr_idx);
         cctrl->party.objective = CHeroTsk_AttackDnHeart;
         return false;
     case CHeroTsk_SabotageRooms:
         if (good_setup_sabotage_rooms(creatng, target_plyr_idx)) {
             return true;
         }
-        SYNCDBG(8,"Can't attack player %d rooms, switching to attack heart", (int)target_plyr_idx);
+        SYNCDBG(8,"Can't attack player %" PRId64 " rooms, switching to attack heart", (int64_t)target_plyr_idx);
         cctrl->party.objective = CHeroTsk_AttackDnHeart;
         return false;
     case CHeroTsk_AttackDnHeart:
@@ -752,14 +752,14 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
         {
             return true;
         }
-        SYNCDBG(8,"Cannot wander to player %d heart", (int)target_plyr_idx);
+        SYNCDBG(8,"Cannot wander to player %" PRId64 " heart", (int64_t)target_plyr_idx);
         return false;
     case CHeroTsk_SnipeDnHeart:
         if (good_setup_rush_to_dungeon_heart(creatng, target_plyr_idx))
         {
             return true;
         }
-        SYNCDBG(8,"Cannot rush to player %d heart", (int)target_plyr_idx);
+        SYNCDBG(8,"Cannot rush to player %" PRId64 " heart", (int64_t)target_plyr_idx);
         return false;
     case CHeroTsk_StealGold:
     {
@@ -769,14 +769,14 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
             if (good_setup_loot_treasure_room(creatng, target_plyr_idx)) {
                 return true;
             }
-            SYNCDBG(8,"Can't loot player %d treasury, switching to attack heart", (int)target_plyr_idx);
+            SYNCDBG(8,"Can't loot player %" PRId64 " treasury, switching to attack heart", (int64_t)target_plyr_idx);
             cctrl->party.objective = CHeroTsk_AttackDnHeart;
         } else
         {
             if (good_setup_wander_to_exit(creatng)) {
                 return true;
             }
-            SYNCDBG(8, "Can't wander to exit after looting player %d treasury, switching to attack heart", (int)target_plyr_idx);
+            SYNCDBG(8, "Can't wander to exit after looting player %" PRId64 " treasury, switching to attack heart", (int64_t)target_plyr_idx);
             cctrl->party.objective = CHeroTsk_AttackDnHeart;
         }
         return false;
@@ -787,14 +787,14 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
             if (good_setup_loot_research_room(creatng, target_plyr_idx)) {
                 return true;
             }
-            SYNCDBG(8,"Can't loot player %d spells, switching to attack heart", (int)target_plyr_idx);
+            SYNCDBG(8,"Can't loot player %" PRId64 " spells, switching to attack heart", (int64_t)target_plyr_idx);
             cctrl->party.objective = CHeroTsk_AttackDnHeart;
         } else
         {
             if (good_setup_wander_to_exit(creatng)) {
                 return true;
             }
-            SYNCDBG(8,"Can't wander to exit after looting player %d spells, switching to attack heart", (int)target_plyr_idx);
+            SYNCDBG(8,"Can't wander to exit after looting player %" PRId64 " spells, switching to attack heart", (int64_t)target_plyr_idx);
             cctrl->party.objective = CHeroTsk_AttackDnHeart;
         }
         return false;
@@ -805,13 +805,13 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
             // Try wander to creature
             if (good_setup_wander_to_creature(creatng, cctrl->party.target_plyr_idx))
             {
-                SYNCDBG(17,"Finished - wandering to player %d creature", (int)cctrl->party.target_plyr_idx);
+                SYNCDBG(17,"Finished - wandering to player %" PRId64 " creature", (int64_t)cctrl->party.target_plyr_idx);
                 return true;
             }
             // If the wander failed, try wander to special digger
             if (good_setup_wander_to_spdigger(creatng, cctrl->party.target_plyr_idx))
             {
-                SYNCDBG(17,"Finished - wandering to player %d worker", (int)cctrl->party.target_plyr_idx);
+                SYNCDBG(17,"Finished - wandering to player %" PRId64 " worker", (int64_t)cctrl->party.target_plyr_idx);
                 return true;
             }
         } else
@@ -819,17 +819,17 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
             // Try wander to special digger
             if (good_setup_wander_to_spdigger(creatng, cctrl->party.target_plyr_idx))
             {
-                SYNCDBG(17,"Finished - wandering to player %d worker", (int)cctrl->party.target_plyr_idx);
+                SYNCDBG(17,"Finished - wandering to player %" PRId64 " worker", (int64_t)cctrl->party.target_plyr_idx);
                 return true;
             }
             // If the wander failed, try wander to creature
             if (good_setup_wander_to_creature(creatng, cctrl->party.target_plyr_idx))
             {
-                SYNCDBG(17,"Finished - wandering to player %d creature", (int)cctrl->party.target_plyr_idx);
+                SYNCDBG(17,"Finished - wandering to player %" PRId64 " creature", (int64_t)cctrl->party.target_plyr_idx);
                 return true;
             }
         }
-        SYNCDBG(8,"Can't attack player %d creature, switching to attack heart", (int)cctrl->party.target_plyr_idx);
+        SYNCDBG(8,"Can't attack player %" PRId64 " creature, switching to attack heart", (int64_t)cctrl->party.target_plyr_idx);
         cctrl->party.objective = CHeroTsk_AttackDnHeart;
         return false;
     case CHeroTsk_DefendSpawn:
@@ -849,7 +849,7 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
         {
             return true;
         }
-        SYNCDBG(8,"Can't defend own heart, switching to attack player %d heart", (int)cctrl->party.target_plyr_idx);
+        SYNCDBG(8,"Can't defend own heart, switching to attack player %" PRId64 " heart", (int64_t)cctrl->party.target_plyr_idx);
         cctrl->party.objective = CHeroTsk_AttackEnemies;
         return false;
     case CHeroTsk_DefendRooms:
@@ -868,15 +868,15 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
     }
 }
 
-short good_doing_nothing(struct Thing *creatng)
+int64_t good_doing_nothing(struct Thing *creatng)
 {
     SYNCDBG(18,"Starting");
     TRACE_THING(creatng);
     // Debug code to find incorrect states
     if (!is_hero_thing(creatng))
     {
-        ERRORLOG("Non hero %s index %d owned by player %d - reset",
-            thing_model_name(creatng),(int)creatng->index,(int)creatng->owner);
+        ERRORLOG("Non hero %s index %" PRId64 " owned by player %" PRId64 " - reset",
+            thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
         set_start_state(creatng);
         return 0;
     }
@@ -887,7 +887,7 @@ short good_doing_nothing(struct Thing *creatng)
         return 0;
     }
     // Respect the idle time - just wander around some time
-    int32_t nturns = get_gameturn() - cctrl->idle.start_gameturn;
+    int64_t nturns = get_gameturn() - cctrl->idle.start_gameturn;
     if (nturns <= 1) {
         return 1;
     }
@@ -903,8 +903,8 @@ short good_doing_nothing(struct Thing *creatng)
     if ((cctrl->job_assigned != Job_NULL) && (get_gameturn() - cctrl->job_assigned_check_turn > 128))
     {
         if (attempt_job_preference(creatng, cctrl->job_assigned)) {
-            SYNCDBG(8,"The %s index %d will do assigned job with state %s",thing_model_name(creatng),
-                (int)creatng->index,creature_state_code_name(get_creature_state_besides_interruptions(creatng)));
+            SYNCDBG(8,"The %s index %" PRId64 " will do assigned job with state %s",thing_model_name(creatng),
+                (int64_t)creatng->index,creature_state_code_name(get_creature_state_besides_interruptions(creatng)));
             return 1;
         }
         cctrl->job_assigned_check_turn = get_gameturn();
@@ -916,8 +916,8 @@ short good_doing_nothing(struct Thing *creatng)
         struct PlayerInfo* player = get_player(target_plyr_idx);
         if (player_invalid(player))
         {
-            ERRORLOG("Invalid target player in %s index %d owned by player %d - reset",
-                thing_model_name(creatng),(int)creatng->index,(int)creatng->owner);
+            ERRORLOG("Invalid target player in %s index %" PRId64 " owned by player %" PRId64 " - reset",
+                thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
             cctrl->party.target_plyr_idx = -1;
             return 0;
         }
@@ -947,7 +947,7 @@ short good_doing_nothing(struct Thing *creatng)
             } else
             {
                 // Value lower than 0 would mean it is invalid
-                WARNLOG("Invalid wait time detected for %s index %d, value %ld",thing_model_name(creatng),(int)creatng->index,(long)cctrl->hero.wait_time);
+                WARNLOG("Invalid wait time detected for %s index %" PRId64 ", value %" PRId64,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)cctrl->hero.wait_time);
                 cctrl->hero.wait_time = 0;
             }
         } else
@@ -983,8 +983,8 @@ short good_doing_nothing(struct Thing *creatng)
         target_plyr_idx = cctrl->party.target_plyr_idx;
         if (target_plyr_idx == -1)
         {
-            SYNCDBG(4,"No enemy dungeon to perform %s index %d task",
-                thing_model_name(creatng),(int)creatng->index);
+            SYNCDBG(4,"No enemy dungeon to perform %s index %" PRId64 " task",
+                thing_model_name(creatng),(int64_t)creatng->index);
             if (cctrl->party.original_objective > CHeroTsk_Default)
             {
                 cctrl->party.objective = cctrl->party.original_objective;
@@ -1006,12 +1006,12 @@ short good_doing_nothing(struct Thing *creatng)
     return 0;
 }
 
-short good_drops_gold(struct Thing *thing)
+int64_t good_drops_gold(struct Thing *thing)
 {
     // Debug code to find incorrect states
     if (!is_hero_thing(thing))
     {
-        ERRORLOG("Non hero %s index %d, owner %d - reset",thing_model_name(thing),(int)thing->index,(int)thing->owner);
+        ERRORLOG("Non hero %s index %" PRId64 ", owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
         sim_feedback->report_error_stat(ESE_BadCreatrState);
         return 0;
@@ -1031,12 +1031,12 @@ short good_drops_gold(struct Thing *thing)
     return 1;
 }
 
-short good_leave_through_exit_door(struct Thing *thing)
+int64_t good_leave_through_exit_door(struct Thing *thing)
 {
     // Debug code to find incorrect states
     if (!is_hero_thing(thing))
     {
-        ERRORLOG("Non hero %s index %d, owner %d - reset",thing_model_name(thing),(int)thing->index,(int)thing->owner);
+        ERRORLOG("Non hero %s index %" PRId64 ", owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
         sim_feedback->report_error_stat(ESE_BadCreatrState);
         return false;
@@ -1062,13 +1062,13 @@ short good_leave_through_exit_door(struct Thing *thing)
     return 1;
 }
 
-short good_returns_to_start(struct Thing *thing)
+int64_t good_returns_to_start(struct Thing *thing)
 {
     // Debug code to find incorrect states
     SYNCDBG(7,"Starting");
     if (!is_hero_thing(thing))
     {
-        ERRORLOG("Non hero %s index %d, owner %d - reset",thing_model_name(thing),(int)thing->index,(int)thing->owner);
+        ERRORLOG("Non hero %s index %" PRId64 ", owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
         sim_feedback->report_error_stat(ESE_BadCreatrState);
         return 0;
@@ -1084,13 +1084,13 @@ short good_returns_to_start(struct Thing *thing)
     return 1;
 }
 
-short good_wait_in_exit_door(struct Thing *thing)
+int64_t good_wait_in_exit_door(struct Thing *thing)
 {
     // Debug code to find incorrect states
     if (!is_hero_thing(thing))
     {
-        ERRORLOG("Non hero thing %s index %d, owner %d - reset",
-            thing_model_name(thing), (int)thing->index, (int)thing->owner);
+        ERRORLOG("Non hero thing %s index %" PRId64 ", owner %" PRId64 " - reset",
+            thing_model_name(thing), (int64_t)thing->index, (int64_t)thing->owner);
         set_start_state(thing);
         sim_feedback->report_error_stat(ESE_BadCreatrState);
         return 0;
@@ -1133,7 +1133,7 @@ short good_wait_in_exit_door(struct Thing *thing)
     return 0;
 }
 
-short creature_hero_entering(struct Thing *thing)
+int64_t creature_hero_entering(struct Thing *thing)
 {
     TRACE_THING(thing);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
@@ -1144,7 +1144,7 @@ short creature_hero_entering(struct Thing *thing)
     }
     if (cctrl->countdown == 0)
     {
-        thing->mappos.z.val = get_ceiling_height(&thing->mappos) - (long)thing->clipbox_size_z - 1;
+        thing->mappos.z.val = get_ceiling_height(&thing->mappos) - (int64_t)thing->clipbox_size_z - 1;
         cctrl->countdown--;
         return CrStRet_Modified;
     }
@@ -1162,17 +1162,17 @@ short creature_hero_entering(struct Thing *thing)
     return CrStRet_Modified;
 }
 
-long get_best_dungeon_to_tunnel_to(struct Thing *creatng)
+int64_t get_best_dungeon_to_tunnel_to(struct Thing *creatng)
 {
     PlayerNumber best_plyr_idx = -1;
-    long best_score = INT32_MIN;
+    int64_t best_score = INT32_MIN;
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
         struct PlayerInfo* player = get_player(plyr_idx);
         struct Dungeon* dungeon = get_players_dungeon(player);
         if (player_exists(player) && !dungeon_invalid(dungeon) && players_are_enemies(creatng->owner,plyr_idx))
         {
-            long score = dungeon->total_score; //Original code: = dungeon->total_score -20 * dungeon->total_score * dungeon->field_F7D / 100;
+            int64_t score = dungeon->total_score; //Original code: = dungeon->total_score -20 * dungeon->total_score * dungeon->field_F7D / 100;
             if ((score <= 0) || (kfx_config_state.conf.rules[creatng->owner].gameplay.classic_bugs_flags & ClscBug_AlwaysTunnelToRed))
             {
                 score = 0;
@@ -1187,7 +1187,7 @@ long get_best_dungeon_to_tunnel_to(struct Thing *creatng)
     return best_plyr_idx;
 }
 
-short setup_person_tunnel_to_position(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned char unusedparam)
+int64_t setup_person_tunnel_to_position(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned char unusedparam)
 {
     if ( internal_set_thing_state(creatng, CrSt_Tunnelling) )
     {
@@ -1199,7 +1199,7 @@ short setup_person_tunnel_to_position(struct Thing *creatng, MapSubtlCoord stl_x
     return 0;
 }
 
-long send_tunneller_to_point(struct Thing *thing, struct Coord3d *pos)
+int64_t send_tunneller_to_point(struct Thing *thing, struct Coord3d *pos)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->party.target_plyr_idx = -1;
@@ -1208,7 +1208,7 @@ long send_tunneller_to_point(struct Thing *thing, struct Coord3d *pos)
     return 1;
 }
 
-TbBool script_support_send_tunneller_to_action_point(struct Thing *thing, long apt_idx)
+TbBool script_support_send_tunneller_to_action_point(struct Thing *thing, int64_t apt_idx)
 {
     SYNCDBG(7,"Starting");
     struct ActionPoint* apt = action_point_get(apt_idx);
@@ -1217,7 +1217,7 @@ TbBool script_support_send_tunneller_to_action_point(struct Thing *thing, long a
         pos.x.val = apt->mappos.x.val;
         pos.y.val = apt->mappos.y.val;
     } else {
-        ERRORLOG("Attempt to send to non-existing action point %d",(int)apt_idx);
+        ERRORLOG("Attempt to send to non-existing action point %" PRId64,(int64_t)apt_idx);
         pos.x.val = subtile_coord_center(kfx_sim_state.map_subtiles_x/2);
         pos.y.val = subtile_coord_center(kfx_sim_state.map_subtiles_y/2);
     }
@@ -1228,41 +1228,41 @@ TbBool script_support_send_tunneller_to_action_point(struct Thing *thing, long a
 
 TbBool script_support_send_tunneller_to_dungeon(struct Thing *creatng, PlayerNumber plyr_idx)
 {
-    SYNCDBG(7,"Send %s to player %d",thing_model_name(creatng),(int)plyr_idx);
+    SYNCDBG(7,"Send %s to player %" PRId64,thing_model_name(creatng),(int64_t)plyr_idx);
     struct Thing* heartng = get_player_soul_container(plyr_idx);
     TRACE_THING(heartng);
     if (!thing_exists(heartng))
     {
-        WARNLOG("Tried to send %s to player %d which has no heart", thing_model_name(creatng), (int)plyr_idx);
+        WARNLOG("Tried to send %s to player %" PRId64 " which has no heart", thing_model_name(creatng), (int64_t)plyr_idx);
         return false;
     }
     struct Coord3d pos;
     if (!get_random_position_in_dungeon_for_creature(plyr_idx, CrWaS_WithinDungeon, creatng, &pos)) {
-        WARNLOG("Tried to send %s to player %d but can't find position", thing_model_name(creatng), (int)plyr_idx);
+        WARNLOG("Tried to send %s to player %" PRId64 " but can't find position", thing_model_name(creatng), (int64_t)plyr_idx);
         return send_tunneller_to_point_in_dungeon(creatng, plyr_idx, &heartng->mappos);
     }
     if (!send_tunneller_to_point_in_dungeon(creatng, plyr_idx, &pos)) {
-        WARNLOG("Tried to send %s to player %d but can't start the task", thing_model_name(creatng), (int)plyr_idx);
+        WARNLOG("Tried to send %s to player %" PRId64 " but can't start the task", thing_model_name(creatng), (int64_t)plyr_idx);
         return false;
     }
-    SYNCDBG(17,"Moving %s to (%d,%d)",thing_model_name(creatng),(int)pos.x.stl.num,(int)pos.y.stl.num);
+    SYNCDBG(17,"Moving %s to (%" PRId64 ",%" PRId64 ")",thing_model_name(creatng),(int64_t)pos.x.stl.num,(int64_t)pos.y.stl.num);
     return true;
 }
 
 TbBool script_support_send_tunneller_to_dungeon_heart(struct Thing *creatng, PlayerNumber plyr_idx)
 {
-    SYNCDBG(7,"Send %s to player %d",thing_model_name(creatng),(int)plyr_idx);
+    SYNCDBG(7,"Send %s to player %" PRId64,thing_model_name(creatng),(int64_t)plyr_idx);
     struct Thing* heartng = get_player_soul_container(plyr_idx);
     TRACE_THING(heartng);
     if (!thing_exists(heartng)) {
-        WARNLOG("Tried to send %s to player %d which has no heart", thing_model_name(creatng), (int)plyr_idx);
+        WARNLOG("Tried to send %s to player %" PRId64 " which has no heart", thing_model_name(creatng), (int64_t)plyr_idx);
         return false;
     }
     if (!send_tunneller_to_point_in_dungeon(creatng, plyr_idx, &heartng->mappos)) {
-        WARNLOG("Tried to send %s to player %d but can't start the task", thing_model_name(creatng), (int)plyr_idx);
+        WARNLOG("Tried to send %s to player %" PRId64 " but can't start the task", thing_model_name(creatng), (int64_t)plyr_idx);
         return false;
     }
-    SYNCDBG(17,"Moving %s to (%d,%d)",thing_model_name(creatng),(int)heartng->mappos.x.stl.num,(int)heartng->mappos.y.stl.num);
+    SYNCDBG(17,"Moving %s to (%" PRId64 ",%" PRId64 ")",thing_model_name(creatng),(int64_t)heartng->mappos.x.stl.num,(int64_t)heartng->mappos.y.stl.num);
     return true;
 }
 
@@ -1277,13 +1277,13 @@ TbBool script_support_send_tunneller_to_appropriate_dungeon(struct Thing *creatn
         return false;
     }
     if (!get_random_position_in_dungeon_for_creature(plyr_idx, CrWaS_WithinDungeon, creatng, &pos)) {
-        WARNLOG("Tried to send %s to player %d but can't find position", thing_model_name(creatng), (int)plyr_idx);
+        WARNLOG("Tried to send %s to player %" PRId64 " but can't find position", thing_model_name(creatng), (int64_t)plyr_idx);
         return false;
     }
     return send_tunneller_to_point_in_dungeon(creatng, plyr_idx, &pos);
 }
 
-struct Thing *script_process_new_tunneler(unsigned char plyr_idx, TbMapLocation location, TbMapLocation heading, CrtrExpLevel exp_level, unsigned long carried_gold)
+struct Thing *script_process_new_tunneler(unsigned char plyr_idx, TbMapLocation location, TbMapLocation heading, CrtrExpLevel exp_level, uint64_t carried_gold)
 {
     ThingModel diggerkind = get_players_special_digger_model(plyr_idx);
     struct Thing* creatng = script_create_creature_at_location(plyr_idx, diggerkind, location, SpwnT_Default);
@@ -1306,7 +1306,7 @@ struct Thing *script_process_new_tunneler(unsigned char plyr_idx, TbMapLocation 
         script_support_send_tunneller_to_appropriate_dungeon(creatng);
         break;
     default:
-        ERRORLOG("Invalid Heading objective %d",(int)get_map_location_type(heading));
+        ERRORLOG("Invalid Heading objective %" PRId64,(int64_t)get_map_location_type(heading));
         break;
     }
     return creatng;
@@ -1314,7 +1314,7 @@ struct Thing *script_process_new_tunneler(unsigned char plyr_idx, TbMapLocation 
 
 TbBool send_tunneller_to_point_in_dungeon(struct Thing *creatng, PlayerNumber plyr_idx, struct Coord3d *pos)
 {
-    SYNCDBG(17,"Move %s index %d to (%d,%d)",thing_model_name(creatng),(int)creatng->index,(int)pos->x.stl.num,(int)pos->y.stl.num);
+    SYNCDBG(17,"Move %s index %" PRId64 " to (%" PRId64 ",%" PRId64 ")",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num);
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     cctrl->party.target_plyr_idx = plyr_idx;
     setup_person_tunnel_to_position(creatng, pos->x.stl.num, pos->y.stl.num, 0);
@@ -1322,7 +1322,7 @@ TbBool send_tunneller_to_point_in_dungeon(struct Thing *creatng, PlayerNumber pl
     return true;
 }
 
-short tunneller_doing_nothing(struct Thing *creatng)
+int64_t tunneller_doing_nothing(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     PlayerNumber CurrentTarget = cctrl->party.target_plyr_idx;
@@ -1352,7 +1352,7 @@ short tunneller_doing_nothing(struct Thing *creatng)
         return 1;
     }
 
-    int plyr_idx = get_best_dungeon_to_tunnel_to(creatng);
+    int64_t plyr_idx = get_best_dungeon_to_tunnel_to(creatng);
     if (CurrentTarget != -1)
     {
         plyr_idx = CurrentTarget;
@@ -1386,10 +1386,10 @@ short tunneller_doing_nothing(struct Thing *creatng)
     return 1;
 }
 
-long creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, short speed)
+int64_t creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, int64_t speed)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    SYNCDBG(6,"Move %s index %d from (%d,%d) to (%d,%d) with speed %d",thing_model_name(creatng),(int)creatng->index,(int)creatng->mappos.x.stl.num,(int)creatng->mappos.y.stl.num,(int)pos->x.stl.num,(int)pos->y.stl.num,(int)speed);
+    SYNCDBG(6,"Move %s index %" PRId64 " from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") with speed %" PRId64,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->mappos.x.stl.num,(int64_t)creatng->mappos.y.stl.num,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num,(int64_t)speed);
     cctrl->navi.owner_flags[0] = 0;
     if (get_chessboard_distance(&creatng->mappos, pos) <= 32)
     {
@@ -1397,7 +1397,7 @@ long creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, short speed)
         creature_set_speed(creatng, 0);
         return 1;
     }
-    long i = cctrl->party.tunnel_steps_counter;
+    int64_t i = cctrl->party.tunnel_steps_counter;
     if ((i > 0) && (i < INT32_MAX))
     {
         cctrl->party.tunnel_steps_counter++;
@@ -1409,7 +1409,7 @@ long creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, short speed)
         pos->z.val = get_thing_height_at(creatng, pos);
         initialise_wallhugging_path_from_to(&cctrl->navi, &creatng->mappos, pos);
     }
-    long tnlret = get_next_position_and_angle_required_to_tunnel_creature_to(creatng, pos, cctrl->party.tunnel_dig_direction);
+    int64_t tnlret = get_next_position_and_angle_required_to_tunnel_creature_to(creatng, pos, cctrl->party.tunnel_dig_direction);
     if (tnlret == 2)
     {
         i = cctrl->navi.first_colliding_block;
@@ -1443,14 +1443,14 @@ long creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, short speed)
         {
             creatng->continue_state = CrSt_TunnellerDoingNothing;
         }
-        ERRORLOG("Move %s index %d to (%d,%d) reset - wallhug distance %d too large",thing_model_name(creatng),(int)creatng->index,(int)pos->x.stl.num,(int)pos->y.stl.num,(int)dist);
+        ERRORLOG("Move %s index %" PRId64 " to (%" PRId64 ",%" PRId64 ") reset - wallhug distance %" PRId64 " too large",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num,(int64_t)dist);
         return 0;
     }
     // If the tunneler tries to tunnel the same distance for 150 times, he must be stuck. So push him.
     static struct TunnelDistance tunnel;
     tunnel.creatid = creatng->index;
     tunnel.newdist = dist;
-    static unsigned long identical[CREATURES_COUNT];
+    static uint64_t identical[CREATURES_COUNT];
     if (tunnel.olddist == tunnel.newdist)
     {
         identical[creatng->ccontrol_idx] += 1;
@@ -1465,7 +1465,7 @@ long creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, short speed)
         if (creature_choose_random_destination_on_valid_adjacent_slab(creatng))
         {
             creatng->continue_state = CrSt_TunnellerDoingNothing;
-            ERRORLOG("%s index %d stuck - attempt %lu to dislodge",thing_model_name(creatng),(int)creatng->index,identical[creatng->ccontrol_idx]-149);
+            ERRORLOG("%s index %" PRId64 " stuck - attempt %" PRIu64 " to dislodge",thing_model_name(creatng),(int64_t)creatng->index,(uint64_t)(identical[creatng->ccontrol_idx]-149));
         }
         return 0;
     }
@@ -1482,10 +1482,10 @@ long creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, short speed)
     return 0;
 }
 
-short tunnelling(struct Thing *creatng)
+int64_t tunnelling(struct Thing *creatng)
 {
-    SYNCDBG(7,"Move %s index %d from (%d,%d)",thing_model_name(creatng),(int)creatng->index,(int)creatng->mappos.x.stl.num,(int)creatng->mappos.y.stl.num);
-    long speed = get_creature_speed(creatng);
+    SYNCDBG(7,"Move %s index %" PRId64 " from (%" PRId64 ",%" PRId64 ")",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->mappos.x.stl.num,(int64_t)creatng->mappos.y.stl.num);
+    int64_t speed = get_creature_speed(creatng);
     struct SlabMap* slb = get_slabmap_for_subtile(creatng->mappos.x.stl.num, creatng->mappos.y.stl.num);
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     struct Coord3d* pos = &cctrl->moveto_pos;
@@ -1494,7 +1494,7 @@ short tunnelling(struct Thing *creatng)
         internal_set_thing_state(creatng, CrSt_GoodDoingNothing);
         return 1;
     }
-    long move_result = creature_tunnel_to(creatng, pos, speed);
+    int64_t move_result = creature_tunnel_to(creatng, pos, speed);
     if (move_result == 1)
     {
         internal_set_thing_state(creatng, CrSt_TunnellerDoingNothing);
@@ -1512,11 +1512,11 @@ short tunnelling(struct Thing *creatng)
     {
         if (creature_can_navigate_to(creatng, pos, NavRtF_Default))
         {
-            SYNCDBG(7,"The %s index %d can now walk to (%d,%d), no need to tunnel",thing_model_name(creatng),(int)creatng->index,(int)pos->x.stl.num,(int)pos->y.stl.num);
+            SYNCDBG(7,"The %s index %" PRId64 " can now walk to (%" PRId64 ",%" PRId64 "), no need to tunnel",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num);
             return 1;
         }
     }
-    SYNCDBG(7,"The %s index %d cannot reach (%d,%d) by walk",thing_model_name(creatng),(int)creatng->index,(int)pos->x.stl.num,(int)pos->y.stl.num);
+    SYNCDBG(7,"The %s index %" PRId64 " cannot reach (%" PRId64 ",%" PRId64 ") by walk",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num);
     return 0;
 }
 

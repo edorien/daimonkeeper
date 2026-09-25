@@ -88,7 +88,7 @@ TbBool ftest_util_replace_slab_columns(MapSlabCoord slb_x, MapSlabCoord slb_y, P
  * @param plyr_idx 
  * @return bool
  */
-TbBool ftest_util_move_camera(long x, long y, PlayerNumber plyr_idx);
+TbBool ftest_util_move_camera(int64_t x, int64_t y, PlayerNumber plyr_idx);
 
 /**
  * @brief 
@@ -175,14 +175,14 @@ TbBool ftest_util_gui_turn_on_menu(MenuID menu_id);
 /**
  * @brief Is there an active GUI button with this BID_* id whose menu is on?
  */
-TbBool ftest_util_gui_button_is_active(short bid);
+TbBool ftest_util_gui_button_is_active(int64_t bid);
 
 /**
  * @brief The `content.lval` of the active GUI button with this BID_* id
  * (e.g. the RoomKind a room-tab button currently represents after
  * update_room_tab_to_config()), or -1 if not found.
  */
-long ftest_util_gui_button_content(short bid);
+int64_t ftest_util_gui_button_content(int64_t bid);
 
 /**
  * @brief Fire an in-game GUI button's click_event by its BID_* id, via
@@ -190,7 +190,7 @@ long ftest_util_gui_button_content(short bid);
  * mouse cursor or hit-test, so it is headless-safe.
  * @return false (and fails the test) if no matching active button exists.
  */
-TbBool ftest_util_gui_click(short bid);
+TbBool ftest_util_gui_click(int64_t bid);
 
 /**
  * @brief test action to create a torture room for player and fill it with assigned torture creatures

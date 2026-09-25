@@ -27,14 +27,14 @@
 using namespace kfx_test;
 
 extern "C" {
-long computer_event_check_payday(struct Computer2 *comp, struct ComputerEvent *cevent, struct Event *event);
-long computer_event_check_fighters(struct Computer2 *comp, struct ComputerEvent *cevent);
+int64_t computer_event_check_payday(struct Computer2 *comp, struct ComputerEvent *cevent, struct Event *event);
+int64_t computer_event_check_fighters(struct Computer2 *comp, struct ComputerEvent *cevent);
 }
 
 TEST_CASE_METHOD(ResetSimAndConfig, "computer_event_check_payday is a no-op once the dungeon already has enough gold to cover its pay bill", "[kfx_sim][player_compevents]") {
     struct Computer2 *comp = make_computer_player(0);
-    comp->dungeon->total_money_owned = 100;
-    comp->dungeon->creatures_total_pay = 100; // exactly enough: >= holds
+    computer_dungeon(comp)->total_money_owned = 100;
+    computer_dungeon(comp)->creatures_total_pay = 100; // exactly enough: >= holds
 
     struct ComputerEvent cevent = {};
     CHECK(computer_event_check_payday(comp, &cevent, nullptr) == CTaskRet_Unk4);
@@ -42,7 +42,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_event_check_payday is a no-op once
 
 TEST_CASE_METHOD(ResetSimAndConfig, "computer_event_check_fighters is a no-op when the dungeon has no fights in progress", "[kfx_sim][player_compevents]") {
     struct Computer2 *comp = make_computer_player(0);
-    comp->dungeon->fights_num = 0;
+    computer_dungeon(comp)->fights_num = 0;
 
     struct ComputerEvent cevent = {};
     CHECK(computer_event_check_fighters(comp, &cevent) == CTaskRet_Unk4);

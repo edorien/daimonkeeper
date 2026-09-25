@@ -70,7 +70,7 @@ namespace {
     // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md
     // -- same best-effort-read/kept-current pattern as the name above, set
     // from the Level Settings dialog now instead.
-    int s_editor_level_players = 1;
+    int64_t s_editor_level_players = 1;
     bool s_editor_level_is_multiplayer = false;
     // docs/refactor/editor/05-script-and-level-settings.md §1 -- same
     // best-effort-read/kept-current pattern as level name above; DESCRIPTION
@@ -100,12 +100,12 @@ namespace {
     std::string read_level_text_file(const char *dir, LevelNumber lvnum, const char *ext)
     {
         char path[600];
-        snprintf(path, sizeof(path), "%s/map%05lu.%s", dir, (unsigned long)lvnum, ext);
-        long len = LbFileLength(path);
+        snprintf(path, sizeof(path), "%s/map%05" PRIu64 ".%s", dir, (uint64_t)lvnum, ext);
+        int64_t len = LbFileLength(path);
         if (len <= 0)
             return std::string();
         std::vector<char> buf((size_t)len);
-        long got = LbFileLoadAt(path, buf.data());
+        int64_t got = LbFileLoadAt(path, buf.data());
         if (got != len)
             return std::string();
         return std::string(buf.data(), (size_t)len);
@@ -161,8 +161,8 @@ namespace {
 // directly, same convention as editor_journal_test_force_active() (editor_journal.h).
 void editor_level_save_dir(LevelNumber lvnum, char *out, size_t out_size)
 {
-    short fgroup = get_level_fgroup(lvnum);
-    char *p = prepare_file_fmtpath(fgroup, "map%05lu.slb", (unsigned long)lvnum);
+    int64_t fgroup = get_level_fgroup(lvnum);
+    char *p = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".slb", (uint64_t)lvnum);
     snprintf(out, out_size, "%s", p);
     out[out_size - 1] = '\0';
     char *last_slash = strrchr(out, '/');
@@ -216,7 +216,7 @@ void editor_set_current_level_script_text(const char *script_text)
     s_editor_script_text = (script_text != nullptr) ? script_text : "";
 }
 
-int editor_current_level_players(void)
+int64_t editor_current_level_players(void)
 {
     return s_editor_level_players;
 }
@@ -255,7 +255,7 @@ void editor_set_current_level_name(const char *name)
     s_editor_level_name[sizeof(s_editor_level_name) - 1] = '\0';
 }
 
-void editor_set_current_level_players(int players)
+void editor_set_current_level_players(int64_t players)
 {
     s_editor_level_players = players;
 }
@@ -357,7 +357,7 @@ void editor_playtest_begin(void)
 
 void editor_open(LevelNumber lvnum, TbBool is_new)
 {
-    SYNCDBG(0, "Opening editor session for level %lu (new=%d)", (unsigned long)lvnum, (int)is_new);
+    SYNCDBG(0, "Opening editor session for level %" PRIu64 " (new=%" PRId64 ")", (uint64_t)lvnum, (int64_t)is_new);
     s_editor_active = true;
     // The editor is built on the ImGui HUD: ignore GUI_ICON_PACK=CLASSIC
     // for the length of the session (the saved setting is left alone).
@@ -392,7 +392,7 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
     {
         struct LevelInformation *lvinfo = get_level_info(lvnum);
         editor_set_current_level_name((lvinfo != NULL) ? lvinfo->name : "");
-        editor_set_current_level_players((lvinfo != NULL) ? (int)lvinfo->players : 1);
+        editor_set_current_level_players((lvinfo != NULL) ? (int64_t)lvinfo->players : 1);
         editor_set_current_level_is_multiplayer((lvinfo != NULL) && ((lvinfo->level_type & LvKind_IsMulti) != 0));
         editor_set_current_level_description((lvinfo != NULL) ? lvinfo->description : "");
         editor_set_current_level_author((lvinfo != NULL) ? lvinfo->author : "");
@@ -404,7 +404,7 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
     s_editor_script_text = read_level_script_text(s_editor_save_dir, lvnum);
     {
         char lua_path[600];
-        snprintf(lua_path, sizeof(lua_path), "%s/map%05lu.lua", s_editor_save_dir, (unsigned long)lvnum);
+        snprintf(lua_path, sizeof(lua_path), "%s/map%05" PRIu64 ".lua", s_editor_save_dir, (uint64_t)lvnum);
         s_editor_has_lua = (LbFileLength(lua_path) >= 0);
         s_editor_lua_text = s_editor_has_lua ? read_level_text_file(s_editor_save_dir, lvnum, "lua") : std::string();
     }

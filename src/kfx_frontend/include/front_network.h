@@ -47,16 +47,16 @@ struct ConfigInfo {
 // net_session_index_active/net_player[]/net_player_name/net_screen_packet
 // moved to net_main.h (kfx_net) -- see there. Only the fields net_game.c
 // never touched (frontend-only session-browser state) stay here.
-extern long net_number_of_sessions;
+extern int64_t net_number_of_sessions;
 extern struct ConfigInfo net_config_info;
 extern char net_service[16][NET_SERVICE_LEN];
 extern char tmp_net_player_name[24];
 
 #pragma pack()
 /******************************************************************************/
-void process_network_error(long errcode);
-void draw_out_of_sync_box(long a1, long a2, long box_width);
-void display_attempting_to_join_message(int remaining_s);
+void process_network_error(int64_t errcode);
+void draw_out_of_sync_box(int64_t a1, int64_t a2, int64_t box_width);
+void display_attempting_to_join_message(int64_t remaining_s);
 void reset_attempting_to_join_cancel(void);
 TbBool attempting_to_join_cancel_requested(void);
 void setup_alliances(void);

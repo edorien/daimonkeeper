@@ -91,7 +91,7 @@ FTestActionResult ftest_creature_temple_prayer_action001__setup(struct FTestActi
 
     if (!ftest_util_replace_slabs(temple_slb_x, temple_slb_y, temple_slb_x + TEMPLE_SIZE, temple_slb_y + TEMPLE_SIZE, SlbT_TEMPLE, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build temple room at slab (%d,%d)", temple_slb_x, temple_slb_y);
+        FTEST_FAIL_TEST("Failed to build temple room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(temple_slb_x), (int64_t)(temple_slb_y));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -126,7 +126,7 @@ FTestActionResult ftest_creature_temple_prayer_action001__setup(struct FTestActi
     }
 
     CreatureJob temple_pray_job = (CreatureJob)get_id(creaturejob_desc, "TEMPLE_PRAY");
-    if ((long)temple_pray_job == -1)
+    if ((int64_t)temple_pray_job == -1)
     {
         FTEST_FAIL_TEST("Failed to resolve TEMPLE_PRAY job id");
         return FTRs_Go_To_Next_Action;
@@ -167,7 +167,7 @@ FTestActionResult ftest_creature_temple_prayer_action002__wait_for_prayer(struct
 
     if (creature->active_state == CrSt_AtTemple || creature->active_state == CrSt_PrayingInTemple)
     {
-        FTESTLOG("Creature reached temple state %d at turn %d", (int)creature->active_state, get_gameturn());
+        FTESTLOG("Creature reached temple state %" PRId64 " at turn %" PRId64, (int64_t)creature->active_state, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -181,7 +181,7 @@ FTestActionResult ftest_creature_temple_prayer_action002__wait_for_prayer(struct
     // and an 800-turn budget succeeding).
     if (get_gameturn() >= args->intended_start_at_game_turn + 600)
     {
-        FTEST_FAIL_TEST("Creature never reached CrSt_AtTemple/CrSt_PrayingInTemple within the turn budget (active_state=%d)", (int)creature->active_state);
+        FTEST_FAIL_TEST("Creature never reached CrSt_AtTemple/CrSt_PrayingInTemple within the turn budget (active_state=%" PRId64 ")", (int64_t)creature->active_state);
         return FTRs_Go_To_Next_Action;
     }
 

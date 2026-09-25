@@ -58,8 +58,8 @@ void editor_overlay_set_ap_herogate_markers_enabled(TbBool enabled);
 // The marker dot + label and radius ring the overlays above use, exported
 // for editor_points.cpp (the Points tool draws its selection highlight and
 // its drag-radius preview with the same look). `color` is an ImU32.
-void editor_overlay_draw_marker(long wx, long wy, long wz, unsigned int color, const char *label);
-void editor_overlay_draw_radius_ring(long wx, long wy, long wz, long radius, unsigned int color);
+void editor_overlay_draw_marker(int64_t wx, int64_t wy, int64_t wz, uint64_t color, const char *label);
+void editor_overlay_draw_radius_ring(int64_t wx, int64_t wy, int64_t wz, int64_t radius, uint64_t color);
 
 /******************************************************************************/
 #ifdef __cplusplus

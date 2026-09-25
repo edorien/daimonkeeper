@@ -430,19 +430,19 @@ struct Packet {
 // (Bump the version if this struct or the .pck format changes.)
 #define PACKET_SAVE_HEAD_VER 1
 struct PacketSaveHead {
-    unsigned short game_ver_major;
-    unsigned short game_ver_minor;
-    unsigned short game_ver_release;
-    unsigned short game_ver_build;
-    uint32_t level_num;
+    int64_t game_ver_major;
+    int64_t game_ver_minor;
+    int64_t game_ver_release;
+    int64_t game_ver_build;
+    uint64_t level_num;
     PlayerBitFlags players_exist;
     PlayerBitFlags players_comp;
-    uint32_t isometric_view_zoom_level;
-    uint32_t frontview_zoom_level;
-    int isometric_tilt;
+    uint64_t isometric_view_zoom_level;
+    uint64_t frontview_zoom_level;
+    int64_t isometric_tilt;
     unsigned char video_rotate_mode;
     TbBool chksum_available; // if needed, this can be replaced with flags
-    uint32_t action_seed;
+    uint64_t action_seed;
     TbBool default_imprison_tendency;
     TbBool default_flee_tendency;
     TbBool skip_heart_zoom;
@@ -483,15 +483,15 @@ extern struct Packet sim_packets[PACKETS_COUNT];
 struct Packet *get_local_packet(void);
 NetUserId get_local_user(void);
 struct Packet *get_packet(NetUserId user);
-void set_packet_action(struct Packet *pckt, unsigned char pcktype, long par1, long par2, unsigned short par3, unsigned short par4);
+void set_packet_action(struct Packet *pckt, unsigned char pcktype, int64_t par1, int64_t par2, int64_t par3, int64_t par4);
 TbBool is_packet_empty(const struct Packet *pckt);
-void set_players_packet_action(struct PlayerInfo *player, unsigned char pcktype, unsigned long par1, unsigned long par2, unsigned short par3, unsigned short par4);
-void set_packet_control(struct Packet *pckt, unsigned long flag);
-void set_players_packet_control(struct PlayerInfo *player, unsigned long flag);
+void set_players_packet_action(struct PlayerInfo *player, unsigned char pcktype, uint64_t par1, uint64_t par2, int64_t par3, int64_t par4);
+void set_packet_control(struct Packet *pckt, uint64_t flag);
+void set_players_packet_control(struct PlayerInfo *player, uint64_t flag);
 unsigned char get_players_packet_action(struct PlayerInfo *player);
-void unset_packet_control(struct Packet *pckt, unsigned long flag);
-void unset_players_packet_control(struct PlayerInfo *player, unsigned long flag);
-void set_players_packet_position(struct Packet *pckt, long x, long y, unsigned char context);
+void unset_packet_control(struct Packet *pckt, uint64_t flag);
+void unset_players_packet_control(struct PlayerInfo *player, uint64_t flag);
+void set_players_packet_position(struct Packet *pckt, int64_t x, int64_t y, unsigned char context);
 void set_packet_pause_toggle(void);
 TbBool packet_crtr_control_pressed(struct Packet *packet);
 void restore_users_from_packet_save(void);

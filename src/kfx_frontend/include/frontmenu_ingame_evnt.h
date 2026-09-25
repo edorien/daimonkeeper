@@ -38,7 +38,7 @@ enum EventButtonState {
     EvBtnS_Hidden = 2,
 };
 
-extern unsigned short battle_creature_over;
+extern int64_t battle_creature_over;
 // my_visible_event_idx moved to gui_frontmenu.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
 extern unsigned char my_event_button_state[];
@@ -50,7 +50,7 @@ extern struct GuiMenu battle_menu;
 /******************************************************************************/
 void gui_open_event(struct GuiButton *gbtn);
 void gui_kill_event(struct GuiButton *gbtn);
-EventIndex get_my_event_button_index(unsigned int button_idx);
+EventIndex get_my_event_button_index(uint64_t button_idx);
 void turn_on_event_info_panel_if_necessary(EventIndex evidx);
 void activate_event_box(EventIndex evidx);
 void gui_next_battle(struct GuiButton *gbtn);
@@ -60,7 +60,7 @@ void gui_previous_battle(struct GuiButton *gbtn);
 void gui_get_creature_in_battle(struct GuiButton *gbtn);   // cast selected power / pick up
 void gui_go_to_person_in_battle(struct GuiButton *gbtn);   // zoom camera to it
 
-short zoom_to_fight(PlayerNumber plyr_idx);
+int64_t zoom_to_fight(PlayerNumber plyr_idx);
 
 void draw_bonus_timer(void);
 TbBool bonus_timer_enabled(void);
@@ -69,18 +69,18 @@ void draw_frametime(void);
 void draw_gameturn_timer(void);
 void draw_consolelog(void);
 void draw_network_stats(void);
-extern int debug_display_network_stats;
+extern int64_t debug_display_network_stats;
 TbBool timer_enabled(void);
 TbBool frametime_enabled(void);
 TbBool consolelog_enabled(void);
 TbBool script_timer_enabled(void);
 TbBool gameturn_timer_enabled(void);
-void draw_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, unsigned long limit, TbBool real);
+void draw_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, uint64_t limit, TbBool real);
 TbBool display_variable_enabled(void);
 void draw_script_variable_list(void);
-void draw_script_variable(PlayerNumber plyr_idx, unsigned char valtype, unsigned char validx, long target, unsigned char targettype);
+void draw_script_variable(PlayerNumber plyr_idx, unsigned char valtype, unsigned char validx, int64_t target, unsigned char targettype);
 
-extern unsigned long TimerTurns;
+extern uint64_t TimerTurns;
 /******************************************************************************/
 #ifdef __cplusplus
 }

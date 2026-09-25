@@ -57,16 +57,16 @@ enum SetupField
 // player == -1 means "every player" (ALL_PLAYERS). item is upper-case.
 struct SetupLockKey
 {
-    int field = 0;
-    int player = -1;
+    int64_t field = 0;
+    int64_t player = -1;
     std::string item;
     bool operator<(const SetupLockKey &o) const;
 };
 
 struct SetupAvailKey
 {
-    int kind = 0;
-    int player = 0;
+    int64_t kind = 0;
+    int64_t player = 0;
     std::string item; // upper-case
     bool operator<(const SetupAvailKey &o) const;
     bool operator==(const SetupAvailKey &o) const { return kind == o.kind && player == o.player && item == o.item; }
@@ -77,15 +77,15 @@ struct SetupAvailKey
 // trap/door (buildable, amount -- amount accumulates like the engine's).
 struct SetupAvailValue
 {
-    int a = 0;
-    int b = 0;
+    int64_t a = 0;
+    int64_t b = 0;
     bool operator==(const SetupAvailValue &o) const { return a == o.a && b == o.b; }
 };
 
 struct SetupController
 {
     enum Kind { Model, Roaming, Off } kind = Model;
-    int model = 0;
+    int64_t model = 0;
     bool operator==(const SetupController &o) const { return kind == o.kind && model == o.model; }
 };
 
@@ -99,12 +99,12 @@ struct SetupWinLoseRule
 // What the level's own static lines say (the tab's defaults).
 struct SetupSeed
 {
-    int generate_speed = -1;                 // -1: not set
-    std::map<int, int> start_money;          // per player, additive like the engine
-    std::map<int, int> max_creatures;        // per player, last wins
-    std::map<std::string, int> pool;         // per creature name, additive
+    int64_t generate_speed = -1;                 // -1: not set
+    std::map<int64_t, int64_t> start_money;          // per player, additive like the engine
+    std::map<int64_t, int64_t> max_creatures;        // per player, last wins
+    std::map<std::string, int64_t> pool;         // per creature name, additive
     std::map<SetupAvailKey, SetupAvailValue> avail; // ALL_PLAYERS expanded per player
-    std::map<int, SetupController> controllers; // per player, last wins
+    std::map<int64_t, SetupController> controllers; // per player, last wins
     std::vector<SetupWinLoseRule> rules;
 };
 
@@ -131,7 +131,7 @@ struct SetupLuaUse
     // Any field the tab edits (research and info-only flags excluded).
     bool any_setup() const;
     // Does the Lua script touch this SetupField?
-    bool touches(int field) const;
+    bool touches(int64_t field) const;
     // "start gold, the creature pool, room availability, ..." (empty when nothing).
     std::string describe() const;
 };
@@ -141,7 +141,7 @@ SetupLuaUse script_setup_scan_lua(const std::string &lua_text);
 
 struct SetupAnalysis
 {
-    int level_version = 0;
+    int64_t level_version = 0;
     SetupVerdict verdict = SetupVerdict_Supported;
     std::string reason; // human-readable, for the Unsupported/Partial banner
 
@@ -155,18 +155,18 @@ struct SetupAnalysis
 
     // win/lose blocks (or bare WIN_GAME/LOSE_GAME) the model could not
     // represent; they stay in the script and cannot be replaced from the tab.
-    int custom_win_lose = 0;
+    int64_t custom_win_lose = 0;
 
     // ENDIFs with no open IF (the engine ignores them; shipped dk2maps
     // scripts have some). An IF that is never closed makes the verdict
     // Unsupported instead, since everything after it would be conditional.
-    int stray_endif = 0;
+    int64_t stray_endif = 0;
 
     // Engine-budget usage of the file as written (each IF* opens one
     // condition; win/lose conditions are counted separately per kind).
-    int if_count = 0;
-    int win_count = 0;
-    int lose_count = 0;
+    int64_t if_count = 0;
+    int64_t win_count = 0;
+    int64_t lose_count = 0;
 
     // Informational tags (no lock): explain why some rows may be locked.
     bool uses_boxes = false;     // SET_BOX_TOOLTIP / BOXn_ACTIVATED (faction choice)
@@ -177,14 +177,14 @@ struct SetupAnalysis
     // True if the field is runtime-controlled. `player` -1 asks "for anyone";
     // a lock recorded with player -1 covers every player; an empty `item`
     // matches any item (per-player fields such as money).
-    bool is_locked(int field, int player, const std::string &item = std::string()) const;
+    bool is_locked(int64_t field, int64_t player, const std::string &item = std::string()) const;
 };
 
 // `players`: the level's keeper count (.lof PLAYERS), used to expand
 // ALL_PLAYERS in the seed. `has_lua_companion`: a map*.lua also exists.
 // `lua_text`: that Lua script's text, if available -- it is scanned for calls that change the tab's
 // fields (analysis.lua); if it does, a Supported verdict becomes Partial and the reason says so.
-SetupAnalysis script_setup_analyse(const std::string &text, int players, bool has_lua_companion = false,
+SetupAnalysis script_setup_analyse(const std::string &text, int64_t players, bool has_lua_companion = false,
     const std::string *lua_text = nullptr);
 
 // The script with every owned line blanked (line count and all other lines,

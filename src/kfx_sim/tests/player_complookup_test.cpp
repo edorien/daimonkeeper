@@ -49,9 +49,9 @@ namespace {
 // targeted assertions -- caught by an empirical run returning 0 (the
 // zeroed slot at index 0) instead of the expected result, before adding
 // this helper.
-void fill_all_lookups(unsigned long gem_slabs, unsigned short gold_slabs)
+void fill_all_lookups(uint64_t gem_slabs, int64_t gold_slabs)
 {
-    for (long i = 0; i < GOLD_LOOKUP_COUNT; i++)
+    for (int64_t i = 0; i < GOLD_LOOKUP_COUNT; i++)
     {
         get_gold_lookup(i)->num_gem_slabs = gem_slabs;
         get_gold_lookup(i)->num_gold_slabs = gold_slabs;

@@ -42,34 +42,34 @@ struct TbHugeSprite;
 typedef void FlicFunc(void);
 
 struct StartScreenPoint {
-        short X;
-        short Y;
+        int64_t X;
+        int64_t Y;
 };
 
 //Note: this name is incorrect! (not from game)
 struct LongPoint {
-        long X;
-        long Y;
+        int64_t X;
+        int64_t Y;
 };
 
 struct EnginePoint {
-        long X;
-        long Y;
-        long TMapX;
-        long TMapY;
-        long Shade;
-        long coordinate_x_3d;
-        long coordinate_y_3d;
-        long coordinate_z_3d;
-        long DistSqr;
-        unsigned short padw;
+        int64_t X;
+        int64_t Y;
+        int64_t TMapX;
+        int64_t TMapY;
+        int64_t Shade;
+        int64_t coordinate_x_3d;
+        int64_t coordinate_y_3d;
+        int64_t coordinate_z_3d;
+        int64_t DistSqr;
+        int64_t padw;
         unsigned char Flags;
         unsigned char padb;
 };
 
 struct TbDItmHotspot {
-        short X;
-        short Y;
+        int64_t X;
+        int64_t Y;
 };
 
 struct TbDItmFlic {
@@ -78,56 +78,56 @@ struct TbDItmFlic {
 };
 
 struct TbDItmText {
-        short WindowX;
-        short WindowY;
-        short Width;
-        short Height;
-        short X;
-        short Y;
+        int64_t WindowX;
+        int64_t WindowY;
+        int64_t Width;
+        int64_t Height;
+        int64_t X;
+        int64_t Y;
         const char *Text;
         struct TbSprite *Font;
-        unsigned short Line;
+        int64_t Line;
         TbPixel Colour;
 };
 
 struct TbDItmSprite {
-        short X;
-        short Y;
+        int64_t X;
+        int64_t Y;
         struct TbSprite *Sprite;
         TbPixel Colour;
 };
 
 struct TbDItmTrig {
-        short vertex_2_x;
-        short vertex_2_y;
-        short vertex_3_x;
-        short vertex_3_y;
+        int64_t vertex_2_x;
+        int64_t vertex_2_y;
+        int64_t vertex_3_x;
+        int64_t vertex_3_y;
         TbPixel Colour;
 };
 
 struct TbDItmTriangle {
-        short vertex_1_x;
-        short vertex_1_y;
-        short vertex_2_x;
-        short vertex_2_y;
-        short vertex_3_x;
-        short vertex_3_y;
+        int64_t vertex_1_x;
+        int64_t vertex_1_y;
+        int64_t vertex_2_x;
+        int64_t vertex_2_y;
+        int64_t vertex_3_x;
+        int64_t vertex_3_y;
         TbPixel Colour;
 };
 
 struct TbDItmBox {
-        short X;
-        short Y;
-        short Width;
-        short Height;
+        int64_t X;
+        int64_t Y;
+        int64_t Width;
+        int64_t Height;
         TbPixel Colour;
 };
 
 struct TbDItmLine {
-        short vertex_1_x;
-        short vertex_1_y;
-        short vertex_2_x;
-        short vertex_2_y;
+        int64_t vertex_1_x;
+        int64_t vertex_1_y;
+        int64_t vertex_2_x;
+        int64_t vertex_2_y;
         TbPixel Colour;
 };
 
@@ -148,14 +148,14 @@ struct PurpleDrawItem {
         // pos=23d
         unsigned char Type;
         // pos=24d
-        unsigned short Flags;
+        int64_t Flags;
 };
 
 struct TbSourceBuffer {
         const void * data;
-        unsigned long width;
-        unsigned long height;
-        unsigned long pitch;
+        uint64_t width;
+        uint64_t height;
+        uint64_t pitch;
 };
 
 /******************************************************************************/
@@ -165,9 +165,9 @@ extern TbPixel *vec_screen;
  * palette-indexed, like TbSpriteData, not a TbPixel framebuffer pointer.
  * See docs/refactor/renderer/02a-pixel-format-design.md §2/§3. */
 extern unsigned char *vec_map;
-extern unsigned long vec_screen_width;
-extern long vec_window_width;
-extern long vec_window_height;
+extern uint64_t vec_screen_width;
+extern int64_t vec_window_width;
+extern int64_t vec_window_height;
 extern unsigned char *dither_map;
 extern unsigned char *dither_end;
 /* lbSpriteReMapPtr: a 256-entry TbPixel lookup, indexed by a sprite's own
@@ -190,56 +190,56 @@ extern TbPixel lbSpriteRemapTable[256];
 /** Fills lbSpriteRemapTable[i] with ref_index tinted over source byte i at the given strength, and points lbSpriteReMapPtr at it. */
 void SetupSpriteRemapGhost(uint8_t ref_index, uint8_t strength);
 /** Fills lbSpriteRemapTable[i] = render_shade(i, shade) for every possible source byte i, and points lbSpriteReMapPtr at it. */
-void SetupSpriteRemapShade(int shade);
+void SetupSpriteRemapShade(int64_t shade);
 /** Fills lbSpriteRemapTable with the possession/full-flash remap (replaces the old white_pal[256]) and points lbSpriteReMapPtr at it. */
 void SetupSpriteRemapWhiteFlash(void);
 /** Fills lbSpriteRemapTable with the damage-flash remap (replaces the old red_pal[256]) and points lbSpriteReMapPtr at it. */
 void SetupSpriteRemapRedFlash(void);
-extern long scale_up;
-extern int32_t xsteps_array[2*SPRITE_SCALING_XSTEPS];
-extern int32_t ysteps_array[2*SPRITE_SCALING_YSTEPS];
+extern int64_t scale_up;
+extern int64_t xsteps_array[2*SPRITE_SCALING_XSTEPS];
+extern int64_t ysteps_array[2*SPRITE_SCALING_YSTEPS];
 
 #pragma pack()
 
 /******************************************************************************/
-TbResult LbDrawBox(long x, long y, unsigned long width, unsigned long height, TbPixel colour);
-TbResult LbDrawBoxImmediate(long x, long y, unsigned long width, unsigned long height, TbPixel colour);
-void LbDrawHVLine(long xpos1, long ypos1, long xpos2, long ypos2, TbPixel colour);
+TbResult LbDrawBox(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixel colour);
+TbResult LbDrawBoxImmediate(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixel colour);
+void LbDrawHVLine(int64_t xpos1, int64_t ypos1, int64_t xpos2, int64_t ypos2, TbPixel colour);
 
-void LbDrawPixel(long x, long y, TbPixel colour);
-void LbDrawCircle(long x, long y, long radius, TbPixel colour);
+void LbDrawPixel(int64_t x, int64_t y, TbPixel colour);
+void LbDrawCircle(int64_t x, int64_t y, int64_t radius, TbPixel colour);
 
 void setup_vecs(TbPixel *screenbuf, unsigned char *nvec_map,
-        unsigned int line_len, unsigned int width, unsigned int height);
-void setup_steps(long posx, long posy, const struct TbSourceBuffer * src_buf, int32_t **xstep, int32_t **ystep, int *scanline);
-void setup_outbuf(const int32_t *xstep, const int32_t *ystep, TbPixel **outbuf, int *outheight);
-TbResult LbSpriteDrawUsingScalingData(long posx, long posy, const struct TbSourceBuffer *);
-TbResult LbSpriteDrawRemapUsingScalingData(long posx, long posy, const struct TbSourceBuffer *, const TbPixel *cmap);
-TbResult LbSpriteDrawOneColourUsingScalingData(long posx, long posy, const struct TbSprite *sprite, TbPixel colour);
-void LbSpriteSetScalingData(long x, long y, long swidth, long sheight, long dwidth, long dheight);
-TbResult DrawAlphaSpriteUsingScalingData(long posx, long posy, const struct TbSourceBuffer *);
-void LbSpriteSetScalingWidthSimpleArray(int32_t * xsteps_arr, long x, long swidth, long dwidth);
-void LbSpriteSetScalingWidthClippedArray(int32_t * xsteps_arr, long x, long swidth, long dwidth, long gwidth);
-void LbSpriteSetScalingHeightSimpleArray(int32_t * ysteps_arr, long y, long sheight, long dheight);
-void LbSpriteSetScalingHeightClippedArray(int32_t * ysteps_arr, long y, long sheight, long dheight, long gheight);
+        uint64_t line_len, uint64_t width, uint64_t height);
+void setup_steps(int64_t posx, int64_t posy, const struct TbSourceBuffer * src_buf, int64_t **xstep, int64_t **ystep, int64_t *scanline);
+void setup_outbuf(const int64_t *xstep, const int64_t *ystep, TbPixel **outbuf, int64_t *outheight);
+TbResult LbSpriteDrawUsingScalingData(int64_t posx, int64_t posy, const struct TbSourceBuffer *);
+TbResult LbSpriteDrawRemapUsingScalingData(int64_t posx, int64_t posy, const struct TbSourceBuffer *, const TbPixel *cmap);
+TbResult LbSpriteDrawOneColourUsingScalingData(int64_t posx, int64_t posy, const struct TbSprite *sprite, TbPixel colour);
+void LbSpriteSetScalingData(int64_t x, int64_t y, int64_t swidth, int64_t sheight, int64_t dwidth, int64_t dheight);
+TbResult DrawAlphaSpriteUsingScalingData(int64_t posx, int64_t posy, const struct TbSourceBuffer *);
+void LbSpriteSetScalingWidthSimpleArray(int64_t * xsteps_arr, int64_t x, int64_t swidth, int64_t dwidth);
+void LbSpriteSetScalingWidthClippedArray(int64_t * xsteps_arr, int64_t x, int64_t swidth, int64_t dwidth, int64_t gwidth);
+void LbSpriteSetScalingHeightSimpleArray(int64_t * ysteps_arr, int64_t y, int64_t sheight, int64_t dheight);
+void LbSpriteSetScalingHeightClippedArray(int64_t * ysteps_arr, int64_t y, int64_t sheight, int64_t dheight, int64_t gheight);
 // Had real external linkage but no header declaration at all -- added,
 // the usual "add the missing declaration" fix.
-void LbSpriteClearScalingWidthArray(int32_t * xsteps_arr, int32_t swidth);
-void LbSpriteClearScalingHeightArray(int32_t * ysteps_arr, long sheight);
+void LbSpriteClearScalingWidthArray(int64_t * xsteps_arr, int64_t swidth);
+void LbSpriteClearScalingHeightArray(int64_t * ysteps_arr, int64_t sheight);
 
-TbResult LbSpriteDraw(long x, long y, const struct TbSprite *spr);
-TbResult LbSpriteDrawOneColour(long x, long y, const struct TbSprite *spr, const TbPixel colour);
+TbResult LbSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr);
+TbResult LbSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, const TbPixel colour);
 
-TbResult LbSpriteDrawScaled(long xpos, long ypos, const struct TbSprite *sprite, long dest_width, long dest_height);
-TbResult LbSpriteDrawScaledOneColour(long xpos, long ypos, const struct TbSprite *sprite, long dest_width, long dest_height, const TbPixel colour);
-int LbSpriteDrawScaledRemap(long xpos, long ypos, const struct TbSprite *sprite, long dest_width, long dest_height, const TbPixel *cmap);
+TbResult LbSpriteDrawScaled(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height);
+TbResult LbSpriteDrawScaledOneColour(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height, const TbPixel colour);
+int64_t LbSpriteDrawScaledRemap(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height, const TbPixel *cmap);
 /* The draws themselves. The entry points above route through the renderer first;
  * these are what it calls when it is time to put pixels down. */
-TbResult LbSpriteDrawImmediate(long x, long y, const struct TbSprite *spr);
-TbResult LbSpriteDrawOneColourImmediate(long x, long y, const struct TbSprite *spr, const TbPixel colour);
-TbResult LbSpriteDrawScaledImmediate(long xpos, long ypos, const struct TbSprite *sprite, long dest_width, long dest_height);
-TbResult LbSpriteDrawScaledOneColourImmediate(long xpos, long ypos, const struct TbSprite *sprite, long dest_width, long dest_height, const TbPixel colour);
-int LbSpriteDrawScaledRemapImmediate(long xpos, long ypos, const struct TbSprite *sprite, long dest_width, long dest_height, const TbPixel *cmap);
+TbResult LbSpriteDrawImmediate(int64_t x, int64_t y, const struct TbSprite *spr);
+TbResult LbSpriteDrawOneColourImmediate(int64_t x, int64_t y, const struct TbSprite *spr, const TbPixel colour);
+TbResult LbSpriteDrawScaledImmediate(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height);
+TbResult LbSpriteDrawScaledOneColourImmediate(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height, const TbPixel colour);
+int64_t LbSpriteDrawScaledRemapImmediate(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height, const TbPixel *cmap);
 #define LbSpriteDrawResizedImmediate(xpos, ypos, un_per_px, sprite) LbSpriteDrawScaledImmediate(xpos, ypos, sprite, ((sprite)->SWidth * un_per_px + 8) / 16, ((sprite)->SHeight * un_per_px + 8) / 16)
 #define LbSpriteDrawResizedOneColourImmediate(xpos, ypos, un_per_px, sprite, colour) LbSpriteDrawScaledOneColourImmediate(xpos, ypos, sprite, ((sprite)->SWidth * un_per_px + 8) / 16, ((sprite)->SHeight * un_per_px + 8) / 16, colour)
 #define LbSpriteDrawResizedRemapImmediate(xpos, ypos, un_per_px, sprite, cmap) LbSpriteDrawScaledRemapImmediate(xpos, ypos, sprite, ((sprite)->SWidth * un_per_px + 8) / 16, ((sprite)->SHeight * un_per_px + 8) / 16, cmap)
@@ -247,23 +247,23 @@ int LbSpriteDrawScaledRemapImmediate(long xpos, long ypos, const struct TbSprite
 #define LbSpriteDrawResizedOneColour(xpos, ypos, un_per_px, sprite, colour) LbSpriteDrawScaledOneColour(xpos, ypos, sprite, ((sprite)->SWidth * un_per_px + 8) / 16, ((sprite)->SHeight * un_per_px + 8) / 16, colour)
 #define LbSpriteDrawResizedRemap(xpos, ypos, un_per_px, sprite, cmap) LbSpriteDrawScaledRemap(xpos, ypos, sprite, ((sprite)->SWidth * un_per_px + 8) / 16, ((sprite)->SHeight * un_per_px + 8) / 16, cmap)
 
-TbResult LbHugeSpriteDraw(const struct TbHugeSprite * spr, long sp_len,
-    TbPixel *r, int r_row_delta, int r_height, short xshift, short yshift, int units_per_px);
+TbResult LbHugeSpriteDraw(const struct TbHugeSprite * spr, int64_t sp_len,
+    TbPixel *r, int64_t r_row_delta, int64_t r_height, int64_t xshift, int64_t yshift, int64_t units_per_px);
 // Injected lookup for the panel sprite behind a TiledSprite index (impl. in
 // custom_sprites.c), so this file doesn't need custom_sprites.h directly.
 // See docs/refactor/stage-02-decouple-bflib.md.
-typedef const struct TbSprite *(*PanelSpriteLookupFn)(short sprite_idx);
+typedef const struct TbSprite *(*PanelSpriteLookupFn)(int64_t sprite_idx);
 
-void LbTiledSpriteDraw(long x, long y, long units_per_px, struct TiledSprite *bigspr, PanelSpriteLookupFn panel_sprite_fn);
-int LbTiledSpriteHeight(struct TiledSprite *bigspr, PanelSpriteLookupFn panel_sprite_fn);
+void LbTiledSpriteDraw(int64_t x, int64_t y, int64_t units_per_px, struct TiledSprite *bigspr, PanelSpriteLookupFn panel_sprite_fn);
+int64_t LbTiledSpriteHeight(struct TiledSprite *bigspr, PanelSpriteLookupFn panel_sprite_fn);
 
 // mspointer needs this for some reason
-TbResult LbSpriteDrawUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf);
+TbResult LbSpriteDrawUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf);
 
 // Shared "solid run" copy helper used by the scaled-sprite blitters in
 // bflib_vidraw_spr_norm.c/_onec.c/_remp.c, defined in bflib_vidraw.c. One
 // declaration here instead of three identical local externs.
-void LbPixelBlockCopyForward(TbPixel * dst, const TbPixel * src, long len);
+void LbPixelBlockCopyForward(TbPixel * dst, const TbPixel * src, int64_t len);
 
 /******************************************************************************/
 #ifdef __cplusplus

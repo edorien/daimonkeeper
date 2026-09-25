@@ -28,10 +28,10 @@ const struct ModsConfig *get_loaded_mods_conf(void)
     return &stored_mods_conf;
 }
 
-static TbBool parse_block_mods(char *buf, long len, const char *block_name, struct ModConfigItem* mod_items, int32_t *mod_cnt, long mod_max)
+static TbBool parse_block_mods(char *buf, int64_t len, const char *block_name, struct ModConfigItem* mod_items, int64_t *mod_cnt, int64_t mod_max)
 {
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         return false;
@@ -42,7 +42,7 @@ static TbBool parse_block_mods(char *buf, long len, const char *block_name, stru
         if (*mod_cnt >= mod_max)
             break;
         char line_buf[COMMAND_WORD_LEN] = {0};
-        int line_len = get_conf_line(buf, &pos, len, line_buf, COMMAND_WORD_LEN);
+        int64_t line_len = get_conf_line(buf, &pos, len, line_buf, COMMAND_WORD_LEN);
         if (line_len < 0)
             break;
         if (line_len > 0)
@@ -60,9 +60,9 @@ static TbBool parse_block_mods(char *buf, long len, const char *block_name, stru
     return true;
 }
 
-static void recheck_block_mod_list_exist(struct ModConfigItem *mod_items, long mod_cnt, const char *block_name)
+static void recheck_block_mod_list_exist(struct ModConfigItem *mod_items, int64_t mod_cnt, const char *block_name)
 {
-    for (long i=0; i<mod_cnt; i++)
+    for (int64_t i=0; i<mod_cnt; i++)
     {
         struct ModConfigItem *mod_item = mod_items + i;
         struct ModExistState *mod_state = &mod_item->state;
@@ -83,12 +83,12 @@ static void recheck_block_mod_list_exist(struct ModConfigItem *mod_items, long m
         char mod_dir[256] = {0}, config_dirs[2048] = {0}, main_dir[2048] = {0};
         sprintf(mod_dir, "%s/%s", MODS_DIR_NAME, mod_item->name);
         prepare_file_path_buf_mod(main_dir, sizeof(main_dir), mod_dir, FGrp_Main, NULL);
-        int main_len = strlen(main_dir);
+        int64_t main_len = strlen(main_dir);
 
 
         struct GrpExistState {
-            int *fgrp_state;
-            short fgroup_val;
+            int64_t *fgrp_state;
+            int64_t fgroup_val;
             const char *fgrp_desc;
         };
         struct GrpExistState grp_check_list[] = {
@@ -101,9 +101,9 @@ static void recheck_block_mod_list_exist(struct ModConfigItem *mod_items, long m
             { &mod_state->lrg_sound, FGrp_LrgSound, "FGrp_LrgSound" },
             { &mod_state->music, FGrp_Music, "FGrp_Music" },
         };
-        const int grp_check_cnt = (int)(sizeof(grp_check_list)/sizeof(grp_check_list[0]));
+        const int64_t grp_check_cnt = (int64_t)(sizeof(grp_check_list)/sizeof(grp_check_list[0]));
 
-        for (int j=0; j<grp_check_cnt; j++) {
+        for (int64_t j=0; j<grp_check_cnt; j++) {
             struct GrpExistState *grp_check_cur = grp_check_list + j;
             fname = prepare_file_path_mod(mod_dir, grp_check_cur->fgroup_val, NULL);
             if (fname[0] != 0 && LbFileExists(fname))
@@ -144,7 +144,7 @@ TbBool load_mods_order_config_file()
     const char *sname = MODS_DIR_NAME "/" MODS_LOAD_ORDER_FILE_NAME;
     const char *fname = prepare_file_path(FGrp_Main, sname);
 
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < 2)
     {
         WARNMSG("Mods order file \"%s\" doesn't exist or is too small.", sname);

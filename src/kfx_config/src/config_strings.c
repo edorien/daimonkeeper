@@ -43,13 +43,13 @@ extern "C" {
 // check-layering-symbol-level-blind-spot.md.
 
 char *gui_strings_data_list[MOD_ITEM_MAX*MOD_ITEM_TYPE_CNT+1] = {0};
-int gui_strings_data_count = 0;
+int64_t gui_strings_data_count = 0;
 char *gui_strings[GUI_STRINGS_COUNT];
 /******************************************************************************/
-TbBool reset_strings(char **strings, int max)
+TbBool reset_strings(char **strings, int64_t max)
 {
     char** text_arr = strings;
-    int text_idx = max;
+    int64_t text_idx = max;
     while (text_idx >= 0)
     {
         *text_arr = "";
@@ -59,10 +59,10 @@ TbBool reset_strings(char **strings, int max)
   return true;
 }
 
-TbBool fill_strings_list(char **strings,char *strings_data,char *strings_data_end, int max)
+TbBool fill_strings_list(char **strings,char *strings_data,char *strings_data_end, int64_t max)
 {
   char** text_arr = strings;
-  int text_idx = max;
+  int64_t text_idx = max;
   char* text_ptr = strings_data;
   while (text_idx >= 0)
   {
@@ -87,12 +87,12 @@ TbBool fill_strings_list(char **strings,char *strings_data,char *strings_data_en
   return (text_idx < max);
 }
 
-static TbBool load_gui_strings_data_from_file(const char *fname, unsigned short flags)
+static TbBool load_gui_strings_data_from_file(const char *fname, int64_t flags)
 {
   if (gui_strings_data_count >= sizeof(gui_strings_data_list)/sizeof(gui_strings_data_list[0]))
     return false;
 
-  long filelen = LbFileLengthRnc(fname);
+  int64_t filelen = LbFileLengthRnc(fname);
   if (filelen <= 0)
   {
     if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -112,7 +112,7 @@ static TbBool load_gui_strings_data_from_file(const char *fname, unsigned short 
     }
     return false;
   }
-  long loaded_size = LbFileLoadAt(fname, raw_data);
+  int64_t loaded_size = LbFileLoadAt(fname, raw_data);
   if (loaded_size < 16)
   {
     KfxFree(raw_data);
@@ -181,9 +181,9 @@ static void load_gui_strings_data_for_mod(const struct ModConfigItem *mod_item)
   }
 }
 
-static void load_gui_strings_data_for_mod_list(const struct ModConfigItem *mod_items, long mod_cnt)
+static void load_gui_strings_data_for_mod_list(const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
-  for (long i=0; i<mod_cnt; i++)
+  for (int64_t i=0; i<mod_cnt; i++)
   {
     const struct ModConfigItem *mod_item = mod_items + i;
     if (mod_item->state.mod_dir == 0)
@@ -234,7 +234,7 @@ TbBool free_gui_strings_data(void)
   // Resetting all values to empty strings
   reset_strings(gui_strings, GUI_STRINGS_COUNT-1);
   // Freeing memory
-  for (int i=0; i<gui_strings_data_count; i++)
+  for (int64_t i=0; i<gui_strings_data_count; i++)
   {
     KfxFree(gui_strings_data_list[i]);
     gui_strings_data_list[i] = NULL;
@@ -244,12 +244,12 @@ TbBool free_gui_strings_data(void)
 }
 
 
-TbBool load_campaign_strings_data_from_file(const char *fname, unsigned short flags, struct GameCampaign *campgn, uint8_t lang_id)
+TbBool load_campaign_strings_data_from_file(const char *fname, int64_t flags, struct GameCampaign *campgn, uint8_t lang_id)
 {
   if (campgn->strings_data_count >= sizeof(campgn->strings_data_list)/sizeof(campgn->strings_data_list[0]))
     return false;
 
-  long filelen = LbFileLengthRnc(fname);
+  int64_t filelen = LbFileLengthRnc(fname);
   if (filelen <= 0)
   {
     if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -267,7 +267,7 @@ TbBool load_campaign_strings_data_from_file(const char *fname, unsigned short fl
     }
     return false;
   }
-  long loaded_size = LbFileLoadAt(fname, raw_data);
+  int64_t loaded_size = LbFileLoadAt(fname, raw_data);
   if (loaded_size < 16)
   {
     KfxFree(raw_data);
@@ -330,9 +330,9 @@ static void load_campaign_strings_data_for_mod(struct GameCampaign *campgn, cons
   }
 }
 
-static void load_campaign_strings_data_for_mod_list(struct GameCampaign *campgn, const struct ModConfigItem *mod_items, long mod_cnt)
+static void load_campaign_strings_data_for_mod_list(struct GameCampaign *campgn, const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
-  for (long i=0; i<mod_cnt; i++)
+  for (int64_t i=0; i<mod_cnt; i++)
   {
     const struct ModConfigItem *mod_item = mod_items + i;
     if (mod_item->state.mod_dir == 0)
@@ -386,19 +386,19 @@ TbBool setup_campaign_strings_data(struct GameCampaign *campgn)
   return true;
 }
 
-const char * gui_string(unsigned int index)
+const char * gui_string(uint64_t index)
 {
     static char string_invalid[64];
 
     if (index >= GUI_STRINGS_COUNT)
     {
-        snprintf(string_invalid, sizeof(string_invalid), "untranslated <%d>", index);
+        snprintf(string_invalid, sizeof(string_invalid), "untranslated <%" PRId64 ">", (int64_t)(index));
         return string_invalid;
     }
     return gui_strings[index];
 }
 
-const char * cmpgn_string(unsigned int index)
+const char * cmpgn_string(uint64_t index)
 {
     if (index >= STRINGS_MAX)
     {
@@ -435,9 +435,9 @@ const char * get_string(TextStringId stridx)
         return gui_string(stridx - GUI_STRINGS_START);
 }
 
-unsigned long count_strings(char *strings, int size)
+uint64_t count_strings(char *strings, int64_t size)
 {
-    unsigned long result = 0;
+    uint64_t result = 0;
     char *s = strings;
     char *end = strings + size;
     while (s <= end)

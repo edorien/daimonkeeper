@@ -67,15 +67,15 @@ static TbClockMSec frontstats_timer;
  * @param plyr_idx Player for whom statistic is to be calculated.
  * @return Statistic value, scaled 0..100.
  */
-long calculate_efficiency(PlayerNumber plyr_idx)
+int64_t calculate_efficiency(PlayerNumber plyr_idx)
 {
-    long count = 0;
-    long efficiency = 0;
+    int64_t count = 0;
+    int64_t efficiency = 0;
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    for (long rkind = 1; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
+    for (int64_t rkind = 1; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
-        long i = dungeon->room_list_start[rkind];
-        unsigned long k = 0;
+        int64_t i = dungeon->room_list_start[rkind];
+        uint64_t k = 0;
         while (i != 0)
         {
             struct Room* room = room_get(i);
@@ -102,14 +102,14 @@ long calculate_efficiency(PlayerNumber plyr_idx)
     return 100 * efficiency / (count * ROOM_EFFICIENCY_MAX);
 }
 
-long calculate_style(long plyr_idx)
+int64_t calculate_style(int64_t plyr_idx)
 {
-    long area = 0;
+    int64_t area = 0;
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    for (long rkind = 1; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
+    for (int64_t rkind = 1; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
-        long i = dungeon->room_list_start[rkind];
-        unsigned long k = 0;
+        int64_t i = dungeon->room_list_start[rkind];
+        uint64_t k = 0;
         while (i != 0)
         {
             struct Room* room = room_get(i);
@@ -130,7 +130,7 @@ long calculate_style(long plyr_idx)
             }
         }
     }
-    long half_area = (dungeon->total_area >> 1);
+    int64_t half_area = (dungeon->total_area >> 1);
     if ((area < half_area) && (half_area > 0))
         return 100 * area / half_area;
     else
@@ -142,15 +142,15 @@ long calculate_style(long plyr_idx)
  * @param plyr_idx Player for whom statistic is to be calculated.
  * @return Statistic value.
  */
-long calculate_rating(PlayerNumber plyr_idx)
+int64_t calculate_rating(PlayerNumber plyr_idx)
 {
-    long rating = calculate_style(plyr_idx) * calculate_efficiency(plyr_idx) / 100;
+    int64_t rating = calculate_style(plyr_idx) * calculate_efficiency(plyr_idx) / 100;
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     rating += 100 * dungeon->lvstats.player_score / 800;
-    long btlost = dungeon->lvstats.battles_lost;
-    long btwon = dungeon->lvstats.battles_won;
+    int64_t btlost = dungeon->lvstats.battles_lost;
+    int64_t btwon = dungeon->lvstats.battles_won;
     // Find scoring ratio
-    long ratio = 100;
+    int64_t ratio = 100;
     if ( (btlost < btwon) && (btlost > 0) )
     {
         ratio = btwon / btlost;
@@ -165,22 +165,22 @@ long calculate_rating(PlayerNumber plyr_idx)
     return 75 * rating;
 }
 
-long calculate_doors_unused(PlayerNumber plyr_idx)
+int64_t calculate_doors_unused(PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    long count = 0;
-    for (long i = 1; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
+    int64_t count = 0;
+    for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
     {
       count += dungeon->mnfct_info.door_amount_stored[i];
     }
     return count;
 }
 
-long calculate_traps_unused(PlayerNumber plyr_idx)
+int64_t calculate_traps_unused(PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    long count = 0;
-    for (long i = 1; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
+    int64_t count = 0;
+    for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
     {
       count += dungeon->mnfct_info.trap_amount_stored[i];
     }
@@ -224,17 +224,17 @@ void frontstats_initialise(void)
 
 void frontstats_draw_main_stats(struct GuiButton *gbtn)
 {
-    int fs_units_per_px = scroll_box_get_units_per_px(gbtn);
+    int64_t fs_units_per_px = scroll_box_get_units_per_px(gbtn);
     draw_scroll_box(gbtn, fs_units_per_px, 6);
     LbTextSetFont(frontend_font[1]);
     // The GUI item height should be 6 lines of text
-    int tx_units_per_px = gbtn->height * 16 / (6 * (LbTextLineHeight() + 1));
-    int ln_height = LbTextLineHeight() * tx_units_per_px / 16;
-    int pos_x = gbtn->scr_pos_x;
-    int pos_y = gbtn->scr_pos_y + ln_height / 2;
+    int64_t tx_units_per_px = gbtn->height * 16 / (6 * (LbTextLineHeight() + 1));
+    int64_t ln_height = LbTextLineHeight() * tx_units_per_px / 16;
+    int64_t pos_x = gbtn->scr_pos_x;
+    int64_t pos_y = gbtn->scr_pos_y + ln_height / 2;
     for (struct StatsData* stat = main_stats_data; stat->name_stridx > 0; stat++)
     {
-        int border;
+        int64_t border;
         {
             const struct TbSprite* spr = get_frontend_sprite(GFS_hugearea_thn_cor_tl);
             border = spr->SWidth * fs_units_per_px / 16;
@@ -243,7 +243,7 @@ void frontstats_draw_main_stats(struct GuiButton *gbtn)
         RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
         LbTextDrawResized(0, 0, tx_units_per_px, get_string(stat->name_stridx));
         RendererSetDrawFlags(Lb_TEXT_HALIGN_RIGHT);
-        int stat_val;
+        int64_t stat_val;
         if (stat->get_value != NULL)
         {
             stat_val = stat->get_value(stat->get_arg);
@@ -254,11 +254,11 @@ void frontstats_draw_main_stats(struct GuiButton *gbtn)
         }
         if ( (timer_enabled()) && (stat->name_stridx == GUIStr_Time) && (!kfx_sim_state.TimerGame) )
         {
-            LbTextDrawResizedFmt(0, 0, tx_units_per_px, "%02d:%02d:%02d:%03d", kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
+            LbTextDrawResizedFmt(0, 0, tx_units_per_px, "%02" PRId64 ":%02" PRId64 ":%02" PRId64 ":%03" PRId64, (int64_t)(kfx_sim_state.Timer.Hours), (int64_t)(kfx_sim_state.Timer.Minutes), (int64_t)(kfx_sim_state.Timer.Seconds), (int64_t)(kfx_sim_state.Timer.MSeconds));
         }
         else
         {
-            LbTextDrawResizedFmt(0, 0, tx_units_per_px, "%d", stat_val);
+            LbTextDrawResizedFmt(0, 0, tx_units_per_px, "%" PRId64, (int64_t)(stat_val));
         }
         pos_y += ln_height + 1 * units_per_pixel / 16;
     }
@@ -266,7 +266,7 @@ void frontstats_draw_main_stats(struct GuiButton *gbtn)
 
 void frontstats_draw_scrolling_stats(struct GuiButton *gbtn)
 {
-    int fs_units_per_px = scroll_box_get_units_per_px(gbtn);
+    int64_t fs_units_per_px = scroll_box_get_units_per_px(gbtn);
     draw_scroll_box(gbtn, fs_units_per_px, 5);
     LbTextSetFont(frontend_font[1]);
     {
@@ -275,16 +275,16 @@ void frontstats_draw_scrolling_stats(struct GuiButton *gbtn)
           gbtn->width - 2 * (spr->SWidth * fs_units_per_px / 16), gbtn->height + 2 * (8 - spr->SHeight) * fs_units_per_px / 16);
     }
     // The GUI item height should be 5 lines of text
-    int tx_units_per_px = gbtn->height * 16 / (5 * (LbTextLineHeight() + 1));
-    int ln_height = LbTextLineHeight() * tx_units_per_px / 16;
-    int pos_x = 0;
-    int pos_y = -scrolling_offset * tx_units_per_px / 16;
+    int64_t tx_units_per_px = gbtn->height * 16 / (5 * (LbTextLineHeight() + 1));
+    int64_t ln_height = LbTextLineHeight() * tx_units_per_px / 16;
+    int64_t pos_x = 0;
+    int64_t pos_y = -scrolling_offset * tx_units_per_px / 16;
     for (struct StatsData* stat = &scrolling_stats_data[scrolling_index]; pos_y < gbtn->height; pos_y += ln_height + 4 * units_per_pixel / 16)
     {
         RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
         LbTextDrawResized(pos_x, pos_y, tx_units_per_px, get_string(stat->name_stridx));
         RendererSetDrawFlags(Lb_TEXT_HALIGN_RIGHT);
-        int stat_val;
+        int64_t stat_val;
         if (stat->get_value != NULL)
         {
             stat_val = stat->get_value(stat->get_arg);
@@ -293,7 +293,7 @@ void frontstats_draw_scrolling_stats(struct GuiButton *gbtn)
         {
             stat_val = -1;
         }
-        LbTextDrawResizedFmt(pos_x, pos_y, tx_units_per_px, "%d", stat_val);
+        LbTextDrawResizedFmt(pos_x, pos_y, tx_units_per_px, "%" PRId64, (int64_t)(stat_val));
         stat++;
         if (!stat->name_stridx)
           stat = scrolling_stats_data;
@@ -332,7 +332,7 @@ void frontstats_update(void)
 {
     scrolling_offset += kfx_render_state.delta_time;
     LbTextSetFont(frontend_font[1]);
-    int h = LbTextLineHeight();
+    int64_t h = LbTextLineHeight();
     if (h+4 < scrolling_offset)
     {
         scrolling_offset -= h+4;

@@ -244,7 +244,7 @@ struct SpellConfigStats {
 
 struct ShotHitConfig {
     EffectOrEffElModel effect_model; /**< Effect kind to be created when the shot hits. */
-    short sndsample_idx; /**< Base sound sample to be played on hit. */
+    int64_t sndsample_idx; /**< Base sound sample to be played on hit. */
     unsigned char sndsample_range; /**< Range for random sound sample selection. */
     unsigned char withstand; /**< Whether the shot can withstand a hit without getting destroyed; could be converted to flags. */
 };
@@ -252,14 +252,14 @@ struct ShotHitConfig {
 struct ShotDetonateConfig {
     EffectOrEffElModel effect1_model;
     EffectOrEffElModel effect2_model;
-    short around_effect1_model;
-    short around_effect2_model;
+    int64_t around_effect1_model;
+    int64_t around_effect2_model;
 };
 
 struct ShotVisualConfig {
     EffectOrEffElModel effect_model;
     unsigned char amount;
-    short random_range;
+    int64_t random_range;
     HitPoints shot_health;
 };
 
@@ -268,7 +268,7 @@ struct ShotVisualConfig {
  */
 struct ShotConfigStats {
     char code_name[COMMAND_WORD_LEN];
-    uint32_t model_flags;
+    uint64_t model_flags;
     /** Health of a shot decreases by 1 on every turn, so it works also as lifespan. */
     HitPoints health;
     /** Range of area damage, if the spell causes area damage. */
@@ -280,8 +280,8 @@ struct ShotConfigStats {
     /** Strength of the blow which pushes creatures on explosion. */
     MapCoordDelta area_blow;
     /** Type of the damage inflicted by this shot. */
-    short damage;
-    short speed;
+    int64_t damage;
+    int64_t speed;
     TbBool is_magical;
     struct ShotHitConfig hit_generic;
     struct ShotHitConfig hit_door;
@@ -292,26 +292,26 @@ struct ShotConfigStats {
     struct ShotHitConfig hit_heart;
     struct ShotDetonateConfig explode;
     struct ShotVisualConfig visual;
-    short firing_sound;
-    short shot_sound;
-    short sound_priority;
+    int64_t firing_sound;
+    int64_t shot_sound;
+    int64_t sound_priority;
     unsigned char firing_sound_variants;
-    short max_range;
-    unsigned short sprite_anim_idx;
-    unsigned short sprite_size_max;
-    short size_xy;
-    short size_z;
+    int64_t max_range;
+    int64_t sprite_anim_idx;
+    int64_t sprite_size_max;
+    int64_t size_xy;
+    int64_t size_z;
     unsigned char fall_acceleration;
     unsigned char cast_spell_kind;
     char push_on_hit;
     unsigned char destroy_on_first_hit;
-    short experience_given_to_shooter;
-    short inertia_floor;
-    short inertia_air;
-    short bounce_angle;
+    int64_t experience_given_to_shooter;
+    int64_t inertia_floor;
+    int64_t inertia_air;
+    int64_t bounce_angle;
     unsigned char target_hitstop_turns;
-    short animation_transparency;
-    short light_radius;
+    int64_t animation_transparency;
+    int64_t light_radius;
     unsigned char light_intensity;
     unsigned char light_flags;
     unsigned char unshaded;
@@ -320,13 +320,13 @@ struct ShotConfigStats {
     EffectOrEffElModel effect_bleeding;
     EffectOrEffElModel effect_frozen;
     unsigned char fire_logic; // see enum ShotFireLogics
-    short update_logic; // see enum ShotUpdateLogics
-    unsigned short effect_spacing;
+    int64_t update_logic; // see enum ShotUpdateLogics
+    int64_t effect_spacing;
     unsigned char effect_amount;
-    unsigned short periodical;
-    short spread_xy;
-    short spread_z;
-    short speed_deviation;
+    int64_t periodical;
+    int64_t spread_xy;
+    int64_t spread_z;
+    int64_t speed_deviation;
     FuncIdx hit_thing_lua_func_idx;
 };
 
@@ -337,21 +337,21 @@ struct PowerConfigStats {
     char code_name[COMMAND_WORD_LEN];
     ThingModel artifact_model;
     uint64_t can_cast_flags;
-    uint32_t config_flags;
+    uint64_t config_flags;
     unsigned char overcharge_check_idx;
-    uint32_t work_state;
+    uint64_t work_state;
     PowerKind parent_power;
     /** Sprite index of big symbol icon representing the power. */
-    short bigsym_sprite_idx;
+    int64_t bigsym_sprite_idx;
     /** Sprite index of medium symbol icon representing the power. */
-    short medsym_sprite_idx;
-    unsigned short name_stridx;
-    unsigned short tooltip_stridx;
-    short select_sample_idx;
-    short pointer_sprite_idx;
-    uint32_t panel_tab_idx;
-    unsigned short select_sound_idx;
-    short cast_cooldown;
+    int64_t medsym_sprite_idx;
+    int64_t name_stridx;
+    int64_t tooltip_stridx;
+    int64_t select_sample_idx;
+    int64_t pointer_sprite_idx;
+    uint64_t panel_tab_idx;
+    int64_t select_sound_idx;
+    int64_t cast_cooldown;
     unsigned char cost_formula;
     SpellKind spell_idx;
     EffectOrEffElModel effect_id;
@@ -359,7 +359,7 @@ struct PowerConfigStats {
     ThingModel creature_model;
     GoldAmount cost[MAGIC_OVERCHARGE_LEVELS];
     GameTurnDelta duration;
-    int32_t strength[MAGIC_OVERCHARGE_LEVELS+1];
+    int64_t strength[MAGIC_OVERCHARGE_LEVELS+1];
 };
 
 /**
@@ -370,8 +370,8 @@ struct SpecialConfigStats {
     ThingModel artifact_model;
     TextStringId tooltip_stridx;
     SpeechRef speech;
-    short effect_id;
-    short value;
+    int64_t effect_id;
+    int64_t value;
 };
 
  /**
@@ -389,16 +389,16 @@ struct SpellConfig {
     /** Effect model created while casting. */
     EffectOrEffElModel cast_effect_model;
     /** If caster is affected by the spell, indicates sound sample to be played. */
-    unsigned short caster_affect_sound;
+    int64_t caster_affect_sound;
     /** Sprite index of big symbol icon representing the spell. */
-    short bigsym_sprite_idx;
+    int64_t bigsym_sprite_idx;
     /** Sprite index of medium symbol icon representing the spell. */
-    short medsym_sprite_idx;
-    short cast_sound;
+    int64_t medsym_sprite_idx;
+    int64_t cast_sound;
     unsigned char caster_sounds_count;
     ThingModel crtr_summon_model;
-    short crtr_summon_level;
-    short crtr_summon_amount;
+    int64_t crtr_summon_level;
+    int64_t crtr_summon_amount;
     PowerKind linked_power;
     GameTurnDelta countdown;
     GameTurnDelta duration;
@@ -408,20 +408,20 @@ struct SpellConfig {
     HitPoints healing_recovery;
     HitPoints damage;
     GameTurnDelta damage_frequency;
-    uint32_t spell_flags;
-    uint32_t cleanse_flags;
+    uint64_t spell_flags;
+    uint64_t cleanse_flags;
     unsigned char properties_flags;
 };
 
 struct MagicConfig {
-    int32_t spell_types_count;
+    int64_t spell_types_count;
     struct SpellConfig spell_config[MAGIC_ITEMS_MAX];// should get merged into SpellConfigStats
     struct SpellConfigStats spell_cfgstats[MAGIC_ITEMS_MAX];
-    int32_t shot_types_count;
+    int64_t shot_types_count;
     struct ShotConfigStats shot_cfgstats[MAGIC_ITEMS_MAX];
-    int32_t power_types_count;
+    int64_t power_types_count;
     struct PowerConfigStats power_cfgstats[MAGIC_ITEMS_MAX];
-    int32_t special_types_count;
+    int64_t special_types_count;
     struct SpecialConfigStats special_cfgstats[MAGIC_ITEMS_MAX];
     struct InstanceInfo instance_info[MAGIC_INSTANCE_TYPES_MAX]; //count in crtr_conf
 };
@@ -447,9 +447,9 @@ struct SpellConfig *get_spell_config(SpellKind spell_idx);
 TbBool spell_config_is_invalid(struct SpellConfig *mgcinfo);
 TextStringId get_power_description_strindex(PowerKind pwkind);
 TextStringId get_power_name_strindex(PowerKind pwkind);
-TbBool power_is_instinctive(int pwkind);
-int32_t get_power_index_for_work_state(int32_t work_state);
-int32_t get_special_description_strindex(int spckind);
+TbBool power_is_instinctive(int64_t pwkind);
+int64_t get_power_index_for_work_state(int64_t work_state);
+int64_t get_special_description_strindex(int64_t spckind);
 struct SpellConfigStats *get_spell_model_stats(SpellKind spmodel);
 struct ShotConfigStats *get_shot_model_stats(ThingModel tngmodel);
 struct PowerConfigStats *get_power_model_stats(PowerKind pwmodel);
@@ -458,11 +458,11 @@ struct SpecialConfigStats *get_special_model_stats(SpecialKind spckind);
 const char *spell_code_name(SpellKind spmodel);
 const char *shot_code_name(ThingModel tngmodel);
 const char *power_code_name(PowerKind pwkind);
-int power_model_id(const char * code_name);
+int64_t power_model_id(const char * code_name);
 /******************************************************************************/
 TbBool make_all_powers_cost_free(void);
 TbBool make_all_powers_researchable(PlayerNumber plyr_idx);
-TbBool set_power_available(PlayerNumber plyr_idx, PowerKind spl_idx, long resrch, long avail);
+TbBool set_power_available(PlayerNumber plyr_idx, PowerKind spl_idx, int64_t resrch, int64_t avail);
 TbBool is_power_available(PlayerNumber plyr_idx, PowerKind spl_idx);
 TbBool is_power_obtainable(PlayerNumber plyr_idx, PowerKind pwkind);
 TbBool make_available_all_researchable_powers(PlayerNumber plyr_idx);

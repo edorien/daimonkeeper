@@ -50,7 +50,7 @@ typedef unsigned char TbRGBColorTable[COLOUR_TABLE_DIMENSION][COLOUR_TABLE_DIMEN
  * not a raw palette index. */
 static inline unsigned char TbRGBColorTable_Lookup(const TbRGBColorTable ctab, TbPixel colour)
 {
-    const int scaler = (1 << 6) / COLOUR_TABLE_DIMENSION;
+    const int64_t scaler = (1 << 6) / COLOUR_TABLE_DIMENSION;
     return ctab[chan8_to_6(colour.r) / scaler][chan8_to_6(colour.g) / scaler][chan8_to_6(colour.b) / scaler];
 }
 
@@ -67,14 +67,14 @@ extern unsigned char palette_buf[PALETTE_SIZE];
 // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md Phase 0 -- the
 // between-screens fade they drove is no longer needed.
 void compute_fade_tables(struct TbColorTables *coltbl,unsigned char *spal,unsigned char *dpal);
-void ProperForcedFadePalette(unsigned char *pal, long n, enum TbPaletteFadeFlag flg);
+void ProperForcedFadePalette(unsigned char *pal, int64_t n, enum TbPaletteFadeFlag flg);
 
 void compute_alpha_tables(struct TbAlphaTables *alphtbls,unsigned char *spal,unsigned char *dpal);
 void compute_rgb2idx_table(TbRGBColorTable ctab,unsigned char *spal);
 
 
-long PaletteFadePlayer(struct PlayerInfo *player);
-void PaletteApplyPainToPlayer(struct PlayerInfo *player, long intense);
+int64_t PaletteFadePlayer(struct PlayerInfo *player);
+void PaletteApplyPainToPlayer(struct PlayerInfo *player, int64_t intense);
 
 void PaletteSetUserPalette(NetUserId user, unsigned char *pal);
 TbBool set_gamma(char corrlvl, TbBool do_set);

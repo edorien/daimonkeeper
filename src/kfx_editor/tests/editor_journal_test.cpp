@@ -203,8 +203,8 @@ TEST_CASE_METHOD(JournalTestActive, "stack_push drops the oldest entry once the 
     // (rect_before), so overflow eviction must move-construct each
     // surviving slot, not raw-copy the struct's bytes between them -- a
     // memmove would corrupt every survivor's vector internals.
-    const int kJournalCapacity = 200; // matches editor_journal.cpp's own private constant
-    for (int i = 1; i <= kJournalCapacity + 1; i++) {
+    const int64_t kJournalCapacity = 200; // matches editor_journal.cpp's own private constant
+    for (int64_t i = 1; i <= kJournalCapacity + 1; i++) {
         editor_journal_record_placement(i, PckA_EditorPlaceObject, i, 0, 0, 0, 0, 0);
     }
     REQUIRE(editor_journal_undo_count() == kJournalCapacity);
@@ -215,7 +215,7 @@ TEST_CASE_METHOD(JournalTestActive, "stack_push drops the oldest entry once the 
     // survivor but the last and checking that final pop confirms both the
     // eviction and that every surviving entry's data (and vector state)
     // rode out the shift intact.
-    for (int i = 0; i < kJournalCapacity - 1; i++) {
+    for (int64_t i = 0; i < kJournalCapacity - 1; i++) {
         editor_journal_do_undo();
     }
     REQUIRE(editor_journal_undo_count() == 1);

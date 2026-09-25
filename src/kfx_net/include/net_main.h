@@ -86,14 +86,14 @@ struct NetUser {
     NetUserId id;
     char name[32];
     enum NetUserProgress progress;
-    int ack;
+    int64_t ack;
     struct GameVersionPacket version;
 };
 
 struct NetFrame {
     struct NetFrame *next;
     char *buffer;
-    int seq_nbr;
+    int64_t seq_nbr;
     size_t size;
 };
 
@@ -103,8 +103,8 @@ struct NetState {
     struct NetFrame *exchg_queue;
     char password[32];
     NetUserId my_id;
-    int seq_nbr;
-    unsigned max_users;
+    int64_t seq_nbr;
+    uint64_t max_users;
     char msg_buffer[NET_MSG_BUFFER_SIZE];
     char msg_buffer_null;
     TbBool locked;
@@ -112,15 +112,15 @@ struct NetState {
 
 struct TbNetworkUserInfo {
     char name[32];
-    int32_t network_user_active;
-    uint32_t connection_id;
+    int64_t network_user_active;
+    uint64_t connection_id;
 };
 
 struct ServiceInitData {
-    int32_t service_flags;
-    int32_t max_connections;
-    int32_t buffer_size;
-    int32_t timeout_value;
+    int64_t service_flags;
+    int64_t max_connections;
+    int64_t buffer_size;
+    int64_t timeout_value;
 };
 
 enum TbNetworkService {
@@ -179,10 +179,10 @@ static inline void screen_packet_set_action(struct ScreenPacket *nspck, unsigned
 // (kfx_frontend), a backwards dependency. front_network.h keeps
 // declaring the frontend-only fields that never left it (net_config_info,
 // net_number_of_sessions, net_service[], tmp_net_player_name).
-extern int fe_network_active;
-extern int net_service_index_selected;
+extern int64_t fe_network_active;
+extern int64_t net_service_index_selected;
 extern struct TbNetworkSessionNameEntry *net_session[SESSION_ENTRIES_COUNT];
-extern long net_session_index_active;
+extern int64_t net_session_index_active;
 extern struct TbNetworkPlayerName net_player[MAX_NET_USERS];
 extern char net_player_name[20];
 extern struct ScreenPacket net_screen_packet[MAX_NET_USERS];
@@ -192,14 +192,14 @@ extern struct ScreenPacket net_screen_packet[MAX_NET_USERS];
 // in the list) -- also net-owned, moved here for the same reason
 // (stage 8.2). Only net_game.c writes it; front_network.c/frontend.cpp
 // read it for UI feedback.
-extern long net_session_index_active_id;
+extern int64_t net_session_index_active_id;
 
 // Double-click detection state for packet-driven left-button clicks,
 // read and written exclusively by packets.c/packets_input.c -- moved
 // here (stage 8.2) since frontend.cpp only ever defined it, never used
 // it itself.
-extern long packet_left_button_double_clicked[6];
-extern long packet_left_button_click_space_count[6];
+extern int64_t packet_left_button_double_clicked[6];
+extern int64_t packet_left_button_click_space_count[6];
 
 extern struct NetState netstate;
 
@@ -213,11 +213,11 @@ static inline TbBool net_versions_match(const struct GameVersionPacket *version_
         (version_a->build == version_b->build);
 }
 
-TbError LbNetwork_Init(uint32_t srvcindex, uint32_t maxplayrs, struct TbNetworkUserInfo *locplayr, struct ServiceInitData *init_data);
+TbError LbNetwork_Init(uint64_t srvcindex, uint64_t maxplayrs, struct TbNetworkUserInfo *locplayr, struct ServiceInitData *init_data);
 TbBool OnNewUser(NetUserId *assigned_id);
 void OnDroppedUser(NetUserId id, enum NetDropReason reason);
 TbBool IsUserActive(NetUserId id);
-int32_t GetRemoteUserCount(void);
+int64_t GetRemoteUserCount(void);
 void UpdateLocalPlayerInfo(NetUserId id);
 char *begin_net_message(enum NetMessageType msg_type);
 void send_message_buffer(NetUserId dest, const char *end_ptr);

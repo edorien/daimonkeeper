@@ -60,7 +60,7 @@ extern "C" {
  * during gameplay. Remember not to use it within script_process_value(),
  * or any other function used beyond first initialization of a level.
   */
-long level_file_version = 0;
+int64_t level_file_version = 0;
 char *level_strings[STRINGS_MAX+1];
 char *level_strings_data;
 
@@ -133,49 +133,49 @@ struct LegacyInitLight { // sizeof=0x14
  * on success, returns a buffer which should be freed after use,
  * and sets ldsize into its size.
  */
-unsigned char *load_single_map_file_to_buffer(LevelNumber lvnum,const char *fext,int32_t *ldsize,unsigned short flags)
+unsigned char *load_single_map_file_to_buffer(LevelNumber lvnum,const char *fext,int64_t *ldsize,int64_t flags)
 {
-  short fgroup = get_level_fgroup(lvnum);
-  char* fname = prepare_file_fmtpath(fgroup, "map%05u.%s", lvnum, fext);
-  long fsize = LbFileLengthRnc(fname);
+  int64_t fgroup = get_level_fgroup(lvnum);
+  char* fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".%s", (uint64_t)(lvnum), fext);
+  int64_t fsize = LbFileLengthRnc(fname);
   if (fsize < *ldsize)
   {
       if ((flags & LMFF_Optional) == 0)
-          WARNMSG("Map file \"map%05u.%s\" doesn't exist or is too small.", lvnum, fext);
+          WARNMSG("Map file \"map%05" PRIu64 ".%s\" doesn't exist or is too small.", (uint64_t)(lvnum), fext);
       else
-          SYNCMSG("Optional file \"map%05u.%s\" doesn't exist or is too small.", lvnum, fext);
+          SYNCMSG("Optional file \"map%05" PRIu64 ".%s\" doesn't exist or is too small.", (uint64_t)(lvnum), fext);
       return NULL;
   }
   unsigned char* buf = calloc(fsize + 16, 1);
   if (buf == NULL)
   {
     if ((flags & LMFF_Optional) == 0)
-      WARNMSG("Can't allocate %ld bytes to load \"map%05u.%s\".",fsize,lvnum,fext);
+      WARNMSG("Can't allocate %" PRId64 " bytes to load \"map%05" PRIu64 ".%s\".",(int64_t)(fsize),(uint64_t)(lvnum),fext);
     else
-      SYNCMSG("Can't allocate %ld bytes to load \"map%05u.%s\".",fsize,lvnum,fext);
+      SYNCMSG("Can't allocate %" PRId64 " bytes to load \"map%05" PRIu64 ".%s\".",(int64_t)(fsize),(uint64_t)(lvnum),fext);
     return NULL;
   }
   fsize = LbFileLoadAt(fname,buf);
   if (fsize < *ldsize)
   {
     if ((flags & LMFF_Optional) == 0)
-      WARNMSG("Reading map file \"map%05u.%s\" failed.",lvnum,fext);
+      WARNMSG("Reading map file \"map%05" PRIu64 ".%s\" failed.",(uint64_t)(lvnum),fext);
     else
-      SYNCMSG("Reading optional file \"map%05u.%s\" failed.",lvnum,fext);
+      SYNCMSG("Reading optional file \"map%05" PRIu64 ".%s\" failed.",(uint64_t)(lvnum),fext);
     free(buf);
     return NULL;
   }
   *ldsize = fsize;
-  SYNCDBG(7,"Map file \"map%05u.%s\" loaded.",lvnum,fext);
+  SYNCDBG(7,"Map file \"map%05" PRIu64 ".%s\" loaded.",(uint64_t)(lvnum),fext);
   return buf;
 }
 
-long get_level_number_from_file_name(const char *fname)
+int64_t get_level_number_from_file_name(const char *fname)
 {
   if (strnicmp(fname,"map",3) != 0)
     return SINGLEPLAYER_NOTSTARTED;
   // Get level number
-  long lvnum = strtol(&fname[3], NULL, 10);
+  int64_t lvnum = LbStrToI32(&fname[3], NULL, 10);
   if (lvnum <= 0)
     return SINGLEPLAYER_NOTSTARTED;
   return lvnum;
@@ -185,11 +185,11 @@ long get_level_number_from_file_name(const char *fname)
  * Analyzes one line of .LIF file buffer. The buffer must be null-terminated.
  * @return Length of the parsed line.
  */
-long level_lif_entry_parse(const char *fname, char *buf)
+int64_t level_lif_entry_parse(const char *fname, char *buf)
 {
   if (buf[0] == '\0')
     return 0;
-  long i = 0;
+  int64_t i = 0;
   // Skip spaces and control chars
   while (buf[i] != '\0')
   {
@@ -206,7 +206,7 @@ long level_lif_entry_parse(const char *fname, char *buf)
         i++;
         if (i >= 10000) // arbritarily big number to prevent an infinte loop if last line is a comment that doesn't have a new line at the end
         {
-          WARNMSG("commented-out line from \"%s\" is too long at %ld characters", fname,i);
+          WARNMSG("commented-out line from \"%s\" is too long at %" PRId64 " characters", fname,(int64_t)(i));
           return 0;
         }
       }
@@ -220,7 +220,7 @@ long level_lif_entry_parse(const char *fname, char *buf)
     return 0;
   // Get level number
   char* cbuf;
-  long lvnum = strtol(&buf[i], &cbuf, 10);
+  int64_t lvnum = LbStrToI32(&buf[i], &cbuf, 10);
   // If can't read number, return
   if (cbuf == &buf[i])
   {
@@ -240,7 +240,7 @@ long level_lif_entry_parse(const char *fname, char *buf)
       cbuf++;
       if (!set_level_info_string_index(lvnum,cbuf,LvKind_IsFree))
       {
-        WARNMSG("Can't set string index of level %ld from file \"%s\"", lvnum, fname);
+        WARNMSG("Can't set string index of level %" PRId64 " from file \"%s\"", (int64_t)(lvnum), fname);
       }
       cbuf--;
     }
@@ -257,7 +257,7 @@ long level_lif_entry_parse(const char *fname, char *buf)
   }
   if (i >= LINEMSG_SIZE)
   {
-    WARNMSG("Level name from \"%s\" truncated from %ld to %d characters", fname,i,LINEMSG_SIZE);
+    WARNMSG("Level name from \"%s\" truncated from %" PRId64 " to %" PRId64 " characters", fname,(int64_t)(i),(int64_t)(LINEMSG_SIZE));
     i = LINEMSG_SIZE-1;
     cbuf[i] = '\0';
   }
@@ -287,13 +287,13 @@ long level_lif_entry_parse(const char *fname, char *buf)
  * @param buflen Length of the buffer.
  * @return
  */
-short level_lif_file_parse(const char *fname, char *buf, long buflen)
+int64_t level_lif_file_parse(const char *fname, char *buf, int64_t buflen)
 {
   if (buf == NULL)
     return false;
-  short result = false;
-  long pos = 0;
-  long i;
+  int64_t result = false;
+  int64_t pos = 0;
+  int64_t i;
   do
   {
     i = level_lif_entry_parse(fname, &buf[pos]);
@@ -319,16 +319,16 @@ TbBool find_and_load_lif_files(void)
         ERRORLOG("Can't allocate memory for .LIF files parsing.");
         return false;
   }
-  short result = false;
+  int64_t result = false;
   char* fname = prepare_file_path(FGrp_CmpgLvls, "*.lif");
   struct TbFileEntry fe;
   struct TbFileFind * ff = LbFileFindFirst(fname, &fe);
   if (ff) {
     do {
       fname = prepare_file_path(FGrp_CmpgLvls, fe.Filename);
-      long i = LbFileLength(fname);
+      int64_t i = LbFileLength(fname);
       if ((i < 0) || (i >= MAX_LIF_SIZE)) {
-        WARNMSG("File \"%s\" too long (Max size %d)", fe.Filename, MAX_LIF_SIZE);
+        WARNMSG("File \"%s\" too long (Max size %" PRId64 ")", fe.Filename, (int64_t)(MAX_LIF_SIZE));
       } else if (LbFileLoadAt(fname, buf) != i) {
         WARNMSG("Unable to read .LIF file, \"%s\"", fe.Filename);
       } else {
@@ -347,15 +347,15 @@ TbBool find_and_load_lif_files(void)
 /**
  * Analyzes given LOF file buffer. The buffer must be null-terminated.
  */
-TbBool level_lof_file_parse(const char *fname, char *buf, long len)
+TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
 {
     struct LevelInformation *lvinfo;
-    int32_t pos;
+    int64_t pos;
     char word_buf[32];
-    long lvnum;
-    int cmd_num;
-    int k;
-    int n;
+    int64_t lvnum;
+    int64_t cmd_num;
+    int64_t k;
+    int64_t n;
     word_buf[0] = 0;
     SYNCDBG(8,"Starting for \"%s\"",fname);
     if (buf == NULL)
@@ -369,7 +369,7 @@ TbBool level_lof_file_parse(const char *fname, char *buf, long len)
     lvinfo = get_or_create_level_info(lvnum, LvKind_None);
     if (lvinfo == NULL)
     {
-        WARNMSG("Can't get LevelInformation item to store level %ld data from LOF file.",lvnum);
+        WARNMSG("Can't get LevelInformation item to store level %" PRId64 " data from LOF file.",(int64_t)(lvnum));
         return 0;
     }
     lvinfo->location = LvLc_Custom;
@@ -581,8 +581,8 @@ TbBool level_lof_file_parse(const char *fname, char *buf, long len)
               }
               if (n < 1)
               {
-                  WARNMSG("Level %ld defined in '%s' wasn't added to any list; "
-                      "kind is wrong or there's no space.",(long)lvinfo->lvnum,fname);
+                  WARNMSG("Level %" PRId64 " defined in '%s' wasn't added to any list; "
+                      "kind is wrong or there's no space.",(int64_t)lvinfo->lvnum,fname);
               }
             }
             break;
@@ -645,12 +645,12 @@ TbBool level_lof_file_parse(const char *fname, char *buf, long len)
         case ccr_endOfFile:
             break;
         default:
-            WARNMSG("Unrecognized command (%d) in LOF file '%s', starting on byte %d.",cmd_num,fname,pos);
+            WARNMSG("Unrecognized command (%" PRId64 ") in LOF file '%s', starting on byte %" PRId64 ".",(int64_t)(cmd_num),fname,(int64_t)(pos));
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
     }
-    SYNCDBG(18,"Level %ld ensign (%d,%d) zoom (%d,%d)",(long)lvinfo->lvnum,(int)lvinfo->ensign_x,(int)lvinfo->ensign_y,(int)lvinfo->ensign_zoom_x,(int)lvinfo->ensign_zoom_y);
+    SYNCDBG(18,"Level %" PRId64 " ensign (%" PRId64 ",%" PRId64 ") zoom (%" PRId64 ",%" PRId64 ")",(int64_t)lvinfo->lvnum,(int64_t)lvinfo->ensign_x,(int64_t)lvinfo->ensign_y,(int64_t)lvinfo->ensign_zoom_x,(int64_t)lvinfo->ensign_zoom_y);
 #undef COMMAND_TEXT
     return true;
 }
@@ -667,16 +667,16 @@ TbBool find_and_load_lof_files(void)
       ERRORLOG("Can't allocate memory for .LOF files parsing.");
       return false;
     }
-    short result = false;
+    int64_t result = false;
     char* fname = prepare_file_path(FGrp_CmpgLvls, "*.lof");
     struct TbFileEntry fe;
     struct TbFileFind * ff = LbFileFindFirst(fname, &fe);
     if (ff) {
         do {
             fname = prepare_file_path(FGrp_CmpgLvls, fe.Filename);
-            long i = LbFileLength(fname);
+            int64_t i = LbFileLength(fname);
             if ((i < 0) || (i >= MAX_LIF_SIZE)) {
-              WARNMSG("File '%s' too long (Max size %d)", fe.Filename, MAX_LIF_SIZE);
+              WARNMSG("File '%s' too long (Max size %" PRId64 ")", fe.Filename, (int64_t)(MAX_LIF_SIZE));
 
             } else if (LbFileLoadAt(fname, buf) != i) {
               WARNMSG("Unable to read .LOF file, '%s'", fe.Filename);
@@ -694,36 +694,38 @@ TbBool find_and_load_lof_files(void)
 
 TbBool load_column_file(LevelNumber lv_num)
 {
-    int32_t fsize = 8;
+    int64_t fsize = 8;
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "clm", &fsize, LMFF_None);
     if (buf == NULL)
       return false;
     clear_columns();
-    unsigned long i = 0;
-    long total = llong(&buf[i]);
+    uint64_t i = 0;
+    int64_t total = llong(&buf[i]);
     i += 4;
     // Validate total amount of columns
-    if ((total < 0) || (total > (fsize-8)/sizeof(struct Column)))
+    if ((total < 0) || (total > (fsize-8)/sizeof(struct LegacyColumn)))
     {
-      total = (fsize-8)/sizeof(struct Column);
-      WARNMSG("Bad amount of columns in CLM file; corrected to %ld.",total);
+      total = (fsize-8)/sizeof(struct LegacyColumn);
+      WARNMSG("Bad amount of columns in CLM file; corrected to %" PRId64 ".",(int64_t)(total));
     }
     if (total > COLUMNS_COUNT)
     {
-      WARNMSG("Only %d columns supported, CLM file has %ld.",COLUMNS_COUNT,total);
+      WARNMSG("Only %" PRId64 " columns supported, CLM file has %" PRId64 ".",(int64_t)(COLUMNS_COUNT),(int64_t)(total));
       total = COLUMNS_COUNT;
     }
     // The second lot of 4 bytes here are ignored.
     i += 4;
     // Fill the columns
-    for (long k = 0; k < total; k++)
+    for (int64_t k = 0; k < total; k++)
     {
         struct Column* colmn = &kfx_sim_state.columns_data[k];
-        memcpy(colmn, &buf[i], sizeof(struct Column));
+        struct LegacyColumn lcol;
+        memcpy(&lcol, &buf[i], sizeof(lcol));
+        column_from_legacy(colmn, &lcol);
         //Update top cube in the column
-        unsigned short n = find_column_height(colmn);
+        int64_t n = find_column_height(colmn);
         set_column_floor_filled_subtiles(colmn, n);
-        i += sizeof(struct Column);
+        i += sizeof(struct LegacyColumn);
     }
     free(buf);
     return true;
@@ -732,20 +734,21 @@ TbBool load_column_file(LevelNumber lv_num)
 TbBool load_map_data_file(LevelNumber lv_num)
 {
     struct Map *mapblk;
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     clear_map();
-    int32_t fsize = 2 * (kfx_sim_state.map_subtiles_y + 1) * (kfx_sim_state.map_subtiles_x + 1);
+    int64_t fsize = 2 * (kfx_sim_state.map_subtiles_y + 1) * (kfx_sim_state.map_subtiles_x + 1);
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "dat", &fsize, LMFF_None);
     if (buf == NULL)
         return false;
-    unsigned long i = 0;
+    uint64_t i = 0;
     for (y=0; y < (kfx_sim_state.map_subtiles_y+1); y++)
     {
         for (x=0; x < (kfx_sim_state.map_subtiles_x+1); x++)
         {
             mapblk = get_map_block_at(x,y);
-            mapblk->col_idx = -lword(&buf[i]);
+            // The file stores the (negated) column index as a 16-bit value; the wrap through int16 is the encoding.
+            mapblk->col_idx = (int16_t)(-(int64_t)lword(&buf[i]));
             i += 2;
         }
     }
@@ -768,26 +771,26 @@ TbBool load_map_data_file(LevelNumber lv_num)
 static TbBool load_thing_file(LevelNumber lv_num)
 {
     SYNCDBG(5,"Starting");
-    int32_t fsize = 2;
+    int64_t fsize = 2;
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "tng", &fsize, LMFF_None);
     if (buf == NULL)
       return false;
-    unsigned long i = 0;
-    long total = lword(&buf[i]);
+    uint64_t i = 0;
+    int64_t total = lword(&buf[i]);
     i += 2;
     // Validate total amount of things
     if ((total < 0) || (total > (fsize-2)/sizeof(struct LegacyInitThing)))
     {
         total = (fsize-2)/sizeof(struct LegacyInitThing);
-        WARNMSG("Bad amount of things in TNG file; corrected to %d.",(int)total);
+        WARNMSG("Bad amount of things in TNG file; corrected to %" PRId64 ".",(int64_t)total);
     }
     if (total > THINGS_COUNT-2)
     {
-        WARNMSG("Only %d things supported, TNG file has %d.",(int)(THINGS_COUNT-2),(int)total);
+        WARNMSG("Only %" PRId64 " things supported, TNG file has %" PRId64 ".",(int64_t)(THINGS_COUNT-2),(int64_t)total);
         total = THINGS_COUNT-2;
     }
     // Create things
-    for (long k = 0; k < total; k++)
+    for (int64_t k = 0; k < total; k++)
     {
         struct LegacyInitThing litng;
         struct InitThing itng;
@@ -809,12 +812,12 @@ static TbBool load_thing_file(LevelNumber lv_num)
     return true;
 }
 
-static int load_kfx_toml_file(LevelNumber lv_num, const char *ext, const char *msg_name,
+static int64_t load_kfx_toml_file(LevelNumber lv_num, const char *ext, const char *msg_name,
                                  const char *sections, const char *count_field, const char *section_fmt,
-                                 int max_count, TbBool (*section_loader)(VALUE *arg))
+                                 int64_t max_count, TbBool (*section_loader)(VALUE *arg))
 {
     SYNCDBG(5,"Starting");
-    int32_t fsize = 0;
+    int64_t fsize = 0;
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, ext, &fsize, LMFF_None);
     if (buf == NULL)
         return -1;
@@ -831,12 +834,12 @@ static int load_kfx_toml_file(LevelNumber lv_num, const char *ext, const char *m
     VALUE *common_section = value_dict_get(root_ptr, "common");
     if (!common_section)
     {
-        WARNMSG("No [common] in %s for level %d", msg_name, lv_num);
+        WARNMSG("No [common] in %s for level %" PRId64, msg_name, (int64_t)(lv_num));
         value_fini(root_ptr);
         free(buf);
         return -1;
     }
-    int32_t total;
+    int64_t total;
 
     VALUE *item_arr = value_dict_get(root_ptr, sections);
     if (value_type(item_arr) == VALUE_ARRAY)
@@ -858,12 +861,12 @@ static int load_kfx_toml_file(LevelNumber lv_num, const char *ext, const char *m
     }
     if (total >= max_count)
     {
-        WARNMSG("Only %d things supported, file has %d.", max_count,total);
+        WARNMSG("Only %" PRId64 " things supported, file has %" PRId64 ".", (int64_t)(max_count),(int64_t)(total));
 
     }
-    int status = 0;
+    int64_t status = 0;
     // Create sections
-    for (int k = 0; k < total; k++)
+    for (int64_t k = 0; k < total; k++)
     {
         VALUE *section;
         if (item_arr)
@@ -877,11 +880,11 @@ static int load_kfx_toml_file(LevelNumber lv_num, const char *ext, const char *m
             section = value_dict_get(root_ptr, key);
         }
         if (value_type(section) != VALUE_DICT) {
-            WARNMSG("Invalid %s section %d", msg_name, k);
+            WARNMSG("Invalid %s section %" PRId64, msg_name, (int64_t)(k));
             status = 1;
         }
         else if (!section_loader(section)) {
-            WARNMSG("Failed to load section %d from %s", k, msg_name);
+            WARNMSG("Failed to load section %" PRId64 " from %s", (int64_t)(k), msg_name);
             status = 1;
         }
     }
@@ -893,33 +896,33 @@ static int load_kfx_toml_file(LevelNumber lv_num, const char *ext, const char *m
 static TbBool load_tngfx_file(LevelNumber lv_num)
 {
     return load_kfx_toml_file(lv_num, "tngfx", "TNGFX",
-                              "thing", "ThingsCount", "thing%d", THINGS_COUNT - 2,
+                              "thing", "ThingsCount", "thing%" PRId64, (int64_t)(THINGS_COUNT - 2),
                               config_reload_callbacks->thing_create_thing_adv) == 0;
 }
 
 TbBool load_action_point_file(LevelNumber lv_num)
 {
   SYNCDBG(5,"Starting");
-  int32_t fsize = 4;
+  int64_t fsize = 4;
   unsigned char* buf = load_single_map_file_to_buffer(lv_num, "apt", &fsize, LMFF_None);
   if (buf == NULL)
     return false;
-  unsigned long i = 0;
-  long total = llong(&buf[i]);
+  uint64_t i = 0;
+  int64_t total = llong(&buf[i]);
   i += 4;
   // Validate total amount of action points
   if ((total < 0) || (total > (fsize-4)/sizeof(struct LegacyInitActionPoint)))
   {
     total = (fsize-4)/sizeof(struct LegacyInitActionPoint);
-    WARNMSG("Bad amount of action points in APT file; corrected to %ld.",total);
+    WARNMSG("Bad amount of action points in APT file; corrected to %" PRId64 ".",(int64_t)(total));
   }
   if (total > ACTN_POINTS_COUNT-1)
   {
-    WARNMSG("Only %d action points supported, APT file has %ld.",ACTN_POINTS_COUNT-1,total);
+    WARNMSG("Only %" PRId64 " action points supported, APT file has %" PRId64 ".",(int64_t)(ACTN_POINTS_COUNT-1),(int64_t)(total));
     total = ACTN_POINTS_COUNT-1;
   }
   // Create action points
-  for (long k = 0; k < total; k++)
+  for (int64_t k = 0; k < total; k++)
   {
       struct LegacyInitActionPoint legiapt;
       struct InitActionPoint iapt;
@@ -929,7 +932,7 @@ TbBool load_action_point_file(LevelNumber lv_num)
       iapt.num          = legiapt.num;
       iapt.range        = legiapt.range;
       if (actnpoint_create_actnpoint(&iapt) == INVALID_ACTION_POINT)
-          ERRORLOG("Cannot allocate action point %ld during APT load", k);
+          ERRORLOG("Cannot allocate action point %" PRId64 " during APT load", (int64_t)(k));
     i += sizeof(struct LegacyInitActionPoint);
   }
   free(buf);
@@ -939,18 +942,18 @@ TbBool load_action_point_file(LevelNumber lv_num)
 TbBool load_aptfx_file(LevelNumber lv_num)
 {
     return load_kfx_toml_file(lv_num, "aptfx", "APTFX",
-                              "actionpoint", "ActionPointsCount", "actionpoint%d", ACTN_POINTS_COUNT - 1,
+                              "actionpoint", "ActionPointsCount", "actionpoint%" PRId64, (int64_t)(ACTN_POINTS_COUNT - 1),
                               &actnpoint_create_actnpoint_adv) >= 0;
 }
 
 /**
  * Updates "use" property of given columns set, using given SlabSet entries.
  */
-TbBool update_columns_use(struct Column *cols,long ccount,struct SlabSet *sset,long scount)
+TbBool update_columns_use(struct Column *cols,int64_t ccount,struct SlabSet *sset,int64_t scount)
 {
-    long i;
-    long k;
-    long ncol;
+    int64_t i;
+    int64_t k;
+    int64_t ncol;
     for (i = 0; i < ccount; i++)
     {
         cols[i].use = 0;
@@ -967,44 +970,44 @@ TbBool update_columns_use(struct Column *cols,long ccount,struct SlabSet *sset,l
 
 TbBool columns_add_static_entries(void)
 {
-    short c[3];
+    int64_t c[3];
 
-    for (long i=0; i < 3; i++)
+    for (int64_t i=0; i < 3; i++)
       c[i] = 0;
     struct Column lcolmn;
     memset(&lcolmn, 0, sizeof(struct Column));
-    short* wptr = &kfx_config_state.col_static_entries[0];
-    for (long i=0; i < 3; i++)
+    int64_t* wptr = &kfx_config_state.col_static_entries[0];
+    for (int64_t i=0; i < 3; i++)
     {
         memset(&lcolmn, 0, sizeof(struct Column));
         lcolmn.floor_texture = c[i];
-        for (long k = 0; k < 6; k++)
+        for (int64_t k = 0; k < 6; k++)
         {
           lcolmn.cubes[0] = player_cubes[k];
           make_solidmask(&lcolmn);
-          long ncol = find_column(&lcolmn);
+          int64_t ncol = find_column(&lcolmn);
           if (ncol == 0)
             ncol = create_column(&lcolmn);
           struct Column* colmn = get_column(ncol);
           colmn->bitfields |= CLF_ACTIVE;
-          *wptr = -(short)ncol;
+          *wptr = -(int64_t)ncol;
           wptr++;
         }
     }
     return true;
 }
 
-TbBool update_slabset_column_indices(struct Column *cols, long ccount)
+TbBool update_slabset_column_indices(struct Column *cols, int64_t ccount)
 {
     struct Column lcolmn;
     memset(&lcolmn,0,sizeof(struct Column));
-    for (long i = 0; i < kfx_sim_state.slabset_num; i++)
+    for (int64_t i = 0; i < kfx_sim_state.slabset_num; i++)
     {
         struct SlabSet* sset = &kfx_sim_state.slabset[i];
-        for (long k = 0; k < 9; k++)
+        for (int64_t k = 0; k < 9; k++)
         {
-            long n = sset->col_idx[k];
-            long ncol;
+            int64_t n = sset->col_idx[k];
+            int64_t ncol;
             if (n >= 0)
             {
                 lcolmn.floor_texture = n;
@@ -1023,7 +1026,7 @@ TbBool update_slabset_column_indices(struct Column *cols, long ccount)
                     ncol = 0;
                 if (ncol == 0)
                 {
-                    ERRORLOG("column:%ld referenced in slabset.toml but not present in columnset.toml",-n);
+                    ERRORLOG("column:%" PRId64 " referenced in slabset.toml but not present in columnset.toml",(int64_t)(-n));
                     continue;
                 }
             }
@@ -1033,13 +1036,13 @@ TbBool update_slabset_column_indices(struct Column *cols, long ccount)
     return true;
 }
 
-TbBool create_columns_from_list(struct Column *cols, long ccount)
+TbBool create_columns_from_list(struct Column *cols, int64_t ccount)
 {
-    for (long i = 1; i < ccount; i++)
+    for (int64_t i = 1; i < ccount; i++)
     {
         if (cols[i].use)
         {
-            long ncol = find_column(&cols[i]);
+            int64_t ncol = find_column(&cols[i]);
             if (ncol == 0)
                 ncol = create_column(&cols[i]);
             struct Column* colmn = get_column(ncol);
@@ -1053,7 +1056,7 @@ TbBool load_slab_datclm_files(void)
 {
     SYNCDBG(5,"Starting");
 
-    long slbset_tot = kfx_config_state.conf.slab_conf.slab_types_count * SLABSETS_PER_SLAB;
+    int64_t slbset_tot = kfx_config_state.conf.slab_conf.slab_types_count * SLABSETS_PER_SLAB;
     kfx_sim_state.slabset_num = slbset_tot;
 
     update_columns_use(kfx_config_state.conf.column_conf.cols,kfx_config_state.conf.column_conf.columns_count,kfx_sim_state.slabset,slbset_tot);
@@ -1072,15 +1075,15 @@ TbBool load_slab_file(void)
     return result;
 }
 
-long load_map_wibble_file(unsigned long lv_num)
+int64_t load_map_wibble_file(uint64_t lv_num)
 {
     struct Map *mapblk;
-    unsigned long stl_x;
-    unsigned long stl_y;
+    uint64_t stl_x;
+    uint64_t stl_y;
     unsigned char *buf;
-    unsigned long i;
-    unsigned long k;
-    int32_t fsize;
+    uint64_t i;
+    uint64_t k;
+    int64_t fsize;
     fsize = (kfx_sim_state.map_subtiles_y+1)*(kfx_sim_state.map_subtiles_x+1);
     buf = load_single_map_file_to_buffer(lv_num,"wib",&fsize,LMFF_None);
     if (buf == NULL)
@@ -1098,13 +1101,13 @@ long load_map_wibble_file(unsigned long lv_num)
     return true;
 }
 
-short load_map_ownership_file(LevelNumber lv_num)
+int64_t load_map_ownership_file(LevelNumber lv_num)
 {
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     unsigned char *buf;
-    unsigned long i;
-    int32_t fsize;
+    uint64_t i;
+    int64_t fsize;
     fsize = (kfx_sim_state.map_subtiles_y+1)*(kfx_sim_state.map_subtiles_x+1);
     buf = load_single_map_file_to_buffer(lv_num,"own",&fsize,LMFF_None);
     if (buf == NULL)
@@ -1129,10 +1132,10 @@ TbBool initialise_map_wlb_auto(void)
 {
     struct SlabMap *slb;
     struct SlabConfigStats *slabst;
-    unsigned long x;
-    unsigned long y;
-    int n;
-    unsigned long nbridge;
+    uint64_t x;
+    uint64_t y;
+    int64_t n;
+    uint64_t nbridge;
     nbridge = 0;
     for (y = 0; y < kfx_sim_state.map_tiles_y; y++)
     {
@@ -1143,10 +1146,10 @@ TbBool initialise_map_wlb_auto(void)
             if (slabst->wlb_type == WlbT_Bridge)
             {
                 n = slab_kind_from_wlb_type(WlbT_Water);
-                long best = 0;
+                int64_t best = 0;
                 if (n >= 0)
                     best = slabs_count_near(x, y, 1, n);
-                for (int slbkind = 0; slbkind < kfx_config_state.conf.slab_conf.slab_types_count; slbkind++) {
+                for (int64_t slbkind = 0; slbkind < kfx_config_state.conf.slab_conf.slab_types_count; slbkind++) {
                     if (slab_kind_is_bridgeable(slbkind) && (slabs_count_near(x, y, 1, slbkind) > best)) {
                         n = slbkind;
                         best = slabs_count_near(x, y, 1, slbkind);
@@ -1164,20 +1167,20 @@ TbBool initialise_map_wlb_auto(void)
             slb->wlb_type = slabst->wlb_type;
         }
     }
-    SYNCMSG("Regenerated WLB flags, unsure for %d bridge blocks.",(int)nbridge);
+    SYNCMSG("Regenerated WLB flags, unsure for %" PRId64 " bridge blocks.",(int64_t)nbridge);
     return true;
 }
 
-TbBool load_map_wlb_file(unsigned long lv_num)
+TbBool load_map_wlb_file(uint64_t lv_num)
 {
     struct SlabMap *slb;
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     unsigned char *buf;
-    unsigned long i;
-    unsigned long n;
-    unsigned long nfixes;
-    int32_t fsize;
+    uint64_t i;
+    uint64_t n;
+    uint64_t nfixes;
+    int64_t fsize;
     SYNCDBG(7,"Starting");
     nfixes = 0;
     fsize = kfx_sim_state.map_tiles_y*kfx_sim_state.map_tiles_x;
@@ -1191,7 +1194,7 @@ TbBool load_map_wlb_file(unsigned long lv_num)
         slb = get_slabmap_block(x,y);
         n = buf[i];
         slb->wlb_type = buf[i];
-        int slbkind = slab_kind_from_wlb_type(n);
+        int64_t slbkind = slab_kind_from_wlb_type(n);
         struct SlabConfigStats* slabst = get_slab_stats(slb);
         if ((n != WlbT_None) && ((slbkind < 0) || ((slabst->wlb_type != WlbT_Bridge) && (slb->kind != slbkind)))) {
             nfixes++;
@@ -1202,12 +1205,12 @@ TbBool load_map_wlb_file(unsigned long lv_num)
     free(buf);
     if (nfixes > 0)
     {
-      ERRORLOG("WLB file is muddled - Fixed values for %lu tiles",nfixes);
+      ERRORLOG("WLB file is muddled - Fixed values for %" PRIu64 " tiles",(uint64_t)(nfixes));
     }
     return true;
 }
 
-TbBool initialise_extra_slab_info(unsigned long lv_num)
+TbBool initialise_extra_slab_info(uint64_t lv_num)
 {
     initialise_map_rooms();
     TbBool result = load_map_wlb_file(lv_num);
@@ -1216,16 +1219,16 @@ TbBool initialise_extra_slab_info(unsigned long lv_num)
     return result;
 }
 
-short load_map_slab_file(unsigned long lv_num)
+int64_t load_map_slab_file(uint64_t lv_num)
 {
     SYNCDBG(7,"Starting");
     struct SlabMap *slb;
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     unsigned char *buf;
-    unsigned long i;
-    unsigned long n;
-    int32_t fsize;
+    uint64_t i;
+    uint64_t n;
+    int64_t fsize;
     fsize = 2*kfx_sim_state.map_tiles_y*kfx_sim_state.map_tiles_x;
     buf = load_single_map_file_to_buffer(lv_num,"slb",&fsize,LMFF_None);
     if (buf == NULL)
@@ -1239,7 +1242,7 @@ short load_map_slab_file(unsigned long lv_num)
             n = lword(&buf[i]);
             if (n > kfx_config_state.conf.slab_conf.slab_types_count)
             {
-                WARNMSG("Found invalid Slab Type %d at Tile %ld,%ld, exceeds limit of %d", (int)n, x, y, kfx_config_state.conf.slab_conf.slab_types_count);
+                WARNMSG("Found invalid Slab Type %" PRId64 " at Tile %" PRId64 ",%" PRId64 ", exceeds limit of %" PRId64, (int64_t)n, (int64_t)(x), (int64_t)(y), (int64_t)(kfx_config_state.conf.slab_conf.slab_types_count));
                 n = SlbT_ROCK;
             }
             slb->kind = n;
@@ -1253,17 +1256,17 @@ short load_map_slab_file(unsigned long lv_num)
     return true;
 }
 
-short load_map_flag_file(unsigned long lv_num)
+int64_t load_map_flag_file(uint64_t lv_num)
 {
     SYNCDBG(5,"Starting");
-    int32_t fsize = 2 * (kfx_sim_state.map_subtiles_y + 1) * (kfx_sim_state.map_subtiles_x + 1);
+    int64_t fsize = 2 * (kfx_sim_state.map_subtiles_y + 1) * (kfx_sim_state.map_subtiles_x + 1);
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "flg", &fsize, LMFF_Optional);
     if (buf == NULL)
         return false;
-    unsigned long i = 0;
-    for (unsigned long stl_y = 0; stl_y < (kfx_sim_state.map_subtiles_y + 1); stl_y++)
+    uint64_t i = 0;
+    for (uint64_t stl_y = 0; stl_y < (kfx_sim_state.map_subtiles_y + 1); stl_y++)
     {
-        for (unsigned long stl_x = 0; stl_x < (kfx_sim_state.map_subtiles_x + 1); stl_x++)
+        for (uint64_t stl_x = 0; stl_x < (kfx_sim_state.map_subtiles_x + 1); stl_x++)
         {
             struct Map* mapblk = get_map_block_at(stl_x, stl_y);
             mapblk->flags = buf[i];
@@ -1274,33 +1277,33 @@ short load_map_flag_file(unsigned long lv_num)
     return true;
 }
 
-static TbBool load_static_light_file(unsigned long lv_num)
+static TbBool load_static_light_file(uint64_t lv_num)
 {
-    int32_t fsize = 4;
+    int64_t fsize = 4;
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "lgt", &fsize, LMFF_Optional);
     if (buf == NULL)
         return false;
     sim_feedback->light_initialise();
-    unsigned long i = 0;
-    long total = llong(&buf[i]);
+    uint64_t i = 0;
+    int64_t total = llong(&buf[i]);
     i += 4;
     // Validate total amount of lights
     if ((total < 0) || (total > (fsize-4)/sizeof(struct LegacyInitLight)))
     {
         total = (fsize-4)/sizeof(struct LegacyInitLight);
-        WARNMSG("Bad amount of static lights in LGT file; corrected to %ld.",total);
+        WARNMSG("Bad amount of static lights in LGT file; corrected to %" PRId64 ".",(int64_t)(total));
     }
     if (total >= LIGHTS_COUNT)
     {
-        WARNMSG("Only %d static lights supported, LGT file has %ld.",LIGHTS_COUNT,total);
+        WARNMSG("Only %" PRId64 " static lights supported, LGT file has %" PRId64 ".",(int64_t)(LIGHTS_COUNT),(int64_t)(total));
         total = LIGHTS_COUNT-1;
     } else
     if (total >= LIGHTS_COUNT/2)
     {
-        WARNMSG("More than %ld%% of light slots used by static lights.",100*total/LIGHTS_COUNT);
+        WARNMSG("More than %" PRId64 "%% " PRIo64 "f light slots used by static lights.",(int64_t)(100*total/LIGHTS_COUNT));
     }
     // Create the lights
-    for (long k = 0; k < total; k++)
+    for (int64_t k = 0; k < total; k++)
     {
         struct LegacyInitLight legilght;
         struct InitLight ilght;
@@ -1316,7 +1319,7 @@ static TbBool load_static_light_file(unsigned long lv_num)
 
         if (sim_feedback->light_create_light(&ilght) == 0)
         {
-            WARNLOG("Couldn't allocate static light %d",(int)k);
+            WARNLOG("Couldn't allocate static light %" PRId64,(int64_t)k);
         }
         i += sizeof(struct LegacyInitLight);
     }
@@ -1332,7 +1335,7 @@ static TbBool light_create_light_adv_wrapper(VALUE *init_data)
     return sim_feedback->light_create_light_adv(init_data);
 }
 
-static TbBool load_lgtfx_file(unsigned long lv_num)
+static TbBool load_lgtfx_file(uint64_t lv_num)
 {
     // load_kfx_toml_file returns -1 on a missing/invalid file (see its other
     // callers, load_aptfx_file/load_tngfx_file, which compare against 0
@@ -1341,18 +1344,18 @@ static TbBool load_lgtfx_file(unsigned long lv_num)
     // -> fall back to classic .lgt" branch never actually triggered for
     // maps that only ship classic-format files (no .lgtfx/.aptfx/.tngfx).
     TbBool ret = load_kfx_toml_file(lv_num, "lgtfx", "LGTFX",
-                             "light", "LightsCount", "light%d", LIGHTS_COUNT - 1,
+                             "light", "LightsCount", "light%" PRId64, (int64_t)(LIGHTS_COUNT - 1),
                              &light_create_light_adv_wrapper) >= 0;
     if (sim_feedback->light_count_lights() > LIGHTS_COUNT / 2)
     {
-        WARNMSG("More than %d%% of light slots used by static lights.", 100*sim_feedback->light_count_lights()/LIGHTS_COUNT);
+        WARNMSG("More than %" PRId64 "%% " PRIo64 "f light slots used by static lights.", (int64_t)(100*sim_feedback->light_count_lights()/LIGHTS_COUNT));
     }
     return ret;
 }
 
-short load_and_setup_map_info(unsigned long lv_num)
+int64_t load_and_setup_map_info(uint64_t lv_num)
 {
-    int32_t fsize = 1;
+    int64_t fsize = 1;
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "inf", &fsize, LMFF_None);
     if (buf == NULL)
     {
@@ -1366,8 +1369,8 @@ short load_and_setup_map_info(unsigned long lv_num)
 
 static void load_ext_slabs(LevelNumber lvnum)
 {
-    short fgroup = get_level_fgroup(lvnum);
-    char* fname = prepare_file_fmtpath(fgroup, "map%05lu.slx", (unsigned long)lvnum);
+    int64_t fgroup = get_level_fgroup(lvnum);
+    char* fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".slx", (uint64_t)lvnum);
     if (LbFileExists(fname))
     {
         if (kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y != LbFileLoadAt(fname, kfx_config_state.slab_ext_data))
@@ -1385,17 +1388,17 @@ static void load_ext_slabs(LevelNumber lvnum)
     memcpy(&kfx_config_state.slab_ext_data_initial,&kfx_config_state.slab_ext_data, sizeof(kfx_config_state.slab_ext_data));
 }
 
-void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short fgroup)
+void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, int64_t fgroup)
 {
     uint8_t lang_id = install_info.lang_id;
-    char* fname = prepare_file_fmtpath(fgroup, "map%05lu.%s.dat", (unsigned long)lvnum, get_language_lwrstr(lang_id));
+    char* fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".%s.dat", (uint64_t)lvnum, get_language_lwrstr(lang_id));
     if (!LbFileExists(fname))
     {
         SYNCDBG(9, "Map string file %s doesn't exist.", fname);
         char buf[2048];
         buf[0] = 0;
         memcpy(&buf, fname, 2048);
-        fname = prepare_file_fmtpath(fgroup, "map%05lu.%s.dat", (unsigned long)lvnum, get_language_lwrstr(campgn->default_language));
+        fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".%s.dat", (uint64_t)lvnum, get_language_lwrstr(campgn->default_language));
         lang_id = campgn->default_language;
         if (strcasecmp(fname, buf) == 0)
         {
@@ -1407,7 +1410,7 @@ void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short 
             return;
         }
     }
-    long filelen = LbFileLengthRnc(fname);
+    int64_t filelen = LbFileLengthRnc(fname);
     if (filelen <= 0)
     {
         ERRORLOG("Map Strings file %s does not exist or can't be opened", fname);
@@ -1420,7 +1423,7 @@ void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short 
         ERRORLOG("Can't allocate memory for Map Strings data");
         return;
     }
-    long loaded_size = LbFileLoadAt(fname, raw_data );
+    int64_t loaded_size = LbFileLoadAt(fname, raw_data );
     if (loaded_size < 16)
     {
         ERRORLOG("Map Strings file couldn't be loaded or is too small");
@@ -1449,7 +1452,7 @@ void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short 
 
     level_strings_data = realloc(level_strings_data, utf8_size + 1);
 
-    unsigned long loaded_strings_count = count_strings(level_strings_data, utf8_size);
+    uint64_t loaded_strings_count = count_strings(level_strings_data, utf8_size);
     char* strings_data_end = level_strings_data + utf8_size;
     // Resetting all values to empty strings
     reset_strings(level_strings, STRINGS_MAX);
@@ -1457,7 +1460,7 @@ void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short 
     TbBool result = fill_strings_list(level_strings, level_strings_data, strings_data_end, STRINGS_MAX);
     if (result)
     {
-        SYNCMSG("Loaded %lu strings from %s", loaded_strings_count, fname);
+        SYNCMSG("Loaded %" PRIu64 " strings from %s", (uint64_t)(loaded_strings_count), fname);
     }
     SYNCDBG(19, "Finished");
 }
@@ -1484,8 +1487,8 @@ TbBool regenerate_derived_map_data(void)
             struct SlabMap *slb = get_slabmap_block(x, y);
             if (slb->kind >= kfx_config_state.conf.slab_conf.slab_types_count)
             {
-                ERRORLOG("Cannot regenerate derived map data: slab (%ld,%ld) has invalid kind %d",
-                    (long)x, (long)y, (int)slb->kind);
+                ERRORLOG("Cannot regenerate derived map data: slab (%" PRId64 ",%" PRId64 ") has invalid kind %" PRId64,
+                    (int64_t)x, (int64_t)y, (int64_t)slb->kind);
                 return false;
             }
             place_single_slab_type_on_map(slb->kind, x, y, slabmap_owner(slb));
@@ -1498,8 +1501,8 @@ static TbBool load_level_file(LevelNumber lvnum)
 {
     TbBool result;
     TbBool new_format = true;
-    short fgroup = get_level_fgroup(lvnum);
-    char* fname = prepare_file_fmtpath(fgroup, "map%05lu.slb", (unsigned long)lvnum);
+    int64_t fgroup = get_level_fgroup(lvnum);
+    char* fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".slb", (uint64_t)lvnum);
     if (LbFileExists(fname))
     {
         result = true;
@@ -1565,7 +1568,7 @@ static TbBool load_level_file(LevelNumber lvnum)
         }
     } else
     {
-        ERRORLOG("The level \"map%05u\" doesn't exist; creating empty map.",lvnum);
+        ERRORLOG("The level \"map%05" PRIu64 "\" doesn't exist; creating empty map.",(uint64_t)(lvnum));
         init_whole_blocks();
         load_slab_file();
         init_columns();
@@ -1613,9 +1616,9 @@ TbBool load_map_file(LevelNumber lvnum)
 // incrementally while the map has no ceiling/navigation data at all yet.
 // Building the whole map as data first and finalizing once, like a real
 // load does, avoids that code path entirely during construction.
-TbBool create_blank_map(LevelNumber lvnum, MapSlabCoord tiles_x, MapSlabCoord tiles_y, long texture_set)
+TbBool create_blank_map(LevelNumber lvnum, MapSlabCoord tiles_x, MapSlabCoord tiles_y, int64_t texture_set)
 {
-    short fgroup = get_level_fgroup(lvnum);
+    int64_t fgroup = get_level_fgroup(lvnum);
     set_map_size(tiles_x, tiles_y);
     // clear_game()'s own clear_mapmap()/clear_slabs()/clear_columns() (main_game.c's
     // init_level(), well before this function runs) sized their clearing loops off

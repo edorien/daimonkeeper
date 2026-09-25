@@ -52,9 +52,9 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-long owner_player_navigating;
-long nav_thing_can_travel_over_lava;
-int32_t nav_thing_is_flying;
+int64_t owner_player_navigating;
+int64_t nav_thing_can_travel_over_lava;
+int64_t nav_thing_is_flying;
 
 /******************************************************************************/
 
@@ -67,10 +67,10 @@ void reset_interpolation_of_thing(struct Thing *thing)
 
 TbBool creature_can_navigate_to_with_storage_f(const struct Thing *creatng, const struct Coord3d *pos, NaviRouteFlags flags, const char *func_name)
 {
-    NAVIDBG(8,"%s: Route for %s index %d from %3d,%3d to %3d,%3d", func_name, thing_model_name(creatng),(int)creatng->index,
-        (int)creatng->mappos.x.stl.num, (int)creatng->mappos.y.stl.num, (int)pos->x.stl.num, (int)pos->y.stl.num);
+    NAVIDBG(8,"%s: Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, thing_model_name(creatng),(int64_t)creatng->index,
+        (int64_t)creatng->mappos.x.stl.num, (int64_t)creatng->mappos.y.stl.num, (int64_t)pos->x.stl.num, (int64_t)pos->y.stl.num);
     AriadneReturn aret = ariadne_initialise_creature_route_f((struct Thing*)creatng, pos, get_creature_speed(creatng), flags, func_name);
-    NAVIDBG(18,"Ariadne returned %d",(int)aret);
+    NAVIDBG(18,"Ariadne returned %" PRId64,(int64_t)aret);
     return (aret == AridRet_OK);
 }
 
@@ -82,7 +82,7 @@ TbBool get_nearest_valid_position_for_creature_at(struct Thing *thing, struct Co
     struct Map* mapblk;
     struct MapOffset* sstep;
 
-    for (int i = 0; i < SPIRAL_STEPS_COUNT; i++)
+    for (int64_t i = 0; i < SPIRAL_STEPS_COUNT; i++)
     {
         sstep = &spiral_step[i];
         stl_x = sstep->h + pos->x.stl.num;
@@ -121,16 +121,16 @@ TbBool get_nearest_valid_position_for_creature_at(struct Thing *thing, struct Co
         }
     }
 
-    ERRORLOG("Cannot find valid position near %d, %d to place %s", pos->x.stl.num, pos->y.stl.num, thing_model_name(thing));
+    ERRORLOG("Cannot find valid position near %" PRId64 ", %" PRId64 " to place %s", (int64_t)(pos->x.stl.num), (int64_t)(pos->y.stl.num), thing_model_name(thing));
     return false;
 
 }
 
 static void get_nearest_navigable_point_for_thing(struct Thing *thing, struct Coord3d *pos1, struct Coord3d *pos2, NaviRouteFlags flags)
 {
-    long nav_sizexy;
-    int32_t px;
-    int32_t py;
+    int64_t nav_sizexy;
+    int64_t px;
+    int64_t py;
     nav_thing_can_travel_over_lava = creature_can_travel_over_lava(thing);
     nav_thing_is_flying = flag_is_set(thing->movement_flags, TMvF_Flying);
     if ((flags & AridRtF_NoOwner) != 0)
@@ -152,7 +152,7 @@ static void get_nearest_navigable_point_for_thing(struct Thing *thing, struct Co
 
 TbBool setup_person_move_to_position_f(struct Thing *thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y, NaviRouteFlags flags, const char *func_name)
 {
-    SYNCDBG(18,"%s: Moving %s index %d to (%d,%d)",func_name,thing_model_name(thing),(int)thing->index,(int)stl_x,(int)stl_y);
+    SYNCDBG(18,"%s: Moving %s index %" PRId64 " to (%" PRId64 ",%" PRId64 ")",func_name,thing_model_name(thing),(int64_t)thing->index,(int64_t)stl_x,(int64_t)stl_y);
     TRACE_THING(thing);
     struct Coord3d locpos;
     locpos.x.val = subtile_coord_center(stl_x);
@@ -162,17 +162,17 @@ TbBool setup_person_move_to_position_f(struct Thing *thing, MapSubtlCoord stl_x,
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (creature_control_invalid(cctrl))
     {
-        WARNLOG("%s: Tried to move invalid creature to (%d,%d)",func_name,(int)stl_x,(int)stl_y);
+        WARNLOG("%s: Tried to move invalid creature to (%" PRId64 ",%" PRId64 ")",func_name,(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     if (thing_in_wall_at(thing, &locpos))
     {
-        SYNCDBG(16,"%s: The %s would be trapped in wall at (%d,%d)",func_name,thing_model_name(thing),(int)stl_x,(int)stl_y);
+        SYNCDBG(16,"%s: The %s would be trapped in wall at (%" PRId64 ",%" PRId64 ")",func_name,thing_model_name(thing),(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     if (!creature_can_navigate_to_with_storage_f(thing, &locpos, flags, func_name))
     {
-        SYNCDBG(19,"%s: The %s cannot reach subtile (%d,%d)",func_name,thing_model_name(thing),(int)stl_x,(int)stl_y);
+        SYNCDBG(19,"%s: The %s cannot reach subtile (%" PRId64 ",%" PRId64 ")",func_name,thing_model_name(thing),(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     cctrl->move_flags = flags;
@@ -186,7 +186,7 @@ TbBool setup_person_move_to_position_f(struct Thing *thing, MapSubtlCoord stl_x,
 
 TbBool setup_person_move_close_to_position(struct Thing *thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y, NaviRouteFlags flags)
 {
-    SYNCDBG(18,"Moving %s index %d to (%d,%d)",thing_model_name(thing),(int)thing->index,(int)stl_x,(int)stl_y);
+    SYNCDBG(18,"Moving %s index %" PRId64 " to (%" PRId64 ",%" PRId64 ")",thing_model_name(thing),(int64_t)thing->index,(int64_t)stl_x,(int64_t)stl_y);
     struct Coord3d trgpos;
     trgpos.x.val = subtile_coord_center(stl_x);
     trgpos.y.val = subtile_coord_center(stl_y);
@@ -194,14 +194,14 @@ TbBool setup_person_move_close_to_position(struct Thing *thing, MapSubtlCoord st
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (creature_control_invalid(cctrl))
     {
-        WARNLOG("Tried to move invalid creature to (%d,%d)",(int)stl_x,(int)stl_y);
+        WARNLOG("Tried to move invalid creature to (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     struct Coord3d navpos;
     get_nearest_navigable_point_for_thing(thing, &trgpos, &navpos, flags);
     if (!creature_can_navigate_to_with_storage(thing, &navpos, flags))
     {
-        SYNCDBG(19,"The %s cannot reach subtile (%d,%d)",thing_model_name(thing),(int)stl_x,(int)stl_y);
+        SYNCDBG(19,"The %s cannot reach subtile (%" PRId64 ",%" PRId64 ")",thing_model_name(thing),(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     cctrl->move_flags = flags;
@@ -214,7 +214,7 @@ TbBool setup_person_move_close_to_position(struct Thing *thing, MapSubtlCoord st
 
 TbBool setup_person_move_backwards_to_position_f(struct Thing *thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y, NaviRouteFlags flags, const char *func_name)
 {
-    SYNCDBG(18,"%s: Moving %s index %d to (%d,%d)",func_name,thing_model_name(thing),(int)thing->index,(int)stl_x,(int)stl_y);
+    SYNCDBG(18,"%s: Moving %s index %" PRId64 " to (%" PRId64 ",%" PRId64 ")",func_name,thing_model_name(thing),(int64_t)thing->index,(int64_t)stl_x,(int64_t)stl_y);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct Coord3d locpos;
     locpos.x.val = subtile_coord_center(stl_x);
@@ -223,12 +223,12 @@ TbBool setup_person_move_backwards_to_position_f(struct Thing *thing, MapSubtlCo
     locpos.z.val = get_thing_height_at(thing, &locpos);
     if (thing_in_wall_at(thing, &locpos))
     {
-        SYNCDBG(16,"%s: The %s would be trapped in wall at (%d,%d)",func_name,thing_model_name(thing),(int)stl_x,(int)stl_y);
+        SYNCDBG(16,"%s: The %s would be trapped in wall at (%" PRId64 ",%" PRId64 ")",func_name,thing_model_name(thing),(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     if (!creature_can_navigate_to_with_storage(thing, &locpos, flags))
     {
-        SYNCDBG(19,"%s: The %s cannot reach subtile (%d,%d)",func_name,thing_model_name(thing),(int)stl_x,(int)stl_y);
+        SYNCDBG(19,"%s: The %s cannot reach subtile (%" PRId64 ",%" PRId64 ")",func_name,thing_model_name(thing),(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     cctrl->move_flags = flags;
@@ -279,16 +279,16 @@ int sortgates(const void* a, const void* b)
 struct Thing *find_best_hero_gate_to_navigate_to(struct Thing *herotng)
 {
     struct ClosestGate hero_gates[HERO_GATES_COUNT];
-    for (int g = 0; g < HERO_GATES_COUNT; g++)
+    for (int64_t g = 0; g < HERO_GATES_COUNT; g++)
     {
         hero_gates[g].index = 0;
         hero_gates[g].distance = INT32_MAX;
     }
 
     //Go through all objects to find gates and record distance
-    int i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    int32_t k = 0;
-    short found_gates = 0;
+    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
+    int64_t k = 0;
+    int64_t found_gates = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -325,7 +325,7 @@ struct Thing *find_best_hero_gate_to_navigate_to(struct Thing *herotng)
 
     // Return the closest one the hero can navigate to.
     struct Thing* gatetng = INVALID_THING;
-    for (int g = 0; g < HERO_GATES_COUNT; g++)
+    for (int64_t g = 0; g < HERO_GATES_COUNT; g++)
     {
         if (hero_gates[g].index == 0)
             continue;
@@ -343,7 +343,7 @@ struct Thing *find_best_hero_gate_to_navigate_to(struct Thing *herotng)
 
 void move_thing_in_map_f(struct Thing *thing, const struct Coord3d *pos, const char *func_name)
 {
-    SYNCDBG(18,"%s: Starting for %s index %d",func_name,thing_model_name(thing),(int)thing->index);
+    SYNCDBG(18,"%s: Starting for %s index %" PRId64,func_name,thing_model_name(thing),(int64_t)thing->index);
     TRACE_THING(thing);
     if (thing->index == 0)
     {
@@ -352,15 +352,15 @@ void move_thing_in_map_f(struct Thing *thing, const struct Coord3d *pos, const c
     }
     if ((thing->mappos.x.stl.num == pos->x.stl.num) && (thing->mappos.y.stl.num == pos->y.stl.num))
     {
-        SYNCDBG(19,"Moving %s index %d from (%d,%d) to (%d,%d)",thing_model_name(thing),
-            (int)thing->index,(int)thing->mappos.x.val,(int)thing->mappos.y.val,(int)pos->x.val,(int)pos->y.val);
+        SYNCDBG(19,"Moving %s index %" PRId64 " from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ")",thing_model_name(thing),
+            (int64_t)thing->index,(int64_t)thing->mappos.x.val,(int64_t)thing->mappos.y.val,(int64_t)pos->x.val,(int64_t)pos->y.val);
         thing->mappos.x.val = pos->x.val;
         thing->mappos.y.val = pos->y.val;
         thing->mappos.z.val = pos->z.val;
     } else
     {
-        SYNCDBG(19,"Moving %s index %d from (%d,%d) to (%d,%d), subtile changed",thing_model_name(thing),
-            (int)thing->index,(int)thing->mappos.x.val,(int)thing->mappos.y.val,(int)pos->x.val,(int)pos->y.val);
+        SYNCDBG(19,"Moving %s index %" PRId64 " from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 "), subtile changed",thing_model_name(thing),
+            (int64_t)thing->index,(int64_t)thing->mappos.x.val,(int64_t)thing->mappos.y.val,(int64_t)pos->x.val,(int64_t)pos->y.val);
         remove_thing_from_mapwho(thing);
         thing->mappos.x.val = pos->x.val;
         thing->mappos.y.val = pos->y.val;
@@ -433,7 +433,7 @@ TbBool terrain_toxic_for_creature_at_position(const struct Thing *creatng, MapSu
  */
 TbBool creature_can_navigate_to_f(const struct Thing *thing, struct Coord3d *dstpos, NaviRouteFlags flags, const char *func_name)
 {
-    long waypoints_num = ariadne_count_waypoints_on_creature_route_to_target_f(thing, &thing->mappos, dstpos, flags, func_name);
+    int64_t waypoints_num = ariadne_count_waypoints_on_creature_route_to_target_f(thing, &thing->mappos, dstpos, flags, func_name);
     return (waypoints_num > 0);
 }
 
@@ -450,59 +450,59 @@ TbBool creature_can_get_to_dungeon_heart(struct Thing *creatng, PlayerNumber ply
     struct PlayerInfo* player = get_player(plyr_idx);
     if (!player_exists(player) || ((player->is_active != 1) && !player_is_roaming(plyr_idx)))
     {
-        SYNCDBG(18,"The %s index %d cannot get to inactive player %d",thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        SYNCDBG(18,"The %s index %" PRId64 " cannot get to inactive player %" PRId64,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     struct Thing* heartng = get_player_soul_container(player->id_number);
     if (!thing_exists(heartng))
     {
-        SYNCDBG(18,"The %s index %d cannot get to player %d without heart",thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        SYNCDBG(18,"The %s index %" PRId64 " cannot get to player %" PRId64 " without heart",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     if (heartng->active_state == ObSt_BeingDestroyed)
     {
-        SYNCDBG(18,"The %s index %d cannot get to player %d due to heart state",thing_model_name(creatng),(int)creatng->index,(int)plyr_idx);
+        SYNCDBG(18,"The %s index %" PRId64 " cannot get to player %" PRId64 " due to heart state",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;
     }
     return creature_can_navigate_to(creatng, &heartng->mappos, NavRtF_Default);
 }
 
-TbBool creature_can_head_for_room(struct Thing *thing, struct Room *room, int flags)
+TbBool creature_can_head_for_room(struct Thing *thing, struct Room *room, int64_t flags)
 {
     struct Coord3d pos;
     return find_first_valid_position_for_thing_anywhere_in_room(thing, room, &pos)
         && creature_can_navigate_to_with_storage(thing, &pos, flags);
 }
 
-long creature_turn_to_face(struct Thing *thing, const struct Coord3d *pos)
+int64_t creature_turn_to_face(struct Thing *thing, const struct Coord3d *pos)
 {
     //TODO enable when issue in pathfinding is solved
     /*if (get_chessboard_distance(&thing->mappos, pos) <= 0)
         return -1;*/
-    long angle = get_angle_xy_to(&thing->mappos, pos);
+    int64_t angle = get_angle_xy_to(&thing->mappos, pos);
 
     return creature_turn_to_face_angle(thing,angle);
 }
 
-long creature_turn_to_face_backwards(struct Thing *thing, struct Coord3d *pos)
+int64_t creature_turn_to_face_backwards(struct Thing *thing, struct Coord3d *pos)
 {
     //TODO enable when issue in pathfinding is solved
     /*if (get_chessboard_distance(&thing->mappos, pos) <= 0)
         return -1;*/
 
-    long angle = (get_angle_xy_to(&thing->mappos, pos)
+    int64_t angle = (get_angle_xy_to(&thing->mappos, pos)
         + DEGREES_180) & ANGLE_MASK;
 
     return creature_turn_to_face_angle(thing,angle);
 }
 
-long creature_turn_to_face_angle(struct Thing *thing, long angle)
+int64_t creature_turn_to_face_angle(struct Thing *thing, int64_t angle)
 {
 
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
-    long angle_diff = get_angle_difference(thing->move_angle_xy, angle);
-    long angle_sign = get_angle_sign(thing->move_angle_xy, angle);
-    int angle_delta = crconf->max_turning_speed;
+    int64_t angle_diff = get_angle_difference(thing->move_angle_xy, angle);
+    int64_t angle_sign = get_angle_sign(thing->move_angle_xy, angle);
+    int64_t angle_delta = crconf->max_turning_speed;
 
     if (angle_delta > angle_diff) {
         angle_delta = angle_diff;
@@ -521,11 +521,11 @@ long creature_turn_to_face_angle(struct Thing *thing, long angle)
     return get_angle_difference(thing->move_angle_xy, angle);
 }
 
-long creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, MoveSpeed speed, long a4, NaviRouteFlags flags, TbBool backward)
+int64_t creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, MoveSpeed speed, int64_t a4, NaviRouteFlags flags, TbBool backward)
 {
-    long i;
-    SYNCDBG(18,"Starting to move %s index %d from (%d,%d) to (%d,%d) with speed %d",thing_model_name(thing),
-        (int)thing->index,(int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num,(int)pos->x.stl.num,(int)pos->y.stl.num,(int)speed);
+    int64_t i;
+    SYNCDBG(18,"Starting to move %s index %" PRId64 " from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") with speed %" PRId64,thing_model_name(thing),
+        (int64_t)thing->index,(int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num,(int64_t)speed);
     TRACE_THING(thing);
     if ( backward )
     {
@@ -535,7 +535,7 @@ long creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, Move
     }
     struct Coord3d nextpos;
     AriadneReturn follow_result = creature_follow_route_to_using_gates(thing, pos, &nextpos, speed, flags);
-    SYNCDBG(18,"The %s index %d route result: %d, next pos (%d,%d)",thing_model_name(thing),(int)thing->index,(int)follow_result,(int)nextpos.x.stl.num,(int)nextpos.y.stl.num);
+    SYNCDBG(18,"The %s index %" PRId64 " route result: %" PRId64 ", next pos (%" PRId64 ",%" PRId64 ")",thing_model_name(thing),(int64_t)thing->index,(int64_t)follow_result,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num);
     if ( backward )
     {
         // Rotate the creature back
@@ -564,9 +564,9 @@ long creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, Move
             cctrl->creature_state_flags |= TF2_CreatureIsMoving;
             if (get_chessboard_distance(&thing->mappos, &nextpos) > -2*cctrl->move_speed)
             {
-                ERRORDBG(3,"The %s index %d tried to reach (%d,%d) from (%d,%d) with excessive backward speed",
-                    thing_model_name(thing),(int)thing->index,(int)nextpos.x.stl.num,(int)nextpos.y.stl.num,
-                    (int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num);
+                ERRORDBG(3,"The %s index %" PRId64 " tried to reach (%" PRId64 ",%" PRId64 ") from (%" PRId64 ",%" PRId64 ") with excessive backward speed",
+                    thing_model_name(thing),(int64_t)thing->index,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,
+                    (int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num);
                 cctrl->moveaccel.x.val = distance_with_angle_to_coord_x(cctrl->move_speed, thing->move_angle_xy);
                 cctrl->moveaccel.y.val = distance_with_angle_to_coord_y(cctrl->move_speed, thing->move_angle_xy);
                 cctrl->moveaccel.z.val = 0;
@@ -577,7 +577,7 @@ long creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, Move
                 cctrl->moveaccel.z.val = 0;
             }
         }
-        SYNCDBG(18,"Backward target set, speed %d, accel (%d,%d)",(int)cctrl->move_speed,(int)cctrl->moveaccel.x.val,(int)cctrl->moveaccel.y.val);
+        SYNCDBG(18,"Backward target set, speed %" PRId64 ", accel (%" PRId64 ",%" PRId64 ")",(int64_t)cctrl->move_speed,(int64_t)cctrl->moveaccel.x.val,(int64_t)cctrl->moveaccel.y.val);
     } else
     {
         if (creature_turn_to_face(thing, &nextpos) > 0)
@@ -590,9 +590,9 @@ long creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, Move
             cctrl->creature_state_flags |= TF2_CreatureIsMoving;
             if (get_chessboard_distance(&thing->mappos, &nextpos) > 2*cctrl->move_speed)
             {
-                ERRORDBG(3,"The %s index %d tried to reach (%d,%d) from (%d,%d) with excessive forward speed",
-                    thing_model_name(thing),(int)thing->index,(int)nextpos.x.stl.num,(int)nextpos.y.stl.num,
-                    (int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num);
+                ERRORDBG(3,"The %s index %" PRId64 " tried to reach (%" PRId64 ",%" PRId64 ") from (%" PRId64 ",%" PRId64 ") with excessive forward speed",
+                    thing_model_name(thing),(int64_t)thing->index,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,
+                    (int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num);
                 cctrl->moveaccel.x.val = distance_with_angle_to_coord_x(cctrl->move_speed, thing->move_angle_xy);
                 cctrl->moveaccel.y.val = distance_with_angle_to_coord_y(cctrl->move_speed, thing->move_angle_xy);
                 cctrl->moveaccel.z.val = 0;
@@ -603,18 +603,18 @@ long creature_move_to_using_gates(struct Thing *thing, struct Coord3d *pos, Move
                 cctrl->moveaccel.z.val = 0;
             }
         }
-        SYNCDBG(18,"Forward target set, speed %d, accel (%d,%d)",(int)cctrl->move_speed,(int)cctrl->moveaccel.x.val,(int)cctrl->moveaccel.y.val);
+        SYNCDBG(18,"Forward target set, speed %" PRId64 ", accel (%" PRId64 ",%" PRId64 ")",(int64_t)cctrl->move_speed,(int64_t)cctrl->moveaccel.x.val,(int64_t)cctrl->moveaccel.y.val);
     }
     return 0;
 }
 
-long creature_move_to(struct Thing *creatng, struct Coord3d *pos, MoveSpeed speed, NaviRouteFlags flags, TbBool backward)
+int64_t creature_move_to(struct Thing *creatng, struct Coord3d *pos, MoveSpeed speed, NaviRouteFlags flags, TbBool backward)
 {
-    SYNCDBG(18,"Starting to move %s index %d into (%d,%d)",thing_model_name(creatng),(int)creatng->index,(int)pos->x.stl.num,(int)pos->y.stl.num);
+    SYNCDBG(18,"Starting to move %s index %" PRId64 " into (%" PRId64 ",%" PRId64 ")",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num);
     return creature_move_to_using_gates(creatng, pos, speed, -2, flags, backward);
 }
 
-TbBool creature_move_to_using_teleport(struct Thing *thing, struct Coord3d *pos, long walk_speed)
+TbBool creature_move_to_using_teleport(struct Thing *thing, struct Coord3d *pos, int64_t walk_speed)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (creature_instance_is_available(thing, CrInst_TELEPORT)
@@ -622,7 +622,7 @@ TbBool creature_move_to_using_teleport(struct Thing *thing, struct Coord3d *pos,
      && (cctrl->instance_id == CrInst_NULL))
     {
         // Creature can only be teleported to a revealed location
-        short destination_valid = true;
+        int64_t destination_valid = true;
         if (!is_hero_thing(thing) && !is_neutral_thing(thing)) {
             destination_valid = subtile_revealed(pos->x.stl.num, pos->y.stl.num, thing->owner);
         }
@@ -639,19 +639,19 @@ TbBool creature_move_to_using_teleport(struct Thing *thing, struct Coord3d *pos,
     return false;
 }
 
-short move_to_position(struct Thing *creatng)
+int64_t move_to_position(struct Thing *creatng)
 {
     TRACE_THING(creatng);
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    long speed = get_creature_speed(creatng);
-    SYNCDBG(18,"Starting to move %s index %d into (%d,%d)",thing_model_name(creatng),(int)creatng->index,(int)cctrl->moveto_pos.x.stl.num,(int)cctrl->moveto_pos.y.stl.num);
+    int64_t speed = get_creature_speed(creatng);
+    SYNCDBG(18,"Starting to move %s index %" PRId64 " into (%" PRId64 ",%" PRId64 ")",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)cctrl->moveto_pos.x.stl.num,(int64_t)cctrl->moveto_pos.y.stl.num);
     // Try teleporting the creature
     if (creature_move_to_using_teleport(creatng, &cctrl->moveto_pos, speed)) {
-        SYNCDBG(8,"Teleporting %s index %d owner %d into (%d,%d) for %s",thing_model_name(creatng),(int)creatng->index,(int)creatng->owner,
-            (int)cctrl->moveto_pos.x.stl.num,(int)cctrl->moveto_pos.y.stl.num,creature_state_code_name(creatng->continue_state));
+        SYNCDBG(8,"Teleporting %s index %" PRId64 " owner %" PRId64 " into (%" PRId64 ",%" PRId64 ") for %s",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner,
+            (int64_t)cctrl->moveto_pos.x.stl.num,(int64_t)cctrl->moveto_pos.y.stl.num,creature_state_code_name(creatng->continue_state));
         return 1;
     }
-    long move_result = creature_move_to(creatng, &cctrl->moveto_pos, speed, cctrl->move_flags, 0);
+    int64_t move_result = creature_move_to(creatng, &cctrl->moveto_pos, speed, cctrl->move_flags, 0);
     CrCheckRet state_check = CrCkRet_Available;
     struct CreatureStateConfig* stati = get_thing_continue_state_info(creatng);
     if (!state_info_invalid(stati))
@@ -697,7 +697,7 @@ short move_to_position(struct Thing *creatng)
     }
 }
 
-long get_next_gap_creature_can_fit_in_below_point(struct Thing *thing, struct Coord3d *pos)
+int64_t get_next_gap_creature_can_fit_in_below_point(struct Thing *thing, struct Coord3d *pos)
 {
     MapCoordDelta clipbox_size_xy;
     if (thing_is_creature(thing))
@@ -819,9 +819,9 @@ long get_next_gap_creature_can_fit_in_below_point(struct Thing *thing, struct Co
         return lowest_ceiling - 1 - thing->clipbox_size_z;
 }
 
-long get_thing_blocked_flags_at(struct Thing *thing, struct Coord3d *pos)
+int64_t get_thing_blocked_flags_at(struct Thing *thing, struct Coord3d *pos)
 {
-    unsigned short flags = SlbBloF_None;
+    int64_t flags = SlbBloF_None;
     struct Coord3d locpos;
     locpos.x.val = pos->x.val;
     locpos.y.val = thing->mappos.y.val;

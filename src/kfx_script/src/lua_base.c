@@ -47,7 +47,7 @@ static void disable_lua_functions(lua_State *L)
 
     lua_getglobal(L, "os");
     if (lua_istable(L, -1)) {
-        for (int i = 0; i < sizeof(disabled_os_functions) / sizeof(disabled_os_functions[0]); i++) {
+        for (int64_t i = 0; i < sizeof(disabled_os_functions) / sizeof(disabled_os_functions[0]); i++) {
             lua_pushstring(L, disabled_os_functions[i]);
             lua_pushcclosure(L, lua_disabled_os_function, 1);
             lua_setfield(L, -2, disabled_os_functions[i]);
@@ -57,7 +57,7 @@ static void disable_lua_functions(lua_State *L)
 }
 
 
-TbBool CheckLua(lua_State *L, int result, const char* func)
+TbBool CheckLua(lua_State *L, int64_t result, const char* func)
 {
     if (result != LUA_OK) {
         // Coerce error to string using tostring()
@@ -127,7 +127,7 @@ TbBool execute_lua_code_from_console(const char* code)
         return false;
     }
 
-    int result = luaL_dostring(Lvl_script, code);
+    int64_t result = luaL_dostring(Lvl_script, code);
     if (result != LUA_OK) {
         const char *message = lua_tostring(Lvl_script, -1);
         ERRORLOG("Failed to execute Lua code: %s", message ? message : "Unknown error");
@@ -153,7 +153,7 @@ TbBool execute_lua_code_from_script(const char* code)
         return false;
     }
 
-    int result = luaL_dostring(Lvl_script, code);
+    int64_t result = luaL_dostring(Lvl_script, code);
     if (result != LUA_OK) {
         const char *message = lua_tostring(Lvl_script, -1);
         ERRORLOG("Failed to execute Lua code: %s", message ? message : "Unknown error");
@@ -164,7 +164,7 @@ TbBool execute_lua_code_from_script(const char* code)
 
     return true;
 }
-void lua_set_random_seed(unsigned int seed)
+void lua_set_random_seed(uint64_t seed)
 {
     if (Lvl_script == NULL) {
         ERRORLOG("Lua state is not initialized");
@@ -241,8 +241,8 @@ static TbBool open_lua_script_for_mod(lua_State* L, LevelNumber lvnum, const str
 
     if (mod_state->cmpg_lvls)
     {
-        short fgroup = get_level_fgroup(lvnum);
-        fname = prepare_file_fmtpath_mod(mod_dir, fgroup, "map%05lu.lua", (unsigned long)lvnum);
+        int64_t fgroup = get_level_fgroup(lvnum);
+        fname = prepare_file_fmtpath_mod(mod_dir, fgroup, "map%05" PRIu64 ".lua", (uint64_t)lvnum);
         if (LbFileExists(fname))
         {
             if(CheckLua(L, luaL_dofile(L, fname), "mod_level_script_loading"))
@@ -259,9 +259,9 @@ static TbBool open_lua_script_for_mod(lua_State* L, LevelNumber lvnum, const str
     return result;
 }
 
-static void open_lua_script_for_mod_list(lua_State* L, LevelNumber lvnum, const struct ModConfigItem *mod_items, long mod_cnt)
+static void open_lua_script_for_mod_list(lua_State* L, LevelNumber lvnum, const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
-    for (long i=0; i<mod_cnt; i++)
+    for (int64_t i=0; i<mod_cnt; i++)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (open_lua_script_for_mod(L, lvnum, mod_item))
@@ -330,8 +330,8 @@ TbBool open_lua_script(LevelNumber lvnum)
         }
     }
 
-    short fgroup = get_level_fgroup(lvnum);
-    fname = prepare_file_fmtpath(fgroup, "map%05lu.lua", (unsigned long)lvnum);
+    int64_t fgroup = get_level_fgroup(lvnum);
+    fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".lua", (uint64_t)lvnum);
     // Load and parse the Lua File
     if (LbFileExists(fname) )
     {
@@ -355,8 +355,8 @@ const char* lua_get_serialised_data(size_t *len)
 	if (lua_isfunction(Lvl_script, -1))
 	{
         JUSTLOG("calling GetSerializedData");
-        int result = lua_pcall(Lvl_script, 0, 1, 0);
-        JUSTLOG("lua_pcall result: %d", result);
+        int64_t result = lua_pcall(Lvl_script, 0, 1, 0);
+        JUSTLOG("lua_pcall result: %" PRId64, (int64_t)(result));
         if (!CheckLua(Lvl_script, result, "GetSerializedData")) {
             ERRORLOG("Failed to call GetSerializedData");
             return NULL;
@@ -448,16 +448,16 @@ void generate_lua_types_file()
 
     #define GENERATE_ALIAS(alias_name, desc)            \
     do {                                                \
-        int count = 0;                                  \
-        for (int i = 0; desc[i].name != NULL; ++i) {    \
+        int64_t count = 0;                                  \
+        for (int64_t i = 0; desc[i].name != NULL; ++i) {    \
             if (desc[i].name[0] != '\0') ++count;       \
         }                                               \
         fprintf(out, "---@alias %s ", alias_name);      \
         if (count >= 90) {                              \
             fprintf(out, "string|");                    \
         }                                               \
-        int written = 0;                                \
-        for (int i = 0; desc[i].name != NULL; ++i) {    \
+        int64_t written = 0;                                \
+        for (int64_t i = 0; desc[i].name != NULL; ++i) {    \
             if (desc[i].name[0] == '\0') continue;      \
             if (written > 0) fprintf(out, "|");         \
             fprintf(out, "\"%s\"", desc[i].name);       \
@@ -469,7 +469,7 @@ void generate_lua_types_file()
     #define GENERATE_FIELDS(class_name, desc)               \
     do {                                                 \
         fprintf(out, "---@class %s\n", class_name);       \
-        for (int i = 0; desc[i].name != NULL; ++i) {      \
+        for (int64_t i = 0; desc[i].name != NULL; ++i) {      \
             if (desc[i].name[0] == '\0') continue; \
             fprintf(out, "---@field %s integer\n", desc[i].name); \
         }                                                \

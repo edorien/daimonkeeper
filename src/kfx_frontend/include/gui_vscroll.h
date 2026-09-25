@@ -38,15 +38,15 @@ extern "C" {
 #define GUI_VSCROLL_VISIBLE 8
 
 /** Current first-visible-slot offset of the in-game Load/Save list. */
-extern long gui_vscroll_offset;
+extern int64_t gui_vscroll_offset;
 
 /** Total number of slots the in-game Load/Save list can currently scroll through
  *  (always at least GUI_VSCROLL_VISIBLE; grows to reveal one free slot past the used
  *  ones). */
-long gui_vscroll_total(void);
+int64_t gui_vscroll_total(void);
 
 /** Largest valid scroll offset (0 when nothing to scroll). */
-long gui_vscroll_max_offset(void);
+int64_t gui_vscroll_max_offset(void);
 
 /** GUI button callbacks (wired up from frontmenu_saves_data.cpp). */
 void gui_vscroll_draw(struct GuiButton *gbtn);      //< draw_call

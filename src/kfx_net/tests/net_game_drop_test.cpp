@@ -30,14 +30,14 @@ struct DropFixture {
         kfx_sim_state.system_flags |= GSF_NetworkActive;
         net_user_info[SERVER_ID].network_user_active = 1;
         setup_network_player_numbers(); // host -> player 0
-        for (int i = 0; i < PLAYERS_COUNT; i++) {
+        for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
             kfx_sim_state.players[i].id_number = (PlayerNumber)i;
             kfx_sim_state.players[i].user_id = -1;
         }
         kfx_sim_state.players[0].user_id = SERVER_ID;
         make_player(0);
     }
-    void make_player(int i) {
+    void make_player(int64_t i) {
         struct PlayerInfo *player = &kfx_sim_state.players[i];
         player->allocflags |= PlaF_Allocated;
         player->is_active = 1;
@@ -50,7 +50,7 @@ struct DropFixture {
         get_dungeon(i)->dnheart_idx = (ThingIndex)(10 + i);
     }
     // A connected, human-driven opponent (user i controls player i).
-    void make_human_enemy(int i) {
+    void make_human_enemy(int64_t i) {
         make_player(i);
         kfx_sim_state.players[i].user_id = i;
         net_user_info[i].network_user_active = 1;

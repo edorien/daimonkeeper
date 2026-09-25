@@ -15,7 +15,7 @@
 
 /******************************************************************************/
 
-TbBool ITextRenderer::DrawTextResized(int32_t x, int32_t y, int32_t units_per_px, const char* text)
+TbBool ITextRenderer::DrawTextResized(int64_t x, int64_t y, int64_t units_per_px, const char* text)
 {
     return LbTextDrawResizedImmediate(x, y, units_per_px, text);
 }

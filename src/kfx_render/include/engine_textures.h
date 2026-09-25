@@ -31,18 +31,18 @@ extern "C" {
 
 extern unsigned char block_mem[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_STAT_COUNT * 32 * 32];
 extern unsigned char *block_ptrs[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT];
-extern long block_dimension;
+extern int64_t block_dimension;
 /******************************************************************************/
 void setup_texture_block_mem(void);
-short init_animating_texture_maps(void);
-short update_animating_texture_maps(void);
-TbBool load_texture_map_file(unsigned long tmapidx, LevelNumber lvnum, short fgroup);
+int64_t init_animating_texture_maps(void);
+int64_t update_animating_texture_maps(void);
+TbBool load_texture_map_file(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup);
 /** True when a texture pack with this index can be found through the same search the loader uses
  *  (level folder, campaign config, standard data, and the mods in between). */
-TbBool texture_pack_available(unsigned long tmapidx, LevelNumber lvnum, short fgroup);
+TbBool texture_pack_available(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup);
 
-void scale_tmap2(long texture_block_index, long flags, long fade_level, long screen_x, long screen_y, long scaled_width, long scaled_height);
-void draw_texture(int32_t texture_x, int32_t texture_y, int32_t texture_width, int32_t texture_height, int32_t texture_block_index, int32_t flags, int32_t fade_level);
+void scale_tmap2(int64_t texture_block_index, int64_t flags, int64_t fade_level, int64_t screen_x, int64_t screen_y, int64_t scaled_width, int64_t scaled_height);
+void draw_texture(int64_t texture_x, int64_t texture_y, int64_t texture_width, int64_t texture_height, int64_t texture_block_index, int64_t flags, int64_t fade_level);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -61,7 +61,7 @@ extern "C" {
 #define CAMPAIGN_PROGRESS_MAX_ENTRIES 64
 
 static struct CampaignProgressEntry campaign_progress_entries[CAMPAIGN_PROGRESS_MAX_ENTRIES];
-static unsigned long campaign_progress_entries_num = 0;
+static uint64_t campaign_progress_entries_num = 0;
 
 static const char *progress_cfg_filename = "progress.cfg";
 
@@ -78,7 +78,7 @@ const struct NamedCommand progress_cfg_commands[] = {
 /******************************************************************************/
 struct CampaignProgressEntry *get_campaign_progress(const char *cmpgn_fname, TbBool create_if_missing)
 {
-    for (unsigned long i = 0; i < campaign_progress_entries_num; i++)
+    for (uint64_t i = 0; i < campaign_progress_entries_num; i++)
     {
         if (strcasecmp(campaign_progress_entries[i].cmpgn_fname, cmpgn_fname) == 0)
             return &campaign_progress_entries[i];
@@ -87,8 +87,8 @@ struct CampaignProgressEntry *get_campaign_progress(const char *cmpgn_fname, TbB
         return NULL;
     if (campaign_progress_entries_num >= CAMPAIGN_PROGRESS_MAX_ENTRIES)
     {
-        ERRORLOG("Cannot track progress for campaign \"%s\" -- CAMPAIGN_PROGRESS_MAX_ENTRIES (%d) reached.",
-            cmpgn_fname, CAMPAIGN_PROGRESS_MAX_ENTRIES);
+        ERRORLOG("Cannot track progress for campaign \"%s\" -- CAMPAIGN_PROGRESS_MAX_ENTRIES (%" PRId64 ") reached.",
+            cmpgn_fname, (int64_t)(CAMPAIGN_PROGRESS_MAX_ENTRIES));
         return NULL;
     }
     struct CampaignProgressEntry *entry = &campaign_progress_entries[campaign_progress_entries_num];
@@ -102,7 +102,7 @@ TbBool campaign_progress_has_unlocked_level(const struct CampaignProgressEntry *
 {
     if (entry == NULL)
         return false;
-    for (unsigned long i = 0; i < entry->unlocked_levels_count; i++)
+    for (uint64_t i = 0; i < entry->unlocked_levels_count; i++)
     {
         if (entry->unlocked_levels[i] == lvnum)
             return true;
@@ -118,8 +118,8 @@ TbBool campaign_progress_unlock_level(struct CampaignProgressEntry *entry, Level
         return true;
     if (entry->unlocked_levels_count >= CAMPAIGN_LEVELS_COUNT)
     {
-        ERRORLOG("Cannot unlock level %d for campaign \"%s\" -- CAMPAIGN_LEVELS_COUNT (%d) reached.",
-            (int)lvnum, entry->cmpgn_fname, CAMPAIGN_LEVELS_COUNT);
+        ERRORLOG("Cannot unlock level %" PRId64 " for campaign \"%s\" -- CAMPAIGN_LEVELS_COUNT (%" PRId64 ") reached.",
+            (int64_t)lvnum, entry->cmpgn_fname, (int64_t)(CAMPAIGN_LEVELS_COUNT));
         return false;
     }
     entry->unlocked_levels[entry->unlocked_levels_count] = lvnum;
@@ -136,7 +136,7 @@ void reset_all_campaign_progress(void)
 
 TbBool any_campaign_progress_exists(void)
 {
-    for (unsigned long i = 0; i < campaign_progress_entries_num; i++)
+    for (uint64_t i = 0; i < campaign_progress_entries_num; i++)
     {
         if (campaign_progress_entries[i].unlocked_levels_count > 0)
             return true;
@@ -148,12 +148,12 @@ TbBool any_campaign_progress_exists(void)
 // Parsing -- mirrors config_campaigns.c's parse_campaign_map_block() shape
 // (find_conf_block -> recognize_conf_command loop -> per-command switch).
 
-void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, const char *buf, long len, int32_t pos)
+void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, const char *buf, int64_t len, int64_t pos)
 {
 #define COMMAND_TEXT(cmd_num) get_conf_parameter_text(progress_cfg_commands,cmd_num)
     while (pos < len)
     {
-        int cmd_num = recognize_conf_command(buf, &pos, len, progress_cfg_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, progress_cfg_commands);
         if (cmd_num == ccr_endOfBlock)
             break;
         char word_buf[CAMPAIGN_DESCRIPTION_LEN];
@@ -176,7 +176,7 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             break;
         case 3: // TRANSFER_CREATURE = <player> <index> <model_name> <exp_level> <count> <name...>
         {
-            int player_idx = -1, slot_idx = -1, exp_level = 0, count = 0;
+            int64_t player_idx = -1, slot_idx = -1, exp_level = 0, count = 0;
             ThingModel model = 0;
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
                 player_idx = atoi(word_buf);
@@ -225,14 +225,14 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             break;
         case 5: // CAMPAIGN_FLAG = <player> <flag_index> <value>
         {
-            int player_idx = -1, flag_idx = -1;
-            long value = 0;
+            int64_t player_idx = -1, flag_idx = -1;
+            int64_t value = 0;
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
                 player_idx = atoi(word_buf);
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
                 flag_idx = atoi(word_buf);
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-                value = atol(word_buf);
+                value = LbAtoI32(word_buf);
             if ((player_idx < 0) || (player_idx >= PLAYERS_FOR_CAMPAIGN_FLAGS)
              || (flag_idx < 0) || (flag_idx >= CAMPAIGN_FLAGS_PER_PLAYER))
             {
@@ -245,7 +245,7 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
         case 6: // ENSIGN_OVERRIDE = <lvnum> <ensign_type>
         {
             LevelNumber lvnum = 0;
-            int ensign_type = -1;
+            int64_t ensign_type = -1;
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
                 lvnum = (LevelNumber)atoi(word_buf);
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
@@ -263,7 +263,7 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             // write entry->intralvl.ensign_overrides[] directly instead,
             // mirroring exactly what those functions do against the global.
             struct LevelEnsignOverride *override = NULL;
-            for (int i = 0; i < ENSIGN_OVERRIDES_COUNT; i++)
+            for (int64_t i = 0; i < ENSIGN_OVERRIDES_COUNT; i++)
             {
                 if (entry->intralvl.ensign_overrides[i].lvnum == lvnum)
                 {
@@ -273,7 +273,7 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             }
             if (override == NULL)
             {
-                for (int i = 0; i < ENSIGN_OVERRIDES_COUNT; i++)
+                for (int64_t i = 0; i < ENSIGN_OVERRIDES_COUNT; i++)
                 {
                     if (entry->intralvl.ensign_overrides[i].lvnum == 0)
                     {
@@ -284,12 +284,12 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             }
             if (override == NULL)
             {
-                CONFWRNLOG("No free ensign override slot for level %d in '%s' file.", (int)lvnum, progress_cfg_filename);
+                CONFWRNLOG("No free ensign override slot for level %" PRId64 " in '%s' file.", (int64_t)lvnum, progress_cfg_filename);
                 break;
             }
             override->lvnum = lvnum;
             override->active = true;
-            override->ensign_type = (unsigned short)ensign_type;
+            override->ensign_type = (int64_t)ensign_type;
             break;
         }
         case ccr_comment:
@@ -311,12 +311,12 @@ TbBool load_campaign_progress_file(void)
     memset(campaign_progress_entries, 0, sizeof(campaign_progress_entries));
 
     char *fname = prepare_file_path(FGrp_Save, progress_cfg_filename);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < 2)
         return true; // no file yet -- not an error, just nothing played under the new menu yet
     if (len > 1024 * 1024)
     {
-        ERRORLOG("Campaign progress file \"%s\" is implausibly large (%ld bytes) -- refusing to load.", fname, len);
+        ERRORLOG("Campaign progress file \"%s\" is implausibly large (%" PRId64 " bytes) -- refusing to load.", fname, (int64_t)(len));
         return false;
     }
     char *buf = (char *)KfxCalloc((size_t)len + 256, 1);
@@ -326,11 +326,11 @@ TbBool load_campaign_progress_file(void)
     TbBool result = (len > 0);
     if (result)
     {
-        for (unsigned long i = 0; i < campaigns_list.items_num; i++)
+        for (uint64_t i = 0; i < campaigns_list.items_num; i++)
         {
             struct GameCampaign *campgn = &campaigns_list.items[i];
-            int32_t pos = 0;
-            int k = find_conf_block(buf, &pos, len, campgn->fname);
+            int64_t pos = 0;
+            int64_t k = find_conf_block(buf, &pos, len, campgn->fname);
             if (k < 0)
                 continue; // no progress recorded for this campaign yet
             struct CampaignProgressEntry *entry = get_campaign_progress(campgn->fname, true);
@@ -365,7 +365,7 @@ TbBool save_campaign_progress_file(void)
     }
     char line[CAMPAIGN_DESCRIPTION_LEN + 64];
     TbBool ok = true;
-    for (unsigned long e = 0; ok && (e < campaign_progress_entries_num); e++)
+    for (uint64_t e = 0; ok && (e < campaign_progress_entries_num); e++)
     {
         struct CampaignProgressEntry *entry = &campaign_progress_entries[e];
         snprintf(line, sizeof(line), "[%s]\n", entry->cmpgn_fname);
@@ -373,57 +373,57 @@ TbBool save_campaign_progress_file(void)
 
         if (entry->unlocked_levels_count > 0)
         {
-            int n = snprintf(line, sizeof(line), "UNLOCKED_LEVELS =");
-            for (unsigned long i = 0; (i < entry->unlocked_levels_count) && (n < (int)sizeof(line) - 16); i++)
-                n += snprintf(line + n, sizeof(line) - n, " %d", (int)entry->unlocked_levels[i]);
+            int64_t n = snprintf(line, sizeof(line), "UNLOCKED_LEVELS =");
+            for (uint64_t i = 0; (i < entry->unlocked_levels_count) && (n < (int64_t)sizeof(line) - 16); i++)
+                n += snprintf(line + n, sizeof(line) - n, " %" PRId64, (int64_t)entry->unlocked_levels[i]);
             snprintf(line + n, sizeof(line) - n, "\n");
             ok = ok && write_line(fh, line);
         }
 
         if (entry->intralvl.next_level != 0)
         {
-            snprintf(line, sizeof(line), "NEXT_LEVEL = %d\n", (int)entry->intralvl.next_level);
+            snprintf(line, sizeof(line), "NEXT_LEVEL = %" PRId64 "\n", (int64_t)entry->intralvl.next_level);
             ok = ok && write_line(fh, line);
         }
 
-        for (int p = 0; ok && (p < PLAYERS_COUNT); p++)
+        for (int64_t p = 0; ok && (p < PLAYERS_COUNT); p++)
         {
-            for (int i = 0; ok && (i < TRANSFER_CREATURE_STORAGE_COUNT); i++)
+            for (int64_t i = 0; ok && (i < TRANSFER_CREATURE_STORAGE_COUNT); i++)
             {
                 struct CreatureStorage *stored = &entry->intralvl.transferred_creatures[p][i];
                 if (stored->model <= 0)
                     continue;
-                snprintf(line, sizeof(line), "TRANSFER_CREATURE = %d %d %s %d %d %s\n",
-                    p, i, creature_code_name(stored->model), (int)stored->exp_level,
-                    (int)stored->count, stored->creature_name);
+                snprintf(line, sizeof(line), "TRANSFER_CREATURE = %" PRId64 " %" PRId64 " %s %" PRId64 " %" PRId64 " %s\n",
+                    (int64_t)(p), (int64_t)(i), creature_code_name(stored->model), (int64_t)stored->exp_level,
+                    (int64_t)stored->count, stored->creature_name);
                 ok = ok && write_line(fh, line);
             }
         }
 
-        for (unsigned long i = 0; ok && (i < entry->bonus_available_count); i++)
+        for (uint64_t i = 0; ok && (i < entry->bonus_available_count); i++)
         {
-            snprintf(line, sizeof(line), "BONUS_AVAILABLE = %d\n", (int)entry->bonus_available[i]);
+            snprintf(line, sizeof(line), "BONUS_AVAILABLE = %" PRId64 "\n", (int64_t)entry->bonus_available[i]);
             ok = ok && write_line(fh, line);
         }
 
-        for (int p = 0; ok && (p < PLAYERS_FOR_CAMPAIGN_FLAGS); p++)
+        for (int64_t p = 0; ok && (p < PLAYERS_FOR_CAMPAIGN_FLAGS); p++)
         {
-            for (int f = 0; ok && (f < CAMPAIGN_FLAGS_PER_PLAYER); f++)
+            for (int64_t f = 0; ok && (f < CAMPAIGN_FLAGS_PER_PLAYER); f++)
             {
-                long value = entry->intralvl.campaign_flags[p][f];
+                int64_t value = entry->intralvl.campaign_flags[p][f];
                 if (value == 0)
                     continue;
-                snprintf(line, sizeof(line), "CAMPAIGN_FLAG = %d %d %ld\n", p, f, value);
+                snprintf(line, sizeof(line), "CAMPAIGN_FLAG = %" PRId64 " %" PRId64 " %" PRId64 "\n", (int64_t)(p), (int64_t)(f), (int64_t)(value));
                 ok = ok && write_line(fh, line);
             }
         }
 
-        for (int i = 0; ok && (i < ENSIGN_OVERRIDES_COUNT); i++)
+        for (int64_t i = 0; ok && (i < ENSIGN_OVERRIDES_COUNT); i++)
         {
             struct LevelEnsignOverride *override = &entry->intralvl.ensign_overrides[i];
             if (override->lvnum == 0)
                 continue;
-            snprintf(line, sizeof(line), "ENSIGN_OVERRIDE = %d %d\n", (int)override->lvnum, (int)override->ensign_type);
+            snprintf(line, sizeof(line), "ENSIGN_OVERRIDE = %" PRId64 " %" PRId64 "\n", (int64_t)override->lvnum, (int64_t)override->ensign_type);
             ok = ok && write_line(fh, line);
         }
 
@@ -467,7 +467,7 @@ TbBool campaign_progress_record_level_completed(LevelNumber lvnum)
     // instead (struct CampaignProgressEntry's own comment on why).
     entry->bonus_available_count = 0;
     struct PlayerInfo *player = get_my_player();
-    for (unsigned long i = 0; i < campaign.bonus_levels_count; i++)
+    for (uint64_t i = 0; i < campaign.bonus_levels_count; i++)
     {
         LevelNumber bn_lvnum = campaign.bonus_levels[i];
         if (!is_bonus_level_visible(player, bn_lvnum))
@@ -501,7 +501,7 @@ void reconcile_fx1contn_into_progress(void)
     // singleplayer level strictly before it (in the campaign's own single_levels
     // order) must have been completed to have reached it linearly.
     struct GameCampaign *campgn = NULL;
-    for (unsigned long i = 0; i < campaigns_list.items_num; i++)
+    for (uint64_t i = 0; i < campaigns_list.items_num; i++)
     {
         if (strcasecmp(campaigns_list.items[i].fname, cmpgn_fname) == 0)
         {
@@ -511,7 +511,7 @@ void reconcile_fx1contn_into_progress(void)
     }
     if (campgn != NULL)
     {
-        for (unsigned long i = 0; i < campgn->single_levels_count; i++)
+        for (uint64_t i = 0; i < campgn->single_levels_count; i++)
         {
             LevelNumber lvnum = campgn->single_levels[i];
             if (lvnum == continue_lvnum)
@@ -540,7 +540,7 @@ void reconcile_fx1contn_into_progress(void)
     // correct. A player who reaches this via reconciliation may need to
     // re-earn bonus-level availability under the new menu.
     TbBool old_bonus_bits_set = false;
-    for (int i = 0; i < BONUS_LEVEL_STORAGE_COUNT; i++)
+    for (int64_t i = 0; i < BONUS_LEVEL_STORAGE_COUNT; i++)
     {
         if (old_intralvl.bonuses_found[i] != 0)
         {

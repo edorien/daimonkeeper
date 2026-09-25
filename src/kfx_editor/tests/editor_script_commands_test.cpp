@@ -39,7 +39,7 @@ TEST_CASE("classic commands carry a summary, KeeperFX ones don't", "[kfx_editor]
 }
 
 TEST_CASE("every group has a title", "[kfx_editor][script_commands]") {
-    for (int g = 0; g < ScrGroup_Count; g++)
+    for (int64_t g = 0; g < ScrGroup_Count; g++)
         CHECK(std::string(editor_script_group_title(g)).size() > 0);
 }
 

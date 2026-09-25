@@ -36,7 +36,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_spritecolors_config_file(const char *fname, unsigned short flags);
+static TbBool load_spritecolors_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_spritecolors_file_data = {
     .filename = "spritecolors.toml",
@@ -50,32 +50,32 @@ const struct ConfigFileData keeper_spritecolors_file_data = {
 // literal-duplicated -- only this file uses it, not worth pulling in
 // player_data.h just for one constant.
 #define PLAYER_COLORS_COUNT (9 + 2)
-static short gui_panel_sprites_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
-static short pointer_sprites_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
-static short button_sprite_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
-static short animationIds_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
-static short objects_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
+static int64_t gui_panel_sprites_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
+static int64_t pointer_sprites_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
+static int64_t button_sprite_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
+static int64_t animationIds_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
+static int64_t objects_eq[MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT];
 /******************************************************************************/
-static short get_player_colored_idx(short base_icon_idx,unsigned char color_idx,short *arr);
+static int64_t get_player_colored_idx(int64_t base_icon_idx,unsigned char color_idx,int64_t *arr);
 /******************************************************************************/
 
-static void load_array(VALUE* file_root, const char *arr_name,short *arr, unsigned short flags,short (*string_to_id_f)(const char *))
+static void load_array(VALUE* file_root, const char *arr_name,int64_t *arr, int64_t flags,int64_t (*string_to_id_f)(const char *))
 {
     if ((flags & CnfLd_AcceptPartial) == 0)
     {
-        memset(arr,0,sizeof(int16_t) * MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT );
+        memset(arr,0,sizeof(int64_t) * MAX_COLORED_SPRITES * PLAYER_COLORS_COUNT );
     }
     VALUE *toml_arr = value_dict_get(file_root, arr_name);
     if (value_array_size(toml_arr) > MAX_COLORED_SPRITES)
     {
-        WARNLOG("too many colored frames, max %d got %d",MAX_COLORED_SPRITES, (int) value_array_size(toml_arr));
+        WARNLOG("too many colored frames, max %" PRId64 " got %" PRId64,(int64_t)(MAX_COLORED_SPRITES), (int64_t) value_array_size(toml_arr));
     }
     for (size_t sprite_no = 0; sprite_no < value_array_size(toml_arr); sprite_no++)
     {
         VALUE *col_arr = value_array_get(toml_arr, sprite_no);
         if (value_array_size(col_arr) > PLAYER_COLORS_COUNT)
         {
-            WARNLOG("too many colors for %s, max %d got %d",arr_name,PLAYER_COLORS_COUNT, (int) value_array_size(col_arr));
+            WARNLOG("too many colors for %s, max %" PRId64 " got %" PRId64,arr_name,(int64_t)(PLAYER_COLORS_COUNT), (int64_t) value_array_size(col_arr));
             continue;
         }
         for (size_t plr_idx = 0; plr_idx < value_array_size(col_arr); plr_idx++)
@@ -87,7 +87,7 @@ static void load_array(VALUE* file_root, const char *arr_name,short *arr, unsign
             }
             else
             {
-                short icon_id = string_to_id_f(value_string(entry));
+                int64_t icon_id = string_to_id_f(value_string(entry));
                 if (icon_id == -2)
                 {
                     WARNLOG("unknown sprite %s",value_string(entry));
@@ -98,7 +98,7 @@ static void load_array(VALUE* file_root, const char *arr_name,short *arr, unsign
     }
 }
 
-static TbBool load_spritecolors_config_file(const char *fname, unsigned short flags)
+static TbBool load_spritecolors_config_file(const char *fname, int64_t flags)
 {
     VALUE file_root;
     if (!load_toml_file(fname,&file_root,flags))
@@ -124,7 +124,7 @@ static TbBool load_spritecolors_config_file(const char *fname, unsigned short fl
     return true;
 }
 
-static short get_player_colored_idx(short base_icon_idx,unsigned char color_idx,short *arr)
+static int64_t get_player_colored_idx(int64_t base_icon_idx,unsigned char color_idx,int64_t *arr)
 {
     if (color_idx >= PLAYER_COLORS_COUNT)
     {
@@ -144,16 +144,16 @@ static short get_player_colored_idx(short base_icon_idx,unsigned char color_idx,
     return base_icon_idx;
 }
 
-short get_player_colored_icon_idx(short base_icon_idx,PlayerNumber plyr_idx)
+int64_t get_player_colored_icon_idx(int64_t base_icon_idx,PlayerNumber plyr_idx)
 {
     return get_player_colored_idx(base_icon_idx,config_reload_callbacks->get_player_color_idx(plyr_idx) + 1,gui_panel_sprites_eq);
 }
-short get_player_colored_pointer_icon_idx(short base_icon_idx,PlayerNumber plyr_idx)
+int64_t get_player_colored_pointer_icon_idx(int64_t base_icon_idx,PlayerNumber plyr_idx)
 {
     return get_player_colored_idx(base_icon_idx,config_reload_callbacks->get_player_color_idx(plyr_idx) + 1,pointer_sprites_eq);
 }
 
-short get_player_colored_button_sprite_idx(const short base_icon_idx,const PlayerNumber plyr_idx)
+int64_t get_player_colored_button_sprite_idx(const int64_t base_icon_idx,const PlayerNumber plyr_idx)
 {
     unsigned char color_idx;
     if (plyr_idx == PLAYER_NEUTRAL)

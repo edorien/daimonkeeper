@@ -8,50 +8,50 @@
 namespace {
 
 HudLayout s_current = {};
-float s_last_w = -1.0f, s_last_h = -1.0f;
+double s_last_w = -1.0, s_last_h = -1.0;
 HudBottomWidthMode s_last_b_width_mode = HudBottomWidth_Normal;
 HudMinimalCorner s_last_corner = HudMinimalCorner_UpperLeft;
 
-HudRect rect(float x0, float y0, float x1, float y1) { return HudRect{x0, y0, x1, y1}; }
+HudRect rect(double x0, double y0, double x1, double y1) { return HudRect{x0, y0, x1, y1}; }
 
 // ~the DK1 140/640 proportion, but tracking display height so the aspect
 // of the panel itself stays stable on wide screens. Clamped so it never
 // eats the view on tiny windows or looks absurd on huge ones. Shared with
 // build_minimal() (docs/refactor/ingame-gui/13-minimal-layout.md: the
 // pop-up panel is sized off this same math, not a bespoke size).
-float vertical_panel_width(float w, float h)
+double vertical_panel_width(double w, double h)
 {
-    float panel_w = h * 0.26f;
-    panel_w = std::min(std::max(panel_w, 200.0f), 360.0f);
-    return std::min(panel_w, w * 0.32f);
+    double panel_w = h * 0.26;
+    panel_w = std::min(std::max(panel_w, 200.0), 360.0);
+    return std::min(panel_w, w * 0.32);
 }
 
 // Current KeeperFX / DK1: a fixed-width column down the right edge --
 // gold at the top, minimap below it, the tab strip, then the tab content
 // filling the rest; the event markers run down a thin column just inside
 // the left edge of the panel.
-void build_vertical_right(HudLayout *o, float w, float h)
+void build_vertical_right(HudLayout *o, double w, double h)
 {
     o->kind = HudLayout_VerticalRight;
 
-    const float panel_w = vertical_panel_width(w, h);
-    const float px0 = w - panel_w;
-    const float pad = panel_w * 0.05f;
-    const float ev_w = std::max(panel_w * 0.13f, 22.0f);
+    const double panel_w = vertical_panel_width(w, h);
+    const double px0 = w - panel_w;
+    const double pad = panel_w * 0.05;
+    const double ev_w = std::max(panel_w * 0.13, 22.0);
 
-    const float gold_h = std::max(h * 0.05f, 28.0f);
-    float y = pad;
+    const double gold_h = std::max(h * 0.05, 28.0);
+    double y = pad;
     o->region[HudRegion_Gold] = rect(px0 + ev_w, y, w - pad, y + gold_h);
     y += gold_h + pad;
 
     // Minimap: a square using the panel's inner width.
-    const float mm_w = w - pad - (px0 + ev_w);
+    const double mm_w = w - pad - (px0 + ev_w);
     o->region[HudRegion_Minimap] = rect(px0 + ev_w, y, w - pad, y + mm_w);
     y += mm_w + pad;
 
-    const float tabstrip_h = std::max(h * 0.06f, 34.0f);
+    const double tabstrip_h = std::max(h * 0.06, 34.0);
     o->region[HudRegion_TabStrip] = rect(px0 + ev_w, y, w - pad, y + tabstrip_h);
-    y += tabstrip_h + pad * 0.5f;
+    y += tabstrip_h + pad * 0.5;
 
     o->region[HudRegion_TabContent] = rect(px0 + ev_w, y, w - pad, h - pad);
 
@@ -67,18 +67,18 @@ void build_vertical_right(HudLayout *o, float w, float h)
 // grid/panel below it (region B, width set by `b_width_mode` -- see its
 // own comment, frontgui_hud_layout.h), then the event-marker row + the
 // message queue at a fixed width flush against the right edge.
-void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, float w, float h)
+void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, double w, double h)
 {
     o->kind = HudLayout_HorizontalBottom;
 
     // Same proportional-clamp shape build_vertical_right() uses for its
     // own axis (there: width off h; here: height off w).
-    float strip_h = w * 0.22f;
-    strip_h = std::min(std::max(strip_h, 180.0f), 320.0f);
-    strip_h = std::min(strip_h, h * 0.35f);
+    double strip_h = w * 0.22;
+    strip_h = std::min(std::max(strip_h, 180.0), 320.0);
+    strip_h = std::min(strip_h, h * 0.35);
 
-    const float y0 = h - strip_h;
-    const float pad = strip_h * 0.05f;
+    const double y0 = h - strip_h;
+    const double pad = strip_h * 0.05;
 
     // Region A: gold (thin strip) above the minimap. render_minimap()/
     // draw_minimap_and_compass() size the minimap's diameter from width
@@ -89,20 +89,20 @@ void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, floa
     // let the circle (sized to whatever width) overflow past a too-short
     // height, pushing the nav buttons anchored to its bottom edge off the
     // bottom of the screen (live-tested).
-    const float gold_h = std::max(strip_h * 0.14f, 20.0f);
-    const float mm_side = strip_h - 2.5f * pad - gold_h;
+    const double gold_h = std::max(strip_h * 0.14, 20.0);
+    const double mm_side = strip_h - 2.5 * pad - gold_h;
     o->region[HudRegion_Gold] = rect(pad, y0 + pad, pad + mm_side, y0 + pad + gold_h);
-    o->region[HudRegion_Minimap] = rect(pad, y0 + pad + gold_h + pad * 0.5f,
+    o->region[HudRegion_Minimap] = rect(pad, y0 + pad + gold_h + pad * 0.5,
                                         pad + mm_side, y0 + strip_h - pad);
 
     // Region C: event-marker row + the message queue, a FIXED width
     // (enough for the queue's text and a handful of event tokens, not
     // tied to screen width) flush against the right edge.
-    const float region_c_w  = std::max(w * 0.22f, 280.0f);
-    const float region_c_x0 = w - pad - region_c_w;
-    const float ev_h = std::max(strip_h * 0.16f, 28.0f);
+    const double region_c_w  = std::max(w * 0.22, 280.0);
+    const double region_c_x0 = w - pad - region_c_w;
+    const double ev_h = std::max(strip_h * 0.16, 28.0);
     o->region[HudRegion_Events] = rect(region_c_x0, y0 + pad, w - pad, y0 + pad + ev_h);
-    o->region[HudRegion_Messages] = rect(region_c_x0, y0 + pad + ev_h + pad * 0.5f,
+    o->region[HudRegion_Messages] = rect(region_c_x0, y0 + pad + ev_h + pad * 0.5,
                                          w - pad, y0 + strip_h - pad);
 
     // Region B: tab-header row, then the grid/panel. Width depends on
@@ -116,16 +116,16 @@ void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, floa
     // default (possession/query: "reduce the whitespace on the right").
     // Any leftover width between B and C in the Normal/Narrow cases is
     // just blank panel face.
-    const float region_b_x0 = pad * 2.0f + mm_side;
-    const float region_b_w_normal = std::min(std::max(strip_h * 2.2f, 440.0f), w * 0.5f);
-    float region_b_w;
+    const double region_b_x0 = pad * 2.0 + mm_side;
+    const double region_b_w_normal = std::min(std::max(strip_h * 2.2, 440.0), w * 0.5);
+    double region_b_w;
     switch (b_width_mode)
     {
-        case HudBottomWidth_Wide:   region_b_w = std::max(region_c_x0 - pad - region_b_x0, 260.0f); break;
-        case HudBottomWidth_Narrow: region_b_w = std::min(std::max(strip_h * 1.7f, 380.0f), w * 0.4f); break;
+        case HudBottomWidth_Wide:   region_b_w = std::max(region_c_x0 - pad - region_b_x0, 260.0); break;
+        case HudBottomWidth_Narrow: region_b_w = std::min(std::max(strip_h * 1.7, 380.0), w * 0.4); break;
         default:                    region_b_w = region_b_w_normal; break;
     }
-    const float tabstrip_h  = std::max(strip_h * 0.16f, 28.0f);
+    const double tabstrip_h  = std::max(strip_h * 0.16, 28.0);
     // TabStrip stays pinned to the Normal-mode width regardless of
     // b_width_mode -- it's the tab-switching control itself, and a resize
     // driven by *which tab you just clicked* read as broken (live-tested:
@@ -133,12 +133,12 @@ void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, floa
     // Only TabContent (the grid/panel body below it) follows b_width_mode.
     o->region[HudRegion_TabStrip] = rect(region_b_x0, y0 + pad,
                                          region_b_x0 + region_b_w_normal, y0 + pad + tabstrip_h);
-    o->region[HudRegion_TabContent] = rect(region_b_x0, y0 + pad + tabstrip_h + pad * 0.5f,
+    o->region[HudRegion_TabContent] = rect(region_b_x0, y0 + pad + tabstrip_h + pad * 0.5,
                                            region_b_x0 + region_b_w, y0 + strip_h - pad);
 
     // Full-screen 3D under the ImGui HUD either way -- see
     // render_overlay_get_status_panel_width()'s own comment (main.cpp).
-    o->viewport_inset = 0.0f;
+    o->viewport_inset = 0.0;
 }
 
 // docs/refactor/ingame-gui/13-minimal-layout.md: no persistent panel at
@@ -151,7 +151,7 @@ void build_horizontal_bottom(HudLayout *o, HudBottomWidthMode b_width_mode, floa
 // clipped into -- HudRegion_TabStrip's rect is nominal (only its corner is
 // read); HudRegion_TabContent's *is* a real sized rect, since the pop-up
 // isn't docked against anything else that already has one.
-void build_minimal(HudLayout *o, HudMinimalCorner corner, float w, float h)
+void build_minimal(HudLayout *o, HudMinimalCorner corner, double w, double h)
 {
     o->kind = HudLayout_Minimal;
     const bool right = (corner == HudMinimalCorner_UpperRight);
@@ -159,23 +159,23 @@ void build_minimal(HudLayout *o, HudMinimalCorner corner, float w, float h)
     // Minimap cluster: same proportional-clamp shape as the other two
     // layouts' own sizing (there: panel width off h; region-A side off
     // strip_h off w) -- here, a square corner column sized off h.
-    float mm_side = h * 0.22f;
-    mm_side = std::min(std::max(mm_side, 140.0f), 260.0f);
-    mm_side = std::min(mm_side, w * 0.30f);
+    double mm_side = h * 0.22;
+    mm_side = std::min(std::max(mm_side, 140.0), 260.0);
+    mm_side = std::min(mm_side, w * 0.30);
 
-    const float pad = mm_side * 0.06f;
-    const float gold_h = std::max(mm_side * 0.14f, 20.0f);
-    const float mm_x0 = right ? (w - pad - mm_side) : pad;
-    const float mm_x1 = mm_x0 + mm_side;
+    const double pad = mm_side * 0.06;
+    const double gold_h = std::max(mm_side * 0.14, 20.0);
+    const double mm_x0 = right ? (w - pad - mm_side) : pad;
+    const double mm_x1 = mm_x0 + mm_side;
 
     // Minimap first (top), gold directly below it (live-tested refinement:
     // originally gold-above-minimap, matching the vertical layout's own
     // convention, read as backwards once tried against Minimal's own
     // "minimap is the anchor" framing -- moving the minimap up to the very
     // top and the gold strip below it reads better here).
-    const float mm_y0 = pad;
+    const double mm_y0 = pad;
     o->region[HudRegion_Minimap] = rect(mm_x0, mm_y0, mm_x1, mm_y0 + mm_side);
-    const float gold_y0 = mm_y0 + mm_side + pad * 0.5f;
+    const double gold_y0 = mm_y0 + mm_side + pad * 0.5;
     o->region[HudRegion_Gold] = rect(mm_x0, gold_y0, mm_x1, gold_y0 + gold_h);
 
     // Event markers: a vertical stack directly below the gold strip, same
@@ -184,7 +184,7 @@ void build_minimal(HudLayout *o, HudMinimalCorner corner, float w, float h)
     // edge). However many tokens fit the remaining height is however many
     // show -- matches the existing layouts' own "no scroll, just crowd"
     // approach to event-marker overflow.
-    const float ev_y0 = gold_y0 + gold_h + pad;
+    const double ev_y0 = gold_y0 + gold_h + pad;
     o->region[HudRegion_Events] = rect(mm_x0, ev_y0, mm_x1, h - pad);
 
     // Button cluster + pop-up: the diagonally opposite (bottom) corner.
@@ -200,8 +200,8 @@ void build_minimal(HudLayout *o, HudMinimalCorner corner, float w, float h)
     // cluster, so topmost wherever they touch) silently ate clicks meant
     // for the row underneath (live-tested: "not possible to select a
     // different one, once one is open").
-    const float cluster_sz = 40.0f;
-    const float cluster_x = right ? pad : (w - pad);
+    const double cluster_sz = 40.0;
+    const double cluster_x = right ? pad : (w - pad);
     o->region[HudRegion_TabStrip] = rect(cluster_x, h - pad, cluster_x, h - pad);
 
     // Pop-up panel: sized off the vertical layout's own panel width/height
@@ -217,32 +217,32 @@ void build_minimal(HudLayout *o, HudMinimalCorner corner, float w, float h)
     // ingame_tabcontent_draw() (frontgui_ingame_tabcontent.cpp) applies
     // the matching virtual-space remap so content lands flush with the
     // pop-up's own top edge instead of half-way down it.
-    const float content_frac = (400.0f - tcl::BODY_Y0) / 400.0f;
-    const float popup_w = vertical_panel_width(w, h);
-    const float popup_bottom = h - pad - cluster_sz - pad;
-    const float popup_h = std::min(std::max(h * 0.62f * content_frac, 220.0f), popup_bottom - pad);
-    const float popup_x0 = right ? pad : (w - pad - popup_w);
+    const double content_frac = (400.0 - tcl::BODY_Y0) / 400.0;
+    const double popup_w = vertical_panel_width(w, h);
+    const double popup_bottom = h - pad - cluster_sz - pad;
+    const double popup_h = std::min(std::max(h * 0.62 * content_frac, 220.0), popup_bottom - pad);
+    const double popup_x0 = right ? pad : (w - pad - popup_w);
     o->region[HudRegion_TabContent] = rect(popup_x0, popup_bottom - popup_h, popup_x0 + popup_w, popup_bottom);
 
     // Full-screen 3D under the ImGui HUD -- no panel silhouette at all.
-    o->viewport_inset = 0.0f;
+    o->viewport_inset = 0.0;
 }
 
 // Placeholder shapes for the not-yet-wired layouts, so callers that ask
 // for a region never get uninitialised garbage.
-void build_stub(HudLayout *o, HudPanelLayout kind, float w, float h)
+void build_stub(HudLayout *o, HudPanelLayout kind, double w, double h)
 {
     o->kind = kind;
-    for (int i = 0; i < HudRegion_COUNT; i++)
+    for (int64_t i = 0; i < HudRegion_COUNT; i++)
         o->region[i] = rect(0, 0, 0, 0);
-    o->viewport_inset = 0.0f;
+    o->viewport_inset = 0.0;
     (void)w; (void)h;
 }
 
 } // namespace
 
 void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, float display_w, float display_h)
+                      HudMinimalCorner corner, double display_w, double display_h)
 {
     if (out == nullptr)
         return;
@@ -258,7 +258,7 @@ void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_
 const HudLayout &hud_layout_current(void) { return s_current; }
 
 void hud_layout_frame(HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, float display_w, float display_h)
+                      HudMinimalCorner corner, double display_w, double display_h)
 {
     if (kind == s_current.kind && b_width_mode == s_last_b_width_mode && corner == s_last_corner
      && display_w == s_last_w && display_h == s_last_h)
@@ -270,7 +270,7 @@ void hud_layout_frame(HudPanelLayout kind, HudBottomWidthMode b_width_mode,
     hud_layout_build(&s_current, kind, b_width_mode, corner, display_w, display_h);
 }
 
-extern "C" long hud_layout_viewport_inset(void)
+extern "C" int64_t hud_layout_viewport_inset(void)
 {
-    return (long)(s_current.viewport_inset + 0.5f);
+    return (int64_t)(s_current.viewport_inset + 0.5);
 }

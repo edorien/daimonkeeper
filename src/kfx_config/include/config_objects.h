@@ -68,43 +68,43 @@ struct Effects {
     EffectOrEffElModel particle;
     EffectOrEffElModel explosion1;
     EffectOrEffElModel explosion2;
-    unsigned short spacing;
-    unsigned short sound_idx;
+    int64_t spacing;
+    int64_t sound_idx;
     unsigned char sound_range;
 };
 
 struct FlameProperties {
-    unsigned short animation_id;
-    short anim_speed;
-    int sprite_size;
-    int td_add_x;
-    int td_add_y;
-    int fp_add_x;
-    int fp_add_y;
+    int64_t animation_id;
+    int64_t anim_speed;
+    int64_t sprite_size;
+    int64_t td_add_x;
+    int64_t td_add_y;
+    int64_t fp_add_x;
+    int64_t fp_add_y;
     unsigned char transparency_flags;
 };
 
 struct ObjectConfigStats {
     char code_name[COMMAND_WORD_LEN];
-    uint32_t model_flags;
-    int32_t genre;
-    int32_t map_icon;
-    int32_t hand_icon;
+    uint64_t model_flags;
+    int64_t genre;
+    int64_t map_icon;
+    int64_t hand_icon;
     struct PickedUpOffset object_picked_up_offset;
-    short tooltip_stridx;
+    int64_t tooltip_stridx;
     TbBool tooltip_optional;
     HitPoints health;
     char fall_acceleration;
     char light_unaffected;
     char immobile;
     struct InitLight ilght;
-    short sprite_anim_idx;
-    short sprite_anim_idx_in_hand;
-    short anim_speed;
-    short size_xy;
-    short size_z;
-    short sprite_size_max;
-    unsigned short fp_smpl_idx;
+    int64_t sprite_anim_idx;
+    int64_t sprite_anim_idx_in_hand;
+    int64_t anim_speed;
+    int64_t size_xy;
+    int64_t size_z;
+    int64_t sprite_size_max;
+    int64_t fp_smpl_idx;
     unsigned char draw_class; /**< See enum ObjectsDrawClasses. */
     unsigned char destroy_on_lava;
     /** Creature model related to the object, ie for lairs - which creature lair it is. */
@@ -123,7 +123,7 @@ struct ObjectConfigStats {
 };
 
 struct ObjectsConfig {
-    int32_t object_types_count;
+    int64_t object_types_count;
     struct ObjectConfigStats object_cfgstats[OBJECT_TYPES_MAX];
     ThingModel object_to_door_or_trap[OBJECT_TYPES_MAX];
     ThingModel object_to_power_artifact[OBJECT_TYPES_MAX];
@@ -144,7 +144,7 @@ ThingClass crate_to_workshop_item_class(ThingModel tngmodel);
 ThingModel crate_to_workshop_item_model(ThingModel tngmodel);
 ThingClass crate_thing_to_workshop_item_class(const struct Thing *thing);
 ThingModel crate_thing_to_workshop_item_model(const struct Thing *thing);
-int get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel);
+int64_t get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel);
 /******************************************************************************/
 #ifdef __cplusplus
 }

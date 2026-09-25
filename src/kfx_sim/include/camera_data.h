@@ -38,16 +38,16 @@ enum CameraIndexValues {
 struct Camera {
     struct Coord3d mappos;
     unsigned char view_mode;
-    int rotation_angle_x;
-    int rotation_angle_y;
-    int rotation_angle_z;
-    int horizontal_fov; // Horizontal Field of View in degrees
-    int zoom;
-    int inertia_rotation;
+    int64_t rotation_angle_x;
+    int64_t rotation_angle_y;
+    int64_t rotation_angle_z;
+    int64_t horizontal_fov; // Horizontal Field of View in degrees
+    int64_t zoom;
+    int64_t inertia_rotation;
     TbBool in_active_movement_rotation;
-    long inertia_x;
+    int64_t inertia_x;
     TbBool in_active_movement_x;
-    long inertia_y;
+    int64_t inertia_y;
     TbBool in_active_movement_y;
     TbBool use_rotation_pivot;
     struct Coord2d rotation_pivot;

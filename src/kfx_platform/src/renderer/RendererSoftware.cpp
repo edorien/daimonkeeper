@@ -60,7 +60,7 @@ bool RendererSoftware::ensure_present_target()
         SYNCLOG("Presenting through SDL renderer: %s", (backend != nullptr) ? backend : "unknown");
     }
 
-    const int want_vsync = vsync_enabled ? 1 : 0;
+    const int64_t want_vsync = vsync_enabled ? 1 : 0;
     if (m_vsync != want_vsync)
     {
         SDL_SetRenderVSync(m_renderer, want_vsync);
@@ -111,7 +111,7 @@ void RendererSoftware::UnlockFramebuffer()
         SDL_UnlockSurface(lbDrawSurface);
 }
 
-bool RendererSoftware::ScheduleScreenshot(const char* path, int fmt)
+bool RendererSoftware::ScheduleScreenshot(const char* path, int64_t fmt)
 {
     if (lbDrawSurface == NULL)
         return false;

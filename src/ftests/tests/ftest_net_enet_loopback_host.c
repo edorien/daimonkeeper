@@ -97,14 +97,14 @@ FTestActionResult ftest_net_enet_loopback_host_action001__init_and_host(struct F
     netstate.users[SERVER_ID].progress = USER_LOGGEDIN;
 
     char port_string[16];
-    snprintf(port_string, sizeof(port_string), "%d", FTEST_NET_ENET_LOOPBACK_PORT);
+    snprintf(port_string, sizeof(port_string), "%" PRId64, (int64_t)(FTEST_NET_ENET_LOOPBACK_PORT));
     if (netstate.sp->host(port_string, NULL) != Lb_OK)
     {
-        FTEST_FAIL_TEST("netstate.sp->host() failed to bind port %d", FTEST_NET_ENET_LOOPBACK_PORT);
+        FTEST_FAIL_TEST("netstate.sp->host() failed to bind port %" PRId64, (int64_t)(FTEST_NET_ENET_LOOPBACK_PORT));
         return FTRs_Go_To_Next_Action;
     }
 
-    FTESTLOG("Hosting on port %d, waiting for a client to connect", FTEST_NET_ENET_LOOPBACK_PORT);
+    FTESTLOG("Hosting on port %" PRId64 ", waiting for a client to connect", (int64_t)(FTEST_NET_ENET_LOOPBACK_PORT));
     return FTRs_Go_To_Next_Action;
 }
 
@@ -114,7 +114,7 @@ FTestActionResult ftest_net_enet_loopback_host_action002__wait_for_client(struct
 
     if (netstate.users[FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID].progress != USER_UNUSED)
     {
-        FTESTLOG("Client connected as user %d", FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
+        FTESTLOG("Client connected as user %" PRId64, (int64_t)(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -212,14 +212,14 @@ FTestActionResult ftest_net_enet_loopback_host_action005__wait_for_ack_stats_and
     // Values are real but non-deterministic (actual measured RTT/loss/
     // throughput over a real, if loopback, UDP socket) -- nothing here to
     // assert against, this is purely to exercise the functions themselves.
-    unsigned long ping = GetPing(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID, SERVER_ID);
-    unsigned int packet_loss = GetPacketLoss(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID, SERVER_ID);
-    unsigned int data_in_transit = GetClientDataInTransit();
-    unsigned int packets_lost = GetClientPacketsLost();
-    unsigned int upload_rate = GetUploadRateBytesPerSecond();
-    unsigned int download_rate = GetDownloadRateBytesPerSecond();
-    FTESTLOG("Connection stats: ping=%lu packet_loss=%u data_in_transit=%u packets_lost=%u upload_rate=%u download_rate=%u",
-        ping, packet_loss, data_in_transit, packets_lost, upload_rate, download_rate);
+    uint64_t ping = GetPing(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID, SERVER_ID);
+    uint64_t packet_loss = GetPacketLoss(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID, SERVER_ID);
+    uint64_t data_in_transit = GetClientDataInTransit();
+    uint64_t packets_lost = GetClientPacketsLost();
+    uint64_t upload_rate = GetUploadRateBytesPerSecond();
+    uint64_t download_rate = GetDownloadRateBytesPerSecond();
+    FTESTLOG("Connection stats: ping=%" PRIu64 " packet_loss=%" PRIu64 " data_in_transit=%" PRIu64 " packets_lost=%" PRIu64 " upload_rate=%" PRIu64 " download_rate=%" PRIu64,
+        (uint64_t)(ping), (uint64_t)(packet_loss), (uint64_t)(data_in_transit), (uint64_t)(packets_lost), (uint64_t)(upload_rate), (uint64_t)(download_rate));
 
     netstate.sp->drop_user(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
     netstate.sp->exit();

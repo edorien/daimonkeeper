@@ -32,7 +32,7 @@ extern "C" {
 
 struct KeycodeString {
     TbKeyCode keys[LINEMSG_SIZE];
-    long length;
+    int64_t length;
 };
 
 #pragma pack()

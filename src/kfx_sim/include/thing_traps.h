@@ -71,7 +71,7 @@ TbBool trap_is_active(const struct Thing *thing);
 TbBool trap_is_slappable_by_player(const struct Thing *thing, PlayerNumber plyr_idx);
 TbBool thing_is_deployed_trap(const struct Thing *thing);
 TbBool creature_available_for_trap_trigger(struct Thing* creatng);
-short thing_is_destructible_trap(const struct Thing* thing);
+int64_t thing_is_destructible_trap(const struct Thing* thing);
 TbBool thing_is_sellable_trap(const struct Thing* thing);
 TbBool trap_on_bridge(ThingModel trpkind);
 TbBool rearm_trap(struct Thing *traptng);
@@ -81,16 +81,16 @@ void activate_trap(struct Thing *traptng, struct Thing *creatng);
 void activate_trap_by_slap(struct PlayerInfo* player, struct Thing* traptng);
 void process_trap_charge(struct Thing* traptng);
 void script_place_trap(PlayerNumber plyridx, ThingModel trapkind, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool free);
-void set_trap_shots(struct Thing *traptng, int shots);
+void set_trap_shots(struct Thing *traptng, int64_t shots);
 void update_trap_draw(struct Thing *traptng);
-void update_all_trap_draws_of_model(int32_t trap_model);
+void update_all_trap_draws_of_model(int64_t trap_model);
 
-unsigned long remove_trap(struct Thing *traptng, int32_t *sell_value);
-unsigned long remove_trap_on_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int32_t *sell_value);
-unsigned long remove_traps_around_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int32_t *sell_value);
+uint64_t remove_trap(struct Thing *traptng, int64_t *sell_value);
+uint64_t remove_trap_on_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t *sell_value);
+uint64_t remove_traps_around_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t *sell_value);
 
-void external_activate_trap_shot_at_angle(struct Thing *thing, short angle, struct Thing *trgtng);
-void trap_fire_shot_without_target(struct Thing *firing, ThingModel shot_model, CrtrExpLevel shot_level, short angle_xy);
+void external_activate_trap_shot_at_angle(struct Thing *thing, int64_t angle, struct Thing *trgtng);
+void trap_fire_shot_without_target(struct Thing *firing, ThingModel shot_model, CrtrExpLevel shot_level, int64_t angle_xy);
 
 /******************************************************************************/
 #ifdef __cplusplus

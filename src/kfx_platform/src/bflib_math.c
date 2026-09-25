@@ -33,16 +33,16 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-static const int lbSinTable[2048];
-static const int lbCosTable[2048];
+static const int64_t lbSinTable[2048];
+static const int64_t lbCosTable[2048];
 
-unsigned short const lbSqrTable[] = {
+int64_t const lbSqrTable[] = {
    0x0001, 0x0002, 0x0002, 0x0004, 0x0005, 0x0008, 0x000B, 0x0010,
    0x0016, 0x0020, 0x002D, 0x0040, 0x005A, 0x0080, 0x00B5, 0x0100,
    0x016A, 0x0200, 0x02D4, 0x0400, 0x05A8, 0x0800, 0x0B50, 0x1000,
    0x16A0, 0x2000, 0x2D41, 0x4000, 0x5A82, 0x8000, 0xB504, 0xFFFF,};
 
-unsigned short const lbArcTanFactors[] = {
+int64_t const lbArcTanFactors[] = {
      0,  1,  2,  3,  5,  6,  7,  8, 10, 11, 12, 13, 15, 16, 17, 19,
     20, 21, 22, 24, 25, 26, 27, 29, 30, 31, 32, 34, 35, 36, 38, 39,
     40, 41, 43, 44, 45, 46, 48, 49, 50, 51, 53, 54, 55, 56, 57, 59,
@@ -582,9 +582,9 @@ const struct Proportion proportions[] = {
  * @param x Angle as integer with reference to DEGREES_180.
  * @return Value ranged -65536 to 65536.
  */
-long LbSinL(long x)
+int64_t LbSinL(int64_t x)
 {
-    return lbSinTable[(unsigned long)x & ANGLE_MASK];
+    return lbSinTable[(uint64_t)x & ANGLE_MASK];
 }
 
 /**
@@ -592,9 +592,9 @@ long LbSinL(long x)
  * @param x Angle as integer with reference to DEGREES_180.
  * @return Value ranged -65536 to 65536.
  */
-long LbCosL(long x)
+int64_t LbCosL(int64_t x)
 {
-    return lbCosTable[(unsigned long)x & ANGLE_MASK];
+    return lbCosTable[(uint64_t)x & ANGLE_MASK];
 }
 
 /** Computes angle between negative Y axis and the line that crosses (0,0) and given (x,y).
@@ -608,11 +608,11 @@ long LbCosL(long x)
  * @param y
  * @return
  */
-int32_t LbArcTanAngle(int32_t x,int32_t y)
+int64_t LbArcTanAngle(int64_t x,int64_t y)
 {
-    int32_t ux;
-    int32_t uy;
-    uint32_t index;
+    int64_t ux;
+    int64_t uy;
+    uint64_t index;
     if ((x == 0) && (y == 0))
         return 0;
     if (x < 0)
@@ -625,10 +625,10 @@ int32_t LbArcTanAngle(int32_t x,int32_t y)
             // This way we won't exceed factors array bounds (which is 256 elements).
             if (ux < uy) {
                 index = (ux << 8)/uy;
-                return DEGREES_360   - (int32_t)lbArcTanFactors[index];
+                return DEGREES_360   - (int64_t)lbArcTanFactors[index];
             } else {
                 index = (uy << 8)/ux;
-                return ANGLE_WEST + (int32_t)lbArcTanFactors[index];
+                return ANGLE_WEST + (int64_t)lbArcTanFactors[index];
             }
         } else
         {
@@ -636,10 +636,10 @@ int32_t LbArcTanAngle(int32_t x,int32_t y)
             // Make sure we'll have smaller value * 256 / greater value.
             if (ux < uy) {
                 index = (ux << 8)/uy;
-                return   DEGREES_180   + (int32_t)lbArcTanFactors[index];
+                return   DEGREES_180   + (int64_t)lbArcTanFactors[index];
             } else {
                 index = (uy << 8)/ux;
-                return ANGLE_WEST - (int32_t)lbArcTanFactors[index];
+                return ANGLE_WEST - (int64_t)lbArcTanFactors[index];
             }
         }
     } else
@@ -651,10 +651,10 @@ int32_t LbArcTanAngle(int32_t x,int32_t y)
             // Make sure we'll have smaller value * 256 / greater value.
             if (ux < uy) {
                 index = (ux << 8)/uy;
-                return                 (int32_t)lbArcTanFactors[index];
+                return                 (int64_t)lbArcTanFactors[index];
             } else {
                 index = (uy << 8)/ux;
-                return ANGLE_EAST - (int32_t)lbArcTanFactors[index];
+                return ANGLE_EAST - (int64_t)lbArcTanFactors[index];
             }
         } else
         {
@@ -662,30 +662,30 @@ int32_t LbArcTanAngle(int32_t x,int32_t y)
             // Make sure we'll have smaller value * 256 / greater value.
             if (ux < uy) {
                 index = (ux << 8)/uy;
-                return DEGREES_180   - (int32_t)lbArcTanFactors[index];
+                return DEGREES_180   - (int64_t)lbArcTanFactors[index];
             } else {
                 index = (uy << 8)/ux;
-                return ANGLE_EAST + (int32_t)lbArcTanFactors[index];
+                return ANGLE_EAST + (int64_t)lbArcTanFactors[index];
             }
         }
     }
 }
 
-static long bitScanReverse(long s)
+static int64_t bitScanReverse(int64_t s)
 {
-  unsigned long source = (unsigned long)s;
+  uint64_t source = (uint64_t)s;
 #if defined(_MSC_VER)
-    unsigned long i; // DWORD, without pulling in <windows.h> just for the typedef
+    uint64_t i; // DWORD, without pulling in <windows.h> just for the typedef
     uint8_t success = _BitScanReverse(&i, source);
     return success != 0 ? i : -1;
 #elif defined(__GNUC__)
-    int result = source == 0 ? -1 : __builtin_clz(source) ^ 31;
+    int64_t result = source == 0 ? -1 : __builtin_clz(source) ^ 31;
     return result;
 #else
 #pragma message "Falling back to iterative bitscan reverse, consider using intrinsics"
     if (source != 0)
     {
-        for (int32_t i = 31; i > -1; i--)
+        for (int64_t i = 31; i > -1; i--)
         {
             if (source & (1u << i))
             {
@@ -697,19 +697,19 @@ static long bitScanReverse(long s)
 #endif
 }
 
-long LbSqrL(long x)
+int64_t LbSqrL(int64_t x)
 {
   if (x <= 0)
     return 0;
   //
-  long y = bitScanReverse(x);
+  int64_t y = bitScanReverse(x);
   y = lbSqrTable[y];
   while ((x/y) < y)
     y = ((x/y) + y) >> 1;
   return y;
 }
 
-long LbMathOperation(unsigned char opkind, long first_operand, long second_operand)
+int64_t LbMathOperation(unsigned char opkind, int64_t first_operand, int64_t second_operand)
 {
   switch (opkind)
   {
@@ -752,22 +752,24 @@ long LbMathOperation(unsigned char opkind, long first_operand, long second_opera
   }
 }
 
-uint32_t LbRandomSeries(uint32_t range, uint32_t *seed, const char *func_name, unsigned long place)
+int64_t LbRandomSeries(int64_t range, uint32_t *seed, const char *func_name, uint64_t place)
 {
-  if (range == 0)
+  if (range <= 0)
     return 0;
-  uint32_t i = 9377 * (*seed) + 9439;
+  // 32-bit LCG followed by a 32-bit rotate: the state width is part of the algorithm (not "an int"),
+  // so the sequences are identical on every build and match recorded replays' seeds.
+  uint32_t i = 9377u * (*seed) + 9439u;
+  (void)i; // unused when FUNCTESTING keeps the seed fixed
 #ifndef FUNCTESTING // don't modify seeds when functional testing is enabled
-  *seed = (i >> 13) | (i << ((sizeof(int32_t) * 8) - 13));
+  *seed = (i >> 13) | (i << 19);
 #endif // FUNCTESTING
-  i = (*seed) % range;
-  return i;
+  return (int64_t)((*seed) % (uint64_t)range);
 }
 
-TbBool LbNumberSignsSame(long num_a, long num_b)
+TbBool LbNumberSignsSame(int64_t num_a, int64_t num_b)
 {
-    int sign_a;
-    int sign_b;
+    int64_t sign_a;
+    int64_t sign_b;
     if (num_a >= 0)
         sign_a = (num_a != 0);
     else
@@ -779,7 +781,7 @@ TbBool LbNumberSignsSame(long num_a, long num_b)
     return (sign_a == sign_b);
 }
 
-char LbCompareMultiplications(long mul1a, long mul1b, long mul2a, long mul2b)
+char LbCompareMultiplications(int64_t mul1a, int64_t mul1b, int64_t mul2a, int64_t mul2b)
 {
     long long mul1 = (long long)mul1a * (long long)mul1b;
     long long mul2 = (long long)mul2a * (long long)mul2b;
@@ -797,9 +799,9 @@ char LbCompareMultiplications(long mul1a, long mul1b, long mul2a, long mul2b)
  * @param b Length of second of the sides.
  * @return Root of sum of squares of given lengths, sqrt(a*a + b*b).
  */
-long LbDiagonalLength(long a, long b)
+int64_t LbDiagonalLength(int64_t a, int64_t b)
 {
-    int propidx;
+    int64_t propidx;
     long long tmpval;
     if (a > b) {
         if (a == 0) {
@@ -818,7 +820,7 @@ long LbDiagonalLength(long a, long b)
     return (tmpval >> 13);
 }
 
-float LbLerp(float low, float high, float interval)
+double LbLerp(double low, double high, double interval)
 {
     return (low * (1.0 - interval)) + (high * interval);
 }
@@ -826,7 +828,7 @@ float LbLerp(float low, float high, float interval)
 // Moved from engine_camera.c (stage 7 prep, docs/refactor/
 // stage-07-kfx-render.md) -- pure geometry/trig, no camera/rendering
 // dependency, used pervasively by kfx_sim.
-void angles_to_vector(short angle_xy, short angle_yz, long dist, struct ComponentVector *cvect)
+void angles_to_vector(int64_t angle_xy, int64_t angle_yz, int64_t dist, struct ComponentVector *cvect)
 {
     long long cos_yz = LbCosL(angle_yz) >> 2;
     long long sin_yz = LbSinL(angle_yz) >> 2;
@@ -842,58 +844,58 @@ void angles_to_vector(short angle_xy, short angle_yz, long dist, struct Componen
     cvect->z = (factor >> 14);
 }
 
-long get_angle_xy_to_vec(const struct CoordDelta3d *vec)
+int64_t get_angle_xy_to_vec(const struct CoordDelta3d *vec)
 {
     return LbArcTanAngle(vec->x.val, vec->y.val) & ANGLE_MASK;
 }
 
-long get_angle_yz_to_vec(const struct CoordDelta3d *vec)
+int64_t get_angle_yz_to_vec(const struct CoordDelta3d *vec)
 {
-    long dist = LbDiagonalLength(abs(vec->x.val), abs(vec->y.val));
+    int64_t dist = LbDiagonalLength(llabs(vec->x.val), llabs(vec->y.val));
     return LbArcTanAngle(vec->z.val, dist) & ANGLE_MASK;
 }
 
-long get_angle_xy_to(const struct Coord3d *pos1, const struct Coord3d *pos2)
+int64_t get_angle_xy_to(const struct Coord3d *pos1, const struct Coord3d *pos2)
 {
-    return LbArcTanAngle((long)pos2->x.val - (long)pos1->x.val, (long)pos2->y.val - (long)pos1->y.val) & ANGLE_MASK;
+    return LbArcTanAngle((int64_t)pos2->x.val - (int64_t)pos1->x.val, (int64_t)pos2->y.val - (int64_t)pos1->y.val) & ANGLE_MASK;
 }
 
-long get_angle_yz_to(const struct Coord3d *pos1, const struct Coord3d *pos2)
+int64_t get_angle_yz_to(const struct Coord3d *pos1, const struct Coord3d *pos2)
 {
-    long dist = get_2d_distance(pos1, pos2);
+    int64_t dist = get_2d_distance(pos1, pos2);
     return LbArcTanAngle(pos2->z.val - pos1->z.val, dist) & ANGLE_MASK;
 }
 
 // TODO these are actually Coord2d and Coord3d just inherits from it
 MapCoordDelta get_2d_distance(const struct Coord3d *pos1, const struct Coord3d *pos2)
 {
-    long dist_x = (long)pos1->x.val - (long)pos2->x.val;
-    long dist_y = (long)pos1->y.val - (long)pos2->y.val;
-    return LbDiagonalLength(abs(dist_x), abs(dist_y));
+    int64_t dist_x = (int64_t)pos1->x.val - (int64_t)pos2->x.val;
+    int64_t dist_y = (int64_t)pos1->y.val - (int64_t)pos2->y.val;
+    return LbDiagonalLength(llabs(dist_x), llabs(dist_y));
 }
 
 MapCoordDelta get_2d_distance_squared(const struct Coord3d *pos1, const struct Coord3d *pos2)
 {
-    long dist_x = (long)pos1->x.val - (long)pos2->x.val;
-    long dist_y = (long)pos1->y.val - (long)pos2->y.val;
+    int64_t dist_x = (int64_t)pos1->x.val - (int64_t)pos2->x.val;
+    int64_t dist_y = (int64_t)pos1->y.val - (int64_t)pos2->y.val;
     return dist_x * dist_x + dist_y * dist_y;
 }
 
-float LbFmodf(float x, float y)
+double LbFmodf(double x, double y)
 {
-    float result = x - ((int)(x / y)) * y;
+    double result = x - ((int64_t)(x / y)) * y;
     if (result < 0) {
         result += y;
     }
     return result;
 }
 
-float lerp_angle(float from, float to, float weight) {
-    float angle_difference = to - from;
-    float wrapped_difference = LbFmodf(angle_difference + DEGREES_180, DEGREES_360);
-    float shortest_distance = wrapped_difference - DEGREES_180;
-    float step = shortest_distance * weight;
-    float result = LbFmodf(from + step, DEGREES_360);
+double lerp_angle(double from, double to, double weight) {
+    double angle_difference = to - from;
+    double wrapped_difference = LbFmodf(angle_difference + DEGREES_180, DEGREES_360);
+    double shortest_distance = wrapped_difference - DEGREES_180;
+    double step = shortest_distance * weight;
+    double result = LbFmodf(from + step, DEGREES_360);
     return result;
 }
 
@@ -901,15 +903,15 @@ double fastPow(double a, double b)
 {
   union {
     double d;
-    int x[2];
+    int64_t x[2];
   } u = { a };
-  u.x[1] = (int)(b * (u.x[1] - 1072632447) + 1072632447);
+  u.x[1] = (int64_t)(b * (u.x[1] - 1072632447) + 1072632447);
   u.x[0] = 0;
   return u.d;
 }
 /******************************************************************************/
 
-static const int lbSinTable[2048] = {
+static const int64_t lbSinTable[2048] = {
     0,     201,   402,   603,   804,   1005,  1206,  1407,  1608,  1809,  2010,
     2211,  2412,  2613,  2814,  3014,  3215,  3416,  3617,  3818,  4018,  4219,
     4420,  4620,  4821,  5021,  5222,  5422,  5622,  5823,  6023,  6223,  6423,
@@ -1130,7 +1132,7 @@ static const int lbSinTable[2048] = {
     -1206,  -1005,  -804,   -603,   -402
 };
 
-static const int lbCosTable[2048] = {
+static const int64_t lbCosTable[2048] = {
     65536,  65535,  65534,  65533,  65531,  65528,  65524,  65520,  65516,
     65511,  65505,  65498,  65491,  65483,  65475,  65466,  65457,  65446,
     65436,  65424,  65412,  65400,  65386,  65372,  65358,  65343,  65327,

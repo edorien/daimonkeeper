@@ -16,7 +16,7 @@
 
 #ifndef _WIN32
 extern "C" const unsigned char kfx_window_icon_png[];
-extern "C" const unsigned int kfx_window_icon_png_size;
+extern "C" const uint64_t kfx_window_icon_png_size;
 #endif
 
 static void ApplyWindowIcon(SDL_Window *window)
@@ -47,7 +47,7 @@ WindowSystemSDL* GetSDLWindowSystem()
 
 // Translate a 0-based display index (as used by the span-all-displays loop in
 // bflib_video.c) into an SDL3 display ID. Falls back to the primary display.
-static SDL_DisplayID display_index_to_id(int index)
+static SDL_DisplayID display_index_to_id(int64_t index)
 {
     int count = 0;
     SDL_DisplayID* displays = SDL_GetDisplays(&count);
@@ -88,7 +88,7 @@ void WindowSystemSDL::SetCursorGrab(bool grab)
         {
             int w = 0, h = 0;
             SDL_GetWindowSize(lbWindow, &w, &h);
-            SDL_WarpMouseInWindow(lbWindow, w / 2.0f, h / 2.0f);
+            SDL_WarpMouseInWindow(lbWindow, w / 2.0, h / 2.0);
         }
     }
     ApplyOsCursorPolicy();
@@ -117,11 +117,11 @@ void WindowSystemSDL::SetCursorVisible(bool visible)
         SDL_HideCursor();
 }
 
-void WindowSystemSDL::WarpCursor(int x, int y)
+void WindowSystemSDL::WarpCursor(int64_t x, int64_t y)
 {
     if (!lbWindow)
         return;
-    SDL_WarpMouseInWindow(lbWindow, (float)x, (float)y);
+    SDL_WarpMouseInWindow(lbWindow, (double)x, (double)y);
 }
 
 bool WindowSystemSDL::IsCursorInWindow() const
@@ -141,12 +141,12 @@ bool WindowSystemSDL::IsCursorInWindow() const
 bool WindowSystemSDL::HasWindow() const          { return lbWindow != nullptr; }
 SDL_Window* WindowSystemSDL::GetSDLWindow() const { return lbWindow; }
 
-unsigned int WindowSystemSDL::GetWindowFlags() const
+uint64_t WindowSystemSDL::GetWindowFlags() const
 {
     if (!lbWindow)
         return 0;
     SDL_WindowFlags sdl_flags = SDL_GetWindowFlags(lbWindow);
-    unsigned int kfx_flags = 0;
+    uint64_t kfx_flags = 0;
     if (sdl_flags & SDL_WINDOW_FULLSCREEN)
     {
         // SDL3: a NULL fullscreen mode means desktop (borderless) fullscreen;
@@ -161,24 +161,27 @@ unsigned int WindowSystemSDL::GetWindowFlags() const
     return kfx_flags;
 }
 
-void WindowSystemSDL::GetWindowSize(int* out_w, int* out_h) const
+void WindowSystemSDL::GetWindowSize(int64_t* out_w, int64_t* out_h) const
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
     if (lbWindow == nullptr)
         return;
-    SDL_GetWindowSize(lbWindow, out_w, out_h);
+    int w = 0, h = 0;
+    SDL_GetWindowSize(lbWindow, &w, &h);
+    if (out_w) *out_w = w;
+    if (out_h) *out_h = h;
 }
 
-int WindowSystemSDL::GetWindowDisplayIndex() const
+int64_t WindowSystemSDL::GetWindowDisplayIndex() const
 {
     if (lbWindow)
-        return (int)SDL_GetDisplayForWindow(lbWindow);
+        return (int64_t)SDL_GetDisplayForWindow(lbWindow);
 
-    return (int)SDL_GetPrimaryDisplay();
+    return (int64_t)SDL_GetPrimaryDisplay();
 }
 
-int WindowSystemSDL::GetNumVideoDisplays() const
+int64_t WindowSystemSDL::GetNumVideoDisplays() const
 {
     int count = 0;
     SDL_DisplayID* displays = SDL_GetDisplays(&count);
@@ -187,7 +190,7 @@ int WindowSystemSDL::GetNumVideoDisplays() const
     return count;
 }
 
-int WindowSystemSDL::GetDesktopDisplayMode(int display, int* out_w, int* out_h) const
+int64_t WindowSystemSDL::GetDesktopDisplayMode(int64_t display, int64_t* out_w, int64_t* out_h) const
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
@@ -201,7 +204,7 @@ int WindowSystemSDL::GetDesktopDisplayMode(int display, int* out_w, int* out_h) 
     return 0;
 }
 
-int WindowSystemSDL::GetDisplayBounds(int display, int* out_x, int* out_y, int* out_w, int* out_h) const
+int64_t WindowSystemSDL::GetDisplayBounds(int64_t display, int64_t* out_x, int64_t* out_y, int64_t* out_w, int64_t* out_h) const
 {
     if (out_x) *out_x = 0;
     if (out_y) *out_y = 0;
@@ -218,7 +221,7 @@ int WindowSystemSDL::GetDisplayBounds(int display, int* out_x, int* out_y, int* 
     return 0;
 }
 
-int WindowSystemSDL::GetClosestDisplayMode(int display, int desired_w, int desired_h, int* out_w, int* out_h) const
+int64_t WindowSystemSDL::GetClosestDisplayMode(int64_t display, int64_t desired_w, int64_t desired_h, int64_t* out_w, int64_t* out_h) const
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
@@ -233,14 +236,14 @@ int WindowSystemSDL::GetClosestDisplayMode(int display, int desired_w, int desir
     // simply because it only exists as a high-density mode on this display,
     // rejecting a mode the user was never told was unavailable and silently
     // falling back to the 640x480 failsafe.
-    if (!SDL_GetClosestFullscreenDisplayMode(disp_id, desired_w, desired_h, 0.0f, true, &closest))
+    if (!SDL_GetClosestFullscreenDisplayMode(disp_id, desired_w, desired_h, 0.0, true, &closest))
         return 0;
     if (out_w) *out_w = closest.w;
     if (out_h) *out_h = closest.h;
     return 1;
 }
 
-int WindowSystemSDL::SetWindowDisplayMode(int w, int h)
+int64_t WindowSystemSDL::SetWindowDisplayMode(int64_t w, int64_t h)
 {
     if (lbWindow == nullptr)
         return -1;
@@ -250,19 +253,19 @@ int WindowSystemSDL::SetWindowDisplayMode(int w, int h)
     // above -- must agree with what LbHwCheckIsModeAvailable() already accepted
     // as available, or a mode that passed that check could still fail to
     // actually apply here.
-    if (SDL_GetClosestFullscreenDisplayMode(disp_id, w, h, 0.0f, true, &dm))
+    if (SDL_GetClosestFullscreenDisplayMode(disp_id, w, h, 0.0, true, &dm))
         return SDL_SetWindowFullscreenMode(lbWindow, &dm) ? 0 : -1;
     // No matching exclusive mode — fall back to desktop (borderless) fullscreen.
     return SDL_SetWindowFullscreenMode(lbWindow, nullptr) ? 0 : -1;
 }
 
-void WindowSystemSDL::SetWindowSize(int w, int h)
+void WindowSystemSDL::SetWindowSize(int64_t w, int64_t h)
 {
     if (lbWindow != nullptr)
         SDL_SetWindowSize(lbWindow, w, h);
 }
 
-int WindowSystemSDL::SetWindowFullscreen(unsigned int flags)
+int64_t WindowSystemSDL::SetWindowFullscreen(uint64_t flags)
 {
     if (!lbWindow)
         return -1;
@@ -279,19 +282,19 @@ int WindowSystemSDL::SetWindowFullscreen(unsigned int flags)
     return SDL_SetWindowFullscreen(lbWindow, true) ? 0 : -1;
 }
 
-void WindowSystemSDL::SetWindowBordered(int bordered)
+void WindowSystemSDL::SetWindowBordered(int64_t bordered)
 {
     if (lbWindow != nullptr)
         SDL_SetWindowBordered(lbWindow, bordered ? true : false);
 }
 
-void WindowSystemSDL::SetWindowPosition(int x, int y)
+void WindowSystemSDL::SetWindowPosition(int64_t x, int64_t y)
 {
     if (lbWindow != nullptr)
         SDL_SetWindowPosition(lbWindow, x, y);
 }
 
-bool WindowSystemSDL::CreateWindow(const char* title, int x, int y, int w, int h, unsigned int flags)
+bool WindowSystemSDL::CreateWindow(const char* title, int64_t x, int64_t y, int64_t w, int64_t h, uint64_t flags)
 {
     // Translate KfxWindowFlags to SDL3 window creation flags.
     SDL_WindowFlags sdl3_flags = 0;
@@ -351,7 +354,7 @@ bool WindowSystemSDL::RecreateForVulkanRenderer()
     return true;
 }
 
-int WindowSystemSDL::GetDisplayRefreshRate() const
+int64_t WindowSystemSDL::GetDisplayRefreshRate() const
 {
     if (lbWindow == nullptr)
         return 0;
@@ -360,7 +363,7 @@ int WindowSystemSDL::GetDisplayRefreshRate() const
         return 0;
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(disp_id);
     if (mode && mode->refresh_rate > 0)
-        return (int)(mode->refresh_rate + 0.5f);
+        return (int64_t)(mode->refresh_rate + 0.5);
     return 0;
 }
 
@@ -370,9 +373,9 @@ int WindowSystemSDL::GetDisplayRefreshRate() const
 // same list and skip any (w, h) already seen earlier in it. O(n^2) in the
 // mode count, which SDL reports as at most a few dozen even on unusual
 // setups, so this is not worth a cache.
-static bool is_duplicate_resolution(SDL_DisplayMode** modes, int upto, int w, int h)
+static bool is_duplicate_resolution(SDL_DisplayMode** modes, int64_t upto, int64_t w, int64_t h)
 {
-    for (int j = 0; j < upto; j++)
+    for (int64_t j = 0; j < upto; j++)
     {
         if ((modes[j]->w == w) && (modes[j]->h == h))
             return true;
@@ -380,15 +383,15 @@ static bool is_duplicate_resolution(SDL_DisplayMode** modes, int upto, int w, in
     return false;
 }
 
-int WindowSystemSDL::GetFullscreenDisplayModeCount(int display) const
+int64_t WindowSystemSDL::GetFullscreenDisplayModeCount(int64_t display) const
 {
     SDL_DisplayID disp_id = (display > 0) ? (SDL_DisplayID)display : SDL_GetPrimaryDisplay();
     int count = 0;
     SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(disp_id, &count);
     if (!modes)
         return 0;
-    int distinct = 0;
-    for (int i = 0; i < count; i++)
+    int64_t distinct = 0;
+    for (int64_t i = 0; i < count; i++)
     {
         if (!is_duplicate_resolution(modes, i, modes[i]->w, modes[i]->h))
             distinct++;
@@ -397,7 +400,7 @@ int WindowSystemSDL::GetFullscreenDisplayModeCount(int display) const
     return distinct;
 }
 
-bool WindowSystemSDL::GetFullscreenDisplayModeAt(int display, int index, int* out_w, int* out_h) const
+bool WindowSystemSDL::GetFullscreenDisplayModeAt(int64_t display, int64_t index, int64_t* out_w, int64_t* out_h) const
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
@@ -408,9 +411,9 @@ bool WindowSystemSDL::GetFullscreenDisplayModeAt(int display, int index, int* ou
     SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(disp_id, &count);
     if (!modes)
         return false;
-    int distinct = -1;
+    int64_t distinct = -1;
     bool found = false;
-    for (int i = 0; i < count; i++)
+    for (int64_t i = 0; i < count; i++)
     {
         if (is_duplicate_resolution(modes, i, modes[i]->w, modes[i]->h))
             continue;

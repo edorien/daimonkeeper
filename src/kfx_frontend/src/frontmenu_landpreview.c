@@ -77,32 +77,32 @@ struct LandPreviewPanel land_preview;
 // only one LandPreviewPanel instance exists, so file-scope storage here
 // is as safe as the panel struct itself, and keeps the public header from
 // having to expose the minimap's own implementation details.
-static unsigned short *land_preview_minimap_kind = NULL;
+static int64_t *land_preview_minimap_kind = NULL;
 static unsigned char *land_preview_minimap_owner = NULL;
-static long land_preview_minimap_map_w = 0;
-static long land_preview_minimap_map_h = 0;
+static int64_t land_preview_minimap_map_w = 0;
+static int64_t land_preview_minimap_map_h = 0;
 
 /******************************************************************************/
-int land_preview_compute_units_per_px(long rect_w, long rect_h)
+int64_t land_preview_compute_units_per_px(int64_t rect_w, int64_t rect_h)
 {
     if ((rect_w <= 0) || (rect_h <= 0))
         return 16;
-    long upp_w = 16 * LANDVIEW_PREVIEW_ZOOM_DIVISOR * rect_w / LANDVIEW_MAP_WIDTH;
-    long upp_h = 16 * LANDVIEW_PREVIEW_ZOOM_DIVISOR * rect_h / LANDVIEW_MAP_HEIGHT;
-    long upp = max(upp_w, upp_h);
+    int64_t upp_w = 16 * LANDVIEW_PREVIEW_ZOOM_DIVISOR * rect_w / LANDVIEW_MAP_WIDTH;
+    int64_t upp_h = 16 * LANDVIEW_PREVIEW_ZOOM_DIVISOR * rect_h / LANDVIEW_MAP_HEIGHT;
+    int64_t upp = max(upp_w, upp_h);
     if (upp < LANDVIEW_PREVIEW_MIN_UPP)
         upp = LANDVIEW_PREVIEW_MIN_UPP;
-    return (int)upp;
+    return (int64_t)upp;
 }
 
-void land_preview_clamp_shift(struct LandPreviewPanel *panel, long rect_w, long rect_h)
+void land_preview_clamp_shift(struct LandPreviewPanel *panel, int64_t rect_w, int64_t rect_h)
 {
     if (panel->units_per_px <= 0)
         return;
-    long visible_w = rect_w * 16 / panel->units_per_px;
-    long visible_h = rect_h * 16 / panel->units_per_px;
-    long max_x = LANDVIEW_MAP_WIDTH - visible_w;
-    long max_y = LANDVIEW_MAP_HEIGHT - visible_h;
+    int64_t visible_w = rect_w * 16 / panel->units_per_px;
+    int64_t visible_h = rect_h * 16 / panel->units_per_px;
+    int64_t max_x = LANDVIEW_MAP_WIDTH - visible_w;
+    int64_t max_y = LANDVIEW_MAP_HEIGHT - visible_h;
     if (max_x < 0)
         max_x = 0;
     if (max_y < 0)
@@ -117,7 +117,7 @@ void land_preview_clamp_shift(struct LandPreviewPanel *panel, long rect_w, long 
         panel->screen_shift_y = 0;
 }
 
-TbBool land_preview_point_over_ensign_box(long map_x, long map_y, long ensign_x, long ensign_y, long spr_w, long spr_h)
+TbBool land_preview_point_over_ensign_box(int64_t map_x, int64_t map_y, int64_t ensign_x, int64_t ensign_y, int64_t spr_w, int64_t spr_h)
 {
     // Same asymmetric box as front_landview.c's is_over_ensign: centered
     // horizontally on the ensign anchor, but vertically only the flag
@@ -139,14 +139,14 @@ TbBool land_preview_point_over_ensign_box(long map_x, long map_y, long ensign_x,
 // that caller ask for a smaller frame without changing the legacy
 // screen's own appearance (which never touches this setter, so it always
 // sees the default of 1).
-static long land_preview_frame_extra_scale_den = 1;
+static int64_t land_preview_frame_extra_scale_den = 1;
 
-void land_preview_set_frame_extra_scale_den(long extra_den)
+void land_preview_set_frame_extra_scale_den(int64_t extra_den)
 {
     land_preview_frame_extra_scale_den = (extra_den > 0) ? extra_den : 1;
 }
 
-static long land_preview_frame_scale(long base_value)
+static int64_t land_preview_frame_scale(int64_t base_value)
 {
     return scale_ui_value_lofi(base_value) * LAND_PREVIEW_FRAME_SCALE_NUM
         / (LAND_PREVIEW_FRAME_SCALE_DEN * land_preview_frame_extra_scale_den);
@@ -162,7 +162,7 @@ static long land_preview_frame_scale(long base_value)
 // empty margin between the outer panel edge and the (now smaller)
 // frame+content. Shrinking it by the same factor keeps the frame hugging
 // the panel's actual edges as before.
-static long land_preview_frame_inset(void)
+static int64_t land_preview_frame_inset(void)
 {
     return scale_ui_value_lofi(26) / land_preview_frame_extra_scale_den;
 }
@@ -175,13 +175,13 @@ static long land_preview_frame_inset(void)
  * every scale_ui_value_lofi() result passed through land_preview_frame_scale()
  * instead.
  */
-static void land_preview_draw_ornate_frame(long pos_x, long pos_y, long width, long height)
+static void land_preview_draw_ornate_frame(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height)
 {
     const struct TbSprite* spr = get_button_sprite(GBS_parchment_map_frame_deco_a_tl);
-    int bs_units_per_spr = (int)(land_preview_frame_scale(2048) / spr->SWidth);
-    long x = pos_x;
-    long y = pos_y;
-    long i;
+    int64_t bs_units_per_spr = (int64_t)(land_preview_frame_scale(2048) / spr->SWidth);
+    int64_t x = pos_x;
+    int64_t y = pos_y;
+    int64_t i;
     for (i = land_preview_frame_scale(10); i < width - land_preview_frame_scale(12); i += land_preview_frame_scale(32))
     {
         spr = get_button_sprite(GBS_borders_frame_thin_tc);
@@ -312,20 +312,20 @@ TbBool land_preview_build_minimap(LevelNumber lvnum)
     land_preview_free_minimap();
 
     struct LevelInformation *lvinfo = get_level_info(lvnum);
-    long map_w = ((lvinfo != NULL) && (lvinfo->mapsize_x > 0)) ? lvinfo->mapsize_x : DEFAULT_MAP_SIZE;
-    long map_h = ((lvinfo != NULL) && (lvinfo->mapsize_y > 0)) ? lvinfo->mapsize_y : DEFAULT_MAP_SIZE;
+    int64_t map_w = ((lvinfo != NULL) && (lvinfo->mapsize_x > 0)) ? lvinfo->mapsize_x : DEFAULT_MAP_SIZE;
+    int64_t map_h = ((lvinfo != NULL) && (lvinfo->mapsize_y > 0)) ? lvinfo->mapsize_y : DEFAULT_MAP_SIZE;
 
-    int32_t slb_fsize = 2 * (int32_t)map_w * (int32_t)map_h;
+    int64_t slb_fsize = 2 * (int64_t)map_w * (int64_t)map_h;
     unsigned char *slb_buf = load_single_map_file_to_buffer(lvnum, "slb", &slb_fsize, LMFF_None);
     if (slb_buf == NULL)
         return false;
 
-    long subtiles_x = map_w * STL_PER_SLB;
-    long subtiles_y = map_h * STL_PER_SLB;
-    int32_t own_fsize = (int32_t)((subtiles_x + 1) * (subtiles_y + 1));
+    int64_t subtiles_x = map_w * STL_PER_SLB;
+    int64_t subtiles_y = map_h * STL_PER_SLB;
+    int64_t own_fsize = (int64_t)((subtiles_x + 1) * (subtiles_y + 1));
     unsigned char *own_buf = load_single_map_file_to_buffer(lvnum, "own", &own_fsize, LMFF_Optional);
 
-    land_preview_minimap_kind = malloc((size_t)map_w * (size_t)map_h * sizeof(unsigned short));
+    land_preview_minimap_kind = malloc((size_t)map_w * (size_t)map_h * sizeof(int64_t));
     land_preview_minimap_owner = malloc((size_t)map_w * (size_t)map_h);
     if ((land_preview_minimap_kind == NULL) || (land_preview_minimap_owner == NULL))
     {
@@ -338,18 +338,18 @@ TbBool land_preview_build_minimap(LevelNumber lvnum)
     land_preview_minimap_map_w = map_w;
     land_preview_minimap_map_h = map_h;
 
-    for (long y = 0; y < map_h; y++)
+    for (int64_t y = 0; y < map_h; y++)
     {
-        for (long x = 0; x < map_w; x++)
+        for (int64_t x = 0; x < map_w; x++)
         {
-            long slb_i = y * map_w + x;
-            unsigned short kind = (unsigned short)(slb_buf[slb_i*2] | (slb_buf[slb_i*2+1] << 8));
+            int64_t slb_i = y * map_w + x;
+            int64_t kind = (int64_t)(slb_buf[slb_i*2] | (slb_buf[slb_i*2+1] << 8));
             land_preview_minimap_kind[slb_i] = kind;
             unsigned char owner = PLAYER_NEUTRAL;
             if (own_buf != NULL)
             {
-                long stl_x = x * STL_PER_SLB + 1;
-                long stl_y = y * STL_PER_SLB + 1;
+                int64_t stl_x = x * STL_PER_SLB + 1;
+                int64_t stl_y = y * STL_PER_SLB + 1;
                 owner = own_buf[stl_y * (subtiles_x + 1) + stl_x];
             }
             land_preview_minimap_owner[slb_i] = owner;
@@ -362,10 +362,10 @@ TbBool land_preview_build_minimap(LevelNumber lvnum)
     return true;
 }
 
-static enum LandPreviewMinimapColor land_preview_minimap_slab_color(long x, long y)
+static enum LandPreviewMinimapColor land_preview_minimap_slab_color(int64_t x, int64_t y)
 {
-    long slb_i = y * land_preview_minimap_map_w + x;
-    unsigned short kind = land_preview_minimap_kind[slb_i];
+    int64_t slb_i = y * land_preview_minimap_map_w + x;
+    int64_t kind = land_preview_minimap_kind[slb_i];
     unsigned char owner = land_preview_minimap_owner[slb_i];
     struct SlabConfigStats *slabst = get_slab_kind_stats(kind);
     if ((kind == SlbT_GOLD) || (kind == SlbT_DENSEGOLD))
@@ -398,17 +398,17 @@ static enum LandPreviewMinimapColor land_preview_minimap_slab_color(long x, long
 // own colour tables so a thumbnail matches the real in-game minimap
 // palette. Width/height are 0 if land_preview_build_minimap() hasn't been
 // called yet (or failed) -- callers should check before indexing.
-long land_preview_minimap_width(void)
+int64_t land_preview_minimap_width(void)
 {
     return land_preview_minimap_map_w;
 }
 
-long land_preview_minimap_height(void)
+int64_t land_preview_minimap_height(void)
 {
     return land_preview_minimap_map_h;
 }
 
-void land_preview_minimap_pixel_rgb(long x, long y, unsigned char *r, unsigned char *g, unsigned char *b)
+void land_preview_minimap_pixel_rgb(int64_t x, int64_t y, unsigned char *r, unsigned char *g, unsigned char *b)
 {
     enum LandPreviewMinimapColor color = LPMC_Rock;
     if ((land_preview_minimap_kind != NULL) && (land_preview_minimap_owner != NULL)
@@ -513,12 +513,12 @@ void land_preview_unload(struct LandPreviewPanel *panel)
  * Always NULL when !panel->show_ensigns -- ensign_x/y is only meaningful
  * against the campaign overview image, not a single level's own art.
  */
-static struct LevelInformation *land_preview_ensign_at(struct LandPreviewPanel *panel, long rel_x, long rel_y)
+static struct LevelInformation *land_preview_ensign_at(struct LandPreviewPanel *panel, int64_t rel_x, int64_t rel_y)
 {
     if (!panel->show_ensigns)
         return NULL;
-    long map_x = panel->screen_shift_x + rel_x * 16 / panel->units_per_px;
-    long map_y = panel->screen_shift_y + rel_y * 16 / panel->units_per_px;
+    int64_t map_x = panel->screen_shift_x + rel_x * 16 / panel->units_per_px;
+    int64_t map_y = panel->screen_shift_y + rel_y * 16 / panel->units_per_px;
     const struct TbSprite *spr = get_map_ensign(EnsFullFlag);
     struct LevelInformation *lvinfo = get_first_level_info();
     while (lvinfo != NULL)
@@ -541,11 +541,11 @@ void land_preview_maintain(struct GuiButton *gbtn)
     // Inset from gbtn's own rect: land_preview_draw_ornate_frame's corners
     // are drawn around this smaller rect, in the margin the inset frees up
     // between it and gbtn's actual edges (see land_preview_frame_inset()).
-    long frame_inset = land_preview_frame_inset();
-    long rect_x = gbtn->scr_pos_x + frame_inset;
-    long rect_y = gbtn->scr_pos_y + frame_inset;
-    long rect_w = gbtn->width - 2*frame_inset;
-    long rect_h = gbtn->height - 2*frame_inset;
+    int64_t frame_inset = land_preview_frame_inset();
+    int64_t rect_x = gbtn->scr_pos_x + frame_inset;
+    int64_t rect_y = gbtn->scr_pos_y + frame_inset;
+    int64_t rect_w = gbtn->width - 2*frame_inset;
+    int64_t rect_h = gbtn->height - 2*frame_inset;
 
     if (panel->minimap_mode)
     {
@@ -573,8 +573,8 @@ void land_preview_maintain(struct GuiButton *gbtn)
         struct LevelInformation *centre_lvinfo = get_level_info(panel->pending_center_lvnum);
         if (centre_lvinfo != NULL)
         {
-            long visible_w = rect_w * 16 / panel->units_per_px;
-            long visible_h = rect_h * 16 / panel->units_per_px;
+            int64_t visible_w = rect_w * 16 / panel->units_per_px;
+            int64_t visible_h = rect_h * 16 / panel->units_per_px;
             panel->screen_shift_x = centre_lvinfo->ensign_x - visible_w / 2;
             panel->screen_shift_y = centre_lvinfo->ensign_y - visible_h / 2;
         }
@@ -582,8 +582,8 @@ void land_preview_maintain(struct GuiButton *gbtn)
     }
     land_preview_clamp_shift(panel, rect_w, rect_h);
 
-    long mouse_x = GetMouseX();
-    long mouse_y = GetMouseY();
+    int64_t mouse_x = GetMouseX();
+    int64_t mouse_y = GetMouseY();
     TbBool mouse_in_rect = (mouse_x >= rect_x) && (mouse_x < rect_x + rect_w)
         && (mouse_y >= rect_y) && (mouse_y < rect_y + rect_h);
 
@@ -624,8 +624,8 @@ void land_preview_maintain(struct GuiButton *gbtn)
             panel->dragging = false;
         } else
         {
-            long dx = mouse_x - panel->drag_last_x;
-            long dy = mouse_y - panel->drag_last_y;
+            int64_t dx = mouse_x - panel->drag_last_x;
+            int64_t dy = mouse_y - panel->drag_last_y;
             panel->screen_shift_x -= dx * 16 / panel->units_per_px;
             panel->screen_shift_y -= dy * 16 / panel->units_per_px;
             land_preview_clamp_shift(panel, rect_w, rect_h);
@@ -648,14 +648,14 @@ void land_preview_draw(struct GuiButton *gbtn)
     struct LandPreviewPanel *panel = &land_preview;
     if (!panel->loaded)
         return;
-    long frame_inset = land_preview_frame_inset();
-    long rect_x = gbtn->scr_pos_x + frame_inset;
-    long rect_y = gbtn->scr_pos_y + frame_inset;
-    long rect_w = gbtn->width - 2*frame_inset;
-    long rect_h = gbtn->height - 2*frame_inset;
-    int upp = panel->units_per_px;
-    long pan_x = -((panel->screen_shift_x * upp + 8) / 16);
-    long pan_y = -((panel->screen_shift_y * upp + 8) / 16);
+    int64_t frame_inset = land_preview_frame_inset();
+    int64_t rect_x = gbtn->scr_pos_x + frame_inset;
+    int64_t rect_y = gbtn->scr_pos_y + frame_inset;
+    int64_t rect_w = gbtn->width - 2*frame_inset;
+    int64_t rect_h = gbtn->height - 2*frame_inset;
+    int64_t upp = panel->units_per_px;
+    int64_t pan_x = -((panel->screen_shift_x * upp + 8) / 16);
+    int64_t pan_y = -((panel->screen_shift_y * upp + 8) / 16);
 
     if (panel->minimap_mode)
     {
@@ -668,20 +668,20 @@ void land_preview_draw(struct GuiButton *gbtn)
         // fractional tiling, same idiom copy_raw8_image_buffer uses for
         // its own dst-size scaling) rather than preserving the map's
         // aspect ratio, so the minimap always fills its bounding box.
-        long map_w = land_preview_minimap_map_w;
-        long map_h = land_preview_minimap_map_h;
+        int64_t map_w = land_preview_minimap_map_w;
+        int64_t map_h = land_preview_minimap_map_h;
         if ((map_w > 0) && (map_h > 0))
         {
-            for (long y = 0; y < map_h; y++)
+            for (int64_t y = 0; y < map_h; y++)
             {
-                long y0 = rect_y + rect_h * y / map_h;
-                long y1 = rect_y + rect_h * (y + 1) / map_h;
+                int64_t y0 = rect_y + rect_h * y / map_h;
+                int64_t y1 = rect_y + rect_h * (y + 1) / map_h;
                 if (y1 <= y0)
                     y1 = y0 + 1;
-                for (long x = 0; x < map_w; x++)
+                for (int64_t x = 0; x < map_w; x++)
                 {
-                    long x0 = rect_x + rect_w * x / map_w;
-                    long x1 = rect_x + rect_w * (x + 1) / map_w;
+                    int64_t x0 = rect_x + rect_w * x / map_w;
+                    int64_t x1 = rect_x + rect_w * (x + 1) / map_w;
                     if (x1 <= x0)
                         x1 = x0 + 1;
                     enum LandPreviewMinimapColor color = land_preview_minimap_slab_color(x, y);
@@ -706,8 +706,8 @@ void land_preview_draw(struct GuiButton *gbtn)
         // to frontend_palette right after this whole block (not right
         // after just the blit) can't corrupt anything drawn before or
         // after, on this frame or any other.
-        long dst_w = (LANDVIEW_MAP_WIDTH * upp + 8) / 16;
-        long dst_h = (LANDVIEW_MAP_HEIGHT * upp + 8) / 16;
+        int64_t dst_w = (LANDVIEW_MAP_WIDTH * upp + 8) / 16;
+        int64_t dst_h = (LANDVIEW_MAP_HEIGHT * upp + 8) / 16;
         RendererPaletteSet(panel->land_palette);
         copy_raw8_image_buffer_rect(RendererGetFramebuffer(), LbGraphicsScreenWidth(), LbGraphicsScreenHeight(),
             rect_x, rect_y, rect_w, rect_h,
@@ -720,17 +720,17 @@ void land_preview_draw(struct GuiButton *gbtn)
         // image, not the campaign overview ensign_x/y was authored against).
         if (panel->show_ensigns)
         {
-            int anim_frame = LbTimerClock() / 200;
+            int64_t anim_frame = LbTimerClock() / 200;
             struct LevelInformation *lvinfo = get_last_level_info();
             while (lvinfo != NULL)
             {
                 const struct TbSprite *spr = get_ensign_sprite_for_level(lvinfo, anim_frame);
                 if (spr != NULL)
                 {
-                    long map_x = lvinfo->ensign_x - panel->screen_shift_x - (spr->SWidth >> 1);
-                    long map_y = lvinfo->ensign_y - panel->screen_shift_y - spr->SHeight;
-                    long scr_x = rect_x + (map_x * upp + 8) / 16;
-                    long scr_y = rect_y + (map_y * upp + 8) / 16;
+                    int64_t map_x = lvinfo->ensign_x - panel->screen_shift_x - (spr->SWidth >> 1);
+                    int64_t map_y = lvinfo->ensign_y - panel->screen_shift_y - spr->SHeight;
+                    int64_t scr_x = rect_x + (map_x * upp + 8) / 16;
+                    int64_t scr_y = rect_y + (map_y * upp + 8) / 16;
                     // Full containment on every edge, not partial overlap:
                     // an ensign panned so only part of it crosses the
                     // border must vanish outright, not draw in full and

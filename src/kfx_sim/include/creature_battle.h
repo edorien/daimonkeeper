@@ -36,17 +36,17 @@ struct Thing;
 struct PlayerInfo;
 
 struct CreatureBattle {
-  unsigned long fighters_num;
-  unsigned short first_creatr;
-  unsigned short last_creatr;
+  uint64_t fighters_num;
+  int64_t first_creatr;
+  int64_t last_creatr;
 };
 
 #pragma pack()
 /******************************************************************************/
 #define INVALID_CRTR_BATTLE (&kfx_sim_state.battles[0])
 /******************************************************************************/
-extern unsigned short friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
-extern unsigned short enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
+extern int64_t friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
+extern int64_t enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
 /******************************************************************************/
 
 struct CreatureBattle *creature_battle_get(BattleIndex battle_id);
@@ -60,7 +60,7 @@ BattleIndex find_next_battle_of_mine(PlayerNumber plyr_idx, BattleIndex prev_idx
 BattleIndex find_previous_battle_of_mine(PlayerNumber plyr_idx, BattleIndex next_idx);
 BattleIndex find_next_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex prev_idx);
 BattleIndex find_previous_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex next_idx);
-unsigned long count_active_battles(PlayerNumber plyr_idx);
+uint64_t count_active_battles(PlayerNumber plyr_idx);
 
 TbBool has_melee_combat_attackers(struct Thing *victim);
 TbBool can_add_melee_combat_attacker(struct Thing *victim);
@@ -68,14 +68,14 @@ TbBool has_ranged_combat_attackers(const struct Thing *victim);
 TbBool can_add_ranged_combat_attacker(const struct Thing *victim);
 
 TbBool setup_combat_flee_position(struct Thing *thing);
-long get_flee_position(struct Thing *creatng, struct Coord3d *pos);
+int64_t get_flee_position(struct Thing *creatng, struct Coord3d *pos);
 void set_creature_in_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_type);
-long get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_pref);
+int64_t get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_pref);
 
 TbBool active_battle_exists(PlayerNumber plyr_idx);
 void maintain_my_battle_list(void);
 TbBool step_battles_forward(PlayerNumber plyr_idx);
-long battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex battle_id);
+int64_t battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex battle_id);
 void battle_initialise(void);
 /******************************************************************************/
 #ifdef __cplusplus

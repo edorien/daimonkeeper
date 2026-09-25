@@ -1,6 +1,7 @@
 #ifndef FRONTGUI_INGAME_ICON_OVERRIDES_H
 #define FRONTGUI_INGAME_ICON_OVERRIDES_H
 
+#include <stdint.h>
 // docs/refactor/ingame-gui/12-png-icon-overrides.md: user PNG icon packs
 // (fxdata/gui/<pack>/, the GUI_ICON_PACK setting) overriding the legacy
 // sprites this project's ImGui HUD draws, plus the procedural marble panel
@@ -18,7 +19,7 @@
 // immediately if GUI_ICON_PACK == "NONE". Cheap on repeat calls -- both
 // hits and misses are cached by name, so a pack with no match for `name`
 // only touches the filesystem once per name per pack selection.
-void *FeIconOverrideTexture(const char *name, int *out_w, int *out_h);
+void *FeIconOverrideTexture(const char *name, int64_t *out_w, int64_t *out_h);
 
 // `<category>_<code_name>_active` / `_inactive` lookup for the data-driven
 // categories with an affordable/unaffordable or ready/on-cooldown split
@@ -30,11 +31,11 @@ void *FeIconOverrideTexture(const char *name, int *out_w, int *out_h);
 // is lower-cased internally; `category` is assumed already lower-case
 // (every call site passes a literal).
 void *FeIconOverrideActiveInactive(const char *category, const char *code_name, bool active,
-                                   int *out_w, int *out_h, bool *out_dim);
+                                   int64_t *out_w, int64_t *out_h, bool *out_dim);
 
 // `<category>_<code_name>` lookup for the data-driven categories with no
 // active/inactive split (creature_icon_/creature_portrait_).
-void *FeIconOverrideSingle(const char *category, const char *code_name, int *out_w, int *out_h);
+void *FeIconOverrideSingle(const char *category, const char *code_name, int64_t *out_w, int64_t *out_h);
 
 // Static sprite-index -> friendly-name lookup (doc §3.1: job_*/tendency_*/
 // bar_*/battle_vs/confirm_*/launcher_*, every one of them already a fixed
@@ -45,7 +46,7 @@ void *FeIconOverrideSingle(const char *category, const char *code_name, int *out
 // they always have. `is_button_sheet` must match which of
 // FeSpriteTexture/FeGuiPanelTexture is calling -- the GBS_ (button_sprite[])
 // and GPS_ (panel_sprite[]) index spaces overlap numerically.
-void *FeIconOverrideForStaticIndex(short sprite_idx, bool is_button_sheet, int *out_w, int *out_h);
+void *FeIconOverrideForStaticIndex(int64_t sprite_idx, bool is_button_sheet, int64_t *out_w, int64_t *out_h);
 
 #endif // __cplusplus
 #endif // FRONTGUI_INGAME_ICON_OVERRIDES_H

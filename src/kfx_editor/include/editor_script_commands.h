@@ -17,6 +17,7 @@
 #ifndef DK_EDITOR_SCRIPT_COMMANDS_H
 #define DK_EDITOR_SCRIPT_COMMANDS_H
 
+#include <stdint.h>
 #include <cstddef>
 #include <string>
 
@@ -42,10 +43,10 @@ enum ScriptCommandGroup
     ScrGroup_Count
 };
 
-const char *editor_script_group_title(int group);
+const char *editor_script_group_title(int64_t group);
 
 // Group of a command by (upper-case) name; ScrGroup_Other if unknown.
-int editor_script_command_group(const std::string &name);
+int64_t editor_script_command_group(const std::string &name);
 
 // True for commands described in the original Editor manual (the ones a
 // classic script uses); false for KeeperFX additions.

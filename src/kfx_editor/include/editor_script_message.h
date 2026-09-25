@@ -17,6 +17,7 @@
 #ifndef DK_EDITOR_SCRIPT_MESSAGE_H
 #define DK_EDITOR_SCRIPT_MESSAGE_H
 
+#include <stdint.h>
 #include <cstddef>
 #include <string>
 
@@ -29,25 +30,25 @@ enum ScriptMessageKind
 
 // Engine limits (kfx_sim_state.h QUICK_MESSAGES_COUNT / MESSAGE_TEXT_LEN,
 // mirrored: kfx_editor may include them but the tests don't need config).
-const int kScriptMessageCount = 256;
+const int64_t kScriptMessageCount = 256;
 const size_t kScriptMessageMaxChars = 1023;
 
-const char *editor_script_message_command(int kind);
+const char *editor_script_message_command(int64_t kind);
 
 // One script line, e.g. QUICK_OBJECTIVE(12,"Build a lair.",PLAYER0). The
 // script tokenizer has no escape for a double quote inside a string, so
 // quotes become apostrophes; line breaks become spaces; text is truncated to
 // kScriptMessageMaxChars. `location` is optional (omitted when empty or not
 // a plain identifier).
-std::string editor_script_format_message(int kind, int number, const std::string &text, const std::string &location);
+std::string editor_script_format_message(int64_t kind, int64_t number, const std::string &text, const std::string &location);
 
 // Whether QUICK_OBJECTIVE/QUICK_INFORMATION (or their _WITH_POS forms)
 // already uses `number` somewhere in the script. Both commands share one
 // table of kScriptMessageCount slots, so numbers are unique across them.
-bool editor_script_message_number_used(const std::string &script_text, int number);
+bool editor_script_message_number_used(const std::string &script_text, int64_t number);
 
 // Smallest unused message number, or -1 if all are taken.
-int editor_script_next_message_number(const std::string &script_text);
+int64_t editor_script_next_message_number(const std::string &script_text);
 
 // 0-based line to insert at, moved past the end of the managed setup region
 // if `line` falls inside it (the region is regenerated on Apply, so anything

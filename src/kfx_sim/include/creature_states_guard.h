@@ -33,7 +33,7 @@ struct Thing;
 
 #pragma pack()
 /******************************************************************************/
-short at_guard_post_room(struct Thing *thing);
+int64_t at_guard_post_room(struct Thing *thing);
 CrStateRet guarding(struct Thing *thing);
 
 /******************************************************************************/

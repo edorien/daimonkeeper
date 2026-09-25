@@ -110,7 +110,7 @@ TEST_CASE("map_is_legacy_compatible rejects a gold pile with a custom value", "[
 
 TEST_CASE("map_is_legacy_compatible rejects more than 255 creatures", "[kfx_sim][map_content_compat]") {
     MapContent c = base_compatible_content();
-    for (int i = 0; i < 256; i++)
+    for (int64_t i = 0; i < 256; i++)
     {
         MapThingRecord t;
         t.thing_class = TCls_Creature;
@@ -121,7 +121,7 @@ TEST_CASE("map_is_legacy_compatible rejects more than 255 creatures", "[kfx_sim]
 
 TEST_CASE("map_is_legacy_compatible accepts exactly 255 creatures", "[kfx_sim][map_content_compat]") {
     MapContent c = base_compatible_content();
-    for (int i = 0; i < 255; i++)
+    for (int64_t i = 0; i < 255; i++)
     {
         MapThingRecord t;
         t.thing_class = TCls_Creature;

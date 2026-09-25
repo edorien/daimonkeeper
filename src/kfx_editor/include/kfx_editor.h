@@ -70,7 +70,7 @@ const char *editor_current_level_name(void);
 // pattern as the name above -- players/is_multiplayer (.lof's PLAYERS/
 // KIND) are set from the Level Settings dialog now, not tied to
 // New Map/Save As at all.
-int editor_current_level_players(void);
+int64_t editor_current_level_players(void);
 TbBool editor_current_level_is_multiplayer(void);
 // docs/refactor/editor/05-script-and-level-settings.md §1 -- .lof's
 // DESCRIPTION, same pattern as the name field above (the struct field
@@ -110,8 +110,8 @@ TbBool editor_preview_motion(void);
 /** Level Settings > Resize. `dropped_*` (each may be NULL) receive how many things, lights and action points
  *  would be lost. editor_resize_map() writes the resized copy to a scratch level and reopens the editor on it,
  *  keeping this level's identity and marking it unsaved. False if the size is unsupported or the write failed. */
-TbBool editor_resize_preview(long new_w, long new_h, TbBool centered, int *dropped_things, int *dropped_lights, int *dropped_points);
-TbBool editor_resize_map(long new_w, long new_h, TbBool centered);
+TbBool editor_resize_preview(int64_t new_w, int64_t new_h, TbBool centered, int64_t *dropped_things, int64_t *dropped_lights, int64_t *dropped_points);
+TbBool editor_resize_map(int64_t new_w, int64_t new_h, TbBool centered);
 void editor_set_preview_motion(TbBool on);
 /** True while turning Preview Motion off is waiting for a 1st Person view to end. */
 TbBool editor_preview_restore_pending(void);
@@ -138,7 +138,7 @@ void editor_set_current_lvnum_and_dir(LevelNumber lvnum, const char *dir);
 void editor_set_current_level_name(const char *name);
 // Companion setters for players/is_multiplayer -- set from the Level
 // Settings dialog (editor_dialogs.cpp), independent of lvnum/dir/name.
-void editor_set_current_level_players(int players);
+void editor_set_current_level_players(int64_t players);
 void editor_set_current_level_is_multiplayer(TbBool is_multiplayer);
 // docs/refactor/editor/05-script-and-level-settings.md §1 -- same
 // read-back-on-open/kept-current-by-whoever-last-changed-it pattern as
@@ -162,9 +162,9 @@ void editor_level_save_dir(LevelNumber lvnum, char *out, size_t out_size);
 // pcktype/par1-4/pos_x/pos_y are the packet fields that created this thing
 // -- see EditorJournalCallbacks::record_placement's own comment for why
 // Redo needs all of them, not just the thing index.
-void editor_journal_record_placement(long thing_idx, unsigned char pcktype,
-    unsigned long par1, unsigned long par2, unsigned short par3, unsigned short par4,
-    long pos_x, long pos_y);
+void editor_journal_record_placement(int64_t thing_idx, unsigned char pcktype,
+    uint64_t par1, uint64_t par2, int64_t par3, int64_t par4,
+    int64_t pos_x, int64_t pos_y);
 
 // docs/refactor/editor/09-toolbox-remainder.md §1 -- rect-terrain-op
 // undo/redo counterpart to editor_journal_record_placement() above; see
@@ -172,13 +172,13 @@ void editor_journal_record_placement(long thing_idx, unsigned char pcktype,
 // (editor_journal_callbacks.h) for the parameter shapes and why this is
 // called BEFORE the mutation rather than after.
 void editor_journal_record_rect_terrain(unsigned char pcktype,
-    long box_beg_x, long box_beg_y, long box_end_x, long box_end_y,
+    int64_t box_beg_x, int64_t box_beg_y, int64_t box_end_x, int64_t box_end_y,
     SlabKind new_kind, PlayerNumber new_owner,
-    const struct EditorRectSlabSnapshot *before, long count);
+    const struct EditorRectSlabSnapshot *before, int64_t count);
 
 // fx-plans/00 item A7 -- door-lock toggle counterpart (EditorJournalCallbacks::
 // record_door_lock): called before the toggle, journals it for undo.
-void editor_journal_record_door_lock(long thing_idx, TbBool was_locked);
+void editor_journal_record_door_lock(int64_t thing_idx, TbBool was_locked);
 
 // docs/refactor/editor/phase3/01-slice2-classic-save.md -- Auto picks
 // ClassicMapContentWriter when map_is_legacy_compatible() (src/kfx_sim/
@@ -217,7 +217,7 @@ enum EditorSaveFormat
 // every caller passes the session's own current value so a plain
 // File > Save doesn't reset it" convention as level_name/level_players.
 TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat format,
-    const char *level_name, int level_players, TbBool level_is_multiplayer, const char *level_description);
+    const char *level_name, int64_t level_players, TbBool level_is_multiplayer, const char *level_description);
 
 // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md --
 // writes *only* `.lof` (name/players/is_multiplayer) for `lvnum` in `dir`,
@@ -229,7 +229,7 @@ TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat
 // level_lof_file_parse() -- add_single_level_to_campaign()/
 // add_multi_level_to_campaign()).
 TbBool editor_save_level_info(LevelNumber lvnum, const char *dir,
-    const char *level_name, int level_players, TbBool level_is_multiplayer, const char *level_description);
+    const char *level_name, int64_t level_players, TbBool level_is_multiplayer, const char *level_description);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -69,16 +69,16 @@ TbBool remove_food_from_food_room_if_possible(struct Thing *thing)
     return true;
 }
 
-short room_grow_food(struct Room *room)
+int64_t room_grow_food(struct Room *room)
 {
     if (room->slabs_count < 1)
     {
-        ERRORLOG("Room %s index %d has no slabs",room_code_name(room->kind),(int)room->index);
+        ERRORLOG("Room %s index %" PRId64 " has no slabs",room_code_name(room->kind),(int64_t)room->index);
         return 0;
     }
     if (room->used_capacity > room->total_capacity)
     {
-        ERRORLOG("Room %s index %d has too much used capacity: %d/%d", room_code_name(room->kind), (int)room->index, room->used_capacity, room->total_capacity);
+        ERRORLOG("Room %s index %" PRId64 " has too much used capacity: %" PRId64 "/%" PRId64, room_code_name(room->kind), (int64_t)room->index, (int64_t)(room->used_capacity), (int64_t)(room->total_capacity));
         count_food_in_room(room);
     }
     if ((room->used_capacity >= room->total_capacity)
@@ -87,8 +87,8 @@ short room_grow_food(struct Room *room)
         return 0;
     }
     struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
-    unsigned long k;
-    long n = PLAYER_RANDOM(room->owner, room->slabs_count);
+    uint64_t k;
+    int64_t n = PLAYER_RANDOM(room->owner, room->slabs_count);
     SlabCodedCoords slbnum = room->slabs_list;
     for (k = n; k > 0; k--)
     {
@@ -97,7 +97,7 @@ short room_grow_food(struct Room *room)
         slbnum = get_next_slab_number_in_room(slbnum);
     }
     if (slbnum == 0) {
-        ERRORLOG("Taking random slab (%d/%d) in %s index %d failed - internal inconsistency",(int)n,(int)room->slabs_count,room_code_name(room->kind),(int)room->index);
+        ERRORLOG("Taking random slab (%" PRId64 "/%" PRId64 ") in %s index %" PRId64 " failed - internal inconsistency",(int64_t)n,(int64_t)room->slabs_count,room_code_name(room->kind),(int64_t)room->index);
         slbnum = room->slabs_list;
     }
     for (k = 0; k < room->slabs_count; k++)
@@ -105,8 +105,8 @@ short room_grow_food(struct Room *room)
         MapSlabCoord slb_x = slb_num_decode_x(slbnum);
         MapSlabCoord slb_y = slb_num_decode_y(slbnum);
 
-        int m = PLAYER_RANDOM(room->owner, STL_PER_SLB * STL_PER_SLB);
-        for (int i = 0; i < STL_PER_SLB * STL_PER_SLB; i++)
+        int64_t m = PLAYER_RANDOM(room->owner, STL_PER_SLB * STL_PER_SLB);
+        for (int64_t i = 0; i < STL_PER_SLB * STL_PER_SLB; i++)
         {
             MapSubtlCoord stl_x = slab_subtile(slb_x, m % STL_PER_SLB);
             MapSubtlCoord stl_y = slab_subtile(slb_y, m / STL_PER_SLB);
@@ -130,7 +130,7 @@ short room_grow_food(struct Room *room)
             slbnum = room->slabs_list;
         }
     }
-    ERRORLOG("Could not find valid RANDOM point in room %s index %d",room_code_name(room->kind),(int)room->index);
+    ERRORLOG("Could not find valid RANDOM point in room %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
     return false;
 }
 
@@ -139,7 +139,7 @@ TbBool recreate_repositioned_food_in_room_on_subtile(struct Room *room, MapSubtl
     if ((rrepos->used < 0) || (room->used_capacity >= room->total_capacity)) {
         return false;
     }
-    for (int ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
     {
         if (rrepos->models[ri] != 0)
         {
@@ -165,8 +165,8 @@ void reposition_all_food_in_room_on_subtile(struct Room *room, MapSubtlCoord stl
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -199,7 +199,7 @@ void reposition_all_food_in_room_on_subtile(struct Room *room, MapSubtlCoord stl
     }
 }
 
-int check_food_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+int64_t check_food_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
@@ -208,9 +208,9 @@ int check_food_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoor
     if ((roomst->storage_height >= 0) && (get_map_floor_filled_subtiles(mapblk) != roomst->storage_height)) {
         return -1; // re-create all
     }
-    int matching_things_at_subtile = 0;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t matching_things_at_subtile = 0;
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -228,7 +228,7 @@ int check_food_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoor
                 // If exceeded capacity of the room
                 if (room->used_capacity >= room->total_capacity)
                 {
-                    WARNLOG("The %s capacity %d exceeded; space used is %d",room_code_name(room->kind),(int)room->total_capacity,(int)room->used_capacity);
+                    WARNLOG("The %s capacity %" PRId64 " exceeded; space used is %" PRId64,room_code_name(room->kind),(int64_t)room->total_capacity,(int64_t)room->used_capacity);
                     return -1; // re-create all (this could save the object if there are duplicates)
                 } else
                 // If the thing is in wall, remove it but store to re-create later
@@ -255,10 +255,10 @@ int check_food_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoor
 
 void count_and_reposition_food_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
 {
-    int matching_things_at_subtile = check_food_on_subtile_for_reposition_in_room(room, stl_x, stl_y);
+    int64_t matching_things_at_subtile = check_food_on_subtile_for_reposition_in_room(room, stl_x, stl_y);
     if (matching_things_at_subtile > 0) {
         // This subtile contains bodies
-        SYNCDBG(19,"Got %d matching things at (%d,%d)",(int)matching_things_at_subtile,(int)stl_x,(int)stl_y);
+        SYNCDBG(19,"Got %" PRId64 " matching things at (%" PRId64 ",%" PRId64 ")",(int64_t)matching_things_at_subtile,(int64_t)stl_x,(int64_t)stl_y);
         room->used_capacity += matching_things_at_subtile;
     } else
     {
@@ -284,25 +284,25 @@ void count_and_reposition_food_in_room_on_subtile(struct Room *room, MapSubtlCoo
 
 void count_food_in_room(struct Room *room)
 {
-    SYNCDBG(17,"Starting for %s index %d",room_code_name(room->kind),(int)room->index);
+    SYNCDBG(17,"Starting for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
     struct RoomReposition rrepos;
     init_reposition_struct(&rrepos);
     // Making two loops guarantees that no rrepos things will be lost
-    for (long n = 0; n < 2; n++)
+    for (int64_t n = 0; n < 2; n++)
     {
         // The correct count should be taken from last sweep
         room->used_capacity = 0;
         room->capacity_used_for_storage = 0;
-        unsigned long k = 0;
-        unsigned long i = room->slabs_list;
+        uint64_t k = 0;
+        uint64_t i = room->slabs_list;
         while (i > 0)
         {
             MapSubtlCoord slb_x = slb_num_decode_x(i);
             MapSubtlCoord slb_y = slb_num_decode_y(i);
             // Per-slab code
-            for (long dy = 0; dy < STL_PER_SLB; dy++)
+            for (int64_t dy = 0; dy < STL_PER_SLB; dy++)
             {
-                for (long dx = 0; dx < STL_PER_SLB; dx++)
+                for (int64_t dx = 0; dx < STL_PER_SLB; dx++)
                 {
                     count_and_reposition_food_in_room_on_subtile(room, slab_subtile(slb_x,dx), slab_subtile(slb_y,dy), &rrepos);
                 }
@@ -317,10 +317,10 @@ void count_food_in_room(struct Room *room)
             }
         }
     }
-    SYNCDBG(7,"The %s index %d contains %d food",room_code_name(room->kind),(int)room->index,(int)room->used_capacity);
+    SYNCDBG(7,"The %s index %" PRId64 " contains %" PRId64 " food",room_code_name(room->kind),(int64_t)room->index,(int64_t)room->used_capacity);
     if (rrepos.used > 0) {
-        ERRORLOG("The %s index %d capacity %d wasn't enough; %d items belonging to player %d dropped",
-          room_code_name(room->kind),(int)room->index,(int)room->total_capacity,(int)rrepos.used,(int)room->owner);
+        ERRORLOG("The %s index %" PRId64 " capacity %" PRId64 " wasn't enough; %" PRId64 " items belonging to player %" PRId64 " dropped",
+          room_code_name(room->kind),(int64_t)room->index,(int64_t)room->total_capacity,(int64_t)rrepos.used,(int64_t)room->owner);
     }
     room->capacity_used_for_storage = room->used_capacity;
 }
@@ -341,7 +341,7 @@ TbBool room_create_new_food_at(struct Room *room, MapSubtlCoord stl_x, MapSubtlC
     if (thing_in_wall_at(foodtng, &foodtng->mappos)) {
         ERRORLOG("Created chicken in a wall");
     }
-    int required_cap = get_required_room_capacity_for_object(RoRoF_FoodStorage, foodtng->model, 0);
+    int64_t required_cap = get_required_room_capacity_for_object(RoRoF_FoodStorage, foodtng->model, 0);
     room->used_capacity += required_cap;
     foodtng->food.life_remaining = (foodtng->max_frames << 8) / foodtng->anim_speed - 1;
     return true;

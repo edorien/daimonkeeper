@@ -55,12 +55,12 @@
 #include <string.h> // strcmp
 
 /******************************************************************************/
-static long frontend_level_select_count(void);
-static long frontend_campaign_select_count(void);
-static long frontend_mappack_select_count(void);
-static long frontend_mp_mappack_select_count(void);
+static int64_t frontend_level_select_count(void);
+static int64_t frontend_campaign_select_count(void);
+static int64_t frontend_mappack_select_count(void);
+static int64_t frontend_mp_mappack_select_count(void);
 
-int number_of_freeplay_levels = 0;
+int64_t number_of_freeplay_levels = 0;
 
 // level_select_list uses its own row_base (FE_LEVEL_SELECTLIST_ROW_BASE,
 // frontmenu_select.h) rather than the shared FE_SELECTLIST_ROW_BASE -- it's
@@ -101,22 +101,22 @@ struct GameCampaign *land_selection_highlighted_campaign = NULL;
 struct GameCampaign *freeplay_highlighted_mappack = NULL;
 LevelNumber freeplay_highlighted_level = 0;
 
-static long frontend_level_select_count(void)
+static int64_t frontend_level_select_count(void)
 {
     return number_of_freeplay_levels;
 }
 
-static long frontend_campaign_select_count(void)
+static int64_t frontend_campaign_select_count(void)
 {
     return campaigns_list.items_num;
 }
 
-static long frontend_mappack_select_count(void)
+static int64_t frontend_mappack_select_count(void)
 {
     return mappacks_list.items_num;
 }
 
-static long frontend_mp_mappack_select_count(void)
+static int64_t frontend_mp_mappack_select_count(void)
 {
     return mp_mappacks_list.items_num;
 }
@@ -183,12 +183,12 @@ void frontend_level_select_maintain(struct GuiButton *gbtn)
 
 void frontend_draw_level_select_button(struct GuiButton *gbtn)
 {
-    long btn_idx = gbtn->content.lval;
-    long i = btn_idx + level_select_list.scroll_offset - level_select_list.row_base;
-    unsigned long levels_count;
+    int64_t btn_idx = gbtn->content.lval;
+    int64_t i = btn_idx + level_select_list.scroll_offset - level_select_list.row_base;
+    uint64_t levels_count;
     LevelNumber *levels = frontend_freeplay_active_levels(&levels_count);
-    long lvnum = 0;
-    if ((i >= 0) && (i < (long)levels_count))
+    int64_t lvnum = 0;
+    if ((i >= 0) && (i < (int64_t)levels_count))
       lvnum = levels[i];
     struct LevelInformation* lvinfo = get_level_info(lvnum);
     if (lvinfo == NULL)
@@ -203,7 +203,7 @@ void frontend_draw_level_select_button(struct GuiButton *gbtn)
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     LbTextSetFont(frontend_font[i]);
     // This text is a bit condensed - button size is smaller than text height
-    int tx_units_per_px = (gbtn->height * 13 / 11) * 16 / LbTextLineHeight();
+    int64_t tx_units_per_px = (gbtn->height * 13 / 11) * 16 / LbTextLineHeight();
     i = LbTextLineHeight() * tx_units_per_px / 16;
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, i);
     if (lvinfo->name_stridx > 0)
@@ -235,12 +235,12 @@ void frontend_draw_levels_scroll_tab(struct GuiButton *gbtn)
 // preview (no ensigns -- see LandPreviewPanel.show_ensigns). Committing is
 // frontend_freeplay_enter's job -- see the header. Shared the same way
 // frontend_campaign_select_by_index is -- see its comment.
-void frontend_level_select_by_index(long i)
+void frontend_level_select_by_index(int64_t i)
 {
-    unsigned long levels_count;
+    uint64_t levels_count;
     LevelNumber *levels = frontend_freeplay_active_levels(&levels_count);
-    long lvnum = 0;
-    if ((i >= 0) && (i < (long)levels_count))
+    int64_t lvnum = 0;
+    if ((i >= 0) && (i < (int64_t)levels_count))
       lvnum = levels[i];
     if (lvnum <= 0)
         return;
@@ -252,7 +252,7 @@ void frontend_level_select_by_index(long i)
 
 void frontend_level_select(struct GuiButton *gbtn)
 {
-    long i = frontend_selectlist_row_to_item_index(&level_select_list, gbtn);
+    int64_t i = frontend_selectlist_row_to_item_index(&level_select_list, gbtn);
     frontend_level_select_by_index(i);
 }
 
@@ -264,7 +264,7 @@ void frontend_level_list_unload(void)
 
 void frontend_level_list_load(void)
 {
-    unsigned long levels_count;
+    uint64_t levels_count;
     frontend_freeplay_active_levels(&levels_count);
     number_of_freeplay_levels = levels_count;
     frontend_selectlist_set_visible(&level_select_list);
@@ -284,7 +284,7 @@ void frontend_draw_level_select_mappack(struct GuiButton *gbtn)
         text = frontend_button_caption_text(gbtn);
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     LbTextSetFont(frontend_font[2]);
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height);
     LbTextDrawResized(0, 0, tx_units_per_px, text);
@@ -324,8 +324,8 @@ void frontend_draw_campaign_select_button(struct GuiButton *gbtn)
 {
     if (gbtn == NULL)
       return;
-    long btn_idx = gbtn->content.lval;
-    long i = frontend_selectlist_row_to_item_index(&campaign_select_list, gbtn);
+    int64_t btn_idx = gbtn->content.lval;
+    int64_t i = frontend_selectlist_row_to_item_index(&campaign_select_list, gbtn);
     struct GameCampaign* campgn = NULL;
     if ((i >= 0) && (i < campaigns_list.items_num))
       campgn = &campaigns_list.items[i];
@@ -341,7 +341,7 @@ void frontend_draw_campaign_select_button(struct GuiButton *gbtn)
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     LbTextSetFont(frontend_font[i]);
     // This text is a bit condensed - button size is smaller than text height
-    int tx_units_per_px = (gbtn->height * 13 / 11) * 16 / LbTextLineHeight();
+    int64_t tx_units_per_px = (gbtn->height * 13 / 11) * 16 / LbTextLineHeight();
     i = LbTextLineHeight() * tx_units_per_px / 16;
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, i);
     LbTextDrawResized(0, 0, tx_units_per_px, campgn->display_name);
@@ -355,7 +355,7 @@ void frontend_draw_campaign_select_button(struct GuiButton *gbtn)
  * (frontgui_screens.cpp), which iterates campaigns_list directly and
  * already has a real index, with no row button to decode one from.
  */
-void frontend_campaign_select_by_index(long i)
+void frontend_campaign_select_by_index(int64_t i)
 {
     struct GameCampaign* campgn = NULL;
     if ((i >= 0) && (i < campaigns_list.items_num))
@@ -383,7 +383,7 @@ void frontend_campaign_select(struct GuiButton *gbtn)
 {
     if (gbtn == NULL)
         return;
-    long i = frontend_selectlist_row_to_item_index(&campaign_select_list, gbtn);
+    int64_t i = frontend_selectlist_row_to_item_index(&campaign_select_list, gbtn);
     frontend_campaign_select_by_index(i);
 }
 
@@ -407,7 +407,7 @@ void frontend_campaign_select(struct GuiButton *gbtn)
  * comment) while the legacy click_event below keeps calling
  * frontend_set_state() directly, unchanged.
  */
-int frontend_land_selection_enter_resolve(void)
+int64_t frontend_land_selection_enter_resolve(void)
 {
     if (land_selection_highlighted_campaign == NULL)
         return -1;
@@ -432,7 +432,7 @@ int frontend_land_selection_enter_resolve(void)
 
 void frontend_land_selection_enter(struct GuiButton *gbtn)
 {
-    int next_state = frontend_land_selection_enter_resolve();
+    int64_t next_state = frontend_land_selection_enter_resolve();
     if (next_state >= 0)
         frontend_set_state((FrontendMenuState)next_state);
 }
@@ -487,18 +487,18 @@ void frontend_draw_land_selection_detail(struct GuiButton *gbtn)
     // that scale; LbTextDrawResized already word-wraps within
     // LbTextSetWindow's width, no extra wrapping needed.
     LbTextSetFont(frontend_font[1]);
-    int name_upp = (20 * 13 / 11) * 16 / LbTextLineHeight();
-    int name_line_h = LbTextLineHeight() * name_upp / 16;
-    long pad = 10 * name_upp / 16;
-    long inner_x = gbtn->scr_pos_x + pad;
-    long inner_w = gbtn->width - 2*pad;
+    int64_t name_upp = (20 * 13 / 11) * 16 / LbTextLineHeight();
+    int64_t name_line_h = LbTextLineHeight() * name_upp / 16;
+    int64_t pad = 10 * name_upp / 16;
+    int64_t inner_x = gbtn->scr_pos_x + pad;
+    int64_t inner_w = gbtn->width - 2*pad;
     LbTextSetWindow(inner_x, gbtn->scr_pos_y + pad, inner_w, name_line_h);
     LbTextDrawResized(0, 0, name_upp, name);
     if ((description != NULL) && (description[0] != '\0'))
     {
-        int desc_upp = max(4, name_upp / 2);
-        long desc_y = gbtn->scr_pos_y + pad + name_line_h + (4 * name_upp / 16);
-        long desc_h = gbtn->scr_pos_y + gbtn->height - pad - desc_y;
+        int64_t desc_upp = max(4, name_upp / 2);
+        int64_t desc_y = gbtn->scr_pos_y + pad + name_line_h + (4 * name_upp / 16);
+        int64_t desc_h = gbtn->scr_pos_y + gbtn->height - pad - desc_y;
         if (desc_h > 0)
         {
             LbTextSetWindow(inner_x, desc_y, inner_w, desc_h);
@@ -520,8 +520,8 @@ void frontend_draw_land_selection_detail(struct GuiButton *gbtn)
 
 void frontend_land_selection_enter_maintain(struct GuiButton *gbtn)
 {
-    int units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
-    long x = FE_LANDSEL_COL_X + frontend_menu_button_natural_width(FEBtn_MnuReturnToMain, units_per_px)
+    int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
+    int64_t x = FE_LANDSEL_COL_X + frontend_menu_button_natural_width(FEBtn_MnuReturnToMain, units_per_px)
         + FE_LANDSEL_BOTTOMROW_GAP * units_per_px / 16;
     gbtn->width = frontend_menu_button_natural_width(FEBtn_MnuEnterLand, units_per_px);
     gbtn->pos_x = x;
@@ -530,7 +530,7 @@ void frontend_land_selection_enter_maintain(struct GuiButton *gbtn)
 
 void frontend_land_selection_return_to_main_maintain(struct GuiButton *gbtn)
 {
-    int units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
+    int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
     gbtn->width = frontend_menu_button_natural_width(FEBtn_MnuReturnToMain, units_per_px);
     gbtn->pos_x = FE_LANDSEL_COL_X;
     gbtn->scr_pos_x = FE_LANDSEL_COL_X;
@@ -543,7 +543,7 @@ void frontend_land_selection_return_to_main_maintain(struct GuiButton *gbtn)
 // centrally (mirrors FeSt_CAMPAIGN_SELECT's), not this function.
 void frontend_freeplay_enter(struct GuiButton *gbtn)
 {
-    int next_state = frontend_freeplay_enter_resolve();
+    int64_t next_state = frontend_freeplay_enter_resolve();
     if (next_state >= 0)
         frontend_set_state((FrontendMenuState)next_state);
 }
@@ -556,7 +556,7 @@ void frontend_freeplay_return_to_main(struct GuiButton *gbtn)
 /** frontend_freeplay_enter's actual work, minus the state-transition call
  * itself -- see frontend_land_selection_enter_resolve's comment for why.
  */
-int frontend_freeplay_enter_resolve(void)
+int64_t frontend_freeplay_enter_resolve(void)
 {
     if (freeplay_highlighted_level <= 0)
         return -1;
@@ -589,8 +589,8 @@ int frontend_freeplay_enter_resolve(void)
 // selection's Enter/Return buttons -- Return on the left, Play on the right.
 void frontend_freeplay_enter_maintain(struct GuiButton *gbtn)
 {
-    int units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
-    long x = FE_LANDSEL_COL_X + frontend_menu_button_natural_width(FEBtn_MnuReturnToMain, units_per_px)
+    int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
+    int64_t x = FE_LANDSEL_COL_X + frontend_menu_button_natural_width(FEBtn_MnuReturnToMain, units_per_px)
         + FE_LANDSEL_BOTTOMROW_GAP * units_per_px / 16;
     gbtn->width = frontend_menu_button_natural_width(FEBtn_MnuPlayLevel, units_per_px);
     gbtn->pos_x = x;
@@ -599,7 +599,7 @@ void frontend_freeplay_enter_maintain(struct GuiButton *gbtn)
 
 void frontend_freeplay_return_to_main_maintain(struct GuiButton *gbtn)
 {
-    int units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
+    int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
     gbtn->width = frontend_menu_button_natural_width(FEBtn_MnuReturnToMain, units_per_px);
     gbtn->pos_x = FE_LANDSEL_COL_X;
     gbtn->scr_pos_x = FE_LANDSEL_COL_X;
@@ -621,18 +621,18 @@ void frontend_draw_freeplay_detail(struct GuiButton *gbtn)
     frontend_draw_land_selection_panel_bg(gbtn);
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     LbTextSetFont(frontend_font[1]);
-    int name_upp = (20 * 13 / 11) * 16 / LbTextLineHeight();
-    int name_line_h = LbTextLineHeight() * name_upp / 16;
-    long pad = 10 * name_upp / 16;
-    long inner_x = gbtn->scr_pos_x + pad;
-    long inner_w = gbtn->width - 2*pad;
+    int64_t name_upp = (20 * 13 / 11) * 16 / LbTextLineHeight();
+    int64_t name_line_h = LbTextLineHeight() * name_upp / 16;
+    int64_t pad = 10 * name_upp / 16;
+    int64_t inner_x = gbtn->scr_pos_x + pad;
+    int64_t inner_w = gbtn->width - 2*pad;
     LbTextSetWindow(inner_x, gbtn->scr_pos_y + pad, inner_w, name_line_h);
     LbTextDrawResized(0, 0, name_upp, name);
     if (lvinfo->description[0] != '\0')
     {
-        int desc_upp = max(4, name_upp / 2);
-        long desc_y = gbtn->scr_pos_y + pad + name_line_h + (4 * name_upp / 16);
-        long desc_h = gbtn->scr_pos_y + gbtn->height - pad - desc_y;
+        int64_t desc_upp = max(4, name_upp / 2);
+        int64_t desc_y = gbtn->scr_pos_y + pad + name_line_h + (4 * name_upp / 16);
+        int64_t desc_h = gbtn->scr_pos_y + gbtn->height - pad - desc_y;
         if (desc_h > 0)
         {
             LbTextSetWindow(inner_x, desc_y, inner_w, desc_h);
@@ -652,8 +652,8 @@ void frontend_campaign_select_update(void)
  */
 void frontend_draw_simple_scroll_track(struct GuiButton *gbtn)
 {
-    long track_w = max(4L, gbtn->width / 3);
-    long track_x = gbtn->scr_pos_x + (gbtn->width - track_w) / 2;
+    int64_t track_w = max(4, gbtn->width / 3);
+    int64_t track_x = gbtn->scr_pos_x + (gbtn->width - track_w) / 2;
     LbDrawBox(track_x, gbtn->scr_pos_y, track_w, gbtn->height, TbPixel_RGB(0, 0, 0));
 }
 
@@ -680,7 +680,7 @@ static void freeplay_highlight_mappack(struct GameCampaign *campgn)
     level_select_list.scroll_offset = 0;
     frontend_level_list_load();
     freeplay_highlighted_level = 0;
-    unsigned long levels_count;
+    uint64_t levels_count;
     LevelNumber *levels = frontend_freeplay_active_levels(&levels_count);
     if (levels_count > 0)
     {
@@ -720,7 +720,7 @@ struct CampaignsList *frontend_freeplay_active_mappacks_list(void)
 // The old NETLAND_VIEW screen (front_landview_multiplayer.c's
 // update_net_ensigns_visibility, via first_multiplayer_level()/
 // next_multiplayer_level()) always read multi_levels for this reason.
-LevelNumber *frontend_freeplay_active_levels(unsigned long *out_count)
+LevelNumber *frontend_freeplay_active_levels(uint64_t *out_count)
 {
     if (frontend_freeplay_is_skirmish())
     {
@@ -779,7 +779,7 @@ void frontend_mappack_select_maintain(struct GuiButton *gbtn)
 // rather than committing/transitioning screens -- the merged Free play
 // screen shows both lists together. Shared the same way
 // frontend_campaign_select_by_index is -- see its comment.
-void frontend_mappack_select_by_index(long i)
+void frontend_mappack_select_by_index(int64_t i)
 {
     struct CampaignsList *list = frontend_freeplay_active_mappacks_list();
     struct GameCampaign *campgn = NULL;
@@ -796,7 +796,7 @@ void frontend_mappack_select(struct GuiButton *gbtn)
 {
     if (gbtn == NULL)
         return;
-    long i = frontend_selectlist_row_to_item_index(&mappack_select_list, gbtn);
+    int64_t i = frontend_selectlist_row_to_item_index(&mappack_select_list, gbtn);
     frontend_mappack_select_by_index(i);
 }
 
@@ -852,7 +852,7 @@ void frontend_mp_mappack_select_maintain(struct GuiButton *gbtn)
 // all; it routes straight into the merged Free play screen instead (see
 // frontend_start_skirmish_resolve(), frontend.cpp, and
 // frontend_mappack_list_load()'s own comment below).
-int frontend_mp_mappack_select_resolve(long i)
+int64_t frontend_mp_mappack_select_resolve(int64_t i)
 {
     struct GameCampaign *campgn = NULL;
     if ((i >= 0) && (i < mp_mappacks_list.items_num))
@@ -871,13 +871,13 @@ void frontend_mp_mappack_select(struct GuiButton *gbtn)
 {
     if (gbtn == NULL)
         return;
-    long i = frontend_selectlist_row_to_item_index(&mp_mappack_select_list, gbtn);
-    int next_state = frontend_mp_mappack_select_resolve(i);
+    int64_t i = frontend_selectlist_row_to_item_index(&mp_mappack_select_list, gbtn);
+    int64_t next_state = frontend_mp_mappack_select_resolve(i);
     if (next_state >= 0)
         frontend_set_state((FrontendMenuState)next_state);
 }
 
-int frontend_back_from_mp_mappack_list_target(void)
+int64_t frontend_back_from_mp_mappack_list_target(void)
 {
     return FeSt_NET_START;
 }
@@ -890,8 +890,8 @@ void frontend_back_from_mp_mappack_list(struct GuiButton *gbtn)
 void frontend_draw_mp_mappack_select_button(struct GuiButton *gbtn)
 {
     struct GameCampaign *campgn;
-    long btn_idx;
-    long i;
+    int64_t btn_idx;
+    int64_t i;
     if (gbtn == NULL)
       return;
     btn_idx = gbtn->content.lval;
@@ -908,7 +908,7 @@ void frontend_draw_mp_mappack_select_button(struct GuiButton *gbtn)
 
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     LbTextSetFont(frontend_font[i]);
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     // This text is a bit condensed - button size is smaller than text height
     tx_units_per_px = (gbtn->height*13/11) * 16 / LbTextLineHeight();
     i = LbTextLineHeight() * tx_units_per_px / 16;
@@ -919,8 +919,8 @@ void frontend_draw_mp_mappack_select_button(struct GuiButton *gbtn)
 void frontend_draw_mappack_select_button(struct GuiButton *gbtn)
 {
     struct GameCampaign *campgn;
-    long btn_idx;
-    long i;
+    int64_t btn_idx;
+    int64_t i;
     if (gbtn == NULL)
       return;
     btn_idx = gbtn->content.lval;
@@ -937,7 +937,7 @@ void frontend_draw_mappack_select_button(struct GuiButton *gbtn)
 
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     LbTextSetFont(frontend_font[i]);
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     // This text is a bit condensed - button size is smaller than text height
     tx_units_per_px = (gbtn->height*13/11) * 16 / LbTextLineHeight();
     i = LbTextLineHeight() * tx_units_per_px / 16;
@@ -991,10 +991,10 @@ void frontend_campaign_list_load(void)
     // (is_campaign_loaded()/campaign.fname) if it's still in this list,
     // so the screen picks up exactly where gameplay left off; only fall
     // back to index 0 when there's genuinely nothing loaded yet.
-    long idx = 0;
+    int64_t idx = 0;
     if (is_campaign_loaded() && campaign.fname[0] != '\0')
     {
-        for (long i = 0; i < campaigns_list.items_num; i++)
+        for (int64_t i = 0; i < campaigns_list.items_num; i++)
         {
             if (strcmp(campaigns_list.items[i].fname, campaign.fname) == 0)
             {
@@ -1009,8 +1009,8 @@ void frontend_campaign_list_load(void)
 
 void frontend_draw_variable_mappack_exit_button(struct GuiButton *gbtn)
 {
-    long str_idx = FEBtn_MnuReturnToFreePlay;
-    unsigned short mnu_idx = 34; //map pack selection screen
+    int64_t str_idx = FEBtn_MnuReturnToFreePlay;
+    int64_t mnu_idx = 34; //map pack selection screen
     if (mappacks_list.items_num == 1)
     {
         str_idx = FEBtn_MnuReturnToMain;

@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-SetupAvailKey akey(int kind, int player, const char *item)
+SetupAvailKey akey(int64_t kind, int64_t player, const char *item)
 {
     SetupAvailKey k;
     k.kind = kind;
@@ -24,7 +24,7 @@ SetupAvailKey akey(int kind, int player, const char *item)
     return k;
 }
 
-SetupAvailValue aval(int a, int b)
+SetupAvailValue aval(int64_t a, int64_t b)
 {
     SetupAvailValue v;
     v.a = a;
@@ -57,7 +57,7 @@ const char *const kBase =
     "IF(PLAYER0,ALL_DUNGEONS_DESTROYED == 1)\n\tWIN_GAME\nENDIF\n"
     "QUICK_MESSAGE(0,\"hi\",PLAYER0)\n";
 
-SetupBuildOptions opts(int players = 2)
+SetupBuildOptions opts(int64_t players = 2)
 {
     SetupBuildOptions o;
     o.players = players;
@@ -239,7 +239,7 @@ TEST_CASE("validators: empty win set, budgets, ranges, players, names", "[kfx_co
     SetupChoices names = script_setup_default_choices(a);
     names.values.avail[akey(AvailKind_Room, 0, "NO_SUCH_ROOM")] = aval(1, 1);
     SetupBuildOptions named = opts();
-    named.item_exists = [](int, const std::string &item) { return item != "NO_SUCH_ROOM"; };
+    named.item_exists = [](int64_t, const std::string &item) { return item != "NO_SUCH_ROOM"; };
     CHECK(has_issue(build(names, named).issues, SetupIssue_Error, "NO_SUCH_ROOM"));
     CHECK_FALSE(has_issue(build(names).issues, SetupIssue_Error, "NO_SUCH_ROOM")); // no callback -> not checked
 
@@ -251,7 +251,7 @@ TEST_CASE("validators: empty win set, budgets, ranges, players, names", "[kfx_co
 TEST_CASE("Replace budget accounts for the blocks it removes", "[kfx_config][script_prelude]") {
     // 12 shipped-style win blocks fill the win budget; replacing them with 12 new ones is fine.
     std::string s = "LEVEL_VERSION(1)\n";
-    for (int i = 0; i < 12; i++)
+    for (int64_t i = 0; i < 12; i++)
         s += "IF(PLAYER0,ALL_DUNGEONS_DESTROYED == 1)\n WIN_GAME\nENDIF\n";
     const SetupAnalysis a = script_setup_analyse(s, 2);
     REQUIRE(a.win_count == 12);
@@ -303,7 +303,7 @@ TEST_CASE("corpus: the prelude reads back to the level's own state", "[kfx_confi
         files++;
 
         const SetupAnalysis a = script_setup_analyse(text, 4);
-        for (int replace = 0; replace < 2; replace++)
+        for (int64_t replace = 0; replace < 2; replace++)
         {
             SetupChoices c = script_setup_default_choices(a);
             c.replace_win_lose = (replace != 0);

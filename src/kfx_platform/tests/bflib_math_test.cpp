@@ -25,9 +25,9 @@ TEST_CASE("LbSqrL treats non-positive input as zero", "[kfx_platform][bflib_math
 }
 
 TEST_CASE("LbLerp interpolates linearly between two values", "[kfx_platform][bflib_math]") {
-    CHECK_THAT(LbLerp(0.0f, 10.0f, 0.5f), WithinAbs(5.0f, 0.0001f));
-    CHECK_THAT(LbLerp(2.0f, 4.0f, 0.0f), WithinAbs(2.0f, 0.0001f));
-    CHECK_THAT(LbLerp(2.0f, 4.0f, 1.0f), WithinAbs(4.0f, 0.0001f));
+    CHECK_THAT(LbLerp(0.0, 10.0, 0.5), WithinAbs(5.0, 0.0001));
+    CHECK_THAT(LbLerp(2.0, 4.0, 0.0), WithinAbs(2.0, 0.0001));
+    CHECK_THAT(LbLerp(2.0, 4.0, 1.0), WithinAbs(4.0, 0.0001));
 }
 
 // LbMathOperation is kfx_game's lvl_script_conditions.c::get_condition_status's
@@ -70,31 +70,26 @@ TEST_CASE("LbMathOperation falls back to first_operand for an unrecognized opkin
     CHECK(LbMathOperation(MOp_UNDEFINED, 42, 7) == 42);
 }
 
-// The simulation's random numbers must be identical on every platform (multiplayer peers on 32-bit Windows and
-// 64-bit Linux run the same game). Callers do 32-bit unsigned arithmetic on the result -- `RANDOM(11) - 5`,
-// `(RANDOM(20) - 10) / 2` -- and pass ints that may be negative as the range, so range/result are uint32_t.
-// The golden numbers below were produced by this same code built with `gcc -m32` (unsigned long == 32 bits).
-TEST_CASE("LbRandomSeries has 32-bit unsigned semantics on every ABI", "[kfx_platform][bflib_math][lp64]") {
-    static_assert(std::is_same<decltype(LbRandomSeries(1, (uint32_t *)nullptr, "", 0)), uint32_t>::value,
-        "result must be 32-bit like the Windows build's unsigned long");
+// The simulation's random numbers must be identical on every platform. The state is a 32-bit LCG + rotate
+// (32 bits is part of the algorithm), the range and the result are int64_t like every other integer in the game,
+// so `RANDOM(11) - 5` is ordinary signed arithmetic. Golden sequence produced by the original 32-bit build.
+TEST_CASE("LbRandomSeries keeps the original 32-bit sequence and returns signed 64-bit values", "[kfx_platform][bflib_math]") {
+    static_assert(std::is_same<decltype(LbRandomSeries(1, (uint32_t *)nullptr, "", 0)), int64_t>::value,
+        "result is int64_t");
 
     uint32_t seed = 1;
-    const uint32_t expect_seq[5] = {18, 91, 75, 84, 91};
+    const int64_t expect_seq[5] = {18, 91, 75, 84, 91};
     for (int i = 0; i < 5; i++)
         CHECK(LbRandomSeries(100, &seed, "t", 0) == expect_seq[i]);
     CHECK(seed == 3921238491u);
 
-    // A negative range is a huge unsigned range (2^32 - 1e9), not a 2^64-sized one: this seed's next value
-    // (3760193542) is above it and wraps.
-    seed = 5;
-    CHECK(LbRandomSeries((uint32_t)-1000000000L, &seed, "t", 0) == 465226246u);
-
-    // The result wraps in 32 bits when a caller subtracts from it.
+    // Arithmetic on the result is signed: (rnd(20) - 10) / 2 is in [-5, 4].
     seed = 3;
-    long halved = (long)((LbRandomSeries(20, &seed, "t", 0) - 10) / 2);
-    CHECK(halved == 2147483643L);
+    CHECK((LbRandomSeries(20, &seed, "t", 0) - 10) / 2 == -5);
 
+    // A non-positive range draws nothing and leaves the seed alone.
     seed = 7;
-    CHECK(LbRandomSeries(0, &seed, "t", 0) == 0); // zero range: no draw, seed untouched
+    CHECK(LbRandomSeries(0, &seed, "t", 0) == 0);
+    CHECK(LbRandomSeries(-5, &seed, "t", 0) == 0);
     CHECK(seed == 7);
 }

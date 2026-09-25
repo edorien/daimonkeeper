@@ -49,14 +49,14 @@
  * @param thing The creature.
  * @return
  */
-short at_kinky_torture_room(struct Thing *thing)
+int64_t at_kinky_torture_room(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_KINKY_TORTURE), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s",room_code_name(room->kind),(int)room->owner,thing_model_name(thing));
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s",room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing));
         set_start_state(thing);
         return 0;
     }
@@ -81,14 +81,14 @@ short at_kinky_torture_room(struct Thing *thing)
  * @param thing The creature.
  * @return
  */
-short at_torture_room(struct Thing *thing)
+int64_t at_torture_room(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_PAINFUL_TORTURE), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s",room_code_name(room->kind),(int)room->owner,thing_model_name(thing));
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s",room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing));
         set_start_state(thing);
         return 0;
     }
@@ -110,7 +110,7 @@ short at_torture_room(struct Thing *thing)
     return 1;
 }
 
-short cleanup_torturing(struct Thing *creatng)
+int64_t cleanup_torturing(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     if (cctrl->tortured.assigned_torturer > 0)
@@ -130,10 +130,10 @@ short cleanup_torturing(struct Thing *creatng)
     return 1;
 }
 
-long setup_torture_move_to_device(struct Thing *creatng, struct Room *room, CreatureJob jobpref)
+int64_t setup_torture_move_to_device(struct Thing *creatng, struct Room *room, CreatureJob jobpref)
 {
-    unsigned long k;
-    long n = THING_RANDOM(creatng, room->slabs_count);
+    uint64_t k;
+    int64_t n = THING_RANDOM(creatng, room->slabs_count);
     SlabCodedCoords slbnum = room->slabs_list;
     for (k = n; k > 0; k--)
     {
@@ -142,7 +142,7 @@ long setup_torture_move_to_device(struct Thing *creatng, struct Room *room, Crea
         slbnum = get_next_slab_number_in_room(slbnum);
     }
     if (slbnum == 0) {
-        ERRORLOG("Taking random slab (%d/%d) in %s index %d failed - internal inconsistency.",(int)n,(int)room->slabs_count,room_code_name(room->kind),(int)room->index);
+        ERRORLOG("Taking random slab (%" PRId64 "/%" PRId64 ") in %s index %" PRId64 " failed - internal inconsistency.",(int64_t)n,(int64_t)room->slabs_count,room_code_name(room->kind),(int64_t)room->index);
         slbnum = room->slabs_list;
     }
     k = 0;
@@ -177,7 +177,7 @@ long setup_torture_move_to_device(struct Thing *creatng, struct Room *room, Crea
     return 0;
 }
 
-long process_torture_visuals(struct Thing *creatng, struct Room *room, CreatureJob jobpref)
+int64_t process_torture_visuals(struct Thing *creatng, struct Room *room, CreatureJob jobpref)
 {
     struct CreatureControl *cctrl;
     struct Thing *sectng;
@@ -235,7 +235,7 @@ long process_torture_visuals(struct Thing *creatng, struct Room *room, CreatureJ
     return CrStRet_Unchanged;
 }
 
-short kinky_torturing(struct Thing *thing)
+int64_t kinky_torturing(struct Thing *thing)
 {
     TRACE_THING(thing);
     struct Room* room = get_room_thing_is_on(thing);
@@ -341,7 +341,7 @@ void convert_tortured_creature_owner(struct Thing *creatng, PlayerNumber new_own
     }
 }
 
-long reveal_players_map_to_player(struct Thing *thing, PlayerNumber benefit_plyr_idx)
+int64_t reveal_players_map_to_player(struct Thing *thing, PlayerNumber benefit_plyr_idx)
 {
     SlabCodedCoords slb_num;
     struct SlabMap *slb;
@@ -378,9 +378,9 @@ long reveal_players_map_to_player(struct Thing *thing, PlayerNumber benefit_plyr
         }
     }
     struct USPOINT_2D* revealed_pts = (struct USPOINT_2D*)malloc((kfx_sim_state.map_tiles_y * kfx_sim_state.map_tiles_x) * sizeof(struct USPOINT_2D));
-    unsigned int pts_to_reveal = 32;
-    unsigned int pts_count = 0;
-    unsigned int pt_idx = 0;
+    uint64_t pts_to_reveal = 32;
+    uint64_t pts_count = 0;
+    uint64_t pt_idx = 0;
 
     slb_x = subtile_slab(revealstl_x);
     slb_y = subtile_slab(revealstl_y);
@@ -472,7 +472,7 @@ void update_torture_points(const struct Thing *thing, const struct Room *room)
 {
     struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
 
-    int32_t turn_val = TORTURE_ACCUM_FAC;
+    int64_t turn_val = TORTURE_ACCUM_FAC;
 
     // effect same as process_work_speed_on_work_value and get_creature_instance_times
     // and see the comment of TORTURE_ACCUM_FAC macro
@@ -492,10 +492,10 @@ void update_torture_points(const struct Thing *thing, const struct Room *room)
  * After a creature is broken from torture and it does not convert, it needs to be broken again starting from the time_turn value.
  * Increases it with a multiplecation factor to prevent rounding errors.
  */
-void set_torture_points_to_value(const struct Thing *thing, int time_turn)
+void set_torture_points_to_value(const struct Thing *thing, int64_t time_turn)
 {
     struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
-    cctrl->tortured.accumulated_torture_points = (int32_t)time_turn * TORTURE_ACCUM_FAC * ROOM_EFFICIENCY_MAX;
+    cctrl->tortured.accumulated_torture_points = (int64_t)time_turn * TORTURE_ACCUM_FAC * ROOM_EFFICIENCY_MAX;
 }
 
 /**
@@ -504,10 +504,10 @@ void set_torture_points_to_value(const struct Thing *thing, int time_turn)
  * @param thing The victim creature.
  * @param room The torture chamber room.
  */
-long compute_torture_convert_time(const struct Thing *thing)
+int64_t compute_torture_convert_time(const struct Thing *thing)
 {
     struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
-    long convert_time = (long)cctrl->tortured.accumulated_torture_points / (TORTURE_ACCUM_FAC * ROOM_EFFICIENCY_MAX);
+    int64_t convert_time = (int64_t)cctrl->tortured.accumulated_torture_points / (TORTURE_ACCUM_FAC * ROOM_EFFICIENCY_MAX);
     return convert_time;
 }
 
@@ -516,7 +516,7 @@ CrCheckRet process_torture_function(struct Thing *creatng)
     struct Room *room = get_room_creature_works_in(creatng);
     if (!room_still_valid_as_type_for_thing(room, RoRoF_Torture, creatng))
     {
-        WARNLOG("Room %s owned by player %d is bad work place for %s owned by played %d", room_code_name(room->kind), (int)room->owner, thing_model_name(creatng), (int)creatng->owner);
+        WARNLOG("Room %s owned by player %" PRId64 " is bad work place for %s owned by played %" PRId64, room_code_name(room->kind), (int64_t)room->owner, thing_model_name(creatng), (int64_t)creatng->owner);
         set_start_state(creatng);
         return CrCkRet_Continue;
     }
@@ -530,11 +530,11 @@ CrCheckRet process_torture_function(struct Thing *creatng)
     struct CreatureModelConfig *crconf = creature_stats_get_from_thing(creatng);
     struct CreatureControl *cctrl = creature_control_get_from_thing(creatng);
     anger_apply_anger_to_creature(creatng, crconf->annoy_in_torture, AngR_Other, 1);
-    if ((long)get_gameturn() >= cctrl->turns_at_job + kfx_config_state.conf.rules[room->owner].health.turns_per_torture_health_loss)
+    if ((int64_t)get_gameturn() >= cctrl->turns_at_job + kfx_config_state.conf.rules[room->owner].health.turns_per_torture_health_loss)
     {
         HitPoints torture_damage = compute_creature_max_health(kfx_config_state.conf.rules[room->owner].health.torture_health_loss, cctrl->exp_level);
         remove_health_from_thing_and_display_health(creatng, torture_damage);
-        cctrl->turns_at_job = (long)get_gameturn();
+        cctrl->turns_at_job = (int64_t)get_gameturn();
     }
     // Check if we should convert the creature into ghost.
     if ((creatng->health < 0) && (kfx_config_state.conf.rules[room->owner].rooms.ghost_convert_chance > 0))
@@ -553,19 +553,19 @@ CrCheckRet process_torture_function(struct Thing *creatng)
 
     update_torture_points(creatng, room);
     // Torture must take some time before it has any affect.
-    long convert_time = compute_torture_convert_time(creatng);
+    int64_t convert_time = compute_torture_convert_time(creatng);
     if ((convert_time < crconf->torture_break_time) || (cctrl->tortured.assigned_torturer == 0))
     {
         return CrCkRet_Available;
     }
-    long broke_chance = (convert_time - (long)crconf->torture_break_time)/64 + 1;
+    int64_t broke_chance = (convert_time - (int64_t)crconf->torture_break_time)/64 + 1;
     // After that, every time broke chance is hit, do something.
     if (THING_RANDOM(creatng, 100) < broke_chance)
     {
-        if (THING_RANDOM(creatng, 100) >= (int)kfx_config_state.conf.rules[room->owner].rooms.torture_death_chance)
+        if (THING_RANDOM(creatng, 100) >= (int64_t)kfx_config_state.conf.rules[room->owner].rooms.torture_death_chance)
         {
             SYNCDBG(4, "The %s has been broken", thing_model_name(creatng));
-            if (THING_RANDOM(creatng, 100) < (int)kfx_config_state.conf.rules[room->owner].rooms.torture_convert_chance)
+            if (THING_RANDOM(creatng, 100) < (int64_t)kfx_config_state.conf.rules[room->owner].rooms.torture_convert_chance)
             { // Converting creature and ending the torture.
                 convert_tortured_creature_owner(creatng, room->owner);
                 return CrCkRet_Continue;

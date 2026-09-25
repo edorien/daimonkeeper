@@ -317,8 +317,8 @@ void editor_script_frame(void)
         // Leaves room below the text area for the button row -- ImGui's own
         // "negative size means leave this many pixels free" convention,
         // same one TextEditor::Render()'s own size parameter follows.
-        const float list_h = (s_validated || s_lua_validated) ? 90.0f : 0.0f;
-        const float below = 32.0f + list_h;
+        const double list_h = (s_validated || s_lua_validated) ? 90.0 : 0.0;
+        const double below = 32.0 + list_h;
         bool on_txt_tab = true;
         bool on_lua_tab = false;
         if (ImGui::BeginTabBar("##EditorScriptTabs"))
@@ -356,7 +356,7 @@ void editor_script_frame(void)
                     ImGui::TextUnformatted(s_lua_status.empty()
                         ? "Runs before the .txt script; setup you put in OnGameStart() runs after it."
                         : s_lua_status.c_str());
-                    s_lua_editor.Render("##EditorLuaText", ImVec2(0, -(below + 40.0f)));
+                    s_lua_editor.Render("##EditorLuaText", ImVec2(0, -(below + 40.0)));
                     if (FeButton("Open required file", ImVec2(180, 0)))
                         open_required_module();
                     ImGui::SameLine();
@@ -399,7 +399,7 @@ void editor_script_frame(void)
                 {
                     on_txt_tab = false;
                     ImGui::TextUnformatted(s_lua_status.empty() ? m.path.c_str() : s_lua_status.c_str());
-                    m.editor->Render(("##EditorLuaMod" + m.path).c_str(), ImVec2(0, -(below + 40.0f)));
+                    m.editor->Render(("##EditorLuaMod" + m.path).c_str(), ImVec2(0, -(below + 40.0)));
                     if (m.editable)
                     {
                         if (FeButton("Save file", ImVec2(140, 0)))
@@ -430,7 +430,7 @@ void editor_script_frame(void)
             ImGui::EndTabBar();
             for (size_t mi = s_modules.size(); mi-- > 0;)
                 if (!s_modules[mi].open)
-                    s_modules.erase(s_modules.begin() + (long)mi);
+                    s_modules.erase(s_modules.begin() + (int64_t)mi);
         }
         // Problems (from Validate) for whichever tab is showing.
         {
@@ -450,7 +450,7 @@ void editor_script_frame(void)
                         snprintf(row, sizeof(row), "%s line %zu: %s",
                             (issues[i].severity == ScrIssue_Error) ? "Error  " : "Warning", issues[i].line + 1,
                             issues[i].message.c_str());
-                        ImGui::PushID((int)i);
+                        ImGui::PushID((int64_t)i);
                         if (ImGui::Selectable(row))
                         {
                             ed.SelectLine(issues[i].line);
@@ -461,7 +461,7 @@ void editor_script_frame(void)
                 }
                 ImGui::EndChild();
             }
-            else if (list_h > 0.0f)
+            else if (list_h > 0.0)
                 ImGui::Dummy(ImVec2(0, list_h));
         }
 

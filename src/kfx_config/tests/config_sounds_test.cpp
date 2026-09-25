@@ -87,9 +87,9 @@ TEST_CASE_METHOD(ResetSoundState, "load_sounds_config_file's [speech] section st
 TEST_CASE_METHOD(ResetConfigReloadCallbacks, "load_sounds_config_file's [system] section forwards SpeechQueueLimit to config_reload_callbacks->set_speech_queue_limit", "[kfx_config][config_sounds]") {
     ResetSoundState::reset();
     struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static int last_limit = -1;
+    static int64_t last_limit = -1;
     last_limit = -1;
-    fake.set_speech_queue_limit = [](int limit) { last_limit = limit; };
+    fake.set_speech_queue_limit = [](int64_t limit) { last_limit = limit; };
     set_config_reload_callbacks(&fake);
 
     REQUIRE(keeper_sounds_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/sounds_minimal.cfg", 0));

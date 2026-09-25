@@ -74,7 +74,7 @@ FTestActionResult ftest_creature_barracks_action001__setup(struct FTestActionArg
 
     if (!ftest_util_replace_slabs(room_slb_x, room_slb_y, room_slb_x + BARRACKS_SIZE, room_slb_y + BARRACKS_SIZE, SlbT_BARRACKS, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build barracks room at slab (%d,%d)", room_slb_x, room_slb_y);
+        FTEST_FAIL_TEST("Failed to build barracks room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(room_slb_x), (int64_t)(room_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     set_room_available(PLAYER0, RoK_BARRACKS, 1, 1);
@@ -96,7 +96,7 @@ FTestActionResult ftest_creature_barracks_action001__setup(struct FTestActionArg
     }
 
     CreatureJob barrack_job = (CreatureJob)get_id(creaturejob_desc, "BARRACK");
-    if ((long)barrack_job == -1)
+    if ((int64_t)barrack_job == -1)
     {
         FTEST_FAIL_TEST("Failed to resolve BARRACK job id");
         return FTRs_Go_To_Next_Action;
@@ -132,7 +132,7 @@ FTestActionResult ftest_creature_barracks_action002__wait_for_barracking(struct 
 
     if (creature->active_state == CrSt_AtBarrackRoom || creature->active_state == CrSt_Barracking)
     {
-        FTESTLOG("Creature reached barrack state %d at turn %d", (int)creature->active_state, get_gameturn());
+        FTESTLOG("Creature reached barrack state %" PRId64 " at turn %" PRId64, (int64_t)creature->active_state, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -141,7 +141,7 @@ FTestActionResult ftest_creature_barracks_action002__wait_for_barracking(struct 
     // creature_states.c) only re-fires every 128 turns per creature.
     if (get_gameturn() >= args->intended_start_at_game_turn + 600)
     {
-        FTEST_FAIL_TEST("Creature never reached CrSt_AtBarrackRoom/CrSt_Barracking within the turn budget (active_state=%d)", (int)creature->active_state);
+        FTEST_FAIL_TEST("Creature never reached CrSt_AtBarrackRoom/CrSt_Barracking within the turn budget (active_state=%" PRId64 ")", (int64_t)creature->active_state);
         return FTRs_Go_To_Next_Action;
     }
 

@@ -60,7 +60,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_creaturetypes_config_file(const char *fname, unsigned short flags);
+static TbBool load_creaturetypes_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_creaturetp_file_data = {
     .filename = "creature.cfg",
@@ -269,16 +269,16 @@ ThingModel parse_creature_name(const char *creature_name)
 // Moved from kfx_sim's creature_graphics.c (stage 13.3) -- purely a
 // kfx_config_state.conf.crtr_conf.creature_graphics[] write, no real
 // kfx_sim dependency. See docs/refactor/stage-13-enforce-and-document.md.
-void set_creature_model_graphics(long crmodel, unsigned short seq_idx, unsigned long val)
+void set_creature_model_graphics(int64_t crmodel, int64_t seq_idx, uint64_t val)
 {
     if (seq_idx >= CREATURE_GRAPHICS_INSTANCES)
     {
-        ERRORLOG("Invalid model %ld graphics sequence %u", crmodel, seq_idx);
+        ERRORLOG("Invalid model %" PRId64 " graphics sequence %" PRIu64, (int64_t)(crmodel), (uint64_t)(seq_idx));
         return;
     }
     if ((crmodel < 0) || (crmodel >= kfx_config_state.conf.crtr_conf.model_count))
     {
-        ERRORLOG("Invalid model %ld graphics sequence %u", crmodel, seq_idx);
+        ERRORLOG("Invalid model %" PRId64 " graphics sequence %" PRIu64, (int64_t)(crmodel), (uint64_t)(seq_idx));
         return;
     }
     kfx_config_state.conf.crtr_conf.creature_graphics[crmodel][seq_idx] = val;
@@ -382,58 +382,58 @@ TbBool creature_stats_invalid(const struct CreatureModelConfig *crconf)
 
 void check_and_auto_fix_stats(void)
 {
-    SYNCDBG(8,"Starting for %d models",(int)kfx_config_state.conf.crtr_conf.model_count);
-    for (long model = 0; model < kfx_config_state.conf.crtr_conf.model_count; model++)
+    SYNCDBG(8,"Starting for %" PRId64 " models",(int64_t)kfx_config_state.conf.crtr_conf.model_count);
+    for (int64_t model = 0; model < kfx_config_state.conf.crtr_conf.model_count; model++)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(model);
         if ( (crconf->lair_size <= 0) && (crconf->toking_recovery <= 0) && (crconf->heal_requirement != 0) )
         {
-            ERRORLOG("Creature model %d (%s) has no LairSize and no TokingRecovery but has HealRequirment - Fixing", (int)model, creature_code_name(model));
+            ERRORLOG("Creature model %" PRId64 " (%s) has no LairSize and no TokingRecovery but has HealRequirment - Fixing", (int64_t)model, creature_code_name(model));
             crconf->heal_requirement = 0;
         }
         if (crconf->heal_requirement > crconf->heal_threshold)
         {
-            ERRORLOG("Creature model %d (%s) Heal Requirment > Heal Threshold - Fixing", (int)model, creature_code_name(model));
+            ERRORLOG("Creature model %" PRId64 " (%s) Heal Requirment > Heal Threshold - Fixing", (int64_t)model, creature_code_name(model));
             crconf->heal_threshold = crconf->heal_requirement;
         }
         if ( (crconf->hunger_rate != 0) && (crconf->hunger_fill == 0) )
         {
-            ERRORLOG("Creature model %d (%s) HungerRate > 0 & Hunger Fill = 0 - Fixing", (int)model, creature_code_name(model));
+            ERRORLOG("Creature model %" PRId64 " (%s) HungerRate > 0 & Hunger Fill = 0 - Fixing", (int64_t)model, creature_code_name(model));
             crconf->hunger_fill = 1;
         }
         if ((crconf->grow_up >= kfx_config_state.conf.crtr_conf.model_count) && !(crconf->grow_up == CREATURE_NOT_A_DIGGER))
         {
-            ERRORLOG("Creature model %d (%s) Invalid GrowUp model - Fixing", (int)model, creature_code_name(model));
+            ERRORLOG("Creature model %" PRId64 " (%s) Invalid GrowUp model - Fixing", (int64_t)model, creature_code_name(model));
             crconf->grow_up = 0;
         }
         if (crconf->grow_up > 0)
         {
             if (crconf->grow_up_level > CREATURE_MAX_LEVEL)
             {
-                ERRORLOG("Creature model %d (%s) GrowUp & GrowUpLevel invalid - Fixing", (int)model, creature_code_name(model));
+                ERRORLOG("Creature model %" PRId64 " (%s) GrowUp & GrowUpLevel invalid - Fixing", (int64_t)model, creature_code_name(model));
                 crconf->grow_up_level = CREATURE_MAX_LEVEL;
             }
         }
         if (crconf->rebirth > CREATURE_MAX_LEVEL)
         {
-            ERRORLOG("Creature model %d (%s) Rebirth Invalid - Fixing", (int)model, creature_code_name(model));
+            ERRORLOG("Creature model %" PRId64 " (%s) Rebirth Invalid - Fixing", (int64_t)model, creature_code_name(model));
             crconf->rebirth = 0;
         }
-        for (long i = 0; i < LEARNED_INSTANCES_COUNT; i++)
+        for (int64_t i = 0; i < LEARNED_INSTANCES_COUNT; i++)
         {
-            long n = crconf->learned_instance_level[i];
+            int64_t n = crconf->learned_instance_level[i];
             if (crconf->learned_instance_id[i] != CREATURE_INSTANCE_NULL)
             {
                 if ((n < 1) || (n > CREATURE_MAX_LEVEL))
                 {
-                    ERRORLOG("Creature model %d (%s) Learn Level for Instance slot %d Invalid - Fixing", (int)model, creature_code_name(model), (int)(i+1));
+                    ERRORLOG("Creature model %" PRId64 " (%s) Learn Level for Instance slot %" PRId64 " Invalid - Fixing", (int64_t)model, creature_code_name(model), (int64_t)(i+1));
                     crconf->learned_instance_level[i] = 1;
                 }
             } else
             {
                 if (n != 0)
                 {
-                    ERRORLOG("Creature model %d (%s) Learn Level for Empty Instance slot %d - Fixing", (int)model, creature_code_name(model), (int)(i+1));
+                    ERRORLOG("Creature model %" PRId64 " (%s) Learn Level for Empty Instance slot %" PRId64 " - Fixing", (int64_t)model, creature_code_name(model), (int64_t)(i+1));
                     crconf->learned_instance_level[i] = 0;
                 }
             }
@@ -445,7 +445,7 @@ void check_and_auto_fix_stats(void)
 
 void init_creature_model_stats(ThingModel crmodel)
 {
-    int n;
+    int64_t n;
     struct CreatureModelConfig *crconf = creature_stats_get(crmodel);
     // Attributes block.
     crconf->health = 100;
@@ -582,7 +582,7 @@ void init_creature_model_stats(ThingModel crmodel)
 /* Initialize all creature model stats, called only once when first loading a map. */
 void init_all_creature_model_stats(void)
 {
-    for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+    for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
     {
         init_creature_model_stats(i);
     }
@@ -590,9 +590,9 @@ void init_all_creature_model_stats(void)
 
 void init_creature_model_graphics(void)
 {
-    for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+    for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
     {
-        for (int k = 0; k < CREATURE_GRAPHICS_INSTANCES; k++)
+        for (int64_t k = 0; k < CREATURE_GRAPHICS_INSTANCES; k++)
         {
             kfx_config_state.conf.crtr_conf.creature_graphics[i][k] = -1;
         }
@@ -625,9 +625,9 @@ const char *creature_code_name(ThingModel crmodel)
  * @param name
  * @return
  */
-long creature_model_id(const char * name)
+int64_t creature_model_id(const char * name)
 {
-    for (int i = 0; i < kfx_config_state.conf.crtr_conf.model_count; ++i)
+    for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.model_count; ++i)
     {
         if (strncmp(name, kfx_config_state.conf.crtr_conf.model[i].name, COMMAND_WORD_LEN) == 0) {
             return i;
@@ -637,7 +637,7 @@ long creature_model_id(const char * name)
     return -1;
 }
 
-TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_creaturetypes_common_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
     // Initialize block data
     if ((flags & CnfLd_AcceptPartial) == 0)
@@ -650,7 +650,7 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
         kfx_config_state.conf.crtr_conf.special_digger_evil = 0;
         kfx_config_state.conf.crtr_conf.spectator_breed = 0;
         kfx_config_state.conf.crtr_conf.sprite_size = 300;
-        for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+        for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
         {
           memset(kfx_config_state.conf.crtr_conf.model[i].name, 0, COMMAND_WORD_LEN);
           creature_desc[i].name = NULL;
@@ -661,8 +661,8 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
     snprintf(kfx_config_state.conf.crtr_conf.model[0].name, COMMAND_WORD_LEN, "%s", "NOCREATURE");
     // Find the block
     const char * block_name = "common";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_AcceptPartial) == 0)
@@ -673,17 +673,17 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_common_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_common_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
         case 1: // CREATURES
             kfx_config_state.conf.crtr_conf.model_count = 1;
             if ((flags & CnfLd_AcceptPartial) != 0) {
-                for (int i = 1; i < CREATURE_TYPES_MAX; i++) {
+                for (int64_t i = 1; i < CREATURE_TYPES_MAX; i++) {
                     memset(kfx_config_state.conf.crtr_conf.model[i].name, 0, COMMAND_WORD_LEN);
                     creature_desc[i - 1].name = NULL;
                     creature_desc[i - 1].num = 0;
@@ -771,8 +771,8 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -786,7 +786,7 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
     return true;
 }
 
-TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_creaturetype_experience_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
     // Initialize block data
     if ((flags & CnfLd_AcceptPartial) == 0)
@@ -808,8 +808,8 @@ TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *con
     }
     // Find the block
     const char * block_name = "experience";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_AcceptPartial) == 0)
@@ -820,10 +820,10 @@ TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *con
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_experience_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_experience_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
@@ -1014,8 +1014,8 @@ TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *con
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -1029,13 +1029,13 @@ TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *con
     return true;
 }
 
-TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_creaturetype_instance_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
     struct CreatureInstanceConfig * inst_cfg;
     struct InstanceInfo* inst_inf;
-    int k = 0;
+    int64_t k = 0;
     // Initialize the array
-    for (int i = 0; i < INSTANCE_TYPES_MAX; i++) {
+    for (int64_t i = 0; i < INSTANCE_TYPES_MAX; i++) {
         inst_cfg = &kfx_config_state.conf.crtr_conf.instances[i];
         if (((flags & CnfLd_AcceptPartial) == 0) || (strlen(inst_cfg->name) <= 0)) {
             memset(inst_cfg->name, 0, COMMAND_WORD_LEN);
@@ -1074,8 +1074,8 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
     instance_desc[INSTANCE_TYPES_MAX - 1].name = NULL; // must be null for get_id
     // Load the file blocks
     const char * blockname = NULL;
-    int blocknamelen = 0;
-    int32_t pos = 0;
+    int64_t blocknamelen = 0;
+    int64_t pos = 0;
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
     {
         // look for blocks starting with "instance", followed by one or more digits
@@ -1084,7 +1084,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
         } else if (memcmp(blockname, "instance", 8) != 0) {
             continue;
         }
-        const int i = natoi(&blockname[8], blocknamelen - 8);
+        const int64_t i = natoi(&blockname[8], blocknamelen - 8);
         if (i < 0 || i >= INSTANCE_TYPES_MAX) {
             continue;
         } else if (i >= kfx_config_state.conf.crtr_conf.instances_count) {
@@ -1096,7 +1096,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
       while (pos<len)
       {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_instance_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_instance_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
         if ((flags & CnfLd_ListOnly) != 0) {
@@ -1105,14 +1105,14 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
                 cmd_num = 0;
             }
         }
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
         case 1: // NAME
             if (get_conf_parameter_single(buf, &pos, len, inst_cfg->name, COMMAND_WORD_LEN) <= 0)
             {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.", COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.", COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 break;
             }
             n++;
@@ -1127,7 +1127,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 3: // ACTIONTIME
@@ -1140,7 +1140,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 4: // RESETTIME
@@ -1153,7 +1153,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 5: // FPTIME
@@ -1166,7 +1166,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 6: // FPACTIONTIME
@@ -1179,7 +1179,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 7: // FPRESETTIME
@@ -1192,7 +1192,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 8: // FORCEVISIBILITY
@@ -1205,7 +1205,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 9: // TOOLTIPTEXTID
@@ -1221,7 +1221,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 10: // SYMBOLSPRITES
@@ -1237,7 +1237,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 11: // GRAPHICS
@@ -1253,7 +1253,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 12: // FUNCTION
@@ -1262,7 +1262,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             {
                 inst_inf->func_idx = k;
                 n++;
-                //JUSTLOG("Function = %s %s %d",creature_instances_func_type[k-1].name,spell_code_name(inst_inf->func_params[0]),inst_inf->func_params[1]);
+                //JUSTLOG("Function = %s %s %d",creature_instances_func_type[k-1].name,spell_code_name(inst_inf->func_params[0]),(int64_t)(inst_inf->func_params[1]));
             }
             // Second parameter may be a different thing based on first parameter
             switch (k)
@@ -1301,7 +1301,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 3)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 13: //RANGEMIN
@@ -1318,7 +1318,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 14: //RANGEMAX
@@ -1335,7 +1335,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 15: // PROPERTIES
@@ -1350,7 +1350,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
                 else
                 {
                     CONFWRNLOG("Incorrect value of \"%s\" parameter \"%s\" in [%.*s] block of %s file.",
-                        COMMAND_TEXT(cmd_num), word_buf, blocknamelen, blockname, config_textname);
+                        COMMAND_TEXT(cmd_num), word_buf, (int)(blocknamelen), blockname, config_textname);
                 }
             }
             break;
@@ -1364,7 +1364,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 17: // PRIMARYTARGET
@@ -1377,7 +1377,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 18: // ValidateSourceFunc
@@ -1450,7 +1450,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 22: // NoAnimationLoop
@@ -1463,7 +1463,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 23: // FPALLOWSELFCASTWHILEFROZEN
@@ -1476,7 +1476,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 24: // FPALLOWSELFCASTWHENCHICKEN
@@ -1489,7 +1489,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case ccr_comment:
@@ -1497,8 +1497,8 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%.*s] block of %s file.",
-                cmd_num, blocknamelen, blockname, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
+                (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -1508,13 +1508,13 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
     return true;
 }
 
-TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_creaturetype_job_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
     struct CreatureJobConfig *jobcfg;
-    int k = 0;
+    int64_t k = 0;
     // Initialize the array
     if ((flags & CnfLd_AcceptPartial) == 0) {
-        for (int i = 0; i < INSTANCE_TYPES_MAX; i++) {
+        for (int64_t i = 0; i < INSTANCE_TYPES_MAX; i++) {
             jobcfg = &kfx_config_state.conf.crtr_conf.jobs[i];
             memset(jobcfg->name, 0, COMMAND_WORD_LEN);
             jobcfg->room_role = RoRoF_None;
@@ -1532,8 +1532,8 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
     creaturejob_desc[INSTANCE_TYPES_MAX - 1].name = NULL; // must be null for get_id
     // Load the file blocks
     const char * blockname = NULL;
-    int blocknamelen = 0;
-    int32_t pos = 0;
+    int64_t blocknamelen = 0;
+    int64_t pos = 0;
     TbBool seen[INSTANCE_TYPES_MAX];
     memset(seen, 0, sizeof(seen));
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
@@ -1544,7 +1544,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
         } else if (memcmp(blockname, "job", 3) != 0) {
             continue;
         }
-        const int i = natoi(&blockname[3], blocknamelen - 3);
+        const int64_t i = natoi(&blockname[3], blocknamelen - 3);
         if (i < 0 || i >= INSTANCE_TYPES_MAX) {
             continue;
         } else if (i >= kfx_config_state.conf.crtr_conf.jobs_count) {
@@ -1556,7 +1556,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
         while (pos<len)
         {
             // Finding command number in this line
-            int cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_job_commands);
+            int64_t cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_job_commands);
             // Now store the config item in correct place
             if (cmd_num == ccr_endOfBlock) break; // if next block starts
             if ((flags & CnfLd_ListOnly) != 0) {
@@ -1565,7 +1565,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                     cmd_num = 0;
                 }
             }
-            int n = 0;
+            int64_t n = 0;
             char word_buf[COMMAND_WORD_LEN];
             switch (cmd_num)
             {
@@ -1573,7 +1573,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (get_conf_parameter_single(buf,&pos,len,kfx_config_state.conf.crtr_conf.jobs[i].name,COMMAND_WORD_LEN) <= 0)
                 {
                     CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                        COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                        COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                     break;
                 }
                 n++;
@@ -1596,7 +1596,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (n < 1)
                 {
                   CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                      COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                      COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 }
                 break;
             case 3: // RELATEDEVENT
@@ -1613,7 +1613,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (n < 1)
                 {
                   CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                      COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                      COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 }
                 break;
             case 4: // ASSIGN
@@ -1630,7 +1630,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                       n++;
                     } else {
                         CONFWRNLOG("Incorrect value of \"%s\" parameter \"%s\" in [%.*s] block of %s file.",
-                            COMMAND_TEXT(cmd_num), word_buf, blocknamelen, blockname, config_textname);
+                            COMMAND_TEXT(cmd_num), word_buf, (int)(blocknamelen), blockname, config_textname);
                         break;
                     }
                 }
@@ -1653,7 +1653,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (n < 1)
                 {
                   CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                      COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                      COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 }
                 break;
             case 6: // CONTINUESTATE
@@ -1674,7 +1674,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (n < 1)
                 {
                   CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                      COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                      COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 }
                 break;
             case 7: // PLAYERFUNCTIONS
@@ -1695,7 +1695,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (n < 2)
                 {
                     CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                        COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                        COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 }
                 break;
             case 8: // COORDSFUNCTIONS
@@ -1716,7 +1716,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                 if (n < 2)
                 {
                     CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                        COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                        COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 }
                 break;
             case 9: // PROPERTIES
@@ -1730,7 +1730,7 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
                       n++;
                     } else {
                         CONFWRNLOG("Incorrect value of \"%s\" parameter \"%s\" in [%.*s] block of %s file.",
-                            COMMAND_TEXT(cmd_num), word_buf, blocknamelen, blockname,config_textname);
+                            COMMAND_TEXT(cmd_num), word_buf, (int)(blocknamelen), blockname,config_textname);
                         break;
                     }
                 }
@@ -1740,8 +1740,8 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
             case ccr_endOfFile:
                 break;
             default:
-                CONFWRNLOG("Unrecognized command (%d) in [%.*s] block of %s file.",
-                    cmd_num, blocknamelen, blockname, config_textname);
+                CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
+                    (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 break;
             }
             skip_conf_to_next_line(buf,&pos,len);
@@ -1749,16 +1749,16 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
         if (((jobcfg->job_flags & JoKF_NeedsHaveJob) != 0) && ((jobcfg->job_flags & JoKF_AssignOneTime) != 0))
         {
             WARNLOG("Job configured to need to have worker primary or secondary job set, but is one time job which cannot; in [%.*s] block of %s file.",
-                blocknamelen, blockname, config_textname);
+                (int)(blocknamelen), blockname, config_textname);
         }
 #undef COMMAND_TEXT
     }
     if ((flags & CnfLd_AcceptPartial) == 0) {
         TbBool jobs_missing = false;
         char block_buf[COMMAND_WORD_LEN];
-        for (int i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++) {
+        for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++) {
             if (!seen[i]) {
-                snprintf(block_buf, sizeof(block_buf), "job%d", i);
+                snprintf(block_buf, sizeof(block_buf), "job%" PRId64, (int64_t)(i));
                 jobs_missing = true;
                 WARNMSG("Block [%s] not found in %s file.", block_buf, config_textname);
             }
@@ -1768,12 +1768,12 @@ TbBool parse_creaturetype_job_blocks(char *buf, long len, const char *config_tex
     return true;
 }
 
-TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_creaturetype_angerjob_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
     struct CreatureAngerJobConfig *agjobcfg;
     // Initialize the array
     if ((flags & CnfLd_AcceptPartial) == 0) {
-        for (int i = 0; i < INSTANCE_TYPES_MAX; i++) {
+        for (int64_t i = 0; i < INSTANCE_TYPES_MAX; i++) {
             agjobcfg = &kfx_config_state.conf.crtr_conf.angerjobs[i];
             memset(agjobcfg->name, 0, COMMAND_WORD_LEN);
             angerjob_desc[i].name = agjobcfg->name;
@@ -1784,8 +1784,8 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
     angerjob_desc[INSTANCE_TYPES_MAX - 1].name = NULL; // must be null for get_id
     // Load the file blocks
     const char * blockname = NULL;
-    int blocknamelen = 0;
-    int32_t pos = 0;
+    int64_t blocknamelen = 0;
+    int64_t pos = 0;
     TbBool seen[INSTANCE_TYPES_MAX];
     memset(seen, 0, sizeof(seen));
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
@@ -1796,7 +1796,7 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
         } else if (memcmp(blockname, "angerjob", 8) != 0) {
             continue;
         }
-        const int i = natoi(&blockname[8], blocknamelen - 8);
+        const int64_t i = natoi(&blockname[8], blocknamelen - 8);
         if (i < 0 || i >= INSTANCE_TYPES_MAX) {
             continue;
         } else if (i >= kfx_config_state.conf.crtr_conf.angerjobs_count) {
@@ -1808,7 +1808,7 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
         while (pos<len)
         {
             // Finding command number in this line
-            int cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_angerjob_commands);
+            int64_t cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_angerjob_commands);
             // Now store the config item in correct place
             if (cmd_num == ccr_endOfBlock) break; // if next block starts
             if ((flags & CnfLd_ListOnly) != 0) {
@@ -1823,7 +1823,7 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
                 if (get_conf_parameter_single(buf,&pos,len,kfx_config_state.conf.crtr_conf.angerjobs[i].name,COMMAND_WORD_LEN) <= 0)
                 {
                     CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                        COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                        COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                     break;
                 }
                 break;
@@ -1832,8 +1832,8 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
             case ccr_endOfFile:
                 break;
             default:
-                CONFWRNLOG("Unrecognized command (%d) in [%.*s] block of %s file.",
-                    cmd_num, blocknamelen, blockname, config_textname);
+                CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
+                    (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 break;
             }
             skip_conf_to_next_line(buf,&pos,len);
@@ -1843,9 +1843,9 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
     if ((flags & CnfLd_AcceptPartial) == 0) {
         TbBool jobs_missing = false;
         char block_buf[COMMAND_WORD_LEN];
-        for (int i = 0; i < kfx_config_state.conf.crtr_conf.angerjobs_count; i++) {
+        for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.angerjobs_count; i++) {
             if (!seen[i]) {
-                snprintf(block_buf, sizeof(block_buf), "angerjob%d", i);
+                snprintf(block_buf, sizeof(block_buf), "angerjob%" PRId64, (int64_t)(i));
                 jobs_missing = true;
                 WARNMSG("Block [%s] not found in %s file.", block_buf, config_textname);
             }
@@ -1855,12 +1855,12 @@ TbBool parse_creaturetype_angerjob_blocks(char *buf, long len, const char *confi
     return true;
 }
 
-TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_creaturetype_attackpref_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
     struct CommandWord * attacktype;
     // Initialize the array
     if ((flags & CnfLd_AcceptPartial) == 0) {
-        for (int i = 0; i < INSTANCE_TYPES_MAX; i++) {
+        for (int64_t i = 0; i < INSTANCE_TYPES_MAX; i++) {
             attacktype = &kfx_config_state.conf.crtr_conf.attacktypes[i];
             memset(attacktype->text, 0, COMMAND_WORD_LEN);
             attackpref_desc[i].name = attacktype->text;
@@ -1870,8 +1870,8 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
     attackpref_desc[INSTANCE_TYPES_MAX - 1].name = NULL; // must be null for get_id
     // Load the file blocks
     const char * blockname = NULL;
-    int blocknamelen = 0;
-    int32_t pos = 0;
+    int64_t blocknamelen = 0;
+    int64_t pos = 0;
     TbBool seen[INSTANCE_TYPES_MAX];
     memset(seen, 0, sizeof(seen));
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
@@ -1882,7 +1882,7 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
         } else if (memcmp(blockname, "attackpref", 10) != 0) {
             continue;
         }
-        const int i = natoi(&blockname[10], blocknamelen - 10);
+        const int64_t i = natoi(&blockname[10], blocknamelen - 10);
         if (i < 0 || i >= INSTANCE_TYPES_MAX) {
             continue;
         } else if (i >= kfx_config_state.conf.crtr_conf.attacktypes_count) {
@@ -1894,7 +1894,7 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
         while (pos<len)
         {
             // Finding command number in this line
-            int cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_attackpref_commands);
+            int64_t cmd_num = recognize_conf_command(buf, &pos, len, creaturetype_attackpref_commands);
             // Now store the config item in correct place
             if (cmd_num == ccr_endOfBlock) break; // if next block starts
             if ((flags & CnfLd_ListOnly) != 0) {
@@ -1909,7 +1909,7 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
                 if (get_conf_parameter_single(buf,&pos,len, attacktype->text,COMMAND_WORD_LEN) <= 0)
                 {
                     CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                        COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                        COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                     break;
                 }
                 break;
@@ -1918,8 +1918,8 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
             case ccr_endOfFile:
                 break;
             default:
-                CONFWRNLOG("Unrecognized command (%d) in [%.*s] block of %s file.",
-                    cmd_num, blocknamelen, blockname, config_textname);
+                CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
+                    (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
                 break;
             }
             skip_conf_to_next_line(buf,&pos,len);
@@ -1929,9 +1929,9 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
     if ((flags & CnfLd_AcceptPartial) == 0) {
         TbBool jobs_missing = false;
         char block_buf[COMMAND_WORD_LEN];
-        for (int i = 0; i < kfx_config_state.conf.crtr_conf.attacktypes_count; i++) {
+        for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.attacktypes_count; i++) {
             if (!seen[i]) {
-                snprintf(block_buf, sizeof(block_buf), "attackpref%d", i);
+                snprintf(block_buf, sizeof(block_buf), "attackpref%" PRId64, (int64_t)(i));
                 jobs_missing = true;
                 WARNMSG("Block [%s] not found in %s file.", block_buf, config_textname);
             }
@@ -1941,10 +1941,10 @@ TbBool parse_creaturetype_attackpref_blocks(char *buf, long len, const char *con
     return true;
 }
 
-static TbBool load_creaturetypes_config_file(const char *fname, unsigned short flags)
+static TbBool load_creaturetypes_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1957,7 +1957,7 @@ static TbBool load_creaturetypes_config_file(const char *fname, unsigned short f
 
     if ((flags & CnfLd_AcceptPartial) == 0)
     {
-        for (int i = 0; i < INSTANCE_TYPES_MAX; i++)
+        for (int64_t i = 0; i < INSTANCE_TYPES_MAX; i++)
         {
                 instance_desc[i].name = kfx_config_state.conf.crtr_conf.instances[i].name;
                 instance_desc[i].num = i;
@@ -2040,7 +2040,7 @@ static TbBool load_creaturetypes_config_file(const char *fname, unsigned short f
     return result;
 }
 
-unsigned long get_creature_model_flags(const struct Thing *thing)
+uint64_t get_creature_model_flags(const struct Thing *thing)
 {
     ThingModel model = config_reload_callbacks->get_thing_model(thing);
     if ((model < 1) || (model >= kfx_config_state.conf.crtr_conf.model_count))
@@ -2048,7 +2048,7 @@ unsigned long get_creature_model_flags(const struct Thing *thing)
   return kfx_config_state.conf.crtr_conf.model[model].model_flags;
 }
 
-ThingModel get_creature_model_with_model_flags(unsigned long needflags)
+ThingModel get_creature_model_with_model_flags(uint64_t needflags)
 {
     for (ThingModel crmodel = 0; crmodel < kfx_config_state.conf.crtr_conf.model_count; crmodel++)
     {
@@ -2062,23 +2062,23 @@ ThingModel get_creature_model_with_model_flags(unsigned long needflags)
 /**
  * Sets creature availability state.
  */
-TbBool set_creature_available(PlayerNumber plyr_idx, ThingModel crtr_model, long can_be_avail, long force_avail)
+TbBool set_creature_available(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail)
 {
     // note that we can't get_players_num_dungeon() because players
     // may be uninitialized yet when this is called.
     if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot set %s availability; player %d has no dungeon.",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, crtr_model),(int)plyr_idx);
+        ERRORDBG(11,"Cannot set %s availability; player %" PRId64 " has no dungeon.",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, crtr_model),(int64_t)plyr_idx);
         return false;
     }
     if ((crtr_model < 1) || (crtr_model >= kfx_config_state.conf.crtr_conf.model_count)) {
-        ERRORDBG(4,"Cannot set creature availability; player %d, invalid model %d.",(int)plyr_idx,(int)crtr_model);
+        ERRORDBG(4,"Cannot set creature availability; player %" PRId64 ", invalid model %" PRId64 ".",(int64_t)plyr_idx,(int64_t)crtr_model);
         return false;
     }
     if (force_avail < 0)
         force_avail = 0;
     if (force_avail >= CREATURES_COUNT)
         force_avail = CREATURES_COUNT-1;
-    SYNCDBG(7,"Setting %s availability for player %d to allowed=%d, forced=%d.",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, crtr_model),(int)plyr_idx,(int)can_be_avail,(int)force_avail);
+    SYNCDBG(7,"Setting %s availability for player %" PRId64 " to allowed=%" PRId64 ", forced=%" PRId64 ".",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, crtr_model),(int64_t)plyr_idx,(int64_t)can_be_avail,(int64_t)force_avail);
     dungeon_availability->set_creature_availability(plyr_idx, crtr_model, can_be_avail, force_avail);
     return true;
 }
@@ -2122,7 +2122,7 @@ ThingModel get_players_special_digger_model(PlayerNumber plyr_idx)
         crmodel = kfx_config_state.conf.crtr_conf.special_digger_good;
         if (crmodel == 0)
         {
-            WARNLOG("Heroes (player %d) have no digger breed!",(int)plyr_idx);
+            WARNLOG("Heroes (player %" PRId64 ") have no digger breed!",(int64_t)plyr_idx);
             crmodel = kfx_config_state.conf.crtr_conf.special_digger_evil;
         }
     } else
@@ -2142,7 +2142,7 @@ ThingModel get_players_spectator_model(PlayerNumber plyr_idx)
     ThingModel breed = kfx_config_state.conf.crtr_conf.spectator_breed;
     if (breed == 0)
     {
-        WARNLOG("There is no spectator breed for player %d!",(int)plyr_idx);
+        WARNLOG("There is no spectator breed for player %" PRId64 "!",(int64_t)plyr_idx);
         breed = kfx_config_state.conf.crtr_conf.special_digger_good;
     }
     return breed;
@@ -2173,15 +2173,15 @@ const char *creature_own_name(const struct Thing *creatng)
         return creature_name;
     }
     const char ** starts;
-    long starts_len;
+    int64_t starts_len;
     const char ** vowels;
-    long vowels_len;
+    int64_t vowels_len;
     const char ** consonants;
-    long consonants_len;
+    int64_t consonants_len;
     const char ** end_vowels;
-    long end_vowels_len;
+    int64_t end_vowels_len;
     const char ** end_consonants;
-    long end_consonants_len;
+    int64_t end_consonants_len;
     {
         starts = name_starts;
         starts_len = sizeof(name_starts)/sizeof(name_starts[0]);
@@ -2198,23 +2198,23 @@ const char *creature_own_name(const struct Thing *creatng)
         uint32_t seed = config_reload_callbacks->get_thing_creation_turn(creatng) + config_reload_callbacks->get_thing_index(creatng)
             + (config_reload_callbacks->get_creature_blood_type(creatng) << 8);
         // Get amount of nucleus
-        int name_len = 0;
+        int64_t name_len = 0;
         {
-            int n = LB_RANDOM(65536, &seed);
+            int64_t n = LB_RANDOM(65536, &seed);
             name_len = ((n & 7) + ((n>>8) & 7)) >> 1;
             name_len = min(max(2, name_len), 8);
         }
         // Get starting part of a name
         {
-            int n = LB_RANDOM(starts_len, &seed);
+            int64_t n = LB_RANDOM(starts_len, &seed);
             const char* part = starts[n];
             str_append(creature_name, CREATURE_NAME_MAX, part);
         }
         // Append nucleus items to the name
-        for (int i = 0; i < name_len - 1; i++)
+        for (int64_t i = 0; i < name_len - 1; i++)
         {
             const char *part;
-            int n;
+            int64_t n;
             if (i & 1) {
                 n = LB_RANDOM(consonants_len, &seed);
                 part = consonants[n];
@@ -2226,7 +2226,7 @@ const char *creature_own_name(const struct Thing *creatng)
         }
         {
             const char *part;
-            int n;
+            int64_t n;
             if ((name_len & 1) == 0) {
                 n = LB_RANDOM(end_consonants_len, &seed);
                 part = end_consonants[n];
@@ -2262,8 +2262,8 @@ const char *creature_instance_code_name(CrInstance inst_id)
 
 struct CreatureJobConfig *get_config_for_job(CreatureJob job_flags)
 {
-    long i = 0;
-    unsigned long k = job_flags;
+    int64_t i = 0;
+    uint64_t k = job_flags;
     while (k)
     {
         k >>= 1;
@@ -2282,10 +2282,10 @@ struct CreatureJobConfig *get_config_for_job(CreatureJob job_flags)
  * @param stl_y
  * @return
  */
-CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned long drop_kind_flags)
+CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags)
 {
     // Detect the job which we will do in the area
-    unsigned long required_kind_flags = drop_kind_flags;
+    uint64_t required_kind_flags = drop_kind_flags;
     if (config_reload_callbacks->slab_is_area_inner_fill(creature_subtile_slab(stl_x), creature_subtile_slab(stl_y))) {
         required_kind_flags |= JoKF_AssignOnAreaCenter;
     } else {
@@ -2348,11 +2348,11 @@ CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x
  *     no need to be in primary/secondary list should be qualified, this can be Job_NULL.
  * @return A single job flag.
  */
-CreatureJob get_job_for_room_role(RoomRole rrole, unsigned long required_kind_flags, CreatureJob has_jobs)
+CreatureJob get_job_for_room_role(RoomRole rrole, uint64_t required_kind_flags, CreatureJob has_jobs)
 {
     if (rrole != 0)
     {
-        for (long i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
+        for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
         {
             struct CreatureJobConfig* jobcfg = &kfx_config_state.conf.crtr_conf.jobs[i];
             if ((jobcfg->job_flags & required_kind_flags) == required_kind_flags)
@@ -2380,7 +2380,7 @@ CreatureJob get_job_for_room_role(RoomRole rrole, unsigned long required_kind_fl
  *     no need to be in primary/secondary list should be qualified, this can be Job_NULL.
  * @return A single job flag.
  */
-CreatureJob get_job_for_room(RoomKind rkind, unsigned long required_kind_flags, CreatureJob has_jobs)
+CreatureJob get_job_for_room(RoomKind rkind, uint64_t required_kind_flags, CreatureJob has_jobs)
 {
     return get_job_for_room_role(get_room_roles(rkind), required_kind_flags, has_jobs);
 }
@@ -2392,12 +2392,12 @@ CreatureJob get_job_for_room(RoomKind rkind, unsigned long required_kind_flags, 
  * @param prevent_flags Only jobs which have none of the flags set can be returned.
  * @return A single job flag.
  */
-CreatureJob get_job_which_qualify_for_room_role(RoomRole rrole, unsigned long qualify_flags, unsigned long prevent_flags)
+CreatureJob get_job_which_qualify_for_room_role(RoomRole rrole, uint64_t qualify_flags, uint64_t prevent_flags)
 {
     if (rrole == RoRoF_None) {
         return Job_NULL;
     }
-    for (long i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
     {
         struct CreatureJobConfig* jobcfg = &kfx_config_state.conf.crtr_conf.jobs[i];
         if ((jobcfg->job_flags & qualify_flags) != 0)
@@ -2420,7 +2420,7 @@ CreatureJob get_job_which_qualify_for_room_role(RoomRole rrole, unsigned long qu
  * @param prevent_flags Only jobs which have none of the flags set can be returned.
  * @return A single job flag.
  */
-CreatureJob get_job_which_qualify_for_room(RoomKind rkind, unsigned long qualify_flags, unsigned long prevent_flags)
+CreatureJob get_job_which_qualify_for_room(RoomKind rkind, uint64_t qualify_flags, uint64_t prevent_flags)
 {
     return get_job_which_qualify_for_room_role(get_room_roles(rkind), qualify_flags, prevent_flags);
 }
@@ -2433,7 +2433,7 @@ CreatureJob get_job_which_qualify_for_room(RoomKind rkind, unsigned long qualify
 CreatureJob get_jobs_enemies_may_do_in_room_role(RoomRole rrole)
 {
     CreatureJob jobpref = Job_NULL;
-    for (long i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
     {
         struct CreatureJobConfig* jobcfg = &kfx_config_state.conf.crtr_conf.jobs[i];
         // Accept only jobs in given room
@@ -2500,13 +2500,13 @@ CrtrStateId get_initial_state_for_job(CreatureJob jobpref)
     return jobcfg->initial_crstate;
 }
 
-unsigned long get_flags_for_job(CreatureJob jobpref)
+uint64_t get_flags_for_job(CreatureJob jobpref)
 {
     struct CreatureJobConfig* jobcfg = get_config_for_job(jobpref);
     return jobcfg->job_flags;
 }
 
-int get_required_room_capacity_for_job(CreatureJob jobpref, ThingModel crmodel)
+int64_t get_required_room_capacity_for_job(CreatureJob jobpref, ThingModel crmodel)
 {
     struct CreatureJobConfig* jobcfg = get_config_for_job(jobpref);
     switch (jobcfg->room_role)
@@ -2547,7 +2547,7 @@ CreatureJob get_job_for_creature_state(CrtrStateId crstate_id)
     if (crstate_id == CrSt_Unused) {
         return Job_NULL;
     }
-    for (long i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.jobs_count; i++)
     {
         struct CreatureJobConfig* jobcfg = &kfx_config_state.conf.crtr_conf.jobs[i];
         //TODO CREATURE_JOBS Add other job-related states here

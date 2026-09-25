@@ -100,8 +100,8 @@ TEST_CASE_METHOD(WallhugFixture, "dig_to_position accepts the very first subtile
 
 TEST_CASE_METHOD(WallhugFixture, "dig_to_position walks around the compass and returns -1 when every direction is a wall", "[kfx_pathfinding][ariadne_wallhug]") {
     // Block every subtile the search could possibly land on around (9,9).
-    for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
+    for (int64_t dy = -1; dy <= 1; dy++) {
+        for (int64_t dx = -1; dx <= 1; dx++) {
             grid.at(9 + STL_PER_SLB * dx, 9 + STL_PER_SLB * dy).walkable = false;
         }
     }
@@ -134,7 +134,7 @@ TEST_CASE_METHOD(WallhugFixture, "dig_to_position with revside=true walks the op
 // direction with no unconditional fallback.
 TEST_CASE_METHOD(WallhugFixture, "get_hug_side_options always terminates with a valid tri-state result and in-bounds output on an open map", "[kfx_pathfinding][ariadne_wallhug]") {
     MapSubtlCoord ax, ay, bx, by;
-    short result = get_hug_side_options(3, 3, 3, 9, 0, 0, &ax, &ay, &bx, &by);
+    int64_t result = get_hug_side_options(3, 3, 3, 9, 0, 0, &ax, &ay, &bx, &by);
     CHECK((result == 0 || result == 1 || result == 2));
     CHECK(grid.in_bounds(ax, ay));
     CHECK(grid.in_bounds(bx, by));
@@ -164,7 +164,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_hug_side_options's side 'a' search never l
     grid.at(3, 3 - STL_PER_SLB).walkable = false;
 
     MapSubtlCoord ax, ay, bx, by;
-    short result = get_hug_side_options(3, 3, 3, 9, 0, 0, &ax, &ay, &bx, &by);
+    int64_t result = get_hug_side_options(3, 3, 3, 9, 0, 0, &ax, &ay, &bx, &by);
     CHECK(result == 0);
     CHECK(ax == 3);
     CHECK(ay == 3);
@@ -178,7 +178,7 @@ TEST_CASE_METHOD(WallhugFixture, "slab_wall_hug_route reaches an adjacent-slab t
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long steps = slab_wall_hug_route(t(), &target, 20);
+    int64_t steps = slab_wall_hug_route(t(), &target, 20);
     CHECK(steps > 0); // reached the target within max_val steps
 }
 
@@ -188,7 +188,7 @@ TEST_CASE_METHOD(WallhugFixture, "slab_wall_hug_route returns 0 (ran out of step
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long steps = slab_wall_hug_route(t(), &target, 1);
+    int64_t steps = slab_wall_hug_route(t(), &target, 1);
     CHECK(steps == 0);
 }
 
@@ -196,7 +196,7 @@ TEST_CASE_METHOD(WallhugFixture, "slab_wall_hug_route hugs around a wall directl
     // Wall off the slab directly east of the creature's own slab so the
     // direct hug_can_move_on(curr) check fails and hug_round/hug_round_sub
     // (this file's other zero-coverage static helpers) actually run.
-    for (int dy = -1; dy <= 1; dy++) {
+    for (int64_t dy = -1; dy <= 1; dy++) {
         grid.at(13, 9 + dy).walkable = false;
     }
     struct Coord3d target{};
@@ -204,7 +204,7 @@ TEST_CASE_METHOD(WallhugFixture, "slab_wall_hug_route hugs around a wall directl
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long steps = slab_wall_hug_route(t(), &target, 40);
+    int64_t steps = slab_wall_hug_route(t(), &target, 40);
     // Either it fights its way around (>0) or gives up (-1) -- both are
     // real, valid outcomes of hug_round; what matters for coverage is that
     // hug_round's non-trivial branches actually ran, which this wall
@@ -224,7 +224,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
+    int64_t result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
     CHECK(result == 1);
     CHECK(thing.navi.navstate == NavS_NavigationDisabled); // default case is a pure no-op
 }
@@ -240,7 +240,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
+    int64_t result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
     CHECK(result == 1);
     CHECK(thing.navi.navstate == NavS_InitialWallhugSetup);
     CHECK(thing.navi.angle == ((ANGLE_NORTH + DEGREES_90) & ANGLE_MASK));
@@ -256,7 +256,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
+    int64_t result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
     CHECK(result == 1);
     CHECK(thing.navi.navstate == NavS_WallhugRestartSetup); // unchanged -- still waiting
 }
@@ -274,7 +274,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
+    int64_t result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
     CHECK(result == 2);
     CHECK(thing.navi.navstate == NavS_WallhugAngleCorrection); // not advanced while still blocked
 }
@@ -290,7 +290,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
+    int64_t result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
     CHECK(result == 1);
     CHECK(thing.navi.navstate == NavS_WallhugInProgress);
 }
@@ -306,7 +306,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     target.y.val = subtile_coord_center(10);
     target.z.val = 0;
 
-    long result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
+    int64_t result = get_next_position_and_angle_required_to_tunnel_creature_to(t(), &target, 0);
     CHECK(result == 1);
     // On a fully open grid this shouldn't trip the "cannot move" (==4)
     // collision path, since thing_in_wall_at is only ever true on a

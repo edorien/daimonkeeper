@@ -88,7 +88,7 @@ TEST_CASE_METHOD(ModifyFilenameFixture, "LbDataLoad on a '*'-prefixed entry call
     CHECK(LbDataLoad(&lf, nullptr, nullptr) == 1);
     REQUIRE(start_ptr != nullptr);
     CHECK(end_ptr == start_ptr + 32);
-    for (int i = 0; i < 32; i++) {
+    for (int64_t i = 0; i < 32; i++) {
         CHECK(start_ptr[i] == 0); // calloc, not malloc -- zero-initialized
     }
     std::free(start_ptr);

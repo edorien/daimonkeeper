@@ -32,19 +32,19 @@ extern "C" {
  * @brief Locate a file inside an open zip by name, using the fast case-insensitive
  * cache built by fastUnzConstructCache(). Call fastUnzConstructCache() first.
  */
-int fastUnzLocateFile(unzFile zip, const char *szFileName, int iCaseSensitivity);
+int64_t fastUnzLocateFile(unzFile zip, const char *szFileName, int64_t iCaseSensitivity);
 
 /**
  * @brief Build a case-insensitive name -> position cache for the given open zip,
  * used by fastUnzLocateFile(). Only one zip's cache is held at a time; pair every
  * call with a matching fastUnzClearCache() once done with that zip.
  */
-int fastUnzConstructCache(unzFile zip);
+int64_t fastUnzConstructCache(unzFile zip);
 
 /**
  * @brief Clear the cache built by fastUnzConstructCache().
  */
-int fastUnzClearCache(void);
+int64_t fastUnzClearCache(void);
 
 /**
  * @brief Read a single named entry out of a map's mapNNNNN.zip bundle into a freshly

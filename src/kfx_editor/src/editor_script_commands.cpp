@@ -13,6 +13,7 @@
  *     rather than being hidden, so a newly added engine command still shows
  *     up in the window.
  */
+#include <stdint.h>
 #include "pre_inc.h"
 #include "editor_script_commands.h"
 #include "editor_script_message.h"
@@ -28,7 +29,7 @@ namespace {
 struct CommandInfo
 {
     const char *name;
-    int group;
+    int64_t group;
     bool classic;
     const char *summary; // classic commands only
 };
@@ -366,15 +367,15 @@ std::string dedent(const std::string &indent)
 
 } // namespace
 
-const char *editor_script_group_title(int group)
+const char *editor_script_group_title(int64_t group)
 {
     return ((group >= 0) && (group < ScrGroup_Count)) ? kGroupTitles[group] : kGroupTitles[ScrGroup_Other];
 }
 
-int editor_script_command_group(const std::string &name)
+int64_t editor_script_command_group(const std::string &name)
 {
     const CommandInfo *c = find_command(name);
-    return c ? c->group : ScrGroup_Other;
+    return c ? c->group : static_cast<int64_t>(ScrGroup_Other);
 }
 
 bool editor_script_command_is_classic(const std::string &name)

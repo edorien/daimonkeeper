@@ -45,9 +45,9 @@ public:
     COverlayRenderer(OverlayEffect* parent);
     ~COverlayRenderer();
     
-    TbBool LoadOverlay(long lens_idx);
-    void Render(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcpitch,
-                long width, long height);
+    TbBool LoadOverlay(int64_t lens_idx);
+    void Render(TbPixel *dstbuf, int64_t dstpitch, TbPixel *srcbuf, int64_t srcpitch,
+                int64_t width, int64_t height);
     
 private:
     OverlayEffect* m_parent;         // Parent effect for asset loading
@@ -60,9 +60,9 @@ private:
     // freeing structurally impossible, not just unlikely.
     std::unique_ptr<unsigned char[]> m_owned_data;
     const unsigned char* m_overlay_data;
-    int m_width;                     // Overlay width
-    int m_height;                    // Overlay height
-    short m_alpha;                   // Alpha blending level (0-256)
+    int64_t m_width;                     // Overlay width
+    int64_t m_height;                    // Overlay height
+    int64_t m_alpha;                   // Alpha blending level (0-256)
     TbBool m_loaded;                 // Whether overlay is loaded
 };
 
@@ -78,20 +78,20 @@ COverlayRenderer::COverlayRenderer(OverlayEffect* parent)
 
 COverlayRenderer::~COverlayRenderer() = default;
 
-TbBool COverlayRenderer::LoadOverlay(long lens_idx)
+TbBool COverlayRenderer::LoadOverlay(int64_t lens_idx)
 {
     // Get lens configuration
     struct LensConfig* cfg = get_lens_config(lens_idx);
     if (cfg == NULL)
     {
-        WARNLOG("Failed to get lens config for index %ld", lens_idx);
+        WARNLOG("Failed to get lens config for index %" PRId64, (int64_t)(lens_idx));
         return false;
     }
     
     // Check if this lens has an overlay effect
     if ((cfg->flags & LCF_HasOverlay) == 0)
     {
-        SYNCDBG(8, "Lens %ld does not have overlay effect", lens_idx);
+        SYNCDBG(8, "Lens %" PRId64 " does not have overlay effect", (int64_t)(lens_idx));
         return false;
     }
     
@@ -107,20 +107,20 @@ TbBool COverlayRenderer::LoadOverlay(long lens_idx)
         m_width = overlay->width;
         m_height = overlay->height;
 
-        SYNCDBG(7, "Loaded overlay '%s' (%dx%d) from asset registry",
-                cfg->overlay_file, m_width, m_height);
+        SYNCDBG(7, "Loaded overlay '%s' (%" PRId64 "x%" PRId64 ") from asset registry",
+                cfg->overlay_file, (int64_t)(m_width), (int64_t)(m_height));
     }
     else
     {
         // Registry lookup failed - try loading raw files from mods/data directories
         // This allows simple file-based mods without requiring ZIP/JSON
         // For overlays without registry, assume 256x256 (standard size)
-        const int default_size = 256;
+        const int64_t default_size = 256;
         m_owned_data.reset(new (std::nothrow) unsigned char[default_size * default_size]);
 
         if (!m_owned_data)
         {
-            ERRORLOG("Failed to allocate memory for overlay (lens %ld)", lens_idx);
+            ERRORLOG("Failed to allocate memory for overlay (lens %" PRId64 ")", (int64_t)(lens_idx));
             return false;
         }
 
@@ -128,8 +128,8 @@ TbBool COverlayRenderer::LoadOverlay(long lens_idx)
         if (!m_parent->LoadAssetWithFallback(cfg->overlay_file, m_owned_data.get(),
                                              default_size * default_size, &loaded_from))
         {
-            WARNLOG("Failed to load overlay '%s' from registry or files for lens %ld",
-                    cfg->overlay_file, lens_idx);
+            WARNLOG("Failed to load overlay '%s' from registry or files for lens %" PRId64,
+                    cfg->overlay_file, (int64_t)(lens_idx));
             m_owned_data.reset();
             return false;
         }
@@ -139,11 +139,11 @@ TbBool COverlayRenderer::LoadOverlay(long lens_idx)
         m_height = default_size;
         
         if (loaded_from != NULL) {
-            SYNCDBG(7, "Loaded overlay '%s' (%dx%d) from mod '%s'", 
-                    cfg->overlay_file, m_width, m_height, loaded_from);
+            SYNCDBG(7, "Loaded overlay '%s' (%" PRId64 "x%" PRId64 ") from mod '%s'", 
+                    cfg->overlay_file, (int64_t)(m_width), (int64_t)(m_height), loaded_from);
         } else {
-            SYNCDBG(7, "Loaded overlay '%s' (%dx%d) from base game files", 
-                    cfg->overlay_file, m_width, m_height);
+            SYNCDBG(7, "Loaded overlay '%s' (%" PRId64 "x%" PRId64 ") from base game files", 
+                    cfg->overlay_file, (int64_t)(m_width), (int64_t)(m_height));
         }
     }
     
@@ -154,8 +154,8 @@ TbBool COverlayRenderer::LoadOverlay(long lens_idx)
     return true;
 }
 
-void COverlayRenderer::Render(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcpitch,
-                              long width, long height)
+void COverlayRenderer::Render(TbPixel *dstbuf, int64_t dstpitch, TbPixel *srcbuf, int64_t srcpitch,
+                              int64_t width, int64_t height)
 {
     if (!m_loaded || m_overlay_data == NULL)
     {
@@ -163,40 +163,40 @@ void COverlayRenderer::Render(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, l
     }
 
     const unsigned char* overlay_src = m_overlay_data;
-    const short alpha = m_alpha;
+    const int64_t alpha = m_alpha;
     const unsigned char *pal = RendererGetActivePalette();
 
     // Overlay dimensions
-    const int overlay_w = m_width;
-    const int overlay_h = m_height;
+    const int64_t overlay_w = m_width;
+    const int64_t overlay_h = m_height;
 
     // Stretch-to-fit: use fixed-point scaling (16.16 format) for precision
     // Scale factors map viewport coordinates to overlay texture coordinates
-    const unsigned int scale_x = (overlay_w << 16) / width;
-    const unsigned int scale_y = (overlay_h << 16) / height;
+    const uint64_t scale_x = (overlay_w << 16) / width;
+    const uint64_t scale_y = (overlay_h << 16) / height;
 
     // Clamp alpha to valid range (0-256, where 256 = opaque)
-    int alpha_clamped = (alpha < 0) ? 0 : ((alpha > 256) ? 256 : alpha);
-    int inv_alpha = 256 - alpha_clamped;
+    int64_t alpha_clamped = (alpha < 0) ? 0 : ((alpha > 256) ? 256 : alpha);
+    int64_t inv_alpha = 256 - alpha_clamped;
 
     // Composite overlay onto destination buffer with stretch-to-fit
-    for (int y = 0; y < height; y++)
+    for (int64_t y = 0; y < height; y++)
     {
         // Calculate overlay Y coordinate using fixed-point
-        int overlay_y = (y * scale_y) >> 16;
+        int64_t overlay_y = (y * scale_y) >> 16;
         if (overlay_y >= overlay_h) overlay_y = overlay_h - 1;
 
         const unsigned char* overlay_row = overlay_src + (overlay_y * overlay_w);
         TbPixel* dst_row = dstbuf + (y * dstpitch);
         const TbPixel* src_row = srcbuf + (y * srcpitch);
 
-        for (int x = 0; x < width; x++)
+        for (int64_t x = 0; x < width; x++)
         {
             // Get source pixel (the 3D view) -- already a real colour
             TbPixel src_pixel = src_row[x];
 
             // Calculate overlay X coordinate using fixed-point (nearest-neighbor sampling)
-            int overlay_x = (x * scale_x) >> 16;
+            int64_t overlay_x = (x * scale_x) >> 16;
             if (overlay_x >= overlay_w) overlay_x = overlay_w - 1;
 
             // Get overlay pixel (still a palette-index byte in the loaded asset)
@@ -238,21 +238,21 @@ OverlayEffect::~OverlayEffect()
     Cleanup();
 }
 
-TbBool OverlayEffect::Setup(long lens_idx)
+TbBool OverlayEffect::Setup(int64_t lens_idx)
 {
-    SYNCDBG(8, "Setting up overlay effect for lens %ld", lens_idx);
+    SYNCDBG(8, "Setting up overlay effect for lens %" PRId64, (int64_t)(lens_idx));
     
     struct LensConfig* cfg = get_lens_config(lens_idx);
     if (cfg == NULL)
     {
-        WARNLOG("Failed to get lens config for index %ld", lens_idx);
+        WARNLOG("Failed to get lens config for index %" PRId64, (int64_t)(lens_idx));
         return true;  // Continue without overlay
     }
     
     // Check if this lens has an overlay effect configured
     if ((cfg->flags & LCF_HasOverlay) == 0)
     {
-        SYNCDBG(8, "Lens %ld does not have overlay effect configured", lens_idx);
+        SYNCDBG(8, "Lens %" PRId64 " does not have overlay effect configured", (int64_t)(lens_idx));
         return true;  // Not an error - effect just not configured
     }
     
@@ -261,7 +261,7 @@ TbBool OverlayEffect::Setup(long lens_idx)
     
     if (!renderer->LoadOverlay(lens_idx))
     {
-        WARNLOG("Failed to load overlay for lens %ld - effect will be skipped", lens_idx);
+        WARNLOG("Failed to load overlay for lens %" PRId64 " - effect will be skipped", (int64_t)(lens_idx));
         delete renderer;
         return true;  // Continue without overlay effect (graceful degradation)
     }

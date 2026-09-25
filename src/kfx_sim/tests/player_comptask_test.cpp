@@ -36,7 +36,7 @@ namespace {
 // Links task_idx onto the front of comp's task list, marked enabled
 // (ComTsk_Unkn0001), with the given type (and, for CTT_WaitForBridge,
 // sub-task original type).
-struct ComputerTask *add_enabled_task(struct Computer2 *comp, unsigned short task_idx, ComputerTaskType ttype, ComputerTaskType ottype = CTT_None)
+struct ComputerTask *add_enabled_task(struct Computer2 *comp, int64_t task_idx, ComputerTaskType ttype, ComputerTaskType ottype = CTT_None)
 {
     struct ComputerTask *ctask = get_computer_task(task_idx);
     ctask->flags |= ComTsk_Unkn0001;

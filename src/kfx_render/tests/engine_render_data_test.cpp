@@ -14,8 +14,8 @@
 
 TEST_CASE("colored_stripey_lines[] has a real opaque colour in every one of its 16 animation slots",
           "[kfx_render][engine_render_data]") {
-    for (int line = 0; line < STRIPEY_LINE_COLOR_COUNT; line++) {
-        for (int slot = 0; slot < 16; slot++) {
+    for (int64_t line = 0; line < STRIPEY_LINE_COLOR_COUNT; line++) {
+        for (int64_t slot = 0; slot < 16; slot++) {
             const TbPixel px = colored_stripey_lines[line].stripey_line_color_array[slot];
             INFO("colored_stripey_lines[" << line << "].stripey_line_color_array[" << slot << "]");
             // A real colour is always fully opaque (alpha 255); a slot left

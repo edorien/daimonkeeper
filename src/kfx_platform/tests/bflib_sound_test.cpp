@@ -38,9 +38,9 @@ struct SoundFixture {
     }
 };
 
-long fake_sight_calls = 0;
-long fake_sight_result = 1;
-long fake_line_of_sight(long, long, long, long, long, long) {
+int64_t fake_sight_calls = 0;
+int64_t fake_sight_result = 1;
+int64_t fake_line_of_sight(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t) {
     fake_sight_calls++;
     return fake_sight_result;
 }
@@ -65,7 +65,7 @@ TEST_CASE_METHOD(SoundFixture, "allocate_free_sound_emitter finds successive fre
 }
 
 TEST_CASE_METHOD(SoundFixture, "allocate_free_sound_emitter returns 0 once every slot is allocated", "[kfx_platform][bflib_sound]") {
-    for (int i = 1; i < SOUND_EMITTERS_MAX; i++) {
+    for (int64_t i = 1; i < SOUND_EMITTERS_MAX; i++) {
         emitter[i].flags = Emi_IsAllocated;
     }
     CHECK(allocate_free_sound_emitter() == 0);
@@ -287,7 +287,7 @@ TEST_CASE_METHOD(SoundFixture, "get_emitter_pitch_from_doppler ramps toward targ
     // abs(target-next)>>1 regardless of sign, so it moves further FROM a
     // lower target rather than toward it (looks like a missing sign, not
     // exercised behavior anyone relies on being "correct" ramping).
-    long pitch = get_emitter_pitch_from_doppler(&recv, &emit);
+    int64_t pitch = get_emitter_pitch_from_doppler(&recv, &emit);
     CHECK(emit.target_pitch == 93);
     CHECK(pitch == 103); // 100 + (|93-100|>>1) = 100+3
     CHECK(emit.curr_pitch == 103);
@@ -296,7 +296,7 @@ TEST_CASE_METHOD(SoundFixture, "get_emitter_pitch_from_doppler ramps toward targ
     // pitch_doppler already ahead of the new distance -> delta clamps to
     // 0 -> target_pitch resets to 100 (the "caught up" default).
     emit.pitch_doppler = 200;
-    long pitch2 = get_emitter_pitch_from_doppler(&recv, &emit);
+    int64_t pitch2 = get_emitter_pitch_from_doppler(&recv, &emit);
     CHECK(emit.target_pitch == 100);
     (void)pitch2;
 }
@@ -308,7 +308,7 @@ TEST_CASE_METHOD(SoundFixture, "get_emitter_pan_volume_pitch returns full volume
     std::memset(&emit, 0, sizeof(emit));
     emit.emitter_flags = 0x08;
 
-    int32_t pan, volume, pitch;
+    int64_t pan, volume, pitch;
     CHECK(get_emitter_pan_volume_pitch(&recv, &emit, &pan, &volume, &pitch) == 1);
     CHECK(volume == 127);
     CHECK(pan == 64);
@@ -328,7 +328,7 @@ TEST_CASE_METHOD(SoundFixture, "get_emitter_pan_volume_pitch halves volume when 
     std::memset(&emit, 0, sizeof(emit));
     // emitter_flags doesn't have 0x04 (force-on-sight) or 0x08 (always audible)
 
-    int32_t pan, volume, pitch;
+    int64_t pan, volume, pitch;
     CHECK(get_emitter_pan_volume_pitch(&recv, &emit, &pan, &volume, &pitch) == 1);
     CHECK(volume == 63); // get_emitter_volume(dist=0) is 127, halved for "not on sight"
     CHECK(pan == 64);    // dist(0) - deadzone(0) < 128, so the cheap default applies
@@ -382,7 +382,7 @@ TEST_CASE_METHOD(SoundFixture, "find_slot reuses an already-playing sample on th
 
 TEST_CASE_METHOD(SoundFixture, "find_slot returns -1 when every slot is playing at or above spcmax priority, never evicting", "[kfx_platform][bflib_sound]") {
     S3DSetNumberOfSounds(SOUNDS_MAX_COUNT);
-    for (long i = 0; i < SOUNDS_MAX_COUNT; i++) {
+    for (int64_t i = 0; i < SOUNDS_MAX_COUNT; i++) {
         SampleList[i].is_playing = 1;
         SampleList[i].priority = 1000;
     }

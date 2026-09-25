@@ -15,8 +15,8 @@ struct ResetEdgePoints {
 }
 
 TEST_CASE_METHOD(ResetEdgePoints, "edge_point_add stores coordinates and returns sequential ids", "[kfx_pathfinding][ariadne_edge]") {
-    long id0 = edge_point_add(10, 20);
-    long id1 = edge_point_add(30, 40);
+    int64_t id0 = edge_point_add(10, 20);
+    int64_t id1 = edge_point_add(30, 40);
     CHECK(id0 == 0);
     CHECK(id1 == 1);
 

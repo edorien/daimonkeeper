@@ -47,7 +47,7 @@ constexpr unsigned char kWallColumnBitfields = COLUMN_WALL_HEIGHT << 4;
 // this wires a real, non-zero column index into each subtile first (same
 // pattern as map_columns_test.cpp's wire_column helper).
 void set_slab_all_wall(MapSlabCoord slb_x, MapSlabCoord slb_y, bool wall) {
-    long col_idx = 1 + slb_x + slb_y * MAX_ROOMSPACE_WIDTH;
+    int64_t col_idx = 1 + slb_x + slb_y * MAX_ROOMSPACE_WIDTH;
     struct Column *col = get_column(col_idx);
     col->bitfields = wall ? kWallColumnBitfields : 0;
     for (MapSlabCoord sy = 0; sy < STL_PER_SLB; ++sy) {

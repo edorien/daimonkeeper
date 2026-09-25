@@ -93,7 +93,7 @@ TbBool ftest_bug_invisible_units_cant_select_init()
     // setup actions
     //ftest_append_action(ftest_util_action__create_and_fill_torture_room, 20, &ftest_bug_invisible_units_cant_select__torture__vars);
 
-    for(int i = 0; i < 10; ++i)
+    for(int64_t i = 0; i < 10; ++i)
     {
         ftest_append_action(ftest_bug_invisible_units_cant_select_action001__spawn_unit, 20, &ftest_bug_invisible_units_cant_select__vars);
         ftest_append_action(ftest_bug_invisible_units_cant_select_action002__zoom_to_unit_and_trigger_invisibility_bug, 20, &ftest_bug_invisible_units_cant_select__vars);
@@ -179,7 +179,7 @@ FTestActionResult ftest_bug_invisible_units_cant_select_action003__pickup_unit(s
     // check if creature render flag is set, it shoudln't be, if it is, fail the test
     if(flag_is_set(vars->unit->rendering_flags, TRF_Invisible))
     {
-        FTEST_FAIL_TEST("Creature %s index %d has render flag %d set when it shouldn't!", thing_model_name(vars->unit), (int)vars->unit->index, TRF_Invisible);
+        FTEST_FAIL_TEST("Creature %s index %" PRId64 " has render flag %" PRId64 " set when it shouldn't!", thing_model_name(vars->unit), (int64_t)vars->unit->index, (int64_t)(TRF_Invisible));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -201,7 +201,7 @@ FTestActionResult ftest_bug_invisible_units_cant_select_action003__pickup_unit(s
         TbResult pickup_result = magic_use_available_power_on_thing(PLAYER0, PwrK_HAND, 0, vars->unit->mappos.x.stl.num, vars->unit->mappos.y.stl.num, vars->unit, PwMod_Default);
         if(pickup_result != Lb_SUCCESS)
         {
-            FTEST_FAIL_TEST("Cannot pick up %s index %d", thing_model_name(vars->unit), (int)vars->unit->index);
+            FTEST_FAIL_TEST("Cannot pick up %s index %" PRId64, thing_model_name(vars->unit), (int64_t)vars->unit->index);
             return FTRs_Go_To_Next_Action;
         }
 
@@ -228,7 +228,7 @@ FTestActionResult ftest_bug_invisible_units_cant_select_action004__drop_unit(str
     set_coords_to_slab_center(&dropPos, vars->slb_x_arena_start+1, vars->slb_y_arena_start+1);
     if(!dump_first_held_thing_on_map(PLAYER0, dropPos.x.stl.num, dropPos.y.stl.num, 1))
     {
-        FTEST_FAIL_TEST("Cannot drop %s index %d", thing_model_name(vars->unit), (int)vars->unit->index);
+        FTEST_FAIL_TEST("Cannot drop %s index %" PRId64, thing_model_name(vars->unit), (int64_t)vars->unit->index);
     }
     else
     {

@@ -33,16 +33,16 @@ namespace {
 
 bool s_show_availability = false;
 ManagedSetupValues s_values;
-int s_players = 1;
+int64_t s_players = 1;
 
 enum CellState { Cell_Unset = 0, Cell_Off, Cell_Available, Cell_Researchable };
 
-bool kind_has_research(int kind)
+bool kind_has_research(int64_t kind)
 {
     return (kind == AvailKind_Room) || (kind == AvailKind_Magic);
 }
 
-CellState state_of(int kind, const AvailabilityEntry *e)
+CellState state_of(int64_t kind, const AvailabilityEntry *e)
 {
     if (e == nullptr)
         return Cell_Unset;
@@ -55,7 +55,7 @@ CellState state_of(int kind, const AvailabilityEntry *e)
 
 // Canonical (a, b) pair for a state, per the semantics documented in
 // phase5/05-slice5-availability-grid.md.
-void pair_for(int kind, CellState state, int &a, int &b)
+void pair_for(int64_t kind, CellState state, int64_t &a, int64_t &b)
 {
     switch (state)
     {
@@ -65,7 +65,7 @@ void pair_for(int kind, CellState state, int &a, int &b)
     }
 }
 
-CellState next_state(int kind, CellState s)
+CellState next_state(int64_t kind, CellState s)
 {
     switch (s)
     {
@@ -87,7 +87,7 @@ const char *label_of(CellState s)
     }
 }
 
-void set_cell(int kind, int player, int item, CellState state)
+void set_cell(int64_t kind, int64_t player, int64_t item, CellState state)
 {
     AvailabilityEntry *e = script_setup_availability_find(s_values, kind, player, item);
     if (state == Cell_Unset)
@@ -96,7 +96,7 @@ void set_cell(int kind, int player, int item, CellState state)
             s_values.availability.erase(s_values.availability.begin() + (e - &s_values.availability[0]));
         return;
     }
-    int a, b;
+    int64_t a, b;
     pair_for(kind, state, a, b);
     if (e != nullptr)
     {
@@ -110,27 +110,27 @@ void set_cell(int kind, int player, int item, CellState state)
     }
 }
 
-void draw_kind_table(int kind)
+void draw_kind_table(int64_t kind)
 {
     const struct NamedCommand *desc = script_setup_availability_desc(kind);
-    int columns = 2 + s_players; // name, ALL, P0..
+    int64_t columns = 2 + s_players; // name, ALL, P0..
     if (ImGui::BeginChild("##AvailScroll", ImVec2(0, -40)))
     {
         if (ImGui::BeginTable("##AvailTable", columns, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_SizingFixedFit))
         {
-            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 180.0);
             ImGui::TableSetupColumn("ALL");
-            for (int p = 0; p < s_players; p++)
+            for (int64_t p = 0; p < s_players; p++)
             {
                 char h[8];
-                snprintf(h, sizeof(h), "P%d", p);
+                snprintf(h, sizeof(h), "P%" PRId64, (int64_t)(p));
                 ImGui::TableSetupColumn(h);
             }
             ImGui::TableHeadersRow();
-            std::vector<int> seen;
-            for (int i = 0; desc != nullptr && desc[i].name != nullptr; i++)
+            std::vector<int64_t> seen;
+            for (int64_t i = 0; desc != nullptr && desc[i].name != nullptr; i++)
             {
-                int item = desc[i].num;
+                int64_t item = desc[i].num;
                 if (item <= 0)
                     continue;
                 bool dup = false;
@@ -142,9 +142,9 @@ void draw_kind_table(int kind)
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::TextUnformatted(desc[i].name);
-                for (int c = 0; c < columns - 1; c++)
+                for (int64_t c = 0; c < columns - 1; c++)
                 {
-                    int player = c - 1; // column 1 == ALL (-1)
+                    int64_t player = c - 1; // column 1 == ALL (-1)
                     ImGui::TableSetColumnIndex(c + 1);
                     ImGui::PushID(item * 16 + c);
                     CellState cur = state_of(kind, script_setup_availability_find(s_values, kind, player, item));
@@ -186,7 +186,7 @@ void editor_availability_frame(void)
         if (tabs)
         {
             static const char *const kTabNames[AvailKind_Count] = { "Creatures", "Rooms", "Spells", "Traps", "Doors" };
-            for (int kind = 0; kind < AvailKind_Count; kind++)
+            for (int64_t kind = 0; kind < AvailKind_Count; kind++)
             {
                 if (FeTab(kTabNames[kind]))
                 {

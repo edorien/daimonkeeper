@@ -15,6 +15,7 @@
  *     work-states" model.
  */
 /******************************************************************************/
+#include "kfx_imgui.h"
 #include "pre_inc.h"
 #include "editor_toolbox.h"
 #include "kfx_editor.h"
@@ -134,15 +135,15 @@ namespace {
     // cheatselection shape as the other s_selected_* fields below (this
     // tool has no packet/CheatSelection field of its own to read back --
     // see EdTool_PaintTexture's own enum comment for why).
-    int s_selected_texture_pack = 0;
-    int s_texture_paint_mode = 0; // 0 brush, 1 rectangle, 2 fill
+    int64_t s_selected_texture_pack = 0;
+    int64_t s_texture_paint_mode = 0; // 0 brush, 1 rectangle, 2 fill
     ThingModel s_selected_creature_kind = 1;
     ThingModel s_selected_object_model = 1;
     // docs/refactor/editor/09-toolbox-remainder.md §1 -- value-property
     // slice, gold amount only (see draw_object_picker()'s own comment).
     // 0 means "use the engine default" (gold_object_typical_value(), same
     // as create_object() already applies with no value tweak at all).
-    int s_object_gold_value = 0;
+    int64_t s_object_gold_value = 0;
     // Selected-for-editing object (§1's position-edit follow-up -- clicking
     // an existing object with the Object tool selects it here instead of
     // trying to place a new one on the same square). 0 means nothing
@@ -151,9 +152,9 @@ namespace {
     // value doesn't get overwritten by the thing's still-unchanged actual
     // position until Apply is pressed.
     ThingIndex s_edit_thing_idx = 0;
-    int s_edit_pos_x = 0;
-    int s_edit_pos_y = 0;
-    int s_edit_pos_z = 0;
+    int64_t s_edit_pos_x = 0;
+    int64_t s_edit_pos_y = 0;
+    int64_t s_edit_pos_z = 0;
     ThingModel s_selected_trap_kind = 1;
     ThingModel s_selected_door_kind = 1;
     // The "Thing" button covers three placement modes -- objects, traps and
@@ -169,11 +170,11 @@ namespace {
     // values are one-shot requests from code that changes the active item (the
     // eyedropper, tool shortcuts) asking the matching tabs to follow. -1 = none.
     bool s_toolbox_open = true;
-    int s_force_top = -1;              // TopTab
-    int s_force_tool = -1;             // EditorTool (Thing = EdTool_Object)
-    int s_force_terrain_group = -1;    // EditorTerrainGroup
-    int s_force_thing_group = -1;      // ThingGroup
-    int s_force_terrain_mode = -1;     // TerrainMode
+    int64_t s_force_top = -1;              // TopTab
+    int64_t s_force_tool = -1;             // EditorTool (Thing = EdTool_Object)
+    int64_t s_force_terrain_group = -1;    // EditorTerrainGroup
+    int64_t s_force_thing_group = -1;      // ThingGroup
+    int64_t s_force_terrain_mode = -1;     // TerrainMode
     bool s_history_visible = false;    // History tab showing: no tool is "live"
 
     enum TopTab { TT_Terrain, TT_Things, TT_Utility, TT_Area, TT_History };
@@ -254,7 +255,7 @@ namespace {
         return (tool == EdTool_Trap || tool == EdTool_Door) ? EdTool_Object : tool;
     }
 
-    int top_of_tool(EditorTool tool)
+    int64_t top_of_tool(EditorTool tool)
     {
         switch (tab_tool(tool))
         {
@@ -317,8 +318,8 @@ namespace {
     // tabs already have.
     void draw_history_tab()
     {
-        int undo_count = editor_journal_undo_count();
-        int redo_count = editor_journal_redo_count();
+        int64_t undo_count = editor_journal_undo_count();
+        int64_t redo_count = editor_journal_redo_count();
 
         ImGui::BeginDisabled(undo_count == 0);
         if (FeButton("Undo"))
@@ -331,7 +332,7 @@ namespace {
         ImGui::EndDisabled();
 
         char summary[64];
-        snprintf(summary, sizeof(summary), "%d undo / %d redo", undo_count, redo_count);
+        snprintf(summary, sizeof(summary), "%" PRId64 " undo / %" PRId64 " redo", (int64_t)(undo_count), (int64_t)(redo_count));
         FeBodyText(summary);
 
         // Rows aren't clickable (no "jump to this entry" -- undo/redo only
@@ -349,10 +350,10 @@ namespace {
         bool undo_open = FeBeginListBox("##EdHistoryUndo", ImVec2(240, 140));
         if (undo_open)
         {
-            for (int i = 0; i < undo_count; i++)
+            for (int64_t i = 0; i < undo_count; i++)
             {
                 const char *label = editor_journal_describe_undo(i);
-                snprintf(row_label, sizeof(row_label), "%s##%d", label ? label : "?", i);
+                snprintf(row_label, sizeof(row_label), "%s##%" PRId64, label ? label : "?", (int64_t)(i));
                 FeListRow(row_label, false);
             }
         }
@@ -362,10 +363,10 @@ namespace {
         bool redo_open = FeBeginListBox("##EdHistoryRedo", ImVec2(240, 140));
         if (redo_open)
         {
-            for (int i = 0; i < redo_count; i++)
+            for (int64_t i = 0; i < redo_count; i++)
             {
                 const char *label = editor_journal_describe_redo(i);
-                snprintf(row_label, sizeof(row_label), "%s##%d", label ? label : "?", i);
+                snprintf(row_label, sizeof(row_label), "%s##%" PRId64, label ? label : "?", (int64_t)(i));
                 FeListRow(row_label, false);
             }
         }
@@ -383,16 +384,16 @@ namespace {
     // it follows whatever the UI style is.
     struct TabTint
     {
-        int pushed = 0;
-        explicit TabTint(int level)
+        int64_t pushed = 0;
+        explicit TabTint(int64_t level)
         {
             static const ImVec4 kTints[] = {
-                ImVec4(0.0f, 0.0f, 0.0f, 0.0f),      // level 0: theme colours
-                ImVec4(0.70f, 0.30f, 0.25f, 0.30f),  // level 1: warm red
-                ImVec4(0.30f, 0.60f, 0.30f, 0.30f),  // level 2: green
-                ImVec4(0.30f, 0.40f, 0.75f, 0.30f),  // level 3: blue
+                ImVec4(0.0, 0.0, 0.0, 0.0),      // level 0: theme colours
+                ImVec4(0.70, 0.30, 0.25, 0.30),  // level 1: warm red
+                ImVec4(0.30, 0.60, 0.30, 0.30),  // level 2: green
+                ImVec4(0.30, 0.40, 0.75, 0.30),  // level 3: blue
             };
-            if (level <= 0 || level >= (int)(sizeof(kTints) / sizeof(kTints[0])))
+            if (level <= 0 || level >= (int64_t)(sizeof(kTints) / sizeof(kTints[0])))
                 return;
             const ImVec4 &t = kTints[level];
             static const ImGuiCol cols[] = {
@@ -411,7 +412,7 @@ namespace {
     };
 
     // One page of a tab bar, honouring a one-shot force request.
-    bool tab_page(const char *label, int *force_var, int my_value)
+    bool tab_page(const char *label, int64_t *force_var, int64_t my_value)
     {
         const bool force = (*force_var == my_value);
         const bool shown = FeTabEx(label, force);
@@ -420,7 +421,7 @@ namespace {
         return shown;
     }
 
-    short manufacture_icon(ThingClass tngclass, ThingModel tngmodel); // defined with the Thing picker below
+    int64_t manufacture_icon(ThingClass tngclass, ThingModel tngmodel); // defined with the Thing picker below
 
     void select_terrain(SlabKind kind)
     {
@@ -437,7 +438,7 @@ namespace {
     // The Dungeon Heart object (the "soul container" in the Things tab).
     ThingModel heart_object_model()
     {
-        const long count = kfx_config_state.conf.object_conf.object_types_count;
+        const int64_t count = kfx_config_state.conf.object_conf.object_types_count;
         for (ThingModel m = 1; m < (ThingModel)count; m++)
         {
             const struct ObjectConfigStats *ostat = get_object_model_stats(m);
@@ -447,12 +448,12 @@ namespace {
         return 0;
     }
 
-    void draw_terrain_group(int group)
+    void draw_terrain_group(int64_t group)
     {
         const struct SlabsConfig &slabc = kfx_config_state.conf.slab_conf;
         static const char *const grid_ids[ETG_Count] = {"##EdTerrainGrid", "##EdRoomGrid", "##EdWallGrid", "##EdOtherGrid"};
-        editor_icon_grid_begin(grid_ids[group], 280.0f, 5);
-        for (int32_t i = 0; i < slabc.slab_types_count; i++)
+        editor_icon_grid_begin(grid_ids[group], 280.0, 5);
+        for (int64_t i = 0; i < slabc.slab_types_count; i++)
         {
             if (editor_terrain_group_of((SlabKind)i) != group)
                 continue;
@@ -462,7 +463,7 @@ namespace {
                 continue;
             EditorIconTile tile;
             char id[16];
-            snprintf(id, sizeof(id), "s%d", (int)i);
+            snprintf(id, sizeof(id), "s%" PRId64, (int64_t)i);
             tile.id = id;
             tile.selected = ((SlabKind)i == s_selected_terrain_kind);
             const char *code = slab_code_name((SlabKind)i);
@@ -489,7 +490,7 @@ namespace {
             {
                 // A room floor, or that room's wall: the room's own icon.
                 const struct RoomConfigStats *rs = get_room_kind_stats(room);
-                tile.sprite = (short)rs->medsym_sprite_idx;
+                tile.sprite = (int64_t)rs->medsym_sprite_idx;
                 tile.ov_kind = EIO_ActiveInactive;
                 tile.ov_category = "room";
                 tile.ov_code = room_code_name(room);
@@ -515,14 +516,14 @@ namespace {
         editor_icon_grid_end();
     }
 
-    void draw_terrain_picker(int tint_level)
+    void draw_terrain_picker(int64_t tint_level)
     {
         TabTint tint(tint_level);
         bool tabs = FeBeginTabBar("##EdTerrainTabs");
         if (tabs)
         {
             static const char *const labels[ETG_Count] = {"Terrain", "Rooms", "Walls", "Other"};
-            for (int g = 0; g < ETG_Count; g++)
+            for (int64_t g = 0; g < ETG_Count; g++)
                 if (tab_page(labels[g], &s_force_terrain_group, g))
                 {
                     draw_terrain_group(g);
@@ -548,16 +549,16 @@ namespace {
 
     void draw_creature_picker()
     {
-        const long model_count = kfx_config_state.conf.crtr_conf.model_count;
-        editor_icon_grid_begin("##EdCreatureGrid", 300.0f, 5);
+        const int64_t model_count = kfx_config_state.conf.crtr_conf.model_count;
+        editor_icon_grid_begin("##EdCreatureGrid", 300.0, 5);
             static const char *const titles[3] = {"Evil creatures", "Heroes", "Other"};
-        for (int group = 0; group < 3; group++)
+        for (int64_t group = 0; group < 3; group++)
         {
             bool heading_done = false;
             for (ThingModel m = 1; m < (ThingModel)model_count; m++)
             {
                 const struct CreatureModelConfig *crconf = creature_stats_get(m);
-                int g = ((crconf->model_flags & CMF_IsSpectator) != 0) ? 2
+                int64_t g = ((crconf->model_flags & CMF_IsSpectator) != 0) ? 2
                     : (((crconf->model_flags & CMF_IsEvil) != 0) ? 0 : 1);
                 if (g != group)
                     continue;
@@ -568,7 +569,7 @@ namespace {
                 }
                 EditorIconTile tile;
                 char id[16];
-                snprintf(id, sizeof(id), "c%d", (int)m);
+                snprintf(id, sizeof(id), "c%" PRId64, (int64_t)m);
                 tile.id = id;
                 tile.sprite = get_creature_model_graphics(m, CGI_HandSymbol);
                 tile.ov_kind = EIO_Single;
@@ -612,15 +613,15 @@ namespace {
         struct PlayerInfo *player = get_my_player();
         FeSeparator();
         char title[64];
-        snprintf(title, sizeof(title), "Editing #%d: %s", (int)thing->index, object_code_name(thing->model));
+        snprintf(title, sizeof(title), "Editing #%" PRId64 ": %s", (int64_t)thing->index, object_code_name(thing->model));
         FeSubheading(title);
         FeBodyText("Position (raw map units, 256 per subtile):");
         ImGui::SetNextItemWidth(240);
-        ImGui::InputInt("X##EdObjPosX", &s_edit_pos_x);
+        kfximgui::InputInt("X##EdObjPosX", &s_edit_pos_x);
         ImGui::SetNextItemWidth(240);
-        ImGui::InputInt("Y##EdObjPosY", &s_edit_pos_y);
+        kfximgui::InputInt("Y##EdObjPosY", &s_edit_pos_y);
         ImGui::SetNextItemWidth(240);
-        ImGui::InputInt("Z##EdObjPosZ", &s_edit_pos_z);
+        kfximgui::InputInt("Z##EdObjPosZ", &s_edit_pos_z);
         if (FeButton("Apply Position", ImVec2(240, 0)))
         {
             EditorThingProps before, after;
@@ -637,7 +638,7 @@ namespace {
         {
             FeBodyText("Value (0 = leave unchanged):");
             ImGui::SetNextItemWidth(240);
-            ImGui::InputInt("##EdGoldValue", &s_object_gold_value);
+            kfximgui::InputInt("##EdGoldValue", &s_object_gold_value);
             if (s_object_gold_value < 0)
                 s_object_gold_value = 0;
             if (FeButton("Apply Value", ImVec2(240, 0)))
@@ -700,27 +701,27 @@ namespace {
 
     // Icon for a workshop item (trap/door) from the manufacture table, the
     // same source the in-game workshop grid uses.
-    short manufacture_icon(ThingClass tngclass, ThingModel tngmodel)
+    int64_t manufacture_icon(ThingClass tngclass, ThingModel tngmodel)
     {
-        int idx = get_manufacture_data_index_for_thing(tngclass, tngmodel);
+        int64_t idx = get_manufacture_data_index_for_thing(tngclass, tngmodel);
         if (idx <= 0)
             return 0;
         const struct ManufactureData *md = get_manufacture_data(idx);
-        return (md != NULL) ? (short)md->medsym_sprite_idx : 0;
+        return (md != NULL) ? (int64_t)md->medsym_sprite_idx : 0;
     }
 
-    void object_tile_common(EditorIconTile &tile, ThingModel m, int group)
+    void object_tile_common(EditorIconTile &tile, ThingModel m, int64_t group)
     {
         tile.label = editor_icon_grid_pretty(object_code_name(m));
         tile.tooltip = object_code_name(m);
         tile.selected = (s_active_tool == EdTool_Object) && (m == s_selected_object_model);
         if (group == EOG_Spells)
         {
-            const int power = editor_spellbook_power(m);
+            const int64_t power = editor_spellbook_power(m);
             if (power > 0)
             {
                 const struct PowerConfigStats *ps = get_power_model_stats((PowerKind)power);
-                tile.sprite = (short)ps->medsym_sprite_idx;
+                tile.sprite = (int64_t)ps->medsym_sprite_idx;
                 tile.ov_kind = EIO_ActiveInactive;
                 tile.ov_category = "power";
                 tile.ov_code = power_code_name((PowerKind)power);
@@ -741,17 +742,17 @@ namespace {
         }
     }
 
-    void draw_object_group(int group, int cols, const char *grid_id)
+    void draw_object_group(int64_t group, int64_t cols, const char *grid_id)
     {
-        const long model_count = kfx_config_state.conf.object_conf.object_types_count;
-        editor_icon_grid_begin(grid_id, 280.0f, cols);
+        const int64_t model_count = kfx_config_state.conf.object_conf.object_types_count;
+        editor_icon_grid_begin(grid_id, 280.0, cols);
         for (ThingModel m = 1; m < (ThingModel)model_count; m++)
         {
             if (editor_object_group_of(m) != group)
                 continue;
             EditorIconTile tile;
             char id[16];
-            snprintf(id, sizeof(id), "o%d", (int)m);
+            snprintf(id, sizeof(id), "o%" PRId64, (int64_t)m);
             tile.id = id;
             object_tile_common(tile, m, group);
             if (editor_icon_grid_tile(tile))
@@ -762,14 +763,14 @@ namespace {
 
     void draw_traps_and_doors()
     {
-        editor_icon_grid_begin("##EdTrapDoorGrid", 280.0f, 5);
+        editor_icon_grid_begin("##EdTrapDoorGrid", 280.0, 5);
         editor_icon_grid_heading("Traps");
-        const long trap_count = kfx_config_state.conf.trapdoor_conf.trap_types_count;
+        const int64_t trap_count = kfx_config_state.conf.trapdoor_conf.trap_types_count;
         for (ThingModel m = 1; m < (ThingModel)trap_count; m++)
         {
             EditorIconTile tile;
             char id[16];
-            snprintf(id, sizeof(id), "t%d", (int)m);
+            snprintf(id, sizeof(id), "t%" PRId64, (int64_t)m);
             tile.id = id;
             tile.sprite = manufacture_icon(TCls_Trap, m);
             tile.ov_kind = EIO_ActiveInactive;
@@ -785,12 +786,12 @@ namespace {
             }
         }
         editor_icon_grid_heading("Doors");
-        const long door_count = kfx_config_state.conf.trapdoor_conf.door_types_count;
+        const int64_t door_count = kfx_config_state.conf.trapdoor_conf.door_types_count;
         for (ThingModel m = 1; m < (ThingModel)door_count; m++)
         {
             EditorIconTile tile;
             char id[16];
-            snprintf(id, sizeof(id), "d%d", (int)m);
+            snprintf(id, sizeof(id), "d%" PRId64, (int64_t)m);
             tile.id = id;
             tile.sprite = manufacture_icon(TCls_Door, m);
             tile.ov_kind = EIO_ActiveInactive;
@@ -806,14 +807,14 @@ namespace {
             }
         }
         editor_icon_grid_heading("Crates");
-        const long object_count = kfx_config_state.conf.object_conf.object_types_count;
+        const int64_t object_count = kfx_config_state.conf.object_conf.object_types_count;
         for (ThingModel m = 1; m < (ThingModel)object_count; m++)
         {
             if (editor_object_group_of(m) != EOG_Crates)
                 continue;
             EditorIconTile tile;
             char id[16];
-            snprintf(id, sizeof(id), "k%d", (int)m);
+            snprintf(id, sizeof(id), "k%" PRId64, (int64_t)m);
             tile.id = id;
             object_tile_common(tile, m, EOG_Crates);
             if (editor_icon_grid_tile(tile))
@@ -822,7 +823,7 @@ namespace {
         editor_icon_grid_end();
     }
 
-    void draw_thing_picker(int tint_level)
+    void draw_thing_picker(int64_t tint_level)
     {
         {
             TabTint tint(tint_level);
@@ -937,7 +938,7 @@ namespace {
                 s_selected_object_model = thing->model;
                 s_selected_owner = thing->owner;
                 s_thing_mode = EdTool_Object;
-                const int g = editor_object_group_of(thing->model);
+                const int64_t g = editor_object_group_of(thing->model);
                 s_force_thing_group = (g == EOG_Spells) ? TG_Spells : (g == EOG_Specials) ? TG_Specials
                     : (g == EOG_Crates) ? TG_TrapsDoors : TG_Decor;
                 focus_tool_tabs(EdTool_Object);
@@ -1150,7 +1151,7 @@ namespace {
             MapSlabCoord box_beg_y = min(s_brush_drag_slb_y, cur_slb_y);
             MapSlabCoord box_end_x = max(s_brush_drag_slb_x, cur_slb_x) + 1;
             MapSlabCoord box_end_y = max(s_brush_drag_slb_y, cur_slb_y) + 1;
-            int floor_height_z = floor_height_for_volume_box(player->id_number, cur_slb_x, cur_slb_y);
+            int64_t floor_height_z = floor_height_for_volume_box(player->id_number, cur_slb_x, cur_slb_y);
             draw_map_volume_box(subtile_coord(slab_subtile(box_beg_x, 0), 0), subtile_coord(slab_subtile(box_beg_y, 0), 0),
                 subtile_coord(slab_subtile(box_end_x, 0), 0), subtile_coord(slab_subtile(box_end_y, 0), 0), floor_height_z, SLC_YELLOW);
         }
@@ -1243,9 +1244,9 @@ namespace {
         else if (s_rmb.down && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
         {
             s_rmb.down = false;
-            const float dx = io.MousePos.x - s_rmb.start.x;
-            const float dy = io.MousePos.y - s_rmb.start.y;
-            if (dx * dx + dy * dy < 25.0f && (ImGui::GetTime() - s_rmb.time) < 0.4)
+            const double dx = io.MousePos.x - s_rmb.start.x;
+            const double dy = io.MousePos.y - s_rmb.start.y;
+            if (dx * dx + dy * dy < 25.0 && (ImGui::GetTime() - s_rmb.time) < 0.4)
                 delete_thing_under_cursor();
         }
     }
@@ -1289,17 +1290,17 @@ namespace {
             {PLAYER2, "Player 3 (green)"}, {PLAYER3, "Player 4 (yellow)"},
             {neutral, "Neutral"}, {PLAYER_GOOD, "Hero (white)"},
         };
-        const float sz = 34.0f, gap = 4.0f;
+        const double sz = 34.0, gap = 4.0;
         const ImVec2 origin = ImGui::GetCursorScreenPos();
-        const int flash = ((int)(ImGui::GetTime() * 4.0)) & 3;
+        const int64_t flash = ((int64_t)(ImGui::GetTime() * 4.0)) & 3;
         for (size_t i = 0; i < sizeof(owners) / sizeof(owners[0]); i++)
         {
             const PlayerNumber o = owners[i].owner;
-            short sprite;
+            int64_t sprite;
             if (o == PLAYER_GOOD)
                 sprite = GPS_plyrsym_symbol_player_white_std;
             else if (o == neutral)
-                sprite = (short)(GPS_plyrsym_symbol_player_red_std_b + flash);
+                sprite = (int64_t)(GPS_plyrsym_symbol_player_red_std_b + flash);
             else
                 sprite = get_player_colored_icon_idx(GPS_plyrsym_symbol_player_red_std_b, o);
             FeHudCellOpts opts;
@@ -1307,7 +1308,7 @@ namespace {
             opts.selected = (o == s_selected_owner);
             opts.tooltip = owners[i].tip;
             char id[12];
-            snprintf(id, sizeof(id), "own%d", (int)o);
+            snprintf(id, sizeof(id), "own%" PRId64, (int64_t)o);
             if (fe_hud_cell(id, ImVec2(origin.x + i * (sz + gap), origin.y), ImVec2(sz, sz), opts) == 1)
             {
                 s_selected_owner = o;
@@ -1332,13 +1333,13 @@ namespace {
         draw_owner_row(player);
 
         ImGui::TextUnformatted("Level:");
-        for (int lvl = 1; lvl <= 10; lvl++)
+        for (int64_t lvl = 1; lvl <= 10; lvl++)
         {
             ImGui::SameLine();
             char label[8];
             // chosen_experience_level is 0-indexed on the wire (packets_cheats.c
             // displays it as "+1") -- lvl-1 here, not lvl.
-            snprintf(label, sizeof(label), (lvl - 1 == s_selected_level) ? "[%d]" : "%d", lvl);
+            snprintf(label, sizeof(label), (lvl - 1 == s_selected_level) ? "[%" PRId64 "]" : "%" PRId64, lvl);
             if (FeButton(label))
             {
                 s_selected_level = lvl - 1;
@@ -1365,7 +1366,7 @@ namespace {
         {
             for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
             {
-                const bool forced = (s_force_terrain_mode == (int)modes[i].mode);
+                const bool forced = (s_force_terrain_mode == (int64_t)modes[i].mode);
                 const bool pending_other = (s_force_terrain_mode != -1) && !forced;
                 const bool shown = FeTabEx(modes[i].label, forced);
                 if (forced)
@@ -1379,7 +1380,7 @@ namespace {
                     s_terrain_mode = modes[i].mode;
                     set_work_state(terrain_mode_work_state(s_terrain_mode));
                 }
-                ImGui::PushID((int)modes[i].mode);
+                ImGui::PushID((int64_t)modes[i].mode);
                 draw_terrain_picker(3);
                 ImGui::PopID();
                 FeEndTab();
@@ -1396,7 +1397,7 @@ namespace {
         // settling, two tools' bodies can both be submitted, and the same
         // picker bar ("##EdTerrainTabs" under Terrain and under Fill) must not
         // then be a duplicate ID.
-        ImGui::PushID((int)tool);
+        ImGui::PushID((int64_t)tool);
         switch (tool)
         {
             case EdTool_Terrain:      draw_terrain_body(); break;
@@ -1409,8 +1410,8 @@ namespace {
                 FeBodyText("rooms and doors into reinforced wall.");
                 if (FeButton("Reinforce perimeter", ImVec2(200, 0)))
                 {
-                    const int n = editor_reinforce_perimeter(s_selected_owner);
-                    snprintf(s_reinforce_status, sizeof(s_reinforce_status), "%d slab%s reinforced.", n, n == 1 ? "" : "s");
+                    const int64_t n = editor_reinforce_perimeter(s_selected_owner);
+                    snprintf(s_reinforce_status, sizeof(s_reinforce_status), "%" PRId64 " slab%s reinforced.", (int64_t)(n), n == 1 ? "" : "s");
                 }
                 if (s_reinforce_status[0] != '\0')
                     FeCaption(s_reinforce_status);
@@ -1452,7 +1453,7 @@ namespace {
         {
             // A lone tool needs no tab row of its own.
             const EditorTool only = tabs[0].tool;
-            const bool forced = (s_force_tool == (int)only);
+            const bool forced = (s_force_tool == (int64_t)only);
             if (forced)
                 s_force_tool = -1;
             if (!forced && s_force_tool == -1 && s_force_top == -1 && tab_tool(s_active_tool) != only)
@@ -1466,7 +1467,7 @@ namespace {
         {
             for (size_t i = 0; i < count; i++)
             {
-                const bool forced = (s_force_tool == (int)tabs[i].tool);
+                const bool forced = (s_force_tool == (int64_t)tabs[i].tool);
                 const bool shown = FeTabEx(tabs[i].label, forced);
                 if (forced)
                     s_force_tool = -1;
@@ -1513,7 +1514,7 @@ namespace {
             };
             for (const TopDef &t : tops)
             {
-                const bool forced = (s_force_top == (int)t.top);
+                const bool forced = (s_force_top == (int64_t)t.top);
                 const bool shown = FeTabEx(t.label, forced);
                 if (forced)
                     s_force_top = -1;
@@ -1523,7 +1524,7 @@ namespace {
                     FeEndTab();
                 }
             }
-            const bool history_forced = (s_force_top == (int)TT_History);
+            const bool history_forced = (s_force_top == (int64_t)TT_History);
             if (FeTabEx("History", history_forced))
             {
                 s_history_visible = true;
@@ -1549,7 +1550,7 @@ namespace {
     struct StrokeTrack
     {
         bool in_stroke = false;
-        int settle = 0;
+        int64_t settle = 0;
         char label[24] = "";
     } s_stroke;
 
@@ -1692,9 +1693,9 @@ void editor_toolbox_frame(void)
     // describes -- that needs verify_map()'s own target-mode selector
     // (phase 3), which doesn't exist yet.
     {
-        long used_synced = SYNCED_THINGS_COUNT - kfx_sim_state.synced_free_things_count;
+        int64_t used_synced = SYNCED_THINGS_COUNT - kfx_sim_state.synced_free_things_count;
         char counter[48];
-        snprintf(counter, sizeof(counter), "Things: %ld / %d", used_synced, SYNCED_THINGS_COUNT);
+        snprintf(counter, sizeof(counter), "Things: %" PRId64 " / %" PRId64, (int64_t)(used_synced), (int64_t)(SYNCED_THINGS_COUNT));
         FeCaption(counter);
     }
     FeSeparator();

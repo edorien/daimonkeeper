@@ -1,6 +1,7 @@
 #ifndef WINDOW_SYSTEM_SDL_H
 #define WINDOW_SYSTEM_SDL_H
 
+#include <stdint.h>
 #include "platform/IWindowSystem.h"
 
 struct SDL_Window;  // forward declaration; full type in WindowSystemSDL.cpp
@@ -18,31 +19,31 @@ public:
     void SetCursorGrab(bool grab) override;
     void SetUseRelativeMouse(bool relative) override;
     void SetCursorVisible(bool visible) override;
-    void WarpCursor(int x, int y) override;
+    void WarpCursor(int64_t x, int64_t y) override;
     bool IsCursorInWindow() const override;
 
     bool HasWindow() const override;
     SDL_Window* GetSDLWindow() const;
-    unsigned int GetWindowFlags() const override;
-    void GetWindowSize(int* out_w, int* out_h) const override;
-    int GetWindowDisplayIndex() const override;
-    int GetNumVideoDisplays() const override;
-    int GetDesktopDisplayMode(int display, int* out_w, int* out_h) const override;
-    int GetDisplayBounds(int display, int* out_x, int* out_y, int* out_w, int* out_h) const override;
-    int GetClosestDisplayMode(int display, int desired_w, int desired_h, int* out_w, int* out_h) const override;
-    int SetWindowDisplayMode(int w, int h) override;
-    void SetWindowSize(int w, int h) override;
-    int SetWindowFullscreen(unsigned int flags) override;
-    void SetWindowBordered(int bordered) override;
-    void SetWindowPosition(int x, int y) override;
-    bool CreateWindow(const char* title, int x, int y, int w, int h, unsigned int flags) override;
+    uint64_t GetWindowFlags() const override;
+    void GetWindowSize(int64_t* out_w, int64_t* out_h) const override;
+    int64_t GetWindowDisplayIndex() const override;
+    int64_t GetNumVideoDisplays() const override;
+    int64_t GetDesktopDisplayMode(int64_t display, int64_t* out_w, int64_t* out_h) const override;
+    int64_t GetDisplayBounds(int64_t display, int64_t* out_x, int64_t* out_y, int64_t* out_w, int64_t* out_h) const override;
+    int64_t GetClosestDisplayMode(int64_t display, int64_t desired_w, int64_t desired_h, int64_t* out_w, int64_t* out_h) const override;
+    int64_t SetWindowDisplayMode(int64_t w, int64_t h) override;
+    void SetWindowSize(int64_t w, int64_t h) override;
+    int64_t SetWindowFullscreen(uint64_t flags) override;
+    void SetWindowBordered(int64_t bordered) override;
+    void SetWindowPosition(int64_t x, int64_t y) override;
+    bool CreateWindow(const char* title, int64_t x, int64_t y, int64_t w, int64_t h, uint64_t flags) override;
     bool RecreateForSoftwareRenderer() override;
     bool RecreateForVulkanRenderer() override;
 
     // ----- Display info -----
-    int GetDisplayRefreshRate() const override;
-    int GetFullscreenDisplayModeCount(int display) const override;
-    bool GetFullscreenDisplayModeAt(int display, int index, int* out_w, int* out_h) const override;
+    int64_t GetDisplayRefreshRate() const override;
+    int64_t GetFullscreenDisplayModeCount(int64_t display) const override;
+    bool GetFullscreenDisplayModeAt(int64_t display, int64_t index, int64_t* out_w, int64_t* out_h) const override;
 
     // PollInput is a no-op: SDL delivers mouse input via events.
 

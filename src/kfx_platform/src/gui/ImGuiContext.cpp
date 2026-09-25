@@ -14,12 +14,12 @@ namespace {
     ImGuiMousePositionFn s_mouse_position_fn = nullptr;
     ImGuiCursorImageFn s_cursor_image_fn = nullptr;
     SDL_Texture* s_cursor_texture = nullptr;
-    int s_cursor_w = 0, s_cursor_h = 0;
-    int s_cursor_hotspot_x = 0, s_cursor_hotspot_y = 0;
+    int64_t s_cursor_w = 0, s_cursor_h = 0;
+    int64_t s_cursor_hotspot_x = 0, s_cursor_hotspot_y = 0;
     bool s_cursor_native_size = false;
     bool s_cursor_have = false;          // callback produced an image this frame
-    unsigned int s_cursor_serial = 0xFFFFFFFFu;
-    int s_cursor_tex_w = 0, s_cursor_tex_h = 0;
+    uint64_t s_cursor_serial = 0xFFFFFFFFu;
+    int64_t s_cursor_tex_w = 0, s_cursor_tex_h = 0;
     ImGuiScreenOwnedFn s_screen_owned_fn = nullptr;
 
     void shutdown_backends()
@@ -201,9 +201,9 @@ void ImGuiContextNewFrame(void)
     // declaration comment (ImGuiContext.h) for why.
     if (s_mouse_position_fn != nullptr)
     {
-        long x = 0, y = 0;
+        int64_t x = 0, y = 0;
         s_mouse_position_fn(&x, &y);
-        ImGui::GetIO().AddMousePosEvent((float)x, (float)y);
+        ImGui::GetIO().AddMousePosEvent((double)x, (double)y);
     }
 
     ImGui::NewFrame();
@@ -243,10 +243,10 @@ void ImGuiContextNewFrame(void)
         {
             // Already scaled to the game's own cursor size by the provider
             // -- draw 1:1 so it matches the cursor over the 3D view exactly.
-            const ImVec2 pos(io.MousePos.x - (float)s_cursor_hotspot_x,
-                             io.MousePos.y - (float)s_cursor_hotspot_y);
+            const ImVec2 pos(io.MousePos.x - (double)s_cursor_hotspot_x,
+                             io.MousePos.y - (double)s_cursor_hotspot_y);
             ImGui::GetForegroundDrawList()->AddImage((ImTextureID)(intptr_t)s_cursor_texture,
-                pos, ImVec2(pos.x + (float)s_cursor_w, pos.y + (float)s_cursor_h));
+                pos, ImVec2(pos.x + (double)s_cursor_w, pos.y + (double)s_cursor_h));
         }
         else
         {
@@ -280,15 +280,15 @@ void ImGuiContextNewFrame(void)
         // again, so neither prior data point necessarily still applies.
         // 1.0x -- roughly matching body-text height -- is a fresh middle
         // ground, not yet confirmed live either way.
-        float ref_px = io.DisplaySize.y / 32.0f;
-        if (ref_px < 11.0f) ref_px = 11.0f;
-        if (ref_px > 96.0f) ref_px = 96.0f;
-        float target_h = ref_px * 1.0f;
-        float cursor_scale = target_h / (float)s_cursor_h;
-        float scaled_w = (float)s_cursor_w * cursor_scale;
-        float scaled_h = (float)s_cursor_h * cursor_scale;
-        float scaled_hot_x = (float)s_cursor_hotspot_x * cursor_scale;
-        float scaled_hot_y = (float)s_cursor_hotspot_y * cursor_scale;
+        double ref_px = io.DisplaySize.y / 32.0;
+        if (ref_px < 11.0) ref_px = 11.0;
+        if (ref_px > 96.0) ref_px = 96.0;
+        double target_h = ref_px * 1.0;
+        double cursor_scale = target_h / (double)s_cursor_h;
+        double scaled_w = (double)s_cursor_w * cursor_scale;
+        double scaled_h = (double)s_cursor_h * cursor_scale;
+        double scaled_hot_x = (double)s_cursor_hotspot_x * cursor_scale;
+        double scaled_hot_y = (double)s_cursor_hotspot_y * cursor_scale;
         ImVec2 pos(io.MousePos.x - scaled_hot_x, io.MousePos.y - scaled_hot_y);
         ImGui::GetForegroundDrawList()->AddImage((ImTextureID)(intptr_t)s_cursor_texture,
             pos, ImVec2(pos.x + scaled_w, pos.y + scaled_h));
@@ -326,7 +326,7 @@ TbBool ImGuiContextWantCaptureKeyboard(void)
     return ImGui::GetIO().WantCaptureKeyboard ? 1 : 0;
 }
 
-void* ImGuiContextCreateTexture(int width, int height)
+void* ImGuiContextCreateTexture(int64_t width, int64_t height)
 {
     if (!s_active || width <= 0 || height <= 0)
         return nullptr;
@@ -343,7 +343,7 @@ void* ImGuiContextCreateTexture(int width, int height)
     return (void*)tex;
 }
 
-void ImGuiContextUpdateTexture(void *texture, const void *rgba_data, int width, int height)
+void ImGuiContextUpdateTexture(void *texture, const void *rgba_data, int64_t width, int64_t height)
 {
     if (texture == nullptr || rgba_data == nullptr)
         return;

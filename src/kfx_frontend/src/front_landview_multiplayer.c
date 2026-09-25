@@ -55,7 +55,7 @@ extern "C" {
 #define NETLAND_SLAP_MISS_SOUND 26
 #define NETLAND_SLAP_MISS_SOUND_VARIANTS 6
 #define NETLAND_HAND_ANIM_SPEED 20
-#define NETLAND_HAND_LIMP_FRAME_COUNT ((int32_t)(sizeof(hand_limp_xoffset) / sizeof(hand_limp_xoffset[0])))
+#define NETLAND_HAND_LIMP_FRAME_COUNT ((int64_t)(sizeof(hand_limp_xoffset) / sizeof(hand_limp_xoffset[0])))
 
 enum NetLandSlapFrame {
     NetLandSlap_StartFrame = 9,
@@ -65,30 +65,30 @@ enum NetLandSlapFrame {
 
 struct NetLandRemoteSlap {
     TbClockMSec start;
-    int32_t x;
-    int32_t y;
+    int64_t x;
+    int64_t y;
     TbBool active;
 };
 
 struct NetLandLocalState {
     TbClockMSec limp_start;
     TbClockMSec local_slap_anim_start;
-    int32_t limp_x;
-    int32_t limp_y;
-    int32_t local_slap_send_frame;
-    int32_t slap_miss_wait;
+    int64_t limp_x;
+    int64_t limp_y;
+    int64_t local_slap_send_frame;
+    int64_t slap_miss_wait;
 };
 
 extern LevelNumber mouse_over_lvnum;
 void draw_map_screen(void);
 void draw_map_level_ensigns(void);
-const struct TbSprite * get_map_ensign(long idx);
-void set_all_ensigns_state(unsigned short nstate);
+const struct TbSprite * get_map_ensign(int64_t idx);
+void set_all_ensigns_state(int64_t nstate);
 void unload_map_and_window(void);
 TbBool load_map_and_window(LevelNumber lvnum);
 void frontmap_zoom_skip_init(LevelNumber lvnum);
 void frontmap_zoom_in_init(LevelNumber lvnum);
-TbBool frontmap_input_active_ensign(long curr_mx, long curr_my);
+TbBool frontmap_input_active_ensign(int64_t curr_mx, int64_t curr_my);
 TbBool frontmap_update_zoom(void);
 
 TbPixel net_player_colours[] = {
@@ -97,10 +97,10 @@ TbPixel net_player_colours[] = {
     {210, 182,   0, 255},  /* was idx 182 */
     {113,  93,  48, 255},  /* was idx  11 */
 };
-const int32_t hand_limp_xoffset[] = { 32, 31, 30, 29, 28, 27, 26, 24, 22, 19, 15, 9 };
-const int32_t hand_limp_yoffset[] = { -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0 };
+const int64_t hand_limp_xoffset[] = { 32, 31, 30, 29, 28, 27, 26, 24, 22, 19, 15, 9 };
+const int64_t hand_limp_yoffset[] = { -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0 };
 
-long fe_net_level_selected;
+int64_t fe_net_level_selected;
 static struct NetLandLocalState net_map_local;
 static struct NetLandRemoteSlap net_map_remote_slap[MAX_NET_USERS];
 /******************************************************************************/
@@ -113,7 +113,7 @@ static void update_net_ensigns_visibility(void)
     SYNCDBG(18, "Starting");
     set_all_ensigns_state(LvSt_Hidden);
     LevelNumber lvnum = first_multiplayer_level();
-    int32_t i = 0;
+    int64_t i = 0;
     while (lvnum > 0) {
         struct LevelInformation* lvinfo = get_level_info(lvnum);
         if (lvinfo != NULL) {
@@ -133,7 +133,7 @@ static TbBool is_connected_screen_packet(const struct ScreenPacket *nspck)
     return (nspck->networkstatus_flags & NetStat_PlayerConnected) != 0;
 }
 
-static void set_screen_packet_position(struct ScreenPacket *nspck, int32_t x, int32_t y)
+static void set_screen_packet_position(struct ScreenPacket *nspck, int64_t x, int64_t y)
 {
     nspck->stored_data1 = x;
     nspck->stored_data2 = y;
@@ -145,7 +145,7 @@ static void set_remote_slap_position(struct NetLandRemoteSlap *remote_slap, cons
     remote_slap->y = nspck->stored_data2;
 }
 
-static void set_packet_slap_frame(struct ScreenPacket *nspck, int32_t slap_frame)
+static void set_packet_slap_frame(struct ScreenPacket *nspck, int64_t slap_frame)
 {
     screen_packet_set_action(nspck, NetAct_Slapping);
     nspck->action_par1 = slap_frame;
@@ -162,7 +162,7 @@ void frontnetmap_unload(void)
     set_music_volume(settings.music_volume);
 }
 
-static int32_t get_hand_limp_frame(TbClockMSec now)
+static int64_t get_hand_limp_frame(TbClockMSec now)
 {
     return NETLAND_HAND_LIMP_FRAME_COUNT - 1 - ((now - net_map_local.limp_start) * NETLAND_HAND_ANIM_SPEED) / 1000;
 }
@@ -173,12 +173,12 @@ static void stop_hand_limp(void)
     net_map_local.limp_start = 0;
 }
 
-static int32_t get_local_hand_limp_frame(TbClockMSec now)
+static int64_t get_local_hand_limp_frame(TbClockMSec now)
 {
     if (net_map_local.limp_start == 0) {
         return -1;
     }
-    int32_t frame = get_hand_limp_frame(now);
+    int64_t frame = get_hand_limp_frame(now);
     if (frame >= 0) {
         return frame;
     }
@@ -186,21 +186,21 @@ static int32_t get_local_hand_limp_frame(TbClockMSec now)
     return -1;
 }
 
-static int32_t get_slap_anim_frame(TbClockMSec slap_anim_start, TbClockMSec now)
+static int64_t get_slap_anim_frame(TbClockMSec slap_anim_start, TbClockMSec now)
 {
     if (slap_anim_start == 0) {
         return 0;
     }
-    int32_t frame = NetLandSlap_StartFrame + ((now - slap_anim_start) * NETLAND_HAND_ANIM_SPEED) / 1000;
+    int64_t frame = NetLandSlap_StartFrame + ((now - slap_anim_start) * NETLAND_HAND_ANIM_SPEED) / 1000;
     if (frame > NetLandSlap_EndFrame) {
         return 0;
     }
     return frame;
 }
 
-static const struct TbSprite *get_hand_sprite_for_packet(const struct ScreenPacket *nspck, int32_t anim_frame, int32_t *x, int32_t *y)
+static const struct TbSprite *get_hand_sprite_for_packet(const struct ScreenPacket *nspck, int64_t anim_frame, int64_t *x, int64_t *y)
 {
-    int32_t frame;
+    int64_t frame;
     switch (screen_packet_action(nspck)) {
     case NetAct_Limping:
         frame = clamp(nspck->action_par2, 0, NETLAND_HAND_LIMP_FRAME_COUNT - 1);
@@ -223,11 +223,11 @@ static const struct TbSprite *get_hand_sprite_for_packet(const struct ScreenPack
     }
 }
 
-static void get_hand_packet(PlayerNumber plyr_idx, struct ScreenPacket *nspck, int32_t slap_frame, TbClockMSec now)
+static void get_hand_packet(PlayerNumber plyr_idx, struct ScreenPacket *nspck, int64_t slap_frame, TbClockMSec now)
 {
     if (!is_my_player_number(plyr_idx)) {
-        struct NetLandRemoteSlap *remote_slap = &net_map_remote_slap[(int32_t)plyr_idx];
-        *nspck = net_screen_packet[(int32_t)plyr_idx];
+        struct NetLandRemoteSlap *remote_slap = &net_map_remote_slap[(int64_t)plyr_idx];
+        *nspck = net_screen_packet[(int64_t)plyr_idx];
         TbBool packet_slap = screen_packet_action(nspck) == NetAct_Slapping;
         if (packet_slap) {
             // Hold onto a remote slap until the sender clears it, so network delay doesn't accidentally turn one slap into multiple.
@@ -240,7 +240,7 @@ static void get_hand_packet(PlayerNumber plyr_idx, struct ScreenPacket *nspck, i
             remote_slap->active = false;
         }
         if (remote_slap->start != 0) {
-            int32_t display_frame = get_slap_anim_frame(remote_slap->start, now);
+            int64_t display_frame = get_slap_anim_frame(remote_slap->start, now);
             if (display_frame != 0) {
                 if (!packet_slap && nspck->action_par1 == SINGLEPLAYER_NOTSTARTED) {
                     set_remote_slap_position(remote_slap, nspck);
@@ -267,7 +267,7 @@ static void get_hand_packet(PlayerNumber plyr_idx, struct ScreenPacket *nspck, i
         nspck->action_par1 = selected_level_number;
         return;
     }
-    int32_t frame = get_local_hand_limp_frame(now);
+    int64_t frame = get_local_hand_limp_frame(now);
     if (frame >= 0) {
         screen_packet_set_action(nspck, NetAct_Limping);
         nspck->action_par2 = frame;
@@ -282,7 +282,7 @@ static void get_hand_packet(PlayerNumber plyr_idx, struct ScreenPacket *nspck, i
         const struct TbSprite* spr = get_map_ensign(1);
         struct LevelInformation* lvinfo = get_level_info(nspck->action_par1);
         if (lvinfo != NULL) {
-            set_screen_packet_position(nspck, lvinfo->ensign_x + my_player_number * ((int32_t)spr->SWidth), lvinfo->ensign_y - 48);
+            set_screen_packet_position(nspck, lvinfo->ensign_x + my_player_number * ((int64_t)spr->SWidth), lvinfo->ensign_y - 48);
         }
     }
 }
@@ -294,16 +294,16 @@ static void draw_netmap_players_hands(void)
     const struct TbSprite *spr;
     TbPixel colr;
     TbClockMSec now;
-    int32_t x, y;
-    int32_t w;
-    int32_t h;
-    int32_t i;
-    int32_t anim_frame;
+    int64_t x, y;
+    int64_t w;
+    int64_t h;
+    int64_t i;
+    int64_t anim_frame;
 
     now = LbTimerClock();
     anim_frame = now / 150;
     for (i=0; i < MAX_NET_USERS; i++) {
-        int32_t slap_frame;
+        int64_t slap_frame;
 
         if (!is_connected_screen_packet(&net_screen_packet[i])) {
             continue;
@@ -316,8 +316,8 @@ static void draw_netmap_players_hands(void)
         plyr_nam = network_user_name(i);
         colr = net_player_colours[i];
         spr = get_hand_sprite_for_packet(&nspck, anim_frame, &x, &y);
-        x -= (long)map_info.screen_shift_x;
-        y -= (long)map_info.screen_shift_y;
+        x -= (int64_t)map_info.screen_shift_x;
+        y -= (int64_t)map_info.screen_shift_y;
         LbSpriteDrawResized(scale_value_landview(x), scale_value_landview(y), units_per_pixel_landview, spr);
         w = LbTextStringWidth(plyr_nam);
         if (w > 0) {
@@ -372,8 +372,8 @@ void frontnetmap_input(void)
         if (fe_net_level_selected != SINGLEPLAYER_NOTSTARTED) {
             lvinfo = get_level_info(fe_net_level_selected);
             if (lvinfo != NULL) {
-                LbMouseSetPosition(scale_value_landview(lvinfo->ensign_x - (int32_t)map_info.screen_shift_x),
-                    scale_value_landview(lvinfo->ensign_y - (int32_t)map_info.screen_shift_y));
+                LbMouseSetPosition(scale_value_landview(lvinfo->ensign_x - (int64_t)map_info.screen_shift_x),
+                    scale_value_landview(lvinfo->ensign_y - (int64_t)map_info.screen_shift_y));
             }
             fe_net_level_selected = SINGLEPLAYER_NOTSTARTED;
         } else if (can_select) {
@@ -396,7 +396,7 @@ void frontnetmap_input(void)
         fe_net_level_selected = net_level_highlighted;
         left_button_clicked = 0;
         set_level_name_text(fe_net_level_selected, NULL);
-        SYNCLOG("Selected level %d with description \"%s\"",(int)fe_net_level_selected,level_name);
+        SYNCLOG("Selected level %" PRId64 " with description \"%s\"",(int64_t)fe_net_level_selected,level_name);
     }
     check_mouse_scroll();
     update_velocity();
@@ -423,7 +423,7 @@ TbBool frontnetmap_load(void)
         map_flag = load_spritesheet("ldata/netflag_pin.dat", "ldata/netflag_pin.tab");
         break;
     default:
-        ERRORLOG("Unsupported land markers type %d",(int)campaign.land_markers);
+        ERRORLOG("Unsupported land markers type %" PRId64,(int64_t)campaign.land_markers);
         // Fall Through
     case LndMk_ENSIGNS:
         map_flag = load_spritesheet("ldata/netflag_ens.dat", "ldata/netflag_ens.tab");
@@ -458,7 +458,7 @@ TbBool frontnetmap_load(void)
     frontmap_start_music();
     if (fe_network_active) {
         net_number_of_players = 0;
-        for (long i = 0; i < MAX_NET_USERS; i++) {
+        for (int64_t i = 0; i < MAX_NET_USERS; i++) {
             struct ScreenPacket* nspck = &net_screen_packet[i];
             if (is_connected_screen_packet(nspck)) {
                 net_number_of_players++;
@@ -497,10 +497,10 @@ static TbBool frontmap_exchange_screen_packet(void)
     return true;
 }
 
-static TbBool hand_packet_overlaps_position(const struct ScreenPacket *hand_nspck, int32_t x, int32_t y)
+static TbBool hand_packet_overlaps_position(const struct ScreenPacket *hand_nspck, int64_t x, int64_t y)
 {
-    int32_t hand_x;
-    int32_t hand_y;
+    int64_t hand_x;
+    int64_t hand_y;
     const struct TbSprite *spr = get_hand_sprite_for_packet(hand_nspck, 0, &hand_x, &hand_y);
     if ((x - 7 < hand_x + spr->SWidth) && (hand_x < x + 23)
       && (y - 13 < hand_y + spr->SHeight) && (hand_y < y + 7)) {
@@ -518,7 +518,7 @@ static LevelNumber frontnetmap_update_players(void)
     const TbBool can_start_level = network_is_host() && level_not_selected;
     struct ScreenPacket* my_nspck = &net_screen_packet[my_player_number];
     TbBool slap_hit_confirmed = false;
-    int32_t leading_votes = 0;
+    int64_t leading_votes = 0;
     LevelNumber selected_level_number = SINGLEPLAYER_NOTSTARTED;
     if (can_start_level) {
         memset(scratch, 0, PALETTE_SIZE);
@@ -558,7 +558,7 @@ static LevelNumber frontnetmap_update_players(void)
                 selected_level_number = SINGLEPLAYER_NOTSTARTED;
                 leading_votes = -1;
             } else if (leading_votes >= 0) {
-                int32_t votes = ++scratch[nspck->action_par1];
+                int64_t votes = ++scratch[nspck->action_par1];
                 if (votes > leading_votes) {
                     selected_level_number = nspck->action_par1;
                     leading_votes = votes;

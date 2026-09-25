@@ -57,12 +57,12 @@ namespace {
     // calling frontend_set_state() directly; FrontendImGuiFrame() applies
     // the request at the very start of the *next* frame, before any ImGui
     // window from this module is open.
-    int s_pending_state = -1; // a FrontendMenuState, or -1 for "none pending"
-    long s_pending_load_slot = -1; // a save_game_catalogue[] index, or -1 for "none pending"
+    int64_t s_pending_state = -1; // a FrontendMenuState, or -1 for "none pending"
+    int64_t s_pending_load_slot = -1; // a save_game_catalogue[] index, or -1 for "none pending"
 
     void request_frontend_state(FrontendMenuState state)
     {
-        s_pending_state = (int)state;
+        s_pending_state = (int64_t)state;
     }
 
     // Generic one-shot deferred action, invoked at the very start of the
@@ -93,11 +93,11 @@ namespace {
     // Holder for frontnet_service_select_by_index()'s parameter -- see
     // s_pending_action's own comment on why a parameterized deferred
     // action needs one of these per call site.
-    long s_pending_net_service_index = -1;
+    int64_t s_pending_net_service_index = -1;
 
     void run_pending_net_service_select(void)
     {
-        long i = s_pending_net_service_index;
+        int64_t i = s_pending_net_service_index;
         s_pending_net_service_index = -1;
         frontnet_service_select_by_index(i);
     }
@@ -107,7 +107,7 @@ namespace {
         frontnet_return_to_session_menu(nullptr);
     }
 
-    bool state_is_migrated(int state)
+    bool state_is_migrated(int64_t state)
     {
         switch (state)
         {
@@ -139,17 +139,17 @@ namespace {
     // clipped the row once FeButton became text-only and its height started
     // tracking the body font at higher UI_FONT_SCALE). A few px of slack so
     // it errs toward a small gap above the buttons, never a crop.
-    float fe_bottom_row_reserve(int rows = 1)
+    double fe_bottom_row_reserve(int64_t rows = 1)
     {
         const ImGuiStyle &style = ImGui::GetStyle();
         FeStylePushFont(FeFont_Body);
-        float row_h = ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f;
+        double row_h = ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0;
         FeStylePopFont();
         // per row: the row height + one ItemSpacing.y gap above it; plus the
         // separator (a line + an ItemSpacing.y on each side); plus slack.
         return rows * (row_h + style.ItemSpacing.y)
-             + style.ItemSpacing.y * 2.0f + 1.0f
-             + 6.0f;
+             + style.ItemSpacing.y * 2.0 + 1.0
+             + 6.0;
     }
 
     // Full-viewport, chrome-less window for the backdrop-plus-text screens
@@ -168,13 +168,13 @@ namespace {
     void draw_centered_block(const char *text, FeFontRole role)
     {
         ImGuiIO &io = ImGui::GetIO();
-        float margin = io.DisplaySize.x * 0.15f;
-        float wrap_w = io.DisplaySize.x - margin * 2.0f;
+        double margin = io.DisplaySize.x * 0.15;
+        double wrap_w = io.DisplaySize.x - margin * 2.0;
 
         FeStylePushFont(role);
         ImGui::PushTextWrapPos(margin + wrap_w);
         ImVec2 sz = ImGui::CalcTextSize(text, nullptr, false, wrap_w);
-        ImGui::SetCursorPos(ImVec2(margin, (io.DisplaySize.y - sz.y) * 0.5f));
+        ImGui::SetCursorPos(ImVec2(margin, (io.DisplaySize.y - sz.y) * 0.5));
         ImGui::TextUnformatted(text);
         ImGui::PopTextWrapPos();
         FeStylePopFont();
@@ -214,19 +214,19 @@ namespace {
     void frontgui_credits_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        float speed = 40.0f; // px/sec baseline
+        double speed = 40.0; // px/sec baseline
         if (ImGui::IsKeyDown(ImGuiKey_DownArrow))
-            speed *= 5.0f; // legacy: holding Down jumps a full line per tick
+            speed *= 5.0; // legacy: holding Down jumps a full line per tick
         else if (ImGui::IsKeyDown(ImGuiKey_UpArrow) && credits_offset <= 0)
-            speed = -200.0f; // legacy: Up only scrolls back before the end
-        credits_offset -= (long)(speed * io.DeltaTime);
+            speed = -200.0; // legacy: Up only scrolls back before the end
+        credits_offset -= (int64_t)(speed * io.DeltaTime);
 
         begin_text_overlay();
         ImDrawList *dl = ImGui::GetWindowDrawList();
 
-        float h = (float)credits_offset;
-        bool did_draw = h > 0.0f;
-        for (long i = 0; campaign.credits[i].kind != CIK_None; i++)
+        double h = (double)credits_offset;
+        bool did_draw = h > 0.0;
+        for (int64_t i = 0; campaign.credits[i].kind != CIK_None; i++)
         {
             if (h >= io.DisplaySize.y)
                 break;
@@ -237,14 +237,14 @@ namespace {
             // character of the credits screen (§2.2).
             FeFontRole role = (credit->font < FeFont_COUNT) ? (FeFontRole)credit->font : FeFont_Body;
             FeStylePushFont(role);
-            float line_h = ImGui::GetFontSize() + 4.0f;
+            double line_h = ImGui::GetFontSize() + 4.0;
             if (h > -line_h)
             {
                 const char *text = (credit->kind == CIK_StringId) ? get_string(credit->num) : credit->str;
                 if (text == nullptr)
                     text = "";
                 ImVec2 sz = ImGui::CalcTextSize(text);
-                dl->AddText(ImVec2((io.DisplaySize.x - sz.x) * 0.5f, h), ImGui::GetColorU32(ImGuiCol_Text), text);
+                dl->AddText(ImVec2((io.DisplaySize.x - sz.x) * 0.5, h), ImGui::GetColorU32(ImGuiCol_Text), text);
                 did_draw = true;
             }
             FeStylePopFont();
@@ -259,7 +259,7 @@ namespace {
             // front_continue_pressed(credits_end) so the screen still
             // auto-advances once every line has scrolled past.
             credits_end = 1;
-            credits_offset = (long)io.DisplaySize.y;
+            credits_offset = (int64_t)io.DisplaySize.y;
         }
     }
 
@@ -317,7 +317,7 @@ namespace {
 
     static void draw_setting_options_for_category(enum SettingCategory category)
     {
-        for (int i = 0; i < setting_options_count; i++)
+        for (int64_t i = 0; i < setting_options_count; i++)
         {
             const struct SettingOption *opt = &setting_options[i];
             if (opt->category != category)
@@ -346,26 +346,26 @@ namespace {
                 // small fixed-size array: LANGUAGE's lang_type[] alone has
                 // 24 entries, well past the earlier Sound/Input rows'
                 // 3-4-entry tables this was first written against.
-                int count = setting_option_enum_count(opt);
-                int current = setting_option_enum_current_index(opt);
+                int64_t count = setting_option_enum_count(opt);
+                int64_t current = setting_option_enum_current_index(opt);
                 std::vector<const char *> items(count);
-                for (int k = 0; k < count; k++)
+                for (int64_t k = 0; k < count; k++)
                     items[k] = setting_option_enum_item_name(opt, k);
                 // Bounded rather than ImGui's own default (a large
                 // fraction of the available width) -- found live that
                 // left too little room for the label text drawn right
                 // after the control, clipping it against the window's
                 // own edge.
-                ImGui::SetNextItemWidth(220.0f);
+                ImGui::SetNextItemWidth(220.0);
                 if (FeCombo(label, &current, items.data(), count))
                     setting_option_apply_enum_index(opt, current);
             }
             else if (opt->type == SOptT_Int)
             {
-                float v = (float)opt->get_int();
-                ImGui::SetNextItemWidth(220.0f); // see the SOptT_Enum case's own comment
-                if (FeSlider(label, &v, (float)opt->int_min, (float)opt->int_max, "%.0f"))
-                    setting_option_apply_int(opt, (long)v);
+                double v = (double)opt->get_int();
+                ImGui::SetNextItemWidth(220.0); // see the SOptT_Enum case's own comment
+                if (FeSlider(label, &v, (double)opt->int_min, (double)opt->int_max, "%.0f"))
+                    setting_option_apply_int(opt, (int64_t)v);
             }
             else // SOptT_Action -- see draw_pending_action_confirm_modal()
             {
@@ -386,7 +386,7 @@ namespace {
 
     static bool category_has_needs_restart_option(enum SettingCategory category)
     {
-        for (int i = 0; i < setting_options_count; i++)
+        for (int64_t i = 0; i < setting_options_count; i++)
         {
             if ((setting_options[i].category == category) && (setting_options[i].apply_class == SApply_NeedsRestart))
                 return true;
@@ -419,8 +419,8 @@ namespace {
         FeSubheading("View");
 
         const char *view_items[] = { "Isometric", "Isometric (level)", "Front view" };
-        int view = settings.video_rotate_mode;
-        ImGui::SetNextItemWidth(220.0f);
+        int64_t view = settings.video_rotate_mode;
+        ImGui::SetNextItemWidth(220.0);
         if (FeCombo("View mode", &view, view_items, 3))
         {
             settings.video_rotate_mode = (unsigned char)view;
@@ -436,9 +436,9 @@ namespace {
         }
         FeHelpTooltip(get_string(GUIStr_OptionWallHeightDesc));
 
-        float gamma = (float)settings.gamma_correction;
-        ImGui::SetNextItemWidth(220.0f);
-        if (FeSlider("Gamma correction", &gamma, 0.0f, (float)(GAMMA_LEVELS_COUNT - 1), "%.0f"))
+        double gamma = (double)settings.gamma_correction;
+        ImGui::SetNextItemWidth(220.0);
+        if (FeSlider("Gamma correction", &gamma, 0.0, (double)(GAMMA_LEVELS_COUNT - 1), "%.0f"))
         {
             video_gamma_correction = (unsigned char)gamma;
             set_players_packet_action(get_my_player(), PckA_SetGammaLevel, video_gamma_correction, 0, 0, 0);
@@ -452,14 +452,14 @@ namespace {
         if (!ImGui::CollapsingHeader(get_string(GUIStr_MnuComputerAssist)))
             return;
 
-        struct AssistOpt { const char *label; int kind; TextStringId help; };
+        struct AssistOpt { const char *label; int64_t kind; TextStringId help; };
         static const AssistOpt opts[] = {
             { "Aggressive",   1, GUIStr_AggressiveAssistDesc },
             { "Defensive",    2, GUIStr_DefensiveAssistDesc },
             { "Construction", 3, GUIStr_ConstructionAssistDesc },
             { "Move only",    4, GUIStr_MoveOnlyAssistDesc },
         };
-        int current = kfx_net_state.comp_player_aggressive   ? 1
+        int64_t current = kfx_net_state.comp_player_aggressive   ? 1
                     : kfx_net_state.comp_player_defensive    ? 2
                     : kfx_net_state.comp_player_construct    ? 3
                     : kfx_net_state.comp_player_creatrsonly  ? 4 : 0;
@@ -499,8 +499,8 @@ namespace {
         // and its label (labels were getting clipped, e.g. "Display Num"),
         // and too narrow for all four tab headers to fit without ImGui's
         // own tab-bar scroll-arrows/truncation kicking in.
-        ImVec2 win_size(io.DisplaySize.x * 0.7f, io.DisplaySize.y * 0.8f);
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImVec2 win_size(io.DisplaySize.x * 0.7, io.DisplaySize.y * 0.8);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::SetNextWindowSize(win_size, ImGuiCond_Always);
         ImGui::Begin("##FeOptions", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
 
@@ -525,8 +525,8 @@ namespace {
         // the same size on every tab, whether or not *this* tab happens
         // to have a needs-restart row of its own: leaves room below for
         // the restart-note caption, the separator, and the button row.
-        float scroll_h = ImGui::GetContentRegionAvail().y - 130.0f;
-        if (scroll_h < 80.0f) scroll_h = 80.0f; // floor for a very short display
+        double scroll_h = ImGui::GetContentRegionAvail().y - 130.0;
+        if (scroll_h < 80.0) scroll_h = 80.0; // floor for a very short display
         bool tabbar_open = FeBeginTabBar("##options_tabs");
         if (tabbar_open)
         {
@@ -567,16 +567,16 @@ namespace {
             if (FeTab(get_string(frontend_button_info[FEBtn_MnuSoundOptions].capstr_idx)))
             {
                 FeBeginScrollArea("##sound_scroll", ImVec2(0, scroll_h));
-                float v;
-                v = (float)sound_volume_ctrl.get_value();
-                if (FeSlider("Sound volume", &v, 0.0f, 255.0f, "%.0f"))
-                    sound_volume_ctrl.set_value((long)v);
-                v = (float)music_volume_ctrl.get_value();
-                if (FeSlider("Music volume", &v, 0.0f, 255.0f, "%.0f"))
-                    music_volume_ctrl.set_value((long)v);
-                v = (float)mentor_volume_ctrl.get_value();
-                if (FeSlider("Mentor volume", &v, 0.0f, 255.0f, "%.0f"))
-                    mentor_volume_ctrl.set_value((long)v);
+                double v;
+                v = (double)sound_volume_ctrl.get_value();
+                if (FeSlider("Sound volume", &v, 0.0, 255.0, "%.0f"))
+                    sound_volume_ctrl.set_value((int64_t)v);
+                v = (double)music_volume_ctrl.get_value();
+                if (FeSlider("Music volume", &v, 0.0, 255.0, "%.0f"))
+                    music_volume_ctrl.set_value((int64_t)v);
+                v = (double)mentor_volume_ctrl.get_value();
+                if (FeSlider("Mentor volume", &v, 0.0, 255.0, "%.0f"))
+                    mentor_volume_ctrl.set_value((int64_t)v);
                 FeSeparator();
                 draw_setting_options_for_category(SCat_Sound);
                 FeEndScrollArea();
@@ -586,9 +586,9 @@ namespace {
             if (FeTab(get_string(frontend_button_info[FEBtn_MouseOptions].capstr_idx)))
             {
                 FeBeginScrollArea("##input_scroll", ImVec2(0, scroll_h));
-                float v = (float)mouse_sensitivity_ctrl.get_value();
-                if (FeSlider(get_string(frontend_button_info[FEBtn_Sensitivity].capstr_idx), &v, 0.0f, 7.0f, "%.0f"))
-                    mouse_sensitivity_ctrl.set_value((long)v);
+                double v = (double)mouse_sensitivity_ctrl.get_value();
+                if (FeSlider(get_string(frontend_button_info[FEBtn_Sensitivity].capstr_idx), &v, 0.0, 7.0, "%.0f"))
+                    mouse_sensitivity_ctrl.set_value((int64_t)v);
 
                 bool inverted = mouse_invert_ctrl.get_value() != 0;
                 if (FeCheckbox(get_string(frontend_button_info[FEBtn_MnuInvertMouse].capstr_idx), &inverted))
@@ -638,7 +638,7 @@ namespace {
     void frontgui_definekeys_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeDefineKeys", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         FeHeading(get_string(frontend_button_info[FEBtn_DefineKeys].capstr_idx));
@@ -669,7 +669,7 @@ namespace {
                     // when this doc's first draft tried inserting a new
                     // visible key mid-array -- filtering per-entry removes
                     // the assumption instead of just avoiding tripping it.
-                    for (long key_id = 0; key_id < GAME_KEYS_COUNT; key_id++)
+                    for (int64_t key_id = 0; key_id < GAME_KEYS_COUNT; key_id++)
                     {
                         if (game_key_settings[key_id].binding_menu_visibility != BMV_Visible)
                             continue;
@@ -708,7 +708,7 @@ namespace {
                 bool open = FeBeginListBox("##definekeys_editor_list", ImVec2(520, 320));
                 if (open)
                 {
-                    for (long key_id = 0; key_id < EDITOR_GAME_KEYS_COUNT; key_id++)
+                    for (int64_t key_id = 0; key_id < EDITOR_GAME_KEYS_COUNT; key_id++)
                     {
                         if (editor_key_settings[key_id].binding_menu_visibility != BMV_Visible)
                             continue;
@@ -751,7 +751,7 @@ namespace {
     void frontgui_highscores_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeHighScores", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         FeHeading(get_string(GUIStr_MnuHighScoreTable));
@@ -764,23 +764,23 @@ namespace {
         // create_empty_high_score_table() actually populating the
         // pointer) -- count_high_scores() itself doesn't guard against
         // this, so this screen has to.
-        unsigned long count = (campaign.hiscore_table != NULL) ? count_high_scores() : 0;
+        uint64_t count = (campaign.hiscore_table != NULL) ? count_high_scores() : 0;
 
         // SetKeyboardFocusHere() only on the frame editing actually starts
         // -- calling it every frame the row happens to match would keep
         // stealing focus back from the InputText the user is already
         // typing into.
-        static long s_last_editing_index = -1;
+        static int64_t s_last_editing_index = -1;
         bool start_editing = (high_score_entry_input_active >= 0) && (high_score_entry_input_active != s_last_editing_index);
         s_last_editing_index = high_score_entry_input_active;
 
         bool open = FeBeginListBox("##highscores_list", ImVec2(520, 320));
         if (open)
         {
-            for (unsigned long i = 0; i < count && i < campaign.hiscore_count; i++)
+            for (uint64_t i = 0; i < count && i < campaign.hiscore_count; i++)
             {
                 struct HighScore *hs = &campaign.hiscore_table[i];
-                if ((long)i == high_score_entry_input_active)
+                if ((int64_t)i == high_score_entry_input_active)
                 {
                     // §7 Phase D: "Text entry ... is Latin-only -- ImGui's
                     // SDL3 backend text input is enough" -- ImGui's own
@@ -790,9 +790,9 @@ namespace {
                     // (frontend_high_score_table_input(), gated off in
                     // frontend.cpp's input dispatch while this screen is
                     // ImGui-active).
-                    ImGui::PushID((int)i);
+                    ImGui::PushID((int64_t)i);
                     char rank[16];
-                    std::snprintf(rank, sizeof(rank), "%2lu.", i + 1);
+                    std::snprintf(rank, sizeof(rank), "%2" PRIu64 ".", (uint64_t)(i + 1));
                     ImGui::TextUnformatted(rank);
                     ImGui::SameLine();
                     if (start_editing)
@@ -804,14 +804,14 @@ namespace {
                         finalize_high_score_entry(true);
                     ImGui::SameLine();
                     char scoretext[64];
-                    std::snprintf(scoretext, sizeof(scoretext), "%d", (int)hs->score);
+                    std::snprintf(scoretext, sizeof(scoretext), "%" PRId64, (int64_t)hs->score);
                     ImGui::TextUnformatted(scoretext);
                     ImGui::PopID();
                 }
                 else
                 {
                     char label[160];
-                    std::snprintf(label, sizeof(label), "%2lu. %-24s %8d", i + 1, hs->name, (int)hs->score);
+                    std::snprintf(label, sizeof(label), "%2" PRIu64 ". %-24s %8" PRId64, (uint64_t)(i + 1), hs->name, (int64_t)hs->score);
                     FeListRow(label, false);
                 }
             }
@@ -834,7 +834,7 @@ namespace {
     void frontgui_loadgame_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeLoadGame", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         FeHeading(get_string(frontend_button_info[FEBtn_MnuLoadGame_7].capstr_idx));
@@ -843,8 +843,8 @@ namespace {
         bool open = FeBeginListBox("##loadgame_list", ImVec2(520, 320));
         if (open)
         {
-            long catalogue_count = (save_game_catalogue != NULL) ? save_game_catalogue_count : 0;
-            for (long i = 0; i < catalogue_count; i++)
+            int64_t catalogue_count = (save_game_catalogue != NULL) ? save_game_catalogue_count : 0;
+            for (int64_t i = 0; i < catalogue_count; i++)
             {
                 struct CatalogueEntry *centry = &save_game_catalogue[i];
                 if ((centry->flags & CEF_InUse) == 0)
@@ -866,8 +866,8 @@ namespace {
     // merged Free play screen, MP mappack select) ------------------------
 
     void *s_land_preview_texture = nullptr;
-    int s_land_preview_tex_w = 0;
-    int s_land_preview_tex_h = 0;
+    int64_t s_land_preview_tex_w = 0;
+    int64_t s_land_preview_tex_h = 0;
     std::vector<TbPixel> s_land_preview_pixels;
 
     // Cached from the last draw_land_preview_panel() call, for
@@ -878,8 +878,8 @@ namespace {
     // percentage-of-DisplaySize (see frontgui_campaignselect_frame/
     // frontgui_freeplayselect_frame), so it only actually changes on a
     // window resize -- a one-frame-stale rect is never visibly wrong.
-    long s_land_preview_screen_x = 0, s_land_preview_screen_y = 0;
-    int s_land_preview_screen_w = 0, s_land_preview_screen_h = 0;
+    int64_t s_land_preview_screen_x = 0, s_land_preview_screen_y = 0;
+    int64_t s_land_preview_screen_w = 0, s_land_preview_screen_h = 0;
 
     // Renders the shared land_preview panel (frontmenu_landpreview.h) into
     // an off-screen buffer sized to `size` and composites it via
@@ -914,17 +914,17 @@ namespace {
     // always saw the un-halved inset. A shared constant, used identically at
     // both call sites, keeps that in sync instead of relying on the same
     // magic number being copied correctly to two files.
-    static const long kLandPreviewImGuiFrameScaleDen = 2;
+    static const int64_t kLandPreviewImGuiFrameScaleDen = 2;
 
     void draw_land_preview_panel(ImVec2 size)
     {
         ImVec2 screen_pos = ImGui::GetCursorScreenPos();
         ImGui::Dummy(size); // reserve layout space only
 
-        int w = (int)size.x;
-        int h = (int)size.y;
-        s_land_preview_screen_x = (long)screen_pos.x;
-        s_land_preview_screen_y = (long)screen_pos.y;
+        int64_t w = (int64_t)size.x;
+        int64_t h = (int64_t)size.y;
+        s_land_preview_screen_x = (int64_t)screen_pos.x;
+        s_land_preview_screen_y = (int64_t)screen_pos.y;
         s_land_preview_screen_w = w;
         s_land_preview_screen_h = h;
         if (w <= 0 || h <= 0 || !land_preview.loaded)
@@ -943,8 +943,8 @@ namespace {
 
         s_land_preview_pixels.assign((size_t)w * (size_t)h, TbPixel{0, 0, 0, 0});
         struct GuiButton draw_gbtn = {};
-        draw_gbtn.width = (short)w;
-        draw_gbtn.height = (short)h;
+        draw_gbtn.width = (int64_t)w;
+        draw_gbtn.height = (int64_t)h;
 
         {
             FeOffscreenTarget cap(s_land_preview_pixels.data(), w, h);
@@ -976,7 +976,7 @@ namespace {
     // not every frame -- campaign.single_levels_count is small but this
     // avoids redoing the unlocked-level scan on every single draw call.
     std::vector<LevelNumber> s_landview_slider_levels;
-    int s_landview_slider_index = 0;
+    int64_t s_landview_slider_index = 0;
     struct GameCampaign *s_landview_slider_campaign = nullptr;
 
     void rebuild_landview_slider_levels(struct GameCampaign *campgn)
@@ -998,7 +998,7 @@ namespace {
         struct CampaignProgressEntry *progress = get_campaign_progress(campgn->fname, false);
         if (progress == nullptr)
             return; // no progress recorded for this campaign yet -- nothing unlocked to browse
-        for (unsigned long i = 0; i < campgn->single_levels_count; i++)
+        for (uint64_t i = 0; i < campgn->single_levels_count; i++)
         {
             LevelNumber lvnum = campgn->single_levels[i];
             // Unlocked (completed) levels, plus the one immediately next
@@ -1026,7 +1026,7 @@ namespace {
         // at least once.
         if (!s_landview_slider_levels.empty())
         {
-            s_landview_slider_index = (int)s_landview_slider_levels.size() - 1;
+            s_landview_slider_index = (int64_t)s_landview_slider_levels.size() - 1;
             land_preview_load(&land_preview, s_landview_slider_levels[s_landview_slider_index], true);
         }
     }
@@ -1048,14 +1048,14 @@ namespace {
         // relabeling: draw_select_detail_panel() now falls back to the
         // slider's own current level when nothing is ensign-hovered, so
         // there's exactly one place this name shows.
-        int count = (int)s_landview_slider_levels.size();
-        float index_f = (float)s_landview_slider_index;
+        int64_t count = (int64_t)s_landview_slider_levels.size();
+        double index_f = (double)s_landview_slider_index;
         // Smaller than ImGui's own full-column default width -- found
         // live to look oversized otherwise.
-        ImGui::SetNextItemWidth(160.0f);
-        if (FeSlider("##landview_slider", &index_f, 0.0f, (float)(count - 1), "%.0f"))
+        ImGui::SetNextItemWidth(160.0);
+        if (FeSlider("##landview_slider", &index_f, 0.0, (double)(count - 1), "%.0f"))
         {
-            int new_index = (int)(index_f + 0.5f);
+            int64_t new_index = (int64_t)(index_f + 0.5);
             if ((new_index >= 0) && (new_index < count) && (new_index != s_landview_slider_index))
             {
                 s_landview_slider_index = new_index;
@@ -1068,9 +1068,9 @@ namespace {
                 // Re-clamped afterward since a different level's art can
                 // be a different size, so the retained shift might now be
                 // out of bounds for it.
-                long saved_shift_x = land_preview.screen_shift_x;
-                long saved_shift_y = land_preview.screen_shift_y;
-                int saved_units_per_px = land_preview.units_per_px;
+                int64_t saved_shift_x = land_preview.screen_shift_x;
+                int64_t saved_shift_y = land_preview.screen_shift_y;
+                int64_t saved_units_per_px = land_preview.units_per_px;
                 // Browse-only: does not change the active campaign or
                 // select a level to play, per §3.3 -- committing still
                 // goes through the existing highlight/Enter Land flow.
@@ -1100,7 +1100,7 @@ namespace {
     // LbTextDrawResized calls. campaign_fallback is NULL for Free play,
     // which has no campaign-level fallback (frontend_draw_freeplay_detail's
     // own comment: it always has a specific level highlighted, or none).
-    void draw_select_detail_panel(struct GameCampaign *campaign_fallback, float height)
+    void draw_select_detail_panel(struct GameCampaign *campaign_fallback, double height)
     {
         const char *name = nullptr;
         const char *description = nullptr;
@@ -1165,8 +1165,8 @@ namespace {
     void frontgui_campaignselect_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImVec2 win_size(io.DisplaySize.x * 0.82f, io.DisplaySize.y * 0.82f);
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImVec2 win_size(io.DisplaySize.x * 0.82, io.DisplaySize.y * 0.82);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::SetNextWindowSize(win_size, ImGuiCond_Always);
         // NoScrollbar|NoScrollWithMouse: a hard structural guarantee, not
         // just careful budget math -- found live, twice, that getting the
@@ -1189,15 +1189,15 @@ namespace {
         FeHeading(get_string(frontend_button_info[FEBtn_MnuLandSelection].capstr_idx));
         FeSeparator();
 
-        float list_w = win_size.x * 0.3f;
-        float content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve(); // leave room for the bottom button row
+        double list_w = win_size.x * 0.3;
+        double content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve(); // leave room for the bottom button row
 
         ImGui::BeginGroup();
         FeCaption(get_string(frontend_button_info[FEBtn_MnuCampaigns].capstr_idx));
         bool open = FeBeginListBox("##campaign_list", ImVec2(list_w, content_h));
         if (open)
         {
-            for (long i = 0; i < (long)campaigns_list.items_num; i++)
+            for (int64_t i = 0; i < (int64_t)campaigns_list.items_num; i++)
             {
                 struct GameCampaign *campgn = &campaigns_list.items[i];
                 bool selected = (campgn == land_selection_highlighted_campaign);
@@ -1245,13 +1245,13 @@ namespace {
         // Still measured against FeSlider's own font/metrics (FeFont_Body)
         // rather than a flat pixel guess, so it holds at any UI_FONT_SCALE.
         FeStylePushFont(FeFont_Body);
-        float slider_h = ImGui::GetFrameHeight();
+        double slider_h = ImGui::GetFrameHeight();
         FeStylePopFont();
-        float spacing_y = ImGui::GetStyle().ItemSpacing.y;
-        float split_h = content_h - slider_h - 2.0f * spacing_y;
-        draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, split_h * 0.79f));
+        double spacing_y = ImGui::GetStyle().ItemSpacing.y;
+        double split_h = content_h - slider_h - 2.0 * spacing_y;
+        draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, split_h * 0.79));
         draw_landview_slider(land_selection_highlighted_campaign);
-        draw_select_detail_panel(land_selection_highlighted_campaign, split_h * 0.21f);
+        draw_select_detail_panel(land_selection_highlighted_campaign, split_h * 0.21);
         ImGui::EndGroup();
 
         FeSeparator();
@@ -1264,7 +1264,7 @@ namespace {
         ImGui::SameLine();
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuEnterLand].capstr_idx)))
         {
-            int next_state = frontend_land_selection_enter_resolve();
+            int64_t next_state = frontend_land_selection_enter_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1281,7 +1281,7 @@ namespace {
         // budget further: it only ever adds blank space here, at the very
         // end of this window's content, so it can't affect anything drawn
         // above it even if the window's fixed height is razor-tight.
-        ImGui::Dummy(ImVec2(0.0f, ImGui::GetStyle().WindowPadding.y));
+        ImGui::Dummy(ImVec2(0.0, ImGui::GetStyle().WindowPadding.y));
 
         ImGui::End();
     }
@@ -1294,8 +1294,8 @@ namespace {
     void frontgui_freeplayselect_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImVec2 win_size(io.DisplaySize.x * 0.82f, io.DisplaySize.y * 0.82f);
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImVec2 win_size(io.DisplaySize.x * 0.82, io.DisplaySize.y * 0.82);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::SetNextWindowSize(win_size, ImGuiCond_Always);
         // NoScrollbar|NoScrollWithMouse: see frontgui_campaignselect_frame()'s
         // own comment on this same flag pair -- same screen family, same
@@ -1313,8 +1313,8 @@ namespace {
             : get_string(frontend_button_info[FEBtn_MnuFreePlayLevels_107].capstr_idx));
         FeSeparator();
 
-        float list_w = win_size.x * 0.3f;
-        float content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
+        double list_w = win_size.x * 0.3;
+        double content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
         // Both FeCaption lines above the two list boxes need reserving
         // here, not just the second one -- found live alongside the
         // campaign-select slider-row bug (same symptom, same root cause:
@@ -1338,12 +1338,12 @@ namespace {
         // Still measured against FeCaption's own font/metrics rather than
         // a flat guess, so it holds at any UI_FONT_SCALE.
         FeStylePushFont(FeFont_Caption);
-        float caption_line_h = ImGui::GetTextLineHeight();
+        double caption_line_h = ImGui::GetTextLineHeight();
         FeStylePopFont();
-        float spacing_y = ImGui::GetStyle().ItemSpacing.y;
-        float lists_h = content_h - 2.0f * caption_line_h - 3.0f * spacing_y;
-        float mappack_list_h = lists_h * 0.35f;
-        float level_list_h = lists_h - mappack_list_h;
+        double spacing_y = ImGui::GetStyle().ItemSpacing.y;
+        double lists_h = content_h - 2.0 * caption_line_h - 3.0 * spacing_y;
+        double mappack_list_h = lists_h * 0.35;
+        double level_list_h = lists_h - mappack_list_h;
 
         struct CampaignsList *active_mappacks_list = frontend_freeplay_active_mappacks_list();
 
@@ -1352,7 +1352,7 @@ namespace {
         bool mappack_open = FeBeginListBox("##mappack_list", ImVec2(list_w, mappack_list_h));
         if (mappack_open)
         {
-            for (long i = 0; i < (long)active_mappacks_list->items_num; i++)
+            for (int64_t i = 0; i < (int64_t)active_mappacks_list->items_num; i++)
             {
                 struct GameCampaign *campgn = &active_mappacks_list->items[i];
                 bool selected = (campgn == freeplay_highlighted_mappack);
@@ -1366,9 +1366,9 @@ namespace {
         bool level_open = FeBeginListBox("##freeplay_level_list", ImVec2(list_w, level_list_h));
         if (level_open)
         {
-            unsigned long levels_count;
+            uint64_t levels_count;
             LevelNumber *levels = frontend_freeplay_active_levels(&levels_count);
-            for (long i = 0; i < (long)levels_count; i++)
+            for (int64_t i = 0; i < (int64_t)levels_count; i++)
             {
                 LevelNumber lvnum = levels[i];
                 struct LevelInformation *lvinfo = get_level_info(lvnum);
@@ -1393,14 +1393,14 @@ namespace {
             // Free play keeps the plain layout below.
             skirmish_setup_sync(freeplay_highlighted_level, default_loc_player);
             const bool tabs_open = FeBeginTabBar("##SkirmishTabs");
-            const float tab_h = ImGui::GetFrameHeightWithSpacing();
-            const float body_h = content_h - tab_h;
+            const double tab_h = ImGui::GetFrameHeightWithSpacing();
+            const double body_h = content_h - tab_h;
             if (tabs_open)
             {
                 if (FeTab("Map"))
                 {
-                    draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, body_h * 0.75f));
-                    draw_select_detail_panel(nullptr, body_h * 0.20f);
+                    draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, body_h * 0.75));
+                    draw_select_detail_panel(nullptr, body_h * 0.20);
                     FeEndTab();
                 }
                 const std::string setup_label = std::string(skirmish_setup_is_changed() ? "Setup *" : "Setup") + "###SkirmishSetupTab";
@@ -1416,8 +1416,8 @@ namespace {
         {
             // See frontgui_campaignselect_frame's own comment on the 0.75/0.20
             // split -- same fixed-size-frame-decoration issue, same fix.
-            draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, content_h * 0.75f));
-            draw_select_detail_panel(nullptr, content_h * 0.20f); // no campaign-level fallback -- see draw_select_detail_panel's comment
+            draw_land_preview_panel(ImVec2(ImGui::GetContentRegionAvail().x, content_h * 0.75));
+            draw_select_detail_panel(nullptr, content_h * 0.20); // no campaign-level fallback -- see draw_select_detail_panel's comment
         }
         ImGui::EndGroup();
 
@@ -1435,7 +1435,7 @@ namespace {
         ImGui::BeginDisabled(play_blocked);
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuPlayLevel].capstr_idx)))
         {
-            int next_state = frontend_freeplay_enter_resolve();
+            int64_t next_state = frontend_freeplay_enter_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1447,7 +1447,7 @@ namespace {
         }
         // Explicit breathing room below the button row -- see
         // frontgui_campaignselect_frame's own comment on this same fix.
-        ImGui::Dummy(ImVec2(0.0f, ImGui::GetStyle().WindowPadding.y));
+        ImGui::Dummy(ImVec2(0.0, ImGui::GetStyle().WindowPadding.y));
 
         ImGui::End();
     }
@@ -1458,7 +1458,7 @@ namespace {
     void frontgui_mpmappackselect_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeMpMappackSelect", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         FeHeading(get_string(frontend_button_info[FEBtn_MnuMpMapPacks].capstr_idx));
@@ -1467,12 +1467,12 @@ namespace {
         bool open = FeBeginListBox("##mp_mappack_list", ImVec2(520, 320));
         if (open)
         {
-            for (long i = 0; i < (long)mp_mappacks_list.items_num; i++)
+            for (int64_t i = 0; i < (int64_t)mp_mappacks_list.items_num; i++)
             {
                 struct GameCampaign *campgn = &mp_mappacks_list.items[i];
                 if (FeListRow(campgn->display_name, false))
                 {
-                    int next_state = frontend_mp_mappack_select_resolve(i);
+                    int64_t next_state = frontend_mp_mappack_select_resolve(i);
                     if (next_state >= 0)
                         request_frontend_state((FrontendMenuState)next_state);
                 }
@@ -1542,7 +1542,7 @@ namespace {
     void frontgui_mainmenu_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeMainMenu", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         // The window is AlwaysAutoResize, so its width tracks whichever row
@@ -1558,7 +1558,7 @@ namespace {
         // stack tracks the auto-resize instead of drifting from it.
         const char *heading_text = get_string(frontend_button_info[FEBtn_MnuMainMenu].capstr_idx);
         FeStylePushFont(FeFont_Heading);
-        float heading_w = ImGui::CalcTextSize(heading_text).x;
+        double heading_w = ImGui::CalcTextSize(heading_text).x;
         FeStylePopFont();
         FeCenterNextItem(heading_w);
         FeHeading(heading_text);
@@ -1568,7 +1568,7 @@ namespace {
         FeCenterNextItem(btn_size.x);
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuStartNewGame].capstr_idx), btn_size))
         {
-            int next_state = frontend_start_new_game_resolve();
+            int64_t next_state = frontend_start_new_game_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1590,7 +1590,7 @@ namespace {
         FeCenterNextItem(btn_size.x);
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuSkirmish].capstr_idx), btn_size))
         {
-            int next_state = frontend_start_skirmish_resolve();
+            int64_t next_state = frontend_start_skirmish_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1615,7 +1615,7 @@ namespace {
         FeCenterNextItem(btn_size.x);
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuMultiplayer].capstr_idx), btn_size))
         {
-            int next_state = frontend_netservice_change_state_resolve();
+            int64_t next_state = frontend_netservice_change_state_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1645,10 +1645,10 @@ namespace {
         const char *quit_label = get_string(frontend_button_info[FEBtn_MnuQuit].capstr_idx);
         FeStylePushFont(FeFont_Body);
         const ImGuiStyle &style = ImGui::GetStyle();
-        float row_w = ImGui::CalcTextSize(opt_label).x + style.FramePadding.x * 2.0f
-            + ImGui::CalcTextSize(scores_label).x + style.FramePadding.x * 2.0f
-            + ImGui::CalcTextSize(quit_label).x + style.FramePadding.x * 2.0f
-            + style.ItemSpacing.x * 2.0f;
+        double row_w = ImGui::CalcTextSize(opt_label).x + style.FramePadding.x * 2.0
+            + ImGui::CalcTextSize(scores_label).x + style.FramePadding.x * 2.0
+            + ImGui::CalcTextSize(quit_label).x + style.FramePadding.x * 2.0
+            + style.ItemSpacing.x * 2.0;
         FeStylePopFont();
         FeCenterNextItem(row_w);
         if (FeButton(opt_label))
@@ -1656,7 +1656,7 @@ namespace {
         ImGui::SameLine();
         if (FeButton(scores_label))
         {
-            int next_state = frontend_ldcampaign_change_state_resolve();
+            int64_t next_state = frontend_ldcampaign_change_state_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1686,18 +1686,18 @@ namespace {
     void draw_stat_row(const struct StatsData *stat)
     {
         ImGui::TextUnformatted(get_string(stat->name_stridx));
-        ImGui::SameLine(240.0f);
+        ImGui::SameLine(240.0);
         char valbuf[64];
         if (timer_enabled() && (stat->name_stridx == GUIStr_Time) && !kfx_sim_state.TimerGame)
         {
-            std::snprintf(valbuf, sizeof(valbuf), "%02d:%02d:%02d:%03d",
-                kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes,
-                kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
+            std::snprintf(valbuf, sizeof(valbuf), "%02" PRId64 ":%02" PRId64 ":%02" PRId64 ":%03" PRId64,
+                (int64_t)(kfx_sim_state.Timer.Hours), (int64_t)(kfx_sim_state.Timer.Minutes),
+                (int64_t)(kfx_sim_state.Timer.Seconds), (int64_t)(kfx_sim_state.Timer.MSeconds));
         }
         else
         {
-            long val = (stat->get_value != nullptr) ? stat->get_value(stat->get_arg) : -1;
-            std::snprintf(valbuf, sizeof(valbuf), "%ld", val);
+            int64_t val = (stat->get_value != nullptr) ? stat->get_value(stat->get_arg) : -1;
+            std::snprintf(valbuf, sizeof(valbuf), "%" PRId64, (int64_t)(val));
         }
         ImGui::TextUnformatted(valbuf);
     }
@@ -1716,7 +1716,7 @@ namespace {
     void frontgui_levelstats_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeLevelStats", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         FeHeading(get_string(frontend_button_info[FEBtn_MnuStatistics].capstr_idx));
@@ -1747,7 +1747,7 @@ namespace {
     void frontgui_netservice_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::Begin("##FeNetService", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
         FeHeading(get_string(frontend_button_info[FEBtn_NetServiceMenu].capstr_idx));
@@ -1757,7 +1757,7 @@ namespace {
         bool open = FeBeginListBox("##net_service_list", ImVec2(420, 200));
         if (open)
         {
-            for (long i = 0; i < net_number_of_services; i++)
+            for (int64_t i = 0; i < net_number_of_services; i++)
             {
                 if (FeListRow(net_service[i], false))
                 {
@@ -1781,8 +1781,8 @@ namespace {
     void frontgui_netsession_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImVec2 win_size(io.DisplaySize.x * 0.65f, io.DisplaySize.y * 0.75f);
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImVec2 win_size(io.DisplaySize.x * 0.65, io.DisplaySize.y * 0.75);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::SetNextWindowSize(win_size, ImGuiCond_Always);
         ImGui::Begin("##FeNetSession", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
 
@@ -1795,12 +1795,12 @@ namespace {
             frontnet_session_set_player_name(nullptr); // no gbtn use in its body -- safe, same idiom frontend.cpp's own frontnet_session_create(NULL) call already uses
         FeSeparator();
 
-        float content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
+        double content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
         FeCaption(get_string(frontend_button_info[FEBtn_NetSessions].capstr_idx));
-        bool sess_open = FeBeginListBox("##net_session_list", ImVec2(0, content_h * 0.55f));
+        bool sess_open = FeBeginListBox("##net_session_list", ImVec2(0, content_h * 0.55));
         if (sess_open)
         {
-            for (long i = 0; i < net_number_of_sessions; i++)
+            for (int64_t i = 0; i < net_number_of_sessions; i++)
             {
                 if (net_session[i] == nullptr)
                     continue;
@@ -1812,10 +1812,10 @@ namespace {
         FeEndListBox(sess_open);
 
         FeCaption(get_string(frontend_button_info[FEBtn_MnuPlayers].capstr_idx));
-        bool ply_open = FeBeginListBox("##net_session_players", ImVec2(0, content_h * 0.3f));
+        bool ply_open = FeBeginListBox("##net_session_players", ImVec2(0, content_h * 0.3));
         if (ply_open)
         {
-            for (long i = 0; i < net_number_of_enum_players; i++)
+            for (int64_t i = 0; i < net_number_of_enum_players; i++)
                 FeListRow(net_player[i].name, false);
         }
         FeEndListBox(ply_open);
@@ -1826,7 +1826,7 @@ namespace {
         ImGui::BeginDisabled(!can_join);
         if (FeButton(get_string(frontend_button_info[FEBtn_NetJoinGame].capstr_idx)))
         {
-            int next_state = frontnet_session_join_resolve();
+            int64_t next_state = frontnet_session_join_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1834,14 +1834,14 @@ namespace {
         ImGui::SameLine();
         if (FeButton(get_string(frontend_button_info[FEBtn_NetCreateGame].capstr_idx)))
         {
-            int next_state = frontnet_session_create_resolve();
+            int64_t next_state = frontnet_session_create_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
         ImGui::SameLine();
         if (FeButton(get_string(frontend_button_info[FEBtn_MnuReturnToMain].capstr_idx)))
         {
-            int next_state = frontnet_return_to_main_menu_resolve();
+            int64_t next_state = frontnet_return_to_main_menu_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
@@ -1857,28 +1857,28 @@ namespace {
     void frontgui_netstart_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        ImVec2 win_size(io.DisplaySize.x * 0.8f, io.DisplaySize.y * 0.85f);
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImVec2 win_size(io.DisplaySize.x * 0.8, io.DisplaySize.y * 0.85);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
         ImGui::SetNextWindowSize(win_size, ImGuiCond_Always);
         ImGui::Begin("##FeNetStart", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
 
         FeHeading(get_string(frontend_button_info[FEBtn_NetSessionMenu].capstr_idx));
         FeSeparator();
 
-        float content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
-        float top_h = content_h * 0.35f;
+        double content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
+        double top_h = content_h * 0.35;
 
         ImGui::BeginGroup();
         FeCaption(get_string(frontend_button_info[FEBtn_MnuPlayers].capstr_idx));
-        bool ply_open = FeBeginListBox("##net_start_players", ImVec2(win_size.x * 0.4f, top_h));
+        bool ply_open = FeBeginListBox("##net_start_players", ImVec2(win_size.x * 0.4, top_h));
         if (ply_open)
         {
-            for (long i = 0; i < net_number_of_enum_players; i++)
+            for (int64_t i = 0; i < net_number_of_enum_players; i++)
             {
                 char label[160];
-                unsigned long ping = (i != my_player_number) ? GetPing((int)i, my_player_number) : 0;
+                uint64_t ping = (i != my_player_number) ? GetPing((int64_t)i, my_player_number) : 0;
                 if (ping > 0)
-                    std::snprintf(label, sizeof(label), "%s - %lums", net_player[i].name, ping);
+                    std::snprintf(label, sizeof(label), "%s - %" PRIu64 "ms", net_player[i].name, (uint64_t)(ping));
                 else
                     std::snprintf(label, sizeof(label), "%s", net_player[i].name);
                 FeListRow(label, false);
@@ -1893,21 +1893,21 @@ namespace {
         // box tab (frontnet_draw_alliance_box_tab) draws player colour
         // icons, not a caption, so there's no GUIStr_ to reuse for one.
         ImGui::BeginGroup();
-        if (ImGui::BeginTable("##alliance_grid", (int)net_number_of_enum_players + 1, ImGuiTableFlags_Borders, ImVec2(0, top_h)))
+        if (ImGui::BeginTable("##alliance_grid", (int64_t)net_number_of_enum_players + 1, ImGuiTableFlags_Borders, ImVec2(0, top_h)))
         {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            for (long c = 0; c < net_number_of_enum_players; c++)
+            for (int64_t c = 0; c < net_number_of_enum_players; c++)
             {
                 ImGui::TableNextColumn();
                 ImGui::TextUnformatted(net_player[c].name);
             }
-            for (long r = 0; r < net_number_of_enum_players; r++)
+            for (int64_t r = 0; r < net_number_of_enum_players; r++)
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 ImGui::TextUnformatted(net_player[r].name);
-                for (long c = 0; c < net_number_of_enum_players; c++)
+                for (int64_t c = 0; c < net_number_of_enum_players; c++)
                 {
                     ImGui::TableNextColumn();
                     if (r == c)
@@ -1916,9 +1916,9 @@ namespace {
                         continue;
                     }
                     bool allied = (frontend_alliances & alliance_grid[r][c]) != 0;
-                    ImGui::PushID((int)(r * MAX_NET_USERS + c));
+                    ImGui::PushID((int64_t)(r * MAX_NET_USERS + c));
                     if (ImGui::Checkbox("##ally", &allied))
-                        frontnet_select_alliance_by_index((int)r, (int)c); // queued via the packet system, not immediate -- see its own comment
+                        frontnet_select_alliance_by_index((int64_t)r, (int64_t)c); // queued via the packet system, not immediate -- see its own comment
                     ImGui::PopID();
                 }
             }
@@ -1936,11 +1936,11 @@ namespace {
 
         FeSeparator();
 
-        float chat_h = content_h - top_h - 90.0f;
+        double chat_h = content_h - top_h - 90.0;
         bool msg_open = FeBeginListBox("##net_messages", ImVec2(0, chat_h));
         if (msg_open)
         {
-            for (long i = 0; i < net_number_of_messages; i++)
+            for (int64_t i = 0; i < net_number_of_messages; i++)
             {
                 struct NetMessage *nmsg = &net_message[i];
                 char label[NET_MESSAGE_LEN + 32];
@@ -2018,7 +2018,7 @@ namespace {
     }
 }
 
-TbBool frontend_imgui_screen_active(int state)
+TbBool frontend_imgui_screen_active(int64_t state)
 {
     return state_is_migrated(state);
 }
@@ -2039,17 +2039,17 @@ TbBool frontend_imgui_screen_active(int state)
 // ordering the legacy path already has for free (get_gui_inputs()'s
 // per-button maintain_calls, including land_preview_maintain, run before
 // frontscreen_end_input in the same frontend_input() call).
-void FrontendImGuiLandPreviewInput(int state)
+void FrontendImGuiLandPreviewInput(int64_t state)
 {
     if (!frontend_imgui_screen_active(state))
         return;
     if ((state != FeSt_CAMPAIGN_SELECT) && (state != FeSt_MAPPACK_SELECT))
         return; // MP mappack select has no preview panel -- see frontend_mp_mappack_select_resolve's comment
     struct GuiButton gbtn = {};
-    gbtn.scr_pos_x = (short)s_land_preview_screen_x;
-    gbtn.scr_pos_y = (short)s_land_preview_screen_y;
-    gbtn.width = (short)s_land_preview_screen_w;
-    gbtn.height = (short)s_land_preview_screen_h;
+    gbtn.scr_pos_x = (int64_t)s_land_preview_screen_x;
+    gbtn.scr_pos_y = (int64_t)s_land_preview_screen_y;
+    gbtn.width = (int64_t)s_land_preview_screen_w;
+    gbtn.height = (int64_t)s_land_preview_screen_h;
     // Must match draw_land_preview_panel()'s override around its own
     // land_preview_draw() call (see kLandPreviewImGuiFrameScaleDen's comment)
     // -- otherwise this frame_inset (used for the mouse-in-rect bound and
@@ -2072,15 +2072,15 @@ void FrontendImGuiLandPreviewInput(int state)
 // already was -- not stretched.
 static void draw_menu_backdrop(void)
 {
-    int tex_w = 0, tex_h = 0;
+    int64_t tex_w = 0, tex_h = 0;
     void *tex = FeStyleGetMenuBackdropTexture(&tex_w, &tex_h);
     if (tex == nullptr)
         return;
     ImGuiIO &io = ImGui::GetIO();
     struct TbRect area;
-    get_frontmenu_background_area_rect(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y, &area);
+    get_frontmenu_background_area_rect(0, 0, (int64_t)io.DisplaySize.x, (int64_t)io.DisplaySize.y, &area);
     ImGui::GetBackgroundDrawList()->AddImage((ImTextureID)(intptr_t)tex,
-        ImVec2((float)area.left, (float)area.top), ImVec2((float)area.right, (float)area.bottom));
+        ImVec2((double)area.left, (double)area.top), ImVec2((double)area.right, (double)area.bottom));
 }
 
 void FrontendImGuiFrame(void)
@@ -2091,12 +2091,12 @@ void FrontendImGuiFrame(void)
     // module's ImGui windows is still on the stack.
     if (s_pending_load_slot >= 0)
     {
-        long slot = s_pending_load_slot;
+        int64_t slot = s_pending_load_slot;
         s_pending_load_slot = -1;
         struct PlayerInfo *player = get_my_player();
         if (!load_game(slot))
         {
-            ERRORLOG("Loading game %ld failed; quitting.", slot);
+            ERRORLOG("Loading game %" PRId64 " failed; quitting.", (int64_t)(slot));
             set_players_packet_action(player, PckA_TogglePause, 0, 0, 0, 0);
             quit_game = 1;
         }

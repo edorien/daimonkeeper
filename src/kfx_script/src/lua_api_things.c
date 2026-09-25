@@ -66,9 +66,9 @@ static int make_thing_zombie (lua_State *L)
 static int lua_set_velocity (lua_State *L)
 {
     struct Thing *thing = luaL_checkThing(L, 1);
-    int32_t speed = luaL_checkinteger(L, 2);
-    int16_t angle_xy = thing->move_angle_xy;
-    int16_t angle_z = thing->move_angle_z;
+    int64_t speed = luaL_checkinteger(L, 2);
+    int64_t angle_xy = thing->move_angle_xy;
+    int64_t angle_z = thing->move_angle_z;
 
     if (!lua_isnoneornil(L, 3))
         angle_xy = luaL_optCheckinteger(L, 3);
@@ -128,8 +128,8 @@ static int lua_destroy_object(lua_State* L)
 static int lua_creature_walk_to(lua_State *L)
 {
     struct Thing *thing = luaL_checkThing(L, 1);
-    int stl_x = luaL_checkstl_x(L, 2);
-    int stl_y = luaL_checkstl_y(L, 3);
+    int64_t stl_x = luaL_checkstl_x(L, 2);
+    int64_t stl_y = luaL_checkstl_y(L, 3);
 
     CrtrStateId crstate = get_creature_state_besides_move(thing);
     lua_pushboolean(L, setup_person_move_to_position(thing, stl_x, stl_y, NavRtF_Default));
@@ -168,7 +168,7 @@ static int lua_transform_creature(lua_State* L)
 {
     struct Thing* thing = luaL_checkCreature(L, 1);
     ThingModel crtr_id = luaL_checkNamedCommand(L, 2, creature_desc);
-    int16_t crtr_level = luaL_checkinteger(L, 3);
+    int64_t crtr_level = luaL_checkinteger(L, 3);
 
     if ((crtr_level < 0) || (crtr_level > CREATURE_MAX_LEVEL))
     {
@@ -244,7 +244,7 @@ static int lua_Transfer_creature(lua_State *L)
 static int lua_Level_up_creature(lua_State *L)
 {
     struct Thing* thing = luaL_checkCreature(L, 1);
-    int count = luaL_checkinteger(L, 2);
+    int64_t count = luaL_checkinteger(L, 2);
 
     creature_change_multiple_levels(thing,count);
     return 0;
@@ -277,7 +277,7 @@ static int lua_Change_creature_owner(lua_State *L)
 static int lua_get_creature_annoyance(lua_State *L)
 {
     struct Thing *thing = luaL_checkCreature(L, 1);
-    long reason = luaL_checkNamedCommand(L, 2, anger_reason_desc);
+    int64_t reason = luaL_checkNamedCommand(L, 2, anger_reason_desc);
     if (reason < AngR_NotPaid || reason >= AngR_ListEnd)
         return luaL_argerror(L, 2, "invalid anger reason");
     struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
@@ -289,10 +289,10 @@ static int lua_get_creature_annoyance(lua_State *L)
 static int lua_set_creature_annoyance(lua_State *L)
 {
     struct Thing *thing = luaL_checkCreature(L, 1);
-    long reason = luaL_checkNamedCommand(L, 2, anger_reason_desc);
+    int64_t reason = luaL_checkNamedCommand(L, 2, anger_reason_desc);
     if (reason < AngR_NotPaid || reason >= AngR_ListEnd)
         return luaL_argerror(L, 2, "invalid anger reason");
-    long value = luaL_checkinteger(L, 3);
+    int64_t value = luaL_checkinteger(L, 3);
     anger_set_creature_anger(thing, value, reason);
     return 0;
 }
@@ -302,7 +302,7 @@ static int thing_tostring(lua_State *L)
 {
     char buff[64];
     struct Thing* thing = luaL_checkThing(L, 1);
-    snprintf(buff, sizeof(buff), "id: %d turn: %d %s", thing->index, thing->creation_turn, thing_class_and_model_name(thing->class_id,thing->model));
+    snprintf(buff, sizeof(buff), "id: %" PRId64 " turn: %" PRId64 " %s", (int64_t)(thing->index), (int64_t)(thing->creation_turn), thing_class_and_model_name(thing->class_id,thing->model));
 
     lua_pushfstring(L, "Thing (%s)", buff);
     return 1;
@@ -401,7 +401,7 @@ static int thing_set_field(lua_State *L) {
             const char* name = luaL_checkstring(L, 3);
             if (strlen(name) > CREATURE_NAME_MAX)
             {
-                return luaL_error(L, "Creature name too long (max %d)", CREATURE_NAME_MAX);
+                return luaL_error(L, "Creature name too long (max %" PRId64 ")", (int64_t)(CREATURE_NAME_MAX));
             }
             strncpy(cctrl->creature_name, name, CREATURE_NAME_MAX);
         } else if (strcmp(key, "gold_held") == 0)
@@ -445,7 +445,7 @@ static int thing_set_field(lua_State *L) {
             if (value < SHRT_MIN || value > SHRT_MAX) {
                 return luaL_error(L, "Creature countdown out of range (-32768..32767)");
             }
-            cctrl->countdown = (short)value;
+            cctrl->countdown = (int64_t)value;
         } else if (strcmp(key, "state") == 0)
         {
             internal_set_thing_state(thing, luaL_checkNamedCommand(L, 3, creatrstate_desc));
@@ -455,8 +455,8 @@ static int thing_set_field(lua_State *L) {
         } else if (strcmp(key, "instance") == 0)
         {
             //Lua stack: 1 = thing, 2 = key, 3 = value
-            int stackcount = lua_gettop(L);
-            int inst_pos = 3;
+            int64_t stackcount = lua_gettop(L);
+            int64_t inst_pos = 3;
             if (lua_istable(L, 3)) {
                 //unpack table content onto stack
                 lua_rawgeti(L, 3, 1);       // {1} instance
@@ -557,7 +557,7 @@ static int thing_set_field(lua_State *L) {
             if (value < SHRT_MIN || value > SHRT_MAX) {
                 return luaL_error(L, "damage out of range (-32768..32767)");
             }
-            thing->shot.damage = (short)value;
+            thing->shot.damage = (int64_t)value;
         } else {
             return luaL_error(L, "Field '%s' is not writable on Shot thing", key);
         }
@@ -798,7 +798,7 @@ static int thing_eq(lua_State *L) {
         luaL_error(L, "Expected 'index' to be an integer");
         return 1;
     }
-    int idx1 = lua_tointeger(L, -1);
+    int64_t idx1 = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the idx value off the stack
 
     // Get idx field
@@ -807,7 +807,7 @@ static int thing_eq(lua_State *L) {
         luaL_error(L, "Expected 'index' to be an integer");
         return 1;
     }
-    int idx2 = lua_tointeger(L, -1);
+    int64_t idx2 = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the idx value off the stack
 
     if(idx1 != idx2)
@@ -823,7 +823,7 @@ static int thing_eq(lua_State *L) {
         luaL_error(L, "Expected 'creation_turn' to be an integer");
         return 1;
     }
-    int creation_turn1 = lua_tointeger(L, -1);
+    int64_t creation_turn1 = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the creation_turn value off the stack
 
     lua_getfield(L,2, "creation_turn");
@@ -831,7 +831,7 @@ static int thing_eq(lua_State *L) {
         luaL_error(L, "Expected 'creation_turn' to be an integer");
         return 1;
     }
-    int creation_turn2 = lua_tointeger(L, -1);
+    int64_t creation_turn2 = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the creation_turn value off the stack
 
     lua_pushboolean(L, creation_turn1 == creation_turn2);

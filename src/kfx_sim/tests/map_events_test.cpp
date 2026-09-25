@@ -116,7 +116,7 @@ TEST_CASE_METHOD(ResetState, "event_allocate_free_event_structure claims the fir
 }
 
 TEST_CASE_METHOD(ResetState, "event_allocate_free_event_structure returns INVALID_EVENT once every slot is taken", "[kfx_sim][map_events]") {
-    for (int i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
         kfx_sim_state.event[i].flags = EvF_Exists;
 
     CHECK(event_allocate_free_event_structure() == INVALID_EVENT);

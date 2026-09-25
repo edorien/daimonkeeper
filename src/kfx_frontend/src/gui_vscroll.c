@@ -59,10 +59,10 @@ extern "C" {
 #define SCRL_SPR_THUMB        GBS_vscroll_thumb
 
 /******************************************************************************/
-long gui_vscroll_offset = 0;
+int64_t gui_vscroll_offset = 0;
 
 /** Scale a sprite-space length by units-per-px. */
-static inline long scrl_sc(long v, int upp)
+static inline int64_t scrl_sc(int64_t v, int64_t upp)
 {
     return v * upp / 16;
 }
@@ -70,26 +70,26 @@ static inline long scrl_sc(long v, int upp)
 /** Units-per-px for the scrollbar, taken from the cap sprite's width against the button's.
  *  Deriving it from the sprite (as simple_button_sprite_*_units_per_px does elsewhere) is
  *  what makes the same code work with the low-res sheet, where the art is smaller. */
-static int scrl_units_per_px(const struct GuiButton *gbtn)
+static int64_t scrl_units_per_px(const struct GuiButton *gbtn)
 {
     const struct TbSprite *spr = get_button_sprite(SCRL_SPR_CAP_TOP);
     if ((spr == NULL) || (spr->SWidth < 1))
         return 16;
-    int upp = (gbtn->width * 16 + spr->SWidth / 2) / spr->SWidth;
+    int64_t upp = (gbtn->width * 16 + spr->SWidth / 2) / spr->SWidth;
     if (upp < 1)
         upp = 1;
     return upp;
 }
 
 /** Scaled height of a sprite, 0 if it is missing. */
-static long scrl_spr_h(long spr_idx, int upp)
+static int64_t scrl_spr_h(int64_t spr_idx, int64_t upp)
 {
     const struct TbSprite *spr = get_button_sprite(spr_idx);
     return (spr != NULL) ? scrl_sc(spr->SHeight, upp) : 0;
 }
 
 /** Draw one sprite at a screen position. */
-static void scrl_draw(long x, long y, int upp, long spr_idx)
+static void scrl_draw(int64_t x, int64_t y, int64_t upp, int64_t spr_idx)
 {
     const struct TbSprite *spr = get_button_sprite(spr_idx);
     if (spr != NULL)
@@ -98,29 +98,29 @@ static void scrl_draw(long x, long y, int upp, long spr_idx)
 
 /** Tile the track sprite down [y0,y1). The track art is vertically uniform, so the last
  *  tile is simply clipped to what is left and no seam can show. */
-static void scrl_draw_track(long ox, long y0, long y1, int upp)
+static void scrl_draw_track(int64_t ox, int64_t y0, int64_t y1, int64_t upp)
 {
     const struct TbSprite *spr = get_button_sprite(SCRL_SPR_TRACK);
     if ((spr == NULL) || (spr->SHeight < 1))
         return;
-    long seg = scrl_sc(spr->SHeight, upp);
+    int64_t seg = scrl_sc(spr->SHeight, upp);
     if (seg < 1)
         seg = 1;
-    long w = scrl_sc(spr->SWidth, upp);
+    int64_t w = scrl_sc(spr->SWidth, upp);
     TbGraphicsWindow grwnd;
     LbScreenStoreGraphicsWindow(&grwnd);
-    for (long y = y0; y < y1; y += seg)
+    for (int64_t y = y0; y < y1; y += seg)
     {
-        long h = (y + seg <= y1) ? seg : (y1 - y);
+        int64_t h = (y + seg <= y1) ? seg : (y1 - y);
         LbScreenSetGraphicsWindow(ox, y, w, h);
         LbSpriteDrawResized(0, 0, upp, spr);
     }
     LbScreenLoadGraphicsWindow(&grwnd);
 }
-long gui_vscroll_total(void)
+int64_t gui_vscroll_total(void)
 {
-    int last_used = -1;
-    for (int i = 0; i < save_game_catalogue_count; i++)
+    int64_t last_used = -1;
+    for (int64_t i = 0; i < save_game_catalogue_count; i++)
     {
         if ((save_game_catalogue[i].flags & CEF_InUse) != 0)
             last_used = i;
@@ -128,7 +128,7 @@ long gui_vscroll_total(void)
     /* The Save menu reveals one free slot past the used ones (so a new game can be
      * saved there); the Load menu must not. Both keep at least the 8 on-screen rows and
      * never exceed the number of slots the catalogue currently holds. */
-    long total = last_used + (menu_is_active(GMnu_SAVE) ? 2 : 1);
+    int64_t total = last_used + (menu_is_active(GMnu_SAVE) ? 2 : 1);
     if (total < GUI_VSCROLL_VISIBLE)
         total = GUI_VSCROLL_VISIBLE;
     if (total > save_game_catalogue_count)
@@ -136,9 +136,9 @@ long gui_vscroll_total(void)
     return total;
 }
 
-long gui_vscroll_max_offset(void)
+int64_t gui_vscroll_max_offset(void)
 {
-    long m = gui_vscroll_total() - GUI_VSCROLL_VISIBLE;
+    int64_t m = gui_vscroll_total() - GUI_VSCROLL_VISIBLE;
     return (m > 0) ? m : 0;
 }
 
@@ -147,27 +147,27 @@ long gui_vscroll_max_offset(void)
  * only ever appears on a valid stop, never between two of them.  This matches the existing
  * front-end scrollbars (campaign / mappack selection), which snap the same way. --- */
 static TbBool scrl_dragging = false;
-static long scrl_drag_grab = 0;     /* where inside the thumb it was grabbed, screen px */
+static int64_t scrl_drag_grab = 0;     /* where inside the thumb it was grabbed, screen px */
 
-static long scrl_thumb_dy(long off, int upp, long widget_h)
+static int64_t scrl_thumb_dy(int64_t off, int64_t upp, int64_t widget_h)
 {
-    long top = scrl_spr_h(SCRL_SPR_CAP_TOP, upp);
-    long max_off = gui_vscroll_max_offset();
+    int64_t top = scrl_spr_h(SCRL_SPR_CAP_TOP, upp);
+    int64_t max_off = gui_vscroll_max_offset();
     if (max_off <= 0)
         return top;
     /* The thumb runs from just under the top cap to where its bottom meets the bottom cap. */
-    long bot = widget_h - scrl_spr_h(SCRL_SPR_CAP_BOT, upp) - scrl_spr_h(SCRL_SPR_THUMB, upp);
-    long travel = bot - top;
+    int64_t bot = widget_h - scrl_spr_h(SCRL_SPR_CAP_BOT, upp) - scrl_spr_h(SCRL_SPR_THUMB, upp);
+    int64_t travel = bot - top;
     if (travel < 0)
         travel = 0;
     return top + off * travel / max_off;
 }
 
 /** Is the mouse inside the screen rect (x,y,w,h)? */
-static TbBool scrl_mouse_over(long x, long y, long w, long h)
+static TbBool scrl_mouse_over(int64_t x, int64_t y, int64_t w, int64_t h)
 {
-    long mx = GetMouseX();
-    long my = GetMouseY();
+    int64_t mx = GetMouseX();
+    int64_t my = GetMouseY();
     return (mx >= x) && (mx < x + w) && (my >= y) && (my < y + h);
 }
 
@@ -175,18 +175,18 @@ void gui_vscroll_draw(struct GuiButton *gbtn)
 {
     if (gbtn == NULL)
         return;
-    int upp = scrl_units_per_px(gbtn);
-    long ox = gbtn->scr_pos_x;
-    long oy = gbtn->scr_pos_y;
-    long w = gbtn->width;
-    unsigned short flg = RendererGetDrawFlags();
+    int64_t upp = scrl_units_per_px(gbtn);
+    int64_t ox = gbtn->scr_pos_x;
+    int64_t oy = gbtn->scr_pos_y;
+    int64_t w = gbtn->width;
+    int64_t flg = RendererGetDrawFlags();
     RendererSetDrawFlags(0);
 
-    long top_h = scrl_spr_h(SCRL_SPR_CAP_TOP, upp);
-    long bot_h = scrl_spr_h(SCRL_SPR_CAP_BOT, upp);
-    long track_y0 = oy + top_h;
-    long track_y1 = oy + gbtn->height - bot_h;
-    long max_off = gui_vscroll_max_offset();
+    int64_t top_h = scrl_spr_h(SCRL_SPR_CAP_TOP, upp);
+    int64_t bot_h = scrl_spr_h(SCRL_SPR_CAP_BOT, upp);
+    int64_t track_y0 = oy + top_h;
+    int64_t track_y1 = oy + gbtn->height - bot_h;
+    int64_t max_off = gui_vscroll_max_offset();
 
     /* Caps light up while the mouse is over them, but only when that arrow can actually
      * scroll - the lit art is the hover area, so the two can never drift apart. */
@@ -205,14 +205,14 @@ void gui_vscroll_draw(struct GuiButton *gbtn)
      * running the track up into it would eat the last row of that base instead. The real
      * fix belongs in the scaler, but that changes how every sprite in the game is drawn,
      * which is far beyond this widget. Drawn after the caps so it paints over them. */
-    long bias = upp / 32;               /* the scaler's half-step, in screen pixels */
+    int64_t bias = upp / 32;               /* the scaler's half-step, in screen pixels */
     scrl_draw(ox, oy, upp, up_lit ? SCRL_SPR_CAP_TOP_ACT : SCRL_SPR_CAP_TOP);
     scrl_draw(ox, track_y1, upp, dn_lit ? SCRL_SPR_CAP_BOT_ACT : SCRL_SPR_CAP_BOT);
     scrl_draw_track(ox, track_y0, track_y1 + bias, upp);
 
     {
         const struct TbSprite *th = get_button_sprite(SCRL_SPR_THUMB);
-        long tw = (th != NULL) ? scrl_sc(th->SWidth, upp) : 0;
+        int64_t tw = (th != NULL) ? scrl_sc(th->SWidth, upp) : 0;
         scrl_draw(ox + (w - tw) / 2, oy + scrl_thumb_dy(gui_vscroll_offset, upp, gbtn->height),
                   upp, SCRL_SPR_THUMB);
     }
@@ -220,11 +220,11 @@ void gui_vscroll_draw(struct GuiButton *gbtn)
     RendererSetDrawFlags(flg);
 }
 
-static int vscroll_selected_row(void)
+static int64_t vscroll_selected_row(void)
 {
     if ((input_button == NULL) || !menu_is_active(GMnu_SAVE))
         return -1;
-    for (int row = 0; row < GUI_VSCROLL_VISIBLE; row++)
+    for (int64_t row = 0; row < GUI_VSCROLL_VISIBLE; row++)
     {
         if (input_button->content.str == input_string[row])
             return row;
@@ -232,9 +232,9 @@ static int vscroll_selected_row(void)
     return -1;
 }
 
-static struct GuiButton *vscroll_find_slot_button(int row, char gmenu_idx)
+static struct GuiButton *vscroll_find_slot_button(int64_t row, char gmenu_idx)
 {
-    for (int i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
+    for (int64_t i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
     {
         struct GuiButton *b = &active_buttons[i];
         if ((b->flags & LbBtnF_Active) == 0)
@@ -245,16 +245,16 @@ static struct GuiButton *vscroll_find_slot_button(int row, char gmenu_idx)
     return NULL;
 }
 
-static void vscroll_apply_offset(long new_off)
+static void vscroll_apply_offset(int64_t new_off)
 {
-    long max_off = gui_vscroll_max_offset();
+    int64_t max_off = gui_vscroll_max_offset();
     if (new_off < 0)
         new_off = 0;
     if (new_off > max_off)
         new_off = max_off;
 
-    int sel_row = vscroll_selected_row();
-    long sel_slot = (sel_row >= 0) ? (gui_vscroll_offset + sel_row) : -1;
+    int64_t sel_row = vscroll_selected_row();
+    int64_t sel_slot = (sel_row >= 0) ? (gui_vscroll_offset + sel_row) : -1;
     if (sel_row >= 0)
     {
         /* keep the selected slot within rows [0 .. GUI_VSCROLL_VISIBLE-1] */
@@ -283,7 +283,7 @@ static void vscroll_apply_offset(long new_off)
     update_loadsave_input_strings(save_game_catalogue);   /* refill the visible rows */
     if (sel_row >= 0)
     {
-        int new_row = (int)(sel_slot - new_off);
+        int64_t new_row = (int64_t)(sel_slot - new_off);
         snprintf(input_string[new_row], SAVE_TEXTNAME_LEN, "%s", typed);   /* carry the typed name */
         struct GuiButton *nb = vscroll_find_slot_button(new_row, sel_gmenu);
         if (nb != NULL)
@@ -298,23 +298,23 @@ static void vscroll_apply_offset(long new_off)
 void gui_vscroll_maintain(struct GuiButton *gbtn)
 {
     static TbBool prev_mleft = false;
-    long off = gui_vscroll_offset;
+    int64_t off = gui_vscroll_offset;
     if (wheel_scrolled_up)
         off--;
     if (wheel_scrolled_down)
         off++;
     if (gbtn != NULL)
     {
-        int upp = scrl_units_per_px(gbtn);
-        long rel_x = GetMouseX() - gbtn->scr_pos_x;
-        long rel_y = GetMouseY() - gbtn->scr_pos_y;
-        long max_off = gui_vscroll_max_offset();
+        int64_t upp = scrl_units_per_px(gbtn);
+        int64_t rel_x = GetMouseX() - gbtn->scr_pos_x;
+        int64_t rel_y = GetMouseY() - gbtn->scr_pos_y;
+        int64_t max_off = gui_vscroll_max_offset();
         TbBool over = (rel_x >= 0) && (rel_x < gbtn->width)
                    && (rel_y >= 0) && (rel_y < gbtn->height);
         TbBool click_edge = (lbDisplay.MLeftButton != 0) && !prev_mleft;
-        long th = scrl_spr_h(SCRL_SPR_THUMB, upp);
-        long top = scrl_spr_h(SCRL_SPR_CAP_TOP, upp);
-        long bot = gbtn->height - scrl_spr_h(SCRL_SPR_CAP_BOT, upp) - th;
+        int64_t th = scrl_spr_h(SCRL_SPR_THUMB, upp);
+        int64_t top = scrl_spr_h(SCRL_SPR_CAP_TOP, upp);
+        int64_t bot = gbtn->height - scrl_spr_h(SCRL_SPR_CAP_BOT, upp) - th;
         if (over && click_edge)
         {
             if (rel_y < top)
@@ -325,7 +325,7 @@ void gui_vscroll_maintain(struct GuiButton *gbtn)
             {
                 /* Grab the thumb: pressing on it keeps the grabbed point under the cursor
                  * (so it does not jump), pressing the bare track drops it centred there. */
-                long tdy = scrl_thumb_dy(gui_vscroll_offset, upp, gbtn->height);
+                int64_t tdy = scrl_thumb_dy(gui_vscroll_offset, upp, gbtn->height);
                 scrl_drag_grab = ((rel_y >= tdy) && (rel_y < tdy + th)) ? (rel_y - tdy) : (th / 2);
                 scrl_dragging = true;
             }
@@ -339,12 +339,12 @@ void gui_vscroll_maintain(struct GuiButton *gbtn)
              * snaps to valid stops as you drag rather than following the cursor freely.
              * Deliberately not gated on over: once grabbed, the drag keeps working even
              * if the cursor wanders off the bar sideways. */
-            long dy = rel_y - scrl_drag_grab;
+            int64_t dy = rel_y - scrl_drag_grab;
             if (dy < top)
                 dy = top;
             if (dy > bot)
                 dy = bot;
-            long travel = bot - top;
+            int64_t travel = bot - top;
             off = (travel > 0) ? (((dy - top) * max_off + travel / 2) / travel) : 0;
         }
     }

@@ -98,7 +98,7 @@ TEST_CASE_METHOD(ResetCampaignProgress, "reset_all_campaign_progress clears ever
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing UNLOCKED_LEVELS unlocks every listed level", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "UNLOCKED_LEVELS = 1 2 3 5\n[nextblock]\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
 
     CHECK(entry->unlocked_levels_count == 4);
     CHECK(campaign_progress_has_unlocked_level(entry, 1));
@@ -111,14 +111,14 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing UNLOCKED_LEVELS unlocks every l
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing NEXT_LEVEL sets intralvl.next_level", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "NEXT_LEVEL = 6\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
     CHECK(entry->intralvl.next_level == 6);
 }
 
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing BONUS_AVAILABLE records raw level numbers, not IntralevelData.bonuses_found", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "BONUS_AVAILABLE = 105\nBONUS_AVAILABLE = 106\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
 
     REQUIRE(entry->bonus_available_count == 2);
     CHECK(entry->bonus_available[0] == 105);
@@ -126,14 +126,14 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing BONUS_AVAILABLE records raw lev
     // Confirms the design choice (struct CampaignProgressEntry's own
     // comment): this key never touches intralvl.bonuses_found's
     // campaign-context-relative bitset.
-    for (int i = 0; i < BONUS_LEVEL_STORAGE_COUNT; i++)
+    for (int64_t i = 0; i < BONUS_LEVEL_STORAGE_COUNT; i++)
         CHECK(entry->intralvl.bonuses_found[i] == 0);
 }
 
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing CAMPAIGN_FLAG sets the right [player][flag] slot", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "CAMPAIGN_FLAG = 0 3 42\nCAMPAIGN_FLAG = 1 7 -5\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
 
     CHECK(entry->intralvl.campaign_flags[0][3] == 42);
     CHECK(entry->intralvl.campaign_flags[1][7] == -5);
@@ -143,17 +143,17 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing CAMPAIGN_FLAG sets the right [p
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing CAMPAIGN_FLAG rejects an out-of-range player or flag index", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "CAMPAIGN_FLAG = 99 3 42\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
     // Nothing in range got written -- every slot stays at its zeroed default.
-    for (int p = 0; p < PLAYERS_FOR_CAMPAIGN_FLAGS; p++)
-        for (int f = 0; f < CAMPAIGN_FLAGS_PER_PLAYER; f++)
+    for (int64_t p = 0; p < PLAYERS_FOR_CAMPAIGN_FLAGS; p++)
+        for (int64_t f = 0; f < CAMPAIGN_FLAGS_PER_PLAYER; f++)
             CHECK(entry->intralvl.campaign_flags[p][f] == 0);
 }
 
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing ENSIGN_OVERRIDE fills the first free slot", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "ENSIGN_OVERRIDE = 7 2\nENSIGN_OVERRIDE = 12 5\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
 
     CHECK(entry->intralvl.ensign_overrides[0].lvnum == 7);
     CHECK(entry->intralvl.ensign_overrides[0].active);
@@ -165,7 +165,7 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing ENSIGN_OVERRIDE fills the first
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing ENSIGN_OVERRIDE for an already-overridden level updates it in place, not a new slot", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "ENSIGN_OVERRIDE = 7 2\nENSIGN_OVERRIDE = 7 9\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
 
     CHECK(entry->intralvl.ensign_overrides[0].lvnum == 7);
     CHECK(entry->intralvl.ensign_overrides[0].ensign_type == 9); // second line won
@@ -177,7 +177,7 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing TRANSFER_CREATURE with an unrec
     // see this file's own header comment -- so every name is "unrecognized".
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "TRANSFER_CREATURE = 0 0 HORNY 3 1 Fluffy\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
 
     CHECK(entry->intralvl.transferred_creatures[0][0].model == 0);
 }
@@ -185,7 +185,7 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing TRANSFER_CREATURE with an unrec
 TEST_CASE_METHOD(ResetCampaignProgress, "an unparseable line is skipped without corrupting later lines", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "NOT_A_REAL_KEY = whatever\nNEXT_LEVEL = 9\n";
-    parse_progress_cfg_campaign_block(entry, buf, (long)std::strlen(buf), 0);
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
     CHECK(entry->intralvl.next_level == 9);
 }
 

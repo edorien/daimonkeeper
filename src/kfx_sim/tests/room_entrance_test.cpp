@@ -28,7 +28,7 @@ struct ResetState {
     }
 };
 
-struct Room *make_single_room(struct Dungeon *dungeon, RoomKind rkind, unsigned short slabs_count, unsigned int total_capacity, unsigned int used_capacity)
+struct Room *make_single_room(struct Dungeon *dungeon, RoomKind rkind, int64_t slabs_count, uint64_t total_capacity, uint64_t used_capacity)
 {
     struct Room *room = room_get(1);
     room->slabs_count = slabs_count;

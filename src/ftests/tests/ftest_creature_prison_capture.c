@@ -110,7 +110,7 @@ FTestActionResult ftest_creature_prison_capture_action001__setup(struct FTestAct
 
     if (!ftest_util_replace_slabs(room_slb_x, room_slb_y, room_slb_x + PRISON_SIZE, room_slb_y + PRISON_SIZE, SlbT_PRISON, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build prison room at slab (%d,%d)", room_slb_x, room_slb_y);
+        FTEST_FAIL_TEST("Failed to build prison room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(room_slb_x), (int64_t)(room_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     // map00011's script leaves PRISON researchable but not buildable
@@ -236,8 +236,8 @@ FTestActionResult ftest_creature_prison_capture_action003__verify(struct FTestAc
     {
         if (get_gameturn() >= args->intended_start_at_game_turn + 50)
         {
-            FTEST_FAIL_TEST("Captive never got added to the prison's work room within the turn budget (active_state=%d, continue_state=%d)",
-                (int)captive->active_state, (int)captive->continue_state);
+            FTEST_FAIL_TEST("Captive never got added to the prison's work room within the turn budget (active_state=%" PRId64 ", continue_state=%" PRId64 ")",
+                (int64_t)captive->active_state, (int64_t)captive->continue_state);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -245,8 +245,8 @@ FTestActionResult ftest_creature_prison_capture_action003__verify(struct FTestAc
     struct Room* prison_room = room_get(cctrl->work_room_id);
     if (room_is_invalid(prison_room) || !room_role_matches(prison_room->kind, RoRoF_Prison))
     {
-        FTEST_FAIL_TEST("Captive's work_room_id (%d) does not refer to a prison room (kind=%d)",
-            (int)cctrl->work_room_id, room_is_invalid(prison_room) ? -1 : (int)prison_room->kind);
+        FTEST_FAIL_TEST("Captive's work_room_id (%" PRId64 ") does not refer to a prison room (kind=%" PRId64 ")",
+            (int64_t)cctrl->work_room_id, (int64_t)(room_is_invalid(prison_room) ? -1 : (int64_t)prison_room->kind));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -257,7 +257,7 @@ FTestActionResult ftest_creature_prison_capture_action003__verify(struct FTestAc
     }
     if (captive->owner != PLAYER_GOOD)
     {
-        FTEST_FAIL_TEST("Captive's owner unexpectedly changed on capture (owner=%d)", (int)captive->owner);
+        FTEST_FAIL_TEST("Captive's owner unexpectedly changed on capture (owner=%" PRId64 ")", (int64_t)captive->owner);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -278,19 +278,19 @@ FTestActionResult ftest_creature_prison_capture_action003__verify(struct FTestAc
     // signal here and is intentionally not asserted.)
     if (prison_room->owner == captive->owner)
     {
-        FTEST_FAIL_TEST("Test setup bug: prison room owner (%d) matches captive owner (%d), doesn't exercise the ownership-differs path",
-            (int)prison_room->owner, (int)captive->owner);
+        FTEST_FAIL_TEST("Test setup bug: prison room owner (%" PRId64 ") matches captive owner (%" PRId64 "), doesn't exercise the ownership-differs path",
+            (int64_t)prison_room->owner, (int64_t)captive->owner);
         return FTRs_Go_To_Next_Action;
     }
     if (!room_initially_valid_as_type_for_thing(prison_room, get_room_role_for_job(Job_CAPTIVITY), captive))
     {
-        FTEST_FAIL_TEST("room_initially_valid_as_type_for_thing() unexpectedly false for a differently-owned captive (room owner=%d, captive owner=%d) -- enemies_may_work_in_room(PRISON) may have regressed",
-            (int)prison_room->owner, (int)captive->owner);
+        FTEST_FAIL_TEST("room_initially_valid_as_type_for_thing() unexpectedly false for a differently-owned captive (room owner=%" PRId64 ", captive owner=%" PRId64 ") -- enemies_may_work_in_room(PRISON) may have regressed",
+            (int64_t)prison_room->owner, (int64_t)captive->owner);
         return FTRs_Go_To_Next_Action;
     }
 
-    FTESTLOG("Captive was captured and added to the prison's work room at turn %d, still owned by the hero side (owner=%d) despite the room being owned by player %d",
-        get_gameturn(), (int)captive->owner, (int)prison_room->owner);
+    FTESTLOG("Captive was captured and added to the prison's work room at turn %" PRId64 ", still owned by the hero side (owner=%" PRId64 ") despite the room being owned by player %" PRId64,
+        (int64_t)(get_gameturn()), (int64_t)captive->owner, (int64_t)prison_room->owner);
     return FTRs_Go_To_Next_Action;
 }
 

@@ -42,12 +42,12 @@ static int lua_Set_texture(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     
-    long texture_id;
+    int64_t texture_id;
     if (lua_isnumber(L, 2)) {
         // Integer input is 0-based: ID 0 = tmapa000.dat
         // set_player_texture uses slab_ext_data where slot 0 is the base map texture
         // and slot N+1 holds tmapaN.dat, so we add 1 to convert. -1 means reset.
-        long n = lua_tointeger(L, 2);
+        int64_t n = lua_tointeger(L, 2);
         if (n < 0) 
             texture_id = -1;
         else 
@@ -106,7 +106,7 @@ static int player_get_available(lua_State *L) {
 
         //creature_type|room_type|power_kind|trap_type|door_type
         const char* text = lua_tostring(L, 2);
-        long id = get_rid(creature_desc, text);
+        int64_t id = get_rid(creature_desc, text);
         if (strcmp(text, "TOTAL_CREATURES") == 0)
         {
             svartype = SVar_AVAILABLE_TOTAL_CREATURES;
@@ -170,7 +170,7 @@ static int player_set_field(lua_State *L) {
         }
         return 0;
     } else if (strcmp(key, "colour") == 0) {
-        long colour_idx;
+        int64_t colour_idx;
         if (lua_type(L, 3) == LUA_TSTRING) {
             const char* name = lua_tostring(L, 3);
             colour_idx = get_rid(cmpgn_human_player_options, name);
@@ -184,10 +184,10 @@ static int player_set_field(lua_State *L) {
         return 0;
     }
 
-    int value = luaL_checkinteger(L, 3);
+    int64_t value = luaL_checkinteger(L, 3);
 
-    int32_t variable_type;
-    int32_t variable_id;
+    int64_t variable_type;
+    int64_t variable_id;
 
     if (parse_get_varib(key, &variable_id, &variable_type,1))
     {
@@ -204,7 +204,7 @@ static int player_get_field(lua_State *L) {
     struct PlayerInfo *player = get_player(plyr_idx);
     struct Dungeon *dungeon = get_dungeon(plyr_idx);
     
-    int32_t variable_type, variable_id;
+    int64_t variable_type, variable_id;
 
     // C method lookup
     if (try_get_c_method(L, key, player_methods))
@@ -269,7 +269,7 @@ static int player_eq(lua_State *L) {
         luaL_error(L, "Expected 'playerId' to be an integer");
         return 1;
     }
-    int idx1 = lua_tointeger(L, -1);
+    int64_t idx1 = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the idx value off the stack
 
     // Get idx field
@@ -278,7 +278,7 @@ static int player_eq(lua_State *L) {
         luaL_error(L, "Expected 'playerId' to be an integer");
         return 1;
     }
-    int idx2 = lua_tointeger(L, -1);
+    int64_t idx2 = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the idx value off the stack
 
 
@@ -304,7 +304,7 @@ void Player_register(lua_State *L) {
     // Create a methods table
     luaL_newlib(L, player_methods);
 
-    for (int i = 0; player_methods[i].name != NULL; i++) {
+    for (int64_t i = 0; player_methods[i].name != NULL; i++) {
         const char *name = player_methods[i].name;
         lua_pushcfunction(L, player_methods[i].func);
         lua_setfield(L, -2, name);

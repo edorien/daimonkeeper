@@ -89,7 +89,7 @@ extern LevelNumber freeplay_highlighted_level;
 // Level list selection screen
 void frontend_draw_levels_scroll_tab(struct GuiButton *gbtn);
 void frontend_draw_level_select_button(struct GuiButton *gbtn);
-void frontend_level_select_by_index(long i);
+void frontend_level_select_by_index(int64_t i);
 void frontend_level_select(struct GuiButton *gbtn);
 void frontend_level_select_up(struct GuiButton *gbtn);
 void frontend_level_select_down(struct GuiButton *gbtn);
@@ -123,7 +123,7 @@ void frontend_draw_campaign_select_button(struct GuiButton *gbtn);
 // highlighted level within it) is frontend_land_selection_enter_resolve/
 // frontend_land_selection_enter, the "Enter this land" button's
 // click_event.
-void frontend_campaign_select_by_index(long i);
+void frontend_campaign_select_by_index(int64_t i);
 void frontend_campaign_select(struct GuiButton *gbtn);
 void frontend_campaign_select_update(void);
 void frontend_draw_simple_scroll_track(struct GuiButton *gbtn);
@@ -136,7 +136,7 @@ void frontend_draw_campaign_scroll_tab(struct GuiButton *gbtn);
 // synchronously from inside an active ImGui window (see
 // frontgui_screens.cpp's request_frontend_state comment); the legacy
 // click_event below still calls frontend_set_state() directly, unchanged.
-int frontend_land_selection_enter_resolve(void);
+int64_t frontend_land_selection_enter_resolve(void);
 void frontend_land_selection_enter(struct GuiButton *gbtn);
 void frontend_land_selection_enter_maintain(struct GuiButton *gbtn);
 void frontend_land_selection_return_to_main(struct GuiButton *gbtn);
@@ -153,7 +153,7 @@ void frontend_mappack_select_up_maintain(struct GuiButton *gbtn);
 void frontend_mappack_select_down_maintain(struct GuiButton *gbtn);
 void frontend_mappack_select_maintain(struct GuiButton *gbtn);
 void frontend_draw_mappack_select_button(struct GuiButton *gbtn);
-void frontend_mappack_select_by_index(long i);
+void frontend_mappack_select_by_index(int64_t i);
 void frontend_mappack_select(struct GuiButton *gbtn);
 void frontend_mappack_select_update(void);
 void frontend_draw_mappack_scroll_tab(struct GuiButton *gbtn);
@@ -171,7 +171,7 @@ struct CampaignsList *frontend_freeplay_active_mappacks_list(void);
 // comment (frontmenu_select.c) for why. Writes the active count to *out_count
 // and returns the matching array; callers index it the same way regardless
 // of which list is behind it.
-LevelNumber *frontend_freeplay_active_levels(unsigned long *out_count);
+LevelNumber *frontend_freeplay_active_levels(uint64_t *out_count);
 void frontend_mappack_list_load(void);
 void frontend_draw_variable_mappack_exit_button(struct GuiButton *gbtn);
 // frontend_mappack_select_by_index/frontend_level_select_by_index (above)
@@ -183,7 +183,7 @@ void frontend_draw_variable_mappack_exit_button(struct GuiButton *gbtn);
 // "Play"/"Enter this land" button's click_event -- same highlight/commit
 // split as Land selection, same resolve-then-request convention as
 // frontend_land_selection_enter_resolve.
-int frontend_freeplay_enter_resolve(void);
+int64_t frontend_freeplay_enter_resolve(void);
 void frontend_freeplay_enter(struct GuiButton *gbtn);
 void frontend_freeplay_enter_maintain(struct GuiButton *gbtn);
 void frontend_freeplay_return_to_main(struct GuiButton *gbtn);
@@ -205,13 +205,13 @@ void frontend_draw_mp_mappack_select_button(struct GuiButton *gbtn);
 // Returns the FrontendMenuState to transition to (int, -1 = nothing to
 // do), same resolve-then-request convention as
 // frontend_land_selection_enter_resolve.
-int frontend_mp_mappack_select_resolve(long i);
+int64_t frontend_mp_mappack_select_resolve(int64_t i);
 void frontend_mp_mappack_select(struct GuiButton *gbtn);
 void frontend_mp_mappack_select_update(void);
 void frontend_mp_draw_mappack_scroll_tab(struct GuiButton *gbtn);
 void frontend_mp_mappack_list_load(void);
 void frontend_mp_draw_variable_mappack_exit_button(struct GuiButton *gbtn);
-int frontend_back_from_mp_mappack_list_target(void);
+int64_t frontend_back_from_mp_mappack_list_target(void);
 void frontend_back_from_mp_mappack_list(struct GuiButton *gbtn);
 /******************************************************************************/
 #ifdef __cplusplus

@@ -37,14 +37,14 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-short at_barrack_room(struct Thing *creatng)
+int64_t at_barrack_room(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(creatng);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_BARRACK), creatng))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",room_code_name(room->kind),(int)room->owner,thing_model_name(creatng),(int)creatng->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(creatng),(int64_t)creatng->index);
         set_start_state(creatng);
         return 0;
     }
@@ -57,12 +57,12 @@ short at_barrack_room(struct Thing *creatng)
     return 1;
 }
 
-short barracking(struct Thing *creatng)
+int64_t barracking(struct Thing *creatng)
 {
     struct Room* room = get_room_thing_is_on(creatng);
     if (!room_still_valid_as_type_for_thing(room, get_room_role_for_job(Job_BARRACK), creatng))
     {
-        WARNLOG("Room %s owned by player %d is bad work place for %s index %d owner %d",room_code_name(room->kind),(int)room->owner,thing_model_name(creatng),(int)creatng->index,(int)creatng->owner);
+        WARNLOG("Room %s owned by player %" PRId64 " is bad work place for %s index %" PRId64 " owner %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
         remove_creature_from_work_room(creatng);
         set_start_state(creatng);
         return CrStRet_ResetFail;

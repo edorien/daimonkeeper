@@ -17,8 +17,8 @@
 #include <cstring>
 
 namespace {
-long fake_item_count_value = 0;
-long fake_item_count() { return fake_item_count_value; }
+int64_t fake_item_count_value = 0;
+int64_t fake_item_count() { return fake_item_count_value; }
 
 struct SelectListFixture {
     struct FrontendSelectList list{};

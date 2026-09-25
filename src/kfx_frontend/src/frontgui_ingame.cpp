@@ -161,13 +161,13 @@ void confirm_modal_frame(MenuID menu_id, const char *id_tag, const char *title,
         }
         // Icons only (the classic confirm's smd_no / smd_yes sprites);
         // legacy button order is No then Yes. Centre the pair.
-        const float ih = ImGui::GetFontSize() * 2.0f;
-        const float row_w = FeSpriteButtonWidth(GBS_options_button_smd_no, nullptr, ih)
+        const double ih = ImGui::GetFontSize() * 2.0;
+        const double row_w = FeSpriteButtonWidth(GBS_options_button_smd_no, nullptr, ih)
                           + FeSpriteButtonWidth(GBS_options_button_smd_yes, nullptr, ih)
                           + ImGui::GetStyle().ItemSpacing.x;
-        const float avail = ImGui::GetContentRegionAvail().x;
+        const double avail = ImGui::GetContentRegionAvail().x;
         if (avail > row_w)
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - row_w) * 0.5f);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - row_w) * 0.5);
         if (FeSpriteButton(get_string(GUIStr_ConfirmNo), GBS_options_button_smd_no, nullptr, ih))
         {
             s_confirm_menu = menu_id;
@@ -210,12 +210,12 @@ void quitmenu_frame(void)
 bool s_saveload_prev_paused = false;
 
 // Save: which catalogue row the player picked, and the editable name for it.
-long s_save_sel_slot = -1;
+int64_t s_save_sel_slot = -1;
 char s_save_name[SAVE_TEXTNAME_LEN] = {0};
 
 // Deferred-slot handoff (request_deferred only carries a void(*)(void)).
-long s_pending_load_slot = -1;
-long s_pending_save_slot = -1;
+int64_t s_pending_load_slot = -1;
+int64_t s_pending_save_slot = -1;
 char s_pending_save_name[SAVE_TEXTNAME_LEN] = {0};
 
 void do_open_save_menu(void)
@@ -250,11 +250,11 @@ void do_cancel_save_menu(void)
 
 void apply_pending_load(void)
 {
-    const long slot = s_pending_load_slot;
+    const int64_t slot = s_pending_load_slot;
     s_pending_load_slot = -1;
     turn_off_menu(GMnu_LOAD);
     if (!load_game(slot))
-        ERRORLOG("Loading game %ld failed", slot);
+        ERRORLOG("Loading game %" PRId64 " failed", (int64_t)(slot));
     // load_game() rebuilds the level; no pause packet needed (and the old
     // player state is gone). On failure the classic path quits; leave that
     // to the existing error handling rather than duplicating it here.
@@ -262,7 +262,7 @@ void apply_pending_load(void)
 
 void apply_pending_save(void)
 {
-    const long slot = s_pending_save_slot;
+    const int64_t slot = s_pending_save_slot;
     s_pending_save_slot = -1;
     fill_game_catalogue_slot(slot, s_pending_save_name);
     if (save_game(slot))
@@ -279,8 +279,8 @@ void apply_pending_save(void)
 void loadmenu_frame(void)
 {
     ImGuiIO &io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
-                            ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5),
+                            ImGuiCond_Always, ImVec2(0.5, 0.5));
     ImGui::Begin("##IngameLoad", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_AlwaysAutoResize);
@@ -288,19 +288,19 @@ void loadmenu_frame(void)
     FeHeading(get_string(GUIStr_MnuLoad));
     FeSeparator();
 
-    const long count = (save_game_catalogue != nullptr) ? save_game_catalogue_count : 0;
+    const int64_t count = (save_game_catalogue != nullptr) ? save_game_catalogue_count : 0;
     bool any = false;
     const bool open = FeBeginListBox("##ingame_load_list",
-                                     ImVec2(io.DisplaySize.x * 0.30f, io.DisplaySize.y * 0.38f));
+                                     ImVec2(io.DisplaySize.x * 0.30, io.DisplaySize.y * 0.38));
     if (open)
     {
-        for (long i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
         {
             const struct CatalogueEntry *ce = &save_game_catalogue[i];
             if ((ce->flags & CEF_InUse) == 0)
                 continue;
             any = true;
-            ImGui::PushID((int)i); // two saves can share a display name
+            ImGui::PushID((int64_t)i); // two saves can share a display name
             if (FeListRow(ce->textname, false))
             {
                 s_pending_load_slot = i;
@@ -323,8 +323,8 @@ void loadmenu_frame(void)
 void savemenu_frame(void)
 {
     ImGuiIO &io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
-                            ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5),
+                            ImGuiCond_Always, ImVec2(0.5, 0.5));
     ImGui::Begin("##IngameSave", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_AlwaysAutoResize);
@@ -335,17 +335,17 @@ void savemenu_frame(void)
     // The catalogue already carries every existing save plus exactly one
     // trailing free slot (game_saves.h) -- so this list is "N saves to
     // overwrite + one new slot" with no fixed slot count to manage.
-    const long count = (save_game_catalogue != nullptr) ? save_game_catalogue_count : 0;
+    const int64_t count = (save_game_catalogue != nullptr) ? save_game_catalogue_count : 0;
     const bool open = FeBeginListBox("##ingame_save_list",
-                                     ImVec2(io.DisplaySize.x * 0.30f, io.DisplaySize.y * 0.34f));
+                                     ImVec2(io.DisplaySize.x * 0.30, io.DisplaySize.y * 0.34));
     if (open)
     {
-        for (long i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
         {
             const struct CatalogueEntry *ce = &save_game_catalogue[i];
             const bool in_use = (ce->flags & CEF_InUse) != 0;
             const char *row = in_use ? ce->textname : get_string(GUIStr_SlotUnused);
-            ImGui::PushID((int)i); // every free slot shows the same "unused" label
+            ImGui::PushID((int64_t)i); // every free slot shows the same "unused" label
             if (FeListRow(row, i == s_save_sel_slot))
             {
                 s_save_sel_slot = i;
@@ -394,7 +394,7 @@ void do_zoom_to_event(void)   { gui_go_to_event(nullptr); }       // move_local_
 // the left, the scrolling objective text filling the rest. Buttons use the
 // original message-box panel sprites (GPS_message_*), falling back to text
 // until their textures are ready.
-void event_box_button_column(float icon_h)
+void event_box_button_column(double icon_h)
 {
     // The *_std (idle) sprite frame -- gui_area_new_normal_button() draws
     // sprite_idx+1 when not pressed; the *_act frame is a bright
@@ -440,14 +440,14 @@ void textinfo_frame(void)
     }
     else
     {
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y - 10.0f),
-                                ImGuiCond_Always, ImVec2(0.5f, 1.0f));
-        ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.42f, io.DisplaySize.y * 0.17f), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y - 10.0),
+                                ImGuiCond_Always, ImVec2(0.5, 1.0));
+        ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.42, io.DisplaySize.y * 0.17), ImGuiCond_Always);
     }
     ImGui::Begin("##IngameEventBox", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
 
-    event_box_button_column(io.DisplaySize.y * 0.045f);
+    event_box_button_column(io.DisplaySize.y * 0.045);
     ImGui::SameLine();
     if (FeBeginScrollArea("##evtbox_text", ImVec2(0, 0)))
         FeBodyText(kfx_sim_state.evntbox_scroll_window.text);
@@ -469,8 +469,8 @@ void optionsmenu_frame(void)
         return;
     }
 
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
-                            ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5),
+                            ImGuiCond_Always, ImVec2(0.5, 0.5));
     // AlwaysAutoResize + no min-width constraint -> the window hugs the
     // widest row (found live: a percent-of-screen min width left a wide
     // band of dead space to the right of the labels).
@@ -482,7 +482,7 @@ void optionsmenu_frame(void)
     // button reads oddly. One option per row, icon first then the label
     // (the user's chosen layout); icons are the classic options_menu
     // button sprites.
-    const float row_icon_h = ImGui::GetFontSize() * 2.0f;
+    const double row_icon_h = ImGui::GetFontSize() * 2.0;
     if (FeSpriteButton("##launch_load", GBS_options_button_load,
                        get_string(GUIStr_MnuLoad), row_icon_h))
         request_deferred(do_open_load_menu);
@@ -543,7 +543,7 @@ extern "C" TbBool ingame_imgui_modal_active(void)
     // one, ImGui owns; if a still-legacy child menu (e.g. GMnu_ERROR_BOX
     // raised by a failed save, or a dungeon-special dialog) is stacked
     // above it, that legacy menu owns and its sprite buttons keep working.
-    for (int k = (int)no_of_active_menus - 1; k >= 0; k--)
+    for (int64_t k = (int64_t)no_of_active_menus - 1; k >= 0; k--)
     {
         const MenuNumber n = menu_id_to_number((MenuID)menu_stack[k]);
         if (n < 0)
@@ -586,7 +586,7 @@ extern "C" void ingame_imgui_frame(void)
     // stray line down the sidebar / around the chat box in-game). The
     // modal panels below (quit / options / save / load / objective /
     // battle) keep it.
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0);
 
     // Phase 4: the always-on sidebar frame. Phase 5's active-tab body is
     // drawn inside its window (frontgui_ingame_panel.cpp) -- one window,
@@ -606,7 +606,7 @@ extern "C" void ingame_imgui_frame(void)
 
     ImGui::PopStyleVar();
 
-    for (int i = 0; i < ACTIVE_MENUS_COUNT; i++)
+    for (int64_t i = 0; i < ACTIVE_MENUS_COUNT; i++)
     {
         const struct GuiMenu *gmnu = &active_menus[i];
         if (!menu_slot_is_migrated_and_on(gmnu))
@@ -634,7 +634,7 @@ extern "C" void ingame_imgui_frame(void)
     }
 
     // Phase 3: context tooltip -- last, so it sits on top of the menus.
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0);
     ingame_tooltip_frame();
     ImGui::PopStyleVar();
 }

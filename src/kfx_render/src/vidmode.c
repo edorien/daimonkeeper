@@ -60,15 +60,15 @@ extern "C" {
 static TbScreenMode screen_vidmode = Lb_SCREEN_MODE_640_480_8;
 
 //struct IPOINT_2D units_per_pixel;
-unsigned short units_per_pixel_min;
-unsigned short units_per_pixel_width;
-unsigned short units_per_pixel_height;
-unsigned short units_per_pixel_menu_height;
-unsigned short units_per_pixel_best;
-unsigned short units_per_pixel_menu;
-unsigned short units_per_pixel_ui;
-unsigned long first_person_horizontal_fov;
-long base_mouse_sensitivity = 256;
+int64_t units_per_pixel_min;
+int64_t units_per_pixel_width;
+int64_t units_per_pixel_height;
+int64_t units_per_pixel_menu_height;
+int64_t units_per_pixel_best;
+int64_t units_per_pixel_menu;
+int64_t units_per_pixel_ui;
+uint64_t first_person_horizontal_fov;
+int64_t base_mouse_sensitivity = 256;
 
 // units_per_pixel_landview, units_per_pixel_landview_frame,
 // aspect_ratio_factor_HOR_PLUS(_AND_VERT_PLUS),
@@ -82,7 +82,7 @@ long base_mouse_sensitivity = 256;
 
 // Registered with config.h's ConfigReloadCallbacks; config_keeperfx.c
 // sets this from keeperfx.cfg's POINTER_SENSITIVITY command.
-void set_base_mouse_sensitivity(long val)
+void set_base_mouse_sensitivity(int64_t val)
 {
     base_mouse_sensitivity = val;
 }
@@ -110,7 +110,7 @@ extern struct TbLoadFiles front_load_files_minimal_640[];
  * Loads VGA 256 graphics files, for high resolution modes.
  * @return Returns true if all files were loaded, false otherwise.
  */
-short LoadVRes256Data(long scrbuf_size)
+int64_t LoadVRes256Data(int64_t scrbuf_size)
 {
     // Update size of the parchment buffer, as it is also used as screen buffer
     if (scrbuf_size < 640*480)
@@ -136,7 +136,7 @@ void FreeVRes256Data(void)
     LbDataFreeAll(gui_load_files_640);
 }
 
-short LoadVResMinimal(void)
+int64_t LoadVResMinimal(void)
 {
     button_sprites = load_spritesheet("data/gui1-32.dat", "data/gui1-32.tab");
 #ifdef SPRITE_FORMAT_V2
@@ -156,7 +156,7 @@ short LoadVResMinimal(void)
 
 void FreeVResMinimal(void)
 {
-    for (int i = 0; i < FRONTEND_FONTS_COUNT; ++i) {
+    for (int64_t i = 0; i < FRONTEND_FONTS_COUNT; ++i) {
         free_font(&frontend_font[i]);
     }
     free_spritesheet(&button_sprites);
@@ -169,16 +169,16 @@ void FreeVResMinimal(void)
  * game speed on very slow machines.
  * @return Returns true if all files were loaded, false otherwise.
  */
-short LoadMcgaData(void)
+int64_t LoadMcgaData(void)
 {
-    int ferror = 0;
-    int i = 0;
+    int64_t ferror = 0;
+    int64_t i = 0;
     struct TbLoadFiles* t_lfile = &gui_load_files_320[i];
     while (t_lfile->Start != NULL)
     {
         // Don't allow loading flags
         t_lfile->Flags = 0;
-        int ret_val = LbDataLoad(t_lfile, NULL, NULL);
+        int64_t ret_val = LbDataLoad(t_lfile, NULL, NULL);
         if (ret_val == -100)
         {
             ERRORLOG("Can't allocate memory for MCGA files element \"%s\".", t_lfile->FName);
@@ -229,13 +229,13 @@ static TbScreenMode try_failsafe_vidmode(void)
   TbScreenMode failsafe_vidmode = Lb_SCREEN_MODE_640_480_8;
   if (!LbScreenIsModeAvailable(failsafe_vidmode, display_id))
   {
-      ERRORLOG("Failsafe video mode (mode %d) is invalid.",(int)failsafe_vidmode);
+      ERRORLOG("Failsafe video mode (mode %" PRId64 ") is invalid.",(int64_t)failsafe_vidmode);
       return Lb_SCREEN_MODE_INVALID;
   }
   return failsafe_vidmode;
 }
 
-void load_pointer_file(short hi_res)
+void load_pointer_file(int64_t hi_res)
 {
 #ifdef SPRITE_FORMAT_V2
     pointer_sprites = load_spritesheet("data/pointer-64.dat", "data/pointer-64.tab");
@@ -263,12 +263,12 @@ TbBool set_pointer_graphic_menu(void)
   return true;
 }
 
-TbBool set_pointer_graphic_spell(long spridx, long frame)
+TbBool set_pointer_graphic_spell(int64_t spridx, int64_t frame)
 {
-    long i;
-    long x;
-    long y;
-    SYNCDBG(8, "Setting to sprite %d", (int)spridx);
+    int64_t i;
+    int64_t x;
+    int64_t y;
+    SYNCDBG(8, "Setting to sprite %" PRId64, (int64_t)spridx);
     if (pointer_sprites == NULL)
     {
         WARNLOG("Pointer sprites not loaded, setting to none");
@@ -291,31 +291,31 @@ TbBool set_pointer_graphic_spell(long spridx, long frame)
   if (is_custom_icon(i))
   {
       spr = get_new_icon_sprite(i);
-      SYNCDBG(8,"Activating pointer %ld", i);
+      SYNCDBG(8,"Activating pointer %" PRId64, (int64_t)(i));
       LbMouseChangeSpriteAndHotspot(spr, x/2, y/2);
   }
   else
   {
-      SYNCDBG(8,"Activating pointer %ld", 40+i);
+      SYNCDBG(8,"Activating pointer %" PRId64, (int64_t)(40+i));
       if (i >= 0 && i < num_sprites(pointer_sprites))
       {
           spr = get_sprite(pointer_sprites, i);
           LbMouseChangeSpriteAndHotspot(spr, x/2, y/2);
       } else
       {
-          WARNLOG("Sprite %d exceeds buffer, setting pointer to none",(int)i);
+          WARNLOG("Sprite %" PRId64 " exceeds buffer, setting pointer to none",(int64_t)i);
           LbMouseChangeSpriteAndHotspot(NULL, 0, 0);
       }
   }
   return true;
 }
 
-TbBool set_pointer_graphic(long ptr_idx)
+TbBool set_pointer_graphic(int64_t ptr_idx)
 {
-    long x;
-    long y;
+    int64_t x;
+    int64_t y;
     const struct TbSprite* spr;
-    SYNCDBG(8, "Setting to %d", (int)ptr_idx);
+    SYNCDBG(8, "Setting to %" PRId64, (int64_t)ptr_idx);
     if (pointer_sprites == NULL)
     {
         WARNLOG("Pointer sprites not loaded, setting to none");
@@ -448,7 +448,7 @@ TbBool set_pointer_graphic(long ptr_idx)
           LbMouseChangeSpriteAndHotspot(spr, spr->SWidth/2, spr->SHeight);
           return true;
       }
-    WARNLOG("Unrecognized Mouse Pointer index, %ld",ptr_idx);
+    WARNLOG("Unrecognized Mouse Pointer index, %" PRId64,(int64_t)(ptr_idx));
     LbMouseChangeSpriteAndHotspot(NULL, 0, 0);
     return false;
   }
@@ -456,13 +456,13 @@ TbBool set_pointer_graphic(long ptr_idx)
     spr = get_sprite(pointer_sprites, ptr_idx);
     LbMouseChangeSpriteAndHotspot(spr, x, y);
   } else {
-    WARNLOG("Sprite %d exceeds buffer, setting pointer to none",(int)ptr_idx);
+    WARNLOG("Sprite %" PRId64 " exceeds buffer, setting pointer to none",(int64_t)ptr_idx);
     LbMouseChangeSpriteAndHotspot(NULL, 0, 0);
   }
   return true;
 }
 
-void unload_pointer_file(short hi_res)
+void unload_pointer_file(int64_t hi_res)
 {
     set_pointer_graphic_none();
     free_spritesheet(&pointer_sprites);
@@ -498,13 +498,13 @@ TbBool init_fades_table(void)
      * and retiring the struct needs that whole cluster migrated first. */
     unsigned char cblack = 144;
     // Update black color
-    for (long i = 0; i < 8192; i++)
+    for (int64_t i = 0; i < 8192; i++)
     {
         if (pixmap.fade_tables[i] == 0) {
             pixmap.fade_tables[i] = cblack;
         }
     }
-    for (int i = 0; i < 256; i++) {
+    for (int64_t i = 0; i < 256; i++) {
         pixmap.map_abyss[i] = abyss_colours[pixmap.ghost[i] * 3 >> 8];
     }
     return true;
@@ -574,7 +574,7 @@ char *get_vidmode_name(TbScreenMode mode)
  */
 TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
 {
-  SYNCDBG(4,"Setting up mode %d",(int)nmode);
+  SYNCDBG(4,"Setting up mode %" PRId64,(int64_t)nmode);
   TbScreenModeInfo* new_mdinfo = LbScreenGetModeInfo(nmode);
   TbScreenMode old_mode = LbScreenActiveMode();
   TbScreenModeInfo* old_mdinfo = LbScreenGetModeInfo(old_mode);
@@ -588,7 +588,7 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
   {
     if (failsafe)
     {
-      ERRORLOG("Unable to setup screen resolution %s (mode %d), trying failsafe mode", new_mdinfo->Desc,(int)nmode);
+      ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 "), trying failsafe mode", new_mdinfo->Desc,(int64_t)nmode);
       nmode = try_failsafe_vidmode();
       if (nmode == Lb_SCREEN_MODE_INVALID)
       {
@@ -598,7 +598,7 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
     }
     else
     {
-      ERRORLOG("Unable to setup screen resolution %s (mode %d)", new_mdinfo->Desc,(int)nmode);
+      ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 ")", new_mdinfo->Desc,(int64_t)nmode);
       return Lb_SCREEN_MODE_INVALID;
     }
     new_mdinfo = LbScreenGetModeInfo(nmode);
@@ -607,18 +607,18 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
   {
     if ((nmode == old_mode) && (!MinimalResolutionSetup))
     {
-      SYNCDBG(6,"Mode %d already active, no changes.",(int)nmode);
+      SYNCDBG(6,"Mode %" PRId64 " already active, no changes.",(int64_t)nmode);
       return nmode;
     }
   }
   TbBool hi_res = ((LbGraphicsScreenHeight() < 400) ? false : true);
-  long lens_mem = kfx_sim_state.applied_lens_type;
-  unsigned int flg_mem = RendererGetDrawFlags();
+  int64_t lens_mem = kfx_sim_state.applied_lens_type;
+  uint64_t flg_mem = RendererGetDrawFlags();
   TbBool was_minimal_res = (MinimalResolutionSetup || force_video_mode_reset);
   set_pointer_graphic_none();
   if (LbGraphicsScreenHeight() < 200)
   {
-      WARNLOG("Unhandled previous Screen Mode %d, Reset skipped",(int)old_mode);
+      WARNLOG("Unhandled previous Screen Mode %" PRId64 ", Reset skipped",(int64_t)old_mode);
   } else
   {
     if (!MinimalResolutionSetup)
@@ -646,15 +646,15 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
   hi_res = ((new_mdinfo->Height < 400) ? false : true);
   if (new_mdinfo->Height < 200)
   {
-      ERRORLOG("Unhandled Screen Mode %d, setup failed",(int)nmode);
+      ERRORLOG("Unhandled Screen Mode %" PRId64 ", setup failed",(int64_t)nmode);
       force_video_mode_reset = true;
       return Lb_SCREEN_MODE_INVALID;
   } else
   {
-    SYNCDBG(6,"Entering %s mode %d, resolution %dx%d.",hi_res?"hi-res":"low-res",(int)nmode,(int)new_mdinfo->Width,(int)new_mdinfo->Height);
+    SYNCDBG(6,"Entering %s mode %" PRId64 ", resolution %" PRId64 "x%" PRId64 ".",hi_res?"hi-res":"low-res",(int64_t)nmode,(int64_t)new_mdinfo->Width,(int64_t)new_mdinfo->Height);
     if (hi_res)
     {
-      if (!LoadVRes256Data((long)new_mdinfo->Width*(long)new_mdinfo->Height))
+      if (!LoadVRes256Data((int64_t)new_mdinfo->Width*(int64_t)new_mdinfo->Height))
       {
         ERRORLOG("Unable to load VRes256 data files");
         force_video_mode_reset = true;
@@ -674,7 +674,7 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
     {
         if (RendererSetupScreen(nmode, new_mdinfo->Width, new_mdinfo->Height, engine_palette, (hi_res ? 1 : 2), 0) < Lb_SUCCESS)
         {
-          ERRORLOG("Unable to setup screen resolution %s (mode %d)", new_mdinfo->Desc,(int)nmode);
+          ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 ")", new_mdinfo->Desc,(int64_t)nmode);
           force_video_mode_reset = true;
           return Lb_SCREEN_MODE_INVALID;
         }
@@ -709,7 +709,7 @@ const struct VideoScaleValues *get_video_scale_values(void)
     return &values;
 }
 
-TbBool update_screen_mode_data(long width, long height)
+TbBool update_screen_mode_data(int64_t width, int64_t height)
 {
   // if ((width >= 640) && (height >= 400))
   // {
@@ -720,7 +720,7 @@ TbBool update_screen_mode_data(long width, long height)
     pixel_size = 2;
   }
   */
-  long psize = pixel_size;
+  int64_t psize = pixel_size;
 
   MyScreenWidth = width * psize;
   MyScreenHeight = height * psize;
@@ -738,7 +738,7 @@ TbBool update_screen_mode_data(long width, long height)
   units_per_pixel_best = ((is_ar_wider_than_original(width, height)) ? units_per_pixel_height : units_per_pixel_width); // If the screen is wider than 16:10 the height is used; if the screen is narrower than 16:10 the width is used.
 
   // In-game scaling: UI (for the side bar menu and escape menu)
-  long ui_scale = UI_NORMAL_SIZE; // UI_NORMAL_SIZE, UI_HALF_SIZE, or UI_DOUBLE_SIZE (not fully implemented yet)
+  int64_t ui_scale = UI_NORMAL_SIZE; // UI_NORMAL_SIZE, UI_HALF_SIZE, or UI_DOUBLE_SIZE (not fully implemented yet)
   units_per_pixel_ui = resize_ui(units_per_pixel_best, ui_scale);
 
   // In-game scaling: Posession Mode (a 3D 1st person perspective camera)
@@ -769,7 +769,7 @@ TbBool update_screen_mode_data(long width, long height)
  */
 TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
 {
-  SYNCDBG(4,"Setting up mode %d",(int)nmode);
+  SYNCDBG(4,"Setting up mode %" PRId64,(int64_t)nmode);
   TbScreenModeInfo* new_mdinfo = LbScreenGetModeInfo(nmode);
   // we don't want to get the current display when using the "fill all" mode, we want to keep the old version
   TbScreenMode old_mode = LbScreenActiveMode();
@@ -781,7 +781,7 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
   // Check that the desired mode is available for the current display
   if (!LbScreenIsModeAvailable(nmode, display_id))
   {
-      ERRORLOG("Unable to setup screen resolution %s (mode %d), trying failsafe mode", new_mdinfo->Desc,(int)nmode);
+      ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 "), trying failsafe mode", new_mdinfo->Desc,(int64_t)nmode);
       nmode = try_failsafe_vidmode();
       if (nmode == Lb_SCREEN_MODE_INVALID)
       {
@@ -794,15 +794,15 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
   {
     if ((nmode == old_mode) && (MinimalResolutionSetup))
     {
-      SYNCDBG(6,"Mode %d already active, no changes.",(int)nmode);
+      SYNCDBG(6,"Mode %" PRId64 " already active, no changes.",(int64_t)nmode);
       return nmode;
     }
   }
   TbBool hi_res = ((LbGraphicsScreenHeight() < 400) ? false : true);
-  ushort flg_mem = RendererGetDrawFlags();
+  uint64_t flg_mem = RendererGetDrawFlags();
   if (LbGraphicsScreenHeight() < 200)
   {
-    WARNLOG("Unhandled previous Screen Mode %d, Reset skipped",(int)old_mode);
+    WARNLOG("Unhandled previous Screen Mode %" PRId64 ", Reset skipped",(int64_t)old_mode);
   } else
   {
     if (!MinimalResolutionSetup)
@@ -831,7 +831,7 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
   hi_res = ((new_mdinfo->Height < 400) ? false : true);
   if (new_mdinfo->Height < 200)
   {
-      ERRORLOG("Unhandled Screen Mode %d, setup failed",(int)nmode);
+      ERRORLOG("Unhandled Screen Mode %" PRId64 ", setup failed",(int64_t)nmode);
       force_video_mode_reset = true;
       return Lb_SCREEN_MODE_INVALID;
   } else
@@ -854,7 +854,7 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
     {
         if (RendererSetupScreen(nmode, new_mdinfo->Width, new_mdinfo->Height, engine_palette, (hi_res ? 1 : 2), 0) < Lb_SUCCESS)
         {
-          ERRORLOG("Unable to setup screen resolution %s (mode %d)", new_mdinfo->Desc,(int)nmode);
+          ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 ")", new_mdinfo->Desc,(int64_t)nmode);
           force_video_mode_reset = true;
           return Lb_SCREEN_MODE_INVALID;
         }
@@ -876,7 +876,7 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
  */
 TbScreenMode setup_screen_mode_zero(TbScreenMode nmode)
 {
-  SYNCDBG(4,"Setting up mode %d",(int)nmode);
+  SYNCDBG(4,"Setting up mode %" PRId64,(int64_t)nmode);
   TbScreenModeInfo* new_mdinfo = LbScreenGetModeInfo(nmode);
   // we don't want to get the current display when using the "fill all" mode, we want to keep the old version
   TbScreenMode old_mode = LbScreenActiveMode();
@@ -888,7 +888,7 @@ TbScreenMode setup_screen_mode_zero(TbScreenMode nmode)
   // Check that the desired mode is available for the current display
   if (!LbScreenIsModeAvailable(nmode, display_id))
   {
-      ERRORLOG("Unable to setup screen resolution %s (mode %d), trying failsafe mode", new_mdinfo->Desc,(int)nmode);
+      ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 "), trying failsafe mode", new_mdinfo->Desc,(int64_t)nmode);
       nmode = try_failsafe_vidmode();
       if (nmode == Lb_SCREEN_MODE_INVALID)
       {
@@ -899,7 +899,7 @@ TbScreenMode setup_screen_mode_zero(TbScreenMode nmode)
   LbPaletteDataFillBlack(engine_palette);
   if (RendererSetupScreen(nmode, new_mdinfo->Width, new_mdinfo->Height, engine_palette, 2, 0) < Lb_SUCCESS)
   {
-      ERRORLOG("Unable to setup screen resolution %s (mode %d)", new_mdinfo->Desc,(int)nmode);
+      ERRORLOG("Unable to setup screen resolution %s (mode %" PRId64 ")", new_mdinfo->Desc,(int64_t)nmode);
       return Lb_SCREEN_MODE_INVALID;
   }
   update_screen_mode_data(new_mdinfo->Width, new_mdinfo->Height);
@@ -923,7 +923,7 @@ TbScreenMode reenter_video_mode(void)
     exit_keeper = 1;
     return Lb_SCREEN_MODE_INVALID;
   }
-  SYNCLOG("set in-game video as %s (mode %d)", get_vidmode_name(scrmode),(int)scrmode);
+  SYNCLOG("set in-game video as %s (mode %" PRId64 ")", get_vidmode_name(scrmode),(int64_t)scrmode);
   return scrmode;
 }
 
@@ -941,9 +941,9 @@ TbBool load_testfont_fonts(void)
     testfont[8] = load_font("data/font1-64.dat", "data/font1-64.tab");
     testfont[9] = load_font("data/font1-32.dat", "data/font1-32.tab");
     testfont[10] = load_font("ldata/netfont.dat", "ldata/netfont.tab");
-    for (int i = 0; i < TESTFONTS_COUNT; ++i) {
+    for (int64_t i = 0; i < TESTFONTS_COUNT; ++i) {
         if (!testfont[i]) {
-            ERRORLOG("Unable to load test font %d", i);
+            ERRORLOG("Unable to load test font %" PRId64, (int64_t)(i));
             return false;
         }
     }
@@ -957,7 +957,7 @@ TbBool load_testfont_fonts(void)
 
 void free_testfont_fonts(void)
 {
-    for (int i = 0; i < TESTFONTS_COUNT; ++i) {
+    for (int64_t i = 0; i < TESTFONTS_COUNT; ++i) {
         free_font(&testfont[i]);
     }
     LbDataFreeAll(testfont_load_files);

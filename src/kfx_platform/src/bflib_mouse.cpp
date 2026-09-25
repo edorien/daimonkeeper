@@ -63,14 +63,14 @@ const struct TbSprite *LbMouseGetSprite(void)
   return lbMousePointerSprite;
 }
 
-TbResult LbMouseChangeSpriteAndHotspot(const struct TbSprite *pointerSprite, long hot_x, long hot_y)
+TbResult LbMouseChangeSpriteAndHotspot(const struct TbSprite *pointerSprite, int64_t hot_x, int64_t hot_y)
 {
   lbMousePointerSprite = pointerSprite;
 #if (BFDEBUG_LEVEL > 18)
   if (pointerSprite == NULL)
     SYNCLOG("Setting to %s","NONE");
   else
-    SYNCLOG("Setting to %dx%d, data at %p",(int)pointerSprite->SWidth,(int)pointerSprite->SHeight,pointerSprite);
+    SYNCLOG("Setting to %" PRId64 "x%" PRId64 ", data at %p",(int64_t)pointerSprite->SWidth,(int64_t)pointerSprite->SHeight,pointerSprite);
 #endif
   if (!lbMouseInstalled)
     return Lb_FAIL;
@@ -98,7 +98,7 @@ TbResult LbMouseSetup(struct TbSprite *pointerSprite)
   return ret;
 }
 
-TbResult LbMouseSetPointerHotspot(long hot_x, long hot_y)
+TbResult LbMouseSetPointerHotspot(int64_t hot_x, int64_t hot_y)
 {
   if (!lbMouseInstalled)
     return Lb_FAIL;
@@ -107,7 +107,7 @@ TbResult LbMouseSetPointerHotspot(long hot_x, long hot_y)
   return Lb_SUCCESS;
 }
 
-TbResult LbMouseSetPositionInitial(long x, long y)
+TbResult LbMouseSetPositionInitial(int64_t x, int64_t y)
 {
   if (!lbMouseInstalled)
     return Lb_FAIL;
@@ -116,7 +116,7 @@ TbResult LbMouseSetPositionInitial(long x, long y)
   return Lb_SUCCESS;
 }
 
-TbResult LbMouseSetPosition(long x, long y)
+TbResult LbMouseSetPosition(int64_t x, int64_t y)
 {
   if (!lbMouseInstalled)
     return Lb_FAIL;
@@ -124,18 +124,18 @@ TbResult LbMouseSetPosition(long x, long y)
   {
     return Lb_FAIL;
   }
-  PlatformManager_WarpCursor((int)x, (int)y);
+  PlatformManager_WarpCursor((int64_t)x, (int64_t)y);
   return Lb_SUCCESS;
 }
 
 void LbMoveHostCursorToGameCursor(void)
 {
-    int game_cursor_x = lbDisplay.MMouseX;
-    int game_cursor_y = lbDisplay.MMouseY;
+    int64_t game_cursor_x = lbDisplay.MMouseX;
+    int64_t game_cursor_y = lbDisplay.MMouseY;
     float host_fx = 0.0f, host_fy = 0.0f;
     SDL_GetMouseState(&host_fx, &host_fy);
-    int host_cursor_x = (int)host_fx;
-    int host_cursor_y = (int)host_fy;
+    int64_t host_cursor_x = (int64_t)host_fx;
+    int64_t host_cursor_y = (int64_t)host_fy;
     if ((host_cursor_x != game_cursor_x) || (host_cursor_y != game_cursor_y))
     {
         LbMouseSetPosition(game_cursor_x, game_cursor_y);
@@ -144,12 +144,12 @@ void LbMoveHostCursorToGameCursor(void)
 
 TbResult LbMoveGameCursorToHostCursor(void)
 {
-    int game_cursor_x = lbDisplay.MMouseX;
-    int game_cursor_y = lbDisplay.MMouseY;
+    int64_t game_cursor_x = lbDisplay.MMouseX;
+    int64_t game_cursor_y = lbDisplay.MMouseY;
     float host_fx = 0.0f, host_fy = 0.0f;
     SDL_GetMouseState(&host_fx, &host_fy);
-    int host_cursor_x = (int)host_fx;
-    int host_cursor_y = (int)host_fy;
+    int64_t host_cursor_x = (int64_t)host_fx;
+    int64_t host_cursor_y = (int64_t)host_fy;
     if (((host_cursor_x != game_cursor_x) || (host_cursor_y != game_cursor_y)) && LbIsActive())
     {
         if (!pointerHandler.SetMousePosition(host_cursor_x, host_cursor_y))
@@ -171,7 +171,7 @@ TbResult LbMouseChangeSprite(const struct TbSprite *pointerSprite)
   if (pointerSprite == NULL)
     SYNCLOG("Setting to %s","NONE");
   else
-    SYNCLOG("Setting to %dx%d, data at %p",(int)pointerSprite->SWidth,(int)pointerSprite->SHeight,pointerSprite);
+    SYNCLOG("Setting to %" PRId64 "x%" PRId64 ", data at %p",(int64_t)pointerSprite->SWidth,(int64_t)pointerSprite->SHeight,pointerSprite);
 #endif
   if (!lbMouseInstalled)
     return Lb_FAIL;
@@ -181,7 +181,7 @@ TbResult LbMouseChangeSprite(const struct TbSprite *pointerSprite)
   return Lb_SUCCESS;
 }
 
-void GetPointerHotspot(int32_t *hot_x, int32_t *hot_y)
+void GetPointerHotspot(int64_t *hot_x, int64_t *hot_y)
 {
   struct TbPoint *hotspot;
   hotspot = pointerHandler.GetPointerOffset();
@@ -200,7 +200,7 @@ TbResult LbMouseIsInstalled(void)
   return Lb_SUCCESS;
 }
 
-TbResult LbMouseSetWindow(long x, long y, long width, long height)
+TbResult LbMouseSetWindow(int64_t x, int64_t y, int64_t width, int64_t height)
 {
   if (!lbMouseInstalled)
     return Lb_FAIL;
@@ -241,7 +241,7 @@ TbResult LbMouseOnEndSwap(void)
     return Lb_SUCCESS;
 }
 
-void mouseControl(unsigned int action, struct TbPoint *pos)
+void mouseControl(uint64_t action, struct TbPoint *pos)
 {
     struct TbPoint dstPos;
     dstPos.x = pos->x;
@@ -339,13 +339,13 @@ void mouseControl(unsigned int action, struct TbPoint *pos)
  * @param ratio_y Movement ratio in Y direction; 256 means unchanged ratio from OS.
  * @return Lb_SUCCESS if the ratio values were of correct range and have been set.
  */
-TbResult LbMouseChangeMoveRatio(long ratio_x, long ratio_y)
+TbResult LbMouseChangeMoveRatio(int64_t ratio_x, int64_t ratio_y)
 {
     if ((ratio_x < -8192) || (ratio_x > 8192) || (ratio_x == 0))
         return Lb_FAIL;
     if ((ratio_y < -8192) || (ratio_y > 8192) || (ratio_y == 0))
         return Lb_FAIL;
-    SYNCLOG("New ratio %ldx%ld",ratio_x, ratio_y);
+    SYNCLOG("New ratio %" PRId64 "x%" PRId64,(int64_t)(ratio_x), (int64_t)(ratio_y));
     // Currently we don't have two ratio factors, so let's store an average
     lbDisplay.MouseMoveRatio = (ratio_x + ratio_y)/2;
     //TODO INPUT Separate mouse ratios in X and Y direction when lbDisplay from DLL will no longer be used.

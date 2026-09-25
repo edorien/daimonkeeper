@@ -88,12 +88,12 @@ static inline TbPixel ghost_blend_2(TbPixel colour, TbPixel dest)
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -102,15 +102,15 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int sc
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -123,7 +123,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int sc
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -140,8 +140,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int sc
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 for (;xdup > 0; xdup--)
@@ -163,7 +163,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int sc
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -191,12 +191,12 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int sc
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -205,15 +205,15 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int sc
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -226,7 +226,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int sc
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -243,8 +243,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int sc
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 for (;xdup > 0; xdup--)
@@ -266,7 +266,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int sc
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -294,12 +294,12 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int sc
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -308,15 +308,15 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int sc
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -329,7 +329,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int sc
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -346,8 +346,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int sc
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 for (;xdup > 0; xdup--)
@@ -369,7 +369,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int sc
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -397,12 +397,12 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int sc
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -411,15 +411,15 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int sc
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -432,7 +432,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int sc
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -449,8 +449,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int sc
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 for (;xdup > 0; xdup--)
@@ -472,7 +472,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int sc
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -500,12 +500,12 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int sc
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -514,17 +514,17 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int sca
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int ycur;
-            int solid_len;
+            int64_t ycur;
+            int64_t solid_len;
             TbPixel * out_line;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -533,7 +533,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int sca
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -552,8 +552,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int sca
                     for(;pxlen > 0; pxlen--)
                     {
                         xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > abs(scanline))
-                            xdup = abs(scanline)-xcurstep[0];
+                        if (xcurstep[0]+xdup > llabs(scanline))
+                            xdup = llabs(scanline)-xcurstep[0];
                         if (xdup > 0)
                         {
                             TbPixel pxval;
@@ -595,7 +595,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int sca
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -623,12 +623,12 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int sca
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -637,17 +637,17 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int sca
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int ycur;
-            int solid_len;
+            int64_t ycur;
+            int64_t solid_len;
             TbPixel * out_line;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -656,7 +656,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int sca
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -675,8 +675,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int sca
                     for(;pxlen > 0; pxlen--)
                     {
                         xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > abs(scanline))
-                            xdup = abs(scanline)-xcurstep[0];
+                        if (xcurstep[0]+xdup > llabs(scanline))
+                            xdup = llabs(scanline)-xcurstep[0];
                         if (xdup > 0)
                         {
                             TbPixel pxval;
@@ -716,7 +716,7 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int sca
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -744,12 +744,12 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int sca
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -758,18 +758,18 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int 
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -801,7 +801,7 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int 
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -829,12 +829,12 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int 
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -843,18 +843,18 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int 
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -886,7 +886,7 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int 
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -914,12 +914,12 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int 
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -928,18 +928,18 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int 
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -979,7 +979,7 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int 
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1007,12 +1007,12 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int 
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -1021,18 +1021,18 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int 
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1064,7 +1064,7 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int 
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1092,12 +1092,12 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int 
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -1106,18 +1106,18 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int s
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1149,7 +1149,7 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int s
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1177,12 +1177,12 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int s
  * @param colour The colour to be used for drawing.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
+    int64_t ystep_delta;
     unsigned char *sprdata;
-    int32_t *ycurstep;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -1191,18 +1191,18 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int s
     sprdata = sprite->Data;
     ycurstep = ystep;
 
-    int h;
+    int64_t h;
     for (h=sprite->SHeight; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1234,7 +1234,7 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int s
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1261,15 +1261,15 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int s
  * @return Gives 0 on success.
  * @see LbSpriteSetScalingData()
  */
-TbResult LbSpriteDrawOneColourUsingScalingData(long posx, long posy, const struct TbSprite *sprite, TbPixel colour)
+TbResult LbSpriteDrawOneColourUsingScalingData(int64_t posx, int64_t posy, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing at (%ld,%ld)",posx,posy);
-    int32_t *xstep;
-    int32_t *ystep;
-    int scanline;
+    SYNCDBG(17,"Drawing at (%" PRId64 ",%" PRId64 ")",(int64_t)(posx),(int64_t)(posy));
+    int64_t *xstep;
+    int64_t *ystep;
+    int64_t scanline;
     {
-        long sposx;
-        long sposy;
+        int64_t sposx;
+        int64_t sposy;
         sposx = posx;
         sposy = posy;
         scanline = SwTargetScanline();
@@ -1284,10 +1284,10 @@ TbResult LbSpriteDrawOneColourUsingScalingData(long posx, long posy, const struc
         ystep = &ysteps_array[2 * sposy];
     }
     TbPixel *outbuf;
-    int outheight;
+    int64_t outheight;
     {
-        int gspos_x;
-        int gspos_y;
+        int64_t gspos_x;
+        int64_t gspos_y;
         gspos_y = ystep[0];
         if ((RendererGetDrawFlags() & Lb_SPRITE_FLIP_VERTIC) != 0)
             gspos_y += ystep[1] - 1;

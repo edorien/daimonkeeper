@@ -59,7 +59,7 @@ void ImGuiContextProcessEvent(const union SDL_Event *event);
 // window pixels, matching where its cursor sprite draws) instead --
 // called once per frame, before ImGui::NewFrame(), overriding whatever
 // (wrong) position raw motion events would have produced.
-typedef void (*ImGuiMousePositionFn)(long *out_x, long *out_y);
+typedef void (*ImGuiMousePositionFn)(int64_t *out_x, int64_t *out_y);
 void ImGuiContextSetMousePositionCallback(ImGuiMousePositionFn fn);
 
 // Draw the game's own cursor sprite (found live: without this, ImGui falls
@@ -74,13 +74,13 @@ void ImGuiContextSetMousePositionCallback(ImGuiMousePositionFn fn);
 // only needs to be valid for the duration of the call).
 struct ImGuiCursorImage {
     const void *rgba; // width * height * 4 bytes, row-major
-    int width;
-    int height;
-    int hotspot_x;
-    int hotspot_y;
+    int64_t width;
+    int64_t height;
+    int64_t hotspot_x;
+    int64_t hotspot_y;
     // Bumped by the provider whenever the pixels change, so the context
     // knows to re-upload. 0 from a provider that never changes its image.
-    unsigned int serial;
+    uint64_t serial;
     // 1 = the pixels are already at the intended on-screen size (the
     // in-game pointer, pre-scaled to match the game's own cursor); the
     // context draws it 1:1. 0 = native sprite size, context rescales to
@@ -136,8 +136,8 @@ TbBool ImGuiContextWantCaptureKeyboard(void);
 // shown, not just once. width/height are fixed at creation -- destroy and
 // recreate to resize. Returns NULL if no ImGui context is active or the
 // size is invalid.
-void* ImGuiContextCreateTexture(int width, int height);
-void ImGuiContextUpdateTexture(void *texture, const void *rgba_data, int width, int height);
+void* ImGuiContextCreateTexture(int64_t width, int64_t height);
+void ImGuiContextUpdateTexture(void *texture, const void *rgba_data, int64_t width, int64_t height);
 void ImGuiContextDestroyTexture(void *texture);
 
 #ifdef __cplusplus

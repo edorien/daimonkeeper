@@ -96,7 +96,7 @@ static TbBool editor_rect_drag_update(PlayerNumber plyr_idx, struct Packet *pckt
         MapSlabCoord box_beg_y = min(drag_slb_y, slb_y);
         MapSlabCoord box_end_x = max(drag_slb_x, slb_x) + 1;
         MapSlabCoord box_end_y = max(drag_slb_y, slb_y) + 1;
-        int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+        int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
         draw_map_volume_box(subtile_coord(slab_subtile(box_beg_x, 0), 0), subtile_coord(slab_subtile(box_beg_y, 0), 0),
             subtile_coord(slab_subtile(box_end_x, 0), 0), subtile_coord(slab_subtile(box_end_y, 0), 0), floor_height_z, SLC_YELLOW);
     }
@@ -142,13 +142,13 @@ static void editor_apply_slab_rect(MapSlabCoord box_beg_x, MapSlabCoord box_beg_
 static void editor_snapshot_slab_rect(unsigned char pcktype, MapSlabCoord box_beg_x, MapSlabCoord box_beg_y,
     MapSlabCoord box_end_x, MapSlabCoord box_end_y, SlabKind new_kind, PlayerNumber new_owner)
 {
-    long width = box_end_x - box_beg_x + 1;
-    long height = box_end_y - box_beg_y + 1;
-    long count = width * height;
+    int64_t width = box_end_x - box_beg_x + 1;
+    int64_t height = box_end_y - box_beg_y + 1;
+    int64_t count = width * height;
     struct EditorRectSlabSnapshot *before = malloc(sizeof(struct EditorRectSlabSnapshot) * (size_t)count);
     if (before == NULL)
         return;
-    long i = 0;
+    int64_t i = 0;
     for (MapSlabCoord sy = box_beg_y; sy <= box_end_y; sy++)
     {
         for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
@@ -182,12 +182,12 @@ static void editor_delete_things_in_rect(MapSlabCoord box_beg_x, MapSlabCoord bo
     {
         for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
         {
-            for (int sub_y = 0; sub_y < STL_PER_SLB; sub_y++)
+            for (int64_t sub_y = 0; sub_y < STL_PER_SLB; sub_y++)
             {
-                for (int sub_x = 0; sub_x < STL_PER_SLB; sub_x++)
+                for (int64_t sub_x = 0; sub_x < STL_PER_SLB; sub_x++)
                 {
                     struct Map *mapblk = get_map_block_at(slab_subtile(sx, sub_x), slab_subtile(sy, sub_y));
-                    long i = get_mapwho_thing_index(mapblk);
+                    int64_t i = get_mapwho_thing_index(mapblk);
                     while (i != 0)
                     {
                         struct Thing *thing = thing_get(i);
@@ -249,7 +249,7 @@ TbBool packets_process_cheats(
 {
     struct Thing *thing;
     struct Room* room = NULL;
-    int i;
+    int64_t i;
     PowerKind pwkind;
     struct SlabMap *slb;
     struct PlayerInfo* player = get_player(plyr_idx);
@@ -262,7 +262,7 @@ TbBool packets_process_cheats(
         player->render_roomspace = create_box_roomspace(player->render_roomspace, 1, 1, slb_x, slb_y);
         allowed = tag_cursor_blocks_place_thing(plyr_idx, stl_x, stl_y);
         sim_feedback->clear_messages_from_player(MsgType_Player, ustate->cheatselection.chosen_player);
-        snprintf(str, sizeof(str), "%d", ustate->cheatselection.chosen_experience_level + 1);
+        snprintf(str, sizeof(str), "%" PRId64, (int64_t)(ustate->cheatselection.chosen_experience_level + 1));
         sim_feedback->targeted_message_add(MsgType_Player, ustate->cheatselection.chosen_player, plyr_idx, 1, str);
         if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0))
         {
@@ -291,7 +291,7 @@ TbBool packets_process_cheats(
         else
         {
             struct CreatureModelConfig* crconf = creature_stats_get(ustate->cheatselection.chosen_hero_kind);
-            snprintf(str, sizeof(str), "%s %d", get_string(crconf->namestr_idx), ustate->cheatselection.chosen_experience_level + 1);
+            snprintf(str, sizeof(str), "%s %" PRId64, get_string(crconf->namestr_idx), (int64_t)(ustate->cheatselection.chosen_experience_level + 1));
         }
         sim_feedback->targeted_message_add(MsgType_Player, ustate->cheatselection.chosen_player, plyr_idx, 1, str);
         if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0))
@@ -326,7 +326,7 @@ TbBool packets_process_cheats(
                     crmodel = ustate->cheatselection.chosen_hero_kind;
                     exp = ustate->cheatselection.chosen_experience_level;
                 }
-                unsigned short param2 = ustate->cheatselection.chosen_player | (exp << 8);
+                int64_t param2 = ustate->cheatselection.chosen_player | (exp << 8);
                 set_packet_action(pckt, PckA_CheatMakeCreature, crmodel, param2, 0, 0);
             }
             else
@@ -448,7 +448,7 @@ TbBool packets_process_cheats(
         else
         {
             struct CreatureModelConfig* crconf = creature_stats_get(ustate->cheatselection.chosen_creature_kind);
-            snprintf(str, sizeof(str), "%s %d", get_string(crconf->namestr_idx), ustate->cheatselection.chosen_experience_level + 1);
+            snprintf(str, sizeof(str), "%s %" PRId64, get_string(crconf->namestr_idx), (int64_t)(ustate->cheatselection.chosen_experience_level + 1));
         }
         sim_feedback->targeted_message_add(MsgType_Player, ustate->cheatselection.chosen_player, plyr_idx, 1, str);
         if (((pckt->control_flags & PCtr_LBtnRelease) != 0) && ((pckt->control_flags & PCtr_MapCoordsValid) != 0))
@@ -477,7 +477,7 @@ TbBool packets_process_cheats(
                     crmodel = ustate->cheatselection.chosen_creature_kind;
                     exp = ustate->cheatselection.chosen_experience_level;
                 }
-                unsigned short param2 = ustate->cheatselection.chosen_player | (exp << 8);
+                int64_t param2 = ustate->cheatselection.chosen_player | (exp << 8);
                 set_packet_action(pckt, PckA_CheatMakeCreature, crmodel, param2, 0, 0);
             }
             else
@@ -652,7 +652,7 @@ TbBool packets_process_cheats(
                     {
                         effect = false;
                     }
-                    unsigned short param2 = ustate->cheatselection.chosen_player | (effect << 8);
+                    int64_t param2 = ustate->cheatselection.chosen_player | (effect << 8);
                     set_packet_action(pckt, PckA_CheatStealSlab, slbkind, param2, 0, 0);
                 }
             }
@@ -721,7 +721,7 @@ TbBool packets_process_cheats(
         struct ObjectConfigStats* objst = get_object_model_stats(thing->model);
         if (thing_exists(thing))
         {
-            snprintf(str, sizeof(str), "%d/%d", thing->health, objst->health);
+            snprintf(str, sizeof(str), "%" PRId64 "/%" PRId64, (int64_t)(thing->health), (int64_t)(objst->health));
             sim_feedback->targeted_message_add(MsgType_Player, thing->owner, plyr_idx, 1, str);
         }
         else
@@ -866,7 +866,7 @@ TbBool packets_process_cheats(
             {
                 slb = get_slabmap_block(slb_x, slb_y);
                 slab_cfgstats = get_slab_kind_stats(slb->kind);
-                snprintf(str, sizeof(str), "%s (%ld) %d %d (%u) %d %d (%d)", slab_cfgstats->code_name, slabmap_owner(slb), slb_x, slb_y, get_slab_number(slb_x, slb_y), stl_x, stl_y, get_subtile_number(stl_x, stl_y));
+                snprintf(str, sizeof(str), "%s (%" PRId64 ") %" PRId64 " %" PRId64 " (%" PRIu64 ") %" PRId64 " %" PRId64 " (%" PRId64 ")", slab_cfgstats->code_name, (int64_t)(slabmap_owner(slb)), (int64_t)(slb_x), (int64_t)(slb_y), (uint64_t)(get_slab_number(slb_x, slb_y)), (int64_t)(stl_x), (int64_t)(stl_y), (int64_t)(get_subtile_number(stl_x, stl_y)));
                 sim_feedback->targeted_message_add(MsgType_Blank, 0, plyr_idx, 1, str);
             }
             // docs/refactor/editor/02-editing-toolbox.md §2.2 -- drag
@@ -1162,7 +1162,7 @@ TbBool process_user_global_cheats_packet_action(NetUserId user, struct Packet* p
     //      game.???[my_player_number].cheat_mode = 1;
           {
               char msg_buf[128];
-              snprintf(msg_buf, sizeof(msg_buf), "Cheat mode activated by player %d", plyr_idx);
+              snprintf(msg_buf, sizeof(msg_buf), "Cheat mode activated by player %" PRId64, (int64_t)(plyr_idx));
               sim_feedback->show_onscreen_msg(2*kfx_sim_state.turns_per_second, msg_buf);
           }
           return true;
@@ -1252,7 +1252,7 @@ TbBool process_user_global_cheats_packet_action(NetUserId user, struct Packet* p
         }
         case PckA_CheatGiveDoorTrap:
         {
-            long model;
+            int64_t model;
             for (model = 1; model < kfx_config_state.conf.trapdoor_conf.door_types_count; model++)
             {
                 if (is_door_buildable(plyr_idx, model))
@@ -1358,14 +1358,14 @@ void editor_flood_fill_terrain(MapSlabCoord seed_x, MapSlabCoord seed_y, SlabKin
         return; // never flood starting from a room
     SlabKind source_kind = seed_slb->kind;
 
-    long head = 0, tail = 0;
+    int64_t head = 0, tail = 0;
     queue_x[tail] = seed_x;
     queue_y[tail] = seed_y;
     tail++;
     visited[seed_y * kfx_sim_state.map_tiles_x + seed_x] = true;
 
-    static const int dx[4] = {1, -1, 0, 0};
-    static const int dy[4] = {0, 0, 1, -1};
+    static const int64_t dx[4] = {1, -1, 0, 0};
+    static const int64_t dy[4] = {0, 0, 1, -1};
     while (head < tail)
     {
         MapSlabCoord x = queue_x[head];
@@ -1374,13 +1374,13 @@ void editor_flood_fill_terrain(MapSlabCoord seed_x, MapSlabCoord seed_y, SlabKin
 
         place_slab_type_on_map(target_kind, slab_subtile(x, 0), slab_subtile(y, 0), owner, 0);
 
-        for (int i = 0; i < 4; i++)
+        for (int64_t i = 0; i < 4; i++)
         {
             MapSlabCoord nx = x + dx[i];
             MapSlabCoord ny = y + dy[i];
             if ((nx < 0) || (nx >= kfx_sim_state.map_tiles_x) || (ny < 0) || (ny >= kfx_sim_state.map_tiles_y))
                 continue;
-            long idx = (long)ny * kfx_sim_state.map_tiles_x + nx;
+            int64_t idx = (int64_t)ny * kfx_sim_state.map_tiles_x + nx;
             if (visited[idx])
                 continue;
             visited[idx] = true;
@@ -1817,7 +1817,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
                     {
                         play_non_3d_sample(snd_spell_wall);
                     }
-                    for (long n = 0; n < SMALL_AROUND_LENGTH; n++)
+                    for (int64_t n = 0; n < SMALL_AROUND_LENGTH; n++)
                     {
                         pos.x.stl.pos = 128;
                         pos.y.stl.pos = 128;
@@ -1836,7 +1836,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             place_slab_type_on_map(pckt->actn_par1, stl_x, stl_y, id, 0);
             do_slab_efficiency_alteration(slb_x, slb_y);
             struct SlabMap *slb = get_slabmap_block(slb_x, slb_y);
-            for (int i = 0; i < PLAYERS_COUNT; i++)
+            for (int64_t i = 0; i < PLAYERS_COUNT; i++)
             {
                 if (i != slabmap_owner(slb))
                 {
@@ -1871,7 +1871,7 @@ TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_id
             thing = get_player_soul_container(pckt->actn_par1);
             if (!thing_is_invalid(thing))
             {
-                thing->health = (short)pckt->actn_par2;
+                thing->health = (int64_t)pckt->actn_par2;
             }
             if (thing->health <= 0)
             {

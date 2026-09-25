@@ -32,7 +32,7 @@ extern "C" {
 
 TbBool is_non_synchronized_thing_class(unsigned char class_id);
 
-typedef unsigned short Thingid;
+typedef int64_t Thingid;
 
 /******************************************************************************/
 /** Enums for thing->alloc_flags bit fields. */
@@ -121,39 +121,39 @@ struct Room;
 struct Thing {
     unsigned char alloc_flags;
     unsigned char state_flags;
-    unsigned short next_on_mapblk;
-    unsigned short prev_on_mapblk;
+    int64_t next_on_mapblk;
+    int64_t prev_on_mapblk;
     unsigned char owner;
     unsigned char active_state;
     unsigned char continue_state;
-    int32_t creation_turn;
+    int64_t creation_turn;
     struct Coord3d mappos;
     union {
 //TCls_Empty
 //TCls_Object
       struct {
-        int32_t gold_stored;
-        short unusedparam;
+        int64_t gold_stored;
+        int64_t unusedparam;
       } valuable;
       struct {
-        short life_remaining;
+        int64_t life_remaining;
         char freshness_state;
         unsigned char possession_startup_timer;
         TbBool some_chicken_was_sacrificed;
-        unsigned short angle;
+        int64_t angle;
       } food;
       struct {
         unsigned char box_kind;
       } custom_box;
       struct {
-        short belongs_to;
-        short cssize;
-        short spr_size;
+        int64_t belongs_to;
+        int64_t cssize;
+        int64_t spr_size;
       } lair;
       struct {
-        short belongs_to;
-        short cssize;
-        short spr_size;
+        int64_t belongs_to;
+        int64_t cssize;
+        int64_t spr_size;
       } torturer;
       struct {
         unsigned char state;
@@ -169,32 +169,32 @@ struct Thing {
         KeepPwrLevel power_level;
       } lightning;
       struct {
-        short belongs_to;
+        int64_t belongs_to;
         unsigned char shspeed;
       } armor;
       struct {
-        short belongs_to;
+        int64_t belongs_to;
         unsigned char effect_slot;
       } disease;
       struct {
-        int32_t room_idx;
-        int32_t last_turn_drawn;
+        int64_t room_idx;
+        int64_t last_turn_drawn;
         unsigned char display_timer;
       } roomflag;
 //TCls_Shot
       struct {
         unsigned char dexterity;
-        short damage;
+        int64_t damage;
         unsigned char hit_type;
-        short target_idx;
+        int64_t target_idx;
         CrtrExpLevel shot_level;
         struct Coord3d originpos;
-        int num_wind_affected;
+        int64_t num_wind_affected;
         CctrlIndex wind_affected_creature[CREATURES_COUNT];  //list of wind affected Creatures
       } shot;
       struct {
-        int32_t x;
-        short target_idx;
+        int64_t x;
+        int64_t target_idx;
         unsigned char posint;
         unsigned char range;
       } shot_lizard;
@@ -206,24 +206,24 @@ struct Thing {
       } corpse;
 //TCls_Creature
       struct {
-        int32_t gold_carried;
-        short health_bar_turns;
-        short volley_repeat;
+        int64_t gold_carried;
+        int64_t health_bar_turns;
+        int64_t volley_repeat;
         TbBool volley_fire;
       } creature;
 //TCls_Effect
       struct {
-        int parent_class_id;
+        int64_t parent_class_id;
         ThingModel parent_model;
         unsigned char hit_type;
       } shot_effect;
       struct {
-        int32_t number;
+        int64_t number;
       } price_effect;
 //TCls_EffectGen
       struct {
-      short range;
-      int32_t generation_delay;
+      int64_t range;
+      int64_t generation_delay;
       } effect_generator;
 //TCls_Trap
       struct {
@@ -233,16 +233,16 @@ struct Thing {
         TbBool volley_fire;
         GameTurn rearm_turn;
         GameTurn shooting_finished_turn;
-        short volley_repeat;
-        unsigned short volley_delay;
-        unsigned short firing_at;
+        int64_t volley_repeat;
+        int64_t volley_delay;
+        int64_t firing_at;
         unsigned char flag_number;
       } trap;
 //TCls_Door
       struct {
-      short orientation;
+      int64_t orientation;
       unsigned char opening_counter;
-      short closing_counter;
+      int64_t closing_counter;
       unsigned char is_locked;
       PlayerBitFlags revealed;
       } door;
@@ -253,61 +253,61 @@ struct Thing {
       struct {
         unsigned char x;
         unsigned char y;
-        short time;
+        int64_t time;
         ThingModel model;
       }cave_in;
     };
     ThingModel model;
-    unsigned short index;
+    int64_t index;
     /** Parent index. The parent may either be a thing, or a slab index.
      * What it means depends on thing class, ie. it's thing index for shots
      *  and slab number for objects.
      */
-    short parent_idx;
+    int64_t parent_idx;
     unsigned char class_id;
     unsigned char fall_acceleration;
     unsigned char bounce_angle;
     unsigned char abyss_fall_sound_delay;
-    short inertia_floor;
-    short inertia_air;
-    unsigned short movement_flags;
+    int64_t inertia_floor;
+    int64_t inertia_air;
+    int64_t movement_flags;
     struct CoordDelta3d veloc_push_once;
     struct CoordDelta3d veloc_base;
     struct CoordDelta3d veloc_push_add;
     struct CoordDelta3d velocity;
     // Push when moving; needs to be signed
-    short anim_speed;
-    int32_t anim_time; // animation time (measured in 1/256 of a frame)
-    unsigned short anim_sprite;
-    unsigned short sprite_size;
+    int64_t anim_speed;
+    int64_t anim_time; // animation time (measured in 1/256 of a frame)
+    int64_t anim_sprite;
+    int64_t sprite_size;
     unsigned char current_frame;
     unsigned char max_frames;
     char transformation_speed;
-    unsigned short sprite_size_min;
-    unsigned short sprite_size_max;
+    int64_t sprite_size_min;
+    int64_t sprite_size_max;
     unsigned char rendering_flags;
     unsigned char draw_class; /**< See enum ObjectsDrawClasses for valid values. */
     unsigned char size_change; /**< See enum ThingSizeChange for valid values. */
     unsigned char tint_colour;
-    short move_angle_xy;
-    short move_angle_z;
-    unsigned short clipbox_size_xy;
-    unsigned short clipbox_size_z;
-    unsigned short solid_size_xy;
-    unsigned short solid_size_z;
+    int64_t move_angle_xy;
+    int64_t move_angle_z;
+    int64_t clipbox_size_xy;
+    int64_t clipbox_size_z;
+    int64_t solid_size_xy;
+    int64_t solid_size_z;
     HitPoints health;
-    unsigned short floor_height;
-    unsigned short light_id;
+    int64_t floor_height;
+    int64_t light_id;
     CctrlIndex ccontrol_idx;
     unsigned char snd_emitter_id;
-    short next_of_class;
-    short prev_of_class;
-    uint32_t flags; //ThingAddFlags
+    int64_t next_of_class;
+    int64_t prev_of_class;
+    uint64_t flags; //ThingAddFlags
     GameTurn last_turn_drawn;
     GameTurn last_turn_damaged;
-    unsigned short previous_floor_height;
+    int64_t previous_floor_height;
     struct Coord3d previous_mappos;
-    uint32_t random_seed;
+    uint32_t random_seed; // 32-bit RNG state, see LbRandomSeries
     PlayerNumber holding_player;
 };
 
@@ -336,15 +336,15 @@ void delete_thing_structure_f(struct Thing *thing, TbBool deleting_everything, c
 #define thing_get(tng_idx) thing_get_f(tng_idx, __func__)
 struct Thing *thing_get_f(ThingIndex tng_idx, const char *func_name);
 TbBool thing_exists(const struct Thing *thing);
-short thing_is_invalid(const struct Thing *thing);
+int64_t thing_is_invalid(const struct Thing *thing);
 struct Thing* get_parent_thing(const struct Thing* thing);
 
 TbBool thing_is_in_limbo(const struct Thing* thing);
 TbBool thing_is_dragged_or_pulled(const struct Thing *thing);
 struct PlayerInfo *get_player_thing_is_controlled_by(const struct Thing *thing);
 
-void set_thing_animation(struct Thing *thing, long animation_index, long speed);
-void set_thing_draw(struct Thing *thing, long anim, long speed, long scale, char animate_once, char start_frame, unsigned char draw_class);
+void set_thing_animation(struct Thing *thing, int64_t animation_index, int64_t speed);
+void set_thing_draw(struct Thing *thing, int64_t anim, int64_t speed, int64_t scale, char animate_once, char start_frame, unsigned char draw_class);
 
 void query_thing(struct Thing *thing);
 /******************************************************************************/

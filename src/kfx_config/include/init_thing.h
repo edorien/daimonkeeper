@@ -34,8 +34,8 @@ struct InitThing {
     unsigned char oclass;
     ThingModel model;
     unsigned char owner;
-    unsigned short range;
-    unsigned short index;
+    int64_t range;
+    int64_t index;
     unsigned char params[8];
 };
 

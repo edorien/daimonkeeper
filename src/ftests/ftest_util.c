@@ -35,8 +35,8 @@ TbBool ftest_util_replace_slabs(MapSlabCoord slb_x_from, MapSlabCoord slb_y_from
     }
 
     TbBool result = true;
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     for (y = slb_y_from; y <= slb_y_to; y++)
     {
         for (x = slb_x_from; x <= slb_x_to; x++)
@@ -48,7 +48,7 @@ TbBool ftest_util_replace_slabs(MapSlabCoord slb_x_from, MapSlabCoord slb_y_from
             
             if(!replace_slab_from_script(x, y, slab_kind))
             {
-                ERRORLOG("Failed to replace slab at (%lu,%lu)", x, y);
+                ERRORLOG("Failed to replace slab at (%" PRIu64 ",%" PRIu64 ")", (uint64_t)(x), (uint64_t)(y));
                 result = false;
             }
         }
@@ -66,8 +66,8 @@ TbBool ftest_util_does_player_own_any_slabs(MapSlabCoord slb_x_from, MapSlabCoor
     }
 
     struct SlabMap *slb;
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     for (y = slb_y_from; y <= slb_y_to; y++)
     {
         for (x = slb_x_from; x <= slb_x_to; x++)
@@ -91,8 +91,8 @@ TbBool ftest_util_does_player_own_any_slabs(MapSlabCoord slb_x_from, MapSlabCoor
 TbBool ftest_util_do_any_slabs_match(MapSlabCoord slb_x_from, MapSlabCoord slb_y_from, MapSlabCoord slb_x_to, MapSlabCoord slb_y_to, SlabKind slab)
 {
     struct SlabMap *slb;
-    unsigned long x;
-    unsigned long y;
+    uint64_t x;
+    uint64_t y;
     for (y = slb_y_from; y <= slb_y_to; y++)
     {
         for (x = slb_x_from; x <= slb_x_to; x++)
@@ -178,7 +178,7 @@ TbBool ftest_util_replace_slab_columns(MapSlabCoord slb_x, MapSlabCoord slb_y, P
             mapblk = get_map_block_at(slab_subtile(slb_x, x), slab_subtile(slb_y, y));
             if(map_block_invalid(mapblk))
             {
-                ERRORLOG("Map block at slab (%d,%d), subtile (%d,%d) is invalid.", slb_x, slb_y, x, y);
+                ERRORLOG("Map block at slab (%" PRId64 ",%" PRId64 "), subtile (%" PRId64 ",%" PRId64 ") is invalid.", (int64_t)(slb_x), (int64_t)(slb_y), (int64_t)(x), (int64_t)(y));
                 return false;
             }
             set_mapblk_column_index(mapblk, column_type);
@@ -188,19 +188,19 @@ TbBool ftest_util_replace_slab_columns(MapSlabCoord slb_x, MapSlabCoord slb_y, P
     return true;
 }
 
-TbBool ftest_util_move_camera(long x, long y, PlayerNumber plyr_idx)
+TbBool ftest_util_move_camera(int64_t x, int64_t y, PlayerNumber plyr_idx)
 {
     struct PlayerInfo* player = get_player(plyr_idx);
     if(player_invalid(player))
     {
-        LbErrorLog("Player %d not found", plyr_idx);
+        LbErrorLog("Player %" PRId64 " not found", (int64_t)(plyr_idx));
         return false;
     }
 
     struct Camera* camera = &player->cameras[CamIV_Isometric];
     if(camera == NULL)
     {
-        LbErrorLog("Could not find camera %d", CamIV_Isometric);
+        LbErrorLog("Could not find camera %" PRId64, (int64_t)(CamIV_Isometric));
         return false;
     }
 
@@ -252,14 +252,14 @@ struct Thing* ftest_util_create_random_creature(MapCoord x, MapCoord y, PlayerNu
     struct Thing* thing = create_creature(&pos, crmodel, owner);
     if (thing_is_invalid(thing))
     {
-        ERRORLOG("Cannot create creature %s at (%d,%d)",creature_code_name(crmodel),x,y);
+        ERRORLOG("Cannot create creature %s at (%" PRId64 ",%" PRId64 ")",creature_code_name(crmodel),(int64_t)(x),(int64_t)(y));
         return false;
     }
     pos.z.val = get_thing_height_at(thing, &pos);
     if (thing_in_wall_at(thing, &pos))
     {
         delete_thing_structure(thing, 0);
-        ERRORLOG("Creature %s at (%d,%d) deleted because is in wall",creature_code_name(crmodel),x,y);
+        ERRORLOG("Creature %s at (%" PRId64 ",%" PRId64 ") deleted because is in wall",creature_code_name(crmodel),(int64_t)(x),(int64_t)(y));
         return false;
     }
     thing->mappos.x.val = pos.x.val;
@@ -282,14 +282,14 @@ struct Thing* ftest_util_create_creature(MapCoord x, MapCoord y, PlayerNumber ow
     struct Thing* thing = create_creature(&pos, creature_model, owner);
     if (thing_is_invalid(thing))
     {
-        ERRORLOG("Cannot create creature %s at (%d,%d)",creature_code_name(creature_model),x,y);
+        ERRORLOG("Cannot create creature %s at (%" PRId64 ",%" PRId64 ")",creature_code_name(creature_model),(int64_t)(x),(int64_t)(y));
         return false;
     }
     pos.z.val = get_thing_height_at(thing, &pos);
     if (thing_in_wall_at(thing, &pos))
     {
         delete_thing_structure(thing, 0);
-        ERRORLOG("Creature %s at (%d,%d) deleted because is in wall",creature_code_name(creature_model),x,y);
+        ERRORLOG("Creature %s at (%" PRId64 ",%" PRId64 ") deleted because is in wall",creature_code_name(creature_model),(int64_t)(x),(int64_t)(y));
         return false;
     }
     thing->mappos.x.val = pos.x.val;
@@ -353,11 +353,11 @@ TbBool ftest_util_replace_slabs_with_dungeon_hearts(MapSlabCoord slb_x_from, Map
 
 TbBool ftest_util_mark_slab_for_highlight(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx)
 {
-    long stl_x = slab_subtile(slb_x,0);
-    long stl_y = slab_subtile(slb_y,0);
+    int64_t stl_x = slab_subtile(slb_x,0);
+    int64_t stl_y = slab_subtile(slb_y,0);
 
-    long dx;
-    long dy;
+    int64_t dx;
+    int64_t dy;
     struct Map* mapblk = INVALID_MAP_BLOCK;
     for (dy=0; dy < STL_PER_SLB; dy++)
     {
@@ -366,7 +366,7 @@ TbBool ftest_util_mark_slab_for_highlight(MapSlabCoord slb_x, MapSlabCoord slb_y
             mapblk = get_map_block_at(stl_x + dx, stl_y + dy);
             if(map_block_invalid(mapblk))
             {
-                ERRORLOG("Invalid map block for slab (%d,%d) at (%ld,%ld)", slb_x, slb_y, stl_x + dx, stl_y + dy);
+                ERRORLOG("Invalid map block for slab (%" PRId64 ",%" PRId64 ") at (%" PRId64 ",%" PRId64 ")", (int64_t)(slb_x), (int64_t)(slb_y), (int64_t)(stl_x + dx), (int64_t)(stl_y + dy));
                 return false;
             }
 
@@ -413,14 +413,14 @@ TbBool ftest_util_action__create_and_fill_torture_room(struct FTestActionArgs* c
 
     if(room_start_x <= 0 || room_end_x >= level_info->mapsize_x || room_start_y <= 0 || room_end_y >= level_info->mapsize_y)
     {
-        FTEST_FAIL_TEST("Room bounds (%d,%d, %d,%d) exceed map border (%d,%d, %d,%d)", room_start_x, room_start_x, room_end_x, room_end_y
-                                                                                     , 0, 0, level_info->mapsize_x, level_info->mapsize_y);
+        FTEST_FAIL_TEST("Room bounds (%" PRId64 ",%" PRId64 ", %" PRId64 ",%" PRId64 ") exceed map border (%" PRId64 ",%" PRId64 ", %" PRId64 ",%" PRId64 ")", (int64_t)(room_start_x), (int64_t)(room_start_x), (int64_t)(room_end_x), (int64_t)(room_end_y)
+                                                                                     , (int64_t)(0), (int64_t)(0), (int64_t)(level_info->mapsize_x), (int64_t)(level_info->mapsize_y));
         return true;
     }
 
     if(!ftest_util_replace_slabs(room_start_x, room_start_y, room_end_x, room_end_y, SlbT_TORTURE, vars->room_owner))
     {
-        FTEST_FAIL_TEST("Failed to create torture chamber at (%d,%d, %d,%d)", room_start_x, room_start_x, room_end_x, room_end_y);
+        FTEST_FAIL_TEST("Failed to create torture chamber at (%" PRId64 ",%" PRId64 ", %" PRId64 ",%" PRId64 ")", (int64_t)(room_start_x), (int64_t)(room_start_x), (int64_t)(room_end_x), (int64_t)(room_end_y));
         return true;
     }
 
@@ -430,7 +430,7 @@ TbBool ftest_util_action__create_and_fill_torture_room(struct FTestActionArgs* c
     struct Thing* torture_victim = ftest_util_create_creature(center_of_room_pos.x.val, center_of_room_pos.y.val, vars->victim_player_owner, vars->victim_max_level, vars->victim_creature_model);
     if(thing_is_invalid(torture_victim))
     {
-        FTEST_FAIL_TEST("Cannot create creature %s at (%d,%d)",creature_code_name(vars->victim_creature_model), center_of_room_pos.x.val, center_of_room_pos.y.val);
+        FTEST_FAIL_TEST("Cannot create creature %s at (%" PRId64 ",%" PRId64 ")",creature_code_name(vars->victim_creature_model), (int64_t)(center_of_room_pos.x.val), (int64_t)(center_of_room_pos.y.val));
         return true;
     }
 
@@ -468,15 +468,15 @@ TbBool ftest_util_gui_turn_on_menu(MenuID menu_id)
         turn_on_menu(menu_id);
     if (!menu_is_active(menu_id))
     {
-        FTEST_FAIL_TEST("Failed to turn on GUI menu %d", (int)menu_id);
+        FTEST_FAIL_TEST("Failed to turn on GUI menu %" PRId64, (int64_t)menu_id);
         return false;
     }
     return true;
 }
 
-static struct GuiButton *ftest_util_gui_find_button(short bid)
+static struct GuiButton *ftest_util_gui_find_button(int64_t bid)
 {
-    for (int i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
+    for (int64_t i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
     {
         struct GuiButton *gbtn = &active_buttons[i];
         if ((gbtn->flags & LbBtnF_Active) != 0 && gbtn->id_num == bid
@@ -486,23 +486,23 @@ static struct GuiButton *ftest_util_gui_find_button(short bid)
     return NULL;
 }
 
-TbBool ftest_util_gui_button_is_active(short bid)
+TbBool ftest_util_gui_button_is_active(int64_t bid)
 {
     return ftest_util_gui_find_button(bid) != NULL;
 }
 
-long ftest_util_gui_button_content(short bid)
+int64_t ftest_util_gui_button_content(int64_t bid)
 {
     const struct GuiButton *gbtn = ftest_util_gui_find_button(bid);
     return gbtn != NULL ? gbtn->content.lval : -1;
 }
 
-TbBool ftest_util_gui_click(short bid)
+TbBool ftest_util_gui_click(int64_t bid)
 {
     struct GuiButton *gbtn = ftest_util_gui_find_button(bid);
     if (gbtn == NULL)
     {
-        FTEST_FAIL_TEST("No active GUI button with id %d (menu not on, or buttons not instantiated yet)", (int)bid);
+        FTEST_FAIL_TEST("No active GUI button with id %" PRId64 " (menu not on, or buttons not instantiated yet)", (int64_t)bid);
         return false;
     }
     // Drive the button's *release* path directly -- that is where

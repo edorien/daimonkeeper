@@ -30,10 +30,10 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static long heap_end;
-static long Heap[PATH_HEAP_LEN];
+static int64_t heap_end;
+static int64_t Heap[PATH_HEAP_LEN];
 
-static long naviheap_item_tree_val(long heapid);
+static int64_t naviheap_item_tree_val(int64_t heapid);
 /******************************************************************************/
 /** Initializes navigation heap for new use.
  */
@@ -55,7 +55,7 @@ TbBool naviheap_empty(void)
  *
  * @return
  */
-long naviheap_top(void)
+int64_t naviheap_top(void)
 {
     if (heap_end < 1)
         return -1;
@@ -67,7 +67,7 @@ long naviheap_top(void)
  * @param heapid
  * @return
  */
-static long naviheap_get(long heapid)
+static int64_t naviheap_get(int64_t heapid)
 {
     if ((heapid < 0) || (heapid > heap_end+1))
         return -1;
@@ -78,22 +78,22 @@ static long naviheap_get(long heapid)
  *
  * @param heapid
  */
-void heap_down(long heapid)
+void heap_down(int64_t heapid)
 {
     // Insert dummy value (there is no associated triangle for it)
     Heap[heap_end+1] = TREEVALS_COUNT-1;
     tree_val[TREEVALS_COUNT-1] = INT32_MAX;
-    unsigned long hend = (heap_end >> 1);
-    long tree_idb = Heap[heapid];
-    long tval_idb = tree_val[tree_idb];
-    unsigned long hpos = heapid;
+    uint64_t hend = (heap_end >> 1);
+    int64_t tree_idb = Heap[heapid];
+    int64_t tval_idb = tree_val[tree_idb];
+    uint64_t hpos = heapid;
     while (hpos <= hend)
     {
-        unsigned long hnew = (hpos << 1);
+        uint64_t hnew = (hpos << 1);
         /* Select the cone with smaller tree value */
         if (naviheap_item_tree_val(hnew+1) < naviheap_item_tree_val(hnew))
             hnew++;
-        long tree_ids = Heap[hnew];
+        int64_t tree_ids = Heap[hnew];
         if (tree_val[tree_ids] > tval_idb)
             break;
         Heap[hpos] = tree_ids;
@@ -106,14 +106,14 @@ void heap_down(long heapid)
  *
  * @return The removed element value.
  */
-long naviheap_remove(void)
+int64_t naviheap_remove(void)
 {
   if (heap_end < 1)
   {
       sim_feedback->report_error_stat(ESE_BadPathHeap);
       return -1;
   }
-  long popval = Heap[1];
+  int64_t popval = Heap[1];
   Heap[1] = Heap[heap_end];
   heap_end--;
   heap_down(1);
@@ -121,23 +121,23 @@ long naviheap_remove(void)
 }
 
 #define heap_up(heapid) heap_up_f(heapid, __func__)
-void heap_up_f(long heapid, const char *func_name)
+void heap_up_f(int64_t heapid, const char *func_name)
 {
-    unsigned long pmask = heapid;
+    uint64_t pmask = heapid;
     Heap[0] = TREEVALS_COUNT-1;
     tree_val[TREEVALS_COUNT-1] = -1;
-    unsigned long nmask = pmask;
-    long k = Heap[pmask];
+    uint64_t nmask = pmask;
+    int64_t k = Heap[pmask];
     while ( 1 )
     {
         nmask >>= 1;
-        long i = Heap[nmask];
+        int64_t i = Heap[nmask];
         if (tree_val[k] > tree_val[i])
           break;
         if (pmask == 0)
         {
             sim_feedback->report_error_stat(ESE_BadPathHeap);
-            ERRORDBG(8,"%s: sabotaged navigate heap, heapid=%d",func_name,(int)heapid);
+            ERRORDBG(8,"%s: sabotaged navigate heap, heapid=%" PRId64,func_name,(int64_t)heapid);
             break;
         }
         Heap[pmask] = i;
@@ -146,7 +146,7 @@ void heap_up_f(long heapid, const char *func_name)
     Heap[pmask] = k;
 }
 
-TbBool naviheap_add(long heapid)
+TbBool naviheap_add(int64_t heapid)
 {
     // Always leave one unused element (not sure why, but originally 2 were left)
     // The element is needed because we sometimes fill Heap[heap_end+1] and this must work
@@ -165,9 +165,9 @@ TbBool naviheap_add(long heapid)
  * @param heapid
  * @return
  */
-static long naviheap_item_tree_val(long heapid)
+static int64_t naviheap_item_tree_val(int64_t heapid)
 {
-    long tree_id = naviheap_get(heapid);
+    int64_t tree_id = naviheap_get(heapid);
     if ((tree_id < 0) || (tree_id >= TREEVALS_COUNT))
     {
         sim_feedback->report_error_stat(ESE_BadPathHeap);

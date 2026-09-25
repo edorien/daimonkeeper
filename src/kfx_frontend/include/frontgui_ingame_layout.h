@@ -18,53 +18,53 @@
 namespace tcl {
 
 // The whole tab-content region (below the tab strip, above the panel foot).
-constexpr float BODY_Y0 = 190.0f;
-constexpr float BODY_Y1 = 398.0f;
-constexpr float BODY_X0 = 4.0f;
-constexpr float BODY_X1 = 136.0f;
+constexpr double BODY_Y0 = 190.0;
+constexpr double BODY_Y1 = 398.0;
+constexpr double BODY_X0 = 4.0;
+constexpr double BODY_X1 = 136.0;
 
 // Room / spell / trap panels: the info strip, then the scrolling icon grid.
-constexpr float INFO_Y0 = 196.0f;
-constexpr float INFO_Y1 = 240.0f;
-constexpr float GRID_Y0 = 242.0f;
-constexpr float GRID_Y1 = 396.0f;
+constexpr double INFO_Y0 = 196.0;
+constexpr double INFO_Y1 = 240.0;
+constexpr double GRID_Y0 = 242.0;
+constexpr double GRID_Y1 = 396.0;
 
 // Creature-query / possession panel.
 namespace q {
     // Header: portrait + the two vertical anger/xp bars
     // (10:60:10:10:5:10:5 horizontal split -- see 09 retest 5).
-    constexpr float HEADER_Y0 = 190.0f;
-    constexpr float HEADER_Y1 = 243.0f;
-    constexpr float BARS_Y0   = 192.0f;
-    constexpr float BARS_Y1   = 241.0f;
-    constexpr float LEVEL_Y   = 193.0f;  // level number, over the xp bar top
+    constexpr double HEADER_Y0 = 190.0;
+    constexpr double HEADER_Y1 = 243.0;
+    constexpr double BARS_Y0   = 192.0;
+    constexpr double BARS_Y1   = 241.0;
+    constexpr double LEVEL_Y   = 193.0;  // level number, over the xp bar top
 
     // Health bar (name centred, no numeric value).
-    constexpr float HEALTH_Y0 = 248.0f;
-    constexpr float HEALTH_Y1 = 266.0f;
+    constexpr double HEALTH_Y0 = 248.0;
+    constexpr double HEALTH_Y1 = 266.0;
 
     // ABILITIES / STATS toggle strip.
-    constexpr float DETAIL_TABS_Y = 270.0f;
-    constexpr float DETAIL_TABS_H = 16.0f;
+    constexpr double DETAIL_TABS_Y = 270.0;
+    constexpr double DETAIL_TABS_H = 16.0;
 
     // ABILITIES: the instance grid.
-    constexpr float ABIL_ORG_Y  = 291.0f;
-    constexpr float ABIL_CELL_W = 43.0f;
-    constexpr float ABIL_CELL_H = 37.0f;
-    constexpr float ABIL_PITCH  = 40.0f;
+    constexpr double ABIL_ORG_Y  = 291.0;
+    constexpr double ABIL_CELL_W = 43.0;
+    constexpr double ABIL_CELL_H = 37.0;
+    constexpr double ABIL_PITCH  = 40.0;
 
     // STATS: the scrolling 2-per-row list.
-    constexpr float STATS_Y0 = 289.0f;
-    constexpr float STATS_Y1 = 396.0f;
+    constexpr double STATS_Y0 = 289.0;
+    constexpr double STATS_Y1 = 396.0;
 }
 
 // GMnu_SPELL_LOST (top-down lost-keeper state).
 namespace lost {
-    constexpr float TEXT_Y   = 202.0f;
-    constexpr float ICON_Y0  = 250.0f;
-    constexpr float ICON_X0  = 50.0f;
-    constexpr float ICON_W   = 40.0f;
-    constexpr float ICON_H   = 44.0f;
+    constexpr double TEXT_Y   = 202.0;
+    constexpr double ICON_Y0  = 250.0;
+    constexpr double ICON_X0  = 50.0;
+    constexpr double ICON_W   = 40.0;
+    constexpr double ICON_H   = 44.0;
 }
 
 } // namespace tcl

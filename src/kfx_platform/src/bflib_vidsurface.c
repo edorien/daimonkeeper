@@ -44,7 +44,7 @@ void LbScreenSurfaceInit(struct SSurface *surf)
   surf->locks_count = 0;
 }
 
-TbResult LbScreenSurfaceCreate(struct SSurface *surf,unsigned long w,unsigned long h)
+TbResult LbScreenSurfaceCreate(struct SSurface *surf,uint64_t w,uint64_t h)
 {
     // SDL3: surface->format is an SDL_PixelFormat enum which fully describes the
     // layout, so SDL_CreateSurface() takes it directly (no explicit masks).
@@ -79,8 +79,8 @@ TbResult LbScreenSurfaceRelease(struct SSurface *surf)
   return Lb_SUCCESS;
 }
 
-TbResult LbScreenSurfaceBlit(struct SSurface *surf, unsigned long x, unsigned long y,
-    struct TbRect *rect, unsigned long blflags)
+TbResult LbScreenSurfaceBlit(struct SSurface *surf, uint64_t x, uint64_t y,
+    struct TbRect *rect, uint64_t blflags)
 {
     // Convert TbRect to SDL rectangles
     SDL_Rect srcRect;

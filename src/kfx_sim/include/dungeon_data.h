@@ -91,12 +91,12 @@ struct DiggerStack {
 
 struct ResearchVal {
   unsigned char rtyp;
-  unsigned short rkind;
-  int32_t req_amount;
+  int64_t rkind;
+  int64_t req_amount;
 };
 
 struct TurnTimer {
-  uint32_t count;
+  uint64_t count;
   unsigned char state;
 };
 
@@ -121,22 +121,22 @@ struct TrapInfo
 
 struct BoxInfo
 {
-    uint16_t              activated[CUSTOM_BOX_COUNT];
+    int64_t              activated[CUSTOM_BOX_COUNT];
 };
 
 
 /** Used to set player modifier with script command. */
 struct Modifiers
 {
-    unsigned short health;
-    unsigned short strength;
-    unsigned short armour;
-    unsigned short spell_damage;
-    unsigned short speed;
-    unsigned short pay;
-    unsigned short training_cost;
-    unsigned short scavenging_cost;
-    unsigned short loyalty;
+    int64_t health;
+    int64_t strength;
+    int64_t armour;
+    int64_t spell_damage;
+    int64_t speed;
+    int64_t pay;
+    int64_t training_cost;
+    int64_t scavenging_cost;
+    int64_t loyalty;
 };
 
 struct Dungeon {
@@ -144,17 +144,17 @@ struct Dungeon {
     struct Coord3d mappos;
     unsigned char creature_tendencies;
     unsigned char computer_enabled;
-    short creatr_list_start;
-    short digger_list_start;
+    int64_t creatr_list_start;
+    int64_t digger_list_start;
     ThingIndex summon_list[MAX_SUMMONS];
-    unsigned short num_summon;
+    int64_t num_summon;
     ThingIndex things_in_hand[MAX_THINGS_IN_HAND];
     unsigned char num_things_in_hand;
-    unsigned short crmodel_state_type_count[CREATURE_TYPES_MAX][STATE_TYPES_COUNT];
-    unsigned short guijob_all_creatrs_count[CREATURE_TYPES_MAX][3];
-    unsigned short guijob_angry_creatrs_count[CREATURE_TYPES_MAX][3];
-    int sight_casted_gameturn;
-    short sight_casted_thing_idx;
+    int64_t crmodel_state_type_count[CREATURE_TYPES_MAX][STATE_TYPES_COUNT];
+    int64_t guijob_all_creatrs_count[CREATURE_TYPES_MAX][3];
+    int64_t guijob_angry_creatrs_count[CREATURE_TYPES_MAX][3];
+    int64_t sight_casted_gameturn;
+    int64_t sight_casted_thing_idx;
     KeepPwrLevel sight_casted_power_level;
     MapSubtlCoord sight_casted_stl_x;
     MapSubtlCoord sight_casted_stl_y;
@@ -162,11 +162,11 @@ struct Dungeon {
     MapSubtlCoord cta_stl_x;
     MapSubtlCoord cta_stl_y;
     KeepPwrLevel cta_power_level;
-    uint32_t cta_start_turn;
+    uint64_t cta_start_turn;
     TbBool cta_free;
-    uint32_t must_obey_turn;
-    int hold_audience_cast_turn;
-    int scavenge_counters_turn;
+    uint64_t must_obey_turn;
+    int64_t hold_audience_cast_turn;
+    int64_t scavenge_counters_turn;
     /** Counter of creatures scavenging of each kind, zeroized and recomputed each game turn. */
     unsigned char creatures_scavenging[CREATURE_TYPES_MAX];
     /** Counter of creatures praying. */
@@ -175,48 +175,48 @@ struct Dungeon {
     unsigned char gold_piles_sacrificed;
     unsigned char creature_sacrifice[CREATURE_TYPES_MAX];
     unsigned char creature_sacrifice_exp[CREATURE_TYPES_MAX];
-    unsigned short num_active_diggers;
-    unsigned short num_active_creatrs;
-    unsigned short owned_creatures_of_model[CREATURE_TYPES_MAX];
+    int64_t num_active_diggers;
+    int64_t num_active_creatrs;
+    int64_t owned_creatures_of_model[CREATURE_TYPES_MAX];
     /** Total amount of rooms in possession of a player. Rooms which can never be built are not counted. */
     unsigned char total_rooms;
-    unsigned short total_doors;
-    unsigned short total_area;
-    unsigned short total_creatures_left;
-    int doors_destroyed;
-    short room_manage_area;
-    short creatures_scavenged[CREATURE_TYPES_MAX];
-    short creatures_scavenge_gain;
-    short creatures_scavenge_lost;
-    int32_t scavenge_turn_points[CREATURE_TYPES_MAX];
-    short scavenge_targets[CREATURE_TYPES_MAX];
+    int64_t total_doors;
+    int64_t total_area;
+    int64_t total_creatures_left;
+    int64_t doors_destroyed;
+    int64_t room_manage_area;
+    int64_t creatures_scavenged[CREATURE_TYPES_MAX];
+    int64_t creatures_scavenge_gain;
+    int64_t creatures_scavenge_lost;
+    int64_t scavenge_turn_points[CREATURE_TYPES_MAX];
+    int64_t scavenge_targets[CREATURE_TYPES_MAX];
     CrtrExpLevel creature_max_level[CREATURE_TYPES_MAX];
-    unsigned short creatures_annoyed;
-    unsigned short battles_lost;
-    unsigned short battles_won;
+    int64_t creatures_annoyed;
+    int64_t battles_lost;
+    int64_t battles_won;
     /** Amount of room tiles a player had which were destroyed (vandalized or damaged by enemy). */
-    unsigned short rooms_destroyed;
-    unsigned short spells_stolen;
-    unsigned short times_broken_into;
-    unsigned short gold_pots_stolen;
-    int last_entrance_generation_gameturn;
-    int turns_between_entrance_generation;
-    int last_research_complete_gameturn;
-    int manage_score;
-    int total_score;
-    uint32_t max_gameplay_score;
-    short highest_task_number;
+    int64_t rooms_destroyed;
+    int64_t spells_stolen;
+    int64_t times_broken_into;
+    int64_t gold_pots_stolen;
+    int64_t last_entrance_generation_gameturn;
+    int64_t turns_between_entrance_generation;
+    int64_t last_research_complete_gameturn;
+    int64_t manage_score;
+    int64_t total_score;
+    uint64_t max_gameplay_score;
+    int64_t highest_task_number;
     GoldAmount total_money_owned;
     GoldAmount offmap_money_owned;
     struct MapTask task_list[MAPTASKS_COUNT];
-    int task_count;
+    int64_t task_count;
     unsigned char owner;
-    int camera_deviate_quake;
-    int camera_deviate_jump;
-    int32_t score;
+    int64_t camera_deviate_quake;
+    int64_t camera_deviate_jump;
+    int64_t score;
     struct ResearchVal research[DUNGEON_RESEARCH_COUNT];
-    int current_research_idx;
-    unsigned short research_num;
+    int64_t current_research_idx;
+    int64_t research_num;
     /** How many creatures are force-enabled for each kind.
      * Force-enabled creature can come from portal without additional conditions,
      * but only until dungeon has up to given amount of their kind. */
@@ -225,53 +225,53 @@ struct Dungeon {
      * Allowed creatures can join a dungeon if whether attraction condition is met
      * or force-enabled amount isn't reached. */
     unsigned char creature_allowed[CREATURE_TYPES_MAX];
-    unsigned short magic_level[POWER_TYPES_MAX];
-    unsigned short magic_resrchable[POWER_TYPES_MAX];
+    int64_t magic_level[POWER_TYPES_MAX];
+    int64_t magic_resrchable[POWER_TYPES_MAX];
     struct TurnTimer turn_timers[TURN_TIMERS_COUNT];
-    int32_t max_creatures_attracted;
+    int64_t max_creatures_attracted;
     unsigned char heart_destroy_state;
-    int32_t heart_destroy_turn;
+    int64_t heart_destroy_turn;
     struct Coord3d essential_pos;
     struct DiggerStack digger_stack[DIGGER_TASK_MAX_COUNT];
-    uint32_t digger_stack_update_turn;
-    uint32_t digger_stack_length;
+    uint64_t digger_stack_update_turn;
+    uint64_t digger_stack_length;
     /** Array with battle indexes with the battles currently visible in fight event message */
     unsigned char visible_battles[3];
-    short zoom_annoyed_creature_idx;
-    int32_t total_experience_creatures_gained;
-    int32_t total_research_points;
-    int32_t total_manufacture_points;
-    int32_t manufacture_progress;
+    int64_t zoom_annoyed_creature_idx;
+    int64_t total_experience_creatures_gained;
+    int64_t total_research_points;
+    int64_t total_manufacture_points;
+    int64_t manufacture_progress;
     ThingClass manufacture_class;
     ThingModel manufacture_kind;
-    int32_t turn_last_manufacture;
-    int32_t manufacture_level;
-    int32_t research_progress;
+    int64_t turn_last_manufacture;
+    int64_t manufacture_level;
+    int64_t research_progress;
     struct LevelStats lvstats;
     struct CreatureStorage dead_creatures[DEAD_CREATURES_MAX_COUNT];
-    int32_t dead_creatures_count;
-    int32_t dead_creature_idx;
+    int64_t dead_creatures_count;
+    int64_t dead_creature_idx;
     /** Contains map event index or each even button visible on screen. */
     unsigned char event_button_index[EVENT_BUTTONS_COUNT+1];
-    unsigned short tortured_creatures[CREATURE_TYPES_MAX];
+    int64_t tortured_creatures[CREATURE_TYPES_MAX];
     unsigned char bodies_rotten_for_vampire;
-    int32_t portal_scavenge_boost;
+    int64_t portal_scavenge_boost;
     /** Stores how many creatures of each kind of has joined the dungeon during the level.
      * Values are saturated at 255. */
     unsigned char creature_models_joined[CREATURE_TYPES_MAX];
-    uint32_t fights_num;
+    uint64_t fights_num;
     unsigned char research_override; // could be easily changed into flags..
-    int last_creature_dropped_gameturn;
+    int64_t last_creature_dropped_gameturn;
     MapSubtlCoord devastation_centr_x;
     MapSubtlCoord devastation_centr_y;
     GameTurn devastation_turn;
-    int32_t creatures_total_pay;
+    int64_t creatures_total_pay;
     ThingIndex gold_hoard_for_pickup;
-    uint32_t gold_pickup_amount;
+    uint64_t gold_pickup_amount;
     /** Index of last creature picked up of given model. */
-    unsigned short selected_creatures_of_model[CREATURE_TYPES_MAX];
+    int64_t selected_creatures_of_model[CREATURE_TYPES_MAX];
     /** Index of last creature picked up of given GUI Job. */
-    unsigned short selected_creatures_of_gui_job[CREATURE_GUI_JOBS_COUNT];
+    int64_t selected_creatures_of_gui_job[CREATURE_GUI_JOBS_COUNT];
     unsigned char texture_pack;
     unsigned char color_idx;
     struct Modifiers      modifier;
@@ -281,19 +281,19 @@ struct Dungeon {
     struct Coord3d        last_combat_location;
     struct Coord3d        last_eventful_death_location;
     struct Coord3d        last_trap_event_location;
-    int                   creature_awarded[CREATURE_TYPES_MAX];
+    int64_t                   creature_awarded[CREATURE_TYPES_MAX];
     CrtrExpLevel          creature_entrance_level;
-    uint32_t              evil_creatures_converted;
-    uint32_t              good_creatures_converted;
-    uint32_t              creatures_transferred;
-    uint32_t              traps_sold;
-    uint32_t              doors_sold;
-    uint32_t              manufacture_gold;
-    int32_t               creatures_total_backpay;
-    int32_t               cheaper_diggers;
-    int32_t               event_last_run_turn[EVENT_KIND_COUNT];
-    int32_t               script_flags[SCRIPT_FLAGS_COUNT];
-    unsigned short        room_list_start[TERRAIN_ITEMS_MAX];
+    uint64_t              evil_creatures_converted;
+    uint64_t              good_creatures_converted;
+    uint64_t              creatures_transferred;
+    uint64_t              traps_sold;
+    uint64_t              doors_sold;
+    uint64_t              manufacture_gold;
+    int64_t               creatures_total_backpay;
+    int64_t               cheaper_diggers;
+    int64_t               event_last_run_turn[EVENT_KIND_COUNT];
+    int64_t               script_flags[SCRIPT_FLAGS_COUNT];
+    int64_t        room_list_start[TERRAIN_ITEMS_MAX];
     unsigned char         room_buildable[TERRAIN_ITEMS_MAX];
     unsigned char         room_resrchable[TERRAIN_ITEMS_MAX];
     unsigned char         room_discrete_count[TERRAIN_ITEMS_MAX+1];
@@ -317,10 +317,10 @@ TbBool dungeon_invalid(const struct Dungeon *dungeon);
 void clear_dungeons(void);
 void init_dungeons(void);
 
-void decrease_dungeon_area(PlayerNumber plyr_idx, int32_t value);
-void increase_room_area(PlayerNumber plyr_idx, int32_t value);
-void decrease_room_area(PlayerNumber plyr_idx, int32_t value);
-void increase_dungeon_area(PlayerNumber plyr_idx, int32_t value);
+void decrease_dungeon_area(PlayerNumber plyr_idx, int64_t value);
+void increase_room_area(PlayerNumber plyr_idx, int64_t value);
+void decrease_room_area(PlayerNumber plyr_idx, int64_t value);
+void increase_dungeon_area(PlayerNumber plyr_idx, int64_t value);
 TbBool mark_creature_joined_dungeon(struct Thing *creatng);
 
 void player_add_offmap_gold(PlayerNumber plyr_idx, GoldAmount value);
@@ -334,20 +334,20 @@ struct Thing *get_player_soul_container(PlayerNumber plyr_idx);
 TbBool player_has_room_of_role(PlayerNumber plyr_idx, RoomRole rrole);
 TbBool dungeon_has_room(const struct Dungeon *dungeon, RoomKind rkind);
 TbBool dungeon_has_room_of_role(const struct Dungeon *dungeon, RoomRole rrole);
-int32_t count_player_discrete_rooms_with_role(PlayerNumber plyr_idx, RoomRole rrole);
+int64_t count_player_discrete_rooms_with_role(PlayerNumber plyr_idx, RoomRole rrole);
 
-TbBool set_creature_tendencies(struct PlayerInfo *player, unsigned short tend_type, TbBool val);
-TbBool toggle_creature_tendencies(struct PlayerInfo *player, unsigned short tend_type);
-TbBool player_creature_tends_to(PlayerNumber plyr_idx, unsigned short tend_type);
+TbBool set_creature_tendencies(struct PlayerInfo *player, int64_t tend_type, TbBool val);
+TbBool toggle_creature_tendencies(struct PlayerInfo *player, int64_t tend_type);
+TbBool player_creature_tends_to(PlayerNumber plyr_idx, int64_t tend_type);
 
-TbBool set_trap_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel trap_kind, int32_t buildable, int32_t amount);
-TbBool set_door_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel door_kind, int32_t buildable, int32_t amount);
+TbBool set_trap_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel trap_kind, int64_t buildable, int64_t amount);
+TbBool set_door_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel door_kind, int64_t buildable, int64_t amount);
 TbBool dungeon_has_any_buildable_traps(struct Dungeon *dungeon);
 TbBool dungeon_has_any_buildable_doors(struct Dungeon *dungeon);
 
-TbBool restart_script_timer(PlayerNumber plyr_idx, int32_t timer_id);
-TbBool set_script_flag(PlayerNumber plyr_idx, int32_t flag_id, int32_t value);
-void add_to_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, int32_t value);
+TbBool restart_script_timer(PlayerNumber plyr_idx, int64_t timer_id);
+TbBool set_script_flag(PlayerNumber plyr_idx, int64_t flag_id, int64_t value);
+void add_to_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, int64_t value);
 
 void add_heart_health(PlayerNumber plyr_idx,HitPoints healthdelta,TbBool warn_on_damage);
 
@@ -358,9 +358,9 @@ TbBool player_has_valid_dungeon(PlayerNumber plyr_idx);
 TbBool player_has_valid_dungeon_with_heart(PlayerNumber plyr_idx);
 TbBool players_num_dungeon_valid(PlayerNumber plyr_idx);
 TbBool players_num_dungeon_valid_with_heart(PlayerNumber plyr_idx);
-void set_creature_availability(PlayerNumber plyr_idx, ThingModel crtr_model, long can_be_avail, long force_avail);
+void set_creature_availability(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail);
 void try_set_backup_heart_idx(PlayerNumber owner, ThingIndex thing_idx);
-TbBool set_room_resrchable_and_buildable(PlayerNumber plyr_idx, RoomKind rkind, long resrch, long avail);
+TbBool set_room_resrchable_and_buildable(PlayerNumber plyr_idx, RoomKind rkind, int64_t resrch, int64_t avail);
 TbBool get_room_resrchable(PlayerNumber plyr_idx, RoomKind rkind);
 void set_all_room_resrchable(PlayerNumber plyr_idx);
 TbBool get_room_buildable(PlayerNumber plyr_idx, RoomKind rkind);
@@ -369,12 +369,12 @@ TbBool get_magic_resrchable(PlayerNumber plyr_idx, PowerKind pwkind);
 void set_magic_resrchable(PlayerNumber plyr_idx, PowerKind pwkind, TbBool resrch);
 void set_all_magic_resrchable_unchecked(PlayerNumber plyr_idx);
 TbBool get_magic_level_gt0(PlayerNumber plyr_idx, PowerKind pwkind);
-TbBool get_trap_placeable(PlayerNumber plyr_idx, long tngmodel);
-TbBool get_trap_manufacturable(PlayerNumber plyr_idx, long tngmodel);
-TbBool get_trap_built(PlayerNumber plyr_idx, long tngmodel);
-TbBool get_door_placeable(PlayerNumber plyr_idx, long door_idx);
-TbBool get_door_manufacturable(PlayerNumber plyr_idx, long door_idx);
-TbBool get_door_built(PlayerNumber plyr_idx, long door_idx);
+TbBool get_trap_placeable(PlayerNumber plyr_idx, int64_t tngmodel);
+TbBool get_trap_manufacturable(PlayerNumber plyr_idx, int64_t tngmodel);
+TbBool get_trap_built(PlayerNumber plyr_idx, int64_t tngmodel);
+TbBool get_door_placeable(PlayerNumber plyr_idx, int64_t door_idx);
+TbBool get_door_manufacturable(PlayerNumber plyr_idx, int64_t door_idx);
+TbBool get_door_built(PlayerNumber plyr_idx, int64_t door_idx);
 
 /******************************************************************************/
 #ifdef __cplusplus

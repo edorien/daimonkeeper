@@ -53,7 +53,7 @@ enum GuiLayers {
 };
 
 struct GuiLayer {
-    long current_gui_layer;
+    int64_t current_gui_layer;
 };
 
 // struct GamekeySettings/game_key_settings[] moved to kfx_config's
@@ -79,31 +79,31 @@ extern enum RotateAroundMouseOptions rotate_around_mouse_option;
 
 #pragma pack()
 /******************************************************************************/
-extern long old_mx;
-extern long old_my;
+extern int64_t old_mx;
+extern int64_t old_my;
 /******************************************************************************/
 void input(void);
-short get_screen_capture_inputs(void);
-int is_game_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods);
+int64_t get_screen_capture_inputs(void);
+int64_t is_game_key_pressed(int64_t key_id, TbBool clear_pressed, TbBool ignore_mods);
 // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
 // checker (settings.editor_kbkeys[]/EditorGameKeys, globals.h), not
 // GameKeys/settings.kbkeys[].
-int is_editor_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods);
-short game_is_busy_doing_gui_string_input(void);
-short get_gui_inputs(short gameplay_on);
+int64_t is_editor_key_pressed(int64_t key_id, TbBool clear_pressed, TbBool ignore_mods);
+int64_t game_is_busy_doing_gui_string_input(void);
+int64_t get_gui_inputs(int64_t gameplay_on);
 #define ZOOM_KEY_ROOMS_COUNT   15
-extern unsigned short const zoom_key_room_order[];
-unsigned short get_zoom_key_room_order(long idx);
-TbBool check_current_gui_layer(long layer_id);
+extern int64_t const zoom_key_room_order[];
+int64_t get_zoom_key_room_order(int64_t idx);
+TbBool check_current_gui_layer(int64_t layer_id);
 TbBool process_cheat_heart_health_inputs(HitPoints *value, HitPoints max_health);
-TbControllerButtons get_game_key_controller_buttons(long key_id);
-float get_game_key_axis_value(long key_id, TbBool ignore_mods);
+TbControllerButtons get_game_key_controller_buttons(int64_t key_id);
+double get_game_key_axis_value(int64_t key_id, TbBool ignore_mods);
 
 void toggle_hero_health_flowers(void);
 void update_time(void);
 // struct GameTime moved to sim_feedback.h (kfx_config) -- see include below.
-void get_game_time(struct GameTime *GT, unsigned long turns, unsigned long fps);
-void update_game_time(struct GameTime *GT, unsigned long *gameseconds);
+void get_game_time(struct GameTime *GT, uint64_t turns, uint64_t fps);
+void update_game_time(struct GameTime *GT, uint64_t *gameseconds);
 
 /******************************************************************************/
 #ifdef __cplusplus

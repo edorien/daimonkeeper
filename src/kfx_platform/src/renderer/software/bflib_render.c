@@ -34,7 +34,7 @@
  * vec_colour explicitly before use (confirmed via grep), so this initial
  * value is very unlikely to ever actually render. */
 TbPixel vec_colour = { 112, 112, 112, 255 };
-int vec_shade = 0;
+int64_t vec_shade = 0;
 unsigned char vec_mode;
 struct PolyPoint *polyscans = NULL;
 /******************************************************************************/

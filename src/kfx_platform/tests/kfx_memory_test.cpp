@@ -37,7 +37,7 @@ TEST_CASE("KfxAlloc returns a usable, writable block of the requested size", "[k
 TEST_CASE("KfxCalloc zero-initializes the requested block", "[kfx_platform][kfx_memory]") {
     unsigned char* p = static_cast<unsigned char*>(KfxCalloc(16, sizeof(unsigned char)));
     REQUIRE(p != nullptr);
-    for (int i = 0; i < 16; i++) {
+    for (int64_t i = 0; i < 16; i++) {
         CHECK(p[i] == 0);
     }
     KfxFree(p);

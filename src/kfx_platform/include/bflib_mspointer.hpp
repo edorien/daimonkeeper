@@ -29,15 +29,15 @@
 /******************************************************************************/
 #define CURSOR_SCALING_XSTEPS MAX_SUPPORTED_SCREEN_WIDTH/10
 #define CURSOR_SCALING_YSTEPS MAX_SUPPORTED_SCREEN_HEIGHT/10
-extern int32_t cursor_xsteps_array[2*CURSOR_SCALING_XSTEPS];
-extern int32_t cursor_ysteps_array[2*CURSOR_SCALING_YSTEPS];
+extern int64_t cursor_xsteps_array[2*CURSOR_SCALING_XSTEPS];
+extern int64_t cursor_ysteps_array[2*CURSOR_SCALING_YSTEPS];
 
 // Had real external linkage but no header declaration at all -- added,
 // the usual "add the missing declaration" fix.
-void LbCursorSpriteSetScalingWidthClipped(long x, long swidth, long dwidth, long gwidth);
-void LbCursorSpriteSetScalingWidthSimple(long x, long swidth, long dwidth);
-void LbCursorSpriteSetScalingHeightClipped(long y, long sheight, long dheight, long gheight);
-void LbCursorSpriteSetScalingHeightSimple(long y, long sheight, long dheight);
+void LbCursorSpriteSetScalingWidthClipped(int64_t x, int64_t swidth, int64_t dwidth, int64_t gwidth);
+void LbCursorSpriteSetScalingWidthSimple(int64_t x, int64_t swidth, int64_t dwidth);
+void LbCursorSpriteSetScalingHeightClipped(int64_t y, int64_t sheight, int64_t dheight, int64_t gheight);
+void LbCursorSpriteSetScalingHeightSimple(int64_t y, int64_t sheight, int64_t dheight);
 /******************************************************************************/
 
 // RAII wrapper around struct SSurface: Release() always runs on destruction
@@ -50,7 +50,7 @@ class ScopedScreenSurface {
     ScopedScreenSurface(const ScopedScreenSurface &) = delete;
     ScopedScreenSurface &operator=(const ScopedScreenSurface &) = delete;
 
-    TbResult Create(unsigned long w, unsigned long h)
+    TbResult Create(uint64_t w, uint64_t h)
     {
         LbScreenSurfaceRelease(&surf_);
         return LbScreenSurfaceCreate(&surf_, w, h);
@@ -67,7 +67,7 @@ class LbI_PointerHandler {
  public:
     LbI_PointerHandler(void);
     ~LbI_PointerHandler(void);
-    void SetHotspot(long x, long y);
+    void SetHotspot(int64_t x, int64_t y);
     void Initialise(const struct TbSprite *spr, struct TbPoint *, struct TbPoint *);
     void Release(void);
     void NewMousePos(void);
@@ -86,8 +86,8 @@ class LbI_PointerHandler {
     struct TbPoint *position;
     struct TbPoint *spr_offset;
     struct TbRect rect_1038;
-    long draw_pos_x;
-    long draw_pos_y;
+    int64_t draw_pos_x;
+    int64_t draw_pos_y;
     bool is_active;
     bool needs_redraw;
     const struct TbSprite *sprite;

@@ -89,18 +89,18 @@ TbBool thing_touching_flight_altitude(const struct Thing *thing)
     if (thing->veloc_push_add.z.val != 0) {
         return false;
     }
-    int floor_height = get_floor_height_under_thing_at(thing, &thing->mappos);
+    int64_t floor_height = get_floor_height_under_thing_at(thing, &thing->mappos);
     return (thing->mappos.z.val >= floor_height + 16*NORMAL_FLYING_ALTITUDE/17)
         && (thing->mappos.z.val <= floor_height + 19*NORMAL_FLYING_ALTITUDE/17);
 }
 
 TbBool thing_above_flight_altitude(const struct Thing* thing)
 {
-    int floor_height = get_floor_height_under_thing_at(thing, &thing->mappos);
+    int64_t floor_height = get_floor_height_under_thing_at(thing, &thing->mappos);
     return (thing->mappos.z.val > floor_height + 19 * NORMAL_FLYING_ALTITUDE / 17);
 }
 
-void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long blocked_flags)
+void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, int64_t blocked_flags)
 {
   MapCoord x_thing;
   MapCoord sizexy;
@@ -117,10 +117,10 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
       {
         if ( x_pos > x_thing )
         {
-          pos->x.val = ((x_pos + sizexy) & 0xFFFFFF00) - sizexy - 1;
+          pos->x.val = ((x_pos + sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1;
           return;
         }
-        x_thing = (((x_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+        x_thing = (((x_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
       }
       pos->x.val = x_thing;
       break;
@@ -132,10 +132,10 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
       {
         if ( y_thing < y_pos )
         {
-          pos->y.val = ((y_pos + sizexy) & 0xFFFFFF00) - sizexy - 1;
+          pos->y.val = ((y_pos + sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1;
           return;
         }
-        y_thing = (((y_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+        y_thing = (((y_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
       }
       pos->y.val = y_thing;
       break;
@@ -146,18 +146,18 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
       if ( x_pos != x_thing )
       {
         if ( x_pos <= x_thing )
-          x_thing = (((x_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+          x_thing = (((x_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
         else
-          x_thing = (((sizexy + x_pos) & 0xFFFFFF00) - sizexy - 1);
+          x_thing = (((sizexy + x_pos) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1);
       }
       y_thing = thing->mappos.y.val;
       y_pos = pos->y.val;
       if ( y_pos != y_thing )
       {
         if ( y_pos <= y_thing )
-          y_thing = (((y_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+          y_thing = (((y_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
         else
-          y_thing = (((sizexy + y_pos) & 0xFFFFFF00) - sizexy - 1);
+          y_thing = (((sizexy + y_pos) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1);
       }
       pos->x.val = x_thing;
       pos->y.val = y_thing;
@@ -172,9 +172,9 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
       if ( x_pos != x_thing )
       {
         if ( x_pos <= x_thing )
-          x_thing = (((x_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+          x_thing = (((x_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
         else
-          x_thing = (((sizexy + x_pos) & 0xFFFFFF00) - sizexy - 1);
+          x_thing = (((sizexy + x_pos) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1);
       }
       pos->x.val = x_thing;
       pos->z.val = push_thingz_against_wall_at(thing, pos);
@@ -186,9 +186,9 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
       if ( y_thing != y_pos )
       {
         if ( y_thing >= y_pos )
-          y_thing = (((y_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+          y_thing = (((y_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
         else
-          y_thing = (((y_pos + sizexy) & 0xFFFFFF00) - sizexy - 1);
+          y_thing = (((y_pos + sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1);
       }
       pos->y.val = y_thing;
       pos->z.val = push_thingz_against_wall_at(thing, pos);
@@ -200,18 +200,18 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
       if ( x_pos != x_thing )
       {
         if ( x_pos <= x_thing )
-          x_thing = (((x_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+          x_thing = (((x_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
         else
-          x_thing = (((sizexy + x_pos) & 0xFFFFFF00) - sizexy - 1);
+          x_thing = (((sizexy + x_pos) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1);
       }
       y_pos = pos->y.val;
       y_thing = thing->mappos.y.val;
       if ( y_pos != y_thing )
       {
         if ( y_pos <= y_thing )
-          y_thing = (((y_pos - sizexy) & 0xFFFFFF00) + sizexy + COORD_PER_STL);
+          y_thing = (((y_pos - sizexy) & ((int64_t)(int32_t)0xFFFFFF00)) + sizexy + COORD_PER_STL);
         else
-          y_thing = (((sizexy + y_pos) & 0xFFFFFF00) - sizexy - 1);
+          y_thing = (((sizexy + y_pos) & ((int64_t)(int32_t)0xFFFFFF00)) - sizexy - 1);
       }
       pos->x.val = x_thing;
       pos->y.val = y_thing;
@@ -222,12 +222,12 @@ void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, long 
   }
 }
 
-void bounce_thing_off_wall_at(struct Thing *thing, struct Coord3d *pos, long blocked_flags)
+void bounce_thing_off_wall_at(struct Thing *thing, struct Coord3d *pos, int64_t blocked_flags)
 {
   MapCoordDelta x = thing->veloc_base.x.val;
   MapCoordDelta y = thing->veloc_base.y.val;
   MapCoordDelta z = thing->veloc_base.z.val;
-  int i;
+  int64_t i;
   switch ( blocked_flags )
   {
     case SlbBloF_WalledX:
@@ -270,9 +270,9 @@ void bounce_thing_off_wall_at(struct Thing *thing, struct Coord3d *pos, long blo
       pos->z.val = thing->mappos.z.val;
       i = thing->bounce_angle;
       thing->veloc_base.y.val = -(i * y / DEGREES_22_5);
-      int n = i * y;
-      int j = thing->inertia_floor;
-      int k = thing->veloc_base.x.val;
+      int64_t n = i * y;
+      int64_t j = thing->inertia_floor;
+      int64_t k = thing->veloc_base.x.val;
       thing->veloc_base.z.val = -(n / DEGREES_22_5);
       thing->veloc_base.x.val = k * (DEGREES_45 - j) / DEGREES_45;
       break;
@@ -290,7 +290,7 @@ void bounce_thing_off_wall_at(struct Thing *thing, struct Coord3d *pos, long blo
   }
 }
 
-void remove_relevant_forces_from_thing_after_slide(struct Thing *thing, struct Coord3d *pos, long blocked_flags)
+void remove_relevant_forces_from_thing_after_slide(struct Thing *thing, struct Coord3d *pos, int64_t blocked_flags)
 {
     switch (blocked_flags)
     {
@@ -334,7 +334,7 @@ TbBool positions_equivalent(const struct Coord3d *pos_a, const struct Coord3d *p
     return true;
 }
 
-void creature_set_speed(struct Thing *thing, long speed)
+void creature_set_speed(struct Thing *thing, int64_t speed)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (speed < -MAX_VELOCITY)
@@ -353,42 +353,42 @@ void creature_set_speed(struct Thing *thing, long speed)
 
 TbBool cross_x_boundary_first(const struct Coord3d *pos1, const struct Coord3d *pos2)
 {
-    int mul_x;
-    int mul_y;
-    int delta_x = pos2->x.val - (int)pos1->x.val;
-    int delta_y = pos2->y.val - (int)pos1->y.val;
+    int64_t mul_x;
+    int64_t mul_y;
+    int64_t delta_x = pos2->x.val - (int64_t)pos1->x.val;
+    int64_t delta_y = pos2->y.val - (int64_t)pos1->y.val;
     if (delta_x < 0)
     {
         mul_x = pos1->x.stl.pos;
   } else {
-      mul_x = 255 - (int)pos1->x.stl.pos;
+      mul_x = 255 - (int64_t)pos1->x.stl.pos;
   }
   if ( delta_y < 0 ) {
       mul_y = pos1->y.stl.pos;
   } else {
-      mul_y = 255 - (int)pos1->y.stl.pos;
+      mul_y = 255 - (int64_t)pos1->y.stl.pos;
   }
-  return abs(delta_x * mul_y) > abs(mul_x * delta_y);
+  return llabs(delta_x * mul_y) > llabs(mul_x * delta_y);
 }
 
 TbBool cross_y_boundary_first(const struct Coord3d *pos1, const struct Coord3d *pos2)
 {
-    int mul_x;
-    int mul_y;
-    int delta_x = pos2->x.val - (int)pos1->x.val;
-    int delta_y = pos2->y.val - (int)pos1->y.val;
+    int64_t mul_x;
+    int64_t mul_y;
+    int64_t delta_x = pos2->x.val - (int64_t)pos1->x.val;
+    int64_t delta_y = pos2->y.val - (int64_t)pos1->y.val;
     if (delta_x < 0)
     {
         mul_x = pos1->x.stl.pos;
   } else {
-      mul_x = 255 - (int)pos1->x.stl.pos;
+      mul_x = 255 - (int64_t)pos1->x.stl.pos;
   }
   if ( delta_y < 0 ) {
       mul_y = pos1->y.stl.pos;
   } else {
-      mul_y = 255 - (int)pos1->y.stl.pos;
+      mul_y = 255 - (int64_t)pos1->y.stl.pos;
   }
-  return abs(delta_y * mul_x) > abs(mul_y * delta_x);
+  return llabs(delta_y * mul_x) > llabs(mul_y * delta_x);
 }
 
 TbBool thing_can_traverse_abyss_at(const struct Thing *thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
@@ -404,8 +404,8 @@ TbBool position_over_floor_level(const struct Thing *thing, const struct Coord3d
     modpos.z.val = pos->z.val;
     if (thing_in_wall_at(thing, &modpos))
     {
-        long curr_height = thing->mappos.z.val;
-        long norm_height = get_floor_height_under_thing_at(thing, &modpos);
+        int64_t curr_height = thing->mappos.z.val;
+        int64_t norm_height = get_floor_height_under_thing_at(thing, &modpos);
         if (norm_height < curr_height)
         {
             return true;
@@ -426,8 +426,8 @@ TbBool creature_cannot_move_directly_to(struct Thing *thing, struct Coord3d *pos
     realpos.x.val = thing->mappos.x.val;
     realpos.y.val = thing->mappos.y.val;
     realpos.z.val = thing->mappos.z.val;
-    int delta_x = pos->x.val - (long)realpos.x.val;
-    int delta_y = pos->y.val - (long)realpos.y.val;
+    int64_t delta_x = pos->x.val - (int64_t)realpos.x.val;
+    int64_t delta_y = pos->y.val - (int64_t)realpos.y.val;
     // Backup original position - we will have to restore it before each return
     struct Coord3d origpos = thing->mappos;
 
@@ -437,12 +437,12 @@ TbBool creature_cannot_move_directly_to(struct Thing *thing, struct Coord3d *pos
 
         if (cross_x_boundary_first(&realpos, pos))
         {
-            int i;
+            int64_t i;
 
             if (pos->x.val <= realpos.x.val)
-              i = (realpos.x.val & 0xFFFFFF00) - 1;
+              i = (realpos.x.val & ((int64_t)(int32_t)0xFFFFFF00)) - 1;
             else
-              i = (realpos.x.val + COORD_PER_STL) & 0xFFFFFF00;
+              i = (realpos.x.val + COORD_PER_STL) & ((int64_t)(int32_t)0xFFFFFF00);
             modpos.x.val = i;
             modpos.y.val = delta_y * (i - origpos.x.val) / delta_x + origpos.y.val;
             modpos.z.val = realpos.z.val;
@@ -460,9 +460,9 @@ TbBool creature_cannot_move_directly_to(struct Thing *thing, struct Coord3d *pos
             realpos.z.val = thing->mappos.z.val;
 
             if (pos->y.val <= realpos.y.val)
-              i = (realpos.y.val & 0xFFFFFF00) - 1;
+              i = (realpos.y.val & ((int64_t)(int32_t)0xFFFFFF00)) - 1;
             else
-              i = (realpos.y.val + COORD_PER_STL) & 0xFFFFFF00;
+              i = (realpos.y.val + COORD_PER_STL) & ((int64_t)(int32_t)0xFFFFFF00);
             modpos.y.val = i;
             modpos.x.val = delta_x * (i - origpos.y.val) / delta_y + origpos.x.val;
             modpos.z.val = realpos.z.val;
@@ -492,12 +492,12 @@ TbBool creature_cannot_move_directly_to(struct Thing *thing, struct Coord3d *pos
 
         if (cross_y_boundary_first(&realpos, pos))
         {
-            int i;
+            int64_t i;
 
             if (pos->y.val <= realpos.y.val)
-              i = (realpos.y.val & 0xFFFFFF00) - 1;
+              i = (realpos.y.val & ((int64_t)(int32_t)0xFFFFFF00)) - 1;
             else
-              i = (realpos.y.val + COORD_PER_STL) & 0xFFFFFF00;
+              i = (realpos.y.val + COORD_PER_STL) & ((int64_t)(int32_t)0xFFFFFF00);
             modpos.y.val = i;
             modpos.x.val = delta_x * (i - origpos.y.val) / delta_y + origpos.x.val;
             modpos.z.val = realpos.z.val;
@@ -515,9 +515,9 @@ TbBool creature_cannot_move_directly_to(struct Thing *thing, struct Coord3d *pos
             realpos.z.val = thing->mappos.z.val;
 
             if (pos->x.val <= realpos.x.val)
-              i = (realpos.x.val & 0xFFFFFF00) - 1;
+              i = (realpos.x.val & ((int64_t)(int32_t)0xFFFFFF00)) - 1;
             else
-              i = (realpos.x.val + COORD_PER_STL) & 0xFFFFFF00;
+              i = (realpos.x.val + COORD_PER_STL) & ((int64_t)(int32_t)0xFFFFFF00);
             modpos.x.val = i;
             modpos.y.val = delta_y * (modpos.x.val - origpos.x.val) / delta_x + origpos.y.val;
             modpos.z.val = realpos.z.val;
@@ -569,26 +569,26 @@ TbBool creature_cannot_move_directly_to(struct Thing *thing, struct Coord3d *pos
 TbBool get_thing_next_position(struct Coord3d *pos, const struct Thing *thing)
 {
     // Don't clip the Z coord - clipping would make impossible to hit base ground (ie. water drip over water)
-    unsigned short flags = (thing_is_exempt_from_z_axis_clipping(thing)) ? MapCoord_ClipX|MapCoord_ClipY : MapCoord_ClipX|MapCoord_ClipY|MapCoord_ClipZ;
+    int64_t flags = (thing_is_exempt_from_z_axis_clipping(thing)) ? MapCoord_ClipX|MapCoord_ClipY : MapCoord_ClipX|MapCoord_ClipY|MapCoord_ClipZ;
     return set_coords_add_velocity(pos, &thing->mappos, &thing->velocity, flags);
 }
 
-long get_thing_height_at(const struct Thing *thing, const struct Coord3d *pos)
+int64_t get_thing_height_at(const struct Thing *thing, const struct Coord3d *pos)
 {
     SYNCDBG(18,"Starting");
-    int i;
+    int64_t i;
     if (thing_is_creature(thing)) {
         i = thing_nav_sizexy(thing);
     } else {
         i = thing->clipbox_size_xy;
     }
-    int radius = i >> 1;
+    int64_t radius = i >> 1;
 
     return get_thing_height_at_with_radius(thing, pos, radius);
 
 }
 
-long get_thing_height_at_with_radius(const struct Thing *thing, const struct Coord3d *pos, unsigned long radius)
+int64_t get_thing_height_at_with_radius(const struct Thing *thing, const struct Coord3d *pos, uint64_t radius)
 {
     MapCoord pos_x_beg = max((MapCoord)pos->x.val - radius, 0);
     MapCoord pos_y_beg = max((MapCoord)pos->y.val - radius, 0);
@@ -629,13 +629,13 @@ TbBool creature_can_pass_through_wall_at(const struct Thing *creatng, const stru
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     if (crconf->can_go_locked_doors)
     {
-        long i;
+        int64_t i;
         if (thing_is_creature(creatng)) {
             i = thing_nav_sizexy(creatng);
         } else {
             i = creatng->clipbox_size_xy;
         }
-        int radius = i / 2;
+        int64_t radius = i / 2;
         // Base on the radius, determine bounds of the object
         MapCoord height_beg = pos->z.val;
         MapCoord height_end = height_beg + creatng->clipbox_size_z;
@@ -661,15 +661,15 @@ TbBool creature_can_pass_through_wall_at(const struct Thing *creatng, const stru
     return false;
 }
 
-long thing_in_wall_at(const struct Thing *thing, const struct Coord3d *pos)
+int64_t thing_in_wall_at(const struct Thing *thing, const struct Coord3d *pos)
 {
-    long i;
+    int64_t i;
     if (thing_is_creature(thing)) {
         i = thing_nav_sizexy(thing);
     } else {
         i = thing->clipbox_size_xy;
     }
-    int radius = i / 2;
+    int64_t radius = i / 2;
     // Base on the radius, determine bounds of the object
     MapCoord height_beg = pos->z.val;
     MapCoord height_end = height_beg + thing->clipbox_size_z;
@@ -691,7 +691,7 @@ long thing_in_wall_at(const struct Thing *thing, const struct Coord3d *pos)
     return 0;
 }
 
-long thing_in_wall_at_with_radius(const struct Thing *thing, const struct Coord3d *pos, unsigned long radius)
+int64_t thing_in_wall_at_with_radius(const struct Thing *thing, const struct Coord3d *pos, uint64_t radius)
 {
     MapCoord z_beg = pos->z.val;
     MapCoord z_end = z_beg + thing->clipbox_size_z;
@@ -711,15 +711,15 @@ long thing_in_wall_at_with_radius(const struct Thing *thing, const struct Coord3
     return false;
 }
 
-long get_floor_height_under_thing_at(const struct Thing *thing, const struct Coord3d *pos)
+int64_t get_floor_height_under_thing_at(const struct Thing *thing, const struct Coord3d *pos)
 {
-    long i;
+    int64_t i;
     if (thing_is_creature(thing)) {
         i = thing_nav_sizexy(thing);
     } else {
         i = thing->clipbox_size_xy;
     }
-    int radius = i / 2;
+    int64_t radius = i / 2;
     // Get range of coords under thing
     MapCoord pos_x_beg = (pos->x.val - radius);
     if (pos_x_beg < 0)
@@ -741,25 +741,25 @@ long get_floor_height_under_thing_at(const struct Thing *thing, const struct Coo
     return subtile_coord(floor_height,0);
 }
 
-long get_ceiling_height_above_thing_at(const struct Thing *thing, const struct Coord3d *pos)
+int64_t get_ceiling_height_above_thing_at(const struct Thing *thing, const struct Coord3d *pos)
 {
-    long i;
+    int64_t i;
     if (thing_is_creature(thing)) {
         i = thing_nav_sizexy(thing);
     } else {
         i = thing->clipbox_size_xy;
     }
-    int radius = i / 2;
-    int pos_x_beg = (int)pos->x.val - radius;
+    int64_t radius = i / 2;
+    int64_t pos_x_beg = (int64_t)pos->x.val - radius;
     if (pos_x_beg < 0)
         pos_x_beg = 0;
-    int pos_y_beg = (int)pos->y.val - radius;
+    int64_t pos_y_beg = (int64_t)pos->y.val - radius;
     if (pos_y_beg < 0)
         pos_y_beg = 0;
-    int pos_x_end = (int)pos->x.val + radius;
+    int64_t pos_x_end = (int64_t)pos->x.val + radius;
     if (pos_x_end >= subtile_coord(kfx_sim_state.map_subtiles_x,COORD_PER_STL-1))
         pos_x_end = subtile_coord(kfx_sim_state.map_subtiles_x,COORD_PER_STL-1);
-    int pos_y_end = (int)pos->y.val + radius;
+    int64_t pos_y_end = (int64_t)pos->y.val + radius;
     if (pos_y_end >= subtile_coord(kfx_sim_state.map_subtiles_y,COORD_PER_STL-1))
         pos_y_end = subtile_coord(kfx_sim_state.map_subtiles_y,COORD_PER_STL-1);
     // Set initial values for computing floor and ceiling heights
@@ -769,20 +769,20 @@ long get_ceiling_height_above_thing_at(const struct Thing *thing, const struct C
     get_min_floor_and_ceiling_heights_for_rect(coord_subtile(pos_x_beg), coord_subtile(pos_y_beg),
         coord_subtile(pos_x_end), coord_subtile(pos_y_end), &floor_height, &ceiling_height);
     // Now we can be sure the value is correct
-    SYNCDBG(19,"Ceiling %d after (%d,%d)", (int)ceiling_height,(int)pos_x_end>>8,(int)pos_y_end>>8);
+    SYNCDBG(19,"Ceiling %" PRId64 " after (%" PRId64 ",%" PRId64 ")", (int64_t)ceiling_height,(int64_t)pos_x_end>>8,(int64_t)pos_y_end>>8);
     return subtile_coord(ceiling_height,0);
 }
 
 void get_floor_and_ceiling_height_under_thing_at(const struct Thing *thing,
     const struct Coord3d *pos, MapCoord *floor_height_cor, MapCoord *ceiling_height_cor)
 {
-    long i;
+    int64_t i;
     if (thing_is_creature(thing)) {
         i = thing_nav_sizexy(thing);
     } else {
         i = thing->clipbox_size_xy;
     }
-    int radius = i / 2;
+    int64_t radius = i / 2;
     // Get range of coords under thing
     MapCoord pos_x_beg = (pos->x.val - radius);
     if (pos_x_beg < 0)
@@ -844,12 +844,12 @@ TbBool thing_on_thing_at(const struct Thing *firstng, const struct Coord3d *pos,
     MapCoordDelta dist_collide = (sectng->solid_size_xy + firstng->solid_size_xy) / 2;
     MapCoordDelta dist_x = pos->x.val - (MapCoordDelta)sectng->mappos.x.val;
     MapCoordDelta dist_y = pos->y.val - (MapCoordDelta)sectng->mappos.y.val;
-    if ((abs(dist_x) >= dist_collide) || (abs(dist_y) >= dist_collide)) {
+    if ((llabs(dist_x) >= dist_collide) || (llabs(dist_y) >= dist_collide)) {
         return false;
     }
     dist_collide = (sectng->solid_size_z + firstng->solid_size_z) / 2;
     MapCoordDelta dist_z = pos->z.val - (MapCoordDelta)sectng->mappos.z.val - (sectng->solid_size_z >> 1) + (firstng->solid_size_z >> 1);
-    if (abs(dist_z) >= dist_collide) {
+    if (llabs(dist_z) >= dist_collide) {
         return false;
     }
     return true;
@@ -857,7 +857,7 @@ TbBool thing_on_thing_at(const struct Thing *firstng, const struct Coord3d *pos,
 
 TbBool things_collide_while_first_moves_to(const struct Thing *firstng, const struct Coord3d *dstpos, const struct Thing *sectng)
 {
-    SYNCDBG(8,"The %s index %d, check with %s index %d",thing_model_name(firstng),(int)firstng->index,thing_model_name(sectng),(int)sectng->index);
+    SYNCDBG(8,"The %s index %" PRId64 ", check with %s index %" PRId64,thing_model_name(firstng),(int64_t)firstng->index,thing_model_name(sectng),(int64_t)sectng->index);
     if ((firstng->parent_idx != 0) && (sectng->parent_idx == firstng->parent_idx)) {
         return false;
     }
@@ -867,14 +867,14 @@ TbBool things_collide_while_first_moves_to(const struct Thing *firstng, const st
     dt.y.val = dstpos->y.val - (MapCoordDelta)firstng->mappos.y.val;
     dt.z.val = dstpos->z.val - (MapCoordDelta)firstng->mappos.z.val;
     // Compute amount of interpoints for collision check
-    int interpoints;
+    int64_t interpoints;
     {
         MapCoordDelta dt_max = max(max(dt.x.val, dt.y.val), dt.z.val);
         // Require checking at 1/4 of max collision distance
         MapCoordDelta dt_limit = (sectng->solid_size_xy + firstng->solid_size_xy) / 4 + 1;
         interpoints = dt_max / dt_limit;
     }
-    for (int i = 1; i < interpoints; i++)
+    for (int64_t i = 1; i < interpoints; i++)
     {
         struct Coord3d pos;
         pos.x.val = firstng->mappos.x.val + dt.x.val * i / interpoints;
@@ -906,8 +906,8 @@ TbBool thing_is_exempt_from_z_axis_clipping(const struct Thing *thing)
 
 MapCoord push_thingz_against_wall_at(const struct Thing *thing, const struct Coord3d *pos)
 {
-  unsigned short clipbox_size = thing->clipbox_size_z;
-  long height = get_ceiling_height_above_thing_at(thing, pos);
+  int64_t clipbox_size = thing->clipbox_size_z;
+  int64_t height = get_ceiling_height_above_thing_at(thing, pos);
   MapCoord z_thing = thing->mappos.z.val;
   MapCoord z_pos = pos->z.val;
   if ( (height - 1) <= (z_pos + clipbox_size) )
@@ -920,9 +920,9 @@ MapCoord push_thingz_against_wall_at(const struct Thing *thing, const struct Coo
   }
   if ( z_pos < z_thing )
   {
-    return (z_pos & 0xFFFFFF00) + COORD_PER_STL;
+    return (z_pos & ((int64_t)(int32_t)0xFFFFFF00)) + COORD_PER_STL;
   }
-  return ((((z_pos + clipbox_size) & 0xFFFFFF00) - clipbox_size) + 255);
+  return ((((z_pos + clipbox_size) & ((int64_t)(int32_t)0xFFFFFF00)) - clipbox_size) + 255);
 }
 
 TbBool move_object_to_nearest_free_position(struct Thing *thing)
@@ -939,7 +939,7 @@ TbBool move_object_to_nearest_free_position(struct Thing *thing)
     MapSubtlCoord start_stl_x = thing->mappos.x.stl.num;
     MapSubtlCoord start_stl_y = thing->mappos.y.stl.num;
 
-    for (int k = 0; k < 120; k++)
+    for (int64_t k = 0; k < 120; k++)
     {
         MapSubtlCoord stl_x = spiral_step[k].h + start_stl_x;
         MapSubtlCoord stl_y = spiral_step[k].v + start_stl_y;
@@ -960,7 +960,7 @@ TbBool move_object_to_nearest_free_position(struct Thing *thing)
             }
         }
     }
-    ERRORLOG("Could not find a nearby space for thing Class:%d Model:%d",thing->class_id,thing->model);
+    ERRORLOG("Could not find a nearby space for thing Class:%" PRId64 " Model:%" PRId64,(int64_t)(thing->class_id),(int64_t)(thing->model));
     return false;
 
 }

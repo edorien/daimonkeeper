@@ -41,7 +41,7 @@ extern "C" {
 struct CampaignProgressEntry {
     char cmpgn_fname[CAMPAIGN_FNAME_LEN];
     LevelNumber unlocked_levels[CAMPAIGN_LEVELS_COUNT];
-    unsigned long unlocked_levels_count;
+    uint64_t unlocked_levels_count;
     // Bonus level numbers, stored directly rather than through
     // IntralevelData's own bonuses_found[] bitset -- that bitset's bit
     // index (storage_index_for_bonus_level(), config.h) is only meaningful
@@ -51,7 +51,7 @@ struct CampaignProgressEntry {
     // now (e.g. bulk-loading every campaign's progress at once). Raw level
     // numbers need no such context to interpret correctly.
     LevelNumber bonus_available[BONUS_LEVEL_STORAGE_COUNT];
-    unsigned long bonus_available_count;
+    uint64_t bonus_available_count;
     struct IntralevelData intralvl;
 };
 
@@ -62,7 +62,7 @@ struct CampaignProgressEntry {
 // save/ directory (see game_heap_test.cpp's own note on the same kind of
 // gap for creature.jty), so load_campaign_progress_file() itself can only
 // be tested for "no file present" behaviour, never real parsing.
-void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, const char *buf, long len, int32_t pos);
+void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, const char *buf, int64_t len, int64_t pos);
 
 // Loads save/progress.cfg into the in-memory table. Safe to call more than
 // once (re-reads from disk, discarding any prior in-memory state) -- not

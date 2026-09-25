@@ -33,9 +33,9 @@ enum NetworkPeerSendMode {
 
 TbBool read_network_message_text(char **read_pos, const char **text, size_t max_len);
 void send_network_chat_message(NetUserId sender, const char *message);
-struct PlayerInfo *prepare_network_chat_message(int player_id, const char *message);
+struct PlayerInfo *prepare_network_chat_message(int64_t player_id, const char *message);
 TbBool can_send_to_peer(NetUserId peer_id);
-void send_to_active_peers(int send_count, enum NetworkPeerSendMode send_mode, const char *buffer, size_t msg_size, NetUserId first_skip_id, NetUserId second_skip_id);
+void send_to_active_peers(int64_t send_count, enum NetworkPeerSendMode send_mode, const char *buffer, size_t msg_size, NetUserId first_skip_id, NetUserId second_skip_id);
 TbBool all_expected_exchange_frames_received(const TbBool has_received_frame[MAX_NET_USERS], TbBool is_host);
 TbError exchange_frame_message(void *send_buf, void *server_buf, size_t frame_size, enum NetMessageType msg_type);
 TbError process_network_message(NetUserId source, void *server_buf, size_t frame_size, enum NetMessageType expected_frame_type, NetUserId *frame_peer_id);

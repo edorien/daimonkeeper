@@ -45,7 +45,7 @@ extern "C" {
 /******************************************************************************/
 TbBool reset_roomspace = false;
 
-static int get_packet_roomspace_size(const struct Packet *pckt, int size)
+static int64_t get_packet_roomspace_size(const struct Packet *pckt, int64_t size)
 {
     switch (pckt->action) {
     case PckA_SetRoomspaceMan:
@@ -91,7 +91,7 @@ static TbBool roomspace_slab_matches_dig_tag_mode(PlayerNumber plyr_idx, MapSlab
     return get_roomspace_slab_dig_tag_mode(plyr_idx, slb_x, slb_y, predicted_slab_tag_modes) == dig_tag_mode;
 }
 
-static TbBool get_roomspace_drag_scan_range(const struct RoomSpace *roomspace, unsigned char drag_direction, int *scan_start_x, int *scan_end_x, int *scan_step_x, int *scan_start_y, int *scan_end_y, int *scan_step_y)
+static TbBool get_roomspace_drag_scan_range(const struct RoomSpace *roomspace, unsigned char drag_direction, int64_t *scan_start_x, int64_t *scan_end_x, int64_t *scan_step_x, int64_t *scan_start_y, int64_t *scan_end_y, int64_t *scan_step_y)
 {
     if (drag_direction > bottom_left_to_top_right) {
         return false;
@@ -119,7 +119,7 @@ static TbBool get_roomspace_drag_scan_range(const struct RoomSpace *roomspace, u
     return true;
 }
 /******************************************************************************/
-TbBool can_afford_roomspace(PlayerNumber plyr_idx, RoomKind rkind, int slab_count)
+TbBool can_afford_roomspace(PlayerNumber plyr_idx, RoomKind rkind, int64_t slab_count)
 {
     struct PlayerInfo* player = get_player(plyr_idx);
     struct Dungeon* dungeon = get_players_dungeon(player);
@@ -127,28 +127,28 @@ TbBool can_afford_roomspace(PlayerNumber plyr_idx, RoomKind rkind, int slab_coun
     return (slab_count * roomst->cost <= dungeon->total_money_owned);
 }
 
-int calc_distance_from_roomspace_centre(int total_distance, TbBool offset)
+int64_t calc_distance_from_roomspace_centre(int64_t total_distance, TbBool offset)
 {
     return ((total_distance - 1 + offset) / 2);
 }
 
-int can_build_roomspace_of_dimensions_loose(PlayerNumber plyr_idx, RoomKind rkind,
-    MapSlabCoord slb_x, MapSlabCoord slb_y, int width, int height, int *invalid_blocks, int roomspace_discovery_looseness)
+int64_t can_build_roomspace_of_dimensions_loose(PlayerNumber plyr_idx, RoomKind rkind,
+    MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t width, int64_t height, int64_t *invalid_blocks, int64_t roomspace_discovery_looseness)
 {
     MapCoord buildx;
     MapCoord buildy;
-    int count = 0;
+    int64_t count = 0;
     (*invalid_blocks) = 0;
-    int leftExtent = slb_x - calc_distance_from_roomspace_centre(width,0);
-    int rightExtent = slb_x + calc_distance_from_roomspace_centre(width,(width % 2 == 0));
-    int topExtent = slb_y - calc_distance_from_roomspace_centre(height,0);
-    int bottomExtent = slb_y + calc_distance_from_roomspace_centre(height,(height % 2 == 0));
+    int64_t leftExtent = slb_x - calc_distance_from_roomspace_centre(width,0);
+    int64_t rightExtent = slb_x + calc_distance_from_roomspace_centre(width,(width % 2 == 0));
+    int64_t topExtent = slb_y - calc_distance_from_roomspace_centre(height,0);
+    int64_t bottomExtent = slb_y + calc_distance_from_roomspace_centre(height,(height % 2 == 0));
 
     for (buildy = topExtent; buildy <= bottomExtent; buildy++)
     {
         for (buildx = leftExtent; buildx <= rightExtent; buildx++)
         {
-            int room_check = check_room_at_slab_loose(plyr_idx, rkind, buildx, buildy, roomspace_discovery_looseness);
+            int64_t room_check = check_room_at_slab_loose(plyr_idx, rkind, buildx, buildy, roomspace_discovery_looseness);
             if (room_check > 0)
             {
                 count++;
@@ -164,11 +164,11 @@ int can_build_roomspace_of_dimensions_loose(PlayerNumber plyr_idx, RoomKind rkin
 
 struct RoomSpace create_box_roomspace_from_drag(struct RoomSpace roomspace, MapSlabCoord start_x, MapSlabCoord start_y, MapSlabCoord end_x, MapSlabCoord end_y)
 {
-    if (abs(end_x - start_x) >= MAX_USER_ROOMSPACE_WIDTH)
+    if (llabs(end_x - start_x) >= MAX_USER_ROOMSPACE_WIDTH)
     {
         end_x = ((end_x >= start_x) ? (start_x + MAX_USER_ROOMSPACE_WIDTH - 1) : (start_x - MAX_USER_ROOMSPACE_WIDTH + 1));
     }
-    if (abs(end_y - start_y) >= MAX_USER_ROOMSPACE_WIDTH)
+    if (llabs(end_y - start_y) >= MAX_USER_ROOMSPACE_WIDTH)
     {
         end_y = ((end_y >= start_y) ? (start_y + MAX_USER_ROOMSPACE_WIDTH - 1) : (start_y - MAX_USER_ROOMSPACE_WIDTH + 1));
     }
@@ -199,7 +199,7 @@ struct RoomSpace create_box_roomspace_from_drag(struct RoomSpace roomspace, MapS
     return roomspace;
 }
 
-static struct RoomSpace create_dig_highlight_roomspace(struct RoomSpace roomspace, unsigned char highlight_mode, int width, MapSlabCoord drag_start_x, MapSlabCoord drag_start_y, MapSlabCoord slb_x, MapSlabCoord slb_y)
+static struct RoomSpace create_dig_highlight_roomspace(struct RoomSpace roomspace, unsigned char highlight_mode, int64_t width, MapSlabCoord drag_start_x, MapSlabCoord drag_start_y, MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
     if (highlight_mode == drag_placement_mode) {
         roomspace = create_box_roomspace_from_drag(roomspace, drag_start_x, drag_start_y, slb_x, slb_y);
@@ -213,7 +213,7 @@ static struct RoomSpace create_dig_highlight_roomspace(struct RoomSpace roomspac
     return create_box_roomspace(roomspace, 1, 1, slb_x, slb_y);
 }
 
-struct RoomSpace create_box_roomspace(struct RoomSpace roomspace, int width, int height, int centre_x, int centre_y)
+struct RoomSpace create_box_roomspace(struct RoomSpace roomspace, int64_t width, int64_t height, int64_t centre_x, int64_t centre_y)
 {
     TbBool blank_slab_grid[MAX_ROOMSPACE_WIDTH][MAX_ROOMSPACE_WIDTH] = {{false}};
     memcpy(&roomspace.slab_grid, &blank_slab_grid, sizeof(blank_slab_grid));
@@ -238,16 +238,16 @@ struct RoomSpace create_box_roomspace(struct RoomSpace roomspace, int width, int
     return roomspace;
 }
 
-int can_build_roomspace_of_dimensions(PlayerNumber plyr_idx, RoomKind rkind,
-    MapSlabCoord slb_x, MapSlabCoord slb_y, int width, int height, TbBool full_check)
+int64_t can_build_roomspace_of_dimensions(PlayerNumber plyr_idx, RoomKind rkind,
+    MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t width, int64_t height, TbBool full_check)
 {
     MapCoord buildx;
     MapCoord buildy;
-    int count = 0;
-    int leftExtent = slb_x - calc_distance_from_roomspace_centre(width,0);
-    int rightExtent = slb_x + calc_distance_from_roomspace_centre(width,(width % 2 == 0));
-    int topExtent = slb_y - calc_distance_from_roomspace_centre(height,0);
-    int bottomExtent = slb_y + calc_distance_from_roomspace_centre(height,(height % 2 == 0));
+    int64_t count = 0;
+    int64_t leftExtent = slb_x - calc_distance_from_roomspace_centre(width,0);
+    int64_t rightExtent = slb_x + calc_distance_from_roomspace_centre(width,(width % 2 == 0));
+    int64_t topExtent = slb_y - calc_distance_from_roomspace_centre(height,0);
+    int64_t bottomExtent = slb_y + calc_distance_from_roomspace_centre(height,(height % 2 == 0));
 
     for (buildy = topExtent; buildy <= bottomExtent; buildy++)
     {
@@ -279,7 +279,7 @@ int can_build_roomspace_of_dimensions(PlayerNumber plyr_idx, RoomKind rkind,
     return count;
 }
 
-int can_build_fancy_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct RoomSpace roomspace)
+int64_t can_build_fancy_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct RoomSpace roomspace)
 {
     if (!can_afford_roomspace(plyr_idx, rkind, roomspace.slab_count))
     {
@@ -288,7 +288,7 @@ int can_build_fancy_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct Room
     return roomspace.slab_count;
 }
 
-struct RoomSpace check_slabs_in_roomspace(struct RoomSpace roomspace, short rkind_cost)
+struct RoomSpace check_slabs_in_roomspace(struct RoomSpace roomspace, int64_t rkind_cost)
 {
     roomspace.slab_count = 0;
     roomspace.invalid_slabs_count = 0;
@@ -320,10 +320,10 @@ struct RoomSpace check_roomspace_for_diggable_slabs(struct RoomSpace roomspace, 
     if (roomspace.untag_mode) {
         dig_tag_mode = DigTagMode_Untag;
     }
-    for (int y = 0; y < roomspace.height; y++) {
-        int current_y = roomspace.top + y;
-        for (int x = 0; x < roomspace.width; x++) {
-            int current_x = roomspace.left + x;
+    for (int64_t y = 0; y < roomspace.height; y++) {
+        int64_t current_y = roomspace.top + y;
+        for (int64_t x = 0; x < roomspace.width; x++) {
+            int64_t current_x = roomspace.left + x;
             if (roomspace_slab_matches_dig_tag_mode(plyr_idx, current_x, current_y, dig_tag_mode, predicted_slab_tag_modes)) {
                 roomspace.slab_grid[x][y] = true;
                 roomspace.slab_count++;
@@ -361,7 +361,7 @@ struct RoomSpace check_roomspace_for_sellable_slabs(struct RoomSpace roomspace, 
     return roomspace;
 }
 
-void create_roomspace_from_current_room(struct RoomSpace *roomspace, int search_width, int room_index)
+void create_roomspace_from_current_room(struct RoomSpace *roomspace, int64_t search_width, int64_t room_index)
 {
     // get an array to write to
     struct RoomSpace current_roomspace = *roomspace;
@@ -369,22 +369,22 @@ void create_roomspace_from_current_room(struct RoomSpace *roomspace, int search_
     current_roomspace.is_roomspace_a_box = true;
     current_roomspace.render_roomspace_as_box = true;
     //current slab
-    int centre_x = current_roomspace.centreX; // current position; x
-    int centre_y = current_roomspace.centreY; // current position; y
+    int64_t centre_x = current_roomspace.centreX; // current position; x
+    int64_t centre_y = current_roomspace.centreY; // current position; y
     // Get current room
     struct Room* current_room = slab_room_get(centre_x, centre_y);
     //store extents for room in x and y
-    int left_extent = centre_x;
-    int top_extent = centre_y;
-    int right_extent = centre_x;
-    int bottom_extent = centre_y;
+    int64_t left_extent = centre_x;
+    int64_t top_extent = centre_y;
+    int64_t right_extent = centre_x;
+    int64_t bottom_extent = centre_y;
     // Loop through list of slabs in the room to find extents
-    unsigned long k = 0;
-    long i = current_room->slabs_list;
+    uint64_t k = 0;
+    int64_t i = current_room->slabs_list;
     while (i != 0)
     {
-        long slb_x = slb_num_decode_x(i);
-        long slb_y = slb_num_decode_y(i);
+        int64_t slb_x = slb_num_decode_x(i);
+        int64_t slb_y = slb_num_decode_y(i);
         // Per room tile code
         if (slb_x < left_extent)
         {
@@ -412,13 +412,13 @@ void create_roomspace_from_current_room(struct RoomSpace *roomspace, int search_
         }
     }
     // Set width and height of roomspace (making sure it is between 1 and MAX_ROOMSPACE_WIDTH)
-    int current_width  = min(MAX_ROOMSPACE_WIDTH - 1, max(1, right_extent - left_extent + 1));
-    int current_height = min(MAX_ROOMSPACE_WIDTH - 1, max(1, bottom_extent - top_extent + 1));
+    int64_t current_width  = min(MAX_ROOMSPACE_WIDTH - 1, max(1, right_extent - left_extent + 1));
+    int64_t current_height = min(MAX_ROOMSPACE_WIDTH - 1, max(1, bottom_extent - top_extent + 1));
 
     // Loop through all of the slabs within the extents, and then test those slabs to see if they are part of the room.
-    for (int y = 0; y <= current_height; y++)
+    for (int64_t y = 0; y <= current_height; y++)
     {
-        for (int x = 0; x <= current_width; x++)
+        for (int64_t x = 0; x <= current_width; x++)
         {
             struct SlabMap* slb = get_slabmap_block(left_extent + x, top_extent + y);
             if (slb->room_index == room_index)
@@ -464,7 +464,7 @@ struct RoomSpace get_current_room_as_roomspace(PlayerNumber current_plyr_idx, Ma
         {
             // return a RoomSpace of the "current room"
             struct RoomSpace current_room = default_room;
-            int room_index = slb->room_index;
+            int64_t room_index = slb->room_index;
             create_roomspace_from_current_room(&current_room, MAX_USER_ROOMSPACE_WIDTH, room_index);
 
             if (current_room.slab_count > 0)
@@ -478,9 +478,9 @@ struct RoomSpace get_current_room_as_roomspace(PlayerNumber current_plyr_idx, Ma
     return default_room; // return empty 1x1 roomspace
 }
 
-int can_build_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct RoomSpace roomspace)
+int64_t can_build_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct RoomSpace roomspace)
 {
-    int canbuild = 0;
+    int64_t canbuild = 0;
     if (roomspace.is_roomspace_a_box)
     {
         canbuild = can_build_roomspace_of_dimensions(plyr_idx, rkind, roomspace.centreX, roomspace.centreY, roomspace.width, roomspace.height, true);
@@ -492,9 +492,9 @@ int can_build_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct RoomSpace 
     return canbuild;
 }
 
-int numpad_to_value(TbBool allow_zero)
+int64_t numpad_to_value(TbBool allow_zero)
 {
-    int value = 0;
+    int64_t value = 0;
     if (!allow_zero)
     {
         value = 1;
@@ -560,7 +560,7 @@ void get_dungeon_highlight_user_roomspace(struct RoomSpace *roomspace, struct Pl
     TbBool one_click_mode_exclusive = false;
     MapSlabCoord drag_start_x = slb_x;
     MapSlabCoord drag_start_y = slb_y;
-    int roomspace_size = get_packet_roomspace_size(pckt, player->roomspace_width);
+    int64_t roomspace_size = get_packet_roomspace_size(pckt, player->roomspace_width);
     if (ustate->ignore_next_PCtr_LBtnRelease)
     {
         // because player cancelled a tag/untag with RMB, we need to default back to vanilla 1x1 box
@@ -694,7 +694,7 @@ void get_dungeon_sell_user_roomspace(struct RoomSpace *roomspace, NetUserId user
     MapSlabCoord drag_start_x = slb_x;
     MapSlabCoord drag_start_y = slb_y;
     struct Packet* pckt = get_packet(user);
-    int roomspace_size = get_packet_roomspace_size(pckt, player->roomspace_width);
+    int64_t roomspace_size = get_packet_roomspace_size(pckt, player->roomspace_width);
     ustate->one_click_lock_cursor = false;
     ustate->one_click_mode_exclusive = false;
     if (ustate->ignore_next_PCtr_LBtnRelease)
@@ -785,7 +785,7 @@ void get_dungeon_build_user_roomspace(struct RoomSpace *roomspace, NetUserId use
     MapSlabCoord drag_start_x = slb_x;
     MapSlabCoord drag_start_y = slb_y;
     struct Packet* pckt = get_packet(user);
-    int roomspace_size = get_packet_roomspace_size(pckt, player->roomspace_width);
+    int64_t roomspace_size = get_packet_roomspace_size(pckt, player->roomspace_width);
     struct RoomSpace temp_best_room;
     ustate->one_click_lock_cursor = false;
     if (ustate->ignore_next_PCtr_LBtnRelease)
@@ -984,8 +984,8 @@ static void sell_at_point(struct RoomSpace *roomspace)
 static void find_next_point(struct RoomSpace *roomspace, unsigned char mode)
 {
     // these store the coordinates of roomspace.slab_grid[][], rather than the in-game map coordinates
-    int room_x = roomspace->buildx - roomspace->left;
-    int room_y = roomspace->buildy - roomspace->top;
+    int64_t room_x = roomspace->buildx - roomspace->left;
+    int64_t room_y = roomspace->buildy - roomspace->top;
     switch(mode)
     {
         case 0: // top-left to bottom-right
@@ -1071,9 +1071,9 @@ static void find_next_point(struct RoomSpace *roomspace, unsigned char mode)
     }
 }
 
-int apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *roomspace, MapSlabCoord previous_slb_x, MapSlabCoord previous_slb_y, unsigned char highlight_mode, unsigned char *predicted_slab_tag_modes, SlabCodedCoords *predicted_slabs, int *predicted_slab_count, int *predicted_task_count)
+int64_t apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *roomspace, MapSlabCoord previous_slb_x, MapSlabCoord previous_slb_y, unsigned char highlight_mode, unsigned char *predicted_slab_tag_modes, SlabCodedCoords *predicted_slabs, int64_t *predicted_slab_count, int64_t *predicted_task_count)
 {
-    int dig_change_count = 0;
+    int64_t dig_change_count = 0;
     if ((predicted_slab_tag_modes == NULL) != (predicted_slabs == NULL) || (predicted_slabs == NULL) != (predicted_slab_count == NULL) || (predicted_slab_count == NULL) != (predicted_task_count == NULL)) {
         ERRORLOG("Prediction slab tag modes and task count must be supplied together");
         return dig_change_count;
@@ -1084,17 +1084,17 @@ int apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *r
     if (roomspace->untag_mode) {
         dig_tag_mode = DigTagMode_Untag;
     }
-    int scan_start_x = roomspace->left;
-    int scan_end_x = roomspace->right;
-    int scan_step_x = 1;
-    int scan_start_y = roomspace->top;
-    int scan_end_y = roomspace->bottom;
-    int scan_step_y = 1;
+    int64_t scan_start_x = roomspace->left;
+    int64_t scan_end_x = roomspace->right;
+    int64_t scan_step_x = 1;
+    int64_t scan_start_y = roomspace->top;
+    int64_t scan_end_y = roomspace->bottom;
+    int64_t scan_step_y = 1;
     if ((highlight_mode != box_placement_mode) && !get_roomspace_drag_scan_range(roomspace, roomspace->drag_direction, &scan_start_x, &scan_end_x, &scan_step_x, &scan_start_y, &scan_end_y, &scan_step_y)) {
         return dig_change_count;
     }
-    for (int current_y = scan_start_y; current_y != scan_end_y + scan_step_y; current_y += scan_step_y) {
-        for (int current_x = scan_start_x; current_x != scan_end_x + scan_step_x; current_x += scan_step_x) {
+    for (int64_t current_y = scan_start_y; current_y != scan_end_y + scan_step_y; current_y += scan_step_y) {
+        for (int64_t current_x = scan_start_x; current_x != scan_end_x + scan_step_x; current_x += scan_step_x) {
             MapSlabCoord path_slb_x = current_x;
             MapSlabCoord path_slb_y = current_y;
             if (highlight_mode == box_placement_mode) {
@@ -1107,7 +1107,7 @@ int apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *r
                         if ((dig_tag_mode == DigTagMode_Tag) && (*predicted_task_count >= MAPTASKS_COUNT)) {
                             return dig_change_count;
                         }
-                        int32_t slb_num = get_slab_number(path_slb_x, path_slb_y);
+                        int64_t slb_num = get_slab_number(path_slb_x, path_slb_y);
                         if (predicted_slab_tag_modes[slb_num] == 0) {
                             predicted_slabs[(*predicted_slab_count)++] = slb_num;
                         }
@@ -1136,7 +1136,7 @@ int apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *r
                 if ((path_slb_x == current_x) && (path_slb_y == current_y)) {
                     break;
                 }
-                if (abs(path_slb_x - current_x) > abs(path_slb_y - current_y)) {
+                if (llabs(path_slb_x - current_x) > llabs(path_slb_y - current_y)) {
                     if (path_slb_x < current_x) {
                         path_slb_x++;
                     } else {
@@ -1160,7 +1160,7 @@ void keeper_highlight_roomspace(NetUserId user, struct RoomSpace *roomspace)
     PlayerNumber plyr_idx = get_user_player_number(user);
     struct PlayerInfo* player = get_player(plyr_idx);
     struct UserState* ustate = get_user_state(user);
-    int dig_change_count = apply_roomspace_dig_tag_selection(plyr_idx, roomspace, ustate->previous_cursor_subtile_x / STL_PER_SLB, ustate->previous_cursor_subtile_y / STL_PER_SLB, player->roomspace_highlight_mode, NULL, NULL, NULL, NULL);
+    int64_t dig_change_count = apply_roomspace_dig_tag_selection(plyr_idx, roomspace, ustate->previous_cursor_subtile_x / STL_PER_SLB, ustate->previous_cursor_subtile_y / STL_PER_SLB, player->roomspace_highlight_mode, NULL, NULL, NULL, NULL);
     if (is_my_player(player))
     {
         if (dig_change_count > 0) {
@@ -1174,7 +1174,7 @@ void keeper_sell_roomspace(NetUserId user, struct RoomSpace *roomspace)
     struct PlayerInfo *player = get_player(get_user_player_number(user));
     if (player->roomspace.is_active)
     {
-        ERRORLOG("Selling roomspace while it is still in progress plyr:%d", roomspace->plyr_idx);
+        ERRORLOG("Selling roomspace while it is still in progress plyr:%" PRId64, (int64_t)(roomspace->plyr_idx));
         return;
     }
     roomspace->rkind = RoK_SELL;
@@ -1205,7 +1205,7 @@ void keeper_build_roomspace(NetUserId user, struct RoomSpace *roomspace)
     struct PlayerInfo *player = get_player(get_user_player_number(user));
     if (player->roomspace.is_active)
     {
-        ERRORLOG("Building roomspace while it is still in progress plyr:%d", roomspace->plyr_idx);
+        ERRORLOG("Building roomspace while it is still in progress plyr:%" PRId64, (int64_t)(roomspace->plyr_idx));
         return;
     }
     memcpy(&player->roomspace, roomspace, sizeof(player->roomspace));
@@ -1237,7 +1237,7 @@ void keeper_build_roomspace(NetUserId user, struct RoomSpace *roomspace)
 // stage-13-enforce-and-document.md) -- pure room-building domain logic,
 // no network-specific concerns; kfx_net's packets.c/packets_input.c call
 // it via a normal downward include.
-struct Room *keeper_build_room(NetUserId user, long stl_x, long stl_y, long plyr_idx, long rkind)
+struct Room *keeper_build_room(NetUserId user, int64_t stl_x, int64_t stl_y, int64_t plyr_idx, int64_t rkind)
 {
     struct PlayerInfo* player = get_player(plyr_idx);
     struct UserState* ustate = get_user_state(user);
@@ -1416,7 +1416,7 @@ void update_roomspaces()
     }
 }
 
-static int get_roomspace_size_input(void)
+static int64_t get_roomspace_size_input(void)
 {
     if (sim_feedback->is_roomspace_incsize_key_pressed()) {
         if (local_state.roomspace_size < MAX_USER_ROOMSPACE_WIDTH) {
@@ -1434,7 +1434,7 @@ static void process_box_roomspace_inputs(struct Packet *pckt)
         set_packet_action(pckt, PckA_SetRoomspaceMan, get_roomspace_size_input(), 0, 0, 0);
     } else {
         local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
-        int size = numpad_to_value(false);
+        int64_t size = numpad_to_value(false);
         if (size > 1) {
             set_packet_action(pckt, PckA_SetRoomspaceDefault, size, 0, 0, 0);
         } else {
@@ -1510,7 +1510,7 @@ void process_highlight_roomspace_inputs(PlayerNumber plyr_idx)
         }
         return;
     } else {
-        int par2 = numpad_to_value(false);
+        int64_t par2 = numpad_to_value(false);
         if (par2 > 1) {
             local_state.roomspace_size = par2;
             set_players_packet_action(player, PckA_SetRoomspaceHighlight, roomspace_detection_mode, par2, 0, 0);
@@ -1527,7 +1527,7 @@ void process_highlight_roomspace_inputs(PlayerNumber plyr_idx)
 
 void update_slab_grid(struct RoomSpace* roomspace, unsigned char mode, TbBool sell)
 {
-    int x, y, current_x, current_y;
+    int64_t x, y, current_x, current_y;
     TbBool can;
     switch (mode)
     {

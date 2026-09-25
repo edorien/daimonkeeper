@@ -40,19 +40,19 @@ enum RawBitmaps {
 
 struct RawBitmap {
   const char *name;
-  int width;
-  int height;
-  int bpp;
-  short fgroup;
+  int64_t width;
+  int64_t height;
+  int64_t bpp;
+  int64_t fgroup;
   const char *raw_fname;
   const char *pal_fname;
 };
 
 struct ActiveBitmap {
   const char *name;
-  int width;
-  int height;
-  int bpp;
+  int64_t width;
+  int64_t height;
+  int64_t bpp;
   TbClockMSec start_tm;
   // Raw 8bpp indexed bitmap bytes loaded straight from a .raw file (1 byte
   // per pixel on disk) -- genuinely a byte buffer, not TbPixel storage.
@@ -68,11 +68,11 @@ struct ActiveBitmap {
 /******************************************************************************/
 // copy_raw8_image_buffer() moved to gui_draw.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
-TbBool copy_raw8_image_to_screen_center(const unsigned char *buf,const int img_width,const int img_height);
-TbBool show_rawimage_screen(unsigned char *raw,unsigned char *pal,int width,int height,TbClockMSec tmdelay);
+TbBool copy_raw8_image_to_screen_center(const unsigned char *buf,const int64_t img_width,const int64_t img_height);
+TbBool show_rawimage_screen(unsigned char *raw,unsigned char *pal,int64_t width,int64_t height,TbClockMSec tmdelay);
 /******************************************************************************/
 TbBool draw_clear_screen(void);
-TbBool init_actv_bitmap_screen(int stype);
+TbBool init_actv_bitmap_screen(int64_t stype);
 TbBool free_actv_bitmap_screen(void);
 TbBool show_actv_bitmap_screen(TbClockMSec tmdelay);
 /******************************************************************************/

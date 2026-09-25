@@ -138,7 +138,7 @@ TEST_CASE("is_dbc_language is true only for the four double-byte-character langu
 }
 
 TEST_CASE("parse_draw_fps_config_val parses two non-negative numbers, writing only as many outputs as tokens found", "[kfx_config][config_keeperfx]") {
-    int32_t main_fps = -99, secondary_fps = -99;
+    int64_t main_fps = -99, secondary_fps = -99;
 
     CHECK(parse_draw_fps_config_val("30 60", &main_fps, &secondary_fps) == 2);
     CHECK(main_fps == 30);
@@ -151,7 +151,7 @@ TEST_CASE("parse_draw_fps_config_val parses two non-negative numbers, writing on
 }
 
 TEST_CASE("parse_draw_fps_config_val treats \"auto\" as -1 for the first (main) value only", "[kfx_config][config_keeperfx]") {
-    int32_t main_fps = -99, secondary_fps = -99;
+    int64_t main_fps = -99, secondary_fps = -99;
 
     CHECK(parse_draw_fps_config_val("auto 60", &main_fps, &secondary_fps) == 2);
     CHECK(main_fps == -1);
@@ -159,7 +159,7 @@ TEST_CASE("parse_draw_fps_config_val treats \"auto\" as -1 for the first (main) 
 }
 
 TEST_CASE("parse_draw_fps_config_val stops and returns 0 on a negative first value, writing nothing", "[kfx_config][config_keeperfx]") {
-    int32_t main_fps = -99, secondary_fps = -99;
+    int64_t main_fps = -99, secondary_fps = -99;
 
     CHECK(parse_draw_fps_config_val("-5 60", &main_fps, &secondary_fps) == 0);
     CHECK(main_fps == -99);
@@ -167,7 +167,7 @@ TEST_CASE("parse_draw_fps_config_val stops and returns 0 on a negative first val
 }
 
 TEST_CASE("parse_draw_fps_config_val stops after a negative second value, keeping the first", "[kfx_config][config_keeperfx]") {
-    int32_t main_fps = -99, secondary_fps = -99;
+    int64_t main_fps = -99, secondary_fps = -99;
 
     CHECK(parse_draw_fps_config_val("30 -5", &main_fps, &secondary_fps) == 1);
     CHECK(main_fps == 30);
@@ -175,7 +175,7 @@ TEST_CASE("parse_draw_fps_config_val stops after a negative second value, keepin
 }
 
 TEST_CASE("parse_draw_fps_config_val returns 0 for an empty string", "[kfx_config][config_keeperfx]") {
-    int32_t main_fps = -99, secondary_fps = -99;
+    int64_t main_fps = -99, secondary_fps = -99;
     CHECK(parse_draw_fps_config_val("", &main_fps, &secondary_fps) == 0);
 }
 

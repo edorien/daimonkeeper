@@ -50,20 +50,20 @@ enum AvailabilityKind
 
 struct AvailabilityEntry
 {
-    int kind;
-    int player;
-    int item; // ThingModel / RoomKind / PowerKind / trap / door model number
-    int a;
-    int b;
+    int64_t kind;
+    int64_t player;
+    int64_t item; // ThingModel / RoomKind / PowerKind / trap / door model number
+    int64_t a;
+    int64_t b;
 };
 
 // One condition of a win/lose rule: IF(PLAYERn, VARIABLE op value).
 struct WinLoseClause
 {
-    int player = 0;
+    int64_t player = 0;
     std::string variable = "ALL_DUNGEONS_DESTROYED";
     std::string op = "==";
-    int value = 1;
+    int64_t value = 1;
 };
 
 // WIN_GAME or LOSE_GAME once every clause holds. Several clauses are written
@@ -82,10 +82,10 @@ struct WinLoseRule
 // bucket per creature kind for the whole level).
 struct ManagedSetupValues
 {
-    int generate_speed;
-    std::vector<int> start_money;
-    std::vector<int> max_creatures;
-    std::vector<std::pair<ThingModel, int>> creature_pool;
+    int64_t generate_speed;
+    std::vector<int64_t> start_money;
+    std::vector<int64_t> max_creatures;
+    std::vector<std::pair<ThingModel, int64_t>> creature_pool;
     std::vector<AvailabilityEntry> availability;
     // Win/lose rules; parsed and written as plain IF/WIN_GAME/LOSE_GAME/ENDIF
     // blocks after the availability lines.
@@ -95,12 +95,12 @@ struct ManagedSetupValues
 // Script command name / NamedCommand table for one availability kind, and
 // the item-name lookups the grid UI needs (tables are NULL-terminated,
 // dynamically filled from config at load time).
-const char *script_setup_availability_command_name(int kind);
-const struct NamedCommand *script_setup_availability_desc(int kind);
-const char *script_setup_availability_item_name(int kind, int item);
+const char *script_setup_availability_command_name(int64_t kind);
+const struct NamedCommand *script_setup_availability_desc(int64_t kind);
+const char *script_setup_availability_item_name(int64_t kind, int64_t item);
 
 // Finds the entry for exactly (kind, player, item), or nullptr.
-AvailabilityEntry *script_setup_availability_find(ManagedSetupValues &values, int kind, int player, int item);
+AvailabilityEntry *script_setup_availability_find(ManagedSetupValues &values, int64_t kind, int64_t player, int64_t item);
 
 // Returns the managed region's own body text (between, not including, the
 // marker lines) -- empty if `script_text` has no markers at all (a level
@@ -125,8 +125,8 @@ std::string script_setup_replace_region(const std::string &script_text, const st
 // at 0 (no LEVEL_VERSION line) CREATURE_AVAILABLE's 4th argument is
 // "available" and the 3rd is ignored, so it is read into `a` (force is not
 // expressible at v0 and comes back 0). Other commands are identical.
-int script_setup_level_version(const std::string &script_text);
-ManagedSetupValues script_setup_parse(const std::string &managed_body, int players, int level_version = 1);
+int64_t script_setup_level_version(const std::string &script_text);
+ManagedSetupValues script_setup_parse(const std::string &managed_body, int64_t players, int64_t level_version = 1);
 
 // The inverse of parse: generates the managed region's own body text
 // (without the marker lines -- script_setup_replace_region()
@@ -146,11 +146,11 @@ struct DuplicateWinLose
 std::vector<DuplicateWinLose> script_setup_find_duplicate_win_lose(const std::string &script_text);
 
 // Comparison operators the rules use, in the order the UI offers them.
-const char *const *script_setup_win_lose_operators(int *count);
+const char *const *script_setup_win_lose_operators(int64_t *count);
 
 // At level_version 0, creatures are written in the v0 form
 // CREATURE_AVAILABLE(p,c,a,a); the force flag cannot be expressed there.
-std::string script_setup_generate(const ManagedSetupValues &values, int players, int level_version = 1);
+std::string script_setup_generate(const ManagedSetupValues &values, int64_t players, int64_t level_version = 1);
 
 // Small text helpers shared with script_setup_analysis.cpp.
 std::string script_setup_trim(const std::string &s);

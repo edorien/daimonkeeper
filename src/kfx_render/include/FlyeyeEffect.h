@@ -28,8 +28,8 @@
  * Pre-computed flyeye lookup table entry.
  */
 struct FlyeyeLookupEntry {
-    short src_x;
-    short src_y;
+    int64_t src_x;
+    int64_t src_y;
 };
 
 class FlyeyeEffect : public LensEffect {
@@ -37,22 +37,22 @@ public:
     FlyeyeEffect();
     virtual ~FlyeyeEffect();
     
-    virtual TbBool Setup(long lens_idx) override;
+    virtual TbBool Setup(int64_t lens_idx) override;
     virtual void Cleanup() override;
     virtual TbBool Draw(LensRenderContext* ctx) override;
     
 private:
-    void BuildLookupTable(long width, long height);
+    void BuildLookupTable(int64_t width, int64_t height);
     void FreeLookupTable();
     
-    long m_current_lens;
+    int64_t m_current_lens;
     
     // Pre-computed lookup table. m_table_width/height stay separate fields
     // (not just m_lookup_table.size()) since that's what Draw() checks
     // against ctx->width/height to decide whether to rebuild.
     std::vector<FlyeyeLookupEntry> m_lookup_table;
-    long m_table_width;
-    long m_table_height;
+    int64_t m_table_width;
+    int64_t m_table_height;
 };
 
 /******************************************************************************/

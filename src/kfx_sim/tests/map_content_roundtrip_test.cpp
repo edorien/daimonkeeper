@@ -305,7 +305,7 @@ TEST_CASE_METHOD(ScratchDir, "KfxNativeMapContentReader leaves script_text empty
 TEST_CASE_METHOD(ScratchDir, "map .lua round-trips byte-identically in both formats", "[kfx_sim][map_content]") {
     std::string lua = "\xEF\xBB\xBF-- caf\xC3\xA9\r\nfunction OnGameStart()\r\nend\r\n";
     lua.append(1 << 20, 'x'); // 1 MB
-    for (int fmt = 0; fmt < 2; fmt++)
+    for (int64_t fmt = 0; fmt < 2; fmt++)
     {
         MapContent content = build_sample_content();
         content.lua_text = lua;

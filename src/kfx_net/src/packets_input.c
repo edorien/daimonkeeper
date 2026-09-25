@@ -55,8 +55,8 @@ extern void update_double_click_detection(NetUserId user);
 // Returns false if mouse is on map edges or on GUI
 TbBool is_mouse_on_map(struct Packet* pckt)
 {
-    int x = (pckt->pos_x >> 8) / 3;
-    int y = (pckt->pos_y >> 8) / 3;
+    int64_t x = (pckt->pos_x >> 8) / 3;
+    int64_t y = (pckt->pos_y >> 8) / 3;
     if (x == 0) {return false;}
     if (y == 0) {return false;}
     if (x == kfx_sim_state.map_tiles_x-1) {return false;}
@@ -219,7 +219,7 @@ TbBool process_dungeon_power_hand_state(NetUserId user)
     struct Thing* thing = get_nearest_thing_for_hand_or_slap(plyr_idx, x, y);
     if (!thing_is_invalid(thing) && (!ustate->one_click_lock_cursor))
     {
-        SYNCDBG(19,"Thing %d under hand at (%d,%d)",(int)thing->index,(int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num);
+        SYNCDBG(19,"Thing %" PRId64 " under hand at (%" PRId64 ",%" PRId64 ")",(int64_t)thing->index,(int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num);
         if (player->hand_thing_idx == 0)
             create_power_hand(player->id_number);
         player->thing_under_hand = thing->index;
@@ -230,7 +230,7 @@ TbBool process_dungeon_power_hand_state(NetUserId user)
         if (player->hand_thing_idx == 0) {
             create_power_hand(player->id_number);
         }
-        long allow_unclaimed_path = is_creature_droppable_on_path(thing);
+        int64_t allow_unclaimed_path = is_creature_droppable_on_path(thing);
         if ((can_drop_thing_here(stl_x, stl_y, player->id_number, allow_unclaimed_path)
              || !can_dig_here(stl_x, stl_y, player->id_number, true))
             && (!ustate->one_click_lock_cursor))
@@ -307,8 +307,8 @@ TbBool process_dungeon_control_packet_dungeon_control(NetUserId user)
             box_colour = tag_cursor_blocks_dig(player, user, pckt, &player->render_roomspace, stl_x, stl_y, ustate->full_slab_cursor);
             at_limit = (box_colour == SLC_REDYELLOW) || (box_colour == SLC_REDFLASH);
             if (apply_roomspace_tag) {
-                MapSlabCoord previous_slb_x = (uint16_t)pckt->actn_par3 & 0xFF;
-                MapSlabCoord previous_slb_y = (uint16_t)pckt->actn_par3 >> 8;
+                MapSlabCoord previous_slb_x = (int64_t)pckt->actn_par3 & 0xFF;
+                MapSlabCoord previous_slb_y = (int64_t)pckt->actn_par3 >> 8;
                 apply_roomspace_dig_tag_selection(plyr_idx, &player->render_roomspace, previous_slb_x, previous_slb_y, player->roomspace_highlight_mode, NULL, NULL, NULL, NULL);
             }
         }
@@ -337,7 +337,7 @@ TbBool process_dungeon_control_packet_dungeon_control(NetUserId user)
                     thing = get_door_for_position(ustate->cursor_clicked_subtile_x, ustate->cursor_clicked_subtile_y);
                     if (thing_is_invalid(thing))
                     {
-                        ERRORLOG("Door thing not found at map pos (%d,%d)",(int)ustate->cursor_clicked_subtile_x,(int)ustate->cursor_clicked_subtile_y);
+                        ERRORLOG("Door thing not found at map pos (%" PRId64 ",%" PRId64 ")",(int64_t)ustate->cursor_clicked_subtile_x,(int64_t)ustate->cursor_clicked_subtile_y);
                         break;
                     }
                     if (thing->door.is_locked)
@@ -605,7 +605,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
             struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
             if (slabmap_owner(slb) != plyr_idx)
             {
-                WARNLOG("Player %d can't sell item on %s owned by player %d at subtile (%d,%d).", (int)plyr_idx, slab_code_name(slb->kind), (int)slabmap_owner(slb), (int)stl_x, (int)stl_y);
+                WARNLOG("Player %" PRId64 " can't sell item on %s owned by player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ").", (int64_t)plyr_idx, slab_code_name(slb->kind), (int64_t)slabmap_owner(slb), (int64_t)stl_x, (int64_t)stl_y);
                 unset_packet_control(pckt, PCtr_LBtnClick);
                 return false;
             }
@@ -625,7 +625,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
                 // Nothing to do here - trap already sold
             } else
             {
-                WARNLOG("Nothing to do for player %d request",(int)plyr_idx);
+                WARNLOG("Nothing to do for player %" PRId64 " request",(int64_t)plyr_idx);
             }
         }
     }
@@ -634,7 +634,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
         struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
         if (slabmap_owner(slb) != plyr_idx)
         {
-            WARNLOG("Player %d can't sell item on %s owned by player %d at subtile (%d,%d).", (int)plyr_idx, slab_code_name(slb->kind), (int)slabmap_owner(slb), (int)stl_x, (int)stl_y);
+            WARNLOG("Player %" PRId64 " can't sell item on %s owned by player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ").", (int64_t)plyr_idx, slab_code_name(slb->kind), (int64_t)slabmap_owner(slb), (int64_t)stl_x, (int64_t)stl_y);
             unset_packet_control(pckt, PCtr_LBtnClick);
             return false;
         }
@@ -653,7 +653,7 @@ TbBool process_dungeon_control_packet_sell_operation(NetUserId user)
         }
         else
         {
-            WARNLOG("Nothing to do for player %d request",(int)plyr_idx);
+            WARNLOG("Nothing to do for player %" PRId64 " request",(int64_t)plyr_idx);
         }
     }
     unset_packet_control(pckt, PCtr_LBtnClick);
@@ -714,7 +714,7 @@ TbBool process_dungeon_control_packet_clicks(NetUserId user)
     struct UserState* ustate = get_user_state(user);
     const PlayerNumber plyr_idx = player->id_number;
     struct Packet* pckt = get_packet(user);
-    SYNCDBG(6,"Starting for user %d state %s",user,player_state_code_name(player->work_state));
+    SYNCDBG(6,"Starting for user %" PRId64 " state %s",(int64_t)(user),player_state_code_name(player->work_state));
     TbBool thing_target_action = (pckt->action == PckA_UsePwrHandPick) || (pckt->action == PckA_UsePwrOnThing);
     ustate->full_slab_cursor = 1;
     ustate->primary_cursor_state = (pckt->additional_packet_values & PCAdV_ContextMask) >> 1;
@@ -744,7 +744,7 @@ TbBool process_dungeon_control_packet_clicks(NetUserId user)
     MapSubtlCoord stl_x = coord_subtile(x);
     MapSubtlCoord stl_y = coord_subtile(y);
 
-    long i;
+    int64_t i;
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
     pwkind = ustate->chosen_power_kind;
@@ -911,7 +911,7 @@ TbBool process_dungeon_control_packet_clicks(NetUserId user)
             if (!packets_process_cheats(user, plyr_idx, x, y, pckt,
                                         stl_x, stl_y, slb_x, slb_y))
             {
-                ERRORLOG("Unrecognized player %d work state: %d", (int) plyr_idx, (int) player->work_state);
+                ERRORLOG("Unrecognized player %" PRId64 " work state: %" PRId64, (int64_t) plyr_idx, (int64_t) player->work_state);
                 ret = false;
             }
             break;

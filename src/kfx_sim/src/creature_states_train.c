@@ -79,12 +79,12 @@ void setup_training_move(struct Thing *creatng, SubtlCodedCoords stl_num)
     cctrl->moveto_pos.z.val = get_thing_height_at(creatng, &cctrl->moveto_pos);
     if (thing_in_wall_at(creatng, &cctrl->moveto_pos))
     {
-        ERRORLOG("Illegal setup to wall at (%d,%d)",
-            (int)cctrl->moveto_pos.x.stl.num, (int)cctrl->moveto_pos.y.stl.num);
+        ERRORLOG("Illegal setup to wall at (%" PRId64 ",%" PRId64 ")",
+            (int64_t)cctrl->moveto_pos.x.stl.num, (int64_t)cctrl->moveto_pos.y.stl.num);
         set_start_state(creatng);
     }
-    SYNCDBG(18,"The %s is moving to (%d,%d)", thing_model_name(creatng),
-        (int)cctrl->moveto_pos.x.stl.num, (int)cctrl->moveto_pos.y.stl.num);
+    SYNCDBG(18,"The %s is moving to (%" PRId64 ",%" PRId64 ")", thing_model_name(creatng),
+        (int64_t)cctrl->moveto_pos.x.stl.num, (int64_t)cctrl->moveto_pos.y.stl.num);
 }
 
 void setup_training_move_near(struct Thing *creatng, SubtlCodedCoords stl_num)
@@ -94,7 +94,7 @@ void setup_training_move_near(struct Thing *creatng, SubtlCodedCoords stl_num)
     // Select a subtile closer to current position
     MapSubtlDelta dist_x = stl_x - (MapSubtlDelta)creatng->mappos.x.stl.num;
     MapSubtlDelta dist_y = stl_y - (MapSubtlDelta)creatng->mappos.y.stl.num;
-    if (abs(dist_x) > abs(dist_y))
+    if (llabs(dist_x) > llabs(dist_y))
     {
         if (dist_x > 0) {
             stl_x -= 1;
@@ -116,8 +116,8 @@ void setup_training_move_near(struct Thing *creatng, SubtlCodedCoords stl_num)
 struct Thing *get_creature_in_training_room_which_could_accept_partner(struct Room *room, struct Thing *partnertng)
 {
     TRACE_THING(partnertng);
-    long i = room->creatures_list;
-    unsigned long k = 0;
+    int64_t i = room->creatures_list;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -125,7 +125,7 @@ struct Thing *get_creature_in_training_room_which_could_accept_partner(struct Ro
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (!creature_control_exists(cctrl))
         {
-            ERRORLOG("Jump to invalid creature %d detected",(int)i);
+            ERRORLOG("Jump to invalid creature %" PRId64 " detected",(int64_t)i);
             break;
         }
         i = cctrl->next_in_room;
@@ -152,7 +152,7 @@ struct Thing *get_creature_in_training_room_which_could_accept_partner(struct Ro
     return INVALID_THING;
 }
 
-void setup_move_to_new_training_position(struct Thing *thing, struct Room *room, unsigned long restart)
+void setup_move_to_new_training_position(struct Thing *thing, struct Room *room, uint64_t restart)
 {
     struct Coord3d pos;
     SYNCDBG(8,"Starting for %s",thing_model_name(thing));
@@ -183,11 +183,11 @@ void setup_move_to_new_training_position(struct Thing *thing, struct Room *room,
     cctrl->training.mode = CrTrMd_SearchForTrainPost;
     if (find_random_valid_position_for_thing_in_room(thing, room, &pos))
     {
-        SYNCDBG(8,"Going to train at (%d,%d)",(int)pos.x.stl.num,(int)pos.y.stl.num);
-        long i = get_subtile_number(pos.x.stl.num, pos.y.stl.num);
+        SYNCDBG(8,"Going to train at (%" PRId64 ",%" PRId64 ")",(int64_t)pos.x.stl.num,(int64_t)pos.y.stl.num);
+        int64_t i = get_subtile_number(pos.x.stl.num, pos.y.stl.num);
         setup_training_move(thing, i);
     } else {
-        SYNCDBG(8,"No new position found, staying at (%d,%d)",(int)cctrl->moveto_pos.x.stl.num,(int)cctrl->moveto_pos.x.stl.num);
+        SYNCDBG(8,"No new position found, staying at (%" PRId64 ",%" PRId64 ")",(int64_t)cctrl->moveto_pos.x.stl.num,(int64_t)cctrl->moveto_pos.x.stl.num);
     }
     if (cctrl->instance_id == CrInst_NULL)
     {
@@ -206,13 +206,13 @@ void setup_training_search_for_post(struct Thing *creatng)
 {
     struct Room* room = get_room_thing_is_on(creatng);
     // Let's start from a random slab
-    long slb_x = -1;
-    long slb_y = -1;
-    long min_distance = INT32_MAX;
+    int64_t slb_x = -1;
+    int64_t slb_y = -1;
+    int64_t min_distance = INT32_MAX;
     struct Thing* traintng = INVALID_THING;
-    long start_slab = THING_RANDOM(creatng, room->slabs_count);
-    long k = start_slab;
-    long i = room->slabs_list;
+    int64_t start_slab = THING_RANDOM(creatng, room->slabs_count);
+    int64_t k = start_slab;
+    int64_t i = room->slabs_list;
     while (i != 0)
     {
         slb_x = slb_num_decode_x(i);
@@ -237,7 +237,7 @@ void setup_training_search_for_post(struct Thing *creatng)
         thing = get_object_at_subtile_of_model_and_owned_by(slab_subtile_center(slb_x), slab_subtile_center(slb_y), 31, creatng->owner);
         if (!thing_is_invalid(thing))
         {
-            long dist = get_2d_distance(&creatng->mappos, &thing->mappos);
+            int64_t dist = get_2d_distance(&creatng->mappos, &thing->mappos);
             if (dist < min_distance) {
                 traintng = thing;
                 min_distance = dist;
@@ -263,10 +263,10 @@ void setup_training_search_for_post(struct Thing *creatng)
 struct Thing *find_training_post_just_next_to_creature(struct Thing *creatng)
 {
     struct Thing* traintng = INVALID_THING;
-    for (long i = 0; i < 4; i++)
+    for (int64_t i = 0; i < 4; i++)
     {
-        long stl_x = creatng->mappos.x.stl.num + (long)small_around[i].delta_x;
-        long stl_y = creatng->mappos.y.stl.num + (long)small_around[i].delta_y;
+        int64_t stl_x = creatng->mappos.x.stl.num + (int64_t)small_around[i].delta_x;
+        int64_t stl_y = creatng->mappos.y.stl.num + (int64_t)small_around[i].delta_y;
         traintng = get_object_at_subtile_of_model_and_owned_by(stl_x, stl_y, 31, creatng->owner);
         if (!thing_is_invalid(traintng))
             break;
@@ -288,11 +288,11 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
     struct Thing *crtng;
     struct CreatureControl *cctrl2;
     struct Coord3d pos;
-    long speed;
-    long dist;
-    long i;
+    int64_t speed;
+    int64_t dist;
+    int64_t i;
     cctrl = creature_control_get_from_thing(thing);
-    SYNCDBG(8,"Starting %s mode %d",thing_model_name(thing),(int)cctrl->training.mode);
+    SYNCDBG(8,"Starting %s mode %" PRId64,thing_model_name(thing),(int64_t)cctrl->training.mode);
     cctrl->annoy_untrained_turn = 0;
     switch (cctrl->training.mode)
     {
@@ -303,7 +303,7 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
         // On timeout, search for nearby training posts to start training ASAP
         if (cctrl->training.search_timeout < 1)
         {
-            SYNCDBG(6,"Search timeout - selecting post nearest to (%d,%d)",(int)thing->mappos.x.stl.num, (int)thing->mappos.y.stl.num);
+            SYNCDBG(6,"Search timeout - selecting post nearest to (%" PRId64 ",%" PRId64 ")",(int64_t)thing->mappos.x.stl.num, (int64_t)thing->mappos.y.stl.num);
             setup_training_search_for_post(thing);
             cctrl->training.search_timeout = 100;
             break;
@@ -318,7 +318,7 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
             traintng = find_training_post_just_next_to_creature(thing);
             if (thing_is_invalid(traintng))
             {
-                SYNCDBG(6,"Reached (%d,%d) but there's no training post there",(int)thing->mappos.x.stl.num, (int)thing->mappos.y.stl.num);
+                SYNCDBG(6,"Reached (%" PRId64 ",%" PRId64 ") but there's no training post there",(int64_t)thing->mappos.x.stl.num, (int64_t)thing->mappos.y.stl.num);
                 setup_move_to_new_training_position(thing, room, false);
                 break;
             }
@@ -328,20 +328,20 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
         } else
         if (i == -1)
         {
-            ERRORLOG("Cannot get to (%d,%d) in the training room",(int)cctrl->moveto_pos.x.stl.num,(int)cctrl->moveto_pos.y.stl.num);
+            ERRORLOG("Cannot get to (%" PRId64 ",%" PRId64 ") in the training room",(int64_t)cctrl->moveto_pos.x.stl.num,(int64_t)cctrl->moveto_pos.y.stl.num);
             set_start_state(thing);
         }
         break;
     case CrTrMd_SelectPositionNearTrainPost:
         for (i=0; i < 4; i++)
         {
-            long slb_x;
-            long slb_y;
-            long stl_x;
-            long stl_y;
+            int64_t slb_x;
+            int64_t slb_y;
+            int64_t stl_x;
+            int64_t stl_y;
             struct SlabMap *slb;
-            slb_x = subtile_slab(thing->mappos.x.stl.num) + (long)small_around[i].delta_x;
-            slb_y = subtile_slab(thing->mappos.y.stl.num) + (long)small_around[i].delta_y;
+            slb_x = subtile_slab(thing->mappos.x.stl.num) + (int64_t)small_around[i].delta_x;
+            slb_y = subtile_slab(thing->mappos.y.stl.num) + (int64_t)small_around[i].delta_y;
             slb = get_slabmap_block(slb_x,slb_y);
             if ((slb->kind != SlbT_TRAINING) || (slabmap_owner(slb) != thing->owner))
                 continue;
@@ -365,7 +365,7 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
                 cctrl->moveto_pos.z.val = get_thing_height_at(thing, &cctrl->moveto_pos);
                 if (thing_in_wall_at(thing, &cctrl->moveto_pos))
                 {
-                    ERRORLOG("Illegal setup to (%d,%d)", (int)cctrl->moveto_pos.x.stl.num, (int)cctrl->moveto_pos.y.stl.num);
+                    ERRORLOG("Illegal setup to (%" PRId64 ",%" PRId64 ")", (int64_t)cctrl->moveto_pos.x.stl.num, (int64_t)cctrl->moveto_pos.y.stl.num);
                     break;
                 }
                 cctrl->training.mode = CrTrMd_MoveToTrainPost;
@@ -498,7 +498,7 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
         }
         break;
     default:
-        WARNLOG("Invalid %s training mode %d; reset",thing_model_name(thing),(int)cctrl->training.mode);
+        WARNLOG("Invalid %s training mode %" PRId64 "; reset",thing_model_name(thing),(int64_t)cctrl->training.mode);
         cctrl->training.mode = CrTrMd_SearchForTrainPost;
         cctrl->training.search_timeout = 0;
         break;
@@ -507,13 +507,13 @@ void process_creature_in_training_room(struct Thing *thing, struct Room *room)
     SYNCDBG(18,"End");
 }
 
-short at_training_room(struct Thing *thing)
+int64_t at_training_room(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
     if (!creature_can_be_trained(thing))
     {
-        SYNCDBG(9,"Ending training of %s level %d; creature is not trainable",thing_model_name(thing),(int)cctrl->exp_level);
+        SYNCDBG(9,"Ending training of %s level %" PRId64 "; creature is not trainable",thing_model_name(thing),(int64_t)cctrl->exp_level);
         set_start_state(thing);
         return 0;
     }
@@ -527,7 +527,7 @@ short at_training_room(struct Thing *thing)
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_TRAIN), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s",room_code_name(room->kind),(int)room->owner,thing_model_name(thing));
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s",room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing));
         set_start_state(thing);
         return 0;
     }
@@ -550,14 +550,14 @@ CrStateRet training(struct Thing *thing)
     // Check if we should finish training
     if (!creature_can_be_trained(thing))
     {
-        SYNCDBG(9,"Ending training of %s level %d; creature is not trainable",thing_model_name(thing),(int)cctrl->exp_level);
+        SYNCDBG(9,"Ending training of %s level %" PRId64 "; creature is not trainable",thing_model_name(thing),(int64_t)cctrl->exp_level);
         remove_creature_from_work_room(thing);
         set_start_state(thing);
         return CrStRet_ResetOk;
     }
     if (!player_can_afford_to_train_creature(thing))
     {
-        SYNCDBG(19,"Ending training %s index %d; cannot afford",thing_model_name(thing),(int)thing->index);
+        SYNCDBG(19,"Ending training %s index %" PRId64 "; cannot afford",thing_model_name(thing),(int64_t)thing->index);
         if (is_my_player_number(thing->owner))
             sim_feedback->play_sound_message(SMsg_NoGoldToTrain, MESSAGE_DURATION_TREASURY);
         remove_creature_from_work_room(thing);
@@ -580,14 +580,14 @@ CrStateRet training(struct Thing *thing)
     {
         cctrl->turns_at_job -= kfx_config_state.conf.rules[thing->owner].rooms.train_cost_frequency;
         if (take_money_from_dungeon(thing->owner, training_cost, 1) < 0) {
-            ERRORLOG("Cannot take %d gold from dungeon %d",(int)training_cost,(int)thing->owner);
+            ERRORLOG("Cannot take %" PRId64 " gold from dungeon %" PRId64,(int64_t)training_cost,(int64_t)thing->owner);
         }
         create_price_effect(&thing->mappos, thing->owner, training_cost);
     }
     if ((cctrl->instance_id != CrInst_NULL) || !check_experience_upgrade(thing))
     {
-        long work_value = compute_creature_work_value_for_room_role(thing, RoRoF_CrTrainExp, room->efficiency);
-        SYNCDBG(19,"The %s index %d produced %d training points",thing_model_name(thing),(int)thing->index,(int)work_value);
+        int64_t work_value = compute_creature_work_value_for_room_role(thing, RoRoF_CrTrainExp, room->efficiency);
+        SYNCDBG(19,"The %s index %" PRId64 " produced %" PRId64 " training points",thing_model_name(thing),(int64_t)thing->index,(int64_t)work_value);
         cctrl->exp_points += work_value;
         dungeon->total_experience_creatures_gained += work_value;
         process_creature_in_training_room(thing, room);

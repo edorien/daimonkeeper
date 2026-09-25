@@ -67,7 +67,7 @@ uint8_t num_definable_keys()
 {
     uint8_t num = 0;
 
-    for (int i = 0; i < GAME_KEYS_COUNT; i++)
+    for (int64_t i = 0; i < GAME_KEYS_COUNT; i++)
     {
         if (game_key_settings[i].binding_menu_visibility == BMV_Visible) {
             num++;
@@ -96,7 +96,7 @@ void frontend_define_key_down_maintain(struct GuiButton *gbtn)
 
 void frontend_define_key_maintain(struct GuiButton *gbtn)
 {
-    long key_id = kfx_frontend_state.define_key_scroll_offset - (gbtn->content.lval) - 1;
+    int64_t key_id = kfx_frontend_state.define_key_scroll_offset - (gbtn->content.lval) - 1;
     gbtn->flags ^= (gbtn->flags ^ LbBtnF_Enabled * (key_id < num_definable_keys())) & LbBtnF_Enabled;
 }
 
@@ -121,7 +121,7 @@ void frontend_define_key_scroll(struct GuiButton *gbtn)
 
 void frontend_define_key(struct GuiButton *gbtn)
 {
-    long key_id = kfx_frontend_state.define_key_scroll_offset - (gbtn->content.lval) - 1;
+    int64_t key_id = kfx_frontend_state.define_key_scroll_offset - (gbtn->content.lval) - 1;
     defining_a_key = 1;
     defining_a_key_id = key_id;
     lbInkey = 0;
@@ -189,17 +189,17 @@ static void format_key_binding(const struct GameKey *kbk, char *text, size_t tex
       case KC_MOUSE2:
       case KC_MOUSE1:
       {
-        const char* mouse_gui_string = get_string(key_to_string[(long)code]);
-        int mouse_button_number = (KC_MOUSE1 + 1 - code);
+        const char* mouse_gui_string = get_string(key_to_string[(int64_t)code]);
+        int64_t mouse_button_number = (KC_MOUSE1 + 1 - code);
         char mouse_button_number_string[8];
-        snprintf(mouse_button_number_string, sizeof(mouse_button_number_string), "%d", mouse_button_number);
+        snprintf(mouse_button_number_string, sizeof(mouse_button_number_string), "%" PRId64, (int64_t)(mouse_button_number));
         str_appendf(mouse_button_label, sizeof(mouse_button_label), "%s %s", mouse_gui_string, mouse_button_number_string);
         keytext = mouse_button_label;
         break;
       }
       default:
       {
-        long i = key_to_string[code];
+        int64_t i = key_to_string[code];
         if (i >= 0)
             keytext = get_string(i);
         else
@@ -214,22 +214,22 @@ static void format_key_binding(const struct GameKey *kbk, char *text, size_t tex
     str_append(text, text_size, keytext);
 }
 
-void frontend_format_key_binding(long key_id, char *text, size_t text_size)
+void frontend_format_key_binding(int64_t key_id, char *text, size_t text_size)
 {
     format_key_binding(&settings.kbkeys[key_id], text, text_size);
 }
 
 // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
 // counterpart, settings.editor_kbkeys[] instead of settings.kbkeys[].
-void frontend_format_editor_key_binding(long key_id, char *text, size_t text_size)
+void frontend_format_editor_key_binding(int64_t key_id, char *text, size_t text_size)
 {
     format_key_binding(&settings.editor_kbkeys[key_id], text, text_size);
 }
 
 void frontend_draw_define_key(struct GuiButton *gbtn)
 {
-    long content = gbtn->content.lval;
-    long key_id = kfx_frontend_state.define_key_scroll_offset - content - 1;
+    int64_t content = gbtn->content.lval;
+    int64_t key_id = kfx_frontend_state.define_key_scroll_offset - content - 1;
     if (key_id >= num_definable_keys()) {
         return;
     }
@@ -242,9 +242,9 @@ void frontend_draw_define_key(struct GuiButton *gbtn)
     }
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     // This text is a bit condensed - button size is smaller than text height
-    int tx_units_per_px = ((MyScreenHeight < 400) && (dbc_initialized && dbc_enabled)) ? scale_value_menu(32) : scale_value_menu(16);
+    int64_t tx_units_per_px = ((MyScreenHeight < 400) && (dbc_initialized && dbc_enabled)) ? scale_value_menu(32) : scale_value_menu(16);
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height);
-    int height = LbTextLineHeight() * tx_units_per_px / 14;
+    int64_t height = LbTextLineHeight() * tx_units_per_px / 14;
     LbTextDrawResized(0, (gbtn->height - height) / 2, tx_units_per_px, get_string(game_key_settings[key_id].string_id));
     RendererSetDrawFlags(Lb_TEXT_HALIGN_RIGHT);
 
@@ -284,27 +284,27 @@ void gui_video_gamma_correction(struct GuiButton *gbtn)
     set_players_packet_action(player, PckA_SetGammaLevel, video_gamma_correction, 0, 0, 0);
 }
 
-int make_audio_slider_linear(int a)
+int64_t make_audio_slider_linear(int64_t a)
 {
     // slider has a range of 0..255
-    float scaled = fastPow(a / 255.0, 0.5);
-    float clamped = max(min(scaled, 1.0), 0.0);
+    double scaled = fastPow(a / 255.0, 0.5);
+    double clamped = max(min(scaled, 1.0), 0.0);
     return CEILING(LbLerp(0, 255, clamped));
 }
-int make_audio_slider_nonlinear(int a)
+int64_t make_audio_slider_nonlinear(int64_t a)
 {
     // slider has a range of 0..255
-    float scaled = fastPow(a / 255.0, 2.00);
-    float clamped = max(min(scaled, 1.0), 0.0);
+    double scaled = fastPow(a / 255.0, 2.00);
+    double clamped = max(min(scaled, 1.0), 0.0);
     return CEILING(LbLerp(0, 255, clamped));
 }
 
-static long sound_volume_get(void)
+static int64_t sound_volume_get(void)
 {
     return settings.sound_volume;
 }
 
-static void sound_volume_set(long value)
+static void sound_volume_set(int64_t value)
 {
     if (value != settings.sound_volume)
         do_sound_menu_click();
@@ -320,12 +320,12 @@ void gui_set_sound_volume(struct GuiButton *gbtn)
     frontend_sliderctrl_apply(gbtn, &sound_volume_ctrl);
 }
 
-static long music_volume_get(void)
+static int64_t music_volume_get(void)
 {
     return settings.music_volume;
 }
 
-static void music_volume_set(long value)
+static void music_volume_set(int64_t value)
 {
     settings.music_volume = value;
     save_settings();
@@ -339,12 +339,12 @@ void gui_set_music_volume(struct GuiButton *gbtn)
     frontend_sliderctrl_apply(gbtn, &music_volume_ctrl);
 }
 
-static long mentor_volume_get(void)
+static int64_t mentor_volume_get(void)
 {
     return settings.mentor_volume;
 }
 
-static void mentor_volume_set(long value)
+static void mentor_volume_set(int64_t value)
 {
     settings.mentor_volume = value;
     save_settings();
@@ -371,12 +371,12 @@ void gui_video_cluedo_maintain(struct GuiButton *gbtn)
     }
 }
 
-static long mouse_sensitivity_get(void)
+static int64_t mouse_sensitivity_get(void)
 {
     return settings.first_person_move_sensitivity;
 }
 
-static void mouse_sensitivity_set(long value)
+static void mouse_sensitivity_set(int64_t value)
 {
     settings.first_person_move_sensitivity = value;
     save_settings();

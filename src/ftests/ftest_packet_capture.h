@@ -43,7 +43,7 @@ extern "C" {
 #define FTEST_PACKET_CAPTURE_MAX 512
 
 /** "Don't care" sentinel for a parameter field in the assertions below. */
-#define FTEST_PKT_ANY ((int32_t)0x80000000)
+#define FTEST_PKT_ANY ((int64_t)0x80000000)
 
 struct FtestCapturedPacket {
     GameTurn turn;
@@ -58,7 +58,7 @@ struct FtestCapturedPacket {
  */
 struct FtestPacketExpectation {
     unsigned char action;          /* PckA_* */
-    int32_t par1, par2, par3, par4; /* FTEST_PKT_ANY to ignore a field */
+    int64_t par1, par2, par3, par4; /* FTEST_PKT_ANY to ignore a field */
     TbBool require_gui_flag;       /* if true, PCtr_Gui must be set on the packet */
 };
 
@@ -78,8 +78,8 @@ void ftest_packet_capture_reset(void);
  */
 void ftest_packet_capture_tick(void);
 
-int ftest_packet_capture_count(void);
-const struct FtestCapturedPacket *ftest_packet_capture_at(int idx);
+int64_t ftest_packet_capture_count(void);
+const struct FtestCapturedPacket *ftest_packet_capture_at(int64_t idx);
 /** FTESTLOG one line per captured packet (also called automatically on assertion failure). */
 void ftest_packet_capture_dump(void);
 
@@ -87,7 +87,7 @@ void ftest_packet_capture_dump(void);
 
 /** Exactly one captured packet carries `action` with matching (non-ANY) parameters. */
 TbBool ftest_packet_expect_once(unsigned char action,
-                                int32_t par1, int32_t par2, int32_t par3, int32_t par4);
+                                int64_t par1, int64_t par2, int64_t par3, int64_t par4);
 
 /** No captured packet carries `action`. */
 TbBool ftest_packet_expect_absent(unsigned char action);
@@ -97,7 +97,7 @@ TbBool ftest_packet_expect_absent(unsigned char action);
  * Compares action + non-ANY parameters + (optionally) the PCtr_Gui bit.
  * The count of action-bearing packets must equal `n` exactly.
  */
-TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, int n);
+TbBool ftest_packet_trace_matches(const struct FtestPacketExpectation *expect, int64_t n);
 
 #ifdef __cplusplus
 }

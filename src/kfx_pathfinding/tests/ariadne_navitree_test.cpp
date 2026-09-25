@@ -68,8 +68,8 @@ TEST_CASE_METHOD(ResetNavitree, "is_current_tag stops matching a slot once tag_c
 TEST_CASE_METHOD(ResetNavitree, "copy_tree_to_route walks tree_dad back from start to end", "[kfx_pathfinding][ariadne_navitree]") {
     tree_dad[10] = 5;
     tree_dad[5] = 2;
-    int32_t route_pts[8] = {};
-    long last = copy_tree_to_route(10, 2, route_pts, 8);
+    int64_t route_pts[8] = {};
+    int64_t last = copy_tree_to_route(10, 2, route_pts, 8);
     CHECK(last == 2);
     CHECK(route_pts[0] == 10);
     CHECK(route_pts[1] == 5);
@@ -77,7 +77,7 @@ TEST_CASE_METHOD(ResetNavitree, "copy_tree_to_route walks tree_dad back from sta
 }
 
 TEST_CASE_METHOD(ResetNavitree, "copy_tree_to_route returns 0 and just the end point when start equals end", "[kfx_pathfinding][ariadne_navitree]") {
-    int32_t route_pts[4] = {};
+    int64_t route_pts[4] = {};
     CHECK(copy_tree_to_route(3, 3, route_pts, 4) == 0);
     CHECK(route_pts[0] == 3);
 }
@@ -85,13 +85,13 @@ TEST_CASE_METHOD(ResetNavitree, "copy_tree_to_route returns 0 and just the end p
 TEST_CASE_METHOD(ResetNavitree, "copy_tree_to_route returns -1 when route_len is too small to hold the chain", "[kfx_pathfinding][ariadne_navitree]") {
     tree_dad[10] = 5;
     tree_dad[5] = 2;
-    int32_t route_pts[2] = {};
+    int64_t route_pts[2] = {};
     CHECK(copy_tree_to_route(10, 2, route_pts, 2) == -1);
 }
 
 TEST_CASE_METHOD(ResetNavitree, "update_border_tags stamps every in-range index and skips out-of-range ones", "[kfx_pathfinding][ariadne_navitree]") {
-    int32_t border_pt[4] = {3, 7, -1, TREEITEMS_COUNT};
-    long set_count = update_border_tags(42, border_pt, 4);
+    int64_t border_pt[4] = {3, 7, -1, TREEITEMS_COUNT};
+    int64_t set_count = update_border_tags(42, border_pt, 4);
     CHECK(set_count == 2); // the two out-of-range entries are skipped
     CHECK(Tags[3] == 42);
     CHECK(Tags[7] == 42);
@@ -100,14 +100,14 @@ TEST_CASE_METHOD(ResetNavitree, "update_border_tags stamps every in-range index 
 
 TEST_CASE_METHOD(ResetNavitree, "border_tags_to_current stamps using the live tag_current as the tag id", "[kfx_pathfinding][ariadne_navitree]") {
     tag_current = 9;
-    int32_t border_pt[1] = {3};
+    int64_t border_pt[1] = {3};
     CHECK(border_tags_to_current(border_pt, 1) == 1);
     CHECK(Tags[3] == 9);
 }
 
 TEST_CASE_METHOD(ResetNavitree, "navitree_add records the move cost/tag/parent and pushes onto the navi-heap", "[kfx_pathfinding][ariadne_navitree]") {
     naviheap_init();
-    constexpr long kScratchPos = TREEITEMS_COUNT - 1;
+    constexpr int64_t kScratchPos = TREEITEMS_COUNT - 1;
     tag_current = 3;
 
     CHECK(navitree_add(kScratchPos, 7, 42));

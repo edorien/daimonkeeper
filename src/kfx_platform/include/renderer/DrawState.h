@@ -11,11 +11,12 @@
 #pragma once
 
 
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef unsigned int TbDrawFlagsMask;
+typedef uint64_t TbDrawFlagsMask;
 
 typedef struct KfxDrawState {
     TbDrawFlagsMask flags;

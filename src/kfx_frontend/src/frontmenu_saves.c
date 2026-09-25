@@ -42,11 +42,11 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-int frontend_load_game_button_to_index(struct GuiButton *gbtn)
+int64_t frontend_load_game_button_to_index(struct GuiButton *gbtn)
 {
-    long gbidx = gbtn->content.lval;
-    int k = -1;
-    for (int i = gbidx + load_game_scroll_offset - 45; i >= 0; i--)
+    int64_t gbidx = gbtn->content.lval;
+    int64_t k = -1;
+    for (int64_t i = gbidx + load_game_scroll_offset - 45; i >= 0; i--)
     {
         struct CatalogueEntry* centry;
         do
@@ -62,15 +62,15 @@ int frontend_load_game_button_to_index(struct GuiButton *gbtn)
 
 /** Actual savegame slot shown in on-screen row btype_value (0..7), taking the
  *  scroll offset into account. */
-static long loadsave_row_slot(const struct GuiButton *gbtn)
+static int64_t loadsave_row_slot(const struct GuiButton *gbtn)
 {
-    long row = (gbtn != NULL) ? (gbtn->btype_value & LbBFeF_IntValueMask) : 0;
+    int64_t row = (gbtn != NULL) ? (gbtn->btype_value & LbBFeF_IntValueMask) : 0;
     return gui_vscroll_offset + row;
 }
 
 void gui_load_game_maintain(struct GuiButton *gbtn)
 {
-    long slot_num = loadsave_row_slot(gbtn);
+    int64_t slot_num = loadsave_row_slot(gbtn);
     struct CatalogueEntry* centry = &save_game_catalogue[slot_num];
     if ((slot_num < save_game_catalogue_count) && ((centry->flags & CEF_InUse) != 0))
         gbtn->flags |= LbBtnF_Enabled;
@@ -81,10 +81,10 @@ void gui_load_game_maintain(struct GuiButton *gbtn)
 void gui_load_game(struct GuiButton *gbtn)
 {
     struct PlayerInfo* player = get_my_player();
-    long slot_num = loadsave_row_slot(gbtn);
+    int64_t slot_num = loadsave_row_slot(gbtn);
     if (!load_game(slot_num))
     {
-        ERRORLOG("Loading game %d failed; quitting.", (int)slot_num);
+        ERRORLOG("Loading game %" PRId64 " failed; quitting.", (int64_t)slot_num);
         // Even on quit, we still should unpause the game
         set_players_packet_action(player, PckA_TogglePause, 0, 0, 0, 0);
         quit_game = 1;
@@ -95,8 +95,8 @@ void gui_load_game(struct GuiButton *gbtn)
 void draw_load_button(struct GuiButton *gbtn)
 {
     if (gbtn == NULL) return;
-    int bs_units_per_px = simple_button_sprite_height_units_per_px(gbtn, GBS_frontend_button_std_c, 94);
-    int width = gbtn->width;
+    int64_t bs_units_per_px = simple_button_sprite_height_units_per_px(gbtn, GBS_frontend_button_std_c, 94);
+    int64_t width = gbtn->width;
     TbBool low_res = (MyScreenHeight < 400);
     if (low_res)
     {
@@ -105,7 +105,7 @@ void draw_load_button(struct GuiButton *gbtn)
     if ((gbtn->button_state_left_pressed) || (gbtn->button_state_right_pressed))
     {
         draw_bar64k(gbtn->scr_pos_x, gbtn->scr_pos_y, bs_units_per_px, width);
-        int lit_width = gbtn->width + 6*units_per_pixel/16;
+        int64_t lit_width = gbtn->width + 6*units_per_pixel/16;
         if (low_res)
         {
             lit_width += 32;
@@ -127,7 +127,7 @@ void gui_save_game(struct GuiButton *gbtn)
     struct PlayerInfo* player = get_my_player();
     if (strcasecmp(gbtn->content.str, get_string(GUIStr_SlotUnused)) != 0)
     {
-        long slot_num = loadsave_row_slot(gbtn);
+        int64_t slot_num = loadsave_row_slot(gbtn);
         fill_game_catalogue_slot(slot_num, gbtn->content.str);
         if (save_game(slot_num))
         {
@@ -145,9 +145,9 @@ void update_loadsave_input_strings(struct CatalogueEntry *game_catalg)
 {
     SYNCDBG(6,"Starting");
     // Fill the 8 on-screen rows from the current scroll window [offset, offset+8).
-    for (long row = 0; row < GUI_VSCROLL_VISIBLE; row++)
+    for (int64_t row = 0; row < GUI_VSCROLL_VISIBLE; row++)
     {
-        long slot_num = gui_vscroll_offset + row;
+        int64_t slot_num = gui_vscroll_offset + row;
         const char* text;
         if ((slot_num < save_game_catalogue_count) && ((game_catalg[slot_num].flags & CEF_InUse) != 0))
             text = game_catalg[slot_num].textname;
@@ -159,7 +159,7 @@ void update_loadsave_input_strings(struct CatalogueEntry *game_catalg)
 
 void frontend_load_game(struct GuiButton *gbtn)
 {
-    int i = frontend_load_game_button_to_index(gbtn);
+    int64_t i = frontend_load_game_button_to_index(gbtn);
     if (i < 0)
         return;
     kfx_frontend_state.save_game_slot = i;
@@ -176,16 +176,16 @@ void frontend_load_game(struct GuiButton *gbtn)
 
 void frontend_draw_load_game_button(struct GuiButton *gbtn)
 {
-    int i = frontend_load_game_button_to_index(gbtn);
+    int64_t i = frontend_load_game_button_to_index(gbtn);
     if (i < 0)
         return;
     // Select font to draw
-    int font_idx = frontend_button_caption_font(gbtn, frontend_mouse_over_button);
+    int64_t font_idx = frontend_button_caption_font(gbtn, frontend_mouse_over_button);
     LbTextSetFont(frontend_font[font_idx]);
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
     // Set drawing window and draw the text
-    int tx_units_per_px = (gbtn->height * 13 / 11) * 16 / LbTextLineHeight();
-    int height = LbTextLineHeight() * tx_units_per_px / 16;
+    int64_t tx_units_per_px = (gbtn->height * 13 / 11) * 16 / LbTextLineHeight();
+    int64_t height = LbTextLineHeight() * tx_units_per_px / 16;
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, height);
     LbTextDrawResized(0, 0, tx_units_per_px, save_game_catalogue[i].textname);
 }

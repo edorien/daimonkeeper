@@ -23,8 +23,8 @@ struct ftest_bug_pathing_stair_treasury__variables
     const MapSlabCoord slb_x_stair_start;
     const MapSlabCoord slb_y_stair_start;
 
-    const unsigned short stair_length;
-    const unsigned short stair_count;
+    const int64_t stair_length;
+    const int64_t stair_count;
 
     const MapSlabCoord slb_x_second_dig_action;
     const MapSlabCoord slb_y_second_dig_action;
@@ -71,9 +71,9 @@ FTestActionResult ftest_bug_pathing_stair_treasury_action001__map_setup(struct F
     MapSlabCoord stair_y = vars->slb_y_stair_start;
 
     // clear out stair shape
-    for(unsigned short y = 0; y < vars->stair_count; ++y, ++stair_y)
+    for(int64_t y = 0; y < vars->stair_count; ++y, ++stair_y)
     {
-        for(unsigned short x = 0; x < vars->stair_length-1; ++x, ++stair_x)
+        for(int64_t x = 0; x < vars->stair_length-1; ++x, ++stair_x)
         {
             ftest_util_replace_slabs(stair_x, stair_y, stair_x+1, stair_y, SlbT_TREASURE, PLAYER0);
         }

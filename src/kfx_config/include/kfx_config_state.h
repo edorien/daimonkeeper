@@ -126,11 +126,11 @@ struct KfxConfigState {
     // as a literal, not the macro expression -- TEXTURE_BLOCKS_ANIM_COUNT's
     // definition lacks parens around its subtraction, so using it directly
     // in a multiplication would silently compute the wrong value.
-    short texture_animation[3648];
+    int64_t texture_animation[3648];
     unsigned char texture_id;
 
     // col_static_entries: read by kfx_sim too, kfx_config is lower-ranked.
-    short col_static_entries[18];
+    int64_t col_static_entries[18];
 
     // neutral_player_num/slab_ext_data(_initial): each read by several
     // other libraries, but kfx_config is the lowest-ranked of every one
@@ -152,23 +152,23 @@ struct KfxConfigState {
     // Moved from kfx_game's sounds.c (stage 13.3, docs/refactor/
     // stage-13-enforce-and-document.md) -- only written by kfx_config's
     // config_keeperfx.c, kfx_game's sounds.c is its only real reader.
-    int atmos_sound_frequency;
+    int64_t atmos_sound_frequency;
 
     // Moved from kfx_render's engine_camera.c (stage 13.3, docs/refactor/
     // stage-13-enforce-and-document.md) -- CFG settings, written by
     // kfx_config's config_keeperfx.c, read by kfx_render's own
     // engine_camera.c and kfx_net's net_game.c (session sync)/packets.c;
     // kfx_config is the lowest-ranked of their real consumers.
-    long zoom_distance_setting;
-    long frontview_zoom_distance_setting;
+    int64_t zoom_distance_setting;
+    int64_t frontview_zoom_distance_setting;
 
     // Moved from kfx_frontend's gui_draw.c (stage 13.3, docs/refactor/
     // stage-13-enforce-and-document.md) -- both CFG settings, read
     // broadly by kfx_frontend/kfx_render, but kfx_config is the
     // lowest-ranked of their real consumers (engine_render.c reads
     // both; config_spritecolors.c also reads neutral_flash_rate).
-    int gui_blink_rate;
-    int neutral_flash_rate;
+    int64_t gui_blink_rate;
+    int64_t neutral_flash_rate;
 };
 
 // Moved from kfx_render's engine_camera.h (stage 13.3, docs/refactor/

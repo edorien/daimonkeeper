@@ -70,12 +70,12 @@ const struct ConfigInfo default_net_config_info = {
     "Player",
 };
 
-long net_number_of_sessions;
+int64_t net_number_of_sessions;
 struct ConfigInfo net_config_info;
 char net_service[16][NET_SERVICE_LEN];
 char tmp_net_player_name[24];
 static TbBool attempting_to_join_cancelled = false;
-static int32_t previous_active_players = 0;
+static int64_t previous_active_players = 0;
 /******************************************************************************/
 #ifdef __cplusplus
 }
@@ -90,7 +90,7 @@ static TbBool try_starting_level_from_chat(const char *message, NetUserId user_i
     if ((separator_pos == NULL) || (separator_pos == message)) {
         return false;
     }
-    int32_t campaign_len = separator_pos - message;
+    int64_t campaign_len = separator_pos - message;
     if (campaign_len >= 64) {
         return false;
     }
@@ -109,7 +109,7 @@ static TbBool try_starting_level_from_chat(const char *message, NetUserId user_i
         }
     }
     char campaign_filename[80];
-    snprintf(campaign_filename, sizeof(campaign_filename), "%.*s", campaign_len, message);
+    snprintf(campaign_filename, sizeof(campaign_filename), "%.*s", (int)(campaign_len), message);
     return frontnet_start_level(campaign_filename, level_num);
 }
 
@@ -125,14 +125,14 @@ TbBool frontnet_start_level(const char *campaign_fname, LevelNumber lvnum)
     }
     if (!change_campaign(pack, campaign_file)
      || (strcasecmp(campaign.fname, campaign_file) != 0)) {
-        ERRORLOG("Unable to load campaign '%s' for level %d", campaign_fname, (int)lvnum);
+        ERRORLOG("Unable to load campaign '%s' for level %" PRId64, campaign_fname, (int64_t)lvnum);
         return false;
     }
     if (lvnum <= 0) {
         return true;
     }
     if (get_level_info(lvnum) == NULL) {
-        ERRORLOG("Campaign '%s' does not contain level %d", campaign_fname, (int)lvnum);
+        ERRORLOG("Campaign '%s' does not contain level %" PRId64, campaign_fname, (int64_t)lvnum);
         return false;
     }
     set_selected_level_number(lvnum);
@@ -159,7 +159,7 @@ TbBool frontnet_service_selected(enum FrontendNetService service)
     return (net_service_index_selected == service);
 }
 
-void process_network_error(long errcode)
+void process_network_error(int64_t errcode)
 {
   const char *text;
   switch (errcode)
@@ -192,16 +192,16 @@ void process_network_error(long errcode)
       text = get_string(GUIStr_NetUnableToJoin);
       break;
   default:
-      ERRORLOG("Unknown modem error code %ld",errcode);
+      ERRORLOG("Unknown modem error code %" PRId64,(int64_t)(errcode));
       return;
   }
   create_frontend_error_box(3000, text);
 }
 
-void draw_out_of_sync_box(long a1, long a2, long box_width)
+void draw_out_of_sync_box(int64_t a1, int64_t a2, int64_t box_width)
 {
-    long min_width = 2 * a1;
-    long max_width = 2 * a2;
+    int64_t min_width = 2 * a1;
+    int64_t max_width = 2 * a2;
     if (min_width > max_width)
     {
         min_width = max_width;
@@ -210,21 +210,21 @@ void draw_out_of_sync_box(long a1, long a2, long box_width)
     {
         min_width = 0;
     }
-    int units_per_px = units_per_pixel;
+    int64_t units_per_px = units_per_pixel;
     if (RendererLockFramebuffer() == Lb_SUCCESS)
     {
-        long ornate_width = 200 * units_per_px / 16;
-        long ornate_height = 100 * units_per_px / 16;
-        long x = box_width + (MyScreenWidth - box_width - ornate_width) / 2;
-        long y = (MyScreenHeight - ornate_height) / 2;
+        int64_t ornate_width = 200 * units_per_px / 16;
+        int64_t ornate_height = 100 * units_per_px / 16;
+        int64_t x = box_width + (MyScreenWidth - box_width - ornate_width) / 2;
+        int64_t y = (MyScreenHeight - ornate_height) / 2;
         draw_ornate_slab64k(x, y, units_per_px, ornate_width, ornate_height);
         LbTextSetFont(winfont);
         RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
         LbTextSetWindow(x, y, ornate_width, ornate_height);
-        int tx_units_per_px = (22 * units_per_px) / LbTextLineHeight();
-        long text_h = LbTextLineHeight() * tx_units_per_px / 16;
-        long text_x = x + 100 * units_per_px / 16 - max_width;
-        long text_y = y + 58 * units_per_px / 16;
+        int64_t tx_units_per_px = (22 * units_per_px) / LbTextLineHeight();
+        int64_t text_h = LbTextLineHeight() * tx_units_per_px / 16;
+        int64_t text_x = x + 100 * units_per_px / 16 - max_width;
+        int64_t text_y = y + 58 * units_per_px / 16;
         LbTextDrawResized(0, 50*units_per_px/16 - text_h, tx_units_per_px, get_string(GUIStr_NetResyncing));
         LbDrawBox(text_x, text_y, 2*max_width, 16*units_per_px/16, resolve_indexed_pixel(0, RendererGetActivePalette()));
         LbDrawBox(text_x, text_y, 2*min_width, 16*units_per_px/16, resolve_indexed_pixel(133, RendererGetActivePalette()));
@@ -235,11 +235,11 @@ void draw_out_of_sync_box(long a1, long a2, long box_width)
 
 void setup_alliances(void)
 {
-    for (int i = 0; i < MAX_NET_USERS; i++) {
+    for (int64_t i = 0; i < MAX_NET_USERS; i++) {
         if (!player_exists(get_player(i))) {
             continue;
         }
-        for (int k = i + 1; k < MAX_NET_USERS; k++) {
+        for (int64_t k = i + 1; k < MAX_NET_USERS; k++) {
             if (!player_exists(get_player(k))) {
                 continue;
             }
@@ -300,8 +300,8 @@ void enum_sessions_callback(struct TbNetworkCallbackData *netcdat, void *ptr)
 
 void frontnet_session_update(void)
 {
-    static long last_enum_players = 0;
-    static long last_enum_sessions = 0;
+    static int64_t last_enum_players = 0;
+    static int64_t last_enum_sessions = 0;
 
     if (LbTimerClock() >= last_enum_sessions)
     {
@@ -312,13 +312,13 @@ void frontnet_session_update(void)
       if (frontnet_service_selected(FrontendNetSvc_LAN))
       {
           lan_refresh_sessions();
-          for (int i = 0; i < lan_session_count && net_number_of_sessions < SESSION_ENTRIES_COUNT; i++)
+          for (int64_t i = 0; i < lan_session_count && net_number_of_sessions < SESSION_ENTRIES_COUNT; i++)
               net_session[net_number_of_sessions++] = &lan_sessions[i];
       }
       if (frontnet_service_selected(FrontendNetSvc_Online))
       {
           matchmaking_refresh_sessions();
-          for (int i = 0; i < matchmaking_session_count && net_number_of_sessions < SESSION_ENTRIES_COUNT; i++)
+          for (int64_t i = 0; i < matchmaking_session_count && net_number_of_sessions < SESSION_ENTRIES_COUNT; i++)
               net_session[net_number_of_sessions++] = &matchmaking_sessions[i];
       }
       last_enum_sessions = LbTimerClock();
@@ -334,7 +334,7 @@ void frontnet_session_update(void)
             || (!net_session[net_session_index_active]->joinable))
           {
             net_session_index_active = -1;
-            for (long i = 0; i < net_number_of_sessions; i++)
+            for (int64_t i = 0; i < net_number_of_sessions; i++)
             {
               if (net_session[i]->joinable)
               {
@@ -390,7 +390,7 @@ void frontnet_session_update(void)
 
 static TbBool check_frontend_version_mismatch(void)
 {
-  int32_t active_players = 0;
+  int64_t active_players = 0;
   const struct NetUser *host_user = &netstate.users[SERVER_ID];
   NetUserId remote_id = -1;
   TbBool start_requested = false;
@@ -418,10 +418,10 @@ static TbBool check_frontend_version_mismatch(void)
   }
   const struct NetUser *remote_user = &netstate.users[remote_id];
   char text[MESSAGE_TEXT_LEN];
-  snprintf(text, sizeof(text), "%s\n%s: %d.%d.%d.%d\n%s: %d.%d.%d.%d",
+  snprintf(text, sizeof(text), "%s\n%s: %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64 "\n%s: %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,
       get_string(GUIStr_VersionMismatch),
-      network_user_name(SERVER_ID), (int)host_user->version.major, (int)host_user->version.minor, (int)host_user->version.release, (int)host_user->version.build,
-      network_user_name(remote_id), (int)remote_user->version.major, (int)remote_user->version.minor, (int)remote_user->version.release, (int)remote_user->version.build);
+      network_user_name(SERVER_ID), (int64_t)host_user->version.major, (int64_t)host_user->version.minor, (int64_t)host_user->version.release, (int64_t)host_user->version.build,
+      network_user_name(remote_id), (int64_t)remote_user->version.major, (int64_t)remote_user->version.minor, (int64_t)remote_user->version.release, (int64_t)remote_user->version.build);
   create_frontend_error_box(10000, text);
   return true;
 }
@@ -492,7 +492,7 @@ static void process_frontend_packets(void)
             break;
         }
       if (fe_computer_players == 2) {
-        int32_t k = (nspckt->networkstatus_flags & NetStat_ComputerPlayersMask) >> NetStat_ComputerPlayersShift;
+        int64_t k = (nspckt->networkstatus_flags & NetStat_ComputerPlayersMask) >> NetStat_ComputerPlayersShift;
         if (k != 2) {
           fe_computer_players = k;
         }
@@ -505,7 +505,7 @@ static void process_frontend_packets(void)
   }
   for (i = 0; i < MAX_NET_USERS; i++) {
     if (!network_user_active(i)) {
-      const int32_t alliances_to_clear = alliance_grid[i][0] | alliance_grid[i][1] | alliance_grid[i][2] | alliance_grid[i][3];
+      const int64_t alliances_to_clear = alliance_grid[i][0] | alliance_grid[i][1] | alliance_grid[i][2] | alliance_grid[i][3];
       frontend_alliances = frontend_alliances & ~alliances_to_clear;
     }
   }
@@ -541,7 +541,7 @@ void frontnet_send_campaign_change_message(const char* campaign_fname)
 
 void handle_autostart_multiplayer_messaging(void)
 {
-    static int previous_enum_players = 0;
+    static int64_t previous_enum_players = 0;
     TbBool player_joined = (net_number_of_enum_players > previous_enum_players);
     previous_enum_players = net_number_of_enum_players;
 
@@ -560,14 +560,14 @@ void handle_autostart_multiplayer_messaging(void)
     }
     struct PlayerInfo *player = get_my_player();
     const char* camp = "keeporig";
-    int level = 1;
+    int64_t level = 1;
     if (start_params.autostart_multiplayer_campaign[0]) {
         camp = start_params.autostart_multiplayer_campaign;
     }
     if (start_params.autostart_multiplayer_level > 0) {
         level = start_params.autostart_multiplayer_level;
     }
-    snprintf(player->mp_message_text, PLAYER_MP_MESSAGE_LEN, "%s:%d", camp, level);
+    snprintf(player->mp_message_text, PLAYER_MP_MESSAGE_LEN, "%s:%" PRId64, camp, (int64_t)(level));
     lbInkey = KC_RETURN;
 }
 
@@ -604,11 +604,11 @@ void frontnet_start_update(void)
     }
 }
 
-void display_attempting_to_join_message(int remaining_s)
+void display_attempting_to_join_message(int64_t remaining_s)
 {
     char msg[128];
     if (remaining_s >= 0)
-        snprintf(msg, sizeof(msg), "%s (%ds)", get_string(GUIStr_NetAttemptingToJoin), remaining_s);
+        snprintf(msg, sizeof(msg), "%s (%" PRId64 "s)", get_string(GUIStr_NetAttemptingToJoin), (int64_t)(remaining_s));
     else
         snprintf(msg, sizeof(msg), "%s", get_string(GUIStr_NetAttemptingToJoin));
     frontend_draw();
@@ -705,7 +705,7 @@ void frontnet_start_setup(void)
     net_player_list.scroll_offset = 0;
     net_message_list.scroll_offset = 0;
     //net_old_number_of_players = 0;
-    for (int i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
         player->mp_message_text[0] = '\0';

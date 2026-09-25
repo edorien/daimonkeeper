@@ -36,9 +36,9 @@ struct NetCallbacks {
     /* frontend.h */
     void (*enter_net_session_screen)(void);
     void (*set_lobby_button_labels)(TbBool is_lan);
-    void (*create_frontend_error_box)(long show_time_ms, const char *text);
-    short (*frontend_save_continue_game)(short allow_lvnum_grow);
-    unsigned long (*toggle_status_menu)(short visible);
+    void (*create_frontend_error_box)(int64_t show_time_ms, const char *text);
+    int64_t (*frontend_save_continue_game)(int64_t allow_lvnum_grow);
+    uint64_t (*toggle_status_menu)(int64_t visible);
     void (*set_gui_visible)(TbBool visible);
     unsigned char (*get_default_tag_mode)(void);
     TbBool (*is_frontend_starting_mp_level)(void);
@@ -46,11 +46,11 @@ struct NetCallbacks {
 
     /* front_network.h -- service is a FrontendNetService value (net_main.h);
        passed as int since kfx_config sits below kfx_net. */
-    void (*display_attempting_to_join_message)(int remaining_s);
+    void (*display_attempting_to_join_message)(int64_t remaining_s);
     TbBool (*attempting_to_join_cancel_requested)(void);
     void (*reset_attempting_to_join_cancel)(void);
-    void (*process_network_error)(long errcode);
-    TbBool (*frontnet_service_selected)(int service);
+    void (*process_network_error)(int64_t errcode);
+    TbBool (*frontnet_service_selected)(int64_t service);
 
     /* gui_frontmenu.h */
     void (*turn_off_all_menus)(void);
@@ -60,15 +60,15 @@ struct NetCallbacks {
     void (*turn_on_menu)(MenuID idx);
 
     /* frontmenu_ingame_map.h */
-    void (*panel_map_update)(long x, long y, long w, long h);
+    void (*panel_map_update)(int64_t x, int64_t y, int64_t w, int64_t h);
 
     /* frontmenu_ingame_tabs.h */
     void (*update_trap_tab_to_config)(void);
     void (*instant_instance_selected)(CrInstance check_inst_id);
 
     /* kjm_input.h */
-    short (*is_key_pressed)(TbKeyCode key, TbKeyMods kmodif);
-    void (*clear_key_pressed)(long key);
+    int64_t (*is_key_pressed)(TbKeyCode key, TbKeyMods kmodif);
+    void (*clear_key_pressed)(int64_t key);
 
     /* front_input.h */
     TbBool (*process_cheat_heart_health_inputs)(HitPoints *value, HitPoints max_health);
@@ -98,7 +98,7 @@ struct NetCallbacks {
     TbBool (*lua_script_active)(void);
     const char *(*lua_resync_export)(size_t *len);
     TbBool (*lua_resync_import)(const char *data, size_t len);
-    void (*lua_set_random_seed)(unsigned int seed);
+    void (*lua_set_random_seed)(uint64_t seed);
     void (*lua_cleanup_serialized_data)(void);
 
     /* game_legacy.h/kfx_game_state.h/kfx_frontend_state.h -- upper-state
@@ -128,30 +128,30 @@ struct NetCallbacks {
     void (*network_yield_draw_frontend)(void);
 
     /* gui_soundmsgs.h */
-    TbBool (*output_message)(SoundSmplTblID smpl_idx, long duration);
+    TbBool (*output_message)(SoundSmplTblID smpl_idx, int64_t duration);
 
     /* gui_topmsg.h */
-    long (*report_error_stat)(int stat_num);
-    TbBool (*show_onscreen_msg)(int nturns, const char *msg);
+    int64_t (*report_error_stat)(int64_t stat_num);
+    TbBool (*show_onscreen_msg)(int64_t nturns, const char *msg);
     TbBool (*is_onscreen_msg_visible)(void);
 
     /* main_game.h */
-    short (*winning_player_quitting)(struct PlayerInfo *player, int32_t *plyr_count);
+    int64_t (*winning_player_quitting)(struct PlayerInfo *player, int64_t *plyr_count);
     void (*reinit_level_after_load)(void);
-    short (*complete_level)(struct PlayerInfo *player);
-    short (*lose_level)(struct PlayerInfo *player);
-    short (*resign_level)(struct PlayerInfo *player);
+    int64_t (*complete_level)(struct PlayerInfo *player);
+    int64_t (*lose_level)(struct PlayerInfo *player);
+    int64_t (*resign_level)(struct PlayerInfo *player);
 
     /* game_saves.h */
-    int (*load_game_chunks)(TbFileHandle fhandle, struct CatalogueEntry *centry);
+    int64_t (*load_game_chunks)(TbFileHandle fhandle, struct CatalogueEntry *centry);
     TbBool (*fill_game_catalogue_entry)(struct CatalogueEntry *centry, const char *textname);
     TbBool (*save_packet_chunks)(TbFileHandle fhandle, struct CatalogueEntry *centry);
 
     /* front_network.h -- reached transitively via net_game.h before
        net_game.h's own dead front_network.h include was removed
        (stage 13.3); both are genuine kfx_net -> kfx_frontend calls. */
-    void (*draw_out_of_sync_box)(long a1, long a2, long box_width);
-    void (*process_frontend_chat_message)(int player_id, const char *message);
+    void (*draw_out_of_sync_box)(int64_t a1, int64_t a2, int64_t box_width);
+    void (*process_frontend_chat_message)(int64_t player_id, const char *message);
 
     /* game_session_loop.h (kfx_apploop) -- net_exchange_common.c updates
        the host-packet-received timestamp kfx_apploop's multiplayer

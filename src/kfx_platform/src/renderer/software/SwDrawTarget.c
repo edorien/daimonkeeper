@@ -14,17 +14,17 @@
 
 TbPixel* SwTargetWScreen(void)           { return lbDisplay.WScreen; }
 TbPixel* SwTargetGraphicsWindowPtr(void) { return lbDisplay.GraphicsWindowPtr; }
-int32_t SwTargetScanline(void)              { return (int32_t)lbDisplay.GraphicsScreenWidth; }
-int32_t SwTargetScreenHeight(void)          { return (int32_t)lbDisplay.GraphicsScreenHeight; }
+int64_t SwTargetScanline(void)              { return (int64_t)lbDisplay.GraphicsScreenWidth; }
+int64_t SwTargetScreenHeight(void)          { return (int64_t)lbDisplay.GraphicsScreenHeight; }
 
-int32_t SwTargetWindowX(void)      { return (int32_t)lbDisplay.GraphicsWindowX; }
-int32_t SwTargetWindowY(void)      { return (int32_t)lbDisplay.GraphicsWindowY; }
-int32_t SwTargetWindowWidth(void)  { return (int32_t)lbDisplay.GraphicsWindowWidth; }
-int32_t SwTargetWindowHeight(void) { return (int32_t)lbDisplay.GraphicsWindowHeight; }
+int64_t SwTargetWindowX(void)      { return (int64_t)lbDisplay.GraphicsWindowX; }
+int64_t SwTargetWindowY(void)      { return (int64_t)lbDisplay.GraphicsWindowY; }
+int64_t SwTargetWindowWidth(void)  { return (int64_t)lbDisplay.GraphicsWindowWidth; }
+int64_t SwTargetWindowHeight(void) { return (int64_t)lbDisplay.GraphicsWindowHeight; }
 
 TbPixel* SwTargetVecScreen(void)        { return vec_screen; }
 TbPixel* SwTargetPolyScreen(void)       { return poly_screen; }
 const unsigned char* SwTargetVecMap(void) { return vec_map; }
-unsigned long SwTargetVecScreenWidth(void) { return vec_screen_width; }
-long SwTargetVecWindowWidth(void)       { return vec_window_width; }
-long SwTargetVecWindowHeight(void)      { return vec_window_height; }
+uint64_t SwTargetVecScreenWidth(void) { return vec_screen_width; }
+int64_t SwTargetVecWindowWidth(void)       { return vec_window_width; }
+int64_t SwTargetVecWindowHeight(void)      { return vec_window_height; }

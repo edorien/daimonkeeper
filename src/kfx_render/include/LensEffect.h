@@ -28,11 +28,11 @@
 struct LensRenderContext {
     TbPixel *dstbuf;              // Destination buffer (viewport)
     TbPixel *srcbuf;              // Source buffer (full screen width, unclipped)
-    long dstpitch;               // Destination pitch
-    long srcpitch;               // Source pitch (full screen width)
-    long width;                  // Viewport width
-    long height;                 // Viewport height
-    long viewport_x;             // X offset of viewport in source buffer
+    int64_t dstpitch;               // Destination pitch
+    int64_t srcpitch;               // Source pitch (full screen width)
+    int64_t width;                  // Viewport width
+    int64_t height;                 // Viewport height
+    int64_t viewport_x;             // X offset of viewport in source buffer
     TbBool buffer_copied;        // Whether srcbuf has been copied to dstbuf yet
 };
 
@@ -62,7 +62,7 @@ public:
     virtual ~LensEffect();
     
     // Effect lifecycle (override in derived classes)
-    virtual TbBool Setup(long lens_idx) = 0;
+    virtual TbBool Setup(int64_t lens_idx) = 0;
     virtual void Cleanup() = 0;
     virtual TbBool Draw(LensRenderContext* ctx) = 0;
     

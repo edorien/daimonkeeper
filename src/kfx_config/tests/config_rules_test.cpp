@@ -27,7 +27,7 @@ TEST_CASE_METHOD(ResetConfigState, "get_unused_sacrifice_recipe_slot finds the f
 }
 
 TEST_CASE_METHOD(ResetConfigState, "get_unused_sacrifice_recipe_slot falls back to slot 0 once every slot 1.. is used", "[kfx_config][config_rules]") {
-    for (int i = 1; i < MAX_SACRIFICE_RECIPES; i++) {
+    for (int64_t i = 1; i < MAX_SACRIFICE_RECIPES; i++) {
         kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[i].action = SacA_MkCreature; // anything != SacA_None
     }
     struct SacrificeRecipe *slot = get_unused_sacrifice_recipe_slot();
@@ -75,14 +75,14 @@ TEST_CASE("add_sacrifice_victim inserts a new victim into the first free slot", 
     // not asserted here -- only that the inserted value is present
     // somewhere and the free-slot search advances correctly.
     bool found_30 = false;
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
         if (sac.victims[i] == 30) found_30 = true;
     }
     CHECK(found_30);
 
     CHECK(add_sacrifice_victim(&sac, 10));
-    int nonzero_count = 0;
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
+    int64_t nonzero_count = 0;
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
         if (sac.victims[i] != 0) nonzero_count++;
     }
     CHECK(nonzero_count == 2); // both victims present, no slot lost or duplicated
@@ -91,7 +91,7 @@ TEST_CASE("add_sacrifice_victim inserts a new victim into the first free slot", 
 TEST_CASE("add_sacrifice_victim rejects a new victim once every slot is full", "[kfx_config][config_rules]") {
     struct SacrificeRecipe sac;
     std::memset(&sac, 0, sizeof(sac));
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++) {
         sac.victims[i] = i + 1; // fill every slot with a nonzero model
     }
     CHECK_FALSE(add_sacrifice_victim(&sac, 99));

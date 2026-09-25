@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_computer_player_config_file(const char *fname, unsigned short flags);
+static TbBool load_computer_player_config_file(const char *fname, int64_t flags);
 // See resolve_compp_func_type_pointers() below and docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 static void resolve_compp_func_type_pointers(void);
@@ -51,20 +51,20 @@ struct ComputerPlayerConfig comp_player_conf;
 
 static TbBool computer_type_clear_processes(struct ComputerType *cpt);
 static TbBool computer_type_clear_checks(struct ComputerType *cpt);
-static short computer_type_clear_events(struct ComputerType *cpt);
+static int64_t computer_type_clear_events(struct ComputerType *cpt);
 
-static int64_t value_processes(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static int64_t value_checks(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static int64_t value_events(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-int64_t value_process_mnemonic(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static int64_t value_processes(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static int64_t value_checks(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static int64_t value_events(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_process_mnemonic(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 
-static int get_computer_process_config_list_index_mnem(const char *mnemonic);
-static int get_computer_check_config_list_index_mnem(const char *mnemonic);
-static int get_computer_event_config_list_index_mnem(const char *mnemonic);
+static int64_t get_computer_process_config_list_index_mnem(const char *mnemonic);
+static int64_t get_computer_check_config_list_index_mnem(const char *mnemonic);
+static int64_t get_computer_event_config_list_index_mnem(const char *mnemonic);
 
-static int computer_type_add_process(struct ComputerType *cpt, unsigned char cproc_idx);
-static int computer_type_add_check(struct ComputerType *cpt, unsigned char check_idx);
-static int computer_type_add_event(struct ComputerType *cpt, unsigned char event_idx);
+static int64_t computer_type_add_process(struct ComputerType *cpt, unsigned char cproc_idx);
+static int64_t computer_type_add_check(struct ComputerType *cpt, unsigned char check_idx);
+static int64_t computer_type_add_event(struct ComputerType *cpt, unsigned char event_idx);
 
 /******************************************************************************/
 
@@ -80,13 +80,13 @@ static const struct NamedField compp_common_named_fields[] = {
 };
 
 static void* get_compp_common_base(void) { return &comp_player_conf; }
-static int32_t* get_processes_count(void) { return &comp_player_conf.processes_count; }
+static int64_t* get_processes_count(void) { return &comp_player_conf.processes_count; }
 static void* get_processes_base(void) { return comp_player_conf.process_types; }
-static int32_t* get_checks_count(void) { return &comp_player_conf.checks_count; }
+static int64_t* get_checks_count(void) { return &comp_player_conf.checks_count; }
 static void* get_checks_base(void) { return comp_player_conf.check_types; }
-static int32_t* get_events_count(void) { return &comp_player_conf.events_count; }
+static int64_t* get_events_count(void) { return &comp_player_conf.events_count; }
 static void* get_events_base(void) { return comp_player_conf.event_types; }
-static int32_t* get_computers_count(void) { return &comp_player_conf.computers_count; }
+static int64_t* get_computers_count(void) { return &comp_player_conf.computers_count; }
 static void* get_computers_base(void) { return comp_player_conf.computer_types; }
 
 const struct NamedFieldSet compp_common_named_fields_set = {
@@ -249,88 +249,88 @@ const struct NamedFieldSet compp_computer_named_fields_set = {
 };
 
 /******************************************************************************/
-int64_t value_processes(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_processes(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
   char word_buf[COMMAND_WORD_LEN];
   struct ComputerType* cpt = get_computer_type_template(idx);
   computer_type_clear_processes(cpt);
 
-  int32_t pos = 0;
-  long len = strlen(value_text);
+  int64_t pos = 0;
+  int64_t len = strlen(value_text);
   while (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
   {
-      int process_idx = get_computer_process_config_list_index_mnem(word_buf);
+      int64_t process_idx = get_computer_process_config_list_index_mnem(word_buf);
       if (process_idx <= 0)
       {
-          NAMFIELDWRNLOG("process %s not recognized for [%s%d].",word_buf, named_fields_set->block_basename, idx);
+          NAMFIELDWRNLOG("process %s not recognized for [%s%" PRId64 "].",word_buf, named_fields_set->block_basename, (int64_t)(idx));
           continue;
       }
       if (computer_type_add_process(cpt, process_idx) < 0)
       {
-          NAMFIELDWRNLOG("failed to add process %s for [%s%d].",word_buf, named_fields_set->block_basename, idx);
+          NAMFIELDWRNLOG("failed to add process %s for [%s%" PRId64 "].",word_buf, named_fields_set->block_basename, (int64_t)(idx));
       }
   }
   return 0;
 }
 
-int64_t value_checks(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_checks(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     char word_buf[COMMAND_WORD_LEN];
     struct ComputerType* cpt = get_computer_type_template(idx);
     computer_type_clear_checks(cpt);
 
-    int32_t pos = 0;
-    long len = strlen(value_text);
+    int64_t pos = 0;
+    int64_t len = strlen(value_text);
     while (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
     {
-        int check_idx = get_computer_check_config_list_index_mnem(word_buf);
+        int64_t check_idx = get_computer_check_config_list_index_mnem(word_buf);
         if (check_idx <= 0)
         {
-            NAMFIELDWRNLOG("check %s not recognized for [%s%d].",word_buf, named_fields_set->block_basename, idx);
+            NAMFIELDWRNLOG("check %s not recognized for [%s%" PRId64 "].",word_buf, named_fields_set->block_basename, (int64_t)(idx));
             continue;
         }
         if (computer_type_add_check(cpt, check_idx) < 0)
         {
-            NAMFIELDWRNLOG("failed to add check %s for [%s%d].",word_buf, named_fields_set->block_basename, idx);
+            NAMFIELDWRNLOG("failed to add check %s for [%s%" PRId64 "].",word_buf, named_fields_set->block_basename, (int64_t)(idx));
         }
     }
     return 0;
 }
 
-int64_t value_events(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_events(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
   char word_buf[COMMAND_WORD_LEN];
   struct ComputerType* cpt = get_computer_type_template(idx);
   computer_type_clear_events(cpt);
 
-  int32_t pos = 0;
-  long len = strlen(value_text);
+  int64_t pos = 0;
+  int64_t len = strlen(value_text);
   while (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
   {
-    int event_idx = get_computer_event_config_list_index_mnem(word_buf);
+    int64_t event_idx = get_computer_event_config_list_index_mnem(word_buf);
     if (event_idx <= 0)
     {
-        NAMFIELDWRNLOG("event %s not recognized for [%s%d].",word_buf, named_fields_set->block_basename, idx);
+        NAMFIELDWRNLOG("event %s not recognized for [%s%" PRId64 "].",word_buf, named_fields_set->block_basename, (int64_t)(idx));
         continue;
     }
     if (computer_type_add_event(cpt, event_idx) < 0)
     {
-        NAMFIELDWRNLOG("failed to add event %s for [%s%d].",word_buf, named_fields_set->block_basename, idx);
+        NAMFIELDWRNLOG("failed to add event %s for [%s%" PRId64 "].",word_buf, named_fields_set->block_basename, (int64_t)(idx));
     }
   }
   return 0;
 }
 
-int64_t value_process_mnemonic(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_process_mnemonic(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     return get_computer_process_config_list_index_mnem(value_text);
 }
 
 /******************************************************************************/
 
-static int get_computer_process_config_list_index_mnem(const char *mnemonic)
+static int64_t get_computer_process_config_list_index_mnem(const char *mnemonic)
 {
-    for (int i = 1; i <= comp_player_conf.processes_count; i++)
+    for (int64_t i = 1; i <= comp_player_conf.processes_count; i++)
     {
         if (strcasecmp(comp_player_conf.process_types[i].mnemonic, mnemonic) == 0)
             return i;
@@ -338,10 +338,10 @@ static int get_computer_process_config_list_index_mnem(const char *mnemonic)
   return 0;
 }
 
-static int get_computer_check_config_list_index_mnem(const char *mnemonic)
+static int64_t get_computer_check_config_list_index_mnem(const char *mnemonic)
 {
-  const int arr_size = (int)(sizeof(comp_player_conf.check_types)/sizeof(comp_player_conf.check_types[0]));
-  for (int i = 1; i < arr_size; i++)
+  const int64_t arr_size = (int64_t)(sizeof(comp_player_conf.check_types)/sizeof(comp_player_conf.check_types[0]));
+  for (int64_t i = 1; i < arr_size; i++)
   {
     if (strcasecmp(comp_player_conf.check_types[i].mnemonic, mnemonic) == 0)
       return i;
@@ -349,10 +349,10 @@ static int get_computer_check_config_list_index_mnem(const char *mnemonic)
   return 0;
 }
 
-static int get_computer_event_config_list_index_mnem(const char *mnemonic)
+static int64_t get_computer_event_config_list_index_mnem(const char *mnemonic)
 {
-  const int arr_size = (int)(sizeof(comp_player_conf.event_types)/sizeof(comp_player_conf.event_types[0]));
-  for (int i = 1; i < arr_size; i++)
+  const int64_t arr_size = (int64_t)(sizeof(comp_player_conf.event_types)/sizeof(comp_player_conf.event_types[0]));
+  for (int64_t i = 1; i < arr_size; i++)
   {
     if (strcasecmp(comp_player_conf.event_types[i].mnemonic, mnemonic) == 0)
       return i;
@@ -360,7 +360,7 @@ static int get_computer_event_config_list_index_mnem(const char *mnemonic)
   return 0;
 }
 
-struct ComputerType *get_computer_type_template(long cpt_idx)
+struct ComputerType *get_computer_type_template(int64_t cpt_idx)
 {
     if ((cpt_idx < 0) || (cpt_idx >= COMPUTER_MODELS_COUNT))
         cpt_idx = 0;
@@ -373,9 +373,9 @@ static TbBool computer_type_clear_processes(struct ComputerType *cpt)
     return true;
 }
 
-static int computer_type_add_process(struct ComputerType *cpt, unsigned char cproc_idx)
+static int64_t computer_type_add_process(struct ComputerType *cpt, unsigned char cproc_idx)
 {
-    for (int i = 0; i < COMPUTER_PROCESSES_COUNT; i++)
+    for (int64_t i = 0; i < COMPUTER_PROCESSES_COUNT; i++)
     {
         if (cpt->processes[i] == 0)
         {
@@ -392,9 +392,9 @@ static TbBool computer_type_clear_checks(struct ComputerType *cpt)
     return true;
 }
 
-static int computer_type_add_check(struct ComputerType *cpt, unsigned char check_idx)
+static int64_t computer_type_add_check(struct ComputerType *cpt, unsigned char check_idx)
 {
-    for (int i = 0; i < COMPUTER_CHECKS_COUNT; i++)
+    for (int64_t i = 0; i < COMPUTER_CHECKS_COUNT; i++)
     {
         if (cpt->checks[i] == 0)
         {
@@ -405,16 +405,16 @@ static int computer_type_add_check(struct ComputerType *cpt, unsigned char check
   return -1;
 }
 
-short computer_type_clear_events(struct ComputerType *cpt)
+int64_t computer_type_clear_events(struct ComputerType *cpt)
 {
 
     memset(&cpt->events, 0, sizeof(cpt->events));
     return true;
 }
 
-static int computer_type_add_event(struct ComputerType *cpt, unsigned char event_idx)
+static int64_t computer_type_add_event(struct ComputerType *cpt, unsigned char event_idx)
 {
-    for (int i = 0; i < COMPUTER_EVENTS_COUNT; i++)
+    for (int64_t i = 0; i < COMPUTER_EVENTS_COUNT; i++)
     {
         if (cpt->events[i] == 0)
         {
@@ -425,11 +425,11 @@ static int computer_type_add_event(struct ComputerType *cpt, unsigned char event
     return -1;
 }
 
-static TbBool load_computer_player_config_file(const char *fname, unsigned short flags)
+static TbBool load_computer_player_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(8, "Starting");
     // Load the config file
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < 2)
     {
         if (!flag_is_set(flags,CnfLd_IgnoreErrors))

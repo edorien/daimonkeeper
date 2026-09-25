@@ -44,12 +44,12 @@ bool ident_start(char c) { return std::isalpha((unsigned char)c) || c == '_'; }
 bool ident_char(char c) { return std::isalnum((unsigned char)c) || c == '_'; }
 
 // Level of a long bracket ("[==[" -> 2) starting at i, or -1.
-int long_bracket_level(const std::string &s, size_t i)
+int64_t long_bracket_level(const std::string &s, size_t i)
 {
     if (i >= s.size() || s[i] != '[')
         return -1;
     size_t j = i + 1;
-    int level = 0;
+    int64_t level = 0;
     while (j < s.size() && s[j] == '=')
     {
         level++;
@@ -59,7 +59,7 @@ int long_bracket_level(const std::string &s, size_t i)
 }
 
 // Index just past the closing bracket of a long bracket opened at i.
-size_t skip_long_bracket(const std::string &s, size_t i, int level, size_t &line)
+size_t skip_long_bracket(const std::string &s, size_t i, int64_t level, size_t &line)
 {
     const std::string close = "]" + std::string((size_t)level, '=') + "]";
     size_t start = i + 2 + (size_t)level;
@@ -88,7 +88,7 @@ std::vector<Tok> tokenize(const std::string &s)
             i++;
         else if (c == '-' && i + 1 < s.size() && s[i + 1] == '-')
         {
-            const int level = long_bracket_level(s, i + 2);
+            const int64_t level = long_bracket_level(s, i + 2);
             if (level >= 0)
                 i = skip_long_bracket(s, i + 2, level, line);
             else
@@ -131,7 +131,7 @@ std::vector<Tok> tokenize(const std::string &s)
         else if (c == '[' && long_bracket_level(s, i) >= 0)
         {
             const size_t start_line = line;
-            const int level = long_bracket_level(s, i);
+            const int64_t level = long_bracket_level(s, i);
             const size_t end = skip_long_bracket(s, i, level, line);
             out.push_back({Tk_String, "", start_line});
             i = end;
@@ -234,12 +234,12 @@ std::string unescape(const std::string &s)
     return s; // tokenize() already resolved the escape's target character
 }
 
-int syntax_check(const std::string &text, size_t &line, std::string &message)
+int64_t syntax_check(const std::string &text, size_t &line, std::string &message)
 {
     lua_State *L = luaL_newstate();
     if (L == nullptr)
         return 0;
-    int status = luaL_loadbuffer(L, text.data(), text.size(), "=lua");
+    int64_t status = luaL_loadbuffer(L, text.data(), text.size(), "=lua");
     if (status != 0)
     {
         std::string msg = lua_tostring(L, -1) ? lua_tostring(L, -1) : "syntax error";
@@ -248,7 +248,7 @@ int syntax_check(const std::string &text, size_t &line, std::string &message)
         if (msg.compare(0, 4, "lua:") == 0)
         {
             char *end = nullptr;
-            const long n = std::strtol(msg.c_str() + 4, &end, 10);
+            const int64_t n = LbStrToI32(msg.c_str() + 4, &end, 10);
             if (end != msg.c_str() + 4)
             {
                 line = (n > 0) ? (size_t)n - 1 : 0;
@@ -342,7 +342,7 @@ std::vector<ScriptIssue> editor_lua_validate_engine(const std::string &text, con
         return ss.str();
     };
     ScriptCommandLookup lookup = [](const std::string &name) -> const char * {
-        for (int i = 0; command_desc[i].textptr != NULL; i++)
+        for (int64_t i = 0; command_desc[i].textptr != NULL; i++)
             if (name == command_desc[i].textptr)
                 return command_desc[i].args;
         return nullptr;

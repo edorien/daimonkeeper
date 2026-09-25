@@ -37,14 +37,14 @@ struct Thing;
 // docs/refactor/stage-09-kfx-game.md).
 
 /******************************************************************************/
-extern int32_t activity_list[24];
+extern int64_t activity_list[24];
 // gui_room_type_highlighted/gui_door_type_highlighted moved to
 // gui_draw.h (stage 10, docs/refactor/stage-10-kfx-frontend.md) --
 // gui_parchment.c (kfx_frontend's lower internal sub-layer) needed them
 // without depending on frontmenu_ingame_tabs.h.
 extern char gui_trap_type_highlighted;
 extern char gui_creature_type_highlighted;
-extern unsigned long first_person_instance_top_half_selected;
+extern uint64_t first_person_instance_top_half_selected;
 
 #pragma pack()
 /******************************************************************************/
@@ -78,15 +78,15 @@ void gui_zoom_out(struct GuiButton *gbtn);
 void gui_go_to_map(struct GuiButton *gbtn);          // -> zoom_to_parchment_map()
 void gui_turn_on_autopilot(struct GuiButton *gbtn);  // -> PckA_ToggleComputer
 void draw_whole_status_panel(void);
-void gui_set_button_flashing(long btn_idx, long gameturns);
-short button_designation_to_tab_designation(short btn_designt_id);
-short get_button_designation(short btn_group, short btn_item);
-void draw_placefiller(long scr_x, long scr_y, long units_per_px);
+void gui_set_button_flashing(int64_t btn_idx, int64_t gameturns);
+int64_t button_designation_to_tab_designation(int64_t btn_designt_id);
+int64_t get_button_designation(int64_t btn_group, int64_t btn_item);
+void draw_placefiller(int64_t scr_x, int64_t scr_y, int64_t units_per_px);
 
 void gui_over_creature_button(struct GuiButton* gbtn);
-unsigned short get_creature_pick_flags(TbBool pick_up);
-long find_room_type_capacity_total_percentage(PlayerNumber plyr_idx, RoomKind rkind);
-long anger_get_creature_highest_anger_type_and_byte_percentage(struct Thing *creatng, int32_t *out_angr_typ, int32_t *out_angr_prct);
+int64_t get_creature_pick_flags(TbBool pick_up);
+int64_t find_room_type_capacity_total_percentage(PlayerNumber plyr_idx, RoomKind rkind);
+int64_t anger_get_creature_highest_anger_type_and_byte_percentage(struct Thing *creatng, int64_t *out_angr_typ, int64_t *out_angr_prct);
 
 void update_room_tab_to_config(void);
 void update_trap_tab_to_config(void);
@@ -106,11 +106,11 @@ void maintain_room_next_page_button(struct GuiButton *gbtn);
 void maintain_trap_next_page_button(struct GuiButton *gbtn);
 void gui_switch_players_visible(struct GuiButton* gbtn);
 
-void go_to_adjacent_menu_tab(int direction);
+void go_to_adjacent_menu_tab(int64_t direction);
 
 void update_creatr_model_activities_list(TbBool forced);
 void instant_instance_selected(CrInstance check_inst_id);
-void draw_gold_total(PlayerNumber plyr_idx, int32_t scr_x, int32_t scr_y, int32_t units_per_px, long long value);
+void draw_gold_total(PlayerNumber plyr_idx, int64_t scr_x, int64_t scr_y, int64_t units_per_px, long long value);
 /******************************************************************************/
 #ifdef __cplusplus
 }

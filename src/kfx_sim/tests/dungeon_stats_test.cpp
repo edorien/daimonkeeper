@@ -65,7 +65,7 @@ TEST_CASE("compute_dungeon_train_research_manufctr_wealth_score scales the first
 }
 
 TEST_CASE("compute_dungeon_train_research_manufctr_wealth_score clamps each component at its own upper bound", "[kfx_sim][dungeon_stats]") {
-    CHECK(compute_dungeon_train_research_manufctr_wealth_score(256L * 100000L, 0, 0, 50000) == 138000); // 96000/2 + 0 + 0 + 3*30000
+    CHECK(compute_dungeon_train_research_manufctr_wealth_score(256 * 100000, 0, 0, 50000) == 138000); // 96000/2 + 0 + 0 + 3*30000
 }
 
 TEST_CASE("compute_dungeon_train_research_manufctr_wealth_score floors negative components at zero", "[kfx_sim][dungeon_stats]") {

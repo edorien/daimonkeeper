@@ -28,9 +28,9 @@
 extern "C" {
 #endif
 /******************************************************************************/
-void frontend_sliderctrl_init(struct GuiMenu *gmnu, short bid, const struct FrontendSliderCtrl *ctrl)
+void frontend_sliderctrl_init(struct GuiMenu *gmnu, int64_t bid, const struct FrontendSliderCtrl *ctrl)
 {
-    long value = ctrl->get_value();
+    int64_t value = ctrl->get_value();
     if (ctrl->nonlinear)
         value = make_audio_slider_linear(value);
     get_gui_button_init(gmnu, bid)->content.lval = value;
@@ -38,7 +38,7 @@ void frontend_sliderctrl_init(struct GuiMenu *gmnu, short bid, const struct Fron
 
 void frontend_sliderctrl_apply(struct GuiButton *gbtn, const struct FrontendSliderCtrl *ctrl)
 {
-    long value = gbtn->content.lval;
+    int64_t value = gbtn->content.lval;
     if (ctrl->nonlinear)
         value = make_audio_slider_nonlinear(value);
     ctrl->set_value(value);
@@ -51,10 +51,10 @@ void frontend_checkboxctrl_toggle(struct GuiButton *gbtn, const struct FrontendC
 
 void frontend_checkboxctrl_draw(struct GuiButton *gbtn, const struct FrontendCheckboxCtrl *ctrl)
 {
-    int font_idx = frontend_button_caption_font(gbtn, frontend_mouse_over_button);
+    int64_t font_idx = frontend_button_caption_font(gbtn, frontend_mouse_over_button);
     LbTextSetFont(frontend_font[font_idx]);
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height);
-    int tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
+    int64_t tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
     const char *text = ctrl->get_value() ? get_string(GUIStr_On) : get_string(GUIStr_Off);
     LbTextDrawResized(0, 0, tx_units_per_px, text);
 }

@@ -47,17 +47,17 @@ struct Boing {
   unsigned char comp_player_creatrsonly;
   unsigned char creatures_tend_imprison;
   unsigned char creatures_tend_flee;
-  unsigned short hand_over_subtile_x;
-  unsigned short hand_over_subtile_y;
-  unsigned long chosen_room_kind;
-  unsigned long chosen_room_spridx;
-  unsigned long chosen_room_tooltip;
-  unsigned long chosen_spell_type;
-  unsigned long chosen_spell_spridx;
-  unsigned long chosen_spell_tooltip;
-  unsigned long manufactr_element;
-  unsigned long manufactr_spridx;
-  unsigned long manufactr_tooltip;
+  int64_t hand_over_subtile_x;
+  int64_t hand_over_subtile_y;
+  uint64_t chosen_room_kind;
+  uint64_t chosen_room_spridx;
+  uint64_t chosen_room_tooltip;
+  uint64_t chosen_spell_type;
+  uint64_t chosen_spell_spridx;
+  uint64_t chosen_spell_tooltip;
+  uint64_t manufactr_element;
+  uint64_t manufactr_spridx;
+  uint64_t manufactr_tooltip;
 };
 
 static struct Boing boing;
@@ -68,9 +68,9 @@ TbBool detailed_multiplayer_logging = false;
 
 struct ResyncHeader {
     unsigned char message_type;
-    uint32_t compressed_length;
-    uint32_t original_length;
-    uint32_t data_checksum;
+    uint64_t compressed_length;
+    uint64_t original_length;
+    uint64_t data_checksum;
 };
 
 
@@ -88,7 +88,7 @@ void intentional_desync() {
             break;
         }
     }
-    int i = kfx_sim_state.thing_lists[TngList_Creatures].index;
+    int64_t i = kfx_sim_state.thing_lists[TngList_Creatures].index;
     if (i != 0) {
         struct Thing* thing = thing_get(i);
         if (!thing_is_invalid(thing)) {
@@ -98,15 +98,15 @@ void intentional_desync() {
     get_player(0)->instance_remain_turns += 1;
 }
 
-void animate_resync_progress_bar(int current_phase, int total_phases) {
+void animate_resync_progress_bar(int64_t current_phase, int64_t total_phases) {
     if (get_gameturn() == 0) {
         return;
     }
     if ((kfx_sim_state.operation_flags & GOF_Paused) != 0) {
         return;
     }
-    const long max_progress = (long)(32 * units_per_pixel / 16);
-    const long progress_pixels = (long)((double)max_progress * current_phase / total_phases);
+    const int64_t max_progress = (int64_t)(32 * units_per_pixel / 16);
+    const int64_t progress_pixels = (int64_t)((double)max_progress * current_phase / total_phases);
     net_callbacks->draw_out_of_sync_box(progress_pixels, max_progress, render_overlay->get_status_panel_width());
 }
 
@@ -172,23 +172,23 @@ static TbBool send_resync_data(const void * buffer, size_t total_length)
         return false;
     }
 
-    int compress_result = compress((Bytef *)(message_buffer + sizeof(ResyncHeader)), &compressed_size, (const Bytef *)buffer, total_length);
+    int64_t compress_result = compress((Bytef *)(message_buffer + sizeof(ResyncHeader)), &compressed_size, (const Bytef *)buffer, total_length);
     if (compress_result != Z_OK) {
-        ERRORLOG("Compression failed: zlib error %d", compress_result);
+        ERRORLOG("Compression failed: zlib error %" PRId64, (int64_t)(compress_result));
         free(message_buffer);
         return false;
     }
 
-    uLong data_crc = crc32(0L, Z_NULL, 0);
+    uLong data_crc = crc32(0, Z_NULL, 0);
     data_crc = crc32(data_crc, (const Bytef *)buffer, total_length);
-    NETLOG("Compression successful: %u -> %u bytes", (uint32_t)total_length, (uint32_t)compressed_size);
+    NETLOG("Compression successful: %" PRIu64 " -> %" PRIu64 " bytes", (uint64_t)total_length, (uint64_t)compressed_size);
 
     ResyncHeader header;
     memset(&header, 0, sizeof(header));
     header.message_type = NETMSG_RESYNC_DATA;
-    header.compressed_length = (uint32_t)compressed_size;
-    header.original_length = (uint32_t)total_length;
-    header.data_checksum = (uint32_t)data_crc;
+    header.compressed_length = (uint64_t)compressed_size;
+    header.original_length = (uint64_t)total_length;
+    header.data_checksum = (uint64_t)data_crc;
 
     message_size = sizeof(ResyncHeader) + compressed_size;
     memcpy(message_buffer, &header, sizeof(ResyncHeader));
@@ -226,9 +226,9 @@ static TbBool receive_resync_data(char ** data_buffer, size_t * data_length)
         received_size = netstate.sp->readmsg(SERVER_ID, message_buffer, received_size);
         if (received_size < sizeof(ResyncHeader)) {
             if (received_size > 0 && message_buffer[0] == NETMSG_RESYNC_DATA) {
-                ERRORLOG("Received incomplete resync data: %u bytes", (uint32_t)received_size);
+                ERRORLOG("Received incomplete resync data: %" PRIu64 " bytes", (uint64_t)received_size);
             } else {
-                ERRORLOG("Ignoring message too small for resync data: %u bytes", (uint32_t)received_size);
+                ERRORLOG("Ignoring message too small for resync data: %" PRIu64 " bytes", (uint64_t)received_size);
             }
             free(message_buffer);
             continue;
@@ -238,19 +238,19 @@ static TbBool receive_resync_data(char ** data_buffer, size_t * data_length)
         memcpy(&header, message_buffer, sizeof(ResyncHeader));
 
         if (header.message_type != NETMSG_RESYNC_DATA) {
-            MULTIPLAYER_LOG("Received wrong message type: %d", header.message_type);
+            MULTIPLAYER_LOG("Received wrong message type: %" PRId64, (int64_t)(header.message_type));
             free(message_buffer);
             continue;
         }
 
         if (header.compressed_length != received_size - sizeof(ResyncHeader)) {
-            ERRORLOG("Received message size mismatch: %u != %u",
-                (uint32_t)(received_size - sizeof(ResyncHeader)), header.compressed_length);
+            ERRORLOG("Received message size mismatch: %" PRIu64 " != %" PRIu64,
+                (uint64_t)(received_size - sizeof(ResyncHeader)), (uint64_t)(header.compressed_length));
             free(message_buffer);
             continue;
         }
         if (*data_length != 0 && header.original_length != *data_length) {
-            ERRORLOG("Received data with wrong size: %u != %u", header.original_length, (uint32_t)*data_length);
+            ERRORLOG("Received data with wrong size: %" PRIu64 " != %" PRIu64, (uint64_t)(header.original_length), (uint64_t)*data_length);
             free(message_buffer);
             continue;
         }
@@ -268,21 +268,21 @@ static TbBool receive_resync_data(char ** data_buffer, size_t * data_length)
 
         uLongf dest_len = output_size;
 
-        MULTIPLAYER_LOG("Client: Received resync message, decompressing %u bytes", header.compressed_length);
+        MULTIPLAYER_LOG("Client: Received resync message, decompressing %" PRIu64 " bytes", (uint64_t)(header.compressed_length));
 
-        int uncompress_result = uncompress((Bytef *)output_buffer, &dest_len,
+        int64_t uncompress_result = uncompress((Bytef *)output_buffer, &dest_len,
             (const Bytef *)(message_buffer + sizeof(ResyncHeader)), header.compressed_length);
         if (uncompress_result != Z_OK || dest_len != header.original_length) {
-            ERRORLOG("Decompression failed: zlib error %d, expected %u bytes, got %u bytes",
-                uncompress_result, header.original_length, (uint32_t)dest_len);
+            ERRORLOG("Decompression failed: zlib error %" PRId64 ", expected %" PRIu64 " bytes, got %" PRIu64 " bytes",
+                (int64_t)(uncompress_result), (uint64_t)(header.original_length), (uint64_t)dest_len);
             free(output_buffer);
             free(message_buffer);
             return false;
         }
 
-        uLong verify_crc = crc32(0L, Z_NULL, 0);
+        uLong verify_crc = crc32(0, Z_NULL, 0);
         verify_crc = crc32(verify_crc, (const Bytef *)output_buffer, header.original_length);
-        if ((uint32_t)verify_crc != header.data_checksum) {
+        if ((uint64_t)verify_crc != header.data_checksum) {
             ERRORLOG("Resync data checksum mismatch");
             free(output_buffer);
             free(message_buffer);
@@ -296,13 +296,13 @@ static TbBool receive_resync_data(char ** data_buffer, size_t * data_length)
         return true;
     }
 
-    ERRORLOG("Client: Timeout waiting for resync data after %dms", RESYNC_RECEIVE_TIMEOUT_MS);
+    ERRORLOG("Client: Timeout waiting for resync data after %" PRId64 "ms", (int64_t)(RESYNC_RECEIVE_TIMEOUT_MS));
     return false;
 }
 
 TbBool LbNetwork_Resync(void * data_buffer, size_t buffer_length)
 {
-    MULTIPLAYER_LOG("Starting resync, my_id=%d, buffer_length=%u", netstate.my_id, (uint32_t)buffer_length);
+    MULTIPLAYER_LOG("Starting resync, my_id=%" PRId64 ", buffer_length=%" PRIu64, (int64_t)(netstate.my_id), (uint64_t)buffer_length);
 
     TbBool result;
     if (network_is_host()) {
@@ -365,9 +365,9 @@ TbBool send_resync_game(void)
     // game_state/frontend_state are each prefixed with their own u32
     // length now that they're opaque blobs of a size this file can't
     // sizeof() directly -- same framing lua_data already used below.
-    size_t fixed_state_size = sizeof(uint32_t) + game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state)
-        + sizeof(uint32_t) + frontend_state_len + sizeof(lish);
-    size_t lua_data_offset = fixed_state_size + sizeof(uint32_t);
+    size_t fixed_state_size = sizeof(uint64_t) + game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state)
+        + sizeof(uint64_t) + frontend_state_len + sizeof(lish);
+    size_t lua_data_offset = fixed_state_size + sizeof(uint64_t);
     if (lua_data_len > UINT32_MAX - lua_data_offset) {
         ERRORLOG("Full resync data too large");
         net_callbacks->lua_cleanup_serialized_data();
@@ -382,9 +382,9 @@ TbBool send_resync_game(void)
         return false;
     }
 
-    uint32_t game_state_len32 = (uint32_t)game_state_len;
-    uint32_t frontend_state_len32 = (uint32_t)frontend_state_len;
-    uint32_t lua_data_len32 = (uint32_t)lua_data_len;
+    uint64_t game_state_len32 = (uint64_t)game_state_len;
+    uint64_t frontend_state_len32 = (uint64_t)frontend_state_len;
+    uint64_t lua_data_len32 = (uint64_t)lua_data_len;
     char * write_ptr = full_resync_data;
     memcpy(write_ptr, &game_state_len32, sizeof(game_state_len32)); write_ptr += sizeof(game_state_len32);
     memcpy(write_ptr, game_state_data, game_state_len); write_ptr += game_state_len;
@@ -429,16 +429,16 @@ TbBool receive_resync_game(void)
     // (kfx_sim_state/kfx_net_state/lish) happen, right at the end.
     const char * const data_end = full_resync_data + full_resync_len;
     const char * read_ptr = full_resync_data;
-    size_t min_header_size = sizeof(uint32_t) + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint32_t) + sizeof(lish) + sizeof(uint32_t);
+    size_t min_header_size = sizeof(uint64_t) + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(lish) + sizeof(uint64_t);
     if (full_resync_len < min_header_size) {
-        ERRORLOG("Full resync data too small: %u bytes", (uint32_t)full_resync_len);
+        ERRORLOG("Full resync data too small: %" PRIu64 " bytes", (uint64_t)full_resync_len);
         free(full_resync_data);
         return false;
     }
 
-    uint32_t game_state_len = 0;
+    uint64_t game_state_len = 0;
     memcpy(&game_state_len, read_ptr, sizeof(game_state_len)); read_ptr += sizeof(game_state_len);
-    if ((size_t)(data_end - read_ptr) < (size_t)game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint32_t) + sizeof(lish) + sizeof(uint32_t)) {
+    if ((size_t)(data_end - read_ptr) < (size_t)game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(lish) + sizeof(uint64_t)) {
         ERRORLOG("Full resync data truncated (game state)");
         free(full_resync_data);
         return false;
@@ -448,9 +448,9 @@ TbBool receive_resync_game(void)
     const char * kfx_sim_state_data = read_ptr; read_ptr += sizeof(kfx_sim_state);
     const char * kfx_net_state_data = read_ptr; read_ptr += sizeof(kfx_net_state);
 
-    uint32_t frontend_state_len = 0;
+    uint64_t frontend_state_len = 0;
     memcpy(&frontend_state_len, read_ptr, sizeof(frontend_state_len)); read_ptr += sizeof(frontend_state_len);
-    if ((size_t)(data_end - read_ptr) < (size_t)frontend_state_len + sizeof(lish) + sizeof(uint32_t)) {
+    if ((size_t)(data_end - read_ptr) < (size_t)frontend_state_len + sizeof(lish) + sizeof(uint64_t)) {
         ERRORLOG("Full resync data truncated (frontend state)");
         free(full_resync_data);
         return false;
@@ -459,10 +459,10 @@ TbBool receive_resync_game(void)
 
     const char * lish_data = read_ptr; read_ptr += sizeof(lish);
 
-    uint32_t lua_data_len = 0;
+    uint64_t lua_data_len = 0;
     memcpy(&lua_data_len, read_ptr, sizeof(lua_data_len)); read_ptr += sizeof(lua_data_len);
     if ((size_t)(data_end - read_ptr) != lua_data_len) {
-        ERRORLOG("Received lua data with wrong size: %u != %u", lua_data_len, (uint32_t)(data_end - read_ptr));
+        ERRORLOG("Received lua data with wrong size: %" PRIu64 " != %" PRIu64, (uint64_t)(lua_data_len), (uint64_t)(data_end - read_ptr));
         free(full_resync_data);
         return false;
     }
@@ -520,7 +520,7 @@ void resync_game(void)
 
     kfx_net_state.skip_initial_input_turns = calculate_skip_input();
     initialize_packet_history();
-    NETLOG("Input lag after resync: %d turns", kfx_net_state.input_lag_turns);
+    NETLOG("Input lag after resync: %" PRId64 " turns", (int64_t)(kfx_net_state.input_lag_turns));
 
     clear_flag(kfx_sim_state.system_flags, GSF_NetGameNoSync);
     clear_flag(kfx_sim_state.system_flags, GSF_NetSeedNoSync);

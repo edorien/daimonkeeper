@@ -60,18 +60,18 @@ struct Camera;
 #define KEEPERSPRITE_ADD_NUM 16383
 
 struct EngineCoord { // sizeof = 28
-  long view_width; // X screen position, probably not a width
-  long view_height; // Y screen position, probably not a height
-  unsigned short clip_flags; // Clipping and culling flags for frustum culling
-  unsigned short shade_intensity; // Shading intensity for vertex lighting
-  long render_distance; // Distance used for rendering calculations
-  long x;
-  long y;
-  long z;
+  int64_t view_width; // X screen position, probably not a width
+  int64_t view_height; // Y screen position, probably not a height
+  int64_t clip_flags; // Clipping and culling flags for frustum culling
+  int64_t shade_intensity; // Shading intensity for vertex lighting
+  int64_t render_distance; // Distance used for rendering calculations
+  int64_t x;
+  int64_t y;
+  int64_t z;
 };
 
 struct M31 {
-    long v[4];
+    int64_t v[4];
 };
 
 struct M33 { // sizeof = 48
@@ -81,17 +81,17 @@ struct M33 { // sizeof = 48
 struct MapVolumeBox { // sizeof = 24
   unsigned char visible;
   unsigned char color;
-  long beg_x;
-  long beg_y;
-  long end_x;
-  long end_y;
-  long floor_height_z;
+  int64_t beg_x;
+  int64_t beg_y;
+  int64_t end_x;
+  int64_t end_y;
+  int64_t floor_height_z;
 };
 
 struct ThingInterpolateResult
 {
     struct Coord3d mappos;
-    int32_t floor_height;
+    int64_t floor_height;
 };
 
 /******************************************************************************/
@@ -118,32 +118,32 @@ enum stripey_line_colors {
 
 struct stripey_line {
     TbPixel stripey_line_color_array[16];
-    unsigned int line_color;
+    uint64_t line_color;
 };
 
 extern struct stripey_line colored_stripey_lines[];
 extern unsigned char poly_pool[POLY_POOL_SIZE];
 extern unsigned char *poly_pool_end;
-extern long cells_away;
-extern float hud_scale;
-extern int creature_status_size;
-extern int line_box_size;
+extern int64_t cells_away;
+extern double hud_scale;
+extern int64_t creature_status_size;
+extern int64_t line_box_size;
 
 extern struct MapVolumeBox map_volume_box;
-extern long view_height_over_2;
-extern long view_width_over_2;
-extern long z_threshold_near;
-extern long split_2;
-extern long fade_max;
+extern int64_t view_height_over_2;
+extern int64_t view_width_over_2;
+extern int64_t z_threshold_near;
+extern int64_t split_2;
+extern int64_t fade_max;
 
-extern short mx;
-extern short my;
-extern short mz;
+extern int64_t mx;
+extern int64_t my;
+extern int64_t mz;
 
-extern long floor_pointed_at_x;
-extern long floor_pointed_at_y;
-extern long box_lag_compensation_x;
-extern long box_lag_compensation_y;
+extern int64_t floor_pointed_at_x;
+extern int64_t floor_pointed_at_y;
+extern int64_t box_lag_compensation_x;
+extern int64_t box_lag_compensation_y;
 extern Offset vert_offset[3];
 extern Offset hori_offset[3];
 extern Offset high_offset[3];
@@ -153,8 +153,8 @@ extern TbSpriteData sprite_heap_handle[KEEPSPRITE_LENGTH];
 extern struct HeapMgrHeader *graphics_heap;
 extern TbFileHandle jty_file_handle;
 
-extern long x_init_off;
-extern long y_init_off;
+extern int64_t x_init_off;
+extern int64_t y_init_off;
 extern struct Thing *thing_being_displayed;
 
 extern unsigned char temp_cluedo_mode;
@@ -162,18 +162,18 @@ extern unsigned char temp_cluedo_mode;
 
 extern TbSpriteData keepersprite_add[KEEPERSPRITE_ADD_NUM];
 /*****************************************************************************/
-float interpolate(float previous, float current);
-float interpolate_angle(float previous, float current);
-float interpolate_synced(float previous, float current);
+double interpolate(double previous, double current);
+double interpolate_angle(double previous, double current);
+double interpolate_synced(double previous, double current);
 struct ThingInterpolateResult interpolate_thing(struct Thing *thing);
 
-int floor_height_for_volume_box(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
+int64_t floor_height_for_volume_box(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
 void frame_wibble_generate(void);
-void setup_rotate_stuff(long a1, long a2, long a3, long a4, long a5, long a6, long a7, long a8);
+void setup_rotate_stuff(int64_t a1, int64_t a2, int64_t a3, int64_t a4, int64_t a5, int64_t a6, int64_t a7, int64_t a8);
 
-void process_keeper_sprite(short x, short y, unsigned short a3, short kspr_angle, unsigned char a5, long a6);
-void draw_status_sprites(long a1, long a2, struct Thing *thing);
-void draw_map_volume_box(long cor1_x, long cor1_y, long cor2_x, long cor2_y, long floor_height_z, unsigned char color);
+void process_keeper_sprite(int64_t x, int64_t y, int64_t a3, int64_t kspr_angle, unsigned char a5, int64_t a6);
+void draw_status_sprites(int64_t a1, int64_t a2, struct Thing *thing);
+void draw_map_volume_box(int64_t cor1_x, int64_t cor1_y, int64_t cor2_x, int64_t cor2_y, int64_t floor_height_z, unsigned char color);
 // docs/refactor/editor/04-views-camera-overlays.md -- world-space overlay
 // projection primitive. Unlike draw_map_volume_box() above (which just sets
 // state consumed *during* this frame's own 3D render pass), this is meant
@@ -185,14 +185,14 @@ void draw_map_volume_box(long cor1_x, long cor1_y, long cor2_x, long cor2_y, lon
 // unmodified) when the point is behind the camera or off the visible
 // frustum/screen edges, mirroring rotpers()'s own clip_flags convention
 // (any nonzero flag means "don't draw this").
-TbBool project_world_position_to_screen(MapCoord x, MapCoord y, MapCoord z, long *screen_x, long *screen_y);
+TbBool project_world_position_to_screen(MapCoord x, MapCoord y, MapCoord z, int64_t *screen_x, int64_t *screen_y);
 
 void update_engine_settings(struct PlayerInfo *player);
 void draw_view(struct Camera *cam, unsigned char a2);
 void draw_frontview_engine(struct Camera *cam);
-TbBool render_keepsprite_indexed(unsigned short kspr_n, unsigned char frame, unsigned char *outbuf);
+TbBool render_keepsprite_indexed(int64_t kspr_n, unsigned char frame, unsigned char *outbuf);
 
-void update_block_pointed(int i,long x, long x_frac, long y, long y_frac);
+void update_block_pointed(int64_t i,int64_t x, int64_t x_frac, int64_t y, int64_t y_frac);
 void update_blocks_pointed(void);
 void engine(struct PlayerInfo *player, struct Camera *cam);
 /******************************************************************************/

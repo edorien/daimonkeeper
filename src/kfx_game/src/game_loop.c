@@ -85,7 +85,7 @@ void process_dungeon_destroy(struct Thing* heartng)
 {
     if (heartng->owner == kfx_config_state.neutral_player_num)
         return;
-    long plyr_idx = heartng->owner;
+    int64_t plyr_idx = heartng->owner;
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     struct Thing* soultng = thing_get(dungeon->free_soul_idx);
     struct ObjectConfigStats* objst = get_object_model_stats(heartng->model);
@@ -141,7 +141,7 @@ void process_dungeon_destroy(struct Thing* heartng)
                     sctrl = creature_control_get_from_thing(soultng);
                     set_flag(sctrl->creature_state_flags,TF2_Spectator);
                     dungeon->free_soul_idx = soultng->index;
-                    short xplevel = 0;
+                    int64_t xplevel = 0;
                     if (dungeon->lvstats.player_score > 1000)
                     {
                         xplevel = min(((dungeon->lvstats.player_score - 1000) / 10), (CREATURE_MAX_LEVEL - 1));

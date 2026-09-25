@@ -12,6 +12,7 @@
  *     it is appended to the script. All formatting/numbering logic is in
  *     editor_script_message.cpp so it is unit-tested without a session.
  */
+#include "kfx_imgui.h"
 #include "pre_inc.h"
 #include "editor_message_helper.h"
 #include "editor_script.h"
@@ -27,8 +28,8 @@
 namespace {
 
 bool s_show = false;
-int s_kind = MsgKind_Objective;
-int s_number = 0;
+int64_t s_kind = MsgKind_Objective;
+int64_t s_number = 0;
 char s_text[kScriptMessageMaxChars + 1];
 char s_location[48];
 std::string s_status;
@@ -42,7 +43,7 @@ const char *const kKindLabels[MsgKind_Count] = {
 
 extern "C" void editor_dialogs_open_message_helper(void)
 {
-    int next = editor_script_next_message_number(editor_current_level_script_text());
+    int64_t next = editor_script_next_message_number(editor_current_level_script_text());
     s_number = (next >= 0) ? next : 0;
     s_text[0] = '\0';
     s_location[0] = '\0';
@@ -62,7 +63,7 @@ extern "C" void editor_message_helper_frame(void)
         editor_lua_override_banner();
         FeCombo("Kind", &s_kind, kKindLabels, MsgKind_Count);
 
-        ImGui::InputInt("Number (0-255)", &s_number);
+        kfximgui::InputInt("Number (0-255)", &s_number);
         if (s_number < 0)
             s_number = 0;
         if (s_number >= kScriptMessageCount)
@@ -87,7 +88,7 @@ extern "C" void editor_message_helper_frame(void)
             s_status = into_editor
                 ? "Inserted at the cursor in the script editor -- press Apply there to keep it."
                 : "Appended to the end of the script.";
-            int next = editor_script_next_message_number(editor_current_level_script_text());
+            int64_t next = editor_script_next_message_number(editor_current_level_script_text());
             if (!into_editor && next >= 0)
                 s_number = next;
             else if (s_number + 1 < kScriptMessageCount)

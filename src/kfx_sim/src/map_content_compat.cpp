@@ -41,7 +41,7 @@ bool map_is_legacy_compatible(const MapContent &content, std::vector<std::string
     // (F18/07-investigation-findings.md) -- not a byte-layout limit like
     // the ones below (LegacyInitThing's owner/model bytes are u8 either
     // way), but a real content-scale one.
-    long creature_count = 0;
+    int64_t creature_count = 0;
     for (const MapThingRecord &t : content.things)
     {
         if (t.thing_class != TCls_Creature)

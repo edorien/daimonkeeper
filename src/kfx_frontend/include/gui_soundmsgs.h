@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 /** Maximum number of queued speeches before new ones are skipped. */
-extern int g_speech_queue_limit;
+extern int64_t g_speech_queue_limit;
 
 // enum TbSpeechMessages, its SMsg_* alias macros, the MESSAGE_DURATION_*
 // macros, and enum OutputMessageKinds/OutputMessageKind all moved to
@@ -42,20 +42,20 @@ struct Thing;
 
 // SpeechRef moved to speech_ref.h (kfx_config) -- see include above.
 
-TbBool output_message(SoundSmplTblID, long duration);
-TbBool output_message_from_path(const char* path, long duration);
+TbBool output_message(SoundSmplTblID, int64_t duration);
+TbBool output_message_from_path(const char* path, int64_t duration);
 
 /**
  * Plays a speech message from a SpeechRef.
  * Uses path-based playback if the ref contains a file path, otherwise plays by numeric ID.
  */
-TbBool play_speech_ref(const SpeechRef* ref, long duration);
-TbBool output_custom_message(const char * fname, long duration);
-TbBool output_message_far_from_thing(const struct Thing*, SoundSmplTblID, long duration);
+TbBool play_speech_ref(const SpeechRef* ref, int64_t duration);
+TbBool output_custom_message(const char * fname, int64_t duration);
+TbBool output_message_far_from_thing(const struct Thing*, SoundSmplTblID, int64_t duration);
 void clear_messages(void);
 void process_messages(void);
 TbBool output_room_message(PlayerNumber, RoomKind, OutputMessageKind);
-void script_play_message(TbBool param_is_string, const char msgtype_id, const short msg_id, const char *filename);
+void script_play_message(TbBool param_is_string, const char msgtype_id, const int64_t msg_id, const char *filename);
 #ifdef __cplusplus
 }
 #endif

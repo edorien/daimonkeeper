@@ -104,7 +104,7 @@ FTestActionResult ftest_creature_combat_power_hand_action001__setup(struct FTest
     ThingModel enemy_model = (ThingModel)creature_model_id("BARBARIAN");
     if (ally_model < 1 || enemy_model < 1)
     {
-        FTEST_FAIL_TEST("Failed to resolve creature model id (ORC=%d, BARBARIAN=%d)", (int)ally_model, (int)enemy_model);
+        FTEST_FAIL_TEST("Failed to resolve creature model id (ORC=%" PRId64 ", BARBARIAN=%" PRId64 ")", (int64_t)ally_model, (int64_t)enemy_model);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -161,13 +161,13 @@ FTestActionResult ftest_creature_combat_power_hand_action002__wait_for_combat(st
     {
         // Enemy slot no longer holds a live creature -- died and was
         // recycled. Combat resolved; proceed.
-        FTESTLOG("Enemy creature no longer present at turn %d -- treating as killed in combat", get_gameturn());
+        FTESTLOG("Enemy creature no longer present at turn %" PRId64 " -- treating as killed in combat", (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
     if (enemy->health < vars->enemy_health_before_combat)
     {
-        FTESTLOG("Enemy creature took damage (health %d -> %d) at turn %d", (int)vars->enemy_health_before_combat, (int)enemy->health, get_gameturn());
+        FTESTLOG("Enemy creature took damage (health %" PRId64 " -> %" PRId64 ") at turn %" PRId64, (int64_t)vars->enemy_health_before_combat, (int64_t)enemy->health, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -204,7 +204,7 @@ FTestActionResult ftest_creature_combat_power_hand_action003__power_hand_pickup_
 
     if (!dump_first_held_thing_on_map(PLAYER0, vars->drop_stl_x, vars->drop_stl_y, 1))
     {
-        FTEST_FAIL_TEST("dump_first_held_thing_on_map failed to drop ally creature at (%d,%d)", vars->drop_stl_x, vars->drop_stl_y);
+        FTEST_FAIL_TEST("dump_first_held_thing_on_map failed to drop ally creature at (%" PRId64 ",%" PRId64 ")", (int64_t)(vars->drop_stl_x), (int64_t)(vars->drop_stl_y));
         return FTRs_Go_To_Next_Action;
     }
 

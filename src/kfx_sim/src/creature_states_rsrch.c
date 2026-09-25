@@ -52,7 +52,7 @@ TbBool creature_can_do_research(const struct Thing *creatng)
     return (crconf->research_value > 0) && (dungeon->current_research_idx >= 0);
 }
 
-short at_research_room(struct Thing *thing)
+int64_t at_research_room(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
@@ -70,7 +70,7 @@ short at_research_room(struct Thing *thing)
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_RESEARCH), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",room_code_name(room->kind),(int)room->owner,thing_model_name(thing),(int)thing->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing),(int64_t)thing->index);
         set_start_state(thing);
         return 0;
     }
@@ -81,7 +81,7 @@ short at_research_room(struct Thing *thing)
     }
     if (!creature_setup_random_move_for_job_in_room(thing, room, Job_RESEARCH, NavRtF_Default))
     {
-        ERRORLOG("The %s index %d can not move in research room", thing_model_name(thing),(int)thing->index);
+        ERRORLOG("The %s index %" PRId64 " can not move in research room", thing_model_name(thing),(int64_t)thing->index);
         remove_creature_from_work_room(thing);
         set_start_state(thing);
         return 0;
@@ -97,11 +97,11 @@ short at_research_room(struct Thing *thing)
  * @param dungeon
  * @return
  */
-int get_next_research_item(const struct Dungeon *dungeon)
+int64_t get_next_research_item(const struct Dungeon *dungeon)
 {
     if (dungeon->research_num == 0)
         return -1;
-    for (long resnum = 0; resnum < dungeon->research_num; resnum++)
+    for (int64_t resnum = 0; resnum < dungeon->research_num; resnum++)
     {
         const struct ResearchVal* rsrchval = &dungeon->research[resnum];
         switch (rsrchval->rtyp)
@@ -138,7 +138,7 @@ int get_next_research_item(const struct Dungeon *dungeon)
         case RsCat_None:
             break;
         default:
-            ERRORLOG("Illegal research type %d while getting next research item",(int)rsrchval->rtyp);
+            ERRORLOG("Illegal research type %" PRId64 " while getting next research item",(int64_t)rsrchval->rtyp);
             break;
         }
     }
@@ -147,7 +147,7 @@ int get_next_research_item(const struct Dungeon *dungeon)
 
 TbBool has_new_rooms_to_research(const struct Dungeon *dungeon)
 {    
-    for (long resnum = 0; resnum < dungeon->research_num; resnum++)
+    for (int64_t resnum = 0; resnum < dungeon->research_num; resnum++)
     {
         const struct ResearchVal* rsrchval = &dungeon->research[resnum];
         if (rsrchval->rtyp == RsCat_Room)
@@ -205,8 +205,8 @@ CrCheckRet process_research_function(struct Thing *creatng)
 {
     struct Dungeon* dungeon = get_dungeon(creatng->owner);
     if (dungeon_invalid(dungeon)) {
-        SYNCDBG(9,"The %s index %d cannot work as player %d has no dungeon",
-            thing_model_name(creatng), (int)creatng->index, (int)creatng->owner);
+        SYNCDBG(9,"The %s index %" PRId64 " cannot work as player %" PRId64 " has no dungeon",
+            thing_model_name(creatng), (int64_t)creatng->index, (int64_t)creatng->owner);
         set_start_state(creatng);
         return CrCkRet_Continue;
     }
@@ -216,26 +216,26 @@ CrCheckRet process_research_function(struct Thing *creatng)
     }
     struct Room* room = get_room_creature_works_in(creatng);
     if ( !room_still_valid_as_type_for_thing(room, get_room_role_for_job(Job_RESEARCH), creatng) ) {
-        WARNLOG("Room %s owned by player %d is bad work place for %s index %d owner %d",
-            room_code_name(room->kind), (int)room->owner, thing_model_name(creatng),(int)creatng->index,(int)creatng->owner);
+        WARNLOG("Room %s owned by player %" PRId64 " is bad work place for %s index %" PRId64 " owner %" PRId64,
+            room_code_name(room->kind), (int64_t)room->owner, thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
         remove_creature_from_work_room(creatng);
         set_start_state(creatng);
         return CrCkRet_Continue;
     }
-    long work_value = compute_creature_work_value_for_room_role(creatng, RoRoF_Research, room->efficiency);
-    SYNCDBG(19,"The %s index %d produced %d research points",thing_model_name(creatng),(int)creatng->index,(int)work_value);
+    int64_t work_value = compute_creature_work_value_for_room_role(creatng, RoRoF_Research, room->efficiency);
+    SYNCDBG(19,"The %s index %" PRId64 " produced %" PRId64 " research points",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)work_value);
     dungeon->total_research_points += work_value;
     dungeon->research_progress += work_value;
     return CrCkRet_Available;
 }
 
-short researching(struct Thing *thing)
+int64_t researching(struct Thing *thing)
 {
     TRACE_THING(thing);
     struct Dungeon* dungeon = get_dungeon(thing->owner);
     if (is_neutral_thing(thing))
     {
-        ERRORLOG("Neutral %s index %d cannot do research",thing_model_name(thing),(int)thing->index);
+        ERRORLOG("Neutral %s index %" PRId64 " cannot do research",thing_model_name(thing),(int64_t)thing->index);
         remove_creature_from_work_room(thing);
         set_start_state(thing);
         return CrStRet_Unchanged;
@@ -288,8 +288,8 @@ short researching(struct Thing *thing)
           // Do some random thinking
           if ((cctrl->turns_at_job % 16) == 0)
           {
-              long i = THING_RANDOM(thing, DEGREES_180) - DEGREES_90;
-              cctrl->research.random_thinking_angle = ((long)thing->move_angle_xy + i) & ANGLE_MASK;
+              int64_t i = THING_RANDOM(thing, DEGREES_180) - DEGREES_90;
+              cctrl->research.random_thinking_angle = ((int64_t)thing->move_angle_xy + i) & ANGLE_MASK;
               cctrl->research.job_stage = JobStage_TurningToFace;
           }
       } else
@@ -305,7 +305,7 @@ short researching(struct Thing *thing)
     // Finished "Standing and thinking" - make "new idea" effect and go to next position
     if (!creature_setup_random_move_for_job_in_room(thing, room, Job_RESEARCH, NavRtF_Default))
     {
-        ERRORLOG("Cannot move %s index %d in %s room", thing_model_name(thing),(int)thing->index,room_code_name(room->kind));
+        ERRORLOG("Cannot move %s index %" PRId64 " in %s room", thing_model_name(thing),(int64_t)thing->index,room_code_name(room->kind));
         set_start_state(thing);
         return 1;
     }

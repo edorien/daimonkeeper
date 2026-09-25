@@ -48,7 +48,7 @@ extern "C" {
 
 FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs* const args);
 
-static int s_unused;
+static int64_t s_unused;
 
 TbBool ftest_editor_strokes_init()
 {
@@ -58,7 +58,7 @@ TbBool ftest_editor_strokes_init()
 
 static const char* lookup_args(const std::string& name)
 {
-    for (int i = 0; command_desc[i].textptr != NULL; i++)
+    for (int64_t i = 0; command_desc[i].textptr != NULL; i++)
         if (name == command_desc[i].textptr)
             return command_desc[i].args;
     return nullptr;
@@ -78,12 +78,12 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     const MapSlabCoord sx = 30, sy = 30;
     struct SlabMap* slb[3] = { get_slabmap_block(sx, sy), get_slabmap_block(sx + 1, sy), get_slabmap_block(sx + 2, sy) };
     SlabKind kind_before[3];
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
         kind_before[i] = slb[i]->kind;
     const SlabKind painted = (kind_before[0] == SlbT_GOLD) ? SlbT_EARTH : SlbT_GOLD;
 
     editor_journal_stroke_begin();
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
     {
         place_slab_type_on_map(painted, slab_subtile(sx + i, 0), slab_subtile(sy, 0), PLAYER0, 0);
         do_slab_efficiency_alteration(sx + i, sy);
@@ -95,31 +95,31 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     }
     if (editor_journal_undo_count() != 1)
     {
-        FTEST_FAIL_TEST("expected one undo entry, found %d", editor_journal_undo_count());
+        FTEST_FAIL_TEST("expected one undo entry, found %" PRId64, (int64_t)(editor_journal_undo_count()));
         return FTRs_Go_To_Next_Action;
     }
     editor_journal_do_undo();
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
     {
         if (get_slabmap_block(sx + i, sy)->kind != kind_before[i])
         {
-            FTEST_FAIL_TEST("undo did not restore slab %d", i);
+            FTEST_FAIL_TEST("undo did not restore slab %" PRId64, (int64_t)(i));
             return FTRs_Go_To_Next_Action;
         }
     }
     editor_journal_do_redo();
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
     {
         if (get_slabmap_block(sx + i, sy)->kind != painted)
         {
-            FTEST_FAIL_TEST("redo did not reapply slab %d", i);
+            FTEST_FAIL_TEST("redo did not reapply slab %" PRId64, (int64_t)(i));
             return FTRs_Go_To_Next_Action;
         }
     }
     editor_journal_do_undo(); // leave the map as found
 
     // A stroke that changes nothing must not journal.
-    const int before_count = editor_journal_undo_count();
+    const int64_t before_count = editor_journal_undo_count();
     editor_journal_stroke_begin();
     if (editor_journal_stroke_end("Nothing") || editor_journal_undo_count() != before_count)
     {
@@ -130,18 +130,18 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     // --- reinforce perimeter ---------------------------------------------
     // Claimed floor next to earth: one owned floor slab inside an earth block.
     const MapSlabCoord rx = 40, ry = 40;
-    for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+    for (int64_t dy = -1; dy <= 1; dy++)
+        for (int64_t dx = -1; dx <= 1; dx++)
         {
             place_slab_type_on_map(SlbT_EARTH, slab_subtile(rx + dx, 0), slab_subtile(ry + dy, 0), kfx_config_state.neutral_player_num, 0);
             do_slab_efficiency_alteration(rx + dx, ry + dy);
         }
     place_slab_type_on_map(SlbT_CLAIMED, slab_subtile(rx, 0), slab_subtile(ry, 0), PLAYER0, 0);
     do_slab_efficiency_alteration(rx, ry);
-    const int changed = editor_reinforce_perimeter(PLAYER0);
+    const int64_t changed = editor_reinforce_perimeter(PLAYER0);
     if (changed < 4)
     {
-        FTEST_FAIL_TEST("reinforce changed %d slabs, expected at least the 4 neighbours", changed);
+        FTEST_FAIL_TEST("reinforce changed %" PRId64 " slabs, expected at least the 4 neighbours", (int64_t)(changed));
         return FTRs_Go_To_Next_Action;
     }
     if (get_slabmap_block(rx + 1, ry)->kind == SlbT_EARTH)
@@ -153,15 +153,15 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     // Placing earth may pick its torch variant, so either counts as restored.
     if (get_slabmap_block(rx + 1, ry)->kind != SlbT_EARTH && get_slabmap_block(rx + 1, ry)->kind != SlbT_TORCHDIRT)
     {
-        FTEST_FAIL_TEST("undo did not put the earth back (kind %d, undo entries %d)", (int)get_slabmap_block(rx + 1, ry)->kind, editor_journal_undo_count());
+        FTEST_FAIL_TEST("undo did not put the earth back (kind %" PRId64 ", undo entries %" PRId64 ")", (int64_t)get_slabmap_block(rx + 1, ry)->kind, (int64_t)(editor_journal_undo_count()));
         return FTRs_Go_To_Next_Action;
     }
 
     // A room floor counts as owned ground too.
     {
         const MapSlabCoord qx = 50, qy = 50;
-        for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
+        for (int64_t dy = -1; dy <= 1; dy++)
+            for (int64_t dx = -1; dx <= 1; dx++)
             {
                 place_slab_type_on_map(SlbT_EARTH, slab_subtile(qx + dx, 0), slab_subtile(qy + dy, 0), kfx_config_state.neutral_player_num, 0);
                 do_slab_efficiency_alteration(qx + dx, qy + dy);
@@ -216,8 +216,8 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     {
         // A 3x3 pocket of earth inside the block from the reinforce test's row.
         const MapSlabCoord fx = 20, fy = 20;
-        for (int dy = -2; dy <= 2; dy++)
-            for (int dx = -2; dx <= 2; dx++)
+        for (int64_t dy = -2; dy <= 2; dy++)
+            for (int64_t dx = -2; dx <= 2; dx++)
             {
                 const bool inner = (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1);
                 place_slab_type_on_map(inner ? SlbT_EARTH : SlbT_ROCK, slab_subtile(fx + dx, 0), slab_subtile(fy + dy, 0),
@@ -225,14 +225,14 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
                 do_slab_efficiency_alteration(fx + dx, fy + dy);
             }
         editor_flood_fill_terrain(fx, fy, SlbT_GOLD, kfx_config_state.neutral_player_num);
-        for (int dy = -2; dy <= 2; dy++)
-            for (int dx = -2; dx <= 2; dx++)
+        for (int64_t dy = -2; dy <= 2; dy++)
+            for (int64_t dx = -2; dx <= 2; dx++)
             {
                 const bool inner = (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1);
                 const SlabKind k = get_slabmap_block(fx + dx, fy + dy)->kind;
                 if (inner ? (k != SlbT_GOLD) : (k != SlbT_ROCK))
                 {
-                    FTEST_FAIL_TEST("fill: slab (%d,%d) is kind %d", (int)(fx + dx), (int)(fy + dy), (int)k);
+                    FTEST_FAIL_TEST("fill: slab (%" PRId64 ",%" PRId64 ") is kind %" PRId64, (int64_t)(fx + dx), (int64_t)(fy + dy), (int64_t)k);
                     return FTRs_Go_To_Next_Action;
                 }
             }
@@ -257,14 +257,14 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
             return FTRs_Go_To_Next_Action;
         }
         // A room painted over a room: same result as on fresh ground.
-        auto paint = [&](int px, int py, SlabKind k) {
-            for (int dy = -2; dy <= 2; dy++)
-                for (int dx = -2; dx <= 2; dx++)
+        auto paint = [&](int64_t px, int64_t py, SlabKind k) {
+            for (int64_t dy = -2; dy <= 2; dy++)
+                for (int64_t dx = -2; dx <= 2; dx++)
                     place_slab_type_replacing_room(k, (MapSlabCoord)(px + dx), (MapSlabCoord)(py + dy), PLAYER0);
         };
-        auto earth = [&](int px, int py) {
-            for (int dy = -3; dy <= 3; dy++)
-                for (int dx = -3; dx <= 3; dx++)
+        auto earth = [&](int64_t px, int64_t py) {
+            for (int64_t dy = -3; dy <= 3; dy++)
+                for (int64_t dx = -3; dx <= 3; dx++)
                 {
                     place_slab_type_on_map(SlbT_EARTH, slab_subtile(px + dx, 0), slab_subtile(py + dy, 0), kfx_config_state.neutral_player_num, 0);
                     do_slab_efficiency_alteration(px + dx, py + dy);
@@ -274,14 +274,14 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         paint(30, 30, SlbT_TEMPLE);
         paint(50, 30, SlbT_TREASURE);
         paint(50, 30, SlbT_TEMPLE);
-        for (int psy = -6; psy < 9; psy++)
-            for (int psx = -6; psx < 9; psx++)
+        for (int64_t psy = -6; psy < 9; psy++)
+            for (int64_t psx = -6; psx < 9; psx++)
             {
                 const struct Map* m1 = get_map_block_at(slab_subtile(30, 0) + psx, slab_subtile(30, 0) + psy);
                 const struct Map* m2 = get_map_block_at(slab_subtile(50, 0) + psx, slab_subtile(30, 0) + psy);
                 if (memcmp(get_map_column(m1), get_map_column(m2), sizeof(struct Column)) != 0)
                 {
-                    FTEST_FAIL_TEST("a room painted over a room differs from a fresh one at subtile offset (%d,%d)", psx, psy);
+                    FTEST_FAIL_TEST("a room painted over a room differs from a fresh one at subtile offset (%" PRId64 ",%" PRId64 ")", (int64_t)(psx), (int64_t)(psy));
                     return FTRs_Go_To_Next_Action;
                 }
             }
@@ -290,10 +290,10 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     // --- texture pack discovery ---------------------------------------------------
     {
         const EditorTexturePackChoice* choices = nullptr;
-        const int n = editor_texture_pack_choices(1, &choices);
+        const int64_t n = editor_texture_pack_choices(1, &choices);
         if (n < 15 || choices[0].id != 0 || choices[1].id != 1)
         {
-            FTEST_FAIL_TEST("texture pack list has %d entries, expected the 15 built-in ones first", n);
+            FTEST_FAIL_TEST("texture pack list has %" PRId64 " entries, expected the 15 built-in ones first", (int64_t)(n));
             return FTRs_Go_To_Next_Action;
         }
         if (!texture_pack_available(1, 1, get_level_fgroup(1)) || texture_pack_available(250, 1, get_level_fgroup(1)))
@@ -301,15 +301,15 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
             FTEST_FAIL_TEST("texture_pack_available() is wrong for a stock pack or a missing one");
             return FTRs_Go_To_Next_Action;
         }
-        JUSTLOG("Texture packs offered: %d", n);
+        JUSTLOG("Texture packs offered: %" PRId64, (int64_t)(n));
     }
 
     // --- resize preview -------------------------------------------------------------
     {
-        int t = -1, l = -1, a = -1;
+        int64_t t = -1, l = -1, a = -1;
         if (!editor_resize_preview(40, 40, 0, &t, &l, &a) || t <= 0)
         {
-            FTEST_FAIL_TEST("shrinking the level to 40 x 40 should report things that would be lost (got %d)", t);
+            FTEST_FAIL_TEST("shrinking the level to 40 x 40 should report things that would be lost (got %" PRId64 ")", (int64_t)(t));
             return FTRs_Go_To_Next_Action;
         }
         if (editor_resize_preview(4, 4, 0, &t, &l, &a))
@@ -322,28 +322,28 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     // --- texture painting: rectangle and fill ---------------------------------------
     {
         editor_texture_paint_rect(5, 5, 7, 6, 5);
-        int inside = 0;
-        for (int y = 5; y <= 6; y++)
-            for (int x = 5; x <= 7; x++)
+        int64_t inside = 0;
+        for (int64_t y = 5; y <= 6; y++)
+            for (int64_t x = 5; x <= 7; x++)
                 inside += (kfx_config_state.slab_ext_data[get_slab_number(x, y)] == 5);
         if (inside != 6 || kfx_config_state.slab_ext_data[get_slab_number(8, 5)] == 5)
         {
-            FTEST_FAIL_TEST("texture rectangle painted %d of 6 slabs (or spilled)", inside);
+            FTEST_FAIL_TEST("texture rectangle painted %" PRId64 " of 6 slabs (or spilled)", (int64_t)(inside));
             return FTRs_Go_To_Next_Action;
         }
         // Fill: a pocket of earth inside rock.
-        for (int dy = -2; dy <= 2; dy++)
-            for (int dx = -2; dx <= 2; dx++)
+        for (int64_t dy = -2; dy <= 2; dy++)
+            for (int64_t dx = -2; dx <= 2; dx++)
             {
                 const bool pocket = (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1);
                 place_slab_type_on_map(pocket ? SlbT_EARTH : SlbT_ROCK, slab_subtile(40 + dx, 0), slab_subtile(75 + dy, 0), kfx_config_state.neutral_player_num, 0);
                 do_slab_efficiency_alteration(40 + dx, 75 + dy);
                 kfx_config_state.slab_ext_data[get_slab_number(40 + dx, 75 + dy)] = 0;
             }
-        const int n = editor_texture_paint_fill(40, 75, 9);
+        const int64_t n = editor_texture_paint_fill(40, 75, 9);
         if (n != 9 || kfx_config_state.slab_ext_data[get_slab_number(38, 75)] == 9)
         {
-            FTEST_FAIL_TEST("texture fill changed %d slabs, expected the 9-slab pocket", n);
+            FTEST_FAIL_TEST("texture fill changed %" PRId64 " slabs, expected the 9-slab pocket", (int64_t)(n));
             return FTRs_Go_To_Next_Action;
         }
     }
@@ -365,21 +365,21 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
             return FTRs_Go_To_Next_Action;
         }
         EditorPointSnapshot got[16];
-        const int n = editor_points_capture_in_box(60 * 256, 60 * 256, 66 * 256, 63 * 256, got, 16);
+        const int64_t n = editor_points_capture_in_box(60 * 256, 60 * 256, 66 * 256, 63 * 256, got, 16);
         if (n < 2)
         {
-            FTEST_FAIL_TEST("capture found %d points, expected the light and the action point", n);
+            FTEST_FAIL_TEST("capture found %" PRId64 " points, expected the light and the action point", (int64_t)(n));
             return FTRs_Go_To_Next_Action;
         }
-        int stamped = 0;
-        for (int i = 0; i < n; i++)
+        int64_t stamped = 0;
+        for (int64_t i = 0; i < n; i++)
             if (editor_points_stamp(&got[i], 30 * 256, 0))
                 stamped++;
         EditorPointSnapshot again[16];
-        const int m = editor_points_capture_in_box(90 * 256, 60 * 256, 96 * 256, 63 * 256, again, 16);
+        const int64_t m = editor_points_capture_in_box(90 * 256, 60 * 256, 96 * 256, 63 * 256, again, 16);
         if (stamped < 2 || m < 2)
         {
-            FTEST_FAIL_TEST("stamped %d, found %d at the target", stamped, m);
+            FTEST_FAIL_TEST("stamped %" PRId64 ", found %" PRId64 " at the target", (int64_t)(stamped), (int64_t)(m));
             return FTRs_Go_To_Next_Action;
         }
     }
@@ -401,14 +401,14 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         }
         editor_journal_reset();
         EditorPointSnapshot* pts[2] = { &apt, &light };
-        for (int k = 0; k < 2; k++)
+        for (int64_t k = 0; k < 2; k++)
         {
             EditorPointSnapshot before = *pts[k], after = *pts[k];
             after.x += 3 * 256;
             after.radius += 256;
             if (!editor_points_replace(&before, &after))
             {
-                FTEST_FAIL_TEST("point edit %d failed", k);
+                FTEST_FAIL_TEST("point edit %" PRId64 " failed", (int64_t)(k));
                 return FTRs_Go_To_Next_Action;
             }
             editor_journal_record_point_edit(&before, &after);
@@ -416,10 +416,10 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         EditorPointSnapshot got[8];
         editor_journal_do_undo();
         editor_journal_do_undo();
-        int n = editor_points_capture_in_box(40 * 256, 40 * 256, 43 * 256, 41 * 256, got, 8);
+        int64_t n = editor_points_capture_in_box(40 * 256, 40 * 256, 43 * 256, 41 * 256, got, 8);
         if (n != 2)
         {
-            FTEST_FAIL_TEST("after undoing both edits %d points sit at the original spots, expected 2", n);
+            FTEST_FAIL_TEST("after undoing both edits %" PRId64 " points sit at the original spots, expected 2", (int64_t)(n));
             return FTRs_Go_To_Next_Action;
         }
         editor_journal_do_redo();
@@ -427,7 +427,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         n = editor_points_capture_in_box(43 * 256, 40 * 256, 47 * 256, 41 * 256, got, 8);
         if (n != 2)
         {
-            FTEST_FAIL_TEST("after redoing both edits %d points sit at the moved spots, expected 2", n);
+            FTEST_FAIL_TEST("after redoing both edits %" PRId64 " points sit at the moved spots, expected 2", (int64_t)(n));
             return FTRs_Go_To_Next_Action;
         }
     }
@@ -464,7 +464,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         editor_journal_do_undo();
         if (gold->valuable.gold_stored != before.gold || gold->mappos.x.val != before.x)
         {
-            FTEST_FAIL_TEST("undo did not restore the gold pile (amount %ld, x %ld)", (long)gold->valuable.gold_stored, (long)gold->mappos.x.val);
+            FTEST_FAIL_TEST("undo did not restore the gold pile (amount %" PRId64 ", x %" PRId64 ")", (int64_t)gold->valuable.gold_stored, (int64_t)gold->mappos.x.val);
             return FTRs_Go_To_Next_Action;
         }
         editor_journal_do_redo();
@@ -489,7 +489,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
             FTEST_FAIL_TEST("could not create a creature to wound");
             return FTRs_Go_To_Next_Action;
         }
-        const short wounded = (short)(c->health / 2);
+        const int64_t wounded = (int64_t)(c->health / 2);
         c->health = wounded;
         editor_journal_reset();
         editor_journal_stroke_begin();
@@ -499,7 +499,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         struct Thing* back = get_creature_near(cp.x.val, cp.y.val);
         if (thing_is_invalid(back) || back->health != wounded)
         {
-            FTEST_FAIL_TEST("the restored creature has health %d, expected %d", thing_is_invalid(back) ? -1 : (int)back->health, (int)wounded);
+            FTEST_FAIL_TEST("the restored creature has health %" PRId64 ", expected %" PRId64, (int64_t)(thing_is_invalid(back) ? -1 : (int64_t)back->health), (int64_t)wounded);
             return FTRs_Go_To_Next_Action;
         }
     }
@@ -508,7 +508,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         // A door's lock toggle, and a locked door restored locked.
         const MapSlabCoord dx = 76, dy = 70;
         // A door needs a corridor: rock either side, path along it.
-        for (int k = -1; k <= 1; k++)
+        for (int64_t k = -1; k <= 1; k++)
         {
             place_slab_type_on_map(SlbT_ROCK, slab_subtile(dx + k, 0), slab_subtile(dy - 1, 0), PLAYER0, 0);
             place_slab_type_on_map(SlbT_ROCK, slab_subtile(dx + k, 0), slab_subtile(dy + 1, 0), PLAYER0, 0);
@@ -516,8 +516,8 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         place_slab_type_on_map(SlbT_CLAIMED, slab_subtile(dx - 1, 0), slab_subtile(dy, 0), PLAYER0, 0);
         place_slab_type_on_map(SlbT_CLAIMED, slab_subtile(dx + 1, 0), slab_subtile(dy, 0), PLAYER0, 0);
         place_slab_type_on_map(SlbT_CLAIMED, slab_subtile(dx, 0), slab_subtile(dy, 0), PLAYER0, 0);
-        for (int k = -2; k <= 2; k++)
-            for (int m = -2; m <= 2; m++)
+        for (int64_t k = -2; k <= 2; k++)
+            for (int64_t m = -2; m <= 2; m++)
                 do_slab_efficiency_alteration(dx + k, dy + m);
         if (!player_place_door_without_check_at(slab_subtile(dx, 1), slab_subtile(dy, 1), PLAYER0, 1, true))
         {
@@ -550,7 +550,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         // corridor (rock either side), so it has a valid orientation.
         if (!slab_kind_is_door(get_slabmap_block(dx, dy)->kind))
         {
-            FTEST_FAIL_TEST("the placed door did not turn its slab into a door slab (kind %d)", (int)get_slabmap_block(dx, dy)->kind);
+            FTEST_FAIL_TEST("the placed door did not turn its slab into a door slab (kind %" PRId64 ")", (int64_t)get_slabmap_block(dx, dy)->kind);
             return FTRs_Go_To_Next_Action;
         }
         {
@@ -561,8 +561,8 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
                 const struct SlabMap* dslb = get_slabmap_block(dx, dy);
                 if (dslb->kind != SlbT_CLAIMED || slabmap_owner(dslb) != PLAYER0)
                 {
-                    FTEST_FAIL_TEST("deleting a door left slab kind %d (%s) owner %d, expected the claimed path owned by the door's owner",
-                        (int)dslb->kind, slab_code_name(dslb->kind), (int)slabmap_owner(dslb));
+                    FTEST_FAIL_TEST("deleting a door left slab kind %" PRId64 " (%s) owner %" PRId64 ", expected the claimed path owned by the door's owner",
+                        (int64_t)dslb->kind, slab_code_name(dslb->kind), (int64_t)slabmap_owner(dslb));
                     return FTRs_Go_To_Next_Action;
                 }
             }
@@ -578,13 +578,13 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     }
 
     // --- script validator on the level's real script -----------------------
-    char* fname = prepare_file_fmtpath(FGrp_CmpgLvls, "map%05lu.txt", 1UL);
+    char* fname = prepare_file_fmtpath(FGrp_CmpgLvls, "map%05" PRIu64 ".txt", (uint64_t)(1U));
     std::ifstream in(fname);
     if (in)
     {
         std::stringstream ss;
         ss << in.rdbuf();
-        int errors = 0;
+        int64_t errors = 0;
         std::string first;
         for (const ScriptIssue& is : editor_script_validate(ss.str(), lookup_args))
         {
@@ -594,10 +594,10 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
                     first += " [line " + std::to_string(is.line + 1) + ": " + is.message + "]";
             }
         }
-        JUSTLOG("Script validate: %d errors in level 1 script%s%s", errors, errors ? "; first " : "", first.c_str());
+        JUSTLOG("Script validate: %" PRId64 " errors in level 1 script%s%s", (int64_t)(errors), errors ? "; first " : "", first.c_str());
         if (errors != 0)
         {
-            FTEST_FAIL_TEST("validator reports %d errors on a shipped script (%s)", errors, first.c_str());
+            FTEST_FAIL_TEST("validator reports %" PRId64 " errors on a shipped script (%s)", (int64_t)(errors), first.c_str());
             return FTRs_Go_To_Next_Action;
         }
     }
@@ -606,7 +606,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
 
     // Every script in the campaigns folder: the validator must not cry wolf.
     {
-        int files = 0, bad_files = 0, total_errors = 0;
+        int64_t files = 0, bad_files = 0, total_errors = 0;
         std::string samples;
         for (const auto& ent : std::filesystem::recursive_directory_iterator("../../core_files"))
         {
@@ -617,7 +617,7 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
             std::stringstream ss;
             ss << f.rdbuf();
             files++;
-            int e = 0;
+            int64_t e = 0;
             for (const ScriptIssue& is : editor_script_validate(ss.str(), lookup_args))
                 if (is.severity == ScrIssue_Error)
                 {
@@ -628,10 +628,10 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
         }
         if (files > 0 && bad_files * 20 > files)
         {
-            FTEST_FAIL_TEST("validator flags %d of %d shipped scripts with errors -- too many false positives", bad_files, files);
+            FTEST_FAIL_TEST("validator flags %" PRId64 " of %" PRId64 " shipped scripts with errors -- too many false positives", (int64_t)(bad_files), (int64_t)(files));
             return FTRs_Go_To_Next_Action;
         }
-        JUSTLOG("Script validate sweep: %d files, %d with errors (%d errors)%s", files, bad_files, total_errors, samples.c_str());
+        JUSTLOG("Script validate sweep: %" PRId64 " files, %" PRId64 " with errors (%" PRId64 " errors)%s", (int64_t)(files), (int64_t)(bad_files), (int64_t)(total_errors), samples.c_str());
     }
     return FTRs_Go_To_Next_Action;
 }

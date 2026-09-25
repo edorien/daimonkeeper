@@ -40,7 +40,7 @@ void level_load_time_phase(enum LevelLoadTimeKind kind)
     level_load_times[level_load_phase] += now - level_load_phase_start;
     if (kind == LevelLoadTime_Total) {
         level_load_times[LevelLoadTime_Total] = now - level_load_total_start;
-        JUSTLOG("Level load timing: Engine startup: %d ms, Custom sprites: %d ms, Config files: %d ms, Level data: %d ms, Navigation: %d ms, Game setup: %d ms, Total: %d ms", level_load_times[LevelLoadTime_EngineStartup], level_load_times[LevelLoadTime_Sprites], level_load_times[LevelLoadTime_Configs], level_load_times[LevelLoadTime_Data], level_load_times[LevelLoadTime_Navigation], level_load_times[LevelLoadTime_GameSetup], level_load_times[LevelLoadTime_Total]);
+        JUSTLOG("Level load timing: Engine startup: %" PRId64 " ms, Custom sprites: %" PRId64 " ms, Config files: %" PRId64 " ms, Level data: %" PRId64 " ms, Navigation: %" PRId64 " ms, Game setup: %" PRId64 " ms, Total: %" PRId64 " ms", (int64_t)(level_load_times[LevelLoadTime_EngineStartup]), (int64_t)(level_load_times[LevelLoadTime_Sprites]), (int64_t)(level_load_times[LevelLoadTime_Configs]), (int64_t)(level_load_times[LevelLoadTime_Data]), (int64_t)(level_load_times[LevelLoadTime_Navigation]), (int64_t)(level_load_times[LevelLoadTime_GameSetup]), (int64_t)(level_load_times[LevelLoadTime_Total]));
         level_load_time_active = false;
         return;
     }

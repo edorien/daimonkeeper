@@ -57,15 +57,15 @@ struct PlayerInfo;
 struct Event {
     unsigned char flags;
     EventIndex index;
-    int32_t mappos_x;
-    int32_t mappos_y;
+    int64_t mappos_x;
+    int64_t mappos_y;
     unsigned char owner;
     unsigned char kind;
-    int32_t target;
+    int64_t target;
     /** Button lifespan, decreased over time. When reaches 0, the button disappears. */
-    uint32_t lifespan_turns;
+    uint64_t lifespan_turns;
     /** Custom button icon sprite index; -1 uses the default event icon. */
-    short icon_idx;
+    int64_t icon_idx;
 };
 
 struct Bookmark {
@@ -79,23 +79,23 @@ struct Bookmark {
 extern struct EventTypeInfo event_button_info[EVENT_KIND_COUNT];
 /******************************************************************************/
 struct Event *get_event_of_type_for_player(EventKind evkind, PlayerNumber plyr_idx);
-struct Event *get_event_of_target_and_type_for_player(int32_t target, EventKind evkind, PlayerNumber plyr_idx);
-struct Event *get_event_nearby_of_type_for_player(MapCoord map_x, MapCoord map_y, int32_t max_dist, EventKind evkind, PlayerNumber plyr_idx);
+struct Event *get_event_of_target_and_type_for_player(int64_t target, EventKind evkind, PlayerNumber plyr_idx);
+struct Event *get_event_nearby_of_type_for_player(MapCoord map_x, MapCoord map_y, int64_t max_dist, EventKind evkind, PlayerNumber plyr_idx);
 
 TbBool event_is_invalid(const struct Event *event);
 TbBool event_exists(const struct Event* event);
-EventIndex event_create_event_or_update_nearby_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t target);
-EventIndex event_create_event_or_update_same_target_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, long target);
-EventIndex event_create_event_or_update_old_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t target);
+EventIndex event_create_event_or_update_nearby_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target);
+EventIndex event_create_event_or_update_same_target_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target);
+EventIndex event_create_event_or_update_old_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target);
 void event_initialise_all(void);
-long event_move_player_towards_event(struct PlayerInfo *player, long event_idx);
-struct Event *event_create_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t msg_id);
+int64_t event_move_player_towards_event(struct PlayerInfo *player, int64_t event_idx);
+struct Event *event_create_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t msg_id);
 struct Event *event_allocate_free_event_structure(void);
-void event_initialise_event(struct Event *event, MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t msg_id);
+void event_initialise_event(struct Event *event, MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t msg_id);
 void event_add_to_event_buttons_list_or_replace_button(struct Event *event, struct Dungeon *dungeon);
 void event_update_on_battle_removal(BattleIndex battle_idx);
-void event_delete_event_structure(long ev_idx);
-void event_delete_event(long plridx, EventIndex evidx);
+void event_delete_event_structure(int64_t ev_idx);
+void event_delete_event(int64_t plridx, EventIndex evidx);
 void event_update_last_use(struct Event *event);
 void clear_events(void);
 void remove_events_thing_is_attached_to(struct Thing *thing);
@@ -103,7 +103,7 @@ ThingIndex get_thing_index_event_is_attached_to(const struct Event *event);
 struct Thing *event_is_attached_to_thing(EventIndex evidx);
 void maintain_my_event_list(struct Dungeon *dungeon);
 void kill_oldest_my_event(struct Dungeon *dungeon);
-void event_kill_all_players_events(long plyr_idx);
+void event_kill_all_players_events(int64_t plyr_idx);
 void event_process_events(void);
 void update_all_events(void);
 /******************************************************************************/

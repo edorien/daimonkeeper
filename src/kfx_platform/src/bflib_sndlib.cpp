@@ -56,30 +56,30 @@ char default_music_fname[DISKPATH_SIZE] = {0};
 uint32_t default_sound_random_seed = 0;
 char *default_get_music_track(void) { return &default_music_track; }
 char *default_get_music_fname(void) { return default_music_fname; }
-int32_t default_get_frame_skip(void) { return 0; }
+int64_t default_get_frame_skip(void) { return 0; }
 TbBool default_get_easter_eggs_enabled(void) { return false; }
-short default_get_last_level(void) { return 0; }
-long default_get_creature_model_count(void) { return 0; }
-struct CreatureSounds *default_get_creature_sounds(long crmodel) { return nullptr; }
+int64_t default_get_last_level(void) { return 0; }
+int64_t default_get_creature_model_count(void) { return 0; }
+struct CreatureSounds *default_get_creature_sounds(int64_t crmodel) { return nullptr; }
 uint32_t *default_get_sound_random_seed(void) { return &default_sound_random_seed; }
 uint32_t default_unsync_random_seed = 0;
 uint32_t *default_get_unsync_random_seed(void) { return &default_unsync_random_seed; }
 TbBool default_init_sound(void) { return false; }
 void default_mute_audio(TbBool mute) {}
-void default_play_creature_sound(struct Thing *thing, long snd_idx, long priority, long use_flags) {}
+void default_play_creature_sound(struct Thing *thing, int64_t snd_idx, int64_t priority, int64_t use_flags) {}
 const struct ModConfigItem *default_get_mods_after_map(void) { return nullptr; }
-int32_t default_get_mods_after_map_count(void) { return 0; }
+int64_t default_get_mods_after_map_count(void) { return 0; }
 const struct ModConfigItem *default_get_mods_after_campaign(void) { return nullptr; }
-int32_t default_get_mods_after_campaign_count(void) { return 0; }
+int64_t default_get_mods_after_campaign_count(void) { return 0; }
 const struct ModConfigItem *default_get_mods_after_base(void) { return nullptr; }
-int32_t default_get_mods_after_base_count(void) { return 0; }
-char *default_prepare_file_path(short fgroup, const char *fname) { return nullptr; }
-char *default_prepare_file_path_mod(const char *mod_dir, short fgroup, const char *fname) { return nullptr; }
-char *default_prepare_file_path_buf(char *dst, int dst_size, short fgroup, const char *fname) { if (dst && dst_size > 0) dst[0] = '\0'; return dst; }
-char *default_prepare_file_fmtpath(short fgroup, const char *fmt_str, ...) { return nullptr; }
+int64_t default_get_mods_after_base_count(void) { return 0; }
+char *default_prepare_file_path(int64_t fgroup, const char *fname) { return nullptr; }
+char *default_prepare_file_path_mod(const char *mod_dir, int64_t fgroup, const char *fname) { return nullptr; }
+char *default_prepare_file_path_buf(char *dst, int64_t dst_size, int64_t fgroup, const char *fname) { if (dst && dst_size > 0) dst[0] = '\0'; return dst; }
+char *default_prepare_file_fmtpath(int64_t fgroup, const char *fmt_str, ...) { return nullptr; }
 const char *default_creature_code_name(ThingModel crmodel) { return ""; }
 const struct NamedCommand *default_get_creature_desc(void) { return nullptr; }
-short default_thing_is_invalid(const struct Thing *thing) { return thing == nullptr; }
+int64_t default_thing_is_invalid(const struct Thing *thing) { return thing == nullptr; }
 
 const SoundStateCallbacks default_sound_state_callbacks = {
     &default_get_music_track, &default_get_music_fname, &default_get_frame_skip,
@@ -199,7 +199,7 @@ public:
 	SoundMilesID mss_id = 0;
 	SoundEmitterID emit_id = 0;
 	SoundSmplTblID smptbl_id = 0;
-	int flags = 0;
+	int64_t flags = 0;
 	SoundVolume base_gain = 0; // requested (un-ducked) volume; used to recompute duck-scaled gain
 
 	openal_source() {
@@ -238,15 +238,15 @@ public:
 	}
 
 	void gain(SoundVolume volume) {
-		alSourcef(id, AL_GAIN, float(volume) / FULL_LOUDNESS);
+		alSourcef(id, AL_GAIN, double(volume) / FULL_LOUDNESS);
 		const auto errcode = alGetError();
 		if (errcode != AL_NO_ERROR) {
 			throw openal_error("Cannot set volume", errcode);
 		}
 	}
 
-	void gain_scaled(SoundVolume volume, float scale) {
-		alSourcef(id, AL_GAIN, (float(volume) / FULL_LOUDNESS) * scale);
+	void gain_scaled(SoundVolume volume, double scale) {
+		alSourcef(id, AL_GAIN, (double(volume) / FULL_LOUDNESS) * scale);
 		const auto errcode = alGetError();
 		if (errcode != AL_NO_ERROR) {
 			throw openal_error("Cannot set volume", errcode);
@@ -254,7 +254,7 @@ public:
 	}
 
 	void pitch(SoundPitch pitch) {
-		alSourcef(id, AL_PITCH, float(pitch) / NORMAL_PITCH);
+		alSourcef(id, AL_PITCH, double(pitch) / NORMAL_PITCH);
 		const auto errcode = alGetError();
 		if (errcode != AL_NO_ERROR) {
 			throw openal_error("Cannot set pitch", errcode);
@@ -263,8 +263,8 @@ public:
 
 	void pan(SoundPan pan) {
 		// convert 0..128 (where 64 is center) to -1.0..1.0 and then reduce stereo separation by 50%
-		const auto x = (-(float(64 - pan) / 64.0f)) * 0.5f;
-		const auto z = -1.0f; // in front of listener
+		const auto x = (-(double(64 - pan) / 64.0)) * 0.5;
+		const auto z = -1.0; // in front of listener
 		alSource3f(id, AL_POSITION, x, 0, z);
 		const auto errcode = alGetError();
 		if (errcode != AL_NO_ERROR) {
@@ -310,12 +310,12 @@ public:
 	}
 };
 
-inline uint32_t make_fourcc(const char (& code)[5]) {
+inline uint64_t make_fourcc(const char (& code)[5]) {
 	return
-		(uint32_t(code[0]) << 0) |
-		(uint32_t(code[1]) << 8) |
-		(uint32_t(code[2]) << 16) |
-		(uint32_t(code[3]) << 24);
+		(uint64_t(code[0]) << 0) |
+		(uint64_t(code[1]) << 8) |
+		(uint64_t(code[2]) << 16) |
+		(uint64_t(code[3]) << 24);
 }
 
 #define WAVE_FORMAT_PCM 1
@@ -350,7 +350,7 @@ public:
 		if (riff_header.tag != make_fourcc("RIFF")) {
 			throw std::runtime_error("Expected RIFF chunk");
 		}
-		uint32_t filetype;
+		uint32_t filetype; // RIFF form type: 4 bytes in the file
 		stream.read(reinterpret_cast<char *>(&filetype), sizeof(filetype));
 		if (filetype != make_fourcc("WAVE")) {
 			throw std::runtime_error("Expected WAVE chunk");
@@ -400,7 +400,7 @@ public:
 		return m_pcm;
 	}
 
-	inline int samplerate() const {
+	inline int64_t samplerate() const {
 		return m_samplerate;
 	}
 
@@ -409,7 +409,7 @@ public:
 	}
 
 protected:
-	int m_samplerate = 0;
+	int64_t m_samplerate = 0;
 	ALenum m_format = 0;
 	std::vector<uint8_t> m_pcm;
 };
@@ -445,7 +445,7 @@ struct sound_sample {
 	}
 
 	sound_sample(const char * _name, SoundSFXID _sfx_id,
-	             const std::vector<uint8_t> & pcm, ALenum format, int samplerate) {
+	             const std::vector<uint8_t> & pcm, ALenum format, int64_t samplerate) {
 		name = _name;
 		sfx_id = _sfx_id;
 		alBufferData(buffer.id, format, pcm.data(), (ALsizei)pcm.size(), samplerate);
@@ -487,13 +487,13 @@ struct SoundBankEntry { // sizeof = 16
 #pragma pack()
 
 std::vector<sound_sample> load_sound_bank(const char * filename) {
-	const int directory_index = 2; // a5 was always 1622
+	const int64_t directory_index = 2; // a5 was always 1622
 	std::ifstream stream(filename, std::ios::in | std::ios::binary);
 	if (!stream.is_open()) {
 		throw std::runtime_error("Cannot open sound bank file");
 	}
 	stream.seekg(-4, std::ios::end);
-	uint32_t head_offset;
+	uint32_t head_offset; // last 4 bytes of the bank file
 	stream.read(reinterpret_cast<char *>(&head_offset), sizeof(head_offset));
 	stream.seekg(head_offset, std::ios::beg);
 	SoundBankHead bhead;
@@ -506,12 +506,12 @@ std::vector<sound_sample> load_sound_bank(const char * filename) {
 	} else if (directory.total_samples_size < sizeof(SoundBankSample)) {
 		throw std::runtime_error("Invalid samples size");
 	}
-	const int sample_count = directory.total_samples_size / sizeof(SoundBankSample);
+	const int64_t sample_count = directory.total_samples_size / sizeof(SoundBankSample);
 	stream.seekg(directory.first_sample_offset, std::ios::beg);
 	std::vector<sound_sample> buffers;
 	buffers.reserve(sample_count);
 	SoundBankSample sample;
-	for (int i = 0; i < sample_count; ++i) {
+	for (int64_t i = 0; i < sample_count; ++i) {
 		stream.seekg(directory.first_sample_offset + (sizeof(sample) * i), std::ios::beg);
 		stream.read(reinterpret_cast<char *>(&sample), sizeof(sample));
 		stream.seekg(directory.first_data_offset + sample.data_offset, std::ios::beg);
@@ -530,15 +530,15 @@ static std::unordered_map<SoundSmplTblID, SoundSmplTblID> g_id_redirects;
 
 struct SoundStackPolicy {
 	unsigned char mode = SStack_Limit;
-	short max_instances = 1;
+	int64_t max_instances = 1;
 };
 static std::unordered_map<SoundSmplTblID, SoundStackPolicy> g_stack_policies;
 
 // Tick-scoped gate reproducing the pre-Custom-Sounds behaviour exactly: a sample ID with
 // no explicit STACK= policy may only start once per "tick", regardless of which emitter
 // triggers it.
-static unsigned long g_audio_tick_counter = 0; // tick != turn; ticks continue while navigating the frontend/main menu
-static std::unordered_map<SoundSmplTblID, unsigned long> g_tick_samples_last_tick;
+static uint64_t g_audio_tick_counter = 0; // tick != turn; ticks continue while navigating the frontend/main menu
+static std::unordered_map<SoundSmplTblID, uint64_t> g_tick_samples_last_tick;
 
 static SoundStackPolicy get_stack_policy(SoundSmplTblID smptbl_id) {
 	const auto it = g_stack_policies.find(smptbl_id);
@@ -552,7 +552,7 @@ static SoundStackPolicy get_stack_policy(SoundSmplTblID smptbl_id) {
 // Called after a new instance starts, and after MonitorStreamedSoundTrack() prunes a
 // finished one, so remaining instances' volume rises back up as concurrency drops.
 static void apply_duck_gain(SoundSmplTblID smptbl_id) {
-	int count = 0;
+	int64_t count = 0;
 	for (const auto & source : g_sources) {
 		if (source.emit_id != 0 && source.smptbl_id == smptbl_id) {
 			++count;
@@ -561,7 +561,7 @@ static void apply_duck_gain(SoundSmplTblID smptbl_id) {
 	if (count == 0) {
 		return;
 	}
-	const float scale = 1.0f / std::sqrt(float(count));
+	const double scale = 1.0 / std::sqrt(double(count));
 	for (auto & source : g_sources) {
 		if (source.emit_id != 0 && source.smptbl_id == smptbl_id) {
 			try {
@@ -588,8 +588,8 @@ void load_sound_banks() {
 	}
 	g_banks[0] = load_sound_bank(snd_fname);
 	g_banks[1] = load_sound_bank(spc_fname);
-	LbJustLog("Loaded %s (%d samples), %s (%d samples)\n",
-		snd_fname, (int)g_banks[0].size(), spc_fname, (int)g_banks[1].size());
+	LbJustLog("Loaded %s (%" PRId64 " samples), %s (%" PRId64 " samples)\n",
+		snd_fname, (int64_t)g_banks[0].size(), spc_fname, (int64_t)g_banks[1].size());
 	g_speech_offset = (SoundSmplTblID)g_banks[0].size();
 	g_custom_offset = g_speech_offset + (SoundSmplTblID)g_banks[1].size();
 }
@@ -631,7 +631,7 @@ __attribute__((unused)) MIX_Audio * g_streamed_sample = nullptr;
 std::mutex g_mix_mutex;
 
 std::string g_current_music_fname; // empty if a numbered track (or nothing) is playing
-int g_current_music_track = 0;     // 0 if a custom file (or nothing) is playing
+int64_t g_current_music_track = 0;     // 0 if a custom file (or nothing) is playing
 
 struct queued_sample {
 	std::string fname;
@@ -699,19 +699,19 @@ extern "C" void custom_sound_bank_clear() {
 
 extern "C" void sound_register_id_redirect(SoundSmplTblID from_id, SoundSmplTblID to_id) {
 	g_id_redirects[from_id] = to_id;
-	SYNCDBG(7, "Registered ID redirect: %d -> %d", from_id, to_id);
+	SYNCDBG(7, "Registered ID redirect: %" PRId64 " -> %" PRId64, (int64_t)(from_id), (int64_t)(to_id));
 }
 
 extern "C" void sound_clear_id_redirects(void) {
 	g_id_redirects.clear();
 }
 
-extern "C" void sound_register_stack_policy(SoundSmplTblID smptbl_id, unsigned char mode, short max_instances) {
+extern "C" void sound_register_stack_policy(SoundSmplTblID smptbl_id, unsigned char mode, int64_t max_instances) {
 	SoundStackPolicy policy;
 	policy.mode = mode;
-	policy.max_instances = (mode == SStack_Limit) ? std::max<short>(max_instances, 1) : std::max<short>(max_instances, 0);
+	policy.max_instances = (mode == SStack_Limit) ? std::max<int64_t>(max_instances, 1) : std::max<int64_t>(max_instances, 0);
 	g_stack_policies[smptbl_id] = policy;
-	SYNCDBG(7, "Registered stack policy for sample %d: mode %d, max %d", smptbl_id, mode, policy.max_instances);
+	SYNCDBG(7, "Registered stack policy for sample %" PRId64 ": mode %" PRId64 ", max %" PRId64, (int64_t)(smptbl_id), (int64_t)(mode), (int64_t)(policy.max_instances));
 }
 
 extern "C" void sound_clear_stack_policies(void) {
@@ -727,7 +727,7 @@ extern "C" void sound_save_id_redirect_snapshot(void) {
 	g_stack_policies_snapshot = g_stack_policies;
 	g_custom_bank_watermark = g_custom_bank.size();
 	SYNCDBG(7, "Saved sound snapshot: %" PRIuSIZE " redirects, %" PRIuSIZE " stack policies, %" PRIuSIZE " custom bank entries",
-		SZCAST(g_id_redirects_snapshot.size()), SZCAST(g_stack_policies_snapshot.size()), SZCAST(g_custom_bank_watermark));
+		(uint64_t)(SZCAST(g_id_redirects_snapshot.size())), (uint64_t)(SZCAST(g_stack_policies_snapshot.size())), (uint64_t)(SZCAST(g_custom_bank_watermark)));
 }
 
 extern "C" void sound_restore_id_redirect_snapshot(void) {
@@ -735,17 +735,17 @@ extern "C" void sound_restore_id_redirect_snapshot(void) {
 	g_stack_policies = g_stack_policies_snapshot;
 	if (g_custom_bank.size() > g_custom_bank_watermark) {
 		SYNCDBG(7, "Trimming custom bank from %" PRIuSIZE " to %" PRIuSIZE " entries",
-			SZCAST(g_custom_bank.size()), SZCAST(g_custom_bank_watermark));
+			(uint64_t)(SZCAST(g_custom_bank.size())), (uint64_t)(SZCAST(g_custom_bank_watermark)));
 		g_custom_bank.erase(g_custom_bank.begin() + (ptrdiff_t)g_custom_bank_watermark, g_custom_bank.end());
 	}
 	SYNCDBG(7, "Restored sound snapshot: %" PRIuSIZE " redirects, %" PRIuSIZE " stack policies",
-		SZCAST(g_id_redirects.size()), SZCAST(g_stack_policies.size()));
+		(uint64_t)(SZCAST(g_id_redirects.size())), (uint64_t)(SZCAST(g_stack_policies.size())));
 }
 
 extern "C" void SetSoundMasterVolume(SoundVolume volume) {
 	try {
 		// Set OpenAL listener gain to maximum so we can split up the mentor speech volume slider from the sound effects volume slider
-		alListenerf(AL_GAIN, 1.0f);
+		alListenerf(AL_GAIN, 1.0);
 		const auto errcode = alGetError();
 		if (errcode != AL_NO_ERROR) {
 			throw openal_error("Cannot set master volume", errcode);
@@ -761,7 +761,7 @@ extern "C" void set_music_volume(SoundVolume value) {
 	SetRedbookVolume(value);
 	// SDL3_mixer uses a per-track linear gain (0.0..1.0) rather than 0..128.
 	if (g_music_track != nullptr) {
-		MIX_SetTrackGain(g_music_track, float(value) / FULL_LOUDNESS);
+		MIX_SetTrackGain(g_music_track, double(value) / FULL_LOUDNESS);
 	}
 }
 
@@ -802,7 +802,7 @@ extern "C" TbBool play_music(const char * fname) {
 	return true;
 }
 
-static const char * find_music_file_for_mod_list(short fgroup, const char * fname, const struct ModConfigItem *mod_items, long mod_cnt)
+static const char * find_music_file_for_mod_list(int64_t fgroup, const char * fname, const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
     if (fgroup != FGrp_CmpgMedia && fgroup != FGrp_Music)
         return NULL;
@@ -812,7 +812,7 @@ static const char * find_music_file_for_mod_list(short fgroup, const char * fnam
     fgroup = FGrp_Music;
 
     // Note that this is the reverse mods direction
-    for (long i=mod_cnt-1; i>=0; i--)
+    for (int64_t i=mod_cnt-1; i>=0; i--)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (mod_item->state.mod_dir == 0)
@@ -832,21 +832,21 @@ static const char * find_music_file_for_mod_list(short fgroup, const char * fnam
     return NULL;
 }
 
-extern "C" TbBool play_music_fgroup(short fgroup, const char * fname) {
+extern "C" TbBool play_music_fgroup(int64_t fgroup, const char * fname) {
     const char * fpath = NULL;
 
     // Note that this is the reverse mods direction
-    int32_t after_map_cnt = sound_state_callbacks->get_mods_after_map_count();
+    int64_t after_map_cnt = sound_state_callbacks->get_mods_after_map_count();
     if (fpath == NULL && after_map_cnt > 0)
     {
         fpath = find_music_file_for_mod_list(fgroup, fname, sound_state_callbacks->get_mods_after_map(), after_map_cnt);
     }
-    int32_t after_campaign_cnt = sound_state_callbacks->get_mods_after_campaign_count();
+    int64_t after_campaign_cnt = sound_state_callbacks->get_mods_after_campaign_count();
     if (fpath == NULL && after_campaign_cnt > 0)
     {
         fpath = find_music_file_for_mod_list(fgroup, fname, sound_state_callbacks->get_mods_after_campaign(), after_campaign_cnt);
     }
-    int32_t after_base_cnt = sound_state_callbacks->get_mods_after_base_count();
+    int64_t after_base_cnt = sound_state_callbacks->get_mods_after_base_count();
     if (fpath == NULL && after_base_cnt > 0)
     {
         fpath = find_music_file_for_mod_list(fgroup, fname, sound_state_callbacks->get_mods_after_base(), after_base_cnt);
@@ -867,25 +867,25 @@ static const char *const music_file_extensions[] = {
 	".flac", ".wav", ".ogg", ".mp3"
 };
 
-static int music_extension_priority(const char *filename) {
+static int64_t music_extension_priority(const char *filename) {
 	const char *ext = strrchr(filename, '.');
 	if (ext == NULL) {
 		return -1;
 	}
 	for (size_t i = 0; i < sizeof(music_file_extensions) / sizeof(music_file_extensions[0]); i++) {
 		if (strcasecmp(ext, music_file_extensions[i]) == 0) {
-			return (int)i;
+			return (int64_t)i;
 		}
 	}
 	return -1;
 }
 
 // Resolve which music file plays for a given redbook track number
-static TbBool resolve_track_music_path(int track, char *dst, int dst_size) {
+static TbBool resolve_track_music_path(int64_t track, char *dst, int64_t dst_size) {
 	if (track < 2) {
 		return false;
 	}
-	const int wanted = track - 2; // 0-based position within the chosen format's files
+	const int64_t wanted = track - 2; // 0-based position within the chosen format's files
 
 	char filespec[2048];
 	sound_state_callbacks->prepare_file_path_buf(filespec, sizeof(filespec), FGrp_Music, "*");
@@ -899,10 +899,10 @@ static TbBool resolve_track_music_path(int track, char *dst, int dst_size) {
 		return false;
 	}
 
-	std::vector<std::pair<int, std::string>> files; // (priority rank, filename)
-	int best_priority = -1;
+	std::vector<std::pair<int64_t, std::string>> files; // (priority rank, filename)
+	int64_t best_priority = -1;
 	do {
-		const int prio = music_extension_priority(fe.Filename);
+		const int64_t prio = music_extension_priority(fe.Filename);
 		if (prio < 0) {
 			continue; // not a recognized music file
 		}
@@ -918,7 +918,7 @@ static TbBool resolve_track_music_path(int track, char *dst, int dst_size) {
 	}
 
 	// Map the track within the winning format's files only, keeping sorted order
-	int index = 0;
+	int64_t index = 0;
 	for (const auto & f : files) {
 		if (f.first != best_priority) {
 			continue;
@@ -932,7 +932,7 @@ static TbBool resolve_track_music_path(int track, char *dst, int dst_size) {
 	return false;
 }
 
-extern "C" TbBool play_music_track(int track) {
+extern "C" TbBool play_music_track(int64_t track) {
 	(*sound_state_callbacks->get_music_track()) = track;
 	memset(sound_state_callbacks->get_music_fname(), 0, DISKPATH_SIZE);
 	if ((*sound_state_callbacks->get_music_track()) == 0) {
@@ -943,10 +943,10 @@ extern "C" TbBool play_music_track(int track) {
 		// already the one actually playing (e.g. reloading a save for the same level).
 		char fpath[2048];
 		if (!resolve_track_music_path(track, fpath, sizeof(fpath))) {
-			WARNLOG("No music file found for track %d in the music folder", track);
+			WARNLOG("No music file found for track %" PRId64 " in the music folder", (int64_t)(track));
 			return false;
 		}
-		LbJustLog("Playing track %d: %s\n", track, fpath);
+		LbJustLog("Playing track %" PRId64 ": %s\n", (int64_t)(track), fpath);
 		return play_music(fpath);
 	} else {
 		if (track == g_current_music_track) {
@@ -958,7 +958,7 @@ extern "C" TbBool play_music_track(int track) {
 			g_current_music_fname.clear();
 			return true;
 		} else {
-			WARNLOG("Cannot play track %d", (*sound_state_callbacks->get_music_track()));
+			WARNLOG("Cannot play track %" PRId64, (int64_t)((*sound_state_callbacks->get_music_track())));
 			return false;
 		}
 	}
@@ -1028,7 +1028,7 @@ extern "C" void MonitorStreamedSoundTrack() {
 
 extern "C" void * GetSoundDriver() {
 	// This just needs to return any non-null pointer. FMV library appears to have standalone audio
-	static int dummy = 0;
+	static int64_t dummy = 0;
 	return &dummy;
 }
 
@@ -1150,7 +1150,7 @@ extern "C" SoundMilesID play_sample(
 	unsigned char ctype // possible values: 2, 3
 ) {
 	if (emit_id <= 0) {
-		ERRORLOG("Can't play sample %d, invalid emitter ID", smptbl_id);
+		ERRORLOG("Can't play sample %" PRId64 ", invalid emitter ID", (int64_t)(smptbl_id));
 		return 0;
 	}
 	// Apply raw-ID redirect before bank dispatch (only for effect-bank IDs)
@@ -1165,21 +1165,21 @@ extern "C" SoundMilesID play_sample(
 	if (smptbl_id >= g_custom_offset) {
 		const SoundSmplTblID idx = smptbl_id - g_custom_offset;
 		if (idx < 0 || idx >= (SoundSmplTblID)g_custom_bank.size()) {
-			ERRORLOG("Can't play custom sample %d, out of range", smptbl_id);
+			ERRORLOG("Can't play custom sample %" PRId64 ", out of range", (int64_t)(smptbl_id));
 			return 0;
 		}
 		buf = &g_custom_bank[idx].buffer;
 	} else if (smptbl_id >= g_speech_offset) {
 		const SoundSmplTblID idx = smptbl_id - g_speech_offset;
 		if (idx <= 0 || idx >= (SoundSmplTblID)g_banks[1].size()) {
-			ERRORLOG("Can't play speech sample %d, out of range", smptbl_id);
+			ERRORLOG("Can't play speech sample %" PRId64 ", out of range", (int64_t)(smptbl_id));
 			return 0;
 		}
 		buf = &g_banks[1][idx].buffer;
 	} else {
 		if (smptbl_id <= 0 || smptbl_id >= (SoundSmplTblID)g_banks[0].size()) {
 			if (smptbl_id != 0) {
-				ERRORLOG("Can't play effect sample %d, out of range", smptbl_id);
+				ERRORLOG("Can't play effect sample %" PRId64 ", out of range", (int64_t)(smptbl_id));
 			}
 			return 0;
 		}
@@ -1231,7 +1231,7 @@ extern "C" SoundMilesID play_sample(
 			g_tick_samples_last_tick[smptbl_id] = g_audio_tick_counter;
 		} else {
 			if (stack_policy.max_instances > 0) {
-				int active_count = 0;
+				int64_t active_count = 0;
 				for (const auto & source : g_sources) {
 					if (source.emit_id != 0 && source.smptbl_id == smptbl_id) {
 						++active_count;
@@ -1270,7 +1270,7 @@ extern "C" SoundMilesID play_sample(
 			}
 		}
 		if (sound_state_callbacks->get_frame_skip() < 2) {
-			ERRORLOG("Can't play sample %d, too many samples playing at once", smptbl_id);
+			ERRORLOG("Can't play sample %" PRId64 ", too many samples playing at once", (int64_t)(smptbl_id));
 		}
 		return 0;
 	} catch (const std::exception & e) {
@@ -1309,7 +1309,7 @@ extern "C" SoundSFXID get_sample_sfxid(SoundSmplTblID smptbl_id) {
 extern "C" SoundSmplTblID get_speech_offset(void) { return g_speech_offset; }
 extern "C" SoundSmplTblID get_custom_offset(void) { return g_custom_offset; }
 
-extern "C" int InitialiseSDLAudio()
+extern "C" int64_t InitialiseSDLAudio()
 {
 	if (!SDL_Init(SDL_INIT_AUDIO)) {
 		ERRORLOG("Unable to initialise SDL audio subsystem: %s", SDL_GetError());
@@ -1358,6 +1358,25 @@ extern "C" void ShutDownSDLAudio()
 	MIX_Quit();
 }
 
+// Decode an MP3 file with the bundled dr_mp3 and hand the PCM to the mixer as raw audio.
+static MIX_Audio* load_mp3_with_drmp3(const char* fname)
+{
+	drmp3_config cfg = {};
+	drmp3_uint64 frame_count = 0;
+	drmp3_int16* pcm = drmp3_open_file_and_read_pcm_frames_s16(fname, &cfg, &frame_count, nullptr);
+	if (!pcm || frame_count == 0) {
+		if (pcm) drmp3_free(pcm, nullptr);
+		return nullptr;
+	}
+	SDL_AudioSpec spec = {};
+	spec.format = SDL_AUDIO_S16;
+	spec.channels = (int)cfg.channels;
+	spec.freq = (int)cfg.sampleRate;
+	MIX_Audio* audio = MIX_LoadRawAudio(g_mixer, pcm, (size_t)frame_count * cfg.channels * sizeof(drmp3_int16), &spec);
+	drmp3_free(pcm, nullptr);
+	return audio;
+}
+
 extern "C" TbBool play_streamed_sample(const char* fname, SoundVolume volume)
 {
 	if (SoundDisabled || fname == nullptr || strlen(fname) == 0) {
@@ -1369,12 +1388,20 @@ extern "C" TbBool play_streamed_sample(const char* fname, SoundVolume volume)
 	// Predecode speech so short samples start with no I/O latency.
 	MIX_Audio* sample = MIX_LoadAudio(g_mixer, fname, true);
 	if (sample == nullptr) {
+		// SDL_mixer's MP3 support depends on how it was built (the Linux build only enables its
+		// libmpg123 backend, which is absent on many systems); the bundled dr_mp3 always works.
+		const char* ext = strrchr(fname, '.');
+		if (ext != nullptr && strcasecmp(ext, ".mp3") == 0) {
+			sample = load_mp3_with_drmp3(fname);
+		}
+	}
+	if (sample == nullptr) {
 		ERRORLOG("Cannot load \"%s\": %s", fname, SDL_GetError());
 		return false;
 	}
 	MIX_SetTrackAudio(g_speech_track, sample);
 	// SDL3_mixer gain is linear 0.0..1.0 (SoundVolume ranges 0..FULL_LOUDNESS).
-	MIX_SetTrackGain(g_speech_track, float(volume) / FULL_LOUDNESS);
+	MIX_SetTrackGain(g_speech_track, double(volume) / FULL_LOUDNESS);
 	if (!MIX_PlayTrack(g_speech_track, 0)) {
 		MIX_DestroyAudio(sample);
 		ERRORLOG("Cannot play \"%s\": %s", fname, SDL_GetError());
@@ -1400,7 +1427,7 @@ extern "C" void stop_streamed_samples()
 
 extern "C" void set_streamed_sample_volume(SoundVolume volume) {
 	// SDL3_mixer gain is linear 0.0..1.0 (SoundVolume ranges 0..FULL_LOUDNESS).
-	if (g_speech_track) MIX_SetTrackGain(g_speech_track, float(volume) / FULL_LOUDNESS);
+	if (g_speech_track) MIX_SetTrackGain(g_speech_track, double(volume) / FULL_LOUDNESS);
 }
 
 // Replaces the SDL2 Mix_Playing(MIX_SPEECH_CHANNEL) query; keeps the MIX_ API
@@ -1414,13 +1441,13 @@ extern "C" void toggle_bbking_mode() {
 }
 
 // Bridge functions for custom sound loading from C++ sound_manager
-extern "C" int custom_sound_bank_size() {
+extern "C" int64_t custom_sound_bank_size() {
 	return g_custom_bank.size();
 }
 
 // Decode data as MP3 (via dr_mp3) and push it into g_custom_bank.
 // data/size may point into a larger buffer (e.g. after stripping a BMU header).
-static TbBool decode_mp3_and_store(const char* filepath, int sample_id,
+static TbBool decode_mp3_and_store(const char* filepath, int64_t sample_id,
 	const uint8_t* data, size_t size)
 {
 	drmp3_config cfg = {};
@@ -1443,7 +1470,7 @@ static TbBool decode_mp3_and_store(const char* filepath, int sample_id,
 			reinterpret_cast<const uint8_t*>(mp3_pcm),
 			reinterpret_cast<const uint8_t*>(mp3_pcm) + byte_count);
 		g_custom_bank.emplace_back(filepath, sample_id, pcm,
-			al_fmt, (int)cfg.sampleRate);
+			al_fmt, (int64_t)cfg.sampleRate);
 	} catch (...) {
 		drmp3_free(mp3_pcm, nullptr);
 		return false;
@@ -1464,7 +1491,7 @@ static TbBool decode_mp3_and_store(const char* filepath, int sample_id,
 //   - Plain MP3      : dr_mp3 single-header decoder (compiled in, no external DLLs)
 //   - BMU V1.0       : 8-byte wrapper used by some campaigns; contains a plain MP3
 //                       stream after the header — stripped and decoded via dr_mp3.
-static TbBool decode_audio_buffer_and_store(const char* logical_name, int sample_id,
+static TbBool decode_audio_buffer_and_store(const char* logical_name, int64_t sample_id,
 	const uint8_t* data, size_t size)
 {
 	// Detect BMU V1.0 wrapper (8-byte ASCII prefix used by some campaigns).
@@ -1524,7 +1551,7 @@ static TbBool decode_audio_buffer_and_store(const char* logical_name, int sample
 		std::vector<uint8_t> pcm;
 		uint8_t buffer[16384];
 		for (;;) {
-			int got = MIX_DecodeAudio(decoder, buffer, sizeof(buffer), &out_spec);
+			int64_t got = MIX_DecodeAudio(decoder, buffer, sizeof(buffer), &out_spec);
 			if (got <= 0) break; // 0 == end of stream, <0 == error
 			pcm.insert(pcm.end(), buffer, buffer + got);
 		}
@@ -1539,7 +1566,7 @@ static TbBool decode_audio_buffer_and_store(const char* logical_name, int sample
 }
 
 // Load a WAV, OGG, FLAC, or MP3 file from disk and append it to g_custom_bank.
-extern "C" TbBool custom_sound_load_wav(const char* filepath, int sample_id)
+extern "C" TbBool custom_sound_load_wav(const char* filepath, int64_t sample_id)
 {
 	// Resolve to absolute path so the decoders can find the file regardless of
 	// process CWD (keeperfx changes directories at startup).
@@ -1580,7 +1607,7 @@ extern "C" TbBool custom_sound_load_wav(const char* filepath, int sample_id)
 // Load a WAV, OGG, FLAC, or MP3 buffer already in memory (e.g. read out of a map's
 // zip bundle) and append it to g_custom_bank. logical_name is only used for logging.
 extern "C" TbBool custom_sound_load_wav_mem(const unsigned char* data, size_t size,
-	const char* logical_name, int sample_id)
+	const char* logical_name, int64_t sample_id)
 {
 	if (data == nullptr || size == 0) {
 		ERRORLOG("Empty audio buffer for %s", logical_name);

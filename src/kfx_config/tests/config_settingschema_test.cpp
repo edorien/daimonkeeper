@@ -32,29 +32,29 @@
 
 namespace {
 struct ResetSchemaState {
-    unsigned long saved_features_enabled;
+    uint64_t saved_features_enabled;
     TbBool saved_easter_egg;
     volatile TbBool saved_mouse_grab;
-    unsigned short saved_display_id;
-    int saved_gui_blink_rate;
-    int saved_creature_status_size;
+    int64_t saved_display_id;
+    int64_t saved_gui_blink_rate;
+    int64_t saved_creature_status_size;
     unsigned char saved_startup_flags;
-    int32_t saved_num_fps_draw_main;
-    int32_t saved_num_fps_draw_secondary;
-    int saved_line_box_size;
-    int saved_neutral_flash_rate;
+    int64_t saved_num_fps_draw_main;
+    int64_t saved_num_fps_draw_secondary;
+    int64_t saved_line_box_size;
+    int64_t saved_neutral_flash_rate;
     TbBool saved_tag_mode_toggle;
     TbBool saved_flee_button_default;
     TbBool saved_imprison_button_default;
-    int saved_atmos_volume;
-    int saved_atmos_frequency;
-    int saved_default_tag_mode;
-    int saved_lang_id;
-    int saved_zoom_to_mouse_option;
-    int saved_rotate_around_mouse_option;
-    unsigned int saved_vid_scale_flags;
-    unsigned short saved_screen_mode;
-    int saved_ui_font_scale_pct;
+    int64_t saved_atmos_volume;
+    int64_t saved_atmos_frequency;
+    int64_t saved_default_tag_mode;
+    int64_t saved_lang_id;
+    int64_t saved_zoom_to_mouse_option;
+    int64_t saved_rotate_around_mouse_option;
+    uint64_t saved_vid_scale_flags;
+    int64_t saved_screen_mode;
+    int64_t saved_ui_font_scale_pct;
 
     ResetSchemaState()
         : saved_features_enabled(features_enabled)
@@ -126,7 +126,7 @@ struct ResetConfigReloadCallbacks {
 
 const struct SettingOption *find_option(const char *cfg_key)
 {
-    for (int i = 0; i < setting_options_count; i++) {
+    for (int64_t i = 0; i < setting_options_count; i++) {
         if (std::strcmp(setting_options[i].cfg_key, cfg_key) == 0)
             return &setting_options[i];
     }
@@ -136,9 +136,9 @@ const struct SettingOption *find_option(const char *cfg_key)
 // STARTUP's two rows share one cfg_key (both reconstruct the whole token
 // list on apply -- see format_cfg_value's own comment), so find_option()
 // above only ever returns the first of them; distinguish by label instead.
-const struct SettingOption *find_option_by_label(unsigned short label_stridx)
+const struct SettingOption *find_option_by_label(int64_t label_stridx)
 {
-    for (int i = 0; i < setting_options_count; i++) {
+    for (int64_t i = 0; i < setting_options_count; i++) {
         if (setting_options[i].label_stridx == label_stridx)
             return &setting_options[i];
     }
@@ -151,7 +151,7 @@ TEST_CASE("setting_options covers all five categories and both apply-classes", "
 
     bool saw_game = false, saw_graphics = false, saw_gui = false, saw_sound = false, saw_input = false;
     bool saw_live = false, saw_needs_restart = false;
-    for (int i = 0; i < setting_options_count; i++) {
+    for (int64_t i = 0; i < setting_options_count; i++) {
         const struct SettingOption &opt = setting_options[i];
         // SOptT_Action rows have no cfg_key -- they're not a keeperfx.cfg
         // value at all (enum SettingOptionType's own comment). Neither do
@@ -203,8 +203,8 @@ TEST_CASE("setting_options covers all five categories and both apply-classes", "
                 // entry" doesn't hold; just confirm populating it is safe
                 // and the index helpers stay in range.
                 opt.ensure_enum_table();
-                int count = setting_option_enum_count(&opt);
-                int current = setting_option_enum_current_index(&opt);
+                int64_t count = setting_option_enum_count(&opt);
+                int64_t current = setting_option_enum_current_index(&opt);
                 CHECK(current >= 0);
                 CHECK(current < (count > 0 ? count : 1));
             } else {
@@ -311,7 +311,7 @@ TEST_CASE_METHOD(ResetSchemaState, "setting_option_apply_bool/_int reject a type
     setting_option_apply_int(bool_opt, 1); // wrong accessor for a bool row -- must not touch it
     CHECK_FALSE(start_params.easter_egg);
 
-    int before = keeperfx_ui_config.gui_blink_rate;
+    int64_t before = keeperfx_ui_config.gui_blink_rate;
     setting_option_apply_bool(int_opt, true); // wrong accessor for an int row
     CHECK(keeperfx_ui_config.gui_blink_rate == before);
 }
@@ -516,15 +516,15 @@ TEST_CASE_METHOD(ResetConfigReloadCallbacks, "HAND_SIZE presents global_hand_sca
     CHECK(opt->type == SOptT_Int);
 
     struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static float fake_scale = 1.0f;
-    fake_scale = 1.0f;
-    fake.get_hand_scale = []() -> float { return fake_scale; };
-    fake.set_hand_scale = [](float val) { fake_scale = val; };
+    static double fake_scale = 1.0;
+    fake_scale = 1.0;
+    fake.get_hand_scale = []() -> double { return fake_scale; };
+    fake.set_hand_scale = [](double val) { fake_scale = val; };
     set_config_reload_callbacks(&fake);
 
     CHECK(opt->get_int() == 100); // 1.0 scale == 100%
     opt->set_int(150);
-    CHECK(fake_scale == 1.5f);
+    CHECK(fake_scale == 1.5);
 }
 
 // RESIZE_MOVIES is two storage locations (Ft_Resizemovies + vid_scale_flags)
@@ -543,7 +543,7 @@ TEST_CASE_METHOD(ResetSchemaState, "RESIZE_MOVIES combines Ft_Resizemovies and v
     setting_option_apply_enum_index(opt, 4); // "4BY3"
     CHECK(is_feature_on(Ft_Resizemovies));
     CHECK(vid_scale_flags == (SMK_FullscreenFit | SMK_FullscreenStretch));
-    CHECK(opt->get_enum() == (long)(SMK_FullscreenFit | SMK_FullscreenStretch));
+    CHECK(opt->get_enum() == (int64_t)(SMK_FullscreenFit | SMK_FullscreenStretch));
 
     setting_option_apply_enum_index(opt, 0); // "OFF"
     CHECK_FALSE(is_feature_on(Ft_Resizemovies));
@@ -556,10 +556,10 @@ TEST_CASE_METHOD(ResetConfigReloadCallbacks, "POINTER_SENSITIVITY presents base_
     CHECK(opt->type == SOptT_Int);
 
     struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static long fake_sensitivity = 256; // config_keeperfx.c's own case 9: i*256/100, default i==100
+    static int64_t fake_sensitivity = 256; // config_keeperfx.c's own case 9: i*256/100, default i==100
     fake_sensitivity = 256;
-    fake.get_base_mouse_sensitivity = []() -> long { return fake_sensitivity; };
-    fake.set_base_mouse_sensitivity = [](long val) { fake_sensitivity = val; };
+    fake.get_base_mouse_sensitivity = []() -> int64_t { return fake_sensitivity; };
+    fake.set_base_mouse_sensitivity = [](int64_t val) { fake_sensitivity = val; };
     set_config_reload_callbacks(&fake);
 
     CHECK(opt->get_int() == 100); // 256 scaled back down == 100%
@@ -667,7 +667,7 @@ TEST_CASE_METHOD(ResetSchemaState, "FRAMES_PER_SECOND's format_cfg_value writes 
 // comment (config_settingschema.c) for why, and .num's (width<<16)|height
 // encoding, mirrored here rather than shared, since both are file-local.
 namespace {
-long ingame_res_encode(int w, int h) { return ((long)w << 16) | (long)(h & 0xFFFF); }
+int64_t ingame_res_encode(int64_t w, int64_t h) { return ((int64_t)w << 16) | (int64_t)(h & 0xFFFF); }
 
 // Lb_SCREEN_MODE_INVALID is 0 -- indistinguishable from a real mode that
 // happens to land at registry index 0 (LbRegisterVideoMode's own return
@@ -705,9 +705,9 @@ TEST_CASE("INGAME_RES's row shape: NeedsRestart, Graphics, dynamic table", "[kfx
     // final) table, whatever the detected mode count in this environment.
     opt->ensure_enum_table();
     opt->ensure_enum_table();
-    int count = setting_option_enum_count(opt);
+    int64_t count = setting_option_enum_count(opt);
     CHECK(opt->enum_table[count].name == nullptr);
-    for (int i = 0; i < count; i++) {
+    for (int64_t i = 0; i < count; i++) {
         CHECK(opt->enum_table[i].name != nullptr);
         CHECK((opt->enum_table[i].num >> 16) > 0);       // width
         CHECK((opt->enum_table[i].num & 0xFFFF) > 0);    // height
@@ -735,7 +735,7 @@ TEST_CASE_METHOD(ResetSchemaState, "INGAME_RES's get_enum reads the pending scre
     lbDisplay.ScreenMode = active_mode; // still-active mode -- must NOT be what's read
 
     struct ConfigReloadCallbacks overridden = *config_reload_callbacks;
-    overridden.get_screen_vidmode = []() -> unsigned short { return pending_mode; };
+    overridden.get_screen_vidmode = []() -> int64_t { return pending_mode; };
     set_config_reload_callbacks(&overridden);
 
     CHECK(opt->get_enum() == ingame_res_encode(800, 600));
@@ -748,7 +748,7 @@ TEST_CASE_METHOD(ResetConfigReloadCallbacks, "INGAME_RES's set_enum registers th
     static TbScreenMode applied_mode = Lb_SCREEN_MODE_INVALID;
     applied_mode = Lb_SCREEN_MODE_INVALID;
     struct ConfigReloadCallbacks overridden = *config_reload_callbacks;
-    overridden.set_screen_vidmode = [](unsigned short nmode) { applied_mode = nmode; };
+    overridden.set_screen_vidmode = [](int64_t nmode) { applied_mode = nmode; };
     set_config_reload_callbacks(&overridden);
 
     ensure_screen_mode_registry_nonempty();
@@ -770,15 +770,15 @@ TEST_CASE("setting_option_apply_enum_index writes INGAME_RES's WxHx32 name, not 
     const struct SettingOption *opt = find_option("INGAME_RES");
     REQUIRE(opt != nullptr);
     opt->ensure_enum_table();
-    int count = setting_option_enum_count(opt);
+    int64_t count = setting_option_enum_count(opt);
     if (count == 0) {
         // No fullscreen display modes detected in this environment (a
         // headless test runner, most likely) -- nothing to check.
         return;
     }
     const char *name = setting_option_enum_item_name(opt, 0);
-    int w = 0, h = 0, bpp = 0;
-    CHECK(std::sscanf(name, "%dx%dx%d", &w, &h, &bpp) == 3);
+    int64_t w = 0, h = 0, bpp = 0;
+    CHECK(std::sscanf(name, "%" SCNd64 "x%" SCNd64 "x%" SCNd64, &w, &h, &bpp) == 3);
     CHECK(bpp == 32);
 }
 

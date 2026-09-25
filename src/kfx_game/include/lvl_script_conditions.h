@@ -34,19 +34,19 @@ extern const struct NamedCommand dk1_variable_desc[];
 extern const struct NamedCommand is_free_desc[];
 extern const struct NamedCommand orientation_desc[];
 
-struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsigned char valtype, short validx);
-long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, short validx);
-const char* get_condition_label(PlayerNumber plyr_idx, unsigned char valtype, short validx);
-TbBool condition_inactive(long cond_idx);
-TbBool get_condition_status(unsigned char opkind, long left_value, long right_value);
+struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
+int64_t get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
+const char* get_condition_label(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
+TbBool condition_inactive(int64_t cond_idx);
+TbBool get_condition_status(unsigned char opkind, int64_t left_value, int64_t right_value);
 void process_conditions(void);
-long pop_condition(void);
+int64_t pop_condition(void);
 
-int get_script_current_condition();
-void set_script_current_condition(int current_condition);
+int64_t get_script_current_condition();
+void set_script_current_condition(int64_t current_condition);
 
-void command_add_condition(long plr_range_id, long opertr_id, long varib_type, long varib_id, long value);
-void command_add_condition_2variables(long plr_range_id, long opertr_id, long varib_type, long varib_id,long plr_range_id_right, long varib_type_right, long varib_id_right);
+void command_add_condition(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id, int64_t value);
+void command_add_condition_2variables(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id,int64_t plr_range_id_right, int64_t varib_type_right, int64_t varib_id_right);
 
 #ifdef __cplusplus
 }

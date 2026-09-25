@@ -97,7 +97,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-unsigned short const zoom_key_room_order[] =
+int64_t const zoom_key_room_order[] =
     {RoK_TREASURE, RoK_LIBRARY, RoK_LAIR, RoK_PRISON,
      RoK_TORTURE, RoK_TRAINING, RoK_DUNGHEART, RoK_WORKSHOP,
      RoK_SCAVENGER, RoK_TEMPLE, RoK_GRAVEYARD, RoK_BARRACKS,
@@ -105,7 +105,7 @@ unsigned short const zoom_key_room_order[] =
 
 // Registered with sim_feedback.h's SimFeedbackCallbacks; thing_creature.c
 // indexes this array while resolving a player's teleport destination.
-unsigned short get_zoom_key_room_order(long idx)
+int64_t get_zoom_key_room_order(int64_t idx)
 {
     return zoom_key_room_order[idx];
 }
@@ -118,8 +118,8 @@ static TbBool first_person_see_item_desc = false;
 static TbBool move_camera_this_turn;
 static GameTurn hand_pick_pending_turn;
 
-long old_mx;
-long old_my;
+int64_t old_mx;
+int64_t old_my;
 
 enum ZoomToMouseOptions zoom_to_mouse_option = ZoomToMouse_Never;
 enum RotateAroundMouseOptions rotate_around_mouse_option = RotateAroundMouse_Never;
@@ -135,56 +135,56 @@ enum RotateAroundMouseOptions rotate_around_mouse_option = RotateAroundMouse_Nev
 /******************************************************************************/
 static void get_dungeon_control_nonaction_inputs(void);
 static void get_creature_control_nonaction_inputs(void);
-static short zoom_shortcuts(void);
-static short get_bookmark_inputs(void);
+static int64_t zoom_shortcuts(void);
+static int64_t get_bookmark_inputs(void);
 static void process_cheat_mode_selection_inputs(void);
 // docs/refactor/editor/10-definable-keybindings.md -- forward-declared here
 // (defined further down, alongside is_editor_key_pressed()) since
 // get_movement_inputs() above their definition needs
 // get_dual_context_key_axis_value() already.
-static float get_dual_context_key_axis_value(long game_key_id, long editor_key_id, TbBool ignore_mods);
+static double get_dual_context_key_axis_value(int64_t game_key_id, int64_t editor_key_id, TbBool ignore_mods);
 /******************************************************************************/
 #ifdef __cplusplus
 }
 #endif
 /******************************************************************************/
-static void get_movement_inputs(float* out_movement_x, float* out_movement_y, TbBool ignore_mods)
+static void get_movement_inputs(double* out_movement_x, double* out_movement_y, TbBool ignore_mods)
 {
     // docs/refactor/editor/10-definable-keybindings.md -- reads
     // settings.editor_kbkeys[]/EditorGameKeys instead while an editor
     // session is active, via is_dual_context_key_pressed()'s own dispatch rule.
-    float movement_x = get_dual_context_key_axis_value(Gkey_MoveRight, Gkey_EditorMoveRight, ignore_mods) - get_dual_context_key_axis_value(Gkey_MoveLeft, Gkey_EditorMoveLeft, ignore_mods);
-    float movement_y = get_dual_context_key_axis_value(Gkey_MoveDown, Gkey_EditorMoveDown, ignore_mods) - get_dual_context_key_axis_value(Gkey_MoveUp, Gkey_EditorMoveUp, ignore_mods);
+    double movement_x = get_dual_context_key_axis_value(Gkey_MoveRight, Gkey_EditorMoveRight, ignore_mods) - get_dual_context_key_axis_value(Gkey_MoveLeft, Gkey_EditorMoveLeft, ignore_mods);
+    double movement_y = get_dual_context_key_axis_value(Gkey_MoveDown, Gkey_EditorMoveDown, ignore_mods) - get_dual_context_key_axis_value(Gkey_MoveUp, Gkey_EditorMoveUp, ignore_mods);
 
     // Handle horizontal movement - just accumulate for local camera
-    float move_mag_x = fabsf(movement_x);
-    if (move_mag_x > 0.0f) {
-        float curved = move_mag_x * move_mag_x;
+    double move_mag_x = fabs(movement_x);
+    if (move_mag_x > 0.0) {
+        double curved = move_mag_x * move_mag_x;
         *out_movement_x = (movement_x > 0 ? curved : -curved);
     }
     
     // Handle vertical movement - just accumulate for local camera
-    float move_mag_y = fabsf(movement_y);
-    if (move_mag_y > 0.0f) {
-        float curved = move_mag_y * move_mag_y;
+    double move_mag_y = fabs(movement_y);
+    if (move_mag_y > 0.0) {
+        double curved = move_mag_y * move_mag_y;
         *out_movement_y = (movement_y > 0 ? curved : -curved);
     }
-    *out_movement_x = clamp(*out_movement_x, -1.0f, 1.0f);
-    *out_movement_y = clamp(*out_movement_y, -1.0f, 1.0f);
+    *out_movement_x = clamp(*out_movement_x, -1.0, 1.0);
+    *out_movement_y = clamp(*out_movement_y, -1.0, 1.0);
 }
 
-static long get_current_gui_layer()
+static int64_t get_current_gui_layer()
 {
     return gui_layer.current_gui_layer;
 }
 
-static TbBool set_current_gui_layer(long layer_id)
+static TbBool set_current_gui_layer(int64_t layer_id)
 {
     gui_layer.current_gui_layer = layer_id;
     return true;
 }
 
-TbBool check_current_gui_layer(long layer_id)
+TbBool check_current_gui_layer(int64_t layer_id)
 {
     // Check the current gui layer against the one passed as a parameter
     // Also checks if the passed layer_id is the parent of the current gui layer
@@ -241,19 +241,19 @@ static void update_gui_layer(void)
     }
 }
 
-short game_is_busy_doing_gui_string_input(void)
+int64_t game_is_busy_doing_gui_string_input(void)
 {
   return (input_button != NULL);
 }
 
-int is_game_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods)
+int64_t is_game_key_pressed(int64_t key_id, TbBool clear_pressed, TbBool ignore_mods)
 {
-  int result;
-  int i;
+  int64_t result;
+  int64_t i;
   if ((key_id < 0) || (key_id >= GAME_KEYS_COUNT))
     return 0;
 
-  int32_t val = settings.kbkeys[key_id].code;
+  int64_t val = settings.kbkeys[key_id].code;
 
   if (get_current_gui_layer() == GuiLayer_OneClickBridgeBuild)
   {
@@ -338,7 +338,7 @@ int is_game_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods)
   return result;
 }
 
-TbControllerButtons get_game_key_controller_buttons(long key_id)
+TbControllerButtons get_game_key_controller_buttons(int64_t key_id)
 {
     if ((key_id < 0) || (key_id >= GAME_KEYS_COUNT))
         return 0;
@@ -352,13 +352,13 @@ TbControllerButtons get_game_key_controller_buttons(long key_id)
 // GuiLayer_OneClickBridgeBuild interaction, no modifier-only "hold as a
 // mod key" bindings like Gkey_RotateMod/Gkey_SpeedMod, no hardcoded
 // alternate-key fallbacks) -- just "is the bound key/button down."
-int is_editor_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods)
+int64_t is_editor_key_pressed(int64_t key_id, TbBool clear_pressed, TbBool ignore_mods)
 {
     if ((key_id < 0) || (key_id >= EDITOR_GAME_KEYS_COUNT))
         return 0;
 
-    int32_t val = settings.editor_kbkeys[key_id].code;
-    int result = 0;
+    int64_t val = settings.editor_kbkeys[key_id].code;
+    int64_t result = 0;
     if ((ignore_mods) || (key_modifiers == settings.editor_kbkeys[key_id].mods))
     {
         result = lbKeyOn[val];
@@ -384,7 +384,7 @@ int is_editor_key_pressed(long key_id, TbBool clear_pressed, TbBool ignore_mods)
     return result;
 }
 
-float get_game_key_axis_value(long key_id, TbBool ignore_mods)
+double get_game_key_axis_value(int64_t key_id, TbBool ignore_mods)
 {
     if ((key_id == Gkey_MoveRight && is_key_pressed(KC_RIGHT, KMod_DONTCARE)) ||
         (key_id == Gkey_MoveLeft  && is_key_pressed(KC_LEFT, KMod_DONTCARE)) ||
@@ -392,7 +392,7 @@ float get_game_key_axis_value(long key_id, TbBool ignore_mods)
         (key_id == Gkey_MoveUp    && is_key_pressed(KC_UP, KMod_DONTCARE)) ||
     (is_key_pressed(settings.kbkeys[key_id].code, ignore_mods?KMod_DONTCARE:settings.kbkeys[key_id].mods)))
     {
-            return 1.0f;
+            return 1.0;
     }
 
     return cbtn_axis_value(get_game_key_controller_buttons(key_id));
@@ -404,14 +404,14 @@ float get_game_key_axis_value(long key_id, TbBool ignore_mods)
 // hardcoded fallback for the four move keys as the gameplay version (arrow
 // keys pan the camera regardless of rebinding, in the editor same as in
 // normal play).
-static TbControllerButtons get_editor_key_controller_buttons(long key_id)
+static TbControllerButtons get_editor_key_controller_buttons(int64_t key_id)
 {
     if ((key_id < 0) || (key_id >= EDITOR_GAME_KEYS_COUNT))
         return 0;
     return settings.editor_kbkeys[key_id].controller_buttons;
 }
 
-static float get_editor_key_axis_value(long key_id, TbBool ignore_mods)
+static double get_editor_key_axis_value(int64_t key_id, TbBool ignore_mods)
 {
     if ((key_id == Gkey_EditorMoveRight && is_key_pressed(KC_RIGHT, KMod_DONTCARE)) ||
         (key_id == Gkey_EditorMoveLeft  && is_key_pressed(KC_LEFT, KMod_DONTCARE)) ||
@@ -419,7 +419,7 @@ static float get_editor_key_axis_value(long key_id, TbBool ignore_mods)
         (key_id == Gkey_EditorMoveUp    && is_key_pressed(KC_UP, KMod_DONTCARE)) ||
     (is_key_pressed(settings.editor_kbkeys[key_id].code, ignore_mods?KMod_DONTCARE:settings.editor_kbkeys[key_id].mods)))
     {
-            return 1.0f;
+            return 1.0;
     }
 
     return cbtn_axis_value(get_editor_key_controller_buttons(key_id));
@@ -435,14 +435,14 @@ static float get_editor_key_axis_value(long key_id, TbBool ignore_mods)
 // get_isometric_view_nonaction_inputs()'s own call sites so the dispatch
 // rule has exactly one definition to get right, not a dozen easy-to-miss
 // copies.
-static int is_dual_context_key_pressed(long game_key_id, long editor_key_id, TbBool clear_pressed, TbBool ignore_mods)
+static int64_t is_dual_context_key_pressed(int64_t game_key_id, int64_t editor_key_id, TbBool clear_pressed, TbBool ignore_mods)
 {
     if (editor_callbacks->is_active())
         return is_editor_key_pressed(editor_key_id, clear_pressed, ignore_mods);
     return is_game_key_pressed(game_key_id, clear_pressed, ignore_mods);
 }
 
-static float get_dual_context_key_axis_value(long game_key_id, long editor_key_id, TbBool ignore_mods)
+static double get_dual_context_key_axis_value(int64_t game_key_id, int64_t editor_key_id, TbBool ignore_mods)
 {
     if (editor_callbacks->is_active())
         return get_editor_key_axis_value(editor_key_id, ignore_mods);
@@ -452,7 +452,7 @@ static float get_dual_context_key_axis_value(long game_key_id, long editor_key_i
 /**
  *  Reacts on a keystoke by sending text message packets.
  */
-static short get_players_message_inputs(void)
+static int64_t get_players_message_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
     struct UserState* ustate = get_local_user_state();
@@ -480,7 +480,7 @@ static short get_players_message_inputs(void)
         memcpy(player->mp_message_text, player->mp_message_text_last, PLAYER_MP_MESSAGE_LEN);
         clear_key_pressed(KC_UP);
     } else if (is_key_pressed(KC_BACK,KMod_DONTCARE)){
-        int chpos = strlen(player->mp_message_text);
+        int64_t chpos = strlen(player->mp_message_text);
         // Skip UTF-8 continuation bytes so the whole last character is removed
         while ((chpos > 0) && ((player->mp_message_text[chpos-1] & 0xc0) == 0x80))
             chpos--;
@@ -517,7 +517,7 @@ static void get_options_menu_inputs(void)
  * Captures the screen to make a gameplay movie or screenshot image.
  * @return Returns true if packet was created, false otherwise.
  */
-short get_screen_capture_inputs(void)
+int64_t get_screen_capture_inputs(void)
 {
   if (is_game_key_pressed(Gkey_ScreenRecord, true, false))
   {
@@ -556,36 +556,36 @@ static void clip_frame_skip(void)
 static void increaseFrameskip(void)
 {
     // Default no longer using frame_skip=1, which will not change the logic frame rate but the makes the game will less smooth. But it can still be passed in through parameters
-    int level = 16;
-    for (int i=0; i<10; i++) {
+    int64_t level = 16;
+    for (int64_t i=0; i<10; i++) {
         if (kfx_net_state.frame_skip < level)
             break;
         level <<= 1;
     }
-    int adj = level/8;
+    int64_t adj = level/8;
     kfx_net_state.frame_skip += adj;
     clip_frame_skip();
     char speed_txt[256] = "normal";
     if (kfx_net_state.frame_skip > 0)
-        sprintf(speed_txt, "x%d", kfx_net_state.frame_skip);
+        sprintf(speed_txt, "x%" PRId64, (int64_t)(kfx_net_state.frame_skip));
     show_onscreen_msg(kfx_sim_state.turns_per_second*(kfx_net_state.frame_skip+1), "Fast Forward %s", speed_txt);
 }
 
 static void decreaseFrameskip(void)
 {
     // Defaul no longer using frame_skip=1, which will not change the logic frame rate but the makes the game will less smooth. But it can still be passed in through parameters
-    int level = 16;
-    for (int i=0; i<10; i++) {
+    int64_t level = 16;
+    for (int64_t i=0; i<10; i++) {
         if (kfx_net_state.frame_skip <= level)
             break;
         level <<= 1;
     }
-    int adj = level/8;
+    int64_t adj = level/8;
     kfx_net_state.frame_skip -= adj;
     clip_frame_skip();
     char speed_txt[256] = "normal";
     if (kfx_net_state.frame_skip > 0)
-        sprintf(speed_txt, "x%d", kfx_net_state.frame_skip);
+        sprintf(speed_txt, "x%" PRId64, (int64_t)(kfx_net_state.frame_skip));
     show_onscreen_msg(kfx_sim_state.turns_per_second*(kfx_net_state.frame_skip+1), "Fast Forward %s", speed_txt);
 }
 
@@ -593,7 +593,7 @@ static void decreaseFrameskip(void)
  * Handles game speed control inputs.
  * @return Returns true if packet was created, false otherwise.
  */
-static short get_speed_control_inputs(void)
+static int64_t get_speed_control_inputs(void)
 {
   if (is_game_key_pressed(Gkey_FrameSkipIncrease, true, false))
   {
@@ -609,7 +609,7 @@ static short get_speed_control_inputs(void)
 /**
  * Handles control inputs in PacketLoad mode.
  */
-static short get_packet_load_game_control_inputs(void)
+static int64_t get_packet_load_game_control_inputs(void)
 {
   if (is_game_key_pressed(Gkey_ExitGame, true, false))
   {
@@ -627,12 +627,12 @@ static short get_packet_load_game_control_inputs(void)
   return false;
 }
 
-static long get_small_map_inputs(long x, long y, long zoom)
+static int64_t get_small_map_inputs(int64_t x, int64_t y, int64_t zoom)
 {
   SYNCDBG(7,"Starting");
-  short result = 0;
-  long curr_mx = GetMouseX();
-  long curr_my = GetMouseY();
+  int64_t result = 0;
+  int64_t curr_mx = GetMouseX();
+  int64_t curr_my = GetMouseY();
   if (!grabbed_small_map)
     kfx_sim_state.small_map_state = 0;
   if (((kfx_sim_state.operation_flags & GOF_ShowGui) != 0) && (mouse_is_over_panel_map(x,y) || grabbed_small_map))
@@ -665,13 +665,13 @@ static long get_small_map_inputs(long x, long y, long zoom)
   return result;
 }
 
-static short get_bookmark_inputs(void)
+static int64_t get_bookmark_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
-    for (int i = 0; i < BOOKMARKS_COUNT; i++)
+    for (int64_t i = 0; i < BOOKMARKS_COUNT; i++)
     {
         struct Bookmark* bmark = &kfx_sim_state.bookmark[i];
-        int kcode = KC_1 + i;
+        int64_t kcode = KC_1 + i;
         // Store bookmark check
         if (is_key_pressed(kcode, KMod_CONTROL))
         {
@@ -682,7 +682,7 @@ static short get_bookmark_inputs(void)
                 bmark->x = camera->mappos.x.stl.num;
                 bmark->y = camera->mappos.y.stl.num;
                 bmark->flags |= 0x01;
-                show_onscreen_msg(kfx_sim_state.turns_per_second, "Bookmark %d stored", i + 1);
+                show_onscreen_msg(kfx_sim_state.turns_per_second, "Bookmark %" PRId64 " stored", (int64_t)(i + 1));
             }
             return true;
         }
@@ -702,9 +702,9 @@ static short get_bookmark_inputs(void)
   return false;
 }
 
-static short zoom_shortcuts(void)
+static int64_t zoom_shortcuts(void)
 {
-    for (int i = 0; i <= ZOOM_KEY_ROOMS_COUNT; i++)
+    for (int64_t i = 0; i <= ZOOM_KEY_ROOMS_COUNT; i++)
     {
         if (is_game_key_pressed(Gkey_ZoomRoomTreasure + i, true, false))
         {
@@ -715,7 +715,7 @@ static short zoom_shortcuts(void)
   return false;
 }
 
-static short get_minimap_control_inputs(void)
+static int64_t get_minimap_control_inputs(void)
 {
     if (is_game_key_pressed(Gkey_ZoomMinimapOut, true, false)) {
         if (menu_is_active(GMnu_MAIN)) {
@@ -734,7 +734,7 @@ static short get_minimap_control_inputs(void)
     return false;
 }
 
-static short get_global_inputs(void)
+static int64_t get_global_inputs(void)
 {
   if (game_is_busy_doing_gui_string_input())
     return false;
@@ -767,10 +767,10 @@ static short get_global_inputs(void)
   // Code for debugging purposes
   if ( is_key_pressed(KC_D,KMod_ALT) )
   {
-    JUSTMSG("REPORT. gameturn is %u, requested fps is %d",get_gameturn(), kfx_sim_state.turns_per_second);
+    JUSTMSG("REPORT. gameturn is %" PRIu64 ", requested fps is %" PRId64,(uint64_t)(get_gameturn()), (int64_t)(kfx_sim_state.turns_per_second));
   }
 
-  for (int idx = KC_F1; idx <= KC_F8; idx++)
+  for (int64_t idx = KC_F1; idx <= KC_F8; idx++)
   {
       if ( is_key_pressed(idx,KMod_CONTROL) )
       {
@@ -806,7 +806,7 @@ static short get_global_inputs(void)
 
       if ( toggle_pause )
       {
-        long grab_check_flags = (((kfx_sim_state.operation_flags & GOF_Paused) == 0) ? MG_OnPauseEnter : MG_OnPauseLeave);// the paused flag is currently set to the current pause state, not the state we are about to enter
+        int64_t grab_check_flags = (((kfx_sim_state.operation_flags & GOF_Paused) == 0) ? MG_OnPauseEnter : MG_OnPauseLeave);// the paused flag is currently set to the current pause state, not the state we are about to enter
         LbGrabMouseCheck(grab_check_flags);
         if (pause_music_when_game_paused())
         {
@@ -819,7 +819,7 @@ static short get_global_inputs(void)
         }
         if (((grab_check_flags & MG_OnPauseEnter) != 0))
         {
-            for (int i = 0; i < PLAYER_NEUTRAL; i++)
+            for (int64_t i = 0; i < PLAYER_NEUTRAL; i++)
             {
                 stop_thing_playing_sample(find_players_dungeon_heart(i), 93);
             }
@@ -856,8 +856,8 @@ static short get_global_inputs(void)
             update_time();
             struct GameTime GT;
             get_game_time(&GT, get_gameturn(), kfx_sim_state.turns_per_second);
-            SYNCMSG("Finished level %d. Total turns taken: %u (%02u:%02u:%02u at %d fps). Real time elapsed: %02u:%02u:%02u:%03u.",
-                kfx_sim_state.loaded_level_number, get_gameturn(), GT.Hours, GT.Minutes, GT.Seconds, kfx_sim_state.turns_per_second, kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
+            SYNCMSG("Finished level %" PRId64 ". Total turns taken: %" PRIu64 " (%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64 " at %" PRId64 " fps). Real time elapsed: %02" PRIu64 ":%02" PRIu64 ":%02" PRIu64 ":%03" PRIu64 ".",
+                (int64_t)(kfx_sim_state.loaded_level_number), (uint64_t)(get_gameturn()), (uint64_t)(GT.Hours), (uint64_t)(GT.Minutes), (uint64_t)(GT.Seconds), (int64_t)(kfx_sim_state.turns_per_second), (uint64_t)(kfx_sim_state.Timer.Hours), (uint64_t)(kfx_sim_state.Timer.Minutes), (uint64_t)(kfx_sim_state.Timer.Seconds), (uint64_t)(kfx_sim_state.Timer.MSeconds));
         }
         set_players_packet_action(player, PckA_FinishGame, player->victory_state, 0, 0, 0);
         return true;
@@ -909,11 +909,11 @@ static TbBool get_level_lost_inputs(void)
     }
     if (view_type == PVT_MapScreen)
     {
-        long mouse_x = GetMouseX();
-        long mouse_y = GetMouseY();
+        int64_t mouse_x = GetMouseX();
+        int64_t mouse_y = GetMouseY();
         // Position on the parchment map on which we're doing action
-        int32_t map_x;
-        int32_t map_y;
+        int64_t map_x;
+        int64_t map_y;
         TbBool map_valid = point_to_overhead_map(camera, mouse_x / pixel_size, mouse_y / pixel_size, &map_x, &map_y);
         if (is_game_key_pressed(Gkey_SwitchToMap, true, false))
         {
@@ -989,9 +989,9 @@ static TbBool get_level_lost_inputs(void)
               set_player_instance(player, PI_UnqueryCrtr, 0);
           } else
           {
-              int mm_units_per_px;
+              int64_t mm_units_per_px;
               {
-                  int mnu_num;
+                  int64_t mnu_num;
                   mnu_num = menu_id_to_number(GMnu_MAIN);
                   struct GuiMenu *gmnu;
                   gmnu = get_active_menu(mnu_num);
@@ -999,12 +999,12 @@ static TbBool get_level_lost_inputs(void)
                   if (mm_units_per_px < 1)
                       mm_units_per_px = 1;
               }
-              long mmzoom;
+              int64_t mmzoom;
               if (16/mm_units_per_px < 3)
                   mmzoom = (local_state.minimap_zoom) / (3-16/mm_units_per_px);
               else
                   mmzoom = (local_state.minimap_zoom);
-              long mm_x, mm_y;
+              int64_t mm_x, mm_y;
               ingame_panel_minimap_screen_pos(&mm_x, &mm_y);
               inp_done = get_small_map_inputs(mm_x, mm_y, mmzoom);
               if ( !inp_done )
@@ -1048,7 +1048,7 @@ static TbBool get_level_lost_inputs(void)
     return inp_done;
 }
 
-static short get_status_panel_keyboard_action_inputs(void)
+static int64_t get_status_panel_keyboard_action_inputs(void)
 {
   struct PlayerInfo* player = get_my_player();
   if ( (player->work_state == PSt_PlaceTerrain) || (player->work_state == PSt_MkDigger) || (player->work_state == PSt_MkGoodCreatr) || (player->work_state == PSt_MkBadCreatr) )
@@ -1268,7 +1268,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
         {
             struct Camera* cam = &player->cameras[CamIV_Isometric];
             struct Packet* pckt = get_local_packet();
-            int angle = cam->rotation_angle_x;
+            int64_t angle = cam->rotation_angle_x;
             if (key_modifiers & KMod_CONTROL)
             {
                 angle = (angle + DEGREES_45) & -DEGREES_45 & ANGLE_MASK;
@@ -1308,7 +1308,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
         {
             struct Camera* cam = &player->cameras[CamIV_FrontView];
             struct Packet* pckt = get_local_packet();
-            int angle = cam->rotation_angle_x;
+            int64_t angle = cam->rotation_angle_x;
             if (key_modifiers & KMod_CONTROL)
             {
                 set_packet_control(pckt, PCtr_ViewRotateCW);
@@ -1372,9 +1372,9 @@ static TbBool get_dungeon_control_action_inputs(void)
     struct UserState* ustate = get_local_user_state();
     if (get_players_packet_action(player) != PckA_None)
         return true;
-    int mm_units_per_px;
+    int64_t mm_units_per_px;
     {
-        int mnu_num = menu_id_to_number(GMnu_MAIN);
+        int64_t mnu_num = menu_id_to_number(GMnu_MAIN);
         struct GuiMenu* gmnu = get_active_menu(mnu_num);
         mm_units_per_px = (gmnu->width * 16 + 140 / 2) / 140;
         if (mm_units_per_px < 1)
@@ -1382,14 +1382,14 @@ static TbBool get_dungeon_control_action_inputs(void)
             mm_units_per_px = 1;
         }
     }
-    long mmzoom;
+    int64_t mmzoom;
     if (16 / mm_units_per_px < 3)
     {
         mmzoom = (local_state.minimap_zoom) / scale_value_for_resolution_with_upp(2, mm_units_per_px);
     }
     else
         mmzoom = (local_state.minimap_zoom);
-    long mm_x, mm_y;
+    int64_t mm_x, mm_y;
     ingame_panel_minimap_screen_pos(&mm_x, &mm_y);
     if (get_small_map_inputs(mm_x, mm_y, mmzoom))
         return 1;
@@ -1443,7 +1443,7 @@ static TbBool get_dungeon_control_action_inputs(void)
     return false;
 }
 
-static short get_creature_passenger_action_inputs(void)
+static int64_t get_creature_passenger_action_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
     if (get_players_packet_action(player) != PckA_None)
@@ -1542,13 +1542,13 @@ static short get_creature_passenger_action_inputs(void)
     return false;
 }
 
-static void set_possession_instance(struct PlayerInfo* player, struct Thing* thing, int direction)
+static void set_possession_instance(struct PlayerInfo* player, struct Thing* thing, int64_t direction)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
 
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
-    int current_pos = 0;
-    for (int pos = 0; pos < LEARNED_INSTANCES_COUNT; pos++)
+    int64_t current_pos = 0;
+    for (int64_t pos = 0; pos < LEARNED_INSTANCES_COUNT; pos++)
     {
         if (cctrl->active_instance_id == crconf->learned_instance_id[pos])
         {
@@ -1557,17 +1557,17 @@ static void set_possession_instance(struct PlayerInfo* player, struct Thing* thi
         }
     }
 
-    int final_pos = -1;
-    for (int i = 0; i < LEARNED_INSTANCES_COUNT; i++)
+    int64_t final_pos = -1;
+    for (int64_t i = 0; i < LEARNED_INSTANCES_COUNT; i++)
     {
-        int pos = current_pos + direction * (i + 1);
+        int64_t pos = current_pos + direction * (i + 1);
         
         pos += LEARNED_INSTANCES_COUNT;
         pos %= LEARNED_INSTANCES_COUNT;
         
         if (creature_instance_is_available(thing, crconf->learned_instance_id[pos]))
         {
-            int inst_id = crconf->learned_instance_id[pos];
+            int64_t inst_id = crconf->learned_instance_id[pos];
             final_pos = pos;
             set_players_packet_action(player, PckA_CtrlCrtrSetInstnc, inst_id, 1, 0, 0);
             break;
@@ -1575,7 +1575,7 @@ static void set_possession_instance(struct PlayerInfo* player, struct Thing* thi
     }
 
     int8_t count = 0;
-    for (int pos = 0; pos < LEARNED_INSTANCES_COUNT; pos++)
+    for (int64_t pos = 0; pos < LEARNED_INSTANCES_COUNT; pos++)
     {
         if (creature_instance_is_available(thing, crconf->learned_instance_id[pos]))
         {
@@ -1600,7 +1600,7 @@ static void set_possession_instance(struct PlayerInfo* player, struct Thing* thi
     }
 }
 
-static short get_creature_control_action_inputs(void)
+static int64_t get_creature_control_action_inputs(void)
 {
     SYNCDBG(6,"Starting");
     struct PlayerInfo* player = get_my_player();
@@ -1642,7 +1642,7 @@ static short get_creature_control_action_inputs(void)
     }
     if (player->controlled_thing_idx != 0)
     {
-        short make_packet = right_button_released || is_key_pressed(KC_ESCAPE, KMod_DONTCARE);
+        int64_t make_packet = right_button_released || is_key_pressed(KC_ESCAPE, KMod_DONTCARE);
         struct Thing* thing = thing_get(player->controlled_thing_idx);
         if (!make_packet)
         {
@@ -1808,8 +1808,8 @@ static short get_creature_control_action_inputs(void)
     {
         toggle_gui();
     }
-    int numkey = -1;
-    for (int32_t keycode=KC_1; keycode <= KC_0; keycode++)
+    int64_t numkey = -1;
+    for (int64_t keycode=KC_1; keycode <= KC_0; keycode++)
     {
         if (is_key_pressed(keycode,KMod_DONTCARE))
         {
@@ -1871,7 +1871,7 @@ static short get_creature_control_action_inputs(void)
         }
     }
         TextStringId StrID = 0;
-        for (int i = 0; i <= 15; i++)
+        for (int64_t i = 0; i <= 15; i++)
         {
             if (is_game_key_pressed(Gkey_ZoomRoomTreasure + i, true, false))
             {
@@ -1996,13 +1996,13 @@ static short get_creature_control_action_inputs(void)
         }
         if (numkey != -1)
         {
-            int num_avail = 0;
-            for (int idx = 0; idx < LEARNED_INSTANCES_COUNT; idx++)
+            int64_t num_avail = 0;
+            for (int64_t idx = 0; idx < LEARNED_INSTANCES_COUNT; idx++)
             {
                 struct Thing* cthing = thing_get(player->controlled_thing_idx);
                 TRACE_THING(cthing);
                 struct CreatureModelConfig* crconf = creature_stats_get_from_thing(cthing);
-                int inst_id = crconf->learned_instance_id[idx];
+                int64_t inst_id = crconf->learned_instance_id[idx];
                 if (creature_instance_is_available(cthing, inst_id))
                 {
                     if (numkey == num_avail)
@@ -2041,7 +2041,7 @@ static void set_packet_action_for_thing_under_hand(struct Packet* pckt)
     if ((get_local_view_type(player) != PVT_DungeonTop) || ((pckt->control_flags & PCtr_Gui) != 0) || (local_state.local_thing_under_hand <= 0) || (pckt->action != PckA_None) || (get_gameturn() - hand_pick_pending_turn <= kfx_net_state.input_lag_turns)) {
         return;
     }
-    int32_t cursor_state = (pckt->additional_packet_values & PCAdV_ContextMask) >> 1;
+    int64_t cursor_state = (pckt->additional_packet_values & PCAdV_ContextMask) >> 1;
     if (right_button_released && (player->work_state == PSt_CtrlDungeon) && (cursor_state == CSt_PowerHand) && power_hand_is_empty(player) && !ustate->one_click_lock_cursor && thing_slappable(thing_get(local_state.local_thing_under_hand), player->id_number)) {
         set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_state.local_thing_under_hand, 0, 0);
         return;
@@ -2125,15 +2125,15 @@ static void get_packet_control_mouse_clicks(void)
     }
 }
 
-static short get_map_action_inputs(void)
+static int64_t get_map_action_inputs(void)
 {
     struct PlayerInfo* player = get_my_player();
     struct Camera* camera = get_local_active_camera(player);
-    long mouse_x = GetMouseX();
-    long mouse_y = GetMouseY();
+    int64_t mouse_x = GetMouseX();
+    int64_t mouse_y = GetMouseY();
     // Get map coordinates from mouse position on parchment screen
-    int32_t map_x;
-    int32_t map_y;
+    int64_t map_x;
+    int64_t map_y;
     TbBool map_valid = point_to_overhead_map(camera, mouse_x / pixel_size, mouse_y / pixel_size, &map_x, &map_y);
     if  (map_valid)
     {
@@ -2178,7 +2178,7 @@ static short get_map_action_inputs(void)
     }
 }
 
-static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rotate_pressed,TbBool mods_used)
+static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int64_t rotate_pressed,TbBool mods_used)
 {
     // Reserve the scroll wheel for the resurrect and transfer creature specials, and
     // for the in-game Load/Save menus (there the wheel scrolls the savegame list).
@@ -2227,9 +2227,9 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rot
     }
     if (is_feature_on(Ft_DisableCursorCameraPanning) == false)
     {
-        long mx = kfx_game_state.my_mouse_x;
-        long my = kfx_game_state.my_mouse_y;
-        long edge_scrolling_border = max(4, scale_fixed_DK_value(4));
+        int64_t mx = kfx_game_state.my_mouse_x;
+        int64_t my = kfx_game_state.my_mouse_y;
+        int64_t edge_scrolling_border = max(4, scale_fixed_DK_value(4));
         if (mx <= edge_scrolling_border)
         {
             if ( is_game_key_pressed(Gkey_MoveLeft, false, false) || is_key_pressed(KC_LEFT,KMod_DONTCARE) )
@@ -2237,7 +2237,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rot
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_x = -1.0f;
+            camera_movement_x = -1.0;
         }
         if (mx >= MyScreenWidth-edge_scrolling_border)
         {
@@ -2246,7 +2246,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rot
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_x = 1.0f;
+            camera_movement_x = 1.0;
         }
         if (my <= edge_scrolling_border)
         {
@@ -2255,7 +2255,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rot
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_y = -1.0f;
+            camera_movement_y = -1.0;
         }
         if (my >= MyScreenHeight-edge_scrolling_border)
         {
@@ -2264,7 +2264,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int rot
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_y = 1.0f;
+            camera_movement_y = 1.0;
         }
     }
 }
@@ -2279,8 +2279,8 @@ static void get_isometric_view_nonaction_inputs(void)
     // this is the camera-control function that runs during an editor
     // session (the toolbox overlays the same isometric dungeon view normal
     // play uses), so it's the one place this actually needs wiring.
-    int rotate_pressed = is_dual_context_key_pressed(Gkey_RotateMod, Gkey_EditorRotateMod, false, true);
-    int speed_pressed = is_dual_context_key_pressed(Gkey_SpeedMod, Gkey_EditorSpeedMod, false, true);
+    int64_t rotate_pressed = is_dual_context_key_pressed(Gkey_RotateMod, Gkey_EditorRotateMod, false, true);
+    int64_t speed_pressed = is_dual_context_key_pressed(Gkey_SpeedMod, Gkey_EditorSpeedMod, false, true);
     if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) != 0)
       return;
     if (speed_pressed != 0)
@@ -2353,10 +2353,10 @@ static void get_overhead_view_nonaction_inputs(void)
 {
     SYNCDBG(19,"Starting");
     struct Packet* pckt = get_local_packet();
-    long my = kfx_game_state.my_mouse_y;
-    long mx = kfx_game_state.my_mouse_x;
-    int rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
-    int speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
+    int64_t my = kfx_game_state.my_mouse_y;
+    int64_t mx = kfx_game_state.my_mouse_x;
+    int64_t rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
+    int64_t speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
     if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) == 0)
     {
         if (speed_pressed)
@@ -2384,8 +2384,8 @@ static void get_front_view_nonaction_inputs(void)
     static TbClockMSec last_rotate_left_time = 0;
     static TbClockMSec last_rotate_right_time = 0;
     struct Packet* pckt = get_local_packet();
-    int rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
-    int speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
+    int64_t rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
+    int64_t speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
     TbBool no_mods = ((rotate_pressed != 0) || (speed_pressed != 0) || (check_current_gui_layer(GuiLayer_OneClick)));
 
     if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) != 0)
@@ -2454,8 +2454,8 @@ static void get_front_view_nonaction_inputs(void)
  */
 static TbBool get_player_coords_and_context(struct Coord3d *pos, unsigned char *context)
 {
-  unsigned long x;
-  unsigned long y;
+  uint64_t x;
+  uint64_t y;
   struct PlayerInfo* player = get_my_player();
   struct UserState* ustate = get_local_user_state();
   TbBool hand_is_empty = power_hand_is_empty(player);
@@ -2471,8 +2471,8 @@ static TbBool get_player_coords_and_context(struct Coord3d *pos, unsigned char *
     y = kfx_render_state.top_pointed_at_y;
   else
     y = kfx_sim_state.map_subtiles_y;
-  unsigned int slb_x = subtile_slab(x);
-  unsigned int slb_y = subtile_slab(y);
+  uint64_t slb_x = subtile_slab(x);
+  uint64_t slb_y = subtile_slab(y);
 
   struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
   struct SlabConfigStats* slabst = get_slab_stats(slb);
@@ -2654,7 +2654,7 @@ static void get_map_nonaction_inputs(void)
     }
 }
 
-static short get_packet_load_game_inputs(void)
+static int64_t get_packet_load_game_inputs(void)
 {
     load_packets_for_turn(kfx_net_state.pckt_gameturn);
     kfx_net_state.pckt_gameturn++;
@@ -2696,8 +2696,8 @@ static void get_creature_control_nonaction_inputs(void)
         return;
     }
     struct Packet* pckt = get_local_packet();
-    long x = GetMouseX();
-    long y = GetMouseY();
+    int64_t x = GetMouseX();
+    int64_t y = GetMouseY();
     struct Thing* thing = thing_get(player->controlled_thing_idx);
     TRACE_THING(thing);
     TbBool cheat_menu_active = cheat_menu_is_active();
@@ -2710,11 +2710,11 @@ static void get_creature_control_nonaction_inputs(void)
     }
     if (!cheat_menu_active && !a_menu_window_is_active())
     {
-        long centerX = MyScreenWidth / 2;
-        long centerY = MyScreenHeight / 2;
-        long deltaX = x - centerX;
-        long deltaY = y - centerY;
-        long k;
+        int64_t centerX = MyScreenWidth / 2;
+        int64_t centerY = MyScreenHeight / 2;
+        int64_t deltaX = x - centerX;
+        int64_t deltaY = y - centerY;
+        int64_t k;
 
         // Map to the range -255 to 255
         pckt->pos_x = 255 * deltaX / centerX;
@@ -2724,7 +2724,7 @@ static void get_creature_control_nonaction_inputs(void)
             pckt->pos_y = -255 * deltaY / centerY;
         }
 
-        long i = settings.first_person_move_sensitivity + 1;
+        int64_t i = settings.first_person_move_sensitivity + 1;
         x = pckt->pos_x;
         y = pckt->pos_y;
 
@@ -2764,30 +2764,30 @@ static void get_creature_control_nonaction_inputs(void)
         }
 
         struct Packet* packet = get_local_packet();
-        static float creature_movement_accum_x = 0.0f;
-        static float creature_movement_accum_y = 0.0f;
-        float movement_delta_x = 0.0f;
-        float movement_delta_y = 0.0f;
+        static double creature_movement_accum_x = 0.0;
+        static double creature_movement_accum_y = 0.0;
+        double movement_delta_x = 0.0;
+        double movement_delta_y = 0.0;
         get_movement_inputs(&movement_delta_x, &movement_delta_y, true);
         creature_movement_accum_x += movement_delta_x;
         creature_movement_accum_y += movement_delta_y;
 
-        if (creature_movement_accum_x >= 1.0f) {
+        if (creature_movement_accum_x >= 1.0) {
             set_packet_control(packet, PCtr_MoveRight);
-            creature_movement_accum_x = 0.0f;
+            creature_movement_accum_x = 0.0;
         }
-        else if (creature_movement_accum_x <= -1.0f) {
+        else if (creature_movement_accum_x <= -1.0) {
             set_packet_control(packet, PCtr_MoveLeft);
-            creature_movement_accum_x = 0.0f;
+            creature_movement_accum_x = 0.0;
         }
 
-        if (creature_movement_accum_y >= 1.0f) {
+        if (creature_movement_accum_y >= 1.0) {
             set_packet_control(packet, PCtr_MoveDown);
-            creature_movement_accum_y = 0.0f;
+            creature_movement_accum_y = 0.0;
         }
-        else if (creature_movement_accum_y <= -1.0f) {
+        else if (creature_movement_accum_y <= -1.0) {
             set_packet_control(packet, PCtr_MoveUp);
-            creature_movement_accum_y = 0.0f;
+            creature_movement_accum_y = 0.0;
         }
         
         if (flag_is_set(thing->movement_flags, TMvF_Flying))
@@ -2849,7 +2849,7 @@ static void get_player_gui_clicks(void)
                           {
                               if (!left_button_held)
                               {
-                                  long mode = settings.highlight_mode;
+                                  int64_t mode = settings.highlight_mode;
                                   mode ^= 1;
                                   set_players_packet_action(player, PckA_RoomspaceHighlightToggle, mode, 1, 0, 0);
                               }
@@ -2871,7 +2871,7 @@ static void get_player_gui_clicks(void)
                                 {
                                     if (!left_button_held)
                                     {
-                                        long mode = settings.highlight_mode;
+                                        int64_t mode = settings.highlight_mode;
                                         mode ^= 1;
                                         set_players_packet_action(player, PckA_RoomspaceHighlightToggle, mode, 1, 0, 0);
                                     }
@@ -2928,7 +2928,7 @@ static TbBool active_menu_functions_while_paused(void)
 
 /** Fill packet struct with game action information.
  */
-static short get_inputs(void)
+static int64_t get_inputs(void)
 {
     move_camera_this_turn = kfx_net_state.frame_skip == 0 || kfx_game_state.play_gameturn % kfx_net_state.frame_skip == 0;
 
@@ -3000,7 +3000,7 @@ static short get_inputs(void)
       return false;
     get_screen_capture_inputs();
     unsigned char view_type = get_local_view_type(player);
-    SYNCDBG(7,"Getting inputs for view %d",(int)view_type);
+    SYNCDBG(7,"Getting inputs for view %" PRId64,(int64_t)view_type);
     switch (view_type)
     {
     case PVT_DungeonTop:
@@ -3089,7 +3089,7 @@ void input(void)
     SYNCDBG(7,"Finished");
 }
 
-short get_gui_inputs(short gameplay_on)
+int64_t get_gui_inputs(int64_t gameplay_on)
 {
   static ActiveButtonID over_slider_button = -1;
   SYNCDBG(7,"Starting");
@@ -3106,7 +3106,7 @@ short get_gui_inputs(short gameplay_on)
   {
       kfx_frontend_state.drag_menu_x = -999;
       kfx_frontend_state.drag_menu_y = -999;
-      for (int idx = 0; idx < ACTIVE_BUTTONS_COUNT; idx++)
+      for (int64_t idx = 0; idx < ACTIVE_BUTTONS_COUNT; idx++)
       {
         struct GuiButton *gbtn = &active_buttons[idx];
         if ((gbtn->flags & LbBtnF_Active) && (gbtn->gbtype == LbBtnT_Hotspot))
@@ -3139,12 +3139,12 @@ short get_gui_inputs(short gameplay_on)
       finish_button_area_input();
   }
 
-  int fmmenu_idx = first_monopoly_menu();
-  int gmbtn_idx = -1;
+  int64_t fmmenu_idx = first_monopoly_menu();
+  int64_t gmbtn_idx = -1;
   ActiveButtonID nx_over_slider_button = -1;
   struct GuiButton *gbtn;
   // Sweep through buttons
-  for (int gidx = 0; gidx < ACTIVE_BUTTONS_COUNT; gidx++)
+  for (int64_t gidx = 0; gidx < ACTIVE_BUTTONS_COUNT; gidx++)
   {
       gbtn = &active_buttons[gidx];
       if ((gbtn->flags & LbBtnF_Active) == 0)
@@ -3666,7 +3666,7 @@ void toggle_hero_health_flowers(void)
 
 void update_time(void)
 {
-    unsigned long time = ((unsigned long)LbTimerClock()) - kfx_sim_state.timerstarttime;
+    uint64_t time = ((uint64_t)LbTimerClock()) - kfx_sim_state.timerstarttime;
     kfx_sim_state.Timer.MSeconds = time % 1000;
     time /= 1000;
     kfx_sim_state.Timer.Seconds = time % 60;
@@ -3675,18 +3675,18 @@ void update_time(void)
     kfx_sim_state.Timer.Hours = time / 60;
 }
 
-void get_game_time(struct GameTime *GT, unsigned long turns, unsigned long fps)
+void get_game_time(struct GameTime *GT, uint64_t turns, uint64_t fps)
 {
-    unsigned long time = turns / fps;
+    uint64_t time = turns / fps;
     GT->Seconds = time % 60;
     time /= 60;
     GT->Minutes = time % 60;
     GT->Hours = time / 60;
 }
 
-void update_game_time(struct GameTime *GT, unsigned long *gameseconds)
+void update_game_time(struct GameTime *GT, uint64_t *gameseconds)
 {
-    unsigned long seconds = *gameseconds;
+    uint64_t seconds = *gameseconds;
     seconds++;
     *gameseconds = seconds;
     GT->Seconds = seconds % 60;

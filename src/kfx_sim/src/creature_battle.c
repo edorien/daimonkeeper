@@ -37,8 +37,8 @@
 
 /******************************************************************************/
 
-unsigned short friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
-unsigned short enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
+int64_t friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
+int64_t enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
 
 /******************************************************************************/
 /**
@@ -109,7 +109,7 @@ TbBool has_ranged_combat_attackers(const struct Thing *victim)
 
 BattleIndex find_first_battle_of_mine(PlayerNumber plyr_idx)
 {
-    for (long i = 1; i < BATTLES_COUNT; i++)
+    for (int64_t i = 1; i < BATTLES_COUNT; i++)
     {
         struct CreatureBattle* battle = creature_battle_get(i);
         if (battle->fighters_num != 0)
@@ -123,7 +123,7 @@ BattleIndex find_first_battle_of_mine(PlayerNumber plyr_idx)
 
 BattleIndex find_last_battle_of_mine(PlayerNumber plyr_idx)
 {
-    for (long i = BATTLES_COUNT; i > 0; i--)
+    for (int64_t i = BATTLES_COUNT; i > 0; i--)
     {
         struct CreatureBattle* battle = creature_battle_get(i);
         if (battle->fighters_num != 0)
@@ -141,7 +141,7 @@ TbBool can_add_ranged_combat_attacker(const struct Thing *victim)
     return (vicctrl->opponents_ranged_count < COMBAT_RANGED_OPPONENTS_LIMIT);
 }
 
-long get_flee_position(struct Thing *creatng, struct Coord3d *pos)
+int64_t get_flee_position(struct Thing *creatng, struct Coord3d *pos)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     // Heroes should flee to their gate
@@ -200,7 +200,7 @@ long get_flee_position(struct Thing *creatng, struct Coord3d *pos)
         {
             if (!is_hero_thing(creatng))
             {
-                SYNCDBG(8,"The %s index %d has no dungeon heart or lair to flee to", thing_model_name(creatng), (int)creatng->index);
+                SYNCDBG(8,"The %s index %" PRId64 " has no dungeon heart or lair to flee to", thing_model_name(creatng), (int64_t)creatng->index);
             }
             return 0;
         }
@@ -222,7 +222,7 @@ TbBool setup_combat_flee_position(struct Thing *thing)
     {
         if (!is_hero_thing(thing))
         {
-            SYNCDBG(8,"Couldn't get a flee position for %s index %d", thing_model_name(thing), (int)thing->index);
+            SYNCDBG(8,"Couldn't get a flee position for %s index %" PRId64, thing_model_name(thing), (int64_t)thing->index);
         }
         cctrl->flee_pos.x.stl.pos = thing->mappos.x.stl.pos;
         cctrl->flee_pos.y.stl.pos = thing->mappos.y.stl.pos;
@@ -232,7 +232,7 @@ TbBool setup_combat_flee_position(struct Thing *thing)
     return true;
 }
 
-long get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_pref)
+int64_t get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_pref)
 {
     if (attack_pref == AttckT_Ranged)
     {
@@ -267,7 +267,7 @@ long get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, Cr
 
 void set_creature_in_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_type)
 {
-    SYNCDBG(8,"Starting for %s index %d and %s index %d",thing_model_name(fightng),(int)fightng->index,thing_model_name(enmtng),(int)enmtng->index);
+    SYNCDBG(8,"Starting for %s index %" PRId64 " and %s index %" PRId64,thing_model_name(fightng),(int64_t)fightng->index,thing_model_name(enmtng),(int64_t)enmtng->index);
     struct CreatureControl* cctrl = creature_control_get_from_thing(fightng);
     if (creature_control_invalid(cctrl)) {
         ERRORLOG("Invalid creature control");
@@ -280,13 +280,13 @@ void set_creature_in_combat(struct Thing *fightng, struct Thing *enmtng, CrAttac
         return;
     }
     if ( !external_set_thing_state(fightng, CrSt_CreatureInCombat) ) {
-        ERRORLOG("Failed to enter combat state for %s index %d",thing_model_name(fightng),(int)fightng->index);
+        ERRORLOG("Failed to enter combat state for %s index %" PRId64,thing_model_name(fightng),(int64_t)fightng->index);
         return;
     }
     cctrl->fighting_at_same_position = 0;
     cctrl->fight_til_death = 0;
     if ( !set_creature_combat_state(fightng, enmtng, attack_type) ) {
-        WARNLOG("Couldn't setup combat state for %s index %d and %s index %d",thing_model_name(fightng),(int)fightng->index,thing_model_name(enmtng),(int)enmtng->index);
+        WARNLOG("Couldn't setup combat state for %s index %" PRId64 " and %s index %" PRId64,thing_model_name(fightng),(int64_t)fightng->index,thing_model_name(enmtng),(int64_t)enmtng->index);
         set_start_state(fightng);
         return;
     }
@@ -303,7 +303,7 @@ TbBool step_battles_forward(PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        ERRORDBG(8,"Cannot do; player %d has no dungeon",(int)plyr_idx);
+        ERRORDBG(8,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
     BattleIndex i = dungeon->visible_battles[2];
@@ -329,7 +329,7 @@ TbBool step_battles_forward(PlayerNumber plyr_idx)
     return active_battle_exists(plyr_idx);
 }
 
-long battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex battle_idx)
+int64_t battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex battle_idx)
 {
     struct CreatureBattle* battle = creature_battle_get(battle_idx);
     struct Thing* thing = thing_get(battle->first_creatr);
@@ -349,7 +349,7 @@ long battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex ba
 
 void battle_initialise(void)
 {
-    for (int battle_idx = 0; battle_idx < BATTLES_COUNT; battle_idx++)
+    for (int64_t battle_idx = 0; battle_idx < BATTLES_COUNT; battle_idx++)
     {
         memset(&kfx_sim_state.battles[battle_idx], 0, sizeof(struct CreatureBattle));
     }
@@ -380,7 +380,7 @@ BattleIndex find_previous_battle_of_mine(PlayerNumber plyr_idx, BattleIndex next
 TbBool battle_in_list(PlayerNumber plyr_idx, BattleIndex battle_id)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    for (long i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
     {
         if (battle_id > 0)
         {
@@ -417,9 +417,9 @@ BattleIndex find_previous_battle_of_mine_excluding_current_list(PlayerNumber ply
     return battle_id;
 }
 
-TbBool clear_battlers(unsigned short *friendly_battlers, unsigned short *enemy_battlers)
+TbBool clear_battlers(int64_t *friendly_battlers, int64_t *enemy_battlers)
 {
-    for (long i = 0; i < MESSAGE_BATTLERS_COUNT; i++)
+    for (int64_t i = 0; i < MESSAGE_BATTLERS_COUNT; i++)
     {
         friendly_battlers[i] = 0;
         enemy_battlers[i] = 0;
@@ -427,28 +427,28 @@ TbBool clear_battlers(unsigned short *friendly_battlers, unsigned short *enemy_b
     return true;
 }
 
-long setup_player_battlers(struct PlayerInfo *player, struct CreatureBattle *battle, unsigned short *friendly_battlers, unsigned short *enemy_battlers)
+int64_t setup_player_battlers(struct PlayerInfo *player, struct CreatureBattle *battle, int64_t *friendly_battlers, int64_t *enemy_battlers)
 {
-    short friendly_pos = 0;
-    short enemy_pos = 0;
-    long i = battle->first_creatr;
-    unsigned long k = 0;
+    int64_t friendly_pos = 0;
+    int64_t enemy_pos = 0;
+    int64_t i = battle->first_creatr;
+    uint64_t k = 0;
     while (i > 0)
     {
         struct Thing* thing = thing_get(i);
         if (thing_is_invalid(thing)) {
-            ERRORLOG("Invalid thing index %d in friend/enemy battle-list",(int)i);
+            ERRORLOG("Invalid thing index %" PRId64 " in friend/enemy battle-list",(int64_t)i);
             break;
         }
         TRACE_THING(thing);
         if (!thing_is_creature(thing)) {
-            ERRORLOG("Dead thing index %d in friend/enemy battle-list",(int)i);
+            ERRORLOG("Dead thing index %" PRId64 " in friend/enemy battle-list",(int64_t)i);
             break;
         }
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         i = cctrl->battle_prev_creatr;
         // Per creature code
-        long n;
+        int64_t n;
         if (players_are_mutual_allies(player->id_number, thing->owner))
         {
             n = friendly_pos;
@@ -475,7 +475,7 @@ long setup_player_battlers(struct PlayerInfo *player, struct CreatureBattle *bat
     return friendly_pos+enemy_pos;
 }
 
-long setup_my_battlers(unsigned char battle_idx, unsigned short *friendly_battlers, unsigned short *enemy_battlers)
+int64_t setup_my_battlers(unsigned char battle_idx, int64_t *friendly_battlers, int64_t *enemy_battlers)
 {
     // Clear the battlers
     clear_battlers(friendly_battlers, enemy_battlers);
@@ -483,7 +483,7 @@ long setup_my_battlers(unsigned char battle_idx, unsigned short *friendly_battle
     struct PlayerInfo* player = get_my_player();
     struct CreatureBattle* battle = creature_battle_get(battle_idx);
     if (creature_battle_invalid(battle)) {
-        ERRORLOG("Invalid battle %d",(int)battle_idx);
+        ERRORLOG("Invalid battle %" PRId64,(int64_t)battle_idx);
         return 0;
     }
     return setup_player_battlers(player, battle, friendly_battlers, enemy_battlers);
@@ -491,7 +491,7 @@ long setup_my_battlers(unsigned char battle_idx, unsigned short *friendly_battle
 
 void maintain_my_battle_list(void)
 {
-    long i;
+    int64_t i;
     // Find battle index
     struct PlayerInfo* player = get_my_player();
     struct Dungeon* dungeon = get_players_dungeon(player);
@@ -511,7 +511,7 @@ void maintain_my_battle_list(void)
       if (dungeon->visible_battles[i] <= 0)
       {
           // Got empty spot - fill it with first non-empty item
-          for (long n = i + 1; n < 3; n++)
+          for (int64_t n = i + 1; n < 3; n++)
           {
               if (dungeon->visible_battles[n] > 0)
               {
@@ -542,10 +542,10 @@ void maintain_my_battle_list(void)
     }
 }
 
-unsigned long count_active_battles(PlayerNumber plyr_idx)
+uint64_t count_active_battles(PlayerNumber plyr_idx)
 {
-    unsigned long result = 0;
-    for (int i = 1; i < BATTLES_COUNT; i++)
+    uint64_t result = 0;
+    for (int64_t i = 1; i < BATTLES_COUNT; i++)
     {
         struct CreatureBattle* battle = creature_battle_get(i);
         if (battle->fighters_num > 0)

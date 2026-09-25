@@ -110,8 +110,8 @@ TEST_CASE_METHOD(ZeroedCampaign, "add_extra_level_to_campaign mirrors add_bonus_
 }
 
 TEST_CASE_METHOD(ZeroedCampaign, "add_freeplay_level_to_campaign de-duplicates: adding the same level twice returns the same slot", "[kfx_config][config_campaigns]") {
-    long first = add_freeplay_level_to_campaign(&campgn, 30);
-    long second = add_freeplay_level_to_campaign(&campgn, 30);
+    int64_t first = add_freeplay_level_to_campaign(&campgn, 30);
+    int64_t second = add_freeplay_level_to_campaign(&campgn, 30);
     CHECK(first == second);
     CHECK(campgn.freeplay_levels_count == 1);
 }

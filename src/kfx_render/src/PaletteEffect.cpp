@@ -51,9 +51,9 @@ PaletteEffect::~PaletteEffect()
     Cleanup();
 }
 
-TbBool PaletteEffect::Setup(long lens_idx)
+TbBool PaletteEffect::Setup(int64_t lens_idx)
 {
-    SYNCDBG(8, "Setting up palette effect for lens %ld", lens_idx);
+    SYNCDBG(8, "Setting up palette effect for lens %" PRId64, (int64_t)(lens_idx));
     
     struct LensConfig* cfg = &lenses_conf.lenses[lens_idx];
     local_state.lens_palette = cfg->palette;

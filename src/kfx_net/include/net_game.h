@@ -43,8 +43,8 @@ extern struct TbNetworkUserInfo net_user_info[MAX_NET_USERS];
 
 #pragma pack()
 /******************************************************************************/
-short setup_network_service(enum FrontendNetService service);
-int setup_old_network_service(void);
+int64_t setup_network_service(enum FrontendNetService service);
+int64_t setup_old_network_service(void);
 TbBool init_players_network_game(void);
 // Compacts net_user_info's active slots into net_user_player_number[],
 // including host bookkeeping (my_player_number). Exposed (not just called
@@ -55,7 +55,7 @@ void setup_network_player_numbers(void);
 void setup_count_players(void);
 void are_disconnect_victories_allowed(void);
 
-long network_session_join(void);
+int64_t network_session_join(void);
 
 TbBool network_user_active(NetUserId);
 const char *network_user_name(NetUserId);

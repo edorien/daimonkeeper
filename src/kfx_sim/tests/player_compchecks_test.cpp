@@ -49,10 +49,10 @@
 using namespace kfx_test;
 
 extern "C" {
-int calculate_number_of_creatures_to_move(struct Dungeon *dungeon, int percent_to_reassign);
-long computer_checks_hates(struct Computer2 *comp, struct ComputerCheck *check);
-long computer_check_prison_tendency(struct Computer2 *comp, struct ComputerCheck *check);
-int count_slabs_around_of_kind(MapSlabCoord slb_x, MapSlabCoord slb_y, SlabKind slbkind, PlayerNumber owner);
+int64_t calculate_number_of_creatures_to_move(struct Dungeon *dungeon, int64_t percent_to_reassign);
+int64_t computer_checks_hates(struct Computer2 *comp, struct ComputerCheck *check);
+int64_t computer_check_prison_tendency(struct Computer2 *comp, struct ComputerCheck *check);
+int64_t count_slabs_around_of_kind(MapSlabCoord slb_x, MapSlabCoord slb_y, SlabKind slbkind, PlayerNumber owner);
 }
 
 TEST_CASE_METHOD(ResetSimAndConfig, "calculate_number_of_creatures_to_move returns 0 for an empty creature list", "[kfx_sim][player_compchecks]") {
@@ -158,7 +158,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_check_prison_tendency defers to th
     check.primary_parameter = 0;
 
     CHECK(computer_check_prison_tendency(comp, &check) == CTaskRet_Unk1);
-    CHECK(comp->dungeon->creature_tendencies == 0); // untouched
+    CHECK(computer_dungeon(comp)->creature_tendencies == 0); // untouched
 }
 
 TEST_CASE_METHOD(ResetSimAndConfig, "computer_check_prison_tendency enables imprisonment once prison capacity and unit count allow it", "[kfx_sim][player_compchecks]") {
@@ -168,8 +168,8 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_check_prison_tendency enables impr
 
     struct Room *prison = make_room_at_slab(1, 0, 0, RoK_PRISON, 0);
     prison->total_capacity = 10;
-    link_room_into_owner_list(&comp->dungeon->room_list_start[RoK_PRISON], 1);
-    comp->dungeon->num_active_creatrs = 5;
+    link_room_into_owner_list(&computer_dungeon(comp)->room_list_start[RoK_PRISON], 1);
+    computer_dungeon(comp)->num_active_creatrs = 5;
 
     struct ComputerCheck check = {};
     check.primary_parameter = 1;   // normal (non-manual) status
@@ -177,18 +177,18 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_check_prison_tendency enables impr
     check.tertiary_parameter = 20; // max_units > num_active_creatrs (5)
 
     CHECK(computer_check_prison_tendency(comp, &check) == CTaskRet_Unk1);
-    CHECK((comp->dungeon->creature_tendencies & CrTend_Imprison) != 0);
+    CHECK((computer_dungeon(comp)->creature_tendencies & CrTend_Imprison) != 0);
 
     // Already enabled: re-running is a no-op that still reports success.
     CHECK(computer_check_prison_tendency(comp, &check) == CTaskRet_Unk1);
-    CHECK((comp->dungeon->creature_tendencies & CrTend_Imprison) != 0);
+    CHECK((computer_dungeon(comp)->creature_tendencies & CrTend_Imprison) != 0);
 }
 
 TEST_CASE_METHOD(ResetSimAndConfig, "computer_check_prison_tendency disables imprisonment once capacity/unit conditions fail, unless the script owns it", "[kfx_sim][player_compchecks]") {
     struct Computer2 *comp = make_computer_player(0);
     configure_job(Job_CAPTIVITY, RoRoF_Prison, 0);
     configure_room_role(RoK_PRISON, RoRoF_Prison);
-    comp->dungeon->creature_tendencies = CrTend_Imprison; // currently enabled
+    computer_dungeon(comp)->creature_tendencies = CrTend_Imprison; // currently enabled
 
     struct ComputerCheck check = {};
     check.primary_parameter = 1;   // normal status
@@ -196,11 +196,11 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_check_prison_tendency disables imp
     check.tertiary_parameter = 20;
 
     CHECK(computer_check_prison_tendency(comp, &check) == CTaskRet_Unk1);
-    CHECK((comp->dungeon->creature_tendencies & CrTend_Imprison) == 0); // disabled
+    CHECK((computer_dungeon(comp)->creature_tendencies & CrTend_Imprison) == 0); // disabled
 
     // status == 2: disabling is handled manually by script -- left untouched.
-    comp->dungeon->creature_tendencies = CrTend_Imprison;
+    computer_dungeon(comp)->creature_tendencies = CrTend_Imprison;
     check.primary_parameter = 2;
     CHECK(computer_check_prison_tendency(comp, &check) == CTaskRet_Unk1);
-    CHECK((comp->dungeon->creature_tendencies & CrTend_Imprison) != 0); // untouched
+    CHECK((computer_dungeon(comp)->creature_tendencies & CrTend_Imprison) != 0); // untouched
 }

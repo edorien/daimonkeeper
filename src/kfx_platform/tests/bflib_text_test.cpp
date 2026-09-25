@@ -101,7 +101,7 @@ TEST_CASE("convert_codepage_to_utf8_buffer truncates and null-terminates when th
 
 TEST_CASE("read_utf_8_codepoint_f decodes a 1-byte ASCII sequence", "[kfx_platform][bflib_text]") {
     size_t seq_len;
-    uint32_t cp = read_utf_8_codepoint("A", &seq_len);
+    uint64_t cp = read_utf_8_codepoint("A", &seq_len);
     CHECK(cp == 'A');
     CHECK(seq_len == 1);
 }
@@ -109,7 +109,7 @@ TEST_CASE("read_utf_8_codepoint_f decodes a 1-byte ASCII sequence", "[kfx_platfo
 TEST_CASE("read_utf_8_codepoint_f decodes a 2-byte sequence (U+00C7, Ç)", "[kfx_platform][bflib_text]") {
     const char text[] = "\xC3\x87";
     size_t seq_len;
-    uint32_t cp = read_utf_8_codepoint(text, &seq_len);
+    uint64_t cp = read_utf_8_codepoint(text, &seq_len);
     CHECK(cp == 0x00C7);
     CHECK(seq_len == 2);
 }
@@ -117,7 +117,7 @@ TEST_CASE("read_utf_8_codepoint_f decodes a 2-byte sequence (U+00C7, Ç)", "[kfx
 TEST_CASE("read_utf_8_codepoint_f decodes a 3-byte sequence (U+20AC, Euro sign)", "[kfx_platform][bflib_text]") {
     const char text[] = "\xE2\x82\xAC";
     size_t seq_len;
-    uint32_t cp = read_utf_8_codepoint(text, &seq_len);
+    uint64_t cp = read_utf_8_codepoint(text, &seq_len);
     CHECK(cp == 0x20AC);
     CHECK(seq_len == 3);
 }
@@ -125,7 +125,7 @@ TEST_CASE("read_utf_8_codepoint_f decodes a 3-byte sequence (U+20AC, Euro sign)"
 TEST_CASE("read_utf_8_codepoint_f decodes a 4-byte sequence (U+1F600, an emoji)", "[kfx_platform][bflib_text]") {
     const char text[] = "\xF0\x9F\x98\x80";
     size_t seq_len;
-    uint32_t cp = read_utf_8_codepoint(text, &seq_len);
+    uint64_t cp = read_utf_8_codepoint(text, &seq_len);
     CHECK(cp == 0x1F600);
     CHECK(seq_len == 4);
 }
@@ -133,7 +133,7 @@ TEST_CASE("read_utf_8_codepoint_f decodes a 4-byte sequence (U+1F600, an emoji)"
 TEST_CASE("read_utf_8_codepoint_f falls back to '?' (seq_len 1) for a malformed lead byte with a broken continuation", "[kfx_platform][bflib_text]") {
     const char text[] = "\xC0\x00"; // 2-byte lead, but the next byte isn't a valid continuation byte
     size_t seq_len;
-    uint32_t cp = read_utf_8_codepoint(text, &seq_len);
+    uint64_t cp = read_utf_8_codepoint(text, &seq_len);
     CHECK(cp == '?');
     CHECK(seq_len == 1);
 }
@@ -141,7 +141,7 @@ TEST_CASE("read_utf_8_codepoint_f falls back to '?' (seq_len 1) for a malformed 
 TEST_CASE("read_utf_8_codepoint_f falls back to '?' for a stray continuation byte used as a lead byte", "[kfx_platform][bflib_text]") {
     const char text[] = "\x80\x00";
     size_t seq_len;
-    uint32_t cp = read_utf_8_codepoint(text, &seq_len);
+    uint64_t cp = read_utf_8_codepoint(text, &seq_len);
     CHECK(cp == '?');
     CHECK(seq_len == 1);
 }

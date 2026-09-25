@@ -64,26 +64,26 @@ enum VecModes {
 
 // These are used "per screen row"
 struct PolyPoint {
-    long X; // Horizontal coordinate within screen buffer
-    long Y; // Vertical coordinate within screen buffer
-    long U; // Texture UV mapping, U coordinate
-    long V; // Texture UV mapping, V coordinate
-    long S; // Shininess / brightness of the point
+    int64_t X; // Horizontal coordinate within screen buffer
+    int64_t Y; // Vertical coordinate within screen buffer
+    int64_t U; // Texture UV mapping, U coordinate
+    int64_t V; // Texture UV mapping, V coordinate
+    int64_t S; // Shininess / brightness of the point
 };
 
 struct GtBlock { // sizeof = 48
   unsigned char *texturedata;
-  unsigned long width;
-  unsigned long height;
-  unsigned long lightness0;
-  unsigned long lightness1;
-  unsigned long lightness3;
-  unsigned long lightness2;
-  unsigned long texturestride;
-  unsigned long scalingfactor;
-  unsigned long colorformat;
-  unsigned long renderflags;
-  unsigned long textureoffset;
+  uint64_t width;
+  uint64_t height;
+  uint64_t lightness0;
+  uint64_t lightness1;
+  uint64_t lightness3;
+  uint64_t lightness2;
+  uint64_t texturestride;
+  uint64_t scalingfactor;
+  uint64_t colorformat;
+  uint64_t renderflags;
+  uint64_t textureoffset;
 };
 
 /******************************************************************************/
@@ -111,7 +111,7 @@ extern TbPixel vec_colour;
  * docs/refactor/renderer/02a-pixel-format-design.md §2.1. Kept as a
  * separate global from vec_colour rather than overloading one TbPixel-typed
  * variable for two incompatible purposes. */
-extern int vec_shade;
+extern int64_t vec_shade;
 extern unsigned char vec_mode;
 extern struct PolyPoint *polyscans;
 
@@ -125,12 +125,12 @@ extern struct PolyPoint *polyscans;
  * expand_indexed_pixel() (bflib_video.h) -- this function does the shade
  * math only, it does not itself touch a palette.
  */
-static inline TbPixel render_shade(TbPixel sample, int shade)
+static inline TbPixel render_shade(TbPixel sample, int64_t shade)
 {
     /* factor(shade), scaled by 32 to stay in integer arithmetic:
      *   shade in 0..31:  factor*32 = shade          (linear darken)
      *   shade in 32..63: factor*32 = 3*shade - 64    (non-linear brighten) */
-    const int32_t factor_x32 = (shade <= 31) ? shade : (3 * shade - 64);
+    const int64_t factor_x32 = (shade <= 31) ? shade : (3 * shade - 64);
     return TbPixel_RGBA(
         (uint8_t)clamp((sample.r * factor_x32) / 32, 0, 255),
         (uint8_t)clamp((sample.g * factor_x32) / 32, 0, 255),
@@ -209,13 +209,13 @@ static inline TbPixel render_alpha_blend(uint8_t texel, TbPixel dest)
     };
     if (texel < 1 || texel > 64)
         return TbPixel_RGBA(0, 0, 0, dest.a); /* void_black/unused: always index 0 */
-    const int ramp = (texel - 1) / 8;
-    const int step = (texel - 1) % 8;
+    const int64_t ramp = (texel - 1) / 8;
+    const int64_t step = (texel - 1) % 8;
     /* Deltas are in the original's 6-bit VGA scale; scale to 0-255 to match
      * a true dest.r/g/b, same conversion chan6_to_8() uses elsewhere. */
-    const int dr = (ramp_deltas[ramp][0] * step * 255) / 63;
-    const int dg = (ramp_deltas[ramp][1] * step * 255) / 63;
-    const int db = (ramp_deltas[ramp][2] * step * 255) / 63;
+    const int64_t dr = (ramp_deltas[ramp][0] * step * 255) / 63;
+    const int64_t dg = (ramp_deltas[ramp][1] * step * 255) / 63;
+    const int64_t db = (ramp_deltas[ramp][2] * step * 255) / 63;
     return TbPixel_RGBA(
         (uint8_t)clamp(dest.r + dr, 0, 255),
         (uint8_t)clamp(dest.g + dg, 0, 255),
@@ -231,11 +231,11 @@ static inline TbPixel render_alpha_blend(uint8_t texel, TbPixel dest)
  * docs/refactor/renderer/02a-pixel-format-design.md §2.4), scaled to 0-255
  * the same way §2.3's alpha-ramp deltas are.
  */
-static inline TbPixel render_flash_blend(TbPixel sample, int shiftR, int shiftG, int shiftB)
+static inline TbPixel render_flash_blend(TbPixel sample, int64_t shiftR, int64_t shiftG, int64_t shiftB)
 {
-    const int dr = (shiftR * 255) / 63;
-    const int dg = (shiftG * 255) / 63;
-    const int db = (shiftB * 255) / 63;
+    const int64_t dr = (shiftR * 255) / 63;
+    const int64_t dg = (shiftG * 255) / 63;
+    const int64_t db = (shiftB * 255) / 63;
     return TbPixel_RGBA(
         (uint8_t)clamp(sample.r + dr, 0, 255),
         (uint8_t)clamp(sample.g + dg, 0, 255),
@@ -245,7 +245,7 @@ static inline TbPixel render_flash_blend(TbPixel sample, int shiftR, int shiftG,
 /******************************************************************************/
 void draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c);
 /******************************************************************************/
-void gtblock_set_clipping_window(unsigned char *screen_addr, long clip_width, long clip_height, long screen_width);
+void gtblock_set_clipping_window(unsigned char *screen_addr, int64_t clip_width, int64_t clip_height, int64_t screen_width);
 /******************************************************************************/
 void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c);
 /******************************************************************************/

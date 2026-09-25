@@ -10,7 +10,7 @@
 
 TEST_CASE("get_game_time converts turns at a given fps into hours/minutes/seconds", "[kfx_frontend][game_time]") {
     struct GameTime gt;
-    get_game_time(&gt, 20UL * (3600 + 2 * 60 + 5), 20); // 1h 2m 5s at 20 turns/s
+    get_game_time(&gt, 20U * (3600 + 2 * 60 + 5), 20); // 1h 2m 5s at 20 turns/s
     CHECK(gt.Hours == 1);
     CHECK(gt.Minutes == 2);
     CHECK(gt.Seconds == 5);
@@ -23,7 +23,7 @@ TEST_CASE("get_game_time converts turns at a given fps into hours/minutes/second
 
 TEST_CASE("update_game_time advances the counter by one second and carries into minutes and hours", "[kfx_frontend][game_time]") {
     struct GameTime gt = {};
-    unsigned long seconds = 0;
+    uint64_t seconds = 0;
 
     update_game_time(&gt, &seconds);
     CHECK(seconds == 1);

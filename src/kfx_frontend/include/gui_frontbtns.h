@@ -32,14 +32,14 @@ extern "C" {
 
 #pragma pack()
 /******************************************************************************/
-int guibutton_get_unused_slot(void);
+int64_t guibutton_get_unused_slot(void);
 
-void gui_clear_buttons_not_over_mouse(int gmbtn_idx);
-TbBool gui_button_release_inputs(int gmbtn_idx);
-TbBool gui_slider_button_inputs(int gbtn_idx);
-TbBool gui_slider_button_mouse_over_slider_tracker(int gbtn_idx);
-TbBool gui_button_click_inputs(int gmbtn_idx);
-void fake_button_click(int gmbtn_idx);
+void gui_clear_buttons_not_over_mouse(int64_t gmbtn_idx);
+TbBool gui_button_release_inputs(int64_t gmbtn_idx);
+TbBool gui_slider_button_inputs(int64_t gbtn_idx);
+TbBool gui_slider_button_mouse_over_slider_tracker(int64_t gbtn_idx);
+TbBool gui_button_click_inputs(int64_t gmbtn_idx);
+void fake_button_click(int64_t gmbtn_idx);
 void gui_set_menu_mode(struct GuiButton *gbtn);
 
 void gui_pretty_background(struct GuiMenu *gmnu);
@@ -58,16 +58,16 @@ void gui_area_null(struct GuiButton *gbtn);
 void gui_area_flash_cycle_button(struct GuiButton *gbtn);
 
 void gui_draw_tab(struct GuiButton *gbtn);
-void gui_draw_scroll_box(struct GuiButton *gbtn, int height_lines, TbBool draw_scrollbar);
+void gui_draw_scroll_box(struct GuiButton *gbtn, int64_t height_lines, TbBool draw_scrollbar);
 void gui_draw_scroll_box_cropped(struct GuiButton *gbtn, TbBool draw_scrollbar);
 void frontend_over_button(struct GuiButton *gbtn);
-void frontend_draw_button(struct GuiButton *gbtn, unsigned short btntype, const char *text, unsigned int drw_flags);
+void frontend_draw_button(struct GuiButton *gbtn, int64_t btntype, const char *text, uint64_t drw_flags);
 void frontend_draw_large_menu_button(struct GuiButton *gbtn);
 void frontend_draw_vlarge_menu_button(struct GuiButton *gbtn);
-int frontend_button_chrome_repeat_count(int width, int left_w, int right_w, int mid_w);
-long frontend_draw_button_chrome_flexible(struct GuiButton *gbtn, unsigned int spridx, int units_per_px);
+int64_t frontend_button_chrome_repeat_count(int64_t width, int64_t left_w, int64_t right_w, int64_t mid_w);
+int64_t frontend_draw_button_chrome_flexible(struct GuiButton *gbtn, uint64_t spridx, int64_t units_per_px);
 void frontend_draw_button_icon(struct GuiButton *gbtn);
-long frontend_button_chrome_fit_width(unsigned int spridx, int units_per_px, long min_width);
+int64_t frontend_button_chrome_fit_width(uint64_t spridx, int64_t units_per_px, int64_t min_width);
 void frontend_draw_scroll_box_tab(struct GuiButton *gbtn);
 void frontend_draw_scroll_box(struct GuiButton *gbtn);
 
@@ -84,8 +84,8 @@ void kill_button_area_input(void);
 void kill_button(struct GuiButton *gbtn);
 void setup_radio_buttons(struct GuiMenu *gmnu);
 
-struct GuiButton* get_gui_button(int id);
-struct GuiButtonInit* get_gui_button_init(struct GuiMenu * menu, int id);
+struct GuiButton* get_gui_button(int64_t id);
+struct GuiButtonInit* get_gui_button_init(struct GuiMenu * menu, int64_t id);
 /******************************************************************************/
 #ifdef __cplusplus
 }

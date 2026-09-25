@@ -35,13 +35,13 @@ extern "C" {
 struct ftest_editor_points__variables
 {
     MapSlabCoord slb_x, slb_y;
-    long light_x, light_y, light_z, light_radius;
-    int light_intensity;
-    long ap_x, ap_y, ap_range;
-    long fx_x, fx_y, fx_range;
-    int fx_model;
-    long level_lights_before_save;
-    unsigned long poll_count;
+    int64_t light_x, light_y, light_z, light_radius;
+    int64_t light_intensity;
+    int64_t ap_x, ap_y, ap_range;
+    int64_t fx_x, fx_y, fx_range;
+    int64_t fx_model;
+    int64_t level_lights_before_save;
+    uint64_t poll_count;
 };
 struct ftest_editor_points__variables ftest_editor_points__vars = {
     .slb_x = 17, .slb_y = 74,
@@ -69,12 +69,12 @@ TbBool ftest_editor_points_init()
 }
 
 // Static, non-thing-owned lights: what a save persists as level lights.
-static long count_level_lights(void)
+static int64_t count_level_lights(void)
 {
     unsigned char owned[LIGHTS_COUNT];
     editor_points_mark_thing_owned_lights(owned);
-    long n = 0;
-    for (long i = 1; i < LIGHTS_COUNT; i++)
+    int64_t n = 0;
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
         const struct Light* lgt = &lish.lights[i];
         if (((lgt->flags & LgtF_Allocated) != 0) && ((lgt->flags & LgtF_Dynamic) == 0) && !owned[i])
@@ -83,11 +83,11 @@ static long count_level_lights(void)
     return n;
 }
 
-static const struct Light* find_level_light_at(long x, long y)
+static const struct Light* find_level_light_at(int64_t x, int64_t y)
 {
     unsigned char owned[LIGHTS_COUNT];
     editor_points_mark_thing_owned_lights(owned);
-    for (long i = 1; i < LIGHTS_COUNT; i++)
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
         const struct Light* lgt = &lish.lights[i];
         if (((lgt->flags & LgtF_Allocated) != 0) && ((lgt->flags & LgtF_Dynamic) == 0) && !owned[i]
@@ -97,7 +97,7 @@ static const struct Light* find_level_light_at(long x, long y)
     return NULL;
 }
 
-static struct Thing* find_effectgen_at(long x, long y)
+static struct Thing* find_effectgen_at(int64_t x, int64_t y)
 {
     for (ThingIndex i = 1; i < THINGS_COUNT; i++)
     {
@@ -151,7 +151,7 @@ FTestActionResult ftest_editor_points_action002__create_points(struct FTestActio
 
     if (editor_points_effectgen_kind_count() < 2)
     {
-        FTEST_FAIL_TEST("Effect generator picker offers %d kind(s); config defines several", editor_points_effectgen_kind_count());
+        FTEST_FAIL_TEST("Effect generator picker offers %" PRId64 " kind(s); config defines several", (int64_t)(editor_points_effectgen_kind_count()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -182,14 +182,14 @@ FTestActionResult ftest_editor_points_action003__undo_redo(struct FTestActionArg
 {
     struct ftest_editor_points__variables* const vars = args->data;
 
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
         editor_journal_do_undo();
     if (!none_present(vars))
     {
         FTEST_FAIL_TEST("Undo x3 did not remove the light, action point and effect generator");
         return FTRs_Go_To_Next_Action;
     }
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
         editor_journal_do_redo();
     if (!all_three_present(vars))
     {
@@ -247,27 +247,27 @@ FTestActionResult ftest_editor_points_action005__assert_reloaded(struct FTestAct
     }
     if ((lgt->radius != vars->light_radius) || (lgt->intensity != vars->light_intensity))
     {
-        FTEST_FAIL_TEST("Reloaded light has radius %d intensity %d, expected %ld/%d",
-            (int)lgt->radius, (int)lgt->intensity, vars->light_radius, vars->light_intensity);
+        FTEST_FAIL_TEST("Reloaded light has radius %" PRId64 " intensity %" PRId64 ", expected %" PRId64 "/%" PRId64,
+            (int64_t)lgt->radius, (int64_t)lgt->intensity, (int64_t)(vars->light_radius), (int64_t)(vars->light_intensity));
         return FTRs_Go_To_Next_Action;
     }
     if ((apt->range != vars->ap_range) || (apt->mappos.x.val != vars->ap_x) || (apt->mappos.y.val != vars->ap_y))
     {
-        FTEST_FAIL_TEST("Reloaded action point range %d at (%d,%d), expected %ld at (%ld,%ld)",
-            (int)apt->range, (int)apt->mappos.x.val, (int)apt->mappos.y.val, vars->ap_range, vars->ap_x, vars->ap_y);
+        FTEST_FAIL_TEST("Reloaded action point range %" PRId64 " at (%" PRId64 ",%" PRId64 "), expected %" PRId64 " at (%" PRId64 ",%" PRId64 ")",
+            (int64_t)apt->range, (int64_t)apt->mappos.x.val, (int64_t)apt->mappos.y.val, (int64_t)(vars->ap_range), (int64_t)(vars->ap_x), (int64_t)(vars->ap_y));
         return FTRs_Go_To_Next_Action;
     }
     if ((fx->model != vars->fx_model) || (fx->effect_generator.range != vars->fx_range))
     {
-        FTEST_FAIL_TEST("Reloaded effect generator model %d range %d, expected %d/%ld",
-            (int)fx->model, (int)fx->effect_generator.range, vars->fx_model, vars->fx_range);
+        FTEST_FAIL_TEST("Reloaded effect generator model %" PRId64 " range %" PRId64 ", expected %" PRId64 "/%" PRId64,
+            (int64_t)fx->model, (int64_t)fx->effect_generator.range, (int64_t)(vars->fx_model), (int64_t)(vars->fx_range));
         return FTRs_Go_To_Next_Action;
     }
-    long after = count_level_lights();
+    int64_t after = count_level_lights();
     if (after != vars->level_lights_before_save)
     {
-        FTEST_FAIL_TEST("Level-owned light count changed across save/reload: %ld before, %ld after",
-            vars->level_lights_before_save, after);
+        FTEST_FAIL_TEST("Level-owned light count changed across save/reload: %" PRId64 " before, %" PRId64 " after",
+            (int64_t)(vars->level_lights_before_save), (int64_t)(after));
     }
     return FTRs_Go_To_Next_Action;
 }

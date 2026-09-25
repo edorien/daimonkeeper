@@ -29,15 +29,15 @@ struct ResetConfigState {
 
 struct SlabSet g_fake_slabset_arr[SLABSET_COUNT];
 struct SlabObj g_fake_slabobjs_arr[SLABOBJS_COUNT];
-short g_fake_slabobjs_idx_arr[SLABSET_COUNT];
-unsigned short g_fake_slabset_num = 0;
-unsigned short g_fake_slabobjs_num = 0;
+int64_t g_fake_slabobjs_idx_arr[SLABSET_COUNT];
+int64_t g_fake_slabset_num = 0;
+int64_t g_fake_slabobjs_num = 0;
 
 struct SlabSet *fake_get_slabset_array(void) { return g_fake_slabset_arr; }
 struct SlabObj *fake_get_slabobjs_array(void) { return g_fake_slabobjs_arr; }
-short *fake_get_slabobjs_idx_array(void) { return g_fake_slabobjs_idx_arr; }
-unsigned short *fake_get_slabset_num_ptr(void) { return &g_fake_slabset_num; }
-unsigned short *fake_get_slabobjs_num_ptr(void) { return &g_fake_slabobjs_num; }
+int64_t *fake_get_slabobjs_idx_array(void) { return g_fake_slabobjs_idx_arr; }
+int64_t *fake_get_slabset_num_ptr(void) { return &g_fake_slabset_num; }
+int64_t *fake_get_slabobjs_num_ptr(void) { return &g_fake_slabobjs_num; }
 
 struct SlabsetFixture : ResetConfigState {
     struct ConfigReloadCallbacks fake;
@@ -68,7 +68,7 @@ TEST_CASE_METHOD(SlabsetFixture, "load_slabset_config_file maps a slab style's C
     REQUIRE(keeper_slabset_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/slabset_minimal.toml", 0));
 
     // slab_kind=0, slabstyle_no=0 ("S") -> slabset_no=0.
-    for (int i = 0; i < 9; i++) {
+    for (int64_t i = 0; i < 9; i++) {
         CHECK(g_fake_slabset_arr[0].col_idx[i] == -(i + 1));
     }
 }
@@ -104,7 +104,7 @@ TEST_CASE_METHOD(ResetConfigState, "load_columns_config_file maps a column block
     CHECK(col->solidmask == 255);
     CHECK(col->floor_texture == 7);
     CHECK(col->orient == 1);
-    for (int i = 0; i < COLUMN_STACK_HEIGHT; i++) {
+    for (int64_t i = 0; i < COLUMN_STACK_HEIGHT; i++) {
         CHECK(col->cubes[i] == 10 + i);
     }
     CHECK(kfx_config_state.conf.column_conf.columns_count == 1);

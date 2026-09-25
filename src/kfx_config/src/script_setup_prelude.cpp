@@ -38,10 +38,10 @@ void add_issue(std::vector<SetupIssue> *out, SetupIssueSeverity sev, const std::
     out->push_back(i);
 }
 
-std::string player_token(int p)
+std::string player_token(int64_t p)
 {
     char buf[24];
-    snprintf(buf, sizeof(buf), "PLAYER%d", p);
+    snprintf(buf, sizeof(buf), "PLAYER%" PRId64, (int64_t)(p));
     return buf;
 }
 
@@ -57,7 +57,7 @@ bool is_identifier(const std::string &s)
 
 bool name_in(const char *const *list, const std::string &name)
 {
-    for (int i = 0; list[i] != nullptr; i++)
+    for (int64_t i = 0; list[i] != nullptr; i++)
         if (name == list[i])
             return true;
     return false;
@@ -95,7 +95,7 @@ SetupSeed apply_locks(const SetupAnalysis &an, const SetupChoices &ch, std::vect
     SetupSeed v = ch.values;
     const SetupSeed &s = an.seed;
     bool warned[SetupField_Count] = {};
-    auto dropped = [&](int field) {
+    auto dropped = [&](int64_t field) {
         if (warned[field])
             return;
         warned[field] = true;
@@ -122,7 +122,7 @@ SetupSeed apply_locks(const SetupAnalysis &an, const SetupChoices &ch, std::vect
         else
             v.avail.erase(k);
     }
-    for (int p = 0; p < 16; p++)
+    for (int64_t p = 0; p < 16; p++)
     {
         if (an.is_locked(SetupField_Money, p))
         {
@@ -172,11 +172,11 @@ SetupSeed apply_locks(const SetupAnalysis &an, const SetupChoices &ch, std::vect
 }
 
 // One value per player, 0..players-1, all present and equal?
-template <class Map> bool uniform(const Map &m, int players, int &value)
+template <class Map> bool uniform(const Map &m, int64_t players, int64_t &value)
 {
     if (players <= 0)
         return false;
-    for (int p = 0; p < players; p++)
+    for (int64_t p = 0; p < players; p++)
     {
         const auto it = m.find(p);
         if (it == m.end())
@@ -186,7 +186,7 @@ template <class Map> bool uniform(const Map &m, int players, int &value)
         else if (it->second != value)
             return false;
     }
-    return (int)m.size() == players;
+    return (int64_t)m.size() == players;
 }
 
 } // namespace
@@ -214,7 +214,7 @@ bool script_setup_choices_are_default(const SetupAnalysis &analysis, const Setup
     return !choices.replace_win_lose || same_rules(choices.rules, analysis.seed.rules);
 }
 
-std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupChoices &ch, int players,
+std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupChoices &ch, int64_t players,
     std::vector<SetupIssue> *issues)
 {
     const SetupSeed v = apply_locks(an, ch, issues);
@@ -223,28 +223,28 @@ std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupCh
 
     if (v.generate_speed >= 0)
     {
-        snprintf(line, sizeof(line), "SET_GENERATE_SPEED(%d)\n", v.generate_speed);
+        snprintf(line, sizeof(line), "SET_GENERATE_SPEED(%" PRId64 ")\n", (int64_t)(v.generate_speed));
         out += line;
     }
 
     // Money / max creatures: ALL_PLAYERS when every slot agrees, else per player.
-    for (int pass = 0; pass < 2; pass++)
+    for (int64_t pass = 0; pass < 2; pass++)
     {
-        const std::map<int, int> &m = (pass == 0) ? v.start_money : v.max_creatures;
+        const std::map<int64_t, int64_t> &m = (pass == 0) ? v.start_money : v.max_creatures;
         const char *cmd = (pass == 0) ? "START_MONEY" : "MAX_CREATURES";
-        int val = 0;
+        int64_t val = 0;
         if (pass == 0 && uniform(m, players, val))
         {
             if (val != 0)
             {
-                snprintf(line, sizeof(line), "%s(ALL_PLAYERS,%d)\n", cmd, val);
+                snprintf(line, sizeof(line), "%s(ALL_PLAYERS,%" PRId64 ")\n", cmd, (int64_t)(val));
                 out += line;
             }
             continue;
         }
         if (pass == 1 && uniform(m, players, val))
         {
-            snprintf(line, sizeof(line), "%s(ALL_PLAYERS,%d)\n", cmd, val);
+            snprintf(line, sizeof(line), "%s(ALL_PLAYERS,%" PRId64 ")\n", cmd, (int64_t)(val));
             out += line;
             continue;
         }
@@ -252,7 +252,7 @@ std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupCh
         {
             if (pass == 0 && kv.second == 0)
                 continue; // START_MONEY(…,0) adds nothing
-            snprintf(line, sizeof(line), "%s(%s,%d)\n", cmd, player_token(kv.first).c_str(), kv.second);
+            snprintf(line, sizeof(line), "%s(%s,%" PRId64 ")\n", cmd, player_token(kv.first).c_str(), (int64_t)(kv.second));
             out += line;
         }
     }
@@ -261,22 +261,22 @@ std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupCh
     {
         if (kv.second <= 0)
             continue;
-        snprintf(line, sizeof(line), "ADD_CREATURE_TO_POOL(%s,%d)\n", kv.first.c_str(), kv.second);
+        snprintf(line, sizeof(line), "ADD_CREATURE_TO_POOL(%s,%" PRId64 ")\n", kv.first.c_str(), (int64_t)(kv.second));
         out += line;
     }
 
     // Availability, grouped by (kind, item); ALL_PLAYERS when every slot has the same value.
-    for (int kind = 0; kind < AvailKind_Count; kind++)
+    for (int64_t kind = 0; kind < AvailKind_Count; kind++)
     {
-        std::map<std::string, std::map<int, SetupAvailValue>> by_item;
+        std::map<std::string, std::map<int64_t, SetupAvailValue>> by_item;
         for (const auto &kv : v.avail)
             if (kv.first.kind == kind)
                 by_item[kv.first.item][kv.first.player] = kv.second;
         for (const auto &it : by_item)
         {
-            bool all = ((int)it.second.size() == players) && players > 0;
+            bool all = ((int64_t)it.second.size() == players) && players > 0;
             SetupAvailValue first;
-            for (int p = 0; p < players && all; p++)
+            for (int64_t p = 0; p < players && all; p++)
             {
                 const auto f = it.second.find(p);
                 if (f == it.second.end()) { all = false; break; }
@@ -284,14 +284,14 @@ std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupCh
             }
             if (all)
             {
-                snprintf(line, sizeof(line), "%s(ALL_PLAYERS,%s,%d,%d)\n", kAvailCommandNames[kind], it.first.c_str(), first.a, first.b);
+                snprintf(line, sizeof(line), "%s(ALL_PLAYERS,%s,%" PRId64 ",%" PRId64 ")\n", kAvailCommandNames[kind], it.first.c_str(), (int64_t)(first.a), (int64_t)(first.b));
                 out += line;
                 continue;
             }
             for (const auto &pv : it.second)
             {
-                snprintf(line, sizeof(line), "%s(%s,%s,%d,%d)\n", kAvailCommandNames[kind], player_token(pv.first).c_str(),
-                    it.first.c_str(), pv.second.a, pv.second.b);
+                snprintf(line, sizeof(line), "%s(%s,%s,%" PRId64 ",%" PRId64 ")\n", kAvailCommandNames[kind], player_token(pv.first).c_str(),
+                    it.first.c_str(), (int64_t)(pv.second.a), (int64_t)(pv.second.b));
                 out += line;
             }
         }
@@ -303,7 +303,7 @@ std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupCh
         switch (kv.second.kind)
         {
         case SetupController::Model:
-            snprintf(line, sizeof(line), "COMPUTER_PLAYER(%s,%d)\n", player_token(kv.first).c_str(), kv.second.model);
+            snprintf(line, sizeof(line), "COMPUTER_PLAYER(%s,%" PRId64 ")\n", player_token(kv.first).c_str(), (int64_t)(kv.second.model));
             break;
         case SetupController::Roaming:
             snprintf(line, sizeof(line), "COMPUTER_PLAYER(%s,ROAMING)\n", player_token(kv.first).c_str());
@@ -335,8 +335,8 @@ std::string script_setup_generate_prelude(const SetupAnalysis &an, const SetupCh
             std::string indent;
             for (const WinLoseClause &c : r.clauses)
             {
-                snprintf(line, sizeof(line), "%sIF(%s,%s %s %d)\n", indent.c_str(), player_token(c.player).c_str(),
-                    c.variable.c_str(), c.op.c_str(), c.value);
+                snprintf(line, sizeof(line), "%sIF(%s,%s %s %" PRId64 ")\n", indent.c_str(), player_token(c.player).c_str(),
+                    c.variable.c_str(), c.op.c_str(), (int64_t)(c.value));
                 out += line;
                 indent += "\t";
             }
@@ -356,7 +356,7 @@ SetupOverride script_setup_build_override(const std::string &text, const SetupAn
 {
     SetupOverride res;
     std::vector<SetupIssue> &iss = res.issues;
-    const int players = opt.players;
+    const int64_t players = opt.players;
 
     if (an.verdict == SetupVerdict_Unsupported)
     {
@@ -365,7 +365,7 @@ SetupOverride script_setup_build_override(const std::string &text, const SetupAn
     }
 
     // ---- ranges, player numbers, names ----------------------------------
-    auto check_player = [&](int p, const char *what) {
+    auto check_player = [&](int64_t p, const char *what) {
         if (p < 0 || p >= players)
             add_issue(&iss, SetupIssue_Error, std::string(what) + ": player " + std::to_string(p + 1) + " is outside the level's " + std::to_string(players) + " slots.");
     };
@@ -424,23 +424,23 @@ SetupOverride script_setup_build_override(const std::string &text, const SetupAn
     }
 
     // ---- win / lose ------------------------------------------------------
-    int if_after = an.if_count, win_after = an.win_count, lose_after = an.lose_count;
+    int64_t if_after = an.if_count, win_after = an.win_count, lose_after = an.lose_count;
     if (ch.replace_win_lose)
     {
-        int seed_wins = 0, seed_loses = 0, new_wins = 0, new_loses = 0;
+        int64_t seed_wins = 0, seed_loses = 0, new_wins = 0, new_loses = 0;
         for (const SetupWinLoseRule &r : an.seed.rules)
         {
-            if_after -= (int)r.clauses.size();
+            if_after -= (int64_t)r.clauses.size();
             (r.win ? seed_wins : seed_loses)++;
         }
         win_after -= seed_wins;
         lose_after -= seed_loses;
         const char *const *ops = script_setup_win_lose_operators(nullptr);
-        int n_ops = 0;
+        int64_t n_ops = 0;
         script_setup_win_lose_operators(&n_ops);
         for (const SetupWinLoseRule &r : ch.rules)
         {
-            if_after += (int)r.clauses.size();
+            if_after += (int64_t)r.clauses.size();
             (r.win ? new_wins : new_loses)++;
             if (r.clauses.empty())
                 add_issue(&iss, SetupIssue_Error, "A win/lose rule needs at least one condition.");
@@ -450,7 +450,7 @@ SetupOverride script_setup_build_override(const std::string &text, const SetupAn
                 if (!name_in(script_setup_win_variables_identical(), c.variable) && !name_in(script_setup_win_variables_v1_only(), c.variable))
                     add_issue(&iss, SetupIssue_Error, "Win/lose rule: variable " + c.variable + " is not supported.");
                 bool op_ok = false;
-                for (int i = 0; i < n_ops; i++)
+                for (int64_t i = 0; i < n_ops; i++)
                     op_ok |= (c.op == ops[i]);
                 if (!op_ok)
                     add_issue(&iss, SetupIssue_Error, "Win/lose rule: bad comparison '" + c.op + "'.");

@@ -83,10 +83,10 @@ char get_door_orientation(MapSlabCoord slb_x, MapSlabCoord slb_y)
 
 char determine_door_angle(MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
-    unsigned int wall_flags = 0;
+    uint64_t wall_flags = 0;
     MapSubtlCoord stl_x = slab_subtile_center(slb_x);
     MapSubtlCoord stl_y = slab_subtile_center(slb_y);
-    for ( int i = 0; i < SMALL_AROUND_LENGTH; ++i )
+    for ( int64_t i = 0; i < SMALL_AROUND_LENGTH; ++i )
     {
         wall_flags <<= 1;
         MapSubtlCoord astl_x = stl_x + (small_around[i].delta_x * 2);
@@ -103,13 +103,13 @@ struct Thing *create_door(struct Coord3d *pos, ThingModel tngmodel, unsigned cha
 {
     if (!i_can_allocate_free_thing_structure(TCls_Door))
     {
-        ERRORDBG(3,"Cannot create door model %d (%s) for player %d. There are too many things allocated.",(int)tngmodel, door_code_name(tngmodel), (int)plyr_idx);
+        ERRORDBG(3,"Cannot create door model %" PRId64 " (%s) for player %" PRId64 ". There are too many things allocated.",(int64_t)tngmodel, door_code_name(tngmodel), (int64_t)plyr_idx);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* doortng = allocate_free_thing_structure(TCls_Door);
     if (doortng->index == 0) {
-        ERRORDBG(3,"Should be able to allocate door %d (%s) for player %d, but failed.",(int)tngmodel, door_code_name(tngmodel), (int)plyr_idx);
+        ERRORDBG(3,"Should be able to allocate door %" PRId64 " (%s) for player %" PRId64 ", but failed.",(int64_t)tngmodel, door_code_name(tngmodel), (int64_t)plyr_idx);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
@@ -160,7 +160,7 @@ struct Thing *create_door(struct Coord3d *pos, ThingModel tngmodel, unsigned cha
 void init_keys()
 {
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    for (int i = slist->index; i > 0;)
+    for (int64_t i = slist->index; i > 0;)
     {
         struct Thing* keytng = thing_get(i);
         i = keytng->next_of_class;
@@ -172,7 +172,7 @@ void init_keys()
         struct Thing* doortng = find_base_thing_on_mapwho(TCls_Door, 0, keytng->mappos.x.stl.num, keytng->mappos.y.stl.num);
         if (thing_is_invalid(doortng))
         {
-            WARNLOG("Key (%d) has no door on position (%d,%d)", keytng->index, keytng->mappos.x.stl.num, keytng->mappos.y.stl.num);
+            WARNLOG("Key (%" PRId64 ") has no door on position (%" PRId64 ",%" PRId64 ")", (int64_t)(keytng->index), (int64_t)(keytng->mappos.x.stl.num), (int64_t)(keytng->mappos.y.stl.num));
             continue;
         }
         struct DoorConfigStats* doorst = get_door_model_stats(doortng->model);
@@ -237,8 +237,8 @@ void unlock_door(struct Thing *thing)
 void lock_door(struct Thing *doortng)
 {
     struct DoorConfigStats* doorst = get_door_model_stats(doortng->model);
-    long stl_x = doortng->mappos.x.stl.num;
-    long stl_y = doortng->mappos.y.stl.num;
+    int64_t stl_x = doortng->mappos.x.stl.num;
+    int64_t stl_y = doortng->mappos.y.stl.num;
     doortng->active_state = DorSt_Closed;
     doortng->door.closing_counter = 0;
     doortng->door.is_locked = 1;
@@ -250,9 +250,9 @@ void lock_door(struct Thing *doortng)
     }
 }
 
-long destroy_door(struct Thing *doortng)
+int64_t destroy_door(struct Thing *doortng)
 {
-    SYNCDBG(18,"Starting for %s index %d owned by player %d",thing_model_name(doortng),(int)doortng->index,(int)doortng->owner);
+    SYNCDBG(18,"Starting for %s index %" PRId64 " owned by player %" PRId64,thing_model_name(doortng),(int64_t)doortng->index,(int64_t)doortng->owner);
     struct Coord3d pos;
     pos.x.val = doortng->mappos.x.val;
     pos.y.val = doortng->mappos.y.val;
@@ -290,7 +290,7 @@ long destroy_door(struct Thing *doortng)
     struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
     place_slab_type_on_map(SlbT_CLAIMED, stl_x, stl_y, slabmap_owner(slb), 0);
     do_slab_efficiency_alteration(slb_x, slb_y);
-    for (int i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
         if (!player_exists(player))
@@ -299,7 +299,7 @@ long destroy_door(struct Thing *doortng)
         if (thing == INVALID_THING)
             continue;
         MapCoordDelta dist = get_chessboard_distance(&pos, &thing->mappos);
-        long sight_stl = slab_subtile(get_explore_sight_distance_in_slabs(thing), 0);
+        int64_t sight_stl = slab_subtile(get_explore_sight_distance_in_slabs(thing), 0);
         if (dist <= subtile_coord(sight_stl,0)) {
             check_map_explored(thing, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
         }
@@ -386,12 +386,12 @@ TbBool slab_has_sellable_door(MapSlabCoord slb_x, MapSlabCoord slb_y)
 
 TbBool door_can_stand(struct Thing *thing)
 {
-    unsigned int wall_flags = 0;
-    for (int i = 0; i < SMALL_AROUND_LENGTH; i++)
+    uint64_t wall_flags = 0;
+    for (int64_t i = 0; i < SMALL_AROUND_LENGTH; i++)
     {
         wall_flags *= 2;
-        long slb_x = subtile_slab(thing->mappos.x.stl.num) + (int)small_around[i].delta_x;
-        long slb_y = subtile_slab(thing->mappos.y.stl.num) + (int)small_around[i].delta_y;
+        int64_t slb_x = subtile_slab(thing->mappos.x.stl.num) + (int64_t)small_around[i].delta_x;
+        int64_t slb_y = subtile_slab(thing->mappos.y.stl.num) + (int64_t)small_around[i].delta_y;
         struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
         struct SlabConfigStats* slabst = get_slab_stats(slb);
         if ((slabst->category == SlbAtCtg_FortifiedWall) || (slb->kind == SlbT_ROCK) || (slabst->category == SlbAtCtg_FriableDirt) || (slb->kind == SlbT_GOLD) || (slb->kind == SlbT_DENSEGOLD) || (slb->kind == SlbT_GEMS))
@@ -439,7 +439,7 @@ static void check_if_enemy_can_see_placement_of_hidden_door(struct Thing *doortn
     doortng->mappos.z.stl.num = 2;
 
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    long i = slist->index;
+    int64_t i = slist->index;
     while (i > 0)
     {
         struct Thing* creatng = thing_get(i);
@@ -491,7 +491,7 @@ void reveal_secret_door_to_player(struct Thing *doortng,PlayerNumber plyr_idx)
 
 }
 
-long process_door_open(struct Thing *thing)
+int64_t process_door_open(struct Thing *thing)
 {
     // If doors are locked, delay to closing = 0
     if (thing->door.is_locked)
@@ -511,7 +511,7 @@ long process_door_open(struct Thing *thing)
     return 1;
 }
 
-long process_door_closed(struct Thing *thing)
+int64_t process_door_closed(struct Thing *thing)
 {
     if ( !check_door_should_open(thing) )
       return 0;
@@ -520,12 +520,12 @@ long process_door_closed(struct Thing *thing)
     return 1;
 }
 
-long process_door_opening(struct Thing *thing)
+int64_t process_door_opening(struct Thing *thing)
 {
     struct DoorConfigStats* doorst = get_door_model_stats(thing->model);
-    int old_frame = (thing->door.closing_counter / 256);
-    short delta_h = doorst->open_speed;
-    int slbparam = doorst->slbkind[thing->door.orientation];
+    int64_t old_frame = (thing->door.closing_counter / 256);
+    int64_t delta_h = doorst->open_speed;
+    int64_t slbparam = doorst->slbkind[thing->door.orientation];
     if (thing->door.closing_counter + delta_h < 768)
     {
         thing->door.closing_counter += delta_h;
@@ -535,18 +535,18 @@ long process_door_opening(struct Thing *thing)
         thing->door.opening_counter = 10;
         thing->door.closing_counter = 768;
     }
-    int new_frame = (thing->door.closing_counter / 256);
+    int64_t new_frame = (thing->door.closing_counter / 256);
     if (new_frame != old_frame)
       place_animating_slab_type_on_map(slbparam, new_frame, thing->mappos.x.stl.num, thing->mappos.y.stl.num, thing->owner);
     return 1;
 }
 
-long process_door_closing(struct Thing *thing)
+int64_t process_door_closing(struct Thing *thing)
 {
-    int old_frame = (thing->door.closing_counter / 256);
+    int64_t old_frame = (thing->door.closing_counter / 256);
     struct DoorConfigStats* doorst = get_door_model_stats(thing->model);
-    int delta_h = doorst->open_speed;
-    int slbparam = doorst->slbkind[thing->door.orientation];
+    int64_t delta_h = doorst->open_speed;
+    int64_t slbparam = doorst->slbkind[thing->door.orientation];
     if ( check_door_should_open(thing) )
     {
         thing->active_state = DorSt_Opening;
@@ -560,7 +560,7 @@ long process_door_closing(struct Thing *thing)
         thing->active_state = DorSt_Closed;
         thing->door.closing_counter = 0;
     }
-    int new_frame = (thing->door.closing_counter / 256);
+    int64_t new_frame = (thing->door.closing_counter / 256);
     if (new_frame != old_frame)
       place_animating_slab_type_on_map(slbparam, new_frame, thing->mappos.x.stl.num, thing->mappos.y.stl.num, thing->owner);
     return 1;
@@ -588,10 +588,10 @@ TngUpdateRet process_door(struct Thing *thing)
     }
     if ((thing->door.orientation > 1) || (thing->door.orientation < 0))
     {
-        ERRORLOG("Invalid %s (index %d) orientation %d",thing_model_name(thing),(int)thing->index,(int)thing->door.orientation);
+        ERRORLOG("Invalid %s (index %" PRId64 ") orientation %" PRId64,thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->door.orientation);
         thing->door.orientation &= 1;
     }
-    SYNCDBG(18,"State %d",(int)thing->active_state);
+    SYNCDBG(18,"State %" PRId64,(int64_t)thing->active_state);
     switch (thing->active_state)
     {
     case DorSt_Open:
@@ -607,19 +607,19 @@ TngUpdateRet process_door(struct Thing *thing)
         process_door_closing(thing);
         break;
     default:
-        ERRORLOG("Invalid %s state %d",thing_model_name(thing),(int)thing->active_state);
+        ERRORLOG("Invalid %s state %" PRId64,thing_model_name(thing),(int64_t)thing->active_state);
         thing->active_state = DorSt_Closing;
         break;
     }
     return TUFRet_Modified;
 }
 
-long count_player_deployed_doors_of_model(PlayerNumber owner, int model)
+int64_t count_player_deployed_doors_of_model(PlayerNumber owner, int64_t model)
 {
-    long n = 0;
-    unsigned long k = 0;
+    int64_t n = 0;
+    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Door);
-    long i = slist->index;
+    int64_t i = slist->index;
     while (i > 0)
     {
         struct Thing* thing = thing_get(i);
@@ -647,11 +647,11 @@ long count_player_deployed_doors_of_model(PlayerNumber owner, int model)
  * @param locked Door locked state selection, or -1 for any.
  * @return
  */
-TbBool player_has_deployed_door_of_model(PlayerNumber owner, int model, short locked)
+TbBool player_has_deployed_door_of_model(PlayerNumber owner, int64_t model, int64_t locked)
 {
-    unsigned long k = 0;
+    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Door);
-    long i = slist->index;
+    int64_t i = slist->index;
     while (i > 0)
     {
         struct Thing* thing = thing_get(i);
@@ -681,12 +681,12 @@ TbBool player_has_deployed_door_of_model(PlayerNumber owner, int model, short lo
  * @param model Trap model to count, or -1 for any.
  * @return the number of things of class trap with matching model and available shots.
  */
-long count_player_deployed_traps_of_model(PlayerNumber owner, ThingModel model)
+int64_t count_player_deployed_traps_of_model(PlayerNumber owner, ThingModel model)
 {
-    long n = 0;
-    unsigned long k = 0;
+    int64_t n = 0;
+    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    long i = slist->index;
+    int64_t i = slist->index;
     while (i > 0)
     {
         struct Thing* thing = thing_get(i);
@@ -716,9 +716,9 @@ long count_player_deployed_traps_of_model(PlayerNumber owner, ThingModel model)
  */
 TbBool player_has_deployed_trap_of_model(PlayerNumber owner, ThingModel model)
 {
-    unsigned long k = 0;
+    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    long i = slist->index;
+    int64_t i = slist->index;
     while (i > 0)
     {
         struct Thing* thing = thing_get(i);
@@ -746,16 +746,16 @@ TbBool player_has_deployed_trap_of_model(PlayerNumber owner, ThingModel model)
  * @param model Door model to count, or -1 for all.
  * @return Amount of doors that the player may place.
  */
-long count_player_available_doors_of_model(PlayerNumber plyr_idx, ThingModel model)
+int64_t count_player_available_doors_of_model(PlayerNumber plyr_idx, ThingModel model)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    long count = 0;
+    int64_t count = 0;
     if (dungeon_invalid(dungeon))
     {
-        ERRORLOG("Tried to count doors for Player %d which has no dungeon", (int)plyr_idx);
+        ERRORLOG("Tried to count doors for Player %" PRId64 " which has no dungeon", (int64_t)plyr_idx);
         return 0;
     }
-    for (int i = 0; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
     {
         if ((i == model) || (model == -1))
         {
@@ -772,16 +772,16 @@ long count_player_available_doors_of_model(PlayerNumber plyr_idx, ThingModel mod
  * @param model Trap model to count, or -1 for all.
  * @return Amount of traps that the player may place.
  */
-long count_player_available_traps_of_model(PlayerNumber plyr_idx, ThingModel model)
+int64_t count_player_available_traps_of_model(PlayerNumber plyr_idx, ThingModel model)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    long count = 0;
+    int64_t count = 0;
     if (dungeon_invalid(dungeon))
     {
-        ERRORLOG("Tried to count traps for Player %d which has no dungeon", (int)plyr_idx);
+        ERRORLOG("Tried to count traps for Player %" PRId64 " which has no dungeon", (int64_t)plyr_idx);
         return 0;
     }
-    for (int i = 0; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
     {
         if ((i == model) || (model == -1))
         {
@@ -796,7 +796,7 @@ long count_player_available_traps_of_model(PlayerNumber plyr_idx, ThingModel mod
 void update_all_door_stats()
 {
     const struct StructureList* slist = get_list_for_thing_class(TCls_Door);
-    for(int i = slist->index; i > 0;)
+    for(int64_t i = slist->index; i > 0;)
     {
         struct Thing* thing = thing_get(i);
         i = thing->next_of_class;
@@ -842,7 +842,7 @@ void update_navigation_around_all_doors()
 {
     const struct StructureList *slist = get_list_for_thing_class(TCls_Door);
     ThingIndex i = slist->index;
-    int16_t k = 0;
+    int64_t k = 0;
     while (i > 0)
     {
         struct Thing *doortng = thing_get(i);

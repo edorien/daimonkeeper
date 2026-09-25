@@ -43,7 +43,7 @@ extern "C" {
 #define SERVER_ID 0
 #define SOLO_HUMAN_ID 0 /* human player's user id in non-multiplayer, when relevant */
 
-typedef int NetUserId;
+typedef int64_t NetUserId;
 
 enum NetDropReason {
     NETDROP_MANUAL,
@@ -63,7 +63,7 @@ struct NetSP
     void (*sendmsg_single)(NetUserId destination, const char *buffer, size_t size);
     void (*sendmsg_single_unsequenced)(NetUserId destination, const char *buffer, size_t size);
     void (*sendmsg_all)(const char *buffer, size_t size);
-    size_t (*msgready)(NetUserId source, unsigned timeout);
+    size_t (*msgready)(NetUserId source, uint64_t timeout);
     size_t (*readmsg)(NetUserId source, char *buffer, size_t max_size);
     void (*drop_user)(NetUserId id);
 };

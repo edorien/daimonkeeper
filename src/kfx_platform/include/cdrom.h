@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 void SetRedbookVolume(SoundVolume);
-TbBool PlayRedbookTrack(int);
+TbBool PlayRedbookTrack(int64_t);
 void PauseRedbookTrack(void);
 void ResumeRedbookTrack(void);
 void StopRedbookTrack(void);

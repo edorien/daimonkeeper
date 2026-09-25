@@ -64,8 +64,8 @@ struct GuiButton;
 // gui_panel_sprites/frontend_sprite/gui_slab moved to kfx_render's
 // vidmode.h (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
 extern unsigned char *frontend_background;
-extern int gui_blink_rate;
-extern int neutral_flash_rate;
+extern int64_t gui_blink_rate;
+extern int64_t neutral_flash_rate;
 // Moved here from frontmenu_ingame_tabs.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
 extern char gui_room_type_highlighted;
@@ -74,69 +74,69 @@ extern char gui_door_type_highlighted;
 #pragma pack()
 /******************************************************************************/
 extern char gui_textbuf[TEXT_BUFFER_LENGTH];
-extern const short pixels_needed[];
+extern const int64_t pixels_needed[];
 // draw_square moved to kfx_sim's power_hand.h (stage 13.3, docs/refactor/
 // stage-13-enforce-and-document.md).
 /******************************************************************************/
-short get_pixels_scaled_and_zoomed(long basic_zoom);
-short scale_pixel(long basic_zoom);
-int simple_button_sprite_height_units_per_px(const struct GuiButton *gbtn, long spridx, int fraction);
-int simple_button_sprite_width_units_per_px(const struct GuiButton *gbtn, long spridx, int fraction);
-int simple_frontend_sprite_height_units_per_px(const struct GuiButton *gbtn, long spridx, int fraction);
-int simple_frontend_sprite_width_units_per_px(const struct GuiButton *gbtn, long spridx, int fraction);
-int simple_gui_panel_sprite_height_units_per_px(const struct GuiButton *gbtn, long spridx, int fraction);
-int simple_gui_panel_sprite_width_units_per_px(const struct GuiButton *gbtn, long spridx, int fraction);
+int64_t get_pixels_scaled_and_zoomed(int64_t basic_zoom);
+int64_t scale_pixel(int64_t basic_zoom);
+int64_t simple_button_sprite_height_units_per_px(const struct GuiButton *gbtn, int64_t spridx, int64_t fraction);
+int64_t simple_button_sprite_width_units_per_px(const struct GuiButton *gbtn, int64_t spridx, int64_t fraction);
+int64_t simple_frontend_sprite_height_units_per_px(const struct GuiButton *gbtn, int64_t spridx, int64_t fraction);
+int64_t simple_frontend_sprite_width_units_per_px(const struct GuiButton *gbtn, int64_t spridx, int64_t fraction);
+int64_t simple_gui_panel_sprite_height_units_per_px(const struct GuiButton *gbtn, int64_t spridx, int64_t fraction);
+int64_t simple_gui_panel_sprite_width_units_per_px(const struct GuiButton *gbtn, int64_t spridx, int64_t fraction);
 
 // Moved here from front_simple.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
-TbBool copy_raw8_image_buffer(TbPixel *dst_buf,const int scanline,const int nlines,const int dst_width,const int dst_height,
-    const int spw,const int sph,const unsigned char *src_buf,const int src_width,const int src_height);
+TbBool copy_raw8_image_buffer(TbPixel *dst_buf,const int64_t scanline,const int64_t nlines,const int64_t dst_width,const int64_t dst_height,
+    const int64_t spw,const int64_t sph,const unsigned char *src_buf,const int64_t src_width,const int64_t src_height);
 
 // Rect-clipped sibling of copy_raw8_image_buffer -- see its doc comment in
 // gui_draw.c. Needed to embed a panned raw image (e.g. the landview
 // backdrop) inside a panel alongside other UI without blanking pixels
 // outside its own rect.
-TbBool copy_raw8_image_buffer_rect(TbPixel *dst_buf,const int scanline,const int nlines,
-    const int rect_x,const int rect_y,const int rect_w,const int rect_h,
-    const int dst_width,const int dst_height,const int spw,const int sph,
-    const unsigned char *src_buf,const int src_width,const int src_height);
+TbBool copy_raw8_image_buffer_rect(TbPixel *dst_buf,const int64_t scanline,const int64_t nlines,
+    const int64_t rect_x,const int64_t rect_y,const int64_t rect_w,const int64_t rect_h,
+    const int64_t dst_width,const int64_t dst_height,const int64_t spw,const int64_t sph,
+    const unsigned char *src_buf,const int64_t src_width,const int64_t src_height);
 
-void draw_bar64k(long pos_x, long pos_y, int units_per_px, long width);
-void draw_lit_bar64k(long pos_x, long pos_y, int units_per_px, long width);
-void draw_slab64k_background(long pos_x, long pos_y, long width, long height);
+void draw_bar64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width);
+void draw_lit_bar64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width);
+void draw_slab64k_background(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height);
 /** The tiling itself; draw_slab64k_background routes through the renderer first. */
-void draw_slab64k_background_immediate(long pos_x, long pos_y, long width, long height);
-void draw_slab64k(long pos_x, long pos_y, int units_per_px, long width, long height);
-void draw_ornate_slab64k(long pos_x, long pos_y, int units_per_px, long width, long height);
-void draw_ornate_slab_outline64k(long pos_x, long pos_y, int units_per_px, long width, long height);
-void draw_round_slab64k(long pos_x, long pos_y, int units_per_px, long width, long height, long style_type);
-void draw_string64k(long x, long y, int units_per_px, const char * text);
+void draw_slab64k_background_immediate(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height);
+void draw_slab64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width, int64_t height);
+void draw_ornate_slab64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width, int64_t height);
+void draw_ornate_slab_outline64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width, int64_t height);
+void draw_round_slab64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width, int64_t height, int64_t style_type);
+void draw_string64k(int64_t x, int64_t y, int64_t units_per_px, const char * text);
 
-void draw_button_string(struct GuiButton *gbtn, int base_width, const char *text);
+void draw_button_string(struct GuiButton *gbtn, int64_t base_width, const char *text);
 TbBool draw_text_box(const char *text);
-TbBool draw_text_box_top(const char* text, ushort drawflags);
-void draw_scroll_box(struct GuiButton *gbtn, int units_per_px, int num_rows);
-int scroll_box_get_units_per_px(struct GuiButton *gbtn);
+TbBool draw_text_box_top(const char* text, uint64_t drawflags);
+void draw_scroll_box(struct GuiButton *gbtn, int64_t units_per_px, int64_t num_rows);
+int64_t scroll_box_get_units_per_px(struct GuiButton *gbtn);
 
 #define draw_gui_panel_sprite_left(x, y, units_per_px, spridx) draw_gui_panel_sprite_left_player(x, y, units_per_px, spridx, my_player_number)
-void draw_gui_panel_sprite_left_player(long x, long y, int units_per_px, long spridx, PlayerNumber plyr_idx);
+void draw_gui_panel_sprite_left_player(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx, PlayerNumber plyr_idx);
 #define draw_gui_panel_sprite_rmleft(x, y, units_per_px, spridx, remap) draw_gui_panel_sprite_rmleft_player(x, y, units_per_px, spridx, remap, my_player_number)
-void draw_gui_panel_sprite_rmleft_player(long x, long y, int units_per_px, long spridx, unsigned long remap, PlayerNumber plyr_idx);
-void draw_gui_panel_sprite_centered(long x, long y, int units_per_px, long spridx);
-void draw_gui_panel_sprite_occentered(long x, long y, int units_per_px, long spridx, TbPixel color);
-void draw_button_sprite_left(long x, long y, int units_per_px, long spridx);
-void draw_button_sprite_rmleft(long x, long y, int units_per_px, long spridx, unsigned long remap);
+void draw_gui_panel_sprite_rmleft_player(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx, uint64_t remap, PlayerNumber plyr_idx);
+void draw_gui_panel_sprite_centered(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx);
+void draw_gui_panel_sprite_occentered(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx, TbPixel color);
+void draw_button_sprite_left(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx);
+void draw_button_sprite_rmleft(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx, uint64_t remap);
 
-void draw_frontend_sprite_left(long x, long y, int units_per_px, long spridx);
+void draw_frontend_sprite_left(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx);
 
-void draw_frontmenu_background(int rect_x,int rect_y,int rect_w,int rect_h);
+void draw_frontmenu_background(int64_t rect_x,int64_t rect_y,int64_t rect_w,int64_t rect_h);
 // Had real external linkage but no header declaration at all (same
 // situation as config_settings.c's own setup_default_settings() before it
 // got one) -- added so FeStyleGetMenuBackdropTexture() (frontgui_style.cpp,
 // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md Phase A) can reuse
 // this exact aspect-fit math instead of re-deriving it.
 struct TbRect;
-long get_frontmenu_background_area_rect(int rect_x, int rect_y, int rect_w, int rect_h, struct TbRect *bkgnd_area);
+int64_t get_frontmenu_background_area_rect(int64_t rect_x, int64_t rect_y, int64_t rect_w, int64_t rect_h, struct TbRect *bkgnd_area);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -39,15 +39,15 @@ struct TbLoadFiles {
         char FName[DISKPATH_SIZE];
         unsigned char **Start;
         unsigned char **SEnd;
-        unsigned long SLength;
-        unsigned short Flags;
-        unsigned short Spare;
+        uint64_t SLength;
+        int64_t Flags;
+        int64_t Spare;
 };
 
 struct TbLoadFilesV2 {
     char FName[DISKPATH_SIZE];
     unsigned char **Start;
-    unsigned long SLength; // Actual size of data in memory
+    uint64_t SLength; // Actual size of data in memory
     LoadFilesGetSizeFunc GetSizeFunc;
     LoadFilesUnpackFunc UnpackFunc;
 };
@@ -60,13 +60,13 @@ extern ModifyDataLoadFnameFunc *modify_data_load_filename_function;
 
 /******************************************************************************/
 
-short LbDataFree(struct TbLoadFiles *load_file);
-int LbDataLoad(struct TbLoadFiles *load_file, LoadFilesGetSizeFunc get_size_fn, LoadFilesUnpackFunc unpack_fn);
+int64_t LbDataFree(struct TbLoadFiles *load_file);
+int64_t LbDataLoad(struct TbLoadFiles *load_file, LoadFilesGetSizeFunc get_size_fn, LoadFilesUnpackFunc unpack_fn);
 void LbDataFreeAll(struct TbLoadFiles load_files[]);
 void LbDataFreeAllV2(struct TbLoadFilesV2 load_files[]);
 
-int LbDataLoadAll(struct TbLoadFiles load_files[]);
-int LbDataLoadAllV2(struct TbLoadFilesV2 load_files[]);
+int64_t LbDataLoadAll(struct TbLoadFiles load_files[]);
+int64_t LbDataLoadAllV2(struct TbLoadFilesV2 load_files[]);
 
 /******************************************************************************/
 #ifdef __cplusplus

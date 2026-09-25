@@ -43,7 +43,7 @@ extern "C" {
 // single stable scale-factor constant. See
 // docs/refactor/stage-13-enforce-and-document.md.
 #define CONFIG_COORD_PER_STL 256
-static TbBool load_effects_config_file(const char *fname, unsigned short flags);
+static TbBool load_effects_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_effects_file_data = {
     .filename = "effects.toml",
@@ -71,7 +71,7 @@ const struct NamedField effects_effectgenerator_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_effectgen_count(void) { return &kfx_config_state.conf.effects_conf.effectgen_cfgstats_count; }
+static int64_t* get_effectgen_count(void) { return &kfx_config_state.conf.effects_conf.effectgen_cfgstats_count; }
 static void* get_effectgen_base(void) { return kfx_config_state.conf.effects_conf.effectgen_cfgstats; }
 
 const struct NamedFieldSet effects_effectgenerator_named_fields_set = {
@@ -84,12 +84,12 @@ const struct NamedFieldSet effects_effectgenerator_named_fields_set = {
     get_effectgen_base,
 };
 
-int32_t const imp_spangle_effects[] = {
+int64_t const imp_spangle_effects[] = {
     TngEff_ImpSpangleRed, TngEff_ImpSpangleBlue, TngEff_ImpSpangleGreen, TngEff_ImpSpangleYellow, TngEff_ImpSpangleWhite,
     TngEff_None, TngEff_ImpSpanglePurple, TngEff_ImpSpangleBlack, TngEff_ImpSpangleOrange
 };
 
-int32_t const ball_puff_effects[] = {
+int64_t const ball_puff_effects[] = {
     TngEff_BallPuffRed, TngEff_BallPuffBlue, TngEff_BallPuffGreen, TngEff_BallPuffYellow, TngEff_BallPuffWhite,
     TngEff_BallPuffWhite, TngEff_BallPuffPurple, TngEff_BallPuffBlack, TngEff_BallPuffOrange
 };
@@ -100,15 +100,15 @@ struct NamedCommand effectgen_desc[EFFECTSGEN_TYPES_MAX];
 struct NamedCommand effectelem_desc[EFFECTSELLEMENTS_TYPES_MAX];
 /******************************************************************************/
 
-static void load_effects(VALUE *value, unsigned short flags)
+static void load_effects(VALUE *value, int64_t flags)
 {
     char key[64] = "";
     VALUE *section;
-    int max_effect_id = -1;
-    for (int id = 0; id < EFFECTS_TYPES_MAX; id++)
+    int64_t max_effect_id = -1;
+    for (int64_t id = 0; id < EFFECTS_TYPES_MAX; id++)
     {
         {
-            snprintf(key, sizeof(key), "effect%d", id);
+            snprintf(key, sizeof(key), "effect%" PRId64, (int64_t)(id));
             section = value_dict_get(value, key);
         }
         if (value_type(section) == VALUE_DICT)
@@ -148,7 +148,7 @@ static void load_effects(VALUE *value, unsigned short flags)
             }
         }
         // Fill any gaps with placeholder entries so get_id() won't terminate early
-        for (int id = 0; id <= max_effect_id; id++)
+        for (int64_t id = 0; id <= max_effect_id; id++)
         {
             if (effect_desc[id].name == NULL)
             {
@@ -160,15 +160,15 @@ static void load_effects(VALUE *value, unsigned short flags)
     }
 }
 
-static void load_effectsgenerators(VALUE *value, unsigned short flags)
+static void load_effectsgenerators(VALUE *value, int64_t flags)
 {
     char key[KEY_SIZE];
     VALUE *section;
-    int max_effectgen_id = -1;
-    for (int id = 0; id < EFFECTSGEN_TYPES_MAX; id++)
+    int64_t max_effectgen_id = -1;
+    for (int64_t id = 0; id < EFFECTSGEN_TYPES_MAX; id++)
     {
         {
-            snprintf(key, sizeof(key), "effectGenerator%d", id);
+            snprintf(key, sizeof(key), "effectGenerator%" PRId64, (int64_t)(id));
             section = value_dict_get(value, key);
         }
         if (value_type(section) == VALUE_DICT)
@@ -204,7 +204,7 @@ static void load_effectsgenerators(VALUE *value, unsigned short flags)
             }
         }
         // Fill any gaps with placeholder entries so get_id() won't terminate early
-        for (int id = 0; id <= max_effectgen_id; id++)
+        for (int64_t id = 0; id <= max_effectgen_id; id++)
         {
             if (effectgen_desc[id].name == NULL)
             {
@@ -216,15 +216,15 @@ static void load_effectsgenerators(VALUE *value, unsigned short flags)
     }
 }
 
-static void load_effectelements(VALUE *value, unsigned short flags)
+static void load_effectelements(VALUE *value, int64_t flags)
 {
     char key[KEY_SIZE];
     VALUE *section;
-    int max_effectelement_id = -1;
-    for (int id = 0; id < EFFECTSELLEMENTS_TYPES_MAX; id++)
+    int64_t max_effectelement_id = -1;
+    for (int64_t id = 0; id < EFFECTSELLEMENTS_TYPES_MAX; id++)
     {
         {
-            snprintf(key, sizeof(key), "effectElement%d", id);
+            snprintf(key, sizeof(key), "effectElement%" PRId64, (int64_t)(id));
             section = value_dict_get(value, key);
         }
         if (value_type(section) == VALUE_DICT)
@@ -292,7 +292,7 @@ static void load_effectelements(VALUE *value, unsigned short flags)
             }
         }
         // Fill any gaps with placeholder entries so get_id() won't terminate early
-        for (int id = 0; id <= max_effectelement_id; id++)
+        for (int64_t id = 0; id <= max_effectelement_id; id++)
         {
             if (effectelem_desc[id].name == NULL)
             {
@@ -304,7 +304,7 @@ static void load_effectelements(VALUE *value, unsigned short flags)
     }
 }
 
-static TbBool load_effects_config_file(const char *fname, unsigned short flags)
+static TbBool load_effects_config_file(const char *fname, int64_t flags)
 {
     VALUE file_root;
     if (!load_toml_file(fname,&file_root,flags))
@@ -362,7 +362,7 @@ struct EffectConfigStats *get_effect_model_stats(ThingModel tngmodel)
     return &kfx_config_state.conf.effects_conf.effect_cfgstats[tngmodel];
 }
 
-short effect_or_effect_element_id(const char *code_name)
+int64_t effect_or_effect_element_id(const char *code_name)
 {
     if (code_name == NULL)
     {
@@ -372,7 +372,7 @@ short effect_or_effect_element_id(const char *code_name)
     {
         return atoi(code_name);
     }
-    short id = get_id(effect_desc, code_name);
+    int64_t id = get_id(effect_desc, code_name);
     if (id > 0)
     {
         return id;

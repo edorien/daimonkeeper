@@ -200,9 +200,9 @@ TEST_CASE_METHOD(ResetSimAndConfig, "subtile_is_door reads the SlbAtFlg_IsDoor m
 // w = end - start.
 namespace {
 struct PanelMapUpdateSpy {
-    static inline long calls;
-    static inline long x, y, w, h;
-    static void record(long px, long py, long pw, long ph) { calls++; x = px; y = py; w = pw; h = ph; }
+    static inline int64_t calls;
+    static inline int64_t x, y, w, h;
+    static void record(int64_t px, int64_t py, int64_t pw, int64_t ph) { calls++; x = px; y = py; w = pw; h = ph; }
 
     struct ConfigReloadCallbacks callbacks;
     PanelMapUpdateSpy() {

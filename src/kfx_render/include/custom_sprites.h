@@ -52,28 +52,28 @@ void load_sprites_for_multi_front(LevelNumber lvnum);
 
 extern TbBigChecksum required_sprite_zip_checksums[REQUIRED_SPRITE_ZIP_COUNT];
 
-short get_anim_id(const char *name, struct ObjectConfigStats* objst);
-short get_anim_id_(const char* name);
-short get_icon_id(const char *name);
-short get_ensign_id(const char *name);
+int64_t get_anim_id(const char *name, struct ObjectConfigStats* objst);
+int64_t get_anim_id_(const char* name);
+int64_t get_icon_id(const char *name);
+int64_t get_ensign_id(const char *name);
 struct TbSpriteSheet *load_custom_ensigns_into_sheet(struct TbSpriteSheet *sheet, const unsigned char *palette);
-const struct TbSprite *get_custom_ensign_sprite(struct TbSpriteSheet *sheet, short ensign_id, int frame);
-const struct TbSprite *get_button_sprite_for_player(short sprite_idx, PlayerNumber plyr_idx);
-const struct TbSprite *get_button_sprite(short sprite_idx);
-const struct TbSprite *get_frontend_sprite(short sprite_idx);
-const struct TbSprite *get_new_icon_sprite(short sprite_idx);
-const struct TbSprite *get_panel_sprite(short sprite_idx);
+const struct TbSprite *get_custom_ensign_sprite(struct TbSpriteSheet *sheet, int64_t ensign_id, int64_t frame);
+const struct TbSprite *get_button_sprite_for_player(int64_t sprite_idx, PlayerNumber plyr_idx);
+const struct TbSprite *get_button_sprite(int64_t sprite_idx);
+const struct TbSprite *get_frontend_sprite(int64_t sprite_idx);
+const struct TbSprite *get_new_icon_sprite(int64_t sprite_idx);
+const struct TbSprite *get_panel_sprite(int64_t sprite_idx);
 struct TbSpriteSheet *load_custom_sheet_from_zip(const char *path, const unsigned char *palette);
-int is_custom_icon(short icon_idx);
+int64_t is_custom_icon(int64_t icon_idx);
 /** True when get_panel_sprite(sprite_idx) would return a real sprite rather than the engine's magenta checkerboard placeholder (bad_icon). */
-TbBool is_panel_sprite_drawable(short sprite_idx);
-int get_custom_icon_frame_count(short icon_idx);
+TbBool is_panel_sprite_drawable(int64_t sprite_idx);
+int64_t get_custom_icon_frame_count(int64_t icon_idx);
 // Lens overlay data structure
 struct LensOverlayData {
     char *name;
     unsigned char *data;
-    int width;
-    int height;
+    int64_t width;
+    int64_t height;
 };
 
 // Lens mist data structure
@@ -88,7 +88,7 @@ const struct LensOverlayData* get_lens_overlay_data(const char *name);
 // Get lens mist data by name (returns NULL if not found)
 const struct LensMistData* get_lens_mist_data(const char *name);
 
-extern short bad_icon_id;
+extern int64_t bad_icon_id;
 #ifdef __cplusplus
 }
 #endif

@@ -21,6 +21,9 @@ jobs:
     - name: Run layering check
       run: python3 scripts/check_layering.py --strict
 
+    - name: Forbid long/unsigned long (platform-dependent width)
+      run: python3 scripts/check_fixed_width.py --strict
+
   # docs/refactor/testing/: opt-in Catch2 unit-test harness for src/kfx_*/
   # libraries (stage 3: CI integration -- see
   # docs/refactor/testing/stage-01-framework-and-scaffold.md). Native Linux

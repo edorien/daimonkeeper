@@ -24,26 +24,26 @@ class IUIRenderer {
 public:
     virtual ~IUIRenderer() = default;
 
-    virtual TbResult SubmitRawSprite(int32_t x, int32_t y, const struct TbSprite* spr,
+    virtual TbResult SubmitRawSprite(int64_t x, int64_t y, const struct TbSprite* spr,
                                      KfxDrawState state);
-    virtual TbResult SubmitRawSpriteOneColour(int32_t x, int32_t y, const struct TbSprite* spr,
+    virtual TbResult SubmitRawSpriteOneColour(int64_t x, int64_t y, const struct TbSprite* spr,
                                               TbPixel colour, KfxDrawState state);
 
     // Drawn at an explicit size rather than the sprite's own.
-    virtual TbResult SubmitRawSpriteScaled(int32_t x, int32_t y, const struct TbSprite* spr,
-                                           int32_t w, int32_t h, KfxDrawState state);
-    virtual TbResult SubmitRawSpriteScaledOneColour(int32_t x, int32_t y, const struct TbSprite* spr,
-                                                    int32_t w, int32_t h, TbPixel colour,
+    virtual TbResult SubmitRawSpriteScaled(int64_t x, int64_t y, const struct TbSprite* spr,
+                                           int64_t w, int64_t h, KfxDrawState state);
+    virtual TbResult SubmitRawSpriteScaledOneColour(int64_t x, int64_t y, const struct TbSprite* spr,
+                                                    int64_t w, int64_t h, TbPixel colour,
                                                     KfxDrawState state);
-    virtual int      SubmitRawSpriteScaledRemap(int32_t x, int32_t y, const struct TbSprite* spr,
-                                                int32_t w, int32_t h, const TbPixel* cmap,
+    virtual int64_t      SubmitRawSpriteScaledRemap(int64_t x, int64_t y, const struct TbSprite* spr,
+                                                int64_t w, int64_t h, const TbPixel* cmap,
                                                 KfxDrawState state);
 
-    virtual void SubmitSolidBox(int32_t x, int32_t y, int32_t w, int32_t h,
+    virtual void SubmitSolidBox(int64_t x, int64_t y, int64_t w, int64_t h,
                                 TbPixel colour_idx, KfxDrawState state);
 
     /** Tile the GUI slab texture over a rect. */
-    virtual void SubmitSlabBackground(int32_t x, int32_t y, int32_t w, int32_t h);
+    virtual void SubmitSlabBackground(int64_t x, int64_t y, int64_t w, int64_t h);
 
     virtual const char* GetName() const { return "UI"; }
 };

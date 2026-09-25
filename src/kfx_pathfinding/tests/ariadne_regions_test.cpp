@@ -39,8 +39,8 @@ namespace {
 // Scratch triangle indices, far from every other ariadne_tringls_test.cpp/
 // ariadne_regions_test.cpp index (0-3, TRIANLGLES_COUNT-1) to avoid
 // cross-test collisions within the same binary run.
-constexpr long kTriA = 50000;
-constexpr long kTriB = 50001;
+constexpr int64_t kTriA = 50000;
+constexpr int64_t kTriB = 50001;
 
 struct ResetRegions {
     ResetRegions() {

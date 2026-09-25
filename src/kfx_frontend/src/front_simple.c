@@ -134,32 +134,32 @@ struct ActiveBitmap nocd_bmp;
  *
  * @return Returns true if the operation succeeds.
  */
-TbBool copy_raw8_image_to_screen_center(const unsigned char *buf, const int img_width, const int img_height)
+TbBool copy_raw8_image_to_screen_center(const unsigned char *buf, const int64_t img_width, const int64_t img_height)
 {
     // Get screen dimensions
-    int screen_width = LbScreenWidth();
-    int screen_height = LbScreenHeight();
+    int64_t screen_width = LbScreenWidth();
+    int64_t screen_height = LbScreenHeight();
 
     // Get the scaling ratios
-    float width_ratio = (float)screen_width / (float)img_width;
-    float height_ratio = (float)screen_height / (float)img_height;
+    double width_ratio = (double)screen_width / (double)img_width;
+    double height_ratio = (double)screen_height / (double)img_height;
 
     // Choose the smaller ratio to maintain the aspect ratio and fit the entire image
-    float ratio = width_ratio < height_ratio ? width_ratio : height_ratio;
+    double ratio = width_ratio < height_ratio ? width_ratio : height_ratio;
 
     // Calculate the scaled dimensions and round up
-    int scaled_width = ceil(img_width * ratio);
-    int scaled_height = ceil(img_height * ratio);
+    int64_t scaled_width = ceil(img_width * ratio);
+    int64_t scaled_height = ceil(img_height * ratio);
 
     // Calculate starting point coordinates to center the image
-    int coord_x = (screen_width - scaled_width) >> 1;
-    int coord_y = (screen_height - scaled_height) >> 1;
+    int64_t coord_x = (screen_width - scaled_width) >> 1;
+    int64_t coord_y = (screen_height - scaled_height) >> 1;
 
     // Debuglog
-    SYNCDBG(18, "Starting; src %d,%d dest %d,%d pos %d,%d",
-        (int)img_width, (int)img_height,
-        (int)scaled_width,  (int)scaled_height,
-        (int)coord_x,  (int)coord_y);
+    SYNCDBG(18, "Starting; src %" PRId64 ",%" PRId64 " dest %" PRId64 ",%" PRId64 " pos %" PRId64 ",%" PRId64,
+        (int64_t)img_width, (int64_t)img_height,
+        (int64_t)scaled_width,  (int64_t)scaled_height,
+        (int64_t)coord_x,  (int64_t)coord_y);
 
     // Lock the screen
     if (RendererLockFramebuffer() != Lb_SUCCESS)
@@ -181,7 +181,7 @@ TbBool copy_raw8_image_to_screen_center(const unsigned char *buf, const int img_
     return true;
 }
 
-TbBool show_rawimage_screen(unsigned char *raw,unsigned char *pal,int width,int height,TbClockMSec tmdelay)
+TbBool show_rawimage_screen(unsigned char *raw,unsigned char *pal,int64_t width,int64_t height,TbClockMSec tmdelay)
 {
     RendererPaletteSet(pal);
     TbClockMSec end_time = LbTimerClock() + tmdelay;
@@ -214,7 +214,7 @@ TbBool show_rawimage_screen(unsigned char *raw,unsigned char *pal,int width,int 
  * Resets bitmap screen structure to zero without freeing.
  * @return Returns true on success.
  */
-short clear_bitmap_screen(struct ActiveBitmap *actv_bmp)
+int64_t clear_bitmap_screen(struct ActiveBitmap *actv_bmp)
 {
   memset(actv_bmp, 0, sizeof(struct ActiveBitmap));
   return true;
@@ -224,7 +224,7 @@ short clear_bitmap_screen(struct ActiveBitmap *actv_bmp)
  * Frees memory used by bitmap screen and zeroes the data.
  * @return Returns true on success.
  */
-short free_bitmap_screen(struct ActiveBitmap *actv_bmp)
+int64_t free_bitmap_screen(struct ActiveBitmap *actv_bmp)
 {
   free(actv_bmp->raw_data);
   free(actv_bmp->pal_data);
@@ -235,7 +235,7 @@ short free_bitmap_screen(struct ActiveBitmap *actv_bmp)
  * Initializes bitmap screen. Loads all files and sets variables.
  * @return Returns true on success.
  */
-TbBool init_bitmap_screen(struct ActiveBitmap *actv_bmp,int stype)
+TbBool init_bitmap_screen(struct ActiveBitmap *actv_bmp,int64_t stype)
 {
   struct RawBitmap *rbmp;
 
@@ -253,9 +253,9 @@ TbBool init_bitmap_screen(struct ActiveBitmap *actv_bmp,int stype)
   actv_bmp->height = rbmp->height;
   actv_bmp->bpp = rbmp->bpp;
   actv_bmp->start_tm = LbTimerClock();
-  SYNCDBG(18,"Starting; src %d,%d bpp %d",(int)actv_bmp->width,(int)actv_bmp->height,(int)actv_bmp->bpp);
+  SYNCDBG(18,"Starting; src %" PRId64 ",%" PRId64 " bpp %" PRId64,(int64_t)actv_bmp->width,(int64_t)actv_bmp->height,(int64_t)actv_bmp->bpp);
   // Load PAL
-  int32_t ldsize = PALETTE_SIZE;
+  int64_t ldsize = PALETTE_SIZE;
   unsigned char* buf = load_data_file_to_buffer(&ldsize, rbmp->fgroup, "%s", rbmp->pal_fname);
   if (buf == NULL)
   {
@@ -299,7 +299,7 @@ TbBool draw_bitmap_screen(struct ActiveBitmap *actv_bmp)
  * @param actv_bmp The active bitmap structure to be re-drawn.
  * @return Returns true on success.
  */
-short redraw_bitmap_screen(struct ActiveBitmap *actv_bmp)
+int64_t redraw_bitmap_screen(struct ActiveBitmap *actv_bmp)
 {
     if (actv_bmp->raw_data == NULL)
       return false;
@@ -311,7 +311,7 @@ short redraw_bitmap_screen(struct ActiveBitmap *actv_bmp)
  * Shows active bitmap screen for specific time.
  * @return Returns true on success.
  */
-short show_bitmap_screen(struct ActiveBitmap *actv_bmp,TbClockMSec tmdelay)
+int64_t show_bitmap_screen(struct ActiveBitmap *actv_bmp,TbClockMSec tmdelay)
 {
     if (actv_bmp->pal_data == NULL)
       return false;
@@ -340,7 +340,7 @@ TbBool draw_clear_screen(void)
  * @param stype Bitmap screen type selector.
  * @return Returns true on success.
  */
-TbBool init_actv_bitmap_screen(int stype)
+TbBool init_actv_bitmap_screen(int64_t stype)
 {
     return init_bitmap_screen(&astd_bmp,stype);
 }
@@ -385,7 +385,7 @@ TbBool display_loading_screen(void)
 TbBool wait_for_installation_files(void)
 {
   char ffullpath[2048];
-  short was_locked = LbScreenIsLocked();
+  int64_t was_locked = LbScreenIsLocked();
   prepare_file_path_buf(ffullpath, sizeof(ffullpath), FGrp_StdData, "bluepal.dat");
   if ( LbFileExists(ffullpath) )
     return true;
@@ -398,12 +398,12 @@ TbBool wait_for_installation_files(void)
       return false;
   }
   draw_bitmap_screen(&nocd_bmp);
-  unsigned long counter = 0;
+  uint64_t counter = 0;
   while ( !exit_keeper )
   {
       if ( LbFileExists(ffullpath) )
         break;
-      for (unsigned int i = 0; i < 10; i++)
+      for (uint64_t i = 0; i < 10; i++)
       {
         redraw_bitmap_screen(&nocd_bmp);
         do
@@ -432,7 +432,7 @@ TbBool wait_for_installation_files(void)
           exit_keeper = 1;
       }
   }
-  SYNCMSG("Finished waiting for installation after %lu seconds",counter);
+  SYNCMSG("Finished waiting for installation after %" PRIu64 " seconds",(uint64_t)(counter));
   free_bitmap_screen(&nocd_bmp);
   if ( was_locked )
     RendererLockFramebuffer();

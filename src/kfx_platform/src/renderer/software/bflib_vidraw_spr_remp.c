@@ -59,11 +59,11 @@ extern "C" {
  * is already a resolved TbPixel per source byte (palette expansion + colour
  * remap folded into one lookup by the caller), so no expand_indexed_pixel()
  * here. */
-TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -72,14 +72,14 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanli
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             const unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -92,7 +92,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanli
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -109,8 +109,8 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanli
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 TbPixel ref = cmap[*sprdata];
@@ -133,7 +133,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanli
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -163,11 +163,11 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1RL(TbPixel *outbuf, int scanli
  * @return Gives 0 on success.
  */
 /* Ghost-only, same reasoning as LbSpriteDrawRemapUsingScalingUpDataTrans1RL(). */
-TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -176,14 +176,14 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanli
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             const unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -196,7 +196,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanli
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -213,8 +213,8 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanli
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 TbPixel ref = cmap[*sprdata];
@@ -237,7 +237,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanli
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -268,11 +268,11 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans1LR(TbPixel *outbuf, int scanli
  */
 /* Ghost-only (reversed ghost_blend_2 weighting), same reasoning as
  * LbSpriteDrawRemapUsingScalingUpDataTrans1RL(). */
-TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -281,14 +281,14 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanli
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             const unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -301,7 +301,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanli
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -318,8 +318,8 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanli
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 TbPixel ref = cmap[*sprdata];
@@ -342,7 +342,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanli
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -372,11 +372,11 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2RL(TbPixel *outbuf, int scanli
  * @return Gives 0 on success.
  */
 /* Ghost-only, same reasoning as LbSpriteDrawRemapUsingScalingUpDataTrans2RL(). */
-TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -385,14 +385,14 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanli
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
             const unsigned char *prevdata;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -405,7 +405,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanli
                 out_end = outbuf;
                 while ( 1 )
                 {
-                    long pxlen;
+                    int64_t pxlen;
                     pxlen = (signed char)*sprdata;
                     sprdata++;
                     if (pxlen == 0)
@@ -422,8 +422,8 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanli
                         for (;pxlen > 0; pxlen--)
                         {
                             xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > abs(scanline))
-                                xdup = abs(scanline)-xcurstep[0];
+                            if (xcurstep[0]+xdup > llabs(scanline))
+                                xdup = llabs(scanline)-xcurstep[0];
                             if (xdup > 0)
                             {
                                 TbPixel ref = cmap[*sprdata];
@@ -446,7 +446,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanli
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -474,11 +474,11 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataTrans2LR(TbPixel *outbuf, int scanli
  * @param cmap The colour remap table to be used.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -487,16 +487,16 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanlin
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int ycur;
-            int solid_len;
+            int64_t ycur;
+            int64_t solid_len;
             TbPixel * out_line;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -505,7 +505,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanlin
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -524,8 +524,8 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanlin
                     for(;pxlen > 0; pxlen--)
                     {
                         xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > abs(scanline))
-                            xdup = abs(scanline)-xcurstep[0];
+                        if (xcurstep[0]+xdup > llabs(scanline))
+                            xdup = llabs(scanline)-xcurstep[0];
                         if (xdup > 0)
                         {
                             TbPixel pxval = cmap[*sprdata];
@@ -566,7 +566,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanlin
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -594,11 +594,11 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidRL(TbPixel *outbuf, int scanlin
  * @param cmap The colour remap table to be used.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -607,16 +607,16 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanlin
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int ycur;
-            int solid_len;
+            int64_t ycur;
+            int64_t solid_len;
             TbPixel * out_line;
-            int xdup;
-            int ydup;
-            int32_t *xcurstep;
+            int64_t xdup;
+            int64_t ydup;
+            int64_t *xcurstep;
             ydup = ycurstep[1];
             if (ycurstep[0]+ydup > outheight)
                 ydup = outheight-ycurstep[0];
@@ -625,7 +625,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanlin
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -644,8 +644,8 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanlin
                     for(;pxlen > 0; pxlen--)
                     {
                         xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > abs(scanline))
-                            xdup = abs(scanline)-xcurstep[0];
+                        if (xcurstep[0]+xdup > llabs(scanline))
+                            xdup = llabs(scanline)-xcurstep[0];
                         if (xdup > 0)
                         {
                             TbPixel pxval = cmap[*sprdata];
@@ -684,7 +684,7 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanlin
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -714,11 +714,11 @@ TbResult LbSpriteDrawRemapUsingScalingUpDataSolidLR(TbPixel *outbuf, int scanlin
  * @return Gives 0 on success.
  */
 /* Ghost-only, same reasoning as LbSpriteDrawRemapUsingScalingUpDataTrans1RL(). */
-TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -727,17 +727,17 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1RL(TbPixel *outbuf, int scan
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -769,7 +769,7 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1RL(TbPixel *outbuf, int scan
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -799,11 +799,11 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1RL(TbPixel *outbuf, int scan
  * @return Gives 0 on success.
  */
 /* Ghost-only, same reasoning as LbSpriteDrawRemapUsingScalingUpDataTrans1RL(). */
-TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -812,17 +812,17 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1LR(TbPixel *outbuf, int scan
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -854,7 +854,7 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1LR(TbPixel *outbuf, int scan
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -890,11 +890,11 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans1LR(TbPixel *outbuf, int scan
  * overwritten by `pxmap = (pxmap & ~0xff00) | (dest << 8);`) discarded the
  * sprite's remapped colour entirely -- every sibling variant (Up Trans2RL/
  * LR, Down Trans2LR) omits that initial `<< 8`, this one alone had it. */
-TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2RL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -903,17 +903,17 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2RL(TbPixel *outbuf, int scan
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -945,7 +945,7 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2RL(TbPixel *outbuf, int scan
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -975,11 +975,11 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2RL(TbPixel *outbuf, int scan
  * @return Gives 0 on success.
  */
 /* Ghost-only, same reasoning as LbSpriteDrawRemapUsingScalingUpDataTrans2RL(). */
-TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2LR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -988,17 +988,17 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2LR(TbPixel *outbuf, int scan
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1030,7 +1030,7 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2LR(TbPixel *outbuf, int scan
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1058,11 +1058,11 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataTrans2LR(TbPixel *outbuf, int scan
  * @param cmap The colour remap table to be used.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawRemapUsingScalingDownDataSolidRL(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingDownDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     ystep_delta = 2;
     if (scanline < 0) {
@@ -1071,17 +1071,17 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidRL(TbPixel *outbuf, int scanl
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1116,7 +1116,7 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidRL(TbPixel *outbuf, int scanl
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1144,11 +1144,11 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidRL(TbPixel *outbuf, int scanl
  * @param cmap The colour remap table to be used.
  * @return Gives 0 on success.
  */
-TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int scanline, int outheight, int32_t *xstep, int32_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
     SYNCDBG(17,"Drawing");
-    int ystep_delta;
-    int32_t *ycurstep;
+    int64_t ystep_delta;
+    int64_t *ycurstep;
 
     if (!outbuf || !xstep || !ystep || !src_buf || !src_buf->data || !cmap)
         return -1;
@@ -1160,17 +1160,17 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int scanl
     const unsigned char * sprdata = src_buf->data;
     ycurstep = ystep;
 
-    for (int h = src_buf->height; h > 0; h--)
+    for (int64_t h = src_buf->height; h > 0; h--)
     {
         if (ycurstep[1] != 0)
         {
-            int32_t *xcurstep;
+            int64_t *xcurstep;
             xcurstep = xstep;
             TbPixel *out_end;
             out_end = outbuf;
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1205,7 +1205,7 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int scanl
         {
             while ( 1 )
             {
-                long pxlen;
+                int64_t pxlen;
                 pxlen = (signed char)*sprdata;
                 sprdata++;
                 if (pxlen == 0)
@@ -1232,14 +1232,14 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int scanl
  * @return Gives 0 on success.
  * @see LbSpriteSetScalingData()
  */
-TbResult LbSpriteDrawRemapUsingScalingData(long posx, long posy, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
+TbResult LbSpriteDrawRemapUsingScalingData(int64_t posx, int64_t posy, const struct TbSourceBuffer * src_buf, const TbPixel *cmap)
 {
-    SYNCDBG(17,"Drawing at (%ld,%ld)",posx,posy);
-    int32_t *xstep;
-    int32_t *ystep;
-    int scanline;
+    SYNCDBG(17,"Drawing at (%" PRId64 ",%" PRId64 ")",(int64_t)(posx),(int64_t)(posy));
+    int64_t *xstep;
+    int64_t *ystep;
+    int64_t scanline;
     TbPixel *outbuf;
-    int outheight;
+    int64_t outheight;
     setup_steps(posx, posy, src_buf, &xstep, &ystep, &scanline);
     setup_outbuf(xstep, ystep, &outbuf, &outheight);
     if ( scale_up )

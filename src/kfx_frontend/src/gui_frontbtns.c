@@ -44,10 +44,10 @@
 extern "C" {
 #endif
 /******************************************************************************/
-void gui_clear_buttons_not_over_mouse(int gmbtn_mouseover_idx)
+void gui_clear_buttons_not_over_mouse(int64_t gmbtn_mouseover_idx)
 {
     struct GuiButton *gbtn;
-    int gidx;
+    int64_t gidx;
     for (gidx=0;gidx<ACTIVE_BUTTONS_COUNT;gidx++)
     {
       gbtn = &active_buttons[gidx];
@@ -62,15 +62,15 @@ void gui_clear_buttons_not_over_mouse(int gmbtn_mouseover_idx)
     }
 }
 
-void fake_button_click(int gmbtn_idx)
+void fake_button_click(int64_t gmbtn_idx)
 {
-    int i;
+    int64_t i;
     for (i=0; i < ACTIVE_BUTTONS_COUNT; i++)
     {
         struct GuiButton *gbtn;
         gbtn = &active_buttons[i];
         struct GuiMenu *gmnu;
-        gmnu = &active_menus[(unsigned)gbtn->gmenu_idx];
+        gmnu = &active_menus[(uint64_t)gbtn->gmenu_idx];
         if (((gbtn->flags & LbBtnF_Active) != 0) && (gmnu->is_turned_on != 0) && (gbtn->id_num == gmbtn_idx))
         {
             if ((gbtn->click_event != NULL) || ((gbtn->flags & LbBtnF_Clickable) != 0) || (gbtn->parent_menu != NULL) || (gbtn->gbtype == LbBtnT_RadioBtn)) {
@@ -83,7 +83,7 @@ void fake_button_click(int gmbtn_idx)
     }
 }
 
-TbBool gui_button_release_inputs(int gmbtn_idx)
+TbBool gui_button_release_inputs(int64_t gmbtn_idx)
 {
     struct GuiButton *gbtn;
     SYNCDBG(17,"Starting");
@@ -115,19 +115,19 @@ TbBool gui_button_release_inputs(int gmbtn_idx)
     return false;
 }
 
-TbBool gui_slider_button_inputs(int gbtn_idx)
+TbBool gui_slider_button_inputs(int64_t gbtn_idx)
 {
     Gf_Btn_Callback callback;
-    int mouse_x;
-    int slide_start;
-    int slide_end;
+    int64_t mouse_x;
+    int64_t slide_start;
+    int64_t slide_end;
     struct GuiButton *gbtn;
     if (gbtn_idx < 0)
       return false;
     gbtn = &active_buttons[gbtn_idx];
     mouse_x = GetMouseX();
     gbtn->button_state_left_pressed = 1;
-    int bs_units_per_px;
+    int64_t bs_units_per_px;
     bs_units_per_px = simple_button_sprite_height_units_per_px(gbtn, GBS_frontend_button_std_c, 44);
     slide_start = gbtn->pos_x + 32*bs_units_per_px/16;
     slide_end = gbtn->pos_x + gbtn->width - 32*bs_units_per_px/16;
@@ -146,26 +146,26 @@ TbBool gui_slider_button_inputs(int gbtn_idx)
     {
         gbtn->slide_val = ((mouse_x-gbtn->pos_x) << 8) / (gbtn->width+1);
     }
-    gbtn->content.lval = (gbtn->slide_val) * (((long)gbtn->maxval)+1) >> 8;
+    gbtn->content.lval = (gbtn->slide_val) * (((int64_t)gbtn->maxval)+1) >> 8;
     callback = gbtn->click_event;
     if (callback != NULL)
       callback(gbtn);
     return true;
 }
 
-TbBool gui_slider_button_mouse_over_slider_tracker(int gbtn_idx)
+TbBool gui_slider_button_mouse_over_slider_tracker(int64_t gbtn_idx)
 {
     struct GuiButton *gbtn;
     if (gbtn_idx < 0)
       return false;
     gbtn = &active_buttons[gbtn_idx];
-    int bs_units_per_px;
+    int64_t bs_units_per_px;
     bs_units_per_px = gbtn->height * 16 / 22;
-    int slider_pos_x;
+    int64_t slider_pos_x;
     slider_pos_x = gbtn->scr_pos_x + 32*bs_units_per_px/16 + ((gbtn->slide_val)*(gbtn->width-64*bs_units_per_px/16) >> 8);
 
-    int mouse_x;
-    int mouse_y;
+    int64_t mouse_x;
+    int64_t mouse_y;
     mouse_x = GetMouseX();
     if ((mouse_x >= (slider_pos_x-11*bs_units_per_px/16)) && (mouse_x <= (slider_pos_x+11*bs_units_per_px/16)))
     {
@@ -180,7 +180,7 @@ TbBool gui_slider_button_mouse_over_slider_tracker(int gbtn_idx)
 void clear_radio_buttons(struct GuiMenu *gmnu)
 {
     struct GuiButton *gbtn;
-    int i;
+    int64_t i;
     for (i=0; i<ACTIVE_BUTTONS_COUNT; i++)
     {
         gbtn = &active_buttons[i];
@@ -196,7 +196,7 @@ void update_radio_button_data(struct GuiMenu *gmnu)
 {
     struct GuiButton *gbtn;
     unsigned char *rbstate;
-    int i;
+    int64_t i;
     for (i=0; i<ACTIVE_BUTTONS_COUNT; i++)
     {
         gbtn = &active_buttons[i];
@@ -214,7 +214,7 @@ void update_radio_button_data(struct GuiMenu *gmnu)
     }
 }
 
-TbBool gui_button_click_inputs(int gmbtn_idx)
+TbBool gui_button_click_inputs(int64_t gmbtn_idx)
 {
     TbBool result;
     struct GuiButton *gbtn;
@@ -225,7 +225,7 @@ TbBool gui_button_click_inputs(int gmbtn_idx)
     Gf_Btn_Callback callback;
     if (lbDisplay.MLeftButton)
     {
-        SYNCDBG(8,"Left down for button %d",(int)gmbtn_idx);
+        SYNCDBG(8,"Left down for button %" PRId64,(int64_t)gmbtn_idx);
         result = true;
         callback = gbtn->click_event;
         if ((callback != NULL) || ((gbtn->flags & LbBtnF_Clickable) != 0) ||
@@ -233,7 +233,7 @@ TbBool gui_button_click_inputs(int gmbtn_idx)
         {
             if ((gbtn->flags & LbBtnF_Enabled) != 0)
             {
-                SYNCDBG(18,"Left down action for type %d",(int)gbtn->gbtype);
+                SYNCDBG(18,"Left down action for type %" PRId64,(int64_t)gbtn->gbtype);
                 switch (gbtn->gbtype)
                 {
                 case LbBtnT_HoldableBtn:
@@ -254,12 +254,12 @@ TbBool gui_button_click_inputs(int gmbtn_idx)
     } else
     if (lbDisplay.MRightButton)
     {
-        SYNCDBG(8,"Right down for button %d",(int)gmbtn_idx);
+        SYNCDBG(8,"Right down for button %" PRId64,(int64_t)gmbtn_idx);
         result = true;
         callback = gbtn->rclick_event;
         if ((callback != NULL) && ((gbtn->flags & LbBtnF_Enabled) != 0))
         {
-            SYNCDBG(18,"Right down action for type %d",(int)gbtn->gbtype);
+            SYNCDBG(18,"Right down action for type %" PRId64,(int64_t)gbtn->gbtype);
             switch (gbtn->gbtype)
             {
             case LbBtnT_HoldableBtn:
@@ -279,7 +279,7 @@ TbBool gui_button_click_inputs(int gmbtn_idx)
     }
     if ( left_button_clicked )
     {
-        SYNCDBG(8,"Left click for button %d",(int)gmbtn_idx);
+        SYNCDBG(8,"Left click for button %" PRId64,(int64_t)gmbtn_idx);
         result = true;
         if (kfx_frontend_state.flash_button_index != 0)
         {
@@ -297,7 +297,7 @@ TbBool gui_button_click_inputs(int gmbtn_idx)
     } else
     if ( right_button_clicked )
     {
-        SYNCDBG(8,"Right click for button %d",(int)gmbtn_idx);
+        SYNCDBG(8,"Right click for button %" PRId64,(int64_t)gmbtn_idx);
         result = true;
         if (kfx_frontend_state.flash_button_index != 0)
         {
@@ -319,10 +319,10 @@ TbBool gui_button_click_inputs(int gmbtn_idx)
  * Returns index of an unused button slot.
  * @return
  */
-int guibutton_get_unused_slot(void)
+int64_t guibutton_get_unused_slot(void)
 {
     struct GuiButton *gbtn;
-    int i;
+    int64_t i;
     for (i=0; i<ACTIVE_BUTTONS_COUNT; i++)
     {
         gbtn = &active_buttons[i];
@@ -335,14 +335,14 @@ int guibutton_get_unused_slot(void)
 
 void init_slider_bars(struct GuiMenu *gmnu)
 {
-    for (int i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
+    for (int64_t i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
     {
         struct GuiButton *gbtn = &active_buttons[i];
         if (gbtn->gmenu_idx == gmnu->number)
         {
             if (gbtn->gbtype == LbBtnT_HorizSlider)
             {
-                long sldpos = clamp(gbtn->content.lval, 0, gbtn->maxval);
+                int64_t sldpos = clamp(gbtn->content.lval, 0, gbtn->maxval);
                 gbtn->slide_val = (sldpos << 8) / (gbtn->maxval + 1);
             }
         }
@@ -353,7 +353,7 @@ void init_menu_buttons(struct GuiMenu *gmnu)
 {
     struct GuiButton *gbtn;
     Gf_Btn_Callback callback;
-    int i;
+    int64_t i;
     for (i=0; i<ACTIVE_BUTTONS_COUNT; i++)
     {
       gbtn = &active_buttons[i];
@@ -382,7 +382,7 @@ void kill_button_area_input(void)
 void setup_radio_buttons(struct GuiMenu *gmnu)
 {
     struct GuiButton *gbtn;
-    int i;
+    int64_t i;
     for (i=0; i<ACTIVE_BUTTONS_COUNT; i++)
     {
         gbtn = &active_buttons[i];
@@ -407,8 +407,8 @@ void frontend_copy_background(void)
 void gui_round_glass_background(struct GuiMenu *gmnu)
 {
     SYNCDBG(19,"Starting");
-    int fade_h;
-    int i;
+    int64_t fade_h;
+    int64_t i;
     fade_h = 0;
     if (kfx_frontend_state.time_delta < 12)
     {
@@ -423,13 +423,13 @@ void gui_round_glass_background(struct GuiMenu *gmnu)
         {
             gmnu->visual_state = 2;
         } else {
-            fade_h = ((int)MyScreenHeight - (int)gmnu->pos_y) / i;
+            fade_h = ((int64_t)MyScreenHeight - (int64_t)gmnu->pos_y) / i;
             if (fade_h < 0)
                 fade_h = 0;
         }
     }
-    long px;
-    long py;
+    int64_t px;
+    int64_t py;
     switch (gmnu->visual_state)
     {
     case 3:
@@ -453,9 +453,9 @@ void gui_round_glass_background(struct GuiMenu *gmnu)
 void gui_pretty_background(struct GuiMenu *gmnu)
 {
     SYNCDBG(9,"Starting");
-    int fade_w;
-    int fade_h;
-    int i;
+    int64_t fade_w;
+    int64_t fade_h;
+    int64_t i;
     fade_w = 0;
     fade_h = 0;
     if (kfx_frontend_state.time_delta < 12)
@@ -479,10 +479,10 @@ void gui_pretty_background(struct GuiMenu *gmnu)
                 fade_h = 0;
         }
     }
-    long px;
-    long py;
-    int width;
-    int height;
+    int64_t px;
+    int64_t py;
+    int64_t width;
+    int64_t height;
     switch (gmnu->visual_state)
     {
     case 1:
@@ -508,8 +508,8 @@ void gui_pretty_background(struct GuiMenu *gmnu)
 void gui_area_new_normal_button(struct GuiButton *gbtn)
 {
     SYNCDBG(10,"Starting");
-    int i;
-    int ps_units_per_px;
+    int64_t i;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_width_units_per_px(gbtn, gbtn->sprite_idx+1, 100);
     if ((gbtn->flags & LbBtnF_Enabled) != 0)
     {
@@ -527,8 +527,8 @@ void gui_area_new_normal_button(struct GuiButton *gbtn)
 void gui_area_new_vertical_button(struct GuiButton *gbtn)
 {
     SYNCDBG(10,"Starting");
-    int i;
-    int ps_units_per_px;
+    int64_t i;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_height_units_per_px(gbtn, gbtn->sprite_idx+1, 100);
     if ((gbtn->flags & LbBtnF_Enabled) != 0)
     {
@@ -545,12 +545,12 @@ void gui_area_new_vertical_button(struct GuiButton *gbtn)
 
 void gui_draw_tab(struct GuiButton *gbtn)
 {
-    int i;
+    int64_t i;
     i = gbtn->sprite_idx;
     if (gbtn->gbtype == LbBtnT_ToggleBtn) {
         ERRORLOG("Cycle button cannot use this draw function!");
     }
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_width_units_per_px(gbtn, i, 100);
     if ((!gbtn->button_state_left_pressed) && (!gbtn->button_state_right_pressed))
         i++;
@@ -559,7 +559,7 @@ void gui_draw_tab(struct GuiButton *gbtn)
 
 void gui_area_new_null_button(struct GuiButton *gbtn)
 {
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_height_units_per_px(gbtn, gbtn->sprite_idx, 128);
     draw_gui_panel_sprite_left(gbtn->scr_pos_x, gbtn->scr_pos_y, ps_units_per_px, gbtn->sprite_idx);
 }
@@ -567,7 +567,7 @@ void gui_area_new_null_button(struct GuiButton *gbtn)
 void gui_area_compsetting_button(struct GuiButton *gbtn)
 {
     SYNCDBG(10,"Starting");
-    int spr_idx;
+    int64_t spr_idx;
     spr_idx = gbtn->sprite_idx;
     if (gbtn->gbtype == LbBtnT_ToggleBtn)
     {
@@ -581,7 +581,7 @@ void gui_area_compsetting_button(struct GuiButton *gbtn)
         }
     }
 
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_height_units_per_px(gbtn, spr_idx, 100);
     if ((gbtn->flags & LbBtnF_Enabled) == 0)
     {
@@ -600,7 +600,7 @@ void gui_area_compsetting_button(struct GuiButton *gbtn)
 void gui_area_creatrmodel_button(struct GuiButton *gbtn)
 {
     SYNCDBG(10,"Starting");
-    int spr_idx;
+    int64_t spr_idx;
     spr_idx = gbtn->sprite_idx;
     if (gbtn->gbtype == LbBtnT_ToggleBtn)
     {
@@ -613,7 +613,7 @@ void gui_area_creatrmodel_button(struct GuiButton *gbtn)
             ERRORLOG("Cycle button must have a non-zero MaxVal!");
         }
     }
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_width_units_per_px(gbtn, spr_idx, 138);
     if ((gbtn->flags & LbBtnF_Enabled) == 0)
     {
@@ -632,7 +632,7 @@ void gui_area_creatrmodel_button(struct GuiButton *gbtn)
 void gui_area_new_no_anim_button(struct GuiButton *gbtn)
 {
     SYNCDBG(10,"Starting");
-    int spr_idx;
+    int64_t spr_idx;
     spr_idx = gbtn->sprite_idx;
     if (gbtn->gbtype == LbBtnT_ToggleBtn)
     {
@@ -645,7 +645,7 @@ void gui_area_new_no_anim_button(struct GuiButton *gbtn)
             ERRORLOG("Cycle button must have a non-zero MaxVal!");
         }
     }
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_height_units_per_px(gbtn, spr_idx, 128);
     if ((gbtn->flags & LbBtnF_Enabled) == 0)
     {
@@ -663,7 +663,7 @@ void gui_area_new_no_anim_button(struct GuiButton *gbtn)
 
 void gui_area_no_anim_button(struct GuiButton *gbtn)
 {
-    int spr_idx;
+    int64_t spr_idx;
     spr_idx = gbtn->sprite_idx;
     if (gbtn->gbtype == LbBtnT_ToggleBtn)
     {
@@ -678,7 +678,7 @@ void gui_area_no_anim_button(struct GuiButton *gbtn)
             ERRORLOG("Cycle button must have a non-zero MaxVal!");
         }
     }
-    int bs_units_per_px;
+    int64_t bs_units_per_px;
     bs_units_per_px = simple_button_sprite_height_units_per_px(gbtn, spr_idx, 100);
     if ((gbtn->flags & LbBtnF_Enabled) == 0)
     {
@@ -695,13 +695,13 @@ void gui_area_no_anim_button(struct GuiButton *gbtn)
 
 void gui_area_normal_button(struct GuiButton *gbtn)
 {
-    int spr_idx;
+    int64_t spr_idx;
     spr_idx = gbtn->sprite_idx;
     if (gbtn->gbtype == LbBtnT_ToggleBtn)
     {
         ERRORLOG("Cycle button cannot have a normal button draw function!");
     }
-    int bs_units_per_px;
+    int64_t bs_units_per_px;
     bs_units_per_px = simple_button_sprite_width_units_per_px(gbtn, spr_idx, 114);
     if ((gbtn->flags & LbBtnF_Enabled) != 0)
     {
@@ -716,7 +716,7 @@ void gui_area_normal_button(struct GuiButton *gbtn)
 
 void frontend_over_button(struct GuiButton *gbtn)
 {
-    int i;
+    int64_t i;
 
     if (gbtn->gbtype == LbBtnT_EditBox)
       i = gbtn->btype_value & LbBFeF_IntValueMask;
@@ -727,9 +727,9 @@ void frontend_over_button(struct GuiButton *gbtn)
     frontend_mouse_over_button = i;
 }
 
-void frontend_draw_button(struct GuiButton *gbtn, unsigned short btntype, const char *text, unsigned int drw_flags)
+void frontend_draw_button(struct GuiButton *gbtn, int64_t btntype, const char *text, uint64_t drw_flags)
 {
-    static const long large_button_sprite_anims[] = {
+    static const int64_t large_button_sprite_anims[] = {
         GFS_hugebutton_a01l,
         GFS_hugebutton_a02l,
         GFS_hugebutton_a03l,
@@ -739,13 +739,13 @@ void frontend_draw_button(struct GuiButton *gbtn, unsigned short btntype, const 
         GFS_hugebutton_a03l,
         GFS_hugebutton_a02l,
     };
-    unsigned int febtn_idx;
-    unsigned int spridx;
-    int fntidx;
-    long x;
-    long y;
-    int h;
-    SYNCDBG(9,"Drawing type %d, text \"%s\"",(int)btntype,text);
+    uint64_t febtn_idx;
+    uint64_t spridx;
+    int64_t fntidx;
+    int64_t x;
+    int64_t y;
+    int64_t h;
+    SYNCDBG(9,"Drawing type %" PRId64 ", text \"%s\"",(int64_t)btntype,text);
     febtn_idx = gbtn->content.lval;
     if ((gbtn->flags & LbBtnF_Enabled) == 0)
     {
@@ -762,7 +762,7 @@ void frontend_draw_button(struct GuiButton *gbtn, unsigned short btntype, const 
     }
     const struct TbSprite *spr;
     // Detect scaling factor
-    int units_per_px;
+    int64_t units_per_px;
     units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
     x = gbtn->scr_pos_x;
     y = gbtn->scr_pos_y;
@@ -813,12 +813,12 @@ void frontend_draw_button(struct GuiButton *gbtn, unsigned short btntype, const 
  * hardcoded 0/1/2-repeat presets (small/large/vlarge) to an arbitrary
  * target width. Pure arithmetic, no rendering -- unit-tested directly.
  */
-int frontend_button_chrome_repeat_count(int width, int left_w, int right_w, int mid_w)
+int64_t frontend_button_chrome_repeat_count(int64_t width, int64_t left_w, int64_t right_w, int64_t mid_w)
 {
     if (mid_w <= 0)
         return 0;
-    int avail = width - left_w - right_w;
-    int repeats = (avail + mid_w / 2) / mid_w;
+    int64_t avail = width - left_w - right_w;
+    int64_t repeats = (avail + mid_w / 2) / mid_w;
     if (repeats < 0)
         repeats = 0;
     return repeats;
@@ -836,13 +836,13 @@ int frontend_button_chrome_repeat_count(int width, int left_w, int right_w, int 
  * the hitbox and, by callers positioning a sibling button, layout) from
  * what's actually drawn.
  */
-long frontend_button_chrome_fit_width(unsigned int spridx, int units_per_px, long min_width)
+int64_t frontend_button_chrome_fit_width(uint64_t spridx, int64_t units_per_px, int64_t min_width)
 {
-    int left_w = get_frontend_sprite(spridx)->SWidth * units_per_px / 16;
-    int right_w = get_frontend_sprite(spridx+2)->SWidth * units_per_px / 16;
-    int mid_w = get_frontend_sprite(spridx+1)->SWidth * units_per_px / 16;
-    int repeats = frontend_button_chrome_repeat_count((int)min_width, left_w, right_w, mid_w);
-    return (long)left_w + (long)repeats * (long)mid_w + (long)right_w;
+    int64_t left_w = get_frontend_sprite(spridx)->SWidth * units_per_px / 16;
+    int64_t right_w = get_frontend_sprite(spridx+2)->SWidth * units_per_px / 16;
+    int64_t mid_w = get_frontend_sprite(spridx+1)->SWidth * units_per_px / 16;
+    int64_t repeats = frontend_button_chrome_repeat_count((int64_t)min_width, left_w, right_w, mid_w);
+    return (int64_t)left_w + (int64_t)repeats * (int64_t)mid_w + (int64_t)right_w;
 }
 
 /**
@@ -852,22 +852,22 @@ long frontend_button_chrome_fit_width(unsigned int spridx, int units_per_px, lon
  * Returns the x position immediately after the drawn chrome, so a caller
  * can lay out an icon/caption relative to it.
  */
-long frontend_draw_button_chrome_flexible(struct GuiButton *gbtn, unsigned int spridx, int units_per_px)
+int64_t frontend_draw_button_chrome_flexible(struct GuiButton *gbtn, uint64_t spridx, int64_t units_per_px)
 {
     const struct TbSprite *spr;
-    long x = gbtn->scr_pos_x;
-    long y = gbtn->scr_pos_y;
+    int64_t x = gbtn->scr_pos_x;
+    int64_t y = gbtn->scr_pos_y;
 
     spr = get_frontend_sprite(spridx);
-    int left_w = spr->SWidth * units_per_px / 16;
+    int64_t left_w = spr->SWidth * units_per_px / 16;
     LbSpriteDrawResized(x, y, units_per_px, spr);
     x += left_w;
 
-    int right_w = get_frontend_sprite(spridx+2)->SWidth * units_per_px / 16;
+    int64_t right_w = get_frontend_sprite(spridx+2)->SWidth * units_per_px / 16;
     spr = get_frontend_sprite(spridx+1);
-    int mid_w = spr->SWidth * units_per_px / 16;
-    int repeats = frontend_button_chrome_repeat_count(gbtn->width, left_w, right_w, mid_w);
-    for (int i = 0; i < repeats; i++)
+    int64_t mid_w = spr->SWidth * units_per_px / 16;
+    int64_t repeats = frontend_button_chrome_repeat_count(gbtn->width, left_w, right_w, mid_w);
+    for (int64_t i = 0; i < repeats; i++)
     {
         LbSpriteDrawResized(x, y, units_per_px, spr);
         x += mid_w;
@@ -889,13 +889,13 @@ long frontend_draw_button_chrome_flexible(struct GuiButton *gbtn, unsigned int s
  */
 void frontend_draw_button_icon(struct GuiButton *gbtn)
 {
-    static const long large_button_sprite_anims[] = {
+    static const int64_t large_button_sprite_anims[] = {
         GFS_hugebutton_a01l, GFS_hugebutton_a02l, GFS_hugebutton_a03l, GFS_hugebutton_a04l,
         GFS_hugebutton_a05l, GFS_hugebutton_a04l, GFS_hugebutton_a03l, GFS_hugebutton_a02l,
     };
-    unsigned int febtn_idx = gbtn->content.lval;
-    unsigned int spridx;
-    int fntidx;
+    uint64_t febtn_idx = gbtn->content.lval;
+    uint64_t spridx;
+    int64_t fntidx;
     if ((gbtn->flags & LbBtnF_Enabled) == 0)
     {
         fntidx = 3;
@@ -910,16 +910,16 @@ void frontend_draw_button_icon(struct GuiButton *gbtn)
         }
     }
 
-    int units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
+    int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
     frontend_draw_button_chrome_flexible(gbtn, spridx, units_per_px);
 
-    long inset = 20 * units_per_px / 16;
-    long content_x = gbtn->scr_pos_x + inset;
+    int64_t inset = 20 * units_per_px / 16;
+    int64_t content_x = gbtn->scr_pos_x + inset;
     if (gbtn->sprite_idx > 0)
     {
-        int icon_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, gbtn->sprite_idx, 100);
+        int64_t icon_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, gbtn->sprite_idx, 100);
         const struct TbSprite *icon_spr = get_frontend_sprite(gbtn->sprite_idx);
-        long icon_y = gbtn->scr_pos_y + ((gbtn->height - icon_spr->SHeight * icon_units_per_px / 16) >> 1);
+        int64_t icon_y = gbtn->scr_pos_y + ((gbtn->height - icon_spr->SHeight * icon_units_per_px / 16) >> 1);
         LbSpriteDrawResized(content_x, icon_y, icon_units_per_px, icon_spr);
         content_x += icon_spr->SWidth * icon_units_per_px / 16 + inset;
     }
@@ -929,8 +929,8 @@ void frontend_draw_button_icon(struct GuiButton *gbtn)
     {
         RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
         LbTextSetFont(frontend_font[fntidx]);
-        int h = LbTextHeight(text) * units_per_px / 16;
-        long text_y = gbtn->scr_pos_y + ((gbtn->height - h) >> 1);
+        int64_t h = LbTextHeight(text) * units_per_px / 16;
+        int64_t text_y = gbtn->scr_pos_y + ((gbtn->height - h) >> 1);
         LbTextSetWindow(content_x, text_y, gbtn->width - (content_x - gbtn->scr_pos_x), h);
         LbTextDrawResized(0, 0, units_per_px, text);
     }
@@ -953,9 +953,9 @@ void frontend_draw_vlarge_menu_button(struct GuiButton *gbtn)
 void frontend_draw_scroll_box_tab(struct GuiButton *gbtn)
 {
     const struct TbSprite *spr;
-    long pos_x;
-    long pos_y;
-    int fs_units_per_px;
+    int64_t pos_x;
+    int64_t pos_y;
+    int64_t fs_units_per_px;
     fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugearea_thc_tx1_tc, 100);
     spr = get_frontend_sprite(GFS_hugearea_thc_tx1_tc);
     pos_x = gbtn->scr_pos_x;
@@ -976,7 +976,7 @@ void frontend_draw_scroll_box_tab(struct GuiButton *gbtn)
 
 void frontend_draw_scroll_box(struct GuiButton *gbtn)
 {
-    int height_lines;
+    int64_t height_lines;
     TbBool draw_scrollbar;
     switch (gbtn->content.lval)
     {
@@ -1018,8 +1018,8 @@ void frontend_draw_scroll_box(struct GuiButton *gbtn)
 
 void frontend_draw_slider_button(struct GuiButton *gbtn)
 {
-    long spr_idx;
-    long btn_id;
+    int64_t spr_idx;
+    int64_t btn_id;
     if ((gbtn->flags & LbBtnF_Enabled) != 0)
     {
         btn_id = gbtn->content.lval;
@@ -1045,7 +1045,7 @@ void frontend_draw_slider_button(struct GuiButton *gbtn)
     if (spr_idx > 0)
     {
         // Detect scaling factor
-        int units_per_px;
+        int64_t units_per_px;
         units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, spr_idx, 100);
         draw_frontend_sprite_left(gbtn->scr_pos_x, gbtn->scr_pos_y, units_per_px, spr_idx);
     }
@@ -1053,7 +1053,7 @@ void frontend_draw_slider_button(struct GuiButton *gbtn)
 
 void gui_area_null(struct GuiButton *gbtn)
 {
-    int bs_units_per_px;
+    int64_t bs_units_per_px;
     bs_units_per_px = simple_button_sprite_height_units_per_px(gbtn, gbtn->sprite_idx, 100);
     if ((gbtn->flags & LbBtnF_Enabled) != 0)
     {
@@ -1074,7 +1074,7 @@ void reset_scroll_window(struct GuiMenu *gmnu)
 
 void gui_set_menu_mode(struct GuiButton *gbtn)
 {
-    long mnu_idx = gbtn->btype_value & LbBFeF_IntValueMask;
+    int64_t mnu_idx = gbtn->btype_value & LbBFeF_IntValueMask;
     if (mnu_idx == GMnu_SPELL)
     {
         if (menu_is_active(GMnu_SPELL2))
@@ -1102,9 +1102,9 @@ void gui_set_menu_mode(struct GuiButton *gbtn)
 void gui_area_flash_cycle_button(struct GuiButton *gbtn)
 {
     SYNCDBG(10,"Starting");
-    int spr_idx;
+    int64_t spr_idx;
     spr_idx = gbtn->sprite_idx;
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     ps_units_per_px = simple_gui_panel_sprite_width_units_per_px(gbtn, spr_idx, 113);
     if ((gbtn->flags & LbBtnF_Enabled) != 0)
     {
@@ -1131,9 +1131,9 @@ void gui_area_flash_cycle_button(struct GuiButton *gbtn)
     SYNCDBG(12,"Finished");
 }
 
-struct GuiButton* get_gui_button(int id)
+struct GuiButton* get_gui_button(int64_t id)
 {
-    for (int i=0; i < ACTIVE_BUTTONS_COUNT; i++)
+    for (int64_t i=0; i < ACTIVE_BUTTONS_COUNT; i++)
     {
         struct GuiButton *gbtn = &active_buttons[i];
         if (gbtn->id_num == id)
@@ -1144,9 +1144,9 @@ struct GuiButton* get_gui_button(int id)
     return NULL;
 }
 
-struct GuiButtonInit * get_gui_button_init(struct GuiMenu * menu, int id)
+struct GuiButtonInit * get_gui_button_init(struct GuiMenu * menu, int64_t id)
 {
-    for (int i = 0 ;; i++)
+    for (int64_t i = 0 ;; i++)
     {
         struct GuiButtonInit * button = &menu->buttons[i];
         if (button->gbtype < 0) {
@@ -1158,19 +1158,19 @@ struct GuiButtonInit * get_gui_button_init(struct GuiMenu * menu, int id)
     }
 }
 
-void gui_draw_scroll_box(struct GuiButton *gbtn, int height_lines, TbBool draw_scrollbar)
+void gui_draw_scroll_box(struct GuiButton *gbtn, int64_t height_lines, TbBool draw_scrollbar)
 {
     const struct TbSprite *spr;
-    long pos_x;
-    long pos_y = gbtn->scr_pos_y;
-    long spr_idx;
-    long secspr_idx;
-    long i;
-    long delta;
+    int64_t pos_x;
+    int64_t pos_y = gbtn->scr_pos_y;
+    int64_t spr_idx;
+    int64_t secspr_idx;
+    int64_t i;
+    int64_t delta;
     // Detect scaling factor is quite complicated for this item
-    int units_per_px;
+    int64_t units_per_px;
     {
-        int orig_size = 0;
+        int64_t orig_size = 0;
         spr = get_frontend_sprite(GFS_hugearea_thn_cor_ml);
         for (i=0; i < 6; i++)
         {
@@ -1254,19 +1254,19 @@ void gui_draw_scroll_box(struct GuiButton *gbtn, int height_lines, TbBool draw_s
  * width without ever losing its left or right border, unlike clipping
  * straight across the whole 6-sprite sequence. Returns the row's height.
  */
-static long gui_draw_scroll_box_row(long pos_y, long width, int units_per_px, long base_spr_idx)
+static int64_t gui_draw_scroll_box_row(int64_t pos_y, int64_t width, int64_t units_per_px, int64_t base_spr_idx)
 {
     const struct TbSprite *lspr = get_frontend_sprite(base_spr_idx);
     const struct TbSprite *rspr = get_frontend_sprite(base_spr_idx + 5);
-    long row_h = lspr->SHeight * units_per_px / 16;
-    long left_w = lspr->SWidth * units_per_px / 16;
-    long right_w = rspr->SWidth * units_per_px / 16;
+    int64_t row_h = lspr->SHeight * units_per_px / 16;
+    int64_t left_w = lspr->SWidth * units_per_px / 16;
+    int64_t right_w = rspr->SWidth * units_per_px / 16;
 
     LbSpriteDrawResized(0, pos_y, units_per_px, lspr);
 
-    long x = left_w;
-    long fill_end = width - right_w;
-    int tile = 0;
+    int64_t x = left_w;
+    int64_t fill_end = width - right_w;
+    int64_t tile = 0;
     while (x < fill_end)
     {
         const struct TbSprite *tspr = get_frontend_sprite(base_spr_idx + 1 + (tile % 4));
@@ -1299,9 +1299,9 @@ static long gui_draw_scroll_box_row(long pos_y, long width, int units_per_px, lo
 void gui_draw_scroll_box_cropped(struct GuiButton *gbtn, TbBool draw_scrollbar)
 {
     const struct TbSprite *spr;
-    long pos_y;
-    long spr_idx;
-    const int units_per_px = 16;
+    int64_t pos_y;
+    int64_t spr_idx;
+    const int64_t units_per_px = 16;
 
     // Once a graphics window is active, draw coordinates are relative to
     // the window's own origin, not absolute screen position (confirmed
@@ -1315,14 +1315,14 @@ void gui_draw_scroll_box_cropped(struct GuiButton *gbtn, TbBool draw_scrollbar)
 
     // Draw top border
     pos_y = 0;
-    long top_h = gui_draw_scroll_box_row(pos_y, gbtn->width, units_per_px, GFS_hugearea_thn_cor_tl);
+    int64_t top_h = gui_draw_scroll_box_row(pos_y, gbtn->width, units_per_px, GFS_hugearea_thn_cor_tl);
     if ( draw_scrollbar )
         draw_frontend_sprite_left(gbtn->width, pos_y - units_per_px/16, units_per_px, GFS_scrollbar_toparrow_std);
     pos_y += top_h;
 
     spr = get_frontend_sprite(GFS_hugearea_thn_cor_bl);
-    long bottom_h = spr->SHeight * units_per_px / 16;
-    long target_y = gbtn->height - bottom_h;
+    int64_t bottom_h = spr->SHeight * units_per_px / 16;
+    int64_t target_y = gbtn->height - bottom_h;
 
     // Draw inside -- prefer the taller "long" 3-line row group while it
     // still fits the remaining room, same choice gui_draw_scroll_box makes
@@ -1330,14 +1330,14 @@ void gui_draw_scroll_box_cropped(struct GuiButton *gbtn, TbBool draw_scrollbar)
     // pixel height here instead.
     while (pos_y < target_y)
     {
-        long remaining = target_y - pos_y;
+        int64_t remaining = target_y - pos_y;
         spr = get_frontend_sprite(GFS_hugearea_thc_cor_ml);
         long long_h = spr->SHeight * units_per_px / 16;
         spr_idx = (long_h <= remaining) ? GFS_hugearea_thc_cor_ml : GFS_hugearea_thn_cor_ml;
-        long row_h = gui_draw_scroll_box_row(pos_y, gbtn->width, units_per_px, spr_idx);
+        int64_t row_h = gui_draw_scroll_box_row(pos_y, gbtn->width, units_per_px, spr_idx);
         if ( draw_scrollbar )
         {
-            long secspr_idx = (spr_idx == GFS_hugearea_thc_cor_ml) ? GFS_scrollbar_vert_ct_long : GFS_scrollbar_vert_ct_short;
+            int64_t secspr_idx = (spr_idx == GFS_hugearea_thc_cor_ml) ? GFS_scrollbar_vert_ct_long : GFS_scrollbar_vert_ct_short;
             draw_frontend_sprite_left(gbtn->width, pos_y, units_per_px, secspr_idx);
         }
         pos_y += row_h;

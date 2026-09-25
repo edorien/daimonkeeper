@@ -35,10 +35,10 @@ struct Thing;
 /******************************************************************************/
 TbBool creature_can_do_scavenging(const struct Thing *creatng);
 TbBool player_can_afford_to_scavenge_creature(const struct Thing *creatng);
-short at_scavenger_room(struct Thing *thing);
-short creature_being_scavenged(struct Thing *thing);
-short creature_scavenged_disappear(struct Thing *thing);
-short creature_scavenged_reappear(struct Thing *thing);
+int64_t at_scavenger_room(struct Thing *thing);
+int64_t creature_being_scavenged(struct Thing *thing);
+int64_t creature_scavenged_disappear(struct Thing *thing);
+int64_t creature_scavenged_reappear(struct Thing *thing);
 CrCheckRet process_scavenge_function(struct Thing *thing);
 CrStateRet scavengering(struct Thing *thing);
 /******************************************************************************/

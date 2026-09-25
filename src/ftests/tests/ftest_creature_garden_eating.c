@@ -77,7 +77,7 @@ FTestActionResult ftest_creature_garden_eating_action001__setup(struct FTestActi
 
     if (!ftest_util_replace_slabs(garden_slb_x, garden_slb_y, garden_slb_x + GARDEN_SIZE, garden_slb_y + GARDEN_SIZE, SlbT_GARDEN, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build garden room at slab (%d,%d)", garden_slb_x, garden_slb_y);
+        FTEST_FAIL_TEST("Failed to build garden room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(garden_slb_x), (int64_t)(garden_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     set_room_available(PLAYER0, RoK_GARDEN, 1, 1);
@@ -151,7 +151,7 @@ FTestActionResult ftest_creature_garden_eating_action002__wait_for_eating(struct
         || creature->active_state == CrSt_CreatureArrivedAtGarden
         || creature->active_state == CrSt_CreatureEatingAtGarden)
     {
-        FTESTLOG("Creature reached garden-eating state %d at turn %d", (int)creature->active_state, get_gameturn());
+        FTESTLOG("Creature reached garden-eating state %" PRId64 " at turn %" PRId64, (int64_t)creature->active_state, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -160,7 +160,7 @@ FTestActionResult ftest_creature_garden_eating_action002__wait_for_eating(struct
     // re-fires every 128 turns per creature.
     if (get_gameturn() >= args->intended_start_at_game_turn + 600)
     {
-        FTEST_FAIL_TEST("Creature never reached a garden-eating state within the turn budget (active_state=%d)", (int)creature->active_state);
+        FTEST_FAIL_TEST("Creature never reached a garden-eating state within the turn budget (active_state=%" PRId64 ")", (int64_t)creature->active_state);
         return FTRs_Go_To_Next_Action;
     }
 

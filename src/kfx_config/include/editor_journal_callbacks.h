@@ -50,9 +50,9 @@ struct EditorJournalCallbacks {
        *ambient* pos_x/pos_y rather than a param, so replaying them
        correctly means overriding that field too, not just resending
        par1-4 (see editor_journal.cpp's own Redo comment). */
-    void (*record_placement)(long thing_idx, unsigned char pcktype,
-        unsigned long par1, unsigned long par2, unsigned short par3, unsigned short par4,
-        long pos_x, long pos_y);
+    void (*record_placement)(int64_t thing_idx, unsigned char pcktype,
+        uint64_t par1, uint64_t par2, int64_t par3, int64_t par4,
+        int64_t pos_x, int64_t pos_y);
     /* docs/refactor/editor/09-toolbox-remainder.md §1 -- rect-terrain-op
        undo/redo (PckA_EditorPlaceTerrainRect/_RectClearEarth/_RectSetOwner
        only -- PckA_EditorRectDeleteThings stays unjournaled, see this
@@ -70,14 +70,14 @@ struct EditorJournalCallbacks {
        trip. No-ops outside an active editor session, same convention as
        record_placement. */
     void (*record_rect_terrain)(unsigned char pcktype,
-        long box_beg_x, long box_beg_y, long box_end_x, long box_end_y,
+        int64_t box_beg_x, int64_t box_beg_y, int64_t box_end_x, int64_t box_end_y,
         SlabKind new_kind, PlayerNumber new_owner,
-        const struct EditorRectSlabSnapshot *before, long count);
+        const struct EditorRectSlabSnapshot *before, int64_t count);
     /* fx-plans/00 item A7 -- a door's lock is about to be toggled
        (Ctrl+click in the Door tool); `was_locked` is the state before.
        Called by the packet handler before it toggles. No-ops outside an
        active editor session. */
-    void (*record_door_lock)(long thing_idx, TbBool was_locked);
+    void (*record_door_lock)(int64_t thing_idx, TbBool was_locked);
 };
 void set_editor_journal_callbacks(const struct EditorJournalCallbacks *callbacks);
 extern const struct EditorJournalCallbacks *editor_journal;

@@ -34,14 +34,14 @@ extern "C" {
 
 struct InitActionPoint {
     struct Coord2d mappos;
-    unsigned short range;
+    int64_t range;
     ActionPointNumber num;
 };
 
 struct ActionPoint {
     TbBool exists;
     struct Coord2d mappos;
-    unsigned short range;
+    int64_t range;
     ActionPointNumber num;
     PlayerBitFlags activated;
 };

@@ -118,9 +118,9 @@ TEST_CASE_METHOD(RendererManagerFixture, "RendererDrawSlabBackground falls throu
 }
 
 TEST_CASE_METHOD(RendererManagerFixture, "RendererDrawSlabBackground calls a fake draw_slab_background_immediate with no UI renderer", "[kfx_platform][RendererManager]") {
-    static long g_last_x = -1, g_last_y = -1, g_last_w = -1, g_last_h = -1;
+    static int64_t g_last_x = -1, g_last_y = -1, g_last_w = -1, g_last_h = -1;
     struct RendererDrawCallbacks fake = {
-        [](long x, long y, long w, long h) {
+        [](int64_t x, int64_t y, int64_t w, int64_t h) {
             g_last_x = x; g_last_y = y; g_last_w = w; g_last_h = h;
         }
     };

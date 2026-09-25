@@ -76,7 +76,7 @@ FTestActionResult ftest_creature_training_action001__setup(struct FTestActionArg
 
     if (!ftest_util_replace_slabs(room_slb_x, room_slb_y, room_slb_x + TRAINING_SIZE, room_slb_y + TRAINING_SIZE, SlbT_TRAINING, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build training room at slab (%d,%d)", room_slb_x, room_slb_y);
+        FTEST_FAIL_TEST("Failed to build training room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(room_slb_x), (int64_t)(room_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     set_room_available(PLAYER0, RoK_TRAINING, 1, 1);
@@ -98,7 +98,7 @@ FTestActionResult ftest_creature_training_action001__setup(struct FTestActionArg
     }
 
     CreatureJob train_job = (CreatureJob)get_id(creaturejob_desc, "TRAIN");
-    if ((long)train_job == -1)
+    if ((int64_t)train_job == -1)
     {
         FTEST_FAIL_TEST("Failed to resolve TRAIN job id");
         return FTRs_Go_To_Next_Action;
@@ -134,7 +134,7 @@ FTestActionResult ftest_creature_training_action002__wait_for_training(struct FT
 
     if (creature->active_state == CrSt_AtTrainingRoom || creature->active_state == CrSt_Training)
     {
-        FTESTLOG("Creature reached training state %d at turn %d", (int)creature->active_state, get_gameturn());
+        FTESTLOG("Creature reached training state %" PRId64 " at turn %" PRId64, (int64_t)creature->active_state, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -143,7 +143,7 @@ FTestActionResult ftest_creature_training_action002__wait_for_training(struct FT
     // creature_states.c) only re-fires every 128 turns per creature.
     if (get_gameturn() >= args->intended_start_at_game_turn + 600)
     {
-        FTEST_FAIL_TEST("Creature never reached CrSt_AtTrainingRoom/CrSt_Training within the turn budget (active_state=%d)", (int)creature->active_state);
+        FTEST_FAIL_TEST("Creature never reached CrSt_AtTrainingRoom/CrSt_Training within the turn budget (active_state=%" PRId64 ")", (int64_t)creature->active_state);
         return FTRs_Go_To_Next_Action;
     }
 

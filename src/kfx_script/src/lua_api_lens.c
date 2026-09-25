@@ -36,9 +36,9 @@
 // Buffer metadata structure - mirrors LuaBufferInfo in LuaLensEffect.cpp
 typedef struct {
     unsigned char* data;
-    long width;
-    long height;
-    long pitch;
+    int64_t width;
+    int64_t height;
+    int64_t pitch;
 } LuaBufferInfo;
 
 // LUA state (stored for callbacks)
@@ -148,7 +148,7 @@ static int lua_Set_lens_draw_callback(lua_State *L)
     // Store callback in LUA registry for later invocation
     // This pushes the function to top of stack, then stores it and returns a reference
     lua_pushvalue(L, 2);  // Duplicate the function
-    int callback_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    int64_t callback_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     
     // Set the callback on the LuaLensEffect
     LuaLensEffect_SetDrawCallback(effect, callback_ref);
@@ -156,7 +156,7 @@ static int lua_Set_lens_draw_callback(lua_State *L)
     // Store LUA state for callbacks
     g_lua_state = L;
     
-    SYNCDBG(7, "LUA: SetLensDrawCallback('%s') successful (ref=%d)", lens_name, callback_ref);
+    SYNCDBG(7, "LUA: SetLensDrawCallback('%s') successful (ref=%" PRId64 ")", lens_name, (int64_t)(callback_ref));
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -188,7 +188,7 @@ static int lua_Set_active_lens(lua_State *L)
     
     if (lua_isnumber(L, 1)) {
         // Built-in lens by index
-        long lens_idx = luaL_checkinteger(L, 1);
+        int64_t lens_idx = luaL_checkinteger(L, 1);
         success = LensManager_SetLens(mgr, lens_idx);
     } else if (lua_isstring(L, 1)) {
         // Custom lens by name
@@ -223,7 +223,7 @@ static int lua_Get_active_lens(lua_State *L)
         return 1;
     }
     
-    long active_lens = LensManager_GetActiveLens(mgr);
+    int64_t active_lens = LensManager_GetActiveLens(mgr);
     
     // If it's a custom lens (-1), return the name instead of index
     if (active_lens == -1) {
@@ -316,7 +316,7 @@ static int lua_Set_lens_enabled(lua_State *L)
     const char* effect_type = luaL_checkstring(L, 1);
     TbBool enabled = lua_toboolean(L, 2);
     
-    SYNCDBG(7, "LUA: SetLensEnabled('%s', %d)", effect_type, enabled);
+    SYNCDBG(7, "LUA: SetLensEnabled('%s', %" PRId64 ")", effect_type, (int64_t)(enabled));
     
     // TODO: Implement SetEffectEnabled via C API
     // Need to expose LensManager_SetEffectEnabled in lens_api.c
@@ -381,21 +381,21 @@ static int lua_Copy_buffer(lua_State *L)
     
     // Buffers should have same dimensions
     if (src_info->width != dst_info->width || src_info->height != dst_info->height) {
-        WARNLOG("LUA: CopyBuffer dimension mismatch: src=%ldx%ld dst=%ldx%ld",
-               src_info->width, src_info->height, dst_info->width, dst_info->height);
+        WARNLOG("LUA: CopyBuffer dimension mismatch: src=%" PRId64 "x%" PRId64 " dst=%" PRId64 "x%" PRId64,
+               (int64_t)(src_info->width), (int64_t)(src_info->height), (int64_t)(dst_info->width), (int64_t)(dst_info->height));
         lua_pushboolean(L, 0);
         return 1;
     }
     
     // Copy row by row in case pitches differ
-    long width = src_info->width;
-    long height = src_info->height;
+    int64_t width = src_info->width;
+    int64_t height = src_info->height;
     unsigned char* src = src_info->data;
     unsigned char* dst = dst_info->data;
-    long src_pitch = src_info->pitch;
-    long dst_pitch = dst_info->pitch;
+    int64_t src_pitch = src_info->pitch;
+    int64_t dst_pitch = dst_info->pitch;
     
-    for (long y = 0; y < height; y++) {
+    for (int64_t y = 0; y < height; y++) {
         memcpy(dst + y * dst_pitch, src + y * src_pitch, width);
     }
     
@@ -435,19 +435,19 @@ static int lua_Submit_pixel_batch(lua_State *L)
     }
     
     unsigned char* buffer = buf_info->data;
-    int buf_width = (int)buf_info->width;
-    int buf_height = (int)buf_info->height;
-    int buf_pitch = (int)buf_info->pitch;
+    int64_t buf_width = (int64_t)buf_info->width;
+    int64_t buf_height = (int64_t)buf_info->height;
+    int64_t buf_pitch = (int64_t)buf_info->pitch;
     
     // Get number of operations (Lua 5.1 compatible)
 #if LUA_VERSION_NUM >= 502
-    int num_ops = (int)lua_rawlen(L, 2);
+    int64_t num_ops = (int64_t)lua_rawlen(L, 2);
 #else
-    int num_ops = (int)lua_objlen(L, 2);
+    int64_t num_ops = (int64_t)lua_objlen(L, 2);
 #endif
     
     // Process each operation
-    for (int i = 1; i <= num_ops; i++) {
+    for (int64_t i = 1; i <= num_ops; i++) {
         lua_rawgeti(L, 2, i);  // Get batch[i]
         
         if (!lua_istable(L, -1)) {
@@ -466,23 +466,23 @@ static int lua_Submit_pixel_batch(lua_State *L)
             lua_isnumber(L, -3) && lua_isnumber(L, -2) && 
             lua_isnumber(L, -1)) {
             
-            int x = (int)lua_tointeger(L, -5);
-            int y = (int)lua_tointeger(L, -4);
-            int w = (int)lua_tointeger(L, -3);
-            int h = (int)lua_tointeger(L, -2);
-            int color = (int)lua_tointeger(L, -1);
+            int64_t x = (int64_t)lua_tointeger(L, -5);
+            int64_t y = (int64_t)lua_tointeger(L, -4);
+            int64_t w = (int64_t)lua_tointeger(L, -3);
+            int64_t h = (int64_t)lua_tointeger(L, -2);
+            int64_t color = (int64_t)lua_tointeger(L, -1);
             
             // Clamp color to valid palette range
             if (color < 0) color = 0;
             if (color > 255) color = 255;
             
             // Fill rectangle (bounds checked, use pitch for row stride)
-            for (int dy = 0; dy < h; dy++) {
-                int py = y + dy;
+            for (int64_t dy = 0; dy < h; dy++) {
+                int64_t py = y + dy;
                 if (py < 0 || py >= buf_height) continue;
                 
-                for (int dx = 0; dx < w; dx++) {
-                    int px = x + dx;
+                for (int64_t dx = 0; dx < w; dx++) {
+                    int64_t px = x + dx;
                     if (px < 0 || px >= buf_width) continue;
                     
                     buffer[py * buf_pitch + px] = (unsigned char)color;
@@ -538,19 +538,19 @@ static int lua_Apply_color_offset_batch(lua_State *L)
     }
     
     unsigned char* buffer = buf_info->data;
-    int buf_width = (int)buf_info->width;
-    int buf_height = (int)buf_info->height;
-    int buf_pitch = (int)buf_info->pitch;
+    int64_t buf_width = (int64_t)buf_info->width;
+    int64_t buf_height = (int64_t)buf_info->height;
+    int64_t buf_pitch = (int64_t)buf_info->pitch;
     
     // Get number of operations (Lua 5.1 compatible)
 #if LUA_VERSION_NUM >= 502
-    int num_ops = (int)lua_rawlen(L, 2);
+    int64_t num_ops = (int64_t)lua_rawlen(L, 2);
 #else
-    int num_ops = (int)lua_objlen(L, 2);
+    int64_t num_ops = (int64_t)lua_objlen(L, 2);
 #endif
     
     // Process each operation
-    for (int i = 1; i <= num_ops; i++) {
+    for (int64_t i = 1; i <= num_ops; i++) {
         lua_rawgeti(L, 2, i);  // Get batch[i]
         
         if (!lua_istable(L, -1)) {
@@ -569,25 +569,25 @@ static int lua_Apply_color_offset_batch(lua_State *L)
             lua_isnumber(L, -3) && lua_isnumber(L, -2) && 
             lua_isnumber(L, -1)) {
             
-            int x = (int)lua_tointeger(L, -5);
-            int y = (int)lua_tointeger(L, -4);
-            int w = (int)lua_tointeger(L, -3);
-            int h = (int)lua_tointeger(L, -2);
-            int offset = (int)lua_tointeger(L, -1);  // Can be negative
+            int64_t x = (int64_t)lua_tointeger(L, -5);
+            int64_t y = (int64_t)lua_tointeger(L, -4);
+            int64_t w = (int64_t)lua_tointeger(L, -3);
+            int64_t h = (int64_t)lua_tointeger(L, -2);
+            int64_t offset = (int64_t)lua_tointeger(L, -1);  // Can be negative
             
             // Fill rectangle with color offset (bounds checked, read-modify-write)
-            for (int dy = 0; dy < h; dy++) {
-                int py = y + dy;
+            for (int64_t dy = 0; dy < h; dy++) {
+                int64_t py = y + dy;
                 if (py < 0 || py >= buf_height) continue;
                 
-                for (int dx = 0; dx < w; dx++) {
-                    int px = x + dx;
+                for (int64_t dx = 0; dx < w; dx++) {
+                    int64_t px = x + dx;
                     if (px < 0 || px >= buf_width) continue;
                     
                     // Read current pixel, apply offset, clamp, write back
-                    int pixel_idx = py * buf_pitch + px;
-                    int current = buffer[pixel_idx];
-                    int new_color = current + offset;
+                    int64_t pixel_idx = py * buf_pitch + px;
+                    int64_t current = buffer[pixel_idx];
+                    int64_t new_color = current + offset;
                     
                     // Clamp to valid palette range
                     if (new_color < 0) new_color = 0;
@@ -638,21 +638,21 @@ static int lua_Blend_color_batch(lua_State *L)
     }
     
     unsigned char* buffer = buf_info->data;
-    int buf_width = (int)buf_info->width;
-    int buf_height = (int)buf_info->height;
-    int buf_pitch = (int)buf_info->pitch;
+    int64_t buf_width = (int64_t)buf_info->width;
+    int64_t buf_height = (int64_t)buf_info->height;
+    int64_t buf_pitch = (int64_t)buf_info->pitch;
     
     const unsigned char* palette = RendererGetActivePalette();
 
     // Get number of operations
 #if LUA_VERSION_NUM >= 502
-    int num_ops = (int)lua_rawlen(L, 2);
+    int64_t num_ops = (int64_t)lua_rawlen(L, 2);
 #else
-    int num_ops = (int)lua_objlen(L, 2);
+    int64_t num_ops = (int64_t)lua_objlen(L, 2);
 #endif
     
     // Process each operation
-    for (int i = 1; i <= num_ops; i++) {
+    for (int64_t i = 1; i <= num_ops; i++) {
         lua_rawgeti(L, 2, i);
         
         if (!lua_istable(L, -1)) {
@@ -672,12 +672,12 @@ static int lua_Blend_color_batch(lua_State *L)
             lua_isnumber(L, -4) && lua_isnumber(L, -3) &&
             lua_isnumber(L, -2) && lua_isnumber(L, -1)) {
             
-            int x = (int)lua_tointeger(L, -6);
-            int y = (int)lua_tointeger(L, -5);
-            int w = (int)lua_tointeger(L, -4);
-            int h = (int)lua_tointeger(L, -3);
-            int target_color = (int)lua_tointeger(L, -2) & 0xFF;
-            int alpha = (int)lua_tointeger(L, -1);
+            int64_t x = (int64_t)lua_tointeger(L, -6);
+            int64_t y = (int64_t)lua_tointeger(L, -5);
+            int64_t w = (int64_t)lua_tointeger(L, -4);
+            int64_t h = (int64_t)lua_tointeger(L, -3);
+            int64_t target_color = (int64_t)lua_tointeger(L, -2) & 0xFF;
+            int64_t alpha = (int64_t)lua_tointeger(L, -1);
             
             // Clamp alpha
             if (alpha < 0) alpha = 0;
@@ -690,43 +690,43 @@ static int lua_Blend_color_batch(lua_State *L)
             }
             
             // Get target RGB
-            int target_r = palette[target_color * 3 + 0];
-            int target_g = palette[target_color * 3 + 1];
-            int target_b = palette[target_color * 3 + 2];
+            int64_t target_r = palette[target_color * 3 + 0];
+            int64_t target_g = palette[target_color * 3 + 1];
+            int64_t target_b = palette[target_color * 3 + 2];
             
             // Fill rectangle with alpha blending
-            for (int dy = 0; dy < h; dy++) {
-                int py = y + dy;
+            for (int64_t dy = 0; dy < h; dy++) {
+                int64_t py = y + dy;
                 if (py < 0 || py >= buf_height) continue;
                 
-                for (int dx = 0; dx < w; dx++) {
-                    int px = x + dx;
+                for (int64_t dx = 0; dx < w; dx++) {
+                    int64_t px = x + dx;
                     if (px < 0 || px >= buf_width) continue;
                     
-                    int pixel_idx = py * buf_pitch + px;
-                    int src_color = buffer[pixel_idx];
+                    int64_t pixel_idx = py * buf_pitch + px;
+                    int64_t src_color = buffer[pixel_idx];
                     
                     // Get source RGB
-                    int src_r = palette[src_color * 3 + 0];
-                    int src_g = palette[src_color * 3 + 1];
-                    int src_b = palette[src_color * 3 + 2];
+                    int64_t src_r = palette[src_color * 3 + 0];
+                    int64_t src_g = palette[src_color * 3 + 1];
+                    int64_t src_b = palette[src_color * 3 + 2];
                     
                     // Alpha blend: result = src * (1-alpha) + target * alpha
-                    int blend_r = ((src_r * (255 - alpha)) + (target_r * alpha)) / 255;
-                    int blend_g = ((src_g * (255 - alpha)) + (target_g * alpha)) / 255;
-                    int blend_b = ((src_b * (255 - alpha)) + (target_b * alpha)) / 255;
+                    int64_t blend_r = ((src_r * (255 - alpha)) + (target_r * alpha)) / 255;
+                    int64_t blend_g = ((src_g * (255 - alpha)) + (target_g * alpha)) / 255;
+                    int64_t blend_b = ((src_b * (255 - alpha)) + (target_b * alpha)) / 255;
                     
                     // Find closest palette color (simple linear search)
-                    int best_idx = 0;
-                    int best_dist = 0x7FFFFFFF;
-                    for (int c = 0; c < 256; c++) {
-                        int pr = palette[c * 3 + 0];
-                        int pg = palette[c * 3 + 1];
-                        int pb = palette[c * 3 + 2];
-                        int dr = blend_r - pr;
-                        int dg = blend_g - pg;
-                        int db = blend_b - pb;
-                        int dist = dr*dr + dg*dg + db*db;
+                    int64_t best_idx = 0;
+                    int64_t best_dist = 0x7FFFFFFF;
+                    for (int64_t c = 0; c < 256; c++) {
+                        int64_t pr = palette[c * 3 + 0];
+                        int64_t pg = palette[c * 3 + 1];
+                        int64_t pb = palette[c * 3 + 2];
+                        int64_t dr = blend_r - pr;
+                        int64_t dg = blend_g - pg;
+                        int64_t db = blend_b - pb;
+                        int64_t dist = dr*dr + dg*dg + db*db;
                         
                         if (dist < best_dist) {
                             best_dist = dist;
@@ -780,16 +780,16 @@ static int lua_Remap_pixel_batch(lua_State *L)
     }
     
     unsigned char* buffer = buf_info->data;
-    int buf_width = (int)buf_info->width;
-    int buf_height = (int)buf_info->height;
-    int buf_pitch = (int)buf_info->pitch;
+    int64_t buf_width = (int64_t)buf_info->width;
+    int64_t buf_height = (int64_t)buf_info->height;
+    int64_t buf_pitch = (int64_t)buf_info->pitch;
     
     // Load remap table ONCE (256 entries from arg 2)
     unsigned char remap[256];
-    for (int c = 0; c < 256; c++) {
+    for (int64_t c = 0; c < 256; c++) {
         lua_rawgeti(L, 2, c + 1);  // Lua arrays are 1-indexed
         if (lua_isnumber(L, -1)) {
-            int val = (int)lua_tointeger(L, -1);
+            int64_t val = (int64_t)lua_tointeger(L, -1);
             remap[c] = (unsigned char)(val & 0xFF);
         } else {
             remap[c] = (unsigned char)c;  // Identity mapping
@@ -799,13 +799,13 @@ static int lua_Remap_pixel_batch(lua_State *L)
     
     // Get number of operations (from arg 3)
 #if LUA_VERSION_NUM >= 502
-    int num_ops = (int)lua_rawlen(L, 3);
+    int64_t num_ops = (int64_t)lua_rawlen(L, 3);
 #else
-    int num_ops = (int)lua_objlen(L, 3);
+    int64_t num_ops = (int64_t)lua_objlen(L, 3);
 #endif
     
     // Process each operation using the shared remap table
-    for (int i = 1; i <= num_ops; i++) {
+    for (int64_t i = 1; i <= num_ops; i++) {
         lua_rawgeti(L, 3, i);
         
         if (!lua_istable(L, -1)) {
@@ -822,21 +822,21 @@ static int lua_Remap_pixel_batch(lua_State *L)
         if (lua_isnumber(L, -4) && lua_isnumber(L, -3) && 
             lua_isnumber(L, -2) && lua_isnumber(L, -1)) {
             
-            int x = (int)lua_tointeger(L, -4);
-            int y = (int)lua_tointeger(L, -3);
-            int w = (int)lua_tointeger(L, -2);
-            int h = (int)lua_tointeger(L, -1);
+            int64_t x = (int64_t)lua_tointeger(L, -4);
+            int64_t y = (int64_t)lua_tointeger(L, -3);
+            int64_t w = (int64_t)lua_tointeger(L, -2);
+            int64_t h = (int64_t)lua_tointeger(L, -1);
             
             // Apply remap to rectangle
-            for (int dy = 0; dy < h; dy++) {
-                int py = y + dy;
+            for (int64_t dy = 0; dy < h; dy++) {
+                int64_t py = y + dy;
                 if (py < 0 || py >= buf_height) continue;
                 
-                for (int dx = 0; dx < w; dx++) {
-                    int px = x + dx;
+                for (int64_t dx = 0; dx < w; dx++) {
+                    int64_t px = x + dx;
                     if (px < 0 || px >= buf_width) continue;
                     
-                    int pixel_idx = py * buf_pitch + px;
+                    int64_t pixel_idx = py * buf_pitch + px;
                     unsigned char src_color = buffer[pixel_idx];
                     buffer[pixel_idx] = remap[src_color];
                 }
@@ -883,27 +883,27 @@ static int lua_Build_darkening_lut(lua_State *L)
     lua_createtable(L, 256, 0);
     
     // For each palette color, blend toward black and find closest match
-    for (int i = 0; i < 256; i++) {
-        int src_r = palette[i * 3 + 0];
-        int src_g = palette[i * 3 + 1];
-        int src_b = palette[i * 3 + 2];
+    for (int64_t i = 0; i < 256; i++) {
+        int64_t src_r = palette[i * 3 + 0];
+        int64_t src_g = palette[i * 3 + 1];
+        int64_t src_b = palette[i * 3 + 2];
         
         // Blend toward black in RGB space
-        int target_r = (int)(src_r * (1.0 - strength));
-        int target_g = (int)(src_g * (1.0 - strength));
-        int target_b = (int)(src_b * (1.0 - strength));
+        int64_t target_r = (int64_t)(src_r * (1.0 - strength));
+        int64_t target_g = (int64_t)(src_g * (1.0 - strength));
+        int64_t target_b = (int64_t)(src_b * (1.0 - strength));
         
         // Find closest palette color using Euclidean distance
-        int best_idx = 0;
-        int best_dist = 999999;
-        for (int c = 0; c < 256; c++) {
-            int pr = palette[c * 3 + 0];
-            int pg = palette[c * 3 + 1];
-            int pb = palette[c * 3 + 2];
-            int dr = target_r - pr;
-            int dg = target_g - pg;
-            int db = target_b - pb;
-            int dist = dr*dr + dg*dg + db*db;
+        int64_t best_idx = 0;
+        int64_t best_dist = 999999;
+        for (int64_t c = 0; c < 256; c++) {
+            int64_t pr = palette[c * 3 + 0];
+            int64_t pg = palette[c * 3 + 1];
+            int64_t pb = palette[c * 3 + 2];
+            int64_t dr = target_r - pr;
+            int64_t dg = target_g - pg;
+            int64_t db = target_b - pb;
+            int64_t dist = dr*dr + dg*dg + db*db;
             
             if (dist < best_dist) {
                 best_dist = dist;
@@ -953,8 +953,8 @@ void Lens_register(lua_State *L)
         lua_register(L, lens_methods[i].name, lens_methods[i].func);
     }
     
-    SYNCDBG(7, "Registered %d lens API functions", 
-           (int)(sizeof(lens_methods)/sizeof(lens_methods[0]) - 1));
+    SYNCDBG(7, "Registered %" PRId64 " lens API functions", 
+           (int64_t)(sizeof(lens_methods)/sizeof(lens_methods[0]) - 1));
 }
 
 void Lens_cleanup_lua(void)

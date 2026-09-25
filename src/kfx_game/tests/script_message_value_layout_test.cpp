@@ -23,12 +23,12 @@ namespace {
 const LevelNumber kLevel = 9877;
 
 std::vector<std::string> g_messages;
-std::vector<int> g_icon_types;
+std::vector<int64_t> g_icon_types;
 
-void capture_message(char type, short idx, const char *text)
+void capture_message(char type, int64_t idx, const char *text)
 {
     g_messages.push_back(text != nullptr ? text : "<null>");
-    g_icon_types.push_back((int)type);
+    g_icon_types.push_back((int64_t)type);
 }
 
 struct Capture

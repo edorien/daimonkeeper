@@ -78,10 +78,10 @@ void draw_paused_caption(void)
     const ImGuiIO &io = ImGui::GetIO();
     // Centre within the 3D viewport (inset by the status panel on the
     // left) like the legacy draw, falling back to full-width centring.
-    const float left = (float)local_state.engine_window_x;
-    const float cx = left + (io.DisplaySize.x - left) * 0.5f;
-    ImGui::SetNextWindowPos(ImVec2(cx, 14.0f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
-    ImGui::SetNextWindowBgAlpha(0.62f);
+    const double left = (double)local_state.engine_window_x;
+    const double cx = left + (io.DisplaySize.x - left) * 0.5;
+    ImGui::SetNextWindowPos(ImVec2(cx, 14.0), ImGuiCond_Always, ImVec2(0.5, 0.0));
+    ImGui::SetNextWindowBgAlpha(0.62);
     if (ImGui::Begin("##ingame_paused", nullptr, kFlags))
     {
         FeStylePushFont(FeFont_Heading);
@@ -104,8 +104,8 @@ void draw_onscreen_banner(void)
         return;
 
     const ImGuiIO &io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
-    ImGui::SetNextWindowBgAlpha(banner ? 0.55f : 0.0f);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, 2.0), ImGuiCond_Always, ImVec2(0.5, 0.0));
+    ImGui::SetNextWindowBgAlpha(banner ? 0.55 : 0.0);
     if (ImGui::Begin("##ingame_onscreen_banner", nullptr, kFlags))
     {
         FeStylePushFont(FeFont_Body);
@@ -115,7 +115,7 @@ void draw_onscreen_banner(void)
             ImGui::TextUnformatted(get_string(GUIStr_NetOutOfSync));
         if (oos || seed)
         {
-            const ImU32 red = ImGui::GetColorU32(ImVec4(0.90f, 0.20f, 0.15f, 1.0f));
+            const ImU32 red = ImGui::GetColorU32(ImVec4(0.90, 0.20, 0.15, 1.0));
             if (oos)  { ImGui::PushStyleColor(ImGuiCol_Text, red); ImGui::TextUnformatted("OUT OF SYNC");      ImGui::PopStyleColor(); }
             if (seed) { ImGui::PushStyleColor(ImGuiCol_Text, red); ImGui::TextUnformatted("SEED OUT OF SYNC"); ImGui::PopStyleColor(); }
         }
@@ -135,8 +135,8 @@ void draw_mp_chat_line(void)
     char text[sizeof(player->mp_message_text) + 4];
     std::snprintf(text, sizeof(text), ">%s_", player->mp_message_text);
 
-    ImGui::SetNextWindowPos(ImVec2((float)status_panel_width + 10.0f, 6.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.55f);
+    ImGui::SetNextWindowPos(ImVec2((double)status_panel_width + 10.0, 6.0), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.55);
     if (ImGui::Begin("##ingame_mp_chat", nullptr, kFlags))
     {
         FeStylePushFont(FeFont_Body);
@@ -161,40 +161,40 @@ void draw_message_queue(void)
     // -- see ingame_imgui_frame()) instead of floating top-left offset by
     // panel *width* (Left/Right don't need this -- confirmed when Right
     // landed: this window was already independent of panel *position*).
-    float wrap_w;
+    double wrap_w;
     if (keeperfx_ui_config.hud_position == 3) // HudPos_Bottom
     {
         const HudRect &r = hud_layout_current().region[HudRegion_Messages];
-        ImGui::SetNextWindowPos(ImVec2(r.x0 + 4.0f, r.y0 + 2.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(r.w() - 8.0f, r.h() - 4.0f));
-        wrap_w = r.w() - 8.0f;
+        ImGui::SetNextWindowPos(ImVec2(r.x0 + 4.0, r.y0 + 2.0), ImGuiCond_Always);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(r.w() - 8.0, r.h() - 4.0));
+        wrap_w = r.w() - 8.0;
     }
     else
     {
-        const float left = (float)status_panel_width + 8.0f;
-        ImGui::SetNextWindowPos(ImVec2(left, 28.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(ImGui::GetIO().DisplaySize.x * 0.55f, FLT_MAX));
-        wrap_w = ImGui::GetIO().DisplaySize.x * 0.42f;
+        const double left = (double)status_panel_width + 8.0;
+        ImGui::SetNextWindowPos(ImVec2(left, 28.0), ImGuiCond_Always);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(ImGui::GetIO().DisplaySize.x * 0.55, FLT_MAX));
+        wrap_w = ImGui::GetIO().DisplaySize.x * 0.42;
     }
-    ImGui::SetNextWindowBgAlpha(0.0f); // text-on-3D, no plate (matches legacy)
+    ImGui::SetNextWindowBgAlpha(0.0); // text-on-3D, no plate (matches legacy)
     if (ImGui::Begin("##ingame_message_queue", nullptr, kFlags))
     {
         FeStylePushFont(FeFont_Body);
-        const float icon_h = ImGui::GetFontSize() * 1.5f;
-        for (int i = 0; i < kfx_sim_state.active_messages_count; i++)
+        const double icon_h = ImGui::GetFontSize() * 1.5;
+        for (int64_t i = 0; i < kfx_sim_state.active_messages_count; i++)
         {
             const struct GuiMessage *m = &kfx_sim_state.messages[i];
             if (m->target_idx != my_player_number && m->target_idx != -1)
                 continue;
 
-            const short icon = message_icon_spridx(i);
+            const int64_t icon = message_icon_spridx(i);
             if (icon >= 0)
             {
-                int sw = 0, sh = 0;
+                int64_t sw = 0, sh = 0;
                 void *tex = FeGuiPanelTexture(icon, &sw, &sh);
                 if (tex != nullptr && sw > 0 && sh > 0)
                 {
-                    const float w = icon_h * (float)sw / (float)sh;
+                    const double w = icon_h * (double)sw / (double)sh;
                     ImGui::Image((ImTextureID)(intptr_t)tex, ImVec2(w, icon_h));
                     ImGui::SameLine();
                 }
@@ -222,15 +222,15 @@ void draw_tooltip_overlay(void)
 
     const ImVec2 m = ImGui::GetMousePos();
     const ImGuiIO &io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(m.x + 14.0f, m.y + 20.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGui::SetNextWindowPos(ImVec2(m.x + 14.0, m.y + 20.0), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92);
     if (ImGui::Begin("##ingame_tooltip", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav
                      | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
                      | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_Tooltip))
     {
         FeStylePushFont(FeFont_Body);
-        ImGui::PushTextWrapPos(io.DisplaySize.x * 0.28f);
+        ImGui::PushTextWrapPos(io.DisplaySize.x * 0.28);
         char trimmed[TOOLTIP_MAX_LEN];
         ImGui::TextUnformatted(tooltip_without_control_hint(tool_tip_box.text, trimmed, sizeof(trimmed)));
         ImGui::PopTextWrapPos();

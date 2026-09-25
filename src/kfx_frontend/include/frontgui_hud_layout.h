@@ -1,6 +1,7 @@
 #ifndef FRONTGUI_HUD_LAYOUT_H
 #define FRONTGUI_HUD_LAYOUT_H
 
+#include <stdint.h>
 // Phase 4 (docs/refactor/ingame-gui/05-sidebar-frame-and-minimap.md §0):
 // the in-game HUD is composed of named regions, and a layout descriptor
 // assigns each one a screen rect. Region code lays out *within* its rect --
@@ -13,9 +14,9 @@
 
 #ifdef __cplusplus
 
-struct HudRect { float x0, y0, x1, y1;
-    float w() const { return x1 - x0; }
-    float h() const { return y1 - y0; } };
+struct HudRect { double x0, y0, x1, y1;
+    double w() const { return x1 - x0; }
+    double h() const { return y1 - y0; } };
 
 enum HudPanelLayout {
     HudLayout_VerticalRight = 0, // default -- current KeeperFX / DK1
@@ -77,7 +78,7 @@ struct HudLayout {
     // How far the 3D viewport must inset, on this layout's axis:
     // a left-edge width for VerticalRight, a bottom-edge height for
     // HorizontalBottom. Consumed via render_overlay->get_status_panel_width().
-    float viewport_inset;
+    double viewport_inset;
 };
 
 // Recompute every region rect for `kind` at the given display size.
@@ -88,7 +89,7 @@ struct HudLayout {
 // call it on resize / layout switch / width-mode / corner change, not per
 // frame.
 void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, float display_w, float display_h);
+                      HudMinimalCorner corner, double display_w, double display_h);
 
 // The process-wide current layout, rebuilt by hud_layout_frame() when
 // `kind`, `b_width_mode`, `corner`, or the display size changes.
@@ -96,7 +97,7 @@ void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_
 // laid out.
 const HudLayout &hud_layout_current(void);
 void hud_layout_frame(HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, float display_w, float display_h);
+                      HudMinimalCorner corner, double display_w, double display_h);
 inline const HudRect &hud_region_rect(HudRegion r) { return hud_layout_current().region[r]; }
 
 #endif // __cplusplus
@@ -106,7 +107,7 @@ inline const HudRect &hud_region_rect(HudRegion r) { return hud_layout_current()
 #ifdef __cplusplus
 extern "C" {
 #endif
-long hud_layout_viewport_inset(void);
+int64_t hud_layout_viewport_inset(void);
 #ifdef __cplusplus
 }
 #endif

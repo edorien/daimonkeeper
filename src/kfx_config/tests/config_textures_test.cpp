@@ -36,7 +36,7 @@ TEST_CASE_METHOD(ResetConfigState, "load_textureanim_config_file maps a texture 
     REQUIRE(keeper_textureanim_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/textureanim_minimal.toml", 0));
 
     // tex_no 0 ("texture544") occupies frame slots [0..7].
-    for (int frame = 0; frame < 8; frame++) {
+    for (int64_t frame = 0; frame < 8; frame++) {
         CHECK(kfx_config_state.texture_animation[frame] == 10 + frame);
     }
 }
@@ -46,7 +46,7 @@ TEST_CASE_METHOD(ResetConfigState, "load_textureanim_config_file leaves unconfig
 
     // tex_no 1 ("texture545") isn't in the fixture -- its 8 frame slots
     // (indices 8..15) should stay at their reset value.
-    for (int frame = 8; frame < 16; frame++) {
+    for (int64_t frame = 8; frame < 16; frame++) {
         CHECK(kfx_config_state.texture_animation[frame] == 0);
     }
 }

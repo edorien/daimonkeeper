@@ -39,7 +39,7 @@ struct ResetErrorStatsWithGameTurn : ResetErrorStats {
 // erstat[] is declared `extern ...[]` (incomplete array type), so
 // sizeof() isn't available at the test call site -- this must match the
 // real 10-entry initializer in gui_topmsg.c.
-constexpr int kNumStats = 10;
+constexpr int64_t kNumStats = 10;
 }
 
 TEST_CASE_METHOD(ResetErrorStats, "erstat_inc returns the count of new occurrences since the last flush", "[kfx_frontend][gui_topmsg]") {
@@ -62,16 +62,16 @@ TEST_CASE_METHOD(ResetErrorStats, "erstat_inc rejects an out-of-range stat_num w
 }
 
 TEST_CASE_METHOD(ResetErrorStats, "is_onscreen_msg_visible reflects whether a message timer is still counting down", "[kfx_frontend][gui_topmsg]") {
-    render_onscreen_msg_time = 0.0f;
+    render_onscreen_msg_time = 0.0;
     CHECK_FALSE(is_onscreen_msg_visible());
-    render_onscreen_msg_time = 1.0f;
+    render_onscreen_msg_time = 1.0;
     CHECK(is_onscreen_msg_visible());
 }
 
 TEST_CASE_METHOD(ResetErrorStats, "show_onscreen_msg formats the message and starts the timer at nturns", "[kfx_frontend][gui_topmsg]") {
-    render_onscreen_msg_time = 0.0f;
-    CHECK(show_onscreen_msg(5, "hello %d", 42));
-    CHECK(render_onscreen_msg_time == 5.0f);
+    render_onscreen_msg_time = 0.0;
+    CHECK(show_onscreen_msg(5, "hello %" PRId64, (int64_t)(42)));
+    CHECK(render_onscreen_msg_time == 5.0);
     CHECK(is_onscreen_msg_visible());
 }
 

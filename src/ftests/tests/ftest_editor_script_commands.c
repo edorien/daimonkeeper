@@ -24,7 +24,7 @@ extern "C" {
 
 struct ftest_editor_script_commands__variables
 {
-    int unused;
+    int64_t unused;
 };
 struct ftest_editor_script_commands__variables ftest_editor_script_commands__vars = { 0 };
 
@@ -45,15 +45,15 @@ FTestActionResult ftest_editor_script_commands_action001__catalogue_and_insert(s
         return FTRs_Go_To_Next_Action;
     }
 
-    int count = editor_command_browser_command_count();
+    int64_t count = editor_command_browser_command_count();
     if (count < 100)
     {
-        FTEST_FAIL_TEST("Command catalogue holds only %d commands", count);
+        FTEST_FAIL_TEST("Command catalogue holds only %" PRId64 " commands", (int64_t)(count));
         return FTRs_Go_To_Next_Action;
     }
     char other[1024];
-    int unclassified = editor_command_browser_unclassified(other, sizeof(other));
-    JUSTLOG("Script command catalogue: %d commands, %d unclassified: %s", count, unclassified, other);
+    int64_t unclassified = editor_command_browser_unclassified(other, sizeof(other));
+    JUSTLOG("Script command catalogue: %" PRId64 " commands, %" PRId64 " unclassified: %s", (int64_t)(count), (int64_t)(unclassified), other);
     if (unclassified > 0)
     {
         // Not fatal for users (they show under "Other"), but a new engine

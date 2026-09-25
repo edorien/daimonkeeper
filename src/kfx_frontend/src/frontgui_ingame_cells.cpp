@@ -14,27 +14,27 @@
 #include <cfloat>
 #include <cstdio>
 
-const unsigned int COL_CELL_DIM = IM_COL32(30, 23, 14, 235);
-const unsigned int COL_BORDER   = relief::accents().border;
-const unsigned int COL_SEL      = relief::accents().sel;
-const unsigned int COL_HOVER    = relief::accents().hover;
-const unsigned int COL_TEXT     = relief::accents().text;
-const unsigned int COL_SUBTEXT  = relief::accents().subtext;
-const unsigned int COL_HAVE     = relief::accents().have;
+const uint64_t COL_CELL_DIM = IM_COL32(30, 23, 14, 235);
+const uint64_t COL_BORDER   = relief::accents().border;
+const uint64_t COL_SEL      = relief::accents().sel;
+const uint64_t COL_HOVER    = relief::accents().hover;
+const uint64_t COL_TEXT     = relief::accents().text;
+const uint64_t COL_SUBTEXT  = relief::accents().subtext;
+const uint64_t COL_HAVE     = relief::accents().have;
 
 namespace {
 
 // The sidebar's scaled screen rect (== GMnu_MAIN's create_menu rect).
-struct { float x, y, w, h; } s_panel = { 0, 0, 0, 0 };
+struct { double x, y, w, h; } s_panel = { 0, 0, 0, 0 };
 
 } // namespace
 
-void fe_hud_set_panel_rect(float x, float y, float w, float h)
+void fe_hud_set_panel_rect(double x, double y, double w, double h)
 {
     s_panel = { x, y, w, h };
 }
 
-void fe_hud_get_panel_rect(float *x, float *y, float *w, float *h)
+void fe_hud_get_panel_rect(double *x, double *y, double *w, double *h)
 {
     if (x != nullptr) *x = s_panel.x;
     if (y != nullptr) *y = s_panel.y;
@@ -42,43 +42,43 @@ void fe_hud_get_panel_rect(float *x, float *y, float *w, float *h)
     if (h != nullptr) *h = s_panel.h;
 }
 
-ImVec2 grid_pt(float vx, float vy)
+ImVec2 grid_pt(double vx, double vy)
 {
-    return ImVec2(s_panel.x + vx * s_panel.w / 140.0f,
-                  s_panel.y + vy * s_panel.h / 400.0f);
+    return ImVec2(s_panel.x + vx * s_panel.w / 140.0,
+                  s_panel.y + vy * s_panel.h / 400.0);
 }
-ImVec2 grid_sz(float vw, float vh)
+ImVec2 grid_sz(double vw, double vh)
 {
-    return ImVec2(vw * s_panel.w / 140.0f, vh * s_panel.h / 400.0f);
+    return ImVec2(vw * s_panel.w / 140.0, vh * s_panel.h / 400.0);
 }
 
-void blit_fit_tex(ImDrawList *dl, void *tex, int w, int h, const ImVec2 &p0, const ImVec2 &sz,
-                  unsigned int tint)
+void blit_fit_tex(ImDrawList *dl, void *tex, int64_t w, int64_t h, const ImVec2 &p0, const ImVec2 &sz,
+                  uint64_t tint)
 {
     if (tex == nullptr || w <= 0 || h <= 0)
         return;
-    float iw = sz.x, ih = sz.y;
-    const float ar = (float)w / (float)h;
+    double iw = sz.x, ih = sz.y;
+    const double ar = (double)w / (double)h;
     if (iw / ih > ar) iw = ih * ar; else ih = iw / ar;
-    const ImVec2 ip0(p0.x + (sz.x - iw) * 0.5f, p0.y + (sz.y - ih) * 0.5f);
+    const ImVec2 ip0(p0.x + (sz.x - iw) * 0.5, p0.y + (sz.y - ih) * 0.5);
     dl->AddImage((ImTextureID)(intptr_t)tex, ip0, ImVec2(ip0.x + iw, ip0.y + ih),
                  ImVec2(0, 0), ImVec2(1, 1), tint);
 }
 
-void blit_fit(ImDrawList *dl, short spr, const ImVec2 &p0, const ImVec2 &sz, unsigned int tint)
+void blit_fit(ImDrawList *dl, int64_t spr, const ImVec2 &p0, const ImVec2 &sz, uint64_t tint)
 {
-    int w = 0, h = 0;
+    int64_t w = 0, h = 0;
     void *t = FeGuiPanelTexture(spr, &w, &h);
     blit_fit_tex(dl, t, w, h, p0, sz, tint);
 }
 
-void draw_big_glyph(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &sz, const char *g, unsigned int col)
+void draw_big_glyph(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &sz, const char *g, uint64_t col)
 {
     FeStylePushFont(FeFont_Heading);
     ImFont *font = ImGui::GetFont();
-    const float fs = sz.y * 0.70f;
-    const ImVec2 ts = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, g);
-    dl->AddText(font, fs, ImVec2(p0.x + (sz.x - ts.x) * 0.5f, p0.y + (sz.y - ts.y) * 0.5f), col, g);
+    const double fs = sz.y * 0.70;
+    const ImVec2 ts = font->CalcTextSizeA(fs, FLT_MAX, 0.0, g);
+    dl->AddText(font, fs, ImVec2(p0.x + (sz.x - ts.x) * 0.5, p0.y + (sz.y - ts.y) * 0.5), col, g);
     FeStylePopFont();
 }
 
@@ -87,13 +87,13 @@ void wrapped_tooltip(const char *s)
     if (s == nullptr || s[0] == '\0')
         return;
     ImGui::BeginTooltip();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 16.0f);
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 16.0);
     ImGui::TextUnformatted(s);
     ImGui::PopTextWrapPos();
     ImGui::EndTooltip();
 }
 
-int fe_hud_cell(const char *str_id, const ImVec2 &p0, const ImVec2 &sz, const FeHudCellOpts &o)
+int64_t fe_hud_cell(const char *str_id, const ImVec2 &p0, const ImVec2 &sz, const FeHudCellOpts &o)
 {
     ImGui::SetCursorScreenPos(p0);
     ImGui::PushID(str_id);
@@ -118,15 +118,15 @@ int fe_hud_cell(const char *str_id, const ImVec2 &p0, const ImVec2 &sz, const Fe
     else if (o.sprite != 0 && o.text != nullptr && o.text[0] != '\0')
     {
         // icon + label beside it (stat_cell).
-        blit_fit(dl, o.sprite, ImVec2(p0.x + 2.0f, p0.y + 2.0f), ImVec2(sz.y - 4.0f, sz.y - 4.0f), IM_COL32_WHITE);
+        blit_fit(dl, o.sprite, ImVec2(p0.x + 2.0, p0.y + 2.0), ImVec2(sz.y - 4.0, sz.y - 4.0), IM_COL32_WHITE);
         FeStylePushFont(FeFont_Body);
-        dl->AddText(ImVec2(p0.x + sz.y + 3.0f, p0.y + (sz.y - ImGui::GetFontSize()) * 0.5f), COL_TEXT, o.text);
+        dl->AddText(ImVec2(p0.x + sz.y + 3.0, p0.y + (sz.y - ImGui::GetFontSize()) * 0.5), COL_TEXT, o.text);
         FeStylePopFont();
     }
     else if (o.sprite != 0)
     {
         // centred aspect-fit icon (build_icon).
-        blit_fit(dl, o.sprite, ImVec2(p0.x + 3.0f, p0.y + 3.0f), ImVec2(sz.x - 6.0f, sz.y - 6.0f),
+        blit_fit(dl, o.sprite, ImVec2(p0.x + 3.0, p0.y + 3.0), ImVec2(sz.x - 6.0, sz.y - 6.0),
                  o.dim ? IM_COL32(255, 255, 255, 110) : IM_COL32_WHITE);
     }
     else if (o.glyph != nullptr)
@@ -136,26 +136,26 @@ int fe_hud_cell(const char *str_id, const ImVec2 &p0, const ImVec2 &sz, const Fe
     else if (o.text != nullptr && o.text[0] != '\0')
     {
         const ImVec2 ts = ImGui::CalcTextSize(o.text);
-        dl->AddText(ImVec2(p0.x + (sz.x - ts.x) * 0.5f, p0.y + (sz.y - ts.y) * 0.5f), COL_TEXT, o.text);
+        dl->AddText(ImVec2(p0.x + (sz.x - ts.x) * 0.5, p0.y + (sz.y - ts.y) * 0.5), COL_TEXT, o.text);
     }
 
     if (o.have_dot)
-        dl->AddCircleFilled(ImVec2(p0.x + 4.0f, p0.y + 4.0f), 2.5f, COL_HAVE);
+        dl->AddCircleFilled(ImVec2(p0.x + 4.0, p0.y + 4.0), 2.5, COL_HAVE);
     if (o.count > 0)
     {
-        char b[8]; std::snprintf(b, sizeof(b), "%d", o.count);
+        char b[8]; std::snprintf(b, sizeof(b), "%" PRId64, (int64_t)(o.count));
         FeStylePushFont(FeFont_Body);
         const ImVec2 ts = ImGui::CalcTextSize(b);
-        dl->AddText(ImVec2(p1.x - ts.x - 2.0f, p1.y - ts.y - 1.0f), COL_TEXT, b);
+        dl->AddText(ImVec2(p1.x - ts.x - 2.0, p1.y - ts.y - 1.0), COL_TEXT, b);
         FeStylePopFont();
     }
     if (o.hotkey != nullptr && o.hotkey[0] != '\0')
-        dl->AddText(ImVec2(p0.x + 3.0f, p0.y + 1.0f), relief::accents().hotkey, o.hotkey);
+        dl->AddText(ImVec2(p0.x + 3.0, p0.y + 1.0), relief::accents().hotkey, o.hotkey);
 
     if (!o.swallow)
     {
-        if (o.selected)   dl->AddRect(p0, p1, COL_SEL,   o.rounding, 0, 2.0f);
-        else if (hovered) dl->AddRect(p0, p1, COL_HOVER, o.rounding, 0, 2.0f);
+        if (o.selected)   dl->AddRect(p0, p1, COL_SEL,   o.rounding, 0, 2.0);
+        else if (hovered) dl->AddRect(p0, p1, COL_HOVER, o.rounding, 0, 2.0);
     }
 
     if (rclick)  return 2;
@@ -163,26 +163,26 @@ int fe_hud_cell(const char *str_id, const ImVec2 &p0, const ImVec2 &sz, const Fe
     return 0;
 }
 
-void fe_hud_bar(const ImVec2 &p0, const ImVec2 &p1, float frac, const FeHudBarOpts &o)
+void fe_hud_bar(const ImVec2 &p0, const ImVec2 &p1, double frac, const FeHudBarOpts &o)
 {
-    if (frac < 0.0f) frac = 0.0f;
-    if (frac > 1.0f) frac = 1.0f;
+    if (frac < 0.0) frac = 0.0;
+    if (frac > 1.0) frac = 1.0;
     ImDrawList *dl = ImGui::GetWindowDrawList();
     relief::well(dl, p0, p1, o.rounding);
-    if (frac > 0.0f)
+    if (frac > 0.0)
     {
         if (o.vertical)
-            dl->AddRectFilled(ImVec2(p0.x + 1.0f, p1.y - (p1.y - p0.y - 2.0f) * frac),
-                              ImVec2(p1.x - 1.0f, p1.y - 1.0f), o.fill, o.fill_rounding);
+            dl->AddRectFilled(ImVec2(p0.x + 1.0, p1.y - (p1.y - p0.y - 2.0) * frac),
+                              ImVec2(p1.x - 1.0, p1.y - 1.0), o.fill, o.fill_rounding);
         else
-            dl->AddRectFilled(ImVec2(p0.x + 1.0f, p0.y + 1.0f),
-                              ImVec2(p0.x + (p1.x - p0.x) * frac, p1.y - 1.0f), o.fill, o.fill_rounding);
+            dl->AddRectFilled(ImVec2(p0.x + 1.0, p0.y + 1.0),
+                              ImVec2(p0.x + (p1.x - p0.x) * frac, p1.y - 1.0), o.fill, o.fill_rounding);
     }
     if (o.label != nullptr && o.label[0] != '\0')
     {
         FeStylePushFont(FeFont_Caption);
         const ImVec2 ts = ImGui::CalcTextSize(o.label);
-        dl->AddText(ImVec2(p0.x + ((p1.x - p0.x) - ts.x) * 0.5f, p0.y + ((p1.y - p0.y) - ts.y) * 0.5f),
+        dl->AddText(ImVec2(p0.x + ((p1.x - p0.x) - ts.x) * 0.5, p0.y + ((p1.y - p0.y) - ts.y) * 0.5),
                     COL_TEXT, o.label);
         FeStylePopFont();
     }
@@ -214,19 +214,19 @@ GridGeom grid_geom(void)
         // (live-tested). Assume one shows: most room/spell/trap/creature
         // lists overflow a single row at this cell size anyway.
         g.cols    = 6;
-        g.pitch_x = (s_panel.w - ImGui::GetStyle().ScrollbarSize) / 6.0f;
-        g.cell_w  = g.pitch_x * 0.88f;
-        g.cell_h  = g.cell_w * (34.0f / 30.0f);   // same cell aspect as the 4-col grid
-        g.pitch_y = g.cell_h + 4.0f;
+        g.pitch_x = (s_panel.w - ImGui::GetStyle().ScrollbarSize) / 6.0;
+        g.cell_w  = g.pitch_x * 0.88;
+        g.cell_h  = g.cell_w * (34.0 / 30.0);   // same cell aspect as the 4-col grid
+        g.pitch_y = g.cell_h + 4.0;
     }
     else
     {
         g.cols = 4;
-        const ImVec2 cell = grid_sz(30.0f, 34.0f);
+        const ImVec2 cell = grid_sz(30.0, 34.0);
         g.cell_w  = cell.x;
         g.cell_h  = cell.y;
-        g.pitch_x = 32.0f * s_panel.w / 140.0f;
-        g.pitch_y = 38.0f * s_panel.h / 400.0f;
+        g.pitch_x = 32.0 * s_panel.w / 140.0;
+        g.pitch_y = 38.0 * s_panel.h / 400.0;
     }
     return g;
 }
@@ -250,21 +250,21 @@ GridGeom grid_begin(const char *id)
     else
     {
         r0 = grid_pt(tcl::BODY_X0, tcl::GRID_Y0);
-        r1 = grid_pt(136.0f, tcl::GRID_Y1);
+        r1 = grid_pt(136.0, tcl::GRID_Y1);
     }
     ImGui::SetCursorScreenPos(r0);
     ImGui::BeginChild(id, ImVec2(r1.x - r0.x, r1.y - r0.y), false, ImGuiWindowFlags_NoBackground);
     s_grid_base = ImGui::GetCursorScreenPos();
-    s_grid_base.x += grid_sz(2.0f, 0.0f).x;   // small left inset off the scroll edge
+    s_grid_base.x += grid_sz(2.0, 0.0).x;   // small left inset off the scroll edge
     return grid_geom();
 }
-ImVec2 grid_cell_pos(const GridGeom &g, int slot)
+ImVec2 grid_cell_pos(const GridGeom &g, int64_t slot)
 {
     return ImVec2(s_grid_base.x + (slot % g.cols) * g.pitch_x,
                   s_grid_base.y + (slot / g.cols) * g.pitch_y);
 }
-void grid_end(const GridGeom &g, int slots_used)
+void grid_end(const GridGeom &g, int64_t slots_used)
 {
-    ImGui::Dummy(ImVec2(1.0f, ((slots_used + g.cols - 1) / g.cols) * g.pitch_y + 4.0f));
+    ImGui::Dummy(ImVec2(1.0, ((slots_used + g.cols - 1) / g.cols) * g.pitch_y + 4.0));
     ImGui::EndChild();
 }

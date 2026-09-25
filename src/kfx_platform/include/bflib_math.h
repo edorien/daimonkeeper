@@ -31,8 +31,8 @@ extern "C" {
 /** Amount of fractional bits in resulting values of trigonometric operations. */
 #define LbFPMath_TrigmBits 16
 
-#define CEILING_POS(X) ((X-(int)(X)) > 0 ? (int)(X+1) : (int)(X))
-#define CEILING_NEG(X) ((X-(int)(X)) < 0 ? (int)(X-1) : (int)(X))
+#define CEILING_POS(X) ((X-(int64_t)(X)) > 0 ? (int64_t)(X+1) : (int64_t)(X))
+#define CEILING_NEG(X) ((X-(int64_t)(X)) < 0 ? (int64_t)(X-1) : (int64_t)(X))
 #define CEILING(X) ( ((X) > 0) ? CEILING_POS(X) : CEILING_NEG(X) )
 
 enum MathOperator {
@@ -57,8 +57,8 @@ enum MathOperator {
 };
 
 struct Proportion { // sizeof = 8
-    long base_value;
-    long distance_ratio;
+    int64_t base_value;
+    int64_t distance_ratio;
 };
 
 //extern struct Proportion proportions[513];
@@ -67,35 +67,35 @@ struct Proportion { // sizeof = 8
 
 /******************************************************************************/
 
-long LbSinL(long x);
-long LbCosL(long x);
-long LbSqrL(long x);
-int32_t LbArcTanAngle(int32_t x,int32_t y);
-long LbMathOperation(unsigned char opkind, long first_operand, long second_operand);
+int64_t LbSinL(int64_t x);
+int64_t LbCosL(int64_t x);
+int64_t LbSqrL(int64_t x);
+int64_t LbArcTanAngle(int64_t x,int64_t y);
+int64_t LbMathOperation(unsigned char opkind, int64_t first_operand, int64_t second_operand);
 /** Advance *seed and return a value in [0, range). Range and result are uint32_t (== the 32-bit `unsigned long`
  *  of the Windows build), not `unsigned long`: callers do arithmetic on the result (`RANDOM(11) - 5`,
  *  `(RANDOM(20) - 10) / 2`, ...) and on the range (a negative int converted to unsigned), and those wrap at
  *  32 bits there. With a 64-bit unsigned long the same source gave different numbers, i.e. a different
  *  simulation, on Linux. */
-uint32_t LbRandomSeries(uint32_t range, uint32_t *seed, const char *func_name, unsigned long place);
-TbBool LbNumberSignsSame(long num_a, long num_b);
-char LbCompareMultiplications(long mul1a, long mul1b, long mul2a, long mul2b);
-long LbDiagonalLength(long a, long b);
-float LbLerp(float low, float high, float interval);
-float LbFmodf(float x, float y);
-float lerp_angle(float from, float to, float weight);
+int64_t LbRandomSeries(int64_t range, uint32_t *seed, const char *func_name, uint64_t place);
+TbBool LbNumberSignsSame(int64_t num_a, int64_t num_b);
+char LbCompareMultiplications(int64_t mul1a, int64_t mul1b, int64_t mul2a, int64_t mul2b);
+int64_t LbDiagonalLength(int64_t a, int64_t b);
+double LbLerp(double low, double high, double interval);
+double LbFmodf(double x, double y);
+double lerp_angle(double from, double to, double weight);
 double fastPow(double a, double b);
 
 // Moved from engine_camera.h (stage 7 prep, docs/refactor/
 // stage-07-kfx-render.md) -- pure geometry/trig, no camera/rendering
 // dependency, used pervasively by kfx_sim.
-void angles_to_vector(short theta, short phi, long dist, struct ComponentVector *cvect);
-long get_angle_xy_to(const struct Coord3d *pos1, const struct Coord3d *pos2);
-long get_angle_yz_to(const struct Coord3d *pos1, const struct Coord3d *pos2);
+void angles_to_vector(int64_t theta, int64_t phi, int64_t dist, struct ComponentVector *cvect);
+int64_t get_angle_xy_to(const struct Coord3d *pos1, const struct Coord3d *pos2);
+int64_t get_angle_yz_to(const struct Coord3d *pos1, const struct Coord3d *pos2);
 MapCoordDelta get_2d_distance(const struct Coord3d *pos1, const struct Coord3d *pos2);
 MapCoordDelta get_2d_distance_squared(const struct Coord3d *pos1, const struct Coord3d *pos2);
-long get_angle_xy_to_vec(const struct CoordDelta3d *vec);
-long get_angle_yz_to_vec(const struct CoordDelta3d *vec);
+int64_t get_angle_xy_to_vec(const struct CoordDelta3d *vec);
+int64_t get_angle_yz_to_vec(const struct CoordDelta3d *vec);
 /******************************************************************************/
 #ifdef __cplusplus
 }

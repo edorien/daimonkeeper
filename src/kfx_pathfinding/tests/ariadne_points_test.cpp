@@ -63,5 +63,5 @@ TEST_CASE_METHOD(ResetPointPool, "point_dispose marks the point's y as the 0x800
     point_dispose(id);
     // Point::y is a signed short, so the 0x8000 sentinel wraps to -32768
     // once stored -- confirmed by running, not assumed from the literal.
-    CHECK(point_get(id)->y == (short)0x8000);
+    CHECK(point_get(id)->y == (int64_t)0x8000);
 }

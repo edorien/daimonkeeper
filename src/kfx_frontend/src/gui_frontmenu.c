@@ -58,7 +58,7 @@ struct GuiMenu *get_active_menu(MenuNumber num)
 // kfx_frontend-owned.
 void refresh_active_button_sprites_for_player(PlayerNumber plyr_idx)
 {
-    for (int btn_idx = 0; btn_idx < ACTIVE_BUTTONS_COUNT; btn_idx++) {
+    for (int64_t btn_idx = 0; btn_idx < ACTIVE_BUTTONS_COUNT; btn_idx++) {
         struct GuiButton *gbtn = &active_buttons[btn_idx];
         if ((gbtn->flags & LbBtnF_Active) == 0) {continue;}
         struct GuiMenu *gmnu = get_active_menu(gbtn->gmenu_idx);
@@ -70,9 +70,9 @@ void refresh_active_button_sprites_for_player(PlayerNumber plyr_idx)
     }
 }
 
-int first_monopoly_menu(void)
+int64_t first_monopoly_menu(void)
 {
-    for (int idx = 0; idx < ACTIVE_MENUS_COUNT; idx++)
+    for (int64_t idx = 0; idx < ACTIVE_MENUS_COUNT; idx++)
     {
         struct GuiMenu* gmnu = &active_menus[idx];
         if ((gmnu->visual_state != 0) && (gmnu->is_monopoly_menu != 0))
@@ -98,10 +98,10 @@ MenuNumber menu_id_to_number(MenuID menu_id)
  * @param x,y Screen coordinates to check.
  * @return Returns index of the menu, or -1 if there's no menu on this point.
  */
-int point_is_over_gui_menu(long x, long y)
+int64_t point_is_over_gui_menu(int64_t x, int64_t y)
 {
-    int gidx = MENU_INVALID_ID;
-    for (int idx = 0; idx < ACTIVE_MENUS_COUNT; idx++)
+    int64_t gidx = MENU_INVALID_ID;
+    for (int64_t idx = 0; idx < ACTIVE_MENUS_COUNT; idx++)
     {
         struct GuiMenu* gmnu = &active_menus[idx];
         if (gmnu->visual_state != 2)
@@ -119,10 +119,10 @@ int point_is_over_gui_menu(long x, long y)
         // already covers hover for migrated menus correctly.
         if (ingame_imgui_menu_active(gmnu->ident))
             continue;
-        short gx = gmnu->pos_x;
+        int64_t gx = gmnu->pos_x;
         if ((x >= gx) && (x < gx + gmnu->width))
         {
-            short gy = gmnu->pos_y;
+            int64_t gy = gmnu->pos_y;
             if ((y >= gy) && (y < gy + gmnu->height))
                 gidx = idx;
       }
@@ -132,15 +132,15 @@ int point_is_over_gui_menu(long x, long y)
 
 void update_busy_doing_gui_on_menu(void)
 {
-    long x = GetMouseX();
-    long y = GetMouseY();
+    int64_t x = GetMouseX();
+    int64_t y = GetMouseY();
     if (point_is_over_gui_box(x, y))
     {
         busy_doing_gui = 1;
     }
     else
     {
-        int gidx = point_is_over_gui_menu(x, y);
+        int64_t gidx = point_is_over_gui_menu(x, y);
         if (gidx == -1)
             busy_doing_gui = 0;
         else
@@ -150,11 +150,11 @@ void update_busy_doing_gui_on_menu(void)
 
 void turn_off_menu(MenuID mnu_idx)
 {
-    SYNCDBG(8,"Menu ID %d",(int)mnu_idx);
+    SYNCDBG(8,"Menu ID %" PRId64,(int64_t)mnu_idx);
     if ((mnu_idx == GMnu_VIDEO) || (mnu_idx == GMnu_SOUND))
         save_settings();
-    long menu_num = menu_id_to_number(mnu_idx);
-    SYNCDBG(8,"Menu number %d",(int)menu_num);
+    int64_t menu_num = menu_id_to_number(mnu_idx);
+    SYNCDBG(8,"Menu number %" PRId64,(int64_t)menu_num);
     if (menu_num >= 0)
     {
         if (game_is_busy_doing_gui_string_input())
@@ -192,7 +192,7 @@ void turn_off_query_menus(void)
 
 void turn_off_all_panel_menus(void)
 {
-    int mnu_num = menu_id_to_number(GMnu_MAIN);
+    int64_t mnu_num = menu_id_to_number(GMnu_MAIN);
     if (mnu_num >= 0)
     {
         struct GuiMenu* gmnu = get_active_menu(mnu_num);
@@ -252,7 +252,7 @@ void turn_off_all_panel_menus(void)
   }
 }
 
-void set_menu_mode(long mnu_idx)
+void set_menu_mode(int64_t mnu_idx)
 {
   if (!menu_is_active(mnu_idx))
   {
@@ -261,9 +261,9 @@ void set_menu_mode(long mnu_idx)
   }
 }
 
-short turn_off_all_window_menus(void)
+int64_t turn_off_all_window_menus(void)
 {
-    short result = false;
+    int64_t result = false;
     if (menu_is_active(GMnu_QUIT))
     {
         result = true;
@@ -374,9 +374,9 @@ void turn_on_main_panel_menu(void)
   }
 }
 
-short turn_off_all_bottom_menus(void)
+int64_t turn_off_all_bottom_menus(void)
 {
-    short result = false;
+    int64_t result = false;
     if (menu_is_active(GMnu_TEXT_INFO))
     {
         result = true;
@@ -404,7 +404,7 @@ void turn_off_all_menus(void)
 
 void turn_on_menu(MenuID mnu_idx)
 {
-    SYNCDBG(8,"Menu ID %d",(int)mnu_idx);
+    SYNCDBG(8,"Menu ID %" PRId64,(int64_t)mnu_idx);
     struct GuiMenu* gmnu = menu_list[mnu_idx];
     if (create_menu(gmnu) >= 0)
     {
@@ -508,11 +508,11 @@ void update_query_menu()
 
 void set_menu_visible_on(MenuID menu_id)
 {
-    long menu_num = menu_id_to_number(menu_id);
+    int64_t menu_num = menu_id_to_number(menu_id);
     if (menu_num < 0)
       return;
     get_active_menu(menu_num)->is_turned_on = 1;
-    for (int idx = 0; idx < ACTIVE_BUTTONS_COUNT; idx++)
+    for (int64_t idx = 0; idx < ACTIVE_BUTTONS_COUNT; idx++)
     {
       struct GuiButton *gbtn = &active_buttons[idx];
       if (gbtn->flags & LbBtnF_Active)
@@ -537,7 +537,7 @@ void kill_menu(struct GuiMenu *gmnu)
     if (gmnu->visual_state != 0)
     {
       gmnu->visual_state = 0;
-      for (int i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
+      for (int64_t i = 0; i < ACTIVE_BUTTONS_COUNT; i++)
       {
           struct GuiButton* gbtn = &active_buttons[i];
           if ((gbtn->flags & LbBtnF_Active) && (gbtn->gmenu_idx == gmnu->number)) {
@@ -547,9 +547,9 @@ void kill_menu(struct GuiMenu *gmnu)
     }
 }
 
-void remove_from_menu_stack(short mnu_id)
+void remove_from_menu_stack(int64_t mnu_id)
 {
-    unsigned short i;
+    int64_t i;
     for (i=0; i<no_of_active_menus; i++)
     {
         if (menu_stack[i] == mnu_id)
@@ -574,7 +574,7 @@ void add_to_menu_stack(unsigned char mnu_idx)
       return;
     }
 
-    for (short i = 0; i < no_of_active_menus; i++)
+    for (int64_t i = 0; i < no_of_active_menus; i++)
     {
       if (menu_stack[i] == mnu_idx)
       { // If already in stack, move it at end of the stack.
@@ -583,20 +583,20 @@ void add_to_menu_stack(unsigned char mnu_idx)
           menu_stack[i] = menu_stack[i+1];
           i++;
         }
-        menu_stack[(int)no_of_active_menus-1] = mnu_idx;
-        //SYNCMSG("Menu %d moved to end of stack, at position %d.",mnu_idx,no_of_active_menus-1);
+        menu_stack[(int64_t)no_of_active_menus-1] = mnu_idx;
+        //SYNCMSG("Menu %d moved to end of stack, at position %d.",(int64_t)(mnu_idx),(int64_t)(no_of_active_menus-1));
         return;
       }
     }
     // If not in stack, add at end
     menu_stack[(unsigned char)no_of_active_menus] = mnu_idx;
     no_of_active_menus++;
-    SYNCDBG(9,"Menu %d put on stack, at position %d.",mnu_idx,no_of_active_menus-1);
+    SYNCDBG(9,"Menu %" PRId64 " put on stack, at position %" PRId64 ".",(int64_t)(mnu_idx),(int64_t)(no_of_active_menus-1));
 }
 
-long first_available_menu(void)
+int64_t first_available_menu(void)
 {
-    for (short i = 0; i < ACTIVE_MENUS_COUNT; i++)
+    for (int64_t i = 0; i < ACTIVE_MENUS_COUNT; i++)
     {
         if (active_menus[i].visual_state == 0)
             return i;

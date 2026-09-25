@@ -44,11 +44,11 @@ enum SmackerPlayFlags {
 // bflib_fmvids.cpp calling kjm_input.h's poll_inputs()/clear_key_pressed()
 // directly (see docs/refactor/stage-02-decouple-bflib.md).
 typedef TbBool (*MoviePollInputsFn)(void);
-typedef void (*MovieClearKeyPressedFn)(long key);
+typedef void (*MovieClearKeyPressedFn)(int64_t key);
 
-TbBool play_smk(const char * filename, int flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn);
-short anim_stop(void);
-short anim_record(void);
+TbBool play_smk(const char * filename, int64_t flags, MoviePollInputsFn poll_inputs_fn, MovieClearKeyPressedFn clear_key_pressed_fn);
+int64_t anim_stop(void);
+int64_t anim_record(void);
 /* screenbuf's caller (scrcapt.c) hands over RendererGetFramebuffer()'s
  * TbPixel* directly, not a legacy 8bpp byte buffer -- see the definition's
  * comment for why the signature reflects that but the FLI encoder behind

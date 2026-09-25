@@ -52,11 +52,11 @@ struct ApiEventData {
     const char *name;
     enum ApiEventDataType type;
     union {
-        int32_t int32_value;
-        uint32_t uint32_value;
+        int64_t int32_value;
+        uint64_t uint32_value;
         int64_t int64_value;
         uint64_t uint64_value;
-        float float_value;
+        double float_value;
         double double_value;
         bool bool_value;
         const char *string_value;
@@ -65,7 +65,7 @@ struct ApiEventData {
 
 struct ScriptHookCallbacks {
     /* lua_triggers.h event notifications actually consumed inside kfx_sim */
-    void (*lua_on_power_cast)(PlayerNumber plyr_idx, PowerKind pwkind, unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing);
+    void (*lua_on_power_cast)(PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing);
     void (*lua_on_special_box_activate)(PlayerNumber plyr_idx, struct Thing *cratetng);
     void (*lua_on_creature_death)(struct Thing *crtng);
     void (*lua_on_creature_fell_into_abyss)(struct Thing *crtng);
@@ -83,11 +83,11 @@ struct ScriptHookCallbacks {
     void (*lua_on_dungeon_destroyed)(PlayerNumber plyr_idx);
 
     /* lua_cfg_funcs.h lua-registered function dispatch (negative-index convention) */
-    short (*luafunc_crstate_func)(FuncIdx func_idx, struct Thing *thing);
-    short (*luafunc_thing_update_func)(FuncIdx func_idx, struct Thing *thing);
-    short (*luafunc_shot_hit_thing_func)(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y);
-    TbResult (*luafunc_magic_use_power)(FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind, unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, unsigned long allow_flags);
-    short (*luafunc_trap_activation_func)(FuncIdx func_idx, struct Thing *trap, struct Thing *creature);
+    int64_t (*luafunc_crstate_func)(FuncIdx func_idx, struct Thing *thing);
+    int64_t (*luafunc_thing_update_func)(FuncIdx func_idx, struct Thing *thing);
+    int64_t (*luafunc_shot_hit_thing_func)(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y);
+    TbResult (*luafunc_magic_use_power)(FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags);
+    int64_t (*luafunc_trap_activation_func)(FuncIdx func_idx, struct Thing *trap, struct Thing *creature);
 
     /* api.h external HTTP API notification */
     void (*api_event)(const char *event_name);

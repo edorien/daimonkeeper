@@ -30,7 +30,7 @@ TEST_CASE_METHOD(LuaState, "try_get_c_method finds a matching entry by name and 
         {"foo", dummy_cfunc},
         {NULL, NULL},
     };
-    int top_before = lua_gettop(L);
+    int64_t top_before = lua_gettop(L);
     CHECK(try_get_c_method(L, "foo", methods));
     CHECK(lua_gettop(L) == top_before + 1);
     CHECK(lua_iscfunction(L, -1));
@@ -41,7 +41,7 @@ TEST_CASE_METHOD(LuaState, "try_get_c_method returns false and pushes nothing wh
         {"foo", dummy_cfunc},
         {NULL, NULL},
     };
-    int top_before = lua_gettop(L);
+    int64_t top_before = lua_gettop(L);
     CHECK_FALSE(try_get_c_method(L, "bar", methods));
     CHECK(lua_gettop(L) == top_before); // stack unchanged
 }
@@ -86,7 +86,7 @@ TEST_CASE_METHOD(LuaState, "try_get_from_methods finds and pushes a function reg
     lua_setfield(L, -2, "__methods");
     lua_setmetatable(L, -2);
 
-    int obj_index = lua_gettop(L);
+    int64_t obj_index = lua_gettop(L);
     CHECK(try_get_from_methods(L, obj_index, "foo"));
     CHECK(lua_iscfunction(L, -1));
     lua_pop(L, 1); // the pushed function

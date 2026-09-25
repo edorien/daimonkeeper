@@ -26,17 +26,17 @@
 extern "C" {
 #endif
 
-extern uint32_t network_lobby_ping;
+extern uint64_t network_lobby_ping;
 
 TbError LbNetwork_ExchangeLogin(char *player_name);
 TbError LbNetwork_ExchangeFrontend(void *send_buf, void *server_buf, size_t frame_size);
 TbError process_login_message(NetUserId source, char *read_pos);
 TbError process_user_update_message(NetUserId source, char *read_pos, const char *end_pos);
 
-void LbNetwork_SetServerPort(int port);
+void LbNetwork_SetServerPort(int64_t port);
 void LbNetwork_InitSessionsFromCmdLine(const char *str);
-TbError LbNetwork_Join(struct TbNetworkSessionNameEntry *nsname, char *playr_name, int32_t *playr_num, void *optns);
-TbError LbNetwork_Create(char *nsname_str, char *plyr_name, uint32_t *plyr_num, void *optns);
+TbError LbNetwork_Join(struct TbNetworkSessionNameEntry *nsname, char *playr_name, int64_t *playr_num, void *optns);
+TbError LbNetwork_Create(char *nsname_str, char *plyr_name, uint64_t *plyr_num, void *optns);
 TbError LbNetwork_EnableNewPlayers(TbBool allow);
 TbError LbNetwork_EnumeratePlayers(struct TbNetworkSessionNameEntry *sesn, TbNetworkCallbackFunc callback, void *user_data);
 TbError LbNetwork_EnumerateSessions(TbNetworkCallbackFunc callback, void *ptr);

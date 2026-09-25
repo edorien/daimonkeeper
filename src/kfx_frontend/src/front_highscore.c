@@ -46,13 +46,13 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-static unsigned long high_score_entry_index;
+static uint64_t high_score_entry_index;
 
 char high_score_entry[HISCORE_NAME_LENGTH];
-int fe_high_score_table_from_main_menu;
-long high_score_entry_input_active = -1;
-int highscore_scroll_offset = 0;
-unsigned long scores_count;
+int64_t fe_high_score_table_from_main_menu;
+int64_t high_score_entry_input_active = -1;
+int64_t highscore_scroll_offset = 0;
+uint64_t scores_count;
 /******************************************************************************/
 
 void finalize_high_score_entry(TbBool restore_default_name)
@@ -76,7 +76,7 @@ void finalize_high_score_entry(TbBool restore_default_name)
     save_high_score_table();
 }
 
-void draw_high_score_entry(int idx, long pos_x, long pos_y, int col1_width, int col2_width, int col3_width, int col4_width, int units_per_px)
+void draw_high_score_entry(int64_t idx, int64_t pos_x, int64_t pos_y, int64_t col1_width, int64_t col2_width, int64_t col3_width, int64_t col4_width, int64_t units_per_px)
 {
     if ((idx >= scores_count) || (campaign.hiscore_table == NULL))
     {
@@ -85,7 +85,7 @@ void draw_high_score_entry(int idx, long pos_x, long pos_y, int col1_width, int 
     struct HighScore* hscore = &campaign.hiscore_table[idx];
     // TODO: These were originally right-aligned, but there's a glitch that causes longer numbers to be aligned weirdly at some resolutions in dbc mode.
     RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
-    int i = pos_x + col1_width;
+    int64_t i = pos_x + col1_width;
     LbTextNumberDraw(i, pos_y, units_per_px, idx+1, Fnt_CenterPos);
     i += col2_width;
     LbTextNumberDraw(i, pos_y, units_per_px, hscore->score, Fnt_LeftJustify);
@@ -117,12 +117,12 @@ void frontend_draw_high_score_table(struct GuiButton *gbtn)
 {
     scores_count = count_high_scores();
     gui_draw_scroll_box(gbtn, 12, true);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     const struct TbSprite *spr;
     {
-        int orig_size = 0;
+        int64_t orig_size = 0;
         spr = get_frontend_sprite(GFS_hugearea_thn_cor_ml);
-        for (int i=0; i < 6; i++)
+        for (int64_t i=0; i < 6; i++)
         {
             orig_size += spr->SWidth;
             spr++;
@@ -132,16 +132,16 @@ void frontend_draw_high_score_table(struct GuiButton *gbtn)
     LbTextSetFont(frontend_font[1]);
     RendererSetDrawFlags(0);
     spr = get_frontend_sprite(GFS_hugearea_thn_cor_ml);
-    int pos_x = gbtn->scr_pos_x + spr->SWidth * fs_units_per_px / 16;
+    int64_t pos_x = gbtn->scr_pos_x + spr->SWidth * fs_units_per_px / 16;
     spr = get_frontend_sprite(GFS_hugearea_thn_cor_tl);
-    int pos_y = gbtn->scr_pos_y + (spr->SHeight + 3) * fs_units_per_px / 16;
-    int tx_units_per_px = scale_value_menu(16);
+    int64_t pos_y = gbtn->scr_pos_y + (spr->SHeight + 3) * fs_units_per_px / 16;
+    int64_t tx_units_per_px = scale_value_menu(16);
     // The GUI item height should be 11 lines of text
-    long col1_width = LbTextStringWidthM("99", tx_units_per_px);
-    long col2_width = LbTextStringWidthM("  999", tx_units_per_px);
-    long col3_width = LbTextStringWidthM("   9999", tx_units_per_px);
-    long col4_width = LbTextStringWidthM(" 99999", tx_units_per_px);
-    int k;
+    int64_t col1_width = LbTextStringWidthM("99", tx_units_per_px);
+    int64_t col2_width = LbTextStringWidthM("  999", tx_units_per_px);
+    int64_t col3_width = LbTextStringWidthM("   9999", tx_units_per_px);
+    int64_t col4_width = LbTextStringWidthM(" 99999", tx_units_per_px);
+    int64_t k;
     if (high_score_entry_input_active >= 0)
     {
         if (high_score_entry_input_active <= VISIBLE_HIGH_SCORES_COUNT)
@@ -188,7 +188,7 @@ void frontend_quit_high_score_table(struct GuiButton *gbtn)
  */
 TbBool frontend_high_score_table_input(void)
 {
-    unsigned long i;
+    uint64_t i;
     if (high_score_entry_input_active >= campaign.hiscore_count)
         high_score_entry_input_active = -1;
     if (high_score_entry_input_active < 0)
@@ -205,12 +205,12 @@ TbBool frontend_high_score_table_input(void)
         if (high_score_entry_index > 0)
         {
             // Step back over UTF-8 continuation bytes to the start of the previous character
-            unsigned long start = high_score_entry_index - 1;
+            uint64_t start = high_score_entry_index - 1;
             while ((start > 0) && ((high_score_entry[start] & 0xc0) == 0x80)) {
                 start--;
             }
-            unsigned long clen = high_score_entry_index - start;
-            unsigned long slen = strlen(high_score_entry);
+            uint64_t clen = high_score_entry_index - start;
+            uint64_t slen = strlen(high_score_entry);
             memmove(&high_score_entry[start], &high_score_entry[start+clen], slen - (start+clen) + 1);
             high_score_entry_index = start;
         }
@@ -223,11 +223,11 @@ TbBool frontend_high_score_table_input(void)
         i = high_score_entry_index;
         if (high_score_entry[i] != '\0')
         {
-            unsigned long clen = 1;
+            uint64_t clen = 1;
             while ((high_score_entry[i+clen] & 0xc0) == 0x80) {
                 clen++;
             }
-            unsigned long slen = strlen(high_score_entry);
+            uint64_t slen = strlen(high_score_entry);
             memmove(&high_score_entry[i], &high_score_entry[i+clen], slen - (i+clen) + 1);
         }
         clear_key_pressed(KC_DELETE);
@@ -322,7 +322,7 @@ void add_score_to_high_score_table(void)
 {
     struct PlayerInfo* player = get_my_player();
     struct Dungeon* dungeon = get_players_dungeon(player);
-    int idx = add_high_score_entry(dungeon->lvstats.player_score, get_loaded_level_number(), "");
+    int64_t idx = add_high_score_entry(dungeon->lvstats.player_score, get_loaded_level_number(), "");
     if (idx >= 0)
     {
         if (last_used_input_device == ID_Controller)
@@ -449,16 +449,16 @@ void frontend_high_scores_update()
 
 void frontend_draw_highscores_scroll_box_tab(struct GuiButton *gbtn)
 {
-    int fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugearea_thc_tx1_tc, 100);
+    int64_t fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugearea_thc_tx1_tc, 100);
     const struct TbSprite *spr = get_frontend_sprite(GFS_hugearea_thc_tx1_tc);
-    int pos_x = gbtn->scr_pos_x;
+    int64_t pos_x = gbtn->scr_pos_x;
     // Since this tab is attachable from top, it is important to keep bottom position without variation
-    int pos_y = gbtn->scr_pos_y + gbtn->height - spr->SHeight * fs_units_per_px / 16;
+    int64_t pos_y = gbtn->scr_pos_y + gbtn->height - spr->SHeight * fs_units_per_px / 16;
     spr = get_frontend_sprite(GFS_hugearea_thc_cor_tl);
     LbSpriteDrawResized(pos_x, pos_y, fs_units_per_px, spr);
     pos_x += spr->SWidth * fs_units_per_px / 16;
     spr = get_frontend_sprite(GFS_hugearea_thc_tx1_tc);
-    for (int i = 3; i > 0; i--)
+    for (int64_t i = 3; i > 0; i--)
     {
         LbSpriteDrawResized(pos_x, pos_y, fs_units_per_px, spr);
         pos_x += spr->SWidth * fs_units_per_px / 16;
@@ -476,14 +476,14 @@ void frontend_draw_high_scores_mappack(struct GuiButton *gbtn)
         text = frontend_button_caption_text(gbtn);
     RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
     LbTextSetFont(frontend_font[2]);
-    int tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
+    int64_t tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height);
     LbTextDrawResized((dbc_initialized && dbc_enabled) ? -30 : 0, 0, tx_units_per_px, text);
 }
 
-unsigned long count_high_scores()
+uint64_t count_high_scores()
 {
-    unsigned long i;
+    uint64_t i;
     for (i = 0; i < campaign.hiscore_count; i++)
     {
         struct HighScore* hscore = &campaign.hiscore_table[i];

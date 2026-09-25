@@ -35,11 +35,11 @@ struct Map;
 #pragma pack()
 /******************************************************************************/
 TbBool block_has_diggable_side(MapSlabCoord slb_x, MapSlabCoord slb_y);
-int block_count_diggable_sides(MapSlabCoord slb_x, MapSlabCoord slb_y);
+int64_t block_count_diggable_sides(MapSlabCoord slb_x, MapSlabCoord slb_y);
 TbBool tag_blocks_for_digging_in_area(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx);
 TbBool untag_blocks_for_digging_in_area(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx);
 void all_players_untag_blocks_for_digging_in_area(MapSlabCoord slb_x, MapSlabCoord slb_y);
-TbBool subtile_is_diggable_at_diagonal_angle(struct Thing *thing, unsigned short angle, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
+TbBool subtile_is_diggable_at_diagonal_angle(struct Thing *thing, int64_t angle, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 
 #define place_slab_type_on_map(nslab, stl_x, stl_y, owner, keep_blocks_around) place_slab_type_on_map_f(nslab, stl_x, stl_y, owner, keep_blocks_around, __func__)
 void place_slab_type_on_map_f(SlabKind nslab, MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber owner, unsigned char a5,const char *func_name);
@@ -51,14 +51,14 @@ void neutralise_enemy_block(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
 void check_map_explored(struct Thing* creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool set_slab_explored(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
 void set_slab_explored_flags(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
-unsigned short torch_flags_for_slab(MapSlabCoord slb_x, MapSlabCoord slb_y);
+int64_t torch_flags_for_slab(MapSlabCoord slb_x, MapSlabCoord slb_y);
 void update_floor_and_ceiling_heights_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y,
     MapSubtlCoord *floor_height, MapSubtlCoord *ceiling_height);
 TbBool point_in_map_is_solid(const struct Coord3d *pos);
-void project_point_to_wall_on_angle(const struct Coord3d *pos1, struct Coord3d *pos2, long angle_xy, long angle_z, long distance, long num_steps);
+void project_point_to_wall_on_angle(const struct Coord3d *pos1, struct Coord3d *pos2, int64_t angle_xy, int64_t angle_z, int64_t distance, int64_t num_steps);
 TbBool point_in_map_is_solid_ignoring_door(const struct Coord3d *pos, const struct Thing *doortng);
-unsigned short get_point_in_map_solid_flags_ignoring_door(const struct Coord3d *pos, const struct Thing *doortng);
-unsigned short get_point_in_map_solid_flags_ignoring_own_door(const struct Coord3d *pos, PlayerNumber plyr_idx);
+int64_t get_point_in_map_solid_flags_ignoring_door(const struct Coord3d *pos, const struct Thing *doortng);
+int64_t get_point_in_map_solid_flags_ignoring_own_door(const struct Coord3d *pos, PlayerNumber plyr_idx);
 SlabKind alter_rock_style(SlabKind slbkind, MapSlabCoord tgslb_x, MapSlabCoord tgslb_y, PlayerNumber owner);
 void create_dirt_rubble_for_dug_slab(MapSlabCoord slb_x, MapSlabCoord slb_y);
 void create_dirt_rubble_for_dug_block(MapSubtlCoord stl_x, MapSubtlCoord stl_y, MapSubtlCoord stl_height, PlayerNumber owner);
@@ -69,7 +69,7 @@ void pretty_map_remove_flags_and_update(MapSlabCoord slb_x, MapSlabCoord slb_y);
 void fill_in_reinforced_corners(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
 
 void set_explored_around(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);
-long element_top_face_texture(struct Map *map);
+int64_t element_top_face_texture(struct Map *map);
 void reinit_tagged_blocks_for_player(PlayerNumber plyr_idx);
 void initialise_map_collides(void);
 void initialise_map_health(void);

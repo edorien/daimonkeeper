@@ -19,7 +19,7 @@
 #include "moonphase.h"
 
 TEST_CASE("calculate_moon_phase reads the zero-initialised static as a new moon, then runs the real astronomy calculation", "[kfx_platform][moonphase]") {
-    short result = calculate_moon_phase(0, 0);
+    int64_t result = calculate_moon_phase(0, 0);
     CHECK(result == 0); // returns is_full_moon, which the new-moon branch clears
     CHECK(is_new_moon == 1);
     CHECK(is_full_moon == 0);
@@ -31,6 +31,6 @@ TEST_CASE("calculate_moon_phase reads the zero-initialised static as a new moon,
     // Astronomy_CurrentTime()/Astronomy_MoonPhase() call path and checks
     // its result is a well-formed single-branch selection.
     calculate_moon_phase(1, 0);
-    int flags_set = is_full_moon + is_near_full_moon + is_new_moon + is_near_new_moon;
+    int64_t flags_set = is_full_moon + is_near_full_moon + is_new_moon + is_near_new_moon;
     CHECK(flags_set <= 1); // the if/else-if chain guarantees at most one flag
 }

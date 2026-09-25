@@ -84,7 +84,7 @@ const char *get_team_birthday(void)
 {
   struct TbDate curr_date;
   LbDate(&curr_date);
-  for (int i = 0; team_birthdays[i].day != 0; i++)
+  for (int64_t i = 0; team_birthdays[i].day != 0; i++)
   {
       if ((team_birthdays[i].day==curr_date.Day) &&
           (team_birthdays[i].month==curr_date.Month))
@@ -104,7 +104,7 @@ void frontbirthday_draw(void)
     const char *name=get_team_birthday();
     if ( name != NULL )
     {
-        unsigned short line_pos = LbTextLineHeight();
+        int64_t line_pos = LbTextLineHeight();
         LbTextDraw(0, 170-line_pos, get_string(GUIStr_HappyBirthday));
         LbTextDraw(0, 170, name);
     } else
@@ -113,14 +113,14 @@ void frontbirthday_draw(void)
     }
 }
 
-unsigned short input_eastegg_keycodes(unsigned char *counter,short allow,struct KeycodeString const *codes)
+int64_t input_eastegg_keycodes(unsigned char *counter,int64_t allow,struct KeycodeString const *codes)
 {
     if (!allow)
     {
       (*counter) = 0;
       return 0;
     }
-    unsigned short result = 0;
+    int64_t result = 0;
     if ((*counter) < codes->length)
     {
         TbKeyCode currkey = codes->keys[(*counter)];
@@ -148,8 +148,8 @@ unsigned short input_eastegg_keycodes(unsigned char *counter,short allow,struct 
 void input_eastegg(void)
 {
     // Maintain the FECKOFF cheat
-    short allow = (lbKeyOn[KC_LSHIFT] != 0);
-    unsigned short state = input_eastegg_keycodes(&kfx_frontend_state.eastegg01_cntr, allow, &eastegg_feckoff_codes);
+    int64_t allow = (lbKeyOn[KC_LSHIFT] != 0);
+    int64_t state = input_eastegg_keycodes(&kfx_frontend_state.eastegg01_cntr, allow, &eastegg_feckoff_codes);
     if ((state == 2) || (state == 3)) {
       play_non_3d_sample(snd_tab_click);
     }
@@ -186,13 +186,13 @@ void input_eastegg(void)
  * Draws one of the easter egg messages which bounce around the screen.
  * @param idx Index of the message, used to keep its position and velocity.
  */
-static void draw_bouncing_eastegg_message(long idx, const char *text, long width, long height, int ee_units_per_px)
+static void draw_bouncing_eastegg_message(int64_t idx, const char *text, int64_t width, int64_t height, int64_t ee_units_per_px)
 {
-  static float px[2] = {0, 0};
-  static float py[2] = {0, 0};
-  static float vx[2] = {4, 4};
-  static float vy[2] = {6, 6};
-  long k;
+  static double px[2] = {0, 0};
+  static double py[2] = {0, 0};
+  static double vx[2] = {4, 4};
+  static double vy[2] = {6, 6};
+  int64_t k;
   LbTextSetWindow(0/pixel_size, 0/pixel_size, MyScreenWidth/pixel_size, MyScreenHeight/pixel_size);
   RendererClearDrawFlags(Lb_TEXT_ONE_COLOR);
   LbTextSetFont(winfont);
@@ -232,11 +232,11 @@ static void draw_bouncing_eastegg_message(long idx, const char *text, long width
  */
 void draw_eastegg(void)
 {
-  static float skeksis_time = 0;
-  long i;
+  static double skeksis_time = 0;
+  int64_t i;
   SYNCDBG(5,"Starting");
-  int ee_units_per_px = calculate_relative_upp(22, units_per_pixel_best, LbTextLineHeight());
-  int width = 640, height = 400, skeksis_x_offset = 120, skeksis_y_offset = 200;
+  int64_t ee_units_per_px = calculate_relative_upp(22, units_per_pixel_best, LbTextLineHeight());
+  int64_t width = 640, height = 400, skeksis_x_offset = 120, skeksis_y_offset = 200;
   if (is_ar_wider_than_original(MyScreenWidth, MyScreenHeight))
   {
     width = height * (MyScreenWidth * 10 / MyScreenHeight) / 10;
@@ -254,25 +254,25 @@ void draw_eastegg(void)
       // Advance by frame time rather than by game turn, so the movement stays smooth.
       // The 256 unit period is a whole number of cycles on both axes, so it wraps seamlessly.
       skeksis_time += kfx_render_state.delta_time;
-      if (skeksis_time >= 256.0f)
-        skeksis_time -= 256.0f;
+      if (skeksis_time >= 256.0)
+        skeksis_time -= 256.0;
       LbTextSetFont(winfont);
       const char * text = "Dene says a big 'Hello' to Goth Buns, Tarts and Barbies";
       RendererSetDrawFlags(Lb_TEXT_ONE_COLOR);
-      float pos;
+      double pos;
       for (i = 0; i < 30; i += 2)
       {
         pos = skeksis_time - i;
         if (pos < 0)
-          pos += 256.0f;
+          pos += 256.0;
         RendererSetDrawColour((unsigned char)pos);
-        LbTextDrawResized(scale_fixed_DK_value((LbCosL((long)(16*pos)) / 512 + skeksis_x_offset) / pixel_size),
-          scale_fixed_DK_value((LbSinL((long)(32*pos)) / 512 + skeksis_y_offset) / pixel_size), ee_units_per_px, text);
+        LbTextDrawResized(scale_fixed_DK_value((LbCosL((int64_t)(16*pos)) / 512 + skeksis_x_offset) / pixel_size),
+          scale_fixed_DK_value((LbSinL((int64_t)(32*pos)) / 512 + skeksis_y_offset) / pixel_size), ee_units_per_px, text);
       }
       RendererClearDrawFlags(Lb_TEXT_ONE_COLOR);
       pos = skeksis_time;
-      LbTextDrawResized(scale_fixed_DK_value((LbCosL((long)(16*pos)) / 512 + skeksis_x_offset) / pixel_size),
-          scale_fixed_DK_value((LbSinL((long)(32*pos)) / 512 + skeksis_y_offset) / pixel_size), ee_units_per_px, text);
+      LbTextDrawResized(scale_fixed_DK_value((LbCosL((int64_t)(16*pos)) / 512 + skeksis_x_offset) / pixel_size),
+          scale_fixed_DK_value((LbSinL((int64_t)(32*pos)) / 512 + skeksis_y_offset) / pixel_size), ee_units_per_px, text);
   }
 
   if (kfx_frontend_state.eastegg01_cntr >= eastegg_feckoff_codes.length)

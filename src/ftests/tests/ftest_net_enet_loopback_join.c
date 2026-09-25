@@ -134,7 +134,7 @@ FTestActionResult ftest_net_enet_loopback_join_action003__extra_messages_stats_a
         {
             if (get_gameturn() >= args->intended_start_at_game_turn + FTEST_NET_ENET_LOOPBACK_TURN_BUDGET)
             {
-                FTEST_FAIL_TEST("Only received %u/2 follow-up messages from host within the turn budget", (unsigned)vars->extra_messages_received);
+                FTEST_FAIL_TEST("Only received %" PRIu64 "/2 follow-up messages from host within the turn budget", (uint64_t)vars->extra_messages_received);
                 netstate.sp->exit();
                 return FTRs_Go_To_Next_Action;
             }
@@ -173,21 +173,21 @@ FTestActionResult ftest_net_enet_loopback_join_action003__extra_messages_stats_a
     netstate.sp->sendmsg_single(SERVER_ID, FTEST_NET_ENET_LOOPBACK_EXTRAS_ACK_MSG, sizeof(FTEST_NET_ENET_LOOPBACK_EXTRAS_ACK_MSG));
     netstate.sp->msgready(SERVER_ID, 250);
 
-    unsigned long ping = GetPing(SERVER_ID, FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
-    unsigned int packet_loss = GetPacketLoss(SERVER_ID, FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
-    unsigned int data_in_transit = GetClientDataInTransit();
-    unsigned int packets_lost = GetClientPacketsLost();
-    unsigned int upload_rate = GetUploadRateBytesPerSecond();
-    unsigned int download_rate = GetDownloadRateBytesPerSecond();
-    FTESTLOG("Connection stats: ping=%lu packet_loss=%u data_in_transit=%u packets_lost=%u upload_rate=%u download_rate=%u",
-        ping, packet_loss, data_in_transit, packets_lost, upload_rate, download_rate);
+    uint64_t ping = GetPing(SERVER_ID, FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
+    uint64_t packet_loss = GetPacketLoss(SERVER_ID, FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
+    uint64_t data_in_transit = GetClientDataInTransit();
+    uint64_t packets_lost = GetClientPacketsLost();
+    uint64_t upload_rate = GetUploadRateBytesPerSecond();
+    uint64_t download_rate = GetDownloadRateBytesPerSecond();
+    FTESTLOG("Connection stats: ping=%" PRIu64 " packet_loss=%" PRIu64 " data_in_transit=%" PRIu64 " packets_lost=%" PRIu64 " upload_rate=%" PRIu64 " download_rate=%" PRIu64,
+        (uint64_t)(ping), (uint64_t)(packet_loss), (uint64_t)(data_in_transit), (uint64_t)(packets_lost), (uint64_t)(upload_rate), (uint64_t)(download_rate));
 
     netstate.sp->exit();
     memset(&netstate, 0, sizeof(netstate));
 
     if (!vars->saw_broadcast_msg || !vars->saw_unsequenced_msg)
     {
-        FTEST_FAIL_TEST("Didn't see both follow-up messages (broadcast=%d unsequenced=%d)", (int)vars->saw_broadcast_msg, (int)vars->saw_unsequenced_msg);
+        FTEST_FAIL_TEST("Didn't see both follow-up messages (broadcast=%" PRId64 " unsequenced=%" PRId64 ")", (int64_t)vars->saw_broadcast_msg, (int64_t)vars->saw_unsequenced_msg);
         return FTRs_Go_To_Next_Action;
     }
 

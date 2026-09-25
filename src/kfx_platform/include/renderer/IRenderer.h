@@ -33,7 +33,7 @@ public:
     virtual void UnlockFramebuffer() {}
 
     // Save the current frame to a file (fmt: 1=PNG, 2=BMP). Default: unsupported.
-    virtual bool ScheduleScreenshot(const char* path, int fmt) { (void)path; (void)fmt; return false; }
+    virtual bool ScheduleScreenshot(const char* path, int64_t fmt) { (void)path; (void)fmt; return false; }
 
     // Sub-renderers. Null when a backend has none, so callers fall back to
     // drawing directly.

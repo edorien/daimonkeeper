@@ -20,10 +20,10 @@
 #include <string.h>
 #include "post_inc.h"
 
-TbBool load_toml_file(const char *fname,VALUE *value, unsigned short flags)
+TbBool load_toml_file(const char *fname,VALUE *value, int64_t flags)
 {
     SYNCDBG(5,"Starting");
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if(!(flags & CnfLd_IgnoreErrors))
@@ -33,7 +33,7 @@ TbBool load_toml_file(const char *fname,VALUE *value, unsigned short flags)
     char* buf = (char*)calloc(len + 256, 1);
     if (!buf) return false;
     // Loading file data
-    long fsize = LbFileLoadAt(fname, buf);
+    int64_t fsize = LbFileLoadAt(fname, buf);
 
     if (fsize < len)
     {
@@ -54,7 +54,7 @@ TbBool load_toml_file(const char *fname,VALUE *value, unsigned short flags)
     return true;
 }
 
-int value_parse_class(VALUE *value)
+int64_t value_parse_class(VALUE *value)
 {
     if (value_type(value) == VALUE_INT32)
         return value_int32(value);
@@ -88,7 +88,7 @@ int value_parse_class(VALUE *value)
     return -1;
 }
 
-int value_parse_model(int oclass, VALUE *value)
+int64_t value_parse_model(int64_t oclass, VALUE *value)
 {
     if (value_type(value) == VALUE_INT32)
         return value_int32(value);
@@ -119,7 +119,7 @@ int value_parse_model(int oclass, VALUE *value)
     return -1;
 }
 
-int value_parse_anim(VALUE *value)
+int64_t value_parse_anim(VALUE *value)
 {
     if (value_type(value) == VALUE_INT32)
         return value_int32(value);

@@ -46,7 +46,7 @@ const char *const kVarsV1Only[] = {
 
 bool in_list(const char *const *list, const std::string &name)
 {
-    for (int i = 0; list[i] != nullptr; i++)
+    for (int64_t i = 0; list[i] != nullptr; i++)
         if (name == list[i])
             return true;
     return false;
@@ -54,7 +54,7 @@ bool in_list(const char *const *list, const std::string &name)
 
 // Variable a win/lose clause may use for this file version; `out` gets the
 // v1 spelling. False -> the rule is not modelled (kept as a custom rule).
-bool win_variable_ok(const std::string &name, int version, std::string &out)
+bool win_variable_ok(const std::string &name, int64_t version, std::string &out)
 {
     if (in_list(kVarsIdentical, name) || (version >= 1 && in_list(kVarsV1Only, name)))
     {
@@ -76,7 +76,7 @@ std::string upper(std::string s)
     return s;
 }
 
-bool parse_int(const std::string &s, int &out)
+bool parse_int(const std::string &s, int64_t &out)
 {
     size_t i = (!s.empty() && s[0] == '-') ? 1 : 0;
     if (i >= s.size())
@@ -99,13 +99,13 @@ bool is_identifier(const std::string &s)
 }
 
 // PLAYERn -> n (>= 0); anything else (ALL_PLAYERS, PLAYER_GOOD, ...) -> -1.
-int single_player(const std::string &token)
+int64_t single_player(const std::string &token)
 {
     static const char kPrefix[] = "PLAYER";
     static const size_t kLen = sizeof(kPrefix) - 1;
     if (token.size() <= kLen || token.compare(0, kLen, kPrefix) != 0)
         return -1;
-    int n = 0;
+    int64_t n = 0;
     for (size_t i = kLen; i < token.size(); i++)
     {
         if (!isdigit((unsigned char)token[i]))
@@ -117,18 +117,18 @@ int single_player(const std::string &token)
 
 // Expands a player token to concrete player numbers. Sets `all` for
 // ALL_PLAYERS. False for tokens the tab does not model (PLAYER_GOOD, ...).
-bool expand_players(const std::string &token, int players, std::vector<int> &out, bool &all)
+bool expand_players(const std::string &token, int64_t players, std::vector<int64_t> &out, bool &all)
 {
     out.clear();
     all = false;
     if (token == "ALL_PLAYERS")
     {
         all = true;
-        for (int p = 0; p < players; p++)
+        for (int64_t p = 0; p < players; p++)
             out.push_back(p);
         return true;
     }
-    const int p = single_player(token);
+    const int64_t p = single_player(token);
     if (p < 0)
         return false;
     out.push_back(p);
@@ -142,9 +142,9 @@ struct Item
     std::string cmd;  // leading identifier, verbatim case
     std::vector<std::string> args;
     bool clean = false; // "CMD(args)" and nothing after, not in a /* */ comment
-    int depth = 0;      // nesting depth this item sits at (ENDIF: depth after closing)
+    int64_t depth = 0;      // nesting depth this item sits at (ENDIF: depth after closing)
     bool reusable = false;
-    long match = -1; // opener <-> ENDIF item index
+    int64_t match = -1; // opener <-> ENDIF item index
     bool opener = false;
     bool endif = false;
 };
@@ -182,7 +182,7 @@ std::vector<Seg> split_lines(const std::string &text)
     return segs;
 }
 
-const struct { const char *name; int kind; } kAvailCommands[] = {
+const struct { const char *name; int64_t kind; } kAvailCommands[] = {
     { "CREATURE_AVAILABLE", AvailKind_Creature }, { "ROOM_AVAILABLE", AvailKind_Room },
     { "MAGIC_AVAILABLE", AvailKind_Magic },       { "TRAP_AVAILABLE", AvailKind_Trap },
     { "DOOR_AVAILABLE", AvailKind_Door },
@@ -213,7 +213,7 @@ bool SetupAvailKey::operator<(const SetupAvailKey &o) const
     return item < o.item;
 }
 
-bool SetupAnalysis::is_locked(int field, int player, const std::string &item) const
+bool SetupAnalysis::is_locked(int64_t field, int64_t player, const std::string &item) const
 {
     for (const SetupLockKey &l : locks)
     {
@@ -231,7 +231,7 @@ bool SetupAnalysis::is_locked(int field, int player, const std::string &item) co
 const char *const *script_setup_win_variables_identical(void) { return kVarsIdentical; }
 const char *const *script_setup_win_variables_v1_only(void) { return kVarsV1Only; }
 
-SetupAnalysis script_setup_analyse(const std::string &text, int players, bool has_lua_companion, const std::string *lua_text)
+SetupAnalysis script_setup_analyse(const std::string &text, int64_t players, bool has_lua_companion, const std::string *lua_text)
 {
     SetupAnalysis res;
     res.has_lua_companion = has_lua_companion || (lua_text != nullptr);
@@ -300,7 +300,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
     }
 
     // ---- structure: depth, reusable flag, IF/ENDIF matching --------------
-    int depth = 0;
+    int64_t depth = 0;
     bool reuse = false;
     bool balanced = true;
     std::vector<size_t> open_stack;
@@ -326,8 +326,8 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
             }
             else
             {
-                it.match = (long)open_stack.back();
-                items[open_stack.back()].match = (long)i;
+                it.match = (int64_t)open_stack.back();
+                items[open_stack.back()].match = (int64_t)i;
                 open_stack.pop_back();
                 it.depth = --depth;
             }
@@ -360,7 +360,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
 
     // ---- setup commands: seed (static) or locks (runtime) -----------------
     std::set<SetupLockKey> locks;
-    auto lock = [&](int field, int player, const std::string &item) {
+    auto lock = [&](int64_t field, int64_t player, const std::string &item) {
         SetupLockKey k;
         k.field = field;
         k.player = player;
@@ -379,9 +379,9 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
             continue;
 
         const bool runtime = (it.depth > 0) || it.reusable;
-        std::vector<int> pl;
+        std::vector<int64_t> pl;
         bool all = false;
-        int kind = -1;
+        int64_t kind = -1;
         for (const auto &ac : kAvailCommands)
             if (it.cmd == ac.name)
                 kind = ac.kind;
@@ -396,7 +396,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
                 lock(kind, all ? -1 : pl[0], item);
                 continue;
             }
-            int a, b;
+            int64_t a, b;
             if (!it.clean || !parse_int(it.args[2], a) || !parse_int(it.args[3], b))
                 continue;
             if (kind == AvailKind_Creature && res.level_version == 0)
@@ -405,7 +405,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
                 a = b;
                 b = 0;
             }
-            for (int p : pl)
+            for (int64_t p : pl)
             {
                 SetupAvailKey key;
                 key.kind = kind;
@@ -430,10 +430,10 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
                 lock(money ? SetupField_Money : SetupField_MaxCreatures, all ? -1 : pl[0], std::string());
                 continue;
             }
-            int v;
+            int64_t v;
             if (!it.clean || !parse_int(it.args[1], v))
                 continue;
-            for (int p : pl)
+            for (int64_t p : pl)
             {
                 if (money)
                     res.seed.start_money[p] += v; // additive
@@ -451,7 +451,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
                 lock(SetupField_GenSpeed, -1, std::string());
                 continue;
             }
-            int v;
+            int64_t v;
             if (!it.clean || !parse_int(it.args[0], v))
                 continue;
             res.seed.generate_speed = v;
@@ -467,7 +467,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
                 lock(SetupField_Pool, -1, name);
                 continue;
             }
-            int v;
+            int64_t v;
             if (!it.clean || !parse_int(it.args[1], v))
                 continue;
             res.seed.pool[name] += v;
@@ -494,7 +494,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
                 c.kind = SetupController::Off;
             else
                 continue;
-            for (int p : pl)
+            for (int64_t p : pl)
                 res.seed.controllers[p] = c;
             res.owned_setup[it.line] = true;
         }
@@ -511,7 +511,7 @@ SetupAnalysis script_setup_analyse(const std::string &text, int players, bool ha
             if (runtime && it.args.size() >= 2)
             {
                 bool all2 = false;
-                std::vector<int> pl2;
+                std::vector<int64_t> pl2;
                 if (expand_players(it.args[0], players, pl, all))
                     lock(SetupField_Ally, all ? -1 : pl[0], std::string());
                 if (expand_players(it.args[1], players, pl2, all2))
@@ -639,11 +639,11 @@ std::string strip_lua_comments_and_strings(const std::string &s)
     const size_t n = s.size();
     size_t i = 0;
     // Length of a long-bracket opener at s[i] ("[[", "[=[", ...) -> level, or -1.
-    auto long_open = [&](size_t at) -> int {
+    auto long_open = [&](size_t at) -> int64_t {
         if (at >= n || s[at] != '[')
             return -1;
         size_t k = at + 1;
-        int level = 0;
+        int64_t level = 0;
         while (k < n && s[k] == '=')
         {
             level++;
@@ -651,7 +651,7 @@ std::string strip_lua_comments_and_strings(const std::string &s)
         }
         return (k < n && s[k] == '[') ? level : -1;
     };
-    auto skip_long = [&](size_t at, int level) -> size_t { // returns index just past the closing bracket
+    auto skip_long = [&](size_t at, int64_t level) -> size_t { // returns index just past the closing bracket
         const std::string close = "]" + std::string((size_t)level, '=') + "]";
         const size_t e = s.find(close, at);
         return (e == std::string::npos) ? n : e + close.size();
@@ -664,7 +664,7 @@ std::string strip_lua_comments_and_strings(const std::string &s)
     {
         if (s.compare(i, 2, "--") == 0)
         {
-            const int lvl = long_open(i + 2);
+            const int64_t lvl = long_open(i + 2);
             if (lvl >= 0)
             {
                 const size_t end = skip_long(i + 2, lvl);
@@ -710,12 +710,12 @@ std::string strip_lua_comments_and_strings(const std::string &s)
 bool SetupLuaUse::any_setup() const
 {
     bool a = money || max_creatures || gen_speed || pool || controller || ally || win || lose;
-    for (int k = 0; k < AvailKind_Count; k++)
+    for (int64_t k = 0; k < AvailKind_Count; k++)
         a = a || avail[k];
     return a;
 }
 
-bool SetupLuaUse::touches(int field) const
+bool SetupLuaUse::touches(int64_t field) const
 {
     switch (field)
     {
@@ -739,7 +739,7 @@ std::string SetupLuaUse::describe() const
     if (pool) parts.push_back("the creature pool");
     static const char *const kinds[AvailKind_Count] = { "creature availability", "room availability",
         "spell availability", "trap availability", "door availability" };
-    for (int k = 0; k < AvailKind_Count; k++)
+    for (int64_t k = 0; k < AvailKind_Count; k++)
         if (avail[k]) parts.push_back(kinds[k]);
     if (controller) parts.push_back("the computer players");
     if (ally) parts.push_back("alliances");

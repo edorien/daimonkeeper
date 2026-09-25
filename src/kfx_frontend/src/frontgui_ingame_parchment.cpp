@@ -21,8 +21,8 @@
 
 namespace {
 void *s_tex = nullptr;
-int s_tex_w = 0;
-int s_tex_h = 0;
+int64_t s_tex_w = 0;
+int64_t s_tex_h = 0;
 std::vector<TbPixel> s_pixels;
 }
 
@@ -48,8 +48,8 @@ void ingame_parchment_frame(void)
     if (player == nullptr || player->view_mode != PVM_ParchmentView)
         return;
 
-    const int w = (int)LbGraphicsScreenWidth();
-    const int h = (int)LbGraphicsScreenHeight();
+    const int64_t w = (int64_t)LbGraphicsScreenWidth();
+    const int64_t h = (int64_t)LbGraphicsScreenHeight();
     if (w <= 0 || h <= 0)
         return;
 
@@ -76,24 +76,24 @@ void ingame_parchment_frame(void)
     RendererUpdateDynamicTexture(s_tex, s_pixels.data(), w, h);
 
     const ImGuiIO &io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0.0, 0.0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::SetNextWindowBgAlpha(0.0);
     ImGui::Begin("##IngameParchment", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs
                  | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus
                  | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing);
     ImDrawList *dl = ImGui::GetWindowDrawList();
 
-    dl->AddImage((ImTextureID)(intptr_t)s_tex, ImVec2(0.0f, 0.0f), io.DisplaySize);
+    dl->AddImage((ImTextureID)(intptr_t)s_tex, ImVec2(0.0, 0.0), io.DisplaySize);
 
     const char *lv = get_map_level_name();
     if (lv != nullptr && lv[0] != '\0')
     {
         FeStylePushFont(FeFont_Heading);
         const ImVec2 ts = ImGui::CalcTextSize(lv);
-        const ImVec2 pos((io.DisplaySize.x - ts.x) * 0.5f, io.DisplaySize.y * 0.055f);
-        dl->AddText(ImVec2(pos.x + 2.0f, pos.y + 2.0f), IM_COL32(20, 12, 4, 200), lv);
+        const ImVec2 pos((io.DisplaySize.x - ts.x) * 0.5, io.DisplaySize.y * 0.055);
+        dl->AddText(ImVec2(pos.x + 2.0, pos.y + 2.0), IM_COL32(20, 12, 4, 200), lv);
         dl->AddText(pos, IM_COL32(48, 28, 12, 255), lv);
         FeStylePopFont();
     }

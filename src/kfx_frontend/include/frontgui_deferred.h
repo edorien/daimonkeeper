@@ -1,6 +1,7 @@
 #ifndef FRONTGUI_DEFERRED_H
 #define FRONTGUI_DEFERRED_H
 
+#include <stdint.h>
 // A frame-boundary action queue. ImGui click handlers that must not run
 // heavy state transitions (turn_on/off_menu, load_game, recursive packet
 // sends) from inside an open window enqueue an action here; the frame
@@ -13,9 +14,9 @@
 #ifdef __cplusplus
 
 struct FeDeferredQueue {
-    static const int CAP = 8;
+    static const int64_t CAP = 8;
     void (*fns[CAP])(void) = {};
-    int count = 0;
+    int64_t count = 0;
 
     // Enqueue. Ignores nullptr and silently drops past CAP (a HUD frame
     // never legitimately queues that many actions).
@@ -29,9 +30,9 @@ struct FeDeferredQueue {
     // an action that itself pushes is picked up next frame, not this one.
     void drain(void)
     {
-        const int n = count;
+        const int64_t n = count;
         count = 0;
-        for (int i = 0; i < n; i++)
+        for (int64_t i = 0; i < n; i++)
             fns[i]();
     }
 };

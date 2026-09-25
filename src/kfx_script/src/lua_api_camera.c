@@ -22,7 +22,7 @@
 
 /**********************************************/
 
-int luaL_checkCamera(lua_State *L, int idx)
+int luaL_checkCamera(lua_State *L, int64_t idx)
 {
     if (!lua_istable(L, idx)) {
         return luaL_argerror(L, idx, "Expected a table");
@@ -45,16 +45,16 @@ static const struct luaL_Reg camera_methods[] = {
 
  static int camera_tostring(lua_State *L)
  {
-    int playerId = luaL_checkCamera(L, 1);
+    int64_t playerId = luaL_checkCamera(L, 1);
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "Camera(%d)", playerId);
+    snprintf(buffer, sizeof(buffer), "Camera(%" PRId64 ")", (int64_t)(playerId));
     lua_pushstring(L, buffer);
     return 1;
  }
  
  // Function to set field values
  static int camera_set_field(lua_State *L) {
-    int playerId = luaL_checkCamera(L, 1);
+    int64_t playerId = luaL_checkCamera(L, 1);
     const char* key = luaL_checkstring(L, 2);
     
     struct PlayerInfo *player = get_player(playerId);
@@ -84,7 +84,7 @@ static const struct luaL_Reg camera_methods[] = {
  // Function to get field values
  static int camera_get_field(lua_State *L) {
 
-    int playerId = luaL_checkCamera(L, 1);
+    int64_t playerId = luaL_checkCamera(L, 1);
 
     const char* key = luaL_checkstring(L, 2);
 
@@ -121,7 +121,7 @@ static const struct luaL_Reg camera_methods[] = {
  }
 
 static int camera_eq(lua_State *L) {
-    int playerId1, playerId2;
+    int64_t playerId1, playerId2;
 
     playerId1 = luaL_checkCamera(L, 1);
     playerId2 = luaL_checkCamera(L, 2);

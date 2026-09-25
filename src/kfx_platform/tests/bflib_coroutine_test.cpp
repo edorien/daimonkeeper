@@ -26,9 +26,9 @@ struct ZeroedLoop {
     CoroutineLoop loop;
 };
 
-int g_call_count = 0;
-int g_repeat_countdown = 0;
-int g_last_args[COROUTINE_ARGS] = {0, 0};
+int64_t g_call_count = 0;
+int64_t g_repeat_countdown = 0;
+int64_t g_last_args[COROUTINE_ARGS] = {0, 0};
 
 CoroutineLoopState fn_continue(CoroutineLoop *) {
     g_call_count++;
@@ -51,7 +51,7 @@ CoroutineLoopState fn_repeat_then_continue(CoroutineLoop *) {
     return CLS_CONTINUE;
 }
 CoroutineLoopState fn_record_args_and_continue(CoroutineLoop *context) {
-    int *args = coroutine_args(context);
+    int64_t *args = coroutine_args(context);
     g_last_args[0] = args[0];
     g_last_args[1] = args[1];
     return CLS_CONTINUE;
@@ -76,7 +76,7 @@ TEST_CASE_METHOD(ZeroedLoop, "coroutine_add appends a function pointer at write_
 }
 
 TEST_CASE_METHOD(ZeroedLoop, "coroutine_add_args stores the function's per-slot args alongside it", "[kfx_platform][bflib_coroutine]") {
-    int args[COROUTINE_ARGS] = {11, 22};
+    int64_t args[COROUTINE_ARGS] = {11, 22};
     coroutine_add_args(&loop, fn_continue, args);
     CHECK(loop.write_idx == 1);
     CHECK(loop.args[0] == 11);
@@ -103,10 +103,10 @@ TEST_CASE_METHOD(ZeroedLoop, "coroutine_clear ORs the error flag in rather than 
 }
 
 TEST_CASE_METHOD(ZeroedLoop, "coroutine_args returns a pointer into the current slot's args block", "[kfx_platform][bflib_coroutine]") {
-    int args[COROUTINE_ARGS] = {5, 6};
+    int64_t args[COROUTINE_ARGS] = {5, 6};
     coroutine_add_args(&loop, fn_continue, args);
     loop.read_idx = 0;
-    int *result = coroutine_args(&loop);
+    int64_t *result = coroutine_args(&loop);
     CHECK(result == &loop.args[0]);
     CHECK(result[0] == 5);
     CHECK(result[1] == 6);
@@ -171,7 +171,7 @@ TEST_CASE_METHOD(ZeroedLoop, "coroutine_process re-calls the same function on CL
 
 TEST_CASE_METHOD(ZeroedLoop, "coroutine_process hands each function its own args via coroutine_args", "[kfx_platform][bflib_coroutine]") {
     ResetGlobals reset;
-    int args[COROUTINE_ARGS] = {7, 8};
+    int64_t args[COROUTINE_ARGS] = {7, 8};
     coroutine_add_args(&loop, fn_record_args_and_continue, args);
     coroutine_process(&loop);
     CHECK(g_last_args[0] == 7);

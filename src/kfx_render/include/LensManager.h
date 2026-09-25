@@ -66,14 +66,14 @@ public:
     void Reset();
     
     // Lens control
-    TbBool SetLens(long lens_idx);
-    long GetActiveLens() const { return m_active_lens; }
-    long GetAppliedLens() const { return m_applied_lens; }
+    TbBool SetLens(int64_t lens_idx);
+    int64_t GetActiveLens() const { return m_active_lens; }
+    int64_t GetAppliedLens() const { return m_applied_lens; }
     
     // Rendering (always succeeds - handles fallback internally)
     void Draw(TbPixel* srcbuf, TbPixel* dstbuf,
-             long srcpitch, long dstpitch,
-             long width, long height, long viewport_x);
+             int64_t srcpitch, int64_t dstpitch,
+             int64_t width, int64_t height, int64_t viewport_x);
     
     // Configuration
     void LoadAccessibilityConfig();
@@ -90,9 +90,9 @@ public:
     TbBool IsReady() const { return m_initialized; }
     
     // Helper: Copy buffer with pitch
-    static void CopyBuffer(TbPixel *dst, long dstpitch,
-                          TbPixel *src, long srcpitch,
-                          long width, long height);
+    static void CopyBuffer(TbPixel *dst, int64_t dstpitch,
+                          TbPixel *src, int64_t srcpitch,
+                          int64_t width, int64_t height);
     
 private:
     LensManager();
@@ -115,8 +115,8 @@ private:
     
     // State
     TbBool m_initialized;
-    long m_active_lens;   // Requested lens
-    long m_applied_lens;  // Currently applied lens
+    int64_t m_active_lens;   // Requested lens
+    int64_t m_applied_lens;  // Currently applied lens
     
     // Effects registry
     std::vector<LensEffect*> m_effects;
@@ -130,10 +130,10 @@ private:
     // don't need manual null-and-free bookkeeping; eye_lens_memory/
     // eye_lens_spare_screen_memory (the C-visible globals) point at
     // .data(), refreshed whenever these are (re)allocated.
-    std::vector<uint32_t> m_lens_memory;
+    std::vector<uint64_t> m_lens_memory;
     std::vector<TbPixel> m_spare_screen_memory;
-    long m_buffer_width;
-    long m_buffer_height;
+    int64_t m_buffer_width;
+    int64_t m_buffer_height;
     
     // Configuration
     LensAccessibilityConfig m_config;

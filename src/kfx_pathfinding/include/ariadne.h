@@ -158,8 +158,8 @@ struct Ariadne { // sizeof = 102
   unsigned char update_state;
   unsigned char wallhug_active;
   unsigned char may_need_reroute;
-  short wallhug_stored_angle;
-  unsigned short move_speed;
+  int64_t wallhug_stored_angle;
+  int64_t move_speed;
     /** Index of the current waypoint in list of nearest waypoints stored. */
     unsigned char current_waypoint;
     /** List of nearest waypoints in the way towards destination, stored in an array. */
@@ -167,28 +167,28 @@ struct Ariadne { // sizeof = 102
     /** Amount of nearest waypoints stored in the array. */
     unsigned char stored_waypoints; // offs = 0x51
     /** Total amount of waypoints planned on the way towards endpos. */
-    unsigned int total_waypoints;
+    uint64_t total_waypoints;
   struct Coord3d manoeuvre_fixed_position;
   struct Coord3d manoeuvre_requested_position;
   unsigned char manoeuvre_state;
-  short wallhug_angle;
-  long straight_dist_to_next_waypoint;
+  int64_t wallhug_angle;
+  int64_t straight_dist_to_next_waypoint;
 };
 
 struct PathWayPoint { // sizeof = 8
-    int32_t x;
-    int32_t y;
+    int64_t x;
+    int64_t y;
 };
 
 struct Path { // sizeof = 2068
     struct PathWayPoint start;
     struct PathWayPoint finish;
-    long waypoints_num;
+    int64_t waypoints_num;
     struct PathWayPoint waypoints[ARID_PATH_WAYPOINTS_COUNT];
 };
 
 struct HugStart {
-    short wh_angle;
+    int64_t wh_angle;
     unsigned char wh_side;
 };
 
@@ -200,8 +200,8 @@ extern const struct HugStart blocked_xy_hug_start[][2][2];
 extern TbBool nav_map_initialised;
 
 extern NavColour *LastTriangulatedMap;
-extern long ix_Border;
-extern int32_t Border[BORDER_LENGTH];
+extern int64_t ix_Border;
+extern int64_t Border[BORDER_LENGTH];
 
 /******************************************************************************/
 
@@ -211,25 +211,25 @@ extern int32_t Border[BORDER_LENGTH];
 
 void set_nav_rule_default(void);
 
-AriadneReturn ariadne_initialise_creature_route_f(struct Thing *thing, const struct Coord3d *pos, long speed, AriadneRouteFlags flags, const char *func_name);
+AriadneReturn ariadne_initialise_creature_route_f(struct Thing *thing, const struct Coord3d *pos, int64_t speed, AriadneRouteFlags flags, const char *func_name);
 #define ariadne_initialise_creature_route(thing, pos, speed, flags) ariadne_initialise_creature_route_f(thing, pos, speed, flags, __func__)
-AriadneReturn creature_follow_route_to_using_gates(struct Thing *thing, struct Coord3d *finalpos, struct Coord3d *nextpos, long speed, AriadneRouteFlags flags);
+AriadneReturn creature_follow_route_to_using_gates(struct Thing *thing, struct Coord3d *finalpos, struct Coord3d *nextpos, int64_t speed, AriadneRouteFlags flags);
 
-long ariadne_count_waypoints_on_creature_route_to_target_f(const struct Thing *thing,
+int64_t ariadne_count_waypoints_on_creature_route_to_target_f(const struct Thing *thing,
     const struct Coord3d *srcpos, const struct Coord3d *dstpos, AriadneRouteFlags flags, const char *func_name);
 AriadneReturn ariadne_invalidate_creature_route(struct Thing *thing);
 
 TbBool navigation_points_connected(struct Coord3d *pt1, struct Coord3d *pt2);
-void path_init8_wide_f(struct Path *path, long start_x, long start_y, long end_x, long end_y, long subroute, unsigned char nav_size, const char *func_name);
-void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, int32_t *px, int32_t *py, const char *func_name);
+void path_init8_wide_f(struct Path *path, int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y, int64_t subroute, unsigned char nav_size, const char *func_name);
+void nearest_search_f(int64_t sizexy, int64_t srcx, int64_t srcy, int64_t dstx, int64_t dsty, int64_t *px, int64_t *py, const char *func_name);
 #define nearest_search(sizexy, srcx, srcy, dstx, dsty, px, py) nearest_search_f(sizexy, srcx, srcy, dstx, dsty, px, py, __func__)
 
 
-long pointed_at8(long pos_x, long pos_y, int32_t *ret_tri, int32_t *ret_pt);
-long angle_to_quadrant(long angle);
+int64_t pointed_at8(int64_t pos_x, int64_t pos_y, int64_t *ret_tri, int64_t *ret_pt);
+int64_t angle_to_quadrant(int64_t angle);
 
-long thing_nav_block_sizexy(const struct Thing *thing);
-long thing_nav_sizexy(const struct Thing *thing);
+int64_t thing_nav_block_sizexy(const struct Thing *thing);
+int64_t thing_nav_sizexy(const struct Thing *thing);
 
 /******************************************************************************/
 #ifdef __cplusplus

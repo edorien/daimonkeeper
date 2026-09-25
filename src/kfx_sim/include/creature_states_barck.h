@@ -33,8 +33,8 @@ struct Thing;
 
 #pragma pack()
 /******************************************************************************/
-short at_barrack_room(struct Thing *thing);
-short barracking(struct Thing *creatng);
+int64_t at_barrack_room(struct Thing *thing);
+int64_t barracking(struct Thing *creatng);
 /******************************************************************************/
 #ifdef __cplusplus
 }

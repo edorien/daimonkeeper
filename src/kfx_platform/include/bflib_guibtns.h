@@ -84,14 +84,14 @@ enum TbButtonFrontendFlags {
 };
 
 union GuiVariant {
-    long lval;
-    int32_t *lptr;
+    int64_t lval;
+    int64_t *lptr;
     void *ptr;
     char *str;
 };
 
-typedef long (*Gf_OptnBox_4Callback)(struct GuiBox *, struct GuiBoxOption *, unsigned char, int32_t *);
-typedef long (*Gf_OptnBox_3Callback)(struct GuiBox *, struct GuiBoxOption *, int32_t *);
+typedef int64_t (*Gf_OptnBox_4Callback)(struct GuiBox *, struct GuiBoxOption *, unsigned char, int64_t *);
+typedef int64_t (*Gf_OptnBox_3Callback)(struct GuiBox *, struct GuiBoxOption *, int64_t *);
 typedef void (*Gf_Btn_Callback)(struct GuiButton *gbtn);
 typedef void (*Gf_Mnu_Callback)(struct GuiMenu *gmnu);
 
@@ -100,23 +100,23 @@ struct GuiBoxOption {
        unsigned char is_enabled;
        Gf_OptnBox_3Callback active_cb;
        Gf_OptnBox_4Callback callback;
-       int32_t acb_param1;
-       long max_count;
-       long unused_param1;
-       int32_t cb_param1;
-       long option_index;
-       long unused_param2;
+       int64_t acb_param1;
+       int64_t max_count;
+       int64_t unused_param1;
+       int64_t cb_param1;
+       int64_t option_index;
+       int64_t unused_param2;
        TbBool active;
        TbBool enabled;
 };
 
 struct GuiBox {
     char flags;
-    short box_index;
-    long pos_x;
-    long pos_y;
-    long width;
-    long height;
+    int64_t box_index;
+    int64_t pos_x;
+    int64_t pos_y;
+    int64_t width;
+    int64_t height;
     struct GuiBoxOption *optn_list;
     struct GuiBox *next_box;
     struct GuiBox *prev_box;
@@ -124,31 +124,31 @@ struct GuiBox {
 
 struct DraggingBox {
   struct GuiBox *gbox;
-  long start_x;
-  long start_y;
+  int64_t start_x;
+  int64_t start_y;
 };
 
 struct GuiButtonInit {
     char gbtype; /**< GUI Button Type, directly copied to button instance. */
-    short id_num; /**< GUI Button ID, directly copied to button instance. If there is no need of identifying the button within game code, it should be set to BID_DEFAULT.*/
-    short unused_field; // unused
-    unsigned short button_flags;
+    int64_t id_num; /**< GUI Button ID, directly copied to button instance. If there is no need of identifying the button within game code, it should be set to BID_DEFAULT.*/
+    int64_t unused_field; // unused
+    int64_t button_flags;
     Gf_Btn_Callback click_event;
     Gf_Btn_Callback rclick_event;
     Gf_Btn_Callback ptover_event;
-    unsigned short btype_value; /**< Value specific to button type, directly copied to button instance. */
-    short scr_pos_x;
-    short scr_pos_y;
-    short pos_x;
-    short pos_y;
-    short width;
-    short height;
+    int64_t btype_value; /**< Value specific to button type, directly copied to button instance. */
+    int64_t scr_pos_x;
+    int64_t scr_pos_y;
+    int64_t pos_x;
+    int64_t pos_y;
+    int64_t width;
+    int64_t height;
     Gf_Btn_Callback draw_call;
-    short sprite_idx;
-    short tooltip_stridx;
+    int64_t sprite_idx;
+    int64_t tooltip_stridx;
     struct GuiMenu *parent_menu;
     union GuiVariant content;
-    short maxval;
+    int64_t maxval;
     Gf_Btn_Callback maintain_call;
 };
 
@@ -157,40 +157,40 @@ struct GuiButton {
        unsigned char button_state_left_pressed;
        unsigned char button_state_right_pressed;
        char gmenu_idx;
-       short id_num; /**< GUI Button ID, identifying the button designation within game code.*/
+       int64_t id_num; /**< GUI Button ID, identifying the button designation within game code.*/
        unsigned char gbtype; /**< GUI Button Type, from LbBtnF_* enumeration. */
        Gf_Btn_Callback click_event;
        Gf_Btn_Callback rclick_event;
        Gf_Btn_Callback ptover_event;
        Gf_Btn_Callback draw_call;
        Gf_Btn_Callback maintain_call;
-       unsigned short btype_value; /**< Value specific to button type. Contains index in group for grouped buttons, bool state for toggle button, menu index for tab button etc. */
-       short scr_pos_x;
-       short scr_pos_y;
-       short pos_x;
-       short pos_y;
-       short width;
-       short height;
-       short sprite_idx;
+       int64_t btype_value; /**< Value specific to button type. Contains index in group for grouped buttons, bool state for toggle button, menu index for tab button etc. */
+       int64_t scr_pos_x;
+       int64_t scr_pos_y;
+       int64_t pos_x;
+       int64_t pos_y;
+       int64_t width;
+       int64_t height;
+       int64_t sprite_idx;
        /** Tooltip string ID. Positive for GUI string, negative for campaign string. */
-       short tooltip_stridx;
+       int64_t tooltip_stridx;
        /** Max value. For cycle button - max value before returning to 0; for area input - max string length. */
-       unsigned short maxval;
+       int64_t maxval;
        struct GuiMenu *parent_menu;
        union GuiVariant content;
-       unsigned short slide_val; // slider value, scaled 0..255
-       short has_shown_before; // GUI tooltips take longer to display the next time you show them
+       int64_t slide_val; // slider value, scaled 0..255
+       int64_t has_shown_before; // GUI tooltips take longer to display the next time you show them
 };
 
 struct GuiMenu {
       char ident;
       unsigned char visual_state;
-      float fade_time;
+      double fade_time;
       struct GuiButtonInit *buttons;
-      short pos_x;
-      short pos_y;
-      short width;
-      short height;
+      int64_t pos_x;
+      int64_t pos_y;
+      int64_t width;
+      int64_t height;
       Gf_Mnu_Callback draw_cb;
       char number;
       struct GuiMenu *menu_init;
@@ -206,22 +206,22 @@ struct ToolTipBox {
       struct GuiButton *gbutton;
       void *target;
       unsigned char box_type; // 0 = doesn't move with cursor
-      short pos_x;
-      short pos_y;
+      int64_t pos_x;
+      int64_t pos_y;
 };
 
 struct FrontEndButtonData {
-        unsigned short capstr_idx;
+        int64_t capstr_idx;
         unsigned char font_index;
 };
 
 struct EventTypeInfo {
-    int bttn_sprite;
-    unsigned short tooltip_stridx;
-    unsigned short msg_stridx;
-    int lifespan_turns;
+    int64_t bttn_sprite;
+    int64_t tooltip_stridx;
+    int64_t msg_stridx;
+    int64_t lifespan_turns;
     /** Indicates how many turns must pass before another event of the kind is created. */
-    int turns_between_events;
+    int64_t turns_between_events;
     /** Indicates the event kind which is to be replaced by new event. */
     unsigned char replace_event_kind_button;
 };

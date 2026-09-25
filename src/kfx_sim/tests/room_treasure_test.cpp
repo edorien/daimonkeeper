@@ -16,7 +16,7 @@
 #include "room_data.h"
 
 namespace {
-struct Room make_room(unsigned short slabs_count, unsigned short efficiency)
+struct Room make_room(int64_t slabs_count, int64_t efficiency)
 {
     struct Room room{};
     room.slabs_count = slabs_count;

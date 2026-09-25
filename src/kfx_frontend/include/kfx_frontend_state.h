@@ -52,16 +52,11 @@ struct KfxFrontendState {
     // moved to kfx_game_state.h (stage 13.2, docs/refactor/
     // stage-13-enforce-and-document.md) -- each moved to the
     // lowest-ranked of its real consumers.
-    int32_t flash_button_index; /**< GUI Button Designation ID of a button which is supposed to flash, as part of tutorial. */
-    float flash_button_time;
+    int64_t flash_button_index; /**< GUI Button Designation ID of a button which is supposed to flash, as part of tutorial. */
+    double flash_button_time;
 
-    // Moved here from keeperfx.hpp (stage 10).
-    struct GuiBox *gui_cheat_box_1;
-    struct GuiBox *gui_cheat_box_3;
-    struct GuiBox *gui_cheat_box_4;
-
-    int32_t last_mouse_x;
-    int32_t last_mouse_y;
+    int64_t last_mouse_x;
+    int64_t last_mouse_y;
     // pointer_x/pointer_y/block_pointed_at_*/pointed_at_frac_*/
     // top_pointed_at_*/thing_pointed_at/me_pointed_at moved to
     // kfx_render_state.h; my_mouse_x/my_mouse_y moved to
@@ -70,18 +65,16 @@ struct KfxFrontendState {
     // pointer cluster is engine_render.c, and my_mouse_x/y is read by
     // kfx_game's console_cmd.c (lower-ranked than kfx_frontend).
 
-    int continue_game_option_available;
-    int32_t define_key_scroll_offset;
-    uint32_t time_last_played_demo;
-    short drag_menu_x;
-    short drag_menu_y;
-    unsigned short tool_tip_time;
-    unsigned short help_tip_time;
+    int64_t continue_game_option_available;
+    int64_t define_key_scroll_offset;
+    uint64_t time_last_played_demo;
+    int64_t drag_menu_x;
+    int64_t drag_menu_y;
+    int64_t tool_tip_time;
+    int64_t help_tip_time;
     char top_of_breed_list;
     /** Amount of different creature kinds the local player has. Used for creatures tab in panel menu. */
     char no_of_breeds_owned;
-    char *level_names_data;
-    char *end_level_names_data;
 
     // timerstarttime/Timer/TimerGame/TimerNoReset/TimerFreeze moved to
     // kfx_sim_state.h (stage 13.2, docs/refactor/
@@ -112,10 +105,20 @@ struct KfxFrontendState {
     unsigned char eastegg01_cntr;
     unsigned char eastegg02_cntr;
     char save_game_slot;
-    uint32_t time_delta;
+    uint64_t time_delta;
 };
 
 extern struct KfxFrontendState kfx_frontend_state;
+
+/** Process-local pointers of the frontend. Deliberately NOT part of struct KfxFrontendState: that struct is saved,
+ *  loaded and network-resynced as raw bytes, and a pointer written by another process (another run, a
+ *  multiplayer host) is meaningless -- and dereferenced -- here. Never serialized. */
+struct KfxFrontendLocal {
+    struct GuiBox *gui_cheat_box_1;
+    struct GuiBox *gui_cheat_box_3;
+    struct GuiBox *gui_cheat_box_4;
+};
+extern struct KfxFrontendLocal kfx_frontend_local;
 
 // Registered on GameCallbacks (src/kfx_config/include/game_callbacks.h);
 // see kfx_frontend_state.c.

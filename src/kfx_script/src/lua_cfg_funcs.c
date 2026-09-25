@@ -37,7 +37,7 @@ FuncIdx get_function_idx(const char *func_name, const struct NamedCommand *Cfunc
                 return -i;
             }
         }
-        ERRORLOG("Exceeding max of %d Lua functions used by cfgs", LUA_FUNCS_MAX);
+        ERRORLOG("Exceeding max of %" PRId64 " Lua functions used by cfgs", (int64_t)(LUA_FUNCS_MAX));
         return 0;
     }
     ERRORLOG("Couldn't find function '%s'", func_name);
@@ -46,18 +46,18 @@ FuncIdx get_function_idx(const char *func_name, const struct NamedCommand *Cfunc
 
 static char *get_function_name(FuncIdx func_idx) {
     if (func_idx >= 0 || func_idx <= -LUA_FUNCS_MAX) {
-        ERRORLOG("Invalid function index: %d", func_idx);
+        ERRORLOG("Invalid function index: %" PRId64, (int64_t)(func_idx));
         return NULL;
     }
     return kfx_config_state.conf.lua.lua_funcs[-func_idx];
 }
 
 TbResult luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind,
-    unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, unsigned long allow_flags) {
+    int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags) {
 
     const char *func_name = get_function_name(func_idx);
     if (!func_name) {
-        ERRORLOG("Invalid function index: %d", func_idx);
+        ERRORLOG("Invalid function index: %" PRId64, (int64_t)(func_idx));
         return Lb_FAIL; // Indicate an error
     }
 
@@ -96,18 +96,18 @@ TbResult luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerK
 }
 
 
-short luafunc_crstate_func(FuncIdx func_idx,struct Thing *thing)
+int64_t luafunc_crstate_func(FuncIdx func_idx,struct Thing *thing)
 {
     const char *func_name = get_function_name(func_idx);
     if (!func_name) {
-        ERRORLOG("Invalid function index: %d", func_idx);
+        ERRORLOG("Invalid function index: %" PRId64, (int64_t)(func_idx));
         return Lb_FAIL; // Indicate an error
     }
 
     lua_getglobal(Lvl_script, func_name);
     if (lua_isfunction(Lvl_script, -1)) {
         lua_pushThing(Lvl_script, thing);
-        short result = 0;
+        int64_t result = 0;
         CheckLua(Lvl_script, lua_pcall(Lvl_script, 1, 1, 0),"crstate_func");
 
         // Retrieve the result returned by the Lua function
@@ -123,18 +123,18 @@ short luafunc_crstate_func(FuncIdx func_idx,struct Thing *thing)
     }
 }
 
-short luafunc_thing_update_func(FuncIdx func_idx,struct Thing *thing)
+int64_t luafunc_thing_update_func(FuncIdx func_idx,struct Thing *thing)
 {
     const char *func_name = get_function_name(func_idx);
     if (!func_name) {
-        ERRORLOG("Invalid function index: %d", func_idx);
+        ERRORLOG("Invalid function index: %" PRId64, (int64_t)(func_idx));
         return 0;
     }
 
     lua_getglobal(Lvl_script, func_name);
     if (lua_isfunction(Lvl_script, -1)) {
         lua_pushThing(Lvl_script, thing);
-        short result = 0;
+        int64_t result = 0;
         CheckLua(Lvl_script, lua_pcall(Lvl_script, 1, 1, 0),"thing_update_func");
 
         // Retrieve the result returned by the Lua function
@@ -150,7 +150,7 @@ short luafunc_thing_update_func(FuncIdx func_idx,struct Thing *thing)
     }
 }
 
-short luafunc_trap_activation_func(FuncIdx func_idx,struct Thing *trap, struct Thing *creature)
+int64_t luafunc_trap_activation_func(FuncIdx func_idx,struct Thing *trap, struct Thing *creature)
 {
     if(func_idx == 0) {
         return true;
@@ -158,7 +158,7 @@ short luafunc_trap_activation_func(FuncIdx func_idx,struct Thing *trap, struct T
     
     const char *func_name = get_function_name(func_idx);
     if (!func_name) {
-        ERRORLOG("Invalid function index: %d", func_idx);
+        ERRORLOG("Invalid function index: %" PRId64, (int64_t)(func_idx));
         return true;
     }
 
@@ -166,7 +166,7 @@ short luafunc_trap_activation_func(FuncIdx func_idx,struct Thing *trap, struct T
     if (lua_isfunction(Lvl_script, -1)) {
         lua_pushThing(Lvl_script, trap);
         lua_pushThing(Lvl_script, creature);
-        short result = true;
+        int64_t result = true;
         CheckLua(Lvl_script, lua_pcall(Lvl_script, 2, 1, 0),"trap_activation_func");
 
         /* Retrieve the result returned by the Lua function */
@@ -182,7 +182,7 @@ short luafunc_trap_activation_func(FuncIdx func_idx,struct Thing *trap, struct T
     }
 }
 
-short luafunc_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y)
+int64_t luafunc_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y)
 {
     if(func_idx == 0) {
         return 1;
@@ -190,7 +190,7 @@ short luafunc_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct T
     
     const char *func_name = get_function_name(func_idx);
     if (!func_name) {
-        ERRORLOG("Invalid function index: %d", func_idx);
+        ERRORLOG("Invalid function index: %" PRId64, (int64_t)(func_idx));
         return 1;
     }
 
@@ -201,7 +201,7 @@ short luafunc_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct T
         lua_pushThing(Lvl_script, target);
         lua_pushinteger(Lvl_script, next_stl_x);
         lua_pushinteger(Lvl_script, next_stl_y);
-        short result = 1;
+        int64_t result = 1;
         CheckLua(Lvl_script, lua_pcall(Lvl_script, 5, 1, 0),"hit_thing_func");
 
         /* Retrieve the result returned by the Lua function */

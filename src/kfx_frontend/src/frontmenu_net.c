@@ -52,10 +52,10 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-static long net_service_count(void) { return net_number_of_services; }
-static long net_session_count(void) { return net_number_of_sessions; }
-static long net_player_count(void) { return net_number_of_enum_players; }
-static long net_message_count(void) { return net_number_of_messages; }
+static int64_t net_service_count(void) { return net_number_of_services; }
+static int64_t net_session_count(void) { return net_number_of_sessions; }
+static int64_t net_player_count(void) { return net_number_of_enum_players; }
+static int64_t net_message_count(void) { return net_number_of_messages; }
 
 // items_visible=2 for session/player/message reproduces their original
 // `scroll_offset < count - 1` down-bound and `first_elem = 0` scroll-tab
@@ -104,8 +104,8 @@ void frontnet_join_game_maintain(struct GuiButton *gbtn)
 
 void frontnet_maintain_alliance(struct GuiButton *gbtn)
 {
-    long plyr_idx1;
-    long plyr_idx2;
+    int64_t plyr_idx1;
+    int64_t plyr_idx2;
     plyr_idx1 = gbtn->btype_value & LbBFeF_IntValueMask;
     plyr_idx2 = gbtn->content.lval - 74;
     if ( plyr_idx2 >= net_number_of_enum_players || net_number_of_enum_players <= plyr_idx1 || plyr_idx2 == plyr_idx1 )
@@ -142,7 +142,7 @@ TbBool frontnet_start_input(void)
     } else if (lbInkey == KC_ESCAPE) {
         player->mp_message_text[0] = '\0';
     } else if (is_key_pressed(KC_BACK,KMod_DONTCARE)){
-        int chpos = strlen(player->mp_message_text);
+        int64_t chpos = strlen(player->mp_message_text);
         // Skip UTF-8 continuation bytes so the whole last character is removed
         while ((chpos > 0) && ((player->mp_message_text[chpos-1] & 0xc0) == 0x80))
             chpos--;
@@ -171,12 +171,12 @@ void frontnet_session_set_player_name(struct GuiButton *gbtn)
 void frontnet_draw_text_bar(struct GuiButton *gbtn)
 {
     const struct TbSprite *spr;
-    int i;
-    long pos_x;
-    long pos_y;
+    int64_t i;
+    int64_t pos_x;
+    int64_t pos_y;
     pos_x = gbtn->scr_pos_x;
     pos_y = gbtn->scr_pos_y;
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_largearea_nx1_tx5_c, 100);
     spr = get_frontend_sprite(GFS_largearea_nx1_cor_l);
     LbSpriteDrawResized(pos_x, pos_y, fs_units_per_px, spr);
@@ -223,20 +223,20 @@ void frontnet_draw_players_scroll_tab(struct GuiButton *gbtn)
 
 void frontnet_draw_net_session_players(struct GuiButton *gbtn)
 {
-    int i;
+    int64_t i;
     i = frontend_button_caption_font(gbtn, 0);
     RendererSetDrawFlags(0);
     LbTextSetFont(frontend_font[i]);
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     tx_units_per_px = gbtn->height * 16 / (2*LbTextLineHeight());
     const struct TbSprite *spr;
     spr = get_frontend_sprite(GFS_bullfrog_red_med);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = gbtn->height * 16 / (2*(spr->SHeight*13/8));
-    int height;
+    int64_t height;
     height = LbTextLineHeight() * tx_units_per_px / 16;
-    long netplyr_idx;
-    int shift_y;
+    int64_t netplyr_idx;
+    int64_t shift_y;
     netplyr_idx = net_player_list.scroll_offset;
     for (shift_y=0; shift_y < gbtn->height; shift_y += height, netplyr_idx++)
     {
@@ -246,7 +246,7 @@ void frontnet_draw_net_session_players(struct GuiButton *gbtn)
             break;
         spr = get_frontend_sprite(GFS_bullfrog_red_med+netplyr_idx);
         i = height - spr->SHeight * fs_units_per_px / 16;
-        LbSpriteDrawResized(gbtn->scr_pos_x, gbtn->scr_pos_y + shift_y + abs(i)/2, fs_units_per_px, spr);
+        LbSpriteDrawResized(gbtn->scr_pos_x, gbtn->scr_pos_y + shift_y + llabs(i)/2, fs_units_per_px, spr);
         LbTextSetWindow(gbtn->scr_pos_x, shift_y + gbtn->scr_pos_y, gbtn->width - spr->SWidth * fs_units_per_px / 16, height);
         LbTextDrawResized(spr->SWidth * fs_units_per_px / 16, 0, tx_units_per_px, text);
     }
@@ -268,9 +268,9 @@ void frontnet_session_add(struct GuiButton *gbtn)
  * unchanged -- same convention Phase E's frontend_land_selection_enter_resolve
  * established.
  */
-int frontnet_session_join_resolve(void)
+int64_t frontnet_session_join_resolve(void)
 {
-    long plyr_num;
+    int64_t plyr_num;
     if (!frontnet_can_join_session())
         return -1;
     plyr_num = network_session_join();
@@ -282,7 +282,7 @@ int frontnet_session_join_resolve(void)
 
 void frontnet_session_join(struct GuiButton *gbtn)
 {
-    int next_state = frontnet_session_join_resolve();
+    int64_t next_state = frontnet_session_join_resolve();
     if (next_state >= 0)
         frontend_set_state((FrontendMenuState)next_state);
 }
@@ -290,7 +290,7 @@ void frontnet_session_join(struct GuiButton *gbtn)
 /** frontnet_return_to_main_menu's actual work, minus the state-transition
  * call itself -- see frontnet_session_join_resolve's comment for why.
  */
-int frontnet_return_to_main_menu_resolve(void)
+int64_t frontnet_return_to_main_menu_resolve(void)
 {
   if ( LbNetwork_Stop() )
   {
@@ -302,7 +302,7 @@ int frontnet_return_to_main_menu_resolve(void)
 
 void frontnet_return_to_main_menu(struct GuiButton *gbtn)
 {
-    int next_state = frontnet_return_to_main_menu_resolve();
+    int64_t next_state = frontnet_return_to_main_menu_resolve();
     if (next_state >= 0)
         frontend_set_state((FrontendMenuState)next_state);
 }
@@ -321,17 +321,17 @@ void frontnet_add_session_done(struct GuiButton *gbtn)
 
 void frontnet_draw_alliance_box_tab(struct GuiButton *gbtn)
 {
-    int units_per_px;
+    int64_t units_per_px;
     units_per_px = (gbtn->width * 16 + 100/2) / 100;
 
     const struct TbSprite *spr;
-    int pos_x;
-    int pos_y;
+    int64_t pos_x;
+    int64_t pos_y;
 
     pos_x = gbtn->scr_pos_x;
     pos_y = gbtn->scr_pos_y;
     spr = get_frontend_sprite(GFS_hugearea_thc_cor_tl);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = spr->SHeight * units_per_px / 26;
     LbSpriteDrawResized(pos_x, pos_y, fs_units_per_px, spr);
     pos_x += spr->SWidth*fs_units_per_px/16;
@@ -375,20 +375,20 @@ void frontnet_draw_alliance_box_tab(struct GuiButton *gbtn)
 
 void frontnet_draw_net_start_players(struct GuiButton *gbtn)
 {
-    int i;
+    int64_t i;
     i = frontend_button_caption_font(gbtn, 0);
     RendererSetDrawFlags(0);
     LbTextSetFont(frontend_font[i]);
-    int height;
+    int64_t height;
     height = 0;
-    long netplyr_idx;
-    int shift_y;
+    int64_t netplyr_idx;
+    int64_t shift_y;
     netplyr_idx = net_player_list.scroll_offset;
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     tx_units_per_px = gbtn->height * 16 / (4*LbTextLineHeight());
     const struct TbSprite *spr;
     spr = get_frontend_sprite(GFS_bullfrog_red_med);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = gbtn->height * 16 / (4*(spr->SHeight*13/8));
     height = LbTextLineHeight() * tx_units_per_px / 16;
     for (shift_y=0; shift_y < gbtn->height; shift_y += height, netplyr_idx++)
@@ -411,15 +411,15 @@ void frontnet_draw_net_start_players(struct GuiButton *gbtn)
         }
         spr = get_frontend_sprite(GFS_bullfrog_red_med+netplyr_idx);
         i = height - spr->SHeight * fs_units_per_px / 16;
-        LbSpriteDrawResized(gbtn->scr_pos_x, gbtn->scr_pos_y + shift_y + abs(i)/2, fs_units_per_px, spr);
+        LbSpriteDrawResized(gbtn->scr_pos_x, gbtn->scr_pos_y + shift_y + llabs(i)/2, fs_units_per_px, spr);
 
         char player_text[128];
-        unsigned long ping = 0;
+        uint64_t ping = 0;
         if (netplyr_idx != my_player_number) {
             ping = GetPing(netplyr_idx, my_player_number);
         }
         if (ping > 0) {
-            snprintf(player_text, sizeof(player_text), "%s - %lums", text, ping);
+            snprintf(player_text, sizeof(player_text), "%s - %" PRIu64 "ms", text, (uint64_t)(ping));
         } else {
             snprintf(player_text, sizeof(player_text), "%s", text);
         }
@@ -440,7 +440,7 @@ void frontnet_draw_net_start_players(struct GuiButton *gbtn)
  * (frontgui_screens.cpp), which iterates player indices directly rather
  * than decoding them from two different GuiButton fields.
  */
-void frontnet_select_alliance_by_index(int plyr1_idx, int plyr2_idx)
+void frontnet_select_alliance_by_index(int64_t plyr1_idx, int64_t plyr2_idx)
 {
     struct PlayerInfo *myplyr;
     myplyr = get_my_player();
@@ -459,8 +459,8 @@ void frontnet_select_alliance_by_index(int plyr1_idx, int plyr2_idx)
 
 void frontnet_select_alliance(struct GuiButton *gbtn)
 {
-    int plyr1_idx;
-    int plyr2_idx;
+    int64_t plyr1_idx;
+    int64_t plyr2_idx;
     plyr1_idx = gbtn->content.lval - 74;
     plyr2_idx = gbtn->btype_value & LbBFeF_IntValueMask;
     frontnet_select_alliance_by_index(plyr1_idx, plyr2_idx);
@@ -468,12 +468,12 @@ void frontnet_select_alliance(struct GuiButton *gbtn)
 
 void frontnet_draw_alliance_grid(struct GuiButton *gbtn)
 {
-    int pos_x;
-    int pos_y;
+    int64_t pos_x;
+    int64_t pos_y;
     pos_y = gbtn->scr_pos_y;
     const struct TbSprite *spr;
-    int netplyr_idx;
-    int units_per_px;
+    int64_t netplyr_idx;
+    int64_t units_per_px;
     units_per_px = gbtn->height * 16 / (22*4);
 
     pos_x = gbtn->scr_pos_x;
@@ -515,8 +515,8 @@ void frontnet_draw_alliance_grid(struct GuiButton *gbtn)
 
 void frontnet_draw_alliance_button(struct GuiButton *gbtn)
 {
-    int plyr1_idx;
-    int plyr2_idx;
+    int64_t plyr1_idx;
+    int64_t plyr2_idx;
     const struct TbSprite *spr;
     plyr2_idx = gbtn->btype_value & LbBFeF_IntValueMask;
     plyr1_idx = gbtn->content.lval - 74;
@@ -524,7 +524,7 @@ void frontnet_draw_alliance_button(struct GuiButton *gbtn)
       spr = get_frontend_sprite(GFS_scrollbar_indicator_std);
     else
       spr = get_frontend_sprite(GFS_slidrect_indicator_std1);
-    int units_per_px;
+    int64_t units_per_px;
     units_per_px = gbtn->height * 16 / spr->SHeight;
     LbSpriteDrawResized(gbtn->scr_pos_x, gbtn->scr_pos_y, units_per_px, spr);
 }
@@ -541,17 +541,17 @@ void frontnet_messages_down(struct GuiButton *gbtn)
 
 void frontnet_draw_bottom_scroll_box_tab(struct GuiButton *gbtn)
 {
-    int units_per_px;
+    int64_t units_per_px;
     units_per_px = (gbtn->width * 16 + 240/2) / 240;
 
-    long pos_x;
-    long pos_y;
+    int64_t pos_x;
+    int64_t pos_y;
     const struct TbSprite *spr;
     pos_x = gbtn->scr_pos_x;
     pos_y = gbtn->scr_pos_y;
     RendererSetDrawFlags(Lb_SPRITE_FLIP_VERTIC);
     spr = get_frontend_sprite(GFS_hugearea_thc_cor_tl);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = spr->SHeight * units_per_px / 26;
     LbSpriteDrawResized(pos_x, pos_y, fs_units_per_px, spr);
     pos_x += spr->SWidth*fs_units_per_px/16;
@@ -570,14 +570,14 @@ void frontnet_draw_messages_scroll_tab(struct GuiButton *gbtn)
     frontend_selectlist_draw_scroll_tab(&net_message_list, gbtn);
 }
 
-void frontnet_draw_scroll_selection_box(struct GuiButton *gbtn, long font_idx, const char *text)
+void frontnet_draw_scroll_selection_box(struct GuiButton *gbtn, int64_t font_idx, const char *text)
 {
     const struct TbSprite * spr;
-    int pos_x;
-    int i;
+    int64_t pos_x;
+    int64_t i;
     unsigned char height;
     spr = get_frontend_sprite(GFS_largearea_xts_cor_l);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = gbtn->height * 16 / spr->SHeight;
     pos_x = gbtn->scr_pos_x;
     for (i = 6; i > 0; i--)
@@ -591,7 +591,7 @@ void frontnet_draw_scroll_selection_box(struct GuiButton *gbtn, long font_idx, c
     {
         LbTextSetFont(frontend_font[font_idx]);
         RendererSetDrawFlags(0);
-        int tx_units_per_px;
+        int64_t tx_units_per_px;
         tx_units_per_px = (gbtn->height*13/14) * 16 / LbTextLineHeight();
         height = LbTextLineHeight() * tx_units_per_px / 16;
         LbTextSetWindow(gbtn->scr_pos_x + 13*fs_units_per_px/16, gbtn->scr_pos_y, gbtn->width - 26*fs_units_per_px/16, height);
@@ -605,7 +605,7 @@ void frontnet_draw_current_message(struct GuiButton *gbtn)
     static TbBool print_with_cursor = 1;
 
     struct PlayerInfo *player;
-    int font_idx;
+    int64_t font_idx;
     char text[2048];
     // Blink cursor - switch state every 100ms
     if (LbTimerClock() >= last_time + 100)
@@ -630,30 +630,30 @@ void frontnet_draw_current_message(struct GuiButton *gbtn)
 void frontnet_draw_messages(struct GuiButton *gbtn)
 {
     static TbPixel player_left_remap[PALETTE_COLORS];
-    static int player_left_remap_initialized;
+    static int64_t player_left_remap_initialized;
     if (!player_left_remap_initialized) {
-        for (int i = 0; i < PALETTE_COLORS; i++) {
-            int intensity = max(frontend_palette[3*i], max(frontend_palette[3*i+1], frontend_palette[3*i+2]));
+        for (int64_t i = 0; i < PALETTE_COLORS; i++) {
+            int64_t intensity = max(frontend_palette[3*i], max(frontend_palette[3*i+1], frontend_palette[3*i+2]));
             player_left_remap[i] = TbPixel_RGB(chan6_to_8(intensity*5/8), chan6_to_8(intensity*3/8), chan6_to_8(intensity/4));
         }
         player_left_remap_initialized = 1;
     }
-    int font_idx;
+    int64_t font_idx;
     font_idx = frontend_button_caption_font(gbtn, 0);
     LbTextSetFont(frontend_font[font_idx]);
     RendererSetDrawFlags(0);
     // While setting scale, aim for 4 lines of text
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     tx_units_per_px = gbtn->height * 16 / (4*LbTextLineHeight());
     const struct TbSprite *spr;
     spr = get_frontend_sprite(GFS_bullfrog_red_med);
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = gbtn->height * 16 / (4*(spr->SHeight*13/8));
-    int font_height;
+    int64_t font_height;
     font_height = LbTextLineHeight() * tx_units_per_px / 16;
-    int y;
+    int64_t y;
     y = 0;
-    int netmsg_id;
+    int64_t netmsg_id;
     for (netmsg_id=net_message_list.scroll_offset; netmsg_id < net_number_of_messages; netmsg_id++)
     {
         if (y + font_height/2 > gbtn->height)
@@ -661,10 +661,10 @@ void frontnet_draw_messages(struct GuiButton *gbtn)
         struct NetMessage *nmsg;
         nmsg = &net_message[netmsg_id];
         TbBool sender_active = nmsg->connection_id == net_user_info[nmsg->plyr_idx].connection_id;
-        int num_active;
+        int64_t num_active;
         num_active = 0;
         if (sender_active) {
-            for (int i = nmsg->plyr_idx; i > 0; i--) {
+            for (int64_t i = nmsg->plyr_idx; i > 0; i--) {
                 if (net_user_info[i].network_user_active) {
                     num_active++;
                 }
@@ -673,7 +673,7 @@ void frontnet_draw_messages(struct GuiButton *gbtn)
 
         spr = get_frontend_sprite(GFS_bullfrog_red_med+num_active);
 
-        int icon_y = font_height - spr->SHeight * fs_units_per_px / 16;
+        int64_t icon_y = font_height - spr->SHeight * fs_units_per_px / 16;
         if (sender_active) {
             LbSpriteDrawResized(gbtn->scr_pos_x, y + gbtn->scr_pos_y + (icon_y >> 1), fs_units_per_px, spr);
         } else {
@@ -734,20 +734,20 @@ void frontnet_service_maintain(struct GuiButton *gbtn)
 
 void frontnet_draw_service_button(struct GuiButton *gbtn)
 {
-  int srvidx;
+  int64_t srvidx;
   // Find and verify selected network service
   srvidx = frontend_selectlist_row_to_item_index(&net_service_list, gbtn);
   if (srvidx >= net_number_of_services)
     return;
   // Select font to draw
-  int font_idx;
+  int64_t font_idx;
   font_idx = frontend_button_caption_font(gbtn,frontend_mouse_over_button);
   LbTextSetFont(frontend_font[font_idx]);
   RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
   // Set drawing window and draw the text
-  int tx_units_per_px;
+  int64_t tx_units_per_px;
   tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
-  int height;
+  int64_t height;
   height = LbTextLineHeight() * tx_units_per_px / 16;
   LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, height);
   LbTextDrawResized(0, 0, tx_units_per_px, net_service[srvidx]);
@@ -767,7 +767,7 @@ void frontnet_draw_service_button(struct GuiButton *gbtn)
  * screen defers this whole function via frontgui_screens.cpp's generic
  * pending-action mechanism instead of calling it inline.
  */
-void frontnet_service_select_by_index(long srvidx)
+void frontnet_service_select_by_index(int64_t srvidx)
 {
   // Used to have a special-case branch here for Skirmish, appended as an
   // extra row past the real services -- moved to its own Main Menu button
@@ -784,7 +784,7 @@ void frontnet_service_select_by_index(long srvidx)
 
 void frontnet_service_select(struct GuiButton *gbtn)
 {
-  int srvidx;
+  int64_t srvidx;
   srvidx = frontend_selectlist_row_to_item_index(&net_service_list, gbtn);
   frontnet_service_select_by_index(srvidx);
 }

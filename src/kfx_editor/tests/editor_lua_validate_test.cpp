@@ -86,7 +86,7 @@ TEST_CASE("lua validate: shipped level scripts have no errors and no warnings", 
     const LuaModuleText mods = [&](const std::string &n) {
         return slurp(root / "levels" / "dungeon_architect" / "cfg" / "lua" / (n + ".lua"));
     };
-    int files = 0;
+    int64_t files = 0;
     std::string report;
     for (const fs::path &dir : {root / "levels", root / "multiplayer"})
         for (fs::recursive_directory_iterator it(dir), end; it != end; ++it)
@@ -98,7 +98,7 @@ TEST_CASE("lua validate: shipped level scripts have no errors and no warnings", 
                 continue;
             files++;
             const ScriptCommandLookup engine = [](const std::string &name) -> const char * {
-                for (int i = 0; command_desc[i].textptr != NULL; i++)
+                for (int64_t i = 0; command_desc[i].textptr != NULL; i++)
                     if (name == command_desc[i].textptr)
                         return command_desc[i].args;
                 return nullptr;

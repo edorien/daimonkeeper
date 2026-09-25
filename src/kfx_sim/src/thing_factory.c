@@ -47,17 +47,17 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-struct Thing *create_cave_in(struct Coord3d *pos, ThingModel cimodel, unsigned short owner)
+struct Thing *create_cave_in(struct Coord3d *pos, ThingModel cimodel, int64_t owner)
 {
     if ( !i_can_allocate_free_thing_structure(TCls_CaveIn) )
     {
-        ERRORDBG(3,"Cannot create cave in %d for player %d. There are too many things allocated.",(int)cimodel,(int)owner);
+        ERRORDBG(3,"Cannot create cave in %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)cimodel,(int64_t)owner);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* thing = allocate_free_thing_structure(TCls_CaveIn);
     if (thing->index == 0) {
-        ERRORDBG(3,"Should be able to allocate cave in %d for player %d, but failed.",(int)cimodel,(int)owner);
+        ERRORDBG(3,"Should be able to allocate cave in %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)cimodel,(int64_t)owner);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
@@ -83,7 +83,7 @@ struct Thing *create_cave_in(struct Coord3d *pos, ThingModel cimodel, unsigned s
     return thing;
 }
 
-struct Thing *create_thing(struct Coord3d *pos, unsigned short tngclass, ThingModel tngmodel, unsigned short owner, long parent_idx)
+struct Thing *create_thing(struct Coord3d *pos, int64_t tngclass, ThingModel tngmodel, int64_t owner, int64_t parent_idx)
 {
     struct Thing* thing = INVALID_THING;
     switch (tngclass)
@@ -132,7 +132,7 @@ TbBool thing_create_thing(struct InitThing *itng)
 {
     if (itng->owner > 5)
     {
-        ERRORLOG("Invalid owning player %d, thing discarded", (int)itng->owner);
+        ERRORLOG("Invalid owning player %" PRId64 ", thing discarded", (int64_t)itng->owner);
         return false;
     }
     struct Thing* thing;
@@ -159,7 +159,7 @@ TbBool thing_create_thing(struct InitThing *itng)
             thing = INVALID_THING;
         } else
         {
-            ERRORLOG("Couldn't create object model %d (%s)", (int)itng->model, object_code_name(itng->model));
+            ERRORLOG("Couldn't create object model %" PRId64 " (%s)", (int64_t)itng->model, object_code_name(itng->model));
             return false;
         }
         break;
@@ -167,7 +167,7 @@ TbBool thing_create_thing(struct InitThing *itng)
         thing = create_creature(&itng->mappos, itng->model, itng->owner);
         if (thing_is_invalid(thing))
         {
-            ERRORLOG("Couldn't create creature model %d (%s)", (int)itng->model, creature_code_name(itng->model));
+            ERRORLOG("Couldn't create creature model %" PRId64 " (%s)", (int64_t)itng->model, creature_code_name(itng->model));
             return false;
         }
         init_creature_level(thing, itng->params[1]);
@@ -176,7 +176,7 @@ TbBool thing_create_thing(struct InitThing *itng)
         thing = create_effect_generator(&itng->mappos, itng->model, itng->range, itng->owner, itng->index);
         if (thing_is_invalid(thing))
         {
-            ERRORLOG("Couldn't create effect generator model %d", (int)itng->model);
+            ERRORLOG("Couldn't create effect generator model %" PRId64, (int64_t)itng->model);
             return false;
         }
         break;
@@ -184,7 +184,7 @@ TbBool thing_create_thing(struct InitThing *itng)
         thing = create_thing(&itng->mappos, itng->oclass, itng->model, itng->owner, itng->index);
         if (thing_is_invalid(thing))
         {
-            ERRORLOG("Couldn't create trap model %d (%s)", (int)itng->model, trap_code_name(itng->model));
+            ERRORLOG("Couldn't create trap model %" PRId64 " (%s)", (int64_t)itng->model, trap_code_name(itng->model));
             return false;
         }
         break;
@@ -192,7 +192,7 @@ TbBool thing_create_thing(struct InitThing *itng)
         thing = create_door(&itng->mappos, itng->model, itng->params[0], itng->owner, itng->params[1]);
         if (thing_is_invalid(thing))
         {
-            ERRORLOG("Couldn't create door model %d (%s)", (int)itng->model, door_code_name(itng->model));
+            ERRORLOG("Couldn't create door model %" PRId64 " (%s)", (int64_t)itng->model, door_code_name(itng->model));
             return false;
         }
         break;
@@ -201,12 +201,12 @@ TbBool thing_create_thing(struct InitThing *itng)
         thing = create_thing(&itng->mappos, itng->oclass, itng->model, itng->owner, itng->index);
         if (thing_is_invalid(thing))
         {
-            ERRORLOG("Couldn't create thing class %d model %d", (int)itng->oclass, (int)itng->model);
+            ERRORLOG("Couldn't create thing class %" PRId64 " model %" PRId64, (int64_t)itng->oclass, (int64_t)itng->model);
             return false;
         }
         break;
     default:
-        ERRORLOG("Invalid class %d, thing discarded", (int)itng->oclass);
+        ERRORLOG("Invalid class %" PRId64 ", thing discarded", (int64_t)itng->oclass);
         return false;
     }
     return true;
@@ -214,8 +214,8 @@ TbBool thing_create_thing(struct InitThing *itng)
 
 TbBool thing_create_thing_adv(VALUE *init_data)
 {
-    int owner = value_int32(value_dict_get(init_data, "Ownership"));
-    int oclass = value_parse_class(value_dict_get(init_data, "ThingType"));
+    int64_t owner = value_int32(value_dict_get(init_data, "Ownership"));
+    int64_t oclass = value_parse_class(value_dict_get(init_data, "ThingType"));
     if (oclass == -1) {
         ERRORLOG("Thing ThingType is not set");
         return false;
@@ -223,15 +223,15 @@ TbBool thing_create_thing_adv(VALUE *init_data)
     ThingModel model = value_int32(value_dict_get(init_data, "Subtype"));
     VALUE *subtype = value_dict_get(init_data, "SubtypeStringID");
     if (subtype != NULL) {
-        int level = get_selected_level_number();
+        int64_t level = get_selected_level_number();
         if (value_type(subtype) != VALUE_STRING) {
-            ERRORMSG("map%05d.tngfx: Thing SubtypeStringID is not a string", level);
+            ERRORMSG("map%05" PRId64 ".tngfx: Thing SubtypeStringID is not a string", (int64_t)(level));
             return false;
         }
         model = value_parse_model(oclass, subtype);
         if (model == -1) {
             const char *name = value_string(subtype);
-            ERRORMSG("map%05d.tngfx: Unrecognized Thing SubtypeStringID \"%s\"", level, name);
+            ERRORMSG("map%05" PRId64 ".tngfx: Unrecognized Thing SubtypeStringID \"%s\"", (int64_t)(level), name);
             return false;
         }
     }
@@ -251,14 +251,14 @@ TbBool thing_create_thing_adv(VALUE *init_data)
 
     if (owner > PLAYERS_COUNT)
     {
-        ERRORLOG("Invalid owning player %d, thing discarded", owner);
+        ERRORLOG("Invalid owning player %" PRId64 ", thing discarded", (int64_t)(owner));
         return false;
     }
     struct Thing* thing;
     switch (oclass)
     {
         case TCls_Object:
-            thing = create_thing(&mappos, oclass, model, owner, (unsigned short)value_int32(value_dict_get(init_data, "ParentTile")));
+            thing = create_thing(&mappos, oclass, model, owner, (int64_t)value_int32(value_dict_get(init_data, "ParentTile")));
             if (!thing_is_invalid(thing))
             {
                 if (object_is_hero_gate(thing))
@@ -271,7 +271,7 @@ TbBool thing_create_thing_adv(VALUE *init_data)
                 }
                 else if (thing_is_custom_special_box(thing))
                 {
-                    int box_kind = value_int32(value_dict_get(init_data, "CustomBox"));
+                    int64_t box_kind = value_int32(value_dict_get(init_data, "CustomBox"));
                     if (box_kind == -1)
                         box_kind = 0;
                     thing->custom_box.box_kind = box_kind;
@@ -299,7 +299,7 @@ TbBool thing_create_thing_adv(VALUE *init_data)
                 thing = INVALID_THING;
             } else
             {
-                ERRORLOG("Couldn't create object model %d (%s)", (int)model, object_code_name(model));
+                ERRORLOG("Couldn't create object model %" PRId64 " (%s)", (int64_t)model, object_code_name(model));
                 return false;
             }
             break;
@@ -310,20 +310,20 @@ TbBool thing_create_thing_adv(VALUE *init_data)
             {
                 if (creature_count_below_map_limit(0))
                 {
-                    WARNLOG("Map Creature limit reached. Couldn't create creature model %d (%s)", (int)model, creature_code_name(model));
+                    WARNLOG("Map Creature limit reached. Couldn't create creature model %" PRId64 " (%s)", (int64_t)model, creature_code_name(model));
                 }
                 else
                 {
-                    ERRORLOG("Couldn't create creature model %d (%s)", (int)model, creature_code_name(model));
+                    ERRORLOG("Couldn't create creature model %" PRId64 " (%s)", (int64_t)model, creature_code_name(model));
                 }
                 return false;
             }
             {
-                int level = value_int32(value_dict_get(init_data, "CreatureLevel"));
+                int64_t level = value_int32(value_dict_get(init_data, "CreatureLevel"));
                 if (level < 1 || level > 10)
                 {
                     level = 0; // Default
-                    WARNLOG("invalid level in tngfx file %d", level);
+                    WARNLOG("invalid level in tngfx file %" PRId64, (int64_t)(level));
                 }
                 else
                 {
@@ -350,7 +350,7 @@ TbBool thing_create_thing_adv(VALUE *init_data)
                 {
                     if(strlen(creatureName) >= CREATURE_NAME_MAX)
                     {
-                        ERRORLOG("init creature name (%s) too long max %d chars", creatureName, CREATURE_NAME_MAX-1);
+                        ERRORLOG("init creature name (%s) too long max %" PRId64 " chars", creatureName, (int64_t)(CREATURE_NAME_MAX-1));
                         break;
                     }
                     strcpy(cctrl->creature_name,creatureName);
@@ -360,20 +360,20 @@ TbBool thing_create_thing_adv(VALUE *init_data)
             break;
         case TCls_EffectGen:
             {
-                unsigned short range = value_read_stl_coord(value_dict_get(init_data, "EffectRange"));
-                thing = create_effect_generator(&mappos, model, range, owner, (unsigned short)value_int32(value_dict_get(init_data, "ParentTile")));
+                int64_t range = value_read_stl_coord(value_dict_get(init_data, "EffectRange"));
+                thing = create_effect_generator(&mappos, model, range, owner, (int64_t)value_int32(value_dict_get(init_data, "ParentTile")));
             }
             if (thing_is_invalid(thing))
             {
-                ERRORLOG("Couldn't create effect generator model %d", (int)model);
+                ERRORLOG("Couldn't create effect generator model %" PRId64, (int64_t)model);
                 return false;
             }
             break;
         case TCls_Trap:
-            thing = create_thing(&mappos, oclass, model, owner, (unsigned short)value_int32(value_dict_get(init_data, "ParentTile")));
+            thing = create_thing(&mappos, oclass, model, owner, (int64_t)value_int32(value_dict_get(init_data, "ParentTile")));
             if (thing_is_invalid(thing))
             {
-                ERRORLOG("Couldn't create trap model %d (%s)", (int)model, trap_code_name(model));
+                ERRORLOG("Couldn't create trap model %" PRId64 " (%s)", (int64_t)model, trap_code_name(model));
                 return false;
             }
             VALUE* trap_rotation = value_dict_get(init_data, "Orientation");
@@ -384,8 +384,8 @@ TbBool thing_create_thing_adv(VALUE *init_data)
             break;
         case TCls_Door:
             {
-                int orientation = value_int32(value_dict_get(init_data, "DoorOrientation"));
-                int is_locked = value_int32(value_dict_get(init_data, "DoorLocked"));
+                int64_t orientation = value_int32(value_dict_get(init_data, "DoorOrientation"));
+                int64_t is_locked = value_int32(value_dict_get(init_data, "DoorLocked"));
                 if (orientation == -1)
                     orientation = 0;
                 if (is_locked == -1)
@@ -394,21 +394,21 @@ TbBool thing_create_thing_adv(VALUE *init_data)
             }
             if (thing_is_invalid(thing))
             {
-                ERRORLOG("Couldn't create door model %d (%s)", (int)model, door_code_name(model));
+                ERRORLOG("Couldn't create door model %" PRId64 " (%s)", (int64_t)model, door_code_name(model));
                 return false;
             }
             break;
         case TCls_unusedparam10:
         case TCls_unusedparam11:
-            thing = create_thing(&mappos, oclass, model, owner, (unsigned short)value_int32(value_dict_get(init_data, "ParentTile")));
+            thing = create_thing(&mappos, oclass, model, owner, (int64_t)value_int32(value_dict_get(init_data, "ParentTile")));
             if (thing_is_invalid(thing))
             {
-                ERRORLOG("Couldn't create thing class %d model %d", (int)oclass, (int)model);
+                ERRORLOG("Couldn't create thing class %" PRId64 " model %" PRId64, (int64_t)oclass, (int64_t)model);
                 return false;
             }
             break;
         default:
-            ERRORLOG("Invalid class %d, thing discarded", (int)oclass);
+            ERRORLOG("Invalid class %" PRId64 ", thing discarded", (int64_t)oclass);
             return false;
     }
     return true;
@@ -442,7 +442,7 @@ struct Thing *create_thing_at_position_then_move_to_valid_and_add_light(struct C
         cctrl->party.target_plyr_idx = -1;
     }
 
-    long light_rand = GAME_RANDOM(8); // this may be unsynced random
+    int64_t light_rand = GAME_RANDOM(8); // this may be unsynced random
     if (light_rand < 2)
     {
         struct InitLight ilght;

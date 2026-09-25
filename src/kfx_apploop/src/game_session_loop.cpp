@@ -109,19 +109,19 @@
 extern "C" {
 #endif
 /******************************************************************************/
-short do_draw;
+int64_t do_draw;
 static long double process_frame_time = 0;
 static long double time_since_last_draw = 0;
 static long double average_frame_draw_time = 1;
 static long double multiplayer_clock_adjust = 1;
 long double host_packet_received = 1;
-float interpolate_time = 0;
+double interpolate_time = 0;
 /******************************************************************************/
 
 void update(void)
 {
     struct PlayerInfo *player;
-    SYNCDBG(4,"Starting for turn %ld",(long)get_gameturn());
+    SYNCDBG(4,"Starting for turn %" PRId64,(int64_t)get_gameturn());
 
     process_packets();
     update_local_cameras();
@@ -148,7 +148,7 @@ void update(void)
     // is untouched by PckA_TogglePause, so it can't race the same way.
     if (!flag_is_set(kfx_sim_state.operation_flags,GOF_Paused) && !kfx_sim_state.simulation_suspended)
     {
-        for (int i = 1; i < EVENTS_COUNT; i++) {
+        for (int64_t i = 1; i < EVENTS_COUNT; i++) {
             kfx_sim_state.event[i].flags &= ~EvF_BtnFalling;
         }
         if (flag_is_set(ustate->additional_flags,UsrAF_LightningPaletteIsActive))
@@ -204,19 +204,19 @@ void find_frame_rate(void)
 {
     static TbClockMSec prev_time2=0;
     static TbClockMSec cntr_time2=0;
-    unsigned long curr_time;
+    uint64_t curr_time;
     curr_time = LbTimerClock();
     cntr_time2++;
     if (curr_time-prev_time2 >= 1000)
     {
         double time_fdelta = 1000.0*((double)(cntr_time2))/(curr_time-prev_time2);
         prev_time2 = curr_time;
-        kfx_frontend_state.time_delta = (unsigned long)(time_fdelta*256.0);
+        kfx_frontend_state.time_delta = (uint64_t)(time_fdelta*256.0);
         cntr_time2 = 0;
     }
 }
 
-void packet_load_find_frame_rate(unsigned long incr)
+void packet_load_find_frame_rate(uint64_t incr)
 {
     static TbClockMSec start_time=0;
     static TbClockMSec extra_frames=0;
@@ -229,7 +229,7 @@ void packet_load_find_frame_rate(unsigned long incr)
     {
         double time_fdelta = 1000.0*((double)(extra_frames+incr))/(curr_time-start_time);
         start_time = curr_time;
-        kfx_frontend_state.time_delta = (unsigned long)(time_fdelta*256.0);
+        kfx_frontend_state.time_delta = (uint64_t)(time_fdelta*256.0);
         extra_frames = 0;
     }
 }
@@ -237,7 +237,7 @@ void packet_load_find_frame_rate(unsigned long incr)
 /**
  * Checks if the game screen needs redrawing.
  */
-short display_should_be_updated_this_turn(void)
+int64_t display_should_be_updated_this_turn(void)
 {
     if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
       return true;
@@ -295,7 +295,7 @@ TbBool keeper_wait_for_next_turn(void)
     if (kfx_net_state.frame_skip >= 0)
     {
         // Standard delaying system
-        int32_t num_fps = kfx_sim_state.turns_per_second;
+        int64_t num_fps = kfx_sim_state.turns_per_second;
         if (kfx_net_state.frame_skip > 0)
             num_fps *= kfx_net_state.frame_skip;
 
@@ -489,7 +489,7 @@ static void gameplay_loop_logic()
             // Aim to exchange network packets before the turn ends.  If drawing
             // another frame could miss this deadline, skip it.
             // In a 3-4 player game, clients must be 2 frames early.
-            const int frames = 1 + (netstate.my_id != SERVER_ID && kfx_net_state.active_players_count > 2);
+            const int64_t frames = 1 + (netstate.my_id != SERVER_ID && kfx_net_state.active_players_count > 2);
             const long double offset = frames * average_frame_draw_time * multiplayer_clock_adjust * max(kfx_net_state.frame_skip, 1);
             if (kfx_net_state.process_turn_time + offset < 1.0)
                 return;
@@ -543,7 +543,7 @@ static void gameplay_loop_logic()
                 {
                     if (TimerTurns != 0)
                     {
-                        uint32_t turns = kfx_sim_state.turns_per_second;
+                        uint64_t turns = kfx_sim_state.turns_per_second;
                         if (kfx_net_state.frame_skip > 0)
                         {
                             turns *= kfx_net_state.frame_skip;
@@ -674,7 +674,7 @@ void keeper_gameplay_loop(void)
     if ((kfx_sim_state.operation_flags & GOF_SingleLevel) != 0) {
         initialise_eye_lenses();
     }
-    SYNCDBG(0,"Entering the gameplay loop for level %d",(int)get_loaded_level_number());
+    SYNCDBG(0,"Entering the gameplay loop for level %" PRId64,(int64_t)get_loaded_level_number());
     LbErrorParachuteUpdate(); // For some reasone parachute keeps changing; Remove when won't be needed anymore
 
     initial_time_point();
@@ -695,7 +695,7 @@ void keeper_gameplay_loop(void)
         bf_datetm_set_frame_timing(kfx_render_state.delta_time, kfx_sim_state.turns_per_second);
         frametime_end_measurement(Frametime_FullFrame);
     } // end while
-    SYNCDBG(0,"Gameplay loop finished after %lu turns",(unsigned long)get_gameturn());
+    SYNCDBG(0,"Gameplay loop finished after %" PRIu64 " turns",(uint64_t)get_gameturn());
 
     // Reset the game kind because we are not in a game anymore at this point
     kfx_sim_state.game_kind = GKind_Unset;
@@ -753,7 +753,7 @@ static TbBool wait_at_frontend(void)
                 WARNMSG("Unable to load campaign associated with the specified level CMD Line parameter, default loaded.");
             }
             else {
-                JUSTLOG("No campaign specified. Default campaign loaded for selected level (%u).", start_params.selected_level_number);
+                JUSTLOG("No campaign specified. Default campaign loaded for selected level (%" PRIu64 ").", (uint64_t)(start_params.selected_level_number));
             }
         }
         set_selected_level_number(start_params.selected_level_number);
@@ -831,11 +831,11 @@ static TbBool wait_at_frontend(void)
     poll_inputs();
     clear_mouse_pressed_lrbutton();
 
-    short finish_menu = 0;
+    int64_t finish_menu = 0;
     clear_flag(kfx_sim_state.mode_flags, MFlg_DemoMode);
     // TODO move to separate function
     // Begin the frontend loop
-    long fe_last_loop_time = LbTimerClock();
+    int64_t fe_last_loop_time = LbTimerClock();
     do
     {
       if (!poll_inputs())
@@ -882,7 +882,7 @@ static TbBool wait_at_frontend(void)
       if (is_feature_on(Ft_DeltaTime) == true && should_use_delta_time_on_menu()) {
         update_frontend_delta_time();
       } else {
-        int32_t frame_time;
+        int64_t frame_time;
         frame_time = max(1, 1000 / kfx_sim_state.turns_per_second);
         kfx_render_state.delta_time = 1;
         LbSleepUntil(fe_last_loop_time + frame_time);
@@ -910,7 +910,7 @@ static TbBool wait_at_frontend(void)
     level_load_time_phase(LevelLoadTime_EngineStartup);
     display_loading_screen();
 
-    short flgmem;
+    int64_t flgmem;
     switch (prev_state)
     {
     case FeSt_START_KPRLEVEL:
@@ -937,7 +937,7 @@ static TbBool wait_at_frontend(void)
           level_load_time_phase(LevelLoadTime_Data);
           if (!load_game(kfx_frontend_state.save_game_slot))
           {
-              ERRORLOG("Loading game %d failed; quitting.",(int)kfx_frontend_state.save_game_slot);
+              ERRORLOG("Loading game %" PRId64 " failed; quitting.",(int64_t)kfx_frontend_state.save_game_slot);
               quit_game = 1;
           }
           level_load_time_phase(LevelLoadTime_GameSetup);
@@ -985,7 +985,7 @@ static TbBool wait_at_frontend(void)
 void game_loop(void)
 {
 #if (BFDEBUG_LEVEL > 0)
-    unsigned long playtime = 0;
+    uint64_t playtime = 0;
 #endif
     SYNCDBG(0,"Entering gameplay loop.");
 
@@ -1000,15 +1000,15 @@ void game_loop(void)
       if ( exit_keeper )
         break;
 
-      int32_t mspos_x_bak = lbDisplay.MMouseX;
-      int32_t mspos_y_bak = lbDisplay.MMouseY;
+      int64_t mspos_x_bak = lbDisplay.MMouseX;
+      int64_t mspos_y_bak = lbDisplay.MMouseY;
 
       if (kfx_sim_state.game_kind == GKind_LocalGame)
       {
         if (kfx_frontend_state.save_game_slot == -1)
         {
             if (is_feature_on(Ft_SkipHeartZoom) == false) {
-                for (int i = 0; i < PLAYERS_COUNT; i++) {
+                for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
                     struct PlayerInfo *player = get_player(i);
                     if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0)) {
                         set_player_instance(player, PI_HeartZoom, 0);
@@ -1024,7 +1024,7 @@ void game_loop(void)
           kfx_frontend_state.save_game_slot = -1;
         }
       } else {
-          for (int i = 0; i < PLAYERS_COUNT; i++) {
+          for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
               struct PlayerInfo *player = get_player(i);
               if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0)) {
                   set_player_instance(player, PI_HeartZoom, 0);
@@ -1038,9 +1038,9 @@ void game_loop(void)
       // 2. PI_HeartZoom: the mouse will be moved to the center of the screen.
       LbMouseSetPosition(mspos_x_bak, mspos_y_bak);
 
-      unsigned long starttime;
+      uint64_t starttime;
 #if (BFDEBUG_LEVEL > 0)
-      unsigned long endtime;
+      uint64_t endtime;
 #endif
       struct Dungeon *dungeon;
       // get_my_dungeon() can't be used here because players are not initialized yet
@@ -1090,7 +1090,7 @@ void game_loop(void)
 #if (BFDEBUG_LEVEL > 0)
       playtime += endtime-starttime;
 #endif
-      SYNCDBG(0,"Play time is %lu seconds",playtime>>10);
+      SYNCDBG(0,"Play time is %" PRIu64 " seconds",(uint64_t)(playtime>>10));
       reset_eye_lenses();
       close_packet_file();
       kfx_net_state.packet_load_enable = false;

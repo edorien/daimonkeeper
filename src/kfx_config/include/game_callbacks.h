@@ -32,8 +32,8 @@ struct GuiBoxOption;
 
 struct GameCallbacks {
     /* frontend.h -- cheat menu group */
-    short (*toggle_main_cheat_menu)(void);
-    short (*toggle_instance_cheat_menu)(void);
+    int64_t (*toggle_main_cheat_menu)(void);
+    int64_t (*toggle_instance_cheat_menu)(void);
     TbBool (*toggle_secondary_cheat_menu)(void);
     TbBool (*toggle_creature_cheat_menu)(void);
     TbBool (*close_main_cheat_menu)(void);
@@ -43,25 +43,25 @@ struct GameCallbacks {
     void (*create_error_box)(TextStringId msg_idx);
     TbBool (*is_fe_computer_players_active)(void);
     void (*set_gui_visible)(TbBool visible);
-    short (*is_menu_active)(short idx);
+    int64_t (*is_menu_active)(int64_t idx);
 
     /* frontmenu_ingame_evnt.h -- debug/timer overlay state */
-    void (*set_timer_turns)(unsigned long value);
+    void (*set_timer_turns)(uint64_t value);
     TbBool (*is_timer_enabled)(void);
     void (*toggle_debug_network_stats)(void);
     TbBool (*is_bonus_timer_enabled)(void);
 
     /* frontmenu_ingame_tabs.h */
     void (*go_to_my_next_room_of_type)(RoomKind rkind);
-    short (*get_button_designation)(short btn_group, short btn_item);
-    void (*gui_set_button_flashing)(long btn_idx, long gameturns);
+    int64_t (*get_button_designation)(int64_t btn_group, int64_t btn_item);
+    void (*gui_set_button_flashing)(int64_t btn_idx, int64_t gameturns);
 
     /* gui_boxmenu.h */
-    struct GuiBox *(*create_gui_box)(long x, long y, struct GuiBoxOption *optn_list);
+    struct GuiBox *(*create_gui_box)(int64_t x, int64_t y, struct GuiBoxOption *optn_list);
 
     /* gui_msgs.h */
     void (*zero_all_messages)(void);
-    void (*show_game_time_taken)(unsigned long fps, unsigned long turns);
+    void (*show_game_time_taken)(uint64_t fps, uint64_t turns);
 
     /* gui_tooltips.h */
     TbBool (*toggle_tooltip_land_coord)(void);
@@ -79,12 +79,12 @@ struct GameCallbacks {
     /* gui_soundmsgs.h -- beyond sim_feedback's message/sound callbacks */
     void (*clear_all_messages)(void);
     void (*process_all_messages)(void);
-    void (*script_play_message)(TbBool param_is_string, char msgtype_id, short msg_id, const char *filename);
+    void (*script_play_message)(TbBool param_is_string, char msgtype_id, int64_t msg_id, const char *filename);
 
     /* gui_frontmenu.h -- MenuID is `long`, kept as the raw underlying
        type here since the typedef itself lives in kfx_frontend. */
-    void (*turn_on_ingame_menu)(long idx);
-    void (*turn_off_ingame_menu)(long mnu_idx);
+    void (*turn_on_ingame_menu)(int64_t idx);
+    void (*turn_off_ingame_menu)(int64_t mnu_idx);
 
     /* gui_topmsg.h */
     void (*clear_top_message_stats)(void); /* wired to erstats_clear() */
@@ -95,7 +95,7 @@ struct GameCallbacks {
     /* frontend.h -- objective messages */
     void (*set_level_objective)(PlayerNumber plyr_idx, const char *msg_text);
     void (*display_objectives)(PlayerNumber plyr_idx, MapSubtlCoord x, MapSubtlCoord y);
-    void (*display_objectives_with_icon)(PlayerNumber plyr_idx, MapSubtlCoord x, MapSubtlCoord y, short icon_idx);
+    void (*display_objectives_with_icon)(PlayerNumber plyr_idx, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx);
 
     /* gui_frontmenu.h */
     void (*reset_gui_based_on_player_mode)(void);
@@ -118,7 +118,7 @@ struct GameCallbacks {
        kfx_game-owned struct IntralevelData). Kept as separate get/clear
        entries (not one atomic "take") since the reset is conditional on
        logic evaluated between the read and the reset. */
-    long (*get_intralvl_next_level)(void);
+    int64_t (*get_intralvl_next_level)(void);
     void (*clear_intralvl_next_level)(void);
 
     /* frontend.h -- frontend_alliances: a replay (-packetload, #5317) restores the

@@ -29,15 +29,15 @@ struct ObjectConfigStats;
 struct TbSprite;
 
 struct SpriteLookupCallbacks {
-    short (*get_icon_id)(const char *name);
-    short (*get_anim_id)(const char *name, struct ObjectConfigStats *objst);
-    short (*get_anim_id_)(const char *name);
-    const struct TbSprite *(*get_button_sprite)(short sprite_idx);
-    const struct TbSprite *(*get_panel_sprite)(short sprite_idx);
+    int64_t (*get_icon_id)(const char *name);
+    int64_t (*get_anim_id)(const char *name, struct ObjectConfigStats *objst);
+    int64_t (*get_anim_id_)(const char *name);
+    const struct TbSprite *(*get_button_sprite)(int64_t sprite_idx);
+    const struct TbSprite *(*get_panel_sprite)(int64_t sprite_idx);
     // custom_sprites.h -- config_campaigns.c resolves a campaign's
     // SET_LEVEL_ENSIGN-style config text to a custom-ensign slot, and
     // triggers loading that campaign's custom ensign sprite sheet.
-    short (*get_ensign_id)(const char *name);
+    int64_t (*get_ensign_id)(const char *name);
     void (*init_custom_campaign_sprites)(const char *dir_path, const char *dir_desc);
     // custom_sprites.h -- lvl_filesdk1.c triggers loading a multiplayer
     // map's own custom ensign/sprite sheet (map%05lu.zip) while parsing

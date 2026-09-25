@@ -1,6 +1,7 @@
 #ifndef FRONTGUI_WIDGETS_H
 #define FRONTGUI_WIDGETS_H
 
+#include <stdint.h>
 // The KeeperFX ImGui widget wrapper layer
 // (docs/refactor/renderer/04-imgui-gui-foundation.md §5.2). Hard rule from
 // the plan: "Every panel, list, scroll region, button, slider and text
@@ -70,23 +71,23 @@ bool FeListRow(const char *label, bool selected);
 // ("menu items don't stay centered" when changing UI_FONT_SCALE). Call this
 // right before drawing any item whose width doesn't already track the
 // window's own current size.
-void FeCenterNextItem(float item_width);
+void FeCenterNextItem(double item_width);
 
 // --- Buttons: the large/small menu button families (gui_frontbtns.c).
 bool FeButton(const char *label, const ImVec2 &size = ImVec2(0, 0));
-bool FeIconButton(const char *icon_label, float size = 0.0f);
+bool FeIconButton(const char *icon_label, double size = 0.0);
 // Full-width, left-aligned nav entry (main-menu-style vertical stacks).
 bool FeNavButton(const char *label, bool selected = false);
 
 // --- Settings controls; the schema renderer (§6.3) is built entirely
 // from these.
-bool FeSlider(const char *label, float *v, float v_min, float v_max, const char *fmt = "%.0f");
+bool FeSlider(const char *label, double *v, double v_min, double v_max, const char *fmt = "%.0f");
 bool FeCheckbox(const char *label, bool *v);
-bool FeCombo(const char *label, int *current_item, const char *const items[], int items_count);
+bool FeCombo(const char *label, int64_t *current_item, const char *const items[], int64_t items_count);
 bool FeTextInput(const char *label, char *buf, size_t buf_size);
 // Integer entry with -/+ buttons (`step`, `step_fast` with Ctrl). The value is clamped to
 // [v_min, v_max] after any edit. Returns true when the value changed.
-bool FeInputInt(const char *label, int *v, int step, int step_fast, int v_min, int v_max);
+bool FeInputInt(const char *label, int64_t *v, int64_t step, int64_t step_fast, int64_t v_min, int64_t v_max);
 // A collapsible section header (the Skirmish setup tab's General/Availability/...). Returns true
 // while the section is open -- draw its content only then; there is no End call.
 bool FeCollapsingHeader(const char *label, bool default_open = false);

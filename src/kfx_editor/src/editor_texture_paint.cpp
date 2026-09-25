@@ -36,7 +36,7 @@ void editor_texture_paint_rect(MapSlabCoord x0, MapSlabCoord y0, MapSlabCoord x1
             editor_texture_paint_slab(x, y, pack);
 }
 
-int editor_texture_paint_fill(MapSlabCoord x, MapSlabCoord y, unsigned char pack)
+int64_t editor_texture_paint_fill(MapSlabCoord x, MapSlabCoord y, unsigned char pack)
 {
     if (!in_map(x, y))
         return 0;
@@ -46,7 +46,7 @@ int editor_texture_paint_fill(MapSlabCoord x, MapSlabCoord y, unsigned char pack
         return 0;
     std::vector<std::pair<MapSlabCoord, MapSlabCoord>> todo;
     todo.push_back(std::make_pair(x, y));
-    int changed = 0;
+    int64_t changed = 0;
     while (!todo.empty())
     {
         const auto p = todo.back();

@@ -75,7 +75,7 @@ TbBool creature_can_do_healing_sleep(const struct Thing *creatng)
 
 TbBool creature_is_sleeping(const struct Thing *thing)
 {
-    long i = thing->active_state;
+    int64_t i = thing->active_state;
     if (i == CrSt_CreatureSleep)
         return true;
     return false;
@@ -104,7 +104,7 @@ TbBool creature_requires_healing(const struct Thing *thing)
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
     HitPoints minhealth = crconf->heal_requirement * cctrl->max_health / 256;
-    if ((long)thing->health <= minhealth)
+    if ((int64_t)thing->health <= minhealth)
         return true;
     return false;
 }
@@ -123,7 +123,7 @@ TbBool creature_move_to_home_lair(struct Thing *creatng)
 
 }
 
-long creature_will_sleep(struct Thing *thing)
+int64_t creature_will_sleep(struct Thing *thing)
 {
     TRACE_THING(thing);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
@@ -131,9 +131,9 @@ long creature_will_sleep(struct Thing *thing)
     TRACE_THING(lairtng);
     if (!thing_exists(lairtng))
         return false;
-    long dist_x = (long)thing->mappos.x.stl.num - (long)lairtng->mappos.x.stl.num;
-    long dist_y = (long)thing->mappos.y.stl.num - (long)lairtng->mappos.y.stl.num;
-    return (abs(dist_x) < 1) && (abs(dist_y) < 1);
+    int64_t dist_x = (int64_t)thing->mappos.x.stl.num - (int64_t)lairtng->mappos.x.stl.num;
+    int64_t dist_y = (int64_t)thing->mappos.y.stl.num - (int64_t)lairtng->mappos.y.stl.num;
+    return (llabs(dist_x) < 1) && (llabs(dist_y) < 1);
 }
 
 /**
@@ -144,7 +144,7 @@ long creature_will_sleep(struct Thing *thing)
  * @param thing special digger who drag the creature
  * @return returns 1 if creature successfully arrived at its lair and woke up
  */
-short creature_drop_unconscious_in_lair(struct Thing *thing)
+int64_t creature_drop_unconscious_in_lair(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct Thing* dragtng = thing_get(cctrl->dragtng_idx);
@@ -193,7 +193,7 @@ short creature_drop_unconscious_in_lair(struct Thing *thing)
 
 }
 
-long process_lair_enemy(struct Thing *thing, struct Room *room)
+int64_t process_lair_enemy(struct Thing *thing, struct Room *room)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     // Shouldn't be possible. But just for sure.
@@ -218,7 +218,7 @@ long process_lair_enemy(struct Thing *thing, struct Room *room)
         return 0;
     }
     struct Thing* enemytng;
-    long combat_factor = find_fellow_creature_to_fight_in_room(thing, room, crconf->lair_enemy, &enemytng);
+    int64_t combat_factor = find_fellow_creature_to_fight_in_room(thing, room, crconf->lair_enemy, &enemytng);
     if (combat_factor < 1)
         return 0;
     if (!set_creature_in_combat_to_the_death(thing, enemytng, combat_factor))
@@ -308,7 +308,7 @@ CrStateRet creature_at_changed_lair(struct Thing *creatng)
     struct Room* room = get_room_thing_is_on(creatng);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_TAKE_SLEEP), creatng))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",room_code_name(room->kind),(int)room->owner,thing_model_name(creatng),(int)creatng->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(creatng),(int64_t)creatng->index);
         set_start_state(creatng);
         return CrStRet_ResetFail;
     }
@@ -331,7 +331,7 @@ CrStateRet creature_at_new_lair(struct Thing *creatng)
     struct Room* room = get_room_thing_is_on(creatng);
     if ( !room_still_valid_as_type_for_thing(room, get_room_role_for_job(Job_TAKE_SLEEP), creatng) )
     {
-        WARNLOG("Room %s owned by player %d is bad work place for %s index %d owner %d",room_code_name(room->kind),(int)room->owner,thing_model_name(creatng),(int)creatng->index,(int)creatng->owner);
+        WARNLOG("Room %s owned by player %" PRId64 " is bad work place for %s index %" PRId64 " owner %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
         set_start_state(creatng);
         return CrStRet_ResetFail;
     }
@@ -350,8 +350,8 @@ CrStateRet creature_at_new_lair(struct Thing *creatng)
 
 TbBool setup_head_for_random_unused_lair_subtile(struct Thing *creatng, struct Room *room)
 {
-    unsigned long k;
-    long n = THING_RANDOM(creatng, room->slabs_count);
+    uint64_t k;
+    int64_t n = THING_RANDOM(creatng, room->slabs_count);
     SlabCodedCoords start_slbnum = room->slabs_list;
     for (k = n; k > 0; k--)
     {
@@ -360,7 +360,7 @@ TbBool setup_head_for_random_unused_lair_subtile(struct Thing *creatng, struct R
         start_slbnum = get_next_slab_number_in_room(start_slbnum);
     }
     if (start_slbnum == 0) {
-        ERRORLOG("Taking random slab (%d/%d) in %s index %d failed - internal inconsistency.",(int)n,(int)room->slabs_count,room_code_name(room->kind),(int)room->index);
+        ERRORLOG("Taking random slab (%" PRId64 "/%" PRId64 ") in %s index %" PRId64 " failed - internal inconsistency.",(int64_t)n,(int64_t)room->slabs_count,room_code_name(room->kind),(int64_t)room->index);
         start_slbnum = room->slabs_list;
     }
     SlabCodedCoords slbnum = start_slbnum;
@@ -379,7 +379,7 @@ TbBool setup_head_for_random_unused_lair_subtile(struct Thing *creatng, struct R
             {
                 if (setup_person_move_to_position(creatng, slab_subtile(slb_x, ssub_x), slab_subtile(slb_y, ssub_y), NavRtF_Default)) {
                     if (n > 0) {
-                        WARNDBG(2,"More than one lair totem will be placed on a %s index %d slab %d,%d",room_code_name(room->kind),(int)room->index,(int)slb_x,(int)slb_y);
+                        WARNDBG(2,"More than one lair totem will be placed on a %s index %" PRId64 " slab %" PRId64 ",%" PRId64,room_code_name(room->kind),(int64_t)room->index,(int64_t)slb_x,(int64_t)slb_y);
                     }
                     return true;
                 }
@@ -395,7 +395,7 @@ TbBool setup_head_for_random_unused_lair_subtile(struct Thing *creatng, struct R
     return false;
 }
 
-short creature_change_lair(struct Thing *thing)
+int64_t creature_change_lair(struct Thing *thing)
 {
     TRACE_THING(thing);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
@@ -424,7 +424,7 @@ short creature_change_lair(struct Thing *thing)
     return 1;
 }
 
-short creature_choose_room_for_lair_site(struct Thing *thing)
+int64_t creature_choose_room_for_lair_site(struct Thing *thing)
 {
     TRACE_THING(thing);
     struct Room* room = get_best_new_lair_for_creature(thing);
@@ -444,7 +444,7 @@ short creature_choose_room_for_lair_site(struct Thing *thing)
     return 1;
 }
 
-short at_lair_to_sleep(struct Thing *thing)
+int64_t at_lair_to_sleep(struct Thing *thing)
 {
     TRACE_THING(thing);
     reset_interpolation_of_thing(thing); // Fixes rendering bug 'Creatures behind their lair in straight view'
@@ -465,7 +465,7 @@ short at_lair_to_sleep(struct Thing *thing)
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_TAKE_SLEEP), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d owner %d",room_code_name(room->kind),(int)room->owner,thing_model_name(thing),(int)thing->index,(int)thing->owner);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64 " owner %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
         return 0;
     }
@@ -484,13 +484,13 @@ short at_lair_to_sleep(struct Thing *thing)
     return 1;
 }
 
-short cleanup_sleep(struct Thing *creatng)
+int64_t cleanup_sleep(struct Thing *creatng)
 {
     restore_creature_flight_flag(creatng);
     return 1;
 }
 
-short creature_going_home_to_sleep(struct Thing *thing)
+int64_t creature_going_home_to_sleep(struct Thing *thing)
 {
     if (creature_move_to_home_lair(thing))
     {
@@ -501,16 +501,16 @@ short creature_going_home_to_sleep(struct Thing *thing)
     return 1;
 }
 
-long room_has_slab_adjacent(const struct Room *room, long slbkind)
+int64_t room_has_slab_adjacent(const struct Room *room, int64_t slbkind)
 {
-    unsigned long k = 0;
-    long i = room->slabs_list;
+    uint64_t k = 0;
+    int64_t i = room->slabs_list;
     while (i > 0)
     {
         // Per room tile code
-        for (long n = 0; n < AROUND_SLAB_LENGTH; n++)
+        for (int64_t n = 0; n < AROUND_SLAB_LENGTH; n++)
         {
-            long slab_num = i + kfx_sim_state.around_slab[n];
+            int64_t slab_num = i + kfx_sim_state.around_slab[n];
             struct SlabMap* slb = get_slabmap_direct(slab_num);
             if (!slabmap_block_invalid(slb))
             {
@@ -531,7 +531,7 @@ long room_has_slab_adjacent(const struct Room *room, long slbkind)
     return 0;
 }
 
-short creature_sleep(struct Thing *thing)
+int64_t creature_sleep(struct Thing *thing)
 {
     struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
     if (creature_affected_by_slap(thing) || !creature_will_sleep(thing))
@@ -573,8 +573,8 @@ short creature_sleep(struct Thing *thing)
             dungeon->lvstats.backs_stabbed++;
         }
     }
-    long XP = 0;
-    for (unsigned int i = 0; i < SLEEP_XP_COUNT; i++)
+    int64_t XP = 0;
+    for (uint64_t i = 0; i < SLEEP_XP_COUNT; i++)
     {
         if (crconf->sleep_experience[i] > XP)
         {

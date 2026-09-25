@@ -35,14 +35,14 @@
 using namespace kfx_test;
 
 extern "C" {
-long count_no_room_build_tasks(const struct Computer2 *comp);
-struct ComputerTask *get_room_build_task_nearest_to(const struct Computer2 *comp, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int32_t *retdist);
-long computer_get_room_kind_free_capacity(struct Computer2 *comp, RoomKind room_kind);
+int64_t count_no_room_build_tasks(const struct Computer2 *comp);
+struct ComputerTask *get_room_build_task_nearest_to(const struct Computer2 *comp, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t *retdist);
+int64_t computer_get_room_kind_free_capacity(struct Computer2 *comp, RoomKind room_kind);
 TbBool there_is_virgin_entrance_for_computer(const struct Computer2 *comp);
 }
 
 namespace {
-struct ComputerTask *add_task(struct Computer2 *comp, unsigned short task_idx, ComputerTaskType ttype, unsigned char flags = ComTsk_Unkn0001)
+struct ComputerTask *add_task(struct Computer2 *comp, int64_t task_idx, ComputerTaskType ttype, unsigned char flags = ComTsk_Unkn0001)
 {
     struct ComputerTask *ctask = get_computer_task(task_idx);
     ctask->flags = flags;
@@ -78,7 +78,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "get_room_build_task_nearest_to finds the cl
     near->new_room_pos.x.stl.num = 5;
     near->new_room_pos.y.stl.num = 5;
 
-    int32_t dist = -1;
+    int64_t dist = -1;
     struct ComputerTask *found = get_room_build_task_nearest_to(comp, 6, 6, &dist);
 
     CHECK(found == near);
@@ -89,7 +89,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "get_room_build_task_nearest_to ignores task
     struct Computer2 *comp = make_computer_player(0);
     add_task(comp, 1, CTT_DigRoom, ComTsk_Unkn0001); // missing Unkn0002
 
-    int32_t dist = -1;
+    int64_t dist = -1;
     CHECK(computer_task_invalid(get_room_build_task_nearest_to(comp, 0, 0, &dist)));
 }
 
@@ -101,11 +101,11 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_get_room_role_total_capacity sums 
 
     struct Room *prison = make_room_at_slab(1, 0, 0, RoK_PRISON, 0);
     prison->total_capacity = 10;
-    link_room_into_owner_list(&comp->dungeon->room_list_start[RoK_PRISON], 1);
+    link_room_into_owner_list(&computer_dungeon(comp)->room_list_start[RoK_PRISON], 1);
 
     struct Room *prison2 = make_room_at_slab(2, 1, 0, RoK_PRISON, 0);
     prison2->total_capacity = 5;
-    link_room_into_owner_list(&comp->dungeon->room_list_start[RoK_PRISON], 2);
+    link_room_into_owner_list(&computer_dungeon(comp)->room_list_start[RoK_PRISON], 2);
 
     CHECK(computer_get_room_role_total_capacity(comp, RoRoF_Prison) == 15);
 }
@@ -125,7 +125,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_get_room_kind_free_capacity is tot
     struct Room *prison = make_room_at_slab(1, 0, 0, RoK_PRISON, 0);
     prison->total_capacity = 10;
     prison->used_capacity = 4;
-    link_room_into_owner_list(&comp->dungeon->room_list_start[RoK_PRISON], 1);
+    link_room_into_owner_list(&computer_dungeon(comp)->room_list_start[RoK_PRISON], 1);
 
     CHECK(computer_get_room_kind_free_capacity(comp, RoK_PRISON) == 6);
 }

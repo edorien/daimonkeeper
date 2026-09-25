@@ -23,7 +23,7 @@
 #include <cstring>
 
 namespace {
-constexpr unsigned short kAddOffset = SIM_KEEPERSPRITE_ADD_OFFSET;
+constexpr int64_t kAddOffset = SIM_KEEPERSPRITE_ADD_OFFSET;
 
 struct ResetCreatureTableAdd {
     ResetCreatureTableAdd() {
@@ -50,7 +50,7 @@ TEST_CASE("keepersprite_frames/_rotable/_array/_index all report the out-of-rang
     // Between CREATURE_FRAMELIST_LENGTH (982) and SIM_KEEPERSPRITE_ADD_OFFSET
     // (16384) -- genuinely out of range for both dispatch targets, no
     // array access happens on either side.
-    const unsigned short n = 5000;
+    const int64_t n = 5000;
     CHECK(keepersprite_frames(n) == 0);
     CHECK(keepersprite_rotable(n) == 0);
     CHECK(keepersprite_array(n) == nullptr);

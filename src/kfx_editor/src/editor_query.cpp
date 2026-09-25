@@ -22,38 +22,38 @@
 void editor_query_from_thing(const struct Thing *thing, EditorQueryResult *out)
 {
     out->kind = EditorQueryResult::QR_Thing;
-    snprintf(out->title, sizeof(out->title), "Thing #%d", thing->index);
+    snprintf(out->title, sizeof(out->title), "Thing #%" PRId64, (int64_t)(thing->index));
     snprintf(out->name, sizeof(out->name), "%s", thing_model_name(thing));
-    snprintf(out->owner, sizeof(out->owner), "Owner: %d", (int)thing->owner);
-    snprintf(out->extra1, sizeof(out->extra1), "Pos: %d, %d, %d",
-        (int)thing->mappos.x.stl.num, (int)thing->mappos.y.stl.num, (int)thing->mappos.z.stl.num);
+    snprintf(out->owner, sizeof(out->owner), "Owner: %" PRId64, (int64_t)thing->owner);
+    snprintf(out->extra1, sizeof(out->extra1), "Pos: %" PRId64 ", %" PRId64 ", %" PRId64,
+        (int64_t)thing->mappos.x.stl.num, (int64_t)thing->mappos.y.stl.num, (int64_t)thing->mappos.z.stl.num);
     out->extra2[0] = '\0';
     switch (thing->class_id)
     {
         case TCls_Trap:
         {
             struct TrapConfigStats *trapst = get_trap_model_stats(thing->model);
-            snprintf(out->health, sizeof(out->health), "Health: %d", (int)thing->health);
-            snprintf(out->extra2, sizeof(out->extra2), "Shots: %d/%d", (int)thing->trap.num_shots, (int)trapst->shots);
+            snprintf(out->health, sizeof(out->health), "Health: %" PRId64, (int64_t)thing->health);
+            snprintf(out->extra2, sizeof(out->extra2), "Shots: %" PRId64 "/%" PRId64, (int64_t)thing->trap.num_shots, (int64_t)trapst->shots);
             break;
         }
         case TCls_Object:
         {
             struct ObjectConfigStats *objst = get_object_model_stats(thing->model);
-            snprintf(out->health, sizeof(out->health), "Health: %d/%d", (int)thing->health, (int)objst->health);
+            snprintf(out->health, sizeof(out->health), "Health: %" PRId64 "/%" PRId64, (int64_t)thing->health, (int64_t)objst->health);
             if (object_is_gold(thing))
-                snprintf(out->extra2, sizeof(out->extra2), "Amount: %d", (int)thing->valuable.gold_stored);
+                snprintf(out->extra2, sizeof(out->extra2), "Amount: %" PRId64, (int64_t)thing->valuable.gold_stored);
             break;
         }
         case TCls_Door:
         {
             struct DoorConfigStats *doorst = get_door_model_stats(thing->model);
-            snprintf(out->health, sizeof(out->health), "Health: %d/%d", (int)thing->health, (int)doorst->health);
+            snprintf(out->health, sizeof(out->health), "Health: %" PRId64 "/%" PRId64, (int64_t)thing->health, (int64_t)doorst->health);
             snprintf(out->extra2, sizeof(out->extra2), "%s", thing->door.is_locked ? "Locked" : "Unlocked");
             break;
         }
         default:
-            snprintf(out->health, sizeof(out->health), "Health: %d", (int)thing->health);
+            snprintf(out->health, sizeof(out->health), "Health: %" PRId64, (int64_t)thing->health);
             break;
     }
 }
@@ -61,13 +61,13 @@ void editor_query_from_thing(const struct Thing *thing, EditorQueryResult *out)
 void editor_query_from_room(const struct Room *room, EditorQueryResult *out)
 {
     out->kind = EditorQueryResult::QR_Room;
-    snprintf(out->title, sizeof(out->title), "Room #%d", room->index);
+    snprintf(out->title, sizeof(out->title), "Room #%" PRId64, (int64_t)(room->index));
     snprintf(out->name, sizeof(out->name), "%s", room_code_name(room->kind));
-    snprintf(out->owner, sizeof(out->owner), "Owner: %d", (int)room->owner);
-    snprintf(out->health, sizeof(out->health), "Health: %d", (int)room->health);
-    snprintf(out->extra1, sizeof(out->extra1), "Capacity: %d/%d", (int)room->used_capacity, (int)room->total_capacity);
-    float efficiency_pct = ((float)room->efficiency / (float)ROOM_EFFICIENCY_MAX) * 100.0f;
-    snprintf(out->extra2, sizeof(out->extra2), "Efficiency: %d", (int)(efficiency_pct + 0.5f));
+    snprintf(out->owner, sizeof(out->owner), "Owner: %" PRId64, (int64_t)room->owner);
+    snprintf(out->health, sizeof(out->health), "Health: %" PRId64, (int64_t)room->health);
+    snprintf(out->extra1, sizeof(out->extra1), "Capacity: %" PRId64 "/%" PRId64, (int64_t)room->used_capacity, (int64_t)room->total_capacity);
+    double efficiency_pct = ((double)room->efficiency / (double)ROOM_EFFICIENCY_MAX) * 100.0;
+    snprintf(out->extra2, sizeof(out->extra2), "Efficiency: %" PRId64, (int64_t)(efficiency_pct + 0.5));
 }
 
 EditorQueryResult editor_query_at(const struct Coord3d *pos, ThingIndex *creature_idx)

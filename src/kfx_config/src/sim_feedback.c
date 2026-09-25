@@ -13,21 +13,21 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static long noop_report_error_stat(int stat_num) { return 0; }
-static TbBool noop_show_onscreen_msg(int nturns, const char *msg) { return false; }
-static TbBool noop_play_sound_message(SoundSmplTblID smpl_idx, long duration) { return false; }
+static int64_t noop_report_error_stat(int64_t stat_num) { return 0; }
+static TbBool noop_show_onscreen_msg(int64_t nturns, const char *msg) { return false; }
+static TbBool noop_play_sound_message(SoundSmplTblID smpl_idx, int64_t duration) { return false; }
 static TbBool noop_output_room_message(PlayerNumber plyr_idx, RoomKind rkind, OutputMessageKind msg_kind) { return false; }
-static TbBool noop_play_sound_message_far_from_thing(const struct Thing *thing, SoundSmplTblID smpl_idx, long duration) { return false; }
-static TbBool noop_play_speech_ref(const struct SpeechRef *ref, long duration) { return false; }
+static TbBool noop_play_sound_message_far_from_thing(const struct Thing *thing, SoundSmplTblID smpl_idx, int64_t duration) { return false; }
+static TbBool noop_play_speech_ref(const struct SpeechRef *ref, int64_t duration) { return false; }
 static void noop_clear_sound_messages(void) {}
 static void noop_process_sound_messages(void) {}
 static void noop_clear_messages_from_player(char msg_type, PlayerNumber plyr_idx) {}
-static void noop_targeted_message_add(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *msg) {}
-static void noop_message_add(char msg_type, short idx, const char *msg) {}
-static void noop_message_add_fmt(char msg_type, short idx, const char *fmt_str, ...) {}
+static void noop_targeted_message_add(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *msg) {}
+static void noop_message_add(char msg_type, int64_t idx, const char *msg) {}
+static void noop_message_add_fmt(char msg_type, int64_t idx, const char *fmt_str, ...) {}
 static void noop_zero_messages(void) {}
 static void noop_show_real_time_taken(void) {}
-static void noop_thing_play_sample(struct Thing *thing, SoundSmplTblID smpl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, long priority, SoundVolume volume) {}
+static void noop_thing_play_sample(struct Thing *thing, SoundSmplTblID smpl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, int64_t priority, SoundVolume volume) {}
 static void noop_stop_thing_playing_sample(struct Thing *thing, SoundSmplTblID smpl_idx) {}
 static struct Thing *noop_create_ambient_sound(const struct Coord3d *pos, ThingModel model, PlayerNumber owner) { return NULL; }
 static void noop_play_sound_if_close_to_receiver(struct Coord3d *soundpos, SoundSmplTblID smpl_idx) {}
@@ -45,38 +45,38 @@ static unsigned char noop_tag_cursor_blocks_dig(struct PlayerInfo *player, NetUs
 static TbBool noop_tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y) { return false; }
 static TbBool noop_tag_cursor_blocks_place_room(NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return false; }
 static TbBool noop_tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab) { return false; }
-static void noop_set_engine_view(struct PlayerInfo *player, long val) {}
-static void noop_setup_engine_window(long x1, long y1, long x2, long y2) {}
-static long noop_light_create_light(struct InitLight *ilght) { return 0; }
-static void noop_light_init_dungeon_heart(long lgt_id, long min_radius, long min_intensity) {}
-static void noop_light_delete_light(long idx) {}
-static void noop_light_turn_light_off(long num) {}
-static void noop_light_turn_light_on(long num) {}
-static unsigned char noop_light_get_light_intensity(long idx) { return 0; }
-static void noop_light_set_light_intensity(long idx, unsigned char intensity) {}
-static void noop_light_signal_update_in_area(long sx, long sy, long ex, long ey) {}
-static void noop_light_set_light_never_cache(long lgt_id) {}
-static long noop_light_is_light_allocated(long lgt_id) { return 0; }
-static void noop_light_set_light_position(long lgt_id, struct Coord3d *pos) {}
-static unsigned short noop_light_get_light_radius(long lgt_id) { return 0; }
-static void noop_light_set_light_radius(long lgt_id, unsigned short radius) {}
+static void noop_set_engine_view(struct PlayerInfo *player, int64_t val) {}
+static void noop_setup_engine_window(int64_t x1, int64_t y1, int64_t x2, int64_t y2) {}
+static int64_t noop_light_create_light(struct InitLight *ilght) { return 0; }
+static void noop_light_init_dungeon_heart(int64_t lgt_id, int64_t min_radius, int64_t min_intensity) {}
+static void noop_light_delete_light(int64_t idx) {}
+static void noop_light_turn_light_off(int64_t num) {}
+static void noop_light_turn_light_on(int64_t num) {}
+static unsigned char noop_light_get_light_intensity(int64_t idx) { return 0; }
+static void noop_light_set_light_intensity(int64_t idx, unsigned char intensity) {}
+static void noop_light_signal_update_in_area(int64_t sx, int64_t sy, int64_t ex, int64_t ey) {}
+static void noop_light_set_light_never_cache(int64_t lgt_id) {}
+static int64_t noop_light_is_light_allocated(int64_t lgt_id) { return 0; }
+static void noop_light_set_light_position(int64_t lgt_id, struct Coord3d *pos) {}
+static int64_t noop_light_get_light_radius(int64_t lgt_id) { return 0; }
+static void noop_light_set_light_radius(int64_t lgt_id, int64_t radius) {}
 static void noop_light_initialise(void) {}
-static int noop_light_count_lights(void) { return 0; }
+static int64_t noop_light_count_lights(void) { return 0; }
 static TbBool noop_light_create_light_adv(VALUE *init_data) { return false; }
 static void noop_process_dungeon_destroy(struct Thing *heartng) {}
 static void noop_initialise_devastate_dungeon_from_heart(PlayerNumber plyr_idx) {}
-static TbBool noop_load_texture_map_file(unsigned long tmapidx, LevelNumber lvnum, short fgroup) { return false; }
+static TbBool noop_load_texture_map_file(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup) { return false; }
 static const struct EventTypeInfo *noop_get_event_button_info(EventKind evkind) { return NULL; }
 static void noop_frontstats_initialise(void) {}
-static long noop_GetMouseX(void) { return 0; }
-static long noop_GetMouseY(void) { return 0; }
-static short noop_is_mouse_pressed_lrbutton(void) { return 0; }
-static short noop_is_key_pressed(TbKeyCode key, TbKeyMods kmodif) { return 0; }
+static int64_t noop_GetMouseX(void) { return 0; }
+static int64_t noop_GetMouseY(void) { return 0; }
+static int64_t noop_is_mouse_pressed_lrbutton(void) { return 0; }
+static int64_t noop_is_key_pressed(TbKeyCode key, TbKeyMods kmodif) { return 0; }
 static TbBool noop_mouse_is_over_panel_map(ScreenCoord x, ScreenCoord y) { return false; }
 static TbBool noop_is_left_button_held(void) { return false; }
 static void noop_PaletteSetUserPalette(NetUserId user, unsigned char *pal) {}
-static void noop_PaletteApplyPainToPlayer(struct PlayerInfo *player, long intense) {}
-static unsigned long noop_toggle_status_menu(short visible) { return 0; }
+static void noop_PaletteApplyPainToPlayer(struct PlayerInfo *player, int64_t intense) {}
+static uint64_t noop_toggle_status_menu(int64_t visible) { return 0; }
 static void noop_turn_off_roaming_menus(void) {}
 static void noop_initialise_tab_tags_and_menu(MenuID menu_id) {}
 static void noop_init_gui(void) {}
@@ -87,20 +87,20 @@ static void noop_turn_on_menu(MenuID idx) {}
 static void noop_turn_off_menu(MenuID mnu_idx) {}
 static void noop_sim_feedback_turn_off_query_menus(void) {}
 static void noop_turn_off_all_menus(void) {}
-static short noop_turn_off_all_window_menus(void) { return 0; }
+static int64_t noop_turn_off_all_window_menus(void) { return 0; }
 static void noop_sim_feedback_turn_on_main_panel_menu(void) {}
 static void noop_turn_off_all_panel_menus(void) {}
 static void noop_turn_off_event_box_if_necessary(PlayerNumber plyr_idx, unsigned char event_idx) {}
 static void noop_refresh_active_button_sprites_for_player(PlayerNumber plyr_idx) {}
 static RoomIndex noop_find_next_room_of_type(PlayerNumber plyr_idx, RoomKind rkind) { return 0; }
 static TbBool noop_packet_crtr_control_pressed(struct Packet *packet) { return false; }
-static TbBool noop_output_message_far_from_thing(const struct Thing *thing, SoundSmplTblID smpl_idx, long duration) { return false; }
+static TbBool noop_output_message_far_from_thing(const struct Thing *thing, SoundSmplTblID smpl_idx, int64_t duration) { return false; }
 static TbBool noop_get_packet_load_enable(void) { return false; }
 static PlayerNumber noop_get_local_plyr_idx(void) { return 0; }
-static int noop_get_input_lag_turns(void) { return 0; }
-static void noop_set_active_players_count(int count) {}
-static long noop_get_isometric_view_zoom_level(void) { return 0; }
-static long noop_get_frontview_zoom_level(void) { return 0; }
+static int64_t noop_get_input_lag_turns(void) { return 0; }
+static void noop_set_active_players_count(int64_t count) {}
+static int64_t noop_get_isometric_view_zoom_level(void) { return 0; }
+static int64_t noop_get_frontview_zoom_level(void) { return 0; }
 static TbBool noop_get_player_exists_flag(PlayerNumber plyr_idx) { return false; }
 static TbBool noop_get_player_comp_flag(PlayerNumber plyr_idx) { return false; }
 static void noop_increment_active_players_count(void) {}
@@ -109,18 +109,18 @@ static LevelNumber noop_get_selected_level_number(void) { return 0; }
 static LevelNumber noop_get_level_number(void) { return 0; }
 static GameTurn noop_get_play_gameturn(void) { return 0; }
 static void noop_update_time(void) {}
-static void noop_get_game_time(struct GameTime *GT, unsigned long turns, unsigned long fps) { GT->Seconds = 0; GT->Minutes = 0; GT->Hours = 0; }
+static void noop_get_game_time(struct GameTime *GT, uint64_t turns, uint64_t fps) { GT->Seconds = 0; GT->Minutes = 0; GT->Hours = 0; }
 static TbBool noop_player_has_enemies_to_defeat(const struct PlayerInfo *player) { return false; }
-static unsigned short noop_get_zoom_key_room_order(long idx) { return 0; }
+static int64_t noop_get_zoom_key_room_order(int64_t idx) { return 0; }
 static const struct Packet *noop_get_history_packet(NetUserId user, GameTurn turn) { return NULL; }
-static void noop_setup_eye_lens(long nlens) {}
+static void noop_setup_eye_lens(int64_t nlens) {}
 static TbBool noop_lens_is_ready(void) { return false; }
 static TbPixel *noop_lens_get_render_target(void) { return NULL; }
-static unsigned int noop_lens_get_render_target_width(void) { return 0; }
-static unsigned int noop_lens_get_render_target_height(void) { return 0; }
-static void noop_draw_lens_effect(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcpitch, long width, long height, long viewport_x, long effect) {}
-static short noop_get_td_animation_sprite(short animation_sprite) { return 0; }
-static void noop_process_keeper_sprite(short x, short y, unsigned short a3, short kspr_angle, unsigned char a5, long a6) {}
+static uint64_t noop_lens_get_render_target_width(void) { return 0; }
+static uint64_t noop_lens_get_render_target_height(void) { return 0; }
+static void noop_draw_lens_effect(TbPixel *dstbuf, int64_t dstpitch, TbPixel *srcbuf, int64_t srcpitch, int64_t width, int64_t height, int64_t viewport_x, int64_t effect) {}
+static int64_t noop_get_td_animation_sprite(int64_t animation_sprite) { return 0; }
+static void noop_process_keeper_sprite(int64_t x, int64_t y, int64_t a3, int64_t kspr_angle, unsigned char a5, int64_t a6) {}
 static void noop_engine(struct PlayerInfo *player, struct Camera *cam) {}
 static TbBool noop_add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, char *name) { return false; }
 static void noop_clear_transfered_creatures(void) {}
@@ -128,22 +128,22 @@ static void noop_reset_ambient_sound_thing_idx(void) {}
 static unsigned char noop_get_lens_mode(void) { return 0; }
 static void noop_hide_tooltip(void) {}
 static TbBool noop_timer_enabled(void) { return false; }
-static void noop_set_timer_turns(unsigned long turns) {}
-static TbBool noop_get_transferred_creature(PlayerNumber plyr_idx, int idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size) { return false; }
-static TbBool noop_activate_bonus_level_for_singleplayer(struct PlayerInfo *player, unsigned long sp_lvnum) { return false; }
+static void noop_set_timer_turns(uint64_t turns) {}
+static TbBool noop_get_transferred_creature(PlayerNumber plyr_idx, int64_t idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size) { return false; }
+static TbBool noop_activate_bonus_level_for_singleplayer(struct PlayerInfo *player, uint64_t sp_lvnum) { return false; }
 static void noop_sync_local_camera(struct PlayerInfo *player) {}
 static void noop_set_local_camera_destination(struct PlayerInfo *player) {}
 static struct Camera *noop_get_local_camera(struct Camera *cam) { return cam; }
 static void noop_move_local_camera_to_position(MapCoord x, MapCoord y) {}
-static long noop_get_camera_zoom(struct Camera *cam) { return 0; }
-static void noop_set_camera_zoom(struct Camera *cam, long val) {}
-static void noop_view_zoom_camera_in(struct Camera *cam, long limit_max, long limit_min) {}
-static void noop_view_zoom_camera_out(struct Camera *cam, long limit_max, long limit_min) {}
+static int64_t noop_get_camera_zoom(struct Camera *cam) { return 0; }
+static void noop_set_camera_zoom(struct Camera *cam, int64_t val) {}
+static void noop_view_zoom_camera_in(struct Camera *cam, int64_t limit_max, int64_t limit_min) {}
+static void noop_view_zoom_camera_out(struct Camera *cam, int64_t limit_max, int64_t limit_min) {}
 static void noop_view_set_camera_move_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta *move_x, MapCoordDelta *move_y) {}
 static TbBool noop_view_move_camera_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta move_x, MapCoordDelta move_y) { return false; }
 static void noop_init_player_cameras(struct PlayerInfo *player) {}
 static TbBool noop_any_player_close_enough_to_see(const struct Coord3d *pos) { return false; }
-static unsigned long noop_lightning_is_close_to_player(struct PlayerInfo *player, struct Coord3d *pos) { return 0; }
+static uint64_t noop_lightning_is_close_to_player(struct PlayerInfo *player, struct Coord3d *pos) { return 0; }
 
 static const struct SimFeedbackCallbacks default_sim_feedback = {
     &noop_report_error_stat,

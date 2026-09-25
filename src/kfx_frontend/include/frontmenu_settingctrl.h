@@ -35,14 +35,14 @@ struct GuiButton;
  * (e.g. mouse sensitivity).
  */
 struct FrontendSliderCtrl {
-    long (*get_value)(void);
-    void (*set_value)(long value);
+    int64_t (*get_value)(void);
+    void (*set_value)(int64_t value);
     TbBool nonlinear;
 };
 
 /** Sets a menu's slider button (by id_num) to reflect the bound settings
  *  value; call from a GuiMenu's create_cb, once per bound slider. */
-void frontend_sliderctrl_init(struct GuiMenu *gmnu, short bid, const struct FrontendSliderCtrl *ctrl);
+void frontend_sliderctrl_init(struct GuiMenu *gmnu, int64_t bid, const struct FrontendSliderCtrl *ctrl);
 /** A slider button's click_event body: reads the button's current
  *  position and writes it through to the bound setting. */
 void frontend_sliderctrl_apply(struct GuiButton *gbtn, const struct FrontendSliderCtrl *ctrl);

@@ -47,7 +47,7 @@
 
 /******************************************************************************/
 struct Thing *create_room_surrounding_flame(struct Room *room, const struct Coord3d *pos,
-    unsigned short eetype, PlayerNumber owner)
+    int64_t eetype, PlayerNumber owner)
 {
     struct Thing* eething = create_effect_element(pos, room_effect_elements[eetype], owner);
     if (!thing_is_invalid(eething))
@@ -55,15 +55,15 @@ struct Thing *create_room_surrounding_flame(struct Room *room, const struct Coor
         eething->mappos.z.val = get_thing_height_at(eething, &eething->mappos);
         eething->mappos.z.val += 10;
         // Size of the flame depends on room efficiency
-        eething->sprite_size = ((eething->sprite_size - 80) * ((long)room->efficiency) / 256) + 80;
+        eething->sprite_size = ((eething->sprite_size - 80) * ((int64_t)room->efficiency) / 256) + 80;
   }
   return eething;
 }
 
 void room_update_surrounding_flames(struct Room *room, const struct Coord3d *pos)
 {
-    long k;
-    long i = room->flames_around_idx;
+    int64_t k;
+    int64_t i = room->flames_around_idx;
     MapSubtlCoord x = pos->x.stl.num + (MapSubtlCoord)small_around[i].delta_x;
     MapSubtlCoord y = pos->y.stl.num + (MapSubtlCoord)small_around[i].delta_y;
     struct Room* curoom = subtile_room_get(x, y);
@@ -95,7 +95,7 @@ void process_room_surrounding_flames(struct Room *room)
     }
     MapSlabCoord x = slb_num_decode_x(room->flame_slb);
     MapSlabCoord y = slb_num_decode_y(room->flame_slb);
-    long i = 3 * room->flames_around_idx + room->flame_stl;
+    int64_t i = 3 * room->flames_around_idx + room->flame_stl;
     struct Coord3d pos;
     pos.x.val = subtile_coord_center(slab_subtile_center(x)) + room_spark_offset[i].delta_x;
     pos.y.val = subtile_coord_center(slab_subtile_center(y)) + room_spark_offset[i].delta_y;
@@ -120,7 +120,7 @@ void process_room_surrounding_flames(struct Room *room)
 void recompute_rooms_count_in_dungeons(void)
 {
     SYNCDBG(17,"Starting");
-    for (long i = 0; i < DUNGEONS_COUNT; i++)
+    for (int64_t i = 0; i < DUNGEONS_COUNT; i++)
     {
         struct Dungeon* dungeon = get_dungeon(i);
         dungeon->total_rooms = 0;
@@ -154,12 +154,12 @@ void process_rooms(void)
 
 void kill_all_room_slabs_and_contents(struct Room *room)
 {
-    unsigned long k = 0;
-    long i = room->slabs_list;
+    uint64_t k = 0;
+    int64_t i = room->slabs_list;
     while (i != 0)
     {
-        long slb_x = slb_num_decode_x(i);
-        long slb_y = slb_num_decode_y(i);
+        int64_t slb_x = slb_num_decode_x(i);
+        int64_t slb_y = slb_num_decode_y(i);
         i = get_next_slab_number_in_room(i);
         // Per room tile code
         struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
@@ -178,11 +178,11 @@ void kill_all_room_slabs_and_contents(struct Room *room)
     room->slabs_count = 0;
 }
 
-void sell_room_slab_when_no_free_room_structures(struct Room *room, long slb_x, long slb_y, unsigned char gnd_slab)
+void sell_room_slab_when_no_free_room_structures(struct Room *room, int64_t slb_x, int64_t slb_y, unsigned char gnd_slab)
 {
     delete_room_slab_when_no_free_room_structures(slb_x, slb_y, gnd_slab);
     struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
-    long revenue = compute_value_percentage(roomst->cost, kfx_config_state.conf.rules[room->owner].gameplay.room_sale_percent);
+    int64_t revenue = compute_value_percentage(roomst->cost, kfx_config_state.conf.rules[room->owner].gameplay.room_sale_percent);
     if (revenue != 0)
     {
         struct Coord3d pos;
@@ -194,12 +194,12 @@ void sell_room_slab_when_no_free_room_structures(struct Room *room, long slb_x, 
 
 void recreate_rooms_from_room_slabs(struct Room *room, unsigned char gnd_slab)
 {
-    SYNCDBG(7,"Starting for %s index %d",room_code_name(room->kind),(int)room->index);
+    SYNCDBG(7,"Starting for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
     // Clear room index in all slabs
     // This will make sure that the old room won't be returned by subtile_room_get()
     // and used as one of new rooms.
-    unsigned long k = 0;
-    long i = room->slabs_list;
+    uint64_t k = 0;
+    int64_t i = room->slabs_list;
     while (i > 0)
     {
         struct SlabMap* slb = get_slabmap_direct(i);
@@ -225,8 +225,8 @@ void recreate_rooms_from_room_slabs(struct Room *room, unsigned char gnd_slab)
     i = room->slabs_list;
     while (i != 0)
     {
-        long slb_x = slb_num_decode_x(i);
-        long slb_y = slb_num_decode_y(i);
+        int64_t slb_x = slb_num_decode_x(i);
+        int64_t slb_y = slb_num_decode_y(i);
         i = get_next_slab_number_in_room(i);
         // Per room tile code
         struct Room* nroom = create_room(room->owner, room->kind, slab_subtile_center(slb_x), slab_subtile_center(slb_y));
@@ -264,10 +264,10 @@ TbBool delete_room_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, TbBool is_destro
     struct Room* room = slab_room_get(slb_x, slb_y);
     if (room_is_invalid(room))
     {
-        ERRORLOG("Slab (%d,%d) is not a room",slb_x, slb_y);
+        ERRORLOG("Slab (%" PRId64 ",%" PRId64 ") is not a room",(int64_t)(slb_x), (int64_t)(slb_y));
         return false;
     }
-    SYNCDBG(7,"Room on (%d,%d) had %d slabs",(int)slb_x,(int)slb_y,(int)room->slabs_count);
+    SYNCDBG(7,"Room on (%" PRId64 ",%" PRId64 ") had %" PRId64 " slabs",(int64_t)slb_x,(int64_t)slb_y,(int64_t)room->slabs_count);
     decrease_room_area(room->owner, 1);
     kill_room_slab_and_contents(room->owner, slb_x, slb_y);
     if (room->slabs_count <= 1)
@@ -294,7 +294,7 @@ TbBool replace_slab_from_script(MapSlabCoord slb_x, MapSlabCoord slb_y, unsigned
 {
     struct Room* room = slab_room_get(slb_x, slb_y);
     struct SlabMap* slb = get_slabmap_for_subtile(slab_subtile(slb_x, 0), slab_subtile(slb_y, 0));
-    short plyr_idx = slabmap_owner(slb);
+    int64_t plyr_idx = slabmap_owner(slb);
     if (slab_kind_has_no_ownership(slabkind))
     {
         plyr_idx = kfx_config_state.neutral_player_num;
@@ -544,7 +544,7 @@ EventIndex update_cannot_find_room_of_role_wth_spare_capacity_event(PlayerNumber
         }
         if (room_is_invalid(room))
         {
-            SYNCDBG(5,"Player %d has %s which cannot find large enough %s",(int)plyr_idx,thing_model_name(creatng),room_role_code_name(rrole));
+            SYNCDBG(5,"Player %" PRId64 " has %s which cannot find large enough %s",(int64_t)plyr_idx,thing_model_name(creatng),room_role_code_name(rrole));
             switch (rrole)
             {
             case RoRoF_LairStorage:
@@ -562,7 +562,7 @@ EventIndex update_cannot_find_room_of_role_wth_spare_capacity_event(PlayerNumber
             }
         } else
         {
-            SYNCDBG(5,"Player %d has %s which cannot reach %s",(int)plyr_idx,thing_model_name(creatng),room_role_code_name(rrole));
+            SYNCDBG(5,"Player %" PRId64 " has %s which cannot reach %s",(int64_t)plyr_idx,thing_model_name(creatng),room_role_code_name(rrole));
             RoomKind rkind = find_first_roomkind_with_role(rrole);
             evidx = event_create_event_or_update_nearby_existing_event(
                 creatng->mappos.x.val, creatng->mappos.y.val, EvKind_WorkRoomUnreachable, plyr_idx, rkind);
@@ -603,12 +603,12 @@ void query_room(struct Room *room)
     char health[26] = "";
     char capacity[26] = "";
     char efficiency[26] = "";
-    snprintf(title, sizeof(title), "Room ID: %d", room->index);
-    snprintf(owner, sizeof(owner), "Owner: %d", room->owner);
-    snprintf(health, sizeof(health), "Health: %d", (int)room->health);
-    snprintf(capacity, sizeof(capacity), "Capacity: %d/%d", room->used_capacity, room->total_capacity);
-    float room_efficiency_percent = ((float)room->efficiency / (float)ROOM_EFFICIENCY_MAX) * 100;
-    snprintf(efficiency, sizeof(efficiency), "Efficiency: %d", (unsigned char)round(room_efficiency_percent));
+    snprintf(title, sizeof(title), "Room ID: %" PRId64, (int64_t)(room->index));
+    snprintf(owner, sizeof(owner), "Owner: %" PRId64, (int64_t)(room->owner));
+    snprintf(health, sizeof(health), "Health: %" PRId64, (int64_t)room->health);
+    snprintf(capacity, sizeof(capacity), "Capacity: %" PRId64 "/%" PRId64, (int64_t)(room->used_capacity), (int64_t)(room->total_capacity));
+    double room_efficiency_percent = ((double)room->efficiency / (double)ROOM_EFFICIENCY_MAX) * 100;
+    snprintf(efficiency, sizeof(efficiency), "Efficiency: %" PRId64, (int64_t)((unsigned char)round(room_efficiency_percent)));
     sim_feedback->create_message_box((const char*)&title, name, (const char*)&owner, (const char*)&health, (const char*)&capacity, (const char*)&efficiency);
 }
 

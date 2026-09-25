@@ -24,7 +24,7 @@ struct ResetGameTurnProvider {
 };
 
 TbBool g_fake_overflow_result = false;
-TbBool fake_emulate_overflow(unsigned short) { return g_fake_overflow_result; }
+TbBool fake_emulate_overflow(int64_t) { return g_fake_overflow_result; }
 
 struct ResetOverflowProvider {
     ~ResetOverflowProvider() { set_emulate_integer_overflow_provider(nullptr); } // restores the default

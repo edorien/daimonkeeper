@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static void hook_noop_power_cast(PlayerNumber plyr_idx, PowerKind pwkind, unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing) {}
+static void hook_noop_power_cast(PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing) {}
 static void hook_noop_plyr_thing(PlayerNumber plyr_idx, struct Thing *thing) {}
 static void hook_noop_thing(struct Thing *thing) {}
 static void hook_noop_damage(struct Thing *thing, HitPoints dmg, PlayerNumber dealing_plyr_idx) {}
@@ -23,10 +23,10 @@ static void hook_noop_slab_owner_change(MapSlabCoord slb_x, MapSlabCoord slb_y, 
 static void hook_noop_room_owner_change(struct Room *room, PlayerNumber old_owner) {}
 static void hook_noop_shot_hit(struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y, bool rebound_hit) {}
 static void hook_noop_plyr(PlayerNumber plyr_idx) {}
-static short hook_noop_crstate_func(FuncIdx func_idx, struct Thing *thing) { return -1; }
-static short hook_noop_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y) { return -1; }
-static TbResult hook_noop_luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind, unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, unsigned long allow_flags) { return -1; }
-static short hook_noop_luafunc_trap_activation_func(FuncIdx func_idx, struct Thing *trap, struct Thing *creature) { return -1; }
+static int64_t hook_noop_crstate_func(FuncIdx func_idx, struct Thing *thing) { return -1; }
+static int64_t hook_noop_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y) { return -1; }
+static TbResult hook_noop_luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags) { return -1; }
+static int64_t hook_noop_luafunc_trap_activation_func(FuncIdx func_idx, struct Thing *trap, struct Thing *creature) { return -1; }
 static void hook_noop_api_event(const char *event_name) {}
 static void hook_noop_api_event_with_data(const char *event_name, const struct ApiEventData *data, size_t data_count) {}
 

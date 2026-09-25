@@ -71,20 +71,20 @@ extern "C" {
 void redraw_isometric_view(void);
 void redraw_frontview(void);
 /******************************************************************************/
-int32_t xtab[640][2];
-int32_t ytab[480][2];
+int64_t xtab[640][2];
+int64_t ytab[480][2];
 
 unsigned char smooth_on;
 static TbPixel * map_fade_dest;
 static TbPixel * map_fade_src;
-static long draw_spell_cost;
+static int64_t draw_spell_cost;
 /******************************************************************************/
 static void draw_creature_view_icons(struct Thing* creatng)
 {
     ScreenCoord x = render_overlay->get_main_menu_width() + scale_value_by_horizontal_resolution(5);
     ScreenCoord y;
     const struct TbSprite* spr;
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     {
         spr = get_panel_sprite(488);
         ps_units_per_px = (22 * units_per_pixel) / spr->SHeight;
@@ -99,7 +99,7 @@ static void draw_creature_view_icons(struct Thing* creatng)
             continue;
         }
         struct SpellConfig *spconf = get_spell_config(cspell->spkind);
-        long spridx = spconf->medsym_sprite_idx;
+        int64_t spridx = spconf->medsym_sprite_idx;
         if (flag_is_set(spconf->spell_flags, CSAfF_Invisibility))
         {
             if (cctrl->force_visible & 2)
@@ -109,9 +109,9 @@ static void draw_creature_view_icons(struct Thing* creatng)
         }
         if (flag_is_set(spconf->spell_flags, CSAfF_Timebomb))
         {
-            int tx_units_per_px = (dbc_initialized && dbc_enabled) ? scale_ui_value_lofi(16) : (22 * units_per_pixel) / LbTextLineHeight();
-            int h = LbTextLineHeight() * tx_units_per_px / 16;
-            int w = scale_ui_value_lofi(spr->SWidth);
+            int64_t tx_units_per_px = (dbc_initialized && dbc_enabled) ? scale_ui_value_lofi(16) : (22 * units_per_pixel) / LbTextLineHeight();
+            int64_t h = LbTextLineHeight() * tx_units_per_px / 16;
+            int64_t w = scale_ui_value_lofi(spr->SWidth);
             if (dbc_initialized && dbc_enabled)
             {
                 if (MyScreenHeight < 400)
@@ -124,7 +124,7 @@ static void draw_creature_view_icons(struct Thing* creatng)
             RendererSetDrawColour(LbTextGetFontFaceColor());
             lbDisplayEx.ShadowColour = LbTextGetFontBackColor();
             char text[16];
-            snprintf(text, sizeof(text), "%u", (cctrl->timebomb_countdown / kfx_sim_state.turns_per_second));
+            snprintf(text, sizeof(text), "%" PRIu64, (uint64_t)((cctrl->timebomb_countdown / kfx_sim_state.turns_per_second)));
             LbTextDrawResized(0, 0, tx_units_per_px, text);
         }
         render_overlay->draw_gui_panel_sprite_left(x, y, ps_units_per_px, spridx);
@@ -133,7 +133,7 @@ static void draw_creature_view_icons(struct Thing* creatng)
     if ( (cctrl->dragtng_idx != 0) && ((creatng->alloc_flags & TAlF_IsDragged) == 0) )
     {
         struct Thing* dragtng = thing_get(cctrl->dragtng_idx);
-        unsigned long spr_idx;
+        uint64_t spr_idx;
         x = MyScreenWidth - (scale_value_by_horizontal_resolution(148) / 4);
         switch(dragtng->class_id)
         {
@@ -188,10 +188,10 @@ static void draw_creature_view_icons(struct Thing* creatng)
     }
 }
 
-void setup_engine_window(long x, long y, long width, long height)
+void setup_engine_window(int64_t x, int64_t y, int64_t width, int64_t height)
 {
-    SYNCDBG(6,"Starting for size (%ld,%ld) at (%ld,%ld)",width,height,x,y);
-    long status_panel_width_local = render_overlay->get_status_panel_width();
+    SYNCDBG(6,"Starting for size (%" PRId64 ",%" PRId64 ") at (%" PRId64 ",%" PRId64 ")",(int64_t)(width),(int64_t)(height),(int64_t)(x),(int64_t)(y));
+    int64_t status_panel_width_local = render_overlay->get_status_panel_width();
     if ((kfx_sim_state.operation_flags & GOF_ShowGui) != 0)
     {
       if (x > MyScreenWidth)
@@ -223,7 +223,7 @@ void setup_engine_window(long x, long y, long width, long height)
     local_state.engine_window_height = height;
 }
 
-void store_engine_window(TbGraphicsWindow *ewnd,int divider)
+void store_engine_window(TbGraphicsWindow *ewnd,int64_t divider)
 {
     if (divider <= 1)
     {
@@ -258,19 +258,19 @@ void load_engine_window(TbGraphicsWindow *ewnd)
  * 02a-pixel-format-design.md §2.5's generate_map_fade_ghost_table finding:
  * `output = colour1 + colour2`, clamped) rather than a genuine 1/3-2/3 ghost
  * blend -- so it needs clamp(), not render_ghost_blend(). */
-void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, long a6, long const xmax, long const ymax, long a9)
+void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, int64_t a6, int64_t const xmax, int64_t const ymax, int64_t a9)
 {
-    long ix;
-    long iy;
-    long x1base = 4 * a6;
-    long x0base = 4 * (32 - a6);
-    int32_t * xt = xtab[0];
-    int vx0 = 0;
-    int vx1 = 0;
+    int64_t ix;
+    int64_t iy;
+    int64_t x1base = 4 * a6;
+    int64_t x0base = 4 * (32 - a6);
+    int64_t * xt = xtab[0];
+    int64_t vx0 = 0;
+    int64_t vx1 = 0;
     for (ix = xmax; ix > 0; ix--)
     {
-        long val = x1base + vx1 / xmax;
-        long m;
+        int64_t val = x1base + vx1 / xmax;
+        int64_t m;
         if (val >= 0)
         {
             m = min(xmax,val);
@@ -292,15 +292,15 @@ void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, long a6, long
         vx1 += xmax - 8 * a6;
     }
 
-    long y1base = 8 * ymax / xmax * x1base / 8;
-    long y0base = 8 * ymax / xmax * x0base / 8;
-    int32_t * yt = ytab[0];
-    int vy1 = 0;
-    int vy0 = 0;
+    int64_t y1base = 8 * ymax / xmax * x1base / 8;
+    int64_t y0base = 8 * ymax / xmax * x0base / 8;
+    int64_t * yt = ytab[0];
+    int64_t vy1 = 0;
+    int64_t vy0 = 0;
     for (iy = ymax; iy > 0; iy--)
     {
-        long val = y1base + vy1 / ymax;
-        long m;
+        int64_t val = y1base + vy1 / ymax;
+        int64_t m;
         if (val >= 0)
         {
             m = min(ymax,val);
@@ -323,8 +323,8 @@ void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, long a6, long
         vy1 += ymax - 2 * y1base;
     }
 
-    const int shade1 = a6;
-    const int shade2 = 32 - a6;
+    const int64_t shade1 = a6;
+    const int64_t shade2 = 32 - a6;
     TbPixel* out = outbuf;
     yt = ytab[0];
     for (iy = ymax; iy > 0; iy--)
@@ -337,9 +337,9 @@ void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, long a6, long
             TbPixel px1 = render_shade(sbuf1[xt[0]], shade1);
             TbPixel px2 = render_shade(sbuf2[xt[1]], shade2);
             *out = TbPixel_RGBA(
-                (uint8_t)clamp((int)px1.r + px2.r, 0, 255),
-                (uint8_t)clamp((int)px1.g + px2.g, 0, 255),
-                (uint8_t)clamp((int)px1.b + px2.b, 0, 255),
+                (uint8_t)clamp((int64_t)px1.r + px2.r, 0, 255),
+                (uint8_t)clamp((int64_t)px1.g + px2.g, 0, 255),
+                (uint8_t)clamp((int64_t)px1.b + px2.b, 0, 255),
                 255);
             out++;
             xt += 2;
@@ -357,7 +357,7 @@ void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, long a6, long
  * @param scanline Line width of the two given buffers.
  * @param height Height to be filled in given buffers.
  */
-void prepare_map_fade_buffers(TbPixel *fade_src, TbPixel *fade_dest, int scanline, int height)
+void prepare_map_fade_buffers(TbPixel *fade_src, TbPixel *fade_dest, int64_t scanline, int64_t height)
 {
     struct PlayerInfo* player = get_my_player();
     // render the 3D screen
@@ -366,8 +366,8 @@ void prepare_map_fade_buffers(TbPixel *fade_src, TbPixel *fade_dest, int scanlin
     else
       redraw_frontview();
     // Copy the screen to fade source temp buffer
-    int i;
-    int fadebuf_pos = 0;
+    int64_t i;
+    int64_t fadebuf_pos = 0;
     for (i = 0; i < height; i++)
     {
         TbPixel* src = SwTargetWScreen() + lbDisplay.GraphicsScreenWidth * i;
@@ -388,7 +388,7 @@ void prepare_map_fade_buffers(TbPixel *fade_src, TbPixel *fade_dest, int scanlin
     }
 }
 
-long map_fade_in(long palette_fade_step)
+int64_t map_fade_in(int64_t palette_fade_step)
 {
     SYNCDBG(6,"Starting");
     if (palette_fade_step == 0)
@@ -405,7 +405,7 @@ long map_fade_in(long palette_fade_step)
     return (8 - get_my_player()->instance_remain_turns) * 4;
 }
 
-long map_fade_out(long palette_fade_step)
+int64_t map_fade_out(int64_t palette_fade_step)
 {
     SYNCDBG(6,"Starting");
     if (palette_fade_step == 32)
@@ -419,12 +419,12 @@ long map_fade_out(long palette_fade_step)
     return get_my_player()->instance_remain_turns * 4;
 }
 
-long dummy_sound_line_of_sight(long a1, long a2, long a3, long a4, long a5, long a6)
+int64_t dummy_sound_line_of_sight(int64_t a1, int64_t a2, int64_t a3, int64_t a4, int64_t a5, int64_t a6)
 {
     return 1;
 }
 
-void set_engine_view(struct PlayerInfo *player, long val)
+void set_engine_view(struct PlayerInfo *player, int64_t val)
 {
     switch ( val )
     {
@@ -436,7 +436,7 @@ void set_engine_view(struct PlayerInfo *player, long val)
         // If it's local human player, then setting this mode is an error
         // fall through
     default:
-        ERRORLOG("Invalid view mode %d",(int)val);
+        ERRORLOG("Invalid view mode %" PRId64,(int64_t)val);
         val = PVM_CreatureView;
         // fall through
     case PVM_CreatureView:
@@ -490,7 +490,7 @@ void set_engine_view(struct PlayerInfo *player, long val)
     player->view_mode = val;
 }
 
-void draw_overlay_compass(long base_x, long base_y)
+void draw_overlay_compass(int64_t base_x, int64_t base_y)
 {
     // Phase 4: drawn by ingame_panel_frame() (frontgui_ingame_panel.cpp)
     // over the ImGui minimap texture when the ImGui in-game HUD is active.
@@ -499,20 +499,20 @@ void draw_overlay_compass(long base_x, long base_y)
         return;
     struct PlayerInfo* player = get_my_player();
     struct Camera* cam = get_local_active_camera(player);
-    unsigned short flg_mem = RendererGetDrawFlags();
-    long status_panel_width_local = render_overlay->get_status_panel_width();
-    long map_diag = render_overlay->get_map_diagonal_length();
+    int64_t flg_mem = RendererGetDrawFlags();
+    int64_t status_panel_width_local = render_overlay->get_status_panel_width();
+    int64_t map_diag = render_overlay->get_map_diagonal_length();
     render_overlay->set_winfont();
     RendererAddDrawFlags(Lb_SPRITE_TRANSPAR4);
     LbTextSetWindow(0, 0, MyScreenWidth, MyScreenHeight);
-    int units_per_px = (16 * status_panel_width_local + 140 / 2) / 140;
-    int tx_units_per_px = (22 * units_per_px) / LbTextLineHeight();
-    int w = (LbSprFontCharWidth(lbFontPtr, '/') * tx_units_per_px / 16) / 2;
-    int h = (LbSprFontCharHeight(lbFontPtr, '/') * tx_units_per_px / 16) / 2 + 2 * units_per_px / 16;
-    int center_x = base_x * units_per_px / 16 + map_diag / 2;
-    int center_y = base_y * units_per_px / 16 + map_diag / 2;
-    int shift_x = (-(map_diag * 7 / 16) * LbSinL(cam->rotation_angle_x)) >> LbFPMath_TrigmBits;
-    int shift_y = (-(map_diag * 7 / 16) * LbCosL(cam->rotation_angle_x)) >> LbFPMath_TrigmBits;
+    int64_t units_per_px = (16 * status_panel_width_local + 140 / 2) / 140;
+    int64_t tx_units_per_px = (22 * units_per_px) / LbTextLineHeight();
+    int64_t w = (LbSprFontCharWidth(lbFontPtr, '/') * tx_units_per_px / 16) / 2;
+    int64_t h = (LbSprFontCharHeight(lbFontPtr, '/') * tx_units_per_px / 16) / 2 + 2 * units_per_px / 16;
+    int64_t center_x = base_x * units_per_px / 16 + map_diag / 2;
+    int64_t center_y = base_y * units_per_px / 16 + map_diag / 2;
+    int64_t shift_x = (-(map_diag * 7 / 16) * LbSinL(cam->rotation_angle_x)) >> LbFPMath_TrigmBits;
+    int64_t shift_y = (-(map_diag * 7 / 16) * LbCosL(cam->rotation_angle_x)) >> LbFPMath_TrigmBits;
     if (LbScreenIsLocked()) {
         LbTextDrawResized(center_x + shift_x - w, center_y + shift_y - h, tx_units_per_px, get_string(GUIStr_MapN));
     }
@@ -573,14 +573,14 @@ void redraw_creature_view(void)
  * neighbour, then blend that result with the pixel below -- both taps are
  * the same render_ghost_blend() weighting (1/3 ref, 2/3 dest) the original
  * render_ghost[ref<<8|dest] table encoded. */
-void smooth_screen_area(TbPixel *scrbuf, long x, long y, long w, long h, long scanln)
+void smooth_screen_area(TbPixel *scrbuf, int64_t x, int64_t y, int64_t w, int64_t h, int64_t scanln)
 {
     SYNCDBG(7,"Starting");
     TbPixel* lnbuf = scrbuf + scanln * y + x;
-    for (long i = h - y - 1; i > 0; i--)
+    for (int64_t i = h - y - 1; i > 0; i--)
     {
         TbPixel* buf = lnbuf;
-        for (long k = w - x - 1; k > 0; k--)
+        for (int64_t k = w - x - 1; k > 0; k--)
         {
             TbPixel step1 = render_ghost_blend(buf[0], buf[1]);
             buf[0] = render_ghost_blend(buf[scanln], step1);
@@ -644,19 +644,19 @@ void redraw_frontview(void)
     render_overlay->gui_draw_all_boxes();
 }
 
-int get_place_room_pointer_graphics(RoomKind rkind)
+int64_t get_place_room_pointer_graphics(RoomKind rkind)
 {
     struct RoomConfigStats* roomst = get_room_kind_stats(rkind);
     return roomst->pointer_sprite_idx;
 }
 
-int get_place_trap_pointer_graphics(ThingModel trmodel)
+int64_t get_place_trap_pointer_graphics(ThingModel trmodel)
 {
     struct TrapConfigStats* trapst = get_trap_model_stats(trmodel);
     return trapst->pointer_sprite_idx;
 }
 
-int get_place_door_pointer_graphics(ThingModel drmodel)
+int64_t get_place_door_pointer_graphics(ThingModel drmodel)
 {
     struct DoorConfigStats* doorst = get_door_model_stats(drmodel);
     return doorst->pointer_sprite_idx;
@@ -669,12 +669,12 @@ int get_place_door_pointer_graphics(ThingModel drmodel)
  */
 TbBool draw_spell_cursor(ThingIndex tng_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
-    long i;
-    long pwkind = -1;
+    int64_t i;
+    int64_t pwkind = -1;
     struct PlayerInfo* player = get_my_player();
     struct UserState* ustate = get_local_user_state();
     pwkind = ustate->chosen_power_kind;
-    SYNCDBG(5,"Starting for power %d",(int)pwkind);
+    SYNCDBG(5,"Starting for power %" PRId64,(int64_t)pwkind);
     if (pwkind <= 0)
     {
         set_pointer_graphic(MousePG_Invisible);
@@ -739,7 +739,7 @@ void process_dungeon_top_pointer_graphic(struct PlayerInfo *player)
         return;
     }
     // Mouse over battle message box
-    long battle_creature_over_local = render_overlay->get_battle_creature_over();
+    int64_t battle_creature_over_local = render_overlay->get_battle_creature_over();
     if (battle_creature_over_local > 0)
     {
         PowerKind pwkind = ustate->chosen_power_kind;
@@ -760,8 +760,8 @@ void process_dungeon_top_pointer_graphic(struct PlayerInfo *player)
         set_pointer_graphic(MousePG_Arrow);
         return;
     }
-    long i;
-    short thing_under_hand;
+    int64_t i;
+    int64_t thing_under_hand;
     switch (plrst_cfg_stat->pointer_group)
     {
     case PsPg_CtrlDungeon:
@@ -900,7 +900,7 @@ void process_dungeon_top_pointer_graphic(struct PlayerInfo *player)
 void process_pointer_graphic(void)
 {
     struct PlayerInfo* player = get_my_player();
-    SYNCDBG(6,"Starting for view %d, player state %s, instance %d",(int)player->view_type,player_state_code_name(player->work_state),(int)player->instance_num);
+    SYNCDBG(6,"Starting for view %" PRId64 ", player state %s, instance %" PRId64,(int64_t)player->view_type,player_state_code_name(player->work_state),(int64_t)player->instance_num);
     switch (get_local_view_type(player))
     {
     case PVT_DungeonTop:
@@ -970,13 +970,13 @@ void redraw_display(void)
         local_state.palette_fade_step_map = map_fade_out(local_state.palette_fade_step_map);
         break;
     default:
-        ERRORLOG("Unsupported drawing state, %d",(int)player->view_mode);
+        ERRORLOG("Unsupported drawing state, %" PRId64,(int64_t)player->view_mode);
         break;
     }
     //LbTextSetWindow(0, 0, MyScreenWidth, MyScreenHeight);
     render_overlay->set_winfont();
     RendererClearDrawFlags(Lb_TEXT_ONE_COLOR);
-    int tx_units_per_px = ( (MyScreenHeight < 400) && (dbc_initialized && dbc_enabled) ) ? scale_ui_value(32) : (22 * units_per_pixel) / LbTextLineHeight();
+    int64_t tx_units_per_px = ( (MyScreenHeight < 400) && (dbc_initialized && dbc_enabled) ) ? scale_ui_value(32) : (22 * units_per_pixel) / LbTextLineHeight();
     LbTextSetWindow(0, 0, MyScreenWidth, MyScreenHeight);
     // Phase 3: the MP chat input line moves to ingame_text_overlays_frame()
     // under the ImGui HUD (input handling -- get_players_message_inputs() --
@@ -985,8 +985,8 @@ void redraw_display(void)
     {
         char text[sizeof(player->mp_message_text) + 4];
         snprintf(text, sizeof(text), ">%s_", player->mp_message_text);
-        long pos_x = 148*units_per_pixel/16;
-        long pos_y = 8*units_per_pixel/16;
+        int64_t pos_x = 148*units_per_pixel/16;
+        int64_t pos_y = 8*units_per_pixel/16;
         if (kfx_sim_state.armageddon_cast_turn != 0)
         {
             if (render_overlay->bonus_script_or_variable_overlay_active())
@@ -998,17 +998,17 @@ void redraw_display(void)
     }
     if ( draw_spell_cost )
     {
-        unsigned short drwflags_mem = RendererGetDrawFlags();
+        int64_t drwflags_mem = RendererGetDrawFlags();
         LbTextSetWindow(0, 0, MyScreenWidth, MyScreenHeight);
         RendererSetDrawFlags(0);
         render_overlay->set_winfont();
         char text[16];
         if (draw_spell_cost > 0)
-            snprintf(text, sizeof(text), "%ld", draw_spell_cost);
+            snprintf(text, sizeof(text), "%" PRId64, (int64_t)(draw_spell_cost));
 	else
-            snprintf(text, sizeof(text), "lv%ld", (-draw_spell_cost));
-        long pos_y = sim_feedback->GetMouseY() - (LbTextStringHeight(text) * units_per_pixel / 16) / 2 - 2 * units_per_pixel / 16;
-        long pos_x = sim_feedback->GetMouseX() - (LbTextStringWidth(text) * units_per_pixel / 16) / 2;
+            snprintf(text, sizeof(text), "lv%" PRId64, (int64_t)((-draw_spell_cost)));
+        int64_t pos_y = sim_feedback->GetMouseY() - (LbTextStringHeight(text) * units_per_pixel / 16) / 2 - 2 * units_per_pixel / 16;
+        int64_t pos_x = sim_feedback->GetMouseX() - (LbTextStringWidth(text) * units_per_pixel / 16) / 2;
         LbTextDrawResized(pos_x, pos_y, tx_units_per_px, text);
         RendererSetDrawFlags(drwflags_mem);
         draw_spell_cost = 0;
@@ -1025,19 +1025,19 @@ void redraw_display(void)
     {
           render_overlay->set_winfont();
           const char * text = get_string(GUIStr_PausedMsg);
-          long w = (LbTextStringWidth(text) * units_per_pixel / 16 + 2 * (LbTextCharWidth(' ') * units_per_pixel / 16));
-          long pos_x;
+          int64_t w = (LbTextStringWidth(text) * units_per_pixel / 16 + 2 * (LbTextCharWidth(' ') * units_per_pixel / 16));
+          int64_t pos_x;
           struct Camera *camera = get_local_active_camera(player);
           if (camera->view_mode == PVM_IsoWibbleView || camera->view_mode == PVM_FrontView || camera->view_mode == PVM_IsoStraightView || camera->view_mode == PVM_CreatureView) {
               pos_x = local_state.engine_window_x + (MyScreenWidth - w - local_state.engine_window_x) / 2;
           } else {
               pos_x = (MyScreenWidth-w)/2;
           }
-          long pos_y = 16 * units_per_pixel / 16;
+          int64_t pos_y = 16 * units_per_pixel / 16;
           RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
-          long h = LbTextLineHeight() * units_per_pixel / 16;
-          int text_w = w;
-          int text_x = pos_x;
+          int64_t h = LbTextLineHeight() * units_per_pixel / 16;
+          int64_t text_w = w;
+          int64_t text_x = pos_x;
           if (MyScreenHeight < 400)
           {
               w *= 2;
@@ -1056,7 +1056,7 @@ void redraw_display(void)
     }
     if (kfx_sim_state.armageddon_cast_turn != 0)
     {
-        int i = 0;
+        int64_t i = 0;
         if (kfx_sim_state.armageddon_cast_turn + kfx_config_state.conf.rules[kfx_sim_state.armageddon_caster_idx].magic.armageddon_count_down <= get_gameturn())
         {
             if (kfx_sim_state.armageddon_over_turn - kfx_config_state.conf.rules[kfx_sim_state.armageddon_caster_idx].magic.armageddon_duration <= get_gameturn())
@@ -1067,19 +1067,19 @@ void redraw_display(void)
         }
         render_overlay->set_winfont();
         char text[64];
-        snprintf(text, sizeof(text), " %s %03d", get_string(get_power_name_strindex(PwrK_ARMAGEDDON)), i/2); // Armageddon message
+        snprintf(text, sizeof(text), " %s %03" PRId64, get_string(get_power_name_strindex(PwrK_ARMAGEDDON)), (int64_t)(i/2)); // Armageddon message
         i = LbTextCharWidth(' ')*units_per_pixel/16;
-        long w = LbTextStringWidth(text) * units_per_pixel / 16 + 6 * i;
+        int64_t w = LbTextStringWidth(text) * units_per_pixel / 16 + 6 * i;
         i = LbTextLineHeight()*units_per_pixel/16;
         RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
-        long h = pixel_size * i + pixel_size * i / 2;
+        int64_t h = pixel_size * i + pixel_size * i / 2;
         if (MyScreenHeight < 400)
         {
             w *= 2;
             h *= 2;
         }
-        long pos_x = MyScreenWidth - w - 16 * units_per_pixel / 16;
-        long pos_y = 16 * units_per_pixel / 16;
+        int64_t pos_x = MyScreenWidth - w - 16 * units_per_pixel / 16;
+        int64_t pos_y = 16 * units_per_pixel / 16;
         LbTextSetWindow(pos_x, pos_y, w, h);
         render_overlay->draw_slab64k(pos_x, pos_y, units_per_pixel, w, h);
         LbTextDrawResized(0/pixel_size, 0/pixel_size, tx_units_per_px, text);
@@ -1108,9 +1108,9 @@ TbBool keeper_screen_redraw(void)
     return false;
 }
 
-int get_place_terrain_pointer_graphics(SlabKind skind)
+int64_t get_place_terrain_pointer_graphics(SlabKind skind)
 {
-    int result;
+    int64_t result;
     switch (skind)
     {
         case SlbT_ROCK:
@@ -1219,7 +1219,7 @@ TbBool players_cursor_is_at_top_of_view(void)
     return false;
 }
 
-TbBool engine_point_to_map(struct Camera *camera, long screen_x, long screen_y, int32_t *map_x, int32_t *map_y)
+TbBool engine_point_to_map(struct Camera *camera, int64_t screen_x, int64_t screen_y, int64_t *map_x, int64_t *map_y)
 {
     *map_x = 0;
     *map_y = 0;
@@ -1252,11 +1252,11 @@ TbBool engine_point_to_map(struct Camera *camera, long screen_x, long screen_y, 
     return false;
 }
 
-TbBool screen_to_map(struct Camera *camera, int32_t screen_x, int32_t screen_y, struct Coord3d *mappos)
+TbBool screen_to_map(struct Camera *camera, int64_t screen_x, int64_t screen_y, struct Coord3d *mappos)
 {
     TbBool result;
-    int32_t x;
-    int32_t y;
+    int64_t x;
+    int64_t y;
     SYNCDBG(19,"Starting");
     result = false;
     if (camera != NULL)
@@ -1293,7 +1293,7 @@ TbBool screen_to_map(struct Camera *camera, int32_t screen_x, int32_t screen_y, 
 
 static void set_mouse_light(NetUserId user, TbBool valid, struct Coord3d pos)
 {
-    const int idx = get_user_state(user)->cursor_light_idx;
+    const int64_t idx = get_user_state(user)->cursor_light_idx;
     if (idx == 0)
         return;
 
@@ -1333,7 +1333,7 @@ void update_local_mouse_light(void)
 
     set_mouse_light(player->user_id, valid, pos);
 
-    int cursor_light_idx = get_player_user_state(player)->cursor_light_idx;
+    int64_t cursor_light_idx = get_player_user_state(player)->cursor_light_idx;
     if (cursor_light_idx != 0)
         light_reset_interpolation(cursor_light_idx);
 }

@@ -40,7 +40,7 @@ bool is_owned_open_ground(MapSlabCoord x, MapSlabCoord y, PlayerNumber owner)
 
 } // namespace
 
-int editor_reinforce_perimeter(PlayerNumber owner)
+int64_t editor_reinforce_perimeter(PlayerNumber owner)
 {
     struct Target { MapSlabCoord x, y; };
     std::vector<Target> targets;
@@ -51,7 +51,7 @@ int editor_reinforce_perimeter(PlayerNumber owner)
             const struct SlabMap *slb = get_slabmap_block(x, y);
             if (slb->kind != SlbT_EARTH && slb->kind != SlbT_TORCHDIRT)
                 continue;
-            for (int n = 0; n < SMALL_AROUND_LENGTH; n++)
+            for (int64_t n = 0; n < SMALL_AROUND_LENGTH; n++)
             {
                 if (is_owned_open_ground(x + small_around[n].delta_x, y + small_around[n].delta_y, owner))
                 {
@@ -74,5 +74,5 @@ int editor_reinforce_perimeter(PlayerNumber owner)
         fill_in_reinforced_corners(owner, t.x, t.y);
     editor_journal_stroke_end("Reinforce");
     editor_mark_dirty();
-    return (int)targets.size();
+    return (int64_t)targets.size();
 }

@@ -39,15 +39,15 @@
 #include "post_inc.h"
 
 // Maximum number of messages that can be queued at once.
-int g_speech_queue_limit = 4;
+int64_t g_speech_queue_limit = 4;
 
 namespace {
 
 struct Message;
 
 std::deque<std::unique_ptr<Message>> g_message_queue;
-std::map<SoundSmplTblID, long> g_recent_samples;
-std::map<std::string, long> g_recent_filenames;
+std::map<SoundSmplTblID, int64_t> g_recent_samples;
+std::map<std::string, int64_t> g_recent_filenames;
 std::unique_ptr<Message> g_current_message;
 
 enum MessageType {
@@ -58,9 +58,9 @@ enum MessageType {
 struct Message {
 
 	MessageType type;
-	long duration;
+	int64_t duration;
 
-	Message(MessageType _type, long _duration)
+	Message(MessageType _type, int64_t _duration)
 	: type(_type), duration(_duration)
 	{}
 
@@ -72,7 +72,7 @@ struct DefaultMessage : Message {
 
 	SoundSmplTblID sample_id;
 
-	DefaultMessage(long _sample_id, long _duration)
+	DefaultMessage(int64_t _sample_id, int64_t _duration)
 	: Message(MT_Default, _duration), sample_id(_sample_id)
 	{}
 
@@ -93,7 +93,7 @@ struct CustomMessage : Message {
 
 	std::string fname;
 
-	CustomMessage(const char * _fname, long _duration)
+	CustomMessage(const char * _fname, int64_t _duration)
 	: Message(MT_Custom, _duration), fname(_fname)
 	{}
 
@@ -190,7 +190,7 @@ static std::string extract_zip_speech_to_temp(LevelNumber lvnum, const char* ent
 		return "";
 	}
 	char subdir[64];
-	snprintf(subdir, sizeof(subdir), "keeperfx_map%05d_speech", lvnum);
+	snprintf(subdir, sizeof(subdir), "keeperfx_map%05" PRId64 "_speech", (int64_t)(lvnum));
 	temp_dir /= subdir;
 	std::filesystem::create_directories(temp_dir, ec);
 	std::filesystem::path temp_file = temp_dir / safe_name;
@@ -218,7 +218,7 @@ static std::string resolve_speech_path(const char* path, const char* lang,
 	static const TbFileGroups search_groups[] = {
 		FGrp_CmpgConfig, FGrp_CmpgLvls, FGrp_CmpgMedia, FGrp_Main
 	};
-	const unsigned int num_groups = sizeof(search_groups) / sizeof(search_groups[0]);
+	const uint64_t num_groups = sizeof(search_groups) / sizeof(search_groups[0]);
 	const char* slash = strrchr(path, '/');
 	result = SpeechResolveResult::NotFound;
 
@@ -227,11 +227,11 @@ static std::string resolve_speech_path(const char* path, const char* lang,
 		char lang_path[512];
 		if (slash != nullptr) {
 			snprintf(lang_path, sizeof(lang_path), "%.*s/%s/%s",
-				(int)(slash - path), path, lang, slash + 1);
+				(int)((int64_t)(slash - path)), path, lang, slash + 1);
 		} else {
 			snprintf(lang_path, sizeof(lang_path), "%s/%s", lang, path);
 		}
-		for (unsigned int g = 0; g < num_groups; g++) {
+		for (uint64_t g = 0; g < num_groups; g++) {
 			const char* candidate = prepare_file_fmtpath(search_groups[g], "%s", lang_path);
 			if (candidate != nullptr && LbFileExists(candidate)) {
 				result = SpeechResolveResult::LanguageMatch;
@@ -245,11 +245,11 @@ static std::string resolve_speech_path(const char* path, const char* lang,
 		char eng_path[512];
 		if (slash != nullptr) {
 			snprintf(eng_path, sizeof(eng_path), "%.*s/eng/%s",
-				(int)(slash - path), path, slash + 1);
+				(int)((int64_t)(slash - path)), path, slash + 1);
 		} else {
 			snprintf(eng_path, sizeof(eng_path), "eng/%s", path);
 		}
-		for (unsigned int g = 0; g < num_groups; g++) {
+		for (uint64_t g = 0; g < num_groups; g++) {
 			const char* candidate = prepare_file_fmtpath(search_groups[g], "%s", eng_path);
 			if (candidate != nullptr && LbFileExists(candidate)) {
 				result = SpeechResolveResult::FallbackEng;
@@ -259,7 +259,7 @@ static std::string resolve_speech_path(const char* path, const char* lang,
 	}
 
 	// Step 3: base fallback path
-	for (unsigned int g = 0; g < num_groups; g++) {
+	for (uint64_t g = 0; g < num_groups; g++) {
 		const char* candidate = prepare_file_fmtpath(search_groups[g], "%s", path);
 		if (candidate != nullptr && LbFileExists(candidate)) {
 			result = SpeechResolveResult::FallbackBase;
@@ -269,11 +269,11 @@ static std::string resolve_speech_path(const char* path, const char* lang,
 
 	// Step 4: first available language subdirectory
 	const char* filename = (slash != nullptr) ? (slash + 1) : path;
-	for (unsigned int g = 0; g < num_groups; g++) {
+	for (uint64_t g = 0; g < num_groups; g++) {
 		char base_dir[2048];
 		if (slash != nullptr) {
 			char dir_portion[512];
-			snprintf(dir_portion, sizeof(dir_portion), "%.*s", (int)(slash - path), path);
+			snprintf(dir_portion, sizeof(dir_portion), "%.*s", (int)((int64_t)(slash - path)), path);
 			prepare_file_path_buf(base_dir, sizeof(base_dir), search_groups[g], dir_portion);
 		} else {
 			prepare_file_path_buf(base_dir, sizeof(base_dir), search_groups[g], "");
@@ -338,21 +338,21 @@ static std::string resolve_speech_path(const char* path, const char* lang,
  * @param duration Number of ticks to supress future, identical messages.
  * @return True if the message was either played or queued. Otherwise, false.
  */
-extern "C" TbBool output_message(SoundSmplTblID sample_id, long duration)
+extern "C" TbBool output_message(SoundSmplTblID sample_id, int64_t duration)
 {
 	try {
-		SYNCDBG(8, "Sample ID %d, duration %ld", sample_id, duration);
+		SYNCDBG(8, "Sample ID %" PRId64 ", duration %" PRId64, (int64_t)(sample_id), (int64_t)(duration));
 		if ((sample_id < 0) || (sample_id >= SMsg_MAX)) {
-			SYNCDBG(8, "Sample ID (%d) invalid, skipping", sample_id);
+			SYNCDBG(8, "Sample ID (%" PRId64 ") invalid, skipping", (int64_t)(sample_id));
 			return false;
 		} else if (played_recently(sample_id)) {
-			SYNCDBG(8, "Sample ID (%d) played recently, skipping", sample_id);
+			SYNCDBG(8, "Sample ID (%" PRId64 ") played recently, skipping", (int64_t)(sample_id));
 			return false;
 		}
 		if (g_speech_overrides[sample_id][0] != '\0') {
 			const char* spath = g_speech_overrides[sample_id];
 			if (strcasecmp(spath, "none") == 0 || strcasecmp(spath, "null") == 0 || strcmp(spath, "0") == 0) {
-				SYNCDBG(8, "Sample ID (%d) silenced by override '%s', skipping", sample_id, spath);
+				SYNCDBG(8, "Sample ID (%" PRId64 ") silenced by override '%s', skipping", (int64_t)(sample_id), spath);
 				return false;
 			}
 			const char* lang = get_language_lwrstr(install_info.lang_id);
@@ -392,7 +392,7 @@ extern "C" TbBool output_message(SoundSmplTblID sample_id, long duration)
  * Plays a speech file by searching campaign/level/media/root directories.
  * Applies 5-step fallback: language variant -> eng -> base path -> any language -> nothing.
  */
-extern "C" TbBool output_message_from_path(const char* path, long duration)
+extern "C" TbBool output_message_from_path(const char* path, int64_t duration)
 {
 	const char* lang = get_language_lwrstr(install_info.lang_id);
 	SpeechResolveResult resolve_result;
@@ -418,7 +418,7 @@ extern "C" TbBool output_message_from_path(const char* path, long duration)
 /**
  * Plays a speech message from a SpeechRef, using path-based playback if a path is set.
  */
-extern "C" TbBool play_speech_ref(const SpeechRef* ref, long duration)
+extern "C" TbBool play_speech_ref(const SpeechRef* ref, int64_t duration)
 {
 	if (ref->path[0] != '\0')
 		return output_message_from_path(ref->path, duration);
@@ -434,10 +434,10 @@ extern "C" TbBool play_speech_ref(const SpeechRef* ref, long duration)
  * @param duration Number of ticks to supress future, identical messages.
  * @return True if the message was either played or queued. Otherwise, false.
  */
-extern "C" TbBool output_custom_message(const char * fname, long duration)
+extern "C" TbBool output_custom_message(const char * fname, int64_t duration)
 {
 	try {
-		SYNCDBG(8, "Filename %s, duration %ld", fname, duration);
+		SYNCDBG(8, "Filename %s, duration %" PRId64, fname, (int64_t)(duration));
 		if (strlen(fname) == 0) {
 			SYNCDBG(8, "Filename invalid, skipping");
 			return false;
@@ -469,15 +469,15 @@ extern "C" TbBool output_custom_message(const char * fname, long duration)
 extern "C" TbBool output_message_far_from_thing(
 	const Thing * thing,
 	SoundSmplTblID sample_id,
-	long duration
+	int64_t duration
 ) {
 	try {
-		SYNCDBG(8, "Sample ID %d, duration %ld", sample_id, duration);
+		SYNCDBG(8, "Sample ID %" PRId64 ", duration %" PRId64, (int64_t)(sample_id), (int64_t)(duration));
 		if ((sample_id < 0) || (sample_id >= SMsg_MAX)) {
-			SYNCDBG(8, "Sample ID (%d) invalid, skipping", sample_id);
+			SYNCDBG(8, "Sample ID (%" PRId64 ") invalid, skipping", (int64_t)(sample_id));
 			return false;
 		} else if (played_recently(sample_id)) {
-			SYNCDBG(8, "Sample ID (%d) played recently, skipping", sample_id);
+			SYNCDBG(8, "Sample ID (%" PRId64 ") played recently, skipping", (int64_t)(sample_id));
 			return false;
 		} else if (thing_is_invalid(thing)) {
 			return false;
@@ -551,7 +551,7 @@ extern "C" TbBool output_room_message(
 	return false;
 }
 
-void script_play_message(TbBool param_is_string, const char msgtype_id, const short msg_id, const char *filename)
+void script_play_message(TbBool param_is_string, const char msgtype_id, const int64_t msg_id, const char *filename)
 {
 
     if (!param_is_string)

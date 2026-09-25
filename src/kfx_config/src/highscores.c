@@ -31,7 +31,7 @@
 static TbBool load_high_score_table(void)
 {
     char* fname = prepare_file_path(FGrp_Save, campaign.hiscore_fname);
-    long arr_size = campaign.hiscore_count * sizeof(struct HighScore);
+    int64_t arr_size = campaign.hiscore_count * sizeof(struct HighScore);
     if (arr_size <= 0)
     {
         free(campaign.hiscore_table);
@@ -54,10 +54,10 @@ static TbBool load_high_score_table(void)
  */
 static TbBool create_empty_high_score_table(void)
 {
-  int i;
-  int npoints = 100 * VISIBLE_HIGH_SCORES_COUNT;
-  int nmap = 1 * VISIBLE_HIGH_SCORES_COUNT;
-  long arr_size = campaign.hiscore_count * sizeof(struct HighScore);
+  int64_t i;
+  int64_t npoints = 100 * VISIBLE_HIGH_SCORES_COUNT;
+  int64_t nmap = 1 * VISIBLE_HIGH_SCORES_COUNT;
+  int64_t arr_size = campaign.hiscore_count * sizeof(struct HighScore);
   if (campaign.hiscore_table == NULL)
     campaign.hiscore_table = (struct HighScore *)calloc(arr_size, 1);
   if (campaign.hiscore_table == NULL)
@@ -94,7 +94,7 @@ void load_or_create_high_score_table(void)
 TbBool save_high_score_table(void)
 {
     char* fname = prepare_file_path(FGrp_Save, campaign.hiscore_fname);
-    long fsize = campaign.hiscore_count * sizeof(struct HighScore);
+    int64_t fsize = campaign.hiscore_count * sizeof(struct HighScore);
     if (fsize <= 0)
         return true;
     if (campaign.hiscore_table == NULL)
@@ -110,9 +110,9 @@ TbBool save_high_score_table(void)
 /**
  * Adds new entry to high score table. Returns its index.
  */
-int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *name)
+int64_t add_high_score_entry(uint64_t score, LevelNumber lvnum, const char *name)
 {
-    int dest_idx;
+    int64_t dest_idx;
     // If the table is not initiated - return
     if (campaign.hiscore_table == NULL)
     {
@@ -129,7 +129,7 @@ int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *nam
     }
     // Find different entry which has duplicates with higher score - the one we can overwrite with no consequence
     // Don't allow replacing first 10 scores - they are visible to the player, and shouldn't be touched
-    int overwrite_idx;
+    int64_t overwrite_idx;
     for (overwrite_idx = campaign.hiscore_count-1; overwrite_idx >= 10; overwrite_idx--)
     {
         LevelNumber last_lvnum = campaign.hiscore_table[overwrite_idx].lvnum;
@@ -137,7 +137,7 @@ int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *nam
             // Found unused slot
             break;
         }
-        int k;
+        int64_t k;
         for (k=overwrite_idx-1; k >= 0; k--)
         {
             if (campaign.hiscore_table[k].lvnum == last_lvnum) {
@@ -148,7 +148,7 @@ int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *nam
         if (k >= 0)
             break;
     }
-    SYNCDBG(4,"New high score entry index %d, overwrite index %d",(int)dest_idx,(int)overwrite_idx);
+    SYNCDBG(4,"New high score entry index %" PRId64 ", overwrite index %" PRId64,(int64_t)dest_idx,(int64_t)overwrite_idx);
     // In case nothing was found to overwrite
     if (overwrite_idx < 10) {
         overwrite_idx = campaign.hiscore_count;
@@ -168,14 +168,14 @@ int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *nam
     if (overwrite_idx > dest_idx)
     {
         // Moving entries down
-        for (int k = overwrite_idx - 1; k >= dest_idx; k--)
+        for (int64_t k = overwrite_idx - 1; k >= dest_idx; k--)
         {
             memcpy(&campaign.hiscore_table[k+1],&campaign.hiscore_table[k],sizeof(struct HighScore));
         }
     } else
     {
         // Moving entries up
-        for (int k = overwrite_idx; k < dest_idx; k++)
+        for (int64_t k = overwrite_idx; k < dest_idx; k++)
         {
             memcpy(&campaign.hiscore_table[k],&campaign.hiscore_table[k+1],sizeof(struct HighScore));
         }
@@ -190,9 +190,9 @@ int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *nam
 /**
  * Returns highest score value for given level.
  */
-unsigned long get_level_highest_score(LevelNumber lvnum)
+uint64_t get_level_highest_score(LevelNumber lvnum)
 {
-    for (int idx = 0; idx < campaign.hiscore_count; idx++)
+    for (int64_t idx = 0; idx < campaign.hiscore_count; idx++)
     {
         if ((campaign.hiscore_table[idx].lvnum == lvnum) && (strcmp(campaign.hiscore_table[idx].name, "Bullfrog") != 0))
         {

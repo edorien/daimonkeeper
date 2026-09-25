@@ -34,7 +34,7 @@ function(apply_keeperfx_link_flags TARGET)
 endfunction()
 
 function(apply_keeperfx_debug_split TARGET)
-    if(NOT WIN32 OR MSVC)
+    if(MSVC OR APPLE)
         return()
     endif()
     if(NOT CMAKE_OBJCOPY)

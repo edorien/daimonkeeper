@@ -54,12 +54,12 @@ namespace {
 // at the top of the next frame.
 struct PendingBtn {
     void (*fn)(struct GuiButton *) = nullptr;
-    unsigned short btype_value = 0;
-    long content_lval = 0;
+    int64_t btype_value = 0;
+    int64_t content_lval = 0;
 };
 PendingBtn s_pending;
 
-void request_btn(void (*fn)(struct GuiButton *), unsigned short btype_value, long content_lval)
+void request_btn(void (*fn)(struct GuiButton *), int64_t btype_value, int64_t content_lval)
 {
     s_pending.fn = fn;
     s_pending.btype_value = btype_value;
@@ -88,10 +88,10 @@ void apply_pending(void)
 // the right edge here; btn_rect() applies it to every legacy button rect
 // it hands back, so tab-strip hit-testing tracks the redraw exactly.
 // (0 for HudPos_Left -- no-op.)
-float s_panel_offset_x = 0.0f;
+double s_panel_offset_x = 0.0;
 bool s_panel_on_right = false;
 
-const struct GuiButton *find_btn(int id)
+const struct GuiButton *find_btn(int64_t id)
 {
     const struct GuiButton *b = get_gui_button(id);
     if (b == nullptr || (b->flags & LbBtnF_Active) == 0)
@@ -103,13 +103,13 @@ const struct GuiButton *find_btn(int id)
 // scr_pos_*, shifted here by s_panel_offset_x). We only draw + hit-test in
 // ImGui; the legacy sprite draw and input sweep are skipped for GMnu_MAIN
 // (menu_is_migrated).
-bool btn_rect(int id, ImVec2 *p0, ImVec2 *p1, bool *enabled)
+bool btn_rect(int64_t id, ImVec2 *p0, ImVec2 *p1, bool *enabled)
 {
     const struct GuiButton *b = find_btn(id);
     if (b == nullptr)
         return false;
-    *p0 = ImVec2((float)b->scr_pos_x + s_panel_offset_x, (float)b->scr_pos_y);
-    *p1 = ImVec2((float)(b->scr_pos_x + b->width) + s_panel_offset_x, (float)(b->scr_pos_y + b->height));
+    *p0 = ImVec2((double)b->scr_pos_x + s_panel_offset_x, (double)b->scr_pos_y);
+    *p1 = ImVec2((double)(b->scr_pos_x + b->width) + s_panel_offset_x, (double)(b->scr_pos_y + b->height));
     if (enabled != nullptr)
         *enabled = (b->flags & LbBtnF_Enabled) != 0;
     return true;
@@ -122,10 +122,10 @@ bool btn_rect(int id, ImVec2 *p0, ImVec2 *p1, bool *enabled)
 // caption sits by the vertex; a marble gap is left between the pocket and
 // the panel edge by the caller. `sel` keeps it lit (autopilot toggle).
 // Returns 1 on left-click.
-int corner_nav(const char *id, const char *label, float cx, float cy, float dx, float dy,
-               float leg, bool enabled, bool sel)
+int64_t corner_nav(const char *id, const char *label, double cx, double cy, double dx, double dy,
+               double leg, bool enabled, bool sel)
 {
-    if (leg < 22.0f) leg = 22.0f;
+    if (leg < 22.0) leg = 22.0;
     const ImVec2 v0(cx, cy);
     const ImVec2 v1(cx, cy + dy * leg);
     const ImVec2 v2(cx + dx * leg, cy);
@@ -133,13 +133,13 @@ int corner_nav(const char *id, const char *label, float cx, float cy, float dx, 
     ImDrawList *dl = ImGui::GetWindowDrawList();
     relief::well_tri(dl, v0, v1, v2);
     if (sel)
-        dl->AddTriangle(v0, v1, v2, IM_COL32(210, 160, 70, 190), 1.5f);
+        dl->AddTriangle(v0, v1, v2, IM_COL32(210, 160, 70, 190), 1.5);
 
     FeStylePushFont(FeFont_Subheading);
     const ImVec2 ls = ImGui::CalcTextSize(label);
-    const float bw = ls.x + 8.0f, bh = ls.y + 6.0f;
-    const float tx = (dx > 0.0f) ? cx + 2.0f : cx - 2.0f - bw;
-    const float ty = (dy > 0.0f) ? cy + 2.0f : cy - 2.0f - bh;
+    const double bw = ls.x + 8.0, bh = ls.y + 6.0;
+    const double tx = (dx > 0.0) ? cx + 2.0 : cx - 2.0 - bw;
+    const double ty = (dy > 0.0) ? cy + 2.0 : cy - 2.0 - bh;
 
     ImGui::SetCursorScreenPos(ImVec2(tx, ty));
     ImGui::PushID(id);
@@ -148,10 +148,10 @@ int corner_nav(const char *id, const char *label, float cx, float cy, float dx, 
     ImGui::PopID();
 
     const ImU32 col = !enabled ? IM_COL32(180, 170, 150, 90)
-                    : hovered  ? ImGui::GetColorU32(ImVec4(0.86f, 0.24f, 0.16f, 1.0f))
-                    : sel      ? ImGui::GetColorU32(ImVec4(1.0f, 0.86f, 0.45f, 1.0f))
-                               : ImGui::GetColorU32(ImVec4(0.95f, 0.88f, 0.7f, 1.0f));
-    dl->AddText(ImVec2(tx + 4.0f, ty + 3.0f), col, label);
+                    : hovered  ? ImGui::GetColorU32(ImVec4(0.86, 0.24, 0.16, 1.0))
+                    : sel      ? ImGui::GetColorU32(ImVec4(1.0, 0.86, 0.45, 1.0))
+                               : ImGui::GetColorU32(ImVec4(0.95, 0.88, 0.7, 1.0));
+    dl->AddText(ImVec2(tx + 4.0, ty + 3.0), col, label);
     FeStylePopFont();
 
     return (enabled && pressed) ? 1 : 0;
@@ -165,11 +165,11 @@ int corner_nav(const char *id, const char *label, float cx, float cy, float dx, 
 // no side bevel (so no double lines between neighbours). Icon is a
 // query-panel sprite (optionally keeper-coloured) or a vector glyph.
 // Returns 1 on left-click.
-int tab_button(const char *id, short spr, bool colorize, const char *glyph, ImU32 glyph_col,
+int64_t tab_button(const char *id, int64_t spr, bool colorize, const char *glyph, ImU32 glyph_col,
                const ImVec2 &r0, const ImVec2 &r1, bool selected)
 {
-    const ImVec2 p0(r0.x + 1.5f, r0.y + 1.0f); // inset -> a gap between neighbours
-    const ImVec2 p1(r1.x - 1.5f, r1.y);
+    const ImVec2 p0(r0.x + 1.5, r0.y + 1.0); // inset -> a gap between neighbours
+    const ImVec2 p1(r1.x - 1.5, r1.y);
     const ImVec2 sz(p1.x - p0.x, p1.y - p0.y);
 
     ImGui::SetCursorScreenPos(p0);
@@ -178,45 +178,45 @@ int tab_button(const char *id, short spr, bool colorize, const char *glyph, ImU3
     const bool hovered = ImGui::IsItemHovered();
     ImDrawList *dl = ImGui::GetWindowDrawList();
 
-    const float rnd = 15.0f; // upper corners only
+    const double rnd = 15.0; // upper corners only
     if (selected)
     {
-        const ImVec2 e1(p1.x, p1.y + 8.0f); // drop through the channel into the content
+        const ImVec2 e1(p1.x, p1.y + 8.0); // drop through the channel into the content
         dl->AddRectFilled(p0, e1, relief::tab_fill(true), rnd, ImDrawFlags_RoundCornersTop);
-        relief::bevel(dl, p0, e1, 2.0f, true, rnd, /*omit_bottom*/ true);
+        relief::bevel(dl, p0, e1, 2.0, true, rnd, /*omit_bottom*/ true);
     }
     else
     {
         const ImU32 fill = hovered
-            ? relief::mix(relief::tab_fill(false), relief::tab_fill(true), 0.5f)
+            ? relief::mix(relief::tab_fill(false), relief::tab_fill(true), 0.5)
             : relief::tab_fill(false);
         dl->AddRectFilled(p0, p1, fill, rnd, ImDrawFlags_RoundCornersTop);
-        dl->AddLine(ImVec2(p0.x + 3.0f, p0.y + 1.0f), ImVec2(p1.x - 3.0f, p0.y + 1.0f),
-                    ImGui::GetColorU32(relief::tones().hi, hovered ? 0.35f : 0.18f));
+        dl->AddLine(ImVec2(p0.x + 3.0, p0.y + 1.0), ImVec2(p1.x - 3.0, p0.y + 1.0),
+                    ImGui::GetColorU32(relief::tones().hi, hovered ? 0.35 : 0.18));
     }
 
-    const ImVec2 ic(p0.x + sz.x * 0.5f, p0.y + sz.y * 0.5f);
+    const ImVec2 ic(p0.x + sz.x * 0.5, p0.y + sz.y * 0.5);
     if (glyph != nullptr)
     {
         FeStylePushFont(FeFont_Heading);
         ImFont *f = ImGui::GetFont();
-        const float fs = sz.y * 0.60f;
-        const ImVec2 ts = f->CalcTextSizeA(fs, FLT_MAX, 0.0f, glyph);
-        dl->AddText(f, fs, ImVec2(ic.x - ts.x * 0.5f, ic.y - ts.y * 0.5f), glyph_col, glyph);
+        const double fs = sz.y * 0.60;
+        const ImVec2 ts = f->CalcTextSizeA(fs, FLT_MAX, 0.0, glyph);
+        dl->AddText(f, fs, ImVec2(ic.x - ts.x * 0.5, ic.y - ts.y * 0.5), glyph_col, glyph);
         FeStylePopFont();
     }
     else
     {
-        const short s = colorize ? get_player_colored_icon_idx(spr, my_player_number) : spr;
-        int sw = 0, sh = 0;
+        const int64_t s = colorize ? get_player_colored_icon_idx(spr, my_player_number) : spr;
+        int64_t sw = 0, sh = 0;
         void *tex = FeGuiPanelTexture(s, &sw, &sh);
         if (tex != nullptr && sw > 0 && sh > 0)
         {
-            float iw = sz.x * 0.76f, ih = sz.y * 0.76f;
-            const float ar = (float)sw / (float)sh;
+            double iw = sz.x * 0.76, ih = sz.y * 0.76;
+            const double ar = (double)sw / (double)sh;
             if (iw / ih > ar) iw = ih * ar; else ih = iw / ar;
-            dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(ic.x - iw * 0.5f, ic.y - ih * 0.5f),
-                         ImVec2(ic.x + iw * 0.5f, ic.y + ih * 0.5f));
+            dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(ic.x - iw * 0.5, ic.y - ih * 0.5),
+                         ImVec2(ic.x + iw * 0.5, ic.y + ih * 0.5));
         }
     }
     ImGui::PopID();
@@ -225,7 +225,7 @@ int tab_button(const char *id, short spr, bool colorize, const char *glyph, ImU3
 
 // ---- the panel ------------------------------------------------------
 
-struct { long x, y, w, h; } s_menu_rect = {0, 0, 0, 0};
+struct { int64_t x, y, w, h; } s_menu_rect = {0, 0, 0, 0};
 
 // Minimal only (docs/refactor/ingame-gui/13-minimal-layout.md §2.2): the
 // pop-up panel's own visibility, independent of menu_is_active(GMnu_*)'s
@@ -247,9 +247,9 @@ bool read_menu_rect(void)
     // flush-right instead. See s_panel_offset_x's own comment above.
     s_panel_on_right = keeperfx_ui_config.hud_position == 2; // HudPos_Right
     s_panel_offset_x = s_panel_on_right
-        ? ImGui::GetIO().DisplaySize.x - (float)m->width - (float)m->pos_x
-        : 0.0f;
-    s_menu_rect.x = m->pos_x + (long)s_panel_offset_x;
+        ? ImGui::GetIO().DisplaySize.x - (double)m->width - (double)m->pos_x
+        : 0.0;
+    s_menu_rect.x = m->pos_x + (int64_t)s_panel_offset_x;
     s_menu_rect.y = m->pos_y;
     s_menu_rect.w = m->width;
     s_menu_rect.h = m->height;
@@ -263,7 +263,7 @@ bool read_menu_rect(void)
 // still draws after this, unchanged, whichever branch runs.
 void draw_face_or_override(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &p1, const char *ov_name)
 {
-    int w = 0, h = 0;
+    int64_t w = 0, h = 0;
     void *tex = FeIconOverrideTexture(ov_name, &w, &h);
     if (tex != nullptr)
         dl->AddImage((ImTextureID)(intptr_t)tex, p0, p1);
@@ -278,12 +278,12 @@ void draw_background(void)
     // the tab-content area (lower part, legacy grids) so those show
     // through. Approximate the two holes from the legacy virtual grid
     // (minimap at ~(11,11) size ~104; tab content from y~230).
-    const float x0 = (float)s_menu_rect.x;
-    const float y0 = (float)s_menu_rect.y;
-    const float x1 = x0 + (float)s_menu_rect.w;
-    const float sy = (float)s_menu_rect.h / 400.0f;
+    const double x0 = (double)s_menu_rect.x;
+    const double y0 = (double)s_menu_rect.y;
+    const double x1 = x0 + (double)s_menu_rect.w;
+    const double sy = (double)s_menu_rect.h / 400.0;
 
-    const float tab_y0 = y0 + 196.0f * sy; // above the tab-content grids
+    const double tab_y0 = y0 + 196.0 * sy; // above the tab-content grids
 
     ImDrawList *dl = ImGui::GetWindowDrawList();
 
@@ -294,8 +294,8 @@ void draw_background(void)
     // the tab strip. The minimap texture (transparent outside its diamond)
     // composites on top of this.
     draw_face_or_override(dl, ImVec2(x0, y0), ImVec2(x1, tab_y0), "background_vertical_head");
-    relief::groove_h(dl, x0 + 4.0f, x1 - 4.0f, y0 + 150.0f * sy);
-    relief::edge_frame(dl, ImVec2(x0, y0), ImVec2(x1, y0 + (float)s_menu_rect.h));
+    relief::groove_h(dl, x0 + 4.0, x1 - 4.0, y0 + 150.0 * sy);
+    relief::edge_frame(dl, ImVec2(x0, y0), ImVec2(x1, y0 + (double)s_menu_rect.h));
 }
 
 // ---- minimap (off-screen raster -> dynamic texture) ------------------
@@ -305,13 +305,13 @@ void draw_background(void)
 // so front_input.c's mouse_is_over_panel_map() hit-test is unchanged and
 // the ImGui::Image lands exactly where the legacy raster would have.
 void *s_mm_tex = nullptr;
-int s_mm_tex_dim = 0;
+int64_t s_mm_tex_dim = 0;
 std::vector<TbPixel> s_mm_pixels;
-long s_mm_diag = 0, s_mm_px = 0, s_mm_py = 0;
+int64_t s_mm_diag = 0, s_mm_px = 0, s_mm_py = 0;
 
 void render_minimap(void)
 {
-    const long mm_upp = (s_menu_rect.w * 16 + 140 / 2) / 140;
+    const int64_t mm_upp = (s_menu_rect.w * 16 + 140 / 2) / 140;
     if (mm_upp < 1)
         return;
 
@@ -326,7 +326,7 @@ void render_minimap(void)
         reset_panel_map_background_cache();
         s_bg_reset = true;
     }
-    long mmzoom;
+    int64_t mmzoom;
     if (16 / mm_upp < 3)
         mmzoom = local_state.minimap_zoom / scale_value_for_resolution_with_upp(2, mm_upp);
     else
@@ -338,7 +338,7 @@ void render_minimap(void)
     // Buffer generously covers [0 .. px + diamond]. Fixed slack (512) so a
     // stale MapDiagonalLength never makes it too small (which showed as
     // half-drawn rows). Capped at 1024.
-    int dim = (int)(s_mm_px + 512);
+    int64_t dim = (int64_t)(s_mm_px + 512);
     if (dim > 1024) dim = 1024;
     if (dim < 128) dim = 128;
     if (dim != s_mm_tex_dim || s_mm_tex == nullptr)
@@ -377,29 +377,29 @@ void render_minimap(void)
 // minimap click/drag/zoom hit-testing (ingame_panel_minimap_screen_pos())
 // needs the value from *this* frame's actual draw, not whatever
 // s_menu_rect holds afterward.
-long s_mm_abs_x = 0, s_mm_abs_y = 0;
+int64_t s_mm_abs_x = 0, s_mm_abs_y = 0;
 
 void draw_minimap_and_compass(void)
 {
     if (s_mm_tex == nullptr || s_mm_diag <= 0 || s_mm_tex_dim <= 0)
         return;
-    const float d = (float)s_mm_diag;
-    const float dim = (float)s_mm_tex_dim;
+    const double d = (double)s_mm_diag;
+    const double dim = (double)s_mm_tex_dim;
     s_mm_abs_x = s_menu_rect.x + s_mm_px;
     s_mm_abs_y = s_menu_rect.y + s_mm_py;
-    const ImVec2 org((float)(s_menu_rect.x + s_mm_px), (float)(s_menu_rect.y + s_mm_py));
-    const ImVec2 uv0((float)s_mm_px / dim, (float)s_mm_py / dim);
-    const ImVec2 uv1(((float)s_mm_px + d) / dim, ((float)s_mm_py + d) / dim);
+    const ImVec2 org((double)(s_menu_rect.x + s_mm_px), (double)(s_menu_rect.y + s_mm_py));
+    const ImVec2 uv0((double)s_mm_px / dim, (double)s_mm_py / dim);
+    const ImVec2 uv1(((double)s_mm_px + d) / dim, ((double)s_mm_py + d) / dim);
     ImDrawList *dl = ImGui::GetWindowDrawList();
-    const ImVec2 c(org.x + d * 0.5f, org.y + d * 0.5f);
+    const ImVec2 c(org.x + d * 0.5, org.y + d * 0.5);
 
     // Octagonal groove frame around the minimap recess -- 8 engraved
     // segments (top/bottom horizontals, left/right verticals, 4 corner
     // diagonals), each facing the circle centre, like the legacy panel's
     // plate divisions.
     {
-        const float R = d * 0.5f + 3.0f;    // just outside the bezel
-        const float k = R * 0.41421356f;    // regular-octagon half-side
+        const double R = d * 0.5 + 3.0;    // just outside the bezel
+        const double k = R * 0.41421356;    // regular-octagon half-side
         const ImVec2 N0(c.x - k, c.y - R), N1(c.x + k, c.y - R);
         const ImVec2 S0(c.x - k, c.y + R), S1(c.x + k, c.y + R);
         const ImVec2 W0(c.x - R, c.y - k), W1(c.x - R, c.y + k);
@@ -416,9 +416,9 @@ void draw_minimap_and_compass(void)
 
     // Deep circular recess + raised bronze bezel: the diamond map sits in
     // the well and the bezel laps over its points.
-    relief::well_circle(dl, c, d * 0.5f + 2.0f);
+    relief::well_circle(dl, c, d * 0.5 + 2.0);
     dl->AddImage((ImTextureID)(intptr_t)s_mm_tex, org, ImVec2(org.x + d, org.y + d), uv0, uv1);
-    relief::ring(dl, c, d * 0.5f + 3.0f, d * 0.5f - 7.0f); // ~10px bezel
+    relief::ring(dl, c, d * 0.5 + 3.0, d * 0.5 - 7.0); // ~10px bezel
 
     // Compass -- N/S/E/W letters rotated by the camera angle around the
     // minimap centre (mirrors draw_overlay_compass()).
@@ -426,11 +426,11 @@ void draw_minimap_and_compass(void)
     const struct Camera *cam = get_local_active_camera(player);
     if (cam == nullptr)
         return;
-    const float r = d * 0.5f - 21.0f; // pulled in from the bezel toward the centre
-    const long a = cam->rotation_angle_x;
-    const float s = (float)LbSinL(a) / (float)(1 << LbFPMath_TrigmBits);
-    const float co = (float)LbCosL(a) / (float)(1 << LbFPMath_TrigmBits);
-    struct { const char *t; float dx, dy; } dirs[] = {
+    const double r = d * 0.5 - 21.0; // pulled in from the bezel toward the centre
+    const int64_t a = cam->rotation_angle_x;
+    const double s = (double)LbSinL(a) / (double)(1 << LbFPMath_TrigmBits);
+    const double co = (double)LbCosL(a) / (double)(1 << LbFPMath_TrigmBits);
+    struct { const char *t; double dx, dy; } dirs[] = {
         { get_string(GUIStr_MapN), -s, -co },
         { get_string(GUIStr_MapS),  s,  co },
         { get_string(GUIStr_MapE),  co, -s },
@@ -440,8 +440,8 @@ void draw_minimap_and_compass(void)
     for (const auto &dir : dirs)
     {
         const ImVec2 tsz = ImGui::CalcTextSize(dir.t);
-        dl->AddText(ImVec2(c.x + dir.dx * r - tsz.x * 0.5f, c.y + dir.dy * r - tsz.y * 0.5f),
-                    ImGui::GetColorU32(ImVec4(1, 1, 1, 0.9f)), dir.t);
+        dl->AddText(ImVec2(c.x + dir.dx * r - tsz.x * 0.5, c.y + dir.dy * r - tsz.y * 0.5),
+                    ImGui::GetColorU32(ImVec4(1, 1, 1, 0.9)), dir.t);
     }
     FeStylePopFont();
 }
@@ -455,10 +455,10 @@ void draw_gold(void)
 
     FeStylePushFont(FeFont_Heading);
     const ImVec2 tsz = ImGui::CalcTextSize(buf);
-    const float cx = (float)s_menu_rect.x + (float)s_menu_rect.w * 0.5f;
-    const float cy = (float)s_menu_rect.y + (float)s_menu_rect.h * (67.0f / 200.0f);
-    ImGui::GetWindowDrawList()->AddText(ImVec2(cx - tsz.x * 0.5f, cy),
-        ImGui::GetColorU32(ImVec4(1.0f, 0.86f, 0.4f, 1.0f)), buf);
+    const double cx = (double)s_menu_rect.x + (double)s_menu_rect.w * 0.5;
+    const double cy = (double)s_menu_rect.y + (double)s_menu_rect.h * (67.0 / 200.0);
+    ImGui::GetWindowDrawList()->AddText(ImVec2(cx - tsz.x * 0.5, cy),
+        ImGui::GetColorU32(ImVec4(1.0, 0.86, 0.4, 1.0)), buf);
     FeStylePopFont();
 }
 
@@ -469,18 +469,18 @@ void draw_tabs(void)
     // keeper-coloured room / creature player-symbols, and the research /
     // workshop room icons for spells / manufacture.
     struct TabSpec {
-        int id; MenuID target; short spr; bool colorize; const char *glyph; ImU32 glyph_col;
+        int64_t id; MenuID target; int64_t spr; bool colorize; const char *glyph; ImU32 glyph_col;
     };
     const TabSpec tabs[] = {
         { BID_INFO_TAB,   GMnu_QUERY,    0, false, "?", IM_COL32(168, 224, 168, 255) },
-        { BID_ROOM_TAB,   GMnu_ROOM,     (short)GPS_plyrsym_symbol_room_red_std_a,   true,  nullptr, 0 },
-        { BID_SPELL_TAB,  GMnu_SPELL,    (short)GPS_room_research_std_s,             false, nullptr, 0 },
-        { BID_MNFCT_TAB,  GMnu_TRAP,     (short)GPS_room_workshop_std_s,             false, nullptr, 0 },
-        { BID_CREATR_TAB, GMnu_CREATURE, (short)GPS_plyrsym_symbol_player_red_std_a, true,  nullptr, 0 },
+        { BID_ROOM_TAB,   GMnu_ROOM,     (int64_t)GPS_plyrsym_symbol_room_red_std_a,   true,  nullptr, 0 },
+        { BID_SPELL_TAB,  GMnu_SPELL,    (int64_t)GPS_room_research_std_s,             false, nullptr, 0 },
+        { BID_MNFCT_TAB,  GMnu_TRAP,     (int64_t)GPS_room_workshop_std_s,             false, nullptr, 0 },
+        { BID_CREATR_TAB, GMnu_CREATURE, (int64_t)GPS_plyrsym_symbol_player_red_std_a, true,  nullptr, 0 },
     };
     // A tab "spangles" when it has an unseen new item -- mirrors
     // draw_menu_spangle(): flash_button_index, mapped to a tab id.
-    const int flash_tab = (kfx_frontend_state.flash_button_index != 0)
+    const int64_t flash_tab = (kfx_frontend_state.flash_button_index != 0)
         ? button_designation_to_tab_designation(kfx_frontend_state.flash_button_index) : 0;
 
     ImVec2 flash_p0(0, 0), flash_p1(0, 0);
@@ -489,9 +489,9 @@ void draw_tabs(void)
     // Recessed channel behind the whole tab row -- the plinths sit in it.
     // Span the panel's full inner width (x0+2 .. x1-2), the same extent the
     // tab-content well below uses, so their edges line up.
-    const float chx0 = (float)s_menu_rect.x + 2.0f;
-    const float chx1 = (float)(s_menu_rect.x + s_menu_rect.w) - 2.0f;
-    float chy0 = FLT_MAX, chy1 = -FLT_MAX;
+    const double chx0 = (double)s_menu_rect.x + 2.0;
+    const double chx1 = (double)(s_menu_rect.x + s_menu_rect.w) - 2.0;
+    double chy0 = FLT_MAX, chy1 = -FLT_MAX;
     for (const auto &t : tabs)
     {
         ImVec2 p0, p1; bool en = true;
@@ -505,9 +505,9 @@ void draw_tabs(void)
         // Flat recess-tone fill, no bevel -- the tabs sit right at the
         // channel's left/right edges, so a sunken bevel there just peeked
         // out past the end tabs as a stray vertical line.
-        const ImU32 recess = relief::mix(relief::tones().well_top, relief::tones().well_bot, 0.5f);
+        const ImU32 recess = relief::mix(relief::tones().well_top, relief::tones().well_bot, 0.5);
         ImGui::GetWindowDrawList()->AddRectFilled(
-            ImVec2(chx0, chy0 - 3.0f), ImVec2(chx1, chy1 + 3.0f), recess, 3.0f);
+            ImVec2(chx0, chy0 - 3.0), ImVec2(chx1, chy1 + 3.0), recess, 3.0);
     }
 
     for (const auto &t : tabs)
@@ -516,9 +516,9 @@ void draw_tabs(void)
         if (!btn_rect(t.id, &p0, &p1, &en))
             continue;
         const bool sel = menu_is_active(t.target);
-        char sid[16]; std::snprintf(sid, sizeof(sid), "tab%d", t.id);
+        char sid[16]; std::snprintf(sid, sizeof(sid), "tab%" PRId64, (int64_t)(t.id));
         if (tab_button(sid, t.spr, t.colorize, t.glyph, t.glyph_col, p0, p1, sel) == 1)
-            request_btn(&gui_set_menu_mode, (unsigned short)t.target, 0);
+            request_btn(&gui_set_menu_mode, (int64_t)t.target, 0);
 
         if (t.id == flash_tab && !sel)
         {
@@ -531,12 +531,12 @@ void draw_tabs(void)
     if (have_flash)
     {
         ImDrawList *dl = ImGui::GetWindowDrawList();
-        const float t = (float)ImGui::GetTime();
-        const float pulse = 0.45f + 0.45f * std::sin(t * 6.0f);
+        const double t = (double)ImGui::GetTime();
+        const double pulse = 0.45 + 0.45 * std::sin(t * 6.0);
         dl->AddRect(flash_p0, flash_p1,
-                    ImGui::GetColorU32(ImVec4(1.0f, 0.93f, 0.4f, pulse)), 2.0f, 0, 3.0f);
-        const float rad = 2.0f + 1.5f * std::sin(t * 9.0f);
-        const ImU32 spark = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 0.75f, 0.9f));
+                    ImGui::GetColorU32(ImVec4(1.0, 0.93, 0.4, pulse)), 2.0, 0, 3.0);
+        const double rad = 2.0 + 1.5 * std::sin(t * 9.0);
+        const ImU32 spark = ImGui::GetColorU32(ImVec4(1.0, 1.0, 0.75, 0.9));
         dl->AddCircleFilled(flash_p0, rad, spark);
         dl->AddCircleFilled(ImVec2(flash_p1.x, flash_p0.y), rad, spark);
         dl->AddCircleFilled(ImVec2(flash_p0.x, flash_p1.y), rad, spark);
@@ -550,33 +550,33 @@ void draw_nav_buttons(void)
     // corners of the minimap frame: a 12px marble gap from the panel edge,
     // and each pocket's hypotenuse held 12px clear of the minimap's octagon
     // facet (leg length solved per corner). cpu (autopilot) stays lit.
-    const float GAP = 12.0f;
-    const float ccx = (float)(s_menu_rect.x + s_mm_px) + (float)s_mm_diag * 0.5f;
-    const float ccy = (float)(s_menu_rect.y + s_mm_py) + (float)s_mm_diag * 0.5f;
-    const float octR = (float)s_mm_diag * 0.5f + 3.0f;      // minimap octagon radius
-    const float clr  = octR + 12.0f;                        // octagon radius + hyp clearance
+    const double GAP = 12.0;
+    const double ccx = (double)(s_menu_rect.x + s_mm_px) + (double)s_mm_diag * 0.5;
+    const double ccy = (double)(s_menu_rect.y + s_mm_py) + (double)s_mm_diag * 0.5;
+    const double octR = (double)s_mm_diag * 0.5 + 3.0;      // minimap octagon radius
+    const double clr  = octR + 12.0;                        // octagon radius + hyp clearance
 
-    const float xl = (float)s_menu_rect.x + GAP;
-    const float xr = (float)(s_menu_rect.x + s_menu_rect.w) - GAP;
-    const float yt = (float)s_menu_rect.y + GAP;
-    const float yb = ccy + octR;                            // aligned with the octagon's base
+    const double xl = (double)s_menu_rect.x + GAP;
+    const double xr = (double)(s_menu_rect.x + s_menu_rect.w) - GAP;
+    const double yt = (double)s_menu_rect.y + GAP;
+    const double yb = ccy + octR;                            // aligned with the octagon's base
     // leg = D - sqrt(2)*clr, D = dot((corner->centre), inward dir)
-    auto leg_for = [&](float px, float py, float sx, float sy) {
-        return sx * (ccx - px) + sy * (ccy - py) - 1.41421356f * clr;
+    auto leg_for = [&](double px, double py, double sx, double sy) {
+        return sx * (ccx - px) + sy * (ccy - py) - 1.41421356 * clr;
     };
 
-    if (corner_nav("navM", "M", xl, yt, +1.0f, +1.0f, leg_for(xl, yt, +1, +1), true, false) == 1)
+    if (corner_nav("navM", "M", xl, yt, +1.0, +1.0, leg_for(xl, yt, +1, +1), true, false) == 1)
         request_btn(&gui_go_to_map, 0, 0);
-    if (corner_nav("navP", "+", xr, yt, -1.0f, +1.0f, leg_for(xr, yt, -1, +1), true, false) == 1)
+    if (corner_nav("navP", "+", xr, yt, -1.0, +1.0, leg_for(xr, yt, -1, +1), true, false) == 1)
         request_btn(&gui_zoom_in, 0, 0);
-    if (corner_nav("navN", "-", xr, yb, -1.0f, -1.0f, leg_for(xr, yb, -1, -1), true, false) == 1)
+    if (corner_nav("navN", "-", xr, yb, -1.0, -1.0, leg_for(xr, yb, -1, -1), true, false) == 1)
         request_btn(&gui_zoom_out, 0, 0);
 
     const struct GuiButton *asst = find_btn(BID_ASSIST);
     const bool asst_en = asst == nullptr || (asst->flags & LbBtnF_Enabled) != 0;
     const struct Dungeon *d = get_players_dungeon(get_my_player());
     const bool asst_on = d != nullptr && (d->computer_enabled & 0x01) != 0;
-    if (corner_nav("navCPU", "cpu", xl, yb, +1.0f, -1.0f, leg_for(xl, yb, +1, -1), asst_en, asst_on) == 1)
+    if (corner_nav("navCPU", "cpu", xl, yb, +1.0, -1.0, leg_for(xl, yb, +1, -1), asst_en, asst_on) == 1)
         request_btn(&gui_turn_on_autopilot, 0, 0);
 }
 
@@ -586,14 +586,14 @@ void draw_nav_buttons(void)
 // unread, steady gold while it's the open one.
 struct EvStyle {
     const char *glyph;
-    short icon_spr;
+    int64_t icon_spr;
     ImU32 col;
     bool grad_top;
     bool colorize;     // remap the icon to my keeper colour (room / player symbols)
     bool button_spr;   // icon is a GBS_ (FeSpriteTexture) not a GPS_ (FeGuiPanelTexture)
 };
 
-EvStyle event_style(int kind)
+EvStyle event_style(int64_t kind)
 {
     // Same icons the query panel uses: room / player symbols
     // (get_player_colored_icon_idx), research + workshop room icons; the
@@ -602,19 +602,19 @@ EvStyle event_style(int kind)
     {
     case EvKind_NewRoomResrch: case EvKind_RoomTakenOver:
     case EvKind_TreasureRoomFull: case EvKind_NeedTreasureRoom:
-        return { nullptr, (short)GPS_plyrsym_symbol_room_red_std_a, 0, false, true, false };
+        return { nullptr, (int64_t)GPS_plyrsym_symbol_room_red_std_a, 0, false, true, false };
     case EvKind_NewCreature: case EvKind_CreatrScavenged: case EvKind_CreaturePayday:
     case EvKind_CreatrIsAnnoyed: case EvKind_CreatrHungry: case EvKind_PrisonerStarving:
-        return { nullptr, (short)GPS_plyrsym_symbol_player_red_std_a, 0, false, true, false };
+        return { nullptr, (int64_t)GPS_plyrsym_symbol_player_red_std_a, 0, false, true, false };
     case EvKind_NewSpellResrch: case EvKind_SpellPickedUp:
-        return { nullptr, (short)GPS_room_research_std_s, 0, false, false, false };
+        return { nullptr, (int64_t)GPS_room_research_std_s, 0, false, false, false };
     case EvKind_NewTrap: case EvKind_NewDoor:
     case EvKind_TrapCrateFound: case EvKind_DoorCrateFound:
-        return { nullptr, (short)GPS_room_workshop_std_s, 0, false, false, false };
+        return { nullptr, (int64_t)GPS_room_workshop_std_s, 0, false, false, false };
     case EvKind_HeartAttacked: case EvKind_EnemyFight: case EvKind_FriendlyFight:
     case EvKind_Breach: case EvKind_RoomUnderAttack: case EvKind_RoomLost:
     case EvKind_AlarmTriggered:
-        return { nullptr, (short)GBS_guisymbols_sym_fight, 0, false, false, true };
+        return { nullptr, (int64_t)GBS_guisymbols_sym_fight, 0, false, false, true };
     case EvKind_Objective:
         return { "?", 0, IM_COL32(120, 220, 110, 255), false, false, false };
     case EvKind_Information:
@@ -630,13 +630,13 @@ void ev_glyph(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &sz, const char *g,
 {
     FeStylePushFont(FeFont_Heading);
     ImFont *font = ImGui::GetFont();
-    const float fs = sz.y * 0.82f;
-    const ImVec2 ts = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, g);
-    const ImVec2 tp(p0.x + (sz.x - ts.x) * 0.5f, p0.y + (sz.y - ts.y) * 0.5f);
+    const double fs = sz.y * 0.82;
+    const ImVec2 ts = font->CalcTextSizeA(fs, FLT_MAX, 0.0, g);
+    const ImVec2 tp(p0.x + (sz.x - ts.x) * 0.5, p0.y + (sz.y - ts.y) * 0.5);
     dl->AddText(font, fs, tp, col, g);
     if (grad_top)   // fade toward white over the top of the glyph
     {
-        dl->PushClipRect(p0, ImVec2(p0.x + sz.x, p0.y + sz.y * 0.42f), true);
+        dl->PushClipRect(p0, ImVec2(p0.x + sz.x, p0.y + sz.y * 0.42), true);
         dl->AddText(font, fs, tp, IM_COL32(235, 245, 255, 255), g);
         dl->PopClipRect();
     }
@@ -647,7 +647,7 @@ void ev_glyph(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &sz, const char *g,
 // the vertical (stacked) and horizontal (row, GUI_POSITION Bottom,
 // docs/refactor/ingame-gui/11-horizontal-layout.md) layouts, which only
 // differ in where they place each slot.
-void draw_one_event_marker(int slot, const ImVec2 &p0, const ImVec2 &sz, ImDrawFlags outer_round)
+void draw_one_event_marker(int64_t slot, const ImVec2 &p0, const ImVec2 &sz, ImDrawFlags outer_round)
 {
     const EventIndex evidx = get_my_event_button_index(slot);
     if (evidx == 0)
@@ -655,7 +655,7 @@ void draw_one_event_marker(int slot, const ImVec2 &p0, const ImVec2 &sz, ImDrawF
     const struct Event *ev = &kfx_sim_state.event[evidx];
     const ImVec2 p1(p0.x + sz.x, p0.y + sz.y);
 
-    char sid[16]; std::snprintf(sid, sizeof(sid), "ev%d", slot);
+    char sid[16]; std::snprintf(sid, sizeof(sid), "ev%" PRId64, (int64_t)(slot));
     ImGui::SetCursorScreenPos(p0);
     ImGui::PushID(sid);
     const bool pressed = ImGui::InvisibleButton("e", sz,
@@ -669,26 +669,26 @@ void draw_one_event_marker(int slot, const ImVec2 &p0, const ImVec2 &sz, ImDrawF
     const bool unread = !(my_event_button_state[evidx] & EvBtnS_Read);
     const EvStyle st  = event_style(ev->kind);
 
-    dl->AddRectFilled(p0, p1, IM_COL32(30, 22, 13, 240), 5.0f, outer_round);
-    relief::bevel(dl, p0, p1, 1.5f, true); // slim raised edge -- reads as a token, not a sticker
+    dl->AddRectFilled(p0, p1, IM_COL32(30, 22, 13, 240), 5.0, outer_round);
+    relief::bevel(dl, p0, p1, 1.5, true); // slim raised edge -- reads as a token, not a sticker
 
     // Content pulled ~2px toward the sidebar (the marker mostly sits
     // off-panel), sized to nearly fill the cell.
-    const ImVec2 c0(p0.x + 1.0f, p0.y + 1.0f);
-    const ImVec2 csz(sz.x - 4.0f, sz.y - 2.0f);
+    const ImVec2 c0(p0.x + 1.0, p0.y + 1.0);
+    const ImVec2 csz(sz.x - 4.0, sz.y - 2.0);
     if (st.icon_spr != 0)
     {
-        const short spr = (st.colorize && !st.button_spr)
+        const int64_t spr = (st.colorize && !st.button_spr)
             ? get_player_colored_icon_idx(st.icon_spr, my_player_number) : st.icon_spr;
-        int w = 0, h = 0;
+        int64_t w = 0, h = 0;
         void *tex = st.button_spr ? FeSpriteTexture(spr, &w, &h)
                                   : FeGuiPanelTexture(spr, &w, &h);
         if (tex != nullptr && w > 0 && h > 0)
         {
-            float iw = csz.x, ih = csz.y;
-            const float ar = (float)w / (float)h;
+            double iw = csz.x, ih = csz.y;
+            const double ar = (double)w / (double)h;
             if (iw / ih > ar) iw = ih * ar; else ih = iw / ar;
-            const ImVec2 i0(c0.x + (csz.x - iw) * 0.5f, c0.y + (csz.y - ih) * 0.5f);
+            const ImVec2 i0(c0.x + (csz.x - iw) * 0.5, c0.y + (csz.y - ih) * 0.5);
             dl->AddImage((ImTextureID)(intptr_t)tex, i0, ImVec2(i0.x + iw, i0.y + ih));
         }
     }
@@ -698,16 +698,16 @@ void draw_one_event_marker(int slot, const ImVec2 &p0, const ImVec2 &sz, ImDrawF
     }
 
     ImU32 bcol = IM_COL32(90, 70, 42, 200);
-    float bth = 1.0f;
-    if (sel) { bcol = IM_COL32(255, 219, 102, 255); bth = 2.0f; }
+    double bth = 1.0;
+    if (sel) { bcol = IM_COL32(255, 219, 102, 255); bth = 2.0; }
     else if (unread)
     {
-        const float pulse = 0.35f + 0.45f * (float)std::sin(ImGui::GetTime() * 7.0);
-        bcol = ImGui::GetColorU32(ImVec4(1.0f, 0.9f, 0.5f, pulse));
-        bth = 2.0f;
+        const double pulse = 0.35 + 0.45 * (double)std::sin(ImGui::GetTime() * 7.0);
+        bcol = ImGui::GetColorU32(ImVec4(1.0, 0.9, 0.5, pulse));
+        bth = 2.0;
     }
-    if (hovered) { bcol = IM_COL32(220, 62, 40, 255); bth = 2.0f; }
-    dl->AddRect(p0, p1, bcol, 5.0f, outer_round, bth);
+    if (hovered) { bcol = IM_COL32(220, 62, 40, 255); bth = 2.0; }
+    dl->AddRect(p0, p1, bcol, 5.0, outer_round, bth);
 
     if (pressed)      request_btn(&gui_open_event, 0, slot);
     else if (rclick)  request_btn(&gui_kill_event, 0, slot);
@@ -725,24 +725,24 @@ void draw_event_markers(void)
     const struct GuiButton *b0 = find_btn(BID_MSG_EV01);
     if (b0 == nullptr)
         return;
-    const float mw     = 40.0f;
+    const double mw     = 40.0;
     // GUI_POSITION: the markers sit just outside the panel, on whichever
     // side is away from it -- past the right edge when the panel is on
     // the left (today's default), past the left edge when it's mirrored
     // onto the right. RoundCornersLeft/Right (below, at the fill + border)
     // flip with it so the token's rounded side always faces outward.
-    const float mx = s_panel_on_right
-        ? (float)s_menu_rect.x - mw - 3.0f
-        : (float)(s_menu_rect.x + s_menu_rect.w) + 3.0f;
-    const float mh     = 40.0f;
-    const float pitch  = mh + 1.0f;                                // 1px hairline, no floaty gap
-    const float base_y = (float)b0->scr_pos_y + (float)b0->height; // bottom of slot 0
+    const double mx = s_panel_on_right
+        ? (double)s_menu_rect.x - mw - 3.0
+        : (double)(s_menu_rect.x + s_menu_rect.w) + 3.0;
+    const double mh     = 40.0;
+    const double pitch  = mh + 1.0;                                // 1px hairline, no floaty gap
+    const double base_y = (double)b0->scr_pos_y + (double)b0->height; // bottom of slot 0
     // The outer (away-from-panel) corner is the rounded one; the inner
     // corner sits square against the panel edge -- flips with the side.
     const ImDrawFlags outer_round = s_panel_on_right
         ? ImDrawFlags_RoundCornersLeft : ImDrawFlags_RoundCornersRight;
 
-    for (int slot = 0; slot < 13; slot++)
+    for (int64_t slot = 0; slot < 13; slot++)
     {
         const struct GuiButton *b = find_btn(BID_MSG_EV01 + slot);
         if (b == nullptr)
@@ -750,7 +750,7 @@ void draw_event_markers(void)
         const EventIndex evidx = get_my_event_button_index(slot);
         if (evidx == 0)
             continue;
-        float my = base_y - (float)(slot + 1) * pitch;
+        double my = base_y - (double)(slot + 1) * pitch;
         if (flag_is_set(kfx_sim_state.event[evidx].flags, EvF_BtnFalling))
             my = interpolate_synced(my - pitch, my);
         draw_one_event_marker(slot, ImVec2(mx, my), ImVec2(mw, mh), outer_round);
@@ -769,20 +769,20 @@ void draw_event_markers_horizontal(const HudRect &r)
     const struct GuiButton *b0 = find_btn(BID_MSG_EV01);
     if (b0 == nullptr)
         return;
-    const float mh = std::min(r.h() - 2.0f, 40.0f);
-    const float mw = mh;
-    const float pitch = mw + 1.0f;
-    const int max_slots = pitch > 0.0f ? (int)(r.w() / pitch) : 0;
+    const double mh = std::min(r.h() - 2.0, 40.0);
+    const double mw = mh;
+    const double pitch = mw + 1.0;
+    const int64_t max_slots = pitch > 0.0 ? (int64_t)(r.w() / pitch) : 0;
 
-    int shown = 0;
-    for (int slot = 0; slot < 13 && shown < max_slots; slot++)
+    int64_t shown = 0;
+    for (int64_t slot = 0; slot < 13 && shown < max_slots; slot++)
     {
         const struct GuiButton *b = find_btn(BID_MSG_EV01 + slot);
         if (b == nullptr)
             continue;
         if (get_my_event_button_index(slot) == 0)
             continue;
-        const float mx = r.x0 + (float)shown * pitch;
+        const double mx = r.x0 + (double)shown * pitch;
         draw_one_event_marker(slot, ImVec2(mx, r.y0), ImVec2(mw, mh), ImDrawFlags_RoundCornersTop);
         shown++;
     }
@@ -805,21 +805,21 @@ void draw_event_markers_minimal(const HudRect &r, bool right)
     const struct GuiButton *b0 = find_btn(BID_MSG_EV01);
     if (b0 == nullptr)
         return;
-    const float mw = std::min(r.w() - 2.0f, 40.0f);
-    const float mh = mw;
-    const float pitch = mh + 1.0f;
-    const int max_slots = pitch > 0.0f ? (int)(r.h() / pitch) : 0;
-    const float mx = right ? (r.x1 - mw) : r.x0;
+    const double mw = std::min(r.w() - 2.0, 40.0);
+    const double mh = mw;
+    const double pitch = mh + 1.0;
+    const int64_t max_slots = pitch > 0.0 ? (int64_t)(r.h() / pitch) : 0;
+    const double mx = right ? (r.x1 - mw) : r.x0;
 
-    int shown = 0;
-    for (int slot = 0; slot < 13 && shown < max_slots; slot++)
+    int64_t shown = 0;
+    for (int64_t slot = 0; slot < 13 && shown < max_slots; slot++)
     {
         const struct GuiButton *b = find_btn(BID_MSG_EV01 + slot);
         if (b == nullptr)
             continue;
         if (get_my_event_button_index(slot) == 0)
             continue;
-        const float my = r.y0 + (float)shown * pitch;
+        const double my = r.y0 + (double)shown * pitch;
         draw_one_event_marker(slot, ImVec2(mx, my), ImVec2(mw, mh), ImDrawFlags_RoundCornersBottom);
         shown++;
     }
@@ -847,9 +847,9 @@ void draw_gold_horizontal(const HudRect &r)
 
     FeStylePushFont(FeFont_Body); // region A's gold strip is thin -- FeFont_Heading overflowed it
     const ImVec2 tsz = ImGui::CalcTextSize(buf);
-    const ImVec2 c((r.x0 + r.x1) * 0.5f, (r.y0 + r.y1) * 0.5f);
-    ImGui::GetWindowDrawList()->AddText(ImVec2(c.x - tsz.x * 0.5f, c.y - tsz.y * 0.5f),
-        ImGui::GetColorU32(ImVec4(1.0f, 0.86f, 0.4f, 1.0f)), buf);
+    const ImVec2 c((r.x0 + r.x1) * 0.5, (r.y0 + r.y1) * 0.5);
+    ImGui::GetWindowDrawList()->AddText(ImVec2(c.x - tsz.x * 0.5, c.y - tsz.y * 0.5),
+        ImGui::GetColorU32(ImVec4(1.0, 0.86, 0.4, 1.0)), buf);
     FeStylePopFont();
 }
 
@@ -862,30 +862,30 @@ void draw_gold_horizontal(const HudRect &r)
 void draw_tabs_horizontal(const HudRect &r)
 {
     struct TabSpec {
-        int id; MenuID target; short spr; bool colorize; const char *glyph; ImU32 glyph_col;
+        int64_t id; MenuID target; int64_t spr; bool colorize; const char *glyph; ImU32 glyph_col;
     };
     const TabSpec tabs[] = {
         { BID_INFO_TAB,   GMnu_QUERY,    0, false, "?", IM_COL32(168, 224, 168, 255) },
-        { BID_ROOM_TAB,   GMnu_ROOM,     (short)GPS_plyrsym_symbol_room_red_std_a,   true,  nullptr, 0 },
-        { BID_SPELL_TAB,  GMnu_SPELL,    (short)GPS_room_research_std_s,             false, nullptr, 0 },
-        { BID_MNFCT_TAB,  GMnu_TRAP,     (short)GPS_room_workshop_std_s,             false, nullptr, 0 },
-        { BID_CREATR_TAB, GMnu_CREATURE, (short)GPS_plyrsym_symbol_player_red_std_a, true,  nullptr, 0 },
+        { BID_ROOM_TAB,   GMnu_ROOM,     (int64_t)GPS_plyrsym_symbol_room_red_std_a,   true,  nullptr, 0 },
+        { BID_SPELL_TAB,  GMnu_SPELL,    (int64_t)GPS_room_research_std_s,             false, nullptr, 0 },
+        { BID_MNFCT_TAB,  GMnu_TRAP,     (int64_t)GPS_room_workshop_std_s,             false, nullptr, 0 },
+        { BID_CREATR_TAB, GMnu_CREATURE, (int64_t)GPS_plyrsym_symbol_player_red_std_a, true,  nullptr, 0 },
     };
-    const int flash_tab = (kfx_frontend_state.flash_button_index != 0)
+    const int64_t flash_tab = (kfx_frontend_state.flash_button_index != 0)
         ? button_designation_to_tab_designation(kfx_frontend_state.flash_button_index) : 0;
     ImVec2 flash_p0(0, 0), flash_p1(0, 0);
     bool have_flash = false;
 
-    const float slot_w = (r.x1 - r.x0) / 5.0f;
-    for (int i = 0; i < 5; i++)
+    const double slot_w = (r.x1 - r.x0) / 5.0;
+    for (int64_t i = 0; i < 5; i++)
     {
         const TabSpec &t = tabs[i];
-        const ImVec2 p0(r.x0 + (float)i * slot_w, r.y0);
-        const ImVec2 p1(r.x0 + (float)(i + 1) * slot_w, r.y1);
+        const ImVec2 p0(r.x0 + (double)i * slot_w, r.y0);
+        const ImVec2 p1(r.x0 + (double)(i + 1) * slot_w, r.y1);
         const bool sel = menu_is_active(t.target);
-        char sid[16]; std::snprintf(sid, sizeof(sid), "htab%d", t.id);
+        char sid[16]; std::snprintf(sid, sizeof(sid), "htab%" PRId64, (int64_t)(t.id));
         if (tab_button(sid, t.spr, t.colorize, t.glyph, t.glyph_col, p0, p1, sel) == 1)
-            request_btn(&gui_set_menu_mode, (unsigned short)t.target, 0);
+            request_btn(&gui_set_menu_mode, (int64_t)t.target, 0);
         if (t.id == flash_tab && !sel)
         {
             flash_p0 = p0; flash_p1 = p1; have_flash = true;
@@ -894,12 +894,12 @@ void draw_tabs_horizontal(const HudRect &r)
     if (have_flash)
     {
         ImDrawList *dl = ImGui::GetWindowDrawList();
-        const float t = (float)ImGui::GetTime();
-        const float pulse = 0.45f + 0.45f * std::sin(t * 6.0f);
+        const double t = (double)ImGui::GetTime();
+        const double pulse = 0.45 + 0.45 * std::sin(t * 6.0);
         dl->AddRect(flash_p0, flash_p1,
-                    ImGui::GetColorU32(ImVec4(1.0f, 0.93f, 0.4f, pulse)), 2.0f, 0, 3.0f);
-        const float rad = 2.0f + 1.5f * std::sin(t * 9.0f);
-        const ImU32 spark = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 0.75f, 0.9f));
+                    ImGui::GetColorU32(ImVec4(1.0, 0.93, 0.4, pulse)), 2.0, 0, 3.0);
+        const double rad = 2.0 + 1.5 * std::sin(t * 9.0);
+        const ImU32 spark = ImGui::GetColorU32(ImVec4(1.0, 1.0, 0.75, 0.9));
         dl->AddCircleFilled(flash_p0, rad, spark);
         dl->AddCircleFilled(ImVec2(flash_p1.x, flash_p0.y), rad, spark);
         dl->AddCircleFilled(ImVec2(flash_p0.x, flash_p1.y), rad, spark);
@@ -948,13 +948,13 @@ void draw_panel_horizontal(const HudLayout &hl)
     // (unchanged) scales/positions against it instead of a whole vertical
     // panel's width.
     const auto saved_menu_rect = s_menu_rect;
-    s_menu_rect = { (long)mm_r.x0, (long)mm_r.y0, (long)mm_r.w(), (long)mm_r.h() };
+    s_menu_rect = { (int64_t)mm_r.x0, (int64_t)mm_r.y0, (int64_t)mm_r.w(), (int64_t)mm_r.h() };
     render_minimap();
     s_menu_rect = saved_menu_rect;
 
     ImGui::SetNextWindowPos(ImVec2(whole.x0, whole.y0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(whole.w(), whole.h()), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::SetNextWindowBgAlpha(0.0);
     ImGui::Begin("##IngameSidebarHorizontal", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavInputs
@@ -962,7 +962,7 @@ void draw_panel_horizontal(const HudLayout &hl)
 
     draw_background_horizontal(whole);
 
-    s_menu_rect = { (long)mm_r.x0, (long)mm_r.y0, (long)mm_r.w(), (long)mm_r.h() };
+    s_menu_rect = { (int64_t)mm_r.x0, (int64_t)mm_r.y0, (int64_t)mm_r.w(), (int64_t)mm_r.h() };
     draw_minimap_and_compass();
     draw_nav_buttons();
     s_menu_rect = saved_menu_rect;
@@ -991,8 +991,8 @@ void draw_panel_horizontal(const HudLayout &hl)
 // Same icon set draw_tabs()/draw_tabs_horizontal() use, but icons only --
 // no recessed channel or plinth fill, matching the layout's own
 // no-chrome aesthetic. Returns true on left-click.
-bool minimal_cluster_button(const char *sid, short spr, bool colorize, const char *glyph,
-                            ImU32 glyph_col, const ImVec2 &p0, float sz, bool selected)
+bool minimal_cluster_button(const char *sid, int64_t spr, bool colorize, const char *glyph,
+                            ImU32 glyph_col, const ImVec2 &p0, double sz, bool selected)
 {
     ImGui::SetCursorScreenPos(p0);
     ImGui::PushID(sid);
@@ -1006,28 +1006,28 @@ bool minimal_cluster_button(const char *sid, short spr, bool colorize, const cha
     {
         FeStylePushFont(FeFont_Heading);
         ImFont *f = ImGui::GetFont();
-        const float fs = sz * 0.60f;
-        const ImVec2 ts = f->CalcTextSizeA(fs, FLT_MAX, 0.0f, glyph);
-        dl->AddText(f, fs, ImVec2(p0.x + (sz - ts.x) * 0.5f, p0.y + (sz - ts.y) * 0.5f), glyph_col, glyph);
+        const double fs = sz * 0.60;
+        const ImVec2 ts = f->CalcTextSizeA(fs, FLT_MAX, 0.0, glyph);
+        dl->AddText(f, fs, ImVec2(p0.x + (sz - ts.x) * 0.5, p0.y + (sz - ts.y) * 0.5), glyph_col, glyph);
         FeStylePopFont();
     }
     else
     {
-        const short s = colorize ? get_player_colored_icon_idx(spr, my_player_number) : spr;
-        int sw = 0, sh = 0;
+        const int64_t s = colorize ? get_player_colored_icon_idx(spr, my_player_number) : spr;
+        int64_t sw = 0, sh = 0;
         void *tex = FeGuiPanelTexture(s, &sw, &sh);
         if (tex != nullptr && sw > 0 && sh > 0)
         {
-            float iw = sz * 0.8f, ih = sz * 0.8f;
-            const float ar = (float)sw / (float)sh;
+            double iw = sz * 0.8, ih = sz * 0.8;
+            const double ar = (double)sw / (double)sh;
             if (iw / ih > ar) iw = ih * ar; else ih = iw / ar;
-            const ImVec2 ic(p0.x + sz * 0.5f, p0.y + sz * 0.5f);
-            dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(ic.x - iw * 0.5f, ic.y - ih * 0.5f),
-                         ImVec2(ic.x + iw * 0.5f, ic.y + ih * 0.5f));
+            const ImVec2 ic(p0.x + sz * 0.5, p0.y + sz * 0.5);
+            dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(ic.x - iw * 0.5, ic.y - ih * 0.5),
+                         ImVec2(ic.x + iw * 0.5, ic.y + ih * 0.5));
         }
     }
-    if (selected)      dl->AddRect(p0, p1, relief::accents().sel, 4.0f, 0, 2.0f);
-    else if (hovered)  dl->AddRect(p0, p1, relief::accents().hover, 4.0f, 0, 2.0f);
+    if (selected)      dl->AddRect(p0, p1, relief::accents().sel, 4.0, 0, 2.0);
+    else if (hovered)  dl->AddRect(p0, p1, relief::accents().hover, 4.0, 0, 2.0);
     return pressed;
 }
 
@@ -1038,20 +1038,20 @@ bool minimal_cluster_button(const char *sid, short spr, bool colorize, const cha
 void draw_button_cluster_minimal(const HudRect &anchor, bool cluster_on_right)
 {
     struct TabSpec {
-        MenuID target; short spr; bool colorize; const char *glyph; ImU32 glyph_col;
+        MenuID target; int64_t spr; bool colorize; const char *glyph; ImU32 glyph_col;
     };
     const TabSpec tabs[] = {
         { GMnu_QUERY,    0, false, "?", IM_COL32(168, 224, 168, 255) },
-        { GMnu_ROOM,     (short)GPS_plyrsym_symbol_room_red_std_a,   true,  nullptr, 0 },
-        { GMnu_SPELL,    (short)GPS_room_research_std_s,             false, nullptr, 0 },
-        { GMnu_TRAP,     (short)GPS_room_workshop_std_s,             false, nullptr, 0 },
-        { GMnu_CREATURE, (short)GPS_plyrsym_symbol_player_red_std_a, true,  nullptr, 0 },
+        { GMnu_ROOM,     (int64_t)GPS_plyrsym_symbol_room_red_std_a,   true,  nullptr, 0 },
+        { GMnu_SPELL,    (int64_t)GPS_room_research_std_s,             false, nullptr, 0 },
+        { GMnu_TRAP,     (int64_t)GPS_room_workshop_std_s,             false, nullptr, 0 },
+        { GMnu_CREATURE, (int64_t)GPS_plyrsym_symbol_player_red_std_a, true,  nullptr, 0 },
     };
 
-    const float sz = 40.0f; // keep in sync with build_minimal()'s cluster_sz
-    const float gap = 4.0f;
-    const int   count = (int)(sizeof(tabs) / sizeof(tabs[0]));
-    const float cluster_w = (float)count * (sz + gap) - gap;
+    const double sz = 40.0; // keep in sync with build_minimal()'s cluster_sz
+    const double gap = 4.0;
+    const int64_t   count = (int64_t)(sizeof(tabs) / sizeof(tabs[0]));
+    const double cluster_w = (double)count * (sz + gap) - gap;
 
     // Explicit size, not ImGuiWindowFlags_AlwaysAutoResize -- that flag
     // sizes the window from the *previous* frame's content (a one-frame
@@ -1064,24 +1064,24 @@ void draw_button_cluster_minimal(const HudRect &anchor, bool cluster_on_right)
     // twice now: "not possible to select a different one, once one is
     // open", then "the pop-up panels still overlap slightly with the
     // buttons" after the first fix).
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0, 0.0));
     ImGui::SetNextWindowPos(ImVec2(anchor.x0, anchor.y0), ImGuiCond_Always,
-                            ImVec2(cluster_on_right ? 1.0f : 0.0f, 1.0f));
+                            ImVec2(cluster_on_right ? 1.0 : 0.0, 1.0));
     ImGui::SetNextWindowSize(ImVec2(cluster_w, sz), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::SetNextWindowBgAlpha(0.0);
     ImGui::Begin("##IngameMinimalButtons", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_NoNavInputs);
     ImVec2 p0 = ImGui::GetCursorScreenPos();
-    int i = 0;
+    int64_t i = 0;
     for (const TabSpec &t : tabs)
     {
         const bool sel = menu_is_active(t.target);
-        char sid[16]; std::snprintf(sid, sizeof(sid), "mcl%d", (int)t.target);
-        const ImVec2 bp(p0.x + (float)i * (sz + gap), p0.y);
+        char sid[16]; std::snprintf(sid, sizeof(sid), "mcl%" PRId64, (int64_t)t.target);
+        const ImVec2 bp(p0.x + (double)i * (sz + gap), p0.y);
         if (minimal_cluster_button(sid, t.spr, t.colorize, t.glyph, t.glyph_col, bp, sz, sel))
         {
-            request_btn(&gui_set_menu_mode, (unsigned short)t.target, 0);
+            request_btn(&gui_set_menu_mode, (int64_t)t.target, 0);
             // Toggle: re-clicking the already-active+open button closes the
             // pop-up; any other click (new selection, or reopening the
             // current one) opens/keeps it open (docs/refactor/ingame-gui/
@@ -1112,13 +1112,13 @@ void draw_panel_minimal(const HudLayout &hl)
 
     // Framebuffer-swap raster -- must run before any ImGui window is open.
     const auto saved_menu_rect = s_menu_rect;
-    s_menu_rect = { (long)mm_r.x0, (long)mm_r.y0, (long)mm_r.w(), (long)mm_r.h() };
+    s_menu_rect = { (int64_t)mm_r.x0, (int64_t)mm_r.y0, (int64_t)mm_r.w(), (int64_t)mm_r.h() };
     render_minimap();
     s_menu_rect = saved_menu_rect;
 
     ImGui::SetNextWindowPos(ImVec2(whole.x0, whole.y0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(whole.w(), whole.h()), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::SetNextWindowBgAlpha(0.0);
     ImGui::Begin("##IngameMinimapCluster", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavInputs
@@ -1129,7 +1129,7 @@ void draw_panel_minimal(const HudLayout &hl)
     // (live-tested: "the bevel/icon triangle near the minimap should be
     // removed"). Left/Right/Bottom keep them; Minimal is deliberately
     // sparser.
-    s_menu_rect = { (long)mm_r.x0, (long)mm_r.y0, (long)mm_r.w(), (long)mm_r.h() };
+    s_menu_rect = { (int64_t)mm_r.x0, (int64_t)mm_r.y0, (int64_t)mm_r.w(), (int64_t)mm_r.h() };
     draw_minimap_and_compass();
     s_menu_rect = saved_menu_rect;
 
@@ -1159,10 +1159,10 @@ void draw_panel_vertical(void)
     // right edge). Sized to the panel so io.WantCaptureMouse -- hence
     // busy_doing_gui via ingame_imgui_wants_mouse() -- is only set while
     // the pointer is actually over the sidebar, not the 3D view.
-    const float overhang_x = s_panel_on_right ? (float)s_menu_rect.x - 44.0f : (float)s_menu_rect.x;
-    ImGui::SetNextWindowPos(ImVec2(overhang_x, (float)s_menu_rect.y), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2((float)s_menu_rect.w + 44.0f, (float)s_menu_rect.h), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.0f);
+    const double overhang_x = s_panel_on_right ? (double)s_menu_rect.x - 44.0 : (double)s_menu_rect.x;
+    ImGui::SetNextWindowPos(ImVec2(overhang_x, (double)s_menu_rect.y), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2((double)s_menu_rect.w + 44.0, (double)s_menu_rect.h), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.0);
     ImGui::Begin("##IngameSidebar", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavInputs
@@ -1173,8 +1173,8 @@ void draw_panel_vertical(void)
     draw_gold();
     draw_tabs();
     // Phase 5: the active tab's body, in this same window (no z-order seam).
-    ingame_tabcontent_draw((float)s_menu_rect.x, (float)s_menu_rect.y,
-                           (float)s_menu_rect.w, (float)s_menu_rect.h);
+    ingame_tabcontent_draw((double)s_menu_rect.x, (double)s_menu_rect.y,
+                           (double)s_menu_rect.w, (double)s_menu_rect.h);
     draw_nav_buttons();
     draw_event_markers();
 
@@ -1183,7 +1183,7 @@ void draw_panel_vertical(void)
 
 } // namespace
 
-extern "C" void ingame_panel_minimap_screen_pos(long *x, long *y)
+extern "C" void ingame_panel_minimap_screen_pos(int64_t *x, int64_t *y)
 {
     if (x != nullptr) *x = s_mm_abs_x;
     if (y != nullptr) *y = s_mm_abs_y;

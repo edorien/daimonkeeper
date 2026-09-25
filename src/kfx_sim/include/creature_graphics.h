@@ -44,24 +44,27 @@ enum FrameFlags {
 };
 
 struct KeeperSprite {
-  uint32_t DataOffset;
+  uint64_t DataOffset;
 
-  unsigned short SWidth;
-  unsigned short SHeight;
-  unsigned short FrameWidth;
-  unsigned short FrameHeight;
+  int64_t SWidth;
+  int64_t SHeight;
+  int64_t FrameWidth;
+  int64_t FrameHeight;
   unsigned char Rotable;
   unsigned char FramesCount;
-  short FrameOffsW;
-  short FrameOffsH;
+  int64_t FrameOffsW;
+  int64_t FrameOffsH;
 
-  short offset_x;
-  short offset_y;
+  int64_t offset_x;
+  int64_t offset_y;
 
-  short shadow_offset;
-  short frame_flags;
+  int64_t shadow_offset;
+  int64_t frame_flags;
 };
 
+// Layout of one entry of the original game's data/creature.tab: a FILE FORMAT, so fixed-width on purpose (the
+// in-memory struct KeeperSprite above is widened on load, see creature_table_load_unpack()).
+#pragma pack(1)
 struct KeeperSpriteDisk {
     uint32_t DataOffset;
     unsigned char SWidth;
@@ -72,9 +75,10 @@ struct KeeperSpriteDisk {
     unsigned char FramesCount;
     unsigned char FrameOffsW;
     unsigned char FrameOffsH;
-    short offset_x;
-    short offset_y;
+    int16_t offset_x;
+    int16_t offset_y;
 };
+#pragma pack()
 
 // Duplicated from kfx_render's engine_render.h (KEEPERSPRITE_ADD_OFFSET/
 // KEEPERSPRITE_ADD_NUM) rather than included, to avoid a kfx_sim ->
@@ -102,14 +106,14 @@ extern size_t creature_table_length;
 /******************************************************************************/
 struct PickedUpOffset *get_creature_picked_up_offset(struct Thing *thing);
 
-unsigned long keepersprite_index(unsigned short n);
-struct KeeperSprite * keepersprite_array(unsigned short n);
-unsigned char keepersprite_frames(unsigned short n); // This returns number of frames in animation
-unsigned char keepersprite_rotable(unsigned short n);
-void get_keepsprite_unscaled_dimensions(long kspr_anim, long angle, long frame, short *orig_w, short *orig_h, short *unsc_w, short *unsc_h);
-long get_lifespan_of_animation(long ani, long speed);
-short get_creature_anim(struct Thing *thing, unsigned short frame);
-short get_creature_model_graphics(long crmodel, unsigned short frame);
+uint64_t keepersprite_index(int64_t n);
+struct KeeperSprite * keepersprite_array(int64_t n);
+unsigned char keepersprite_frames(int64_t n); // This returns number of frames in animation
+unsigned char keepersprite_rotable(int64_t n);
+void get_keepsprite_unscaled_dimensions(int64_t kspr_anim, int64_t angle, int64_t frame, int64_t *orig_w, int64_t *orig_h, int64_t *unsc_w, int64_t *unsc_h);
+int64_t get_lifespan_of_animation(int64_t ani, int64_t speed);
+int64_t get_creature_anim(struct Thing *thing, int64_t frame);
+int64_t get_creature_model_graphics(int64_t crmodel, int64_t frame);
 // set_creature_model_graphics moved to kfx_config's config_creature.h (stage 13.3).
 void set_creature_graphic(struct Thing *thing);
 void update_creature_rendering_flags(struct Thing *thing);

@@ -25,8 +25,8 @@ extern "C" {
 /******************************************************************************/
 void load_or_create_high_score_table(void);
 TbBool save_high_score_table(void);
-int add_high_score_entry(unsigned long score, LevelNumber lvnum, const char *name);
-unsigned long get_level_highest_score(LevelNumber lvnum);
+int64_t add_high_score_entry(uint64_t score, LevelNumber lvnum, const char *name);
+uint64_t get_level_highest_score(LevelNumber lvnum);
 
 #ifdef __cplusplus
 }

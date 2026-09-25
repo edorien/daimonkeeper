@@ -46,22 +46,22 @@ struct LensConfig {
      * TbPixel array -- see docs/refactor/renderer/02a-pixel-format-design.md
      * §4's config_lenses.h entry. */
     unsigned char palette[PALETTE_SIZE];
-    short mist_lightness;
-    short mist_ghost;
+    int64_t mist_lightness;
+    int64_t mist_ghost;
     char mist_file[DISKPATH_SIZE];
-    short mist_pos_x_step;
-    short mist_pos_y_step;
-    short mist_sec_x_step;
-    short mist_sec_y_step;
-    short displace_kind;
-    short displace_magnitude;
-    short displace_period;
+    int64_t mist_pos_x_step;
+    int64_t mist_pos_y_step;
+    int64_t mist_sec_x_step;
+    int64_t mist_sec_y_step;
+    int64_t displace_kind;
+    int64_t displace_magnitude;
+    int64_t displace_period;
     char overlay_file[DISKPATH_SIZE];
-    short overlay_alpha;
+    int64_t overlay_alpha;
 };
 
 struct LensesConfig {
-    int32_t lenses_count;
+    int64_t lenses_count;
     struct LensConfig lenses[LENS_ITEMS_MAX];
 };
 /******************************************************************************/
@@ -69,7 +69,7 @@ extern const struct ConfigFileData keeper_lenses_file_data;
 extern struct LensesConfig lenses_conf;
 extern struct NamedCommand lenses_desc[LENS_ITEMS_MAX];
 /******************************************************************************/
-struct LensConfig *get_lens_config(long lens_idx);
+struct LensConfig *get_lens_config(int64_t lens_idx);
 /******************************************************************************/
 #ifdef __cplusplus
 }

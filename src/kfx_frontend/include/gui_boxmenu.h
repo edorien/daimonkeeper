@@ -36,20 +36,20 @@ struct GuiBoxOption;
 #pragma pack()
 /******************************************************************************/
 void gui_draw_all_boxes(void);
-short gui_box_is_not_valid(struct GuiBox *gbox);
-struct GuiBox *gui_create_box(long x, long y, struct GuiBoxOption *optn_list);
+int64_t gui_box_is_not_valid(struct GuiBox *gbox);
+struct GuiBox *gui_create_box(int64_t x, int64_t y, struct GuiBoxOption *optn_list);
 void gui_delete_box(struct GuiBox *gbox);
 void gui_draw_box(struct GuiBox *gbox);
-short gui_move_box(struct GuiBox *gbox, long x, long y, unsigned short fdflags);
+int64_t gui_move_box(struct GuiBox *gbox, int64_t x, int64_t y, int64_t fdflags);
 struct GuiBox *gui_get_highest_priority_box(void);
 struct GuiBox *gui_get_lowest_priority_box(void);
 struct GuiBox *gui_get_next_highest_priority_box(struct GuiBox *gbox);
 struct GuiBox *gui_get_next_lowest_priority_box(struct GuiBox *gbox);
 void gui_remove_box_from_list(struct GuiBox *gbox);
 void gui_insert_box_at_list_top(struct GuiBox *gbox);
-struct GuiBox *gui_get_box_point_over(long x, long y);
-struct GuiBoxOption *gui_get_box_option_point_over(struct GuiBox *gbox, long x, long y);
-short gui_process_inputs(void);
+struct GuiBox *gui_get_box_point_over(int64_t x, int64_t y);
+struct GuiBoxOption *gui_get_box_option_point_over(struct GuiBox *gbox, int64_t x, int64_t y);
+int64_t gui_process_inputs(void);
 TbBool point_is_over_gui_box(ScreenCoord x, ScreenCoord y);
 TbBool cheat_menu_is_active();
 

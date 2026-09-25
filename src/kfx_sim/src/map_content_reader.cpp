@@ -36,7 +36,7 @@ namespace {
 std::string build_path(const char *dir, LevelNumber lvnum, const char *ext)
 {
     char buf[64];
-    snprintf(buf, sizeof(buf), "/map%05lu.%s", (unsigned long)lvnum, ext);
+    snprintf(buf, sizeof(buf), "/map%05" PRIu64 ".%s", (uint64_t)lvnum, ext);
     return std::string(dir) + buf;
 }
 
@@ -47,13 +47,13 @@ std::string build_path(const char *dir, LevelNumber lvnum, const char *ext)
 // NUL as data).
 bool load_whole_file(const std::string &path, std::vector<char> &out)
 {
-    long len = LbFileLength(path.c_str());
+    int64_t len = LbFileLength(path.c_str());
     if (len < 0)
         return false;
     out.resize((size_t)len + 1);
     if (len > 0)
     {
-        long got = LbFileLoadAt(path.c_str(), out.data());
+        int64_t got = LbFileLoadAt(path.c_str(), out.data());
         if (got != len)
             return false;
     }
@@ -70,7 +70,7 @@ MapCoord read_stl_coord(VALUE *dict, const char *key)
     return value_read_stl_coord(value_dict_get(dict, key));
 }
 
-long read_int_default(VALUE *dict, const char *key, long def)
+int64_t read_int_default(VALUE *dict, const char *key, int64_t def)
 {
     VALUE *v = value_dict_get(dict, key);
     if ((v == NULL) || (value_type(v) != VALUE_INT32))
@@ -87,7 +87,7 @@ size_t native_record_count(VALUE *root, const char *array_name, const char *coun
     VALUE *arr = value_dict_get(root, array_name);
     if (value_type(arr) == VALUE_ARRAY)
         return value_array_size(arr);
-    const long n = value_int32(value_dict_get(value_dict_get(root, "common"), count_field));
+    const int64_t n = value_int32(value_dict_get(value_dict_get(root, "common"), count_field));
     return (n > 0) ? (size_t)n : 0;
 }
 
@@ -97,7 +97,7 @@ VALUE *native_record_at(VALUE *root, const char *array_name, const char *numbere
     if (value_type(arr) == VALUE_ARRAY)
         return value_array_get(arr, k);
     char key[64];
-    snprintf(key, sizeof(key), numbered_fmt, (int)k);
+    snprintf(key, sizeof(key), numbered_fmt, (int64_t)k);
     return value_dict_get(root, key);
 }
 
@@ -129,11 +129,11 @@ bool MapContentReader::read_slabs(MapContent &content, const char *dir, LevelNum
         return false;
     content.slab_kind.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
     size_t i = 0;
-    for (long y = 0; y < content.map_tiles_y; y++)
+    for (int64_t y = 0; y < content.map_tiles_y; y++)
     {
-        for (long x = 0; x < content.map_tiles_x; x++)
+        for (int64_t x = 0; x < content.map_tiles_x; x++)
         {
-            unsigned n = (unsigned char)buf[i] | ((unsigned char)buf[i + 1] << 8);
+            uint64_t n = (unsigned char)buf[i] | ((unsigned char)buf[i + 1] << 8);
             content.slab_kind[content.slab_index(x, y)] = (SlabKind)n;
             i += 2;
         }
@@ -146,16 +146,16 @@ bool MapContentReader::read_ownership(MapContent &content, const char *dir, Leve
     std::vector<char> buf;
     if (!load_whole_file(build_path(dir, lvnum, "own"), buf))
         return false;
-    long subtiles_x = content.map_tiles_x * STL_PER_SLB;
-    long subtiles_y = content.map_tiles_y * STL_PER_SLB;
+    int64_t subtiles_x = content.map_tiles_x * STL_PER_SLB;
+    int64_t subtiles_y = content.map_tiles_y * STL_PER_SLB;
     size_t needed = (size_t)((subtiles_y + 1) * (subtiles_x + 1));
     if (buf.size() < needed + 1)
         return false;
     content.slab_owner.assign((size_t)(content.map_tiles_x * content.map_tiles_y), 0);
-    long row_stride = subtiles_x + 1;
-    for (long y = 0; y < content.map_tiles_y; y++)
+    int64_t row_stride = subtiles_x + 1;
+    for (int64_t y = 0; y < content.map_tiles_y; y++)
     {
-        for (long x = 0; x < content.map_tiles_x; x++)
+        for (int64_t x = 0; x < content.map_tiles_x; x++)
         {
             // Every subtile of a slab shares that slab's owner byte
             // (write_ownership()'s own fill pattern) -- the slab's
@@ -234,7 +234,7 @@ bool KfxNativeMapContentReader::read_things(MapContent &content, const char *dir
     content.things.reserve(count);
     for (size_t k = 0; k < count; k++)
     {
-        VALUE *d = native_record_at(&root, "thing", "thing%d", k);
+        VALUE *d = native_record_at(&root, "thing", "thing%" PRId64, (int64_t)(k));
         if (value_type(d) != VALUE_DICT)
             continue;
         MapThingRecord t;
@@ -242,9 +242,9 @@ bool KfxNativeMapContentReader::read_things(MapContent &content, const char *dir
         // integer or a class name ("Object", "Creature", ...), and the model as `Subtype` (integer) or
         // `SubtypeStringID` (a name). Hand-authored maps (e.g. the dk2maps pack) use the name forms; reading
         // only integers turned every one of their things into class 0.
-        const int cls = value_parse_class(value_dict_get(d, "ThingType"));
+        const int64_t cls = value_parse_class(value_dict_get(d, "ThingType"));
         t.thing_class = (ThingClass)((cls >= 0) ? cls : 0);
-        int model = -1;
+        int64_t model = -1;
         VALUE *subtype_name = value_dict_get(d, "SubtypeStringID");
         if ((cls >= 0) && (subtype_name != NULL) && (value_type(subtype_name) == VALUE_STRING))
             model = value_parse_model(cls, subtype_name);
@@ -257,9 +257,9 @@ bool KfxNativeMapContentReader::read_things(MapContent &content, const char *dir
         t.orientation = read_int_default(d, "Orientation", 0);
         if (t.thing_class == TCls_Creature)
         {
-            t.creature_level = (int)read_int_default(d, "CreatureLevel", 1) - 1;
+            t.creature_level = (int64_t)read_int_default(d, "CreatureLevel", 1) - 1;
             t.creature_gold = read_int_default(d, "CreatureGold", 0);
-            t.creature_health_percent = (int)read_int_default(d, "CreatureInitialHealth", 0);
+            t.creature_health_percent = (int64_t)read_int_default(d, "CreatureInitialHealth", 0);
             VALUE *name = value_dict_get(d, "CreatureName");
             if ((name != NULL) && (value_type(name) == VALUE_STRING))
                 t.creature_name = value_string(name);
@@ -299,7 +299,7 @@ bool KfxNativeMapContentReader::read_lights(MapContent &content, const char *dir
     content.lights.reserve(count);
     for (size_t k = 0; k < count; k++)
     {
-        VALUE *d = native_record_at(&root, "light", "light%d", k);
+        VALUE *d = native_record_at(&root, "light", "light%" PRId64, (int64_t)(k));
         if (value_type(d) != VALUE_DICT)
             continue;
         MapLightRecord l;
@@ -308,8 +308,8 @@ bool KfxNativeMapContentReader::read_lights(MapContent &content, const char *dir
         l.pos_y = read_stl_coord(d, "SubtileY");
         l.pos_z = read_stl_coord(d, "SubtileZ");
         l.range = read_stl_coord(d, "LightRange");
-        l.intensity = (unsigned long)read_int_default(d, "LightIntensity", 0);
-        l.parent_tile = (unsigned long)read_int_default(d, "ParentTile", 0);
+        l.intensity = (uint64_t)read_int_default(d, "LightIntensity", 0);
+        l.parent_tile = (uint64_t)read_int_default(d, "ParentTile", 0);
         content.lights.push_back(l);
     }
     value_fini(&root);
@@ -332,7 +332,7 @@ bool KfxNativeMapContentReader::read_action_points(MapContent &content, const ch
     content.action_points.reserve(count);
     for (size_t k = 0; k < count; k++)
     {
-        VALUE *d = native_record_at(&root, "actionpoint", "actionpoint%d", k);
+        VALUE *d = native_record_at(&root, "actionpoint", "actionpoint%" PRId64, (int64_t)(k));
         if (value_type(d) != VALUE_DICT)
             continue;
         MapActionPointRecord a;
@@ -395,17 +395,17 @@ bool KfxNativeMapContentReader::read_level_info(MapContent &content, const char 
 
 namespace {
 
-unsigned read_u8(const std::vector<char> &buf, size_t off) { return (unsigned char)buf[off]; }
-unsigned read_u16le(const std::vector<char> &buf, size_t off)
+uint64_t read_u8(const std::vector<char> &buf, size_t off) { return (unsigned char)buf[off]; }
+uint64_t read_u16le(const std::vector<char> &buf, size_t off)
 {
-    return (unsigned char)buf[off] | ((unsigned)(unsigned char)buf[off + 1] << 8);
+    return (unsigned char)buf[off] | ((uint64_t)(unsigned char)buf[off + 1] << 8);
 }
-unsigned long read_u32le(const std::vector<char> &buf, size_t off)
+uint64_t read_u32le(const std::vector<char> &buf, size_t off)
 {
-    return (unsigned long)(unsigned char)buf[off]
-        | ((unsigned long)(unsigned char)buf[off + 1] << 8)
-        | ((unsigned long)(unsigned char)buf[off + 2] << 16)
-        | ((unsigned long)(unsigned char)buf[off + 3] << 24);
+    return (uint64_t)(unsigned char)buf[off]
+        | ((uint64_t)(unsigned char)buf[off + 1] << 8)
+        | ((uint64_t)(unsigned char)buf[off + 2] << 16)
+        | ((uint64_t)(unsigned char)buf[off + 3] << 24);
 }
 
 const size_t kLegacyThingSize = 21;
@@ -421,11 +421,11 @@ bool ClassicMapContentReader::read_things(MapContent &content, const char *dir, 
         return false;
     if (buf.size() < 3) // 2-byte count + trailing NUL
         return false;
-    unsigned count = read_u16le(buf, 0);
+    uint64_t count = read_u16le(buf, 0);
     size_t off = 2;
     content.things.clear();
     content.things.reserve(count);
-    for (unsigned k = 0; k < count; k++)
+    for (uint64_t k = 0; k < count; k++)
     {
         if (off + kLegacyThingSize > buf.size() - 1) // -1 for the trailing NUL
             break;
@@ -436,13 +436,13 @@ bool ClassicMapContentReader::read_things(MapContent &content, const char *dir, 
         t.thing_class = (ThingClass)read_u8(buf, off + 6);
         t.model = (ThingModel)read_u8(buf, off + 7);
         t.owner = (PlayerNumber)read_u8(buf, off + 8);
-        unsigned range = read_u16le(buf, off + 9);
-        unsigned index = read_u16le(buf, off + 11);
+        uint64_t range = read_u16le(buf, off + 9);
+        uint64_t index = read_u16le(buf, off + 11);
         unsigned char params[8];
-        for (int i = 0; i < 8; i++)
+        for (int64_t i = 0; i < 8; i++)
             params[i] = (unsigned char)read_u8(buf, off + 13 + i);
 
-        t.parent_tile = (long)index; // Object/Trap/EffectGen only, per the writer
+        t.parent_tile = (int64_t)index; // Object/Trap/EffectGen only, per the writer
         if (t.thing_class == TCls_EffectGen)
             t.effect_range = (MapCoord)range;
         if (t.thing_class == TCls_Object)
@@ -462,7 +462,7 @@ bool ClassicMapContentReader::read_things(MapContent &content, const char *dir, 
         }
         else if (t.thing_class == TCls_Creature)
         {
-            t.creature_level = (int)params[1];
+            t.creature_level = (int64_t)params[1];
         }
         else if (t.thing_class == TCls_Door)
         {
@@ -482,11 +482,11 @@ bool ClassicMapContentReader::read_lights(MapContent &content, const char *dir, 
         return false;
     if (buf.size() < 5)
         return false;
-    unsigned long count = read_u32le(buf, 0);
+    uint64_t count = read_u32le(buf, 0);
     size_t off = 4;
     content.lights.clear();
     content.lights.reserve(count);
-    for (unsigned long k = 0; k < count; k++)
+    for (uint64_t k = 0; k < count; k++)
     {
         if (off + kLegacyLightSize > buf.size() - 1)
             break;
@@ -514,11 +514,11 @@ bool ClassicMapContentReader::read_action_points(MapContent &content, const char
         return false;
     if (buf.size() < 5)
         return false;
-    unsigned long count = read_u32le(buf, 0);
+    uint64_t count = read_u32le(buf, 0);
     size_t off = 4;
     content.action_points.clear();
     content.action_points.reserve(count);
-    for (unsigned long k = 0; k < count; k++)
+    for (uint64_t k = 0; k < count; k++)
     {
         if (off + kLegacyActionPointSize > buf.size() - 1)
             break;
@@ -526,7 +526,7 @@ bool ClassicMapContentReader::read_action_points(MapContent &content, const char
         a.pos_x = (MapCoord)read_u16le(buf, off + 0);
         a.pos_y = (MapCoord)read_u16le(buf, off + 2);
         a.range = (MapCoord)read_u16le(buf, off + 4);
-        a.point_number = (long)read_u16le(buf, off + 6);
+        a.point_number = (int64_t)read_u16le(buf, off + 6);
         content.action_points.push_back(a);
         off += kLegacyActionPointSize;
     }

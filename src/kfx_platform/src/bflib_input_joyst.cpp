@@ -176,7 +176,7 @@ void JEvent(const SDL_Event *ev)
     }
 }
 
-void controller_rumble(long ms)
+void controller_rumble(int64_t ms)
 {
     if (controller != NULL && last_used_input_device == ID_Controller) {
         SDL_RumbleGamepad(controller, 0xFFFF, 0xFFFF, (Uint32)ms);
@@ -208,25 +208,25 @@ void init_controller_input()
         SDL_free(gamepads);
 }
 
-float cbtn_axis_value(TbControllerButtons btn)
+double cbtn_axis_value(TbControllerButtons btn)
 {
     if (controller == NULL) {
-        return 0.0f;
+        return 0.0;
     }
 
-    const float deadzone = 10000.0f;
-    const float max_axis = 32767.0f;
+    const double deadzone = 10000.0;
+    const double max_axis = 32767.0;
 
-    float value = 0.0f;
+    double value = 0.0;
 
-    auto sample_direction = [&](Sint16 axis_value, float sign) {
-        float directional = ((float)axis_value) * sign;
+    auto sample_direction = [&](Sint16 axis_value, double sign) {
+        double directional = ((double)axis_value) * sign;
         if (directional <= deadzone) {
-            return 0.0f;
+            return 0.0;
         }
-        float normalized = directional / max_axis;
-        if (normalized > 1.0f) {
-            normalized = 1.0f;
+        double normalized = directional / max_axis;
+        if (normalized > 1.0) {
+            normalized = 1.0;
         }
         return normalized;
     };
@@ -238,16 +238,16 @@ float cbtn_axis_value(TbControllerButtons btn)
         const Sint16 right_x = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHTX);
         const Sint16 right_y = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHTY);
 
-        if (btn & CBtn_LS_LEFT)  value = std::max(value, sample_direction(left_x,  -1.0f));
-        if (btn & CBtn_LS_RIGHT) value = std::max(value, sample_direction(left_x,   1.0f));
-        if (btn & CBtn_LS_UP)    value = std::max(value, sample_direction(left_y,  -1.0f));
-        if (btn & CBtn_LS_DOWN)  value = std::max(value, sample_direction(left_y,   1.0f));
-        if (btn & CBtn_RS_LEFT)  value = std::max(value, sample_direction(right_x, -1.0f));
-        if (btn & CBtn_RS_RIGHT) value = std::max(value, sample_direction(right_x,  1.0f));
-        if (btn & CBtn_RS_UP)    value = std::max(value, sample_direction(right_y, -1.0f));
-        if (btn & CBtn_RS_DOWN)  value = std::max(value, sample_direction(right_y,  1.0f));
+        if (btn & CBtn_LS_LEFT)  value = std::max(value, sample_direction(left_x,  -1.0));
+        if (btn & CBtn_LS_RIGHT) value = std::max(value, sample_direction(left_x,   1.0));
+        if (btn & CBtn_LS_UP)    value = std::max(value, sample_direction(left_y,  -1.0));
+        if (btn & CBtn_LS_DOWN)  value = std::max(value, sample_direction(left_y,   1.0));
+        if (btn & CBtn_RS_LEFT)  value = std::max(value, sample_direction(right_x, -1.0));
+        if (btn & CBtn_RS_RIGHT) value = std::max(value, sample_direction(right_x,  1.0));
+        if (btn & CBtn_RS_UP)    value = std::max(value, sample_direction(right_y, -1.0));
+        if (btn & CBtn_RS_DOWN)  value = std::max(value, sample_direction(right_y,  1.0));
 
-        if (value > 0.0f) {
+        if (value > 0.0) {
             return value;
         }
     }

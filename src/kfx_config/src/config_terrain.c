@@ -45,14 +45,14 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static int64_t value_synergy(const struct NamedField* named_field,const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static int64_t value_synergy(const struct NamedField* named_field,const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 
-static void assign_update_room_tab       (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static void assign_icon_update_room_tab  (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static void assign_reinitialise_rooms    (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static void assign_recalculate_effeciency(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static void assign_update_room_tab       (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static void assign_icon_update_room_tab  (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static void assign_reinitialise_rooms    (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static void assign_recalculate_effeciency(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 /******************************************************************************/
-static TbBool load_terrain_config_file(const char *fname, unsigned short flags);
+static TbBool load_terrain_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_terrain_file_data = {
     .filename = "terrain.cfg",
@@ -134,7 +134,7 @@ static const struct NamedField terrain_slab_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_slab_count(void) { return &kfx_config_state.conf.slab_conf.slab_types_count; }
+static int64_t* get_slab_count(void) { return &kfx_config_state.conf.slab_conf.slab_types_count; }
 static void* get_slab_base(void) { return kfx_config_state.conf.slab_conf.slab_cfgstats; }
 
 
@@ -177,7 +177,7 @@ static const struct NamedField terrain_room_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_room_count(void) { return &kfx_config_state.conf.slab_conf.room_types_count; }
+static int64_t* get_room_count(void) { return &kfx_config_state.conf.slab_conf.room_types_count; }
 static void* get_room_base(void) { return kfx_config_state.conf.slab_conf.room_cfgstats; }
 
 const struct NamedFieldSet terrain_room_named_fields_set = {
@@ -190,7 +190,7 @@ const struct NamedFieldSet terrain_room_named_fields_set = {
     get_room_base,
 };
 
-static void assign_update_room_tab(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_update_room_tab(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     int64_t old_value = get_named_field_value(named_field,named_fields_set,idx);
     if (value == old_value)
@@ -205,7 +205,7 @@ static void assign_update_room_tab(const struct NamedField* named_field, int64_t
     }
 }
 
-static void assign_icon_update_room_tab(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_icon_update_room_tab(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     int64_t old_value = get_named_field_value(named_field,named_fields_set,idx);
     if (value == old_value)
@@ -220,7 +220,7 @@ static void assign_icon_update_room_tab(const struct NamedField* named_field, in
     }
 }
 
-static void assign_reinitialise_rooms(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_reinitialise_rooms(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     int64_t old_value = get_named_field_value(named_field,named_fields_set,idx);
     if (value == old_value)
@@ -235,7 +235,7 @@ static void assign_reinitialise_rooms(const struct NamedField* named_field, int6
     }
 }
 
-static void assign_recalculate_effeciency(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_recalculate_effeciency(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     int64_t old_value = get_named_field_value(named_field,named_fields_set,idx);
     if (value == old_value)
@@ -363,7 +363,7 @@ const char *room_code_name(RoomKind rkind)
     return "INVALID";
 }
 
-static int64_t value_synergy(const struct NamedField* named_field,const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static int64_t value_synergy(const struct NamedField* named_field,const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (strcasecmp(value_text, "none") == 0) {
         return -1;
@@ -372,12 +372,12 @@ static int64_t value_synergy(const struct NamedField* named_field,const char* va
     }
 }
 
-TbBool parse_block_health_block(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_block_health_block(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
-    int32_t pos = 0;
-    int k = 0;
-    int n = 0;
-    int cmd_num = 0;
+    int64_t pos = 0;
+    int64_t k = 0;
+    int64_t n = 0;
+    int64_t cmd_num = 0;
     char word_buf[COMMAND_WORD_LEN];
     // Block health - will be later integrated with slab blocks
     const char * block_name = "block_health";
@@ -426,8 +426,8 @@ TbBool parse_block_health_block(char *buf, long len, const char *config_textname
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -436,10 +436,10 @@ TbBool parse_block_health_block(char *buf, long len, const char *config_textname
     return true;
 }
 
-static TbBool load_terrain_config_file(const char *fname, unsigned short flags)
+static TbBool load_terrain_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -470,7 +470,7 @@ static TbBool load_terrain_config_file(const char *fname, unsigned short flags)
  */
 TbBool make_all_rooms_free(void)
 {
-    for (long rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
+    for (int64_t rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
         struct RoomConfigStats* roomst = get_room_kind_stats(rkind);
         roomst->cost = 0;
@@ -484,7 +484,7 @@ TbBool make_all_rooms_free(void)
 TbBool make_all_rooms_researchable(PlayerNumber plyr_idx)
 {
     if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot do; player %d has no dungeon",(int)plyr_idx);
+        ERRORDBG(11,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
     dungeon_availability->set_all_room_resrchable(plyr_idx);
@@ -494,17 +494,17 @@ TbBool make_all_rooms_researchable(PlayerNumber plyr_idx)
 /**
  * Sets room availability state.
  */
-TbBool set_room_available(PlayerNumber plyr_idx, RoomKind rkind, long resrch, long avail)
+TbBool set_room_available(PlayerNumber plyr_idx, RoomKind rkind, int64_t resrch, int64_t avail)
 {
     // note that we can't get_players_num_dungeon() because players
     // may be uninitialized yet when this is called.
     if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot do; player %d has no dungeon",(int)plyr_idx);
+        ERRORDBG(11,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
     if (rkind >= kfx_config_state.conf.slab_conf.room_types_count)
     {
-        ERRORLOG("Can't add incorrect room %d to player %d",(int)rkind, (int)plyr_idx);
+        ERRORLOG("Can't add incorrect room %" PRId64 " to player %" PRId64,(int64_t)rkind, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->set_room_resrchable_and_buildable(plyr_idx, rkind, resrch, avail))
@@ -532,7 +532,7 @@ TbBool is_room_available(PlayerNumber plyr_idx, RoomKind rkind)
     }
     if (rkind >= kfx_config_state.conf.slab_conf.room_types_count)
     {
-      ERRORLOG("Incorrect room %d (player %d)",(int)rkind, (int)plyr_idx);
+      ERRORLOG("Incorrect room %" PRId64 " (player %" PRId64 ")",(int64_t)rkind, (int64_t)plyr_idx);
       return false;
     }
     if (dungeon_availability->get_room_buildable(plyr_idx, rkind)) {
@@ -551,7 +551,7 @@ TbBool is_room_obtainable(PlayerNumber plyr_idx, RoomKind rkind)
         return false;
     }
     if (rkind >= kfx_config_state.conf.slab_conf.room_types_count) {
-        ERRORLOG("Incorrect room %u (player %d)",rkind, plyr_idx);
+        ERRORLOG("Incorrect room %" PRIu64 " (player %" PRId64 ")",(uint64_t)(rkind), (int64_t)(plyr_idx));
         return false;
     }
     return dungeon_availability->get_room_buildable(plyr_idx, rkind) || dungeon_availability->get_room_resrchable(plyr_idx, rkind);
@@ -604,7 +604,7 @@ TbBool make_available_all_researchable_rooms(PlayerNumber plyr_idx)
     SYNCDBG(0,"Starting");
     // Check if the player even have a dungeon
     if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot do; player %d has no dungeon",(int)plyr_idx);
+        ERRORDBG(11,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
     dungeon_availability->set_all_room_buildable_from_resrchable(plyr_idx);
@@ -681,11 +681,11 @@ TbBool slab_kind_is_bridgeable(SlabKind slbkind)
     return (slabst->wlb_type != WlbT_None) && (slabst->wlb_type != WlbT_Bridge);
 }
 
-int slab_kind_from_wlb_type(unsigned char wlb_type)
+int64_t slab_kind_from_wlb_type(unsigned char wlb_type)
 {
     if ((wlb_type == WlbT_None) || (wlb_type == WlbT_Bridge))
         return -1;
-    for (int slbkind = 0; slbkind < kfx_config_state.conf.slab_conf.slab_types_count; slbkind++) {
+    for (int64_t slbkind = 0; slbkind < kfx_config_state.conf.slab_conf.slab_types_count; slbkind++) {
         if (get_slab_kind_stats(slbkind)->wlb_type == wlb_type)
             return slbkind;
     }

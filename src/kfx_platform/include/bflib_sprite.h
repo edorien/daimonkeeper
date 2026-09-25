@@ -37,8 +37,8 @@ typedef unsigned char * TbSpriteData;
 struct TbSprite {
     TbSpriteData Data;
 #ifdef SPRITE_FORMAT_V2
-    unsigned short SWidth;
-    unsigned short SHeight;
+    int64_t SWidth;
+    int64_t SHeight;
 #else
     unsigned char SWidth;
     unsigned char SHeight;
@@ -56,27 +56,27 @@ struct TbSetupSprite {
 struct TbHugeSprite {
     TbSpriteData Data;  //**< Raw sprite data, with RLE coded transparency.
     int32_t * Lines;  //**< Index of line starts in the sprite data.
-    unsigned long SWidth;
-    unsigned long SHeight;
+    uint64_t SWidth;
+    uint64_t SHeight;
 };
 
 struct TiledSprite {
     unsigned char x_num;
     unsigned char y_num;
-    unsigned short spr_idx[10][10];
+    int64_t spr_idx[10][10];
 };
 #pragma pack()
 
 struct TbSpriteSheet * create_spritesheet(void);
 struct TbSpriteSheet * load_spritesheet(const char * data_fname, const char * index_fname);
 void free_spritesheet(struct TbSpriteSheet **);
-const struct TbSprite * get_sprite(const struct TbSpriteSheet *, long index);
+const struct TbSprite * get_sprite(const struct TbSpriteSheet *, int64_t index);
 #ifdef SPRITE_FORMAT_V2
-TbBool add_sprite(struct TbSpriteSheet * sheet, unsigned short width, unsigned short height, int size, const void * data);
+TbBool add_sprite(struct TbSpriteSheet * sheet, int64_t width, int64_t height, int64_t size, const void * data);
 #else
-TbBool add_sprite(struct TbSpriteSheet * sheet, unsigned char width, unsigned char height, int size, const void * data);
+TbBool add_sprite(struct TbSpriteSheet * sheet, unsigned char width, unsigned char height, int64_t size, const void * data);
 #endif
-long num_sprites(const struct TbSpriteSheet *);
+int64_t num_sprites(const struct TbSpriteSheet *);
 
 #define load_font(data_fname, index_fname) load_spritesheet(data_fname, index_fname)
 #define free_font(font) free_spritesheet(font)

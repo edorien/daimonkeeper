@@ -59,9 +59,9 @@ TEST_CASE("get_id returns -1 for an unknown name or a null argument", "[kfx_conf
 
 TEST_CASE("get_conf_parameter_whole reads the rest of the line, skipping leading blanks", "[kfx_config][config]") {
     const char *buf = "  hello world\n";
-    int32_t pos = 0;
+    int64_t pos = 0;
     char dst[32];
-    int len = get_conf_parameter_whole(buf, &pos, (long)strlen(buf), dst, sizeof(dst));
+    int64_t len = get_conf_parameter_whole(buf, &pos, (int64_t)strlen(buf), dst, sizeof(dst));
     CHECK(len == 11);
     CHECK(std::strcmp(dst, "hello world") == 0);
     CHECK(pos == 13); // left pointing at the '\n', not past it
@@ -69,32 +69,32 @@ TEST_CASE("get_conf_parameter_whole reads the rest of the line, skipping leading
 
 TEST_CASE("get_conf_parameter_whole truncates at dstlen", "[kfx_config][config]") {
     const char *buf = "hello\n";
-    int32_t pos = 0;
+    int64_t pos = 0;
     char dst[4];
-    int len = get_conf_parameter_whole(buf, &pos, (long)strlen(buf), dst, sizeof(dst));
+    int64_t len = get_conf_parameter_whole(buf, &pos, (int64_t)strlen(buf), dst, sizeof(dst));
     CHECK(len == 3);
     CHECK(std::strcmp(dst, "hel") == 0);
 }
 
 TEST_CASE("get_conf_parameter_whole returns 0 once pos reaches buflen", "[kfx_config][config]") {
     const char *buf = "x";
-    int32_t pos = 1;
+    int64_t pos = 1;
     char dst[8];
     CHECK(get_conf_parameter_whole(buf, &pos, 1, dst, sizeof(dst)) == 0);
 }
 
 TEST_CASE("get_conf_parameter_single reads only the next whitespace-delimited token", "[kfx_config][config]") {
     const char *buf = "foo bar\n";
-    int32_t pos = 0;
+    int64_t pos = 0;
     char dst[32];
-    int len = get_conf_parameter_single(buf, &pos, (long)strlen(buf), dst, sizeof(dst));
+    int64_t len = get_conf_parameter_single(buf, &pos, (int64_t)strlen(buf), dst, sizeof(dst));
     CHECK(len == 3);
     CHECK(std::strcmp(dst, "foo") == 0);
     CHECK(pos == 3); // left pointing at the separating space
 
     // A second call from the advanced position skips that space and
     // reads the next token.
-    len = get_conf_parameter_single(buf, &pos, (long)strlen(buf), dst, sizeof(dst));
+    len = get_conf_parameter_single(buf, &pos, (int64_t)strlen(buf), dst, sizeof(dst));
     CHECK(len == 3);
     CHECK(std::strcmp(dst, "bar") == 0);
 }
@@ -106,8 +106,8 @@ TEST_CASE("recognize_conf_parameter matches a whole token case-insensitively and
         {nullptr, 0},
     };
     const char *buf = "foo\n";
-    int32_t pos = 0;
-    CHECK(recognize_conf_parameter(buf, &pos, (long)strlen(buf), commands) == 1);
+    int64_t pos = 0;
+    CHECK(recognize_conf_parameter(buf, &pos, (int64_t)strlen(buf), commands) == 1);
     CHECK(pos == 3); // stops before the EOLN, doesn't consume it
 }
 
@@ -117,8 +117,8 @@ TEST_CASE("recognize_conf_parameter advances past a trailing blank when one foll
         {nullptr, 0},
     };
     const char *buf = "FOO extra";
-    int32_t pos = 0;
-    CHECK(recognize_conf_parameter(buf, &pos, (long)strlen(buf), commands) == 1);
+    int64_t pos = 0;
+    CHECK(recognize_conf_parameter(buf, &pos, (int64_t)strlen(buf), commands) == 1);
     CHECK(pos == 4); // past "FOO "
 }
 
@@ -130,8 +130,8 @@ TEST_CASE("recognize_conf_parameter requires a full token match, not just a name
     // "FOOBAR" starts with "FOO", but the character right after isn't a
     // line end or blank, so this must NOT match.
     const char *buf = "FOOBAR\n";
-    int32_t pos = 0;
-    CHECK(recognize_conf_parameter(buf, &pos, (long)strlen(buf), commands) == 0);
+    int64_t pos = 0;
+    CHECK(recognize_conf_parameter(buf, &pos, (int64_t)strlen(buf), commands) == 0);
 }
 
 TEST_CASE("recognize_conf_parameter returns 0 for an unrecognized token or when pos reaches buflen", "[kfx_config][config]") {
@@ -140,8 +140,8 @@ TEST_CASE("recognize_conf_parameter returns 0 for an unrecognized token or when 
         {nullptr, 0},
     };
     const char *buf = "XYZ\n";
-    int32_t pos = 0;
-    CHECK(recognize_conf_parameter(buf, &pos, (long)strlen(buf), commands) == 0);
+    int64_t pos = 0;
+    CHECK(recognize_conf_parameter(buf, &pos, (int64_t)strlen(buf), commands) == 0);
 
     pos = 1;
     CHECK(recognize_conf_parameter("x", &pos, 1, commands) == 0);

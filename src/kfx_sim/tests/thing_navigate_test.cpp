@@ -28,8 +28,8 @@ namespace {
 struct NavigateFixture {
     static constexpr MapSubtlCoord kStlX = 4;
     static constexpr MapSubtlCoord kStlY = 4;
-    static constexpr long kLavaCubeId = 5;
-    static constexpr long kAbyssCubeId = 6;
+    static constexpr int64_t kLavaCubeId = 5;
+    static constexpr int64_t kAbyssCubeId = 6;
 
     struct Thing *creatng;
 

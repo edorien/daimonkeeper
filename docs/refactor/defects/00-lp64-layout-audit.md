@@ -1,7 +1,8 @@
 # LP64 / 32-bit-assumption audit
 
 Status: audit done 2026-09-20, branch `refactor-renderer`. Fixed items are listed with their commit; everything
-else is a recommendation.
+else is a recommendation. **Follow-up the same day: §8 removed `long`/`unsigned long` from the whole tree**, which
+resolves F7, F9, F10, F11 and most of F8/F15 — read §8 first; §2/§3 describe the state before it.
 
 KeeperFX was written for 32-bit Windows (mingw i686, ILP32: `long`, `unsigned long`, `size_t`, pointers = 4 bytes).
 This fork also builds natively on 64-bit Linux (LP64: those are 8 bytes). Commit `cd612b3dd` fixed a real crash
@@ -11,7 +12,7 @@ behaviour silently depends on the 32-bit widths.
 Contents: [1 Scope and method](#1-scope-and-method) · [2 What differs between the ABIs](#2-what-differs-between-the-abis) ·
 [3 Findings](#3-findings) · [4 Verified safe](#4-verified-safe-do-not-re-audit) ·
 [5 Multiplayer / save-game portability](#5-multiplayer--save-game-portability) · [6 Prioritised fix plan](#6-prioritised-fix-plan) ·
-[7 Reproducing the probes](#7-reproducing-the-probes)
+[7 Reproducing the probes](#7-reproducing-the-probes) · [8 Tree-wide fixed widths](#8-tree-wide-fixed-widths-follow-up)
 
 ---
 
@@ -274,3 +275,56 @@ SoundEmitter, SoundReceiver, SoundSettings, StructureList, THate, TaskFunctions,
 TbDItmSprite, TbDItmText, TbDItmU, TbHugeSprite, TbLoadFiles, TbLoadFilesV2, TbLog, TbNetworkPlayerEntry,
 TbNetworkSessionNameEntry, TbSetupSprite, TbSourceBuffer, TbSprite, TextScrollWindow, ToolTipBox, TrapConfigStats,
 TrapDoorConfig, TunnelDistance, TunnellerTrigger, VideoScaleCallbacks.
+
+---
+
+## 8. Tree-wide fixed widths (follow-up)
+
+Rather than fix the serialized structs one by one, every `long` / `unsigned long` in `src/` (≈9,700 uses, 560
+files) became `int32_t` / `uint32_t` — the width they always had on the Windows build — and `L`/`UL` literal
+suffixes were dropped. On Windows nothing changes (same width); on Linux behaviour now equals Windows. `int64_t`
+was rejected on purpose: it would change layouts and wrap behaviour on *both* platforms.
+
+Method: a comment/string-aware rewrite (code only; `long long`/`long double` untouched; `%ld`/`%lu`/`%lx` in
+format strings → `%d`/`%u`/`%x`), then the compiler as checker — the `-Werror` build with the printf attributes from
+F3 flags every leftover format or signature mismatch. Fallout was small: missing `<stdint.h>` in ~6 headers, the
+`ulong` typedef (clashed with glibc; removed, uses → `uint32_t`), `PRIuSIZE`, an overflowing `-sizeof`, a
+`LONG_MAX`, the `curl_easy_setopt` boundary (needs `long`; left as explicit `(long)` casts), and one `.05L`
+long-double literal the literal rewrite had mangled (caught by the build, reverted). The Windows cross-build
+(`out/windows`, mingw i686) was the second check and caught Win32-only fallout: `DWORD` is `unsigned long`, so the
+three `%lx` exception-code prints (`native_entry.cpp`, `bflib_crash.c`, `PlatformWindows.cpp`) keep `long` — they
+are in the lint allow-list.
+
+`strtol()`/`atol()` return `long` and saturate at a platform-dependent limit, so they were the same bug in a
+different spelling (F2 generalised): all 20 call sites now use `LbStrToI32()` / `LbAtoI32()` (`bflib_basics.h`),
+which clamp to int32; `script_strtol/atol` delegate to them.
+
+Enforcement: `scripts/check_fixed_width.py --strict` (CI, next to the layering check) rejects `long`,
+`unsigned long`, `L`/`UL` suffixes and raw `strtol`/`atol` in code, with a four-entry allow-list for third-party/
+Win32 API boundaries.
+
+Results (all verified):
+
+| Check | Result |
+|---|---|
+| Linux `-Werror`, `keeperfx` + `keeperfx_hvlog` + all unit tests | builds; all 11 suites pass |
+| Windows mingw-i686 `keeperfx` + `keeperfx_hvlog` | builds |
+| `FUNCTESTING` and `BFDEBUG_LEVEL=20` syntax sweep of every TU | clean |
+| `-m32` vs `-m64` differential: RNG, geometry, `LbMathOperation`, `angles_to_vector` (300k inputs each) | identical hashes |
+| Layout diff vs mingw-i686: types that still differ | **105 → 53** (the 53 are pointer-bearing UI/renderer structs and the process-pointer blobs below) |
+| `FileChunkHeader`, `IntralevelData`, `LevelScript`, `Dungeon`, `PlayerInfo`, `CreatureControl`, `PartyTrigger`, `TunnellerTrigger`, `Condition` | now equal to the 32-bit sizes (pinned by `kfx_game/tests/save_layout_test.cpp`) |
+
+What is left in the four state blobs (all still `+` on 64-bit): `KfxSimState` +36 (`Computer2.dungeon`, 9×),
+`KfxGameState` +16 (`gui_cheat_box_2`, three never-read `char*` sound paths in `SoundSettings`),
+`KfxFrontendState` +24 (5 pointers), `KfxNetState` +8 (`FILE* packet_save_fp`, `long double process_turn_time`).
+The `SoundSettings` paths are written once (`sounds.c:411`) and never read, so stale values are harmless (benign).
+Saves/resync between 32- and 64-bit builds still cannot interoperate until those pointers become indices/removed
+and the `long double` becomes `double` — now a handful of fields instead of hundreds — and existing 64-bit Linux
+saves no longer load (their chunks have the old sizes; the state chunks' `ver` is still 0).
+
+Status of earlier findings: **F7 fixed, F9 fixed, F10 moot** (`LbSqrL` now takes `int32_t`, so ≥ 2³² cannot
+occur), **F11 moot** (no `long` fields remain; `int32_t`→`dt_int` range-checks at INT_MIN/MAX), **F15 largely
+closed** (the `long` wrap/promotion differences are gone; residual is `size_t`/pointer arithmetic and `long long`,
+which are 64-bit on both build types only when declared so). F6, F8 (pointer remainder), F12–F14 stand. Still
+worth doing: P2 (ABI check in the lobby handshake) and P5 (differential gameplay run), and bumping the state
+chunks' `ver` so an old save gives a clear message.

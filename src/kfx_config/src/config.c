@@ -60,59 +60,59 @@ extern "C" {
 /******************************************************************************/
 
 /** Line number, used when loading text files. */
-unsigned long text_line_number;
+uint64_t text_line_number;
 
 // See struct ConfigReloadCallbacks and docs/refactor/stage-04-kfx-config.md
 // issue A.
 static void config_reload_noop_void(void) {}
-static void config_reload_noop_update_all_trap_draws_of_model(int32_t trap_model) {}
-static TbBool config_reload_noop_bool_amount(long rtyp, long rkind, long amount) { return false; }
+static void config_reload_noop_update_all_trap_draws_of_model(int64_t trap_model) {}
+static TbBool config_reload_noop_bool_amount(int64_t rtyp, int64_t rkind, int64_t amount) { return false; }
 static TbBool config_reload_noop_bool(void) { return false; }
-static void config_reload_noop_panel_map_update(long x, long y, long w, long h) {}
+static void config_reload_noop_panel_map_update(int64_t x, int64_t y, int64_t w, int64_t h) {}
 static void config_reload_noop_update_panel_color_player_color(PlayerNumber plyr_idx, unsigned char color_idx) {}
 static FuncIdx config_reload_noop_get_lua_function_idx(const char *func_name, const struct NamedCommand *named_command) { return -1; }
-static long config_reload_noop_get_map_dimension(void) { return 0; }
+static int64_t config_reload_noop_get_map_dimension(void) { return 0; }
 static TbBool config_reload_noop_thing_query(const struct Thing *thing) { return false; }
 static ThingModel config_reload_noop_get_thing_model(const struct Thing *thing) { return 0; }
 static ThingClass config_reload_noop_get_thing_class_id(const struct Thing *thing) { return 0; }
 static PlayerNumber config_reload_noop_get_thing_owner(const struct Thing *thing) { return 0; }
-static uint32_t config_reload_noop_get_thing_creation_turn(const struct Thing *thing) { return 0; }
-static unsigned short config_reload_noop_get_thing_index(const struct Thing *thing) { return 0; }
+static uint64_t config_reload_noop_get_thing_creation_turn(const struct Thing *thing) { return 0; }
+static int64_t config_reload_noop_get_thing_index(const struct Thing *thing) { return 0; }
 static unsigned char config_reload_noop_get_creature_blood_type(const struct Thing *creatng) { return 0; }
 static char *config_reload_noop_get_creature_name_buffer(const struct Thing *creatng) { return NULL; }
-static int config_reload_noop_get_wealth_size_of_gold_hoard_model(ThingModel objmodel) { return 0; }
-static void config_reload_noop_set_call_to_arms_graphics(PlayerNumber plyr_idx, int birth_anim_idx, int alive_anim_idx, int leave_anim_idx) {}
-static void config_reload_noop_set_screen_vidmode(unsigned short nmode) {}
-static unsigned short config_reload_noop_get_screen_vidmode(void) { return 0; }
-static void config_reload_noop_set_base_mouse_sensitivity(long val) {}
-static long config_reload_noop_get_base_mouse_sensitivity(void) { return 0; }
+static int64_t config_reload_noop_get_wealth_size_of_gold_hoard_model(ThingModel objmodel) { return 0; }
+static void config_reload_noop_set_call_to_arms_graphics(PlayerNumber plyr_idx, int64_t birth_anim_idx, int64_t alive_anim_idx, int64_t leave_anim_idx) {}
+static void config_reload_noop_set_screen_vidmode(int64_t nmode) {}
+static int64_t config_reload_noop_get_screen_vidmode(void) { return 0; }
+static void config_reload_noop_set_base_mouse_sensitivity(int64_t val) {}
+static int64_t config_reload_noop_get_base_mouse_sensitivity(void) { return 0; }
 static void config_reload_noop_setup_panel_colors(void) {}
 static void config_reload_noop_reset_panel_map_background_cache(void) {}
 static void config_reload_noop_update_creatr_model_activities_list(TbBool forced) {}
 static struct SlabMap *config_reload_noop_get_slabmap_for_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y) { return NULL; }
-static long config_reload_noop_slabmap_owner(const struct SlabMap *slb) { return 0; }
+static int64_t config_reload_noop_slabmap_owner(const struct SlabMap *slb) { return 0; }
 static TbBool config_reload_noop_thing_create_thing(struct InitThing *itng) { return false; }
 static TbBool config_reload_noop_thing_create_thing_adv(VALUE *init_data) { return false; }
 static void config_reload_noop_set_screenshot_format(unsigned char val) {}
 static unsigned char config_reload_noop_get_screenshot_format(void) { return 0; }
 static void config_reload_noop_set_vid_smooth(TbBool val) {}
-static void config_reload_noop_set_hand_scale(float val) {}
-static float config_reload_noop_get_hand_scale(void) { return 1.0f; }
+static void config_reload_noop_set_hand_scale(double val) {}
+static double config_reload_noop_get_hand_scale(void) { return 1.0; }
 static RoomKind config_reload_noop_get_room_kind_thing_is_on(const struct Thing *creatng) { return 0; }
 static unsigned char config_reload_noop_get_player_color_idx(PlayerNumber plyr_idx) { return 0; }
 static struct SlabSet *config_reload_noop_get_slabset_array(void) { return NULL; }
-static unsigned short *config_reload_noop_get_slabset_num_ptr(void) { return NULL; }
+static int64_t *config_reload_noop_get_slabset_num_ptr(void) { return NULL; }
 static struct SlabObj *config_reload_noop_get_slabobjs_array(void) { return NULL; }
-static short *config_reload_noop_get_slabobjs_idx_array(void) { return NULL; }
-static unsigned short *config_reload_noop_get_slabobjs_num_ptr(void) { return NULL; }
-static void config_reload_noop_set_block_health(long idx, long val) {}
+static int64_t *config_reload_noop_get_slabobjs_idx_array(void) { return NULL; }
+static int64_t *config_reload_noop_get_slabobjs_num_ptr(void) { return NULL; }
+static void config_reload_noop_set_block_health(int64_t idx, int64_t val) {}
 static ThingModel config_reload_noop_get_player_special_digger(PlayerNumber plyr_idx) { return 0; }
 static void config_reload_noop_set_player_special_digger(PlayerNumber plyr_idx, ThingModel model) {}
 
 // See docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
-static struct Computer2 *config_reload_noop_get_computer_player_f(long plyr_idx, const char *func_name) { return NULL; }
+static struct Computer2 *config_reload_noop_get_computer_player_f(int64_t plyr_idx, const char *func_name) { return NULL; }
 static TbBool config_reload_noop_reactivate_build_process(struct Computer2 *comp, RoomKind rkind) { return false; }
-static long config_reload_noop_get_room_kind_long(RoomKind rkind) { return 0; }
+static int64_t config_reload_noop_get_room_kind_long(RoomKind rkind) { return 0; }
 static TbBool config_reload_noop_slabmap_block_invalid(const struct SlabMap *slb) { return true; }
 static SlabKind config_reload_noop_slabmap_kind(const struct SlabMap *slb) { return 0; }
 static const struct NamedCommand *config_reload_noop_get_named_command_array(void) { return NULL; }
@@ -121,16 +121,16 @@ static TbBool config_reload_noop_bool_from_player(PlayerNumber plyr_idx) { retur
 static TbBool config_reload_noop_slab_is_area_inner_fill(MapSlabCoord slb_x, MapSlabCoord slb_y) { return false; }
 static const char *config_reload_noop_thing_class_and_model_name(ThingClass class_id, ThingModel model) { return ""; }
 static TbBool config_reload_noop_bool_thing(struct Thing *thing) { return false; }
-static long config_reload_noop_do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int crmodel, TbBool (*do_cb)(struct Thing *)) { return 0; }
-static long config_reload_noop_do_to_all_things_of_class_and_model(int tngclass, int tngmodel, TbBool (*do_cb)(struct Thing *)) { return 0; }
-static TbBool config_reload_noop_update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel) { return false; }
-static short config_reload_noop_thing_is_invalid(const struct Thing *thing) { return true; }
-static unsigned short config_reload_noop_setup_excess_creatures_to_leave_or_die(short max_remain) { return 0; }
+static int64_t config_reload_noop_do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel, TbBool (*do_cb)(struct Thing *)) { return 0; }
+static int64_t config_reload_noop_do_to_all_things_of_class_and_model(int64_t tngclass, int64_t tngmodel, TbBool (*do_cb)(struct Thing *)) { return 0; }
+static TbBool config_reload_noop_update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel) { return false; }
+static int64_t config_reload_noop_thing_is_invalid(const struct Thing *thing) { return true; }
+static int64_t config_reload_noop_setup_excess_creatures_to_leave_or_die(int64_t max_remain) { return 0; }
 static char **config_reload_noop_get_level_strings(void) { return NULL; }
-static TbBool config_reload_noop_bool_door_trap(PlayerNumber plyr_idx, ThingModel kind, int32_t buildable, int32_t amount) { return false; }
-static void config_reload_noop_set_speech_queue_limit(int limit) {}
-static long config_reload_noop_script_strdup(const char *src) { return -1; }
-static const char *config_reload_noop_script_strval(long offset) { return NULL; }
+static TbBool config_reload_noop_bool_door_trap(PlayerNumber plyr_idx, ThingModel kind, int64_t buildable, int64_t amount) { return false; }
+static void config_reload_noop_set_speech_queue_limit(int64_t limit) {}
+static int64_t config_reload_noop_script_strdup(const char *src) { return -1; }
+static const char *config_reload_noop_script_strval(int64_t offset) { return NULL; }
 static void config_reload_noop_reset_campaign_progress(void) {}
 
 static const struct ConfigReloadCallbacks default_config_reload_callbacks = {
@@ -255,7 +255,7 @@ TbBool parameter_is_number(const char* parstr) {
     }
 
     // Trim trailing spaces
-    int len = strlen(parstr);
+    int64_t len = strlen(parstr);
     while (len > 0 && parstr[len - 1] == ' ') {
         len--;
     }
@@ -270,7 +270,7 @@ TbBool parameter_is_number(const char* parstr) {
     }
 
     // Check the remaining characters
-    for (int i = 1; i < len; ++i) {
+    for (int64_t i = 1; i < len; ++i) {
         if (!isdigit((unsigned char)parstr[i])) {
             return false;
         }
@@ -279,7 +279,7 @@ TbBool parameter_is_number(const char* parstr) {
     return true;
 }
 
-int get_conf_line(const char *buf, int32_t *pos, long buflen, char *dst, long dstlen)
+int64_t get_conf_line(const char *buf, int64_t *pos, int64_t buflen, char *dst, int64_t dstlen)
 {
     SYNCDBG(19,"Starting");
     if ((*pos) >= buflen) return ccr_endOfFile;
@@ -295,7 +295,7 @@ int get_conf_line(const char *buf, int32_t *pos, long buflen, char *dst, long ds
     // Checking if this line is start of a block
     if (buf[*pos] == '[')
         return ccr_endOfBlock;
-    int i = 0;
+    int64_t i = 0;
     for (i=0; i+1 < dstlen; i++)
     {
         if ((buf[*pos]=='\r') || (buf[*pos]=='\n') || ((unsigned char)buf[*pos] < 7))
@@ -315,7 +315,7 @@ int get_conf_line(const char *buf, int32_t *pos, long buflen, char *dst, long ds
 }
 
 
-TbBool skip_conf_to_next_line(const char *buf,int32_t *pos,long buflen)
+TbBool skip_conf_to_next_line(const char *buf,int64_t *pos,int64_t buflen)
 {
   // Skip to end of the line
   while ((*pos) < buflen)
@@ -334,7 +334,7 @@ TbBool skip_conf_to_next_line(const char *buf,int32_t *pos,long buflen)
   return ((*pos) < buflen);
 }
 
-TbBool skip_conf_spaces(const char *buf, int32_t *pos, long buflen)
+TbBool skip_conf_spaces(const char *buf, int64_t *pos, int64_t buflen)
 {
   while ((*pos) < buflen)
   {
@@ -349,10 +349,10 @@ TbBool skip_conf_spaces(const char *buf, int32_t *pos, long buflen)
  * Starts at position given with pos, and sets it to position of block data.
  * @return Returns 1 if the block is found, -1 if buffer exceeded.
  */
-short find_conf_block(const char *buf,int32_t *pos,long buflen,const char *blockname)
+int64_t find_conf_block(const char *buf,int64_t *pos,int64_t buflen,const char *blockname)
 {
   text_line_number = 1;
-  int blname_len = strlen(blockname);
+  int64_t blname_len = strlen(blockname);
   while ((*pos)+blname_len+2 < buflen)
   {
     // Skipping starting spaces
@@ -395,9 +395,9 @@ short find_conf_block(const char *buf,int32_t *pos,long buflen,const char *block
  * Sets name and namelen to the block name and name length respectively.
  * Returns true on success, false when the block name is zero.
  */
-TbBool conf_get_block_name(const char * buf, int32_t * pos, long buflen, const char ** name, int * namelen)
+TbBool conf_get_block_name(const char * buf, int64_t * pos, int64_t buflen, const char ** name, int64_t * namelen)
 {
-  const long start = *pos;
+  const int64_t start = *pos;
   *name = NULL;
   *namelen = 0;
   while (true) {
@@ -426,7 +426,7 @@ TbBool conf_get_block_name(const char * buf, int32_t * pos, long buflen, const c
  * Sets name and namelen to the block name and name length respectively.
  * Returns true on success, false when no more blocks are found.
  */
-TbBool iterate_conf_blocks(const char * buf, int32_t * pos, long buflen, const char ** name, int * namelen)
+TbBool iterate_conf_blocks(const char * buf, int64_t * pos, int64_t buflen, const char ** name, int64_t * namelen)
 {
   text_line_number = 1;
   *name = NULL;
@@ -478,7 +478,7 @@ TbBool iterate_conf_blocks(const char * buf, int32_t * pos, long buflen, const c
  * If ccr_unrecognised is returned, that means the command wasn't recognized.
  * If ccr_endOfBlock   is returned, that means we've reached end of the INI block.
  */
-int recognize_conf_command(const char *buf,int32_t *pos,long buflen,const struct NamedCommand commands[])
+int64_t recognize_conf_command(const char *buf,int64_t *pos,int64_t buflen,const struct NamedCommand commands[])
 {
     SYNCDBG(19,"Starting");
     if ((*pos) >= buflen) return ccr_endOfFile;
@@ -495,10 +495,10 @@ int recognize_conf_command(const char *buf,int32_t *pos,long buflen,const struct
     if (buf[*pos] == '[')
         return ccr_endOfBlock;
     // Finding command number
-    int i = 0;
+    int64_t i = 0;
     while (commands[i].num > 0)
     {
-        int cmdname_len = strlen(commands[i].name);
+        int64_t cmdname_len = strlen(commands[i].name);
         if ((*pos)+cmdname_len > buflen) {
             i++;
             continue;
@@ -530,8 +530,8 @@ int recognize_conf_command(const char *buf,int32_t *pos,long buflen,const struct
         }
         i++;
     }
-    const int len = strcspn(&buf[(*pos)], " \n\r\t");
-    CONFWRNLOG("Unrecognized command '%.*s'", len, &buf[(*pos)]);
+    const int64_t len = strcspn(&buf[(*pos)], " \n\r\t");
+    CONFWRNLOG("Unrecognized command '%.*s'", (int)(len), &buf[(*pos)]);
     return ccr_unrecognised;
 }
 
@@ -554,7 +554,7 @@ static int64_t get_datatype_min(uchar type)
         case dt_uint:
             return 0;
         case dt_long:
-            return INT32_MIN;
+            return LONG_MIN;
         case dt_ulong:
             return 0;
         case dt_longlong:
@@ -562,7 +562,7 @@ static int64_t get_datatype_min(uchar type)
         case dt_ulonglong:
             return 0;
         default:
-            ERRORLOG("unexpected datatype %d", type);
+            ERRORLOG("unexpected datatype %" PRId64, (int64_t)(type));
             break;
     }
     return 0;
@@ -587,13 +587,13 @@ static int64_t get_datatype_max(uchar type)
         case dt_uint:
             return UINT_MAX;
         case dt_long:
-            return INT32_MAX;
+            return LONG_MAX;
         case dt_ulong:
-            return UINT32_MAX;
+            return INT64_MAX; // values travel as int64_t, whose maximum is the usable range of a 64-bit unsigned field
         case dt_longlong:
             return INT64_MAX;
         case dt_ulonglong:
-            return UINT64_MAX;
+            return INT64_MAX;
         default:
             break;
     }
@@ -601,7 +601,7 @@ static int64_t get_datatype_max(uchar type)
 }
 
 //if the parameter is a number return the number, if a value in the provided NamedCommand list return the value
-int64_t value_default(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_default(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (parameter_is_number(value_text))
     {
@@ -610,12 +610,12 @@ int64_t value_default(const struct NamedField* named_field, const char* value_te
         int64_t maximum = min(named_field->max, get_datatype_max(named_field->type));
         if( value < minimum)
         {
-            NAMFIELDWRNLOG("field '%s' smaller than min value '%" PRId64 "', was '%" PRId64 "'",named_field->name,minimum,value);
+            NAMFIELDWRNLOG("field '%s' smaller than min value '%" PRId64 "', was '%" PRId64 "'",named_field->name,(int64_t)(minimum),(int64_t)(value));
             value = minimum;
         }
         else if( value > maximum)
         {
-            NAMFIELDWRNLOG("field '%s' greater than max value '%" PRId64 "', was '%" PRId64 "'",named_field->name,maximum,value);
+            NAMFIELDWRNLOG("field '%s' greater than max value '%" PRId64 "', was '%" PRId64 "'",named_field->name,(int64_t)(maximum),(int64_t)(value));
             value = maximum;
         }
         return value;
@@ -637,7 +637,7 @@ int64_t value_default(const struct NamedField* named_field, const char* value_te
     return 0;
 }
 
-int64_t value_name(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_name(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     void* field_ptr = (char*)named_fields_set->get_struct_base() + named_fields_set->struct_size * idx + (ptrdiff_t)named_field->field;
     strncpy(field_ptr, value_text, COMMAND_WORD_LEN - 1);
@@ -646,7 +646,7 @@ int64_t value_name(const struct NamedField* named_field, const char* value_text,
 }
 
 //same as value_flagsfield but treats the namedCommand field as a longnamedCommand
-int64_t value_longflagsfield(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_longflagsfield(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     int64_t value = 0;
     char word_buf[COMMAND_WORD_LEN];
@@ -659,9 +659,9 @@ int64_t value_longflagsfield(const struct NamedField* named_field, const char* v
         return 0;
     }
 
-    int32_t pos = 0;
-    long len = strlen(value_text);
-    int i = 0;
+    int64_t pos = 0;
+    int64_t len = strlen(value_text);
+    int64_t i = 0;
     while (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
     {
         if (i == 1)
@@ -687,7 +687,7 @@ int64_t value_longflagsfield(const struct NamedField* named_field, const char* v
 
 
 //expects value_text to be a space seperated list of values in the named fields named command, wich can be combined with bitwise or
-int64_t value_flagsfield(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_flagsfield(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     int64_t value = 0;
     char word_buf[COMMAND_WORD_LEN];
@@ -700,9 +700,9 @@ int64_t value_flagsfield(const struct NamedField* named_field, const char* value
         return 0;
     }
 
-    int32_t pos = 0;
-    long len = strlen(value_text);
-    int i = 0;
+    int64_t pos = 0;
+    int64_t len = strlen(value_text);
+    int64_t i = 0;
     while (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
     {
         if (i == 1)
@@ -716,7 +716,7 @@ int64_t value_flagsfield(const struct NamedField* named_field, const char* value
             }
         }
 
-        int k = get_id(named_field->namedCommand, word_buf);
+        int64_t k = get_id(named_field->namedCommand, word_buf);
         if(k >= 0)
             value |= k;
         else
@@ -726,7 +726,7 @@ int64_t value_flagsfield(const struct NamedField* named_field, const char* value
     return value;
 }
 
-int64_t value_icon(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_icon(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (flag_is_set(flags,ccf_SplitExecution))
     {
@@ -744,7 +744,7 @@ int64_t value_icon(const struct NamedField* named_field, const char* value_text,
     }
 }
 
-int64_t value_animid(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_animid(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
   if (flag_is_set(flags,ccf_SplitExecution))
   {
@@ -762,26 +762,26 @@ int64_t value_animid(const struct NamedField* named_field, const char* value_tex
   }
 }
 
-int64_t value_stringId(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_stringId(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     return get_string_id_by_alias(value_text);
 }
 
-int64_t value_effOrEffEl(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_effOrEffEl(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     return effect_or_effect_element_id(value_text);
 }
 
-int64_t value_function(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_function(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     return config_reload_callbacks->get_lua_function_idx(value_text, named_field->namedCommand);
 }
 
-void assign_icon(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+void assign_icon(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (flag_is_set(flags,ccf_SplitExecution))
     {
-        short icon_id = sprite_lookup->get_icon_id(config_reload_callbacks->script_strval(value));
+        int64_t icon_id = sprite_lookup->get_icon_id(config_reload_callbacks->script_strval(value));
         assign_default(named_field,icon_id,named_fields_set,idx,src_str,flags);
     }
     else
@@ -790,11 +790,11 @@ void assign_icon(const struct NamedField* named_field, int64_t value, const stru
     }
 }
 
-void assign_animid(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+void assign_animid(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (flag_is_set(flags,ccf_SplitExecution))
     {
-        short anim_id = sprite_lookup->get_anim_id_(config_reload_callbacks->script_strval(value));
+        int64_t anim_id = sprite_lookup->get_anim_id_(config_reload_callbacks->script_strval(value));
         assign_default(named_field,anim_id,named_fields_set,idx,src_str,flags);
     }
     else
@@ -803,7 +803,7 @@ void assign_animid(const struct NamedField* named_field, int64_t value, const st
     }
 }
 
-int64_t value_transpflg(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_transpflg(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
 
     if (parameter_is_number(value_text))
@@ -817,7 +817,7 @@ int64_t value_transpflg(const struct NamedField* named_field, const char* value_
     return 0;
 }
 
-int64_t value_stltocoord(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_stltocoord(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
 
     if (parameter_is_number(value_text))
@@ -831,7 +831,7 @@ int64_t value_stltocoord(const struct NamedField* named_field, const char* value
     return 0;
 }
 
-int64_t parse_named_field_value(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t parse_named_field_value(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (named_field->parse_func != NULL)
       return named_field->parse_func(named_field,value_text,named_fields_set,idx,src_str,flags);
@@ -840,7 +840,7 @@ int64_t parse_named_field_value(const struct NamedField* named_field, const char
     return 0;
 }
 
-int64_t get_named_field_value(const struct NamedField* named_field, const struct NamedFieldSet* named_fields_set, int idx)
+int64_t get_named_field_value(const struct NamedField* named_field, const struct NamedFieldSet* named_fields_set, int64_t idx)
 {
     void* field = (char*)named_fields_set->get_struct_base() + named_fields_set->struct_size * idx + (ptrdiff_t)named_field->field;
     switch (named_field->type)
@@ -860,9 +860,9 @@ int64_t get_named_field_value(const struct NamedField* named_field, const struct
     case dt_uint:
         return *(unsigned int*)field;
     case dt_long:
-        return *(int32_t *)field;
+        return *(signed long*)field;
     case dt_ulong:
-        return *(uint32_t *)field;
+        return *(unsigned long*)field;
     case dt_longlong: {
         /* Use memcpy to avoid ARM LDRD strict-alignment fault. */
         int64_t v; memcpy(&v, field, sizeof(v)); return v;
@@ -882,17 +882,17 @@ int64_t get_named_field_value(const struct NamedField* named_field, const struct
     case dt_default:
     case dt_void:
     default:
-        ERRORLOG("unexpected datatype for field '%s', '%d'", named_field->name, named_field->type);
+        ERRORLOG("unexpected datatype for field '%s', '%" PRId64 "'", named_field->name, (int64_t)(named_field->type));
         return -1;
     }
 }
 
 //for fields that are fully handled in the parse function
-void assign_null(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+void assign_null(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
 }
 
-void assign_default(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+void assign_default(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     char* field = (char*)named_fields_set->get_struct_base() + named_fields_set->struct_size * idx + (ptrdiff_t)named_field->field;
     char* base = (char*)named_fields_set->get_struct_base();
@@ -900,14 +900,14 @@ void assign_default(const struct NamedField* named_field, int64_t value, const s
     if (named_fields_set->get_struct_base() == NULL || idx < 0 || idx >= named_fields_set->max_count || field < base ||
         field >= base + named_fields_set->struct_size * named_fields_set->max_count)
     {
-        NAMFIELDERRLOG("Field '%s' index %d out of bounds", named_field->name, idx);
+        NAMFIELDERRLOG("Field '%s' index %" PRId64 " out of bounds", named_field->name, (int64_t)(idx));
         return;
     }
     switch (named_field->type)
     {
     case dt_uchar:
         if (value < 0 || value > UCHAR_MAX)
-            NAMFIELDWRNLOG("Value out of range for unsigned char: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for unsigned char: %" PRId64, (int64_t)(value));
         else
             *(unsigned char*)field = (unsigned char)value;
         break;
@@ -916,49 +916,49 @@ void assign_default(const struct NamedField* named_field, int64_t value, const s
         break;
     case dt_char:
         if (value < CHAR_MIN || value > CHAR_MAX)
-            NAMFIELDWRNLOG("Value out of range for char: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for char: %" PRId64, (int64_t)(value));
         else
             *(char*)field = (char)value;
         break;
     case dt_short:
         if (value < SHRT_MIN || value > SHRT_MAX)
-            NAMFIELDWRNLOG("Value out of range for signed short: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for signed short: %" PRId64, (int64_t)(value));
         else
             *(signed short*)field = (signed short)value;
         break;
     case dt_ushort:
         if (value < 0 || value > USHRT_MAX)
-            NAMFIELDWRNLOG("Value out of range for unsigned short: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for unsigned short: %" PRId64, (int64_t)(value));
         else
             *(unsigned short*)field = (unsigned short)value;
         break;
     case dt_int:
         if (value < INT_MIN || value > INT_MAX)
-            NAMFIELDWRNLOG("Value out of range for signed int: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for signed int: %" PRId64, (int64_t)(value));
         else
             *(signed int*)field = (signed int)value;
         break;
     case dt_uint:
         if (value < 0 || value > UINT_MAX)
-            NAMFIELDWRNLOG("Value out of range for unsigned int: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for unsigned int: %" PRId64, (int64_t)(value));
         else
             *(unsigned int*)field = (unsigned int)value;
         break;
     case dt_long:
         if (value < LONG_MIN || value > LONG_MAX)
-            NAMFIELDWRNLOG("Value out of range for signed long: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for signed long: %" PRId64, (int64_t)(value));
         else
-            *(signed long *)field = (signed long)value;
+            *(signed long*)field = (signed long)value;
         break;
     case dt_ulong:
         if (value < 0 || value > ULONG_MAX)
-            NAMFIELDWRNLOG("Value out of range for unsigned long: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for unsigned long: %" PRId64, (int64_t)(value));
         else
-            *(unsigned long *)field = (unsigned long)value;
+            *(unsigned long*)field = (unsigned long)value;
         break;
     case dt_longlong:
         if (value < INT64_MIN || value > INT64_MAX)
-            NAMFIELDWRNLOG("Value out of range for signed long long: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for signed long long: %" PRId64, (int64_t)(value));
         else {
             /* Use memcpy to avoid ARM STRD strict-alignment fault (ARMv7 STRD requires
              * 8-byte aligned address; struct base may only be 4-byte aligned). */
@@ -968,14 +968,14 @@ void assign_default(const struct NamedField* named_field, int64_t value, const s
         break;
     case dt_ulonglong:
         if (value < 0)
-            NAMFIELDWRNLOG("Value out of range for unsigned long long: %" PRId64, value);
+            NAMFIELDWRNLOG("Value out of range for unsigned long long: %" PRId64, (int64_t)(value));
         else {
             unsigned long long v = (unsigned long long)value;
             memcpy(field, &v, sizeof(v));
         }
         break;
     case dt_float:
-        *(float*)field = (float)value;
+        *(float*)field = (double)value;
         break;
     case dt_double: {
         double v = (double)value;
@@ -991,12 +991,12 @@ void assign_default(const struct NamedField* named_field, int64_t value, const s
     case dt_default:
     case dt_void:
     default:
-        NAMFIELDWRNLOG("unexpected datatype for field '%s', '%d'", named_field->name, named_field->type);
+        NAMFIELDWRNLOG("unexpected datatype for field '%s', '%" PRId64 "'", named_field->name, (int64_t)(named_field->type));
         break;
     }
 }
 
-void assign_named_field_value(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+void assign_named_field_value(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if(named_field->assign_func == NULL)
     {
@@ -1023,7 +1023,7 @@ void assign_named_field_value(const struct NamedField* named_field, int64_t valu
  * If ccr_error        is returned, that means something went wrong.
  */
 
-int assign_conf_command_field(const char *buf,int32_t *pos,long buflen,const struct NamedField commands[], const struct NamedFieldSet* named_fields_set, int idx, unsigned short flags, const char *config_textname)
+int64_t assign_conf_command_field(const char *buf,int64_t *pos,int64_t buflen,const struct NamedField commands[], const struct NamedFieldSet* named_fields_set, int64_t idx, int64_t flags, const char *config_textname)
 {
     SYNCDBG(19,"Starting");
     if ((*pos) >= buflen) return -1;
@@ -1040,7 +1040,7 @@ int assign_conf_command_field(const char *buf,int32_t *pos,long buflen,const str
     if (buf[*pos] == '[')
         return ccr_endOfBlock;
     // Finding command number
-    int i = 0;
+    int64_t i = 0;
     while (commands[i].name != NULL)
     {
         if (flag_is_set(flags,CnfLd_ListOnly) && strcasecmp(commands[i].name,"Name") != 0)
@@ -1055,7 +1055,7 @@ int assign_conf_command_field(const char *buf,int32_t *pos,long buflen,const str
             continue;
         }
 
-        int cmdname_len = strlen(commands[i].name);
+        int64_t cmdname_len = strlen(commands[i].name);
         if ((*pos)+cmdname_len > buflen) {
             i++;
             continue;
@@ -1090,7 +1090,7 @@ int assign_conf_command_field(const char *buf,int32_t *pos,long buflen,const str
             {
                 #define MAX_LINE_LEN 1024
                 char line_buf[MAX_LINE_LEN];
-                int line_len = 0;
+                int64_t line_len = 0;
 
                 // Copy characters until newline or end of buffer
                 while ((*pos) + line_len < buflen &&
@@ -1143,11 +1143,11 @@ int assign_conf_command_field(const char *buf,int32_t *pos,long buflen,const str
     return ccr_unrecognised;
 }
 
-TbBool parse_named_field_block(const char *buf, long len, const char *config_textname, unsigned short flags,const char* blockname,
-                         const struct NamedField named_field[], const struct NamedFieldSet* named_fields_set, int idx)
+TbBool parse_named_field_block(const char *buf, int64_t len, const char *config_textname, int64_t flags,const char* blockname,
+                         const struct NamedField named_field[], const struct NamedFieldSet* named_fields_set, int64_t idx)
 {
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, blockname);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, blockname);
     if (k < 0)
     {
         if ((flags & CnfLd_AcceptPartial) == 0)
@@ -1158,7 +1158,7 @@ TbBool parse_named_field_block(const char *buf, long len, const char *config_tex
     while (pos<len)
     {
         // Finding command number in this line.
-        int assignresult = assign_conf_command_field(buf, &pos, len, named_field,named_fields_set,idx,flags,config_textname);
+        int64_t assignresult = assign_conf_command_field(buf, &pos, len, named_field,named_fields_set,idx,flags,config_textname);
         if( assignresult == ccr_ok || assignresult == ccr_comment )
         {
             skip_conf_to_next_line(buf,&pos,len);
@@ -1184,11 +1184,11 @@ void set_defaults(const struct NamedFieldSet* named_fields_set, const char *conf
 
   const struct NamedField* name_NamedField = NULL;
 
-  for (long i = 0; named_fields_set->named_fields[i].name != NULL; i++)
+  for (int64_t i = 0; named_fields_set->named_fields[i].name != NULL; i++)
   {
       if (named_fields_set->named_fields[i].default_value != 0)
       {
-          for (long j = 0; j < named_fields_set->max_count; j++)
+          for (int64_t j = 0; j < named_fields_set->max_count; j++)
           {
               assign_default(&named_fields_set->named_fields[i], named_fields_set->named_fields[i].default_value, named_fields_set, j, config_textname, ccf_None);
           }
@@ -1203,7 +1203,7 @@ void set_defaults(const struct NamedFieldSet* named_fields_set, const char *conf
 
   if (name_NamedField != NULL && named_fields_set->names != NULL)
   {
-      for (int i = 0; i < named_fields_set->max_count; i++)
+      for (int64_t i = 0; i < named_fields_set->max_count; i++)
       {
           named_fields_set->names[i].name = (char*)named_fields_set->get_struct_base() + i * named_fields_set->struct_size + (ptrdiff_t)name_NamedField->field;
           named_fields_set->names[i].num = i;
@@ -1213,10 +1213,10 @@ void set_defaults(const struct NamedFieldSet* named_fields_set, const char *conf
 }
 
 
-TbBool parse_named_field_blocks(char *buf, long len, const char *config_textname, unsigned short flags,
+TbBool parse_named_field_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags,
                                const struct NamedFieldSet* named_fields_set)
 {
-    int32_t pos = 0;
+    int64_t pos = 0;
     // Initialize the array
     if ((flags & (CnfLd_AcceptPartial|CnfLd_PreListed)) == 0)
     {
@@ -1224,8 +1224,8 @@ TbBool parse_named_field_blocks(char *buf, long len, const char *config_textname
     }
 
     const char * blockname = NULL;
-    int blocknamelen = 0;
-    const int basename_len = strlen(named_fields_set->block_basename);
+    int64_t blocknamelen = 0;
+    const int64_t basename_len = strlen(named_fields_set->block_basename);
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
     {
         // look for blocks starting with block_basename, followed by one or more digits
@@ -1234,7 +1234,7 @@ TbBool parse_named_field_blocks(char *buf, long len, const char *config_textname
         } else if (memcmp(blockname, named_fields_set->block_basename, basename_len) != 0) {
             continue;
         }
-        const int i = natoi(&blockname[basename_len], blocknamelen - basename_len);
+        const int64_t i = natoi(&blockname[basename_len], blocknamelen - basename_len);
         if (i < 0 || i >= named_fields_set->max_count) {
             continue;
         } else if (i >= *named_fields_set->get_count()) {
@@ -1250,9 +1250,9 @@ TbBool parse_named_field_blocks(char *buf, long len, const char *config_textname
     return true;
 }
 
-int get_conf_parameter_whole(const char *buf,int32_t *pos,long buflen,char *dst,long dstlen)
+int64_t get_conf_parameter_whole(const char *buf,int64_t *pos,int64_t buflen,char *dst,int64_t dstlen)
 {
-  int i;
+  int64_t i;
   if ((*pos) >= buflen) return 0;
   // Skipping spaces after previous parameter
   while ((buf[*pos] == ' ') || (buf[*pos] == '\t'))
@@ -1272,9 +1272,9 @@ int get_conf_parameter_whole(const char *buf,int32_t *pos,long buflen,char *dst,
   return i;
 }
 
-int get_conf_parameter_single(const char *buf,int32_t *pos,long buflen,char *dst,long dstlen)
+int64_t get_conf_parameter_single(const char *buf,int64_t *pos,int64_t buflen,char *dst,int64_t dstlen)
 {
-    int i;
+    int64_t i;
     if ((*pos) >= buflen) return 0;
     // Skipping spaces after previous parameter
     while ((buf[*pos] == ' ') || (buf[*pos] == '\t'))
@@ -1301,7 +1301,7 @@ int get_conf_parameter_single(const char *buf,int32_t *pos,long buflen,char *dst
 /**
  * Returns parameter num from given NamedCommand array, or 0 if not found.
  */
-int recognize_conf_parameter(const char *buf,int32_t *pos,long buflen,const struct NamedCommand commands[])
+int64_t recognize_conf_parameter(const char *buf,int64_t *pos,int64_t buflen,const struct NamedCommand commands[])
 {
   if ((*pos) >= buflen) return 0;
   // Skipping spaces after previous parameter
@@ -1310,10 +1310,10 @@ int recognize_conf_parameter(const char *buf,int32_t *pos,long buflen,const stru
     (*pos)++;
     if ((*pos) >= buflen) return 0;
   }
-  int i = 0;
+  int64_t i = 0;
   while (commands[i].name != NULL)
   {
-      int par_len = strlen(commands[i].name);
+      int64_t par_len = strlen(commands[i].name);
       if (strncasecmp(&buf[(*pos)], commands[i].name, par_len) == 0)
       {
           // If EOLN found, finish and return position before the EOLN
@@ -1338,12 +1338,12 @@ int recognize_conf_parameter(const char *buf,int32_t *pos,long buflen,const stru
 /**
  * Returns name of a config parameter with given number, or empty string.
  */
-const char *get_conf_parameter_text(const struct NamedCommand commands[],int num)
+const char *get_conf_parameter_text(const struct NamedCommand commands[],int64_t num)
 {
-    long i = 0;
+    int64_t i = 0;
     while (commands[i].name != NULL)
     {
-        //SYNCLOG("\"%s\", %d %d",commands[i].name,commands[i].num,num);
+        //SYNCLOG("\"%s\", %d %d",commands[i].name,(int64_t)(commands[i].num),(int64_t)(num));
         if (commands[i].num == num)
             return commands[i].name;
         i++;
@@ -1355,11 +1355,11 @@ const char *get_conf_parameter_text(const struct NamedCommand commands[],int num
  * Returns ID of given item using NamedField list.
  * If not found, returns -1.
  */
-long get_named_field_id(const struct NamedField *desc, const char *itmname)
+int64_t get_named_field_id(const struct NamedField *desc, const char *itmname)
 {
   if ((desc == NULL) || (itmname == NULL))
     return -1;
-  for (long i = 0; desc[i].name != NULL; i++)
+  for (int64_t i = 0; desc[i].name != NULL; i++)
   {
     if (strcasecmp(desc[i].name, itmname) == 0)
       return i;
@@ -1373,11 +1373,11 @@ long get_named_field_id(const struct NamedField *desc, const char *itmname)
  * one word, ended with "\0".
  * If not found, returns -1.
  */
-long get_id(const struct NamedCommand *desc, const char *itmname)
+int64_t get_id(const struct NamedCommand *desc, const char *itmname)
 {
   if ((desc == NULL) || (itmname == NULL))
     return -1;
-  for (long i = 0; desc[i].name != NULL; i++)
+  for (int64_t i = 0; desc[i].name != NULL; i++)
   {
     if (strcasecmp(desc[i].name, itmname) == 0)
       return desc[i].num;
@@ -1395,7 +1395,7 @@ long long get_long_id(const struct LongNamedCommand* desc, const char* itmname)
 {
     if ((desc == NULL) || (itmname == NULL))
         return -1;
-    for (long i = 0; desc[i].name != NULL; i++)
+    for (int64_t i = 0; desc[i].name != NULL; i++)
     {
         if (strcasecmp(desc[i].name, itmname) == 0)
             return desc[i].num;
@@ -1407,7 +1407,7 @@ long long get_long_id(const struct LongNamedCommand* desc, const char* itmname)
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md) --
 // declared in bflib_basics.h, included above via config.h.
 
-char *prepare_file_path_buf(char *dst, int dst_size, short fgroup, const char *fname)
+char *prepare_file_path_buf(char *dst, int64_t dst_size, int64_t fgroup, const char *fname)
 {
     return prepare_file_path_buf_mod(dst, dst_size, NULL, fgroup, fname);
 }
@@ -1421,7 +1421,7 @@ char *prepare_file_path_buf(char *dst, int dst_size, short fgroup, const char *f
  * Returns NULL if the constructed path would exceed dst_size.
  */
 static char *_resolve_file_path_internal(char *dst, size_t dst_size, 
-                                          const char *mod_dir, short fgroup, 
+                                          const char *mod_dir, int64_t fgroup, 
                                           const char *fname)
 {
   const char *mdir = NULL;
@@ -1552,18 +1552,18 @@ static char *_resolve_file_path_internal(char *dst, size_t dst_size,
       if (fname == NULL)
           fname = "";
 
-      int len_mdir = (int)strlen(mdir);
-      int len_mod_dir = (int)strlen(mod_dir);
-      int len_sdir = (int)strlen(sdir);
-      int len_fname = (int)strlen(fname);
+      int64_t len_mdir = (int64_t)strlen(mdir);
+      int64_t len_mod_dir = (int64_t)strlen(mod_dir);
+      int64_t len_sdir = (int64_t)strlen(sdir);
+      int64_t len_fname = (int64_t)strlen(fname);
       
-      int total_len = len_mdir + len_mod_dir + len_sdir + len_fname + 3; /* +3 for separators */
+      int64_t total_len = len_mdir + len_mod_dir + len_sdir + len_fname + 3; /* +3 for separators */
       
-      if (total_len >= (int)dst_size) {
-          ERRORMSG("Path construction would overflow: total_len=%d, buffer_size=%lu. Components: mdir=%d, mod_dir=%d, sdir=%d, fname=%d",
-                   total_len, (unsigned long)dst_size, 
-                   len_mdir, len_mod_dir, 
-                   len_sdir, len_fname);
+      if (total_len >= (int64_t)dst_size) {
+          ERRORMSG("Path construction would overflow: total_len=%" PRId64 ", buffer_size=%" PRIu64 ". Components: mdir=%" PRId64 ", mod_dir=%" PRId64 ", sdir=%" PRId64 ", fname=%" PRId64,
+                   (int64_t)(total_len), (uint64_t)dst_size, 
+                   (int64_t)(len_mdir), (int64_t)(len_mod_dir), 
+                   (int64_t)(len_sdir), (int64_t)(len_fname));
           dst[0] = '\0';
           return dst;
       }
@@ -1574,13 +1574,13 @@ static char *_resolve_file_path_internal(char *dst, size_t dst_size,
       
       /* OVERFLOW CHECK: snprintf returns number of chars that would have been written.
          If >= dst_size, the buffer was overflowed. Return NULL to signal error. */
-      int written = snprintf(dst, dst_size, "%s%s%s%s%s%s%s", 
+      int64_t written = snprintf(dst, dst_size, "%s%s%s%s%s%s%s", 
                              mdir, mod_sep, mod_dir, dir_sep, sdir, file_sep, fname);
       if (written < 0 || (size_t)written >= dst_size) {
-          ERRORMSG("Path construction overflow: len=%d, buffer_size=%lu. Components: mdir=%lu, mod_dir=%lu, sdir=%lu, fname=%lu",
-                   written, (unsigned long)dst_size, 
-                   (unsigned long)len_mdir, (unsigned long)len_mod_dir, 
-                   (unsigned long)len_sdir, (unsigned long)len_fname);
+          ERRORMSG("Path construction overflow: len=%" PRId64 ", buffer_size=%" PRIu64 ". Components: mdir=%" PRIu64 ", mod_dir=%" PRIu64 ", sdir=%" PRIu64 ", fname=%" PRIu64,
+                   (int64_t)(written), (uint64_t)dst_size, 
+                   (uint64_t)len_mdir, (uint64_t)len_mod_dir, 
+                   (uint64_t)len_sdir, (uint64_t)len_fname);
           dst[0] = '\0';
           return dst;
       }
@@ -1592,7 +1592,7 @@ static char *_resolve_file_path_internal(char *dst, size_t dst_size,
  * Public API: Get path for a game file (no mod overlay).
  * Returns pointer to internal static buffer, or NULL if path construction failed.
  */
-char *get_game_file_path(short fgroup, const char *fname)
+char *get_game_file_path(int64_t fgroup, const char *fname)
 {
   static char ffullpath[4096];
   return _resolve_file_path_internal(ffullpath, sizeof(ffullpath), NULL, fgroup, fname);
@@ -1603,7 +1603,7 @@ char *get_game_file_path(short fgroup, const char *fname)
  * Returns pointer to internal static buffer, or NULL if path construction failed.
  * mod_dir: the mod subdirectory within keeper_runtime_directory, or NULL for no overlay.
  */
-char *get_mod_file_path(const char *mod_dir, short fgroup, const char *fname)
+char *get_mod_file_path(const char *mod_dir, int64_t fgroup, const char *fname)
 {
   static char ffullpath[4096];
   return _resolve_file_path_internal(ffullpath, sizeof(ffullpath), mod_dir, fgroup, fname);
@@ -1613,7 +1613,7 @@ char *get_mod_file_path(const char *mod_dir, short fgroup, const char *fname)
  * Public API: Get path for a game file with formatted filename.
  * Returns pointer to internal static buffer, or NULL if path/format construction failed.
  */
-char *get_game_file_path_fmt(short fgroup, const char *fmt_str, ...)
+char *get_game_file_path_fmt(int64_t fgroup, const char *fmt_str, ...)
 {
   char fname[255] = "";
   va_list val;
@@ -1630,7 +1630,7 @@ char *get_game_file_path_fmt(short fgroup, const char *fmt_str, ...)
  * Returns pointer to internal static buffer, or NULL if path/format construction failed.
  * mod_dir: the mod subdirectory within keeper_runtime_directory, or NULL for no overlay.
  */
-char *get_mod_file_path_fmt(const char *mod_dir, short fgroup, const char *fmt_str, ...)
+char *get_mod_file_path_fmt(const char *mod_dir, int64_t fgroup, const char *fmt_str, ...)
 {
   char fname[255] = "";
   va_list val;
@@ -1646,29 +1646,29 @@ char *get_mod_file_path_fmt(const char *mod_dir, short fgroup, const char *fmt_s
    DEPRECATED: Old API kept for compatibility. Prefer get_*_file_path* instead.
    ───────────────────────────────────────────────────────────────────────── */
 
-char *prepare_file_path_buf_mod(char *dst, int dst_size, const char *mod_dir, short fgroup, const char *fname)
+char *prepare_file_path_buf_mod(char *dst, int64_t dst_size, const char *mod_dir, int64_t fgroup, const char *fname)
 {
   return _resolve_file_path_internal(dst, dst_size, mod_dir, fgroup, fname);
 }
 
-char *prepare_file_path_mod(const char *mod_dir, short fgroup, const char *fname)
+char *prepare_file_path_mod(const char *mod_dir, int64_t fgroup, const char *fname)
 {
   return get_mod_file_path(mod_dir, fgroup, fname);
 }
 
-char *prepare_file_path(short fgroup, const char *fname)
+char *prepare_file_path(int64_t fgroup, const char *fname)
 {
   return get_game_file_path(fgroup, fname);
 }
 
-char *prepare_file_path_va_mod(const char *mod_dir, short fgroup, const char *fmt_str, va_list arg)
+char *prepare_file_path_va_mod(const char *mod_dir, int64_t fgroup, const char *fmt_str, va_list arg)
 {
   char fname[255] = "";
   vsnprintf(fname, sizeof(fname), fmt_str, arg);
   return get_mod_file_path(mod_dir, fgroup, fname);
 }
 
-char *prepare_file_fmtpath_mod(const char *mod_dir, short fgroup, const char *fmt_str, ...)
+char *prepare_file_fmtpath_mod(const char *mod_dir, int64_t fgroup, const char *fmt_str, ...)
 {
   va_list val;
   va_start(val, fmt_str);
@@ -1677,7 +1677,7 @@ char *prepare_file_fmtpath_mod(const char *mod_dir, short fgroup, const char *fm
   return result;
 }
 
-char *prepare_file_fmtpath(short fgroup, const char *fmt_str, ...)
+char *prepare_file_fmtpath(int64_t fgroup, const char *fmt_str, ...)
 {
   va_list val;
   va_start(val, fmt_str);
@@ -1689,7 +1689,7 @@ char *prepare_file_fmtpath(short fgroup, const char *fmt_str, ...)
 /**
  * Returns the folder specified by LEVELS_LOCATION
  */
-short get_level_fgroup(LevelNumber lvnum)
+int64_t get_level_fgroup(LevelNumber lvnum)
 {
     return FGrp_CmpgLvls;
 }
@@ -1700,7 +1700,7 @@ short get_level_fgroup(LevelNumber lvnum)
  * on success, returns a buffer which should be freed after use,
  * and sets ldsize into its size.
  */
-unsigned char *load_data_file_to_buffer(int32_t *ldsize, short fgroup, const char *fmt_str, ...)
+unsigned char *load_data_file_to_buffer(int64_t *ldsize, int64_t fgroup, const char *fmt_str, ...)
 {
   // Prepare file name
   va_list arg;
@@ -1711,7 +1711,7 @@ unsigned char *load_data_file_to_buffer(int32_t *ldsize, short fgroup, const cha
   prepare_file_path_buf(ffullpath, sizeof(ffullpath), fgroup, fname);
   va_end(arg);
   // Load the file
-   long fsize = LbFileLengthRnc(ffullpath);
+   int64_t fsize = LbFileLengthRnc(ffullpath);
    if (fsize < *ldsize)
    {
        WARNMSG("File \"%s\" doesn't exist or is too small.", fname);
@@ -1720,7 +1720,7 @@ unsigned char *load_data_file_to_buffer(int32_t *ldsize, short fgroup, const cha
   unsigned char* buf = KfxCalloc(fsize + 16, 1);
   if (buf == NULL)
   {
-    WARNMSG("Can't allocate %ld bytes to load \"%s\".",fsize,fname);
+    WARNMSG("Can't allocate %" PRId64 " bytes to load \"%s\".",(int64_t)(fsize),fname);
     return NULL;
   }
   fsize = LbFileLoadAt(ffullpath,buf);
@@ -1745,7 +1745,7 @@ struct LevelInformation *get_level_info(LevelNumber lvnum)
   return get_campaign_level_info(&campaign, lvnum);
 }
 
-struct LevelInformation *get_or_create_level_info(LevelNumber lvnum, unsigned long lvoptions)
+struct LevelInformation *get_or_create_level_info(LevelNumber lvnum, uint64_t lvoptions)
 {
     struct LevelInformation* lvinfo = get_campaign_level_info(&campaign, lvnum);
     if (lvinfo != NULL)
@@ -1794,7 +1794,7 @@ struct LevelInformation *get_next_level_info(struct LevelInformation *previnfo)
     return NULL;
   if (previnfo == NULL)
     return NULL;
-  unsigned long i = previnfo - &campaign.lvinfos[0];
+  uint64_t i = previnfo - &campaign.lvinfos[0];
   i++;
   if (i >= campaign.lvinfos_count)
     return NULL;
@@ -1813,21 +1813,21 @@ struct LevelInformation *get_prev_level_info(struct LevelInformation *nextinfo)
     return NULL;
   if (nextinfo == NULL)
     return NULL;
-  int i = nextinfo - &campaign.lvinfos[0];
+  int64_t i = nextinfo - &campaign.lvinfos[0];
   i--;
   if (i < 0)
     return NULL;
   return &campaign.lvinfos[i];
 }
 
-short set_level_info_string_index(LevelNumber lvnum, char *stridx, unsigned long lvoptions)
+int64_t set_level_info_string_index(LevelNumber lvnum, char *stridx, uint64_t lvoptions)
 {
     if (campaign.lvinfos == NULL)
         init_level_info_entries(&campaign, 0);
     struct LevelInformation* lvinfo = get_or_create_level_info(lvnum, lvoptions);
     if (lvinfo == NULL)
         return false;
-    int k = atoi(stridx);
+    int64_t k = atoi(stridx);
     if (k > 0)
     {
         lvinfo->name_stridx = k;
@@ -1836,7 +1836,7 @@ short set_level_info_string_index(LevelNumber lvnum, char *stridx, unsigned long
   return false;
 }
 
-short set_level_info_text_name(LevelNumber lvnum, char *name, unsigned long lvoptions)
+int64_t set_level_info_text_name(LevelNumber lvnum, char *name, uint64_t lvoptions)
 {
     if (campaign.lvinfos == NULL)
         init_level_info_entries(&campaign, 0);
@@ -1854,7 +1854,7 @@ short set_level_info_text_name(LevelNumber lvnum, char *name, unsigned long lvop
 
 TbBool reset_credits(struct CreditsItem *credits)
 {
-    for (long i = 0; i < CAMPAIGN_CREDITS_COUNT; i++)
+    for (int64_t i = 0; i < CAMPAIGN_CREDITS_COUNT; i++)
     {
         memset(&credits[i], 0, sizeof(struct CreditsItem));
         credits[i].kind = CIK_None;
@@ -1866,15 +1866,15 @@ TbBool parse_credits_block(struct CreditsItem *credits,char *buf,char *buffer_en
 {
   const char * block_name = "credits";
   // Find the block
-  long len = buffer_end_pointer - buf;
-  int32_t pos = 0;
-  int k = find_conf_block(buf, &pos, len, block_name);
+  int64_t len = buffer_end_pointer - buf;
+  int64_t pos = 0;
+  int64_t k = find_conf_block(buf, &pos, len, block_name);
   if (k < 0)
   {
     WARNMSG("Block [%s] not found in Credits file.", block_name);
     return 0;
   }
-  int n = 0;
+  int64_t n = 0;
   while (pos<len)
   {
     if ((buf[pos] != 0) && (buf[pos] != '[') && (buf[pos] != ';'))
@@ -1887,7 +1887,7 @@ TbBool parse_credits_block(struct CreditsItem *credits,char *buf,char *buffer_en
       case '*':
         pos++;
         if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          k = atol(word_buf);
+          k = LbAtoI32(word_buf);
         else
           k = 0;
         if (k > 0)
@@ -1969,7 +1969,7 @@ TbBool setup_campaign_credits_data(struct GameCampaign *campgn)
     return false;
   }
   char* fname = prepare_file_path(FGrp_LandView, campgn->credits_fname);
-  long filelen = LbFileLengthRnc(fname);
+  int64_t filelen = LbFileLengthRnc(fname);
   if (filelen <= 0)
   {
     ERRORLOG("Campaign Credits file \"%s\" does not exist or can't be opened",campgn->credits_fname);
@@ -1982,8 +1982,8 @@ TbBool setup_campaign_credits_data(struct GameCampaign *campgn)
     return false;
   }
   char* credits_data_end = campgn->credits_data + filelen + 255;
-  short result = true;
-  long loaded_size = LbFileLoadAt(fname, campgn->credits_data);
+  int64_t result = true;
+  int64_t loaded_size = LbFileLoadAt(fname, campgn->credits_data);
   if (loaded_size < 4)
   {
     ERRORLOG("Campaign Credits file \"%s\" couldn't be loaded or is too small",campgn->credits_fname);
@@ -2002,33 +2002,33 @@ TbBool setup_campaign_credits_data(struct GameCampaign *campgn)
   return result;
 }
 
-short is_bonus_level(LevelNumber lvnum)
+int64_t is_bonus_level(LevelNumber lvnum)
 {
   if (lvnum < 1) return false;
-  for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
   {
     if (campaign.bonus_levels[i] == lvnum)
     {
-        SYNCDBG(7,"Level %d identified as bonus",lvnum);
+        SYNCDBG(7,"Level %" PRId64 " identified as bonus",(int64_t)(lvnum));
         return true;
     }
   }
-  SYNCDBG(7,"Level %d not recognized as bonus",lvnum);
+  SYNCDBG(7,"Level %" PRId64 " not recognized as bonus",(int64_t)(lvnum));
   return false;
 }
 
-short is_extra_level(LevelNumber lvnum)
+int64_t is_extra_level(LevelNumber lvnum)
 {
   if (lvnum < 1) return false;
-  for (int i = 0; i < EXTRA_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < EXTRA_LEVELS_COUNT; i++)
   {
       if (campaign.extra_levels[i] == lvnum)
       {
-          SYNCDBG(7,"Level %d identified as extra",lvnum);
+          SYNCDBG(7,"Level %" PRId64 " identified as extra",(int64_t)(lvnum));
           return true;
       }
   }
-  SYNCDBG(7,"Level %d not recognized as extra",lvnum);
+  SYNCDBG(7,"Level %" PRId64 " not recognized as extra",(int64_t)(lvnum));
   return false;
 }
 
@@ -2036,12 +2036,12 @@ short is_extra_level(LevelNumber lvnum)
  * Returns index for Game->bonus_levels associated with given single player level.
  * Gives -1 if there's no store place for the level.
  */
-int storage_index_for_bonus_level(LevelNumber bn_lvnum)
+int64_t storage_index_for_bonus_level(LevelNumber bn_lvnum)
 {
     if (bn_lvnum < 1)
         return -1;
-    int k = 0;
-    for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+    int64_t k = 0;
+    for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
     {
         if (campaign.bonus_levels[i] == bn_lvnum)
             return k;
@@ -2055,10 +2055,10 @@ int storage_index_for_bonus_level(LevelNumber bn_lvnum)
  * Returns index for Campaign->single_levels associated with given singleplayer level.
  * If the level is not found, returns -1.
  */
-int array_index_for_singleplayer_level(LevelNumber sp_lvnum)
+int64_t array_index_for_singleplayer_level(LevelNumber sp_lvnum)
 {
   if (sp_lvnum < 1) return -1;
-  for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
   {
     if (campaign.single_levels[i] == sp_lvnum)
         return i;
@@ -2072,7 +2072,7 @@ int array_index_for_singleplayer_level(LevelNumber sp_lvnum)
  */
 LevelNumber bonus_level_for_singleplayer_level(LevelNumber sp_lvnum)
 {
-    int i = array_index_for_singleplayer_level(sp_lvnum);
+    int64_t i = array_index_for_singleplayer_level(sp_lvnum);
     if (i >= 0)
         return campaign.bonus_levels[i];
     return 0;
@@ -2084,7 +2084,7 @@ LevelNumber bonus_level_for_singleplayer_level(LevelNumber sp_lvnum)
  */
 LevelNumber first_singleplayer_level(void)
 {
-    long lvnum = campaign.single_levels[0];
+    int64_t lvnum = campaign.single_levels[0];
     if (lvnum > 0)
         return lvnum;
     return SINGLEPLAYER_NOTSTARTED;
@@ -2096,7 +2096,7 @@ LevelNumber first_singleplayer_level(void)
  */
 LevelNumber last_singleplayer_level(void)
 {
-    int i = campaign.single_levels_count;
+    int64_t i = campaign.single_levels_count;
     if ((i > 0) && (i <= CAMPAIGN_LEVELS_COUNT))
         return campaign.single_levels[i - 1];
     return SINGLEPLAYER_NOTSTARTED;
@@ -2108,7 +2108,7 @@ LevelNumber last_singleplayer_level(void)
  */
 LevelNumber first_multiplayer_level(void)
 {
-  long lvnum = campaign.multi_levels[0];
+  int64_t lvnum = campaign.multi_levels[0];
   if (lvnum > 0)
     return lvnum;
   return SINGLEPLAYER_NOTSTARTED;
@@ -2120,9 +2120,9 @@ LevelNumber first_multiplayer_level(void)
  */
 LevelNumber first_extra_level(void)
 {
-    for (unsigned long lvidx = 0; lvidx < campaign.extra_levels_index; lvidx++)
+    for (uint64_t lvidx = 0; lvidx < campaign.extra_levels_index; lvidx++)
     {
-        long lvnum = campaign.extra_levels[lvidx];
+        int64_t lvnum = campaign.extra_levels[lvidx];
         if (lvnum > 0)
             return lvnum;
   }
@@ -2133,14 +2133,14 @@ LevelNumber first_extra_level(void)
  * Returns the extra level number. Gives SINGLEPLAYER_NOTSTARTED if no such level,
  * LEVELNUMBER_ERROR on error.
  */
-LevelNumber get_extra_level(unsigned short elv_kind)
+LevelNumber get_extra_level(int64_t elv_kind)
 {
-    int i = elv_kind;
+    int64_t i = elv_kind;
     i--;
     if ((i < 0) || (i >= EXTRA_LEVELS_COUNT))
         return LEVELNUMBER_ERROR;
     LevelNumber lvnum = campaign.extra_levels[i];
-    SYNCDBG(5, "Extra level kind %d has number %d", (int)elv_kind, lvnum);
+    SYNCDBG(5, "Extra level kind %" PRId64 " has number %" PRId64, (int64_t)elv_kind, (int64_t)(lvnum));
     if (lvnum > 0)
     {
         return lvnum;
@@ -2157,7 +2157,7 @@ LevelNumber next_singleplayer_level(LevelNumber sp_lvnum, TbBool ignore)
   if (sp_lvnum == SINGLEPLAYER_FINISHED) return SINGLEPLAYER_FINISHED;
   if (sp_lvnum == SINGLEPLAYER_NOTSTARTED) return first_singleplayer_level();
   if (sp_lvnum < 1) return LEVELNUMBER_ERROR;
-  int next_level;
+  int64_t next_level;
 
   if ((game_callbacks->get_intralvl_next_level() > 0) && !ignore)
   {
@@ -2166,18 +2166,18 @@ LevelNumber next_singleplayer_level(LevelNumber sp_lvnum, TbBool ignore)
       if (next_level < 0)
           return SINGLEPLAYER_FINISHED;
 
-      for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+      for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
       {
           if (campaign.single_levels[i] == next_level)
           {
               return next_level;
           }
       }
-      WARNLOG("Trying to jump to level %d that does not exist.", next_level);
+      WARNLOG("Trying to jump to level %" PRId64 " that does not exist.", (int64_t)(next_level));
       return LEVELNUMBER_ERROR;
   }
 
-  for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
   {
     if (campaign.single_levels[i] == sp_lvnum)
     {
@@ -2200,7 +2200,7 @@ LevelNumber prev_singleplayer_level(LevelNumber sp_lvnum)
   if (sp_lvnum == SINGLEPLAYER_NOTSTARTED) return SINGLEPLAYER_NOTSTARTED;
   if (sp_lvnum == SINGLEPLAYER_FINISHED) return last_singleplayer_level();
   if (sp_lvnum < 1) return LEVELNUMBER_ERROR;
-  for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
   {
     if (campaign.single_levels[i] == sp_lvnum)
     {
@@ -2223,7 +2223,7 @@ LevelNumber next_multiplayer_level(LevelNumber mp_lvnum)
   if (mp_lvnum == SINGLEPLAYER_FINISHED) return SINGLEPLAYER_FINISHED;
   if (mp_lvnum == SINGLEPLAYER_NOTSTARTED) return first_multiplayer_level();
   if (mp_lvnum < 1) return LEVELNUMBER_ERROR;
-  for (int i = 0; i < MULTI_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < MULTI_LEVELS_COUNT; i++)
   {
     if (campaign.multi_levels[i] == mp_lvnum)
     {
@@ -2246,7 +2246,7 @@ LevelNumber next_extra_level(LevelNumber ex_lvnum)
   if (ex_lvnum == SINGLEPLAYER_FINISHED) return SINGLEPLAYER_FINISHED;
   if (ex_lvnum == SINGLEPLAYER_NOTSTARTED) return first_extra_level();
   if (ex_lvnum < 1) return LEVELNUMBER_ERROR;
-  for (int i = 0; i < EXTRA_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < EXTRA_LEVELS_COUNT; i++)
   {
     if (campaign.extra_levels[i] == ex_lvnum)
     {
@@ -2267,7 +2267,7 @@ LevelNumber next_extra_level(LevelNumber ex_lvnum)
  * Returns if the level is a single player campaign level,
  * or special non-existing level at start/end of campaign.
  */
-short is_singleplayer_like_level(LevelNumber lvnum)
+int64_t is_singleplayer_like_level(LevelNumber lvnum)
 {
   if ((lvnum == SINGLEPLAYER_FINISHED) || (lvnum == SINGLEPLAYER_NOTSTARTED))
     return true;
@@ -2277,38 +2277,38 @@ short is_singleplayer_like_level(LevelNumber lvnum)
 /**
  * Returns if the level is a single player campaign level.
  */
-short is_singleplayer_level(LevelNumber lvnum)
+int64_t is_singleplayer_level(LevelNumber lvnum)
 {
   if (lvnum < 1)
   {
-    SYNCDBG(17,"Level index %d is not correct",lvnum);
+    SYNCDBG(17,"Level index %" PRId64 " is not correct",(int64_t)(lvnum));
     return false;
   }
-  for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
   {
     if (campaign.single_levels[i] == lvnum)
     {
-      SYNCDBG(17,"Level %d identified as SP",lvnum);
+      SYNCDBG(17,"Level %" PRId64 " identified as SP",(int64_t)(lvnum));
       return true;
     }
   }
-  SYNCDBG(17,"Level %d not recognized as SP",lvnum);
+  SYNCDBG(17,"Level %" PRId64 " not recognized as SP",(int64_t)(lvnum));
   return false;
 }
 
-short is_multiplayer_level(LevelNumber lvnum)
+int64_t is_multiplayer_level(LevelNumber lvnum)
 {
-  int i;
+  int64_t i;
   if (lvnum < 1) return false;
   for (i=0; i<CAMPAIGN_LEVELS_COUNT; i++)
   {
     if (campaign.multi_levels[i] == lvnum)
     {
-        SYNCDBG(17,"Level %d identified as MP",lvnum);
+        SYNCDBG(17,"Level %" PRId64 " identified as MP",(int64_t)(lvnum));
         return true;
     }
   }
-  SYNCDBG(17,"Level %d not recognized as MP",lvnum);
+  SYNCDBG(17,"Level %" PRId64 " not recognized as MP",(int64_t)(lvnum));
   return false;
 }
 
@@ -2317,7 +2317,7 @@ short is_multiplayer_level(LevelNumber lvnum)
  * All levels mentioned in campaign file are campaign levels. Campaign and
  * freeplay levels are exclusive.
  */
-short is_campaign_level(LevelNumber lvnum)
+int64_t is_campaign_level(LevelNumber lvnum)
 {
   if (is_singleplayer_level(lvnum) || is_bonus_level(lvnum)
    || is_extra_level(lvnum) || is_multiplayer_level(lvnum))
@@ -2329,18 +2329,18 @@ short is_campaign_level(LevelNumber lvnum)
  * Returns if the level is 'free play' level, which should be visible
  * in list of levels.
  */
-short is_freeplay_level(LevelNumber lvnum)
+int64_t is_freeplay_level(LevelNumber lvnum)
 {
   if (lvnum < 1) return false;
-  for (int i = 0; i < FREE_LEVELS_COUNT; i++)
+  for (int64_t i = 0; i < FREE_LEVELS_COUNT; i++)
   {
     if (campaign.freeplay_levels[i] == lvnum)
     {
-        SYNCDBG(18,"%d is freeplay",lvnum);
+        SYNCDBG(18,"%" PRId64 " is freeplay",(int64_t)(lvnum));
         return true;
     }
   }
-  SYNCDBG(18,"%d is NOT freeplay",lvnum);
+  SYNCDBG(18,"%" PRId64 " is NOT freeplay",(int64_t)(lvnum));
   return false;
 }
 
@@ -2353,7 +2353,7 @@ TbBool is_level_in_current_campaign(LevelNumber lvnum)
     {
         return false;
     }
-    for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+    for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
     {
         if (campaign.single_levels[i] == lvnum)
         {
@@ -2366,7 +2366,7 @@ TbBool is_level_in_current_campaign(LevelNumber lvnum)
 /* @comment
  *     The loading items of load_config and load_config_for_mod need to be consistent.
  */
-static void load_config_for_mod(const struct ConfigFileData* file_data, unsigned short flags, const struct ModConfigItem *mod_item)
+static void load_config_for_mod(const struct ConfigFileData* file_data, int64_t flags, const struct ModConfigItem *mod_item)
 {
     set_flag(flags, (CnfLd_AcceptPartial | CnfLd_IgnoreErrors));
 
@@ -2396,7 +2396,7 @@ static void load_config_for_mod(const struct ConfigFileData* file_data, unsigned
 
     if (mod_state->cmpg_lvls)
     {
-        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05d.%s", sim_feedback->get_selected_level_number(), conf_fname);
+        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(sim_feedback->get_selected_level_number()), conf_fname);
         if (fname && strlen(fname) > 0)
         {
             file_data->load_func(fname,flags);
@@ -2404,9 +2404,9 @@ static void load_config_for_mod(const struct ConfigFileData* file_data, unsigned
     }
 }
 
-static void load_config_for_mod_list(const struct ConfigFileData* file_data, unsigned short flags, const struct ModConfigItem *mod_items, long mod_cnt)
+static void load_config_for_mod_list(const struct ConfigFileData* file_data, int64_t flags, const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
-    for (long i=0; i<mod_cnt; i++)
+    for (int64_t i=0; i<mod_cnt; i++)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (mod_item->state.mod_dir == 0)
@@ -2419,7 +2419,7 @@ static void load_config_for_mod_list(const struct ConfigFileData* file_data, uns
 /* @comment
  *     The loading items of load_config and load_config_for_mod need to be consistent.
  */
-TbBool load_config(const struct ConfigFileData* file_data, unsigned short flags)
+TbBool load_config(const struct ConfigFileData* file_data, int64_t flags)
 {
     if (file_data->pre_load_func != NULL)
     {
@@ -2447,7 +2447,7 @@ TbBool load_config(const struct ConfigFileData* file_data, unsigned short flags)
         load_config_for_mod_list(file_data, flags, mods_conf.after_campaign_item, mods_conf.after_campaign_cnt);
     }
 
-    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05d.%s", sim_feedback->get_selected_level_number(), conf_fname);
+    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(sim_feedback->get_selected_level_number()), conf_fname);
     if (fname && strlen(fname) > 0)
     {
         file_data->load_func(fname,flags|CnfLd_AcceptPartial|CnfLd_IgnoreErrors);

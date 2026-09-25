@@ -15,7 +15,7 @@ TEST_CASE("the default render_overlay table's every stub is a safe no-op returni
     render_overlay->set_parchment_loaded(1);
     CHECK_FALSE(render_overlay->is_parchment_loaded());
     render_overlay->reload_parchment_file(true);
-    int32_t map_x, map_y;
+    int64_t map_x, map_y;
     CHECK_FALSE(render_overlay->point_to_overhead_map(nullptr, 0, 0, &map_x, &map_y));
 
     CHECK(render_overlay->get_main_menu_width() == 0);
@@ -50,7 +50,7 @@ TEST_CASE("the default render_overlay table's every stub is a safe no-op returni
 
     CHECK_FALSE(render_overlay->get_unpausing_in_progress());
     CHECK_FALSE(render_overlay->can_process_creature_input(nullptr));
-    long out_h = 0, out_v = 0, out_r = 0;
+    int64_t out_h = 0, out_v = 0, out_r = 0;
     render_overlay->process_first_person_look(nullptr, nullptr, 0, 0, &out_h, &out_v, &out_r);
     render_overlay->process_camera_controls(nullptr, nullptr, nullptr, false);
     render_overlay->process_camera_action(nullptr, nullptr);
@@ -73,7 +73,7 @@ TEST_CASE("the default render_overlay table's every stub is a safe no-op returni
     render_overlay->light_set_attached_slab(0, 0);
     render_overlay->delete_lights_attached_to_slab_in_area(0, 0, 0, 0, 0);
     CHECK_FALSE(render_overlay->get_lights_enabled());
-    CHECK(render_overlay->get_interpolate_time() == 0.0f);
+    CHECK(render_overlay->get_interpolate_time() == 0.0);
 }
 
 TEST_CASE("set_render_overlay_callbacks installs a custom table and falls back to the default once cleared", "[kfx_config][render_overlay]") {

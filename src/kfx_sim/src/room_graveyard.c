@@ -69,8 +69,8 @@ void reposition_all_bodies_in_room_on_subtile(struct Room *room, MapSubtlCoord s
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -106,7 +106,7 @@ TbBool recreate_repositioned_body_in_room_on_subtile(struct Room *room, MapSubtl
     if ((rrepos->used < 0) || (room->used_capacity >= room->total_capacity)) {
         return false;
     }
-    for (int ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
     {
         if (rrepos->models[ri] != 0)
         {
@@ -129,7 +129,7 @@ TbBool recreate_repositioned_body_in_room_on_subtile(struct Room *room, MapSubtl
     return false;
 }
 
-int check_bodies_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+int64_t check_bodies_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
@@ -138,9 +138,9 @@ int check_bodies_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCo
     if ((roomst->storage_height >= 0) && (get_map_floor_filled_subtiles(mapblk) != roomst->storage_height)) {
         return -1; // re-create all
     }
-    int matching_things_at_subtile = 0;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t matching_things_at_subtile = 0;
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -156,7 +156,7 @@ int check_bodies_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCo
             // If exceeded capacity of the room
             if (room->used_capacity >= room->total_capacity)
             {
-                WARNLOG("The %s capacity %d exceeded; space used is %d",room_code_name(room->kind),(int)room->total_capacity,(int)room->used_capacity);
+                WARNLOG("The %s capacity %" PRId64 " exceeded; space used is %" PRId64,room_code_name(room->kind),(int64_t)room->total_capacity,(int64_t)room->used_capacity);
                 return -1; // re-create all (this could save the object if there are duplicates)
             } else
             // If the thing is in wall, remove it but store to re-create later
@@ -182,10 +182,10 @@ int check_bodies_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCo
 
 void count_and_reposition_bodies_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
 {
-    int matching_things_at_subtile = check_bodies_on_subtile_for_reposition_in_room(room, stl_x, stl_y);
+    int64_t matching_things_at_subtile = check_bodies_on_subtile_for_reposition_in_room(room, stl_x, stl_y);
     if (matching_things_at_subtile > 0) {
         // This subtile contains bodies
-        SYNCDBG(19,"Got %d matching things at (%d,%d)",(int)matching_things_at_subtile,(int)stl_x,(int)stl_y);
+        SYNCDBG(19,"Got %" PRId64 " matching things at (%" PRId64 ",%" PRId64 ")",(int64_t)matching_things_at_subtile,(int64_t)stl_x,(int64_t)stl_y);
         room->used_capacity += matching_things_at_subtile;
     } else
     {
@@ -215,21 +215,21 @@ void count_bodies_in_room(struct Room *room)
     struct RoomReposition rrepos;
     init_reposition_struct(&rrepos);
     // Making two loops guarantees that no rrepos things will be lost
-    for (long n = 0; n < 2; n++)
+    for (int64_t n = 0; n < 2; n++)
     {
         // The correct count should be taken from last sweep
         room->used_capacity = 0;
         //room->capacity_used_for_storage = 0;
-        unsigned long k = 0;
-        unsigned long i = room->slabs_list;
+        uint64_t k = 0;
+        uint64_t i = room->slabs_list;
         while (i > 0)
         {
             MapSlabCoord slb_x = slb_num_decode_x(i);
             MapSlabCoord slb_y = slb_num_decode_y(i);
             // Per-slab code
-            for (long dy = 0; dy < STL_PER_SLB; dy++)
+            for (int64_t dy = 0; dy < STL_PER_SLB; dy++)
             {
-                for (long dx = 0; dx < STL_PER_SLB; dx++)
+                for (int64_t dx = 0; dx < STL_PER_SLB; dx++)
                 {
                     count_and_reposition_bodies_in_room_on_subtile(room, slab_subtile(slb_x,dx), slab_subtile(slb_y,dy), &rrepos);
                 }
@@ -249,8 +249,8 @@ void count_bodies_in_room(struct Room *room)
             break;
     }
     if (rrepos.used > 0) {
-        ERRORLOG("The %s index %d capacity %d wasn't enough; %d items belonging to player %d dropped",
-          room_code_name(room->kind),(int)room->index,(int)room->total_capacity,(int)rrepos.used,(int)room->owner);
+        ERRORLOG("The %s index %" PRId64 " capacity %" PRId64 " wasn't enough; %" PRId64 " items belonging to player %" PRId64 " dropped",
+          room_code_name(room->kind),(int64_t)room->index,(int64_t)room->total_capacity,(int64_t)rrepos.used,(int64_t)room->owner);
     }
 }
 

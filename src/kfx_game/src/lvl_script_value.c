@@ -59,11 +59,11 @@ extern const struct CommandDesc dk1_command_desc[];
  * @param criteria Criteria, from CreatureSelectCriteria enumeration.
  * @return True if a creature was found and killed.
  */
-TbBool script_kill_creature_with_criteria(PlayerNumber plyr_idx, long crmodel, long criteria)
+TbBool script_kill_creature_with_criteria(PlayerNumber plyr_idx, int64_t crmodel, int64_t criteria)
 {
     struct Thing *thing = script_get_creature_by_criteria(plyr_idx, crmodel, criteria);
     if (thing_is_invalid(thing)) {
-        SYNCDBG(5,"No matching player %d creature of model %d (%s) found to kill",(int)plyr_idx,(int)crmodel, creature_code_name(crmodel));
+        SYNCDBG(5,"No matching player %" PRId64 " creature of model %" PRId64 " (%s) found to kill",(int64_t)plyr_idx,(int64_t)crmodel, creature_code_name(crmodel));
         return false;
     }
     kill_creature(thing, INVALID_THING, -1, CrDed_NoUnconscious);
@@ -77,11 +77,11 @@ TbBool script_kill_creature_with_criteria(PlayerNumber plyr_idx, long crmodel, l
  * @param criteria Criteria, from CreatureSelectCriteria enumeration.
  * @return True if a creature was found and changed owner.
  */
-TbBool script_change_creature_owner_with_criteria(PlayerNumber origin_plyr_idx, long crmodel, long criteria, PlayerNumber dest_plyr_idx)
+TbBool script_change_creature_owner_with_criteria(PlayerNumber origin_plyr_idx, int64_t crmodel, int64_t criteria, PlayerNumber dest_plyr_idx)
 {
     struct Thing *thing = script_get_creature_by_criteria(origin_plyr_idx, crmodel, criteria);
     if (thing_is_invalid(thing)) {
-        SYNCDBG(5,"No matching player %d creature of model %d (%s) found to kill",(int)origin_plyr_idx,(int)crmodel, creature_code_name(crmodel));
+        SYNCDBG(5,"No matching player %" PRId64 " creature of model %" PRId64 " (%s) found to kill",(int64_t)origin_plyr_idx,(int64_t)crmodel, creature_code_name(crmodel));
         return false;
     }
     if (is_thing_some_way_controlled(thing))
@@ -93,10 +93,10 @@ TbBool script_change_creature_owner_with_criteria(PlayerNumber origin_plyr_idx, 
     return true;
 }
 
-void script_kill_creatures(PlayerNumber plyr_idx, long crmodel, long criteria, long copies_num)
+void script_kill_creatures(PlayerNumber plyr_idx, int64_t crmodel, int64_t criteria, int64_t copies_num)
 {
-    SYNCDBG(3,"Killing %d of %s owned by player %d.",(int)copies_num,creature_code_name(crmodel),(int)plyr_idx);
-    for (long i = 0; i < copies_num; i++)
+    SYNCDBG(3,"Killing %" PRId64 " of %s owned by player %" PRId64 ".",(int64_t)copies_num,creature_code_name(crmodel),(int64_t)plyr_idx);
+    for (int64_t i = 0; i < copies_num; i++)
     {
         script_kill_creature_with_criteria(plyr_idx, crmodel, criteria);
     }
@@ -109,11 +109,11 @@ void script_kill_creatures(PlayerNumber plyr_idx, long crmodel, long criteria, l
  * @param criteria Criteria, from CreatureSelectCriteria enumeration.
  * @return True if a creature was found and leveled.
  */
-TbBool script_level_up_creature(PlayerNumber plyr_idx, long crmodel, long criteria, int count)
+TbBool script_level_up_creature(PlayerNumber plyr_idx, int64_t crmodel, int64_t criteria, int64_t count)
 {
     struct Thing *thing = script_get_creature_by_criteria(plyr_idx, crmodel, criteria);
     if (thing_is_invalid(thing)) {
-        SYNCDBG(5,"No matching player %d creature of model %d (%s) found to level up",(int)plyr_idx,(int)crmodel, creature_code_name(crmodel));
+        SYNCDBG(5,"No matching player %" PRId64 " creature of model %" PRId64 " (%s) found to level up",(int64_t)plyr_idx,(int64_t)crmodel, creature_code_name(crmodel));
         return false;
     }
     creature_change_multiple_levels(thing,count);
@@ -125,17 +125,17 @@ TbBool script_level_up_creature(PlayerNumber plyr_idx, long crmodel, long criter
  * This processes given script command. It is used to process VALUEs at start when they have
  * no conditions, or during the gameplay when conditions are met.
  */
-void script_process_value(unsigned long var_index, unsigned long plr_range_id, long param1, long param2, long param3, struct ScriptValue *value)
+void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3, struct ScriptValue *value)
 {
   struct CreatureModelConfig *crconf;
   struct PlayerInfo *player;
   struct Dungeon *dungeon;
-  int plr_start;
-  int plr_end;
-  long i;
+  int64_t plr_start;
+  int64_t plr_end;
+  int64_t i;
   if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0)
   {
-      WARNLOG("Invalid player range %d in VALUE command %d.",(int)plr_range_id,(int)var_index);
+      WARNLOG("Invalid player range %" PRId64 " in VALUE command %" PRId64 ".",(int64_t)plr_range_id,(int64_t)var_index);
       return;
   }
   //TODO: split and make indexed by var_index
@@ -145,7 +145,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
           break;
   if (desc == NULL)
   {
-      WARNLOG("Unexpected index:%lu", var_index);
+      WARNLOG("Unexpected index:%" PRIu64, (uint64_t)(var_index));
       return;
   }
   if (desc->process_fn)
@@ -174,7 +174,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       for (i=plr_start; i < plr_end; i++)
       {
           if (!set_creature_available(i,param1,param2,param3)) {
-              WARNLOG("Setting creature %s availability for player %d failed.",creature_code_name(param1),(int)i);
+              WARNLOG("Setting creature %s availability for player %" PRId64 " failed.",creature_code_name(param1),(int64_t)i);
           }
       }
       break;
@@ -182,7 +182,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       for (i=plr_start; i < plr_end; i++)
       {
           if (!set_power_available(i,param1,param2,param3)) {
-              WARNLOG("Setting power %s availability for player %d failed.",power_code_name(param1),(int)i);
+              WARNLOG("Setting power %s availability for player %" PRId64 " failed.",power_code_name(param1),(int64_t)i);
           }
       }
       break;
@@ -190,7 +190,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       for (i=plr_start; i < plr_end; i++)
       {
           if (!set_trap_buildable_and_add_to_amount(i, param1, param2, param3)) {
-              WARNLOG("Setting trap %s availability for player %d failed.",trap_code_name(param1),(int)i);
+              WARNLOG("Setting trap %s availability for player %" PRId64 " failed.",trap_code_name(param1),(int64_t)i);
           }
       }
       break;
@@ -198,7 +198,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       for (i=plr_start; i < plr_end; i++)
       {
           if (!update_or_add_players_research_amount(i, param1, param2, param3)) {
-              WARNLOG("Updating research points for type %d kind %d of player %d failed.",(int)param1,(int)param2,(int)i);
+              WARNLOG("Updating research points for type %" PRId64 " kind %" PRId64 " of player %" PRId64 " failed.",(int64_t)param1,(int64_t)param2,(int64_t)i);
           }
       }
       break;
@@ -231,7 +231,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
   case Cmd_MAX_CREATURES:
       for (i=plr_start; i < plr_end; i++)
       {
-          SYNCDBG(4,"Setting player %d max attracted creatures to %d.",(int)i,(int)param1);
+          SYNCDBG(4,"Setting player %" PRId64 " max attracted creatures to %" PRId64 ".",(int64_t)i,(int64_t)param1);
           dungeon = get_dungeon(i);
           if (dungeon_invalid(dungeon))
               continue;
@@ -602,7 +602,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
           }
           break;
       default:
-          SCRPTERRLOG("Unknown creature property '%ld'", param2);
+          SCRPTERRLOG("Unknown creature property '%" PRId64 "'", (int64_t)(param2));
           break;
       }
       break;
@@ -646,7 +646,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
           if (param1 > SENSIBLE_GOLD)
           {
               param1 = SENSIBLE_GOLD;
-              SCRPTWRNLOG("Gold added to player %d reduced to %d", (int)plr_range_id, SENSIBLE_GOLD);
+              SCRPTWRNLOG("Gold added to player %" PRId64 " reduced to %" PRId64, (int64_t)plr_range_id, (int64_t)(SENSIBLE_GOLD));
           }
           if (param1 >= 0)
           {
@@ -727,7 +727,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
     case Cmd_USE_SPECIAL_MULTIPLY_CREATURES:
       for (i=plr_start; i < plr_end; i++)
       {
-          for (int count = 0; count < param1; count++)
+          for (int64_t count = 0; count < param1; count++)
           {
             script_use_special_multiply_creatures(i);
           }
@@ -770,7 +770,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
   case Cmd_EXPORT_VARIABLE:
       for (i=plr_start; i < plr_end; i++)
       {
-          SYNCDBG(8, "Setting campaign flag[%ld][%ld] to %ld.", i, param3, get_condition_value(i, param1, param2));
+          SYNCDBG(8, "Setting campaign flag[%" PRId64 "][%" PRId64 "] to %" PRId64 ".", (int64_t)(i), (int64_t)(param3), (int64_t)(get_condition_value(i, param1, param2)));
           intralvl.campaign_flags[i][param3] = get_condition_value(i, param1, param2);
       }
       break;
@@ -805,7 +805,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       {
           if (param2 == 0)
           {
-              long current_flag_val = get_condition_value(i, param3, param1);
+              int64_t current_flag_val = get_condition_value(i, param3, param1);
               set_variable(i, param3, param1, GAME_RANDOM(current_flag_val) + 1);
           }
           else
@@ -816,36 +816,36 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       break;
   case Cmd_COMPUTE_FLAG:
       {
-        long src_plr_range = (param1 >> 24) & 255;
-        long operation = (param1 >> 16) & 255;
+        int64_t src_plr_range = (param1 >> 24) & 255;
+        int64_t operation = (param1 >> 16) & 255;
         unsigned char flag_type = (param1 >> 8) & 255;
         unsigned char src_flag_type = param1 & 255;
-        int src_plr_start, src_plr_end;
+        int64_t src_plr_start, src_plr_end;
         if (get_players_range(src_plr_range, &src_plr_start, &src_plr_end) < 0)
         {
-            WARNLOG("Invalid player range %d in VALUE command %d.",(int)src_plr_range,(int)var_index);
+            WARNLOG("Invalid player range %" PRId64 " in VALUE command %" PRId64 ".",(int64_t)src_plr_range,(int64_t)var_index);
             return;
         }
-        long sum = 0;
+        int64_t sum = 0;
         for (i=src_plr_start; i < src_plr_end; i++)
         {
             sum += get_condition_value(i, src_flag_type, param3);
         }
         for (i=plr_start; i < plr_end; i++)
         {
-            long current_flag_val = get_condition_value(i, flag_type, param2);
-            long computed = sum;
+            int64_t current_flag_val = get_condition_value(i, flag_type, param2);
+            int64_t computed = sum;
             if (operation == SOpr_INCREASE) computed = current_flag_val + sum;
             if (operation == SOpr_DECREASE) computed = current_flag_val - sum;
             if (operation == SOpr_MULTIPLY) computed = current_flag_val * sum;
-            SCRIPTDBG(7,"Changing player%ld's %ld flag from %ld to %ld based on flag of type %u.",
-                i, param2, current_flag_val, computed, src_flag_type);
+            SCRIPTDBG(7,"Changing player%" PRId64 "'s %" PRId64 " flag from %" PRId64 " to %" PRId64 " based on flag of type %" PRIu64 ".",
+                (int64_t)(i), (int64_t)(param2), (int64_t)(current_flag_val), (int64_t)(computed), (uint64_t)(src_flag_type));
             set_variable(i, flag_type, param2, computed);
         }
       }
       break;
   default:
-      WARNMSG("Unsupported Game VALUE, command %lu.",var_index);
+      WARNMSG("Unsupported Game VALUE, command %" PRIu64 ".",(uint64_t)(var_index));
       break;
   }
 }

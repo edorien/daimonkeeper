@@ -57,12 +57,12 @@ namespace {
 // fake's own get_map_size_x/y and kfx_pathfinding_state's navigation_map_size
 // -- see file header for why the two must agree.
 struct TriangulationFixture : GridWorldFixture {
-    static constexpr int kLogicalSize = 8;
+    static constexpr int64_t kLogicalSize = 8;
     TriangulationFixture() {
         grid.size_x = kLogicalSize;
         grid.size_y = kLogicalSize;
-        for (int y = 0; y < kLogicalSize; y++) {
-            for (int x = 0; x < kLogicalSize; x++) {
+        for (int64_t y = 0; y < kLogicalSize; y++) {
+            for (int64_t x = 0; x < kLogicalSize; x++) {
                 grid.at(x, y).floor_filled_subtiles = 1;
                 grid.at(x, y).unsafe = false;
                 grid.at(x, y).map_flags = 0;
@@ -80,13 +80,13 @@ TEST_CASE("ariadne_set_navigation_map_size/ariadne_reset_navigation_map round-tr
     CHECK(kfx_pathfinding_state.navigation_map_size_y == 2);
 
     // Poison the sized-in area plus one cell just past it.
-    for (int i = 0; i < 3 * 2; i++) {
+    for (int64_t i = 0; i < 3 * 2; i++) {
         kfx_pathfinding_state.navigation_map[i] = 0xAA;
     }
     kfx_pathfinding_state.navigation_map[3 * 2] = 0xBB; // outside the sized area
 
     ariadne_reset_navigation_map();
-    for (int i = 0; i < 3 * 2; i++) {
+    for (int64_t i = 0; i < 3 * 2; i++) {
         CHECK(kfx_pathfinding_state.navigation_map[i] == 0);
     }
     // Reset only clears cells within navigation_map_size_x*_y -- this
@@ -106,7 +106,7 @@ TEST_CASE("ariadne_is_map_dirty_for_navigation/_mark/_clear round-trip the dirty
 }
 
 TEST_CASE_METHOD(TriangulationFixture, "init_navigation triangulates a small uniform open-floor map without error", "[kfx_pathfinding][ariadne_update][triangulation]") {
-    long result = init_navigation();
+    int64_t result = init_navigation();
 
     CHECK(result == 1);
     CHECK(kfx_pathfinding_state.map_changed_for_navigation == 1);
@@ -142,8 +142,8 @@ TEST_CASE_METHOD(TriangulationFixture, "update_navigation_triangulation re-trian
 
     // Raise the floor in a small sub-area -- changes that area's nav
     // colour, which update_navigation_triangulation must detect.
-    for (int y = 3; y <= 5; y++) {
-        for (int x = 3; x <= 5; x++) {
+    for (int64_t y = 3; y <= 5; y++) {
+        for (int64_t x = 3; x <= 5; x++) {
             grid.at(x, y).floor_filled_subtiles = 4;
         }
     }
@@ -153,7 +153,7 @@ TEST_CASE_METHOD(TriangulationFixture, "update_navigation_triangulation re-trian
     CHECK(kfx_pathfinding_state.map_changed_for_navigation == 1);
     // navmap_tile_number() itself is a private #define in ariadne_update.c
     // (not exposed via any header) -- reproduced here rather than faked.
-    long idx = 4 * kfx_pathfinding_state.navigation_map_size_x + 4;
+    int64_t idx = 4 * kfx_pathfinding_state.navigation_map_size_x + 4;
     CHECK(kfx_pathfinding_state.navigation_map[idx] == 4);
 }
 

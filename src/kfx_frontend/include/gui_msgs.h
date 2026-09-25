@@ -39,7 +39,7 @@ extern "C" {
 struct GuiMessage_OLD { // sizeof = 0x45 (69)
     char text[64];
 PlayerNumber plyr_idx;
-unsigned long expiration_turn;
+uint64_t expiration_turn;
 };
 
 #pragma pack()
@@ -48,16 +48,16 @@ void message_update(void);
 void message_draw(void);
 // Phase 3: panel-sprite index for message i's icon (colour-remapped where
 // the type needs it), -1 for none -- for the ImGui message overlay.
-short message_icon_spridx(int i);
+int64_t message_icon_spridx(int64_t i);
 void zero_messages(void);
-void message_add(char type, short idx, const char *text);
-void message_add_custom_icon(short icon_idx, const char *text);
-void message_add_fmt(char type, short idx, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
-void show_game_time_taken(unsigned long fps, unsigned long turns);
+void message_add(char type, int64_t idx, const char *text);
+void message_add_custom_icon(int64_t icon_idx, const char *text);
+void message_add_fmt(char type, int64_t idx, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
+void show_game_time_taken(uint64_t fps, uint64_t turns);
 void show_real_time_taken(void);
 void clear_messages_from_player(char type, PlayerNumber plyr_idx);
 void delete_message(unsigned char msg_idx);
-void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *fmt_str, ...) KFX_PRINTF_FORMAT(5, 6);
+void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *fmt_str, ...) KFX_PRINTF_FORMAT(5, 6);
 /******************************************************************************/
 #ifdef __cplusplus
 }

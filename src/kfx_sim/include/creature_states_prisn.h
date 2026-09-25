@@ -35,10 +35,10 @@ struct Room;
 #pragma pack()
 /******************************************************************************/
 TbBool jailbreak_possible(struct Room *room, PlayerNumber creature_owner);
-short cleanup_prison(struct Thing *thing);
-short creature_arrived_at_prison(struct Thing *thing);
-short creature_drop_body_in_prison(struct Thing *thing);
-short creature_freeze_prisoners(struct Thing *thing);
+int64_t cleanup_prison(struct Thing *thing);
+int64_t creature_arrived_at_prison(struct Thing *thing);
+int64_t creature_drop_body_in_prison(struct Thing *thing);
+int64_t creature_freeze_prisoners(struct Thing *thing);
 CrStateRet creature_in_prison(struct Thing *thing);
 CrCheckRet process_prison_function(struct Thing *thing);
 /******************************************************************************/

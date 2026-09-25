@@ -31,7 +31,7 @@ namespace {
 #endif
 #pragma pack(0)
 
-using offset_list = std::vector<std::pair<uint32_t, size_t>>;
+using offset_list = std::vector<std::pair<uint64_t, size_t>>;
 
 bool load_index_file(TbSpriteSheet & sheet, offset_list & offsets, const char * filename)
 {
@@ -113,7 +113,7 @@ extern "C" void free_spritesheet(TbSpriteSheet ** sheet)
     }
 }
 
-extern "C" const TbSprite * get_sprite(const TbSpriteSheet * sheet, const long index)
+extern "C" const TbSprite * get_sprite(const TbSpriteSheet * sheet, const int64_t index)
 {
     if (!sheet) {
         return NULL;
@@ -124,9 +124,9 @@ extern "C" const TbSprite * get_sprite(const TbSpriteSheet * sheet, const long i
 }
 
 #ifdef SPRITE_FORMAT_V2
-extern "C" TbBool add_sprite(TbSpriteSheet * sheet, unsigned short width, unsigned short height, int size, const void * data)
+extern "C" TbBool add_sprite(TbSpriteSheet * sheet, int64_t width, int64_t height, int64_t size, const void * data)
 #else
-extern "C" TbBool add_sprite(TbSpriteSheet * sheet, unsigned char width, unsigned char height, int size, const void * data)
+extern "C" TbBool add_sprite(TbSpriteSheet * sheet, unsigned char width, unsigned char height, int64_t size, const void * data)
 #endif
 {
     try {
@@ -144,7 +144,7 @@ extern "C" TbBool add_sprite(TbSpriteSheet * sheet, unsigned char width, unsigne
     return false;
 }
 
-extern "C" long num_sprites(const TbSpriteSheet * sheet)
+extern "C" int64_t num_sprites(const TbSpriteSheet * sheet)
 {
     if (!sheet) {
         return 0;

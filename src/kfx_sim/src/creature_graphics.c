@@ -60,7 +60,7 @@ struct KeeperSprite creature_table_add[SIM_KEEPERSPRITE_ADD_NUM] = {
 };
 
 /******************************************************************************/
-static const unsigned short creature_list[CREATURE_FRAMELIST_LENGTH] = {
+static const int64_t creature_list[CREATURE_FRAMELIST_LENGTH] = {
     0, 30, 60, 65, 70, 95, 120, 125, 130, 134, 138, 140,
     142, 148, 154, 158, 162, 169, 176, 191, 206, 214, 222,
     232, 242, 272, 302, 307, 312, 337, 362, 367, 372, 376,
@@ -181,7 +181,7 @@ struct PickedUpOffset *get_creature_picked_up_offset(struct Thing *thing)
     return &crconf->creature_picked_up_offset;
 }
 
-unsigned char keepersprite_frames(unsigned short n)
+unsigned char keepersprite_frames(int64_t n)
 {
     if (n >= SIM_KEEPERSPRITE_ADD_OFFSET && n < SIM_KEEPERSPRITE_ADD_OFFSET + SIM_KEEPERSPRITE_ADD_NUM)
     {
@@ -189,17 +189,17 @@ unsigned char keepersprite_frames(unsigned short n)
     }
     if (n < CREATURE_FRAMELIST_LENGTH)
     {
-        const unsigned short i = creature_list[n];
+        const int64_t i = creature_list[n];
         if (i < creature_table_length)
         {
             return creature_table[i].FramesCount;
         }
     }
-    ERRORLOG("Frame %u out of range", n);
+    ERRORLOG("Frame %" PRIu64 " out of range", (uint64_t)(n));
     return 0;
 }
 
-unsigned char keepersprite_rotable(unsigned short n)
+unsigned char keepersprite_rotable(int64_t n)
 {
     if (n >= SIM_KEEPERSPRITE_ADD_OFFSET && n < SIM_KEEPERSPRITE_ADD_OFFSET + SIM_KEEPERSPRITE_ADD_NUM)
     {
@@ -207,17 +207,17 @@ unsigned char keepersprite_rotable(unsigned short n)
     }
     if (n < CREATURE_FRAMELIST_LENGTH)
     {
-        const unsigned short i = creature_list[n];
+        const int64_t i = creature_list[n];
         if (i < creature_table_length)
         {
             return creature_table[i].Rotable;
         }
     }
-    ERRORLOG("Frame %u out of range", n);
+    ERRORLOG("Frame %" PRIu64 " out of range", (uint64_t)(n));
     return 0;
 }
 
-struct KeeperSprite * keepersprite_array(unsigned short n)
+struct KeeperSprite * keepersprite_array(int64_t n)
 {
     if (n >= SIM_KEEPERSPRITE_ADD_OFFSET && n < SIM_KEEPERSPRITE_ADD_OFFSET + SIM_KEEPERSPRITE_ADD_NUM)
     {
@@ -225,17 +225,17 @@ struct KeeperSprite * keepersprite_array(unsigned short n)
     }
     if (n < CREATURE_FRAMELIST_LENGTH)
     {
-        const unsigned short i = creature_list[n];
+        const int64_t i = creature_list[n];
         if (i < creature_table_length)
         {
             return &creature_table[i];
         }
     }
-    ERRORLOG("Frame %u out of range", n);
+    ERRORLOG("Frame %" PRIu64 " out of range", (uint64_t)(n));
     return NULL;
 }
 
-unsigned long keepersprite_index(unsigned short n)
+uint64_t keepersprite_index(int64_t n)
 {
     if (n >= SIM_KEEPERSPRITE_ADD_OFFSET && n < SIM_KEEPERSPRITE_ADD_OFFSET + SIM_KEEPERSPRITE_ADD_NUM)
     {
@@ -245,21 +245,21 @@ unsigned long keepersprite_index(unsigned short n)
     {
         return creature_list[n];
     }
-    ERRORLOG("Frame %u out of range", n);
+    ERRORLOG("Frame %" PRIu64 " out of range", (uint64_t)(n));
     return 0;
 }
 
-long get_lifespan_of_animation(long ani, long speed)
+int64_t get_lifespan_of_animation(int64_t ani, int64_t speed)
 {
     if (speed == 0)
     {
-        WARNLOG("Animation %ld has no speed value", ani);
+        WARNLOG("Animation %" PRId64 " has no speed value", (int64_t)(ani));
         return keepersprite_frames(ani);
     }
     return (keepersprite_frames(ani) << 8) / speed;
 }
 
-static struct KeeperSprite* sprite_by_frame(long kspr_frame)
+static struct KeeperSprite* sprite_by_frame(int64_t kspr_frame)
 {
     if (kspr_frame >= SIM_KEEPERSPRITE_ADD_OFFSET &&  kspr_frame < SIM_KEEPERSPRITE_ADD_OFFSET + SIM_KEEPERSPRITE_ADD_NUM)
     {
@@ -267,29 +267,29 @@ static struct KeeperSprite* sprite_by_frame(long kspr_frame)
     }
     if (kspr_frame >= 0 && kspr_frame < CREATURE_FRAMELIST_LENGTH)
     {
-        const unsigned short i = creature_list[kspr_frame];
+        const int64_t i = creature_list[kspr_frame];
         if (i < creature_table_length) {
             return &creature_table[i];
         }
     }
-    ERRORLOG("Frame %ld out of range", kspr_frame);
+    ERRORLOG("Frame %" PRId64 " out of range", (int64_t)(kspr_frame));
     return NULL;
 }
 
-void get_keepsprite_unscaled_dimensions(long kspr_anim, long angle, long frame, short *orig_w, short *orig_h, short *unsc_w, short *unsc_h)
+void get_keepsprite_unscaled_dimensions(int64_t kspr_anim, int64_t angle, int64_t frame, int64_t *orig_w, int64_t *orig_h, int64_t *unsc_w, int64_t *unsc_h)
 {
     TbBool val_in_range;
     struct KeeperSprite* kspr = sprite_by_frame(kspr_anim);
     if (kspr == NULL)
     {
-        ERRORLOG("[md10 crash investigation] NULL sprite returned for anim=%ld angle=%ld frame=%ld", kspr_anim, angle, frame);
+        ERRORLOG("[md10 crash investigation] NULL sprite returned for anim=%" PRId64 " angle=%" PRId64 " frame=%" PRId64, (int64_t)(kspr_anim), (int64_t)(angle), (int64_t)(frame));
         *orig_w = 0;
         *orig_h = 0;
         *unsc_w = 0;
         *unsc_h = 0;
         return;
     }
-    int32_t frames = kspr->FramesCount;
+    int64_t frames = kspr->FramesCount;
     if (frames <= 0) {
         *orig_w = 0;
         *orig_h = 0;
@@ -317,7 +317,7 @@ void get_keepsprite_unscaled_dimensions(long kspr_anim, long angle, long frame, 
         *orig_h = kspr->FrameHeight;
         if ( val_in_range )
         {
-          *unsc_w = *orig_w - (long)kspr->SWidth - (long)kspr->FrameOffsW;
+          *unsc_w = *orig_w - (int64_t)kspr->SWidth - (int64_t)kspr->FrameOffsW;
           *unsc_h = kspr->FrameOffsH;
         }
         else
@@ -328,12 +328,12 @@ void get_keepsprite_unscaled_dimensions(long kspr_anim, long angle, long frame, 
     }
     else if (kspr->Rotable == 2)
     {
-        kspr += frame + abs(4 - (((angle + DEGREES_22_5) & ANGLE_MASK) >> 8)) * kspr->FramesCount;
+        kspr += frame + llabs(4 - (((angle + DEGREES_22_5) & ANGLE_MASK) >> 8)) * kspr->FramesCount;
         *orig_w = kspr->SWidth;
         *orig_h = kspr->SHeight;
         if ( val_in_range )
         {
-          *unsc_w = (long)kspr->FrameWidth - (long)kspr->FrameOffsW - *orig_w;
+          *unsc_w = (int64_t)kspr->FrameWidth - (int64_t)kspr->FrameOffsW - *orig_w;
           *unsc_h = kspr->FrameOffsH;
         }
         else
@@ -346,16 +346,16 @@ void get_keepsprite_unscaled_dimensions(long kspr_anim, long angle, long frame, 
     *unsc_h += kspr->offset_y;
 }
 
-short get_creature_model_graphics(long crmodel, unsigned short seq_idx)
+int64_t get_creature_model_graphics(int64_t crmodel, int64_t seq_idx)
 {
     if (seq_idx >= CREATURE_GRAPHICS_INSTANCES)
     {
-        ERRORLOG("Invalid model %ld graphics sequence %u", crmodel, seq_idx);
+        ERRORLOG("Invalid model %" PRId64 " graphics sequence %" PRIu64, (int64_t)(crmodel), (uint64_t)(seq_idx));
         seq_idx = 0;
     }
     if ((crmodel < 0) || (crmodel >= kfx_config_state.conf.crtr_conf.model_count))
     {
-        ERRORLOG("Invalid model %ld graphics sequence %u", crmodel, seq_idx);
+        ERRORLOG("Invalid model %" PRId64 " graphics sequence %" PRIu64, (int64_t)(crmodel), (uint64_t)(seq_idx));
         crmodel = 0;
     }
     // Backward compatibility for custom creatures. Use the attack animation if the extra animation is undefined, return 0 if the attack animation is also undefined.
@@ -370,9 +370,9 @@ short get_creature_model_graphics(long crmodel, unsigned short seq_idx)
     return kfx_config_state.conf.crtr_conf.creature_graphics[crmodel][seq_idx];
 }
 
-short get_creature_anim(struct Thing *thing, unsigned short seq_idx)
+int64_t get_creature_anim(struct Thing *thing, int64_t seq_idx)
 {
-    short idx = get_creature_model_graphics(thing->model, seq_idx);
+    int64_t idx = get_creature_model_graphics(thing->model, seq_idx);
     return sim_feedback->get_td_animation_sprite(idx);
 }
 
@@ -391,9 +391,9 @@ void tint_thing(struct Thing *thing, unsigned char colour, unsigned char tint)
     thing->tint_colour = colour;
 }
 
-TbBool update_creature_anim(struct Thing *thing, long speed, long seq_idx)
+TbBool update_creature_anim(struct Thing *thing, int64_t speed, int64_t seq_idx)
 {
-    unsigned long i = get_creature_anim(thing, seq_idx);
+    uint64_t i = get_creature_anim(thing, seq_idx);
     // Only update when it's a different sprite, or a different animation speed.
     if (i != thing->anim_sprite)
     {
@@ -408,9 +408,9 @@ TbBool update_creature_anim(struct Thing *thing, long speed, long seq_idx)
     return false;
 }
 
-TbBool update_creature_animation_by_sprite(struct Thing *thing, long speed, long anim_idx)
+TbBool update_creature_animation_by_sprite(struct Thing *thing, int64_t speed, int64_t anim_idx)
 {
-    unsigned long i = sim_feedback->get_td_animation_sprite(anim_idx);
+    uint64_t i = sim_feedback->get_td_animation_sprite(anim_idx);
     // Only update when it's a different sprite, or a different animation speed.
     if ((i != thing->anim_sprite) || ((speed != thing->anim_speed) && (speed != -1)))
     {
@@ -468,7 +468,7 @@ void update_creature_rendering_flags(struct Thing *thing)
 
 void update_creature_graphic_anim(struct Thing *thing)
 {
-    long i;
+    int64_t i;
 
     TRACE_THING(thing);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
@@ -536,12 +536,12 @@ void update_creature_graphic_anim(struct Thing *thing)
         } else
         if (!thing_touching_floor(thing))
         {
-            i = (((long)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed + 1);
+            i = (((int64_t)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed + 1);
             update_creature_anim(thing, i, CGI_Stand);
         } else
         if ((cctrl->dragtng_idx != 0) && (thing_get(cctrl->dragtng_idx)->state_flags & TF1_IsDragged1))
         {
-            i = (((long)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed+1);
+            i = (((int64_t)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed+1);
             update_creature_anim(thing, i, CGI_Drag);
         } else
         if (crconf->fixed_anim_speed)
@@ -549,7 +549,7 @@ void update_creature_graphic_anim(struct Thing *thing)
             update_creature_anim(thing, 256, CGI_Ambulate);
         } else
         {
-            i = (((long)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed + 1);
+            i = (((int64_t)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed + 1);
             if (!update_creature_anim(thing, i, CGI_Ambulate))
             {
                 thing->anim_speed = i;
@@ -571,7 +571,7 @@ void update_creature_graphic_anim(struct Thing *thing)
             update_creature_animation_by_sprite(thing, 256, 819);
         } else
         {
-            i = (((long)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed+1);
+            i = (((int64_t)cctrl->distance_to_destination) << 8) / (crconf->walking_anim_speed+1);
             if (!update_creature_animation_by_sprite(thing, i, 819))
             {
                 thing->anim_speed = i;
@@ -627,7 +627,7 @@ void creature_table_load_unpack(unsigned char *src_buf, size_t disk_size)
     size_t items = disk_size / sizeof(struct KeeperSpriteDisk);
     struct KeeperSpriteDisk* src = (struct KeeperSpriteDisk*)src_buf;
     struct KeeperSprite *tmp = malloc(items * sizeof(struct KeeperSprite));
-    for (int i = 0; i < items; i++, src++)
+    for (int64_t i = 0; i < items; i++, src++)
     {
         tmp[i].DataOffset = src->DataOffset;
         tmp[i].SWidth = src->SWidth;

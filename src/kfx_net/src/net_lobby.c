@@ -37,16 +37,16 @@
 #define SESSION_COUNT 32
 
 static struct TbNetworkSessionNameEntry sessions[SESSION_COUNT];
-static int32_t server_port = 0;
+static int64_t server_port = 0;
 static TbClockMSec lobby_ping_last_sample;
-uint32_t network_lobby_ping;
+uint64_t network_lobby_ping;
 
 static void AddSessionSegment(const char *start, const char *end)
 {
     if (start == end) {
         return;
     }
-    for (unsigned i = 0; i < SESSION_COUNT; i += 1) {
+    for (uint64_t i = 0; i < SESSION_COUNT; i += 1) {
         if (sessions[i].in_use) {
             continue;
         }
@@ -58,7 +58,7 @@ static void AddSessionSegment(const char *start, const char *end)
     }
 }
 
-void LbNetwork_SetServerPort(int port)
+void LbNetwork_SetServerPort(int64_t port)
 {
     server_port = port;
 }
@@ -97,7 +97,7 @@ TbError process_login_message(NetUserId source, char *read_pos)
     }
     strcpy(user->name, name);
     if (!isalnum(user->name[0])) {
-        NETDBG(6, "Connected peer had bad name starting with %c", user->name[0]);
+        NETDBG(6, "Connected peer had bad name starting with %c", (int)(user->name[0]));
         netstate.sp->drop_user(source);
         return Lb_OK;
     }
@@ -134,7 +134,7 @@ TbError process_user_update_message(NetUserId source, char *read_pos, const char
     NetUserId user_id = (NetUserId)read_pos[0];
     read_pos += 1;
     if (user_id < 0 || user_id >= netstate.max_users) {
-        ERRORLOG("Critical error: Out of range user ID %i received from server, could be used for buffer overflow attack", user_id);
+        ERRORLOG("Critical error: Out of range user ID %" PRId64 " received from server, could be used for buffer overflow attack", (int64_t)(user_id));
         abort();
     }
     struct NetUser *user = &netstate.users[user_id];
@@ -211,7 +211,7 @@ TbError LbNetwork_ExchangeFrontend(void *send_buf, void *server_buf, size_t fram
     TbError result = exchange_frame_block(NETMSG_FRONTEND, send_buf, server_buf, frame_size);
     TbClockMSec now = LbTimerClock();
     if (network_lobby_ping == 0 || now - lobby_ping_last_sample >= 1000) {
-        unsigned long ping = GetPing(my_player_number, my_player_number);
+        uint64_t ping = GetPing(my_player_number, my_player_number);
         if (ping > 0) {
             network_lobby_ping = ping;
         }
@@ -220,32 +220,32 @@ TbError LbNetwork_ExchangeFrontend(void *send_buf, void *server_buf, size_t fram
     return result;
 }
 
-TbError LbNetwork_Create(char *, char *plyr_name, uint32_t *plyr_num, void *optns)
+TbError LbNetwork_Create(char *, char *plyr_name, uint64_t *plyr_num, void *optns)
 {
     if (!netstate.sp) {
         ERRORLOG("No network SP selected");
         return Lb_FAIL;
     }
     char default_port_buf[16];
-    snprintf(default_port_buf, sizeof(default_port_buf), ":%u", (unsigned)enet_port);
+    snprintf(default_port_buf, sizeof(default_port_buf), ":%" PRIu64, (uint64_t)enet_port);
     const char *port = default_port_buf;
     char port_string[16] = "";
     if (server_port != 0) {
-        snprintf(port_string, sizeof(port_string), "%d", server_port);
+        snprintf(port_string, sizeof(port_string), "%" PRId64, (int64_t)(server_port));
         port = port_string;
     }
     if (netstate.sp->host(port, optns) == Lb_FAIL) {
         return Lb_FAIL;
     }
-    uint16_t local_port = enet_port;
+    int64_t local_port = enet_port;
     if (server_port > 0) {
-        local_port = (uint16_t)server_port;
+        local_port = (int64_t)server_port;
     }
-    uint16_t ipv4_port = local_port;
+    int64_t ipv4_port = local_port;
     if (external_ipv4_port != 0) {
         ipv4_port = external_ipv4_port;
     }
-    const uint16_t ipv6_port = enet_get_bound_ipv6_port();
+    const int64_t ipv6_port = enet_get_bound_ipv6_port();
     if (net_callbacks->frontnet_service_selected(FrontendNetSvc_LAN)) {
         lan_host_start(plyr_name, local_port);
     }
@@ -263,7 +263,7 @@ TbError LbNetwork_Create(char *, char *plyr_name, uint32_t *plyr_num, void *optn
     return Lb_OK;
 }
 
-TbError LbNetwork_Join(struct TbNetworkSessionNameEntry *nsname, char *plyr_name, int32_t *plyr_num, void *optns)
+TbError LbNetwork_Join(struct TbNetworkSessionNameEntry *nsname, char *plyr_name, int64_t *plyr_num, void *optns)
 {
     if (!netstate.sp) {
         ERRORLOG("No network SP selected");
@@ -327,7 +327,7 @@ TbError LbNetwork_EnumeratePlayers(struct TbNetworkSessionNameEntry *, TbNetwork
 
 TbError LbNetwork_EnumerateSessions(TbNetworkCallbackFunc callback, void *ptr)
 {
-    for (unsigned i = 0; i < SESSION_COUNT; i += 1) {
+    for (uint64_t i = 0; i < SESSION_COUNT; i += 1) {
         if (!sessions[i].in_use) {
             continue;
         }

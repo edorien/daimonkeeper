@@ -46,23 +46,23 @@ typedef CoroutineLoopState (*CoroutineFn)(struct CoroutineLoopS *loop_context);
 typedef struct CoroutineLoopS
 {
     void        *context;
-    int         read_idx;
-    int         write_idx;
+    int64_t         read_idx;
+    int64_t         write_idx;
     CoroutineFn fns[COROUTINE_MAX_NUM];
-    int         args[COROUTINE_MAX_NUM * COROUTINE_ARGS];
+    int64_t         args[COROUTINE_MAX_NUM * COROUTINE_ARGS];
     TbBool      error;
 } CoroutineLoop;
 
 // add a new coroutine to the list
 extern void coroutine_add(CoroutineLoop *context, CoroutineFn fn);
 // add a new coroutine to the list with args
-extern void coroutine_add_args(CoroutineLoop *context, CoroutineFn fn, int args[COROUTINE_ARGS]);
+extern void coroutine_add_args(CoroutineLoop *context, CoroutineFn fn, int64_t args[COROUTINE_ARGS]);
 // remove all remaining coroutines from list (i.e. in case of error)
 extern void coroutine_clear(CoroutineLoop *context, TbBool error);
 // exec all coroutines from the list
 extern void coroutine_process(CoroutineLoop *context);
 
-extern int *coroutine_args(CoroutineLoop *context);
+extern int64_t *coroutine_args(CoroutineLoop *context);
 
 #ifdef __cplusplus
 }

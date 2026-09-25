@@ -31,7 +31,7 @@ namespace {
 // Wires columns_data[col_idx] into the map block at (stl_x, stl_y) and
 // returns the column for direct field manipulation. col_idx must be >= 1
 // (index 0 is the reserved "invalid" sentinel).
-struct Column *wire_column(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long col_idx)
+struct Column *wire_column(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t col_idx)
 {
     get_map_block_at(stl_x, stl_y)->col_idx = col_idx;
     return get_column(col_idx);
@@ -94,7 +94,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "get_top_cube_at/_at_pos read the topmost fi
     // Empty column (floor_filled_subtiles == 0): falls back to top_cube[floor_texture].
     col->floor_texture = 7;
     kfx_sim_state.top_cube[7] = 42;
-    int32_t cube_pos = -1;
+    int64_t cube_pos = -1;
     CHECK(get_top_cube_at(2, 2, &cube_pos) == 42);
     CHECK(cube_pos == 0);
     CHECK(get_top_cube_at_pos(get_subtile_number(2, 2)) == 42);

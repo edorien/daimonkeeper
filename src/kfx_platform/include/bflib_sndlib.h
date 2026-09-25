@@ -47,7 +47,7 @@ TbBool InitAudio(unsigned char max_number_of_samples);
 // calls InitialiseSDLAudio() as part of its own init_sound() sequence;
 // game_session_loop.cpp (kfx_apploop) calls ShutDownSDLAudio() at
 // shutdown. See docs/refactor/stage-13-enforce-and-document.md.
-int InitialiseSDLAudio(void);
+int64_t InitialiseSDLAudio(void);
 void ShutDownSDLAudio(void);
 
 // Registers the resolved (lowercase, 3-char) language code and the
@@ -74,9 +74,9 @@ struct ModConfigItem;
 struct SoundStateCallbacks {
     char *(*get_music_track)(void);
     char *(*get_music_fname)(void);
-    int32_t (*get_frame_skip)(void);
+    int64_t (*get_frame_skip)(void);
     TbBool (*get_easter_eggs_enabled)(void);
-    short (*get_last_level)(void);
+    int64_t (*get_last_level)(void);
     // Narrowed from an opaque `struct CreatureConfig *(*get_creature_config)`
     // to these 2 entries (stage 13.3, docs/refactor/
     // stage-13-enforce-and-document.md) -- sound_manager.cpp only ever
@@ -84,19 +84,19 @@ struct SoundStateCallbacks {
     // CreatureSounds is already kfx_platform-owned (creature_sounds.h),
     // so this avoids sound_manager.cpp needing struct CreatureConfig
     // (the whole kfx_config creature-config aggregate) visible at all.
-    long (*get_creature_model_count)(void);
-    struct CreatureSounds *(*get_creature_sounds)(long crmodel);
+    int64_t (*get_creature_model_count)(void);
+    struct CreatureSounds *(*get_creature_sounds)(int64_t crmodel);
     // config_mods.h (kfx_config) -- bflib_sndlib.cpp/sound_manager.cpp
     // both walk a mod list by value to resolve music/sound file paths;
     // struct ModConfigItem is kfx_platform-owned (mod_config_types.h),
     // struct ModsConfig/mods_conf stays kfx_config-owned. See
     // docs/refactor/stage-13-enforce-and-document.md.
     const struct ModConfigItem *(*get_mods_after_map)(void);
-    int32_t (*get_mods_after_map_count)(void);
+    int64_t (*get_mods_after_map_count)(void);
     const struct ModConfigItem *(*get_mods_after_campaign)(void);
-    int32_t (*get_mods_after_campaign_count)(void);
+    int64_t (*get_mods_after_campaign_count)(void);
     const struct ModConfigItem *(*get_mods_after_base)(void);
-    int32_t (*get_mods_after_base_count)(void);
+    int64_t (*get_mods_after_base_count)(void);
     // Backs SOUND_RANDOM(range) (game_merge.h, kfx_game) -- inlined here
     // as LbRandomSeries(range, get_sound_random_seed(), ...) instead,
     // since that macro itself only touches kfx_sim_state (kfx_sim), not
@@ -118,7 +118,7 @@ struct SoundStateCallbacks {
 
     // creature_control.h (kfx_sim) -- SoundManager::playCreatureSound()
     // bridges to kfx_sim's own creature-sound-index-to-sample resolution.
-    void (*play_creature_sound)(struct Thing *thing, long snd_idx, long priority, long use_flags);
+    void (*play_creature_sound)(struct Thing *thing, int64_t snd_idx, int64_t priority, int64_t use_flags);
 
     // config.h (kfx_config) file-path resolution -- both this file and
     // sound_manager.cpp need to locate sound/level/config asset files,
@@ -126,10 +126,10 @@ struct SoundStateCallbacks {
     // can't otherwise reach. Replaces a same-file bare-extern
     // forward-declaration precedent. See docs/refactor/todo/
     // check-layering-symbol-level-blind-spot.md.
-    char *(*prepare_file_path)(short fgroup, const char *fname);
-    char *(*prepare_file_path_mod)(const char *mod_dir, short fgroup, const char *fname);
-    char *(*prepare_file_path_buf)(char *dst, int dst_size, short fgroup, const char *fname);
-    char *(*prepare_file_fmtpath)(short fgroup, const char *fmt_str, ...);
+    char *(*prepare_file_path)(int64_t fgroup, const char *fname);
+    char *(*prepare_file_path_mod)(const char *mod_dir, int64_t fgroup, const char *fname);
+    char *(*prepare_file_path_buf)(char *dst, int64_t dst_size, int64_t fgroup, const char *fname);
+    char *(*prepare_file_fmtpath)(int64_t fgroup, const char *fmt_str, ...);
 
     // config_creature.h (kfx_config) -- creature model name lookup and
     // the creature-model name registry, used by sound_manager.cpp's
@@ -140,7 +140,7 @@ struct SoundStateCallbacks {
     // thing_data.h (kfx_sim) -- bounds-checks a Thing pointer against
     // kfx_sim_state.things_data; sound_manager.cpp can't reach
     // kfx_sim_state directly.
-    short (*thing_is_invalid)(const struct Thing *thing);
+    int64_t (*thing_is_invalid)(const struct Thing *thing);
 };
 void set_sound_state_callbacks(const struct SoundStateCallbacks *callbacks);
 extern const struct SoundStateCallbacks *sound_state_callbacks;
@@ -187,8 +187,8 @@ void sound_restore_id_redirect_snapshot(void);
 
 void set_music_volume(SoundVolume);
 TbBool play_music(const char * fname);
-TbBool play_music_fgroup(short fgroup, const char * fname);
-TbBool play_music_track(int);
+TbBool play_music_fgroup(int64_t fgroup, const char * fname);
+TbBool play_music_track(int64_t);
 void pause_music(void);
 void resume_music(void);
 void stop_music(TbBool fade_out);
@@ -223,7 +223,7 @@ enum SoundStackMode {
  * @param max_instances  For SStack_Limit: hard cap (clamped to >= 1).
  *                        For SStack_Duck: 0 means uncapped, >0 also caps concurrency.
  */
-void sound_register_stack_policy(SoundSmplTblID smptbl_id, unsigned char mode, short max_instances);
+void sound_register_stack_policy(SoundSmplTblID smptbl_id, unsigned char mode, int64_t max_instances);
 
 /**
  * @brief Clear all registered stacking policies (samples with no policy revert to the

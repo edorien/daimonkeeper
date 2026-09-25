@@ -20,7 +20,7 @@ void creature_list_horizontal(void);
 void creature_query_panel_horizontal(void);
 void query_panel_horizontal(void);
 
-void creature_pick(ThingModel crmodel, long gj, bool pick_up);
+void creature_pick(ThingModel crmodel, int64_t gj, bool pick_up);
 
 #endif // __cplusplus
 #endif // FRONTGUI_INGAME_CREATURE_H

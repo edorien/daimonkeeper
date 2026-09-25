@@ -27,11 +27,11 @@
 extern "C" {
 #endif
 
-extern int32_t multiplayer_speed_adjustment_ns;
+extern int64_t multiplayer_speed_adjustment_ns;
 
 struct Packet;
 
-extern int32_t multiplayer_speed_adjustment_ns;
+extern int64_t multiplayer_speed_adjustment_ns;
 
 void initialize_packet_history(void);
 void store_packet_history(NetUserId user, const struct Packet *packet);

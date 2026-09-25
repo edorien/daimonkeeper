@@ -43,38 +43,38 @@
 #define EDGEFIT_LEN           64
 #define EDGEOR_COUNT           4
 
-typedef long (*NavRules)(NavColour, NavColour);
+typedef int64_t (*NavRules)(NavColour, NavColour);
 
 struct QuadrantOffset {
-    long x;
-    long y;
+    int64_t x;
+    int64_t y;
 };
 
 struct Gate {
-  long start_coordinate_x;
-  long start_coordinate_y;
-  long end_coordinate_x;
-  long end_coordinate_y;
-  long intersection_coordinate_x;
-  long intersection_coordinate_y;
-  long pathfinding_direction;
+  int64_t start_coordinate_x;
+  int64_t start_coordinate_y;
+  int64_t end_coordinate_x;
+  int64_t end_coordinate_y;
+  int64_t intersection_coordinate_x;
+  int64_t intersection_coordinate_y;
+  int64_t pathfinding_direction;
 };
 
 struct Pathway {
-  long start_coordinate_x;
-  long start_coordinate_y;
-  long finish_coordinate_x;
-  long finish_coordinate_y;
+  int64_t start_coordinate_x;
+  int64_t start_coordinate_y;
+  int64_t finish_coordinate_x;
+  int64_t finish_coordinate_y;
   struct Gate points[256];
-  long points_num;
+  int64_t points_num;
 };
 
 struct WayPoints {
-  long edge1_start_index;
-  long edge2_start_index;
-  long edge1_current_index;
-  long edge2_current_index;
-  int32_t waypoint_index_array[ARID_PATH_WAYPOINTS_COUNT];
+  int64_t edge1_start_index;
+  int64_t edge2_start_index;
+  int64_t edge1_current_index;
+  int64_t edge2_current_index;
+  int64_t waypoint_index_array[ARID_PATH_WAYPOINTS_COUNT];
 };
 
 struct FOV {
@@ -88,29 +88,29 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-static unsigned long edgelen_initialised;
-static uint32_t RadiusEdgeFit[EDGEOR_COUNT][EDGEFIT_LEN];
+static uint64_t edgelen_initialised;
+static uint64_t RadiusEdgeFit[EDGEOR_COUNT][EDGEFIT_LEN];
 static NavRules nav_rulesA2B;
 static struct WayPoints wayPoints;
-static uint32_t *EdgeFit;
+static uint64_t *EdgeFit;
 static struct Pathway ap_GPathway;
-static long tree_routelen;
-static int32_t tree_route[TREE_ROUTE_LEN];
-static int32_t tree_routecost;
-static long tree_triA;
-static long tree_triB;
-static long tree_altA;
-static long tree_altB;
-static long tree_Ax8;
-static long tree_Ay8;
-static long tree_Bx8;
-static long tree_By8;
-static int32_t route_fwd[ROUTE_LENGTH];
-static int32_t route_bak[ROUTE_LENGTH];
+static int64_t tree_routelen;
+static int64_t tree_route[TREE_ROUTE_LEN];
+static int64_t tree_routecost;
+static int64_t tree_triA;
+static int64_t tree_triB;
+static int64_t tree_altA;
+static int64_t tree_altB;
+static int64_t tree_Ax8;
+static int64_t tree_Ay8;
+static int64_t tree_Bx8;
+static int64_t tree_By8;
+static int64_t route_fwd[ROUTE_LENGTH];
+static int64_t route_bak[ROUTE_LENGTH];
 
 NavColour *LastTriangulatedMap;
-long ix_Border;
-int32_t Border[BORDER_LENGTH];
+int64_t ix_Border;
+int64_t Border[BORDER_LENGTH];
 
 TbBool nav_map_initialised = 0;
 
@@ -143,7 +143,7 @@ static unsigned char const actual_sizexy_to_nav_block_sizexy_table[] = {
     4,
 };
 
-static const unsigned long actual_sizexy_to_nav_sizexy_table[] = {
+static const uint64_t actual_sizexy_to_nav_sizexy_table[] = {
     206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206,
     206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206,
     206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206, 206,
@@ -218,23 +218,23 @@ static struct Path best_path;
 /******************************************************************************/
 
 
-long thing_nav_block_sizexy(const struct Thing *thing)
+int64_t thing_nav_block_sizexy(const struct Thing *thing)
 {
-    long i;
+    int64_t i;
     i = pathfinding_world->thing_get_clipbox_size(thing);
-    if (i >= (long)(sizeof(actual_sizexy_to_nav_block_sizexy_table)/sizeof(actual_sizexy_to_nav_block_sizexy_table[0])))
-        i = (long)(sizeof(actual_sizexy_to_nav_block_sizexy_table)/sizeof(actual_sizexy_to_nav_block_sizexy_table[0]))-1;
+    if (i >= (int64_t)(sizeof(actual_sizexy_to_nav_block_sizexy_table)/sizeof(actual_sizexy_to_nav_block_sizexy_table[0])))
+        i = (int64_t)(sizeof(actual_sizexy_to_nav_block_sizexy_table)/sizeof(actual_sizexy_to_nav_block_sizexy_table[0]))-1;
     if (i < 0)
         i = 0;
     return actual_sizexy_to_nav_block_sizexy_table[i];
 }
 
-long thing_nav_sizexy(const struct Thing *thing)
+int64_t thing_nav_sizexy(const struct Thing *thing)
 {
-    long i;
+    int64_t i;
     i = pathfinding_world->thing_get_clipbox_size(thing);
-    if (i >= (long)(sizeof(actual_sizexy_to_nav_sizexy_table)/sizeof(actual_sizexy_to_nav_sizexy_table[0])))
-        i = (long)(sizeof(actual_sizexy_to_nav_sizexy_table)/sizeof(actual_sizexy_to_nav_sizexy_table[0]))-1;
+    if (i >= (int64_t)(sizeof(actual_sizexy_to_nav_sizexy_table)/sizeof(actual_sizexy_to_nav_sizexy_table[0])))
+        i = (int64_t)(sizeof(actual_sizexy_to_nav_sizexy_table)/sizeof(actual_sizexy_to_nav_sizexy_table[0]))-1;
     if (i < 0)
         i = 0;
     return actual_sizexy_to_nav_sizexy_table[i];
@@ -242,24 +242,24 @@ long thing_nav_sizexy(const struct Thing *thing)
 
 
 /******************************************************************************/
-static long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long ptstart_y, const int32_t *route, long wp_lim, struct Path *path, int32_t *total_len);
-static void path_out_a_bit(struct Path *path, const int32_t *route);
-static void gate_navigator_init8(struct Pathway *pway, long trAx, long trAy, long trBx, long trBy, long wp_lim, unsigned char unusedparam);
-static void route_through_gates(const struct Pathway *pway, struct Path *path, long subroute);
-static long ariadne_push_position_against_wall(struct Thing *thing, const struct Coord3d *pos1, struct Coord3d *pos_out);
-static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, long hug_angle);
-static long ariadne_get_blocked_flags(struct Thing *thing, const struct Coord3d *pos);
-static long triangle_findSE8(long ptfind_x, long ptfind_y);
-static long ma_triangle_route(long ptfind_x, long ptfind_y, int32_t *ptstart_x);
+static int64_t route_to_path(int64_t ptfind_x, int64_t ptfind_y, int64_t ptstart_x, int64_t ptstart_y, const int64_t *route, int64_t wp_lim, struct Path *path, int64_t *total_len);
+static void path_out_a_bit(struct Path *path, const int64_t *route);
+static void gate_navigator_init8(struct Pathway *pway, int64_t trAx, int64_t trAy, int64_t trBx, int64_t trBy, int64_t wp_lim, unsigned char unusedparam);
+static void route_through_gates(const struct Pathway *pway, struct Path *path, int64_t subroute);
+static int64_t ariadne_push_position_against_wall(struct Thing *thing, const struct Coord3d *pos1, struct Coord3d *pos_out);
+static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, int64_t hug_angle);
+static int64_t ariadne_get_blocked_flags(struct Thing *thing, const struct Coord3d *pos);
+static int64_t triangle_findSE8(int64_t ptfind_x, int64_t ptfind_y);
+static int64_t ma_triangle_route(int64_t ptfind_x, int64_t ptfind_y, int64_t *ptstart_x);
 static void edgelen_init(void);
 /******************************************************************************/
 
 
-static unsigned long fits_thro(long tri_idx, long ormask_idx)
+static uint64_t fits_thro(int64_t tri_idx, int64_t ormask_idx)
 {
-    static unsigned long const edgelen_ORmask[] = {60, 51, 15, 0};
-    unsigned long eidx;
-    unsigned long emask;
+    static uint64_t const edgelen_ORmask[] = {60, 51, 15, 0};
+    uint64_t eidx;
+    uint64_t emask;
 
     if (tri_idx >= TRIANLGLES_COUNT)
     {
@@ -304,7 +304,7 @@ static PlayerBitFlags get_navtree_owner_flags(NavColour treeI)
     return treeI >> NAVMAP_OWNERSELECT_BIT;
 }
 
-static long navigation_rule_normal(NavColour treeA, NavColour treeB)
+static int64_t navigation_rule_normal(NavColour treeA, NavColour treeB)
 {
     if ((treeB & NAVMAP_FLOORHEIGHT_MASK) - (treeA & NAVMAP_FLOORHEIGHT_MASK) > 1)
       return NavigationRule_Blocked;
@@ -324,7 +324,7 @@ static long navigation_rule_normal(NavColour treeA, NavColour treeB)
     return pathfinding_world->get_nav_thing_can_travel_over_lava();
 }
 
-static TbBool navigation_triangle_reachable(int32_t first_triangle, int32_t second_triangle)
+static TbBool navigation_triangle_reachable(int64_t first_triangle, int64_t second_triangle)
 {
     if (!regions_connected(first_triangle, second_triangle)) {
         return false;
@@ -335,10 +335,10 @@ static TbBool navigation_triangle_reachable(int32_t first_triangle, int32_t seco
     tags_init();
     store_current_tag(first_triangle);
     tree_val[0] = first_triangle;
-    for (uint32_t head = 0, tail = 1; head < tail; head++) {
-        int32_t triangle = tree_val[head];
-        for (int32_t edge = 0; edge < 3; edge++) {
-            int32_t next = Triangles[triangle].tags[edge];
+    for (uint64_t head = 0, tail = 1; head < tail; head++) {
+        int64_t triangle = tree_val[head];
+        for (int64_t edge = 0; edge < 3; edge++) {
+            int64_t next = Triangles[triangle].tags[edge];
             if (next < 0 || is_current_tag(next)) {
                 continue;
             }
@@ -365,7 +365,7 @@ void set_nav_rule_default(void)
 }
 
 
-static void edge_points8(long ntri_src, long ntri_dst, int32_t *tipA_x, int32_t *tipA_y, int32_t *tipB_x, int32_t *tipB_y)
+static void edge_points8(int64_t ntri_src, int64_t ntri_dst, int64_t *tipA_x, int64_t *tipA_y, int64_t *tipB_x, int64_t *tipB_y)
 {
     struct Point *pt;
     if (Triangles[ntri_src].tags[0] == ntri_dst)
@@ -397,25 +397,25 @@ static void edge_points8(long ntri_src, long ntri_dst, int32_t *tipA_x, int32_t 
     }
     else
     {
-        ERRORLOG("edge not found %ld->%ld", ntri_src, ntri_dst);
+        ERRORLOG("edge not found %" PRId64 "->%" PRId64, (int64_t)(ntri_src), (int64_t)(ntri_dst));
     }
 }
 
-static long fov_region(long point_x, long point_y, const struct FOV *fov)
+static int64_t fov_region(int64_t point_x, int64_t point_y, const struct FOV *fov)
 {
-    long diff_ax;
-    long diff_ay;
+    int64_t diff_ax;
+    int64_t diff_ay;
     diff_ax = point_x - fov->tipA.x;
     diff_ay = point_y - fov->tipA.y;
-    long diff_bx;
-    long diff_by;
+    int64_t diff_bx;
+    int64_t diff_by;
     diff_bx = fov->tipB.x - fov->tipA.x;
     diff_by = fov->tipB.y - fov->tipA.y;
     if (LbCompareMultiplications(diff_ay, diff_bx, diff_ax, diff_by) < 0) {
         return FieldOfViewRegion_OutsideLeft;
     }
-    long diff_cx;
-    long diff_cy;
+    int64_t diff_cx;
+    int64_t diff_cy;
     diff_cx = fov->tipC.x - fov->tipA.x;
     diff_cy = fov->tipC.y - fov->tipA.y;
     if (LbCompareMultiplications(diff_ay, diff_cx, diff_ax, diff_cy) > 0) {
@@ -424,21 +424,21 @@ static long fov_region(long point_x, long point_y, const struct FOV *fov)
     return FieldOfViewRegion_WithinBounds;
 }
 
-static long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long ptstart_y, const int32_t *route, long wp_lim, struct Path *path, int32_t *total_len)
+static int64_t route_to_path(int64_t ptfind_x, int64_t ptfind_y, int64_t ptstart_x, int64_t ptstart_y, const int64_t *route, int64_t wp_lim, struct Path *path, int64_t *total_len)
 {
     NAVIDBG(19,"Starting");
 
     struct FOV fov_AC;
-    int32_t edge1_x;
-    int32_t edge1_y;
-    int32_t edge2_x;
-    int32_t edge2_y;
+    int64_t edge1_x;
+    int64_t edge1_y;
+    int64_t edge2_x;
+    int64_t edge2_y;
     char edge1_region;
     char edge2_region;
-    long waypoint_edge1_index;
-    long waypoint_edge2_index;
-    long wpi;
-    int wp_num;
+    int64_t waypoint_edge1_index;
+    int64_t waypoint_edge2_index;
+    int64_t wpi;
+    int64_t wp_num;
 
     path->start.x = ptfind_x;
     path->start.y = ptfind_y;
@@ -509,8 +509,8 @@ static long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long pts
         wayPoints.edge1_current_index = wpi;
         wayPoints.edge2_current_index = wpi;
         if (wp_num >= ARID_PATH_WAYPOINTS_COUNT) {
-            ERRORLOG("Exceeded max path length (i:%ld,L:%ld) (%ld,%ld)->(%ld,%ld)",
-            wpi, wp_lim, ptfind_x, ptfind_y, ptstart_x, ptstart_y);
+            ERRORLOG("Exceeded max path length (i:%" PRId64 ",L:%" PRId64 ") (%" PRId64 ",%" PRId64 ")->(%" PRId64 ",%" PRId64 ")",
+            (int64_t)(wpi), (int64_t)(wp_lim), (int64_t)(ptfind_x), (int64_t)(ptfind_y), (int64_t)(ptstart_x), (int64_t)(ptstart_y));
             break;
         }
       } else
@@ -529,8 +529,8 @@ static long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long pts
         wayPoints.edge1_current_index = wpi;
         wayPoints.edge2_current_index = wpi;
         if (wp_num >= ARID_PATH_WAYPOINTS_COUNT) {
-            ERRORLOG("Exceeded max path length (i:%ld,R:%ld) (%ld,%ld)->(%ld,%ld)",
-            wpi, wp_lim, ptfind_x, ptfind_y, ptstart_x, ptstart_y);
+            ERRORLOG("Exceeded max path length (i:%" PRId64 ",R:%" PRId64 ") (%" PRId64 ",%" PRId64 ")->(%" PRId64 ",%" PRId64 ")",
+            (int64_t)(wpi), (int64_t)(wp_lim), (int64_t)(ptfind_x), (int64_t)(ptfind_y), (int64_t)(ptstart_x), (int64_t)(ptstart_y));
             break;
         }
       }
@@ -550,22 +550,22 @@ static long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long pts
     return wp_num;
 }
 
-static void waypoint_normal(long tri1_id, long cor1_id, int32_t *norm_x, int32_t *norm_y)
+static void waypoint_normal(int64_t tri1_id, int64_t cor1_id, int64_t *norm_x, int64_t *norm_y)
 {
-    int tri2_id;
-    int tri3_id;
-    int cor2_id;
-    int cor3_id;
+    int64_t tri2_id;
+    int64_t tri3_id;
+    int64_t cor2_id;
+    int64_t cor3_id;
     tri3_id = tri1_id;
     cor3_id = MOD3[cor1_id+2];
     tri2_id = Triangles[tri1_id].tags[cor1_id];
     cor2_id = link_find(tri2_id, tri1_id);
     cor2_id = MOD3[cor2_id+1];
-    unsigned long k;
+    uint64_t k;
     k = 0;
     while (1)
     {
-        int ntri;
+        int64_t ntri;
         ntri = Triangles[tri2_id].tags[cor2_id];
         if (!nav_rulesA2B(get_triangle_tree_alt(tri2_id), get_triangle_tree_alt(ntri)))
             break;
@@ -592,7 +592,7 @@ static void waypoint_normal(long tri1_id, long cor1_id, int32_t *norm_x, int32_t
     k = 0;
     while ( 1 )
     {
-        int ntri;
+        int64_t ntri;
         ntri = Triangles[tri3_id].tags[cor3_id];
         if (!nav_rulesA2B(get_triangle_tree_alt(tri3_id), get_triangle_tree_alt(ntri)))
             break;
@@ -614,12 +614,12 @@ static void waypoint_normal(long tri1_id, long cor1_id, int32_t *norm_x, int32_t
             break;
         }
     }
-    int diff_x;
-    int diff_y;
+    int64_t diff_x;
+    int64_t diff_y;
     if ((cor2_id >= 0) && (cor3_id >= 0))
     {
-        int triangle_point1_index;
-        int triangle_point2_index;
+        int64_t triangle_point1_index;
+        int64_t triangle_point2_index;
         triangle_point1_index = Triangles[tri2_id].points[MOD3[cor2_id+1]];
         triangle_point2_index = Triangles[tri3_id].points[cor3_id];
         diff_y = ari_Points[triangle_point1_index].y - ari_Points[triangle_point2_index].y;
@@ -629,8 +629,8 @@ static void waypoint_normal(long tri1_id, long cor1_id, int32_t *norm_x, int32_t
         diff_y = 0;
         diff_x = 0;
     }
-    long nx;
-    long ny;
+    int64_t nx;
+    int64_t ny;
     nx = -1;
     if (diff_y >= 0)
         nx = diff_y != 0;
@@ -641,19 +641,19 @@ static void waypoint_normal(long tri1_id, long cor1_id, int32_t *norm_x, int32_t
     *norm_y = ny;
 }
 
-static void path_out_a_bit(struct Path *path, const int32_t *route)
+static void path_out_a_bit(struct Path *path, const int64_t *route)
 {
     struct PathWayPoint *ppoint;
-    int32_t *wpoint;
-    long tip_x;
-    long tip_y;
-    int32_t norm_x;
-    int32_t norm_y;
-    long prev_pt;
-    long curr_pt;
-    long link_fwd;
-    long link_bak;
-    long i;
+    int64_t *wpoint;
+    int64_t tip_x;
+    int64_t tip_y;
+    int64_t norm_x;
+    int64_t norm_y;
+    int64_t prev_pt;
+    int64_t curr_pt;
+    int64_t link_fwd;
+    int64_t link_bak;
+    int64_t i;
     wpoint = &wayPoints.waypoint_index_array[0];
     ppoint = &path->waypoints[0];
     for (i=0; i < path->waypoints_num-1; i++)
@@ -683,12 +683,12 @@ static void path_out_a_bit(struct Path *path, const int32_t *route)
     }
 }
 
-static void cull_gate_to_point(struct Gate *gt, long distance_threshold)
+static void cull_gate_to_point(struct Gate *gt, int64_t distance_threshold)
 {
-    int diff_a;
-    int diff_b;
-    diff_a = abs(gt->start_coordinate_x - gt->end_coordinate_x);
-    diff_b = abs(gt->start_coordinate_y - gt->end_coordinate_y);
+    int64_t diff_a;
+    int64_t diff_b;
+    diff_a = llabs(gt->start_coordinate_x - gt->end_coordinate_x);
+    diff_b = llabs(gt->start_coordinate_y - gt->end_coordinate_y);
     if (diff_a <= diff_b)
     {
       if (diff_b + (diff_a >> 1) < distance_threshold)
@@ -707,11 +707,11 @@ static void cull_gate_to_point(struct Gate *gt, long distance_threshold)
         diff_a = (gt->end_coordinate_x - gt->start_coordinate_x) << 6;
         diff_b = (gt->end_coordinate_y - gt->start_coordinate_y) << 6;
     }
-    long div_a;
-    long div_b;
-    long cmul;
-    long val_x;
-    long val_y;
+    int64_t div_a;
+    int64_t div_b;
+    int64_t cmul;
+    int64_t val_x;
+    int64_t val_y;
     div_b = LbSqrL(((unsigned long long)(diff_a * diff_a) >> 14) + ((unsigned long long)(diff_b * diff_b) >> 14)) << 13;
     if (div_b < 1)
         div_b = 1;
@@ -740,23 +740,23 @@ static void cull_gate_to_point(struct Gate *gt, long distance_threshold)
     }
 }
 
-static TbBool calc_intersection(struct Gate *gt, long line_start_x, long line_start_y, long line_end_x, long line_end_y)
+static TbBool calc_intersection(struct Gate *gt, int64_t line_start_x, int64_t line_start_y, int64_t line_end_x, int64_t line_end_y)
 {
-    int gate_start_x_delta;
-    int line_y_delta;
-    int gate_start_y_delta;
-    int line_x_delta;
-    int gate_x_span;
-    int gate_y_span;
+    int64_t gate_start_x_delta;
+    int64_t line_y_delta;
+    int64_t gate_start_y_delta;
+    int64_t line_x_delta;
+    int64_t gate_x_span;
+    int64_t gate_y_span;
     gate_start_x_delta = (gt->start_coordinate_x - line_start_x) << 6;
     line_y_delta = (line_start_y - line_end_y) << 6;
     gate_start_y_delta = (gt->start_coordinate_y - line_start_y) << 6;
     line_x_delta = (line_start_x - line_end_x) << 6;
     gate_x_span = (gt->end_coordinate_x - gt->start_coordinate_x) << 6;
     gate_y_span = (gt->end_coordinate_y - gt->start_coordinate_y) << 6;
-    int intersection_numerator;
-    int intersection_denominator;
-    int intersection_factor;
+    int64_t intersection_numerator;
+    int64_t intersection_denominator;
+    int64_t intersection_factor;
     intersection_numerator = ((unsigned long long)(gate_start_x_delta * line_y_delta) >> 14)
        - ((unsigned long long)(gate_start_y_delta * line_x_delta) >> 14);
     intersection_denominator = ((unsigned long long)(line_x_delta * gate_y_span) >> 14)
@@ -773,7 +773,7 @@ static TbBool calc_intersection(struct Gate *gt, long line_start_x, long line_st
     gt->intersection_coordinate_x = gt->start_coordinate_x + (((unsigned long long)(gate_x_span * intersection_factor) >> 14) >> 6);
     gt->intersection_coordinate_y = gt->start_coordinate_y + (((unsigned long long)(gate_y_span * intersection_factor) >> 14) >> 6);
 
-    int vmin;
+    int64_t vmin;
     vmin = gt->end_coordinate_x;
     if (vmin >= gt->start_coordinate_x)
       vmin = gt->start_coordinate_x;
@@ -801,21 +801,21 @@ static TbBool calc_intersection(struct Gate *gt, long line_start_x, long line_st
     return true;
 }
 
-static void cull_gate_to_best_point(struct Gate *gt, long distance_threshold)
+static void cull_gate_to_best_point(struct Gate *gt, int64_t distance_threshold)
 {
-    int start_to_intersection_distance;
-    int end_to_intersection_distance;
+    int64_t start_to_intersection_distance;
+    int64_t end_to_intersection_distance;
     {
-        int diff_x;
-        int diff_y;
-        diff_x = abs(gt->start_coordinate_x - gt->intersection_coordinate_x);
-        diff_y = abs(gt->start_coordinate_y - gt->intersection_coordinate_y);
+        int64_t diff_x;
+        int64_t diff_y;
+        diff_x = llabs(gt->start_coordinate_x - gt->intersection_coordinate_x);
+        diff_y = llabs(gt->start_coordinate_y - gt->intersection_coordinate_y);
         if (diff_x <= diff_y)
             start_to_intersection_distance = (diff_x >> 1) + diff_y;
         else
             start_to_intersection_distance = (diff_y >> 1) + diff_x;
-        diff_x = abs(gt->end_coordinate_x - gt->intersection_coordinate_x);
-        diff_y = abs(gt->end_coordinate_y - gt->intersection_coordinate_y);
+        diff_x = llabs(gt->end_coordinate_x - gt->intersection_coordinate_x);
+        diff_y = llabs(gt->end_coordinate_y - gt->intersection_coordinate_y);
         if (diff_x <= diff_y)
             end_to_intersection_distance = diff_y + (diff_x >> 1);
         else
@@ -823,7 +823,7 @@ static void cull_gate_to_best_point(struct Gate *gt, long distance_threshold)
     }
     if ((start_to_intersection_distance >= (distance_threshold >> 1)) || (end_to_intersection_distance >= (distance_threshold >> 1)))
     {
-        int diff_lim;
+        int64_t diff_lim;
         diff_lim = (distance_threshold + 2) >> 1;
         if (start_to_intersection_distance < diff_lim)
         {
@@ -836,15 +836,15 @@ static void cull_gate_to_best_point(struct Gate *gt, long distance_threshold)
             cull_gate_to_point(gt, distance_threshold);
         } else
         {
-            int rel_A;
-            int rel_B;
+            int64_t rel_A;
+            int64_t rel_B;
             {
-                int diff_B;
-                int diff_A;
+                int64_t diff_B;
+                int64_t diff_A;
                 diff_A = (gt->end_coordinate_x - gt->start_coordinate_x) << 6;
                 diff_B = (gt->end_coordinate_y - gt->start_coordinate_y) << 6;
-                int dlen_A;
-                int dlen_B;
+                int64_t dlen_A;
+                int64_t dlen_B;
                 dlen_A = LbSqrL(((unsigned long long)(diff_A * diff_A) >> 14) + ((unsigned long long)(diff_B * diff_B) >> 14)) << 7;
                 dlen_B = dlen_A;
                 if (dlen_A)
@@ -873,23 +873,23 @@ static void cull_gate_to_best_point(struct Gate *gt, long distance_threshold)
                 }
             }
 
-            long delta_A;
-            long delta_B;
+            int64_t delta_A;
+            int64_t delta_B;
             delta_A = (distance_threshold >> 9) * rel_A;
             delta_B = (distance_threshold >> 9) * rel_B;
-            int cmin_y;
-            int cmin_x;
-            int cmax_x;
-            int cmax_y;
+            int64_t cmin_y;
+            int64_t cmin_x;
+            int64_t cmax_x;
+            int64_t cmax_y;
             cmin_x = gt->intersection_coordinate_x - delta_A;
             cmin_y = gt->intersection_coordinate_y - delta_B;
             cmax_y = gt->intersection_coordinate_y + delta_B;
             cmax_x = gt->intersection_coordinate_x + delta_A;
 
-            int clamp_min_x;
-            int clamp_max_x;
-            int clamp_min_y;
-            int clamp_max_y;
+            int64_t clamp_min_x;
+            int64_t clamp_max_x;
+            int64_t clamp_min_y;
+            int64_t clamp_max_y;
 
             clamp_min_x = gt->end_coordinate_x;
             if (clamp_min_x >= gt->start_coordinate_x)
@@ -948,9 +948,9 @@ static void cull_gate_to_best_point(struct Gate *gt, long distance_threshold)
     }
 }
 
-static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int32_t *route_array, long route_length, struct Pathway *pway, long distance_threshold)
+static int64_t gate_route_to_coords(int64_t trAx, int64_t trAy, int64_t trBx, int64_t trBy, int64_t *route_array, int64_t route_length, struct Pathway *pway, int64_t distance_threshold)
 {
-    int32_t total_len;
+    int64_t total_len;
     best_path.waypoints_num = route_to_path(trAx, trAy, trBx, trBy, route_array, route_length, &best_path, &total_len);
     pway->start_coordinate_x = trAx;
     pway->start_coordinate_y = trAy;
@@ -972,24 +972,24 @@ static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int
     fov1.tipA.y = trAy;
     edge_points8(route_array[0], route_array[1], &fov1.tipB.x, &fov1.tipB.y, &fov1.tipC.x, &fov1.tipC.y);
     memcpy(&fov2, &fov1, sizeof(struct FOV));
-    int pt_num;
-    int wp_idx;
+    int64_t pt_num;
+    int64_t wp_idx;
     wp_idx = 0;
     pt_num = 0;
-    int wp_x;
-    int wp_y;
+    int64_t wp_x;
+    int64_t wp_y;
     wp_x = pway->start_coordinate_x;
     wp_y = pway->start_coordinate_y;
 
     struct Gate *gt;
     gt = pway->points;
-    int wpi;
+    int64_t wpi;
     for (wpi=1; wpi <= route_length; wpi++)
     {
-        int32_t edge_x1;
-        int32_t edge_y1;
-        int32_t edge_x2;
-        int32_t edge_y2;
+        int64_t edge_x1;
+        int64_t edge_y1;
+        int64_t edge_x2;
+        int64_t edge_y2;
         if (wpi < route_length)
         {
             edge_points8(route_array[wpi+0], route_array[wpi+1], &edge_x1, &edge_y1, &edge_x2, &edge_y2);
@@ -1012,34 +1012,34 @@ static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int
         if ( edge1_region || edge2_region || edge1_region_secondary_fov || edge2_region_secondary_fov )
         {
             if (pt_num == 256) {
-                ERRORLOG("grtc:Exceeded max path length (i:%d,rl:%ld)", wpi, route_length);
+                ERRORLOG("grtc:Exceeded max path length (i:%" PRId64 ",rl:%" PRId64 ")", (int64_t)(wpi), (int64_t)(route_length));
             }
             gt->start_coordinate_x = fov1.tipB.x;
             gt->start_coordinate_y = fov1.tipB.y;
             gt->end_coordinate_x = fov1.tipC.x;
             gt->end_coordinate_y = fov1.tipC.y;
             gt->pathfinding_direction = PathDir_Reverse;
-            int dist_x;
-            int dist_y;
-            int bwp_x;
-            int bwp_y;
+            int64_t dist_x;
+            int64_t dist_y;
+            int64_t bwp_x;
+            int64_t bwp_y;
 
-            int dist_A;
-            int dist_B;
+            int64_t dist_A;
+            int64_t dist_B;
             bwp_x = best_path.waypoints[wp_idx].x;
-            dist_x = abs(gt->start_coordinate_x - bwp_x);
+            dist_x = llabs(gt->start_coordinate_x - bwp_x);
             bwp_y = best_path.waypoints[wp_idx].y;
-            dist_y = abs(gt->start_coordinate_y - bwp_y);
+            dist_y = llabs(gt->start_coordinate_y - bwp_y);
             if (dist_x <= dist_y)
                 dist_A = (dist_x >> 1) + dist_y;
             else
                 dist_A = (dist_y >> 1) + dist_x;
             dist_B = dist_A;
 
-            int dist_C;
-            int dist_D;
-            dist_x = abs(gt->end_coordinate_x - bwp_x);
-            dist_y = abs(gt->end_coordinate_y - bwp_y);
+            int64_t dist_C;
+            int64_t dist_D;
+            dist_x = llabs(gt->end_coordinate_x - bwp_x);
+            dist_y = llabs(gt->end_coordinate_y - bwp_y);
             if ( dist_x <= dist_y )
                 dist_x >>= 1;
             else
@@ -1051,22 +1051,22 @@ static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int
             if (wp_idx < best_path.waypoints_num-1)
             {
               bwp_x = best_path.waypoints[wp_idx+1].x;
-              dist_x = abs(gt->start_coordinate_x - bwp_x);
+              dist_x = llabs(gt->start_coordinate_x - bwp_x);
               bwp_y = best_path.waypoints[wp_idx+1].y;
-              dist_y = abs(gt->start_coordinate_y - bwp_y);
+              dist_y = llabs(gt->start_coordinate_y - bwp_y);
               if (dist_x <= dist_y)
                   dist_B = (dist_x >> 1) + dist_y;
               else
                   dist_B = dist_x + (dist_y >> 1);
-              dist_x = abs(gt->end_coordinate_x - bwp_x);
-              dist_y = abs(gt->end_coordinate_y - bwp_y);
+              dist_x = llabs(gt->end_coordinate_x - bwp_x);
+              dist_y = llabs(gt->end_coordinate_y - bwp_y);
               if (dist_y >= dist_x)
                   dist_D = (dist_x >> 1) + dist_y;
               else
                   dist_D = dist_x + (dist_y >> 1);
             }
-            int minimum_distance_first;
-            int minimum_distance_second;
+            int64_t minimum_distance_first;
+            int64_t minimum_distance_second;
             minimum_distance_first = dist_C;
             if (minimum_distance_first >= dist_A)
               minimum_distance_first = dist_A;
@@ -1092,7 +1092,7 @@ static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int
                 cull_gate_to_point(gt, distance_threshold);
             } else
             {
-                int fld18_mem;
+                int64_t fld18_mem;
                 fld18_mem = gt->pathfinding_direction;
                 gt->pathfinding_direction = PathDir_BestPoint;
                 if ( !calc_intersection(gt, wp_x, wp_y, best_path.waypoints[wp_idx].x, best_path.waypoints[wp_idx].y) )
@@ -1140,7 +1140,7 @@ static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int
         fov1.tipC.y = edge_y2;
     }
     if (pt_num == 256) {
-        ERRORLOG("grtc:Exceeded max path length (i:%d,rl:%ld)", wpi, route_length);
+        ERRORLOG("grtc:Exceeded max path length (i:%" PRId64 ",rl:%" PRId64 ")", (int64_t)(wpi), (int64_t)(route_length));
     }
     pt_num++;
     gt->end_coordinate_x = trBx;
@@ -1152,7 +1152,7 @@ static long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, int
     return pt_num;
 }
 
-static void gate_navigator_init8(struct Pathway *pway, long trAx, long trAy, long trBx, long trBy, long wp_lim, unsigned char unusedparam)
+static void gate_navigator_init8(struct Pathway *pway, int64_t trAx, int64_t trAy, int64_t trBx, int64_t trBy, int64_t wp_lim, unsigned char unusedparam)
 {
     pway->start_coordinate_x = trAx;
     pway->start_coordinate_y = trAy;
@@ -1177,11 +1177,11 @@ static void gate_navigator_init8(struct Pathway *pway, long trAx, long trAy, lon
     }
 }
 
-static void route_through_gates(const struct Pathway *pway, struct Path *path, long subroute)
+static void route_through_gates(const struct Pathway *pway, struct Path *path, int64_t subroute)
 {
     const struct Gate *ppoint;
     struct PathWayPoint *wpoint;
-    long i;
+    int64_t i;
     if (subroute > 16383)
         subroute = 16383;
     if (subroute < 0)
@@ -1211,10 +1211,10 @@ static void route_through_gates(const struct Pathway *pway, struct Path *path, l
     path->waypoints[i].y = pway->finish_coordinate_y;
 }
 
-static long triangle_findSE8(long ptfind_x, long ptfind_y)
+static int64_t triangle_findSE8(int64_t ptfind_x, int64_t ptfind_y)
 {
-    int32_t ntri;
-    int32_t ncor;
+    int64_t ntri;
+    int64_t ncor;
     ntri = triangle_find8(ptfind_x, ptfind_y);
     if (ntri < 0) {
         return ntri;
@@ -1233,13 +1233,13 @@ static long triangle_findSE8(long ptfind_x, long ptfind_y)
     {
         struct Point *pt;
         pt = get_triangle_point(ntri,ncor);
-        int ptA_x;
-        int ptA_y;
+        int64_t ptA_x;
+        int64_t ptA_y;
         ptA_x = pt->x << 8;
         ptA_y = pt->y << 8;
         pt = get_triangle_point(ntri,MOD3[ncor+1]);
-        int ptB_x;
-        int ptB_y;
+        int64_t ptB_x;
+        int64_t ptB_y;
         ptB_x = pt->x << 8;
         ptB_y = pt->y << 8;
         if (LbCompareMultiplications(ptfind_y - ptA_y, ptB_x - ptA_x, ptfind_x - ptA_x, ptB_y - ptA_y) == 0)
@@ -1269,11 +1269,11 @@ void tag_open_closed_init(void)
 
 */
 
-static unsigned long nav_same_component(long ptAx, long ptAy, long ptBx, long ptBy)
+static uint64_t nav_same_component(int64_t ptAx, int64_t ptAy, int64_t ptBx, int64_t ptBy)
 {
-    NAVIDBG(19,"F=%u Connect %03ld,%03ld %03ld,%03ld", get_gameturn(), ptAx, ptAy, ptBx, ptBy);
-    long tri1_id;
-    long tri2_id;
+    NAVIDBG(19,"F=%" PRIu64 " Connect %03" PRId64 ",%03" PRId64 " %03" PRId64 ",%03" PRId64, (uint64_t)(get_gameturn()), (int64_t)(ptAx), (int64_t)(ptAy), (int64_t)(ptBx), (int64_t)(ptBy));
+    int64_t tri1_id;
+    int64_t tri2_id;
     tri1_id = triangle_findSE8(ptAx, ptAy);
     tri2_id = triangle_findSE8(ptBx, ptBy);
     if ((tree_triA == -1) || (tree_triB == -1)) {
@@ -1281,7 +1281,7 @@ static unsigned long nav_same_component(long ptAx, long ptAy, long ptBx, long pt
     }
     TbBool reg_con;
     reg_con = regions_connected(tri1_id, tri2_id);
-    NAVIDBG(19,"ret %d", reg_con);
+    NAVIDBG(19,"ret %" PRId64, (int64_t)(reg_con));
     return reg_con;
 }
 
@@ -1300,11 +1300,11 @@ static TbBool triangulation_border_tag(void)
     return true;
 }
 
-static void creature_radius_set(long radius)
+static void creature_radius_set(int64_t radius)
 {
     edgelen_init();
     if ((radius < CreatureRadius_Small) || (radius >= EDGEOR_COUNT)) {
-        ERRORLOG("only radius 1..%d allowed, got %d",EDGEOR_COUNT,(int)radius);
+        ERRORLOG("only radius 1..%" PRId64 " allowed, got %" PRId64,(int64_t)(EDGEOR_COUNT),(int64_t)radius);
         if (radius < CreatureRadius_Small) {
             radius = CreatureRadius_Small;
         } else {
@@ -1314,7 +1314,7 @@ static void creature_radius_set(long radius)
     EdgeFit = RadiusEdgeFit[radius];
 }
 
-static void set_nearpoint(long tri_id, long cor_id, long dstx, long dsty, int32_t *px, int32_t *py)
+static void set_nearpoint(int64_t tri_id, int64_t cor_id, int64_t dstx, int64_t dsty, int64_t *px, int64_t *py)
 {
     static struct QuadrantOffset qdrnt_offs[] = {
        {   0,   0},{ 128, 128},{-128, 128},{   0, 128},
@@ -1325,7 +1325,7 @@ static void set_nearpoint(long tri_id, long cor_id, long dstx, long dsty, int32_
 
     struct Point *pt1;
     pt1 = get_triangle_point(tri_id,cor_id);
-    unsigned int tngflags;
+    uint64_t tngflags;
     tngflags = 0;
     if ((LastTriangulatedMap[256 * (pt1->y-1) + (pt1->x-1)] & TriangleFlag_All) == TriangleFlag_All)
       tngflags = TriangleFlag_TopLeft;
@@ -1360,12 +1360,12 @@ static void set_nearpoint(long tri_id, long cor_id, long dstx, long dsty, int32_
     *py = (pt1->y << 8) + qdrnt_offs[tngflags].y;
 }
 
-void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, int32_t *px, int32_t *py, const char *func_name)
+void nearest_search_f(int64_t sizexy, int64_t srcx, int64_t srcy, int64_t dstx, int64_t dsty, int64_t *px, int64_t *py, const char *func_name)
 {
     creature_radius_set(sizexy+1);
     tags_init();
-    long tri1_id;
-    long tri2_id;
+    int64_t tri1_id;
+    int64_t tri2_id;
     tri1_id = triangle_findSE8(srcx, srcy);
     tri2_id = triangle_findSE8(dstx, dsty);
     region_store_init();
@@ -1377,22 +1377,22 @@ void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, i
         *py = dsty;
         return;
     }
-    long seltri_id;
-    int selcor_id;
-    long min_dist;
-    signed int cor_id;
+    int64_t seltri_id;
+    int64_t selcor_id;
+    int64_t min_dist;
+    int64_t cor_id;
     seltri_id = 0;
     selcor_id = 0;
     min_dist = INT32_MAX;
     for (cor_id = 0; cor_id < 3; cor_id++)
     {
-        int pt_id;
+        int64_t pt_id;
         pt_id = Triangles[tri1_id].points[cor_id];
-        long diff_x;
-        long diff_y;
+        int64_t diff_x;
+        int64_t diff_y;
         diff_x = ((ari_Points[pt_id].x << 8) - dstx) >> 5;
         diff_y = ((ari_Points[pt_id].y << 8) - dsty) >> 5;
-        long dist;
+        int64_t dist;
         dist = diff_x * diff_x + diff_y * diff_y;
         if (min_dist > dist)
         {
@@ -1403,7 +1403,7 @@ void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, i
     }
     while (1)
     {
-        int regn;
+        int64_t regn;
         regn = region_get();
         if (regn == -1)
         {
@@ -1414,10 +1414,10 @@ void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, i
         }
         struct Triangle *tri;
         tri = &Triangles[regn];
-        unsigned int ncor1;
+        uint64_t ncor1;
         for (ncor1=0; ncor1 < 3; ncor1++)
         {
-            long ntri;
+            int64_t ntri;
             ntri = tri->tags[ncor1];
             if ((ntri != -1) && !is_current_tag(ntri))
             {
@@ -1433,16 +1433,16 @@ void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, i
                             *py = dsty;
                             return;
                         }
-                        unsigned int ncor2;
+                        uint64_t ncor2;
                         for (ncor2=0; ncor2 < 3; ncor2++)
                         {
-                            int pt_id;
-                            long diff_x;
-                            long diff_y;
+                            int64_t pt_id;
+                            int64_t diff_x;
+                            int64_t diff_y;
                             pt_id = Triangles[ntri].points[ncor2];
                             diff_x = ((ari_Points[pt_id].x << 8) - dstx) >> 5;
                             diff_y = ((ari_Points[pt_id].y << 8) - dsty) >> 5;
-                            int dist;
+                            int64_t dist;
                             dist = diff_x * diff_x + diff_y * diff_y;
                             if (min_dist > dist)
                             {
@@ -1459,7 +1459,7 @@ void nearest_search_f(long sizexy, long srcx, long srcy, long dstx, long dsty, i
     set_nearpoint(seltri_id, selcor_id, dstx, dsty, px, py);
 }
 
-static long cost_to_start(long tri_idx)
+static int64_t cost_to_start(int64_t tri_idx)
 {
     long long len_x;
     long long len_y;
@@ -1467,14 +1467,14 @@ static long cost_to_start(long tri_idx)
     long long newcost;
     struct Point *pt;
     struct Triangle *tri;
-    long i;
+    int64_t i;
     mincost = 16777215;
     tri = get_triangle(tri_idx);
     for (i=0; i < 3; i++)
     {
         pt = point_get(tri->points[i]);
-        len_x = ((tree_Ax8 >> 8) - (long)(pt->x));
-        len_y = ((tree_Ay8 >> 8) - (long)(pt->y));
+        len_x = ((tree_Ax8 >> 8) - (int64_t)(pt->x));
+        len_y = ((tree_Ay8 >> 8) - (int64_t)(pt->y));
         newcost = len_x*len_x+len_y*len_y;
         if (newcost < mincost)
             mincost = newcost;
@@ -1489,16 +1489,16 @@ static long cost_to_start(long tri_idx)
  * @param retpos_x
  * @param retpos_y
  */
-long pointed_at8(long pos_x, long pos_y, int32_t *ret_tri, int32_t *ret_pt)
+int64_t pointed_at8(int64_t pos_x, int64_t pos_y, int64_t *ret_tri, int64_t *ret_pt)
 {
     //TODO PATHFINDING triangulate_area sub-sub-sub-function, verify
-    long npt;
-    long ntri;
-    int pt_id;
-    int ptBx;
-    int ptBy;
-    int ptAx;
-    int ptAy;
+    int64_t npt;
+    int64_t ntri;
+    int64_t pt_id;
+    int64_t ptBx;
+    int64_t ptBy;
+    int64_t ptAx;
+    int64_t ptAy;
 
     ntri = *ret_tri;
     npt = *ret_pt;
@@ -1511,7 +1511,7 @@ long pointed_at8(long pos_x, long pos_y, int32_t *ret_tri, int32_t *ret_pt)
     char pt_rel;
     pt_rel = LbCompareMultiplications(ptBy, ptAx, ptBx, ptAy) > 0;
     char prev_rel;
-    unsigned long k;
+    uint64_t k;
     k = 0;
     while ( 1 )
     {
@@ -1527,8 +1527,8 @@ long pointed_at8(long pos_x, long pos_y, int32_t *ret_tri, int32_t *ret_pt)
             *ret_pt = npt;
             return MOD3[npt+1];
         }
-        long tri_id;
-        int tri_link;
+        int64_t tri_id;
+        int64_t tri_link;
         tri_id = Triangles[ntri].tags[npt];
         if (tri_id < 0) {
             break;
@@ -1549,20 +1549,20 @@ long pointed_at8(long pos_x, long pos_y, int32_t *ret_tri, int32_t *ret_pt)
     return -1;
 }
 
-static TbBool triangle_check_and_add_navitree_fwd(long ttri)
+static TbBool triangle_check_and_add_navitree_fwd(int64_t ttri)
 {
     struct Triangle *tri;
     tri = get_triangle(ttri);
     if (triangle_is_invalid(tri)) {
-        ERRORLOG("invalid triangle received, no %d",(int)ttri);
+        ERRORLOG("invalid triangle received, no %" PRId64,(int64_t)ttri);
         return false;
     }
-    long n;
-    long nskipped;
+    int64_t n;
+    int64_t nskipped;
     n = 0;
     nskipped = 0;
-    long i;
-    long k;
+    int64_t i;
+    int64_t k;
     for (i = 0; i < 3; i++)
     {
         k = tri->tags[i];
@@ -1576,8 +1576,8 @@ static TbBool triangle_check_and_add_navitree_fwd(long ttri)
                 k_alt = get_triangle_tree_alt(k);
                 if ((ttri_alt != NAV_COL_UNSET) && (k_alt != NAV_COL_UNSET))
                 {
-                    long mvcost;
-                    long navrule;
+                    int64_t mvcost;
+                    int64_t navrule;
                     navrule = nav_rulesA2B(k_alt, ttri_alt);
                     if (navrule)
                     {
@@ -1593,13 +1593,13 @@ static TbBool triangle_check_and_add_navitree_fwd(long ttri)
         n++;
     }
     if (nskipped != 0) {
-        NAVIDBG(6,"navigate heap full, %ld points ignored",nskipped);
+        NAVIDBG(6,"navigate heap full, %" PRId64 " points ignored",(int64_t)(nskipped));
         return false;
     }
     return true;
 }
 
-static TbBool triangle_check_and_add_navitree_bak(long ttri)
+static TbBool triangle_check_and_add_navitree_bak(int64_t ttri)
 {
     struct Triangle *tri;
     tri = get_triangle(ttri);
@@ -1607,10 +1607,10 @@ static TbBool triangle_check_and_add_navitree_bak(long ttri)
         ERRORLOG("invalid triangle received");
         return false;
     }
-    long nskipped;
+    int64_t nskipped;
     nskipped = 0;
-    long i;
-    long k;
+    int64_t i;
+    int64_t k;
     for (i = 0; i < 3; i++)
     {
         k = tri->tags[i];
@@ -1622,8 +1622,8 @@ static TbBool triangle_check_and_add_navitree_bak(long ttri)
             k_alt = get_triangle_tree_alt(k);
             if ((ttri_alt != NAV_COL_UNSET) && (k_alt != NAV_COL_UNSET))
             {
-                long mvcost;
-                long navrule;
+                int64_t mvcost;
+                int64_t navrule;
                 navrule = nav_rulesA2B(ttri_alt, k_alt);
                 if (navrule)
                 {
@@ -1637,7 +1637,7 @@ static TbBool triangle_check_and_add_navitree_bak(long ttri)
         }
     }
     if (nskipped != 0) {
-        NAVIDBG(6,"navigate heap full, %ld points ignored",nskipped);
+        NAVIDBG(6,"navigate heap full, %" PRId64 " points ignored",(int64_t)(nskipped));
         return false;
     }
     return true;
@@ -1651,7 +1651,7 @@ static TbBool triangle_check_and_add_navitree_bak(long ttri)
  * @param routecost Output integer where the tree route cost is returned.
  * @return Amount of points copied into the route array, or -1 on routing failure.
  */
-static long triangle_route_do_fwd(long ttriA, long ttriB, int32_t *route, int32_t *routecost)
+static int64_t triangle_route_do_fwd(int64_t ttriA, int64_t ttriB, int64_t *route, int64_t *routecost)
 {
     NAVIDBG(19,"Starting");
     tags_init();
@@ -1672,8 +1672,8 @@ static long triangle_route_do_fwd(long ttriA, long ttriB, int32_t *route, int32_
     // Do two of them at a time
     while (ttriA != naviheap_top())
     {
-        long triangle_heap_first;
-        long triangle_heap_second;
+        int64_t triangle_heap_first;
+        int64_t triangle_heap_second;
         if (naviheap_empty())
             break;
         triangle_heap_first = naviheap_remove();
@@ -1701,7 +1701,7 @@ static long triangle_route_do_fwd(long ttriA, long ttriB, int32_t *route, int32_
         // The beginning region was never reached
         return -1;
     }
-    long i;
+    int64_t i;
     i = copy_tree_to_route(ttriA, ttriB, route, TRIANLGLES_COUNT+1);
     if (i < 0) {
         sim_feedback->report_error_stat(ESE_BadRouteTree);
@@ -1719,7 +1719,7 @@ static long triangle_route_do_fwd(long ttriA, long ttriB, int32_t *route, int32_
  * @return Amount of points copied into the route array, or -1 on routing failure.
  * @note This function should differ from triangle_route_do_bak() in only one line
  */
-static long triangle_route_do_bak(long ttriA, long ttriB, int32_t *route, int32_t *routecost)
+static int64_t triangle_route_do_bak(int64_t ttriA, int64_t ttriB, int64_t *route, int64_t *routecost)
 {
     NAVIDBG(19,"Starting");
     tags_init();
@@ -1740,8 +1740,8 @@ static long triangle_route_do_bak(long ttriA, long ttriB, int32_t *route, int32_
     // Do two of them at a time
     while (ttriA != naviheap_top())
     {
-        long triangle_heap_first;
-        long triangle_heap_second;
+        int64_t triangle_heap_first;
+        int64_t triangle_heap_second;
         if (naviheap_empty())
             break;
         triangle_heap_first = naviheap_remove();
@@ -1769,7 +1769,7 @@ static long triangle_route_do_bak(long ttriA, long ttriB, int32_t *route, int32_
         // The beginning region was never reached
         return -1;
     }
-    long i;
+    int64_t i;
     i = copy_tree_to_route(ttriA, ttriB, route, TRIANLGLES_COUNT+1);
     if (i < 0) {
         sim_feedback->report_error_stat(ESE_BadRouteTree);
@@ -1785,16 +1785,16 @@ static long triangle_route_do_bak(long ttriA, long ttriB, int32_t *route, int32_
  * @param routecost Pointer where the tree route cost is returned.
  * @return
  */
-static long ma_triangle_route(long ttriA, long ttriB, int32_t *routecost)
+static int64_t ma_triangle_route(int64_t ttriA, int64_t ttriB, int64_t *routecost)
 {
-    long forward_route_length;
-    long backward_route_length;
-    int32_t par_fwd;
-    int32_t par_bak;
-    int32_t rcost_fwd;
-    int32_t rcost_bak;
-    long tx;
-    long ty;
+    int64_t forward_route_length;
+    int64_t backward_route_length;
+    int64_t par_fwd;
+    int64_t par_bak;
+    int64_t rcost_fwd;
+    int64_t rcost_bak;
+    int64_t tx;
+    int64_t ty;
     // We need to make testing system for routing, then fix the rewritten code
     // and compare results with the original code.
     // Forward route
@@ -1855,7 +1855,7 @@ static void edgelen_init(void)
     if (edgelen_initialised)
         return;
     edgelen_initialised = true;
-    int i;
+    int64_t i;
     // Fill edge values
     EdgeFit = RadiusEdgeFit[0];
     for (i=0; i < EDGEFIT_LEN; i++)
@@ -1891,14 +1891,14 @@ static TbBool ariadne_creature_reached_position(const struct Thing *thing, const
     return true;
 }
 
-static long ariadne_creature_blocked_by_wall_at(struct Thing *thing, const struct Coord3d *pos)
+static int64_t ariadne_creature_blocked_by_wall_at(struct Thing *thing, const struct Coord3d *pos)
 {
     if (pathfinding_world->creature_steps_into_toxic_terrain(thing, pos)) {
         return true;
     }
     struct Coord3d mvpos;
-    long zmem;
-    long ret;
+    int64_t zmem;
+    int64_t ret;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     zmem = thing_pos.z.val;
     mvpos.x.val = pos->x.val;
@@ -1913,10 +1913,10 @@ static long ariadne_creature_blocked_by_wall_at(struct Thing *thing, const struc
     return ret;
 }
 
-static void ariadne_pull_out_waypoint(const struct Thing *thing, const struct Ariadne *arid, long wpoint_id, struct Coord3d *pos)
+static void ariadne_pull_out_waypoint(const struct Thing *thing, const struct Ariadne *arid, int64_t wpoint_id, struct Coord3d *pos)
 {
     const struct Coord2d *wp;
-    long size_radius;
+    int64_t size_radius;
     if ((wpoint_id < 0) || (wpoint_id >= ARID_WAYPOINTS_COUNT))
     {
         pos->x.val = 0;
@@ -1969,12 +1969,12 @@ static void ariadne_init_current_waypoint(const struct Thing *thing, struct Aria
     arid->straight_dist_to_next_waypoint = get_2d_distance(&thing_pos, &arid->current_waypoint_pos);
 }
 
-long angle_to_quadrant(long angle)
+int64_t angle_to_quadrant(int64_t angle)
 {
     return ((angle + DEGREES_45) / DEGREES_90) & 3;
 }
 
-static TbBool ariadne_wallhug_angle_valid(struct Thing *thing, struct Ariadne *arid, long angle)
+static TbBool ariadne_wallhug_angle_valid(struct Thing *thing, struct Ariadne *arid, int64_t angle)
 {
     struct Coord3d pos;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
@@ -1984,10 +1984,10 @@ static TbBool ariadne_wallhug_angle_valid(struct Thing *thing, struct Ariadne *a
     return (ariadne_creature_blocked_by_wall_at(thing, &pos) == 0);
 }
 
-static long ariadne_get_wallhug_angle(struct Thing *thing, struct Ariadne *arid)
+static int64_t ariadne_get_wallhug_angle(struct Thing *thing, struct Ariadne *arid)
 {
-    long whangle;
-    short move_angle_xy = pathfinding_world->thing_get_move_angle(thing);
+    int64_t whangle;
+    int64_t move_angle_xy = pathfinding_world->thing_get_move_angle(thing);
     if (arid->hug_side == WallhugPreference_Right)
     {
         whangle = DEGREES_90 * ((angle_to_quadrant(move_angle_xy) - 1) & 3);
@@ -2021,20 +2021,20 @@ static long ariadne_get_wallhug_angle(struct Thing *thing, struct Ariadne *arid)
     return -1;
 }
 
-static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(struct Thing *thing, struct Ariadne *arid, long inangle, short *rangle, unsigned char *rflag)
+static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(struct Thing *thing, struct Ariadne *arid, int64_t inangle, int64_t *rangle, unsigned char *rflag)
 {
     struct Coord3d bkp_mappos;
     bkp_mappos = pathfinding_world->thing_get_position(thing);
-    int inangle_oneaxis;
-    int bkp_angle_xy;
-    int bkp_hug_side;
-    int bkp_speed;
+    int64_t inangle_oneaxis;
+    int64_t bkp_angle_xy;
+    int64_t bkp_hug_side;
+    int64_t bkp_speed;
     bkp_angle_xy = pathfinding_world->thing_get_move_angle(thing);
     bkp_speed = arid->move_speed;
     bkp_hug_side = arid->hug_side;
-    int angle_beg;
-    int hug_side;
-    int angle_end;
+    int64_t angle_beg;
+    int64_t hug_side;
+    int64_t angle_end;
     if (inangle == ANGLE_NORTH)
     {
         angle_beg = ANGLE_WEST;
@@ -2064,17 +2064,17 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
         inangle_oneaxis = 1;
     } else
     {
-        NAVIDBG(9,"Unsupported inangle %d",(int)inangle);
+        NAVIDBG(9,"Unsupported inangle %" PRId64,(int64_t)inangle);
         angle_beg = 0;
         hug_side = WallhugPreference_None;
         angle_end = 0;
         inangle_oneaxis = 0;
     }
     arid->move_speed = 256;
-    int whsteps;
-    int wallhug_distance_left;
-    int wallhug_distance_right;
-    int size_steps;
+    int64_t whsteps;
+    int64_t wallhug_distance_left;
+    int64_t wallhug_distance_right;
+    int64_t size_steps;
     size_steps = thing_nav_sizexy(thing) >> 9;
     pathfinding_world->thing_set_move_angle(thing, angle_beg);
     size_steps += 2;
@@ -2083,8 +2083,8 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
     wallhug_distance_left = size_steps;
     arid->hug_side = hug_side;
     struct Coord3d pos;
-    int i;
-    long hug_angle;
+    int64_t i;
+    int64_t hug_angle;
     for (i = 0; i < whsteps; i++)
     {
         hug_angle = ariadne_get_wallhug_angle(thing, arid);
@@ -2148,20 +2148,20 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
     }
 }
 
-static TbBool ariadne_get_starting_angle_and_side_of_wallhug(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, short *rangle, unsigned char *rflag)
+static TbBool ariadne_get_starting_angle_and_side_of_wallhug(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, int64_t *rangle, unsigned char *rflag)
 {
     TbBool nxdelta_x_neg;
     TbBool nxdelta_y_neg;
     TbBool crdelta_x_neg;
     TbBool crdelta_y_neg;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    crdelta_x_neg = (thing_pos.x.val - (long)pos->x.val) <= 0;
-    crdelta_y_neg = (thing_pos.y.val - (long)pos->y.val) <= 0;
-    nxdelta_x_neg = (thing_pos.x.val - (long)arid->current_waypoint_pos.x.val) <= 0;
-    nxdelta_y_neg = (thing_pos.y.val - (long)arid->current_waypoint_pos.y.val) <= 0;
-    int axis_closer;
-    int nav_radius;
-    axis_closer = abs(thing_pos.x.val - (long)arid->current_waypoint_pos.x.val) < abs(thing_pos.y.val - (long)arid->current_waypoint_pos.y.val);
+    crdelta_x_neg = (thing_pos.x.val - (int64_t)pos->x.val) <= 0;
+    crdelta_y_neg = (thing_pos.y.val - (int64_t)pos->y.val) <= 0;
+    nxdelta_x_neg = (thing_pos.x.val - (int64_t)arid->current_waypoint_pos.x.val) <= 0;
+    nxdelta_y_neg = (thing_pos.y.val - (int64_t)arid->current_waypoint_pos.y.val) <= 0;
+    int64_t axis_closer;
+    int64_t nav_radius;
+    axis_closer = llabs(thing_pos.x.val - (int64_t)arid->current_waypoint_pos.x.val) < llabs(thing_pos.y.val - (int64_t)arid->current_waypoint_pos.y.val);
     nav_radius = thing_nav_sizexy(thing) / 2;
     MapCoord cur_pos_y_beg;
     MapCoord cur_pos_y_end;
@@ -2171,13 +2171,13 @@ static TbBool ariadne_get_starting_angle_and_side_of_wallhug(struct Thing *thing
     cur_pos_x_end = thing_pos.x.val + nav_radius;
     cur_pos_y_beg = thing_pos.y.val - nav_radius;
     cur_pos_y_end = thing_pos.y.val + nav_radius;
-    int wp_num;
+    int64_t wp_num;
     MapCoord wp_x;
     MapCoord wp_y;
     wp_num = arid->current_waypoint;
     wp_x = arid->waypoints[wp_num].x.val;
     wp_y = arid->waypoints[wp_num].y.val;
-    unsigned long blk_flags;
+    uint64_t blk_flags;
     blk_flags = ariadne_get_blocked_flags(thing, pos);
     if ((blk_flags & SlbBloF_WalledX) != 0)
     {
@@ -2248,7 +2248,7 @@ static AriadneReturn ariadne_init_wallhug(struct Thing *thing, struct Ariadne *a
         arid->manoeuvre_state = AridUpSStM_ContinueWallhug;
         return AridRet_OK;
     }
-    long cannot_move = ariadne_creature_blocked_by_wall_at(thing, &arid->next_position);
+    int64_t cannot_move = ariadne_creature_blocked_by_wall_at(thing, &arid->next_position);
     if ( cannot_move )
     {
         struct Coord3d pos2;
@@ -2266,10 +2266,10 @@ static AriadneReturn ariadne_init_wallhug(struct Thing *thing, struct Ariadne *a
     return AridRet_OK;
 }
 
-static long ariadne_get_blocked_flags(struct Thing *thing, const struct Coord3d *pos)
+static int64_t ariadne_get_blocked_flags(struct Thing *thing, const struct Coord3d *pos)
 {
     struct Coord3d lpos;
-    unsigned long blkflags;
+    uint64_t blkflags;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     lpos.x.val = pos->x.val;
     lpos.y.val = thing_pos.y.val;
@@ -2293,22 +2293,22 @@ static long ariadne_get_blocked_flags(struct Thing *thing, const struct Coord3d 
     return blkflags;
 }
 
-static TbBool blocked_by_door_at(struct Thing *thing, struct Coord3d *pos, unsigned long blk_flags)
+static TbBool blocked_by_door_at(struct Thing *thing, struct Coord3d *pos, uint64_t blk_flags)
 {
-    long radius;
-    long start_x;
-    long end_x;
-    long start_y;
-    long end_y;
-    long stl_x;
-    long stl_y;
+    int64_t radius;
+    int64_t start_x;
+    int64_t end_x;
+    int64_t start_y;
+    int64_t end_y;
+    int64_t stl_x;
+    int64_t stl_y;
 
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     radius = thing_nav_sizexy(thing) >> 1;
-    start_x = ((long)pos->x.val - radius) / 256;
-    end_x = ((long)pos->x.val + radius) / 256;
-    start_y = ((long)pos->y.val - radius) / 256;
-    end_y = ((long)pos->y.val + radius) / 256;
+    start_x = ((int64_t)pos->x.val - radius) / 256;
+    end_x = ((int64_t)pos->x.val + radius) / 256;
+    start_y = ((int64_t)pos->y.val - radius) / 256;
+    end_y = ((int64_t)pos->y.val + radius) / 256;
     if ((blk_flags & SlbBloF_WalledX) != 0)
     {
         stl_x = end_x;
@@ -2340,11 +2340,11 @@ static TbBool blocked_by_door_at(struct Thing *thing, struct Coord3d *pos, unsig
     return false;
 }
 
-static long ariadne_push_position_against_wall(struct Thing *thing, const struct Coord3d *pos1, struct Coord3d *pos_out)
+static int64_t ariadne_push_position_against_wall(struct Thing *thing, const struct Coord3d *pos1, struct Coord3d *pos_out)
 {
     struct Coord3d lpos;
-    long radius;
-    unsigned long blk_flags;
+    int64_t radius;
+    uint64_t blk_flags;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     blk_flags = ariadne_get_blocked_flags(thing, pos1);
     radius = thing_nav_sizexy(thing) >> 1;
@@ -2415,21 +2415,21 @@ static long ariadne_push_position_against_wall(struct Thing *thing, const struct
     return blk_flags;
 }
 
-static long ariadne_init_movement_to_current_waypoint(struct Thing *thing, struct Ariadne *arid)
+static int64_t ariadne_init_movement_to_current_waypoint(struct Thing *thing, struct Ariadne *arid)
 {
     struct Coord3d requested_pos;
     struct Coord3d fixed_pos;
-    long angle;
-    long delta_x;
-    long delta_y;
-    unsigned long blk_flags;
+    int64_t angle;
+    int64_t delta_x;
+    int64_t delta_y;
+    uint64_t blk_flags;
     TRACE_THING(thing);
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     angle = get_angle_xy_to(&thing_pos, &arid->current_waypoint_pos);
     delta_x = distance_with_angle_to_coord_x(arid->move_speed, angle);
     delta_y = distance_with_angle_to_coord_y(arid->move_speed, angle);
-    requested_pos.x.val = (long)thing_pos.x.val + delta_x;
-    requested_pos.y.val = (long)thing_pos.y.val + delta_y;
+    requested_pos.x.val = (int64_t)thing_pos.x.val + delta_x;
+    requested_pos.y.val = (int64_t)thing_pos.y.val + delta_y;
     requested_pos.z.val = pathfinding_world->get_thing_height_at(thing, &requested_pos);
     if (!ariadne_creature_blocked_by_wall_at(thing, &requested_pos))
     {
@@ -2464,9 +2464,9 @@ static long ariadne_init_movement_to_current_waypoint(struct Thing *thing, struc
     return 1;
 }
 
-static long ariadne_creature_can_continue_direct_line_to_waypoint(struct Thing *thing, struct Ariadne *arid, long speed)
+static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thing *thing, struct Ariadne *arid, int64_t speed)
 {
-    long angle;
+    int64_t angle;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     angle = get_angle_xy_to(&thing_pos, &arid->current_waypoint_pos);
     struct Coord3d pos_dlim;
@@ -2558,12 +2558,12 @@ static AriadneReturn ariadne_prepare_creature_route_target_reached(const struct 
  * @return
  */
 static AriadneReturn ariadne_prepare_creature_route_to_target_f(const struct Thing *thing, struct Ariadne *arid,
-    const struct Coord3d *srcpos, const struct Coord3d *dstpos, long speed, AriadneRouteFlags flags, const char *func_name)
+    const struct Coord3d *srcpos, const struct Coord3d *dstpos, int64_t speed, AriadneRouteFlags flags, const char *func_name)
 {
     struct Path path;
-    long nav_sizexy;
-    NAVIDBG(18,"%s: The %s index %d from %3d,%3d to %3d,%3d", func_name, pathfinding_world->thing_model_name(thing), (int)pathfinding_world->thing_get_index(thing),
-        (int)srcpos->x.stl.num, (int)srcpos->y.stl.num, (int)dstpos->x.stl.num, (int)dstpos->y.stl.num);
+    int64_t nav_sizexy;
+    NAVIDBG(18,"%s: The %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, pathfinding_world->thing_model_name(thing), (int64_t)pathfinding_world->thing_get_index(thing),
+        (int64_t)srcpos->x.stl.num, (int64_t)srcpos->y.stl.num, (int64_t)dstpos->x.stl.num, (int64_t)dstpos->y.stl.num);
     memset(&path, 0, sizeof(struct Path));
     // Set the required parameters
     pathfinding_world->set_nav_thing_can_travel_over_lava(pathfinding_world->creature_can_travel_over_lava(thing));
@@ -2598,7 +2598,7 @@ static AriadneReturn ariadne_prepare_creature_route_to_target_f(const struct Thi
     if (path.waypoints_num < ARID_PATH_WAYPOINTS_COUNT) {
         arid->total_waypoints = path.waypoints_num;
     } else {
-        WARNLOG("%s: The %d waypoints is too many - cutting down", func_name,(int)path.waypoints_num);
+        WARNLOG("%s: The %" PRId64 " waypoints is too many - cutting down", func_name,(int64_t)path.waypoints_num);
         arid->total_waypoints = ARID_PATH_WAYPOINTS_COUNT-1;
     }
     // Fill stored waypoints (up to ARID_WAYPOINTS_COUNT)
@@ -2607,8 +2607,8 @@ static AriadneReturn ariadne_prepare_creature_route_to_target_f(const struct Thi
     } else {
         arid->stored_waypoints = ARID_WAYPOINTS_COUNT;
     }
-    long i;
-    long k;
+    int64_t i;
+    int64_t k;
     k = 0;
     for (i = 0; i < arid->stored_waypoints; i++)
     {
@@ -2636,13 +2636,13 @@ static AriadneReturn ariadne_prepare_creature_route_to_target_f(const struct Thi
  * @return
  * @see ariadne_prepare_creature_route_to_target() similar function which stores resulting route in Ariadne struct.
  */
-long ariadne_count_waypoints_on_creature_route_to_target_f(const struct Thing *thing,
+int64_t ariadne_count_waypoints_on_creature_route_to_target_f(const struct Thing *thing,
     const struct Coord3d *srcpos, const struct Coord3d *dstpos, AriadneRouteFlags flags, const char *func_name)
 {
     struct Path path;
-    long nav_sizexy;
-    NAVIDBG(18,"%s: The %s index %d from %3d,%3d to %3d,%3d", func_name, pathfinding_world->thing_model_name(thing), (int)pathfinding_world->thing_get_index(thing),
-        (int)srcpos->x.stl.num, (int)srcpos->y.stl.num, (int)dstpos->x.stl.num, (int)dstpos->y.stl.num);
+    int64_t nav_sizexy;
+    NAVIDBG(18,"%s: The %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, pathfinding_world->thing_model_name(thing), (int64_t)pathfinding_world->thing_get_index(thing),
+        (int64_t)srcpos->x.stl.num, (int64_t)srcpos->y.stl.num, (int64_t)dstpos->x.stl.num, (int64_t)dstpos->y.stl.num);
     memset(&path, 0, sizeof(struct Path));
     // Set the required parameters
     pathfinding_world->set_nav_thing_can_travel_over_lava(pathfinding_world->creature_can_travel_over_lava(thing));
@@ -2661,7 +2661,7 @@ long ariadne_count_waypoints_on_creature_route_to_target_f(const struct Thing *t
     pathfinding_world->set_nav_thing_is_flying(0);
     pathfinding_world->set_owner_player_navigating(-1);
     // Note: since this point, the function body should be identical to ariadne_prepare_creature_route_to_target().
-    NAVIDBG(19,"%s: Finished, %d waypoints",func_name,(int)path.waypoints_num);
+    NAVIDBG(19,"%s: Finished, %" PRId64 " waypoints",func_name,(int64_t)path.waypoints_num);
     return path.waypoints_num;
 }
 
@@ -2674,13 +2674,13 @@ AriadneReturn ariadne_invalidate_creature_route(struct Thing *thing)
     return AridRet_OK;
 }
 
-AriadneReturn ariadne_initialise_creature_route_f(struct Thing *thing, const struct Coord3d *pos, long speed, AriadneRouteFlags flags, const char *func_name)
+AriadneReturn ariadne_initialise_creature_route_f(struct Thing *thing, const struct Coord3d *pos, int64_t speed, AriadneRouteFlags flags, const char *func_name)
 {
     struct Ariadne *arid;
     AriadneReturn ret;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    NAVIDBG(18,"%s: Route for %s index %d from %3d,%3d to %3d,%3d", func_name,pathfinding_world->thing_model_name(thing),(int)pathfinding_world->thing_get_index(thing),
-        (int)thing_pos.x.stl.num, (int)thing_pos.y.stl.num, (int)pos->x.stl.num, (int)pos->y.stl.num);
+    NAVIDBG(18,"%s: Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name,pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+        (int64_t)thing_pos.x.stl.num, (int64_t)thing_pos.y.stl.num, (int64_t)pos->x.stl.num, (int64_t)pos->y.stl.num);
     TRACE_THING(thing);
     arid = pathfinding_world->creature_get_ariadne_state(thing);
     memset(arid, 0, sizeof(struct Ariadne));
@@ -2688,16 +2688,16 @@ AriadneReturn ariadne_initialise_creature_route_f(struct Thing *thing, const str
     {
         ret = ariadne_prepare_creature_route_target_reached(thing, arid, &thing_pos, pos);
         if (ret != AridRet_OK) {
-            NAVIDBG(19,"%s: Failed to reach route from %5d,%5d to %5d,%5d", func_name,
-                (int)thing_pos.x.val,(int)thing_pos.y.val, (int)pos->x.val,(int)pos->y.val);
+            NAVIDBG(19,"%s: Failed to reach route from %5" PRId64 ",%5" PRId64 " to %5" PRId64 ",%5" PRId64, func_name,
+                (int64_t)thing_pos.x.val,(int64_t)thing_pos.y.val, (int64_t)pos->x.val,(int64_t)pos->y.val);
             return ret;
         }
     } else
     {
         ret = ariadne_prepare_creature_route_to_target_f(thing, arid, &thing_pos, pos, speed, flags, func_name);
         if (ret != AridRet_OK) {
-            NAVIDBG(19,"%s: Failed to prepare route from %5d,%5d to %5d,%5d", func_name,
-                (int)thing_pos.x.val,(int)thing_pos.y.val, (int)pos->x.val,(int)pos->y.val);
+            NAVIDBG(19,"%s: Failed to prepare route from %5" PRId64 ",%5" PRId64 " to %5" PRId64 ",%5" PRId64, func_name,
+                (int64_t)thing_pos.x.val,(int64_t)thing_pos.y.val, (int64_t)pos->x.val,(int64_t)pos->y.val);
             return ret;
         }
         ariadne_init_current_waypoint(thing, arid);
@@ -2733,8 +2733,8 @@ static AriadneReturn ariadne_creature_get_next_waypoint(struct Thing *thing, str
     pos.x.val = arid->endpos.x.val;
     pos.y.val = arid->endpos.y.val;
     pos.z.val = arid->endpos.z.val;
-    NAVIDBG(8,"Route for %s index %d from %3d,%3d to %3d,%3d", pathfinding_world->thing_model_name(thing),(int)pathfinding_world->thing_get_index(thing),
-        (int)pathfinding_world->thing_get_position(thing).x.stl.num, (int)pathfinding_world->thing_get_position(thing).y.stl.num, (int)pos.x.stl.num, (int)pos.y.stl.num);
+    NAVIDBG(8,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+        (int64_t)pathfinding_world->thing_get_position(thing).x.stl.num, (int64_t)pathfinding_world->thing_get_position(thing).y.stl.num, (int64_t)pos.x.stl.num, (int64_t)pos.y.stl.num);
     return ariadne_initialise_creature_route(thing, &pos, arid->move_speed, arid->route_flags);
 }
 
@@ -2747,7 +2747,7 @@ static AriadneReturn ariadne_update_state_manoeuvre_to_position(struct Thing *th
 {
     struct Coord3d pos;
     MapCoord dist;
-    long hug_angle;
+    int64_t hug_angle;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
 
     if (ariadne_creature_blocked_by_wall_at(thing, &arid->manoeuvre_fixed_position))
@@ -2755,8 +2755,8 @@ static AriadneReturn ariadne_update_state_manoeuvre_to_position(struct Thing *th
         pos.x.val = arid->endpos.x.val;
         pos.y.val = arid->endpos.y.val;
         pos.z.val = arid->endpos.z.val;
-        NAVIDBG(8,"Route for %s index %d from %3d,%3d to %3d,%3d", pathfinding_world->thing_model_name(thing),(int)pathfinding_world->thing_get_index(thing),
-            (int)thing_pos.x.stl.num, (int)thing_pos.y.stl.num, (int)pos.x.stl.num, (int)pos.y.stl.num);
+        NAVIDBG(8,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+            (int64_t)thing_pos.x.stl.num, (int64_t)thing_pos.y.stl.num, (int64_t)pos.x.stl.num, (int64_t)pos.y.stl.num);
         AriadneReturn aret;
         aret = ariadne_initialise_creature_route(thing, &pos, arid->move_speed, arid->route_flags);
         if (aret != AridRet_OK) {
@@ -2786,7 +2786,7 @@ static AriadneReturn ariadne_update_state_manoeuvre_to_position(struct Thing *th
         arid->update_state = AridUpSt_Wallhug;
         return AridRet_OK;
     default:
-        ERRORLOG("Unknown Manoeuvre state %d",(int)arid->manoeuvre_state);
+        ERRORLOG("Unknown Manoeuvre state %" PRId64,(int64_t)arid->manoeuvre_state);
         break;
     }
     return AridRet_OK;
@@ -2794,8 +2794,8 @@ static AriadneReturn ariadne_update_state_manoeuvre_to_position(struct Thing *th
 
 static AriadneReturn ariadne_update_state_on_line(struct Thing *thing, struct Ariadne *arid)
 {
-    long angle;
-    long distance;
+    int64_t angle;
+    int64_t distance;
     NAVIDBG(19,"Starting");
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     angle = get_angle_xy_to(&thing_pos, &arid->current_waypoint_pos);
@@ -2844,7 +2844,7 @@ static AriadneReturn ariadne_update_state_on_line(struct Thing *thing, struct Ar
         }
         else
         {
-            unsigned long blk_flags;
+            uint64_t blk_flags;
             blk_flags = ariadne_get_blocked_flags(thing, &arid->next_position);
             if (!blocked_by_door_at(thing, &arid->next_position, blk_flags))
             {
@@ -2867,20 +2867,20 @@ static AriadneReturn ariadne_update_state_on_line(struct Thing *thing, struct Ar
     return AridRet_OK;
 }
 
-static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, long hug_angle)
+static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, int64_t hug_angle)
 {
     struct Coord3d nav_boundry_pos;
     struct Coord3d potentional_next_pos_3d;
     struct Coord3d original_mappos;
 
-    long nav_radius = thing_nav_sizexy(thing) / 2;
+    int64_t nav_radius = thing_nav_sizexy(thing) / 2;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
 
     TbBool isOk = false;
     switch (hug_angle)
     {
     case ANGLE_NORTH:
-        if ((int)((pos->y.val - nav_radius) & 0xFFFFFF00) < (int)((thing_pos.y.val - nav_radius) & 0xFFFFFF00))
+        if ((int64_t)((pos->y.val - nav_radius) & ((int64_t)(int32_t)0xFFFFFF00)) < (int64_t)((thing_pos.y.val - nav_radius) & ((int64_t)(int32_t)0xFFFFFF00)))
         {
             nav_boundry_pos.x.val = pos->x.val;
             nav_boundry_pos.y.val = subtile_coord((thing_pos.y.val - nav_radius) >> 8, 0) + nav_radius;
@@ -2888,7 +2888,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
         }
         break;
     case ANGLE_SOUTH:
-        if ((int)((nav_radius + pos->y.val) & 0xFFFFFF00) > (int)((nav_radius + thing_pos.y.val) & 0xFFFFFF00))
+        if ((int64_t)((nav_radius + pos->y.val) & ((int64_t)(int32_t)0xFFFFFF00)) > (int64_t)((nav_radius + thing_pos.y.val) & ((int64_t)(int32_t)0xFFFFFF00)))
         {
             nav_boundry_pos.x.val = pos->x.val;
             nav_boundry_pos.y.val = subtile_coord((nav_radius + thing_pos.y.val) >> 8, COORD_PER_STL - 1) - nav_radius;
@@ -2896,7 +2896,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
         }
         break;
     case ANGLE_WEST:
-        if ((int)((pos->x.val - nav_radius) & 0xFFFFFF00) < (int)((thing_pos.x.val - nav_radius) & 0xFFFFFF00))
+        if ((int64_t)((pos->x.val - nav_radius) & ((int64_t)(int32_t)0xFFFFFF00)) < (int64_t)((thing_pos.x.val - nav_radius) & ((int64_t)(int32_t)0xFFFFFF00)))
         {
             nav_boundry_pos.y.val = pos->y.val;
             nav_boundry_pos.x.val = subtile_coord((thing_pos.x.val - nav_radius) >> 8, 0) + nav_radius;
@@ -2904,7 +2904,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
         }
         break;
     case ANGLE_EAST:
-        if ((int)((nav_radius + pos->x.val) & 0xFFFFFF00) > (int)((nav_radius + thing_pos.x.val) & 0xFFFFFF00))
+        if ((int64_t)((nav_radius + pos->x.val) & ((int64_t)(int32_t)0xFFFFFF00)) > (int64_t)((nav_radius + thing_pos.x.val) & ((int64_t)(int32_t)0xFFFFFF00)))
         {
             nav_boundry_pos.y.val = pos->y.val;
             nav_boundry_pos.x.val = subtile_coord((nav_radius + thing_pos.x.val) >> 8, COORD_PER_STL - 1) - nav_radius;
@@ -2926,7 +2926,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
     else
         return 0;
 
-    long quadrant = DEGREES_90 * ((angle_to_quadrant(hug_angle) + angle_offset) & 3);
+    int64_t quadrant = DEGREES_90 * ((angle_to_quadrant(hug_angle) + angle_offset) & 3);
 
     potentional_next_pos_3d.x.val = move_coord_with_angle_x(thing_pos.x.val, arid->move_speed, quadrant);
     potentional_next_pos_3d.y.val = move_coord_with_angle_y(thing_pos.y.val, arid->move_speed, quadrant);
@@ -2967,10 +2967,10 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
 
 static TbBool ariadne_creature_on_circular_hug(const struct Thing *thing, const struct Ariadne *arid)
 {
-    long src_x;
-    long src_y;
-    long dst_x;
-    long dst_y;
+    int64_t src_x;
+    int64_t src_y;
+    int64_t dst_x;
+    int64_t dst_y;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
     dst_x = arid->previous_position.x.val;
     src_x = thing_pos.x.val;
@@ -3002,9 +3002,9 @@ static AriadneReturn ariadne_update_state_wallhug(struct Thing *thing, struct Ar
 {
     MapCoordDelta distance;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    short move_angle_xy = pathfinding_world->thing_get_move_angle(thing);
-    NAVIDBG(18,"Route for %s index %d from %3d,%3d to %3d,%3d", pathfinding_world->thing_model_name(thing),(int)pathfinding_world->thing_get_index(thing),
-        (int)thing_pos.x.val, (int)thing_pos.y.val, (int)arid->current_waypoint_pos.x.val, (int)arid->current_waypoint_pos.y.val);
+    int64_t move_angle_xy = pathfinding_world->thing_get_move_angle(thing);
+    NAVIDBG(18,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+        (int64_t)thing_pos.x.val, (int64_t)thing_pos.y.val, (int64_t)arid->current_waypoint_pos.x.val, (int64_t)arid->current_waypoint_pos.y.val);
     distance = get_2d_distance(&thing_pos, &arid->current_waypoint_pos);
     if ((distance - arid->straight_dist_to_next_waypoint) > 4 * COORD_PER_STL)
     {
@@ -3072,7 +3072,7 @@ static AriadneReturn ariadne_update_state_wallhug(struct Thing *thing, struct Ar
             }
             arid->straight_dist_to_next_waypoint = distance;
         }
-        long hug_angle;
+        int64_t hug_angle;
         hug_angle = ariadne_get_wallhug_angle(thing, arid);
         if (hug_angle == -1)
         {
@@ -3149,14 +3149,14 @@ static AriadneReturn ariadne_update_state_wallhug(struct Thing *thing, struct Ar
 }
 
 //TODO investigate when we get same coords
-static AriadneReturn ariadne_get_next_position_for_route(struct Thing *thing, struct Coord3d *finalpos, long speed, struct Coord3d *nextpos, AriadneRouteFlags flags)
+static AriadneReturn ariadne_get_next_position_for_route(struct Thing *thing, struct Coord3d *finalpos, int64_t speed, struct Coord3d *nextpos, AriadneRouteFlags flags)
 {
     struct Ariadne *arid;
     AriadneReturn result;
     AriadneReturn aret;
     struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    NAVIDBG(18,"Route for %s index %d from %3d,%3d to %3d,%3d", pathfinding_world->thing_model_name(thing),(int)pathfinding_world->thing_get_index(thing),
-        (int)thing_pos.x.stl.num, (int)thing_pos.y.stl.num, (int)finalpos->x.stl.num, (int)finalpos->y.stl.num);
+    NAVIDBG(18,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+        (int64_t)thing_pos.x.stl.num, (int64_t)thing_pos.y.stl.num, (int64_t)finalpos->x.stl.num, (int64_t)finalpos->y.stl.num);
     arid = pathfinding_world->creature_get_ariadne_state(thing);
     arid->wallhug_active = WallhugActive_Off;
     if ((finalpos->x.val != arid->endpos.x.val)
@@ -3226,7 +3226,7 @@ static AriadneReturn ariadne_get_next_position_for_route(struct Thing *thing, st
     }
     if (result != AridRet_OK)
     {
-        WARNDBG(3, "Update state %d returned %d", (int)arid->update_state, (int)result);
+        WARNDBG(3, "Update state %" PRId64 " returned %" PRId64, (int64_t)arid->update_state, (int64_t)result);
     }
     return result;
 }
@@ -3240,7 +3240,7 @@ static AriadneReturn ariadne_get_next_position_for_route(struct Thing *thing, st
  * @param flags
  * @return
  */
-AriadneReturn creature_follow_route_to_using_gates(struct Thing *thing, struct Coord3d *finalpos, struct Coord3d *nextpos, long speed, AriadneRouteFlags flags)
+AriadneReturn creature_follow_route_to_using_gates(struct Thing *thing, struct Coord3d *finalpos, struct Coord3d *nextpos, int64_t speed, AriadneRouteFlags flags)
 {
     SYNCDBG(18,"Starting");
     if (kfx_pathfinding_state.map_changed_for_navigation)
@@ -3262,11 +3262,11 @@ AriadneReturn creature_follow_route_to_using_gates(struct Thing *thing, struct C
  * @param subroute Random factor for determining position within route, or negative special value.
  * @param nav_size
  */
-void path_init8_wide_f(struct Path *path, long start_x, long start_y, long end_x, long end_y,
-    long subroute, unsigned char nav_size, const char *func_name)
+void path_init8_wide_f(struct Path *path, int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y,
+    int64_t subroute, unsigned char nav_size, const char *func_name)
 {
-    int32_t route_dist;
-    NAVIDBG(9,"%s: Path from %5ld,%5ld to %5ld,%5ld on turn %u", func_name, start_x, start_y, end_x, end_y, get_gameturn());
+    int64_t route_dist;
+    NAVIDBG(9,"%s: Path from %5" PRId64 ",%5" PRId64 " to %5" PRId64 ",%5" PRId64 " on turn %" PRIu64, func_name, (int64_t)(start_x), (int64_t)(start_y), (int64_t)(end_x), (int64_t)(end_y), (uint64_t)(get_gameturn()));
     if (subroute == -1)
       WARNLOG("%s: implement random externally", func_name);
     path->start.x = start_x;
@@ -3283,10 +3283,10 @@ void path_init8_wide_f(struct Path *path, long start_x, long start_y, long end_x
     tree_triB = triangle_findSE8(end_x, end_y);
     if ((tree_triA == -1) || (tree_triB == -1))
     {
-        ERRORLOG("%s: Boundary triangle not found: %ld -> %ld.", func_name,tree_triA,tree_triB);
+        ERRORLOG("%s: Boundary triangle not found: %" PRId64 " -> %" PRId64 ".", func_name,(int64_t)(tree_triA),(int64_t)(tree_triB));
         return;
     }
-    NAVIDBG(19,"%s: prepared triangles %ld -> %ld", func_name,tree_triA,tree_triB);
+    NAVIDBG(19,"%s: prepared triangles %" PRId64 " -> %" PRId64, func_name,(int64_t)(tree_triA),(int64_t)(tree_triB));
     if (!navigation_triangle_reachable(tree_triA, tree_triB))
     {
         NAVIDBG(9,"%s: Regions not connected, cannot trace a path.", func_name);
@@ -3295,11 +3295,11 @@ void path_init8_wide_f(struct Path *path, long start_x, long start_y, long end_x
     NAVIDBG(19,"%s: regions connected", func_name);
     edgelen_init();
     {
-        int creature_radius;
+        int64_t creature_radius;
         creature_radius = nav_size + 1;
         if ((creature_radius < CreatureRadius_Small) || (creature_radius > CreatureRadius_Large))
         {
-            ERRORLOG("%s: only radius 1..3 allowed, got %d", func_name,creature_radius);
+            ERRORLOG("%s: only radius 1..3 allowed, got %" PRId64, func_name,(int64_t)(creature_radius));
             return;
         }
         EdgeFit = RadiusEdgeFit[creature_radius];
@@ -3309,7 +3309,7 @@ void path_init8_wide_f(struct Path *path, long start_x, long start_y, long end_x
     if (subroute == -2)
     {
         tree_routelen = ma_triangle_route(tree_triA, tree_triB, &tree_routecost);
-        NAVIDBG(19,"%s: route=%ld", func_name, tree_routelen);
+        NAVIDBG(19,"%s: route=%" PRId64, func_name, (int64_t)(tree_routelen));
         if (tree_routelen != -1)
         {
             path->waypoints_num = route_to_path(start_x, start_y, end_x, end_y, tree_route, tree_routelen, path, &route_dist);
@@ -3321,19 +3321,19 @@ void path_init8_wide_f(struct Path *path, long start_x, long start_y, long end_x
         route_through_gates(&ap_GPathway, path, subroute);
     }
     if (path->waypoints_num > 0) {
-        NAVIDBG(9,"%s: Finished with %3ld waypoints, start: (%d,%d), (%d,%d), (%d,%d), (%d,%d), (%d,%d), (%d,%d), (%d,%d), (%d,%d), (%d,%d)",
-            func_name,(long)path->waypoints_num,
-            (int)path->waypoints[0].x,(int)path->waypoints[0].y,
-            (int)path->waypoints[1].x,(int)path->waypoints[1].y,
-            (int)path->waypoints[2].x,(int)path->waypoints[2].y,
-            (int)path->waypoints[3].x,(int)path->waypoints[3].y,
-            (int)path->waypoints[4].x,(int)path->waypoints[4].y,
-            (int)path->waypoints[5].x,(int)path->waypoints[5].y,
-            (int)path->waypoints[6].x,(int)path->waypoints[6].y,
-            (int)path->waypoints[7].x,(int)path->waypoints[7].y,
-            (int)path->waypoints[8].x,(int)path->waypoints[8].y);
+        NAVIDBG(9,"%s: Finished with %3" PRId64 " waypoints, start: (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 "), (%" PRId64 ",%" PRId64 ")",
+            func_name,(int64_t)path->waypoints_num,
+            (int64_t)path->waypoints[0].x,(int64_t)path->waypoints[0].y,
+            (int64_t)path->waypoints[1].x,(int64_t)path->waypoints[1].y,
+            (int64_t)path->waypoints[2].x,(int64_t)path->waypoints[2].y,
+            (int64_t)path->waypoints[3].x,(int64_t)path->waypoints[3].y,
+            (int64_t)path->waypoints[4].x,(int64_t)path->waypoints[4].y,
+            (int64_t)path->waypoints[5].x,(int64_t)path->waypoints[5].y,
+            (int64_t)path->waypoints[6].x,(int64_t)path->waypoints[6].y,
+            (int64_t)path->waypoints[7].x,(int64_t)path->waypoints[7].y,
+            (int64_t)path->waypoints[8].x,(int64_t)path->waypoints[8].y);
     } else {
-        NAVIDBG(9,"%s: Finished with %3ld waypoints", func_name,(long)path->waypoints_num);
+        NAVIDBG(9,"%s: Finished with %3" PRId64 " waypoints", func_name,(int64_t)path->waypoints_num);
     }
 }
 

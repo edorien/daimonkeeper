@@ -14,6 +14,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct KfxNetState kfx_net_state;
+struct KfxNetLocal kfx_net_local;
 /******************************************************************************/
 #ifdef __cplusplus
 }

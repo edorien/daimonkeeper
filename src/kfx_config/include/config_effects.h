@@ -42,12 +42,12 @@ struct EffectConfigStats {
     /** Health; decreases by 1 on every turn, so it works also as lifespan. */
     HitPoints start_health;
     unsigned char generation_type;
-    short accel_xy_min;
-    short accel_xy_max;
-    short accel_z_min;
-    short accel_z_max;
+    int64_t accel_xy_min;
+    int64_t accel_xy_max;
+    int64_t accel_z_min;
+    int64_t accel_z_max;
     unsigned char elements_count;
-    short effect_sound;
+    int64_t effect_sound;
     ThingModel kind_min;
     ThingModel kind_max;
     unsigned char area_affect_type;
@@ -60,20 +60,20 @@ struct EffectConfigStats {
 
 struct EffectGeneratorConfigStats {
     char code_name[COMMAND_WORD_LEN];
-    int32_t generation_delay_min;
-    int32_t generation_delay_max;
-    int32_t generation_amount;
+    int64_t generation_delay_min;
+    int64_t generation_delay_max;
+    int64_t generation_amount;
     ThingModel effect_model;
     unsigned char ignore_terrain;
-    int32_t spawn_height;
-    int32_t acc_x_min;
-    int32_t acc_x_max;
-    int32_t acc_y_min;
-    int32_t acc_y_max;
-    int32_t acc_z_min;
-    int32_t acc_z_max;
-    int32_t sound_sample_idx;
-    int32_t sound_sample_rng;
+    int64_t spawn_height;
+    int64_t acc_x_min;
+    int64_t acc_x_max;
+    int64_t acc_y_min;
+    int64_t acc_y_max;
+    int64_t acc_z_min;
+    int64_t acc_z_max;
+    int64_t sound_sample_idx;
+    int64_t sound_sample_rng;
 };
 
 struct EffectElementConfigStats {
@@ -81,14 +81,14 @@ struct EffectElementConfigStats {
     unsigned char draw_class; /**< See enum ObjectsDrawClasses. */
     unsigned char move_type;
     unsigned char unanimated;
-    short lifespan;
-    short lifespan_random;
-    short sprite_idx;
-    short sprite_size_min;
-    short sprite_size_max;
+    int64_t lifespan;
+    int64_t lifespan_random;
+    int64_t sprite_idx;
+    int64_t sprite_size_min;
+    int64_t sprite_size_max;
     unsigned char animate_once;
-    unsigned short sprite_speed_min;
-    unsigned short sprite_speed_max;
+    int64_t sprite_speed_min;
+    int64_t sprite_speed_max;
     TbBool animate_on_floor;
     TbBool unshaded;
     unsigned char transparent;  // transparency flags in bits 4-5
@@ -96,41 +96,41 @@ struct EffectElementConfigStats {
     unsigned char through_walls;
     unsigned char size_change; /**< See enum ThingSizeChange. */
     char fall_acceleration;
-    short inertia_floor;
-    short inertia_air;
-    unsigned short subeffect_model;
-    unsigned short subeffect_delay;
+    int64_t inertia_floor;
+    int64_t inertia_air;
+    int64_t subeffect_model;
+    int64_t subeffect_delay;
     TbBool impacts;
     ThingModel solidgnd_effmodel;
-    unsigned short solidgnd_snd_smpid;
-    unsigned short solidgnd_loudness;
+    int64_t solidgnd_snd_smpid;
+    int64_t solidgnd_loudness;
     TbBool solidgnd_destroy_on_impact;
     ThingModel water_effmodel;
-    unsigned short water_snd_smpid;
-    unsigned short water_loudness;
+    int64_t water_snd_smpid;
+    int64_t water_loudness;
     TbBool water_destroy_on_impact;
     ThingModel lava_effmodel;
-    unsigned short lava_snd_smpid;
-    unsigned short lava_loudness;
+    int64_t lava_snd_smpid;
+    int64_t lava_loudness;
     TbBool lava_destroy_on_impact;
-    unsigned short transform_model;
-    unsigned short light_radius;
+    int64_t transform_model;
+    int64_t light_radius;
     unsigned char light_intensity;
-    int32_t light_flags;
+    int64_t light_flags;
     unsigned char affected_by_wind;
 };
 
 struct EffectsConfig {
     struct EffectConfigStats effect_cfgstats[EFFECTS_TYPES_MAX];
-    int32_t effectgen_cfgstats_count;
+    int64_t effectgen_cfgstats_count;
     struct EffectGeneratorConfigStats effectgen_cfgstats[EFFECTSGEN_TYPES_MAX];
     struct EffectElementConfigStats effectelement_cfgstats[EFFECTSELLEMENTS_TYPES_MAX];
 };
 /******************************************************************************/
 extern const struct ConfigFileData keeper_effects_file_data;
 extern struct NamedCommand effect_desc[EFFECTS_TYPES_MAX];
-extern int32_t const imp_spangle_effects[];
-extern int32_t const ball_puff_effects[];
+extern int64_t const imp_spangle_effects[];
+extern int64_t const ball_puff_effects[];
 
 extern struct NamedCommand effectgen_desc[EFFECTSGEN_TYPES_MAX];
 extern struct NamedCommand effectelem_desc[EFFECTSELLEMENTS_TYPES_MAX];
@@ -140,7 +140,7 @@ struct EffectGeneratorConfigStats *get_effectgenerator_model_stats(ThingModel tn
 const char *effect_code_name(ThingModel tngmodel);
 const char* effect_element_code_name(ThingModel tngmodel);
 const char *effectgenerator_code_name(ThingModel tngmodel);
-short effect_or_effect_element_id(const char * code_name);
+int64_t effect_or_effect_element_id(const char * code_name);
 /******************************************************************************/
 #ifdef __cplusplus
 }

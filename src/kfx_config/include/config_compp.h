@@ -45,12 +45,12 @@ extern "C" {
 struct ComputerProcess {
   char name[COMMAND_WORD_LEN];
   char mnemonic[COMMAND_WORD_LEN];
-  long priority;
+  int64_t priority;
   // Signed process config values
-  long process_configuration_value_2;
-  long process_configuration_value_3;
-  long process_configuration_value_4; /**< room kind or amount of creatures or gameturn or count of slabs */
-  long process_configuration_value_5;
+  int64_t process_configuration_value_2;
+  int64_t process_configuration_value_3;
+  int64_t process_configuration_value_4; /**< room kind or amount of creatures or gameturn or count of slabs */
+  int64_t process_configuration_value_5;
   FuncIdx func_check;
   FuncIdx func_setup;
   FuncIdx func_task;
@@ -58,52 +58,52 @@ struct ComputerProcess {
   FuncIdx func_pause;
   unsigned char parent;
   // Unsigned process parameters storage (stores gameturns)
-  unsigned long process_parameter_1;
-  unsigned long process_parameter_2;
-  unsigned long process_parameter_3;
-  unsigned long last_run_turn;
+  uint64_t process_parameter_1;
+  uint64_t process_parameter_2;
+  uint64_t process_parameter_3;
+  uint64_t last_run_turn;
   // Signed process parameters storage
-  long process_parameter_5;
-  unsigned long flags; /**< Values from ComProc_* enumeration. */
+  int64_t process_parameter_5;
+  uint64_t flags; /**< Values from ComProc_* enumeration. */
 };
 
 struct ComputerCheck {
   char name[COMMAND_WORD_LEN];
   char mnemonic[COMMAND_WORD_LEN];
-  unsigned long flags; /**< Values from ComChk_* enumeration. */
-  long turns_interval;
+  uint64_t flags; /**< Values from ComChk_* enumeration. */
+  int64_t turns_interval;
   FuncIdx func;
-  long primary_parameter;
-  long secondary_parameter;
-  long tertiary_parameter;
-  long last_run_turn;
+  int64_t primary_parameter;
+  int64_t secondary_parameter;
+  int64_t tertiary_parameter;
+  int64_t last_run_turn;
 };
 
 struct ComputerEvent {
   char name[COMMAND_WORD_LEN];
   char mnemonic[COMMAND_WORD_LEN];
-  uint32_t cetype;
-  uint32_t mevent_kind;
+  uint64_t cetype;
+  uint64_t mevent_kind;
   FuncIdx func_event;
   FuncIdx func_test;
-  int32_t test_interval;
+  int64_t test_interval;
   unsigned char process;
-  int32_t primary_parameter;
-  int32_t secondary_parameter;
-  int32_t tertiary_parameter;
-  int32_t last_test_gameturn; /**< event last checked time */
+  int64_t primary_parameter;
+  int64_t secondary_parameter;
+  int64_t tertiary_parameter;
+  int64_t last_test_gameturn; /**< event last checked time */
 };
 
 struct ComputerType {
   char name[COMMAND_WORD_LEN];
-  short tooltip_stridx;
-  short sprite_idx;
-  long dig_stack_size;
-  long processes_time;
-  long click_rate;
-  long max_room_build_tasks;
-  long turn_begin;
-  long sim_before_dig;
+  int64_t tooltip_stridx;
+  int64_t sprite_idx;
+  int64_t dig_stack_size;
+  int64_t processes_time;
+  int64_t click_rate;
+  int64_t max_room_build_tasks;
+  int64_t turn_begin;
+  int64_t sim_before_dig;
   GameTurnDelta drop_delay;
   unsigned char processes[COMPUTER_PROCESSES_COUNT];
   unsigned char checks[COMPUTER_CHECKS_COUNT];
@@ -111,17 +111,17 @@ struct ComputerType {
 };
 
 struct ComputerPlayerConfig {
-  int32_t processes_count;
+  int64_t processes_count;
   struct ComputerProcess process_types[COMPUTER_PROCESS_TYPES_COUNT];
-  int32_t checks_count;
+  int64_t checks_count;
   struct ComputerCheck check_types[COMPUTER_CHECKS_TYPES_COUNT];
-  int32_t events_count;
+  int64_t events_count;
   struct ComputerEvent event_types[COMPUTER_EVENTS_TYPES_COUNT];
-  int32_t computers_count;
+  int64_t computers_count;
   struct ComputerType computer_types[COMPUTER_MODELS_COUNT];
-  long skirmish_first;
-  long skirmish_last;
-  long player_assist_default;
+  int64_t skirmish_first;
+  int64_t skirmish_last;
+  int64_t player_assist_default;
   unsigned char computer_assist_types[COMPUTER_ASSIST_TYPES_COUNT];
 
 };
@@ -130,7 +130,7 @@ struct ComputerPlayerConfig {
 /******************************************************************************/
 extern const struct ConfigFileData keeper_keepcomp_file_data;
 /******************************************************************************/
-struct ComputerType *get_computer_type_template(long cpt_idx);
+struct ComputerType *get_computer_type_template(int64_t cpt_idx);
 /******************************************************************************/
 extern struct ComputerPlayerConfig comp_player_conf;
 /******************************************************************************/

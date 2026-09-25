@@ -49,27 +49,27 @@ struct Thing;
 
 #pragma pack()
 /******************************************************************************/
-short good_attack_room(struct Thing *thing);
-short good_arrived_at_attack_room(struct Thing *thing);
-short good_back_at_start(struct Thing *thing);
-short good_doing_nothing(struct Thing *thing);
-short good_drops_gold(struct Thing *thing);
-short good_leave_through_exit_door(struct Thing *thing);
-short good_returns_to_start(struct Thing *thing);
-short good_wait_in_exit_door(struct Thing *thing);
-short creature_hero_entering(struct Thing *thing);
-short tunneller_doing_nothing(struct Thing *creatng);
-short tunnelling(struct Thing *creatng);
-short good_arrived_at_attack_dungeon_heart(struct Thing* thing);
-short good_arrived_at_combat(struct Thing* thing);
+int64_t good_attack_room(struct Thing *thing);
+int64_t good_arrived_at_attack_room(struct Thing *thing);
+int64_t good_back_at_start(struct Thing *thing);
+int64_t good_doing_nothing(struct Thing *thing);
+int64_t good_drops_gold(struct Thing *thing);
+int64_t good_leave_through_exit_door(struct Thing *thing);
+int64_t good_returns_to_start(struct Thing *thing);
+int64_t good_wait_in_exit_door(struct Thing *thing);
+int64_t creature_hero_entering(struct Thing *thing);
+int64_t tunneller_doing_nothing(struct Thing *creatng);
+int64_t tunnelling(struct Thing *creatng);
+int64_t good_arrived_at_attack_dungeon_heart(struct Thing* thing);
+int64_t good_arrived_at_combat(struct Thing* thing);
 
 TbBool good_setup_wander_to_exit(struct Thing *creatng);
-short setup_person_tunnel_to_position(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned char unusedparam);
-long get_best_dungeon_to_tunnel_to(struct Thing *creatng);
+int64_t setup_person_tunnel_to_position(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned char unusedparam);
+int64_t get_best_dungeon_to_tunnel_to(struct Thing *creatng);
 TbBool send_tunneller_to_point_in_dungeon(struct Thing *creatng, PlayerNumber plyr_idx, struct Coord3d *pos);
 TbBool is_hero_tunnelling_to_attack(struct Thing *creatng);
-long check_out_hero_has_money_for_treasure_room(struct Thing* thing);
-struct Thing *script_process_new_tunneler(unsigned char plyr_idx, TbMapLocation location, TbMapLocation heading, CrtrExpLevel exp_level, unsigned long carried_gold);
+int64_t check_out_hero_has_money_for_treasure_room(struct Thing* thing);
+struct Thing *script_process_new_tunneler(unsigned char plyr_idx, TbMapLocation location, TbMapLocation heading, CrtrExpLevel exp_level, uint64_t carried_gold);
 /******************************************************************************/
 #ifdef __cplusplus
 }

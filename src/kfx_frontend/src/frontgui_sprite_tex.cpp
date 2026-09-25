@@ -26,13 +26,13 @@ namespace {
 
 struct CachedSprite {
     void *texture = nullptr;   // RendererCreateDynamicTexture handle, or nullptr while unbuilt
-    int   width   = 0;
-    int   height  = 0;
+    int64_t   width   = 0;
+    int64_t   height  = 0;
     bool  built   = false;     // a successful render happened -- stop retrying
 };
 
-std::map<short, CachedSprite> s_button_cache;
-std::map<short, CachedSprite> s_panel_cache;
+std::map<int64_t, CachedSprite> s_button_cache;
+std::map<int64_t, CachedSprite> s_panel_cache;
 
 // The menu runs in "minimal resolution" mode (vidmode.c LoadVResMinimal), which loads only the button
 // sprites and frontend fonts: gui_panel_sprites (gui2-*.dat, the room/spell/trap/creature/player icons)
@@ -44,7 +44,7 @@ struct TbSpriteSheet *s_menu_panel_sheet = nullptr;
 unsigned char s_menu_palette[PALETTE_SIZE];
 bool s_menu_panel_attempted = false;
 bool s_menu_panel_ready = false;
-std::map<short, CachedSprite> s_menu_panel_cache;
+std::map<int64_t, CachedSprite> s_menu_panel_cache;
 
 bool menu_panel_sheet_ready()
 {
@@ -52,10 +52,10 @@ bool menu_panel_sheet_ready()
         return s_menu_panel_ready;
     s_menu_panel_attempted = true;
     s_menu_panel_sheet = load_spritesheet("data/gui2-64.dat", "data/gui2-64.tab");
-    const long got = LbFileLoadAt("data/palette.dat", s_menu_palette);
-    s_menu_panel_ready = (s_menu_panel_sheet != nullptr) && (got >= (long)PALETTE_SIZE);
+    const int64_t got = LbFileLoadAt("data/palette.dat", s_menu_palette);
+    s_menu_panel_ready = (s_menu_panel_sheet != nullptr) && (got >= (int64_t)PALETTE_SIZE);
     if (!s_menu_panel_ready)
-        WARNLOG("Menu panel sprites unavailable (sheet %s, palette %ld bytes)", s_menu_panel_sheet ? "loaded" : "missing", got);
+        WARNLOG("Menu panel sprites unavailable (sheet %s, palette %" PRId64 " bytes)", s_menu_panel_sheet ? "loaded" : "missing", (int64_t)(got));
     return s_menu_panel_ready;
 }
 
@@ -67,7 +67,7 @@ void release_menu_panel_sheet()
     s_menu_panel_ready = false;
 }
 
-const struct TbSprite *menu_panel_sprite(short idx)
+const struct TbSprite *menu_panel_sprite(int64_t idx)
 {
     if (idx < 0 || !menu_panel_sheet_ready() || idx >= num_sprites(s_menu_panel_sheet))
         return nullptr;
@@ -85,8 +85,8 @@ const struct TbSprite *menu_panel_sprite(short idx)
 // active engine palette the classic gui_area_no_anim_button() draw uses.
 bool render_sprite_with_palette(const struct TbSprite *spr, CachedSprite &out, unsigned char *palette)
 {
-    const int w = spr->SWidth;
-    const int h = spr->SHeight;
+    const int64_t w = spr->SWidth;
+    const int64_t h = spr->SHeight;
     if (w <= 0 || h <= 0)
         return false;
 
@@ -101,7 +101,7 @@ bool render_sprite_with_palette(const struct TbSprite *spr, CachedSprite &out, u
     // path, force the game engine palette. engine_palette is null until a
     // level's palette loads -- bail and retry rather than cache a wrong decode.
     // (The caller decides the palette; nullptr = the ambient one.)
-    const unsigned short prev_flags = RendererGetDrawFlags();
+    const int64_t prev_flags = RendererGetDrawFlags();
     const unsigned char prev_colour = RendererGetDrawColour();
     RendererSetDrawFlags(0);
     {
@@ -143,32 +143,32 @@ bool item_highlighted()
 // Shared geometry for FeSpriteButton() / FeSpriteButtonWidth(). Assumes the
 // body font is already pushed. `spr_w/spr_h` are the sprite's pixel size.
 struct SpriteBtnGeom {
-    float icon_w, icon_h;
-    float gap;          // icon->label spacing (0 when no label)
+    double icon_w, icon_h;
+    double gap;          // icon->label spacing (0 when no label)
     ImVec2 text_sz;
     ImVec2 box;
 };
 
-SpriteBtnGeom sprite_button_geom(int spr_w, int spr_h, const char *label, float icon_h_req)
+SpriteBtnGeom sprite_button_geom(int64_t spr_w, int64_t spr_h, const char *label, double icon_h_req)
 {
     const ImGuiStyle &style = ImGui::GetStyle();
     SpriteBtnGeom g;
-    g.icon_h = icon_h_req > 0.0f ? icon_h_req : ImGui::GetFontSize();
-    g.icon_w = g.icon_h * (float)spr_w / (float)spr_h;
+    g.icon_h = icon_h_req > 0.0 ? icon_h_req : ImGui::GetFontSize();
+    g.icon_w = g.icon_h * (double)spr_w / (double)spr_h;
 
     const bool have_label = label != nullptr && label[0] != '\0';
     g.text_sz = have_label ? ImGui::CalcTextSize(label) : ImVec2(0, 0);
-    g.gap = have_label ? style.ItemInnerSpacing.x * 2.0f : 0.0f;
+    g.gap = have_label ? style.ItemInnerSpacing.x * 2.0 : 0.0;
 
     g.box = ImVec2(
-        g.icon_w + g.gap + g.text_sz.x + style.FramePadding.x * 2.0f,
-        (g.icon_h > g.text_sz.y ? g.icon_h : g.text_sz.y) + style.FramePadding.y * 2.0f);
+        g.icon_w + g.gap + g.text_sz.x + style.FramePadding.x * 2.0,
+        (g.icon_h > g.text_sz.y ? g.icon_h : g.text_sz.y) + style.FramePadding.y * 2.0);
     return g;
 }
 
-void *lookup(std::map<short, CachedSprite> &cache, short idx,
-            const struct TbSprite *(*resolve)(short), bool force_engine_palette,
-            int *out_w, int *out_h)
+void *lookup(std::map<int64_t, CachedSprite> &cache, int64_t idx,
+            const struct TbSprite *(*resolve)(int64_t), bool force_engine_palette,
+            int64_t *out_w, int64_t *out_h)
 {
     CachedSprite &c = cache[idx];
     if (!c.built)
@@ -188,7 +188,7 @@ void *lookup(std::map<short, CachedSprite> &cache, short idx,
 
 } // namespace
 
-void *FeSpriteTexture(short sprite_idx, int *out_w, int *out_h)
+void *FeSpriteTexture(int64_t sprite_idx, int64_t *out_w, int64_t *out_h)
 {
     // Static icon-pack override (docs/refactor/ingame-gui/12-png-icon-overrides.md
     // §3.1) checked first -- a table hit means every caller of this
@@ -199,7 +199,7 @@ void *FeSpriteTexture(short sprite_idx, int *out_w, int *out_h)
     return lookup(s_button_cache, sprite_idx, &get_button_sprite, false, out_w, out_h);
 }
 
-void *FeGuiPanelTexture(short sprite_idx, int *out_w, int *out_h)
+void *FeGuiPanelTexture(int64_t sprite_idx, int64_t *out_w, int64_t *out_h)
 {
     void *ov = FeIconOverrideForStaticIndex(sprite_idx, /*is_button_sheet*/ false, out_w, out_h);
     if (ov != nullptr)
@@ -214,7 +214,7 @@ void *FeGuiPanelTexture(short sprite_idx, int *out_w, int *out_h)
         // resolves them correctly there, exactly as before the menu sheet existed. Only base-sheet
         // indices need the private sheet.
         const bool custom = is_custom_icon(sprite_idx) != 0;
-        std::map<short, CachedSprite> &cache = custom ? s_panel_cache : s_menu_panel_cache;
+        std::map<int64_t, CachedSprite> &cache = custom ? s_panel_cache : s_menu_panel_cache;
         CachedSprite &c = cache[sprite_idx];
         if (!c.built)
         {
@@ -247,7 +247,7 @@ void FeGuiPanelReleaseMenuSheet()
     release_menu_panel_sheet();
 }
 
-bool FeGuiPanelSpriteAvailable(short sprite_idx)
+bool FeGuiPanelSpriteAvailable(int64_t sprite_idx)
 {
     if (sprite_idx <= 0)
         return false;
@@ -262,8 +262,8 @@ namespace {
 // already resolved. `label` (if any) draws beside the icon; `fallback` is
 // the caption shown as a plain text button until the texture is ready
 // (defaults to `label`, then `str_id`).
-bool sprite_button_body(const char *str_id, void *tex, int spr_w, int spr_h,
-                        const char *label, const char *fallback, float icon_h)
+bool sprite_button_body(const char *str_id, void *tex, int64_t spr_w, int64_t spr_h,
+                        const char *label, const char *fallback, double icon_h)
 {
     if (tex == nullptr || spr_w <= 0 || spr_h <= 0)
     {
@@ -276,7 +276,7 @@ bool sprite_button_body(const char *str_id, void *tex, int spr_w, int spr_h,
 
     FeStylePushFont(FeFont_Body);
     const SpriteBtnGeom g = sprite_button_geom(spr_w, spr_h, label, icon_h);
-    const bool have_label = g.gap > 0.0f || (label != nullptr && label[0] != '\0');
+    const bool have_label = g.gap > 0.0 || (label != nullptr && label[0] != '\0');
 
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     const bool pressed = ImGui::InvisibleButton(str_id, g.box, ImGuiButtonFlags_EnableNav);
@@ -289,22 +289,22 @@ bool sprite_button_body(const char *str_id, void *tex, int spr_w, int spr_h,
         // Soft warm wash on hover -- no hard border (the blood-red ring
         // read as harsh around the message-box / quit-modal icons).
         dl->AddRectFilled(p0, ImVec2(p0.x + g.box.x, p0.y + g.box.y),
-                          IM_COL32(255, 235, 190, 40), 2.0f);
+                          IM_COL32(255, 235, 190, 40), 2.0);
     }
 
     // Global-alpha aware: BeginDisabled() lowers style.Alpha, so the icon
     // dims with the rest of a disabled row.
     const ImU32 tint = ImGui::GetColorU32(ImVec4(1, 1, 1, 1));
-    const ImVec2 icon_p0(p0.x + style.FramePadding.x, p0.y + (g.box.y - g.icon_h) * 0.5f);
+    const ImVec2 icon_p0(p0.x + style.FramePadding.x, p0.y + (g.box.y - g.icon_h) * 0.5);
     dl->AddImage((ImTextureID)(intptr_t)tex, icon_p0,
                  ImVec2(icon_p0.x + g.icon_w, icon_p0.y + g.icon_h),
                  ImVec2(0, 0), ImVec2(1, 1), tint);
 
     if (have_label)
     {
-        const ImU32 col = hot ? ImGui::GetColorU32(ImVec4(1.0f, 0.92f, 0.72f, 1.0f))
+        const ImU32 col = hot ? ImGui::GetColorU32(ImVec4(1.0, 0.92, 0.72, 1.0))
                               : ImGui::GetColorU32(ImGuiCol_Text);
-        dl->AddText(ImVec2(icon_p0.x + g.icon_w + g.gap, p0.y + (g.box.y - g.text_sz.y) * 0.5f),
+        dl->AddText(ImVec2(icon_p0.x + g.icon_w + g.gap, p0.y + (g.box.y - g.text_sz.y) * 0.5),
                     col, label);
     }
     FeStylePopFont();
@@ -316,35 +316,35 @@ bool sprite_button_body(const char *str_id, void *tex, int spr_w, int spr_h,
 
 } // namespace
 
-bool FeSpriteButton(const char *str_id, short sprite_idx, const char *label, float icon_h)
+bool FeSpriteButton(const char *str_id, int64_t sprite_idx, const char *label, double icon_h)
 {
-    int w = 0, h = 0;
+    int64_t w = 0, h = 0;
     void *tex = FeSpriteTexture(sprite_idx, &w, &h);
     return sprite_button_body(str_id, tex, w, h, label, nullptr, icon_h);
 }
 
-bool FeGuiPanelButton(const char *str_id, short sprite_idx, const char *label, float icon_h)
+bool FeGuiPanelButton(const char *str_id, int64_t sprite_idx, const char *label, double icon_h)
 {
-    int w = 0, h = 0;
+    int64_t w = 0, h = 0;
     void *tex = FeGuiPanelTexture(sprite_idx, &w, &h);
     return sprite_button_body(str_id, tex, w, h, label, nullptr, icon_h);
 }
 
-bool FeGuiPanelIconButton(const char *str_id, short sprite_idx, const char *fallback_label, float icon_h)
+bool FeGuiPanelIconButton(const char *str_id, int64_t sprite_idx, const char *fallback_label, double icon_h)
 {
-    int w = 0, h = 0;
+    int64_t w = 0, h = 0;
     void *tex = FeGuiPanelTexture(sprite_idx, &w, &h);
     return sprite_button_body(str_id, tex, w, h, nullptr, fallback_label, icon_h);
 }
 
-float FeSpriteButtonWidth(short sprite_idx, const char *label, float icon_h)
+double FeSpriteButtonWidth(int64_t sprite_idx, const char *label, double icon_h)
 {
-    int spr_w = 0, spr_h = 0;
+    int64_t spr_w = 0, spr_h = 0;
     FeSpriteTexture(sprite_idx, &spr_w, &spr_h);
     if (spr_w <= 0 || spr_h <= 0)
-        return 0.0f;
+        return 0.0;
     FeStylePushFont(FeFont_Body);
-    const float w = sprite_button_geom(spr_w, spr_h, label, icon_h).box.x;
+    const double w = sprite_button_geom(spr_w, spr_h, label, icon_h).box.x;
     FeStylePopFont();
     return w;
 }

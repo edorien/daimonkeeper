@@ -17,8 +17,8 @@
 namespace {
 // A small buffer wide enough to hold a rect plus a margin on every side,
 // so "untouched outside the rect" is actually checkable.
-constexpr int BUF_W = 20;
-constexpr int BUF_H = 20;
+constexpr int64_t BUF_W = 20;
+constexpr int64_t BUF_H = 20;
 const TbPixel SENTINEL = {99, 99, 99, 99};
 
 struct RectBlitFixture {
@@ -30,7 +30,7 @@ struct RectBlitFixture {
         // values aren't asserted, just self-consistency with
         // resolve_indexed_pixel() computed the same way.
         unsigned char pal[PALETTE_SIZE] = {0};
-        for (int i = 0; i < 8; i++) {
+        for (int64_t i = 0; i < 8; i++) {
             pal[3*i+0] = (unsigned char)(i * 8);
             pal[3*i+1] = (unsigned char)(i * 8);
             pal[3*i+2] = (unsigned char)(i * 8);
@@ -38,7 +38,7 @@ struct RectBlitFixture {
         LbPaletteStore(pal);
     }
 
-    TbPixel at(int x, int y) const { return dst[y * BUF_W + x]; }
+    TbPixel at(int64_t x, int64_t y) const { return dst[y * BUF_W + x]; }
     TbPixel resolved(unsigned char index) const {
         return resolve_indexed_pixel(index, RendererGetActivePalette());
     }
@@ -94,7 +94,7 @@ TEST_CASE_METHOD(RectBlitFixture, "copy_raw8_image_buffer_rect pans a source ima
     // A 4x4 source, drawn at 1:1 (dst size == src size), panned so its
     // top-left 2 rows/cols are scrolled out of view above/left of the rect.
     unsigned char src[16];
-    for (int i = 0; i < 16; i++) src[i] = (unsigned char)i;
+    for (int64_t i = 0; i < 16; i++) src[i] = (unsigned char)i;
     TbBool ok = copy_raw8_image_buffer_rect(dst.data(), BUF_W, BUF_H,
         /*rect*/ 5, 5, 2, 2,
         /*dst size*/ 4, 4, /*pan*/ -2, -2,

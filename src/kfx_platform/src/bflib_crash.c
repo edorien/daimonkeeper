@@ -55,7 +55,7 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-static const char* sigstr(int s)
+static const char* sigstr(int64_t s)
 {
   switch(s)
     {
@@ -148,7 +148,7 @@ static bool module_name_of(const void *address, char *name, size_t name_size, ui
 }
 
 static void
-_backtrace(int depth , LPCONTEXT context)
+_backtrace(int64_t depth , LPCONTEXT context)
 {
     int64_t keeperFxBaseAddr = 0x00000000;
     char mapFileLine[512];
@@ -286,8 +286,8 @@ _backtrace(int depth , LPCONTEXT context)
 
                             // Log it
                             LbJustLog(
-                                "[#%-2d] %-12s : %-36s [0x%I64x+0x%I64x]\t map lookup for: %04x:%08x, base: %08x\n",
-                                depth, module_name, prevName, prevAddr, displacement, (uint16_t)context->SegCs, (uint32_t)frame.AddrPC.Offset, (uint32_t)module_base);
+                                "[#%-2" PRId64 "] %-12s : %-36s [0x%I64x+0x%I64x]\t map lookup for: %04" PRIx64 ":%08" PRIx64 ", base: %08" PRIx64 "\n",
+                                (int64_t)(depth), module_name, prevName, (uint64_t)(prevAddr), (uint64_t)(displacement), (int64_t)context->SegCs, (uint64_t)frame.AddrPC.Offset, (uint64_t)module_base);
 
                             addrFound = true;
                             break;
@@ -322,13 +322,13 @@ _backtrace(int depth , LPCONTEXT context)
         // This works if there are any debug symbols available and also works for most OS libraries
         if (SymFromAddr(process, frame.AddrPC.Offset, &sfaDisplacement, pSymbol))
         {
-            LbJustLog("[#%-2d] %-12s : %-36s [%04x:%08x+0x%I64x, base %08x]\t symbol lookup\n",
-                      depth, module_name, pSymbol->Name, (uint16_t)context->SegCs, (uint32_t)frame.AddrPC.Offset, sfaDisplacement, (uint32_t)module_base);
+            LbJustLog("[#%-2" PRId64 "] %-12s : %-36s [%04" PRIx64 ":%08" PRIx64 "+0x%I64x, base %08" PRIx64 "]\t symbol lookup\n",
+                      (int64_t)(depth), module_name, pSymbol->Name, (int64_t)context->SegCs, (uint64_t)frame.AddrPC.Offset, (uint64_t)(sfaDisplacement), (uint64_t)module_base);
         }
         else
         {
             // Fallback
-            LbJustLog("[#%-2d] %-12s : at %04x:%08x, base %08x\n", depth, module_name, (uint16_t)context->SegCs, (uint32_t)frame.AddrPC.Offset, (uint32_t)module_base);
+            LbJustLog("[#%-2" PRId64 "] %-12s : at %04" PRIx64 ":%08" PRIx64 ", base %08" PRIx64 "\n", (int64_t)(depth), module_name, (int64_t)context->SegCs, (uint64_t)frame.AddrPC.Offset, (uint64_t)module_base);
         }
     }
 
@@ -353,7 +353,7 @@ static LONG CALLBACK ctrl_handler_w32(LPEXCEPTION_POINTERS info)
             LbErrorLog("User-mode data execution prevention (DEP) violation.\n");
             break;
         default:
-            LbErrorLog("Memory access violation, code %d.\n",(int)info->ExceptionRecord->ExceptionInformation[0]);
+            LbErrorLog("Memory access violation, code %" PRId64 ".\n",(int64_t)info->ExceptionRecord->ExceptionInformation[0]);
             break;
         }
         break;
@@ -401,7 +401,7 @@ static LONG CALLBACK ctrl_handler_w32(LPEXCEPTION_POINTERS info)
 #endif
 
 #if defined(BF_POSIX_CRASH)
-static const char *posix_sigcode_str(int sig_id, int si_code)
+static const char *posix_sigcode_str(int64_t sig_id, int64_t si_code)
 {
     switch (sig_id)
     {
@@ -485,13 +485,13 @@ static void write_stderr_line(const char *line, size_t line_len)
     (void)written;
 }
 
-static void _backtrace_posix(int depth)
+static void _backtrace_posix(int64_t depth)
 {
     void *frames[64];
-    int max_frames = (depth > (int)(sizeof(frames) / sizeof(frames[0])))
-        ? (int)(sizeof(frames) / sizeof(frames[0]))
+    int64_t max_frames = (depth > (int64_t)(sizeof(frames) / sizeof(frames[0])))
+        ? (int64_t)(sizeof(frames) / sizeof(frames[0]))
         : depth;
-    int count = backtrace(frames, max_frames);
+    int64_t count = backtrace(frames, max_frames);
 
     if (count > 0)
     {
@@ -500,8 +500,8 @@ static void _backtrace_posix(int depth)
         char **symbols = backtrace_symbols(frames, count);
         if (symbols != NULL)
         {
-            int printed_idx = 0;
-            for (int idx = 0; idx < count; idx++)
+            int64_t printed_idx = 0;
+            for (int64_t idx = 0; idx < count; idx++)
             {
                 Dl_info info;
                 if (dladdr(frames[idx], &info) != 0)
@@ -531,13 +531,13 @@ static void _backtrace_posix(int depth)
                         displacement = frame_addr - symbol_addr;
                     }
 
-                    LbJustLog("[#%-2d] %-20s : %-36s [%p+0x%" PRIxPTR "]\n",
-                        printed_idx, module_name, symbol_name, frames[idx], displacement);
+                    LbJustLog("[#%-2" PRId64 "] %-20s : %-36s [%p+0x%" PRIxPTR "]\n",
+                        (int64_t)(printed_idx), module_name, symbol_name, frames[idx], (uint64_t)(displacement));
                     printed_idx++;
                 }
                 else
                 {
-                    LbJustLog("[#%-2d] %s\n", printed_idx, symbols[idx]);
+                    LbJustLog("[#%-2" PRId64 "] %s\n", (int64_t)(printed_idx), symbols[idx]);
                     printed_idx++;
                 }
             }
@@ -571,10 +571,10 @@ static void ctrl_handler_posix(int sig_id, siginfo_t *info, void *context)
         write_stderr_line(fpe_msg, sizeof(fpe_msg) - 1);
     }
 
-    LbErrorLog("Failure signal: %s (%d).\n", sigstr(sig_id), sig_id);
+    LbErrorLog("Failure signal: %s (%" PRId64 ").\n", sigstr(sig_id), (int64_t)(sig_id));
     if (info != NULL)
     {
-        LbErrorLog("Signal code: %d (%s).\n", info->si_code, posix_sigcode_str(sig_id, info->si_code));
+        LbErrorLog("Signal code: %" PRId64 " (%s).\n", (int64_t)(info->si_code), posix_sigcode_str(sig_id, info->si_code));
     }
     LbErrorLog("Fault address: %p.\n", fault_addr);
     log_posix_context(context);
@@ -587,7 +587,7 @@ static void ctrl_handler_posix(int sig_id, siginfo_t *info, void *context)
     raise(sig_id);
 }
 
-static void install_posix_handler(int sig_id)
+static void install_posix_handler(int64_t sig_id)
 {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
@@ -595,13 +595,13 @@ static void install_posix_handler(int sig_id)
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
     {
-        int rc = sigaction(sig_id, &sa, NULL);
+        int64_t rc = sigaction(sig_id, &sa, NULL);
         if (rc != 0)
         {
             fprintf(stderr,
-                "LbErrorParachuteInstall: sigaction failed for signal %d (%s); "
+                "LbErrorParachuteInstall: sigaction failed for signal %" PRId64 " (%s); "
                 "crash handler not installed for this signal.\n",
-                sig_id, sigstr(sig_id));
+                (int64_t)(sig_id), sigstr(sig_id));
 #ifndef NDEBUG
             assert(rc == 0);
 #endif

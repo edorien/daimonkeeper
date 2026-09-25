@@ -39,11 +39,8 @@ extern "C" {
 struct Thing;
 
 struct SoundSettings {
-  char *sound_data_path;
-  char *music_data_path;
-  char *dir3;
-  unsigned short sound_type;
-  unsigned short flags;
+  int64_t sound_type;
+  int64_t flags;
   unsigned char max_number_of_samples;
   unsigned char stereo;
   unsigned char sound_buffer_enable;
@@ -64,7 +61,7 @@ enum SoundSettingsFlags {
 
 // atmos_sound_frequency moved to kfx_config's kfx_config_state.h (stage
 // 13.3, docs/refactor/stage-13-enforce-and-document.md).
-extern int sdl_flags;
+extern int64_t sdl_flags;
 
 #pragma pack()
 
@@ -75,7 +72,7 @@ void sound_reinit_after_load(void);
 void update_player_sounds(void);
 void process_3d_sounds(void);
 
-void thing_play_sample(struct Thing *, SoundSmplTblID, SoundPitch, char repeats, unsigned char ctype, unsigned char flags, long priority, SoundVolume);
+void thing_play_sample(struct Thing *, SoundSmplTblID, SoundPitch, char repeats, unsigned char ctype, unsigned char flags, int64_t priority, SoundVolume);
 void play_sound_if_close_to_receiver(struct Coord3d*, SoundSmplTblID);
 void stop_thing_playing_sample(struct Thing *, SoundSmplTblID smpl_idx);
 void play_thing_walking(struct Thing *thing);

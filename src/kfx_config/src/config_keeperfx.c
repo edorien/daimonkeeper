@@ -52,9 +52,9 @@ static const char keeper_config_file[]="keeperfx.cfg";
 static char loaded_keeperfx_cfg_path[DISKPATH_SIZE] = "";
 
 char cmd_char = '!';
-unsigned short AtmosRepeat = 1013;
-unsigned short AtmosStart = 1014;
-unsigned short AtmosEnd = 1034;
+int64_t AtmosRepeat = 1013;
+int64_t AtmosStart = 1014;
+int64_t AtmosEnd = 1034;
 TbBool AssignCpuKeepers = 0;
 struct InstallInfo install_info;
 char keeper_runtime_directory[152];
@@ -85,10 +85,10 @@ TbBool config_network_is_active(void)
 {
     return (g_network_is_active_fn != NULL) && g_network_is_active_fn();
 }
-short api_enabled = false;
-uint16_t api_port = 5599;
-uint32_t packetsave_max_kb = 0;
-unsigned long features_enabled = 0;
+int64_t api_enabled = false;
+int64_t api_port = 5599;
+uint64_t packetsave_max_kb = 0;
+uint64_t features_enabled = 0;
 TbBool exit_on_lua_error = false;
 TbBool FLEE_BUTTON_DEFAULT = false;
 TbBool IMPRISON_BUTTON_DEFAULT = false;
@@ -280,7 +280,7 @@ const struct NamedCommand conf_commands[] = {
   {NULL,            0},
   };
 
-unsigned int vid_scale_flags = SMK_FullscreenFit;
+uint64_t vid_scale_flags = SMK_FullscreenFit;
 
 
 /******************************************************************************/
@@ -396,7 +396,7 @@ TbBool mute_audio_on_focus_lost(void)
   return ((features_enabled & Ft_MuteAudioOnLoseFocus) != 0);
 }
 
-TbBool is_feature_on(unsigned long feature)
+TbBool is_feature_on(uint64_t feature)
 {
   return ((features_enabled & feature) != 0);
 }
@@ -417,12 +417,12 @@ TbBool get_skip_heart_zoom_feature(void)
 /**
  * Returns copy of the requested language string in lower case.
  */
-const char *get_language_lwrstr(int lang_id)
+const char *get_language_lwrstr(int64_t lang_id)
 {
     const char* src = get_conf_parameter_text(lang_type, lang_id);
 #if (BFDEBUG_LEVEL > 0)
   if (strlen(src) != 3)
-      WARNLOG("Bad text code for language index %d",(int)lang_id);
+      WARNLOG("Bad text code for language index %" PRId64,(int64_t)lang_id);
 #endif
   static char lang_str[4];
   snprintf(lang_str, 4, "%s", src);
@@ -433,15 +433,15 @@ const char *get_language_lwrstr(int lang_id)
 // Moved from bflib_sprfnt.c: pure predicate over TbLanguage enum values,
 // used only by the config/startup layer. See
 // docs/refactor/stage-02-decouple-bflib.md.
-TbBool is_dbc_language(short language)
+TbBool is_dbc_language(int64_t language)
 {
     return (language == Lang_Japanese) || (language == Lang_ChineseInt) ||
            (language == Lang_ChineseTra) || (language == Lang_Korean);
 }
 
-TbBool prepare_diskpath(char *buf,long buflen)
+TbBool prepare_diskpath(char *buf,int64_t buflen)
 {
-    int i = strlen(buf) - 1;
+    int64_t i = strlen(buf) - 1;
     if (i >= buflen)
         i = buflen - 1;
     if (i < 0)
@@ -468,9 +468,9 @@ TbBool prepare_diskpath(char *buf,long buflen)
     return true;
 }
 
-static void load_file_configuration(const char *fname, const char *sname, const char *config_textname, unsigned short flags)
+static void load_file_configuration(const char *fname, const char *sname, const char *config_textname, int64_t flags)
 {
-  long len = LbFileLengthRnc(fname);
+  int64_t len = LbFileLengthRnc(fname);
   if (len < 2)
   {
     if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -489,19 +489,19 @@ static void load_file_configuration(const char *fname, const char *sname, const 
   len = LbFileLoadAt(fname, buf);
   if (len>0)
   {
-    SYNCDBG(7,"Processing %s file, %ld bytes",config_textname,len);
+    SYNCDBG(7,"Processing %s file, %" PRId64 " bytes",config_textname,(int64_t)(len));
     buf[len] = '\0';
     // Set text line number - we don't have blocks so we need to initialize it manually
     text_line_number = 1;
-    int32_t pos = 0;
+    int64_t pos = 0;
 #define COMMAND_TEXT(cmd_num) get_conf_parameter_text(conf_commands,cmd_num)
     while (pos<len)
     {
       // Finding command number in this line
-      int i = 0;
-      int cmd_num = recognize_conf_command(buf, &pos, len, conf_commands);
+      int64_t i = 0;
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, conf_commands);
       // Now store the config item in correct place
-      int k;
+      int64_t k;
       char word_buf[128];
       switch (cmd_num)
       {
@@ -636,8 +636,8 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               k = -1;
             if (k<=0)
             {
-                CONFWRNLOG("Couldn't recognize setting %d in \"%s\" command of %s file.",
-                   i+1,COMMAND_TEXT(cmd_num),config_textname);
+                CONFWRNLOG("Couldn't recognize setting %" PRId64 " in \"%s\" command of %s file.",
+                   (int64_t)(i+1),COMMAND_TEXT(cmd_num),config_textname);
                continue;
             }
             switch (i)
@@ -681,7 +681,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           else if (i > 160)
           {
-              CONFWRNLOG("Value %d out of range for \"%s\" command of %s file. Set to 160.", i, COMMAND_TEXT(cmd_num), config_textname);
+              CONFWRNLOG("Value %" PRId64 " out of range for \"%s\" command of %s file. Set to 160.", (int64_t)(i), COMMAND_TEXT(cmd_num), config_textname);
               i = 160;
           }
           keeperfx_ui_config.gui_blink_rate = i;
@@ -698,7 +698,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           else if (i > 160)
           {
-              CONFWRNLOG("Value %d out of range for \"%s\" command of %s file. Set to 160.",i, COMMAND_TEXT(cmd_num), config_textname);
+              CONFWRNLOG("Value %" PRId64 " out of range for \"%s\" command of %s file. Set to 160.",(int64_t)(i), COMMAND_TEXT(cmd_num), config_textname);
               i = 160;
           }
           keeperfx_ui_config.neutral_flash_rate = i;
@@ -844,8 +844,8 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           if ((i >= 0) && (i <= 32768)) {
               if (i > 100) {i = 100;}
-              kfx_config_state.zoom_distance_setting = LbLerp(4100, CAMERA_ZOOM_MIN, (float)i/100.0);
-              kfx_config_state.frontview_zoom_distance_setting = LbLerp(16384, FRONTVIEW_CAMERA_ZOOM_MIN, (float)i/100.0);
+              kfx_config_state.zoom_distance_setting = LbLerp(4100, CAMERA_ZOOM_MIN, (double)i/100.0);
+              kfx_config_state.frontview_zoom_distance_setting = LbLerp(16384, FRONTVIEW_CAMERA_ZOOM_MIN, (double)i/100.0);
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
@@ -1243,9 +1243,9 @@ static void load_configuration_for_mod(const struct ModConfigItem *mod_item)
     load_file_configuration(fname, keeper_config_file, config_textname, CnfLd_IgnoreErrors);
 }
 
-static void load_configuration_for_mod_list(const struct ModConfigItem *mod_items, long mod_cnt)
+static void load_configuration_for_mod_list(const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
-    for (long i=0; i<mod_cnt; i++)
+    for (int64_t i=0; i<mod_cnt; i++)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (mod_item->state.mod_dir == 0)
@@ -1273,7 +1273,7 @@ void load_configuration_for_mod_all(void)
     }
 }
 
-short load_configuration(void)
+int64_t load_configuration(void)
 {
   // Variables to use when recognizing parameters
   SYNCDBG(4,"Starting");
@@ -1368,13 +1368,13 @@ void process_cmdline_overrides(void)
   }
 }
 
-int parse_draw_fps_config_val(const char *arg, int32_t *fps_draw_main, int32_t *fps_draw_secondary)
+int64_t parse_draw_fps_config_val(const char *arg, int64_t *fps_draw_main, int64_t *fps_draw_secondary)
 {
-  int cnt = 0, val1 = 0, val2 = 0;
-  long len = strlen(arg);
-  int32_t pos = 0;
+  int64_t cnt = 0, val1 = 0, val2 = 0;
+  int64_t len = strlen(arg);
+  int64_t pos = 0;
   char word_buf[32];
-  for (int i=0; i<2; i++)
+  for (int64_t i=0; i<2; i++)
   {
     if (get_conf_parameter_single(arg,&pos,len,word_buf,sizeof(word_buf)) <= 0)
       break;
@@ -1423,17 +1423,17 @@ int parse_draw_fps_config_val(const char *arg, int32_t *fps_draw_main, int32_t *
  * recognize_conf_command() (config.c) uses, so a key that's a prefix of a
  * longer one (e.g. "INGAME_RES" vs "INGAME_RESX") never false-matches.
  */
-static TbBool cfg_line_matches_key(const char *buf, long line_start, long line_end, const char *key)
+static TbBool cfg_line_matches_key(const char *buf, int64_t line_start, int64_t line_end, const char *key)
 {
-    long i = line_start;
+    int64_t i = line_start;
     while ((i < line_end) && ((buf[i] == ' ') || (buf[i] == '\t')))
         i++;
     size_t klen = strlen(key);
-    if ((long)(i + (long)klen) > line_end)
+    if ((int64_t)(i + (int64_t)klen) > line_end)
         return false;
     if (strnicmp(&buf[i], key, klen) != 0)
         return false;
-    long j = i + (long)klen;
+    int64_t j = i + (int64_t)klen;
     if (j < line_end)
     {
         char next = buf[j];
@@ -1444,12 +1444,12 @@ static TbBool cfg_line_matches_key(const char *buf, long line_start, long line_e
     return true;
 }
 
-TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct KeeperfxCfgEdit *edits, int edits_count)
+TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct KeeperfxCfgEdit *edits, int64_t edits_count)
 {
     if ((fname == NULL) || (fname[0] == '\0') || (edits == NULL) || (edits_count <= 0))
         return false;
 
-    long len = LbFileLength(fname);
+    int64_t len = LbFileLength(fname);
     if (len < 0)
         len = 0; // file doesn't exist yet -- every edit gets appended below
     char *buf = (char *)KfxCalloc((size_t)len + 1, 1);
@@ -1457,7 +1457,7 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
         return false;
     if (len > 0)
     {
-        long read_len = LbFileLoadAt(fname, buf);
+        int64_t read_len = LbFileLoadAt(fname, buf);
         if (read_len != len)
         {
             KfxFree(buf);
@@ -1468,7 +1468,7 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
 
     TbBool *applied = (TbBool *)KfxCalloc((size_t)edits_count, sizeof(TbBool));
     size_t out_cap = (size_t)len + 64;
-    for (int e = 0; e < edits_count; e++)
+    for (int64_t e = 0; e < edits_count; e++)
         out_cap += strlen(edits[e].key) + strlen(edits[e].value) + 8;
     char *out = (char *)KfxCalloc(out_cap, 1);
     if ((applied == NULL) || (out == NULL))
@@ -1480,19 +1480,19 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
     }
     size_t out_pos = 0;
 
-    long pos = 0;
+    int64_t pos = 0;
     while (pos < len)
     {
-        long line_start = pos;
+        int64_t line_start = pos;
         while ((pos < len) && (buf[pos] != '\n'))
             pos++;
-        long line_end = pos; // index of '\n', or == len at EOF with no trailing newline
+        int64_t line_end = pos; // index of '\n', or == len at EOF with no trailing newline
         TbBool has_nl = (pos < len);
         if (has_nl)
             pos++; // consume '\n'
 
-        int matched_edit = -1;
-        for (int e = 0; e < edits_count; e++)
+        int64_t matched_edit = -1;
+        for (int64_t e = 0; e < edits_count; e++)
         {
             if (cfg_line_matches_key(buf, line_start, line_end, edits[e].key))
             {
@@ -1504,7 +1504,7 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
         if (matched_edit >= 0)
         {
             applied[matched_edit] = true;
-            int n = snprintf(&out[out_pos], out_cap - out_pos, "%s=%s", edits[matched_edit].key, edits[matched_edit].value);
+            int64_t n = snprintf(&out[out_pos], out_cap - out_pos, "%s=%s", edits[matched_edit].key, edits[matched_edit].value);
             if (n > 0)
                 out_pos += (size_t)n;
         }
@@ -1518,13 +1518,13 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
     }
 
     // Append any keys that had no existing line in the file.
-    for (int e = 0; e < edits_count; e++)
+    for (int64_t e = 0; e < edits_count; e++)
     {
         if (applied[e])
             continue;
         if ((out_pos > 0) && (out[out_pos - 1] != '\n'))
             out[out_pos++] = '\n';
-        int n = snprintf(&out[out_pos], out_cap - out_pos, "%s=%s\n", edits[e].key, edits[e].value);
+        int64_t n = snprintf(&out[out_pos], out_cap - out_pos, "%s=%s\n", edits[e].key, edits[e].value);
         if (n > 0)
             out_pos += (size_t)n;
     }
@@ -1536,7 +1536,7 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
     TbFileHandle handle = LbFileOpen(fname, Lb_FILE_MODE_NEW);
     if (handle)
     {
-        result = (LbFileWrite(handle, out, (unsigned long)out_pos) == (long)out_pos);
+        result = (LbFileWrite(handle, out, (uint64_t)out_pos) == (int64_t)out_pos);
         LbFileClose(handle);
         if (!result)
             WARNMSG("Couldn't write rewritten config to \"%s\".", fname);
@@ -1549,7 +1549,7 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
     return result;
 }
 
-TbBool keeperfx_cfg_write_values(const struct KeeperfxCfgEdit *edits, int edits_count)
+TbBool keeperfx_cfg_write_values(const struct KeeperfxCfgEdit *edits, int64_t edits_count)
 {
     if (loaded_keeperfx_cfg_path[0] == '\0')
     {

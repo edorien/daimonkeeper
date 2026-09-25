@@ -84,7 +84,7 @@ TbBool hunger_is_creature_hungry(const struct Thing *creatng)
 void person_eat_food(struct Thing *creatng, struct Thing *foodtng, struct Room *room)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    long old_hunger_level = cctrl->hunger_level;
+    int64_t old_hunger_level = cctrl->hunger_level;
     sim_feedback->thing_play_sample(creatng, snd_chicken_cluck + SOUND_RANDOM(snd_chicken_cluck_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     internal_set_thing_state(creatng, CrSt_CreatureEat);
     set_creature_instance(creatng, CrInst_EAT, 0, 0);
@@ -92,7 +92,7 @@ void person_eat_food(struct Thing *creatng, struct Thing *foodtng, struct Room *
     {
         anger_set_creature_anger(creatng, 0, AngR_Hungry);
         struct CreatureModelConfig *crconf = creature_stats_get_from_thing(creatng);
-        if (crconf->annoy_eat_food > 0 || old_hunger_level > (long)crconf->hunger_rate) {
+        if (crconf->annoy_eat_food > 0 || old_hunger_level > (int64_t)crconf->hunger_rate) {
             // As food(It means <0), happiness can only be obtained when a creature is hungry. But for those who dislike it(It means >0), every time is torture.
             anger_apply_anger_to_creature(creatng, crconf->annoy_eat_food, AngR_Other, 1);
         }
@@ -102,7 +102,7 @@ void person_eat_food(struct Thing *creatng, struct Thing *foodtng, struct Room *
         thing_death_flesh_explosion(foodtng);
     } else
     {
-        int required_cap = get_required_room_capacity_for_object(RoRoF_FoodStorage, foodtng->model, 0);
+        int64_t required_cap = get_required_room_capacity_for_object(RoRoF_FoodStorage, foodtng->model, 0);
         script_hooks->lua_on_object_destroyed(foodtng);
         if (room->used_capacity >= required_cap)
         {
@@ -121,23 +121,23 @@ void person_eat_food(struct Thing *creatng, struct Thing *foodtng, struct Room *
 
 void person_search_for_food_again(struct Thing *creatng, struct Room *room)
 {
-    long near_food_dist = INT32_MAX;
+    int64_t near_food_dist = INT32_MAX;
     struct Thing* near_food_tng = INVALID_THING;
-    unsigned long k = 0;
-    unsigned long i = room->slabs_list;
+    uint64_t k = 0;
+    uint64_t i = room->slabs_list;
     while (i > 0)
     {
         MapSlabCoord slb_x = slb_num_decode_x(i);
         MapSlabCoord slb_y = slb_num_decode_y(i);
         // Per-slab code
-        for (long n = 0; n < 9; n++)
+        for (int64_t n = 0; n < 9; n++)
         {
             MapSubtlCoord x = slab_subtile(slb_x, n % 3);
             MapSubtlCoord y = slab_subtile(slb_y, n / 3);
             struct Thing* thing = get_food_at_subtile_available_to_eat_and_owned_by(x, y, -1);
             if (!thing_is_invalid(thing))
             {
-                long dist = get_chessboard_distance(&creatng->mappos, &thing->mappos);
+                int64_t dist = get_chessboard_distance(&creatng->mappos, &thing->mappos);
                 if (near_food_dist > dist)
                 {
                     near_food_dist = dist;
@@ -211,15 +211,15 @@ void person_search_for_food_again(struct Thing *creatng, struct Room *room)
     cctrl->eating.foodtng_idx = near_food_tng->index;
 }
 
-short creature_arrived_at_garden(struct Thing *thing)
+int64_t creature_arrived_at_garden(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_TAKE_FEED), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",
-            room_code_name(room->kind),(int)room->owner,thing_model_name(thing),(int)thing->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,
+            room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing),(int64_t)thing->index);
         set_start_state(thing);
         return 0;
     }
@@ -231,7 +231,7 @@ short creature_arrived_at_garden(struct Thing *thing)
     return 1;
 }
 
-short creature_eat(struct Thing *thing)
+int64_t creature_eat(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (cctrl->instance_id != CrInst_EAT)
@@ -239,7 +239,7 @@ short creature_eat(struct Thing *thing)
     return 1;
 }
 
-short creature_eating_at_garden(struct Thing *creatng)
+int64_t creature_eating_at_garden(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     struct Thing* foodtng = thing_get(cctrl->eating.foodtng_idx);
@@ -255,8 +255,8 @@ short creature_eating_at_garden(struct Thing *creatng)
     }
     if (!thing_can_be_eaten(foodtng))
     {
-        WARNLOG("Tried to eat %s index %d which cannot be eaten now but is in %s",
-            thing_model_name(foodtng),(int)foodtng->index,room_role_code_name(get_room_role_for_job(Job_TAKE_FEED)));
+        WARNLOG("Tried to eat %s index %" PRId64 " which cannot be eaten now but is in %s",
+            thing_model_name(foodtng),(int64_t)foodtng->index,room_role_code_name(get_room_role_for_job(Job_TAKE_FEED)));
         set_start_state(creatng);
         return 0;
     }
@@ -265,7 +265,7 @@ short creature_eating_at_garden(struct Thing *creatng)
     return 1;
 }
 
-short creature_to_garden(struct Thing *creatng)
+int64_t creature_to_garden(struct Thing *creatng)
 {
     struct Room *nroom;
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);

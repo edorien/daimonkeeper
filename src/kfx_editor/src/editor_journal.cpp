@@ -134,11 +134,11 @@ namespace {
         ThingClass cls = 0;
         ThingModel model = 0;
         PlayerNumber owner = 0;
-        long x = 0, y = 0, z = 0; // raw map units
-        int exp_level = 0;        // creatures
-        long gold = 0;            // gold objects
-        long health = 0;          // reset when a motion preview is undone
-        int locked = 0;           // doors
+        int64_t x = 0, y = 0, z = 0; // raw map units
+        int64_t exp_level = 0;        // creatures
+        int64_t gold = 0;            // gold objects
+        int64_t health = 0;          // reset when a motion preview is undone
+        int64_t locked = 0;           // doors
         bool same_thing(const ThingRec &o) const { return cls == o.cls && model == o.model && owner == o.owner; }
     };
     struct SlabChange {
@@ -149,11 +149,11 @@ namespace {
     struct EditorJournalEntry {
         EditorJournalEntryKind kind = EJK_Placement;
         // EJK_Placement fields.
-        long thing_idx = 0;
+        int64_t thing_idx = 0;
         unsigned char pcktype = 0;
-        unsigned long par1 = 0, par2 = 0;
-        unsigned short par3 = 0, par4 = 0;
-        long pos_x = 0, pos_y = 0;
+        uint64_t par1 = 0, par2 = 0;
+        int64_t par3 = 0, par4 = 0;
+        int64_t pos_x = 0, pos_y = 0;
         // EJK_RectTerrain fields (docs/refactor/editor/09-toolbox-remainder.md
         // §1). rect_before is one entry per slab in the box, row-major (sy
         // outer, sx inner), matching the capture order in packets_cheats.c's
@@ -191,11 +191,11 @@ namespace {
     // now owns a std::vector (rect_before), which memmove'ing between array
     // slots would corrupt (raw byte copy skips the vector's own
     // move-construction bookkeeping).
-    const int kJournalCapacity = 200;
+    const int64_t kJournalCapacity = 200;
     EditorJournalEntry s_undo_stack[kJournalCapacity];
-    int s_undo_count = 0;
+    int64_t s_undo_count = 0;
     EditorJournalEntry s_redo_stack[kJournalCapacity];
-    int s_redo_count = 0;
+    int64_t s_redo_count = 0;
 
     // Test-only override -- see editor_journal_test_force_active()'s own
     // declaration (editor_journal.h) for why this exists. false in
@@ -203,14 +203,14 @@ namespace {
     // record_placement()/record_rect_terrain() without a real editor_open().
     TbBool s_test_force_active = false;
 
-    void stack_push(EditorJournalEntry *stack, int *count, const EditorJournalEntry &entry)
+    void stack_push(EditorJournalEntry *stack, int64_t *count, const EditorJournalEntry &entry)
     {
         if (*count < kJournalCapacity)
         {
             stack[(*count)++] = entry;
             return;
         }
-        for (int i = 1; i < kJournalCapacity; i++)
+        for (int64_t i = 1; i < kJournalCapacity; i++)
             stack[i - 1] = std::move(stack[i]);
         stack[kJournalCapacity - 1] = entry;
     }
@@ -232,7 +232,7 @@ namespace {
     // Undo: restore the box to its exact pre-mutation per-slab state.
     void apply_rect_snapshot(const EditorJournalEntry &entry)
     {
-        long i = 0;
+        int64_t i = 0;
         for (MapSlabCoord sy = entry.rect_beg_y; sy <= entry.rect_end_y; sy++)
         {
             for (MapSlabCoord sx = entry.rect_beg_x; sx <= entry.rect_end_x; sx++)
@@ -322,7 +322,7 @@ namespace {
             if (t->class_id == TCls_Creature)
             {
                 const struct CreatureControl *cctrl = creature_control_get_from_thing(t);
-                r.exp_level = (cctrl != NULL) ? (int)cctrl->exp_level : 0;
+                r.exp_level = (cctrl != NULL) ? (int64_t)cctrl->exp_level : 0;
             }
             else if (t->class_id == TCls_Object && object_is_gold(t))
                 r.gold = t->valuable.gold_stored;
@@ -340,7 +340,7 @@ namespace {
             struct Thing *t = thing_get(i);
             if (!thing_is_tracked(t) || t->class_id != r.cls || t->model != r.model || t->owner != r.owner)
                 continue;
-            if (labs((long)t->mappos.x.val - r.x) > 256 || labs((long)t->mappos.y.val - r.y) > 256)
+            if (labs((int64_t)t->mappos.x.val - r.x) > 256 || labs((int64_t)t->mappos.y.val - r.y) > 256)
                 continue;
             if (t->class_id == TCls_Door)
                 destroy_door(t);
@@ -369,7 +369,7 @@ namespace {
                     // As it was when deleted (a wounded creature stays wounded);
                     // never above the level's own maximum.
                     if (r.health > 0 && r.health < t->health)
-                        t->health = (short)r.health;
+                        t->health = (int64_t)r.health;
                 }
                 break;
             }
@@ -399,7 +399,7 @@ namespace {
 
     // Sets the editable properties of thing `idx` if it is still the same
     // kind of thing; false if not.
-    bool apply_thing_props(long idx, const ThingRec &id, const EditorThingProps &p)
+    bool apply_thing_props(int64_t idx, const ThingRec &id, const EditorThingProps &p)
     {
         struct Thing *t = thing_get((ThingIndex)idx);
         if (!thing_is_tracked(t) || t->class_id != id.cls || t->model != id.model || t->owner != id.owner)
@@ -432,12 +432,12 @@ namespace {
 
     void capture_slabs(std::vector<SlabState> &out)
     {
-        const long w = kfx_sim_state.map_tiles_x;
-        const long h = kfx_sim_state.map_tiles_y;
+        const int64_t w = kfx_sim_state.map_tiles_x;
+        const int64_t h = kfx_sim_state.map_tiles_y;
         out.assign((size_t)(w * h), SlabState());
-        for (long y = 0; y < h; y++)
+        for (int64_t y = 0; y < h; y++)
         {
-            for (long x = 0; x < w; x++)
+            for (int64_t x = 0; x < w; x++)
             {
                 const struct SlabMap *slb = get_slabmap_block(x, y);
                 SlabState &st = out[(size_t)(y * w + x)];
@@ -518,7 +518,7 @@ extern "C" void editor_journal_preview_restore(void)
                 move_thing_in_map(t, &p);
                 t->previous_mappos = t->mappos;
             }
-            t->health = (short)b.second.health;
+            t->health = (int64_t)b.second.health;
             if (t->class_id == TCls_Door)
             {
                 if (b.second.locked && !t->door.is_locked)
@@ -531,7 +531,7 @@ extern "C" void editor_journal_preview_restore(void)
             create_thing_like(b.second);
     }
     // Slabs (digging, claiming) last, as in undo.
-    const long w = kfx_sim_state.map_tiles_x;
+    const int64_t w = kfx_sim_state.map_tiles_x;
     std::vector<SlabState> after;
     capture_slabs(after);
     if (after.size() == s_preview_slabs.size())
@@ -539,8 +539,8 @@ extern "C" void editor_journal_preview_restore(void)
             if (!(after[i] == s_preview_slabs[i]))
             {
                 SlabChange c;
-                c.x = (MapSlabCoord)((long)i % w);
-                c.y = (MapSlabCoord)((long)i / w);
+                c.x = (MapSlabCoord)((int64_t)i % w);
+                c.y = (MapSlabCoord)((int64_t)i / w);
                 c.before = s_preview_slabs[i];
                 c.after = after[i];
                 apply_slab_state(c, false);
@@ -563,7 +563,7 @@ extern "C" TbBool editor_journal_stroke_end(const char *label)
     capture_slabs(after);
     if (after.size() != s_stroke_before.size())
         return false; // the map changed size mid-stroke: nothing sensible to record
-    const long w = kfx_sim_state.map_tiles_x;
+    const int64_t w = kfx_sim_state.map_tiles_x;
     EditorJournalEntry entry;
     entry.kind = EJK_SlabDiff;
     for (size_t i = 0; i < after.size(); i++)
@@ -571,8 +571,8 @@ extern "C" TbBool editor_journal_stroke_end(const char *label)
         if (after[i] == s_stroke_before[i])
             continue;
         SlabChange c;
-        c.x = (MapSlabCoord)((long)i % w);
-        c.y = (MapSlabCoord)((long)i / w);
+        c.x = (MapSlabCoord)((int64_t)i % w);
+        c.y = (MapSlabCoord)((int64_t)i / w);
         c.before = s_stroke_before[i];
         c.after = after[i];
         entry.slab_changes.push_back(c);
@@ -631,9 +631,9 @@ extern "C" void editor_journal_test_force_active(TbBool force_active)
 // editor_is_active() check belongs here, in the implementation, not on the
 // (always-non-NULL) caller side, same convention EditorCallbacks already
 // established.
-extern "C" void editor_journal_record_placement(long thing_idx, unsigned char pcktype,
-    unsigned long par1, unsigned long par2, unsigned short par3, unsigned short par4,
-    long pos_x, long pos_y)
+extern "C" void editor_journal_record_placement(int64_t thing_idx, unsigned char pcktype,
+    uint64_t par1, uint64_t par2, int64_t par3, int64_t par4,
+    int64_t pos_x, int64_t pos_y)
 {
     if (!editor_is_active() && !s_test_force_active)
         return;
@@ -661,7 +661,7 @@ extern "C" void editor_journal_record_point_edit(const struct EditorPointSnapsho
     s_redo_count = 0;
 }
 
-extern "C" void editor_journal_thing_props(long thing_idx, struct EditorThingProps *out)
+extern "C" void editor_journal_thing_props(int64_t thing_idx, struct EditorThingProps *out)
 {
     *out = EditorThingProps();
     const struct Thing *t = thing_get((ThingIndex)thing_idx);
@@ -676,7 +676,7 @@ extern "C" void editor_journal_thing_props(long thing_idx, struct EditorThingPro
         out->locked = t->door.is_locked;
 }
 
-extern "C" void editor_journal_record_thing_edit(long thing_idx, const struct EditorThingProps *before, const struct EditorThingProps *after)
+extern "C" void editor_journal_record_thing_edit(int64_t thing_idx, const struct EditorThingProps *before, const struct EditorThingProps *after)
 {
     if (!editor_is_active() && !s_test_force_active)
         return;
@@ -699,7 +699,7 @@ extern "C" void editor_journal_record_thing_edit(long thing_idx, const struct Ed
     s_redo_count = 0;
 }
 
-extern "C" void editor_journal_record_door_lock(long thing_idx, TbBool was_locked)
+extern "C" void editor_journal_record_door_lock(int64_t thing_idx, TbBool was_locked)
 {
     struct EditorThingProps before, after;
     editor_journal_thing_props(thing_idx, &before);
@@ -729,9 +729,9 @@ extern "C" void editor_journal_record_point(TbBool placed, const struct EditorPo
 // immediately, since the caller frees its own buffer right after this call
 // returns.
 extern "C" void editor_journal_record_rect_terrain(unsigned char pcktype,
-    long box_beg_x, long box_beg_y, long box_end_x, long box_end_y,
+    int64_t box_beg_x, int64_t box_beg_y, int64_t box_end_x, int64_t box_end_y,
     SlabKind new_kind, PlayerNumber new_owner,
-    const struct EditorRectSlabSnapshot *before, long count)
+    const struct EditorRectSlabSnapshot *before, int64_t count)
 {
     if (!editor_is_active() && !s_test_force_active)
         return;
@@ -914,8 +914,8 @@ extern "C" void editor_journal_frame(void)
         editor_journal_do_redo();
 }
 
-extern "C" int editor_journal_undo_count(void) { return s_undo_count; }
-extern "C" int editor_journal_redo_count(void) { return s_redo_count; }
+extern "C" int64_t editor_journal_undo_count(void) { return s_undo_count; }
+extern "C" int64_t editor_journal_redo_count(void) { return s_redo_count; }
 
 namespace {
 
@@ -983,10 +983,10 @@ namespace {
                 snprintf(buf, sizeof(buf), "Object: %s", object_code_name((ThingModel)entry.par3));
                 break;
             case PckA_EditorPlaceTrap:
-                snprintf(buf, sizeof(buf), "Trap: %s", trap_code_name((int)entry.par1));
+                snprintf(buf, sizeof(buf), "Trap: %s", trap_code_name((int64_t)entry.par1));
                 break;
             case PckA_EditorPlaceDoor:
-                snprintf(buf, sizeof(buf), "Door: %s", door_code_name((int)entry.par1));
+                snprintf(buf, sizeof(buf), "Door: %s", door_code_name((int64_t)entry.par1));
                 break;
             default:
                 snprintf(buf, sizeof(buf), "Placement");
@@ -1000,14 +1000,14 @@ namespace {
 // index_from_top 0 = the entry Ctrl+Z/the Undo button would act on next
 // (top of stack, most recently pushed), counting up toward the oldest.
 // Returns NULL if index_from_top is out of range.
-extern "C" const char *editor_journal_describe_undo(int index_from_top)
+extern "C" const char *editor_journal_describe_undo(int64_t index_from_top)
 {
     if ((index_from_top < 0) || (index_from_top >= s_undo_count))
         return NULL;
     return describe_entry(s_undo_stack[s_undo_count - 1 - index_from_top]);
 }
 
-extern "C" const char *editor_journal_describe_redo(int index_from_top)
+extern "C" const char *editor_journal_describe_redo(int64_t index_from_top)
 {
     if ((index_from_top < 0) || (index_from_top >= s_redo_count))
         return NULL;

@@ -21,7 +21,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 // Exported functions
-void snap_to_direction(long mouse_x, long mouse_y, float dx, float dy);
+void snap_to_direction(int64_t mouse_x, int64_t mouse_y, double dx, double dy);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -25,6 +25,7 @@
 #ifndef DK_EDITOR_TEXTURE_PACKS_H
 #define DK_EDITOR_TEXTURE_PACKS_H
 
+#include <stdint.h>
 namespace {
     const char *const kTexturePackItems[] = {
         "0: None", "1: Standard", "2: Ancient", "3: Winter", "4: Snake Key",
@@ -32,7 +33,7 @@ namespace {
         "9: Desert Tomb", "10: Gypsum", "11: Lilac Stone", "12: Swamp Serpent",
         "13: Lava Cavern", "14: Laterite Cavern",
     };
-    const int kTexturePackItemCount = (int)(sizeof(kTexturePackItems) / sizeof(kTexturePackItems[0]));
+    const int64_t kTexturePackItemCount = (int64_t)(sizeof(kTexturePackItems) / sizeof(kTexturePackItems[0]));
 }
 
 
@@ -44,12 +45,12 @@ namespace {
 // come with a campaign or mod appear without being listed anywhere).
 struct EditorTexturePackChoice
 {
-    int id;
+    int64_t id;
     const char *label; // valid until the next call
 };
-int editor_texture_pack_choices(LevelNumber lvnum, const EditorTexturePackChoice **out);
+int64_t editor_texture_pack_choices(LevelNumber lvnum, const EditorTexturePackChoice **out);
 
 // A combo over those choices that reads and writes the texture id itself.
-bool editor_texture_pack_combo(const char *label, int *texture_id, LevelNumber lvnum);
+bool editor_texture_pack_combo(const char *label, int64_t *texture_id, LevelNumber lvnum);
 
 #endif

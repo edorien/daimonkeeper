@@ -84,7 +84,7 @@ Thing_Class_Func class_functions[] = {
   NULL,
 };
 
-unsigned long thing_create_errors = 0;
+uint64_t thing_create_errors = 0;
 
 const struct NamedCommand class_commands[] = {
   {"Object",        TCls_Object},
@@ -254,7 +254,7 @@ void add_thing_to_its_class_list(struct Thing *thing)
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_thing_filter_call_bool_filter(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_thing_filter_call_bool_filter(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -287,7 +287,7 @@ long near_map_block_thing_filter_call_bool_filter(const struct Thing *thing, Max
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_thing_pos_thing_filter_is_enemy_which_can_be_shot_by_trap(const struct Thing* thing, MaxTngFilterParam param, long maximizer)
+int64_t near_thing_pos_thing_filter_is_enemy_which_can_be_shot_by_trap(const struct Thing* thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -335,7 +335,7 @@ long near_thing_pos_thing_filter_is_enemy_which_can_be_shot_by_trap(const struct
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_thing_pos_thing_filter_is_enemy_which_can_be_attacked_by_creature(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_thing_pos_thing_filter_is_enemy_which_can_be_attacked_by_creature(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -365,7 +365,7 @@ long near_thing_pos_thing_filter_is_enemy_which_can_be_attacked_by_creature(cons
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_thing_pos_thing_filter_is_enemy_object_which_can_be_attacked_by_creature(const struct Thing* objtng, MaxTngFilterParam param, long maximizer)
+int64_t near_thing_pos_thing_filter_is_enemy_object_which_can_be_attacked_by_creature(const struct Thing* objtng, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (objtng->class_id == param->class_id))
     {
@@ -396,7 +396,7 @@ long near_thing_pos_thing_filter_is_enemy_object_which_can_be_attacked_by_creatu
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long highest_score_thing_filter_is_enemy_within_distance_which_can_be_attacked_by_creature(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t highest_score_thing_filter_is_enemy_within_distance_which_can_be_attacked_by_creature(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -407,14 +407,14 @@ long highest_score_thing_filter_is_enemy_within_distance_which_can_be_attacked_b
                 struct Thing* creatng = thing_get(param->primary_number);
                 if (creature_will_attack_creature(creatng, thing) && !creature_has_creature_in_combat(creatng, thing))
                 {
-                    long distance = get_combat_distance(creatng, thing);
+                    int64_t distance = get_combat_distance(creatng, thing);
                     if (distance >= param->secondary_number) {
                         return -1;
                     }
                     CrAttackType attack_type = creature_can_have_combat_with_creature(creatng, (struct Thing*)thing, distance, param->tertiary_number, 0);
                     if (attack_type > AttckT_Unset)
                     {
-                        long score = get_combat_score(creatng, thing, attack_type, distance);
+                        int64_t score = get_combat_score(creatng, thing, attack_type, distance);
                         return score;
                     }
                 }
@@ -431,7 +431,7 @@ long highest_score_thing_filter_is_enemy_within_distance_which_can_be_attacked_b
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long highest_score_thing_filter_is_enemy_object_within_distance_which_can_be_attacked_by_creature(const struct Thing* thing, MaxTngFilterParam param, long maximizer)
+int64_t highest_score_thing_filter_is_enemy_object_within_distance_which_can_be_attacked_by_creature(const struct Thing* thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -442,14 +442,14 @@ long highest_score_thing_filter_is_enemy_object_within_distance_which_can_be_att
                 struct Thing* objtng = thing_get(param->primary_number);
                 if (trap_is_valid_combat_target_for_creature(objtng, thing))
                 {
-                    long distance = get_combat_distance(objtng, thing);
+                    int64_t distance = get_combat_distance(objtng, thing);
                     if (distance >= param->secondary_number) {
                         return -1;
                     }
                     CrAttackType attack_type = creature_can_have_combat_with_object(objtng, (struct Thing*)thing, distance, param->tertiary_number, 0);
                     if (attack_type > AttckT_Unset)
                     {
-                        long score = get_combat_score(objtng, thing, attack_type, distance);
+                        int64_t score = get_combat_score(objtng, thing, attack_type, distance);
                         return score;
                     }
                 }
@@ -466,7 +466,7 @@ long highest_score_thing_filter_is_enemy_object_within_distance_which_can_be_att
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_thing_filter_is_enemy_of_able_to_attack_and_not_specdigger(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_thing_filter_is_enemy_of_able_to_attack_and_not_specdigger(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((thing->class_id == TCls_Creature) && players_are_enemies(param->plyr_idx, thing->owner))
     {
@@ -494,7 +494,7 @@ long near_map_block_thing_filter_is_enemy_of_able_to_attack_and_not_specdigger(c
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_creature_filter_diagonal_random(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_creature_filter_diagonal_random(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == TCls_Creature)
     {
@@ -508,8 +508,8 @@ long near_map_block_creature_filter_diagonal_random(const struct Thing *thing, M
                     if (dist > param->tertiary_number) // Too far away
                         return -1;
                     // It is not "correct" randomness (pick random N from list) but rolling a dice on each creature found
-                    uint32_t tmp = maximizer + dist + 1;
-                    return (long)LbRandomSeries(INT32_MAX, &tmp, __func__, __LINE__);
+                    uint32_t tmp = (uint32_t)(maximizer + dist + 1);
+                    return (int64_t)LbRandomSeries(INT32_MAX, &tmp, __func__, __LINE__);
                 }
             }
         }
@@ -524,7 +524,7 @@ long near_map_block_creature_filter_diagonal_random(const struct Thing *thing, M
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_thing_filter_is_thing_of_class_and_model_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_thing_filter_is_thing_of_class_and_model_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -558,7 +558,7 @@ long near_map_block_thing_filter_is_thing_of_class_and_model_owned_by(const stru
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_thing_filter_can_be_keeper_power_target(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_thing_filter_can_be_keeper_power_target(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (can_cast_power_on_thing(param->plyr_idx, thing, param->tertiary_number))
     {
@@ -574,7 +574,7 @@ long near_map_block_thing_filter_can_be_keeper_power_target(const struct Thing *
     return -1;
 }
 
-long creature_near_filter_is_owned_by(const struct Thing *thing, FilterParam plyr_idx)
+int64_t creature_near_filter_is_owned_by(const struct Thing *thing, FilterParam plyr_idx)
 {
     if (thing->owner == plyr_idx)
     {
@@ -595,7 +595,7 @@ long creature_near_filter_is_owned_by(const struct Thing *thing, FilterParam ply
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_thing_filter_is_slappable(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_thing_filter_is_slappable(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -620,7 +620,7 @@ long near_map_block_thing_filter_is_slappable(const struct Thing *thing, MaxTngF
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long near_map_block_thing_filter_is_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t near_map_block_thing_filter_is_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == param->class_id)
     {
@@ -662,7 +662,7 @@ long near_map_block_thing_filter_is_owned_by(const struct Thing *thing, MaxTngFi
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_of_class_and_model_and_owned_by_or_allied_with(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_of_class_and_model_and_owned_by_or_allied_with(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == param->class_id)
     {
@@ -685,7 +685,7 @@ long anywhere_thing_filter_is_of_class_and_model_and_owned_by_or_allied_with(con
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == param->class_id)
     {
@@ -708,7 +708,7 @@ long anywhere_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long in_action_point_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t in_action_point_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == param->class_id)
     {
@@ -741,7 +741,7 @@ long in_action_point_thing_filter_is_of_class_and_model_and_owned_by(const struc
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_food_available_to_eat_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_food_available_to_eat_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == TCls_Object)
     {
@@ -775,7 +775,7 @@ long anywhere_thing_filter_is_food_available_to_eat_and_owned_by(const struct Th
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_creature_of_model_training_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_creature_of_model_training_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == TCls_Creature)
     {
@@ -783,7 +783,7 @@ long anywhere_thing_filter_is_creature_of_model_training_and_owned_by(const stru
       {
           if ((thing->owner == param->plyr_idx) || (param->plyr_idx == -1))
           {
-              if (((int)thing->index != param->primary_number) || (param->primary_number == -1))
+              if (((int64_t)thing->index != param->primary_number) || (param->primary_number == -1))
               {
                   struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
                   if ((thing->active_state == CrSt_Training) && (cctrl->training.mode > 1))
@@ -818,7 +818,7 @@ TbBool creature_model_matches_model(ThingModel creatng_model, PlayerNumber plyr_
     else if (target_model == CREATURE_NOT_A_DIGGER)
         return ((!creature_kind_is_for_dungeon_diggers_list(plyr_idx, creatng_model)) && (creatng_model != get_players_spectator_model(plyr_idx)));
     else
-        ERRORLOG("Invalid model wildcard detected: %d", target_model);
+        ERRORLOG("Invalid model wildcard detected: %" PRId64, (int64_t)(target_model));
     return false;
 }
 
@@ -841,7 +841,7 @@ TbBool creature_matches_model(const struct Thing* creatng, ThingModel crmodel)
  * @param thing The thing being checked.
  * @param crmodel model to compare it to, possible wildcard.
   */
-TbBool thing_matches_model(const struct Thing* thing, long tngmodel)
+TbBool thing_matches_model(const struct Thing* thing, int64_t tngmodel)
 {
     if (thing->class_id == TCls_Creature)
     {
@@ -860,7 +860,7 @@ TbBool thing_matches_model(const struct Thing* thing, long tngmodel)
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_call_bool_filter(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_call_bool_filter(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -886,7 +886,7 @@ long anywhere_thing_filter_call_bool_filter(const struct Thing *thing, MaxTngFil
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_trap_of_model_armed_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_trap_of_model_armed_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == TCls_Trap)
     {
@@ -913,7 +913,7 @@ long anywhere_thing_filter_is_trap_of_model_armed_and_owned_by(const struct Thin
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_door_of_model_locked_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_door_of_model_locked_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if (thing->class_id == TCls_Door)
     {
@@ -940,7 +940,7 @@ long anywhere_thing_filter_is_door_of_model_locked_and_owned_by(const struct Thi
  * @param param Parameters exchanged between filter calls.
  * @param maximizer Previous value which made a thing pass the filter.
  */
-long anywhere_thing_filter_is_gold_on_owned_ground_pickable_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer)
+int64_t anywhere_thing_filter_is_gold_on_owned_ground_pickable_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
 {
     if ((param->class_id == -1) || (thing->class_id == param->class_id))
     {
@@ -971,7 +971,7 @@ TbBool delete_if_dead_creature(struct Thing *thing)
 
 TngUpdateRet switch_object_on_destoyed_slab_to_new_owner(struct Thing *thing, ModTngFilterParam param)
 {
-    SYNCDBG(18,"Starting for %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(18,"Starting for %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     if (thing_is_picked_up(thing) || thing_is_dragged_or_pulled(thing))
     {
         return TUFRet_Unchanged;
@@ -994,8 +994,8 @@ TngUpdateRet switch_object_on_destoyed_slab_to_new_owner(struct Thing *thing, Mo
 void update_things_in_list(struct StructureList *list)
 {
     SYNCDBG(18,"Starting");
-    unsigned long k = 0;
-    int i = list->index;
+    uint64_t k = 0;
+    int64_t i = list->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1023,18 +1023,18 @@ void update_things_in_list(struct StructureList *list)
         break;
       }
     }
-    SYNCDBG(19,"Finished, %d items",(int)k);
+    SYNCDBG(19,"Finished, %" PRId64 " items",(int64_t)k);
 }
 
 /**
  * Makes per game turn update of cave in things, using proper StructureList.
  * @return Returns amount of cave in things in list.
  */
-static unsigned long update_cave_in_things(void)
+static uint64_t update_cave_in_things(void)
 {
-    unsigned long k = 0;
+    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_CaveIn);
-    int i = slist->index;
+    int64_t i = slist->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1061,11 +1061,11 @@ static unsigned long update_cave_in_things(void)
  * Updates sounds of things from given StructureList.
  * Returns amount of items in the list.
  */
-unsigned long update_things_sounds_in_list(struct StructureList *list)
+uint64_t update_things_sounds_in_list(struct StructureList *list)
 {
     SYNCDBG(18,"Starting");
-    unsigned long k = 0;
-    int i = list->index;
+    uint64_t k = 0;
+    int64_t i = list->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1088,11 +1088,11 @@ unsigned long update_things_sounds_in_list(struct StructureList *list)
     return k;
 }
 
-unsigned long update_creatures_not_in_list(void)
+uint64_t update_creatures_not_in_list(void)
 {
   SYNCDBG(18,"Starting");
-  unsigned long k = 0;
-  int i = kfx_sim_state.thing_lists[TngList_Creatures].index;
+  uint64_t k = 0;
+  int64_t i = kfx_sim_state.thing_lists[TngList_Creatures].index;
   while (i != 0)
   {
       struct Thing* thing = thing_get(i);
@@ -1128,8 +1128,8 @@ unsigned long update_creatures_not_in_list(void)
   return k;
 }
 
-int32_t optimised_lights;
-int32_t total_lights;
+int64_t optimised_lights;
+int64_t total_lights;
 unsigned char do_lights;
 
 void update_things(void)
@@ -1156,8 +1156,8 @@ void update_things(void)
 
 struct Thing *find_players_dungeon_heart(PlayerNumber plyridx)
 {
-    int k = 0;
-    int i = kfx_sim_state.thing_lists[TngList_Objects].index;
+    int64_t k = 0;
+    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1180,15 +1180,15 @@ struct Thing *find_players_dungeon_heart(PlayerNumber plyridx)
             break;
         }
     }
-    SYNCDBG(6,"No heart for player %d",(int)plyridx);
+    SYNCDBG(6,"No heart for player %" PRId64,(int64_t)plyridx);
     return INVALID_THING;
 }
 
 struct Thing* find_players_backup_dungeon_heart(PlayerNumber plyridx)
 {
     struct Dungeon* dungeon = get_dungeon(plyridx);
-    int k = 0;
-    int i = kfx_sim_state.thing_lists[TngList_Objects].index;
+    int64_t k = 0;
+    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1211,7 +1211,7 @@ struct Thing* find_players_backup_dungeon_heart(PlayerNumber plyridx)
             break;
         }
     }
-    SYNCDBG(6, "No secondary heart for player %d", (int)plyridx);
+    SYNCDBG(6, "No secondary heart for player %" PRId64, (int64_t)plyridx);
     return INVALID_THING;
 }
 
@@ -1226,7 +1226,7 @@ void init_player_start(struct PlayerInfo *player, TbBool keep_prev)
     struct Thing* thing = find_players_dungeon_heart(player->id_number);
     struct Dungeon* dungeon = get_players_dungeon(player);
     if (dungeon_invalid(dungeon)) {
-        WARNLOG("Tried to init player %d which has no dungeon",(int)player->id_number);
+        WARNLOG("Tried to init player %" PRId64 " which has no dungeon",(int64_t)player->id_number);
         return;
     }
     if (thing_exists(thing))
@@ -1260,10 +1260,10 @@ void init_player_start(struct PlayerInfo *player, TbBool keep_prev)
 
 TbBool script_support_setup_player_as_zombie_keeper(PlayerNumber plyr_idx)
 {
-    SYNCDBG(8,"Starting for player %d",(int)plyr_idx);
+    SYNCDBG(8,"Starting for player %" PRId64,(int64_t)plyr_idx);
     struct PlayerInfo* player = get_player(plyr_idx);
     if (player_invalid(player)) {
-        SCRPTWRNLOG("Tried to set up invalid player %d",(int)plyr_idx);
+        SCRPTWRNLOG("Tried to set up invalid player %" PRId64,(int64_t)plyr_idx);
         return false;
     }
     player->allocflags &= ~PlaF_Allocated; // mark as non-existing
@@ -1274,9 +1274,9 @@ TbBool script_support_setup_player_as_zombie_keeper(PlayerNumber plyr_idx)
     return true;
 }
 
-void setup_computer_player(int plr_idx)
+void setup_computer_player(int64_t plr_idx)
 {
-    SYNCDBG(5,"Starting for player %d",plr_idx);
+    SYNCDBG(5,"Starting for player %" PRId64,(int64_t)(plr_idx));
     struct Thing* thing = find_players_dungeon_heart(plr_idx); // cannot use player->id_number, as it isn't set yet
     if (thing_exists(thing))
     {
@@ -1289,7 +1289,7 @@ void setup_computer_player(int plr_idx)
 
 void setup_computer_players(void)
 {
-    for (int plr_idx = 0; plr_idx < PLAYERS_COUNT; plr_idx++)
+    for (int64_t plr_idx = 0; plr_idx < PLAYERS_COUNT; plr_idx++)
     {
         struct PlayerInfo* player = get_player(plr_idx);
         if (!player_exists(player))
@@ -1301,7 +1301,7 @@ void setup_computer_players(void)
 
 void setup_zombie_players(void)
 {
-    for (int plr_idx = 0; plr_idx < PLAYERS_COUNT; plr_idx++)
+    for (int64_t plr_idx = 0; plr_idx < PLAYERS_COUNT; plr_idx++)
     {
         struct PlayerInfo* player = get_player(plr_idx);
         if (!player_exists(player))
@@ -1313,9 +1313,9 @@ void setup_zombie_players(void)
 
 void init_all_creature_states(void)
 {
-    int k = 0;
+    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int i = slist->index;
+    int64_t i = slist->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1339,9 +1339,9 @@ void init_all_creature_states(void)
 
 void init_creature_states_for_player(PlayerNumber plyr_idx)
 {
-    int k = 0;
+    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int i = slist->index;
+    int64_t i = slist->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1378,7 +1378,7 @@ void remove_thing_from_mapwho(struct Thing *thing)
         if (thing_exists(mwtng)) {
             mwtng->next_on_mapblk = thing->next_on_mapblk;
         } else {
-            ERRORLOG("Non-existing thing index %d in mapwho before index %d!",(int)thing->prev_on_mapblk,(int)thing->index);
+            ERRORLOG("Non-existing thing index %" PRId64 " in mapwho before index %" PRId64 "!",(int64_t)thing->prev_on_mapblk,(int64_t)thing->index);
             thing->prev_on_mapblk = 0;
         }
     } else
@@ -1386,8 +1386,8 @@ void remove_thing_from_mapwho(struct Thing *thing)
         struct Map* mapblk = get_map_block_at(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
         if (get_mapwho_thing_index(mapblk) != thing->index)
         {
-            WARNLOG("Moving lost %s %d from %d, %d", thing_class_and_model_name(thing->class_id, thing->model),
-                    thing->index, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
+            WARNLOG("Moving lost %s %" PRId64 " from %" PRId64 ", %" PRId64, thing_class_and_model_name(thing->class_id, thing->model),
+                    (int64_t)(thing->index), (int64_t)(thing->mappos.x.stl.num), (int64_t)(thing->mappos.y.stl.num));
         }
         set_mapwho_thing_index(mapblk, thing->next_on_mapblk);
     }
@@ -1397,7 +1397,7 @@ void remove_thing_from_mapwho(struct Thing *thing)
         if (thing_exists(mwtng)) {
             mwtng->prev_on_mapblk = thing->prev_on_mapblk;
         } else {
-            ERRORLOG("Non-existing thing index %d in mapwho after index %d!",(int)thing->next_on_mapblk,(int)thing->index);
+            ERRORLOG("Non-existing thing index %" PRId64 " in mapwho after index %" PRId64 "!",(int64_t)thing->next_on_mapblk,(int64_t)thing->index);
             thing->next_on_mapblk = 0;
         }
     }
@@ -1419,7 +1419,7 @@ void place_thing_in_mapwho(struct Thing *thing)
         if (thing_exists(mwtng)) {
             mwtng->prev_on_mapblk = thing->index;
         } else {
-            ERRORLOG("Non-existing thing index %d in mapwho!",(int)thing->next_on_mapblk);
+            ERRORLOG("Non-existing thing index %" PRId64 " in mapwho!",(int64_t)thing->next_on_mapblk);
             thing->next_on_mapblk = 0;
         }
     }
@@ -1431,8 +1431,8 @@ void place_thing_in_mapwho(struct Thing *thing)
 struct Thing *find_base_thing_on_mapwho(ThingClass oclass, ThingModel model, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1466,12 +1466,12 @@ struct Thing *find_base_thing_on_mapwho(ThingClass oclass, ThingModel model, Map
  * Checks the subtiles for a thing. Only considers objects, checks against genre, accepts genre 0 for any.
  * @return Returns INVALID_THING, or a thing of class 'object' of the matching genre.
  */
-struct Thing* find_object_of_genre_on_mapwho(long genre, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+struct Thing* find_object_of_genre_on_mapwho(int64_t genre, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
+    uint64_t k = 0;
     struct ObjectConfigStats* objst;
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1506,10 +1506,10 @@ struct Thing* find_object_of_genre_on_mapwho(long genre, MapSubtlCoord stl_x, Ma
  * Returns hero gate thing of given gate number.
  * @return Returns hero gate object, or invalid thing pointer if not found.
  */
-struct Thing *find_hero_gate_of_number(long num)
+struct Thing *find_hero_gate_of_number(int64_t num)
 {
-    long i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    unsigned long k = 0;
+    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1541,8 +1541,8 @@ struct Thing *find_hero_gate_of_number(long num)
 struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel crmodel)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    long i = get_mapwho_thing_index(mapblk);
-    unsigned long k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1589,14 +1589,14 @@ struct Thing *find_random_thing_in_room(ThingClass tngclass, ThingModel tngmodel
     }
 
     SlabCodedCoords current_slb = room->slabs_list;
-    unsigned int current_slab_idx = GAME_RANDOM(room->slabs_count);
+    uint64_t current_slab_idx = GAME_RANDOM(room->slabs_count);
 
     for (size_t i = 0; i < current_slab_idx; i++)
     {
         current_slb = get_next_slab_number_in_room(current_slb);
     }
 
-    static const int STL_PER_SLB_2D = STL_PER_SLB * STL_PER_SLB;
+    static const int64_t STL_PER_SLB_2D = STL_PER_SLB * STL_PER_SLB;
 
     for (size_t i = 0; i < room->slabs_count; i++)
     {
@@ -1636,17 +1636,17 @@ struct Thing *find_random_thing_in_room(ThingClass tngclass, ThingModel tngmodel
  * @param param Filter function parameters struct.
  * @return Count of best matched things.
  */
-long count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param)
+int64_t count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param)
 {
-    long maximizer = 0;
-    long match_count = 0;
+    int64_t maximizer = 0;
+    int64_t match_count = 0;
     SYNCDBG(19,"Starting");
     const struct StructureList* slist = get_list_for_thing_class(param->class_id);
     if (slist == NULL) {
         return 0;
     }
-    long i = slist->index;
-    unsigned long k = 0;
+    int64_t i = slist->index;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1657,7 +1657,7 @@ long count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilt
         }
         i = thing->next_of_class;
         // Per-thing code
-        long n = filter(thing, param, maximizer);
+        int64_t n = filter(thing, param, maximizer);
         if (n > maximizer)
         {
             maximizer = n;
@@ -1687,10 +1687,10 @@ long count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilt
  * @param tngindex Best matched thing index to be returned.
  * @return
  */
-struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param, long tngindex)
+struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param, int64_t tngindex)
 {
-    long maximizer = 0;
-    long curindex = 0;
+    int64_t maximizer = 0;
+    int64_t curindex = 0;
     struct Thing* retng = INVALID_THING;
     SYNCDBG(19,"Starting");
     struct StructureList* slist = get_list_for_thing_class(param->class_id);
@@ -1698,8 +1698,8 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
         return INVALID_THING;
     }
     creature_hostility_memo_begin_scan();
-    long i = slist->index;
-    unsigned long k = 0;
+    int64_t i = slist->index;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1710,7 +1710,7 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
         }
         i = thing->next_of_class;
         // Per-thing code
-        long n = filter(thing, param, maximizer);
+        int64_t n = filter(thing, param, maximizer);
         if (n > maximizer)
         {
             retng = thing;
@@ -1743,23 +1743,23 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
 struct Thing *get_random_thing_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param, PlayerNumber plyr_idx)
 {
     SYNCDBG(19,"Starting");
-    long match_count = count_things_of_class_with_filter(filter, param);
+    int64_t match_count = count_things_of_class_with_filter(filter, param);
     if (match_count < 1) {
         return INVALID_THING;
     }
     return get_nth_thing_of_class_with_filter(filter, param, PLAYER_RANDOM(plyr_idx, match_count));
 }
 
-long do_to_all_things_of_class_and_model(int tngclass, int tngmodel, Thing_Bool_Modifier do_cb)
+int64_t do_to_all_things_of_class_and_model(int64_t tngclass, int64_t tngmodel, Thing_Bool_Modifier do_cb)
 {
     SYNCDBG(19,"Starting");
     struct StructureList* slist = get_list_for_thing_class(tngclass);
     if (slist == NULL) {
         return 0;
     }
-    long n = 0;
-    long i = slist->index;
-    unsigned long k = 0;
+    int64_t n = 0;
+    int64_t i = slist->index;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1793,7 +1793,7 @@ long do_to_all_things_of_class_and_model(int tngclass, int tngmodel, Thing_Bool_
  * @param plyr_idx Player whose things will be searched. Allies are not included, use -1 to select all.
  * @return The target thing pointer, or invalid thing pointer if not found.
  */
-struct Thing *get_nearest_thing_of_class_and_model_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, int tngclass, int tngmodel)
+struct Thing *get_nearest_thing_of_class_and_model_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, int64_t tngclass, int64_t tngmodel)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = near_map_block_thing_filter_is_thing_of_class_and_model_owned_by;
@@ -1852,7 +1852,7 @@ struct Thing* get_nearest_enemy_object_possible_to_attack_by(struct Thing* creat
     return get_nth_thing_of_class_with_filter(filter, &param, 0);
 }
 
-struct Thing *get_highest_score_enemy_creature_within_distance_possible_to_attack_by(struct Thing *creatng, MapCoordDelta dist, long move_on_ground)
+struct Thing *get_highest_score_enemy_creature_within_distance_possible_to_attack_by(struct Thing *creatng, MapCoordDelta dist, int64_t move_on_ground)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = highest_score_thing_filter_is_enemy_within_distance_which_can_be_attacked_by_creature;
@@ -1866,7 +1866,7 @@ struct Thing *get_highest_score_enemy_creature_within_distance_possible_to_attac
     return get_nth_thing_of_class_with_filter(filter, &param, 0);
 }
 
-struct Thing* get_highest_score_enemy_object_within_distance_possible_to_attack_by(struct Thing* creatng, MapCoordDelta dist, long move_on_ground)
+struct Thing* get_highest_score_enemy_object_within_distance_possible_to_attack_by(struct Thing* creatng, MapCoordDelta dist, int64_t move_on_ground)
 {
     SYNCDBG(19, "Starting");
     Thing_Maximizer_Filter filter = highest_score_thing_filter_is_enemy_object_within_distance_which_can_be_attacked_by_creature;
@@ -1892,7 +1892,7 @@ struct Thing *get_random_trap_of_model_owned_by_and_armed(ThingModel tngmodel, P
     param.primary_number = armed;
     param.secondary_number = -1;
     param.tertiary_number = -1;
-    long match_count = count_things_of_class_with_filter(filter, &param);
+    int64_t match_count = count_things_of_class_with_filter(filter, &param);
     if (match_count < 1) {
         return INVALID_THING;
     }
@@ -1911,7 +1911,7 @@ struct Thing *get_random_door_of_model_owned_by_and_locked(ThingModel tngmodel, 
     param.primary_number = locked;
     param.secondary_number = -1;
     param.tertiary_number = -1;
-    long match_count = count_things_of_class_with_filter(filter, &param);
+    int64_t match_count = count_things_of_class_with_filter(filter, &param);
     if (match_count < 1) {
         return INVALID_THING;
     }
@@ -1933,11 +1933,11 @@ struct Thing *find_gold_laying_in_dungeon(const struct Dungeon *dungeon)
     return get_random_thing_of_class_with_filter(filter, &param, dungeon->owner);
 }
 
-long creature_of_model_find_first(ThingModel crmodel)
+int64_t creature_of_model_find_first(ThingModel crmodel)
 {
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    long i = slist->index;
-    long k = 0;
+    int64_t i = slist->index;
+    int64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1966,8 +1966,8 @@ long creature_of_model_find_first(ThingModel crmodel)
 struct Thing *creature_of_model_in_prison_or_tortured(ThingModel crmodel)
 {
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    long i = slist->index;
-    long k = 0;
+    int64_t i = slist->index;
+    int64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -1996,7 +1996,7 @@ struct Thing *creature_of_model_in_prison_or_tortured(ThingModel crmodel)
 
 TbBool lord_of_the_land_in_prison_or_tortured(void)
 {
-    for (long crtr_model = 0; crtr_model < kfx_config_state.conf.crtr_conf.model_count; crtr_model++)
+    for (int64_t crtr_model = 0; crtr_model < kfx_config_state.conf.crtr_conf.model_count; crtr_model++)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
         if ((crconf->model_flags & CMF_IsLordOfLand) != 0)
@@ -2016,12 +2016,12 @@ TbBool lord_of_the_land_in_prison_or_tortured(void)
 
 struct Thing *lord_of_the_land_find(void)
 {
-    for (long crtr_model = 1; crtr_model < kfx_config_state.conf.crtr_conf.model_count; crtr_model++)
+    for (int64_t crtr_model = 1; crtr_model < kfx_config_state.conf.crtr_conf.model_count; crtr_model++)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
         if ((crconf->model_flags & CMF_IsLordOfLand) != 0)
         {
-            int i = creature_of_model_find_first(crtr_model);
+            int64_t i = creature_of_model_find_first(crtr_model);
             if (i > 0)
                 return thing_get(i);
         }
@@ -2039,7 +2039,7 @@ TbBool perform_action_on_all_creatures_in_group(struct Thing *thing, Thing_Bool_
     TbBool result = true;
     // Do the action for every creature in the group, starting from end
     // This allows the creatures to be removed from group or deleted during the update
-    long k = 0;
+    int64_t k = 0;
     while (!thing_is_invalid(ctng))
     {
         cctrl = creature_control_get_from_thing(ctng);
@@ -2109,12 +2109,12 @@ TbBool electricity_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, c
     return affected;
 }
 
-long electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immune_plyr_idx, long range, long max_damage)
+int64_t electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immune_plyr_idx, int64_t range, int64_t max_damage)
 {
-    long naffected = 0;
+    int64_t naffected = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    long i = slist->index;
-    unsigned long k = 0;
+    int64_t i = slist->index;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2147,9 +2147,9 @@ long electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immune_p
     return naffected;
 }
 
-long get_free_hero_gate_number(void)
+int64_t get_free_hero_gate_number(void)
 {
-    for (long n = 1; n < HERO_GATES_COUNT; n++)
+    for (int64_t n = 1; n < HERO_GATES_COUNT; n++)
     {
         struct Thing* thing = find_hero_gate_of_number(n);
         if (thing_is_invalid(thing))
@@ -2165,12 +2165,12 @@ long get_free_hero_gate_number(void)
  * @param do_cb The callback function to be executed.
  * @return Count of creatures for which the callback returned true.
  */
-long do_on_player_list_all_creatures_of_model(long thing_idx, int crmodel,
+int64_t do_on_player_list_all_creatures_of_model(int64_t thing_idx, int64_t crmodel,
     Thing_Bool_Modifier do_cb)
 {
-    long n = 0;
-    long i = thing_idx;
-    unsigned long k = 0;
+    int64_t n = 0;
+    int64_t i = thing_idx;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2204,11 +2204,11 @@ long do_on_player_list_all_creatures_of_model(long thing_idx, int crmodel,
  * @param do_cb The callback function to be executed.
  * @return Count of creatures for which the callback returned true.
  */
-long do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int crmodel, Thing_Bool_Modifier do_cb)
+int64_t do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel, Thing_Bool_Modifier do_cb)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     TbBool is_spec_digger = ((!is_creature_model_wildcard(crmodel) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel)) || (crmodel == CREATURE_DIGGER));
-    long count = 0;
+    int64_t count = 0;
     if ((!is_creature_model_wildcard(crmodel) && !is_spec_digger) || (is_creature_model_wildcard(crmodel) && !(crmodel == CREATURE_DIGGER)))
     {
         count += do_on_player_list_all_creatures_of_model(dungeon->creatr_list_start, (is_creature_model_wildcard(crmodel)) ? CREATURE_ANY : crmodel, do_cb);
@@ -2226,7 +2226,7 @@ long do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int crmodel, Th
  *
  * @return Count of players creatures.
  */
-long count_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel)
+int64_t count_player_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel)
 {
     SYNCDBG(19,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
@@ -2243,7 +2243,7 @@ long count_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel)
         return count_player_list_creatures_with_filter(kfx_sim_state.nodungeon_creatr_list_start, filter, &param);
     }
     TbBool is_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel);
-    long count = 0;
+    int64_t count = 0;
     if (((crmodel > 0) && (!is_creature_model_wildcard(crmodel)) && !is_spec_digger) ||
         (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER))
     {
@@ -2257,17 +2257,17 @@ long count_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel)
     return count;
 }
 
-long count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, int crmodel, long apt_index)
+int64_t count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, int64_t crmodel, int64_t apt_index)
 {
     struct ActionPoint* apt = action_point_get(apt_index);
     if (!action_point_exists(apt))
     {
-        WARNLOG("Action point is invalid:%d", apt->num);
+        WARNLOG("Action point is invalid:%" PRId64, (int64_t)(apt->num));
         return 0;
     }
     if (apt->range == 0)
     {
-        WARNLOG("Action point with zero range:%d", apt->num);
+        WARNLOG("Action point with zero range:%" PRId64, (int64_t)(apt->num));
         return 0;
     }
 
@@ -2286,7 +2286,7 @@ long count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, int 
         return count_player_list_creatures_with_filter(kfx_sim_state.nodungeon_creatr_list_start, filter, &param);
     }
     TbBool is_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel);
-    long count = 0;
+    int64_t count = 0;
     if (((crmodel > 0) && (!is_creature_model_wildcard(crmodel)) && !is_spec_digger) ||
         (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER))
     {
@@ -2300,11 +2300,11 @@ long count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, int 
     return count;
 }
 
-long count_player_list_creatures_of_model(long thing_idx, ThingModel crmodel)
+int64_t count_player_list_creatures_of_model(int64_t thing_idx, ThingModel crmodel)
 {
-    int count = 0;
-    long i = thing_idx;
-    unsigned long k = 0;
+    int64_t count = 0;
+    int64_t i = thing_idx;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2331,11 +2331,11 @@ long count_player_list_creatures_of_model(long thing_idx, ThingModel crmodel)
     return count;
 }
 
-long count_player_list_creatures_of_model_on_territory(long thing_idx, ThingModel crmodel, int friendly)
+int64_t count_player_list_creatures_of_model_on_territory(int64_t thing_idx, ThingModel crmodel, int64_t friendly)
 {
-    int count = 0;
-    long i = thing_idx;
-    unsigned long k = 0;
+    int64_t count = 0;
+    int64_t i = thing_idx;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2347,7 +2347,7 @@ long count_player_list_creatures_of_model_on_territory(long thing_idx, ThingMode
         }
         i = cctrl->players_next_creature_idx;
         // Per creature code
-        int slbwnr = get_slab_owner_thing_is_on(thing);
+        int64_t slbwnr = get_slab_owner_thing_is_on(thing);
         if ( thing_matches_model(thing, crmodel) &&
             ( (players_are_enemies(thing->owner,slbwnr) && (friendly == 0)) ||
               (players_are_mutual_allies(thing->owner,slbwnr) && (friendly == 1)) ||
@@ -2368,15 +2368,15 @@ long count_player_list_creatures_of_model_on_territory(long thing_idx, ThingMode
 
 TbBool reset_all_players_creatures_affected_by_cta(PlayerNumber plyr_idx)
 {
-    SYNCDBG(3,"Processing all player %d creatures",plyr_idx);
-    int n = do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, reset_creature_if_affected_by_cta);
+    SYNCDBG(3,"Processing all player %" PRId64 " creatures",(int64_t)(plyr_idx));
+    int64_t n = do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, reset_creature_if_affected_by_cta);
     return (n > 0);
 }
 
-struct Thing *get_player_list_nth_creature_of_model(long thing_idx, ThingModel crmodel, long crtr_idx)
+struct Thing *get_player_list_nth_creature_of_model(int64_t thing_idx, ThingModel crmodel, int64_t crtr_idx)
 {
-    long i = thing_idx;
-    unsigned long k = 0;
+    int64_t i = thing_idx;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2404,10 +2404,10 @@ struct Thing *get_player_list_nth_creature_of_model(long thing_idx, ThingModel c
     return INVALID_THING;
 }
 
-struct Thing* get_player_list_nth_creature_with_property(long thing_idx, unsigned long crmodelflag, long crtr_idx)
+struct Thing* get_player_list_nth_creature_with_property(int64_t thing_idx, uint64_t crmodelflag, int64_t crtr_idx)
 {
-    long i = thing_idx;
-    unsigned long k = 0;
+    int64_t i = thing_idx;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2435,10 +2435,10 @@ struct Thing* get_player_list_nth_creature_with_property(long thing_idx, unsigne
     return INVALID_THING;
 }
 
-struct Thing *get_player_list_nth_creature_of_model_on_territory(long thing_idx, ThingModel crmodel, long crtr_idx, int friendly)
+struct Thing *get_player_list_nth_creature_of_model_on_territory(int64_t thing_idx, ThingModel crmodel, int64_t crtr_idx, int64_t friendly)
 {
-    long i = thing_idx;
-    unsigned long k = 0;
+    int64_t i = thing_idx;
+    uint64_t k = 0;
     struct Thing *nth_creature = INVALID_THING;
     while (i != 0)
     {
@@ -2455,8 +2455,8 @@ struct Thing *get_player_list_nth_creature_of_model_on_territory(long thing_idx,
             return nth_creature;
         }
         // Per creature code
-        int slbwnr = get_slab_owner_thing_is_on(thing);
-        int match = 0;
+        int64_t slbwnr = get_slab_owner_thing_is_on(thing);
+        int64_t match = 0;
         if (friendly == 1)
         {
             if (players_are_mutual_allies(thing->owner,slbwnr))
@@ -2499,7 +2499,7 @@ struct Thing *get_player_list_nth_creature_of_model_on_territory(long thing_idx,
  * Counts player creatures (not diggers) which are kept out of players control.
  * @param plyr_idx
  */
-long count_player_creatures_for_transfer(PlayerNumber plyr_idx)
+int64_t count_player_creatures_for_transfer(PlayerNumber plyr_idx)
 {
     return count_player_list_creatures_of_model_matching_bool_filter(plyr_idx, CREATURE_NOT_A_DIGGER, creature_can_be_transferred);
 }
@@ -2508,7 +2508,7 @@ long count_player_creatures_for_transfer(PlayerNumber plyr_idx)
  * Counts player creatures (not diggers) which are kept out of players control.
  * @param plyr_idx
  */
-long count_player_creatures_not_counting_to_total(PlayerNumber plyr_idx)
+int64_t count_player_creatures_not_counting_to_total(PlayerNumber plyr_idx)
 {
     return count_player_list_creatures_of_model_matching_bool_filter(plyr_idx, CREATURE_NOT_A_DIGGER, creature_is_kept_in_custody_by_enemy_or_dying);
 }
@@ -2517,7 +2517,7 @@ long count_player_creatures_not_counting_to_total(PlayerNumber plyr_idx)
  * Counts player diggers which are kept out of players control.
  * @param plyr_idx
  */
-long count_player_diggers_not_counting_to_total(PlayerNumber plyr_idx)
+int64_t count_player_diggers_not_counting_to_total(PlayerNumber plyr_idx)
 {
     return count_player_list_creatures_of_model_matching_bool_filter(plyr_idx, CREATURE_DIGGER, creature_is_kept_in_custody_by_enemy_or_dying);
 }
@@ -2526,8 +2526,8 @@ GoldAmount compute_player_payday_total(const struct Dungeon *dungeon)
 {
     SYNCDBG(18,"Starting");
     GoldAmount total_pay = 0;
-    unsigned long k = 0;
-    int i = dungeon->creatr_list_start;
+    uint64_t k = 0;
+    int64_t i = dungeon->creatr_list_start;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2535,7 +2535,7 @@ GoldAmount compute_player_payday_total(const struct Dungeon *dungeon)
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
         {
-            ERRORLOG("Jump to invalid creature (%d) detected for %s.",i, player_code_name(dungeon->owner));
+            ERRORLOG("Jump to invalid creature (%" PRId64 ") detected for %s.",(int64_t)(i), player_code_name(dungeon->owner));
             break;
         }
         i = cctrl->players_next_creature_idx;
@@ -2555,7 +2555,7 @@ GoldAmount compute_player_payday_total(const struct Dungeon *dungeon)
 
 struct Thing *get_random_players_creature_of_model(PlayerNumber plyr_idx, ThingModel crmodel)
 {
-    long total_count;
+    int64_t total_count;
     TbBool is_spec_digger = ((crmodel == CREATURE_DIGGER) || creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel));
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     if (is_spec_digger)
@@ -2570,7 +2570,7 @@ struct Thing *get_random_players_creature_of_model(PlayerNumber plyr_idx, ThingM
     {
         return INVALID_THING;
     }
-    long crtr_idx = PLAYER_RANDOM(plyr_idx, total_count);
+    int64_t crtr_idx = PLAYER_RANDOM(plyr_idx, total_count);
     if (is_spec_digger)
     {
         return get_player_list_nth_creature_of_model(dungeon->digger_list_start, crmodel, crtr_idx);
@@ -2581,10 +2581,10 @@ struct Thing *get_random_players_creature_of_model(PlayerNumber plyr_idx, ThingM
     }
 }
 
-struct Thing *get_random_players_creature_of_model_on_territory(PlayerNumber plyr_idx, ThingModel crmodel, int friendly)
+struct Thing *get_random_players_creature_of_model_on_territory(PlayerNumber plyr_idx, ThingModel crmodel, int64_t friendly)
 {
-    long model_count;
-    long total_count;
+    int64_t model_count;
+    int64_t total_count;
     TbBool is_spec_digger = ((crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel));
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     if (is_spec_digger)
@@ -2601,7 +2601,7 @@ struct Thing *get_random_players_creature_of_model_on_territory(PlayerNumber ply
     {
       return INVALID_THING;
     }
-    long crtr_idx = PLAYER_RANDOM(plyr_idx, model_count);
+    int64_t crtr_idx = PLAYER_RANDOM(plyr_idx, model_count);
     if (is_spec_digger)
     {
         return get_player_list_nth_creature_of_model_on_territory(dungeon->digger_list_start, crmodel, crtr_idx, friendly);
@@ -2617,13 +2617,13 @@ struct Thing *get_random_players_creature_of_model_on_territory(PlayerNumber ply
  * Only creatures for whom the filter function will return INT32_MAX, are counted.
  * @return Gives the amount of things which matched the filter.
  */
-long count_player_list_creatures_with_filter(long thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
+int64_t count_player_list_creatures_with_filter(int64_t thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
 {
     SYNCDBG(9,"Starting");
-    long count = 0;
-    long maximizer = 0;
-    unsigned long k = 0;
-    long i = thing_idx;
+    int64_t count = 0;
+    int64_t maximizer = 0;
+    uint64_t k = 0;
+    int64_t i = thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2635,7 +2635,7 @@ long count_player_list_creatures_with_filter(long thing_idx, Thing_Maximizer_Fil
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         i = cctrl->players_next_creature_idx;
         // Per creature code
-        long n = filter(thing, param, maximizer);
+        int64_t n = filter(thing, param, maximizer);
         if (n >= maximizer)
         {
             maximizer = n;
@@ -2660,7 +2660,7 @@ long count_player_list_creatures_with_filter(long thing_idx, Thing_Maximizer_Fil
  * @param matcher_cb The test callback function to be executed.
  * @return Amount of matching things.
  */
-long count_player_list_creatures_of_model_matching_bool_filter(PlayerNumber plyr_idx, int crmodel, Thing_Bool_Filter matcher_cb)
+int64_t count_player_list_creatures_of_model_matching_bool_filter(PlayerNumber plyr_idx, int64_t crmodel, Thing_Bool_Filter matcher_cb)
 {
     SYNCDBG(19,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
@@ -2677,7 +2677,7 @@ long count_player_list_creatures_of_model_matching_bool_filter(PlayerNumber plyr
         return count_player_list_creatures_with_filter(kfx_sim_state.nodungeon_creatr_list_start, filter, &param);
     }
     TbBool is_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel);
-    long count = 0;
+    int64_t count = 0;
     if (((crmodel > 0) && !is_spec_digger) || (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER)) {
         count += count_player_list_creatures_with_filter(dungeon->creatr_list_start, filter, &param);
     }
@@ -2699,9 +2699,9 @@ struct Thing *get_player_list_creature_with_filter(ThingIndex thing_idx, Thing_M
 {
     SYNCDBG(9,"Starting");
     struct Thing* retng = INVALID_THING;
-    long maximizer = 0;
-    unsigned long k = 0;
-    long i = thing_idx;
+    int64_t maximizer = 0;
+    uint64_t k = 0;
+    int64_t i = thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2713,7 +2713,7 @@ struct Thing *get_player_list_creature_with_filter(ThingIndex thing_idx, Thing_M
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         i = cctrl->players_next_creature_idx;
         // Per creature code
-        long n = filter(thing, param, maximizer);
+        int64_t n = filter(thing, param, maximizer);
         if (n >= maximizer)
         {
             retng = thing;
@@ -2749,15 +2749,15 @@ struct Thing *get_player_list_random_creature_with_filter(ThingIndex thing_idx, 
 {
     SYNCDBG(19,"Starting");
     // Count all creatures in list, so that we can know range for our random index
-    long total_count = count_player_list_creatures_of_model(thing_idx, CREATURE_ANY);
+    int64_t total_count = count_player_list_creatures_of_model(thing_idx, CREATURE_ANY);
     struct Thing* retng = INVALID_THING;
-    long maximizer = 0;
+    int64_t maximizer = 0;
     if (total_count < 1)
         return retng;
-    unsigned long k = 0;
+    uint64_t k = 0;
     // Get random index of a thing in list
     struct Thing* thing = get_player_list_nth_creature_of_model(thing_idx, CREATURE_ANY, PLAYER_RANDOM(plyr_idx, total_count));
-    long i = thing->index;
+    int64_t i = thing->index;
     while (k < total_count)
     {
         if (i == 0)
@@ -2771,7 +2771,7 @@ struct Thing *get_player_list_random_creature_with_filter(ThingIndex thing_idx, 
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         i = cctrl->players_next_creature_idx;
         // Per creature code
-        long n = filter(thing, param, maximizer);
+        int64_t n = filter(thing, param, maximizer);
         if (n >= maximizer)
         {
             retng = thing;
@@ -2798,12 +2798,12 @@ struct Thing *get_player_list_random_creature_with_filter(ThingIndex thing_idx, 
  * immediately and no further things will be checked.
  * @return Gives the thing, or invalid thing pointer if not found.
  */
-struct Thing *get_thing_on_map_block_with_filter(long thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, int32_t *maximizer)
+struct Thing *get_thing_on_map_block_with_filter(int64_t thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, int64_t *maximizer)
 {
     SYNCDBG(19,"Starting");
     struct Thing* retng = INVALID_THING;
-    unsigned long k = 0;
-    long i = thing_idx;
+    uint64_t k = 0;
+    int64_t i = thing_idx;
     while (i != 0)
     {
       struct Thing* thing = thing_get(i);
@@ -2814,7 +2814,7 @@ struct Thing *get_thing_on_map_block_with_filter(long thing_idx, Thing_Maximizer
       }
       i = thing->next_on_mapblk;
       // Begin per-loop code
-      long n = filter(thing, param, *maximizer);
+      int64_t n = filter(thing, param, *maximizer);
       if (n > *maximizer)
       {
           retng = thing;
@@ -2835,12 +2835,12 @@ struct Thing *get_thing_on_map_block_with_filter(long thing_idx, Thing_Maximizer
     return retng;
 }
 
-struct Thing* get_other_thing_on_map_block_with_filter(long thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, int32_t * maximizer)
+struct Thing* get_other_thing_on_map_block_with_filter(int64_t thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, int64_t * maximizer)
 {
     SYNCDBG(19, "Starting");
     struct Thing* retng = INVALID_THING;
-    unsigned long k = 0;
-    long i = thing_idx;
+    uint64_t k = 0;
+    int64_t i = thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2851,7 +2851,7 @@ struct Thing* get_other_thing_on_map_block_with_filter(long thing_idx, Thing_Max
         }
         i = thing->next_on_mapblk;
         // Begin per-loop code
-        long n = filter(thing, param, *maximizer);
+        int64_t n = filter(thing, param, *maximizer);
         if (n >= *maximizer)
         {
             retng = thing;
@@ -2872,12 +2872,12 @@ struct Thing* get_other_thing_on_map_block_with_filter(long thing_idx, Thing_Max
     return retng;
 }
 
-long do_to_things_on_map_block(long thing_idx, Thing_Bool_Modifier do_cb)
+int64_t do_to_things_on_map_block(int64_t thing_idx, Thing_Bool_Modifier do_cb)
 {
     SYNCDBG(19,"Starting");
-    long n = 0;
-    unsigned long k = 0;
-    long i = thing_idx;
+    int64_t n = 0;
+    uint64_t k = 0;
+    int64_t i = thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2901,12 +2901,12 @@ long do_to_things_on_map_block(long thing_idx, Thing_Bool_Modifier do_cb)
     return n;
 }
 
-long do_to_things_with_param_on_map_block(ThingIndex thing_idx, Thing_Modifier_Func do_cb, ModTngFilterParam param)
+int64_t do_to_things_with_param_on_map_block(ThingIndex thing_idx, Thing_Modifier_Func do_cb, ModTngFilterParam param)
 {
     SYNCDBG(19,"Starting");
-    long n = 0;
-    unsigned long k = 0;
-    long i = thing_idx;
+    int64_t n = 0;
+    uint64_t k = 0;
+    int64_t i = thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -2943,8 +2943,8 @@ struct Thing *get_thing_near_revealed_map_block_with_filter(MapCoord x, MapCoord
 {
     SYNCDBG(19,"Starting");
     struct Thing* retng = INVALID_THING;
-    long maximizer = 0;
-    for (int around_val = 0; around_val < sizeof(mid_around) / sizeof(mid_around[0]); around_val++)
+    int64_t maximizer = 0;
+    for (int64_t around_val = 0; around_val < sizeof(mid_around) / sizeof(mid_around[0]); around_val++)
     {
         MapSubtlCoord sx = coord_subtile(x) + (MapSubtlCoord)mid_around[around_val].delta_x;
         MapSubtlCoord sy = coord_subtile(y) + (MapSubtlCoord)mid_around[around_val].delta_y;
@@ -2953,8 +2953,8 @@ struct Thing *get_thing_near_revealed_map_block_with_filter(MapCoord x, MapCoord
         {
             if ((param->plyr_idx == -1) || map_block_revealed(mapblk, param->plyr_idx))
             {
-                long i = get_mapwho_thing_index(mapblk);
-                int32_t n = maximizer;
+                int64_t i = get_mapwho_thing_index(mapblk);
+                int64_t n = maximizer;
                 struct Thing* thing = get_thing_on_map_block_with_filter(i, filter, param, &n);
                 if (!thing_is_invalid(thing) && (n > maximizer))
                 {
@@ -2978,12 +2978,12 @@ struct Thing *get_thing_near_revealed_map_block_with_filter(MapCoord x, MapCoord
  * immediately and no further things will be checked.
  * @return Returns thing, or invalid thing pointer if not found.
  */
-struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, long spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
+struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
 {
     SYNCDBG(19,"Starting");
     struct Thing* retng = INVALID_THING;
-    long maximizer = 0;
-    for (int around_val = 0; around_val < spiral_len; around_val++)
+    int64_t maximizer = 0;
+    for (int64_t around_val = 0; around_val < spiral_len; around_val++)
     {
         struct MapOffset* sstep = &spiral_step[around_val];
         MapSubtlCoord sx = coord_subtile(x) + (MapSubtlCoord)sstep->h;
@@ -2991,8 +2991,8 @@ struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long i = get_mapwho_thing_index(mapblk);
-            int32_t n = maximizer;
+            int64_t i = get_mapwho_thing_index(mapblk);
+            int64_t n = maximizer;
             struct Thing* thing = get_thing_on_map_block_with_filter(i, filter, param, &n);
             if (!thing_is_invalid(thing) && (n >= maximizer))
             {
@@ -3012,12 +3012,12 @@ struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y
  * Amount of things for whom the filter function returns INT32_MAX, is returned.
  * @return Gives count of things which matched the filter.
  */
-long count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, long spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
+int64_t count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param)
 {
     SYNCDBG(19,"Starting");
-    long count = 0;
-    long maximizer = 0;
-    for (int around_val = 0; around_val < spiral_len; around_val++)
+    int64_t count = 0;
+    int64_t maximizer = 0;
+    for (int64_t around_val = 0; around_val < spiral_len; around_val++)
     {
         struct MapOffset* sstep = &spiral_step[around_val];
         MapSubtlCoord sx = coord_subtile(x) + (MapSubtlCoord)sstep->h;
@@ -3025,8 +3025,8 @@ long count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, long
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long i = get_mapwho_thing_index(mapblk);
-            int32_t n = maximizer;
+            int64_t i = get_mapwho_thing_index(mapblk);
+            int64_t n = maximizer;
             struct Thing* thing = get_other_thing_on_map_block_with_filter(i, filter, param, &n);
             if (!thing_is_invalid(thing) && (n >= maximizer))
             {
@@ -3045,11 +3045,11 @@ long count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, long
  * Executes callback for all things on subtiles around given position up to given spiral length.
  * @return Gives amount of things for which callback returned true.
  */
-long do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, long spiral_len, Thing_Bool_Modifier do_cb)
+int64_t do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Bool_Modifier do_cb)
 {
     SYNCDBG(19,"Starting");
-    long count = 0;
-    for (int around_val = 0; around_val < spiral_len; around_val++)
+    int64_t count = 0;
+    for (int64_t around_val = 0; around_val < spiral_len; around_val++)
     {
         struct MapOffset* sstep = &spiral_step[around_val];
         MapSubtlCoord sx = coord_subtile(x) + (MapSubtlCoord)sstep->h;
@@ -3057,7 +3057,7 @@ long do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, long spiral_len,
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long i = get_mapwho_thing_index(mapblk);
+            int64_t i = get_mapwho_thing_index(mapblk);
             count += do_to_things_on_map_block(i, do_cb);
       }
     }
@@ -3068,45 +3068,45 @@ long do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, long spiral_len,
  * Executes callback for all things on slab around given position.
  * @return Gives amount of things for which callback returned true.
  */
-long do_to_things_with_param_around_map_block(const struct Coord3d *center_pos, Thing_Modifier_Func do_cb, ModTngFilterParam param)
+int64_t do_to_things_with_param_around_map_block(const struct Coord3d *center_pos, Thing_Modifier_Func do_cb, ModTngFilterParam param)
 {
     SYNCDBG(19,"Starting");
-    long count = 0;
-    for (int around_val = 0; around_val < sizeof(mid_around) / sizeof(mid_around[0]); around_val++)
+    int64_t count = 0;
+    for (int64_t around_val = 0; around_val < sizeof(mid_around) / sizeof(mid_around[0]); around_val++)
     {
         const struct Around* caround = &mid_around[around_val];
         MapSubtlCoord sx = coord_subtile(center_pos->x.val) + caround->delta_x;
         MapSubtlCoord sy = coord_subtile(center_pos->y.val) + caround->delta_y;
-        SYNCDBG(18,"Doing on (%d,%d)",(int)sx,(int)sy);
+        SYNCDBG(18,"Doing on (%" PRId64 ",%" PRId64 ")",(int64_t)sx,(int64_t)sy);
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long i = get_mapwho_thing_index(mapblk);
+            int64_t i = get_mapwho_thing_index(mapblk);
             count += do_to_things_with_param_on_map_block(i, do_cb, param);
         }
     }
     return count;
 }
 
-long do_to_things_with_param_spiral_near_map_block(const struct Coord3d *center_pos, MapCoordDelta max_dist, Thing_Modifier_Func do_cb, ModTngFilterParam param)
+int64_t do_to_things_with_param_spiral_near_map_block(const struct Coord3d *center_pos, MapCoordDelta max_dist, Thing_Modifier_Func do_cb, ModTngFilterParam param)
 {
-    long spiral_range = coord_subtile(max_dist + COORD_PER_STL - 1);
+    int64_t spiral_range = coord_subtile(max_dist + COORD_PER_STL - 1);
     if (spiral_range > SPIRAL_STEPS_RANGE) {
-        WARNLOG("Spiral range %d trimmed to max %d",(int)spiral_range,SPIRAL_STEPS_RANGE);
+        WARNLOG("Spiral range %" PRId64 " trimmed to max %" PRId64,(int64_t)spiral_range,(int64_t)(SPIRAL_STEPS_RANGE));
         spiral_range = SPIRAL_STEPS_RANGE;
     }
     SYNCDBG(19,"Starting");
-    long count = 0;
-    for (int around_val = 0; around_val < spiral_range * spiral_range; around_val++)
+    int64_t count = 0;
+    for (int64_t around_val = 0; around_val < spiral_range * spiral_range; around_val++)
     {
         struct MapOffset* sstep = &spiral_step[around_val];
         MapSubtlCoord sx = coord_subtile(center_pos->x.val) + sstep->h;
         MapSubtlCoord sy = coord_subtile(center_pos->y.val) + sstep->v;
-        SYNCDBG(18,"Doing on (%d,%d)",(int)sx,(int)sy);
+        SYNCDBG(18,"Doing on (%" PRId64 ",%" PRId64 ")",(int64_t)sx,(int64_t)sy);
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long i = get_mapwho_thing_index(mapblk);
+            int64_t i = get_mapwho_thing_index(mapblk);
             count += do_to_things_with_param_on_map_block(i, do_cb, param);
         }
     }
@@ -3115,7 +3115,7 @@ long do_to_things_with_param_spiral_near_map_block(const struct Coord3d *center_
 
 void stop_all_things_playing_samples(void)
 {
-    for (long i = 0; i < THINGS_COUNT; i++)
+    for (int64_t i = 0; i < THINGS_COUNT; i++)
     {
         struct Thing* thing = thing_get(i);
         if ((thing->alloc_flags & TAlF_Exists) != 0)
@@ -3132,7 +3132,7 @@ void stop_all_things_playing_samples(void)
 TbBool update_thing(struct Thing *thing)
 {
     Thing_Class_Func classfunc;
-    SYNCDBG(18,"Thing index %d, class %d",(int)thing->index,(int)thing->class_id);
+    SYNCDBG(18,"Thing index %" PRId64 ", class %" PRId64,(int64_t)thing->index,(int64_t)thing->class_id);
     TRACE_THING(thing);
     if (thing_is_invalid(thing))
         return false;
@@ -3196,7 +3196,7 @@ TbBool update_thing(struct Thing *thing)
         struct Coord3d pos;
         set_coords_add_velocity(&pos, &thing->mappos, &thing->velocity, MapCoord_ClipX | MapCoord_ClipY);
         if (thing_is_creature(thing) && ((thing->velocity.x.val != 0) || (thing->velocity.y.val != 0))) {
-            int32_t blocked_flags = get_thing_blocked_flags_at(thing, &pos);
+            int64_t blocked_flags = get_thing_blocked_flags_at(thing, &pos);
             blocked_flags &= (SlbBloF_WalledX | SlbBloF_WalledY);
             slide_thing_against_wall_at(thing, &pos, blocked_flags);
             remove_relevant_forces_from_thing_after_slide(thing, &pos, blocked_flags);
@@ -3279,7 +3279,7 @@ TbBool update_thing(struct Thing *thing)
             sim_feedback->light_set_light_position(thing->light_id, &pos);
         } else
         {
-            WARNLOG("The %s index %d tries to use non-existing light %d",thing_model_name(thing),(int)thing->index,(int)thing->light_id);
+            WARNLOG("The %s index %" PRId64 " tries to use non-existing light %" PRId64,thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->light_id);
             thing->light_id = 0;
         }
     }
@@ -3287,7 +3287,7 @@ TbBool update_thing(struct Thing *thing)
     return true;
 }
 
-short update_thing_sound(struct Thing *thing)
+int64_t update_thing_sound(struct Thing *thing)
 {
   SYNCDBG(18,"Starting");
   if (thing->snd_emitter_id)
@@ -3305,22 +3305,22 @@ short update_thing_sound(struct Thing *thing)
   return true;
 }
 
-HitTargetFlags collide_filter_thing_is_of_type(const struct Thing *thing, const struct Thing *sectng, HitTargetFlags tngclass, long tngmodel)
+HitTargetFlags collide_filter_thing_is_of_type(const struct Thing *thing, const struct Thing *sectng, HitTargetFlags tngclass, int64_t tngmodel)
 {
     if (tngmodel >= 0)
     {
         if (thing->model != tngmodel)
           return false;
     }
-    if ((long)tngclass >= 0)
+    if ((int64_t)tngclass >= 0)
     {
-        if (thing->class_id != (long)tngclass)
+        if (thing->class_id != (int64_t)tngclass)
           return false;
     }
     return true;
 }
 
-HitTargetFlags hit_type_to_hit_targets(long hit_type)
+HitTargetFlags hit_type_to_hit_targets(int64_t hit_type)
 {
     switch (hit_type)
     {
@@ -3362,7 +3362,7 @@ HitTargetFlags hit_type_to_hit_targets(long hit_type)
     case THit_None:
         return HitTF_None;
     default:
-        WARNLOG("Illegal hit thing type %d",(int)hit_type);
+        WARNLOG("Illegal hit thing type %" PRId64,(int64_t)hit_type);
         return HitTF_None;
     }
 }
@@ -3508,8 +3508,8 @@ TbBool imp_already_digging_at_excluding(struct Thing *excltng, MapSubtlCoord stl
     const struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return false;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -3545,12 +3545,12 @@ TbBool imp_already_digging_at_excluding(struct Thing *excltng, MapSubtlCoord stl
 struct Thing *smallest_gold_pile_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Thing* chosen_thing = INVALID_THING;
-    long chosen_gold = INT32_MAX;
+    int64_t chosen_gold = INT32_MAX;
     const struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return chosen_thing;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -3594,19 +3594,19 @@ TbBool update_creature_speed(struct Thing *thing)
 }
 
 
-TbBool update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel)
+TbBool update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel)
 {
-    SYNCDBG(3,"Processing player %d creatures of model %d",plyr_idx,(int)crmodel);
-    int n = do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, update_creature_speed);
+    SYNCDBG(3,"Processing player %" PRId64 " creatures of model %" PRId64,(int64_t)(plyr_idx),(int64_t)crmodel);
+    int64_t n = do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, update_creature_speed);
     return (n > 0);
 }
 
-TbBool apply_anger_to_all_players_creatures_excluding(PlayerNumber plyr_idx, long anger, long reason, const struct Thing *excltng)
+TbBool apply_anger_to_all_players_creatures_excluding(PlayerNumber plyr_idx, int64_t anger, int64_t reason, const struct Thing *excltng)
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    unsigned long k = 0;
-    int i = dungeon->creatr_list_start;
+    uint64_t k = 0;
+    int64_t i = dungeon->creatr_list_start;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -3639,8 +3639,8 @@ TbBool gold_pile_with_maximum_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
     const struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return false;
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -3699,7 +3699,7 @@ struct Thing *get_object_around_owned_by_and_matching_bool_filter(MapCoord pos_x
  * @param plyr_idx Player whose revealed subtiles around will be searched.
  * @return The creature thing pointer, or invalid thing pointer if not found.
  */
-struct Thing *get_creature_in_range_who_is_enemy_of_able_to_attack_and_not_specdigger(MapCoord pos_x, MapCoord pos_y, long distance_stl, PlayerNumber plyr_idx)
+struct Thing *get_creature_in_range_who_is_enemy_of_able_to_attack_and_not_specdigger(MapCoord pos_x, MapCoord pos_y, int64_t distance_stl, PlayerNumber plyr_idx)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = near_map_block_thing_filter_is_enemy_of_able_to_attack_and_not_specdigger;
@@ -3757,7 +3757,7 @@ struct Thing *get_nearest_thing_for_slap(PlayerNumber plyr_idx, MapCoord pos_x, 
  * @param crmodel Creature model or 0 for any
  * @return The creature thing pointer, or invalid thing pointer if not found.
  */
-struct Thing *get_creature_near_and_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, long crmodel)
+struct Thing *get_creature_near_and_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, int64_t crmodel)
 {
     SYNCDBG(19,"Starting");
     //return get_creature_near_with_filter(x, y, creature_near_filter_is_owned_by, plyr_idx);
@@ -3819,7 +3819,7 @@ struct Thing *get_creature_in_range_and_owned_by_or_allied_with(MapCoord pos_x, 
  * @param distance_stl Max. distance, in subtiles. Will work properly only for odd numbers (1,3,5,7...).
  * @return The count of matching creatures on given coordinate range.
  */
-long count_creatures_near_and_owned_by_or_allied_with(MapCoord pos_x, MapCoord pos_y, long distance_stl, PlayerNumber plyr_idx)
+int64_t count_creatures_near_and_owned_by_or_allied_with(MapCoord pos_x, MapCoord pos_y, int64_t distance_stl, PlayerNumber plyr_idx)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = anywhere_thing_filter_is_of_class_and_model_and_owned_by_or_allied_with;
@@ -3833,7 +3833,7 @@ long count_creatures_near_and_owned_by_or_allied_with(MapCoord pos_x, MapCoord p
 }
 
 // use this (or make similar one) instead of find_base_thing_on_mapwho_at_pos()
-struct Thing *get_object_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long tngmodel, PlayerNumber plyr_idx)
+struct Thing *get_object_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t tngmodel, PlayerNumber plyr_idx)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = anywhere_thing_filter_is_of_class_and_model_and_owned_by;
@@ -3846,8 +3846,8 @@ struct Thing *get_object_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, M
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
@@ -3864,12 +3864,12 @@ struct Thing *get_cavein_at_subtile_owned_by(MapSubtlCoord stl_x, MapSubtlCoord 
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
-struct Thing *get_food_at_subtile_available_to_eat_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long plyr_idx)
+struct Thing *get_food_at_subtile_available_to_eat_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t plyr_idx)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = anywhere_thing_filter_is_food_available_to_eat_and_owned_by;
@@ -3882,12 +3882,12 @@ struct Thing *get_food_at_subtile_available_to_eat_and_owned_by(MapSubtlCoord st
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
-struct Thing *get_trap_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel model, long plyr_idx)
+struct Thing *get_trap_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel model, int64_t plyr_idx)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = anywhere_thing_filter_is_of_class_and_model_and_owned_by;
@@ -3900,8 +3900,8 @@ struct Thing *get_trap_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, Map
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
@@ -3941,8 +3941,8 @@ struct Thing *get_door_for_position(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
@@ -3959,8 +3959,8 @@ struct Thing *get_door_for_position_for_trap_placement(MapSubtlCoord stl_x, MapS
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
@@ -3970,7 +3970,7 @@ TbBool slab_has_door_thing_on(MapSlabCoord slb_x, MapSlabCoord slb_y)
     return !thing_is_invalid(doortng);
 }
 
-struct Thing *get_creature_of_model_training_at_subtile_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long model_id, PlayerNumber plyr_idx, long skip_thing_id)
+struct Thing *get_creature_of_model_training_at_subtile_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t model_id, PlayerNumber plyr_idx, int64_t skip_thing_id)
 {
     SYNCDBG(19,"Starting");
     Thing_Maximizer_Filter filter = anywhere_thing_filter_is_creature_of_model_training_and_owned_by;
@@ -3984,8 +3984,8 @@ struct Thing *get_creature_of_model_training_at_subtile_and_owned_by(MapSubtlCoo
     {
         return INVALID_THING;
     }
-    long i = get_mapwho_thing_index(mapblk);
-    int32_t n = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
+    int64_t n = 0;
     return get_thing_on_map_block_with_filter(i, filter, &param, &n);
 }
 
@@ -4005,7 +4005,7 @@ struct Thing* get_nearest_object_with_tooltip_at_position(MapSubtlCoord stl_x, M
 
 struct Thing *get_nearest_thing_at_position(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
-  long OldDistance = INT32_MAX;
+  int64_t OldDistance = INT32_MAX;
   struct Thing *thing;
   unsigned char n,k = 0;
   struct Thing *result = NULL;
@@ -4026,7 +4026,7 @@ struct Thing *get_nearest_thing_at_position(MapSubtlCoord stl_x, MapSubtlCoord s
           while (!thing_is_invalid(thing))
           {
             TRACE_THING(thing);
-            long NewDistance = chessboard_distance(stl_x, stl_y, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
+            int64_t NewDistance = chessboard_distance(stl_x, stl_y, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
             if ( NewDistance < OldDistance )
             {
                 OldDistance = NewDistance;
@@ -4052,7 +4052,7 @@ void remove_dead_creatures_from_slab(MapSlabCoord slb_x, MapSlabCoord slb_y)
     do_to_things_spiral_near_map_block(subtile_coord_center(stl_x), subtile_coord_center(stl_y), 9, delete_if_dead_creature);
 }
 
-long switch_owned_objects_on_destoyed_slab_to_neutral(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber prev_owner)
+int64_t switch_owned_objects_on_destoyed_slab_to_neutral(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber prev_owner)
 {
     struct Coord3d pos;
     pos.x.val = subtile_coord_center(slab_subtile_center(slb_x));
@@ -4075,13 +4075,13 @@ TbBool setup_creature_leave_or_die_if_possible(struct Thing *thing)
     {
         if (!creature_is_kept_in_custody_by_enemy(thing) && !creature_is_being_unconscious(thing) && !creature_is_leaving_and_cannot_be_stopped(thing))
         {
-            SYNCDBG(9,"Forcing on %s index %d",thing_model_name(thing),(int)thing->index);
+            SYNCDBG(9,"Forcing on %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
             // Drop creature if it's being dragged
             force_any_creature_dragging_thing_to_drop_it(thing);
             // Drop creature if it's in hand
             if (thing_is_picked_up(thing)) {
                 if ((kfx_config_state.conf.rules[thing->owner].gameplay.classic_bugs_flags & ClscBug_NoHandPurgeOnDefeat) != 0) {
-                    SYNCDBG(19,"Skipped %s index %d due to classic bug",thing_model_name(thing),(int)thing->index);
+                    SYNCDBG(19,"Skipped %s index %" PRId64 " due to classic bug",thing_model_name(thing),(int64_t)thing->index);
                     return false;
                 }
                 dump_thing_held_by_any_player(thing);
@@ -4091,7 +4091,7 @@ TbBool setup_creature_leave_or_die_if_possible(struct Thing *thing)
             return true;
         }
     }
-    SYNCDBG(19,"Skipped %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(19,"Skipped %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     return false;
 }
 
@@ -4099,13 +4099,13 @@ TbBool setup_creature_die_if_not_in_custody(struct Thing *thing)
 {
     if (!creature_is_kept_in_custody_by_enemy(thing))
     {
-        SYNCDBG(19,"Forcing on %s index %d",thing_model_name(thing),(int)thing->index);
+        SYNCDBG(19,"Forcing on %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
         // Drop creature if it's being dragged
         force_any_creature_dragging_thing_to_drop_it(thing);
         // Drop creature if it's in hand
         if (thing_is_picked_up(thing)) {
             if ((kfx_config_state.conf.rules[thing->owner].gameplay.classic_bugs_flags & ClscBug_NoHandPurgeOnDefeat) != 0) {
-                SYNCDBG(19,"Skipped %s index %d due to classic bug",thing_model_name(thing),(int)thing->index);
+                SYNCDBG(19,"Skipped %s index %" PRId64 " due to classic bug",thing_model_name(thing),(int64_t)thing->index);
                 return false;
             }
             dump_thing_held_by_any_player(thing);
@@ -4114,7 +4114,7 @@ TbBool setup_creature_die_if_not_in_custody(struct Thing *thing)
         kill_creature(thing, INVALID_THING, -1, CrDed_Default);
         return true;
     }
-    SYNCDBG(19,"Skipped %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(19,"Skipped %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     return false;
 }
 
@@ -4130,13 +4130,13 @@ void setup_all_player_creatures_and_diggers_leave_or_die(PlayerNumber plyr_idx)
     do_to_players_all_creatures_of_model(plyr_idx, CREATURE_DIGGER, setup_creature_die_if_not_in_custody);
 }
 
-unsigned short setup_excess_creatures_to_leave_or_die(short max_remain)
+int64_t setup_excess_creatures_to_leave_or_die(int64_t max_remain)
 {
     struct CreatureControl* cctrl;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    unsigned long k = 0;
-    int i = slist->index;
-    short count = 0;
+    uint64_t k = 0;
+    int64_t i = slist->index;
+    int64_t count = 0;
     if (slist->count <= max_remain)
     {
         return count;
@@ -4178,9 +4178,9 @@ unsigned short setup_excess_creatures_to_leave_or_die(short max_remain)
     return count;
 }
 
-long count_creatures_in_dungeon_of_model_flags(const struct Dungeon *dungeon, unsigned long need_mdflags, unsigned long excl_mdflags)
+int64_t count_creatures_in_dungeon_of_model_flags(const struct Dungeon *dungeon, uint64_t need_mdflags, uint64_t excl_mdflags)
 {
-    long count = 0;
+    int64_t count = 0;
     for (ThingModel crmodel = 1; crmodel < kfx_config_state.conf.crtr_conf.model_count; crmodel++)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(crmodel);
@@ -4193,9 +4193,9 @@ long count_creatures_in_dungeon_of_model_flags(const struct Dungeon *dungeon, un
     return count;
 }
 
-long count_creatures_in_dungeon_controlled_and_of_model_flags(const struct Dungeon *dungeon, unsigned long need_mdflags, unsigned long excl_mdflags)
+int64_t count_creatures_in_dungeon_controlled_and_of_model_flags(const struct Dungeon *dungeon, uint64_t need_mdflags, uint64_t excl_mdflags)
 {
-    long count = 0;
+    int64_t count = 0;
     for (ThingModel crmodel = 1; crmodel < kfx_config_state.conf.crtr_conf.model_count; crmodel++)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(crmodel);
@@ -4212,15 +4212,15 @@ long count_creatures_in_dungeon_controlled_and_of_model_flags(const struct Dunge
 void break_mapwho_infinite_chain(const struct Map *mapblk)
 {
     SYNCDBG(8,"Starting");
-    long i_first = get_mapwho_thing_index(mapblk);
-    long i_prev[2];
+    int64_t i_first = get_mapwho_thing_index(mapblk);
+    int64_t i_prev[2];
     i_prev[1] = 0;
     i_prev[0] = 0;
     while (i_first != 0)
     {
         // Per thing code start
-        unsigned long k = 0;
-        long i = i_first;
+        uint64_t k = 0;
+        int64_t i = i_first;
         while (i != 0)
         {
             struct Thing* thing = thing_get(i);
@@ -4262,7 +4262,7 @@ void break_mapwho_infinite_chain(const struct Map *mapblk)
 
 ThingIndex get_index_of_next_creature_of_owner_and_model(struct Thing *current_creature, PlayerNumber owner, ThingModel crmodel, struct PlayerInfo *player)
 {
-    unsigned long k = 0;
+    uint64_t k = 0;
     ThingIndex i = current_creature->index;
     do
     {
@@ -4309,8 +4309,8 @@ struct Thing* get_timebomb_target(struct Thing *creatng)
     if (slist != NULL)
     {
         dist = INT32_MAX;
-        unsigned long i = slist->index;
-        unsigned long k = 0;
+        uint64_t i = slist->index;
+        uint64_t k = 0;
         while (i != 0)
         {
             thing = thing_get(i);

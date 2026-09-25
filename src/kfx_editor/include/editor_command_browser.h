@@ -17,6 +17,7 @@
 #ifndef DK_EDITOR_COMMAND_BROWSER_H
 #define DK_EDITOR_COMMAND_BROWSER_H
 
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -32,8 +33,8 @@ void editor_dialogs_open_command_browser(void);
 // Test seams: how many commands the catalogue holds, and the names of those
 // that fell into the "Other" group (copied into `out`, comma-separated,
 // truncated to `out_size`). Both rebuild the catalogue.
-int editor_command_browser_command_count(void);
-int editor_command_browser_unclassified(char *out, int out_size);
+int64_t editor_command_browser_command_count(void);
+int64_t editor_command_browser_unclassified(char *out, int64_t out_size);
 
 /******************************************************************************/
 #ifdef __cplusplus

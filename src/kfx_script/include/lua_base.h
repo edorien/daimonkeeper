@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-TbBool CheckLua(lua_State *L, int result,const char* func);
+TbBool CheckLua(lua_State *L, int64_t result,const char* func);
 TbBool open_lua_script(LevelNumber lvnum);
 void close_lua_script();
 
@@ -40,7 +40,7 @@ const char* lua_get_serialised_data(size_t *len);
 TbBool lua_set_serialised_data(const char *data, size_t len);
 void cleanup_serialized_data();
 
-void lua_set_random_seed(unsigned int seed);
+void lua_set_random_seed(uint64_t seed);
 
 // Narrow net_resync.cpp-specific pair (stage 11, docs/refactor/
 // stage-11-kfx-script.md item 4) -- combines the lua-active check with

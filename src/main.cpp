@@ -254,7 +254,7 @@ TbBool initial_setup(void)
     // setting this will force video mode change, even if previous one is same
     MinimalResolutionSetup = true;
     // Set size of static textures buffer
-    game_load_files[1].SLength = max((ulong)TEXTURE_BLOCKS_STAT_COUNT_A*block_dimension*block_dimension,(ulong)LANDVIEW_MAP_WIDTH*LANDVIEW_MAP_HEIGHT);
+    game_load_files[1].SLength = max((uint64_t)TEXTURE_BLOCKS_STAT_COUNT_A*block_dimension*block_dimension,(uint64_t)LANDVIEW_MAP_WIDTH*LANDVIEW_MAP_HEIGHT);
     if (LbDataLoadAllV2(game_load_files))
     {
         ERRORLOG("Unable to load game_load_files");
@@ -298,7 +298,7 @@ static char *get_music_fname(void)
     return kfx_game_state.music_fname;
 }
 
-static int32_t get_frame_skip(void)
+static int64_t get_frame_skip(void)
 {
     return kfx_net_state.frame_skip;
 }
@@ -308,17 +308,17 @@ static TbBool get_easter_eggs_enabled(void)
     return kfx_sim_state.easter_eggs_enabled;
 }
 
-static short get_last_level(void)
+static int64_t get_last_level(void)
 {
     return kfx_render_state.last_level;
 }
 
-static long get_creature_model_count(void)
+static int64_t get_creature_model_count(void)
 {
     return kfx_config_state.conf.crtr_conf.model_count;
 }
 
-static struct CreatureSounds *get_creature_sounds(long crmodel)
+static struct CreatureSounds *get_creature_sounds(int64_t crmodel)
 {
     return &kfx_config_state.conf.crtr_conf.creature_sounds[crmodel];
 }
@@ -328,7 +328,7 @@ static const struct ModConfigItem *get_mods_after_map(void)
     return mods_conf.after_map_item;
 }
 
-static int32_t get_mods_after_map_count(void)
+static int64_t get_mods_after_map_count(void)
 {
     return mods_conf.after_map_cnt;
 }
@@ -338,7 +338,7 @@ static const struct ModConfigItem *get_mods_after_campaign(void)
     return mods_conf.after_campaign_item;
 }
 
-static int32_t get_mods_after_campaign_count(void)
+static int64_t get_mods_after_campaign_count(void)
 {
     return mods_conf.after_campaign_cnt;
 }
@@ -348,7 +348,7 @@ static const struct ModConfigItem *get_mods_after_base(void)
     return mods_conf.after_base_item;
 }
 
-static int32_t get_mods_after_base_count(void)
+static int64_t get_mods_after_base_count(void)
 {
     return mods_conf.after_base_cnt;
 }
@@ -413,11 +413,11 @@ static PlayerNumber config_reload_get_thing_owner(const struct Thing *thing)
 {
     return thing->owner;
 }
-static uint32_t config_reload_get_thing_creation_turn(const struct Thing *thing)
+static uint64_t config_reload_get_thing_creation_turn(const struct Thing *thing)
 {
     return thing->creation_turn;
 }
-static unsigned short config_reload_get_thing_index(const struct Thing *thing)
+static int64_t config_reload_get_thing_index(const struct Thing *thing)
 {
     return thing->index;
 }
@@ -432,12 +432,12 @@ static char *config_reload_get_creature_name_buffer(const struct Thing *creatng)
 
 // Wrappers registered with config.h's ConfigReloadCallbacks; config_rules.c
 // reads the current level's map dimensions, owned by kfx_sim_state.h.
-static long config_reload_get_map_subtiles_x(void)
+static int64_t config_reload_get_map_subtiles_x(void)
 {
     return kfx_sim_state.map_subtiles_x;
 }
 
-static long config_reload_get_map_subtiles_y(void)
+static int64_t config_reload_get_map_subtiles_y(void)
 {
     return kfx_sim_state.map_subtiles_y;
 }
@@ -465,7 +465,7 @@ static void hide_tooltip(void)
 
 // Wrapper registered with sim_feedback.h's SimFeedbackCallbacks;
 // frontmenu_ingame_evnt.c owns TimerTurns.
-static void set_timer_turns(unsigned long turns)
+static void set_timer_turns(uint64_t turns)
 {
     TimerTurns = turns;
 }
@@ -500,12 +500,12 @@ static void set_vid_smooth(TbBool val)
 
 // Wrapper registered with config.h's ConfigReloadCallbacks; power_hand.h's
 // global_hand_scale is a kfx_sim-owned global.
-static void set_hand_scale(float val)
+static void set_hand_scale(double val)
 {
     global_hand_scale = val;
 }
 
-static float get_hand_scale(void)
+static double get_hand_scale(void)
 {
     return global_hand_scale;
 }
@@ -513,7 +513,7 @@ static float get_hand_scale(void)
 // Wrapper registered with config.h's ConfigReloadCallbacks; vidmode.h's
 // base_mouse_sensitivity is a kfx_render-owned global with an existing free
 // setter (set_base_mouse_sensitivity) but no getter to pair it with.
-static long get_base_mouse_sensitivity(void)
+static int64_t get_base_mouse_sensitivity(void)
 {
     return base_mouse_sensitivity;
 }
@@ -542,7 +542,7 @@ static struct SlabSet *get_slabset_array(void)
 {
     return kfx_sim_state.slabset;
 }
-static unsigned short *get_slabset_num_ptr(void)
+static int64_t *get_slabset_num_ptr(void)
 {
     return &kfx_sim_state.slabset_num;
 }
@@ -550,15 +550,15 @@ static struct SlabObj *get_slabobjs_array(void)
 {
     return kfx_sim_state.slabobjs;
 }
-static short *get_slabobjs_idx_array(void)
+static int64_t *get_slabobjs_idx_array(void)
 {
     return kfx_sim_state.slabobjs_idx;
 }
-static unsigned short *get_slabobjs_num_ptr(void)
+static int64_t *get_slabobjs_num_ptr(void)
 {
     return &kfx_sim_state.slabobjs_num;
 }
-static void set_block_health(long idx, long val)
+static void set_block_health(int64_t idx, int64_t val)
 {
     kfx_sim_state.block_health[idx] = val;
 }
@@ -596,7 +596,7 @@ static const struct NamedCommand *get_cleanup_func_commands(void) { return clean
 static const struct NamedCommand *get_move_from_slab_func_commands(void) { return move_from_slab_func_commands; }
 static const struct NamedCommand *get_move_check_func_commands(void) { return move_check_func_commands; }
 static char **get_level_strings(void) { return level_strings; }
-static void set_speech_queue_limit(int limit) { g_speech_queue_limit = limit; }
+static void set_speech_queue_limit(int64_t limit) { g_speech_queue_limit = limit; }
 
 // Wrapper registered with kfx_config's NetCallbacks (net_callbacks.h);
 // net_exchange_common.c can't reach kfx_apploop's host_packet_received
@@ -610,7 +610,7 @@ static void game_callbacks_set_frontend_alliances(char alliances) { frontend_all
 // (render_overlay.h); engine_render.c can't reach kfx_apploop's
 // interpolate_time directly. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-static float get_interpolate_time(void) { return interpolate_time; }
+static double get_interpolate_time(void) { return interpolate_time; }
 
 // Wrapper registered with kfx_config's SimFeedbackCallbacks
 // (sim_feedback.h); map_events.c can't reach kfx_frontend's
@@ -630,20 +630,20 @@ static PlayerNumber get_local_plyr_idx(void)
     return kfx_net_state.local_plyr_idx;
 }
 
-static int get_input_lag_turns(void)
+static int64_t get_input_lag_turns(void)
 {
     return kfx_net_state.input_lag_turns;
 }
 
-static void set_active_players_count(int count)
+static void set_active_players_count(int64_t count)
 {
     kfx_net_state.active_players_count = count;
 }
-static long get_isometric_view_zoom_level(void)
+static int64_t get_isometric_view_zoom_level(void)
 {
     return kfx_net_state.packet_save_head.isometric_view_zoom_level;
 }
-static long get_frontview_zoom_level(void)
+static int64_t get_frontview_zoom_level(void)
 {
     return kfx_net_state.packet_save_head.frontview_zoom_level;
 }
@@ -675,7 +675,7 @@ static GameTurn sim_feedback_get_play_gameturn(void)
 {
     return kfx_game_state.play_gameturn;
 }
-static long get_intralvl_next_level(void)
+static int64_t get_intralvl_next_level(void)
 {
     return intralvl.next_level;
 }
@@ -688,14 +688,14 @@ static void clear_intralvl_next_level(void)
 // docs/refactor/stage-06-kfx-sim.md) -- show_onscreen_msg() itself is
 // printf-style, which a plain C function pointer can't express; kfx_sim's
 // one call site already formats its own message before calling through.
-static TbBool show_onscreen_msg_plain(int nturns, const char *msg)
+static TbBool show_onscreen_msg_plain(int64_t nturns, const char *msg)
 {
     return show_onscreen_msg(nturns, "%s", msg);
 }
 
 // Same reasoning as show_onscreen_msg_plain above -- targeted_message_add()
 // is printf-style.
-static void targeted_message_add_plain(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *msg)
+static void targeted_message_add_plain(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *msg)
 {
     targeted_message_add(msg_type, plyr_idx, target_idx, timeout, "%s", msg);
 }
@@ -711,7 +711,7 @@ static void render_overlay_load_and_redraw_minimal_overhead_view(void)
     redraw_minimal_overhead_view();
 }
 
-static void render_overlay_set_parchment_loaded(int val)
+static void render_overlay_set_parchment_loaded(int64_t val)
 {
     parchment_loaded = val;
 }
@@ -777,19 +777,19 @@ static void pathfinding_world_thing_set_position(struct Thing *thing, const stru
 {
     thing->mappos = *pos;
 }
-static short pathfinding_world_thing_get_move_angle(const struct Thing *thing)
+static int64_t pathfinding_world_thing_get_move_angle(const struct Thing *thing)
 {
     return thing->move_angle_xy;
 }
-static void pathfinding_world_thing_set_move_angle(struct Thing *thing, short angle)
+static void pathfinding_world_thing_set_move_angle(struct Thing *thing, int64_t angle)
 {
     thing->move_angle_xy = angle;
 }
-static unsigned short pathfinding_world_thing_get_index(const struct Thing *thing)
+static int64_t pathfinding_world_thing_get_index(const struct Thing *thing)
 {
     return thing->index;
 }
-static unsigned short pathfinding_world_thing_get_clipbox_size(const struct Thing *thing)
+static int64_t pathfinding_world_thing_get_clipbox_size(const struct Thing *thing)
 {
     return thing->clipbox_size_xy;
 }
@@ -807,7 +807,7 @@ static TbBool pathfinding_world_creature_steps_into_toxic_terrain(struct Thing *
         && !terrain_toxic_for_creature_at_position(thing, thing->mappos.x.stl.num, thing->mappos.y.stl.num)
         && terrain_toxic_for_creature_at_position(thing, pos->x.stl.num, pos->y.stl.num);
 }
-static short pathfinding_world_creature_get_max_speed(const struct Thing *creatng)
+static int64_t pathfinding_world_creature_get_max_speed(const struct Thing *creatng)
 {
     return creature_control_get_from_thing(creatng)->max_speed;
 }
@@ -829,27 +829,27 @@ static MapSubtlCoord pathfinding_world_get_map_size_z(void)
 {
     return map_subtiles_z;
 }
-static long pathfinding_world_get_owner_player_navigating(void)
+static int64_t pathfinding_world_get_owner_player_navigating(void)
 {
     return owner_player_navigating;
 }
-static void pathfinding_world_set_owner_player_navigating(long plyr_idx)
+static void pathfinding_world_set_owner_player_navigating(int64_t plyr_idx)
 {
     owner_player_navigating = plyr_idx;
 }
-static long pathfinding_world_get_nav_thing_can_travel_over_lava(void)
+static int64_t pathfinding_world_get_nav_thing_can_travel_over_lava(void)
 {
     return nav_thing_can_travel_over_lava;
 }
-static void pathfinding_world_set_nav_thing_can_travel_over_lava(long can_travel)
+static void pathfinding_world_set_nav_thing_can_travel_over_lava(int64_t can_travel)
 {
     nav_thing_can_travel_over_lava = can_travel;
 }
-static long pathfinding_world_get_nav_thing_is_flying(void)
+static int64_t pathfinding_world_get_nav_thing_is_flying(void)
 {
     return nav_thing_is_flying;
 }
-static void pathfinding_world_set_nav_thing_is_flying(long is_flying)
+static void pathfinding_world_set_nav_thing_is_flying(int64_t is_flying)
 {
     nav_thing_is_flying = is_flying;
 }
@@ -924,7 +924,7 @@ static void sim_feedback_reset_box_lag_compensation(void)
     box_lag_compensation_y = 0;
 }
 
-static long render_overlay_get_main_menu_width(void)
+static int64_t render_overlay_get_main_menu_width(void)
 {
     struct GuiMenu *gmnu = get_active_menu(menu_id_to_number(GMnu_MAIN));
     return gmnu->width;
@@ -933,16 +933,16 @@ static long render_overlay_get_main_menu_width(void)
 // draw_gui_panel_sprite_left is itself a macro (expands to
 // draw_gui_panel_sprite_left_player(...,my_player_number)), so this
 // wrapper needs a distinct name.
-static void render_overlay_draw_gui_panel_sprite_left(long x, long y, int units_per_px, long spridx)
+static void render_overlay_draw_gui_panel_sprite_left(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx)
 {
     draw_gui_panel_sprite_left(x, y, units_per_px, spridx);
 }
 
 static void render_overlay_sync_cheat_box_3_active_option(CrInstance active_instance_id)
 {
-    if (!gui_box_is_not_valid(kfx_frontend_state.gui_cheat_box_3))
+    if (!gui_box_is_not_valid(kfx_frontend_local.gui_cheat_box_3))
     {
-        struct GuiBoxOption* guop = kfx_frontend_state.gui_cheat_box_3->optn_list;
+        struct GuiBoxOption* guop = kfx_frontend_local.gui_cheat_box_3->optn_list;
         while (guop->label[0] != '!')
         {
             guop->active = (active_instance_id == guop->cb_param1);
@@ -961,7 +961,7 @@ static void render_overlay_set_winfont(void)
     LbTextSetFont(winfont);
 }
 
-static long render_overlay_get_status_panel_width(void)
+static int64_t render_overlay_get_status_panel_width(void)
 {
     // The ImGui HUD composites over a full-screen 3D view -- it does not
     // inset the engine window (and a horizontal HUD layout could not be
@@ -1020,12 +1020,12 @@ static TbBool render_overlay_bonus_script_or_variable_overlay_active(void)
     return bonus_timer_enabled() || script_timer_enabled() || display_variable_enabled();
 }
 
-static long render_overlay_get_battle_creature_over(void)
+static int64_t render_overlay_get_battle_creature_over(void)
 {
     return battle_creature_over;
 }
 
-static long render_overlay_get_map_diagonal_length(void)
+static int64_t render_overlay_get_map_diagonal_length(void)
 {
     return MapDiagonalLength;
 }
@@ -1075,7 +1075,7 @@ static TbBool net_callbacks_is_frontend_at_initial_state(void)
     return frontend_menu_state == FeSt_INITIAL;
 }
 
-static TbBool net_callbacks_frontnet_service_selected(int service)
+static TbBool net_callbacks_frontnet_service_selected(int64_t service)
 {
     return frontnet_service_selected((enum FrontendNetService)service);
 }
@@ -1099,7 +1099,7 @@ static TbBool game_callbacks_is_fe_computer_players_active(void)
     return fe_computer_players != 0;
 }
 
-static void game_callbacks_set_timer_turns(unsigned long value)
+static void game_callbacks_set_timer_turns(uint64_t value)
 {
     TimerTurns = value;
 }
@@ -1146,15 +1146,15 @@ static void app_imgui_frame(void)
  * @note The current screen resolution at end of this function may vary.
  */
 
-short setup_game(void)
+int64_t setup_game(void)
 {
   struct CPU_INFO cpu_info; // CPU status variable
-  short result;
+  int64_t result;
   // Do only a very basic setup
   cpu_detect(&cpu_info);
-  SYNCMSG("CPU %s type %d family %d model %d stepping %d features %08lx",cpu_info.vendor,
-      (int)cpu_get_type(&cpu_info),(int)cpu_get_family(&cpu_info),(int)cpu_get_model(&cpu_info),
-      (int)cpu_get_stepping(&cpu_info),cpu_info.feature_edx);
+  SYNCMSG("CPU %s type %" PRId64 " family %" PRId64 " model %" PRId64 " stepping %" PRId64 " features %08" PRIx64,cpu_info.vendor,
+      (int64_t)cpu_get_type(&cpu_info),(int64_t)cpu_get_family(&cpu_info),(int64_t)cpu_get_model(&cpu_info),
+      (int64_t)cpu_get_stepping(&cpu_info),(uint64_t)(cpu_info.feature_edx));
   if (cpu_info.BrandString)
   {
       SYNCMSG("%s", &cpu_info.brand[0]);
@@ -1334,7 +1334,7 @@ short setup_game(void)
   // same tracked position the legacy cursor sprite already draws at)
   // instead. A non-capturing lambda converts to the plain function pointer
   // RendererMousePositionFn needs.
-  RendererSetMousePositionCallback([](long *x, long *y) {
+  RendererSetMousePositionCallback([](int64_t *x, int64_t *y) {
       *x = GetMouseX();
       *y = GetMouseY();
   });
@@ -1834,7 +1834,7 @@ TbBool set_default_startup_parameters(void)
     return true;
 }
 
-static short process_command_line(unsigned short argc, char *argv[])
+static int64_t process_command_line(int64_t argc, char *argv[])
 {
   char fullpath[CMDLN_MAXLEN+1];
   snprintf(fullpath, CMDLN_MAXLEN, "%s", argv[0]);
@@ -1853,10 +1853,10 @@ static short process_command_line(unsigned short argc, char *argv[])
 
   set_default_startup_parameters();
 
-  short bad_param;
+  int64_t bad_param;
   LevelNumber level_num;
   bad_param = 0;
-  unsigned short narg;
+  int64_t narg;
   level_num = LEVELNUMBER_ERROR;
   TbBool one_player_mode = 0;
   narg = 1;
@@ -2072,7 +2072,7 @@ static short process_command_line(unsigned short argc, char *argv[])
       else if (strcasecmp(parstr,"server") == 0)
       {
           game_flags2 |= GF2_Server;
-          int port = atoi(pr2str);
+          int64_t port = atoi(pr2str);
           if (port > 0)
           {
               LbNetwork_SetServerPort(port);
@@ -2215,9 +2215,9 @@ static short process_command_line(unsigned short argc, char *argv[])
   return (bad_param==0);
 }
 
-static const char* determine_log_filename(unsigned short argument_count, char *argument_values[])
+static const char* determine_log_filename(int64_t argument_count, char *argument_values[])
 {
-    for (int argument_index = 1; argument_index < argument_count; argument_index++) {
+    for (int64_t argument_index = 1; argument_index < argument_count; argument_index++) {
         if (argument_values[argument_index] && (argument_values[argument_index][0] == '-' || argument_values[argument_index][0] == '/')) {
             char* argument_name = argument_values[argument_index] + 1;
             if (strcasecmp(argument_name, "log") == 0 && argument_index + 1 < argument_count) {
@@ -2229,7 +2229,7 @@ static const char* determine_log_filename(unsigned short argument_count, char *a
     return log_file_name;
 }
 
-static short reset_game(void)
+static int64_t reset_game(void)
 {
     SYNCDBG(6,"Starting");
 
@@ -2243,9 +2243,9 @@ static short reset_game(void)
     return 1;
 }
 
-int LbBullfrogMain(unsigned short argc, char *argv[])
+int64_t LbBullfrogMain(int64_t argc, char *argv[])
 {
-    short retval;
+    int64_t retval;
     retval=0;
 
     // Determine correct log file based on command line flags
@@ -2325,7 +2325,7 @@ int LbBullfrogMain(unsigned short argc, char *argv[])
     return 0;
 }
 
-int kfxmain(int argc, char *argv[])
+int64_t kfxmain(int64_t argc, char *argv[])
 {
   try {
   LbBullfrogMain(argc, argv);

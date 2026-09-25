@@ -14,6 +14,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct KfxGameState kfx_game_state;
+struct KfxGameLocal kfx_game_local;
 /******************************************************************************/
 #ifdef __cplusplus
 }

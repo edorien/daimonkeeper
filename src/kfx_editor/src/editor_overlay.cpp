@@ -75,33 +75,33 @@ namespace {
     // grid lines dropping out near the screen edges more than expected.
     void draw_slab_grid(void)
     {
-        long map_w = (long)kfx_sim_state.map_tiles_x * STL_PER_SLB * COORD_PER_STL;
-        long map_h = (long)kfx_sim_state.map_tiles_y * STL_PER_SLB * COORD_PER_STL;
+        int64_t map_w = (int64_t)kfx_sim_state.map_tiles_x * STL_PER_SLB * COORD_PER_STL;
+        int64_t map_h = (int64_t)kfx_sim_state.map_tiles_y * STL_PER_SLB * COORD_PER_STL;
         ImDrawList *draw_list = ImGui::GetForegroundDrawList();
 
-        for (long slb_x = 0; slb_x <= kfx_sim_state.map_tiles_x; slb_x++)
+        for (int64_t slb_x = 0; slb_x <= kfx_sim_state.map_tiles_x; slb_x++)
         {
-            long wx = slb_x * STL_PER_SLB * COORD_PER_STL;
-            long sx1, sy1, sx2, sy2;
+            int64_t wx = slb_x * STL_PER_SLB * COORD_PER_STL;
+            int64_t sx1, sy1, sx2, sy2;
             if (!project_world_position_to_screen(wx, 0, 0, &sx1, &sy1))
                 continue;
             if (!project_world_position_to_screen(wx, map_h, 0, &sx2, &sy2))
                 continue;
             bool heavy = (slb_x % 5) == 0;
             ImU32 color = heavy ? IM_COL32(255, 255, 255, 90) : IM_COL32(255, 255, 255, 40);
-            draw_list->AddLine(ImVec2((float)sx1, (float)sy1), ImVec2((float)sx2, (float)sy2), color, heavy ? 1.5f : 1.0f);
+            draw_list->AddLine(ImVec2((double)sx1, (double)sy1), ImVec2((double)sx2, (double)sy2), color, heavy ? 1.5 : 1.0);
         }
-        for (long slb_y = 0; slb_y <= kfx_sim_state.map_tiles_y; slb_y++)
+        for (int64_t slb_y = 0; slb_y <= kfx_sim_state.map_tiles_y; slb_y++)
         {
-            long wy = slb_y * STL_PER_SLB * COORD_PER_STL;
-            long sx1, sy1, sx2, sy2;
+            int64_t wy = slb_y * STL_PER_SLB * COORD_PER_STL;
+            int64_t sx1, sy1, sx2, sy2;
             if (!project_world_position_to_screen(0, wy, 0, &sx1, &sy1))
                 continue;
             if (!project_world_position_to_screen(map_w, wy, 0, &sx2, &sy2))
                 continue;
             bool heavy = (slb_y % 5) == 0;
             ImU32 color = heavy ? IM_COL32(255, 255, 255, 90) : IM_COL32(255, 255, 255, 40);
-            draw_list->AddLine(ImVec2((float)sx1, (float)sy1), ImVec2((float)sx2, (float)sy2), color, heavy ? 1.5f : 1.0f);
+            draw_list->AddLine(ImVec2((double)sx1, (double)sy1), ImVec2((double)sx2, (double)sy2), color, heavy ? 1.5 : 1.0);
         }
     }
 
@@ -120,13 +120,13 @@ namespace {
             return;
 
         char text[64];
-        snprintf(text, sizeof(text), "Slab (%d, %d)  Subtile (%d, %d)",
-            (int)(pos.x.stl.num / STL_PER_SLB), (int)(pos.y.stl.num / STL_PER_SLB),
-            (int)pos.x.stl.num, (int)pos.y.stl.num);
+        snprintf(text, sizeof(text), "Slab (%" PRId64 ", %" PRId64 ")  Subtile (%" PRId64 ", %" PRId64 ")",
+            (int64_t)(pos.x.stl.num / STL_PER_SLB), (int64_t)(pos.y.stl.num / STL_PER_SLB),
+            (int64_t)pos.x.stl.num, (int64_t)pos.y.stl.num);
 
         ImGuiIO &io = ImGui::GetIO();
         ImVec2 text_size = ImGui::CalcTextSize(text);
-        ImVec2 draw_pos(10.0f, io.DisplaySize.y - text_size.y - 10.0f);
+        ImVec2 draw_pos(10.0, io.DisplaySize.y - text_size.y - 10.0);
         ImDrawList *draw_list = ImGui::GetForegroundDrawList();
         draw_list->AddRectFilled(ImVec2(draw_pos.x - 4, draw_pos.y - 2),
             ImVec2(draw_pos.x + text_size.x + 4, draw_pos.y + text_size.y + 2), IM_COL32(0, 0, 0, 140));
@@ -141,9 +141,9 @@ namespace {
     void draw_ownership_tint(void)
     {
         ImDrawList *draw_list = ImGui::GetForegroundDrawList();
-        for (long slb_y = 0; slb_y < kfx_sim_state.map_tiles_y; slb_y++)
+        for (int64_t slb_y = 0; slb_y < kfx_sim_state.map_tiles_y; slb_y++)
         {
-            for (long slb_x = 0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
+            for (int64_t slb_x = 0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
             {
                 struct SlabMap *slb = get_slabmap_block(slb_x, slb_y);
                 PlayerNumber owner = (PlayerNumber)slabmap_owner(slb);
@@ -151,11 +151,11 @@ namespace {
                 if (color == 0)
                     continue;
 
-                long wx1 = slb_x * STL_PER_SLB * COORD_PER_STL;
-                long wy1 = slb_y * STL_PER_SLB * COORD_PER_STL;
-                long wx2 = wx1 + STL_PER_SLB * COORD_PER_STL;
-                long wy2 = wy1 + STL_PER_SLB * COORD_PER_STL;
-                long sx1, sy1, sx2, sy2, sx3, sy3, sx4, sy4;
+                int64_t wx1 = slb_x * STL_PER_SLB * COORD_PER_STL;
+                int64_t wy1 = slb_y * STL_PER_SLB * COORD_PER_STL;
+                int64_t wx2 = wx1 + STL_PER_SLB * COORD_PER_STL;
+                int64_t wy2 = wy1 + STL_PER_SLB * COORD_PER_STL;
+                int64_t sx1, sy1, sx2, sy2, sx3, sy3, sx4, sy4;
                 if (!project_world_position_to_screen(wx1, wy1, 0, &sx1, &sy1))
                     continue;
                 if (!project_world_position_to_screen(wx2, wy1, 0, &sx2, &sy2))
@@ -165,8 +165,8 @@ namespace {
                 if (!project_world_position_to_screen(wx1, wy2, 0, &sx4, &sy4))
                     continue;
                 draw_list->AddQuadFilled(
-                    ImVec2((float)sx1, (float)sy1), ImVec2((float)sx2, (float)sy2),
-                    ImVec2((float)sx3, (float)sy3), ImVec2((float)sx4, (float)sy4), color);
+                    ImVec2((double)sx1, (double)sy1), ImVec2((double)sx2, (double)sy2),
+                    ImVec2((double)sx3, (double)sy3), ImVec2((double)sx4, (double)sy4), color);
             }
         }
     }
@@ -175,16 +175,16 @@ namespace {
     // established (filled circle + dark outline + a short text label
     // offset to one side, rather than a sprite/icon atlas this editor has
     // no lookup table for).
-    void draw_marker(long wx, long wy, long wz, ImU32 color, const char *label)
+    void draw_marker(int64_t wx, int64_t wy, int64_t wz, ImU32 color, const char *label)
     {
-        long sx, sy;
+        int64_t sx, sy;
         if (!project_world_position_to_screen(wx, wy, wz, &sx, &sy))
             return;
         ImDrawList *draw_list = ImGui::GetForegroundDrawList();
-        draw_list->AddCircleFilled(ImVec2((float)sx, (float)sy), 5.0f, color);
-        draw_list->AddCircle(ImVec2((float)sx, (float)sy), 5.0f, IM_COL32(0, 0, 0, 255), 0, 1.0f);
+        draw_list->AddCircleFilled(ImVec2((double)sx, (double)sy), 5.0, color);
+        draw_list->AddCircle(ImVec2((double)sx, (double)sy), 5.0, IM_COL32(0, 0, 0, 255), 0, 1.0);
         if (label != nullptr)
-            draw_list->AddText(ImVec2((float)sx + 7.0f, (float)sy - 7.0f), IM_COL32(255, 255, 255, 255), label);
+            draw_list->AddText(ImVec2((double)sx + 7.0, (double)sy - 7.0), IM_COL32(255, 255, 255, 255), label);
     }
 
     // Approximates a world-space radius as an on-screen circle by
@@ -194,19 +194,19 @@ namespace {
     // projects to an ellipse, not a circle -- this is a deliberate
     // simplification (a rough "about this big" indicator), not a claim of
     // exact ground-footprint accuracy.
-    void draw_radius_ring(long wx, long wy, long wz, long radius, ImU32 color)
+    void draw_radius_ring(int64_t wx, int64_t wy, int64_t wz, int64_t radius, ImU32 color)
     {
         if (radius <= 0)
             return;
-        long cx, cy, ex, ey;
+        int64_t cx, cy, ex, ey;
         if (!project_world_position_to_screen(wx, wy, wz, &cx, &cy))
             return;
         if (!project_world_position_to_screen(wx + radius, wy, wz, &ex, &ey))
             return;
-        float screen_radius = sqrtf((float)((ex - cx) * (ex - cx) + (ey - cy) * (ey - cy)));
-        if (screen_radius < 1.0f)
+        double screen_radius = sqrt((double)((ex - cx) * (ex - cx) + (ey - cy) * (ey - cy)));
+        if (screen_radius < 1.0)
             return;
-        ImGui::GetForegroundDrawList()->AddCircle(ImVec2((float)cx, (float)cy), screen_radius, color, 0, 1.5f);
+        ImGui::GetForegroundDrawList()->AddCircle(ImVec2((double)cx, (double)cy), screen_radius, color, 0, 1.5);
     }
 
     // Creatures/objects/traps/doors, excluding hero gates (drawn by
@@ -227,31 +227,31 @@ namespace {
             if (thing_is_creature(thing))
             {
                 color = IM_COL32(80, 220, 80, 255);
-                snprintf(label, sizeof(label), "C%d", (int)thing->model);
+                snprintf(label, sizeof(label), "C%" PRId64, (int64_t)thing->model);
             }
             else if (thing_is_object(thing))
             {
                 if (object_is_hero_gate(thing))
                     continue; // drawn by draw_ap_herogate_markers()
                 color = IM_COL32(80, 200, 220, 255);
-                snprintf(label, sizeof(label), "O%d", (int)thing->model);
+                snprintf(label, sizeof(label), "O%" PRId64, (int64_t)thing->model);
             }
             else if (thing_is_deployed_trap(thing))
             {
                 color = IM_COL32(230, 150, 40, 255);
-                snprintf(label, sizeof(label), "T%d", (int)thing->model);
+                snprintf(label, sizeof(label), "T%" PRId64, (int64_t)thing->model);
             }
             else if (thing_is_deployed_door(thing))
             {
                 color = IM_COL32(160, 110, 70, 255);
-                snprintf(label, sizeof(label), "D%d", (int)thing->model);
+                snprintf(label, sizeof(label), "D%" PRId64, (int64_t)thing->model);
             }
             else if (thing->class_id == TCls_EffectGen)
             {
                 // Effect generators are invisible things -- without a marker
                 // there is nothing on screen to click, select or delete.
                 color = IM_COL32(120, 200, 255, 255);
-                snprintf(label, sizeof(label), "FX%d", (int)thing->model);
+                snprintf(label, sizeof(label), "FX%" PRId64, (int64_t)thing->model);
                 draw_radius_ring(thing->mappos.x.val, thing->mappos.y.val, thing->mappos.z.val,
                     thing->effect_generator.range, IM_COL32(120, 200, 255, 110));
             }
@@ -268,7 +268,7 @@ namespace {
     // placed content and would churn every frame preview motion runs.
     void draw_light_markers(void)
     {
-        for (int i = 1; i < LIGHTS_COUNT; i++)
+        for (int64_t i = 1; i < LIGHTS_COUNT; i++)
         {
             struct Light *light = &lish.lights[i];
             if ((light->flags & LgtF_Allocated) == 0)
@@ -292,7 +292,7 @@ namespace {
             if (!action_point_exists(apt))
                 continue;
             char label[16];
-            snprintf(label, sizeof(label), "AP%d", (int)apt->num);
+            snprintf(label, sizeof(label), "AP%" PRId64, (int64_t)apt->num);
             draw_marker(apt->mappos.x.val, apt->mappos.y.val, 0, IM_COL32(230, 230, 230, 255), label);
             draw_radius_ring(apt->mappos.x.val, apt->mappos.y.val, 0, apt->range, IM_COL32(230, 230, 230, 110));
         }
@@ -305,7 +305,7 @@ namespace {
             if (!thing_is_object(thing) || !object_is_hero_gate(thing))
                 continue;
             char label[16];
-            snprintf(label, sizeof(label), "HG%d", (int)thing->hero_gate.number);
+            snprintf(label, sizeof(label), "HG%" PRId64, (int64_t)thing->hero_gate.number);
             draw_marker(thing->mappos.x.val, thing->mappos.y.val, thing->mappos.z.val,
                 IM_COL32(220, 90, 220, 255), label);
         }
@@ -340,12 +340,12 @@ void editor_overlay_frame(void)
         draw_coordinate_readout();
 }
 
-void editor_overlay_draw_marker(long wx, long wy, long wz, unsigned int color, const char *label)
+void editor_overlay_draw_marker(int64_t wx, int64_t wy, int64_t wz, uint64_t color, const char *label)
 {
     draw_marker(wx, wy, wz, (ImU32)color, label);
 }
 
-void editor_overlay_draw_radius_ring(long wx, long wy, long wz, long radius, unsigned int color)
+void editor_overlay_draw_radius_ring(int64_t wx, int64_t wy, int64_t wz, int64_t radius, uint64_t color)
 {
     draw_radius_ring(wx, wy, wz, radius, (ImU32)color);
 }

@@ -274,9 +274,9 @@ TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_creature_available f
 
     struct DungeonAvailabilityCallbacks fake_da = *dungeon_availability;
     fake_da.player_has_valid_dungeon = [](PlayerNumber) -> TbBool { return true; };
-    static long captured_force_avail = -999;
+    static int64_t captured_force_avail = -999;
     captured_force_avail = -999;
-    fake_da.set_creature_availability = [](PlayerNumber, ThingModel, long, long force_avail) { captured_force_avail = force_avail; };
+    fake_da.set_creature_availability = [](PlayerNumber, ThingModel, int64_t, int64_t force_avail) { captured_force_avail = force_avail; };
     set_dungeon_availability_callbacks(&fake_da);
 
     kfx_config_state.conf.crtr_conf.model_count = 2;

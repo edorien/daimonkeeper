@@ -57,18 +57,18 @@ enum PlayerInstanceNum {
 struct Thing;
 struct PlayerInfo;
 
-typedef long (*InstncInfo_Func)(struct PlayerInfo *player, int32_t *n);
+typedef int64_t (*InstncInfo_Func)(struct PlayerInfo *player, int64_t *n);
 
 struct PlayerInstanceInfo { // sizeof = 44
-  long length_turns;
-  long instance_state;
+  int64_t length_turns;
+  int64_t instance_state;
   InstncInfo_Func start_cb;
   InstncInfo_Func maintain_cb;
   InstncInfo_Func end_cb;
-  int32_t start_callback_parameters[2];
+  int64_t start_callback_parameters[2];
   unsigned char extra_callback_data[8];
-  int32_t maintain_end_callback_parameter;
-  int32_t reserved_callback_parameter;
+  int64_t maintain_end_callback_parameter;
+  int64_t reserved_callback_parameter;
 };
 
 #define PLAYER_INSTANCES_COUNT 19
@@ -80,10 +80,10 @@ struct PlayerInstanceInfo { // sizeof = 44
 /******************************************************************************/
 extern struct PlayerInstanceInfo player_instance_info[PLAYER_INSTANCES_COUNT];
 /******************************************************************************/
-void set_player_instance(struct PlayerInfo *player, long ninum, TbBool force);
+void set_player_instance(struct PlayerInfo *player, int64_t ninum, TbBool force);
 void set_map_ui_hidden(TbBool status_menu, TbBool tooltips);
 void turn_off_query(PlayerNumber plyr_idx);
-long filter_creatures_owned_by_keepers(const struct Thing *thing, MaxTngFilterParam param, long a3);
+int64_t filter_creatures_owned_by_keepers(const struct Thing *thing, MaxTngFilterParam param, int64_t a3);
 void process_player_instance(struct PlayerInfo *player);
 void process_player_instances(void);
 
@@ -103,7 +103,7 @@ TbBool is_thing_passenger_controlled_by_player(const struct Thing *thing, Player
 
 void set_player_zoom_to_position(struct PlayerInfo *player,struct Coord3d *pos);
 
-struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, RoomKind rkind, int slabs_left);
+struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, RoomKind rkind, int64_t slabs_left);
 TbBool player_place_trap_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel);
 TbBool player_place_trap_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
 /** Places a trap at exactly this subtile, whatever the trap's own PlaceOnSubtile setting: shipped campaign
@@ -121,7 +121,7 @@ void level_lost_go_first_person(PlayerNumber plyr_idx);
 // creatures at all (a fresh New Map), where level_lost_go_first_person()
 // would silently no-op.
 void level_editor_go_spectator_at(PlayerNumber plyr_idx, MapCoord pos_x, MapCoord pos_y);
-long packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool allowed);
+int64_t packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool allowed);
 
 extern unsigned char zoom_to_heart_palette[768];
 /******************************************************************************/

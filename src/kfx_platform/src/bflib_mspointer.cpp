@@ -38,37 +38,37 @@ struct SSurface;
 /******************************************************************************/
 // Global variables
 volatile TbBool lbPointerAdvancedDraw;
-int32_t cursor_xsteps_array[2*CURSOR_SCALING_XSTEPS];
-int32_t cursor_ysteps_array[2*CURSOR_SCALING_YSTEPS];
+int64_t cursor_xsteps_array[2*CURSOR_SCALING_XSTEPS];
+int64_t cursor_ysteps_array[2*CURSOR_SCALING_YSTEPS];
 /******************************************************************************/
 
-void LbCursorSpriteSetScalingWidthClipped(long x, long swidth, long dwidth, long gwidth)
+void LbCursorSpriteSetScalingWidthClipped(int64_t x, int64_t swidth, int64_t dwidth, int64_t gwidth)
 {
-    SYNCDBG(17,"Starting %d -> %d at %d",(int)swidth,(int)dwidth,(int)x);
+    SYNCDBG(17,"Starting %" PRId64 " -> %" PRId64 " at %" PRId64,(int64_t)swidth,(int64_t)dwidth,(int64_t)x);
     if (swidth > CURSOR_SCALING_XSTEPS)
         swidth = CURSOR_SCALING_XSTEPS;
     LbSpriteSetScalingWidthClippedArray(cursor_xsteps_array, x, swidth, dwidth, gwidth);
 }
 
-void LbCursorSpriteSetScalingWidthSimple(long x, long swidth, long dwidth)
+void LbCursorSpriteSetScalingWidthSimple(int64_t x, int64_t swidth, int64_t dwidth)
 {
-    SYNCDBG(17,"Starting %d -> %d at %d",(int)swidth,(int)dwidth,(int)x);
+    SYNCDBG(17,"Starting %" PRId64 " -> %" PRId64 " at %" PRId64,(int64_t)swidth,(int64_t)dwidth,(int64_t)x);
     if (swidth > CURSOR_SCALING_XSTEPS)
         swidth = CURSOR_SCALING_XSTEPS;
     LbSpriteSetScalingWidthSimpleArray(cursor_xsteps_array, x, swidth, dwidth);
 }
 
-void LbCursorSpriteSetScalingHeightClipped(long y, long sheight, long dheight, long gheight)
+void LbCursorSpriteSetScalingHeightClipped(int64_t y, int64_t sheight, int64_t dheight, int64_t gheight)
 {
-    SYNCDBG(17,"Starting %d -> %d at %d",(int)sheight,(int)dheight,(int)y);
+    SYNCDBG(17,"Starting %" PRId64 " -> %" PRId64 " at %" PRId64,(int64_t)sheight,(int64_t)dheight,(int64_t)y);
     if (sheight > CURSOR_SCALING_YSTEPS)
         sheight = CURSOR_SCALING_YSTEPS;
     LbSpriteSetScalingHeightClippedArray(cursor_ysteps_array, y, sheight, dheight, gheight);
 }
 
-void LbCursorSpriteSetScalingHeightSimple(long y, long sheight, long dheight)
+void LbCursorSpriteSetScalingHeightSimple(int64_t y, int64_t sheight, int64_t dheight)
 {
-    SYNCDBG(17,"Starting %d -> %d at %d",(int)sheight,(int)dheight,(int)y);
+    SYNCDBG(17,"Starting %" PRId64 " -> %" PRId64 " at %" PRId64,(int64_t)sheight,(int64_t)dheight,(int64_t)y);
     if (sheight > CURSOR_SCALING_YSTEPS)
         sheight = CURSOR_SCALING_YSTEPS;
     LbSpriteSetScalingHeightSimpleArray(cursor_ysteps_array, y, sheight, dheight);
@@ -77,10 +77,10 @@ void LbCursorSpriteSetScalingHeightSimple(long y, long sheight, long dheight)
 /**
  * Draws the mouse pointer sprite on a display buffer.
  */
-static long PointerDraw(long x, long y, const struct TbSprite *spr, TbPixel *outbuf, unsigned long scanline)
+static int64_t PointerDraw(int64_t x, int64_t y, const struct TbSprite *spr, TbPixel *outbuf, uint64_t scanline)
 {
-    unsigned int dwidth;
-    unsigned int dheight;
+    uint64_t dwidth;
+    uint64_t dheight;
     // Prepare bounds
     dwidth = scale_ui_value_lofi(spr->SWidth);
     dheight = scale_ui_value_lofi(spr->SHeight);
@@ -102,8 +102,8 @@ static long PointerDraw(long x, long y, const struct TbSprite *spr, TbPixel *out
     } else {
         LbCursorSpriteSetScalingHeightSimple(y, spr->SHeight, dheight);
     }
-    int32_t *xstep;
-    int32_t *ystep;
+    int64_t *xstep;
+    int64_t *ystep;
     {
         xstep = &cursor_xsteps_array[0];
         ystep = &cursor_ysteps_array[0];
@@ -136,10 +136,10 @@ LbI_PointerHandler::~LbI_PointerHandler(void)
     Release();
 }
 
-void LbI_PointerHandler::SetHotspot(long x, long y)
+void LbI_PointerHandler::SetHotspot(int64_t x, int64_t y)
 {
-    long prev_x;
-    long prev_y;
+    int64_t prev_x;
+    int64_t prev_y;
     std::lock_guard<std::mutex> guard(lock);
     if (this->is_active)
     {
@@ -189,9 +189,9 @@ void LbI_PointerHandler::Initialise(const struct TbSprite *spr, struct TbPoint *
 {
     void *surfbuf;
     TbPixel *buf;
-    long i;
-    int dstwidth;
-    int dstheight;
+    int64_t i;
+    int64_t dstwidth;
+    int64_t dstheight;
     Release();
     std::lock_guard<std::mutex> guard(lock);
     sprite = spr;
@@ -212,7 +212,7 @@ void LbI_PointerHandler::Initialise(const struct TbSprite *spr, struct TbPoint *
     // memset() below wants bytes, but pointer arithmetic on a TbPixel* and
     // PointerDraw()'s scanline stride both need pixel counts.
     TbBytePitch pitch = surf1.pitch();
-    long pitch_px = TbBytePitch_ToPixels(pitch);
+    int64_t pitch_px = TbBytePitch_ToPixels(pitch);
     for (i=0; i < dstheight; i++)
     {
         memset(buf, 255, pitch.bytes);
@@ -231,7 +231,7 @@ void LbI_PointerHandler::Initialise(const struct TbSprite *spr, struct TbPoint *
 
 void LbI_PointerHandler::Draw(bool a1)
 {
-    unsigned long flags;
+    uint64_t flags;
     flags = 0x10 | 0x08 | 0x04;
     if ( a1 )
       flags |= 0x02;
@@ -240,7 +240,7 @@ void LbI_PointerHandler::Draw(bool a1)
 
 void LbI_PointerHandler::Backup(bool a1)
 {
-    unsigned long flags;
+    uint64_t flags;
     flags = 0x10;
     if ( a1 )
       flags |= 0x02;
@@ -250,7 +250,7 @@ void LbI_PointerHandler::Backup(bool a1)
 
 void LbI_PointerHandler::Undraw(bool a1)
 {
-    unsigned long flags;
+    uint64_t flags;
     flags = 0x10 | 0x08;
     if ( a1 )
       flags |= 0x02;
@@ -278,8 +278,8 @@ void LbI_PointerHandler::NewMousePos(void)
 {
     this->draw_pos_x = position->x - scale_ui_value_lofi(spr_offset->x);
     this->draw_pos_y = position->y - scale_ui_value_lofi(spr_offset->y);
-    int dstwidth;
-    int dstheight;
+    int64_t dstwidth;
+    int64_t dstheight;
     dstwidth = scale_ui_value_lofi(sprite->SWidth);
     dstheight = scale_ui_value_lofi(sprite->SHeight);
     LbSetRect(&rect_1038, 0, 0, dstwidth, dstheight);

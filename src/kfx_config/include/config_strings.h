@@ -635,13 +635,13 @@ enum CampaignStrings {
 /******************************************************************************/
 TbBool setup_gui_strings_data(void);
 TbBool free_gui_strings_data(void);
-TbBool reset_strings(char **strings, int max);
+TbBool reset_strings(char **strings, int64_t max);
 const char * get_string(TextStringId stridx);
 TbBool setup_campaign_strings_data(struct GameCampaign *campgn);
-TbBool fill_strings_list(char **strings,char *strings_data,char *strings_data_end, int max);
-unsigned long count_strings(char *strings, int size);
-const char * cmpgn_string(unsigned int index);
-const char * gui_string(unsigned int index);
+TbBool fill_strings_list(char **strings,char *strings_data,char *strings_data_end, int64_t max);
+uint64_t count_strings(char *strings, int64_t size);
+const char * cmpgn_string(uint64_t index);
+const char * gui_string(uint64_t index);
 extern char *gui_strings[GUI_STRINGS_COUNT];
 /******************************************************************************/
 #ifdef __cplusplus

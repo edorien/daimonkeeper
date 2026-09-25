@@ -75,10 +75,10 @@ void frontend_define_key_down_maintain(struct GuiButton *gbtn);
 void frontend_define_key_maintain(struct GuiButton *gbtn);
 void frontend_draw_define_key_scroll_tab(struct GuiButton *gbtn);
 void frontend_draw_define_key(struct GuiButton *gbtn);
-void frontend_format_key_binding(long key_id, char *text, size_t text_size);
+void frontend_format_key_binding(int64_t key_id, char *text, size_t text_size);
 // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
 // counterpart (settings.editor_kbkeys[]/EditorGameKeys, globals.h).
-void frontend_format_editor_key_binding(long key_id, char *text, size_t text_size);
+void frontend_format_editor_key_binding(int64_t key_id, char *text, size_t text_size);
 uint8_t num_definable_keys(void);
 void frontend_set_mouse_sensitivity(struct GuiButton *gbtn);
 void frontend_invert_mouse(struct GuiButton *gbtn);
@@ -96,8 +96,8 @@ void init_video_menu(struct GuiMenu *gmnu);
 void init_audio_menu(struct GuiMenu *gmnu);
 void frontend_options_menu_init_sliders(struct GuiMenu *gmnu);
 /******************************************************************************/
-int make_audio_slider_linear(int a);
-int make_audio_slider_nonlinear(int a);
+int64_t make_audio_slider_linear(int64_t a);
+int64_t make_audio_slider_nonlinear(int64_t a);
 /******************************************************************************/
 #ifdef __cplusplus
 }

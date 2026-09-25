@@ -31,11 +31,11 @@ extern "C" {
 /******************************************************************************/
 #pragma pack(1)
 
-typedef long AridPointId;
+typedef int64_t AridPointId;
 
 struct Point { // sizeof = 4
-  short x;
-  short y;
+  int64_t x;
+  int64_t y;
 };
 
 /******************************************************************************/
@@ -46,12 +46,12 @@ extern struct Point ari_Points[];
 #define INVALID_POINT (&ari_Points[0])
 /******************************************************************************/
 void point_dispose(AridPointId pt_id);
-TbBool point_set(AridPointId pt_id, long x, long y);
+TbBool point_set(AridPointId pt_id, int64_t x, int64_t y);
 struct Point *point_get(AridPointId pt_id);
 TbBool point_is_invalid(const struct Point *pt);
-TbBool point_equals(AridPointId pt_idx, long pt_x, long pt_y);
-AridPointId point_set_new_or_reuse(long pt_x, long pt_y);
-void triangulation_initxy_points(long startx, long starty, long endx, long endy);
+TbBool point_equals(AridPointId pt_idx, int64_t pt_x, int64_t pt_y);
+AridPointId point_set_new_or_reuse(int64_t pt_x, int64_t pt_y);
+void triangulation_initxy_points(int64_t startx, int64_t starty, int64_t endx, int64_t endy);
 /******************************************************************************/
 #ifdef __cplusplus
 }

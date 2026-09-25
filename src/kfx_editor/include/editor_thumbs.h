@@ -27,8 +27,8 @@
 struct EditorThumb
 {
     void *texture = nullptr; // renderer texture handle; nullptr if there is no thumbnail
-    int width = 0;
-    int height = 0;
+    int64_t width = 0;
+    int64_t height = 0;
 };
 
 // Cached, built on first use. Safe to call every frame; a failed build is
@@ -38,8 +38,8 @@ EditorThumb editor_thumb_object(ThingModel model);
 
 // The RGBA pixels behind a thumbnail (0xAABBGGRR, alpha 0 = transparent), for
 // tests and for the caches above. False if the item has nothing to show.
-bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint32_t> &pixels, int &width, int &height);
-bool editor_thumb_object_pixels(ThingModel model, std::vector<uint32_t> &pixels, int &width, int &height);
+bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height);
+bool editor_thumb_object_pixels(ThingModel model, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height);
 
 // Drops cached thumbnails so they rebuild against the level / palette now
 // loaded (called when an editor session opens).

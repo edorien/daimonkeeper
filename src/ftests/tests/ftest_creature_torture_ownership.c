@@ -105,7 +105,7 @@ FTestActionResult ftest_creature_torture_ownership_action001__setup(struct FTest
 
     if (!ftest_util_replace_slabs(room_slb_x, room_slb_y, room_slb_x + TORTURE_SIZE, room_slb_y + TORTURE_SIZE, SlbT_TORTURE, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build torture room at slab (%d,%d)", room_slb_x, room_slb_y);
+        FTEST_FAIL_TEST("Failed to build torture room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(room_slb_x), (int64_t)(room_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     // map00011's script leaves TORTURE researchable but not buildable
@@ -205,20 +205,20 @@ FTestActionResult ftest_creature_torture_ownership_action003__verify(struct FTes
     struct CreatureControl* enemy_cctrl = creature_control_get_from_thing(enemy_creature);
     if (own_cctrl->work_room_id == 0 || enemy_cctrl->work_room_id == 0)
     {
-        FTEST_FAIL_TEST("A creature was not added to the torture room's work list (own work_room_id=%d, enemy work_room_id=%d)",
-            (int)own_cctrl->work_room_id, (int)enemy_cctrl->work_room_id);
+        FTEST_FAIL_TEST("A creature was not added to the torture room's work list (own work_room_id=%" PRId64 ", enemy work_room_id=%" PRId64 ")",
+            (int64_t)own_cctrl->work_room_id, (int64_t)enemy_cctrl->work_room_id);
         return FTRs_Go_To_Next_Action;
     }
 
     // at_torture_room() resets accumulated_torture_points to 0 for both.
-    long own_points_before = own_cctrl->tortured.accumulated_torture_points;
-    long enemy_points_before = enemy_cctrl->tortured.accumulated_torture_points;
+    int64_t own_points_before = own_cctrl->tortured.accumulated_torture_points;
+    int64_t enemy_points_before = enemy_cctrl->tortured.accumulated_torture_points;
 
     process_torture_function(own_creature);
     process_torture_function(enemy_creature);
 
-    long own_points_after = own_cctrl->tortured.accumulated_torture_points;
-    long enemy_points_after = enemy_cctrl->tortured.accumulated_torture_points;
+    int64_t own_points_after = own_cctrl->tortured.accumulated_torture_points;
+    int64_t enemy_points_after = enemy_cctrl->tortured.accumulated_torture_points;
 
     // This is the ownership-differs behaviour itself: process_torture_
     // function() returns early (before update_torture_points()) when
@@ -226,8 +226,8 @@ FTestActionResult ftest_creature_torture_ownership_action003__verify(struct FTes
     // really just standing there harmlessly.
     if (own_points_after != own_points_before)
     {
-        FTEST_FAIL_TEST("PLAYER0-owned creature's torture points changed in its own room (before=%ld, after=%ld) -- expected the same-owner early return to skip update_torture_points()",
-            own_points_before, own_points_after);
+        FTEST_FAIL_TEST("PLAYER0-owned creature's torture points changed in its own room (before=%" PRId64 ", after=%" PRId64 ") -- expected the same-owner early return to skip update_torture_points()",
+            (int64_t)(own_points_before), (int64_t)(own_points_after));
         return FTRs_Go_To_Next_Action;
     }
     // The enemy-owned creature falls through to update_torture_points(),
@@ -235,13 +235,13 @@ FTestActionResult ftest_creature_torture_ownership_action003__verify(struct FTes
     // room->efficiency, both always > 0 for a real, available room).
     if (enemy_points_after <= enemy_points_before)
     {
-        FTEST_FAIL_TEST("PLAYER_GOOD-owned creature's torture points did not increase in PLAYER0's room (before=%ld, after=%ld) -- expected update_torture_points() to have run",
-            enemy_points_before, enemy_points_after);
+        FTEST_FAIL_TEST("PLAYER_GOOD-owned creature's torture points did not increase in PLAYER0's room (before=%" PRId64 ", after=%" PRId64 ") -- expected update_torture_points() to have run",
+            (int64_t)(enemy_points_before), (int64_t)(enemy_points_after));
         return FTRs_Go_To_Next_Action;
     }
 
-    FTESTLOG("Ownership-differs branch confirmed at turn %d: own-room victim's torture points stayed at %ld, enemy victim's rose from %ld to %ld",
-        get_gameturn(), own_points_after, enemy_points_before, enemy_points_after);
+    FTESTLOG("Ownership-differs branch confirmed at turn %" PRId64 ": own-room victim's torture points stayed at %" PRId64 ", enemy victim's rose from %" PRId64 " to %" PRId64,
+        (int64_t)(get_gameturn()), (int64_t)(own_points_after), (int64_t)(enemy_points_before), (int64_t)(enemy_points_after));
     return FTRs_Go_To_Next_Action;
 }
 

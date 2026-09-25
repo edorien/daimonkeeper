@@ -15,6 +15,6 @@
  *  (side to side) into that player's reinforced wall, the same slab an imp
  *  would leave. Journaled as one undoable step. Returns the number of slabs
  *  changed. */
-int editor_reinforce_perimeter(PlayerNumber owner);
+int64_t editor_reinforce_perimeter(PlayerNumber owner);
 
 #endif

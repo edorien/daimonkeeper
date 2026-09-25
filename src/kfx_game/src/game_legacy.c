@@ -58,15 +58,11 @@ const char *resync_export_game_state(size_t *len)
 TbBool resync_import_game_state(const char *data, size_t len)
 {
     if (len != sizeof(resync_game_state_buffer)) {
-        ERRORLOG("Received game state with wrong size: %u != %u", (unsigned)len, (unsigned)sizeof(resync_game_state_buffer));
+        ERRORLOG("Received game state with wrong size: %" PRIu64 " != %" PRIu64, (uint64_t)len, (uint64_t)sizeof(resync_game_state_buffer));
         return false;
     }
-    // gui_cheat_box_2 points into this process's static gui_boxes[]; the sender's address is meaningless here
-    // and gui_box_is_not_valid() would dereference it. Keep our own (see kfx_frontend_state.c).
-    struct GuiBox *live_cheat_box_2 = kfx_game_state.gui_cheat_box_2;
     memcpy(&game, data, sizeof(game));
     memcpy(&kfx_game_state, data + sizeof(game), sizeof(kfx_game_state));
-    kfx_game_state.gui_cheat_box_2 = live_cheat_box_2;
     return true;
 }
 /******************************************************************************/

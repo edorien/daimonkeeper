@@ -32,9 +32,9 @@
 /******************************************************************************/
 
 // Reference dimensions - effect computed at 640x480, then scaled
-static const int REF_WIDTH = 640;
-static const int REF_HEIGHT = 480;
-static const int REF_MAXSIZE = 640;
+static const int64_t REF_WIDTH = 640;
+static const int64_t REF_HEIGHT = 480;
+static const int64_t REF_MAXSIZE = 640;
 
 // Maximum strips per scanline
 #define MAX_STRIPS_PER_LINE 26
@@ -43,16 +43,16 @@ static const int REF_MAXSIZE = 640;
  * Strip entry for scanline - defines start X and source offset.
  */
 struct FlyeyeStrip {
-    short start_x;
-    short source_off_x;
-    short source_off_y;
+    int64_t start_x;
+    int64_t source_off_x;
+    int64_t source_off_y;
 };
 
 /**
  * Scanline data for reference-space rasterization.
  */
 struct FlyeyeScanline {
-    int num_strips;
+    int64_t num_strips;
     FlyeyeStrip strips[MAX_STRIPS_PER_LINE];
 };
 
@@ -65,18 +65,18 @@ static FlyeyeScanline* g_ref_scanlines = nullptr;
  * Add a strip to a scanline, maintaining sorted order by start_x.
  * Direct port of CHex::AddScan from original.
  */
-static void AddScan(FlyeyeScanline* scan, int strip_len, int len_limit, 
-                    short source_off_x, short source_off_y)
+static void AddScan(FlyeyeScanline* scan, int64_t strip_len, int64_t len_limit, 
+                    int64_t source_off_x, int64_t source_off_y)
 {
     if (strip_len < 0) strip_len = 0;
     if (strip_len >= REF_WIDTH || strip_len >= len_limit) return;
     if (scan->num_strips >= MAX_STRIPS_PER_LINE) return;
     
     // Find insertion point (sorted by start_x)
-    int insert_idx = 0;
-    for (int i = 0; i < scan->num_strips; i++)
+    int64_t insert_idx = 0;
+    for (int64_t i = 0; i < scan->num_strips; i++)
     {
-        int cur_len = scan->strips[i].start_x;
+        int64_t cur_len = scan->strips[i].start_x;
         if (strip_len == cur_len)
         {
             // Update existing
@@ -90,7 +90,7 @@ static void AddScan(FlyeyeScanline* scan, int strip_len, int len_limit,
     }
     
     // Shift to make room
-    for (int i = scan->num_strips; i > insert_idx; i--)
+    for (int64_t i = scan->num_strips; i > insert_idx; i--)
     {
         scan->strips[i] = scan->strips[i - 1];
     }
@@ -106,11 +106,11 @@ static void AddScan(FlyeyeScanline* scan, int strip_len, int len_limit,
  * Rasterize one hexagon into reference-space scanlines.
  * Direct port of CHex class from original lens_flyeye.cpp.
  */
-static void RasterizeHexRef(int hex_x, int hex_y)
+static void RasterizeHexRef(int64_t hex_x, int64_t hex_y)
 {
     // Compute hex center in reference coordinate system
-    int mwidth = 50 * hex_x;
-    int mheight = 60 * hex_y;
+    int64_t mwidth = 50 * hex_x;
+    int64_t mheight = 60 * hex_y;
     if ((hex_x & 1) != 0)
         mheight += 30;
     
@@ -119,7 +119,7 @@ static void RasterizeHexRef(int hex_x, int hex_y)
     double ldpar2 = REF_MAXSIZE * 0.0025;
     
     // 6 hex vertices (relative to screen center)
-    long arrA[6], arrB[6];
+    int64_t arrA[6], arrB[6];
     arrA[0] = mwidth - 35;  arrB[0] = mheight + 30;
     arrA[1] = mwidth - 15;  arrB[1] = mheight;
     arrA[2] = mwidth + 15;  arrB[2] = mheight;
@@ -131,46 +131,46 @@ static void RasterizeHexRef(int hex_x, int hex_y)
     double ref_center_x = REF_WIDTH * 0.5;
     double ref_center_y = REF_HEIGHT * 0.5;
     
-    for (int i = 0; i < 6; i++)
+    for (int64_t i = 0; i < 6; i++)
     {
         double varA = arrA[i];
         double varB = arrB[i];
         double len = sqrt(varA * varA + varB * varB) * 0.0025 + 1.0;
-        arrA[i] = (long)(ref_center_x + (varA / len) * ldpar2);
-        arrB[i] = (long)(ref_center_y + (varB / len) * ldpar2);
+        arrA[i] = (int64_t)(ref_center_x + (varA / len) * ldpar2);
+        arrB[i] = (int64_t)(ref_center_y + (varB / len) * ldpar2);
     }
     
     // Source offset for this hex
-    short source_strip_w = (short)(-hex_x * ldpar1);
-    short source_strip_h = (short)(-hex_y * ldpar1);
+    int64_t source_strip_w = (int64_t)(-hex_x * ldpar1);
+    int64_t source_strip_h = (int64_t)(-hex_y * ldpar1);
     
     // Find topmost vertex
-    int min_idx = 0;
-    for (int i = 1; i < 6; i++)
+    int64_t min_idx = 0;
+    for (int64_t i = 1; i < 6; i++)
     {
         if (arrB[i] < arrB[min_idx])
             min_idx = i;
     }
     
     // Rasterize using original BlitHex algorithm
-    long scan_num = arrB[min_idx];
-    int first_idx = (min_idx + 1) % 6;
-    int last_idx = (min_idx + 5) % 6;
-    int deltaV1 = 0, deltaV2 = 0;
-    int posV1 = 0, posV2 = 0;
-    int counter1 = 0, counter2 = 0;
+    int64_t scan_num = arrB[min_idx];
+    int64_t first_idx = (min_idx + 1) % 6;
+    int64_t last_idx = (min_idx + 5) % 6;
+    int64_t deltaV1 = 0, deltaV2 = 0;
+    int64_t posV1 = 0, posV2 = 0;
+    int64_t counter1 = 0, counter2 = 0;
     
     while (1)
     {
         // Advance left edge (counterclockwise)
-        int i = first_idx;
+        int64_t i = first_idx;
         while (counter1 == 0)
         {
             first_idx = (first_idx + 5) % 6;
             if (first_idx == i)
                 return;
             posV1 = arrA[first_idx] << 16;
-            int n = (first_idx + 5) % 6;
+            int64_t n = (first_idx + 5) % 6;
             counter1 = arrB[n] - arrB[first_idx];
             if (counter1 > 0)
             {
@@ -185,7 +185,7 @@ static void RasterizeHexRef(int hex_x, int hex_y)
             last_idx = (last_idx + 1) % 6;
             if (last_idx == i)
                 return;
-            int n = (last_idx + 1) % 6;
+            int64_t n = (last_idx + 1) % 6;
             counter2 = arrB[n] - arrB[last_idx];
             posV2 = arrA[last_idx] << 16;
             if (counter2 > 0)
@@ -240,7 +240,7 @@ void FlyeyeEffect::FreeLookupTable()
  * 1. Rasterize hexes in reference 640x480 space
  * 2. Convert reference scanlines to screen-resolution lookup table
  */
-void FlyeyeEffect::BuildLookupTable(long width, long height)
+void FlyeyeEffect::BuildLookupTable(int64_t width, int64_t height)
 {
     FreeLookupTable();
 
@@ -253,15 +253,15 @@ void FlyeyeEffect::BuildLookupTable(long width, long height)
     }
 
     // Initialize reference scanlines
-    for (int y = 0; y < REF_HEIGHT; y++)
+    for (int64_t y = 0; y < REF_HEIGHT; y++)
     {
         g_ref_scanlines[y].num_strips = 0;
     }
 
     // Rasterize all hexagons in reference space
-    for (int hex_y = -12; hex_y <= 12; hex_y++)
+    for (int64_t hex_y = -12; hex_y <= 12; hex_y++)
     {
-        for (int hex_x = -12; hex_x <= 12; hex_x++)
+        for (int64_t hex_x = -12; hex_x <= 12; hex_x++)
         {
             RasterizeHexRef(hex_x, hex_y);
         }
@@ -275,7 +275,7 @@ void FlyeyeEffect::BuildLookupTable(long width, long height)
         m_lookup_table.resize((size_t)width * (size_t)height);
     } catch (const std::bad_alloc &) {
         size_t table_size = (size_t)width * (size_t)height * sizeof(FlyeyeLookupEntry);
-        ERRORLOG("Failed to allocate flyeye lookup table (%" PRIuSIZE " bytes)", SZCAST(table_size));
+        ERRORLOG("Failed to allocate flyeye lookup table (%" PRIuSIZE " bytes)", (uint64_t)(SZCAST(table_size)));
         free(g_ref_scanlines);
         g_ref_scanlines = nullptr;
         return;
@@ -291,25 +291,25 @@ void FlyeyeEffect::BuildLookupTable(long width, long height)
     // Convert reference scanlines to screen-resolution lookup table
     FlyeyeLookupEntry* entry = m_lookup_table.data();
     
-    for (long y = 0; y < height; y++)
+    for (int64_t y = 0; y < height; y++)
     {
         // Map screen Y to reference Y
-        int ref_y = (int)(y / scale_y);
+        int64_t ref_y = (int64_t)(y / scale_y);
         if (ref_y >= REF_HEIGHT) ref_y = REF_HEIGHT - 1;
         
         FlyeyeScanline* scan = &g_ref_scanlines[ref_y];
         
-        for (long x = 0; x < width; x++)
+        for (int64_t x = 0; x < width; x++)
         {
             // Map screen X to reference X
-            int ref_x = (int)(x / scale_x);
+            int64_t ref_x = (int64_t)(x / scale_x);
             if (ref_x >= REF_WIDTH) ref_x = REF_WIDTH - 1;
             
             // Find which strip this reference X falls into
-            short cur_off_x = 0;
-            short cur_off_y = 0;
+            int64_t cur_off_x = 0;
+            int64_t cur_off_y = 0;
             
-            for (int i = 0; i < scan->num_strips; i++)
+            for (int64_t i = 0; i < scan->num_strips; i++)
             {
                 if (ref_x >= scan->strips[i].start_x)
                 {
@@ -323,8 +323,8 @@ void FlyeyeEffect::BuildLookupTable(long width, long height)
             }
             
             // Compute source in reference space, then scale to screen
-            int ref_src_x = ref_x + cur_off_x;
-            int ref_src_y = ref_y + cur_off_y;
+            int64_t ref_src_x = ref_x + cur_off_x;
+            int64_t ref_src_y = ref_y + cur_off_y;
             
             // Clamp reference coords
             if (ref_src_x < 0) ref_src_x = 0;
@@ -333,14 +333,14 @@ void FlyeyeEffect::BuildLookupTable(long width, long height)
             if (ref_src_y >= REF_HEIGHT) ref_src_y = REF_HEIGHT - 1;
             
             // Scale to actual screen coordinates
-            long src_x = (long)(ref_src_x * scale_x);
-            long src_y = (long)(ref_src_y * scale_y);
+            int64_t src_x = (int64_t)(ref_src_x * scale_x);
+            int64_t src_y = (int64_t)(ref_src_y * scale_y);
             
             if (src_x >= width) src_x = width - 1;
             if (src_y >= height) src_y = height - 1;
             
-            entry->src_x = (short)src_x;
-            entry->src_y = (short)src_y;
+            entry->src_x = (int64_t)src_x;
+            entry->src_y = (int64_t)src_y;
             entry++;
         }
     }
@@ -348,12 +348,12 @@ void FlyeyeEffect::BuildLookupTable(long width, long height)
     free(g_ref_scanlines);
     g_ref_scanlines = nullptr;
     
-    SYNCDBG(7, "Built flyeye lookup table %ldx%ld", width, height);
+    SYNCDBG(7, "Built flyeye lookup table %" PRId64 "x%" PRId64, (int64_t)(width), (int64_t)(height));
 }
 
-TbBool FlyeyeEffect::Setup(long lens_idx)
+TbBool FlyeyeEffect::Setup(int64_t lens_idx)
 {
-    SYNCDBG(8, "Setting up flyeye effect for lens %ld", lens_idx);
+    SYNCDBG(8, "Setting up flyeye effect for lens %" PRId64, (int64_t)(lens_idx));
     
     FreeLookupTable();
     m_current_lens = lens_idx;
@@ -392,9 +392,9 @@ TbBool FlyeyeEffect::Draw(LensRenderContext* ctx)
     TbPixel* dst = ctx->dstbuf;
     FlyeyeLookupEntry* entry = m_lookup_table.data();
     
-    for (long y = 0; y < ctx->height; y++)
+    for (int64_t y = 0; y < ctx->height; y++)
     {
-        for (long x = 0; x < ctx->width; x++)
+        for (int64_t x = 0; x < ctx->width; x++)
         {
             dst[x] = viewport_src[entry->src_y * ctx->srcpitch + entry->src_x];
             entry++;

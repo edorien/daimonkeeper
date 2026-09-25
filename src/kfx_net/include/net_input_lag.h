@@ -21,12 +21,12 @@ extern "C" {
 struct Packet;
 
 TbBool input_lag_skips_processing(void);
-unsigned short calculate_skip_input(void);
+int64_t calculate_skip_input(void);
 void input_lag_update(struct Packet *packet);
 void input_lag_reset(void);
-void input_lag_reset_request(int32_t input_lag_turns);
-void input_lag_get_stats(int32_t *increase_wait_time, int32_t *increase_turn_time, int32_t *decrease_wait_time, int32_t *decrease_sample_time);
-void input_lag_note_packet_wait(int32_t wait_time);
+void input_lag_reset_request(int64_t input_lag_turns);
+void input_lag_get_stats(int64_t *increase_wait_time, int64_t *increase_turn_time, int64_t *decrease_wait_time, int64_t *decrease_sample_time);
+void input_lag_note_packet_wait(int64_t wait_time);
 void input_lag_observe_host_packet(const struct Packet *packet);
 TbBool input_lag_needs_lookahead(void);
 

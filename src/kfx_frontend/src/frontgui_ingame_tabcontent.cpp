@@ -38,18 +38,18 @@ void tab_not_yet_available_horizontal(void)
     ImDrawList *dl = ImGui::GetWindowDrawList();
     FeStylePushFont(FeFont_Caption);
     const char *msg = "Not yet available in this layout";
-    const ImVec2 c = grid_pt(0.0f, 0.0f); // grid_pt(0,0) == s_panel's own origin, mode-agnostic
-    dl->AddText(ImVec2(c.x + 8.0f, c.y + 8.0f), COL_SUBTEXT, msg);
+    const ImVec2 c = grid_pt(0.0, 0.0); // grid_pt(0,0) == s_panel's own origin, mode-agnostic
+    dl->AddText(ImVec2(c.x + 8.0, c.y + 8.0), COL_SUBTEXT, msg);
     FeStylePopFont();
 }
 
 } // namespace
 
-void ingame_tabcontent_draw(float px, float py, float pw, float ph)
+void ingame_tabcontent_draw(double px, double py, double pw, double ph)
 {
     if (ingame_gui_use_classic_hud())
         return;
-    if (pw <= 0.0f || ph <= 0.0f)
+    if (pw <= 0.0 || ph <= 0.0)
         return;
     fe_hud_set_panel_rect(px, py, pw, ph);
     const bool bottom = keeperfx_ui_config.hud_position == 3; // HudPos_Bottom
@@ -116,7 +116,7 @@ void ingame_tabcontent_draw(float px, float py, float pw, float ph)
         // (frontgui_style.cpp) so it reads as one bordered panel instead of
         // a floating slab (live-tested request: border to match the
         // message box).
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.5f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.5);
         ImGui::Begin("##IngameMinimalPopup", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings
                      | ImGuiWindowFlags_NoNavInputs);
@@ -136,9 +136,9 @@ void ingame_tabcontent_draw(float px, float py, float pw, float ph)
         // build_minimal() (frontgui_hud_layout.cpp) already sized `ph`
         // assuming this same remap, so the two stay in proportion.
         {
-            const float content_frac = (400.0f - tcl::BODY_Y0) / 400.0f;
-            const float ph_fake = ph / content_frac;
-            const float py_fake = py - tcl::BODY_Y0 / 400.0f * ph_fake;
+            const double content_frac = (400.0 - tcl::BODY_Y0) / 400.0;
+            const double ph_fake = ph / content_frac;
+            const double py_fake = py - tcl::BODY_Y0 / 400.0 * ph_fake;
             fe_hud_set_panel_rect(px, py_fake, pw, ph_fake);
         }
         body();
@@ -152,8 +152,8 @@ void ingame_tabcontent_draw(float px, float py, float pw, float ph)
     // draws read as pockets in it. Full inner width (x+2 .. x+w-2), matching
     // the tab-strip channel above. Runs inside the sidebar window's Begin/End.
     ImDrawList *bg_dl = ImGui::GetWindowDrawList();
-    const ImVec2 c0(px + 2.0f, grid_pt(0.0f, tcl::BODY_Y0).y);
-    const ImVec2 c1(px + pw - 2.0f, grid_pt(0.0f, tcl::BODY_Y1).y);
+    const ImVec2 c0(px + 2.0, grid_pt(0.0, tcl::BODY_Y0).y);
+    const ImVec2 c1(px + pw - 2.0, grid_pt(0.0, tcl::BODY_Y1).y);
     // docs/refactor/ingame-gui/12-png-icon-overrides.md §7: the vertical
     // layout's *other* half of the panel background (draw_background(),
     // frontgui_ingame_panel.cpp, covers the head); a separate override name
@@ -162,7 +162,7 @@ void ingame_tabcontent_draw(float px, float py, float pw, float ph)
     // marks this exact seam, so two images meeting there reads as
     // intentional rather than a compromise.
     {
-        int ow = 0, oh = 0;
+        int64_t ow = 0, oh = 0;
         void *otex = FeIconOverrideTexture("background_vertical_body", &ow, &oh);
         if (otex != nullptr)
             bg_dl->AddImage((ImTextureID)(intptr_t)otex, c0, c1);
@@ -173,7 +173,7 @@ void ingame_tabcontent_draw(float px, float py, float pw, float ph)
 }
 
 #ifdef FUNCTESTING
-extern "C" void ingame_tabcontent_test_fire(int action, long arg)
+extern "C" void ingame_tabcontent_test_fire(int64_t action, int64_t arg)
 {
     struct PlayerInfo *me = get_my_player();
     switch ((enum IngameTabTestAction)action)
@@ -191,7 +191,7 @@ extern "C" void ingame_tabcontent_test_fire(int action, long arg)
         break;
     case ITTA_TrapChoose:
         // trap_grid() left-click
-        choose_workshop_item((int)arg, GUIStr_Empty);
+        choose_workshop_item((int64_t)arg, GUIStr_Empty);
         break;
     case ITTA_TrapSell:
         do_sell_traps();

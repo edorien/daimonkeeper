@@ -44,8 +44,8 @@
 using namespace pf_fake;
 
 namespace {
-unsigned short fake_clipbox_size = 0;
-unsigned short fake_thing_get_clipbox_size(const struct Thing *) { return fake_clipbox_size; }
+int64_t fake_clipbox_size = 0;
+int64_t fake_thing_get_clipbox_size(const struct Thing *) { return fake_clipbox_size; }
 
 struct PathfindingWorldFixture {
     struct PathfindingWorldCallbacks fake;
@@ -62,8 +62,8 @@ struct PathfindingWorldFixture {
 
 TEST_CASE_METHOD(PathfindingWorldFixture, "thing_nav_block_sizexy/thing_nav_sizexy look up the same table entry for any clipbox size below the table's length", "[kfx_pathfinding][ariadne]") {
     fake_clipbox_size = 0;
-    long block_at_0 = thing_nav_block_sizexy(nullptr);
-    long sizexy_at_0 = thing_nav_sizexy(nullptr);
+    int64_t block_at_0 = thing_nav_block_sizexy(nullptr);
+    int64_t sizexy_at_0 = thing_nav_sizexy(nullptr);
 
     fake_clipbox_size = 1;
     CHECK(thing_nav_block_sizexy(nullptr) == block_at_0);
@@ -73,8 +73,8 @@ TEST_CASE_METHOD(PathfindingWorldFixture, "thing_nav_block_sizexy/thing_nav_size
 TEST_CASE_METHOD(PathfindingWorldFixture, "thing_nav_block_sizexy/thing_nav_sizexy clamp an out-of-range clipbox size to the table's last entry", "[kfx_pathfinding][ariadne]") {
     // Two different huge indices must clamp to the exact same slot.
     fake_clipbox_size = 60000;
-    long block_huge = thing_nav_block_sizexy(nullptr);
-    long sizexy_huge = thing_nav_sizexy(nullptr);
+    int64_t block_huge = thing_nav_block_sizexy(nullptr);
+    int64_t sizexy_huge = thing_nav_sizexy(nullptr);
 
     fake_clipbox_size = 65000;
     CHECK(thing_nav_block_sizexy(nullptr) == block_huge);
@@ -152,7 +152,7 @@ TEST_CASE_METHOD(RouteFixture, "ariadne_count_waypoints_on_creature_route_to_tar
     dst.y.val = subtile_coord_center(6);
     dst.z.val = 0;
 
-    long waypoints = ariadne_count_waypoints_on_creature_route_to_target_f(t(), &src, &dst, AridRtF_Default, "test");
+    int64_t waypoints = ariadne_count_waypoints_on_creature_route_to_target_f(t(), &src, &dst, AridRtF_Default, "test");
     CHECK(waypoints > 0);
     // This function works on a throwaway local struct Path -- the thing's
     // own Ariadne state (still default-zeroed by RouteFixture) must be untouched.

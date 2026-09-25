@@ -102,20 +102,20 @@ struct MapOffset spiral_step[SPIRAL_STEPS_COUNT];
 /******************************************************************************/
 void init_spiral_steps(void)
 {
-    long y = 0;
-    long x = 0;
+    int64_t y = 0;
+    int64_t x = 0;
     struct MapOffset* sstep = &spiral_step[0];
     sstep->h = y;
     sstep->v = x;
-    sstep->both = (short)y + ((short)x * kfx_sim_state.map_subtiles_y);
+    sstep->both = (int64_t)y + ((int64_t)x * kfx_sim_state.map_subtiles_y);
     y = -1;
     x = -1;
-    for (long i = 1; i < SPIRAL_STEPS_COUNT; i++)
+    for (int64_t i = 1; i < SPIRAL_STEPS_COUNT; i++)
     {
       sstep = &spiral_step[i];
       sstep->h = y;
       sstep->v = x;
-      sstep->both = (short)y + ((short)x * kfx_sim_state.map_subtiles_y);
+      sstep->both = (int64_t)y + ((int64_t)x * kfx_sim_state.map_subtiles_y);
       if ((y < 0) && (x-y == 1))
       {
           y--;
@@ -135,7 +135,7 @@ void init_spiral_steps(void)
           else
             x++;
       } else
-      if (abs(x) >= abs(y))
+      if (llabs(x) >= llabs(y))
       {
           if (x < 0)
             y++;
@@ -177,7 +177,7 @@ void get_min_floor_and_ceiling_heights_for_rect(MapSubtlCoord stl_x_beg, MapSubt
     }
 }
 
-long near_coord_filter_battle_drop_point(const struct Coord3d *pos, MaxCoordFilterParam param, long maximizer)
+int64_t near_coord_filter_battle_drop_point(const struct Coord3d *pos, MaxCoordFilterParam param, int64_t maximizer)
 {
     if (can_drop_thing_here(pos->x.stl.num, pos->y.stl.num, param->plyr_idx, 1))
     {
@@ -193,15 +193,15 @@ long near_coord_filter_battle_drop_point(const struct Coord3d *pos, MaxCoordFilt
 
 void slabs_fill_iterate_from_slab(MapSlabCoord src_slab_x, MapSlabCoord src_slab_y, SlabsFillIterAction f_action, MaxCoordFilterParam param)
 {
-    long max_slb_dim_x = (kfx_sim_state.map_subtiles_x / STL_PER_SLB);
-    long max_slb_dim_y = (kfx_sim_state.map_subtiles_y / STL_PER_SLB);
+    int64_t max_slb_dim_x = (kfx_sim_state.map_subtiles_x / STL_PER_SLB);
+    int64_t max_slb_dim_y = (kfx_sim_state.map_subtiles_y / STL_PER_SLB);
     MapSlabCoord* stack_x = malloc(max_slb_dim_x * max_slb_dim_y);
     MapSlabCoord* stack_y = malloc(max_slb_dim_x * max_slb_dim_y);
     char* visited = malloc(max_slb_dim_x * max_slb_dim_y);
     if (stack_x != NULL && stack_y != NULL && visited != NULL)
     {
         memset(visited, 0, max_slb_dim_x * max_slb_dim_y);
-        long stack_head = 0;
+        int64_t stack_head = 0;
         stack_x[0] = src_slab_x;
         stack_y[0] = src_slab_y;
         MapSlabCoord cx, cy;
@@ -254,10 +254,10 @@ void slabs_fill_iterate_from_slab(MapSlabCoord src_slab_x, MapSlabCoord src_slab
  * @param dest_y Destination position y coord.
  * @return Index closer to destination.
  */
-SmallAroundIndex small_around_index_towards_destination(long curr_x, long curr_y, long dest_x, long dest_y)
+SmallAroundIndex small_around_index_towards_destination(int64_t curr_x, int64_t curr_y, int64_t dest_x, int64_t dest_y)
 {
-    long n;
-    long i = LbArcTanAngle(dest_x - curr_x, dest_y - curr_y);
+    int64_t n;
+    int64_t i = LbArcTanAngle(dest_x - curr_x, dest_y - curr_y);
     // Check the angle - we're a bit afraid of angles which are pi/4 multiplications
     if ((i & 0xFF) != 0)
     {
@@ -271,7 +271,7 @@ SmallAroundIndex small_around_index_towards_destination(long curr_x, long curr_y
         //TODO: maybe it would be even better to get previous around_index as parameter - this way we could avoid taking same path without random factors.
         n = (i + DEGREES_45 + 2*(((dest_x+dest_y)>>1)%2) - 1) / DEGREES_90;
     }
-    SYNCDBG(18,"Vector (%ld,%ld) returned ArcTan=%ld, around (%d,%d)",dest_x - curr_x, dest_y - curr_y,i,(int)small_around[n].delta_x,(int)small_around[n].delta_y);
+    SYNCDBG(18,"Vector (%" PRId64 ",%" PRId64 ") returned ArcTan=%" PRId64 ", around (%" PRId64 ",%" PRId64 ")",(int64_t)(dest_x - curr_x), (int64_t)(dest_y - curr_y),(int64_t)(i),(int64_t)small_around[n].delta_x,(int64_t)small_around[n].delta_y);
     return n & 3;
 }
 
@@ -283,9 +283,9 @@ SmallAroundIndex small_around_index_towards_destination(long curr_x, long curr_y
  * @param dstpos_y Destination position Y; either map coordinates or subtiles, but have to match type of other coords.
  * @return Index for small_around[] array.
  */
-SmallAroundIndex small_around_index_in_direction(long srcpos_x, long srcpos_y, long dstpos_x, long dstpos_y)
+SmallAroundIndex small_around_index_in_direction(int64_t srcpos_x, int64_t srcpos_y, int64_t dstpos_x, int64_t dstpos_y)
 {
-    long i = ((LbArcTanAngle(dstpos_x - srcpos_x, dstpos_y - srcpos_y) & ANGLE_MASK) + DEGREES_45);
+    int64_t i = ((LbArcTanAngle(dstpos_x - srcpos_x, dstpos_y - srcpos_y) & ANGLE_MASK) + DEGREES_45);
     return (i / DEGREES_90) & 3;
 }
 
@@ -298,11 +298,11 @@ SmallAroundIndex small_around_index_in_direction(long srcpos_x, long srcpos_y, l
  * immediately and no further subtiles will be checked.
  * @return Returns true if coordinates were found, false otherwise.
  */
-TbBool get_position_spiral_near_map_block_with_filter(struct Coord3d *retpos, MapCoord x, MapCoord y, long spiral_len, Coord_Maximizer_Filter filter, MaxCoordFilterParam param)
+TbBool get_position_spiral_near_map_block_with_filter(struct Coord3d *retpos, MapCoord x, MapCoord y, int64_t spiral_len, Coord_Maximizer_Filter filter, MaxCoordFilterParam param)
 {
     SYNCDBG(19,"Starting");
-    long maximizer = 0;
-    for (int around_val = 0; around_val < spiral_len; around_val++)
+    int64_t maximizer = 0;
+    for (int64_t around_val = 0; around_val < spiral_len; around_val++)
     {
         struct MapOffset* sstep = &spiral_step[around_val];
         MapSubtlCoord sx = coord_subtile(x) + (MapSubtlCoord)sstep->h;
@@ -310,7 +310,7 @@ TbBool get_position_spiral_near_map_block_with_filter(struct Coord3d *retpos, Ma
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long n = maximizer;
+            int64_t n = maximizer;
             struct Coord3d newpos;
             newpos.x.val = subtile_coord_center(sx);
             newpos.y.val = subtile_coord_center(sy);
@@ -333,15 +333,15 @@ TbBool get_position_spiral_near_map_block_with_filter(struct Coord3d *retpos, Ma
 TbBool get_position_next_to_map_block_with_filter(struct Coord3d* retpos, MapCoord x, MapCoord y, Coord_Maximizer_Filter filter, MaxCoordFilterParam param)
 {
     SYNCDBG(19, "Starting");
-    long maximizer = 0;
-    for (int around_val = 0; around_val < SMALL_AROUND_LENGTH; around_val++)
+    int64_t maximizer = 0;
+    for (int64_t around_val = 0; around_val < SMALL_AROUND_LENGTH; around_val++)
     {
         MapSubtlCoord sx = coord_subtile(x) + (small_around[around_val].delta_x * STL_PER_SLB);
         MapSubtlCoord sy = coord_subtile(y) + (small_around[around_val].delta_y * STL_PER_SLB);
         struct Map* mapblk = get_map_block_at(sx, sy);
         if (!map_block_invalid(mapblk))
         {
-            long n = maximizer;
+            int64_t n = maximizer;
             struct Coord3d newpos;
             newpos.x.val = subtile_coord_center(sx);
             newpos.y.val = subtile_coord_center(sy);
@@ -363,17 +363,17 @@ TbBool get_position_next_to_map_block_with_filter(struct Coord3d* retpos, MapCoo
     return (maximizer > 0);
 }
 
-long slabs_count_near(MapSlabCoord tx, MapSlabCoord ty, long rad, SlabKind slbkind)
+int64_t slabs_count_near(MapSlabCoord tx, MapSlabCoord ty, int64_t rad, SlabKind slbkind)
 {
-    long count = 0;
-    for (long dy = -rad; dy <= rad; dy++)
+    int64_t count = 0;
+    for (int64_t dy = -rad; dy <= rad; dy++)
     {
-        long y = ty + dy;
+        int64_t y = ty + dy;
         if ((y < 0) || (y >= kfx_sim_state.map_tiles_y))
             continue;
-        for (long dx = -rad; dx <= rad; dx++)
+        for (int64_t dx = -rad; dx <= rad; dx++)
         {
-            long x = tx + dx;
+            int64_t x = tx + dx;
             if ((x < 0) || (x >= kfx_sim_state.map_tiles_x))
                 continue;
             struct SlabMap* slb = get_slabmap_block(x, y);
@@ -392,13 +392,13 @@ long slabs_count_near(MapSlabCoord tx, MapSlabCoord ty, long rad, SlabKind slbki
  * @param slabs_dist
  * @return
  */
-long pos_move_in_direction_to_last_allowing_drop(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, unsigned short slabs_dist)
+int64_t pos_move_in_direction_to_last_allowing_drop(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, int64_t slabs_dist)
 {
     MapSubtlCoord stl_x = mvpos->x.stl.num;
     MapSubtlCoord stl_y = mvpos->y.stl.num;
     MapSubtlCoord prev_stl_x = stl_x;
     MapSubtlCoord prev_stl_y = stl_y;
-    int i;
+    int64_t i;
     // If we're on room, move to non-room tile
     for (i = 0; i < slabs_dist; i++)
     {
@@ -428,11 +428,11 @@ long pos_move_in_direction_to_last_allowing_drop(struct Coord3d *mvpos, unsigned
  * @param slabs_dist
  * @return
  */
-long pos_move_in_direction_to_outside_player_room(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, unsigned short slabs_dist)
+int64_t pos_move_in_direction_to_outside_player_room(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, int64_t slabs_dist)
 {
     MapSubtlCoord stl_x = mvpos->x.stl.num;
     MapSubtlCoord stl_y = mvpos->y.stl.num;
-    int i;
+    int64_t i;
     struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
     struct SlabConfigStats* slabst = get_slab_stats(slb);
     // If we're on room, move to non-room tile
@@ -491,11 +491,11 @@ TbBool subtile_is_blocking_wall_or_lava(MapSubtlCoord stl_x, MapSubtlCoord stl_y
     return false;
 }
 
-long pos_move_in_direction_to_blocking_wall_or_lava(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, unsigned short slabs_dist)
+int64_t pos_move_in_direction_to_blocking_wall_or_lava(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, int64_t slabs_dist)
 {
     MapSubtlCoord stl_x = mvpos->x.stl.num;
     MapSubtlCoord stl_y = mvpos->y.stl.num;
-    int i;
+    int64_t i;
     // If we're on room, move to non-room tile
     for (i = 0; i < slabs_dist; i++)
     {
@@ -515,11 +515,11 @@ long pos_move_in_direction_to_blocking_wall_or_lava(struct Coord3d *mvpos, unsig
     return i;
 }
 
-long pos_move_in_direction_to_unowned_filled_or_water(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, unsigned short slabs_dist)
+int64_t pos_move_in_direction_to_unowned_filled_or_water(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, int64_t slabs_dist)
 {
     MapSubtlCoord stl_x = mvpos->x.stl.num;
     MapSubtlCoord stl_y = mvpos->y.stl.num;
-    int i;
+    int64_t i;
     struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
     struct SlabConfigStats* slabst = get_slab_stats(slb);
     // If we're on room, move to non-room tile

@@ -202,7 +202,7 @@ extern const struct NamedCommand player_desc[];
 extern const struct ConfigFileData keeper_playerstates_file_data;
 
 /******************************************************************************/
-const char *player_state_code_name(int wrkstate);
+const char *player_state_code_name(int64_t wrkstate);
 struct PlayerStateConfigStats *get_player_state_stats(PlayerState plr_state);
 /******************************************************************************/
 #ifdef __cplusplus

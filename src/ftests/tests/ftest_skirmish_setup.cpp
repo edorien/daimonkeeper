@@ -27,22 +27,22 @@ extern "C" {
 #include "skirmish_setup.h"
 
 extern "C" {
-extern int fe_computer_players; // frontend.h -- set by Skirmish's Play button (frontend_freeplay_enter_resolve)
+extern int64_t fe_computer_players; // frontend.h -- set by Skirmish's Play button (frontend_freeplay_enter_resolve)
 }
 
 namespace {
 
-int s_failures = 0;
-int s_checks = 0;
+int64_t s_failures = 0;
+int64_t s_checks = 0;
 bool s_installed = false;
 LevelNumber s_level = 0;
 
 #define CHECK_EQ(what, actual, expected) \
     do { \
         s_checks++; \
-        const long a_ = (long)(actual); \
-        const long e_ = (long)(expected); \
-        if (a_ != e_) { s_failures++; FTEST_FAIL_TEST("%s: got %ld, expected %ld", what, a_, e_); } \
+        const int64_t a_ = (int64_t)(actual); \
+        const int64_t e_ = (int64_t)(expected); \
+        if (a_ != e_) { s_failures++; FTEST_FAIL_TEST("%s: got %" PRId64 ", expected %" PRId64, what, (int64_t)(a_), (int64_t)(e_)); } \
     } while (0)
 
 ThingModel creature(const char *name) { return (ThingModel)get_rid(creature_desc, name); }
@@ -56,7 +56,7 @@ extern "C" {
 FTestActionResult ftest_skirmish_setup_action001__check_live_state(struct FTestActionArgs* const args);
 FTestActionResult ftest_skirmish_setup_action002__save_load_round_trip(struct FTestActionArgs* const args);
 
-static int s_unused;
+static int64_t s_unused;
 
 // Runs after the mappack and level number are selected and before the level loads: edit the setup the way
 // the Setup tab does, then install the override the way Play does.
@@ -68,15 +68,15 @@ void ftest_skirmish_setup_pre_start()
     skirmish_setup_sync(s_level, 0);
     if (!skirmish_setup().enabled())
     {
-        FTEST_FAIL_TEST("Setup tab disabled for level %d: %s", (int)s_level, skirmish_setup().unavailable_reason.c_str());
+        FTEST_FAIL_TEST("Setup tab disabled for level %" PRId64 ": %s", (int64_t)s_level, skirmish_setup().unavailable_reason.c_str());
         return;
     }
 
     // Hearts come straight from the map's thing file (classic .tng here): both keepers have one.
-    if (skirmish_setup().hearts != std::vector<int>({ 1, 1 }))
-        FTEST_FAIL_TEST("hearts read from the .tng: got %d,%d expected 1,1",
-            skirmish_setup().hearts.size() > 0 ? skirmish_setup().hearts[0] : -9,
-            skirmish_setup().hearts.size() > 1 ? skirmish_setup().hearts[1] : -9);
+    if (skirmish_setup().hearts != std::vector<int64_t>({ 1, 1 }))
+        FTEST_FAIL_TEST("hearts read from the .tng: got %" PRId64 ",%" PRId64 " expected 1,1",
+            (int64_t)(skirmish_setup().hearts.size() > 0 ? skirmish_setup().hearts[0] : -9),
+            (int64_t)(skirmish_setup().hearts.size() > 1 ? skirmish_setup().hearts[1] : -9));
 
     skirmish_setup_set_money(0, 20000);           // level: 10000 for everyone
     skirmish_setup_set_money(1, 3000);
@@ -166,9 +166,9 @@ static void check_edited_setup(const char *phase, bool fresh_load)
     CHECK_EQ("player 1 computer model", get_computer_player(1)->model, 13);
 
     if (s_failures == 0)
-        FTESTLOG("All %d checks passed", s_checks);
+        FTESTLOG("All %" PRId64 " checks passed", (int64_t)(s_checks));
     else
-        FTESTLOG("%d of %d checks failed", s_failures, s_checks);
+        FTESTLOG("%" PRId64 " of %" PRId64 " checks failed", (int64_t)(s_failures), (int64_t)(s_checks));
 }
 
 FTestActionResult ftest_skirmish_setup_action001__check_live_state(struct FTestActionArgs* const args)
@@ -182,7 +182,7 @@ FTestActionResult ftest_skirmish_setup_action001__check_live_state(struct FTestA
 // everything the prelude did lives in the saved sim/game state (docs/refactor/skirmish/ section 14).
 FTestActionResult ftest_skirmish_setup_action002__save_load_round_trip(struct FTestActionArgs* const args)
 {
-    const long slot = 3;
+    const int64_t slot = 3;
     // As the Save screen / console `save <slot> <name>` do: fill the catalogue entry (level number, campaign)
     // first -- without it the load falls back to the default campaign.
     fill_game_catalogue_slot(slot, "skirmish_setup_ftest");
@@ -216,9 +216,9 @@ FTestActionResult ftest_skirmish_setup_action002__save_load_round_trip(struct FT
     }
 
     if (s_failures == 0)
-        FTESTLOG("Round trip ok: all %d checks passed", s_checks);
+        FTESTLOG("Round trip ok: all %" PRId64 " checks passed", (int64_t)(s_checks));
     else
-        FTESTLOG("%d of %d checks failed", s_failures, s_checks);
+        FTESTLOG("%" PRId64 " of %" PRId64 " checks failed", (int64_t)(s_failures), (int64_t)(s_checks));
     return FTRs_Go_To_Next_Action;
 }
 
@@ -235,14 +235,14 @@ void ftest_skirmish_setup_locks_pre_start()
     skirmish_setup_sync(s_level, 0);
     if (!skirmish_setup().enabled())
     {
-        FTEST_FAIL_TEST("Setup tab disabled for level %d: %s", (int)s_level, skirmish_setup().unavailable_reason.c_str());
+        FTEST_FAIL_TEST("Setup tab disabled for level %" PRId64 ": %s", (int64_t)s_level, skirmish_setup().unavailable_reason.c_str());
         return;
     }
     // Hearts from a native-format map (.tngfx, hand-authored: numbered [thingN] tables and class names).
-    if (skirmish_setup().hearts != std::vector<int>({ 1, 1 }))
-        FTEST_FAIL_TEST("hearts read from the .tngfx: got %d,%d expected 1,1",
-            skirmish_setup().hearts.size() > 0 ? skirmish_setup().hearts[0] : -9,
-            skirmish_setup().hearts.size() > 1 ? skirmish_setup().hearts[1] : -9);
+    if (skirmish_setup().hearts != std::vector<int64_t>({ 1, 1 }))
+        FTEST_FAIL_TEST("hearts read from the .tngfx: got %" PRId64 ",%" PRId64 " expected 1,1",
+            (int64_t)(skirmish_setup().hearts.size() > 0 ? skirmish_setup().hearts[0] : -9),
+            (int64_t)(skirmish_setup().hearts.size() > 1 ? skirmish_setup().hearts[1] : -9));
     if (!skirmish_setup_avail_locked(AvailKind_Magic, 0, "POWER_REAPER"))
         FTEST_FAIL_TEST("POWER_REAPER should be runtime-controlled (locked) for player 0 on this level");
 
@@ -274,9 +274,9 @@ FTestActionResult ftest_skirmish_setup_locks_action001__check(struct FTestAction
     CHECK_EQ("the level's runtime conditions are loaded", kfx_game_state.script.conditions_num > 10, 1);
 
     if (s_failures == 0)
-        FTESTLOG("All %d checks passed", s_checks);
+        FTESTLOG("All %" PRId64 " checks passed", (int64_t)(s_checks));
     else
-        FTESTLOG("%d of %d checks failed", s_failures, s_checks);
+        FTESTLOG("%" PRId64 " of %" PRId64 " checks failed", (int64_t)(s_failures), (int64_t)(s_checks));
     return FTRs_Go_To_Next_Action;
 }
 

@@ -50,7 +50,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_magic_config_file(const char *fname, unsigned short flags);
+static TbBool load_magic_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_magic_file_data = {
     .filename = "magic.cfg",
@@ -157,7 +157,7 @@ static const struct NamedCommand shotmodel_withstand_types[] = {
   {NULL,            0},
 };
 
-static void assign_withstand(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_withstand(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     struct ShotConfigStats* shotst = get_shot_model_stats(idx);
 
@@ -289,7 +289,7 @@ const struct NamedField magic_shot_named_fields[] = {
   {NULL},
   };
 
-static int32_t* get_shot_types_count(void) { return &kfx_config_state.conf.magic_conf.shot_types_count; }
+static int64_t* get_shot_types_count(void) { return &kfx_config_state.conf.magic_conf.shot_types_count; }
 static void* get_shot_cfgstats_base(void) { return kfx_config_state.conf.magic_conf.shot_cfgstats; }
 
 const struct NamedFieldSet magic_shot_named_fields_set = {
@@ -459,13 +459,13 @@ struct NamedCommand power_desc[MAGIC_ITEMS_MAX];
 struct NamedCommand special_desc[MAGIC_ITEMS_MAX];
 /******************************************************************************/
 
-static void assign_artifact(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_artifact(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     kfx_config_state.conf.object_conf.object_to_power_artifact[value] = idx;
 }
 
-static void assign_strength_before_last(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_strength_before_last(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     // Old power max is one short for spell max, so duplicate final power value to use for lvl10 creatures.
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
@@ -519,7 +519,7 @@ static const struct NamedField magic_powers_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_powers_count(void) { return &kfx_config_state.conf.magic_conf.power_types_count; }
+static int64_t* get_powers_count(void) { return &kfx_config_state.conf.magic_conf.power_types_count; }
 static void* get_powers_base(void) { return kfx_config_state.conf.magic_conf.power_cfgstats; }
 
 
@@ -569,16 +569,16 @@ TextStringId get_power_description_strindex(PowerKind pwkind)
   return kfx_config_state.conf.magic_conf.power_cfgstats[pwkind].tooltip_stridx;
 }
 
-int32_t get_special_description_strindex(int spckind)
+int64_t get_special_description_strindex(int64_t spckind)
 {
   if ((spckind < 0) || (spckind >= kfx_config_state.conf.magic_conf.power_types_count))
     return kfx_config_state.conf.magic_conf.special_cfgstats[0].tooltip_stridx;
   return kfx_config_state.conf.magic_conf.special_cfgstats[spckind].tooltip_stridx;
 }
 
-int32_t get_power_index_for_work_state(int32_t work_state)
+int64_t get_power_index_for_work_state(int64_t work_state)
 {
-    for (int32_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
     {
         if (kfx_config_state.conf.magic_conf.power_cfgstats[i].work_state == work_state) {
             return i;
@@ -615,7 +615,7 @@ TbBool power_model_stats_invalid(const struct PowerConfigStats *powerst)
   return false;
 }
 
-TbBool power_is_instinctive(int pwkind)
+TbBool power_is_instinctive(int64_t pwkind)
 {
     const struct PowerConfigStats* powerst = get_power_model_stats(pwkind);
     // Invalid powers are instinctive (as this usually means skipping an action)
@@ -631,20 +631,20 @@ struct SpecialConfigStats *get_special_model_stats(SpecialKind spckind)
     return &kfx_config_state.conf.magic_conf.special_cfgstats[spckind];
 }
 
-short write_magic_shot_to_log(const struct ShotConfigStats *shotst, int num)
+int64_t write_magic_shot_to_log(const struct ShotConfigStats *shotst, int64_t num)
 {
-  JUSTMSG("[shot%d]",(int)num);
+  JUSTMSG("[shot%" PRId64 "]",(int64_t)num);
   JUSTMSG("Name = %s",shotst->code_name);
-  JUSTMSG("Values = %d %d",(int)shotst->is_magical,(int)shotst->experience_given_to_shooter);
+  JUSTMSG("Values = %" PRId64 " %" PRId64,(int64_t)shotst->is_magical,(int64_t)shotst->experience_given_to_shooter);
   return true;
 }
 
-TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_magic_spell_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
   struct SpellConfigStats *spellst;
   struct SpellConfig *spconf;
   // Initialize the array
-  for (int i = 0; i < MAGIC_ITEMS_MAX; i++) {
+  for (int64_t i = 0; i < MAGIC_ITEMS_MAX; i++) {
     spellst = &kfx_config_state.conf.magic_conf.spell_cfgstats[i];
     if ((!flag_is_set(flags,CnfLd_AcceptPartial)) || (strlen(spellst->code_name) <= 0))
     {
@@ -681,8 +681,8 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
   spell_desc[MAGIC_ITEMS_MAX - 1].name = NULL; // must be null for get_id
   // Load the file
   const char * blockname = NULL;
-  int blocknamelen = 0;
-  int32_t pos = 0;
+  int64_t blocknamelen = 0;
+  int64_t pos = 0;
   while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
   {
     // look for blocks starting with "spell", followed by one or more digits
@@ -691,7 +691,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
     } else if (memcmp(blockname, "spell", 5) != 0) {
         continue;
     }
-    const int i = natoi(&blockname[5], blocknamelen - 5);
+    const int64_t i = natoi(&blockname[5], blocknamelen - 5);
     if (i < 0 || i >= MAGIC_ITEMS_MAX) {
         continue;
     } else if (i >= kfx_config_state.conf.magic_conf.spell_types_count) {
@@ -703,7 +703,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
     while (pos < len)
     {
       // Finding command number in this line
-      int cmd_num = recognize_conf_command(buf, &pos, len, magic_spell_commands);
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, magic_spell_commands);
       // Now store the config item in correct place
       if (cmd_num == ccr_endOfBlock) break; // if next block starts
       //Do the name when listing, the rest when not listing.
@@ -711,7 +711,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
       {
           cmd_num = ccr_comment;
       }
-      int n = 0, k = 0;
+      int64_t n = 0, k = 0;
       char word_buf[COMMAND_WORD_LEN];
       switch (cmd_num)
       {
@@ -719,7 +719,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (get_conf_parameter_single(buf,&pos,len,spellst->code_name,COMMAND_WORD_LEN) <= 0)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
               break;
           }
           else
@@ -739,7 +739,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 1)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 3: // SELFCASTED
@@ -766,7 +766,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 3)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 4: // CASTATTHING
@@ -779,7 +779,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 1)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 5: // SHOTMODEL
@@ -794,7 +794,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 1)
           {
               CONFWRNLOG("Incorrect shot model \"%s\" in [%.*s] block of %s file.",
-                  word_buf, blocknamelen, blockname, config_textname);
+                  word_buf, (int)(blocknamelen), blockname, config_textname);
               break;
           }
           break;
@@ -808,7 +808,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 1)
           {
               CONFWRNLOG("Incorrect effect model \"%s\" in [%.*s] block of %s file.",
-                  word_buf, blocknamelen, blockname, config_textname);
+                  word_buf, (int)(blocknamelen), blockname, config_textname);
               break;
           }
           break;
@@ -832,7 +832,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 2)
           {
               CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 8: // SPELLPOWER
@@ -855,7 +855,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 1)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 9: // AURAEFFECT
@@ -868,7 +868,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 1)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
         case 10: // SPELLFLAGS
@@ -904,7 +904,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 11: // SUMMONCREATURE
@@ -941,7 +941,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
           if (n < 3)
           {
               CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
         case 12: // COUNTDOWN
@@ -954,7 +954,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 13: // HEALINGRECOVERY
@@ -967,7 +967,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 14: // DAMAGE
@@ -980,7 +980,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 15: // DAMAGEFREQUENCY
@@ -993,7 +993,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 16: // AURADURATION
@@ -1006,7 +1006,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 17: // AURAFREQUENCY
@@ -1019,7 +1019,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 18: // CLEANSEFLAGS
@@ -1055,7 +1055,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
         case 19: // PROPERTIES
@@ -1087,7 +1087,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
                             break;
                         default:
                             CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                                COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                                COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
                             break;
                     }
                 }
@@ -1095,7 +1095,7 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
             if (n < 1)
             {
                 CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
             }
             break;
       case ccr_comment:
@@ -1103,8 +1103,8 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
       case ccr_endOfFile:
           break;
       default:
-          CONFWRNLOG("Unrecognized command (%d) in [%.*s] block of %s file.",
-              cmd_num, blocknamelen, blockname, config_textname);
+          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
+              (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
           break;
       }
       skip_conf_to_next_line(buf,&pos,len);
@@ -1114,13 +1114,13 @@ TbBool parse_magic_spell_blocks(char *buf, long len, const char *config_textname
   return true;
 }
 
-TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_magic_special_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
   struct SpecialConfigStats *specst;
-  int k = 0;
+  int64_t k = 0;
   // Initialize the array
   if ((flags & CnfLd_AcceptPartial) == 0) {
-      for (int i = 0; i < MAGIC_ITEMS_MAX; i++) {
+      for (int64_t i = 0; i < MAGIC_ITEMS_MAX; i++) {
           specst = &kfx_config_state.conf.magic_conf.special_cfgstats[i];
           memset(specst->code_name, 0, COMMAND_WORD_LEN);
           specst->artifact_model = 0;
@@ -1134,8 +1134,8 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
   special_desc[MAGIC_ITEMS_MAX - 1].name = NULL; // must be null for get_id
   // Load the file
   const char * blockname = NULL;
-  int blocknamelen = 0;
-  int32_t pos = 0;
+  int64_t blocknamelen = 0;
+  int64_t pos = 0;
   while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
   {
     // look for blocks starting with "special", followed by one or more digits
@@ -1144,7 +1144,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
     } else if (memcmp(blockname, "special", 7) != 0) {
         continue;
     }
-    const int i = natoi(&blockname[7], blocknamelen - 7);
+    const int64_t i = natoi(&blockname[7], blocknamelen - 7);
     if (i < 0 || i >= MAGIC_ITEMS_MAX) {
         continue;
     } else if (i >= kfx_config_state.conf.magic_conf.special_types_count) {
@@ -1155,7 +1155,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
     while (pos < len)
     {
       // Finding command number in this line
-      int cmd_num = recognize_conf_command(buf, &pos, len, magic_special_commands);
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, magic_special_commands);
       // Now store the config item in correct place
       if (cmd_num == ccr_endOfBlock) break; // if next block starts
       if ((flags & CnfLd_ListOnly) != 0) {
@@ -1164,7 +1164,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
               cmd_num = 0;
           }
       }
-      int n = 0;
+      int64_t n = 0;
       char word_buf[COMMAND_WORD_LEN];
       switch (cmd_num)
       {
@@ -1172,7 +1172,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
           if (get_conf_parameter_single(buf,&pos,len,specst->code_name,COMMAND_WORD_LEN) <= 0)
           {
               CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
               break;
           }
           break;
@@ -1189,7 +1189,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
           if (n < 1)
           {
               CONFWRNLOG("Incorrect object model \"%s\" in [%.*s] block of %s file.",
-                  word_buf, blocknamelen, blockname, config_textname);
+                  word_buf, (int)(blocknamelen), blockname, config_textname);
               break;
           }
           break;
@@ -1206,7 +1206,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
           if (n < 1)
           {
             CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 4: // SPEECHPLAYED
@@ -1218,7 +1218,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
           if (n < 1)
           {
               CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 5: // ACTIVATIONEFFECT
@@ -1231,7 +1231,7 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
           if (n < 1)
           {
               CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), blocknamelen, blockname, config_textname);
+                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
           }
           break;
       case 6: // VALUE
@@ -1246,8 +1246,8 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
       case ccr_endOfFile:
           break;
       default:
-          CONFWRNLOG("Unrecognized command (%d) in [%.*s] block of %s file.",
-              cmd_num, blocknamelen, blockname, config_textname);
+          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
+              (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
           break;
       }
       skip_conf_to_next_line(buf,&pos,len);
@@ -1257,10 +1257,10 @@ TbBool parse_magic_special_blocks(char *buf, long len, const char *config_textna
   return true;
 }
 
-static TbBool load_magic_config_file(const char *fname, unsigned short flags)
+static TbBool load_magic_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1272,7 +1272,7 @@ static TbBool load_magic_config_file(const char *fname, unsigned short flags)
         return false;
 
    if (!flag_is_set(flags, CnfLd_AcceptPartial)) {
-       for (int i = 0; i < MAGIC_ITEMS_MAX; i++) {
+       for (int64_t i = 0; i < MAGIC_ITEMS_MAX; i++) {
            kfx_config_state.conf.object_conf.object_to_power_artifact[i] = 0;
        }
     }
@@ -1296,7 +1296,7 @@ static TbBool load_magic_config_file(const char *fname, unsigned short flags)
     if ((flags & CnfLd_ListOnly) == 0)
     {
       // Mark powers which have children
-      for (int i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
+      for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
       {
         struct PowerConfigStats *powerst = get_power_model_stats(i);
           struct PowerConfigStats* parent_powerst = get_power_model_stats(powerst->parent_power);
@@ -1351,9 +1351,9 @@ const char *power_code_name(PowerKind pwkind)
  * @param code_name
  * @return A positive integer for the power model if found, otherwise -1
  */
-int power_model_id(const char * code_name)
+int64_t power_model_id(const char * code_name)
 {
-    for (int i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; ++i)
+    for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; ++i)
     {
         if (strncmp(kfx_config_state.conf.magic_conf.power_cfgstats[i].code_name, code_name,
                 COMMAND_WORD_LEN) == 0) {
@@ -1386,10 +1386,10 @@ void set_power_grant_revoke_callbacks(AddPowerToPlayerFn add_fn, RemovePowerFrom
  */
 TbBool make_all_powers_cost_free(void)
 {
-    for (long i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
     {
         struct PowerConfigStats * powerst = get_power_model_stats(i);
-        for (long n = 0; n < MAGIC_OVERCHARGE_LEVELS; n++)
+        for (int64_t n = 0; n < MAGIC_OVERCHARGE_LEVELS; n++)
             powerst->cost[n] = 0;
   }
   return true;
@@ -1407,13 +1407,13 @@ TbBool make_all_powers_researchable(PlayerNumber plyr_idx)
 /**
  * Sets power availability state.
  */
-TbBool set_power_available(PlayerNumber plyr_idx, PowerKind pwkind, long resrch, long avail)
+TbBool set_power_available(PlayerNumber plyr_idx, PowerKind pwkind, int64_t resrch, int64_t avail)
 {
-    SYNCDBG(8,"Starting for power %d, player %d, state %ld,%ld",(int)pwkind,(int)plyr_idx,resrch,avail);
+    SYNCDBG(8,"Starting for power %" PRId64 ", player %" PRId64 ", state %" PRId64 ",%" PRId64,(int64_t)pwkind,(int64_t)plyr_idx,(int64_t)(resrch),(int64_t)(avail));
     // note that we can't get_players_num_dungeon() because players
     // may be uninitialized yet when this is called.
     if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot set power availability; player %d has no dungeon",(int)plyr_idx);
+        ERRORDBG(11,"Cannot set power availability; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
     dungeon_availability->set_magic_resrchable(plyr_idx, pwkind, resrch);
@@ -1455,7 +1455,7 @@ TbBool is_power_available(PlayerNumber plyr_idx, PowerKind pwkind)
     }
     if (pwkind >= kfx_config_state.conf.magic_conf.power_types_count)
     {
-        ERRORLOG("Incorrect power %u (player %d)", pwkind, plyr_idx);
+        ERRORLOG("Incorrect power %" PRIu64 " (player %" PRId64 ")", (uint64_t)(pwkind), (int64_t)(plyr_idx));
         return false;
     }
     if (dungeon_availability->get_magic_level_gt0(plyr_idx, pwkind)) {
@@ -1484,7 +1484,7 @@ TbBool is_power_obtainable(PlayerNumber plyr_idx, PowerKind pwkind)
         return false;
     }
     if (pwkind >= kfx_config_state.conf.magic_conf.power_types_count) {
-        ERRORLOG("Incorrect power %u (player %d)",pwkind, plyr_idx);
+        ERRORLOG("Incorrect power %" PRIu64 " (player %" PRId64 ")",(uint64_t)(pwkind), (int64_t)(plyr_idx));
         return false;
     }
     return dungeon_availability->get_magic_level_gt0(plyr_idx, pwkind) || dungeon_availability->get_magic_resrchable(plyr_idx, pwkind);
@@ -1498,10 +1498,10 @@ TbBool make_available_all_researchable_powers(PlayerNumber plyr_idx)
   SYNCDBG(0,"Starting");
   TbBool ret = true;
   if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-      ERRORDBG(11,"Cannot make research available; player %d has no dungeon",(int)plyr_idx);
+      ERRORDBG(11,"Cannot make research available; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
       return false;
   }
-  for (long i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
+  for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
   {
     if (dungeon_availability->get_magic_resrchable(plyr_idx, i) && (g_add_power_to_player_fn != NULL))
     {

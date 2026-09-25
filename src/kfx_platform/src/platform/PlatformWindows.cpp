@@ -136,7 +136,7 @@ bool mci_set_time_format(MCIDEVICEID device_id) {
     return result == 0;
 }
 
-bool mci_play(MCIDEVICEID device_id, int track) {
+bool mci_play(MCIDEVICEID device_id, int64_t track) {
     MCI_PLAY_PARMS params = {};
     params.dwFrom = MCI_MAKE_TMSF(track, 0, 0, 0);
     params.dwTo = MCI_MAKE_TMSF(track + 1, 0, 0, 0);
@@ -164,7 +164,7 @@ bool mci_stop(MCIDEVICEID device_id) {
     return result == 0;
 }
 
-int mci_status(MCIDEVICEID device_id, int what) {
+int64_t mci_status(MCIDEVICEID device_id, int64_t what) {
     MCI_STATUS_PARMS params = {};
     params.dwItem = what;
     const auto flags = MCI_STATUS_ITEM;
@@ -204,7 +204,7 @@ void PlatformWindows::SetRedbookVolume(SoundVolume value) {
     g_redbook_volume = value;
 }
 
-TbBool PlatformWindows::PlayRedbookTrack(int track) {
+TbBool PlatformWindows::PlayRedbookTrack(int64_t track) {
     // The original disk only had 7 tracks (the first one being data).
     // However, any kind of disk can be inserted so just play whatever track we're told to play.
     if (open_redbook_device()) {
@@ -283,7 +283,7 @@ SteamApiShutdownFunc SteamAPI_Shutdown = nullptr;
 
 } // namespace
 
-int PlatformWindows::InitSteam()
+int64_t PlatformWindows::InitSteam()
 {
     // Make sure the steam API is not initialized multiple times
     if (steam_lib != NULL || SteamAPI_Init != NULL)

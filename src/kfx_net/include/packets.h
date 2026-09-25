@@ -65,11 +65,11 @@ enum ChecksumKind {
 struct PlayerInfo;
 struct CatalogueEntry;
 
-extern unsigned long initial_replay_seed;
+extern uint64_t initial_replay_seed;
 extern TbBool unpausing_in_progress;
 
-extern float camera_movement_x;
-extern float camera_movement_y;
+extern double camera_movement_x;
+extern double camera_movement_y;
 
 struct PacketEx
 {
@@ -90,10 +90,10 @@ void process_user_creature_control_packet_control(NetUserId user);
 void process_user_creature_passenger_packet_action(NetUserId user);
 void process_user_creature_control_packet_action(NetUserId user);
 void process_map_packet_clicks(NetUserId user);
-void process_pause_packet(long a1, long a2);
+void process_pause_packet(int64_t a1, int64_t a2);
 void process_camera_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player, TbBool is_local_camera);
 void process_camera_action(struct Camera *cams, const struct Packet *pckt);
-void process_first_person_look(struct Thing *thing, const struct Packet *pckt, long current_horizontal, long current_vertical, long *out_horizontal, long *out_vertical, long *out_roll);
+void process_first_person_look(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll);
 TbBool can_process_creature_input(struct Thing *thing);
 void exchange_packets(void);
 TbBool is_desync_warning_active(void);
@@ -106,7 +106,7 @@ void post_init_packets(void);
 TbBool open_new_packet_file_for_save(void);
 void load_packets_for_turn(GameTurn nturn);
 TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry);
-short save_packets(void);
+int64_t save_packets(void);
 void close_packet_file(void);
 TbBool reinit_packets_after_load(void);
 TbBool packets_process_cheats(NetUserId user, PlayerNumber plyr_idx, MapCoord x, MapCoord y,

@@ -76,18 +76,18 @@ enum DigTagMode {
 
 struct RoomSpace {
     TbBool slab_grid[MAX_ROOMSPACE_WIDTH][MAX_ROOMSPACE_WIDTH];
-    int slab_count;
+    int64_t slab_count;
     TbBool is_roomspace_a_box;
-    int width;
-    int height;
+    int64_t width;
+    int64_t height;
     MapSlabCoord left;
     MapSlabCoord top;
     MapSlabCoord right;
     MapSlabCoord bottom;
     MapSlabCoord centreX;
     MapSlabCoord centreY;
-    int total_roomspace_cost;
-    int invalid_slabs_count;
+    int64_t total_roomspace_cost;
+    int64_t invalid_slabs_count;
     NetUserId user;
     PlayerNumber plyr_idx;
     RoomKind rkind;
@@ -110,29 +110,29 @@ struct PlayerInfo;
 struct Packet;
 /******************************************************************************/
 /******************************************************************************/
-int calc_distance_from_roomspace_centre(int total_distance, TbBool offset);
+int64_t calc_distance_from_roomspace_centre(int64_t total_distance, TbBool offset);
 
-struct RoomSpace create_box_roomspace(struct RoomSpace roomspace, int width,
-int height, int centre_x, int centre_y);
+struct RoomSpace create_box_roomspace(struct RoomSpace roomspace, int64_t width,
+int64_t height, int64_t centre_x, int64_t centre_y);
 struct RoomSpace check_roomspace_for_diggable_slabs(struct RoomSpace roomspace, PlayerNumber plyr_idx, const unsigned char *predicted_slab_tag_modes);
 
-int can_build_roomspace_of_dimensions(PlayerNumber plyr_idx, RoomKind rkind,
-    MapSlabCoord slb_x, MapSlabCoord slb_y, int width, int height,
+int64_t can_build_roomspace_of_dimensions(PlayerNumber plyr_idx, RoomKind rkind,
+    MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t width, int64_t height,
     TbBool full_check);
 
 // Was internal-only; exposed for unit tests (roomspace_extra_test.cpp).
-TbBool can_afford_roomspace(PlayerNumber plyr_idx, RoomKind rkind, int slab_count);
+TbBool can_afford_roomspace(PlayerNumber plyr_idx, RoomKind rkind, int64_t slab_count);
 
-int can_build_fancy_roomspace(PlayerNumber plyr_idx, RoomKind rkind,
+int64_t can_build_fancy_roomspace(PlayerNumber plyr_idx, RoomKind rkind,
     struct RoomSpace roomspace);
 
-struct RoomSpace check_slabs_in_roomspace(struct RoomSpace roomspace, short rkind_cost);
+struct RoomSpace check_slabs_in_roomspace(struct RoomSpace roomspace, int64_t rkind_cost);
 
-int can_build_roomspace_of_dimensions_loose(PlayerNumber plyr_idx,
-    RoomKind rkind, MapSlabCoord slb_x, MapSlabCoord slb_y, int width,
-    int height, int *invalid_blocks, int roomspace_discovery_looseness);
+int64_t can_build_roomspace_of_dimensions_loose(PlayerNumber plyr_idx,
+    RoomKind rkind, MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t width,
+    int64_t height, int64_t *invalid_blocks, int64_t roomspace_discovery_looseness);
 
-int can_build_roomspace(PlayerNumber plyr_idx, RoomKind rkind,
+int64_t can_build_roomspace(PlayerNumber plyr_idx, RoomKind rkind,
     struct RoomSpace roomspace);
     
 struct RoomSpace get_current_room_as_roomspace(PlayerNumber current_plyr_idx, 
@@ -149,10 +149,10 @@ TbBool update_dungeon_sell_roomspace_preview(NetUserId user, MapSubtlCoord stl_x
 void apply_roomspace_packet_action(struct PlayerInfo *player, NetUserId user, const struct Packet *pckt);
 
 void keeper_highlight_roomspace(NetUserId user, struct RoomSpace *roomspace);
-int apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *roomspace, MapSlabCoord previous_slb_x, MapSlabCoord previous_slb_y, unsigned char highlight_mode, unsigned char *predicted_slab_tag_modes, SlabCodedCoords *predicted_slabs, int *predicted_slab_count, int *predicted_task_count);
+int64_t apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpace *roomspace, MapSlabCoord previous_slb_x, MapSlabCoord previous_slb_y, unsigned char highlight_mode, unsigned char *predicted_slab_tag_modes, SlabCodedCoords *predicted_slabs, int64_t *predicted_slab_count, int64_t *predicted_task_count);
 void keeper_sell_roomspace(NetUserId user, struct RoomSpace *roomspace);
 void keeper_build_roomspace(NetUserId user, struct RoomSpace *roomspace);
-struct Room *keeper_build_room(NetUserId user, long stl_x, long stl_y, long plyr_idx, long rkind);
+struct Room *keeper_build_room(NetUserId user, int64_t stl_x, int64_t stl_y, int64_t plyr_idx, int64_t rkind);
 
 void update_roomspaces();
 

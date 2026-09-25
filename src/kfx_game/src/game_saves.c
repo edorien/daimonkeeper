@@ -57,39 +57,39 @@ extern "C" {
 /******************************************************************************/
 TbBool load_catalogue_entry(TbFileHandle fh,struct FileChunkHeader *hdr,struct CatalogueEntry *centry);
 /******************************************************************************/
-const short VersionMajor    = VER_MAJOR;
-const short VersionMinor    = VER_MINOR;
-short const VersionRelease  = VER_RELEASE;
-short const VersionBuild    = VER_BUILD;
+const int64_t VersionMajor    = VER_MAJOR;
+const int64_t VersionMinor    = VER_MINOR;
+int64_t const VersionRelease  = VER_RELEASE;
+int64_t const VersionBuild    = VER_BUILD;
 
 const char *continue_game_filename="fx1contn.sav";
-const char *saved_game_filename="fx1g%04d.sav";
-const char *packet_filename="fx1rp%04d.pck";
+const char *saved_game_filename="fx1g%04" PRId64 ".sav";
+const char *packet_filename="fx1rp%04" PRId64 ".pck";
 
 /* Dynamically-grown savegame catalogue (see game_saves.h): holds one CatalogueEntry per
  * reachable save slot. It is sized on load to (highest existing slot + 2), min
  * SAVE_SLOTS_MIN, and grown on demand when writing to a higher slot, so the slot count
  * is limited only by disk space. */
 struct CatalogueEntry *save_game_catalogue = NULL;
-long save_game_catalogue_count = 0;      // logical length (slots the menus range over)
-static long save_game_catalogue_capacity = 0;  // number of entries actually allocated
+int64_t save_game_catalogue_count = 0;      // logical length (slots the menus range over)
+static int64_t save_game_catalogue_capacity = 0;  // number of entries actually allocated
 
-int number_of_saved_games;
+int64_t number_of_saved_games;
 
 /** Grow the catalogue so that index slot is valid; any newly added entries are zeroed
  *  (not in use). Returns false only on allocation failure. */
-static TbBool ensure_catalogue_slot(long slot)
+static TbBool ensure_catalogue_slot(int64_t slot)
 {
     if ((slot < 0) || (slot >= SAVE_SLOTS_LIMIT))
         return false;
     if (slot >= save_game_catalogue_capacity)
     {
-        long newcap = slot + 1;
+        int64_t newcap = slot + 1;
         struct CatalogueEntry* p = (struct CatalogueEntry*)realloc(save_game_catalogue,
             newcap * sizeof(struct CatalogueEntry));
         if (p == NULL)
         {
-            ERRORLOG("Cannot grow save catalogue to %ld entries", newcap);
+            ERRORLOG("Cannot grow save catalogue to %" PRId64 " entries", (int64_t)(newcap));
             return false;
         }
         memset(&p[save_game_catalogue_capacity], 0,
@@ -104,26 +104,26 @@ static TbBool ensure_catalogue_slot(long slot)
 
 /** Parse the slot index from a savegame filename "fx1gNNNN.sav" (case-insensitive).
  *  Returns the index, or -1 if the name does not match the expected pattern. */
-static int save_slot_index_from_filename(const char *fname)
+static int64_t save_slot_index_from_filename(const char *fname)
 {
     if (strncasecmp(fname, "fx1g", 4) != 0)
         return -1;
     const char* p = fname + 4;
     if ((*p < '0') || (*p > '9'))
         return -1;
-    long idx = atol(p);
+    int64_t idx = LbAtoI32(p);
     while ((*p >= '0') && (*p <= '9'))
         p++;
     if (strcasecmp(p, ".sav") != 0)
         return -1;
     if ((idx < 0) || (idx >= SAVE_SLOTS_LIMIT))
         return -1;
-    return (int)idx;
+    return (int64_t)idx;
 }
 
 #define CONTINUE_GAME_FILE_SIZE (CAMPAIGN_FNAME_LEN + sizeof(LevelNumber) + sizeof(struct IntralevelData))
 /******************************************************************************/
-TbBool is_primitive_save_version(long filesize)
+TbBool is_primitive_save_version(int64_t filesize)
 {
     if (filesize < (char *)&kfx_sim_state.loaded_level_number - (char *)&game)
         return false;
@@ -135,7 +135,7 @@ TbBool is_primitive_save_version(long filesize)
 TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     struct FileChunkHeader hdr;
-    long chunks_done = 0;
+    int64_t chunks_done = 0;
     // Currently there is some game data outside of structs - make sure it is updated
     light_export_system_state(&kfx_game_state.lightst);
     { // Info chunk
@@ -217,7 +217,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
 {
     struct FileChunkHeader hdr;
-    long chunks_done = 0;
+    int64_t chunks_done = 0;
     { // Packet file header
         hdr.id = SGC_PacketHeader;
         hdr.ver = PACKET_SAVE_HEAD_VER;
@@ -290,20 +290,20 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     return true;
 }
 
-static TbBool chunk_version_ok(TbFileHandle fhandle, const struct FileChunkHeader *hdr, unsigned expected)
+static TbBool chunk_version_ok(TbFileHandle fhandle, const struct FileChunkHeader *hdr, uint64_t expected)
 {
     if (hdr->ver == expected)
         return true;
-    WARNLOG("Chunk %04x is version %u, expected %u; skipping it",
-        (unsigned)hdr->id, (unsigned)hdr->ver, (unsigned)expected);
+    WARNLOG("Chunk %04" PRIx64 " is version %" PRIu64 ", expected %" PRIu64 "; skipping it",
+        (uint64_t)hdr->id, (uint64_t)hdr->ver, (uint64_t)expected);
     if (LbFileSeek(fhandle, hdr->len, Lb_FILE_SEEK_CURRENT) < 0)
         LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
     return false;
 }
 
-int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
+int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
-    long chunks_done = 0;
+    int64_t chunks_done = 0;
     while (!LbFileEof(fhandle))
     {
         struct FileChunkHeader hdr;
@@ -381,16 +381,10 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 WARNLOG("Incompatible KfxGameState chunk");
                 break;
             }
-            {
-                // gui_cheat_box_2 is a pointer into this process's static gui_boxes[]; the saved value is
-                // from another run and would be dereferenced by gui_box_is_not_valid(). Keep the live one.
-                struct GuiBox *live_cheat_box_2 = kfx_game_state.gui_cheat_box_2;
-                if (LbFileRead(fhandle, &kfx_game_state, sizeof(struct KfxGameState)) == sizeof(struct KfxGameState)) {
-                    chunks_done |= SGF_KfxGameState;
-                } else {
-                    WARNLOG("Could not read KfxGameState chunk");
-                }
-                kfx_game_state.gui_cheat_box_2 = live_cheat_box_2;
+            if (LbFileRead(fhandle, &kfx_game_state, sizeof(struct KfxGameState)) == sizeof(struct KfxGameState)) {
+                chunks_done |= SGF_KfxGameState;
+            } else {
+                WARNLOG("Could not read KfxGameState chunk");
             }
             break;
         case SGC_KfxFrontendState:
@@ -474,7 +468,7 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
             }
             break;
         default:
-            WARNLOG("Unrecognized chunk, ID = %08lx", hdr.id);
+            WARNLOG("Unrecognized chunk, ID = %08" PRIx64, (uint64_t)(hdr.id));
             if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
                 LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
             break;
@@ -497,11 +491,11 @@ int load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
  * @param slot_num
  * @return
  */
-TbBool save_game(long slot_num)
+TbBool save_game(int64_t slot_num)
 {
     if (!ensure_catalogue_slot(slot_num))
     {
-        ERRORLOG("Outranged slot index %d",(int)slot_num);
+        ERRORLOG("Outranged slot index %" PRId64,(int64_t)slot_num);
         return false;
     }
     char* fname = prepare_file_fmtpath(FGrp_Save, saved_game_filename, slot_num);
@@ -522,7 +516,7 @@ TbBool save_game(long slot_num)
     return true;
 }
 
-TbBool is_save_game_loadable(long slot_num)
+TbBool is_save_game_loadable(int64_t slot_num)
 {
     // Prepare filename and open the file
     char* fname = prepare_file_fmtpath(FGrp_Save, saved_game_filename, slot_num);
@@ -541,11 +535,11 @@ TbBool is_save_game_loadable(long slot_num)
     return false;
 }
 
-TbBool load_game(long slot_num)
+TbBool load_game(int64_t slot_num)
 {
     if (!ensure_catalogue_slot(slot_num))
     {
-        ERRORLOG("Outranged slot index %d",(int)slot_num);
+        ERRORLOG("Outranged slot index %" PRId64,(int64_t)slot_num);
         return false;
     }
     TbFileHandle fh;
@@ -564,7 +558,7 @@ TbBool load_game(long slot_num)
           return false;
         }
     }
-    long file_len = LbFileLengthHandle(fh);
+    int64_t file_len = LbFileLengthHandle(fh);
     if (is_primitive_save_version(file_len))
     {
         {
@@ -579,10 +573,10 @@ TbBool load_game(long slot_num)
     if ((centry->game_ver_major != VER_MAJOR) || (centry->game_ver_minor != VER_MINOR) ||
         (centry->game_ver_release != VER_RELEASE) || (centry->game_ver_build != VER_BUILD))
     {
-        WARNLOG("loading savegame made in different version %d.%d.%d.%d current %d.%d.%d.%d",
-            (int)centry->game_ver_major, (int)centry->game_ver_minor,
-            (int)centry->game_ver_release, (int)centry->game_ver_build,
-            VER_MAJOR, VER_MINOR, VER_RELEASE, VER_BUILD);
+        WARNLOG("loading savegame made in different version %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64 " current %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,
+            (int64_t)centry->game_ver_major, (int64_t)centry->game_ver_minor,
+            (int64_t)centry->game_ver_release, (int64_t)centry->game_ver_build,
+            (int64_t)(VER_MAJOR), (int64_t)(VER_MINOR), (int64_t)(VER_RELEASE), (int64_t)(VER_BUILD));
     }
 
     LbFileSeek(fh, 0, Lb_FILE_SEEK_BEGINNING);
@@ -594,7 +588,7 @@ TbBool load_game(long slot_num)
         {
             kfx_sim_state.loaded_level_number = centry->level_num;
         }
-        WARNMSG("Couldn't correctly load saved game in slot %d.",(int)slot_num);
+        WARNMSG("Couldn't correctly load saved game in slot %" PRId64 ".",(int64_t)slot_num);
         return false;
     }
     my_player_number = kfx_net_state.local_plyr_idx;
@@ -646,17 +640,17 @@ TbBool load_game(long slot_num)
       dungeon->lvstats.allow_save_score = 1;
     }
     kfx_sim_state.loaded_swipe_idx = -1;
-    JUSTMSG("Loaded level %d from %s", kfx_sim_state.continue_level_number, campaign.name);
+    JUSTMSG("Loaded level %" PRId64 " from %s", (int64_t)(kfx_sim_state.continue_level_number), campaign.name);
 
     script_hooks->api_event("GAME_LOADED");
 
     return true;
 }
 
-int count_valid_saved_games(void)
+int64_t count_valid_saved_games(void)
 {
   number_of_saved_games = 0;
-  for (int i = 0; i < save_game_catalogue_count; i++)
+  for (int64_t i = 0; i < save_game_catalogue_count; i++)
   {
       struct CatalogueEntry* centry = &save_game_catalogue[i];
       if ((centry->flags & CEF_InUse) != 0)
@@ -671,7 +665,7 @@ TbBool fill_game_catalogue_entry(struct CatalogueEntry *centry,const char *textn
     snprintf(centry->textname, SAVE_TEXTNAME_LEN, "%s", textname);
     snprintf(centry->campaign_name, LINEMSG_SIZE, "%s", campaign.name);
     const char *cmpgn_pfx = "";
-    for (int i = 0; i < CampgnT_COUNT; i++) {
+    for (int64_t i = 0; i < CampgnT_COUNT; i++) {
         if ((cmpgn_fgroup[i] == campaign.fgroup) && (cmpgn_prefix[i] != NULL)) {
             cmpgn_pfx = cmpgn_prefix[i];
             break;
@@ -687,26 +681,26 @@ TbBool fill_game_catalogue_entry(struct CatalogueEntry *centry,const char *textn
     return true;
 }
 
-TbBool fill_game_catalogue_slot(long slot_num,const char *textname)
+TbBool fill_game_catalogue_slot(int64_t slot_num,const char *textname)
 {
     if (!ensure_catalogue_slot(slot_num))
     {
-        ERRORLOG("Outranged slot index %d",(int)slot_num);
+        ERRORLOG("Outranged slot index %" PRId64,(int64_t)slot_num);
         return false;
     }
     struct CatalogueEntry* centry = &save_game_catalogue[slot_num];
     return fill_game_catalogue_entry(centry,textname);
 }
 
-TbBool game_catalogue_slot_disable(struct CatalogueEntry *game_catalg,unsigned int slot_idx)
+TbBool game_catalogue_slot_disable(struct CatalogueEntry *game_catalg,uint64_t slot_idx)
 {
-  if (slot_idx >= (unsigned int)save_game_catalogue_count)
+  if (slot_idx >= (uint64_t)save_game_catalogue_count)
     return false;
   clear_flag(game_catalg[slot_idx].flags, CEF_InUse);
   return true;
 }
 
-TbBool save_catalogue_slot_disable(unsigned int slot_idx)
+TbBool save_catalogue_slot_disable(uint64_t slot_idx)
 {
   return game_catalogue_slot_disable(save_game_catalogue,slot_idx);
 }
@@ -734,20 +728,20 @@ TbBool load_game_save_catalogue(void)
 {
     // Scan the save directory to find the highest existing slot index, so the catalogue
     // can be sized to exactly the saves that exist plus one free slot to save into.
-    long highest = -1;
+    int64_t highest = -1;
     struct TbFileEntry fe;
     char* spec = prepare_file_path(FGrp_Save, "fx1g*.sav");
     struct TbFileFind* ff = LbFileFindFirst(spec, &fe);
     if (ff != NULL)
     {
         do {
-            int idx = save_slot_index_from_filename(fe.Filename);
+            int64_t idx = save_slot_index_from_filename(fe.Filename);
             if (idx > highest)
                 highest = idx;
         } while (LbFileFindNext(ff, &fe) >= 0);
         LbFileFindEnd(ff);
     }
-    long needed = highest + 2;               // used slots + one free slot to save into
+    int64_t needed = highest + 2;               // used slots + one free slot to save into
     if (needed < SAVE_SLOTS_MIN)
         needed = SAVE_SLOTS_MIN;
     if (needed > SAVE_SLOTS_LIMIT)
@@ -757,8 +751,8 @@ TbBool load_game_save_catalogue(void)
     save_game_catalogue_count = needed;      // logical length the menus range over
 
     // (Re)load metadata for every slot in range; missing files leave a zeroed (free) entry.
-    long saves_found = 0;
-    for (long slot_num = 0; slot_num < save_game_catalogue_count; slot_num++)
+    int64_t saves_found = 0;
+    for (int64_t slot_num = 0; slot_num < save_game_catalogue_count; slot_num++)
     {
         struct CatalogueEntry* centry = &save_game_catalogue[slot_num];
         memset(centry, 0, sizeof(struct CatalogueEntry));
@@ -786,11 +780,11 @@ TbBool initialise_load_game_slots(void)
 // No longer static: game_campaign_progress.c's reconcile_fx1contn_into_progress()
 // (docs/refactor/gui/05-campaign-progress-and-landview.md §3.4) reads the
 // same file this way to absorb old progress into save/progress.cfg.
-short read_continue_game_progress(char *cmpgn_fname, LevelNumber *lvnum, struct IntralevelData *intralevel)
+int64_t read_continue_game_progress(char *cmpgn_fname, LevelNumber *lvnum, struct IntralevelData *intralevel)
 {
     char* fname = prepare_file_path(FGrp_Save, continue_game_filename);
-    int32_t fsize = LbFileLength(fname);
-    if (fsize != (int32_t)CONTINUE_GAME_FILE_SIZE)
+    int64_t fsize = LbFileLength(fname);
+    if (fsize != (int64_t)CONTINUE_GAME_FILE_SIZE)
     {
         SYNCDBG(7, "No correct .SAV file; there's no continue");
         return false;
@@ -801,7 +795,7 @@ short read_continue_game_progress(char *cmpgn_fname, LevelNumber *lvnum, struct 
         SYNCDBG(7,"Can't open .SAV file; there's no continue");
         return false;
     }
-    short result = false;
+    int64_t result = false;
     if (LbFileRead(fh, cmpgn_fname, CAMPAIGN_FNAME_LEN) == CAMPAIGN_FNAME_LEN)
     if (LbFileRead(fh, lvnum, sizeof(*lvnum)) == sizeof(*lvnum))
     if (LbFileRead(fh, intralevel, sizeof(struct IntralevelData)) == sizeof(struct IntralevelData))
@@ -840,11 +834,11 @@ TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpL
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon))
     {
-        ERRORDBG(11, "Can't transfer creature; player %d has no dungeon.", (int)plyr_idx);
+        ERRORDBG(11, "Can't transfer creature; player %" PRId64 " has no dungeon.", (int64_t)plyr_idx);
         return false;
     }
 
-    short i = dungeon->creatures_transferred; //makes sure it fits 255 units
+    int64_t i = dungeon->creatures_transferred; //makes sure it fits 255 units
 
     intralvl.transferred_creatures[plyr_idx][i].model = model;
     intralvl.transferred_creatures[plyr_idx][i].exp_level = exp_level;
@@ -854,9 +848,9 @@ TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpL
 
 void clear_transfered_creatures(void)
 {
-    for (int p = 0; p < PLAYERS_COUNT; p++)
+    for (int64_t p = 0; p < PLAYERS_COUNT; p++)
     {
-        for (int i = 0; i < TRANSFER_CREATURE_STORAGE_COUNT; i++)
+        for (int64_t i = 0; i < TRANSFER_CREATURE_STORAGE_COUNT; i++)
         {
             intralvl.transferred_creatures[p][i].model = 0;
             intralvl.transferred_creatures[p][i].exp_level = 0;
@@ -864,7 +858,7 @@ void clear_transfered_creatures(void)
     }
 }
 
-TbBool get_transferred_creature(PlayerNumber plyr_idx, int idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size)
+TbBool get_transferred_creature(PlayerNumber plyr_idx, int64_t idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size)
 {
     struct CreatureStorage* stored = &intralvl.transferred_creatures[plyr_idx][idx];
     if (stored->model <= 0)
@@ -881,7 +875,7 @@ LevelNumber move_campaign_to_next_level(void)
 {
     LevelNumber curr_lvnum = get_continue_level_number();
     LevelNumber lvnum = next_singleplayer_level(curr_lvnum, false);
-    SYNCDBG(15,"Campaign move %d to %d",curr_lvnum,lvnum);
+    SYNCDBG(15,"Campaign move %" PRId64 " to %" PRId64,(int64_t)(curr_lvnum),(int64_t)(lvnum));
     {
         struct PlayerInfo* player = get_my_player();
         player->display_flags &= ~PlaF6_PlyrHasQuit;
@@ -889,7 +883,7 @@ LevelNumber move_campaign_to_next_level(void)
     if (lvnum != LEVELNUMBER_ERROR)
     {
         curr_lvnum = set_continue_level_number(lvnum);
-        SYNCDBG(8,"Continue level moved to %d.",curr_lvnum);
+        SYNCDBG(8,"Continue level moved to %" PRId64 ".",(int64_t)(curr_lvnum));
         return curr_lvnum;
     } else
     {
@@ -903,11 +897,11 @@ LevelNumber move_campaign_to_prev_level(void)
 {
     LevelNumber curr_lvnum = get_continue_level_number();
     LevelNumber lvnum = prev_singleplayer_level(curr_lvnum);
-    SYNCDBG(15,"Campaign move %d to %d",curr_lvnum,lvnum);
+    SYNCDBG(15,"Campaign move %" PRId64 " to %" PRId64,(int64_t)(curr_lvnum),(int64_t)(lvnum));
     if (lvnum != LEVELNUMBER_ERROR)
     {
         curr_lvnum = set_continue_level_number(lvnum);
-        SYNCDBG(8,"Continue level moved to %d.",curr_lvnum);
+        SYNCDBG(8,"Continue level moved to %" PRId64 ".",(int64_t)(curr_lvnum));
         return curr_lvnum;
     } else
     {

@@ -47,16 +47,16 @@ enum CatalogueEntryFlags {
 // (Remember to bump the version number if the layout of this struct changes!)
 #define CATALOGUE_ENTRY_VER 0
 struct CatalogueEntry {
-    unsigned short flags;
+    int64_t flags;
     char textname[SAVE_TEXTNAME_LEN];
     LevelNumber level_num;
     char campaign_name[LINEMSG_SIZE];
     char campaign_fname[DISKPATH_SIZE];
     char player_name[PLAYER_NAME_LENGTH];
-    unsigned short game_ver_major;
-    unsigned short game_ver_minor;
-    unsigned short game_ver_release;
-    unsigned short game_ver_build;
+    int64_t game_ver_major;
+    int64_t game_ver_minor;
+    int64_t game_ver_release;
+    int64_t game_ver_build;
 };
 
 #pragma pack()

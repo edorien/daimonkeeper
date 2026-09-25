@@ -80,7 +80,7 @@ TEST_CASE_METHOD(ResetSimState, "add_task_list_entry is a no-op once every slot 
     struct Dungeon *dungeon = get_dungeon(0);
     dungeon->highest_task_number = MAPTASKS_COUNT;
     dungeon->task_count = MAPTASKS_COUNT;
-    for (int i = 0; i < MAPTASKS_COUNT; i++)
+    for (int64_t i = 0; i < MAPTASKS_COUNT; i++)
         dungeon->task_list[i].kind = SDDigTask_DigEarth;
 
     add_task_list_entry(0, SDDigTask_MineGold, get_subtile_number(4, 4));

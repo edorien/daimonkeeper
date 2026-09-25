@@ -63,7 +63,7 @@ enum CreatureLiveStatistics {
 struct Thing;
 struct SlabMap;
 
-typedef short CreatureLiveStatId;
+typedef int64_t CreatureLiveStatId;
 
 #pragma pack()
 /******************************************************************************/
@@ -80,51 +80,51 @@ TbBool things_stats_debug_dump(void);
 TbBool is_neutral_thing(const struct Thing *thing);
 TbBool is_hero_thing(const struct Thing *thing);
 /******************************************************************************/
-long compute_creature_kind_score(ThingModel crkind, CrtrExpLevel exp_level);
+int64_t compute_creature_kind_score(ThingModel crkind, CrtrExpLevel exp_level);
 GoldAmount compute_creature_max_pay(GoldAmount base_pay, CrtrExpLevel exp_level);
 GoldAmount compute_creature_max_training_cost(GoldAmount base_training_cost, CrtrExpLevel exp_level);
 GoldAmount compute_creature_max_scavenging_cost(GoldAmount base_scavenging_cost, CrtrExpLevel exp_level);
-long project_creature_attack_melee_damage(long base_param, short damage_percent, long luck, CrtrExpLevel exp_level, const struct Thing* thing);
-long compute_creature_attack_melee_damage(long base_param, long luck, CrtrExpLevel exp_level, struct Thing* thing);
-long compute_creature_attack_spell_damage(long base_param, long luck, CrtrExpLevel exp_level, PlayerNumber plyr_idx);
-long compute_creature_attack_range(long base_param, long luck, CrtrExpLevel exp_level);
+int64_t project_creature_attack_melee_damage(int64_t base_param, int64_t damage_percent, int64_t luck, CrtrExpLevel exp_level, const struct Thing* thing);
+int64_t compute_creature_attack_melee_damage(int64_t base_param, int64_t luck, CrtrExpLevel exp_level, struct Thing* thing);
+int64_t compute_creature_attack_spell_damage(int64_t base_param, int64_t luck, CrtrExpLevel exp_level, PlayerNumber plyr_idx);
+int64_t compute_creature_attack_range(int64_t base_param, int64_t luck, CrtrExpLevel exp_level);
 HitPoints compute_creature_spell_damage_over_time(HitPoints spell_damage, CrtrExpLevel caster_level, PlayerNumber caster_owner);
-long compute_creature_work_value(long base_param, long efficiency, CrtrExpLevel exp_level);
+int64_t compute_creature_work_value(int64_t base_param, int64_t efficiency, CrtrExpLevel exp_level);
 HitPoints compute_creature_max_health(HitPoints base_health, CrtrExpLevel exp_level);
-long compute_creature_max_strength(long base_param, CrtrExpLevel exp_level);
-long compute_creature_max_armour(long base_param, CrtrExpLevel exp_level);
-long compute_creature_max_defense(long base_param, CrtrExpLevel exp_level);
-long compute_creature_max_dexterity(long base_param, CrtrExpLevel exp_level);
-long compute_creature_max_loyalty(long base_param, CrtrExpLevel exp_level);
-long compute_creature_max_unaffected(long base_param, CrtrExpLevel exp_level);
+int64_t compute_creature_max_strength(int64_t base_param, CrtrExpLevel exp_level);
+int64_t compute_creature_max_armour(int64_t base_param, CrtrExpLevel exp_level);
+int64_t compute_creature_max_defense(int64_t base_param, CrtrExpLevel exp_level);
+int64_t compute_creature_max_dexterity(int64_t base_param, CrtrExpLevel exp_level);
+int64_t compute_creature_max_loyalty(int64_t base_param, CrtrExpLevel exp_level);
+int64_t compute_creature_max_unaffected(int64_t base_param, CrtrExpLevel exp_level);
 #define compute_creature_max_luck compute_creature_max_unaffected
-long compute_controlled_speed_increase(long prev_speed, long speed_limit);
-long compute_controlled_speed_decrease(long prev_speed, long speed_limit);
-long compute_value_percentage(long base_val, short npercent);
+int64_t compute_controlled_speed_increase(int64_t prev_speed, int64_t speed_limit);
+int64_t compute_controlled_speed_decrease(int64_t prev_speed, int64_t speed_limit);
+int64_t compute_value_percentage(int64_t base_val, int64_t npercent);
 GoldAmount calculate_correct_creature_pay(const struct Thing *thing);
 GoldAmount calculate_correct_creature_training_cost(const struct Thing *thing);
 GoldAmount calculate_correct_creature_scavenging_cost(const struct Thing *thing);
 HitPoints calculate_correct_creature_max_health(const struct Thing *thing);
-long calculate_correct_creature_strength(const struct Thing *thing);
-long calculate_correct_creature_armour(const struct Thing *thing);
-long calculate_correct_creature_defense(const struct Thing *thing);
-long calculate_correct_creature_dexterity(const struct Thing *thing);
-long calculate_correct_creature_maxspeed(const struct Thing *thing);
-long calculate_correct_creature_loyalty(const struct Thing *thing);
-long calculate_correct_creature_scavenge_required(const struct Thing *thing, PlayerNumber callplyr_idx);
-long compute_creature_work_value_for_room_role(const struct Thing *creatng, RoomRole rrole, long efficiency);
-long compute_creature_weight(const struct Thing* creatng);
+int64_t calculate_correct_creature_strength(const struct Thing *thing);
+int64_t calculate_correct_creature_armour(const struct Thing *thing);
+int64_t calculate_correct_creature_defense(const struct Thing *thing);
+int64_t calculate_correct_creature_dexterity(const struct Thing *thing);
+int64_t calculate_correct_creature_maxspeed(const struct Thing *thing);
+int64_t calculate_correct_creature_loyalty(const struct Thing *thing);
+int64_t calculate_correct_creature_scavenge_required(const struct Thing *thing, PlayerNumber callplyr_idx);
+int64_t compute_creature_work_value_for_room_role(const struct Thing *creatng, RoomRole rrole, int64_t efficiency);
+int64_t compute_creature_weight(const struct Thing* creatng);
 
 const char *creature_statistic_text(const struct Thing *creatng, CreatureLiveStatId cstat_id);
 
-HitPoints reduce_damage_for_midas(PlayerNumber owner, HitPoints damage, short multiplier);
-long calculate_damage_did_to_slab_with_single_hit(const struct Thing *diggertng, const struct SlabMap *slb);
-GoldAmount calculate_gold_digged_out_of_slab_with_single_hit(long damage_did_to_slab, const struct SlabMap *slb);
+HitPoints reduce_damage_for_midas(PlayerNumber owner, HitPoints damage, int64_t multiplier);
+int64_t calculate_damage_did_to_slab_with_single_hit(const struct Thing *diggertng, const struct SlabMap *slb);
+GoldAmount calculate_gold_digged_out_of_slab_with_single_hit(int64_t damage_did_to_slab, const struct SlabMap *slb);
 HitPoints calculate_shot_real_damage_to_door(const struct Thing *doortng, const struct Thing *shotng);
 HitPoints collide_door_and_boulder(struct Thing* doortng, struct Thing *boulder);
 
-long get_radially_decaying_value(long magnitude, long decay_start, long decay_length, long distance);
-long get_radially_growing_value(long magnitude, long decay_start, long decay_length, long distance, long acceleration);
+int64_t get_radially_decaying_value(int64_t magnitude, int64_t decay_start, int64_t decay_length, int64_t distance);
+int64_t get_radially_growing_value(int64_t magnitude, int64_t decay_start, int64_t decay_length, int64_t distance, int64_t acceleration);
 
 TbBool update_creature_health_to_max(struct Thing *creatng);
 TbBool update_relative_creature_health(struct Thing *creatng);

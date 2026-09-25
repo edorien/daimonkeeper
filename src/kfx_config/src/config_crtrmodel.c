@@ -273,14 +273,14 @@ void strtolower(char * str) {
     }
 }
 
-TbBool parse_creaturemodel_attributes_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_attributes_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
   // Block name and parameter word store variables
   struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
   // Find the block
   const char * block_name = "attributes";
-  int32_t pos = 0;
-  int k = find_conf_block(buf, &pos, len, block_name);
+  int64_t pos = 0;
+  int64_t k = find_conf_block(buf, &pos, len, block_name);
   if (k < 0)
   {
       if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -291,10 +291,10 @@ TbBool parse_creaturemodel_attributes_blocks(long crtr_model,char *buf,long len,
   while (pos<len)
   {
       // Finding command number in this line
-      int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_attributes_commands);
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_attributes_commands);
       // Now store the config item in correct place
       if (cmd_num == ccr_endOfBlock) break; // if next block starts
-      int n = 0;
+      int64_t n = 0;
       char word_buf[COMMAND_WORD_LEN];
       switch (cmd_num)
       {
@@ -933,7 +933,7 @@ TbBool parse_creaturemodel_attributes_blocks(long crtr_model,char *buf,long len,
             break;
         }
         case 38: // HOSTILETOWARDS
-            for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+            for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
             {
                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
                 {
@@ -969,8 +969,8 @@ TbBool parse_creaturemodel_attributes_blocks(long crtr_model,char *buf,long len,
       case ccr_endOfFile:
           break;
       default:
-          CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-              cmd_num, block_name, config_textname);
+          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+              (int64_t)(cmd_num), block_name, config_textname);
           break;
       }
       skip_conf_to_next_line(buf,&pos,len);
@@ -1002,14 +1002,14 @@ TbBool parse_creaturemodel_attributes_blocks(long crtr_model,char *buf,long len,
   return true;
 }
 
-TbBool parse_creaturemodel_attraction_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_attraction_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
-  int n;
+  int64_t n;
   struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
   // Find the block
   const char * block_name = "attraction";
-  int32_t pos = 0;
-  int k = find_conf_block(buf, &pos, len, block_name);
+  int64_t pos = 0;
+  int64_t k = find_conf_block(buf, &pos, len, block_name);
   if (k < 0)
   {
       if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1020,7 +1020,7 @@ TbBool parse_creaturemodel_attraction_blocks(long crtr_model,char *buf,long len,
   while (pos<len)
   {
       // Finding command number in this line
-      int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_attraction_commands);
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_attraction_commands);
       // Now store the config item in correct place
       if (cmd_num == ccr_endOfBlock) break; // if next block starts
       n = 0;
@@ -1105,8 +1105,8 @@ TbBool parse_creaturemodel_attraction_blocks(long crtr_model,char *buf,long len,
       case ccr_endOfFile:
           break;
       default:
-          CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-              cmd_num, block_name, config_textname);
+          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+              (int64_t)(cmd_num), block_name, config_textname);
           break;
       }
       skip_conf_to_next_line(buf,&pos,len);
@@ -1115,13 +1115,13 @@ TbBool parse_creaturemodel_attraction_blocks(long crtr_model,char *buf,long len,
   return true;
 }
 
-TbBool parse_creaturemodel_annoyance_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_annoyance_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
     struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
     // Find the block
     const char * block_name = "annoyance";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1132,10 +1132,10 @@ TbBool parse_creaturemodel_annoyance_blocks(long crtr_model,char *buf,long len,c
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_annoyance_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_annoyance_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
@@ -1406,7 +1406,7 @@ TbBool parse_creaturemodel_annoyance_blocks(long crtr_model,char *buf,long len,c
             }
             break;
         case 21: // LAIRENEMY
-            for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+            for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
             {
                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
                 {
@@ -1492,13 +1492,13 @@ TbBool parse_creaturemodel_annoyance_blocks(long crtr_model,char *buf,long len,c
     return true;
 }
 
-TbBool parse_creaturemodel_senses_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_senses_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
     struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
     // Find the block
     const char * block_name = "senses";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1509,10 +1509,10 @@ TbBool parse_creaturemodel_senses_blocks(long crtr_model,char *buf,long len,cons
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_senses_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_senses_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
@@ -1592,8 +1592,8 @@ TbBool parse_creaturemodel_senses_blocks(long crtr_model,char *buf,long len,cons
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -1602,14 +1602,14 @@ TbBool parse_creaturemodel_senses_blocks(long crtr_model,char *buf,long len,cons
     return true;
 }
 
-TbBool parse_creaturemodel_appearance_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_appearance_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
     // Block name and parameter word store variables
     struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
     // Find the block
     const char * block_name = "appearance";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1620,10 +1620,10 @@ TbBool parse_creaturemodel_appearance_blocks(long crtr_model,char *buf,long len,
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_appearance_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_appearance_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
@@ -1795,8 +1795,8 @@ TbBool parse_creaturemodel_appearance_blocks(long crtr_model,char *buf,long len,
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -1805,15 +1805,15 @@ TbBool parse_creaturemodel_appearance_blocks(long crtr_model,char *buf,long len,
     return true;
 }
 
-TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_experience_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
-    int n;
+    int64_t n;
     // Block name and parameter word store variables
     struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
     // Find the block
     const char * block_name = "experience";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -1824,7 +1824,7 @@ TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_experience_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_experience_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
         n = 0;
@@ -1911,7 +1911,7 @@ TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,
             break;
         case 5: // SLEEPEXPERIENCE
         {
-            for (unsigned int i = 0; i < SLEEP_XP_COUNT; i++)
+            for (uint64_t i = 0; i < SLEEP_XP_COUNT; i++)
             {
                 if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
                 {
@@ -1927,7 +1927,7 @@ TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,
                 }
                 else
                 {
-                    for (unsigned int j = i; j < SLEEP_XP_COUNT; j++)
+                    for (uint64_t j = i; j < SLEEP_XP_COUNT; j++)
                     {
                         crconf->sleep_exp_slab[j] = 0;
                         crconf->sleep_experience[j] = 0;
@@ -1939,7 +1939,7 @@ TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,
                   k = atoi(word_buf);
                   if (k < 0)
                   {
-                      ERRORLOG("Slab sleep experience value (%s %d) must be 0 or greater.", slab_code_name(crconf->sleep_exp_slab[i]), k);
+                      ERRORLOG("Slab sleep experience value (%s %" PRId64 ") must be 0 or greater.", slab_code_name(crconf->sleep_exp_slab[i]), (int64_t)(k));
                       k = 0;
                   }
                   crconf->sleep_experience[i] = k;
@@ -1988,8 +1988,8 @@ TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -1998,14 +1998,14 @@ TbBool parse_creaturemodel_experience_blocks(long crtr_model,char *buf,long len,
     return true;
 }
 
-TbBool parse_creaturemodel_jobs_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_jobs_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
     // Block name and parameter word store variables
     struct CreatureModelConfig* crconf = creature_stats_get(crtr_model);
     // Find the block
     const char * block_name = "jobs";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -2016,10 +2016,10 @@ TbBool parse_creaturemodel_jobs_blocks(long crtr_model,char *buf,long len,const 
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_jobs_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_jobs_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
@@ -2183,8 +2183,8 @@ TbBool parse_creaturemodel_jobs_blocks(long crtr_model,char *buf,long len,const 
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -2193,13 +2193,13 @@ TbBool parse_creaturemodel_jobs_blocks(long crtr_model,char *buf,long len,const 
     return true;
 }
 
-TbBool parse_creaturemodel_sprites_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_sprites_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
-  int n;
+  int64_t n;
   // Find the block
   const char * block_name = "sprites";
-  int32_t pos = 0;
-  int k = find_conf_block(buf, &pos, len, block_name);
+  int64_t pos = 0;
+  int64_t k = find_conf_block(buf, &pos, len, block_name);
   if (k < 0)
   {
       if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -2210,7 +2210,7 @@ TbBool parse_creaturemodel_sprites_blocks(long crtr_model,char *buf,long len,con
   while (pos<len)
   {
       // Finding command number in this line
-      int cmd_num = recognize_conf_command(buf, &pos, len, creature_graphics_desc);
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, creature_graphics_desc);
       // Now store the config item in correct place
       if (cmd_num == ccr_endOfBlock) break; // if next block starts
       n = 0;
@@ -2254,8 +2254,8 @@ TbBool parse_creaturemodel_sprites_blocks(long crtr_model,char *buf,long len,con
       case ccr_endOfFile:
           break;
       default:
-          CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-              cmd_num, block_name, config_textname);
+          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+              (int64_t)(cmd_num), block_name, config_textname);
           break;
       }
       skip_conf_to_next_line(buf,&pos,len);
@@ -2268,7 +2268,7 @@ TbBool parse_creaturemodel_sprites_blocks(long crtr_model,char *buf,long len,con
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern int load_creature_custom_sounds(long crtr_model, const char* sound_type, const char* wav_paths, int count, const char* config_textname);
+extern int64_t load_creature_custom_sounds(int64_t crtr_model, const char* sound_type, const char* wav_paths, int64_t count, const char* config_textname);
 #ifdef __cplusplus
 }
 #endif
@@ -2298,7 +2298,7 @@ static TbBool is_sound_none_keyword(const char *s)
  * Example: base="SHE_ORC_Hit_01.mp3" count=5     → _01, _02, _03, _04, _05
  * Returns the number of paths written (capped at 32).
  */
-static int expand_numbered_sound_paths(const char *base, int count, char out[32][512])
+static int64_t expand_numbered_sound_paths(const char *base, int64_t count, char out[32][512])
 {
     if (base == NULL || count <= 0) return 0;
     if (count > 32) count = 32;
@@ -2323,29 +2323,29 @@ static int expand_numbered_sound_paths(const char *base, int count, char out[32]
     if (num_start >= base_len)
     {
         /* No trailing digits — produce count copies of the same path */
-        for (int i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
             snprintf(out[i], 512, "%s", base);
         return count;
     }
 
-    int base_num = atoi(base + num_start);
-    int pad_width = (int)(base_len - num_start);
+    int64_t base_num = atoi(base + num_start);
+    int64_t pad_width = (int64_t)(base_len - num_start);
 
-    for (int i = 0; i < count; i++)
-        snprintf(out[i], 512, "%.*s%0*d%s",
-            (int)num_start, base,
-            pad_width, base_num + i,
+    for (int64_t i = 0; i < count; i++)
+        snprintf(out[i], 512, "%.*s%0*" PRId64 "%s",
+            (int)((int64_t)num_start), base,
+            (int)(pad_width), (int64_t)(base_num + i),
             ext);
     return count;
 }
 
 /** Expands a base path + count into numbered variants then loads them as a custom creature sound.
  *  Logs the parsed paths at debug level 5, warnings on any failure. */
-static void load_creature_sound_from_path(long crtr_model, const char* sound_key,
-    const char* base_path, int file_count, const char* config_textname)
+static void load_creature_sound_from_path(int64_t crtr_model, const char* sound_key,
+    const char* base_path, int64_t file_count, const char* config_textname)
 {
     char expanded[32][512];
-    int exp_n = expand_numbered_sound_paths(base_path, file_count, expanded);
+    int64_t exp_n = expand_numbered_sound_paths(base_path, file_count, expanded);
     if (exp_n <= 0)
     {
         WARNLOG("Custom sound: failed to expand paths for %s.%s base='%s'",
@@ -2353,29 +2353,29 @@ static void load_creature_sound_from_path(long crtr_model, const char* sound_key
         return;
     }
 
-    SYNCDBG(5, "Custom sound: %s.%s base='%s' count=%d -> %d path(s)",
-        creature_code_name(crtr_model), sound_key, base_path, file_count, exp_n);
-    for (int i = 0; i < exp_n; i++)
-        SYNCDBG(7, "  [%d] '%s'", i, expanded[i]);
+    SYNCDBG(5, "Custom sound: %s.%s base='%s' count=%" PRId64 " -> %" PRId64 " path(s)",
+        creature_code_name(crtr_model), sound_key, base_path, (int64_t)(file_count), (int64_t)(exp_n));
+    for (int64_t i = 0; i < exp_n; i++)
+        SYNCDBG(7, "  [%" PRId64 "] '%s'", (int64_t)(i), expanded[i]);
 
-    int result = load_creature_custom_sounds(crtr_model, sound_key,
+    int64_t result = load_creature_custom_sounds(crtr_model, sound_key,
         (const char*)expanded, exp_n, config_textname);
     if (!result)
         WARNLOG("Custom sound: failed to load for %s.%s from '%s'",
             creature_code_name(crtr_model), sound_key, base_path);
     else
     {
-        SYNCDBG(5, "Custom sound: loaded %s.%s (%d variant(s))",
-            creature_code_name(crtr_model), sound_key, exp_n);
+        SYNCDBG(5, "Custom sound: loaded %s.%s (%" PRId64 " variant(s))",
+            creature_code_name(crtr_model), sound_key, (int64_t)(exp_n));
     }
 }
 
-TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,const char *config_textname,unsigned short flags)
+TbBool parse_creaturemodel_sounds_blocks(int64_t crtr_model,char *buf,int64_t len,const char *config_textname,int64_t flags)
 {
     // Find the block
     const char * block_name = "sounds";
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -2386,10 +2386,10 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
     while (pos<len)
     {
         // Finding command number in this line
-        int cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_sounds_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, creatmodel_sounds_commands);
         // Now store the config item in correct place
         if (cmd_num == ccr_endOfBlock) break; // if next block starts
-        int n = 0;
+        int64_t n = 0;
         char word_buf[COMMAND_WORD_LEN];
         switch (cmd_num)
         {
@@ -2399,7 +2399,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Hit", word_buf, file_count, config_textname);
                 }
@@ -2431,7 +2431,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Happy", word_buf, file_count, config_textname);
                 }
@@ -2463,7 +2463,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Sad", word_buf, file_count, config_textname);
                 }
@@ -2495,7 +2495,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Hang", word_buf, file_count, config_textname);
                 }
@@ -2527,7 +2527,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Drop", word_buf, file_count, config_textname);
                 }
@@ -2559,7 +2559,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Torture", word_buf, file_count, config_textname);
                 }
@@ -2591,7 +2591,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Slap", word_buf, file_count, config_textname);
                 }
@@ -2623,7 +2623,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Die", word_buf, file_count, config_textname);
                 }
@@ -2638,13 +2638,13 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                         if (kfx_config_state.conf.crtr_conf.creature_sounds[crtr_model].die.index >= 0)
                         {
                             kfx_config_state.conf.crtr_conf.creature_sounds[crtr_model].die.index = k;
-                            SYNCDBG(8, "Set %s die sound index to %d", creature_code_name(crtr_model), k);
+                            SYNCDBG(8, "Set %s die sound index to %" PRId64, creature_code_name(crtr_model), (int64_t)(k));
                         }
                         else
                         {
-                            SYNCDBG(0, "Preserving custom die sound (index %d) for %s, ignoring Die=%d from %s",
-                                kfx_config_state.conf.crtr_conf.creature_sounds[crtr_model].die.index,
-                                creature_code_name(crtr_model), k, config_textname);
+                            SYNCDBG(0, "Preserving custom die sound (index %" PRId64 ") for %s, ignoring Die=%" PRId64 " from %s",
+                                (int64_t)(kfx_config_state.conf.crtr_conf.creature_sounds[crtr_model].die.index),
+                                creature_code_name(crtr_model), (int64_t)(k), config_textname);
                         }
                         if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0) {
                             k = atoi(word_buf);
@@ -2668,7 +2668,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Foot", word_buf, file_count, config_textname);
                 }
@@ -2700,7 +2700,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Fight", word_buf, file_count, config_textname);
                 }
@@ -2732,7 +2732,7 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
                 if (is_sound_file_path(word_buf))
                 {
                     char count_buf[COMMAND_WORD_LEN];
-                    int file_count = 1;
+                    int64_t file_count = 1;
                     if (get_conf_parameter_single(buf,&pos,len,count_buf,sizeof(count_buf)) > 0) { file_count = atoi(count_buf); n++; }
                     load_creature_sound_from_path(crtr_model, "Piss", word_buf, file_count, config_textname);
                 }
@@ -2763,8 +2763,8 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -2773,10 +2773,10 @@ TbBool parse_creaturemodel_sounds_blocks(long crtr_model,char *buf,long len,cons
     return true;
 }
 
-static TbBool load_creaturemodel_config_file(long crtr_model, const char *fname, unsigned short flags)
+static TbBool load_creaturemodel_config_file(int64_t crtr_model, const char *fname, int64_t flags)
 {
-    SYNCDBG(0,"%s model %ld from file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",crtr_model,fname);
-    long len = LbFileLengthRnc(fname);
+    SYNCDBG(0,"%s model %" PRId64 " from file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",(int64_t)(crtr_model),fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         return false;
@@ -2808,7 +2808,7 @@ static TbBool load_creaturemodel_config_file(long crtr_model, const char *fname,
 /* @comment
  *     The loading items of load_creaturemodel_config and load_creaturemodel_config_for_mod need to be consistent.
  */
-static TbBool load_creaturemodel_config_for_mod(ThingModel crmodel, unsigned short flags, const char *conf_fnstr, const struct ModConfigItem *mod_item)
+static TbBool load_creaturemodel_config_for_mod(ThingModel crmodel, int64_t flags, const char *conf_fnstr, const struct ModConfigItem *mod_item)
 {
     set_flag(flags, CnfLd_IgnoreErrors);
 
@@ -2838,7 +2838,7 @@ static TbBool load_creaturemodel_config_for_mod(ThingModel crmodel, unsigned sho
 
     if (mod_state->cmpg_lvls)
     {
-        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05d.%s.cfg", sim_feedback->get_level_number(), conf_fnstr);
+        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s.cfg", (int64_t)(sim_feedback->get_level_number()), conf_fnstr);
         if (fname && strlen(fname) > 0)
         {
             result |= load_creaturemodel_config_file(crmodel, fname, flags);
@@ -2848,11 +2848,11 @@ static TbBool load_creaturemodel_config_for_mod(ThingModel crmodel, unsigned sho
     return result;
 }
 
-static TbBool load_creaturemodel_config_for_mod_list(ThingModel crmodel, unsigned short flags, const char *conf_fnstr, const struct ModConfigItem *mod_items, long mod_cnt)
+static TbBool load_creaturemodel_config_for_mod_list(ThingModel crmodel, int64_t flags, const char *conf_fnstr, const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
     TbBool result = false;
 
-    for (long i=0; i<mod_cnt; i++)
+    for (int64_t i=0; i<mod_cnt; i++)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (mod_item->state.mod_dir == 0)
@@ -2870,7 +2870,7 @@ static TbBool load_creaturemodel_config_for_mod_list(ThingModel crmodel, unsigne
  * @comment
  *     The loading items of load_creaturemodel_config and load_creaturemodel_config_for_mod need to be consistent.
  */
-TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, unsigned short flags)
+TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, int64_t flags)
 {
     if ((flags & CnfLd_AcceptPartial) == 0)
     {
@@ -2883,7 +2883,7 @@ TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, un
     strtolower(conf_fnstr);
     if (strlen(conf_fnstr) == 0)
     {
-        WARNMSG("Cannot get config file name[%d] for creature[%d].", conf_crmodel, crmodel);
+        WARNMSG("Cannot get config file name[%" PRId64 "] for creature[%" PRId64 "].", (int64_t)(conf_crmodel), (int64_t)(crmodel));
         return false;
     }
 
@@ -2922,7 +2922,7 @@ TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, un
         }
     }
 
-    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05d.%s.cfg", sim_feedback->get_level_number(), conf_fnstr);
+    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s.cfg", (int64_t)(sim_feedback->get_level_number()), conf_fnstr);
     if (fname && strlen(fname) > 0)
     {
         result |= load_creaturemodel_config_file(crmodel, fname, flags);
@@ -2945,12 +2945,12 @@ TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, un
     return result;
 }
 
-TbBool load_default_creaturemodel_config(ThingModel crmodel, unsigned short flags)
+TbBool load_default_creaturemodel_config(ThingModel crmodel, int64_t flags)
 {
     return load_creaturemodel_config(crmodel, crmodel, flags);
 }
 
-TbBool swap_creaturemodel_config(ThingModel nwcrmodel, ThingModel crmodel, unsigned short flags)
+TbBool swap_creaturemodel_config(ThingModel nwcrmodel, ThingModel crmodel, int64_t flags)
 {
     return load_creaturemodel_config(nwcrmodel, crmodel, flags);
 }
@@ -2971,12 +2971,12 @@ TbBool swap_creature(ThingModel ncrt_id, ThingModel crtr_id)
 {
     if ((crtr_id < 0) || (crtr_id >= kfx_config_state.conf.crtr_conf.model_count))
     {
-        ERRORLOG("Creature index %d is invalid", crtr_id);
+        ERRORLOG("Creature index %" PRId64 " is invalid", (int64_t)(crtr_id));
         return false;
     }
     if ((ncrt_id < 0) || (ncrt_id >= kfx_config_state.conf.crtr_conf.model_count))
     {
-        ERRORLOG("Creature index %d is invalid", ncrt_id);
+        ERRORLOG("Creature index %" PRId64 " is invalid", (int64_t)(ncrt_id));
         return false;
     }
     struct CreatureModelConfig* crconf = creature_stats_get(crtr_id);
@@ -3007,7 +3007,7 @@ TbBool swap_creature(ThingModel ncrt_id, ThingModel crtr_id)
  */
 TbBool make_all_creatures_free(void)
 {
-    for (long i = 0; i < kfx_config_state.conf.crtr_conf.model_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.crtr_conf.model_count; i++)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(i);
         crconf->training_cost = 0;
@@ -3024,12 +3024,12 @@ TbBool change_max_health_of_creature_kind(ThingModel crmodel, HitPoints new_max)
 {
     struct CreatureModelConfig* crconf = creature_stats_get(crmodel);
     if (creature_stats_invalid(crconf)) {
-        ERRORLOG("Invalid creature model %d",(int)crmodel);
+        ERRORLOG("Invalid creature model %" PRId64,(int64_t)crmodel);
         return false;
     }
-    SYNCDBG(3,"Changing all %s health from %d to %d.",creature_code_name(crmodel),(int)crconf->health,(int)new_max);
+    SYNCDBG(3,"Changing all %s health from %" PRId64 " to %" PRId64 ".",creature_code_name(crmodel),(int64_t)crconf->health,(int64_t)new_max);
     crconf->health = saturate_set_signed(new_max, 16);
-    int n = config_reload_callbacks->do_to_all_things_of_class_and_model(TCls_Creature, crmodel, config_reload_callbacks->update_creature_health_to_max);
+    int64_t n = config_reload_callbacks->do_to_all_things_of_class_and_model(TCls_Creature, crmodel, config_reload_callbacks->update_creature_health_to_max);
     return (n > 0);
 }
 

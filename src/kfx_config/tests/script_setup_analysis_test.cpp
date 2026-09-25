@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-SetupAvailKey key(int kind, int player, const char *item)
+SetupAvailKey key(int64_t kind, int64_t player, const char *item)
 {
     SetupAvailKey k;
     k.kind = kind;
@@ -210,7 +210,7 @@ TEST_CASE("win variables: v0 alias and version-specific meanings", "[kfx_config]
 }
 
 TEST_CASE("the two win-variable lists are disjoint and NULL-terminated", "[kfx_config][script_analysis]") {
-    int n0 = 0, n1 = 0;
+    int64_t n0 = 0, n1 = 0;
     for (const char *const *p = script_setup_win_variables_identical(); *p; p++, n0++)
         for (const char *const *q = script_setup_win_variables_v1_only(); *q; q++)
             CHECK(std::string(*p) != *q);
@@ -374,7 +374,7 @@ TEST_CASE("corpus: mask invariants hold for every shipped multiplayer script", "
         INFO(c.pack << "/" << c.name);
         const SetupAnalysis a = script_setup_analyse(c.text, 4);
         REQUIRE(a.verdict != SetupVerdict_Unsupported);
-        for (int replace = 0; replace < 2; replace++)
+        for (int64_t replace = 0; replace < 2; replace++)
         {
             const std::string m = script_setup_mask(c.text, a, replace != 0);
             // Same number of lines, every non-owned line byte-identical, owned lines empty.
@@ -437,7 +437,7 @@ TEST_CASE("corpus: golden suitability verdicts per mappack", "[kfx_config][scrip
     const std::vector<CorpusFile> corpus = load_corpus();
     if (corpus.empty())
         SKIP("core_files/multiplayer not found");
-    int original_partial = 0, classic_partial = 0, classic_supported = 0;
+    int64_t original_partial = 0, classic_partial = 0, classic_supported = 0;
     for (const CorpusFile &c : corpus)
     {
         INFO(c.pack << "/" << c.name);
@@ -490,7 +490,7 @@ TEST_CASE("corpus: the Lua-only classic skirmish maps define the whole setup in 
     const fs::path dir = fs::path(KFX_CONFIG_TEST_REPO_ROOT) / "core_files" / "multiplayer" / "classic";
     if (!fs::exists(dir))
         SKIP("core_files/multiplayer not found");
-    int seen = 0;
+    int64_t seen = 0;
     for (const auto &d : fs::directory_iterator(dir))
     {
         if (d.path().extension() != ".lua")

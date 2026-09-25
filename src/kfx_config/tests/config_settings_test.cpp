@@ -28,7 +28,7 @@ TEST_CASE("setup_default_settings resets every field to its documented default",
     CHECK(settings.highlight_mode == false);
 
     // Every key binding is reset from game_key_settings[]'s own defaults.
-    for (int i = 0; i < GAME_KEYS_COUNT; i++) {
+    for (int64_t i = 0; i < GAME_KEYS_COUNT; i++) {
         CHECK(settings.kbkeys[i].code == game_key_settings[i].default_code);
         CHECK(settings.kbkeys[i].mods == game_key_settings[i].default_mods);
         CHECK(settings.kbkeys[i].controller_buttons == game_key_settings[i].default_controller_buttons);
@@ -37,12 +37,12 @@ TEST_CASE("setup_default_settings resets every field to its documented default",
 
 TEST_CASE("get_max_i_can_see_from_settings indexes the visibility table by view_distance, wrapping at 4", "[kfx_config][config_settings]") {
     setup_default_settings(); // view_distance = 3
-    int at_3 = get_max_i_can_see_from_settings();
+    int64_t at_3 = get_max_i_can_see_from_settings();
 
     settings.view_distance = 7; // 7 % 4 == 3, same slot as above
     CHECK(get_max_i_can_see_from_settings() == at_3);
 
     settings.view_distance = 0;
-    int at_0 = get_max_i_can_see_from_settings();
+    int64_t at_0 = get_max_i_can_see_from_settings();
     CHECK(at_0 != at_3); // a real, distinct table entry, not a degenerate constant
 }

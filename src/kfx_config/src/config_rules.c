@@ -49,14 +49,14 @@ extern "C" {
 // stable bound-check constant. See docs/refactor/stage-13-enforce-and-document.md.
 #define RULES_MAX_THINGS_IN_HAND 64
 
-static int64_t value_x10(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static int64_t value_x10(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 
-static void assign_MapCreatureLimit_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static void assign_AlliesShareVision_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static void assign_PayDayProgress_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static void assign_MapCreatureLimit_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static void assign_AlliesShareVision_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static void assign_PayDayProgress_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 
 /******************************************************************************/
-static TbBool load_rules_config_file(const char *fname, unsigned short flags);
+static TbBool load_rules_config_file(const char *fname, int64_t flags);
 static void set_rules_defaults();
 
 const struct ConfigFileData keeper_rules_file_data = {
@@ -278,21 +278,21 @@ const struct NamedCommand sacrifice_unique_desc[] = {
 
 /******************************************************************************/
 
-static void assign_MapCreatureLimit_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_MapCreatureLimit_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
 
-        short count = config_reload_callbacks->setup_excess_creatures_to_leave_or_die(kfx_config_state.conf.rules[idx].gameplay.creatures_count);
+        int64_t count = config_reload_callbacks->setup_excess_creatures_to_leave_or_die(kfx_config_state.conf.rules[idx].gameplay.creatures_count);
         if (count > 0)
         {
-            SCRPTLOG("Map creature limit reduced, causing %d creatures to leave or die",count);
+            SCRPTLOG("Map creature limit reduced, causing %" PRId64 " creatures to leave or die",(int64_t)(count));
         }
     }
 }
 
-static void assign_AlliesShareVision_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_AlliesShareVision_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
@@ -301,12 +301,12 @@ static void assign_AlliesShareVision_script(const struct NamedField* named_field
     }
 }
 
-static void assign_PayDayProgress_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_PayDayProgress_script(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     kfx_config_state.pay_day_progress[idx] = value;
 }
 
-static int64_t value_x10(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static int64_t value_x10(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
 
     if (parameter_is_number(value_text))
@@ -325,7 +325,7 @@ static int64_t value_x10(const struct NamedField* named_field, const char* value
  */
 struct SacrificeRecipe *get_unused_sacrifice_recipe_slot(void)
 {
-    for (long i = 1; i < MAX_SACRIFICE_RECIPES; i++)
+    for (int64_t i = 1; i < MAX_SACRIFICE_RECIPES; i++)
     {
         struct SacrificeRecipe* sac = &kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[i];
         if (sac->action == SacA_None)
@@ -338,7 +338,7 @@ struct SacrificeRecipe *get_unused_sacrifice_recipe_slot(void)
  * Returns whether integer overflow should be emulated for the given
  * bit width, per the classic-bugs config.
  */
-TbBool emulate_integer_overflow(unsigned short nbits)
+TbBool emulate_integer_overflow(int64_t nbits)
 {
     if (nbits == 8)
         return (kfx_config_state.conf.rules[0].gameplay.classic_bugs_flags & ClscBug_Overflow8bitVal) != 0;
@@ -350,7 +350,7 @@ TbBool emulate_integer_overflow(unsigned short nbits)
  */
 void clear_sacrifice_recipes(void)
 {
-    for (long i = 0; i < MAX_SACRIFICE_RECIPES; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_RECIPES; i++)
     {
         struct SacrificeRecipe* sac = &kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[i];
         memset(sac, '\0', sizeof(struct SacrificeRecipe));
@@ -388,7 +388,7 @@ TbBool add_sacrifice_victim(struct SacrificeRecipe *sac, ThingModel crtr_idx)
     if (sac->victims[MAX_SACRIFICE_VICTIMS - 1] != 0)
         return false;
     // Otherwise, find place for our item (array is sorted).
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         if (sac->victims[i] == 0)
         {
@@ -400,16 +400,16 @@ TbBool add_sacrifice_victim(struct SacrificeRecipe *sac, ThingModel crtr_idx)
   return false;
 }
 
-long get_research_id(long item_type, const char *trg_name, const char *func_name)
+int64_t get_research_id(int64_t item_type, const char *trg_name, const char *func_name)
 {
-  long item_id;
+  int64_t item_id;
   switch (item_type)
   {
   case 1:
        item_id = get_id(power_desc, trg_name);
       if (item_id == -1)
       {
-        ERRORMSG("%s(line %lu): " "Unknown magic, '%s'", func_name, text_line_number, trg_name);
+        ERRORMSG("%s(line %" PRIu64 "): " "Unknown magic, '%s'", func_name, (uint64_t)(text_line_number), trg_name);
         return -1;
       }
       break;
@@ -417,7 +417,7 @@ long get_research_id(long item_type, const char *trg_name, const char *func_name
       item_id = get_id(room_desc, trg_name);
       if (item_id == -1)
       {
-        ERRORMSG("%s(line %lu): " "Unknown room, '%s'", func_name, text_line_number, trg_name);
+        ERRORMSG("%s(line %" PRIu64 "): " "Unknown room, '%s'", func_name, (uint64_t)(text_line_number), trg_name);
         return -1;
       }
       break;
@@ -425,13 +425,13 @@ long get_research_id(long item_type, const char *trg_name, const char *func_name
       item_id = get_id(creature_desc, trg_name);
       if (item_id == -1)
       {
-        ERRORMSG("%s(line %lu): " "Unknown creature, '%s'", func_name, text_line_number, trg_name);
+        ERRORMSG("%s(line %" PRIu64 "): " "Unknown creature, '%s'", func_name, (uint64_t)(text_line_number), trg_name);
         return -1;
       }
       break;
   case -1:
   default:
-      ERRORMSG("%s(line %lu): " "Unhandled research type, %ld", func_name, text_line_number, item_type);
+      ERRORMSG("%s(line %" PRIu64 "): " "Unhandled research type, %" PRId64, func_name, (uint64_t)(text_line_number), (int64_t)(item_type));
       return -1;
   }
   return item_id;
@@ -448,14 +448,14 @@ const char *player_code_name(PlayerNumber plyr_idx)
     return "INVALID";
 }
 
-TbBool parse_rules_research_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_rules_research_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
-  int i;
+  int64_t i;
   const char * block_name = "research";
   char word_buf[COMMAND_WORD_LEN];
   // Find the block.
-  int32_t pos = 0;
-  int k = find_conf_block(buf, &pos, len, block_name);
+  int64_t pos = 0;
+  int64_t k = find_conf_block(buf, &pos, len, block_name);
   if (k < 0)
   {
       if ((flags & CnfLd_AcceptPartial) == 0)
@@ -469,11 +469,11 @@ TbBool parse_rules_research_blocks(char *buf, long len, const char *config_textn
   while (pos<len)
   {
       // Finding command number in this line.
-      int cmd_num = recognize_conf_command(buf, &pos, len, rules_research_commands);
+      int64_t cmd_num = recognize_conf_command(buf, &pos, len, rules_research_commands);
       // Now store the config item in correct place.
       if (cmd_num == ccr_endOfBlock) break; // If next block starts.
-      int n = 0;
-      int l = 0;
+      int64_t n = 0;
+      int64_t l = 0;
       switch (cmd_num)
       {
       case 1: // RESEARCH
@@ -508,8 +508,8 @@ TbBool parse_rules_research_blocks(char *buf, long len, const char *config_textn
       case ccr_endOfFile:
           break;
       default:
-          CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-              cmd_num, block_name, config_textname);
+          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+              (int64_t)(cmd_num), block_name, config_textname);
           break;
       }
       skip_conf_to_next_line(buf,&pos,len);
@@ -524,7 +524,7 @@ TbBool parse_rules_research_blocks(char *buf, long len, const char *config_textn
 static void mark_cheaper_diggers_sacrifice(void)
 {
     kfx_config_state.conf.rules[0].sacrifices.cheaper_diggers_sacrifice_model = 0;
-    for (int i = 1; i < MAX_SACRIFICE_RECIPES; i++)
+    for (int64_t i = 1; i < MAX_SACRIFICE_RECIPES; i++)
     {
         struct SacrificeRecipe* sac = &kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[i];
         if (sac->action == SacA_None)
@@ -543,14 +543,14 @@ static void mark_cheaper_diggers_sacrifice(void)
     SYNCDBG(4,"Marked sacrifice of %s",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, kfx_config_state.conf.rules[0].sacrifices.cheaper_diggers_sacrifice_model));
 }
 
-TbBool parse_rules_sacrifices_blocks(char *buf, long len, const char *config_textname, unsigned short flags)
+TbBool parse_rules_sacrifices_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
-    int i;
+    int64_t i;
     const char * block_name = "sacrifices";
     char word_buf[COMMAND_WORD_LEN];
     // Find the block.
-    int32_t pos = 0;
-    int k = find_conf_block(buf, &pos, len, block_name);
+    int64_t pos = 0;
+    int64_t k = find_conf_block(buf, &pos, len, block_name);
     if (k < 0)
     {
         if ((flags & CnfLd_AcceptPartial) == 0)
@@ -563,10 +563,10 @@ TbBool parse_rules_sacrifices_blocks(char *buf, long len, const char *config_tex
     while (pos<len)
     {
         // Finding command number in this line.
-        int cmd_num = recognize_conf_command(buf, &pos, len, rules_sacrifices_commands);
+        int64_t cmd_num = recognize_conf_command(buf, &pos, len, rules_sacrifices_commands);
         // Now store the config item in correct place.
         if (cmd_num == ccr_endOfBlock) break; // If next block starts.
-        int n = 0;
+        int64_t n = 0;
         struct SacrificeRecipe* sac;
         switch (cmd_num)
         {
@@ -713,8 +713,8 @@ TbBool parse_rules_sacrifices_blocks(char *buf, long len, const char *config_tex
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized command (%d) in [%s] block of %s file.",
-                cmd_num, block_name, config_textname);
+            CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%s] block of %s file.",
+                (int64_t)(cmd_num), block_name, config_textname);
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
@@ -724,10 +724,10 @@ TbBool parse_rules_sacrifices_blocks(char *buf, long len, const char *config_tex
     return true;
 }
 
-static TbBool load_rules_config_file(const char *fname, unsigned short flags)
+static TbBool load_rules_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -744,7 +744,7 @@ static TbBool load_rules_config_file(const char *fname, unsigned short flags)
 
     if (result)
     {
-        for (int i = 0; i < PLAYERS_COUNT; i++)
+        for (int64_t i = 0; i < PLAYERS_COUNT; i++)
         {
           parse_named_field_block(buf, len, fname, flags,"game",     rules_game_named_fields,      &rules_named_fields_set, i);
           parse_named_field_block(buf, len, fname, flags,"creatures",rules_creatures_named_fields, &rules_named_fields_set, i);

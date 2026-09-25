@@ -45,7 +45,7 @@ struct ScriptValue *allocate_script_value(void)
     return value;
 }
 
-void command_init_value(struct ScriptValue* value, unsigned long var_index, unsigned long plr_range_id)
+void command_init_value(struct ScriptValue* value, uint64_t var_index, uint64_t plr_range_id)
 {
     set_flag_value(value->flags, TrgF_REUSABLE, next_command_reusable);
     clear_flag(value->flags, TrgF_DISABLED);
@@ -55,13 +55,13 @@ void command_init_value(struct ScriptValue* value, unsigned long var_index, unsi
 }
 
 // For dynamic strings
-long script_strdup(const char *src)
+int64_t script_strdup(const char *src)
 {
     // TODO: add string deduplication to save space
 
-    const long offset = kfx_game_state.script.next_string_offset;
-    const long remaining_size = sizeof(kfx_game_state.script.strings) - offset;
-    const long string_size = strlen(src) + 1;
+    const int64_t offset = kfx_game_state.script.next_string_offset;
+    const int64_t remaining_size = sizeof(kfx_game_state.script.strings) - offset;
+    const int64_t string_size = strlen(src) + 1;
     if (string_size >= remaining_size)
     {
         return -1;
@@ -71,7 +71,7 @@ long script_strdup(const char *src)
     return offset;
 }
 
-const char * script_strval(long offset)
+const char * script_strval(int64_t offset)
 {
     if (offset >= sizeof(kfx_game_state.script.strings))
     {
@@ -80,7 +80,7 @@ const char * script_strval(long offset)
     return &kfx_game_state.script.strings[offset];
 }
 
-struct Thing *script_process_new_object(ThingModel tngmodel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, long arg, PlayerNumber plyr_idx, short move_angle)
+struct Thing *script_process_new_object(ThingModel tngmodel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t arg, PlayerNumber plyr_idx, int64_t move_angle)
 {
     struct Coord3d pos;
     pos.x.val = subtile_coord_center(stl_x);
@@ -89,7 +89,7 @@ struct Thing *script_process_new_object(ThingModel tngmodel, MapSubtlCoord stl_x
     struct Thing* thing = create_object(&pos, tngmodel, plyr_idx, -1);
     if (thing_is_invalid(thing))
     {
-        ERRORLOG("Couldn't create %s at location %d, %d",thing_class_and_model_name(TCls_Object, tngmodel),stl_x, stl_y);
+        ERRORLOG("Couldn't create %s at location %" PRId64 ", %" PRId64,thing_class_and_model_name(TCls_Object, tngmodel),(int64_t)(stl_x), (int64_t)(stl_y));
         return INVALID_THING;
     }
     thing->move_angle_xy = move_angle;
@@ -144,20 +144,20 @@ struct Thing *script_process_new_object(ThingModel tngmodel, MapSubtlCoord stl_x
     return thing;
 }
 
-struct Thing* script_process_new_effectgen(ThingModel tngmodel, TbMapLocation location, long range)
+struct Thing* script_process_new_effectgen(ThingModel tngmodel, TbMapLocation location, int64_t range)
 {
     struct Coord3d pos;
     const unsigned char tngclass = TCls_EffectGen;
     if (!get_coords_at_location(&pos, location, false))
     {
-        ERRORLOG("Couldn't find location %d to create %s", (int)location, thing_class_and_model_name(tngclass, tngmodel));
+        ERRORLOG("Couldn't find location %" PRId64 " to create %s", (int64_t)location, thing_class_and_model_name(tngclass, tngmodel));
         return INVALID_THING;
     }
     SlabCodedCoords place_slbnum = get_slab_number(subtile_slab(pos.x.stl.num), subtile_slab(pos.y.stl.num));
     struct Thing* thing = create_thing(&pos, tngclass, tngmodel, kfx_config_state.neutral_player_num, place_slbnum);
     if (thing_is_invalid(thing))
     {
-        ERRORLOG("Couldn't create %s at location %d", thing_class_and_model_name(tngclass, tngmodel), (int)location);
+        ERRORLOG("Couldn't create %s at location %" PRId64, thing_class_and_model_name(tngclass, tngmodel), (int64_t)location);
         return INVALID_THING;
     }
     thing->effect_generator.range = range;
@@ -182,7 +182,7 @@ struct Thing* script_process_new_corpse(ThingModel tngmodel, MapSubtlCoord stl_x
     pos.y.val = subtile_coord_center(stl_y);
     pos.z.val = get_floor_height_at(&pos);
 
-    int16_t crpscondition = DCrSt_LongDead;
+    int64_t crpscondition = DCrSt_LongDead;
     if (dying)
     {
         crpscondition = DCrSt_Dying;
@@ -191,7 +191,7 @@ struct Thing* script_process_new_corpse(ThingModel tngmodel, MapSubtlCoord stl_x
     struct Thing* thing = create_dead_creature(&pos, tngmodel, crpscondition, plyr_idx, exp_level);
     if (thing_is_invalid(thing))
     {
-        ERRORLOG("Couldn't create %s at location %d, %d", thing_class_and_model_name(TCls_DeadCreature, tngmodel), stl_x, stl_y);
+        ERRORLOG("Couldn't create %s at location %" PRId64 ", %" PRId64, thing_class_and_model_name(TCls_DeadCreature, tngmodel), (int64_t)(stl_x), (int64_t)(stl_y));
         return INVALID_THING;
     }
     
@@ -212,10 +212,10 @@ TbBool script_new_creature_type(const char *name)
 {
     if (kfx_config_state.conf.crtr_conf.model_count >= CREATURE_TYPES_MAX)
     {
-        SCRPTERRLOG("Cannot increase creature type count for creature type '%s', already at maximum %d types.", name, CREATURE_TYPES_MAX);
+        SCRPTERRLOG("Cannot increase creature type count for creature type '%s', already at maximum %" PRId64 " types.", name, (int64_t)(CREATURE_TYPES_MAX));
         return false;
     }
-    for (int j = 0; j < (kfx_config_state.conf.crtr_conf.model_count - 1); j++)
+    for (int64_t j = 0; j < (kfx_config_state.conf.crtr_conf.model_count - 1); j++)
     {
         if (strcmp(creature_desc[j].name, name) == 0)
         {
@@ -223,7 +223,7 @@ TbBool script_new_creature_type(const char *name)
             return false;
         }
     }
-    int i = kfx_config_state.conf.crtr_conf.model_count;
+    int64_t i = kfx_config_state.conf.crtr_conf.model_count;
     kfx_config_state.conf.crtr_conf.model_count++;
     snprintf(kfx_config_state.conf.crtr_conf.model[i].name, COMMAND_WORD_LEN, "%s", name);
     creature_desc[i - 1].name = kfx_config_state.conf.crtr_conf.model[i].name;
@@ -231,12 +231,12 @@ TbBool script_new_creature_type(const char *name)
     
     if (load_default_creaturemodel_config(i, 0))
     {
-        SCRPTLOG("Adding creature type %s and increasing creature types to %d", creature_code_name(i), kfx_config_state.conf.crtr_conf.model_count - 1);
+        SCRPTLOG("Adding creature type %s and increasing creature types to %" PRId64, creature_code_name(i), (int64_t)(kfx_config_state.conf.crtr_conf.model_count - 1));
         return true;
     }
     else
     {
-        SCRPTERRLOG("Failed to load config for creature '%s'(%d).", kfx_config_state.conf.crtr_conf.model[i].name, i);
+        SCRPTERRLOG("Failed to load config for creature '%s'(%" PRId64 ").", kfx_config_state.conf.crtr_conf.model[i].name, (int64_t)(i));
     }
     return false;
 }
@@ -245,10 +245,10 @@ TbBool script_copy_creature_type(ThingModel source_id, const char* name)
 {
     if (kfx_config_state.conf.crtr_conf.model_count >= CREATURE_TYPES_MAX)
     {
-        SCRPTERRLOG("Cannot increase creature type count for creature type '%s', already at maximum %d types.", name, CREATURE_TYPES_MAX);
+        SCRPTERRLOG("Cannot increase creature type count for creature type '%s', already at maximum %" PRId64 " types.", name, (int64_t)(CREATURE_TYPES_MAX));
         return false;
     }
-    for (int j = 0; j < (kfx_config_state.conf.crtr_conf.model_count - 1); j++)
+    for (int64_t j = 0; j < (kfx_config_state.conf.crtr_conf.model_count - 1); j++)
     {
         if (strcmp(creature_desc[j].name, name) == 0)
         {
@@ -256,7 +256,7 @@ TbBool script_copy_creature_type(ThingModel source_id, const char* name)
             return false;
         }
     }
-    int i = kfx_config_state.conf.crtr_conf.model_count;
+    int64_t i = kfx_config_state.conf.crtr_conf.model_count;
     kfx_config_state.conf.crtr_conf.model_count++;
     
 
@@ -265,7 +265,7 @@ TbBool script_copy_creature_type(ThingModel source_id, const char* name)
     snprintf(kfx_config_state.conf.crtr_conf.model[i].name, COMMAND_WORD_LEN, "%s", name);
     creature_desc[i - 1].name = kfx_config_state.conf.crtr_conf.model[i].name;
     creature_desc[i - 1].num = i;
-    for (int k = 0; k < CREATURE_GRAPHICS_INSTANCES; k++)
+    for (int64_t k = 0; k < CREATURE_GRAPHICS_INSTANCES; k++)
     {
         kfx_config_state.conf.crtr_conf.creature_graphics[i][k] = kfx_config_state.conf.crtr_conf.creature_graphics[source_id][k];
     }
@@ -274,7 +274,7 @@ TbBool script_copy_creature_type(ThingModel source_id, const char* name)
     return true;
 }
 
-void set_variable(int player_idx, long var_type, long var_idx, long new_val)
+void set_variable(int64_t player_idx, int64_t var_type, int64_t var_idx, int64_t new_val)
 {
     struct Dungeon *dungeon = get_dungeon(player_idx);
     struct Coord3d pos = {0};
@@ -304,19 +304,19 @@ void set_variable(int player_idx, long var_type, long var_idx, long new_val)
         dungeon->creature_awarded[var_idx] = new_val;
         break;
     default:
-        WARNLOG("Unexpected type:%d",(int)var_type);
+        WARNLOG("Unexpected type:%" PRId64,(int64_t)var_type);
     }
 }
 
-long parse_criteria(const char *criteria)
+int64_t parse_criteria(const char *criteria)
 {
     char c;
-    int arg;
+    int64_t arg;
 
-    long ret = get_id(creature_select_criteria_desc, criteria);
+    int64_t ret = get_id(creature_select_criteria_desc, criteria);
     if (ret == -1)
     {
-        if (2 == sscanf(criteria, "AT_ACTION_POINT[%d%c", &arg, &c) && (c == ']'))
+        if (2 == sscanf(criteria, "AT_ACTION_POINT[%" SCNd64 "%c", &arg, &c) && (c == ']'))
         {
             ActionPointId loc = action_point_number_to_index(arg);
             if (loc == -1)
@@ -331,7 +331,7 @@ long parse_criteria(const char *criteria)
 }
 
 #define get_players_range_single(plr_range_id) get_players_range_single_f(plr_range_id, __func__, text_line_number)
-long get_players_range_single_f(long plr_range_id, const char *func_name, long ln_num)
+int64_t get_players_range_single_f(int64_t plr_range_id, const char *func_name, int64_t ln_num)
 {
     if (plr_range_id < 0) {
         return -1;
@@ -346,7 +346,7 @@ long get_players_range_single_f(long plr_range_id, const char *func_name, long l
     return -2;
 }
 
-short get_chat_icon_sprite_idx_from_id(short id, char type)
+int64_t get_chat_icon_sprite_idx_from_id(int64_t id, char type)
 {
     switch (type)
     {
@@ -389,9 +389,9 @@ short get_chat_icon_sprite_idx_from_id(short id, char type)
     }
 }
 
-short get_chat_icon_sprite_idx(const char* txt)
+int64_t get_chat_icon_sprite_idx(const char* txt)
 {
-    short id = 0;
+    int64_t id = 0;
     char type = 0;
 
     get_chat_icon_from_value(txt, &id, &type);
@@ -400,9 +400,9 @@ short get_chat_icon_sprite_idx(const char* txt)
 }
 
 
-void get_chat_icon_from_value(const char* txt, short* id, char* type)
+void get_chat_icon_from_value(const char* txt, int64_t* id, char* type)
 {
-    short idx;
+    int64_t idx;
     if (strcasecmp(txt, "None") == 0)
     {
         *id = 0;
@@ -535,7 +535,7 @@ void get_chat_icon_from_value(const char* txt, short* id, char* type)
 }
 
 #define get_player_id(plrname, plr_range_id) get_player_id_f(plrname, plr_range_id, __func__, text_line_number)
-TbBool get_player_id_f(const char *plrname, int32_t *plr_range_id, const char *func_name, long ln_num)
+TbBool get_player_id_f(const char *plrname, int64_t *plr_range_id, const char *func_name, int64_t ln_num)
 {
     *plr_range_id = get_rid(player_desc, plrname);
     if (*plr_range_id == -1)
@@ -543,7 +543,7 @@ TbBool get_player_id_f(const char *plrname, int32_t *plr_range_id, const char *f
       *plr_range_id = get_rid(cmpgn_human_player_options, plrname);
       if (*plr_range_id == -1)
       {
-        ERRORMSG("%s(line %lu): Invalid player name, '%s'",func_name,ln_num, plrname);
+        ERRORMSG("%s(line %" PRIu64 "): Invalid player name, '%s'",func_name,(uint64_t)(ln_num), plrname);
         return false;
       }
     }

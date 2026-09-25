@@ -50,14 +50,14 @@ enum SpecialKinds {
 };
 
 /******************************************************************************/
-extern long transfer_creature_scroll_offset;
-extern long resurrect_creature_scroll_offset;
-extern unsigned short dungeon_special_selected;
+extern int64_t transfer_creature_scroll_offset;
+extern int64_t resurrect_creature_scroll_offset;
+extern int64_t dungeon_special_selected;
 
 #pragma pack()
 /******************************************************************************/
 void multiply_creatures(struct PlayerInfo *player);
-void increase_level(struct PlayerInfo *player, int count);
+void increase_level(struct PlayerInfo *player, int64_t count);
 TbBool steal_hero(struct PlayerInfo *player, struct Coord3d *pos);
 void make_safe(struct PlayerInfo *player);
 void make_unsafe(PlayerNumber plyr_idx);
@@ -67,9 +67,9 @@ void resurrect_creature(struct Thing *thing, PlayerNumber owner, ThingModel mode
 void transfer_creature(struct Thing *tng1, struct Thing *tng2, unsigned char plyr_idx);
 void start_resurrect_creature(struct PlayerInfo *player, struct Thing *thing);
 void start_transfer_creature(struct PlayerInfo *player, struct Thing *thing);
-long create_transferred_creatures_on_level(void);
+int64_t create_transferred_creatures_on_level(void);
 
-void script_use_special_increase_level(PlayerNumber plyr_idx, int count);
+void script_use_special_increase_level(PlayerNumber plyr_idx, int64_t count);
 void script_use_special_multiply_creatures(PlayerNumber plyr_idx);
 void script_make_safe(PlayerNumber plyr_idx);
 void script_make_unsafe(PlayerNumber plyr_idx);

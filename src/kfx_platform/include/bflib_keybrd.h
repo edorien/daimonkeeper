@@ -200,8 +200,8 @@ enum KeyModifiers {
 /******************************************************************************/
 #pragma pack(1)
 
-typedef uint16_t TbKeyCode;
-typedef short TbKeyMods;
+typedef int64_t TbKeyCode;
+typedef int64_t TbKeyMods;
 
 #pragma pack()
 /******************************************************************************/
@@ -210,9 +210,9 @@ extern unsigned char lbKeyOn[KC_LIST_END];
 extern TbKeyCode lbInkey;
 
 /******************************************************************************/
-short LbIKeyboardOpen(void);
-short LbIKeyboardClose(void);
-void keyboardControl(unsigned int action, TbKeyCode code, TbKeyMods modifiers, int ScanCode);
+int64_t LbIKeyboardOpen(void);
+int64_t LbIKeyboardClose(void);
+void keyboardControl(uint64_t action, TbKeyCode code, TbKeyMods modifiers, int64_t ScanCode);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -33,7 +33,7 @@ struct TbRect;
 struct Camera;
 
 /******************************************************************************/
-extern int parchment_loaded;
+extern int64_t parchment_loaded;
 // hires_parchment moved to kfx_render's vidmode.h -- see its doc comment
 // there. Include vidmode.h directly for it.
 
@@ -42,7 +42,7 @@ extern int parchment_loaded;
 void draw_map_parchment(void);
 void draw_2d_map(void);
 void draw_zoom_box(void);
-TbBool parchment_copy_background_at(const struct TbRect *bkgnd_area, int m);
+TbBool parchment_copy_background_at(const struct TbRect *bkgnd_area, int64_t m);
 
 void load_parchment_file(void);
 void reload_parchment_file(TbBool hires);
@@ -50,10 +50,10 @@ void reload_parchment_file(TbBool hires);
 void redraw_parchment_view(void);
 void redraw_minimal_overhead_view(void);
 
-long get_parchment_map_area_rect(struct TbRect *map_area);
-long get_parchment_background_area_rect(struct TbRect *bkgnd_area);
+int64_t get_parchment_map_area_rect(struct TbRect *map_area);
+int64_t get_parchment_background_area_rect(struct TbRect *bkgnd_area);
 const char *get_map_level_name(void);
-TbBool point_to_overhead_map(const struct Camera *camera, const long screen_x, const long screen_y, int32_t *map_x, int32_t *map_y);
+TbBool point_to_overhead_map(const struct Camera *camera, const int64_t screen_x, const int64_t screen_y, int64_t *map_x, int64_t *map_y);
 
 void zoom_from_parchment_map(void);
 void zoom_to_parchment_map(void);

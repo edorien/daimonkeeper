@@ -35,8 +35,8 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_slabset_config_file(const char *fname, unsigned short flags);
-static TbBool load_columns_config_file(const char *fname, unsigned short flags);
+static TbBool load_slabset_config_file(const char *fname, int64_t flags);
+static TbBool load_columns_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_slabset_file_data = {
     .filename = "slabset.toml",
@@ -85,7 +85,7 @@ const struct NamedCommand slab_styles_commands[] = {
     {"CENTER",   27}
 };
 
-static TbBool load_slabset_config_file(const char *fname, unsigned short flags)
+static TbBool load_slabset_config_file(const char *fname, int64_t flags)
 {
     VALUE file_root;
 
@@ -101,20 +101,20 @@ static TbBool load_slabset_config_file(const char *fname, unsigned short flags)
     VALUE *slb_section;
     struct SlabSet *slabset_arr = config_reload_callbacks->get_slabset_array();
     struct SlabObj *slabobjs_arr = config_reload_callbacks->get_slabobjs_array();
-    short *slabobjs_idx_arr = config_reload_callbacks->get_slabobjs_idx_array();
-    unsigned short *slabobjs_num_ptr = config_reload_callbacks->get_slabobjs_num_ptr();
+    int64_t *slabobjs_idx_arr = config_reload_callbacks->get_slabobjs_idx_array();
+    int64_t *slabobjs_num_ptr = config_reload_callbacks->get_slabobjs_num_ptr();
     // Create sections
-    for (int slab_kind = 0; slab_kind < kfx_config_state.conf.slab_conf.slab_types_count; slab_kind++)
+    for (int64_t slab_kind = 0; slab_kind < kfx_config_state.conf.slab_conf.slab_types_count; slab_kind++)
     {
-        snprintf(key, sizeof(key), "slab%d", slab_kind);
+        snprintf(key, sizeof(key), "slab%" PRId64, (int64_t)(slab_kind));
         slb_section = value_dict_get(&file_root, key);
         if (value_type(slb_section) == VALUE_DICT)
         {
-            for (int slabstyle_no = 0; slabstyle_no < SLABSETS_PER_SLAB; slabstyle_no++)
+            for (int64_t slabstyle_no = 0; slabstyle_no < SLABSETS_PER_SLAB; slabstyle_no++)
             {
                 VALUE * section = value_dict_get(slb_section, slab_styles_commands[slabstyle_no].name);
 
-                int slabset_no = slab_kind * SLABSETS_PER_SLAB + slabstyle_no;
+                int64_t slabset_no = slab_kind * SLABSETS_PER_SLAB + slabstyle_no;
 
                 VALUE *col_arr = value_dict_get(section, "Columns");
                 if (value_type(col_arr) == VALUE_ARRAY)
@@ -138,7 +138,7 @@ static TbBool load_slabset_config_file(const char *fname, unsigned short flags)
                     {
                         if (*slabobjs_num_ptr >= SLABOBJS_COUNT)
                         {
-                            ERRORLOG("Exceeding max of %d slabobjects",SLABOBJS_COUNT);
+                            ERRORLOG("Exceeding max of %" PRId64 " slabobjects",(int64_t)(SLABOBJS_COUNT));
                             break;
                         }
                         struct SlabObj* slabobj = &slabobjs_arr[*slabobjs_num_ptr];
@@ -165,7 +165,7 @@ static TbBool load_slabset_config_file(const char *fname, unsigned short flags)
     return true;
 }
 
-static TbBool load_columns_config_file(const char *fname, unsigned short flags)
+static TbBool load_columns_config_file(const char *fname, int64_t flags)
 {
     VALUE file_root;
     
@@ -175,10 +175,10 @@ static TbBool load_columns_config_file(const char *fname, unsigned short flags)
     char key[64];
     VALUE *section;
     // Create sections
-    for (int col_no = 0; col_no < COLUMNS_COUNT; col_no++)
+    for (int64_t col_no = 0; col_no < COLUMNS_COUNT; col_no++)
     {
         {
-            snprintf(key, sizeof(key), "column%d", col_no);
+            snprintf(key, sizeof(key), "column%" PRId64, (int64_t)(col_no));
             section = value_dict_get(&file_root, key);
         }
         if (value_type(section) == VALUE_DICT)
@@ -196,7 +196,7 @@ static TbBool load_columns_config_file(const char *fname, unsigned short flags)
                 char Lintel = value_int32(lintel_val);
                 if (Lintel > 7 || Lintel < 0)
                 {
-                    ERRORLOG("invalid Lintel (%d) for column %d",Lintel,col_no);
+                    ERRORLOG("invalid Lintel (%" PRId64 ") for column %" PRId64,(int64_t)(Lintel),(int64_t)(col_no));
                     continue;
                 }
                 Lintel <<= 1;
@@ -209,7 +209,7 @@ static TbBool load_columns_config_file(const char *fname, unsigned short flags)
                 char floorHeight = value_int32(height_val);
                 if (floorHeight > COLUMN_STACK_HEIGHT || floorHeight < 0)
                 {
-                    ERRORLOG("invalid floorHeight (%d) for column %d",floorHeight,col_no);
+                    ERRORLOG("invalid floorHeight (%" PRId64 ") for column %" PRId64,(int64_t)(floorHeight),(int64_t)(col_no));
                     continue;
                 }
                 floorHeight <<= 4;
@@ -239,10 +239,10 @@ void clear_slabsets(void)
 {
     struct SlabSet *slabset_arr = config_reload_callbacks->get_slabset_array();
     struct SlabObj *slabobjs_arr = config_reload_callbacks->get_slabobjs_array();
-    short *slabobjs_idx_arr = config_reload_callbacks->get_slabobjs_idx_array();
+    int64_t *slabobjs_idx_arr = config_reload_callbacks->get_slabobjs_idx_array();
     struct SlabSet *sset;
     struct SlabObj *sobj;
-    int i;
+    int64_t i;
     for (i=0; i < SLABSET_COUNT; i++)
     {
         sset = &slabset_arr[i];

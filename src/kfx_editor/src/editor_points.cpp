@@ -27,6 +27,7 @@
  *     journaled (same as the object position edit); placement and deletion
  *     are.
  */
+#include "kfx_imgui.h"
 #include "pre_inc.h"
 #include "editor_points.h"
 #include "editor_overlay.h"
@@ -57,35 +58,35 @@
 /******************************************************************************/
 namespace {
 
-    const long kStl = 256;                 // raw map units per subtile
-    const float kPickPixels = 16.0f;       // marker pick radius on screen
-    const long kClickVsDragDistance = 192; // < 0.75 subtile of mouse travel = a plain click
+    const int64_t kStl = 256;                 // raw map units per subtile
+    const double kPickPixels = 16.0;       // marker pick radius on screen
+    const int64_t kClickVsDragDistance = 192; // < 0.75 subtile of mouse travel = a plain click
     const char *const kKindNames[EPK_Count] = {"Light", "Action Point", "Effect Generator"};
 
-    int s_kind = EPK_Light;
+    int64_t s_kind = EPK_Light;
 
     // Defaults applied to newly placed points (also what a plain click, as
     // opposed to a drag-to-size, uses).
-    float s_def_light_radius = 5.0f;   // subtiles
-    float s_def_light_height = 1.5f;   // subtiles
-    float s_def_intensity = 32.0f;
-    float s_def_ap_range = 3.0f;       // subtiles
-    float s_def_fx_range = 3.0f;       // subtiles
-    int s_def_fx_model = 1;
+    double s_def_light_radius = 5.0;   // subtiles
+    double s_def_light_height = 1.5;   // subtiles
+    double s_def_intensity = 32.0;
+    double s_def_ap_range = 3.0;       // subtiles
+    double s_def_fx_range = 3.0;       // subtiles
+    int64_t s_def_fx_model = 1;
 
     // Selection. -1 = none.
-    int s_sel_kind = -1;
-    long s_sel_id = 0;
+    int64_t s_sel_kind = -1;
+    int64_t s_sel_id = 0;
 
     // Drag-to-size gesture.
     bool s_dragging = false;
-    long s_drag_x = 0, s_drag_y = 0;
+    int64_t s_drag_x = 0, s_drag_y = 0;
 
     unsigned char s_owned_lights[LIGHTS_COUNT];
 
     const char *s_status = "";
 
-    long clamp_long(long v, long lo, long hi)
+    int64_t clamp_long(int64_t v, int64_t lo, int64_t hi)
     {
         return (v < lo) ? lo : ((v > hi) ? hi : v);
     }
@@ -93,14 +94,14 @@ namespace {
     // Subtile-centre snap: points read best (and match shipped maps, whose
     // effect generators sit at [n, 128]) when they aren't at an arbitrary
     // sub-subtile offset from wherever the cursor happened to be.
-    long snap_to_centre(long raw)
+    int64_t snap_to_centre(int64_t raw)
     {
         return (raw / kStl) * kStl + kStl / 2;
     }
 
-    long stl_to_raw(float stl)
+    int64_t stl_to_raw(double stl)
     {
-        return (long)std::lround(stl * (float)kStl);
+        return (int64_t)std::lround(stl * (double)kStl);
     }
 
     void refresh_owned_lights()
@@ -108,7 +109,7 @@ namespace {
         editor_points_mark_thing_owned_lights(s_owned_lights);
     }
 
-    bool light_is_level_content(long idx)
+    bool light_is_level_content(int64_t idx)
     {
         if ((idx <= 0) || (idx >= LIGHTS_COUNT))
             return false;
@@ -120,9 +121,9 @@ namespace {
         return s_owned_lights[idx] == 0;
     }
 
-    int next_free_action_point_number()
+    int64_t next_free_action_point_number()
     {
-        for (int num = 1; num <= ACTN_POINTS_COUNT * 4; num++)
+        for (int64_t num = 1; num <= ACTN_POINTS_COUNT * 4; num++)
         {
             bool used = false;
             for (ActionPointId i = 1; i < ACTN_POINTS_COUNT; i++)
@@ -140,7 +141,7 @@ namespace {
         return 0;
     }
 
-    struct ActionPoint *find_action_point(long number)
+    struct ActionPoint *find_action_point(int64_t number)
     {
         for (ActionPointId i = 1; i < ACTN_POINTS_COUNT; i++)
         {
@@ -152,7 +153,7 @@ namespace {
     }
 
     // Reads the live point back into a snapshot; false if it no longer exists.
-    bool read_point(int kind, long id, EditorPointSnapshot *out)
+    bool read_point(int64_t kind, int64_t id, EditorPointSnapshot *out)
     {
         std::memset(out, 0, sizeof(*out));
         out->kind = kind;
@@ -214,7 +215,7 @@ namespace {
         return true;
     }
 
-    void select_point(int kind, long id)
+    void select_point(int64_t kind, int64_t id)
     {
         s_sel_kind = kind;
         s_sel_id = id;
@@ -227,14 +228,14 @@ namespace {
     }
 
     struct PointRef {
-        int kind;
-        long id;
-        long x, y, z;
+        int64_t kind;
+        int64_t id;
+        int64_t x, y, z;
     };
 
     void collect_points(std::vector<PointRef> &out)
     {
-        for (long i = 1; i < LIGHTS_COUNT; i++)
+        for (int64_t i = 1; i < LIGHTS_COUNT; i++)
         {
             if (!light_is_level_content(i))
                 continue;
@@ -262,18 +263,18 @@ namespace {
     // same projection or it would disagree with what the user sees).
     bool pick_point(const std::vector<PointRef> &points, PointRef *hit)
     {
-        float best = kPickPixels * kPickPixels;
+        double best = kPickPixels * kPickPixels;
         bool found = false;
-        float mx = (float)GetMouseX();
-        float my = (float)GetMouseY();
+        double mx = (double)GetMouseX();
+        double my = (double)GetMouseY();
         for (size_t i = 0; i < points.size(); i++)
         {
-            long sx, sy;
+            int64_t sx, sy;
             if (!project_world_position_to_screen(points[i].x, points[i].y, points[i].z, &sx, &sy))
                 continue;
-            float dx = (float)sx - mx;
-            float dy = (float)sy - my;
-            float d2 = dx * dx + dy * dy;
+            double dx = (double)sx - mx;
+            double dy = (double)sy - my;
+            double d2 = dx * dx + dy * dy;
             if (d2 <= best)
             {
                 best = d2;
@@ -284,7 +285,7 @@ namespace {
         return found;
     }
 
-    long default_radius_raw(int kind)
+    int64_t default_radius_raw(int64_t kind)
     {
         switch (kind)
         {
@@ -299,11 +300,11 @@ namespace {
     // effects_conf.effectgen_cfgstats_count is never written by the loader,
     // so counting on it left the picker empty and only the default (model 1,
     // lava) placeable.
-    void collect_effectgen_models(std::vector<int> &models, std::vector<const char *> &names)
+    void collect_effectgen_models(std::vector<int64_t> &models, std::vector<const char *> &names)
     {
-        for (int i = 0; (i < EFFECTSGEN_TYPES_MAX) && (effectgen_desc[i].name != NULL); i++)
+        for (int64_t i = 0; (i < EFFECTSGEN_TYPES_MAX) && (effectgen_desc[i].name != NULL); i++)
         {
-            int model = effectgen_desc[i].num;
+            int64_t model = effectgen_desc[i].num;
             const char *name = effectgen_desc[i].name;
             if ((model <= 0) || (name[0] == '\0'))
                 continue;
@@ -327,7 +328,7 @@ namespace {
         return true;
     }
 
-    void place_point(long x, long y, long radius)
+    void place_point(int64_t x, int64_t y, int64_t radius)
     {
         EditorPointSnapshot snap;
         std::memset(&snap, 0, sizeof(snap));
@@ -339,7 +340,7 @@ namespace {
         {
             case EPK_Light:
                 snap.z = stl_to_raw(s_def_light_height);
-                snap.intensity = (int)s_def_intensity;
+                snap.intensity = (int64_t)s_def_intensity;
                 break;
             case EPK_ActionPoint:
                 snap.id = next_free_action_point_number();
@@ -391,7 +392,7 @@ namespace {
             }
             apt->mappos.x.val = (MapCoord)clamp_long(after.x, 0, 65535);
             apt->mappos.y.val = (MapCoord)clamp_long(after.y, 0, 65535);
-            apt->range = (unsigned short)clamp_long(after.radius, 0, 65535);
+            apt->range = (int64_t)clamp_long(after.radius, 0, 65535);
             return NULL;
         }
         // Try the new parameters first; if that fails (out of slots) put
@@ -441,34 +442,34 @@ namespace {
 
         char title[96];
         if (snap.kind == EPK_ActionPoint)
-            snprintf(title, sizeof(title), "Action Point %ld", snap.id);
+            snprintf(title, sizeof(title), "Action Point %" PRId64, (int64_t)(snap.id));
         else if (snap.kind == EPK_EffectGen)
             snprintf(title, sizeof(title), "Effect Generator: %s", effectgenerator_code_name((ThingModel)snap.model));
         else
-            snprintf(title, sizeof(title), "Light #%ld", snap.id);
+            snprintf(title, sizeof(title), "Light #%" PRId64, (int64_t)(snap.id));
         FeSubheading(title);
 
-        float fx = (float)snap.x / (float)kStl;
-        float fy = (float)snap.y / (float)kStl;
+        double fx = (double)snap.x / (double)kStl;
+        double fy = (double)snap.y / (double)kStl;
         ImGui::SetNextItemWidth(200);
-        ImGui::InputFloat("X (subtiles)##PtX", &fx, 0.0f, 0.0f, "%.2f");
+        kfximgui::InputFloat("X (subtiles)##PtX", &fx, 0.0, 0.0, "%.2f");
         if (ImGui::IsItemDeactivatedAfterEdit())
         {
             edited.x = stl_to_raw(fx);
             changed = true;
         }
         ImGui::SetNextItemWidth(200);
-        ImGui::InputFloat("Y (subtiles)##PtY", &fy, 0.0f, 0.0f, "%.2f");
+        kfximgui::InputFloat("Y (subtiles)##PtY", &fy, 0.0, 0.0, "%.2f");
         if (ImGui::IsItemDeactivatedAfterEdit())
         {
             edited.y = stl_to_raw(fy);
             changed = true;
         }
 
-        float radius = (float)snap.radius / (float)kStl;
+        double radius = (double)snap.radius / (double)kStl;
         const char *radius_label = (snap.kind == EPK_Light) ? "Radius (subtiles)"
             : (snap.kind == EPK_ActionPoint) ? "Range (subtiles)" : "Effect range (subtiles)";
-        if (FeSlider(radius_label, &radius, 0.0f, (snap.kind == EPK_Light) ? 40.0f : 20.0f, "%.1f"))
+        if (FeSlider(radius_label, &radius, 0.0, (snap.kind == EPK_Light) ? 40.0 : 20.0, "%.1f"))
         {
             edited.radius = stl_to_raw(radius);
             changed = true;
@@ -476,14 +477,14 @@ namespace {
 
         if (snap.kind == EPK_Light)
         {
-            float intensity = (float)snap.intensity;
-            if (FeSlider("Intensity", &intensity, 1.0f, 255.0f, "%.0f"))
+            double intensity = (double)snap.intensity;
+            if (FeSlider("Intensity", &intensity, 1.0, 255.0, "%.0f"))
             {
-                edited.intensity = (int)intensity;
+                edited.intensity = (int64_t)intensity;
                 changed = true;
             }
-            float height = (float)snap.z / (float)kStl;
-            if (FeSlider("Height (subtiles)", &height, 0.0f, 8.0f, "%.2f"))
+            double height = (double)snap.z / (double)kStl;
+            if (FeSlider("Height (subtiles)", &height, 0.0, 8.0, "%.2f"))
             {
                 edited.z = stl_to_raw(height);
                 changed = true;
@@ -491,9 +492,9 @@ namespace {
         }
         else if (snap.kind == EPK_ActionPoint)
         {
-            int number = (int)snap.id;
+            int64_t number = (int64_t)snap.id;
             ImGui::SetNextItemWidth(200);
-            ImGui::InputInt("Number##PtNum", &number);
+            kfximgui::InputInt("Number##PtNum", &number);
             if (ImGui::IsItemDeactivatedAfterEdit())
             {
                 edited.id = number;
@@ -503,14 +504,14 @@ namespace {
         }
         else
         {
-            std::vector<int> models;
+            std::vector<int64_t> models;
             std::vector<const char *> names;
             collect_effectgen_models(models, names);
-            int cur = 0;
+            int64_t cur = 0;
             for (size_t i = 0; i < models.size(); i++)
                 if (models[i] == snap.model)
-                    cur = (int)i;
-            if (!names.empty() && FeCombo("Kind##PtFxKind", &cur, names.data(), (int)names.size()))
+                    cur = (int64_t)i;
+            if (!names.empty() && FeCombo("Kind##PtFxKind", &cur, names.data(), (int64_t)names.size()))
             {
                 edited.model = models[cur];
                 changed = true;
@@ -525,8 +526,8 @@ namespace {
 
     void draw_counts()
     {
-        int lights = 0, aps = 0, fx = 0;
-        for (long i = 1; i < LIGHTS_COUNT; i++)
+        int64_t lights = 0, aps = 0, fx = 0;
+        for (int64_t i = 1; i < LIGHTS_COUNT; i++)
             if (light_is_level_content(i))
                 lights++;
         for (ActionPointId i = 1; i < ACTN_POINTS_COUNT; i++)
@@ -539,8 +540,8 @@ namespace {
                 fx++;
         }
         char line[128];
-        snprintf(line, sizeof(line), "Lights: %d   Action points: %d/%d   Effect gens: %d",
-            lights, aps, ACTN_POINTS_COUNT - 1, fx);
+        snprintf(line, sizeof(line), "Lights: %" PRId64 "   Action points: %" PRId64 "/%" PRId64 "   Effect gens: %" PRId64,
+            (int64_t)(lights), (int64_t)(aps), (int64_t)(ACTN_POINTS_COUNT - 1), (int64_t)(fx));
         FeCaption(line);
         // Same threshold lvl_filesdk1.c warns at when loading a level whose
         // static lights fill half the light slots.
@@ -566,7 +567,7 @@ namespace {
         {
             const PointRef &p = points[i];
             char label[24];
-            unsigned int color, ring;
+            uint64_t color, ring;
             switch (p.kind)
             {
                 case EPK_Light:
@@ -579,7 +580,7 @@ namespace {
                 case EPK_ActionPoint:
                     if (editor_overlay_ap_herogate_markers_enabled())
                         continue;
-                    snprintf(label, sizeof(label), "AP%ld", p.id);
+                    snprintf(label, sizeof(label), "AP%" PRId64, (int64_t)(p.id));
                     color = IM_COL32(230, 230, 230, 255);
                     ring = IM_COL32(230, 230, 230, 110);
                     break;
@@ -601,12 +602,12 @@ namespace {
 } // namespace
 
 /******************************************************************************/
-extern "C" int editor_points_effectgen_kind_count(void)
+extern "C" int64_t editor_points_effectgen_kind_count(void)
 {
-    std::vector<int> models;
+    std::vector<int64_t> models;
     std::vector<const char *> names;
     collect_effectgen_models(models, names);
-    return (int)models.size();
+    return (int64_t)models.size();
 }
 
 extern "C" void editor_points_reset(void)
@@ -627,9 +628,9 @@ extern "C" void editor_points_mark_thing_owned_lights(unsigned char *owned)
         if ((thing->light_id > 0) && (thing->light_id < LIGHTS_COUNT))
             owned[thing->light_id] = 1;
     }
-    for (int u = 0; u < MAX_NET_USERS; u++)
+    for (int64_t u = 0; u < MAX_NET_USERS; u++)
     {
-        int idx = kfx_sim_state.user_states[u].cursor_light_idx;
+        int64_t idx = kfx_sim_state.user_states[u].cursor_light_idx;
         if ((idx > 0) && (idx < LIGHTS_COUNT))
             owned[idx] = 1;
     }
@@ -647,11 +648,11 @@ extern "C" TbBool editor_points_create(struct EditorPointSnapshot *snap)
             ilght.mappos.x.val = (MapCoord)snap->x;
             ilght.mappos.y.val = (MapCoord)snap->y;
             ilght.mappos.z.val = (MapCoord)snap->z;
-            ilght.radius = (short)clamp_long(snap->radius, 0, 32767);
+            ilght.radius = (int64_t)clamp_long(snap->radius, 0, 32767);
             ilght.intensity = (unsigned char)clamp_long(snap->intensity, 1, 255);
             ilght.is_dynamic = 0;
             ilght.attached_slb = (SlabCodedCoords)snap->parent;
-            long idx = light_create_light(&ilght);
+            int64_t idx = light_create_light(&ilght);
             if (idx == 0)
                 return false;
             snap->id = idx;
@@ -659,7 +660,7 @@ extern "C" TbBool editor_points_create(struct EditorPointSnapshot *snap)
         }
         case EPK_ActionPoint:
         {
-            long number = snap->id;
+            int64_t number = snap->id;
             if (number <= 0)
                 number = next_free_action_point_number();
             if ((number <= 0) || (number > 65535) || (find_action_point(number) != NULL))
@@ -668,7 +669,7 @@ extern "C" TbBool editor_points_create(struct EditorPointSnapshot *snap)
             std::memset(&iapt, 0, sizeof(iapt));
             iapt.mappos.x.val = (MapCoord)clamp_long(snap->x, 0, 65535);
             iapt.mappos.y.val = (MapCoord)clamp_long(snap->y, 0, 65535);
-            iapt.range = (unsigned short)clamp_long(snap->radius, 0, 65535);
+            iapt.range = (int64_t)clamp_long(snap->radius, 0, 65535);
             iapt.num = (ActionPointNumber)number;
             struct ActionPoint *apt = actnpoint_create_actnpoint(&iapt);
             if (action_point_is_invalid(apt))
@@ -684,7 +685,7 @@ extern "C" TbBool editor_points_create(struct EditorPointSnapshot *snap)
             pos.y.val = (MapCoord)snap->y;
             pos.z.val = (MapCoord)snap->z;
             struct Thing *thing = create_effect_generator(&pos, (ThingModel)snap->model,
-                (unsigned short)clamp_long(snap->radius, 0, 32767), (unsigned short)snap->owner, snap->parent);
+                (int64_t)clamp_long(snap->radius, 0, 32767), (int64_t)snap->owner, snap->parent);
             if (thing_is_invalid(thing))
                 return false;
             snap->id = thing->index;
@@ -695,11 +696,11 @@ extern "C" TbBool editor_points_create(struct EditorPointSnapshot *snap)
     }
 }
 
-extern "C" int editor_points_capture_in_box(long x0, long y0, long x1, long y1, struct EditorPointSnapshot *out, int max)
+extern "C" int64_t editor_points_capture_in_box(int64_t x0, int64_t y0, int64_t x1, int64_t y1, struct EditorPointSnapshot *out, int64_t max)
 {
     refresh_owned_lights();
-    int n = 0;
-    for (long i = 1; i < LIGHTS_COUNT && n < max; i++)
+    int64_t n = 0;
+    for (int64_t i = 1; i < LIGHTS_COUNT && n < max; i++)
     {
         EditorPointSnapshot snap;
         if (read_point(EPK_Light, i, &snap) && snap.x >= x0 && snap.x < x1 && snap.y >= y0 && snap.y < y1)
@@ -723,7 +724,7 @@ extern "C" int editor_points_capture_in_box(long x0, long y0, long x1, long y1, 
     return n;
 }
 
-extern "C" TbBool editor_points_stamp(const struct EditorPointSnapshot *snap, long dx, long dy)
+extern "C" TbBool editor_points_stamp(const struct EditorPointSnapshot *snap, int64_t dx, int64_t dy)
 {
     EditorPointSnapshot copy = *snap;
     copy.x += dx;
@@ -779,7 +780,7 @@ extern "C" void editor_points_draw_panel(void)
 {
     refresh_owned_lights();
     FeSubheading("Points");
-    for (int k = 0; k < EPK_Count; k++)
+    for (int64_t k = 0; k < EPK_Count; k++)
     {
         if (FeNavButton(kKindNames[k], s_kind == k))
             s_kind = k;
@@ -790,25 +791,25 @@ extern "C" void editor_points_draw_panel(void)
     switch (s_kind)
     {
         case EPK_Light:
-            FeSlider("Radius (subtiles)##DefLr", &s_def_light_radius, 1.0f, 40.0f, "%.1f");
-            FeSlider("Intensity##DefLi", &s_def_intensity, 1.0f, 255.0f, "%.0f");
-            FeSlider("Height (subtiles)##DefLh", &s_def_light_height, 0.0f, 8.0f, "%.2f");
+            FeSlider("Radius (subtiles)##DefLr", &s_def_light_radius, 1.0, 40.0, "%.1f");
+            FeSlider("Intensity##DefLi", &s_def_intensity, 1.0, 255.0, "%.0f");
+            FeSlider("Height (subtiles)##DefLh", &s_def_light_height, 0.0, 8.0, "%.2f");
             break;
         case EPK_ActionPoint:
-            FeSlider("Range (subtiles)##DefAr", &s_def_ap_range, 0.0f, 20.0f, "%.1f");
+            FeSlider("Range (subtiles)##DefAr", &s_def_ap_range, 0.0, 20.0, "%.1f");
             break;
         default:
         {
-            std::vector<int> models;
+            std::vector<int64_t> models;
             std::vector<const char *> names;
             collect_effectgen_models(models, names);
-            int cur = 0;
+            int64_t cur = 0;
             for (size_t i = 0; i < models.size(); i++)
                 if (models[i] == s_def_fx_model)
-                    cur = (int)i;
-            if (!names.empty() && FeCombo("Kind##DefFx", &cur, names.data(), (int)names.size()))
+                    cur = (int64_t)i;
+            if (!names.empty() && FeCombo("Kind##DefFx", &cur, names.data(), (int64_t)names.size()))
                 s_def_fx_model = models[cur];
-            FeSlider("Effect range (subtiles)##DefFr", &s_def_fx_range, 0.0f, 20.0f, "%.1f");
+            FeSlider("Effect range (subtiles)##DefFr", &s_def_fx_range, 0.0, 20.0, "%.1f");
             break;
         }
     }
@@ -861,12 +862,12 @@ extern "C" void editor_points_frame(void)
 
     if (s_dragging)
     {
-        long dist = 0;
+        int64_t dist = 0;
         if (have_pos)
         {
             double dx = (double)mouse_pos.x.val - (double)s_drag_x;
             double dy = (double)mouse_pos.y.val - (double)s_drag_y;
-            dist = (long)std::sqrt(dx * dx + dy * dy);
+            dist = (int64_t)std::sqrt(dx * dx + dy * dy);
         }
         if (dist >= kClickVsDragDistance)
             editor_overlay_draw_radius_ring(s_drag_x, s_drag_y, (s_kind == EPK_Light) ? stl_to_raw(s_def_light_height) : 0,
@@ -874,7 +875,7 @@ extern "C" void editor_points_frame(void)
         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
             s_dragging = false;
-            long radius = (dist >= kClickVsDragDistance) ? dist : default_radius_raw(s_kind);
+            int64_t radius = (dist >= kClickVsDragDistance) ? dist : default_radius_raw(s_kind);
             place_point(s_drag_x, s_drag_y, radius);
         }
     }

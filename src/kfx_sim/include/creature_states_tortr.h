@@ -39,14 +39,14 @@ enum CreatureTortureVisualStates {
 
 #pragma pack()
 /******************************************************************************/
-short at_kinky_torture_room(struct Thing *thing);
+int64_t at_kinky_torture_room(struct Thing *thing);
 CrStateRet kinky_torturing(struct Thing *thing);
 CrCheckRet process_kinky_function(struct Thing *thing);
 
-short at_torture_room(struct Thing *thing);
+int64_t at_torture_room(struct Thing *thing);
 CrStateRet torturing(struct Thing *thing);
 CrCheckRet process_torture_function(struct Thing *thing);
-short cleanup_torturing(struct Thing *thing);
+int64_t cleanup_torturing(struct Thing *thing);
 /******************************************************************************/
 #ifdef __cplusplus
 }

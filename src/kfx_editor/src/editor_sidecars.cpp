@@ -4,6 +4,7 @@
 /** @file editor_sidecars.cpp
  *     See editor_sidecars.h.
  */
+#include <inttypes.h>
 #include "pre_inc.h"
 #include "editor_sidecars.h"
 
@@ -48,13 +49,13 @@ bool editor_sidecar_ext_is_handled(const std::string &ext_in)
     return false;
 }
 
-std::vector<std::string> editor_find_sidecars(const char *dir, unsigned long lvnum)
+std::vector<std::string> editor_find_sidecars(const char *dir, uint64_t lvnum)
 {
     std::vector<std::string> found;
     if (dir == nullptr || dir[0] == '\0')
         return found;
     char prefix[32];
-    snprintf(prefix, sizeof(prefix), "map%05lu.", lvnum);
+    snprintf(prefix, sizeof(prefix), "map%05" PRIu64 ".", (uint64_t)(lvnum));
     const std::string pfx = prefix;
     std::error_code ec;
     for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
@@ -71,8 +72,8 @@ std::vector<std::string> editor_find_sidecars(const char *dir, unsigned long lvn
     return found;
 }
 
-bool editor_save_is_relocation(const char *src_dir, unsigned long src_lvnum,
-    const char *dst_dir, unsigned long dst_lvnum)
+bool editor_save_is_relocation(const char *src_dir, uint64_t src_lvnum,
+    const char *dst_dir, uint64_t dst_lvnum)
 {
     if (src_lvnum != dst_lvnum)
         return true;
@@ -80,9 +81,9 @@ bool editor_save_is_relocation(const char *src_dir, unsigned long src_lvnum,
         != strip_trailing_slashes(dst_dir != nullptr ? dst_dir : "");
 }
 
-int editor_remove_sidecars(const char *dir, unsigned long lvnum)
+int64_t editor_remove_sidecars(const char *dir, uint64_t lvnum)
 {
-    int removed = 0;
+    int64_t removed = 0;
     for (const std::string &name : editor_find_sidecars(dir, lvnum))
     {
         std::error_code ec;
@@ -92,14 +93,14 @@ int editor_remove_sidecars(const char *dir, unsigned long lvnum)
     return removed;
 }
 
-int editor_copy_sidecars(const char *src_dir, unsigned long src_lvnum,
-    const char *dst_dir, unsigned long dst_lvnum)
+int64_t editor_copy_sidecars(const char *src_dir, uint64_t src_lvnum,
+    const char *dst_dir, uint64_t dst_lvnum)
 {
     char src_prefix[32];
     char dst_prefix[32];
-    snprintf(src_prefix, sizeof(src_prefix), "map%05lu", src_lvnum);
-    snprintf(dst_prefix, sizeof(dst_prefix), "map%05lu", dst_lvnum);
-    int copied = 0;
+    snprintf(src_prefix, sizeof(src_prefix), "map%05" PRIu64, (uint64_t)(src_lvnum));
+    snprintf(dst_prefix, sizeof(dst_prefix), "map%05" PRIu64, (uint64_t)(dst_lvnum));
+    int64_t copied = 0;
     for (const std::string &name : editor_find_sidecars(src_dir, src_lvnum))
     {
         const std::string target = dst_prefix + name.substr(strlen(src_prefix));

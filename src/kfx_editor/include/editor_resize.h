@@ -13,9 +13,9 @@
 
 struct EditorResizeReport
 {
-    int things_dropped = 0;
-    int lights_dropped = 0;
-    int action_points_dropped = 0;
+    int64_t things_dropped = 0;
+    int64_t lights_dropped = 0;
+    int64_t action_points_dropped = 0;
 };
 
 enum { EDITOR_RESIZE_MIN = 8, EDITOR_RESIZE_MAX = 170 };
@@ -25,7 +25,7 @@ enum { EDITOR_RESIZE_MIN = 8, EDITOR_RESIZE_MAX = 170 };
  *  lights and action points move with the ground; those left outside the new bounds are removed and
  *  counted. The classic derived files are dropped (they belong to the old size). False if the size is out
  *  of range. */
-bool editor_resize_content(MapContent &content, long new_w, long new_h, bool centered, PlayerNumber neutral_owner,
+bool editor_resize_content(MapContent &content, int64_t new_w, int64_t new_h, bool centered, PlayerNumber neutral_owner,
     EditorResizeReport *report);
 
 #endif

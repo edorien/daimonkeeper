@@ -38,7 +38,7 @@ struct KfxGameState {
     struct LevelScript script;
     PlayerNumber script_timer_player;
     unsigned char script_timer_id;
-    uint32_t script_timer_limit;
+    uint64_t script_timer_limit;
     struct ScriptVariable script_variables[DISPLAY_VARIABLES_LIMIT];
     unsigned char active_script_var_count;
 
@@ -56,8 +56,8 @@ struct KfxGameState {
        writes it, making kfx_sim the lowest-ranked of its real consumers;
        the other 3 fields here have no kfx_sim/kfx_net consumer. */
     TbBool heart_lost_quick_message;
-    uint32_t heart_lost_message_id;
-    int32_t heart_lost_message_target;
+    uint64_t heart_lost_message_id;
+    int64_t heart_lost_message_target;
 
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- flags_gui/timer_real/bonus_time
@@ -66,8 +66,8 @@ struct KfxGameState {
        sound_settings/lightst are kfx_game-only. */
     unsigned char flags_gui;
     TbBool timer_real;
-    int32_t bonus_time;
-    unsigned short ambient_sound_thing_idx;
+    int64_t bonus_time;
+    int64_t ambient_sound_thing_idx;
     struct SoundSettings sound_settings;
     struct LightSystemState lightst;
 
@@ -84,8 +84,8 @@ struct KfxGameState {
        stage-13-enforce-and-document.md) -- written by kfx_frontend's
        front_input.c, but also read by kfx_game's console_cmd.c, which
        is the lower-ranked of the two. */
-    int32_t my_mouse_x;
-    int32_t my_mouse_y;
+    int64_t my_mouse_x;
+    int64_t my_mouse_y;
 
     /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
        stage-13-enforce-and-document.md) -- written by kfx_frontend's
@@ -93,10 +93,15 @@ struct KfxGameState {
        (debug console commands), the lower-ranked of the two.
        gui_cheat_box_1/3/4 stay in kfx_frontend_state -- only box_2 is
        touched cross-layer. */
-    struct GuiBox *gui_cheat_box_2;
 };
 
 extern struct KfxGameState kfx_game_state;
+
+/** Process-local pointer, NOT part of the saved/resynced KfxGameState blob (see KfxFrontendLocal). */
+struct KfxGameLocal {
+    struct GuiBox *gui_cheat_box_2;
+};
+extern struct KfxGameLocal kfx_game_local;
 
 /******************************************************************************/
 #ifdef __cplusplus

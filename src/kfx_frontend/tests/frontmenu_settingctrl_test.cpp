@@ -12,12 +12,12 @@
 #include <cstring>
 
 namespace {
-long fake_setting_value = 0;
-long fake_get_value() { return fake_setting_value; }
-void fake_set_value(long value) { fake_setting_value = value; }
+int64_t fake_setting_value = 0;
+int64_t fake_get_value() { return fake_setting_value; }
+void fake_set_value(int64_t value) { fake_setting_value = value; }
 
 bool fake_checkbox_value = false;
-int fake_toggle_calls = 0;
+int64_t fake_toggle_calls = 0;
 TbBool fake_checkbox_get() { return fake_checkbox_value; }
 void fake_checkbox_toggle() { fake_checkbox_value = !fake_checkbox_value; fake_toggle_calls++; }
 

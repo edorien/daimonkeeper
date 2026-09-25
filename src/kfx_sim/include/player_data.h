@@ -121,15 +121,15 @@ struct SubtileXY {
 
 struct Wander
 {
-  uint32_t points_count;
+  uint64_t points_count;
   /** Index at which the search function inserts (or replaces) points. */
-  uint32_t point_insert_idx;
+  uint64_t point_insert_idx;
   /** Slab last checked by the search function. */
-  uint32_t last_checked_slb_num;
+  uint64_t last_checked_slb_num;
   /** Amount of slabs to be checked in one run of the search function. */
-  uint32_t num_check_per_run;
+  uint64_t num_check_per_run;
   /** Max amount of points added in one run of the search function. */
-  uint32_t max_found_per_check;
+  uint64_t max_found_per_check;
   unsigned char search_limiting_enabled;
   unsigned char wandr_slot;
   PlayerNumber plyr_idx;
@@ -159,17 +159,17 @@ struct PlayerInfo {
     unsigned char allocflags;
     unsigned char display_flags;
     NetUserId user_id; // -1 if no user
-    int32_t hand_animationId;
-    unsigned int hand_busy_until_turn;
+    int64_t hand_animationId;
+    uint64_t hand_busy_until_turn;
     char player_name[20];
     unsigned char victory_state;
     PlayerBitFlags allied_players;
     PlayerBitFlags players_with_locked_ally_status;
     unsigned char id_number;
     TbBool is_active;
-    short controlled_thing_idx;
+    int64_t controlled_thing_idx;
     GameTurn controlled_thing_creatrn;
-    short thing_under_hand;
+    int64_t thing_under_hand;
     TbBool possession_lock;
     unsigned char view_mode;
     unsigned char active_camera_idx;
@@ -178,9 +178,9 @@ struct PlayerInfo {
     MapCoord zoom_to_pos_y;
     struct Wander wandr_within;
     struct Wander wandr_outside;
-    short hand_thing_idx;
-    short cta_flag_idx;
-    short influenced_thing_idx;
+    int64_t hand_thing_idx;
+    int64_t cta_flag_idx;
+    int64_t influenced_thing_idx;
     GameTurn influenced_thing_creation;
     unsigned char view_type;
     PlayerState work_state;
@@ -190,33 +190,33 @@ struct PlayerInfo {
     char mp_message_text_last[PLAYER_MP_MESSAGE_LEN];
     /** Player instance, from PlayerInstanceNum enum. */
     unsigned char instance_num;
-    unsigned long instance_remain_turns;
+    uint64_t instance_remain_turns;
     /** If view mode is temporarily covered by another, the original mode which is to be restored later will be saved here.*/
     char view_mode_restore;
-    int32_t dungeon_camera_zoom;
+    int64_t dungeon_camera_zoom;
     /** Overcharge level while casting keeper powers. */
-    int32_t cast_expand_level;
+    int64_t cast_expand_level;
     MapCoordDelta zoom_to_movement_x;
     MapCoordDelta zoom_to_movement_y;
     GameTurn power_of_cooldown_turn;
-    int32_t game_version;
+    int64_t game_version;
     GameTurn display_objective_turn;
-    uint32_t isometric_view_zoom_level;
-    uint32_t frontview_zoom_level;
+    uint64_t isometric_view_zoom_level;
+    uint64_t frontview_zoom_level;
     unsigned char hand_idx;
     struct RoomSpace render_roomspace;
     struct RoomSpace roomspace;
     unsigned char roomspace_mode;
-    int roomspace_detection_looseness;
-    int roomspace_width;
-    int roomspace_height;
+    int64_t roomspace_detection_looseness;
+    int64_t roomspace_width;
+    int64_t roomspace_height;
     unsigned char roomspace_highlight_mode;
     TbBool roomspace_drag_paint_mode;
     unsigned char roomspace_l_shape;
     TbBool roomspace_horizontal_first;
     unsigned char player_type; //enum PlayerTypes
     ThingModel special_digger;
-    unsigned short generate_speed;
+    int64_t generate_speed;
 };
 
 /* Game state that exists per human user. Computer-controlled
@@ -230,7 +230,7 @@ struct UserState {
     unsigned char additional_flags; // Uses UserAdditionalFlags
     unsigned char input_crtr_control;
     unsigned char input_crtr_query;
-    short cursor_light_idx;
+    int64_t cursor_light_idx;
     /** Cursor position, and the subtile it last clicked on. */
     MapSubtlCoord cursor_subtile_x;
     MapSubtlCoord cursor_subtile_y;
@@ -250,8 +250,8 @@ struct UserState {
     TbBool interpolated_tagging;
     /** First person (possession) controls. */
     TbBool first_person_dig_claim_mode;
-    int first_person_unfreeze_delay;
-    unsigned short selected_fp_thing_pickup;
+    int64_t first_person_unfreeze_delay;
+    int64_t selected_fp_thing_pickup;
     unsigned char teleport_destination;
     TbBool nearest_teleport;
     BattleIndex battleid;
@@ -285,24 +285,24 @@ extern struct LocalState {
     TbBool tooltips_hidden_for_map; /**< Tooltips are off for a map fade and tooltips_restore holds the setting. */
     TbBool paused_state_restore; /**< Used to restore pause state after saving */
     TbBool display_needs_update;
-    short local_thing_under_hand;
+    int64_t local_thing_under_hand;
     TbBool swipe_sprite_drawLR; /**< Used to decide whether to draw the swipe sprite left to right (TRUE), or [default] right to left (FALSE). */
     unsigned char *lens_palette;
     unsigned char *main_palette;
-    int32_t palette_fade_step_map;
-    int32_t palette_fade_step_pain;
-    int32_t palette_fade_step_possession;
-    short engine_window_width;
-    short engine_window_height;
-    short engine_window_x;
-    short engine_window_y;
-    short minimap_pos_x;
-    short minimap_pos_y;
-    unsigned short minimap_zoom;
-    int roomspace_size;
+    int64_t palette_fade_step_map;
+    int64_t palette_fade_step_pain;
+    int64_t palette_fade_step_possession;
+    int64_t engine_window_width;
+    int64_t engine_window_height;
+    int64_t engine_window_x;
+    int64_t engine_window_y;
+    int64_t minimap_pos_x;
+    int64_t minimap_pos_y;
+    int64_t minimap_zoom;
+    int64_t roomspace_size;
 } local_state;
 
-extern unsigned short player_colors_map[];
+extern int64_t player_colors_map[];
 extern TbPixel player_path_colours[];
 extern TbPixel player_room_colours[];
 extern TbPixel player_flash_colours[];
@@ -310,7 +310,7 @@ extern TbPixel player_highlight_colours[];
 /* Palette INDEX array, not a colour array -- see the definition's comment
  * in player_data.c. */
 extern unsigned char possession_hit_colours[];
-extern unsigned short const player_cubes[];
+extern int64_t const player_cubes[];
 extern struct PlayerInfo bad_player;
 extern struct UserState bad_user_state;
 /******************************************************************************/
@@ -340,9 +340,9 @@ TbBool player_is_roaming(PlayerNumber plyr_num);
 TbBool player_is_keeper(PlayerNumber plyr_num);
 TbBool player_is_neutral(PlayerNumber plyr_num);
 
-void set_player_state(struct PlayerInfo *player, short a1, int32_t a2);
-void set_player_mode(struct PlayerInfo *player, unsigned short nview);
-void reset_player_mode(struct PlayerInfo *player, unsigned short nview);
+void set_player_state(struct PlayerInfo *player, int64_t a1, int64_t a2);
+void set_player_mode(struct PlayerInfo *player, int64_t nview);
+void reset_player_mode(struct PlayerInfo *player, int64_t nview);
 
 void clear_players(void);
 
@@ -351,7 +351,7 @@ void set_player_active_camera(struct PlayerInfo *player, unsigned char cam_idx);
 unsigned char rotate_mode_to_view_mode(unsigned char mode);
 
 unsigned char get_player_color_idx(PlayerNumber plyr_idx);
-TbPixel get_player_path_colour(unsigned short owner);
+TbPixel get_player_path_colour(int64_t owner);
 TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player);
 /******************************************************************************/
 #ifdef __cplusplus

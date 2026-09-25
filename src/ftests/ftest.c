@@ -82,7 +82,7 @@ FTestFrameworkState ftest_change_state(FTestFrameworkState next)
         return FTSt_InvalidState;
     }
 
-    FTESTLOG("Changing from current state %s(%d) to %s(%d)", current_state_name, ftest_donottouch__vars.current_state, next_state_name, next);
+    FTESTLOG("Changing from current state %s(%" PRId64 ") to %s(%" PRId64 ")", current_state_name, (int64_t)(ftest_donottouch__vars.current_state), next_state_name, (int64_t)(next));
     ftest_donottouch__vars.previous_state = ftest_donottouch__vars.current_state;
     ftest_donottouch__vars.current_state = next;
 
@@ -113,7 +113,7 @@ void ftest_clear_actions()
     vars->is_restarting_actions_queue = false;
     vars->current_turn_counter = 0;
 
-    for(unsigned long i = 0; i < FTEST_MAX_ACTIONS_PER_TEST; ++i)
+    for(uint64_t i = 0; i < FTEST_MAX_ACTIONS_PER_TEST; ++i)
     {
         vars->actions_func_list[i] = NULL;
         vars->actions_func_turn_list[i] = 0;
@@ -135,7 +135,7 @@ TbBool ftest_append_action(FTest_Action_Func func, GameTurn turn_delay, void* da
 
     if(vars->total_actions + 1 >= FTEST_MAX_ACTIONS_PER_TEST)
     {
-        FTEST_FAIL_TEST("Too many actions, increase FTEST_MAX_ACTIONS_PER_TEST(%d)", FTEST_MAX_ACTIONS_PER_TEST);
+        FTEST_FAIL_TEST("Too many actions, increase FTEST_MAX_ACTIONS_PER_TEST(%" PRId64 ")", (int64_t)(FTEST_MAX_ACTIONS_PER_TEST));
         return false;
     }
 
@@ -181,10 +181,10 @@ TbBool ftest_fill_teststorun_by_name(char* const name)
 
     struct FTestConfig* test_config = NULL;
     vars->total_tests = 0;
-    for(unsigned long i = 0; i < FTEST_MAX_TESTS; ++i) { vars->tests_to_run[i] = NULL; }
+    for(uint64_t i = 0; i < FTEST_MAX_TESTS; ++i) { vars->tests_to_run[i] = NULL; }
 
     TbBool too_many_tests = false;
-    for(unsigned short test_list_id = 0; test_list_id < 2; ++test_list_id)
+    for(int64_t test_list_id = 0; test_list_id < 2; ++test_list_id)
     {
         struct FTestConfig* current_test_list = NULL;
 
@@ -214,7 +214,7 @@ TbBool ftest_fill_teststorun_by_name(char* const name)
             continue;
         }
 
-        for(unsigned long i = 0; i < FTEST_MAX_TESTS; ++i)
+        for(uint64_t i = 0; i < FTEST_MAX_TESTS; ++i)
         {
             test_config = &current_test_list[i];
             if(test_config == NULL || strnlen(test_config->test_name, FTEST_MAX_NAME_LENGTH) <= 0)
@@ -245,7 +245,7 @@ TbBool ftest_fill_teststorun_by_name(char* const name)
 
     if(too_many_tests)
     {
-        FTEST_FRAMEWORK_ABORT("Too many tests %lu, increase the value of FTEST_MAX_TESTS(%d)", vars->total_tests, FTEST_MAX_TESTS);
+        FTEST_FRAMEWORK_ABORT("Too many tests %" PRIu64 ", increase the value of FTEST_MAX_TESTS(%" PRId64 ")", (uint64_t)(vars->total_tests), (int64_t)(FTEST_MAX_TESTS));
         return false;
     }
 
@@ -475,7 +475,7 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
             FTEST_FRAMEWORK_ABORT("Missing test config... this shouldn't happen.");
         }
 
-        const unsigned long ftest_actions_length = sizeof(vars->actions_func_list) / sizeof(vars->actions_func_list[0]);
+        const uint64_t ftest_actions_length = sizeof(vars->actions_func_list) / sizeof(vars->actions_func_list[0]);
         if(vars->current_action < ftest_actions_length)
         {
             //get next valid test action
@@ -504,7 +504,7 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
                 {
                     if(vars->current_action != vars->previous_action)
                     {
-                        FTESTLOG("executing action %lu", vars->current_action);
+                        FTESTLOG("executing action %" PRIu64, (uint64_t)(vars->current_action));
                         vars->previous_action = vars->current_action;
                         current_test_action_args->actual_started_at_game_turn = get_gameturn();
                     }
@@ -549,7 +549,7 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
 
             if(current_test_config->repeat_n_times-1 > 0)
             {
-                FTESTLOG("Test %s is marked to repeat %d times, restarting...", current_test_config->test_name, current_test_config->repeat_n_times);
+                FTESTLOG("Test %s is marked to repeat %" PRId64 " times, restarting...", current_test_config->test_name, (int64_t)(current_test_config->repeat_n_times));
                 --vars->current_test;
                 --current_test_config->repeat_n_times;
             }
@@ -568,11 +568,11 @@ FTestFrameworkState ftest_update(FTestFrameworkState* const out_prev_state)
 
 void ftest_restart_actions()
 {
-    const unsigned long ftest_actions_length = sizeof(ftest_donottouch__vars.actions_func_list) / sizeof(ftest_donottouch__vars.actions_func_list[0]);
+    const uint64_t ftest_actions_length = sizeof(ftest_donottouch__vars.actions_func_list) / sizeof(ftest_donottouch__vars.actions_func_list[0]);
 
     ftest_donottouch__vars.is_restarting_actions_queue = true;
 
-    for(unsigned long i = 0; i < ftest_actions_length; ++i)
+    for(uint64_t i = 0; i < ftest_actions_length; ++i)
     {
         if(ftest_donottouch__vars.actions_func_list[i] == NULL)
         {

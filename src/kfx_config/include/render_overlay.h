@@ -35,19 +35,19 @@ struct RenderOverlayCallbacks {
     /* gui_parchment.h */
     void (*redraw_parchment_view)(void);
     void (*load_and_redraw_minimal_overhead_view)(void); /* load_parchment_file() + redraw_minimal_overhead_view() */
-    void (*set_parchment_loaded)(int val);
+    void (*set_parchment_loaded)(int64_t val);
     TbBool (*is_parchment_loaded)(void);
     void (*reload_parchment_file)(TbBool hires);
-    TbBool (*point_to_overhead_map)(const struct Camera *camera, long screen_x, long screen_y, int32_t *map_x, int32_t *map_y);
+    TbBool (*point_to_overhead_map)(const struct Camera *camera, int64_t screen_x, int64_t screen_y, int64_t *map_x, int64_t *map_y);
 
     /* gui_frontmenu.h */
-    long (*get_main_menu_width)(void);
+    int64_t (*get_main_menu_width)(void);
 
     /* gui_draw.h */
-    void (*draw_gui_panel_sprite_left)(long x, long y, int units_per_px, long spridx);
-    void (*draw_slab64k)(long pos_x, long pos_y, int units_per_px, long width, long height);
-    void (*draw_gui_panel_sprite_centered)(long x, long y, int units_per_px, long spridx);
-    void (*draw_button_sprite_left)(long x, long y, int units_per_px, long spridx);
+    void (*draw_gui_panel_sprite_left)(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx);
+    void (*draw_slab64k)(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width, int64_t height);
+    void (*draw_gui_panel_sprite_centered)(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx);
+    void (*draw_button_sprite_left)(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx);
 
     /* gui_msgs.h / gui_boxmenu.h / gui_tooltips.h */
     void (*message_draw)(void);
@@ -61,7 +61,7 @@ struct RenderOverlayCallbacks {
 
     /* frontend.h */
     void (*set_winfont)(void); /* LbTextSetFont(winfont) */
-    long (*get_status_panel_width)(void);
+    int64_t (*get_status_panel_width)(void);
     void (*draw_gui)(void);
     TbBool (*game_is_busy_doing_gui)(void);
 
@@ -74,26 +74,26 @@ struct RenderOverlayCallbacks {
     /* frontmenu_ingame_evnt.h */
     void (*draw_debug_overlays)(void); /* bonus/script/gameturn timers, frametime, network stats, consolelog */
     TbBool (*bonus_script_or_variable_overlay_active)(void); /* bonus_timer_enabled()||script_timer_enabled()||display_variable_enabled() */
-    long (*get_battle_creature_over)(void);
+    int64_t (*get_battle_creature_over)(void);
 
     /* frontmenu_ingame_map.h */
-    long (*get_map_diagonal_length)(void);
+    int64_t (*get_map_diagonal_length)(void);
 
     /* packets.h */
     TbBool (*get_unpausing_in_progress)(void);
     TbBool (*can_process_creature_input)(struct Thing *thing);
-    void (*process_first_person_look)(struct Thing *thing, const struct Packet *pckt, long current_horizontal, long current_vertical, long *out_horizontal, long *out_vertical, long *out_roll);
+    void (*process_first_person_look)(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll);
     void (*process_camera_controls)(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player, TbBool is_local_camera);
     void (*process_camera_action)(struct Camera *cams, const struct Packet *pckt);
     const struct Packet *(*get_history_packet)(NetUserId user, GameTurn turn);
-    void (*set_packet_control)(struct Packet *pckt, unsigned long flag);
+    void (*set_packet_control)(struct Packet *pckt, uint64_t flag);
 
     /* frontend.h -- called from kfx_render's vidmode.c (video-mode
        switch needs to reload frontend data / recheck which menus are
        open) and kfx_sim's thing_creature.c (menu_is_active only). */
     void (*frontend_load_data_from_cd)(void);
     void (*frontend_load_data_reset)(void);
-    short (*menu_is_active)(short idx);
+    int64_t (*menu_is_active)(int64_t idx);
     void (*reinit_all_menus)(void);
 
     /* gui_frontmenu.h -- vidmode.c re-opens the video-options menu after
@@ -117,8 +117,8 @@ struct RenderOverlayCallbacks {
        light_enabled flag, without struct Light/struct LightsShadows
        visible by value (stage 13.3, docs/refactor/
        stage-13-enforce-and-document.md). */
-    long (*light_create_light)(struct InitLight *ilght);
-    void (*light_set_attached_slab)(long lgt_id, SlabCodedCoords slb_num);
+    int64_t (*light_create_light)(struct InitLight *ilght);
+    void (*light_set_attached_slab)(int64_t lgt_id, SlabCodedCoords slb_num);
     void (*delete_lights_attached_to_slab_in_area)(SlabCodedCoords place_slbnum,
         MapSubtlCoord start_stl_x, MapSubtlCoord start_stl_y,
         MapSubtlCoord end_stl_x, MapSubtlCoord end_stl_y);
@@ -129,7 +129,7 @@ struct RenderOverlayCallbacks {
        interpolation fraction, computed once per frame by kfx_apploop's
        main loop. Found via scripts/check_layering_symbols.py
        (docs/refactor/todo/check-layering-symbol-level-blind-spot.md). */
-    float (*get_interpolate_time)(void);
+    double (*get_interpolate_time)(void);
 };
 void set_render_overlay_callbacks(const struct RenderOverlayCallbacks *callbacks);
 extern const struct RenderOverlayCallbacks *render_overlay;

@@ -19,7 +19,7 @@ TEST_CASE("set_sprite_lookup_callbacks installs a custom table and falls back to
     struct SpriteLookupCallbacks fake = *sprite_lookup;
     static bool called = false;
     called = false;
-    fake.get_ensign_id = [](const char *) -> short { called = true; return 42; };
+    fake.get_ensign_id = [](const char *) -> int64_t { called = true; return 42; };
 
     set_sprite_lookup_callbacks(&fake);
     CHECK(sprite_lookup->get_ensign_id("x") == 42);

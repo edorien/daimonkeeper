@@ -66,7 +66,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "count_entrances counts entrance rooms owned
     CHECK(count_entrances(comp, 0) == 1);  // only room1
     CHECK(count_entrances(comp, 1) == 1);  // only room2
 
-    room1->player_interested[comp->dungeon->owner] |= 0x01;
+    room1->player_interested[computer_dungeon(comp)->owner] |= 0x01;
     CHECK(count_entrances(comp, 0) == 0);  // room1 excluded once marked interested
     CHECK(count_entrances(comp, -1) == 1); // only room2 remains
 }

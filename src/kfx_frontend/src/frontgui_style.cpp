@@ -66,10 +66,10 @@ namespace {
         static const char *const light_kw[] = { "regular", "book", "light", "medium", nullptr };
 
         char best_heavy[512] = {0}, best_light[512] = {0}, any[512] = {0};
-        int best_heavy_rank = 999, best_light_rank = 999;
+        int64_t best_heavy_rank = 999, best_light_rank = 999;
 
         const char *subdirs[2] = { "", "/static" };
-        for (int s = 0; s < 2; s++)
+        for (int64_t s = 0; s < 2; s++)
         {
             char rel[256];
             std::snprintf(rel, sizeof(rel), "font/%s%s", family, subdirs[s]);
@@ -91,10 +91,10 @@ namespace {
                 std::snprintf(full, sizeof(full), "%s/%s", dir, fn);
                 if (any[0] == '\0')
                     std::snprintf(any, sizeof(any), "%s", full);
-                for (int r = 0; heavy_kw[r] != nullptr; r++)
+                for (int64_t r = 0; heavy_kw[r] != nullptr; r++)
                     if (name_has(fn, heavy_kw[r]) && r < best_heavy_rank)
                     { best_heavy_rank = r; std::snprintf(best_heavy, sizeof(best_heavy), "%s", full); }
-                for (int r = 0; light_kw[r] != nullptr; r++)
+                for (int64_t r = 0; light_kw[r] != nullptr; r++)
                     if (name_has(fn, light_kw[r]) && r < best_light_rank)
                     { best_light_rank = r; std::snprintf(best_light, sizeof(best_light), "%s", full); }
             } while (LbFileFindNext(ff, &fe) >= 0);
@@ -153,7 +153,7 @@ namespace {
         // Reference size: rebuilt every PushFont call at whatever pixel
         // size the caller asks for (§4.3), this is just the atlas's
         // nominal/legacy size, mostly unused.
-        const float reference_size = 24.0f;
+        const double reference_size = 24.0;
         ImFontConfig cfg;
         cfg.SizePixels = reference_size;
         // TODO(§4.2): merge GNU Unifont / WenQuanYi Zen Hei (already used
@@ -223,26 +223,26 @@ namespace {
         ImGuiStyle &style = ImGui::GetStyle();
         ImVec4 *c = style.Colors;
 
-        const ImVec4 parchment      (0.90f, 0.82f, 0.66f, 1.00f);
-        const ImVec4 parchment_dim  (0.68f, 0.60f, 0.46f, 1.00f);
-        const ImVec4 bronze         (0.62f, 0.48f, 0.30f, 1.00f);
-        const ImVec4 bronze_bright  (0.80f, 0.64f, 0.40f, 1.00f);
+        const ImVec4 parchment      (0.90, 0.82, 0.66, 1.00);
+        const ImVec4 parchment_dim  (0.68, 0.60, 0.46, 1.00);
+        const ImVec4 bronze         (0.62, 0.48, 0.30, 1.00);
+        const ImVec4 bronze_bright  (0.80, 0.64, 0.40, 1.00);
         // Legacy in-game message frames (draw_round_slab64k, gui_draw.c) are
         // a *translucent* mid-brown box (Lb_SPRITE_TRANSPAR4/8 over palette
         // brown) under a lighter, embossed edge -- not the near-opaque
         // near-black these were. The backdrop, and the land/3D view behind an
         // in-menu box, are meant to read through the fill.
-        const ImVec4 brown_bg       (0.17f, 0.11f, 0.07f, 0.70f);
-        const ImVec4 brown_panel    (0.20f, 0.13f, 0.085f, 0.80f);
-        const ImVec4 brown_frame    (0.11f, 0.075f, 0.055f, 0.85f);
+        const ImVec4 brown_bg       (0.17, 0.11, 0.07, 0.70);
+        const ImVec4 brown_panel    (0.20, 0.13, 0.085, 0.80);
+        const ImVec4 brown_frame    (0.11, 0.075, 0.055, 0.85);
         // Window/panel border: a warm tan a shade lighter than the fill, held
         // slightly translucent so it reads as a raised edge rather than a
         // hard outline. fe_inset_bevel() (frontgui_widgets.cpp) adds the
         // matching two-tone highlight/shadow inside it.
-        const ImVec4 edge_hi        (0.72f, 0.58f, 0.38f, 0.80f);
-        const ImVec4 blood          (0.50f, 0.09f, 0.08f, 1.00f);
-        const ImVec4 blood_hover    (0.68f, 0.15f, 0.11f, 1.00f);
-        const ImVec4 blood_active   (0.82f, 0.22f, 0.13f, 1.00f);
+        const ImVec4 edge_hi        (0.72, 0.58, 0.38, 0.80);
+        const ImVec4 blood          (0.50, 0.09, 0.08, 1.00);
+        const ImVec4 blood_hover    (0.68, 0.15, 0.11, 1.00);
+        const ImVec4 blood_active   (0.82, 0.22, 0.13, 1.00);
 
         c[ImGuiCol_Text]                  = parchment;
         c[ImGuiCol_TextDisabled]          = parchment_dim;
@@ -250,15 +250,15 @@ namespace {
         c[ImGuiCol_ChildBg]               = ImVec4(0, 0, 0, 0);
         c[ImGuiCol_PopupBg]               = brown_panel;
         c[ImGuiCol_Border]                = edge_hi;
-        c[ImGuiCol_BorderShadow]          = ImVec4(0, 0, 0, 0.55f);
+        c[ImGuiCol_BorderShadow]          = ImVec4(0, 0, 0, 0.55);
         c[ImGuiCol_FrameBg]               = brown_frame;
-        c[ImGuiCol_FrameBgHovered]        = ImVec4(0.20f, 0.14f, 0.10f, 0.96f);
-        c[ImGuiCol_FrameBgActive]         = ImVec4(0.25f, 0.17f, 0.12f, 1.00f);
+        c[ImGuiCol_FrameBgHovered]        = ImVec4(0.20, 0.14, 0.10, 0.96);
+        c[ImGuiCol_FrameBgActive]         = ImVec4(0.25, 0.17, 0.12, 1.00);
         c[ImGuiCol_TitleBg]               = brown_panel;
         c[ImGuiCol_TitleBgActive]         = brown_panel;
         c[ImGuiCol_TitleBgCollapsed]      = brown_panel;
         c[ImGuiCol_MenuBarBg]             = brown_panel;
-        c[ImGuiCol_ScrollbarBg]           = ImVec4(0.06f, 0.04f, 0.03f, 0.60f);
+        c[ImGuiCol_ScrollbarBg]           = ImVec4(0.06, 0.04, 0.03, 0.60);
         c[ImGuiCol_ScrollbarGrab]         = bronze;
         c[ImGuiCol_ScrollbarGrabHovered]  = bronze_bright;
         c[ImGuiCol_ScrollbarGrabActive]   = blood_hover;
@@ -272,38 +272,38 @@ namespace {
         // ImGui::Button() degrades to an invisible-framed text button rather
         // than the default blue.
         c[ImGuiCol_Button]                = ImVec4(0, 0, 0, 0);
-        c[ImGuiCol_ButtonHovered]         = ImVec4(parchment.x, parchment.y, parchment.z, 0.06f);
-        c[ImGuiCol_ButtonActive]          = ImVec4(parchment.x, parchment.y, parchment.z, 0.12f);
+        c[ImGuiCol_ButtonHovered]         = ImVec4(parchment.x, parchment.y, parchment.z, 0.06);
+        c[ImGuiCol_ButtonActive]          = ImVec4(parchment.x, parchment.y, parchment.z, 0.12);
         // List-row selection/hover: a warm bronze wash rather than a red
         // slab, to match the de-emphasised chrome above.
-        c[ImGuiCol_Header]                = ImVec4(bronze.x, bronze.y, bronze.z, 0.45f);
-        c[ImGuiCol_HeaderHovered]         = ImVec4(bronze_bright.x, bronze_bright.y, bronze_bright.z, 0.55f);
-        c[ImGuiCol_HeaderActive]          = ImVec4(bronze_bright.x, bronze_bright.y, bronze_bright.z, 0.75f);
+        c[ImGuiCol_Header]                = ImVec4(bronze.x, bronze.y, bronze.z, 0.45);
+        c[ImGuiCol_HeaderHovered]         = ImVec4(bronze_bright.x, bronze_bright.y, bronze_bright.z, 0.55);
+        c[ImGuiCol_HeaderActive]          = ImVec4(bronze_bright.x, bronze_bright.y, bronze_bright.z, 0.75);
         c[ImGuiCol_Separator]             = bronze;
         c[ImGuiCol_SeparatorHovered]      = bronze_bright;
         c[ImGuiCol_SeparatorActive]       = blood_active;
-        c[ImGuiCol_ResizeGrip]            = ImVec4(bronze.x, bronze.y, bronze.z, 0.40f);
+        c[ImGuiCol_ResizeGrip]            = ImVec4(bronze.x, bronze.y, bronze.z, 0.40);
         c[ImGuiCol_ResizeGripHovered]     = bronze_bright;
         c[ImGuiCol_ResizeGripActive]      = blood_active;
         // Tabs follow the buttons: no red fill. The active tab reads from the
         // bronze overline (kept) plus a slightly lighter panel fill; hover is
         // a faint parchment tint.
         c[ImGuiCol_Tab]                   = brown_frame;
-        c[ImGuiCol_TabHovered]            = ImVec4(parchment.x, parchment.y, parchment.z, 0.10f);
+        c[ImGuiCol_TabHovered]            = ImVec4(parchment.x, parchment.y, parchment.z, 0.10);
         c[ImGuiCol_TabSelected]           = brown_panel;
         c[ImGuiCol_TabSelectedOverline]   = bronze_bright;
         c[ImGuiCol_TabDimmed]             = brown_frame;
         c[ImGuiCol_TabDimmedSelected]     = brown_panel;
         c[ImGuiCol_NavCursor]             = bronze_bright;
         c[ImGuiCol_NavWindowingHighlight] = bronze_bright;
-        c[ImGuiCol_NavWindowingDimBg]     = ImVec4(0, 0, 0, 0.5f);
+        c[ImGuiCol_NavWindowingDimBg]     = ImVec4(0, 0, 0, 0.5);
         // ImGui's dark-theme default for ModalWindowDimBg is a *light* grey
         // (0.80,0.80,0.80,0.35) -- it dims by lightening, which reads as a
         // wash-out over KeeperFX's dark parchment menus and, worse, over the
         // live 3D scene behind an in-game modal (docs/refactor/ingame-gui/
         // Phase 0). Darken it like NavWindowingDimBg so a modal actually
         // dims what's behind it.
-        c[ImGuiCol_ModalWindowDimBg]      = ImVec4(0, 0, 0, 0.55f);
+        c[ImGuiCol_ModalWindowDimBg]      = ImVec4(0, 0, 0, 0.55);
     }
 
     // Sizing derives from font metrics and window scale, never literal
@@ -317,28 +317,28 @@ namespace {
     void apply_metrics()
     {
         ImGuiStyle &style = ImGui::GetStyle();
-        style.WindowRounding    = 4.0f;
-        style.ChildRounding     = 4.0f;
-        style.FrameRounding     = 3.0f;
-        style.PopupRounding     = 4.0f;
+        style.WindowRounding    = 4.0;
+        style.ChildRounding     = 4.0;
+        style.FrameRounding     = 3.0;
+        style.PopupRounding     = 4.0;
         // Classic list scrollbar: a chunky bar with a fully-rounded grab, so
         // a short grab reads as the legacy rounded (lozenge) position
         // indicator rather than a thin rectangle. ScrollbarRounding at half
         // the bar width gives pill ends; GrabMinSize keeps it lozenge-shaped
         // even when the list only just overflows.
-        style.ScrollbarSize     = 18.0f;
-        style.ScrollbarRounding = 9.0f;
-        style.GrabMinSize       = 16.0f;
-        style.GrabRounding      = 3.0f;
-        style.TabRounding       = 3.0f;
-        style.WindowBorderSize  = 1.5f;
-        style.ChildBorderSize   = 1.0f;
-        style.PopupBorderSize   = 1.5f;
-        style.FrameBorderSize   = 1.0f;
-        style.WindowPadding     = ImVec2(12.0f, 12.0f);
-        style.FramePadding      = ImVec2(8.0f, 5.0f);
-        style.ItemSpacing       = ImVec2(8.0f, 6.0f);
-        style.ItemInnerSpacing  = ImVec2(6.0f, 4.0f);
+        style.ScrollbarSize     = 18.0;
+        style.ScrollbarRounding = 9.0;
+        style.GrabMinSize       = 16.0;
+        style.GrabRounding      = 3.0;
+        style.TabRounding       = 3.0;
+        style.WindowBorderSize  = 1.5;
+        style.ChildBorderSize   = 1.0;
+        style.PopupBorderSize   = 1.5;
+        style.FrameBorderSize   = 1.0;
+        style.WindowPadding     = ImVec2(12.0, 12.0);
+        style.FramePadding      = ImVec2(8.0, 5.0);
+        style.ItemSpacing       = ImVec2(8.0, 6.0);
+        style.ItemInnerSpacing  = ImVec2(6.0, 4.0);
     }
 }
 
@@ -385,10 +385,10 @@ void FeStylePushFont(FeFontRole role)
     // window pixel size every frame, so this re-derives on resolution
     // change for free, no rebuild needed (1.92's dynamic font system
     // rasterizes glyphs on demand at whatever size PushFont asks for).
-    const float display_h = ImGui::GetIO().DisplaySize.y;
-    float body_px = display_h / 32.0f;
-    if (body_px < 11.0f) body_px = 11.0f;
-    if (body_px > 96.0f) body_px = 96.0f;
+    const double display_h = ImGui::GetIO().DisplaySize.y;
+    double body_px = display_h / 32.0;
+    if (body_px < 11.0) body_px = 11.0;
+    if (body_px > 96.0) body_px = 96.0;
 
     // UI_FONT_SCALE (keeperfx.cfg, KeeperFX-only): the resolution-derived
     // size above is a reasonable default, not a perfect fit for every
@@ -396,16 +396,16 @@ void FeStylePushFont(FeFontRole role)
     // top of it, applied after the clamp so a user asking for 200% at a low
     // resolution isn't silently capped by the 96px ceiling meant for the
     // *unscaled* formula.
-    body_px *= (float)keeperfx_ui_config.ui_font_scale_pct / 100.0f;
+    body_px *= (double)keeperfx_ui_config.ui_font_scale_pct / 100.0;
 
     ImFont *font = s_font_light;
-    float size = body_px;
+    double size = body_px;
     switch (role)
     {
-        case FeFont_Heading:    font = s_font_heavy; size = body_px * 1.9f;  break;
-        case FeFont_Subheading: font = s_font_heavy; size = body_px * 1.3f;  break;
+        case FeFont_Heading:    font = s_font_heavy; size = body_px * 1.9;  break;
+        case FeFont_Subheading: font = s_font_heavy; size = body_px * 1.3;  break;
         case FeFont_Body:       font = s_font_light; size = body_px;         break;
-        case FeFont_Caption:    font = s_font_light; size = body_px * 0.8f;  break;
+        case FeFont_Caption:    font = s_font_light; size = body_px * 0.8;  break;
         default: break;
     }
     // Found live: text visibly softened/blurred, most noticeably at
@@ -420,7 +420,7 @@ void FeStylePushFont(FeFontRole role)
     // role-specific multiplier, not just on body_px, since 1.9x/1.3x/0.8x
     // of an already-rounded value isn't itself an integer either) is the
     // standard fix for this class of softness.
-    size = (float)(int)(size + 0.5f);
+    size = (double)(int64_t)(size + 0.5);
     ImGui::PushFont(font, size);
 }
 
@@ -438,8 +438,8 @@ bool FeStyleUsingExocet()
 
 namespace {
     std::vector<TbPixel> s_cursor_pixels;
-    int s_cursor_w = 0, s_cursor_h = 0;
-    int s_cursor_hotspot_x = 0, s_cursor_hotspot_y = 0;
+    int64_t s_cursor_w = 0, s_cursor_h = 0;
+    int64_t s_cursor_hotspot_x = 0, s_cursor_hotspot_y = 0;
     bool s_cursor_build_attempted = false;
 
     // Renders GFS_cursor_horny into an off-screen RGBA buffer once, via the
@@ -498,7 +498,7 @@ namespace {
         // treated -- "not ready yet" -- and keep retrying instead of
         // latching a black cursor permanently.
         bool palette_all_zero = true;
-        for (int i = 0; i < PALETTE_SIZE; i++)
+        for (int64_t i = 0; i < PALETTE_SIZE; i++)
         {
             if (frontend_palette[i] != 0) { palette_all_zero = false; break; }
         }
@@ -529,7 +529,7 @@ namespace {
         // nothing here. Force a plain, unflagged draw and restore whatever
         // was ambient before, same reasoning as the graphics-window
         // save/restore below.
-        unsigned short prev_flags = RendererGetDrawFlags();
+        int64_t prev_flags = RendererGetDrawFlags();
         unsigned char prev_colour = RendererGetDrawColour();
         RendererSetDrawFlags(0);
 
@@ -564,27 +564,27 @@ namespace {
     // GFS_cursor_horny path). Scaled to scale_ui_value_lofi() -- the same
     // size LbI_PointerHandler draws it at outside ImGui content.
     std::vector<TbPixel> s_ig_cursor_pixels;
-    int s_ig_w = 0, s_ig_h = 0;
+    int64_t s_ig_w = 0, s_ig_h = 0;
     const void *s_ig_last_spr = nullptr;
-    int s_ig_last_scale = 0;
-    unsigned int s_ig_serial = 1;
+    int64_t s_ig_last_scale = 0;
+    uint64_t s_ig_serial = 1;
 
     bool build_ingame_cursor(const struct TbSprite *spr)
     {
         if (spr == nullptr || spr->SWidth <= 0 || spr->SHeight <= 0)
             return false;
-        const int dw = (int)scale_ui_value_lofi(spr->SWidth + 1);
-        const int dh = (int)scale_ui_value_lofi(spr->SHeight + 1);
+        const int64_t dw = (int64_t)scale_ui_value_lofi(spr->SWidth + 1);
+        const int64_t dh = (int64_t)scale_ui_value_lofi(spr->SHeight + 1);
         if (dw <= 0 || dh <= 0)
             return false;
-        if (spr == s_ig_last_spr && (int)units_per_pixel == s_ig_last_scale && !s_ig_cursor_pixels.empty())
+        if (spr == s_ig_last_spr && (int64_t)units_per_pixel == s_ig_last_scale && !s_ig_cursor_pixels.empty())
             return true;
 
         s_ig_w = dw;
         s_ig_h = dh;
         s_ig_cursor_pixels.assign((size_t)dw * (size_t)dh, TbPixel{0, 0, 0, 0});
 
-        const unsigned short prev_flags = RendererGetDrawFlags();
+        const int64_t prev_flags = RendererGetDrawFlags();
         const unsigned char prev_colour = RendererGetDrawColour();
         RendererSetDrawFlags(0);
         {
@@ -597,7 +597,7 @@ namespace {
         RendererSetDrawColour(prev_colour);
 
         s_ig_last_spr = spr;
-        s_ig_last_scale = (int)units_per_pixel;
+        s_ig_last_scale = (int64_t)units_per_pixel;
         s_ig_serial++;
         return true;
     }
@@ -617,13 +617,13 @@ TbBool FeStyleGetCursorImage(struct ImGuiCursorImage *out)
             return 0;   // MousePG_Invisible -- draw no cursor
         if (!build_ingame_cursor(spr))
             return 0;
-        int hx = 0, hy = 0;
+        int64_t hx = 0, hy = 0;
         GetPointerHotspot(&hx, &hy);
         out->rgba = s_ig_cursor_pixels.data();
         out->width = s_ig_w;
         out->height = s_ig_h;
-        out->hotspot_x = (int)scale_ui_value_lofi(hx);
-        out->hotspot_y = (int)scale_ui_value_lofi(hy);
+        out->hotspot_x = (int64_t)scale_ui_value_lofi(hx);
+        out->hotspot_y = (int64_t)scale_ui_value_lofi(hy);
         out->serial = s_ig_serial;
         out->native_size = 1;
         return 1;
@@ -642,8 +642,8 @@ TbBool FeStyleGetCursorImage(struct ImGuiCursorImage *out)
 namespace {
     void *s_menu_backdrop_texture = nullptr;
     bool s_menu_backdrop_build_attempted = false;
-    const int MENU_BACKDROP_W = 640;
-    const int MENU_BACKDROP_H = 480;
+    const int64_t MENU_BACKDROP_W = 640;
+    const int64_t MENU_BACKDROP_H = 480;
 
     // docs/refactor/renderer/05-imgui-owned-menu-backdrop.md Phase A.
     // frontend_background is a flat 640x480 indexed (VGA-palette) bitmap,
@@ -665,7 +665,7 @@ namespace {
         if (frontend_background == NULL)
             return false;
         bool palette_all_zero = true;
-        for (int i = 0; i < PALETTE_SIZE; i++)
+        for (int64_t i = 0; i < PALETTE_SIZE; i++)
         {
             if (frontend_palette[i] != 0) { palette_all_zero = false; break; }
         }
@@ -688,7 +688,7 @@ namespace {
     }
 }
 
-void *FeStyleGetMenuBackdropTexture(int *out_w, int *out_h)
+void *FeStyleGetMenuBackdropTexture(int64_t *out_w, int64_t *out_h)
 {
     if (!build_menu_backdrop_texture())
         return nullptr;

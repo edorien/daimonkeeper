@@ -595,6 +595,11 @@ elseif(UNIX AND NOT APPLE)
     # time; running straight out of the build dir is unaffected).
     set_target_properties(keeperfx keeperfx_hvlog PROPERTIES
         INSTALL_RPATH "$ORIGIN")
+
+    # Same debug-symbol split as the Windows exes: without it the ELF carries
+    # ~90 MB of DWARF. Symbols land in <binary>.debug next to it.
+    apply_keeperfx_debug_split(keeperfx)
+    apply_keeperfx_debug_split(keeperfx_hvlog)
 endif()
 
 # tools/ builds a host-native icon-conversion utility (png2ico) used to

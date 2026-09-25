@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-FeOffscreenTarget::FeOffscreenTarget(TbPixel *buf, int w, int h, unsigned char *palette)
+FeOffscreenTarget::FeOffscreenTarget(TbPixel *buf, int64_t w, int64_t h, unsigned char *palette)
     : saved_target_(nullptr), palette_forced_(palette != nullptr)
 {
     if (palette_forced_)
@@ -14,7 +14,7 @@ FeOffscreenTarget::FeOffscreenTarget(TbPixel *buf, int w, int h, unsigned char *
         RendererPaletteSet(palette);
     }
     LbScreenStoreGraphicsWindow(&saved_window_);
-    saved_target_ = RendererSwapFramebufferTarget(buf, (uint32_t)w, (uint32_t)h);
+    saved_target_ = RendererSwapFramebufferTarget(buf, (uint64_t)w, (uint64_t)h);
     LbScreenSetGraphicsWindow(0, 0, w, h);
 }
 

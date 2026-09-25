@@ -36,19 +36,19 @@ struct DoorConfigStats {
     char code_name[COMMAND_WORD_LEN];
     TextStringId name_stridx;
     TextStringId tooltip_stridx;
-    long bigsym_sprite_idx;
-    long medsym_sprite_idx;
-    long pointer_sprite_idx;
-    long panel_tab_idx;
+    int64_t bigsym_sprite_idx;
+    int64_t medsym_sprite_idx;
+    int64_t pointer_sprite_idx;
+    int64_t panel_tab_idx;
     unsigned char manufct_level;
-    unsigned long manufct_required;
+    uint64_t manufct_required;
     HitPoints health;
-    unsigned short slbkind[2];
-    unsigned short open_speed;
-    unsigned short model_flags;
+    int64_t slbkind[2];
+    int64_t open_speed;
+    int64_t model_flags;
     GoldAmount selling_value;
     TbBool unsellable;
-    short place_sound_idx;
+    int64_t place_sound_idx;
     FuncIdx updatefn_idx;
 };
 
@@ -64,19 +64,19 @@ struct TrapConfigStats {
     char code_name[COMMAND_WORD_LEN];
     TextStringId name_stridx;
     TextStringId tooltip_stridx;
-    long bigsym_sprite_idx;
-    long medsym_sprite_idx;
-    long pointer_sprite_idx;
-    long panel_tab_idx;
+    int64_t bigsym_sprite_idx;
+    int64_t medsym_sprite_idx;
+    int64_t pointer_sprite_idx;
+    int64_t panel_tab_idx;
     unsigned char manufct_level;
-    unsigned long manufct_required;
-    int shots;
+    uint64_t manufct_required;
+    int64_t shots;
     GameTurnDelta shots_delay;
-    unsigned short initial_delay; // Trap is placed on reload phase, value in game turns.
+    int64_t initial_delay; // Trap is placed on reload phase, value in game turns.
     unsigned char trigger_type;
     unsigned char activation_type;
     FuncIdx activation_lua_func_idx;
-    unsigned short created_itm_model; // Shot model, effect model, slab kind.
+    int64_t created_itm_model; // Shot model, effect model, slab kind.
     unsigned char activation_level;
     unsigned char hit_type;
     TbBool hidden;
@@ -91,32 +91,32 @@ struct TrapConfigStats {
     char destructible;
     char unstable;
     EffectOrEffElModel destroyed_effect;
-    short size_xy;
-    short size_z;
-    unsigned long sprite_anim_idx;
-    unsigned long attack_sprite_anim_idx;
-    unsigned long recharge_sprite_anim_idx;
-    unsigned long sprite_size_max;
-    unsigned long anim_speed;
-    unsigned long attack_anim_speed;
-    unsigned long recharge_anim_speed;
+    int64_t size_xy;
+    int64_t size_z;
+    uint64_t sprite_anim_idx;
+    uint64_t attack_sprite_anim_idx;
+    uint64_t recharge_sprite_anim_idx;
+    uint64_t sprite_size_max;
+    uint64_t anim_speed;
+    uint64_t attack_anim_speed;
+    uint64_t recharge_anim_speed;
     unsigned char unanimated;
     unsigned char unshaded;
     unsigned char random_start_frame;
     unsigned char flag_number;
-    short light_radius; // Creates light if not null.
+    int64_t light_radius; // Creates light if not null.
     unsigned char light_intensity;
     unsigned char light_flag;
     unsigned char transparency_flag; // Transparency in lower 2 bits.
-    unsigned short shot_shift_x;
-    unsigned short shot_shift_y;
-    unsigned short shot_shift_z;
+    int64_t shot_shift_x;
+    int64_t shot_shift_y;
+    int64_t shot_shift_z;
     struct ComponentVector shotvector;
     struct FlameProperties flame;
     GoldAmount selling_value;
     TbBool unsellable;
-    short place_sound_idx;
-    short trigger_sound_idx;
+    int64_t place_sound_idx;
+    int64_t trigger_sound_idx;
     FuncIdx updatefn_idx;
 };
 
@@ -124,21 +124,21 @@ struct TrapConfigStats {
 struct ManufactureData {
     ThingClass tngclass; // Thing class created when manufactured design is placed.
     ThingModel tngmodel; // Thing model created when manufactured design is placed.
-    int32_t work_state; // Work state used to place the manufactured item on map.
+    int64_t work_state; // Work state used to place the manufactured item on map.
     TextStringId tooltip_stridx;
-    int32_t bigsym_sprite_idx;
-    int32_t medsym_sprite_idx;
-    int32_t panel_tab_idx;
+    int64_t bigsym_sprite_idx;
+    int64_t medsym_sprite_idx;
+    int64_t panel_tab_idx;
 };
 
 struct TrapDoorConfig {
-    int32_t trap_types_count;
+    int64_t trap_types_count;
     struct TrapConfigStats trap_cfgstats[TRAPDOOR_TYPES_MAX];
-    int32_t door_types_count;
+    int64_t door_types_count;
     struct DoorConfigStats door_cfgstats[TRAPDOOR_TYPES_MAX];
     ThingModel trap_to_object[TRAPDOOR_TYPES_MAX];
     ThingModel door_to_object[TRAPDOOR_TYPES_MAX];
-    int32_t manufacture_types_count;
+    int64_t manufacture_types_count;
     /* Stores manufacturable items. Was originally named trap_data. */
     struct ManufactureData manufacture_data[2*TRAPDOOR_TYPES_MAX];
 };
@@ -149,24 +149,24 @@ extern struct NamedCommand door_desc[TRAPDOOR_TYPES_MAX];
 extern const struct NamedFieldSet trapdoor_door_named_fields_set;
 extern const struct NamedFieldSet trapdoor_trap_named_fields_set;
 /******************************************************************************/
-struct TrapConfigStats* get_trap_model_stats(int tngmodel);
-struct DoorConfigStats *get_door_model_stats(int tngmodel);
-struct ManufactureData *get_manufacture_data(int manufctr_idx);
-int get_manufacture_data_index_for_thing(ThingClass tngclass, ThingModel tngmodel);
+struct TrapConfigStats* get_trap_model_stats(int64_t tngmodel);
+struct DoorConfigStats *get_door_model_stats(int64_t tngmodel);
+struct ManufactureData *get_manufacture_data(int64_t manufctr_idx);
+int64_t get_manufacture_data_index_for_thing(ThingClass tngclass, ThingModel tngmodel);
 
 ThingModel door_crate_object_model(ThingModel tngmodel);
 ThingModel trap_crate_object_model(ThingModel tngmodel);
-const char *door_code_name(int tngmodel);
-const char *trap_code_name(int tngmodel);
-int door_model_id(const char * code_name);
-int trap_model_id(const char * code_name);
+const char *door_code_name(int64_t tngmodel);
+const char *trap_code_name(int64_t tngmodel);
+int64_t door_model_id(const char * code_name);
+int64_t trap_model_id(const char * code_name);
 
-TbBool is_trap_placeable(PlayerNumber plyr_idx, long trap_idx);
-TbBool is_trap_buildable(PlayerNumber plyr_idx, long trap_idx);
-TbBool is_trap_built(PlayerNumber plyr_idx, long tngmodel);
-TbBool is_door_placeable(PlayerNumber plyr_idx, long door_idx);
-TbBool is_door_buildable(PlayerNumber plyr_idx, long door_idx);
-TbBool is_door_built(PlayerNumber plyr_idx, long door_idx);
+TbBool is_trap_placeable(PlayerNumber plyr_idx, int64_t trap_idx);
+TbBool is_trap_buildable(PlayerNumber plyr_idx, int64_t trap_idx);
+TbBool is_trap_built(PlayerNumber plyr_idx, int64_t tngmodel);
+TbBool is_door_placeable(PlayerNumber plyr_idx, int64_t door_idx);
+TbBool is_door_buildable(PlayerNumber plyr_idx, int64_t door_idx);
+TbBool is_door_built(PlayerNumber plyr_idx, int64_t door_idx);
 TbBool create_manufacture_array_from_trapdoor_data(void);
 TbBool make_available_all_doors(PlayerNumber plyr_idx);
 TbBool make_available_all_traps(PlayerNumber plyr_idx);

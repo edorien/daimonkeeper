@@ -57,7 +57,7 @@ struct Thing *create_creature_at_entrance(struct Room * room, ThingModel crkind)
     pos.z.val = get_floor_height_at(&pos);
     struct Thing* creatng = create_creature(&pos, crkind, room->owner);
     if (thing_is_invalid(creatng)) {
-        ERRORLOG("Cannot create creature %s for player %d entrance",creature_code_name(crkind),(int)room->owner);
+        ERRORLOG("Cannot create creature %s for player %" PRId64 " entrance",creature_code_name(crkind),(int64_t)room->owner);
         return INVALID_THING;
     }
     struct Dungeon* dungeon = get_dungeon(room->owner);
@@ -117,24 +117,24 @@ TbBool generation_available_to_dungeon(const struct Dungeon * dungeon)
         return false;
     if (((kfx_config_state.conf.rules[kfx_sim_state.armageddon_caster_idx].magic.armageddon_count_down + kfx_sim_state.armageddon_cast_turn) > get_gameturn()) && (kfx_sim_state.armageddon_cast_turn > 0)) //No new creatures during armageddon
         return false;
-    return ((long)dungeon->num_active_creatrs < (long)dungeon->max_creatures_attracted);
+    return ((int64_t)dungeon->num_active_creatrs < (int64_t)dungeon->max_creatures_attracted);
 }
 
-long calculate_attractive_room_quantity(RoomKind room_kind, PlayerNumber plyr_idx, int crmodel)
+int64_t calculate_attractive_room_quantity(RoomKind room_kind, PlayerNumber plyr_idx, int64_t crmodel)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    long slabs_count = get_room_slabs_count(plyr_idx, room_kind);
-    long used_fraction;
+    int64_t slabs_count = get_room_slabs_count(plyr_idx, room_kind);
+    int64_t used_fraction;
     switch (room_kind)
     {
     case RoK_LAIR:
         // Add one attractiveness per 2 unused slabs in the room
         used_fraction = get_room_kind_used_capacity_fraction(plyr_idx, room_kind);
-        return (slabs_count * (256-used_fraction)) / 256 / 2 - (long)dungeon->owned_creatures_of_model[crmodel];
+        return (slabs_count * (256-used_fraction)) / 256 / 2 - (int64_t)dungeon->owned_creatures_of_model[crmodel];
     case RoK_DUNGHEART:
     case RoK_BRIDGE:
         // Add one attractiveness per 9 slabs of such room
-        return slabs_count / 9 - (long)dungeon->owned_creatures_of_model[crmodel];
+        return slabs_count / 9 - (int64_t)dungeon->owned_creatures_of_model[crmodel];
     case RoK_ENTRANCE:
     case RoK_LIBRARY:
     case RoK_PRISON:
@@ -146,11 +146,11 @@ long calculate_attractive_room_quantity(RoomKind room_kind, PlayerNumber plyr_id
     case RoK_BARRACKS:
     case RoK_GUARDPOST:
         // Add one attractiveness per 3 slabs of such room
-        return slabs_count / 3 - (long)dungeon->owned_creatures_of_model[crmodel];
+        return slabs_count / 3 - (int64_t)dungeon->owned_creatures_of_model[crmodel];
     case RoK_WORKSHOP:
     case RoK_GARDEN:
         // Add one attractiveness per 4 slabs of such room
-        return slabs_count / 4 - (long)dungeon->owned_creatures_of_model[crmodel];
+        return slabs_count / 4 - (int64_t)dungeon->owned_creatures_of_model[crmodel];
     case RoK_TREASURE:
         // Add one attractiveness per 3 used slabs in the room
         used_fraction = get_room_kind_used_capacity_fraction(plyr_idx, room_kind);
@@ -161,13 +161,13 @@ long calculate_attractive_room_quantity(RoomKind room_kind, PlayerNumber plyr_id
     }
 }
 
-static long calculate_excess_attraction_for_creature(ThingModel crmodel, PlayerNumber plyr_idx)
+static int64_t calculate_excess_attraction_for_creature(ThingModel crmodel, PlayerNumber plyr_idx)
 {
     SYNCDBG(11, "Starting");
 
     struct CreatureModelConfig* stats = creature_stats_get(crmodel);
-    long excess_attraction = 0;
-    for (int i = 0; i < ENTRANCE_ROOMS_COUNT; i++)
+    int64_t excess_attraction = 0;
+    for (int64_t i = 0; i < ENTRANCE_ROOMS_COUNT; i++)
     {
         RoomKind room_kind = stats->entrance_rooms[i];
         if ((room_kind != RoK_NONE) && (stats->entrance_slabs_req[i] > 0)) {
@@ -178,10 +178,10 @@ static long calculate_excess_attraction_for_creature(ThingModel crmodel, PlayerN
     return excess_attraction;
 }
 
-long count_player_available_creatures_of_model(PlayerNumber plyr_idx, ThingModel crmodel)
+int64_t count_player_available_creatures_of_model(PlayerNumber plyr_idx, ThingModel crmodel)
 {
     struct Dungeon *dungeon = get_dungeon(plyr_idx);
-    long count = 0;
+    int64_t count = 0;
     for (ThingModel i = 0; i < CREATURE_TYPES_MAX; i++)
     {
         if (!creature_model_matches_model(i, plyr_idx, crmodel))
@@ -192,7 +192,7 @@ long count_player_available_creatures_of_model(PlayerNumber plyr_idx, ThingModel
             count+= kfx_sim_state.pool.crtr_kind[i];
         }
     }
-    return min(count, dungeon->max_creatures_attracted - (long)dungeon->num_active_creatrs);
+    return min(count, dungeon->max_creatures_attracted - (int64_t)dungeon->num_active_creatrs);
 }
 
 TbBool creature_will_generate_for_dungeon(const struct Dungeon * dungeon, ThingModel crmodel)
@@ -206,13 +206,13 @@ TbBool creature_will_generate_for_dungeon(const struct Dungeon * dungeon, ThingM
 
     // Not allowed creatures can never be attracted
     if (!dungeon->creature_allowed[crmodel]) {
-        SYNCDBG(11, "The %s is not allowed for player %d", creature_code_name(crmodel),(int)dungeon->owner);
+        SYNCDBG(11, "The %s is not allowed for player %" PRId64, creature_code_name(crmodel),(int64_t)dungeon->owner);
         return false;
     }
 
     // Enabled creatures don't need additional conditions to be met
     if (dungeon->creature_force_enabled[crmodel] > dungeon->creature_models_joined[crmodel]) {
-        SYNCDBG(11, "The %s is forced for player %d", creature_code_name(crmodel),(int)dungeon->owner);
+        SYNCDBG(11, "The %s is forced for player %" PRId64, creature_code_name(crmodel),(int64_t)dungeon->owner);
         return true;
     }
 
@@ -220,15 +220,15 @@ TbBool creature_will_generate_for_dungeon(const struct Dungeon * dungeon, ThingM
     struct CreatureModelConfig* stats = creature_stats_get(crmodel);
 
     // Check if we've got rooms of enough size for attraction
-    for (int i = 0; i < ENTRANCE_ROOMS_COUNT; ++i)
+    for (int64_t i = 0; i < ENTRANCE_ROOMS_COUNT; ++i)
     {
         RoomKind room_kind = stats->entrance_rooms[i];
 
         if (room_kind != RoK_NONE) {
-            int slabs_count = get_room_slabs_count(dungeon->owner, room_kind);
+            int64_t slabs_count = get_room_slabs_count(dungeon->owner, room_kind);
 
             if (slabs_count < stats->entrance_slabs_req[i]) {
-                SYNCDBG(11, "The %s needs more %s space for player %d", creature_code_name(crmodel),room_code_name(room_kind),(int)dungeon->owner);
+                SYNCDBG(11, "The %s needs more %s space for player %" PRId64, creature_code_name(crmodel),room_code_name(room_kind),(int64_t)dungeon->owner);
                 return false;
             }
         }
@@ -248,16 +248,16 @@ TbBool remove_creature_from_generate_pool(ThingModel crmodel)
     return false;
 }
 
-static int calculate_creature_to_generate_for_dungeon(const struct Dungeon * dungeon)
+static int64_t calculate_creature_to_generate_for_dungeon(const struct Dungeon * dungeon)
 {
     //cumulative frequency
-    long crmodel;
+    int64_t crmodel;
 
     SYNCDBG(9,"Starting");
 
-    long cum_freq = 0;
-    long gen_count = 0;
-    long crtr_freq[CREATURE_TYPES_MAX];
+    int64_t cum_freq = 0;
+    int64_t gen_count = 0;
+    int64_t crtr_freq[CREATURE_TYPES_MAX];
     crtr_freq[0] = 0;
     for (crmodel = 1; crmodel < kfx_config_state.conf.crtr_conf.model_count; crmodel++)
     {
@@ -267,7 +267,7 @@ static int calculate_creature_to_generate_for_dungeon(const struct Dungeon * dun
 
             gen_count += 1;
 
-            long score = (long)crconf->entrance_score + calculate_excess_attraction_for_creature(crmodel, dungeon->owner);
+            int64_t score = (int64_t)crconf->entrance_score + calculate_excess_attraction_for_creature(crmodel, dungeon->owner);
             if (score < 1) {
                 score = 1;
             }
@@ -279,14 +279,14 @@ static int calculate_creature_to_generate_for_dungeon(const struct Dungeon * dun
         }
     }
 
-    SYNCDBG(19,"Getting random out of %d creature models",(int)gen_count);
+    SYNCDBG(19,"Getting random out of %" PRId64 " creature models",(int64_t)gen_count);
     // Select a creature kind to generate based on score we've got for every kind
     // Scores define a chance of being generated.
     if (gen_count > 0)
     {
         if (cum_freq > 0)
         {
-            long rnd = PLAYER_RANDOM(dungeon->owner, cum_freq);
+            int64_t rnd = PLAYER_RANDOM(dungeon->owner, cum_freq);
 
             crmodel = 1;
             while (rnd >= crtr_freq[crmodel])
@@ -315,7 +315,7 @@ TbBool generate_creature_at_random_entrance(struct Dungeon * dungeon, ThingModel
     struct Room* room = pick_random_room_of_role(dungeon->owner, RoRoF_CrPoolSpawn);
     if (room_is_invalid(room))
     {
-        ERRORLOG("Could not get a random entrance for player %d",(int)dungeon->owner);
+        ERRORLOG("Could not get a random entrance for player %" PRId64,(int64_t)dungeon->owner);
         return false;
     }
     struct Thing* creatng = create_creature_at_entrance(room, crmodel);
@@ -334,12 +334,12 @@ void generate_creature_for_dungeon(struct Dungeon * dungeon)
     if (crmodel > 0)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(crmodel);
-        long lair_space = calculate_free_lair_space(dungeon);
+        int64_t lair_space = calculate_free_lair_space(dungeon);
 
         // Creature cannot enter dungeon unless player has enough gold
-        if ((long)crconf->pay > dungeon->total_money_owned)
+        if ((int64_t)crconf->pay > dungeon->total_money_owned)
         {
-            SYNCDBG(8,"The %s will not come as player %d has less than %d gold",creature_code_name(crmodel),(int)dungeon->owner,(int)crconf->pay);
+            SYNCDBG(8,"The %s will not come as player %" PRId64 " has less than %" PRId64 " gold",creature_code_name(crmodel),(int64_t)dungeon->owner,(int64_t)crconf->pay);
             if (is_my_player_number(dungeon->owner)) {
                 sim_feedback->play_sound_message(SMsg_GoldLow, MESSAGE_DURATION_TREASURY);
             }
@@ -348,16 +348,16 @@ void generate_creature_for_dungeon(struct Dungeon * dungeon)
         {
             // Creatures can only enter the dungeon if your Lair has space for them. But one homeless creature is also allowed.
             if (lair_space > 0) {
-                SYNCDBG(8,"The %s will come to player %d",creature_code_name(crmodel),(int)dungeon->owner);
+                SYNCDBG(8,"The %s will come to player %" PRId64,creature_code_name(crmodel),(int64_t)dungeon->owner);
             } else {
-                SYNCDBG(8,"The %s will come to player %d even though lair is full",creature_code_name(crmodel),(int)dungeon->owner);
+                SYNCDBG(8,"The %s will come to player %" PRId64 " even though lair is full",creature_code_name(crmodel),(int64_t)dungeon->owner);
             }
             generate_creature_at_random_entrance(dungeon, crmodel);
         }
         else
         {
             // Lair is over capacity
-            SYNCDBG(8,"The %s will not come as player %d has lair capacity exceeded",creature_code_name(crmodel),(int)dungeon->owner);
+            SYNCDBG(8,"The %s will not come as player %" PRId64 " has lair capacity exceeded",creature_code_name(crmodel),(int64_t)dungeon->owner);
         }
         // Notify player they're out of lair space and play important EvKind_NoMoreLivingSet event for Computer Player.
         if (lair_space <= 0)
@@ -376,7 +376,7 @@ void generate_creature_for_dungeon(struct Dungeon * dungeon)
     }
     else
     {
-        SYNCDBG(9,"There is no creature for player %d",(int)dungeon->owner);
+        SYNCDBG(9,"There is no creature for player %" PRId64,(int64_t)dungeon->owner);
     }
 }
 
@@ -384,7 +384,7 @@ void process_entrance_generation(void)
 {
     SYNCDBG(8,"Starting");
     TbBool due = false;
-    for (long i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* plyr = get_player(i);
         if (!player_exists(plyr)) {
@@ -419,7 +419,7 @@ void process_entrance_generation(void)
 /******************************************************************************/
 TbBool update_creature_pool_state(void)
 {
-    int i;
+    int64_t i;
     kfx_sim_state.pool.is_empty = true;
     for (i=1; i < kfx_config_state.conf.crtr_conf.model_count; i++)
     {
@@ -429,7 +429,7 @@ TbBool update_creature_pool_state(void)
     return true;
 }
 
-void add_creature_to_pool(ThingModel kind, int32_t amount)
+void add_creature_to_pool(ThingModel kind, int64_t amount)
 {
     kind %= kfx_config_state.conf.crtr_conf.model_count;
 

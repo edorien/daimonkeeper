@@ -114,11 +114,11 @@ LONG __stdcall Vex_handler(_EXCEPTION_POINTERS *ExceptionInfo)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow) {
     AddVectoredExceptionHandler(0, &Vex_handler);
     // Construct argc/argv from Unicode command line
-    int argc = 0;
+    int argc = 0; // Win32 API type
     auto szArglist = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::vector<char *> argv(argc);
     std::vector<std::vector<char>> args(argc);
-    for (int i = 0; i < argc; ++i) {
+    for (int64_t i = 0; i < argc; ++i) {
         const auto arg_size = WideCharToMultiByte(CP_UTF8, 0, szArglist[i], -1, nullptr, 0, nullptr, nullptr);
         if (arg_size > 0) {
             args[i] = std::vector<char>(arg_size);

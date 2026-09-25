@@ -13,9 +13,9 @@
 
 // Bridge functions from bflib_sndlib.cpp
 extern "C" {
-    int custom_sound_bank_size();
-    TbBool custom_sound_load_wav(const char* filepath, int sample_id);
-    TbBool custom_sound_load_wav_mem(const unsigned char* data, size_t size, const char* logical_name, int sample_id);
+    int64_t custom_sound_bank_size();
+    TbBool custom_sound_load_wav(const char* filepath, int64_t sample_id);
+    TbBool custom_sound_load_wav_mem(const unsigned char* data, size_t size, const char* logical_name, int64_t sample_id);
     SoundSmplTblID get_custom_offset(void);
 }
 // prepare_file_path()/prepare_file_path_mod() (config.h), thing_is_invalid()
@@ -46,7 +46,7 @@ SoundManager::SoundManager()
 
 // Destructor
 SoundManager::~SoundManager() {
-    SYNCDBG(7,"Destructor called - played %d sounds total", total_plays_);
+    SYNCDBG(7,"Destructor called - played %" PRId64 " sounds total", (int64_t)(total_plays_));
 }
 
 // Initialize
@@ -73,19 +73,19 @@ bool SoundManager::initialize() {
 }
 
 // Play sound effect
-SoundEmitterID SoundManager::playEffect(SoundSmplTblID sample_id, long priority, SoundVolume volume) {
+SoundEmitterID SoundManager::playEffect(SoundSmplTblID sample_id, int64_t priority, SoundVolume volume) {
     if (!initialized_) {
-        SYNCDBG(8,"Not initialized, cannot play sound %d", sample_id);
+        SYNCDBG(8,"Not initialized, cannot play sound %" PRId64, (int64_t)(sample_id));
         return 0;
     }
     
     if (SoundDisabled) {
-        SYNCDBG(18,"Sound disabled, skipping sample %d", sample_id);
+        SYNCDBG(18,"Sound disabled, skipping sample %" PRId64, (int64_t)(sample_id));
         return 0;
     }
     
-    SYNCDBG(18,"Playing effect: sample=%d, priority=%ld, volume=%ld",
-           sample_id, priority, volume);
+    SYNCDBG(18,"Playing effect: sample=%" PRId64 ", priority=%" PRId64 ", volume=%" PRId64,
+           (int64_t)(sample_id), (int64_t)(priority), (int64_t)(volume));
     
     total_plays_++;
     
@@ -95,15 +95,15 @@ SoundEmitterID SoundManager::playEffect(SoundSmplTblID sample_id, long priority,
 }
 
 // Play creature sound
-void SoundManager::playCreatureSound(struct Thing* thing, long sound_type, long priority) {
+void SoundManager::playCreatureSound(struct Thing* thing, int64_t sound_type, int64_t priority) {
     if (!initialized_ || sound_state_callbacks->thing_is_invalid(thing)) {
-        SYNCDBG(8,"Cannot play creature sound (initialized=%d, thing_valid=%d)",
-               initialized_, !sound_state_callbacks->thing_is_invalid(thing));
+        SYNCDBG(8,"Cannot play creature sound (initialized=%" PRId64 ", thing_valid=%" PRId64 ")",
+               (int64_t)(initialized_), (int64_t)(!sound_state_callbacks->thing_is_invalid(thing)));
         return;
     }
     
-    SYNCDBG(18,"Playing creature sound: type=%ld, priority=%ld",
-           sound_type, priority);
+    SYNCDBG(18,"Playing creature sound: type=%" PRId64 ", priority=%" PRId64,
+           (int64_t)(sound_type), (int64_t)(priority));
     
     total_plays_++;
     
@@ -117,7 +117,7 @@ void SoundManager::stopEffect(SoundEmitterID emitter_id) {
         return;
     }
     
-    SYNCDBG(18,"Stopping sound: emitter_id=%ld", emitter_id);
+    SYNCDBG(18,"Stopping sound: emitter_id=%" PRId64, (int64_t)(emitter_id));
     
     S3DDestroySoundEmitterAndSamples(emitter_id);
 }
@@ -129,19 +129,19 @@ bool SoundManager::isEffectPlaying(SoundEmitterID emitter_id) const {
     }
     
     bool playing = S3DEmitterIsPlayingAnySample(emitter_id);
-    SYNCDBG(18,"Checking if playing: emitter_id=%ld, playing=%d",
-           emitter_id, playing);
+    SYNCDBG(18,"Checking if playing: emitter_id=%" PRId64 ", playing=%" PRId64,
+           (int64_t)(emitter_id), (int64_t)(playing));
     return playing;
 }
 
 // Play music
-bool SoundManager::playMusic(int track_number) {
+bool SoundManager::playMusic(int64_t track_number) {
     if (!initialized_) {
         SYNCDBG(8,"Not initialized, cannot play music");
         return false;
     }
     
-    SYNCDBG(18,"Playing music track %d", track_number);
+    SYNCDBG(18,"Playing music track %" PRId64, (int64_t)(track_number));
     
     if (track_number == 0) {
         stopMusic();
@@ -162,8 +162,8 @@ SoundSmplTblID SoundManager::loadCustomSound(const std::string& name, const std:
     // Check if already loaded
     auto it = custom_sounds_.find(name);
     if (it != custom_sounds_.end() && it->second.loaded) {
-        SYNCDBG(7,"Custom sound '%s' already loaded as bank index % d",
-               name.c_str(), it->second.sample_id);
+        SYNCDBG(7,"Custom sound '%s' already loaded as bank index % " PRId64,
+               name.c_str(), (int64_t)(it->second.sample_id));
         return it->second.sample_id;
     }
     
@@ -186,8 +186,8 @@ SoundSmplTblID SoundManager::loadCustomSound(const std::string& name, const std:
     
     total_custom_sounds_++;
     
-    SYNCDBG(7,"Loaded custom sound '%s' as bank index %d (filepath: %s)",
-           name.c_str(), bank_index, filepath.c_str());
+    SYNCDBG(7,"Loaded custom sound '%s' as bank index %" PRId64 " (filepath: %s)",
+           name.c_str(), (int64_t)(bank_index), filepath.c_str());
     
     return get_custom_offset() + bank_index;
 }
@@ -196,8 +196,8 @@ SoundSmplTblID SoundManager::loadCustomSound(const std::string& name, const std:
 SoundSmplTblID SoundManager::loadCustomSoundFromMemory(const std::string& name, const unsigned char* data, size_t size) {
     auto it = custom_sounds_.find(name);
     if (it != custom_sounds_.end() && it->second.loaded) {
-        SYNCDBG(7,"Custom sound '%s' already loaded as bank index %d",
-               name.c_str(), it->second.sample_id);
+        SYNCDBG(7,"Custom sound '%s' already loaded as bank index %" PRId64,
+               name.c_str(), (int64_t)(it->second.sample_id));
         return it->second.sample_id;
     }
 
@@ -215,8 +215,8 @@ SoundSmplTblID SoundManager::loadCustomSoundFromMemory(const std::string& name, 
 
     total_custom_sounds_++;
 
-    SYNCDBG(7,"Loaded custom sound '%s' as bank index %d (from memory, %" PRIuSIZE " bytes)",
-           name.c_str(), bank_index, SZCAST(size));
+    SYNCDBG(7,"Loaded custom sound '%s' as bank index %" PRId64 " (from memory, %" PRIuSIZE " bytes)",
+           name.c_str(), (int64_t)(bank_index), (uint64_t)(SZCAST(size)));
 
     return get_custom_offset() + bank_index;
 }
@@ -234,8 +234,8 @@ bool SoundManager::loadWavFile(const std::string& filepath, SoundSmplTblID sampl
         return false;
     }
     
-    SYNCDBG(7,"Successfully loaded WAV file: %s (sample %d, bank index %d)",
-           full_path, sample_id, custom_sound_bank_size() - 1);
+    SYNCDBG(7,"Successfully loaded WAV file: %s (sample %" PRId64 ", bank index %" PRId64 ")",
+           full_path, (int64_t)(sample_id), (int64_t)(custom_sound_bank_size() - 1));
     return true;
 }
 
@@ -248,7 +248,7 @@ bool SoundManager::loadWavFile(const std::string& filepath, SoundSmplTblID sampl
 
 // Set creature sound override
 bool SoundManager::setCreatureSound(const std::string& creature_model, const std::string& sound_type, 
-                                     const std::string& custom_sound_name, int count) {
+                                     const std::string& custom_sound_name, int64_t count) {
     // Check if custom sound exists
     auto it = custom_sounds_.find(custom_sound_name);
     if (it == custom_sounds_.end() || !it->second.loaded) {
@@ -258,7 +258,7 @@ bool SoundManager::setCreatureSound(const std::string& creature_model, const std
     }
     
     // Get creature model ID
-    long crmodel = get_rid(sound_state_callbacks->get_creature_desc(), creature_model.c_str());
+    int64_t crmodel = get_rid(sound_state_callbacks->get_creature_desc(), creature_model.c_str());
     if (crmodel < 0 || crmodel >= sound_state_callbacks->get_creature_model_count()) {
         WARNLOG("Invalid creature model: %s", creature_model.c_str());
         return false;
@@ -300,9 +300,9 @@ bool SoundManager::setCreatureSound(const std::string& creature_model, const std
     target_sound->index = -(bank_index + 1);
     target_sound->count = count;  // Set count for multiple sounds
     
-    SYNCDBG(7,"Set creature sound: %s.%s -> '%s' (unified id %d, bank index %d, stored index %d, count %d)",
+    SYNCDBG(7,"Set creature sound: %s.%s -> '%s' (unified id %" PRId64 ", bank index %" PRId64 ", stored index %" PRId64 ", count %" PRId64 ")",
            creature_model.c_str(), sound_type.c_str(), custom_sound_name.c_str(),
-           (int)it->second.sample_id, (int)bank_index, (int)target_sound->index, count);
+           (int64_t)it->second.sample_id, (int64_t)bank_index, (int64_t)target_sound->index, (int64_t)(count));
     
     return true;
 }
@@ -325,8 +325,8 @@ SoundSmplTblID SoundManager::getCustomSoundId(const std::string& name) const {
         return 0;
     }
     
-    SYNCDBG(7,"Found custom sound '%s' as sample %d",
-           name.c_str(), it->second.sample_id);
+    SYNCDBG(7,"Found custom sound '%s' as sample %" PRId64,
+           name.c_str(), (int64_t)(it->second.sample_id));
     return it->second.sample_id;
 }
 
@@ -356,7 +356,7 @@ SoundSmplTblID SoundManager::getSoundId(const char* name) const {
 }
 
 // Register a sound name → ID mapping
-bool SoundManager::registerSound(const char* name, SoundSmplTblID id, int count) {
+bool SoundManager::registerSound(const char* name, SoundSmplTblID id, int64_t count) {
     if (name == nullptr || name[0] == '\0') {
         WARNLOG("Cannot register sound with empty name");
         return false;
@@ -370,8 +370,8 @@ bool SoundManager::registerSound(const char* name, SoundSmplTblID id, int count)
     
     sound_registry_[name_str] = entry;
     
-    SYNCDBG(7,"Registered sound '%s' -> ID %d (count %d)",
-           name, id, entry.count);
+    SYNCDBG(7,"Registered sound '%s' -> ID %" PRId64 " (count %" PRId64 ")",
+           name, (int64_t)(id), (int64_t)(entry.count));
     return true;
 }
 
@@ -393,7 +393,7 @@ bool SoundManager::isSoundRegistered(const char* name) const {
 }
 
 // Get count for a named sound
-int SoundManager::getSoundCount(const char* name) const {
+int64_t SoundManager::getSoundCount(const char* name) const {
     if (name == nullptr || name[0] == '\0') {
         return 0;
     }
@@ -415,13 +415,13 @@ int SoundManager::getSoundCount(const char* name) const {
 }
 
 // Play a named sound effect (picks a random variant when count > 1)
-SoundEmitterID SoundManager::playEffectNamed(const char* name, long priority, SoundVolume volume) {
+SoundEmitterID SoundManager::playEffectNamed(const char* name, int64_t priority, SoundVolume volume) {
     SoundSmplTblID base_id = getSoundId(name);
     if (base_id == 0) {
         WARNLOG("Cannot play unknown sound '%s'", name);
         return 0;
     }
-    int count = getSoundCount(name);
+    int64_t count = getSoundCount(name);
     SoundSmplTblID id = (count > 1) ? base_id + LbRandomSeries(count, sound_state_callbacks->get_unsync_random_seed(), __func__, __LINE__) : base_id;
     return playEffect(id, priority, volume);
 }
@@ -452,7 +452,7 @@ void SoundManager::saveSnapshot() {
     snapshot_total_custom_sounds_ = total_custom_sounds_;
     snapshot_valid_ = true;
     SYNCDBG(5, "Saved sound manager snapshot: %" PRIuSIZE " registry, %" PRIuSIZE " custom sounds",
-            SZCAST(snapshot_registry_.size()), SZCAST(snapshot_custom_sounds_.size()));
+            (uint64_t)(SZCAST(snapshot_registry_.size())), (uint64_t)(SZCAST(snapshot_custom_sounds_.size())));
 }
 
 // Restore sound state to the campaign snapshot (called at the start of each level load)
@@ -467,7 +467,7 @@ void SoundManager::restoreSnapshot() {
     total_custom_sounds_      = snapshot_total_custom_sounds_;
     // next_custom_sample_id_ is not used for lookup; leave as-is
     SYNCDBG(5, "Restored sound manager snapshot: %" PRIuSIZE " registry, %" PRIuSIZE " custom sounds",
-            SZCAST(sound_registry_.size()), SZCAST(custom_sounds_.size()));
+            (uint64_t)(SZCAST(sound_registry_.size())), (uint64_t)(SZCAST(custom_sounds_.size())));
 }
 
 // Re-apply all creature sound overrides to kfx_config_state.conf with current bank indices.
@@ -477,7 +477,7 @@ void SoundManager::reapplyCreatureSounds() {
         return;
     }
     SYNCDBG(5, "Re-applying %" PRIuSIZE " creature sound override(s) after save load",
-            SZCAST(creature_sound_overrides_.size()));
+            (uint64_t)(SZCAST(creature_sound_overrides_.size())));
     // Work on a copy — setCreatureSound() appends to creature_sound_overrides_.
     auto overrides_copy = creature_sound_overrides_;
     creature_sound_overrides_.clear();
@@ -488,7 +488,7 @@ void SoundManager::reapplyCreatureSounds() {
                     ov.custom_sound_name.c_str());
             continue;
         }
-        int count = ov.count > 0 ? ov.count : 1;
+        int64_t count = ov.count > 0 ? ov.count : 1;
         setCreatureSound(ov.creature_model, ov.sound_type, ov.custom_sound_name, count);
     }
 }
@@ -503,11 +503,11 @@ TbBool sound_manager_init(void) {
     return KeeperFX::SoundManager::getInstance().initialize();
 }
 
-SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, long priority, SoundVolume volume) {
+SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, int64_t priority, SoundVolume volume) {
     return KeeperFX::SoundManager::getInstance().playEffect(sample_id, priority, volume);
 }
 
-void sound_manager_play_creature_sound(struct Thing* thing, long sound_type, long priority) {
+void sound_manager_play_creature_sound(struct Thing* thing, int64_t sound_type, int64_t priority) {
     KeeperFX::SoundManager::getInstance().playCreatureSound(thing, sound_type, priority);
 }
 
@@ -515,7 +515,7 @@ void sound_manager_stop_effect(SoundEmitterID emitter_id) {
     KeeperFX::SoundManager::getInstance().stopEffect(emitter_id);
 }
 
-TbBool sound_manager_play_music(int track_number) {
+TbBool sound_manager_play_music(int64_t track_number) {
     return KeeperFX::SoundManager::getInstance().playMusic(track_number);
 }
 
@@ -564,7 +564,7 @@ SoundSmplTblID sound_manager_get_id(const char* name) {
     return KeeperFX::SoundManager::getInstance().getSoundId(name);
 }
 
-TbBool sound_manager_register(const char* name, SoundSmplTblID id, int count) {
+TbBool sound_manager_register(const char* name, SoundSmplTblID id, int64_t count) {
     return KeeperFX::SoundManager::getInstance().registerSound(name, id, count);
 }
 
@@ -572,11 +572,11 @@ TbBool sound_manager_is_registered(const char* name) {
     return KeeperFX::SoundManager::getInstance().isSoundRegistered(name);
 }
 
-int sound_manager_get_count(const char* name) {
+int64_t sound_manager_get_count(const char* name) {
     return KeeperFX::SoundManager::getInstance().getSoundCount(name);
 }
 
-SoundEmitterID sound_manager_play_effect_named(const char* name, long priority, SoundVolume volume) {
+SoundEmitterID sound_manager_play_effect_named(const char* name, int64_t priority, SoundVolume volume) {
     return KeeperFX::SoundManager::getInstance().playEffectNamed(name, priority, volume);
 }
 
@@ -584,9 +584,9 @@ SoundEmitterID sound_manager_play_effect_named(const char* name, long priority, 
 // Returns true and fills out_path on first match (list iterated in reverse so higher-priority
 // mods — those loaded later — win).
 static bool find_in_mod_sound_dirs(const char* candidate, char* out_path, size_t out_size,
-                                   const struct ModConfigItem* mod_items, long mod_cnt)
+                                   const struct ModConfigItem* mod_items, int64_t mod_cnt)
 {
-    for (long i = mod_cnt - 1; i >= 0; i--) {
+    for (int64_t i = mod_cnt - 1; i >= 0; i--) {
         const struct ModConfigItem* mod_item = mod_items + i;
         if (!mod_item->state.lrg_sound) continue;
         char mod_dir[256];
@@ -618,7 +618,7 @@ static bool resolve_creature_sound_path(const char* path_in, char* out_path, siz
     const char* slash = strrchr(path_in, '/');
     bool has_ext = (dot != NULL) && (slash == NULL || dot > slash);
 
-    for (int ei = 0; exts[ei] != NULL; ei++) {
+    for (int64_t ei = 0; exts[ei] != NULL; ei++) {
         if (has_ext && ei > 0) break;
         if (!has_ext && ei == 0) continue;
 
@@ -672,9 +672,9 @@ static bool resolve_sounds_cfg_sound_path(const char* path_in, char* out_path, s
     const char* slash = strrchr(path_in, '/');
     bool has_ext = (dot != NULL) && (slash == NULL || dot > slash);
 
-    SYNCDBG(7,"Sound path search for '%s' (has_ext=%d)", path_in, (int)has_ext);
+    SYNCDBG(7,"Sound path search for '%s' (has_ext=%" PRId64 ")", path_in, (int64_t)has_ext);
 
-    for (int ei = 0; exts[ei] != NULL; ei++) {
+    for (int64_t ei = 0; exts[ei] != NULL; ei++) {
         if (has_ext && ei > 0) break;
         if (!has_ext && ei == 0) continue;
 
@@ -720,7 +720,7 @@ static bool resolve_sound_path_in_map_zip(const char* path_in, unsigned char** o
     const char* slash = strrchr(path_in, '/');
     bool has_ext = (dot != NULL) && (slash == NULL || dot > slash);
 
-    for (int ei = 0; exts[ei] != NULL; ei++) {
+    for (int64_t ei = 0; exts[ei] != NULL; ei++) {
         if (has_ext && ei > 0) break;
         if (!has_ext && ei == 0) continue;
         char candidate[2048];
@@ -774,7 +774,7 @@ static SoundSmplTblID load_creature_sound_fs_or_zip(KeeperFX::SoundManager& sm, 
 // path_in  - file path as written in the cfg (relative, with or without extension)
 // count    - number of sequential variants (1 = single file)
 // Returns the registered sample ID on success, 0 on failure.
-SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path_in, int count)
+SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path_in, int64_t count)
 {
     using namespace KeeperFX;
     SoundManager& sm = SoundManager::getInstance();
@@ -792,7 +792,7 @@ SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path
         }
         // Custom sounds live in custom_sounds_ which takes priority in getSoundId —
         // do NOT also register in sound_registry_ or a later base-config reload will overwrite it.
-        SYNCDBG(5, "Named sound '%s' loaded from '%s' -> ID %d", name, path_in, id);
+        SYNCDBG(5, "Named sound '%s' loaded from '%s' -> ID %" PRId64, name, path_in, (int64_t)(id));
         return id;
     }
 
@@ -817,36 +817,36 @@ SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path
     size_t stem_len = strlen(stem);
     size_t digits_start = stem_len;
     while (digits_start > 0 && isdigit((unsigned char)stem[digits_start-1])) digits_start--;
-    int base_num = (digits_start < stem_len) ? atoi(stem + digits_start) : 1;
+    int64_t base_num = (digits_start < stem_len) ? atoi(stem + digits_start) : 1;
     char stem_prefix[512];
-    strncpy(stem_prefix, stem, digits_start);
+    memcpy(stem_prefix, stem, digits_start);
     stem_prefix[digits_start] = '\0';
-    int width = (int)(stem_len - digits_start);
+    int64_t width = (int64_t)(stem_len - digits_start);
     if (width == 0) { width = 1; base_num = 1; }
     if (count > 32) count = 32;
-    for (int i = 0; i < count; i++)
-        snprintf(expanded[i], 512, "%s%0*d%s", stem_prefix, width, base_num + i, ext_part);
+    for (int64_t i = 0; i < count; i++)
+        snprintf(expanded[i], 512, "%s%0*" PRId64 "%s", stem_prefix, (int)(width), (int64_t)(base_num + i), ext_part);
 
     SoundSmplTblID first_id = 0;
-    for (int i = 0; i < count; i++) {
+    for (int64_t i = 0; i < count; i++) {
         char variant_name[256];
-        snprintf(variant_name, sizeof(variant_name), "%s_%d", name, i);
+        snprintf(variant_name, sizeof(variant_name), "%s_%" PRId64, name, (int64_t)(i));
         SoundSmplTblID id = load_named_sound_fs_or_zip(sm, variant_name, expanded[i]);
         if (id <= 0) {
-            WARNLOG("Named sound variant %d not found on disk or in map zip: '%s' (name '%s')", i, expanded[i], name);
+            WARNLOG("Named sound variant %" PRId64 " not found on disk or in map zip: '%s' (name '%s')", (int64_t)(i), expanded[i], name);
             continue;
         }
         if (first_id == 0) first_id = id;
     }
     if (first_id > 0) {
         sm.registerSound(name, first_id, count);
-        SYNCDBG(5, "Named sound '%s' loaded %d variant(s) starting at ID %d", name, count, first_id);
+        SYNCDBG(5, "Named sound '%s' loaded %" PRId64 " variant(s) starting at ID %" PRId64, name, (int64_t)(count), (int64_t)(first_id));
     }
     return first_id;
 }
 
 // Config parser bridge: load custom sound from creature cfg file
-int load_creature_custom_sound(long crtr_model, const char* sound_type, const char* wav_path, const char* config_textname) {
+int64_t load_creature_custom_sound(int64_t crtr_model, const char* sound_type, const char* wav_path, const char* config_textname) {
     using namespace KeeperFX;
     
     // Ensure SoundManager is initialized
@@ -886,7 +886,7 @@ int load_creature_custom_sound(long crtr_model, const char* sound_type, const ch
 }
 
 // Config parser bridge: load multiple custom sounds from creature cfg file
-int load_creature_custom_sounds(long crtr_model, const char* sound_type, const char* wav_paths_ptr, int count, const char* config_textname) {
+int64_t load_creature_custom_sounds(int64_t crtr_model, const char* sound_type, const char* wav_paths_ptr, int64_t count, const char* config_textname) {
     using namespace KeeperFX;
     
     // Ensure SoundManager is initialized
@@ -900,26 +900,26 @@ int load_creature_custom_sounds(long crtr_model, const char* sound_type, const c
     const char (*wav_paths)[512] = (const char (*)[512])wav_paths_ptr;
     const char* creature_name = sound_state_callbacks->creature_code_name((ThingModel)crtr_model);
 
-    SYNCDBG(5, "Loading %d custom sound(s) for %s.%s from '%s'", count, creature_name, sound_type, wav_paths[0]);
+    SYNCDBG(5, "Loading %" PRId64 " custom sound(s) for %s.%s from '%s'", (int64_t)(count), creature_name, sound_type, wav_paths[0]);
 
-    int start_index = -1;
-    int loaded_count = 0;
+    int64_t start_index = -1;
+    int64_t loaded_count = 0;
     
     // Load each WAV file
-    for (int i = 0; i < count; i++) {
+    for (int64_t i = 0; i < count; i++) {
         // Generate unique name
         char sound_name[256];
-        snprintf(sound_name, sizeof(sound_name), "%s_%s_custom_%d", creature_name, sound_type, i);
+        snprintf(sound_name, sizeof(sound_name), "%s_%s_custom_%" PRId64, creature_name, sound_type, (int64_t)(i));
 
         // Resolve and load - filesystem first (FGrp_CmpgCrtrs, FGrp_CmpgMedia, etc.), then the
         // current level's map zip if not found on disk.
         SoundSmplTblID bank_index = load_creature_sound_fs_or_zip(sm, sound_name, wav_paths[i]);
 
         if (bank_index <= 0) {
-            SYNCDBG(5, "Custom sound %d not found on disk or in map zip: %s (for %s.%s)", i, wav_paths[i], creature_name, sound_type);
+            SYNCDBG(5, "Custom sound %" PRId64 " not found on disk or in map zip: %s (for %s.%s)", (int64_t)(i), wav_paths[i], creature_name, sound_type);
             continue;
         }
-        SYNCDBG(6, "  Loaded sound[%d] bank_index=%d from '%s'", i, (int)bank_index, wav_paths[i]);
+        SYNCDBG(6, "  Loaded sound[%" PRId64 "] bank_index=%" PRId64 " from '%s'", (int64_t)(i), (int64_t)bank_index, wav_paths[i]);
         
         if (start_index < 0) {
             start_index = bank_index;  // Remember first index
@@ -938,8 +938,8 @@ int load_creature_custom_sounds(long crtr_model, const char* sound_type, const c
 
     // Set with count for multiple sounds
     if (sm.setCreatureSound(creature_name, sound_type, first_sound_name, loaded_count)) {
-        SYNCDBG(5, "Custom sound wired: %s.%s -> '%s' (%d variant(s))",
-            creature_name, sound_type, first_sound_name, loaded_count);
+        SYNCDBG(5, "Custom sound wired: %s.%s -> '%s' (%" PRId64 " variant(s))",
+            creature_name, sound_type, first_sound_name, (int64_t)(loaded_count));
         return 1;
     } else {
         WARNLOG("Failed to set creature sound override");

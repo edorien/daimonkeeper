@@ -15,10 +15,10 @@ extern "C" {
 /******************************************************************************/
 static TbBool noop_get_bool(PlayerNumber plyr_idx) { return false; }
 static TbBool noop_get_bool_powerkind(PlayerNumber plyr_idx, PowerKind pwkind) { return false; }
-static TbBool noop_get_bool_long(PlayerNumber plyr_idx, long kind) { return false; }
-static void noop_set_creature_availability(PlayerNumber plyr_idx, ThingModel crtr_model, long can_be_avail, long force_avail) {}
+static TbBool noop_get_bool_long(PlayerNumber plyr_idx, int64_t kind) { return false; }
+static void noop_set_creature_availability(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail) {}
 static void noop_try_set_backup_heart_idx(PlayerNumber owner, ThingIndex thing_idx) {}
-static TbBool noop_set_room_resrchable_and_buildable(PlayerNumber plyr_idx, RoomKind rkind, long resrch, long avail) { return false; }
+static TbBool noop_set_room_resrchable_and_buildable(PlayerNumber plyr_idx, RoomKind rkind, int64_t resrch, int64_t avail) { return false; }
 static TbBool noop_get_bool_roomkind(PlayerNumber plyr_idx, RoomKind rkind) { return false; }
 static void noop_set_all_rooms(PlayerNumber plyr_idx) {}
 static void noop_set_magic_resrchable(PlayerNumber plyr_idx, PowerKind pwkind, TbBool resrch) {}

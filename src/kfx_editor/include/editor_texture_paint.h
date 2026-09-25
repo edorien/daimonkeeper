@@ -17,6 +17,6 @@ void editor_texture_paint_rect(MapSlabCoord x0, MapSlabCoord y0, MapSlabCoord x1
 
 /** Repaints the connected area (4-way) of slabs that have the same kind and the same current texture as the
  *  seed. Returns how many slabs changed. */
-int editor_texture_paint_fill(MapSlabCoord x, MapSlabCoord y, unsigned char pack);
+int64_t editor_texture_paint_fill(MapSlabCoord x, MapSlabCoord y, unsigned char pack);
 
 #endif

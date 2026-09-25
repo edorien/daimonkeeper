@@ -79,7 +79,7 @@ enum CreatureCheckReturns {
 struct Thing;
 struct Room;
 
-typedef short (*CreatureStateFunc1)(struct Thing *);
+typedef int64_t (*CreatureStateFunc1)(struct Thing *);
 typedef char (*CreatureStateFunc2)(struct Thing *);
 typedef CrCheckRet (*CreatureStateCheck)(struct Thing *);
 
@@ -97,11 +97,11 @@ extern const CreatureStateCheck move_check_func_list[];
 #pragma pack()
 /******************************************************************************/
 
-extern long const state_type_to_gui_state[];
+extern int64_t const state_type_to_gui_state[];
 /******************************************************************************/
 CrtrStateId get_creature_state_besides_move(const struct Thing *thing);
 CrtrStateId get_creature_state_besides_interruptions(const struct Thing *thing);
-long get_creature_state_type_f(const struct Thing *thing, const char *func_name);
+int64_t get_creature_state_type_f(const struct Thing *thing, const char *func_name);
 #define get_creature_state_type(thing) get_creature_state_type_f(thing,__func__)
 
 struct CreatureStateConfig *get_thing_active_state_info(struct Thing *thing);
@@ -110,9 +110,9 @@ struct CreatureStateConfig *get_thing_state_info_num(CrtrStateId state_id);
 struct CreatureStateConfig *get_creature_state_with_task_completion(struct Thing *thing);
 
 struct TunnelDistance{
-    unsigned int creatid;
-    unsigned long olddist;
-    unsigned long newdist;
+    uint64_t creatid;
+    uint64_t olddist;
+    uint64_t newdist;
 };
 
 TbBool state_info_invalid(struct CreatureStateConfig *stati);
@@ -125,20 +125,20 @@ TbBool initialise_thing_state_f(struct Thing *thing, CrtrStateId nState, const c
 #define initialise_thing_state(thing, nState) initialise_thing_state_f(thing, nState,__func__)
 TbBool cleanup_current_thing_state(struct Thing *thing);
 TbBool cleanup_creature_state_and_interactions(struct Thing *thing);
-short state_cleanup_in_room(struct Thing *creatng);
-short set_start_state_f(struct Thing *thing,const char *func_name);
+int64_t state_cleanup_in_room(struct Thing *creatng);
+int64_t set_start_state_f(struct Thing *thing,const char *func_name);
 #define set_start_state(thing) set_start_state_f(thing,__func__)
-short patrol_here(struct Thing* creatng);
-short patrolling(struct Thing* creatng);
+int64_t patrol_here(struct Thing* creatng);
+int64_t patrolling(struct Thing* creatng);
 /******************************************************************************/
-TbBool creature_model_bleeds(unsigned long crmodel);
-TbBool creature_can_hear_within_distance(const struct Thing *thing, long dist);
-long get_thing_navigation_distance(struct Thing *creatng, struct Coord3d *pos , unsigned char a3);
-void create_effect_around_thing(struct Thing *thing, long eff_kind);
-long get_creature_gui_job(const struct Thing *thing);
-long setup_head_for_empty_treasure_space(struct Thing *thing, struct Room *room);
-long process_creature_needs_to_heal_critical(struct Thing *creatng);
-short setup_creature_leaves_or_dies(struct Thing *creatng);
+TbBool creature_model_bleeds(uint64_t crmodel);
+TbBool creature_can_hear_within_distance(const struct Thing *thing, int64_t dist);
+int64_t get_thing_navigation_distance(struct Thing *creatng, struct Coord3d *pos , unsigned char a3);
+void create_effect_around_thing(struct Thing *thing, int64_t eff_kind);
+int64_t get_creature_gui_job(const struct Thing *thing);
+int64_t setup_head_for_empty_treasure_space(struct Thing *thing, struct Room *room);
+int64_t process_creature_needs_to_heal_critical(struct Thing *creatng);
+int64_t setup_creature_leaves_or_dies(struct Thing *creatng);
 
 void creature_drop_dragged_object(struct Thing *crtng, struct Thing *dragtng);
 void creature_drag_object(struct Thing *creatng, struct Thing *dragtng);
@@ -152,7 +152,7 @@ void make_creature_conscious_without_changing_state(struct Thing *creatng);
 
 TbBool check_experience_upgrade(struct Thing *thing);
 void set_creature_size_stuff(struct Thing *creatng);
-long process_work_speed_on_work_value(const struct Thing *thing, long base_val);
+int64_t process_work_speed_on_work_value(const struct Thing *thing, int64_t base_val);
 TbBool find_random_valid_position_for_thing_in_room_avoiding_object(struct Thing *thing, const struct Room *room, struct Coord3d *pos);
 SubtlCodedCoords find_position_around_in_room(const struct Coord3d *pos, PlayerNumber owner, RoomKind rkind, struct Thing *thing);
 void remove_health_from_thing_and_display_health(struct Thing *thing, HitPoints delta);
@@ -207,7 +207,7 @@ TbBool creature_affected_by_call_to_arms(const struct Thing *thing);
 TbBool creature_is_kept_in_custody(const struct Thing *thing);
 TbBool creature_is_kept_in_custody_by_enemy(const struct Thing *thing);
 TbBool creature_is_kept_in_custody_by_player(const struct Thing *thing, PlayerNumber plyr_idx);
-short player_keeping_creature_in_custody(const struct Thing* thing);
+int64_t player_keeping_creature_in_custody(const struct Thing* thing);
 TbBool creature_state_is_unset(const struct Thing *thing);
 TbBool creature_is_hostile_towards(const struct Thing *tng1, const struct Thing *tng2);
 /** While a thing-list scan is running (get_nth_thing_of_class_with_filter), hostility lookups may be memoized. */

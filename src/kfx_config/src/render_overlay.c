@@ -14,29 +14,29 @@ extern "C" {
 #endif
 /******************************************************************************/
 static void noop_void(void) {}
-static void noop_set_int(int val) {}
-static void noop_gui_panel_sprite_left(long x, long y, int units_per_px, long spridx) {}
-static void noop_draw_slab64k(long pos_x, long pos_y, int units_per_px, long width, long height) {}
+static void noop_set_int(int64_t val) {}
+static void noop_gui_panel_sprite_left(int64_t x, int64_t y, int64_t units_per_px, int64_t spridx) {}
+static void noop_draw_slab64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width, int64_t height) {}
 static void noop_sync_cheat_box_3(CrInstance active_instance_id) {}
 static TbBool noop_get_bool(void) { return false; }
-static float noop_get_interpolate_time(void) { return 0.0f; }
-static long noop_get_long(void) { return 0; }
-static short noop_menu_is_active(short idx) { return 0; }
+static double noop_get_interpolate_time(void) { return 0.0; }
+static int64_t noop_get_long(void) { return 0; }
+static int64_t noop_menu_is_active(int64_t idx) { return 0; }
 static void noop_turn_on_menu(MenuID idx) {}
 static void noop_sync_render_globals(void) {}
 static TbBool noop_setup_heap_manager(void) { return false; }
 static void noop_reset_heap_manager(void) {}
 static void *noop_he_alloc(size_t size) { return NULL; }
 static void noop_reload_parchment_file(TbBool hires) {}
-static TbBool noop_point_to_overhead_map(const struct Camera *camera, long screen_x, long screen_y, int32_t *map_x, int32_t *map_y) { return false; }
+static TbBool noop_point_to_overhead_map(const struct Camera *camera, int64_t screen_x, int64_t screen_y, int64_t *map_x, int64_t *map_y) { return false; }
 static TbBool noop_can_process_creature_input(struct Thing *thing) { return false; }
-static void noop_process_first_person_look(struct Thing *thing, const struct Packet *pckt, long current_horizontal, long current_vertical, long *out_horizontal, long *out_vertical, long *out_roll) {}
+static void noop_process_first_person_look(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll) {}
 static void noop_process_camera_controls(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player, TbBool is_local_camera) {}
 static void noop_process_camera_action(struct Camera *cams, const struct Packet *pckt) {}
 static const struct Packet *noop_get_history_packet(NetUserId user, GameTurn turn) { return NULL; }
-static void noop_set_packet_control(struct Packet *pckt, unsigned long flag) {}
-static long noop_light_create_light(struct InitLight *ilght) { return 0; }
-static void noop_light_set_attached_slab(long lgt_id, SlabCodedCoords slb_num) {}
+static void noop_set_packet_control(struct Packet *pckt, uint64_t flag) {}
+static int64_t noop_light_create_light(struct InitLight *ilght) { return 0; }
+static void noop_light_set_attached_slab(int64_t lgt_id, SlabCodedCoords slb_num) {}
 static void noop_delete_lights_attached_to_slab_in_area(SlabCodedCoords place_slbnum,
     MapSubtlCoord start_stl_x, MapSubtlCoord start_stl_y,
     MapSubtlCoord end_stl_x, MapSubtlCoord end_stl_y) {}

@@ -24,25 +24,25 @@ static struct TbNetworkUserInfo *local_user_info;
 
 struct NetState netstate;
 
-int fe_network_active;
-int net_service_index_selected;
+int64_t fe_network_active;
+int64_t net_service_index_selected;
 struct TbNetworkSessionNameEntry *net_session[SESSION_ENTRIES_COUNT];
-long net_session_index_active;
+int64_t net_session_index_active;
 struct TbNetworkPlayerName net_player[MAX_NET_USERS];
 char net_player_name[20];
 struct ScreenPacket net_screen_packet[MAX_NET_USERS];
-long net_session_index_active_id;
-long packet_left_button_double_clicked[6];
-long packet_left_button_click_space_count[6];
+int64_t net_session_index_active_id;
+int64_t packet_left_button_double_clicked[6];
+int64_t packet_left_button_click_space_count[6];
 
 TbBool IsUserActive(NetUserId id)
 {
     return (netstate.users[id].progress == USER_LOGGEDIN);
 }
 
-int32_t GetRemoteUserCount(void)
+int64_t GetRemoteUserCount(void)
 {
-    int32_t count = 0;
+    int64_t count = 0;
     for (NetUserId id = 0; id < netstate.max_users; id += 1) {
         if (id != netstate.my_id && IsUserActive(id)) {
             count += 1;
@@ -109,7 +109,7 @@ void SendUserUpdate(NetUserId dest, NetUserId updated_user)
     send_message_buffer(dest, write_pos);
 }
 
-TbError LbNetwork_Init(uint32_t srvcindex, uint32_t maxplayrs, struct TbNetworkUserInfo *locplayr, struct ServiceInitData *)
+TbError LbNetwork_Init(uint64_t srvcindex, uint64_t maxplayrs, struct TbNetworkUserInfo *locplayr, struct ServiceInitData *)
 {
     local_user_info = locplayr;
     memset(&netstate, 0, sizeof(netstate));
@@ -121,7 +121,7 @@ TbError LbNetwork_Init(uint32_t srvcindex, uint32_t maxplayrs, struct TbNetworkU
         netstate.sp = InitEnetSP();
         NETMSG("Selecting UDP");
     } else {
-        WARNLOG("The serviceIndex value of %u is out of range", srvcindex);
+        WARNLOG("The serviceIndex value of %" PRIu64 " is out of range", (uint64_t)(srvcindex));
     }
     if (!netstate.sp) {
         return Lb_FAIL;
@@ -139,7 +139,7 @@ TbBool OnNewUser(NetUserId *assigned_id)
             *assigned_id = id;
             netstate.users[id].progress = USER_CONNECTED;
             netstate.users[id].ack = -1;
-            NETLOG("Assigning new user to ID %u", id);
+            NETLOG("Assigning new user to ID %" PRIu64, (uint64_t)(id));
             return true;
         }
     }
@@ -149,7 +149,7 @@ TbBool OnNewUser(NetUserId *assigned_id)
 void OnDroppedUser(NetUserId id, enum NetDropReason reason)
 {
     assert(id >= 0);
-    assert(id < (int)netstate.max_users);
+    assert(id < (int64_t)netstate.max_users);
     if (netstate.my_id == id) {
         NETMSG("Warning: Trying to drop local user. There's a bug in code somewhere, probably server trying to send message to itself.");
         return;
@@ -158,9 +158,9 @@ void OnDroppedUser(NetUserId id, enum NetDropReason reason)
         return;
     }
     if (reason == NETDROP_ERROR) {
-        NETMSG("User left (or connection error): %i %s", id, netstate.users[id].name);
+        NETMSG("User left (or connection error): %" PRId64 " %s", (int64_t)(id), netstate.users[id].name);
     } else if (reason == NETDROP_MANUAL) {
-        NETMSG("Dropped user %i %s", id, netstate.users[id].name);
+        NETMSG("Dropped user %" PRId64 " %s", (int64_t)(id), netstate.users[id].name);
     }
     memset(&netstate.users[id], 0, sizeof(netstate.users[id]));
     netstate.users[id].id = id;

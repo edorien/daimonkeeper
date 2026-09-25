@@ -28,9 +28,9 @@ extern "C" {
 /******************************************************************************/
 extern const struct ConfigFileData keeper_spritecolors_file_data;
 
-short get_player_colored_icon_idx(short base_icon_idx,PlayerNumber plyr_idx);
-short get_player_colored_pointer_icon_idx(short base_icon_idx,PlayerNumber plyr_idx);
-short get_player_colored_button_sprite_idx(short base_icon_idx,PlayerNumber plyr_idx);
+int64_t get_player_colored_icon_idx(int64_t base_icon_idx,PlayerNumber plyr_idx);
+int64_t get_player_colored_pointer_icon_idx(int64_t base_icon_idx,PlayerNumber plyr_idx);
+int64_t get_player_colored_button_sprite_idx(int64_t base_icon_idx,PlayerNumber plyr_idx);
 ThingModel get_player_colored_object_model(ThingModel base_model_idx,PlayerNumber plyr_idx);
 ThingModel get_coloured_object_base_model(ThingModel model_idx);
 

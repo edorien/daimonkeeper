@@ -13,10 +13,10 @@
 static IRenderer*   s_active_renderer = nullptr;
 static RendererType s_active_type     = RENDERER_INVALID;
 static unsigned char s_draw_colour = 0;
-static unsigned short s_draw_flags = 0;
+static int64_t s_draw_flags = 0;
 static RendererImGuiFrameFn s_imgui_frame_fn = nullptr;
 
-static void noop_draw_slab_background_immediate(long pos_x, long pos_y, long width, long height) {}
+static void noop_draw_slab_background_immediate(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height) {}
 static const struct RendererDrawCallbacks default_renderer_draw_callbacks = {
     &noop_draw_slab_background_immediate,
 };
@@ -37,7 +37,7 @@ static IRenderer* create_renderer(RendererType type)
     }
 }
 
-int RendererInit(RendererType type)
+int64_t RendererInit(RendererType type)
 {
     if (s_active_renderer != nullptr)
         RendererShutdown();
@@ -46,7 +46,7 @@ int RendererInit(RendererType type)
     IRenderer* rend = create_renderer(resolved);
     if (rend == nullptr)
     {
-        ERRORLOG("Unknown renderer type %d", (int)type);
+        ERRORLOG("Unknown renderer type %" PRId64, (int64_t)type);
         return 0;
     }
     if (!rend->Init())
@@ -94,7 +94,7 @@ TbResult RendererPaletteSet(unsigned char *palette)
     {
         const unsigned char* pal6 = LbPaletteGetReadonly();
         unsigned char rgb8[PALETTE_SIZE];
-        for (int i = 0; i < PALETTE_SIZE; i++)
+        for (int64_t i = 0; i < PALETTE_SIZE; i++)
             rgb8[i] = chan6_to_8(pal6[i]);
         RendererSetDisplayPalette(rgb8);
     }
@@ -152,10 +152,10 @@ TbPixel* RendererGetFramebuffer(void)
     return lbDisplay.WScreen;
 }
 
-static long s_saved_screen_width = 0;
-static long s_saved_screen_height = 0;
+static int64_t s_saved_screen_width = 0;
+static int64_t s_saved_screen_height = 0;
 
-TbPixel* RendererSwapFramebufferTarget(TbPixel *target, uint32_t width, uint32_t height)
+TbPixel* RendererSwapFramebufferTarget(TbPixel *target, uint64_t width, uint64_t height)
 {
     TbPixel *previous = lbDisplay.WScreen;
     s_saved_screen_width = lbDisplay.GraphicsScreenWidth;
@@ -173,7 +173,7 @@ void RendererRestoreFramebufferTarget(TbPixel *previous_target)
     lbDisplay.GraphicsScreenHeight = s_saved_screen_height;
 }
 
-TbBool RendererScheduleScreenshot(const char* path, int fmt)
+TbBool RendererScheduleScreenshot(const char* path, int64_t fmt)
 {
     return (s_active_renderer != nullptr) ? s_active_renderer->ScheduleScreenshot(path, fmt) : 0;
 }
@@ -217,12 +217,12 @@ TbBool RendererScreenOwned(void)
     return ImGuiContextScreenOwned();
 }
 
-void* RendererCreateDynamicTexture(int width, int height)
+void* RendererCreateDynamicTexture(int64_t width, int64_t height)
 {
     return ImGuiContextCreateTexture(width, height);
 }
 
-void RendererUpdateDynamicTexture(void *texture, const void *rgba_data, int width, int height)
+void RendererUpdateDynamicTexture(void *texture, const void *rgba_data, int64_t width, int64_t height)
 {
     ImGuiContextUpdateTexture(texture, rgba_data, width, height);
 }
@@ -233,7 +233,7 @@ void RendererDestroyDynamicTexture(void *texture)
 }
 
 TbResult RendererSetupScreen(TbScreenMode mode, TbScreenCoord width, TbScreenCoord height,
-    unsigned char *palette, short buffers_count, TbBool wscreen_vid)
+    unsigned char *palette, int64_t buffers_count, TbBool wscreen_vid)
 {
     return LbScreenSetup(mode, width, height, palette, buffers_count, wscreen_vid);
 }
@@ -253,7 +253,7 @@ TbResult RendererSetDoubleBuffering(TbBool state)
     return LbScreenSetDoubleBuffering(state);
 }
 
-TbBool RendererTextDrawResized(int posx, int posy, int units_per_px, const char *text)
+TbBool RendererTextDrawResized(int64_t posx, int64_t posy, int64_t units_per_px, const char *text)
 {
     ITextRenderer* tr = (s_active_renderer != nullptr) ? s_active_renderer->GetTextRenderer() : nullptr;
     if (tr == nullptr)
@@ -273,50 +273,50 @@ static KfxDrawState ambient_draw_state(void)
     return draw_state_make(RendererGetDrawFlags(), RendererGetDrawColour());
 }
 
-void RendererDrawSlabBackground(int32_t x, int32_t y, int32_t width, int32_t height)
+void RendererDrawSlabBackground(int64_t x, int64_t y, int64_t width, int64_t height)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) { renderer_draw_callbacks->draw_slab_background_immediate(x, y, width, height); return; }
-    ui->SubmitSlabBackground((int32_t)x, (int32_t)y, (int32_t)width, (int32_t)height);
+    ui->SubmitSlabBackground((int64_t)x, (int64_t)y, (int64_t)width, (int64_t)height);
 }
 
-TbResult RendererDrawBox(int32_t x, int32_t y, uint32_t width, uint32_t height, TbPixel colour)
+TbResult RendererDrawBox(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixel colour)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbDrawBoxImmediate(x, y, width, height, colour);
-    ui->SubmitSolidBox(x, y, (int32_t)width, (int32_t)height, colour, ambient_draw_state());
+    ui->SubmitSolidBox(x, y, (int64_t)width, (int64_t)height, colour, ambient_draw_state());
     return Lb_SUCCESS;
 }
 
-TbResult RendererSpriteDraw(int32_t x, int32_t y, const struct TbSprite *spr)
+TbResult RendererSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbSpriteDrawImmediate(x, y, spr);
     return ui->SubmitRawSprite(x, y, spr, ambient_draw_state());
 }
 
-TbResult RendererSpriteDrawOneColour(int32_t x, int32_t y, const struct TbSprite *spr, TbPixel colour)
+TbResult RendererSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, TbPixel colour)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbSpriteDrawOneColourImmediate(x, y, spr, colour);
     return ui->SubmitRawSpriteOneColour(x, y, spr, colour, ambient_draw_state());
 }
 
-TbResult RendererSpriteDrawScaled(int32_t x, int32_t y, const struct TbSprite *spr, int32_t w, int32_t h)
+TbResult RendererSpriteDrawScaled(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbSpriteDrawScaledImmediate(x, y, spr, w, h);
     return ui->SubmitRawSpriteScaled(x, y, spr, w, h, ambient_draw_state());
 }
 
-TbResult RendererSpriteDrawScaledOneColour(int32_t x, int32_t y, const struct TbSprite *spr, int32_t w, int32_t h, TbPixel colour)
+TbResult RendererSpriteDrawScaledOneColour(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h, TbPixel colour)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbSpriteDrawScaledOneColourImmediate(x, y, spr, w, h, colour);
     return ui->SubmitRawSpriteScaledOneColour(x, y, spr, w, h, colour, ambient_draw_state());
 }
 
-int RendererSpriteDrawScaledRemap(int32_t x, int32_t y, const struct TbSprite *spr, int32_t w, int32_t h, const TbPixel *cmap)
+int64_t RendererSpriteDrawScaledRemap(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h, const TbPixel *cmap)
 {
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbSpriteDrawScaledRemapImmediate(x, y, spr, w, h, cmap);
@@ -326,11 +326,11 @@ int RendererSpriteDrawScaledRemap(int32_t x, int32_t y, const struct TbSprite *s
 unsigned char RendererGetDrawColour(void) { return s_draw_colour; }
 void RendererSetDrawColour(unsigned char colour) { s_draw_colour = colour; }
 
-unsigned short RendererGetDrawFlags(void) { return s_draw_flags; }
-void RendererSetDrawFlags(unsigned short flags) { s_draw_flags = flags; }
-void RendererAddDrawFlags(unsigned short flags) { s_draw_flags |= flags; }
-void RendererClearDrawFlags(unsigned short flags) { s_draw_flags &= ~flags; }
-void RendererToggleDrawFlags(unsigned short flags) { s_draw_flags ^= flags; }
+int64_t RendererGetDrawFlags(void) { return s_draw_flags; }
+void RendererSetDrawFlags(int64_t flags) { s_draw_flags = flags; }
+void RendererAddDrawFlags(int64_t flags) { s_draw_flags |= flags; }
+void RendererClearDrawFlags(int64_t flags) { s_draw_flags &= ~flags; }
+void RendererToggleDrawFlags(int64_t flags) { s_draw_flags ^= flags; }
 
 TbResult RendererPaletteGet(unsigned char *palette)
 {

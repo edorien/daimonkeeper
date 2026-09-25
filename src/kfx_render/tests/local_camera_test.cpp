@@ -18,8 +18,8 @@
 
 namespace {
 struct CameraCallbackSpy {
-    static inline int controls_calls;
-    static inline int action_calls;
+    static inline int64_t controls_calls;
+    static inline int64_t action_calls;
     static inline struct Packet packet;
 
     static const struct Packet *history_packet(NetUserId, GameTurn) { return &packet; }

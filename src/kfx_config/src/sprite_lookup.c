@@ -13,12 +13,12 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static short noop_get_icon_id(const char *name) { return 0; }
-static short noop_get_anim_id(const char *name, struct ObjectConfigStats *objst) { return 0; }
-static short noop_get_anim_id_(const char *name) { return 0; }
-static const struct TbSprite *noop_get_button_sprite(short sprite_idx) { return NULL; }
-static const struct TbSprite *noop_get_panel_sprite(short sprite_idx) { return NULL; }
-static short noop_get_ensign_id(const char *name) { return -1; }
+static int64_t noop_get_icon_id(const char *name) { return 0; }
+static int64_t noop_get_anim_id(const char *name, struct ObjectConfigStats *objst) { return 0; }
+static int64_t noop_get_anim_id_(const char *name) { return 0; }
+static const struct TbSprite *noop_get_button_sprite(int64_t sprite_idx) { return NULL; }
+static const struct TbSprite *noop_get_panel_sprite(int64_t sprite_idx) { return NULL; }
+static int64_t noop_get_ensign_id(const char *name) { return -1; }
 static void noop_init_custom_campaign_sprites(const char *dir_path, const char *dir_desc) {}
 static void noop_load_sprites_for_multi_front(LevelNumber lvnum) {}
 

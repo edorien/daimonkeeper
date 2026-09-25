@@ -41,9 +41,9 @@ typedef struct {
 } TranslationEntry;
 
 static TranslationEntry translation_table[MAX_TOML_TRANSLATION_ENTRIES];
-static int32_t          translation_count = 0;
+static int64_t          translation_count = 0;
 
-static TbBool load_translation_config_file(const char *fname, unsigned short flags);
+static TbBool load_translation_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_translation_file_data = {
     .filename = "translation.toml",
@@ -71,9 +71,9 @@ static const char *get_language_value(VALUE *section, uint8_t lang_id)
 
 static void add_entry_to_translation_table(const char *alias, const char *text)
 {
-    int32_t entry_index = -1;
+    int64_t entry_index = -1;
     TbBool is_new_entry = true;
-    for (int32_t i = 0; i < translation_count; i++)
+    for (int64_t i = 0; i < translation_count; i++)
     {
         if (strcmp(translation_table[i].alias, alias) == 0)
         {
@@ -113,7 +113,7 @@ static void add_entry_to_translation_table(const char *alias, const char *text)
 
 static int translation_section_visitor(const VALUE *key, VALUE *section, void *ctx)
 {
-    int current_language_id = install_info.lang_id;
+    int64_t current_language_id = install_info.lang_id;
     if (translation_count >= MAX_TOML_TRANSLATION_ENTRIES)
         return 1; // stop walking — table is full
 
@@ -141,7 +141,7 @@ static int translation_section_visitor(const VALUE *key, VALUE *section, void *c
 
 void clear_translation_table(void)
 {
-    for (int32_t i = 0; i < translation_count; i++)
+    for (int64_t i = 0; i < translation_count; i++)
     {
         free(translation_table[i].text);
         translation_table[i].text = NULL;
@@ -150,14 +150,14 @@ void clear_translation_table(void)
     translation_count = 0;
 }
 
-static TbBool load_translation_config_file(const char* filepath, unsigned short flags)
+static TbBool load_translation_config_file(const char* filepath, int64_t flags)
 {
     if (!flag_is_set(flags, CnfLd_AcceptPartial))
     {
         clear_translation_table();
     }
 
-    long len = LbFileLengthRnc(filepath);
+    int64_t len = LbFileLengthRnc(filepath);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         SYNCDBG(17,"Translation file \"%s\" does not exist or is too small.", filepath);
@@ -171,7 +171,7 @@ static TbBool load_translation_config_file(const char* filepath, unsigned short 
         return false;
     }
 
-    long fsize = LbFileLoadAt(filepath, buf);
+    int64_t fsize = LbFileLoadAt(filepath, buf);
     if (fsize < len)
     {
         WARNMSG("Failed to read translation file \"%s\".", filepath);
@@ -199,13 +199,13 @@ TextStringId get_string_id_by_alias(const char* alias)
 {
     if (parameter_is_number(alias))
     {
-        int32_t id = atoi(alias);
+        int64_t id = atoi(alias);
         if (id <= STRINGS_MAX)
             return id;
         ERRORLOG("Invalid string ID \"%s\".", alias);
         return -1;
     }
-    for (int32_t i = 0; i < translation_count; i++)
+    for (int64_t i = 0; i < translation_count; i++)
     {
         if (strcmp(translation_table[i].alias, alias) == 0)
         {

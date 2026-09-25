@@ -77,8 +77,8 @@ struct Thing;
 #define CAMERA_TILT_MAX -200
 
 struct MinMax { // sizeof = 8
-    long min;
-    long max;
+    int64_t min;
+    int64_t max;
 };
 
 /******************************************************************************/
@@ -87,7 +87,7 @@ extern struct EngineCoord object_origin;
 
 #pragma pack()
 /******************************************************************************/
-extern long camera_zoom;
+extern int64_t camera_zoom;
 /******************************************************************************/
 // angles_to_vector()/get_angle_xy_to()/get_angle_yz_to()/get_2d_distance()/
 // get_2d_distance_squared()/get_angle_xy_to_vec()/get_angle_yz_to_vec()
@@ -95,19 +95,19 @@ extern long camera_zoom;
 // project_point_to_wall_on_angle() moved to map_blocks.h (kfx_sim,
 // stage 7 prep).
 
-void view_zoom_camera_in(struct Camera *cam, long limit_max, long limit_min);
-void view_zoom_camera_in_to(struct Camera *cam, int32_t limit_max, int32_t limit_min, MapCoord x, MapCoord y);
-void set_camera_zoom(struct Camera *cam, long val);
-void view_zoom_camera_out(struct Camera *cam, long limit_max, long limit_min);
-void view_zoom_camera_out_from(struct Camera *cam, int32_t limit_max, int32_t limit_min, MapCoord x, MapCoord y);
-long get_camera_zoom(struct Camera *cam);
-unsigned long scale_camera_zoom_to_screen(unsigned long zoom_lvl);
-void update_camera_zoom_bounds(struct Camera *cam,unsigned long zoom_max,unsigned long zoom_min);
+void view_zoom_camera_in(struct Camera *cam, int64_t limit_max, int64_t limit_min);
+void view_zoom_camera_in_to(struct Camera *cam, int64_t limit_max, int64_t limit_min, MapCoord x, MapCoord y);
+void set_camera_zoom(struct Camera *cam, int64_t val);
+void view_zoom_camera_out(struct Camera *cam, int64_t limit_max, int64_t limit_min);
+void view_zoom_camera_out_from(struct Camera *cam, int64_t limit_max, int64_t limit_min, MapCoord x, MapCoord y);
+int64_t get_camera_zoom(struct Camera *cam);
+uint64_t scale_camera_zoom_to_screen(uint64_t zoom_lvl);
+void update_camera_zoom_bounds(struct Camera *cam,uint64_t zoom_max,uint64_t zoom_min);
 
-void view_set_camera_y_inertia(struct Camera *cam, long delta, long ilimit);
-void view_set_camera_x_inertia(struct Camera *cam, long delta, long ilimit);
-void view_set_camera_rotation_inertia(struct Camera *cam, int32_t delta, int32_t ilimit);
-void view_set_camera_rotation_inertia_around(struct Camera *cam, int32_t delta, int32_t ilimit, MapCoord x, MapCoord y);
+void view_set_camera_y_inertia(struct Camera *cam, int64_t delta, int64_t ilimit);
+void view_set_camera_x_inertia(struct Camera *cam, int64_t delta, int64_t ilimit);
+void view_set_camera_rotation_inertia(struct Camera *cam, int64_t delta, int64_t ilimit);
+void view_set_camera_rotation_inertia_around(struct Camera *cam, int64_t delta, int64_t ilimit, MapCoord x, MapCoord y);
 void view_set_camera_tilt(struct Camera *cam, unsigned char mode);
 void view_process_camera_inertia(struct Camera *cam);
 void view_set_camera_move_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta *move_x, MapCoordDelta *move_y);
@@ -115,14 +115,14 @@ TbBool view_move_camera_to_position(struct Camera *cam, MapCoord x, MapCoord y, 
 
 void update_all_players_cameras(void);
 void init_player_cameras(struct PlayerInfo *player);
-void update_first_person_position(struct Camera *cam, struct Thing *thing, int eye_height);
+void update_first_person_position(struct Camera *cam, struct Thing *thing, int64_t eye_height);
 
-void set_player_cameras_position(struct PlayerInfo *player, int32_t pos_x, int32_t pos_y);
-void change_engine_window_relative_size(long w_delta, long h_delta);
+void set_player_cameras_position(struct PlayerInfo *player, int64_t pos_x, int64_t pos_y);
+void change_engine_window_relative_size(int64_t w_delta, int64_t h_delta);
 void centre_engine_window(void);
 
 TbBool any_player_close_enough_to_see(const struct Coord3d *pos);
-unsigned long lightning_is_close_to_player(struct PlayerInfo *player, struct Coord3d *pos);
+uint64_t lightning_is_close_to_player(struct PlayerInfo *player, struct Coord3d *pos);
 
 /******************************************************************************/
 #ifdef __cplusplus

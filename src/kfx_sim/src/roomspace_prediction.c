@@ -31,7 +31,7 @@ extern "C" {
 static struct {
     unsigned char slab_tag_modes[MAX_TILES_X * MAX_TILES_Y];
     SlabCodedCoords slabs[MAX_TILES_X * MAX_TILES_Y];
-    int slab_count;
+    int64_t slab_count;
     GameTurn last_packet_turn;
     MapSlabCoord drag_start_slb_x;
     MapSlabCoord drag_start_slb_y;
@@ -46,10 +46,10 @@ static struct Packet local_dig_roomspace_prediction;
 static struct RoomSpace local_dig_render_roomspace;
 static TbBool local_dig_render_roomspace_active;
 
-static int reconcile_local_dig_predictions(void)
+static int64_t reconcile_local_dig_predictions(void)
 {
-    int task_count = get_players_dungeon(get_my_player())->task_count;
-    for (int i = 0; i < local_dig_tag_prediction.slab_count;) {
+    int64_t task_count = get_players_dungeon(get_my_player())->task_count;
+    for (int64_t i = 0; i < local_dig_tag_prediction.slab_count;) {
         SlabCodedCoords slb_num = local_dig_tag_prediction.slabs[i];
         unsigned char mode = local_dig_tag_prediction.slab_tag_modes[slb_num];
         TbBool tagged = find_from_task_list_by_slab(my_player_number, slb_num_decode_x(slb_num), slb_num_decode_y(slb_num)) != -1;
@@ -211,7 +211,7 @@ void update_local_dig_tag_prediction(void)
         memset(&local_dig_tag_prediction, 0, sizeof(local_dig_tag_prediction));
         return;
     }
-    int predicted_task_count = reconcile_local_dig_predictions();
+    int64_t predicted_task_count = reconcile_local_dig_predictions();
     local_dig_tag_prediction.untag_mode = roomspace.untag_mode;
     TbBool apply_selection = (pckt->control_flags & PCtr_LBtnHeld) != 0;
     if (predicted_player.roomspace_highlight_mode == drag_placement_mode) {
@@ -220,9 +220,9 @@ void update_local_dig_tag_prediction(void)
     if (!apply_selection) {
         return;
     }
-    int changed_slab_count = apply_roomspace_dig_tag_selection(my_player_number, &roomspace, local_dig_tag_prediction.previous_slb_x, local_dig_tag_prediction.previous_slb_y, predicted_player.roomspace_highlight_mode, local_dig_tag_prediction.slab_tag_modes, local_dig_tag_prediction.slabs, &local_dig_tag_prediction.slab_count, &predicted_task_count);
+    int64_t changed_slab_count = apply_roomspace_dig_tag_selection(my_player_number, &roomspace, local_dig_tag_prediction.previous_slb_x, local_dig_tag_prediction.previous_slb_y, predicted_player.roomspace_highlight_mode, local_dig_tag_prediction.slab_tag_modes, local_dig_tag_prediction.slabs, &local_dig_tag_prediction.slab_count, &predicted_task_count);
     if (changed_slab_count > 0) {
-        uint16_t previous_slb = (uint16_t)local_dig_tag_prediction.previous_slb_x | ((uint16_t)local_dig_tag_prediction.previous_slb_y << 8);
+        int64_t previous_slb = (int64_t)local_dig_tag_prediction.previous_slb_x | ((int64_t)local_dig_tag_prediction.previous_slb_y << 8);
         local_dig_tag_prediction.last_packet_turn = pckt->turn;
         set_packet_action(pckt, PckA_ApplyRoomspaceDigTag, predicted_player.roomspace_highlight_mode, predicted_player.roomspace_width, previous_slb, roomspace.untag_mode);
         play_non_3d_sample(snd_tile_dig);

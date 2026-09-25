@@ -88,17 +88,17 @@ struct GameSettings {
     unsigned char sound_volume;
     unsigned char music_volume;
     unsigned char roomflags_on;
-    unsigned short gamma_correction;
+    int64_t gamma_correction;
     struct GameKey kbkeys[GAME_KEYS_COUNT];
     struct GameKey editor_kbkeys[EDITOR_GAME_KEYS_COUNT];
     TbBool tooltips_on;
     unsigned char first_person_move_invert;
     unsigned char first_person_move_sensitivity;
-    unsigned int minimap_zoom;
-    unsigned long isometric_view_zoom_level;
-    unsigned long frontview_zoom_level;
-    long mentor_volume;
-    int isometric_tilt;
+    uint64_t minimap_zoom;
+    uint64_t isometric_view_zoom_level;
+    uint64_t frontview_zoom_level;
+    int64_t mentor_volume;
+    int64_t isometric_tilt;
     TbBool highlight_mode;
     };
 #pragma pack()
@@ -106,12 +106,12 @@ struct GameSettings {
 extern struct GameSettings settings; // KFX settings
 /******************************************************************************/
 TbBool load_settings(void);
-short save_settings(void);
+int64_t save_settings(void);
 // Had real external linkage but no header declaration at all -- added,
 // the usual "add the missing declaration" fix.
 void setup_default_settings(void);
 
-int get_max_i_can_see_from_settings(void);
+int64_t get_max_i_can_see_from_settings(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

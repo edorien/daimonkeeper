@@ -35,9 +35,9 @@ struct ftest_bug_ai_bridge__variables
     MapSlabCoord slb_y_min_bridge_check_area;
     MapSlabCoord slb_y_max_bridge_check_area;
 
-    unsigned long test_runs;
-    unsigned long test_runs_with_bridges;
-    unsigned long test_runs_without_bridges;
+    uint64_t test_runs;
+    uint64_t test_runs_with_bridges;
+    uint64_t test_runs_without_bridges;
 
     TbBool take_screenshot;
 };
@@ -48,7 +48,7 @@ struct ftest_bug_ai_bridge__variables ftest_bug_ai_bridge__vars = {
         {133, 109}, // good samurai - level 10
     },
 
-    .end_test_after_n_turns = 35000ul,
+    .end_test_after_n_turns = 35000u,
 
     .slb_x_min_bridge_check_area = 1,
     .slb_x_max_bridge_check_area = 21,
@@ -79,7 +79,7 @@ FTestActionResult ftest_bug_ai_bridge_action001__setup_map(struct FTestActionArg
     ftest_util_reveal_map(PLAYER0); // we might want to see the entire map for testing purposes
     
     // nerf all creatures from subtile array
-    for(int creature_nerf_index = 0; creature_nerf_index < FTEST_BUG_AI_BRIDGE__NUMBER_OF_CREATURES_TO_NERF; ++creature_nerf_index)
+    for(int64_t creature_nerf_index = 0; creature_nerf_index < FTEST_BUG_AI_BRIDGE__NUMBER_OF_CREATURES_TO_NERF; ++creature_nerf_index)
     {
         MapSubtlCoord stl_x = vars->stl_enemies_to_nerf[creature_nerf_index][0]; // 0 == x
         MapSubtlCoord stl_y = vars->stl_enemies_to_nerf[creature_nerf_index][1]; // 1 == y
@@ -87,17 +87,17 @@ FTestActionResult ftest_bug_ai_bridge_action001__setup_map(struct FTestActionArg
         struct Map* mapblk = get_map_block_at(stl_x, stl_y);
         if(map_block_invalid(mapblk))
         {
-            FTEST_FAIL_TEST("Invalid map block at subtile (%d,%d)", stl_x, stl_y);
+            FTEST_FAIL_TEST("Invalid map block at subtile (%" PRId64 ",%" PRId64 ")", (int64_t)(stl_x), (int64_t)(stl_y));
             return FTRs_Go_To_Next_Action;
         }
         struct Thing* thing = thing_get(get_mapwho_thing_index(mapblk));
         if (thing_is_invalid(thing) || !thing_is_creature(thing))
         {
-            FTEST_FAIL_TEST("Failed to find creature to nerf at subtile (%d,%d)", stl_x, stl_y);
+            FTEST_FAIL_TEST("Failed to find creature to nerf at subtile (%" PRId64 ",%" PRId64 ")", (int64_t)(stl_x), (int64_t)(stl_y));
             return FTRs_Go_To_Next_Action;
         }
         
-        FTESTLOG("Nerfing Creature %s at (%d,%d) to 'level 1' and '1 health'", creature_code_name(thing->model), stl_x, stl_y);
+        FTESTLOG("Nerfing Creature %s at (%" PRId64 ",%" PRId64 ") to 'level 1' and '1 health'", creature_code_name(thing->model), (int64_t)(stl_x), (int64_t)(stl_y));
         set_creature_level(thing, 0); // 0 == level 1
         thing->health = 1;
     }
@@ -122,19 +122,19 @@ FTestActionResult ftest_bug_ai_bridge_action001__setup_map(struct FTestActionArg
 
 void ftest_bug_ai_bridge__report_stats_and_increment_seed()
 {
-    FTESTLOG("test_runs: %lu", ftest_bug_ai_bridge__vars.test_runs);
-    FTESTLOG("test_runs_with_bridges: %lu (%.2f%%)", ftest_bug_ai_bridge__vars.test_runs_with_bridges, (double)ftest_bug_ai_bridge__vars.test_runs_with_bridges/(double)ftest_bug_ai_bridge__vars.test_runs * 100.0);
-    FTESTLOG("test_runs_without_bridges: %lu (%.2f%%)", ftest_bug_ai_bridge__vars.test_runs_without_bridges, (double)ftest_bug_ai_bridge__vars.test_runs_without_bridges/(double)ftest_bug_ai_bridge__vars.test_runs * 100.0);
+    FTESTLOG("test_runs: %" PRIu64, (uint64_t)(ftest_bug_ai_bridge__vars.test_runs));
+    FTESTLOG("test_runs_with_bridges: %" PRIu64 " (%.2f%%)", (uint64_t)(ftest_bug_ai_bridge__vars.test_runs_with_bridges), (double)ftest_bug_ai_bridge__vars.test_runs_with_bridges/(double)ftest_bug_ai_bridge__vars.test_runs * 100.0);
+    FTESTLOG("test_runs_without_bridges: %" PRIu64 " (%.2f%%)", (uint64_t)(ftest_bug_ai_bridge__vars.test_runs_without_bridges), (double)ftest_bug_ai_bridge__vars.test_runs_without_bridges/(double)ftest_bug_ai_bridge__vars.test_runs * 100.0);
 
     //log seed, increment after for next test
     struct FTestConfig* current_test_config = ftest_get_current_test_config();
     if(current_test_config->seed > 0)
     {
-        FTESTLOG("seed %d", current_test_config->seed++);
+        FTESTLOG("seed %" PRId64, (int64_t)(current_test_config->seed++));
     }
     else
     {
-        FTESTLOG("seed is 0 - defaults to gameturn %d", get_gameturn());
+        FTESTLOG("seed is 0 - defaults to gameturn %" PRId64, (int64_t)(get_gameturn()));
     }
 }
 
@@ -156,13 +156,13 @@ FTestActionResult ftest_bug_ai_bridge_action002__end_test(struct FTestActionArgs
             struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
             if(slabmap_block_invalid(slb))
             {
-                FTEST_FAIL_TEST("Invalid slab found at (%d,%d)", slb_x, slb_y);
+                FTEST_FAIL_TEST("Invalid slab found at (%" PRId64 ",%" PRId64 ")", (int64_t)(slb_x), (int64_t)(slb_y));
                 return FTRs_Go_To_Next_Action;
             }
 
             if(slb->kind == SlbT_BRIDGE)
             {
-                FTESTLOG("Found bridge at (%d,%d)", slb_x, slb_y);
+                FTESTLOG("Found bridge at (%" PRId64 ",%" PRId64 ")", (int64_t)(slb_x), (int64_t)(slb_y));
                 found_bridge = true;
             }
         }
@@ -172,7 +172,7 @@ FTestActionResult ftest_bug_ai_bridge_action002__end_test(struct FTestActionArgs
     {
         ++vars->test_runs;
         ++vars->test_runs_with_bridges;
-        FTESTLOG("Bridges were found at GameTurn %d, reporting and exiting test", get_gameturn());
+        FTESTLOG("Bridges were found at GameTurn %" PRId64 ", reporting and exiting test", (int64_t)(get_gameturn()));
         vars->take_screenshot = true;
         kfx_net_state.frame_skip = 0;
         ftest_bug_ai_bridge__report_stats_and_increment_seed();
@@ -183,7 +183,7 @@ FTestActionResult ftest_bug_ai_bridge_action002__end_test(struct FTestActionArgs
     {
         ++vars->test_runs;
         ++vars->test_runs_without_bridges;
-        FTESTLOG("Reached GameTurn limit %u, exiting test.",  vars->end_test_after_n_turns);
+        FTESTLOG("Reached GameTurn limit %" PRIu64 ", exiting test.",  (uint64_t)(vars->end_test_after_n_turns));
         ftest_bug_ai_bridge__report_stats_and_increment_seed();
         return FTRs_Go_To_Next_Action; // exit test
     }
@@ -206,7 +206,7 @@ FTestActionResult ftest_bug_ai_bridge_action003__delayed_screenshot(struct FTest
 
         struct FTestConfig* current_test_config = ftest_get_current_test_config();
         char fname[FILENAME_MAX] = "";
-        snprintf(fname, sizeof(fname), "scrshots/scr%05u.%s", current_test_config->seed, ".png");
+        snprintf(fname, sizeof(fname), "scrshots/scr%05" PRIu64 ".%s", (uint64_t)(current_test_config->seed), ".png");
         take_screenshot(fname);
         vars->take_screenshot = false;
     }

@@ -106,7 +106,7 @@ static void ftest_net_fake_sendmsg_all(const char *buffer, size_t size)
     ftest_net_fake_enqueue(ftest_net_fake_my_mailbox(), buffer, size);
 }
 
-static size_t ftest_net_fake_msgready(NetUserId source, unsigned timeout)
+static size_t ftest_net_fake_msgready(NetUserId source, uint64_t timeout)
 {
     // Delivery is synchronous, so there's never anything to actually wait
     // for -- a real NetSP's `timeout` only matters when a message might
@@ -176,7 +176,7 @@ void ftest_net_fake_set_role_client(NetUserId as_id)
 
 void ftest_net_fake_reset(void)
 {
-    for (int i = 0; i < MAX_NET_USERS; i++) {
+    for (int64_t i = 0; i < MAX_NET_USERS; i++) {
         struct FTestNetFakeMsg *msg = ftest_net_fake_inbox_head[i];
         while (msg != NULL) {
             struct FTestNetFakeMsg *next = msg->next;

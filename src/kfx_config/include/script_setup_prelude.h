@@ -60,16 +60,16 @@ struct SetupChoices
     SetupSeed values;                 // same shape as the level's static state
     bool replace_win_lose = false;    // false: Keep the level's rules, true: Replace them with `rules`
     std::vector<SetupWinLoseRule> rules; // used only when replace_win_lose
-    std::vector<std::pair<int, int>> allies; // extra ALLY_PLAYERS(a,b,1); the file's own are untouched
+    std::vector<std::pair<int64_t, int64_t>> allies; // extra ALLY_PLAYERS(a,b,1); the file's own are untouched
 };
 
 struct SetupBuildOptions
 {
-    int players = 2;    // keeper slots of the level (.lof PLAYERS)
+    int64_t players = 2;    // keeper slots of the level (.lof PLAYERS)
     bool force = false; // produce an override even when nothing differs (tests/diagnostics)
     // Optional: does this item exist in the loaded config? `field` is a
     // SetupField (availability kinds and SetupField_Pool). Unknown -> error.
-    std::function<bool(int field, const std::string &item)> item_exists;
+    std::function<bool(int64_t field, const std::string &item)> item_exists;
 };
 
 struct SetupOverride
@@ -91,7 +91,7 @@ bool script_setup_choices_are_default(const SetupAnalysis &analysis, const Setup
 // The prelude text alone (also used by tests). Locked fields are emitted with
 // the level's own value whatever `choices` says. `issues` may be null.
 std::string script_setup_generate_prelude(const SetupAnalysis &analysis, const SetupChoices &choices,
-    int players, std::vector<SetupIssue> *issues);
+    int64_t players, std::vector<SetupIssue> *issues);
 
 // Validates and builds the whole override. On any Error `active` stays false.
 SetupOverride script_setup_build_override(const std::string &text, const SetupAnalysis &analysis,

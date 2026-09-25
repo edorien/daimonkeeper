@@ -66,7 +66,7 @@
 extern "C" {
 #endif
 
-extern long level_file_version;
+extern int64_t level_file_version;
 
 #define MAX_CONFIG_VALUES 4
 
@@ -446,10 +446,10 @@ const struct NamedCommand texture_pack_desc[] = {
 };
 
 // Variables that could be set
-TbBool parse_set_varib(const char *varib_name, int32_t *varib_id, int32_t *varib_type)
+TbBool parse_set_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type)
 {
     char c;
-    int len = 0;
+    int len = 0; // sscanf %n target
     char arg[MAX_TEXT_LENGTH];
 
     *varib_id = -1;
@@ -465,13 +465,13 @@ TbBool parse_set_varib(const char *varib_name, int32_t *varib_id, int32_t *varib
     }
     if (*varib_id == -1)
     {
-        if (2 == sscanf(varib_name, "BOX%d_ACTIVATE%c", varib_id, &c) && (c == 'D'))
+        if (2 == sscanf(varib_name, "BOX%" SCNd64 "_ACTIVATE%c", varib_id, &c) && (c == 'D'))
         {
             // activateD
             *varib_type = SVar_BOX_ACTIVATED;
         }
         else
-        if (2 == sscanf(varib_name, "TRAP%d_ACTIVATE%c", varib_id, &c) && (c == 'D'))
+        if (2 == sscanf(varib_name, "TRAP%" SCNd64 "_ACTIVATE%c", varib_id, &c) && (c == 'D'))
         {
             // activateD
             *varib_type = SVar_TRAP_ACTIVATED;
@@ -499,10 +499,10 @@ TbBool parse_set_varib(const char *varib_name, int32_t *varib_id, int32_t *varib
     return true;
 }
 
-TbBool parse_get_varib(const char *varib_name, int32_t *varib_id, int32_t *varib_type, long lvl_file_version)
+TbBool parse_get_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type, int64_t lvl_file_version)
 {
     char c;
-    int len = 0;
+    int len = 0; // sscanf %n target
     char arg[MAX_TEXT_LENGTH];
 
     if (lvl_file_version > 0)
@@ -554,12 +554,12 @@ TbBool parse_get_varib(const char *varib_name, int32_t *varib_id, int32_t *varib
     }
     if (*varib_id == -1)
     {
-        if (2 == sscanf(varib_name, "BOX%d_ACTIVATE%c", varib_id, &c) && (c == 'D'))
+        if (2 == sscanf(varib_name, "BOX%" SCNd64 "_ACTIVATE%c", varib_id, &c) && (c == 'D'))
         {
             // activateD
             *varib_type = SVar_BOX_ACTIVATED;
         }
-        else if (2 == sscanf(varib_name, "TRAP%d_ACTIVATE%c", varib_id, &c) && (c == 'D'))
+        else if (2 == sscanf(varib_name, "TRAP%" SCNd64 "_ACTIVATE%c", varib_id, &c) && (c == 'D'))
         {
             // activateD
             *varib_type = SVar_TRAP_ACTIVATED;
@@ -599,7 +599,7 @@ static void set_config_check(const struct NamedFieldSet* named_fields_set, const
     const char* property = scline->tp[1];
     const char* valuestrings[MAX_CONFIG_VALUES] = {scline->tp[2],scline->tp[3],scline->tp[4],scline->tp[5]};
 
-    short id = get_id(named_fields_set->names, id_str);
+    int64_t id = get_id(named_fields_set->names, id_str);
     if (id == -1)
     {
         SCRPTERRLOG("Unknown %s, '%s'",named_fields_set->block_basename, id_str);
@@ -607,7 +607,7 @@ static void set_config_check(const struct NamedFieldSet* named_fields_set, const
         return;
     }
 
-    long property_id = get_named_field_id(named_fields_set->named_fields, property);
+    int64_t property_id = get_named_field_id(named_fields_set->named_fields, property);
     if (property_id == -1)
     {
         SCRPTERRLOG("Unknown property, '%s'", property);
@@ -617,7 +617,7 @@ static void set_config_check(const struct NamedFieldSet* named_fields_set, const
 
     if (id > named_fields_set->max_count)
     {
-        SCRPTERRLOG("'%s%d' is out of range",named_fields_set->block_basename, id);
+        SCRPTERRLOG("'%s%" PRId64 "' is out of range",named_fields_set->block_basename, (int64_t)(id));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -660,8 +660,8 @@ static void set_config_check(const struct NamedFieldSet* named_fields_set, const
 
 static void set_config_process(const struct NamedFieldSet* named_fields_set, struct ScriptContext* context, const char* src_str)
 {
-    short id          = context->value->shorts[0];
-    short property_id = context->value->shorts[1];
+    int64_t id          = context->value->shorts[0];
+    int64_t property_id = context->value->shorts[1];
 
     for (size_t i = 0; i < MAX_CONFIG_VALUES; i++)
     {
@@ -679,7 +679,7 @@ static void set_config_process(const struct NamedFieldSet* named_fields_set, str
 
 static void add_to_party_check(const struct ScriptLine *scline)
 {
-    int party_id = get_party_index_of_name(scline->tp[0]);
+    int64_t party_id = get_party_index_of_name(scline->tp[0]);
     if (party_id < 0)
     {
         SCRPTERRLOG("Invalid Party:%s",scline->tp[0]);
@@ -687,23 +687,23 @@ static void add_to_party_check(const struct ScriptLine *scline)
     }
     if ((scline->np[2] < 1) || (scline->np[2] > CREATURE_MAX_LEVEL))
     {
-      SCRPTERRLOG("Invalid Creature Level parameter; %ld not in range (%d,%d)",scline->np[2],1,CREATURE_MAX_LEVEL);
+      SCRPTERRLOG("Invalid Creature Level parameter; %" PRId64 " not in range (%" PRId64 ",%" PRId64 ")",(int64_t)(scline->np[2]),(int64_t)(1),(int64_t)(CREATURE_MAX_LEVEL));
       return;
     }
-    long crtr_id = get_rid(creature_desc, scline->tp[1]);
+    int64_t crtr_id = get_rid(creature_desc, scline->tp[1]);
     if (crtr_id == -1)
     {
       SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
       return;
     }
     PlayerNumber target = -1;
-    long objective_id = get_objective_id_with_potential_target(scline->tp[4], &target);
+    int64_t objective_id = get_objective_id_with_potential_target(scline->tp[4], &target);
     if (objective_id == -1)
     {
       SCRPTERRLOG("Unknown party member objective, '%s'", scline->tp[4]);
       return;
     }
-  //SCRPTLOG("Party '%s' member kind %d, level %d",prtname,crtr_id,exp_level);
+  //SCRPTLOG("Party '%s' member kind %d, level %d",prtname,(int64_t)(crtr_id),(int64_t)(exp_level));
 
     if ((get_script_current_condition() == CONDITION_ALWAYS) && (next_command_reusable == 0))
     {
@@ -734,13 +734,13 @@ static void add_to_party_check(const struct ScriptLine *scline)
 
 static void delete_from_party_check(const struct ScriptLine *scline)
 {
-    int party_id = get_party_index_of_name(scline->tp[0]);
+    int64_t party_id = get_party_index_of_name(scline->tp[0]);
     if (party_id < 0)
     {
         SCRPTERRLOG("Invalid Party:%s",scline->tp[0]);
         return;
     }
-    long creature_id = get_rid(creature_desc, scline->tp[1]);
+    int64_t creature_id = get_rid(creature_desc, scline->tp[1]);
     if (creature_id == -1)
     {
       SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
@@ -769,8 +769,8 @@ static void delete_from_party_check(const struct ScriptLine *scline)
     }
 }
 
-static TbBool get_custom_icon_from_value(const char* txt, short* icon_idx);
-static TbBool get_custom_ensign_from_value(const char* txt, short* ensign_id);
+static TbBool get_custom_icon_from_value(const char* txt, int16_t* icon_idx);
+static TbBool get_custom_ensign_from_value(const char* txt, int16_t* ensign_id);
 
 static void display_objective_check(const struct ScriptLine *scline)
 {
@@ -882,21 +882,21 @@ static void quick_objective_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, ALL_PLAYERS);
 
-    int16_t idx = scline->np[0];
+    int64_t idx = scline->np[0];
     if ((idx < 0) || (idx >= QUICK_MESSAGES_COUNT))
     {
-        SCRPTERRLOG("Invalid objective ID number (%d)", idx);
+        SCRPTERRLOG("Invalid objective ID number (%" PRId64 ")", (int64_t)(idx));
         return;
     }
     const char* msgtext = scline->tp[1];
 
     if (strlen(msgtext) >= MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Objective TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN - 1);
+        SCRPTWRNLOG("Objective TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN - 1));
     }
     if ((kfx_sim_state.quick_messages[idx][0] != '\0') && (strcmp(kfx_sim_state.quick_messages[idx], msgtext) != 0))
     {
-        SCRPTWRNLOG("Quick Message no %d overwritten by different text", idx);
+        SCRPTWRNLOG("Quick Message no %" PRId64 " overwritten by different text", (int64_t)(idx));
     }
     MapSubtlCoord x = 0, y = 0;
     TbMapLocation location = 0;
@@ -955,21 +955,21 @@ static void quick_player_objective_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[1]);
 
-    int16_t idx = scline->np[0];
+    int64_t idx = scline->np[0];
     if ((idx < 0) || (idx >= QUICK_MESSAGES_COUNT))
     {
-        SCRPTERRLOG("Invalid objective ID number (%d)", idx);
+        SCRPTERRLOG("Invalid objective ID number (%" PRId64 ")", (int64_t)(idx));
         return;
     }
     const char* msgtext = scline->tp[2];
 
     if (strlen(msgtext) >= MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Objective TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN - 1);
+        SCRPTWRNLOG("Objective TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN - 1));
     }
     if ((kfx_sim_state.quick_messages[idx][0] != '\0') && (strcmp(kfx_sim_state.quick_messages[idx], msgtext) != 0))
     {
-        SCRPTWRNLOG("Quick Message no %d overwritten by different text", idx);
+        SCRPTWRNLOG("Quick Message no %" PRId64 " overwritten by different text", (int64_t)(idx));
     }
     MapSubtlCoord x = 0, y = 0;
     TbMapLocation location = 0;
@@ -1013,17 +1013,17 @@ static void quick_player_objective_check(const struct ScriptLine* scline)
     PROCESS_SCRIPT_VALUE(scline->command);
 }
 
-static TbBool get_custom_icon_from_value(const char* txt, short* icon_idx)
+static TbBool get_custom_icon_from_value(const char* txt, int16_t* icon_idx)
 {
     if (txt[0] == '\0')
         return false;
 
-    short idx = get_icon_id(txt);
+    int64_t idx = get_icon_id(txt);
     *icon_idx = idx;
     return true;
 }
 
-static TbBool get_custom_ensign_from_value(const char* txt, short* ensign_id)
+static TbBool get_custom_ensign_from_value(const char* txt, int16_t* ensign_id)
 {
     if (txt[0] == '\0')
         return false;   
@@ -1031,7 +1031,7 @@ static TbBool get_custom_ensign_from_value(const char* txt, short* ensign_id)
         *ensign_id = -1;
         return true;
     }
-    short idx = get_ensign_id(txt);    
+    int64_t idx = get_ensign_id(txt);    
     *ensign_id = CUSTOM_ENSIGN_BASE + idx;
     return true;
 }
@@ -1040,21 +1040,21 @@ static void quick_information_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, ALL_PLAYERS);
 
-    int16_t idx = scline->np[0];
+    int64_t idx = scline->np[0];
     if ((idx < 0) || (idx >= QUICK_MESSAGES_COUNT))
     {
-        SCRPTERRLOG("Invalid information ID number (%d)", idx);
+        SCRPTERRLOG("Invalid information ID number (%" PRId64 ")", (int64_t)(idx));
         return;
     }
     const char* msgtext = scline->tp[1];
 
     if (strlen(msgtext) >= MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Information TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN - 1);
+        SCRPTWRNLOG("Information TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN - 1));
     }
     if ((kfx_sim_state.quick_messages[idx][0] != '\0') && (strcmp(kfx_sim_state.quick_messages[idx], msgtext) != 0))
     {
-        SCRPTWRNLOG("Quick Message no %d overwritten by different text", idx);
+        SCRPTWRNLOG("Quick Message no %" PRId64 " overwritten by different text", (int64_t)(idx));
     }
     MapSubtlCoord x = 0, y = 0;
     TbMapLocation location = 0;
@@ -1106,21 +1106,21 @@ static void quick_player_information_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[1]);
 
-    int16_t idx = scline->np[0];
+    int64_t idx = scline->np[0];
     if ((idx < 0) || (idx >= QUICK_MESSAGES_COUNT))
     {
-        SCRPTERRLOG("Invalid information ID number (%d)", idx);
+        SCRPTERRLOG("Invalid information ID number (%" PRId64 ")", (int64_t)(idx));
         return;
     }
     const char* msgtext = scline->tp[2];
 
     if (strlen(msgtext) >= MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Information TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN - 1);
+        SCRPTWRNLOG("Information TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN - 1));
     }
     if ((kfx_sim_state.quick_messages[idx][0] != '\0') && (strcmp(kfx_sim_state.quick_messages[idx], msgtext) != 0))
     {
-        SCRPTWRNLOG("Quick Message no %d overwritten by different text", idx);
+        SCRPTWRNLOG("Quick Message no %" PRId64 " overwritten by different text", (int64_t)(idx));
     }
     MapSubtlCoord x = 0, y = 0;
     TbMapLocation location = 0;
@@ -1276,47 +1276,47 @@ static void tag_map_rect_check(const struct ScriptLine* scline)
 
     if (start_x < 0)
     {
-        SCRPTWRNLOG("Starting X slab '%d' (from %d-%d/2) is out of range, fixing it to '0'.", start_x, x, width);
+        SCRPTWRNLOG("Starting X slab '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(start_x), (int64_t)(x), (int64_t)(width));
         start_x = 0;
     }
     else if (start_x > kfx_sim_state.map_tiles_x)
     {
-        SCRPTWRNLOG("Starting X slab '%d' (from %d-%d/2) is out of range, fixing it to '%d'.", start_x, x, width, kfx_sim_state.map_tiles_x);
+        SCRPTWRNLOG("Starting X slab '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(start_x), (int64_t)(x), (int64_t)(width), (int64_t)(kfx_sim_state.map_tiles_x));
         start_x = kfx_sim_state.map_tiles_x;
     }
     if (end_x < 0)
     {
-        SCRPTWRNLOG("Ending X slab '%d' (from %d+%d/2) is out of range, fixing it to '0'.", end_x, x, width);
+        SCRPTWRNLOG("Ending X slab '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(end_x), (int64_t)(x), (int64_t)(width));
         end_x = 0;
     }
     else if (end_x > kfx_sim_state.map_tiles_x)
     {
-        SCRPTWRNLOG("Ending X slab '%d' (from %d+%d/2) is out of range, fixing it to '%d'.", end_x, x, width, kfx_sim_state.map_tiles_x);
+        SCRPTWRNLOG("Ending X slab '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(end_x), (int64_t)(x), (int64_t)(width), (int64_t)(kfx_sim_state.map_tiles_x));
         end_x = kfx_sim_state.map_tiles_x;
     }
     if (start_y < 0)
     {
-        SCRPTWRNLOG("Starting Y slab '%d' (from %d-%d/2) is out of range, fixing it to '0'.", start_y, y, height);
+        SCRPTWRNLOG("Starting Y slab '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(start_y), (int64_t)(y), (int64_t)(height));
         start_y = 0;
     }
     else if (start_y > kfx_sim_state.map_tiles_y)
     {
-        SCRPTWRNLOG("Starting Y slab '%d' (from %d-%d/2) is out of range, fixing it to '%d'.", start_y, y, height, kfx_sim_state.map_tiles_y);
+        SCRPTWRNLOG("Starting Y slab '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(start_y), (int64_t)(y), (int64_t)(height), (int64_t)(kfx_sim_state.map_tiles_y));
         start_y = kfx_sim_state.map_tiles_y;
     }
     if (end_y < 0)
     {
-        SCRPTWRNLOG("Ending Y slab '%d' (from %d+%d/2) is out of range, fixing it to '0'.", end_y, y, height);
+        SCRPTWRNLOG("Ending Y slab '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(end_y), (int64_t)(y), (int64_t)(height));
         end_y = 0;
     }
     else if (end_y > kfx_sim_state.map_tiles_y)
     {
-        SCRPTWRNLOG("Ending Y slab '%d' (from %d+%d/2) is out of range, fixing it to '%d'.", end_y, y, height, kfx_sim_state.map_tiles_y);
+        SCRPTWRNLOG("Ending Y slab '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(end_y), (int64_t)(y), (int64_t)(height), (int64_t)(kfx_sim_state.map_tiles_y));
         end_y = kfx_sim_state.map_tiles_y;
     }
     if ((x < 0) || (x > kfx_sim_state.map_tiles_x) || (y < 0) || (y > kfx_sim_state.map_tiles_y))
     {
-        SCRPTERRLOG("Tag slabs out of range, trying to set tag center point to (%d,%d) on map that's %dx%d slabs", x, y, kfx_sim_state.map_tiles_x, kfx_sim_state.map_tiles_y);
+        SCRPTERRLOG("Tag slabs out of range, trying to set tag center point to (%" PRId64 ",%" PRId64 ") on map that's %" PRId64 "x%" PRId64 " slabs", (int64_t)(x), (int64_t)(y), (int64_t)(kfx_sim_state.map_tiles_x), (int64_t)(kfx_sim_state.map_tiles_y));
         DEALLOCATE_SCRIPT_VALUE
             return;
     }
@@ -1335,9 +1335,9 @@ static void tag_map_rect_process(struct ScriptContext* context)
     MapSlabCoord start_y = context->value->shorts[3];
     MapSlabCoord end_y = context->value->shorts[4];
 
-    for (short x = start_x; x < end_x; x++)
+    for (int64_t x = start_x; x < end_x; x++)
     {
-        for (short y = start_y; y < end_y; y++)
+        for (int64_t y = start_y; y < end_y; y++)
         {
             MapSubtlCoord stl_x = slab_subtile_center(x);
             MapSubtlCoord stl_y = slab_subtile_center(y);
@@ -1357,9 +1357,9 @@ static void untag_map_rect_process(struct ScriptContext* context)
     MapSlabCoord start_y = context->value->shorts[3];
     MapSlabCoord end_y = context->value->shorts[4];
 
-    for (short x = start_x; x < end_x; x++)
+    for (int64_t x = start_x; x < end_x; x++)
     {
-        for (short y = start_y; y < end_y; y++)
+        for (int64_t y = start_y; y < end_y; y++)
         {
             MapSubtlCoord stl_x = slab_subtile_center(x);
             MapSubtlCoord stl_y = slab_subtile_center(y);
@@ -1412,47 +1412,47 @@ static void conceal_map_rect_check(const struct ScriptLine *scline)
 
     if (start_x < 0)
     {
-        SCRPTWRNLOG("Starting X coordinate '%d' (from %d-%d/2) is out of range, fixing it to '0'.", start_x,x,width);
+        SCRPTWRNLOG("Starting X coordinate '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(start_x),(int64_t)(x),(int64_t)(width));
         start_x = 0;
     }
     else if (start_x > kfx_sim_state.map_subtiles_x)
     {
-        SCRPTWRNLOG("Starting X coordinate '%d' (from %d-%d/2) is out of range, fixing it to '%d'.", start_x, x, width, kfx_sim_state.map_subtiles_x);
+        SCRPTWRNLOG("Starting X coordinate '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(start_x), (int64_t)(x), (int64_t)(width), (int64_t)(kfx_sim_state.map_subtiles_x));
         start_x = kfx_sim_state.map_subtiles_x;
     }
     if (end_x < 0)
     {
-        SCRPTWRNLOG("Ending X coordinate '%d' (from %d+%d/2) is out of range, fixing it to '0'.", end_x, x, width);
+        SCRPTWRNLOG("Ending X coordinate '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(end_x), (int64_t)(x), (int64_t)(width));
         end_x = 0;
     }
     else if (end_x > kfx_sim_state.map_subtiles_x)
     {
-        SCRPTWRNLOG("Ending X coordinate '%d' (from %d+%d/2) is out of range, fixing it to '%d'.", end_x, x, width, kfx_sim_state.map_subtiles_x);
+        SCRPTWRNLOG("Ending X coordinate '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(end_x), (int64_t)(x), (int64_t)(width), (int64_t)(kfx_sim_state.map_subtiles_x));
         end_x = kfx_sim_state.map_subtiles_x;
     }
     if (start_y < 0)
     {
-        SCRPTWRNLOG("Starting Y coordinate '%d' (from %d-%d/2) is out of range, fixing it to '0'.", start_y, y, height);
+        SCRPTWRNLOG("Starting Y coordinate '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(start_y), (int64_t)(y), (int64_t)(height));
         start_y = 0;
     }
     else if (start_y > kfx_sim_state.map_subtiles_y)
     {
-        SCRPTWRNLOG("Starting Y coordinate '%d' (from %d-%d/2) is out of range, fixing it to '%d'.", start_y, y, height, kfx_sim_state.map_subtiles_y);
+        SCRPTWRNLOG("Starting Y coordinate '%" PRId64 "' (from %" PRId64 "-%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(start_y), (int64_t)(y), (int64_t)(height), (int64_t)(kfx_sim_state.map_subtiles_y));
         start_y = kfx_sim_state.map_subtiles_y;
     }
     if (end_y < 0)
     {
-        SCRPTWRNLOG("Ending Y coordinate '%d' (from %d+%d/2) is out of range, fixing it to '0'.", end_y, y, height);
+        SCRPTWRNLOG("Ending Y coordinate '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '0'.", (int64_t)(end_y), (int64_t)(y), (int64_t)(height));
         end_y = 0;
     }
     else if (end_y > kfx_sim_state.map_subtiles_y)
     {
-        SCRPTWRNLOG("Ending Y coordinate '%d' (from %d+%d/2) is out of range, fixing it to '%d'.", end_y, y, height, kfx_sim_state.map_subtiles_y);
+        SCRPTWRNLOG("Ending Y coordinate '%" PRId64 "' (from %" PRId64 "+%" PRId64 "/2) is out of range, fixing it to '%" PRId64 "'.", (int64_t)(end_y), (int64_t)(y), (int64_t)(height), (int64_t)(kfx_sim_state.map_subtiles_y));
         end_y = kfx_sim_state.map_subtiles_y;
     }
     if ((x < 0) || (x > kfx_sim_state.map_subtiles_x) || (y < 0) || (y > kfx_sim_state.map_subtiles_y))
     {
-        SCRPTERRLOG("Conceal coordinates out of range, trying to set conceal center point to (%d,%d) on map that's %dx%d subtiles", x, y, kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y);
+        SCRPTERRLOG("Conceal coordinates out of range, trying to set conceal center point to (%" PRId64 ",%" PRId64 ") on map that's %" PRId64 "x%" PRId64 " subtiles", (int64_t)(x), (int64_t)(y), (int64_t)(kfx_sim_state.map_subtiles_x), (int64_t)(kfx_sim_state.map_subtiles_y));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -1482,19 +1482,19 @@ static void conceal_map_rect_process(struct ScriptContext *context)
  * @param criteria the creature selection criterion
  * @param count the amount of units to transfer
  */
-static int script_transfer_creature(PlayerNumber plyr_idx, ThingModel crmodel, long criteria, int count)
+static int64_t script_transfer_creature(PlayerNumber plyr_idx, ThingModel crmodel, int64_t criteria, int64_t count)
 {
-    short transferred = 0;
+    int64_t transferred = 0;
     struct Thing* thing;
     struct Dungeon* dungeon;
     struct CreatureControl* cctrl;
-    for (int i = 0; i < count; i++)
+    for (int64_t i = 0; i < count; i++)
     {
         thing = script_get_creature_by_criteria(plyr_idx, crmodel, criteria);
         cctrl = creature_control_get_from_thing(thing);
         if ((!thing_exists(thing)) && (i == 0))
         {
-            SYNCDBG(5, "No matching player %d creature of model %d found to transfer.", (int)plyr_idx, (int)crmodel);
+            SYNCDBG(5, "No matching player %" PRId64 " creature of model %" PRId64 " found to transfer.", (int64_t)plyr_idx, (int64_t)crmodel);
             break;
         }
 
@@ -1529,14 +1529,14 @@ static void special_transfer_creature_check(const struct ScriptLine* scline)
 
 static void script_transfer_creature_check(const struct ScriptLine* scline)
 {
-    long crtr_id = parse_creature_name(scline->tp[1]);
-    long count = scline->np[3];
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t count = scline->np[3];
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
         return;
     }
-    long select_id = parse_criteria(scline->tp[2]);
+    int64_t select_id = parse_criteria(scline->tp[2]);
     if (select_id == -1) {
         SCRPTERRLOG("Unknown select criteria, '%s'", scline->tp[2]);
         return;
@@ -1551,7 +1551,7 @@ static void script_transfer_creature_check(const struct ScriptLine* scline)
     }
     if (count > 255)
     {
-        SCRPTWRNLOG("Trying to transfer %ld creatures out of a possible 255",count);
+        SCRPTWRNLOG("Trying to transfer %" PRId64 " creatures out of a possible 255",(int64_t)(count));
         count = 255;
     }
     command_add_value(Cmd_TRANSFER_CREATURE, scline->np[0], crtr_id, select_id, count);
@@ -1564,13 +1564,13 @@ static void script_transfer_creature_process(struct ScriptContext* context)
 
 static void change_creatures_annoyance_check(const struct ScriptLine* scline)
 {
-    long crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
         return;
     }
-    long op_id = get_rid(script_operator_desc, scline->tp[2]);
+    int64_t op_id = get_rid(script_operator_desc, scline->tp[2]);
     if (op_id == -1)
     {
         SCRPTERRLOG("Invalid operation for changing creatures' annoyance: '%s'", scline->tp[2]);
@@ -1599,8 +1599,8 @@ static void set_hand_rule_check(const struct ScriptLine* scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
 
     const char *param_name = scline->tp[5];
-    long crtr_id = parse_creature_name(scline->tp[1]);
-    short hr_action, hr_slot, hr_type, param;
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t hr_action, hr_slot, hr_type, param;
 
     if (crtr_id == CREATURE_NONE)
     {
@@ -1627,12 +1627,12 @@ static void set_hand_rule_check(const struct ScriptLine* scline)
         param = hr_type == HandRule_AffectedBy ? 0 : script_atol(param_name);
         if (hr_type == HandRule_AtActionPoint && action_point_number_to_index(param) == -1)
         {
-            SCRPTERRLOG("Unknown action point param for hand rule: '%d'", param);
+            SCRPTERRLOG("Unknown action point param for hand rule: '%" PRId64 "'", (int64_t)(param));
             return;
         }
         if (hr_type == HandRule_AffectedBy)
         {
-            long mag_id = get_id(spell_desc, param_name);
+            int64_t mag_id = get_id(spell_desc, param_name);
             if (mag_id == -1)
             {
                 SCRPTERRLOG("Unknown magic, '%s'", param_name);
@@ -1658,22 +1658,22 @@ static void move_creature_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
 
-    long crmodel = parse_creature_name(scline->tp[1]);
+    int64_t crmodel = parse_creature_name(scline->tp[1]);
     if (crmodel == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
         return;
     }
-    long select_id = parse_criteria(scline->tp[2]);
+    int64_t select_id = parse_criteria(scline->tp[2]);
     if (select_id == -1) {
         SCRPTERRLOG("Unknown select criteria, '%s'", scline->tp[2]);
         return;
     }
 
-    long count = scline->np[3];
+    int64_t count = scline->np[3];
     if (count <= 0)
     {
-        SCRPTERRLOG("Bad creatures count, %ld", count);
+        SCRPTERRLOG("Bad creatures count, %" PRId64, (int64_t)(count));
         return;
     }
 
@@ -1685,7 +1685,7 @@ static void move_creature_check(const struct ScriptLine* scline)
     }
 
     const char *effect_name = scline->tp[5];
-    long effct_id = 0;
+    int64_t effct_id = 0;
     if (scline->tp[5][0] != '\0')
     {
         effct_id = get_rid(effect_desc, effect_name);
@@ -1720,17 +1720,17 @@ static void count_creatures_at_action_point_check(const struct ScriptLine* sclin
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
 
     PlayerNumber player_id = scline->np[1];
-    long crmodel = parse_creature_name(scline->tp[2]);
+    int64_t crmodel = parse_creature_name(scline->tp[2]);
     if (crmodel == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", scline->tp[2]);
         return;
     }
-    short ap_num = scline->np[0];
+    int64_t ap_num = scline->np[0];
     char flag_player_id = scline->np[3];
     const char *flag_name = scline->tp[4];
 
-    int32_t flag_id, flag_type;
+    int64_t flag_id, flag_type;
     if (!parse_get_varib(flag_name, &flag_id, &flag_type, level_file_version))
     {
         SCRPTERRLOG("Unknown flag, '%s'", flag_name);
@@ -1763,15 +1763,15 @@ static void new_room_type_check(const struct ScriptLine* scline)
 {
     if (kfx_config_state.conf.slab_conf.room_types_count >= TERRAIN_ITEMS_MAX - 1)
     {
-        SCRPTERRLOG("Cannot increase room count for room type '%s', already at maximum %d rooms.", scline->tp[0], TERRAIN_ITEMS_MAX - 1);
+        SCRPTERRLOG("Cannot increase room count for room type '%s', already at maximum %" PRId64 " rooms.", scline->tp[0], (int64_t)(TERRAIN_ITEMS_MAX - 1));
         return;
     }
 
-    SCRPTLOG("Adding room type %s and increasing 'RoomsCount to %d", scline->tp[0], kfx_config_state.conf.slab_conf.room_types_count + 1);
+    SCRPTLOG("Adding room type %s and increasing 'RoomsCount to %" PRId64, scline->tp[0], (int64_t)(kfx_config_state.conf.slab_conf.room_types_count + 1));
     kfx_config_state.conf.slab_conf.room_types_count++;
 
     struct RoomConfigStats* roomst;
-    int i = kfx_config_state.conf.slab_conf.room_types_count - 1;
+    int64_t i = kfx_config_state.conf.slab_conf.room_types_count - 1;
 
     roomst = get_room_kind_stats(i);
     memset(roomst->code_name, 0, COMMAND_WORD_LEN);
@@ -1798,14 +1798,14 @@ static void new_object_type_check(const struct ScriptLine* scline)
 {
     if (kfx_config_state.conf.object_conf.object_types_count >= OBJECT_TYPES_MAX-1)
     {
-        SCRPTERRLOG("Cannot increase object count for object type '%s', already at maximum %d objects.", scline->tp[0], OBJECT_TYPES_MAX-1);
+        SCRPTERRLOG("Cannot increase object count for object type '%s', already at maximum %" PRId64 " objects.", scline->tp[0], (int64_t)(OBJECT_TYPES_MAX-1));
         return;
     }
 
-    SCRPTLOG("Adding object type %s and increasing 'ObjectsCount to %d", scline->tp[0], kfx_config_state.conf.object_conf.object_types_count + 1);
+    SCRPTLOG("Adding object type %s and increasing 'ObjectsCount to %" PRId64, scline->tp[0], (int64_t)(kfx_config_state.conf.object_conf.object_types_count + 1));
     kfx_config_state.conf.object_conf.object_types_count++;
 
-    int tmodel = kfx_config_state.conf.object_conf.object_types_count -1;
+    int64_t tmodel = kfx_config_state.conf.object_conf.object_types_count -1;
     struct ObjectConfigStats* objst = get_object_model_stats(tmodel);
     memset(objst->code_name, 0, COMMAND_WORD_LEN);
     snprintf(objst->code_name, COMMAND_WORD_LEN, "%s", scline->tp[0]);
@@ -1821,12 +1821,12 @@ static void new_trap_type_check(const struct ScriptLine* scline)
 {
     if (kfx_config_state.conf.trapdoor_conf.trap_types_count >= TRAPDOOR_TYPES_MAX)
     {
-        SCRPTERRLOG("Cannot increase trap count for trap type '%s', already at maximum %d traps.", scline->tp[0], TRAPDOOR_TYPES_MAX);
+        SCRPTERRLOG("Cannot increase trap count for trap type '%s', already at maximum %" PRId64 " traps.", scline->tp[0], (int64_t)(TRAPDOOR_TYPES_MAX));
         return;
     }
-    SCRPTLOG("Adding trap type %s and increasing 'TrapsCount to %d", scline->tp[0], kfx_config_state.conf.trapdoor_conf.trap_types_count + 1);
+    SCRPTLOG("Adding trap type %s and increasing 'TrapsCount to %" PRId64, scline->tp[0], (int64_t)(kfx_config_state.conf.trapdoor_conf.trap_types_count + 1));
     kfx_config_state.conf.trapdoor_conf.trap_types_count++;
-    short i = kfx_config_state.conf.trapdoor_conf.trap_types_count-1;
+    int64_t i = kfx_config_state.conf.trapdoor_conf.trap_types_count-1;
     struct TrapConfigStats *trapst = get_trap_model_stats(i);
     memset(trapst->code_name, 0, COMMAND_WORD_LEN);
     snprintf(trapst->code_name, COMMAND_WORD_LEN, "%s", scline->tp[0]);
@@ -1899,11 +1899,11 @@ static void set_room_configuration_process(struct ScriptContext *context)
 static void set_hand_rule_process(struct ScriptContext* context)
 {
     PlayerNumber plyr_idx = context->player_idx;
-    long crtr_id = context->value->shorts[0];
-    long hand_rule_action = context->value->shorts[1];
-    long hand_rule_slot = context->value->shorts[2];
-    long hand_rule_type = context->value->shorts[3];
-    long param = context->value->shorts[4];
+    int64_t crtr_id = context->value->shorts[0];
+    int64_t hand_rule_action = context->value->shorts[1];
+    int64_t hand_rule_slot = context->value->shorts[2];
+    int64_t hand_rule_type = context->value->shorts[3];
+    int64_t param = context->value->shorts[4];
 
     script_set_hand_rule(plyr_idx, crtr_id, hand_rule_action, hand_rule_slot, hand_rule_type, param);
 }
@@ -1911,10 +1911,10 @@ static void set_hand_rule_process(struct ScriptContext* context)
 static void move_creature_process(struct ScriptContext* context)
 {
     TbMapLocation location = context->value->ulongs[0];
-    long select_id = context->value->longs[1];
-    long effect_id = context->value->shorts[4];
-    long count = context->value->bytes[10];
-    long crmodel = context->value->bytes[11];
+    int64_t select_id = context->value->longs[1];
+    int64_t effect_id = context->value->shorts[4];
+    int64_t count = context->value->bytes[10];
+    int64_t crmodel = context->value->bytes[11];
     PlayerNumber plyr_idx = context->player_idx;
 
     script_move_creature_with_criteria(plyr_idx, crmodel, select_id, location, effect_id, count);
@@ -1922,18 +1922,18 @@ static void move_creature_process(struct ScriptContext* context)
 
 static void count_creatures_at_action_point_process(struct ScriptContext* context)
 {
-    long ap_num = context->value->shorts[0];
-    long crmodel = context->value->bytes[2];
-    long flag_player_id = context->value->chars[3];
-    long flag_id = context->value->shorts[2];
-    long flag_type = context->value->chars[6];
+    int64_t ap_num = context->value->shorts[0];
+    int64_t crmodel = context->value->bytes[2];
+    int64_t flag_player_id = context->value->chars[3];
+    int64_t flag_id = context->value->shorts[2];
+    int64_t flag_type = context->value->chars[6];
     PlayerNumber player_id = context->value->longs[3];
 
-    long sum = 0;
+    int64_t sum = 0;
 
     if (player_id == ALL_PLAYERS)
     {
-        for (int i = 0; i < PLAYERS_COUNT; i++)
+        for (int64_t i = 0; i < PLAYERS_COUNT; i++)
         {
             sum += count_player_creatures_of_model_in_action_point(i, crmodel, action_point_number_to_index(ap_num));
         }
@@ -1970,7 +1970,7 @@ static void create_effect_process(struct ScriptContext *context)
     struct Coord3d pos;
     if (!get_coords_at_location(&pos, context->value->ulongs[1],true))
     {
-        SCRPTWRNLOG("Could not find location %u to create effect", context->value->ulongs[1]);
+        SCRPTWRNLOG("Could not find location %" PRIu64 " to create effect", (uint64_t)(context->value->ulongs[1]));
         return;
     }
     script_create_effect(&pos,context->value->shorts[0],context->value->longs[2]);
@@ -1984,7 +1984,7 @@ static void set_heart_health_check(const struct ScriptLine *scline)
     struct ObjectConfigStats* objst = get_object_model_stats(heartng->model);
     if (scline->np[1] > objst->health)
     {
-        SCRPTWRNLOG("Value %ld is greater than maximum: %d", scline->np[1], objst->health);
+        SCRPTWRNLOG("Value %" PRId64 " is greater than maximum: %" PRId64, (int64_t)(scline->np[1]), (int64_t)(objst->health));
         value->longs[1] = objst->health;
     }
     else
@@ -1999,7 +1999,7 @@ static void set_heart_health_process(struct ScriptContext *context)
     struct Thing* heartng = get_player_soul_container(context->player_idx);
     if (thing_exists(heartng))
     {
-        heartng->health = (short)context->value->longs[1];
+        heartng->health = (int64_t)context->value->longs[1];
     }
 }
 
@@ -2023,7 +2023,7 @@ static void add_heart_health_process(struct ScriptContext *context)
 static void lock_possession_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    short locked = scline->np[1];
+    int64_t locked = scline->np[1];
     if (locked == -1)
     {
         locked = get_id(locked_desc, scline->tp[1]);
@@ -2053,16 +2053,16 @@ static void heart_lost_quick_objective_check(const struct ScriptLine *scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     if ((scline->np[0] < 0) || (scline->np[0] >= QUICK_MESSAGES_COUNT))
     {
-        SCRPTERRLOG("Invalid QUICK OBJECTIVE number (%ld)", scline->np[0]);
+        SCRPTERRLOG("Invalid QUICK OBJECTIVE number (%" PRId64 ")", (int64_t)(scline->np[0]));
         return;
     }
     if (strlen(scline->tp[1]) >= MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Objective TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN-1);
+        SCRPTWRNLOG("Objective TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN-1));
     }
     if ((kfx_sim_state.quick_messages[scline->np[0]][0] != '\0') && (strcmp(kfx_sim_state.quick_messages[scline->np[0]],scline->tp[1]) != 0))
     {
-        SCRPTWRNLOG("Quick Objective no %ld overwritten by different text", scline->np[0]);
+        SCRPTWRNLOG("Quick Objective no %" PRId64 " overwritten by different text", (int64_t)(scline->np[0]));
     }
     snprintf(kfx_sim_state.quick_messages[scline->np[0]], MESSAGE_TEXT_LEN, "%s", scline->tp[1]);
 
@@ -2109,7 +2109,7 @@ static void heart_lost_objective_process(struct ScriptContext *context)
 static void set_door_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long doorAction = get_id(locked_desc, scline->tp[0]);
+    int64_t doorAction = get_id(locked_desc, scline->tp[0]);
     if (doorAction == -1)
     {
         SCRPTERRLOG("Set Door state %s not recognized", scline->tp[0]);
@@ -2118,7 +2118,7 @@ static void set_door_check(const struct ScriptLine* scline)
 
     if (slab_coords_invalid(scline->np[1], scline->np[2]))
     {
-        SCRPTERRLOG("Invalid slab coordinates: %ld, %ld", scline->np[1], scline->np[2]);
+        SCRPTERRLOG("Invalid slab coordinates: %" PRId64 ", %" PRId64, (int64_t)(scline->np[1]), (int64_t)(scline->np[2]));
         return;
     }
 
@@ -2149,7 +2149,7 @@ static void place_door_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
     const char* doorname = scline->tp[1];
-    short door_id = get_id(door_desc, doorname);
+    int64_t door_id = get_id(door_desc, doorname);
 
     if (door_id == -1)
     {
@@ -2160,12 +2160,12 @@ static void place_door_check(const struct ScriptLine* scline)
 
     if (slab_coords_invalid(scline->np[2], scline->np[3]))
     {
-        SCRPTERRLOG("Invalid slab coordinates: %ld, %ld", scline->np[2], scline->np[3]);
+        SCRPTERRLOG("Invalid slab coordinates: %" PRId64 ", %" PRId64, (int64_t)(scline->np[2]), (int64_t)(scline->np[3]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
 
-    short locked = scline->np[4];
+    int64_t locked = scline->np[4];
     if (locked == -1)
     {
         locked = get_id(locked_desc, scline->tp[4]);
@@ -2177,7 +2177,7 @@ static void place_door_check(const struct ScriptLine* scline)
         }
     }
 
-    short free = scline->np[5];
+    int64_t free = scline->np[5];
     if (free == -1)
     {
         free = get_id(is_free_desc, scline->tp[5]);
@@ -2213,7 +2213,7 @@ static void place_trap_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
     const char* trapname = scline->tp[1];
-    short trap_id = get_id(trap_desc, trapname);
+    int64_t trap_id = get_id(trap_desc, trapname);
 
     if (trap_id == -1)
     {
@@ -2224,12 +2224,12 @@ static void place_trap_check(const struct ScriptLine* scline)
 
     if (subtile_coords_invalid(scline->np[2], scline->np[3]))
     {
-        SCRPTERRLOG("Invalid subtile coordinates: %ld, %ld", scline->np[2], scline->np[3]);
+        SCRPTERRLOG("Invalid subtile coordinates: %" PRId64 ", %" PRId64, (int64_t)(scline->np[2]), (int64_t)(scline->np[3]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
 
-    short free = scline->np[4];
+    int64_t free = scline->np[4];
     if (free == -1)
     {
         free = get_id(is_free_desc, scline->tp[4]);
@@ -2317,8 +2317,8 @@ enum CreatureConfiguration
 static void set_creature_configuration_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short creatvar = get_id(creatmodel_attributes_commands, scline->tp[1]);
-    short block = CrtConf_ATTRIBUTES;
+    int64_t creatvar = get_id(creatmodel_attributes_commands, scline->tp[1]);
+    int64_t block = CrtConf_ATTRIBUTES;
     if (creatvar == -1)
     {
         creatvar = get_id(creatmodel_jobs_commands, scline->tp[1]);
@@ -2366,7 +2366,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
         }
     }
 
-    long config_value_primary = 0, config_value_secondary = 0, config_value_tertiary = 0, config_value_quaternary = 0, config_value_quinary = 0, config_value_senary = 0;
+    int64_t config_value_primary = 0, config_value_secondary = 0, config_value_tertiary = 0, config_value_quaternary = 0, config_value_quinary = 0, config_value_senary = 0;
     if (block == CrtConf_ATTRIBUTES)
     {
         if (creatvar == 20) // ATTACKPREFERENCE
@@ -2460,7 +2460,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
                 config_value_primary = atoi(scline->tp[2]);
                 if ((config_value_primary < 0) || (config_value_primary > SHRT_MAX))
                 {
-                    SCRPTERRLOG("Job value %ld out of range `0~%d`.", config_value_primary, SHRT_MAX);
+                    SCRPTERRLOG("Job value %" PRId64 " out of range `0~%" PRId64 "`.", (int64_t)(config_value_primary), (int64_t)(SHRT_MAX));
                     DEALLOCATE_SCRIPT_VALUE
                     return;
                 }
@@ -2553,7 +2553,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
         if (creatvar == 21) //LairEnemy
         {
             ThingModel creature_model[3];
-            for (int j = 0; j < 2; j++)
+            for (int64_t j = 0; j < 2; j++)
             {
                 //Only needs one enemy, but can do up to 3
                 if ((j > 0) && (scline->tp[j + 2][0] == '\0'))
@@ -2564,7 +2564,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
                     creature_model[j] = atoi(scline->tp[j + 2]);
                     if (creature_model[j] > CREATURE_TYPES_MAX)
                     {
-                        SCRPTERRLOG("Value %d out of range.", atoi(scline->tp[j + 2]));
+                        SCRPTERRLOG("Value %" PRId64 " out of range.", (int64_t)(atoi(scline->tp[j + 2])));
                         DEALLOCATE_SCRIPT_VALUE
                         return;
                     }
@@ -2602,7 +2602,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
                 config_value_primary = atoi(scline->tp[2]);
                 if ((config_value_primary < 0) || (config_value_primary > SHRT_MAX))
                 {
-                    SCRPTERRLOG("Job value %ld out of range `0~%d`.", config_value_primary, SHRT_MAX);
+                    SCRPTERRLOG("Job value %" PRId64 " out of range `0~%" PRId64 "`.", (int64_t)(config_value_primary), (int64_t)(SHRT_MAX));
                     DEALLOCATE_SCRIPT_VALUE
                     return;
                 }
@@ -2644,7 +2644,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
     {
         if (creatvar == 1) // POWERS
         {
-            long instance = 0;
+            int64_t instance = 0;
             if (!parameter_is_number(scline->tp[2]))
             {
                 instance = get_id(instance_desc, scline->tp[2]);
@@ -2666,7 +2666,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
             }
             if ((atoi(scline->tp[3]) >= CREATURE_MAX_LEVEL) || (atoi(scline->tp[3]) <= 0)) //Powers
             {
-                SCRPTERRLOG("Value %d out of range, only %d slots for Powers.", atoi(scline->tp[3]), CREATURE_MAX_LEVEL - 1);
+                SCRPTERRLOG("Value %" PRId64 " out of range, only %" PRId64 " slots for Powers.", (int64_t)(atoi(scline->tp[3])), (int64_t)(CREATURE_MAX_LEVEL - 1));
                 DEALLOCATE_SCRIPT_VALUE
                 return;
             }
@@ -2676,13 +2676,13 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
         {
             if ((atoi(scline->tp[2]) <= 0) || (atoi(scline->tp[2]) > CREATURE_MAX_LEVEL)) //value
             {
-                SCRPTERRLOG("Value %d out of range, only %d levels for PowersLevelRequired supported", atoi(scline->tp[2]), CREATURE_MAX_LEVEL);
+                SCRPTERRLOG("Value %" PRId64 " out of range, only %" PRId64 " levels for PowersLevelRequired supported", (int64_t)(atoi(scline->tp[2])), (int64_t)(CREATURE_MAX_LEVEL));
                 DEALLOCATE_SCRIPT_VALUE
                 return;
             }
             if ((atoi(scline->tp[3]) > CREATURE_MAX_LEVEL) || (atoi(scline->tp[3]) <= 0)) //slot
             {
-                SCRPTERRLOG("Value %d out of range, only %d levels for PowersLevelRequired supported", atoi(scline->tp[3]), CREATURE_MAX_LEVEL);
+                SCRPTERRLOG("Value %" PRId64 " out of range, only %" PRId64 " levels for PowersLevelRequired supported", (int64_t)(atoi(scline->tp[3])), (int64_t)(CREATURE_MAX_LEVEL));
                 DEALLOCATE_SCRIPT_VALUE
                 return;
             }
@@ -2693,13 +2693,13 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
         {
             if (atoi(scline->tp[2]) < 0) //value
             {
-                SCRPTERRLOG("Value %d out of range.", atoi(scline->tp[2]));
+                SCRPTERRLOG("Value %" PRId64 " out of range.", (int64_t)(atoi(scline->tp[2])));
                 DEALLOCATE_SCRIPT_VALUE
                     return;
             }
             if ((atoi(scline->tp[3]) <= 0) || (atoi(scline->tp[3]) > CREATURE_MAX_LEVEL)) //slot
             {
-                SCRPTERRLOG("Value %d out of range, only %d levels for LevelsTrainValues supported", atoi(scline->tp[3]), CREATURE_MAX_LEVEL - 1);
+                SCRPTERRLOG("Value %" PRId64 " out of range, only %" PRId64 " levels for LevelsTrainValues supported", (int64_t)(atoi(scline->tp[3])), (int64_t)(CREATURE_MAX_LEVEL - 1));
                 DEALLOCATE_SCRIPT_VALUE
                 return;
             }
@@ -2715,7 +2715,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
                 creature_model = atoi(scline->tp[3]);
                 if (creature_model > CREATURE_TYPES_MAX)
                 {
-                    SCRPTERRLOG("Value %d out of range.", atoi(scline->tp[3]));
+                    SCRPTERRLOG("Value %" PRId64 " out of range.", (int64_t)(atoi(scline->tp[3])));
                     DEALLOCATE_SCRIPT_VALUE
                     return;
                 }
@@ -2738,13 +2738,13 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
                 }
             }
             config_value_secondary = creature_model;
-            short level = 0;
+            int64_t level = 0;
             if (config_value_secondary > 0)
             {
                 level = atoi(scline->tp[4]);
                 if ((level < 1) || (level > CREATURE_MAX_LEVEL))
                 {
-                    SCRPTERRLOG("Value %d out of range.", atoi(scline->tp[4]));
+                    SCRPTERRLOG("Value %" PRId64 " out of range.", (int64_t)(atoi(scline->tp[4])));
                     DEALLOCATE_SCRIPT_VALUE
                     return;
                 }
@@ -2753,7 +2753,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
         } else
         if (creatvar == 5) // SLEEPEXPERIENCE
         {
-            long slabtype = get_id(slab_desc, scline->tp[2]);
+            int64_t slabtype = get_id(slab_desc, scline->tp[2]);
             if (slabtype < 0)
             {
                 SCRPTERRLOG("Unknown slab type %s.", scline->tp[2]);
@@ -2767,7 +2767,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
             config_value_secondary = atoi(scline->tp[3]);
             if (config_value_secondary < 0)
             {
-                SCRPTERRLOG("Slab sleep experience value (%s %ld) must be 0 or greater.", scline->tp[2], config_value_secondary);
+                SCRPTERRLOG("Slab sleep experience value (%s %" PRId64 ") must be 0 or greater.", scline->tp[2], (int64_t)(config_value_secondary));
                 config_value_secondary = 0;
             }
             slabtype = (scline->tp[4][0] != '\0') ? get_id(slab_desc, scline->tp[4]) : 0;
@@ -2787,7 +2787,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
             config_value_quaternary = atoi(scline->tp[5]);
             if (config_value_quaternary < 0)
             {
-                SCRPTERRLOG("Slab sleep experience value (%s %ld) must be 0 or greater.", scline->tp[5], config_value_quaternary);
+                SCRPTERRLOG("Slab sleep experience value (%s %" PRId64 ") must be 0 or greater.", scline->tp[5], (int64_t)(config_value_quaternary));
                 config_value_quaternary = 0;
             }
             slabtype = (scline->tp[6][0] != '\0') ? get_id(slab_desc, scline->tp[6]) : 0;
@@ -2807,7 +2807,7 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
             config_value_senary = atoi(scline->tp[7]);
             if (config_value_senary < 0)
             {
-                SCRPTERRLOG("Slab sleep experience value (%s %ld) must be 0 or greater.", scline->tp[7], config_value_senary);
+                SCRPTERRLOG("Slab sleep experience value (%s %" PRId64 ") must be 0 or greater.", scline->tp[7], (int64_t)(config_value_senary));
                 config_value_senary = 0;
             }
         }
@@ -2871,31 +2871,31 @@ static void set_creature_configuration_check(const struct ScriptLine* scline)
     value->longs[6] = config_value_quinary;
     value->longs[7] = config_value_senary;
 
-    SCRIPTDBG(7,"Setting creature %s configuration value %d:%d to %d (%d)", creature_code_name(value->shorts[0]), value->shorts[4], value->shorts[1], value->shorts[2], value->shorts[3]);
+    SCRIPTDBG(7,"Setting creature %s configuration value %" PRId64 ":%" PRId64 " to %" PRId64 " (%" PRId64 ")", creature_code_name(value->shorts[0]), (int64_t)(value->shorts[4]), (int64_t)(value->shorts[1]), (int64_t)(value->shorts[2]), (int64_t)(value->shorts[3]));
 
     PROCESS_SCRIPT_VALUE(scline->command);
 }
 
 static void set_creature_configuration_process(struct ScriptContext* context)
 {
-    short creatid = context->value->shorts[0];
+    int64_t creatid = context->value->shorts[0];
     struct CreatureModelConfig* crconf = creature_stats_get(creatid);
 
-    short creature_variable = context->value->shorts[1];
-    short block  = context->value->shorts[2];
-    long value  = context->value->longs[2];
-    long config_value_secondary = context->value->longs[3];
-    long config_value_tertiary = context->value->longs[4];
-    long config_value_quaternary = context->value->longs[5];
-    long config_value_quinary = context->value->longs[6];
-    long config_value_senary = context->value->longs[7];
+    int64_t creature_variable = context->value->shorts[1];
+    int64_t block  = context->value->shorts[2];
+    int64_t value  = context->value->longs[2];
+    int64_t config_value_secondary = context->value->longs[3];
+    int64_t config_value_tertiary = context->value->longs[4];
+    int64_t config_value_quaternary = context->value->longs[5];
+    int64_t config_value_quinary = context->value->longs[6];
+    int64_t config_value_senary = context->value->longs[7];
 
     if (block == CrtConf_ATTRIBUTES)
     {
         switch (creature_variable)
         {
         case 1: // NAME
-            CONFWRNLOG("Attribute (%d) not supported", creature_variable);
+            CONFWRNLOG("Attribute (%" PRId64 ") not supported", (int64_t)(creature_variable));
             break;
         case 2: // HEALTH
             if (crconf->health != value)
@@ -2980,7 +2980,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
         case 24: // CREATURELOYALTY
         case 25: // LOYALTYLEVEL
         case 28: // PROPERTIES
-            CONFWRNLOG("Attribute (%d) not supported", creature_variable);
+            CONFWRNLOG("Attribute (%" PRId64 ") not supported", (int64_t)(creature_variable));
             break;
         case 26: // DAMAGETOBOULDER
             crconf->damage_to_boulder = value;
@@ -3036,7 +3036,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             break;
         case 38: // HOSTILETOWARDS
             // Assume the mapmaker wants to reset it.
-            for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+            for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
             {
                 crconf->hostile_towards[i] = 0;
             }
@@ -3050,7 +3050,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
         case ccr_endOfFile:
             break;
         default:
-            CONFWRNLOG("Unrecognized attribute (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized attribute (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3136,7 +3136,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             crconf->partner_training = value;
             break;
         default:
-            CONFWRNLOG("Unrecognized Job command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Job command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3165,7 +3165,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             crconf->torture_break_time = value;
             break;
         default:
-            CONFWRNLOG("Unrecognized Attraction command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Attraction command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3218,7 +3218,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             kfx_config_state.conf.crtr_conf.creature_sounds[creatid].piss.count = config_value_secondary;
             break;
         default:
-            CONFWRNLOG("Unrecognized Spound command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Spound command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3368,7 +3368,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             break;
         }
         default:
-            CONFWRNLOG("Unrecognized Annoyance command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Annoyance command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3419,7 +3419,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             break;
         }
         default:
-            CONFWRNLOG("Unrecognized Experience command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Experience command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3486,7 +3486,7 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             break;
         }
         default:
-            CONFWRNLOG("Unrecognized Appearance command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Appearance command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
@@ -3538,13 +3538,13 @@ static void set_creature_configuration_process(struct ScriptContext* context)
             break;
         }
         default:
-            CONFWRNLOG("Unrecognized Senses command (%d)", creature_variable);
+            CONFWRNLOG("Unrecognized Senses command (%" PRId64 ")", (int64_t)(creature_variable));
             break;
         }
     }
     else
     {
-        ERRORLOG("Trying to configure unsupported creature block (%d)",block);
+        ERRORLOG("Trying to configure unsupported creature block (%" PRId64 ")",(int64_t)(block));
     }
     check_and_auto_fix_stats();
 }
@@ -3585,7 +3585,7 @@ static void display_timer_process(struct ScriptContext *context)
 static void add_to_timer_check(const struct ScriptLine *scline)
 {
     const char *timrname = scline->tp[1];
-    long timr_id = get_rid(timer_desc, timrname);
+    int64_t timr_id = get_rid(timer_desc, timrname);
     if (timr_id == -1)
     {
         SCRPTERRLOG("Unknown timer, '%s'", timrname);
@@ -3616,7 +3616,7 @@ static void add_bonus_time_process(struct ScriptContext *context)
 
 static void display_variable_check(const struct ScriptLine *scline)
 {
-    int32_t varib_id, varib_type;
+    int64_t varib_id, varib_type;
     if (!parse_get_varib(scline->tp[1], &varib_id, &varib_type, level_file_version))
     {
         SCRPTERRLOG("Unknown variable, '%s'", scline->tp[1]);
@@ -3632,7 +3632,7 @@ static void display_variable_check(const struct ScriptLine *scline)
 
 static void display_variable_process(struct ScriptContext *context)
 {
-    for (int i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
+    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
     {
         memcpy(&kfx_game_state.script_variables[i], &kfx_game_state.script_variables[i-1], sizeof(struct ScriptVariable));
     }
@@ -3654,7 +3654,7 @@ static void display_variable_process(struct ScriptContext *context)
 
 static void display_variable_with_label_check(const struct ScriptLine *scline)
 {
-    int32_t varib_id, varib_type;
+    int64_t varib_id, varib_type;
     if (!parse_get_varib(scline->tp[1], &varib_id, &varib_type, level_file_version))
     {
         SCRPTERRLOG("Unknown variable, '%s'", scline->tp[1]);
@@ -3681,7 +3681,7 @@ static void display_variable_with_label_check(const struct ScriptLine *scline)
 
 static void display_variable_with_label_process(struct ScriptContext *context)
 {
-    for (int i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
+    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
     {
         memcpy(&kfx_game_state.script_variables[i], &kfx_game_state.script_variables[i-1], sizeof(struct ScriptVariable));
     }
@@ -3702,7 +3702,7 @@ static void display_countdown_check(const struct ScriptLine *scline)
 {
     if (scline->np[2] <= 0)
     {
-        SCRPTERRLOG("Can't have a countdown to %ld turns.", scline->np[2]);
+        SCRPTERRLOG("Can't have a countdown to %" PRId64 " turns.", (int64_t)(scline->np[2]));
         return;
     }
     const char *timrname = scline->tp[1];
@@ -3732,9 +3732,9 @@ static void hide_timer_process(struct ScriptContext *context)
 
 static void hide_variable_check(const struct ScriptLine *scline)
 {
-    int32_t varib_id = -1;
-    int32_t varib_type = -1;
-    int32_t player_idx = -1;
+    int64_t varib_id = -1;
+    int64_t varib_type = -1;
+    int64_t player_idx = -1;
 
     if (scline->tp[0][0] == '\0')
     {
@@ -3770,16 +3770,16 @@ static void hide_variable_check(const struct ScriptLine *scline)
 
 static void hide_variable_process(struct ScriptContext *context)
 {
-    short varib_id, varib_type, player_idx;
+    int64_t varib_id, varib_type, player_idx;
     varib_type = context->value->bytes[2];
     varib_id = context->value->longs[1];
     player_idx = context->value->longs[0];
     if(varib_id > -1 && varib_type > -1)
     {
-        for (int i = 0; i < DISPLAY_VARIABLES_LIMIT; i++)
+        for (int64_t i = 0; i < DISPLAY_VARIABLES_LIMIT; i++)
         {
             if(kfx_game_state.script_variables[i].value_id == varib_id && kfx_game_state.script_variables[i].value_type == varib_type && kfx_game_state.script_variables[i].variable_player == player_idx){
-                for (int j = i; j < kfx_game_state.active_script_var_count - 1; j++)
+                for (int64_t j = i; j < kfx_game_state.active_script_var_count - 1; j++)
                 {
                     kfx_game_state.script_variables[j] = kfx_game_state.script_variables[j+1];
                 }
@@ -3788,11 +3788,11 @@ static void hide_variable_process(struct ScriptContext *context)
             }
         }
     } else {
-        for (int i = 0; i < kfx_game_state.active_script_var_count; i++)
+        for (int64_t i = 0; i < kfx_game_state.active_script_var_count; i++)
         {
             if (kfx_game_state.script_variables[i].variable_player == player_idx || player_idx == -1)
             {
-                for (int j = i; j < kfx_game_state.active_script_var_count - 1; j++)
+                for (int64_t j = i; j < kfx_game_state.active_script_var_count - 1; j++)
                 {
                     kfx_game_state.script_variables[j] = kfx_game_state.script_variables[j+1];
                 }
@@ -3810,7 +3810,7 @@ static void create_effect_check(const struct ScriptLine *scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     TbMapLocation location;
     const char *effect_name = scline->tp[0];
-    long effct_id = effect_or_effect_element_id(effect_name);
+    int64_t effct_id = effect_or_effect_element_id(effect_name);
     if (effct_id == 0)
     {
         SCRPTERRLOG("Unrecognised effect: %s", effect_name);
@@ -3831,7 +3831,7 @@ static void create_effect_at_pos_check(const struct ScriptLine *scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     const char *effect_name = scline->tp[0];
-    long effct_id = effect_or_effect_element_id(effect_name);
+    int64_t effct_id = effect_or_effect_element_id(effect_name);
     if (effct_id == 0)
     {
         SCRPTERRLOG("Unrecognised effect: %s", effect_name);
@@ -3840,7 +3840,7 @@ static void create_effect_at_pos_check(const struct ScriptLine *scline)
     value->shorts[0] = effct_id;
     if (subtile_coords_invalid(scline->np[1], scline->np[2]))
     {
-        SCRPTERRLOG("Invalid coordinates: %ld, %ld", scline->np[1], scline->np[2]);
+        SCRPTERRLOG("Invalid coordinates: %" PRId64 ", %" PRId64, (int64_t)(scline->np[1]), (int64_t)(scline->np[2]));
         return;
     }
     value->shorts[1] = scline->np[1];
@@ -3865,7 +3865,7 @@ static void set_sacrifice_recipe_check(const struct ScriptLine *scline)
         SCRPTERRLOG("Unexpected action:%s", scline->tp[0]);
         return;
     }
-    long param;
+    int64_t param;
     if ((value->sac.action == SacA_CustomPunish) || (value->sac.action == SacA_CustomReward))
     {
         param = get_id(flag_desc, scline->tp[1]) + 1;
@@ -3895,9 +3895,9 @@ static void set_sacrifice_recipe_check(const struct ScriptLine *scline)
     }
     value->sac.param = param;
 
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
-       long vi = get_rid(creature_desc, scline->tp[i + 2]);
+       int64_t vi = get_rid(creature_desc, scline->tp[i + 2]);
        if (vi < 0)
          vi = 0;
        value->sac.victims[i] = vi;
@@ -3913,9 +3913,9 @@ static void remove_sacrifice_recipe_check(const struct ScriptLine *scline)
     value->sac.action = SacA_None;
     value->sac.param = 0;
 
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
-       long vi = get_rid(creature_desc, scline->tp[i]);
+       int64_t vi = get_rid(creature_desc, scline->tp[i]);
        if (vi < 0)
          vi = 0;
        value->sac.victims[i] = vi;
@@ -3927,10 +3927,10 @@ static void remove_sacrifice_recipe_check(const struct ScriptLine *scline)
 static void set_sacrifice_recipe_process(struct ScriptContext *context)
 {
     ThingModel victims[MAX_SACRIFICE_VICTIMS];
-    int action = context->value->sac.action;
-    int param = context->value->sac.param;
+    int64_t action = context->value->sac.action;
+    int64_t param = context->value->sac.param;
 
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         victims[i] = context->value->sac.victims[i];
     }
@@ -3943,7 +3943,7 @@ static void set_box_tooltip_check(const struct ScriptLine* scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     if ((scline->np[0] < 0) || (scline->np[0] >= CUSTOM_BOX_COUNT))
     {
-        SCRPTERRLOG("Invalid CUSTOM_BOX number (%ld)", scline->np[0]);
+        SCRPTERRLOG("Invalid CUSTOM_BOX number (%" PRId64 ")", (int64_t)(scline->np[0]));
         DEALLOCATE_SCRIPT_VALUE;
         return;
     }
@@ -3951,7 +3951,7 @@ static void set_box_tooltip_check(const struct ScriptLine* scline)
 
     if (strlen(scline->tp[1]) >= MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Tooltip TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN - 1);
+        SCRPTWRNLOG("Tooltip TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN - 1));
     }
     value->longs[2] = script_strdup(scline->tp[1]);
     if (value->longs[2] < 0)
@@ -3967,7 +3967,7 @@ static void set_box_tooltip_check(const struct ScriptLine* scline)
 
 static void set_box_tooltip_process(struct ScriptContext* context)
 {
-    int idx = context->value->shorts[0];
+    int64_t idx = context->value->shorts[0];
     snprintf(kfx_sim_state.box_tooltip[idx], MESSAGE_TEXT_LEN, "%s", script_strval(context->value->longs[2]));
 }
 
@@ -3976,7 +3976,7 @@ static void set_box_tooltip_id_check(const struct ScriptLine *scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     if ((scline->np[0] < 0) || (scline->np[0] >= CUSTOM_BOX_COUNT))
     {
-        SCRPTERRLOG("Invalid CUSTOM_BOX number (%ld)", scline->np[0]);
+        SCRPTERRLOG("Invalid CUSTOM_BOX number (%" PRId64 ")", (int64_t)(scline->np[0]));
         DEALLOCATE_SCRIPT_VALUE;
         return;
     }
@@ -3994,8 +3994,8 @@ static void set_box_tooltip_id_check(const struct ScriptLine *scline)
 
 static void set_box_tooltip_id_process(struct ScriptContext* context)
 {
-    int idx = context->value->shorts[0];
-    int string = context->value->shorts[1];
+    int64_t idx = context->value->shorts[0];
+    int64_t string = context->value->shorts[1];
     snprintf(kfx_sim_state.box_tooltip[idx], MESSAGE_TEXT_LEN, "%s", get_string(string));
 }
 
@@ -4004,15 +4004,15 @@ static void change_slab_owner_check(const struct ScriptLine *scline)
 
     if (scline->np[0] < 0 || scline->np[0] > kfx_sim_state.map_tiles_x) //x coord
     {
-        SCRPTERRLOG("Value '%ld' out of range. Range 0-%d allowed.", scline->np[0],kfx_sim_state.map_tiles_x);
+        SCRPTERRLOG("Value '%" PRId64 "' out of range. Range 0-%" PRId64 " allowed.", (int64_t)(scline->np[0]),(int64_t)(kfx_sim_state.map_tiles_x));
         return;
     }
     if (scline->np[1] < 0 || scline->np[1] > kfx_sim_state.map_tiles_y) //y coord
     {
-        SCRPTERRLOG("Value '%ld' out of range. Range 0-%d allowed.", scline->np[1],kfx_sim_state.map_tiles_y);
+        SCRPTERRLOG("Value '%" PRId64 "' out of range. Range 0-%" PRId64 " allowed.", (int64_t)(scline->np[1]),(int64_t)(kfx_sim_state.map_tiles_y));
         return;
     }
-    long filltype = get_id(fill_desc, scline->tp[3]);
+    int64_t filltype = get_id(fill_desc, scline->tp[3]);
     if ((scline->tp[3][0] != '\0') && (filltype == -1))
     {
         SCRPTWRNLOG("Fill type %s not recognized", scline->tp[3]);
@@ -4025,7 +4025,7 @@ static void change_slab_owner_process(struct ScriptContext *context)
 {
     MapSlabCoord x = context->value->longs[0];
     MapSlabCoord y = context->value->longs[1];
-    long fill_type = context->value->longs[2];
+    int64_t fill_type = context->value->longs[2];
     if (fill_type > 0)
     {
         struct CompoundCoordFilterParam iter_param;
@@ -4044,7 +4044,7 @@ static void change_slab_type_check(const struct ScriptLine *scline)
 
     if (scline->np[0] < 0 || scline->np[0] > kfx_sim_state.map_tiles_x) //x coord
     {
-        SCRPTERRLOG("Value '%ld' out of range. Range 0-%d allowed.", scline->np[0],kfx_sim_state.map_tiles_x);
+        SCRPTERRLOG("Value '%" PRId64 "' out of range. Range 0-%" PRId64 " allowed.", (int64_t)(scline->np[0]),(int64_t)(kfx_sim_state.map_tiles_x));
         return;
     }
     else
@@ -4054,7 +4054,7 @@ static void change_slab_type_check(const struct ScriptLine *scline)
 
     if (scline->np[1] < 0 || scline->np[1] > kfx_sim_state.map_tiles_y) //y coord
     {
-        SCRPTERRLOG("Value '%ld' out of range. Range 0-%d allowed.", scline->np[0],kfx_sim_state.map_tiles_y);
+        SCRPTERRLOG("Value '%" PRId64 "' out of range. Range 0-%" PRId64 " allowed.", (int64_t)(scline->np[0]),(int64_t)(kfx_sim_state.map_tiles_y));
         return;
     }
     else
@@ -4064,7 +4064,7 @@ static void change_slab_type_check(const struct ScriptLine *scline)
 
     if (scline->np[2] < 0 || scline->np[2] >= kfx_config_state.conf.slab_conf.slab_types_count) //slab kind
     {
-        SCRPTERRLOG("Unsupported slab '%ld'. Slabs range 0-%d allowed.", scline->np[2],kfx_config_state.conf.slab_conf.slab_types_count-1);
+        SCRPTERRLOG("Unsupported slab '%" PRId64 "'. Slabs range 0-%" PRId64 " allowed.", (int64_t)(scline->np[2]),(int64_t)(kfx_config_state.conf.slab_conf.slab_types_count-1));
         return;
     }
     else
@@ -4082,10 +4082,10 @@ static void change_slab_type_check(const struct ScriptLine *scline)
 
 static void change_slab_type_process(struct ScriptContext *context)
 {
-    long x = context->value->shorts[0];
-    long y = context->value->shorts[1];
-    long slab_kind = context->value->shorts[2];
-    long fill_type = context->value->shorts[3];
+    int64_t x = context->value->shorts[0];
+    int64_t y = context->value->shorts[1];
+    int64_t slab_kind = context->value->shorts[2];
+    int64_t fill_type = context->value->shorts[3];
 
     if (fill_type > 0)
     {
@@ -4113,14 +4113,14 @@ static void reveal_map_location_check(const struct ScriptLine *scline)
 static void reveal_map_location_process(struct ScriptContext *context)
 {
     TbMapLocation target = context->value->longs[0];
-    SYNCDBG(0, "Revealing location type %u", target);
+    SYNCDBG(0, "Revealing location type %" PRIu64, (uint64_t)(target));
     MapSubtlCoord x = 0;
     MapSubtlCoord y = 0;
-    long r = context->value->longs[1];
+    int64_t r = context->value->longs[1];
     find_map_location_coords(target, &x, &y, context->player_idx, __func__);
     if ((x == 0) && (y == 0))
     {
-        WARNLOG("Can't decode location %u", target);
+        WARNLOG("Can't decode location %" PRIu64, (uint64_t)(target));
         return;
     }
     if (r == -1)
@@ -4158,7 +4158,7 @@ static void player_zoom_to_process(struct ScriptContext *context)
 static void level_up_players_creatures_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    long crmodel = parse_creature_name(scline->tp[1]);
+    int64_t crmodel = parse_creature_name(scline->tp[1]);
     char count = scline->np[2];
 
     if (crmodel == CREATURE_NONE)
@@ -4173,7 +4173,7 @@ static void level_up_players_creatures_check(const struct ScriptLine* scline)
     }
     if (count == 0)
     {
-        SCRPTERRLOG("Trying to level up %ld times", scline->np[2]);
+        SCRPTERRLOG("Trying to level up %" PRId64 " times", (int64_t)(scline->np[2]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -4185,15 +4185,15 @@ static void level_up_players_creatures_check(const struct ScriptLine* scline)
 
 static void level_up_players_creatures_process(struct ScriptContext* context)
 {
-    long crmodel = context->value->shorts[1];
-    long count = context->value->shorts[2];
+    int64_t crmodel = context->value->shorts[1];
+    int64_t count = context->value->shorts[2];
     PlayerNumber plyridx = context->player_idx;
     struct Dungeon* dungeon = get_players_num_dungeon(plyridx);
-    unsigned long k = 0;
+    uint64_t k = 0;
 
     TbBool need_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(dungeon->owner, crmodel);
     struct Thing* thing = INVALID_THING;
-    int i;
+    int64_t i;
     if ((!need_spec_digger) || (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER))
     {
         i = dungeon->creatr_list_start;
@@ -4233,19 +4233,19 @@ static void level_up_players_creatures_process(struct ScriptContext* context)
 static void use_spell_on_creature_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    long crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
         return;
     }
-    long select_id = parse_criteria(scline->tp[2]);
+    int64_t select_id = parse_criteria(scline->tp[2]);
     if (select_id == -1) {
         SCRPTERRLOG("Unknown select criteria, '%s'", scline->tp[2]);
         return;
     }
     const char* mag_name = scline->tp[3];
-    short mag_id = get_rid(spell_desc, mag_name);
+    int64_t mag_id = get_rid(spell_desc, mag_name);
     CrtrExpLevel spell_level = scline->np[4];
     if (mag_id == -1)
     {
@@ -4257,12 +4257,12 @@ static void use_spell_on_creature_check(const struct ScriptLine* scline)
     {
         if (spell_level < 1)
         {
-            SCRPTWRNLOG("Spell %s level too low: %d, setting to 1.", mag_name, spell_level);
+            SCRPTWRNLOG("Spell %s level too low: %" PRId64 ", setting to 1.", mag_name, (int64_t)(spell_level));
             spell_level = 1;
         }
         if (spell_level > (MAGIC_OVERCHARGE_LEVELS + 1)) // Creatures cast spells from level 1 to 10.
         {
-            SCRPTWRNLOG("Spell %s level too high: %d, setting to %d.", mag_name, spell_level, (MAGIC_OVERCHARGE_LEVELS + 1));
+            SCRPTWRNLOG("Spell %s level too high: %" PRId64 ", setting to %" PRId64 ".", mag_name, (int64_t)(spell_level), (int64_t)((MAGIC_OVERCHARGE_LEVELS + 1)));
             spell_level = MAGIC_OVERCHARGE_LEVELS;
         }
     }
@@ -4276,7 +4276,7 @@ static void use_spell_on_creature_check(const struct ScriptLine* scline)
 static void use_spell_on_creature_process(struct ScriptContext* context)
 {
     ThingModel crmodel = context->value->shorts[1];
-    short select_id = context->value->shorts[2];
+    int64_t select_id = context->value->shorts[2];
     SpellKind spell_idx = context->value->shorts[3];
     CrtrExpLevel overchrg = context->value->shorts[4];
     script_use_spell_on_creature_with_criteria(context->player_idx, crmodel, select_id, spell_idx, overchrg);
@@ -4285,14 +4285,14 @@ static void use_spell_on_creature_process(struct ScriptContext* context)
 static void use_spell_on_players_creatures_check(const struct ScriptLine *scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    long crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", scline->tp[1]);
         return;
     }
     const char *mag_name = scline->tp[2];
-    short mag_id = get_rid(spell_desc, mag_name);
+    int64_t mag_id = get_rid(spell_desc, mag_name);
     CrtrExpLevel spell_level = scline->np[3];
     if (mag_id == -1)
     {
@@ -4304,12 +4304,12 @@ static void use_spell_on_players_creatures_check(const struct ScriptLine *scline
     {
         if (spell_level < 1)
         {
-            SCRPTWRNLOG("Spell %s level too low: %d, setting to 1.", mag_name, spell_level);
+            SCRPTWRNLOG("Spell %s level too low: %" PRId64 ", setting to 1.", mag_name, (int64_t)(spell_level));
             spell_level = 1;
         }
         if (spell_level > (MAGIC_OVERCHARGE_LEVELS + 1)) // Creatures cast spells from level 1 to 10.
         {
-            SCRPTWRNLOG("Spell %s level too high: %d, setting to %d.", mag_name, spell_level, (MAGIC_OVERCHARGE_LEVELS + 1));
+            SCRPTWRNLOG("Spell %s level too high: %" PRId64 ", setting to %" PRId64 ".", mag_name, (int64_t)(spell_level), (int64_t)((MAGIC_OVERCHARGE_LEVELS + 1)));
             spell_level = MAGIC_OVERCHARGE_LEVELS;
         }
     }
@@ -4322,8 +4322,8 @@ static void use_spell_on_players_creatures_check(const struct ScriptLine *scline
 
 static void use_spell_on_players_creatures_process(struct ScriptContext *context)
 {
-    long crmodel = context->value->shorts[1];
-    long spell_idx = context->value->shorts[2];
+    int64_t crmodel = context->value->shorts[1];
+    int64_t spell_idx = context->value->shorts[2];
     CrtrExpLevel overchrg = context->value->shorts[3];
     apply_spell_effect_to_players_creatures(context->player_idx, crmodel, spell_idx, overchrg);
 }
@@ -4331,12 +4331,12 @@ static void use_spell_on_players_creatures_process(struct ScriptContext *context
 static void use_power_on_players_creatures_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    long crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
     PlayerNumber caster_player = scline->np[2];
     const char* pwr_name = scline->tp[3];
-    short pwr_id = get_rid(power_desc, pwr_name);
+    int64_t pwr_id = get_rid(power_desc, pwr_name);
     KeepPwrLevel power_level = scline->np[4];
-    short free = scline->np[5];
+    int64_t free = scline->np[5];
     if (free == -1)
     {
         free = get_id(is_free_desc, scline->tp[5]);
@@ -4378,7 +4378,7 @@ static void use_power_on_players_creatures_check(const struct ScriptLine* scline
     case PwrK_TIMEBOMB:
         if ((power_level < 1) || (power_level > MAGIC_OVERCHARGE_LEVELS))
         {
-            SCRPTERRLOG("Power %s level %d out of range. Acceptible values are %d~%d", pwr_name, power_level, 1, MAGIC_OVERCHARGE_LEVELS);
+            SCRPTERRLOG("Power %s level %" PRId64 " out of range. Acceptible values are %" PRId64 "~%" PRId64, pwr_name, (int64_t)(power_level), (int64_t)(1), (int64_t)(MAGIC_OVERCHARGE_LEVELS));
             DEALLOCATE_SCRIPT_VALUE
         }
         power_level--; // transform human 1~9 range into computer 0~8 range
@@ -4406,15 +4406,15 @@ static void use_power_on_players_creatures_check(const struct ScriptLine* scline
  * @param caster The player number of the player who is made to cast the spell.
  * @param free If gold is used when casting the spell. It will fail to cast if it is not free and money is not available.
  */
-void cast_power_on_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, short pwr_idx, KeepPwrLevel overchrg, PlayerNumber caster, TbBool free)
+void cast_power_on_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, int64_t pwr_idx, KeepPwrLevel overchrg, PlayerNumber caster, TbBool free)
 {
     SYNCDBG(8, "Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    unsigned long k = 0;
+    uint64_t k = 0;
 
     TbBool need_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel);
     struct Thing* thing = INVALID_THING;
-    int i;
+    int64_t i;
     if ((!need_spec_digger) || (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER))
     {
         i = dungeon->creatr_list_start;
@@ -4453,8 +4453,8 @@ void cast_power_on_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, 
 
 static void use_power_on_players_creatures_process(struct ScriptContext* context)
 {
-    short crmodel = context->value->shorts[1];
-    short pwr_idx = context->value->shorts[2];
+    int64_t crmodel = context->value->shorts[1];
+    int64_t pwr_idx = context->value->shorts[2];
     KeepPwrLevel overchrg = context->value->shorts[3];
     PlayerNumber caster = context->value->shorts[4];
     TbBool free = context->value->shorts[5];
@@ -4468,7 +4468,7 @@ static void set_creature_instance_check(const struct ScriptLine *scline)
     value->bytes[1] = scline->np[1];
     if (scline->tp[2][0] != '\0')
     {
-        int instance = get_rid(instance_desc, scline->tp[2]);
+        int64_t instance = get_rid(instance_desc, scline->tp[2]);
         if (instance != -1)
         {
             value->bytes[2] = instance;
@@ -4486,8 +4486,8 @@ static void set_creature_instance_check(const struct ScriptLine *scline)
 static void set_creature_instance_process(struct ScriptContext *context)
 {
     ThingModel crmodel = context->value->bytes[0];
-    int slot = context->value->bytes[1];
-    int instance = context->value->bytes[2];
+    int64_t slot = context->value->bytes[1];
+    int64_t instance = context->value->bytes[2];
     unsigned char level = context->value->bytes[3];
 
     script_set_creature_instance(crmodel, slot, instance, level);
@@ -4498,7 +4498,7 @@ static void set_creature_instance_process(struct ScriptContext *context)
 static void hide_hero_gate_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short n = scline->np[0];
+    int64_t n = scline->np[0];
     if (scline->np[0] < 0)
     {
         n = -scline->np[0];
@@ -4506,7 +4506,7 @@ static void hide_hero_gate_check(const struct ScriptLine* scline)
     struct Thing* thing = find_hero_gate_of_number(n);
     if (thing_is_invalid(thing))
     {
-        SCRPTERRLOG("Invalid hero gate: %ld", scline->np[0]);
+        SCRPTERRLOG("Invalid hero gate: %" PRId64, (int64_t)(scline->np[0]));
         return;
     }
     value->bytes[0] = n;
@@ -4535,20 +4535,20 @@ static void hide_hero_gate_process(struct ScriptContext* context)
 static void if_check(const struct ScriptLine *scline)
 {
 
-    long plr_range_id = scline->np[0];
+    int64_t plr_range_id = scline->np[0];
     const char *varib_name = scline->tp[1];
     const char *operatr = scline->tp[2];
 
-    int32_t plr_range_id_right = -1;
+    int64_t plr_range_id_right = -1;
     const char *varib_name_right = scline->tp[4];
 
-    long value = 0;
+    int64_t value = 0;
 
     TbBool double_var_mode = false;
-    int32_t varib_type;
-    int32_t varib_id;
-    int32_t varib_type_right;
-    int32_t varib_id_right;
+    int64_t varib_type;
+    int64_t varib_id;
+    int64_t varib_type_right;
+    int64_t varib_id_right;
 
 
     if (*varib_name_right != '\0')
@@ -4567,14 +4567,14 @@ static void if_check(const struct ScriptLine *scline)
         char* text;
         value = script_strtol(scline->tp[3], &text, 0);
         if (text != &scline->tp[3][strlen(scline->tp[3])]) {
-            SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[3], value);
+            SCRPTWRNLOG("Numerical value \"%s\" interpreted as %" PRId64, scline->tp[3], (int64_t)(value));
         }
     }
 
 
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-      SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+      SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
       return;
     }
     // Recognize variable
@@ -4588,8 +4588,8 @@ static void if_check(const struct ScriptLine *scline)
     }
 
     { // Warn if using the command for a player without Dungeon struct
-        int plr_start;
-        int plr_end;
+        int64_t plr_start;
+        int64_t plr_end;
         if (get_players_range(plr_range_id, &plr_start, &plr_end) >= 0) {
             struct Dungeon* dungeon = get_dungeon(plr_start);
             if ((plr_start+1 == plr_end) && dungeon_invalid(dungeon)) {
@@ -4612,7 +4612,7 @@ static void if_check(const struct ScriptLine *scline)
         }
     }
     // Recognize comparison
-    long opertr_id = get_id(comparison_desc, operatr);
+    int64_t opertr_id = get_id(comparison_desc, operatr);
     if (opertr_id == -1)
     {
       SCRPTERRLOG("Unknown comparison name, '%s'", operatr);
@@ -4631,18 +4631,18 @@ static void if_check(const struct ScriptLine *scline)
 static void if_available_check(const struct ScriptLine *scline)
 {
 
-    long plr_range_id = scline->np[0];
+    int64_t plr_range_id = scline->np[0];
     const char *varib_name = scline->tp[1];
     const char *operatr = scline->tp[2];
 
-    int32_t plr_range_id_right;
+    int64_t plr_range_id_right;
     const char *varib_name_right = scline->tp[4];
 
-    long value;
+    int64_t value;
 
     TbBool double_var_mode = false;
-    int32_t varib_type_right;
-    int32_t varib_id_right;
+    int64_t varib_type_right;
+    int64_t varib_id_right;
 
 
     if (*varib_name_right != '\0')
@@ -4661,18 +4661,18 @@ static void if_available_check(const struct ScriptLine *scline)
         char* text;
         value = script_strtol(scline->tp[3], &text, 0);
         if (text != &scline->tp[3][strlen(scline->tp[3])]) {
-            SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[3], value);
+            SCRPTWRNLOG("Numerical value \"%s\" interpreted as %" PRId64, scline->tp[3], (int64_t)(value));
         }
     }
 
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-      SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+      SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
       return;
     }
     // Recognize variable
-    long varib_id;
-    long varib_type = get_id(available_variable_desc, varib_name);
+    int64_t varib_id;
+    int64_t varib_type = get_id(available_variable_desc, varib_name);
     if (varib_type == -1)
         varib_id = -1;
     else
@@ -4708,15 +4708,15 @@ static void if_available_check(const struct ScriptLine *scline)
       return;
     }
     // Recognize comparison
-    long opertr_id = get_id(comparison_desc, operatr);
+    int64_t opertr_id = get_id(comparison_desc, operatr);
     if (opertr_id == -1)
     {
       SCRPTERRLOG("Unknown comparison name, '%s'", operatr);
       return;
     }
     { // Warn if using the command for a player without Dungeon struct
-        int plr_start;
-        int plr_end;
+        int64_t plr_start;
+        int64_t plr_end;
         if (get_players_range(plr_range_id, &plr_start, &plr_end) >= 0) {
             struct Dungeon* dungeon = get_dungeon(plr_start);
             if ((plr_start+1 == plr_end) && dungeon_invalid(dungeon)) {
@@ -4741,18 +4741,18 @@ static void if_available_check(const struct ScriptLine *scline)
 static void if_controls_check(const struct ScriptLine *scline)
 {
 
-    long plr_range_id = scline->np[0];
+    int64_t plr_range_id = scline->np[0];
     const char *varib_name = scline->tp[1];
     const char *operatr = scline->tp[2];
 
-    int32_t plr_range_id_right;
+    int64_t plr_range_id_right;
     const char *varib_name_right = scline->tp[4];
 
-    long value;
+    int64_t value;
 
     TbBool double_var_mode = false;
-    int32_t varib_type_right = 0;
-    int32_t varib_id_right = 0;
+    int64_t varib_type_right = 0;
+    int64_t varib_id_right = 0;
 
 
     if (*varib_name_right != '\0')
@@ -4771,18 +4771,18 @@ static void if_controls_check(const struct ScriptLine *scline)
         char* text;
         value = script_strtol(scline->tp[3], &text, 0);
         if (text != &scline->tp[3][strlen(scline->tp[3])]) {
-            SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[3], value);
+            SCRPTWRNLOG("Numerical value \"%s\" interpreted as %" PRId64, scline->tp[3], (int64_t)(value));
         }
     }
 
-    long varib_id;
+    int64_t varib_id;
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-      SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+      SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
       return;
     }
     // Recognize variable
-    long varib_type = get_id(controls_variable_desc, varib_name);
+    int64_t varib_type = get_id(controls_variable_desc, varib_name);
     if (varib_type == -1)
       varib_id = -1;
     else
@@ -4798,15 +4798,15 @@ static void if_controls_check(const struct ScriptLine *scline)
       return;
     }
     // Recognize comparison
-    long opertr_id = get_id(comparison_desc, operatr);
+    int64_t opertr_id = get_id(comparison_desc, operatr);
     if (opertr_id == -1)
     {
       SCRPTERRLOG("Unknown comparison name, '%s'", operatr);
       return;
     }
     { // Warn if using the command for a player without Dungeon struct
-        int plr_start;
-        int plr_end;
+        int64_t plr_start;
+        int64_t plr_end;
         if (get_players_range(plr_range_id, &plr_start, &plr_end) >= 0) {
             struct Dungeon* dungeon = get_dungeon(plr_start);
             if ((plr_start+1 == plr_end) && dungeon_invalid(dungeon)) {
@@ -4842,14 +4842,14 @@ static void if_controls_check(const struct ScriptLine *scline)
 
 static void if_allied_check(const struct ScriptLine *scline)
 {
-    long pA = scline->np[0];
-    long pB = scline->np[1];
-    long op = scline->np[2];
-    long val = scline->np[3];
+    int64_t pA = scline->np[0];
+    int64_t pB = scline->np[1];
+    int64_t op = scline->np[2];
+    int64_t val = scline->np[3];
 
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-        SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+        SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
         return;
     }
 
@@ -4860,7 +4860,7 @@ static void set_texture_check(const struct ScriptLine *scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
 
-    long texture_id = get_rid(texture_pack_desc, scline->tp[1]);
+    int64_t texture_id = get_rid(texture_pack_desc, scline->tp[1]);
     if (texture_id == -1)
     {
         if (parameter_is_number(scline->tp[1]))
@@ -4880,7 +4880,7 @@ static void set_texture_check(const struct ScriptLine *scline)
 static void set_texture_process(struct ScriptContext *context)
 {
     PlayerNumber plyr_idx = context->player_idx;
-    long texture_id = context->value->shorts[0];
+    int64_t texture_id = context->value->shorts[0];
 
     set_player_texture(plyr_idx, texture_id);
 }
@@ -4904,7 +4904,7 @@ static void set_music_check(const struct ScriptLine *scline)
 
 static void set_music_process(struct ScriptContext *context)
 {
-    short track = context->value->chars[0];
+    int64_t track = context->value->chars[0];
     if ((track > 0) && (kfx_game_state.music_track == track))
     {
         return;
@@ -4923,7 +4923,7 @@ static void set_music_process(struct ScriptContext *context)
 static void play_message_check(const struct ScriptLine *scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    long msgtype_id = get_id(msgtype_desc, scline->tp[1]);
+    int64_t msgtype_id = get_id(msgtype_desc, scline->tp[1]);
     if (msgtype_id == -1)
     {
         SCRPTERRLOG("Unrecognized message type: '%s'", scline->tp[1]);
@@ -4952,7 +4952,7 @@ static void play_message_process(struct ScriptContext *context)
 {
     const TbBool param_is_string = context->value->bytes[4];
     const char msgtype_id = context->value->chars[1];
-    const short msg_id = context->value->shorts[1];
+    const int64_t msg_id = context->value->shorts[1];
     const char * filename = script_strval(context->value->longs[2]);
 
 
@@ -4966,7 +4966,7 @@ static void set_power_hand_check(const struct ScriptLine *scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
 
-    long hand_idx = get_rid(powerhand_desc, scline->tp[1]);
+    int64_t hand_idx = get_rid(powerhand_desc, scline->tp[1]);
     if (hand_idx == -1)
     {
         if (parameter_is_number(scline->tp[1]))
@@ -4985,7 +4985,7 @@ static void set_power_hand_check(const struct ScriptLine *scline)
 
 static void set_power_hand_process(struct ScriptContext *context)
 {
-    long hand_idx = context->value->shorts[0];
+    int64_t hand_idx = context->value->shorts[0];
     struct PlayerInfo * player;
     player = get_player(context->player_idx);
     player->hand_idx = hand_idx;
@@ -4997,7 +4997,7 @@ static void add_effectgen_to_level_check(const struct ScriptLine* scline)
 
     const char* generator_name = scline->tp[0];
     const char* locname = scline->tp[1];
-    long range = scline->np[2];
+    int64_t range = scline->np[2];
 
     TbMapLocation location;
     ThingModel gen_id;
@@ -5028,7 +5028,7 @@ static void add_effectgen_to_level_check(const struct ScriptLine* scline)
         DEALLOCATE_SCRIPT_VALUE;
         return;
     }
-    value->shorts[0] = (short)gen_id;
+    value->shorts[0] = (int64_t)gen_id;
     value->ulongs[1] = location;
     value->shorts[3] = range * COORD_PER_STL;
     PROCESS_SCRIPT_VALUE(scline->command);
@@ -5038,7 +5038,7 @@ static void add_effectgen_to_level_process(struct ScriptContext* context)
 {
     ThingModel gen_id = context->value->shorts[0];
     TbMapLocation location = context->value->ulongs[1];
-    short range = context->value->shorts[3];
+    int64_t range = context->value->shorts[3];
     if (get_script_current_condition() == CONDITION_ALWAYS)
     {
         script_process_new_effectgen(gen_id, location, range);
@@ -5083,7 +5083,7 @@ static void set_power_configuration_check(const struct ScriptLine *scline)
     const char *property = scline->tp[1];
     char *new_value = (char*)scline->tp[2];
 
-    long power_id = get_id(power_desc, powername);
+    int64_t power_id = get_id(power_desc, powername);
     if (power_id == -1)
     {
         SCRPTERRLOG("Unknown power, '%s'", powername);
@@ -5091,7 +5091,7 @@ static void set_power_configuration_check(const struct ScriptLine *scline)
         return;
     }
 
-    long powervar = get_id(magic_power_commands, property);
+    int64_t powervar = get_id(magic_power_commands, property);
     if (powervar == -1)
     {
         SCRPTERRLOG("Unknown power variable: %s", new_value);
@@ -5099,7 +5099,7 @@ static void set_power_configuration_check(const struct ScriptLine *scline)
         return;
     }
     int64_t number_value = 0;
-    long k;
+    int64_t k;
     switch (powervar)
     {
         case 2: // Power
@@ -5334,15 +5334,15 @@ static void set_power_configuration_check(const struct ScriptLine *scline)
     {
         if ( (powervar == 5) && (value->chars[3] != -1) )
         {
-            SCRIPTDBG(7, "Toggling %s castability flag: %" PRId64, powername, number_value);
+            SCRIPTDBG(7, "Toggling %s castability flag: %" PRId64, powername, (int64_t)(number_value));
         }
         else if ( (powervar == 14) && (value->chars[3] != -1) )
         {
-            SCRIPTDBG(7, "Toggling %s property flag: %" PRId64, powername, number_value);
+            SCRIPTDBG(7, "Toggling %s property flag: %" PRId64, powername, (int64_t)(number_value));
         }
         else
         {
-            SCRIPTDBG(7, "Setting power %s property %s to %" PRId64, powername, property, number_value);
+            SCRIPTDBG(7, "Setting power %s property %s to %" PRId64, powername, property, (int64_t)(number_value));
         }
     }
     #endif
@@ -5451,7 +5451,7 @@ static void set_power_configuration_process(struct ScriptContext *context)
             powerst->cost_formula = context->value->longs[2];
             break;
         default:
-            WARNMSG("Unsupported power configuration, variable %d.", context->value->bytes[2]);
+            WARNMSG("Unsupported power configuration, variable %" PRId64 ".", (int64_t)(context->value->bytes[2]));
             break;
     }
     config_reload_callbacks->update_powers_tab_to_config();
@@ -5474,7 +5474,7 @@ static void set_power_configuration_process(struct ScriptContext *context)
 static void set_player_colour_check(const struct ScriptLine *scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    long color_idx = get_rid(cmpgn_human_player_options, scline->tp[1]);
+    int64_t color_idx = get_rid(cmpgn_human_player_options, scline->tp[1]);
     if (scline->np[0] == kfx_config_state.neutral_player_num)
     {
         SCRPTERRLOG("Can't change color of Neutral player.");
@@ -5537,9 +5537,9 @@ static void set_game_rule_check(const struct ScriptLine* scline)
     const char* rulename = scline->tp[0];
 
 
-    long rulegroup = 0;
-    long ruleval = 0;
-    long ruledesc = 0;
+    int64_t rulegroup = 0;
+    int64_t ruleval = 0;
+    int64_t ruledesc = 0;
 
     for (size_t i = 0; i < sizeof(ruleblocks)/sizeof(ruleblocks[0]); i++)
     {
@@ -5567,12 +5567,12 @@ static void set_game_rule_check(const struct ScriptLine* scline)
 
 static void set_game_rule_process(struct ScriptContext* context)
 {
-    short rulegroup = context->value->shorts[0];
-    short ruledesc  = context->value->shorts[1];
-    long rulevalue  = context->value->longs[1];
+    int64_t rulegroup = context->value->shorts[0];
+    int64_t ruledesc  = context->value->shorts[1];
+    int64_t rulevalue  = context->value->longs[1];
 
 
-    SCRIPTDBG(7,"Changing Game Rule '%s' to %ld", (ruleblocks[rulegroup]+ruledesc)->name, rulevalue);
+    SCRIPTDBG(7,"Changing Game Rule '%s' to %" PRId64, (ruleblocks[rulegroup]+ruledesc)->name, (int64_t)(rulevalue));
 
     assign_named_field_value((ruleblocks[rulegroup]+ruledesc),rulevalue,&rules_named_fields_set,context->player_idx,"SET_GAME_RULE",ccf_SplitExecution|ccf_DuringLevel);
 }
@@ -5580,7 +5580,7 @@ static void set_game_rule_process(struct ScriptContext* context)
 static void set_increase_on_experience_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long onexpdesc = get_id(on_experience_desc, scline->tp[0]);
+    int64_t onexpdesc = get_id(on_experience_desc, scline->tp[0]);
     if (onexpdesc == -1)
     {
         SCRPTERRLOG("Unknown variable '%s'.", scline->tp[0]);
@@ -5589,7 +5589,7 @@ static void set_increase_on_experience_check(const struct ScriptLine* scline)
     }
     if (scline->np[1] < 0)
     {
-        SCRPTERRLOG("Value %ld out of range for variable '%s'.", scline->np[1], scline->tp[0]);
+        SCRPTERRLOG("Value %" PRId64 " out of range for variable '%s'.", (int64_t)(scline->np[1]), scline->tp[0]);
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -5600,66 +5600,66 @@ static void set_increase_on_experience_check(const struct ScriptLine* scline)
 
 static void set_increase_on_experience_process(struct ScriptContext* context)
 {
-    short variable = context->value->shorts[0];
+    int64_t variable = context->value->shorts[0];
   #if (BFDEBUG_LEVEL > 0)
     const char *varname = on_experience_desc[variable - 1].name;
   #endif
     switch (variable)
     {
     case 1: //SizeIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.size_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.size_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.size_increase_on_exp = context->value->shorts[1];
         break;
     case 2: //PayIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.pay_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.pay_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.pay_increase_on_exp = context->value->shorts[1];
         break;
     case 3: //SpellDamageIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.spell_damage_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.spell_damage_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.spell_damage_increase_on_exp = context->value->shorts[1];
         break;
     case 4: //RangeIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.range_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.range_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.range_increase_on_exp = context->value->shorts[1];
         break;
     case 5: //JobValueIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.job_value_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.job_value_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.job_value_increase_on_exp = context->value->shorts[1];
         break;
     case 6: //HealthIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.health_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.health_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.health_increase_on_exp = context->value->shorts[1];
         break;
     case 7: //StrengthIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.strength_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.strength_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.strength_increase_on_exp = context->value->shorts[1];
         break;
     case 8: //DexterityIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.dexterity_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.dexterity_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.dexterity_increase_on_exp = context->value->shorts[1];
         break;
     case 9: //DefenseIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.defense_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.defense_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.defense_increase_on_exp = context->value->shorts[1];
         break;
     case 10: //LoyaltyIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.loyalty_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.loyalty_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.loyalty_increase_on_exp = context->value->shorts[1];
         break;
     case 11: //ExpForHittingIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.exp_on_hitting_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.exp_on_hitting_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.exp_on_hitting_increase_on_exp = context->value->shorts[1];
         break;
     case 12: //TrainingCostIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.training_cost_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.training_cost_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.training_cost_increase_on_exp = context->value->shorts[1];
         break;
     case 13: //ScavengingCostIncreaseOnExp
-        SCRIPTDBG(7,"Changing variable %s from %d to %d.", varname, kfx_config_state.conf.crtr_conf.exp.scavenging_cost_increase_on_exp, context->value->shorts[1]);
+        SCRIPTDBG(7,"Changing variable %s from %" PRId64 " to %" PRId64 ".", varname, (int64_t)(kfx_config_state.conf.crtr_conf.exp.scavenging_cost_increase_on_exp), (int64_t)(context->value->shorts[1]));
         kfx_config_state.conf.crtr_conf.exp.scavenging_cost_increase_on_exp = context->value->shorts[1];
         break;
     default:
-        WARNMSG("Unsupported variable, command %d.", context->value->shorts[0]);
+        WARNMSG("Unsupported variable, command %" PRId64 ".", (int64_t)(context->value->shorts[0]));
         break;
     }
 }
@@ -5667,8 +5667,8 @@ static void set_increase_on_experience_process(struct ScriptContext* context)
 static void set_player_modifier_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    short mdfrdesc = get_id(modifier_desc, scline->tp[1]);
-    short mdfrval = scline->np[2];
+    int64_t mdfrdesc = get_id(modifier_desc, scline->tp[1]);
+    int64_t mdfrval = scline->np[2];
     const char *mdfrname = get_conf_parameter_text(modifier_desc,mdfrdesc);
     if (mdfrdesc == -1)
     {
@@ -5678,13 +5678,13 @@ static void set_player_modifier_check(const struct ScriptLine* scline)
     }
     if (mdfrval < 0)
     {
-        SCRPTERRLOG("Value %d out of range for Player Modifier '%s'.", mdfrval, mdfrname);
+        SCRPTERRLOG("Value %" PRId64 " out of range for Player Modifier '%s'.", (int64_t)(mdfrval), mdfrname);
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
     if (scline->np[0] == kfx_config_state.neutral_player_num)
     {
-        SCRPTERRLOG("Can't manipulate Player Modifier '%s', player %ld has no dungeon.", mdfrname, scline->np[0]);
+        SCRPTERRLOG("Can't manipulate Player Modifier '%s', player %" PRId64 " has no dungeon.", mdfrname, (int64_t)(scline->np[0]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -5696,8 +5696,8 @@ static void set_player_modifier_check(const struct ScriptLine* scline)
 static void set_player_modifier_process(struct ScriptContext* context)
 {
     struct Dungeon* dungeon;
-    short mdfrdesc = context->value->shorts[0];
-    short mdfrval = context->value->shorts[1];
+    int64_t mdfrdesc = context->value->shorts[0];
+    int64_t mdfrval = context->value->shorts[1];
     #if (BFDEBUG_LEVEL > 0)
         const char *mdfrname = get_conf_parameter_text(modifier_desc,mdfrdesc);
     #endif
@@ -5706,45 +5706,45 @@ static void set_player_modifier_process(struct ScriptContext* context)
     switch (mdfrdesc)
     {
         case 1: // Health
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.health, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.health), (int64_t)(mdfrval));
             dungeon->modifier.health = mdfrval;
             do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, update_relative_creature_health);
             break;
         case 2: // Strength
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.strength, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.strength), (int64_t)(mdfrval));
             dungeon->modifier.strength = mdfrval;
             break;
         case 3: // Armour
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.armour, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.armour), (int64_t)(mdfrval));
             dungeon->modifier.armour = mdfrval;
             break;
         case 4: // SpellDamage
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.spell_damage, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.spell_damage), (int64_t)(mdfrval));
             dungeon->modifier.spell_damage = mdfrval;
             break;
         case 5: // Speed
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.speed, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.speed), (int64_t)(mdfrval));
             dungeon->modifier.speed = mdfrval;
             do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, update_creature_speed);
             break;
         case 6: // Salary
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.pay, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.pay), (int64_t)(mdfrval));
             dungeon->modifier.pay = mdfrval;
             break;
         case 7: // TrainingCost
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.training_cost, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.training_cost), (int64_t)(mdfrval));
             dungeon->modifier.training_cost = mdfrval;
             break;
         case 8: // ScavengingCost
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.scavenging_cost, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.scavenging_cost), (int64_t)(mdfrval));
             dungeon->modifier.scavenging_cost = mdfrval;
             break;
         case 9: // Loyalty
-            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %d from %d to %d.", mdfrname, (int)plyr_idx, dungeon->modifier.loyalty, mdfrval);
+            SCRIPTDBG(7,"Changing Player Modifier '%s' of player %" PRId64 " from %" PRId64 " to %" PRId64 ".", mdfrname, (int64_t)plyr_idx, (int64_t)(dungeon->modifier.loyalty), (int64_t)(mdfrval));
             dungeon->modifier.loyalty = mdfrval;
             break;
         default:
-            WARNMSG("Unsupported Player Modifier, command %d.", mdfrdesc);
+            WARNMSG("Unsupported Player Modifier, command %" PRId64 ".", (int64_t)(mdfrdesc));
             break;
     }
 }
@@ -5752,8 +5752,8 @@ static void set_player_modifier_process(struct ScriptContext* context)
 static void add_to_player_modifier_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    short mdfrdesc = get_id(modifier_desc, scline->tp[1]);
-    short mdfrval = scline->np[2];
+    int64_t mdfrdesc = get_id(modifier_desc, scline->tp[1]);
+    int64_t mdfrval = scline->np[2];
     const char *mdfrname = get_conf_parameter_text(modifier_desc,mdfrdesc);
     if (mdfrdesc == -1)
     {
@@ -5763,7 +5763,7 @@ static void add_to_player_modifier_check(const struct ScriptLine* scline)
     }
     if (scline->np[0] == kfx_config_state.neutral_player_num)
     {
-        SCRPTERRLOG("Can't manipulate Player Modifier '%s', player %ld has no dungeon.", mdfrname, scline->np[0]);
+        SCRPTERRLOG("Can't manipulate Player Modifier '%s', player %" PRId64 " has no dungeon.", mdfrname, (int64_t)(scline->np[0]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -5775,9 +5775,9 @@ static void add_to_player_modifier_check(const struct ScriptLine* scline)
 static void add_to_player_modifier_process(struct ScriptContext* context)
 {
     struct Dungeon* dungeon;
-    short mdfrdesc = context->value->shorts[0];
-    short mdfrval = context->value->shorts[1];
-    short mdfradd;
+    int64_t mdfrdesc = context->value->shorts[0];
+    int64_t mdfrval = context->value->shorts[1];
+    int64_t mdfradd;
     const char *mdfrname = get_conf_parameter_text(modifier_desc,mdfrdesc);
     PlayerNumber plyr_idx = context->player_idx;
     dungeon = get_dungeon(plyr_idx);
@@ -5786,88 +5786,88 @@ static void add_to_player_modifier_process(struct ScriptContext* context)
         case 1: // Health
             mdfradd = dungeon->modifier.health + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.health = mdfradd;
                 do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, update_relative_creature_health);
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.health);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.health));
             }
             break;
         case 2: // Strength
             mdfradd = dungeon->modifier.strength + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.strength = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.strength);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.strength));
             }
             break;
         case 3: // Armour
             mdfradd = dungeon->modifier.armour + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.armour = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.armour);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.armour));
             }
             break;
         case 4: // SpellDamage
             mdfradd = dungeon->modifier.spell_damage + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.spell_damage = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.spell_damage);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.spell_damage));
             }
             break;
         case 5: // Speed
             mdfradd = dungeon->modifier.speed + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.speed = mdfradd;
                 do_to_players_all_creatures_of_model(plyr_idx, CREATURE_ANY, update_creature_speed);
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.speed);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.speed));
             }
             break;
         case 6: // Salary
             mdfradd = dungeon->modifier.pay + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.pay = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.pay);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.pay));
             }
             break;
         case 7: // TrainingCost
             mdfradd = dungeon->modifier.training_cost + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.training_cost = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.training_cost);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.training_cost));
             }
             break;
         case 8: // ScavengingCost
             mdfradd = dungeon->modifier.scavenging_cost + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.scavenging_cost = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.scavenging_cost);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.scavenging_cost));
             }
             break;
         case 9: // Loyalty
             mdfradd = dungeon->modifier.loyalty + mdfrval;
             if (mdfradd >= 0) {
-                SCRIPTDBG(7,"Adding %d to Player %d Modifier '%s'.", mdfrval, (int)plyr_idx, mdfrname);
+                SCRIPTDBG(7,"Adding %" PRId64 " to Player %" PRId64 " Modifier '%s'.", (int64_t)(mdfrval), (int64_t)plyr_idx, mdfrname);
                 dungeon->modifier.loyalty = mdfradd;
             } else {
-                SCRPTERRLOG("Player %d Modifier '%s' may not be negative. Tried to add %d to value %d", (int)plyr_idx, mdfrname, mdfrval, dungeon->modifier.loyalty);
+                SCRPTERRLOG("Player %" PRId64 " Modifier '%s' may not be negative. Tried to add %" PRId64 " to value %" PRId64, (int64_t)plyr_idx, mdfrname, (int64_t)(mdfrval), (int64_t)(dungeon->modifier.loyalty));
             }
             break;
         default:
-            WARNMSG("Unsupported Player Modifier, command %d.", mdfrdesc);
+            WARNMSG("Unsupported Player Modifier, command %" PRId64 ".", (int64_t)(mdfrdesc));
             break;
     }
 }
@@ -5875,8 +5875,8 @@ static void add_to_player_modifier_process(struct ScriptContext* context)
 static void set_creature_max_level_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, scline->np[0]);
-    short crtr_id = parse_creature_name(scline->tp[1]);
-    short crtr_lvl = scline->np[2];
+    int64_t crtr_id = parse_creature_name(scline->tp[1]);
+    int64_t crtr_lvl = scline->np[2];
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unable to manipulate max level of creature '%s', creature doesn't exist.", scline->tp[1]);
@@ -5885,7 +5885,7 @@ static void set_creature_max_level_check(const struct ScriptLine* scline)
     }
     if ((crtr_lvl < -1) || (crtr_lvl > CREATURE_MAX_LEVEL))
     {
-        SCRPTERRLOG("Unable to set max level of creature '%s' to %d, value is out of range.", creature_code_name(crtr_id), crtr_lvl);
+        SCRPTERRLOG("Unable to set max level of creature '%s' to %" PRId64 ", value is out of range.", creature_code_name(crtr_id), (int64_t)(crtr_lvl));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -5897,8 +5897,8 @@ static void set_creature_max_level_check(const struct ScriptLine* scline)
 static void set_creature_max_level_process(struct ScriptContext* context)
 {
     struct Dungeon* dungeon;
-    short crtr_id = context->value->shorts[0];
-    short crtr_lvl = context->value->shorts[1];
+    int64_t crtr_id = context->value->shorts[0];
+    int64_t crtr_lvl = context->value->shorts[1];
     PlayerNumber plyr_idx = context->player_idx;
     dungeon = get_dungeon(plyr_idx);
     if (!dungeon_invalid(dungeon))
@@ -5910,15 +5910,15 @@ static void set_creature_max_level_process(struct ScriptContext* context)
                 {
                     crtr_lvl = CREATURE_MAX_LEVEL + 1;
                     dungeon->creature_max_level[crtr_id] = crtr_lvl;
-                    SCRIPTDBG(7,"Max level of creature '%s' set to default for player %d.", creature_code_name(crtr_id), (int)plyr_idx);
+                    SCRIPTDBG(7,"Max level of creature '%s' set to default for player %" PRId64 ".", creature_code_name(crtr_id), (int64_t)plyr_idx);
                 } else {
                     dungeon->creature_max_level[crtr_id] = crtr_lvl-1;
-                    SCRIPTDBG(7,"Max level of creature '%s' set to %d for player %d.", creature_code_name(crtr_id), crtr_lvl, (int)plyr_idx);
+                    SCRIPTDBG(7,"Max level of creature '%s' set to %" PRId64 " for player %" PRId64 ".", creature_code_name(crtr_id), (int64_t)(crtr_lvl), (int64_t)plyr_idx);
                 }
             }
         } else
         {
-            for (int i = 1; i < kfx_config_state.conf.crtr_conf.model_count; i++)
+            for (int64_t i = 1; i < kfx_config_state.conf.crtr_conf.model_count; i++)
             {
                 if (creature_model_matches_model(i, plyr_idx , crtr_id))
                 {
@@ -5926,27 +5926,27 @@ static void set_creature_max_level_process(struct ScriptContext* context)
                     {
                         crtr_lvl = CREATURE_MAX_LEVEL + 1;
                         dungeon->creature_max_level[i] = crtr_lvl;
-                        SCRIPTDBG(7,"Max level of creature '%s' set to default for player %d.", creature_code_name(i), (int)plyr_idx);
+                        SCRIPTDBG(7,"Max level of creature '%s' set to default for player %" PRId64 ".", creature_code_name(i), (int64_t)plyr_idx);
                     } else {
                         dungeon->creature_max_level[i] = crtr_lvl-1;
-                        SCRIPTDBG(7,"Max level of creature '%s' set to %d for player %d.", creature_code_name(i), crtr_lvl, (int)plyr_idx);
+                        SCRIPTDBG(7,"Max level of creature '%s' set to %" PRId64 " for player %" PRId64 ".", creature_code_name(i), (int64_t)(crtr_lvl), (int64_t)plyr_idx);
                     }
                 }
             }
         }
     } else
     {
-        SCRPTERRLOG("Unable to manipulate max level of creature '%s', player %d has no dungeon.", creature_code_name(crtr_id), (int)plyr_idx);
+        SCRPTERRLOG("Unable to manipulate max level of creature '%s', player %" PRId64 " has no dungeon.", creature_code_name(crtr_id), (int64_t)plyr_idx);
     }
 }
 
 static void reset_or_trigger_action_point_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long apt_idx = action_point_number_to_index(scline->np[0]);
+    int64_t apt_idx = action_point_number_to_index(scline->np[0]);
     if (!action_point_exists_idx(apt_idx))
     {
-        SCRPTERRLOG("Non-existing Action Point, no %ld", scline->np[0]);
+        SCRPTERRLOG("Non-existing Action Point, no %" PRId64, (int64_t)(scline->np[0]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -5972,21 +5972,21 @@ static void quick_message_check(const struct ScriptLine* scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     if ((scline->np[0] < 0) || (scline->np[0] >= QUICK_MESSAGES_COUNT))
     {
-        SCRPTERRLOG("Invalid information ID number (%ld)", scline->np[0]);
+        SCRPTERRLOG("Invalid information ID number (%" PRId64 ")", (int64_t)(scline->np[0]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
     if (strlen(scline->tp[1]) > MESSAGE_TEXT_LEN)
     {
-        SCRPTWRNLOG("Information TEXT too long; truncating to %d characters", MESSAGE_TEXT_LEN-1);
+        SCRPTWRNLOG("Information TEXT too long; truncating to %" PRId64 " characters", (int64_t)(MESSAGE_TEXT_LEN-1));
     }
     if ((kfx_sim_state.quick_messages[scline->np[0]][0] != '\0') && (strcmp(kfx_sim_state.quick_messages[scline->np[0]],scline->tp[1]) != 0))
     {
-        SCRPTWRNLOG("Quick Message no %ld overwritten by different text", scline->np[0]);
+        SCRPTWRNLOG("Quick Message no %" PRId64 " overwritten by different text", (int64_t)(scline->np[0]));
     }
     snprintf(kfx_sim_state.quick_messages[scline->np[0]], MESSAGE_TEXT_LEN, "%s", scline->tp[1]);
     value->longs[0]= scline->np[0];
-	get_chat_icon_from_value(scline->tp[2], &value->shorts[4], &value->chars[6]);
+	{ int64_t icon_id = 0; get_chat_icon_from_value(scline->tp[2], &icon_id, &value->chars[6]); value->shorts[4] = (int16_t)icon_id; }
     PROCESS_SCRIPT_VALUE(scline->command);
 }
 
@@ -6007,7 +6007,7 @@ static void display_message_check(const struct ScriptLine* scline)
         return;
     }
     value->ulongs[0] = msg_num;
-    get_chat_icon_from_value(scline->tp[1], &value->shorts[4], &value->chars[7]);
+    { int64_t icon_id = 0; get_chat_icon_from_value(scline->tp[1], &icon_id, &value->chars[7]); value->shorts[4] = (int16_t)icon_id; }
 
     PROCESS_SCRIPT_VALUE(scline->command);
 }
@@ -6034,7 +6034,7 @@ static void clear_message_check(const struct ScriptLine* scline)
 static void clear_message_process(struct ScriptContext* context)
 {
     unsigned char count = min(context->value->chars[1], kfx_sim_state.active_messages_count);
-    for (int k = kfx_sim_state.active_messages_count-1; k >= (kfx_sim_state.active_messages_count-count); k--)
+    for (int64_t k = kfx_sim_state.active_messages_count-1; k >= (kfx_sim_state.active_messages_count-count); k--)
     {
         kfx_sim_state.messages[k].expiration_turn = get_gameturn();
     }
@@ -6045,11 +6045,11 @@ static void change_slab_texture_check(const struct ScriptLine* scline)
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
     if ( (scline->np[0] < 0) || (scline->np[0] >= kfx_sim_state.map_tiles_x) || (scline->np[1] < 0) || (scline->np[1] >= kfx_sim_state.map_tiles_y) )
     {
-        SCRPTERRLOG("Invalid co-ordinates: %ld, %ld", scline->np[0], scline->np[1]);
+        SCRPTERRLOG("Invalid co-ordinates: %" PRId64 ", %" PRId64, (int64_t)(scline->np[0]), (int64_t)(scline->np[1]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
-    long texture_id = get_id(texture_pack_desc, scline->tp[2]);
+    int64_t texture_id = get_id(texture_pack_desc, scline->tp[2]);
     if (texture_id == -1)
     {
         if (parameter_is_number(scline->tp[2]))
@@ -6065,7 +6065,7 @@ static void change_slab_texture_check(const struct ScriptLine* scline)
     }
     if ( (scline->np[2] < 0) || (scline->np[2] >= TEXTURE_VARIATIONS_COUNT) )
     {
-        SCRPTERRLOG("Invalid texture ID: %ld", scline->np[2]);
+        SCRPTERRLOG("Invalid texture ID: %" PRId64, (int64_t)(scline->np[2]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -6103,10 +6103,10 @@ static void change_slab_texture_process(struct ScriptContext* context)
 static void computer_player_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long plr_range_id = scline->np[0];
+    int64_t plr_range_id = scline->np[0];
     const char* comp_model = scline->tp[1];
-    int plr_start;
-    int plr_end;
+    int64_t plr_start;
+    int64_t plr_end;
     char model = 0;
     char type = PT_Keeper;
     TbBool toggle = true;
@@ -6120,10 +6120,10 @@ static void computer_player_check(const struct ScriptLine* scline)
 
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0)
     {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command", (int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command", (int64_t)plr_range_id);
         DEALLOCATE_SCRIPT_VALUE
     }
-    for (long i = plr_start; i < plr_end; i++)
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         set_flag(value->shorts[2], to_flag(i));
     }
@@ -6159,10 +6159,10 @@ static void computer_player_process(struct ScriptContext* context)
     char plr_end = context->value->bytes[1];
     char playertype = context->value->bytes[2];
     char model = context->value->bytes[3];
-    short owner_flags = context->value->shorts[2];
+    int64_t owner_flags = context->value->shorts[2];
     TbBool toggle = context->value->bytes[6];
     struct PlayerInfo* player = INVALID_PLAYER;
-    for (int i = plr_start; i < plr_end; i++)
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         if (i == PLAYER_NEUTRAL)
         {
@@ -6205,7 +6205,7 @@ static void computer_player_process(struct ScriptContext* context)
 static void add_object_to_level_at_pos_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short tngmodel = get_rid(object_desc, scline->tp[0]);
+    int64_t tngmodel = get_rid(object_desc, scline->tp[0]);
     if (tngmodel == -1)
     {
         SCRPTERRLOG("Unknown object: %s", scline->tp[0]);
@@ -6220,7 +6220,7 @@ static void add_object_to_level_at_pos_check(const struct ScriptLine* scline)
     }
     else
     {
-        SCRPTERRLOG("Invalid subtile co-ordinates: %ld, %ld", scline->np[1], scline->np[2]);
+        SCRPTERRLOG("Invalid subtile co-ordinates: %" PRId64 ", %" PRId64, (int64_t)(scline->np[1]), (int64_t)(scline->np[2]));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -6230,7 +6230,7 @@ static void add_object_to_level_at_pos_check(const struct ScriptLine* scline)
     {
         plyr_idx = PLAYER_NEUTRAL;
     }
-    short angle = 0;
+    int64_t angle = 0;
     if (strcmp(scline->tp[5], "") != 0) // Optional variable
     {
         if (parameter_is_number(scline->tp[5]))
@@ -6257,7 +6257,7 @@ static void add_object_to_level_at_pos_check(const struct ScriptLine* scline)
 static void add_object_to_level_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short obj_id = get_rid(object_desc, scline->tp[0]);
+    int64_t obj_id = get_rid(object_desc, scline->tp[0]);
     if (obj_id == -1)
     {
         SCRPTERRLOG("Unknown object, '%s'", scline->tp[0]);
@@ -6279,7 +6279,7 @@ static void add_object_to_level_check(const struct ScriptLine* scline)
         plyr_idx = PLAYER_NEUTRAL;
     }
 
-    short angle = 0;
+    int64_t angle = 0;
     if (strcmp(scline->tp[4], "") != 0) //Optional variable
     {
         if (parameter_is_number(scline->tp[4]))
@@ -6320,12 +6320,12 @@ static void add_object_to_level_at_pos_process(struct ScriptContext* context)
 static void set_computer_globals_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long plr_range_id = scline->np[0];
+    int64_t plr_range_id = scline->np[0];
 
-    int plr_start;
-    int plr_end;
+    int64_t plr_start;
+    int64_t plr_end;
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0) {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command", (int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command", (int64_t)plr_range_id);
         return;
     }
 
@@ -6347,17 +6347,17 @@ static void set_computer_globals_check(const struct ScriptLine* scline)
 
 static void set_computer_globals_process(struct ScriptContext* context)
 {
-    int plr_start = context->value->shorts[0];
-    int plr_end = context->value->shorts[1];
-    long dig_stack_size = context->value->longs[1];
-    long processes_time = context->value->longs[2];
-    long click_rate = context->value->longs[3];
-    long max_room_build_tasks = context->value->longs[4];
-    long turn_begin = context->value->longs[5];
-    long sim_before_dig = context->value->longs[6];
-    long task_delay = context->value->longs[7];
+    int64_t plr_start = context->value->shorts[0];
+    int64_t plr_end = context->value->shorts[1];
+    int64_t dig_stack_size = context->value->longs[1];
+    int64_t processes_time = context->value->longs[2];
+    int64_t click_rate = context->value->longs[3];
+    int64_t max_room_build_tasks = context->value->longs[4];
+    int64_t turn_begin = context->value->longs[5];
+    int64_t sim_before_dig = context->value->longs[6];
+    int64_t task_delay = context->value->longs[7];
 
-    for (long i = plr_start; i < plr_end; i++)
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp))
@@ -6380,12 +6380,12 @@ static void set_computer_globals_process(struct ScriptContext* context)
 static void set_computer_process_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long plr_range_id = scline->np[0];
+    int64_t plr_range_id = scline->np[0];
 
-    int plr_start;
-    int plr_end;
+    int64_t plr_start;
+    int64_t plr_end;
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0) {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command", (int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command", (int64_t)plr_range_id);
         return;
     }
 
@@ -6407,31 +6407,31 @@ static void set_computer_process_check(const struct ScriptLine* scline)
 
 static void set_computer_process_process(struct ScriptContext* context)
 {
-    int plr_start = context->value->shorts[0];
-    int plr_end = context->value->shorts[1];
+    int64_t plr_start = context->value->shorts[0];
+    int64_t plr_end = context->value->shorts[1];
     const char* procname = script_strval(context->value->longs[6]);
-    long priority = context->value->longs[1];
-    long config_value_2 = context->value->longs[2];
-    long config_value_3 = context->value->longs[3];
-    long config_value_4 = context->value->longs[4];
-    long config_value_5 = context->value->longs[5];
-    long n = 0;
-    for (long i = plr_start; i < plr_end; i++)
+    int64_t priority = context->value->longs[1];
+    int64_t config_value_2 = context->value->longs[2];
+    int64_t config_value_3 = context->value->longs[3];
+    int64_t config_value_4 = context->value->longs[4];
+    int64_t config_value_5 = context->value->longs[5];
+    int64_t n = 0;
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp)) {
             continue;
         }
-        for (long k = 0; k < COMPUTER_PROCESSES_COUNT; k++)
+        for (int64_t k = 0; k < COMPUTER_PROCESSES_COUNT; k++)
         {
             struct ComputerProcess* cproc = &comp->processes[k];
             if (flag_is_set(cproc->flags, ComProc_ListEnd))
                 break;
             if (strcasecmp(procname, cproc->name) == 0)
             {
-                SCRPTLOG("Changing computer %d process '%s' config from (%d,%d,%d,%d,%d) to (%d,%d,%d,%d,%d)", (int)i, cproc->name,
-                    (int)cproc->priority, (int)cproc->process_configuration_value_2, (int)cproc->process_configuration_value_3, (int)cproc->process_configuration_value_4, (int)cproc->process_configuration_value_5,
-                    (int)priority, (int)config_value_2, (int)config_value_3, (int)config_value_4, (int)config_value_5);
+                SCRPTLOG("Changing computer %" PRId64 " process '%s' config from (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ")", (int64_t)i, cproc->name,
+                    (int64_t)cproc->priority, (int64_t)cproc->process_configuration_value_2, (int64_t)cproc->process_configuration_value_3, (int64_t)cproc->process_configuration_value_4, (int64_t)cproc->process_configuration_value_5,
+                    (int64_t)priority, (int64_t)config_value_2, (int64_t)config_value_3, (int64_t)config_value_4, (int64_t)config_value_5);
                 cproc->priority = priority;
                 cproc->process_configuration_value_2 = config_value_2;
                 cproc->process_configuration_value_3 = config_value_3;
@@ -6443,21 +6443,21 @@ static void set_computer_process_process(struct ScriptContext* context)
     }
     if (n == 0)
     {
-        SCRIPTDBG(6, "No computer process found named '%s' in players %d to %d", procname, (int)plr_start, (int)plr_end - 1);
+        SCRIPTDBG(6, "No computer process found named '%s' in players %" PRId64 " to %" PRId64, procname, (int64_t)plr_start, (int64_t)plr_end - 1);
         return;
     }
-    SCRIPTDBG(6, "Altered %ld processes named '%s'", n, procname);
+    SCRIPTDBG(6, "Altered %" PRId64 " processes named '%s'", (int64_t)(n), procname);
 }
 
 static void set_computer_checks_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
 
-    long plr_range_id = scline->np[0];
-    int plr_start;
-    int plr_end;
+    int64_t plr_range_id = scline->np[0];
+    int64_t plr_start;
+    int64_t plr_end;
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0) {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command", (int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command", (int64_t)plr_range_id);
         return;
     }
 
@@ -6479,23 +6479,23 @@ static void set_computer_checks_check(const struct ScriptLine* scline)
 
 static void set_computer_checks_process(struct ScriptContext* context)
 {
-    int plr_start = context->value->shorts[0];
-    int plr_end = context->value->shorts[1];
+    int64_t plr_start = context->value->shorts[0];
+    int64_t plr_end = context->value->shorts[1];
     const char* chkname = script_strval(context->value->longs[6]);
-    long turns_interval = context->value->longs[1];
-    long primary_parameter = context->value->longs[2];
-    long secondary_parameter = context->value->longs[3];
-    long tertiary_parameter = context->value->longs[4];
-    long last_run_turn = context->value->longs[5];
+    int64_t turns_interval = context->value->longs[1];
+    int64_t primary_parameter = context->value->longs[2];
+    int64_t secondary_parameter = context->value->longs[3];
+    int64_t tertiary_parameter = context->value->longs[4];
+    int64_t last_run_turn = context->value->longs[5];
 
-    long n = 0;
-    for (long i = plr_start; i < plr_end; i++)
+    int64_t n = 0;
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp)) {
             continue;
         }
-        for (long k = 0; k < COMPUTER_CHECKS_COUNT; k++)
+        for (int64_t k = 0; k < COMPUTER_CHECKS_COUNT; k++)
         {
             struct ComputerCheck* ccheck = &comp->checks[k];
             if ((ccheck->flags & ComChk_Unkn0002) != 0)
@@ -6504,9 +6504,9 @@ static void set_computer_checks_process(struct ScriptContext* context)
                 break;
             if (strcasecmp(chkname, ccheck->name) == 0)
             {
-                SCRPTLOG("Changing computer %d check '%s' config from (%d,%d,%d,%d,%d) to (%d,%d,%d,%d,%d)", (int)i, ccheck->name,
-                    (int)ccheck->turns_interval, (int)ccheck->primary_parameter, (int)ccheck->secondary_parameter, (int)ccheck->tertiary_parameter, (int)ccheck->last_run_turn,
-                    (int)turns_interval, (int)primary_parameter, (int)secondary_parameter, (int)tertiary_parameter, (int)last_run_turn);
+                SCRPTLOG("Changing computer %" PRId64 " check '%s' config from (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ")", (int64_t)i, ccheck->name,
+                    (int64_t)ccheck->turns_interval, (int64_t)ccheck->primary_parameter, (int64_t)ccheck->secondary_parameter, (int64_t)ccheck->tertiary_parameter, (int64_t)ccheck->last_run_turn,
+                    (int64_t)turns_interval, (int64_t)primary_parameter, (int64_t)secondary_parameter, (int64_t)tertiary_parameter, (int64_t)last_run_turn);
                 ccheck->turns_interval = turns_interval;
                 ccheck->primary_parameter = primary_parameter;
                 ccheck->secondary_parameter = secondary_parameter;
@@ -6518,26 +6518,26 @@ static void set_computer_checks_process(struct ScriptContext* context)
     }
     if (n == 0)
     {
-        SCRPTERRLOG("No computer check found named '%s' in players %d to %d", chkname, (int)plr_start, (int)plr_end - 1);
+        SCRPTERRLOG("No computer check found named '%s' in players %" PRId64 " to %" PRId64, chkname, (int64_t)plr_start, (int64_t)plr_end - 1);
         return;
     }
-    SCRIPTDBG(6, "Altered %ld checks named '%s'", n, chkname);
+    SCRIPTDBG(6, "Altered %" PRId64 " checks named '%s'", (int64_t)(n), chkname);
 }
 
 static void set_computer_event_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
 
-    long plr_range_id = scline->np[0];
-    int plr_start;
-    int plr_end;
+    int64_t plr_range_id = scline->np[0];
+    int64_t plr_start;
+    int64_t plr_end;
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0) {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command", (int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command", (int64_t)plr_range_id);
         return;
     }
     if (!player_exists(get_player(plr_range_id)))
     {
-        SCRPTERRLOG("Player %d does not exist; cannot modify events", (int)plr_range_id);
+        SCRPTERRLOG("Player %" PRId64 " does not exist; cannot modify events", (int64_t)plr_range_id);
         return;
     }
     value->shorts[0] = plr_start;
@@ -6558,23 +6558,23 @@ static void set_computer_event_check(const struct ScriptLine* scline)
 
 static void set_computer_event_process(struct ScriptContext* context)
 {
-    int plr_start = context->value->shorts[0];
-    int plr_end = context->value->shorts[1];
+    int64_t plr_start = context->value->shorts[0];
+    int64_t plr_end = context->value->shorts[1];
     const char* evntname = script_strval(context->value->longs[6]);
-    long test_interval = context->value->longs[1];
-    long primary_parameter = context->value->longs[2];
-    long secondary_parameter = context->value->longs[3];
-    long tertiary_parameter = context->value->longs[4];
-    long last_test_gameturn = context->value->longs[5];
+    int64_t test_interval = context->value->longs[1];
+    int64_t primary_parameter = context->value->longs[2];
+    int64_t secondary_parameter = context->value->longs[3];
+    int64_t tertiary_parameter = context->value->longs[4];
+    int64_t last_test_gameturn = context->value->longs[5];
 
-    long n = 0;
-    for (long i = plr_start; i < plr_end; i++)
+    int64_t n = 0;
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp)) {
             continue;
         }
-        for (long k = 0; k < COMPUTER_EVENTS_COUNT; k++)
+        for (int64_t k = 0; k < COMPUTER_EVENTS_COUNT; k++)
         {
             struct ComputerEvent* event = &comp->events[k];
             if (event->name[0] == '\0')
@@ -6583,10 +6583,10 @@ static void set_computer_event_process(struct ScriptContext* context)
             {
                 if (level_file_version > 0)
                 {
-                    SCRPTLOG("Changing computer %d event '%s' config from (%d,%d,%d,%d,%d) to (%d,%d,%d,%d,%d)",
-                        (int)i, event->name,
-                        (int)event->test_interval, (int)event->primary_parameter, (int)event->secondary_parameter, (int)event->tertiary_parameter, (int)event->last_test_gameturn,
-                        (int)test_interval, (int)primary_parameter, (int)secondary_parameter, (int)tertiary_parameter, (int)last_test_gameturn);
+                    SCRPTLOG("Changing computer %" PRId64 " event '%s' config from (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ")",
+                        (int64_t)i, event->name,
+                        (int64_t)event->test_interval, (int64_t)event->primary_parameter, (int64_t)event->secondary_parameter, (int64_t)event->tertiary_parameter, (int64_t)event->last_test_gameturn,
+                        (int64_t)test_interval, (int64_t)primary_parameter, (int64_t)secondary_parameter, (int64_t)tertiary_parameter, (int64_t)last_test_gameturn);
                     event->test_interval = test_interval;
                     event->primary_parameter = primary_parameter;
                     event->secondary_parameter = secondary_parameter;
@@ -6596,8 +6596,8 @@ static void set_computer_event_process(struct ScriptContext* context)
                 }
                 else
                 {
-                    SCRPTLOG("Changing computer %d event '%s' config from (%d,%d) to (%d,%d)", (int)i, event->name,
-                        (int)event->primary_parameter, (int)event->secondary_parameter, (int)test_interval, (int)primary_parameter);
+                    SCRPTLOG("Changing computer %" PRId64 " event '%s' config from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ")", (int64_t)i, event->name,
+                        (int64_t)event->primary_parameter, (int64_t)event->secondary_parameter, (int64_t)test_interval, (int64_t)primary_parameter);
                     event->primary_parameter = test_interval;
                     event->secondary_parameter = primary_parameter;
                     n++;
@@ -6607,10 +6607,10 @@ static void set_computer_event_process(struct ScriptContext* context)
     }
     if (n == 0)
     {
-        SCRPTERRLOG("No computer event found named '%s' in players %d to %d", evntname, (int)plr_start, (int)plr_end - 1);
+        SCRPTERRLOG("No computer event found named '%s' in players %" PRId64 " to %" PRId64, evntname, (int64_t)plr_start, (int64_t)plr_end - 1);
         return;
     }
-    SCRIPTDBG(6, "Altered %ld events named '%s'", n, evntname);
+    SCRIPTDBG(6, "Altered %" PRId64 " events named '%s'", (int64_t)(n), evntname);
 }
 
 static void swap_creature_check(const struct ScriptLine* scline)
@@ -6661,7 +6661,7 @@ static void set_digger_process(struct ScriptContext* context)
 static void set_next_level_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short next_level = scline->np[0];
+    int64_t next_level = scline->np[0];
     TbBool correct = false;
 
     if (!is_campaign_level(kfx_sim_state.loaded_level_number))
@@ -6670,7 +6670,7 @@ static void set_next_level_check(const struct ScriptLine* scline)
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
-    for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+    for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
     {
         if (campaign.single_levels[i] == next_level)
         {
@@ -6680,7 +6680,7 @@ static void set_next_level_check(const struct ScriptLine* scline)
     }
     if (correct == false)
     {
-        SCRPTERRLOG("Cannot find level number '%d' in single levels of campaign.",next_level);
+        SCRPTERRLOG("Cannot find level number '%" PRId64 "' in single levels of campaign.",(int64_t)(next_level));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -6706,7 +6706,7 @@ static void set_next_level_process(struct ScriptContext* context)
 static void set_level_ensign_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short lvlnum = scline->np[0];
+    int64_t lvlnum = scline->np[0];
     if (!is_campaign_level(lvlnum))
     {
         SCRPTERRLOG("Script command %s only functions in campaigns.", scline->tcmnd);
@@ -6731,7 +6731,7 @@ static void set_level_ensign_process(struct ScriptContext* context)
 static void show_bonus_level_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    short bonus_level = scline->np[0];
+    int64_t bonus_level = scline->np[0];
 
     if (!is_campaign_level(kfx_sim_state.loaded_level_number))
     {
@@ -6742,7 +6742,7 @@ static void show_bonus_level_check(const struct ScriptLine* scline)
 
     if (!is_bonus_level(bonus_level))
     {
-        SCRPTERRLOG("Level %d not found as bonus level in campaign.", bonus_level);
+        SCRPTERRLOG("Level %" PRId64 " not found as bonus level in campaign.", (int64_t)(bonus_level));
         DEALLOCATE_SCRIPT_VALUE
         return;
     }
@@ -6805,7 +6805,7 @@ static void set_generate_speed_check(const struct ScriptLine* scline)
         value->chars[2] = get_id(player_desc, scline->tp[1]);
         if (value->chars[2] == -1)
         {
-            SCRPTERRLOG("Invalid player: %d", value->chars[2]);
+            SCRPTERRLOG("Invalid player: %" PRId64, (int64_t)(value->chars[2]));
             DEALLOCATE_SCRIPT_VALUE
             return;
         }
@@ -6847,7 +6847,7 @@ static void set_generate_speed_process(struct ScriptContext* context)
 static void tutorial_flash_button_check(const struct ScriptLine* scline)
 {
     ALLOCATE_SCRIPT_VALUE(scline->command, 0);
-    long id;
+    int64_t id;
     if (level_file_version > 0)
     {
         if (parameter_is_number(scline->tp[0]))
@@ -6858,8 +6858,8 @@ static void tutorial_flash_button_check(const struct ScriptLine* scline)
         else
         {
             static const struct NamedCommand *desc[4] = {room_desc, power_desc, trap_desc, door_desc};
-            static const short btn_group[4] = {GID_ROOM_PANE, GID_POWER_PANE, GID_TRAP_PANE, GID_DOOR_PANE};
-            for (int i = 0; i < 4; i++)
+            static const int64_t btn_group[4] = {GID_ROOM_PANE, GID_POWER_PANE, GID_TRAP_PANE, GID_DOOR_PANE};
+            for (int64_t i = 0; i < 4; i++)
             {
                 id = get_rid(desc[i], scline->tp[0]);
                 if (id >= 0)
@@ -6897,7 +6897,7 @@ static void tutorial_flash_button_process(struct ScriptContext* context)
     {
         if (context->value->shorts[0] > GID_NONE)
         {
-            short button_id = game_callbacks->get_button_designation(context->value->shorts[0], context->value->shorts[1]);
+            int64_t button_id = game_callbacks->get_button_designation(context->value->shorts[0], context->value->shorts[1]);
             if (button_id >= 0)
             {
                 game_callbacks->gui_set_button_flashing(button_id, context->value->longs[1]);

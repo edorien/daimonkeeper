@@ -46,24 +46,24 @@ struct TbFileEntry {
 
 /******************************************************************************/
 
-short LbFileExists(const char *fname);
-int LbFilePosition(TbFileHandle handle);
+int64_t LbFileExists(const char *fname);
+int64_t LbFilePosition(TbFileHandle handle);
 TbFileHandle LbFileOpen(const char *fname, unsigned char accmode);
 TbBool LbFileEof(TbFileHandle handle);
-int LbFileClose(TbFileHandle handle);
-int LbFileSeek(TbFileHandle handle, long offset, unsigned char origin);
-int LbFileRead(TbFileHandle handle, void *buffer, unsigned long len);
-long LbFileWrite(TbFileHandle handle, const void *buffer, const unsigned long len);
-long LbFileLength(const char *fname);
-long LbFileLengthHandle(TbFileHandle handle);
+int64_t LbFileClose(TbFileHandle handle);
+int64_t LbFileSeek(TbFileHandle handle, int64_t offset, unsigned char origin);
+int64_t LbFileRead(TbFileHandle handle, void *buffer, uint64_t len);
+int64_t LbFileWrite(TbFileHandle handle, const void *buffer, const uint64_t len);
+int64_t LbFileLength(const char *fname);
+int64_t LbFileLengthHandle(TbFileHandle handle);
 struct TbFileFind * LbFileFindFirst(const char * filespec, struct TbFileEntry * fentry);
-int LbFileFindNext(struct TbFileFind * ffind, struct TbFileEntry * fentry);
+int64_t LbFileFindNext(struct TbFileFind * ffind, struct TbFileEntry * fentry);
 void LbFileFindEnd(struct TbFileFind * ffind);
-int LbFileDelete(const char *filename);
-int LbDirectoryCurrent(char *buf, unsigned long buflen);
-short LbFileFlush(TbFileHandle handle);
-int LbFileMakeFullPath(const short append_cur_dir,
-  const char *directory, const char *filename, char *buf, const unsigned long len);
+int64_t LbFileDelete(const char *filename);
+int64_t LbDirectoryCurrent(char *buf, uint64_t buflen);
+int64_t LbFileFlush(TbFileHandle handle);
+int64_t LbFileMakeFullPath(const int64_t append_cur_dir,
+  const char *directory, const char *filename, char *buf, const uint64_t len);
 
 /******************************************************************************/
 #ifdef __cplusplus

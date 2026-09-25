@@ -63,10 +63,10 @@ enum DkcodepageLetter {
 };
 
 // unicode private use area mappings
-static const uint32_t white_numbers_start = 0xF000;
-static const uint32_t white_numbers_end   = 0xF009;
-static const uint32_t colour_modifiers_begin = 0xF100;
-static const uint32_t colour_modifiers_end   = 0xF1FF;
+static const uint64_t white_numbers_start = 0xF000;
+static const uint64_t white_numbers_end   = 0xF009;
+static const uint64_t colour_modifiers_begin = 0xF100;
+static const uint64_t colour_modifiers_end   = 0xF1FF;
 
 
 extern TbBool dbc_enabled;
@@ -78,18 +78,18 @@ extern const struct TbSpriteSheet *lbFontPtr;
 
 #pragma pack()
 /******************************************************************************/
-TbBool LbTextDraw(int posx, int posy, const char *text);
+TbBool LbTextDraw(int64_t posx, int64_t posy, const char *text);
 #define LbTextDrawFmt(posx, posy, fmt, ...) LbTextDrawResizedFmt(posx, posy, 16, fmt, ##__VA_ARGS__)
-TbBool LbTextDrawResized(int posx, int posy, int units_per_px, const char *text);
+TbBool LbTextDrawResized(int64_t posx, int64_t posy, int64_t units_per_px, const char *text);
 /** The text draw itself. LbTextDrawResized routes through the renderer first;
  *  the renderer calls this when it is time to actually put pixels down. */
-TbBool LbTextDrawResizedImmediate(int posx, int posy, int units_per_px, const char *text);
-TbBool LbTextDrawResizedFmt(int posx, int posy, int units_per_px, const char *fmt, ...) KFX_PRINTF_FORMAT(4, 5);
-int LbTextHeight(const char *text);
-int LbTextLineHeight(void);
-int LbTextSetWindow(int posx, int posy, int width, int height);
-TbResult LbTextSetJustifyWindow(int pos_x, int pos_y, int width);
-TbResult LbTextSetClipWindow(int x1, int y1, int x2, int y2);
+TbBool LbTextDrawResizedImmediate(int64_t posx, int64_t posy, int64_t units_per_px, const char *text);
+TbBool LbTextDrawResizedFmt(int64_t posx, int64_t posy, int64_t units_per_px, const char *fmt, ...) KFX_PRINTF_FORMAT(4, 5);
+int64_t LbTextHeight(const char *text);
+int64_t LbTextLineHeight(void);
+int64_t LbTextSetWindow(int64_t posx, int64_t posy, int64_t width, int64_t height);
+TbResult LbTextSetJustifyWindow(int64_t pos_x, int64_t pos_y, int64_t width);
+TbResult LbTextSetClipWindow(int64_t x1, int64_t y1, int64_t x2, int64_t y2);
 TbBool LbTextSetFont(const struct TbSpriteSheet *font);
 unsigned char LbTextGetFontFaceColor(void);
 unsigned char LbTextGetFontBackColor(void);
@@ -110,32 +110,32 @@ enum TbFontRole {
 };
 typedef enum TbFontRole (*TbFontRoleResolverFn)(const struct TbSpriteSheet *font);
 void bf_sprfnt_set_font_role_resolver(TbFontRoleResolverFn resolver_fn);
-int LbTextStringWidth(const char *str);
-int LbTextStringPartWidth(const char *text, int part);
-int LbTextStringHeight(const char *str);
-int LbTextWordWidth(const char *str);
-int LbTextCharWidth(const uint32_t chr);
-int LbTextCharWidthM(const uint32_t chr, long units_per_px);
-int LbTextStringWidthM(const char *str, long units_per_px);
-int LbTextWordWidthM(const char *str, long units_per_px);
+int64_t LbTextStringWidth(const char *str);
+int64_t LbTextStringPartWidth(const char *text, int64_t part);
+int64_t LbTextStringHeight(const char *str);
+int64_t LbTextWordWidth(const char *str);
+int64_t LbTextCharWidth(const uint64_t chr);
+int64_t LbTextCharWidthM(const uint64_t chr, int64_t units_per_px);
+int64_t LbTextStringWidthM(const char *str, int64_t units_per_px);
+int64_t LbTextWordWidthM(const char *str, int64_t units_per_px);
 
-int LbTextNumberDraw(int pos_x, int pos_y, int units_per_px, long number, unsigned short fdflags);
-int LbTextStringDraw(int pos_x, int pos_y, int units_per_px, const char *text, unsigned short fdflags);
+int64_t LbTextNumberDraw(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t number, int64_t fdflags);
+int64_t LbTextStringDraw(int64_t pos_x, int64_t pos_y, int64_t units_per_px, const char *text, int64_t fdflags);
 
 // Sub-routines, used for drawing text strings. For use in custom drawing methods.
-TbBool LbAlignMethodSet(unsigned short fdflags);
-long LbGetJustifiedCharPosX(long startx, long all_chars_width, long spr_width, long mul_width, unsigned short fdflags);
-long LbGetJustifiedCharPosY(long starty, long all_lines_height, long spr_height, unsigned short fdflags);
-long LbGetJustifiedCharWidth(long all_chars_width, long spr_width, long words_count, int units_per_px, unsigned short fdflags);
+TbBool LbAlignMethodSet(int64_t fdflags);
+int64_t LbGetJustifiedCharPosX(int64_t startx, int64_t all_chars_width, int64_t spr_width, int64_t mul_width, int64_t fdflags);
+int64_t LbGetJustifiedCharPosY(int64_t starty, int64_t all_lines_height, int64_t spr_height, int64_t fdflags);
+int64_t LbGetJustifiedCharWidth(int64_t all_chars_width, int64_t spr_width, int64_t words_count, int64_t units_per_px, int64_t fdflags);
 
 // Function which require font sprites as parameter
-int LbSprFontCharWidth(const struct TbSpriteSheet * font, const uint32_t chr);
-int LbSprFontCharHeight(const struct TbSpriteSheet * font,const uint32_t chr);
-const struct TbSprite * LbFontCharSprite(const struct TbSpriteSheet * font, const uint32_t chr);
+int64_t LbSprFontCharWidth(const struct TbSpriteSheet * font, const uint64_t chr);
+int64_t LbSprFontCharHeight(const struct TbSpriteSheet * font,const uint64_t chr);
+const struct TbSprite * LbFontCharSprite(const struct TbSpriteSheet * font, const uint64_t chr);
 
 void LbTextUseByteCoding(TbBool is_enabled);
-long text_string_height(int units_per_px, const char *text);
-short load_unifont_files();
+int64_t text_string_height(int64_t units_per_px, const char *text);
+int64_t load_unifont_files();
 
 // Registers the resolved (lowercase, 3-char) language code used to locate
 // per-language unifont files, so this file doesn't need config_keeperfx.h's

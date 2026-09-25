@@ -110,9 +110,9 @@ struct GuiMenu armageddon_menu =
 }
 #endif
 /******************************************************************************/
-int selected_resurrect_creature(const struct Dungeon *dungeon, const struct GuiButton *gbtn)
+int64_t selected_resurrect_creature(const struct Dungeon *dungeon, const struct GuiButton *gbtn)
 {
-    long listitm_idx;
+    int64_t listitm_idx;
     if (dungeon->dead_creatures_count < DEAD_CREATURES_MAX_COUNT)
     {
         listitm_idx = resurrect_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
@@ -123,7 +123,7 @@ int selected_resurrect_creature(const struct Dungeon *dungeon, const struct GuiB
     {
         listitm_idx = resurrect_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
         if (listitm_idx < DEAD_CREATURES_MAX_COUNT) {
-            return abs(dungeon->dead_creature_idx + listitm_idx) % DEAD_CREATURES_MAX_COUNT;
+            return llabs(dungeon->dead_creature_idx + listitm_idx) % DEAD_CREATURES_MAX_COUNT;
         }
     }
     return -1;
@@ -132,7 +132,7 @@ int selected_resurrect_creature(const struct Dungeon *dungeon, const struct GuiB
 void select_resurrect_creature(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    int i = selected_resurrect_creature(dungeon, gbtn);
+    int64_t i = selected_resurrect_creature(dungeon, gbtn);
     if (i != -1)
     {
         struct CreatureStorage* cstore = &dungeon->dead_creatures[i];
@@ -144,40 +144,40 @@ void select_resurrect_creature(struct GuiButton *gbtn)
 
 void draw_resurrect_creature(struct GuiButton *gbtn)
 {
-    unsigned short flg_mem = RendererGetDrawFlags();
+    int64_t flg_mem = RendererGetDrawFlags();
     RendererSetDrawFlags(Lb_SPRITE_TRANSPAR4);
     LbDrawBox(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height, resolve_indexed_pixel(0, RendererGetActivePalette()));
     LbTextSetFont(winfont);
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height);
     struct Dungeon* dungeon = get_my_dungeon();
-    int i = selected_resurrect_creature(dungeon, gbtn);
-    int tx_units_per_px = scale_ui_value_lofi(16);
+    int64_t i = selected_resurrect_creature(dungeon, gbtn);
+    int64_t tx_units_per_px = scale_ui_value_lofi(16);
     if (i != -1)
     {
         struct CreatureStorage* cstore = &dungeon->dead_creatures[i];
         struct CreatureModelConfig* crconf = creature_stats_get(cstore->model);
         RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
-        long spr_idx = get_creature_model_graphics(cstore->model, CGI_HandSymbol);
+        int64_t spr_idx = get_creature_model_graphics(cstore->model, CGI_HandSymbol);
         const struct TbSprite* spr = get_panel_sprite(spr_idx);
-        int x = gbtn->scr_pos_x - scale_ui_value_lofi(1);
-        int y = gbtn->scr_pos_y - (19 * tx_units_per_px / 16);
+        int64_t x = gbtn->scr_pos_x - scale_ui_value_lofi(1);
+        int64_t y = gbtn->scr_pos_y - (19 * tx_units_per_px / 16);
 
         if (LbGraphicsScreenHeight() < 400)
         {
             y = gbtn->scr_pos_y - (19 * tx_units_per_px / 32);
         }
         LbSpriteDrawResized(x, y, tx_units_per_px, spr);
-        int h = scale_ui_value_lofi(gbtn->height) / 16;
-        int w = scale_ui_value_lofi(spr->SWidth + 2);
+        int64_t h = scale_ui_value_lofi(gbtn->height) / 16;
+        int64_t w = scale_ui_value_lofi(spr->SWidth + 2);
         LbTextDrawResizedFmt(w, h, tx_units_per_px, "%s", get_string(crconf->namestr_idx));
         RendererSetDrawFlags(Lb_TEXT_HALIGN_RIGHT);
         if ( (MyScreenHeight < 400) && (dbc_initialized && dbc_enabled) )
         {
-            LbTextDrawResizedFmt(0, h, tx_units_per_px, "%u", (cstore->exp_level+1));
+            LbTextDrawResizedFmt(0, h, tx_units_per_px, "%" PRIu64, (uint64_t)((cstore->exp_level+1)));
         }
         else
         {
-            LbTextDrawResizedFmt(0, h, tx_units_per_px, " %s %u", get_string(GUIStr_MnuLevel), (cstore->exp_level+1));
+            LbTextDrawResizedFmt(0, h, tx_units_per_px, " %s %" PRIu64, get_string(GUIStr_MnuLevel), (uint64_t)((cstore->exp_level+1)));
         }
     }
     RendererSetDrawFlags(flg_mem);
@@ -198,9 +198,9 @@ void select_resurrect_creature_down(struct GuiButton *gbtn)
     }
 }
 
-int selected_transfer_creature(const struct Dungeon *dungeon, const struct GuiButton *gbtn)
+int64_t selected_transfer_creature(const struct Dungeon *dungeon, const struct GuiButton *gbtn)
 {
-    long listitm_idx = transfer_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
+    int64_t listitm_idx = transfer_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
     if (listitm_idx < count_player_creatures_for_transfer(dungeon->owner)) {
         return listitm_idx;
     }
@@ -211,7 +211,7 @@ void select_transfer_creature(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
     struct Thing* thing = INVALID_THING;
-    int listitm_idx = selected_transfer_creature(dungeon, gbtn);
+    int64_t listitm_idx = selected_transfer_creature(dungeon, gbtn);
     if (listitm_idx != -1)
     {
         thing = get_player_list_nth_creature_with_property(dungeon->creatr_list_start, CMF_NoTransfer, listitm_idx);
@@ -229,15 +229,15 @@ void draw_transfer_creature(struct GuiButton *gbtn)
     if (gbtn == NULL)
       return;
     SYNCDBG(7,"Starting");
-    unsigned long flgmem = RendererGetDrawFlags();
+    uint64_t flgmem = RendererGetDrawFlags();
     RendererSetDrawFlags(Lb_SPRITE_TRANSPAR4);
     LbTextSetFont(winfont);
     LbDrawBox(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height, resolve_indexed_pixel(0, RendererGetActivePalette())); // The 0 means black color
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, gbtn->height);
     struct Dungeon* dungeon = get_my_dungeon();
     struct Thing* thing = INVALID_THING;
-    int listitm_idx = selected_transfer_creature(dungeon, gbtn);
-    int tx_units_per_px = scale_ui_value_lofi(16);
+    int64_t listitm_idx = selected_transfer_creature(dungeon, gbtn);
+    int64_t tx_units_per_px = scale_ui_value_lofi(16);
     if (listitm_idx != -1)
     {
         thing = get_player_list_nth_creature_with_property(dungeon->creatr_list_start, CMF_NoTransfer, listitm_idx);
@@ -247,26 +247,26 @@ void draw_transfer_creature(struct GuiButton *gbtn)
         const struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
         RendererSetDrawFlags(Lb_TEXT_HALIGN_LEFT);
-        long spr_idx = get_creature_model_graphics(thing->model, CGI_HandSymbol);
+        int64_t spr_idx = get_creature_model_graphics(thing->model, CGI_HandSymbol);
         const struct TbSprite* spr = get_panel_sprite(spr_idx);
-        int x = gbtn->scr_pos_x - scale_ui_value_lofi(1);
-        int y = gbtn->scr_pos_y - (19 * tx_units_per_px / 16);
+        int64_t x = gbtn->scr_pos_x - scale_ui_value_lofi(1);
+        int64_t y = gbtn->scr_pos_y - (19 * tx_units_per_px / 16);
         if (LbGraphicsScreenHeight() < 400)
         {
             y = gbtn->scr_pos_y - (19 * tx_units_per_px / 32);
         }
         LbSpriteDrawResized(x, y, tx_units_per_px, spr);
-        int h = scale_ui_value_lofi(gbtn->height)/16;
-        int w = scale_ui_value_lofi(spr->SWidth + 2);
+        int64_t h = scale_ui_value_lofi(gbtn->height)/16;
+        int64_t w = scale_ui_value_lofi(spr->SWidth + 2);
         LbTextDrawResizedFmt(w, h, tx_units_per_px, "%s", get_string(crconf->namestr_idx));
         RendererSetDrawFlags(Lb_TEXT_HALIGN_RIGHT);
         if ( (MyScreenHeight < 400) && (dbc_initialized && dbc_enabled) )
         {
-            LbTextDrawResizedFmt(0, h, tx_units_per_px, "%u", (cctrl->exp_level+1));
+            LbTextDrawResizedFmt(0, h, tx_units_per_px, "%" PRIu64, (uint64_t)((cctrl->exp_level+1)));
         }
         else
         {
-            LbTextDrawResizedFmt(0, h, tx_units_per_px, " %s %u", get_string(GUIStr_MnuLevel), (cctrl->exp_level+1));
+            LbTextDrawResizedFmt(0, h, tx_units_per_px, " %s %" PRIu64, get_string(GUIStr_MnuLevel), (uint64_t)((cctrl->exp_level+1)));
         }
     }
     RendererSetDrawFlags(flgmem);
@@ -290,14 +290,14 @@ void select_transfer_creature_down(struct GuiButton *gbtn)
 void maintain_resurrect_creature_select(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    long listitm_idx = resurrect_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
+    int64_t listitm_idx = resurrect_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
     gbtn->flags ^= (gbtn->flags ^ LbBtnF_Enabled * (listitm_idx < dungeon->dead_creatures_count)) & LbBtnF_Enabled;
 }
 
 void maintain_resurrect_creature_scroll(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    int count = dungeon->dead_creatures_count;
+    int64_t count = dungeon->dead_creatures_count;
     if (resurrect_creature_scroll_offset >= count-resurrect_creature_items_visible+1)
     {
         if (count+1 > resurrect_creature_items_visible) {
@@ -331,14 +331,14 @@ void maintain_resurrect_creature_scroll(struct GuiButton *gbtn)
 void maintain_transfer_creature_select(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    long listitm_idx = transfer_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
+    int64_t listitm_idx = transfer_creature_scroll_offset + (gbtn->btype_value & LbBFeF_IntValueMask);
     gbtn->flags ^= (gbtn->flags ^ LbBtnF_Enabled * (listitm_idx < dungeon->num_active_creatrs)) & LbBtnF_Enabled;
 }
 
 void maintain_transfer_creature_scroll(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    int count = count_player_creatures_for_transfer(dungeon->owner);
+    int64_t count = count_player_creatures_for_transfer(dungeon->owner);
     if (transfer_creature_scroll_offset > count-transfer_creature_items_visible+1)
     {
         if (count > transfer_creature_items_visible) {

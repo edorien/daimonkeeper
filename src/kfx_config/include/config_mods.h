@@ -47,13 +47,13 @@ extern "C" {
 // resolution; kfx_platform is the lowest-ranked of their consumers.
 
 struct ModsConfig {
-    int32_t after_base_cnt;
+    int64_t after_base_cnt;
     struct ModConfigItem after_base_item[MOD_ITEM_MAX];
 
-    int32_t after_campaign_cnt;
+    int64_t after_campaign_cnt;
     struct ModConfigItem after_campaign_item[MOD_ITEM_MAX];
 
-    int32_t after_map_cnt;
+    int64_t after_map_cnt;
     struct ModConfigItem after_map_item[MOD_ITEM_MAX];
 };
 

@@ -42,7 +42,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 static TbBool lbAdvancedFade = true;
-static int lbFadeDelay = 25;
+static int64_t lbFadeDelay = 25;
 
 unsigned char frontend_palette[768];
 unsigned char palette_buf[PALETTE_SIZE];
@@ -55,11 +55,11 @@ unsigned char palette_buf[PALETTE_SIZE];
 // playback) and is untouched.
 void compute_fade_tables(struct TbColorTables *coltbl,unsigned char *spal,unsigned char *dpal)
 {
-    unsigned long i;
-    unsigned long k;
-    unsigned long r;
-    unsigned long g;
-    unsigned long b;
+    uint64_t i;
+    uint64_t k;
+    uint64_t r;
+    uint64_t g;
+    uint64_t b;
     SYNCMSG("Recomputing fade tables");
     // Intense fade to/from black - slower fade near black
     unsigned char* dst = coltbl->fade_tables;
@@ -91,9 +91,9 @@ void compute_fade_tables(struct TbColorTables *coltbl,unsigned char *spal,unsign
     for (i=0; i < 256; i++)
     {
       // Reference colors
-      unsigned long rr = spal[3 * i + 0];
-      unsigned long rg = spal[3 * i + 1];
-      unsigned long rb = spal[3 * i + 2];
+      uint64_t rr = spal[3 * i + 0];
+      uint64_t rg = spal[3 * i + 1];
+      uint64_t rb = spal[3 * i + 2];
       // Creating fades
       for (k=0; k < 256; k++)
       {
@@ -108,26 +108,26 @@ void compute_fade_tables(struct TbColorTables *coltbl,unsigned char *spal,unsign
 
 void compute_alpha_table(unsigned char *alphtbl, unsigned char *spal, unsigned char *dpal, char dred, char dgreen, char dblue)
 {
-    int blendR = 0;
-    int blendG = 0;
-    int blendB = 0;
+    int64_t blendR = 0;
+    int64_t blendG = 0;
+    int64_t blendB = 0;
     // Every color alpha-blended with given values for 8 steps of intensity
-    for (int nrow = 0; nrow < 8; nrow++)
+    for (int64_t nrow = 0; nrow < 8; nrow++)
     {
-        for (int n = 0; n < 256; n++)
+        for (int64_t n = 0; n < 256; n++)
         {
             unsigned char* baseCol = &spal[3 * n];
-            int valR = blendR + baseCol[0];
+            int64_t valR = blendR + baseCol[0];
             if (valR >= 63)
               valR = 63;
             else if (valR < 0)
               valR = 0;
-            int valG = blendG + baseCol[1];
+            int64_t valG = blendG + baseCol[1];
             if (valG >= 63)
               valG = 63;
             else if (valG < 0)
               valG = 0;
-            int valB = blendB + baseCol[2];
+            int64_t valB = blendB + baseCol[2];
             if (valB >= 63)
               valB = 63;
             else if (valB < 0)
@@ -146,7 +146,7 @@ void compute_alpha_tables(struct TbAlphaTables *alphtbls,unsigned char *spal,uns
 {
     SYNCMSG("Recomputing alpha tables");
     {
-        for (int n = 0; n < 256; n++)
+        for (int64_t n = 0; n < 256; n++)
         {
             alphtbls->black[n] = 144;
         }
@@ -172,12 +172,12 @@ void compute_alpha_tables(struct TbAlphaTables *alphtbls,unsigned char *spal,uns
 void compute_rgb2idx_table(TbRGBColorTable ctab,unsigned char *spal)
 {
     SYNCMSG("Recomputing rgb-to-index tables");
-    int scaler = (1 << 6) / COLOUR_TABLE_DIMENSION;
-    for (int valR = 0; valR < COLOUR_TABLE_DIMENSION; valR++)
+    int64_t scaler = (1 << 6) / COLOUR_TABLE_DIMENSION;
+    for (int64_t valR = 0; valR < COLOUR_TABLE_DIMENSION; valR++)
     {
-        for (int valG = 0; valG < COLOUR_TABLE_DIMENSION; valG++)
+        for (int64_t valG = 0; valG < COLOUR_TABLE_DIMENSION; valG++)
         {
-            for (int valB = 0; valB < COLOUR_TABLE_DIMENSION; valB++)
+            for (int64_t valB = 0; valB < COLOUR_TABLE_DIMENSION; valB++)
             {
                 unsigned char c = LbPaletteFindColour(spal, scaler * valR + (scaler-1),
                     scaler * valG + (scaler-1), scaler * valB + (scaler-1));
@@ -187,7 +187,7 @@ void compute_rgb2idx_table(TbRGBColorTable ctab,unsigned char *spal)
     }
 }
 
-void ProperForcedFadePalette(unsigned char *pal, long fade_steps, enum TbPaletteFadeFlag flg)
+void ProperForcedFadePalette(unsigned char *pal, int64_t fade_steps, enum TbPaletteFadeFlag flg)
 {
     if (flg == Lb_PALETTE_FADE_OPEN)
     {
@@ -216,11 +216,11 @@ void ProperForcedFadePalette(unsigned char *pal, long fade_steps, enum TbPalette
     }
 }
 
-long PaletteFadePlayer(struct PlayerInfo *player)
+int64_t PaletteFadePlayer(struct PlayerInfo *player)
 {
     if (!is_my_player(player))
         return 0;
-    long i;
+    int64_t i;
     unsigned char palette[PALETTE_SIZE];
     // Find the fade step
     if ((local_state.palette_fade_step_pain != 0) && (local_state.palette_fade_step_possession != 0))
@@ -240,21 +240,21 @@ long PaletteFadePlayer(struct PlayerInfo *player)
   }
   if (i >= 120)
     i = 120;
-  long step = 120 - i;
+  int64_t step = 120 - i;
   // Create the new palette
   for (i=0; i < PALETTE_COLORS; i++)
   {
       unsigned char* src = &local_state.main_palette[3 * i];
       unsigned char* dst = &palette[3 * i];
-      unsigned long pix = ((step * (((long)src[0]) - 63)) / 120) + 63;
+      uint64_t pix = ((step * (((int64_t)src[0]) - 63)) / 120) + 63;
       if (pix > 63)
           pix = 63;
       dst[0] = pix;
-      pix = (step * ((long)src[1])) / 120;
+      pix = (step * ((int64_t)src[1])) / 120;
       if (pix > 63)
           pix = 63;
       dst[1] = pix;
-      pix = (step * ((long)src[2])) / 120;
+      pix = (step * ((int64_t)src[2])) / 120;
       if (pix > 63)
           pix = 63;
       dst[2] = pix;
@@ -280,11 +280,11 @@ long PaletteFadePlayer(struct PlayerInfo *player)
   return step;
 }
 
-void PaletteApplyPainToPlayer(struct PlayerInfo *player, long intense)
+void PaletteApplyPainToPlayer(struct PlayerInfo *player, int64_t intense)
 {
     if (!is_my_player(player))
         return;
-    long i = local_state.palette_fade_step_pain + intense;
+    int64_t i = local_state.palette_fade_step_pain + intense;
     if (i < 1)
         i = 1;
     else
@@ -329,7 +329,7 @@ TbBool set_gamma(char corrlvl, TbBool do_set)
     if (corrlvl > 4)
       corrlvl = 4;
     settings.gamma_correction = corrlvl;
-    fname=prepare_file_fmtpath(FGrp_StdData,"pal%05d.dat",settings.gamma_correction);
+    fname=prepare_file_fmtpath(FGrp_StdData,"pal%05" PRId64 ".dat",(int64_t)(settings.gamma_correction));
     if (!LbFileExists(fname))
     {
       WARNMSG("Palette file \"%s\" doesn't exist.", fname);

@@ -26,7 +26,7 @@
 RoomKind editor_room_of_slab(SlabKind kind)
 {
     const struct SlabsConfig &slabc = kfx_config_state.conf.slab_conf;
-    for (int32_t r = 1; r < slabc.room_types_count; r++)
+    for (int64_t r = 1; r < slabc.room_types_count; r++)
     {
         if (slabc.room_cfgstats[r].assigned_slab == kind)
             return (RoomKind)r;
@@ -40,7 +40,7 @@ RoomKind editor_room_of_wall(SlabKind kind)
         return 0;
     const struct SlabConfigStats *wall = get_slab_kind_stats(kind);
     const struct SlabsConfig &slabc = kfx_config_state.conf.slab_conf;
-    for (int32_t r = 1; r < slabc.room_types_count; r++)
+    for (int64_t r = 1; r < slabc.room_types_count; r++)
     {
         const struct SlabConfigStats *floor_stats = get_slab_kind_stats(slabc.room_cfgstats[r].assigned_slab);
         if ((floor_stats != NULL) && (floor_stats->slb_id == wall->slb_id))
@@ -49,19 +49,19 @@ RoomKind editor_room_of_wall(SlabKind kind)
     return 0;
 }
 
-int editor_door_of_slab(SlabKind kind)
+int64_t editor_door_of_slab(SlabKind kind)
 {
-    const long door_count = kfx_config_state.conf.trapdoor_conf.door_types_count;
-    for (long m = 1; m < door_count; m++)
+    const int64_t door_count = kfx_config_state.conf.trapdoor_conf.door_types_count;
+    for (int64_t m = 1; m < door_count; m++)
     {
-        const struct DoorConfigStats *ds = get_door_model_stats((int)m);
+        const struct DoorConfigStats *ds = get_door_model_stats((int64_t)m);
         if ((ds != NULL) && ((ds->slbkind[0] == kind) || (ds->slbkind[1] == kind)))
-            return (int)m;
+            return (int64_t)m;
     }
     return 0;
 }
 
-int editor_terrain_group_of(SlabKind kind)
+int64_t editor_terrain_group_of(SlabKind kind)
 {
     if (editor_room_of_slab(kind) != 0)
         return ETG_Rooms;
@@ -75,7 +75,7 @@ int editor_terrain_group_of(SlabKind kind)
     return ETG_Terrain;
 }
 
-int editor_object_group_of(ThingModel model)
+int64_t editor_object_group_of(ThingModel model)
 {
     const struct ObjectConfigStats *ostat = get_object_model_stats(model);
     if (ostat == NULL)
@@ -89,10 +89,10 @@ int editor_object_group_of(ThingModel model)
     }
 }
 
-int editor_spellbook_power(ThingModel model)
+int64_t editor_spellbook_power(ThingModel model)
 {
     if ((model <= 0) || (model >= OBJECT_TYPES_MAX))
         return -1;
-    int power = kfx_config_state.conf.object_conf.object_to_power_artifact[model];
+    int64_t power = kfx_config_state.conf.object_conf.object_to_power_artifact[model];
     return (power > 0) ? power : -1;
 }

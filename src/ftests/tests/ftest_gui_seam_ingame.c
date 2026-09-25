@@ -137,7 +137,7 @@ static FTestActionResult action003__quit_packet(struct FTestActionArgs *const ar
     struct Packet *pckt = get_packet(my_player_number);
     if (pckt->action != PckA_None)
     {
-        FTEST_FAIL_TEST("local packet already carries action %u before the quit test", (unsigned)pckt->action);
+        FTEST_FAIL_TEST("local packet already carries action %" PRIu64 " before the quit test", (uint64_t)pckt->action);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -146,8 +146,8 @@ static FTestActionResult action003__quit_packet(struct FTestActionArgs *const ar
     pckt = get_packet(my_player_number);
     if (pckt->action != PckA_QuitToMainMenu)
     {
-        FTEST_FAIL_TEST("migrated quit 'Yes' produced action %u, expected PckA_QuitToMainMenu (%u)",
-                        (unsigned)pckt->action, (unsigned)PckA_QuitToMainMenu);
+        FTEST_FAIL_TEST("migrated quit 'Yes' produced action %" PRIu64 ", expected PckA_QuitToMainMenu (%" PRIu64 ")",
+                        (uint64_t)pckt->action, (uint64_t)PckA_QuitToMainMenu);
         return FTRs_Go_To_Next_Action;
     }
     if (menu_is_active(GMnu_QUIT))

@@ -25,7 +25,7 @@ namespace {
 std::string build_path(const char *dir, LevelNumber lvnum, const char *ext)
 {
     char buf[64];
-    snprintf(buf, sizeof(buf), "/map%05lu.%s", (unsigned long)lvnum, ext);
+    snprintf(buf, sizeof(buf), "/map%05" PRIu64 ".%s", (uint64_t)lvnum, ext);
     return std::string(dir) + buf;
 }
 
@@ -36,7 +36,7 @@ std::string build_path(const char *dir, LevelNumber lvnum, const char *ext)
 // .lif and the classic .tng/.lgt/.apt) goes through this one helper.
 bool save_text(const std::string &path, const std::string &text)
 {
-    return LbFileSaveAtomic(path.c_str(), text.data(), (unsigned long)text.size()) != 0;
+    return LbFileSaveAtomic(path.c_str(), text.data(), (uint64_t)text.size()) != 0;
 }
 
 // Splits a raw MapCoord (COORD_PER_STL=256 per subtile) into the
@@ -45,17 +45,17 @@ bool save_text(const std::string &path, const std::string &text)
 // that function's own `(stl << 8) | (sub_stl & 0xFF)`.
 void append_stl_coord(std::string &out, const char *key, MapCoord coord)
 {
-    long stl = coord >> 8;
-    long sub_stl = coord & 0xFF;
+    int64_t stl = coord >> 8;
+    int64_t sub_stl = coord & 0xFF;
     char buf[96];
-    snprintf(buf, sizeof(buf), "%s = [%ld, %ld]\n", key, stl, sub_stl);
+    snprintf(buf, sizeof(buf), "%s = [%" PRId64 ", %" PRId64 "]\n", key, (int64_t)(stl), (int64_t)(sub_stl));
     out += buf;
 }
 
-void append_int(std::string &out, const char *key, long value)
+void append_int(std::string &out, const char *key, int64_t value)
 {
     char buf[64];
-    snprintf(buf, sizeof(buf), "%s = %ld\n", key, value);
+    snprintf(buf, sizeof(buf), "%s = %" PRId64 "\n", key, (int64_t)(value));
     out += buf;
 }
 
@@ -113,11 +113,11 @@ bool MapContentWriter::write_slabs(const MapContent &content, const char *dir, L
     std::string buf;
     buf.resize((size_t)(content.map_tiles_x * content.map_tiles_y) * 2);
     size_t i = 0;
-    for (long y = 0; y < content.map_tiles_y; y++)
+    for (int64_t y = 0; y < content.map_tiles_y; y++)
     {
-        for (long x = 0; x < content.map_tiles_x; x++)
+        for (int64_t x = 0; x < content.map_tiles_x; x++)
         {
-            unsigned n = content.slab_kind[content.slab_index(x, y)];
+            uint64_t n = content.slab_kind[content.slab_index(x, y)];
             buf[i] = (char)(n & 0xFF);
             buf[i + 1] = (char)((n >> 8) & 0xFF);
             i += 2;
@@ -131,17 +131,17 @@ bool MapContentWriter::write_slabs(const MapContent &content, const char *dir, L
 // row-major -- every subtile of a slab shares that slab's owner.
 bool MapContentWriter::write_ownership(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
-    long subtiles_x = content.map_tiles_x * STL_PER_SLB;
-    long subtiles_y = content.map_tiles_y * STL_PER_SLB;
+    int64_t subtiles_x = content.map_tiles_x * STL_PER_SLB;
+    int64_t subtiles_y = content.map_tiles_y * STL_PER_SLB;
     std::string buf;
     buf.resize((size_t)((subtiles_y + 1) * (subtiles_x + 1)));
     size_t i = 0;
-    for (long y = 0; y <= subtiles_y; y++)
+    for (int64_t y = 0; y <= subtiles_y; y++)
     {
-        for (long x = 0; x <= subtiles_x; x++)
+        for (int64_t x = 0; x <= subtiles_x; x++)
         {
-            long sx = x / STL_PER_SLB;
-            long sy = y / STL_PER_SLB;
+            int64_t sx = x / STL_PER_SLB;
+            int64_t sy = y / STL_PER_SLB;
             if (sx >= content.map_tiles_x) sx = content.map_tiles_x - 1;
             if (sy >= content.map_tiles_y) sy = content.map_tiles_y - 1;
             buf[i++] = (char)(unsigned char)content.slab_owner[content.slab_index(sx, sy)];
@@ -243,13 +243,13 @@ bool MapContentWriter::write_lua(const MapContent &content, const char *dir, Lev
 bool MapContentWriter::write_level_info(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     char buf[512 + LEVEL_DESCRIPTION_LEN];
-    int n = snprintf(buf, sizeof(buf),
+    int64_t n = snprintf(buf, sizeof(buf),
         "NAME_TEXT = %s\n"
         "KIND = %s\n"
-        "PLAYERS = %d\n",
+        "PLAYERS = %" PRId64 "\n",
         content.level_info.name_text.c_str(),
         content.level_info.is_multiplayer ? "MULTI" : "SINGLE",
-        content.level_info.players);
+        (int64_t)(content.level_info.players));
     // docs/refactor/editor/05-script-and-level-settings.md -- DESCRIPTION is
     // a real, already-recognized .lof keyword (level_lof_file_parse(),
     // lvl_filesdk1.c) now actually read into LevelInformation::description;
@@ -266,7 +266,7 @@ bool MapContentWriter::write_level_info(const MapContent &content, const char *d
     {
         const size_t used = std::strlen(buf);
         if (used + 1 < sizeof(buf))
-            snprintf(buf + used, sizeof(buf) - used, "MAPSIZE = %ld %ld\n", (long)content.map_tiles_x, (long)content.map_tiles_y);
+            snprintf(buf + used, sizeof(buf) - used, "MAPSIZE = %" PRId64 " %" PRId64 "\n", (int64_t)content.map_tiles_x, (int64_t)content.map_tiles_y);
     }
     if (!content.level_info.author_text.empty())
     {
@@ -293,14 +293,14 @@ bool MapContentWriter::write_lif(const MapContent &content, const char *dir, Lev
     if (content.level_info.name_text.empty())
         return true;
     char buf[512];
-    snprintf(buf, sizeof(buf), "%lu, %s\r\n", (unsigned long)lvnum, content.level_info.name_text.c_str());
+    snprintf(buf, sizeof(buf), "%" PRIu64 ", %s\r\n", (uint64_t)lvnum, content.level_info.name_text.c_str());
     return save_text(build_path(dir, lvnum, "lif"), buf);
 }
 
 bool KfxNativeMapContentWriter::write_things(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::string out = "[common]\n";
-    append_int(out, "ThingsCount", (long)content.things.size());
+    append_int(out, "ThingsCount", (int64_t)content.things.size());
     out += "\n";
     for (const MapThingRecord &t : content.things)
     {
@@ -351,7 +351,7 @@ bool KfxNativeMapContentWriter::write_things(const MapContent &content, const ch
 bool KfxNativeMapContentWriter::write_lights(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::string out = "[common]\n";
-    append_int(out, "LightsCount", (long)content.lights.size());
+    append_int(out, "LightsCount", (int64_t)content.lights.size());
     out += "\n";
     for (const MapLightRecord &l : content.lights)
     {
@@ -361,8 +361,8 @@ bool KfxNativeMapContentWriter::write_lights(const MapContent &content, const ch
         append_stl_coord(out, "SubtileY", l.pos_y);
         append_stl_coord(out, "SubtileZ", l.pos_z);
         append_stl_coord(out, "LightRange", l.range);
-        append_int(out, "LightIntensity", (long)l.intensity);
-        append_int(out, "ParentTile", (long)l.parent_tile);
+        append_int(out, "LightIntensity", (int64_t)l.intensity);
+        append_int(out, "ParentTile", (int64_t)l.parent_tile);
         out += "\n";
     }
     return save_text(build_path(dir, lvnum, "lgtfx"), out);
@@ -371,7 +371,7 @@ bool KfxNativeMapContentWriter::write_lights(const MapContent &content, const ch
 bool KfxNativeMapContentWriter::write_action_points(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::string out = "[common]\n";
-    append_int(out, "ActionPointsCount", (long)content.action_points.size());
+    append_int(out, "ActionPointsCount", (int64_t)content.action_points.size());
     out += "\n";
     for (const MapActionPointRecord &a : content.action_points)
     {
@@ -396,13 +396,13 @@ bool KfxNativeMapContentWriter::write_action_points(const MapContent &content, c
 
 namespace {
 
-void append_u8(std::string &out, unsigned v) { out += (char)(v & 0xFF); }
-void append_u16le(std::string &out, unsigned v)
+void append_u8(std::string &out, uint64_t v) { out += (char)(v & 0xFF); }
+void append_u16le(std::string &out, uint64_t v)
 {
     out += (char)(v & 0xFF);
     out += (char)((v >> 8) & 0xFF);
 }
-void append_u32le(std::string &out, unsigned long v)
+void append_u32le(std::string &out, uint64_t v)
 {
     out += (char)(v & 0xFF);
     out += (char)((v >> 8) & 0xFF);
@@ -415,17 +415,17 @@ void append_u32le(std::string &out, unsigned long v)
 bool ClassicMapContentWriter::write_things(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::string out;
-    append_u16le(out, (unsigned)content.things.size());
+    append_u16le(out, (uint64_t)content.things.size());
     for (const MapThingRecord &t : content.things)
     {
-        append_u16le(out, (unsigned)(t.pos_x & 0xFFFF)); // LegacyCoord3d
-        append_u16le(out, (unsigned)(t.pos_y & 0xFFFF));
-        append_u16le(out, (unsigned)(t.pos_z & 0xFFFF));
+        append_u16le(out, (uint64_t)(t.pos_x & 0xFFFF)); // LegacyCoord3d
+        append_u16le(out, (uint64_t)(t.pos_y & 0xFFFF));
+        append_u16le(out, (uint64_t)(t.pos_z & 0xFFFF));
         append_u8(out, t.thing_class);
-        append_u8(out, (unsigned)t.model);
-        append_u8(out, (unsigned)t.owner);
-        long range = 0;
-        long index = (t.parent_tile >= 0) ? t.parent_tile : 0;
+        append_u8(out, (uint64_t)t.model);
+        append_u8(out, (uint64_t)t.owner);
+        int64_t range = 0;
+        int64_t index = (t.parent_tile >= 0) ? t.parent_tile : 0;
         unsigned char params[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         if (t.thing_class == TCls_EffectGen)
             range = t.effect_range;
@@ -450,9 +450,9 @@ bool ClassicMapContentWriter::write_things(const MapContent &content, const char
             params[0] = (unsigned char)t.door_orientation;
             params[1] = t.door_locked ? 1 : 0;
         }
-        append_u16le(out, (unsigned)range);
-        append_u16le(out, (unsigned)index);
-        for (int i = 0; i < 8; i++)
+        append_u16le(out, (uint64_t)range);
+        append_u16le(out, (uint64_t)index);
+        for (int64_t i = 0; i < 8; i++)
             append_u8(out, params[i]);
     }
     return save_text(build_path(dir, lvnum, "tng"), out);
@@ -461,21 +461,21 @@ bool ClassicMapContentWriter::write_things(const MapContent &content, const char
 bool ClassicMapContentWriter::write_lights(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::string out;
-    append_u32le(out, (unsigned long)content.lights.size());
+    append_u32le(out, (uint64_t)content.lights.size());
     for (const MapLightRecord &l : content.lights)
     {
-        append_u16le(out, (unsigned)(l.range & 0xFFFF)); // radius (i16)
+        append_u16le(out, (uint64_t)(l.range & 0xFFFF)); // radius (i16)
         append_u8(out, l.intensity & 0xFF);
         append_u8(out, 0); // flags -- unimplemented, see this file's own header comment
         append_u16le(out, 0); // field_4_unused
         append_u16le(out, 0); // field_6_unused
         append_u16le(out, 0); // field_8_unused
-        append_u16le(out, (unsigned)(l.pos_x & 0xFFFF));
-        append_u16le(out, (unsigned)(l.pos_y & 0xFFFF));
-        append_u16le(out, (unsigned)(l.pos_z & 0xFFFF));
+        append_u16le(out, (uint64_t)(l.pos_x & 0xFFFF));
+        append_u16le(out, (uint64_t)(l.pos_y & 0xFFFF));
+        append_u16le(out, (uint64_t)(l.pos_z & 0xFFFF));
         append_u8(out, 0); // field_10_unused
         append_u8(out, l.is_dynamic ? 1 : 0);
-        append_u16le(out, (unsigned)(l.parent_tile & 0xFFFF)); // attached_slb (i16)
+        append_u16le(out, (uint64_t)(l.parent_tile & 0xFFFF)); // attached_slb (i16)
     }
     return save_text(build_path(dir, lvnum, "lgt"), out);
 }
@@ -483,13 +483,13 @@ bool ClassicMapContentWriter::write_lights(const MapContent &content, const char
 bool ClassicMapContentWriter::write_action_points(const MapContent &content, const char *dir, LevelNumber lvnum)
 {
     std::string out;
-    append_u32le(out, (unsigned long)content.action_points.size());
+    append_u32le(out, (uint64_t)content.action_points.size());
     for (const MapActionPointRecord &a : content.action_points)
     {
-        append_u16le(out, (unsigned)(a.pos_x & 0xFFFF)); // LegacyCoord2d
-        append_u16le(out, (unsigned)(a.pos_y & 0xFFFF));
-        append_u16le(out, (unsigned)(a.range & 0xFFFF));
-        append_u16le(out, (unsigned)a.point_number);
+        append_u16le(out, (uint64_t)(a.pos_x & 0xFFFF)); // LegacyCoord2d
+        append_u16le(out, (uint64_t)(a.pos_y & 0xFFFF));
+        append_u16le(out, (uint64_t)(a.range & 0xFFFF));
+        append_u16le(out, (uint64_t)a.point_number);
     }
     return save_text(build_path(dir, lvnum, "apt"), out);
 }

@@ -16,7 +16,7 @@
 TEST_CASE("reset_strings points every slot (0..max inclusive) at a shared empty string", "[kfx_config][config_strings]") {
     char *strings[4] = {nullptr, nullptr, nullptr, nullptr};
     CHECK(reset_strings(strings, 3)); // max is inclusive: touches indices 0..3
-    for (int i = 0; i < 4; i++) {
+    for (int64_t i = 0; i < 4; i++) {
         REQUIRE(strings[i] != nullptr);
         CHECK(strings[i][0] == '\0');
     }
@@ -68,7 +68,7 @@ TEST_CASE_METHOD(ResetGuiStrings, "gui_string returns the registered string for 
 }
 
 TEST_CASE_METHOD(ResetGuiStrings, "gui_string synthesizes an untranslated placeholder for an out-of-range index", "[kfx_config][config_strings]") {
-    unsigned int out_of_range = GUI_STRINGS_COUNT + 5;
+    uint64_t out_of_range = GUI_STRINGS_COUNT + 5;
     std::string result = gui_string(out_of_range);
     CHECK(result.find("untranslated") != std::string::npos);
 }

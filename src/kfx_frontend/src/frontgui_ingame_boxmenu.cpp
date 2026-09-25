@@ -25,7 +25,7 @@ void fire_option(struct GuiBox *gbox, struct GuiBoxOption *goptn, unsigned char 
         goptn->callback(gbox, goptn, btn, &goptn->cb_param1);
 }
 
-void draw_one_box(struct GuiBox *gbox, int stack_idx)
+void draw_one_box(struct GuiBox *gbox, int64_t stack_idx)
 {
     if (gbox == nullptr || gbox->optn_list == nullptr)
         return;
@@ -33,12 +33,12 @@ void draw_one_box(struct GuiBox *gbox, int stack_idx)
     // Stable per-slot id (box_index is 1..2); the "Cheats" caption is
     // hidden (### keeps the id stable if it's ever localized).
     char win_id[32];
-    std::snprintf(win_id, sizeof(win_id), "Cheats###ingame_box_%d", (int)gbox->box_index);
+    std::snprintf(win_id, sizeof(win_id), "Cheats###ingame_box_%" PRId64, (int64_t)gbox->box_index);
 
     // First appearance uses the legacy spawn position (gui_create_box put
     // it near the cursor); afterwards ImGui owns the drag.
-    ImGui::SetNextWindowPos(ImVec2((float)gbox->pos_x, (float)gbox->pos_y), ImGuiCond_Appearing);
-    ImGui::SetNextWindowBgAlpha(0.90f);
+    ImGui::SetNextWindowPos(ImVec2((double)gbox->pos_x, (double)gbox->pos_y), ImGuiCond_Appearing);
+    ImGui::SetNextWindowBgAlpha(0.90);
     ImGui::Begin(win_id, nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings
                  | ImGuiWindowFlags_AlwaysAutoResize);
@@ -75,10 +75,10 @@ void draw_one_box(struct GuiBox *gbox, int stack_idx)
     // remaining pos_x/pos_y readers and the next spawn stay sane.
     const ImVec2 wp = ImGui::GetWindowPos();
     const ImVec2 ws = ImGui::GetWindowSize();
-    gbox->pos_x = (long)wp.x;
-    gbox->pos_y = (long)wp.y;
-    gbox->width = (long)ws.x;
-    gbox->height = (long)ws.y;
+    gbox->pos_x = (int64_t)wp.x;
+    gbox->pos_y = (int64_t)wp.y;
+    gbox->width = (int64_t)ws.x;
+    gbox->height = (int64_t)ws.y;
 
     ImGui::End();
     (void)stack_idx;
@@ -92,7 +92,7 @@ extern "C" void ingame_boxmenu_frame(void)
         return;
     // Lowest priority first so the top box ends up focused (matches the
     // legacy gui_draw_all_boxes() order).
-    int i = 0;
+    int64_t i = 0;
     for (struct GuiBox *gbox = gui_get_lowest_priority_box();
          gbox != nullptr;
          gbox = gui_get_next_highest_priority_box(gbox))

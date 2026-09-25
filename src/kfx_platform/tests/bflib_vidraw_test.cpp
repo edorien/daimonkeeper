@@ -19,7 +19,7 @@
 #include "bflib_vidraw.h"
 
 TEST_CASE("LbSpriteSetScalingWidthClippedArray produces a 1-wide-per-step identity mapping when swidth==dwidth", "[kfx_platform][bflib_vidraw]") {
-    int32_t arr[6] = {0};
+    int64_t arr[6] = {0};
     LbSpriteSetScalingWidthClippedArray(arr, 5, 3, 3, 100);
     CHECK(arr[0] == 5); CHECK(arr[1] == 1);
     CHECK(arr[2] == 6); CHECK(arr[3] == 1);
@@ -27,7 +27,7 @@ TEST_CASE("LbSpriteSetScalingWidthClippedArray produces a 1-wide-per-step identi
 }
 
 TEST_CASE("LbSpriteSetScalingWidthClippedArray clips both start and end independently to [0, gwidth]", "[kfx_platform][bflib_vidraw]") {
-    int32_t arr[6] = {0};
+    int64_t arr[6] = {0};
     // Same identity mapping as above (x=5, positions 5,6,7) but gwidth=6
     // this time -- step 2 (6..7) and step 3 (7..8) both get clamped.
     LbSpriteSetScalingWidthClippedArray(arr, 5, 3, 3, 6);
@@ -37,7 +37,7 @@ TEST_CASE("LbSpriteSetScalingWidthClippedArray clips both start and end independ
 }
 
 TEST_CASE("LbSpriteSetScalingWidthSimpleArray matches the clipped variant's identity mapping when nothing needs clipping", "[kfx_platform][bflib_vidraw]") {
-    int32_t arr[6] = {0};
+    int64_t arr[6] = {0};
     LbSpriteSetScalingWidthSimpleArray(arr, 5, 3, 3);
     CHECK(arr[0] == 5); CHECK(arr[1] == 1);
     CHECK(arr[2] == 6); CHECK(arr[3] == 1);
@@ -45,7 +45,7 @@ TEST_CASE("LbSpriteSetScalingWidthSimpleArray matches the clipped variant's iden
 }
 
 TEST_CASE("LbSpriteSetScalingHeightClippedArray produces the same identity mapping as the width variant", "[kfx_platform][bflib_vidraw]") {
-    int32_t arr[6] = {0};
+    int64_t arr[6] = {0};
     LbSpriteSetScalingHeightClippedArray(arr, 5, 3, 3, 100);
     CHECK(arr[0] == 5); CHECK(arr[1] == 1);
     CHECK(arr[2] == 6); CHECK(arr[3] == 1);
@@ -53,7 +53,7 @@ TEST_CASE("LbSpriteSetScalingHeightClippedArray produces the same identity mappi
 }
 
 TEST_CASE("LbSpriteSetScalingHeightSimpleArray matches the clipped variant's identity mapping when nothing needs clipping", "[kfx_platform][bflib_vidraw]") {
-    int32_t arr[6] = {0};
+    int64_t arr[6] = {0};
     LbSpriteSetScalingHeightSimpleArray(arr, 5, 3, 3);
     CHECK(arr[0] == 5); CHECK(arr[1] == 1);
     CHECK(arr[2] == 6); CHECK(arr[3] == 1);
@@ -61,11 +61,11 @@ TEST_CASE("LbSpriteSetScalingHeightSimpleArray matches the clipped variant's ide
 }
 
 TEST_CASE("LbSpriteClearScalingWidthArray/HeightArray zero-fill their position+length pairs", "[kfx_platform][bflib_vidraw]") {
-    int32_t warr[6] = {1, 2, 3, 4, 5, 6};
+    int64_t warr[6] = {1, 2, 3, 4, 5, 6};
     LbSpriteClearScalingWidthArray(warr, 3);
-    for (int i = 0; i < 6; i++) CHECK(warr[i] == 0);
+    for (int64_t i = 0; i < 6; i++) CHECK(warr[i] == 0);
 
-    int32_t harr[6] = {1, 2, 3, 4, 5, 6};
+    int64_t harr[6] = {1, 2, 3, 4, 5, 6};
     LbSpriteClearScalingHeightArray(harr, 3);
-    for (int i = 0; i < 6; i++) CHECK(harr[i] == 0);
+    for (int64_t i = 0; i < 6; i++) CHECK(harr[i] == 0);
 }

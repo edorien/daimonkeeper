@@ -47,13 +47,13 @@ TEST_CASE("menu context: base-sheet icons are available, custom/invalid ones are
     REQUIRE(gui_panel_sprites == nullptr); // this is the menu situation: no in-game sheet
 
     // Barracks room and the powers reported live as checkerboards / text-tile fallbacks.
-    for (short idx : { (short)69, (short)452, (short)809, (short)772, (short)424, (short)436, (short)550, (short)412, (short)406 })
+    for (int64_t idx : { (int64_t)69, (int64_t)452, (int64_t)809, (int64_t)772, (int64_t)424, (int64_t)436, (int64_t)550, (int64_t)412, (int64_t)406 })
     {
         INFO("sprite " << idx);
         CHECK(FeGuiPanelSpriteAvailable(idx));
     }
     // The four standard player symbols used by the Setup tab's player selector.
-    for (short idx = 488; idx <= 491; idx++)
+    for (int64_t idx = 488; idx <= 491; idx++)
         CHECK(FeGuiPanelSpriteAvailable(idx));
 
     // Nothing behind these: 0 means "no sprite"; past the base sheet's 920 entries; an unresolved icon name.
@@ -72,7 +72,7 @@ TEST_CASE("menu context without game data degrades to 'not available' instead of
     const std::string previous = std::filesystem::current_path().string();
     REQUIRE(chdir(empty.c_str()) == 0);
     CHECK_FALSE(FeGuiPanelSpriteAvailable(69));
-    int w = -1, h = -1;
+    int64_t w = -1, h = -1;
     CHECK(FeGuiPanelTexture(69, &w, &h) == nullptr);
     CHECK(w == 0);
     FeGuiPanelReleaseMenuSheet();
@@ -89,14 +89,14 @@ TEST_CASE("menu context: custom (mod/campaign) icons are available when their sp
     struct TbSpriteSheet *fake = create_spritesheet();
     REQUIRE(fake != nullptr);
     const unsigned char rle[] = { 2, 1, 1, 0 }; // one row: two pixels, end of line
-    REQUIRE(add_sprite(fake, 2, 1, (int)sizeof(rle), rle));
+    REQUIRE(add_sprite(fake, 2, 1, (int64_t)sizeof(rle), rle));
     custom_sprites = fake;
 
-    CHECK(FeGuiPanelSpriteAvailable((short)GUI_PANEL_SPRITES_COUNT));          // the loaded custom sprite
-    CHECK_FALSE(FeGuiPanelSpriteAvailable((short)(GUI_PANEL_SPRITES_COUNT + 1))); // past the loaded ones
+    CHECK(FeGuiPanelSpriteAvailable((int64_t)GUI_PANEL_SPRITES_COUNT));          // the loaded custom sprite
+    CHECK_FALSE(FeGuiPanelSpriteAvailable((int64_t)(GUI_PANEL_SPRITES_COUNT + 1))); // past the loaded ones
     CHECK_FALSE(FeGuiPanelSpriteAvailable(32767));                             // unresolved icon name
 
     custom_sprites = saved;
     free_spritesheet(&fake);
-    CHECK_FALSE(FeGuiPanelSpriteAvailable((short)GUI_PANEL_SPRITES_COUNT));    // gone again
+    CHECK_FALSE(FeGuiPanelSpriteAvailable((int64_t)GUI_PANEL_SPRITES_COUNT));    // gone again
 }

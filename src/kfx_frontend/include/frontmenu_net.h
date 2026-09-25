@@ -77,7 +77,7 @@ void frontnet_service_down(struct GuiButton *gbtn);
 // active ImGui window even though it takes an index -- see its own
 // comment (frontmenu_net.c) for why this one needed a different treatment
 // than every other extraction in this phase.
-void frontnet_service_select_by_index(long srvidx);
+void frontnet_service_select_by_index(int64_t srvidx);
 void frontnet_service_select(struct GuiButton *gbtn);
 void frontnet_session_set_player_name(struct GuiButton *gbtn);
 void frontnet_draw_text_bar(struct GuiButton *gbtn);
@@ -88,7 +88,7 @@ void frontnet_session_down_maintain(struct GuiButton *gbtn);
 void frontnet_session_maintain(struct GuiButton *gbtn);
 void frontnet_draw_sessions_scroll_tab(struct GuiButton *gbtn);
 void frontnet_draw_session_selected(struct GuiButton *gbtn);
-void frontnet_session_select_by_index(long i);
+void frontnet_session_select_by_index(int64_t i);
 void frontnet_session_select(struct GuiButton *gbtn);
 void frontnet_draw_session_button(struct GuiButton *gbtn);
 void frontnet_players_up(struct GuiButton *gbtn);
@@ -102,18 +102,18 @@ void frontnet_session_add(struct GuiButton *gbtn);
 // transition to (int, -1 = nothing to do), for the ImGui screen to
 // request itself -- see frontnet_session_join_resolve's comment
 // (frontmenu_net.c) for the convention.
-int frontnet_session_join_resolve(void);
+int64_t frontnet_session_join_resolve(void);
 void frontnet_session_join(struct GuiButton *gbtn);
-int frontnet_session_create_resolve(void);
+int64_t frontnet_session_create_resolve(void);
 void frontnet_session_create(struct GuiButton *gbtn);
-int frontnet_return_to_main_menu_resolve(void);
+int64_t frontnet_return_to_main_menu_resolve(void);
 void frontnet_return_to_main_menu(struct GuiButton *gbtn);
 void frontnet_add_session_done(struct GuiButton *gbtn);
 void frontnet_add_session_back(struct GuiButton *gbtn);
 void frontnet_join_game_maintain(struct GuiButton *gbtn);
 void frontnet_draw_alliance_box_tab(struct GuiButton *gbtn);
 void frontnet_draw_net_start_players(struct GuiButton *gbtn);
-void frontnet_select_alliance_by_index(int plyr1_idx, int plyr2_idx);
+void frontnet_select_alliance_by_index(int64_t plyr1_idx, int64_t plyr2_idx);
 void frontnet_select_alliance(struct GuiButton *gbtn);
 void frontnet_draw_alliance_grid(struct GuiButton *gbtn);
 void frontnet_draw_alliance_button(struct GuiButton *gbtn);

@@ -44,8 +44,8 @@ struct KfxRenderState {
     // Nearest-light-to-camera search state (light_data.c's
     // update_local_mouse_light() family) -- despite the placeholder name,
     // exclusively render-owned.
-    int something_light_x;
-    int something_light_y;
+    int64_t something_light_x;
+    int64_t something_light_y;
 
     // Mouse-cursor light/spell-cursor world position (engine_redraw.c).
     struct Coord3d mouse_light_pos;
@@ -54,7 +54,7 @@ struct KfxRenderState {
     // stage-13-enforce-and-document.md) -- read by kfx_apploop/
     // kfx_frontend too, but kfx_render is the lowest-ranked of its
     // consumer set.
-    float delta_time;
+    double delta_time;
 
     // Moved from struct Game (stage 13) -- also read by kfx_platform's
     // sound_manager.cpp, which gets pointer access via
@@ -69,16 +69,16 @@ struct KfxRenderState {
     // engine_render.c; kfx_frontend's front_input.c only ever reads
     // them, so kfx_render (the real lowest-rank owner/writer) is the
     // correct home, not kfx_frontend.
-    int32_t pointer_x;
-    int32_t pointer_y;
-    int32_t block_pointed_at_x;
-    int32_t block_pointed_at_y;
-    int32_t pointed_at_frac_x;
-    int32_t pointed_at_frac_y;
-    int32_t top_pointed_at_x;
-    int32_t top_pointed_at_y;
-    int32_t top_pointed_at_frac_x;
-    int32_t top_pointed_at_frac_y;
+    int64_t pointer_x;
+    int64_t pointer_y;
+    int64_t block_pointed_at_x;
+    int64_t block_pointed_at_y;
+    int64_t pointed_at_frac_x;
+    int64_t pointed_at_frac_y;
+    int64_t top_pointed_at_x;
+    int64_t top_pointed_at_y;
+    int64_t top_pointed_at_frac_x;
+    int64_t top_pointed_at_frac_y;
     struct Thing *thing_pointed_at;
     struct Map *me_pointed_at;
 };

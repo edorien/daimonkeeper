@@ -92,23 +92,23 @@ TEST_CASE_METHOD(ZeroedTrigger, "get_trigger_time_measurement_fps is 0 when trig
 
 TEST_CASE_METHOD(ZeroedTrigger, "get_trigger_time_measurement_fps is 1 for a single recorded trigger", "[kfx_platform][bflib_datetm]") {
     trigger.trigger_cnt = 1;
-    trigger.trigger_time[0] = 500.0f;
+    trigger.trigger_time[0] = 500.0;
     CHECK(get_trigger_time_measurement_fps(&trigger) == 1);
 }
 
 TEST_CASE_METHOD(ZeroedTrigger, "get_trigger_time_measurement_fps counts every trigger within the last 1000ms window", "[kfx_platform][bflib_datetm]") {
     trigger.trigger_cnt = 3;
-    trigger.trigger_time[0] = 0.0f;
-    trigger.trigger_time[1] = 500.0f;
-    trigger.trigger_time[2] = 999.0f;
+    trigger.trigger_time[0] = 0.0;
+    trigger.trigger_time[1] = 500.0;
+    trigger.trigger_time[2] = 999.0;
     CHECK(get_trigger_time_measurement_fps(&trigger) == 3);
 }
 
 TEST_CASE_METHOD(ZeroedTrigger, "get_trigger_time_measurement_fps stops counting once the gap from the last trigger reaches 1000ms", "[kfx_platform][bflib_datetm]") {
     trigger.trigger_cnt = 3;
-    trigger.trigger_time[0] = 0.0f;    // exactly 1000ms before the last -- excluded (>= threshold)
-    trigger.trigger_time[1] = 500.0f;  // 500ms before the last -- included
-    trigger.trigger_time[2] = 1000.0f; // the last trigger itself
+    trigger.trigger_time[0] = 0.0;    // exactly 1000ms before the last -- excluded (>= threshold)
+    trigger.trigger_time[1] = 500.0;  // 500ms before the last -- included
+    trigger.trigger_time[2] = 1000.0; // the last trigger itself
     CHECK(get_trigger_time_measurement_fps(&trigger) == 2);
 }
 

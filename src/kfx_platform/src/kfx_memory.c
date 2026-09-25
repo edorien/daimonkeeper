@@ -1,3 +1,5 @@
+#include <inttypes.h>
+#include <stdint.h>
 #include "pre_inc.h"
 #include "kfx_memory.h"
 #include "post_inc.h"
@@ -11,10 +13,10 @@
 // extern size_t PlatformManager_GetScratchSize(void);
 
 /* ===== OOM handler ===== */
-static void kfx_oom(size_t size, const char* file, int line)
+static void kfx_oom(size_t size, const char* file, int64_t line)
 {
-    fprintf(stderr, "KfxAlloc: OUT OF MEMORY: %lu bytes at %s:%d\n",
-            (unsigned long)size, file ? file : "?", line);
+    fprintf(stderr, "KfxAlloc: OUT OF MEMORY: %" PRIu64 " bytes at %s:%" PRId64 "\n",
+            (uint64_t)size, file ? file : "?", (int64_t)(line));
     fflush(stderr);
     abort();
 }
@@ -92,19 +94,19 @@ typedef struct {
     void*       ptr;        /* pointer returned to caller (past prefix) */
     size_t      size;       /* user-requested size */
     const char* file;
-    int         line;
+    int64_t         line;
 } KfxAllocRecord;
 
 static KfxSite        s_sites[KFX_MAX_SITES];
-static int            s_nsites         = 0;
+static int64_t            s_nsites         = 0;
 static size_t         s_total_live     = 0;
 static KfxAllocRecord s_allocs[KFX_MAX_ALLOCS];
-static int            s_nallocs        = 0;
-static int            s_sites_overflow = 0;
+static int64_t            s_nallocs        = 0;
+static int64_t            s_sites_overflow = 0;
 
 static KfxSite* get_site(const char* file)
 {
-    int i;
+    int64_t i;
     for (i = 0; i < s_nsites; i++)
         if (s_sites[i].file == file) return &s_sites[i];
     if (s_nsites < KFX_MAX_SITES) {
@@ -112,13 +114,13 @@ static KfxSite* get_site(const char* file)
         return &s_sites[s_nsites++];
     }
     if (!s_sites_overflow) {
-        fprintf(stderr, "WARNING: KfxMemDump exceeded KFX_MAX_SITES (%d); tracking disabled for new sites\n", KFX_MAX_SITES);
+        fprintf(stderr, "WARNING: KfxMemDump exceeded KFX_MAX_SITES (%" PRId64 "); tracking disabled for new sites\n", (int64_t)(KFX_MAX_SITES));
         s_sites_overflow = 1;
     }
     return NULL;
 }
 
-static void record(size_t size, const char* file, int line)
+static void record(size_t size, const char* file, int64_t line)
 {
     KfxSite* s;
     s = file ? get_site(file) : NULL;
@@ -127,7 +129,7 @@ static void record(size_t size, const char* file, int line)
     (void)line;
 }
 
-static void record_ptr(void* ptr, size_t size, const char* file, int line)
+static void record_ptr(void* ptr, size_t size, const char* file, int64_t line)
 {
     if (s_nallocs < KFX_MAX_ALLOCS) {
         s_allocs[s_nallocs].ptr  = ptr;
@@ -140,7 +142,7 @@ static void record_ptr(void* ptr, size_t size, const char* file, int line)
 
 static size_t find_and_remove_ptr(void* ptr)
 {
-    int i;
+    int64_t i;
     for (i = 0; i < s_nallocs; i++) {
         if (s_allocs[i].ptr == ptr) {
             size_t size = s_allocs[i].size;
@@ -168,10 +170,10 @@ static void* guard_wrap(void* raw, size_t user_size)
 }
 
 /* Validate canaries around a user pointer.  Returns 1 if OK, 0 if corrupt. */
-static int guard_check(void* user_ptr, size_t user_size, const char* context)
+static int64_t guard_check(void* user_ptr, size_t user_size, const char* context)
 {
     unsigned char* base = (unsigned char*)user_ptr - KFX_GUARD_SIZE;
-    int ok = 1;
+    int64_t ok = 1;
     size_t i;
 
     /* check prefix canary bytes (after the stored size_t) */
@@ -179,8 +181,8 @@ static int guard_check(void* user_ptr, size_t user_size, const char* context)
         if (base[i] != KFX_GUARD_BYTE) { ok = 0; break; }
     }
     if (!ok) {
-        fprintf(stderr, "KFX GUARD CORRUPTION [%s]: PREFIX overwrite detected at %p (size=%lu)\n",
-                context, user_ptr, (unsigned long)user_size);
+        fprintf(stderr, "KFX GUARD CORRUPTION [%s]: PREFIX overwrite detected at %p (size=%" PRIu64 ")\n",
+                context, user_ptr, (uint64_t)user_size);
         fflush(stderr);
         abort();
     }
@@ -193,8 +195,8 @@ static int guard_check(void* user_ptr, size_t user_size, const char* context)
         }
     }
     if (!ok) {
-        fprintf(stderr, "KFX GUARD CORRUPTION [%s]: SUFFIX overwrite detected at %p (size=%lu)\n",
-                context, user_ptr, (unsigned long)user_size);
+        fprintf(stderr, "KFX GUARD CORRUPTION [%s]: SUFFIX overwrite detected at %p (size=%" PRIu64 ")\n",
+                context, user_ptr, (uint64_t)user_size);
         fflush(stderr);
         abort();
     }
@@ -207,7 +209,7 @@ static void* guard_raw(void* user_ptr)
     return (unsigned char*)user_ptr - KFX_GUARD_SIZE;
 }
 
-void* KfxAlloc_impl(size_t size, const char* file, int line)
+void* KfxAlloc_impl(size_t size, const char* file, int64_t line)
 {
     void* raw = malloc(size + KFX_GUARD_SIZE * 2);
     if (!raw && size) kfx_oom(size, file, line);
@@ -217,7 +219,7 @@ void* KfxAlloc_impl(size_t size, const char* file, int line)
     return user;
 }
 
-void* KfxCalloc_impl(size_t count, size_t size, const char* file, int line)
+void* KfxCalloc_impl(size_t count, size_t size, const char* file, int64_t line)
 {
     size_t total = count * size;
     void* raw = malloc(total + KFX_GUARD_SIZE * 2);
@@ -231,7 +233,7 @@ void* KfxCalloc_impl(size_t count, size_t size, const char* file, int line)
     return user;
 }
 
-void* KfxRealloc_impl(void* ptr, size_t size, const char* file, int line)
+void* KfxRealloc_impl(void* ptr, size_t size, const char* file, int64_t line)
 {
     size_t old_size;
     if (size == 0) {
@@ -283,7 +285,7 @@ void KfxFree(void* ptr)
     }
 }
 
-char* KfxStrDup_impl(const char* s, const char* file, int line)
+char* KfxStrDup_impl(const char* s, const char* file, int64_t line)
 {
     size_t len;
     if (!s) return NULL;
@@ -295,29 +297,29 @@ char* KfxStrDup_impl(const char* s, const char* file, int line)
 
 void KfxMemDump(void)
 {
-    int i;
-    fprintf(stderr, "=== KfxMemDump: %lu bytes live (%d tracked allocs) ===\n",
-            (unsigned long)s_total_live, s_nallocs);
+    int64_t i;
+    fprintf(stderr, "=== KfxMemDump: %" PRIu64 " bytes live (%" PRId64 " tracked allocs) ===\n",
+            (uint64_t)s_total_live, (int64_t)(s_nallocs));
     for (i = 0; i < s_nsites; i++) {
         const char* f = s_sites[i].file;
         const char* sl = strrchr(f, '/');
         if (!sl) sl = strrchr(f, '\\');
-        fprintf(stderr, "  %-45s  live=%9lu  allocs=%lu\n",
+        fprintf(stderr, "  %-45s  live=%9" PRIu64 "  allocs=%" PRIu64 "\n",
                 sl ? sl + 1 : f,
-                (unsigned long)s_sites[i].live_bytes,
-                (unsigned long)s_sites[i].alloc_count);
+                (uint64_t)s_sites[i].live_bytes,
+                (uint64_t)s_sites[i].alloc_count);
     }
 }
 
 void KfxMemValidate(void)
 {
-    int i;
-    int errors = 0;
+    int64_t i;
+    int64_t errors = 0;
     for (i = 0; i < s_nallocs; i++) {
         unsigned char* base = (unsigned char*)s_allocs[i].ptr - KFX_GUARD_SIZE;
         size_t user_size = s_allocs[i].size;
         size_t j;
-        int prefix_ok = 1, suffix_ok = 1;
+        int64_t prefix_ok = 1, suffix_ok = 1;
 
         for (j = sizeof(size_t); j < KFX_GUARD_SIZE; j++) {
             if (base[j] != KFX_GUARD_BYTE) { prefix_ok = 0; break; }
@@ -329,22 +331,22 @@ void KfxMemValidate(void)
             }
         }
         if (!prefix_ok || !suffix_ok) {
-            fprintf(stderr, "KFX GUARD CORRUPTION [validate]: alloc %p size=%lu from %s:%d (%s%s)\n",
-                    s_allocs[i].ptr, (unsigned long)user_size,
+            fprintf(stderr, "KFX GUARD CORRUPTION [validate]: alloc %p size=%" PRIu64 " from %s:%" PRId64 " (%s%s)\n",
+                    s_allocs[i].ptr, (uint64_t)user_size,
                     s_allocs[i].file ? s_allocs[i].file : "?",
-                    s_allocs[i].line,
+                    (int64_t)(s_allocs[i].line),
                     prefix_ok ? "" : "PREFIX ",
                     suffix_ok ? "" : "SUFFIX");
             errors++;
         }
     }
     if (errors) {
-        fprintf(stderr, "KfxMemValidate: %d CORRUPTED allocation(s) found — aborting\n", errors);
+        fprintf(stderr, "KfxMemValidate: %" PRId64 " CORRUPTED allocation(s) found — aborting\n", (int64_t)(errors));
         fflush(stderr);
         abort();
     }
-    fprintf(stderr, "KfxMemValidate: %d allocations OK (%lu bytes live)\n",
-            s_nallocs, (unsigned long)s_total_live);
+    fprintf(stderr, "KfxMemValidate: %" PRId64 " allocations OK (%" PRIu64 " bytes live)\n",
+            (int64_t)(s_nallocs), (uint64_t)s_total_live);
 }
 
 #endif /* KFX_DEBUG_MEMORY */
@@ -387,8 +389,8 @@ void* KfxScratch(size_t size)
     /* Overflow: fall back to malloc as emergency allocation.
      * WARNING: caller must NOT call KfxFree on overflow allocations;
      * they are tracked separately and freed only at shutdown. */
-    fprintf(stderr, "WARNING: KfxScratch overflow (used=%lu cap=%lu req=%lu); using heap\n",
-            (unsigned long)s_scratch_used, (unsigned long)s_scratch_cap, (unsigned long)size);
+    fprintf(stderr, "WARNING: KfxScratch overflow (used=%" PRIu64 " cap=%" PRIu64 " req=%" PRIu64 "); using heap\n",
+            (uint64_t)s_scratch_used, (uint64_t)s_scratch_cap, (uint64_t)size);
     return malloc(size);
 }
 

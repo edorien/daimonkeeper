@@ -29,32 +29,32 @@ extern "C" {
 
 struct InstanceInfo {
     TbBool instant;
-    long time;
-    long fp_time;
-    long action_time;
-    long fp_action_time;
-    long reset_time;
-    long fp_reset_time;
+    int64_t time;
+    int64_t fp_time;
+    int64_t action_time;
+    int64_t fp_action_time;
+    int64_t reset_time;
+    int64_t fp_reset_time;
     unsigned char graphics_idx;
     char postal_priority;
-    short instance_property_flags;
-    short force_visibility;
+    int64_t instance_property_flags;
+    int64_t force_visibility;
     unsigned char primary_target;
     unsigned char func_idx;
-    int32_t func_params[2];
-    long range_min;
-    long range_max;
-    long symbol_spridx;
-    short tooltip_stridx;
+    int64_t func_params[2];
+    int64_t range_min;
+    int64_t range_max;
+    int64_t symbol_spridx;
+    int64_t tooltip_stridx;
     TbBool no_animation_loop;
     // Refer to creature_instances_validate_func_list (kfx_sim)
     uint8_t validate_source_func;
-    int32_t validate_source_func_params[2];
+    int64_t validate_source_func_params[2];
     uint8_t validate_target_func;
-    int32_t validate_target_func_params[2];
+    int64_t validate_target_func_params[2];
     // Refer to creature_instances_search_targets_func_list (kfx_sim)
     uint8_t search_func;
-    int32_t search_func_params[2];
+    int64_t search_func_params[2];
     TbBool fp_allow_self_cast_while_frozen;
     TbBool fp_allow_self_cast_when_chicken;
 };

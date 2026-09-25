@@ -60,7 +60,7 @@ struct ftest_editor_paint_terrain__variables
     SlabKind terrain_kind;
     PlayerNumber owner;
     MapSlabCoord drag_slb_x, drag_slb_y;
-    unsigned long poll_count;
+    uint64_t poll_count;
 };
 struct ftest_editor_paint_terrain__variables ftest_editor_paint_terrain__vars = {
     .terrain_kind = SlbT_CLAIMED,
@@ -124,14 +124,14 @@ FTestActionResult ftest_editor_paint_terrain_action003__assert_painted(struct FT
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Slab (%d,%d) has kind %d, expected %d", (int)vars->drag_slb_x, (int)vars->drag_slb_y, (int)slb->kind, (int)vars->terrain_kind);
+            FTEST_FAIL_TEST("Slab (%" PRId64 ",%" PRId64 ") has kind %" PRId64 ", expected %" PRId64, (int64_t)vars->drag_slb_x, (int64_t)vars->drag_slb_y, (int64_t)slb->kind, (int64_t)vars->terrain_kind);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
     }
     if (slabmap_owner(slb) != vars->owner)
     {
-        FTEST_FAIL_TEST("Slab (%d,%d) has owner %d, expected %d", (int)vars->drag_slb_x, (int)vars->drag_slb_y, (int)slabmap_owner(slb), (int)vars->owner);
+        FTEST_FAIL_TEST("Slab (%" PRId64 ",%" PRId64 ") has owner %" PRId64 ", expected %" PRId64, (int64_t)vars->drag_slb_x, (int64_t)vars->drag_slb_y, (int64_t)slabmap_owner(slb), (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 

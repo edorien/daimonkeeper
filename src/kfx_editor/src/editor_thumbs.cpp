@@ -42,8 +42,8 @@
 
 namespace {
 
-const int kBlockPx = 32;
-const int kBlockStride = 256; // block_ptrs[] blocks live in an 8-per-row atlas
+const int64_t kBlockPx = 32;
+const int64_t kBlockStride = 256; // block_ptrs[] blocks live in an 8-per-row atlas
 
 struct Cached
 {
@@ -52,41 +52,41 @@ struct Cached
     bool valid = false;  // ... and produced a thumbnail
 };
 
-std::map<long, Cached> s_slabs;
-std::map<long, Cached> s_objects;
+std::map<int64_t, Cached> s_slabs;
+std::map<int64_t, Cached> s_objects;
 
-uint32_t rgba_from_index(unsigned char idx, bool transparent_zero)
+uint64_t rgba_from_index(unsigned char idx, bool transparent_zero)
 {
     if (transparent_zero && idx == 0)
         return 0;
     const unsigned char *pal = engine_palette + (size_t)idx * 3;
     // The palette holds 6-bit components.
-    auto up = [](unsigned char v) -> uint32_t { return (uint32_t)((v << 2) | (v >> 4)) & 0xFF; };
+    auto up = [](unsigned char v) -> uint64_t { return (uint64_t)((v << 2) | (v >> 4)) & 0xFF; };
     return up(pal[0]) | (up(pal[1]) << 8) | (up(pal[2]) << 16) | 0xFF000000u;
 }
 
 // The texture-variation the level mostly uses (what the renderer adds per
 // slab through slab_ext_data).
-int level_texture_variation()
+int64_t level_texture_variation()
 {
-    int counts[TEXTURE_VARIATIONS_COUNT] = {};
-    long total = (long)kfx_sim_state.map_tiles_x * (long)kfx_sim_state.map_tiles_y;
+    int64_t counts[TEXTURE_VARIATIONS_COUNT] = {};
+    int64_t total = (int64_t)kfx_sim_state.map_tiles_x * (int64_t)kfx_sim_state.map_tiles_y;
     if (total > MAX_TILES_X * MAX_TILES_Y)
         total = MAX_TILES_X * MAX_TILES_Y;
-    for (long i = 0; i < total; i++)
+    for (int64_t i = 0; i < total; i++)
         counts[kfx_config_state.slab_ext_data[i] & 0x1F]++;
-    int best = 0;
-    for (int v = 1; v < TEXTURE_VARIATIONS_COUNT; v++)
+    int64_t best = 0;
+    for (int64_t v = 1; v < TEXTURE_VARIATIONS_COUNT; v++)
         if (counts[v] > counts[best])
             best = v;
     return best;
 }
 
-bool block_pixels(int texture_id, std::vector<uint32_t> &pixels, int &width, int &height)
+bool block_pixels(int64_t texture_id, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height)
 {
     if (engine_palette == nullptr || texture_id <= 0)
         return false;
-    const int index = texture_id + level_texture_variation() * TEXTURE_BLOCKS_COUNT;
+    const int64_t index = texture_id + level_texture_variation() * TEXTURE_BLOCKS_COUNT;
     if (index < 0 || index >= TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT)
         return false;
     const unsigned char *block = block_ptrs[index];
@@ -95,13 +95,13 @@ bool block_pixels(int texture_id, std::vector<uint32_t> &pixels, int &width, int
     width = kBlockPx;
     height = kBlockPx;
     pixels.assign((size_t)kBlockPx * kBlockPx, 0);
-    for (int y = 0; y < kBlockPx; y++)
-        for (int x = 0; x < kBlockPx; x++)
+    for (int64_t y = 0; y < kBlockPx; y++)
+        for (int64_t x = 0; x < kBlockPx; x++)
             pixels[(size_t)y * kBlockPx + x] = rgba_from_index(block[y * kBlockStride + x], false);
     return true;
 }
 
-EditorThumb upload(Cached &c, const std::vector<uint32_t> &pixels, int w, int h)
+EditorThumb upload(Cached &c, const std::vector<uint64_t> &pixels, int64_t w, int64_t h)
 {
     if (c.thumb.texture == nullptr || c.thumb.width != w || c.thumb.height != h)
         c.thumb.texture = RendererCreateDynamicTexture(w, h);
@@ -121,20 +121,20 @@ bool editor_thumb_slab_is_wall(SlabKind kind)
     return (stats != NULL) && ((stats->block_flags & SlbAtFlg_Blocking) != 0);
 }
 
-bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint32_t> &pixels, int &width, int &height)
+bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height)
 {
     if (kind >= kfx_config_state.conf.slab_conf.slab_types_count)
         return false;
-    const int slabset_id = SLABSETS_PER_SLAB * kind + 9 * 3 + 0;
+    const int64_t slabset_id = SLABSETS_PER_SLAB * kind + 9 * 3 + 0;
     if (slabset_id >= SLABSET_COUNT)
         return false;
     // slabset col_idx holds the *negated* index into columns_data[] (see
     // copy_block_with_cube_groups(): "columns_data[-itm_idx]").
-    const struct Column *col = get_column(-(long)kfx_sim_state.slabset[slabset_id].col_idx[4]);
+    const struct Column *col = get_column(-(int64_t)kfx_sim_state.slabset[slabset_id].col_idx[4]);
     if ((col == NULL) || column_invalid(col))
         return false;
-    int top = -1;
-    for (int i = COLUMN_STACK_HEIGHT - 1; i >= 0; i--)
+    int64_t top = -1;
+    for (int64_t i = COLUMN_STACK_HEIGHT - 1; i >= 0; i--)
     {
         if (col->cubes[i] != 0)
         {
@@ -142,7 +142,7 @@ bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint32_t> &pixels, int 
             break;
         }
     }
-    int texture = 0;
+    int64_t texture = 0;
     if (top >= 0)
     {
         const struct CubeConfigStats *cube = get_cube_model_stats(col->cubes[top]);
@@ -158,24 +158,24 @@ bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint32_t> &pixels, int 
     return block_pixels(texture, pixels, width, height);
 }
 
-bool editor_thumb_object_pixels(ThingModel model, std::vector<uint32_t> &pixels, int &width, int &height)
+bool editor_thumb_object_pixels(ThingModel model, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height)
 {
     if (engine_palette == nullptr)
         return false;
     const struct ObjectConfigStats *ostat = get_object_model_stats(model);
     if ((ostat == NULL) || (ostat->sprite_anim_idx <= 0))
         return false;
-    const short anim = sim_feedback->get_td_animation_sprite(ostat->sprite_anim_idx);
+    const int64_t anim = sim_feedback->get_td_animation_sprite(ostat->sprite_anim_idx);
     if (anim <= 0)
         return false;
     static std::vector<unsigned char> scratch;
     scratch.assign((size_t)kBlockStride * 512, 0);
-    if (!render_keepsprite_indexed((unsigned short)anim, 0, scratch.data()))
+    if (!render_keepsprite_indexed((int64_t)anim, 0, scratch.data()))
         return false;
     // Crop to the drawn pixels.
-    int min_x = kBlockStride, max_x = -1, min_y = 512, max_y = -1;
-    for (int y = 0; y < 512; y++)
-        for (int x = 0; x < kBlockStride; x++)
+    int64_t min_x = kBlockStride, max_x = -1, min_y = 512, max_y = -1;
+    for (int64_t y = 0; y < 512; y++)
+        for (int64_t x = 0; x < kBlockStride; x++)
             if (scratch[(size_t)y * kBlockStride + x] != 0)
             {
                 if (x < min_x) min_x = x;
@@ -188,8 +188,8 @@ bool editor_thumb_object_pixels(ThingModel model, std::vector<uint32_t> &pixels,
     width = max_x - min_x + 1;
     height = max_y - min_y + 1;
     pixels.assign((size_t)width * height, 0);
-    for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++)
+    for (int64_t y = 0; y < height; y++)
+        for (int64_t x = 0; x < width; x++)
             pixels[(size_t)y * width + x] = rgba_from_index(scratch[(size_t)(min_y + y) * kBlockStride + min_x + x], true);
     return true;
 }
@@ -199,8 +199,8 @@ EditorThumb editor_thumb_slab(SlabKind kind)
     Cached &c = s_slabs[kind];
     if (!c.built)
     {
-        std::vector<uint32_t> pixels;
-        int w = 0, h = 0;
+        std::vector<uint64_t> pixels;
+        int64_t w = 0, h = 0;
         if (engine_palette == nullptr)
             return EditorThumb(); // level not up yet; retry next frame
         c.built = true;
@@ -216,8 +216,8 @@ EditorThumb editor_thumb_object(ThingModel model)
     Cached &c = s_objects[model];
     if (!c.built)
     {
-        std::vector<uint32_t> pixels;
-        int w = 0, h = 0;
+        std::vector<uint64_t> pixels;
+        int64_t w = 0, h = 0;
         if (engine_palette == nullptr)
             return EditorThumb();
         c.built = true;

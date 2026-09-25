@@ -213,7 +213,7 @@ enum TbScriptCommands {
 
 struct ScriptLine {
   enum TbScriptCommands command;
-  long np[COMMANDDESC_ARGS_COUNT]; /**< Numeric parameters (to be changed into interpreted parameters, containing ie. in-game random) */
+  int64_t np[COMMANDDESC_ARGS_COUNT]; /**< Numeric parameters (to be changed into interpreted parameters, containing ie. in-game random) */
   char tcmnd[MAX_TEXT_LENGTH]; /**< Command text */
   char tp[COMMANDDESC_ARGS_COUNT][MAX_TEXT_LENGTH]; /**< Text parameters */
 };
@@ -338,30 +338,30 @@ extern const struct NamedCommand locked_desc[];
 
 // parse_creature_name moved to kfx_config's config_creature.h (stage 13.3).
 struct ScriptValue *allocate_script_value(void);
-struct Thing *script_process_new_object(ThingModel tngmodel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, long arg, PlayerNumber plyr_idx, short move_angle);
-struct Thing* script_process_new_effectgen(ThingModel crmodel, TbMapLocation location, long range);
+struct Thing *script_process_new_object(ThingModel tngmodel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t arg, PlayerNumber plyr_idx, int64_t move_angle);
+struct Thing* script_process_new_effectgen(ThingModel crmodel, TbMapLocation location, int64_t range);
 struct Thing* script_process_new_corpse(ThingModel tngmodel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, CrtrExpLevel exp_level, TbBool dying);
 TbBool script_new_creature_type(const char* name);
 TbBool script_copy_creature_type(ThingModel source_id,const char* name);
-void command_init_value(struct ScriptValue* value, unsigned long var_index, unsigned long plr_range_id);
-void command_add_value(unsigned long var_index, unsigned long plr_range_id, long param1, long param2, long param3);
-void set_variable(int player_idx, long var_type, long var_idx, long new_val);
+void command_init_value(struct ScriptValue* value, uint64_t var_index, uint64_t plr_range_id);
+void command_add_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3);
+void set_variable(int64_t player_idx, int64_t var_type, int64_t var_idx, int64_t new_val);
 #define get_players_range(plr_range_id, plr_start, plr_end) get_players_range_f(plr_range_id, plr_start, plr_end, __func__, text_line_number)
-long get_players_range_f(long plr_range_id, int *plr_start, int *plr_end, const char *func_name, long ln_num);
-TbBool parse_set_varib(const char *varib_name, int32_t *varib_id, int32_t *varib_type);
-long parse_criteria(const char *criteria);
+int64_t get_players_range_f(int64_t plr_range_id, int64_t *plr_start, int64_t *plr_end, const char *func_name, int64_t ln_num);
+TbBool parse_set_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type);
+int64_t parse_criteria(const char *criteria);
 #define get_players_range_single(plr_range_id) get_players_range_single_f(plr_range_id, __func__, text_line_number)
-long get_players_range_single_f(long plr_range_id, const char *func_name, long ln_num);
-TbBool parse_get_varib(const char *varib_name, int32_t *varib_id, int32_t *varib_type, long level_file_version);
-void get_chat_icon_from_value(const char* txt, short* id, char* type);
-short get_chat_icon_sprite_idx_from_id(short id, char type);
-short get_chat_icon_sprite_idx(const char* txt);
+int64_t get_players_range_single_f(int64_t plr_range_id, const char *func_name, int64_t ln_num);
+TbBool parse_get_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type, int64_t level_file_version);
+void get_chat_icon_from_value(const char* txt, int64_t* id, char* type);
+int64_t get_chat_icon_sprite_idx_from_id(int64_t id, char type);
+int64_t get_chat_icon_sprite_idx(const char* txt);
 #define get_player_id(plrname, plr_range_id) get_player_id_f(plrname, plr_range_id, __func__, text_line_number)
-TbBool get_player_id_f(const char *plrname, int32_t *plr_range_id, const char *func_name, long ln_num);
+TbBool get_player_id_f(const char *plrname, int64_t *plr_range_id, const char *func_name, int64_t ln_num);
 PlayerNumber get_objective_id_with_potential_target(const char* locname, PlayerNumber* target);
-TbResult script_use_power_on_creature(struct Thing* thing, short pwkind, KeepPwrLevel power_level, PlayerNumber caster, TbBool is_free);
-const char * script_strval(long offset);
-long script_strdup(const char *src);
+TbResult script_use_power_on_creature(struct Thing* thing, int64_t pwkind, KeepPwrLevel power_level, PlayerNumber caster, TbBool is_free);
+const char * script_strval(int64_t offset);
+int64_t script_strdup(const char *src);
 
 #define ALLOCATE_SCRIPT_VALUE(var_index, plr_range_id) \
     struct ScriptValue tmp_value = {0}; \
@@ -376,7 +376,7 @@ long script_strdup(const char *src);
         value = allocate_script_value(); \
         if (value == NULL) \
         { \
-            SCRPTERRLOG("Too many VALUEs in script (limit is %d)", SCRIPT_VALUES_COUNT); \
+            SCRPTERRLOG("Too many VALUEs in script (limit is %" PRId64 ")", (int64_t)(SCRIPT_VALUES_COUNT)); \
             return; \
         } \
     } \
@@ -389,7 +389,7 @@ long script_strdup(const char *src);
         kfx_game_state.script.values_num--; \
     }
 
-    void script_process_value(unsigned long var_index, unsigned long plr_range_id, long param1, long param2, long param3, struct ScriptValue *value);
+    void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3, struct ScriptValue *value);
 
 #define PROCESS_SCRIPT_VALUE(cmd) \
     if ((get_script_current_condition() == CONDITION_ALWAYS) && (next_command_reusable == 0)) \

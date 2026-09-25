@@ -27,7 +27,7 @@ extern "C" {
 /******************************************************************************/
 void frontend_selectlist_set_visible(struct FrontendSelectList *list)
 {
-    long count = list->item_count();
+    int64_t count = list->item_count();
     list->items_visible = (count < list->items_visible_max) ? count + 1 : list->items_visible_max;
 }
 
@@ -80,7 +80,7 @@ void frontend_selectlist_row_maintain(struct FrontendSelectList *list, struct Gu
 
 void frontend_selectlist_update(struct FrontendSelectList *list)
 {
-    long count = list->item_count();
+    int64_t count = list->item_count();
     if (count <= 0)
     {
         list->scroll_offset = 0;
@@ -114,7 +114,7 @@ void frontend_selectlist_draw_scroll_tab(struct FrontendSelectList *list, struct
     frontend_draw_scroll_tab(gbtn, list->scroll_offset, list->items_visible - 2, list->item_count());
 }
 
-long frontend_selectlist_row_to_item_index(struct FrontendSelectList *list, struct GuiButton *gbtn)
+int64_t frontend_selectlist_row_to_item_index(struct FrontendSelectList *list, struct GuiButton *gbtn)
 {
     return gbtn->content.lval + list->scroll_offset - list->row_base;
 }

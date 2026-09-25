@@ -89,7 +89,7 @@ enum GameFlags2 {
 struct LevelEnsignOverride {
     LevelNumber lvnum;
     TbBool active;
-    unsigned short ensign_type;
+    int64_t ensign_type;
 };
 /**
  * Structure which stores data copied between levels.
@@ -98,13 +98,13 @@ struct LevelEnsignOverride {
 struct IntralevelData {
     unsigned char bonuses_found[BONUS_LEVEL_STORAGE_COUNT];
     struct CreatureStorage transferred_creatures[PLAYERS_COUNT][TRANSFER_CREATURE_STORAGE_COUNT];
-    long campaign_flags[PLAYERS_FOR_CAMPAIGN_FLAGS][CAMPAIGN_FLAGS_PER_PLAYER];
+    int64_t campaign_flags[PLAYERS_FOR_CAMPAIGN_FLAGS][CAMPAIGN_FLAGS_PER_PLAYER];
     LevelNumber next_level;
     struct LevelEnsignOverride ensign_overrides[ENSIGN_OVERRIDES_COUNT];
 };
 
 
-extern unsigned long game_flags2; // Should be reset to zero on new level
+extern uint64_t game_flags2; // Should be reset to zero on new level
 
 #pragma pack()
 
@@ -121,17 +121,17 @@ extern struct IntralevelData intralvl;
 TbBool activate_bonus_level(struct PlayerInfo *player);
 // Wrapper for SimFeedbackCallbacks -- fixes visible=true, matching
 // power_specials.c's own use of set_bonus_level_visibility_for_singleplayer_level.
-TbBool activate_bonus_level_for_singleplayer(struct PlayerInfo *player, unsigned long sp_lvnum);
+TbBool activate_bonus_level_for_singleplayer(struct PlayerInfo *player, uint64_t sp_lvnum);
 TbBool is_bonus_level_visible(struct PlayerInfo *player, LevelNumber bn_lvnum);
 void hide_all_bonus_levels(struct PlayerInfo *player);
-unsigned short get_extra_level_kind_visibility(unsigned short elv_kind);
+int64_t get_extra_level_kind_visibility(int64_t elv_kind);
 void update_extra_levels_visibility(void);
-TbBool set_bonus_level_visibility_for_singleplayer_level(struct PlayerInfo *player, unsigned long sp_lvnum, short visible);
+TbBool set_bonus_level_visibility_for_singleplayer_level(struct PlayerInfo *player, uint64_t sp_lvnum, int64_t visible);
 TbBool set_bonus_level_visibility(LevelNumber bn_lvnum, TbBool visible);
-TbBool emulate_integer_overflow(unsigned short nbits);
-TbBool update_or_create_level_ensign_override(LevelNumber lvnum, short ensign_type);
+TbBool emulate_integer_overflow(int64_t nbits);
+TbBool update_or_create_level_ensign_override(LevelNumber lvnum, int64_t ensign_type);
 struct LevelEnsignOverride *get_level_ensign_override(LevelNumber lvnum);
-TbBool set_level_ensign(LevelNumber lvnum, short ensign_id);
+TbBool set_level_ensign(LevelNumber lvnum, int64_t ensign_id);
 /******************************************************************************/
 
 #ifdef __cplusplus

@@ -49,19 +49,19 @@
 
 #pragma pack(push, 1)
 struct StunHeader {
-    uint16_t type;
-    uint16_t length;
-    uint32_t magic;
+    int64_t type;
+    int64_t length;
+    uint64_t magic;
     uint8_t  transaction_id[12];
 };
 
 struct StunAttrHeader {
-    uint16_t type;
-    uint16_t length;
+    int64_t type;
+    int64_t length;
 };
 #pragma pack(pop)
 
-uint16_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_buffer_size)
+int64_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_buffer_size)
 {
     ENetAddress stun_server_address;
     if (enet_address_set_host(&stun_server_address, ENET_ADDRESS_TYPE_IPV4, STUN_SERVER) < 0) {
@@ -70,14 +70,14 @@ uint16_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_
     }
     stun_server_address.port = STUN_PORT;
 
-    static unsigned s_transaction_counter = 0;
+    static uint64_t s_transaction_counter = 0;
     s_transaction_counter++;
     struct StunHeader stun_request = {htons(STUN_BINDING_REQUEST), htons(0), htonl(STUN_MAGIC_COOKIE), {0}};
     memcpy(stun_request.transaction_id, &s_transaction_counter, sizeof(s_transaction_counter));
     ENetBuffer send_buffer = {.data = &stun_request, .dataLength = sizeof(stun_request)};
     ENetSocket send_socket = host->socket;
     ENetSocket fallback_socket = ENET_SOCKET_NULL;
-    int send_succeeded = (enet_socket_send(send_socket, &stun_server_address, &send_buffer, 1) >= 0);
+    int64_t send_succeeded = (enet_socket_send(send_socket, &stun_server_address, &send_buffer, 1) >= 0);
     if (!send_succeeded) {
         ENetAddress mapped_stun_address = stun_server_address;
         enet_address_convert_ipv6(&mapped_stun_address);
@@ -99,7 +99,7 @@ uint16_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_
     }
 
     Uint32 timeout_deadline = (Uint32)SDL_GetTicks() + STUN_TIMEOUT_MS;
-    uint16_t external_port_result = 0;
+    int64_t external_port_result = 0;
     for (;;) {
         Uint32 now = (Uint32)SDL_GetTicks();
         if (now >= timeout_deadline)
@@ -110,36 +110,36 @@ uint16_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_
             break;
         uint8_t response_buffer[STUN_RESPONSE_BUFFER_SIZE];
         ENetBuffer receive_buffer = {.data = response_buffer, .dataLength = sizeof(response_buffer)};
-        int bytes_received = enet_socket_receive(send_socket, NULL, &receive_buffer, 1);
+        int64_t bytes_received = enet_socket_receive(send_socket, NULL, &receive_buffer, 1);
         if (bytes_received <= 0)
             continue;
-        if (bytes_received < (int)sizeof(struct StunHeader))
+        if (bytes_received < (int64_t)sizeof(struct StunHeader))
             break;
         const struct StunHeader *stun_response_header = (const struct StunHeader *)response_buffer;
         if (ntohs(stun_response_header->type) != STUN_BINDING_SUCCESS
             || ntohl(stun_response_header->magic) != STUN_MAGIC_COOKIE
             || memcmp(stun_response_header->transaction_id, stun_request.transaction_id, sizeof(stun_response_header->transaction_id)) != 0)
             continue;
-        int attribute_offset = (int)sizeof(struct StunHeader);
-        int attributes_end = attribute_offset + (int)ntohs(stun_response_header->length);
+        int64_t attribute_offset = (int64_t)sizeof(struct StunHeader);
+        int64_t attributes_end = attribute_offset + (int64_t)ntohs(stun_response_header->length);
         if (attributes_end > bytes_received) attributes_end = bytes_received;
         char mapped_ip[64] = {0};
-        uint16_t external_port = 0;
+        int64_t external_port = 0;
         while (attribute_offset + 4 <= attributes_end) {
             const struct StunAttrHeader *stun_attribute = (const struct StunAttrHeader *)(response_buffer + attribute_offset);
-            uint16_t attribute_type = ntohs(stun_attribute->type);
-            uint16_t attribute_length = ntohs(stun_attribute->length);
+            int64_t attribute_type = ntohs(stun_attribute->type);
+            int64_t attribute_length = ntohs(stun_attribute->length);
             attribute_offset += 4;
             if (attribute_type == STUN_ATTRIBUTE_XOR_MAPPED && attribute_length >= 8
                     && attribute_offset + attribute_length <= attributes_end && response_buffer[attribute_offset + 1] == 0x01) {
-                uint16_t xor_encoded_port = ((uint16_t)response_buffer[attribute_offset + 2] << 8) | response_buffer[attribute_offset + 3];
-                external_port = xor_encoded_port ^ (uint16_t)(STUN_MAGIC_COOKIE >> 16);
+                int64_t xor_encoded_port = ((int64_t)response_buffer[attribute_offset + 2] << 8) | response_buffer[attribute_offset + 3];
+                external_port = xor_encoded_port ^ (int64_t)(STUN_MAGIC_COOKIE >> 16);
                 uint32_t xor_encoded_address;
                 memcpy(&xor_encoded_address, response_buffer + attribute_offset + 4, 4);
                 uint32_t decoded_address = ntohl(xor_encoded_address) ^ STUN_MAGIC_COOKIE;
-                snprintf(mapped_ip, sizeof(mapped_ip), "%u.%u.%u.%u",
-                    (decoded_address >> 24) & 0xFFu, (decoded_address >> 16) & 0xFFu,
-                    (decoded_address >> 8) & 0xFFu, decoded_address & 0xFFu);
+                snprintf(mapped_ip, sizeof(mapped_ip), "%" PRIu64 ".%" PRIu64 ".%" PRIu64 ".%" PRIu64,
+                    (uint64_t)((decoded_address >> 24) & 0xFFu), (uint64_t)((decoded_address >> 16) & 0xFFu),
+                    (uint64_t)((decoded_address >> 8) & 0xFFu), (uint64_t)(decoded_address & 0xFFu));
                 break;
             }
             attribute_offset += (attribute_length + 3) & ~3;
@@ -148,7 +148,7 @@ uint16_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_
             continue;
         if (fallback_socket != ENET_SOCKET_NULL)
             external_port = host->address.port;
-        LbNetLog("STUN: external address %s:%u\n", mapped_ip, (unsigned)external_port);
+        LbNetLog("STUN: external address %s:%" PRIu64 "\n", mapped_ip, (uint64_t)external_port);
         if (output_ip && output_ip_buffer_size > 0)
             snprintf(output_ip, output_ip_buffer_size, "%s", mapped_ip);
         external_port_result = external_port;
@@ -161,27 +161,27 @@ uint16_t holepunch_stun_query(ENetHost *host, char *output_ip, size_t output_ip_
     return external_port_result;
 }
 
-static int send_and_burst(ENetSocket socket_handle, const ENetAddress *address, ENetBuffer *buffer)
+static int64_t send_and_burst(ENetSocket socket_handle, const ENetAddress *address, ENetBuffer *buffer)
 {
     if (enet_socket_send(socket_handle, address, buffer, 1) < 0)
         return 0;
-    for (int i = 1; i < HOLE_PUNCH_COUNT; i++)
+    for (int64_t i = 1; i < HOLE_PUNCH_COUNT; i++)
         enet_socket_send(socket_handle, address, buffer, 1);
     return 1;
 }
 
-int holepunch_receive(ENetHost *host, ENetAddress *expected, size_t expected_count)
+int64_t holepunch_receive(ENetHost *host, ENetAddress *expected, size_t expected_count)
 {
     static const uint8_t punch_payload[HOLE_PUNCH_PAYLOAD_SIZE] = {0};
     uint8_t payload[HOLE_PUNCH_PAYLOAD_SIZE + 1];
-    int found = 0;
+    int64_t found = 0;
     for (size_t packet = 0; packet < expected_count * HOLE_PUNCH_COUNT; packet++) {
-        int peeked = recv(host->socket, (char *)payload, sizeof(payload), MSG_PEEK);
+        int64_t peeked = recv(host->socket, (char *)payload, sizeof(payload), MSG_PEEK);
         if (peeked != HOLE_PUNCH_PAYLOAD_SIZE || memcmp(payload, punch_payload, HOLE_PUNCH_PAYLOAD_SIZE) != 0)
             return found;
         ENetBuffer receive_buffer = {.data = payload, .dataLength = sizeof(payload)};
         ENetAddress source;
-        int received = enet_socket_receive(host->socket, &source, &receive_buffer, 1);
+        int64_t received = enet_socket_receive(host->socket, &source, &receive_buffer, 1);
         if (received != HOLE_PUNCH_PAYLOAD_SIZE)
             return found;
         for (size_t i = 0; i < expected_count; i++) {
@@ -192,7 +192,7 @@ int holepunch_receive(ENetHost *host, ENetAddress *expected, size_t expected_cou
             if (!expected[i].port || !enet_address_equal_host(&source, &comparable))
                 continue;
             if (source.port != expected[i].port) {
-                LbNetLog("Holepunch: learned peer port %d (advertised %d)\n", (int)source.port, (int)expected[i].port);
+                LbNetLog("Holepunch: learned peer port %" PRId64 " (advertised %" PRId64 ")\n", (int64_t)source.port, (int64_t)expected[i].port);
                 found = 2;
             } else if (!found) {
                 found = 1;

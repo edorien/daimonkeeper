@@ -47,7 +47,7 @@
 // logic (reset to 0 / computed target / decay), so the storage lives
 // here; kfx_apploop's keeper_wait_for_next_turn() reads it via the
 // extern declared below.
-int32_t multiplayer_speed_adjustment_ns;
+int64_t multiplayer_speed_adjustment_ns;
 
 /******************************************************************************/
 
@@ -112,7 +112,7 @@ static void update_turn_speed_adjustment(void)
     int64_t server_position_now_ns = server_turn_position_ns + (int64_t)sync_age_ms * 1000000;
     int64_t target_adjustment_ns = (get_current_turn_position_ns() - server_position_now_ns) / TURN_SYNC_ADJUST_FACTOR;
     target_adjustment_ns = clamp(target_adjustment_ns, -TURN_SYNC_MAX_ADJUSTMENT_NS, TURN_SYNC_MAX_ADJUSTMENT_NS);
-    multiplayer_speed_adjustment_ns = (int32_t)target_adjustment_ns;
+    multiplayer_speed_adjustment_ns = (int64_t)target_adjustment_ns;
 }
 
 static void send_turn_sync_if_due(void)
@@ -164,7 +164,7 @@ void process_gameplay_chat_message(NetUserId user, const char *message)
     PlayerNumber plyr_idx = get_net_user_player_number(user);
     struct PlayerInfo *player = prepare_network_chat_message(plyr_idx, message);
     if (message[0] != '\0') {
-        SYNCLOG("Gameplay chat from user %d (player %d): %s", (int)user, (int)plyr_idx, message);
+        SYNCLOG("Gameplay chat from user %" PRId64 " (player %" PRId64 "): %s", (int64_t)user, (int64_t)plyr_idx, message);
         net_callbacks->lua_on_chatmsg(plyr_idx, player->mp_message_text);
         if (player->mp_message_text[0] != cmd_char || !net_callbacks->cmd_exec(plyr_idx, player->mp_message_text + 1) || network_is_active()) {
             sim_feedback->message_add(MsgType_Player, plyr_idx, player->mp_message_text);
@@ -177,7 +177,7 @@ void process_gameplay_chat_message(NetUserId user, const char *message)
 TbError process_network_turn_sync_message(NetUserId source, const char *buffer, size_t buffer_size)
 {
     if (buffer_size != sizeof(int64_t)) {
-        WARNLOG("Invalid gameplay turn sync message from peer %i (%u bytes)", source, (unsigned)buffer_size);
+        WARNLOG("Invalid gameplay turn sync message from peer %" PRId64 " (%" PRIu64 " bytes)", (int64_t)(source), (uint64_t)buffer_size);
         return Lb_OK;
     }
     if (netstate.my_id == SERVER_ID) {
@@ -185,7 +185,7 @@ TbError process_network_turn_sync_message(NetUserId source, const char *buffer, 
         return Lb_OK;
     }
     if (source != SERVER_ID) {
-        WARNLOG("Ignoring gameplay turn sync message from peer %i", source);
+        WARNLOG("Ignoring gameplay turn sync message from peer %" PRId64, (int64_t)(source));
         return Lb_OK;
     }
     int64_t received_position_ns;
@@ -225,7 +225,7 @@ const struct Packet *get_latest_history_packet(NetUserId user)
 {
     const struct Packet *latest = NULL;
     const struct PacketHistory *history = &packet_history[user];
-    for (int32_t i = 0; i < PACKET_HISTORY_SIZE; i += 1) {
+    for (int64_t i = 0; i < PACKET_HISTORY_SIZE; i += 1) {
         const struct Packet *packet = &history->entries[i];
         if (!is_packet_empty(packet) && (latest == NULL || (GameTurnDelta)(packet->turn - latest->turn) > 0)) {
             latest = packet;
@@ -238,50 +238,50 @@ TbBool read_repair_packet_history(NetUserId source, const char *buffer, size_t b
 {
     size_t header_size = sizeof(struct PacketHistoryHeader);
     if (buffer_size < header_size) {
-        WARNLOG("Gameplay repair history from peer %i was too small (%u bytes)", source, (unsigned)buffer_size);
+        WARNLOG("Gameplay repair history from peer %" PRId64 " was too small (%" PRIu64 " bytes)", (int64_t)(source), (uint64_t)buffer_size);
         return false;
     }
     struct PacketHistoryHeader header;
     memcpy(&header, buffer, sizeof(header));
     if (header.user >= netstate.max_users) {
-        WARNLOG("Gameplay repair history from peer %i had invalid user %d", source, (int)header.user);
+        WARNLOG("Gameplay repair history from peer %" PRId64 " had invalid user %" PRId64, (int64_t)(source), (int64_t)header.user);
         return false;
     }
     if (source != SERVER_ID && source != header.user) {
-        WARNLOG("Peer %i tried to send gameplay repair history for peer %i", source, (int)header.user);
+        WARNLOG("Peer %" PRId64 " tried to send gameplay repair history for peer %" PRId64, (int64_t)(source), (int64_t)header.user);
         return false;
     }
     if (buffer_size != sizeof(struct PacketHistoryHeader) + header.compressed_length) {
-        WARNLOG("Gameplay repair history from peer %i had size mismatch (%u != %u + %u)",
-            source, (unsigned)buffer_size, (unsigned)sizeof(struct PacketHistoryHeader), header.compressed_length);
+        WARNLOG("Gameplay repair history from peer %" PRId64 " had size mismatch (%" PRIu64 " != %" PRIu64 " + %" PRIu64 ")",
+            (int64_t)(source), (uint64_t)buffer_size, (uint64_t)sizeof(struct PacketHistoryHeader), (uint64_t)(header.compressed_length));
         return false;
     }
     if (header.original_length > sizeof(struct RedundantPacketBundle) || header.original_length < sizeof(unsigned char)) {
-        WARNLOG("Gameplay repair history from peer %i had invalid original length %u", source, header.original_length);
+        WARNLOG("Gameplay repair history from peer %" PRId64 " had invalid original length %" PRIu64, (int64_t)(source), (uint64_t)(header.original_length));
         return false;
     }
     char packet_history_buffer[sizeof(struct RedundantPacketBundle)];
     uLongf packet_history_size = header.original_length;
     Bytef *packet_history_data = (Bytef *)packet_history_buffer;
     const Bytef *compressed_data = (const Bytef *)(buffer + header_size);
-    int uncompress_result = uncompress(packet_history_data, &packet_history_size, compressed_data, header.compressed_length);
+    int64_t uncompress_result = uncompress(packet_history_data, &packet_history_size, compressed_data, header.compressed_length);
     if (uncompress_result != Z_OK || packet_history_size != header.original_length) {
-        WARNLOG("Gameplay repair history decompression from peer %i failed: zlib error %d", source, uncompress_result);
+        WARNLOG("Gameplay repair history decompression from peer %" PRId64 " failed: zlib error %" PRId64, (int64_t)(source), (int64_t)(uncompress_result));
         return false;
     }
     const struct RedundantPacketBundle *packet_bundle = (const struct RedundantPacketBundle *)packet_history_buffer;
     if (packet_bundle->valid_count < 1 || packet_bundle->valid_count > PACKET_HISTORY_SIZE) {
-        WARNLOG("Gameplay repair history from peer %i had invalid packet count %u", source, (unsigned)packet_bundle->valid_count);
+        WARNLOG("Gameplay repair history from peer %" PRId64 " had invalid packet count %" PRIu64, (int64_t)(source), (uint64_t)packet_bundle->valid_count);
         return false;
     }
     if (header.original_length < sizeof(unsigned char) + packet_bundle->valid_count * sizeof(struct Packet)) {
-        WARNLOG("Gameplay repair history from peer %i was truncated for user %d", source, (int)header.user);
+        WARNLOG("Gameplay repair history from peer %" PRId64 " was truncated for user %" PRId64, (int64_t)(source), (int64_t)header.user);
         return false;
     }
     for (unsigned char i = 0; i < packet_bundle->valid_count; i += 1) {
         const struct Packet *packet = &packet_bundle->packets[i];
         if (is_packet_empty(packet)) {
-            MULTIPLAYER_LOG("read_repair_packet_history: Skipping empty packet for user %d turn %lu", header.user, (unsigned long)packet->turn);
+            MULTIPLAYER_LOG("read_repair_packet_history: Skipping empty packet for user %" PRId64 " turn %" PRIu64, (int64_t)(header.user), (uint64_t)packet->turn);
             continue;
         }
         store_packet_history(header.user, packet);
@@ -328,7 +328,7 @@ static TbBool host_lost(GameTurn turn, const char *state)
     if (netstate.my_id == SERVER_ID || netstate.users[SERVER_ID].progress != USER_UNUSED) {
         return false;
     }
-    MULTIPLAYER_LOG("LbNetwork_ExchangeGameplay: Host disconnected while %s turn=%lu", state, (unsigned long)turn);
+    MULTIPLAYER_LOG("LbNetwork_ExchangeGameplay: Host disconnected while %s turn=%" PRIu64, state, (uint64_t)turn);
     netstate.seq_nbr += 1;
     return true;
 }
@@ -369,21 +369,21 @@ static void send_user_repair_history(NetUserId user)
     char *header_pos = write_pos;
     write_pos += sizeof(struct PacketHistoryHeader);
     uLongf compressed_size = sizeof(netstate.msg_buffer) - (write_pos - netstate.msg_buffer);
-    int compress_result = compress((Bytef *)write_pos, &compressed_size, (const Bytef *)&packet_bundle, packet_history_size);
+    int64_t compress_result = compress((Bytef *)write_pos, &compressed_size, (const Bytef *)&packet_bundle, packet_history_size);
     if (compress_result != Z_OK) {
-        ERRORLOG("Gameplay repair history compression failed for user %d: zlib error %d", (int)user, compress_result);
+        ERRORLOG("Gameplay repair history compression failed for user %" PRId64 ": zlib error %" PRId64, (int64_t)user, (int64_t)(compress_result));
         return;
     }
     struct PacketHistoryHeader header;
     header.user = user;
-    header.compressed_length = (unsigned int)compressed_size;
-    header.original_length = (unsigned int)packet_history_size;
+    header.compressed_length = (uint64_t)compressed_size;
+    header.original_length = (uint64_t)packet_history_size;
     memcpy(header_pos, &header, sizeof(header));
     size_t message_size = (write_pos - netstate.msg_buffer) + compressed_size;
     if (netstate.my_id != SERVER_ID) {
         if (can_send_to_peer(SERVER_ID)) {
-            MULTIPLAYER_LOG("Sending unreliable compressed gameplay repair history for user=%d to host (%lu -> %lu bytes)",
-                (int)user, (unsigned long)packet_history_size, (unsigned long)compressed_size);
+            MULTIPLAYER_LOG("Sending unreliable compressed gameplay repair history for user=%" PRId64 " to host (%" PRIu64 " -> %" PRIu64 " bytes)",
+                (int64_t)user, (uint64_t)packet_history_size, (uint64_t)compressed_size);
             netstate.sp->sendmsg_single_unsequenced(SERVER_ID, netstate.msg_buffer, message_size);
         }
         return;
@@ -392,8 +392,8 @@ static void send_user_repair_history(NetUserId user)
     if (user != SERVER_ID) {
         skip_peer_id = user;
     }
-    MULTIPLAYER_LOG("Sending unreliable compressed gameplay repair history for user=%d to clients (skip=%d) (%lu -> %lu bytes)",
-        (int)user, (int)skip_peer_id, (unsigned long)packet_history_size, (unsigned long)compressed_size);
+    MULTIPLAYER_LOG("Sending unreliable compressed gameplay repair history for user=%" PRId64 " to clients (skip=%" PRId64 ") (%" PRIu64 " -> %" PRIu64 " bytes)",
+        (int64_t)user, (int64_t)skip_peer_id, (uint64_t)packet_history_size, (uint64_t)compressed_size);
     send_to_active_peers(1, NetSend_Unsequenced, netstate.msg_buffer, message_size, skip_peer_id, INVALID_USER_ID);
 }
 
@@ -426,7 +426,7 @@ static TbError wait_for_missing_packets(void *server_buf, size_t frame_size, Net
     TbClockMSec wait_start_time = LbTimerClock();
     TbBool turn_complete = false;
     TbBool wait_timed_out = false;
-    MULTIPLAYER_LOG("LbNetwork_ExchangeGameplay: Missing packets for turn=%lu, collecting...", (unsigned long)expected_turn);
+    MULTIPLAYER_LOG("LbNetwork_ExchangeGameplay: Missing packets for turn=%" PRIu64 ", collecting...", (uint64_t)expected_turn);
     while (!turn_complete) {
         send_turn_sync_if_due();
         send_repair_history_if_due();
@@ -466,12 +466,12 @@ static TbError wait_for_missing_packets(void *server_buf, size_t frame_size, Net
         }
     }
     TbClockMSec wait_time = LbTimerClock() - wait_start_time;
-    input_lag_note_packet_wait((int32_t)wait_time);
+    input_lag_note_packet_wait((int64_t)wait_time);
     if (wait_timed_out) {
-        WARNLOG("LbNetwork_ExchangeGameplay: Timed out waiting for turn=%lu after %dms; continuing so resync can recover",
-            (unsigned long)expected_turn, (int32_t)wait_time);
+        WARNLOG("LbNetwork_ExchangeGameplay: Timed out waiting for turn=%" PRIu64 " after %" PRId64 "ms; continuing so resync can recover",
+            (uint64_t)expected_turn, (int64_t)wait_time);
     } else {
-        MULTIPLAYER_LOG("LbNetwork_ExchangeGameplay: Completed wait for turn=%lu after %dms", (unsigned long)expected_turn, (int32_t)wait_time);
+        MULTIPLAYER_LOG("LbNetwork_ExchangeGameplay: Completed wait for turn=%" PRIu64 " after %" PRId64 "ms", (uint64_t)expected_turn, (int64_t)wait_time);
     }
     netstate.seq_nbr += 1;
     return Lb_OK;

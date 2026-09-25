@@ -48,13 +48,13 @@ extern "C" {
 struct Room *start_rooms;
 struct Room *end_rooms;
 /******************************************************************************/
-long calculate_free_lair_space(struct Dungeon * dungeon)
+int64_t calculate_free_lair_space(struct Dungeon * dungeon)
 {
     SYNCDBG(9,"Starting");
-    long cap_used = 0;
-    long cap_total = 0;
-    unsigned long k = 0;
-    long i;
+    int64_t cap_used = 0;
+    int64_t cap_total = 0;
+    uint64_t k = 0;
+    int64_t i;
 
     for (RoomKind rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
@@ -83,7 +83,7 @@ long calculate_free_lair_space(struct Dungeon * dungeon)
             }
         }
     }
-    long cap_required = 0;
+    int64_t cap_required = 0;
     k = 0;
     i = dungeon->creatr_list_start;
     while (i != 0)
@@ -111,11 +111,11 @@ long calculate_free_lair_space(struct Dungeon * dungeon)
             break;
         }
     }
-    SYNCDBG(9,"Total lair capacity %d, used %d, will need %d more",(int)cap_total,(int)cap_used,(int)cap_required);
+    SYNCDBG(9,"Total lair capacity %" PRId64 ", used %" PRId64 ", will need %" PRId64 " more",(int64_t)cap_total,(int64_t)cap_used,(int64_t)cap_required);
     return cap_total - cap_used - cap_required;
 }
 
-static short get_lair_score(TbBool room_has_units_of_same_kind,TbBool room_has_units_of_different_kind,TbBool room_has_lair_enemy)
+static int64_t get_lair_score(TbBool room_has_units_of_same_kind,TbBool room_has_units_of_different_kind,TbBool room_has_lair_enemy)
 {
     if ( room_has_units_of_same_kind )
     {
@@ -161,7 +161,7 @@ static short get_lair_score(TbBool room_has_units_of_same_kind,TbBool room_has_u
 
 TbBool creature_model_is_lair_enemy(const ThingModel lair_enemy[CREATURE_TYPES_MAX], ThingModel crmodel)
 {
-    for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+    for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
     {
         if (lair_enemy[i] == crmodel)
         {
@@ -173,7 +173,7 @@ TbBool creature_model_is_lair_enemy(const ThingModel lair_enemy[CREATURE_TYPES_M
 
 TbBool creature_model_is_hostile_towards(const ThingModel hostile_towards[CREATURE_TYPES_MAX], ThingModel crmodel)
 {
-    for (int i = 0; i < CREATURE_TYPES_MAX; i++)
+    for (int64_t i = 0; i < CREATURE_TYPES_MAX; i++)
     {
         if (hostile_towards[i] == crmodel)
         {
@@ -191,7 +191,7 @@ struct Room *get_best_new_lair_for_creature(struct Thing *creatng)
     const struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     struct Dungeon* dungeon = get_dungeon(creatng->owner);
 
-    short *room_scores = (short *)big_scratch;
+    int64_t *room_scores = (int64_t *)big_scratch;
     memset(big_scratch, 0, ROOMS_COUNT);
 
 
@@ -277,8 +277,8 @@ struct Room *get_best_new_lair_for_creature(struct Thing *creatng)
 
 void count_lair_occupants_on_slab(struct Room *room,MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
-    SYNCDBG(17,"Starting for %s index %d at %d,%d",room_code_name(room->kind),(int)room->index,(int)slb_x,(int)slb_y);
-    for (int n = 0; n < MID_AROUND_LENGTH; n++)
+    SYNCDBG(17,"Starting for %s index %" PRId64 " at %" PRId64 ",%" PRId64,room_code_name(room->kind),(int64_t)room->index,(int64_t)slb_x,(int64_t)slb_y);
+    for (int64_t n = 0; n < MID_AROUND_LENGTH; n++)
     {
         MapSubtlDelta ssub_x = 1 + start_at_around[n].delta_x;
         MapSubtlDelta ssub_y = 1 + start_at_around[n].delta_y;
@@ -286,7 +286,7 @@ void count_lair_occupants_on_slab(struct Room *room,MapSlabCoord slb_x, MapSlabC
         if (!thing_is_invalid(lairtng))
         {
             struct Thing* creatng = thing_get(lairtng->lair.belongs_to);
-            int required_cap = get_required_room_capacity_for_object(RoRoF_LairStorage, 0, creatng->model);
+            int64_t required_cap = get_required_room_capacity_for_object(RoRoF_LairStorage, 0, creatng->model);
             if (room->used_capacity + required_cap > room->total_capacity)
             {
                 create_effect(&lairtng->mappos, imp_spangle_effects[get_player_color_idx(lairtng->owner)], lairtng->owner);
@@ -306,8 +306,8 @@ void count_lair_occupants(struct Room *room)
 {
     room->used_capacity = 0;
     memset(room->content_per_model, 0, sizeof(room->content_per_model));
-    unsigned long k = 0;
-    unsigned long i = room->slabs_list;
+    uint64_t k = 0;
+    uint64_t i = room->slabs_list;
     while (i > 0)
     {
         MapSubtlCoord slb_x = slb_num_decode_x(i);
@@ -334,8 +334,8 @@ void count_lair_occupants(struct Room *room)
 struct Thing *find_lair_totem_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);

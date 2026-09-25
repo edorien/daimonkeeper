@@ -44,7 +44,7 @@ struct ScratchFile {
 TEST_CASE_METHOD(ScratchFile, "save_frontend_state/load_frontend_state round-trip through a real file", "[kfx_frontend][kfx_frontend_state]") {
     reset_frontend_state();
     kfx_frontend_state.flash_button_index = 7;
-    kfx_frontend_state.flash_button_time = 3.5f;
+    kfx_frontend_state.flash_button_time = 3.5;
     kfx_frontend_state.last_mouse_x = 111;
     kfx_frontend_state.last_mouse_y = 222;
 
@@ -62,7 +62,7 @@ TEST_CASE_METHOD(ScratchFile, "save_frontend_state/load_frontend_state round-tri
     LbFileClose(rh);
 
     CHECK(kfx_frontend_state.flash_button_index == 7);
-    CHECK(kfx_frontend_state.flash_button_time == 3.5f);
+    CHECK(kfx_frontend_state.flash_button_time == 3.5);
     CHECK(kfx_frontend_state.last_mouse_x == 111);
     CHECK(kfx_frontend_state.last_mouse_y == 222);
 }
@@ -80,55 +80,40 @@ TEST_CASE_METHOD(ScratchFile, "load_frontend_state fails when the file is shorte
     LbFileClose(rh);
 }
 
-// The blob holds pointers into the *writing* process (cheat-menu boxes in the static gui_boxes[] array).
-// Importing one written by another run / a multiplayer host must not adopt them: the next
-// gui_box_is_not_valid() would dereference a foreign address.
-TEST_CASE_METHOD(ScratchFile, "load_frontend_state keeps this process's GUI-box pointers", "[kfx_frontend][kfx_frontend_state][lp64]") {
+// Process-local pointers (cheat-menu boxes) live in kfx_frontend_local, outside the raw blob that is saved,
+// loaded and network-resynced, so importing a blob written by another process cannot install foreign addresses.
+TEST_CASE_METHOD(ScratchFile, "load_frontend_state leaves this process's GUI-box pointers alone", "[kfx_frontend][kfx_frontend_state]") {
     reset_frontend_state();
     kfx_frontend_state.flash_button_index = 9;
-    kfx_frontend_state.gui_cheat_box_1 = reinterpret_cast<struct GuiBox *>(0x1111);
-    kfx_frontend_state.gui_cheat_box_3 = reinterpret_cast<struct GuiBox *>(0x3333);
-    kfx_frontend_state.gui_cheat_box_4 = reinterpret_cast<struct GuiBox *>(0x4444);
-    kfx_frontend_state.level_names_data = reinterpret_cast<char *>(0x5555);
-    kfx_frontend_state.end_level_names_data = reinterpret_cast<char *>(0x6666);
-
     TbFileHandle h = LbFileOpen(kTestFile, Lb_FILE_MODE_NEW);
     REQUIRE(h != nullptr);
     REQUIRE(save_frontend_state(h));
     LbFileClose(h);
 
-    // "Another run": different live pointers, different data.
     reset_frontend_state();
-    kfx_frontend_state.gui_cheat_box_3 = reinterpret_cast<struct GuiBox *>(0xAAA3);
-    kfx_frontend_state.level_names_data = reinterpret_cast<char *>(0xAAA5);
-
+    kfx_frontend_local.gui_cheat_box_3 = reinterpret_cast<struct GuiBox *>(0xAAA3);
     TbFileHandle rh = LbFileOpen(kTestFile, Lb_FILE_MODE_READ_ONLY);
     REQUIRE(rh != nullptr);
     REQUIRE(load_frontend_state(rh));
     LbFileClose(rh);
 
-    CHECK(kfx_frontend_state.flash_button_index == 9); // ordinary data still comes from the file
-    CHECK(kfx_frontend_state.gui_cheat_box_1 == nullptr);
-    CHECK(kfx_frontend_state.gui_cheat_box_3 == reinterpret_cast<struct GuiBox *>(0xAAA3));
-    CHECK(kfx_frontend_state.gui_cheat_box_4 == nullptr);
-    CHECK(kfx_frontend_state.level_names_data == reinterpret_cast<char *>(0xAAA5));
-    CHECK(kfx_frontend_state.end_level_names_data == nullptr);
+    CHECK(kfx_frontend_state.flash_button_index == 9);
+    CHECK(kfx_frontend_local.gui_cheat_box_3 == reinterpret_cast<struct GuiBox *>(0xAAA3));
     reset_frontend_state();
 }
 
-TEST_CASE("resync_import_frontend_state keeps this process's GUI-box pointers", "[kfx_frontend][kfx_frontend_state][lp64]") {
+TEST_CASE("resync_import_frontend_state leaves this process's GUI-box pointers alone", "[kfx_frontend][kfx_frontend_state]") {
     reset_frontend_state();
     kfx_frontend_state.last_mouse_x = 321;
-    kfx_frontend_state.gui_cheat_box_1 = reinterpret_cast<struct GuiBox *>(0x1111); // the host's address
     size_t len = 0;
     const char *host_blob = resync_export_frontend_state(&len);
     REQUIRE(len == sizeof(struct KfxFrontendState));
     std::vector<char> copy(host_blob, host_blob + len);
 
     reset_frontend_state();
-    kfx_frontend_state.gui_cheat_box_1 = reinterpret_cast<struct GuiBox *>(0xBBB1); // ours
+    kfx_frontend_local.gui_cheat_box_1 = reinterpret_cast<struct GuiBox *>(0xBBB1);
     REQUIRE(resync_import_frontend_state(copy.data(), copy.size()));
     CHECK(kfx_frontend_state.last_mouse_x == 321);
-    CHECK(kfx_frontend_state.gui_cheat_box_1 == reinterpret_cast<struct GuiBox *>(0xBBB1));
+    CHECK(kfx_frontend_local.gui_cheat_box_1 == reinterpret_cast<struct GuiBox *>(0xBBB1));
     reset_frontend_state();
 }

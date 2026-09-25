@@ -49,7 +49,7 @@ extern "C" {
 
 struct NamedCommand object_desc[OBJECT_TYPES_MAX];
 /******************************************************************************/
-static TbBool load_objects_config_file(const char *fname, unsigned short flags);
+static TbBool load_objects_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_objects_file_data = {
     .filename = "objects.cfg",
@@ -158,7 +158,7 @@ static const struct NamedField objects_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_objects_count(void) { return &kfx_config_state.conf.object_conf.object_types_count; }
+static int64_t* get_objects_count(void) { return &kfx_config_state.conf.object_conf.object_types_count; }
 static void* get_objects_base(void) { return kfx_config_state.conf.object_conf.object_cfgstats; }
 
 const struct NamedFieldSet objects_named_fields_set = {
@@ -213,10 +213,10 @@ ThingModel crate_thing_to_workshop_item_model(const struct Thing *thing)
     return kfx_config_state.conf.object_conf.object_to_door_or_trap[tngmodel];
 }
 
-static TbBool load_objects_config_file(const char *fname, unsigned short flags)
+static TbBool load_objects_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -259,7 +259,7 @@ const char *object_code_name(ThingModel tngmodel)
  */
 ThingModel object_model_id(const char * code_name)
 {
-    for (int i = 0; i < kfx_config_state.conf.object_conf.object_types_count; ++i)
+    for (int64_t i = 0; i < kfx_config_state.conf.object_conf.object_types_count; ++i)
     {
         if (strncasecmp(kfx_config_state.conf.object_conf.object_cfgstats[i].code_name, code_name,
                 COMMAND_WORD_LEN) == 0) {
@@ -277,7 +277,7 @@ ThingModel object_model_id(const char * code_name)
  * @param relmodel Related thing model, if object model is not unequivocal.
  * @return
  */
-int get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel)
+int64_t get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel)
 {
     struct CreatureModelConfig *crconf;
     struct ObjectConfigStats *objst;

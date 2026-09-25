@@ -29,11 +29,11 @@ void coroutine_add(CoroutineLoop *context, CoroutineFn fn)
     context->fns[context->write_idx++] = fn;
 }
 
-void coroutine_add_args(CoroutineLoop *context, CoroutineFn fn, int args[COROUTINE_ARGS])
+void coroutine_add_args(CoroutineLoop *context, CoroutineFn fn, int64_t args[COROUTINE_ARGS])
 {
     assert(context->write_idx < COROUTINE_MAX_NUM);
     context->fns[context->write_idx] = fn;
-    memcpy(&context->args[context->write_idx * COROUTINE_ARGS], args, COROUTINE_ARGS * sizeof(int));
+    memcpy(&context->args[context->write_idx * COROUTINE_ARGS], args, COROUTINE_ARGS * sizeof(int64_t));
     context->write_idx++;
 }
 
@@ -66,14 +66,14 @@ void coroutine_process(CoroutineLoop *context)
     context->read_idx = 0;
 }
 
-int *coroutine_args(CoroutineLoop *context)
+int64_t *coroutine_args(CoroutineLoop *context)
 {
     return &context->args[context->read_idx * COROUTINE_ARGS];
 }
 
 void coroutine_clear(CoroutineLoop *context, TbBool error)
 {
-    for (int i = 0; i < context->write_idx; i++)
+    for (int64_t i = 0; i < context->write_idx; i++)
     {
         context->fns[i] = 0;
     }

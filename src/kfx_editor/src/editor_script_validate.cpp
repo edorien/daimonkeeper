@@ -37,7 +37,7 @@ bool is_word(char c)
 // parentheses are unbalanced. The engine's tokenizer separates arguments by
 // commas *or* whitespace (IF(PLAYER0,TREASURE >= 1) has four), and a quoted
 // string is one argument whatever it contains.
-int count_args(const std::string &rest)
+int64_t count_args(const std::string &rest)
 {
     size_t i = 0;
     while (i < rest.size() && std::isspace((unsigned char)rest[i]))
@@ -45,10 +45,10 @@ int count_args(const std::string &rest)
     if (i >= rest.size() || rest[i] != '(')
         return 0;
     i++;
-    int depth = 1;
+    int64_t depth = 1;
     bool in_quote = false;
     bool in_token = false;
-    int tokens = 0;
+    int64_t tokens = 0;
     for (; i < rest.size(); i++)
     {
         const char c = rest[i];
@@ -89,7 +89,7 @@ int count_args(const std::string &rest)
     return -1;
 }
 
-void arg_limits(const char *args, int &required, int &maximum)
+void arg_limits(const char *args, int64_t &required, int64_t &maximum)
 {
     required = 0;
     maximum = 0;
@@ -158,14 +158,14 @@ std::vector<ScriptIssue> editor_script_validate(const std::string &text, const S
             issues.push_back({this_line, ScrIssue_Error, "Unknown command " + name + "."});
             continue;
         }
-        const int given = count_args(line.substr(j));
+        const int64_t given = count_args(line.substr(j));
         if (given < 0)
         {
             issues.push_back({this_line, ScrIssue_Error, name + ": missing closing parenthesis."});
         }
         else
         {
-            int required, maximum;
+            int64_t required, maximum;
             arg_limits(args, required, maximum);
             char buf[160];
             // Only a warning: the engine's tokenizer is looser than the argument
@@ -174,14 +174,14 @@ std::vector<ScriptIssue> editor_script_validate(const std::string &text, const S
             // stricter rule while being perfectly good.
             if (given < required)
             {
-                snprintf(buf, sizeof(buf), "%s usually needs %d argument%s, found %d.", name.c_str(), required,
-                    required == 1 ? "" : "s", given);
+                snprintf(buf, sizeof(buf), "%s usually needs %" PRId64 " argument%s, found %" PRId64 ".", name.c_str(), (int64_t)(required),
+                    required == 1 ? "" : "s", (int64_t)(given));
                 issues.push_back({this_line, ScrIssue_Warning, buf});
             }
             else if (given > maximum)
             {
-                snprintf(buf, sizeof(buf), "%s takes at most %d argument%s, found %d.", name.c_str(), maximum,
-                    maximum == 1 ? "" : "s", given);
+                snprintf(buf, sizeof(buf), "%s takes at most %" PRId64 " argument%s, found %" PRId64 ".", name.c_str(), (int64_t)(maximum),
+                    maximum == 1 ? "" : "s", (int64_t)(given));
                 issues.push_back({this_line, ScrIssue_Warning, buf});
             }
         }
@@ -220,7 +220,7 @@ std::vector<ScriptIssue> editor_script_check_duplicate_win_lose(const std::strin
 std::vector<ScriptIssue> editor_script_validate_engine(const std::string &text)
 {
     std::vector<ScriptIssue> issues = editor_script_validate(text, [](const std::string &name) -> const char * {
-        for (int i = 0; command_desc[i].textptr != NULL; i++)
+        for (int64_t i = 0; command_desc[i].textptr != NULL; i++)
             if (name == command_desc[i].textptr)
                 return command_desc[i].args;
         return nullptr;

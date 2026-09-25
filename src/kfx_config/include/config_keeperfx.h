@@ -110,15 +110,15 @@ struct StartupParameters {
     unsigned char flags_font;
     unsigned char mode_flags;
     unsigned char debug_flags;
-    unsigned short computer_chat_flags;
-    long num_fps;
-    int32_t num_fps_draw_main; // -1 if auto
-    int32_t num_fps_draw_secondary;
+    int64_t computer_chat_flags;
+    int64_t num_fps;
+    int64_t num_fps_draw_main; // -1 if auto
+    int64_t num_fps_draw_secondary;
     TbBool packet_save_enable;
     TbBool packet_load_enable;
     char packet_fname[150];
     unsigned char packet_checksum_verify;
-    int frame_skip;
+    int64_t frame_skip;
     char selected_campaign[CMDLN_MAXLEN+1];
     TbBool overrides[CMDLINE_OVERRIDES];
     char config_file[CMDLN_MAXLEN+1];
@@ -131,13 +131,13 @@ struct StartupParameters {
     // read by kfx_frontend's front_network.c and kfx_game's main_game.c,
     // both ranked below app_entry.
     char autostart_multiplayer_campaign[80];
-    int autostart_multiplayer_level;
-    int autostart_multiplayer_users_expected;
+    int64_t autostart_multiplayer_level;
+    int64_t autostart_multiplayer_users_expected;
     TbBool force_player_num;
 #ifdef FUNCTESTING
     unsigned char functest_flags;
     char functest_name[FTEST_MAX_NAME_LENGTH];
-    unsigned int functest_seed;
+    uint64_t functest_seed;
 #endif
 };
 #pragma pack()
@@ -191,15 +191,15 @@ enum StartupFlags {
 
 struct InstallInfo {
   char inst_path[150];
-  int lang_id;
+  int64_t lang_id;
 };
 
-extern unsigned short AtmosRepeat;
-extern unsigned short AtmosStart;
-extern unsigned short AtmosEnd;
+extern int64_t AtmosRepeat;
+extern int64_t AtmosStart;
+extern int64_t AtmosEnd;
 extern TbBool AssignCpuKeepers;
 
-extern unsigned int vid_scale_flags;
+extern uint64_t vid_scale_flags;
 
 // UI/render tuning values resolved from config file commands, applied by
 // their owning modules (engine_render.c/frontend.c/front_input.c/
@@ -209,18 +209,18 @@ extern unsigned int vid_scale_flags;
 // int (not front_input.h's enum types) for the same reason. See
 // docs/refactor/stage-04-kfx-config.md issue B.
 struct KeeperFxUiConfig {
-    int gui_blink_rate;
-    int neutral_flash_rate;
-    int creature_status_size;
-    int line_box_size;
+    int64_t gui_blink_rate;
+    int64_t neutral_flash_rate;
+    int64_t creature_status_size;
+    int64_t line_box_size;
     TbBool right_click_tag_mode_toggle;
     unsigned char default_tag_mode;
-    int zoom_to_mouse_option;
-    int rotate_around_mouse_option;
+    int64_t zoom_to_mouse_option;
+    int64_t rotate_around_mouse_option;
     // ImGui-frontend text size as a percentage of FeStylePushFont's own
     // resolution-derived base size (frontgui_style.cpp) -- no equivalent
     // option in original DK, KeeperFX-only. 100 = unscaled.
-    int ui_font_scale_pct;
+    int64_t ui_font_scale_pct;
     // ImGui-frontend typeface selector (frontgui_style.cpp / config_settingschema.c
     // UI_FONT row). "AUTO" = Exocet if the DK2 files are in fxdata/, else the
     // bundled Cinzel; "CINZEL"/"EXOCET" force one; anything else is a family
@@ -234,7 +234,7 @@ struct KeeperFxUiConfig {
     // 0, see hud_position_type[]'s own comment (config_keeperfx.c). Plain int
     // (not a frontend enum type) for the same reason as zoom_to_mouse_option
     // above. KeeperFX-only.
-    int hud_position;
+    int64_t hud_position;
     // User PNG icon pack (frontgui_ingame_icon_overrides.cpp / config_settingschema.c
     // GUI_ICON_PACK row, docs/refactor/ingame-gui/12-png-icon-overrides.md): "NONE"
     // (default -- legacy sprites only) or a sub-directory name under
@@ -250,7 +250,7 @@ struct KeeperFxUiConfig {
     // comment, config_keeperfx.c). The button cluster + pop-up panel
     // always take the diagonally opposite corner -- this one setting
     // drives both. KeeperFX-only.
-    int minimap_corner;
+    int64_t minimap_corner;
 };
 extern struct KeeperFxUiConfig keeperfx_ui_config;
 
@@ -266,7 +266,7 @@ extern char keeper_runtime_directory[152];
 
 #pragma pack()
 /******************************************************************************/
-extern unsigned long features_enabled;
+extern uint64_t features_enabled;
 extern const struct NamedCommand lang_type[];
 extern const struct NamedCommand scrshot_type[];
 // Exposed for config_settingschema.c's SOptT_Enum rows (ATMOS_VOLUME/
@@ -278,17 +278,17 @@ extern const struct NamedCommand tag_modes[];
 extern const struct NamedCommand hud_position_type[];
 extern const struct NamedCommand minimap_corner_type[];
 extern char cmd_char;
-extern short api_enabled;
-extern uint16_t api_port;
+extern int64_t api_enabled;
+extern int64_t api_port;
 extern TbBool exit_on_lua_error;
-extern uint32_t packetsave_max_kb;
+extern uint64_t packetsave_max_kb;
 extern TbBool FLEE_BUTTON_DEFAULT;
 extern TbBool IMPRISON_BUTTON_DEFAULT;
 /******************************************************************************/
 void load_configuration_for_mod_all(void);
-short load_configuration(void);
+int64_t load_configuration(void);
 void process_cmdline_overrides(void);
-int parse_draw_fps_config_val(const char *arg, int32_t *fps_draw_main, int32_t *fps_draw_secondary);
+int64_t parse_draw_fps_config_val(const char *arg, int64_t *fps_draw_main, int64_t *fps_draw_secondary);
 /******************************************************************************/
 // docs/refactor/renderer/04-imgui-gui-foundation.md §6.2 finding 1: the
 // engine has never had a keeperfx.cfg writer -- save_settings() persists a
@@ -310,14 +310,14 @@ struct KeeperfxCfgEdit {
 // left behind. Exposed with an explicit path so it's independently testable
 // against a fixture file; keeperfx_cfg_write_values() below is the
 // real-usage wrapper.
-TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct KeeperfxCfgEdit *edits, int edits_count);
+TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct KeeperfxCfgEdit *edits, int64_t edits_count);
 // Same as keeperfx_cfg_write_values_to_file(), targeting the exact path
 // load_configuration() loaded from (including a "-config <file>" override),
 // remembered at load time so a settings screen writes back to the file the
 // game actually read, not a freshly re-resolved default.
-TbBool keeperfx_cfg_write_values(const struct KeeperfxCfgEdit *edits, int edits_count);
+TbBool keeperfx_cfg_write_values(const struct KeeperfxCfgEdit *edits, int64_t edits_count);
 /******************************************************************************/
-TbBool is_feature_on(unsigned long feature);
+TbBool is_feature_on(uint64_t feature);
 void set_skip_heart_zoom_feature(TbBool enable);
 TbBool get_skip_heart_zoom_feature(void);
 TbBool censorship_enabled(void);
@@ -334,10 +334,10 @@ TbBool pause_music_when_game_paused(void);
 TbBool mute_audio_on_focus_lost(void);
 // Had real external linkage but no header declaration at all; added
 // (same situation as config_settings.c's setup_default_settings()).
-TbBool prepare_diskpath(char *buf, long buflen);
+TbBool prepare_diskpath(char *buf, int64_t buflen);
 /******************************************************************************/
-const char *get_language_lwrstr(int lang_id);
-TbBool is_dbc_language(short language);
+const char *get_language_lwrstr(int64_t lang_id);
+TbBool is_dbc_language(int64_t language);
 /******************************************************************************/
 
 #ifdef __cplusplus

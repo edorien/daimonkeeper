@@ -46,7 +46,7 @@
  *  Mirrors the per-type switch in message_draw() below (minus its x/y
  *  nudges) so the ImGui message overlay (frontgui_ingame_messages.cpp) can
  *  reuse the exact icon logic. */
-short message_icon_spridx(int i)
+int64_t message_icon_spridx(int64_t i)
 {
     if ((i < 0) || (i >= kfx_sim_state.active_messages_count))
         return -1;
@@ -58,13 +58,13 @@ short message_icon_spridx(int i)
             if (player_is_roaming(plyr_idx))
                 return get_player_colored_icon_idx(GPS_plyrsym_symbol_player_red_std_b, plyr_idx);
             if (msg->plyr_idx == kfx_config_state.neutral_player_num)
-                return (short)(((get_gameturn() >> 1) & 3) + GPS_plyrsym_symbol_player_red_std_b);
+                return (int64_t)(((get_gameturn() >> 1) & 3) + GPS_plyrsym_symbol_player_red_std_b);
             return get_player_colored_icon_idx(
                 player_has_heart(msg->plyr_idx) ? GPS_plyrsym_symbol_player_red_std_b
                                                 : GPS_plyrsym_symbol_player_red_dead,
                 plyr_idx);
         case MsgType_Creature:
-            return (short)get_creature_model_graphics(msg->plyr_idx, CGI_HandSymbol);
+            return (int64_t)get_creature_model_graphics(msg->plyr_idx, CGI_HandSymbol);
         case MsgType_CreatureSpell:
             return get_spell_config(msg->plyr_idx)->medsym_sprite_idx;
         case MsgType_Room:
@@ -72,7 +72,7 @@ short message_icon_spridx(int i)
         case MsgType_KeeperSpell:
             return get_power_model_stats(msg->plyr_idx)->medsym_sprite_idx;
         case MsgType_Query:
-            return (short)(msg->plyr_idx + GPS_plyrsym_symbol_room_yellow_std_a);
+            return (int64_t)(msg->plyr_idx + GPS_plyrsym_symbol_room_yellow_std_a);
         case MsgType_Custom:
             return msg->plyr_idx;
         case MsgType_CreatureInstance:
@@ -93,7 +93,7 @@ void message_draw(void)
     if (!ingame_gui_use_classic_hud())
         return;
     LbTextSetFont(winfont);
-    int ps_units_per_px;
+    int64_t ps_units_per_px;
     const struct TbSprite* spr;
     {
         //just used for height, color irrelevant here
@@ -101,9 +101,9 @@ void message_draw(void)
         ps_units_per_px = (22 * units_per_pixel) / spr->SHeight;
     }
     TbBool low_res = (MyScreenHeight < 400);
-    int tx_units_per_px = ( (low_res) && (dbc_initialized && dbc_enabled) ) ? ps_units_per_px : (22 * units_per_pixel) / LbTextLineHeight();
-    int h = LbTextLineHeight();
-    long y = 28 * units_per_pixel / 16;
+    int64_t tx_units_per_px = ( (low_res) && (dbc_initialized && dbc_enabled) ) ? ps_units_per_px : (22 * units_per_pixel) / LbTextLineHeight();
+    int64_t h = LbTextLineHeight();
+    int64_t y = 28 * units_per_pixel / 16;
     if (kfx_sim_state.armageddon_cast_turn != 0)
     {
         if ( (bonus_timer_enabled()) || (script_timer_enabled()) || display_variable_enabled() )
@@ -111,15 +111,15 @@ void message_draw(void)
             y += (h*units_per_pixel/16) << (unsigned char)low_res;
         }
     }
-    for (int i = 0; i < kfx_sim_state.active_messages_count; i++)
+    for (int64_t i = 0; i < kfx_sim_state.active_messages_count; i++)
     {
         if ( (kfx_sim_state.messages[i].target_idx == my_player_number) || (kfx_sim_state.messages[i].target_idx == -1) )
         {
-            long x = 148 * units_per_pixel / 16;
+            int64_t x = 148 * units_per_pixel / 16;
             LbTextSetWindow(0, 0, MyScreenWidth, MyScreenHeight);
             RendererClearDrawFlags(Lb_TEXT_ONE_COLOR);
             LbTextDrawResized(x+32*units_per_pixel/16, y, tx_units_per_px, kfx_sim_state.messages[i].text);
-            unsigned long spr_idx = 0;
+            uint64_t spr_idx = 0;
             PlayerNumber plyr_idx = kfx_sim_state.messages[i].plyr_idx;
             switch (kfx_sim_state.messages[i].type)
             {
@@ -197,7 +197,7 @@ void message_draw(void)
                 }
                 default:
                 {
-                    ERRORLOG("Unrecognised message type: %u", kfx_sim_state.messages[i].type);
+                    ERRORLOG("Unrecognised message type: %" PRIu64, (uint64_t)(kfx_sim_state.messages[i].type));
                     break;
                 }
             }
@@ -255,7 +255,7 @@ void message_draw(void)
 void message_update(void)
 {
     SYNCDBG(6,"Starting");
-    int i = kfx_sim_state.active_messages_count - 1;
+    int64_t i = kfx_sim_state.active_messages_count - 1;
     // Set end turn for all messages
     while (i >= 0)
     {
@@ -272,7 +272,7 @@ void message_update(void)
 void zero_messages(void)
 {
     kfx_sim_state.active_messages_count = 0;
-    for (int i = 0; i < 3; i++)
+    for (int64_t i = 0; i < 3; i++)
     {
       memset(&kfx_sim_state.messages[i], 0, sizeof(struct GuiMessage));
     }
@@ -280,7 +280,7 @@ void zero_messages(void)
 
 void clear_messages_from_player(char type, PlayerNumber plyr_idx)
 {
-    for (int i = 0; i < kfx_sim_state.active_messages_count; i++)
+    for (int64_t i = 0; i < kfx_sim_state.active_messages_count; i++)
     {
         if (kfx_sim_state.messages[i].type == type)
         {
@@ -297,7 +297,7 @@ void delete_message(unsigned char msg_idx)
     memset(&kfx_sim_state.messages[msg_idx], 0, sizeof(struct GuiMessage));
     if (msg_idx < kfx_sim_state.active_messages_count - 1)
     {
-        for (int i = msg_idx; i < kfx_sim_state.active_messages_count; i++)
+        for (int64_t i = msg_idx; i < kfx_sim_state.active_messages_count; i++)
         {
             kfx_sim_state.messages[i] = kfx_sim_state.messages[i+1];
         }
@@ -306,10 +306,10 @@ void delete_message(unsigned char msg_idx)
     kfx_sim_state.active_messages_count--;
 }
 
-void message_add(char type, short idx, const char *text)
+void message_add(char type, int64_t idx, const char *text)
 {
-    SYNCDBG(2,"Player %d: %s",idx,text);
-    for (int i = GUI_MESSAGES_COUNT - 1; i > 0; i--)
+    SYNCDBG(2,"Player %" PRId64 ": %s",(int64_t)(idx),text);
+    for (int64_t i = GUI_MESSAGES_COUNT - 1; i > 0; i--)
     {
         memcpy(&kfx_sim_state.messages[i], &kfx_sim_state.messages[i-1], sizeof(struct GuiMessage));
     }
@@ -324,7 +324,7 @@ void message_add(char type, short idx, const char *text)
     }
 }
 
-void message_add_fmt(char type, short idx, const char *fmt_str, ...)
+void message_add_fmt(char type, int64_t idx, const char *fmt_str, ...)
 {
     static char full_msg_text[2048];
     va_list val;
@@ -334,14 +334,14 @@ void message_add_fmt(char type, short idx, const char *fmt_str, ...)
     va_end(val);
 }
 
-void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *fmt_str, ...)
+void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *fmt_str, ...)
 {
     va_list val;
     va_start(val, fmt_str);
     static char full_msg_text[2048];
     vsnprintf(full_msg_text, sizeof(full_msg_text), fmt_str, val);
-    SYNCDBG(2,"Player %d: %s",(int)plyr_idx,full_msg_text);
-    for (int i = GUI_MESSAGES_COUNT - 1; i > 0; i--)
+    SYNCDBG(2,"Player %" PRId64 ": %s",(int64_t)plyr_idx,full_msg_text);
+    for (int64_t i = GUI_MESSAGES_COUNT - 1; i > 0; i--)
     {
         memcpy(&kfx_sim_state.messages[i], &kfx_sim_state.messages[i-1], sizeof(struct GuiMessage));
     }
@@ -357,18 +357,18 @@ void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_
     va_end(val);
 }
 
-void show_game_time_taken(unsigned long fps, unsigned long turns)
+void show_game_time_taken(uint64_t fps, uint64_t turns)
 {
     struct GameTime gt;
     get_game_time(&gt, turns, fps);
     struct PlayerInfo* player = get_my_player();
-    targeted_message_add(MsgType_Player, player->id_number, player->id_number, GUI_MESSAGES_DELAY, "%s: %02d:%02d:%02d", get_string(GUIStr_Time), gt.Hours, gt.Minutes, gt.Seconds);
+    targeted_message_add(MsgType_Player, player->id_number, player->id_number, GUI_MESSAGES_DELAY, "%s: %02" PRId64 ":%02" PRId64 ":%02" PRId64, get_string(GUIStr_Time), (int64_t)(gt.Hours), (int64_t)(gt.Minutes), (int64_t)(gt.Seconds));
 }
 
 void show_real_time_taken(void)
 {
     update_time();
     struct PlayerInfo* player = get_my_player();
-    targeted_message_add(MsgType_Player, player->id_number, player->id_number, GUI_MESSAGES_DELAY, "%s: %02d:%02d:%02d:%03d", get_string(GUIStr_Time), kfx_sim_state.Timer.Hours, kfx_sim_state.Timer.Minutes, kfx_sim_state.Timer.Seconds, kfx_sim_state.Timer.MSeconds);
+    targeted_message_add(MsgType_Player, player->id_number, player->id_number, GUI_MESSAGES_DELAY, "%s: %02" PRId64 ":%02" PRId64 ":%02" PRId64 ":%03" PRId64, get_string(GUIStr_Time), (int64_t)(kfx_sim_state.Timer.Hours), (int64_t)(kfx_sim_state.Timer.Minutes), (int64_t)(kfx_sim_state.Timer.Seconds), (int64_t)(kfx_sim_state.Timer.MSeconds));
 }
 /******************************************************************************/

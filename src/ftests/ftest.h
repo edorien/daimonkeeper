@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-#define FTESTLOG(format, ...) LbFTestLog("[%d] %s: " format "\n", get_gameturn(), __func__ , ##__VA_ARGS__)
+#define FTESTLOG(format, ...) LbFTestLog("[%" PRId64 "] %s: " format "\n", get_gameturn(), __func__ , ##__VA_ARGS__)
 
 #define FTEST_FAIL_TEST(format, ...) { \
     set_flag(start_params.functest_flags, FTF_TestFailed); \
@@ -59,8 +59,8 @@ struct FTestActionArgs
 {
     GameTurn intended_start_at_game_turn;
     GameTurn actual_started_at_game_turn;
-    unsigned long action_index;
-    unsigned long times_executed;
+    uint64_t action_index;
+    uint64_t times_executed;
     void* data;
 };
 
@@ -129,20 +129,20 @@ struct FTestConfig {
      * @brief Override frameskip for your test (optional)
      * 
      */
-    int frame_skip;
+    int64_t frame_skip;
 
     /**
      * @brief Override seed for your test (optional)
      * This is generally not needed unless you want to fudge the seed value for a specific test.
      * (0): default behaviour, overrides seed each game turn with the current GameTurn. (non 0): overrides seed each game turn to that value. NOTE: Even cheats like spawning random creatures will always return the same type of creature for that seed.
      */
-    unsigned int seed;
+    uint64_t seed;
 
     /**
      * @brief Repeat the test N times (optional)
      * 
      */
-    unsigned short repeat_n_times;
+    int64_t repeat_n_times;
 };
 
 struct ftest_onlyappendtests__config
@@ -157,15 +157,15 @@ struct ftest_donottouch__variables
     FTestFrameworkState current_state;
     FTestFrameworkState previous_state;
 
-    unsigned long total_tests;
-    unsigned long current_test;
-    unsigned long previous_test;
+    uint64_t total_tests;
+    uint64_t current_test;
+    uint64_t previous_test;
     struct FTestConfig* tests_to_run[FTEST_MAX_TESTS];
     struct FTestConfig* pending_init;
 
-    unsigned long total_actions;
-    unsigned long current_action;
-    unsigned long previous_action;
+    uint64_t total_actions;
+    uint64_t current_action;
+    uint64_t previous_action;
     TbBool is_restarting_actions_queue;
 
     GameTurn current_turn_counter;

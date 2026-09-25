@@ -38,14 +38,14 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-short at_guard_post_room(struct Thing *thing)
+int64_t at_guard_post_room(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_GUARD), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",room_code_name(room->kind),(int)room->owner,thing_model_name(thing),(int)thing->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing),(int64_t)thing->index);
         set_start_state(thing);
         return 0;
     }

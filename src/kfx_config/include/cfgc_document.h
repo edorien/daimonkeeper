@@ -18,6 +18,7 @@
 #ifndef DK_CFGC_DOCUMENT_H
 #define DK_CFGC_DOCUMENT_H
 
+#include <cstdint>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -49,9 +50,9 @@ struct CfgLine
 struct CfgSection
 {
     std::string name;
-    long header_line = -1;
-    long first_line = 0; // first line after the header
-    long end_line = 0;   // one past the last line of the block
+    int64_t header_line = -1;
+    int64_t first_line = 0; // first line after the header
+    int64_t end_line = 0;   // one past the last line of the block
 };
 
 class ConfigDocument
@@ -68,10 +69,10 @@ public:
 
     // Index of the first block called `name` (case-sensitive, like the
     // loader's block matching), or -1.
-    long find_section(const std::string &name) const;
+    int64_t find_section(const std::string &name) const;
 
     // Line indices of the keys in a block, in file order.
-    std::vector<long> key_lines(long section_index) const;
+    std::vector<int64_t> key_lines(int64_t section_index) const;
 
     // Predominant line ending ("\r\n" or "\n"); "\n" for an empty document.
     std::string dominant_eol() const;

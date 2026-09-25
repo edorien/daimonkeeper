@@ -78,42 +78,42 @@ enum SaveGameChunkFlags {
 struct Game;
 
 struct FileChunkHeader {
-    unsigned long len;
-    unsigned long id;
-    unsigned long ver;
+    uint64_t len;
+    uint64_t id;
+    uint64_t ver;
 };
 
 /******************************************************************************/
-extern int number_of_saved_games;
+extern int64_t number_of_saved_games;
 extern const char* continue_game_filename;
 
 #pragma pack()
 /******************************************************************************/
-extern const short VersionMajor;
-extern const short VersionMinor;
-extern short const VersionRelease;
-extern short const VersionBuild;
+extern const int64_t VersionMajor;
+extern const int64_t VersionMinor;
+extern int64_t const VersionRelease;
+extern int64_t const VersionBuild;
 extern struct CatalogueEntry *save_game_catalogue;
-extern long save_game_catalogue_count;
+extern int64_t save_game_catalogue_count;
 /******************************************************************************/
-int load_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);
+int64_t load_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);
 TbBool fill_game_catalogue_entry(struct CatalogueEntry *centry,const char *textname);
 TbBool save_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);
 TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);
 /******************************************************************************/
-TbBool load_game(long slot_idx);
-TbBool save_game(long slot_idx);
+TbBool load_game(int64_t slot_idx);
+TbBool save_game(int64_t slot_idx);
 TbBool initialise_load_game_slots(void);
-int count_valid_saved_games(void);
-TbBool is_save_game_loadable(long slot_num);
+int64_t count_valid_saved_games(void);
+TbBool is_save_game_loadable(int64_t slot_num);
 /******************************************************************************/
-TbBool save_catalogue_slot_disable(unsigned int slot_idx);
+TbBool save_catalogue_slot_disable(uint64_t slot_idx);
 TbBool load_game_save_catalogue(void);
-TbBool fill_game_catalogue_slot(long slot_num,const char *textname);
+TbBool fill_game_catalogue_slot(int64_t slot_num,const char *textname);
 /******************************************************************************/
 TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, char *name);
 void clear_transfered_creatures(void);
-TbBool get_transferred_creature(PlayerNumber plyr_idx, int idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size);
+TbBool get_transferred_creature(PlayerNumber plyr_idx, int64_t idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size);
 /******************************************************************************/
 LevelNumber move_campaign_to_next_level(void);
 LevelNumber move_campaign_to_prev_level(void);
@@ -121,7 +121,7 @@ LevelNumber move_campaign_to_prev_level(void);
 TbBool continue_game_available(void);
 // Exposed for game_campaign_progress.c's reconcile_fx1contn_into_progress()
 // -- see that function's own comment.
-short read_continue_game_progress(char *cmpgn_fname, LevelNumber *lvnum, struct IntralevelData *intralevel);
+int64_t read_continue_game_progress(char *cmpgn_fname, LevelNumber *lvnum, struct IntralevelData *intralevel);
 /******************************************************************************/
 #ifdef __cplusplus
 }

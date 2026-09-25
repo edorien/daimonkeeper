@@ -35,7 +35,7 @@ ModifyDataLoadFnameFunc *modify_data_load_filename_function = defaultModifyDataL
 
 /******************************************************************************/
 
-short LbDataFree(struct TbLoadFiles *load_file)
+int64_t LbDataFree(struct TbLoadFiles *load_file)
 {
   if (load_file == NULL)
     return 0;
@@ -87,7 +87,7 @@ void LbDataFreeAllV2(struct TbLoadFilesV2 load_files[])
     }
 }
 
-int LbDataLoad(struct TbLoadFiles *load_file, LoadFilesGetSizeFunc get_size_fn, LoadFilesUnpackFunc unpack_fn)
+int64_t LbDataLoad(struct TbLoadFiles *load_file, LoadFilesGetSizeFunc get_size_fn, LoadFilesUnpackFunc unpack_fn)
 {
   LbDataFree(load_file);
   const char *fname = modify_data_load_filename_function(load_file->FName);
@@ -104,11 +104,11 @@ int LbDataLoad(struct TbLoadFiles *load_file, LoadFilesGetSizeFunc get_size_fn, 
         return -100;
   } else
   {
-    long slength = LbFileLengthRnc(fname);
+    int64_t slength = LbFileLengthRnc(fname);
 #ifdef __DEBUG
-    LbJustLog("LbDataLoad: filelength %ld for file \"%s\"\n",slength,fname);
+    LbJustLog("LbDataLoad: filelength %" PRId64 " for file \"%s\"\n",(int64_t)(slength),fname);
 #endif
-    load_file->SLength = (get_size_fn) ? (long) get_size_fn(slength): slength;
+    load_file->SLength = (get_size_fn) ? (int64_t) get_size_fn(slength): slength;
     if (slength <= 0)
         return -101;
     if (!is_static)
@@ -139,15 +139,15 @@ int LbDataLoad(struct TbLoadFiles *load_file, LoadFilesGetSizeFunc get_size_fn, 
  * * - prefix means no file to open
  * @return Returns amount of entries failed, or 0 on success.
  */
-int LbDataLoadAll(struct TbLoadFiles load_files[])
+int64_t LbDataLoadAll(struct TbLoadFiles load_files[])
 {
   LbDataFreeAll(load_files);
-  int ferror = 0;
-  int i = 0;
+  int64_t ferror = 0;
+  int64_t i = 0;
   struct TbLoadFiles* t_lfile = &load_files[i];
   while (t_lfile->Start != NULL)
   {
-        int ret_val = LbDataLoad(t_lfile, NULL, NULL);
+        int64_t ret_val = LbDataLoad(t_lfile, NULL, NULL);
         if (ret_val == -100)
         {
           ERRORLOG("Can't allocate memory for \"%s\"", t_lfile->FName);
@@ -164,17 +164,17 @@ int LbDataLoadAll(struct TbLoadFiles load_files[])
   return ferror;
 }
 
-int LbDataLoadAllV2(struct TbLoadFilesV2 load_files[])
+int64_t LbDataLoadAllV2(struct TbLoadFilesV2 load_files[])
 {
     LbDataFreeAllV2(load_files);
-    int ferror = 0;
+    int64_t ferror = 0;
     struct TbLoadFilesV2* t_lfile = &load_files[0];
     while (t_lfile->Start != NULL)
     {
         struct TbLoadFiles tmp = {.Start = t_lfile->Start, .SLength = t_lfile->SLength, 0};
         strncpy(tmp.FName, t_lfile->FName, sizeof(tmp.FName) - 1);
 
-        int ret_val = LbDataLoad(&tmp, t_lfile->GetSizeFunc, t_lfile->UnpackFunc);
+        int64_t ret_val = LbDataLoad(&tmp, t_lfile->GetSizeFunc, t_lfile->UnpackFunc);
         if (ret_val == -100)
         {
             ERRORLOG("Can't allocate memory for \"%s\"", t_lfile->FName);

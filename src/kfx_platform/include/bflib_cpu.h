@@ -130,8 +130,8 @@ enum {
 /******************************************************************************/
 
 struct CPU_INFO {
-  long feature_intl;
-  long feature_edx;
+  int64_t feature_intl;
+  int64_t feature_edx;
   TbBool timeStampCounter;
   char vendor[17];
   TbBool BrandString;

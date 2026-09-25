@@ -185,8 +185,8 @@ char* get_next_token(char *data, struct CommandToken *token)
 static struct CommandDesc const *find_command_desc(const struct CommandToken *token, const struct CommandDesc *cmdlist_desc)
 {
     const struct CommandDesc* cmnd_desc = NULL;
-    int token_len = token->end - token->start;
-    for (int i = 0; cmdlist_desc[i].textptr != NULL; i++)
+    int64_t token_len = token->end - token->start;
+    for (int64_t i = 0; cmdlist_desc[i].textptr != NULL; i++)
     {
         if ((cmdlist_desc[i].textptr[token_len] == 0) && (strncmp(cmdlist_desc[i].textptr, token->start, token_len) == 0))
         {
@@ -201,7 +201,7 @@ static struct CommandDesc const *find_command_desc(const struct CommandToken *to
  * Returns if the command is 'preloaded'. Preloaded commands are initialized
  * before the whole level data is loaded.
  */
-TbBool script_is_preloaded_command(long cmnd_index)
+TbBool script_is_preloaded_command(int64_t cmnd_index)
 {
     switch (cmnd_index)
     {
@@ -218,7 +218,7 @@ TbBool script_is_preloaded_command(long cmnd_index)
 }
 
 #define get_players_range(plr_range_id, plr_start, plr_end) get_players_range_f(plr_range_id, plr_start, plr_end, __func__, text_line_number)
-long get_players_range_f(long plr_range_id, int *plr_start, int *plr_end, const char *func_name, long ln_num)
+int64_t get_players_range_f(int64_t plr_range_id, int64_t *plr_start, int64_t *plr_end, const char *func_name, int64_t ln_num)
 {
     *plr_start = 0;
     *plr_end = 0;
@@ -241,22 +241,17 @@ long get_players_range_f(long plr_range_id, int *plr_start, int *plr_end, const 
     return -2;
 }
 
-long script_strtol(const char *text, char **endptr, int base)
+int64_t script_strtol(const char *text, char **endptr, int64_t base)
 {
-    long long value = strtoll(text, endptr, base);
-    if (value > INT32_MAX)
-        return INT32_MAX;
-    if (value < INT32_MIN)
-        return INT32_MIN;
-    return (long)value;
+    return LbStrToI32(text, endptr, base);
 }
 
-long script_atol(const char *text)
+int64_t script_atol(const char *text)
 {
-    return script_strtol(text, NULL, 10);
+    return LbAtoI32(text);
 }
 
-static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *scline, int idx, TbBool extended)
+static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *scline, int64_t idx, TbBool extended)
 {
     switch (toupper(type_chr))
     {
@@ -269,14 +264,14 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
             {
                 if (text != &scline->tp[idx][strlen(scline->tp[idx])])
                 {
-                    SCRPTWRNLOG("Numerical value \"%s\" interpreted as %ld", scline->tp[idx], scline->np[idx]);
+                    SCRPTWRNLOG("Numerical value \"%s\" interpreted as %" PRId64, scline->tp[idx], (int64_t)(scline->np[idx]));
                 }
             }
             break;
         }
         case 'P': //Player
         {
-            int32_t plr_range_id;
+            int64_t plr_range_id;
             if (!get_player_id(scline->tp[idx], &plr_range_id))
             {
                 return false;
@@ -286,7 +281,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
         }
         case 'C': //Creature
         {
-            long crtr_id = get_rid(creature_desc, scline->tp[idx]);
+            int64_t crtr_id = get_rid(creature_desc, scline->tp[idx]);
             if (extended)
             {
                 if (crtr_id == -1)
@@ -307,7 +302,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
         }
         case 'R': //Room
         {
-            long room_id = get_rid(room_desc, scline->tp[idx]);
+            int64_t room_id = get_rid(room_desc, scline->tp[idx]);
             if (room_id == -1)
             {
                 SCRPTERRLOG("Unknown room kind, \"%s\"", scline->tp[idx]);
@@ -318,7 +313,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
         }
         case 'S': //Slab
         {
-            long slab_id = get_rid(slab_desc, scline->tp[idx]);
+            int64_t slab_id = get_rid(slab_desc, scline->tp[idx]);
             if (slab_id == -1)
             {
                 SCRPTERRLOG("Unknown slab kind, \"%s\"", scline->tp[idx]);
@@ -338,7 +333,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
         }
         case 'O': //Operator
         {
-            long opertr_id = get_rid(comparison_desc, scline->tp[idx]);
+            int64_t opertr_id = get_rid(comparison_desc, scline->tp[idx]);
             if (opertr_id == -1) {
                 SCRPTERRLOG("Unknown operator, \"%s\"", scline->tp[idx]);
                 return false;
@@ -379,7 +374,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
     return true;
 }
 
-static TbBool is_condition_met(unsigned short cond_idx)
+static TbBool is_condition_met(int64_t cond_idx)
 {
     if (cond_idx >= CONDITIONS_COUNT)
     {
@@ -388,16 +383,16 @@ static TbBool is_condition_met(unsigned short cond_idx)
       else
           return false;
     }
-    unsigned long i = kfx_game_state.script.conditions[cond_idx].status;
+    uint64_t i = kfx_game_state.script.conditions[cond_idx].status;
     return ((i & 0x01) != 0);
 }
 
-TbBool script_command_param_to_text(char type_chr, struct ScriptLine *scline, int idx)
+TbBool script_command_param_to_text(char type_chr, struct ScriptLine *scline, int64_t idx)
 {
     switch (toupper(type_chr))
     {
     case 'N':
-        snprintf(scline->tp[idx], MAX_TEXT_LENGTH, "%ld", scline->np[idx]);
+        snprintf(scline->tp[idx], MAX_TEXT_LENGTH, "%" PRId64, (int64_t)(scline->np[idx]));
         break;
     case 'P':
         strcpy(scline->tp[idx], player_code_name(scline->np[idx]));
@@ -424,10 +419,10 @@ TbBool script_command_param_to_text(char type_chr, struct ScriptLine *scline, in
     return true;
 }
 
-static int count_required_parameters(const char *args)
+static int64_t count_required_parameters(const char *args)
 {
-    int required = 0;
-    for (int i = 0; i < COMMANDDESC_ARGS_COUNT; i++)
+    int64_t required = 0;
+    for (int64_t i = 0; i < COMMANDDESC_ARGS_COUNT; i++)
     {
         char chr = args[i];
         if (isupper(chr)) // Required arguments have upper-case type letters
@@ -444,9 +439,9 @@ static int count_required_parameters(const char *args)
     return required;
 }
 
-static int script_recognize_params(char **line, const struct CommandDesc *cmd_desc, struct ScriptLine *scline, int *para_level, int expect_level, long file_version);
+static int64_t script_recognize_params(char **line, const struct CommandDesc *cmd_desc, struct ScriptLine *scline, int64_t *para_level, int64_t expect_level, int64_t file_version);
 
-static TbBool process_subfunc(char **line, struct ScriptLine *scline, const struct CommandDesc *cmd_desc, const struct CommandDesc *funcmd_desc, int *para_level, int src, int dst, long file_version)
+static TbBool process_subfunc(char **line, struct ScriptLine *scline, const struct CommandDesc *cmd_desc, const struct CommandDesc *funcmd_desc, int64_t *para_level, int64_t src, int64_t dst, int64_t file_version)
 {
     struct CommandToken token;
     struct ScriptLine* funscline = (struct ScriptLine*)calloc(1, sizeof(struct ScriptLine));
@@ -464,7 +459,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
         return false;
     }
     *line = nxt;
-    int args_count = script_recognize_params(line, funcmd_desc, funscline, para_level, *para_level, file_version);
+    int64_t args_count = script_recognize_params(line, funcmd_desc, funscline, para_level, *para_level, file_version);
     if (args_count < 0)
     {
         free(funscline);
@@ -473,10 +468,10 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
     // Count valid args
     if (args_count < COMMANDDESC_ARGS_COUNT)
     {
-        int required = count_required_parameters(funcmd_desc->args);
+        int64_t required = count_required_parameters(funcmd_desc->args);
         if (args_count < required)
         {
-            SCRPTERRLOG("Not enough parameters for \"%s\", got only %d", funcmd_desc->textptr,(int)args_count);
+            SCRPTERRLOG("Not enough parameters for \"%s\", got only %" PRId64, funcmd_desc->textptr,(int64_t)args_count);
             free(funscline);
             return false;
         }
@@ -486,14 +481,14 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
         case Cmd_RANDOM:
         case Cmd_DRAWFROM:{
             // Create array of value ranges
-            long range_total = 0;
-            int fi;
+            int64_t range_total = 0;
+            int64_t fi;
             struct MinMax ranges[COMMANDDESC_ARGS_COUNT];
             TbBool is_if_statement = ((scline->command == Cmd_IF) || (scline->command == Cmd_IF_AVAILABLE) || (scline->command == Cmd_IF_CONTROLS));
             if (level_file_version > 0)
             {
                 char chr = cmd_desc->args[src];
-                int ri;
+                int64_t ri;
                 for (fi = 0, ri = 0; fi < COMMANDDESC_ARGS_COUNT; fi++, ri++)
                 {
                     if (funscline->tp[fi][0] == '\0') {
@@ -503,7 +498,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                     {
                         // Values which do not support range
                         if (strcmp(funscline->tp[fi],"~") == 0) {
-                            SCRPTERRLOG("Parameter %d of function \"%s\" within command \"%s\" does not support range", fi+1, funcmd_desc->textptr, scline->tcmnd);
+                            SCRPTERRLOG("Parameter %" PRId64 " of function \"%s\" within command \"%s\" does not support range", (int64_t)(fi+1), funcmd_desc->textptr, scline->tcmnd);
                             free(funscline);
                             return false;
                         }
@@ -522,7 +517,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                             funscline->np[fi] = script_atol(funscline->tp[fi]);
                         }
                         if (!script_command_param_to_number(chr, funscline, fi, false)) {
-                            SCRPTERRLOG("Parameter %d of function \"%s\" within command \"%s\" has unexpected range end value; discarding command", fi+1, funcmd_desc->textptr, scline->tcmnd);
+                            SCRPTERRLOG("Parameter %" PRId64 " of function \"%s\" within command \"%s\" has unexpected range end value; discarding command", (int64_t)(fi+1), funcmd_desc->textptr, scline->tcmnd);
                             free(funscline);
                             return false;
                         }
@@ -536,7 +531,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                     {
                         // Single value or first step of defining range
                         if (!script_command_param_to_number(chr, funscline, fi, false)) {
-                            SCRPTERRLOG("Parameter %d of function \"%s\" within command \"%s\" has unexpected value; discarding command", fi+1, funcmd_desc->textptr, scline->tcmnd);
+                            SCRPTERRLOG("Parameter %" PRId64 " of function \"%s\" within command \"%s\" has unexpected value; discarding command", (int64_t)(fi+1), funcmd_desc->textptr, scline->tcmnd);
                             free(funscline);
                             return false;
                         }
@@ -580,7 +575,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                 break;
             }
             // DRAWFROM support - select random index now
-            long range_index = GAME_RANDOM(range_total);
+            int64_t range_index = GAME_RANDOM(range_total);
             // Get value from ranges array
             range_total = 0;
             for (fi=0; fi < COMMANDDESC_ARGS_COUNT; fi++)
@@ -592,7 +587,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                         if (is_if_statement)
                         {
                             scline->np[dst] = ranges[fi].min + range_index - range_total;
-                            snprintf(scline->tp[dst], sizeof(scline->tp[dst]), "%ld", scline->np[dst]);
+                            snprintf(scline->tp[dst], sizeof(scline->tp[dst]), "%" PRId64, (int64_t)(scline->np[dst]));
                         }
                         else
                         {
@@ -611,23 +606,23 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
         };break;
         case Cmd_IMPORT:
         {
-            long player_id = get_id(player_desc, funscline->tp[0]);
+            int64_t player_id = get_id(player_desc, funscline->tp[0]);
             if (player_id >= PLAYERS_FOR_CAMPAIGN_FLAGS)
             {
                 SCRPTERRLOG("Cannot fetch flag values for player, '%s'", funscline->tp[0]);
                 strcpy(scline->tp[dst], "0");
                 break;
             }
-            long flag_id = get_id(campaign_flag_desc, funscline->tp[1]);
+            int64_t flag_id = get_id(campaign_flag_desc, funscline->tp[1]);
             if (flag_id == -1)
             {
                 SCRPTERRLOG("Unknown campaign flag name, '%s'", funscline->tp[1]);
                 strcpy(scline->tp[dst], "0");
                 break;
             }
-            SCRPTLOG("Function \"%s\" returned value \"%ld\"", funcmd_desc->textptr,
-                     intralvl.campaign_flags[player_id][flag_id]);
-            snprintf(scline->tp[dst], MAX_TEXT_LENGTH, "%ld", intralvl.campaign_flags[player_id][flag_id]);
+            SCRPTLOG("Function \"%s\" returned value \"%" PRId64 "\"", funcmd_desc->textptr,
+                     (int64_t)(intralvl.campaign_flags[player_id][flag_id]));
+            snprintf(scline->tp[dst], MAX_TEXT_LENGTH, "%" PRId64, (int64_t)(intralvl.campaign_flags[player_id][flag_id]));
             break;
         }
         default:
@@ -638,9 +633,9 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
     return true;
 }
 
-static int script_recognize_params(char **line, const struct CommandDesc *cmd_desc, struct ScriptLine *scline, int *para_level, int expect_level, long file_version)
+static int64_t script_recognize_params(char **line, const struct CommandDesc *cmd_desc, struct ScriptLine *scline, int64_t *para_level, int64_t expect_level, int64_t file_version)
 {
-    int dst, src;
+    int64_t dst, src;
     TbBool reparse = false;
     struct CommandToken token = { 0 };
     for (dst = 0, src = 0; dst <= COMMANDDESC_ARGS_COUNT; dst++, src++)
@@ -693,7 +688,7 @@ static int script_recognize_params(char **line, const struct CommandDesc *cmd_de
 
             if (funcmd_desc != NULL)
             {
-                int r = process_subfunc(line, scline, cmd_desc, funcmd_desc, para_level, src, dst, file_version);
+                int64_t r = process_subfunc(line, scline, cmd_desc, funcmd_desc, para_level, src, dst, file_version);
                 if (r == -1)
                     return -1;
             }
@@ -708,7 +703,7 @@ static int script_recognize_params(char **line, const struct CommandDesc *cmd_de
             {
                 if ((cmd_desc->args[src + 1] != 'O') || (token.type != TkOperator))
                 {
-                    SCRPTERRLOG("Unexpected token after parameter %d of command \"%s\", discarding command", dst + 1,
+                    SCRPTERRLOG("Unexpected token after parameter %" PRId64 " of command \"%s\", discarding command", (int64_t)(dst + 1),
                                 scline->tcmnd);
                     return -1;
                 }
@@ -732,14 +727,14 @@ static int script_recognize_params(char **line, const struct CommandDesc *cmd_de
             extended = true;
         }
         if (!script_command_param_to_number(chr, scline, dst, extended)) {
-            SCRPTERRLOG("Parameter %d of command \"%s\", type %c, has unexpected value; discarding command", dst + 1, scline->tcmnd, chr);
+            SCRPTERRLOG("Parameter %" PRId64 " of command \"%s\", type %c, has unexpected value; discarding command", (int64_t)(dst + 1), scline->tcmnd, (int)(chr));
             return -1;
         }
     }
     return dst;
 }
 
-TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
+TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
 {
     const struct CommandDesc *cmd_desc;
     const char *line_start = line;
@@ -751,7 +746,7 @@ TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
       SCRPTERRLOG("Can't allocate buffer to recognize line");
       return false;
     }
-    int para_level = 0;
+    int64_t para_level = 0;
     memset(scline, 0, sizeof(struct ScriptLine));
     if (next_command_reusable > 0)
         next_command_reusable--;
@@ -779,12 +774,12 @@ TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
     if (cmd_desc == NULL)
     {
         if (isalnum(scline->tcmnd[0])) {
-          SCRPTERRLOG("Invalid command, '%s' (lev ver %ld)", scline->tcmnd, file_version);
+          SCRPTERRLOG("Invalid command, '%s' (lev ver %" PRId64 ")", scline->tcmnd, (int64_t)(file_version));
         }
         free(scline);
         return false;
     }
-    SCRIPTDBG(12,"Executing command %u",cmd_desc->index);
+    SCRIPTDBG(12,"Executing command %" PRIu64,(uint64_t)(cmd_desc->index));
     // Handling comments
     if (cmd_desc->index == Cmd_REM)
     {
@@ -799,7 +794,7 @@ TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
         free(scline);
         return true;
     }
-    int args_count;
+    int64_t args_count;
     if (token.type == TkEnd)
     {
         args_count = 0;
@@ -811,7 +806,7 @@ TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
         if (args_count < 0)
         {
             SCRPTERRLOG("Syntax error at \"%s\"", line_start);
-            SCRPTERRLOG("   near - -      %*c", (int) (line - line_start), '^');
+            SCRPTERRLOG("   near - -      %*c", (int)((int64_t) (line - line_start)), (int)('^'));
             free(scline);
             return false;
         }
@@ -819,16 +814,16 @@ TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
     else
     {
         SCRPTERRLOG("Syntax error: ( expected at \"%s\"", line_start);
-        SCRPTERRLOG("   near - - - - - - -        %*c", (int) (line - line_start), '^');
+        SCRPTERRLOG("   near - - - - - - -        %*c", (int)((int64_t) (line - line_start)), (int)('^'));
         free(scline);
         return false;
     }
     if (args_count < COMMANDDESC_ARGS_COUNT)
     {
-        int required = count_required_parameters(cmd_desc->args);
+        int64_t required = count_required_parameters(cmd_desc->args);
         if (args_count < required) // Required arguments have upper-case type letters
         {
-            SCRPTERRLOG("Not enough parameters for \"%s\", got only %d", cmd_desc->textptr,(int)args_count);
+            SCRPTERRLOG("Not enough parameters for \"%s\", got only %" PRId64, cmd_desc->textptr,(int64_t)args_count);
             free(scline);
             return false;
         }
@@ -847,7 +842,7 @@ TbBool script_scan_line(char *line, TbBool preloaded, long file_version)
     return true;
 }
 
-short clear_script(void)
+int64_t clear_script(void)
 {
     memset(&kfx_game_state.script, 0, sizeof(struct LevelScript));
     set_script_current_condition(CONDITION_ALWAYS);
@@ -855,9 +850,9 @@ short clear_script(void)
     return true;
 }
 
-short clear_quick_messages(void)
+int64_t clear_quick_messages(void)
 {
-    for (long i = 0; i < QUICK_MESSAGES_COUNT; i++)
+    for (int64_t i = 0; i < QUICK_MESSAGES_COUNT; i++)
         memset(kfx_sim_state.quick_messages[i], 0, MESSAGE_TEXT_LEN);
     return true;
 }
@@ -894,7 +889,7 @@ static char* process_multiline_comment(char *buf, char *buffer_end_pointer)
  * level_script_override.h), else map%05u.txt from disk. Either way the result
  * is a writable, zero-padded buffer the caller free()s; *len is its length.
  */
-static char* load_level_script_text(long lvnum, int32_t *len)
+static char* load_level_script_text(int64_t lvnum, int64_t *len)
 {
     if (level_script_override_matches(lvnum))
     {
@@ -904,7 +899,7 @@ static char* load_level_script_text(long lvnum, int32_t *len)
         if (buf != NULL)
         {
             memcpy(buf, masked, n);
-            *len = (int32_t)n;
+            *len = (int64_t)n;
             return buf;
         }
         // Out of memory: fall through to the shipped script rather than fail the level.
@@ -920,7 +915,7 @@ static char* load_level_script_text(long lvnum, int32_t *len)
  * the file's LEVEL_VERSION line sets) must not be disturbed. Nothing to do
  * when no override is installed for this level.
  */
-static void scan_level_script_prelude(long lvnum, TbBool preloaded)
+static void scan_level_script_prelude(int64_t lvnum, TbBool preloaded)
 {
     if (!level_script_override_matches(lvnum))
         return;
@@ -931,9 +926,9 @@ static void scan_level_script_prelude(long lvnum, TbBool preloaded)
         return;
     memcpy(copy, src, n);
     if (!preloaded)
-        JUSTLOG("Level %ld: running the Skirmish setup override (prelude %ld bytes, file script masked)", lvnum, (long)n);
-    long saved_version = level_file_version;
-    long saved_line = text_line_number;
+        JUSTLOG("Level %" PRId64 ": running the Skirmish setup override (prelude %" PRId64 " bytes, file script masked)", (int64_t)(lvnum), (int64_t)n);
+    int64_t saved_version = level_file_version;
+    int64_t saved_line = text_line_number;
     level_file_version = 1;
     text_line_number = 0; // prelude errors read "line 0..n": distinct from the file's own lines
     char* line = copy;
@@ -953,7 +948,7 @@ static void scan_level_script_prelude(long lvnum, TbBool preloaded)
     free(copy);
 }
 
-static void parse_txt_data(char *script_data, long script_len)
+static void parse_txt_data(char *script_data, int64_t script_len)
 {// Process the file lines
     text_line_number = 1;
     char* buf = script_data;
@@ -963,7 +958,7 @@ static void parse_txt_data(char *script_data, long script_len)
         // Check for long comment
         buf = process_multiline_comment(buf, buffer_end_pointer);
       // Find end of the line
-      int lnlen = 0;
+      int64_t lnlen = 0;
       while (&buf[lnlen] < buffer_end_pointer)
       {
         if ((buf[lnlen] == '\r') || (buf[lnlen] == '\n'))
@@ -988,7 +983,7 @@ static void parse_txt_data(char *script_data, long script_len)
     free(script_data);
 }
 
-TbBool preload_script(long lvnum)
+TbBool preload_script(int64_t lvnum)
 {
   SYNCDBG(7,"Starting");
   set_script_current_condition(CONDITION_ALWAYS);
@@ -998,11 +993,11 @@ TbBool preload_script(long lvnum)
   if (level_script_override_is_set() && !level_script_override_matches(lvnum))
   {
       // Installed for some other level and never consumed: must not leak into this one.
-      WARNLOG("Discarding a stale level script override (was for level %ld, loading %ld)", (long)level_script_override_level(), lvnum);
+      WARNLOG("Discarding a stale level script override (was for level %" PRId64 ", loading %" PRId64 ")", (int64_t)level_script_override_level(), (int64_t)(lvnum));
       level_script_override_clear();
   }
   // Load the file (or the override's masked copy of it)
-  int32_t script_len = 1;
+  int64_t script_len = 1;
   char* script_data = load_level_script_text(lvnum, &script_len);
   if (script_data == NULL)
   {
@@ -1015,7 +1010,7 @@ TbBool preload_script(long lvnum)
   return true;
 }
 
-short load_script(long lvnum)
+int64_t load_script(int64_t lvnum)
 {
     SYNCDBG(7,"Starting");
 
@@ -1032,7 +1027,7 @@ short load_script(long lvnum)
     reset_script_timers_and_flags();
     reset_hand_rules();
     // Load the file (or the override's masked copy of it)
-    int32_t script_len = 1;
+    int64_t script_len = 1;
     char* script_data = load_level_script_text(lvnum, &script_len);
     if (script_data == NULL)
     {
@@ -1077,12 +1072,12 @@ short load_script(long lvnum)
       WARNMSG("No WIN GAME conditions in script file.");
     if (get_script_current_condition() != CONDITION_ALWAYS)
       WARNMSG("Missing ENDIF's in script file.");
-    JUSTLOG("Used script resources: %d/%d tunneller triggers, %d/%d party triggers, %d/%d script values, %d/%d IF conditions, %d/%d party definitions",
-        (int)kfx_game_state.script.tunneller_triggers_num,TUNNELLER_TRIGGERS_COUNT,
-        (int)kfx_game_state.script.party_triggers_num,PARTY_TRIGGERS_COUNT,
-        (int)kfx_game_state.script.values_num,SCRIPT_VALUES_COUNT,
-        (int)kfx_game_state.script.conditions_num,CONDITIONS_COUNT,
-        (int)kfx_game_state.script.creature_partys_num,CREATURE_PARTYS_COUNT);
+    JUSTLOG("Used script resources: %" PRId64 "/%" PRId64 " tunneller triggers, %" PRId64 "/%" PRId64 " party triggers, %" PRId64 "/%" PRId64 " script values, %" PRId64 "/%" PRId64 " IF conditions, %" PRId64 "/%" PRId64 " party definitions",
+        (int64_t)kfx_game_state.script.tunneller_triggers_num,(int64_t)(TUNNELLER_TRIGGERS_COUNT),
+        (int64_t)kfx_game_state.script.party_triggers_num,(int64_t)(PARTY_TRIGGERS_COUNT),
+        (int64_t)kfx_game_state.script.values_num,(int64_t)(SCRIPT_VALUES_COUNT),
+        (int64_t)kfx_game_state.script.conditions_num,(int64_t)(CONDITIONS_COUNT),
+        (int64_t)kfx_game_state.script.creature_partys_num,(int64_t)(CREATURE_PARTYS_COUNT));
     return true;
 }
 
@@ -1095,7 +1090,7 @@ static void add_to_party_process(struct ScriptContext *context)
 static void process_party(struct PartyTrigger* pr_trig)
 {
     struct ScriptContext context = {0};
-    long n = pr_trig->creatr_id;
+    int64_t n = pr_trig->creatr_id;
 
     context.pr_trig = pr_trig;
 
@@ -1108,16 +1103,16 @@ static void process_party(struct PartyTrigger* pr_trig)
         delete_member_from_party(pr_trig->party_id, pr_trig->creatr_id, pr_trig->exp_level);
         break;
     case TrgF_CREATE_EFFECT_GENERATOR:
-        SYNCDBG(6, "Adding effect generator %u at location %d", pr_trig->exp_level, (int)pr_trig->location);
+        SYNCDBG(6, "Adding effect generator %" PRIu64 " at location %" PRId64, (uint64_t)(pr_trig->exp_level), (int64_t)pr_trig->location);
         script_process_new_effectgen(pr_trig->exp_level, pr_trig->location, pr_trig->carried_gold);
         break;
     case TrgF_CREATE_PARTY:
-        SYNCDBG(6, "Adding player %d party %d at location %d", (int)pr_trig->plyr_idx, (int)n, (int)pr_trig->location);
+        SYNCDBG(6, "Adding player %" PRId64 " party %" PRId64 " at location %" PRId64, (int64_t)pr_trig->plyr_idx, (int64_t)n, (int64_t)pr_trig->location);
         script_process_new_party(&kfx_game_state.script.creature_partys[n],
             pr_trig->plyr_idx, pr_trig->location, pr_trig->ncopies);
         break;
     case TrgF_CREATE_CREATURE:
-        SCRIPTDBG(6, "Adding creature %ld", n);
+        SCRIPTDBG(6, "Adding creature %" PRId64, (int64_t)(n));
         script_process_new_creatures(pr_trig->plyr_idx, n, pr_trig->location, pr_trig->ncopies, pr_trig->carried_gold, pr_trig->exp_level, pr_trig->spawn_type);
         break;
     }
@@ -1125,7 +1120,7 @@ static void process_party(struct PartyTrigger* pr_trig)
 
 void process_check_new_creature_parties(void)
 {
-    for (long i = 0; i < kfx_game_state.script.party_triggers_num; i++)
+    for (int64_t i = 0; i < kfx_game_state.script.party_triggers_num; i++)
     {
         if (i >= PARTY_TRIGGERS_COUNT)
             break;
@@ -1144,18 +1139,18 @@ void process_check_new_creature_parties(void)
 
 void process_check_new_tunneller_parties(void)
 {
-    for (long i = 0; i < kfx_game_state.script.tunneller_triggers_num; i++)
+    for (int64_t i = 0; i < kfx_game_state.script.tunneller_triggers_num; i++)
     {
         struct TunnellerTrigger* tn_trig = &kfx_game_state.script.tunneller_triggers[i];
         if ((tn_trig->flags & TrgF_DISABLED) == 0)
         {
             if (is_condition_met(tn_trig->condit_idx))
             {
-                long k = tn_trig->party_id;
+                int64_t k = tn_trig->party_id;
                 if (k > 0)
                 {
-                    long n = tn_trig->plyr_idx;
-                    SCRIPTDBG(6, "Adding tunneler party %ld", k);
+                    int64_t n = tn_trig->plyr_idx;
+                    SCRIPTDBG(6, "Adding tunneler party %" PRId64, (int64_t)(k));
                     struct Thing* thing = script_process_new_tunneler(n, tn_trig->location, tn_trig->heading,
                         tn_trig->exp_level, tn_trig->carried_gold);
                     if (!thing_is_invalid(thing))
@@ -1173,7 +1168,7 @@ void process_check_new_tunneller_parties(void)
                 }
                 else
                 {
-                    SCRIPTDBG(6, "Adding tunneler, heading %lu", tn_trig->heading);
+                    SCRIPTDBG(6, "Adding tunneler, heading %" PRIu64, (uint64_t)(tn_trig->heading));
                     script_process_new_tunneler(tn_trig->plyr_idx, tn_trig->location, tn_trig->heading,
                         tn_trig->exp_level, tn_trig->carried_gold);
                 }
@@ -1186,14 +1181,14 @@ void process_check_new_tunneller_parties(void)
 
 void process_win_and_lose_conditions(PlayerNumber plyr_idx)
 {
-    long i;
-    long k;
+    int64_t i;
+    int64_t k;
     struct PlayerInfo* player = get_player(plyr_idx);
     for (i=0; i < kfx_game_state.script.win_conditions_num; i++)
     {
         k = kfx_game_state.script.win_conditions[i];
         if (is_condition_met(k)) {
-            SYNCDBG(8,"Win condition %d (cond. %d) met for player %d.",(int)i,(int)k,(int)plyr_idx);
+            SYNCDBG(8,"Win condition %" PRId64 " (cond. %" PRId64 ") met for player %" PRId64 ".",(int64_t)i,(int64_t)k,(int64_t)plyr_idx);
             set_player_as_won_level(player);
         }
     }
@@ -1202,7 +1197,7 @@ void process_win_and_lose_conditions(PlayerNumber plyr_idx)
         k = kfx_game_state.script.lose_conditions[i];
         if (is_condition_met(k))
         {
-            SYNCDBG(8,"Lose condition %d (cond. %d) met for player %d.",(int)i,(int)k,(int)plyr_idx);
+            SYNCDBG(8,"Lose condition %" PRId64 " (cond. %" PRId64 ") met for player %" PRId64 ".",(int64_t)i,(int64_t)k,(int64_t)plyr_idx);
             set_player_as_lost_level(player);
             setup_all_player_creatures_and_diggers_leave_or_die(plyr_idx);
         }
@@ -1212,7 +1207,7 @@ void process_win_and_lose_conditions(PlayerNumber plyr_idx)
 
 void process_values(void)
 {
-    for (long i = 0; i < kfx_game_state.script.values_num; i++)
+    for (int64_t i = 0; i < kfx_game_state.script.values_num; i++)
     {
         struct ScriptValue* value = &kfx_game_state.script.values[i];
         if ((value->flags & TrgF_DISABLED) == 0)
@@ -1251,7 +1246,7 @@ void process_level_script(void)
       process_check_new_tunneller_parties();
       process_values();
       process_win_and_lose_conditions(my_player_number); //player->id_number may be uninitialized yet
-    //  show_onscreen_msg(8, "Flags %d %d %d %d %d %d", kfx_sim_state.dungeon[0].script_flags[0],kfx_sim_state.dungeon[0].script_flags[1],
+    //  show_onscreen_msg(8, "Flags %d %d %d %d %d %d", (int64_t)(kfx_sim_state.dungeon[0].script_flags[0]),(int64_t)(kfx_sim_state.dungeon[0].script_flags[1]),
     //    kfx_sim_state.dungeon[0].script_flags[2],kfx_sim_state.dungeon[0].script_flags[3],kfx_sim_state.dungeon[0].script_flags[4],kfx_sim_state.dungeon[0].script_flags[5]);
   }
   SYNCDBG(19,"Finished");
@@ -1261,9 +1256,9 @@ void process_level_script(void)
 // stage-13-enforce-and-document.md) -- level-script party-definition CRUD,
 // not simulation logic; every caller was already kfx_game/kfx_script.
 
-int get_party_index_of_name(const char *prtname)
+int64_t get_party_index_of_name(const char *prtname)
 {
-    for (int i = 0; i < kfx_game_state.script.creature_partys_num; i++)
+    for (int64_t i = 0; i < kfx_game_state.script.creature_partys_num; i++)
     {
         struct Party* party = &kfx_game_state.script.creature_partys[i];
         if (strcasecmp(party->prtname, prtname) == 0)
@@ -1286,18 +1281,18 @@ TbBool create_party(const char *prtname)
     return true;
 }
 
-TbBool add_member_to_party(int party_id, long crtr_model, CrtrExpLevel exp_level, long carried_gold, long objctv_id, long countdown, PlayerNumber target)
+TbBool add_member_to_party(int64_t party_id, int64_t crtr_model, CrtrExpLevel exp_level, int64_t carried_gold, int64_t objctv_id, int64_t countdown, PlayerNumber target)
 {
     if ((party_id < 0) && (party_id >= CREATURE_PARTYS_COUNT))
     {
-        ERRORLOG("Party:%d is not defined", party_id);
+        ERRORLOG("Party:%" PRId64 " is not defined", (int64_t)(party_id));
         return false;
     }
     struct Party* party = &kfx_game_state.script.creature_partys[party_id];
     if (party->members_num >= GROUP_MEMBERS_COUNT)
     {
-      ERRORLOG("Too many creatures in party '%s' (limit is %d members)",
-          party->prtname, GROUP_MEMBERS_COUNT);
+      ERRORLOG("Too many creatures in party '%s' (limit is %" PRId64 " members)",
+          party->prtname, (int64_t)(GROUP_MEMBERS_COUNT));
       return false;
     }
     struct PartyMember* member = &(party->members[party->members_num]);
@@ -1313,16 +1308,16 @@ TbBool add_member_to_party(int party_id, long crtr_model, CrtrExpLevel exp_level
     return true;
 }
 
-TbBool delete_member_from_party(int party_id, long crtr_model, CrtrExpLevel exp_level)
+TbBool delete_member_from_party(int64_t party_id, int64_t crtr_model, CrtrExpLevel exp_level)
 {
     if ((party_id < 0) && (party_id >= CREATURE_PARTYS_COUNT))
     {
-        ERRORLOG("Party:%d is not defined", party_id);
+        ERRORLOG("Party:%" PRId64 " is not defined", (int64_t)(party_id));
         return false;
     }
     struct Party* party = &kfx_game_state.script.creature_partys[party_id];
 
-    for (int i = 0; i < party->members_num; i++)
+    for (int64_t i = 0; i < party->members_num; i++)
     {
         struct PartyMember* member = &(party->members[i]);
         if ((member->crtr_kind == crtr_model) && (member->exp_level == (exp_level-1)))
@@ -1335,7 +1330,7 @@ TbBool delete_member_from_party(int party_id, long crtr_model, CrtrExpLevel exp_
     return false;
 }
 
-struct Thing* script_process_new_tunneller_party(PlayerNumber plyr_idx, long prty_id, TbMapLocation location, TbMapLocation heading, CrtrExpLevel exp_level, unsigned long carried_gold)
+struct Thing* script_process_new_tunneller_party(PlayerNumber plyr_idx, int64_t prty_id, TbMapLocation location, TbMapLocation heading, CrtrExpLevel exp_level, uint64_t carried_gold)
 {
     struct Thing* ldthing = script_process_new_tunneler(plyr_idx, location, heading, exp_level, carried_gold);
     if (thing_is_invalid(ldthing))

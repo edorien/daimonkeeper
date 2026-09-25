@@ -170,7 +170,7 @@ TEST_CASE("baseline: schema coverage of the shipped files", "[kfx_config][cfgc][
     Kind trapdoor("trapdoor"), rules("rules"), objects("objects"), terrain("terrain"), creature("creature model files");
     add_all(trapdoor, field_names(trapdoor_trap_named_fields_set));
     add_all(trapdoor, field_names(trapdoor_door_named_fields_set));
-    for (int i = 0; i < 8; i++) // rules.cfg keeps its blocks in ruleblocks[], not in the set
+    for (int64_t i = 0; i < 8; i++) // rules.cfg keeps its blocks in ruleblocks[], not in the set
         add_all(rules, field_names(ruleblocks[i]));
     add_all(objects, field_names(objects_named_fields_set));
     add_all(terrain, field_names(terrain_room_named_fields_set));

@@ -10,6 +10,7 @@
 // either seeding rand() (fragile across libc versions) or changing the
 // function to take a seed/RNG parameter (out of scope for a test-only
 // change).
+#include <inttypes.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "bflib_basics.h"
@@ -73,28 +74,28 @@ TEST_CASE("saturate_set_signed clamps to the negated max once val reaches or dro
 
 TEST_CASE("str_append appends within the buffer's remaining capacity and returns the new length", "[kfx_platform][bflib_basics]") {
     char buffer[32] = "abc";
-    int result = str_append(buffer, sizeof(buffer), "def");
+    int64_t result = str_append(buffer, sizeof(buffer), "def");
     CHECK(std::strcmp(buffer, "abcdef") == 0);
     CHECK(result == 6);
 }
 
 TEST_CASE("str_append is a no-op and returns the current length once the buffer is already full", "[kfx_platform][bflib_basics]") {
     char buffer[4] = "abc"; // size(3) - strlen(3) = 0, not > 0
-    int result = str_append(buffer, 3, "xyz");
+    int64_t result = str_append(buffer, 3, "xyz");
     CHECK(std::strcmp(buffer, "abc") == 0); // untouched
     CHECK(result == 3);
 }
 
 TEST_CASE("str_appendf formats and appends within the buffer's remaining capacity", "[kfx_platform][bflib_basics]") {
     char buffer[32] = "n=";
-    int result = str_appendf(buffer, sizeof(buffer), "%d", 42);
+    int64_t result = str_appendf(buffer, sizeof(buffer), "%" PRId64, (int64_t)(42));
     CHECK(std::strcmp(buffer, "n=42") == 0);
     CHECK(result == 4);
 }
 
 TEST_CASE("str_appendf is a no-op and returns the current length once the buffer is already full", "[kfx_platform][bflib_basics]") {
     char buffer[4] = "abc";
-    int result = str_appendf(buffer, 3, "%d", 99); // size(3) - strlen(3) = 0
+    int64_t result = str_appendf(buffer, 3, "%" PRId64, (int64_t)(99)); // size(3) - strlen(3) = 0
     CHECK(std::strcmp(buffer, "abc") == 0);
     CHECK(result == 3);
 }

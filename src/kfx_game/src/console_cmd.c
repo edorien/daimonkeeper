@@ -95,7 +95,7 @@ KFX_PRINTF_FORMAT(3, 4) static void message_add_fmt(char type, PlayerNumber plyr
     sim_feedback->message_add(type, plyr_idx, buf);
 }
 
-KFX_PRINTF_FORMAT(5, 6) static void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *fmt_str, ...)
+KFX_PRINTF_FORMAT(5, 6) static void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *fmt_str, ...)
 {
     char buf[MESSAGE_TEXT_LEN];
     va_list val;
@@ -148,12 +148,12 @@ enum AutoCompletionFlags {
 #define AUTO_COMP_RET_COMPLETE_UNIQUE -2
 #define AUTO_COMP_RET_NOT_FOUND -3 // zero possibility
 #define AUTO_COMP_RET_AMBIGUOUS -4 // multiple possibilities
-int do_complete_from_candidates(const char *key_list[], int key_cnt, char *completion_str, size_t completion_len, size_t completion_size, enum AutoCompletionFlags check_flag, char **poss_str_ret);
-int do_complete_from_prioritized_candidates(const char *key_list[], int primary_cnt, int secondary_cnt, int prio_threshold_len, char *completion_str, size_t completion_len, size_t completion_size, char **poss_str_ret);
-void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str, size_t args_size, const char *desc_str, struct NamedCommand *primary_name_desc, struct NamedCommand *secondary_name_desc, int prio_threshold_len, TbBool add_random);
+int64_t do_complete_from_candidates(const char *key_list[], int64_t key_cnt, char *completion_str, size_t completion_len, size_t completion_size, enum AutoCompletionFlags check_flag, char **poss_str_ret);
+int64_t do_complete_from_prioritized_candidates(const char *key_list[], int64_t primary_cnt, int64_t secondary_cnt, int64_t prio_threshold_len, char *completion_str, size_t completion_len, size_t completion_size, char **poss_str_ret);
+void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str, size_t args_size, const char *desc_str, struct NamedCommand *primary_name_desc, struct NamedCommand *secondary_name_desc, int64_t prio_threshold_len, TbBool add_random);
 
 
-extern void render_set_sprite_debug(int level);
+extern void render_set_sprite_debug(int64_t level);
 extern TbBool process_user_global_packet_action(NetUserId user);
 
 // player's user, or if that's invalid then the local user
@@ -225,9 +225,9 @@ static char cmd_comp_events_label[COMPUTER_EVENTS_COUNT][COMMAND_WORD_LEN + 8];
 static PlayerNumber get_player_number_for_command(char *msg);
 static char get_door_number_for_command(char* msg);
 static char get_trap_number_for_command(char* msg);
-static long get_creature_model_for_command(char *msg);
+static int64_t get_creature_model_for_command(char *msg);
 
-static long cmd_comp_procs_click(struct GuiBox *gbox, struct GuiBoxOption *goptn, unsigned char btn, int32_t *args)
+static int64_t cmd_comp_procs_click(struct GuiBox *gbox, struct GuiBoxOption *goptn, unsigned char btn, int64_t *args)
 {
     struct Computer2 *comp;
     comp = get_computer_player(args[0]);
@@ -242,10 +242,10 @@ static long cmd_comp_procs_click(struct GuiBox *gbox, struct GuiBoxOption *goptn
     return 1;
 }
 
-static long cmd_comp_procs_update(struct GuiBox *gbox, struct GuiBoxOption *goptn, int32_t *args)
+static int64_t cmd_comp_procs_update(struct GuiBox *gbox, struct GuiBoxOption *goptn, int64_t *args)
 {
     struct Computer2 *comp = get_computer_player(args[0]);
-    int i = 0;
+    int64_t i = 0;
 
     for (; i < args[1]; i++)
     {
@@ -253,35 +253,35 @@ static long cmd_comp_procs_update(struct GuiBox *gbox, struct GuiBoxOption *gopt
         if (cproc != NULL)
         {
             char *label = (char*)goptn[i].label;
-            sprintf(label, "%02lx", cproc->flags);
+            sprintf(label, "%02" PRIx64, (uint64_t)(cproc->flags));
             label[2] = ' ';
         }
     }
 
-    snprintf(cmd_comp_procs_label[i], sizeof(cmd_comp_procs_label[0]), "comp=%d, wait=%u", 0, comp->gameturn_wait);
+    snprintf(cmd_comp_procs_label[i], sizeof(cmd_comp_procs_label[0]), "comp=%" PRId64 ", wait=%" PRIu64, (int64_t)(0), (uint64_t)(comp->gameturn_wait));
     return 1;
 }
 
-int cmd_comp_list(PlayerNumber plyr_idx, int max_count,
+int64_t cmd_comp_list(PlayerNumber plyr_idx, int64_t max_count,
     struct GuiBoxOption *data_list, char label_list[][COMMAND_WORD_LEN + 8],
-    const char *(*get_name)(struct Computer2 *, int),
-    unsigned long (*get_flags)(struct Computer2 *, int),
+    const char *(*get_name)(struct Computer2 *, int64_t),
+    uint64_t (*get_flags)(struct Computer2 *, int64_t),
     Gf_OptnBox_4Callback click_fn
     )
 {
     game_callbacks->close_creature_cheat_menu();
-    //kfx_game_state.gui_cheat_box_2
-    int i = 0;
+    //kfx_game_local.gui_cheat_box_2
+    int64_t i = 0;
     struct Computer2 *comp;
     comp = get_computer_player(plyr_idx);
     for (; i < max_count; i++)
     {
-        unsigned long flags = get_flags(comp, i);
+        uint64_t flags = get_flags(comp, i);
         const char *name = get_name(comp, i);
         if (name == NULL) {
-            snprintf(label_list[i], sizeof(label_list[i]), "%02lx %s", flags, "(null2)");
+            snprintf(label_list[i], sizeof(label_list[i]), "%02" PRIx64 " %s", (uint64_t)(flags), "(null2)");
         } else {
-            snprintf(label_list[i], sizeof(label_list[i]), "%02lx %s", flags, name);
+            snprintf(label_list[i], sizeof(label_list[i]), "%02" PRIx64 " %s", (uint64_t)(flags), name);
         }
         data_list[i].label = label_list[i];
 
@@ -297,25 +297,25 @@ int cmd_comp_list(PlayerNumber plyr_idx, int max_count,
     return i;
 }
 
-static const char *get_process_name(struct Computer2 *comp, int i)
+static const char *get_process_name(struct Computer2 *comp, int64_t i)
 {
     return comp->processes[i].name;
 }
-static unsigned long  get_process_flags(struct Computer2 *comp, int i)
+static uint64_t  get_process_flags(struct Computer2 *comp, int64_t i)
 {
     return comp->processes[i].flags;
 }
 
-static const char *get_event_name(struct Computer2 *comp, int i)
+static const char *get_event_name(struct Computer2 *comp, int64_t i)
 {
     return comp->events[i].name;
 }
-static unsigned long  get_event_flags(struct Computer2 *comp, int i)
+static uint64_t  get_event_flags(struct Computer2 *comp, int64_t i)
 {
     return 0;
 }
 
-static long cmd_comp_checks_click(struct GuiBox *gbox, struct GuiBoxOption *goptn, unsigned char btn, int32_t *args)
+static int64_t cmd_comp_checks_click(struct GuiBox *gbox, struct GuiBoxOption *goptn, unsigned char btn, int64_t *args)
 {
     struct Computer2 *comp;
     comp = get_computer_player(args[0]);
@@ -329,16 +329,16 @@ static long cmd_comp_checks_click(struct GuiBox *gbox, struct GuiBoxOption *gopt
     ccheck->flags ^= ComChk_Unkn0001;
     return 1;
 }
-static const char *get_check_name(struct Computer2 *comp, int i)
+static const char *get_check_name(struct Computer2 *comp, int64_t i)
 {
     return comp->checks[i].name;
 }
-static unsigned long  get_check_flags(struct Computer2 *comp, int i)
+static uint64_t  get_check_flags(struct Computer2 *comp, int64_t i)
 {
     return comp->checks[i].flags;
 }
 
-static void str_replace(char *str, int from, int to)
+static void str_replace(char *str, int64_t from, int64_t to)
 {
     for (char *p = strchr(str, from); p != NULL; p = strchr(p+1, from))
     {
@@ -369,17 +369,17 @@ static TbBool cmd_magic_instance(PlayerNumber plyr_idx, char * args)
     }
     str_replace(creature_str, '.', '_');
     str_replace(instance_str, '.', '_');
-    int creature = get_id(creature_desc, creature_str);
+    int64_t creature = get_id(creature_desc, creature_str);
     if (creature == -1) {
         targeted_message_add(MsgType_Player, 10, plyr_idx, GUI_MESSAGES_DELAY, "Invalid creature");
         return false;
     }
-    int slot = atoi(slot_str);
+    int64_t slot = atoi(slot_str);
     if (slot < 0 || slot > 9) {
         targeted_message_add(MsgType_Player, 10, plyr_idx, GUI_MESSAGES_DELAY, "Invalid slot");
         return false;
     }
-    int instance = get_id(instance_desc, instance_str);
+    int64_t instance = get_id(instance_desc, instance_str);
     if (instance == -1) {
         instance = atoi(instance_str);
     }
@@ -389,7 +389,7 @@ static TbBool cmd_magic_instance(PlayerNumber plyr_idx, char * args)
     }
     struct CreatureModelConfig* crconf = creature_stats_get(creature);
     crconf->learned_instance_id[slot] = instance;
-    for (long i = 0; i < THINGS_COUNT; i++) {
+    for (int64_t i = 0; i < THINGS_COUNT; i++) {
         struct Thing * thing = thing_get(i);
         if ((thing->alloc_flags & TAlF_Exists) != 0) {
             if (thing->class_id == TCls_Creature) {
@@ -439,9 +439,9 @@ void param_completion_for_magic_instance(PlayerNumber plyr_idx, char *args_str, 
     enum { suggested_key_max = 2048 }; // was `const int`, which isn't a compile-time constant in C -- made the array below a VLA
     const char *suggested_key_list[suggested_key_max];
     memset(suggested_key_list, 0, sizeof(suggested_key_list));
-    int suggested_key_cnt = 0;
+    int64_t suggested_key_cnt = 0;
 
-    long i = 0;
+    int64_t i = 0;
     for (i=0; creature_desc[i].name != NULL && suggested_key_cnt < suggested_key_max; i++)
     {
         suggested_key_list[suggested_key_cnt++] = creature_desc[i].name;
@@ -450,7 +450,7 @@ void param_completion_for_magic_instance(PlayerNumber plyr_idx, char *args_str, 
     {
         char *poss_str = NULL;
         enum AutoCompletionFlags check_flag = pr2_str != NULL ? ACF_ExactMatchIndex : ACF_DoDefaultCompletion ;
-        int ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, pr1_str, pr1_len, args_size-(pr1_str-args_str), check_flag, &poss_str);
+        int64_t ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, pr1_str, pr1_len, args_size-(pr1_str-args_str), check_flag, &poss_str);
         if (poss_str != NULL) {
             if (ret == AUTO_COMP_RET_AMBIGUOUS)
                 targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Parameter 1: Possible creature model: %s", poss_str);
@@ -490,7 +490,7 @@ void param_completion_for_magic_instance(PlayerNumber plyr_idx, char *args_str, 
     {
         char *poss_str = NULL;
         enum AutoCompletionFlags check_flag = pr4_str != NULL ? ACF_ExactMatchIndex : ACF_DoDefaultCompletion ;
-        int ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, pr3_str, pr3_len, args_size-(pr3_str-args_str), check_flag, &poss_str);
+        int64_t ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, pr3_str, pr3_len, args_size-(pr3_str-args_str), check_flag, &poss_str);
         if (poss_str != NULL) {
             if (ret == AUTO_COMP_RET_AMBIGUOUS)
                 targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Parameter 3: Possible magic instance: %s", poss_str);
@@ -518,7 +518,7 @@ void param_completion_for_magic_instance(PlayerNumber plyr_idx, char *args_str, 
 
 TbBool cmd_stats(PlayerNumber plyr_idx, char * args)
 {
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "turn fps is %d, draw fps is %d", kfx_sim_state.turns_per_second, fps_limit_current);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "turn fps is %" PRId64 ", draw fps is %" PRId64, (int64_t)(kfx_sim_state.turns_per_second), (int64_t)(fps_limit_current));
     return true;
 }
 
@@ -527,7 +527,7 @@ TbBool cmd_fps_turn(PlayerNumber plyr_idx, char * args)
     char * pr1str = strsep_param_with_space(&args);
     if (pr1str == NULL) {
         kfx_sim_state.turns_per_second = start_params.num_fps;
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Framerate/Turn is %d fps", kfx_sim_state.turns_per_second);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Framerate/Turn is %" PRId64 " fps", (int64_t)(kfx_sim_state.turns_per_second));
     } else {
         kfx_sim_state.turns_per_second = atoi(pr1str);
     }
@@ -579,7 +579,7 @@ TbBool cmd_time(PlayerNumber plyr_idx, char * args)
     char * pr1str = strsep_param_with_space(&args);
     char * pr2str = strsep_param_with_space(&args);
     GameTurn turn = (pr1str != NULL) ? (GameTurn) atoi(pr1str) : get_gameturn();
-    long frames = (pr2str != NULL) ? (long) atoi(pr2str) : kfx_sim_state.turns_per_second;
+    int64_t frames = (pr2str != NULL) ? (int64_t) atoi(pr2str) : kfx_sim_state.turns_per_second;
     game_callbacks->show_game_time_taken(frames, turn);
     return true;
 }
@@ -608,7 +608,7 @@ TbBool cmd_timer_switch(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_turn(PlayerNumber plyr_idx, char * args)
 {
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "turn %u", (unsigned)get_gameturn());
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "turn %" PRIu64, (uint64_t)get_gameturn());
     return true;
 }
 
@@ -628,10 +628,10 @@ TbBool cmd_step(PlayerNumber plyr_idx, char * args)
 TbBool cmd_game_save(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    long slot_num = (pr1str != NULL) ? atoi(pr1str) : 0;
+    int64_t slot_num = (pr1str != NULL) ? atoi(pr1str) : 0;
     if (slot_num < 0 || slot_num >= SAVE_SLOTS_LIMIT)
     {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%ld] exceeds [%d,%d)", slot_num, 0, SAVE_SLOTS_LIMIT);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 ")", (int64_t)(slot_num), (int64_t)(0), (int64_t)(SAVE_SLOTS_LIMIT));
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -653,10 +653,10 @@ TbBool cmd_game_save(PlayerNumber plyr_idx, char * args)
 TbBool cmd_game_load(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    long slot_num = (pr1str != NULL) ? atoi(pr1str) : 0;
+    int64_t slot_num = (pr1str != NULL) ? atoi(pr1str) : 0;
     if (slot_num < 0 || slot_num >= SAVE_SLOTS_LIMIT)
     {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%ld] exceeds [%d,%d)", slot_num, 0, SAVE_SLOTS_LIMIT);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slot_num [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 ")", (int64_t)(slot_num), (int64_t)(0), (int64_t)(SAVE_SLOTS_LIMIT));
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -666,10 +666,10 @@ TbBool cmd_game_load(PlayerNumber plyr_idx, char * args)
             set_flag_value(kfx_sim_state.operation_flags, GOF_Paused, Pause); // unpause, because games are saved whilst paused
             return true;
         } else {
-            targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %ld", slot_num);
+            targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %" PRId64, (int64_t)(slot_num));
         }
     } else {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %ld", slot_num);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Unable to load game %" PRId64, (int64_t)(slot_num));
     }
     return false;
 }
@@ -688,7 +688,7 @@ TbBool cmd_ver(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_volume(PlayerNumber plyr_idx, char * args)
 {
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s: %d %s: %d", get_string(340), settings.sound_volume, get_string(341), settings.music_volume);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s: %" PRId64 " %s: %" PRId64, get_string(340), (int64_t)(settings.sound_volume), get_string(341), (int64_t)(settings.music_volume));
     return true;
 }
 
@@ -741,13 +741,13 @@ TbBool cmd_compuchat(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1");
         return false;
     } else if ((strcasecmp(pr1str, "scarce") == 0) || (strcasecmp(pr1str, "1") == 0)) {
-        for (int i = 0; i < PLAYERS_COUNT; i++) {
+        for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
             if (!player_is_keeper(i)) {
                 continue;
             }
             struct Computer2 *comp = get_computer_player(i);
             if (player_exists(get_player(i)) && (!computer_player_invalid(comp))) {
-                targeted_message_add(MsgType_Player, i, plyr_idx, GUI_MESSAGES_DELAY, "Ai model %d", (int) comp->model);
+                targeted_message_add(MsgType_Player, i, plyr_idx, GUI_MESSAGES_DELAY, "Ai model %" PRId64, (int64_t) comp->model);
             }
         }
         kfx_sim_state.computer_chat_flags = CChat_TasksScarce;
@@ -772,12 +772,12 @@ TbBool cmd_comp_procs(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as player idx");
         return false;
     }
-    int id = atoi(pr1str);
+    int64_t id = atoi(pr1str);
     if (id < 0 || id >= PLAYERS_COUNT) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%d] exceeds [%d,%d]", id, 0, PLAYERS_COUNT-1);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 "]", (int64_t)(id), (int64_t)(0), (int64_t)(PLAYERS_COUNT-1));
         return false;
     }
-    int i = cmd_comp_list(id, COMPUTER_PROCESSES_COUNT,
+    int64_t i = cmd_comp_list(id, COMPUTER_PROCESSES_COUNT,
         cmd_comp_procs_data, cmd_comp_procs_label,
         &get_process_name, &get_process_flags,
         &cmd_comp_procs_click);
@@ -790,7 +790,7 @@ TbBool cmd_comp_procs(PlayerNumber plyr_idx, char * args)
     i++;
     cmd_comp_procs_data[i].label = "!";
     cmd_comp_procs_data[i].is_enabled = 0;
-    kfx_game_state.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_procs_data);
+    kfx_game_local.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_procs_data);
     return true;
 }
 
@@ -805,16 +805,16 @@ TbBool cmd_comp_events(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as player idx");
         return false;
     }
-    int id = atoi(pr1str);
+    int64_t id = atoi(pr1str);
     if (id < 0 || id >= PLAYERS_COUNT) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%d] exceeds [%d,%d]", id, 0, PLAYERS_COUNT-1);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 "]", (int64_t)(id), (int64_t)(0), (int64_t)(PLAYERS_COUNT-1));
         return false;
     }
     cmd_comp_list(id, COMPUTER_EVENTS_COUNT,
         cmd_comp_events_data, cmd_comp_events_label,
         &get_event_name, &get_event_flags, NULL);
     cmd_comp_events_data[0].active_cb = NULL;
-    kfx_game_state.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_events_data);
+    kfx_game_local.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_events_data);
     return true;
 }
 
@@ -829,16 +829,16 @@ TbBool cmd_comp_checks(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as player idx");
         return false;
     }
-    int id = atoi(pr1str);
+    int64_t id = atoi(pr1str);
     if (id < 0 || id >= PLAYERS_COUNT) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%d] exceeds [%d,%d]", id, 0, PLAYERS_COUNT-1);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 "]", (int64_t)(id), (int64_t)(0), (int64_t)(PLAYERS_COUNT-1));
         return false;
     }
     cmd_comp_list(id, COMPUTER_CHECKS_COUNT,
         cmd_comp_checks_data, cmd_comp_checks_label,
         &get_check_name, &get_check_flags, &cmd_comp_checks_click);
     cmd_comp_checks_data[0].active_cb = NULL;
-    kfx_game_state.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_checks_data);
+    kfx_game_local.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_checks_data);
     return true;
 }
 
@@ -849,13 +849,13 @@ TbBool cmd_reveal(PlayerNumber plyr_idx, char * args)
         return false;
     }
     struct PlayerInfo * player = get_player(plyr_idx);
-    int r = 0;
+    int64_t r = 0;
     char * pr1str = strsep_param_with_space(&args);
     if (pr1str != NULL) {
-        r = atol(pr1str);
+        r = LbAtoI32(pr1str);
     }
     if (r > 0) {
-        int radius_offset = r / 2;
+        int64_t radius_offset = r / 2;
         struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
         MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
         MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
@@ -880,13 +880,13 @@ TbBool cmd_conceal(PlayerNumber plyr_idx, char * args)
         return false;
     }
     struct PlayerInfo * player = get_player(plyr_idx);
-    int r = 0;
+    int64_t r = 0;
     char * pr1str = strsep_param_with_space(&args);
     if (pr1str != NULL) {
-        r = atol(pr1str);
+        r = LbAtoI32(pr1str);
     }
     if (r > 0) {
-        int radius_offset = r / 2;
+        int64_t radius_offset = r / 2;
         struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
         MapSubtlCoord stl_x = coord_subtile((pckt->pos_x));
         MapSubtlCoord stl_y = coord_subtile((pckt->pos_y));
@@ -908,9 +908,9 @@ TbBool cmd_comp_kill(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as player idx");
         return false;
     }
-    int id = atoi(pr1str);
+    int64_t id = atoi(pr1str);
     if (id < 0 || id > PLAYERS_COUNT) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%d] exceeds [%d,%d]", id, 0, PLAYERS_COUNT);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player idx [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 "]", (int64_t)(id), (int64_t)(0), (int64_t)(PLAYERS_COUNT));
         return false;
     }
     struct Thing * thing = get_player_soul_container(id);
@@ -931,8 +931,8 @@ TbBool cmd_player_score(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "dungeon is invalid");
         return false;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Player %d score: %d", id,
-                            dungeon->total_score);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Player %" PRId64 " score: %" PRId64, (int64_t)(id),
+                            (int64_t)(dungeon->total_score));
     return true;
 }
 
@@ -952,13 +952,13 @@ TbBool cmd_player_flag(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     unsigned char flg_id = (pr2str != NULL) ? atoi(pr2str) : 0;
     if (flg_id >= SCRIPT_FLAGS_COUNT) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "script flag [%d] exceeds", (int)flg_id);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "script flag [%" PRId64 "] exceeds", (int64_t)flg_id);
         return false;
     }
     char * pr3str = strsep_param_with_space(&args);
     if (pr3str == NULL) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Player %d flag %d value: %d", id,
-                                flg_id, dungeon->script_flags[flg_id]);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Player %" PRId64 " flag %" PRId64 " value: %" PRId64, (int64_t)(id),
+                                (int64_t)(flg_id), (int64_t)(dungeon->script_flags[flg_id]));
     } else {
         dungeon->script_flags[flg_id] = atoi(pr3str);
     }
@@ -980,7 +980,7 @@ TbBool cmd_comp_me(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "unable to set assistant");
         return false;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "computer assistant is %d", atoi(pr1str));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "computer assistant is %" PRId64, (int64_t)(atoi(pr1str)));
     return true;
 }
 
@@ -992,9 +992,9 @@ TbBool cmd_give_trap(PlayerNumber plyr_idx, char * args)
         return false;
     }
     char * pr1str = strsep_param_with_space(&args);
-    long id = get_trap_number_for_command(pr1str);
+    int64_t id = get_trap_number_for_command(pr1str);
     if (id <= 0 || id > kfx_config_state.conf.trapdoor_conf.trap_types_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "trap number [%ld] exceeds (%d,%d]", id, 0, kfx_config_state.conf.trapdoor_conf.trap_types_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "trap number [%" PRId64 "] exceeds (%" PRId64 ",%" PRId64 "]", (int64_t)(id), (int64_t)(0), (int64_t)(kfx_config_state.conf.trapdoor_conf.trap_types_count));
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -1018,9 +1018,9 @@ TbBool cmd_give_door(PlayerNumber plyr_idx, char * args)
         return false;
     }
     char * pr1str = strsep_param_with_space(&args);
-    long id = get_door_number_for_command(pr1str);
+    int64_t id = get_door_number_for_command(pr1str);
     if (id <= 0 || id > kfx_config_state.conf.trapdoor_conf.door_types_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "door number [%ld] exceeds (%d, %d])", id, 0, kfx_config_state.conf.trapdoor_conf.door_types_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "door number [%" PRId64 "] exceeds (%" PRId64 ", %" PRId64 "])", (int64_t)(id), (int64_t)(0), (int64_t)(kfx_config_state.conf.trapdoor_conf.door_types_count));
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
@@ -1048,17 +1048,17 @@ TbBool cmd_map_pool(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as creature model");
         return true;
     }
-    long kind = get_id(creature_desc, pr1str);
+    int64_t kind = get_id(creature_desc, pr1str);
     if (kind == -1) {
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Invalid creature: %s", pr1str);
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
     if (pr2str == NULL) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Pool count %s: %d", pr1str, kfx_sim_state.pool.crtr_kind[kind]);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Pool count %s: %" PRId64, pr1str, (int64_t)(kfx_sim_state.pool.crtr_kind[kind]));
         return true;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Set %s pool count: %d", pr1str, atoi(pr2str));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Set %s pool count: %" PRId64, pr1str, (int64_t)(atoi(pr2str)));
     return script_set_pool(plyr_idx, pr1str, pr2str);
 }
 
@@ -1114,13 +1114,13 @@ TbBool cmd_look(PlayerNumber plyr_idx, char * args)
         return false;
     }
     make_uppercase(pr1str);
-    long room_id = get_id(room_desc, pr1str);
+    int64_t room_id = get_id(room_desc, pr1str);
     if (room_id != -1) {
         game_callbacks->go_to_my_next_room_of_type(room_id);
         process_user_global_packet_action(console_cmd_user(plyr_idx)); // Dirty hack
         return true;
     }
-    long crmodel = get_id(creature_desc, pr1str);
+    int64_t crmodel = get_id(creature_desc, pr1str);
     if(crmodel != -1) {
         go_to_next_creature_of_model_and_gui_job(crmodel, CrGUIJob_Any, TPF_OrderedPick);
         process_user_global_packet_action(console_cmd_user(plyr_idx)); // Dirty hack
@@ -1161,7 +1161,7 @@ TbBool cmd_create_object(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "subtile coord is invalid");
         return false;
     }
-    long ObjModel = get_rid(object_desc, pr1str);
+    int64_t ObjModel = get_rid(object_desc, pr1str);
     if (ObjModel == -1) {
         if (parameter_is_number(pr1str)) {
             ObjModel = atoi(pr1str);
@@ -1197,7 +1197,7 @@ TbBool cmd_create_creature(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as creature model");
         return false;
     }
-    long crmodel = get_creature_model_for_command(pr1str);
+    int64_t crmodel = get_creature_model_for_command(pr1str);
     if (crmodel == -1) {
         if (parameter_is_number(pr1str)) {
             crmodel = atoi(pr1str);
@@ -1232,7 +1232,7 @@ TbBool cmd_create_creature(PlayerNumber plyr_idx, char * args)
         }
     }
     if (crmodel <= 0 || crmodel >= kfx_config_state.conf.crtr_conf.model_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "creature model [%ld] exceeds (%d, %d)", crmodel, 0, kfx_config_state.conf.crtr_conf.model_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "creature model [%" PRId64 "] exceeds (%" PRId64 ", %" PRId64 ")", (int64_t)(crmodel), (int64_t)(0), (int64_t)(kfx_config_state.conf.crtr_conf.model_count));
         return false;
     }
     struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
@@ -1243,15 +1243,15 @@ TbBool cmd_create_creature(PlayerNumber plyr_idx, char * args)
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
-    int level = (pr2str != NULL) ? (atoi(pr2str) - 1) : 0;
+    int64_t level = (pr2str != NULL) ? (atoi(pr2str) - 1) : 0;
     char * pr3str = strsep_param_with_space(&args);
-    unsigned int count = (pr3str != NULL) ? atoi(pr3str) : 1;
+    uint64_t count = (pr3str != NULL) ? atoi(pr3str) : 1;
     char * pr4str = strsep_param_with_space(&args);
     PlayerNumber id = get_player_number_for_command(pr4str);
     struct Coord3d pos = {0};
     pos.x.stl.num = stl_x;
     pos.y.stl.num = stl_y;
-    unsigned int i;
+    uint64_t i;
     for (i = 0; i < count; i++) {
         struct Thing *creatng = create_creature(&pos, crmodel, id);
         if (thing_is_creature(creatng)) {
@@ -1286,8 +1286,8 @@ TbBool cmd_create_thing(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 2 as model");
         return false;
     }
-    short tngclass = -1;
-    short tngmodel = -1;
+    int64_t tngclass = -1;
+    int64_t tngmodel = -1;
     if (strcasecmp(pr1str, "object") == 0) {
         tngclass = TCls_Object;
         tngmodel = get_rid(object_desc, pr2str);
@@ -1382,8 +1382,8 @@ void param_completion_for_create_thing(PlayerNumber plyr_idx, char *args_str, si
     enum { suggested_key_max = 2048 }; // was `const int`, which isn't a compile-time constant in C -- made the array below a VLA
     const char *suggested_key_list[suggested_key_max];
     memset(suggested_key_list, 0, sizeof(suggested_key_list));
-    int suggested_key_cnt = 0;
-    int primary_cnt = 0, secondary_cnt = 0;
+    int64_t suggested_key_cnt = 0;
+    int64_t primary_cnt = 0, secondary_cnt = 0;
 
     struct NamedCommand thing_command_aliases[] = {
         {"object", TCls_Object},
@@ -1396,14 +1396,14 @@ void param_completion_for_create_thing(PlayerNumber plyr_idx, char *args_str, si
         {NULL, 0}
     };
 
-    long i = 0;
+    int64_t i = 0;
     for (i=0; thing_command_aliases[i].name != NULL && suggested_key_cnt < suggested_key_max; i++)
     {
         suggested_key_list[suggested_key_cnt++] = thing_command_aliases[i].name;
     }
 
     memset(str_buf, 0, sizeof(str_buf));
-    int copy_len =  pr1_len < (sizeof(str_buf) - 1) ? pr1_len : (sizeof(str_buf) - 1);
+    int64_t copy_len =  pr1_len < (sizeof(str_buf) - 1) ? pr1_len : (sizeof(str_buf) - 1);
     memcpy(str_buf, pr1_str, copy_len);
     TbBool is_pr1_num = parameter_is_number(str_buf);
     if (pr2_str == NULL) {
@@ -1413,13 +1413,13 @@ void param_completion_for_create_thing(PlayerNumber plyr_idx, char *args_str, si
         }
     }
 
-    int tngclass = -1;
+    int64_t tngclass = -1;
     if (is_pr1_num) {
         tngclass = atoi(str_buf);
     } else {
         char *poss_str = NULL;
         enum AutoCompletionFlags check_flag = pr2_str != NULL ? ACF_ExactMatchIndex : ACF_DoDefaultCompletion ;
-        int ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, pr1_str, pr1_len, args_size-(pr1_str-args_str), check_flag, &poss_str);
+        int64_t ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, pr1_str, pr1_len, args_size-(pr1_str-args_str), check_flag, &poss_str);
         if (poss_str != NULL) {
             if (ret == AUTO_COMP_RET_AMBIGUOUS)
                 targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Parameter 1: Possible thing class: %s", poss_str);
@@ -1450,7 +1450,7 @@ void param_completion_for_create_thing(PlayerNumber plyr_idx, char *args_str, si
     primary_cnt = 0, secondary_cnt = 0;
 
     struct NamedCommand *model_command = NULL;
-    int prio_threshold_len = -1;
+    int64_t prio_threshold_len = -1;
     switch (tngclass) {
     case TCls_Object:
         model_command = object_desc;
@@ -1533,7 +1533,7 @@ void param_completion_for_create_thing(PlayerNumber plyr_idx, char *args_str, si
 
     if (!is_pr2_num) {
         char *poss_str = NULL;
-        int ret = 0;
+        int64_t ret = 0;
         if (pr3_str == NULL) {
             ret = do_complete_from_prioritized_candidates(suggested_key_list, primary_cnt, secondary_cnt, prio_threshold_len, pr2_str, pr2_len, args_size-(pr2_str-args_str), &poss_str);
         } else {
@@ -1587,9 +1587,9 @@ TbBool cmd_place_slab(PlayerNumber plyr_idx, char * args)
     }
     char * pr2str = strsep_param_with_space(&args);
     PlayerNumber id = (pr2str == NULL) ? slabmap_owner(slb) : get_player_number_for_command(pr2str);
-    short slbkind = get_rid(slab_desc, pr1str);
+    int64_t slbkind = get_rid(slab_desc, pr1str);
     if (slbkind < 0) {
-        long rid = get_rid(room_desc, pr1str);
+        int64_t rid = get_rid(room_desc, pr1str);
         if (rid > 0) {
             struct RoomConfigStats *roomst = get_room_kind_stats(rid);
             slbkind = roomst->assigned_slab;
@@ -1608,7 +1608,7 @@ TbBool cmd_place_slab(PlayerNumber plyr_idx, char * args)
         }
     }
     if (slbkind < 0 || slbkind > kfx_config_state.conf.slab_conf.slab_types_count) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slbkind [%d] exceeds [%d,%d]", slbkind, 0, kfx_config_state.conf.slab_conf.slab_types_count);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slbkind [%" PRId64 "] exceeds [%" PRId64 ",%" PRId64 "]", (int64_t)(slbkind), (int64_t)(0), (int64_t)(kfx_config_state.conf.slab_conf.slab_types_count));
         return false;
     }
     if (subtile_is_room(stl_x, stl_y)) {
@@ -1638,7 +1638,7 @@ TbBool cmd_room_available(PlayerNumber plyr_idx, char * args)
     TbBool available = (pr2str == NULL) ? 1 : atoi(pr2str);
     char * pr3str = strsep_param_with_space(&args);
     PlayerNumber id = get_player_number_for_command(pr3str);
-    long roomid;
+    int64_t roomid;
     if (strcasecmp(pr1str, "all") == 0) {
         for (roomid = RoK_TREASURE; roomid <= RoK_GUARDPOST; roomid++) {
             if (roomid != RoK_DUNGHEART) {
@@ -1680,18 +1680,18 @@ TbBool cmd_give_power(PlayerNumber plyr_idx, char * args)
                 continue;
             }
             if (!set_power_available(plyr_idx, pw, 1, 1)) {
-                WARNLOG("Setting power %s availability for player %d failed.", power_code_name(pw), plyr_idx);
+                WARNLOG("Setting power %s availability for player %" PRId64 " failed.", power_code_name(pw), (int64_t)(plyr_idx));
             }
         }
         config_reload_callbacks->update_powers_tab_to_config();
         return true;
     }
-    long power = get_rid(power_desc, pr1str);
+    int64_t power = get_rid(power_desc, pr1str);
     if (power < 0) {
         power = atoi(pr1str);
     }
     if (!set_power_available(plyr_idx, power, 1, 1)) {
-        WARNLOG("Setting power %s availability for player %d failed.", power_code_name(power), plyr_idx);
+        WARNLOG("Setting power %s availability for player %" PRId64 " failed.", power_code_name(power), (int64_t)(plyr_idx));
         return false;
     }
     config_reload_callbacks->update_powers_tab_to_config();
@@ -1724,9 +1724,9 @@ TbBool cmd_player_heart_health(PlayerNumber plyr_idx, char * args)
     struct ObjectConfigStats* objst = get_object_model_stats(thing->model);
     char * pr2str = strsep_param_with_space(&args);
     if (pr2str == NULL) {
-        float percent = ((float) thing->health / (float)objst->health) * 100;
+        double percent = ((double) thing->health / (double)objst->health) * 100;
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY,
-                                "Player %d heart health: %d (%.2f per cent)", id, thing->health, percent);
+                                "Player %" PRId64 " heart health: %" PRId64 " (%.2f per cent)", (int64_t)(id), (int64_t)(thing->health), percent);
         return true;
     }
     HitPoints Health = atoi(pr2str);
@@ -1746,14 +1746,14 @@ TbBool cmd_creature_available(PlayerNumber plyr_idx, char * args)
         return false;
     }
     char * pr1str = strsep_param_with_space(&args);
-    long crmodel = get_creature_model_for_command(pr1str);
+    int64_t crmodel = get_creature_model_for_command(pr1str);
     char * pr2str = strsep_param_with_space(&args);
     TbBool available = (pr2str == NULL) ? 1 : atoi(pr2str);
     char * pr3str = strsep_param_with_space(&args);
     PlayerNumber id = get_player_number_for_command(pr3str);
     if (!set_creature_available(id, crmodel, available, available)) {
-        WARNLOG("Setting creature %s availability for player %d failed.", creature_code_name(crmodel),
-                (int) id);
+        WARNLOG("Setting creature %s availability for player %" PRId64 " failed.", creature_code_name(crmodel),
+                (int64_t) id);
         return false;
     }
     return true;
@@ -1827,7 +1827,7 @@ TbBool cmd_send_digger_to(PlayerNumber plyr_idx, char * args)
     if (thing_is_creature(thing)) {
         if (thing->model == model) {
             if (get_random_position_in_dungeon_for_creature(id, CrWaS_WithinDungeon, thing, &pos)) {
-                targeted_message_add(MsgType_Player,plyr_idx, plyr_idx, GUI_MESSAGES_DELAY,"%s %d will dig to %s", thing_model_name(thing), thing->index, player_code_name(id));
+                targeted_message_add(MsgType_Player,plyr_idx, plyr_idx, GUI_MESSAGES_DELAY,"%s %" PRId64 " will dig to %s", thing_model_name(thing), (int64_t)(thing->index), player_code_name(id));
                 return send_tunneller_to_point_in_dungeon(thing, id, &pos);
             }
         }
@@ -1838,7 +1838,7 @@ TbBool cmd_send_digger_to(PlayerNumber plyr_idx, char * args)
         return false;
     }
     if (get_random_position_in_dungeon_for_creature(id, CrWaS_WithinDungeon, thing, &pos)) {
-        targeted_message_add(MsgType_Player,plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s %d will dig to %s", thing_model_name(thing),thing->index, player_code_name(id));
+        targeted_message_add(MsgType_Player,plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s %" PRId64 " will dig to %s", thing_model_name(thing),(int64_t)(thing->index), player_code_name(id));
         return send_tunneller_to_point_in_dungeon(thing, id, &pos);
     }
     return false;
@@ -1912,7 +1912,7 @@ TbBool cmd_set_creature_job(PlayerNumber plyr_idx, char * args)
     unsigned char new_job = atoi(pr1str);
     if (!creature_can_do_job_for_player(thing, thing->owner, 1LL << new_job, JobChk_None))
     {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Cannot do job %d.", new_job);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Cannot do job %" PRId64 ".", (int64_t)(new_job));
         return false;
     }
     return send_creature_to_job_for_player(thing, thing->owner, 1LL << new_job);
@@ -1944,15 +1944,15 @@ TbBool cmd_mapwho_info(PlayerNumber plyr_idx, char * args)
         return false;
     }
     struct Map * block = get_map_block_at(pos.x.stl.num, pos.y.stl.num);
-    short thing_id = (short) get_mapwho_thing_index(block);
+    int64_t thing_id = (int64_t) get_mapwho_thing_index(block);
     struct Thing * thing = thing_get(thing_id);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "first_thing:%d %s", thing_id,
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "first_thing:%" PRId64 " %s", (int64_t)(thing_id),
                             thing_class_and_model_name(thing->class_id, thing->model));
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "flags: %02x,filled: %d, wib: %d, col: %04d", block->flags,
-                            block->filled_subtiles, block->wibble_value, block->col_idx);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "mapwho: %04d, rev: %d", block->mapwho, block->revealed);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "stl_x: %d, stl_y:%d", pos.x.stl.num,
-                            pos.y.stl.num);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "flags: %02" PRIx64 ",filled: %" PRId64 ", wib: %" PRId64 ", col: %04" PRId64, (uint64_t)(block->flags),
+                            (int64_t)(block->filled_subtiles), (int64_t)(block->wibble_value), (int64_t)(block->col_idx));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "mapwho: %04" PRId64 ", rev: %" PRId64, (int64_t)(block->mapwho), (int64_t)(block->revealed));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "stl_x: %" PRId64 ", stl_y:%" PRId64, (int64_t)(pos.x.stl.num),
+                            (int64_t)(pos.y.stl.num));
     return true;
 }
 
@@ -1968,12 +1968,12 @@ TbBool cmd_thing_info(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "no thing selected or thing is invalid");
         return false;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "next_on_map: %d, next_of_class: %d",
-                            thing->next_on_mapblk, thing->next_of_class);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "health: %d", thing->health);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "pos: %d %d %d", thing->mappos.x.stl.num,
-                            thing->mappos.y.stl.num,
-                            thing->mappos.z.stl.num);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "next_on_map: %" PRId64 ", next_of_class: %" PRId64,
+                            (int64_t)(thing->next_on_mapblk), (int64_t)(thing->next_of_class));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "health: %" PRId64, (int64_t)(thing->health));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "pos: %" PRId64 " %" PRId64 " %" PRId64, (int64_t)(thing->mappos.x.stl.num),
+                            (int64_t)(thing->mappos.y.stl.num),
+                            (int64_t)(thing->mappos.z.stl.num));
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s",
                             thing_class_and_model_name(thing->class_id, thing->model));
     return true;
@@ -2040,8 +2040,8 @@ TbBool cmd_cursor_pos(PlayerNumber plyr_idx, char * args)
     pos.x.val = pckt->pos_x;
     pos.y.val = pckt->pos_y;
     pos.z.val = get_floor_height_at(&pos);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Cursor at %d, %d, %d",
-                            (int) pos.x.stl.num, (int) pos.y.stl.num, (int) pos.z.stl.num);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Cursor at %" PRId64 ", %" PRId64 ", %" PRId64,
+                            (int64_t) pos.x.stl.num, (int64_t) pos.y.stl.num, (int64_t) pos.z.stl.num);
     return true;
 }
 
@@ -2061,8 +2061,8 @@ TbBool cmd_get_thing(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "thing is invalid");
         return false;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Got thing ID %d %s",
-                            thing->index,
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Got thing ID %" PRId64 " %s",
+                            (int64_t)(thing->index),
                             thing_class_and_model_name(thing->class_id, thing->model));
     player->influenced_thing_idx = thing->index;
     player->influenced_thing_creation = thing->creation_turn;
@@ -2096,7 +2096,7 @@ TbBool cmd_thing_health(PlayerNumber plyr_idx, char * args)
     if (pr1str != NULL) {
         thing->health = atoi(pr1str);
     } else {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Thing ID: %d health: %d", thing->index, thing->health);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Thing ID: %" PRId64 " health: %" PRId64, (int64_t)(thing->index), (int64_t)(thing->health));
     }
     return true;
 }
@@ -2171,7 +2171,7 @@ TbBool cmd_get_room(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "room no exist");
         return false;
     }
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Got room ID %d", room->index);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Got room ID %" PRId64, (int64_t)(room->index));
     player->influenced_thing_idx = room->index;
     player->influenced_thing_creation = room->creation_turn;
     return true;
@@ -2190,7 +2190,7 @@ TbBool cmd_room_health(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "no thing selected or not room");
         return false;
     } else if (pr1str == NULL) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Room ID %d health: %d", room->index, room->health);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Room ID %" PRId64 " health: %" PRId64, (int64_t)(room->index), (int64_t)(room->health));
         return true;
     }
     room-> health = atoi(pr1str);
@@ -2212,7 +2212,7 @@ TbBool cmd_slab_health(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "slabmap block is invalid");
         return false;
     } else if (pr1str == NULL) {
-        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Slab health: %d", slb->health);
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Slab health: %" PRId64, (int64_t)(slb->health));
         return true;
     }
     slb->health = atoi(pr1str);
@@ -2231,7 +2231,7 @@ TbBool cmd_creature_pool_add(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 2 as creature amount");
         return false;
     }
-    long crmodel = get_creature_model_for_command(pr1str);
+    int64_t crmodel = get_creature_model_for_command(pr1str);
     if (crmodel == -1) {
         crmodel = atoi(pr1str);
     }
@@ -2255,7 +2255,7 @@ TbBool cmd_creature_pool_sub(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 2 as creature amount");
         return false;
     }
-    long crmodel = get_creature_model_for_command(pr1str);
+    int64_t crmodel = get_creature_model_for_command(pr1str);
     if (crmodel == -1) {
         crmodel = atoi(pr1str);
     }
@@ -2335,7 +2335,7 @@ TbBool cmd_set_music(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1");
         return false;
     }
-    int track = atoi(pr1str);
+    int64_t track = atoi(pr1str);
     if (track < 0) {
         return play_music(pr1str);
     } else {
@@ -2418,7 +2418,7 @@ TbBool cmd_toggle_classic_bug(PlayerNumber plyr_idx, char * args)
     if (bug == -1) {
         bug = atoi(pr1str);
     }
-    unsigned long flg = (bug > 2) ? (1 << (bug - 1)) : bug;
+    uint64_t flg = (bug > 2) ? (1 << (bug - 1)) : bug;
     toggle_flag(kfx_config_state.conf.rules[plyr_idx].gameplay.classic_bugs_flags, flg);
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s %s", get_conf_parameter_text(rules_game_classicbugs_commands, bug), ((kfx_config_state.conf.rules[plyr_idx].gameplay.classic_bugs_flags & flg) != 0) ? "enabled" : "disabled");
     return true;
@@ -2435,14 +2435,14 @@ TbBool cmd_get_action_point_pos(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as actionpoint number");
         return false;
     }
-    long num = atoi(pr1str);
+    int64_t num = atoi(pr1str);
     ActionPointId idx = action_point_number_to_index(num);
     if (!action_point_exists_idx(idx)) {
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "actionpoint no exist");
         return false;
     }
     struct ActionPoint * actionpt = action_point_get(idx);
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Action Point idx: %d num: %ld X: %d Y: %d", idx, num, actionpt->mappos.x.stl.num, actionpt->mappos.y.stl.num);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "Action Point idx: %" PRId64 " num: %" PRId64 " X: %" PRId64 " Y: %" PRId64, (int64_t)(idx), (int64_t)(num), (int64_t)(actionpt->mappos.x.stl.num), (int64_t)(actionpt->mappos.y.stl.num));
     return true;
 }
 
@@ -2457,7 +2457,7 @@ TbBool cmd_zoom_to_action_point(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as actionpoint number");
         return false;
     }
-    long num = atoi(pr1str);
+    int64_t num = atoi(pr1str);
     ActionPointId idx = action_point_number_to_index(num);
     if (!action_point_exists_idx(idx)) {
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "actionpoint no exist");
@@ -2482,7 +2482,7 @@ TbBool cmd_reset_action_point(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as actionpoint number");
         return false;
     }
-    long num = atoi(pr1str);
+    int64_t num = atoi(pr1str);
     ActionPointId idx = action_point_number_to_index(num);
     if (!action_point_exists_idx(idx)) {
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "actionpoint no exist");
@@ -2557,8 +2557,8 @@ TbBool cmd_player_colour(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require parameter 1 as player");
         return false;
     }
-    int plr_start;
-    int plr_end;
+    int64_t plr_start;
+    int64_t plr_end;
     PlayerNumber plr_range_id = get_player_number_for_command(pr1str);
     get_players_range(plr_range_id, &plr_start, &plr_end);
 
@@ -2601,7 +2601,7 @@ TbBool cmd_possession_unlock(PlayerNumber plyr_idx, char * args)
 TbBool cmd_string_show(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    long msg_id = (pr1str != NULL) ? atoi(pr1str) : 0;
+    int64_t msg_id = (pr1str != NULL) ? atoi(pr1str) : 0;
     if (msg_id >= 0)
     {
         set_general_information(msg_id, plyr_idx, 0, 0, 0);
@@ -2612,7 +2612,7 @@ TbBool cmd_string_show(PlayerNumber plyr_idx, char * args)
 TbBool cmd_quick_show(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    long msg_id = (pr1str != NULL) ? atoi(pr1str) : 0;
+    int64_t msg_id = (pr1str != NULL) ? atoi(pr1str) : 0;
     if (msg_id >= 0)
     {
         set_quick_information(msg_id, plyr_idx, 0, 0, 0);
@@ -2665,7 +2665,7 @@ TbBool cmd_cheat_menu(PlayerNumber plyr_idx, char * args)
         return false;
     }
 
-    int menu_type = -1;
+    int64_t menu_type = -1;
     if (strcmp(pr1str, "0") == 0 || strcasecmp(pr1str, "none") == 0)
         menu_type = 0;
     else if (strcmp(pr1str, "1") == 0 || strcasecmp(pr1str, "main") == 0)
@@ -2757,7 +2757,7 @@ TbBool cmd_resync(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require 'cheat mode'");
         return false;
     }
-    SYNCMSG("player %d forced a resync", (int)plyr_idx);
+    SYNCMSG("player %" PRId64 " forced a resync", (int64_t)plyr_idx);
     intentional_desync();
 
     return true;
@@ -2882,18 +2882,18 @@ static const struct ConsoleCommand console_commands[] = {
     { "dbc", cmd_dbc, NULL },
     { "resync", cmd_resync, NULL }
 };
-static const int console_command_count = sizeof(console_commands) / sizeof(*console_commands);
+static const int64_t console_command_count = sizeof(console_commands) / sizeof(*console_commands);
 
 
 
-int do_complete_from_candidates(const char *key_list[], int key_cnt, char *completion_str, size_t completion_len, size_t completion_size, enum AutoCompletionFlags check_flag, char **poss_str_ret)
+int64_t do_complete_from_candidates(const char *key_list[], int64_t key_cnt, char *completion_str, size_t completion_len, size_t completion_size, enum AutoCompletionFlags check_flag, char **poss_str_ret)
 {
-    int same_count = 0;
-    int *same_idx = NULL;
+    int64_t same_count = 0;
+    int64_t *same_idx = NULL;
     if (check_flag != ACF_ExactMatchIndex)
-        same_idx = (int *)calloc(key_cnt, sizeof(int));
+        same_idx = (int64_t *)calloc(key_cnt, sizeof(int64_t));
 
-    for (int i = 0; i < key_cnt; ++i)
+    for (int64_t i = 0; i < key_cnt; ++i)
     {
         if (key_list[i][0] == 0)
             continue;
@@ -2914,7 +2914,7 @@ int do_complete_from_candidates(const char *key_list[], int key_cnt, char *compl
     }
 
     if (same_count == 0 || check_flag == ACF_ExactMatchIndex || check_flag == ACF_UniquePrefixIndex) {
-        int ret = AUTO_COMP_RET_NOT_FOUND;
+        int64_t ret = AUTO_COMP_RET_NOT_FOUND;
         if (check_flag == ACF_UniquePrefixIndex) {
             if (same_count == 1)
                 ret = same_idx[0];
@@ -2927,17 +2927,17 @@ int do_complete_from_candidates(const char *key_list[], int key_cnt, char *compl
         return ret;
     }
 
-    int end_flag = 0;
-    int auto_len = 0;
+    int64_t end_flag = 0;
+    int64_t auto_len = 0;
 
     // calculate the length that can be automatically completed.
     while(1)
     {
-        int last_char = -1;
-        for (int i=0; i<same_count; i++)
+        int64_t last_char = -1;
+        for (int64_t i=0; i<same_count; i++)
         {
-            int idx = same_idx[i];
-            int cur_char = tolower(key_list[idx][completion_len+auto_len]);
+            int64_t idx = same_idx[i];
+            int64_t cur_char = tolower(key_list[idx][completion_len+auto_len]);
             if (cur_char == 0) {
                 end_flag = 1;
                 break;
@@ -2955,11 +2955,11 @@ int do_complete_from_candidates(const char *key_list[], int key_cnt, char *compl
         auto_len++;
     }
 
-    int ret = 0;
+    int64_t ret = 0;
     if (auto_len != 0)
     {
-        int idx = same_idx[0];
-        int len = (completion_size - 1) < (completion_len + auto_len) ? (completion_size - 1) : (completion_len + auto_len);
+        int64_t idx = same_idx[0];
+        int64_t len = (completion_size - 1) < (completion_len + auto_len) ? (completion_size - 1) : (completion_len + auto_len);
         memcpy(completion_str, key_list[idx], len); // cover all, uniform capitalization.
         completion_str[len] = 0;
         completion_len = len;
@@ -2980,9 +2980,9 @@ int do_complete_from_candidates(const char *key_list[], int key_cnt, char *compl
         {
             // multiple possibilities, list these
             char *poss_str = (char *)calloc(same_count, 64);
-            for (int i=0; i<same_count; i++)
+            for (int64_t i=0; i<same_count; i++)
             {
-                int idx = same_idx[i];
+                int64_t idx = same_idx[i];
                 if (i != 0)
                     strcat(poss_str, ", ");
                 strcat(poss_str, key_list[idx]);
@@ -2997,10 +2997,10 @@ int do_complete_from_candidates(const char *key_list[], int key_cnt, char *compl
     return ret;
 }
 
-int do_complete_from_prioritized_candidates(const char *key_list[], int primary_cnt, int secondary_cnt, int prio_threshold_len, char *completion_str, size_t completion_len, size_t completion_size, char **poss_str_ret)
+int64_t do_complete_from_prioritized_candidates(const char *key_list[], int64_t primary_cnt, int64_t secondary_cnt, int64_t prio_threshold_len, char *completion_str, size_t completion_len, size_t completion_size, char **poss_str_ret)
 {
-    int ret = 0;
-    int i = 0;
+    int64_t ret = 0;
+    int64_t i = 0;
     char *poss_str = NULL;
     for (i=0; i<2; i++) {
         ret = do_complete_from_candidates(key_list, primary_cnt+secondary_cnt, completion_str, completion_len, completion_size, ACF_DoDefaultCompletion, &poss_str);
@@ -3012,15 +3012,15 @@ int do_complete_from_prioritized_candidates(const char *key_list[], int primary_
                     // to avoid unexpected completion, a minimum length is specified as prio_threshold_len.
                     // `create.creature` command short length issue Example: `he` for `HELL_HOUND` and `hero`, `mo` for `MONK` and `mountaindwarf`.
 
-                    int ret1 = do_complete_from_candidates(key_list, primary_cnt, completion_str, completion_len, completion_size, ACF_UniquePrefixIndex, NULL);
-                    int ret2 = do_complete_from_candidates(key_list+primary_cnt, secondary_cnt, completion_str, completion_len, completion_size, ACF_UniquePrefixIndex, NULL);
+                    int64_t ret1 = do_complete_from_candidates(key_list, primary_cnt, completion_str, completion_len, completion_size, ACF_UniquePrefixIndex, NULL);
+                    int64_t ret2 = do_complete_from_candidates(key_list+primary_cnt, secondary_cnt, completion_str, completion_len, completion_size, ACF_UniquePrefixIndex, NULL);
                     if (ret1 >= 0 && ret2 >= 0) {
                         free(poss_str);
                         poss_str = NULL;
 
                         const char *auto_str = key_list[ret1];
-                        int auto_len = (int)strlen(auto_str);
-                        int len = (int)completion_size-1 < auto_len ? (int)completion_size-1 : auto_len;
+                        int64_t auto_len = (int64_t)strlen(auto_str);
+                        int64_t len = (int64_t)completion_size-1 < auto_len ? (int64_t)completion_size-1 : auto_len;
                         memcpy(completion_str, auto_str, len); // cover all, uniform capitalization.
                         completion_str[len] = 0;
                         completion_len = len;
@@ -3045,9 +3045,9 @@ int do_complete_from_prioritized_candidates(const char *key_list[], int primary_
             }
         }
 
-        if (i == 0 && ret == AUTO_COMP_RET_COMPLETE_PARTIAL && prio_threshold_len >= 0 && (int)completion_len < prio_threshold_len) {
+        if (i == 0 && ret == AUTO_COMP_RET_COMPLETE_PARTIAL && prio_threshold_len >= 0 && (int64_t)completion_len < prio_threshold_len) {
             completion_len = strlen(completion_str);
-            if ((int)completion_len >= prio_threshold_len) {
+            if ((int64_t)completion_len >= prio_threshold_len) {
                 // after the first default completion, completion_len exceeds the prio_threshold_len limit, try another primary/secondary completion
                 continue;
             }
@@ -3062,7 +3062,7 @@ int do_complete_from_prioritized_candidates(const char *key_list[], int primary_
     return ret;
 }
 
-void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str, size_t args_size, const char *desc_str, struct NamedCommand *primary_name_desc, struct NamedCommand *secondary_name_desc, int prio_threshold_len, TbBool add_random)
+void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str, size_t args_size, const char *desc_str, struct NamedCommand *primary_name_desc, struct NamedCommand *secondary_name_desc, int64_t prio_threshold_len, TbBool add_random)
 {
     char *pr1_str = args_str + strspn(args_str, " ");
     char *pr2_str = strchr(pr1_str, ' ');
@@ -3080,10 +3080,10 @@ void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str
     enum { suggested_key_max = 2048 }; // was `const int`, which isn't a compile-time constant in C -- made the array below a VLA
     const char *suggested_key_list[suggested_key_max];
     memset(suggested_key_list, 0, sizeof(suggested_key_list));
-    int suggested_key_cnt = 0;
-    int primary_cnt  = 0, secondary_cnt = 0;
+    int64_t suggested_key_cnt = 0;
+    int64_t primary_cnt  = 0, secondary_cnt = 0;
 
-    long i = 0;
+    int64_t i = 0;
     if (add_random)
         suggested_key_list[suggested_key_cnt++] = "RANDOM";
     if (primary_name_desc != NULL) {
@@ -3103,7 +3103,7 @@ void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str
     secondary_cnt = suggested_key_cnt - primary_cnt;
 
     char *poss_str = NULL;
-    int ret = do_complete_from_prioritized_candidates(suggested_key_list, primary_cnt, secondary_cnt, prio_threshold_len, pr1_str, pr1_len, args_size-(pr1_str-args_str), &poss_str);
+    int64_t ret = do_complete_from_prioritized_candidates(suggested_key_list, primary_cnt, secondary_cnt, prio_threshold_len, pr1_str, pr1_len, args_size-(pr1_str-args_str), &poss_str);
 
     if (poss_str != NULL) {
         if (ret == AUTO_COMP_RET_AMBIGUOUS)
@@ -3130,11 +3130,11 @@ void cmd_auto_completion(PlayerNumber plyr_idx, char *cmd_str, size_t cmd_size)
         cmd_len = space - cmd_str;
 
     enum { suggested_key_max = 2048 }; // was `const int`, which isn't a compile-time constant in C -- made the array below a VLA
-    int suggested_key_cnt = 0;
+    int64_t suggested_key_cnt = 0;
     const char *suggested_key_list[suggested_key_max];
     memset(suggested_key_list, 0, sizeof(suggested_key_list));
 
-    long i;
+    int64_t i;
     for (i = 0; i < console_command_count && suggested_key_cnt < suggested_key_max; i++)
     {
         suggested_key_list[suggested_key_cnt++] = console_commands[i].name;
@@ -3142,7 +3142,7 @@ void cmd_auto_completion(PlayerNumber plyr_idx, char *cmd_str, size_t cmd_size)
 
     char *poss_str = NULL;
     enum AutoCompletionFlags check_flag = space != NULL ? ACF_ExactMatchIndex : ACF_DoDefaultCompletion ;
-    int ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, cmd_str, cmd_len, cmd_size, check_flag, &poss_str);
+    int64_t ret = do_complete_from_candidates(suggested_key_list, suggested_key_cnt, cmd_str, cmd_len, cmd_size, check_flag, &poss_str);
 
     if (poss_str != NULL) {
         if (ret == AUTO_COMP_RET_AMBIGUOUS)
@@ -3169,9 +3169,9 @@ void cmd_auto_completion(PlayerNumber plyr_idx, char *cmd_str, size_t cmd_size)
 
 TbBool cmd_exec(PlayerNumber plyr_idx, char * args)
 {
-    SYNCDBG(2, "Command (player %d): %s",(int)plyr_idx, args);
+    SYNCDBG(2, "Command (player %" PRId64 "): %s",(int64_t)plyr_idx, args);
     if (!player_exists(get_player(plyr_idx))) {
-        WARNLOG("Command for non-existent player %d ignored: %s", (int)plyr_idx, args);
+        WARNLOG("Command for non-existent player %" PRId64 " ignored: %s", (int64_t)plyr_idx, args);
         return false;
     }
     const char * command = strsep_param_with_space(&args);
@@ -3182,7 +3182,7 @@ TbBool cmd_exec(PlayerNumber plyr_idx, char * args)
         return false;
     }
     // NOTE: execution can be optimized by pre-sorting commands by name and performing binary search
-    for (int i = 0; i < console_command_count; ++i) {
+    for (int64_t i = 0; i < console_command_count; ++i) {
         if (strcasecmp(command, console_commands[i].name) == 0) {
             return console_commands[i].function(plyr_idx, args);
         }
@@ -3197,7 +3197,7 @@ static TbBool script_set_pool(PlayerNumber plyr_idx, const char *creature, const
 {
     if (creature == NULL)
         return false;
-    long kind = get_id(creature_desc, creature);
+    int64_t kind = get_id(creature_desc, creature);
     if (kind == -1)
     {
         if (0 == strcasecmp(creature, "EMPTY"))
@@ -3208,26 +3208,26 @@ static TbBool script_set_pool(PlayerNumber plyr_idx, const char *creature, const
         targeted_message_add(MsgType_Player, 10, plyr_idx, GUI_MESSAGES_DELAY, "Invalid creature");
         return false;
     }
-    int num = atoi(str_num);
+    int64_t num = atoi(str_num);
     if (num < 0)
         return false;
     kfx_sim_state.pool.crtr_kind[kind] = num;
     return true;
 }
 
-static long get_creature_model_for_command(char *msg)
+static int64_t get_creature_model_for_command(char *msg)
 {
     if (msg == NULL || msg[0] == 0)
         return -1;
 
-    long rid = get_rid(creature_desc, msg);
+    int64_t rid = get_rid(creature_desc, msg);
     if (rid >= 1)
     {
         return rid;
     }
     else
     {
-        long i = 0;
+        int64_t i = 0;
         for (i=0; creature_model_command_aliases[i].name != NULL; i++)
         {
             if (strcasecmp(msg, creature_model_command_aliases[i].name) == 0)
@@ -3267,7 +3267,7 @@ static char get_trap_number_for_command(char* msg)
     char id = get_id(trap_desc, msg);
     if (id < 0)
     {
-        long i = 0;
+        int64_t i = 0;
         for (i=0; trap_model_command_aliases[i].name != NULL; i++)
         {
             if (strcasecmp(msg, trap_model_command_aliases[i].name) == 0)
@@ -3287,10 +3287,10 @@ static char get_door_number_for_command(char* msg)
     if (msg == NULL || msg[0] == 0)
         return -1;
 
-    long id = get_id(door_desc, msg);
+    int64_t id = get_id(door_desc, msg);
     if (id < 0)
     {
-        long i = 0;
+        int64_t i = 0;
         for (i=0; door_model_command_aliases[i].name != NULL; i++)
         {
             if (strcasecmp(msg, door_model_command_aliases[i].name) == 0)

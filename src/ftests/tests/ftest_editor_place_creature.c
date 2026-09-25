@@ -63,7 +63,7 @@ struct ftest_editor_place_creature__variables
     PlayerNumber owner;
     CrtrExpLevel exp_level; // 0-indexed, matches set_creature_level()'s own convention
     ThingIndex placed_thing_idx;
-    unsigned long poll_count;
+    uint64_t poll_count;
 };
 struct ftest_editor_place_creature__variables ftest_editor_place_creature__vars = {
     .slb_x = 17,
@@ -138,7 +138,7 @@ FTestActionResult ftest_editor_place_creature_action002__place_creature(struct F
     set_coords_to_slab_center(&pos, vars->slb_x, vars->slb_y);
 
     struct PlayerInfo* player = get_player(vars->owner);
-    unsigned short packed_owner_exp = (unsigned short)vars->owner | ((unsigned short)vars->exp_level << 8);
+    int64_t packed_owner_exp = (int64_t)vars->owner | ((int64_t)vars->exp_level << 8);
     set_players_packet_action(player, PckA_EditorRedoCreature, pos.x.val, pos.y.val, vars->creature_model, packed_owner_exp);
 
     return FTRs_Go_To_Next_Action;
@@ -156,7 +156,7 @@ FTestActionResult ftest_editor_place_creature_action003__assert_placed(struct FT
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Creature never appeared near (%d,%d) after placement", (int)vars->slb_x, (int)vars->slb_y);
+            FTEST_FAIL_TEST("Creature never appeared near (%" PRId64 ",%" PRId64 ") after placement", (int64_t)vars->slb_x, (int64_t)vars->slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -164,18 +164,18 @@ FTestActionResult ftest_editor_place_creature_action003__assert_placed(struct FT
 
     if (thing->model != vars->creature_model)
     {
-        FTEST_FAIL_TEST("Placed creature has model %d, expected %d", (int)thing->model, (int)vars->creature_model);
+        FTEST_FAIL_TEST("Placed creature has model %" PRId64 ", expected %" PRId64, (int64_t)thing->model, (int64_t)vars->creature_model);
         return FTRs_Go_To_Next_Action;
     }
     if (thing->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Placed creature has owner %d, expected %d", (int)thing->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Placed creature has owner %" PRId64 ", expected %" PRId64, (int64_t)thing->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (cctrl->exp_level != vars->exp_level)
     {
-        FTEST_FAIL_TEST("Placed creature has exp_level %d, expected %d", (int)cctrl->exp_level, (int)vars->exp_level);
+        FTEST_FAIL_TEST("Placed creature has exp_level %" PRId64 ", expected %" PRId64, (int64_t)cctrl->exp_level, (int64_t)vars->exp_level);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -209,7 +209,7 @@ FTestActionResult ftest_editor_place_creature_action005__assert_undone(struct FT
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Placed creature (thing #%d) still exists after PckA_EditorUndo", (int)vars->placed_thing_idx);
+            FTEST_FAIL_TEST("Placed creature (thing #%" PRId64 ") still exists after PckA_EditorUndo", (int64_t)vars->placed_thing_idx);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;

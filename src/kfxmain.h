@@ -1,6 +1,7 @@
 #ifndef KFXMAIN_H
 #define KFXMAIN_H
 
+#include <stdint.h>
 // Declares kfxmain() -- defined in main.cpp, the real composition-root entry
 // point -- for src/native_entry.cpp, the only other file that calls it. Used
 // to live in kfx_platform's platform.h (declared there, called from
@@ -14,7 +15,7 @@
 extern "C" {
 #endif
 
-int kfxmain(int argc, char *argv[]);
+int64_t kfxmain(int64_t argc, char *argv[]);
 
 #ifdef __cplusplus
 }

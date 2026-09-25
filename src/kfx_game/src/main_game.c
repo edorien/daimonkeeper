@@ -87,7 +87,7 @@
 // check-layering-symbol-level-blind-spot.md.
 extern TbBool IMPRISON_BUTTON_DEFAULT;
 extern TbBool FLEE_BUTTON_DEFAULT;
-extern unsigned long features_enabled;
+extern uint64_t features_enabled;
 
 extern void setup_players_count();
 extern void set_skip_heart_zoom_feature(TbBool enable);
@@ -101,8 +101,8 @@ TbBool luascript_loaded = false;
 void reset_script_timers_and_flags(void)
 {
     struct Dungeon *dungeon;
-    int plyr_idx;
-    int k;
+    int64_t plyr_idx;
+    int64_t k;
     TbBool freeplay = is_map_pack();
     for (plyr_idx=0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
@@ -194,7 +194,7 @@ void clear_game(void)
 void reinit_level_after_load(void)
 {
     struct PlayerInfo *player;
-    int i;
+    int64_t i;
     SYNCDBG(6,"Starting");
     // Reinit structures from within the game
     player = get_my_player();
@@ -231,12 +231,12 @@ void reinit_level_after_load(void)
     reset_postal_instance_cache();
 }
 
-void set_general_information(int32_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
+void set_general_information(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
 {
     set_general_information_with_icon(msg_id, plyr_idx, target, x, y, -1);
 }
 
-void set_general_information_with_icon(int32_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, short icon_idx)
+void set_general_information_with_icon(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx)
 {
     struct PlayerInfo *player = get_player(plyr_idx);
     MapCoord pos_x = 0;
@@ -252,7 +252,7 @@ void set_general_information_with_icon(int32_t msg_id, PlayerNumber plyr_idx, Tb
         event->icon_idx = icon_idx;
 }
 
-void set_quick_information_with_icon(int32_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, short icon_idx)
+void set_quick_information_with_icon(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx)
 {
     struct PlayerInfo *player = get_player(plyr_idx);
     MapCoord pos_x = 0;
@@ -268,7 +268,7 @@ void set_quick_information_with_icon(int32_t msg_id, PlayerNumber plyr_idx, TbMa
         event->icon_idx = icon_idx;
 }
 
-void set_quick_information(int32_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
+void set_quick_information(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
 {
     set_quick_information_with_icon(msg_id, plyr_idx, target, x, y, -1);
 }
@@ -278,7 +278,7 @@ void process_objective(const char *msg_text, PlayerNumber plyr_idx, TbMapLocatio
     process_objective_with_icon(msg_text, plyr_idx, target, x, y, -1);
 }
 
-void process_objective_with_icon(const char *msg_text, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, short icon_idx)
+void process_objective_with_icon(const char *msg_text, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx)
 {
     struct PlayerInfo *player = get_player(plyr_idx);
     find_map_location_coords(target, &x, &y, plyr_idx, __func__);
@@ -286,22 +286,22 @@ void process_objective_with_icon(const char *msg_text, PlayerNumber plyr_idx, Tb
     game_callbacks->display_objectives_with_icon(player->id_number, x, y, icon_idx);
 }
 
-void set_general_objective(int32_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
+void set_general_objective(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
 {
     set_general_objective_with_icon(msg_id, plyr_idx, target, x, y, -1);
 }
 
-void set_general_objective_with_icon(int32_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, short icon_idx)
+void set_general_objective_with_icon(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx)
 {
     process_objective_with_icon(get_string(msg_id), plyr_idx, target, x, y, icon_idx);
 }
 
-short winning_player_quitting(struct PlayerInfo *player, int32_t *plyr_count)
+int64_t winning_player_quitting(struct PlayerInfo *player, int64_t *plyr_count)
 {
     struct PlayerInfo *swplyr;
-    int i;
-    int k;
-    int n;
+    int64_t i;
+    int64_t k;
+    int64_t n;
     if (player->victory_state == VicS_LostLevel)
     {
       return 0;
@@ -325,7 +325,7 @@ short winning_player_quitting(struct PlayerInfo *player, int32_t *plyr_count)
     return ((k - n) == 1);
 }
 
-short lose_level(struct PlayerInfo *player)
+int64_t lose_level(struct PlayerInfo *player)
 {
     if (!is_my_player(player))
         return false;
@@ -337,7 +337,7 @@ short lose_level(struct PlayerInfo *player)
     return true;
 }
 
-short resign_level(struct PlayerInfo *player)
+int64_t resign_level(struct PlayerInfo *player)
 {
     if (!is_my_player(player))
         return false;
@@ -349,7 +349,7 @@ short resign_level(struct PlayerInfo *player)
     return true;
 }
 
-short complete_level(struct PlayerInfo *player)
+int64_t complete_level(struct PlayerInfo *player)
 {
     SYNCDBG(6,"Starting");
     if (!is_my_player(player))
@@ -371,16 +371,16 @@ short complete_level(struct PlayerInfo *player)
     return true;
 }
 
-short default_loc_player = 0;
+int64_t default_loc_player = 0;
 
 // docs/refactor/editor/01-entry-and-editor-session.md §5 -- armed by
 // editor_request_blank_map(), consumed once by init_level() below.
 static TbBool s_editor_blank_map_pending = false;
 static MapSlabCoord s_editor_blank_map_w = 0;
 static MapSlabCoord s_editor_blank_map_h = 0;
-static long s_editor_blank_map_texture = 0;
+static int64_t s_editor_blank_map_texture = 0;
 
-void editor_request_blank_map(MapSlabCoord tiles_x, MapSlabCoord tiles_y, long texture_set)
+void editor_request_blank_map(MapSlabCoord tiles_x, MapSlabCoord tiles_y, int64_t texture_set)
 {
     s_editor_blank_map_pending = true;
     s_editor_blank_map_w = tiles_x;
@@ -472,16 +472,16 @@ static TbBool init_level(void)
     if (!map_loaded)
     {
         net_callbacks->create_frontend_error_box(15000, "Map content is missing or incompatible.");
-        JUSTMSG("Unable to load level %u from %s", level, campaign.name);
+        JUSTMSG("Unable to load level %" PRIu64 " from %s", (uint64_t)(level), campaign.name);
         return false;
     }
     level_load_time_phase(LevelLoadTime_GameSetup);
     if (script_preloaded == false && luascript_loaded == false)
     {
         char no_script_msg[MESSAGE_TEXT_LEN];
-        snprintf(no_script_msg, sizeof(no_script_msg), "%s: No Script %u", get_string(GUIStr_Error), level);
+        snprintf(no_script_msg, sizeof(no_script_msg), "%s: No Script %" PRIu64, get_string(GUIStr_Error), (uint64_t)(level));
         sim_feedback->show_onscreen_msg(200, no_script_msg);
-        JUSTMSG("Unable to load script level %u from %s", level, campaign.name);
+        JUSTMSG("Unable to load script level %" PRIu64 " from %s", (uint64_t)(level), campaign.name);
     }
     level_load_time_phase(LevelLoadTime_Navigation);
     init_navigation();
@@ -521,7 +521,7 @@ static TbBool init_level(void)
     kfx_sim_state.manufactr_spridx = 0;
     kfx_sim_state.manufactr_tooltip = 0;
     reset_postal_instance_cache();
-    JUSTMSG("Started level %u from %s", get_selected_level_number(), campaign.name);
+    JUSTMSG("Started level %" PRIu64 " from %s", (uint64_t)(get_selected_level_number()), campaign.name);
 
     script_hooks->api_event("GAME_STARTED");
     return true;
@@ -573,19 +573,19 @@ TbBool startup_saved_packet_game(void)
     RendererSetDrawColour(kfx_sim_state.colours[15][15][15]);
     kfx_net_state.pckt_gameturn = 0;
 #if (BFDEBUG_LEVEL > 0)
-    SYNCDBG(0,"Initialising level %d", (int)get_selected_level_number());
-    SYNCMSG("Packet Loading Active (File contains %u turns)", kfx_net_state.turns_stored);
+    SYNCDBG(0,"Initialising level %" PRId64, (int64_t)get_selected_level_number());
+    SYNCMSG("Packet Loading Active (File contains %" PRIu64 " turns)", (uint64_t)(kfx_net_state.turns_stored));
     SYNCMSG("Packet Checksum Verification %s",kfx_net_state.packet_checksum_verify ? "Enabled" : "Disabled");
-    SYNCMSG("Fast Forward through %u game turns", kfx_net_state.turns_fastforward);
+    SYNCMSG("Fast Forward through %" PRIu64 " game turns", (uint64_t)(kfx_net_state.turns_fastforward));
     if (kfx_net_state.turns_packetoff != -1)
-        SYNCMSG("Packet Quit at %u", kfx_net_state.turns_packetoff);
+        SYNCMSG("Packet Quit at %" PRIu64, (uint64_t)(kfx_net_state.turns_packetoff));
     if (kfx_net_state.packet_load_enable)
     {
       if (kfx_net_state.log_things_end_turn != kfx_net_state.log_things_start_turn)
-        SYNCMSG("Logging things, game turns %u -> %u", kfx_net_state.log_things_start_turn, kfx_net_state.log_things_end_turn);
+        SYNCMSG("Logging things, game turns %" PRIu64 " -> %" PRIu64, (uint64_t)(kfx_net_state.log_things_start_turn), (uint64_t)(kfx_net_state.log_things_end_turn));
     }
-    SYNCMSG("Packet file prepared on KeeperFX %d.%d.%d.%d",(int)kfx_net_state.packet_save_head.game_ver_major,(int)kfx_net_state.packet_save_head.game_ver_minor,
-        (int)kfx_net_state.packet_save_head.game_ver_release,(int)kfx_net_state.packet_save_head.game_ver_build);
+    SYNCMSG("Packet file prepared on KeeperFX %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)kfx_net_state.packet_save_head.game_ver_major,(int64_t)kfx_net_state.packet_save_head.game_ver_minor,
+        (int64_t)kfx_net_state.packet_save_head.game_ver_release,(int64_t)kfx_net_state.packet_save_head.game_ver_build);
 #endif
     if ((kfx_net_state.packet_save_head.game_ver_major != VER_MAJOR) || (kfx_net_state.packet_save_head.game_ver_minor != VER_MINOR)
         || (kfx_net_state.packet_save_head.game_ver_release != VER_RELEASE) || (kfx_net_state.packet_save_head.game_ver_build != VER_BUILD)) {
@@ -638,7 +638,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
 {
     SYNCDBG(0,"Starting up network game");
     stop_streamed_samples();
-    unsigned int flgmem;
+    uint64_t flgmem;
     struct PlayerInfo *player;
     setup_count_players();
     player = get_my_player();
@@ -673,7 +673,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
         }
     }
     setup_count_players(); // It is reset by init_level
-    int args[COROUTINE_ARGS] = {ShouldAssignCpuKeepers, 0};
+    int64_t args[COROUTINE_ARGS] = {ShouldAssignCpuKeepers, 0};
     coroutine_add_args(context, &startup_network_game_tail, args);
 }
 
@@ -715,7 +715,7 @@ static CoroutineLoopState startup_local_game_for_editor_tail(CoroutineLoop *cont
 // network-players branching an editor session never needs.
 void startup_local_game_for_editor(CoroutineLoop *context, LevelNumber lvnum, TbBool suspend, TbBool trim_post_init)
 {
-    SYNCDBG(0,"Starting up editor session for level %lu", (unsigned long)lvnum);
+    SYNCDBG(0,"Starting up editor session for level %" PRIu64, (uint64_t)lvnum);
     stop_streamed_samples();
     my_player_number = default_loc_player;
     set_selected_level_number(lvnum);
@@ -726,7 +726,7 @@ void startup_local_game_for_editor(CoroutineLoop *context, LevelNumber lvnum, Tb
     kfx_sim_state.game_kind = GKind_LocalGame;
     init_players_local_game();
     setup_count_players(); // It is reset by init_level
-    int args[COROUTINE_ARGS] = {trim_post_init, suspend};
+    int64_t args[COROUTINE_ARGS] = {trim_post_init, suspend};
     coroutine_add_args(context, &startup_local_game_for_editor_tail, args);
 }
 
@@ -878,7 +878,7 @@ void init_seeds()
 #endif
     {
         // Unsynced seeds - these values will be different per-player in multiplayer
-        unsigned long calender_time = (unsigned long)LbTimeSec();
+        uint64_t calender_time = (uint64_t)LbTimeSec();
         kfx_sim_state.unsync_random_seed = calender_time * 9007 + 9011;  // Use prime multipliers for different seeds
         kfx_sim_state.sound_random_seed = calender_time * 7919 + 7927;
 

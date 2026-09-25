@@ -50,7 +50,7 @@ struct TimerTime {
     unsigned char Hours;
     unsigned char Minutes;
     unsigned char Seconds;
-    unsigned short MSeconds;
+    int64_t MSeconds;
 };
 
 // GUI_MESSAGES_COUNT/GUI_MESSAGES_DELAY, struct GuiMessage, struct
@@ -69,19 +69,19 @@ struct TimerTime {
 
 struct GuiMessage {
     char text[64];
-    short plyr_idx; //not playernumber because it is abused for other icons too
-    unsigned long expiration_turn;
-    short target_idx;
+    int64_t plyr_idx; //not playernumber because it is abused for other icons too
+    uint64_t expiration_turn;
+    int64_t target_idx;
     char type;
-    short icon_idx;
+    int64_t icon_idx;
 };
 
 struct TextScrollWindow {
     char text[MESSAGE_TEXT_LEN];
-    long start_y;
+    int64_t start_y;
     char action;
-    long text_height;
-    long window_height;
+    int64_t text_height;
+    int64_t window_height;
 };
 
 #ifdef __cplusplus
@@ -143,7 +143,7 @@ struct PerExpLevelValues {
 // Moved from game_legacy.h (stage 6.7 increment 5) -- only used by the
 // pool field below.
 struct CreaturePool {
-    int32_t crtr_kind[CREATURE_TYPES_MAX];
+    int64_t crtr_kind[CREATURE_TYPES_MAX];
     unsigned char is_empty;
 };
 
@@ -152,21 +152,21 @@ struct CreaturePool {
 // fx_lines[]/active_fx_lines fields it embeds below.
 struct ScriptFxLine
 {
-    int used;
+    int64_t used;
     struct Coord3d from;
     struct Coord3d here;
     struct Coord3d to;
 
-    int cx, cy; // midpoint
+    int64_t cx, cy; // midpoint
 
-    int curvature;
-    int spatial_step;
-    int steps_per_turn;
-    int partial_steps;
-    int effect;
+    int64_t curvature;
+    int64_t spatial_step;
+    int64_t steps_per_turn;
+    int64_t partial_steps;
+    int64_t effect;
 
-    int total_steps;
-    int step;
+    int64_t total_steps;
+    int64_t step;
 };
 
 // Moved from kfx_game's game_merge.h (stage 13.3, docs/refactor/
@@ -203,25 +203,25 @@ struct KfxSimState {
 
     /* Map data arrays (stage 6.7 increment 2) */
     struct Column columns_data[COLUMNS_COUNT];
-    unsigned short slabset_num;
+    int64_t slabset_num;
     struct SlabSet slabset[SLABSET_COUNT];
-    unsigned short slabobjs_num;
-    short slabobjs_idx[SLABSET_COUNT];
+    int64_t slabobjs_num;
+    int64_t slabobjs_idx[SLABSET_COUNT];
     struct SlabObj slabobjs[SLABOBJS_COUNT];
     struct Map map[MAX_SUBTILES_X*MAX_SUBTILES_Y];
     struct SlabMap slabmap[MAX_TILES_X*MAX_TILES_Y];
-    short around_map[AROUND_MAP_LENGTH];
-    short around_slab[AROUND_SLAB_LENGTH];
-    short around_slab_eight[AROUND_SLAB_EIGHT_LENGTH];
-    short small_around_slab[SMALL_AROUND_SLAB_LENGTH];
+    int64_t around_map[AROUND_MAP_LENGTH];
+    int64_t around_slab[AROUND_SLAB_LENGTH];
+    int64_t around_slab_eight[AROUND_SLAB_EIGHT_LENGTH];
+    int64_t small_around_slab[SMALL_AROUND_SLAB_LENGTH];
 
     /* Thing/creature state (stage 6.7 increment 3) */
     struct CreatureControl cctrl_data[CREATURES_COUNT];
     struct Thing things_data[THINGS_COUNT];
     struct PerExpLevelValues creature_scores[CREATURE_TYPES_MAX];
-    unsigned short synced_free_things[SYNCED_THINGS_COUNT];
+    int64_t synced_free_things[SYNCED_THINGS_COUNT];
     ThingIndex synced_free_things_count;
-    unsigned short unsynced_free_things[UNSYNCED_THINGS_COUNT];
+    int64_t unsynced_free_things[UNSYNCED_THINGS_COUNT];
     ThingIndex unsynced_free_things_count;
 
     /* Room/dungeon state (stage 6.7 increment 4) */
@@ -230,8 +230,8 @@ struct KfxSimState {
     struct StructureList thing_lists[13];
     struct GoldLookup gold_lookup[GOLD_LOOKUP_COUNT];
     HitPoints block_health[10];
-    unsigned short entrance_room_id;
-    unsigned short entrances_count;
+    int64_t entrance_room_id;
+    int64_t entrances_count;
 
     /* Player/computer-AI state (stage 6.7 increment 5) */
     struct PlayerInfo players[PLAYERS_COUNT];
@@ -249,18 +249,19 @@ struct KfxSimState {
     /* Power/hand UI-adjacent state (stage 6.7 increment 6) */
     MapSubtlCoord hand_over_subtile_x;
     MapSubtlCoord hand_over_subtile_y;
-    int chosen_room_kind;
-    int chosen_room_spridx;
-    int chosen_room_tooltip;
-    int chosen_spell_type;
-    int chosen_spell_spridx;
-    int chosen_spell_tooltip;
-    int manufactr_element;
-    int manufactr_spridx;
-    int manufactr_tooltip;
+    int64_t chosen_room_kind;
+    int64_t chosen_room_spridx;
+    int64_t chosen_room_tooltip;
+    int64_t chosen_spell_type;
+    int64_t chosen_spell_spridx;
+    int64_t chosen_spell_tooltip;
+    int64_t manufactr_element;
+    int64_t manufactr_spridx;
+    int64_t manufactr_tooltip;
 
     /* Battles + random seeds (stage 6.7 increment 7, final) */
     struct CreatureBattle battles[BATTLES_COUNT];
+    // RNG state is 32-bit by definition (LbRandomSeries is a 32-bit LCG + rotate), not just an "int".
     uint32_t action_random_seed;
     uint32_t ai_random_seed;
     uint32_t player_random_seed;
@@ -270,11 +271,11 @@ struct KfxSimState {
     /* Map ceiling-height computation state (stage 7.2) -- mischaracterized
        as "render" in stage-05's ownership table; used exclusively by
        kfx_sim's map_ceiling.c. */
-    uint32_t ceiling_height_max;
-    uint32_t ceiling_height_min;
-    uint32_t ceiling_dist;
-    uint32_t ceiling_search_dist;
-    uint32_t ceiling_step;
+    uint64_t ceiling_height_max;
+    uint64_t ceiling_height_min;
+    uint64_t ceiling_dist;
+    uint64_t ceiling_search_dist;
+    uint64_t ceiling_step;
 
     /* Mischaracterized as kfx_game in stage 9's initial research (see
        docs/refactor/stage-09-kfx-game.md) -- actual usage (actionpt.c,
@@ -282,7 +283,7 @@ struct KfxSimState {
        exclusively kfx_sim. */
     struct ActionPoint action_points[ACTN_POINTS_COUNT];
     struct Coord3d triggered_object_location; //Position of `TRIGGERED_OBJECT`
-    int script_current_player;
+    int64_t script_current_player;
     GameTurn current_player_turn; // Actually it is a hack. We need to rewrite scripting for current player
 
     /* Mischaracterized as kfx_frontend in stage 10's initial research
@@ -290,7 +291,7 @@ struct KfxSimState {
        active_fx_lines/evntbox_text_buffer are exclusively used by
        kfx_sim's thing_effects.c/map_events.c. */
     struct ScriptFxLine fx_lines[FX_LINES_COUNT];
-    int active_fx_lines;
+    int64_t active_fx_lines;
     char evntbox_text_buffer[MESSAGE_TEXT_LEN];
 
     /* Moved from struct Game (stage 13, docs/refactor/
@@ -314,7 +315,7 @@ struct KfxSimState {
     // can't include that header, so the value is duplicated here as a
     // literal. Must stay in sync manually if engine_textures.h's texture
     // block counts ever change.
-    short top_cube[1544]; // if you ask for top cube on a column without cubes, it'll return the first cube it finds with said texture at the top
+    int64_t top_cube[1544]; // if you ask for top cube on a column without cubes, it'll return the first cube it finds with said texture at the top
     unsigned char small_map_state;
     enum GameKinds game_kind; /**< Kind of the game being played, from GameKinds enumeration. Originally was GameMode. */
     struct Bookmark bookmark[BOOKMARKS_COUNT];
@@ -324,7 +325,7 @@ struct KfxSimState {
     PlayerNumber armageddon_caster_idx;
     GameTurn turn_last_checked_for_gold;
     uint8_t max_custom_box_kind;
-    unsigned short nodungeon_creatr_list_start; /**< Linked list of creatures which have no dungeon (neutral and owned by nonexisting players) */
+    int64_t nodungeon_creatr_list_start; /**< Linked list of creatures which have no dungeon (neutral and owned by nonexisting players) */
 
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- also read by kfx_platform's
@@ -352,7 +353,7 @@ struct KfxSimState {
     TbBool TimerNoReset;
     TbBool TimerFreeze;
     TbBool TimerGameReal;          // -timer game real: draw in-game time (seconds) instead of turns
-    unsigned long GameSeconds;
+    uint64_t GameSeconds;
     struct GameTime GameT;
 
     /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
@@ -378,7 +379,7 @@ struct KfxSimState {
        (kfx_apploop/kfx_frontend/kfx_game/kfx_net/kfx_render), but
        kfx_sim (thing_data.c/power_process.c/player_utils.c) is the
        lowest-ranked of its real consumer set. */
-    int32_t turns_per_second;
+    int64_t turns_per_second;
 
     /* Moved from kfx_render's vidfade.c (stage 13.3, docs/refactor/
        stage-13-enforce-and-document.md) -- read/written by kfx_render
@@ -420,8 +421,8 @@ struct KfxSimState {
        which have no kfx_sim consumer and stayed put). */
     LevelNumber continue_level_number;
     LevelNumber selected_level_number;
-    short loaded_level_number;
-    unsigned short computer_chat_flags;
+    int64_t loaded_level_number;
+    int64_t computer_chat_flags;
     char loaded_swipe_idx;
     TbBool heart_lost_display_message;
 

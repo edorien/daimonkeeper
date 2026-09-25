@@ -2,6 +2,7 @@
 // runs it inside a headless ImGui frame (no backend, default font) so its
 // layout and cell code execute at all in CI -- the ftest sweep never draws
 // ImGui, so nothing else does.
+#include <inttypes.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include <imgui.h>
@@ -22,7 +23,7 @@ struct HeadlessImGui
         ImGuiIO &io = ImGui::GetIO();
         io.IniFilename = nullptr;
         io.DisplaySize = ImVec2(1280, 720);
-        io.DeltaTime = 1.0f / 60.0f;
+        io.DeltaTime = 1.0 / 60.0;
         unsigned char *pixels;
         int w, h;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
@@ -43,13 +44,13 @@ TEST_CASE("icon grid lays out text tiles and headings without asserting", "[kfx_
     ImGui::SetNextWindowSize(ImVec2(300, 400));
     ImGui::Begin("test");
 
-    editor_icon_grid_begin("##g", 200.0f, 5);
+    editor_icon_grid_begin("##g", 200.0, 5);
     editor_icon_grid_heading("Group A");
-    int clicks = 0;
-    for (int i = 0; i < 12; i++)
+    int64_t clicks = 0;
+    for (int64_t i = 0; i < 12; i++)
     {
         char id[16];
-        snprintf(id, sizeof(id), "t%d", i);
+        snprintf(id, sizeof(id), "t%" PRId64, (int64_t)(i));
         EditorIconTile t;
         t.id = id;
         t.label = "SOME LONG TILE NAME";
@@ -74,9 +75,9 @@ TEST_CASE("icon grid works with three text columns and an empty grid", "[kfx_edi
     HeadlessImGui gui;
     ImGui::NewFrame();
     ImGui::Begin("test");
-    editor_icon_grid_begin("##a", 100.0f, 3);
+    editor_icon_grid_begin("##a", 100.0, 3);
     editor_icon_grid_end(); // no tiles at all
-    editor_icon_grid_begin("##b", 100.0f, 3);
+    editor_icon_grid_begin("##b", 100.0, 3);
     EditorIconTile t;
     t.id = "one";
     t.label = "DENSE GOLD";

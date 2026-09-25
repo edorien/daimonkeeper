@@ -136,14 +136,14 @@ struct TbAlphaTables {
 extern struct TbSpriteSheet *pointer_sprites;
 extern struct TbLoadFiles legal_load_files[];
 extern struct TbLoadFilesV2 game_load_files[];
-extern unsigned short units_per_pixel_min;
+extern int64_t units_per_pixel_min;
 // Declared here, not bflib_video.h (kfx_platform): its only reader is
 // this library's own engine_camera.c, so it doesn't belong on
 // kfx_platform's public surface. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-extern unsigned long first_person_horizontal_fov;
-extern long base_mouse_sensitivity;
-void set_base_mouse_sensitivity(long val);
+extern uint64_t first_person_horizontal_fov;
+extern int64_t base_mouse_sensitivity;
+void set_base_mouse_sensitivity(int64_t val);
 
 extern struct TbColorTables pixmap;
 extern struct TbAlphaTables alpha_sprite_table;
@@ -176,12 +176,12 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe);
 TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode);
 TbScreenMode setup_screen_mode_zero(TbScreenMode nmode);
 
-short LoadMcgaData(void);
-TbBool update_screen_mode_data(long width, long height);
+int64_t LoadMcgaData(void);
+TbBool update_screen_mode_data(int64_t width, int64_t height);
 // Registered with bflib_video.h's VideoScaleCallbacks. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 const struct VideoScaleValues *get_video_scale_values(void);
-void load_pointer_file(short hi_res);
+void load_pointer_file(int64_t hi_res);
 TbBool load_testfont_fonts(void);
 void free_testfont_fonts(void);
 
@@ -195,8 +195,8 @@ void sync_render_globals(void);
 
 TbBool set_pointer_graphic_none(void);
 TbBool set_pointer_graphic_menu(void);
-TbBool set_pointer_graphic_spell(long spridx, long frame);
-TbBool set_pointer_graphic(long ptr_idx);
+TbBool set_pointer_graphic_spell(int64_t spridx, int64_t frame);
+TbBool set_pointer_graphic(int64_t ptr_idx);
 
 void setup_stuff(void);
 

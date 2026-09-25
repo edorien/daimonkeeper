@@ -16,6 +16,7 @@
  *     (at your option) any later version.
  */
 /******************************************************************************/
+#include <inttypes.h>
 #include "pre_inc.h"
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -65,7 +66,7 @@ enum PortForwardMethod {
 };
 
 static enum PortForwardMethod active_method = PORT_FORWARD_NONE;
-static uint16_t mapped_port = 0;
+static int64_t mapped_port = 0;
 
 static struct UPNPUrls upnp_urls;
 static struct IGDdatas upnp_data;
@@ -74,7 +75,7 @@ static char upnp_lanaddr[64];
 static natpmp_t natpmp;
 
 #ifdef __WIN32__
-static int is_cgnat_detected() {
+static int64_t is_cgnat_detected() {
     ULONG buffer_size = 0;
     if (GetAdaptersInfo(NULL, &buffer_size) != ERROR_BUFFER_OVERFLOW) {
         return 0;
@@ -88,7 +89,7 @@ static int is_cgnat_detected() {
         return 0;
     }
     for (IP_ADAPTER_INFO *adapter = adapter_info; adapter; adapter = adapter->Next) {
-        unsigned long local_ip = inet_addr(adapter->IpAddressList.IpAddress.String);
+        uint64_t local_ip = inet_addr(adapter->IpAddressList.IpAddress.String);
         if (local_ip != INADDR_NONE && local_ip != 0) {
             unsigned char first_octet = local_ip & 0xFF;
             unsigned char second_octet = (local_ip >> 8) & 0xFF;
@@ -97,7 +98,7 @@ static int is_cgnat_detected() {
                 return 1;
             }
         }
-        unsigned long gateway_ip = inet_addr(adapter->GatewayList.IpAddress.String);
+        uint64_t gateway_ip = inet_addr(adapter->GatewayList.IpAddress.String);
         if (gateway_ip != INADDR_NONE && gateway_ip != 0) {
             unsigned char first_octet = gateway_ip & 0xFF;
             unsigned char second_octet = (gateway_ip >> 8) & 0xFF;
@@ -111,12 +112,12 @@ static int is_cgnat_detected() {
     return 0;
 }
 #else
-static int is_cgnat_detected() {
+static int64_t is_cgnat_detected() {
     return 0;
 }
 #endif
 
-static int natpmp_add_port_mapping(uint16_t port) {
+static int64_t natpmp_add_port_mapping(int64_t port) {
     clock_t start_time = LbTimerClock();
     if (initnatpmp(&natpmp, 0, 0) < 0) {
         LbNetLog("NAT-PMP: Failed to initialize\n");
@@ -130,7 +131,7 @@ static int natpmp_add_port_mapping(uint16_t port) {
     natpmpresp_t response;
     fd_set file_descriptors;
     struct timeval timeout;
-    int result;
+    int64_t result;
     do {
         double elapsed = (double)(LbTimerClock() - start_time) / 1000.0;
         if (elapsed > NATPMP_TIMEOUT_SECONDS) {
@@ -193,14 +194,14 @@ static int natpmp_add_port_mapping(uint16_t port) {
             return 0;
         }
     }
-    LbNetLog("NAT-PMP: port forwarding active on port %u\n", port);
+    LbNetLog("NAT-PMP: port forwarding active on port %" PRIu64 "\n", (uint64_t)(port));
     mapped_port = port;
     active_method = PORT_FORWARD_NATPMP;
     closenatpmp(&natpmp);
     return 1;
 }
 
-static void port_forward_add_mapping_internal(uint16_t port) {
+static void port_forward_add_mapping_internal(int64_t port) {
     if (is_cgnat_detected()) {
         LbNetLog("CGNAT detected, automatic port forwarding unavailable\n");
         return;
@@ -218,9 +219,9 @@ static void port_forward_add_mapping_internal(uint16_t port) {
         return;
     }
 #if (MINIUPNPC_API_VERSION >= 18)
-    int internet_gateway_device_result = UPNP_GetValidIGD(device_list, &upnp_urls, &upnp_data, upnp_lanaddr, sizeof(upnp_lanaddr), NULL, 0);
+    int64_t internet_gateway_device_result = UPNP_GetValidIGD(device_list, &upnp_urls, &upnp_data, upnp_lanaddr, sizeof(upnp_lanaddr), NULL, 0);
 #else
-    int internet_gateway_device_result = UPNP_GetValidIGD(device_list, &upnp_urls, &upnp_data, upnp_lanaddr, sizeof(upnp_lanaddr));
+    int64_t internet_gateway_device_result = UPNP_GetValidIGD(device_list, &upnp_urls, &upnp_data, upnp_lanaddr, sizeof(upnp_lanaddr));
 #endif
     freeUPNPDevlist(device_list);
     if (internet_gateway_device_result == 0) {
@@ -229,25 +230,25 @@ static void port_forward_add_mapping_internal(uint16_t port) {
         return;
     }
     char port_string[16];
-    snprintf(port_string, sizeof(port_string), "%u", port);
+    snprintf(port_string, sizeof(port_string), "%" PRIu64, (uint64_t)(port));
     UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, "UDP", "");
     LbNetLog("UPnP: lanaddr=%s\n", upnp_lanaddr);
-    int result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, "KeeperFX", "UDP", "", "0");
+    int64_t result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, "KeeperFX", "UDP", "", "0");
     if (result != UPNPCOMMAND_SUCCESS) {
-        LbNetLog("UPnP: permanent lease rejected (error %d), trying timed lease\n", result);
+        LbNetLog("UPnP: permanent lease rejected (error %" PRId64 "), trying timed lease\n", (int64_t)(result));
         result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, "KeeperFX", "UDP", "", "3600");
         if (result != UPNPCOMMAND_SUCCESS) {
-            LbNetLog("UPnP: failed to add port mapping (error %d), UDP hole punching will be used\n", result);
+            LbNetLog("UPnP: failed to add port mapping (error %" PRId64 "), UDP hole punching will be used\n", (int64_t)(result));
             FreeUPNPUrls(&upnp_urls);
             return;
         }
     }
-    LbNetLog("UPnP: port forwarding active on port %u\n", port);
+    LbNetLog("UPnP: port forwarding active on port %" PRIu64 "\n", (uint64_t)(port));
     mapped_port = port;
     active_method = PORT_FORWARD_UPNP;
 }
 
-int port_forward_add_mapping(uint16_t port) {
+int64_t port_forward_add_mapping(int64_t port) {
     std::thread(port_forward_add_mapping_internal, port).detach();
     return 1;
 }
@@ -267,7 +268,7 @@ void port_forward_remove_mapping(void) {
         natpmpresp_t response;
         fd_set file_descriptors;
         struct timeval timeout;
-        int result;
+        int64_t result;
         clock_t start_time = LbTimerClock();
         do {
             double elapsed = (double)(LbTimerClock() - start_time) / 1000.0;
@@ -283,7 +284,7 @@ void port_forward_remove_mapping(void) {
         closenatpmp(&natpmp);
     } else if (active_method == PORT_FORWARD_UPNP) {
         char port_string[16];
-        snprintf(port_string, sizeof(port_string), "%u", mapped_port);
+        snprintf(port_string, sizeof(port_string), "%" PRIu64, (uint64_t)(mapped_port));
         UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, "UDP", NULL);
         FreeUPNPUrls(&upnp_urls);
     }

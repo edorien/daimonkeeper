@@ -78,21 +78,21 @@ static SDL_AtomicInt create_thread_active = {0};
 static SDL_AtomicInt finish_thread_active = {0};
 static SDL_AtomicInt ips_resolved = {0};
 static SDL_AtomicInt ips_resolving = {0};
-static int connect_gave_up = 0;
+static int64_t connect_gave_up = 0;
 static char local_ipv4[MATCHMAKING_IP_MAX] = {0};
 static char local_ipv6[MATCHMAKING_IP_MAX] = {0};
 static char finish_message[SEND_BUFFER_SIZE];
-static int create_ipv4_port;
-static int create_ipv6_port;
+static int64_t create_ipv4_port;
+static int64_t create_ipv6_port;
 static char create_host_name[MATCHMAKING_NAME_MAX];
 static Uint32 heartbeat_time;
-static int heartbeat_attempts;
+static int64_t heartbeat_attempts;
 
 struct TbNetworkSessionNameEntry matchmaking_sessions[MATCHMAKING_SESSIONS_MAX];
-int matchmaking_session_count = 0;
+int64_t matchmaking_session_count = 0;
 
 static void matchmaking_init(void);
-static int matchmaking_create_lobby(const char *name, int udp_ipv4_port, int udp_ipv6_port);
+static int64_t matchmaking_create_lobby(const char *name, int64_t udp_ipv4_port, int64_t udp_ipv6_port);
 
 void matchmaking_set_server(const char* host)
 {
@@ -113,14 +113,14 @@ void matchmaking_set_server(const char* host)
     
     // remove final slash, if any
     char host_stripped[MATCHMAKING_URL_MAX];
-    int len = (host[strlen(host)-1] == '/') ? strlen(host)-1 : strlen(host);
+    int64_t len = (host[strlen(host)-1] == '/') ? strlen(host)-1 : strlen(host);
     len = min(len, sizeof(host_stripped)-1);
     strncpy(host_stripped, host, len);
     host_stripped[len] = 0;
     
     // add schemes and paths
-    int lws = snprintf(matchmaking_ws_url, sizeof(matchmaking_ws_url), MATCHMAKING_WS_PREFIX "%s" MATCHMAKING_WS_SUFFIX, host_stripped);
-    int lip = snprintf(matchmaking_ip_url, sizeof(matchmaking_ip_url), MATCHMAKING_IP_PREFIX "%s" MATCHMAKING_IP_SUFFIX, host_stripped);
+    int64_t lws = snprintf(matchmaking_ws_url, sizeof(matchmaking_ws_url), MATCHMAKING_WS_PREFIX "%s" MATCHMAKING_WS_SUFFIX, host_stripped);
+    int64_t lip = snprintf(matchmaking_ip_url, sizeof(matchmaking_ip_url), MATCHMAKING_IP_PREFIX "%s" MATCHMAKING_IP_SUFFIX, host_stripped);
     
     if (lws >= sizeof(matchmaking_ws_url)-1 || lip >= sizeof(matchmaking_ip_url)-1)
     {
@@ -167,14 +167,14 @@ static size_t write_to_buffer(char *data, size_t element_size, size_t element_co
     return incoming_size;
 }
 
-static void resolve_public_address(long address_family, char *output)
+static void resolve_public_address(int64_t address_family, char *output)
 {
     output[0] = '\0';
     CURL *handle = curl_easy_init();
     if (!handle) return;
     LbNetLog("Matchmaking: resolving address via \"%s\"\n", matchmaking_ip_url);
     curl_easy_setopt(handle, CURLOPT_URL, matchmaking_ip_url);
-    curl_easy_setopt(handle, CURLOPT_IPRESOLVE, address_family);
+    curl_easy_setopt(handle, CURLOPT_IPRESOLVE, (long)address_family);
     curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, (long)CONNECT_TIMEOUT_MS);
     curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS, (long)CONNECT_TIMEOUT_MS);
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_to_buffer);
@@ -186,7 +186,7 @@ static void resolve_public_address(long address_family, char *output)
 }
 
 typedef struct {
-    long address_family;
+    int64_t address_family;
     char *output;
 } PublicAddressResolveTask;
 
@@ -243,7 +243,7 @@ static void resolve_public_ips_async(void)
     }
 }
 
-static int copy_public_ip(int ipv6, char *output, int output_buffer_size)
+static int64_t copy_public_ip(int64_t ipv6, char *output, int64_t output_buffer_size)
 {
     const char *source = local_ipv4;
     if (ipv6) {
@@ -267,7 +267,7 @@ static void websocket_cleanup(void)
     matchmaking_session_count = 0;
 }
 
-static int websocket_send(const char *request)
+static int64_t websocket_send(const char *request)
 {
     size_t bytes_sent = 0;
     CURLcode curl_result = curl_ws_send(curl_handle, request, strlen(request), &bytes_sent, 0, CURLWS_TEXT);
@@ -279,7 +279,7 @@ static int websocket_send(const char *request)
     return 0;
 }
 
-static int websocket_receive(char *response_buffer, size_t buffer_size, int timeout_ms)
+static int64_t websocket_receive(char *response_buffer, size_t buffer_size, int64_t timeout_ms)
 {
     curl_socket_t raw_socket = CURL_SOCKET_BAD;
     if (curl_easy_getinfo(curl_handle, CURLINFO_ACTIVESOCKET, &raw_socket) != CURLE_OK || raw_socket == CURL_SOCKET_BAD) {
@@ -289,14 +289,14 @@ static int websocket_receive(char *response_buffer, size_t buffer_size, int time
     Uint32 timeout_deadline = (Uint32)SDL_GetTicks() + timeout_ms;
     while (1) {
         if (timeout_ms > 0) {
-            int time_remaining = (int)(timeout_deadline - (Uint32)SDL_GetTicks());
+            int64_t time_remaining = (int64_t)(timeout_deadline - (Uint32)SDL_GetTicks());
             if (time_remaining <= 0)
                 return 0;
             fd_set readable_sockets;
             FD_ZERO(&readable_sockets);
             FD_SET(raw_socket, &readable_sockets);
             struct timeval timeout_value = { time_remaining / 1000, (time_remaining % 1000) * 1000 };
-            if (select((int)raw_socket + 1, &readable_sockets, NULL, NULL, &timeout_value) <= 0)
+            if (select((int64_t)raw_socket + 1, &readable_sockets, NULL, NULL, &timeout_value) <= 0)
                 return 0;
         }
 
@@ -312,7 +312,7 @@ static int websocket_receive(char *response_buffer, size_t buffer_size, int time
         }
         response_buffer[bytes_received] = '\0';
         if (!strstr(response_buffer, "\"type\":\"ping\""))
-            return (int)bytes_received;
+            return (int64_t)bytes_received;
         if (hosted_lobby_id[0] == '\0') {
             LbNetLog("Matchmaking: ignoring heartbeat while not hosting\n");
             continue;
@@ -325,13 +325,13 @@ static int websocket_receive(char *response_buffer, size_t buffer_size, int time
     }
 }
 
-static int websocket_exchange(const char *request, char *response_buffer, size_t buffer_size)
+static int64_t websocket_exchange(const char *request, char *response_buffer, size_t buffer_size)
 {
     if (websocket_send(request) != 0) return -1;
     Uint32 timeout_deadline = (Uint32)SDL_GetTicks() + WEBSOCKET_RECEIVE_TIMEOUT_MS;
-    int bytes_received;
+    int64_t bytes_received;
     do {
-        int time_remaining = (int)(timeout_deadline - (Uint32)SDL_GetTicks());
+        int64_t time_remaining = (int64_t)(timeout_deadline - (Uint32)SDL_GetTicks());
         if (time_remaining <= 0)
             return 0;
         bytes_received = websocket_receive(response_buffer, buffer_size, time_remaining);
@@ -339,7 +339,7 @@ static int websocket_exchange(const char *request, char *response_buffer, size_t
     return bytes_received;
 }
 
-int matchmaking_request_list(void)
+int64_t matchmaking_request_list(void)
 {
     if (!matchmaking_enabled) {
         return 0;
@@ -350,7 +350,7 @@ int matchmaking_request_list(void)
         return -1;
     }
     matchmaking_session_count = 0;
-    int result = websocket_send("{\"action\":\"list\",\"version\":\"" MATCHMAKING_VERSION "\"}");
+    int64_t result = websocket_send("{\"action\":\"list\",\"version\":\"" MATCHMAKING_VERSION "\"}");
     SDL_UnlockMutex(mutex);
     return result;
 }
@@ -372,7 +372,7 @@ static const char *json_parse_string(const char *json, const char *key, char *ou
     return json_cursor + 1;
 }
 
-static int json_parse_int(const char *json, const char *key, int *output)
+static int64_t json_parse_int(const char *json, const char *key, int64_t *output)
 {
     char key_pattern[JSON_KEY_PATTERN_SIZE];
     snprintf(key_pattern, sizeof(key_pattern), "\"%s\":", key);
@@ -394,14 +394,14 @@ static void parse_punch_addresses(const char *json, PunchAddresses *output)
     json_parse_int(json, "peerIpv6Port", &output->ipv6_port);
 }
 
-static int punch_addresses_valid(const PunchAddresses *addresses)
+static int64_t punch_addresses_valid(const PunchAddresses *addresses)
 {
     return (addresses->ipv4_port && addresses->ipv4[0] != '\0') || (addresses->ipv6_port && addresses->ipv6[0] != '\0');
 }
 
 static void matchmaking_init(void)
 {
-    static int s_initialized = 0;
+    static int64_t s_initialized = 0;
     if (s_initialized)
         return;
     s_initialized = 1;
@@ -409,7 +409,7 @@ static void matchmaking_init(void)
     curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 
-static void load_published_public_ips(int udp_ipv4_port, int udp_ipv6_port, PunchAddresses *published_addresses)
+static void load_published_public_ips(int64_t udp_ipv4_port, int64_t udp_ipv6_port, PunchAddresses *published_addresses)
 {
     *published_addresses = (PunchAddresses){0};
     if (udp_ipv4_port > 0)
@@ -457,7 +457,7 @@ void matchmaking_connect_async(void)
     }
 }
 
-int matchmaking_connect(void)
+int64_t matchmaking_connect(void)
 {
     if (!matchmaking_enabled) {
         return -1;
@@ -477,7 +477,7 @@ int matchmaking_connect(void)
     curl_easy_setopt(curl_handle, CURLOPT_URL, matchmaking_ws_url);
     curl_easy_setopt(curl_handle, CURLOPT_CONNECT_ONLY, 2L);
     curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT_MS, (long)CONNECT_TIMEOUT_MS);
-    curl_easy_setopt(curl_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    curl_easy_setopt(curl_handle, CURLOPT_IPRESOLVE, (long)CURL_IPRESOLVE_V4);
     CURLcode curl_result = curl_easy_perform(curl_handle);
     if (curl_result != CURLE_OK) {
         LbNetLog("Matchmaking: connect to \"%s\" failed: %s\n", matchmaking_ws_url, curl_easy_strerror(curl_result));
@@ -508,7 +508,7 @@ void matchmaking_disconnect(void)
     SDL_UnlockMutex(mutex);
 }
 
-void matchmaking_close_lobby(enum MatchmakingLobbyResult result, int map_number, const char *map_name)
+void matchmaking_close_lobby(enum MatchmakingLobbyResult result, int64_t map_number, const char *map_name)
 {
     if (mutex == NULL) {
         return;
@@ -522,9 +522,9 @@ void matchmaking_close_lobby(enum MatchmakingLobbyResult result, int map_number,
         if (result == MMLobbyResult_Started) {
             char escaped_map_name[LINEMSG_SIZE * 2 + 1];
             json_escape(escaped_map_name, sizeof(escaped_map_name), map_name);
-            int write_position = snprintf(finish_message, sizeof(finish_message), "{\"action\":\"game_started\",\"id\":\"%s\",\"mapNumber\":%d,\"mapName\":\"%s\",\"players\":[", hosted_lobby_id, map_number, escaped_map_name);
+            int64_t write_position = snprintf(finish_message, sizeof(finish_message), "{\"action\":\"game_started\",\"id\":\"%s\",\"mapNumber\":%" PRId64 ",\"mapName\":\"%s\",\"players\":[", hosted_lobby_id, (int64_t)(map_number), escaped_map_name);
             const char *separator = "";
-            for (int i = 0; i < MAX_NET_USERS; i++) {
+            for (int64_t i = 0; i < MAX_NET_USERS; i++) {
                 if (!network_user_active(i)) {
                     continue;
                 }
@@ -553,11 +553,11 @@ void matchmaking_refresh_sessions(void)
     if (!curl_handle || !mutex || !SDL_TryLockMutex(mutex))
         return;
     char response_buffer[WEBSOCKET_BUFFER_SIZE];
-    int bytes_received = websocket_receive(response_buffer, sizeof(response_buffer), 0);
+    int64_t bytes_received = websocket_receive(response_buffer, sizeof(response_buffer), 0);
     if (bytes_received > 0)
-        LbNetLog("Matchmaking: list response (%d bytes): %s\n", bytes_received, response_buffer);
+        LbNetLog("Matchmaking: list response (%" PRId64 " bytes): %s\n", (int64_t)(bytes_received), response_buffer);
     if (bytes_received > 0 && strstr(response_buffer, "\"lobbies\"")) {
-        int count = 0;
+        int64_t count = 0;
         const char *json_cursor = response_buffer;
         while (count < MATCHMAKING_SESSIONS_MAX) {
             char id[MATCHMAKING_ID_MAX];
@@ -572,18 +572,18 @@ void matchmaking_refresh_sessions(void)
             memset(session, 0, sizeof(*session));
             session->joinable = 1;
             session->in_use = 1;
-            session->id = (unsigned long)count;
+            session->id = (uint64_t)count;
             snprintf(session->text, SESSION_NAME_MAX_LEN, "%s", name);
             snprintf(session->join_address, SESSION_LOBBY_ID_MAX_LEN, "%s", id);
             snprintf(session->lobby_id, SESSION_LOBBY_ID_MAX_LEN, "%s", id);
         }
         matchmaking_session_count = count;
-        LbNetLog("Matchmaking: parsed %d session(s)\n", count);
+        LbNetLog("Matchmaking: parsed %" PRId64 " session(s)\n", (int64_t)(count));
     }
     SDL_UnlockMutex(mutex);
 }
 
-static int matchmaking_create_lobby(const char *name, int udp_ipv4_port, int udp_ipv6_port)
+static int64_t matchmaking_create_lobby(const char *name, int64_t udp_ipv4_port, int64_t udp_ipv6_port)
 {
     if (!matchmaking_enabled) {
         return -1;
@@ -603,20 +603,20 @@ static int matchmaking_create_lobby(const char *name, int udp_ipv4_port, int udp
         SDL_UnlockMutex(mutex);
         return -1;
     }
-    int write_position = 0;
-    for (int i = 0; name[i] && write_position < (int)sizeof(escaped_lobby_name) - 2; i++) {
+    int64_t write_position = 0;
+    for (int64_t i = 0; name[i] && write_position < (int64_t)sizeof(escaped_lobby_name) - 2; i++) {
         if (name[i] == '"' || name[i] == '\\')
             escaped_lobby_name[write_position++] = '\\';
         escaped_lobby_name[write_position++] = name[i];
     }
     escaped_lobby_name[write_position] = '\0';
     snprintf(request_message, sizeof(request_message),
-        "{\"action\":\"create\",\"name\":\"%s\",\"ipv4Port\":%d,\"ipv6Port\":%d,\"version\":\"%s\",\"ipv4\":\"%s\",\"ipv6\":\"%s\"}",
-        escaped_lobby_name, udp_ipv4_port, udp_ipv6_port, MATCHMAKING_VERSION,
+        "{\"action\":\"create\",\"name\":\"%s\",\"ipv4Port\":%" PRId64 ",\"ipv6Port\":%" PRId64 ",\"version\":\"%s\",\"ipv4\":\"%s\",\"ipv6\":\"%s\"}",
+        escaped_lobby_name, (int64_t)(udp_ipv4_port), (int64_t)(udp_ipv6_port), MATCHMAKING_VERSION,
         published_addresses.ipv4, published_addresses.ipv6);
-    int bytes_received = websocket_exchange(request_message, response_buffer, sizeof(response_buffer));
+    int64_t bytes_received = websocket_exchange(request_message, response_buffer, sizeof(response_buffer));
     if (bytes_received > 0) {
-        LbNetLog("Matchmaking: create response (%d bytes): %s\n", bytes_received, response_buffer);
+        LbNetLog("Matchmaking: create response (%" PRId64 " bytes): %s\n", (int64_t)(bytes_received), response_buffer);
     }
     if (bytes_received <= 0) {
         SDL_UnlockMutex(mutex);
@@ -635,7 +635,7 @@ static int matchmaking_create_lobby(const char *name, int udp_ipv4_port, int udp
     return 0;
 }
 
-int matchmaking_create(const char *name, int udp_ipv4_port, int udp_ipv6_port)
+int64_t matchmaking_create(const char *name, int64_t udp_ipv4_port, int64_t udp_ipv6_port)
 {
     if (!SDL_CompareAndSwapAtomicInt(&create_thread_active, 0, 1)) {
         return -1;
@@ -652,7 +652,7 @@ int matchmaking_create(const char *name, int udp_ipv4_port, int udp_ipv6_port)
     return 0;
 }
 
-int matchmaking_punch(const char *lobby_id, int udp_ipv4_port, int udp_ipv6_port, PunchAddresses *output)
+int64_t matchmaking_punch(const char *lobby_id, int64_t udp_ipv4_port, int64_t udp_ipv6_port, PunchAddresses *output)
 {
     if (!matchmaking_enabled) {
         return -1;
@@ -668,16 +668,16 @@ int matchmaking_punch(const char *lobby_id, int udp_ipv4_port, int udp_ipv6_port
         return -1;
     }
     snprintf(request_message, sizeof(request_message),
-        "{\"action\":\"punch\",\"lobbyId\":\"%s\",\"myIpv4Port\":%d,\"myIpv6Port\":%d,\"myIpv4\":\"%s\",\"myIpv6\":\"%s\"}",
-        lobby_id, udp_ipv4_port, udp_ipv6_port, published_addresses.ipv4, published_addresses.ipv6);
+        "{\"action\":\"punch\",\"lobbyId\":\"%s\",\"myIpv4Port\":%" PRId64 ",\"myIpv6Port\":%" PRId64 ",\"myIpv4\":\"%s\",\"myIpv6\":\"%s\"}",
+        lobby_id, (int64_t)(udp_ipv4_port), (int64_t)(udp_ipv6_port), published_addresses.ipv4, published_addresses.ipv6);
     if (websocket_send(request_message) != 0) {
         SDL_UnlockMutex(mutex);
         return -1;
     }
-    int bytes_received;
+    int64_t bytes_received;
     Uint32 timeout_deadline = (Uint32)SDL_GetTicks() + WEBSOCKET_RECEIVE_TIMEOUT_MS;
     while (1) {
-        int time_remaining = (int)(timeout_deadline - (Uint32)SDL_GetTicks());
+        int64_t time_remaining = (int64_t)(timeout_deadline - (Uint32)SDL_GetTicks());
         if (time_remaining <= 0) {
             LbNetLog("Matchmaking: punch failed - timeout\n");
             SDL_UnlockMutex(mutex);
@@ -685,7 +685,7 @@ int matchmaking_punch(const char *lobby_id, int udp_ipv4_port, int udp_ipv6_port
         }
         bytes_received = websocket_receive(response_buffer, sizeof(response_buffer), time_remaining);
         if (bytes_received > 0)
-            LbNetLog("Matchmaking: punch response (%d bytes): %s\n", bytes_received, response_buffer);
+            LbNetLog("Matchmaking: punch response (%" PRId64 " bytes): %s\n", (int64_t)(bytes_received), response_buffer);
         if (bytes_received <= 0) {
             SDL_UnlockMutex(mutex);
             return -1;
@@ -704,12 +704,12 @@ int matchmaking_punch(const char *lobby_id, int udp_ipv4_port, int udp_ipv6_port
         SDL_UnlockMutex(mutex);
         return -1;
     }
-    LbNetLog("Matchmaking: punch relay -> ipv4=%s ipv6=%s ipv4_port=%d ipv6_port=%d\n", output->ipv4, output->ipv6, output->ipv4_port, output->ipv6_port);
+    LbNetLog("Matchmaking: punch relay -> ipv4=%s ipv6=%s ipv4_port=%" PRId64 " ipv6_port=%" PRId64 "\n", output->ipv4, output->ipv6, (int64_t)(output->ipv4_port), (int64_t)(output->ipv6_port));
     SDL_UnlockMutex(mutex);
     return 0;
 }
 
-int matchmaking_poll_punch(PunchAddresses *output)
+int64_t matchmaking_poll_punch(PunchAddresses *output)
 {
     if (!matchmaking_enabled || SDL_GetAtomicInt(&create_thread_active) || !mutex || !SDL_TryLockMutex(mutex)) {
         return 0;
@@ -719,8 +719,8 @@ int matchmaking_poll_punch(PunchAddresses *output)
         return -1;
     }
     char response_buffer[WEBSOCKET_BUFFER_SIZE] = "";
-    int bytes_received = websocket_receive(response_buffer, sizeof(response_buffer), 0);
-    int result = 0;
+    int64_t bytes_received = websocket_receive(response_buffer, sizeof(response_buffer), 0);
+    int64_t result = 0;
     Uint32 now = (Uint32)SDL_GetTicks();
     if (bytes_received < 0) {
         result = -1;
@@ -734,12 +734,12 @@ int matchmaking_poll_punch(PunchAddresses *output)
         parse_punch_addresses(response_buffer, output);
         if (punch_addresses_valid(output)) {
             result = 1;
-            LbNetLog("Matchmaking: poll_punch -> ipv4=%s ipv6=%s ipv4_port=%d ipv6_port=%d\n", output->ipv4, output->ipv6, output->ipv4_port, output->ipv6_port);
+            LbNetLog("Matchmaking: poll_punch -> ipv4=%s ipv6=%s ipv4_port=%" PRId64 " ipv6_port=%" PRId64 "\n", output->ipv4, output->ipv6, (int64_t)(output->ipv4_port), (int64_t)(output->ipv6_port));
         } else {
             LbNetLog("Matchmaking: poll_punch parse failed\n");
         }
     }
-    if (result >= 0 && (int)(heartbeat_time - now) <= 0) {
+    if (result >= 0 && (int64_t)(heartbeat_time - now) <= 0) {
         if (heartbeat_attempts >= HEARTBEAT_FAILURE_LIMIT || websocket_send("{\"action\":\"ping\"}") != 0) {
             result = -1;
         } else {

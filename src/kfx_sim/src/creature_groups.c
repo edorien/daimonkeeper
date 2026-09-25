@@ -40,15 +40,15 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-long get_no_creatures_in_group(const struct Thing *grptng)
+int64_t get_no_creatures_in_group(const struct Thing *grptng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(grptng);
-    long i = cctrl->group_leader_idx;
+    int64_t i = cctrl->group_leader_idx;
     if (i == 0) {
         // No group - just one creature
         return 1;
     }
-    unsigned long k = 0;
+    uint64_t k = 0;
     while (i > 0)
     {
         struct Thing* ctng = thing_get(i);
@@ -71,12 +71,12 @@ struct Thing *get_last_follower_creature_in_group(const struct Thing *grptng)
 {
     struct Thing* ctng = NULL;
     struct CreatureControl* cctrl = creature_control_get_from_thing(grptng);
-    long i = cctrl->group_leader_idx;
+    int64_t i = cctrl->group_leader_idx;
     if (i == 0) {
         // No group - just one creature
         return INVALID_THING;
     }
-    unsigned long k = 0;
+    uint64_t k = 0;
     while (i > 0)
     {
         ctng = thing_get(i);
@@ -98,7 +98,7 @@ struct Thing *get_last_follower_creature_in_group(const struct Thing *grptng)
 struct Thing *get_first_follower_creature_in_group(const struct Thing *grptng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(grptng);
-    long i = cctrl->group_leader_idx;
+    int64_t i = cctrl->group_leader_idx;
     if (i == 0) {
         // No group - just one creature
         return INVALID_THING;
@@ -134,8 +134,8 @@ TbBool creature_is_group_leader(const struct Thing *thing)
 
 void internal_update_leader_index_in_group(struct Thing *leadtng)
 {
-    long i = leadtng->index;
-    unsigned long k = 0;
+    int64_t i = leadtng->index;
+    uint64_t k = 0;
     while (i > 0)
     {
         struct Thing* ctng = thing_get(i);
@@ -154,7 +154,7 @@ void internal_update_leader_index_in_group(struct Thing *leadtng)
             break;
         }
     }
-    SYNCDBG(7,"Group led by %s index %d has %d members",thing_model_name(leadtng),(int)leadtng->index,(int)k);
+    SYNCDBG(7,"Group led by %s index %" PRId64 " has %" PRId64 " members",thing_model_name(leadtng),(int64_t)leadtng->index,(int64_t)k);
 }
 
 void internal_remove_member_from_group_chain(struct Thing *creatng)
@@ -260,7 +260,7 @@ TbBool remove_creature_from_group_without_leader_consideration(struct Thing *cre
         cctrl->group_leader_idx = 0;
         cctrl->group_member_count = 0;
         if (creature_control_invalid(cctrl)) {
-            WARNLOG("Group had only one member, %s index %d",thing_model_name(creatng),(int)creatng->index);
+            WARNLOG("Group had only one member, %s index %" PRId64,thing_model_name(creatng),(int64_t)creatng->index);
         }
         leadtng->alloc_flags &= ~TAlF_IsFollowingLeader;
         CrtrStateId i = get_creature_state_besides_interruptions(leadtng);
@@ -283,9 +283,9 @@ TbBool remove_creature_from_group_without_leader_consideration(struct Thing *cre
  * Determines if the creature is a Tunneler or Imp to consider for leadership.
   * @return 0 if it's no digger, 1 if it's a digger who does not want to be a leader, and 2 if the digger is a preferred leader
  */
-static short creature_could_be_lead_digger(struct Thing* creatng, struct CreatureControl* cctrl)
+static int64_t creature_could_be_lead_digger(struct Thing* creatng, struct CreatureControl* cctrl)
 {
-    short potential_leader = 0;
+    int64_t potential_leader = 0;
     if (thing_is_creature_digger(creatng))
     {
         if (cctrl->party.objective != CHeroTsk_DefendParty)
@@ -305,10 +305,10 @@ static short creature_could_be_lead_digger(struct Thing* creatng, struct Creatur
  * @param grptng is the creature whos party is considerd
  * @return 0 if there's no digger, 1 if there's a digger who does not want to be a leader, and 2 if the digger is a preferred leader
  */
-static short creatures_group_has_special_digger_to_lead(struct Thing* grptng)
+static int64_t creatures_group_has_special_digger_to_lead(struct Thing* grptng)
 {
     struct Thing* ctng = INVALID_THING;
-    short potential_leader = 0;
+    int64_t potential_leader = 0;
     struct CreatureControl* cctrl;
     cctrl = creature_control_get_from_thing(grptng);
     potential_leader = creature_could_be_lead_digger(grptng, cctrl);
@@ -316,8 +316,8 @@ static short creatures_group_has_special_digger_to_lead(struct Thing* grptng)
     {
         return potential_leader;
     }
-    long i = cctrl->group_leader_idx;
-    unsigned long k = 0;
+    int64_t i = cctrl->group_leader_idx;
+    uint64_t k = 0;
     if (i == 0)
     {
         i = grptng->index;
@@ -327,7 +327,7 @@ static short creatures_group_has_special_digger_to_lead(struct Thing* grptng)
         ctng = thing_get(i);
         if (!thing_is_creature(ctng))
         {
-            ERRORLOG("Invalid creature in group %s index %d", thing_model_name(grptng), (int)grptng->index);
+            ERRORLOG("Invalid creature in group %s index %" PRId64, thing_model_name(grptng), (int64_t)grptng->index);
             return potential_leader;
         }
 
@@ -357,17 +357,17 @@ struct Thing* get_best_creature_to_lead_group(struct Thing* grptng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(grptng);
     CrtrExpLevel best_exp_level = 0;
-    long best_score = 0;
-    short has_digger = 0;
+    int64_t best_score = 0;
+    int64_t has_digger = 0;
     TbBool is_digger = 0;
     struct Thing* best_creatng = INVALID_THING;
-    long i = cctrl->group_leader_idx;
+    int64_t i = cctrl->group_leader_idx;
     if (i == 0) {
         // One creature is not a group, but we may still get its experience
         i = grptng->index;
     }
     has_digger = creatures_group_has_special_digger_to_lead(grptng);
-    unsigned long k = 0;
+    uint64_t k = 0;
     while (i > 0)
     {
         struct Thing* ctng = thing_get(i);
@@ -383,7 +383,7 @@ struct Thing* get_best_creature_to_lead_group(struct Thing* grptng)
             break;
         }
         // Per-thing code
-        long score = get_creature_thing_score(ctng);
+        int64_t score = get_creature_thing_score(ctng);
         // Units who are supposed to defend the party, are considered for party leadership last.
         if (cctrl->party.objective != CHeroTsk_DefendParty)
         {
@@ -448,11 +448,11 @@ TbBool remove_creature_from_group(struct Thing* creatng)
 {
     struct Thing* grptng = get_first_follower_creature_in_group(creatng);
     if (!remove_creature_from_group_without_leader_consideration(creatng)) {
-        SYNCDBG(5, "Removing %s index %d and disbanding the party", thing_model_name(creatng), (int)creatng->index);
+        SYNCDBG(5, "Removing %s index %" PRId64 " and disbanding the party", thing_model_name(creatng), (int64_t)creatng->index);
         // Last creature removed - party disbanded
         return false;
     }
-    SYNCDBG(5, "Removing %s index %d", thing_model_name(creatng), (int)creatng->index);
+    SYNCDBG(5, "Removing %s index %" PRId64, thing_model_name(creatng), (int64_t)creatng->index);
     struct Thing* leadtng = get_best_creature_to_lead_group(grptng);
     make_group_member_leader(leadtng);
     return true;
@@ -460,7 +460,7 @@ TbBool remove_creature_from_group(struct Thing* creatng)
 
 TbBool add_creature_to_group(struct Thing *creatng, struct Thing *grptng)
 {
-    SYNCDBG(5,"Adding %s index %d",thing_model_name(creatng),(int)creatng->index);
+    SYNCDBG(5,"Adding %s index %" PRId64,thing_model_name(creatng),(int64_t)creatng->index);
     struct Thing* pvthing = get_last_follower_creature_in_group(grptng);
     if ((grptng->index == creatng->index) || (grptng->owner != creatng->owner)) {
         return false;
@@ -497,9 +497,9 @@ TbBool add_creature_to_group(struct Thing *creatng, struct Thing *grptng)
     return true;
 }
 
-long add_creature_to_group_as_leader(struct Thing *creatng, struct Thing *grptng)
+int64_t add_creature_to_group_as_leader(struct Thing *creatng, struct Thing *grptng)
 {
-    SYNCDBG(5,"Adding %s index %d",thing_model_name(creatng),(int)creatng->index);
+    SYNCDBG(5,"Adding %s index %" PRId64,thing_model_name(creatng),(int64_t)creatng->index);
     if ((grptng->index == creatng->index) || (grptng->owner != creatng->owner)) {
         return 0;
     }
@@ -528,8 +528,8 @@ TbBool make_group_member_leader(struct Thing *leadtng)
     struct Thing* prvtng = get_group_leader(leadtng);
     if (!thing_is_creature(prvtng))
         return false;
-    SYNCDBG(3,"Group owned by player %d leader change to %s index %d",
-        (int)leadtng->owner,thing_model_name(leadtng),(int)leadtng->index);
+    SYNCDBG(3,"Group owned by player %" PRId64 " leader change to %s index %" PRId64,
+        (int64_t)leadtng->owner,thing_model_name(leadtng),(int64_t)leadtng->index);
     if (prvtng->index != leadtng->index)
     {
         remove_creature_from_group_without_leader_consideration(leadtng);
@@ -542,8 +542,8 @@ TbBool make_group_member_leader(struct Thing *leadtng)
 TbBool get_free_position_behind_leader(struct Thing *leadtng, struct Coord3d *pos)
 {
     struct CreatureControl* leadctrl = creature_control_get_from_thing(leadtng);
-    int group_len = leadctrl->group_member_count;
-    for (int i = 0; i < group_len; i++)
+    int64_t group_len = leadctrl->group_member_count;
+    for (int64_t i = 0; i < group_len; i++)
     {
         struct MemberPos* avail_pos = &leadctrl->followers_pos[i];
         if (((avail_pos->flags & MpF_AVAIL) != 0) && ((avail_pos->flags & MpF_OCCUPIED) == 0))
@@ -555,17 +555,17 @@ TbBool get_free_position_behind_leader(struct Thing *leadtng, struct Coord3d *po
             return true;
         }
     }
-    WARNDBG(3,"Group led by %s index %d owned by player %d had all %d follower positions taken",
-        thing_model_name(leadtng),(int)leadtng->index,(int)leadtng->owner,group_len);
+    WARNDBG(3,"Group led by %s index %" PRId64 " owned by player %" PRId64 " had all %" PRId64 " follower positions taken",
+        thing_model_name(leadtng),(int64_t)leadtng->index,(int64_t)leadtng->owner,(int64_t)(group_len));
     return false;
 }
 
-long process_obey_leader(struct Thing *thing)
+int64_t process_obey_leader(struct Thing *thing)
 {
     struct Thing* leadtng = get_group_leader(thing);
     if (!thing_is_creature(leadtng)) {
-        WARNDBG(3,"Leader invalid, resetting %s index %d owned by player %d",
-            thing_model_name(thing),(int)thing->index,(int)thing->owner);
+        WARNDBG(3,"Leader invalid, resetting %s index %" PRId64 " owned by player %" PRId64,
+            thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
         return 1;
     }
@@ -630,7 +630,7 @@ long process_obey_leader(struct Thing *thing)
     return 1;
 }
 
-void creature_follower_pos_add(struct Thing *creatng, int ifollow, const struct Coord3d *pos)
+void creature_follower_pos_add(struct Thing *creatng, int64_t ifollow, const struct Coord3d *pos)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     struct MemberPos* avail_pos = &cctrl->followers_pos[ifollow];
@@ -640,10 +640,10 @@ void creature_follower_pos_add(struct Thing *creatng, int ifollow, const struct 
 
 void leader_find_positions_for_followers(struct Thing *leadtng)
 {
-    int group_len = get_no_creatures_in_group(leadtng);
+    int64_t group_len = get_no_creatures_in_group(leadtng);
     struct CreatureControl* cctrl = creature_control_get_from_thing(leadtng);
     // Base the position update frequency on leader move speed; speed of 48 requires refresh per 32 turns
-    int recompute_interval = 32 * 48 / (get_creature_speed(leadtng) + 1);
+    int64_t recompute_interval = 32 * 48 / (get_creature_speed(leadtng) + 1);
     if (recompute_interval > 256) {
         recompute_interval = 256;
     } else if (recompute_interval < 4) {
@@ -651,48 +651,48 @@ void leader_find_positions_for_followers(struct Thing *leadtng)
     }
     if ((cctrl->group_member_count == group_len) && (((get_gameturn() + leadtng->index) % recompute_interval) != 0))
     {
-        SYNCDBG(7,"Reusing positions for %d followers of %s index %d owned by player %d",
-            group_len,thing_model_name(leadtng),(int)leadtng->index,(int)leadtng->owner);
-        for (int i = 0; i < GROUP_MEMBERS_COUNT; i++)
+        SYNCDBG(7,"Reusing positions for %" PRId64 " followers of %s index %" PRId64 " owned by player %" PRId64,
+            (int64_t)(group_len),thing_model_name(leadtng),(int64_t)leadtng->index,(int64_t)leadtng->owner);
+        for (int64_t i = 0; i < GROUP_MEMBERS_COUNT; i++)
         {
           cctrl->followers_pos[i].flags &= ~0x01;
         }
         return;
     }
-    SYNCDBG(7,"Finding positions for %d followers of %s index %d owned by player %d",
-        group_len,thing_model_name(leadtng),(int)leadtng->index,(int)leadtng->owner);
+    SYNCDBG(7,"Finding positions for %" PRId64 " followers of %s index %" PRId64 " owned by player %" PRId64,
+        (int64_t)(group_len),thing_model_name(leadtng),(int64_t)leadtng->index,(int64_t)leadtng->owner);
     cctrl->group_member_count = group_len;
     memset(cctrl->followers_pos, 0, sizeof(cctrl->followers_pos));
 
-    int len_xv = LbSinL(leadtng->move_angle_xy + DEGREES_180) << 8 >> 16;
-    int len_yv = -((LbCosL(leadtng->move_angle_xy + DEGREES_180) << 8) >> 8) >> 8;
-    int len_xh = LbSinL(leadtng->move_angle_xy - DEGREES_90) << 8 >> 16;
-    int len_yh = -((LbCosL(leadtng->move_angle_xy - DEGREES_90) << 8) >> 8) >> 8;
+    int64_t len_xv = LbSinL(leadtng->move_angle_xy + DEGREES_180) << 8 >> 16;
+    int64_t len_yv = -((LbCosL(leadtng->move_angle_xy + DEGREES_180) << 8) >> 8) >> 8;
+    int64_t len_xh = LbSinL(leadtng->move_angle_xy - DEGREES_90) << 8 >> 16;
+    int64_t len_yh = -((LbCosL(leadtng->move_angle_xy - DEGREES_90) << 8) >> 8) >> 8;
 
-    int ih;
-    int iv;
-    int ivmax = 2 * group_len;
-    int ifollow = 0;
+    int64_t ih;
+    int64_t iv;
+    int64_t ivmax = 2 * group_len;
+    int64_t ifollow = 0;
 
-    int shift_xh;
-    int shift_yh;
+    int64_t shift_xh;
+    int64_t shift_yh;
 
-    int delta_yh = 2 * len_yh;
-    int delta_xh = 2 * len_xh;
-    int shift_yv = 2 * len_yv;
-    int delta_yv = 2 * len_yv;
-    int shift_yh_beg = -2 * len_yh;
-    int shift_xh_beg = -2 * len_xh;
-    int shift_xv = 2 * len_xv;
-    int delta_xv = 2 * len_xv;
+    int64_t delta_yh = 2 * len_yh;
+    int64_t delta_xh = 2 * len_xh;
+    int64_t shift_yv = 2 * len_yv;
+    int64_t delta_yv = 2 * len_yv;
+    int64_t shift_yh_beg = -2 * len_yh;
+    int64_t shift_xh_beg = -2 * len_xh;
+    int64_t shift_xv = 2 * len_xv;
+    int64_t delta_xv = 2 * len_xv;
     for (iv = 2; iv <= ivmax; iv += 2)
     {
         shift_yh = shift_yh_beg;
         shift_xh = shift_xh_beg;
         for (ih = -2; ih <= 2; ih += 2)
         {
-            int mcor_x = leadtng->mappos.x.val + shift_xh + shift_xv;
-            int mcor_y = leadtng->mappos.y.val + shift_yv + shift_yh;
+            int64_t mcor_x = leadtng->mappos.x.val + shift_xh + shift_xv;
+            int64_t mcor_y = leadtng->mappos.y.val + shift_yv + shift_yh;
             if ((coord_slab(mcor_x) > 0) && (coord_slab(mcor_x) < kfx_sim_state.map_tiles_x))
             {
                 if ((coord_slab(mcor_y) > 0) && (coord_slab(mcor_y) < kfx_sim_state.map_tiles_y))
@@ -734,8 +734,8 @@ void leader_find_positions_for_followers(struct Thing *leadtng)
         shift_xh = shift_xh_beg;
         for (ih = -1; ih <= 2; ih += 2)
         {
-            int mcor_x = leadtng->mappos.x.val + shift_xh + shift_xv;
-            int mcor_y = leadtng->mappos.y.val + shift_yv + shift_yh;
+            int64_t mcor_x = leadtng->mappos.x.val + shift_xh + shift_xv;
+            int64_t mcor_y = leadtng->mappos.y.val + shift_yv + shift_yh;
             if ((coord_slab(mcor_x) > 0) && (coord_slab(mcor_x) < kfx_sim_state.map_tiles_x))
             {
                 if ((coord_slab(mcor_y) > 0) && (coord_slab(mcor_y) < kfx_sim_state.map_tiles_y))
@@ -784,17 +784,17 @@ void leader_find_positions_for_followers(struct Thing *leadtng)
  * @param copies_num Amount of copies to be spawned.
  * @return Gives leader of last party spawned.
  */
-struct Thing *script_process_new_party(struct Party *party, PlayerNumber plyr_idx, TbMapLocation location, long copies_num)
+struct Thing *script_process_new_party(struct Party *party, PlayerNumber plyr_idx, TbMapLocation location, int64_t copies_num)
 {
     struct Thing* leadtng = INVALID_THING;
-    for (long i = 0; i < copies_num; i++)
+    for (int64_t i = 0; i < copies_num; i++)
     {
         struct Thing* grptng = INVALID_THING;
-        for (long k = 0; k < party->members_num; k++)
+        for (int64_t k = 0; k < party->members_num; k++)
         {
           if (k >= GROUP_MEMBERS_COUNT)
           {
-              ERRORLOG("Party too big, %d is the limit",GROUP_MEMBERS_COUNT);
+              ERRORLOG("Party too big, %" PRId64 " is the limit",(int64_t)(GROUP_MEMBERS_COUNT));
               break;
           }
           struct PartyMember* member = &(party->members[k]);
@@ -805,13 +805,13 @@ struct Thing *script_process_new_party(struct Party *party, PlayerNumber plyr_id
               cctrl->party.objective = member->objectv;
               cctrl->party.target_plyr_idx = member->target;
               cctrl->party.original_objective = cctrl->party.objective;
-              cctrl->wait_to_turn = max(0,(member->countdown + (int32_t)get_gameturn()));
+              cctrl->wait_to_turn = max(0,(member->countdown + (int64_t)get_gameturn()));
               cctrl->hero.wait_time = get_gameturn() + member->countdown;
               if (thing_is_invalid(grptng))
               {
                   // If it is the first creature - set it as only group member and leader
                   // Inside the thing, we don't need to mark it in any way (two creatures are needed to form a real group)
-                  SYNCDBG(5,"First member %s index %d",thing_model_name(thing),(int)thing->index);
+                  SYNCDBG(5,"First member %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
                   leadtng = thing;
                   grptng = thing;
               } else

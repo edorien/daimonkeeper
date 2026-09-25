@@ -44,11 +44,11 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-static long frontstory_text_no;
-static long credits_scroll_speed;
+static int64_t frontstory_text_no;
+static int64_t credits_scroll_speed;
 struct TbSpriteSheet * frontstory_font = NULL;
-long credits_offset;
-int credits_end;
+int64_t credits_offset;
+int64_t credits_end;
 /******************************************************************************/
 void frontstory_load(void)
 {
@@ -78,7 +78,7 @@ void frontstory_unload(void)
     free_font(&frontstory_font);
 }
 
-long frontstory_get_text_no(void)
+int64_t frontstory_get_text_no(void)
 {
     return frontstory_text_no;
 }
@@ -89,11 +89,11 @@ void frontstory_draw(void)
     LbTextSetWindow(70*units_per_pixel/16, 70*units_per_pixel/16, (640-2*70)*units_per_pixel/16, (480-2*70)*units_per_pixel/16);
     LbTextSetFont(frontstory_font);
     RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
-    int tx_units_per_px = (26 * units_per_pixel) / LbTextLineHeight();
+    int64_t tx_units_per_px = (26 * units_per_pixel) / LbTextLineHeight();
     LbTextDrawResized(0, 0, tx_units_per_px, get_string(frontstory_text_no));
 }
 
-short frontstory_input(void)
+int64_t frontstory_input(void)
 {
   return false;
 }
@@ -105,11 +105,11 @@ void frontcredits_draw(void)
 
     RendererSetDrawFlags(Lb_SPRITE_OUTLINE | Lb_TEXT_HALIGN_CENTER);
     LbTextSetWindow(0, 0, lbDisplay.PhysicalScreenWidth, lbDisplay.PhysicalScreenHeight);
-    int fontid = 1;
+    int64_t fontid = 1;
     LbTextSetFont(frontend_font[fontid]);
-    long h = credits_offset;
+    int64_t h = credits_offset;
     TbBool did_draw = h > 0;
-    for (long i = 0; campaign.credits[i].kind != CIK_None; i++)
+    for (int64_t i = 0; campaign.credits[i].kind != CIK_None; i++)
     {
         if (h >= lbDisplay.PhysicalScreenHeight)
           break;
@@ -119,7 +119,7 @@ void frontcredits_draw(void)
           fontid = credit->font;
           LbTextSetFont(frontend_font[fontid]);
         }
-        int ln_height = LbTextLineHeight() * units_per_pixel / 16;
+        int64_t ln_height = LbTextLineHeight() * units_per_pixel / 16;
         if (h > -ln_height)
         {
             const char* text;
@@ -150,8 +150,8 @@ void frontcredits_draw(void)
 TbBool frontcredits_input(void)
 {
     credits_scroll_speed = 1 * units_per_pixel / 16;
-    int fontid = 1;
-    int speed;
+    int64_t fontid = 1;
+    int64_t speed;
     if ( lbKeyOn[KC_DOWN] )
     {
         LbTextSetFont(frontend_font[fontid]);

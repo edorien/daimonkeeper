@@ -37,8 +37,8 @@
 #include "post_inc.h"
 
 // Use values of 21 and below, otherwise you may need more rays to explore the entire distance
-const int CREATURE_EXPLORE_DISTANCE = 7;
-const int CREATURE_EXPLORE_DISTANCE_POSSESSED = 10;
+const int64_t CREATURE_EXPLORE_DISTANCE = 7;
+const int64_t CREATURE_EXPLORE_DISTANCE_POSSESSED = 10;
 
 /******************************************************************************/
 TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
@@ -75,11 +75,11 @@ TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
         posmvy.y.val = prevpos->y.val - COORD_PER_STL;
         posmvy.z.val = prevpos->z.val;
         if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) X",(int)posmvx.x.stl.num,(int)posmvx.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) Y",(int)posmvy.x.stl.num,(int)posmvy.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         break;
@@ -92,11 +92,11 @@ TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
         posmvy.y.val = prevpos->y.val - COORD_PER_STL;
         posmvy.z.val = prevpos->z.val;
         if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) X",(int)posmvx.x.stl.num,(int)posmvx.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) Y",(int)posmvy.x.stl.num,(int)posmvy.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         break;
@@ -109,11 +109,11 @@ TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
         posmvy.y.val = prevpos->y.val + COORD_PER_STL;
         posmvy.z.val = prevpos->z.val;
         if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) X",(int)posmvx.x.stl.num,(int)posmvx.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) Y",(int)posmvy.x.stl.num,(int)posmvy.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         break;
@@ -126,17 +126,17 @@ TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
         posmvy.y.val = prevpos->y.val + COORD_PER_STL;
         posmvy.z.val = prevpos->z.val;
         if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) X",(int)posmvx.x.stl.num,(int)posmvx.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%d,%d) with delta (%d,%d) Y",(int)posmvy.x.stl.num,(int)posmvy.y.stl.num,(int)subdelta_x,(int)subdelta_y);
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
             return false;
         }
         break;
 
     default:
-        ERRORDBG(8,"Invalid use of sibling function, delta (%d,%d)",(int)subdelta_x,(int)subdelta_y);
+        ERRORDBG(8,"Invalid use of sibling function, delta (%" PRId64 ",%" PRId64 ")",(int64_t)subdelta_x,(int64_t)subdelta_y);
         break;
     }
     return true;
@@ -176,8 +176,8 @@ TbBool line_of_sight_3d_ignoring_specific_door(const struct Coord3d *frpos,
         increase_z = -COORD_PER_STL;
     }
     { // Compute amount of steps for the loop
-        int maxdim1;
-        int maxdim2;
+        int64_t maxdim1;
+        int64_t maxdim2;
         if (dy == dx)
         {
             increase_z = increase_z * dz / dx;
@@ -198,7 +198,7 @@ TbBool line_of_sight_3d_ignoring_specific_door(const struct Coord3d *frpos,
             maxdim1 = frpos->x.stl.num;
             maxdim2 = topos->x.stl.num;
         }
-        distance = abs(maxdim2 - maxdim1);
+        distance = llabs(maxdim2 - maxdim1);
     }
     // Go through the distance with given increases
     struct Coord3d prevpos;
@@ -316,7 +316,7 @@ TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_door(const struct 
         break;
 
     default:
-        ERRORDBG(8,"Invalid use of sibling function, delta (%d,%d)",(int)subdelta_x,(int)subdelta_y);
+        ERRORDBG(8,"Invalid use of sibling function, delta (%" PRId64 ",%" PRId64 ")",(int64_t)subdelta_x,(int64_t)subdelta_y);
         break;
     }
     return true;
@@ -355,8 +355,8 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_specific_door(const 
         increase_z = -COORD_PER_STL;
     }
     { // Compute amount of steps for the loop
-        int maxdim1;
-        int maxdim2;
+        int64_t maxdim1;
+        int64_t maxdim2;
         if (dy == dx)
         {
             increase_z = increase_z * dz / dx;
@@ -377,7 +377,7 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_specific_door(const 
             maxdim1 = frpos->x.stl.num;
             maxdim2 = topos->x.stl.num;
         }
-        distance = abs(maxdim2 - maxdim1);
+        distance = llabs(maxdim2 - maxdim1);
     }
     // Go through the distance with given increases
     struct Coord3d prevpos;
@@ -424,8 +424,8 @@ TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_own_door(const str
     }
     struct Coord3d posmvy;
     struct Coord3d posmvx;
-    int subdelta_x;
-    int subdelta_y;
+    int64_t subdelta_x;
+    int64_t subdelta_y;
     subdelta_x = (nextpos->x.stl.num - (MapSubtlDelta)prevpos->x.stl.num);
     subdelta_y = (nextpos->y.stl.num - (MapSubtlDelta)prevpos->y.stl.num);
     switch (subdelta_x + 2 * subdelta_y)
@@ -491,7 +491,7 @@ TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_own_door(const str
         break;
 
     default:
-        ERRORDBG(8,"Invalid use of sibling function, delta (%d,%d)",(int)subdelta_x,(int)subdelta_y);
+        ERRORDBG(8,"Invalid use of sibling function, delta (%" PRId64 ",%" PRId64 ")",(int64_t)subdelta_x,(int64_t)subdelta_y);
         break;
     }
     return true;
@@ -506,8 +506,8 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
     // Allow the travel to the same subtile
     if ((topos->x.stl.num == frpos->x.stl.num) &&
         (topos->y.stl.num == frpos->y.stl.num)) {
-        SYNCDBG(17, "Player %d can see (%d,%d) as its on same subtile",
-            (int)plyr_idx,(int)topos->x.stl.num,(int)topos->y.stl.num);
+        SYNCDBG(17, "Player %" PRId64 " can see (%" PRId64 ",%" PRId64 ") as its on same subtile",
+            (int64_t)plyr_idx,(int64_t)topos->x.stl.num,(int64_t)topos->y.stl.num);
         return true;
     }
     // Initialize increases and do abs() of dx,dy and dz
@@ -534,8 +534,8 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
         increase_z = -COORD_PER_STL;
     }
     { // Compute amount of steps for the loop
-        int maxdim1;
-        int maxdim2;
+        int64_t maxdim1;
+        int64_t maxdim2;
         if (dy == dx)
         {
             increase_z = increase_z * dz / dx;
@@ -556,7 +556,7 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
             maxdim1 = frpos->x.stl.num;
             maxdim2 = topos->x.stl.num;
         }
-        distance = abs(maxdim2 - maxdim1);
+        distance = llabs(maxdim2 - maxdim1);
     }
     // Go through the distance with given increases
     struct Coord3d prevpos;
@@ -571,13 +571,13 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
     while (distance > 0)
     {
         if (get_point_in_map_solid_flags_ignoring_own_door(&nextpos, plyr_idx) & 0x01) {
-            SYNCDBG(17, "Player %d cannot see through (%d,%d) due to linear path solid flags (downcount %d)",
-                (int)plyr_idx,(int)nextpos.x.stl.num,(int)nextpos.y.stl.num,(int)distance);
+            SYNCDBG(17, "Player %" PRId64 " cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
+                (int64_t)plyr_idx,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         if (!sibling_line_of_sight_3d_including_lava_check_ignoring_own_door(&prevpos, &nextpos, plyr_idx)) {
-            SYNCDBG(17, "Player %d cannot see through (%d,%d) due to 3D line of sight (downcount %d)",
-                (int)plyr_idx,(int)nextpos.x.stl.num,(int)nextpos.y.stl.num,(int)distance);
+            SYNCDBG(17, "Player %" PRId64 " cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
+                (int64_t)plyr_idx,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         // Go to next sibling subtile
@@ -589,8 +589,8 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
         nextpos.z.val += increase_z;
         distance--;
     }
-    SYNCDBG(17, "Player %d can see (%d,%d)",
-        (int)plyr_idx,(int)topos->x.stl.num,(int)topos->y.stl.num);
+    SYNCDBG(17, "Player %" PRId64 " can see (%" PRId64 ",%" PRId64 ")",
+        (int64_t)plyr_idx,(int64_t)topos->x.stl.num,(int64_t)topos->y.stl.num);
     return true;
 }
 
@@ -653,8 +653,8 @@ TbBool jonty_creature_can_see_thing_including_lava_check(const struct Thing *cre
         // If we're immune to lava, or we're already on it - don't care, travel over it
         if (lava_at_position(srcpos) || creature_can_travel_over_lava(creatng))
         {
-            SYNCDBG(17, "The %s index %d owned by player %d checks w/o lava %s index %d",
-                thing_model_name(creatng),(int)creatng->index,(int)creatng->owner,thing_model_name(thing),(int)thing->index);
+            SYNCDBG(17, "The %s index %" PRId64 " owned by player %" PRId64 " checks w/o lava %s index %" PRId64,
+                thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner,thing_model_name(thing),(int64_t)thing->index);
             // Check bottom of the thing
             if (line_of_sight_3d_ignoring_specific_door(&eyepos, &tgtpos, thing))
                 return true;
@@ -665,8 +665,8 @@ TbBool jonty_creature_can_see_thing_including_lava_check(const struct Thing *cre
             return false;
         } else
         {
-            SYNCDBG(17, "The %s index %d owned by player %d checks with lava %s index %d",
-                thing_model_name(creatng),(int)creatng->index,(int)creatng->owner,thing_model_name(thing),(int)thing->index);
+            SYNCDBG(17, "The %s index %" PRId64 " owned by player %" PRId64 " checks with lava %s index %" PRId64,
+                thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner,thing_model_name(thing),(int64_t)thing->index);
             // Check bottom of the thing
             if (jonty_line_of_sight_3d_including_lava_check_ignoring_specific_door(&eyepos, &tgtpos, thing))
                 return true;
@@ -681,8 +681,8 @@ TbBool jonty_creature_can_see_thing_including_lava_check(const struct Thing *cre
         // If we're immune to lava, or we're already on it - don't care, travel over it
         if (lava_at_position(srcpos) || creature_can_travel_over_lava(creatng))
         {
-            SYNCDBG(17, "The %s index %d owned by player %d checks w/o lava %s index %d",
-                thing_model_name(creatng),(int)creatng->index,(int)creatng->owner,thing_model_name(thing),(int)thing->index);
+            SYNCDBG(17, "The %s index %" PRId64 " owned by player %" PRId64 " checks w/o lava %s index %" PRId64,
+                thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner,thing_model_name(thing),(int64_t)thing->index);
             // Check bottom of the thing
             if (line_of_sight_3d(&eyepos, &tgtpos))
                 return true;
@@ -690,7 +690,7 @@ TbBool jonty_creature_can_see_thing_including_lava_check(const struct Thing *cre
             tgtpos.z.val += thing->clipbox_size_z;
             if (line_of_sight_3d(&eyepos, &tgtpos))
                 return true;
-            long angle = get_angle_xy_to(&tgtpos, &eyepos);
+            int64_t angle = get_angle_xy_to(&tgtpos, &eyepos);
             // Check left side
             // We're checking point at 60 degrees left; could use 90 deg, but making even slim edge visible might not be a good idea
             // Also 60 deg will shorten distance to the check point, which may better describe real visibility
@@ -706,8 +706,8 @@ TbBool jonty_creature_can_see_thing_including_lava_check(const struct Thing *cre
             return false;
         } else
         {
-            SYNCDBG(17, "The %s index %d owned by player %d checks with lava %s index %d",
-                thing_model_name(creatng),(int)creatng->index,(int)creatng->owner,thing_model_name(thing),(int)thing->index);
+            SYNCDBG(17, "The %s index %" PRId64 " owned by player %" PRId64 " checks with lava %s index %" PRId64,
+                thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner,thing_model_name(thing),(int64_t)thing->index);
             // Check bottom of the thing
             if (jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(&eyepos, &tgtpos, creatng->owner))
                 return true;
@@ -717,7 +717,7 @@ TbBool jonty_creature_can_see_thing_including_lava_check(const struct Thing *cre
                 return true;
             // Check both sides at middle of thing height
             tgtpos.z.val -= thing->clipbox_size_z / 2;
-            long angle = get_angle_xy_to(&tgtpos, &eyepos);
+            int64_t angle = get_angle_xy_to(&tgtpos, &eyepos);
             // Check left side
             // We're checking point at 60 degrees left; could use 90 deg, but making even slim edge visible might not be a good idea
             // Also 60 deg will shorten distance to the check point, which may better describe real visibility
@@ -743,13 +743,13 @@ TbBool line_of_sight_2d(const struct Coord3d *frpos, const struct Coord3d *topos
     MapCoordDelta ray_point_delta_x;
     MapCoordDelta ray_point_delta_y;
 
-    long ray_end_point;
-    long ray_current_point;
+    int64_t ray_end_point;
+    int64_t ray_current_point;
     struct Coord3d ray_point_pos;
-    static const long RAY_RESOLUTION = 80;
+    static const int64_t RAY_RESOLUTION = 80;
         
-    pos_delta_x = abs(topos->x.val - frpos->x.val);
-    pos_delta_y = abs(topos->y.val - frpos->y.val);
+    pos_delta_x = llabs(topos->x.val - frpos->x.val);
+    pos_delta_y = llabs(topos->y.val - frpos->y.val);
 
     if ( frpos->x.val > topos->x.val )
     {
@@ -836,8 +836,8 @@ TbBool line_of_sight_3d(const struct Coord3d *frpos, const struct Coord3d *topos
         increase_z = -COORD_PER_STL;
     }
     { // Compute amount of steps for the loop
-        int maxdim1;
-        int maxdim2;
+        int64_t maxdim1;
+        int64_t maxdim2;
         if (dy == dx)
         {
             increase_z = increase_z * dz / dx;
@@ -858,7 +858,7 @@ TbBool line_of_sight_3d(const struct Coord3d *frpos, const struct Coord3d *topos
             maxdim1 = frpos->x.stl.num;
             maxdim2 = topos->x.stl.num;
         }
-        distance = abs(maxdim2 - maxdim1);
+        distance = llabs(maxdim2 - maxdim1);
     }
     // Go through the distance with given increases
     struct Coord3d prevpos;
@@ -884,13 +884,13 @@ TbBool line_of_sight_3d(const struct Coord3d *frpos, const struct Coord3d *topos
     while (distance > 0)
     {
         if (point_in_map_is_solid(&nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%d,%d) due to linear path solid flags (downcount %d)",
-                (int)nextpos.x.stl.num,(int)nextpos.y.stl.num,(int)distance);
+            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
+                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         if (!sibling_line_of_sight(&prevpos, &nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%d,%d) due to 3D line of sight (downcount %d)",
-                (int)nextpos.x.stl.num,(int)nextpos.y.stl.num,(int)distance);
+            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
+                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         // Go to next sibling subtile
@@ -945,7 +945,7 @@ TbBool nowibble_line_of_sight_3d(const struct Coord3d *frpos, const struct Coord
         increase_z = -COORD_PER_STL;
     }
     { // Compute amount of steps for the loop
-        int maxdim1, maxdim2;
+        int64_t maxdim1, maxdim2;
         if (dy == dx)
         {
             increase_z = increase_z * dz / dx;
@@ -968,7 +968,7 @@ TbBool nowibble_line_of_sight_3d(const struct Coord3d *frpos, const struct Coord
         }
         // Decreasing by 1 step compared to originally, to avoid floor/wall wibble lumps
         // that block the explosion that is happening "within" them
-        distance = abs(maxdim2 - maxdim1) - 1;
+        distance = llabs(maxdim2 - maxdim1) - 1;
     }
     // Go through the distance with given increases
     struct Coord3d prevpos;
@@ -979,19 +979,19 @@ TbBool nowibble_line_of_sight_3d(const struct Coord3d *frpos, const struct Coord
     if (increase_x != 0)
     {
         // add 1 to the x position, in the correct sign (1 or -1)
-        prevpos.x.val += (increase_x / abs(increase_x));
+        prevpos.x.val += (increase_x / llabs(increase_x));
     }
     prevpos.y.val = frpos->y.val;
     if (increase_y != 0)
     {
         // add 1 to the y position, in the correct sign (1 or -1)
-        prevpos.y.val += (increase_y / abs(increase_y));
+        prevpos.y.val += (increase_y / llabs(increase_y));
     }
     prevpos.z.val = frpos->z.val;
     if (increase_z != 0)
     {
         // add 1 to the z position, in the correct sign (1 or -1)
-        prevpos.z.val += (increase_z / abs(increase_z));
+        prevpos.z.val += (increase_z / llabs(increase_z));
     }
     nextpos.x.val = prevpos.x.val + increase_x;
     nextpos.y.val = prevpos.y.val + increase_y;
@@ -999,13 +999,13 @@ TbBool nowibble_line_of_sight_3d(const struct Coord3d *frpos, const struct Coord
     while (distance > 0)
     {
         if (point_in_map_is_solid(&nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%d,%d) due to linear path solid flags (downcount %d)",
-                (int)nextpos.x.stl.num,(int)nextpos.y.stl.num,(int)distance);
+            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
+                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         if (!sibling_line_of_sight(&prevpos, &nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%d,%d) due to 3D line of sight (downcount %d)",
-                (int)nextpos.x.stl.num,(int)nextpos.y.stl.num,(int)distance);
+            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
+                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         // Go to next sibling subtile
@@ -1024,12 +1024,12 @@ TbBool line_of_room_move_2d(const struct Coord3d *frpos, const struct Coord3d *t
 {
     MapCoordDelta delta_x;
     MapCoordDelta delta_y;
-    int distance_per_step_x;
-    int distance_per_step_y;
-    int ray_end_point;
-    int ray_current_point;
+    int64_t distance_per_step_x;
+    int64_t distance_per_step_y;
+    int64_t ray_end_point;
+    int64_t ray_current_point;
     struct Coord3d ray_point_pos;
-    static const long RAY_RESOLUTION = 80;
+    static const int64_t RAY_RESOLUTION = 80;
 
     distance_per_step_x = RAY_RESOLUTION;
     delta_x = topos->x.val - frpos->x.val;
@@ -1079,14 +1079,14 @@ TbBool line_of_room_move_2d(const struct Coord3d *frpos, const struct Coord3d *t
     return false;
 }
 
-long get_explore_sight_distance_in_slabs(const struct Thing *thing)
+int64_t get_explore_sight_distance_in_slabs(const struct Thing *thing)
 {
     if (!thing_exists(thing))
     {
-        WARNLOG("The %s index %d exploring dug slabs no longer exists", thing_model_name(thing), (int)thing->index);
+        WARNLOG("The %s index %" PRId64 " exploring dug slabs no longer exists", thing_model_name(thing), (int64_t)thing->index);
         return 0;
     }
-    long dist;
+    int64_t dist;
     if (!is_thing_some_way_controlled(thing)) {
         dist = CREATURE_EXPLORE_DISTANCE;
     } else {

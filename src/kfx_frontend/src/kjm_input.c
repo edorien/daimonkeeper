@@ -51,9 +51,9 @@ extern "C" {
 TbBool wheel_scrolled_up;
 TbBool wheel_scrolled_down;
 
-unsigned long key_modifiers;
-int defining_a_key;
-long defining_a_key_id;
+uint64_t key_modifiers;
+int64_t defining_a_key;
+int64_t defining_a_key_id;
 // docs/refactor/editor/10-definable-keybindings.md -- which table
 // defining_a_key_id indexes into: false = settings.kbkeys[]/GameKeys
 // (game_key_settings[]), true = settings.editor_kbkeys[]/EditorGameKeys
@@ -61,34 +61,34 @@ long defining_a_key_id;
 // discriminator is required, not just a convenience.
 TbBool defining_editor_key;
 
-long left_button_held_x;
-long left_button_held_y;
-long left_button_double_clicked_y;
-long left_button_double_clicked_x;
-long right_button_double_clicked_y;
-long right_button_double_clicked_x;
+int64_t left_button_held_x;
+int64_t left_button_held_y;
+int64_t left_button_double_clicked_y;
+int64_t left_button_double_clicked_x;
+int64_t right_button_double_clicked_y;
+int64_t right_button_double_clicked_x;
 char right_button_clicked;
 char left_button_clicked;
-long right_button_released_x;
-long right_button_released_y;
+int64_t right_button_released_x;
+int64_t right_button_released_y;
 char right_button_double_clicked;
-long left_button_released_y;
-long left_button_released_x;
+int64_t left_button_released_y;
+int64_t left_button_released_x;
 char left_button_double_clicked;
 char right_button_released;
 char right_button_held;
-long right_button_click_space_count;
-long right_button_held_y;
-long left_button_clicked_y;
-long left_button_clicked_x;
-long left_button_click_space_count;
-long right_button_held_x;
+int64_t right_button_click_space_count;
+int64_t right_button_held_y;
+int64_t left_button_clicked_y;
+int64_t left_button_clicked_x;
+int64_t left_button_click_space_count;
+int64_t right_button_held_x;
 char left_button_released;
-long right_button_clicked_y;
-long right_button_clicked_x;
+int64_t right_button_clicked_y;
+int64_t right_button_clicked_x;
 char left_button_held;
 
-long key_to_string[256];
+int64_t key_to_string[256];
 
 /** Initialization array, used to create array which stores index of text name of keyboard keys. */
 struct KeyToStringInit key_to_string_init[] = {
@@ -209,28 +209,28 @@ static void get_button_snapping_inputs(void)
         return;
     }
 
-    float snap_x = get_game_key_axis_value(Gkey_ButtonSnapRight, false) - get_game_key_axis_value(Gkey_ButtonSnapLeft, false);
-    float snap_y = get_game_key_axis_value(Gkey_ButtonSnapDown, false)  - get_game_key_axis_value(Gkey_ButtonSnapUp, false);
+    double snap_x = get_game_key_axis_value(Gkey_ButtonSnapRight, false) - get_game_key_axis_value(Gkey_ButtonSnapLeft, false);
+    double snap_y = get_game_key_axis_value(Gkey_ButtonSnapDown, false)  - get_game_key_axis_value(Gkey_ButtonSnapUp, false);
     
     snap_to_direction(GetMouseX(), GetMouseY(), snap_x, snap_y);
 
     controller_button_state = 0;
 }
 
-static float get_input_delta_time()
+static double get_input_delta_time()
 {
     static TbClockMSec delta_time_previous_msec = 0;
 
     TbClockMSec current_msec = LbTimerClock();
     if (delta_time_previous_msec == 0 || current_msec < delta_time_previous_msec) {
         delta_time_previous_msec = current_msec;
-        return 0.0f;
+        return 0.0;
     }
 
     TbClockMSec elapsed_msec = current_msec - delta_time_previous_msec;
     delta_time_previous_msec = current_msec;
-    float calculated_delta_time = ((float)elapsed_msec / 1000.0f) * kfx_sim_state.turns_per_second;
-    return min(calculated_delta_time, 1.0f);
+    double calculated_delta_time = ((double)elapsed_msec / 1000.0) * kfx_sim_state.turns_per_second;
+    return min(calculated_delta_time, 1.0);
 }
 
 void poll_controller_mouse_clicks()
@@ -258,31 +258,31 @@ void poll_controller_mouse_clicks()
     previous_controller_button_state = controller_button_state;
 }
 
-#define SECONDS_TO_CROSS   20.0f
-static void poll_controller_mouse_movement(float nx, float ny)
+#define SECONDS_TO_CROSS   20.0
+static void poll_controller_mouse_movement(double nx, double ny)
 {
-    static float mouse_accum_x;
-    static float mouse_accum_y;
-    static float input_delta_time = 0.0f;
+    static double mouse_accum_x;
+    static double mouse_accum_y;
+    static double input_delta_time = 0.0;
     input_delta_time = get_input_delta_time();
-    float mag = sqrtf(nx * nx + ny * ny);
+    double mag = sqrt(nx * nx + ny * ny);
 
-    if (mag <= 0.0f)
+    if (mag <= 0.0)
         return;
 
     nx /= mag;
     ny /= mag;
 
-    float norm_mag = min(mag, 1.0f);
-    float curved = norm_mag * norm_mag;
-    float pixels_per_second = lbDisplay.GraphicsWindowWidth / SECONDS_TO_CROSS;
-    float pixels_this_frame = pixels_per_second * input_delta_time;
+    double norm_mag = min(mag, 1.0);
+    double curved = norm_mag * norm_mag;
+    double pixels_per_second = lbDisplay.GraphicsWindowWidth / SECONDS_TO_CROSS;
+    double pixels_this_frame = pixels_per_second * input_delta_time;
 
     mouse_accum_x += nx * curved * pixels_this_frame;
     mouse_accum_y += ny * curved * pixels_this_frame;
 
-    int dx = (int)mouse_accum_x;
-    int dy = (int)mouse_accum_y;
+    int64_t dx = (int64_t)mouse_accum_x;
+    int64_t dy = (int64_t)mouse_accum_y;
 
     mouse_accum_x -= dx;
     mouse_accum_y -= dy;
@@ -301,8 +301,8 @@ void update_controller_inputs()
     }
 
     poll_controller_mouse_clicks();
-    float mouse_x = get_game_key_axis_value(Gkey_MouseRight, false) - get_game_key_axis_value(Gkey_MouseLeft, false);
-    float mouse_y = get_game_key_axis_value(Gkey_MouseDown, false) - get_game_key_axis_value(Gkey_MouseUp, false);
+    double mouse_x = get_game_key_axis_value(Gkey_MouseRight, false) - get_game_key_axis_value(Gkey_MouseLeft, false);
+    double mouse_y = get_game_key_axis_value(Gkey_MouseDown, false) - get_game_key_axis_value(Gkey_MouseUp, false);
     poll_controller_mouse_movement(mouse_x, mouse_y);
     get_button_snapping_inputs();
 
@@ -327,22 +327,22 @@ TbBool poll_inputs(void)
 /**
  * Returns X position of mouse cursor on screen.
  */
-long GetMouseX(void)
+int64_t GetMouseX(void)
 {
-    long result = lbDisplay.MMouseX * (long)pixel_size;
+    int64_t result = lbDisplay.MMouseX * (int64_t)pixel_size;
     return result;
 }
 
 /**
  * Returns Y position of mouse cursor on screen.
  */
-long GetMouseY(void)
+int64_t GetMouseY(void)
 {
-    long result = lbDisplay.MMouseY * (long)pixel_size;
+    int64_t result = lbDisplay.MMouseY * (int64_t)pixel_size;
     return result;
 }
 
-short is_mouse_pressed_lrbutton(void)
+int64_t is_mouse_pressed_lrbutton(void)
 {
   return (lbDisplay.LeftButton || lbDisplay.RightButton);
 }
@@ -422,15 +422,15 @@ void update_right_button_released(void)
 void update_left_button_clicked(void)
 {
   left_button_clicked = lbDisplay.LeftButton;
-  left_button_clicked_x = lbDisplay.MouseX * (long)pixel_size;
-  left_button_clicked_y = lbDisplay.MouseY * (long)pixel_size;
+  left_button_clicked_x = lbDisplay.MouseX * (int64_t)pixel_size;
+  left_button_clicked_y = lbDisplay.MouseY * (int64_t)pixel_size;
 }
 
 void update_right_button_clicked(void)
 {
   right_button_clicked = lbDisplay.RightButton;
-  right_button_clicked_x = lbDisplay.MouseX * (long)pixel_size;
-  right_button_clicked_y = lbDisplay.MouseY * (long)pixel_size;
+  right_button_clicked_x = lbDisplay.MouseX * (int64_t)pixel_size;
+  right_button_clicked_y = lbDisplay.MouseY * (int64_t)pixel_size;
 }
 
 void update_wheel_scrolled(void)
@@ -466,7 +466,7 @@ void update_mouse(void)
  * @param key Code of the key to check.
  * @param kmodif Key modifier flags required.
  */
-short is_key_pressed(TbKeyCode key, TbKeyMods kmodif)
+int64_t is_key_pressed(TbKeyCode key, TbKeyMods kmodif)
 {
   if ((kmodif == KMod_DONTCARE) || (kmodif == key_modifiers))
     return lbKeyOn[key];
@@ -476,7 +476,7 @@ short is_key_pressed(TbKeyCode key, TbKeyMods kmodif)
 /**
  * Clears the marking that a specific key is pressed.
  */
-void clear_key_pressed(long key)
+void clear_key_pressed(int64_t key)
 {
     if (key >= sizeof(lbKeyOn))
     {
@@ -501,7 +501,7 @@ void clear_key_pressed(long key)
  */
 void update_key_modifiers(void)
 {
-  unsigned short key_mods=0;
+  int64_t key_mods=0;
   if ( lbKeyOn[KC_LSHIFT] || lbKeyOn[KC_RSHIFT] )
     key_mods |= KMod_SHIFT;
   if ( lbKeyOn[KC_LCONTROL] || lbKeyOn[KC_RCONTROL] )
@@ -524,7 +524,7 @@ void update_key_modifiers(void)
 struct KeyBindingTable {
     struct GameKey *keys;
     TbBool *swapped;
-    long count;
+    int64_t count;
 };
 
 // Resolved lazily (not a single static-initialized const) purely so the two
@@ -549,7 +549,7 @@ static const struct KeyBindingTable *get_editor_key_table(void)
     return &kt;
 }
 
-static void swap_assigned_keys_in(const struct KeyBindingTable *kt, long current_key_id, struct GameKey* current_kbk, long new_key_id, unsigned char new_key, unsigned int new_mods)
+static void swap_assigned_keys_in(const struct KeyBindingTable *kt, int64_t current_key_id, struct GameKey* current_kbk, int64_t new_key_id, unsigned char new_key, uint64_t new_mods)
 {
     struct GameKey* kbk_swap = current_kbk;
     struct GameKey* new_kbk = &kt->keys[new_key_id];
@@ -564,7 +564,7 @@ static void swap_assigned_keys_in(const struct KeyBindingTable *kt, long current
     }
 }
 
-static void assign_key_in(const struct KeyBindingTable *kt, long key_id, unsigned char key, unsigned int mods)
+static void assign_key_in(const struct KeyBindingTable *kt, int64_t key_id, unsigned char key, uint64_t mods)
 {
     struct GameKey* kbk = &kt->keys[key_id];
     kbk->code = key;
@@ -575,9 +575,9 @@ static void assign_key_in(const struct KeyBindingTable *kt, long key_id, unsigne
     }
 }
 
-int mod_key_to_normal_key(unsigned int mods)
+int64_t mod_key_to_normal_key(uint64_t mods)
 {
-    int ncode;
+    int64_t ncode;
     if (mods & KMod_SHIFT)
     {
         ncode = KC_LSHIFT;
@@ -598,12 +598,12 @@ int mod_key_to_normal_key(unsigned int mods)
     return ncode;
 }
 
-static void check_and_assign_mod_keys_group_in(const struct KeyBindingTable *kt, long key_id, unsigned int mods, long reference_key_ids[], long reference_key_count)
+static void check_and_assign_mod_keys_group_in(const struct KeyBindingTable *kt, int64_t key_id, uint64_t mods, int64_t reference_key_ids[], int64_t reference_key_count)
 {
-    int ncode = mod_key_to_normal_key(mods);
+    int64_t ncode = mod_key_to_normal_key(mods);
     // Do not allow the key if it is used as other mod key by any in reference_key_ids[]
     struct GameKey *kbk;
-    for (long i = 0; i < reference_key_count; i++)
+    for (int64_t i = 0; i < reference_key_count; i++)
     {
         kbk = &kt->keys[reference_key_ids[i]];
         if ((reference_key_ids[i] != key_id) && (kbk->code == ncode))
@@ -615,12 +615,12 @@ static void check_and_assign_mod_keys_group_in(const struct KeyBindingTable *kt,
     assign_key_in(kt, key_id, ncode, 0);
 }
 
-static void check_and_assign_mod_keys_in(const struct KeyBindingTable *kt, long key_id, unsigned int mods, long reference_key_id)
+static void check_and_assign_mod_keys_in(const struct KeyBindingTable *kt, int64_t key_id, uint64_t mods, int64_t reference_key_id)
 {
     // This only works for a pair of adjacent "linked" keys (i.e Speed/Rotate and Query/Possess)
-    int ncode = mod_key_to_normal_key(mods);
+    int64_t ncode = mod_key_to_normal_key(mods);
     // Do not allow the key if it is used as other mod key
-    long other_key_id = ((unsigned int)(key_id - reference_key_id) < 1) + reference_key_id;
+    int64_t other_key_id = ((uint64_t)(key_id - reference_key_id) < 1) + reference_key_id;
     struct GameKey* kbk = &kt->keys[other_key_id];
     if (kbk->code != ncode)
     {
@@ -632,10 +632,10 @@ static void check_and_assign_mod_keys_in(const struct KeyBindingTable *kt, long 
     }
 }
 
-static void check_and_assign_normal_keys_in(const struct KeyBindingTable *kt, long key_id, unsigned char key, unsigned int mods, unsigned int set_mod)
+static void check_and_assign_normal_keys_in(const struct KeyBindingTable *kt, int64_t key_id, unsigned char key, uint64_t mods, uint64_t set_mod)
 {
     struct GameKey *kbk;
-    for (long i = 0; i < kt->count; i++)
+    for (int64_t i = 0; i < kt->count; i++)
     {
         kbk = &kt->keys[i];
         if ((i != key_id) && (kbk->code == key) && (kbk->mods == mods))
@@ -647,7 +647,7 @@ static void check_and_assign_normal_keys_in(const struct KeyBindingTable *kt, lo
     assign_key_in(kt, key_id, key, (set_mod ? mods & (KMod_SHIFT|KMod_CONTROL|KMod_ALT) : 0));
 }
 
-long set_game_key(long key_id, unsigned char key, unsigned int mods)
+int64_t set_game_key(int64_t key_id, unsigned char key, uint64_t mods)
 {
     if (!key_to_string[key])
     {
@@ -670,7 +670,7 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
     {
         if ((mods & KMod_SHIFT) || (mods & KMod_CONTROL) || (mods & KMod_ALT))
         {
-            long reference_key_ids[3] = {Gkey_SellTrapOnSubtile, Gkey_SquareRoomSpace, Gkey_BestRoomSpace};
+            int64_t reference_key_ids[3] = {Gkey_SellTrapOnSubtile, Gkey_SquareRoomSpace, Gkey_BestRoomSpace};
             check_and_assign_mod_keys_group_in(kt, key_id, mods, reference_key_ids, 3);
             return 1;
         }
@@ -734,7 +734,7 @@ long set_game_key(long key_id, unsigned char key, unsigned int mods)
 // Shift/Ctrl/Alt" flexibility Gkey_RotateMod/SpeedMod etc. get) -- none of
 // the current editor keys need that, so it's not wired up here, though the
 // generalized helpers would support it if a future editor key ever does.
-long set_editor_game_key(long key_id, unsigned char key, unsigned int mods)
+int64_t set_editor_game_key(int64_t key_id, unsigned char key, uint64_t mods)
 {
     if (!key_to_string[key])
     {
@@ -781,7 +781,7 @@ void define_key_input(void)
   if (lbInkey != KC_UNASSIGNED)
   {
       update_key_modifiers();
-      long assigned = defining_editor_key
+      int64_t assigned = defining_editor_key
           ? set_editor_game_key(defining_a_key_id, lbInkey, key_modifiers)
           : set_game_key(defining_a_key_id, lbInkey, key_modifiers);
       if (assigned)
@@ -798,7 +798,7 @@ void init_key_to_strings(void)
     memset(key_to_string, 0, sizeof(key_to_string));
     for (struct KeyToStringInit* ktsi = &key_to_string_init[0]; ktsi->chr != 0; ktsi++)
     {
-        long k = ktsi->chr;
+        int64_t k = ktsi->chr;
         key_to_string[k] = ktsi->str_idx;
     }
 }
@@ -811,11 +811,11 @@ void init_key_to_strings(void)
  */
 TbBool mouse_is_over_panel_map(ScreenCoord x, ScreenCoord y)
 {
-    long cmx = GetMouseX();
-    long cmy = GetMouseY();
-    int units_per_px = (16 * status_panel_width + 140 / 2) / 140;
-    long px = (cmx - (x + PANEL_MAP_RADIUS * units_per_px / 16));
-    long py = (cmy - (y + PANEL_MAP_RADIUS * units_per_px / 16));
+    int64_t cmx = GetMouseX();
+    int64_t cmy = GetMouseY();
+    int64_t units_per_px = (16 * status_panel_width + 140 / 2) / 140;
+    int64_t px = (cmx - (x + PANEL_MAP_RADIUS * units_per_px / 16));
+    int64_t py = (cmy - (y + PANEL_MAP_RADIUS * units_per_px / 16));
     return (LbSqrL(px*px + py*py) < PANEL_MAP_RADIUS*units_per_px/16);
 }
 
@@ -845,7 +845,7 @@ TbBool mouse_is_over_side_panel_bottom()
     return ((GetMouseX() < status_panel_width) && (GetMouseY() > scale_ui_value(185)) && (GetMouseY() < gmnu->height));
 }
 
-TbBool add_input_text_to_message(char *message, int max_message_length, struct TbSpriteSheet *font, int max_width)
+TbBool add_input_text_to_message(char *message, int64_t max_message_length, struct TbSpriteSheet *font, int64_t max_width)
 {
     LbTextSetFont(font);
     clear_key_pressed(lbInkey);
@@ -854,20 +854,20 @@ TbBool add_input_text_to_message(char *message, int max_message_length, struct T
         return false;
 
     char text_input[64];
-    int text_len = LbGetTextInput(text_input, sizeof(text_input));
+    int64_t text_len = LbGetTextInput(text_input, sizeof(text_input));
     if (text_len <= 0)
         return false;
 
-    int chpos = strlen(message);
-    int ti = 0;
+    int64_t chpos = strlen(message);
+    int64_t ti = 0;
     while (ti < text_len)
     {
         size_t seq_len = 0;
-        uint32_t codepoint = read_utf_8_codepoint(&text_input[ti], &seq_len);
+        uint64_t codepoint = read_utf_8_codepoint(&text_input[ti], &seq_len);
         // Accept any printable character; rendering falls back on unifont
         // for glyphs missing from the sprite fonts.
         TbBool acceptable = (codepoint >= 0x20 && codepoint != 0x7f);
-        if (acceptable && (chpos + (int)seq_len < max_message_length)) {
+        if (acceptable && (chpos + (int64_t)seq_len < max_message_length)) {
             memcpy(&message[chpos], &text_input[ti], seq_len);
             chpos += seq_len;
             message[chpos] = '\0';

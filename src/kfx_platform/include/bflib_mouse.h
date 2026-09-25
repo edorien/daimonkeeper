@@ -46,70 +46,70 @@ enum TbMouseAction {
 };
 
 struct mouse_buffer {
-        long Valid;//bool
-        long Width;
-        long Height;
-        unsigned long Offset;
+        int64_t Valid;//bool
+        int64_t Width;
+        int64_t Height;
+        uint64_t Offset;
         unsigned char Buffer[0x1000];
-        long X;
-        long Y;
-        long XOffset;
-        long YOffset;
+        int64_t X;
+        int64_t Y;
+        int64_t XOffset;
+        int64_t YOffset;
 };
 
 struct mouse_info {
-        long XMoveRatio;
-        long YMoveRatio;
-        long XSpriteOffset;
-        long YSpriteOffset;
+        int64_t XMoveRatio;
+        int64_t YMoveRatio;
+        int64_t XSpriteOffset;
+        int64_t YSpriteOffset;
         //Note: debug info says it has 0x100 items, but this is suspicious..
         unsigned char Sprite[0x1000];
 };
 
 struct DevInput {
-        long Yaw[16];
-        long Roll[16];
-        long Pitch[16];
-        long AnalogueX[16];
-        long AnalogueY[16];
-        long AnalogueZ[16];
-        long AnalogueU[16];
-        long AnalogueV[16];
-        long AnalogueR[16];
-        long DigitalX[16];
-        long DigitalY[16];
-        long DigitalZ[16];
-        long DigitalU[16];
-        long DigitalV[16];
-        long DigitalR[16];
-        long MinXAxis[16];
-        long MinYAxis[16];
-        long MinZAxis[16];
-        long MinUAxis[16];
-        long MinVAxis[16];
-        long MinRAxis[16];
-        long MaxXAxis[16];
-        long MaxYAxis[16];
-        long MaxZAxis[16];
-        long MaxUAxis[16];
-        long MaxVAxis[16];
-        long MaxRAxis[16];
-        long XCentre[16];
-        long YCentre[16];
-        long ZCentre[16];
-        long UCentre[16];
-        long VCentre[16];
-        long RCentre[16];
-        long HatX[16];
-        long HatY[16];
-        long HatMax[16];
-        long Buttons[16];
-        long NumberOfButtons[16];
-        long ConfigType[16];
-        long MenuButtons[16];
-        long Type;
-        long NumberOfDevices;
-        long DeviceType[16];
+        int64_t Yaw[16];
+        int64_t Roll[16];
+        int64_t Pitch[16];
+        int64_t AnalogueX[16];
+        int64_t AnalogueY[16];
+        int64_t AnalogueZ[16];
+        int64_t AnalogueU[16];
+        int64_t AnalogueV[16];
+        int64_t AnalogueR[16];
+        int64_t DigitalX[16];
+        int64_t DigitalY[16];
+        int64_t DigitalZ[16];
+        int64_t DigitalU[16];
+        int64_t DigitalV[16];
+        int64_t DigitalR[16];
+        int64_t MinXAxis[16];
+        int64_t MinYAxis[16];
+        int64_t MinZAxis[16];
+        int64_t MinUAxis[16];
+        int64_t MinVAxis[16];
+        int64_t MinRAxis[16];
+        int64_t MaxXAxis[16];
+        int64_t MaxYAxis[16];
+        int64_t MaxZAxis[16];
+        int64_t MaxUAxis[16];
+        int64_t MaxVAxis[16];
+        int64_t MaxRAxis[16];
+        int64_t XCentre[16];
+        int64_t YCentre[16];
+        int64_t ZCentre[16];
+        int64_t UCentre[16];
+        int64_t VCentre[16];
+        int64_t RCentre[16];
+        int64_t HatX[16];
+        int64_t HatY[16];
+        int64_t HatMax[16];
+        int64_t Buttons[16];
+        int64_t NumberOfButtons[16];
+        int64_t ConfigType[16];
+        int64_t MenuButtons[16];
+        int64_t Type;
+        int64_t NumberOfDevices;
+        int64_t DeviceType[16];
         unsigned char Init[16];
 };
 
@@ -118,26 +118,26 @@ struct DevInput {
 extern volatile TbBool lbMouseGrab; // set to false if user sets altinput command line option
 extern volatile TbBool lbMouseGrabbed; // whether the mouse is current grabbed by the game window
 /******************************************************************************/
-TbResult LbMouseChangeSpriteAndHotspot(const struct TbSprite *mouseSprite, long hot_x, long hot_y);
+TbResult LbMouseChangeSpriteAndHotspot(const struct TbSprite *mouseSprite, int64_t hot_x, int64_t hot_y);
 TbResult LbMouseSetup(struct TbSprite *mouseSprite);
-TbResult LbMouseSetPointerHotspot(long hot_x, long hot_y);
-TbResult LbMouseSetPosition(long x, long y);
-TbResult LbMouseSetPositionInitial(long x, long y);
+TbResult LbMouseSetPointerHotspot(int64_t hot_x, int64_t hot_y);
+TbResult LbMouseSetPosition(int64_t x, int64_t y);
+TbResult LbMouseSetPositionInitial(int64_t x, int64_t y);
 void LbMoveHostCursorToGameCursor(void);
 TbResult LbMoveGameCursorToHostCursor(void);
 TbBool IsMouseInsideWindow(void);
 TbResult LbMouseChangeSprite(const struct TbSprite *mouseSprite);
 TbResult LbMouseSuspend(void);
-void GetPointerHotspot(int32_t *hot_x, int32_t *hot_y);
+void GetPointerHotspot(int64_t *hot_x, int64_t *hot_y);
 // The sprite last passed to LbMouseChangeSpriteAndHotspot() -- NULL when
 // the pointer is hidden (MousePG_Invisible). Lets the ImGui cursor mirror
 // the game's actual current pointer over ImGui panels.
 const struct TbSprite *LbMouseGetSprite(void);
 TbResult LbMouseIsInstalled(void);
-TbResult LbMouseSetWindow(long x, long y, long width, long height);
-TbResult LbMouseChangeMoveRatio(long ratio_x, long ratio_y);
+TbResult LbMouseSetWindow(int64_t x, int64_t y, int64_t width, int64_t height);
+TbResult LbMouseChangeMoveRatio(int64_t ratio_x, int64_t ratio_y);
 
-void mouseControl(unsigned int action, struct TbPoint *pos);
+void mouseControl(uint64_t action, struct TbPoint *pos);
 TbResult LbMouseOnBeginSwap(void);
 TbResult LbMouseOnEndSwap(void);
 /******************************************************************************/

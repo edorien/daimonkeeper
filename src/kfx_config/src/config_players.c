@@ -34,7 +34,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_playerstate_config_file(const char *fname, unsigned short flags);
+static TbBool load_playerstate_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_playerstates_file_data = {
     .filename = "playerstates.toml",
@@ -80,7 +80,7 @@ static const struct NamedCommand pointer_group_commands[] = {
 /******************************************************************************/
 /******************************************************************************/
 
-static TbBool load_playerstate_config_file(const char *fname, unsigned short flags)
+static TbBool load_playerstate_config_file(const char *fname, int64_t flags)
 {
     VALUE file_root;
     if (!load_toml_file(fname,&file_root,flags))
@@ -92,10 +92,10 @@ static TbBool load_playerstate_config_file(const char *fname, unsigned short fla
 
     char key[64] = "";
     VALUE *section;
-    for (int id = 0; id < PLAYER_STATES_COUNT_MAX; id++)
+    for (int64_t id = 0; id < PLAYER_STATES_COUNT_MAX; id++)
     {
         {
-            snprintf(key, sizeof(key), "playerstate%d", id);
+            snprintf(key, sizeof(key), "playerstate%" PRId64, (int64_t)(id));
             section = value_dict_get(&file_root, key);
         }
         if (value_type(section) == VALUE_DICT)
@@ -116,7 +116,7 @@ static TbBool load_playerstate_config_file(const char *fname, unsigned short fla
 /**
  * Returns Code Name (name to use in script file) of given player state.
  */
-const char *player_state_code_name(int wrkstate)
+const char *player_state_code_name(int64_t wrkstate)
 {
     const char* name = get_conf_parameter_text(player_state_commands, wrkstate);
     if (name[0] != '\0')

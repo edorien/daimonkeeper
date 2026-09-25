@@ -225,11 +225,11 @@ void editor_menubar_frame(void)
         char title[64];
         const char *name = editor_current_level_name();
         if (name[0] != '\0')
-            snprintf(title, sizeof(title), "%s (Level %lu)%s",
-                name, (unsigned long)editor_current_lvnum(), editor_is_dirty() ? " *" : "");
+            snprintf(title, sizeof(title), "%s (Level %" PRIu64 ")%s",
+                name, (uint64_t)editor_current_lvnum(), editor_is_dirty() ? " *" : "");
         else
-            snprintf(title, sizeof(title), "Level %lu%s",
-                (unsigned long)editor_current_lvnum(), editor_is_dirty() ? " *" : "");
+            snprintf(title, sizeof(title), "Level %" PRIu64 "%s",
+                (uint64_t)editor_current_lvnum(), editor_is_dirty() ? " *" : "");
         FeMenuItem(title, nullptr, false);
     }
     FeEndMenuBar(bar_open);

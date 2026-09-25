@@ -36,7 +36,7 @@
 
 char consoleLogArray[MAX_CONSOLE_LOG_COUNT][MAX_TEXT_LENGTH];
 size_t consoleLogArraySize = 0;
-int debug_display_consolelog = 0;
+int64_t debug_display_consolelog = 0;
 
 // Defined here (not steam_api.cpp) since that file is excluded entirely
 // from non-Windows builds (see src/kfx_platform/CMakeLists.txt), but
@@ -45,7 +45,7 @@ unsigned char is_running_under_wine = false;
 
 unsigned char exit_keeper;
 unsigned char quit_game;
-int FatalError;
+int64_t FatalError;
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,7 +53,7 @@ extern "C" {
 /******************************************************************************/
 // See EmulateIntegerOverflowFunc (bflib_basics.h) and docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-static TbBool default_emulate_integer_overflow(unsigned short nbits) { return false; }
+static TbBool default_emulate_integer_overflow(int64_t nbits) { return false; }
 EmulateIntegerOverflowFunc emulate_integer_overflow_provider = &default_emulate_integer_overflow;
 
 void set_emulate_integer_overflow_provider(EmulateIntegerOverflowFunc provider)
@@ -82,9 +82,9 @@ GameTurn get_gameturn(void)
  * one word, ended with "\0".
  * If not found, returns -1.
  */
-long get_rid(const struct NamedCommand *desc, const char *itmname)
+int64_t get_rid(const struct NamedCommand *desc, const char *itmname)
 {
-  long i;
+  int64_t i;
   if ((desc == NULL) || (itmname == NULL))
     return -1;
   for (i=0; desc[i].name != NULL; i++)
@@ -104,9 +104,9 @@ long get_rid(const struct NamedCommand *desc, const char *itmname)
 // but redefined for compatibility with both Ansi-C and C++.
 
 /** Return the little-endian longword at p. */
-unsigned long llong (unsigned char *p)
+uint64_t llong (unsigned char *p)
 {
-    unsigned long n = p[3];
+    uint64_t n = p[3];
     n = (n << 8) + p[2];
     n = (n << 8) + p[1];
     n = (n << 8) + p[0];
@@ -114,9 +114,9 @@ unsigned long llong (unsigned char *p)
 }
 
 /* Return the little-endian word at p. */
-unsigned long lword (unsigned char *p)
+uint64_t lword (unsigned char *p)
 {
-    unsigned long n = p[1];
+    uint64_t n = p[1];
     n = (n << 8) + p[0];
     return n;
 }
@@ -127,7 +127,7 @@ unsigned long lword (unsigned char *p)
  * @param val the value to be saturated.
  * @param nbits Max bits size, including sign bit.
  */
-long saturate_set_signed(long long val,unsigned short nbits)
+int64_t saturate_set_signed(long long val,int64_t nbits)
 {
   long long maximum_value = (1 << (nbits-1)) - 1;
   if (val >= maximum_value)
@@ -143,7 +143,7 @@ long saturate_set_signed(long long val,unsigned short nbits)
  * @param val the value to be saturated.
  * @param nbits Max bits size, including sign bit.
  */
-unsigned long saturate_set_unsigned(unsigned long long val,unsigned short nbits)
+uint64_t saturate_set_unsigned(unsigned long long val,int64_t nbits)
 {
     unsigned long long maximum_value = (1 << (nbits)) - 1;
     if (emulate_integer_overflow_provider(nbits))
@@ -163,10 +163,10 @@ const char *log_file_name=DEFAULT_LOG_FILENAME;
  * @param size The size of the buffer.
  * @param str The string to append.
  */
-int str_append(char * buffer, int size, const char * str)
+int64_t str_append(char * buffer, int64_t size, const char * str)
 {
-    const int buffer_length = strlen(buffer);
-    const int available = size - buffer_length;
+    const int64_t buffer_length = strlen(buffer);
+    const int64_t available = size - buffer_length;
     if (available <= 0) {
         return buffer_length;
     }
@@ -182,10 +182,25 @@ int str_append(char * buffer, int size, const char * str)
  * @param format The format string, similar to printf.
  * @param ... The values to format and append to the buffer.
  */
-int str_appendf(char * buffer, int size, const char * format, ...)
+int64_t LbStrToI32(const char *text, char **endptr, int64_t base)
 {
-    const int buffer_length = strlen(buffer);
-    const int available = size - buffer_length;
+    long long value = strtoll(text, endptr, base);
+    if (value > INT32_MAX)
+        return INT32_MAX;
+    if (value < INT32_MIN)
+        return INT32_MIN;
+    return (int64_t)value;
+}
+
+int64_t LbAtoI32(const char *text)
+{
+    return LbStrToI32(text, NULL, 10);
+}
+
+int64_t str_appendf(char * buffer, int64_t size, const char * format, ...)
+{
+    const int64_t buffer_length = strlen(buffer);
+    const int64_t available = size - buffer_length;
     if (available <= 0) {
         return buffer_length;
     }
@@ -196,9 +211,9 @@ int str_appendf(char * buffer, int size, const char * format, ...)
     return strlen(buffer);
 }
 
-short warning_dialog(const char *codefile,const int ecode,const char *message)
+int64_t warning_dialog(const char *codefile,const int64_t ecode,const char *message)
 {
-  LbWarnLog("In source %s:\n %5d - %s\n",codefile,ecode,message);
+  LbWarnLog("In source %s:\n %5" PRId64 " - %s\n",codefile,(int64_t)(ecode),message);
 
   const SDL_MessageBoxButtonData buttons[] = {
         { .flags = SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, .buttonID = 1, .text = "Ignore" },
@@ -220,16 +235,16 @@ short warning_dialog(const char *codefile,const int ecode,const char *message)
   return button;
 }
 
-short error_dialog(const char *codefile,const int ecode,const char *message)
+int64_t error_dialog(const char *codefile,const int64_t ecode,const char *message)
 {
-  LbErrorLog("In source %s:\n %5d - %s\n",codefile,ecode,message);
+  LbErrorLog("In source %s:\n %5" PRId64 " - %s\n",codefile,(int64_t)(ecode),message);
   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, PROGRAM_FULL_NAME, message, NULL);
   return 0;
 }
 
-short error_dialog_fatal(const char *codefile,const int ecode,const char *message)
+int64_t error_dialog_fatal(const char *codefile,const int64_t ecode,const char *message)
 {
-  LbErrorLog("In source %s:\n %5d - %s\n",codefile,ecode,message);
+  LbErrorLog("In source %s:\n %5" PRId64 " - %s\n",codefile,(int64_t)(ecode),message);
   char msg_text[2048];
   snprintf(msg_text, sizeof(msg_text), "%s This error in '%s' makes the program unable to continue. See '%s' for details.", message, codefile, log_file_name);
   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, PROGRAM_FULL_NAME, msg_text, NULL);
@@ -237,81 +252,81 @@ short error_dialog_fatal(const char *codefile,const int ecode,const char *messag
 }
 
 /******************************************************************************/
-short error_log_initialised=false;
+int64_t error_log_initialised=false;
 struct TbLog error_log;
 /******************************************************************************/
-int LbLog(struct TbLog *log, const char *fmt_str, va_list arg);
+int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg);
 /******************************************************************************/
 
-int LbErrorLog(const char *format, ...)
+int64_t LbErrorLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Error: ");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
-int LbWarnLog(const char *format, ...)
+int64_t LbWarnLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Warning: ");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
-int LbNetLog(const char *format, ...)
+int64_t LbNetLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Net: ");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
-int LbSyncLog(const char *format, ...)
+int64_t LbSyncLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Sync: ");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
-int LbNaviLog(const char *format, ...)
+int64_t LbNaviLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Navi: ");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
 #ifdef FUNCTESTING
-int LbFTestLog(const char *format, ...)
+int64_t LbFTestLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "FTest: ");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
@@ -320,14 +335,14 @@ int LbFTestLog(const char *format, ...)
 /*
  * Logs script-related message.
  */
-int LbScriptLog(unsigned long line,const char *format, ...)
+int64_t LbScriptLog(uint64_t line,const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
-    LbLogSetPrefixFmt(&error_log, "Script(line %lu): ",line);
+    LbLogSetPrefixFmt(&error_log, "Script(line %" PRIu64 "): ",(uint64_t)(line));
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
@@ -335,42 +350,42 @@ int LbScriptLog(unsigned long line,const char *format, ...)
 /*
  * Logs config file related message.
  */
-int LbConfigLog(unsigned long line,const char *format, ...)
+int64_t LbConfigLog(uint64_t line,const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
-    LbLogSetPrefixFmt(&error_log, "Config(line %lu): ",line);
+    LbLogSetPrefixFmt(&error_log, "Config(line %" PRIu64 "): ",(uint64_t)(line));
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
-int LbJustLog(const char *format, ...)
+int64_t LbJustLog(const char *format, ...)
 {
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "");
     va_list val;
     va_start(val, format);
-    int result=LbLog(&error_log, format, val);
+    int64_t result=LbLog(&error_log, format, val);
     va_end(val);
     return result;
 }
 
-int LbErrorLogSetup(const char *directory, const char *filename, TbBool flag)
+int64_t LbErrorLogSetup(const char *directory, const char *filename, TbBool flag)
 {
   if ( error_log_initialised ) return -1;
   if ((filename == NULL) || (strlen(filename) == 0)) {
     filename = "error.log";
   }
   char log_filename[DISKPATH_SIZE];
-  int result;
+  int64_t result;
   if ( LbFileMakeFullPath(true, directory, filename, log_filename, DISKPATH_SIZE) != 1 ) {
     return -1;
   }
-  ulong flags = (flag == 0) + 1;
+  uint64_t flags = (flag == 0) + 1;
   flags |= LbLog_TimeInHeader | LbLog_DateInHeader | 0x04;
   if ( LbLogSetup(&error_log, log_filename, flags) == 1 )
   {
@@ -383,7 +398,7 @@ int LbErrorLogSetup(const char *directory, const char *filename, TbBool flag)
   return result;
 }
 
-int LbErrorLogClose(void)
+int64_t LbErrorLogClose(void)
 {
     if (!error_log_initialised)
         return -1;
@@ -414,7 +429,7 @@ void write_log_to_array_for_live_viewing(const char* fmt_str, va_list args, cons
     consoleLogArraySize++;
 }
 
-int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
+int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
 {
   enum Header {
         NONE   = 0,
@@ -427,7 +442,7 @@ int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
   if ( log->Suspended )
     return 1;
   char header = NONE;
-  short need_initial_newline = false;
+  int64_t need_initial_newline = false;
   if ( !log->Created )
   {
       if (((log->flags & 0x04) == 0) || LbFileExists(log->filename))
@@ -474,14 +489,14 @@ int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
         actn = "APPENDED";
       }
       fprintf(file, "LOG %s", actn);
-      short at_used = 0;
+      int64_t at_used = 0;
       if ((log->flags & LbLog_TimeInHeader) != 0)
       {
         struct TbTime curr_time;
         if (LbTime(&curr_time) == Lb_SUCCESS)
         {
-            fprintf(file, "  @ %02u:%02u:%02u",
-                curr_time.Hour,curr_time.Minute,curr_time.Second);
+            fprintf(file, "  @ %02" PRIu64 ":%02" PRIu64 ":%02" PRIu64,
+                (uint64_t)(curr_time.Hour),(uint64_t)(curr_time.Minute),(uint64_t)(curr_time.Second));
             at_used = 1;
         }
       }
@@ -495,7 +510,7 @@ int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
               sep = " ";
             else
               sep = "  @ ";
-            fprintf(file," %s%02u-%02u-%u",sep,curr_date.Day,curr_date.Month,curr_date.Year);
+            fprintf(file," %s%02" PRIu64 "-%02" PRIu64 "-%" PRIu64,sep,(uint64_t)(curr_date.Day),(uint64_t)(curr_date.Month),(uint64_t)(curr_date.Year));
         }
       }
       fprintf(file, "\n\n");
@@ -505,7 +520,7 @@ int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
         struct TbDate curr_date;
         if (LbDate(&curr_date) == Lb_SUCCESS)
         {
-            fprintf(file,"%02u-%02u-%u ",curr_date.Day,curr_date.Month,curr_date.Year);
+            fprintf(file,"%02" PRIu64 "-%02" PRIu64 "-%" PRIu64 " ",(uint64_t)(curr_date.Day),(uint64_t)(curr_date.Month),(uint64_t)(curr_date.Year));
         }
     }
     if ((log->flags & LbLog_TimeInLines) != 0)
@@ -513,8 +528,8 @@ int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
         struct TbTime curr_time;
         if (LbTime(&curr_time) == Lb_SUCCESS)
         {
-            fprintf(file, "%02u:%02u:%02u ",
-                curr_time.Hour,curr_time.Minute,curr_time.Second);
+            fprintf(file, "%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64 " ",
+                (uint64_t)(curr_time.Hour),(uint64_t)(curr_time.Minute),(uint64_t)(curr_time.Second));
         }
     }
   if (log->prefix[0] != '\0') {
@@ -533,14 +548,14 @@ int LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
   return 1;
 }
 
-int LbLogSetPrefix(struct TbLog *log, const char *prefix)
+int64_t LbLogSetPrefix(struct TbLog *log, const char *prefix)
 {
     if (!log->Initialised) return -1;
     snprintf(log->prefix, LOG_PREFIX_LEN, "%s", prefix);
     return 1;
 }
 
-int LbLogSetPrefixFmt(struct TbLog *log, const char *format, ...)
+int64_t LbLogSetPrefixFmt(struct TbLog *log, const char *format, ...)
 {
     if (!log->Initialised) return -1;
     va_list val;
@@ -550,7 +565,7 @@ int LbLogSetPrefixFmt(struct TbLog *log, const char *format, ...)
     return 1;
 }
 
-int LbLogSetup(struct TbLog *log, const char *filename, ulong flags)
+int64_t LbLogSetup(struct TbLog *log, const char *filename, uint64_t flags)
 {
   log->Initialised = false;
   memset(log->filename, 0, DISKPATH_SIZE);
@@ -568,7 +583,7 @@ int LbLogSetup(struct TbLog *log, const char *filename, ulong flags)
   return 1;
 }
 
-int LbLogClose(struct TbLog *log)
+int64_t LbLogClose(struct TbLog *log)
 {
   if ( !log->Initialised )
     return -1;
@@ -597,9 +612,9 @@ void make_uppercase(char * string) {
   }
 }
 
-int natoi(const char * str, int len) {
-  int value = -1;
-  for (int i = 0; i < len; ++i) {
+int64_t natoi(const char * str, int64_t len) {
+  int64_t value = -1;
+  for (int64_t i = 0; i < len; ++i) {
     if (!isdigit(str[i])) {
       return value;
     } else if (value < 0) {

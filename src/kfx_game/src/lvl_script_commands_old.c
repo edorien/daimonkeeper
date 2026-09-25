@@ -41,7 +41,7 @@ extern "C" {
 
 #define CONDITION_ALWAYS (CONDITIONS_COUNT)
 
-void command_add_value(unsigned long var_index, unsigned long plr_range_id, long param1, long param2, long param3)
+void command_add_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3)
 {
     ALLOCATE_SCRIPT_VALUE(var_index, plr_range_id);
 
@@ -65,7 +65,7 @@ static void command_create_party(const char *prtname)
     create_party(prtname);
 }
 
-static void command_add_party_to_level(long plr_range_id, const char *prtname, const char *locname, long ncopies)
+static void command_add_party_to_level(int64_t plr_range_id, const char *prtname, const char *locname, int64_t ncopies)
 {
     TbMapLocation location;
     if (ncopies < 1)
@@ -79,7 +79,7 @@ static void command_add_party_to_level(long plr_range_id, const char *prtname, c
         return;
     }
     // Verify player
-    long plr_id = get_players_range_single(plr_range_id);
+    int64_t plr_id = get_players_range_single(plr_range_id);
     if (plr_id < 0) {
         SCRPTERRLOG("Given owning player is not supported in this command");
         return;
@@ -88,7 +88,7 @@ static void command_add_party_to_level(long plr_range_id, const char *prtname, c
     if (!get_map_location_id(locname, &location))
         return;
     // Recognize party name
-    long prty_id = get_party_index_of_name(prtname);
+    int64_t prty_id = get_party_index_of_name(prtname);
     if (prty_id < 0)
     {
         SCRPTERRLOG("Party of requested name, '%s', is not defined",prtname);
@@ -119,7 +119,7 @@ static void command_add_party_to_level(long plr_range_id, const char *prtname, c
     }
 }
 
-static void command_add_creature_to_level(long plr_range_id, const char *crtr_name, const char *locname, long ncopies, CrtrExpLevel exp_level, long carried_gold, const char *spawn_type)
+static void command_add_creature_to_level(int64_t plr_range_id, const char *crtr_name, const char *locname, int64_t ncopies, CrtrExpLevel exp_level, int64_t carried_gold, const char *spawn_type)
 {
     TbMapLocation location;
     if ((exp_level < 1) || (exp_level > CREATURE_MAX_LEVEL))
@@ -134,20 +134,20 @@ static void command_add_creature_to_level(long plr_range_id, const char *crtr_na
     }
     if (ncopies > kfx_config_state.conf.rules[0].gameplay.creatures_count)
     {
-        SCRPTWRNLOG("Trying to add %ld creatures which is over map limit %u", ncopies, kfx_config_state.conf.rules[0].gameplay.creatures_count);
+        SCRPTWRNLOG("Trying to add %" PRId64 " creatures which is over map limit %" PRIu64, (int64_t)(ncopies), (uint64_t)(kfx_config_state.conf.rules[0].gameplay.creatures_count));
     }
     if (kfx_game_state.script.party_triggers_num >= PARTY_TRIGGERS_COUNT)
     {
         SCRPTERRLOG("Too many ADD_CREATURE commands in script");
         return;
     }
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
         return;
     }
-    long spawn_type_id;
+    int64_t spawn_type_id;
     if ((strcmp(spawn_type, "") == 0))
     {
         spawn_type_id = SpwnT_Default;
@@ -162,7 +162,7 @@ static void command_add_creature_to_level(long plr_range_id, const char *crtr_na
         return;
     }
     // Verify player
-    long plr_id = get_players_range_single(plr_range_id);
+    int64_t plr_id = get_players_range_single(plr_range_id);
     if (plr_id < 0) {
         SCRPTERRLOG("Given owning player is not supported in this command");
         return;
@@ -198,12 +198,12 @@ static void command_add_creature_to_level(long plr_range_id, const char *crtr_na
     }
 }
 
-static void command_dead_creatures_return_to_pool(long val)
+static void command_dead_creatures_return_to_pool(int64_t val)
 {
     command_add_value(Cmd_DEAD_CREATURES_RETURN_TO_POOL, ALL_PLAYERS, val, 0, 0);
 }
 
-static void command_bonus_level_time(long game_turns, long real)
+static void command_bonus_level_time(int64_t game_turns, int64_t real)
 {
     if (game_turns < 0)
     {
@@ -213,33 +213,33 @@ static void command_bonus_level_time(long game_turns, long real)
     command_add_value(Cmd_BONUS_LEVEL_TIME, ALL_PLAYERS, game_turns, real, 0);
 }
 
-static void command_set_start_money(long plr_range_id, long gold_val)
+static void command_set_start_money(int64_t plr_range_id, int64_t gold_val)
 {
-    int plr_start;
-    int plr_end;
+    int64_t plr_start;
+    int64_t plr_end;
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0)
     {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command", (int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command", (int64_t)plr_range_id);
         return;
   }
   if (get_script_current_condition() != CONDITION_ALWAYS)
   {
     SCRPTWRNLOG("Start money set inside conditional block; condition ignored");
   }
-  for (int i = plr_start; i < plr_end; i++)
+  for (int64_t i = plr_start; i < plr_end; i++)
   {
       if (gold_val > SENSIBLE_GOLD)
       {
           gold_val = SENSIBLE_GOLD;
-          SCRPTWRNLOG("Gold added to player %d reduced to %d", (int)plr_range_id, SENSIBLE_GOLD);
+          SCRPTWRNLOG("Gold added to player %" PRId64 " reduced to %" PRId64, (int64_t)plr_range_id, (int64_t)(SENSIBLE_GOLD));
       }
       player_add_offmap_gold(i, gold_val);
   }
 }
 
-static void command_room_available(long plr_range_id, const char *roomname, unsigned long can_resrch, unsigned long can_build)
+static void command_room_available(int64_t plr_range_id, const char *roomname, uint64_t can_resrch, uint64_t can_build)
 {
-    long room_id = get_rid(room_desc, roomname);
+    int64_t room_id = get_rid(room_desc, roomname);
     if (room_id == -1)
     {
       SCRPTERRLOG("Unknown room name, '%s'", roomname);
@@ -248,9 +248,9 @@ static void command_room_available(long plr_range_id, const char *roomname, unsi
     command_add_value(Cmd_ROOM_AVAILABLE, plr_range_id, room_id, can_resrch, can_build);
 }
 
-static void command_creature_available(long plr_range_id, const char *crtr_name, unsigned long can_be_avail, unsigned long force_avail)
+static void command_creature_available(int64_t plr_range_id, const char *crtr_name, uint64_t can_be_avail, uint64_t force_avail)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
       SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -259,9 +259,9 @@ static void command_creature_available(long plr_range_id, const char *crtr_name,
     command_add_value(Cmd_CREATURE_AVAILABLE, plr_range_id, crtr_id, can_be_avail, force_avail);
 }
 
-static void command_magic_available(long plr_range_id, const char *magname, unsigned long can_resrch, unsigned long can_use)
+static void command_magic_available(int64_t plr_range_id, const char *magname, uint64_t can_resrch, uint64_t can_use)
 {
-    long mag_id = get_rid(power_desc, magname);
+    int64_t mag_id = get_rid(power_desc, magname);
     if (mag_id == -1)
     {
       SCRPTERRLOG("Unknown magic, '%s'", magname);
@@ -270,9 +270,9 @@ static void command_magic_available(long plr_range_id, const char *magname, unsi
     command_add_value(Cmd_MAGIC_AVAILABLE, plr_range_id, mag_id, can_resrch, can_use);
 }
 
-static void command_trap_available(long plr_range_id, const char *trapname, unsigned long can_build, unsigned long amount)
+static void command_trap_available(int64_t plr_range_id, const char *trapname, uint64_t can_build, uint64_t amount)
 {
-    long trap_id = get_rid(trap_desc, trapname);
+    int64_t trap_id = get_rid(trap_desc, trapname);
     if (trap_id == -1)
     {
       SCRPTERRLOG("Unknown trap, '%s'", trapname);
@@ -285,10 +285,10 @@ static void command_trap_available(long plr_range_id, const char *trapname, unsi
  * Updates amount of RESEARCH points needed for the item to be researched.
  * Will not reorder the RESEARCH items.
  */
-static void command_research(long plr_range_id, const char *trg_type, const char *trg_name, unsigned long val)
+static void command_research(int64_t plr_range_id, const char *trg_type, const char *trg_name, uint64_t val)
 {
-    long item_type = get_rid(research_desc, trg_type);
-    long item_id = get_research_id(item_type, trg_name, __func__);
+    int64_t item_type = get_rid(research_desc, trg_type);
+    int64_t item_id = get_research_id(item_type, trg_name, __func__);
     if (item_id < 0)
       return;
     command_add_value(Cmd_RESEARCH, plr_range_id, item_type, item_id, val);
@@ -298,72 +298,72 @@ static void command_research(long plr_range_id, const char *trg_type, const char
  * Updates amount of RESEARCH points needed for the item to be researched.
  * Reorders the RESEARCH items - needs all items to be re-added.
  */
-static void command_research_order(long plr_range_id, const char *trg_type, const char *trg_name, unsigned long val)
+static void command_research_order(int64_t plr_range_id, const char *trg_type, const char *trg_name, uint64_t val)
 {
-    int plr_start;
-    int plr_end;
+    int64_t plr_start;
+    int64_t plr_end;
     if (get_players_range(plr_range_id, &plr_start, &plr_end) < 0) {
-        SCRPTERRLOG("Given owning player range %d is not supported in this command",(int)plr_range_id);
+        SCRPTERRLOG("Given owning player range %" PRId64 " is not supported in this command",(int64_t)plr_range_id);
         return;
     }
-    for (long i = plr_start; i < plr_end; i++)
+    for (int64_t i = plr_start; i < plr_end; i++)
     {
         struct Dungeon* dungeon = get_dungeon(i);
         if (dungeon_invalid(dungeon))
             continue;
         if (dungeon->research_num >= DUNGEON_RESEARCH_COUNT)
         {
-          SCRPTERRLOG("Too many RESEARCH ITEMS, for player %ld", i);
+          SCRPTERRLOG("Too many RESEARCH ITEMS, for player %" PRId64, (int64_t)(i));
           return;
         }
     }
-    long item_type = get_rid(research_desc, trg_type);
-    long item_id = get_research_id(item_type, trg_name, __func__);
+    int64_t item_type = get_rid(research_desc, trg_type);
+    int64_t item_id = get_research_id(item_type, trg_name, __func__);
     if (item_id < 0)
       return;
     command_add_value(Cmd_RESEARCH_ORDER, plr_range_id, item_type, item_id, val);
 }
 
-static void command_if_action_point(long apt_num, long plr_range_id)
+static void command_if_action_point(int64_t apt_num, int64_t plr_range_id)
 {
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-        SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+        SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
         return;
     }
     // Check the Action Point
-    long apt_idx = action_point_number_to_index(apt_num);
+    int64_t apt_idx = action_point_number_to_index(apt_num);
     if (!action_point_exists_idx(apt_idx))
     {
-        SCRPTERRLOG("Non-existing Action Point, no %ld", apt_num);
+        SCRPTERRLOG("Non-existing Action Point, no %" PRId64, (int64_t)(apt_num));
         return;
     }
     command_add_condition(plr_range_id, 0, SVar_ACTION_POINT_TRIGGERED, apt_idx, 0);
 }
 
-static void command_if_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, long plr_range_id)
+static void command_if_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t plr_range_id)
 {
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-        SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+        SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
         return;
     }
     command_add_condition(slb_x, 1, SVar_SLAB_OWNER, slb_y, plr_range_id);
 }
 
-static void command_if_slab_type(MapSlabCoord slb_x, MapSlabCoord slb_y, long slab_type)
+static void command_if_slab_type(MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t slab_type)
 {
     if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
     {
-        SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+        SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script", (int64_t)(CONDITIONS_COUNT));
         return;
     }
     command_add_condition(slb_x, 1, SVar_SLAB_TYPE, slb_y, slab_type);
 }
 
-static void command_set_timer(long plr_range_id, const char *timrname)
+static void command_set_timer(int64_t plr_range_id, const char *timrname)
 {
-    long timr_id = get_rid(timer_desc, timrname);
+    int64_t timr_id = get_rid(timer_desc, timrname);
     if (timr_id == -1)
     {
         SCRPTERRLOG("Unknown timer, '%s'", timrname);
@@ -402,10 +402,10 @@ static void command_lose_game(void)
   kfx_game_state.script.lose_conditions_num++;
 }
 
-static void command_set_flag(long plr_range_id, const char *flgname, long val)
+static void command_set_flag(int64_t plr_range_id, const char *flgname, int64_t val)
 {
-    int32_t flg_id;
-    int32_t flag_type;
+    int64_t flg_id;
+    int64_t flag_type;
     if (!parse_set_varib(flgname, &flg_id, &flag_type))
     {
         SCRPTERRLOG("Unknown flag, '%s'", flgname);
@@ -414,10 +414,10 @@ static void command_set_flag(long plr_range_id, const char *flgname, long val)
     command_add_value(Cmd_SET_FLAG, plr_range_id, flg_id, val, flag_type);
 }
 
-static void command_add_to_flag(long plr_range_id, const char *flgname, long val)
+static void command_add_to_flag(int64_t plr_range_id, const char *flgname, int64_t val)
 {
-    int32_t flg_id;
-    int32_t flag_type;
+    int64_t flg_id;
+    int64_t flag_type;
 
     if (!parse_set_varib(flgname, &flg_id, &flag_type))
     {
@@ -427,14 +427,14 @@ static void command_add_to_flag(long plr_range_id, const char *flgname, long val
     command_add_value(Cmd_ADD_TO_FLAG, plr_range_id, flg_id, val, flag_type);
 }
 
-static void command_max_creatures(long plr_range_id, long val)
+static void command_max_creatures(int64_t plr_range_id, int64_t val)
 {
     command_add_value(Cmd_MAX_CREATURES, plr_range_id, val, 0, 0);
 }
 
-static void command_door_available(long plr_range_id, const char *doorname, unsigned long a3, unsigned long a4)
+static void command_door_available(int64_t plr_range_id, const char *doorname, uint64_t a3, uint64_t a4)
 {
-    long door_id = get_rid(door_desc, doorname);
+    int64_t door_id = get_rid(door_desc, doorname);
     if (door_id == -1)
     {
         SCRPTERRLOG("Unknown door, '%s'", doorname);
@@ -443,7 +443,7 @@ static void command_door_available(long plr_range_id, const char *doorname, unsi
   command_add_value(Cmd_DOOR_AVAILABLE, plr_range_id, door_id, a3, a4);
 }
 
-static void command_add_tunneller_to_level(long plr_range_id, const char *locname, const char *objectv, long target, CrtrExpLevel exp_level, unsigned long carried_gold)
+static void command_add_tunneller_to_level(int64_t plr_range_id, const char *locname, const char *objectv, int64_t target, CrtrExpLevel exp_level, uint64_t carried_gold)
 {
     TbMapLocation location;
     TbMapLocation heading;
@@ -458,7 +458,7 @@ static void command_add_tunneller_to_level(long plr_range_id, const char *locnam
         return;
     }
     // Verify player
-    long plr_id = get_players_range_single(plr_range_id);
+    int64_t plr_id = get_players_range_single(plr_range_id);
     if (plr_id < 0) {
         SCRPTERRLOG("Given owning player is not supported in this command");
         return;
@@ -489,7 +489,7 @@ static void command_add_tunneller_to_level(long plr_range_id, const char *locnam
     }
 }
 
-static void command_add_tunneller_party_to_level(long plr_range_id, const char *prtname, const char *locname, const char *objectv, long target, CrtrExpLevel exp_level, unsigned long carried_gold)
+static void command_add_tunneller_party_to_level(int64_t plr_range_id, const char *prtname, const char *locname, const char *objectv, int64_t target, CrtrExpLevel exp_level, uint64_t carried_gold)
 {
     TbMapLocation location;
     TbMapLocation heading;
@@ -504,7 +504,7 @@ static void command_add_tunneller_party_to_level(long plr_range_id, const char *
         return;
     }
     // Verify player
-    long plr_id = get_players_range_single(plr_range_id);
+    int64_t plr_id = get_players_range_single(plr_range_id);
     if (plr_id < 0) {
         SCRPTERRLOG("Given owning player is not supported in this command");
         return;
@@ -516,7 +516,7 @@ static void command_add_tunneller_party_to_level(long plr_range_id, const char *
     if (!get_map_heading_id(objectv, target, &heading))
         return;
     // Recognize party name
-    long prty_id = get_party_index_of_name(prtname);
+    int64_t prty_id = get_party_index_of_name(prtname);
     if (prty_id < 0)
     {
         SCRPTERRLOG("Party of requested name, '%s', is not defined", prtname);
@@ -525,7 +525,7 @@ static void command_add_tunneller_party_to_level(long plr_range_id, const char *
     struct Party* party = &kfx_game_state.script.creature_partys[prty_id];
     if (party->members_num >= GROUP_MEMBERS_COUNT-1)
     {
-        SCRPTERRLOG("Party too big for ADD_TUNNELLER (Max %d members)", GROUP_MEMBERS_COUNT-1);
+        SCRPTERRLOG("Party too big for ADD_TUNNELLER (Max %" PRId64 " members)", (int64_t)(GROUP_MEMBERS_COUNT-1));
         return;
     }
     // Either add the party or add item to conditional triggers list
@@ -549,9 +549,9 @@ static void command_add_tunneller_party_to_level(long plr_range_id, const char *
     }
 }
 
-static void command_add_creature_to_pool(const char *crtr_name, long amount)
+static void command_add_creature_to_pool(const char *crtr_name, int64_t amount)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -559,16 +559,16 @@ static void command_add_creature_to_pool(const char *crtr_name, long amount)
     }
     if ((amount <= -CREATURES_COUNT) || (amount >= CREATURES_COUNT))
     {
-        SCRPTERRLOG("Invalid number of '%s' creatures for pool, %ld", crtr_name, amount);
+        SCRPTERRLOG("Invalid number of '%s' creatures for pool, %" PRId64, crtr_name, (int64_t)(amount));
         return;
     }
     command_add_value(Cmd_ADD_CREATURE_TO_POOL, ALL_PLAYERS, crtr_id, amount, 0);
 }
 
 
-static void command_set_creature_health(const char *crtr_name, long val)
+static void command_set_creature_health(const char *crtr_name, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -576,15 +576,15 @@ static void command_set_creature_health(const char *crtr_name, long val)
   }
   if ((val < 0) || (val > USHRT_MAX))
   {
-    SCRPTERRLOG("Invalid '%s' health value, %ld", crtr_name, val);
+    SCRPTERRLOG("Invalid '%s' health value, %" PRId64, crtr_name, (int64_t)(val));
     return;
   }
   command_add_value(Cmd_SET_CREATURE_HEALTH, ALL_PLAYERS, crtr_id, val, 0);
 }
 
-static void command_set_creature_strength(const char *crtr_name, long val)
+static void command_set_creature_strength(const char *crtr_name, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -592,15 +592,15 @@ static void command_set_creature_strength(const char *crtr_name, long val)
     }
     if ((val < 0) || (val > USHRT_MAX))
     {
-        SCRPTERRLOG("Invalid '%s' strength value, %ld", crtr_name, val);
+        SCRPTERRLOG("Invalid '%s' strength value, %" PRId64, crtr_name, (int64_t)(val));
         return;
     }
     command_add_value(Cmd_SET_CREATURE_STRENGTH, ALL_PLAYERS, crtr_id, val, 0);
 }
 
-static void command_set_creature_armour(const char *crtr_name, long val)
+static void command_set_creature_armour(const char *crtr_name, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -608,15 +608,15 @@ static void command_set_creature_armour(const char *crtr_name, long val)
   }
   if ((val < 0) || (val > UCHAR_MAX))
   {
-    SCRPTERRLOG("Invalid '%s' armour value, %ld", crtr_name, val);
+    SCRPTERRLOG("Invalid '%s' armour value, %" PRId64, crtr_name, (int64_t)(val));
     return;
   }
   command_add_value(Cmd_SET_CREATURE_ARMOUR, ALL_PLAYERS, crtr_id, val, 0);
 }
 
-static void command_set_creature_fear_wounded(const char *crtr_name, long val)
+static void command_set_creature_fear_wounded(const char *crtr_name, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -624,15 +624,15 @@ static void command_set_creature_fear_wounded(const char *crtr_name, long val)
   }
   if ((val < 0) || (val > UCHAR_MAX))
   {
-    SCRPTERRLOG("Invalid '%s' fear value, %ld", crtr_name, val);
+    SCRPTERRLOG("Invalid '%s' fear value, %" PRId64, crtr_name, (int64_t)(val));
     return;
   }
   command_add_value(Cmd_SET_CREATURE_FEAR_WOUNDED, ALL_PLAYERS, crtr_id, val, 0);
 }
 
-static void command_set_creature_fear_stronger(const char *crtr_name, long val)
+static void command_set_creature_fear_stronger(const char *crtr_name, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -640,15 +640,15 @@ static void command_set_creature_fear_stronger(const char *crtr_name, long val)
   }
   if ((val < 0) || (val > SHRT_MAX))
   {
-    SCRPTERRLOG("Invalid '%s' fear value, %ld", crtr_name, val);
+    SCRPTERRLOG("Invalid '%s' fear value, %" PRId64, crtr_name, (int64_t)(val));
     return;
   }
   command_add_value(Cmd_SET_CREATURE_FEAR_STRONGER, ALL_PLAYERS, crtr_id, val, 0);
 }
 
-static void command_set_creature_fearsome_factor(const char* crtr_name, long val)
+static void command_set_creature_fearsome_factor(const char* crtr_name, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
@@ -656,21 +656,21 @@ static void command_set_creature_fearsome_factor(const char* crtr_name, long val
     }
     if ((val < 0) || (val > SHRT_MAX))
     {
-        SCRPTERRLOG("Invalid '%s' fearsome value, %ld", crtr_name, val);
+        SCRPTERRLOG("Invalid '%s' fearsome value, %" PRId64, crtr_name, (int64_t)(val));
         return;
     }
     command_add_value(Cmd_SET_CREATURE_FEARSOME_FACTOR, ALL_PLAYERS, crtr_id, val, 0);
 }
 
-static void command_set_creature_property(const char* crtr_name, const char* property, short val)
+static void command_set_creature_property(const char* crtr_name, const char* property, int64_t val)
 {
-    long crtr_id = get_rid(creature_desc, crtr_name);
+    int64_t crtr_id = get_rid(creature_desc, crtr_name);
     if (crtr_id == -1)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
         return;
     }
-    long prop_id = get_rid(creatmodel_properties_commands, property);
+    int64_t prop_id = get_rid(creatmodel_properties_commands, property);
     if (prop_id == -1)
     {
         SCRPTERRLOG("Unknown creature property kind, \"%s\"", property);
@@ -686,10 +686,10 @@ static void command_set_creature_property(const char* crtr_name, const char* pro
  * @param plr2_range_id Second player range identifier.
  * @param ally Controls whether the alliance is being created or being broken.
  */
-static void command_ally_players(long plr1_range_id, long plr2_range_id, TbBool ally)
+static void command_ally_players(int64_t plr1_range_id, int64_t plr2_range_id, TbBool ally)
 {
     // Verify enemy player
-    long plr2_id = get_players_range_single(plr2_range_id);
+    int64_t plr2_id = get_players_range_single(plr2_range_id);
     if (plr2_id < 0) {
         SCRPTERRLOG("Given second player is not supported in this command");
         return;
@@ -697,14 +697,14 @@ static void command_ally_players(long plr1_range_id, long plr2_range_id, TbBool 
     command_add_value(Cmd_ALLY_PLAYERS, plr1_range_id, plr2_id, ally, 0);
 }
 
-static void command_add_gold_to_player(long plr_range_id, long amount)
+static void command_add_gold_to_player(int64_t plr_range_id, int64_t amount)
 {
     command_add_value(Cmd_ADD_GOLD_TO_PLAYER, plr_range_id, amount, 0, 0);
 }
 
-static void command_set_creature_tendencies(long plr_range_id, const char *tendency, long value)
+static void command_set_creature_tendencies(int64_t plr_range_id, const char *tendency, int64_t value)
 {
-    long tend_id = get_rid(tendency_desc, tendency);
+    int64_t tend_id = get_rid(tendency_desc, tendency);
     if (tend_id == -1)
     {
       SCRPTERRLOG("Unrecognized tendency type, '%s'", tendency);
@@ -713,14 +713,14 @@ static void command_set_creature_tendencies(long plr_range_id, const char *tende
     command_add_value(Cmd_SET_CREATURE_TENDENCIES, plr_range_id, tend_id, value, 0);
 }
 
-static void command_reveal_map_rect(long plr_range_id, long x, long y, long w, long h)
+static void command_reveal_map_rect(int64_t plr_range_id, int64_t x, int64_t y, int64_t w, int64_t h)
 {
     command_add_value(Cmd_REVEAL_MAP_RECT, plr_range_id, x, y, (h<<16)+w);
 }
 
-static const char *script_get_command_name(long cmnd_index)
+static const char *script_get_command_name(int64_t cmnd_index)
 {
-    long i = 0;
+    int64_t i = 0;
     while (command_desc[i].textptr != NULL)
     {
         if (command_desc[i].index == cmnd_index)
@@ -740,20 +740,20 @@ static void command_message(const char *msgtext, unsigned char kind)
   SCRPTWRNLOG("Command '%s' is only supported in Dungeon Keeper Beta", cmd);
 }
 
-static void command_kill_creature(long plr_range_id, const char *crtr_name, const char *criteria, int count)
+static void command_kill_creature(int64_t plr_range_id, const char *crtr_name, const char *criteria, int64_t count)
 {
     SCRIPTDBG(11, "Starting");
     if (count <= 0)
     {
-        SCRPTERRLOG("Bad creatures count, %d", count);
+        SCRPTERRLOG("Bad creatures count, %" PRId64, (int64_t)(count));
         return;
   }
-  long crtr_id = parse_creature_name(crtr_name);
+  int64_t crtr_id = parse_creature_name(crtr_name);
   if (crtr_id == CREATURE_NONE) {
     SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
     return;
   }
-  long select_id = parse_criteria(criteria);
+  int64_t select_id = parse_criteria(criteria);
   if (select_id == -1)
   {
     SCRPTERRLOG("Unknown select criteria, '%s'", criteria);
@@ -762,12 +762,12 @@ static void command_kill_creature(long plr_range_id, const char *crtr_name, cons
   command_add_value(Cmd_KILL_CREATURE, plr_range_id, crtr_id, select_id, count);
 }
 
-static void command_level_up_creature(long plr_range_id, const char *crtr_name, const char *criteria, int count)
+static void command_level_up_creature(int64_t plr_range_id, const char *crtr_name, const char *criteria, int64_t count)
 {
     SCRIPTDBG(11, "Starting");
     if (count == 0)
     {
-        SCRPTERRLOG("Bad count, %d", count);
+        SCRPTERRLOG("Bad count, %" PRId64, (int64_t)(count));
         return;
     }
     ThingModel crtr_id = parse_creature_name(crtr_name);
@@ -776,7 +776,7 @@ static void command_level_up_creature(long plr_range_id, const char *crtr_name, 
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
         return;
     }
-    long select_id = parse_criteria(criteria);
+    int64_t select_id = parse_criteria(criteria);
     if (select_id == -1)
     {
         SCRPTERRLOG("Unknown select criteria, '%s'", criteria);
@@ -785,21 +785,21 @@ static void command_level_up_creature(long plr_range_id, const char *crtr_name, 
     command_add_value(Cmd_LEVEL_UP_CREATURE, plr_range_id, crtr_id, select_id, count);
 }
 
-static void command_use_power_on_creature(long plr_range_id, const char *crtr_name, const char *criteria, long caster_plyr_idx, const char *magname, KeepPwrLevel power_level, const char *freestring)
+static void command_use_power_on_creature(int64_t plr_range_id, const char *crtr_name, const char *criteria, int64_t caster_plyr_idx, const char *magname, KeepPwrLevel power_level, const char *freestring)
 {
   SCRIPTDBG(11, "Starting");
   if (power_level < 1)
   {
-    SCRPTWRNLOG("Spell %s level too low: %d, setting to 1.", magname, power_level);
+    SCRPTWRNLOG("Spell %s level too low: %" PRId64 ", setting to 1.", magname, (int64_t)(power_level));
     power_level = 1;
   }
   if (power_level > MAGIC_OVERCHARGE_LEVELS)
   {
-    SCRPTWRNLOG("Spell %s level too high: %d, setting to %d.", magname, power_level, MAGIC_OVERCHARGE_LEVELS);
+    SCRPTWRNLOG("Spell %s level too high: %" PRId64 ", setting to %" PRId64 ".", magname, (int64_t)(power_level), (int64_t)(MAGIC_OVERCHARGE_LEVELS));
     power_level = MAGIC_OVERCHARGE_LEVELS;
   }
   power_level--;
-  long mag_id = get_rid(power_desc, magname);
+  int64_t mag_id = get_rid(power_desc, magname);
   if (mag_id == -1)
   {
     SCRPTERRLOG("Unknown magic, '%s'", magname);
@@ -810,7 +810,7 @@ static void command_use_power_on_creature(long plr_range_id, const char *crtr_na
     SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
     return;
   }
-  long select_id = parse_criteria(criteria);
+  int64_t select_id = parse_criteria(criteria);
   if (select_id == -1) {
     SCRPTERRLOG("Unknown select criteria, '%s'", criteria);
     return;
@@ -831,7 +831,7 @@ static void command_use_power_on_creature(long plr_range_id, const char *crtr_na
   }
 
   // encode params: free, magic, caster, level -> into 4xbyte: FMCL
-  long fmcl_bytes;
+  int64_t fmcl_bytes;
   {
       signed char f = free, m = mag_id, c = caster_plyr_idx, lvl = power_level;
       fmcl_bytes = (f << 24) | (m << 16) | (c << 8) | lvl;
@@ -839,21 +839,21 @@ static void command_use_power_on_creature(long plr_range_id, const char *crtr_na
   command_add_value(Cmd_USE_POWER_ON_CREATURE, plr_range_id, crtr_id, select_id, fmcl_bytes);
 }
 
-static void command_use_power_at_pos(long plr_range_id, int stl_x, int stl_y, const char *magname, KeepPwrLevel power_level, const char *freestring)
+static void command_use_power_at_pos(int64_t plr_range_id, int64_t stl_x, int64_t stl_y, const char *magname, KeepPwrLevel power_level, const char *freestring)
 {
   SCRIPTDBG(11, "Starting");
   if (power_level < 1)
   {
-    SCRPTWRNLOG("Spell %s level too low: %d, setting to 1.", magname, power_level);
+    SCRPTWRNLOG("Spell %s level too low: %" PRId64 ", setting to 1.", magname, (int64_t)(power_level));
     power_level = 1;
   }
   if (power_level > MAGIC_OVERCHARGE_LEVELS)
   {
-    SCRPTWRNLOG("Spell %s level too high: %d, setting to %d.", magname, power_level, MAGIC_OVERCHARGE_LEVELS);
+    SCRPTWRNLOG("Spell %s level too high: %" PRId64 ", setting to %" PRId64 ".", magname, (int64_t)(power_level), (int64_t)(MAGIC_OVERCHARGE_LEVELS));
     power_level = MAGIC_OVERCHARGE_LEVELS;
   }
   power_level--;
-  long mag_id = get_rid(power_desc, magname);
+  int64_t mag_id = get_rid(power_desc, magname);
   if (mag_id == -1)
   {
     SCRPTERRLOG("Unknown magic, '%s'", magname);
@@ -875,7 +875,7 @@ static void command_use_power_at_pos(long plr_range_id, int stl_x, int stl_y, co
   }
 
   // encode params: free, magic, level -> into 3xbyte: FML
-  long fml_bytes;
+  int64_t fml_bytes;
   {
       signed char f = free, m = mag_id, lvl = power_level;
       fml_bytes = (f << 16) | (m << 8) | lvl;
@@ -883,21 +883,21 @@ static void command_use_power_at_pos(long plr_range_id, int stl_x, int stl_y, co
   command_add_value(Cmd_USE_POWER_AT_POS, plr_range_id, stl_x, stl_y, fml_bytes);
 }
 
-static void command_use_power_at_location(long plr_range_id, const char *locname, const char *magname, KeepPwrLevel power_level, const char *freestring)
+static void command_use_power_at_location(int64_t plr_range_id, const char *locname, const char *magname, KeepPwrLevel power_level, const char *freestring)
 {
   SCRIPTDBG(11, "Starting");
   if (power_level < 1)
   {
-    SCRPTWRNLOG("Spell %s level too low: %d, setting to 1.", magname, power_level);
+    SCRPTWRNLOG("Spell %s level too low: %" PRId64 ", setting to 1.", magname, (int64_t)(power_level));
     power_level = 1;
   }
   if (power_level > MAGIC_OVERCHARGE_LEVELS)
   {
-    SCRPTWRNLOG("Spell %s level too high: %d, setting to %d.", magname, power_level, MAGIC_OVERCHARGE_LEVELS);
+    SCRPTWRNLOG("Spell %s level too high: %" PRId64 ", setting to %" PRId64 ".", magname, (int64_t)(power_level), (int64_t)(MAGIC_OVERCHARGE_LEVELS));
     power_level = MAGIC_OVERCHARGE_LEVELS;
   }
   power_level--;
-  long mag_id = get_rid(power_desc, magname);
+  int64_t mag_id = get_rid(power_desc, magname);
   if (mag_id == -1)
   {
     SCRPTERRLOG("Unknown magic, '%s'", magname);
@@ -926,7 +926,7 @@ static void command_use_power_at_location(long plr_range_id, const char *locname
   }
 
   // encode params: free, magic, level -> into 3xbyte: FML
-  long fml_bytes;
+  int64_t fml_bytes;
   {
       signed char f = free, m = mag_id, lvl = power_level;
       fml_bytes = (f << 16) | (m << 8) | lvl;
@@ -934,10 +934,10 @@ static void command_use_power_at_location(long plr_range_id, const char *locname
   command_add_value(Cmd_USE_POWER_AT_LOCATION, plr_range_id, location, fml_bytes, 0);
 }
 
-static void command_use_power(long plr_range_id, const char *magname, const char *freestring)
+static void command_use_power(int64_t plr_range_id, const char *magname, const char *freestring)
 {
     SCRIPTDBG(11, "Starting");
-    long mag_id = get_rid(power_desc, magname);
+    int64_t mag_id = get_rid(power_desc, magname);
     if (mag_id == -1)
     {
         SCRPTERRLOG("Unknown magic, '%s'", magname);
@@ -960,45 +960,45 @@ static void command_use_power(long plr_range_id, const char *magname, const char
     command_add_value(Cmd_USE_POWER, plr_range_id, mag_id, free, 0);
 }
 
-static void command_use_special_increase_level(long plr_range_id, long count)
+static void command_use_special_increase_level(int64_t plr_range_id, int64_t count)
 {
     if (count == 0)
     {
-        SCRPTWRNLOG("Invalid count: %ld, setting to 1.", count);
+        SCRPTWRNLOG("Invalid count: %" PRId64 ", setting to 1.", (int64_t)(count));
         count = 1;
     }
 
     if (count > 9)
     {
-        SCRPTWRNLOG("Count too high: %ld, setting to 9.", count);
+        SCRPTWRNLOG("Count too high: %" PRId64 ", setting to 9.", (int64_t)(count));
         count = 9;
     }
 
     if (count < -9)
     {
-        SCRPTWRNLOG("Count too low: %ld, setting to -9.", count);
+        SCRPTWRNLOG("Count too low: %" PRId64 ", setting to -9.", (int64_t)(count));
         count = -9;
     }
     command_add_value(Cmd_USE_SPECIAL_INCREASE_LEVEL, plr_range_id, count, 0, 0);
 }
 
-static void command_use_special_multiply_creatures(long plr_range_id, long count)
+static void command_use_special_multiply_creatures(int64_t plr_range_id, int64_t count)
 {
     if (count < 1)
     {
-        SCRPTWRNLOG("Invalid count: %ld, setting to 1.", count);
+        SCRPTWRNLOG("Invalid count: %" PRId64 ", setting to 1.", (int64_t)(count));
         count = 1;
     }
 
     if (count > 9)
     {
-        SCRPTWRNLOG("Count too high: %ld, setting to 9.", count);
+        SCRPTWRNLOG("Count too high: %" PRId64 ", setting to 9.", (int64_t)(count));
         count = 9;
     }
     command_add_value(Cmd_USE_SPECIAL_MULTIPLY_CREATURES, plr_range_id, count, 0, 0);
 }
 
-static void make_safe(long plr_range_id)
+static void make_safe(int64_t plr_range_id)
 {
     command_add_value(Cmd_MAKE_SAFE, plr_range_id, 0, 0, 0);
 }
@@ -1008,16 +1008,16 @@ static void command_locate_hidden_world()
     command_add_value(Cmd_LOCATE_HIDDEN_WORLD, 0, 0, 0, 0);
 }
 
-static void command_change_creature_owner(long origin_plyr_idx, const char *crtr_name, const char *criteria, long dest_plyr_idx)
+static void command_change_creature_owner(int64_t origin_plyr_idx, const char *crtr_name, const char *criteria, int64_t dest_plyr_idx)
 {
     SCRIPTDBG(11, "Starting");
-    long crtr_id = parse_creature_name(crtr_name);
+    int64_t crtr_id = parse_creature_name(crtr_name);
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
         return;
   }
-  long select_id = parse_criteria(criteria);
+  int64_t select_id = parse_criteria(criteria);
   if (select_id == -1) {
     SCRPTERRLOG("Unknown select criteria, '%s'", criteria);
     return;
@@ -1025,7 +1025,7 @@ static void command_change_creature_owner(long origin_plyr_idx, const char *crtr
   command_add_value(Cmd_CHANGE_CREATURE_OWNER, origin_plyr_idx, crtr_id, select_id, dest_plyr_idx);
 }
 
-static void command_computer_dig_to_location(long plr_range_id, const char* origin, const char* destination)
+static void command_computer_dig_to_location(int64_t plr_range_id, const char* origin, const char* destination)
 {
     TbMapLocation orig_loc;
     if (!get_map_location_id(origin, &orig_loc))
@@ -1043,9 +1043,9 @@ static void command_computer_dig_to_location(long plr_range_id, const char* orig
     command_add_value(Cmd_COMPUTER_DIG_TO_LOCATION, plr_range_id, orig_loc, dest_loc, 0);
 }
 
-static void command_set_campaign_flag(long plr_range_id, const char *cmpflgname, long val)
+static void command_set_campaign_flag(int64_t plr_range_id, const char *cmpflgname, int64_t val)
 {
-    long flg_id = get_rid(campaign_flag_desc, cmpflgname);
+    int64_t flg_id = get_rid(campaign_flag_desc, cmpflgname);
     if (flg_id == -1)
     {
         SCRPTERRLOG("Unknown campaign flag, '%s'", cmpflgname);
@@ -1054,9 +1054,9 @@ static void command_set_campaign_flag(long plr_range_id, const char *cmpflgname,
   command_add_value(Cmd_SET_CAMPAIGN_FLAG, plr_range_id, flg_id, val, 0);
 }
 
-static void command_add_to_campaign_flag(long plr_range_id, const char *cmpflgname, long val)
+static void command_add_to_campaign_flag(int64_t plr_range_id, const char *cmpflgname, int64_t val)
 {
-    long flg_id = get_rid(campaign_flag_desc, cmpflgname);
+    int64_t flg_id = get_rid(campaign_flag_desc, cmpflgname);
     if (flg_id == -1)
     {
         SCRPTERRLOG("Unknown campaign flag, '%s'", cmpflgname);
@@ -1065,12 +1065,12 @@ static void command_add_to_campaign_flag(long plr_range_id, const char *cmpflgna
   command_add_value(Cmd_ADD_TO_CAMPAIGN_FLAG, plr_range_id, flg_id, val, 0);
 }
 
-static void command_export_variable(long plr_range_id, const char *varib_name, const char *cmpflgname)
+static void command_export_variable(int64_t plr_range_id, const char *varib_name, const char *cmpflgname)
 {
-    int32_t src_type;
-    int32_t src_id;
+    int64_t src_type;
+    int64_t src_id;
     // Recognize flag
-    long flg_id = get_rid(campaign_flag_desc, cmpflgname);
+    int64_t flg_id = get_rid(campaign_flag_desc, cmpflgname);
     if (flg_id == -1)
     {
         SCRPTERRLOG("Unknown CAMPAIGN FLAG, '%s'", cmpflgname);
@@ -1084,22 +1084,22 @@ static void command_export_variable(long plr_range_id, const char *varib_name, c
     command_add_value(Cmd_EXPORT_VARIABLE, plr_range_id, src_type, src_id, flg_id);
 }
 
-static void command_use_spell_on_creature(long plr_range_id, const char *crtr_name, const char *criteria, const char *magname, CrtrExpLevel spell_level)
+static void command_use_spell_on_creature(int64_t plr_range_id, const char *crtr_name, const char *criteria, const char *magname, CrtrExpLevel spell_level)
 {
     SCRIPTDBG(11, "Starting");
-    long mag_id = get_rid(spell_desc, magname);
+    int64_t mag_id = get_rid(spell_desc, magname);
     if (mag_id == -1)
     {
         SCRPTERRLOG("Unknown magic, '%s'", magname);
         return;
     }
-    long crtr_id = parse_creature_name(crtr_name);
+    int64_t crtr_id = parse_creature_name(crtr_name);
     if (crtr_id == CREATURE_NONE)
     {
         SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
         return;
     }
-    long select_id = parse_criteria(criteria);
+    int64_t select_id = parse_criteria(criteria);
     if (select_id == -1)
     {
         SCRPTERRLOG("Unknown select criteria, '%s'", criteria);
@@ -1110,19 +1110,19 @@ static void command_use_spell_on_creature(long plr_range_id, const char *crtr_na
     {
         if (spell_level < 1)
         {
-            SCRPTWRNLOG("Spell %s level too low: %d, setting to 1.", magname, spell_level);
+            SCRPTWRNLOG("Spell %s level too low: %" PRId64 ", setting to 1.", magname, (int64_t)(spell_level));
             spell_level = 1;
         }
         if (spell_level > (MAGIC_OVERCHARGE_LEVELS + 1)) // Creatures cast spells from level 1 to 10.
         {
-            SCRPTWRNLOG("Spell %s level too high: %d, setting to %d.", magname, spell_level, (MAGIC_OVERCHARGE_LEVELS + 1));
+            SCRPTWRNLOG("Spell %s level too high: %" PRId64 ", setting to %" PRId64 ".", magname, (int64_t)(spell_level), (int64_t)((MAGIC_OVERCHARGE_LEVELS + 1)));
             spell_level = MAGIC_OVERCHARGE_LEVELS;
         }
     }
     spell_level--;
     // SpellKind sp = mag_id;
     // encode params: free, magic, caster, level -> into 4xbyte: FMCL
-    long fmcl_bytes;
+    int64_t fmcl_bytes;
     {
         signed char m = mag_id, lvl = spell_level;
         fmcl_bytes = (m << 8) | lvl;
@@ -1130,20 +1130,20 @@ static void command_use_spell_on_creature(long plr_range_id, const char *crtr_na
     command_add_value(Cmd_USE_SPELL_ON_CREATURE, plr_range_id, crtr_id, select_id, fmcl_bytes);
 }
 
-static void command_creature_entrance_level(long plr_range_id, unsigned char val)
+static void command_creature_entrance_level(int64_t plr_range_id, unsigned char val)
 {
   command_add_value(Cmd_CREATURE_ENTRANCE_LEVEL, plr_range_id, val, 0, 0);
 }
 
-static void command_make_unsafe(long plr_range_id)
+static void command_make_unsafe(int64_t plr_range_id)
 {
     command_add_value(Cmd_MAKE_UNSAFE, plr_range_id, 0, 0, 0);
 }
 
-static void command_randomise_flag(long plr_range_id, const char *flgname, long val)
+static void command_randomise_flag(int64_t plr_range_id, const char *flgname, int64_t val)
 {
-    int32_t flg_id;
-    int32_t flag_type;
+    int64_t flg_id;
+    int64_t flag_type;
     if (!parse_set_varib(flgname, &flg_id, &flag_type))
     {
         SCRPTERRLOG("Unknown flag, '%s'", flgname);
@@ -1152,18 +1152,18 @@ static void command_randomise_flag(long plr_range_id, const char *flgname, long 
   command_add_value(Cmd_RANDOMISE_FLAG, plr_range_id, flg_id, val, flag_type);
 }
 
-static void command_compute_flag(long plr_range_id, const char *flgname, const char *operator_name, long src_plr_range_id, const char *src_flgname, long alt)
+static void command_compute_flag(int64_t plr_range_id, const char *flgname, const char *operator_name, int64_t src_plr_range_id, const char *src_flgname, int64_t alt)
 {
-    int32_t flg_id;
-    int32_t flag_type;
+    int64_t flg_id;
+    int64_t flag_type;
     if (!parse_set_varib(flgname, &flg_id, &flag_type))
     {
         SCRPTERRLOG("Unknown target flag, '%s'", flgname);
         return;
     }
 
-    int32_t src_flg_id;
-    int32_t src_flag_type;
+    int64_t src_flg_id;
+    int64_t src_flag_type;
     // try to identify source flag as a power, if it agrees, change flag type to SVar_AVAILABLE_MAGIC, keep power id
     // with rooms, traps, doors, etc. parse_get_varib assumes we want the count flag of them. Change it later in 'alt' switch if 'available' flag is needed
     src_flg_id = get_id(power_desc, src_flgname);
@@ -1179,7 +1179,7 @@ static void command_compute_flag(long plr_range_id, const char *flgname, const c
         src_flag_type = SVar_AVAILABLE_MAGIC;
     }
 
-    long op_id = get_rid(script_operator_desc, operator_name);
+    int64_t op_id = get_rid(script_operator_desc, operator_name);
     if (op_id == -1)
     {
         SCRPTERRLOG("Invalid operation for modifying flag's value: '%s'", operator_name);
@@ -1221,7 +1221,7 @@ static void command_compute_flag(long plr_range_id, const char *flgname, const c
     // 2nd byte: operation id
     // 3rd byte: flag type
     // 4th byte: src flag type
-    long srcplr_op_flagtype_srcflagtype = (src_plr_range_id << 24) | (op_id << 16) | (flag_type << 8) | src_flag_type;
+    int64_t srcplr_op_flagtype_srcflagtype = (src_plr_range_id << 24) | (op_id << 16) | (flag_type << 8) | src_flag_type;
     command_add_value(Cmd_COMPUTE_FLAG, plr_range_id, srcplr_op_flagtype_srcflagtype, flg_id, src_flg_id);
 }
 
@@ -1230,7 +1230,7 @@ static void command_compute_flag(long plr_range_id, const char *flgname, const c
  * @param cmd_desc
  * @param scline
  */
-void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptLine *scline, long file_version)
+void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptLine *scline, int64_t file_version)
 {
     if (cmd_desc->check_fn != NULL)
     {
@@ -1404,7 +1404,7 @@ void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptL
         break;
     case Cmd_LEVEL_VERSION:
         level_file_version = scline->np[0];
-        SCRPTLOG("Level files version %ld.",level_file_version);
+        SCRPTLOG("Level files version %" PRId64 ".",(int64_t)(level_file_version));
         break;
     case Cmd_ADD_TO_FLAG:
         command_add_to_flag(scline->np[0], scline->tp[1], scline->np[2]);

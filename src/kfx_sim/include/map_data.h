@@ -81,29 +81,29 @@ TbBool slabs_change_texture(MapSlabCoord slb_x, MapSlabCoord slb_y, MaxCoordFilt
 TbBool map_block_revealed(const struct Map *mapblk, PlayerNumber plyr_idx);
 TbBool map_block_revealed_directly(const struct Map* mapblk, PlayerNumber plyr_idx);
 
-TbBool valid_dig_position(PlayerNumber plyr_idx, long stl_x, long stl_y);
-long get_ceiling_height(const struct Coord3d *pos);
+TbBool valid_dig_position(PlayerNumber plyr_idx, int64_t stl_x, int64_t stl_y);
+int64_t get_ceiling_height(const struct Coord3d *pos);
 ThingIndex get_mapwho_thing_index(const struct Map *mapblk);
 void set_mapwho_thing_index(struct Map *map, ThingIndex thing_idx);
-long get_mapblk_column_index(const struct Map *map);
-void set_mapblk_column_index(struct Map *map, long column_idx);
-long get_mapblk_filled_subtiles(const struct Map *mapblk);
-void set_mapblk_filled_subtiles(struct Map *map, long height);
-long get_mapblk_wibble_value(const struct Map *mapblk);
-void set_mapblk_wibble_value(struct Map *mapblk, long wib);
+int64_t get_mapblk_column_index(const struct Map *map);
+void set_mapblk_column_index(struct Map *map, int64_t column_idx);
+int64_t get_mapblk_filled_subtiles(const struct Map *mapblk);
+void set_mapblk_filled_subtiles(struct Map *map, int64_t height);
+int64_t get_mapblk_wibble_value(const struct Map *mapblk);
+void set_mapblk_wibble_value(struct Map *mapblk, int64_t wib);
 
 TbBool set_coords_with_clip(struct Coord3d *pos, MapCoord cor_x, MapCoord cor_y, MapCoord cor_z);
 TbBool subtile_has_slab(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool subtile_coords_invalid(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool set_coords_to_subtile_center(struct Coord3d *pos, MapSubtlCoord stl_x, MapSubtlCoord stl_y, MapSubtlCoord stl_z);
-TbBool set_coords_to_subtile_start(struct Coord3d *pos, long x, long y, long z);
-TbBool set_coords_to_subtile_end(struct Coord3d *pos, long x, long y, long z);
+TbBool set_coords_to_subtile_start(struct Coord3d *pos, int64_t x, int64_t y, int64_t z);
+TbBool set_coords_to_subtile_end(struct Coord3d *pos, int64_t x, int64_t y, int64_t z);
 TbBool set_coords_to_slab_center(struct Coord3d *pos, MapSubtlCoord slb_x, MapSubtlCoord slb_y);
-TbBool set_coords_to_cylindric_shift(struct Coord3d *pos, const struct Coord3d *source, long radius, long angle, long z);
-TbBool set_coords_add_velocity(struct Coord3d *pos, const struct Coord3d *source, const struct CoordDelta3d *velocity, unsigned short flags);
+TbBool set_coords_to_cylindric_shift(struct Coord3d *pos, const struct Coord3d *source, int64_t radius, int64_t angle, int64_t z);
+TbBool set_coords_add_velocity(struct Coord3d *pos, const struct Coord3d *source, const struct CoordDelta3d *velocity, int64_t flags);
 
 SubtlCodedCoords get_subtile_number(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-SubtlCodedCoords get_subtile_number_at_slab_center(long slb_x, long slb_y);
+SubtlCodedCoords get_subtile_number_at_slab_center(int64_t slb_x, int64_t slb_y);
 MapSubtlCoord stl_num_decode_x(SubtlCodedCoords stl_num);
 MapSubtlCoord stl_num_decode_y(SubtlCodedCoords stl_num);
 MapSubtlCoord stl_slab_center_subtile(MapSubtlCoord stl_v);
@@ -120,7 +120,7 @@ TbBool subtile_is_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 #define can_dig_here(stl_x, stl_y, plyr_idx, enemy_wall_diggable) subtile_is_diggable_for_player(plyr_idx, stl_x, stl_y, enemy_wall_diggable)
 TbBool subtile_is_diggable_for_player(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool enemy_wall_diggable);
 
-void clear_dig_for_map_rect(long plyr_idx,MapSubtlCoord start_x,MapSubtlCoord end_x,MapSubtlCoord start_y,MapSubtlCoord end_y);
+void clear_dig_for_map_rect(int64_t plyr_idx,MapSubtlCoord start_x,MapSubtlCoord end_x,MapSubtlCoord start_y,MapSubtlCoord end_y);
 void clear_slab_dig(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);
 
 void player_reveal_map_area(PlayerNumber plyr_idx, MapSubtlCoord x, MapSubtlCoord y, MapSubtlDelta w, MapSubtlDelta h);

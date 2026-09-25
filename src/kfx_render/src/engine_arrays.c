@@ -32,28 +32,28 @@
 extern "C" {
 #endif
 /******************************************************************************/
-short fp_to_td_animation[FP_TD_ANIMATION_COUNT];
-short td_to_fp_animation[FP_TD_ANIMATION_COUNT];
-unsigned short floor_to_ceiling_map[TEXTURE_BLOCKS_COUNT];
+int64_t fp_to_td_animation[FP_TD_ANIMATION_COUNT];
+int64_t td_to_fp_animation[FP_TD_ANIMATION_COUNT];
+int64_t floor_to_ceiling_map[TEXTURE_BLOCKS_COUNT];
 struct WibbleTable blank_wibble_table[128];
 
-int32_t randomisors[512];
+int64_t randomisors[512];
 struct WibbleTable wibble_table[128];
-long floor_height_table[256];
-long lintel_top_height[256];
-long lintel_bottom_height[256];
+int64_t floor_height_table[256];
+int64_t lintel_top_height[256];
+int64_t lintel_bottom_height[256];
 /******************************************************************************/
 #ifdef __cplusplus
 }
 #endif
 /******************************************************************************/
-short get_td_animation_sprite(short animation_sprite)
+int64_t get_td_animation_sprite(int64_t animation_sprite)
 {
     if ((animation_sprite >= 0) && (animation_sprite < FP_TD_ANIMATION_COUNT) && (fp_to_td_animation[animation_sprite] >= 0)) {
         return fp_to_td_animation[animation_sprite];
     }
     if ((animation_sprite >= KEEPERSPRITE_ADD_OFFSET) && (animation_sprite < KEEPERSPRITE_ADD_OFFSET + KEEPERSPRITE_ADD_NUM)) {
-        short td_sprite = fp_to_td_sprite_add[animation_sprite - KEEPERSPRITE_ADD_OFFSET];
+        int64_t td_sprite = fp_to_td_sprite_add[animation_sprite - KEEPERSPRITE_ADD_OFFSET];
         if (td_sprite > 0) {
             return td_sprite;
         }
@@ -61,19 +61,19 @@ short get_td_animation_sprite(short animation_sprite)
     return animation_sprite;
 }
 
-unsigned short get_render_animation_sprite(unsigned short animation_sprite)
+int64_t get_render_animation_sprite(int64_t animation_sprite)
 {
     if ((lens_mode == 2) || (lens_mode == 3)) {
         if (animation_sprite < FP_TD_ANIMATION_COUNT) {
-            short fp_sprite = td_to_fp_animation[animation_sprite];
+            int64_t fp_sprite = td_to_fp_animation[animation_sprite];
             if (fp_sprite >= 0) {
-                return (unsigned short)fp_sprite;
+                return (int64_t)fp_sprite;
             }
         }
         if ((animation_sprite >= KEEPERSPRITE_ADD_OFFSET) && (animation_sprite < KEEPERSPRITE_ADD_OFFSET + KEEPERSPRITE_ADD_NUM)) {
-            short fp_sprite = td_to_fp_sprite_add[animation_sprite - KEEPERSPRITE_ADD_OFFSET];
+            int64_t fp_sprite = td_to_fp_sprite_add[animation_sprite - KEEPERSPRITE_ADD_OFFSET];
             if (fp_sprite > 0) {
-                return (unsigned short)fp_sprite;
+                return (int64_t)fp_sprite;
             }
         }
     }
@@ -82,7 +82,7 @@ unsigned short get_render_animation_sprite(unsigned short animation_sprite)
 
 void init_fp_td_animation_conversion_tables(void)
 {
-  long i;
+  int64_t i;
   for (i=0; i < FP_TD_ANIMATION_COUNT; i++)
   {
     fp_to_td_animation[i] = -1;
@@ -987,8 +987,8 @@ void init_fp_td_animation_conversion_tables(void)
 void setup_mesh_randomizers(void)
 {
     uint32_t seed;
-    long i;
-    long k;
+    int64_t i;
+    int64_t k;
     SYNCDBG(6,"Starting");
     seed = 0x0f0f0f0f;
     for (i=0; i < RANDOMISORS_LEN; i++)
@@ -1001,12 +1001,12 @@ void setup_mesh_randomizers(void)
 
 static void fill_floor_heights_table(void)
 {
-    long top_height;
-    long btm_height;
-    long shade_back;
-    unsigned long flag_bit;
-    long i;
-    long n;
+    int64_t top_height;
+    int64_t btm_height;
+    int64_t shade_back;
+    uint64_t flag_bit;
+    int64_t i;
+    int64_t n;
     for (n=0; n < 256; n++)
     {
         i = 0;
@@ -1046,14 +1046,13 @@ static void fill_floor_heights_table(void)
 /**
  * Modification of LB_RANDOM() which allows generating Wibble values same to original game.
  */
-static unsigned short wibble_random(unsigned short range, unsigned short *seed)
+// The original game's table comes from a 16-bit unsigned seed that wraps at 65536; keep it 16-bit on every platform.
+static int64_t wibble_random(uint16_t range, uint16_t *seed)
 {
     if (range == 0)
         return 0;
-    unsigned short i;
-    *seed = 9377 * (*seed) + 9439;
-    i = (*seed) % range;
-    return i;
+    *seed = (uint16_t)(9377u * (*seed) + 9439u);
+    return (*seed) % range;
 }
 
 static void generate_wibble_table(void)
@@ -1061,9 +1060,9 @@ static void generate_wibble_table(void)
     struct WibbleTable *wibl;
     struct WibbleTable *empty_wibl;
     struct WibbleTable *qwibl;
-    unsigned short seed;
-    int i;
-    int n;
+    uint16_t seed;
+    int64_t i;
+    int64_t n;
     // Clear the whole wibble table and create an empty wibble table
     for (n=0; n < 4; n++)
     {
@@ -1102,12 +1101,12 @@ static TbBool load_ceiling_table(void)
 {
     char *fname;
     TbFileHandle fh;
-    unsigned short *value_array;
+    int64_t *value_array;
     char nchr;
     char numstr[8];
     TbBool do_next;
-    long i;
-    long n;
+    int64_t i;
+    int64_t n;
     fname = prepare_file_path(FGrp_StdData,"ceiling.txt");
     fh = LbFileOpen(fname, Lb_FILE_MODE_READ_ONLY);
     if (!fh) {
@@ -1136,7 +1135,7 @@ static TbBool load_ceiling_table(void)
             if ( (nchr == 10) || (nchr == 44) || (nchr == 32) || (nchr == 9) || (nchr == 13) )
                 break;
         }
-        value_array[n] = atol(numstr);
+        value_array[n] = LbAtoI32(numstr);
         n++;
         if (n >= sizeof(floor_to_ceiling_map)/sizeof(floor_to_ceiling_map[0]))
         {

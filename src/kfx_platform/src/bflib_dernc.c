@@ -42,16 +42,16 @@ extern "C" {
 #endif
 
 typedef struct {
-    unsigned long bitbuf;           /* holds between 16 and 32 bits */
-    int bitcount;               /* how many bits does bitbuf hold? */
+    uint64_t bitbuf;           /* holds between 16 and 32 bits */
+    int64_t bitcount;               /* how many bits does bitbuf hold? */
 } bit_stream;
 
 typedef struct {
-    int num;                   /* number of nodes in the tree */
+    int64_t num;                   /* number of nodes in the tree */
     struct {
-    unsigned long code;
-    int codelen;
-    int value;
+    uint64_t code;
+    int64_t codelen;
+    int64_t value;
     } table[32];
 } huf_table;
 
@@ -68,18 +68,18 @@ typedef struct {
 
 static void read_huftable (huf_table *h, bit_stream *bs,
                    unsigned char **p, unsigned char *pend);
-static long huf_read (huf_table *h, bit_stream *bs,
+static int64_t huf_read (huf_table *h, bit_stream *bs,
                    unsigned char **p,unsigned char *pend);
 
 static void bitread_init (bit_stream *bs, unsigned char **p, unsigned char *pend);
 static void bitread_fix (bit_stream *bs, unsigned char **p, unsigned char *pend);
-static unsigned long bit_peek (bit_stream *bs, unsigned long mask);
-static void bit_advance (bit_stream *bs, int n,
+static uint64_t bit_peek (bit_stream *bs, uint64_t mask);
+static void bit_advance (bit_stream *bs, int64_t n,
                    unsigned char **p, unsigned char *pend);
-static unsigned long bit_read (bit_stream *bs, unsigned long mask,
-                   int n, unsigned char **p, unsigned char *pend);
+static uint64_t bit_read (bit_stream *bs, uint64_t mask,
+                   int64_t n, unsigned char **p, unsigned char *pend);
 
-static unsigned long mirror(unsigned long x, int n);
+static uint64_t mirror(uint64_t x, int64_t n);
 
 // Decompress a packed data block. Returns the unpacked length if
 // successful, or negative error codes if not.
@@ -87,9 +87,9 @@ static unsigned long mirror(unsigned long x, int n);
 // If COMPRESSOR is defined, it also returns the leeway number
 // (which gets stored at offset 16 into the compressed-file header)
 // in `*leeway', if `leeway' isn't NULL.
-long rnc_unpack (const void *packed, void *unpacked, unsigned int flags
+int64_t rnc_unpack (const void *packed, void *unpacked, uint64_t flags
 #ifdef COMPRESSOR
-         , int32_t *leeway
+         , int64_t *leeway
 #endif
          )
 {
@@ -97,7 +97,7 @@ long rnc_unpack (const void *packed, void *unpacked, unsigned int flags
     unsigned char *input = ((unsigned char *)packed) + RNC_HEADER_LEN;
     unsigned char *output = (unsigned char *)unpacked;
 #ifdef COMPRESSOR
-    long lee = 0;
+    int64_t lee = 0;
 #endif
 
     memcpy(&header, packed, sizeof(header));
@@ -138,9 +138,9 @@ long rnc_unpack (const void *packed, void *unpacked, unsigned int flags
   while (output < outputend)
   {
 #ifdef COMPRESSOR
-      long this_lee;
+      int64_t this_lee;
 #endif
-      unsigned long ch_count;
+      uint64_t ch_count;
       if (inputend - input < 6)
       {
           if (!(flags&RNC_IGNORE_HUF_EXCEEDS_RANGE))
@@ -158,7 +158,7 @@ long rnc_unpack (const void *packed, void *unpacked, unsigned int flags
 
       while (1)
       {
-          long length = huf_read(&raw, &bs, &input, inputend);
+          int64_t length = huf_read(&raw, &bs, &input, inputend);
           if (length == -1)
           {
               if (!(flags & RNC_IGNORE_HUF_DECODE_ERROR))
@@ -188,7 +188,7 @@ long rnc_unpack (const void *packed, void *unpacked, unsigned int flags
         if (--ch_count <= 0)
             break;
 
-        long posn = huf_read(&dist, &bs, &input, inputend);
+        int64_t posn = huf_read(&dist, &bs, &input, inputend);
         if (posn == -1)
         {
             if (!(flags&RNC_IGNORE_HUF_DECODE_ERROR))
@@ -255,15 +255,15 @@ long rnc_unpack (const void *packed, void *unpacked, unsigned int flags
 static void read_huftable (huf_table *h, bit_stream *bs,
                           unsigned char **p, unsigned char *pend)
 {
-    int i;
+    int64_t i;
 
-    int leaflen[32];
+    int64_t leaflen[32];
     // big-endian form of code
-    int num = bit_read(bs, 0x1F, 5, p, pend);
+    int64_t num = bit_read(bs, 0x1F, 5, p, pend);
     if (!num)
         return;
 
-    int leafmax = 1;
+    int64_t leafmax = 1;
     for (i=0; i<num; i++)
     {
         leaflen[i] = bit_read (bs, 0x0F, 4, p, pend);
@@ -271,11 +271,11 @@ static void read_huftable (huf_table *h, bit_stream *bs,
             leafmax = leaflen[i];
     }
 
-    unsigned long codeb = 0L;
-    int k = 0;
+    uint64_t codeb = 0;
+    int64_t k = 0;
     for (i=1; i<=leafmax; i++)
     {
-        for (int j = 0; j < num; j++)
+        for (int64_t j = 0; j < num; j++)
             if (leaflen[j] == i)
             {
                 h->table[k].code = mirror(codeb, i);
@@ -291,14 +291,14 @@ static void read_huftable (huf_table *h, bit_stream *bs,
 }
 
 // Read a value out of the bit stream using the given Huffman table.
-static long huf_read (huf_table *h, bit_stream *bs,
+static int64_t huf_read (huf_table *h, bit_stream *bs,
                    unsigned char **p,unsigned char *pend)
 {
-    int i;
+    int64_t i;
 
     for (i=0; i<h->num; i++)
     {
-        unsigned long mask = (1 << h->table[i].codelen) - 1;
+        uint64_t mask = (1 << h->table[i].codelen) - 1;
         if (bit_peek(bs, mask) == h->table[i].code)
             break;
     }
@@ -306,7 +306,7 @@ static long huf_read (huf_table *h, bit_stream *bs,
         return -1;
     bit_advance (bs, h->table[i].codelen, p, pend);
 
-    unsigned long val = h->table[i].value;
+    uint64_t val = h->table[i].value;
 
     if (val >= 2)
     {
@@ -341,14 +341,14 @@ static void bitread_fix (bit_stream *bs, unsigned char **p, unsigned char *pend)
 }
 
 // Returns some bits.
-static unsigned long bit_peek (bit_stream *bs, unsigned long mask)
+static uint64_t bit_peek (bit_stream *bs, uint64_t mask)
 {
     return bs->bitbuf & mask;
 }
 
 // Advances the bit stream.
 // Checks pend for proper buffer pointers range.
-static void bit_advance (bit_stream *bs, int n, unsigned char **p, unsigned char *pend)
+static void bit_advance (bit_stream *bs, int64_t n, unsigned char **p, unsigned char *pend)
 {
     bs->bitbuf >>= n;
     bs->bitcount -= n;
@@ -362,22 +362,22 @@ static void bit_advance (bit_stream *bs, int n, unsigned char **p, unsigned char
 }
 
 // Reads some bits in one go (ie the above two routines combined).
-static unsigned long bit_read (bit_stream *bs, unsigned long mask,
-                   int n, unsigned char **p, unsigned char *pend)
+static uint64_t bit_read (bit_stream *bs, uint64_t mask,
+                   int64_t n, unsigned char **p, unsigned char *pend)
 {
-    unsigned long result = bit_peek (bs, mask);
+    uint64_t result = bit_peek (bs, mask);
     bit_advance (bs, n, p, pend);
     return result;
 }
 
 // Mirror the bottom n bits of x.
-static unsigned long mirror (unsigned long x, int n) {
-    unsigned long top = 1 << (n - 1);
-    unsigned long bottom = 1;
+static uint64_t mirror (uint64_t x, int64_t n) {
+    uint64_t top = 1 << (n - 1);
+    uint64_t bottom = 1;
     while (top > bottom)
     {
-        unsigned long mask = top | bottom;
-        unsigned long masked = x & mask;
+        uint64_t mask = top | bottom;
+        uint64_t masked = x & mask;
         if (masked != 0 && masked != mask)
             x ^= mask;
         top >>= 1;
@@ -386,22 +386,22 @@ static unsigned long mirror (unsigned long x, int n) {
     return x;
 }
 
-unsigned short crctab[256];
-short crctab_ready=false;
+int64_t crctab[256];
+int64_t crctab_ready=false;
 
 // Calculate a CRC, the RNC way
-long rnc_crc(void *data, unsigned long len)
+int64_t rnc_crc(void *data, uint64_t len)
 {
-  unsigned short val;
+  int64_t val;
   unsigned char *p = (unsigned char *)data;
   //computing CRC table
   if (!crctab_ready)
   {
-      for (int i = 0; i < 256; i++)
+      for (int64_t i = 0; i < 256; i++)
       {
           val = i;
 
-          for (int j = 0; j < 8; j++)
+          for (int64_t j = 0; j < 8; j++)
           {
               if (val & 1)
                   val = (val >> 1) ^ 0xA001;
@@ -422,9 +422,9 @@ long rnc_crc(void *data, unsigned long len)
   return val;
 }
 
-long LbFileLengthRnc(const char *fname)
+int64_t LbFileLengthRnc(const char *fname)
 {
-    long flength;
+    int64_t flength;
     TbFileHandle handle = LbFileOpen(fname, Lb_FILE_MODE_READ_ONLY);
     if (!handle) {
         return -1;
@@ -433,11 +433,11 @@ long LbFileLengthRnc(const char *fname)
     LbSyncLog("%s: file opened\n", fname);
 #endif
     rnc_header header = {0};
-    int header_read = LbFileRead(handle, &header, sizeof(header));
+    int64_t header_read = LbFileRead(handle, &header, sizeof(header));
     if (header_read != sizeof(header))
     {
 #if (BFDEBUG_LEVEL > 19)
-        LbSyncLog("%s: cannot read even %d bytes\n", fname, (int)sizeof(header));
+        LbSyncLog("%s: cannot read even %" PRId64 " bytes\n", fname, (int64_t)sizeof(header));
 #endif
         if (header_read < 0)
         {
@@ -455,7 +455,7 @@ long LbFileLengthRnc(const char *fname)
     if (header.signature == RNC_SIGNATURE)
     {
 #if (BFDEBUG_LEVEL > 19)
-        LbSyncLog("%s: file size from RNC header: %u bytes\n", fname, header.packed_size);
+        LbSyncLog("%s: file size from RNC header: %" PRIu64 " bytes\n", fname, (uint64_t)(header.packed_size));
 #endif
         flength = ntohl(header.unpacked_size);
     } else {
@@ -468,9 +468,9 @@ long LbFileLengthRnc(const char *fname)
     return flength;
 }
 
-long UnpackM1(void * buffer, ulong bufsize)
+int64_t UnpackM1(void * buffer, uint64_t bufsize)
 {
-    long retcode;
+    int64_t retcode;
     rnc_header header;
     memcpy(&header, buffer, sizeof(header));
     //If file isn't compressed - return with zero
@@ -494,15 +494,15 @@ long UnpackM1(void * buffer, ulong bufsize)
     return retcode;
 }
 
-long LbFileLoadAt(const char *fname, void *buffer)
+int64_t LbFileLoadAt(const char *fname, void *buffer)
 {
-  long filelength = LbFileLengthRnc(fname);
+  int64_t filelength = LbFileLengthRnc(fname);
   TbFileHandle handle = NULL;
   if (filelength!=-1)
   {
       handle = LbFileOpen(fname,Lb_FILE_MODE_READ_ONLY);
   }
-  int read_status=-1;
+  int64_t read_status=-1;
   if (handle)
   {
       read_status=LbFileRead(handle, buffer, filelength);
@@ -510,11 +510,11 @@ long LbFileLoadAt(const char *fname, void *buffer)
   }
   if (read_status==-1)
   {
-      ERRORLOG("Couldn't read \"%s\", expected size %ld, errno %d",fname,filelength, (int)errno);
+      ERRORLOG("Couldn't read \"%s\", expected size %" PRId64 ", errno %" PRId64,fname,(int64_t)(filelength), (int64_t)errno);
       return -1;
   }
-  long unp_length = UnpackM1(buffer, filelength);
-  long result;
+  int64_t unp_length = UnpackM1(buffer, filelength);
+  int64_t result;
   if ( unp_length >= 0 )
   {
       if (unp_length!=0)
@@ -529,24 +529,24 @@ long LbFileLoadAt(const char *fname, void *buffer)
   return result;
 }
 
-long LbFileSaveAt(const char *fname, const void *buffer,unsigned long len)
+int64_t LbFileSaveAt(const char *fname, const void *buffer,uint64_t len)
 {
   TbFileHandle handle = LbFileOpen(fname, Lb_FILE_MODE_NEW);
   if (!handle) {
     return -1;
   }
-  int result=LbFileWrite(handle,buffer,len);
+  int64_t result=LbFileWrite(handle,buffer,len);
   LbFileClose(handle);
   return result;
 }
 
-TbBool LbFileSaveAtomic(const char *fname, const void *buffer, unsigned long len)
+TbBool LbFileSaveAtomic(const char *fname, const void *buffer, uint64_t len)
 {
   char tmp_fname[DISKPATH_SIZE * 2];
   snprintf(tmp_fname, sizeof(tmp_fname), "%s.tmp", fname);
 
-  long written = LbFileSaveAt(tmp_fname, buffer, len);
-  if ((written < 0) || ((unsigned long)written != len))
+  int64_t written = LbFileSaveAt(tmp_fname, buffer, len);
+  if ((written < 0) || ((uint64_t)written != len))
   {
     LbFileDelete(tmp_fname);
     return false;
@@ -572,10 +572,10 @@ TbBool LbFileSaveAtomic(const char *fname, const void *buffer, unsigned long len
 
 // Moved from kfx_net's net_checksums.c (stage 13.3) -- see the doc
 // comment at its declaration in bflib_dernc.h.
-#define CHECKSUM_ADD(checksum, value) checksum = ((checksum << 5) | (checksum >> 27)) ^ (unsigned long)(value)
+#define CHECKSUM_ADD(checksum, value) checksum = ((checksum << 5) | (checksum >> 27)) ^ (uint64_t)(value)
 TbBigChecksum calculate_file_checksum(const char *fname)
 {
-    int32_t file_size = (int32_t)LbFileLengthRnc(fname);
+    int64_t file_size = (int64_t)LbFileLengthRnc(fname);
     TbBigChecksum checksum = 0;
     CHECKSUM_ADD(checksum, file_size);
     if (file_size <= 0) {

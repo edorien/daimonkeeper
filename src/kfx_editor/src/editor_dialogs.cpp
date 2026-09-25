@@ -14,6 +14,7 @@
  *     None.
  */
 /******************************************************************************/
+#include "kfx_imgui.h"
 #include "pre_inc.h"
 #include "editor_dialogs.h"
 #include "editor_sidecars.h"
@@ -60,12 +61,12 @@ namespace {
     bool s_show_unsaved_confirm = false;
     bool s_show_dialog_error = false;
 
-    int s_new_map_w = 85;
-    int s_new_map_h = 85;
-    int s_new_map_texture = 0;
+    int64_t s_new_map_w = 85;
+    int64_t s_new_map_h = 85;
+    int64_t s_new_map_texture = 0;
     bool s_new_map_lua = false;
 
-    int s_save_as_format = 0; // index into kFormatItems below
+    int64_t s_save_as_format = 0; // index into kFormatItems below
     // Destination for Save As -- defaults to the session's own save dir
     // each time the dialog opens, overridden by "Browse..." (native folder
     // picker, tinyfiledialogs) for an arbitrary destination.
@@ -74,7 +75,7 @@ namespace {
     // map%05lu.<ext> off this -- there's no independent free-text
     // "filename" in this format, the number *is* the filename). Defaults
     // to the session's own current lvnum each time the dialog opens.
-    int s_save_as_lvnum = 0;
+    int64_t s_save_as_lvnum = 0;
     // Display name (.lof's NAME_TEXT) -- independent of the level number
     // above, per the user's own ask. Defaults to the session's own current
     // name each time the dialog opens.
@@ -91,7 +92,7 @@ namespace {
     std::vector<std::string> s_sidecars; // files Save As would leave behind
     LevelNumber s_pending_save_lvnum = 0;
     char s_pending_save_dir[512] = "";
-    int s_pending_save_format = 0;
+    int64_t s_pending_save_format = 0;
     char s_pending_save_name[LINEMSG_SIZE] = "";
 
     // Set whenever an Open/Save As action fails in a way the user needs to
@@ -117,9 +118,9 @@ namespace {
     TbBool s_pending_is_new = false;
     MapSlabCoord s_pending_w = 85;
     MapSlabCoord s_pending_h = 85;
-    long s_pending_texture = 0;
+    int64_t s_pending_texture = 0;
 
-    void do_relaunch(LevelNumber lvnum, TbBool is_new, MapSlabCoord w, MapSlabCoord h, long texture)
+    void do_relaunch(LevelNumber lvnum, TbBool is_new, MapSlabCoord w, MapSlabCoord h, int64_t texture)
     {
         // Order matters: stash the relaunch target before sending the quit
         // packet, so get_startup_menu_state() (frontend.cpp) sees
@@ -131,7 +132,7 @@ namespace {
     // Shared by New Map's Create and Open Map's row-click: both end up
     // wanting the same "relaunch, but ask first if there are unsaved
     // changes" behavior.
-    void request_relaunch(LevelNumber lvnum, TbBool is_new, MapSlabCoord w, MapSlabCoord h, long texture)
+    void request_relaunch(LevelNumber lvnum, TbBool is_new, MapSlabCoord w, MapSlabCoord h, int64_t texture)
     {
         if (editor_is_dirty())
         {
@@ -164,9 +165,9 @@ namespace {
             // name/author/keeper-count need MapLevelInfo round-tripping,
             // phase 5 scope (docs/refactor/editor/phase3/00-slice1-native-save.md).
             ImGui::SetNextItemWidth(120);
-            ImGui::InputInt("Width (slabs)", &s_new_map_w);
+            kfximgui::InputInt("Width (slabs)", &s_new_map_w);
             ImGui::SetNextItemWidth(120);
-            ImGui::InputInt("Height (slabs)", &s_new_map_h);
+            kfximgui::InputInt("Height (slabs)", &s_new_map_h);
             editor_texture_pack_combo("Texture set", &s_new_map_texture, editor_current_lvnum());
             FeCheckbox("Lua script (instead of a .txt script)", &s_new_map_lua);
             FeSeparator();
@@ -179,7 +180,7 @@ namespace {
                 s_show_new_map = false;
                 ImGui::CloseCurrentPopup();
                 editor_set_new_map_lua(s_new_map_lua);
-                request_relaunch(EDITOR_SCRATCH_LEVEL_NUMBER, true, w, h, (long)s_new_map_texture);
+                request_relaunch(EDITOR_SCRATCH_LEVEL_NUMBER, true, w, h, (int64_t)s_new_map_texture);
             }
             ImGui::SameLine();
             if (FeButton("Cancel", btn_size))
@@ -203,20 +204,20 @@ namespace {
         ImDrawList *draw_list = ImGui::GetWindowDrawList();
         if (land_preview_build_minimap(lvnum))
         {
-            long map_w = land_preview_minimap_width();
-            long map_h = land_preview_minimap_height();
+            int64_t map_w = land_preview_minimap_width();
+            int64_t map_h = land_preview_minimap_height();
             if ((map_w > 0) && (map_h > 0))
             {
-                float cell_w = size.x / (float)map_w;
-                float cell_h = size.y / (float)map_h;
-                for (long y = 0; y < map_h; y++)
+                double cell_w = size.x / (double)map_w;
+                double cell_h = size.y / (double)map_h;
+                for (int64_t y = 0; y < map_h; y++)
                 {
-                    for (long x = 0; x < map_w; x++)
+                    for (int64_t x = 0; x < map_w; x++)
                     {
                         unsigned char r, g, b;
                         land_preview_minimap_pixel_rgb(x, y, &r, &g, &b);
                         ImVec2 c0(p0.x + x * cell_w, p0.y + y * cell_h);
-                        ImVec2 c1(c0.x + cell_w + 1.0f, c0.y + cell_h + 1.0f);
+                        ImVec2 c1(c0.x + cell_w + 1.0, c0.y + cell_h + 1.0);
                         draw_list->AddRectFilled(c0, c1, IM_COL32(r, g, b, 255));
                     }
                 }
@@ -237,8 +238,8 @@ namespace {
     // not a format choice that feeds back into loading.
     bool level_is_kfx_native_format(LevelNumber lvnum)
     {
-        short fgroup = get_level_fgroup(lvnum);
-        char *fname = prepare_file_fmtpath(fgroup, "map%05lu.lgtfx", (unsigned long)lvnum);
+        int64_t fgroup = get_level_fgroup(lvnum);
+        char *fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".lgtfx", (uint64_t)lvnum);
         return LbFileExists(fname) != 0;
     }
 
@@ -248,7 +249,7 @@ namespace {
         draw_level_thumbnail(lvnum, thumb_size);
         ImGui::SameLine();
         char label[64];
-        snprintf(label, sizeof(label), "%s %lu (%s)", label_prefix, (unsigned long)lvnum,
+        snprintf(label, sizeof(label), "%s %" PRIu64 " (%s)", label_prefix, (uint64_t)lvnum,
             level_is_kfx_native_format(lvnum) ? "KFX" : "classic");
         if (FeListRow(label, false))
         {
@@ -305,9 +306,9 @@ namespace {
             bool list_open = FeBeginListBox("##EditorOpenMapList", ImVec2(360, 260));
             if (list_open)
             {
-                for (unsigned long i = 0; i < campaign.single_levels_count; i++)
+                for (uint64_t i = 0; i < campaign.single_levels_count; i++)
                     draw_open_map_level_row(campaign.single_levels[i], "Level");
-                for (unsigned long i = 0; i < campaign.freeplay_levels_count; i++)
+                for (uint64_t i = 0; i < campaign.freeplay_levels_count; i++)
                     draw_open_map_level_row(campaign.freeplay_levels[i], "Map");
             }
             FeEndListBox(list_open);
@@ -366,7 +367,7 @@ namespace {
         else if (s_pending_save_format == 2)
             fmt = EdSaveFmt_ForceClassic;
         char check_path[600];
-        snprintf(check_path, sizeof(check_path), "%s/map%05lu.slb", s_pending_save_dir, (unsigned long)s_pending_save_lvnum);
+        snprintf(check_path, sizeof(check_path), "%s/map%05" PRIu64 ".slb", s_pending_save_dir, (uint64_t)s_pending_save_lvnum);
         if (LbFileExists(check_path))
             s_show_overwrite_confirm = true;
         else
@@ -442,7 +443,7 @@ namespace {
             // The display name (below) is a separate, independent field --
             // .lof's own NAME_TEXT, not tied to the number at all.
             ImGui::SetNextItemWidth(120);
-            ImGui::InputInt("Level Number", &s_save_as_lvnum);
+            kfximgui::InputInt("Level Number", &s_save_as_lvnum);
             FeTextInput("Level Name", s_save_as_name, sizeof(s_save_as_name));
             static const char *kFormatItems[] = { "Auto", "Force KeeperFX", "Force Classic" };
             FeCombo("Format", &s_save_as_format, kFormatItems, 3);
@@ -462,9 +463,9 @@ namespace {
                 snprintf(s_pending_save_name, sizeof(s_pending_save_name), "%s", s_save_as_name);
                 s_pending_save_name[sizeof(s_pending_save_name) - 1] = '\0';
                 s_sidecars.clear();
-                if (editor_save_is_relocation(editor_current_save_dir(), (unsigned long)editor_current_lvnum(),
-                        s_save_as_dir, (unsigned long)save_lvnum))
-                    s_sidecars = editor_find_sidecars(editor_current_save_dir(), (unsigned long)editor_current_lvnum());
+                if (editor_save_is_relocation(editor_current_save_dir(), (uint64_t)editor_current_lvnum(),
+                        s_save_as_dir, (uint64_t)save_lvnum))
+                    s_sidecars = editor_find_sidecars(editor_current_save_dir(), (uint64_t)editor_current_lvnum());
                 if (!s_sidecars.empty())
                     s_show_sidecar_confirm = true;
                 else
@@ -493,8 +494,8 @@ namespace {
             FeHeading("Overwrite existing map?");
             FeSeparator();
             char msg[128];
-            snprintf(msg, sizeof(msg), "A map already exists at level %lu in that folder.",
-                (unsigned long)s_pending_save_lvnum);
+            snprintf(msg, sizeof(msg), "A map already exists at level %" PRIu64 " in that folder.",
+                (uint64_t)s_pending_save_lvnum);
             FeBodyText(msg);
             FeSeparator();
 
@@ -587,7 +588,7 @@ namespace {
     // for the dirty flag to track here.
     bool s_show_level_settings = false;
     char s_level_settings_name[LINEMSG_SIZE] = "";
-    int s_level_settings_players = 1;
+    int64_t s_level_settings_players = 1;
     bool s_level_settings_multiplayer = false;
     // docs/refactor/editor/05-script-and-level-settings.md §1 -- DESCRIPTION
     // was already a recognized .lof keyword and an existing LevelInformation
@@ -604,12 +605,12 @@ namespace {
     // current_*() session-state accessor pair needed, unlike name/players/
     // multiplayer/description (those exist independently of any live
     // engine state kfx_editor could just read directly).
-    int s_level_settings_texture_id = 0;
+    int64_t s_level_settings_texture_id = 0;
     // Resize (fx-plans/00 A14): the size fields, and the confirm that lists what would be lost.
-    int s_resize_w = 85, s_resize_h = 85;
+    int64_t s_resize_w = 85, s_resize_h = 85;
     bool s_resize_centered = false;
     bool s_show_resize_confirm = false;
-    int s_resize_things = 0, s_resize_lights = 0, s_resize_points = 0;
+    int64_t s_resize_things = 0, s_resize_lights = 0, s_resize_points = 0;
 
     // docs/refactor/editor/05-script-and-level-settings.md §4.2 -- the
     // "managed setup region" fields: buffered here exactly like every
@@ -621,15 +622,15 @@ namespace {
     // s_level_settings_players every frame the dialog draws (see draw_
     // level_settings_dialog()'s own top-of-function resize) since Players
     // can change while this same dialog is open, before Apply.
-    int s_level_settings_generate_speed = 0;
-    std::vector<int> s_level_settings_start_money;
-    std::vector<int> s_level_settings_max_creatures;
-    std::vector<std::pair<ThingModel, int>> s_level_settings_creature_pool;
+    int64_t s_level_settings_generate_speed = 0;
+    std::vector<int64_t> s_level_settings_start_money;
+    std::vector<int64_t> s_level_settings_max_creatures;
+    std::vector<std::pair<ThingModel, int64_t>> s_level_settings_creature_pool;
     // Index into the "pick a creature to add" combo below the pool list --
     // purely local UI state, not part of the pool itself until "Add" is
     // clicked (same shadow-selection shape editor_toolbox.cpp's own
     // s_selected_creature_kind already uses for its picker).
-    int s_level_settings_pool_add_index = 0;
+    int64_t s_level_settings_pool_add_index = 0;
     // Win/lose rules (fx: managed block). Variable names offered by the
     // clause combos are the engine's script variables, plus any name a rule
     // already uses.
@@ -649,24 +650,24 @@ namespace {
         return names;
     }
 
-    void draw_win_lose_rules(int script_players)
+    void draw_win_lose_rules(int64_t script_players)
     {
         FeHeading("Win / Lose Conditions");
         FeCaption("Written to this script's setup block. Conditions written by hand elsewhere in the script are left alone.");
         static const char *const kResult[] = { "Win", "Lose" };
         static const char *const kPlayerNames[] = { "PLAYER0", "PLAYER1", "PLAYER2", "PLAYER3", "PLAYER4", "PLAYER5", "PLAYER6" };
-        int op_count = 0;
+        int64_t op_count = 0;
         const char *const *ops = script_setup_win_lose_operators(&op_count);
         std::vector<const char *> var_ptrs;
         for (const std::string &n : s_win_var_names)
             var_ptrs.push_back(n.c_str());
-        const int player_count = (script_players < 7) ? script_players : 7;
+        const int64_t player_count = (script_players < 7) ? script_players : 7;
 
         for (size_t r = 0; r < s_level_settings_rules.size(); r++)
         {
             WinLoseRule &rule = s_level_settings_rules[r];
-            ImGui::PushID((int)(1000 + r));
-            int result = rule.win ? 0 : 1;
+            ImGui::PushID((int64_t)(1000 + r));
+            int64_t result = rule.win ? 0 : 1;
             ImGui::SetNextItemWidth(80);
             if (FeCombo("##result", &result, kResult, 2))
                 rule.win = (result == 0);
@@ -675,24 +676,24 @@ namespace {
             for (size_t c = 0; c < rule.clauses.size(); c++)
             {
                 WinLoseClause &cl = rule.clauses[c];
-                ImGui::PushID((int)c);
+                ImGui::PushID((int64_t)c);
                 if (c > 0)
                     FeBodyText("   and");
-                int pl = (cl.player < player_count) ? cl.player : 0;
+                int64_t pl = (cl.player < player_count) ? cl.player : 0;
                 ImGui::SetNextItemWidth(100);
                 if (FeCombo("##player", &pl, kPlayerNames, player_count > 0 ? player_count : 1))
                     cl.player = pl;
                 ImGui::SameLine();
-                int vi = 0;
+                int64_t vi = 0;
                 for (size_t k = 0; k < s_win_var_names.size(); k++)
                     if (s_win_var_names[k] == cl.variable)
-                        vi = (int)k;
+                        vi = (int64_t)k;
                 ImGui::SetNextItemWidth(210);
-                if (!var_ptrs.empty() && FeCombo("##var", &vi, var_ptrs.data(), (int)var_ptrs.size()))
+                if (!var_ptrs.empty() && FeCombo("##var", &vi, var_ptrs.data(), (int64_t)var_ptrs.size()))
                     cl.variable = s_win_var_names[(size_t)vi];
                 ImGui::SameLine();
-                int oi = 0;
-                for (int k = 0; k < op_count; k++)
+                int64_t oi = 0;
+                for (int64_t k = 0; k < op_count; k++)
                     if (cl.op == ops[k])
                         oi = k;
                 ImGui::SetNextItemWidth(70);
@@ -700,13 +701,13 @@ namespace {
                     cl.op = ops[oi];
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(100);
-                ImGui::InputInt("##value", &cl.value);
+                kfximgui::InputInt("##value", &cl.value);
                 if (rule.clauses.size() > 1)
                 {
                     ImGui::SameLine();
                     if (FeButton("x", ImVec2(28, 0)))
                     {
-                        rule.clauses.erase(rule.clauses.begin() + (long)c);
+                        rule.clauses.erase(rule.clauses.begin() + (int64_t)c);
                         ImGui::PopID();
                         break;
                     }
@@ -720,7 +721,7 @@ namespace {
             ImGui::PopID();
             if (remove)
             {
-                s_level_settings_rules.erase(s_level_settings_rules.begin() + (long)r);
+                s_level_settings_rules.erase(s_level_settings_rules.begin() + (int64_t)r);
                 break;
             }
             FeSeparator();
@@ -743,7 +744,7 @@ namespace {
             if (script_players > 1)
             {
                 WinLoseRule win;
-                for (int p = 1; p < script_players; p++)
+                for (int64_t p = 1; p < script_players; p++)
                 {
                     WinLoseClause c;
                     c.player = p;
@@ -765,12 +766,12 @@ namespace {
             FeHeading("Resize map");
             FeSeparator();
             char msg[160];
-            snprintf(msg, sizeof(msg), "Resize to %d x %d slabs. New ground is solid rock.", s_resize_w, s_resize_h);
+            snprintf(msg, sizeof(msg), "Resize to %" PRId64 " x %" PRId64 " slabs. New ground is solid rock.", (int64_t)(s_resize_w), (int64_t)(s_resize_h));
             FeBodyText(msg);
             if (s_resize_things + s_resize_lights + s_resize_points > 0)
             {
-                snprintf(msg, sizeof(msg), "Removed: %d things, %d lights, %d action points.",
-                    s_resize_things, s_resize_lights, s_resize_points);
+                snprintf(msg, sizeof(msg), "Removed: %" PRId64 " things, %" PRId64 " lights, %" PRId64 " action points.",
+                    (int64_t)(s_resize_things), (int64_t)(s_resize_lights), (int64_t)(s_resize_points));
                 FeBodyText(msg);
             }
             FeBodyText("The editor reopens the resized map; it stays unsaved until you save.");
@@ -807,20 +808,20 @@ namespace {
             // Kept in step with the Players field every frame, so raising or
             // lowering it grows/shrinks the per-player rows on the Script
             // Setup tab (already-entered values for surviving indices stay).
-            int script_players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
-            if ((int)s_level_settings_start_money.size() != script_players)
+            int64_t script_players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
+            if ((int64_t)s_level_settings_start_money.size() != script_players)
                 s_level_settings_start_money.resize((size_t)script_players, 0);
-            if ((int)s_level_settings_max_creatures.size() != script_players)
+            if ((int64_t)s_level_settings_max_creatures.size() != script_players)
                 s_level_settings_max_creatures.resize((size_t)script_players, 0);
             bool tabs = FeBeginTabBar("##LevelSettingsTabs");
             if (tabs && FeTab("Level"))
             {
-            ImGui::BeginChild("##LevelTab", ImVec2(0, -48.0f), ImGuiChildFlags_None);
+            ImGui::BeginChild("##LevelTab", ImVec2(0, -48.0), ImGuiChildFlags_None);
             FeTextInput("Level Name", s_level_settings_name, sizeof(s_level_settings_name));
             FeTextInput("Description", s_level_settings_description, sizeof(s_level_settings_description));
             FeTextInput("Author", s_level_settings_author, sizeof(s_level_settings_author));
             ImGui::SetNextItemWidth(120);
-            ImGui::InputInt("Players", &s_level_settings_players);
+            kfximgui::InputInt("Players", &s_level_settings_players);
             FeCheckbox("Multiplayer", &s_level_settings_multiplayer);
             // docs/refactor/editor/05-script-and-level-settings.md §1 -- read-
             // only display, live session state, not persisted by this dialog
@@ -828,13 +829,13 @@ namespace {
             // "read-only after creation for v1" note).
             {
                 char map_size_label[48];
-                snprintf(map_size_label, sizeof(map_size_label), "Map size: %d x %d",
-                    (int)kfx_sim_state.map_tiles_x, (int)kfx_sim_state.map_tiles_y);
+                snprintf(map_size_label, sizeof(map_size_label), "Map size: %" PRId64 " x %" PRId64,
+                    (int64_t)kfx_sim_state.map_tiles_x, (int64_t)kfx_sim_state.map_tiles_y);
                 FeBodyText(map_size_label);
                 ImGui::SetNextItemWidth(90);
-                ImGui::InputInt("New width", &s_resize_w);
+                kfximgui::InputInt("New width", &s_resize_w);
                 ImGui::SetNextItemWidth(90);
-                ImGui::InputInt("New height", &s_resize_h);
+                kfximgui::InputInt("New height", &s_resize_h);
                 FeCheckbox("Keep the old map centred", &s_resize_centered);
                 if (FeButton("Resize...", ImVec2(140, 0)))
                 {
@@ -859,12 +860,12 @@ namespace {
                         has_heart[t->owner] = true;
                 }
                 char hearts[96] = "Dungeon Hearts:";
-                int shown = 0;
-                for (int p = 0; p < PLAYERS_COUNT; p++)
+                int64_t shown = 0;
+                for (int64_t p = 0; p < PLAYERS_COUNT; p++)
                     if (has_heart[p] && p != kfx_config_state.neutral_player_num)
                     {
                         char one[16];
-                        snprintf(one, sizeof(one), " P%d", p + 1);
+                        snprintf(one, sizeof(one), " P%" PRId64, (int64_t)(p + 1));
                         strncat(hearts, one, sizeof(hearts) - strlen(hearts) - 1);
                         shown++;
                     }
@@ -878,23 +879,23 @@ namespace {
             }
             if (tabs && FeTab("Script Setup"))
             {
-            ImGui::BeginChild("##ScriptTab", ImVec2(0, -48.0f), ImGuiChildFlags_None);
+            ImGui::BeginChild("##ScriptTab", ImVec2(0, -48.0), ImGuiChildFlags_None);
             FeHeading("Script Setup");
             editor_lua_override_banner();
             ImGui::SetNextItemWidth(140);
-            ImGui::InputInt("Generation Speed", &s_level_settings_generate_speed);
-            for (int i = 0; i < script_players; i++)
+            kfximgui::InputInt("Generation Speed", &s_level_settings_generate_speed);
+            for (int64_t i = 0; i < script_players; i++)
             {
                 ImGui::PushID(i);
                 char gold_label[24];
-                snprintf(gold_label, sizeof(gold_label), "P%d Gold", i);
+                snprintf(gold_label, sizeof(gold_label), "P%" PRId64 " Gold", (int64_t)(i));
                 ImGui::SetNextItemWidth(140);
-                ImGui::InputInt(gold_label, &s_level_settings_start_money[(size_t)i]);
+                kfximgui::InputInt(gold_label, &s_level_settings_start_money[(size_t)i]);
                 ImGui::SameLine();
                 char max_label[32];
-                snprintf(max_label, sizeof(max_label), "P%d Max Creatures", i);
+                snprintf(max_label, sizeof(max_label), "P%" PRId64 " Max Creatures", (int64_t)(i));
                 ImGui::SetNextItemWidth(140);
-                ImGui::InputInt(max_label, &s_level_settings_max_creatures[(size_t)i]);
+                kfximgui::InputInt(max_label, &s_level_settings_max_creatures[(size_t)i]);
                 ImGui::PopID();
             }
 
@@ -905,15 +906,15 @@ namespace {
                 {
                     for (size_t i = 0; i < s_level_settings_creature_pool.size(); i++)
                     {
-                        ImGui::PushID((int)i);
+                        ImGui::PushID((int64_t)i);
                         ImGui::TextUnformatted(creature_code_name(s_level_settings_creature_pool[i].first));
                         ImGui::SameLine();
                         ImGui::SetNextItemWidth(100);
-                        ImGui::InputInt("##count", &s_level_settings_creature_pool[i].second);
+                        kfximgui::InputInt("##count", &s_level_settings_creature_pool[i].second);
                         ImGui::SameLine();
                         if (FeButton("Remove", ImVec2(70, 0)))
                         {
-                            s_level_settings_creature_pool.erase(s_level_settings_creature_pool.begin() + (long)i);
+                            s_level_settings_creature_pool.erase(s_level_settings_creature_pool.begin() + (int64_t)i);
                             ImGui::PopID();
                             break; // vector just mutated -- don't keep indexing into it this frame
                         }
@@ -928,7 +929,7 @@ namespace {
                 // rebuilt fresh each frame (cheap: model_count is at most a
                 // few hundred pointer copies) rather than cached, since it
                 // only needs to exist for this one FeCombo call.
-                long model_count = kfx_config_state.conf.crtr_conf.model_count;
+                int64_t model_count = kfx_config_state.conf.crtr_conf.model_count;
                 std::vector<const char *> pool_add_names;
                 std::vector<ThingModel> pool_add_ids;
                 for (ThingModel m = 1; m < (ThingModel)model_count; m++)
@@ -938,10 +939,10 @@ namespace {
                 }
                 if (!pool_add_names.empty())
                 {
-                    if (s_level_settings_pool_add_index >= (int)pool_add_names.size())
+                    if (s_level_settings_pool_add_index >= (int64_t)pool_add_names.size())
                         s_level_settings_pool_add_index = 0;
                     ImGui::SetNextItemWidth(200);
-                    FeCombo("##PoolAddCreature", &s_level_settings_pool_add_index, pool_add_names.data(), (int)pool_add_names.size());
+                    FeCombo("##PoolAddCreature", &s_level_settings_pool_add_index, pool_add_names.data(), (int64_t)pool_add_names.size());
                     ImGui::SameLine();
                     if (FeButton("Add to Pool", ImVec2(120, 0)))
                     {
@@ -961,7 +962,7 @@ namespace {
             const ImVec2 btn_size(140, 0);
             if (FeButton("Apply", btn_size))
             {
-                int players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
+                int64_t players = (s_level_settings_players > 0) ? s_level_settings_players : 1;
                 // Before the .lof write below, which reads the session's author.
                 editor_set_current_level_author(s_level_settings_author);
                 if (editor_save_level_info(editor_current_lvnum(), editor_current_save_dir(),
@@ -984,10 +985,10 @@ namespace {
                 // SET_MAP_TEXTURE script command/Lua API already use to
                 // change it mid-session (lua_api_map.c) -- proven safe to
                 // call outside of level load.
-                if ((unsigned long)s_level_settings_texture_id != kfx_config_state.texture_id)
+                if ((uint64_t)s_level_settings_texture_id != kfx_config_state.texture_id)
                 {
                     kfx_config_state.texture_id = (unsigned char)s_level_settings_texture_id;
-                    load_texture_map_file((unsigned long)s_level_settings_texture_id,
+                    load_texture_map_file((uint64_t)s_level_settings_texture_id,
                         editor_current_lvnum(), get_level_fgroup(editor_current_lvnum()));
                 }
                 // docs/refactor/editor/05-script-and-level-settings.md §4.2
@@ -1083,9 +1084,9 @@ namespace {
                 {
                     // The level's sidecars (Lua, rules, ...) are keyed by
                     // level number, so give the scratch level its own copies.
-                    editor_remove_sidecars(playtest_dir, (unsigned long)EDITOR_PLAYTEST_LEVEL_NUMBER);
-                    editor_copy_sidecars(editor_current_save_dir(), (unsigned long)editor_current_lvnum(),
-                        playtest_dir, (unsigned long)EDITOR_PLAYTEST_LEVEL_NUMBER);
+                    editor_remove_sidecars(playtest_dir, (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
+                    editor_copy_sidecars(editor_current_save_dir(), (uint64_t)editor_current_lvnum(),
+                        playtest_dir, (uint64_t)EDITOR_PLAYTEST_LEVEL_NUMBER);
                     editor_playtest_begin();
                     frontend_request_editor_playtest(EDITOR_PLAYTEST_LEVEL_NUMBER);
                     editor_close();
@@ -1154,12 +1155,12 @@ namespace {
         {
             if (!issue.has_pos)
                 continue;
-            long screen_x, screen_y;
+            int64_t screen_x, screen_y;
             if (!project_world_position_to_screen(issue.pos_x, issue.pos_y, 0, &screen_x, &screen_y))
                 continue;
             ImU32 color = verify_severity_marker_color(issue.severity);
-            draw_list->AddCircleFilled(ImVec2((float)screen_x, (float)screen_y), 7.0f, color);
-            draw_list->AddCircle(ImVec2((float)screen_x, (float)screen_y), 7.0f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
+            draw_list->AddCircleFilled(ImVec2((double)screen_x, (double)screen_y), 7.0, color);
+            draw_list->AddCircle(ImVec2((double)screen_x, (double)screen_y), 7.0, IM_COL32(0, 0, 0, 255), 0, 1.5);
         }
     }
 
@@ -1191,10 +1192,10 @@ namespace {
                         if (issue.has_pos)
                         {
                             ImGui::SameLine();
-                            ImGui::PushID((int)i);
+                            ImGui::PushID((int64_t)i);
                             if (FeButton("Zoom"))
                                 set_players_packet_action(get_my_player(), PckA_ZoomToPosition,
-                                    (unsigned long)issue.pos_x, (unsigned long)issue.pos_y, 0, 0);
+                                    (uint64_t)issue.pos_x, (uint64_t)issue.pos_y, 0, 0);
                             ImGui::PopID();
                         }
                     }
@@ -1231,12 +1232,12 @@ void editor_dialogs_open_save_as(void)
     s_save_as_format = 0;
     snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", editor_current_save_dir());
     s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
-    s_save_as_lvnum = (int)editor_current_lvnum();
+    s_save_as_lvnum = (int64_t)editor_current_lvnum();
     if (editor_current_lvnum() == EDITOR_SCRATCH_LEVEL_NUMBER)
     {
         // A map that was never saved goes into the Editor Maps mappack by default.
         snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", editor_maps_dir().c_str());
-        s_save_as_lvnum = (int)editor_maps_next_free_number(s_save_as_dir);
+        s_save_as_lvnum = (int64_t)editor_maps_next_free_number(s_save_as_dir);
     }
     snprintf(s_save_as_name, sizeof(s_save_as_name), "%s", editor_current_level_name());
     s_save_as_name[sizeof(s_save_as_name) - 1] = '\0';
@@ -1285,9 +1286,9 @@ void editor_dialogs_open_level_settings(void)
     s_level_settings_description[sizeof(s_level_settings_description) - 1] = '\0';
     snprintf(s_level_settings_author, sizeof(s_level_settings_author), "%s", editor_current_level_author());
     s_level_settings_author[sizeof(s_level_settings_author) - 1] = '\0';
-    s_level_settings_texture_id = (int)kfx_config_state.texture_id;
-    s_resize_w = (int)kfx_sim_state.map_tiles_x;
-    s_resize_h = (int)kfx_sim_state.map_tiles_y;
+    s_level_settings_texture_id = (int64_t)kfx_config_state.texture_id;
+    s_resize_w = (int64_t)kfx_sim_state.map_tiles_x;
+    s_resize_h = (int64_t)kfx_sim_state.map_tiles_y;
     // docs/refactor/editor/05-script-and-level-settings.md §4.2 -- read
     // back from whatever managed region the current script already has
     // (all-zero/empty pool for a level that's never had this Applied

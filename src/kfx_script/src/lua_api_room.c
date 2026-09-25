@@ -26,9 +26,9 @@ static int room_tostring(lua_State *L)
     struct Room* room = luaL_checkRoom(L, 1);
     
     char buffer[64];
-    snprintf(buffer, sizeof(buffer), "[%s %s %d]", get_conf_parameter_text(room_desc,room->kind), 
+    snprintf(buffer, sizeof(buffer), "[%s %s %" PRId64 "]", get_conf_parameter_text(room_desc,room->kind), 
                                               get_conf_parameter_text(player_desc,room->owner),
-                                              room->index);
+                                              (int64_t)(room->index));
     lua_pushstring(L, buffer);
     return 1;
 
@@ -59,7 +59,7 @@ static void push_room_slabs(lua_State *L, struct Room* room) {
     lua_newtable(L);
 
     SlabCodedCoords slbnum = room->slabs_list;
-    int i = 1; // Lua tables are 1-indexed
+    int64_t i = 1; // Lua tables are 1-indexed
 
     while (1) {
         lua_pushSlab(L, slb_num_decode_x(slbnum), slb_num_decode_y(slbnum));
@@ -79,7 +79,7 @@ static void push_room_workers(lua_State *L, struct Room* room) {
     lua_newtable(L);
 
     ThingIndex worker_idx = room->creatures_list;
-    int i = 1; // Lua tables are 1-indexed
+    int64_t i = 1; // Lua tables are 1-indexed
 
     while (1) {
         struct Thing* worker = thing_get(worker_idx);
@@ -170,7 +170,7 @@ void Room_register(lua_State *L) {
     // Create a methods table
     luaL_newlib(L, room_methods);
 
-    for (int i = 0; room_methods[i].name != NULL; i++) {
+    for (int64_t i = 0; room_methods[i].name != NULL; i++) {
         const char *name = room_methods[i].name;
         lua_pushcfunction(L, room_methods[i].func);
         lua_setfield(L, -2, name);

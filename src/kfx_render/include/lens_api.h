@@ -29,7 +29,7 @@ extern "C" {
 #pragma pack(1)
 
 /******************************************************************************/
-extern uint32_t *eye_lens_memory;
+extern uint64_t *eye_lens_memory;
 extern TbPixel *eye_lens_spare_screen_memory;
 
 #pragma pack()
@@ -41,29 +41,29 @@ extern TbPixel *eye_lens_spare_screen_memory;
 //   - eye_lens_memory: Working memory for effect processing (mist textures, displacement maps)
 // These uses occur at different pipeline stages, so combined allocation is safe.
 // External code should use accessor functions below. Effects access via #include "lens_api.h"
-extern unsigned int eye_lens_width;
-extern unsigned int eye_lens_height;
-extern uint32_t *eye_lens_memory;
+extern uint64_t eye_lens_width;
+extern uint64_t eye_lens_height;
+extern uint64_t *eye_lens_memory;
 extern TbPixel *eye_lens_spare_screen_memory;
 
 // Accessor functions (type-safe, validates state)
 TbPixel* lens_get_render_target(void);
-unsigned int lens_get_render_target_width(void);
-unsigned int lens_get_render_target_height(void);
+uint64_t lens_get_render_target_width(void);
+uint64_t lens_get_render_target_height(void);
 
 // C++ LensManager wrapper functions (for use from C code)
 void* LensManager_GetInstance(void);
 TbBool LensManager_Init(void* mgr);
 void LensManager_Reset(void* mgr);
-TbBool LensManager_SetLens(void* mgr, long lens_idx);
-long LensManager_GetActiveLens(void* mgr);
+TbBool LensManager_SetLens(void* mgr, int64_t lens_idx);
+int64_t LensManager_GetActiveLens(void* mgr);
 const char* LensManager_GetActiveCustomLensName(void* mgr);
 TbBool LensManager_IsReady(void* mgr);
 void LensManager_Draw(void* mgr, TbPixel* srcbuf, TbPixel* dstbuf,
-                      long srcpitch, long dstpitch, long width, long height, long viewport_x);
-void LensManager_CopyBuffer(TbPixel* dstbuf, long dstpitch,
-                           TbPixel* srcbuf, long srcpitch,
-                           long width, long height);
+                      int64_t srcpitch, int64_t dstpitch, int64_t width, int64_t height, int64_t viewport_x);
+void LensManager_CopyBuffer(TbPixel* dstbuf, int64_t dstpitch,
+                           TbPixel* srcbuf, int64_t srcpitch,
+                           int64_t width, int64_t height);
 
 // Custom lens registration (for LUA integration)
 TbBool LensManager_RegisterCustomLens(void* mgr, const char* name, void* effect);
@@ -72,13 +72,13 @@ TbBool LensManager_SetLensByName(void* mgr, const char* name);
 
 // LUA lens effect creation
 void* LuaLensEffect_Create(const char* name, void* lua_state);
-void LuaLensEffect_SetDrawCallback(void* effect, int callback_ref);
+void LuaLensEffect_SetDrawCallback(void* effect, int64_t callback_ref);
 /******************************************************************************/
 void initialise_eye_lenses(void);
-void setup_eye_lens(long nlens);
-void reinitialise_eye_lens(long nlens);
+void setup_eye_lens(int64_t nlens);
+void reinitialise_eye_lens(int64_t nlens);
 void reset_eye_lenses(void);
-void draw_lens_effect(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcpitch, long width, long height, long viewport_x, long effect);
+void draw_lens_effect(TbPixel *dstbuf, int64_t dstpitch, TbPixel *srcbuf, int64_t srcpitch, int64_t width, int64_t height, int64_t viewport_x, int64_t effect);
 TbBool lens_is_ready(void);
 /******************************************************************************/
 #ifdef __cplusplus

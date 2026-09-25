@@ -58,7 +58,7 @@ std::string lower(const std::string &s)
 
 bool is_word_char(ImWchar c)
 {
-    return (c < 128) && (std::isalnum((int)c) || c == '_');
+    return (c < 128) && (std::isalnum((int64_t)c) || c == '_');
 }
 
 TextEditor::Iterator script_tokenizer(TextEditor::Iterator start, TextEditor::Iterator end, TextEditor::Color &color)
@@ -142,7 +142,7 @@ void editor_script_syntax_apply(TextEditor &editor, bool enable)
     language.keywords.clear();
     language.declarations.clear();
     language.identifiers.clear();
-    for (int i = 0; command_desc[i].textptr != NULL; i++)
+    for (int64_t i = 0; command_desc[i].textptr != NULL; i++)
     {
         std::string name = command_desc[i].textptr;
         if (editor_script_command_is_flow(name))

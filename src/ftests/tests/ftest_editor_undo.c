@@ -44,7 +44,7 @@ struct ftest_editor_undo__variables
     ThingModel trap_model;
     PlayerNumber owner;
     ThingIndex placed_thing_idx;
-    unsigned long poll_count;
+    uint64_t poll_count;
 };
 struct ftest_editor_undo__variables ftest_editor_undo__vars = {
     .slb_x = 17,
@@ -125,7 +125,7 @@ FTestActionResult ftest_editor_undo_action003__assert_placed(struct FTestActionA
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Trap never appeared at slab (%d,%d) after placement", (int)vars->slb_x, (int)vars->slb_y);
+            FTEST_FAIL_TEST("Trap never appeared at slab (%" PRId64 ",%" PRId64 ") after placement", (int64_t)vars->slb_x, (int64_t)vars->slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -133,7 +133,7 @@ FTestActionResult ftest_editor_undo_action003__assert_placed(struct FTestActionA
 
     if (thing->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Placed trap has owner %d, expected %d", (int)thing->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Placed trap has owner %" PRId64 ", expected %" PRId64, (int64_t)thing->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -167,7 +167,7 @@ FTestActionResult ftest_editor_undo_action005__assert_undone(struct FTestActionA
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Placed trap (thing #%d) still exists after PckA_EditorUndo", (int)vars->placed_thing_idx);
+            FTEST_FAIL_TEST("Placed trap (thing #%" PRId64 ") still exists after PckA_EditorUndo", (int64_t)vars->placed_thing_idx);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -209,7 +209,7 @@ FTestActionResult ftest_editor_undo_action007__assert_redone(struct FTestActionA
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Trap never reappeared at slab (%d,%d) after redo", (int)vars->slb_x, (int)vars->slb_y);
+            FTEST_FAIL_TEST("Trap never reappeared at slab (%" PRId64 ",%" PRId64 ") after redo", (int64_t)vars->slb_x, (int64_t)vars->slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -217,7 +217,7 @@ FTestActionResult ftest_editor_undo_action007__assert_redone(struct FTestActionA
 
     if (thing->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Redone trap has owner %d, expected %d", (int)thing->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Redone trap has owner %" PRId64 ", expected %" PRId64, (int64_t)thing->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -232,15 +232,15 @@ FTestActionResult ftest_editor_undo_action007__assert_redone(struct FTestActionA
 FTestActionResult ftest_editor_undo_action008__place_door(struct FTestActionArgs* const args)
 {
     struct ftest_editor_undo__variables* const vars = args->data;
-    for (int k = -1; k <= 1; k++)
+    for (int64_t k = -1; k <= 1; k++)
     {
         place_slab_type_on_map(SlbT_ROCK, slab_subtile(DOOR_SLB_X + k, 0), slab_subtile(DOOR_SLB_Y - 1, 0), vars->owner, 0);
         place_slab_type_on_map(SlbT_ROCK, slab_subtile(DOOR_SLB_X + k, 0), slab_subtile(DOOR_SLB_Y + 1, 0), vars->owner, 0);
     }
-    for (int k = -1; k <= 1; k++)
+    for (int64_t k = -1; k <= 1; k++)
         place_slab_type_on_map(SlbT_CLAIMED, slab_subtile(DOOR_SLB_X + k, 0), slab_subtile(DOOR_SLB_Y, 0), vars->owner, 0);
-    for (int k = -2; k <= 2; k++)
-        for (int m = -2; m <= 2; m++)
+    for (int64_t k = -2; k <= 2; k++)
+        for (int64_t m = -2; m <= 2; m++)
             do_slab_efficiency_alteration(DOOR_SLB_X + k, DOOR_SLB_Y + m);
     struct Coord3d pos;
     set_coords_to_slab_center(&pos, DOOR_SLB_X, DOOR_SLB_Y);
@@ -258,7 +258,7 @@ FTestActionResult ftest_editor_undo_action009__assert_door_then_undo(struct FTes
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Door never appeared at slab (%d,%d)", DOOR_SLB_X, DOOR_SLB_Y);
+            FTEST_FAIL_TEST("Door never appeared at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(DOOR_SLB_X), (int64_t)(DOOR_SLB_Y));
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -284,8 +284,8 @@ FTestActionResult ftest_editor_undo_action010__assert_door_undone(struct FTestAc
     const struct SlabMap* slb = get_slabmap_block(DOOR_SLB_X, DOOR_SLB_Y);
     if (slb->kind != SlbT_CLAIMED || slabmap_owner(slb) != vars->owner)
     {
-        FTEST_FAIL_TEST("Undoing a door placement left slab kind %d, owner %d; expected the claimed path (%d) owned by %d",
-            (int)slb->kind, (int)slabmap_owner(slb), (int)SlbT_CLAIMED, (int)vars->owner);
+        FTEST_FAIL_TEST("Undoing a door placement left slab kind %" PRId64 ", owner %" PRId64 "; expected the claimed path (%" PRId64 ") owned by %" PRId64,
+            (int64_t)slb->kind, (int64_t)slabmap_owner(slb), (int64_t)SlbT_CLAIMED, (int64_t)vars->owner);
     }
     return FTRs_Go_To_Next_Action;
 }

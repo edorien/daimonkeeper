@@ -61,8 +61,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-static long const dig_pos[] = {0, -1, 1};
-static long r_stackpos;
+static int64_t const dig_pos[] = {0, -1, 1};
+static int64_t r_stackpos;
 static struct DiggerStack reinforce_stack[DIGGER_TASK_MAX_COUNT];
 
 /******************************************************************************/
@@ -92,7 +92,7 @@ TbBool creature_task_needs_check_out_after_digger_stack_change(const struct Thin
 TbBool add_to_dungeon_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTaskType task_type, struct Dungeon *dungeon)
 {
     struct DiggerStack *dstack;
-    SYNCDBG(19,"Task %d at %d,%d",(int)task_type,(int)stl_num_decode_x(stl_num),(int)stl_num_decode_y(stl_num));
+    SYNCDBG(19,"Task %" PRId64 " at %" PRId64 ",%" PRId64,(int64_t)task_type,(int64_t)stl_num_decode_x(stl_num),(int64_t)stl_num_decode_y(stl_num));
     if (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT)
         return false;
     dstack = &dungeon->digger_stack[dungeon->digger_stack_length];
@@ -102,9 +102,9 @@ TbBool add_to_dungeon_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTask
     return (dungeon->digger_stack_length < DIGGER_TASK_MAX_COUNT);
 }
 
-long find_in_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTaskType task_type, const struct DiggerStack *dstack, uint32_t digger_stack_length)
+int64_t find_in_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTaskType task_type, const struct DiggerStack *dstack, uint64_t digger_stack_length)
 {
-    long i;
+    int64_t i;
     for (i=0; i < digger_stack_length; i++)
     {
         if ((dstack[i].stl_num == stl_num) && (dstack[i].task_type == task_type)) {
@@ -120,17 +120,17 @@ long find_in_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTaskType task
  * @param task_type
  * @param dungeon
  */
-long find_in_dungeon_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTaskType task_type, const struct Dungeon *dungeon)
+int64_t find_in_dungeon_imp_stack_using_pos(SubtlCodedCoords stl_num, SpDiggerTaskType task_type, const struct Dungeon *dungeon)
 {
     return find_in_imp_stack_using_pos(stl_num, task_type, dungeon->digger_stack, dungeon->digger_stack_length);
 }
 
-long find_reachable_imp_tasks_excluding_start(struct Thing *creatng, SpDiggerTaskType excl_task_type, long start_pos)
+int64_t find_reachable_imp_tasks_excluding_start(struct Thing *creatng, SpDiggerTaskType excl_task_type, int64_t start_pos)
 {
-    long i;
+    int64_t i;
     const struct Dungeon *dungeon = get_dungeon(creatng->owner);
-    long stack_len = dungeon->digger_stack_length;
-    long n = start_pos;
+    int64_t stack_len = dungeon->digger_stack_length;
+    int64_t n = start_pos;
     for (i=0; i < stack_len; i++)
     {
         const struct DiggerStack *dstack;
@@ -159,11 +159,11 @@ long find_reachable_imp_tasks_excluding_start(struct Thing *creatng, SpDiggerTas
     return -1;
 }
 
-long find_in_dungeon_imp_stack_starting_at(SpDiggerTaskType task_type, long start_pos, const struct Dungeon *dungeon)
+int64_t find_in_dungeon_imp_stack_starting_at(SpDiggerTaskType task_type, int64_t start_pos, const struct Dungeon *dungeon)
 {
-    long i;
-    long n;
-    long stack_len;
+    int64_t i;
+    int64_t n;
+    int64_t stack_len;
     stack_len = dungeon->digger_stack_length;
     n = start_pos;
     for (i=0; i < stack_len; i++)
@@ -186,8 +186,8 @@ void remove_task_from_all_other_players_digger_stacks(PlayerNumber skip_plyr_idx
         if (plyr_idx == skip_plyr_idx) {
             continue;
         }
-        long stl_num = get_subtile_number(stl_x, stl_y);
-        long task_id = find_from_task_list(plyr_idx, stl_num);
+        int64_t stl_num = get_subtile_number(stl_x, stl_y);
+        int64_t task_id = find_from_task_list(plyr_idx, stl_num);
         if (task_id >= 0)
         {
             remove_from_task_list(plyr_idx, task_id);
@@ -211,8 +211,8 @@ TbBool imp_will_soon_be_working_at_excluding(const struct Thing *creatng, MapSub
     pos2.y.val = subtile_coord_center(stl_y);
     pos2.z.val = subtile_coord(1,0);
     struct Dungeon *dungeon;
-    unsigned long k;
-    int i;
+    uint64_t k;
+    int64_t i;
     dungeon = get_players_num_dungeon(creatng->owner);
     k = 0;
     i = dungeon->digger_list_start;
@@ -263,8 +263,8 @@ TbBool imp_will_soon_be_getting_object(PlayerNumber plyr_idx, const struct Thing
     const struct Thing *spdigtng;
     const struct CreatureControl *cctrl;
     const struct Dungeon *dungeon;
-    unsigned long k;
-    int i;
+    uint64_t k;
+    int64_t i;
     SYNCDBG(8,"Starting");
     dungeon = get_players_num_dungeon(plyr_idx);
     k = 0;
@@ -317,9 +317,9 @@ TbBool imp_will_soon_be_arming_trap(struct Thing *traptng)
     struct Dungeon *dungeon;
     struct Thing *thing;
     struct CreatureControl *cctrl;
-    long crstate;
-    long i;
-    unsigned long k;
+    int64_t crstate;
+    int64_t i;
+    uint64_t k;
     dungeon = get_dungeon(traptng->owner);
     k = 0;
     i = dungeon->digger_list_start;
@@ -374,19 +374,19 @@ void force_any_creature_dragging_thing_to_drop_it(struct Thing *dragtng)
         creatng = find_creature_dragging_thing(dragtng);
         // If found a creature dragging the thing, reset it so it will drop the thing
         if (!thing_is_invalid(creatng)) {
-            SYNCDBG(8,"Reset %s index %d",thing_model_name(creatng),(int)creatng->index);
+            SYNCDBG(8,"Reset %s index %" PRId64,thing_model_name(creatng),(int64_t)creatng->index);
             set_start_state(creatng);
         } else {
-            WARNDBG(4,"Can't find creature dragging %s index %d",thing_model_name(dragtng),(int)dragtng->index);
+            WARNDBG(4,"Can't find creature dragging %s index %" PRId64,thing_model_name(dragtng),(int64_t)dragtng->index);
         }
     }
 }
 
-struct Thing *check_for_empty_trap_for_imp_not_being_armed(struct Thing *digger, long trpmodel)
+struct Thing *check_for_empty_trap_for_imp_not_being_armed(struct Thing *digger, int64_t trpmodel)
 {
     struct Thing *thing;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Trap);
     k = 0;
@@ -416,22 +416,22 @@ struct Thing *check_for_empty_trap_for_imp_not_being_armed(struct Thing *digger,
     return INVALID_THING;
 }
 
-long check_out_unprettied_or_unconverted_area(struct Thing *thing)
+int64_t check_out_unprettied_or_unconverted_area(struct Thing *thing)
 {
     struct Dungeon *dungeon;
     struct DiggerStack *dstack;
     struct Coord3d navpos;
     SYNCDBG(9,"Starting");
     dungeon = get_dungeon(thing->owner);
-    int min_dist;
-    int min_taskid;
+    int64_t min_dist;
+    int64_t min_taskid;
     struct Coord3d min_pos;
     MapSubtlCoord srcstl_x;
     MapSubtlCoord srcstl_y;
     min_dist = 28;
     srcstl_x = thing->mappos.x.stl.num;
     srcstl_y = thing->mappos.y.stl.num;
-    int i;
+    int64_t i;
     for (i=0; i < dungeon->digger_stack_length; i++)
     {
         dstack = &dungeon->digger_stack[i];
@@ -446,7 +446,7 @@ long check_out_unprettied_or_unconverted_area(struct Thing *thing)
         stl_y = stl_num_decode_y(dstack->stl_num);
         slb_x = subtile_slab(stl_x);
         slb_y = subtile_slab(stl_y);
-        int new_dist;
+        int64_t new_dist;
         new_dist = chessboard_distance(srcstl_x, srcstl_y, stl_x, stl_y);
         if (new_dist >= min_dist) {
             continue;
@@ -521,8 +521,8 @@ long check_out_unprettied_or_unconverted_area(struct Thing *thing)
 
 static TbBool imp_will_soon_be_converting_at_excluding(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
-    int owner;
-    int continue_state;
+    int64_t owner;
+    int64_t continue_state;
     struct CreatureControl *cctrl;
     struct Coord3d pos2;
 
@@ -533,7 +533,7 @@ static TbBool imp_will_soon_be_converting_at_excluding(struct Thing *creatng, Ma
     owner = creatng->owner;
     struct Dungeon *dungeon = get_dungeon(owner);
     struct Thing *thing = thing_get(dungeon->digger_list_start);
-    int k = 0;
+    int64_t k = 0;
 
 
     while (!thing_is_invalid(thing))
@@ -594,16 +594,16 @@ TbBool check_out_unconverted_spot(struct Thing *creatng, MapSlabCoord slb_x, Map
     return true;
 }
 
-long check_out_unconverted_spiral(struct Thing *thing, long nslabs)
+int64_t check_out_unconverted_spiral(struct Thing *thing, int64_t nslabs)
 {
     const struct Around *arnd;
-    long slb_x;
-    long slb_y;
-    long slabi;
-    long arndi;
-    long i;
-    long imax;
-    long k;
+    int64_t slb_x;
+    int64_t slb_y;
+    int64_t slabi;
+    int64_t arndi;
+    int64_t i;
+    int64_t imax;
+    int64_t k;
     SYNCDBG(9,"Starting");
     TRACE_THING(thing);
 
@@ -644,7 +644,7 @@ long check_out_unconverted_spiral(struct Thing *thing, long nslabs)
     return 0;
 }
 
-TbBool check_out_unprettied_spot(struct Thing *creatng, long slb_x, long slb_y)
+TbBool check_out_unprettied_spot(struct Thing *creatng, int64_t slb_x, int64_t slb_y)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -669,16 +669,16 @@ TbBool check_out_unprettied_spot(struct Thing *creatng, long slb_x, long slb_y)
     return true;
 }
 
-long check_out_unprettied_spiral(struct Thing *thing, long nslabs)
+int64_t check_out_unprettied_spiral(struct Thing *thing, int64_t nslabs)
 {
     const struct Around *arnd;
-    long slb_x;
-    long slb_y;
-    long slabi;
-    long arndi;
-    long i;
-    long imax;
-    long k;
+    int64_t slb_x;
+    int64_t slb_y;
+    int64_t slabi;
+    int64_t arndi;
+    int64_t i;
+    int64_t imax;
+    int64_t k;
     SYNCDBG(9,"Starting");
     TRACE_THING(thing);
 
@@ -721,16 +721,16 @@ long check_out_unprettied_spiral(struct Thing *thing, long nslabs)
     return 0;
 }
 
-long check_place_to_convert_excluding(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)
+int64_t check_place_to_convert_excluding(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
     if (!player_can_claim_slab(creatng->owner, slb_x, slb_y))
     {
         return 0;
     }
     TRACE_THING(creatng);
-    unsigned long k = 0;
+    uint64_t k = 0;
     struct Map *mapblk = get_map_block_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing *thing = thing_get(i);
@@ -745,8 +745,8 @@ long check_place_to_convert_excluding(struct Thing *creatng, MapSlabCoord slb_x,
         if ( thing_is_creature(thing) && (thing->index != creatng->index) )
         {
             if (!thing_is_picked_up(thing) && (thing->active_state == CrSt_ImpConvertsDungeon)) {
-                SYNCDBG(8,"The slab %d,%d is already being converted by %s index %d",
-                    (int)slb_x,(int)slb_y,thing_model_name(thing),(int)thing->index);
+                SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is already being converted by %s index %" PRId64,
+                    (int64_t)slb_x,(int64_t)slb_y,thing_model_name(thing),(int64_t)thing->index);
                 return 0;
             }
             else if ((thing->alloc_flags & TAlF_IsControlled) != 0)
@@ -777,29 +777,29 @@ long check_place_to_convert_excluding(struct Thing *creatng, MapSlabCoord slb_x,
     return 1;
 }
 
-long check_place_to_pretty_excluding(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)
+int64_t check_place_to_pretty_excluding(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
     struct SlabMap *slb;
     SYNCDBG(19,"Starting");
     TRACE_THING(creatng);
     slb = get_slabmap_block(slb_x, slb_y);
     if (slb->kind != SlbT_PATH) {
-        SYNCDBG(8,"The slab %d,%d is not a valid kind %d",(int)slb_x, (int)slb_y, (int)slb->kind);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not a valid kind %" PRId64,(int64_t)slb_x, (int64_t)slb_y, (int64_t)slb->kind);
         return 0;
     }
     struct Map *mapblk;
     mapblk = get_map_block_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
     if (!map_block_revealed(mapblk, creatng->owner)) {
-        SYNCDBG(8,"The slab %d,%d is not revealed",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not revealed",(int64_t)slb_x, (int64_t)slb_y);
         return 0;
     }
     if (!slab_by_players_land(creatng->owner, slb_x, slb_y)) {
-        SYNCDBG(8,"The slab %d,%d is not by players land",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not by players land",(int64_t)slb_x, (int64_t)slb_y);
         return 0;
     }
     struct Thing *thing;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     k = 0;
     i = get_mapwho_thing_index(mapblk);
     while (i != 0)
@@ -816,8 +816,8 @@ long check_place_to_pretty_excluding(struct Thing *creatng, MapSlabCoord slb_x, 
         if ( thing_is_creature(thing) && (thing->index != creatng->index) )
         {
             if (!thing_is_picked_up(thing) && (thing->active_state == CrSt_ImpImprovesDungeon)) {
-                SYNCDBG(8,"The slab %d,%d is already being improved by %s index %d",
-                    (int)slb_x,(int)slb_y,thing_model_name(thing),(int)thing->index);
+                SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is already being improved by %s index %" PRId64,
+                    (int64_t)slb_x,(int64_t)slb_y,thing_model_name(thing),(int64_t)thing->index);
                 return 0;
             }
         }
@@ -833,12 +833,12 @@ long check_place_to_pretty_excluding(struct Thing *creatng, MapSlabCoord slb_x, 
     return 1;
 }
 
-static int check_out_unreinforced_spiral(struct Thing *thing, int number_of_iterations)
+static int64_t check_out_unreinforced_spiral(struct Thing *thing, int64_t number_of_iterations)
 {
-    int spiral_direction;
-    int direction_step_count;
-    int next_direction;
-    int current_iteration;
+    int64_t spiral_direction;
+    int64_t direction_step_count;
+    int64_t next_direction;
+    int64_t current_iteration;
     const struct Around *ar;
     MapSubtlCoord stl_y;
     MapSubtlCoord stl_x;
@@ -847,7 +847,7 @@ static int check_out_unreinforced_spiral(struct Thing *thing, int number_of_iter
     current_iteration = 0;
     MapSlabCoord slb_x = subtile_slab(thing->mappos.x.stl.num);
     MapSlabCoord slb_y = subtile_slab(thing->mappos.y.stl.num);
-    int steps_per_direction = 2;
+    int64_t steps_per_direction = 2;
 
     while (number_of_iterations > current_iteration)
     {
@@ -892,12 +892,12 @@ static int check_out_unreinforced_spiral(struct Thing *thing, int number_of_iter
     return 0;
 }
 
-static long check_out_unreinforced_place(struct Thing *thing)
+static int64_t check_out_unreinforced_place(struct Thing *thing)
 {
     SubtlCodedCoords working_stl;
     SubtlCodedCoords stl_num;
     struct CreatureControl *cctrl;
-    int direction_attempt_count;
+    int64_t direction_attempt_count;
     MapSubtlCoord stl_y;
     MapSubtlCoord stl_x;
 
@@ -913,7 +913,7 @@ static long check_out_unreinforced_place(struct Thing *thing)
         return check_out_unreinforced_spiral(thing, 1) != 0;
     const MapSlabCoord working_slb_x = subtile_slab(stl_num_decode_x(working_stl));
     const MapSlabCoord working_slb_y = subtile_slab(stl_num_decode_y(working_stl));
-    if ((int)abs(subtile_slab(thing->mappos.x.stl.num) - working_slb_x) >= 3 || (int)abs(subtile_slab(thing->mappos.y.stl.num) - working_slb_y) >= 3)
+    if ((int64_t)llabs(subtile_slab(thing->mappos.x.stl.num) - working_slb_x) >= 3 || (int64_t)llabs(subtile_slab(thing->mappos.y.stl.num) - working_slb_y) >= 3)
     {
         return check_out_unreinforced_spiral(thing, 1) != 0;
     }
@@ -929,11 +929,11 @@ static long check_out_unreinforced_place(struct Thing *thing)
     }
     else
     {
-        unsigned int ar_idx_x = thing->mappos.x.stl.num % 3u;
-        unsigned int ar_idx_y = 3 * (thing->mappos.y.stl.num % 3u);
+        uint64_t ar_idx_x = thing->mappos.x.stl.num % 3u;
+        uint64_t ar_idx_y = 3 * (thing->mappos.y.stl.num % 3u);
 
         direction_attempt_count = 0;
-        int around_idx = around_indexes[ar_idx_y + ar_idx_x];
+        int64_t around_idx = around_indexes[ar_idx_y + ar_idx_x];
         while (1)
         {
             MapSlabCoord x = working_slb_x + small_around[around_idx].delta_x;
@@ -965,17 +965,17 @@ static long check_out_unreinforced_place(struct Thing *thing)
 
 static TbBool check_out_unreinforced_area(struct Thing *spdigtng)
 {
-    long distance;
+    int64_t distance;
     struct Coord3d reinforce_pos;
     SubtlCodedCoords final_working_stl;
 
     struct CreatureControl *cctrl = creature_control_get_from_thing(spdigtng);
-    long min_distance = 28;
+    int64_t min_distance = 28;
 
     struct Dungeon *dungeon = get_dungeon(spdigtng->owner);
     MapSubtlCoord spdig_stl_x = spdigtng->mappos.x.stl.num;
     MapSubtlCoord spdig_stl_y = spdigtng->mappos.y.stl.num;
-    for (int i = 0; dungeon->digger_stack_length > i; i++)
+    for (int64_t i = 0; dungeon->digger_stack_length > i; i++)
     {
         struct DiggerStack *dstack = &dungeon->digger_stack[i];
         if (dstack->task_type == DigTsk_ReinforceWall)
@@ -1017,11 +1017,11 @@ static TbBool check_out_unreinforced_area(struct Thing *spdigtng)
 
 TbBool check_out_unconverted_place(struct Thing *thing)
 {
-    long stl_x;
-    long stl_y;
-    long slb_x;
-    long slb_y;
-    SYNCDBG(19,"Starting for %s index %d",thing_model_name(thing),(int)thing->index);
+    int64_t stl_x;
+    int64_t stl_y;
+    int64_t slb_x;
+    int64_t slb_y;
+    SYNCDBG(19,"Starting for %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     TRACE_THING(thing);
     slb_x = subtile_slab(thing->mappos.x.stl.num);
     slb_y = subtile_slab(thing->mappos.y.stl.num);
@@ -1043,13 +1043,13 @@ TbBool check_out_unconverted_place(struct Thing *thing)
     return false;
 }
 
-long check_out_unprettied_place(struct Thing *thing)
+int64_t check_out_unprettied_place(struct Thing *thing)
 {
-    long stl_x;
-    long stl_y;
-    long slb_x;
-    long slb_y;
-    SYNCDBG(19, "Starting for %s index %d", thing_model_name(thing), (int)thing->index);
+    int64_t stl_x;
+    int64_t stl_y;
+    int64_t slb_x;
+    int64_t slb_y;
+    SYNCDBG(19, "Starting for %s index %" PRId64, thing_model_name(thing), (int64_t)thing->index);
     TRACE_THING(thing);
     slb_x = subtile_slab(thing->mappos.x.stl.num);
     slb_y = subtile_slab(thing->mappos.y.stl.num);
@@ -1083,10 +1083,10 @@ TbBool is_digging_indestructible_place(const struct Thing *creatng)
     MapSlabCoord slb_y;
     slb_x = subtile_slab(stl_num_decode_x(cctrl->digger.task_stl));
     slb_y = subtile_slab(stl_num_decode_y(cctrl->digger.task_stl));
-    SYNCDBG(19,"Starting for %s index %d at %d,%d",thing_model_name(creatng),(int)creatng->index,(int)slb_x,(int)slb_y);
+    SYNCDBG(19,"Starting for %s index %" PRId64 " at %" PRId64 ",%" PRId64,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)slb_x,(int64_t)slb_y);
     // Note that digger task position stores the central subtile on slab to be excavated
     // which happens to be the same subtile as one stored in keeper map tasks
-    long task_idx;
+    int64_t task_idx;
     task_idx = find_dig_from_task_list(creatng->owner, cctrl->digger.task_stl);
     if (task_idx != -1)
     {
@@ -1099,13 +1099,13 @@ TbBool is_digging_indestructible_place(const struct Thing *creatng)
     return false;
 }
 
-long check_out_undug_place(struct Thing *creatng)
+int64_t check_out_undug_place(struct Thing *creatng)
 {
     struct CreatureControl *cctrl;
     MapSubtlCoord base_stl_x;
     MapSubtlCoord base_stl_y;
-    long i;
-    long n;
+    int64_t i;
+    int64_t n;
     SYNCDBG(19,"Starting");
     cctrl = creature_control_get_from_thing(creatng);
     base_stl_x = stl_num_decode_x(cctrl->digger.task_stl);
@@ -1117,7 +1117,7 @@ long check_out_undug_place(struct Thing *creatng)
         SubtlCodedCoords task_pos;
         MapSlabCoord slb_x;
         MapSlabCoord slb_y;
-        long task_idx;
+        int64_t task_idx;
         slb_x = subtile_slab(base_stl_x)+small_around[n].delta_x;
         slb_y = subtile_slab(base_stl_y)+small_around[n].delta_y;
         task_pos = get_subtile_number_at_slab_center(slb_x, slb_y);
@@ -1148,13 +1148,13 @@ long check_out_undug_place(struct Thing *creatng)
     return 0;
 }
 
-long get_random_mining_undug_area_position_for_digger_drop(PlayerNumber plyr_idx, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
+int64_t get_random_mining_undug_area_position_for_digger_drop(PlayerNumber plyr_idx, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
 {
     struct Dungeon *dungeon;
     dungeon = get_dungeon(plyr_idx);
-    long i;
-    long n;
-    long tsk_max;
+    int64_t i;
+    int64_t n;
+    int64_t tsk_max;
     tsk_max = dungeon->highest_task_number;
     if (tsk_max > MAPTASKS_COUNT)
         tsk_max = MAPTASKS_COUNT;
@@ -1187,15 +1187,15 @@ long get_random_mining_undug_area_position_for_digger_drop(PlayerNumber plyr_idx
 }
 
 #define UNDUG_MAX_DIST 24
-long get_nearest_undug_area_position_for_digger(struct Thing *thing, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
+int64_t get_nearest_undug_area_position_for_digger(struct Thing *thing, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
 {
     struct CreatureControl *cctrl;
     struct Dungeon *dungeon;
     dungeon = get_dungeon(thing->owner);
     cctrl = creature_control_get_from_thing(thing);
     struct MapTask *mtask;
-    long i;
-    long tsk_max;
+    int64_t i;
+    int64_t tsk_max;
     tsk_max = dungeon->highest_task_number;
     if (tsk_max > MAPTASKS_COUNT)
         tsk_max = MAPTASKS_COUNT;
@@ -1207,7 +1207,7 @@ long get_nearest_undug_area_position_for_digger(struct Thing *thing, MapSubtlCoo
     MapSubtlCoord best_stl_x;
     MapSubtlCoord best_stl_y;
     SubtlCodedCoords best_task_stl;
-    int best_tsk_id;
+    int64_t best_tsk_id;
     best_dist = UNDUG_MAX_DIST;
     best_tsk_id = -1;
     best_stl_x = -1;
@@ -1248,12 +1248,12 @@ long get_nearest_undug_area_position_for_digger(struct Thing *thing, MapSubtlCoo
 }
 #undef UNDUG_MAX_DIST
 
-long check_out_undug_area(struct Thing *thing)
+int64_t check_out_undug_area(struct Thing *thing)
 {
     SYNCDBG(19,"Starting");
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
-    int tsk_id;
+    int64_t tsk_id;
     stl_x = -1;
     stl_y = -1;
     tsk_id = get_nearest_undug_area_position_for_digger(thing, &stl_x, &stl_y);
@@ -1284,12 +1284,12 @@ enum DigTaskStackFilter {
     DigTaskStack_Gems,
 };
 
-static int add_dig_tasks_to_imp_stack(struct Thing *anchor_imp, struct Dungeon *dungeon, int max_tasks, enum DigTaskStackFilter filter)
+static int64_t add_dig_tasks_to_imp_stack(struct Thing *anchor_imp, struct Dungeon *dungeon, int64_t max_tasks, enum DigTaskStackFilter filter)
 {
     SYNCDBG(18,"Starting");
-    int32_t task_limit;
-    int32_t tasks_added;
-    int32_t last_distance;
+    int64_t task_limit;
+    int64_t tasks_added;
+    int64_t last_distance;
     SubtlCodedCoords last_coords;
     task_limit = dungeon->highest_task_number;
     if (task_limit > MAPTASKS_COUNT) {
@@ -1300,15 +1300,15 @@ static int add_dig_tasks_to_imp_stack(struct Thing *anchor_imp, struct Dungeon *
     last_coords = 0;
     while ((tasks_added < max_tasks) && (dungeon->digger_stack_length < DIGGER_TASK_MAX_COUNT)) {
         struct MapTask *best_task;
-        int32_t best_distance;
+        int64_t best_distance;
         best_task = NULL;
         best_distance = 0;
-        for (int32_t task_idx = 0; task_idx < task_limit; task_idx++) {
+        for (int64_t task_idx = 0; task_idx < task_limit; task_idx++) {
             struct MapTask *task;
             MapSubtlCoord task_stl_x;
             MapSubtlCoord task_stl_y;
             struct SlabMap *slab;
-            int32_t distance;
+            int64_t distance;
             task = &dungeon->task_list[task_idx];
             if (task->kind == SDDigTask_None) {
                 continue;
@@ -1346,11 +1346,11 @@ static int add_dig_tasks_to_imp_stack(struct Thing *anchor_imp, struct Dungeon *
         last_coords = best_task->coords;
         tasks_added++;
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)tasks_added);
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)tasks_added);
     return tasks_added;
 }
 
-TbBool add_to_reinforce_stack(long slb_x, long slb_y, SpDiggerTaskType task_type)
+TbBool add_to_reinforce_stack(int64_t slb_x, int64_t slb_y, SpDiggerTaskType task_type)
 {
     if (r_stackpos >= DIGGER_TASK_MAX_COUNT) {
         return false;
@@ -1363,7 +1363,7 @@ TbBool add_to_reinforce_stack(long slb_x, long slb_y, SpDiggerTaskType task_type
     return true;
 }
 
-long add_to_reinforce_stack_if_need_to(long slb_x, long slb_y, struct Dungeon *dungeon)
+int64_t add_to_reinforce_stack_if_need_to(int64_t slb_x, int64_t slb_y, struct Dungeon *dungeon)
 {
     if (r_stackpos < DIGGER_TASK_MAX_COUNT - dungeon->digger_stack_length)
     {
@@ -1381,7 +1381,7 @@ long add_to_reinforce_stack_if_need_to(long slb_x, long slb_y, struct Dungeon *d
     return (r_stackpos < DIGGER_TASK_MAX_COUNT - dungeon->digger_stack_length);
 }
 
-long add_to_pretty_to_imp_stack_if_need_to(MapSlabCoord slb_x, MapSlabCoord slb_y, struct Dungeon *dungeon, int *remain_num)
+int64_t add_to_pretty_to_imp_stack_if_need_to(MapSlabCoord slb_x, MapSlabCoord slb_y, struct Dungeon *dungeon, int64_t *remain_num)
 {
     MapSubtlCoord stl_x = slab_subtile_center(slb_x);
     MapSubtlCoord stl_y = slab_subtile_center(slb_y);
@@ -1495,10 +1495,10 @@ void add_pretty_and_convert_to_imp_stack_prepare(struct Dungeon *dungeon, unsign
  * @param remain_num Limit of tasks which can still be added.
  * @return The amount of slabs checked.
  */
-long add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dungeon, unsigned char *slbopt, struct SlabCoord *slblist, const struct Coord3d * start_pos, int *remain_num)
+int64_t add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dungeon, unsigned char *slbopt, struct SlabCoord *slblist, const struct Coord3d * start_pos, int64_t *remain_num)
 {
-    unsigned int slblicount;
-    unsigned int slblipos;
+    uint64_t slblicount;
+    uint64_t slblipos;
     MapSlabCoord slb_x;
     MapSlabCoord slb_y;
     slblipos = 0; // Current position in our list of slabs which should be checked around
@@ -1514,13 +1514,13 @@ long add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dunge
     // Verify slabs around; we will add more around slabs to checklist as we progress
     do
     {
-        long i;
-        long n;
+        int64_t i;
+        int64_t n;
         n = PLAYER_RANDOM(dungeon->owner, 4);
         for (i=0; i < SMALL_AROUND_LENGTH; i++)
         {
-            slb_x = base_slb_x + (long)small_around[n].delta_x;
-            slb_y = base_slb_y + (long)small_around[n].delta_y;
+            slb_x = base_slb_x + (int64_t)small_around[n].delta_x;
+            slb_y = base_slb_y + (int64_t)small_around[n].delta_y;
             slb_num = get_slab_number(slb_x, slb_y);
             // Per around code
             if ((slbopt[slb_num] & SlbCAOpt_Border) != 0)
@@ -1602,7 +1602,7 @@ long add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dunge
  * @param max_tasks Max amount of tasks to be added.
  * @return The amount of tasks added.
  */
-int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     if (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) {
         WARNLOG("Too many jobs, no place for more");
@@ -1614,10 +1614,10 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
     heartng = get_player_soul_container(dungeon->owner);
     TRACE_THING(heartng);
     if (!thing_exists(heartng)) {
-        WARNLOG("The player %d has no heart, no dungeon position available",(int)dungeon->owner);
+        WARNLOG("The player %" PRId64 " has no heart, no dungeon position available",(int64_t)dungeon->owner);
         return 0;
     }
-    int remain_num;
+    int64_t remain_num;
     remain_num = max_tasks;
     unsigned char *slbopt;
     struct SlabCoord *slblist;
@@ -1625,7 +1625,7 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
     slblist = (struct SlabCoord *)(big_scratch + kfx_sim_state.map_tiles_x*kfx_sim_state.map_tiles_y);
     add_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
     add_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &heartng->mappos, &remain_num);
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
@@ -1639,7 +1639,7 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
  * in that case the thing may already be on a correct position.
  * @return
  */
-TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* thing, PlayerNumber plyr_idx, RoomRole rrole, unsigned short flags)
+TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* thing, PlayerNumber plyr_idx, RoomRole rrole, int64_t flags)
 {
     if (thing_is_object(thing))
     {
@@ -1681,7 +1681,7 @@ TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* t
     if ((thing->owner == dungeon->owner) && (slabmap_owner(slb) == kfx_config_state.neutral_player_num))
     {
         if (thing_is_object(thing)) {
-            WARNLOG("The %s owner %d found on neutral ground instead of owner's %s",thing_model_name(thing),(int)thing->owner,room_role_code_name(rrole));
+            WARNLOG("The %s owner %" PRId64 " found on neutral ground instead of owner's %s",thing_model_name(thing),(int64_t)thing->owner,room_role_code_name(rrole));
         }
         return true;
     } else
@@ -1689,7 +1689,7 @@ TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* t
     if (!players_are_mutual_allies(dungeon->owner, thing->owner) && (slabmap_owner(slb) == dungeon->owner))
     {
         if (thing_is_object(thing)) {
-            WARNLOG("The %s owner %d found on own ground instead of owner's %s",thing_model_name(thing),(int)thing->owner,room_role_code_name(rrole));
+            WARNLOG("The %s owner %" PRId64 " found on own ground instead of owner's %s",thing_model_name(thing),(int64_t)thing->owner,room_role_code_name(rrole));
         }
         return true;
     } else
@@ -1705,7 +1705,7 @@ TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* t
         if (room_is_invalid(room) || (!room_role_matches(room->kind,rrole)))
         {
             if (thing_is_object(thing)) {
-                WARNLOG("The %s owner %d found on his ground but outside %s",thing_model_name(thing),(int)thing->owner,room_role_code_name(rrole));
+                WARNLOG("The %s owner %" PRId64 " found on his ground but outside %s",thing_model_name(thing),(int64_t)thing->owner,room_role_code_name(rrole));
             }
             return true;
         }
@@ -1713,11 +1713,11 @@ TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* t
     return false;
 }
 
-struct Thing *get_next_unclaimed_gold_thing_pickable_by_digger(PlayerNumber owner, int start_idx)
+struct Thing *get_next_unclaimed_gold_thing_pickable_by_digger(PlayerNumber owner, int64_t start_idx)
 {
     struct Thing *thing;
-    int i;
-    int k;
+    int64_t i;
+    int64_t k;
     k = 0;
     i = start_idx;
     while (i > 0)
@@ -1758,7 +1758,7 @@ struct Thing *get_next_unclaimed_gold_thing_pickable_by_digger(PlayerNumber owne
     return INVALID_THING;
 }
 
-int add_unclaimed_gold_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_unclaimed_gold_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     struct Room *room;
     room = find_room_of_role_with_spare_capacity(dungeon->owner, RoRoF_GoldStorage, 1);
@@ -1767,7 +1767,7 @@ int add_unclaimed_gold_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
     }
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Object);
-    int remain_num;
+    int64_t remain_num;
     remain_num = max_tasks;
     struct Thing *gldtng;
     gldtng = get_next_unclaimed_gold_thing_pickable_by_digger(dungeon->owner, slist->index);
@@ -1784,13 +1784,13 @@ int add_unclaimed_gold_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
         }
         gldtng = get_next_unclaimed_gold_thing_pickable_by_digger(dungeon->owner, gldtng->next_of_class);
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
 void setup_imp_stack(struct Dungeon *dungeon)
 {
-    long i;
+    int64_t i;
     for (i = 0; i < dungeon->digger_stack_length; i++)
     {
         dungeon->digger_stack[i].task_type = DigTsk_None;
@@ -1800,19 +1800,19 @@ void setup_imp_stack(struct Dungeon *dungeon)
     r_stackpos = 0;
 }
 
-int add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     struct Thing *thing = NULL;
     struct Room *room;
-    int remain_num;
-    unsigned long k;
-    int i;
+    int64_t remain_num;
+    uint64_t k;
+    int64_t i;
     if (!dungeon_has_room_of_role(dungeon, RoRoF_Prison)) {
-        SYNCDBG(8,"Dungeon %d has no %s",(int)dungeon->owner,room_role_code_name(RoRoF_Prison));
+        SYNCDBG(8,"Dungeon %" PRId64 " has no %s",(int64_t)dungeon->owner,room_role_code_name(RoRoF_Prison));
         return 0;
     }
     if (!player_creature_tends_to(dungeon->owner, CrTend_Imprison)) {
-        SYNCDBG(8,"Player %d creatures do not tend to imprison",(int)dungeon->owner);
+        SYNCDBG(8,"Player %" PRId64 " creatures do not tend to imprison",(int64_t)dungeon->owner);
         return 0;
     }
     room = find_room_of_role_with_spare_capacity(dungeon->owner, RoRoF_Prison, 1);
@@ -1860,7 +1860,7 @@ int add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, int m
             break;
         }
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
@@ -1873,13 +1873,13 @@ int add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, int m
  * @param max_tasks The maximum number of tasks to add to the imp stack.
  * @return The number of tasks actually added to the imp stack.
  */
-int add_unsaved_unconscious_creature_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_unsaved_unconscious_creature_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     struct Thing *thing = NULL;
     struct Room *room;
-    int remain_num;
-    unsigned long k;
-    int i;
+    int64_t remain_num;
+    uint64_t k;
+    int64_t i;
     if(!kfx_config_state.conf.rules[dungeon->owner].workers.drag_to_lair)
     {
         return 0;
@@ -1944,20 +1944,20 @@ int add_unsaved_unconscious_creature_to_imp_stack(struct Dungeon *dungeon, int m
             break;
         }
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
-int add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     struct Thing *thing;
     struct Room *room;
     SubtlCodedCoords stl_num;
-    int remain_num;
-    unsigned long k;
-    int i;
+    int64_t remain_num;
+    uint64_t k;
+    int64_t i;
     if (!dungeon_has_room_of_role(dungeon, RoRoF_DeadStorage)) {
-        SYNCDBG(8,"Dungeon %d has no %s",(int)dungeon->owner,room_role_code_name(RoRoF_DeadStorage));
+        SYNCDBG(8,"Dungeon %" PRId64 " has no %s",(int64_t)dungeon->owner,room_role_code_name(RoRoF_DeadStorage));
         return 0;
     }
     room = find_room_of_role_with_spare_capacity(dungeon->owner, RoRoF_DeadStorage, 1);
@@ -2005,22 +2005,22 @@ int add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int max_task
             break;
         }
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
-int add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     if (!dungeon_has_room_of_role(dungeon, RoRoF_PowersStorage)) {
-        SYNCDBG(8,"Dungeon %d has no %s",(int)dungeon->owner,room_role_code_name(RoRoF_PowersStorage));
+        SYNCDBG(8,"Dungeon %" PRId64 " has no %s",(int64_t)dungeon->owner,room_role_code_name(RoRoF_PowersStorage));
         return 0;
     }
     struct Room *room;
     room = find_room_of_role_with_spare_room_item_capacity(dungeon->owner, RoRoF_PowersStorage);
-    int remain_num;
+    int64_t remain_num;
     remain_num = max_tasks;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Object);
     k = 0;
@@ -2049,8 +2049,8 @@ int add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
             }
             SubtlCodedCoords stl_num;
             stl_num = get_subtile_number(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
-            SYNCDBG(18,"Pickup task for dungeon %d at (%d,%d)",
-                (int)dungeon->owner,(int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num);
+            SYNCDBG(18,"Pickup task for dungeon %" PRId64 " at (%" PRId64 ",%" PRId64 ")",
+                (int64_t)dungeon->owner,(int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num);
             if (!add_to_dungeon_imp_stack_using_pos(stl_num, DigTsk_PicksUpSpellBook, dungeon)) {
                 break;
             }
@@ -2064,14 +2064,14 @@ int add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
             break;
         }
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
 TbBool add_object_for_trap_to_imp_stack(struct Dungeon *dungeon, struct Thing *armtng)
 {
-    unsigned long k;
-    int i;
+    uint64_t k;
+    int64_t i;
     k = 0;
     i = kfx_sim_state.thing_lists[TngList_Objects].index;
     while (i > 0)
@@ -2109,13 +2109,13 @@ TbBool add_object_for_trap_to_imp_stack(struct Dungeon *dungeon, struct Thing *a
     return false;
 }
 
-int add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     SYNCDBG(18,"Starting");
-    int remain_num;
+    int64_t remain_num;
     remain_num = max_tasks;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Trap);
     k = 0;
@@ -2148,21 +2148,21 @@ int add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
             break;
         }
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
-int add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
     struct Thing* thing;
     SYNCDBG(18,"Starting");
     // Checking if the workshop exists
     struct Room *room;
     room = find_room_of_role_with_spare_room_item_capacity(dungeon->owner, RoRoF_CratesStorage);
-    int remain_num;
+    int64_t remain_num;
     remain_num = max_tasks;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Object);
     k = 0;
@@ -2190,8 +2190,8 @@ int add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
             }
             SubtlCodedCoords stl_num;
             stl_num = get_subtile_number(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
-            SYNCDBG(8,"Pickup task for dungeon %d at (%d,%d)",
-                (int)dungeon->owner,(int)thing->mappos.x.stl.num,(int)thing->mappos.y.stl.num);
+            SYNCDBG(8,"Pickup task for dungeon %" PRId64 " at (%" PRId64 ",%" PRId64 ")",
+                (int64_t)dungeon->owner,(int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num);
             if (!add_to_dungeon_imp_stack_using_pos(stl_num, DigTsk_PicksUpCrateForWorkshop, dungeon)) {
                 break;
             }
@@ -2205,7 +2205,7 @@ int add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
             break;
         }
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
@@ -2217,11 +2217,11 @@ int add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
  * @return The amount of tasks added.
  * Only fill up the stack with reinforce task halfway
  */
-int add_reinforce_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int64_t add_reinforce_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
-    int remain_num;
+    int64_t remain_num;
     remain_num = max_tasks;
-    long i;
+    int64_t i;
     for (i=0; i < r_stackpos; i++)
     {
         if ((dungeon->digger_stack_length >= 32) || (remain_num <= 0)) {
@@ -2232,7 +2232,7 @@ int add_reinforce_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
         add_to_dungeon_imp_stack_using_pos(rfstack->stl_num, rfstack->task_type, dungeon);
         remain_num--;
     }
-    SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
+    SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
 
@@ -2256,8 +2256,8 @@ TbBool imp_already_reinforcing_at_excluding(struct Thing *spdigtng, MapSubtlCoor
     struct Map *mapblk;
     mapblk = get_map_block_at(stl_x, stl_y);
     struct Thing *loop_thing;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     k = 0;
     i = get_mapwho_thing_index(mapblk);
     while (i != 0)
@@ -2288,21 +2288,21 @@ TbBool imp_already_reinforcing_at_excluding(struct Thing *spdigtng, MapSubtlCoor
     return false;
 }
 
-void get_sorted_small_around_side_of_slab(MapCoord dstcor_x, MapCoord dstcor_y, MapCoord srccor_x, MapCoord srccor_y, int sorted_sides[4])
+void get_sorted_small_around_side_of_slab(MapCoord dstcor_x, MapCoord dstcor_y, MapCoord srccor_x, MapCoord srccor_y, int64_t sorted_sides[4])
 {
     MapCoordDelta delta_x;
     MapCoordDelta delta_y;
     delta_x = dstcor_x - (MapCoordDelta)srccor_x;
     delta_y = dstcor_y - (MapCoordDelta)srccor_y;
 
-    int side_y_near = (delta_y > 0) ? 0 : 2;
-    int side_y_far  = (delta_y > 0) ? 2 : 0;
+    int64_t side_y_near = (delta_y > 0) ? 0 : 2;
+    int64_t side_y_far  = (delta_y > 0) ? 2 : 0;
 
-    int side_x_near = (delta_x > 0) ? 3 : 1;
-    int side_x_far  = (delta_x > 0) ? 1 : 3;
+    int64_t side_x_near = (delta_x > 0) ? 3 : 1;
+    int64_t side_x_far  = (delta_x > 0) ? 1 : 3;
 
-    int abs_dy = abs(delta_y);
-    int abs_dx = abs(delta_x);
+    int64_t abs_dy = llabs(delta_y);
+    int64_t abs_dx = llabs(delta_x);
 
     if (abs_dy > abs_dx) {
         sorted_sides[0] = side_y_near;
@@ -2317,25 +2317,25 @@ void get_sorted_small_around_side_of_slab(MapCoord dstcor_x, MapCoord dstcor_y, 
     }
 }
 
-long check_out_uncrowded_reinforce_position(struct Thing *thing, SubtlCodedCoords stl_num, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
+int64_t check_out_uncrowded_reinforce_position(struct Thing *thing, SubtlCodedCoords stl_num, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
 {
     MapSubtlCoord basestl_x;
     MapSubtlCoord basestl_y;
     basestl_x = stl_num_decode_x(stl_num);
     basestl_y = stl_num_decode_y(stl_num);
-    int i;
+    int64_t i;
 
-    int sorted_sides[4];
+    int64_t sorted_sides[4];
     get_sorted_small_around_side_of_slab(subtile_coord_center(basestl_x), subtile_coord_center(basestl_y), thing->mappos.x.val, thing->mappos.y.val, sorted_sides);
 
-    long ret = 0;
+    int64_t ret = 0;
     for (i=0; i < SMALL_AROUND_LENGTH; i++)
     {
-        int idx = sorted_sides[i];
+        int64_t idx = sorted_sides[i];
         MapSubtlCoord stl_x;
         MapSubtlCoord stl_y;
-        stl_x = basestl_x + 2 * (long)small_around[idx].delta_x;
-        stl_y = basestl_y + 2 * (long)small_around[idx].delta_y;
+        stl_x = basestl_x + 2 * (int64_t)small_around[idx].delta_x;
+        stl_y = basestl_y + 2 * (int64_t)small_around[idx].delta_y;
         if (slab_is_players_land(thing->owner, subtile_slab(stl_x), subtile_slab(stl_y)))
         {
             if (!imp_already_reinforcing_at_excluding(thing, stl_x, stl_y))
@@ -2362,19 +2362,19 @@ long check_out_uncrowded_reinforce_position(struct Thing *thing, SubtlCodedCoord
     return ret;
 }
 
-long check_place_to_dig_and_get_drop_position(PlayerNumber plyr_idx, SubtlCodedCoords stl_num, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
+int64_t check_place_to_dig_and_get_drop_position(PlayerNumber plyr_idx, SubtlCodedCoords stl_num, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
 {
     struct SlabMap *place_slb;
     MapSubtlCoord place_x;
     MapSubtlCoord place_y;
-    long base_x;
-    long base_y;
-    long stl_x;
-    long stl_y;
-    long i;
-    long k;
-    long n;
-    long nstart;
+    int64_t base_x;
+    int64_t base_y;
+    int64_t stl_x;
+    int64_t stl_y;
+    int64_t i;
+    int64_t k;
+    int64_t n;
+    int64_t nstart;
     SYNCDBG(18,"Starting");
     place_x = stl_num_decode_x(stl_num);
     place_y = stl_num_decode_y(stl_num);
@@ -2385,8 +2385,8 @@ long check_place_to_dig_and_get_drop_position(PlayerNumber plyr_idx, SubtlCodedC
 
     for (i = 0; i < SMALL_AROUND_SLAB_LENGTH; i++)
     {
-      base_x = place_x + 2 * (long)small_around[n].delta_x;
-      base_y = place_y + 2 * (long)small_around[n].delta_y;
+      base_x = place_x + 2 * (int64_t)small_around[n].delta_x;
+      base_y = place_y + 2 * (int64_t)small_around[n].delta_y;
       if (valid_dig_position(plyr_idx, base_x, base_y))
       {
           for (k = 0; k < sizeof(dig_pos)/sizeof(dig_pos[0]); k++)
@@ -2418,41 +2418,41 @@ long check_place_to_dig_and_get_drop_position(PlayerNumber plyr_idx, SubtlCodedC
     return 0;
 }
 
-long check_place_to_dig_and_get_position(struct Thing *thing, SubtlCodedCoords stl_num, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
+int64_t check_place_to_dig_and_get_position(struct Thing *thing, SubtlCodedCoords stl_num, MapSubtlCoord *retstl_x, MapSubtlCoord *retstl_y)
 {
     struct SlabMap *place_slb;
     struct Coord3d pos;
     MapSubtlCoord place_x;
     MapSubtlCoord place_y;
-    long base_x;
-    long base_y;
-    long stl_x;
-    long stl_y;
-    long i;
-    long k;
+    int64_t base_x;
+    int64_t base_y;
+    int64_t stl_x;
+    int64_t stl_y;
+    int64_t i;
+    int64_t k;
     SYNCDBG(18,"Starting");
     place_x = stl_num_decode_x(stl_num);
     place_y = stl_num_decode_y(stl_num);
     if (!block_has_diggable_side(subtile_slab(place_x), subtile_slab(place_y)))
         return 0;
 
-    int sorted_sides[4];
+    int64_t sorted_sides[4];
     get_sorted_small_around_side_of_slab(subtile_coord_center(place_x), subtile_coord_center(place_y), thing->mappos.x.val, thing->mappos.y.val, sorted_sides);
 
     place_slb = get_slabmap_for_subtile(place_x,place_y);
 
     for (i = 0; i < SMALL_AROUND_LENGTH; i++)
     {
-      int idx1 = sorted_sides[i];
-      base_x = place_x + 2 * (long)small_around[idx1].delta_x;
-      base_y = place_y + 2 * (long)small_around[idx1].delta_y;
+      int64_t idx1 = sorted_sides[i];
+      base_x = place_x + 2 * (int64_t)small_around[idx1].delta_x;
+      base_y = place_y + 2 * (int64_t)small_around[idx1].delta_y;
       if (valid_dig_position(thing->owner, base_x, base_y))
       {
           for (k = 0; k < sizeof(dig_pos)/sizeof(dig_pos[0]); k++)
           {
               if ( k )
               {
-                int idx2 = ((idx1 + dig_pos[k]) & 3);
+                int64_t idx2 = ((idx1 + dig_pos[k]) & 3);
                 stl_x = base_x + small_around[idx2].delta_x;
                 stl_y = base_y + small_around[idx2].delta_y;
               } else
@@ -2482,11 +2482,11 @@ long check_place_to_dig_and_get_position(struct Thing *thing, SubtlCodedCoords s
     return 0;
 }
 
-struct Thing *check_place_to_pickup_dead_body(struct Thing *creatng, long stl_x, long stl_y)
+struct Thing *check_place_to_pickup_dead_body(struct Thing *creatng, int64_t stl_x, int64_t stl_y)
 {
     struct Thing *thing;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     struct Map *mapblk;
     mapblk = get_map_block_at(stl_x,stl_y);
     k = 0;
@@ -2521,8 +2521,8 @@ struct Thing *check_place_to_pickup_dead_body(struct Thing *creatng, long stl_x,
 struct Thing* check_place_to_pickup_gold(struct Thing* thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
-    for (int i = get_mapwho_thing_index(mapblk); i != 0;)
+    uint64_t k = 0;
+    for (int64_t i = get_mapwho_thing_index(mapblk); i != 0;)
     {
         struct Thing* ret = thing_get(i);
         i = ret->next_on_mapblk;
@@ -2564,7 +2564,7 @@ struct Thing *check_place_to_pickup_spell(struct Thing *spdigtng, MapSubtlCoord 
     {
         return INVALID_THING;
     }
-    unsigned long k = 0;
+    uint64_t k = 0;
     while (!thing_can_be_picked_to_place_in_player_room_of_role(rettng, spdigtng->owner, RoRoF_PowersStorage, TngFRPickF_Default))
     {
         rettng = thing_get(rettng->next_on_mapblk);
@@ -2588,7 +2588,7 @@ struct Thing *check_place_to_pickup_unconscious_body(struct Thing *spdigtng, Map
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     struct Thing *thing = thing_get(get_mapwho_thing_index(mapblk));
-    unsigned long k = 0;
+    uint64_t k = 0;
     if (thing_is_invalid(thing))
         return INVALID_THING;
     while (!thing_is_creature(thing)
@@ -2614,7 +2614,7 @@ struct Thing *check_place_to_save_unconscious_creature(struct Thing *spdigtng, M
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     struct Thing *thing = thing_get(get_mapwho_thing_index(mapblk));
-    unsigned long k = 0;
+    uint64_t k = 0;
     if (thing_is_invalid(thing))
         return INVALID_THING;
     while (!thing_is_creature(thing)
@@ -2636,27 +2636,27 @@ struct Thing *check_place_to_save_unconscious_creature(struct Thing *spdigtng, M
     return thing;
 }
 
-long check_place_to_reinforce(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)
+int64_t check_place_to_reinforce(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
     struct SlabMap *slb;
     TRACE_THING(creatng);
     slb = get_slabmap_block(slb_x, slb_y);
     if ((slb->kind != SlbT_EARTH) && (slb->kind != SlbT_TORCHDIRT)) {
-        SYNCDBG(8,"The slab %d,%d is not a valid type to be reinforced",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not a valid type to be reinforced",(int64_t)slb_x, (int64_t)slb_y);
         return 0;
     }
     struct Map *mapblk;
     mapblk = get_map_block_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
     if (!map_block_revealed(mapblk, creatng->owner)) {
-        SYNCDBG(8,"The slab %d,%d is not revealed",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not revealed",(int64_t)slb_x, (int64_t)slb_y);
         return 0;
     }
     if (!slab_by_players_land(creatng->owner, slb_x, slb_y)) {
-        SYNCDBG(8,"The slab %d,%d is not by players land",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not by players land",(int64_t)slb_x, (int64_t)slb_y);
         return 0;
     }
     SubtlCodedCoords task_pos;
-    long task_idx;
+    int64_t task_idx;
     task_pos = get_subtile_number_at_slab_center(slb_x, slb_y);
     task_idx = find_dig_from_task_list(creatng->owner, task_pos);
     if (task_idx != -1) {
@@ -2665,11 +2665,11 @@ long check_place_to_reinforce(struct Thing *creatng, MapSlabCoord slb_x, MapSlab
     return 1;
 }
 
-struct Thing *check_place_to_pickup_crate(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned short flags, long n)
+struct Thing *check_place_to_pickup_crate(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t flags, int64_t n)
 {
     struct Map *mapblk;
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     mapblk = get_map_block_at(stl_x,stl_y);
     k = 0;
     i = get_mapwho_thing_index(mapblk);
@@ -2713,10 +2713,10 @@ struct Thing *check_place_to_pickup_crate(const struct Thing *creatng, MapSubtlC
  * @param thing The digger creature.
  * @return Gives 1 if the digger was ordered to go into treasure room, 0 otherwise.
  */
-long check_out_imp_has_money_for_treasure_room(struct Thing *thing)
+int64_t check_out_imp_has_money_for_treasure_room(struct Thing *thing)
 {
     struct Room *room;
-    SYNCDBG(8,"Starting for %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(8,"Starting for %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     //If the imp doesn't have any money - then just return
     if (thing->creature.gold_carried <= 0) {
         return 0;
@@ -2737,10 +2737,10 @@ long check_out_imp_has_money_for_treasure_room(struct Thing *thing)
     return 0;
 }
 
-long check_out_available_imp_tasks(struct Thing *thing)
+int64_t check_out_available_imp_tasks(struct Thing *thing)
 {
     struct CreatureControl *cctrl;
-    SYNCDBG(19,"Starting for %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(19,"Starting for %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     cctrl = creature_control_get_from_thing(thing);
     imp_stack_update(thing);
     if (check_out_imp_stack(thing)) {
@@ -2752,14 +2752,14 @@ long check_out_available_imp_tasks(struct Thing *thing)
         cctrl->tasks_check_turn = get_gameturn();
         return 1;
     }
-    SYNCDBG(9,"No task for %s index %d",thing_model_name(thing),(int)thing->index);
+    SYNCDBG(9,"No task for %s index %" PRId64,thing_model_name(thing),(int64_t)thing->index);
     return 0;
 }
 
-long check_out_imp_tokes(struct Thing *thing)
+int64_t check_out_imp_tokes(struct Thing *thing)
 {
     SYNCDBG(19, "Starting");
-    long i = THING_RANDOM(thing, 64);
+    int64_t i = THING_RANDOM(thing, 64);
     // small chance of changing state
     if (i != 0)
       return 0;
@@ -2768,12 +2768,12 @@ long check_out_imp_tokes(struct Thing *thing)
     return 1;
 }
 
-long check_out_imp_last_did(struct Thing *creatng)
+int64_t check_out_imp_last_did(struct Thing *creatng)
 {
   struct CreatureControl *cctrl;
   struct Dungeon *dungeon;
   cctrl = creature_control_get_from_thing(creatng);
-  SYNCDBG(19,"Starting for %s index %d, last did %d repeated %d times",thing_model_name(creatng),(int)creatng->index,(int)cctrl->digger.last_did_job,(int)cctrl->digger.task_repeats);
+  SYNCDBG(19,"Starting for %s index %" PRId64 ", last did %" PRId64 " repeated %" PRId64 " times",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)cctrl->digger.last_did_job,(int64_t)cctrl->digger.task_repeats);
   TRACE_THING(creatng);
   switch (cctrl->digger.last_did_job)
   {
@@ -2790,7 +2790,7 @@ long check_out_imp_last_did(struct Thing *creatng)
               if (( THING_RANDOM(creatng,20) == 1) && ((cctrl->digger.task_repeats % 5) == 0) && (dungeon->digger_stack_length > 1))
               {
                 // Set position in digger tasks list to a random place
-                SYNCDBG(9,"Digger %s index %d reset due to neverending task",thing_model_name(creatng),(int)creatng->index);
+                SYNCDBG(9,"Digger %s index %" PRId64 " reset due to neverending task",thing_model_name(creatng),(int64_t)creatng->index);
                 cctrl->digger.stack_update_turn = dungeon->digger_stack_update_turn;
                 cctrl->digger.task_stack_pos = THING_RANDOM(creatng, dungeon->digger_stack_length);
                 break;
@@ -2907,7 +2907,7 @@ TbBool imp_stack_update(struct Thing *creatng)
     SYNCDBG(8,"Updating");
     setup_imp_stack(dungeon);
     if (dungeon_invalid(dungeon)) {
-        WARNLOG("Played %d has no dungeon",(int)creatng->owner);
+        WARNLOG("Played %" PRId64 " has no dungeon",(int64_t)creatng->owner);
         return false;
     }
     add_unsaved_unconscious_creature_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
@@ -2927,7 +2927,7 @@ TbBool imp_stack_update(struct Thing *creatng)
     return true;
 }
 
-long check_out_worker_improve_dungeon(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_improve_dungeon(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -2955,7 +2955,7 @@ long check_out_worker_improve_dungeon(struct Thing *thing, struct DiggerStack *d
     return 1;
 }
 
-long check_out_worker_convert_dungeon(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_convert_dungeon(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -2984,7 +2984,7 @@ long check_out_worker_convert_dungeon(struct Thing *thing, struct DiggerStack *d
     return 1;
 }
 
-long check_out_worker_reinforce_wall(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_reinforce_wall(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -3005,7 +3005,7 @@ long check_out_worker_reinforce_wall(struct Thing *thing, struct DiggerStack *ds
         dstack->task_type = DigTsk_None;
         return -1;
     }
-    long uncrowde = check_out_uncrowded_reinforce_position(thing, dstack->stl_num, &stl_x, &stl_y);
+    int64_t uncrowde = check_out_uncrowded_reinforce_position(thing, dstack->stl_num, &stl_x, &stl_y);
     if (uncrowde == 0)
     {
         dstack->task_type = DigTsk_None;
@@ -3023,7 +3023,7 @@ long check_out_worker_reinforce_wall(struct Thing *thing, struct DiggerStack *ds
     return 1;
 }
 
-long check_out_worker_pickup_unconscious(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_pickup_unconscious(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -3077,7 +3077,7 @@ long check_out_worker_pickup_unconscious(struct Thing *thing, struct DiggerStack
  * @return
  * 1 = task was successfully assigned, 0 = task remain, -1 = task is invalid.
  */
-long check_out_worker_save_unconscious(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_save_unconscious(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -3149,7 +3149,7 @@ long check_out_worker_save_unconscious(struct Thing *thing, struct DiggerStack *
     return 1;
 }
 
-long check_out_worker_pickup_corpse(struct Thing *creatng, struct DiggerStack *dstack)
+int64_t check_out_worker_pickup_corpse(struct Thing *creatng, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -3197,7 +3197,7 @@ long check_out_worker_pickup_corpse(struct Thing *creatng, struct DiggerStack *d
     return 1;
 }
 
-long check_out_worker_pickup_spellbook(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_pickup_spellbook(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -3238,7 +3238,7 @@ long check_out_worker_pickup_spellbook(struct Thing *thing, struct DiggerStack *
     return 1;
 }
 
-long check_out_worker_pickup_crate_to_arm(struct Thing *creatng, struct DiggerStack *dstack)
+int64_t check_out_worker_pickup_crate_to_arm(struct Thing *creatng, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
@@ -3246,7 +3246,7 @@ long check_out_worker_pickup_crate_to_arm(struct Thing *creatng, struct DiggerSt
     stl_y = stl_num_decode_y(dstack->stl_num);
     struct Thing *cratng;
     struct Thing *armtng;
-    long n;
+    int64_t n;
     for (n=0; true; n++)
     {
         cratng = check_place_to_pickup_crate(creatng, stl_x, stl_y, TngFRPickF_AllowStoredInOwnedRoom, n);
@@ -3287,11 +3287,11 @@ long check_out_worker_pickup_crate_to_arm(struct Thing *creatng, struct DiggerSt
     return 1;
 }
 
-long check_out_worker_pickup_trap_for_workshop(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_pickup_trap_for_workshop(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
-    long i;
+    int64_t i;
     stl_x = stl_num_decode_x(dstack->stl_num);
     stl_y = stl_num_decode_y(dstack->stl_num);
     if (!player_has_room_of_role(thing->owner, RoRoF_CratesStorage)) {
@@ -3357,7 +3357,7 @@ long check_out_worker_pickup_trap_for_workshop(struct Thing *thing, struct Digge
         }
     } else
     {
-        WARNLOG("Strange pickup (class %d) - no event",(int)i);
+        WARNLOG("Strange pickup (class %" PRId64 ") - no event",(int64_t)i);
     }
     thing->continue_state = CrSt_CreaturePicksUpCrateForWorkshop;
     struct CreatureControl *cctrl;
@@ -3366,11 +3366,11 @@ long check_out_worker_pickup_trap_for_workshop(struct Thing *thing, struct Digge
     return 1;
 }
 
-long check_out_worker_dig_or_mine(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_dig_or_mine(struct Thing *thing, struct DiggerStack *dstack)
 {
     MapSubtlCoord stl_x;
     MapSubtlCoord stl_y;
-    long i;
+    int64_t i;
     i = find_dig_from_task_list(thing->owner, dstack->stl_num);
     if (i == -1)
     {
@@ -3405,7 +3405,7 @@ long check_out_worker_dig_or_mine(struct Thing *thing, struct DiggerStack *dstac
     return 1;
 }
 
-long check_out_worker_pickup_gold_pile(struct Thing *thing, struct DiggerStack *dstack)
+int64_t check_out_worker_pickup_gold_pile(struct Thing *thing, struct DiggerStack *dstack)
 {
     struct CreatureModelConfig *crconf;
     struct CreatureControl *cctrl;
@@ -3447,8 +3447,8 @@ TbBool check_out_imp_stack(struct Thing *creatng)
     struct CreatureControl *cctrl;
     struct Dungeon *dungeon;
     struct DiggerStack *dstack;
-    long ret;
-    SYNCDBG(18,"Starting for %s index %d",thing_model_name(creatng),(int)creatng->index);
+    int64_t ret;
+    SYNCDBG(18,"Starting for %s index %" PRId64,thing_model_name(creatng),(int64_t)creatng->index);
     cctrl = creature_control_get_from_thing(creatng);
     dungeon = get_dungeon(creatng->owner);
     // If digger stack was re-filled in the meantime, reset current pos
@@ -3459,13 +3459,13 @@ TbBool check_out_imp_stack(struct Thing *creatng)
     }
     if (dungeon->digger_stack_length > DIGGER_TASK_MAX_COUNT)
     {
-        ERRORLOG("Digger tasks length %d out of range",(int)dungeon->digger_stack_length);
+        ERRORLOG("Digger tasks length %" PRId64 " out of range",(int64_t)dungeon->digger_stack_length);
         dungeon->digger_stack_length = DIGGER_TASK_MAX_COUNT;
     }
     while (cctrl->digger.task_stack_pos < dungeon->digger_stack_length)
     {
         dstack = &dungeon->digger_stack[cctrl->digger.task_stack_pos];
-        SYNCDBG(18,"Checking task %d, type %d",(int)cctrl->digger.task_stack_pos,(int)dstack->task_type);
+        SYNCDBG(18,"Checking task %" PRId64 ", type %" PRId64,(int64_t)cctrl->digger.task_stack_pos,(int64_t)dstack->task_type);
         cctrl->digger.task_stack_pos++;
         SpDiggerTaskType task_type;
         task_type = dstack->task_type;
@@ -3509,15 +3509,15 @@ TbBool check_out_imp_stack(struct Thing *creatng)
             break;
         default:
             ret = 0;
-            ERRORLOG("Invalid stack task type, %d",(int)task_type);
+            ERRORLOG("Invalid stack task type, %" PRId64,(int64_t)task_type);
             dstack->task_type = DigTsk_None;
             break;
         }
         if (ret > 0) {
-            SYNCDBG(9,"Assigned task type %d, new state %s",task_type,creature_state_code_name(get_creature_state_besides_interruptions(creatng)));
+            SYNCDBG(9,"Assigned task type %" PRId64 ", new state %s",(int64_t)(task_type),creature_state_code_name(get_creature_state_besides_interruptions(creatng)));
             return true;
         } else if (ret < 0) {
-            SYNCDBG(9,"Task type %d was impossible",(int)task_type);
+            SYNCDBG(9,"Task type %" PRId64 " was impossible",(int64_t)task_type);
             return false;
         }
         SYNCDBG(19,"No task");

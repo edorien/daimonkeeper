@@ -52,8 +52,8 @@ TEST_CASE_METHOD(CampaignLevelsLocationFixture, "editor_level_save_dir strips th
     char dir[512];
     editor_level_save_dir(lvnum, dir, sizeof(dir));
 
-    short fgroup = get_level_fgroup(lvnum);
-    char *full = prepare_file_fmtpath(fgroup, "map%05lu.slb", (unsigned long)lvnum);
+    int64_t fgroup = get_level_fgroup(lvnum);
+    char *full = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".slb", (uint64_t)lvnum);
     std::string full_str(full);
     std::string dir_str(dir);
 

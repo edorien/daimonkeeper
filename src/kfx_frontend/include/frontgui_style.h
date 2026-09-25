@@ -76,6 +76,6 @@ TbBool FeStyleGetCursorImage(struct ImGuiCursorImage *out);
 // *out_w/*out_h untouched) until frontend_background/frontend_palette are
 // actually ready -- same retry-until-ready shape as FeStyleGetCursorImage
 // above -- so callers must tolerate a null result on early frames.
-void *FeStyleGetMenuBackdropTexture(int *out_w, int *out_h);
+void *FeStyleGetMenuBackdropTexture(int64_t *out_w, int64_t *out_h);
 
 #endif // FRONTGUI_STYLE_H

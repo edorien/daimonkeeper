@@ -29,12 +29,12 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct LandPreviewPanel {
-    long screen_shift_x; /**< Pan position, top-left corner of the visible area, in content_w/content_h (map-bitmap) space. */
-    long screen_shift_y;
-    int units_per_px; /**< Panel-local landview scale; 16 = 1:1. Independent of front_landview.c's units_per_pixel_landview, which is sized for the whole physical screen. */
+    int64_t screen_shift_x; /**< Pan position, top-left corner of the visible area, in content_w/content_h (map-bitmap) space. */
+    int64_t screen_shift_y;
+    int64_t units_per_px; /**< Panel-local landview scale; 16 = 1:1. Independent of front_landview.c's units_per_pixel_landview, which is sized for the whole physical screen. */
     TbBool dragging;
-    long drag_last_x; /**< Screen-space mouse position as of the last drag step, for computing the per-frame delta. */
-    long drag_last_y;
+    int64_t drag_last_x; /**< Screen-space mouse position as of the last drag step, for computing the per-frame delta. */
+    int64_t drag_last_y;
     LevelNumber highlighted_lvnum; /**< SINGLEPLAYER_NOTSTARTED if none -- the detail panel should show the campaign's own description in that case. */
     // Set by land_preview_load() when a campaign overview just loaded, to
     // the campaign's "next" playable level (get_next_singleplayer_level_for_landview(),
@@ -81,9 +81,9 @@ extern struct LandPreviewPanel land_preview;
 
 /******************************************************************************/
 // Pure math -- unit tested directly, no sprites/campaign data needed.
-int land_preview_compute_units_per_px(long rect_w, long rect_h);
-void land_preview_clamp_shift(struct LandPreviewPanel *panel, long rect_w, long rect_h);
-TbBool land_preview_point_over_ensign_box(long map_x, long map_y, long ensign_x, long ensign_y, long spr_w, long spr_h);
+int64_t land_preview_compute_units_per_px(int64_t rect_w, int64_t rect_h);
+void land_preview_clamp_shift(struct LandPreviewPanel *panel, int64_t rect_w, int64_t rect_h);
+TbBool land_preview_point_over_ensign_box(int64_t map_x, int64_t map_y, int64_t ensign_x, int64_t ensign_y, int64_t spr_w, int64_t spr_h);
 
 // Lifecycle and per-frame use -- real sprites/campaign data, not covered
 // by unit tests. target_lvnum is passed straight to load_map_and_window:
@@ -110,7 +110,7 @@ void land_preview_draw(struct GuiButton *gbtn);
 // originally tuned for should set this before drawing and reset it to 1
 // afterward, so the legacy screen (which never touches this) is
 // unaffected. extra_den <= 0 is treated as 1 (no change).
-void land_preview_set_frame_extra_scale_den(long extra_den);
+void land_preview_set_frame_extra_scale_den(int64_t extra_den);
 
 // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- exported for
 // the editor's Open Map dialog (kfx_editor, ranks above kfx_frontend) to
@@ -123,12 +123,12 @@ void land_preview_set_frame_extra_scale_den(long extra_den);
 TbBool land_preview_build_minimap(LevelNumber lvnum);
 void land_preview_free_minimap(void);
 // 0 if land_preview_build_minimap() hasn't been called yet, or failed.
-long land_preview_minimap_width(void);
-long land_preview_minimap_height(void);
+int64_t land_preview_minimap_width(void);
+int64_t land_preview_minimap_height(void);
 // Out-of-range x/y (or an empty minimap) returns SlbT_ROCK's own colour
 // rather than asserting -- callers should still check width()/height()
 // first to size their loop, this is just a safety net.
-void land_preview_minimap_pixel_rgb(long x, long y, unsigned char *r, unsigned char *g, unsigned char *b);
+void land_preview_minimap_pixel_rgb(int64_t x, int64_t y, unsigned char *r, unsigned char *g, unsigned char *b);
 /******************************************************************************/
 #ifdef __cplusplus
 }

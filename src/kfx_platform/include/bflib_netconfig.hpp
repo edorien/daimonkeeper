@@ -24,10 +24,10 @@
 
 //C++ constants - internal linkage by default
 
-const int LISTENER_PORT_NUMBER = 17777; //UDP listener
-const int HOST_PORT_NUMBER = 17778; //UDP host and TCP server
-const int SESSION_HOST_PERIOD = 4000; //4 s
-const int SESSION_LISTENER_PERIOD = 2000;
+const int64_t LISTENER_PORT_NUMBER = 17777; //UDP listener
+const int64_t HOST_PORT_NUMBER = 17778; //UDP host and TCP server
+const int64_t SESSION_HOST_PERIOD = 4000; //4 s
+const int64_t SESSION_LISTENER_PERIOD = 2000;
 
 const char MSG_PREFIX[] = { 'K', 'F', 'X' };
 const char BROADCAST_PREFIX = 'B';

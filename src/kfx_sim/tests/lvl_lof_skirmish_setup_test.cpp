@@ -9,7 +9,7 @@
 #include <string>
 
 // Defined in lvl_filesdk1.c but not part of its public header (only find_and_load_lof_files() uses it).
-extern "C" TbBool level_lof_file_parse(const char *fname, char *buf, long len);
+extern "C" TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len);
 
 namespace {
 
@@ -18,7 +18,7 @@ LevelInformation *parse_lof(const char *fname, LevelNumber lvnum, const std::str
 {
     std::string buf = text;
     buf.push_back('\0');
-    REQUIRE(level_lof_file_parse(fname, &buf[0], (long)text.size()));
+    REQUIRE(level_lof_file_parse(fname, &buf[0], (int64_t)text.size()));
     return get_level_info(lvnum);
 }
 

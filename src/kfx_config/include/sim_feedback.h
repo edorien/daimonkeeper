@@ -56,27 +56,27 @@ typedef struct VALUE VALUE;
 // docs/refactor/stage-13-enforce-and-document.md.
 struct SimFeedbackCallbacks {
     /* gui_topmsg.h -- see enum ErrorStatisticEntries in globals.h */
-    long (*report_error_stat)(int stat_num);
-    TbBool (*show_onscreen_msg)(int nturns, const char *msg);
+    int64_t (*report_error_stat)(int64_t stat_num);
+    TbBool (*show_onscreen_msg)(int64_t nturns, const char *msg);
 
     /* gui_soundmsgs.h */
-    TbBool (*play_sound_message)(SoundSmplTblID smpl_idx, long duration);
+    TbBool (*play_sound_message)(SoundSmplTblID smpl_idx, int64_t duration);
     TbBool (*output_room_message)(PlayerNumber plyr_idx, RoomKind rkind, OutputMessageKind msg_kind);
-    TbBool (*play_sound_message_far_from_thing)(const struct Thing *thing, SoundSmplTblID smpl_idx, long duration);
-    TbBool (*play_speech_ref)(const struct SpeechRef *ref, long duration);
+    TbBool (*play_sound_message_far_from_thing)(const struct Thing *thing, SoundSmplTblID smpl_idx, int64_t duration);
+    TbBool (*play_speech_ref)(const struct SpeechRef *ref, int64_t duration);
     void (*clear_sound_messages)(void);
     void (*process_sound_messages)(void);
 
     /* gui_msgs.h -- see enum MessageTypes in globals.h */
     void (*clear_messages_from_player)(char msg_type, PlayerNumber plyr_idx);
-    void (*targeted_message_add)(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, unsigned long timeout, const char *msg);
-    void (*message_add)(char msg_type, short idx, const char *msg);
-    void (*message_add_fmt)(char msg_type, short idx, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
+    void (*targeted_message_add)(char msg_type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *msg);
+    void (*message_add)(char msg_type, int64_t idx, const char *msg);
+    void (*message_add_fmt)(char msg_type, int64_t idx, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
     void (*zero_messages)(void);
     void (*show_real_time_taken)(void);
 
     /* sounds.h */
-    void (*thing_play_sample)(struct Thing *thing, SoundSmplTblID smpl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, long priority, SoundVolume volume);
+    void (*thing_play_sample)(struct Thing *thing, SoundSmplTblID smpl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, int64_t priority, SoundVolume volume);
     void (*stop_thing_playing_sample)(struct Thing *thing, SoundSmplTblID smpl_idx);
     struct Thing *(*create_ambient_sound)(const struct Coord3d *pos, ThingModel model, PlayerNumber owner);
     void (*play_sound_if_close_to_receiver)(struct Coord3d *soundpos, SoundSmplTblID smpl_idx);
@@ -114,8 +114,8 @@ struct SimFeedbackCallbacks {
     TbBool (*tag_cursor_blocks_sell_area)(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
 
     /* engine_redraw.h */
-    void (*set_engine_view)(struct PlayerInfo *player, long val);
-    void (*setup_engine_window)(long x1, long y1, long x2, long y2);
+    void (*set_engine_view)(struct PlayerInfo *player, int64_t val);
+    void (*setup_engine_window)(int64_t x1, int64_t y1, int64_t x2, int64_t y2);
 
     /* light_data.h -- per-thing/per-slab dynamic light management, called
        from kfx_sim (creature_states.c/creature_states_prisn.c/power_hand.c/
@@ -123,21 +123,21 @@ struct SimFeedbackCallbacks {
        thing_traps.c/creature_control.c/thing_creature.c/thing_list.c/
        player_instances.c/room_jobs.c) and kfx_config (config_objects.c/
        lvl_filesdk1.c, at config-reload/level-load time). */
-    long (*light_create_light)(struct InitLight *ilght);
-    void (*light_init_dungeon_heart)(long lgt_id, long min_radius, long min_intensity);
-    void (*light_delete_light)(long idx);
-    void (*light_turn_light_off)(long num);
-    void (*light_turn_light_on)(long num);
-    unsigned char (*light_get_light_intensity)(long idx);
-    void (*light_set_light_intensity)(long idx, unsigned char intensity);
-    void (*light_signal_update_in_area)(long sx, long sy, long ex, long ey);
-    void (*light_set_light_never_cache)(long lgt_id);
-    long (*light_is_light_allocated)(long lgt_id);
-    void (*light_set_light_position)(long lgt_id, struct Coord3d *pos);
-    unsigned short (*light_get_light_radius)(long lgt_id);
-    void (*light_set_light_radius)(long lgt_id, unsigned short radius);
+    int64_t (*light_create_light)(struct InitLight *ilght);
+    void (*light_init_dungeon_heart)(int64_t lgt_id, int64_t min_radius, int64_t min_intensity);
+    void (*light_delete_light)(int64_t idx);
+    void (*light_turn_light_off)(int64_t num);
+    void (*light_turn_light_on)(int64_t num);
+    unsigned char (*light_get_light_intensity)(int64_t idx);
+    void (*light_set_light_intensity)(int64_t idx, unsigned char intensity);
+    void (*light_signal_update_in_area)(int64_t sx, int64_t sy, int64_t ex, int64_t ey);
+    void (*light_set_light_never_cache)(int64_t lgt_id);
+    int64_t (*light_is_light_allocated)(int64_t lgt_id);
+    void (*light_set_light_position)(int64_t lgt_id, struct Coord3d *pos);
+    int64_t (*light_get_light_radius)(int64_t lgt_id);
+    void (*light_set_light_radius)(int64_t lgt_id, int64_t radius);
     void (*light_initialise)(void);
-    int (*light_count_lights)(void);
+    int64_t (*light_count_lights)(void);
     TbBool (*light_create_light_adv)(VALUE *init_data);
 
     /* game_loop.h -- kfx_sim's thing_objects.c (dungeon heart destruction)
@@ -151,7 +151,7 @@ struct SimFeedbackCallbacks {
        level's texture map at level-load time; kfx_render owns the
        texture data. Found via scripts/check_layering_symbols.py
        (docs/refactor/todo/check-layering-symbol-level-blind-spot.md). */
-    TbBool (*load_texture_map_file)(unsigned long tmapidx, LevelNumber lvnum, short fgroup);
+    TbBool (*load_texture_map_file)(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup);
 
     /* frontend.h -- kfx_sim's map_events.c reads two fields
        (turns_between_events/lifespan_turns) of this per-event-kind
@@ -170,10 +170,10 @@ struct SimFeedbackCallbacks {
     /* kjm_input.h -- raw mouse/keyboard query functions, called from
        kfx_render (engine_redraw.c/engine_render.c/vidfade.c) and
        kfx_sim (power_hand.c/roomspace.c/thing_data.c). */
-    long (*GetMouseX)(void);
-    long (*GetMouseY)(void);
-    short (*is_mouse_pressed_lrbutton)(void);
-    short (*is_key_pressed)(TbKeyCode key, TbKeyMods kmodif);
+    int64_t (*GetMouseX)(void);
+    int64_t (*GetMouseY)(void);
+    int64_t (*is_mouse_pressed_lrbutton)(void);
+    int64_t (*is_key_pressed)(TbKeyCode key, TbKeyMods kmodif);
     TbBool (*mouse_is_over_panel_map)(ScreenCoord x, ScreenCoord y);
     TbBool (*is_left_button_held)(void); /* left_button_held global -- roomspace.c's only real need */
 
@@ -181,12 +181,12 @@ struct SimFeedbackCallbacks {
        (player_instances.c/power_process.c/thing_creature.c/
        thing_effects.c/thing_shots.c/thing_stats.c). */
     void (*PaletteSetUserPalette)(NetUserId user, unsigned char *pal);
-    void (*PaletteApplyPainToPlayer)(struct PlayerInfo *player, long intense);
+    void (*PaletteApplyPainToPlayer)(struct PlayerInfo *player, int64_t intense);
 
     /* frontend.h -- called from kfx_sim (creature_control.c/player_data.c/
        player_instances.c/player_utils.c/room_util.c/thing_creature.c/
        thing_data.c). */
-    unsigned long (*toggle_status_menu)(short visible);
+    uint64_t (*toggle_status_menu)(int64_t visible);
     void (*turn_off_roaming_menus)(void);
     void (*initialise_tab_tags_and_menu)(MenuID menu_id);
     void (*init_gui)(void);
@@ -201,7 +201,7 @@ struct SimFeedbackCallbacks {
     void (*turn_off_menu)(MenuID mnu_idx);
     void (*turn_off_query_menus)(void);
     void (*turn_off_all_menus)(void);
-    short (*turn_off_all_window_menus)(void);
+    int64_t (*turn_off_all_window_menus)(void);
     void (*turn_on_main_panel_menu)(void);
     void (*turn_off_all_panel_menus)(void);
     void (*turn_off_event_box_if_necessary)(PlayerNumber plyr_idx, unsigned char event_idx);
@@ -229,15 +229,15 @@ struct SimFeedbackCallbacks {
        but kfx_sim triggers it as a side effect of simulation events
        (player_instances.c/player_utils.c/thing_creature.c/
        thing_effects.c/thing_shots.c). */
-    long (*get_camera_zoom)(struct Camera *cam);
-    void (*set_camera_zoom)(struct Camera *cam, long val);
-    void (*view_zoom_camera_in)(struct Camera *cam, long limit_max, long limit_min);
-    void (*view_zoom_camera_out)(struct Camera *cam, long limit_max, long limit_min);
+    int64_t (*get_camera_zoom)(struct Camera *cam);
+    void (*set_camera_zoom)(struct Camera *cam, int64_t val);
+    void (*view_zoom_camera_in)(struct Camera *cam, int64_t limit_max, int64_t limit_min);
+    void (*view_zoom_camera_out)(struct Camera *cam, int64_t limit_max, int64_t limit_min);
     void (*view_set_camera_move_to_position)(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta *move_x, MapCoordDelta *move_y);
     TbBool (*view_move_camera_to_position)(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta move_x, MapCoordDelta move_y);
     void (*init_player_cameras)(struct PlayerInfo *player);
     TbBool (*any_player_close_enough_to_see)(const struct Coord3d *pos);
-    unsigned long (*lightning_is_close_to_player)(struct PlayerInfo *player, struct Coord3d *pos);
+    uint64_t (*lightning_is_close_to_player)(struct PlayerInfo *player, struct Coord3d *pos);
 
     /* packets.h -- thing_creature.c's only real need (avoids a full
        struct Packet dereference; struct Packet stays forward-declared
@@ -245,7 +245,7 @@ struct SimFeedbackCallbacks {
     TbBool (*packet_crtr_control_pressed)(struct Packet *packet);
 
     /* gui_soundmsgs.h */
-    TbBool (*output_message_far_from_thing)(const struct Thing *thing, SoundSmplTblID smpl_idx, long duration);
+    TbBool (*output_message_far_from_thing)(const struct Thing *thing, SoundSmplTblID smpl_idx, int64_t duration);
 
     /* kfx_net_state.h -- session state kfx_net (and kfx_game/kfx_frontend/
        kfx_apploop) own; engine_redraw.c/player_computer.c/
@@ -255,13 +255,13 @@ struct SimFeedbackCallbacks {
        elsewhere in this codebase by setter-shaped callback entries. */
     TbBool (*get_packet_load_enable)(void);
     PlayerNumber (*get_local_plyr_idx)(void);
-    int (*get_input_lag_turns)(void);
-    void (*set_active_players_count)(int count);
+    int64_t (*get_input_lag_turns)(void);
+    void (*set_active_players_count)(int64_t count);
     // player_utils.c's init_player_as_type()/init_players() -- narrow
     // reads/one increment of kfx_net_state.packet_save_head fields, same
     // "config/sim needs a value owned above" shape as the entries above.
-    long (*get_isometric_view_zoom_level)(void);
-    long (*get_frontview_zoom_level)(void);
+    int64_t (*get_isometric_view_zoom_level)(void);
+    int64_t (*get_frontview_zoom_level)(void);
     TbBool (*get_player_exists_flag)(PlayerNumber plyr_idx);
     TbBool (*get_player_comp_flag)(PlayerNumber plyr_idx);
     void (*increment_active_players_count)(void);
@@ -275,27 +275,27 @@ struct SimFeedbackCallbacks {
 
     /* front_input.h */
     void (*update_time)(void);
-    void (*get_game_time)(struct GameTime *GT, unsigned long turns, unsigned long fps);
+    void (*get_game_time)(struct GameTime *GT, uint64_t turns, uint64_t fps);
     /* net_game.h -- kfx_net owns the rule for who still counts as an opponent (dropped users do not) */
     TbBool (*player_has_enemies_to_defeat)(const struct PlayerInfo *player);
-    unsigned short (*get_zoom_key_room_order)(long idx);
+    int64_t (*get_zoom_key_room_order)(int64_t idx);
 
     /* net_exchange_gameplay.h */
     const struct Packet *(*get_history_packet)(NetUserId user, GameTurn turn);
 
     /* lens_api.h */
-    void (*setup_eye_lens)(long nlens);
+    void (*setup_eye_lens)(int64_t nlens);
     TbBool (*lens_is_ready)(void);
     TbPixel *(*lens_get_render_target)(void);
-    unsigned int (*lens_get_render_target_width)(void);
-    unsigned int (*lens_get_render_target_height)(void);
-    void (*draw_lens_effect)(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcpitch, long width, long height, long viewport_x, long effect);
+    uint64_t (*lens_get_render_target_width)(void);
+    uint64_t (*lens_get_render_target_height)(void);
+    void (*draw_lens_effect)(TbPixel *dstbuf, int64_t dstpitch, TbPixel *srcbuf, int64_t srcpitch, int64_t width, int64_t height, int64_t viewport_x, int64_t effect);
 
     /* engine_arrays.h */
-    short (*get_td_animation_sprite)(short animation_sprite);
+    int64_t (*get_td_animation_sprite)(int64_t animation_sprite);
 
     /* engine_render.h */
-    void (*process_keeper_sprite)(short x, short y, unsigned short a3, short kspr_angle, unsigned char a5, long a6);
+    void (*process_keeper_sprite)(int64_t x, int64_t y, int64_t a3, int64_t kspr_angle, unsigned char a5, int64_t a6);
     void (*engine)(struct PlayerInfo *player, struct Camera *cam);
 
     /* game_saves.h -- transfer-creature power writes into kfx_game's
@@ -320,17 +320,17 @@ struct SimFeedbackCallbacks {
        lose timer HUD element is enabled and, if so, writes the game's
        final turn count into it. */
     TbBool (*timer_enabled)(void);
-    void (*set_timer_turns)(unsigned long turns);
+    void (*set_timer_turns)(uint64_t turns);
 
     /* game_merge.h -- power_specials.c's create_transferred_creatures_on_level()
        reads kfx_game's cross-level struct IntralevelData (intralvl) by
        slot instead of taking the type by value. Mirrors
        add_transfered_creature's shape. */
-    TbBool (*get_transferred_creature)(PlayerNumber plyr_idx, int idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size);
+    TbBool (*get_transferred_creature)(PlayerNumber plyr_idx, int64_t idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size);
 
     /* game_merge.h -- power_specials.c's activate_bonus_level() marks a
        bonus level visible for the current singleplayer level. */
-    TbBool (*activate_bonus_level_for_singleplayer)(struct PlayerInfo *player, unsigned long sp_lvnum);
+    TbBool (*activate_bonus_level_for_singleplayer)(struct PlayerInfo *player, uint64_t sp_lvnum);
 };
 void set_sim_feedback_callbacks(const struct SimFeedbackCallbacks *callbacks);
 extern const struct SimFeedbackCallbacks *sim_feedback;

@@ -125,7 +125,7 @@ int lua_IsCustomSoundLoaded(lua_State* L) {
  */
 int lua_PlaySound(lua_State* L) {
     SoundSmplTblID sample_id = luaL_checkinteger(L, 1);
-    long priority = luaL_optinteger(L, 2, 3);  // Default priority: 3
+    int64_t priority = luaL_optinteger(L, 2, 3);  // Default priority: 3
     SoundVolume volume = luaL_optinteger(L, 3, FULL_LOUDNESS);  // Default volume: 256
     
     SoundEmitterID emitter_id = sound_manager_play_effect(sample_id, priority, volume);
@@ -169,7 +169,7 @@ int lua_PlayMusic(lua_State* L) {
     
     if (lua_isnumber(L, 1)) {
         // Track number
-        int track = luaL_checkinteger(L, 1);
+        int64_t track = luaL_checkinteger(L, 1);
         success = sound_manager_play_music(track);
     } else {
         // File path - TODO: Implement play_music_file() wrapper

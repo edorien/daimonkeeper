@@ -32,7 +32,7 @@ extern "C"
 
 static char ceiling_cache[MAX_SUBTILES_X*MAX_SUBTILES_Y];
 
-static int find_column_height_including_lintels(struct Column *col)
+static int64_t find_column_height_including_lintels(struct Column *col)
 {
     unsigned char i;
     if (!col->solidmask)
@@ -42,7 +42,7 @@ static int find_column_height_including_lintels(struct Column *col)
     return i + 1;
 }
 
-static int ceiling_block_is_solid_including_corners_return_height(SubtlCodedCoords stl_num, MapSubtlCoord cstl_x, MapSubtlCoord cstl_y)
+static int64_t ceiling_block_is_solid_including_corners_return_height(SubtlCodedCoords stl_num, MapSubtlCoord cstl_x, MapSubtlCoord cstl_y)
 {
     MapSubtlCoord stl_x = stl_num_decode_x(stl_num);
     MapSubtlCoord stl_y = stl_num_decode_y(stl_num);
@@ -105,9 +105,9 @@ static int ceiling_block_is_solid_including_corners_return_height(SubtlCodedCoor
     return col->bitfields >> 4;
 }
 
-static int ceiling_calculate_height_from_nearest_walls(int result, int number_of_steps)
+static int64_t ceiling_calculate_height_from_nearest_walls(int64_t result, int64_t number_of_steps)
 {
-    int step_adjustment;
+    int64_t step_adjustment;
     step_adjustment = kfx_sim_state.ceiling_step * number_of_steps;
     if (result >= kfx_sim_state.ceiling_height_max)
     {
@@ -129,17 +129,17 @@ static int ceiling_calculate_height_from_nearest_walls(int result, int number_of
 
 void ceiling_partially_recompute_heights(MapSubtlCoord sx, MapSubtlCoord sy, MapSubtlCoord ex, MapSubtlCoord ey)
 {
-    int ceiling_height;
-    int spiral_step_count;
+    int64_t ceiling_height;
+    int64_t spiral_step_count;
     struct MapOffset *spir;
     MapSubtlCoord search_stl_x;
     MapSubtlCoord search_stl_y;
-    int found_ceiling_height;
+    int64_t found_ceiling_height;
     TbBool near_wall;
-    unsigned int number_of_steps;
-    int current_ceiling_height;
-    int *ceiling_height_result_ptr;
-    int ceil_dist = kfx_sim_state.ceiling_dist;
+    uint64_t number_of_steps;
+    int64_t current_ceiling_height;
+    int64_t *ceiling_height_result_ptr;
+    int64_t ceil_dist = kfx_sim_state.ceiling_dist;
     if (kfx_sim_state.ceiling_dist > 4)
         ceil_dist = 4;
     MapSubtlCoord computation_start_stl_x = sx - ceil_dist;
@@ -240,12 +240,12 @@ void ceiling_partially_recompute_heights(MapSubtlCoord sx, MapSubtlCoord sy, Map
     }
 }
 
-static long get_ceiling_filled_subtiles_from_cubes(const struct Column *col)
+static int64_t get_ceiling_filled_subtiles_from_cubes(const struct Column *col)
 {
     if (col->solidmask == 0) {
         return 0;
     }
-    int i;
+    int64_t i;
     for (i = COLUMN_STACK_HEIGHT-1; i >= 0; i--)
     {
         if (col->cubes[i] != 0)
@@ -254,7 +254,7 @@ static long get_ceiling_filled_subtiles_from_cubes(const struct Column *col)
     return i + 1;
 }
 
-static int get_ceiling_or_floor_filled_subtiles(SubtlCodedCoords stl_num)
+static int64_t get_ceiling_or_floor_filled_subtiles(SubtlCodedCoords stl_num)
 {
     const struct Map *mapblk;
     mapblk = get_map_block_at_pos(stl_num);
@@ -273,7 +273,7 @@ void ceiling_init()
     {
         for (MapSubtlCoord stl_x=0; stl_x < kfx_sim_state.map_subtiles_x; stl_x++)
         {
-            int filled_h;
+            int64_t filled_h;
             if (map_pos_solid_at_ceiling(stl_x, stl_y))
             {
                 filled_h = get_ceiling_or_floor_filled_subtiles(get_subtile_number(stl_x,stl_y));
@@ -300,7 +300,7 @@ void ceiling_init()
               }
               else
               {
-                int i = 0;
+                int64_t i = 0;
                 while ( 1 )
                 {
                     struct MapOffset *sstep = &spiral_step[i];
@@ -313,8 +313,8 @@ void ceiling_init()
                             filled_h = ceiling_block_is_solid_including_corners_return_height(get_subtile_number(stl_x + sstep->v ,stl_y + sstep->h), cstl_x, cstl_y);
                             if (filled_h > -1)
                             {
-                                int delta_tmp = abs(stl_x - cstl_x);
-                                int delta_max = abs(stl_y - cstl_y);
+                                int64_t delta_tmp = llabs(stl_x - cstl_x);
+                                int64_t delta_max = llabs(stl_y - cstl_y);
                                 if (delta_max < delta_tmp)
                                     delta_max = delta_tmp;
                                 if (filled_h < kfx_sim_state.ceiling_height_max)
@@ -347,10 +347,10 @@ void ceiling_init()
     }
 }
 
-short ceiling_set_info(long height_max, long height_min, long step)
+int64_t ceiling_set_info(int64_t height_max, int64_t height_min, int64_t step)
 {
     SYNCDBG(6,"Starting");
-    long dist;
+    int64_t dist;
     if (step <= 0)
     {
       ERRORLOG("Illegal ceiling step value");

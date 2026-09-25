@@ -34,31 +34,31 @@
 extern "C" {
 #endif
 
-typedef int (*IconResolver)(short validx);
+typedef int64_t (*IconResolver)(int64_t validx);
 
 typedef struct {
     unsigned char valtype;
-    int icon_idx;
+    int64_t icon_idx;
     double x_offset;
     double y_offset;
     IconResolver resolver;
 } VariableIconMapping;
 
-static int resolve_room_icon(short validx) {
+static int64_t resolve_room_icon(int64_t validx) {
     const struct RoomConfigStats *roomst = get_room_kind_stats(validx);
     return roomst->medsym_sprite_idx;
 }
 
-static int resolve_trap_icon(short validx) {
+static int64_t resolve_trap_icon(int64_t validx) {
     struct TrapConfigStats *trapst = get_trap_model_stats(validx);
     return trapst->medsym_sprite_idx;
 }
 
-static int resolve_door_icon(short validx) {
+static int64_t resolve_door_icon(int64_t validx) {
     struct DoorConfigStats *doorst = get_door_model_stats(validx);
     return doorst->medsym_sprite_idx;
 }
-static int resolve_creature_icon(short validx) {
+static int64_t resolve_creature_icon(int64_t validx) {
     return get_creature_model_graphics(validx, CGI_HandSymbol);
 }
 static const VariableIconMapping variable_icon_mapping[] = {
@@ -125,10 +125,10 @@ static const VariableIconMapping variable_icon_mapping[] = {
     {SVar_TRAP_ACTIVATED,      GPS_trapdoor_trap_boulder_std_l, 0, 2.5, NULL},
     {SVar_TRAPS_SOLD,          GPS_trapdoor_trap_boulder_std_l, 0, 2.5, NULL},
 };
-static int script_current_condition = 0;
-static unsigned short condition_stack_pos;
-static unsigned short condition_stack[CONDITIONS_COUNT];
-struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsigned char valtype, short validx)
+static int64_t script_current_condition = 0;
+static int64_t condition_stack_pos;
+static int64_t condition_stack[CONDITIONS_COUNT];
+struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx)
 {
     struct ScriptVariableDetails details = {
         .value = get_condition_value(plyr_idx, valtype, validx),
@@ -137,7 +137,7 @@ struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsign
         .y_offset = 2.5 * units_per_pixel / 16,
     };
 
-    for (int i = 0; i < sizeof(variable_icon_mapping) / sizeof(variable_icon_mapping[0]); i++) {
+    for (int64_t i = 0; i < sizeof(variable_icon_mapping) / sizeof(variable_icon_mapping[0]); i++) {
         if (variable_icon_mapping[i].valtype == valtype) {
             details.icon_idx = variable_icon_mapping[i].icon_idx;
             details.x_offset = variable_icon_mapping[i].x_offset * units_per_pixel / 16;
@@ -157,9 +157,9 @@ struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsign
     return details;
 }
 
-long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, short validx)
+int64_t get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx)
 {
-    SYNCDBG(10,"Checking condition %d for player %d",(int)valtype,(int)plyr_idx);
+    SYNCDBG(10,"Checking condition %" PRId64 " for player %" PRId64,(int64_t)valtype,(int64_t)plyr_idx);
     struct Dungeon* dungeon;
     struct Thing* thing;
     struct PlayerInfo* player;
@@ -322,13 +322,13 @@ long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, short val
         return count_player_available_creatures_of_model(plyr_idx, CREATURE_ANY);
     case SVar_SLAB_OWNER: //IF_SLAB_OWNER
     {
-        long varib_id = get_slab_number((unsigned char)plyr_idx, validx);
+        int64_t varib_id = get_slab_number((unsigned char)plyr_idx, validx);
         struct SlabMap* slb = get_slabmap_direct(varib_id);
         return slabmap_owner(slb);
     }
     case SVar_SLAB_TYPE: //IF_SLAB_TYPE
     {
-        long varib_id = get_slab_number((unsigned char)plyr_idx, validx);
+        int64_t varib_id = get_slab_number((unsigned char)plyr_idx, validx);
         struct SlabMap* slb = get_slabmap_direct(varib_id);
         return slb->kind;
     }
@@ -434,30 +434,30 @@ long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, short val
     return 0;
 }
 
-TbBool condition_inactive(long cond_idx)
+TbBool condition_inactive(int64_t cond_idx)
 {
   if ((cond_idx < 0) || (cond_idx >= CONDITIONS_COUNT))
   {
       return false;
   }
-  unsigned long i = kfx_game_state.script.conditions[cond_idx].status;
+  uint64_t i = kfx_game_state.script.conditions[cond_idx].status;
   if (((i & 0x01) == 0) || ((i & 0x04) != 0))
     return true;
   return false;
 }
 
-TbBool get_condition_status(unsigned char opkind, long left_value, long right_value)
+TbBool get_condition_status(unsigned char opkind, int64_t left_value, int64_t right_value)
 {
   return LbMathOperation(opkind, left_value, right_value) != 0;
 }
 
-static void process_condition(struct Condition *condt, int idx)
+static void process_condition(struct Condition *condt, int64_t idx)
 {
     TbBool new_status;
-    int plr_start;
-    int plr_end;
-    long i;
-    SYNCDBG(18,"Starting for type %d, player %d",(int)condt->variabl_type,(int)condt->plyr_range);
+    int64_t plr_start;
+    int64_t plr_end;
+    int64_t i;
+    SYNCDBG(18,"Starting for type %" PRId64 ", player %" PRId64,(int64_t)condt->variabl_type,(int64_t)condt->plyr_range);
     if (condition_inactive(condt->condit_idx))
     {
         clear_flag(condt->status, 0x01);
@@ -466,14 +466,14 @@ static void process_condition(struct Condition *condt, int idx)
     if ((condt->variabl_type == SVar_SLAB_OWNER) || (condt->variabl_type == SVar_SLAB_TYPE)) //These variable types abuse the plyr_range, since all slabs don't fit in an unsigned short
     {
         new_status = false;
-        long k = get_condition_value(condt->plyr_range, condt->variabl_type, condt->variabl_idx);
+        int64_t k = get_condition_value(condt->plyr_range, condt->variabl_type, condt->variabl_idx);
         new_status = get_condition_status(condt->operation, k, condt->rvalue);
     }
     else
     {
         if (get_players_range(condt->plyr_range, &plr_start, &plr_end) < 0)
         {
-            WARNLOG("Invalid player range %d in CONDITION command %d.", (int)condt->plyr_range, (int)condt->variabl_type);
+            WARNLOG("Invalid player range %" PRId64 " in CONDITION command %" PRId64 ".", (int64_t)condt->plyr_range, (int64_t)condt->variabl_type);
             return;
         }
         if (condt->variabl_type == SVar_ACTION_POINT_TRIGGERED)
@@ -490,19 +490,19 @@ static void process_condition(struct Condition *condt, int idx)
             new_status = false;
             for (i = plr_start; i < plr_end; i++)
             {
-                long left_value = get_condition_value(i, condt->variabl_type, condt->variabl_idx);
+                int64_t left_value = get_condition_value(i, condt->variabl_type, condt->variabl_idx);
 
-                long right_value;
+                int64_t right_value;
                 if (condt->use_second_variable)
                 {
-                    int plr_start_right;
-                    int plr_end_right;
+                    int64_t plr_start_right;
+                    int64_t plr_end_right;
                     if (get_players_range(condt->plyr_range_right, &plr_start_right, &plr_end_right) < 0)
                     {
-                        WARNLOG("Invalid player range %d in CONDITION command %d.", (int)condt->plyr_range, (int)condt->variabl_type);
+                        WARNLOG("Invalid player range %" PRId64 " in CONDITION command %" PRId64 ".", (int64_t)condt->plyr_range, (int64_t)condt->variabl_type);
                         return;
                     }
-                    for (long j = plr_start_right; j < plr_end_right; j++)
+                    for (int64_t j = plr_start_right; j < plr_end_right; j++)
                     {
                         right_value = get_condition_value(j, condt->variabl_type_right, condt->variabl_idx_right);
                         new_status = get_condition_status(condt->operation, left_value, right_value);
@@ -526,7 +526,7 @@ static void process_condition(struct Condition *condt, int idx)
         }
     }
 
-    SYNCDBG(19,"Condition type %d status %d",(int)condt->variabl_type,(int)new_status);
+    SYNCDBG(19,"Condition type %" PRId64 " status %" PRId64,(int64_t)condt->variabl_type,(int64_t)new_status);
     set_flag_value(condt->status, 0x01, new_status);
     if (((condt->status & 0x01) == 0) || ((condt->status & 0x02) != 0))
     {
@@ -543,13 +543,13 @@ void process_conditions(void)
 {
     if (kfx_game_state.script.conditions_num > CONDITIONS_COUNT)
       kfx_game_state.script.conditions_num = CONDITIONS_COUNT;
-    for (long i = 0; i < kfx_game_state.script.conditions_num; i++)
+    for (int64_t i = 0; i < kfx_game_state.script.conditions_num; i++)
     {
       process_condition(&kfx_game_state.script.conditions[i], i);
     }
 }
 
-long pop_condition(void)
+int64_t pop_condition(void)
 {
   if (script_current_condition == CONDITION_ALWAYS)
   {
@@ -567,17 +567,17 @@ long pop_condition(void)
   return script_current_condition;
 }
 
-int get_script_current_condition()
+int64_t get_script_current_condition()
 {
     return script_current_condition;
 }
 
-void set_script_current_condition(int current_condition)
+void set_script_current_condition(int64_t current_condition)
 {
     script_current_condition = current_condition;
 }
 
-void command_add_condition(long plr_range_id, long opertr_id, long varib_type, long varib_id, long value)
+void command_add_condition(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id, int64_t value)
 {
     // TODO: replace with pointer to functions
     struct Condition* condt = &kfx_game_state.script.conditions[kfx_game_state.script.conditions_num];
@@ -604,7 +604,7 @@ void command_add_condition(long plr_range_id, long opertr_id, long varib_type, l
     kfx_game_state.script.conditions_num++;
 }
 
-void command_add_condition_2variables(long plr_range_id, long opertr_id, long varib_type, long varib_id,long plr_range_id_right, long varib_type_right, long varib_id_right)
+void command_add_condition_2variables(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id,int64_t plr_range_id_right, int64_t varib_type_right, int64_t varib_id_right)
 {
     // TODO: replace with pointer to functions
     struct Condition* condt = &kfx_game_state.script.conditions[kfx_game_state.script.conditions_num];

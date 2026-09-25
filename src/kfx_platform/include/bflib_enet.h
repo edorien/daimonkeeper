@@ -24,7 +24,7 @@ extern "C" {
 #endif
 
 #define ENET_DEFAULT_PORT 5556
-extern uint16_t enet_port;
+extern int64_t enet_port;
 
 enum {
     ENET_CHANNEL_RELIABLE = 0,
@@ -33,16 +33,16 @@ enum {
 
 struct NetSP;
 struct NetSP* InitEnetSP();
-unsigned long GetPing(int id, int local_player_id);
-unsigned int GetPacketLoss(int id, int local_player_id);
-unsigned int GetClientDataInTransit();
-unsigned int GetClientPacketsLost();
-unsigned int GetUploadRateBytesPerSecond();
-unsigned int GetDownloadRateBytesPerSecond();
-int enet_matchmaking_host_update(void);
-extern uint16_t external_ipv4_port;
-extern int skip_holepunch;
-uint16_t enet_get_bound_ipv6_port(void);
+uint64_t GetPing(int64_t id, int64_t local_player_id);
+uint64_t GetPacketLoss(int64_t id, int64_t local_player_id);
+uint64_t GetClientDataInTransit();
+uint64_t GetClientPacketsLost();
+uint64_t GetUploadRateBytesPerSecond();
+uint64_t GetDownloadRateBytesPerSecond();
+int64_t enet_matchmaking_host_update(void);
+extern int64_t external_ipv4_port;
+extern int64_t skip_holepunch;
+int64_t enet_get_bound_ipv6_port(void);
 
 struct _ENetHost;
 struct _ENetAddress;
@@ -56,22 +56,22 @@ struct _ENetAddress;
 struct EnetPunchAddresses {
     char ipv4[ENET_MATCHMAKING_IP_MAX];
     char ipv6[ENET_MATCHMAKING_IP_MAX];
-    int ipv4_port;
-    int ipv6_port;
+    int64_t ipv4_port;
+    int64_t ipv6_port;
 };
 
 // Injected by the net layer so bflib_enet.cpp (platform layer) doesn't
 // reach upward into front_network.h/net_holepunch.h/net_matchmaking.h/
 // net_portforward.h directly. See docs/refactor/stage-02-decouple-bflib.md.
 struct EnetConnectivityServices {
-    void (*display_attempting_to_join_message)(int seconds_remaining);
+    void (*display_attempting_to_join_message)(int64_t seconds_remaining);
     TbBool (*attempting_to_join_cancel_requested)(void);
-    uint16_t (*holepunch_stun_query)(struct _ENetHost *host, char *output_ip, size_t output_ip_buffer_size);
+    int64_t (*holepunch_stun_query)(struct _ENetHost *host, char *output_ip, size_t output_ip_buffer_size);
     void (*holepunch_punch_to)(struct _ENetHost *host, const struct _ENetAddress *target);
-    int (*holepunch_receive)(struct _ENetHost *host, struct _ENetAddress *expected, size_t expected_count);
-    int (*matchmaking_punch)(const char *lobby_id, int udp_ipv4_port, int udp_ipv6_port, struct EnetPunchAddresses *output);
-    int (*matchmaking_poll_punch)(struct EnetPunchAddresses *output);
-    int (*port_forward_add_mapping)(uint16_t port);
+    int64_t (*holepunch_receive)(struct _ENetHost *host, struct _ENetAddress *expected, size_t expected_count);
+    int64_t (*matchmaking_punch)(const char *lobby_id, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output);
+    int64_t (*matchmaking_poll_punch)(struct EnetPunchAddresses *output);
+    int64_t (*port_forward_add_mapping)(int64_t port);
     void (*port_forward_remove_mapping)(void);
 };
 

@@ -48,13 +48,13 @@ TbBool corpse_ready_for_collection(const struct Thing* thing);
 TbBool dead_creature_is_room_inventory(const struct Thing *thing, RoomRole rrole);
 TbBool update_dead_creatures_list(struct Dungeon *dungeon, const struct Thing *thing);
 TbBool update_dead_creatures_list_for_owner(const struct Thing *thing);
-long find_item_in_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel, CrtrExpLevel exp_level);
+int64_t find_item_in_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel, CrtrExpLevel exp_level);
 TbBool add_item_to_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel, CrtrExpLevel exp_level);
 TbBool remove_item_from_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel, CrtrExpLevel exp_level);
 TbBool creature_can_be_resurrected(const struct Thing* thing);
 TngUpdateRet update_dead_creature(struct Thing *thing);
-struct Thing *create_dead_creature(const struct Coord3d *pos, ThingModel model, unsigned short crpscondition, unsigned short owner, CrtrExpLevel exp_level);
-struct Thing *destroy_creature_and_create_corpse(struct Thing *thing, long crpscondition);
+struct Thing *create_dead_creature(const struct Coord3d *pos, ThingModel model, int64_t crpscondition, int64_t owner, CrtrExpLevel exp_level);
+struct Thing *destroy_creature_and_create_corpse(struct Thing *thing, int64_t crpscondition);
 void delete_corpse(struct Thing *thing);
 /******************************************************************************/
 #ifdef __cplusplus

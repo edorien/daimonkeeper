@@ -65,7 +65,7 @@ TbBool setup_workshop_move(struct Thing *thing, SubtlCodedCoords stl_num)
     cctrl->moveto_pos.z.val = get_thing_height_at(thing, &cctrl->moveto_pos);
     if (thing_in_wall_at(thing, &cctrl->moveto_pos))
     {
-        ERRORLOG("Illegal setup to subtile (%d,%d)", (int)cctrl->moveto_pos.x.stl.num, (int)cctrl->moveto_pos.y.stl.num);
+        ERRORLOG("Illegal setup to subtile (%" PRId64 ",%" PRId64 ")", (int64_t)cctrl->moveto_pos.x.stl.num, (int64_t)cctrl->moveto_pos.y.stl.num);
         set_start_state(thing);
         return false;
     }
@@ -75,8 +75,8 @@ TbBool setup_workshop_move(struct Thing *thing, SubtlCodedCoords stl_num)
 struct Thing *get_workshop_equipment_to_work_with_on_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -117,8 +117,8 @@ struct Thing *get_workshop_equipment_to_work_with_on_subtile(PlayerNumber plyr_i
 struct Thing *get_other_creature_manufacturing_on_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *othertng)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -157,13 +157,13 @@ struct Thing *get_other_creature_manufacturing_on_subtile(PlayerNumber plyr_idx,
  * @return Coded subtiles of the new position, or 0 on failure.
  * @see person_get_somewhere_adjacent_in_room()
  */
-SubtlCodedCoords find_unused_adjacent_position_in_workshop(const struct Coord3d *pos, long owner)
+SubtlCodedCoords find_unused_adjacent_position_in_workshop(const struct Coord3d *pos, int64_t owner)
 {
     static const struct Around corners[] = { {1,2}, {0,1}, {1,0}, {2,1} };
-    for (long i = 0; i < SMALL_AROUND_LENGTH; i++)
+    for (int64_t i = 0; i < SMALL_AROUND_LENGTH; i++)
     {
-        MapSlabCoord slb_x = subtile_slab(pos->x.stl.num) + (long)small_around[i].delta_x;
-        MapSlabCoord slb_y = subtile_slab(pos->y.stl.num) + (long)small_around[i].delta_y;
+        MapSlabCoord slb_x = subtile_slab(pos->x.stl.num) + (int64_t)small_around[i].delta_x;
+        MapSlabCoord slb_y = subtile_slab(pos->y.stl.num) + (int64_t)small_around[i].delta_y;
         struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
         if ((slb->kind == SlbT_WORKSHOP) && (slabmap_owner(slb) == owner))
         {
@@ -186,7 +186,7 @@ SubtlCodedCoords find_unused_adjacent_position_in_workshop(const struct Coord3d 
     return 0;
 }
 
-TbBool setup_move_to_new_workshop_position(struct Thing *thing, struct Room *room, unsigned long set_work_timer)
+TbBool setup_move_to_new_workshop_position(struct Thing *thing, struct Room *room, uint64_t set_work_timer)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if ( set_work_timer )
@@ -195,20 +195,20 @@ TbBool setup_move_to_new_workshop_position(struct Thing *thing, struct Room *roo
     SubtlCodedCoords stl_num = find_position_around_in_room(&thing->mappos, thing->owner, room->kind, thing);
     if (stl_num <= 0)
     {
-        WARNLOG("Could not find position around in %s of %d slabs",room_code_name(room->kind),(int)room->slabs_count);
+        WARNLOG("Could not find position around in %s of %" PRId64 " slabs",room_code_name(room->kind),(int64_t)room->slabs_count);
         return false;
     }
     return setup_workshop_move(thing,stl_num);
 }
 
-short at_workshop_room(struct Thing *creatng)
+int64_t at_workshop_room(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(creatng);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_MANUFACTURE), creatng))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s",room_code_name(room->kind),(int)room->owner,thing_model_name(creatng));
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s",room_code_name(room->kind),(int64_t)room->owner,thing_model_name(creatng));
         set_start_state(creatng);
         return 0;
     }
@@ -232,8 +232,8 @@ void setup_workshop_search_for_post(struct Thing *creatng)
     struct Thing* postng = INVALID_THING;
     struct Room* room = get_room_thing_is_on(creatng);
     // Find a random slab in the room to be used as our starting point
-    long i = THING_RANDOM(creatng, room->slabs_count);
-    unsigned long n = room->slabs_list;
+    int64_t i = THING_RANDOM(creatng, room->slabs_count);
+    uint64_t n = room->slabs_list;
     while (i > 0)
     {
         n = get_next_slab_number_in_room(n);
@@ -266,7 +266,7 @@ void setup_workshop_search_for_post(struct Thing *creatng)
     }
 }
 
-long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
+int64_t process_creature_in_workshop(struct Thing *creatng, struct Room *room)
 {
     struct CreatureControl *cctrl;
     cctrl = creature_control_get_from_thing(creatng);
@@ -282,10 +282,10 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
     if (cctrl->instance_id != CrInst_NULL) {
         return 1;
     }
-    long mvret;
+    int64_t mvret;
     MapSlabCoord slb_x;
     MapSlabCoord slb_y;
-    SYNCDBG(19,"Work in %s, the %s in state %d",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+    SYNCDBG(19,"Work in %s, the %s in state %" PRId64,room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
     switch (cctrl->workshop.job_stage)
     {
     case 1:
@@ -300,7 +300,7 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
         if (mvret != 1)
         {
             if (mvret == -1) {
-                SYNCDBG(9,"Room %s move problem, the %s goes from %d to start state",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+                SYNCDBG(9,"Room %s move problem, the %s goes from %" PRId64 " to start state",room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
                 set_start_state(creatng);
             }
             break;
@@ -311,12 +311,12 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
         objtng = get_workshop_equipment_to_work_with_on_subtile(creatng->owner, slab_subtile_center(slb_x),slab_subtile_center(slb_y));
         if (!thing_is_invalid(objtng))
         {
-            SYNCDBG(19,"Got %s post, the %s goes from %d to 2",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+            SYNCDBG(19,"Got %s post, the %s goes from %" PRId64 " to 2",room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
             cctrl->workshop.job_stage = JobStage_PreparingToWork;
             cctrl->workshop.work_timer = 100;
             break;
         }
-        SYNCDBG(19,"No %s post at current pos, the %s goes from %d to search position",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+        SYNCDBG(19,"No %s post at current pos, the %s goes from %" PRId64 " to search position",room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
         setup_move_to_new_workshop_position(creatng, room, 0);
         break;
     case 2:
@@ -333,7 +333,7 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
             break;
         }
         setup_move_to_new_workshop_position(creatng, room, 1);
-        SYNCDBG(9,"No free adjacent %s post, the %s goes from %d to search position",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+        SYNCDBG(9,"No free adjacent %s post, the %s goes from %" PRId64 " to search position",room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
         break;
     }
     case 3:
@@ -342,7 +342,7 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
         if (mvret != 1)
         {
             if (mvret == -1) {
-                SYNCDBG(9,"Room %s move problem, the %s goes from %d to start state",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+                SYNCDBG(9,"Room %s move problem, the %s goes from %" PRId64 " to start state",room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
                 set_start_state(creatng);
             }
             break;
@@ -354,7 +354,7 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
             break;
         }
         // Position used by another manufacturer
-        SYNCDBG(9,"The %s post already in use, the %s goes from %d to search position",room_code_name(room->kind),thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+        SYNCDBG(9,"The %s post already in use, the %s goes from %" PRId64 " to search position",room_code_name(room->kind),thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
         setup_move_to_new_workshop_position(creatng, room, 1);
         break;
     }
@@ -375,7 +375,7 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
         cctrl->workshop.swing_weapon_counter--;
         if (cctrl->workshop.swing_weapon_counter <= 0)
         {
-            SYNCDBG(9,"Room %s move counter %d, the %s keeps moving in state %d",room_code_name(room->kind),(int)cctrl->workshop.swing_weapon_counter,thing_model_name(creatng),(int)cctrl->workshop.job_stage);
+            SYNCDBG(9,"Room %s move counter %" PRId64 ", the %s keeps moving in state %" PRId64,room_code_name(room->kind),(int64_t)cctrl->workshop.swing_weapon_counter,thing_model_name(creatng),(int64_t)cctrl->workshop.job_stage);
             setup_move_to_new_workshop_position(creatng, room, 1);
         } else
         if ((cctrl->workshop.swing_weapon_counter % 8) == 0) {
@@ -387,7 +387,7 @@ long process_creature_in_workshop(struct Thing *creatng, struct Room *room)
     return 1;
 }
 
-short manufacturing(struct Thing *creatng)
+int64_t manufacturing(struct Thing *creatng)
 {
     TRACE_THING(creatng);
     struct Room* room = get_room_thing_is_on(creatng);
@@ -407,13 +407,13 @@ short manufacturing(struct Thing *creatng)
     struct Dungeon* dungeon = get_dungeon(creatng->owner);
     if (dungeon->manufacture_class != TCls_Empty)
     {
-        long work_value = compute_creature_work_value_for_room_role(creatng, RoRoF_CratesManufctr, room->efficiency);
-        SYNCDBG(9,"The %s index %d owner %d produced %d manufacture points",thing_model_name(creatng),(int)creatng->index,(int)creatng->owner,(int)work_value);
+        int64_t work_value = compute_creature_work_value_for_room_role(creatng, RoRoF_CratesManufctr, room->efficiency);
+        SYNCDBG(9,"The %s index %" PRId64 " owner %" PRId64 " produced %" PRId64 " manufacture points",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner,(int64_t)work_value);
         dungeon->manufacture_progress += work_value;
         dungeon->total_manufacture_points += work_value;
     } else
     {
-        WARNDBG(9,"The %s index %d owner %d is manufacturing nothing",thing_model_name(creatng),(int)creatng->index,(int)creatng->owner);
+        WARNDBG(9,"The %s index %" PRId64 " owner %" PRId64 " is manufacturing nothing",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
         if (room->used_capacity > room->total_capacity) {
             external_set_thing_state(creatng, CrSt_CreatureGoingHomeToSleep);
             return CrStRet_Modified;

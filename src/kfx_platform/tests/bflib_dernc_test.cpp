@@ -55,7 +55,7 @@ struct ScratchFile {
 TEST_CASE_METHOD(ScratchFile, "LbFileLengthRnc reports the plain file length for a non-RNC file", "[kfx_platform][bflib_dernc]") {
     const char *payload = "not compressed, just plain bytes";
     LbFileSaveAt(kTestFile, payload, std::strlen(payload));
-    CHECK(LbFileLengthRnc(kTestFile) == (long)std::strlen(payload));
+    CHECK(LbFileLengthRnc(kTestFile) == (int64_t)std::strlen(payload));
 }
 
 TEST_CASE("LbFileLengthRnc returns -1 for a nonexistent file", "[kfx_platform][bflib_dernc]") {
@@ -64,12 +64,12 @@ TEST_CASE("LbFileLengthRnc returns -1 for a nonexistent file", "[kfx_platform][b
 
 TEST_CASE_METHOD(ScratchFile, "LbFileSaveAt/LbFileLoadAt round-trip a plain (uncompressed) buffer", "[kfx_platform][bflib_dernc]") {
     const char *payload = "round trip me";
-    long saved = LbFileSaveAt(kTestFile, payload, std::strlen(payload));
-    CHECK(saved == (long)std::strlen(payload));
+    int64_t saved = LbFileSaveAt(kTestFile, payload, std::strlen(payload));
+    CHECK(saved == (int64_t)std::strlen(payload));
 
     char read_back[64] = {0};
-    long loaded = LbFileLoadAt(kTestFile, read_back);
-    CHECK(loaded == (long)std::strlen(payload));
+    int64_t loaded = LbFileLoadAt(kTestFile, read_back);
+    CHECK(loaded == (int64_t)std::strlen(payload));
     CHECK(std::strncmp(read_back, payload, std::strlen(payload)) == 0);
 }
 
@@ -120,8 +120,8 @@ TEST_CASE_METHOD(ScratchAtomicFile, "LbFileSaveAtomic writes a new file whose co
     CHECK(LbFileSaveAtomic(kAtomicTestFile, payload, std::strlen(payload)));
 
     char read_back[64] = {0};
-    long loaded = LbFileLoadAt(kAtomicTestFile, read_back);
-    CHECK(loaded == (long)std::strlen(payload));
+    int64_t loaded = LbFileLoadAt(kAtomicTestFile, read_back);
+    CHECK(loaded == (int64_t)std::strlen(payload));
     CHECK(std::strncmp(read_back, payload, std::strlen(payload)) == 0);
 }
 
@@ -133,8 +133,8 @@ TEST_CASE_METHOD(ScratchAtomicFile, "LbFileSaveAtomic replaces an existing file'
     CHECK(LbFileSaveAtomic(kAtomicTestFile, replacement, std::strlen(replacement)));
 
     char read_back[128] = {0};
-    long loaded = LbFileLoadAt(kAtomicTestFile, read_back);
-    CHECK(loaded == (long)std::strlen(replacement));
+    int64_t loaded = LbFileLoadAt(kAtomicTestFile, read_back);
+    CHECK(loaded == (int64_t)std::strlen(replacement));
     CHECK(std::strncmp(read_back, replacement, std::strlen(replacement)) == 0);
 }
 

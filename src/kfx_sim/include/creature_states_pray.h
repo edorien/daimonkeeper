@@ -33,25 +33,25 @@ struct Thing;
 
 #pragma pack()
 /******************************************************************************/
-short at_temple(struct Thing *thing);
+int64_t at_temple(struct Thing *thing);
 CrStateRet praying_in_temple(struct Thing *thing);
-long process_temple_cure(struct Thing *thing);
+int64_t process_temple_cure(struct Thing *thing);
 CrCheckRet process_temple_function(struct Thing *thing);
-short state_cleanup_in_temple(struct Thing *thing);
+int64_t state_cleanup_in_temple(struct Thing *thing);
 
-short cleanup_sacrifice(struct Thing *thing);
-short creature_being_sacrificed(struct Thing *thing);
-short creature_sacrifice(struct Thing *thing);
-short creature_being_summoned(struct Thing *thing);
+int64_t cleanup_sacrifice(struct Thing *thing);
+int64_t creature_being_sacrificed(struct Thing *thing);
+int64_t creature_sacrifice(struct Thing *thing);
+int64_t creature_being_summoned(struct Thing *thing);
 
 void kill_all_players_chickens(PlayerNumber plyr_idx);
-void apply_spell_effect_to_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, long spl_idx, CrtrExpLevel overchrg);
-TbBool add_anger_to_all_creatures_of_player(PlayerNumber plyr_idx, short percentage);
+void apply_spell_effect_to_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, int64_t spl_idx, CrtrExpLevel overchrg);
+TbBool add_anger_to_all_creatures_of_player(PlayerNumber plyr_idx, int64_t percentage);
 
-TbBool find_temple_pool(int player_idx, struct Coord3d *pos);
+TbBool find_temple_pool(int64_t player_idx, struct Coord3d *pos);
 void process_sacrifice_creature(struct Coord3d *pos, ThingModel model, PlayerNumber owner, TbBool partial);
 
-void script_set_sacrifice_recipe(const int action, const int param, ThingModel* victims);
+void script_set_sacrifice_recipe(const int64_t action, const int64_t param, ThingModel* victims);
 /******************************************************************************/
 #ifdef __cplusplus
 }

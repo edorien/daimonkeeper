@@ -76,7 +76,7 @@ TEST_CASE_METHOD(ResetSimState, "action_point_get_free returns the first non-exi
 }
 
 TEST_CASE_METHOD(ResetSimState, "action_point_get_free returns INVALID_ACTION_POINT once every slot is taken", "[kfx_sim][actionpt]") {
-    for (int i = 1; i < ACTN_POINTS_COUNT; i++)
+    for (int64_t i = 1; i < ACTN_POINTS_COUNT; i++)
         kfx_sim_state.action_points[i].exists = true;
 
     CHECK(action_point_get_free() == INVALID_ACTION_POINT);

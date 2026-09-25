@@ -77,7 +77,7 @@ std::vector<std::string> split_args(const std::string &line)
 // -1, treated as "not a keeper player slot this dialog manages" and
 // skipped by the caller. Matches the real per-player script-keyword
 // convention confirmed against config_players.h's own PLAYER0..PLAYER6.
-int parse_player_index(const std::string &token)
+int64_t parse_player_index(const std::string &token)
 {
     static const char kPrefix[] = "PLAYER";
     static const size_t kPrefixLen = sizeof(kPrefix) - 1;
@@ -96,11 +96,11 @@ const char *const kAvailCommandNames[AvailKind_Count] = {
 };
 
 // "ALL_PLAYERS" -> -1, "PLAYERn" -> n, anything else -> -2 (skipped).
-int parse_availability_player(const std::string &token)
+int64_t parse_availability_player(const std::string &token)
 {
     if (token == "ALL_PLAYERS")
         return -1;
-    int idx = parse_player_index(token);
+    int64_t idx = parse_player_index(token);
     return (idx >= 0) ? idx : -2;
 }
 
@@ -120,7 +120,7 @@ bool parse_if_clause(const std::string &line, WinLoseClause &out)
     std::vector<std::string> args = split_args(line.substr(p));
     if (args.size() != 2)
         return false;
-    const int player = parse_player_index(args[0]);
+    const int64_t player = parse_player_index(args[0]);
     if (player < 0)
         return false;
     // Two-character operators first so ">=" is not read as ">".
@@ -201,19 +201,19 @@ std::string script_setup_trim(const std::string &s) { return trim(s); }
 std::vector<std::string> script_setup_split_args(const std::string &line) { return split_args(line); }
 bool script_setup_parse_if_clause(const std::string &line, WinLoseClause &out) { return parse_if_clause(line, out); }
 
-const char *const *script_setup_win_lose_operators(int *count)
+const char *const *script_setup_win_lose_operators(int64_t *count)
 {
     if (count != nullptr)
-        *count = (int)(sizeof(kOperators) / sizeof(kOperators[0]));
+        *count = (int64_t)(sizeof(kOperators) / sizeof(kOperators[0]));
     return kOperators;
 }
 
-const char *script_setup_availability_command_name(int kind)
+const char *script_setup_availability_command_name(int64_t kind)
 {
     return ((kind >= 0) && (kind < AvailKind_Count)) ? kAvailCommandNames[kind] : "";
 }
 
-const struct NamedCommand *script_setup_availability_desc(int kind)
+const struct NamedCommand *script_setup_availability_desc(int64_t kind)
 {
     switch (kind)
     {
@@ -226,12 +226,12 @@ const struct NamedCommand *script_setup_availability_desc(int kind)
     }
 }
 
-const char *script_setup_availability_item_name(int kind, int item)
+const char *script_setup_availability_item_name(int64_t kind, int64_t item)
 {
     const struct NamedCommand *desc = script_setup_availability_desc(kind);
     if (desc == nullptr)
         return "";
-    for (int i = 0; desc[i].name != nullptr; i++)
+    for (int64_t i = 0; desc[i].name != nullptr; i++)
     {
         if (desc[i].num == item)
             return desc[i].name;
@@ -239,7 +239,7 @@ const char *script_setup_availability_item_name(int kind, int item)
     return "";
 }
 
-AvailabilityEntry *script_setup_availability_find(ManagedSetupValues &values, int kind, int player, int item)
+AvailabilityEntry *script_setup_availability_find(ManagedSetupValues &values, int64_t kind, int64_t player, int64_t item)
 {
     for (size_t i = 0; i < values.availability.size(); i++)
     {
@@ -290,11 +290,11 @@ std::string script_setup_replace_region(const std::string &script_text, const st
     return result;
 }
 
-int script_setup_level_version(const std::string &script_text)
+int64_t script_setup_level_version(const std::string &script_text)
 {
     // The engine pre-scans the whole file for LEVEL_VERSION before running
     // anything else (preload_script), so position is irrelevant; last wins.
-    int version = 0;
+    int64_t version = 0;
     size_t line_start = 0;
     while (line_start <= script_text.size())
     {
@@ -314,7 +314,7 @@ int script_setup_level_version(const std::string &script_text)
     return version;
 }
 
-ManagedSetupValues script_setup_parse(const std::string &managed_body, int players, int level_version)
+ManagedSetupValues script_setup_parse(const std::string &managed_body, int64_t players, int64_t level_version)
 {
     ManagedSetupValues values;
     values.generate_speed = 0;
@@ -324,7 +324,7 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
     // Win/lose rule blocks: IF(..) [IF(..)...] WIN_GAME|LOSE_GAME ENDIF...
     // A block is a rule only if it holds nothing else.
     WinLoseRule pending;
-    int depth = 0;
+    int64_t depth = 0;
     bool rule_ok = true;
     bool have_result = false;
 
@@ -381,8 +381,8 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
             std::vector<std::string> args = split_args(line);
             if (args.size() >= 2)
             {
-                int idx = parse_player_index(args[0]);
-                if (idx >= 0 && idx < (int)values.start_money.size())
+                int64_t idx = parse_player_index(args[0]);
+                if (idx >= 0 && idx < (int64_t)values.start_money.size())
                     values.start_money[(size_t)idx] = atoi(args[1].c_str());
             }
         }
@@ -391,8 +391,8 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
             std::vector<std::string> args = split_args(line);
             if (args.size() >= 2)
             {
-                int idx = parse_player_index(args[0]);
-                if (idx >= 0 && idx < (int)values.max_creatures.size())
+                int64_t idx = parse_player_index(args[0]);
+                if (idx >= 0 && idx < (int64_t)values.max_creatures.size())
                     values.max_creatures[(size_t)idx] = atoi(args[1].c_str());
             }
         }
@@ -401,14 +401,14 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
             std::vector<std::string> args = split_args(line);
             if (args.size() >= 2)
             {
-                long kind = get_rid(creature_desc, args[0].c_str());
+                int64_t kind = get_rid(creature_desc, args[0].c_str());
                 if (kind > 0)
                     values.creature_pool.push_back(std::make_pair((ThingModel)kind, atoi(args[1].c_str())));
             }
         }
         else
         {
-            for (int kind = 0; kind < AvailKind_Count; kind++)
+            for (int64_t kind = 0; kind < AvailKind_Count; kind++)
             {
                 size_t len = strlen(kAvailCommandNames[kind]);
                 if (line.compare(0, len, kAvailCommandNames[kind]) != 0)
@@ -416,12 +416,12 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
                 std::vector<std::string> args = split_args(line);
                 if (args.size() < 4)
                     break;
-                int player = parse_availability_player(args[0]);
-                long item = get_rid(script_setup_availability_desc(kind), args[1].c_str());
+                int64_t player = parse_availability_player(args[0]);
+                int64_t item = get_rid(script_setup_availability_desc(kind), args[1].c_str());
                 if (player == -2 || item <= 0)
                     break;
-                int a = atoi(args[2].c_str());
-                int b = atoi(args[3].c_str());
+                int64_t a = atoi(args[2].c_str());
+                int64_t b = atoi(args[3].c_str());
                 if (level_version <= 0 && kind == AvailKind_Creature)
                 {
                     // v0 CREATURE_AVAILABLE ignores arg 3, arg 4 is "available".
@@ -430,7 +430,7 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
                 }
                 // Later line for the same (kind, player, item) wins, matching
                 // the engine's own last-writer-wins execution order.
-                AvailabilityEntry *existing = script_setup_availability_find(values, kind, player, (int)item);
+                AvailabilityEntry *existing = script_setup_availability_find(values, kind, player, (int64_t)item);
                 if (existing != nullptr)
                 {
                     existing->a = a;
@@ -438,7 +438,7 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
                 }
                 else
                 {
-                    AvailabilityEntry e = { kind, player, (int)item, a, b };
+                    AvailabilityEntry e = { kind, player, (int64_t)item, a, b };
                     values.availability.push_back(e);
                 }
                 break;
@@ -449,7 +449,7 @@ ManagedSetupValues script_setup_parse(const std::string &managed_body, int playe
     return values;
 }
 
-std::string script_setup_generate(const ManagedSetupValues &values, int players, int level_version)
+std::string script_setup_generate(const ManagedSetupValues &values, int64_t players, int64_t level_version)
 {
     char line[256];
     std::string body;
@@ -460,39 +460,39 @@ std::string script_setup_generate(const ManagedSetupValues &values, int players,
     // all zeros), so those lines are simply omitted.
     if (values.generate_speed != 0)
     {
-        snprintf(line, sizeof(line), "SET_GENERATE_SPEED(%d)\n", values.generate_speed);
+        snprintf(line, sizeof(line), "SET_GENERATE_SPEED(%" PRId64 ")\n", (int64_t)(values.generate_speed));
         body += line;
     }
 
-    for (int i = 0; i < players; i++)
+    for (int64_t i = 0; i < players; i++)
     {
-        int gold = (i < (int)values.start_money.size()) ? values.start_money[(size_t)i] : 0;
+        int64_t gold = (i < (int64_t)values.start_money.size()) ? values.start_money[(size_t)i] : 0;
         if (gold == 0)
             continue;
-        snprintf(line, sizeof(line), "START_MONEY(PLAYER%d,%d)\n", i, gold);
+        snprintf(line, sizeof(line), "START_MONEY(PLAYER%" PRId64 ",%" PRId64 ")\n", (int64_t)(i), (int64_t)(gold));
         body += line;
     }
-    for (int i = 0; i < players; i++)
+    for (int64_t i = 0; i < players; i++)
     {
-        int max_creatures = (i < (int)values.max_creatures.size()) ? values.max_creatures[(size_t)i] : 0;
+        int64_t max_creatures = (i < (int64_t)values.max_creatures.size()) ? values.max_creatures[(size_t)i] : 0;
         if (max_creatures == 0)
             continue;
-        snprintf(line, sizeof(line), "MAX_CREATURES(PLAYER%d,%d)\n", i, max_creatures);
+        snprintf(line, sizeof(line), "MAX_CREATURES(PLAYER%" PRId64 ",%" PRId64 ")\n", (int64_t)(i), (int64_t)(max_creatures));
         body += line;
     }
     for (size_t i = 0; i < values.creature_pool.size(); i++)
     {
         const char *name = creature_code_name(values.creature_pool[i].first);
-        snprintf(line, sizeof(line), "ADD_CREATURE_TO_POOL(%s,%d)\n", name, values.creature_pool[i].second);
+        snprintf(line, sizeof(line), "ADD_CREATURE_TO_POOL(%s,%" PRId64 ")\n", name, (int64_t)(values.creature_pool[i].second));
         body += line;
     }
     // One line per (kind, player, item) -- TRAP/DOOR_AVAILABLE's amount
     // accumulates rather than overwrites, so duplicates would stack.
     // ALL_PLAYERS lines first, then per-player, so a later PLAYERn line
     // overrides the ALL_PLAYERS baseline, matching execution order.
-    for (int kind = 0; kind < AvailKind_Count; kind++)
+    for (int64_t kind = 0; kind < AvailKind_Count; kind++)
     {
-        for (int pass = 0; pass < 2; pass++)
+        for (int64_t pass = 0; pass < 2; pass++)
         {
             for (size_t i = 0; i < values.availability.size(); i++)
             {
@@ -506,11 +506,11 @@ std::string script_setup_generate(const ManagedSetupValues &values, int players,
                 if (e.player < 0)
                     snprintf(player_name, sizeof(player_name), "ALL_PLAYERS");
                 else
-                    snprintf(player_name, sizeof(player_name), "PLAYER%d", e.player);
+                    snprintf(player_name, sizeof(player_name), "PLAYER%" PRId64, (int64_t)(e.player));
                 // v0 CREATURE_AVAILABLE(p,c,_,available) has no force flag.
                 const bool v0_creature = (level_version <= 0) && (kind == AvailKind_Creature);
-                snprintf(line, sizeof(line), "%s(%s,%s,%d,%d)\n", kAvailCommandNames[kind], player_name, item_name,
-                    e.a, v0_creature ? e.a : e.b);
+                snprintf(line, sizeof(line), "%s(%s,%s,%" PRId64 ",%" PRId64 ")\n", kAvailCommandNames[kind], player_name, item_name,
+                    (int64_t)(e.a), (int64_t)(v0_creature ? e.a : e.b));
                 body += line;
             }
         }
@@ -523,8 +523,8 @@ std::string script_setup_generate(const ManagedSetupValues &values, int players,
         std::string indent;
         for (const WinLoseClause &c : rule.clauses)
         {
-            snprintf(line, sizeof(line), "%sIF(PLAYER%d,%s %s %d)\n", indent.c_str(), c.player, c.variable.c_str(),
-                c.op.c_str(), c.value);
+            snprintf(line, sizeof(line), "%sIF(PLAYER%" PRId64 ",%s %s %" PRId64 ")\n", indent.c_str(), (int64_t)(c.player), c.variable.c_str(),
+                c.op.c_str(), (int64_t)(c.value));
             body += line;
             indent += "\t";
         }

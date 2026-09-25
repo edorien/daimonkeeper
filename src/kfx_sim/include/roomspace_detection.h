@@ -26,15 +26,15 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct RoomQuery {
-    short rkind_cost;
-    int total_player_money;
-    int mode;
-    int maxRoomRadius;
-    int maxRoomWidth;
-    int minRoomWidth;
-    int minRoomHeight;
-    int subRoomCheckCount;
-    int bestRoomsCount;
+    int64_t rkind_cost;
+    int64_t total_player_money;
+    int64_t mode;
+    int64_t maxRoomRadius;
+    int64_t maxRoomWidth;
+    int64_t minRoomWidth;
+    int64_t minRoomHeight;
+    int64_t subRoomCheckCount;
+    int64_t bestRoomsCount;
     struct RoomSpace best_room;
     struct RoomSpace best_corridor;
     MapSlabCoord cursor_x;
@@ -43,21 +43,21 @@ struct RoomQuery {
     MapSlabCoord centre_y;
     PlayerNumber plyr_idx;
     RoomKind rkind;
-    float minimumRatio;
-    float minimumComparisonRatio;
+    double minimumRatio;
+    double minimumComparisonRatio;
     TbBool isCorridor;
     TbBool isCompoundRoom;
-    int leniency;
-    int moneyLeft;
-    int InvalidBlocksIgnored;
+    int64_t leniency;
+    int64_t moneyLeft;
+    int64_t InvalidBlocksIgnored;
     TbBool findCorridors;
     TbBool foundRoom;
-    int roomspace_discovery_looseness;
+    int64_t roomspace_discovery_looseness;
 };
 /******************************************************************************/
 struct RoomSpace get_biggest_roomspace(PlayerNumber plyr_idx, RoomKind rkind,
-    MapSlabCoord cursor_x, MapSlabCoord cursor_y, short rkind_cost, 
-    int total_player_money, int mode, int roomspace_discovery_looseness);
+    MapSlabCoord cursor_x, MapSlabCoord cursor_y, int64_t rkind_cost, 
+    int64_t total_player_money, int64_t mode, int64_t roomspace_discovery_looseness);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -28,12 +28,12 @@ public:
     PaletteEffect();
     virtual ~PaletteEffect();
     
-    virtual TbBool Setup(long lens_idx) override;
+    virtual TbBool Setup(int64_t lens_idx) override;
     virtual void Cleanup() override;
     virtual TbBool Draw(LensRenderContext* ctx) override;
     
 private:
-    long m_current_lens;
+    int64_t m_current_lens;
 };
 
 /******************************************************************************/

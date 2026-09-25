@@ -151,7 +151,7 @@ TbBool slab_coords_invalid(MapSlabCoord slb_x, MapSlabCoord slb_y)
 /**
  * Returns owner index of given SlabMap.
  */
-long slabmap_owner(const struct SlabMap *slb)
+int64_t slabmap_owner(const struct SlabMap *slb)
 {
     if (slabmap_block_invalid(slb))
         return PLAYER_NEUTRAL;
@@ -199,7 +199,7 @@ void set_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber owner)
 /**
  * Returns Water-Lava under Bridge flags for given SlabMap.
  */
-unsigned long slabmap_wlb(struct SlabMap *slb)
+uint64_t slabmap_wlb(struct SlabMap *slb)
 {
     if (slabmap_block_invalid(slb))
         return WlbT_None;
@@ -209,7 +209,7 @@ unsigned long slabmap_wlb(struct SlabMap *slb)
 /**
  * Sets Water-Lava under Bridge flags for given SlabMap.
  */
-void slabmap_set_wlb(struct SlabMap *slb, unsigned long wlb_type)
+void slabmap_set_wlb(struct SlabMap *slb, uint64_t wlb_type)
 {
     if (slabmap_block_invalid(slb))
         return;
@@ -223,7 +223,7 @@ SlabCodedCoords get_next_slab_number_in_room(SlabCodedCoords slab_num)
 {
     if (slab_num >= kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y)
     {
-        ERRORLOG("Slabnumber %u exceeds map dimensions %d*%d", slab_num, kfx_sim_state.map_tiles_x, kfx_sim_state.map_tiles_y);
+        ERRORLOG("Slabnumber %" PRIu64 " exceeds map dimensions %" PRId64 "*%" PRId64, (uint64_t)(slab_num), (int64_t)(kfx_sim_state.map_tiles_x), (int64_t)(kfx_sim_state.map_tiles_y));
         return 0;
     }
     return kfx_sim_state.slabmap[slab_num].next_in_room;
@@ -233,7 +233,7 @@ TbBool slab_is_safe_land(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord
 {
     struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
     struct SlabConfigStats* slabst = get_slab_stats(slb);
-    int slb_owner = slabmap_owner(slb);
+    int64_t slb_owner = slabmap_owner(slb);
     if ((slb_owner == plyr_idx) || (slb_owner == kfx_config_state.neutral_player_num))
     {
         return slabst->is_safe_land;
@@ -257,7 +257,7 @@ TbBool slab_is_wall(MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
     MapSubtlCoord stl_x = slab_subtile_center(slb_x);
     MapSubtlCoord stl_y = slab_subtile_center(slb_y);
-    for (int i = 0; i < SMALL_AROUND_LENGTH; i++)
+    for (int64_t i = 0; i < SMALL_AROUND_LENGTH; i++)
     {
         MapSubtlCoord astl_x = stl_x + small_around[i].delta_x;
         MapSubtlCoord astl_y = stl_y + small_around[i].delta_y;
@@ -297,12 +297,12 @@ TbBool is_valid_hug_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
     {
         struct Map* mapblk = get_map_block_at(stl_x, stl_y);
         if (!flag_is_set(mapblk->flags, SlbAtFlg_Filled) || (slabmap_owner(slb) == plyr_idx)) {
-            SYNCDBG(17,"Subtile (%d,%d) rejected based on attrs",(int)stl_x,(int)stl_y);
+            SYNCDBG(17,"Subtile (%" PRId64 ",%" PRId64 ") rejected based on attrs",(int64_t)stl_x,(int64_t)stl_y);
             return false;
         }
     }
     if (!slab_good_for_computer_dig_path(slb)) {
-        SYNCDBG(17,"Subtile (%d,%d) rejected as not good for dig",(int)stl_x,(int)stl_y);
+        SYNCDBG(17,"Subtile (%" PRId64 ",%" PRId64 ") rejected as not good for dig",(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
     return true;
@@ -312,16 +312,16 @@ TbBool can_build_room_at_slab(PlayerNumber plyr_idx, RoomKind rkind,
     MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
     if (!subtile_revealed(slab_subtile_center(slb_x), slab_subtile_center(slb_y), plyr_idx)) {
-        SYNCDBG(7,"Cannot place %s owner %d as slab (%d,%d) is not revealed",room_code_name(rkind),(int)plyr_idx,(int)slb_x,(int)slb_y);
+        SYNCDBG(7,"Cannot place %s owner %" PRId64 " as slab (%" PRId64 ",%" PRId64 ") is not revealed",room_code_name(rkind),(int64_t)plyr_idx,(int64_t)slb_x,(int64_t)slb_y);
         return false;
     }
     struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
     if (slb->room_index > 0) {
-        SYNCDBG(7,"Cannot place %s owner %d as slab (%d,%d) has room index %d",room_code_name(rkind),(int)plyr_idx,(int)slb_x,(int)slb_y,(int)slb->room_index);
+        SYNCDBG(7,"Cannot place %s owner %" PRId64 " as slab (%" PRId64 ",%" PRId64 ") has room index %" PRId64,room_code_name(rkind),(int64_t)plyr_idx,(int64_t)slb_x,(int64_t)slb_y,(int64_t)slb->room_index);
         return false;
     }
     if (slab_has_trap_on(slb_x, slb_y) || slab_has_door_thing_on(slb_x, slb_y)) {
-        SYNCDBG(7,"Cannot place %s owner %d as slab (%d,%d) has blocking thing on it",room_code_name(rkind),(int)plyr_idx,(int)slb_x,(int)slb_y);
+        SYNCDBG(7,"Cannot place %s owner %" PRId64 " as slab (%" PRId64 ",%" PRId64 ") has blocking thing on it",room_code_name(rkind),(int64_t)plyr_idx,(int64_t)slb_x,(int64_t)slb_y);
         return false;
     }
     if (room_role_matches(rkind,RoRoF_PassWater|RoRoF_PassLava|RoRoF_PassAbyss)) {
@@ -350,7 +350,7 @@ TbBool can_build_room_at_slab_fast(PlayerNumber plyr_idx, RoomKind rkind, MapSla
     return false;
 }
 
-int check_room_at_slab_loose(PlayerNumber plyr_idx, RoomKind rkind, MapSlabCoord slb_x, MapSlabCoord slb_y, int looseness)
+int64_t check_room_at_slab_loose(PlayerNumber plyr_idx, RoomKind rkind, MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t looseness)
 {
     // looseness:
     // don't allow tile = 0
@@ -365,7 +365,7 @@ int check_room_at_slab_loose(PlayerNumber plyr_idx, RoomKind rkind, MapSlabCoord
     // allow path claimed by others = 9
 
     struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
-    int result = 0;
+    int64_t result = 0;
     if (room_role_matches(rkind,RoRoF_PassWater|RoRoF_PassLava|RoRoF_PassAbyss))
     {
         result = room_can_build_on_bridge_slab(rkind, slb->kind) && slab_by_players_land(plyr_idx, slb_x, slb_y);
@@ -410,7 +410,7 @@ int check_room_at_slab_loose(PlayerNumber plyr_idx, RoomKind rkind, MapSlabCoord
             }
             else if (slabmap_owner(slb) == plyr_idx)
             {
-                int slab_type_from_room_kind = room_corresponding_slab(rkind);
+                int64_t slab_type_from_room_kind = room_corresponding_slab(rkind);
 
                 if (slab_type_from_room_kind == slb->kind)
                 {
@@ -450,9 +450,9 @@ TbBool room_can_build_on_bridge_slab(RoomKind rkind, SlabKind slbkind)
  */
 void clear_slabs(void)
 {
-    for (unsigned long y = 0; y < kfx_sim_state.map_tiles_y; y++)
+    for (uint64_t y = 0; y < kfx_sim_state.map_tiles_y; y++)
     {
-        for (unsigned long x = 0; x < kfx_sim_state.map_tiles_x; x++)
+        for (uint64_t x = 0; x < kfx_sim_state.map_tiles_x; x++)
         {
             struct SlabMap* slb = &kfx_sim_state.slabmap[y * kfx_sim_state.map_tiles_x + x];
             memset(slb, 0, sizeof(struct SlabMap));
@@ -488,15 +488,15 @@ SlabKind find_core_slab_type(MapSlabCoord slb_x, MapSlabCoord slb_y)
     return corekind;
 }
 
-long calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, PlayerNumber plyr_idx, short synergy_slab_num)
+int64_t calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, PlayerNumber plyr_idx, int64_t synergy_slab_num)
 {
     TbBool is_room_inside = true;
-    long eff_score = 0;
+    int64_t eff_score = 0;
     struct SlabMap* slb = get_slabmap_direct(slab_num);
-    long n;
+    int64_t n;
     for (n=1; n < AROUND_SLAB_LENGTH; n+=2)
     {
-        long round_slab_num = slab_num + kfx_sim_state.around_slab[n];
+        int64_t round_slab_num = slab_num + kfx_sim_state.around_slab[n];
         struct SlabMap* round_slb = get_slabmap_direct(round_slab_num);
         if (!slabmap_block_invalid(round_slb))
         {
@@ -549,7 +549,7 @@ long calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, PlayerNu
     // Make sure this is room inside by checking corners
     for (n=0; n < AROUND_SLAB_LENGTH; n+=2)
     {
-        long round_slab_num = slab_num + kfx_sim_state.around_slab[n];
+        int64_t round_slab_num = slab_num + kfx_sim_state.around_slab[n];
         struct SlabMap* round_slb = get_slabmap_direct(round_slab_num);
         if (!slabmap_block_invalid(round_slb))
         {
@@ -611,9 +611,9 @@ void update_map_collide(SlabKind slbkind, MapSubtlCoord stl_x, MapSubtlCoord stl
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     struct Column* colmn = get_map_column(mapblk);
     if (column_invalid(colmn)) {
-        ERRORLOG("Invalid column at (%d,%d)",(int)stl_x,(int)stl_y);
+        ERRORLOG("Invalid column at (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
     }
-    unsigned long smask = colmn->solidmask;
+    uint64_t smask = colmn->solidmask;
     MapSubtlCoord stl_z;
     for (stl_z=0; stl_z < map_subtiles_z; stl_z++)
     {
@@ -622,7 +622,7 @@ void update_map_collide(SlabKind slbkind, MapSubtlCoord stl_x, MapSubtlCoord stl
         smask >>= 1;
     }
     struct SlabConfigStats* slabst = get_slab_kind_stats(slbkind);
-    unsigned long nflags;
+    uint64_t nflags;
     if (slabst->block_flags_height < stl_z) {
       nflags = slabst->block_flags;
     } else {
@@ -632,9 +632,9 @@ void update_map_collide(SlabKind slbkind, MapSubtlCoord stl_x, MapSubtlCoord stl
     mapblk->flags |= nflags;
 }
 
-void collect_rooms_around_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, struct Room** room_list, int room_list_len)
+void collect_rooms_around_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, struct Room** room_list, int64_t room_list_len)
 {
-    for (long n = 0; n < SMALL_AROUND_SLAB_LENGTH; n++)
+    for (int64_t n = 0; n < SMALL_AROUND_SLAB_LENGTH; n++)
     {
         MapSlabCoord sslb_x = slb_x + small_around[n].delta_x;
         MapSlabCoord sslb_y = slb_y + small_around[n].delta_y;
@@ -646,7 +646,7 @@ void collect_rooms_around_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, struct Ro
         if (slabst->category == SlbAtCtg_RoomInterior)
         {
             struct Room* room = slab_room_get(sslb_x, sslb_y);
-            for (int i = 0; i < room_list_len; i++)
+            for (int64_t i = 0; i < room_list_len; i++)
             {
                 if (room_list[i] == room) {
                     break;
@@ -660,9 +660,9 @@ void collect_rooms_around_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, struct Ro
     }
 }
 
-void recalculate_rooms_in_list(struct Room** room_list, int room_list_len)
+void recalculate_rooms_in_list(struct Room** room_list, int64_t room_list_len)
 {
-    for (int i = 0; i < room_list_len; i++)
+    for (int64_t i = 0; i < room_list_len; i++)
     {
         struct Room* room = room_list[i];
         if (room == NULL) {
@@ -713,10 +713,10 @@ SlabKind choose_rock_type(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoor
  * @param slb_y Target slab to check around, Y coord.
  * @return Number of owned slabs.
  */
-int count_owned_ground_around(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y, TbBool IncludeDiagonals)
+int64_t count_owned_ground_around(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y, TbBool IncludeDiagonals)
 {
-    int num_owned = 0;
-    int i;
+    int64_t num_owned = 0;
+    int64_t i;
     MapSlabCoord sslb_x;
     MapSlabCoord sslb_y;
     for (i = 0; i < SMALL_AROUND_SLAB_LENGTH; i++)
@@ -755,7 +755,7 @@ int count_owned_ground_around(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlab
 
 void unfill_reinforced_corners(PlayerNumber keep_plyr_idx, MapSlabCoord base_slb_x, MapSlabCoord base_slb_y)
 {
-    for (long n = 0; n < SMALL_AROUND_LENGTH; n++)
+    for (int64_t n = 0; n < SMALL_AROUND_LENGTH; n++)
     {
         MapSlabCoord x = base_slb_x + small_around[n].delta_x;
         MapSlabCoord y = base_slb_y + small_around[n].delta_y;
@@ -764,16 +764,16 @@ void unfill_reinforced_corners(PlayerNumber keep_plyr_idx, MapSlabCoord base_slb
         if ( ( (((slabst->category == SlbAtCtg_FortifiedGround) || (slabst->block_flags & SlbAtFlg_IsRoom) || ((slabst->block_flags & SlbAtFlg_IsDoor)) ))
       && (slabmap_owner(slb) == keep_plyr_idx) ) || (slabst->category == SlbAtCtg_Unclaimed) )
         {
-            for (int k = -1; k < 2; k+=2)
+            for (int64_t k = -1; k < 2; k+=2)
             {
-                int j = (k + n) & 3;
+                int64_t j = (k + n) & 3;
                 MapSlabCoord x2 = x + small_around[j].delta_x;
                 MapSlabCoord y2 = y + small_around[j].delta_y;
                 struct SlabMap *slb2 = get_slabmap_block(x2, y2);
                 struct SlabConfigStats* slabst2 = get_slab_stats(slb2);
                 if ( (slabst2->category == SlbAtCtg_FortifiedWall) || (slabst2->category == SlbAtCtg_FriableDirt) )
                 {
-                    int m = (k + j) & 3;
+                    int64_t m = (k + j) & 3;
                     MapSlabCoord x3 = x2 + small_around[m].delta_x;
                     MapSlabCoord y3 = y2 + small_around[m].delta_y;
                     struct SlabMap *slb3 = get_slabmap_block(x3, y3);
@@ -801,10 +801,10 @@ void unfill_reinforced_corners(PlayerNumber keep_plyr_idx, MapSlabCoord base_slb
  */
 void do_unprettying(PlayerNumber keep_plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
-    for (long n = 0; n < SMALL_AROUND_SLAB_LENGTH; n++)
+    for (int64_t n = 0; n < SMALL_AROUND_SLAB_LENGTH; n++)
     {
-        long sslb_x = slb_x + (long)small_around[n].delta_x;
-        long sslb_y = slb_y + (long)small_around[n].delta_y;
+        int64_t sslb_x = slb_x + (int64_t)small_around[n].delta_x;
+        int64_t sslb_y = slb_y + (int64_t)small_around[n].delta_y;
         struct SlabMap* slb = get_slabmap_block(sslb_x, sslb_y);
         struct SlabConfigStats* slabst = get_slab_stats(slb);
         if ((slabst->category == SlbAtCtg_FortifiedWall) && (slabmap_owner(slb) != keep_plyr_idx))
@@ -831,7 +831,7 @@ TbBool players_land_by_bridgeable_slab(PlayerNumber plyr_idx, MapSlabCoord slb_x
     struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
     if (slabmap_owner(slb) == plyr_idx)
     {
-        for (long n = 0; n < SMALL_AROUND_LENGTH; n++)
+        for (int64_t n = 0; n < SMALL_AROUND_LENGTH; n++)
         {
             MapSlabCoord aslb_x = slb_x + small_around[n].delta_x;
             MapSlabCoord aslb_y = slb_y + small_around[n].delta_y;
@@ -855,7 +855,7 @@ TbBool players_land_by_bridgeable_slab(PlayerNumber plyr_idx, MapSlabCoord slb_x
  */
 TbBool slab_by_players_land(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
-    for (long n = 0; n < SMALL_AROUND_LENGTH; n++)
+    for (int64_t n = 0; n < SMALL_AROUND_LENGTH; n++)
     {
         MapSlabCoord aslb_x = slb_x + small_around[n].delta_x;
         MapSlabCoord aslb_y = slb_y + small_around[n].delta_y;
@@ -877,28 +877,28 @@ TbBool player_can_claim_slab(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabC
     if (prev_owner == plyr_idx)
         return false;
     if (players_are_mutual_allies(plyr_idx, prev_owner)) {
-        SYNCDBG(8,"The slab %d,%d is owned by ally, so cannot be converted",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is owned by ally, so cannot be converted",(int64_t)slb_x, (int64_t)slb_y);
         return false;
     }
 
     struct Room *room = room_get(slb->room_index);
     if ((slb->kind != SlbT_CLAIMED) && (room_is_invalid(room) || (flag_is_set(get_room_kind_stats(room->kind)->flags, RoCFlg_CannotBeClaimed)))) {
-        SYNCDBG(8,"The slab %d,%d is not a valid kind %d to be converted",(int)slb_x, (int)slb_y, (int)slb->kind);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not a valid kind %" PRId64 " to be converted",(int64_t)slb_x, (int64_t)slb_y, (int64_t)slb->kind);
         return false;
     }
     struct Map *mapblk = get_map_block_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
     if (!map_block_revealed(mapblk, plyr_idx)) {
-        SYNCDBG(8,"The slab %d,%d is not revealed",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not revealed",(int64_t)slb_x, (int64_t)slb_y);
         return false;
     }
     if (!slab_by_players_land(plyr_idx, slb_x, slb_y)) {
-        SYNCDBG(8,"The slab %d,%d is not by players land",(int)slb_x, (int)slb_y);
+        SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not by players land",(int64_t)slb_x, (int64_t)slb_y);
         return false;
     }
     return true;
 }
 
-void set_player_texture(PlayerNumber plyr_idx, long texture_id)
+void set_player_texture(PlayerNumber plyr_idx, int64_t texture_id)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     TbBool reset = (texture_id < 0);

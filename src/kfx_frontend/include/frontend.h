@@ -210,7 +210,7 @@ extern LevelNumber editor_pending_lvnum;
 extern TbBool editor_pending_is_new;
 extern MapSlabCoord editor_pending_new_map_w;
 extern MapSlabCoord editor_pending_new_map_h;
-extern long editor_pending_new_map_texture;
+extern int64_t editor_pending_new_map_texture;
 
 // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- an in-session
 // File > New/Open (kfx_editor/editor_dialogs.cpp) sets this (via
@@ -232,7 +232,7 @@ extern TbBool editor_pending_relaunch;
 // itself (editor_close(), kfx_editor) right after -- this only stashes the
 // target, it doesn't request the transition on its own.
 void frontend_request_editor_relaunch(LevelNumber lvnum, TbBool is_new,
-    MapSlabCoord new_map_w, MapSlabCoord new_map_h, long new_map_texture);
+    MapSlabCoord new_map_w, MapSlabCoord new_map_h, int64_t new_map_texture);
 
 // New Map's scratch level number until Save (phase 3) assigns it a real
 // slot -- see docs/refactor/editor/00-overview.md O2/F4.
@@ -413,7 +413,7 @@ struct DemoItem { //sizeof = 5
 
 struct NetMessage { // sizeof = 0x45
   unsigned char plyr_idx;
-  uint32_t connection_id;
+  uint64_t connection_id;
   char text[NET_MESSAGE_LEN];
 };
 
@@ -425,27 +425,27 @@ extern char trap_tag;
 extern char creature_tag;
 extern char input_string[8][SAVE_TEXTNAME_LEN + 1];
 extern char gui_error_text[256];
-extern long net_number_of_services;
-extern long net_number_of_players;
-extern long net_number_of_enum_players;
-extern long net_level_highlighted;
+extern int64_t net_number_of_services;
+extern int64_t net_number_of_players;
+extern int64_t net_number_of_enum_players;
+extern int64_t net_level_highlighted;
 extern struct NetMessage net_message[NET_MESSAGES_COUNT];
-extern long net_number_of_messages;
+extern int64_t net_number_of_messages;
 // net_session_index_active_id moved to net_main.h (kfx_net) -- see there.
 // net_service_scroll_offset/net_session_scroll_offset/net_player_scroll_offset/
 // net_message_scroll_offset moved into net_service_list/net_session_list/
 // net_player_list/net_message_list (frontmenu_net.h, docs/refactor/gui/
 // 00-overview.md Phase 1's FrontendSelectList engine).
 extern struct GuiButton active_buttons[ACTIVE_BUTTONS_COUNT];
-extern long frontend_mouse_over_button_start_time;
-extern short old_menu_mouse_x;
-extern short old_menu_mouse_y;
+extern int64_t frontend_mouse_over_button_start_time;
+extern int64_t old_menu_mouse_x;
+extern int64_t old_menu_mouse_y;
 extern unsigned char menu_ids[3];
 // new_objective moved to kfx_sim's kfx_sim_state.h (stage 13.3,
 // docs/refactor/stage-13-enforce-and-document.md).
-extern int frontend_menu_state;
-extern int skip_high_score_screen;
-extern int load_game_scroll_offset;
+extern int64_t frontend_menu_state;
+extern int64_t skip_high_score_screen;
+extern int64_t load_game_scroll_offset;
 extern unsigned char video_gamma_correction;
 // vid_change_query_menu moved to kfx_render's vidmode.h (stage 13.3,
 // docs/refactor/stage-13-enforce-and-document.md).
@@ -461,19 +461,19 @@ extern TbBool right_click_tag_mode_toggle;
 // font pointer to its role for bflib_sprfnt.c (see
 // docs/refactor/stage-02-decouple-bflib.md).
 enum TbFontRole resolve_font_role(const struct TbSpriteSheet *font);
-extern unsigned long playing_bad_descriptive_speech;
-extern unsigned long playing_good_descriptive_speech;
-extern long scrolling_index;
-extern float scrolling_offset;
+extern uint64_t playing_bad_descriptive_speech;
+extern uint64_t playing_good_descriptive_speech;
+extern int64_t scrolling_index;
+extern double scrolling_offset;
 // packet_left_button_double_clicked/click_space_count moved to net_main.h
 // (kfx_net) -- see there.
 extern char frontend_alliances;
 extern char busy_doing_gui;
-extern long gui_last_left_button_pressed_id;
-extern long gui_last_right_button_pressed_id;
-extern int fe_computer_players;
-extern long old_mouse_over_button;
-extern long frontend_mouse_over_button;
+extern int64_t gui_last_left_button_pressed_id;
+extern int64_t gui_last_right_button_pressed_id;
+extern int64_t fe_computer_players;
+extern int64_t old_mouse_over_button;
+extern int64_t frontend_mouse_over_button;
 
 #pragma pack()
 /******************************************************************************/
@@ -487,24 +487,24 @@ extern TbClockMSec gui_message_timeout;
 
 extern struct GuiMenu *menu_list[MENU_LIST_ITEMS_COUNT];
 
-extern int status_panel_width;
-extern const unsigned long alliance_grid[4][4];
+extern int64_t status_panel_width;
+extern const uint64_t alliance_grid[4][4];
 
 // TESTFONTS_COUNT/testfont/testfont_palette moved to kfx_render's
 // vidmode.h (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
 /******************************************************************************/
 const char * mdlf_default(const char *);
 /******************************************************************************/
-int frontend_font_char_width(int fnt_idx,char c);
-int frontend_font_string_width(int fnt_idx, const char *str);
+int64_t frontend_font_char_width(int64_t fnt_idx,char c);
+int64_t frontend_font_string_width(int64_t fnt_idx, const char *str);
 
 void create_error_box(TextStringId msg_idx);
 void create_message_box(const char *title, const char *line1, const char *line2, const char *line3, const char *line4, const char* line5);
 void gui_area_text(struct GuiButton *gbtn);
-TbBool get_button_area_input(struct GuiButton *gbtn, int a2);
+TbBool get_button_area_input(struct GuiButton *gbtn, int64_t a2);
 void finish_button_area_input(void);
 const char *frontend_button_caption_text(const struct GuiButton *gbtn);
-int frontend_button_caption_font(const struct GuiButton *gbtn, long mouse_over_btn_idx);
+int64_t frontend_button_caption_font(const struct GuiButton *gbtn, int64_t mouse_over_btn_idx);
 void maintain_loadsave(struct GuiButton *gbtn);
 void gui_video_cluedo_maintain(struct GuiButton *gbtn);
 void maintain_zoom_to_event(struct GuiButton *gbtn);
@@ -520,17 +520,17 @@ void gui_area_slider(struct GuiButton *gbtn);
 void frontend_draw_icon(struct GuiButton *gbtn);
 void frontend_draw_error_text_box(struct GuiButton *gbtn);
 void frontend_maintain_error_text_box(struct GuiButton *gbtn);
-short is_toggleable_menu(short mnu_idx);
+int64_t is_toggleable_menu(int64_t mnu_idx);
 
 void activate_room_build_mode(RoomKind rkind, TextStringId tooltip_id);
 void choose_spell(PowerKind pwkind, TextStringId tooltip_id);
 TbBool is_special_power(PowerKind pwkind);
 void choose_special_spell(PowerKind pwkind, TextStringId tooltip_id);
-void choose_workshop_item(int manufctr_idx, TextStringId tooltip_id);
+void choose_workshop_item(int64_t manufctr_idx, TextStringId tooltip_id);
 
-int frontend_load_data(void);
-void frontend_draw_scroll_tab(struct GuiButton *gbtn, long scroll_offset, long first_elem, long last_elem);
-long frontend_scroll_tab_to_offset(struct GuiButton *gbtn, long scr_pos, long first_elem, long last_elem);
+int64_t frontend_load_data(void);
+void frontend_draw_scroll_tab(struct GuiButton *gbtn, int64_t scroll_offset, int64_t first_elem, int64_t last_elem);
+int64_t frontend_scroll_tab_to_offset(struct GuiButton *gbtn, int64_t scr_pos, int64_t first_elem, int64_t last_elem);
 void frontend_init_options_menu(struct GuiMenu *gmnu);
 void frontend_draw_text(struct GuiButton *gbtn);
 void frontend_change_state(struct GuiButton *gbtn);
@@ -560,20 +560,20 @@ void gui_scroll_text_down(struct GuiButton *gbtn);
 // unchanged. Load Game/Options/Quit have fixed targets and no other side
 // effects, so the ImGui screen just requests those states directly --
 // no resolve wrapper needed for them.
-int frontend_ldcampaign_change_state_resolve(void);
+int64_t frontend_ldcampaign_change_state_resolve(void);
 void frontend_ldcampaign_change_state(struct GuiButton *gbtn);
-int frontend_netservice_change_state_resolve(void);
+int64_t frontend_netservice_change_state_resolve(void);
 void frontend_netservice_change_state(struct GuiButton *gbtn);
-int frontend_start_skirmish_resolve(void);
+int64_t frontend_start_skirmish_resolve(void);
 void frontend_start_skirmish(struct GuiButton *gbtn);
 void frontend_main_menu_skirmish_maintain(struct GuiButton *gbtn);
-int frontend_start_new_game_resolve(void);
+int64_t frontend_start_new_game_resolve(void);
 void frontend_start_new_game(struct GuiButton *gbtn);
 void frontend_load_mappacks(struct GuiButton *gbtn);
 void frontend_load_mp_mappacks(struct GuiButton *gbtn);
-int frontend_load_continue_game_resolve(void);
+int64_t frontend_load_continue_game_resolve(void);
 void frontend_load_continue_game(struct GuiButton *gbtn);
-short frontend_save_continue_game(short allow_lvnum_grow);
+int64_t frontend_save_continue_game(int64_t allow_lvnum_grow);
 void frontend_continue_game_maintain(struct GuiButton *gbtn);
 void frontend_main_menu_load_game_maintain(struct GuiButton *gbtn);
 void frontend_mappacks_maintain(struct GuiButton *gbtn);
@@ -587,7 +587,7 @@ void frontend_main_menu_quit_maintain(struct GuiButton *gbtn);
 // the definition in frontend.cpp for why raw/unquantized widths cause
 // buttons to visually overlap or not resize). Reusable by any screen
 // auto-sizing a frontend_draw_button_icon button to its caption text.
-long frontend_menu_button_natural_width(unsigned int febtn_idx, int units_per_px);
+int64_t frontend_menu_button_natural_width(uint64_t febtn_idx, int64_t units_per_px);
 void frontend_load_data_from_cd(void);
 void frontend_load_data_reset(void);
 void init_load_menu(struct GuiMenu *gmnu);
@@ -595,8 +595,8 @@ void init_save_menu(struct GuiMenu *gmnu);
 void init_video_menu(struct GuiMenu *gmnu);
 void init_audio_menu(struct GuiMenu *gmnu);
 void frontend_init_options_menu(struct GuiMenu *gmnu);
-TbBool frontend_is_player_allied(long idx1, long idx2);
-void frontend_set_alliance(long idx1, long idx2);
+TbBool frontend_is_player_allied(int64_t idx1, int64_t idx2);
+void frontend_set_alliance(int64_t idx1, int64_t idx2);
 char update_menu_fade_level(struct GuiMenu *gmnu);
 void draw_menu_buttons(struct GuiMenu *gmnu);
 MenuNumber create_menu(struct GuiMenu *mnu);
@@ -611,29 +611,29 @@ FrontendMenuState frontend_set_state(FrontendMenuState nstate);
 FrontendMenuState get_startup_menu_state(void);
 FrontendMenuState get_menu_state_when_back_from_substate(FrontendMenuState substate);
 void frontend_input(void);
-void frontend_update(short *finish_menu);
-short frontend_draw(void);
-void create_frontend_error_box(long showTime, const char * text);
+void frontend_update(int64_t *finish_menu);
+int64_t frontend_draw(void);
+void create_frontend_error_box(int64_t showTime, const char * text);
 void try_restore_frontend_error_box(); // Restore error box if frontend state was switched
 
-short menu_is_active(short idx);
+int64_t menu_is_active(int64_t idx);
 TbBool a_menu_window_is_active(void);
-short game_is_busy_doing_gui(void);
+int64_t game_is_busy_doing_gui(void);
 void set_gui_visible(TbBool visible);
 void toggle_gui(void);
-void add_message(long plyr_idx, char *msg);
-unsigned long toggle_status_menu(short visib);
+void add_message(int64_t plyr_idx, char *msg);
+uint64_t toggle_status_menu(int64_t visib);
 TbBool toggle_first_person_menu(TbBool visible);
 void toggle_gui_overlay_map(void);
 
 void update_player_objectives(PlayerNumber plyr_idx);
 void set_level_objective(PlayerNumber plyr_idx, const char *msg_text);
 void display_objectives(PlayerNumber plyr_idx,MapSubtlCoord x,MapSubtlCoord y);
-void display_objectives_with_icon(PlayerNumber plyr_idx,MapSubtlCoord x,MapSubtlCoord y, short icon_idx);
+void display_objectives_with_icon(PlayerNumber plyr_idx,MapSubtlCoord x,MapSubtlCoord y, int64_t icon_idx);
 
-short toggle_main_cheat_menu(void);
+int64_t toggle_main_cheat_menu(void);
 TbBool close_main_cheat_menu(void);
-short toggle_instance_cheat_menu(void);
+int64_t toggle_instance_cheat_menu(void);
 TbBool close_instance_cheat_menu(void);
 TbBool open_creature_cheat_menu(void);
 TbBool close_creature_cheat_menu(void);
@@ -645,7 +645,7 @@ void initialise_tab_tags(MenuID menu_id);
 void initialise_tab_tags_and_menu(MenuID menu_id);
 void turn_off_roaming_menus(void);
 
-void frontend_set_player_number(long plr_num);
+void frontend_set_player_number(int64_t plr_num);
 TbBool frontend_start_new_campaign(const char *cmpgn_fname);
 void frontend_draw_product_version(struct GuiButton *gbtn);
 TbBool should_use_delta_time_on_menu(void);

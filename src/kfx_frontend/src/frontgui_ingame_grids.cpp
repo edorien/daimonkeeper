@@ -44,7 +44,7 @@ namespace {
 // falling back to the legacy `spr` sprite -- room_grid()/spell_grid()/
 // trap_grid() pass their item's own code_name; callers with nothing
 // data-driven to override (sell_icon has none) just omit them.
-int build_icon(const char *sid, short spr, bool have_one, bool afford,
+int64_t build_icon(const char *sid, int64_t spr, bool have_one, bool afford,
                bool selected, const ImVec2 &p0, const ImVec2 &sz,
                const char *ov_category = nullptr, const char *ov_code_name = nullptr)
 {
@@ -55,15 +55,15 @@ int build_icon(const char *sid, short spr, bool have_one, bool afford,
 
     if (ov_category != nullptr && ov_code_name != nullptr && ov_code_name[0] != '\0')
     {
-        int ow = 0, oh = 0;
+        int64_t ow = 0, oh = 0;
         bool odim = false;
         void *otex = FeIconOverrideActiveInactive(ov_category, ov_code_name, afford, &ow, &oh, &odim);
         if (otex != nullptr)
         {
-            const unsigned int tint = odim ? IM_COL32(255, 255, 255, 110) : IM_COL32_WHITE;
+            const uint64_t tint = odim ? IM_COL32(255, 255, 255, 110) : IM_COL32_WHITE;
             o.content = [otex, ow, oh, tint](ImDrawList *dl, const ImVec2 &cp0, const ImVec2 &csz) {
-                blit_fit_tex(dl, otex, ow, oh, ImVec2(cp0.x + 3.0f, cp0.y + 3.0f),
-                            ImVec2(csz.x - 6.0f, csz.y - 6.0f), tint);
+                blit_fit_tex(dl, otex, ow, oh, ImVec2(cp0.x + 3.0, cp0.y + 3.0),
+                            ImVec2(csz.x - 6.0, csz.y - 6.0), tint);
             };
             return fe_hud_cell(sid, p0, sz, o);
         }
@@ -79,7 +79,7 @@ int build_icon(const char *sid, short spr, bool have_one, bool afford,
 }
 
 // The sell cell -- a big red "$" (no legacy artwork). Returns 1 on click.
-int sell_icon(const char *sid, const ImVec2 &p0, const ImVec2 &sz)
+int64_t sell_icon(const char *sid, const ImVec2 &p0, const ImVec2 &sz)
 {
     FeHudCellOpts o;
     o.glyph     = "$";
@@ -89,7 +89,7 @@ int sell_icon(const char *sid, const ImVec2 &p0, const ImVec2 &sz)
 
 // One cell standing in for every not-yet-researched item on the panel:
 // a big "?" plus the count in the lower-right corner. Unselectable.
-void unknown_cell(const char *sid, const ImVec2 &p0, const ImVec2 &sz, int count)
+void unknown_cell(const char *sid, const ImVec2 &p0, const ImVec2 &sz, int64_t count)
 {
     FeHudCellOpts o;
     o.swallow   = true;
@@ -101,7 +101,7 @@ void unknown_cell(const char *sid, const ImVec2 &p0, const ImVec2 &sz, int count
 
 // The "big" info strip above the grid -- selected/hovered item's big
 // symbol, name, count, gold cost and (rooms only) a capacity bar.
-void info_band(short bigsym, const char *name, int count, long cost, float bar_frac)
+void info_band(int64_t bigsym, const char *name, int64_t count, int64_t cost, double bar_frac)
 {
     // Not yet designed for Bottom (docs/refactor/ingame-gui/11-horizontal-layout.md):
     // region B's grid claims the whole panel rect (grid_begin()), so this
@@ -110,37 +110,37 @@ void info_band(short bigsym, const char *name, int count, long cost, float bar_f
     if (keeperfx_ui_config.hud_position == 3) // HudPos_Bottom
         return;
 
-    const ImVec2 b0 = grid_pt(6.0f, tcl::INFO_Y0);
-    const ImVec2 b1 = grid_pt(134.0f, tcl::INFO_Y1);
+    const ImVec2 b0 = grid_pt(6.0, tcl::INFO_Y0);
+    const ImVec2 b1 = grid_pt(134.0, tcl::INFO_Y1);
     ImDrawList *dl = ImGui::GetWindowDrawList();
-    relief::well(dl, b0, b1, 3.0f);
-    const float bh = b1.y - b0.y;
+    relief::well(dl, b0, b1, 3.0);
+    const double bh = b1.y - b0.y;
 
     if (bigsym > 0)
-        blit_fit(dl, bigsym, ImVec2(b0.x + 3.0f, b0.y + 3.0f),
-                 ImVec2(bh - 6.0f, bh - 6.0f), IM_COL32_WHITE);
+        blit_fit(dl, bigsym, ImVec2(b0.x + 3.0, b0.y + 3.0),
+                 ImVec2(bh - 6.0, bh - 6.0), IM_COL32_WHITE);
 
-    const float tx = b0.x + bh + 2.0f;
+    const double tx = b0.x + bh + 2.0;
     FeStylePushFont(FeFont_Body);
     if (name != nullptr && name[0] != '\0')
-        dl->AddText(ImVec2(tx, b0.y + 4.0f), COL_TEXT, name);
+        dl->AddText(ImVec2(tx, b0.y + 4.0), COL_TEXT, name);
     char c[48];
     if (count >= 0 && cost >= 0)
-        std::snprintf(c, sizeof(c), "x%d     %ld", count, cost);
+        std::snprintf(c, sizeof(c), "x%" PRId64 "     %" PRId64, (int64_t)(count), (int64_t)(cost));
     else if (cost >= 0)
-        std::snprintf(c, sizeof(c), "%ld", cost);
+        std::snprintf(c, sizeof(c), "%" PRId64, (int64_t)(cost));
     else if (count >= 0)
-        std::snprintf(c, sizeof(c), "x%d", count);
+        std::snprintf(c, sizeof(c), "x%" PRId64, (int64_t)(count));
     else
         c[0] = '\0';
     if (c[0] != '\0')
-        dl->AddText(ImVec2(tx, b0.y + 6.0f + ImGui::GetFontSize()), COL_SUBTEXT, c);
+        dl->AddText(ImVec2(tx, b0.y + 6.0 + ImGui::GetFontSize()), COL_SUBTEXT, c);
     FeStylePopFont();
 
-    if (bar_frac >= 0.0f)
+    if (bar_frac >= 0.0)
     {
-        const ImVec2 g0(tx, b1.y - 16.0f);
-        const ImVec2 g1(b1.x - 4.0f, b1.y - 4.0f);
+        const ImVec2 g0(tx, b1.y - 16.0);
+        const ImVec2 g1(b1.x - 4.0, b1.y - 4.0);
         FeHudBarOpts bo;
         bo.fill = relief::accents().bar_good;
         fe_hud_bar(g0, g1, bar_frac, bo);
@@ -151,7 +151,7 @@ void info_band(short bigsym, const char *name, int count, long cost, float bar_f
 
 // ---- room build grid -------------------------------------------------
 
-struct GridItem { int kind; int order; };
+struct GridItem { int64_t kind; int64_t order; };
 
 void do_sell_rooms(void)
 {
@@ -166,10 +166,10 @@ void room_grid(void)
     struct Dungeon *dungeon = get_my_dungeon();
     if (dungeon_invalid(dungeon))
         return;
-    const int count = kfx_config_state.conf.slab_conf.room_types_count;
+    const int64_t count = kfx_config_state.conf.slab_conf.room_types_count;
 
     std::vector<GridItem> items;
-    for (int k = 1; k < count; k++)
+    for (int64_t k = 1; k < count; k++)
     {
         const struct RoomConfigStats *rs = get_room_kind_stats(k);
         if (rs != nullptr && rs->panel_tab_idx > 0)
@@ -180,12 +180,12 @@ void room_grid(void)
 
     const GridGeom g = grid_begin("##rmGrid");
 
-    int hovered_now = 0;
-    int slot = 0;
-    int hidden = 0;
+    int64_t hovered_now = 0;
+    int64_t slot = 0;
+    int64_t hidden = 0;
     for (const GridItem &it : items)
     {
-        const int k = it.kind;
+        const int64_t k = it.kind;
         const struct RoomConfigStats *rs = get_room_kind_stats(k);
         const bool buildable = (dungeon->room_buildable[k] & 1) != 0;
         const bool researchable = dungeon->room_resrchable[k] == 1 || dungeon->room_resrchable[k] == 2
@@ -198,8 +198,8 @@ void room_grid(void)
         const bool afford = dungeon->total_money_owned >= rs->cost;
         const bool have_one = dungeon->room_list_start[k] > 0;
 
-        char sid[16]; std::snprintf(sid, sizeof(sid), "rm%d", k);
-        const int hit = build_icon(sid, (short)rs->medsym_sprite_idx, have_one, afford,
+        char sid[16]; std::snprintf(sid, sizeof(sid), "rm%" PRId64, (int64_t)(k));
+        const int64_t hit = build_icon(sid, (int64_t)rs->medsym_sprite_idx, have_one, afford,
                                    kfx_sim_state.chosen_room_kind == k,
                                    grid_cell_pos(g, slot), ImVec2(g.cell_w, g.cell_h),
                                    "room", room_code_name(k));
@@ -226,19 +226,19 @@ void room_grid(void)
 
     // Info strip -- always drawn (the recess stays put); only its contents
     // change with the hovered (else chosen) room.
-    int info_kind = hovered_now;
+    int64_t info_kind = hovered_now;
     if (info_kind <= 0) info_kind = kfx_sim_state.chosen_room_kind;
     if (info_kind > 0 && info_kind < count)
     {
         const struct RoomConfigStats *rs = get_room_kind_stats(info_kind);
-        const long pct = find_room_type_capacity_total_percentage(my_player_number, info_kind);
-        info_band((short)rs->bigsym_sprite_idx, get_string(rs->name_stridx),
-                  (int)count_player_rooms_of_type(my_player_number, info_kind),
-                  (long)rs->cost, pct >= 0 ? (float)pct / 256.0f : -1.0f);
+        const int64_t pct = find_room_type_capacity_total_percentage(my_player_number, info_kind);
+        info_band((int64_t)rs->bigsym_sprite_idx, get_string(rs->name_stridx),
+                  (int64_t)count_player_rooms_of_type(my_player_number, info_kind),
+                  (int64_t)rs->cost, pct >= 0 ? (double)pct / 256.0 : -1.0);
     }
     else
     {
-        info_band(0, nullptr, -1, -1, -1.0f);
+        info_band(0, nullptr, -1, -1, -1.0);
     }
 }
 
@@ -250,26 +250,26 @@ void spell_grid(void)
     struct Dungeon *dungeon = get_my_dungeon();
     if (dungeon_invalid(dungeon))
         return;
-    const int count = kfx_config_state.conf.magic_conf.power_types_count;
+    const int64_t count = kfx_config_state.conf.magic_conf.power_types_count;
 
     std::vector<GridItem> items;
-    for (int k = 1; k < count; k++)
+    for (int64_t k = 1; k < count; k++)
     {
         const struct PowerConfigStats *ps = get_power_model_stats(k);
         if (ps != nullptr && ps->panel_tab_idx > 0)
-            items.push_back({ k, (int)ps->panel_tab_idx });
+            items.push_back({ k, (int64_t)ps->panel_tab_idx });
     }
     std::sort(items.begin(), items.end(),
               [](const GridItem &a, const GridItem &b) { return a.order < b.order; });
 
     const GridGeom g = grid_begin("##pwGrid");
 
-    int hovered_now = 0;
-    int slot = 0;
-    int hidden = 0;
+    int64_t hovered_now = 0;
+    int64_t slot = 0;
+    int64_t hidden = 0;
     for (const GridItem &it : items)
     {
-        const int k = it.kind;
+        const int64_t k = it.kind;
         const struct PowerConfigStats *ps = get_power_model_stats(k);
         // Shown once researchable or owned (matches legacy gui_area_spell_button).
         if (!dungeon->magic_resrchable[k] && dungeon->magic_level[k] <= 0)
@@ -291,8 +291,8 @@ void spell_grid(void)
         const GoldAmount price = compute_power_price(dungeon->owner, k, 0);
         const bool afford = castable && (dungeon->total_money_owned >= price);
 
-        char sid[16]; std::snprintf(sid, sizeof(sid), "pw%d", k);
-        const int hit = build_icon(sid, (short)ps->medsym_sprite_idx, false, afford,
+        char sid[16]; std::snprintf(sid, sizeof(sid), "pw%" PRId64, (int64_t)(k));
+        const int64_t hit = build_icon(sid, (int64_t)ps->medsym_sprite_idx, false, afford,
                                    kfx_sim_state.chosen_spell_type == k,
                                    grid_cell_pos(g, slot), ImVec2(g.cell_w, g.cell_h),
                                    "power", ps->code_name);
@@ -311,17 +311,17 @@ void spell_grid(void)
         unknown_cell("pwUnk", grid_cell_pos(g, slot++), ImVec2(g.cell_w, g.cell_h), hidden);
     grid_end(g, slot);
 
-    int info = hovered_now;
+    int64_t info = hovered_now;
     if (info <= 0) info = kfx_sim_state.chosen_spell_type;
     if (info > 0 && info < count)
     {
         const struct PowerConfigStats *ps = get_power_model_stats(info);
-        info_band((short)ps->bigsym_sprite_idx, get_string(ps->name_stridx),
-                  -1, (long)ps->cost[0], -1.0f);
+        info_band((int64_t)ps->bigsym_sprite_idx, get_string(ps->name_stridx),
+                  -1, (int64_t)ps->cost[0], -1.0);
     }
     else
     {
-        info_band(0, nullptr, -1, -1, -1.0f);
+        info_band(0, nullptr, -1, -1, -1.0);
     }
 }
 
@@ -341,27 +341,27 @@ void trap_grid(void)
     struct Dungeon *dungeon = get_my_dungeon();
     if (dungeon_invalid(dungeon))
         return;
-    const int count = kfx_config_state.conf.trapdoor_conf.manufacture_types_count;
+    const int64_t count = kfx_config_state.conf.trapdoor_conf.manufacture_types_count;
 
     std::vector<GridItem> items;
-    for (int m = 1; m < count; m++)
+    for (int64_t m = 1; m < count; m++)
     {
         const struct ManufactureData *md = get_manufacture_data(m);
         if (md != nullptr && md->panel_tab_idx > 0)
-            items.push_back({ m, (int)md->panel_tab_idx });
+            items.push_back({ m, (int64_t)md->panel_tab_idx });
     }
     std::sort(items.begin(), items.end(),
               [](const GridItem &a, const GridItem &b) { return a.order < b.order; });
 
     const GridGeom g = grid_begin("##mfGrid");
 
-    int hovered_model = 0;
-    int hovered_m = 0;
-    int slot = 0;
-    int hidden = 0;
+    int64_t hovered_model = 0;
+    int64_t hovered_m = 0;
+    int64_t slot = 0;
+    int64_t hidden = 0;
     for (const GridItem &it : items)
     {
-        const int m = it.kind;
+        const int64_t m = it.kind;
         const struct ManufactureData *md = get_manufacture_data(m);
         const bool placeable = is_trap_placeable(player->id_number, md->tngmodel)
                             || is_trap_built(player->id_number, md->tngmodel);
@@ -372,7 +372,7 @@ void trap_grid(void)
             continue;
         }
 
-        char sid[16]; std::snprintf(sid, sizeof(sid), "mf%d", m);
+        char sid[16]; std::snprintf(sid, sizeof(sid), "mf%" PRId64, (int64_t)(m));
         // Doors fold under the "trap" override category too (docs/refactor/
         // ingame-gui/12-png-icon-overrides.md §2) -- both render in this one
         // merged tab; only which *_code_name() function names the tngmodel
@@ -383,11 +383,11 @@ void trap_grid(void)
         // (amount < 1) -- this build always drew the enabled icon
         // regardless of how many are left to place (live-tested request:
         // "when item amount < 1 for traps/doors use the disabled icon").
-        const unsigned int amount = (md->tngclass == TCls_Door)
+        const uint64_t amount = (md->tngclass == TCls_Door)
             ? dungeon->mnfct_info.door_amount_placeable[md->tngmodel]
             : dungeon->mnfct_info.trap_amount_placeable[md->tngmodel];
         const bool afford = amount >= 1;
-        const int hit = build_icon(sid, (short)md->medsym_sprite_idx, false, afford,
+        const int64_t hit = build_icon(sid, (int64_t)md->medsym_sprite_idx, false, afford,
                                    kfx_sim_state.manufactr_element == m,
                                    grid_cell_pos(g, slot), ImVec2(g.cell_w, g.cell_h),
                                    "trap", ov_code);
@@ -414,28 +414,28 @@ void trap_grid(void)
     grid_end(g, slot);
     gui_trap_type_highlighted = (char)hovered_model;
 
-    int info_m = hovered_m;
+    int64_t info_m = hovered_m;
     if (info_m <= 0) info_m = kfx_sim_state.manufactr_element;
     if (info_m > 0 && info_m < count)
     {
         const struct ManufactureData *md = get_manufacture_data(info_m);
-        short bigsym = (short)md->bigsym_sprite_idx;
+        int64_t bigsym = (int64_t)md->bigsym_sprite_idx;
         const char *name = "";
-        long req = -1;
+        int64_t req = -1;
         if (md->tngclass == TCls_Trap)
         {
             const struct TrapConfigStats *ts = get_trap_model_stats(md->tngmodel);
-            if (ts != nullptr) { name = get_string(ts->name_stridx); req = (long)ts->manufct_required; }
+            if (ts != nullptr) { name = get_string(ts->name_stridx); req = (int64_t)ts->manufct_required; }
         }
         else
         {
             const struct DoorConfigStats *ds = get_door_model_stats(md->tngmodel);
-            if (ds != nullptr) { name = get_string(ds->name_stridx); req = (long)ds->manufct_required; }
+            if (ds != nullptr) { name = get_string(ds->name_stridx); req = (int64_t)ds->manufct_required; }
         }
-        info_band(bigsym, name, -1, req, -1.0f);
+        info_band(bigsym, name, -1, req, -1.0);
     }
     else
     {
-        info_band(0, nullptr, -1, -1, -1.0f);
+        info_band(0, nullptr, -1, -1, -1.0);
     }
 }

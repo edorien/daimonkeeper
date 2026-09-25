@@ -102,18 +102,18 @@ static void set_lock_cursor_in_possession(TbBool val)
 }
 static TbBool lock_cursor_in_possession_enabled(void) { return !lbMouseGrab; } // enabled while alt input is on
 
-static long get_gui_blink_rate(void) { return keeperfx_ui_config.gui_blink_rate; }
-static void set_gui_blink_rate(long val) { keeperfx_ui_config.gui_blink_rate = (int)val; }
+static int64_t get_gui_blink_rate(void) { return keeperfx_ui_config.gui_blink_rate; }
+static void set_gui_blink_rate(int64_t val) { keeperfx_ui_config.gui_blink_rate = (int64_t)val; }
 
-static long get_creature_status_size(void) { return keeperfx_ui_config.creature_status_size; }
-static void set_creature_status_size(long val) { keeperfx_ui_config.creature_status_size = (int)val; }
+static int64_t get_creature_status_size(void) { return keeperfx_ui_config.creature_status_size; }
+static void set_creature_status_size(int64_t val) { keeperfx_ui_config.creature_status_size = (int64_t)val; }
 
 // DISPLAY_NUMBER is stored 0-based (display_id) but shown to the user
 // 1-based ("1 for the main monitor, 2 for the second monitor, ..." --
 // config/keeperfx.cfg's own comment); the schema mirrors that convention
 // rather than exposing the raw 0-based storage.
-static long get_display_number(void) { return (long)display_id + 1; }
-static void set_display_number(long val) { display_id = (unsigned short)(val - 1); }
+static int64_t get_display_number(void) { return (int64_t)display_id + 1; }
+static void set_display_number(int64_t val) { display_id = (int64_t)(val - 1); }
 
 // UI_FONT_SCALE (KeeperFX-only, no equivalent in original DK): a percentage
 // multiplier FeStylePushFont (frontgui_style.cpp) applies on top of its own
@@ -140,21 +140,21 @@ static const struct NamedCommand ui_font_scale_enum[] = {
     {"200", 200},
     {NULL,  0},
 };
-static long get_ui_font_scale(void) { return keeperfx_ui_config.ui_font_scale_pct; }
-static void set_ui_font_scale(long val) { keeperfx_ui_config.ui_font_scale_pct = (int)val; }
+static int64_t get_ui_font_scale(void) { return keeperfx_ui_config.ui_font_scale_pct; }
+static void set_ui_font_scale(int64_t val) { keeperfx_ui_config.ui_font_scale_pct = (int64_t)val; }
 
 // GUI_POSITION (case 55, config_keeperfx.c): reuses hud_position_type[]
 // (config_keeperfx.c) verbatim, the same way SCREENSHOT reuses scrshot_type[]
 // above -- no alias/legacy-token concerns here to justify a separate table.
-static long get_hud_position(void) { return keeperfx_ui_config.hud_position; }
-static void set_hud_position(long val) { keeperfx_ui_config.hud_position = (int)val; }
+static int64_t get_hud_position(void) { return keeperfx_ui_config.hud_position; }
+static void set_hud_position(int64_t val) { keeperfx_ui_config.hud_position = (int64_t)val; }
 
 // MINIMAP_CORNER (case 57, config_keeperfx.c): reuses minimap_corner_type[]
 // verbatim, same shape as GUI_POSITION above. Only meaningful when
 // GUI_POSITION is MINIMAL -- is_enabled shows the row but greys it out
 // otherwise (docs/refactor/ingame-gui/13-minimal-layout.md).
-static long get_minimap_corner(void) { return keeperfx_ui_config.minimap_corner; }
-static void set_minimap_corner(long val) { keeperfx_ui_config.minimap_corner = (int)val; }
+static int64_t get_minimap_corner(void) { return keeperfx_ui_config.minimap_corner; }
+static void set_minimap_corner(int64_t val) { keeperfx_ui_config.minimap_corner = (int64_t)val; }
 static TbBool minimap_corner_enabled(void) { return keeperfx_ui_config.hud_position == 4; }
 
 // UI_FONT (case 53, config_keeperfx.c): the ImGui-frontend typeface. Like
@@ -171,7 +171,7 @@ static struct NamedCommand ui_font_enum[UI_FONT_MAX_ENTRIES + 1];
 static char ui_font_names[UI_FONT_MAX_ENTRIES][UI_FONT_NAME_LEN];
 static TbBool ui_font_enum_ready = false;
 
-static void ui_font_add(int *n, const char *name)
+static void ui_font_add(int64_t *n, const char *name)
 {
     if (*n >= UI_FONT_MAX_ENTRIES)
         return;
@@ -187,7 +187,7 @@ static void ensure_ui_font_enum(void)
         return;
     ui_font_enum_ready = true;
 
-    int n = 0;
+    int64_t n = 0;
     ui_font_add(&n, "AUTO");
     ui_font_add(&n, "CINZEL");
 
@@ -201,9 +201,9 @@ static void ensure_ui_font_enum(void)
     if (font_dir != NULL)
     {
         char subs[UI_FONT_MAX_ENTRIES][UI_FONT_NAME_LEN];
-        int count = PlatformManager_ListSubdirectories(font_dir, &subs[0][0],
+        int64_t count = PlatformManager_ListSubdirectories(font_dir, &subs[0][0],
                                                        UI_FONT_NAME_LEN, UI_FONT_MAX_ENTRIES);
-        for (int i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
         {
             // Skip the bundled Cinzel dir -- already offered as "Cinzel".
             if (strcasecmp(subs[i], "Cinzel") == 0)
@@ -216,16 +216,16 @@ static void ensure_ui_font_enum(void)
     ui_font_enum[n].num = 0;
 }
 
-static long get_ui_font(void)
+static int64_t get_ui_font(void)
 {
     ensure_ui_font_enum();
-    for (int i = 0; ui_font_enum[i].name != NULL; i++)
+    for (int64_t i = 0; ui_font_enum[i].name != NULL; i++)
         if (strcasecmp(ui_font_enum[i].name, keeperfx_ui_config.ui_font) == 0)
             return i;
     return 0; // AUTO
 }
 
-static void set_ui_font(long idx)
+static void set_ui_font(int64_t idx)
 {
     ensure_ui_font_enum();
     if ((idx < 0) || (idx >= UI_FONT_MAX_ENTRIES) || (ui_font_enum[idx].name == NULL))
@@ -265,14 +265,14 @@ static struct NamedCommand gui_icon_pack_enum[GUI_ICON_PACK_MAX_ENTRIES + 1];
 static char gui_icon_pack_names[GUI_ICON_PACK_MAX_ENTRIES][GUI_ICON_PACK_NAME_LEN];
 static TbBool gui_icon_pack_enum_ready = false;
 
-static void gui_icon_pack_add(int *n, const char *name)
+static void gui_icon_pack_add(int64_t *n, const char *name)
 {
     if (*n >= GUI_ICON_PACK_MAX_ENTRIES)
         return;
     // Skip a folder that happens to collide (case-insensitively) with one
     // of the two reserved names above -- added first, so this only ever
     // catches the folder-scan loop below trying to add a duplicate.
-    for (int i = 0; i < *n; i++)
+    for (int64_t i = 0; i < *n; i++)
         if (strcasecmp(gui_icon_pack_enum[i].name, name) == 0)
             return;
     snprintf(gui_icon_pack_names[*n], GUI_ICON_PACK_NAME_LEN, "%s", name);
@@ -287,7 +287,7 @@ static void ensure_gui_icon_pack_enum(void)
         return;
     gui_icon_pack_enum_ready = true;
 
-    int n = 0;
+    int64_t n = 0;
     gui_icon_pack_add(&n, "NONE");
     gui_icon_pack_add(&n, "CLASSIC");
 
@@ -295,9 +295,9 @@ static void ensure_gui_icon_pack_enum(void)
     if (gui_dir != NULL)
     {
         char subs[GUI_ICON_PACK_MAX_ENTRIES][GUI_ICON_PACK_NAME_LEN];
-        int count = PlatformManager_ListSubdirectories(gui_dir, &subs[0][0],
+        int64_t count = PlatformManager_ListSubdirectories(gui_dir, &subs[0][0],
                                                        GUI_ICON_PACK_NAME_LEN, GUI_ICON_PACK_MAX_ENTRIES);
-        for (int i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
             gui_icon_pack_add(&n, subs[i]);
     }
 
@@ -305,16 +305,16 @@ static void ensure_gui_icon_pack_enum(void)
     gui_icon_pack_enum[n].num = 0;
 }
 
-static long get_gui_icon_pack(void)
+static int64_t get_gui_icon_pack(void)
 {
     ensure_gui_icon_pack_enum();
-    for (int i = 0; gui_icon_pack_enum[i].name != NULL; i++)
+    for (int64_t i = 0; gui_icon_pack_enum[i].name != NULL; i++)
         if (strcasecmp(gui_icon_pack_enum[i].name, keeperfx_ui_config.gui_icon_pack) == 0)
             return i;
     return 0; // NONE
 }
 
-static void set_gui_icon_pack(long idx)
+static void set_gui_icon_pack(int64_t idx)
 {
     ensure_gui_icon_pack_enum();
     if ((idx < 0) || (idx >= GUI_ICON_PACK_MAX_ENTRIES) || (gui_icon_pack_enum[idx].name == NULL))
@@ -343,10 +343,10 @@ static void reset_campaign_progress_action(void) { config_reload_callbacks->rese
 // and persist via save_settings() to save/settings.toml, not keeperfx.cfg
 // (see persist_via_save_settings's own doc comment, config_settingschema.h).
 // Range 0-3 for both, matching config_settings.c's own clamp() on load.
-static long get_video_shadows(void) { return settings.video_shadows; }
-static void set_video_shadows(long val) { settings.video_shadows = (unsigned char)val; }
-static long get_view_distance(void) { return settings.view_distance; }
-static void set_view_distance(long val) { settings.view_distance = (unsigned char)val; }
+static int64_t get_video_shadows(void) { return settings.video_shadows; }
+static void set_video_shadows(int64_t val) { settings.video_shadows = (unsigned char)val; }
+static int64_t get_view_distance(void) { return settings.view_distance; }
+static void set_view_distance(int64_t val) { settings.view_distance = (unsigned char)val; }
 
 static TbBool get_easter_egg(void) { return start_params.easter_egg; }
 static void set_easter_egg(TbBool val) { start_params.easter_egg = val; }
@@ -364,11 +364,11 @@ static void set_flee_button_default(TbBool val) { FLEE_BUTTON_DEFAULT = val; }
 static TbBool get_imprison_button_default(void) { return IMPRISON_BUTTON_DEFAULT; }
 static void set_imprison_button_default(TbBool val) { IMPRISON_BUTTON_DEFAULT = val; }
 
-static long get_line_box_size(void) { return keeperfx_ui_config.line_box_size; }
-static void set_line_box_size(long val) { keeperfx_ui_config.line_box_size = (int)val; }
+static int64_t get_line_box_size(void) { return keeperfx_ui_config.line_box_size; }
+static void set_line_box_size(int64_t val) { keeperfx_ui_config.line_box_size = (int64_t)val; }
 
-static long get_neutral_flash_rate(void) { return keeperfx_ui_config.neutral_flash_rate; }
-static void set_neutral_flash_rate(long val) { keeperfx_ui_config.neutral_flash_rate = (int)val; }
+static int64_t get_neutral_flash_rate(void) { return keeperfx_ui_config.neutral_flash_rate; }
+static void set_neutral_flash_rate(int64_t val) { keeperfx_ui_config.neutral_flash_rate = (int64_t)val; }
 
 static TbBool get_atmospheric_sounds(void) { return is_feature_on(Ft_Atmossounds); }
 static void set_atmospheric_sounds(TbBool val)
@@ -404,17 +404,17 @@ static void set_cursor_edge_camera_panning(TbBool val)
 static TbBool get_tag_mode_toggling(void) { return keeperfx_ui_config.right_click_tag_mode_toggle; }
 static void set_tag_mode_toggling(TbBool val) { keeperfx_ui_config.right_click_tag_mode_toggle = val; }
 
-static long get_atmos_volume(void) { return atmos_sound_volume; }
-static void set_atmos_volume(long val) { atmos_sound_volume = (int)val; }
+static int64_t get_atmos_volume(void) { return atmos_sound_volume; }
+static void set_atmos_volume(int64_t val) { atmos_sound_volume = (int64_t)val; }
 
-static long get_atmos_frequency(void) { return kfx_config_state.atmos_sound_frequency; }
-static void set_atmos_frequency(long val) { kfx_config_state.atmos_sound_frequency = (int)val; }
+static int64_t get_atmos_frequency(void) { return kfx_config_state.atmos_sound_frequency; }
+static void set_atmos_frequency(int64_t val) { kfx_config_state.atmos_sound_frequency = (int64_t)val; }
 
-static long get_default_tag_mode(void) { return keeperfx_ui_config.default_tag_mode; }
-static void set_default_tag_mode(long val) { keeperfx_ui_config.default_tag_mode = (int)val; }
+static int64_t get_default_tag_mode(void) { return keeperfx_ui_config.default_tag_mode; }
+static void set_default_tag_mode(int64_t val) { keeperfx_ui_config.default_tag_mode = (int64_t)val; }
 
-static long get_language(void) { return install_info.lang_id; }
-static void set_language(long val) { install_info.lang_id = (int)val; }
+static int64_t get_language(void) { return install_info.lang_id; }
+static void set_language(int64_t val) { install_info.lang_id = (int64_t)val; }
 
 static TbBool get_delta_time(void) { return is_feature_on(Ft_DeltaTime); }
 static void set_delta_time(TbBool val)
@@ -441,8 +441,8 @@ static const struct NamedCommand zoom_to_mouse_enum[] = {
     {"ALWAYS", 3}, // ZoomToMouse_Always
     {NULL, 0},
 };
-static long get_zoom_to_mouse(void) { return keeperfx_ui_config.zoom_to_mouse_option; }
-static void set_zoom_to_mouse(long val) { keeperfx_ui_config.zoom_to_mouse_option = (int)val; }
+static int64_t get_zoom_to_mouse(void) { return keeperfx_ui_config.zoom_to_mouse_option; }
+static void set_zoom_to_mouse(int64_t val) { keeperfx_ui_config.zoom_to_mouse_option = (int64_t)val; }
 
 static const struct NamedCommand rotate_around_mouse_enum[] = {
     {"NEVER", 1}, // RotateAroundMouse_Never
@@ -451,8 +451,8 @@ static const struct NamedCommand rotate_around_mouse_enum[] = {
     {"ALWAYS", 4}, // RotateAroundMouse_Always
     {NULL, 0},
 };
-static long get_rotate_around_mouse(void) { return keeperfx_ui_config.rotate_around_mouse_option; }
-static void set_rotate_around_mouse(long val) { keeperfx_ui_config.rotate_around_mouse_option = (int)val; }
+static int64_t get_rotate_around_mouse(void) { return keeperfx_ui_config.rotate_around_mouse_option; }
+static void set_rotate_around_mouse(int64_t val) { keeperfx_ui_config.rotate_around_mouse_option = (int64_t)val; }
 
 // SCREENSHOT reuses scrshot_type[] (config_keeperfx.c) the same way
 // ATMOS_VOLUME reuses atmos_volume[] -- but unlike every other row so far,
@@ -462,8 +462,8 @@ static void set_rotate_around_mouse(long val) { keeperfx_ui_config.rotate_around
 // ConfigReloadCallbacks (config.h) alongside the existing
 // set_screenshot_format for this row to have something to read the
 // current value from.
-static long get_screenshot_format(void) { return config_reload_callbacks->get_screenshot_format(); }
-static void set_screenshot_format_val(long val) { config_reload_callbacks->set_screenshot_format((unsigned char)val); }
+static int64_t get_screenshot_format(void) { return config_reload_callbacks->get_screenshot_format(); }
+static void set_screenshot_format_val(int64_t val) { config_reload_callbacks->set_screenshot_format((unsigned char)val); }
 
 // HAND_SIZE's own config-key parsing (case 30, config_keeperfx.c) already
 // reads/writes it as an integer *percentage* (atoi(word_buf), then
@@ -473,8 +473,8 @@ static void set_screenshot_format_val(long val) { config_reload_callbacks->set_s
 // new float schema type. Needed a new get_hand_scale callback the same way
 // SCREENSHOT needed get_screenshot_format -- config_keeperfx.c's own
 // parser only ever wrote this value, never read it back.
-static long get_hand_size_pct(void) { return (long)(config_reload_callbacks->get_hand_scale() * 100.0f + 0.5f); }
-static void set_hand_size_pct(long val) { config_reload_callbacks->set_hand_scale((float)val / 100.0f); }
+static int64_t get_hand_size_pct(void) { return (int64_t)(config_reload_callbacks->get_hand_scale() * 100.0 + 0.5); }
+static void set_hand_size_pct(int64_t val) { config_reload_callbacks->set_hand_scale((double)val / 100.0); }
 
 // RESIZE_MOVIES's own config-key parsing (case 14, config_keeperfx.c) is
 // two storage locations combined into one option: Ft_Resizemovies (on/off)
@@ -496,8 +496,8 @@ static const struct NamedCommand resize_movies_enum[] = {
     {"4BY3PP", SMK_FullscreenFit | SMK_FullscreenStretch | SMK_FullscreenCrop},
     {NULL, 0},
 };
-static long get_resize_movies(void) { return is_feature_on(Ft_Resizemovies) ? (long)vid_scale_flags : 0; }
-static void set_resize_movies(long val)
+static int64_t get_resize_movies(void) { return is_feature_on(Ft_Resizemovies) ? (int64_t)vid_scale_flags : 0; }
+static void set_resize_movies(int64_t val)
 {
     if (val == 0)
     {
@@ -506,7 +506,7 @@ static void set_resize_movies(long val)
     else
     {
         features_enabled |= Ft_Resizemovies;
-        vid_scale_flags = (unsigned int)val;
+        vid_scale_flags = (uint64_t)val;
     }
 }
 
@@ -530,9 +530,9 @@ static void set_resize_movies(long val)
 // resolution is active now" without first re-deriving width/height from
 // it anyway. Both values comfortably fit 16 bits (SDL reports pixel
 // dimensions, never anywhere near 65536).
-#define INGAME_RES_ENCODE(w, h) (((long)(w) << 16) | (long)((h) & 0xFFFF))
-#define INGAME_RES_WIDTH(val) (int)((val) >> 16)
-#define INGAME_RES_HEIGHT(val) (int)((val) & 0xFFFF)
+#define INGAME_RES_ENCODE(w, h) (((int64_t)(w) << 16) | (int64_t)((h) & 0xFFFF))
+#define INGAME_RES_WIDTH(val) (int64_t)((val) >> 16)
+#define INGAME_RES_HEIGHT(val) (int64_t)((val) & 0xFFFF)
 
 #define INGAME_RES_MAX_ENTRIES 32
 static struct NamedCommand ingame_res_enum[INGAME_RES_MAX_ENTRIES + 1];
@@ -547,15 +547,15 @@ static void ensure_ingame_res_enum(void)
     if (ingame_res_enum_ready)
         return;
     ingame_res_enum_ready = true;
-    int count = PlatformManager_GetFullscreenDisplayModeCount(0);
+    int64_t count = PlatformManager_GetFullscreenDisplayModeCount(0);
     if (count > INGAME_RES_MAX_ENTRIES) count = INGAME_RES_MAX_ENTRIES;
-    int n = 0;
-    for (int i = 0; i < count; i++)
+    int64_t n = 0;
+    for (int64_t i = 0; i < count; i++)
     {
-        int w = 0, h = 0;
+        int64_t w = 0, h = 0;
         if (!PlatformManager_GetFullscreenDisplayModeAt(0, i, &w, &h) || (w <= 0) || (h <= 0))
             continue;
-        snprintf(ingame_res_names[n], sizeof(ingame_res_names[n]), "%dx%dx32", w, h);
+        snprintf(ingame_res_names[n], sizeof(ingame_res_names[n]), "%" PRId64 "x%" PRId64 "x32", (int64_t)(w), (int64_t)(h));
         ingame_res_enum[n].name = ingame_res_names[n];
         ingame_res_enum[n].num = INGAME_RES_ENCODE(w, h);
         n++;
@@ -564,7 +564,7 @@ static void ensure_ingame_res_enum(void)
     ingame_res_enum[n].num = 0;
 }
 
-static long get_ingame_res(void)
+static int64_t get_ingame_res(void)
 {
     // INGAME_RES is SApply_NeedsRestart: reading LbScreenActiveMode() (the
     // currently-applied mode) would make the combo immediately revert to
@@ -579,10 +579,10 @@ static long get_ingame_res(void)
     return INGAME_RES_ENCODE(info->Width, info->Height);
 }
 
-static void set_ingame_res(long val)
+static void set_ingame_res(int64_t val)
 {
     char word_buf[16];
-    snprintf(word_buf, sizeof(word_buf), "%dx%dx32", INGAME_RES_WIDTH(val), INGAME_RES_HEIGHT(val));
+    snprintf(word_buf, sizeof(word_buf), "%" PRId64 "x%" PRId64 "x32", (int64_t)(INGAME_RES_WIDTH(val)), (int64_t)(INGAME_RES_HEIGHT(val)));
     TbScreenMode mode = LbRegisterVideoModeString(word_buf);
     if (mode != Lb_SCREEN_MODE_INVALID)
         config_reload_callbacks->set_screen_vidmode(mode);
@@ -600,8 +600,8 @@ static void set_ingame_res(long val)
 // beyond zeroing LbMouseChangeMoveRatio() isn't something this pass could
 // confirm, and a checkbox asserting an unverified behaviour is worse than
 // no checkbox. The plain slider still reaches 0 by dragging it down.)
-static long get_pointer_sensitivity_pct(void) { return config_reload_callbacks->get_base_mouse_sensitivity() * 100 / 256; }
-static void set_pointer_sensitivity_pct(long val) { config_reload_callbacks->set_base_mouse_sensitivity(val * 256 / 100); }
+static int64_t get_pointer_sensitivity_pct(void) { return config_reload_callbacks->get_base_mouse_sensitivity() * 100 / 256; }
+static void set_pointer_sensitivity_pct(int64_t val) { config_reload_callbacks->set_base_mouse_sensitivity(val * 256 / 100); }
 
 // STARTUP's own config-key parsing (case 22, config_keeperfx.c) accepts a
 // space-separated token list -- LEGAL/FX/BULLFROG(hidden)/EA(hidden)/INTRO,
@@ -667,8 +667,8 @@ static void set_fps_auto(TbBool val)
     start_params.num_fps_draw_main = val ? -1 : 0; // 0 is num_fps_draw_main's own real default (uncapped)
 }
 
-static long get_fps_limit(void) { return (start_params.num_fps_draw_main > 0) ? start_params.num_fps_draw_main : 0; }
-static void set_fps_limit(long val) { start_params.num_fps_draw_main = val; }
+static int64_t get_fps_limit(void) { return (start_params.num_fps_draw_main > 0) ? start_params.num_fps_draw_main : 0; }
+static void set_fps_limit(int64_t val) { start_params.num_fps_draw_main = val; }
 static TbBool fps_limit_enabled(void) { return start_params.num_fps_draw_main != -1; }
 
 static const char *format_fps_cfg_value(void)
@@ -677,13 +677,13 @@ static const char *format_fps_cfg_value(void)
     if (start_params.num_fps_draw_main == -1)
     {
         if (start_params.num_fps_draw_secondary > 0)
-            snprintf(buf, sizeof(buf), "AUTO %ld", (long)start_params.num_fps_draw_secondary);
+            snprintf(buf, sizeof(buf), "AUTO %" PRId64, (int64_t)start_params.num_fps_draw_secondary);
         else
             snprintf(buf, sizeof(buf), "AUTO");
     }
     else
     {
-        snprintf(buf, sizeof(buf), "%ld", (long)start_params.num_fps_draw_main);
+        snprintf(buf, sizeof(buf), "%" PRId64, (int64_t)start_params.num_fps_draw_main);
     }
     return buf;
 }
@@ -989,7 +989,7 @@ const struct SettingOption setting_options[] = {
     },
 };
 
-const int setting_options_count = sizeof(setting_options) / sizeof(setting_options[0]);
+const int64_t setting_options_count = sizeof(setting_options) / sizeof(setting_options[0]);
 
 void setting_option_apply_bool(const struct SettingOption *opt, TbBool val)
 {
@@ -1018,7 +1018,7 @@ void setting_option_apply_bool(const struct SettingOption *opt, TbBool val)
     keeperfx_cfg_write_values(&edit, 1);
 }
 
-void setting_option_apply_int(const struct SettingOption *opt, long val)
+void setting_option_apply_int(const struct SettingOption *opt, int64_t val)
 {
     if ((opt == NULL) || (opt->type != SOptT_Int) || (opt->set_int == NULL))
     {
@@ -1041,30 +1041,30 @@ void setting_option_apply_int(const struct SettingOption *opt, long val)
     }
     else
     {
-        snprintf(valbuf, sizeof(valbuf), "%ld", val);
+        snprintf(valbuf, sizeof(valbuf), "%" PRId64, (int64_t)(val));
         write_val = valbuf;
     }
     struct KeeperfxCfgEdit edit = { opt->cfg_key, write_val };
     keeperfx_cfg_write_values(&edit, 1);
 }
 
-int setting_option_enum_count(const struct SettingOption *opt)
+int64_t setting_option_enum_count(const struct SettingOption *opt)
 {
     if ((opt == NULL) || (opt->type != SOptT_Enum) || (opt->enum_table == NULL))
         return 0;
     if (opt->ensure_enum_table != NULL) opt->ensure_enum_table();
-    int n = 0;
+    int64_t n = 0;
     while (opt->enum_table[n].name != NULL) n++;
     return n;
 }
 
-int setting_option_enum_current_index(const struct SettingOption *opt)
+int64_t setting_option_enum_current_index(const struct SettingOption *opt)
 {
     if ((opt == NULL) || (opt->type != SOptT_Enum) || (opt->enum_table == NULL) || (opt->get_enum == NULL))
         return 0;
     if (opt->ensure_enum_table != NULL) opt->ensure_enum_table();
-    long val = opt->get_enum();
-    for (int i = 0; opt->enum_table[i].name != NULL; i++)
+    int64_t val = opt->get_enum();
+    for (int64_t i = 0; opt->enum_table[i].name != NULL; i++)
     {
         if (opt->enum_table[i].num == val)
             return i;
@@ -1072,7 +1072,7 @@ int setting_option_enum_current_index(const struct SettingOption *opt)
     return 0;
 }
 
-const char *setting_option_enum_item_name(const struct SettingOption *opt, int index)
+const char *setting_option_enum_item_name(const struct SettingOption *opt, int64_t index)
 {
     if ((opt == NULL) || (opt->type != SOptT_Enum) || (opt->enum_table == NULL))
         return "";
@@ -1082,7 +1082,7 @@ const char *setting_option_enum_item_name(const struct SettingOption *opt, int i
     return opt->enum_table[index].name;
 }
 
-void setting_option_apply_enum_index(const struct SettingOption *opt, int index)
+void setting_option_apply_enum_index(const struct SettingOption *opt, int64_t index)
 {
     if ((opt == NULL) || (opt->type != SOptT_Enum) || (opt->enum_table == NULL) || (opt->set_enum == NULL))
     {

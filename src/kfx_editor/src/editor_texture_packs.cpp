@@ -14,28 +14,28 @@
 #include <vector>
 #include "post_inc.h"
 
-int editor_texture_pack_choices(LevelNumber lvnum, const EditorTexturePackChoice **out)
+int64_t editor_texture_pack_choices(LevelNumber lvnum, const EditorTexturePackChoice **out)
 {
     static std::vector<std::string> labels;
     static std::vector<EditorTexturePackChoice> choices;
     labels.clear();
     choices.clear();
     labels.reserve(256);
-    for (int i = 0; i < kTexturePackItemCount; i++)
+    for (int64_t i = 0; i < kTexturePackItemCount; i++)
         labels.push_back(kTexturePackItems[i]);
-    const short fgroup = get_level_fgroup(lvnum);
-    for (int id = kTexturePackItemCount; id < 256; id++)
+    const int64_t fgroup = get_level_fgroup(lvnum);
+    for (int64_t id = kTexturePackItemCount; id < 256; id++)
     {
-        if (texture_pack_available((unsigned long)id, lvnum, fgroup))
+        if (texture_pack_available((uint64_t)id, lvnum, fgroup))
         {
             char buf[32];
-            snprintf(buf, sizeof(buf), "%d: Custom", id);
+            snprintf(buf, sizeof(buf), "%" PRId64 ": Custom", (int64_t)(id));
             labels.push_back(buf);
         }
         else
             labels.push_back(std::string());
     }
-    for (int id = 0; id < 256; id++)
+    for (int64_t id = 0; id < 256; id++)
     {
         if (labels[(size_t)id].empty())
             continue;
@@ -45,16 +45,16 @@ int editor_texture_pack_choices(LevelNumber lvnum, const EditorTexturePackChoice
         choices.push_back(c);
     }
     *out = choices.data();
-    return (int)choices.size();
+    return (int64_t)choices.size();
 }
 
-bool editor_texture_pack_combo(const char *label, int *texture_id, LevelNumber lvnum)
+bool editor_texture_pack_combo(const char *label, int64_t *texture_id, LevelNumber lvnum)
 {
     const EditorTexturePackChoice *choices = nullptr;
-    const int count = editor_texture_pack_choices(lvnum, &choices);
+    const int64_t count = editor_texture_pack_choices(lvnum, &choices);
     std::vector<const char *> items;
-    int current = 0;
-    for (int i = 0; i < count; i++)
+    int64_t current = 0;
+    for (int64_t i = 0; i < count; i++)
     {
         items.push_back(choices[i].label);
         if (choices[i].id == *texture_id)

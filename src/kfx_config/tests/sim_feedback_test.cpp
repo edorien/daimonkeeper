@@ -24,7 +24,7 @@ TEST_CASE("the default sim_feedback table's every stub is a safe no-op returning
     sim_feedback->clear_messages_from_player(0, 0);
     sim_feedback->targeted_message_add(0, 0, 0, 0, nullptr);
     sim_feedback->message_add(0, 0, nullptr);
-    sim_feedback->message_add_fmt(0, 0, "%d", 1);
+    sim_feedback->message_add_fmt(0, 0, "%" PRId64, (int64_t)(1));
     sim_feedback->zero_messages();
     sim_feedback->show_real_time_taken();
 

@@ -37,9 +37,9 @@ struct LuaLensConfig {
     std::string overlay_file;
     std::string palette_name;
     
-    int displacement_type;
-    int displacement_magnitude;
-    int displacement_period;
+    int64_t displacement_type;
+    int64_t displacement_magnitude;
+    int64_t displacement_period;
     
     std::map<std::string, double> custom_params;  // User-defined parameters
 };
@@ -61,12 +61,12 @@ public:
     LuaLensEffect(const char* lens_name, lua_State* L);
     virtual ~LuaLensEffect();
     
-    virtual TbBool Setup(long lens_idx) override;
+    virtual TbBool Setup(int64_t lens_idx) override;
     virtual void Cleanup() override;
     virtual TbBool Draw(LensRenderContext* ctx) override;
     
     // LUA integration
-    void SetDrawCallback(int lua_ref);
+    void SetDrawCallback(int64_t lua_ref);
     void SetConfig(const LuaLensConfig& config);
     void SetParameter(const std::string& name, double value);
     double GetParameter(const std::string& name) const;
@@ -86,10 +86,10 @@ private:
     
     std::string m_lens_name;
     lua_State* m_lua_state;
-    int m_draw_callback_ref;  // LUA registry reference to callback
+    int64_t m_draw_callback_ref;  // LUA registry reference to callback
     
     LuaLensConfig m_config;
-    long m_current_lens;
+    int64_t m_current_lens;
 };
 
 /******************************************************************************/

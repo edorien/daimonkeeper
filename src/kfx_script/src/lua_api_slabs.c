@@ -43,7 +43,7 @@ static int lua_GET_CREATURES(lua_State *L)
 
     lua_newtable(L); // Create a new table to store creatures
 
-    int k = 0;
+    int64_t k = 0;
     ThingIndex i = get_mapwho_thing_index(mapblk);
     while (i != 0) {
         struct Thing* thing = thing_get(i);
@@ -82,7 +82,7 @@ static const struct luaL_Reg slab_methods[] = {
     MapSlabCoord slb_x, slb_y;
     luaL_checkSlab(L, 1, &slb_x, &slb_y);
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "Slab(%d,%d)", (int)slb_x, (int)slb_y);
+    snprintf(buffer, sizeof(buffer), "Slab(%" PRId64 ",%" PRId64 ")", (int64_t)slb_x, (int64_t)slb_y);
     lua_pushstring(L, buffer);
     return 1;
  }
@@ -187,7 +187,7 @@ static int slab_eq(lua_State *L) {
      // Create a methods table
      luaL_newlib(L, slab_methods);
 
-     for (int i = 0; slab_methods[i].name != NULL; i++) {
+     for (int64_t i = 0; slab_methods[i].name != NULL; i++) {
          const char *name = slab_methods[i].name;
          lua_pushcfunction(L, slab_methods[i].func);
          lua_setfield(L, -2, name);

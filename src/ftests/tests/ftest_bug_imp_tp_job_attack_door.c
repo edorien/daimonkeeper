@@ -130,21 +130,21 @@ FTestActionResult ftest_bug_imp_tp_job_attack_door_action001__setup_map(struct F
     struct Thing* heartng = get_player_soul_container(vars->HUMAN_PLAYER);
     if (!thing_exists(heartng))
     {
-        FTEST_FAIL_TEST("No dungeon heart found for player %d", vars->HUMAN_PLAYER);
+        FTEST_FAIL_TEST("No dungeon heart found for player %" PRId64, (int64_t)(vars->HUMAN_PLAYER));
         return FTRs_Go_To_Next_Action;
     }
 
     struct Dungeon* dungeon = get_dungeon(vars->HUMAN_PLAYER);
     if(dungeon_invalid(dungeon))
     {
-        FTEST_FAIL_TEST("Dungeon for player %d not valid", vars->HUMAN_PLAYER);
+        FTEST_FAIL_TEST("Dungeon for player %" PRId64 " not valid", (int64_t)(vars->HUMAN_PLAYER));
         return FTRs_Go_To_Next_Action;
     }
 
     struct PlayerInfo* player = get_player(dungeon->owner);
     if(player_invalid(player))
     {
-        FTEST_FAIL_TEST("Player %d not found", vars->HUMAN_PLAYER);
+        FTEST_FAIL_TEST("Player %" PRId64 " not found", (int64_t)(vars->HUMAN_PLAYER));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -212,7 +212,7 @@ FTestActionResult ftest_bug_imp_tp_job_attack_door_action001__setup_map(struct F
     vars->door = get_door_for_position(stl_x_door, stl_y_door);
     if (thing_is_invalid(vars->door))
     {
-        FTEST_FAIL_TEST("Failed to find door at (%d,%d), this should never happen! Was the map changed!?", vars->slb_x_door, vars->slb_y_door);
+        FTEST_FAIL_TEST("Failed to find door at (%" PRId64 ",%" PRId64 "), this should never happen! Was the map changed!?", (int64_t)(vars->slb_x_door), (int64_t)(vars->slb_y_door));
         return FTRs_Go_To_Next_Action;
     }
     
@@ -225,7 +225,7 @@ FTestActionResult ftest_bug_imp_tp_job_attack_door_action001__setup_map(struct F
     // enable inprisonment (bypasses prison gui button, button in gui will not represent actual current state)
     if (!set_creature_tendencies(player, CrTend_Imprison, true))
     {
-        FTEST_FAIL_TEST("Failed to set imprison true for player %d", vars->HUMAN_PLAYER);
+        FTEST_FAIL_TEST("Failed to set imprison true for player %" PRId64, (int64_t)(vars->HUMAN_PLAYER));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -279,7 +279,7 @@ FTestActionResult ftest_bug_imp_tp_job_attack_door_action003__end_test(struct FT
     struct Thing* door = get_door_for_position(stl_x_door, stl_y_door);
     if (thing_is_invalid(door))
     {
-        FTEST_FAIL_TEST("Failed to find door at (%d,%d), imps destroyed door!", vars->slb_x_door, vars->slb_y_door);
+        FTEST_FAIL_TEST("Failed to find door at (%" PRId64 ",%" PRId64 "), imps destroyed door!", (int64_t)(vars->slb_x_door), (int64_t)(vars->slb_y_door));
         return FTRs_Go_To_Next_Action;
     }
 

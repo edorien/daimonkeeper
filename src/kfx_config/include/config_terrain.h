@@ -122,10 +122,10 @@ struct SlabConfigStats {
     char code_name[COMMAND_WORD_LEN];
     TextStringId tooltip_stridx;
     RoomKind assigned_room;
-    short block_flags_height;
-    short block_health_index;
-    uint32_t block_flags;
-    uint32_t noblck_flags;
+    int64_t block_flags_height;
+    int64_t block_health_index;
+    uint64_t block_flags;
+    uint64_t noblck_flags;
     unsigned char fill_style;
     unsigned char category;
     unsigned char slb_id;
@@ -143,23 +143,23 @@ struct RoomConfigStats {
     char code_name[COMMAND_WORD_LEN];
     TextStringId name_stridx;
     TextStringId tooltip_stridx;
-    int32_t creature_creation_model;
+    int64_t creature_creation_model;
     SlabKind assigned_slab;
-    short synergy_slab;
+    int64_t synergy_slab;
     char storage_height;
-    uint32_t flags;
+    uint64_t flags;
     RoomRole roles;
-    int32_t panel_tab_idx;
+    int64_t panel_tab_idx;
     /** Sprite index of big symbol icon representing the room. */
-    int32_t bigsym_sprite_idx;
+    int64_t bigsym_sprite_idx;
     /** Sprite index of medium symbol icon representing the room. */
-    int32_t medsym_sprite_idx;
-    int32_t pointer_sprite_idx;
-    uint32_t ambient_snd_smp_id;
+    int64_t medsym_sprite_idx;
+    int64_t pointer_sprite_idx;
+    uint64_t ambient_snd_smp_id;
     SpeechRef msg_needed;
     SpeechRef msg_too_small;
     SpeechRef msg_no_route;
-    short cost;
+    int64_t cost;
     HitPoints health;
     FuncIdx update_total_capacity_idx;
     FuncIdx update_storage_in_room_idx;
@@ -167,9 +167,9 @@ struct RoomConfigStats {
 };
 
 struct SlabsConfig {
-    int32_t slab_types_count;
+    int64_t slab_types_count;
     struct SlabConfigStats slab_cfgstats[TERRAIN_ITEMS_MAX];
-    int32_t room_types_count;
+    int64_t room_types_count;
     struct RoomConfigStats room_cfgstats[TERRAIN_ITEMS_MAX];
 };
 /******************************************************************************/
@@ -199,13 +199,13 @@ TbBool slab_kind_is_friable_dirt(RoomKind slbkind);
 TbBool slab_kind_is_door(SlabKind slbkind);
 TbBool slab_kind_is_liquid(SlabKind slbkind);
 TbBool slab_kind_is_bridgeable(SlabKind slbkind);
-int slab_kind_from_wlb_type(unsigned char wlb_type);
+int64_t slab_kind_from_wlb_type(unsigned char wlb_type);
 TbBool slab_kind_is_room(SlabKind slbkind);
 TbBool slab_kind_has_torches(SlabKind slbkind);
 /******************************************************************************/
 struct RoomConfigStats *get_room_kind_stats(RoomKind room_kind);
 TbBool make_all_rooms_free(void);
-TbBool set_room_available(PlayerNumber plyr_idx, RoomKind roomkind, long resrch, long avail);
+TbBool set_room_available(PlayerNumber plyr_idx, RoomKind roomkind, int64_t resrch, int64_t avail);
 TbBool make_available_all_researchable_rooms(PlayerNumber plyr_idx);
 TbBool make_all_rooms_researchable(PlayerNumber plyr_idx);
 TbBool is_room_available(PlayerNumber plyr_idx, RoomKind roomkind);

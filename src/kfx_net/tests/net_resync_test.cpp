@@ -108,17 +108,17 @@ namespace {
 GameTurn g_fake_gameturn = 1;
 GameTurn fake_get_gameturn(void) { return g_fake_gameturn; }
 
-long g_captured_progress_pixels = -1;
-long g_captured_max_progress = -1;
-long g_captured_box_width = -1;
-void fake_draw_out_of_sync_box(long progress_pixels, long max_progress, long box_width) {
+int64_t g_captured_progress_pixels = -1;
+int64_t g_captured_max_progress = -1;
+int64_t g_captured_box_width = -1;
+void fake_draw_out_of_sync_box(int64_t progress_pixels, int64_t max_progress, int64_t box_width) {
     g_captured_progress_pixels = progress_pixels;
     g_captured_max_progress = max_progress;
     g_captured_box_width = box_width;
 }
 
-long g_fake_status_panel_width = 200;
-long fake_get_status_panel_width(void) { return g_fake_status_panel_width; }
+int64_t g_fake_status_panel_width = 200;
+int64_t fake_get_status_panel_width(void) { return g_fake_status_panel_width; }
 
 struct AnimateResyncFixture : ResetStates {
     struct NetCallbacks net_cb{};

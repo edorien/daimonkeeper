@@ -35,10 +35,10 @@ struct GuiButton;
  * own draw and on-select behaviour.
  */
 struct FrontendSelectList {
-    long scroll_offset;
-    long items_visible;
-    long items_visible_max;
-    long (*item_count)(void);
+    int64_t scroll_offset;
+    int64_t items_visible;
+    int64_t items_visible_max;
+    int64_t (*item_count)(void);
     // Row buttons' content.lval is also used as a hover-tracking key
     // (frontend_over_button sets the single global frontend_mouse_over_button
     // to it directly, gui_frontbtns.c) -- two simultaneously-visible lists
@@ -49,7 +49,7 @@ struct FrontendSelectList {
     // list still visible alongside another one needs its own non-overlapping
     // row_base; defaults to FE_SELECTLIST_ROW_BASE for lists that are always
     // the only one on their screen.
-    long row_base;
+    int64_t row_base;
 };
 
 void frontend_selectlist_set_visible(struct FrontendSelectList *list);
@@ -61,7 +61,7 @@ void frontend_selectlist_down_maintain(struct FrontendSelectList *list, struct G
 void frontend_selectlist_row_maintain(struct FrontendSelectList *list, struct GuiButton *gbtn);
 void frontend_selectlist_update(struct FrontendSelectList *list);
 void frontend_selectlist_draw_scroll_tab(struct FrontendSelectList *list, struct GuiButton *gbtn);
-long frontend_selectlist_row_to_item_index(struct FrontendSelectList *list, struct GuiButton *gbtn);
+int64_t frontend_selectlist_row_to_item_index(struct FrontendSelectList *list, struct GuiButton *gbtn);
 
 /******************************************************************************/
 #ifdef __cplusplus

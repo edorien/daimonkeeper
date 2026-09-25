@@ -47,7 +47,7 @@ public:
      * @param count Number of consecutive samples (for random selection)
      * @return true if registered successfully
      */
-    bool registerSound(const char* name, SoundSmplTblID id, int count = 1);
+    bool registerSound(const char* name, SoundSmplTblID id, int64_t count = 1);
     
     /**
      * @brief Check if a sound name is registered
@@ -61,7 +61,7 @@ public:
      * @param name Sound name
      * @return Count, or 0 if not found
      */
-    int getSoundCount(const char* name) const;
+    int64_t getSoundCount(const char* name) const;
     
     // === Core Sound Functions ===
     
@@ -73,7 +73,7 @@ public:
      * @return Sound emitter ID, or 0 if failed
      */
     SoundEmitterID playEffect(SoundSmplTblID sample_id, 
-                              long priority = 3, 
+                              int64_t priority = 3, 
                               SoundVolume volume = 256);
     
     /**
@@ -84,7 +84,7 @@ public:
      * @return Sound emitter ID, or 0 if failed/not found
      */
     SoundEmitterID playEffectNamed(const char* name,
-                                   long priority = 3,
+                                   int64_t priority = 3,
                                    SoundVolume volume = 256);
     
     /**
@@ -93,7 +93,7 @@ public:
      * @param sound_type Sound type (CrSnd_Hit, CrSnd_Slap, etc.)
      * @param priority Priority (default 3)
      */
-    void playCreatureSound(struct Thing* thing, long sound_type, long priority = 3);
+    void playCreatureSound(struct Thing* thing, int64_t sound_type, int64_t priority = 3);
     
     /**
      * @brief Stop a playing sound
@@ -115,7 +115,7 @@ public:
      * @param track_number Track number (1-N)
      * @return true if successful
      */
-    bool playMusic(int track_number);
+    bool playMusic(int64_t track_number);
     
     /**
      * @brief Stop music playback
@@ -158,7 +158,7 @@ public:
      * @return true if successful
      */
     bool setCreatureSound(const std::string& creature_model, const std::string& sound_type, 
-                          const std::string& custom_sound_name, int count = 1);
+                          const std::string& custom_sound_name, int64_t count = 1);
     
     /**
      * @brief Check if a custom sound is loaded
@@ -237,13 +237,13 @@ private:
         std::string creature_model;
         std::string sound_type;
         std::string custom_sound_name;
-        int count = 1;
+        int64_t count = 1;
     };
     
     // Named sound registry entry (for built-in sounds)
     struct SoundEntry {
         SoundSmplTblID sample_id;
-        int count;  // For random selection from consecutive IDs
+        int64_t count;  // For random selection from consecutive IDs
     };
     
     std::unordered_map<std::string, CustomSoundEntry> custom_sounds_;
@@ -251,7 +251,7 @@ private:
     std::vector<CreatureSoundOverride> creature_sound_overrides_;
     SoundSmplTblID next_custom_sample_id_;
     bool initialized_;
-    int total_plays_;
+    int64_t total_plays_;
     size_t total_custom_sounds_;
 
     // Snapshot saved after campaign + mod sounds load (restored at start of each level)
@@ -272,10 +272,10 @@ extern "C" {
 
 // C API for testing
 TbBool sound_manager_init(void);
-SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, long priority, SoundVolume volume);
-void sound_manager_play_creature_sound(struct Thing* thing, long sound_type, long priority);
+SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, int64_t priority, SoundVolume volume);
+void sound_manager_play_creature_sound(struct Thing* thing, int64_t sound_type, int64_t priority);
 void sound_manager_stop_effect(SoundEmitterID emitter_id);
-TbBool sound_manager_play_music(int track_number);
+TbBool sound_manager_play_music(int64_t track_number);
 void sound_manager_stop_music(void);
 SoundSmplTblID sound_manager_load_custom_sound(const char* name, const char* filepath);
 SoundSmplTblID sound_manager_get_custom_sound_id(const char* name);
@@ -289,13 +289,13 @@ void sound_manager_reapply_creature_sounds(void);
 
 // Named sound registry C API
 SoundSmplTblID sound_manager_get_id(const char* name);
-TbBool sound_manager_register(const char* name, SoundSmplTblID id, int count);
+TbBool sound_manager_register(const char* name, SoundSmplTblID id, int64_t count);
 TbBool sound_manager_is_registered(const char* name);
-int sound_manager_get_count(const char* name);
-SoundEmitterID sound_manager_play_effect_named(const char* name, long priority, SoundVolume volume);
+int64_t sound_manager_get_count(const char* name);
+SoundEmitterID sound_manager_play_effect_named(const char* name, int64_t priority, SoundVolume volume);
 
 // Config parser bridge for loading custom sounds from creature cfg files
-int load_creature_custom_sound(long crtr_model, const char* sound_type, const char* wav_path, const char* config_textname);
+int64_t load_creature_custom_sound(int64_t crtr_model, const char* sound_type, const char* wav_path, const char* config_textname);
 
 /**
  * @brief Load and register a named custom sound from sounds.cfg or any config file.
@@ -310,7 +310,7 @@ int load_creature_custom_sound(long crtr_model, const char* sound_type, const ch
  * @param count    Number of sequential variants (1 = single file)
  * @return Registered sample ID on success, 0 on failure
  */
-SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path_in, int count);
+SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path_in, int64_t count);
 
 #ifdef __cplusplus
 } // extern "C"

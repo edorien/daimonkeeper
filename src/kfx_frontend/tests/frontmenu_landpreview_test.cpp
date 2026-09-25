@@ -20,8 +20,8 @@ TEST_CASE("land_preview_compute_units_per_px falls back to 1:1 for a degenerate 
 TEST_CASE("land_preview_compute_units_per_px sizes to show roughly half the map", "[kfx_frontend][frontmenu_landpreview]") {
     // upp_w = 16*2*rect_w/LANDVIEW_MAP_WIDTH; at rect_w == LANDVIEW_MAP_WIDTH/2
     // that's exactly 16 (1:1) on the width axis.
-    long rect_w = LANDVIEW_MAP_WIDTH / 2;
-    long rect_h = LANDVIEW_MAP_HEIGHT / 2;
+    int64_t rect_w = LANDVIEW_MAP_WIDTH / 2;
+    int64_t rect_h = LANDVIEW_MAP_HEIGHT / 2;
     CHECK(land_preview_compute_units_per_px(rect_w, rect_h) == 16);
 }
 
@@ -29,8 +29,8 @@ TEST_CASE("land_preview_compute_units_per_px picks the larger of the two axis sc
     // A very wide, short rect: width wants a big scale, height wants a
     // small one -- the wider (more zoomed-in) one wins so nothing is cut
     // off horizontally.
-    long rect_w = LANDVIEW_MAP_WIDTH; // upp_w = 32
-    long rect_h = 10;                 // upp_h tiny
+    int64_t rect_w = LANDVIEW_MAP_WIDTH; // upp_w = 32
+    int64_t rect_h = 10;                 // upp_h tiny
     CHECK(land_preview_compute_units_per_px(rect_w, rect_h) == 32);
 }
 

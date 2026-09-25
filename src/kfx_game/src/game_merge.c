@@ -31,7 +31,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct IntralevelData intralvl;
-unsigned long game_flags2 = 0;
+uint64_t game_flags2 = 0;
 /******************************************************************************/
 /******************************************************************************/
 /**
@@ -49,18 +49,18 @@ unsigned long game_flags2 = 0;
  */
 TbBool is_bonus_level_visible(struct PlayerInfo *player, LevelNumber bn_lvnum)
 {
-    int i = storage_index_for_bonus_level(bn_lvnum);
+    int64_t i = storage_index_for_bonus_level(bn_lvnum);
     if (i < 0)
     {
         // This hapens quite often - status of bonus level is checked even
         // if there's no such bonus level. So no log message here.
         return false;
   }
-  int n = i / 8;
-  int k = (1 << (i % 8));
+  int64_t n = i / 8;
+  int64_t k = (1 << (i % 8));
   if ((n < 0) || (n >= BONUS_LEVEL_STORAGE_COUNT))
   {
-    WARNLOG("Bonus level %d has invalid store position.",(int)bn_lvnum);
+    WARNLOG("Bonus level %" PRId64 " has invalid store position.",(int64_t)bn_lvnum);
     return false;
   }
   return ((intralvl.bonuses_found[n] & k) != 0);
@@ -71,17 +71,17 @@ TbBool is_bonus_level_visible(struct PlayerInfo *player, LevelNumber bn_lvnum)
  */
 TbBool set_bonus_level_visibility(LevelNumber bn_lvnum, TbBool visible)
 {
-    int i = storage_index_for_bonus_level(bn_lvnum);
+    int64_t i = storage_index_for_bonus_level(bn_lvnum);
     if (i < 0)
     {
-        WARNLOG("Can't set state of non-existing bonus level %d.", (int)bn_lvnum);
+        WARNLOG("Can't set state of non-existing bonus level %" PRId64 ".", (int64_t)bn_lvnum);
         return false;
     }
-    int n = i / 8;
-    int k = (1 << (i % 8));
+    int64_t n = i / 8;
+    int64_t k = (1 << (i % 8));
     if ((n < 0) || (n >= BONUS_LEVEL_STORAGE_COUNT))
     {
-        WARNLOG("Bonus level %d has invalid store position.",(int)bn_lvnum);
+        WARNLOG("Bonus level %" PRId64 " has invalid store position.",(int64_t)bn_lvnum);
         return false;
     }
     set_flag_value(intralvl.bonuses_found[n], k, visible);
@@ -91,35 +91,35 @@ TbBool set_bonus_level_visibility(LevelNumber bn_lvnum, TbBool visible)
 /**
  * Makes a bonus level for specified SP level visible on the land map screen.
  */
-TbBool set_bonus_level_visibility_for_singleplayer_level(struct PlayerInfo *player, unsigned long sp_lvnum, short visible)
+TbBool set_bonus_level_visibility_for_singleplayer_level(struct PlayerInfo *player, uint64_t sp_lvnum, int64_t visible)
 {
-    long bn_lvnum = bonus_level_for_singleplayer_level(sp_lvnum);
+    int64_t bn_lvnum = bonus_level_for_singleplayer_level(sp_lvnum);
     if (!set_bonus_level_visibility(bn_lvnum, visible))
     {
         if (visible)
-            WARNMSG("Couldn't store bonus award for level %lu", sp_lvnum);
+            WARNMSG("Couldn't store bonus award for level %" PRIu64, (uint64_t)(sp_lvnum));
         return false;
     }
     if (visible)
-        SYNCMSG("Bonus award for level %lu enabled",sp_lvnum);
+        SYNCMSG("Bonus award for level %" PRIu64 " enabled",(uint64_t)(sp_lvnum));
     return true;
 }
 
-TbBool activate_bonus_level_for_singleplayer(struct PlayerInfo *player, unsigned long sp_lvnum)
+TbBool activate_bonus_level_for_singleplayer(struct PlayerInfo *player, uint64_t sp_lvnum)
 {
     return set_bonus_level_visibility_for_singleplayer_level(player, sp_lvnum, true);
 }
 
 void hide_all_bonus_levels(struct PlayerInfo *player)
 {
-    for (int i = 0; i < BONUS_LEVEL_STORAGE_COUNT; i++)
+    for (int64_t i = 0; i < BONUS_LEVEL_STORAGE_COUNT; i++)
         intralvl.bonuses_found[i] = 0;
 }
 
 /**
  * Returns if the given extra level is visible in land view screen.
  */
-unsigned short get_extra_level_kind_visibility(unsigned short elv_kind)
+int64_t get_extra_level_kind_visibility(int64_t elv_kind)
 {
     LevelNumber ex_lvnum = get_extra_level(elv_kind);
     if (ex_lvnum <= 0)
@@ -148,7 +148,7 @@ void update_extra_levels_visibility(void)
 
 struct LevelEnsignOverride *get_level_ensign_override(LevelNumber lvnum)
 {
-    for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+    for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
     {
         struct LevelEnsignOverride *override = &intralvl.ensign_overrides[i];
         if (override->lvnum == lvnum)
@@ -160,7 +160,7 @@ struct LevelEnsignOverride *get_level_ensign_override(LevelNumber lvnum)
     return NULL;
 }
 
-TbBool update_or_create_level_ensign_override(LevelNumber lvnum, short ensign_type)
+TbBool update_or_create_level_ensign_override(LevelNumber lvnum, int64_t ensign_type)
 {
     struct LevelEnsignOverride *override = get_level_ensign_override(lvnum);
     if (override != NULL)
@@ -173,7 +173,7 @@ TbBool update_or_create_level_ensign_override(LevelNumber lvnum, short ensign_ty
         return true;
     }
 
-    for (int i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
+    for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
     {
         override = &intralvl.ensign_overrides[i];
 
@@ -197,7 +197,7 @@ TbBool update_or_create_level_ensign_override(LevelNumber lvnum, short ensign_ty
 /**
   * sets a custom ensign sprite sheet index for the level
  */
-TbBool set_level_ensign(LevelNumber lvnum, short ensign_id)
+TbBool set_level_ensign(LevelNumber lvnum, int64_t ensign_id)
 {
     if(!is_campaign_level(lvnum))
         return false;

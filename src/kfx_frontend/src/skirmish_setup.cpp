@@ -42,24 +42,24 @@ std::string upper(std::string s)
     return s;
 }
 
-bool avail_locked_for(int kind, int player, const std::string &item)
+bool avail_locked_for(int64_t kind, int64_t player, const std::string &item)
 {
     return s_state.analysis.is_locked(kind, player, item);
 }
 
 // Players an operation on `player` (-1 = all) touches.
-std::vector<int> target_players(int player)
+std::vector<int64_t> target_players(int64_t player)
 {
-    std::vector<int> v;
+    std::vector<int64_t> v;
     if (player >= 0)
         v.push_back(player);
     else
-        for (int p = 0; p < s_state.players; p++)
+        for (int64_t p = 0; p < s_state.players; p++)
             v.push_back(p);
     return v;
 }
 
-SetupAvailValue avail_value(int kind, int player, const std::string &item)
+SetupAvailValue avail_value(int64_t kind, int64_t player, const std::string &item)
 {
     SetupAvailKey k;
     k.kind = kind;
@@ -69,7 +69,7 @@ SetupAvailValue avail_value(int kind, int player, const std::string &item)
     return (it == s_state.choices.values.avail.end()) ? SetupAvailValue() : it->second;
 }
 
-SkirmishAvailState state_of(int kind, const SetupAvailValue &v)
+SkirmishAvailState state_of(int64_t kind, const SetupAvailValue &v)
 {
     switch (kind)
     {
@@ -83,7 +83,7 @@ SkirmishAvailState state_of(int kind, const SetupAvailValue &v)
     }
 }
 
-SetupAvailValue value_for(int kind, SkirmishAvailState st, int amount)
+SetupAvailValue value_for(int64_t kind, SkirmishAvailState st, int64_t amount)
 {
     SetupAvailValue v;
     switch (kind)
@@ -105,7 +105,7 @@ SetupAvailValue value_for(int kind, SkirmishAvailState st, int amount)
     return v;
 }
 
-bool config_has_item(int field, const std::string &item)
+bool config_has_item(int64_t field, const std::string &item)
 {
     const struct NamedCommand *desc = nullptr;
     switch (field)
@@ -121,7 +121,7 @@ bool config_has_item(int field, const std::string &item)
     return get_rid(desc, item.c_str()) >= 0;
 }
 
-bool script_has_item(int field, const std::string &item)
+bool script_has_item(int64_t field, const std::string &item)
 {
     const SetupAnalysis &a = s_state.analysis;
     if (field == SetupField_Pool)
@@ -146,13 +146,13 @@ struct ClassicThingsReader : public ClassicMapContentReader
     using ClassicMapContentReader::read_things;
 };
 
-std::vector<int> read_hearts(LevelNumber lvnum, int players)
+std::vector<int64_t> read_hearts(LevelNumber lvnum, int64_t players)
 {
-    std::vector<int> hearts((size_t)players, -1);
-    const short fgroup = get_level_fgroup(lvnum);
-    char *probe = prepare_file_fmtpath(fgroup, "map%05u.tngfx", (unsigned)lvnum);
+    std::vector<int64_t> hearts((size_t)players, -1);
+    const int64_t fgroup = get_level_fgroup(lvnum);
+    char *probe = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".tngfx", (uint64_t)lvnum);
     const bool native = (probe != nullptr) && LbFileExists(probe);
-    char *path = prepare_file_fmtpath(fgroup, native ? "map%05u.tngfx" : "map%05u.tng", (unsigned)lvnum);
+    char *path = prepare_file_fmtpath(fgroup, native ? "map%05" PRIu64 ".tngfx" : "map%05" PRIu64 ".tng", (uint64_t)lvnum);
     if (path == nullptr || !LbFileExists(path))
         return hearts;
     std::string dir = path;
@@ -173,7 +173,7 @@ std::vector<int> read_hearts(LevelNumber lvnum, int players)
 
 std::string level_script_file_exists_lua(LevelNumber lvnum)
 {
-    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05u.lua", (unsigned)lvnum);
+    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05" PRIu64 ".lua", (uint64_t)lvnum);
     return LbFileExists(fname) ? "lua" : "";
 }
 
@@ -187,8 +187,8 @@ void skirmish_setup_forget()
     s_state = SkirmishSetup();
 }
 
-void skirmish_setup_load_from_text(LevelNumber lvnum, const std::string &text, int players, bool has_lua,
-    unsigned char lof_option, int human_slot, const std::string *lua_text)
+void skirmish_setup_load_from_text(LevelNumber lvnum, const std::string &text, int64_t players, bool has_lua,
+    unsigned char lof_option, int64_t human_slot, const std::string *lua_text)
 {
     s_state = SkirmishSetup();
     s_state.lvnum = lvnum;
@@ -206,7 +206,7 @@ void skirmish_setup_load_from_text(LevelNumber lvnum, const std::string &text, i
         s_state.unavailable_reason = s_state.analysis.reason;
 }
 
-void skirmish_setup_sync(LevelNumber lvnum, int human_slot)
+void skirmish_setup_sync(LevelNumber lvnum, int64_t human_slot)
 {
     if (lvnum <= 0)
     {
@@ -217,11 +217,11 @@ void skirmish_setup_sync(LevelNumber lvnum, int human_slot)
     if (s_state.loaded && s_state.lvnum == lvnum)
         return;
     const struct LevelInformation *lvinfo = get_level_info(lvnum);
-    const int players = (lvinfo != nullptr) ? (int)lvinfo->players : 2;
+    const int64_t players = (lvinfo != nullptr) ? (int64_t)lvinfo->players : 2;
     const unsigned char option = (lvinfo != nullptr) ? lvinfo->skirmish_setup : (unsigned char)SkirmishSetup_Auto;
     const bool has_lua = !level_script_file_exists_lua(lvnum).empty();
 
-    int32_t len = 1;
+    int64_t len = 1;
     unsigned char *buf = load_single_map_file_to_buffer(lvnum, "txt", &len, LMFF_Optional);
     if (buf == nullptr)
     {
@@ -236,7 +236,7 @@ void skirmish_setup_sync(LevelNumber lvnum, int human_slot)
     std::string lua;
     if (has_lua)
     {
-        int32_t lua_len = 1;
+        int64_t lua_len = 1;
         unsigned char *lua_buf = load_single_map_file_to_buffer(lvnum, "lua", &lua_len, LMFF_Optional);
         if (lua_buf != nullptr)
         {
@@ -260,8 +260,8 @@ static SetupChoices choices_with_allies()
 {
     SetupChoices c = s_state.choices;
     c.allies.clear();
-    for (int i = 0; i < s_state.players; i++)
-        for (int j = i + 1; j < s_state.players; j++)
+    for (int64_t i = 0; i < s_state.players; i++)
+        for (int64_t j = i + 1; j < s_state.players; j++)
             if (s_state.teams[(size_t)i] != 0 && s_state.teams[(size_t)i] == s_state.teams[(size_t)j])
                 c.allies.push_back(std::make_pair(i, j));
     return c;
@@ -281,7 +281,7 @@ SetupOverride skirmish_setup_build()
         return none;
     SetupBuildOptions opt;
     opt.players = s_state.players;
-    opt.item_exists = [](int field, const std::string &item) {
+    opt.item_exists = [](int64_t field, const std::string &item) {
         return script_has_item(field, item) || config_has_item(field, item);
     };
     return script_setup_build_override(s_state.text, s_state.analysis, choices_with_allies(), opt);
@@ -297,8 +297,8 @@ std::vector<SetupIssue> skirmish_setup_play_issues()
     // A controller for a slot the map has no Dungeon Heart for does nothing: say so (a note, not an error).
     for (const auto &kv : s_state.choices.values.controllers)
     {
-        const int slot = kv.first;
-        if (slot >= 0 && slot < (int)s_state.hearts.size() && s_state.hearts[(size_t)slot] == 0
+        const int64_t slot = kv.first;
+        if (slot >= 0 && slot < (int64_t)s_state.hearts.size() && s_state.hearts[(size_t)slot] == 0
             && !(s_state.analysis.seed.controllers.count(slot) && s_state.analysis.seed.controllers.at(slot) == kv.second))
         {
             SetupIssue i;
@@ -311,7 +311,7 @@ std::vector<SetupIssue> skirmish_setup_play_issues()
 }
 
 /******************************************************************************/
-std::vector<SkirmishAvailState> skirmish_setup_avail_states(int kind)
+std::vector<SkirmishAvailState> skirmish_setup_avail_states(int64_t kind)
 {
     switch (kind)
     {
@@ -325,16 +325,16 @@ std::vector<SkirmishAvailState> skirmish_setup_avail_states(int kind)
     }
 }
 
-SkirmishAvailState skirmish_setup_avail_state(int kind, int player, const std::string &item, bool *mixed)
+SkirmishAvailState skirmish_setup_avail_state(int64_t kind, int64_t player, const std::string &item, bool *mixed)
 {
     if (mixed != nullptr)
         *mixed = false;
-    const std::vector<int> ps = target_players(player);
+    const std::vector<int64_t> ps = target_players(player);
     if (ps.empty())
         return SkirmishAvail_Off;
     const SetupAvailValue first = avail_value(kind, ps[0], item);
     if (mixed != nullptr)
-        for (int p : ps)
+        for (int64_t p : ps)
         {
             const SetupAvailValue v = avail_value(kind, p, item);
             if (state_of(kind, v) != state_of(kind, first) || ((kind == AvailKind_Trap || kind == AvailKind_Door) && v.b != first.b))
@@ -343,26 +343,26 @@ SkirmishAvailState skirmish_setup_avail_state(int kind, int player, const std::s
     return state_of(kind, first);
 }
 
-int skirmish_setup_avail_amount(int player, int kind, const std::string &item)
+int64_t skirmish_setup_avail_amount(int64_t player, int64_t kind, const std::string &item)
 {
-    const std::vector<int> ps = target_players(player);
+    const std::vector<int64_t> ps = target_players(player);
     return ps.empty() ? 0 : avail_value(kind, ps[0], item).b;
 }
 
-bool skirmish_setup_avail_locked(int kind, int player, const std::string &item)
+bool skirmish_setup_avail_locked(int64_t kind, int64_t player, const std::string &item)
 {
-    for (int p : target_players(player))
+    for (int64_t p : target_players(player))
         if (avail_locked_for(kind, p, upper(item)))
             return true;
     return false;
 }
 
-void skirmish_setup_set_avail(int kind, int player, const std::string &item, SkirmishAvailState state, int amount)
+void skirmish_setup_set_avail(int64_t kind, int64_t player, const std::string &item, SkirmishAvailState state, int64_t amount)
 {
     if (!s_state.enabled())
         return;
     const std::string name = upper(item);
-    for (int p : target_players(player))
+    for (int64_t p : target_players(player))
     {
         if (avail_locked_for(kind, p, name))
             continue;
@@ -378,7 +378,7 @@ void skirmish_setup_set_avail(int kind, int player, const std::string &item, Ski
     }
 }
 
-std::vector<std::string> skirmish_setup_script_items(int kind)
+std::vector<std::string> skirmish_setup_script_items(int64_t kind)
 {
     std::set<std::string> names;
     for (const auto &kv : s_state.analysis.seed.avail)
@@ -391,7 +391,7 @@ std::vector<std::string> skirmish_setup_script_items(int kind)
 }
 
 /******************************************************************************/
-void skirmish_setup_set_pool(const std::string &creature, int amount)
+void skirmish_setup_set_pool(const std::string &creature, int64_t amount)
 {
     if (!s_state.enabled())
         return;
@@ -404,11 +404,11 @@ void skirmish_setup_set_pool(const std::string &creature, int amount)
         s_state.choices.values.pool[name] = amount;
 }
 
-void skirmish_setup_set_money(int player, int gold)
+void skirmish_setup_set_money(int64_t player, int64_t gold)
 {
     if (!s_state.enabled())
         return;
-    for (int p : target_players(player))
+    for (int64_t p : target_players(player))
     {
         if (s_state.analysis.is_locked(SetupField_Money, p))
             continue;
@@ -419,11 +419,11 @@ void skirmish_setup_set_money(int player, int gold)
     }
 }
 
-void skirmish_setup_set_max_creatures(int player, int count)
+void skirmish_setup_set_max_creatures(int64_t player, int64_t count)
 {
     if (!s_state.enabled())
         return;
-    for (int p : target_players(player))
+    for (int64_t p : target_players(player))
     {
         if (s_state.analysis.is_locked(SetupField_MaxCreatures, p))
             continue;
@@ -434,7 +434,7 @@ void skirmish_setup_set_max_creatures(int player, int count)
     }
 }
 
-void skirmish_setup_set_generate_speed(int speed)
+void skirmish_setup_set_generate_speed(int64_t speed)
 {
     if (!s_state.enabled() || s_state.analysis.is_locked(SetupField_GenSpeed, -1))
         return;
@@ -442,7 +442,7 @@ void skirmish_setup_set_generate_speed(int speed)
 }
 
 /******************************************************************************/
-SkirmishControllerChoice skirmish_setup_controller_choice(int slot, int *model)
+SkirmishControllerChoice skirmish_setup_controller_choice(int64_t slot, int64_t *model)
 {
     if (model != nullptr)
         *model = 0;
@@ -462,11 +462,11 @@ SkirmishControllerChoice skirmish_setup_controller_choice(int slot, int *model)
     }
 }
 
-void skirmish_setup_set_controller(int slot, SkirmishControllerChoice choice, int model)
+void skirmish_setup_set_controller(int64_t slot, SkirmishControllerChoice choice, int64_t model)
 {
     if (!s_state.enabled() || slot == s_state.human_slot || s_state.analysis.is_locked(SetupField_Controller, slot))
         return;
-    std::map<int, SetupController> &m = s_state.choices.values.controllers;
+    std::map<int64_t, SetupController> &m = s_state.choices.values.controllers;
     if (choice == SkirmishCtl_LevelDefault)
     {
         const auto seed = s_state.analysis.seed.controllers.find(slot);
@@ -483,18 +483,18 @@ void skirmish_setup_set_controller(int slot, SkirmishControllerChoice choice, in
     m[slot] = c;
 }
 
-void skirmish_setup_set_team(int slot, int team)
+void skirmish_setup_set_team(int64_t slot, int64_t team)
 {
-    if (!s_state.enabled() || slot < 0 || slot >= (int)s_state.teams.size() || s_state.analysis.is_locked(SetupField_Ally, slot))
+    if (!s_state.enabled() || slot < 0 || slot >= (int64_t)s_state.teams.size() || s_state.analysis.is_locked(SetupField_Ally, slot))
         return;
     s_state.teams[(size_t)slot] = (team < 0) ? 0 : team;
 }
 
 /******************************************************************************/
-std::vector<SetupWinLoseRule> skirmish_setup_template(SkirmishRuleTemplate t, int value)
+std::vector<SetupWinLoseRule> skirmish_setup_template(SkirmishRuleTemplate t, int64_t value)
 {
     std::vector<SetupWinLoseRule> rules;
-    auto one = [](int player, const char *var, const char *op, int v) {
+    auto one = [](int64_t player, const char *var, const char *op, int64_t v) {
         SetupWinLoseRule r;
         r.win = true;
         WinLoseClause c;
@@ -508,7 +508,7 @@ std::vector<SetupWinLoseRule> skirmish_setup_template(SkirmishRuleTemplate t, in
     switch (t)
     {
     case SkirmishRule_LastKeeper:
-        for (int p = 0; p < s_state.players; p++)
+        for (int64_t p = 0; p < s_state.players; p++)
             rules.push_back(one(p, "ALL_DUNGEONS_DESTROYED", "==", 1));
         break;
     case SkirmishRule_SurviveMinutes:
@@ -545,11 +545,11 @@ extern "C" void skirmish_setup_install_for_play(LevelNumber lvnum)
     if (o.active && !o.has_errors())
     {
         level_script_override_set(lvnum, o.prelude.c_str(), o.masked.c_str());
-        JUSTLOG("Skirmish setup: installed a script override for level %ld (%ld prelude bytes)", (long)lvnum, (long)o.prelude.size());
+        JUSTLOG("Skirmish setup: installed a script override for level %" PRId64 " (%" PRId64 " prelude bytes)", (int64_t)lvnum, (int64_t)o.prelude.size());
     }
 }
 
-extern "C" int skirmish_setup_play_blocked(LevelNumber lvnum)
+extern "C" int64_t skirmish_setup_play_blocked(LevelNumber lvnum)
 {
     if (!s_state.enabled() || s_state.lvnum != lvnum || !skirmish_setup_is_changed())
         return 0;

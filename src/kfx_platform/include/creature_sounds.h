@@ -31,8 +31,8 @@ extern "C" {
 #pragma pack(1)
 
 struct CreatureSound {
-    int32_t index;
-    int16_t count;
+    int64_t index;
+    int64_t count;
 };
 
 struct CreatureSounds {

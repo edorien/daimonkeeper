@@ -42,7 +42,7 @@ extern "C" {
 /** List of registered video modes. */
 TbScreenModeInfo lbScreenModeInfo[SCREEN_MODES_COUNT];
 /** Count of used entries in registered video modes list. */
-long lbScreenModeInfoNum = 0;
+int64_t lbScreenModeInfoNum = 0;
 
 /** Informs if Video Screen subsystem initialization was done. */
 volatile TbBool lbScreenInitialised = false;
@@ -55,14 +55,14 @@ static unsigned char lbPalette[PALETTE_SIZE];
 
 char lbDrawAreaTitle[128] = "Bullfrog Shell";
 volatile TbBool lbInteruptMouse;
-volatile unsigned long lbIconIndex = 0;
+volatile uint64_t lbIconIndex = 0;
 SDL_Window *lbWindow = NULL;
 
 TbDisplayStruct lbDisplay;
 
-int32_t fps_limit_current = 0;
-int32_t fps_limit_main = 0; // -1 if auto
-int32_t fps_limit_secondary = 0;
+int64_t fps_limit_current = 0;
+int64_t fps_limit_main = 0; // -1 if auto
+int64_t fps_limit_secondary = 0;
 
 void redetect_screen_refresh_rate_for_draw(void)
 {
@@ -72,7 +72,7 @@ void redetect_screen_refresh_rate_for_draw(void)
         if (fps_limit_secondary > 0)
             fps_limit_current = fps_limit_secondary;
 
-        int refresh_rate = PlatformManager_GetDisplayRefreshRate();
+        int64_t refresh_rate = PlatformManager_GetDisplayRefreshRate();
         if (refresh_rate > 0) {
             fps_limit_current = refresh_rate;
         }
@@ -83,24 +83,24 @@ void redetect_screen_refresh_rate_for_draw(void)
 }
 
 
-unsigned short MyScreenWidth;
-unsigned short MyScreenHeight;
-unsigned short pixel_size;
-unsigned short pixels_per_block;
-unsigned short units_per_pixel;
+int64_t MyScreenWidth;
+int64_t MyScreenHeight;
+int64_t pixel_size;
+int64_t pixels_per_block;
+int64_t units_per_pixel;
 
 // Owned here (not vidmode.c, kfx_render) because their only writers,
 // calculate_landview_upp() and calculate_aspect_ratio_factor() below, are
 // themselves defined in this file -- vidmode.c only calls into them, it
 // never reads or writes these directly. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-unsigned short units_per_pixel_landview;
-unsigned short units_per_pixel_landview_frame;
-unsigned long aspect_ratio_factor_HOR_PLUS;
-unsigned long aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS;
-unsigned long first_person_vertical_fov;
-unsigned long landview_frame_movement_scale_x;
-unsigned long landview_frame_movement_scale_y;
+int64_t units_per_pixel_landview;
+int64_t units_per_pixel_landview_frame;
+uint64_t aspect_ratio_factor_HOR_PLUS;
+uint64_t aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS;
+uint64_t first_person_vertical_fov;
+uint64_t landview_frame_movement_scale_x;
+uint64_t landview_frame_movement_scale_y;
 
 // See VideoScaleCallbacks (bflib_video.h) and docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
@@ -126,7 +126,7 @@ void set_video_scale_callbacks(const struct VideoScaleCallbacks *callbacks)
   * The display number can be set in cfg file (as DISPLAY_NUMBER), display number = display id + 1.
   * Screen number 1 is the first (or only screen), etc.
   */
-unsigned short display_id = 0;
+int64_t display_id = 0;
 
 /** Vertical sync for the software present; set from keeperfx.cfg (VSYNC), on by default. */
 TbBool vsync_enabled = 1;
@@ -141,7 +141,7 @@ TbBool VideoDisabled;
 static unsigned char fade_started;
 static unsigned char from_pal[PALETTE_SIZE];
 static unsigned char to_pal[PALETTE_SIZE];
-static long fade_count;
+static int64_t fade_count;
 
 /******************************************************************************/
 void *LbExeReferenceNumber(void)
@@ -164,7 +164,7 @@ TbScreenMode LbScreenActiveMode(void)
  *
  * @return Graphics canvas Bits Per Pixel, in bits.
  */
-unsigned short LbGraphicsScreenBPP(void)
+int64_t LbGraphicsScreenBPP(void)
 {
     if (lbDrawSurface != NULL) {
         return SDL_BITSPERPIXEL(lbDrawSurface->format);
@@ -205,13 +205,13 @@ TbScreenCoord LbScreenHeight(void)
     return lbDisplay.PhysicalScreenHeight;
 }
 
-TbResult LbPaletteFadeStep(unsigned char *from_palette,unsigned char *to_palette,long fade_steps)
+TbResult LbPaletteFadeStep(unsigned char *from_palette,unsigned char *to_palette,int64_t fade_steps)
 {
     unsigned char palette[PALETTE_SIZE];
-    for (int i = 0; i < 3 * PALETTE_COLORS; i += 3)
+    for (int64_t i = 0; i < 3 * PALETTE_COLORS; i += 3)
     {
-        int target_color_component = to_palette[i + 0];
-        int source_color_component = from_palette[i + 0];
+        int64_t target_color_component = to_palette[i + 0];
+        int64_t source_color_component = from_palette[i + 0];
         palette[i+0] = fade_count * (target_color_component - source_color_component) / fade_steps + source_color_component;
         target_color_component =   to_palette[i+1];
         source_color_component = from_palette[i+1];
@@ -232,9 +232,9 @@ TbResult LbPaletteStopOpenFade(void)
     return Lb_SUCCESS;
 }
 
-long LbPaletteFade(unsigned char *pal, long fade_steps, enum TbPaletteFadeFlag flg)
+int64_t LbPaletteFade(unsigned char *pal, int64_t fade_steps, enum TbPaletteFadeFlag flg)
 {
-    long errors_num = 0;
+    int64_t errors_num = 0;
     if (flg == Lb_PALETTE_FADE_CLOSED)
     {
         // Finish the fading fast
@@ -292,14 +292,14 @@ TbResult LbScreenWaitVbi(void)
   return Lb_SUCCESS;
 }
 
-static SDL_DisplayID display_id_from_index(unsigned short index)
+static SDL_DisplayID display_id_from_index(int64_t index)
 {
     int count = 0;
     SDL_DisplayID id = 0;
     SDL_DisplayID *ids = SDL_GetDisplays(&count);
     if (ids != NULL)
     {
-        if ((int)index < count)
+        if ((int64_t)index < count)
             id = ids[index];
         else if (count > 0)
             id = ids[0];
@@ -310,16 +310,16 @@ static SDL_DisplayID display_id_from_index(unsigned short index)
     return id;
 }
 
-static unsigned short display_index_from_id(SDL_DisplayID id)
+static int64_t display_index_from_id(SDL_DisplayID id)
 {
     int count = 0;
-    unsigned short index = 0;
+    int64_t index = 0;
     SDL_DisplayID *ids = SDL_GetDisplays(&count);
     if (ids != NULL)
     {
-        for (int i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
         {
-            if (ids[i] == id) { index = (unsigned short)i; break; }
+            if (ids[i] == id) { index = (int64_t)i; break; }
         }
         SDL_free(ids);
     }
@@ -327,12 +327,12 @@ static unsigned short display_index_from_id(SDL_DisplayID id)
 }
 
 /** Get the display index that the game is currently rendering to, or the default if there is no game window. */
-unsigned short LbGetCurrentDisplayIndex()
+int64_t LbGetCurrentDisplayIndex()
 {
-    unsigned short current_display_id = display_id; // default to the already set display_id
+    int64_t current_display_id = display_id; // default to the already set display_id
     if (PlatformManager_HasWindow())
     {
-        int ret = PlatformManager_GetWindowDisplayIndex(); // raw SDL display id of the window's screen
+        int64_t ret = PlatformManager_GetWindowDisplayIndex(); // raw SDL display id of the window's screen
         if (ret > 0)
         {
             // Map the opaque SDL display id back to our 0-based display index.
@@ -347,7 +347,7 @@ unsigned short LbGetCurrentDisplayIndex()
 }
 
 /** Check if a given mode is available on the current display, and set its Available field to TRUE if it is. */
-static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, unsigned short display)
+static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, int64_t display)
 {
     TbScreenModeInfo* mdinfo = LbScreenGetModeInfo(mode);
     SDL_DisplayID display_sdlid = display_id_from_index(display);
@@ -374,20 +374,20 @@ static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, unsigned short display
     else if (mdinfo->VideoFlags & Lb_VF_FILLALL)
     {
         // We actually need to setup this mode now, as it is flexible to the user's setup
-        int top = 0;
-        int left = 0;
-        int bottom = 0;
-        int right = 0;
+        int64_t top = 0;
+        int64_t left = 0;
+        int64_t bottom = 0;
+        int64_t right = 0;
         mdinfo->Width = mdinfo->Height = mdinfo->window_pos_x = mdinfo->window_pos_y = 0;
-        int numDisplays = PlatformManager_GetNumVideoDisplays();
+        int64_t numDisplays = PlatformManager_GetNumVideoDisplays();
         if (numDisplays <= 0)
         {
             ERRORLOG("PlatformManager_GetNumVideoDisplays failed: %s", SDL_GetError());
             return false; // for some reason we can't get the number of displays!
         }
-        for (int d = 0; d < numDisplays; d++)
+        for (int64_t d = 0; d < numDisplays; d++)
         {
-            int rect_x = 0, rect_y = 0, rect_w = 0, rect_h = 0;
+            int64_t rect_x = 0, rect_y = 0, rect_w = 0, rect_h = 0;
             if (PlatformManager_GetDisplayBounds(d, &rect_x, &rect_y, &rect_w, &rect_h) != 0)
             {
                 ERRORLOG("PlatformManager_GetDisplayBounds failed: %s", SDL_GetError());
@@ -398,8 +398,8 @@ static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, unsigned short display
             right = max(right, rect_x + rect_w);
             bottom = max(bottom, rect_y + rect_h);
         }
-        mdinfo->Width = abs(left - right);
-        mdinfo->Height = abs(top - bottom);
+        mdinfo->Width = llabs(left - right);
+        mdinfo->Height = llabs(top - bottom);
         if ((mdinfo->Width == 0) || (mdinfo->Height == 0))
         {
             ERRORLOG("no valid screens in FILLALL mode");
@@ -413,8 +413,8 @@ static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, unsigned short display
     {
         // We actually need to setup this mode now, as it is flexible to the user's setup
         // Get current desktop display width and height (after DPI scaling)
-        int desktop_w = 0, desktop_h = 0;
-        if (PlatformManager_GetDesktopDisplayMode((int)display_sdlid, &desktop_w, &desktop_h) != 0)
+        int64_t desktop_w = 0, desktop_h = 0;
+        if (PlatformManager_GetDesktopDisplayMode((int64_t)display_sdlid, &desktop_w, &desktop_h) != 0)
         {
             ERRORLOG("PlatformManager_GetDesktopDisplayMode failed: %s", SDL_GetError());
             return false; // for some reason we can't get the current desktop resolution!
@@ -427,12 +427,12 @@ static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, unsigned short display
     else
     {
         // See if the desired fullscreen mode is a valid mode for the current display
-        int closest_w = 0, closest_h = 0;
-        if (PlatformManager_GetClosestDisplayMode((int)display_sdlid, (int)mdinfo->Width, (int)mdinfo->Height, &closest_w, &closest_h) == 0)
+        int64_t closest_w = 0, closest_h = 0;
+        if (PlatformManager_GetClosestDisplayMode((int64_t)display_sdlid, (int64_t)mdinfo->Width, (int64_t)mdinfo->Height, &closest_w, &closest_h) == 0)
         {
             return false; // all available fullscreen modes are too small for the desired mode to fit
         }
-        if (((int)mdinfo->Width != closest_w) || ((int)mdinfo->Height != closest_h))
+        if (((int64_t)mdinfo->Width != closest_w) || ((int64_t)mdinfo->Height != closest_h))
         {
             return false; // reject if either dimension differs from the closest available mode
         }
@@ -524,10 +524,10 @@ TbResult LbScreenInitialize(void)
 
 /** Set up the window, render surface, etc. Called when we want to change the screen setup. Uses SDL2. */
 TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord height,
-    unsigned char *palette, short buffers_count, TbBool wscreen_vid)
+    unsigned char *palette, int64_t buffers_count, TbBool wscreen_vid)
 {
-    int32_t hot_x;
-    int32_t hot_y;
+    int64_t hot_x;
+    int64_t hot_y;
     const struct TbSprite* msspr = NULL;
     LbExeReferenceNumber();
     if (lbDisplay.MouseSprite != NULL)
@@ -547,15 +547,15 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
 
     if (PlatformManager_HasWindow())
     {
-        const unsigned int fs_mask = KFX_WF_FULLSCREEN_EXCLUSIVE | KFX_WF_FULLSCREEN_DESKTOP;
-        unsigned int current_fullscreen_flags = PlatformManager_GetWindowFlags() & fs_mask;
-        unsigned int new_fullscreen_flags = mdinfo->windowFlags & fs_mask;
+        const uint64_t fs_mask = KFX_WF_FULLSCREEN_EXCLUSIVE | KFX_WF_FULLSCREEN_DESKTOP;
+        uint64_t current_fullscreen_flags = PlatformManager_GetWindowFlags() & fs_mask;
+        uint64_t new_fullscreen_flags = mdinfo->windowFlags & fs_mask;
         // Exclusive fullscreen: apply the specific video mode.
         if (new_fullscreen_flags == KFX_WF_FULLSCREEN_EXCLUSIVE)
         {
-            if (PlatformManager_SetWindowDisplayMode((int)mdinfo->Width, (int)mdinfo->Height) != 0)
+            if (PlatformManager_SetWindowDisplayMode((int64_t)mdinfo->Width, (int64_t)mdinfo->Height) != 0)
             {
-                ERRORLOG("PlatformManager_SetWindowDisplayMode failed for mode %d (%s): %s", (int)mode, mdinfo->Desc, SDL_GetError());
+                ERRORLOG("PlatformManager_SetWindowDisplayMode failed for mode %" PRId64 " (%s): %s", (int64_t)mode, mdinfo->Desc, SDL_GetError());
                 return Lb_FAIL;
             }
             PlatformManager_SetWindowSize(mdinfo->Width, mdinfo->Height);
@@ -565,7 +565,7 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
         {
             if (PlatformManager_SetWindowFullscreen(new_fullscreen_flags) != 0)
             {
-                ERRORLOG("PlatformManager_SetWindowFullscreen failed for mode %d (%s): %s", (int)mode, mdinfo->Desc, SDL_GetError());
+                ERRORLOG("PlatformManager_SetWindowFullscreen failed for mode %" PRId64 " (%s): %s", (int64_t)mode, mdinfo->Desc, SDL_GetError());
                 return Lb_FAIL;
             }
         }
@@ -582,14 +582,14 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
     {
         if (PlatformManager_CreateWindow(lbDrawAreaTitle, mdinfo->window_pos_x, mdinfo->window_pos_y, mdinfo->Width, mdinfo->Height, mdinfo->windowFlags) == 0)
         {
-            ERRORLOG("PlatformManager_CreateWindow failed for mode %d (%s): %s", (int)mode, mdinfo->Desc, SDL_GetError());
+            ERRORLOG("PlatformManager_CreateWindow failed for mode %" PRId64 " (%s): %s", (int64_t)mode, mdinfo->Desc, SDL_GetError());
             return Lb_FAIL;
         }
         // A freshly-created exclusive-fullscreen window starts as desktop fullscreen;
         // switch it to the requested video mode.
         if (mdinfo->windowFlags & KFX_WF_FULLSCREEN_EXCLUSIVE)
         {
-            PlatformManager_SetWindowDisplayMode((int)mdinfo->Width, (int)mdinfo->Height);
+            PlatformManager_SetWindowDisplayMode((int64_t)mdinfo->Width, (int64_t)mdinfo->Height);
         }
     }
     // The engine renders true-colour (TbPixel, byte-compatible with
@@ -601,7 +601,7 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
     // still get resolved against, independently of this surface's pixel format.
     lbDrawSurface = SDL_CreateSurface(mdinfo->Width, mdinfo->Height, SDL_PIXELFORMAT_RGBA32);
     if (lbDrawSurface == NULL) {
-        ERRORLOG("Can't create draw surface for mode %d (%s): %s", (int)mode, mdinfo->Desc, SDL_GetError());
+        ERRORLOG("Can't create draw surface for mode %" PRId64 " (%s): %s", (int64_t)mode, mdinfo->Desc, SDL_GetError());
         LbScreenReset(false);
         return Lb_FAIL;
     }
@@ -619,7 +619,7 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
     lbDisplay.WScreen = NULL;
     lbDisplay.GraphicsWindowPtr = NULL;
     lbScreenInitialised = true;
-    SYNCLOG("Mode %dx%d setup succeeded (true-colour draw surface)",(int)lbDrawSurface->w,(int)lbDrawSurface->h);
+    SYNCLOG("Mode %" PRId64 "x%" PRId64 " setup succeeded (true-colour draw surface)",(int64_t)lbDrawSurface->w,(int64_t)lbDrawSurface->h);
     if (palette != NULL)
     {
         RendererPaletteSet(palette);
@@ -683,7 +683,7 @@ TbResult LbPaletteStore(const unsigned char *palette)
         return Lb_FAIL;
     unsigned char* bufColors = lbPalette;
     const unsigned char* srcColors = palette;
-    for (unsigned long i = 0; i < PALETTE_COLORS; i++)
+    for (uint64_t i = 0; i < PALETTE_COLORS; i++)
     {
         // note that bufColors and srcColors could be the same pointer
         bufColors[0] = srcColors[0] & 0x3F;
@@ -745,7 +745,7 @@ TbResult LbSetTitle(const char *title)
     return Lb_SUCCESS;
 }
 
-TbResult LbSetIcon(unsigned short nicon)
+TbResult LbSetIcon(int64_t nicon)
 {
     lbIconIndex = nicon;
     return Lb_SUCCESS;
@@ -820,11 +820,11 @@ TbResult LbScreenLoadGraphicsWindow(TbGraphicsWindow *grwnd)
   return Lb_SUCCESS;
 }
 
-TbResult LbScreenSetGraphicsWindow(long x, long y, long width, long height)
+TbResult LbScreenSetGraphicsWindow(int64_t x, int64_t y, int64_t width, int64_t height)
 {
-    long i;
-    long right_edge = x + width;
-    long bottom_edge = y + height;
+    int64_t i;
+    int64_t right_edge = x + width;
+    int64_t bottom_edge = y + height;
     if (right_edge < x)  //Alarm! Voodoo magic detected!
     {
         i = (x ^ right_edge);
@@ -867,7 +867,7 @@ TbResult LbScreenSetGraphicsWindow(long x, long y, long width, long height)
   return Lb_SUCCESS;
 }
 
-TbBool LbScreenIsModeAvailable(TbScreenMode mode, unsigned short display)
+TbBool LbScreenIsModeAvailable(TbScreenMode mode, int64_t display)
 {
   if (mode == Lb_SCREEN_MODE_INVALID)
   {
@@ -876,9 +876,9 @@ TbBool LbScreenIsModeAvailable(TbScreenMode mode, unsigned short display)
   if (!LbHwCheckIsModeAvailable(mode, display))
   {
     TbScreenModeInfo* mdinfo = LbScreenGetModeInfo(mode);
-    ERRORLOG("%s resolution %dx%d (mode %d) not available",
+    ERRORLOG("%s resolution %" PRId64 "x%" PRId64 " (mode %" PRId64 ") not available",
             (mdinfo->VideoFlags&Lb_VF_WINDOWED)?"Windowed":"Full screen",
-            (int)mdinfo->Width,(int)mdinfo->Height,(int)mode);
+            (int64_t)mdinfo->Width,(int64_t)mdinfo->Height,(int64_t)mode);
     return false;
   }
   return true;
@@ -903,7 +903,7 @@ TbResult LbScreenSetDoubleBuffering(TbBool state)
 
 TbScreenMode LbRecogniseVideoModeString(const char *desc)
 {
-    for (int mode = 0; mode < lbScreenModeInfoNum; mode++)
+    for (int64_t mode = 0; mode < lbScreenModeInfoNum; mode++)
     {
       if (strcasecmp(lbScreenModeInfo[mode].Desc,desc) == 0)
         return (TbScreenMode)mode;
@@ -912,7 +912,7 @@ TbScreenMode LbRecogniseVideoModeString(const char *desc)
 }
 
 TbScreenMode LbRegisterVideoMode(const char *desc, TbScreenCoord width, TbScreenCoord height,
-    unsigned short bpp, unsigned long flags)
+    int64_t bpp, uint64_t flags)
 {
     TbScreenModeInfo *mdinfo;
     TbScreenMode mode = LbRecogniseVideoModeString(desc);
@@ -926,7 +926,7 @@ TbScreenMode LbRegisterVideoMode(const char *desc, TbScreenCoord width, TbScreen
         }
         // Mode with same name but different params is registered
 #ifdef __DEBUG
-        LbWarnLog("%s: Mode with same name but different params is registered, cannot register %dx%dx%d\n",__func__, (int)width, (int)height, (int)bpp);
+        LbWarnLog("%s: Mode with same name but different params is registered, cannot register %" PRId64 "x%" PRId64 "x%" PRId64 "\n",__func__, (int64_t)width, (int64_t)height, (int64_t)bpp);
 #endif
         return Lb_SCREEN_MODE_INVALID;
     }
@@ -982,11 +982,11 @@ TbScreenMode LbRegisterVideoMode(const char *desc, TbScreenCoord width, TbScreen
  */
 TbScreenMode LbRegisterVideoModeString(const char *desc)
 {
-    int width;
-    int height;
-    int bpp;
-    unsigned long flags;
-    int ret = 0;
+    int64_t width;
+    int64_t height;
+    int64_t bpp;
+    uint64_t flags;
+    int64_t ret = 0;
     // check for the special "span all displays" mode
     if (strncasecmp(desc, "ALL", 3) == 0)
     {
@@ -1004,19 +1004,19 @@ TbScreenMode LbRegisterVideoModeString(const char *desc)
     }
     // modern patterns not matched - maybe it's fullscreen mode
     width = 0; height = 0; bpp = 0; flags = Lb_VF_DEFAULT;
-    ret = sscanf(desc," %d x %d x %d", &width, &height, &bpp);
+    ret = sscanf(desc," %" SCNd64 " x %" SCNd64 " x %" SCNd64, &width, &height, &bpp);
     if (ret != 3)
     {
         // pattern not matched - maybe it's windowed mode
         width = 0; height = 0; bpp = 0; flags = Lb_VF_DEFAULT;
-        ret = sscanf(desc," %d x %d w %d", &width, &height, &bpp);
+        ret = sscanf(desc," %" SCNd64 " x %" SCNd64 " w %" SCNd64, &width, &height, &bpp);
         flags |= Lb_VF_WINDOWED;
     }
     if (ret != 3)
     {
         // Cannot recognize parameters in mode
 #ifdef __DEBUG
-        LbWarnLog("%s: Cannot recognize parameters in mode, got %dx%dx%d\n",__func__, width, height, bpp);
+        LbWarnLog("%s: Cannot recognize parameters in mode, got %" PRId64 "x%" PRId64 "x%" PRId64 "\n",__func__, (int64_t)(width), (int64_t)(height), (int64_t)(bpp));
 #endif
         return Lb_SCREEN_MODE_INVALID;
     }
@@ -1039,15 +1039,15 @@ TbScreenMode LbRegisterVideoModeString(const char *desc)
  * so the widening does not silently change its meaning. */
 unsigned char LbPaletteFindColour(const unsigned char *pal, unsigned char r, unsigned char g, unsigned char b)
 {
-    int i;
+    int64_t i;
     // Compute minimal square difference in color; return exact match if found
-    int min_delta = 999999;
+    int64_t min_delta = 999999;
     const unsigned char* c = pal;
     for (i = 0; i < 256; i++)
     {
-        int dr = (r - c[0]) * (r - c[0]);
-        int dg = (g - c[1]) * (g - c[1]);
-        int db = (b - c[2]) * (b - c[2]);
+        int64_t dr = (r - c[0]) * (r - c[0]);
+        int64_t dg = (g - c[1]) * (g - c[1]);
+        int64_t db = (b - c[2]) * (b - c[2]);
         if (min_delta > dr+dg+db)
         {
             min_delta = dr+dg+db;
@@ -1058,15 +1058,15 @@ unsigned char LbPaletteFindColour(const unsigned char *pal, unsigned char r, uns
         c += 3;
     }
     // Gather all the colors with minimal square difference
-    int n = 0;
+    int64_t n = 0;
     unsigned char tmcol[256];
     unsigned char* o = tmcol;
     c = pal;
     for (i = 0; i < 256; i++)
     {
-        int dr = (r - c[0]) * (r - c[0]);
-        int dg = (g - c[1]) * (g - c[1]);
-        int db = (b - c[2]) * (b - c[2]);
+        int64_t dr = (r - c[0]) * (r - c[0]);
+        int64_t dg = (g - c[1]) * (g - c[1]);
+        int64_t db = (b - c[2]) * (b - c[2]);
         if (min_delta == dr+dg+db)
         {
             n += 1;
@@ -1084,23 +1084,23 @@ unsigned char LbPaletteFindColour(const unsigned char *pal, unsigned char r, uns
     for (i = 0; i < n; i++)
     {
         c = &pal[3 * tmcol[i]];
-        int dr = abs(r - c[0]);
-        int dg = abs(g - c[1]);
-        int db = abs(b - c[2]);
+        int64_t dr = llabs(r - c[0]);
+        int64_t dg = llabs(g - c[1]);
+        int64_t db = llabs(b - c[2]);
         if (min_delta > dr+dg+db) {
             min_delta = dr+dg+db;
         }
     }
     // Gather all the colors with minimal linear difference
     // Note that we may re-use tmcol array, because (i <= m)
-    int m = 0;
+    int64_t m = 0;
     o = tmcol;
     for (i = 0; i < n; i++)
     {
         c = &pal[3 * tmcol[i]];
-        int dr = abs(r - c[0]);
-        int dg = abs(g - c[1]);
-        int db = abs(b - c[2]);
+        int64_t dr = llabs(r - c[0]);
+        int64_t dg = llabs(g - c[1]);
+        int64_t db = llabs(b - c[2]);
         if (min_delta == dr+dg+db)
         {
             m += 1;
@@ -1118,9 +1118,9 @@ unsigned char LbPaletteFindColour(const unsigned char *pal, unsigned char r, uns
     for (i = 0; i < m; i++)
     {
         c = &pal[3 * tmcol[i]];
-        int dr = (c[0] * c[0]);
-        int dg = (c[1] * c[1]);
-        int db = (c[2] * c[2]);
+        int64_t dr = (c[0] * c[0]);
+        int64_t dg = (c[1] * c[1]);
+        int64_t db = (c[2] * c[2]);
         if (min_delta > db+2*(dg+dr))
         {
           min_delta = db+2*(dg+dr);
@@ -1144,10 +1144,10 @@ unsigned char LbPaletteFindColour(const unsigned char *pal, unsigned char r, uns
  *
  * @param base_value The fixed value from original DK 640x400 mode that needs to be scaled with the game's current resolution
  */
-long scale_value_for_resolution(long base_value)
+int64_t scale_value_for_resolution(int64_t base_value)
 {
     // return value is equivalent to: round(base_value * units_per_pixel /16)
-    long value = ((((units_per_pixel * base_value) >> 3) + (((units_per_pixel * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((units_per_pixel * base_value) >> 3) + (((units_per_pixel * base_value) >> 3) & 1)) >> 1);
     return max(1,value);
 }
 
@@ -1158,9 +1158,9 @@ long scale_value_for_resolution(long base_value)
  * @param base_value The fixed value from original DK 640x400 mode that needs to be scaled with the game's current resolution
  * @param units_per_px The current units_per_px value for the current resolution
  */
-long scale_value_for_resolution_with_upp(long base_value, long units_per_px)
+int64_t scale_value_for_resolution_with_upp(int64_t base_value, int64_t units_per_px)
 {
-    long value = ((((units_per_px * base_value) >> 3) + (((units_per_px * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((units_per_px * base_value) >> 3) + (((units_per_px * base_value) >> 3) & 1)) >> 1);
     // return value is equivalent to: round(base_value * units_per_px /16)
     return max(1,value);
 }
@@ -1171,11 +1171,11 @@ long scale_value_for_resolution_with_upp(long base_value, long units_per_px)
  *
  * @param base_value The fixed value from original DK 640x400 mode that needs to be scaled with the game's current horizontal resolution
  */
-long scale_value_by_horizontal_resolution(long base_value)
+int64_t scale_value_by_horizontal_resolution(int64_t base_value)
 {
-    unsigned short upp_width = video_scale_callbacks->get_video_scale_values()->units_per_pixel_width;
+    int64_t upp_width = video_scale_callbacks->get_video_scale_values()->units_per_pixel_width;
     // return value is equivalent to: round(base_value * units_per_pixel_width /16)
-    long value = ((((upp_width * base_value) >> 3) + (((upp_width * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((upp_width * base_value) >> 3) + (((upp_width * base_value) >> 3) & 1)) >> 1);
     return value;
 }
 
@@ -1185,11 +1185,11 @@ long scale_value_by_horizontal_resolution(long base_value)
  *
  * @param base_value The fixed value from original DK 640x400 mode that needs to be scaled with the game's current vertical resolution
  */
-long scale_value_by_vertical_resolution(long base_value)
+int64_t scale_value_by_vertical_resolution(int64_t base_value)
 {
-    unsigned short upp_height = video_scale_callbacks->get_video_scale_values()->units_per_pixel_height;
+    int64_t upp_height = video_scale_callbacks->get_video_scale_values()->units_per_pixel_height;
     // return value is equivalent to: round(base_value * units_per_pixel_height /16)
-    long value = ((((upp_height * base_value) >> 3) + (((upp_height * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((upp_height * base_value) >> 3) + (((upp_height * base_value) >> 3) & 1)) >> 1);
     return value;
 }
 
@@ -1199,11 +1199,11 @@ long scale_value_by_vertical_resolution(long base_value)
  *
  * @param base_value The fixed value tuned for original DK 640x400 mode
  */
-long scale_ui_value(long base_value)
+int64_t scale_ui_value(int64_t base_value)
 {
-    unsigned short upp_ui = video_scale_callbacks->get_video_scale_values()->units_per_pixel_ui;
+    int64_t upp_ui = video_scale_callbacks->get_video_scale_values()->units_per_pixel_ui;
     // return value is equivalent to: round(base_value * units_per_pixel_ui /16)
-    long value = ((((upp_ui * base_value) >> 3) + (((upp_ui * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((upp_ui * base_value) >> 3) + (((upp_ui * base_value) >> 3) & 1)) >> 1);
     return value; // can return zero
 }
 
@@ -1212,10 +1212,10 @@ long scale_ui_value(long base_value)
  *
  * @param base_value The fixed value tuned for original DK 640x400 mode
  */
-long scale_ui_value_lofi(long base_value)
+int64_t scale_ui_value_lofi(int64_t base_value)
 {
     TbBool lofi_mode = ((LbGraphicsScreenHeight() < 400) ? true : false);
-    long value;
+    int64_t value;
     if (lofi_mode)
     {
         value = scale_ui_value(base_value * 2);
@@ -1234,11 +1234,11 @@ long scale_ui_value_lofi(long base_value)
  *
  * @param base_value The fixed value tuned for original DK 640x400 mode
  */
-long scale_fixed_DK_value(long base_value)
+int64_t scale_fixed_DK_value(int64_t base_value)
 {
-    unsigned short upp_best = video_scale_callbacks->get_video_scale_values()->units_per_pixel_best;
+    int64_t upp_best = video_scale_callbacks->get_video_scale_values()->units_per_pixel_best;
     // return value is equivalent to: round(base_value * units_per_pixel_best /16)
-    long value = ((((upp_best * base_value) >> 3) + (((upp_best * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((upp_best * base_value) >> 3) + (((upp_best * base_value) >> 3) & 1)) >> 1);
     return value;
 }
 
@@ -1253,19 +1253,19 @@ long scale_fixed_DK_value(long base_value)
  *
  * @param base_value The fixed value tuned for original DK menu in 640x480 mode
  */
-long scale_value_menu(long base_value)
+int64_t scale_value_menu(int64_t base_value)
 {
-    unsigned short upp_menu = video_scale_callbacks->get_video_scale_values()->units_per_pixel_menu;
+    int64_t upp_menu = video_scale_callbacks->get_video_scale_values()->units_per_pixel_menu;
     // return value is equivalent to: round(base_value * units_per_pixel_menu /16)
-    long value = ((((upp_menu * base_value) >> 3) + (((upp_menu * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((upp_menu * base_value) >> 3) + (((upp_menu * base_value) >> 3) & 1)) >> 1);
     return value;
 }
 
 /** Scale the size and position of the landview background and banners. */
-long scale_value_landview(long base_value)
+int64_t scale_value_landview(int64_t base_value)
 {
     // return value is equivalent to: round(base_value * units_per_pixel_landview /16)
-    long value = ((((units_per_pixel_landview * base_value) >> 3) + (((units_per_pixel_landview * base_value) >> 3) & 1)) >> 1);
+    int64_t value = ((((units_per_pixel_landview * base_value) >> 3) + (((units_per_pixel_landview * base_value) >> 3) & 1)) >> 1);
     return value;
 }
 
@@ -1285,11 +1285,11 @@ long scale_value_landview(long base_value)
  * @param landview_width the current landview background image width (passed LANDVIEW_MAP_WIDTH)
  * @param landview_height the current landview background image height (passed LANDVIEW_MAP_HEIGHT)
  */
-void calculate_landview_upp(long width, long height, long landview_width, long landview_height)
+void calculate_landview_upp(int64_t width, int64_t height, int64_t landview_width, int64_t landview_height)
 {
     // horizontal, and vertical, aspect ratios for the current game window
-    long h_ar = 1024 * width / height;
-    long v_ar = 1024 * height / width;
+    int64_t h_ar = 1024 * width / height;
+    int64_t v_ar = 1024 * height / width;
     if (is_menu_ar_wider_than_original(width, height))  // Get FIT upp
     {
         // **HOR+ land view**
@@ -1308,12 +1308,12 @@ void calculate_landview_upp(long width, long height, long landview_width, long l
         units_per_pixel_landview = (((height * 1024 / 30 / 1024) + 1) / 2) * 2;
 
         // setup window frame movement speed (in land view)
-        long temp_width = 480 * h_ar;
+        int64_t temp_width = 480 * h_ar;
         landview_frame_movement_scale_x = (1024 * (1024 * 640 - (temp_width - (1024 * 640))) / 640) / (h_ar / (640 / 480));
         landview_frame_movement_scale_y = 1024;
 
         // calculate the window frame units per pixel value
-        long landview_frame_width_ideal = width + (((((scale_value_landview(landview_width) - width) / 2)) + 1) / 2) * 2;
+        int64_t landview_frame_width_ideal = width + (((((scale_value_landview(landview_width) - width) / 2)) + 1) / 2) * 2;
         units_per_pixel_landview_frame = (((landview_frame_width_ideal * 1024 * 2 / 3 / 40 / 1024) + 1) / 2) * 2;
     }
     else
@@ -1335,12 +1335,12 @@ void calculate_landview_upp(long width, long height, long landview_width, long l
         units_per_pixel_landview = (((width * 1024 / 40 / 1024) + 1) / 2) * 2;
 
         // setup window frame movement speed (in land view)
-        long temp_height = 640 * v_ar;
+        int64_t temp_height = 640 * v_ar;
         landview_frame_movement_scale_x = 1024;
         landview_frame_movement_scale_y = (1024 * (1024 * 480 - (temp_height - (1024 * 480))) / 480) / (1024 * v_ar / (1024 * 480 / 640));
 
         // calculate the window frame units per pixel value
-        long landview_frame_height_ideal = height + (((scale_value_landview(landview_height) - height) / 2 + 1) / 2) * 2;
+        int64_t landview_frame_height_ideal = height + (((scale_value_landview(landview_height) - height) / 2 + 1) / 2) * 2;
         units_per_pixel_landview_frame = (((landview_frame_height_ideal * 1024 * 2 / 3 / 30 / 1024) + 1) / 2) * 2;
     }
 }
@@ -1351,10 +1351,10 @@ void calculate_landview_upp(long width, long height, long landview_width, long l
  * @param width current window width
  * @param height current window height
  */
-TbBool is_ar_wider_than_original(long width, long height)
+TbBool is_ar_wider_than_original(int64_t width, int64_t height)
 {
-    long original_aspect_ratio = (320 << 8) / 200;
-    long current_aspect_ratio = (width << 8) / height;
+    int64_t original_aspect_ratio = (320 << 8) / 200;
+    int64_t current_aspect_ratio = (width << 8) / height;
     return (current_aspect_ratio > original_aspect_ratio);
 }
 /**
@@ -1363,10 +1363,10 @@ TbBool is_ar_wider_than_original(long width, long height)
  * @param width current window width
  * @param height current window height
  */
-TbBool is_menu_ar_wider_than_original(long width, long height)
+TbBool is_menu_ar_wider_than_original(int64_t width, int64_t height)
 {
-    long original_aspect_ratio = (640 << 8) / 480;
-    long current_aspect_ratio = (width << 8) / height;
+    int64_t original_aspect_ratio = (640 << 8) / 480;
+    int64_t current_aspect_ratio = (width << 8) / height;
     return (current_aspect_ratio > original_aspect_ratio);
 }
 
@@ -1378,9 +1378,9 @@ TbBool is_menu_ar_wider_than_original(long width, long height)
  * @param reference_upp a reference units_per_pixel value, that is relative to the current window resolution
  * @param reference_length a reference length/size to put in a ratio relative to the give base_length
  */
-long calculate_relative_upp(long base_length, long reference_upp, long reference_length)
+int64_t calculate_relative_upp(int64_t base_length, int64_t reference_upp, int64_t reference_length)
 {
-    long value = ((((base_length * reference_upp) << 2) / reference_length) >> 2); // bitshifts to round up
+    int64_t value = ((((base_length * reference_upp) << 2) / reference_length) >> 2); // bitshifts to round up
     return max(1,value);
 }
 
@@ -1390,13 +1390,13 @@ long calculate_relative_upp(long base_length, long reference_upp, long reference
  * @param units_per_px the current units_per_pixel value
  * @param ui_scale the relative scale to multiply units_per_px by
  */
-long resize_ui(long units_per_px, long ui_scale)
+int64_t resize_ui(int64_t units_per_px, int64_t ui_scale)
 {
-    long value = (units_per_px * ui_scale / DEFAULT_UI_SCALE);
+    int64_t value = (units_per_px * ui_scale / DEFAULT_UI_SCALE);
     return max(1,value);
 }
 
-void calculate_aspect_ratio_factor(long width, long height)
+void calculate_aspect_ratio_factor(int64_t width, int64_t height)
 {
     aspect_ratio_factor_HOR_PLUS = aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS = 100 * width / height;
     if (!is_ar_wider_than_original(width, height))
@@ -1406,26 +1406,26 @@ void calculate_aspect_ratio_factor(long width, long height)
     }
 }
 
-long scale_fixed_DK_value_by_ar(long base_value, TbBool scale_up, TbBool vert_plus)
+int64_t scale_fixed_DK_value_by_ar(int64_t base_value, TbBool scale_up, TbBool vert_plus)
 {
-    long aspect_ratio_factor = vert_plus ? aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS : aspect_ratio_factor_HOR_PLUS;
-    long multiplier = scale_up ? aspect_ratio_factor : DEFAULT_ASPECT_RATIO_FACTOR;
-    long divisor = scale_up ? DEFAULT_ASPECT_RATIO_FACTOR : aspect_ratio_factor;
+    int64_t aspect_ratio_factor = vert_plus ? aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS : aspect_ratio_factor_HOR_PLUS;
+    int64_t multiplier = scale_up ? aspect_ratio_factor : DEFAULT_ASPECT_RATIO_FACTOR;
+    int64_t divisor = scale_up ? DEFAULT_ASPECT_RATIO_FACTOR : aspect_ratio_factor;
 
-    long value = multiplier * base_value / divisor;
+    int64_t value = multiplier * base_value / divisor;
     return value;
 }
 
-long convert_vertical_FOV_to_horizontal(long vert_fov)
+int64_t convert_vertical_FOV_to_horizontal(int64_t vert_fov)
 {
     double horizontal_fov = (2.0 * atan(tan((vert_fov * M_PI /180.0) / 2.0) * 16.0 / 10.0 )) * 180.0 / M_PI;
-    long value = lround(horizontal_fov);
+    int64_t value = lround(horizontal_fov);
     return value;
 }
 
-long FOV_based_on_aspect_ratio(void)
+int64_t FOV_based_on_aspect_ratio(void)
 {
-    long value = scale_fixed_DK_value_by_ar(convert_vertical_FOV_to_horizontal(first_person_vertical_fov), false, false);
+    int64_t value = scale_fixed_DK_value_by_ar(convert_vertical_FOV_to_horizontal(first_person_vertical_fov), false, false);
     return value;
 }
 /******************************************************************************/

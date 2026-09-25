@@ -142,7 +142,7 @@ TEST_CASE_METHOD(Fixture, "general settings: gold, max creatures, generation spe
 }
 
 TEST_CASE_METHOD(Fixture, "slots & AI: controllers and teams", "[kfx_frontend][skirmish_setup]") {
-    int model = -1;
+    int64_t model = -1;
     CHECK(skirmish_setup_controller_choice(1, &model) == SkirmishCtl_LevelDefault);
     skirmish_setup_set_controller(1, SkirmishCtl_Model, 13);
     CHECK(skirmish_setup_controller_choice(1, &model) == SkirmishCtl_Model);

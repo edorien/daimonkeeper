@@ -40,14 +40,14 @@ struct Dungeon *get_players_num_dungeon_f(PlayerNumber plyr_idx,const char *func
     PlayerNumber plyr_num = player->id_number;
     if (player_invalid(player) || (plyr_num < 0) || (plyr_num >= DUNGEONS_COUNT))
     {
-        ERRORMSG("%s: Tried to get players %d non-existing dungeon %d!",func_name,(int)plyr_idx,(int)plyr_num);
+        ERRORMSG("%s: Tried to get players %" PRId64 " non-existing dungeon %" PRId64 "!",func_name,(int64_t)plyr_idx,(int64_t)plyr_num);
         return INVALID_DUNGEON;
     }
     if (plyr_num != player->id_number)
     {
-        WARNDBG(7,"%s: Player number(%d) differ from index(%d)!",func_name,(int)plyr_num,(int)plyr_idx);
+        WARNDBG(7,"%s: Player number(%" PRId64 ") differ from index(%" PRId64 ")!",func_name,(int64_t)plyr_num,(int64_t)plyr_idx);
     }
-    return &(kfx_sim_state.dungeon[(int)plyr_num]);
+    return &(kfx_sim_state.dungeon[(int64_t)plyr_num]);
 }
 
 struct Dungeon *get_players_dungeon_f(const struct PlayerInfo *player,const char *func_name)
@@ -55,20 +55,20 @@ struct Dungeon *get_players_dungeon_f(const struct PlayerInfo *player,const char
     PlayerNumber plyr_num = player->id_number;
     if (player_invalid(player) || (plyr_num < 0) || (plyr_num >= DUNGEONS_COUNT))
     {
-        ERRORLOG("%s: Tried to get non-existing dungeon %ld!",func_name,(long)plyr_num);
+        ERRORLOG("%s: Tried to get non-existing dungeon %" PRId64 "!",func_name,(int64_t)plyr_num);
         return INVALID_DUNGEON;
     }
-    return &(kfx_sim_state.dungeon[(int)plyr_num]);
+    return &(kfx_sim_state.dungeon[(int64_t)plyr_num]);
 }
 
 struct Dungeon *get_dungeon_f(PlayerNumber plyr_num,const char *func_name)
 {
     if ((plyr_num < 0) || (plyr_num >= DUNGEONS_COUNT))
     {
-        ERRORLOG("%s: Tried to get non-existing dungeon %d!", func_name, plyr_num);
+        ERRORLOG("%s: Tried to get non-existing dungeon %" PRId64 "!", func_name, (int64_t)(plyr_num));
         return INVALID_DUNGEON;
     }
-    return &(kfx_sim_state.dungeon[(int)plyr_num]);
+    return &(kfx_sim_state.dungeon[(int64_t)plyr_num]);
 }
 
 TbBool dungeon_invalid(const struct Dungeon *dungeon)
@@ -81,7 +81,7 @@ TbBool dungeon_invalid(const struct Dungeon *dungeon)
 void clear_dungeons(void)
 {
   SYNCDBG(6,"Starting");
-  for (int i = 0; i < DUNGEONS_COUNT; i++)
+  for (int64_t i = 0; i < DUNGEONS_COUNT; i++)
   {
       memset(&kfx_sim_state.dungeon[i], 0, sizeof(struct Dungeon));
       kfx_sim_state.dungeon[i].owner = PLAYERS_COUNT;
@@ -90,7 +90,7 @@ void clear_dungeons(void)
   bad_dungeon.owner = PLAYERS_COUNT;
 }
 
-void decrease_dungeon_area(PlayerNumber plyr_idx, int32_t value)
+void decrease_dungeon_area(PlayerNumber plyr_idx, int64_t value)
 {
     if (plyr_idx == kfx_config_state.neutral_player_num)
         return;
@@ -101,7 +101,7 @@ void decrease_dungeon_area(PlayerNumber plyr_idx, int32_t value)
       dungeon->total_area -= value;
 }
 
-void increase_room_area(PlayerNumber plyr_idx, int32_t value)
+void increase_room_area(PlayerNumber plyr_idx, int64_t value)
 {
     if (plyr_idx == kfx_config_state.neutral_player_num)
         return;
@@ -110,7 +110,7 @@ void increase_room_area(PlayerNumber plyr_idx, int32_t value)
     dungeon->total_area += value;
 }
 
-void decrease_room_area(PlayerNumber plyr_idx, int32_t value)
+void decrease_room_area(PlayerNumber plyr_idx, int64_t value)
 {
     if (plyr_idx == kfx_config_state.neutral_player_num)
         return;
@@ -127,7 +127,7 @@ void decrease_room_area(PlayerNumber plyr_idx, int32_t value)
       dungeon->total_area -= value;
 }
 
-void increase_dungeon_area(PlayerNumber plyr_idx, int32_t value)
+void increase_dungeon_area(PlayerNumber plyr_idx, int64_t value)
 {
     if (plyr_idx == kfx_config_state.neutral_player_num)
         return;
@@ -141,7 +141,7 @@ void player_add_offmap_gold(PlayerNumber plyr_idx, GoldAmount value)
     // may be uninitialized yet when this is called.
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        WARNLOG("Cannot give gold player %d with no dungeon",(int)plyr_idx);
+        WARNLOG("Cannot give gold player %" PRId64 " with no dungeon",(int64_t)plyr_idx);
         return;
     }
     // If we're removing gold instead of adding, make sure we won't remove too much
@@ -180,12 +180,12 @@ TbBool player_has_room_of_role(PlayerNumber plyr_idx, RoomRole rrole)
  * @param rrole Room role being checked.
  * @return
  */
-int32_t count_player_discrete_rooms_with_role(PlayerNumber plyr_idx, RoomRole rrole)
+int64_t count_player_discrete_rooms_with_role(PlayerNumber plyr_idx, RoomRole rrole)
 {
     if (plyr_idx == kfx_config_state.neutral_player_num)
         return 0;
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    int count = 0;
+    int64_t count = 0;
     for (RoomKind rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
         if (room_role_matches(rkind, rrole))
@@ -216,11 +216,11 @@ void add_heart_health(PlayerNumber plyr_idx,HitPoints healthdelta,TbBool warn_on
     if (thing_exists(heartng))
     {
         struct ObjectConfigStats* objst = get_object_model_stats(heartng->model);
-        long old_health = heartng->health;
+        int64_t old_health = heartng->health;
         int64_t new_health = heartng->health + healthdelta;
         if (new_health > objst->health)
         {
-            SCRIPTDBG(7,"Player %u's calculated heart health (%" PRId64 ") is greater than maximum: %d", heartng->owner, new_health, objst->health);
+            SCRIPTDBG(7,"Player %" PRIu64 "'s calculated heart health (%" PRId64 ") is greater than maximum: %" PRId64, (uint64_t)(heartng->owner), (int64_t)(new_health), (int64_t)(objst->health));
             new_health = objst->health;
         }
         heartng->health = new_health;
@@ -287,7 +287,7 @@ TbBool dungeon_has_room_of_role(const struct Dungeon *dungeon, RoomRole rrole)
 
 }
 
-TbBool player_creature_tends_to(PlayerNumber plyr_idx, unsigned short tend_type)
+TbBool player_creature_tends_to(PlayerNumber plyr_idx, int64_t tend_type)
 {
     if (plyr_idx == kfx_config_state.neutral_player_num)
         return false;
@@ -299,12 +299,12 @@ TbBool player_creature_tends_to(PlayerNumber plyr_idx, unsigned short tend_type)
     case CrTend_Flee:
         return ((dungeon->creature_tendencies & CrTend_Flee) != 0);
     default:
-        ERRORLOG("Bad tendency type %d",(int)tend_type);
+        ERRORLOG("Bad tendency type %" PRId64,(int64_t)tend_type);
         return false;
     }
 }
 
-TbBool toggle_creature_tendencies(struct PlayerInfo *player, unsigned short tend_type)
+TbBool toggle_creature_tendencies(struct PlayerInfo *player, int64_t tend_type)
 {
     struct Dungeon* dungeon = get_dungeon(player->id_number);
     switch (tend_type)
@@ -320,16 +320,16 @@ TbBool toggle_creature_tendencies(struct PlayerInfo *player, unsigned short tend
         dungeon->creature_tendencies ^= (CrTend_Imprison | CrTend_Flee);
         return true;
     default:
-        ERRORLOG("Can't toggle tendency; bad tendency type %d",(int)tend_type);
+        ERRORLOG("Can't toggle tendency; bad tendency type %" PRId64,(int64_t)tend_type);
         return false;
     }
 }
 
-TbBool set_creature_tendencies(struct PlayerInfo *player, unsigned short tend_type, TbBool val)
+TbBool set_creature_tendencies(struct PlayerInfo *player, int64_t tend_type, TbBool val)
 {
     struct Dungeon* dungeon = get_dungeon(player->id_number);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Can't set tendency; player %d has no dungeon.",(int)player->id_number);
+        ERRORLOG("Can't set tendency; player %" PRId64 " has no dungeon.",(int64_t)player->id_number);
         return false;
     }
     switch (tend_type)
@@ -341,21 +341,21 @@ TbBool set_creature_tendencies(struct PlayerInfo *player, unsigned short tend_ty
         set_flag_value(dungeon->creature_tendencies, CrTend_Flee, val);
         return true;
     default:
-        ERRORLOG("Can't set tendency; bad tendency type %d",(int)tend_type);
+        ERRORLOG("Can't set tendency; bad tendency type %" PRId64,(int64_t)tend_type);
         return false;
     }
 }
 
-TbBool set_trap_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel tngmodel, int32_t buildable, int32_t amount)
+TbBool set_trap_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel tngmodel, int64_t buildable, int64_t amount)
 {
     if ( (tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count) ) {
-        ERRORDBG(1,"Can't set trap availability; invalid trap kind %d.",(int)tngmodel);
+        ERRORDBG(1,"Can't set trap availability; invalid trap kind %" PRId64 ".",(int64_t)tngmodel);
         return false;
     }
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
 
     if (dungeon_invalid(dungeon)) {
-        ERRORDBG(11,"Can't set trap availability; player %d has no dungeon.",(int)plyr_idx);
+        ERRORDBG(11,"Can't set trap availability; player %" PRId64 " has no dungeon.",(int64_t)plyr_idx);
         return false;
     }
     if (buildable)
@@ -375,15 +375,15 @@ TbBool set_trap_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel tn
     return true;
 }
 
-TbBool set_door_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel tngmodel, int32_t buildable, int32_t amount)
+TbBool set_door_buildable_and_add_to_amount(PlayerNumber plyr_idx, ThingModel tngmodel, int64_t buildable, int64_t amount)
 {
     if ( (tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.door_types_count) ) {
-        ERRORDBG(1,"Can't set door availability; invalid door kind %d.",(int)tngmodel);
+        ERRORDBG(1,"Can't set door availability; invalid door kind %" PRId64 ".",(int64_t)tngmodel);
         return false;
     }
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        ERRORDBG(11,"Can't set door availability; player %d has no dungeon.",(int)plyr_idx);
+        ERRORDBG(11,"Can't set door availability; player %" PRId64 " has no dungeon.",(int64_t)plyr_idx);
         return false;
     }
     if (buildable)
@@ -431,15 +431,15 @@ TbBool dungeon_has_any_buildable_doors(struct Dungeon *dungeon)
     return false;
 }
 
-TbBool restart_script_timer(PlayerNumber plyr_idx, int32_t timer_id)
+TbBool restart_script_timer(PlayerNumber plyr_idx, int64_t timer_id)
 {
     if ( (timer_id < 0) || (timer_id >= TURN_TIMERS_COUNT) ) {
-        ERRORLOG("Can't restart timer; invalid timer id %d.",(int)timer_id);
+        ERRORLOG("Can't restart timer; invalid timer id %" PRId64 ".",(int64_t)timer_id);
         return false;
     }
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Can't restart timer; player %d has no dungeon.",(int)plyr_idx);
+        ERRORLOG("Can't restart timer; player %" PRId64 " has no dungeon.",(int64_t)plyr_idx);
         return false;
     }
     dungeon->turn_timers[timer_id].state = 1;
@@ -447,29 +447,29 @@ TbBool restart_script_timer(PlayerNumber plyr_idx, int32_t timer_id)
     return true;
 }
 
-void add_to_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, int32_t value)
+void add_to_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, int64_t value)
 {
     if (timer_id >= TURN_TIMERS_COUNT) {
-        ERRORLOG("Can't manipulate timer; invalid timer id %d.",(int)timer_id);
+        ERRORLOG("Can't manipulate timer; invalid timer id %" PRId64 ".",(int64_t)timer_id);
         return;
     }
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Can't manipulate timer; player %d has no dungeon.",(int)plyr_idx);
+        ERRORLOG("Can't manipulate timer; player %" PRId64 " has no dungeon.",(int64_t)plyr_idx);
         return;
     }
     dungeon->turn_timers[timer_id].count -= value;
 }
 
-TbBool set_script_flag(PlayerNumber plyr_idx, int32_t flag_id, int32_t value)
+TbBool set_script_flag(PlayerNumber plyr_idx, int64_t flag_id, int64_t value)
 {
     if ( (flag_id < 0) || (flag_id >= SCRIPT_FLAGS_COUNT) ) {
-        ERRORLOG("Can't set flag; invalid flag id %d.",(int)flag_id);
+        ERRORLOG("Can't set flag; invalid flag id %" PRId64 ".",(int64_t)flag_id);
         return false;
     }
     struct Dungeon* dungeon       = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Can't set flag; player %d has no dungeon",(int)plyr_idx);
+        ERRORLOG("Can't set flag; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
     dungeon->script_flags[flag_id] = value;
@@ -484,7 +484,7 @@ TbBool mark_creature_joined_dungeon(struct Thing *creatng)
     }
     struct Dungeon* dungeon = get_dungeon(creatng->owner);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Can't mark; player %d has no dungeon",(int)creatng->owner);
+        ERRORLOG("Can't mark; player %" PRId64 " has no dungeon",(int64_t)creatng->owner);
         return false;
     }
     if ((dungeon->owned_creatures_of_model[creatng->model] <= 1) && (dungeon->creature_models_joined[creatng->model] <= 0))
@@ -520,7 +520,7 @@ void init_dungeon_essential_position(struct Dungeon *dungeon)
 
 void init_dungeons_essential_position(void)
 {
-    for (int i = 0; i < DUNGEONS_COUNT; i++)
+    for (int64_t i = 0; i < DUNGEONS_COUNT; i++)
     {
         struct Dungeon* dungeon = get_dungeon(i);
         init_dungeon_essential_position(dungeon);
@@ -541,7 +541,7 @@ const struct Coord3d *dungeon_get_essential_pos(PlayerNumber plyr_idx)
 
 void init_dungeons(void)
 {
-    for (int i = 0; i < DUNGEONS_COUNT; i++)
+    for (int64_t i = 0; i < DUNGEONS_COUNT; i++)
     {
         struct Dungeon* dungeon = get_dungeon(i);
         dungeon->num_active_diggers = 0;
@@ -592,7 +592,7 @@ TbBool players_num_dungeon_valid_with_heart(PlayerNumber plyr_idx)
     return !dungeon_invalid(get_players_num_dungeon(plyr_idx)) && player_has_heart(plyr_idx);
 }
 
-void set_creature_availability(PlayerNumber plyr_idx, ThingModel crtr_model, long can_be_avail, long force_avail)
+void set_creature_availability(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     dungeon->creature_allowed[crtr_model] = can_be_avail;
@@ -608,7 +608,7 @@ void try_set_backup_heart_idx(PlayerNumber owner, ThingIndex thing_idx)
     }
 }
 
-TbBool set_room_resrchable_and_buildable(PlayerNumber plyr_idx, RoomKind rkind, long resrch, long avail)
+TbBool set_room_resrchable_and_buildable(PlayerNumber plyr_idx, RoomKind rkind, int64_t resrch, int64_t avail)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     dungeon->room_resrchable[rkind] = resrch;
@@ -629,7 +629,7 @@ TbBool get_room_resrchable(PlayerNumber plyr_idx, RoomKind rkind)
 void set_all_room_resrchable(PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    for (long rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
+    for (int64_t rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
         dungeon->room_resrchable[rkind] = 1;
     }
@@ -644,7 +644,7 @@ TbBool get_room_buildable(PlayerNumber plyr_idx, RoomKind rkind)
 void set_all_room_buildable_from_resrchable(PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    for (long i = 0; i < kfx_config_state.conf.slab_conf.room_types_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.slab_conf.room_types_count; i++)
     {
         if (dungeon->room_resrchable[i])
         {
@@ -668,7 +668,7 @@ void set_magic_resrchable(PlayerNumber plyr_idx, PowerKind pwkind, TbBool resrch
 void set_all_magic_resrchable_unchecked(PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    for (long i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
+    for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
     {
         dungeon->magic_resrchable[i] = 1;
     }
@@ -685,37 +685,37 @@ TbBool get_magic_level_gt0(PlayerNumber plyr_idx, PowerKind pwkind)
 // -- kept as separate steps rather than baked in here so config_trapdoor.c
 // can preserve its original check ordering (dungeon/heart validity
 // before the tngmodel/door_idx range check) byte-for-byte.
-TbBool get_trap_placeable(PlayerNumber plyr_idx, long tngmodel)
+TbBool get_trap_placeable(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return dungeon->mnfct_info.trap_amount_placeable[tngmodel] > 0;
 }
 
-TbBool get_trap_manufacturable(PlayerNumber plyr_idx, long tngmodel)
+TbBool get_trap_manufacturable(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return (dungeon->mnfct_info.trap_build_flags[tngmodel] & MnfBldF_Manufacturable) != 0;
 }
 
-TbBool get_trap_built(PlayerNumber plyr_idx, long tngmodel)
+TbBool get_trap_built(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return (dungeon->mnfct_info.trap_build_flags[tngmodel] & MnfBldF_Built) != 0;
 }
 
-TbBool get_door_placeable(PlayerNumber plyr_idx, long door_idx)
+TbBool get_door_placeable(PlayerNumber plyr_idx, int64_t door_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return dungeon->mnfct_info.door_amount_placeable[door_idx] > 0;
 }
 
-TbBool get_door_manufacturable(PlayerNumber plyr_idx, long door_idx)
+TbBool get_door_manufacturable(PlayerNumber plyr_idx, int64_t door_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return (dungeon->mnfct_info.door_build_flags[door_idx] & MnfBldF_Manufacturable) != 0;
 }
 
-TbBool get_door_built(PlayerNumber plyr_idx, long door_idx)
+TbBool get_door_built(PlayerNumber plyr_idx, int64_t door_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return (dungeon->mnfct_info.door_build_flags[door_idx] & MnfBldF_Built) != 0;

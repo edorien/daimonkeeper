@@ -55,8 +55,8 @@ TEST_CASE("the default config_reload_callbacks table's every stub is a safe no-o
     config_reload_callbacks->set_screenshot_format(0);
     CHECK(config_reload_callbacks->get_screenshot_format() == 0);
     config_reload_callbacks->set_vid_smooth(false);
-    config_reload_callbacks->set_hand_scale(0.0f);
-    CHECK(config_reload_callbacks->get_hand_scale() == 1.0f);
+    config_reload_callbacks->set_hand_scale(0.0);
+    CHECK(config_reload_callbacks->get_hand_scale() == 1.0);
     CHECK(config_reload_callbacks->get_room_kind_thing_is_on(nullptr) == 0);
     CHECK(config_reload_callbacks->get_player_color_idx(0) == 0);
     CHECK(config_reload_callbacks->get_slabset_array() == nullptr);

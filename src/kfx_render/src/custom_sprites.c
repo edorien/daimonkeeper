@@ -49,14 +49,14 @@
 // Each part of RGB tuple of palette file is 1-63 actually
 #define MAX_COLOR_VALUE 64
 static uint8_t * rgb_to_pal_table = NULL;
-static short next_free_sprite = 0;
-static short next_free_icon = 0;
+static int64_t next_free_sprite = 0;
+static int64_t next_free_icon = 0;
 
 struct TbSpriteSheet * gui_panel_sprites = NULL;
 struct TbSpriteSheet * custom_sprites = NULL;
 
-short td_to_fp_sprite_add[KEEPERSPRITE_ADD_NUM];
-short fp_to_td_sprite_add[KEEPERSPRITE_ADD_NUM];
+int64_t td_to_fp_sprite_add[KEEPERSPRITE_ADD_NUM];
+int64_t fp_to_td_sprite_add[KEEPERSPRITE_ADD_NUM];
 
 TbSpriteData keepersprite_add[KEEPERSPRITE_ADD_NUM] = {
         0
@@ -72,14 +72,14 @@ struct SpriteContext
 {
     struct TbHugeSprite sprite;
 
-    unsigned long x, y;
+    uint64_t x, y;
     struct KeeperSprite *ksp_first;
 
-    short *id_ptr; // First person / Top down
-    short *id_sz_ptr; // First person / Top down
+    int64_t *id_ptr; // First person / Top down
+    int64_t *id_sz_ptr; // First person / Top down
 
-    short td_id, td_sz;
-    short fp_id, fp_sz;
+    int64_t td_id, td_sz;
+    int64_t fp_id, fp_sz;
 
     TbBool rotatable;
 };
@@ -87,8 +87,8 @@ struct SpriteContext
 static struct NamedCommand added_sprites[KEEPERSPRITE_ADD_NUM];
 static struct NamedCommand added_icons[GUI_PANEL_SPRITES_NEW];
 static unsigned char added_icon_frame_count[GUI_PANEL_SPRITES_NEW];
-static int num_added_sprite = 0;
-static int num_added_icons = 0;
+static int64_t num_added_sprite = 0;
+static int64_t num_added_icons = 0;
 
 #define MAX_CUSTOM_ENSIGNS 64
 
@@ -96,21 +96,21 @@ struct CustomEnsignData
 {
     char *zip_path;
     char **files;
-    int file_count;
-    int sheet_index;
+    int64_t file_count;
+    int64_t sheet_index;
 };
 
 static struct NamedCommand added_ensigns[MAX_CUSTOM_ENSIGNS];
 static struct CustomEnsignData custom_ensign_data[MAX_CUSTOM_ENSIGNS];
-static int num_added_ensigns = 0;
+static int64_t num_added_ensigns = 0;
 
 #define MAX_LENS_OVERLAYS 64
 static struct LensOverlayData added_lens_overlays[MAX_LENS_OVERLAYS];
-static int num_added_lens_overlays = 0;
+static int64_t num_added_lens_overlays = 0;
 
 #define MAX_LENS_MISTS 64
 static struct LensMistData added_lens_mists[MAX_LENS_MISTS];
-static int num_added_lens_mists = 0;
+static int64_t num_added_lens_mists = 0;
 
 unsigned char base_pal[PALETTE_SIZE];
 
@@ -129,7 +129,7 @@ enum CustomLoadFlags {
     CLF_Ensigns = 0x10
 };
 
-static void compress_raw(struct TbHugeSprite *sprite, unsigned char *src_buf, int x, int y, int w, int h, const uint8_t *conversion_table);
+static void compress_raw(struct TbHugeSprite *sprite, unsigned char *src_buf, int64_t x, int64_t y, int64_t w, int64_t h, const uint8_t *conversion_table);
 
 // compress_raw() RLE-encodes each row as a sequence of runs: every run emits
 // one control byte, and an opaque run additionally emits one data byte per
@@ -139,7 +139,7 @@ static void compress_raw(struct TbHugeSprite *sprite, unsigned char *src_buf, in
 // runs (~1 byte/pixel) and could be exceeded by ~50% on fine dithered alpha
 // (a "transparent checkerboard"), overflowing the allocation and corrupting
 // the heap.
-static inline size_t compressed_sprite_buf_size(int w, int h)
+static inline size_t compressed_sprite_buf_size(int64_t w, int64_t h)
 {
     return (size_t)(2 * w + 1) * (size_t)h;
 }
@@ -166,11 +166,11 @@ static int cmp_named_command(const void *a, const void *b);
 
 static void clear_lens_assets(void)
 {
-    for (int i = 0; i < num_added_lens_overlays; i++) {
+    for (int64_t i = 0; i < num_added_lens_overlays; i++) {
         free(added_lens_overlays[i].name);
         free(added_lens_overlays[i].data);
     }
-    for (int i = 0; i < num_added_lens_mists; i++) {
+    for (int64_t i = 0; i < num_added_lens_mists; i++) {
         free(added_lens_mists[i].name);
         free(added_lens_mists[i].data);
     }
@@ -201,10 +201,10 @@ static unsigned char bad_icon_data[] = // 16x16
         };
 
 const struct TbSprite bad_icon = { bad_icon_data, 16, 16 };
-short bad_icon_id = INT16_MAX;
+int64_t bad_icon_id = INT16_MAX;
 
-const unsigned int normal_load_flags = CLF_Sprites | CLF_Icons | CLF_LensOverlays | CLF_LensMists;
-const unsigned int campaign_load_flags = CLF_Ensigns;
+const uint64_t normal_load_flags = CLF_Sprites | CLF_Icons | CLF_LensOverlays | CLF_LensMists;
+const uint64_t campaign_load_flags = CLF_Ensigns;
 
 static int cmp_named_command(const void *a, const void *b)
 {
@@ -244,10 +244,10 @@ struct TbSpriteSheet *load_custom_sheet_from_zip(const char *path, const unsigne
 }
 
 
-static int load_file_sprites(const char *path, const char *file_desc, unsigned int load_flags)
+static int64_t load_file_sprites(const char *path, const char *file_desc, uint64_t load_flags)
 {
     SYNCDBG(8, "Starting");
-    int add_flag = 0;
+    int64_t add_flag = 0;
     if (load_flags & CLF_Sprites && add_custom_sprite(path))
     {
         add_flag |= CLF_Sprites;
@@ -322,7 +322,7 @@ static int load_file_sprites(const char *path, const char *file_desc, unsigned i
     return add_flag;
 }
 
-static void load_dir_sprites(const char *dir_path, const char *dir_desc, unsigned int load_flags)
+static void load_dir_sprites(const char *dir_path, const char *dir_desc, uint64_t load_flags)
 {
     SYNCDBG(8, "Starting");
     if (dir_path == NULL || dir_path[0] == 0) {
@@ -332,11 +332,11 @@ static void load_dir_sprites(const char *dir_path, const char *dir_desc, unsigne
     sprintf(full_path, "%s/%s", dir_path, "*.zip");
     struct TbFileEntry fe;
     struct TbFileFind *ff = LbFileFindFirst(full_path, &fe);
-    int cnt_zip = 0, cnt_sprite = 0, cnt_icon = 0, cnt_ensign = 0;
+    int64_t cnt_zip = 0, cnt_sprite = 0, cnt_icon = 0, cnt_ensign = 0;
     if (ff) {
         do {
             sprintf(full_path, "%s/%s", dir_path, fe.Filename);
-            int add_flag = load_file_sprites(full_path, NULL, load_flags);
+            int64_t add_flag = load_file_sprites(full_path, NULL, load_flags);
             if (add_flag & CLF_Sprites) {
                 cnt_sprite++;
             }
@@ -351,7 +351,7 @@ static void load_dir_sprites(const char *dir_path, const char *dir_desc, unsigne
         LbFileFindEnd(ff);
 
         if (dir_desc != NULL) {
-            LbJustLog("Found %d sprite zip file(s) from %s, loaded %d with animations, %d with icons and %d with ensigns. Used %d/%d sprite slots.\n", cnt_zip, dir_desc, cnt_sprite, cnt_icon, cnt_ensign, next_free_sprite, KEEPERSPRITE_ADD_NUM);
+            LbJustLog("Found %" PRId64 " sprite zip file(s) from %s, loaded %" PRId64 " with animations, %" PRId64 " with icons and %" PRId64 " with ensigns. Used %" PRId64 "/%" PRId64 " sprite slots.\n", (int64_t)(cnt_zip), dir_desc, (int64_t)(cnt_sprite), (int64_t)(cnt_icon), (int64_t)(cnt_ensign), (int64_t)(next_free_sprite), (int64_t)(KEEPERSPRITE_ADD_NUM));
         }
     }
 }
@@ -370,8 +370,8 @@ void show_ignored_fxdata_zip_messages(void)
         return;
     }
     do {
-        int zip_is_required = 0;
-        for (int i = 0; i < REQUIRED_SPRITE_ZIP_COUNT; i++) {
+        int64_t zip_is_required = 0;
+        for (int64_t i = 0; i < REQUIRED_SPRITE_ZIP_COUNT; i++) {
             if (strcasecmp(fe.Filename, required_sprite_zips[i]) == 0) {
                 zip_is_required = 1;
                 break;
@@ -389,7 +389,7 @@ void show_ignored_fxdata_zip_messages(void)
 
 void load_sprites_for_multi_front(LevelNumber lvnum)
 {
-    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05d.zip", lvnum);
+    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05" PRId64 ".zip", (int64_t)(lvnum));
     if (LbFileExists(fname))
         load_file_sprites(fname, "lof map file", campaign_load_flags);
 }
@@ -397,7 +397,7 @@ void load_sprites_for_multi_front(LevelNumber lvnum)
 /* @comment
  *     The loading items of init_custom_sprites and load_sprites_for_mod need to be consistent.
  */
-static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *mod_item, unsigned int load_flags)
+static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *mod_item, uint64_t load_flags)
 {
 
     const struct ModExistState *mod_state = &mod_item->state;
@@ -427,7 +427,7 @@ static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *
 
     if (mod_state->cmpg_lvls)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05d.zip", lvnum);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".zip", (int64_t)(lvnum));
         if (strlen(fname) > 0 && LbFileExists(fname))
         {
             sprintf(desc, "Mod[%s] CmpgLvls file", mod_item->name);
@@ -436,9 +436,9 @@ static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *
     }
 }
 
-static void load_sprites_for_mod_list(LevelNumber lvnum, const struct ModConfigItem *mod_items, long mod_cnt, unsigned int load_flags)
+static void load_sprites_for_mod_list(LevelNumber lvnum, const struct ModConfigItem *mod_items, int64_t mod_cnt, uint64_t load_flags)
 {
-    for (long i=0; i<mod_cnt; i++)
+    for (int64_t i=0; i<mod_cnt; i++)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (mod_item->state.mod_dir == 0)
@@ -453,7 +453,7 @@ static void load_sprites_for_mod_list(LevelNumber lvnum, const struct ModConfigI
  */
 static void clear_custom_ensigns(void)
 {
-    for (int i = 0; i < num_added_ensigns; i++)
+    for (int64_t i = 0; i < num_added_ensigns; i++)
     {
         if (added_ensigns[i].name != NULL)
         {
@@ -461,7 +461,7 @@ static void clear_custom_ensigns(void)
             added_ensigns[i].name = NULL;
         }
         free(custom_ensign_data[i].zip_path);
-        for (int j = 0; j < custom_ensign_data[i].file_count; j++)
+        for (int64_t j = 0; j < custom_ensign_data[i].file_count; j++)
             free(custom_ensign_data[i].files[j]);
         free(custom_ensign_data[i].files);
     }
@@ -497,10 +497,10 @@ void init_custom_sprites(LevelNumber lvnum)
     }
     else
     {
-        ERRORLOG("Invalid level number %d for loading custom sprites", lvnum);
+        ERRORLOG("Invalid level number %" PRId64 " for loading custom sprites", (int64_t)(lvnum));
     }
     // Clear sprite data
-    for (int i = 0; i < KEEPERSPRITE_ADD_NUM; i++)
+    for (int64_t i = 0; i < KEEPERSPRITE_ADD_NUM; i++)
     {
         if (keepersprite_add[i] != NULL)
         {
@@ -509,7 +509,7 @@ void init_custom_sprites(LevelNumber lvnum)
         }
     }
     // Clear added sprites
-    for (int i = 0; i < num_added_sprite; i++)
+    for (int64_t i = 0; i < num_added_sprite; i++)
     {
         if (added_sprites[i].name != NULL)
         {
@@ -520,7 +520,7 @@ void init_custom_sprites(LevelNumber lvnum)
     memset(added_sprites, 0, sizeof(added_sprites));
 
     // Clear added icons
-    for (int i = 0; i < num_added_icons; i++)
+    for (int64_t i = 0; i < num_added_icons; i++)
     {
         if (added_icons[i].name != NULL)
         {
@@ -547,29 +547,29 @@ void init_custom_sprites(LevelNumber lvnum)
     } else {
         char full_path[1024] = {0};
         char loaded_zip_names[1024] = {0};
-        int loaded_zip_names_len = 0;
+        int64_t loaded_zip_names_len = 0;
         const char *loaded_zip_name_sep = "";
-        int cnt_sprite = 0, cnt_icon = 0;
-        for (int i = 0; i < REQUIRED_SPRITE_ZIP_COUNT; i++) {
+        int64_t cnt_sprite = 0, cnt_icon = 0;
+        for (int64_t i = 0; i < REQUIRED_SPRITE_ZIP_COUNT; i++) {
             sprintf(full_path, "%s/%s", dname, required_sprite_zips[i]);
             if (!LbFileExists(full_path)) {
                 ERRORLOG("Required /fxdata/%s is missing", required_sprite_zips[i]);
                 continue;
             }
             required_sprite_zip_checksums[i] = calculate_file_checksum(full_path);
-            int add_flag = load_file_sprites(full_path, NULL, normal_load_flags);
+            int64_t add_flag = load_file_sprites(full_path, NULL, normal_load_flags);
             if (add_flag & CLF_Sprites) {
                 cnt_sprite++;
             }
             if (add_flag & CLF_Icons) {
                 cnt_icon++;
             }
-            if (loaded_zip_names_len < (int)sizeof(loaded_zip_names)) {
+            if (loaded_zip_names_len < (int64_t)sizeof(loaded_zip_names)) {
                 loaded_zip_names_len += snprintf(&loaded_zip_names[loaded_zip_names_len], sizeof(loaded_zip_names) - loaded_zip_names_len, "%s%s", loaded_zip_name_sep, required_sprite_zips[i]);
             }
             loaded_zip_name_sep = ", ";
         }
-        LbJustLog("Loaded /fxdata/ sprite zips: %s, sprite slots: %d/%d, animations: %d, icons: %d.\n", loaded_zip_names, next_free_sprite, KEEPERSPRITE_ADD_NUM, cnt_sprite, cnt_icon);
+        LbJustLog("Loaded /fxdata/ sprite zips: %s, sprite slots: %" PRId64 "/%" PRId64 ", animations: %" PRId64 ", icons: %" PRId64 ".\n", loaded_zip_names, (int64_t)(next_free_sprite), (int64_t)(KEEPERSPRITE_ADD_NUM), (int64_t)(cnt_sprite), (int64_t)(cnt_icon));
     }
 
     if (mods_conf.after_base_cnt > 0)
@@ -585,7 +585,7 @@ void init_custom_sprites(LevelNumber lvnum)
         load_sprites_for_mod_list(lvnum, mods_conf.after_campaign_item, mods_conf.after_campaign_cnt, normal_load_flags);
     }
 
-    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05d.zip", lvnum);
+    char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05" PRId64 ".zip", (int64_t)(lvnum));
     if (LbFileExists(fname))
         load_file_sprites(fname, "Main CmpgLvls file", normal_load_flags);
 
@@ -616,7 +616,7 @@ static int zip_read_fn(spng_ctx *ctx, void *user, void *dst_src, size_t length)
  * @param camera_name
  * @return index of camera direction
  */
-static int dir_from_camera_name(const char *camera_name)
+static int64_t dir_from_camera_name(const char *camera_name)
 {
     if (camera_name[2] == 0)
         return 0;
@@ -643,7 +643,7 @@ static int dir_from_camera_name(const char *camera_name)
  * @param node
  * @return 1 if error
  */
-static int read_png_info(unzFile zip, const char *path, struct SpriteContext *context, const char *blender_filename,
+static int64_t read_png_info(unzFile zip, const char *path, struct SpriteContext *context, const char *blender_filename,
                          const char *subpath, VALUE *node)
 {
     struct TbHugeSprite *sprite = &context->sprite;
@@ -661,7 +661,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
 
     spng_set_png_stream(ctx, zip_read_fn, (void *) zip);
     struct spng_ihdr ihdr;
-    int r = spng_get_ihdr(ctx, &ihdr);
+    int64_t r = spng_get_ihdr(ctx, &ihdr);
 
     if (r)
     {
@@ -683,7 +683,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
     sprite->SWidth = ihdr.width;
     sprite->SHeight = ihdr.height;
 
-    int fmt = SPNG_FMT_RGBA8; // for indexed should be SPNG_FMT_PNG
+    int64_t fmt = SPNG_FMT_RGBA8; // for indexed should be SPNG_FMT_PNG
 
     spng_decoded_image_size(ctx, fmt, &out_size);
     if (limit < out_size) // Image is too big
@@ -693,9 +693,9 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
         return 1;
     }
 
-    uint32_t n_text = 0;
+    uint32_t n_text = 0; // spng API type
     TbBool found = 0;
-    long frame_no = 0;
+    int64_t frame_no = 0;
 
     if (0 != spng_get_text(ctx, NULL, &n_text))
     {
@@ -705,7 +705,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
     struct spng_text *text = malloc(sizeof(struct spng_text) * n_text);
     spng_get_text(ctx, text, &n_text);
 
-    for (int i = 0; i < n_text; i++)
+    for (int64_t i = 0; i < n_text; i++)
     {
         const char *keyword = text[i].keyword;
         const char *value = text[i].text;
@@ -724,7 +724,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
         else if (0 == strcmp(keyword, "Frame"))
         {
             char *endl = NULL;
-            frame_no = strtol(value, &endl, 10);
+            frame_no = LbStrToI32(value, &endl, 10);
             if (endl == value)
             {
                 WARNLOG("Invalid Frame metadata at %s/%s", path, subpath);
@@ -752,11 +752,11 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
     }
 
     // At least one image direction should be present
-    for (int i = value_array_size(td_dir); i < 1; i++)
+    for (int64_t i = value_array_size(td_dir); i < 1; i++)
     {
         value_init_array(value_array_append(td_dir));
     }
-    int lr_dir = dir_from_camera_name(camera);
+    int64_t lr_dir = dir_from_camera_name(camera);
     if (lr_dir < 0)
     {
         WARNLOG("Unknown frame: %s/%s dir:%s ", path, subpath, camera);
@@ -808,7 +808,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
     }
     if (context->rotatable)
     {
-        for (int i = value_array_size(td_dir); i < 5; i++)
+        for (int64_t i = value_array_size(td_dir); i < 5; i++)
         {
             value_init_array(value_array_append(td_dir));
         }
@@ -818,7 +818,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
 
     if (frame_no >= value_array_size(arr)) // >=
     {
-        for (int i = value_array_size(arr); i <= frame_no; i++)
+        for (int64_t i = value_array_size(arr); i <= frame_no; i++)
         {
             value_array_insert(arr, i);
         }
@@ -849,7 +849,7 @@ static int read_png_info(unzFile zip, const char *path, struct SpriteContext *co
     return 0;
 }
 
-static int read_png_icon(unzFile zip, const char *path, const char *subpath, int *icon_ptr)
+static int64_t read_png_icon(unzFile zip, const char *path, const char *subpath, int64_t *icon_ptr)
 {
     struct TbHugeSprite sprite = {0};
     size_t sz = decode_png_to_sprite(zip, path, subpath, &sprite, NULL);
@@ -896,7 +896,7 @@ static size_t decode_png_to_sprite(unzFile zip, const char *path, const char *su
 
     struct spng_ihdr ihdr;
 
-    int r = spng_get_ihdr(ctx, &ihdr);
+    int64_t r = spng_get_ihdr(ctx, &ihdr);
     if (r)
     {
         ERRORLOG("spng_get_ihdr() error for %s/%s: %s",
@@ -924,7 +924,7 @@ static size_t decode_png_to_sprite(unzFile zip, const char *path, const char *su
         return 0;
     }
 
-    int fmt = SPNG_FMT_RGBA8;
+    int64_t fmt = SPNG_FMT_RGBA8;
 
     r = spng_decoded_image_size(ctx, fmt, &out_size);
     if (r)
@@ -976,7 +976,7 @@ static size_t decode_png_to_sprite(unzFile zip, const char *path, const char *su
     return sz;
 }
 
-static int read_png_to_sheet(unzFile zip, const char *path, const char *subpath, struct TbSpriteSheet *sheet, const uint8_t *conversion_table)
+static int64_t read_png_to_sheet(unzFile zip, const char *path, const char *subpath, struct TbSpriteSheet *sheet, const uint8_t *conversion_table)
 {
     struct TbHugeSprite sprite = {0};
     size_t sz = decode_png_to_sprite(zip, path, subpath, &sprite, conversion_table);
@@ -997,8 +997,8 @@ static int read_png_to_sheet(unzFile zip, const char *path, const char *subpath,
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-branch-clone"
-static int read_png_data(unzFile zip, const char *path, struct SpriteContext *context, const char *subpath,
-                         int is_fp, VALUE *def, VALUE *itm)
+static int64_t read_png_data(unzFile zip, const char *path, struct SpriteContext *context, const char *subpath,
+                         int64_t is_fp, VALUE *def, VALUE *itm)
 {
     struct TbHugeSprite *sprite = &context->sprite;
     size_t out_size;
@@ -1014,7 +1014,7 @@ static int read_png_data(unzFile zip, const char *path, struct SpriteContext *co
 
     spng_set_png_stream(ctx, zip_read_fn, (void *) zip);
     struct spng_ihdr ihdr;
-    int r = spng_get_ihdr(ctx, &ihdr);
+    int64_t r = spng_get_ihdr(ctx, &ihdr);
 
     if (r)
     {
@@ -1036,7 +1036,7 @@ static int read_png_data(unzFile zip, const char *path, struct SpriteContext *co
     sprite->SWidth = ihdr.width;
     sprite->SHeight = ihdr.height;
 
-    int fmt = SPNG_FMT_RGBA8; // for indexed should be SPNG_FMT_PNG
+    int64_t fmt = SPNG_FMT_RGBA8; // for indexed should be SPNG_FMT_PNG
 
     spng_decoded_image_size(ctx, fmt, &out_size);
     if (limit < out_size) // Image is too big
@@ -1054,8 +1054,8 @@ static int read_png_data(unzFile zip, const char *path, struct SpriteContext *co
         return 0;
     }
 
-    int dst_w = (int) context->sprite.SWidth;
-    int dst_h = (int) context->sprite.SHeight;
+    int64_t dst_w = (int64_t) context->sprite.SWidth;
+    int64_t dst_h = (int64_t) context->sprite.SHeight;
 
     if (dst_w >= 255 || dst_h >= 255)
     {
@@ -1068,7 +1068,7 @@ static int read_png_data(unzFile zip, const char *path, struct SpriteContext *co
         ERRORLOG("Too many custom sprites allocated");
         return 0;
     }
-    short sprite_idx = next_free_sprite;
+    int64_t sprite_idx = next_free_sprite;
     next_free_sprite++;
     if (*context->id_ptr == 0) // First sprite for current view (FP/TD)
         *context->id_ptr = sprite_idx + KEEPERSPRITE_ADD_OFFSET;
@@ -1133,12 +1133,12 @@ static int read_png_data(unzFile zip, const char *path, struct SpriteContext *co
 }
 #pragma clang diagnostic pop
 
-static void convert_row(unsigned char *dst_buf, uint32_t *src_buf, int len, const uint8_t *conversion_table)
+static void convert_row(unsigned char *dst_buf, uint32_t *src_buf, int64_t len, const uint8_t *conversion_table)
 {
-    for (int i = 0; i < len; i++)
+    for (int64_t i = 0; i < len; i++)
     {
-        const uint32_t color = *src_buf++;
-        const uint32_t key =
+        const uint64_t color = *src_buf++;
+        const uint64_t key =
             (((color >> 2) & (MAX_COLOR_VALUE - 1)) << 0) +
             (((color >> 10) & (MAX_COLOR_VALUE - 1)) << 6) +
             (((color >> 18) & (MAX_COLOR_VALUE - 1)) << 12);
@@ -1146,19 +1146,19 @@ static void convert_row(unsigned char *dst_buf, uint32_t *src_buf, int len, cons
     }
 }
 
-static uint8_t nearest_color(uint32_t value, const uint8_t * palette)
+static uint8_t nearest_color(uint64_t value, const uint8_t * palette)
 {
     // naive approach
     uint8_t nearest = 0;
-    uint32_t nearest_delta = UINT32_MAX;
+    uint64_t nearest_delta = UINT32_MAX;
     const uint8_t vr = value & (MAX_COLOR_VALUE - 1);
     const uint8_t vg = (value >> 6) & (MAX_COLOR_VALUE - 1);
     const uint8_t vb = (value >> 12) & (MAX_COLOR_VALUE - 1);
-    for (int i = 0; i < 256; ++i) {
+    for (int64_t i = 0; i < 256; ++i) {
         const uint8_t pr = palette[(i * 3) + 0];
         const uint8_t pg = palette[(i * 3) + 1];
         const uint8_t pb = palette[(i * 3) + 2];
-        const uint32_t delta =
+        const uint64_t delta =
             (max(pr, vr) - min(pr, vr)) +
             (max(pg, vg) - min(pg, vg)) +
             (max(pb, vb) - min(pb, vb));
@@ -1171,14 +1171,14 @@ static uint8_t nearest_color(uint32_t value, const uint8_t * palette)
 }
 static uint8_t *create_rgb_to_pal_table(const uint8_t *palette)
 {
-    const uint32_t table_size = MAX_COLOR_VALUE * MAX_COLOR_VALUE * MAX_COLOR_VALUE;
+    const uint64_t table_size = MAX_COLOR_VALUE * MAX_COLOR_VALUE * MAX_COLOR_VALUE;
     uint8_t *table = calloc(table_size, 1);
     if (!table) {
         ERRORLOG("Cannot allocate rgb conversion table");    
         return NULL;
     }
 
-    for (uint32_t i = 0; i < table_size; ++i) {
+    for (uint64_t i = 0; i < table_size; ++i) {
         table[i] = nearest_color(i, palette);
     }
     return table;
@@ -1190,7 +1190,7 @@ static void load_rgb_to_pal_table()
         return; // already done, skip
     }
     // load palette
-    const uint32_t table_size = MAX_COLOR_VALUE * MAX_COLOR_VALUE * MAX_COLOR_VALUE;
+    const uint64_t table_size = MAX_COLOR_VALUE * MAX_COLOR_VALUE * MAX_COLOR_VALUE;
     rgb_to_pal_table = calloc(table_size, 1);
     if (!rgb_to_pal_table) {
         ERRORLOG("Cannot allocate rgb conversion table");
@@ -1211,7 +1211,7 @@ static void load_rgb_to_pal_table()
     rgb_to_pal_table = create_rgb_to_pal_table(palette);
 }
 
-static void compress_raw(struct TbHugeSprite *sprite, unsigned char *inp_buf, int x, int y, int w, int h, const uint8_t *conversion_table)
+static void compress_raw(struct TbHugeSprite *sprite, unsigned char *inp_buf, int64_t x, int64_t y, int64_t w, int64_t h, const uint8_t *conversion_table)
 {
     #define TEST_TRANSP(x) ((x & 0xFF000000u) < 0x40000000u)
     if (conversion_table == NULL)
@@ -1224,17 +1224,17 @@ static void compress_raw(struct TbHugeSprite *sprite, unsigned char *inp_buf, in
         return;
     }
     unsigned char *buf = sprite->Data;
-    uint32_t *src_buf = (uint32_t *) inp_buf;
+    uint32_t *src_buf = (uint32_t *) inp_buf; // RGBA pixels from the PNG decoder
     TbBool is_transp;
-    int len;
-    int tail = sprite->SWidth - w;
+    int64_t len;
+    int64_t tail = sprite->SWidth - w;
     src_buf += y * sprite->SWidth;
     src_buf += x;
-    for (int j = 0; j < h; j++)
+    for (int64_t j = 0; j < h; j++)
     {
         is_transp = false;
         len = 0;
-        for (int i = 0; i < w; i++, src_buf++)
+        for (int64_t i = 0; i < w; i++, src_buf++)
         {
             if (is_transp)
             {
@@ -1309,14 +1309,14 @@ static int dump_callback(const char *str, size_t size, void *user_data)
  * Collect sprites from zipfile with specific blender_scene
  * @param zip - opened zip file
  */
-static int
+static int64_t
 collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct SpriteContext *context, VALUE *node)
 {
     char szCurrentFileName[256];
 
     if (blender_scene != NULL) // Collect sprites by blender_scene
     {
-        for (int err = unzGoToFirstFile(zip);
+        for (int64_t err = unzGoToFirstFile(zip);
              err == UNZ_OK;
              err = unzGoToNextFile(zip))
         {
@@ -1357,9 +1357,9 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
 #endif
     context->rotatable = (value_bool(value_dict_get(node, "rotatable")) > 0);
 
-    int prev_sz;
+    int64_t prev_sz;
     VALUE *ud_lst;
-    for (int is_fp = 0; is_fp < 2; is_fp++)
+    for (int64_t is_fp = 0; is_fp < 2; is_fp++)
     {
         if (is_fp == 0)
         {
@@ -1375,20 +1375,20 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
             context->id_ptr = &context->fp_id; // First person case
             context->id_sz_ptr = &context->fp_sz;
         }
-        for (int lr = 0; lr < (context->rotatable ? 5 : 1); lr++) // If sprite is rotatable
+        for (int64_t lr = 0; lr < (context->rotatable ? 5 : 1); lr++) // If sprite is rotatable
         {
             VALUE *lr_list = value_array_get(ud_lst, lr);
             // Each frame should keep valid frames count
             if (context->ksp_first != NULL)
             {
-                for (int i = 1; i < context->ksp_first->FramesCount; i++)
+                for (int64_t i = 1; i < context->ksp_first->FramesCount; i++)
                 {
                     context->ksp_first[i].FramesCount = context->ksp_first->FramesCount;
                 }
             }
             context->ksp_first = NULL;
 
-            for (int frame = 0; frame < value_array_size(lr_list); frame++)
+            for (int64_t frame = 0; frame < value_array_size(lr_list); frame++)
             {
                 VALUE *itm = value_array_get(lr_list, frame);
                 const char *name = value_string(value_dict_get(itm, "file"));
@@ -1407,15 +1407,15 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
                     WARNLOG("Unable to open '%s/%s'", path, name);
                     return 1;
                 }
-                short store_p = *context->id_ptr;
-                short store_sz = *context->id_sz_ptr;
+                int64_t store_p = *context->id_ptr;
+                int64_t store_sz = *context->id_sz_ptr;
                 struct KeeperSprite *store_ksp = context->ksp_first;
                 unsigned char store_ksp_fc = 0;
                 if (store_ksp)
                     store_ksp_fc = context->ksp_first->FramesCount;
 #ifdef INNER
                 fprintf(stderr, "F:%s/%s\n", path, name);
-                fprintf(stderr, "A:%u\n", (unsigned)SDL_GetTicks());
+                fprintf(stderr, "A:%" PRIu64 "\n", (uint64_t)SDL_GetTicks());
 #endif
                 if (!read_png_data(zip, path, context, name, is_fp, node, itm))
                 {
@@ -1431,7 +1431,7 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
                     return 1;
                 }
 #ifdef INNER
-                fprintf(stderr, "B:%u\n", (unsigned)SDL_GetTicks());
+                fprintf(stderr, "B:%" PRIu64 "\n", (uint64_t)SDL_GetTicks());
 #endif
                 if (UNZ_OK != unzCloseCurrentFile(zip))
                 {
@@ -1443,7 +1443,7 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
     // Each frame should keep valid frames count
     if (context->ksp_first != NULL)
     {
-        for (int i = 1; i < context->ksp_first->FramesCount; i++)
+        for (int64_t i = 1; i < context->ksp_first->FramesCount; i++)
         {
             context->ksp_first[i].FramesCount = context->ksp_first->FramesCount;
         }
@@ -1460,10 +1460,10 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
         return 1;
     }
     // Installing frames into arrays ()
-    for (int i = context->td_sz - 1; i >= 0; i--)
+    for (int64_t i = context->td_sz - 1; i >= 0; i--)
     {
-        short fp_id = context->fp_id + i;
-        short td_id = context->td_id + i;
+        int64_t fp_id = context->fp_id + i;
+        int64_t td_id = context->td_id + i;
         fp_to_td_sprite_add[fp_id - KEEPERSPRITE_ADD_OFFSET] = td_id;
         td_to_fp_sprite_add[fp_id - KEEPERSPRITE_ADD_OFFSET] = fp_id;
         td_to_fp_sprite_add[td_id - KEEPERSPRITE_ADD_OFFSET] = fp_id;
@@ -1472,7 +1472,7 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
     return context->td_sz <= 0;
 }
 
-static int process_sprite_from_list(const char *path, unzFile zip, int idx, VALUE *root)
+static int64_t process_sprite_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root)
 {
     VALUE *val;
     struct SpriteContext context = {0};
@@ -1480,7 +1480,7 @@ static int process_sprite_from_list(const char *path, unzFile zip, int idx, VALU
     val = value_dict_get(root, "name");
     if (val == NULL)
     {
-        WARNLOG("Invalid sprite %s/sprites.json[%d]: no \"name\" key", path, idx);
+        WARNLOG("Invalid sprite %s/sprites.json[%" PRId64 "]: no \"name\" key", path, (int64_t)(idx));
         return 0;
     }
     const char *name = value_string(val);
@@ -1586,12 +1586,12 @@ static TbBool add_custom_json_with_data(
             goto end;
         }
 
-        int ret = json_dom_parse((char *) big_scratch, zip_info.uncompressed_size, NULL, 0, &root, &json_input_pos);
+        int64_t ret = json_dom_parse((char *) big_scratch, zip_info.uncompressed_size, NULL, 0, &root, &json_input_pos);
         if (ret)
         {
             JUSTLOG("add_custom_json_with_data ret");
-            WARNLOG("Incorrect %s/%s line:%d col:%d", path, name, json_input_pos.line_number,
-                    json_input_pos.column_number);
+            WARNLOG("Incorrect %s/%s line:%" PRId64 " col:%" PRId64, path, name, (int64_t)(json_input_pos.line_number),
+                    (int64_t)(json_input_pos.column_number));
             goto end;
         }
 
@@ -1601,7 +1601,7 @@ static TbBool add_custom_json_with_data(
             goto end;
         }
         TbBool ret_ok = process(path, zip, &root, data);
-        JUSTLOG("add_custom_json_with_data ret_ok - %i",ret_ok);    
+        JUSTLOG("add_custom_json_with_data ret_ok - %" PRId64,(int64_t)(ret_ok));    
         value_fini(&root);
 
         fastUnzClearCache();
@@ -1665,12 +1665,12 @@ add_custom_json(const char *path, const char *name, TbBool (*process)(const char
         goto end;
     }
 
-    int ret = json_dom_parse((char *) big_scratch, zip_info.uncompressed_size, NULL, 0, &root, &json_input_pos);
+    int64_t ret = json_dom_parse((char *) big_scratch, zip_info.uncompressed_size, NULL, 0, &root, &json_input_pos);
     if (ret)
     {
 
-        WARNLOG("Incorrect %s/%s line:%d col:%d", path, name, json_input_pos.line_number,
-                json_input_pos.column_number);
+        WARNLOG("Incorrect %s/%s line:%" PRId64 " col:%" PRId64, path, name, (int64_t)(json_input_pos.line_number),
+                (int64_t)(json_input_pos.column_number));
         goto end;
     }
 
@@ -1695,28 +1695,28 @@ end:
 
 // Forward declaration for internal PNG decoder
 static unsigned char* decode_png_to_indexed_internal(unzFile zip, const char *file, const char *path,
-                                                      int *out_width, int *out_height,
+                                                      int64_t *out_width, int64_t *out_height,
                                                       unz_file_info64 *zip_info, TbBool use_palette_conversion);
 
 // Helper function to decode PNG from ZIP file to indexed palette format
 // Returns indexed data on success, NULL on failure
 // Caller must free the returned data
 static unsigned char* decode_png_to_indexed(unzFile zip, const char *file, const char *path, 
-                                             int *out_width, int *out_height, 
+                                             int64_t *out_width, int64_t *out_height, 
                                              unz_file_info64 *zip_info)
 {
     return decode_png_to_indexed_internal(zip, file, path, out_width, out_height, zip_info, true);
 }
 
 static unsigned char* decode_png_to_indexed_no_palette(unzFile zip, const char *file, const char *path,
-                                                        int *out_width, int *out_height,
+                                                        int64_t *out_width, int64_t *out_height,
                                                         unz_file_info64 *zip_info)
 {
     return decode_png_to_indexed_internal(zip, file, path, out_width, out_height, zip_info, false);
 }
 
 static unsigned char* decode_png_to_indexed_internal(unzFile zip, const char *file, const char *path, 
-                                             int *out_width, int *out_height, 
+                                             int64_t *out_width, int64_t *out_height, 
                                              unz_file_info64 *zip_info, TbBool use_palette_conversion)
 {
     // Only load RGB to palette conversion table if needed for color images
@@ -1766,7 +1766,7 @@ static unsigned char* decode_png_to_indexed_internal(unzFile zip, const char *fi
     }
 
     struct spng_ihdr ihdr;
-    int r = spng_get_ihdr(ctx, &ihdr);
+    int64_t r = spng_get_ihdr(ctx, &ihdr);
     if (r)
     {
         ERRORLOG("spng_get_ihdr() error: %s for '%s'", spng_strerror(r), file);
@@ -1777,7 +1777,7 @@ static unsigned char* decode_png_to_indexed_internal(unzFile zip, const char *fi
 
     if (ihdr.width <= 0 || ihdr.height <= 0 || ihdr.width > 4096 || ihdr.height > 4096)
     {
-        WARNLOG("Invalid image dimensions (%dx%d) in '%s'", ihdr.width, ihdr.height, file);
+        WARNLOG("Invalid image dimensions (%" PRId64 "x%" PRId64 ") in '%s'", (int64_t)(ihdr.width), (int64_t)(ihdr.height), file);
         spng_ctx_free(ctx);
         free(png_buffer);
         return NULL;
@@ -1785,7 +1785,7 @@ static unsigned char* decode_png_to_indexed_internal(unzFile zip, const char *fi
 
     // Decode to RGBA8
     size_t out_size;
-    int fmt = SPNG_FMT_RGBA8;
+    int64_t fmt = SPNG_FMT_RGBA8;
     if (spng_decoded_image_size(ctx, fmt, &out_size))
     {
         ERRORLOG("Failed to get decoded image size for '%s'", file);
@@ -1866,14 +1866,14 @@ static unsigned char* decode_png_to_indexed_internal(unzFile zip, const char *fi
     return indexed_data;
 }
 
-static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx, VALUE *root)
+static int64_t process_lens_overlay_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root)
 {
     VALUE *val;
 
     val = value_dict_get(root, "name");
     if (val == NULL)
     {
-        WARNLOG("Invalid lens overlay %s/lenses.json[%d]: no \"name\" key", path, idx);
+        WARNLOG("Invalid lens overlay %s/lenses.json[%" PRId64 "]: no \"name\" key", path, (int64_t)(idx));
         return 0;
     }
     const char *name = value_string(val);
@@ -1882,7 +1882,7 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
     VALUE *file_value = value_dict_get(root, "file");
     if (file_value == NULL)
     {
-        WARNLOG("Invalid lens overlay %s/lenses.json[%d]: no \"file\" key", path, idx);
+        WARNLOG("Invalid lens overlay %s/lenses.json[%" PRId64 "]: no \"file\" key", path, (int64_t)(idx));
         return 0;
     }
 
@@ -1897,7 +1897,7 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
     }
     else
     {
-        WARNLOG("Invalid lens overlay %s/lenses.json[%d]: invalid \"file\" value", path, idx);
+        WARNLOG("Invalid lens overlay %s/lenses.json[%" PRId64 "]: invalid \"file\" value", path, (int64_t)(idx));
         return 0;
     }
 
@@ -1947,7 +1947,7 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
 
         // Check if overlay with this name already exists
         struct LensOverlayData *existing = NULL;
-        for (int i = 0; i < num_added_lens_overlays; i++)
+        for (int64_t i = 0; i < num_added_lens_overlays; i++)
         {
             if (strcasecmp(added_lens_overlays[i].name, name) == 0)
             {
@@ -1969,7 +1969,7 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
             // Add new overlay
             if (num_added_lens_overlays >= MAX_LENS_OVERLAYS)
             {
-                ERRORLOG("Too many lens overlays (max %d)", MAX_LENS_OVERLAYS);
+                ERRORLOG("Too many lens overlays (max %" PRId64 ")", (int64_t)(MAX_LENS_OVERLAYS));
                 free(indexed_data);
                 return 0;
             }
@@ -1986,7 +1986,7 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
     }
 
     // PNG format handling - use shared helper
-    int width, height;
+    int64_t width, height;
     unsigned char *indexed_data = decode_png_to_indexed(zip, file, path, &width, &height, &zip_info);
     if (indexed_data == NULL)
     {
@@ -1996,14 +1996,14 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
 
     if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
     {
-        WARNLOG("Invalid lens overlay dimensions (%dx%d) in '%s'", width, height, file);
+        WARNLOG("Invalid lens overlay dimensions (%" PRId64 "x%" PRId64 ") in '%s'", (int64_t)(width), (int64_t)(height), file);
         free(indexed_data);
         return 0;
     }
 
     // Check if overlay with this name already exists
     struct LensOverlayData *existing = NULL;
-    for (int i = 0; i < num_added_lens_overlays; i++)
+    for (int64_t i = 0; i < num_added_lens_overlays; i++)
     {
         if (strcasecmp(added_lens_overlays[i].name, name) == 0)
         {
@@ -2025,7 +2025,7 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
         // Add new overlay
         if (num_added_lens_overlays >= MAX_LENS_OVERLAYS)
         {
-            ERRORLOG("Too many lens overlays (max %d)", MAX_LENS_OVERLAYS);
+            ERRORLOG("Too many lens overlays (max %" PRId64 ")", (int64_t)(MAX_LENS_OVERLAYS));
             free(indexed_data);
             return 0;
         }
@@ -2035,20 +2035,20 @@ static int process_lens_overlay_from_list(const char *path, unzFile zip, int idx
         added_lens_overlays[num_added_lens_overlays].width = width;
         added_lens_overlays[num_added_lens_overlays].height = height;
         num_added_lens_overlays++;
-        SYNCDBG(8, "Added PNG lens overlay '%s' (%dx%d)", name, width, height);
+        SYNCDBG(8, "Added PNG lens overlay '%s' (%" PRId64 "x%" PRId64 ")", name, (int64_t)(width), (int64_t)(height));
     }
 
     return 1;
 }
 
-static int process_icon_from_list(const char *path, unzFile zip, int idx, VALUE *root)
+static int64_t process_icon_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root)
 {
     VALUE *val;
 
     val = value_dict_get(root, "name");
     if (val == NULL)
     {
-        WARNLOG("Invalid sprite %s/icons.json[%d]: no \"name\" key", path, idx);
+        WARNLOG("Invalid sprite %s/icons.json[%" PRId64 "]: no \"name\" key", path, (int64_t)(idx));
         return 0;
     }
     const char *name = value_string(val);
@@ -2075,13 +2075,13 @@ static int process_icon_from_list(const char *path, unzFile zip, int idx, VALUE 
     }
     else if (value_type(file_value) != VALUE_ARRAY)
     {
-        WARNLOG("Invalid sprite %s/icons.json[%d]: invalid value for %s", path, idx, file_key);
+        WARNLOG("Invalid sprite %s/icons.json[%" PRId64 "]: invalid value for %s", path, (int64_t)(idx), file_key);
         return 0;
     }
 
-    int first_icon = 0;
-    int icons_count = value_array_size(file_value);
-    for (int i = 0; i < icons_count; i++)
+    int64_t first_icon = 0;
+    int64_t icons_count = value_array_size(file_value);
+    for (int64_t i = 0; i < icons_count; i++)
     {
         const char *file = value_string(value_array_get(file_value, i));
 
@@ -2096,7 +2096,7 @@ static int process_icon_from_list(const char *path, unzFile zip, int idx, VALUE 
             return 0;
         }
 
-        int icon;
+        int64_t icon;
         if (!read_png_icon(zip, path, file, &icon))
         {
             unzCloseCurrentFile(zip);
@@ -2117,7 +2117,7 @@ static int process_icon_from_list(const char *path, unzFile zip, int idx, VALUE 
     if (spr)
     {
         spr->num = first_icon;
-        int frame_idx = first_icon - GUI_PANEL_SPRITES_COUNT;
+        int64_t frame_idx = first_icon - GUI_PANEL_SPRITES_COUNT;
         if (frame_idx >= 0 && frame_idx < GUI_PANEL_SPRITES_NEW) {
             added_icon_frame_count[frame_idx] = icons_count;
         }
@@ -2133,7 +2133,7 @@ static int process_icon_from_list(const char *path, unzFile zip, int idx, VALUE 
         spr = &added_icons[num_added_icons];
         spr->name = strdup(name);
         spr->num = first_icon;
-        int frame_idx = first_icon - GUI_PANEL_SPRITES_COUNT;
+        int64_t frame_idx = first_icon - GUI_PANEL_SPRITES_COUNT;
         if (frame_idx >= 0 && frame_idx < GUI_PANEL_SPRITES_NEW) {
             added_icon_frame_count[frame_idx] = icons_count;
         }
@@ -2143,7 +2143,7 @@ static int process_icon_from_list(const char *path, unzFile zip, int idx, VALUE 
     return 1;
 }
 
-static int process_sheet_from_list(const char *path, unzFile zip, int idx, VALUE *root, struct TbSpriteSheet *sheet, const uint8_t *conversion_table)
+static int64_t process_sheet_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root, struct TbSpriteSheet *sheet, const uint8_t *conversion_table)
 {
     
     JUSTLOG("inside process_sheet_from_list");
@@ -2152,8 +2152,8 @@ static int process_sheet_from_list(const char *path, unzFile zip, int idx, VALUE
 
     if (file_value == NULL)
     {
-        WARNLOG("Invalid sprite %s/icons.json[%d]: no \"%s\" key",
-                path, idx, file_key);
+        WARNLOG("Invalid sprite %s/icons.json[%" PRId64 "]: no \"%s\" key",
+                path, (int64_t)(idx), file_key);
         return 0;
     }
 
@@ -2166,15 +2166,15 @@ static int process_sheet_from_list(const char *path, unzFile zip, int idx, VALUE
     }
     else if (value_type(file_value) != VALUE_ARRAY)
     {
-        WARNLOG("Invalid sprite %s/icons.json[%d]: invalid value for %s",
-                path, idx, file_key);
+        WARNLOG("Invalid sprite %s/icons.json[%" PRId64 "]: invalid value for %s",
+                path, (int64_t)(idx), file_key);
         return 0;
     }
 
-    int files_count = value_array_size(file_value);
+    int64_t files_count = value_array_size(file_value);
 
-    JUSTLOG("process_sheet_from_list files_count - %i",files_count);
-    for (int i = 0; i < files_count; i++)
+    JUSTLOG("process_sheet_from_list files_count - %" PRId64,(int64_t)(files_count));
+    for (int64_t i = 0; i < files_count; i++)
     {
         const char *file =
             value_string(value_array_get(file_value, i));
@@ -2202,13 +2202,13 @@ static int process_sheet_from_list(const char *path, unzFile zip, int idx, VALUE
     return 1;
 }
 
-static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALUE *root)
+static int64_t process_ensign_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root)
 {
     VALUE *val = value_dict_get(root, "name");
 
     if (val == NULL)
     {
-        WARNLOG("Invalid ensign %s/ensigns.json[%d]: no \"name\" key", path, idx);
+        WARNLOG("Invalid ensign %s/ensigns.json[%" PRId64 "]: no \"name\" key", path, (int64_t)(idx));
         return 0;
     }
 
@@ -2218,7 +2218,7 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
 
     if (file_value == NULL)
     {
-        WARNLOG("Invalid ensign %s/ensigns.json[%d]: no \"file\" key", path, idx);
+        WARNLOG("Invalid ensign %s/ensigns.json[%" PRId64 "]: no \"file\" key", path, (int64_t)(idx));
         return 0;
     }
 
@@ -2238,15 +2238,15 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
     }
     else if (value_type(file_value) != VALUE_ARRAY)
     {
-        WARNLOG("Invalid ensign %s/ensigns.json[%d]: invalid \"file\" value", path, idx);
+        WARNLOG("Invalid ensign %s/ensigns.json[%" PRId64 "]: invalid \"file\" value", path, (int64_t)(idx));
         return 0;
     }
 
-    int file_count = value_array_size(file_value);
+    int64_t file_count = value_array_size(file_value);
 
     if (file_count <= 0)
     {
-        WARNLOG("Invalid ensign %s/ensigns.json[%d]: no files", path, idx);
+        WARNLOG("Invalid ensign %s/ensigns.json[%" PRId64 "]: no files", path, (int64_t)(idx));
         return 0;
     }
 
@@ -2255,9 +2255,9 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
      * NamedCommand array is currently sorted. It is sorted after the
      * complete JSON file has been processed.
      */
-    int ensign_id = -1;
+    int64_t ensign_id = -1;
 
-    for (int i = 0; i < num_added_ensigns; i++)
+    for (int64_t i = 0; i < num_added_ensigns; i++)
     {
         if (strcasecmp(added_ensigns[i].name, name) == 0)
         {
@@ -2270,7 +2270,7 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
     {
         if (num_added_ensigns >= MAX_CUSTOM_ENSIGNS)
         {
-            ERRORLOG("Too many custom ensigns (max %d)", MAX_CUSTOM_ENSIGNS);
+            ERRORLOG("Too many custom ensigns (max %" PRId64 ")", (int64_t)(MAX_CUSTOM_ENSIGNS));
             return 0;
         }
 
@@ -2306,7 +2306,7 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
         return 0;
     }
 
-    for (int i = 0; i < file_count; i++)
+    for (int64_t i = 0; i < file_count; i++)
     {
         const char *file = value_string(value_array_get(file_value, i));
 
@@ -2314,7 +2314,7 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
 
         if (files[i] == NULL)
         {
-            for (int j = 0; j < i; j++)
+            for (int64_t j = 0; j < i; j++)
             {
                 free(files[j]);
             }
@@ -2331,7 +2331,7 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
 
     free(data->zip_path);
 
-    for (int i = 0; i < data->file_count; i++)
+    for (int64_t i = 0; i < data->file_count; i++)
     {
         free(data->files[i]);
     }
@@ -2348,7 +2348,7 @@ static int process_ensign_from_list(const char *path, unzFile zip, int idx, VALU
      * already open. We deliberately do not decode them here because
      * the campaign palette is not necessarily available yet.
      */
-    for (int i = 0; i < file_count; i++)
+    for (int64_t i = 0; i < file_count; i++)
     {
         if (fastUnzLocateFile(zip, files[i], 0))
         {
@@ -2364,7 +2364,7 @@ static TbBool process_ensign(const char *path, unzFile zip, VALUE *root)
 {
     TbBool ret_ok = true;
 
-    for (int i = 0; i < value_array_size(root); i++)
+    for (int64_t i = 0; i < value_array_size(root); i++)
     {
         VALUE *val =value_array_get(root, i);
 
@@ -2410,7 +2410,7 @@ static TbBool load_custom_ensign_data(struct TbSpriteSheet *sheet, struct Custom
 
     data->sheet_index = num_sprites(sheet);
 
-    for (int i = 0; i < data->file_count; i++)
+    for (int64_t i = 0; i < data->file_count; i++)
     {
         const char *file = data->files[i];
 
@@ -2475,9 +2475,9 @@ struct TbSpriteSheet *load_custom_ensigns_into_sheet(struct TbSpriteSheet *sheet
         return sheet;
     }
 
-    for (int i = 0; i < num_added_ensigns; i++)
+    for (int64_t i = 0; i < num_added_ensigns; i++)
     {
-        int ensign_id = added_ensigns[i].num;
+        int64_t ensign_id = added_ensigns[i].num;
 
         if (ensign_id < 0 || ensign_id >= MAX_CUSTOM_ENSIGNS)
         {
@@ -2500,19 +2500,19 @@ struct TbSpriteSheet *load_custom_ensigns_into_sheet(struct TbSpriteSheet *sheet
     return sheet;
 }
 
-short get_ensign_id(const char *name)
+int64_t get_ensign_id(const char *name)
 {
     if (name == NULL || name[0] == '\0')    
         return -1;
     
     char *end;
-    long value = strtol(name, &end, 10);
+    int64_t value = LbStrToI32(name, &end, 10);
 
     if (end != name && *end == '\0')
     {
         if (value >= 0 && value < MAX_CUSTOM_ENSIGNS)
         {
-            return (short)value;
+            return (int64_t)value;
         }
 
         return -1;
@@ -2533,7 +2533,7 @@ short get_ensign_id(const char *name)
 
     if (val != NULL)
     {
-        return (short)val->num;
+        return (int64_t)val->num;
     }
 
     return -1;
@@ -2541,8 +2541,8 @@ short get_ensign_id(const char *name)
 
 const struct TbSprite *get_custom_ensign_sprite(
     struct TbSpriteSheet *sheet,
-    short ensign_id,
-    int frame)
+    int64_t ensign_id,
+    int64_t frame)
 {
     if (ensign_id < 0 || ensign_id >= num_added_ensigns)
         return &bad_icon;
@@ -2555,9 +2555,9 @@ const struct TbSprite *get_custom_ensign_sprite(
     return get_sprite(sheet, data->sheet_index + frame);
 }
 
-int get_custom_icon_frame_count(short icon_idx)
+int64_t get_custom_icon_frame_count(int64_t icon_idx)
 {
-    int frame_idx = icon_idx - GUI_PANEL_SPRITES_COUNT;
+    int64_t frame_idx = icon_idx - GUI_PANEL_SPRITES_COUNT;
     if (frame_idx >= 0 && frame_idx < GUI_PANEL_SPRITES_NEW) {
         return added_icon_frame_count[frame_idx];
     }
@@ -2566,9 +2566,9 @@ int get_custom_icon_frame_count(short icon_idx)
 
 static TbBool process_lens_overlay(const char *path, unzFile zip, VALUE *root)
 {
-    int array_size = value_array_size(root);
+    int64_t array_size = value_array_size(root);
     TbBool ret_ok = true;
-    for (int i = 0; i < array_size; i++)
+    for (int64_t i = 0; i < array_size; i++)
     {
         VALUE *val = value_array_get(root, i);
         if (!process_lens_overlay_from_list(path, zip, i, val))
@@ -2580,14 +2580,14 @@ static TbBool process_lens_overlay(const char *path, unzFile zip, VALUE *root)
     return ret_ok;
 }
 
-static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, VALUE *root)
+static int64_t process_lens_mist_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root)
 {
     VALUE *val;
 
     val = value_dict_get(root, "name");
     if (val == NULL)
     {
-        WARNLOG("Invalid lens mist %s/mists.json[%d]: no \"name\" key", path, idx);
+        WARNLOG("Invalid lens mist %s/mists.json[%" PRId64 "]: no \"name\" key", path, (int64_t)(idx));
         return 0;
     }
     const char *name = value_string(val);
@@ -2596,7 +2596,7 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
     VALUE *file_value = value_dict_get(root, "file");
     if (file_value == NULL)
     {
-        WARNLOG("Invalid lens mist %s/mists.json[%d]: no \"file\" key", path, idx);
+        WARNLOG("Invalid lens mist %s/mists.json[%" PRId64 "]: no \"file\" key", path, (int64_t)(idx));
         return 0;
     }
 
@@ -2611,7 +2611,7 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
     }
     else
     {
-        WARNLOG("Invalid lens mist %s/mists.json[%d]: invalid \"file\" value", path, idx);
+        WARNLOG("Invalid lens mist %s/mists.json[%" PRId64 "]: invalid \"file\" value", path, (int64_t)(idx));
         return 0;
     }
 
@@ -2640,7 +2640,7 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
     if (zip_info.uncompressed_size != mist_size)
     {
         // Not RAW format, try PNG
-        int width, height;
+        int64_t width, height;
         mist_data = decode_png_to_indexed_no_palette(zip, file, path, &width, &height, &zip_info);
         if (mist_data == NULL)
         {
@@ -2651,8 +2651,8 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
         // Validate mist dimensions (must be 256x256)
         if (width != 256 || height != 256)
         {
-            WARNLOG("Invalid mist dimensions for '%s' in '%s': expected 256x256, got %dx%d", 
-                    file, path, width, height);
+            WARNLOG("Invalid mist dimensions for '%s' in '%s': expected 256x256, got %" PRId64 "x%" PRId64, 
+                    file, path, (int64_t)(width), (int64_t)(height));
             free(mist_data);
             return 0;
         }
@@ -2684,7 +2684,7 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
 
     // Check if mist with this name already exists
     struct LensMistData *existing = NULL;
-    for (int i = 0; i < num_added_lens_mists; i++)
+    for (int64_t i = 0; i < num_added_lens_mists; i++)
     {
         if (strcasecmp(added_lens_mists[i].name, name) == 0)
         {
@@ -2705,7 +2705,7 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
         // Add new mist
         if (num_added_lens_mists >= MAX_LENS_MISTS)
         {
-            ERRORLOG("Too many lens mists (max %d)", MAX_LENS_MISTS);
+            ERRORLOG("Too many lens mists (max %" PRId64 ")", (int64_t)(MAX_LENS_MISTS));
             free(mist_data);
             return 0;
         }
@@ -2722,7 +2722,7 @@ static int process_lens_mist_from_list(const char *path, unzFile zip, int idx, V
 static TbBool process_lens_mist(const char *path, unzFile zip, VALUE *root)
 {
     TbBool ret_ok = true;
-    for (int i = 0; i < value_array_size(root); i++)
+    for (int64_t i = 0; i < value_array_size(root); i++)
     {
         VALUE *val = value_array_get(root, i);
         if (!process_lens_mist_from_list(path, zip, i, val))
@@ -2737,7 +2737,7 @@ static TbBool process_lens_mist(const char *path, unzFile zip, VALUE *root)
 static TbBool process_icon(const char *path, unzFile zip, VALUE *root)
 {
     TbBool ret_ok = true;
-    for (int i = 0; i < value_array_size(root); i++)
+    for (int64_t i = 0; i < value_array_size(root); i++)
     {
         VALUE *val = value_array_get(root, i);
         if (!process_icon_from_list(path, zip, i, val))
@@ -2754,7 +2754,7 @@ static TbBool process_icon(const char *path, unzFile zip, VALUE *root)
 static TbBool process_sprite(const char *path, unzFile zip, VALUE *root)
 {
     TbBool ret_ok = true;
-    for (int i = 0; i < value_array_size(root); i++)
+    for (int64_t i = 0; i < value_array_size(root); i++)
     {
         VALUE *val = value_array_get(root, i);
         if (!process_sprite_from_list(path, zip, i, val))
@@ -2776,7 +2776,7 @@ static TbBool process_sheet(const char *path, unzFile zip, VALUE *root, void *da
     struct TbSpriteSheet* sheet = context->sheet;
     TbBool ret_ok = true;
 
-    for (int i = 0; i < value_array_size(root); i++)
+    for (int64_t i = 0; i < value_array_size(root); i++)
     {
         VALUE *val = value_array_get(root, i);
 
@@ -2796,9 +2796,9 @@ static TbBool add_custom_sprite(const char *path)
     return add_custom_json(path, "sprites.json", &process_sprite);
 }
 
-short get_icon_id(const char *name)
+int64_t get_icon_id(const char *name)
 {
-    short ret = atoi(name);
+    int64_t ret = atoi(name);
     struct NamedCommand key = {name, 0};
 
     if (ret != 0)
@@ -2807,7 +2807,7 @@ short get_icon_id(const char *name)
     struct NamedCommand *val = bsearch(&key, added_icons, num_added_icons, sizeof(added_icons[0]),
                                        &cmp_named_command);
     if (val)
-        return (short) val->num;
+        return (int64_t) val->num;
 
     if (0 == strcmp(name, "0"))
         return 0;
@@ -2815,9 +2815,9 @@ short get_icon_id(const char *name)
     return bad_icon_id; // -1 is used by SPELLBOOK_POSS etc
 }
 
-short get_anim_id(const char *name, struct ObjectConfigStats *objst)
+int64_t get_anim_id(const char *name, struct ObjectConfigStats *objst)
 {
-    short ret = atoi(name);
+    int64_t ret = atoi(name);
     struct NamedCommand key = {name, 0};
 
     if (ret > 0)
@@ -2826,7 +2826,7 @@ short get_anim_id(const char *name, struct ObjectConfigStats *objst)
     struct NamedCommand *val = bsearch(&key, added_sprites, num_added_sprite, sizeof(added_sprites[0]),
                                        &cmp_named_command);
     if (val)
-        return (short) val->num;
+        return (int64_t) val->num;
 
     if (0 == strcmp(name, "0"))
         return 0;
@@ -2885,23 +2885,23 @@ short get_anim_id(const char *name, struct ObjectConfigStats *objst)
         }
 
         free(name2);
-        return (short) val->num;
+        return (int64_t) val->num;
     }
     return 0;
 }
 
-short get_anim_id_(const char* word_buf)
+int64_t get_anim_id_(const char* word_buf)
 {
     struct ObjectConfigStats obj_tmp;
     return get_anim_id(word_buf, &obj_tmp);
 }
 
-const struct TbSprite *get_button_sprite_for_player(short sprite_idx, PlayerNumber plyr_idx)
+const struct TbSprite *get_button_sprite_for_player(int64_t sprite_idx, PlayerNumber plyr_idx)
 {
     return get_button_sprite(get_player_colored_button_sprite_idx(sprite_idx, plyr_idx));
 }
 
-const struct TbSprite *get_button_sprite(short sprite_idx)
+const struct TbSprite *get_button_sprite(int64_t sprite_idx)
 {
     if ((sprite_idx >= 0) && (sprite_idx < GUI_BUTTON_SPRITES_COUNT)) {
         return get_sprite(button_sprites, sprite_idx);
@@ -2913,7 +2913,7 @@ const struct TbSprite *get_button_sprite(short sprite_idx)
     return &bad_icon;
 }
 
-const struct TbSprite *get_frontend_sprite(short sprite_idx)
+const struct TbSprite *get_frontend_sprite(int64_t sprite_idx)
 {
     if ((sprite_idx >= 0) && (sprite_idx < num_sprites(frontend_sprite))) {
         return get_sprite(frontend_sprite, sprite_idx);
@@ -2925,7 +2925,7 @@ const struct TbSprite *get_frontend_sprite(short sprite_idx)
     return &bad_icon;
 }
 
-const struct TbSprite *get_new_icon_sprite(short sprite_idx)
+const struct TbSprite *get_new_icon_sprite(int64_t sprite_idx)
 {
     sprite_idx -= GUI_PANEL_SPRITES_COUNT;
     if ((sprite_idx >= 0) && (sprite_idx < num_sprites(custom_sprites))) {
@@ -2934,7 +2934,7 @@ const struct TbSprite *get_new_icon_sprite(short sprite_idx)
     return &bad_icon;
 }
 
-const struct TbSprite *get_panel_sprite(short sprite_idx)
+const struct TbSprite *get_panel_sprite(int64_t sprite_idx)
 {
     if ((sprite_idx >= 0) && (sprite_idx < num_sprites(gui_panel_sprites))) {
         return get_sprite(gui_panel_sprites, sprite_idx);
@@ -2946,7 +2946,7 @@ const struct TbSprite *get_panel_sprite(short sprite_idx)
     return &bad_icon;
 }
 
-TbBool is_panel_sprite_drawable(short sprite_idx)
+TbBool is_panel_sprite_drawable(int64_t sprite_idx)
 {
     // Same branches as get_panel_sprite(), minus the &bad_icon fallback: true only when the index
     // resolves to a real sprite right now (the base sheet has fewer than GUI_PANEL_SPRITES_COUNT
@@ -2958,7 +2958,7 @@ TbBool is_panel_sprite_drawable(short sprite_idx)
     return (sprite_idx >= 0) && (sprite_idx < num_sprites(custom_sprites));
 }
 
-int is_custom_icon(short icon_idx)
+int64_t is_custom_icon(int64_t icon_idx)
 {
     icon_idx -= GUI_PANEL_SPRITES_COUNT;
     return (icon_idx >= 0) && (icon_idx < num_sprites(custom_sprites));
@@ -2969,7 +2969,7 @@ const struct LensOverlayData* get_lens_overlay_data(const char *name)
     if (name == NULL || name[0] == '\0')
         return NULL;
 
-    for (int i = 0; i < num_added_lens_overlays; i++)
+    for (int64_t i = 0; i < num_added_lens_overlays; i++)
     {
         if (strcasecmp(added_lens_overlays[i].name, name) == 0)
         {
@@ -2984,7 +2984,7 @@ const struct LensMistData* get_lens_mist_data(const char *name)
     if (name == NULL || name[0] == '\0')
         return NULL;
 
-    for (int i = 0; i < num_added_lens_mists; i++)
+    for (int64_t i = 0; i < num_added_lens_mists; i++)
     {
         if (strcasecmp(added_lens_mists[i].name, name) == 0)
         {

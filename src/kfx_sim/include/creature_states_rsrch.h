@@ -35,11 +35,11 @@ struct Dungeon;
 #pragma pack()
 /******************************************************************************/
 TbBool creature_can_do_research(const struct Thing *creatng);
-short at_research_room(struct Thing *thing);
+int64_t at_research_room(struct Thing *thing);
 CrCheckRet process_research_function(struct Thing *thing);
-short researching(struct Thing *thing);
+int64_t researching(struct Thing *thing);
 TbBool force_complete_current_research(PlayerNumber plyr_idx);
-int get_next_research_item(const struct Dungeon *dungeon);
+int64_t get_next_research_item(const struct Dungeon *dungeon);
 TbBool has_new_rooms_to_research(const struct Dungeon *dungeon);
 
 struct ResearchVal *get_players_current_research_val(PlayerNumber plyr_idx);

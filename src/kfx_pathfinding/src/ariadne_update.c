@@ -44,11 +44,11 @@ extern "C" {
 static TbBool tri_initialised;
 
 static NavColour *fringe_map;
-static long fringe_y1;
-static long fringe_y2;
-static long fringe_x1;
-static long fringe_x2;
-static long fringe_y[MAX_SUBTILES_Y];
+static int64_t fringe_y1;
+static int64_t fringe_y2;
+static int64_t fringe_x1;
+static int64_t fringe_x2;
+static int64_t fringe_y[MAX_SUBTILES_Y];
 
 /******************************************************************************/
 
@@ -60,11 +60,11 @@ static long fringe_y[MAX_SUBTILES_Y];
  * @param pt_cor
  * @return Returns resulted level (3 or 4), or non-positive value on error.
  */
-static long make_3or4point(int32_t *pt_tri, int32_t *pt_cor)
+static int64_t make_3or4point(int64_t *pt_tri, int64_t *pt_cor)
 {
-    long initial_loop_result;
-    long final_loop_result;
-    long n;
+    int64_t initial_loop_result;
+    int64_t final_loop_result;
+    int64_t n;
     do
     {
         initial_loop_result = point_loop(*pt_tri, *pt_cor);
@@ -83,25 +83,25 @@ static long make_3or4point(int32_t *pt_tri, int32_t *pt_cor)
         }
         if ((final_loop_result != n) || (final_loop_result >= initial_loop_result))
         {
-            ERRORLOG("bad state, l0:%02ld n:%02ld l1:%02ld", initial_loop_result, n, final_loop_result);
+            ERRORLOG("bad state, l0:%02" PRId64 " n:%02" PRId64 " l1:%02" PRId64, (int64_t)(initial_loop_result), (int64_t)(n), (int64_t)(final_loop_result));
             return -1;
         }
     } while (n > 4);
     return n;
 }
 
-static long delete_quad_point(long tri1_id, long cor1_id)
+static int64_t delete_quad_point(int64_t tri1_id, int64_t cor1_id)
 {
     struct Triangle *tri1;
     tri1 = &Triangles[tri1_id];
-    long del_pt_id;
+    int64_t del_pt_id;
     del_pt_id = tri1->points[cor1_id];
-    long cor2_id;
-    long cor3_id;
-    long cor4_id;
-    long tri2_id;
-    long tri3_id;
-    long tri4_id;
+    int64_t cor2_id;
+    int64_t cor3_id;
+    int64_t cor4_id;
+    int64_t tri2_id;
+    int64_t tri3_id;
+    int64_t tri4_id;
 
     tri2_id = tri1->tags[cor1_id];
     cor2_id = link_find(tri2_id, tri1_id);
@@ -125,32 +125,32 @@ static long delete_quad_point(long tri1_id, long cor1_id)
         return false;
     }
 
-    int nreg;
-    long tri5_id;
-    long tri6_id;
-    long cor5_id;
-    long cor6_id;
+    int64_t nreg;
+    int64_t tri5_id;
+    int64_t tri6_id;
+    int64_t cor5_id;
+    int64_t cor6_id;
 
-    int ptA_cor;
-    int ptB_cor;
-    int ptC_cor;
-    int ptD_cor;
+    int64_t ptA_cor;
+    int64_t ptB_cor;
+    int64_t ptC_cor;
+    int64_t ptD_cor;
     ptA_cor = tri1->points[MOD3[cor1_id+1]];
     ptB_cor = tri3->points[MOD3[cor3_id+1]];
 
-    int diff_ax;
-    int diff_ay;
+    int64_t diff_ax;
+    int64_t diff_ay;
     diff_ax = ari_Points[ptA_cor].x - ari_Points[ptB_cor].x;
     diff_ay = ari_Points[ptA_cor].y - ari_Points[ptB_cor].y;
     ptC_cor = tri3->points[MOD3[cor3_id+2]];
-    int diff_bx;
-    int diff_by;
+    int64_t diff_bx;
+    int64_t diff_by;
     diff_bx = ari_Points[ptC_cor].x - ari_Points[ptB_cor].x;
     diff_by = ari_Points[ptC_cor].y - ari_Points[ptB_cor].y;
 
     ptD_cor = tri1->points[MOD3[cor1_id + 2]];
-    int diff_cx;
-    int diff_cy;
+    int64_t diff_cx;
+    int64_t diff_cy;
     diff_cx = ari_Points[ptD_cor].x - ari_Points[ptB_cor].x;
     diff_cy = ari_Points[ptD_cor].y - ari_Points[ptB_cor].y;
 
@@ -227,30 +227,30 @@ static long delete_quad_point(long tri1_id, long cor1_id)
     return 1;
 }
 
-static long delete_triangle_point(long tri1_id, long cor1_id)
+static int64_t delete_triangle_point(int64_t tri1_id, int64_t cor1_id)
 {
     struct Triangle *tri1;
     tri1 = &Triangles[tri1_id];
-    long del_pt_id;
+    int64_t del_pt_id;
     del_pt_id = tri1->points[cor1_id];
 
-    int tri2_id;
+    int64_t tri2_id;
     tri2_id = tri1->tags[cor1_id];
     if (tri2_id == -1) {
         return false;
     }
-    int cor2_id;
+    int64_t cor2_id;
     cor2_id = link_find(tri2_id, tri1_id);
     cor2_id = MOD3[cor2_id + 1];
     struct Triangle *tri2;
     tri2 = &Triangles[tri2_id];
 
-    long tri3_id;
+    int64_t tri3_id;
     tri3_id = tri2->tags[cor2_id];
     if (tri3_id == -1) {
       return false;
     }
-    int cor3_id;
+    int64_t cor3_id;
     cor3_id = link_find(tri3_id, tri2_id);
     cor3_id = MOD3[cor3_id+1];
     struct Triangle *tri3;
@@ -259,12 +259,12 @@ static long delete_triangle_point(long tri1_id, long cor1_id)
     if (tri3->tags[cor3_id] != tri1_id) {
       return false;
     }
-    int cor4_id;
-    int cor5_id;
+    int64_t cor4_id;
+    int64_t cor5_id;
     cor4_id = tri2->tags[MOD3[cor2_id+1]];
     cor5_id = tri3->tags[MOD3[cor3_id+1]];
-    int tri4_id;
-    int tri5_id;
+    int64_t tri4_id;
+    int64_t tri5_id;
     tri4_id = link_find(cor4_id, tri2_id);
     tri5_id = link_find(cor5_id, tri3_id);
     tri1->points[cor1_id] = tri2->points[MOD3[cor2_id+1]];
@@ -272,7 +272,7 @@ static long delete_triangle_point(long tri1_id, long cor1_id)
     tri1->tags[MOD3[cor1_id+2]] = cor5_id;
     Triangles[cor4_id].tags[tri4_id] = tri1_id;
     Triangles[cor5_id].tags[tri5_id] = tri1_id;
-    int nreg;
+    int64_t nreg;
     nreg = get_triangle_region_id(tri2_id);
     if (nreg > 0)
     {
@@ -290,11 +290,11 @@ static long delete_triangle_point(long tri1_id, long cor1_id)
     return true;
 }
 
-static TbBool delete_point(long pt_tri, long pt_cor)
+static TbBool delete_point(int64_t pt_tri, int64_t pt_cor)
 {
-    long n;
-    int32_t ntri;
-    int32_t ncor;
+    int64_t n;
+    int64_t ntri;
+    int64_t ncor;
     ntri = pt_tri;
     ncor = pt_cor;
     n = make_3or4point(&ntri, &ncor);
@@ -322,21 +322,21 @@ static TbBool delete_point(long pt_tri, long pt_cor)
 }
 
 
-static long edge_find(long stlstart_x, long stlstart_y, long stlend_x, long stlend_y, int32_t *edge_tri, int32_t *edge_cor)
+static int64_t edge_find(int64_t stlstart_x, int64_t stlstart_y, int64_t stlend_x, int64_t stlend_y, int64_t *edge_tri, int64_t *edge_cor)
 {
     //Note: uses LbCompareMultiplications()
     struct Triangle *tri;
     struct Point *pt;
-    int32_t dst_tri_idx;
-    int32_t dst_cor_idx;
-    long tri_idx;
-    long cor_idx;
-    long tri_id2;
-    long delta_x;
-    long delta_y;
-    long len_x;
-    long len_y;
-    long i;
+    int64_t dst_tri_idx;
+    int64_t dst_cor_idx;
+    int64_t tri_idx;
+    int64_t cor_idx;
+    int64_t tri_id2;
+    int64_t delta_x;
+    int64_t delta_y;
+    int64_t len_x;
+    int64_t len_y;
+    int64_t i;
     NAVIDBG(19,"Starting");
     if (!point_find(stlstart_x, stlstart_y, &dst_tri_idx, &dst_cor_idx))
     {
@@ -346,7 +346,7 @@ static long edge_find(long stlstart_x, long stlstart_y, long stlend_x, long stle
     cor_idx = dst_cor_idx;
     len_y = stlend_y - stlstart_y;
     len_x = stlend_x - stlstart_x;
-    unsigned long k;
+    uint64_t k;
     k = 0;
     do
     {
@@ -384,21 +384,21 @@ static long edge_find(long stlstart_x, long stlstart_y, long stlend_x, long stle
 }
 
 #define edge_lock(fin_x, fin_y, bgn_x, bgn_y) edge_lock_f(fin_x, fin_y, bgn_x, bgn_y, __func__)
-static TbBool edge_lock_f(long ptend_x, long ptend_y, long ptstart_x, long ptstart_y, const char *func_name)
+static TbBool edge_lock_f(int64_t ptend_x, int64_t ptend_y, int64_t ptstart_x, int64_t ptstart_y, const char *func_name)
 {
-    long pt_x;
-    long pt_y;
-    unsigned long k;
+    int64_t pt_x;
+    int64_t pt_y;
+    uint64_t k;
     pt_x = ptstart_x;
     pt_y = ptstart_y;
     k = 0;
     while ((pt_x != ptend_x) || (pt_y != ptend_y))
     {
-        int32_t tri_id;
-        int32_t cor_id;
+        int64_t tri_id;
+        int64_t cor_id;
         if (!edge_find(pt_x, pt_y, ptend_x, ptend_y, &tri_id, &cor_id))
         {
-            ERRORMSG("%s: edge from (%d,%d) to (%d,%d) not found",func_name,(int)pt_x, (int)pt_y, (int)ptend_x, (int)ptend_y);
+            ERRORMSG("%s: edge from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") not found",func_name,(int64_t)pt_x, (int64_t)pt_y, (int64_t)ptend_x, (int64_t)ptend_y);
             return false;
         }
         struct Triangle *tri;
@@ -423,23 +423,23 @@ static TbBool edge_lock_f(long ptend_x, long ptend_y, long ptstart_x, long ptsta
 }
 
 #define edge_unlock_record_and_regions(fin_x, fin_y, bgn_x, bgn_y) edge_unlock_record_and_regions_f(fin_x, fin_y, bgn_x, bgn_y, __func__)
-static TbBool edge_unlock_record_and_regions_f(long ptend_x, long ptend_y, long ptstart_x, long ptstart_y, const char *func_name)
+static TbBool edge_unlock_record_and_regions_f(int64_t ptend_x, int64_t ptend_y, int64_t ptstart_x, int64_t ptstart_y, const char *func_name)
 {
-    long pt_x;
-    long pt_y;
-    unsigned long k;
-    long nerr;
+    int64_t pt_x;
+    int64_t pt_y;
+    uint64_t k;
+    int64_t nerr;
     pt_x = ptstart_x;
     pt_y = ptstart_y;
     k = 0;
     nerr = 0;
     while (pt_x != ptend_x || pt_y != ptend_y)
     {
-        int32_t tri_id;
-        int32_t cor_id;
+        int64_t tri_id;
+        int64_t cor_id;
         if (!edge_find(pt_x, pt_y, ptend_x, ptend_y, &tri_id, &cor_id))
         {
-            ERRORMSG("%s: edge from (%d,%d) to (%d,%d) not found",func_name,(int)pt_x, (int)pt_y, (int)ptend_x, (int)ptend_y);
+            ERRORMSG("%s: edge from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") not found",func_name,(int64_t)pt_x, (int64_t)pt_y, (int64_t)ptend_x, (int64_t)ptend_y);
             return false;
         }
         if (edge_point_add(pt_x, pt_y) < 0) {
@@ -466,14 +466,14 @@ static TbBool edge_unlock_record_and_regions_f(long ptend_x, long ptend_y, long 
     }
     if (nerr != 0)
     {
-        ERRORMSG("%s: overflow for %ld edge points",func_name,nerr);
+        ERRORMSG("%s: overflow for %" PRId64 " edge points",func_name,(int64_t)(nerr));
         //ERRORLOG("edge_setlock_record:overflow");
         return true; //TODO PATHFINDING make sure we should return true
     }
     return true;
 }
 
-static TbBool border_lock(long start_x, long start_y, long end_x, long end_y)
+static TbBool border_lock(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
     TbBool lock_successful;
     NAVIDBG(19,"Starting");
@@ -485,16 +485,16 @@ static TbBool border_lock(long start_x, long start_y, long end_x, long end_y)
     return lock_successful;
 }
 
-static void border_internal_points_delete(long start_x, long start_y, long end_x, long end_y)
+static void border_internal_points_delete(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
-    int32_t edge_tri;
-    int32_t edge_cor;
-    long ntri;
-    long ncor;
-    unsigned long k;
+    int64_t edge_tri;
+    int64_t edge_cor;
+    int64_t ntri;
+    int64_t ncor;
+    uint64_t k;
     struct Point *pt;
-    long i;
-    long n;
+    int64_t i;
+    int64_t n;
     NAVIDBG(19,"Starting");
     if (!edge_find(start_x, start_y, end_x, start_y, &edge_tri, &edge_cor))
     {
@@ -559,12 +559,12 @@ static void border_internal_points_delete(long start_x, long start_y, long end_x
             break;
     }
 }
-static long fringe_scan(int32_t *outfri_x, int32_t *outfri_y, int32_t *outlen_x, int32_t *outlen_y)
+static int64_t fringe_scan(int64_t *outfri_x, int64_t *outfri_y, int64_t *outlen_x, int64_t *outlen_y)
 {
-    long loc_x;
-    long sub_y;
-    long sub_x;
-    int dist_x;
+    int64_t loc_x;
+    int64_t sub_y;
+    int64_t sub_x;
+    int64_t dist_x;
     sub_y = fringe_y2;
     sub_x = 0;
     dist_x = 0;
@@ -595,13 +595,13 @@ static long fringe_scan(int32_t *outfri_x, int32_t *outfri_y, int32_t *outlen_x,
     return 1;
 }
 
-static long fringe_get_rectangle(int32_t *outfri_x1, int32_t *outfri_y1, int32_t *outfri_x2, int32_t *outfri_y2, NavColour *oval)
+static int64_t fringe_get_rectangle(int64_t *outfri_x1, int64_t *outfri_y1, int64_t *outfri_x2, int64_t *outfri_y2, NavColour *oval)
 {
     NAVIDBG(19,"Starting");
-    int32_t fri_x;
-    int32_t fri_y;
-    int32_t len_x;
-    int32_t len_y;
+    int64_t fri_x;
+    int64_t fri_y;
+    int64_t len_x;
+    int64_t len_y;
     len_x = 0;
     len_y = 0;
     if (!fringe_scan(&fri_x,&fri_y,&len_x,&len_y)) {
@@ -610,8 +610,8 @@ static long fringe_get_rectangle(int32_t *outfri_x1, int32_t *outfri_y1, int32_t
     NavColour *fri_map;
     fri_map = &fringe_map[pathfinding_world->get_subtile_number(fri_x,fri_y)];
     // Find dx and dy
-    long dx;
-    long dy;
+    int64_t dx;
+    int64_t dy;
     for (dx = 1; dx < len_x; dx++)
     {
         if (fri_map[dx] != fri_map[0]) {
@@ -625,7 +625,7 @@ static long fringe_get_rectangle(int32_t *outfri_x1, int32_t *outfri_y1, int32_t
             break;
         }
     }
-    long i;
+    int64_t i;
     for (i = 0; i < dx; i++) {
         fringe_y[fri_x+i] = fri_y+dy;
     }
@@ -637,15 +637,15 @@ static long fringe_get_rectangle(int32_t *outfri_x1, int32_t *outfri_y1, int32_t
     return 1;
 }
 
-static TbBool point_redundant(long tri_idx, long cor_idx)
+static TbBool point_redundant(int64_t tri_idx, int64_t cor_idx)
 {
-    long tri_first;
-    long cor_first;
-    long tri_secnd;
-    long cor_secnd;
+    int64_t tri_first;
+    int64_t cor_first;
+    int64_t tri_secnd;
+    int64_t cor_secnd;
     tri_first = tri_idx;
     cor_first = cor_idx;
-    unsigned long k;
+    uint64_t k;
     k = 0;
     while ( 1 )
     {
@@ -672,14 +672,14 @@ static TbBool point_redundant(long tri_idx, long cor_idx)
     return false;
 }
 
-static long tri_split3(long btri_id, long pt_x, long pt_y)
+static int64_t tri_split3(int64_t btri_id, int64_t pt_x, int64_t pt_y)
 {
     NAVIDBG(19,"Starting");
     struct Triangle *btri;
     struct Triangle *tri1;
     struct Triangle *tri2;
-    long new_triangle1_id;
-    long new_triangle2_id;
+    int64_t new_triangle1_id;
+    int64_t new_triangle2_id;
     new_triangle1_id = tri_new();
     if (new_triangle1_id < 0) {
         return -1;
@@ -694,7 +694,7 @@ static long tri_split3(long btri_id, long pt_x, long pt_y)
     tri2 = &Triangles[new_triangle2_id];
     memcpy(tri1,btri,sizeof(struct Triangle));
     memcpy(tri2,btri,sizeof(struct Triangle));
-    long pt_id;
+    int64_t pt_id;
     pt_id = point_set_new_or_reuse(pt_x, pt_y);
     if (pt_id < 0) {
         tri_dispose(new_triangle1_id);
@@ -718,8 +718,8 @@ static long tri_split3(long btri_id, long pt_x, long pt_y)
     tri2->navigation_flags |= 0x03;
     tri2->navigation_flags &= 0x27;
 
-    long ttri_id;
-    long ltri_id;
+    int64_t ttri_id;
+    int64_t ltri_id;
     ttri_id = tri1->tags[1];
     if (ttri_id != -1)
     {
@@ -740,7 +740,7 @@ static long tri_split3(long btri_id, long pt_x, long pt_y)
             ERRORLOG("B not found");
         }
     }
-    long reg_id;
+    int64_t reg_id;
     reg_id = get_triangle_region_id(btri_id);
     if (reg_id > 0) {
         region_unset(btri_id, reg_id);
@@ -753,9 +753,9 @@ static long tri_split3(long btri_id, long pt_x, long pt_y)
     return pt_id;
 }
 
-static long tri_split2(long tri_id1, long cor_id1, long pt_x, long pt_y, long pt_id1)
+static int64_t tri_split2(int64_t tri_id1, int64_t cor_id1, int64_t pt_x, int64_t pt_y, int64_t pt_id1)
 {
-    long tri_id2;
+    int64_t tri_id2;
     tri_id2 = tri_new();
     if (tri_id2 < 0) {
         return -1;
@@ -765,20 +765,20 @@ static long tri_split2(long tri_id1, long cor_id1, long pt_x, long pt_y, long pt
     tri1 = &Triangles[tri_id1];
     tri2 = &Triangles[tri_id2];
     memcpy(tri2, tri1, sizeof(struct Triangle));
-    long cor_id2;
-    long reg_id1;
+    int64_t cor_id2;
+    int64_t reg_id1;
     cor_id2 = MOD3[cor_id1 + 1];
     tri1->points[cor_id2] = pt_id1;
     tri2->points[cor_id1] = pt_id1;
     tri1->tags[cor_id2] = tri_id2;
     tri1->navigation_flags |= (1 << cor_id2);
     tri1->navigation_flags &= ~(1 << (cor_id2 + 3));
-    long tri_id3;
+    int64_t tri_id3;
     tri_id3 = MOD3[cor_id1 + 2];
     tri2->tags[tri_id3] = tri_id1;
     tri2->navigation_flags |= (1 << tri_id3);
     tri2->navigation_flags &= ~(1 << (tri_id3 + 3));
-    long tri_id4;
+    int64_t tri_id4;
     tri_id3 = tri2->tags[cor_id2];
     if (tri_id3 != -1)
     {
@@ -798,13 +798,13 @@ static long tri_split2(long tri_id1, long cor_id1, long pt_x, long pt_y, long pt
     return tri_id2;
 }
 
-static long edge_split(long ntri, long ncor, long pt_x, long pt_y)
+static int64_t edge_split(int64_t ntri, int64_t ncor, int64_t pt_x, int64_t pt_y)
 {
-    long pt_idx;
-    long ntr2;
-    long ncr2;
-    long tri_sp1;
-    long tri_sp2;
+    int64_t pt_idx;
+    int64_t ntr2;
+    int64_t ncr2;
+    int64_t tri_sp1;
+    int64_t tri_sp2;
     NAVIDBG(19,"Starting");
     // Create and fill new point
     pt_idx = point_set_new_or_reuse(pt_x, pt_y);
@@ -836,12 +836,12 @@ static long edge_split(long ntri, long ncor, long pt_x, long pt_y)
  * @param pt_y Coord Y of the dividing point.
  * @return Zero if areas do not differ; -1 or 1 otherwise.
  */
-static char triangle_divide_areas_differ(long ntri, long ncorA, long ncorB, long pt_x, long pt_y)
+static char triangle_divide_areas_differ(int64_t ntri, int64_t ncorA, int64_t ncorB, int64_t pt_x, int64_t pt_y)
 {
-    long tipA_x;
-    long tipA_y;
-    long tipB_x;
-    long tipB_y;
+    int64_t tipA_x;
+    int64_t tipA_y;
+    int64_t tipB_x;
+    int64_t tipB_y;
     struct Point *pt;
 
     pt = get_triangle_point(ntri,ncorA);
@@ -857,10 +857,10 @@ static char triangle_divide_areas_differ(long ntri, long ncorA, long ncorB, long
  * There are mesh of all triangles on a map
  * This function inserts another point into mesh by splitting triangles into parts
  */
-static TbBool insert_point(long pt_x, long pt_y)
+static TbBool insert_point(int64_t pt_x, int64_t pt_y)
 {
-    long ntri;
-    NAVIDBG(19,"Starting for (%d,%d)", (int)pt_x, (int)pt_y);
+    int64_t ntri;
+    NAVIDBG(19,"Starting for (%" PRId64 ",%" PRId64 ")", (int64_t)pt_x, (int64_t)pt_y);
     ntri = triangle_find8(pt_x << 8, pt_y << 8);
     if ((ntri < 0) || (ntri >= TRIANLGLES_COUNT))
     {
@@ -889,10 +889,10 @@ static TbBool insert_point(long pt_x, long pt_y)
     return tri_split3(ntri, pt_x, pt_y) >= 0;
 }
 
-static long fill_concave(long tri_beg_id, long tag_id, long tri_end_id)
+static int64_t fill_concave(int64_t tri_beg_id, int64_t tag_id, int64_t tri_end_id)
 {
-    long tri_id;
-    long cor_id;
+    int64_t tri_id;
+    int64_t cor_id;
     while ( 1 )
     {
       tri_id = Triangles[tri_beg_id].tags[tag_id];
@@ -901,8 +901,8 @@ static long fill_concave(long tri_beg_id, long tag_id, long tri_end_id)
       }
       cor_id = link_find(tri_id, tri_beg_id);
       cor_id = MOD3[cor_id+1];
-      int rotate_n;
-      int rotate_y;
+      int64_t rotate_n;
+      int64_t rotate_y;
       rotate_y = 0;
       rotate_n = 0;
       while (Triangles[tri_id].tags[cor_id] != tri_end_id)
@@ -912,7 +912,7 @@ static long fill_concave(long tri_beg_id, long tag_id, long tri_end_id)
               rotate_y++;
           } else
           {
-              long n;
+              int64_t n;
               n = Triangles[tri_id].tags[cor_id];
               if ((n == -1) || (n == tri_beg_id)) {
                   return 0;
@@ -932,25 +932,25 @@ static long fill_concave(long tri_beg_id, long tag_id, long tri_end_id)
 
 
 
-static void make_edge_sub(long start_tri_id1, long start_cor_id1, long start_tri_id4, long start_cor_id4, long sx, long sy, long ex, long ey)
+static void make_edge_sub(int64_t start_tri_id1, int64_t start_cor_id1, int64_t start_tri_id4, int64_t start_cor_id4, int64_t sx, int64_t sy, int64_t ex, int64_t ey)
 {
     struct Triangle *tri;
     struct Point *pt;
     struct Point *pt1;
     struct Point *pt2;
     struct Point *pt3;
-    long tri_id1;
-    long cor_id1;
-    long tri_id2;
-    long cor_id2;
-    long tri_id3;
-    long cor_id3;
-    long tri_id4;
-    long cor_id4;
-    long i;
-    long cx;
-    long cy;
-    unsigned long k;
+    int64_t tri_id1;
+    int64_t cor_id1;
+    int64_t tri_id2;
+    int64_t cor_id2;
+    int64_t tri_id3;
+    int64_t cor_id3;
+    int64_t tri_id4;
+    int64_t cor_id4;
+    int64_t i;
+    int64_t cx;
+    int64_t cy;
+    uint64_t k;
     cor_id1 = start_cor_id1;
     tri_id1 = start_tri_id1;
     cor_id4 = start_cor_id4;
@@ -995,24 +995,24 @@ static void make_edge_sub(long start_tri_id1, long start_cor_id1, long start_tri
     } while ((cx != sx) || (cy != sy));
 }
 
-static TbBool make_edge(long start_x, long start_y, long end_x, long end_y)
+static TbBool make_edge(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
     struct Triangle *tri;
     struct Point *pt;
-    long sx;
-    long ex;
-    long sy;
-    long ey;
-    int32_t tri_id1;
-    int32_t cor_id1;
-    int32_t tri_id2;
-    int32_t cor_id2;
-    int32_t tri_id3;
-    int32_t cor_id3;
-    long tmpX;
-    long tmpY;
-    long pt_cor;
-    unsigned long k;
+    int64_t sx;
+    int64_t ex;
+    int64_t sy;
+    int64_t ey;
+    int64_t tri_id1;
+    int64_t cor_id1;
+    int64_t tri_id2;
+    int64_t cor_id2;
+    int64_t tri_id3;
+    int64_t cor_id3;
+    int64_t tmpX;
+    int64_t tmpY;
+    int64_t pt_cor;
+    uint64_t k;
     NAVIDBG(19,"Starting");
     k = 0;
     sx = start_x;
@@ -1029,7 +1029,7 @@ static TbBool make_edge(long start_x, long start_y, long end_x, long end_y)
         pt_cor = pointed_at8(sx << 8, sy << 8, &tri_id1, &cor_id1);
         if (pt_cor == -1)
         {
-            ERRORLOG("border point not found, pointed at %ld,%ld",sx,sy);
+            ERRORLOG("border point not found, pointed at %" PRId64 ",%" PRId64,(int64_t)(sx),(int64_t)(sy));
             return false;
         }
         pt = get_triangle_point(tri_id1, pt_cor);
@@ -1041,7 +1041,7 @@ static TbBool make_edge(long start_x, long start_y, long end_x, long end_y)
         pt = get_triangle_point(tri_id3, cor_id3);
         tmpX = pt->x;
         tmpY = pt->y;
-        SYNCDBG(18,"Triangle %d point %d is (%d,%d)",(int)tri_id3,(int)tri_id1,(int)tmpX,(int)tmpY);
+        SYNCDBG(18,"Triangle %" PRId64 " point %" PRId64 " is (%" PRId64 ",%" PRId64 ")",(int64_t)tri_id3,(int64_t)tri_id1,(int64_t)tmpX,(int64_t)tmpY);
         if (LbCompareMultiplications(tmpY-ey, sx-ex, tmpX-ex, sy-ey) == 0)
         {
             if (!make_edge(ex, ey, tmpX, tmpY)) {
@@ -1061,23 +1061,23 @@ static TbBool make_edge(long start_x, long start_y, long end_x, long end_y)
         k++;
         if (k >= TRIANLGLES_COUNT)
         {
-            ERRORLOG("Infinite loop detected at area (%d,%d) to (%d,%d)",(int)sx,(int)sy,(int)ex,(int)ey);
+            ERRORLOG("Infinite loop detected at area (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ")",(int64_t)sx,(int64_t)sy,(int64_t)ex,(int64_t)ey);
             return false;
         }
     }
     return true;
 }
 
-static TbBool border_clip_horizontal(const NavColour *imap, long start_x, long end_x, long start_y, long end_y)
+static TbBool border_clip_horizontal(const NavColour *imap, int64_t start_x, int64_t end_x, int64_t start_y, int64_t end_y)
 {
     NavColour map_center;
     NavColour map_up;
     const NavColour* mapp_center;
     const NavColour* mapp_up;
     TbBool clipping_successful;
-    long i;
+    int64_t i;
     clipping_successful = true;
-    NAVIDBG(19,"Starting from (%ld,%ld) to (%ld,%ld)",start_x, start_y, end_x, end_y);
+    NAVIDBG(19,"Starting from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ")",(int64_t)(start_x), (int64_t)(start_y), (int64_t)(end_x), (int64_t)(end_y));
     i = start_x;
     {
         mapp_center = &imap[navmap_tile_number(i,start_y)];
@@ -1112,16 +1112,16 @@ static TbBool border_clip_horizontal(const NavColour *imap, long start_x, long e
     return clipping_successful;
 }
 
-static TbBool border_clip_vertical(const NavColour *imap, long start_x, long end_x, long start_y, long end_y)
+static TbBool border_clip_vertical(const NavColour *imap, int64_t start_x, int64_t end_x, int64_t start_y, int64_t end_y)
 {
     NavColour map_center;
     NavColour map_left;
     const NavColour* mapp_center;
     const NavColour* mapp_left;
     TbBool clipping_successful;
-    long i;
+    int64_t i;
     clipping_successful = true;
-    NAVIDBG(19,"Starting from (%ld,%ld) to (%ld,%ld)",start_x, start_y, end_x, end_y);
+    NAVIDBG(19,"Starting from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ")",(int64_t)(start_x), (int64_t)(start_y), (int64_t)(end_x), (int64_t)(end_y));
     i = start_y;
     {
         mapp_center = &imap[navmap_tile_number(start_x,i)];
@@ -1156,48 +1156,48 @@ static TbBool border_clip_vertical(const NavColour *imap, long start_x, long end
     return clipping_successful;
 }
 
-static long triangle_area1(long tri_idx)
+static int64_t triangle_area1(int64_t tri_idx)
 {
-    int ptidx0;
-    int ptidx1;
-    int ptidx2;
+    int64_t ptidx0;
+    int64_t ptidx1;
+    int64_t ptidx2;
     ptidx0 = Triangles[tri_idx].points[0];
     ptidx1 = Triangles[tri_idx].points[1];
     ptidx2 = Triangles[tri_idx].points[2];
     long long area1;
     long long area2;
-    area1 = (ari_Points[ptidx2].x - (int)ari_Points[ptidx0].x) * (ari_Points[ptidx0].y - (int)ari_Points[ptidx1].y);
-    area2 = (ari_Points[ptidx1].x - (int)ari_Points[ptidx0].x) * (ari_Points[ptidx2].y - (int)ari_Points[ptidx0].y);
+    area1 = (ari_Points[ptidx2].x - (int64_t)ari_Points[ptidx0].x) * (ari_Points[ptidx0].y - (int64_t)ari_Points[ptidx1].y);
+    area2 = (ari_Points[ptidx1].x - (int64_t)ari_Points[ptidx0].x) * (ari_Points[ptidx2].y - (int64_t)ari_Points[ptidx0].y);
     return llabs(area1+area2);
 }
 
-static void brute_fill_rectangle(long start_x, long start_y, long end_x, long end_y, NavColour ntree_alt)
+static void brute_fill_rectangle(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y, NavColour ntree_alt)
 {
     // Replace start and end if they are switched
     if (end_x < start_x)
     {
-        long i;
+        int64_t i;
         i = end_x;
         end_x = start_x;
         start_x = i;
     }
     if (end_y < start_y)
     {
-        long i;
+        int64_t i;
         i = end_y;
         end_y = start_y;
         start_y = i;
     }
     long long area;
     area = 0;
-    long tri_idx;
+    int64_t tri_idx;
     for (tri_idx = ix_Triangles - 1; tri_idx >= 0; tri_idx--)
     {
         struct Triangle *tri;
         tri = &Triangles[tri_idx];
-        int ptidx;
-        long x;
-        long y;
+        int64_t ptidx;
+        int64_t x;
+        int64_t y;
         ptidx = tri->points[0];
         x = ari_Points[ptidx].x;
         y = ari_Points[ptidx].y;
@@ -1225,22 +1225,22 @@ static void brute_fill_rectangle(long start_x, long start_y, long end_x, long en
 }
 
 #define fill_rectangle(start_x, start_y, end_x, end_y, nav_colour) fill_rectangle_f(start_x, start_y, end_x, end_y, nav_colour, __func__)
-static void fill_rectangle_f(long start_x, long start_y, long end_x, long end_y, NavColour nav_colour, const char *func_name)
+static void fill_rectangle_f(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y, NavColour nav_colour, const char *func_name)
 {
-    int32_t tri_n0;
-    int32_t tri_k0;
-    int32_t tri_n1;
-    int32_t tri_k1;
-    int32_t tri_n2;
-    int32_t tri_k2;
-    int32_t tri_n3;
-    int32_t tri_k3;
-    long tri_area;
-    long req_area;
+    int64_t tri_n0;
+    int64_t tri_k0;
+    int64_t tri_n1;
+    int64_t tri_k1;
+    int64_t tri_n2;
+    int64_t tri_k2;
+    int64_t tri_n3;
+    int64_t tri_k3;
+    int64_t tri_area;
+    int64_t req_area;
     req_area = 2 * (end_x - start_x) * (end_y - start_y);
     if (!edge_find(start_x, start_y, start_x, end_y, &tri_n0, &tri_k0))
     {
-        ERRORMSG("%s: edge from (%d,%d) to (%d,%d) not found",func_name,(int)start_x, (int)start_y, (int)start_x, (int)end_y);
+        ERRORMSG("%s: edge from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") not found",func_name,(int64_t)start_x, (int64_t)start_y, (int64_t)start_x, (int64_t)end_y);
         return;
     }
     Triangles[tri_n0].tree_alt = nav_colour;
@@ -1250,7 +1250,7 @@ static void fill_rectangle_f(long start_x, long start_y, long end_x, long end_y,
     }
     if (!edge_find(end_x, end_y, end_x, start_y, &tri_n1, &tri_k1))
     {
-        ERRORMSG("%s: edge from (%d,%d) to (%d,%d) not found",func_name,(int)end_x, (int)end_y, (int)end_x, (int)start_y);
+        ERRORMSG("%s: edge from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") not found",func_name,(int64_t)end_x, (int64_t)end_y, (int64_t)end_x, (int64_t)start_y);
         return;
     }
     if (tri_n1 != tri_n0)
@@ -1263,7 +1263,7 @@ static void fill_rectangle_f(long start_x, long start_y, long end_x, long end_y,
     }
     if (!edge_find(end_x, start_y, start_x, start_y, &tri_n2, &tri_k2))
     {
-        ERRORMSG("%s: edge from (%d,%d) to (%d,%d) not found",func_name,(int)end_x, (int)start_y, (int)start_x, (int)start_y);
+        ERRORMSG("%s: edge from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") not found",func_name,(int64_t)end_x, (int64_t)start_y, (int64_t)start_x, (int64_t)start_y);
         return;
     }
     if ((tri_n2 != tri_n0) && (tri_n2 != tri_n1))
@@ -1276,7 +1276,7 @@ static void fill_rectangle_f(long start_x, long start_y, long end_x, long end_y,
     }
     if (!edge_find(start_x, end_y, end_x, end_y, &tri_n3, &tri_k3))
     {
-        ERRORMSG("%s: edge from (%d,%d) to (%d,%d) not found",func_name,(int)start_x, (int)end_y, (int)end_x, (int)end_y);
+        ERRORMSG("%s: edge from (%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ") not found",func_name,(int64_t)start_x, (int64_t)end_y, (int64_t)end_x, (int64_t)end_y);
         return;
     }
     if ((tri_n3 != tri_n0) && (tri_n1 != tri_n3) && (tri_n2 != tri_n3))
@@ -1290,12 +1290,12 @@ static void fill_rectangle_f(long start_x, long start_y, long end_x, long end_y,
     brute_fill_rectangle(start_x, start_y, end_x, end_y, nav_colour);
 }
 
-static TbBool tri_set_rectangle(long start_x, long start_y, long end_x, long end_y, NavColour nav_colour)
+static TbBool tri_set_rectangle(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y, NavColour nav_colour)
 {
-    long sx;
-    long sy;
-    long ex;
-    long ey;
+    int64_t sx;
+    int64_t sy;
+    int64_t ex;
+    int64_t ey;
     NAVIDBG(19,"Starting");
     sx = start_x;
     ex = end_x;
@@ -1316,7 +1316,7 @@ static TbBool tri_set_rectangle(long start_x, long start_y, long end_x, long end
     rectangle_creation_successful &= insert_point(ex, ey);
     rectangle_creation_successful &= insert_point(ex, sy);
     if (!rectangle_creation_successful) {
-        ERRORLOG("Couldn't insert points to make rectangle; start (%d,%d), end (%d,%d)",(int)start_x,(int)start_y,(int)end_x,(int)end_y);
+        ERRORLOG("Couldn't insert points to make rectangle; start (%" PRId64 ",%" PRId64 "), end (%" PRId64 ",%" PRId64 ")",(int64_t)start_x,(int64_t)start_y,(int64_t)end_x,(int64_t)end_y);
         return rectangle_creation_successful;
     }
     rectangle_creation_successful &= make_edge(sx, sy, sx, ey);
@@ -1324,16 +1324,16 @@ static TbBool tri_set_rectangle(long start_x, long start_y, long end_x, long end
     rectangle_creation_successful &= make_edge(ex, ey, ex, sy);
     rectangle_creation_successful &= make_edge(ex, sy, sx, sy);
     if (!rectangle_creation_successful) {
-        ERRORLOG("Couldn't make edge for rectangle; start (%d,%d), end (%d,%d)",(int)start_x,(int)start_y,(int)end_x,(int)end_y);
+        ERRORLOG("Couldn't make edge for rectangle; start (%" PRId64 ",%" PRId64 "), end (%" PRId64 ",%" PRId64 ")",(int64_t)start_x,(int64_t)start_y,(int64_t)end_x,(int64_t)end_y);
         return rectangle_creation_successful;
     }
     fill_rectangle(sx, sy, ex, ey, nav_colour);
     return rectangle_creation_successful;
 }
 
-static void triangulation_initxy(long startx, long starty, long endx, long endy)
+static void triangulation_initxy(int64_t startx, int64_t starty, int64_t endx, int64_t endy)
 {
-    long i;
+    int64_t i;
     for (i=0; i < TRIANLGLES_COUNT; i++)
     {
         struct Triangle *tri;
@@ -1358,13 +1358,13 @@ static void triangulation_init(void)
     }
 }
 
-static TbBool triangulation_border_start(int32_t *border_a, int32_t *border_b)
+static TbBool triangulation_border_start(int64_t *border_a, int64_t *border_b)
 {
     struct Triangle *tri;
-    long tri_idx;
-    long brd_idx;
-    long i;
-    long k;
+    int64_t tri_idx;
+    int64_t brd_idx;
+    int64_t i;
+    int64_t k;
     // First try - border
     for (brd_idx=0; brd_idx < ix_Border; brd_idx++)
     {
@@ -1411,12 +1411,12 @@ static TbBool triangulation_border_start(int32_t *border_a, int32_t *border_b)
 
 static void triangulation_border_init(void)
 {
-    int32_t border_a;
-    int32_t border_b;
-    long tri_a;
-    long tri_b;
-    long i;
-    long n;
+    int64_t border_a;
+    int64_t border_b;
+    int64_t tri_a;
+    int64_t tri_b;
+    int64_t i;
+    int64_t n;
     NAVIDBG(9,"Starting");
     triangulation_border_start(&border_a, &border_b);
     tri_a = border_a;
@@ -1447,11 +1447,11 @@ static void triangulation_border_init(void)
     NAVIDBG(19,"Finished");
 }
 
-static NavColour uniform_area_colour(const NavColour *imap, long start_x, long start_y, long end_x, long end_y)
+static NavColour uniform_area_colour(const NavColour *imap, int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
     NavColour uniform;
-    long x;
-    long y;
+    int64_t x;
+    int64_t y;
     uniform = imap[navmap_tile_number(start_x,start_y)];
     for (y = start_y; y < end_y; y++)
     {
@@ -1467,13 +1467,13 @@ static NavColour uniform_area_colour(const NavColour *imap, long start_x, long s
 }
 
 
-static void border_unlock(long start_x, long start_y, long end_x, long end_y)
+static void border_unlock(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
     struct EdgePoint *ept;
-    long ept_id;
-    int32_t tri_idx;
-    int32_t cor_idx;
-    long nerr;
+    int64_t ept_id;
+    int64_t tri_idx;
+    int64_t cor_idx;
+    int64_t nerr;
     edge_points_clean();
     edge_unlock_record_and_regions(start_x, start_y, start_x, end_y);
     edge_unlock_record_and_regions(start_x, end_y, end_x, end_y);
@@ -1497,25 +1497,25 @@ static void border_unlock(long start_x, long start_y, long end_x, long end_y)
     }
     if (nerr != 0)
     {
-        ERRORLOG("Out of %ld edge points, %ld were not found",(long)ix_EdgePoints,nerr);
+        ERRORLOG("Out of %" PRId64 " edge points, %" PRId64 " were not found",(int64_t)ix_EdgePoints,(int64_t)(nerr));
     }
 }
 
-static TbBool triangulate_area(NavColour *imap, long start_x, long start_y, long end_x, long end_y)
+static TbBool triangulate_area(NavColour *imap, int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
     TbBool one_tile;
     TbBool not_whole_map;
     NavColour colour;
     NavColour ccolour;
-    int32_t rect_sx;
-    int32_t rect_sy;
-    int32_t rect_ex;
-    int32_t rect_ey;
+    int64_t rect_sx;
+    int64_t rect_sy;
+    int64_t rect_ex;
+    int64_t rect_ey;
     TbBool triangulation_successful;
-    long i;
+    int64_t i;
     triangulation_successful = true;
     LastTriangulatedMap = imap;
-    NAVIDBG(9,"Area from (%03ld,%03ld) to (%03ld,%03ld) with %04ld triangles",start_x,start_y,end_x,end_y,count_Triangles);
+    NAVIDBG(9,"Area from (%03" PRId64 ",%03" PRId64 ") to (%03" PRId64 ",%03" PRId64 ") with %04" PRId64 " triangles",(int64_t)(start_x),(int64_t)(start_y),(int64_t)(end_x),(int64_t)(end_y),(int64_t)(count_Triangles));
     // Switch coords to make end_x larger than start_x
     if (end_x < start_x)
     {
@@ -1605,7 +1605,7 @@ static TbBool triangulate_area(NavColour *imap, long start_x, long start_y, long
     return triangulation_successful;
 }
 
-static NavColour get_navigation_colour_for_door(long stl_x, long stl_y)
+static NavColour get_navigation_colour_for_door(int64_t stl_x, int64_t stl_y)
 {
     struct Thing *doortng;
     NavColour colour = (1 << NAVMAP_FLOORHEIGHT_BIT);
@@ -1613,7 +1613,7 @@ static NavColour get_navigation_colour_for_door(long stl_x, long stl_y)
     doortng = pathfinding_world->get_door_for_position(stl_x, stl_y);
     if (pathfinding_world->thing_is_invalid(doortng))
     {
-        ERRORLOG("Cannot find door for flagged position (%d,%d)",(int)stl_x,(int)stl_y);
+        ERRORLOG("Cannot find door for flagged position (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
         return colour;
     }
 
@@ -1629,7 +1629,7 @@ static NavColour get_navigation_colour_for_door(long stl_x, long stl_y)
 
 }
 
-static NavColour get_navigation_colour_for_cube(long stl_x, long stl_y)
+static NavColour get_navigation_colour_for_cube(int64_t stl_x, int64_t stl_y)
 {
     NavColour i;
     i = pathfinding_world->get_floor_filled_subtiles_at(stl_x, stl_y);
@@ -1642,7 +1642,7 @@ static NavColour get_navigation_colour_for_cube(long stl_x, long stl_y)
     return i;
 }
 
-static NavColour get_navigation_colour(long stl_x, long stl_y)
+static NavColour get_navigation_colour(int64_t stl_x, int64_t stl_y)
 {
     struct Map *mapblk;
     mapblk = pathfinding_world->get_map_block_at(stl_x, stl_y);
@@ -1677,7 +1677,7 @@ static void triangulate_map(NavColour *imap)
     triangulate_area(imap, 0, 0, kfx_pathfinding_state.navigation_map_size_x, kfx_pathfinding_state.navigation_map_size_y);
 }
 
-long init_navigation(void)
+int64_t init_navigation(void)
 {
     
     NavColour *IanMap = (NavColour *)&kfx_pathfinding_state.navigation_map;
@@ -1689,14 +1689,14 @@ long init_navigation(void)
     return 1;
 }
 
-long update_navigation_triangulation(long start_x, long start_y, long end_x, long end_y)
+int64_t update_navigation_triangulation(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y)
 {
-    long sx;
-    long sy;
-    long ex;
-    long ey;
-    long x;
-    long y;
+    int64_t sx;
+    int64_t sy;
+    int64_t ex;
+    int64_t ey;
+    int64_t x;
+    int64_t y;
     if (!nav_map_initialised)
         init_navigation_map();
     // Prepare parameter bounds

@@ -121,7 +121,7 @@ TEST_CASE_METHOD(ResetSimState, "get_dungeon_sell_user_roomspace drags from the 
 // get_net_user_player_number(), used by the UserState-keyed roomspace/cursor
 // code that sits below kfx_net. Reads PlayerInfo::user_id, the same 1-1 mapping.
 TEST_CASE_METHOD(ResetSimState, "get_user_player_number maps a user to the player that owns it", "[kfx_sim][roomspace][user_state]") {
-    for (int i = 0; i < PLAYERS_COUNT; i++) {
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
         kfx_sim_state.players[i].id_number = (PlayerNumber)i;
         kfx_sim_state.players[i].user_id = -1;
     }

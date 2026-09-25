@@ -1,3 +1,4 @@
+#include "kfx_imgui.h"
 #include "pre_inc.h"
 #include "frontgui_widgets.h"
 #include "frontgui_style.h"
@@ -24,7 +25,7 @@ namespace {
     // keyboard-focused -- the legacy frontend's highlighted-caption colour,
     // standing in for a filled button rectangle. Routed through GetColorU32
     // at draw time so BeginDisabled()'s global alpha dims it like any text.
-    const ImVec4 kTextButtonHighlight(0.86f, 0.24f, 0.16f, 1.00f);
+    const ImVec4 kTextButtonHighlight(0.86, 0.24, 0.16, 1.00);
 
     // True when a text button should show its highlight colour: mouse hover
     // or press, or keyboard/gamepad focus *while the nav cursor is actually
@@ -53,8 +54,8 @@ namespace {
         const ImGuiStyle &style = ImGui::GetStyle();
         const ImVec2 text_sz = ImGui::CalcTextSize(label);
         const ImVec2 box(
-            size.x > 0.0f ? size.x : text_sz.x + style.FramePadding.x * 2.0f,
-            size.y > 0.0f ? size.y : text_sz.y + style.FramePadding.y * 2.0f);
+            size.x > 0.0 ? size.x : text_sz.x + style.FramePadding.x * 2.0,
+            size.y > 0.0 ? size.y : text_sz.y + style.FramePadding.y * 2.0);
 
         const ImVec2 p0 = ImGui::GetCursorScreenPos();
         // EnableNav: InvisibleButton opts out of keyboard/tab navigation by
@@ -65,7 +66,7 @@ namespace {
         const ImU32 col = hot ? ImGui::GetColorU32(kTextButtonHighlight)
                               : ImGui::GetColorU32(ImGuiCol_Text);
         ImGui::GetWindowDrawList()->AddText(
-            ImVec2(p0.x + (box.x - text_sz.x) * 0.5f, p0.y + (box.y - text_sz.y) * 0.5f),
+            ImVec2(p0.x + (box.x - text_sz.x) * 0.5, p0.y + (box.y - text_sz.y) * 0.5),
             col, label);
         FeStylePopFont();
 
@@ -84,8 +85,8 @@ namespace {
         ImDrawList *dl = ImGui::GetWindowDrawList();
         const ImU32 hi = IM_COL32(220, 198, 156, 45);
         const ImU32 lo = IM_COL32(0, 0, 0, 90);
-        const ImVec2 a(p_min.x + 1.0f, p_min.y + 1.0f);
-        const ImVec2 b(p_max.x - 1.0f, p_max.y - 1.0f);
+        const ImVec2 a(p_min.x + 1.0, p_min.y + 1.0);
+        const ImVec2 b(p_max.x - 1.0, p_max.y - 1.0);
         dl->AddLine(ImVec2(a.x, a.y), ImVec2(b.x, a.y), hi); // top
         dl->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), hi); // left
         dl->AddLine(ImVec2(a.x, b.y), ImVec2(b.x, b.y), lo); // bottom
@@ -111,8 +112,8 @@ namespace {
         ImDrawList *dl = ImGui::GetWindowDrawList();
         const ImVec2 p = ImGui::GetWindowPos();
         const ImVec2 s = ImGui::GetWindowSize();
-        const float x0 = p.x + 2.0f, y0 = p.y + 2.0f;
-        const float x1 = p.x + s.x - 2.0f, y1 = p.y + s.y - 2.0f;
+        const double x0 = p.x + 2.0, y0 = p.y + 2.0;
+        const double x1 = p.x + s.x - 2.0, y1 = p.y + s.y - 2.0;
         if (x1 <= x0 || y1 <= y0)
             return;
 
@@ -120,23 +121,23 @@ namespace {
         // darker than the surrounding chrome, not a translucent wash.
         dl->AddRectFilled(p, ImVec2(p.x + s.x, p.y + s.y), IM_COL32(14, 10, 7, 232));
 
-        const float cell = 5.0f;
-        const float ns = 0.013f, amp = 40.0f, freq = 0.030f;
-        for (float y = y0; y < y1; y += cell)
-            for (float x = x0; x < x1; x += cell)
+        const double cell = 5.0;
+        const double ns = 0.013, amp = 40.0, freq = 0.030;
+        for (double y = y0; y < y1; y += cell)
+            for (double x = x0; x < x1; x += cell)
             {
-                const float px = x - p.x, py = y - p.y;
-                const float warp = fe::fbm(px * ns, py * ns) - 0.4f;
-                const float m = std::sin(freq * (px + py * 0.4f + amp * warp)); // -1..1
-                const float t = 0.5f + 0.5f * m;
-                const float lightv = t * t * t;
-                const float darkv  = (1.0f - t) * (1.0f - t) * (1.0f - t);
-                if (lightv < 0.09f && darkv < 0.09f)
+                const double px = x - p.x, py = y - p.y;
+                const double warp = fe::fbm(px * ns, py * ns) - 0.4;
+                const double m = std::sin(freq * (px + py * 0.4 + amp * warp)); // -1..1
+                const double t = 0.5 + 0.5 * m;
+                const double lightv = t * t * t;
+                const double darkv  = (1.0 - t) * (1.0 - t) * (1.0 - t);
+                if (lightv < 0.09 && darkv < 0.09)
                     continue;
                 const ImU32 col = (lightv >= darkv)
-                    ? IM_COL32(156, 126, 88, (int)(lightv * 46.0f)) // light vein
-                    : IM_COL32(0, 0, 0, (int)(darkv * 54.0f));      // dark vein
-                dl->AddRectFilled(ImVec2(x, y), ImVec2(x + cell + 0.5f, y + cell + 0.5f), col);
+                    ? IM_COL32(156, 126, 88, (int64_t)(lightv * 46.0)) // light vein
+                    : IM_COL32(0, 0, 0, (int64_t)(darkv * 54.0));      // dark vein
+                dl->AddRectFilled(ImVec2(x, y), ImVec2(x + cell + 0.5, y + cell + 0.5), col);
             }
     }
 }
@@ -148,7 +149,7 @@ namespace {
 bool FeBeginPanel(const char *title, const ImVec2 &size, bool scrollable)
 {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_PopupBg));
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5);
     // A 0 in either axis means "size to content" here, not BeginChild's own
     // default meaning of "fill remaining space in the parent" -- without
     // ImGuiChildFlags_AutoResizeX/Y a 0 height silently stretches the panel
@@ -156,8 +157,8 @@ bool FeBeginPanel(const char *title, const ImVec2 &size, bool scrollable)
     // panel with only a few sliders in it stretching to cover most of the
     // window, leaving a large empty gap below its actual content).
     ImGuiChildFlags child_flags = ImGuiChildFlags_Borders;
-    if (size.x == 0.0f) child_flags |= ImGuiChildFlags_AutoResizeX;
-    if (size.y == 0.0f) child_flags |= ImGuiChildFlags_AutoResizeY;
+    if (size.x == 0.0) child_flags |= ImGuiChildFlags_AutoResizeX;
+    if (size.y == 0.0) child_flags |= ImGuiChildFlags_AutoResizeY;
     ImGuiWindowFlags win_flags = scrollable ? ImGuiWindowFlags_None
         : (ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     bool open = ImGui::BeginChild(title, size, child_flags, win_flags);
@@ -172,7 +173,7 @@ bool FeBeginPanel(const char *title, const ImVec2 &size, bool scrollable)
         ImDrawList *dl = ImGui::GetWindowDrawList();
         ImVec2 p0 = ImGui::GetCursorScreenPos();
         ImVec2 p1(p0.x + ImGui::GetContentRegionAvail().x, p0.y);
-        dl->AddLine(p0, p1, ImGui::GetColorU32(ImGuiCol_Border), 2.0f);
+        dl->AddLine(p0, p1, ImGui::GetColorU32(ImGuiCol_Border), 2.0);
         ImGui::Spacing();
         ImGui::Spacing();
     }
@@ -236,12 +237,12 @@ bool FeListRow(const char *label, bool selected)
     return clicked;
 }
 
-void FeCenterNextItem(float item_width)
+void FeCenterNextItem(double item_width)
 {
-    float avail = ImGui::GetContentRegionAvail().x;
+    double avail = ImGui::GetContentRegionAvail().x;
     if (item_width >= avail)
         return;
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - item_width) * 0.5f);
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - item_width) * 0.5);
 }
 
 // ----------------------------------------------------------------------
@@ -253,10 +254,10 @@ bool FeButton(const char *label, const ImVec2 &size)
     return fe_text_button(label, size, FeFont_Body);
 }
 
-bool FeIconButton(const char *icon_label, float size)
+bool FeIconButton(const char *icon_label, double size)
 {
     FeStylePushFont(FeFont_Subheading);
-    const float sz = size > 0.0f ? size : ImGui::GetFontSize() * 1.6f;
+    const double sz = size > 0.0 ? size : ImGui::GetFontSize() * 1.6;
     FeStylePopFont();
     return fe_text_button(icon_label, ImVec2(sz, sz), FeFont_Subheading);
 }
@@ -266,11 +267,11 @@ bool FeNavButton(const char *label, bool selected)
     FeStylePushFont(FeFont_Subheading);
     const ImGuiStyle &style = ImGui::GetStyle();
     const ImVec2 text_sz = ImGui::CalcTextSize(label);
-    const float pad_x = style.FramePadding.x * 1.5f;
-    const float pad_y = style.FramePadding.y * 1.5f;
-    float avail = ImGui::GetContentRegionAvail().x;
-    if (avail < 1.0f) avail = 1.0f;
-    const ImVec2 box(avail, text_sz.y + pad_y * 2.0f);
+    const double pad_x = style.FramePadding.x * 1.5;
+    const double pad_y = style.FramePadding.y * 1.5;
+    double avail = ImGui::GetContentRegionAvail().x;
+    if (avail < 1.0) avail = 1.0;
+    const ImVec2 box(avail, text_sz.y + pad_y * 2.0);
 
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     const bool pressed = ImGui::InvisibleButton(label, box, ImGuiButtonFlags_EnableNav);
@@ -289,10 +290,10 @@ bool FeNavButton(const char *label, bool selected)
 // Settings controls
 // ----------------------------------------------------------------------
 
-bool FeSlider(const char *label, float *v, float v_min, float v_max, const char *fmt)
+bool FeSlider(const char *label, double *v, double v_min, double v_max, const char *fmt)
 {
     FeStylePushFont(FeFont_Body);
-    bool changed = ImGui::SliderFloat(label, v, v_min, v_max, fmt);
+    bool changed = kfximgui::SliderFloat(label, v, v_min, v_max, fmt);
     FeStylePopFont();
     return changed;
 }
@@ -307,10 +308,10 @@ bool FeCheckbox(const char *label, bool *v)
     return changed;
 }
 
-bool FeCombo(const char *label, int *current_item, const char *const items[], int items_count)
+bool FeCombo(const char *label, int64_t *current_item, const char *const items[], int64_t items_count)
 {
     FeStylePushFont(FeFont_Body);
-    bool changed = ImGui::Combo(label, current_item, items, items_count);
+    bool changed = kfximgui::Combo(label, current_item, items, items_count);
     FeStylePopFont();
     if (changed)
         do_sound_menu_click();
@@ -325,10 +326,10 @@ bool FeTextInput(const char *label, char *buf, size_t buf_size)
     return changed;
 }
 
-bool FeInputInt(const char *label, int *v, int step, int step_fast, int v_min, int v_max)
+bool FeInputInt(const char *label, int64_t *v, int64_t step, int64_t step_fast, int64_t v_min, int64_t v_max)
 {
     FeStylePushFont(FeFont_Body);
-    bool changed = ImGui::InputInt(label, v, step, step_fast);
+    bool changed = kfximgui::InputInt(label, v, step, step_fast);
     FeStylePopFont();
     if (changed)
     {
@@ -354,7 +355,7 @@ bool FeKeybindRow(const char *action_label, const char *key_label, bool capturin
 {
     FeStylePushFont(FeFont_Body);
     ImGui::TextUnformatted(action_label);
-    ImGui::SameLine(ImGui::GetContentRegionAvail().x > 220.0f ? 220.0f : 0.0f);
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x > 220.0 ? 220.0 : 0.0);
 
     FeStylePopFont();
 

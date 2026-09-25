@@ -35,32 +35,32 @@ TEST_CASE("get_map_location_type extracts the low 4 bits", "[kfx_sim][map_locati
 }
 
 TEST_CASE("get_map_location_longval extracts everything above the type nibble", "[kfx_sim][map_locations]") {
-    TbMapLocation loc = (123UL << 4) | MLoc_HEROGATE;
+    TbMapLocation loc = (123U << 4) | MLoc_HEROGATE;
     CHECK(get_map_location_longval(loc) == 123);
 }
 
 TEST_CASE("get_map_location_plyrval extracts everything above bit 12", "[kfx_sim][map_locations]") {
-    TbMapLocation loc = (7UL << 12) | (5UL << 4) | MLoc_CREATUREKIND;
+    TbMapLocation loc = (7U << 12) | (5U << 4) | MLoc_CREATUREKIND;
     CHECK(get_map_location_plyrval(loc) == 7);
 }
 
 TEST_CASE("get_map_location_code_name formats a negated gate number for MLoc_HEROGATE", "[kfx_sim][map_locations]") {
     char name[MAX_TEXT_LENGTH];
-    TbMapLocation loc = (3UL << 4) | MLoc_HEROGATE;
+    TbMapLocation loc = (3U << 4) | MLoc_HEROGATE;
     CHECK(get_map_location_code_name(loc, name));
     CHECK(std::strcmp(name, "-3") == 0);
 }
 
 TEST_CASE("get_map_location_code_name reports MLoc_HEROGATE invalid for a non-positive gate number", "[kfx_sim][map_locations]") {
     char name[MAX_TEXT_LENGTH];
-    TbMapLocation loc = (0UL << 4) | MLoc_HEROGATE;
+    TbMapLocation loc = (0U << 4) | MLoc_HEROGATE;
     CHECK_FALSE(get_map_location_code_name(loc, name));
     CHECK(std::strcmp(name, "INVALID") == 0);
 }
 
 TEST_CASE("get_map_location_code_name resolves MLoc_PLAYERSHEART through the real player_desc[] table", "[kfx_sim][map_locations]") {
     char name[MAX_TEXT_LENGTH];
-    TbMapLocation loc = ((unsigned long)PLAYER0 << 4) | MLoc_PLAYERSHEART;
+    TbMapLocation loc = ((uint64_t)PLAYER0 << 4) | MLoc_PLAYERSHEART;
     CHECK(get_map_location_code_name(loc, name));
     CHECK(std::strcmp(name, "PLAYER0") == 0);
 }

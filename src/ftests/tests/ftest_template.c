@@ -26,7 +26,7 @@ struct ftest_template__variables
 
     struct Thing* target_imp;
     GameTurn turn_delay_counter;
-    unsigned short slap_counter;
+    int64_t slap_counter;
 };
 struct ftest_template__variables ftest_template__vars = {
     .slb_x_spawn_imp = 17,
@@ -116,7 +116,7 @@ FTestActionResult ftest_template_action002__slap_imp_to_death(struct FTestAction
     // slap hehehe
     if(game_action(PLAYER0, GA_UsePwrSlap, 0, 0, 0, vars->target_imp->index, 0) > Lb_OK)
     {
-        message_add_fmt(MsgType_Player, PLAYER0, "Slap %d", ++vars->slap_counter);
+        message_add_fmt(MsgType_Player, PLAYER0, "Slap %" PRId64, (int64_t)(++vars->slap_counter));
 
         vars->turn_delay_counter = get_gameturn() + 20;
         return FTRs_Repeat_Current_Action;
@@ -139,7 +139,7 @@ FTestActionResult ftest_template_action003__end_test(struct FTestActionArgs* con
 
     if(vars->slap_counter != 26)
     {
-        FTEST_FAIL_TEST("Expected 26 slaps for level 3 imp, only counted %d", vars->slap_counter);
+        FTEST_FAIL_TEST("Expected 26 slaps for level 3 imp, only counted %" PRId64, (int64_t)(vars->slap_counter));
         return FTRs_Go_To_Next_Action;
     }
 

@@ -20,7 +20,7 @@ public:
     void PresentFrame() override;
     unsigned char* LockFramebuffer(TbBytePitch* out_pitch) override;
     void UnlockFramebuffer() override;
-    bool ScheduleScreenshot(const char* path, int fmt) override;
+    bool ScheduleScreenshot(const char* path, int64_t fmt) override;
 
 
     IUIRenderer*   GetUIRenderer()   override { return &m_ui_renderer; }
@@ -32,9 +32,9 @@ private:
 
     SDL_Renderer* m_renderer = nullptr;
     SDL_Texture*  m_texture  = nullptr;
-    int           m_tex_w    = 0;
-    int           m_tex_h    = 0;
-    int           m_vsync    = -1; // SDL_SetRenderVSync value; -1 = unset
+    int64_t           m_tex_w    = 0;
+    int64_t           m_tex_h    = 0;
+    int64_t           m_vsync    = -1; // SDL_SetRenderVSync value; -1 = unset
 
     SoftwareUIRenderer   m_ui_renderer;
     SoftwareTextRenderer m_text_renderer;

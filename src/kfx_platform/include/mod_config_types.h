@@ -34,19 +34,19 @@ extern "C" {
 #define MOD_ITEM_MAX  50
 
 struct ModExistState{
-    int mod_dir;
+    int64_t mod_dir;
 
-    int fx_data;	// FGrp_FxData: string, config, sprite
-    int std_data;	// FGrp_StdData: texture
-    int cmpg_config;	// FGrp_CmpgConfig: config, sprite, texture
-    int cmpg_lvls;	// FGrp_CmpgLvls: creaturemodel, config, sprite, texture
+    int64_t fx_data;	// FGrp_FxData: string, config, sprite
+    int64_t std_data;	// FGrp_StdData: texture
+    int64_t cmpg_config;	// FGrp_CmpgConfig: config, sprite, texture
+    int64_t cmpg_lvls;	// FGrp_CmpgLvls: creaturemodel, config, sprite, texture
 
-    int crtr_data;	// FGrp_CrtrData: creaturemodel
-    int cmpg_crtrs;	// FGrp_CmpgCrtrs: creaturemodel
+    int64_t crtr_data;	// FGrp_CrtrData: creaturemodel
+    int64_t cmpg_crtrs;	// FGrp_CmpgCrtrs: creaturemodel
 
-    int lrg_sound;		// FGrp_LrgSound: custom sound files (mods/<name>/sound/)
+    int64_t lrg_sound;		// FGrp_LrgSound: custom sound files (mods/<name>/sound/)
 
-    int music;	// FGrp_Music: play_music
+    int64_t music;	// FGrp_Music: play_music
 };
 
 struct ModConfigItem {

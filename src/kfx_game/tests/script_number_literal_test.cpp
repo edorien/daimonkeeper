@@ -56,6 +56,6 @@ TEST_CASE_METHOD(Fixture, "a condition compared with an out-of-range literal kee
     REQUIRE(preload_script(kLevel));
     REQUIRE(load_script(kLevel));
     REQUIRE(kfx_game_state.script.conditions_num >= 2);
-    CHECK((long)kfx_game_state.script.conditions[0].rvalue == INT32_MAX);
-    CHECK((long)kfx_game_state.script.conditions[1].rvalue == INT32_MIN);
+    CHECK((int64_t)kfx_game_state.script.conditions[0].rvalue == INT32_MAX);
+    CHECK((int64_t)kfx_game_state.script.conditions[1].rvalue == INT32_MIN);
 }

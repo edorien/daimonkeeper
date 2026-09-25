@@ -50,8 +50,8 @@ void editor_journal_do_redo(void);
 // undo_count()/redo_count(): how many entries are on each stack, for
 // greying out a button with nothing to do and showing a total in the
 // History tab.
-int editor_journal_undo_count(void);
-int editor_journal_redo_count(void);
+int64_t editor_journal_undo_count(void);
+int64_t editor_journal_redo_count(void);
 
 // describe_undo()/describe_redo(): a short human-readable label for the
 // entry at index_from_top (0 = top of stack, the one Undo/Redo would act
@@ -59,8 +59,8 @@ int editor_journal_redo_count(void);
 // out of range. The returned pointer is into a small shared static buffer,
 // valid only until the NEXT describe_undo()/describe_redo() call --
 // render/consume it immediately, don't hold onto it.
-const char *editor_journal_describe_undo(int index_from_top);
-const char *editor_journal_describe_redo(int index_from_top);
+const char *editor_journal_describe_undo(int64_t index_from_top);
+const char *editor_journal_describe_redo(int64_t index_from_top);
 
 // phase5/06-slices6-8-points-tool.md -- journals the placement (placed = true)
 // or deletion (false) of a light / action point / effect generator so
@@ -78,15 +78,15 @@ void editor_journal_record_point_edit(const struct EditorPointSnapshot *before, 
 // values are the ones the editor can change: an object's position, a gold
 // pile's amount and a door's lock.
 struct EditorThingProps {
-    long x, y, z;
-    long gold;
-    int locked;
+    int64_t x, y, z;
+    int64_t gold;
+    int64_t locked;
 };
 // Journals an edit already applied (or about to be) to thing `thing_idx`;
 // a no-op when before and after are equal.
-void editor_journal_record_thing_edit(long thing_idx, const struct EditorThingProps *before, const struct EditorThingProps *after);
+void editor_journal_record_thing_edit(int64_t thing_idx, const struct EditorThingProps *before, const struct EditorThingProps *after);
 // The current values of a thing (only the ones its class has are meaningful).
-void editor_journal_thing_props(long thing_idx, struct EditorThingProps *out);
+void editor_journal_thing_props(int64_t thing_idx, struct EditorThingProps *out);
 
 // fx-plans/00 item A7 -- stroke-level undo for tools that change slabs
 // without a single explicit box (free-hand terrain paint, Fill, Stamp, Paint

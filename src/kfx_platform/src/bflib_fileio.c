@@ -52,7 +52,7 @@
  *  @param buflen Size of the actual_fname buffer.
  *  @return Returns 1 if found, 0 otherwise.
  */
-static int find_case_insensitive_file(const char *fname, char *actual_fname, size_t buflen)
+static int64_t find_case_insensitive_file(const char *fname, char *actual_fname, size_t buflen)
 {
     // Split fname into directory and filename
     const char *last_slash = strrchr(fname, '/');
@@ -83,7 +83,7 @@ static int find_case_insensitive_file(const char *fname, char *actual_fname, siz
     }
     
     struct dirent *entry;
-    int found = 0;
+    int64_t found = 0;
     while ((entry = readdir(dir)) != NULL) {
         if (strcasecmp(entry->d_name, filename) == 0) {
             // Found a case-insensitive match
@@ -115,7 +115,7 @@ static int find_case_insensitive_file(const char *fname, char *actual_fname, siz
 }
 #endif
 
-short LbFileExists(const char *fname)
+int64_t LbFileExists(const char *fname)
 {
   if (access(fname, F_OK) == 0) {
     return 1;
@@ -129,15 +129,15 @@ short LbFileExists(const char *fname)
   return 0;
 }
 
-int LbFilePosition(TbFileHandle handle)
+int64_t LbFilePosition(TbFileHandle handle)
 {
-  int result = ftell(handle);
+  int64_t result = ftell(handle);
   return result;
 }
 
-int create_directory_for_file(const char * fname)
+int64_t create_directory_for_file(const char * fname)
 {
-  const int size = strlen(fname) + 1;
+  const int64_t size = strlen(fname) + 1;
   char * tmp = (char *) malloc(size);
   const char * separator = strchr(fname, '/');
 
@@ -176,7 +176,7 @@ TbFileHandle LbFileOpen(const char *fname, const unsigned char accmode)
   const char *open_fname = fname;
 #if !defined(_WIN32)
   char actual_fname[PATH_MAX];
-  int access_rc = access(fname, F_OK);
+  int64_t access_rc = access(fname, F_OK);
   // Try to find the file case-insensitively on Unix-like systems
   if (access_rc != 0 && find_case_insensitive_file(fname, actual_fname, sizeof(actual_fname))) {
     open_fname = actual_fname;
@@ -184,7 +184,7 @@ TbFileHandle LbFileOpen(const char *fname, const unsigned char accmode)
 #endif
 
 #if !defined(_WIN32)
-  int file_exists = (access_rc == 0) || (open_fname != fname);
+  int64_t file_exists = (access_rc == 0) || (open_fname != fname);
   // fopen() on Linux/macOS happily opens a directory for reading, which
   // then misbehaves in bizarre ways downstream (e.g. ftell() after
   // seek-to-end returns LONG_MAX instead of failing). A directory is
@@ -196,7 +196,7 @@ TbFileHandle LbFileOpen(const char *fname, const unsigned char accmode)
     }
   }
 #else
-  int file_exists = LbFileExists(fname);
+  int64_t file_exists = LbFileExists(fname);
 #endif
 
   if ( !file_exists )
@@ -248,13 +248,13 @@ TbFileHandle LbFileOpen(const char *fname, const unsigned char accmode)
     };break;
   }
 #ifdef __DEBUG
-  LbSyncLog("LbFileOpen: errno = %d\n", rc, errno);
+  LbSyncLog("LbFileOpen: errno = %" PRId64 "\n", (int64_t)(rc), errno);
 #endif
   return rc;
 }
 
 //Closes a file
-int LbFileClose(TbFileHandle handle)
+int64_t LbFileClose(TbFileHandle handle)
 {
   if ( fclose(handle) )
     return -1;
@@ -279,9 +279,9 @@ TbBool LbFileEof(TbFileHandle handle)
  * @param origin
  * @return Returns new file position, or -1 on error.
  */
-int LbFileSeek(TbFileHandle handle, long offset, unsigned char origin)
+int64_t LbFileSeek(TbFileHandle handle, int64_t offset, unsigned char origin)
 {
-  int rc;
+  int64_t rc;
   switch (origin)
   {
   case Lb_FILE_SEEK_BEGINNING:
@@ -308,7 +308,7 @@ int LbFileSeek(TbFileHandle handle, long offset, unsigned char origin)
  * @param len
  * @return Gives amount of bytes read, or -1 on error.
  */
-int LbFileRead(TbFileHandle handle, void *buffer, unsigned long len)
+int64_t LbFileRead(TbFileHandle handle, void *buffer, uint64_t len)
 {
     return fread(buffer, 1, len, handle);
 }
@@ -320,7 +320,7 @@ int LbFileRead(TbFileHandle handle, void *buffer, unsigned long len)
  * @return Returns the number of bytes (does not include any extra carriage-return
  * characters transmitted) of data transmitted to the file.
 */
-long LbFileWrite(TbFileHandle handle, const void *buffer, const unsigned long len)
+int64_t LbFileWrite(TbFileHandle handle, const void *buffer, const uint64_t len)
 {
     return fwrite(buffer, 1, len, handle);
 }
@@ -329,22 +329,22 @@ long LbFileWrite(TbFileHandle handle, const void *buffer, const unsigned long le
  * Flushes the file buffers, writing all data immediately.
  * @return Returns 1 on success, 0 on error.
 */
-short LbFileFlush(TbFileHandle handle)
+int64_t LbFileFlush(TbFileHandle handle)
 {
   return fflush(handle) == 0;
 }
 
-long LbFileLengthHandle(TbFileHandle handle)
+int64_t LbFileLengthHandle(TbFileHandle handle)
 {
-  long pos = ftell(handle);
+  int64_t pos = ftell(handle);
   fseek(handle, 0, SEEK_END);
-  long result = ftell(handle);
+  int64_t result = ftell(handle);
   fseek(handle, pos, SEEK_SET);
   return result;
 }
 
 //Returns disk size of file
-long LbFileLength(const char *fname)
+int64_t LbFileLength(const char *fname)
 {
   const char *open_fname = fname;
 #if !defined(_WIN32)
@@ -355,7 +355,7 @@ long LbFileLength(const char *fname)
   }
 #endif
   TbFileHandle handle = fopen(open_fname, "rb");
-  long result = -1;
+  int64_t result = -1;
   if (handle)
   {
     fseek(handle, 0, SEEK_END);
@@ -366,7 +366,7 @@ long LbFileLength(const char *fname)
 }
 
 //Removes a disk file
-int LbFileDelete(const char *filename)
+int64_t LbFileDelete(const char *filename)
 {
   const char *del_fname = filename;
 #if !defined(_WIN32)
@@ -376,7 +376,7 @@ int LbFileDelete(const char *filename)
     del_fname = actual_fname;
   }
 #endif
-  int result;
+  int64_t result;
   if ( remove(del_fname) )
     result = -1;
   else
@@ -384,14 +384,14 @@ int LbFileDelete(const char *filename)
   return result;
 }
 
-int LbDirectoryCurrent(char *buf, unsigned long buflen)
+int64_t LbDirectoryCurrent(char *buf, uint64_t buflen)
 {
 //  if ( GetCurrentDirectoryA(buflen, buf) )
   if ( getcwd(buf,buflen) != NULL )
   {
     if ( buf[1] == ':' )
       strcpy(buf, buf+2);
-    int len = strlen(buf);
+    int64_t len = strlen(buf);
     if ( len>1 )
     {
       if ( buf[len-2] == '\\' )
@@ -402,12 +402,12 @@ int LbDirectoryCurrent(char *buf, unsigned long buflen)
   return -1;
 }
 
-int LbFileMakeFullPath(const short append_cur_dir,
-  const char *directory, const char *filename, char *buf, const unsigned long len)
+int64_t LbFileMakeFullPath(const int64_t append_cur_dir,
+  const char *directory, const char *filename, char *buf, const uint64_t len)
 {
   if (filename==NULL)
     { buf[0]='\0'; return -1; }
-  unsigned long namestart;
+  uint64_t namestart;
   if ( append_cur_dir )
   {
     if ( LbDirectoryCurrent(buf, len-2) == -1 )
@@ -426,7 +426,7 @@ int LbFileMakeFullPath(const short append_cur_dir,
 
   if ( directory != NULL )
   {
-      int copy_len = strlen(directory);
+      int64_t copy_len = strlen(directory);
       if (len - 2 <= namestart + copy_len - 1)
           return -1;
       memcpy(buf + namestart, directory, copy_len);
@@ -441,13 +441,13 @@ int LbFileMakeFullPath(const short append_cur_dir,
   if ( strlen(filename)+namestart-1 < len )
   {
     const char *ptr = filename;
-    int invlen;
+    int64_t invlen;
     for (invlen=-1;invlen!=0;invlen--)
     {
      if (*ptr++ == 0)
        {invlen--;break;}
     }
-    int copy_len = ~invlen;
+    int64_t copy_len = ~invlen;
     const char* copy_src = &ptr[-copy_len];
     char* copy_dst = buf;
     for (invlen=-1;invlen!=0;invlen--)

@@ -28,6 +28,13 @@
 #include "bflib_vidraw.h"
 #include "post_inc.h"
 
+// This file emulates 32-bit x86 register arithmetic (rol/adc/sbc on 32/16-bit words), so ulong/ushort are pinned to
+// 32/16 bits on every platform (glibc's `ulong` is 64-bit; the shared typedef was removed with the int64 change).
+#include <stdint.h>
+#define ulong uint32_t
+#define ushort uint16_t
+#define uint uint32_t
+
 
 /******************************************************************************/
 #pragma pack(1)

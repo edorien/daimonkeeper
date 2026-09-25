@@ -391,12 +391,12 @@ TEST_CASE_METHOD(ResetSimAndConfig, "creature_is_hostile_towards gives identical
     struct Thing *enmtng = make_creature(2, 2, 1);
     struct CreatureModelConfig *crconf = &kfx_config_state.conf.crtr_conf.model[0];
 
-    for (int variant = 0; variant < 4; variant++) {
+    for (int64_t variant = 0; variant < 4; variant++) {
         std::memset(crconf->hostile_towards, 0, sizeof(crconf->hostile_towards));
         if (variant == 1) crconf->hostile_towards[0] = 7;
         if (variant == 2) crconf->hostile_towards[CREATURE_TYPES_MAX - 1] = CREATURE_ANY;
         if (variant == 3) crconf->hostile_towards[3] = 5;
-        for (int model = 0; model < CREATURE_TYPES_MAX; model++) {
+        for (int64_t model = 0; model < CREATURE_TYPES_MAX; model++) {
             enmtng->model = model;
             const TbBool plain = creature_is_hostile_towards(fightng, enmtng);
             creature_hostility_memo_begin_scan();

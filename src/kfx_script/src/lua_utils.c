@@ -5,7 +5,7 @@
 
 #include "post_inc.h"
 
-TbBool try_get_from_methods(lua_State *L, int obj_index, const char *key) {
+TbBool try_get_from_methods(lua_State *L, int64_t obj_index, const char *key) {
     if (!lua_getmetatable(L, obj_index)) return false;
 
     lua_getfield(L, -1, "__methods");
@@ -24,7 +24,7 @@ TbBool try_get_from_methods(lua_State *L, int obj_index, const char *key) {
 
 
 TbBool try_get_c_method(lua_State *L, const char *key, const luaL_Reg *methods) {
-    for (int i = 0; methods[i].name != NULL; i++) {
+    for (int64_t i = 0; methods[i].name != NULL; i++) {
         if (strcmp(key, methods[i].name) == 0) {
             lua_pushcfunction(L, methods[i].func);
             return true;

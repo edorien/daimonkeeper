@@ -104,7 +104,7 @@ TEST_CASE_METHOD(ResetState, "add_item_to_dead_creature_list increments an exist
 
 TEST_CASE_METHOD(ResetState, "add_item_to_dead_creature_list overwrites ring-buffer-style once dead_creatures_count hits DEAD_CREATURES_MAX_COUNT", "[kfx_sim][thing_corpses]") {
     struct Dungeon *dungeon = get_dungeon(0);
-    for (int i = 0; i < DEAD_CREATURES_MAX_COUNT; i++) {
+    for (int64_t i = 0; i < DEAD_CREATURES_MAX_COUNT; i++) {
         CHECK(add_item_to_dead_creature_list(dungeon, i + 1, 0)); // every model distinct -- always a fresh slot
     }
     CHECK(dungeon->dead_creatures_count == DEAD_CREATURES_MAX_COUNT);

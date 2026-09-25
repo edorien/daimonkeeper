@@ -85,8 +85,8 @@ struct SettingOption {
     // config_strings.h GUIStr_* ids. help_stridx == 0 means no tooltip
     // (0 is a real, unrelated low-numbered string id in get_string()'s own
     // space, not a sentinel) -- every row has one as of Phase G step 11.
-    unsigned short label_stridx;
-    unsigned short help_stridx;
+    int64_t label_stridx;
+    int64_t help_stridx;
 
     // When non-NULL, used verbatim as the on-screen label / help instead of
     // get_string(label_stridx / help_stridx). For KeeperFX-only rows added
@@ -106,17 +106,17 @@ struct SettingOption {
     TbBool (*get_bool)(void);
     void (*set_bool)(TbBool val);
 
-    long (*get_int)(void);
-    void (*set_int)(long val);
-    long int_min;
-    long int_max;
+    int64_t (*get_int)(void);
+    void (*set_int)(int64_t val);
+    int64_t int_min;
+    int64_t int_max;
 
     // SOptT_Enum only. enum_table is NULL-name-terminated (struct
     // NamedCommand's own convention); get_enum/set_enum trade in a
     // table entry's .num, e.g. atmos_volume[]'s 64/128/255, not an index.
     const struct NamedCommand *enum_table;
-    long (*get_enum)(void);
-    void (*set_enum)(long val);
+    int64_t (*get_enum)(void);
+    void (*set_enum)(int64_t val);
 
     // SOptT_Enum only, optional (NULL for every row whose enum_table is a
     // plain compile-time-constant array, e.g. LANGUAGE's lang_type[]).
@@ -179,7 +179,7 @@ struct SettingOption {
 };
 
 extern const struct SettingOption setting_options[];
-extern const int setting_options_count;
+extern const int64_t setting_options_count;
 
 // Applies a new value to the live engine/config state via the option's own
 // set_bool/set_int, then persists it -- to keeperfx.cfg via
@@ -188,18 +188,18 @@ extern const int setting_options_count;
 // opt->persist_via_save_settings is set. Does nothing (beyond an ERRORLOG)
 // if opt->type doesn't match the call.
 void setting_option_apply_bool(const struct SettingOption *opt, TbBool val);
-void setting_option_apply_int(const struct SettingOption *opt, long val);
+void setting_option_apply_int(const struct SettingOption *opt, int64_t val);
 
 // SOptT_Enum helpers -- translate between enum_table's own .num values (what
 // keeperfx.cfg and get_enum/set_enum use) and a 0-based index (what a combo
 // box widget wants). All three return/accept 0 for a NULL or malformed opt.
-int setting_option_enum_count(const struct SettingOption *opt);
-int setting_option_enum_current_index(const struct SettingOption *opt);
-const char *setting_option_enum_item_name(const struct SettingOption *opt, int index);
+int64_t setting_option_enum_count(const struct SettingOption *opt);
+int64_t setting_option_enum_current_index(const struct SettingOption *opt);
+const char *setting_option_enum_item_name(const struct SettingOption *opt, int64_t index);
 // Applies enum_table[index]'s value via set_enum, then persists
 // enum_table[index]'s own *name* (the literal keeperfx.cfg token, e.g.
 // "MEDIUM") under cfg_key.
-void setting_option_apply_enum_index(const struct SettingOption *opt, int index);
+void setting_option_apply_enum_index(const struct SettingOption *opt, int64_t index);
 
 /******************************************************************************/
 #ifdef __cplusplus

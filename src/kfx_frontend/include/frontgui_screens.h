@@ -17,7 +17,7 @@ extern "C" {
 // this frame rather than the legacy sprite path -- "ImGui enabled AND this
 // state has been migrated" (§3.5). Un-migrated states always return false,
 // regardless of the -classicmenu/-noimgui toggle.
-TbBool frontend_imgui_screen_active(int state);
+TbBool frontend_imgui_screen_active(int64_t state);
 
 // Phase E: runs the master-detail screens' land preview panel input
 // (pan/click/highlight) at the correct point in the frame -- call from
@@ -25,7 +25,7 @@ TbBool frontend_imgui_screen_active(int state);
 // the draw/present path. See the .cpp definition's comment for why the
 // ordering matters. No-op for any state without a preview panel, or when
 // ImGui isn't driving `state`.
-void FrontendImGuiLandPreviewInput(int state);
+void FrontendImGuiLandPreviewInput(int64_t state);
 
 // The registered RendererImGuiFrameFn callback (RendererManager.h):
 // dispatches to the active migrated screen's submission, plus the Phase B

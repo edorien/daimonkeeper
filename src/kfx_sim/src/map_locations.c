@@ -52,7 +52,7 @@ TbMapLocation get_coord_encoded_location(MapSubtlCoord stl_x,MapSubtlCoord stl_y
 TbBool get_coords_at_location(struct Coord3d *pos, TbMapLocation location, TbBool random_factor)
 {
 
-    long i = get_map_location_longval(location);
+    int64_t i = get_map_location_longval(location);
 
     switch (get_map_location_type(location))
     {
@@ -89,10 +89,10 @@ TbBool get_coords_at_location(struct Coord3d *pos, TbMapLocation location, TbBoo
 
 }
 
-TbBool get_coords_at_meta_action(struct Coord3d *pos, PlayerNumber target_plyr_idx, long i)
+TbBool get_coords_at_meta_action(struct Coord3d *pos, PlayerNumber target_plyr_idx, int64_t i)
 {
 
-    SYNCDBG(7,"Starting with loc:%ld", i);
+    SYNCDBG(7,"Starting with loc:%" PRId64, (int64_t)(i));
     struct Coord3d *src;
     struct Coord3d targetpos = {0};
     PlayerNumber loc_player = i & 0xF;
@@ -134,18 +134,18 @@ TbBool get_coords_at_meta_action(struct Coord3d *pos, PlayerNumber target_plyr_i
 
 }
 
-TbBool get_coords_at_hero_door(struct Coord3d *pos, long gate_num, unsigned char random_factor)
+TbBool get_coords_at_hero_door(struct Coord3d *pos, int64_t gate_num, unsigned char random_factor)
 {
-    SYNCDBG(7,"Starting at HG%d", (int)gate_num);
+    SYNCDBG(7,"Starting at HG%" PRId64, (int64_t)gate_num);
     if (gate_num <= 0)
     {
-        ERRORLOG("Script error - invalid hero gate index %d",(int)gate_num);
+        ERRORLOG("Script error - invalid hero gate index %" PRId64,(int64_t)gate_num);
         return false;
     }
     struct Thing* gatetng = find_hero_gate_of_number(gate_num);
     if (thing_is_invalid(gatetng))
     {
-        ERRORLOG("Script error - attempt to create thing at non-existing hero gate index %d",(int)gate_num);
+        ERRORLOG("Script error - attempt to create thing at non-existing hero gate index %" PRId64,(int64_t)gate_num);
         return false;
     }
     pos->x.val = gatetng->mappos.x.val;
@@ -162,12 +162,12 @@ TbBool get_coords_at_hero_door(struct Coord3d *pos, long gate_num, unsigned char
  */
 TbBool get_coords_at_dungeon_heart(struct Coord3d *pos, PlayerNumber plyr_idx)
 {
-    SYNCDBG(7,"Starting at player %d", (int)plyr_idx);
+    SYNCDBG(7,"Starting at player %" PRId64, (int64_t)plyr_idx);
     struct Thing* heartng = get_player_soul_container(plyr_idx);
     TRACE_THING(heartng);
     if (!thing_exists(heartng))
     {
-        ERRORLOG("Script error - attempt to create thing in player %d dungeon with no heart",(int)plyr_idx);
+        ERRORLOG("Script error - attempt to create thing in player %" PRId64 " dungeon with no heart",(int64_t)plyr_idx);
         return false;
     }
     pos->x.val = heartng->mappos.x.val + PLAYER_RANDOM(plyr_idx, 65) - 32;
@@ -176,14 +176,14 @@ TbBool get_coords_at_dungeon_heart(struct Coord3d *pos, PlayerNumber plyr_idx)
     return true;
 }
 
-TbBool get_coords_at_action_point(struct Coord3d *pos, long apt_idx, unsigned char random_factor)
+TbBool get_coords_at_action_point(struct Coord3d *pos, int64_t apt_idx, unsigned char random_factor)
 {
-    SYNCDBG(7,"Starting at action point %d", (int)apt_idx);
+    SYNCDBG(7,"Starting at action point %" PRId64, (int64_t)apt_idx);
 
     struct ActionPoint* apt = action_point_get(apt_idx);
     if (!action_point_exists(apt))
     {
-        ERRORLOG("Script error - attempt to create thing at non-existing action point %d",(int)apt_idx);
+        ERRORLOG("Script error - attempt to create thing at non-existing action point %" PRId64,(int64_t)apt_idx);
         return false;
     }
 
@@ -193,10 +193,10 @@ TbBool get_coords_at_action_point(struct Coord3d *pos, long apt_idx, unsigned ch
         pos->y.val = apt->mappos.y.val;
     } else
     {
-        long distance = GAME_RANDOM(apt->range);
-        long direction = GAME_RANDOM(DEGREES_360);
-        long delta_x = (distance * LbSinL(direction) >> 8);
-        long delta_y = (distance * LbCosL(direction) >> 8);
+        int64_t distance = GAME_RANDOM(apt->range);
+        int64_t direction = GAME_RANDOM(DEGREES_360);
+        int64_t delta_x = (distance * LbSinL(direction) >> 8);
+        int64_t delta_y = (distance * LbCosL(direction) >> 8);
         pos->x.val = apt->mappos.x.val + (delta_x >> 8);
         pos->y.val = apt->mappos.y.val - (delta_y >> 8);
     }
@@ -204,17 +204,17 @@ TbBool get_coords_at_action_point(struct Coord3d *pos, long apt_idx, unsigned ch
     return true;
 }
 
-unsigned short get_map_location_type(TbMapLocation location)
+int64_t get_map_location_type(TbMapLocation location)
 {
   return location & 0x0F;
 }
 
-unsigned long get_map_location_longval(TbMapLocation location)
+uint64_t get_map_location_longval(TbMapLocation location)
 {
   return (location >> 4);
 }
 
-unsigned long get_map_location_plyrval(TbMapLocation location)
+uint64_t get_map_location_plyrval(TbMapLocation location)
 {
   return (location >> 12);
 }
@@ -225,7 +225,7 @@ unsigned long get_map_location_plyrval(TbMapLocation location)
  */
 TbBool get_map_location_code_name(TbMapLocation location, char *name)
 {
-    long i;
+    int64_t i;
     switch (get_map_location_type(location))
     {
     case MLoc_ACTIONPOINT:{
@@ -234,14 +234,14 @@ TbBool get_map_location_code_name(TbMapLocation location, char *name)
         if (apt->num <= 0) {
             break;
         }
-        snprintf(name, MAX_TEXT_LENGTH, "%d", apt->num);
+        snprintf(name, MAX_TEXT_LENGTH, "%" PRId64, (int64_t)(apt->num));
         };return true;
     case MLoc_HEROGATE:{
         i = get_map_location_longval(location);
         if (i <= 0) {
             break;
         }
-        snprintf(name, MAX_TEXT_LENGTH, "%ld", -i);
+        snprintf(name, MAX_TEXT_LENGTH, "%" PRId64, (int64_t)(-i));
         };return true;
     case MLoc_PLAYERSHEART:{
         i = get_map_location_longval(location);
@@ -287,7 +287,7 @@ void find_location_pos(TbMapLocation location, PlayerNumber plyr_idx, struct Coo
 {
   struct ActionPoint *apt;
   struct Thing *thing;
-  unsigned long i = get_map_location_longval(location);
+  uint64_t i = get_map_location_longval(location);
   memset(pos, 0, sizeof(*pos));
 
   switch (get_map_location_type(location))
@@ -300,7 +300,7 @@ void find_location_pos(TbMapLocation location, PlayerNumber plyr_idx, struct Coo
         pos->x.val = apt->mappos.x.val;
         pos->y.val = apt->mappos.y.val;
       } else
-        WARNMSG("%s: Action Point %lu location not found",func_name,i);
+        WARNMSG("%s: Action Point %" PRIu64 " location not found",func_name,(uint64_t)(i));
       break;
     case MLoc_HEROGATE:
       thing = find_hero_gate_of_number(i);
@@ -308,7 +308,7 @@ void find_location_pos(TbMapLocation location, PlayerNumber plyr_idx, struct Coo
       {
         *pos = thing->mappos;
       } else
-        WARNMSG("%s: Hero Gate %lu location not found",func_name,i);
+        WARNMSG("%s: Hero Gate %" PRIu64 " location not found",func_name,(uint64_t)(i));
       break;
     case MLoc_PLAYERSHEART:
       if (i < PLAYERS_COUNT)
@@ -320,7 +320,7 @@ void find_location_pos(TbMapLocation location, PlayerNumber plyr_idx, struct Coo
       {
         *pos = thing->mappos;
       } else
-        WARNMSG("%s: Dungeon Heart location for player %lu not found",func_name,i);
+        WARNMSG("%s: Dungeon Heart location for player %" PRIu64 " not found",func_name,(uint64_t)(i));
       break;
     case MLoc_NONE:
       pos->x.val = 0;
@@ -333,11 +333,11 @@ void find_location_pos(TbMapLocation location, PlayerNumber plyr_idx, struct Coo
       {
         *pos = thing->mappos;
       } else
-        WARNMSG("%s: Thing %lu location not found",func_name,i);
+        WARNMSG("%s: Thing %" PRIu64 " location not found",func_name,(uint64_t)(i));
       break;
     case MLoc_METALOCATION:
       if (!get_coords_at_meta_action(pos, plyr_idx, i))
-        WARNMSG("%s: Metalocation not found %lu",func_name,i);
+        WARNMSG("%s: Metalocation not found %" PRIu64,func_name,(uint64_t)(i));
       break;
     case MLoc_COORDS:
         pos->x.val = subtile_coord_center(location >> 20);
@@ -352,10 +352,10 @@ void find_location_pos(TbMapLocation location, PlayerNumber plyr_idx, struct Coo
     case MLoc_DOORKIND:
     case MLoc_TRAPKIND:
     default:
-      WARNMSG("%s: Unsupported location, %u.",func_name,location);
+      WARNMSG("%s: Unsupported location, %" PRIu64 ".",func_name,(uint64_t)(location));
       break;
   }
-  SYNCDBG(15,"From %s; Location %d, pos(%u,%u)",func_name, location, pos->x.stl.num, pos->y.stl.num);
+  SYNCDBG(15,"From %s; Location %" PRId64 ", pos(%" PRIu64 ",%" PRIu64 ")",func_name, (int64_t)(location), (uint64_t)(pos->x.stl.num), (uint64_t)(pos->y.stl.num));
 }
 
 /**
@@ -393,7 +393,7 @@ PlayerNumber get_player_name_from_location_string(const char* locname)
  * @see get_map_heading_id()
  */
 #define get_map_location_id(locname, location) get_map_location_id_f(locname, location, __func__, text_line_number)
-TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const char *func_name, long ln_num)
+TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const char *func_name, int64_t ln_num)
 {
     // If there's no locname, then coordinates are set directly as (x,y)
     if (locname == NULL || *locname == '\0')
@@ -402,14 +402,14 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
       return true;
     }
     // Player name means the location of player's Dungeon Heart
-    long i = get_rid(player_desc, locname);
+    int64_t i = get_rid(player_desc, locname);
     if (i != -1)
     {
       if ((i != ALL_PLAYERS) && (i != PLAYER_NEUTRAL)) {
           if (!player_has_heart(i)) {
-              WARNMSG("%s(line %lu): Target player %d has no heart",func_name,ln_num, (int)i);
+              WARNMSG("%s(line %" PRIu64 "): Target player %" PRId64 " has no heart",func_name,(uint64_t)(ln_num), (int64_t)i);
           }
-          *location = ((unsigned long)i << 4) | MLoc_PLAYERSHEART;
+          *location = ((uint64_t)i << 4) | MLoc_PLAYERSHEART;
       } else {
           *location = MLoc_NONE;
       }
@@ -419,21 +419,21 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
     i = get_rid(creature_desc, locname);
     if (i != -1)
     {
-        *location = ((unsigned long)i << 12) | ((unsigned long)my_player_number << 4) | MLoc_CREATUREKIND;
+        *location = ((uint64_t)i << 12) | ((uint64_t)my_player_number << 4) | MLoc_CREATUREKIND;
         return true;
     }
     // Room name means location of such room belonging to player0
     i = get_rid(room_desc, locname);
     if (i != -1)
     {
-        *location = ((unsigned long)i << 12) | ((unsigned long)my_player_number << 4) | MLoc_ROOMKIND;
+        *location = ((uint64_t)i << 12) | ((uint64_t)my_player_number << 4) | MLoc_ROOMKIND;
         return true;
     }
     // Todo list of functions
     if (strcmp(locname, "LAST_EVENT") == 0)
     {
-        *location = (((unsigned long)MML_LAST_EVENT) << 12)
-            | (((unsigned long)MAP_LOCATIONS_CURRENT_PLAYER) << 4) //TODO: other players
+        *location = (((uint64_t)MML_LAST_EVENT) << 12)
+            | (((uint64_t)MAP_LOCATIONS_CURRENT_PLAYER) << 4) //TODO: other players
             | MLoc_METALOCATION;
         return true;
     }
@@ -443,7 +443,7 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
         {
             if (kfx_sim_state.game_kind == GKind_MultiGame)
             {
-                WARNLOG(" %s (line %lu) : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, ln_num, locname);
+                WARNLOG(" %s (line %" PRIu64 ") : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, (uint64_t)(ln_num), locname);
                 i = PLAYER0;
             }
             else
@@ -456,13 +456,13 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
             i = get_player_name_from_location_string(locname);
             if (i == -1)
             {
-                ERRORMSG("%s(line %lu): Invalid LOCATION = '%s'", func_name, ln_num, locname);
+                ERRORMSG("%s(line %" PRIu64 "): Invalid LOCATION = '%s'", func_name, (uint64_t)(ln_num), locname);
                 *location = MLoc_NONE;
                 return false;
             }
         }
-        *location = (((unsigned long)MML_RECENT_COMBAT) << 12)
-            | ((unsigned long)i << 4)
+        *location = (((uint64_t)MML_RECENT_COMBAT) << 12)
+            | ((uint64_t)i << 4)
             | MLoc_METALOCATION;
         return true;
     }
@@ -472,7 +472,7 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
         {
             if (kfx_sim_state.game_kind == GKind_MultiGame)
             {
-                WARNLOG(" %s (line %lu) : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, ln_num, locname);
+                WARNLOG(" %s (line %" PRIu64 ") : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, (uint64_t)(ln_num), locname);
                 i = PLAYER0;
             }
             else
@@ -485,13 +485,13 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
             i = get_player_name_from_location_string(locname);
             if (i == -1)
             {
-                ERRORMSG("%s(line %lu): Invalid LOCATION = '%s'", func_name, ln_num, locname);
+                ERRORMSG("%s(line %" PRIu64 "): Invalid LOCATION = '%s'", func_name, (uint64_t)(ln_num), locname);
                 *location = MLoc_NONE;
                 return false;
             }
         }
-        *location = (((unsigned long)MML_LAST_DEATH_EVENT) << 12)
-            | ((unsigned long)i << 4)
+        *location = (((uint64_t)MML_LAST_DEATH_EVENT) << 12)
+            | ((uint64_t)i << 4)
             | MLoc_METALOCATION;
         return true;
     }
@@ -501,7 +501,7 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
         {
             if (kfx_sim_state.game_kind == GKind_MultiGame)
             {
-                WARNLOG(" %s (line %lu) : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, ln_num, locname);
+                WARNLOG(" %s (line %" PRIu64 ") : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, (uint64_t)(ln_num), locname);
                 i = PLAYER0;
             }
             else
@@ -514,13 +514,13 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
             i = get_player_name_from_location_string(locname);
             if (i == -1)
             {
-                ERRORMSG("%s(line %lu): Invalid LOCATION = '%s'", func_name, ln_num, locname);
+                ERRORMSG("%s(line %" PRIu64 "): Invalid LOCATION = '%s'", func_name, (uint64_t)(ln_num), locname);
                 *location = MLoc_NONE;
                 return false;
             }
         }
-        *location = (((unsigned long)MML_LAST_TRAP_EVENT) << 12)
-            | ((unsigned long)i << 4)
+        *location = (((uint64_t)MML_LAST_TRAP_EVENT) << 12)
+            | ((uint64_t)i << 4)
             | MLoc_METALOCATION;
         return true;
     }
@@ -530,7 +530,7 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
         {
             if (kfx_sim_state.game_kind == GKind_MultiGame)
             {
-                WARNLOG(" %s (line %lu) : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, ln_num, locname);
+                WARNLOG(" %s (line %" PRIu64 ") : LOCATION = '%s' cannot be used on Multiplayer maps", func_name, (uint64_t)(ln_num), locname);
                 i = PLAYER0;
             }
             else
@@ -543,46 +543,46 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
             i = get_player_name_from_location_string(locname);
             if (i == -1)
             {
-                ERRORMSG("%s(line %lu): Invalid LOCATION = '%s'", func_name, ln_num, locname);
+                ERRORMSG("%s(line %" PRIu64 "): Invalid LOCATION = '%s'", func_name, (uint64_t)(ln_num), locname);
                 *location = MLoc_NONE;
                 return false;
             }
         }
-        *location = (((unsigned long)MML_ACTIVE_CTA) << 12)
-            | ((unsigned long)i << 4)
+        *location = (((uint64_t)MML_ACTIVE_CTA) << 12)
+            | ((uint64_t)i << 4)
             | MLoc_METALOCATION;
         return true;
     }
-    i = atol(locname);
+    i = LbAtoI32(locname);
     // Negative number means Hero Gate
     if (i < 0)
     {
-        long n = -i;
+        int64_t n = -i;
         struct Thing* thing = find_hero_gate_of_number(n);
         if (thing_is_invalid(thing))
         {
-            ERRORMSG("%s(line %lu): Non-existing Hero Door, no %d",func_name,ln_num,(int)-i);
+            ERRORMSG("%s(line %" PRIu64 "): Non-existing Hero Door, no %" PRId64,func_name,(uint64_t)(ln_num),(int64_t)-i);
             *location = MLoc_NONE;
             return false;
         }
-        *location = (((unsigned long)n) << 4) | MLoc_HEROGATE;
+        *location = (((uint64_t)n) << 4) | MLoc_HEROGATE;
     } else
     // Positive number means Action Point
     if (i > 0)
     {
-        long n = action_point_number_to_index(i);
+        int64_t n = action_point_number_to_index(i);
         if (!action_point_exists_idx(n))
         {
-            ERRORMSG("%s(line %lu): Non-existing Action Point, no %d",func_name,ln_num,(int)i);
+            ERRORMSG("%s(line %" PRIu64 "): Non-existing Action Point, no %" PRId64,func_name,(uint64_t)(ln_num),(int64_t)i);
             *location = MLoc_NONE;
             return false;
         }
         // Set to action point number
-        *location = (((unsigned long)n) << 4) | MLoc_ACTIONPOINT;
+        *location = (((uint64_t)n) << 4) | MLoc_ACTIONPOINT;
     } else
     // Zero is an error; reset to no location
     {
-      ERRORMSG("%s(line %lu): Invalid LOCATION = '%s'",func_name,ln_num, locname);
+      ERRORMSG("%s(line %" PRIu64 "): Invalid LOCATION = '%s'",func_name,(uint64_t)(ln_num), locname);
       *location = MLoc_NONE;
     }
     return true;
@@ -597,7 +597,7 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
  * @see get_map_location_id()
  */
 #define get_map_heading_id(headname, target, location) get_map_heading_id_f(headname, target, location, __func__, text_line_number)
-TbBool get_map_heading_id_f(const char *headname, long target, TbMapLocation *location, const char *func_name, long ln_num)
+TbBool get_map_heading_id_f(const char *headname, int64_t target, TbMapLocation *location, const char *func_name, int64_t ln_num)
 {
     // If there's no headname, then there's an error
     if (headname == NULL)
@@ -606,7 +606,7 @@ TbBool get_map_heading_id_f(const char *headname, long target, TbMapLocation *lo
         *location = MLoc_NONE;
         return false;
     }
-    long head_id = get_rid(head_for_desc, headname);
+    int64_t head_id = get_rid(head_for_desc, headname);
     if (head_id == -1)
     {
         SCRPTERRLOG("Unhandled heading objective, '%s'", headname);
@@ -619,18 +619,18 @@ TbBool get_map_heading_id_f(const char *headname, long target, TbMapLocation *lo
     {
     case MLoc_ACTIONPOINT:
     {
-        long n = action_point_number_to_index(target);
-        *location = ((unsigned long)n << 4) | head_id;
+        int64_t n = action_point_number_to_index(target);
+        *location = ((uint64_t)n << 4) | head_id;
         if (!action_point_exists_idx(n)) {
-            SCRPTWRNLOG("Target action point no %d doesn't exist", (int)target);
+            SCRPTWRNLOG("Target action point no %" PRId64 " doesn't exist", (int64_t)target);
         }
         return true;
     }
     case MLoc_PLAYERSDUNGEON:
     case MLoc_PLAYERSHEART:
-        *location = ((unsigned long)target << 4) | head_id;
+        *location = ((uint64_t)target << 4) | head_id;
         if (!player_has_heart(target)) {
-            SCRPTWRNLOG("Target player %d has no heart", (int)target);
+            SCRPTWRNLOG("Target player %" PRId64 " has no heart", (int64_t)target);
         }
         return true;
     case MLoc_APPROPRTDUNGEON:
@@ -638,23 +638,23 @@ TbBool get_map_heading_id_f(const char *headname, long target, TbMapLocation *lo
         return true;
     default:
         *location = MLoc_NONE;
-        SCRPTWRNLOG("Unsupported Heading objective %d", (int)head_id);
+        SCRPTWRNLOG("Unsupported Heading objective %" PRId64, (int64_t)head_id);
         break;
     }
     return false;
 }
 
 // TODO: replace this function by find_location_pos
-void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtlCoord *y, int plyr_idx, const char *func_name)
+void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtlCoord *y, int64_t plyr_idx, const char *func_name)
 {
     struct ActionPoint *apt;
     struct Thing *thing;
     struct Coord3d pos;
 
-    long pos_x;
-    long pos_y;
-    long i;
-    SYNCDBG(15,"From %s; Location %d, pos(%d,%d)",func_name, location, *x, *y);
+    int64_t pos_x;
+    int64_t pos_y;
+    int64_t i;
+    SYNCDBG(15,"From %s; Location %" PRId64 ", pos(%" PRId64 ",%" PRId64 ")",func_name, (int64_t)(location), (int64_t)(*x), (int64_t)(*y));
     pos_y = 0;
     pos_x = 0;
     i = get_map_location_longval(location);
@@ -668,7 +668,7 @@ void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtl
           pos_y = apt->mappos.y.stl.num;
           pos_x = apt->mappos.x.stl.num;
         } else
-          WARNMSG("%s: Action Point %ld location not found",func_name,i);
+          WARNMSG("%s: Action Point %" PRId64 " location not found",func_name,(int64_t)(i));
         break;
     case MLoc_HEROGATE:
         thing = find_hero_gate_of_number(i);
@@ -677,7 +677,7 @@ void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtl
           pos_y = thing->mappos.y.stl.num;
           pos_x = thing->mappos.x.stl.num;
         } else
-          WARNMSG("%s: Hero Gate %ld location not found",func_name,i);
+          WARNMSG("%s: Hero Gate %" PRId64 " location not found",func_name,(int64_t)(i));
         break;
     case MLoc_PLAYERSHEART:
         if (i < PLAYERS_COUNT)
@@ -690,7 +690,7 @@ void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtl
           pos_y = thing->mappos.y.stl.num;
           pos_x = thing->mappos.x.stl.num;
         } else
-          WARNMSG("%s: Dungeon Heart location for player %ld not found",func_name,i);
+          WARNMSG("%s: Dungeon Heart location for player %" PRId64 " not found",func_name,(int64_t)(i));
         break;
     case MLoc_NONE:
         pos_y = *y;
@@ -703,7 +703,7 @@ void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtl
           pos_y = thing->mappos.y.stl.num;
           pos_x = thing->mappos.x.stl.num;
         } else
-          WARNMSG("%s: Thing %ld location not found",func_name,i);
+          WARNMSG("%s: Thing %" PRId64 " location not found",func_name,(int64_t)(i));
         break;
     case MLoc_METALOCATION:
         if (get_coords_at_meta_action(&pos, plyr_idx, i))
@@ -712,7 +712,7 @@ void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtl
             pos_y = pos.y.stl.num;
         }
         else
-          WARNMSG("%s: Metalocation not found %ld",func_name,i);
+          WARNMSG("%s: Metalocation not found %" PRId64,func_name,(int64_t)(i));
         break;
     case MLoc_CREATUREKIND:
     case MLoc_OBJECTKIND:
@@ -722,7 +722,7 @@ void find_map_location_coords(TbMapLocation location, MapSubtlCoord *x, MapSubtl
     case MLoc_DOORKIND:
     case MLoc_TRAPKIND:
     default:
-          WARNMSG("%s: Unsupported location, %u.",func_name,location);
+          WARNMSG("%s: Unsupported location, %" PRIu64 ".",func_name,(uint64_t)(location));
         break;
     }
     *y = pos_y;

@@ -36,9 +36,9 @@ extern "C" {
  */
 struct LuaBufferInfo {
     TbPixel* data;
-    long width;
-    long height;
-    long pitch;
+    int64_t width;
+    int64_t height;
+    int64_t pitch;
 };
 
 /**
@@ -55,8 +55,8 @@ int LuaLensEffect::LuaGetPixel(lua_State* L)
     }
 
     // Get coordinates
-    long x = (long)luaL_checkinteger(L, 2);
-    long y = (long)luaL_checkinteger(L, 3);
+    int64_t x = (int64_t)luaL_checkinteger(L, 2);
+    int64_t y = (int64_t)luaL_checkinteger(L, 3);
 
     // Bounds check
     if (x < 0 || x >= buf->width || y < 0 || y >= buf->height) {
@@ -84,9 +84,9 @@ int LuaLensEffect::LuaSetPixel(lua_State* L)
     }
 
     // Get coordinates and color
-    long x = (long)luaL_checkinteger(L, 2);
-    long y = (long)luaL_checkinteger(L, 3);
-    TbPixel color = TbPixel_Unpack((uint32_t)luaL_checkinteger(L, 4));
+    int64_t x = (int64_t)luaL_checkinteger(L, 2);
+    int64_t y = (int64_t)luaL_checkinteger(L, 3);
+    TbPixel color = TbPixel_Unpack((uint64_t)luaL_checkinteger(L, 4));
 
     // Bounds check
     if (x < 0 || x >= buf->width || y < 0 || y >= buf->height) {
@@ -113,8 +113,8 @@ int LuaLensEffect::LuaCopyPixel(lua_State* L)
     }
     
     // Get coordinates
-    long x = (long)luaL_checkinteger(L, 3);
-    long y = (long)luaL_checkinteger(L, 4);
+    int64_t x = (int64_t)luaL_checkinteger(L, 3);
+    int64_t y = (int64_t)luaL_checkinteger(L, 4);
     
     // Bounds check both buffers
     if (x < 0 || x >= src->width || y < 0 || y >= src->height ||
@@ -161,9 +161,9 @@ LuaLensEffect::~LuaLensEffect()
     Cleanup();
 }
 
-TbBool LuaLensEffect::Setup(long lens_idx)
+TbBool LuaLensEffect::Setup(int64_t lens_idx)
 {
-    SYNCDBG(8, "Setting up LUA lens effect '%s' for lens %ld", m_lens_name.c_str(), lens_idx);
+    SYNCDBG(8, "Setting up LUA lens effect '%s' for lens %" PRId64, m_lens_name.c_str(), (int64_t)(lens_idx));
     
     // Load assets specified in configuration
     if (!m_config.mist_file.empty()) {
@@ -178,9 +178,9 @@ TbBool LuaLensEffect::Setup(long lens_idx)
     
     if (m_config.displacement_type > 0) {
         // TODO: Setup displacement map
-        SYNCDBG(7, "LUA lens '%s' uses displacement: type=%d mag=%d period=%d", 
-               m_lens_name.c_str(), m_config.displacement_type, 
-               m_config.displacement_magnitude, m_config.displacement_period);
+        SYNCDBG(7, "LUA lens '%s' uses displacement: type=%" PRId64 " mag=%" PRId64 " period=%" PRId64, 
+               m_lens_name.c_str(), (int64_t)(m_config.displacement_type), 
+               (int64_t)(m_config.displacement_magnitude), (int64_t)(m_config.displacement_period));
     }
     
     m_current_lens = lens_idx;
@@ -218,7 +218,7 @@ TbBool LuaLensEffect::Draw(LensRenderContext* ctx)
     return InvokeLuaCallback(ctx);
 }
 
-void LuaLensEffect::SetDrawCallback(int lua_ref)
+void LuaLensEffect::SetDrawCallback(int64_t lua_ref)
 {
     // Release old reference if any
     if (m_draw_callback_ref != LUA_NOREF && m_lua_state != NULL) {
@@ -226,7 +226,7 @@ void LuaLensEffect::SetDrawCallback(int lua_ref)
     }
     
     m_draw_callback_ref = lua_ref;
-    SYNCDBG(7, "LUA lens '%s' draw callback set (ref=%d)", m_lens_name.c_str(), lua_ref);
+    SYNCDBG(7, "LUA lens '%s' draw callback set (ref=%" PRId64 ")", m_lens_name.c_str(), (int64_t)(lua_ref));
 }
 
 void LuaLensEffect::SetConfig(const LuaLensConfig& config)

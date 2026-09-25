@@ -37,7 +37,7 @@ LevelNumber editor_maps_next_free_number(const char *dir)
     for (LevelNumber n = 1; n < 100000; n++)
     {
         char path[600];
-        snprintf(path, sizeof(path), "%s/map%05lu.slb", dir, (unsigned long)n);
+        snprintf(path, sizeof(path), "%s/map%05" PRIu64 ".slb", dir, (uint64_t)n);
         if (!LbFileExists(path))
             return n;
     }

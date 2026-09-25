@@ -32,11 +32,11 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static void assign_owner(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static void assign_owner(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 /******************************************************************************/
 struct NamedCommand cube_desc[CUBE_ITEMS_MAX];
 /******************************************************************************/
-static TbBool load_cubes_config_file(const char *fname, unsigned short flags);
+static TbBool load_cubes_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_cubes_file_data = {
     .filename = "cubes.cfg",
@@ -69,7 +69,7 @@ static const struct NamedField cubes_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_cubes_count(void) { return &kfx_config_state.conf.cube_conf.cube_types_count; }
+static int64_t* get_cubes_count(void) { return &kfx_config_state.conf.cube_conf.cube_types_count; }
 static void* get_cubes_base(void) { return kfx_config_state.conf.cube_conf.cube_cfgstats; }
 
 
@@ -90,12 +90,12 @@ const struct NamedFieldSet cubes_named_fields_set = {
 #endif
 /******************************************************************************/
 
-static void assign_owner(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_owner(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     struct CubeConfigStats *cubed = get_cube_model_stats(idx);
     if (cubed->ownershipGroup <= 0)
     {
-        NAMFIELDWRNLOG("Owner without OwnershipGroup for [%s%d].", named_fields_set->block_basename, idx);
+        NAMFIELDWRNLOG("Owner without OwnershipGroup for [%s%" PRId64 "].", named_fields_set->block_basename, (int64_t)(idx));
         return;
     }
 
@@ -103,7 +103,7 @@ static void assign_owner(const struct NamedField* named_field, int64_t value, co
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
 }
 
-struct CubeConfigStats *get_cube_model_stats(long cumodel)
+struct CubeConfigStats *get_cube_model_stats(int64_t cumodel)
 {
     if ((cumodel < 0) || (cumodel >= CUBE_ITEMS_MAX))
     {
@@ -112,10 +112,10 @@ struct CubeConfigStats *get_cube_model_stats(long cumodel)
     return &kfx_config_state.conf.cube_conf.cube_cfgstats[cumodel];
 }
 
-static TbBool load_cubes_config_file(const char *fname, unsigned short flags)
+static TbBool load_cubes_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0, "%s file \"%s\".", ((flags & CnfLd_ListOnly) == 0) ? "Reading" : "Parsing", fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -140,7 +140,7 @@ static TbBool load_cubes_config_file(const char *fname, unsigned short flags)
 }
 
 /* Returns Code Name (name to use in script file) of given cube model. */
-const char *cube_code_name(long model)
+const char *cube_code_name(int64_t model)
 {
     const char *name = get_conf_parameter_text(cube_desc, model);
     if (name[0] != '\0')
@@ -157,7 +157,7 @@ const char *cube_code_name(long model)
  */
 ThingModel cube_model_id(const char *code_name)
 {
-    for (int i = 0; i < kfx_config_state.conf.cube_conf.cube_types_count; ++i)
+    for (int64_t i = 0; i < kfx_config_state.conf.cube_conf.cube_types_count; ++i)
     {
         if (strncasecmp(kfx_config_state.conf.cube_conf.cube_cfgstats[i].code_name, code_name, COMMAND_WORD_LEN) == 0)
         {

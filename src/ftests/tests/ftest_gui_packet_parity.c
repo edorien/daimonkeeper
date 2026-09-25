@@ -56,13 +56,13 @@ static const struct FtestPacketExpectation gui_parity_golden[] = {
     { .action = PckA_ToggleTendency, .par1 = 1,             .par2 = 0, .par3 = 0, .par4 = 0 },
     { .action = PckA_ToggleTendency, .par1 = 2,             .par2 = 0, .par3 = 0, .par4 = 0 },
 };
-#define GUI_PARITY_GOLDEN_N ((int)(sizeof(gui_parity_golden) / sizeof(gui_parity_golden[0])))
+#define GUI_PARITY_GOLDEN_N ((int64_t)(sizeof(gui_parity_golden) / sizeof(gui_parity_golden[0])))
 
 struct ftest_gui_packet_parity__variables
 {
-    int zoom_capture_count_before;
-    long minimap_zoom_before;
-    int imgui_capture_count_before;
+    int64_t zoom_capture_count_before;
+    int64_t minimap_zoom_before;
+    int64_t imgui_capture_count_before;
 };
 static struct ftest_gui_packet_parity__variables ftest_gui_packet_parity__vars = {
     .zoom_capture_count_before = 0,
@@ -149,15 +149,15 @@ static FTestActionResult action004__zoom_is_local_only(struct FTestActionArgs *c
 
     if (ftest_packet_capture_count() != vars->zoom_capture_count_before)
     {
-        FTEST_FAIL_TEST("minimap zoom-in emitted a command packet (capture count %d -> %d) -- it must be local-only",
-                        vars->zoom_capture_count_before, ftest_packet_capture_count());
+        FTEST_FAIL_TEST("minimap zoom-in emitted a command packet (capture count %" PRId64 " -> %" PRId64 ") -- it must be local-only",
+                        (int64_t)(vars->zoom_capture_count_before), (int64_t)(ftest_packet_capture_count()));
         ftest_packet_capture_dump();
         return FTRs_Go_To_Next_Action;
     }
     if (local_state.minimap_zoom == vars->minimap_zoom_before)
-        FTESTLOG("note: minimap_zoom unchanged (%ld) -- at zoom limit, click was a no-op", vars->minimap_zoom_before);
+        FTESTLOG("note: minimap_zoom unchanged (%" PRId64 ") -- at zoom limit, click was a no-op", (int64_t)(vars->minimap_zoom_before));
     else
-        FTESTLOG("minimap_zoom %ld -> %ld, no packet (as expected)", vars->minimap_zoom_before, (long)local_state.minimap_zoom);
+        FTESTLOG("minimap_zoom %" PRId64 " -> %" PRId64 ", no packet (as expected)", (int64_t)(vars->minimap_zoom_before), (int64_t)local_state.minimap_zoom);
 
     return FTRs_Go_To_Next_Action;
 }
@@ -166,7 +166,7 @@ static FTestActionResult action004__zoom_is_local_only(struct FTestActionArgs *c
  * lands in its own captured packet -- extends the golden trace. */
 static FTestActionResult action005__imgui_tab_actions(struct FTestActionArgs *const args)
 {
-    static const int fires[] = {
+    static const int64_t fires[] = {
         ITTA_RoomBuild,      /* arg 2 (treasury) */
         ITTA_RoomSell,
         ITTA_TrapSell,
@@ -174,10 +174,10 @@ static FTestActionResult action005__imgui_tab_actions(struct FTestActionArgs *co
         ITTA_TendImprison,
         ITTA_TendFlee,
     };
-    const int n = (int)(sizeof(fires) / sizeof(fires[0]));
+    const int64_t n = (int64_t)(sizeof(fires) / sizeof(fires[0]));
     if (args->times_executed >= n)
         return FTRs_Go_To_Next_Action;
-    const int act = fires[args->times_executed];
+    const int64_t act = fires[args->times_executed];
     ingame_tabcontent_test_fire(act, act == ITTA_RoomBuild ? 2 : 0);
     return FTRs_Repeat_Current_Action;
 }
@@ -190,7 +190,7 @@ static FTestActionResult action006__assert_golden_trace(struct FTestActionArgs *
     if (!ftest_packet_trace_matches(gui_parity_golden, GUI_PARITY_GOLDEN_N))
         return FTRs_Go_To_Next_Action;
 
-    FTESTLOG("in-game GUI command-packet trace matches the legacy golden (%d actions, legacy + ImGui paths)", GUI_PARITY_GOLDEN_N);
+    FTESTLOG("in-game GUI command-packet trace matches the legacy golden (%" PRId64 " actions, legacy + ImGui paths)", (int64_t)(GUI_PARITY_GOLDEN_N));
     return FTRs_Go_To_Next_Action;
 }
 
@@ -210,7 +210,7 @@ static FTestActionResult action007__imgui_spell_trap_emit_state(struct FTestActi
     {
         ftest_packet_capture_reset();
         ftest_packet_capture_begin();
-        long spell_kind = ftest_util_gui_button_content(BID_POWER_TD01);
+        int64_t spell_kind = ftest_util_gui_button_content(BID_POWER_TD01);
         if (spell_kind < 1) spell_kind = 1;
         ingame_tabcontent_test_fire(ITTA_SpellChoose, spell_kind);
         return FTRs_Repeat_Current_Action;
@@ -220,20 +220,20 @@ static FTestActionResult action007__imgui_spell_trap_emit_state(struct FTestActi
         ftest_packet_capture_end();
         if (ftest_packet_capture_count() == 0)
         {
-            FTESTLOG("note: ImGui spell-choose emitted no packet (power %ld unavailable on this map) -- skipping the invariant check",
-                     ftest_util_gui_button_content(BID_POWER_TD01));
+            FTESTLOG("note: ImGui spell-choose emitted no packet (power %" PRId64 " unavailable on this map) -- skipping the invariant check",
+                     (int64_t)(ftest_util_gui_button_content(BID_POWER_TD01)));
             return FTRs_Go_To_Next_Action;
         }
         const struct FtestCapturedPacket *p = ftest_packet_capture_at(ftest_packet_capture_count() - 1);
         if (p == NULL || p->packet.action != PckA_SetPlyrState)
         {
-            FTEST_FAIL_TEST("ImGui spell-choose emitted action %u, expected PckA_SetPlyrState (%u)",
-                            p ? (unsigned)p->packet.action : 0u, (unsigned)PckA_SetPlyrState);
+            FTEST_FAIL_TEST("ImGui spell-choose emitted action %" PRIu64 ", expected PckA_SetPlyrState (%" PRIu64 ")",
+                            (uint64_t)(p ? (uint64_t)p->packet.action : 0u), (uint64_t)PckA_SetPlyrState);
             ftest_packet_capture_dump();
             return FTRs_Go_To_Next_Action;
         }
-        FTESTLOG("ImGui spell-choose -> PckA_SetPlyrState (par1=%d par2=%d) as expected",
-                 (int)p->packet.actn_par1, (int)p->packet.actn_par2);
+        FTESTLOG("ImGui spell-choose -> PckA_SetPlyrState (par1=%" PRId64 " par2=%" PRId64 ") as expected",
+                 (int64_t)p->packet.actn_par1, (int64_t)p->packet.actn_par2);
         return FTRs_Go_To_Next_Action;
     }
     return FTRs_Go_To_Next_Action;

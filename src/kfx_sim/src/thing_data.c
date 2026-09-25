@@ -57,7 +57,7 @@ static struct Thing *get_oldest_replaceable_effect(void)
 }
 
 // Remove a thing index from the free list stack and return it so it can be used right now
-static ThingIndex pop_free_thing_index(unsigned short *free_list, ThingIndex *count)
+static ThingIndex pop_free_thing_index(int64_t *free_list, ThingIndex *count)
 {
     if (*count == 0) {
         return 0; // No free slots available
@@ -67,7 +67,7 @@ static ThingIndex pop_free_thing_index(unsigned short *free_list, ThingIndex *co
 }
 
 // Add a freed thing index back onto the free list stack, so it can be used by others in the future
-static void push_free_thing_index(unsigned short *free_list, ThingIndex *count, ThingIndex max_count, ThingIndex thing_idx)
+static void push_free_thing_index(int64_t *free_list, ThingIndex *count, ThingIndex max_count, ThingIndex thing_idx)
 {
     if (*count < max_count) {
         free_list[*count] = thing_idx;
@@ -93,7 +93,7 @@ static void remove_thing_as_dungeon_heart(struct Thing *thing)
 
 static struct Thing *allocate_thing(enum ThingAllocationPool pool_type, const char *func_name)
 {
-    unsigned short *free_list;
+    int64_t *free_list;
     ThingIndex *count;
     const char *list_name;
 
@@ -163,7 +163,7 @@ TbBool i_can_allocate_free_thing_structure(unsigned char class_id)
     }
 
     char msg[128];
-    snprintf(msg, sizeof(msg), "Warning: Cannot create thing, %d/%d slots used.", SYNCED_THINGS_COUNT - kfx_sim_state.synced_free_things_count, SYNCED_THINGS_COUNT);
+    snprintf(msg, sizeof(msg), "Warning: Cannot create thing, %" PRId64 "/%" PRId64 " slots used.", (int64_t)(SYNCED_THINGS_COUNT - kfx_sim_state.synced_free_things_count), (int64_t)(SYNCED_THINGS_COUNT));
     sim_feedback->show_onscreen_msg(2 * kfx_sim_state.turns_per_second, msg);
     return false;
 }
@@ -210,7 +210,7 @@ void delete_thing_structure_f(struct Thing *thing, TbBool deleting_everything, c
         }
     } else {
 #if (BFDEBUG_LEVEL > 0)
-        ERRORMSG("%s: Performed deleting of thing with bad index %d!", func_name, (int)thing->index);
+        ERRORMSG("%s: Performed deleting of thing with bad index %" PRId64 "!", func_name, (int64_t)thing->index);
 #endif
     }
     memset(thing, 0, sizeof(struct Thing));
@@ -227,7 +227,7 @@ struct Thing *thing_get_f(ThingIndex tng_idx, const char *func_name)
         return &kfx_sim_state.things_data[tng_idx];
     }
     if (tng_idx >= THINGS_COUNT) {
-        ERRORMSG("%s: Request of invalid thing (no %d) intercepted",func_name,(int)tng_idx);
+        ERRORMSG("%s: Request of invalid thing (no %" PRId64 ") intercepted",func_name,(int64_t)tng_idx);
     }
     return INVALID_THING;
 }
@@ -235,7 +235,7 @@ struct Thing *thing_get_f(ThingIndex tng_idx, const char *func_name)
 /**
  * Returns true if thing pointer address is inside &kfx_sim_state.things_data. May be true on an empty (0) thing.
  */
-short thing_is_invalid(const struct Thing *thing)
+int64_t thing_is_invalid(const struct Thing *thing)
 {
     if (thing == NULL)
         return true;
@@ -253,9 +253,9 @@ TbBool thing_exists(const struct Thing *thing)
         return false;
 #if (BFDEBUG_LEVEL > 0)
     if (thing->index != (thing-thing_get(0)))
-        WARNLOG("Incorrectly indexed thing (%d) at pos %d",(int)thing->index,(int)(thing-thing_get(0)));
+        WARNLOG("Incorrectly indexed thing (%" PRId64 ") at pos %" PRId64,(int64_t)thing->index,(int64_t)(thing-thing_get(0)));
     if ((thing->class_id < 1) || (thing->class_id >= THING_CLASSES_COUNT))
-        WARNLOG("Thing %d is of invalid class %d",(int)thing->index,(int)thing->class_id);
+        WARNLOG("Thing %" PRId64 " is of invalid class %" PRId64,(int64_t)thing->index,(int64_t)thing->class_id);
 #endif
     return true;
 }
@@ -296,7 +296,7 @@ struct PlayerInfo *get_player_thing_is_controlled_by(const struct Thing *thing)
     return get_player(thing->owner);
 }
 
-void set_thing_animation(struct Thing *thing, long animation_index, long speed)
+void set_thing_animation(struct Thing *thing, int64_t animation_index, int64_t speed)
 {
     thing->anim_sprite = sim_feedback->get_td_animation_sprite(animation_index);
     thing->max_frames = keepersprite_frames(thing->anim_sprite);
@@ -305,7 +305,7 @@ void set_thing_animation(struct Thing *thing, long animation_index, long speed)
     }
 }
 
-void set_thing_draw(struct Thing *thing, long anim, long speed, long scale, char animate_once, char start_frame, unsigned char draw_class)
+void set_thing_draw(struct Thing *thing, int64_t anim, int64_t speed, int64_t scale, char animate_once, char start_frame, unsigned char draw_class)
 {
     unsigned char current_frame;
     set_thing_animation(thing, anim, speed);
@@ -357,14 +357,14 @@ void query_thing(struct Thing *thing)
         char health[24] = "";
         char position[40] = "";
         char amount[40] = "";
-        snprintf(title, sizeof(title), "Thing ID: %d", querytng->index);
-        snprintf(owner, sizeof(owner), "Owner: %d", querytng->owner);
-        snprintf(position, sizeof(position), "Pos: X:%d Y:%d Z:%d", querytng->mappos.x.stl.num, querytng->mappos.y.stl.num, querytng->mappos.z.stl.num);
+        snprintf(title, sizeof(title), "Thing ID: %" PRId64, (int64_t)(querytng->index));
+        snprintf(owner, sizeof(owner), "Owner: %" PRId64, (int64_t)(querytng->owner));
+        snprintf(position, sizeof(position), "Pos: X:%" PRId64 " Y:%" PRId64 " Z:%" PRId64, (int64_t)(querytng->mappos.x.stl.num), (int64_t)(querytng->mappos.y.stl.num), (int64_t)(querytng->mappos.z.stl.num));
         if (querytng->class_id == TCls_Trap)
         {
             struct TrapConfigStats *trapst = get_trap_model_stats(querytng->model);
-            snprintf(health, sizeof(health), "Health: %d", querytng->health);
-            snprintf(amount, sizeof(amount), "Shots: %d/%d", querytng->trap.num_shots, trapst->shots);
+            snprintf(health, sizeof(health), "Health: %" PRId64, (int64_t)(querytng->health));
+            snprintf(amount, sizeof(amount), "Shots: %" PRId64 "/%" PRId64, (int64_t)(querytng->trap.num_shots), (int64_t)(trapst->shots));
         }
         else
         {
@@ -373,27 +373,27 @@ void query_thing(struct Thing *thing)
                 struct ObjectConfigStats* objst = get_object_model_stats(querytng->model);
                 if (object_is_gold(querytng))
                 {
-                    snprintf(amount, sizeof(amount), "Amount: %d", querytng->valuable.gold_stored);
+                    snprintf(amount, sizeof(amount), "Amount: %" PRId64, (int64_t)(querytng->valuable.gold_stored));
                 }
-                snprintf(health, sizeof(health), "Health: %d/%d", querytng->health, objst->health);
+                snprintf(health, sizeof(health), "Health: %" PRId64 "/%" PRId64, (int64_t)(querytng->health), (int64_t)(objst->health));
             }
             else
             if (querytng->class_id == TCls_Door)
             {
                 struct DoorConfigStats *doorst = get_door_model_stats(querytng->model);
-                snprintf(health, sizeof(health), "Health: %d/%d", querytng->health, doorst->health);
+                snprintf(health, sizeof(health), "Health: %" PRId64 "/%" PRId64, (int64_t)(querytng->health), (int64_t)(doorst->health));
             }
             else
             if (querytng->class_id == TCls_Creature)
             {
                 struct CreatureControl* cctrl = creature_control_get_from_thing(querytng);
-                snprintf(health, sizeof(health), "Health: %d/%d", querytng->health, cctrl->max_health);
+                snprintf(health, sizeof(health), "Health: %" PRId64 "/%" PRId64, (int64_t)(querytng->health), (int64_t)(cctrl->max_health));
                 snprintf(position, sizeof(position), "State: %s", creature_state_code_name(querytng->active_state));
                 snprintf(amount, sizeof(amount), "Continue: %s", creature_state_code_name(querytng->continue_state));
             }
             else
             {
-                snprintf(health, sizeof(health), "Health: %d", querytng->health);
+                snprintf(health, sizeof(health), "Health: %" PRId64, (int64_t)(querytng->health));
             }
         }
         sim_feedback->create_message_box((const char*)&title, name, (const char*)&owner, (const char*)&health, (const char*)&position, (const char*)&amount);

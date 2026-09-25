@@ -60,7 +60,7 @@ struct ftest_net_resync_fake_multiplayer__variables
     void *snapshot_kfx_frontend_state;
     void *snapshot_lish;
 
-    unsigned long instance_remain_before;
+    uint64_t instance_remain_before;
 };
 struct ftest_net_resync_fake_multiplayer__variables ftest_net_resync_fake_multiplayer__vars = {
     .saved_netstate_sp = NULL,
@@ -163,7 +163,7 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     TbBool gamest_ok = receive_ok && (memcmp(vars->snapshot_kfx_game_state, &kfx_game_state, sizeof(kfx_game_state)) == 0);
     TbBool front_ok = receive_ok && (memcmp(vars->snapshot_kfx_frontend_state, &kfx_frontend_state, sizeof(kfx_frontend_state)) == 0);
     TbBool lish_ok = receive_ok && (memcmp(vars->snapshot_lish, &lish, sizeof(lish)) == 0);
-    unsigned long instance_remain_restored = get_player(0)->instance_remain_turns;
+    uint64_t instance_remain_restored = get_player(0)->instance_remain_turns;
 
     free(vars->snapshot_game);
     free(vars->snapshot_kfx_sim_state);
@@ -182,14 +182,14 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     }
     if (!game_ok || !sim_ok || !net_ok || !gamest_ok || !front_ok || !lish_ok)
     {
-        FTEST_FAIL_TEST("Resync round-trip did not restore state byte-for-byte (game=%d sim=%d net=%d game_state=%d frontend=%d lish=%d)",
-            (int)game_ok, (int)sim_ok, (int)net_ok, (int)gamest_ok, (int)front_ok, (int)lish_ok);
+        FTEST_FAIL_TEST("Resync round-trip did not restore state byte-for-byte (game=%" PRId64 " sim=%" PRId64 " net=%" PRId64 " game_state=%" PRId64 " frontend=%" PRId64 " lish=%" PRId64 ")",
+            (int64_t)game_ok, (int64_t)sim_ok, (int64_t)net_ok, (int64_t)gamest_ok, (int64_t)front_ok, (int64_t)lish_ok);
         return FTRs_Go_To_Next_Action;
     }
     if (instance_remain_restored != vars->instance_remain_before)
     {
-        FTEST_FAIL_TEST("get_player(0)->instance_remain_turns wasn't restored by resync (expected %lu, got %lu)",
-            vars->instance_remain_before, instance_remain_restored);
+        FTEST_FAIL_TEST("get_player(0)->instance_remain_turns wasn't restored by resync (expected %" PRIu64 ", got %" PRIu64 ")",
+            (uint64_t)(vars->instance_remain_before), (uint64_t)(instance_remain_restored));
         return FTRs_Go_To_Next_Action;
     }
 

@@ -144,85 +144,85 @@ struct CastedSpellData {
 
 struct CreatureControl {
     CctrlIndex index;
-    unsigned short creature_control_flags;
+    int64_t creature_control_flags;
     unsigned char creature_state_flags;
     unsigned char combat_flags;
     GameTurn wait_to_turn;
-    short distance_to_destination;
+    int64_t distance_to_destination;
     ThingIndex opponents_melee[COMBAT_MELEE_OPPONENTS_LIMIT];
     ThingIndex opponents_ranged[COMBAT_RANGED_OPPONENTS_LIMIT];
     unsigned char opponents_melee_count;
     unsigned char opponents_ranged_count;
     ThingIndex players_prev_creature_idx;
     ThingIndex players_next_creature_idx;
-    unsigned short slap_turns;
+    int64_t slap_turns;
     CrtrExpLevel exp_level;
-    int32_t exp_points;
-    int32_t prev_exp_points;
+    int64_t exp_points;
+    int64_t prev_exp_points;
     struct Coord3d moveto_pos;
-    int32_t hunger_level;
-    int32_t temple_cure_gameturn;
+    int64_t hunger_level;
+    int64_t temple_cure_gameturn;
     unsigned char hunger_amount;
     unsigned char hunger_loss;
-    int32_t thought_bubble_last_turn_drawn;
+    int64_t thought_bubble_last_turn_drawn;
     unsigned char thought_bubble_display_timer;
     TbBool force_health_flower_displayed;
     TbBool force_health_flower_hidden;
     unsigned char paydays_owed;
     char paydays_advanced;
-    int32_t annoy_untrained_turn;
-    uint32_t last_roar_turn;
+    int64_t annoy_untrained_turn;
+    uint64_t last_roar_turn;
    /** The game enumerates the elements of annoyance array periodically and looks for the highest value.
     * When the highest value is above CreatureModelConfig->annoy_level, the creature becomes angry/livid,
     * depending on how high the highest value is.
     */
-    int32_t annoyance_level[5];
+    int64_t annoyance_level[5];
     unsigned char mood_flags;
     unsigned char footstep_variant;
     unsigned char footstep_counter;
     /** Lair room index, that is the room which holds creature's lair object. */
-    unsigned short lair_room_id;
+    int64_t lair_room_id;
     /** Lair object thing index. */
-    unsigned short lairtng_idx;
+    int64_t lairtng_idx;
     /** Index of a thing being dragged by the creature, or index of a thing which is dragging this thing.
      *  Specific case is determined by flags. */
-    short dragtng_idx;
+    int64_t dragtng_idx;
     ThingIndex arming_thing_id;
     ThingIndex pickup_object_id;
     ThingIndex pickup_creature_id;
-    unsigned short next_in_group;
-    unsigned short prev_in_group;
+    int64_t next_in_group;
+    int64_t prev_in_group;
     ThingIndex group_leader_idx;
-    uint16_t group_member_count;
-    short last_work_room_id;
+    int64_t group_member_count;
+    int64_t last_work_room_id;
     /** Work room index, used when creature is working in a room. */
-    short work_room_id;
+    int64_t work_room_id;
     /** Target room index, used when creature is moving to a room or is attacking a room. */
-    short target_room_id;
-    int32_t turns_at_job;
-    short blocking_door_id;
+    int64_t target_room_id;
+    int64_t turns_at_job;
+    int64_t blocking_door_id;
     unsigned char move_flags;
-    unsigned long cleanse_flags;
+    uint64_t cleanse_flags;
 
   union // Union on diggers, heroes and normal creatures
   {
       struct {
-        int32_t stack_update_turn;
+        int64_t stack_update_turn;
         SubtlCodedCoords working_stl;
         SubtlCodedCoords task_stl;
-        unsigned short task_idx;
+        int64_t task_idx;
         unsigned char consecutive_reinforcements;
         unsigned char last_did_job;
         unsigned char task_stack_pos;
-        unsigned short task_repeats;
+        int64_t task_repeats;
       } digger;
       struct {
         char hero_state;
         unsigned char hero_gate_creation_turn;
         TbBool hero_state_reset_flag;
         TbBool ready_for_attack_flag;
-        int32_t look_for_enemy_dungeon_turn;
-        int32_t wait_time;
+        int64_t look_for_enemy_dungeon_turn;
+        int64_t wait_time;
       } hero;
   };
   struct {
@@ -230,12 +230,12 @@ struct CreatureControl {
       unsigned char original_objective;
       char target_plyr_idx;
       PlayerBitFlags player_broken_into_flags;
-      int32_t tunnel_steps_counter;
+      int64_t tunnel_steps_counter;
       unsigned char tunnel_dig_direction;
       SubtlCodedCoords member_pos_stl[5];
   } party;
   struct {
-      short countdown;
+      int64_t countdown;
       struct Coord3d pos;
   } patrol;
 
@@ -244,7 +244,7 @@ struct CreatureControl {
       struct {
         GameTurn state_start_turn;
         GameTurn torturer_start_turn;
-        int32_t accumulated_torture_points;
+        int64_t accumulated_torture_points;
         ThingIndex assigned_torturer;
         unsigned char visual_state;
       } tortured;
@@ -264,12 +264,12 @@ struct CreatureControl {
         MapSubtlCoord pole_stl_x;
         MapSubtlCoord pole_stl_y;
         unsigned char search_timeout;
-        short partner_idx;
-        int32_t partner_creation;
+        int64_t partner_idx;
+        int64_t partner_creation;
       } training;
       struct {
         GameTurn seen_enemy_turn;
-        int32_t battle_enemy_crtn;
+        int64_t battle_enemy_crtn;
         ThingIndex battle_enemy_idx;
         ThingIndex seen_enemy_idx;
         unsigned char state_id;
@@ -292,10 +292,10 @@ struct CreatureControl {
       } eating;
       struct {
         unsigned char job_stage;
-        int32_t random_thinking_angle;
+        int64_t random_thinking_angle;
       } research;
       struct {
-        short enemy_idx;
+        int64_t enemy_idx;
         GameTurn enemy_creation_turn;
         GameTurn turn_looked_for_enemy;
       } seek_enemy;
@@ -309,8 +309,8 @@ struct CreatureControl {
         RoomIndex room_idx;
       }evacuate;
       struct {
-        short animation_counter;
-        short animation_duration;
+        int64_t animation_counter;
+        int64_t animation_duration;
       }sacrifice;
   };
 
@@ -319,36 +319,36 @@ struct CreatureControl {
     TbBool called_to_arms;
     TbBool exp_level_up;
     unsigned char stateblock_flags;
-    uint32_t spell_flags;
-    short force_visible;
+    uint64_t spell_flags;
+    int64_t force_visible;
     unsigned char frozen_on_hit;
-    int32_t last_piss_turn;
+    int64_t last_piss_turn;
     unsigned char disease_caster_plyridx;
     MapSubtlCoord teleport_x;
     MapSubtlCoord teleport_y;
-    unsigned short corpse_to_piss_on;
+    int64_t corpse_to_piss_on;
     struct CoordDelta3d moveaccel;
     unsigned char bloody_footsteps_turns;
-    short kills_num;
-    short kills_num_allied;
-    short kills_num_enemy;
-    short max_speed;
+    int64_t kills_num;
+    int64_t kills_num_allied;
+    int64_t kills_num_enemy;
+    int64_t max_speed;
     HitPoints max_health;
-    short move_speed;
-    short orthogn_speed;
-    short roll;
-    uint32_t anim_time;
+    int64_t move_speed;
+    int64_t orthogn_speed;
+    int64_t roll;
+    uint64_t anim_time;
     CrInstance instance_id;
     TbBool inst_repeat;
-    unsigned short inst_turn;
-    unsigned short inst_action_turns; /* Turn when instance should be fired*/
-    unsigned short inst_total_turns;
-    unsigned short targtng_idx;
+    int64_t inst_turn;
+    int64_t inst_action_turns; /* Turn when instance should be fired*/
+    int64_t inst_total_turns;
+    int64_t targtng_idx;
     MapSubtlCoord targtstl_x;
     MapSubtlCoord targtstl_y;
-    uint32_t instance_use_turn[INSTANCE_TYPES_MAX];
+    uint64_t instance_use_turn[INSTANCE_TYPES_MAX];
     TbBool instance_available[INSTANCE_TYPES_MAX];
-    unsigned short instance_anim_step_turns;
+    int64_t instance_anim_step_turns;
     SubtlCodedCoords collided_door_subtile;
     char fighting_player_idx;
     ThingModel shot_model;
@@ -364,25 +364,25 @@ struct CreatureControl {
     /* State backup when a creature temporarily changes its state due to being slapped. */
     unsigned char continue_state_bkp;
     unsigned char cowers_from_slap_turns;
-    short conscious_back_turns;
-    short countdown; // signed
+    int64_t conscious_back_turns;
+    int64_t countdown; // signed
     SubtlCodedCoords damage_wall_coords;
     unsigned char joining_age;
     unsigned char blood_type;
     char creature_name[CREATURE_NAME_MAX];
     struct Coord3d flee_pos;
-    int32_t flee_start_turn;
+    int64_t flee_start_turn;
     struct MemberPos followers_pos[GROUP_MEMBERS_COUNT];
-    unsigned short next_in_room;
-    unsigned short prev_in_room;
+    int64_t next_in_room;
+    int64_t prev_in_room;
     EffectOrEffElModel spell_aura;
     GameTurnDelta spell_aura_duration;
-    unsigned short job_assigned;
-    unsigned short spell_thing_index_armour[3];
-    unsigned short spell_thing_index_disease[3];
-    short shot_shift_x;
-    short shot_shift_y;
-    short shot_shift_z;
+    int64_t job_assigned;
+    int64_t spell_thing_index_armour[3];
+    int64_t spell_thing_index_disease[3];
+    int64_t shot_shift_x;
+    int64_t shot_shift_y;
+    int64_t shot_shift_z;
     GameTurn tasks_check_turn;
     GameTurn wander_around_check_turn;
     GameTurn job_primary_check_turn;
@@ -400,12 +400,12 @@ struct CreatureControl {
     MapSubtlCoord alarm_stl_x;
     MapSubtlCoord alarm_stl_y;
     GameTurn alarm_over_turn;
-    uint32_t lava_escape_since;
+    uint64_t lava_escape_since;
     unsigned char stopped_for_hand_turns;
-    int32_t following_leader_since;
+    int64_t following_leader_since;
     unsigned char follow_leader_fails;
     GameTurn dropped_turn;
-    uint32_t timebomb_countdown;
+    uint64_t timebomb_countdown;
     ThingIndex timebomb_countdown_id;
     ThingIndex timebomb_target_id;
     GameTurn unsummon_turn;
@@ -415,7 +415,7 @@ struct CreatureControl {
     SpellKind active_disease_spell;
     SpellKind active_teleport_spell;
     SpellKind active_timebomb_spell;
-    short vertical_speed;
+    int64_t vertical_speed;
     GameTurnDelta hand_blocked_turns;
 };
 
@@ -427,7 +427,7 @@ struct Persons {
 // struct CreatureSound/CreatureSounds moved to kfx_config's
 // creature_sounds.h (stage 13.3) -- see there.
 
-extern int creature_swap_idx[CREATURE_TYPES_MAX];
+extern int64_t creature_swap_idx[CREATURE_TYPES_MAX];
 
 #pragma pack()
 /******************************************************************************/
@@ -446,10 +446,10 @@ struct Thing *create_and_control_creature_as_controller(struct PlayerInfo *playe
 TbBool disband_creatures_group(struct Thing *thing);
 struct Thing *get_group_last_member(struct Thing *thing);
 
-void play_creature_sound(struct Thing *thing, long snd_idx, long a3, long a4);
-void stop_creature_sound(struct Thing *thing, long snd_idx);
-void play_creature_sound_and_create_sound_thing(struct Thing *thing, long snd_idx, long a2);
-struct CreatureSound *get_creature_sound(struct Thing *thing, long snd_idx);
+void play_creature_sound(struct Thing *thing, int64_t snd_idx, int64_t a3, int64_t a4);
+void stop_creature_sound(struct Thing *thing, int64_t snd_idx);
+void play_creature_sound_and_create_sound_thing(struct Thing *thing, int64_t snd_idx, int64_t a2);
+struct CreatureSound *get_creature_sound(struct Thing *thing, int64_t snd_idx);
 TbBool creature_can_gain_experience(const struct Thing *thing);
 
 /** Convert a CreatureSound slot + variant index to the unified sample ID.
@@ -457,7 +457,7 @@ TbBool creature_can_gain_experience(const struct Thing *thing);
  *  Custom sounds:   index is negative -(bank+1); thing_play_sample converts
  *                   these to get_custom_offset()+(-index-1)+i. We produce
  *                   the same unified ID so S3DEmitterIsPlayingSample can match. */
-static inline SoundSmplTblID creature_sound_unified_id(const struct CreatureSound *crsound, long i)
+static inline SoundSmplTblID creature_sound_unified_id(const struct CreatureSound *crsound, int64_t i)
 {
     if (crsound->index < 0)
         return (SoundSmplTblID)(get_custom_offset() + (-crsound->index - 1) + i);

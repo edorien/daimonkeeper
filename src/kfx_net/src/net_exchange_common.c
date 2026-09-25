@@ -47,7 +47,7 @@
 // forward-declaration. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
-void send_to_active_peers(int send_count, enum NetworkPeerSendMode send_mode, const char *buffer, size_t msg_size, NetUserId first_skip_id, NetUserId second_skip_id)
+void send_to_active_peers(int64_t send_count, enum NetworkPeerSendMode send_mode, const char *buffer, size_t msg_size, NetUserId first_skip_id, NetUserId second_skip_id)
 {
     for (NetUserId id = 0; id < netstate.max_users; id += 1) {
         if (id == first_skip_id || id == second_skip_id || !can_send_to_peer(id)) {
@@ -57,7 +57,7 @@ void send_to_active_peers(int send_count, enum NetworkPeerSendMode send_mode, co
             netstate.sp->sendmsg_single(id, buffer, msg_size);
             continue;
         }
-        for (int i = 0; i < send_count; i += 1) {
+        for (int64_t i = 0; i < send_count; i += 1) {
             netstate.sp->sendmsg_single_unsequenced(id, buffer, msg_size);
         }
     }
@@ -81,21 +81,21 @@ static TbError handle_exchange_message(NetUserId source, void *server_buf, size_
         return Lb_OK;
     }
     NetUserId peer_id;
-    int32_t seq_nbr;
+    int64_t seq_nbr;
     if (message_size < (size_t)(read_pos - netstate.msg_buffer) + 1 + sizeof(seq_nbr)) {
-        WARNLOG("Message type %d from %i is too short", (int)message_type, (int)source);
+        WARNLOG("Message type %" PRId64 " from %" PRId64 " is too short", (int64_t)message_type, (int64_t)source);
         return Lb_OK;
     }
     peer_id = (NetUserId)(uint8_t)read_pos[0];
     read_pos += 1;
     if (peer_id >= netstate.max_users) {
-        ERRORLOG("Critical error: Out of range peer ID %i received, could be used for buffer overflow attack", peer_id);
+        ERRORLOG("Critical error: Out of range peer ID %" PRId64 " received, could be used for buffer overflow attack", (int64_t)(peer_id));
         abort();
     }
     memcpy(&seq_nbr, read_pos, sizeof(seq_nbr));
     read_pos += sizeof(seq_nbr);
     if (source != SERVER_ID && source != peer_id) {
-        WARNLOG("Peer %i tried to send message type %d for peer %i", (int)source, (int)message_type, (int)peer_id);
+        WARNLOG("Peer %" PRId64 " tried to send message type %" PRId64 " for peer %" PRId64, (int64_t)source, (int64_t)message_type, (int64_t)peer_id);
         return Lb_OK;
     }
     char *player_frame = (char *)server_buf + peer_id * frame_size;
@@ -103,18 +103,18 @@ static TbError handle_exchange_message(NetUserId source, void *server_buf, size_
     TbBool relay_message = true;
     if (message_type == NETMSG_GAMEPLAY_UNSEQUENCED) {
         if (frame_size != sizeof(struct Packet)) {
-            WARNLOG("Gameplay frame size mismatch (%u != %u)", (unsigned)frame_size, (unsigned)sizeof(struct Packet));
+            WARNLOG("Gameplay frame size mismatch (%" PRIu64 " != %" PRIu64 ")", (uint64_t)frame_size, (uint64_t)sizeof(struct Packet));
             return Lb_OK;
         }
         if (payload_size < sizeof(unsigned char)) {
-            WARNLOG("Invalid gameplay packet bundle from peer %i (%u bytes)", peer_id, (unsigned)payload_size);
+            WARNLOG("Invalid gameplay packet bundle from peer %" PRId64 " (%" PRIu64 " bytes)", (int64_t)(peer_id), (uint64_t)payload_size);
             return Lb_OK;
         }
         unsigned char packet_count = (unsigned char)read_pos[0];
         read_pos += 1;
         if (packet_count < 1 || packet_count > REDUNDANT_PACKET_BUNDLE
          || payload_size != sizeof(unsigned char) + packet_count * sizeof(struct Packet)) {
-            WARNLOG("Invalid gameplay packet bundle from peer %i (%u bytes)", peer_id, (unsigned)payload_size);
+            WARNLOG("Invalid gameplay packet bundle from peer %" PRId64 " (%" PRIu64 " bytes)", (int64_t)(peer_id), (uint64_t)payload_size);
             return Lb_OK;
         }
         const struct Packet *packets = (const struct Packet *)read_pos;
@@ -127,7 +127,7 @@ static TbError handle_exchange_message(NetUserId source, void *server_buf, size_
         }
         for (unsigned char i = 0; i < packet_count; i += 1) {
             if (is_packet_empty(&packets[i])) {
-                MULTIPLAYER_LOG("process_network_message: Skipping empty packet for player %d turn %lu", peer_id, (unsigned long)packets[i].turn);
+                MULTIPLAYER_LOG("process_network_message: Skipping empty packet for player %" PRId64 " turn %" PRIu64, (int64_t)(peer_id), (uint64_t)packets[i].turn);
                 continue;
             }
             store_packet_history((PlayerNumber)peer_id, &packets[i]);
@@ -136,8 +136,8 @@ static TbError handle_exchange_message(NetUserId source, void *server_buf, size_
         *frame_packet = packets[0];
     } else {
         if (payload_size != frame_size) {
-            WARNLOG("Ignoring frame message type %d from peer %i with %u bytes, expected %u bytes",
-                (int)message_type, peer_id, (unsigned)payload_size, (unsigned)frame_size);
+            WARNLOG("Ignoring frame message type %" PRId64 " from peer %" PRId64 " with %" PRIu64 " bytes, expected %" PRIu64 " bytes",
+                (int64_t)message_type, (int64_t)(peer_id), (uint64_t)payload_size, (uint64_t)frame_size);
             return Lb_OK;
         }
         memcpy(player_frame, read_pos, frame_size);
@@ -194,7 +194,7 @@ void send_network_chat_message(NetUserId sender, const char *message)
     send_remote_buffer(write_pos);
 }
 
-struct PlayerInfo *prepare_network_chat_message(int player_id, const char *message)
+struct PlayerInfo *prepare_network_chat_message(int64_t player_id, const char *message)
 {
     struct PlayerInfo *player = get_player(player_id);
     get_player_user_state(player)->init_flags &= ~UsrIF_NewMPMessage;
@@ -233,7 +233,7 @@ TbBool all_expected_exchange_frames_received(const TbBool has_received_frame[MAX
 TbError exchange_frame_message(void *send_buf, void *server_buf, size_t frame_size, enum NetMessageType msg_type)
 {
     if (netstate.my_id < 0 || netstate.my_id >= netstate.max_users) {
-        ERRORLOG("Invalid my_id %i in network exchange (disconnected?)", netstate.my_id);
+        ERRORLOG("Invalid my_id %" PRId64 " in network exchange (disconnected?)", (int64_t)(netstate.my_id));
         return Lb_FAIL;
     }
     netstate.sp->update(OnNewUser);
@@ -279,7 +279,7 @@ TbError process_network_message(NetUserId source, void *server_buf, size_t frame
     }
     size_t message_size = netstate.sp->readmsg(source, netstate.msg_buffer, sizeof(netstate.msg_buffer));
     if (message_size == 0) {
-        ERRORLOG("Problem reading message from %u", source);
+        ERRORLOG("Problem reading message from %" PRIu64, (uint64_t)(source));
         return Lb_FAIL;
     }
     char *read_pos = netstate.msg_buffer;
@@ -316,7 +316,7 @@ TbError exchange_frame_block(enum NetMessageType msg_type, void *send_buf, void 
     } else if (msg_type == NETMSG_STARTUP_SYNC) {
         frontend_exchange = false;
     } else {
-        ERRORLOG("exchange_frame_block unsupported message type %d", (int)msg_type);
+        ERRORLOG("exchange_frame_block unsupported message type %" PRId64, (int64_t)msg_type);
         return Lb_FAIL;
     }
     if (exchange_frame_message(send_buf, server_buf, frame_size, msg_type) != Lb_OK) {
@@ -345,7 +345,7 @@ TbError exchange_frame_block(enum NetMessageType msg_type, void *send_buf, void 
                 }
             }
         }
-        for (int pass = 0; pass < 2 && !stop_waiting; pass += 1) {
+        for (int64_t pass = 0; pass < 2 && !stop_waiting; pass += 1) {
             if (pass > 0) {
                 netstate.sp->update(OnNewUser);
             }
@@ -445,7 +445,7 @@ void wait_for_all_players(void)
             }
             while (result != Lb_OK && netstate.sp->msgready(peer_id, 0)) {
                 if (process_network_message(peer_id, NULL, 0, expected_message_type, NULL) != Lb_OK) {
-                    ERRORLOG("Initial startup wait failed: could not process startup wait packet from peer %d", (int)peer_id);
+                    ERRORLOG("Initial startup wait failed: could not process startup wait packet from peer %" PRId64, (int64_t)peer_id);
                     return;
                 }
                 enum NetMessageType message_type = (enum NetMessageType)netstate.msg_buffer[0];
@@ -454,14 +454,14 @@ void wait_for_all_players(void)
                 }
                 if (is_host) {
                     if (peer_id == SERVER_ID) {
-                        WARNLOG("Peer %i sent invalid NETMSG_CLIENT_IS_READY", (int)peer_id);
+                        WARNLOG("Peer %" PRId64 " sent invalid NETMSG_CLIENT_IS_READY", (int64_t)peer_id);
                         continue;
                     }
                     has_received_frame[peer_id] = true;
                     continue;
                 }
                 if (peer_id != SERVER_ID) {
-                    WARNLOG("Peer %i sent invalid NETMSG_HOST_DECLARES_START", (int)peer_id);
+                    WARNLOG("Peer %" PRId64 " sent invalid NETMSG_HOST_DECLARES_START", (int64_t)peer_id);
                     continue;
                 }
                 result = Lb_OK;
@@ -473,6 +473,6 @@ void wait_for_all_players(void)
     }
     netstate.seq_nbr += 1;
     if (result != Lb_OK) {
-        ERRORLOG("Initial startup wait failed: TIMEOUT_WAIT_FOR_ALL_PLAYERS expired after %d ms", TIMEOUT_WAIT_FOR_ALL_PLAYERS);
+        ERRORLOG("Initial startup wait failed: TIMEOUT_WAIT_FOR_ALL_PLAYERS expired after %" PRId64 " ms", (int64_t)(TIMEOUT_WAIT_FOR_ALL_PLAYERS));
     }
 }

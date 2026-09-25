@@ -55,7 +55,7 @@ struct ftest_editor_save_reload__variables
     CrtrExpLevel exp_level;
     ThingIndex creature_idx;
     ThingIndex trap_idx;
-    unsigned long poll_count;
+    uint64_t poll_count;
 };
 struct ftest_editor_save_reload__variables ftest_editor_save_reload__vars = {
     .creature_slb_x = 17, .creature_slb_y = 74,
@@ -137,7 +137,7 @@ FTestActionResult ftest_editor_save_reload_action002__place_creature(struct FTes
     set_coords_to_slab_center(&pos, vars->creature_slb_x, vars->creature_slb_y);
 
     struct PlayerInfo* player = get_player(vars->owner);
-    unsigned short packed_owner_exp = (unsigned short)vars->owner | ((unsigned short)vars->exp_level << 8);
+    int64_t packed_owner_exp = (int64_t)vars->owner | ((int64_t)vars->exp_level << 8);
     set_players_packet_action(player, PckA_EditorRedoCreature, pos.x.val, pos.y.val, vars->creature_model, packed_owner_exp);
 
     return FTRs_Go_To_Next_Action;
@@ -155,7 +155,7 @@ FTestActionResult ftest_editor_save_reload_action003__assert_creature_placed(str
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Creature never appeared near (%d,%d) after placement", (int)vars->creature_slb_x, (int)vars->creature_slb_y);
+            FTEST_FAIL_TEST("Creature never appeared near (%" PRId64 ",%" PRId64 ") after placement", (int64_t)vars->creature_slb_x, (int64_t)vars->creature_slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -193,7 +193,7 @@ FTestActionResult ftest_editor_save_reload_action005__assert_trap_placed(struct 
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Trap never appeared at slab (%d,%d) after placement", (int)vars->trap_slb_x, (int)vars->trap_slb_y);
+            FTEST_FAIL_TEST("Trap never appeared at slab (%" PRId64 ",%" PRId64 ") after placement", (int64_t)vars->trap_slb_x, (int64_t)vars->trap_slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
@@ -245,19 +245,19 @@ FTestActionResult ftest_editor_save_reload_action008__assert_reloaded(struct FTe
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Creature not found after reload at slab (%d,%d)", (int)vars->creature_slb_x, (int)vars->creature_slb_y);
+            FTEST_FAIL_TEST("Creature not found after reload at slab (%" PRId64 ",%" PRId64 ")", (int64_t)vars->creature_slb_x, (int64_t)vars->creature_slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
     }
     if (creature->model != vars->creature_model)
     {
-        FTEST_FAIL_TEST("Reloaded creature has model %d, expected %d", (int)creature->model, (int)vars->creature_model);
+        FTEST_FAIL_TEST("Reloaded creature has model %" PRId64 ", expected %" PRId64, (int64_t)creature->model, (int64_t)vars->creature_model);
         return FTRs_Go_To_Next_Action;
     }
     if (creature->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Reloaded creature has owner %d, expected %d", (int)creature->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Reloaded creature has owner %" PRId64 ", expected %" PRId64, (int64_t)creature->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -266,12 +266,12 @@ FTestActionResult ftest_editor_save_reload_action008__assert_reloaded(struct FTe
     struct Thing* trap = find_base_thing_on_mapwho(TCls_Trap, vars->trap_model, trap_stl_x, trap_stl_y);
     if (thing_is_invalid(trap))
     {
-        FTEST_FAIL_TEST("Trap not found after reload at slab (%d,%d)", (int)vars->trap_slb_x, (int)vars->trap_slb_y);
+        FTEST_FAIL_TEST("Trap not found after reload at slab (%" PRId64 ",%" PRId64 ")", (int64_t)vars->trap_slb_x, (int64_t)vars->trap_slb_y);
         return FTRs_Go_To_Next_Action;
     }
     if (trap->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Reloaded trap has owner %d, expected %d", (int)trap->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Reloaded trap has owner %" PRId64 ", expected %" PRId64, (int64_t)trap->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -334,19 +334,19 @@ FTestActionResult ftest_editor_save_reload_action011__assert_reloaded_classic(st
     {
         if (++vars->poll_count > 40)
         {
-            FTEST_FAIL_TEST("Creature not found after classic reload at slab (%d,%d)", (int)vars->creature_slb_x, (int)vars->creature_slb_y);
+            FTEST_FAIL_TEST("Creature not found after classic reload at slab (%" PRId64 ",%" PRId64 ")", (int64_t)vars->creature_slb_x, (int64_t)vars->creature_slb_y);
             return FTRs_Go_To_Next_Action;
         }
         return FTRs_Repeat_Current_Action;
     }
     if (creature->model != vars->creature_model)
     {
-        FTEST_FAIL_TEST("Classic-reloaded creature has model %d, expected %d", (int)creature->model, (int)vars->creature_model);
+        FTEST_FAIL_TEST("Classic-reloaded creature has model %" PRId64 ", expected %" PRId64, (int64_t)creature->model, (int64_t)vars->creature_model);
         return FTRs_Go_To_Next_Action;
     }
     if (creature->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Classic-reloaded creature has owner %d, expected %d", (int)creature->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Classic-reloaded creature has owner %" PRId64 ", expected %" PRId64, (int64_t)creature->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 
@@ -355,12 +355,12 @@ FTestActionResult ftest_editor_save_reload_action011__assert_reloaded_classic(st
     struct Thing* trap = find_base_thing_on_mapwho(TCls_Trap, vars->trap_model, trap_stl_x, trap_stl_y);
     if (thing_is_invalid(trap))
     {
-        FTEST_FAIL_TEST("Trap not found after classic reload at slab (%d,%d)", (int)vars->trap_slb_x, (int)vars->trap_slb_y);
+        FTEST_FAIL_TEST("Trap not found after classic reload at slab (%" PRId64 ",%" PRId64 ")", (int64_t)vars->trap_slb_x, (int64_t)vars->trap_slb_y);
         return FTRs_Go_To_Next_Action;
     }
     if (trap->owner != vars->owner)
     {
-        FTEST_FAIL_TEST("Classic-reloaded trap has owner %d, expected %d", (int)trap->owner, (int)vars->owner);
+        FTEST_FAIL_TEST("Classic-reloaded trap has owner %" PRId64 ", expected %" PRId64, (int64_t)trap->owner, (int64_t)vars->owner);
         return FTRs_Go_To_Next_Action;
     }
 

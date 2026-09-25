@@ -42,18 +42,18 @@ TbKeyCode lbInkey;
 extern void init_inputcontrol(void);
 /******************************************************************************/
 /******************************************************************************/
-short LbIKeyboardClose(void)
+int64_t LbIKeyboardClose(void)
 {
   return 1;
 }
 
-short LbIKeyboardOpen(void)
+int64_t LbIKeyboardOpen(void)
 {
   init_inputcontrol();
     return 1;
 }
 
-void keyboardControl(unsigned int action, TbKeyCode code, TbKeyMods modifiers, int ScanCode)
+void keyboardControl(uint64_t action, TbKeyCode code, TbKeyMods modifiers, int64_t ScanCode)
 {
     // Set the key code action value
     switch ( action )

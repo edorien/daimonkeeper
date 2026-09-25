@@ -37,9 +37,9 @@ long double sleep_precision_ns = 20000000; // 20ms
 struct TbTime global_time;
 struct TbDate global_date;
 TbClockMSec (* LbTimerClock)(void);
-int stutter_detection_current = 0;
-int stutter_detection_average = 0;
-int stutter_detection_max = 0;
+int64_t stutter_detection_current = 0;
+int64_t stutter_detection_average = 0;
+int64_t stutter_detection_max = 0;
 /******************************************************************************/
 #define TimePoint std::chrono::high_resolution_clock::time_point
 #define TimeNow std::chrono::high_resolution_clock::now()
@@ -49,13 +49,13 @@ int stutter_detection_max = 0;
 TimePoint initialized_time_point;
 struct FrametimeMeasurements frametime_measurements;
 TimePoint delta_time_previous_timepoint;
-int debug_display_frametime = 0;
+int64_t debug_display_frametime = 0;
 
 // See bf_datetm_set_frame_timing() and docs/refactor/stage-02-decouple-bflib.md.
-static float bf_datetm_delta_time = 0.0f;
-static int32_t bf_datetm_turns_per_second = 1;
+static double bf_datetm_delta_time = 0.0;
+static int64_t bf_datetm_turns_per_second = 1;
 
-void bf_datetm_set_frame_timing(float delta_time, int32_t turns_per_second)
+void bf_datetm_set_frame_timing(double delta_time, int64_t turns_per_second)
 {
     bf_datetm_delta_time = delta_time;
     bf_datetm_turns_per_second = turns_per_second;
@@ -77,23 +77,23 @@ void trigger_time_measurement_capture(struct TriggerTimeMeasurement *trigger)
   long double current_milliseconds = current_nanoseconds/1000000.0;
   if (trigger->trigger_cnt >= MAX_TRIGGER_TIME_CNT)
   {
-    int keep_cnt = MAX_TRIGGER_TIME_CNT/2;
+    int64_t keep_cnt = MAX_TRIGGER_TIME_CNT/2;
     memmove(trigger->trigger_time, trigger->trigger_time+trigger->trigger_cnt-keep_cnt, sizeof(trigger->trigger_time[0])*keep_cnt);
     trigger->trigger_cnt=keep_cnt;
   }
-  trigger->trigger_time[trigger->trigger_cnt] = (float)current_milliseconds;
+  trigger->trigger_time[trigger->trigger_cnt] = (double)current_milliseconds;
   trigger->trigger_cnt++;
 }
 
-int get_trigger_time_measurement_fps(struct TriggerTimeMeasurement *trigger)
+int64_t get_trigger_time_measurement_fps(struct TriggerTimeMeasurement *trigger)
 {
-  int cnt = 0;
+  int64_t cnt = 0;
   if (trigger->trigger_cnt > 0)
   {
-    const float measurement_duration = 1000;
-    const float last_time = trigger->trigger_time[trigger->trigger_cnt-1];
+    const double measurement_duration = 1000;
+    const double last_time = trigger->trigger_time[trigger->trigger_cnt-1];
     cnt++;
-    for (int i=trigger->trigger_cnt-2; i>=0; i--)
+    for (int64_t i=trigger->trigger_cnt-2; i>=0; i--)
     {
       if (last_time - trigger->trigger_time[i] >= measurement_duration)
         break;
@@ -118,7 +118,7 @@ void frametime_set_all_measurements_to_be_displayed()
         }
     }
 
-    for (int i = 0; i < TOTAL_FRAMETIME_KINDS; i++)
+    for (int64_t i = 0; i < TOTAL_FRAMETIME_KINDS; i++)
     {
         switch (debug_display_frametime)
         {
@@ -143,14 +143,14 @@ void frametime_set_all_measurements_to_be_displayed()
         }
     }
 
-    for (int i = 0; i < TOTAL_FRAMERATE_KINDS; i++)
+    for (int64_t i = 0; i < TOTAL_FRAMERATE_KINDS; i++)
     {
         switch (debug_display_frametime)
         {
             case 1: // Framerate (show constantly)
             case 2: // Framerate min/max (shown once per half-second)
               {
-                int cur_fps = get_trigger_time_measurement_fps(frametime_measurements.framerate_measurement+i);
+                int64_t cur_fps = get_trigger_time_measurement_fps(frametime_measurements.framerate_measurement+i);
                 frametime_measurements.framerate_display[i] = cur_fps;
                 if (debug_display_frametime == 2) {
                   // Display once per half-second
@@ -171,18 +171,18 @@ void frametime_set_all_measurements_to_be_displayed()
     }
 }
 
-void frametime_start_measurement(int frametime_kind)
+void frametime_start_measurement(int64_t frametime_kind)
 {
     long double current_nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(TimeNow - initialized_time_point).count();
     long double current_milliseconds = current_nanoseconds/1000000.0;
-    frametime_measurements.starting_measurement[frametime_kind] = float(current_milliseconds);
+    frametime_measurements.starting_measurement[frametime_kind] = double(current_milliseconds);
 }
 
-void frametime_end_measurement(int frametime_kind)
+void frametime_end_measurement(int64_t frametime_kind)
 {
     long double current_nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(TimeNow - initialized_time_point).count();
     long double current_milliseconds = current_nanoseconds/1000000.0;
-    float result = float(current_milliseconds) - frametime_measurements.starting_measurement[frametime_kind];
+    double result = double(current_milliseconds) - frametime_measurements.starting_measurement[frametime_kind];
     frametime_measurements.frametime_current[frametime_kind] = result;
 
     if (frametime_kind == Frametime_FullFrame) {
@@ -191,7 +191,7 @@ void frametime_end_measurement(int frametime_kind)
     }
 }
 
-void framerate_measurement_capture(int framerate_kind)
+void framerate_measurement_capture(int64_t framerate_kind)
 {
   if (framerate_kind < 0 || framerate_kind >= TOTAL_FRAMERATE_KINDS)
     return;
@@ -333,9 +333,9 @@ void LbSleepExtInit()
   long double tick_ns_begin = TimeTickNs;
   long double tick_ns_end = 0;
   const long double tick_ns_max_test = 100000000; // 100m
-  const int max_test_cnt = 30; // for 1ms precision, need 30ms
-  int cur_cnt_test = 0;
-  for (int i=0; i<max_test_cnt; i++)
+  const int64_t max_test_cnt = 30; // for 1ms precision, need 30ms
+  int64_t cur_cnt_test = 0;
+  for (int64_t i=0; i<max_test_cnt; i++)
   {
     SDL_Delay(1);
     tick_ns_end = TimeTickNs;
@@ -362,7 +362,7 @@ TbBool LbSleepUntilExt(long double tick_ns_end)
       break;
     long double tick_ns_delay = tick_ns_end - tick_ns_cur;
     if (tick_ns_delay > sleep_precision_ns) {
-      int ms_delay = (int)(tick_ns_delay/1000000);
+      int64_t ms_delay = (int64_t)(tick_ns_delay/1000000);
       SDL_Delay(ms_delay);
     }
   }
@@ -385,14 +385,14 @@ TbResult LbTimerInit(void)
   return Lb_SUCCESS;
 }
 
-int get_current_stutter_milliseconds()
+int64_t get_current_stutter_milliseconds()
 {
     static TbClockMSec last_turn_timestamp = 0;
-    static int stutter_detection_history[50] = {0};
+    static int64_t stutter_detection_history[50] = {0};
     static TbClockMSec stutter_detection_history_timestamp[50] = {0};
-    static int history_index = 0;
+    static int64_t history_index = 0;
     TbClockMSec current_timestamp = LbTimerClock();
-    int stutter_detection_ms = 0;
+    int64_t stutter_detection_ms = 0;
     TbClockMSec expected_turn_time = 1000 / bf_datetm_turns_per_second;
     if (last_turn_timestamp != 0) {
         TbClockMSec turn_time_ms = current_timestamp - last_turn_timestamp;
@@ -405,9 +405,9 @@ int get_current_stutter_milliseconds()
     }
     last_turn_timestamp = current_timestamp;
     stutter_detection_current = stutter_detection_ms;
-    int sum = 0;
-    int max = 0;
-    int i;
+    int64_t sum = 0;
+    int64_t max = 0;
+    int64_t i;
     for (i = 0; i < 50; i++) {
         if (stutter_detection_history_timestamp[i] == 0 || current_timestamp - stutter_detection_history_timestamp[i] >= expected_turn_time * 50) {
             stutter_detection_history[i] = 0;

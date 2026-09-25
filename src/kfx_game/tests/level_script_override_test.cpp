@@ -16,7 +16,7 @@ namespace {
 const LevelNumber kLevel = 9876;
 
 struct LoaderFixture {
-    long saved_version;
+    int64_t saved_version;
     LoaderFixture()
     {
         std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));

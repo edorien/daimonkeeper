@@ -36,20 +36,20 @@ extern "C" {
 /******************************************************************************/
 TbBool generation_due_for_dungeon(struct Dungeon * dungeon);
 TbBool generation_available_to_dungeon(const struct Dungeon * dungeon);
-long calculate_attractive_room_quantity(RoomKind room_kind, PlayerNumber plyr_idx, int crmodel);
+int64_t calculate_attractive_room_quantity(RoomKind room_kind, PlayerNumber plyr_idx, int64_t crmodel);
 
 void process_entrance_generation(void);
 struct Thing *create_creature_at_entrance(struct Room * room, ThingModel crtr_kind);
 
 TbBool remove_creature_from_generate_pool(ThingModel crtr_kind);
 TbBool creature_will_generate_for_dungeon(const struct Dungeon * dungeon, ThingModel crtr_kind);
-long count_player_available_creatures_of_model(PlayerNumber plyr_idx, ThingModel crtr_kind);
+int64_t count_player_available_creatures_of_model(PlayerNumber plyr_idx, ThingModel crtr_kind);
 /******************************************************************************/
 TbBool update_creature_pool_state(void);
 /* Implemented in room_entrance.c; declared here (rather than keeperfx.hpp)
  * since script/game code is the caller and sim code is the implementer --
  * see docs/refactor/stage-06-kfx-sim.md. */
-void add_creature_to_pool(ThingModel kind, int32_t amount);
+void add_creature_to_pool(ThingModel kind, int64_t amount);
 /******************************************************************************/
 #ifdef __cplusplus
 }

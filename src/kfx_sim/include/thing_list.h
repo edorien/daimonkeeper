@@ -126,48 +126,48 @@ typedef struct CompoundTngFilterParam * MaxTngFilterParam;
 typedef struct CompoundTngFilterParam * ModTngFilterParam;
 
 /** Definition of a callback type used for updating thing which is in specific state. */
-typedef long (*Thing_State_Func)(struct Thing *);
+typedef int64_t (*Thing_State_Func)(struct Thing *);
 /** Definition of a callback type used for updating thing of specific class or model. */
 typedef TngUpdateRet (*Thing_Class_Func)(struct Thing *);
 /** Definition of a callback type which can modify the thing and receives additional parameters. */
 typedef TngUpdateRet (*Thing_Modifier_Func)(struct Thing *, ModTngFilterParam);
 /** Basic thing filtering type. */
-typedef long (*Thing_Filter)(const struct Thing *, FilterParam);
+typedef int64_t (*Thing_Filter)(const struct Thing *, FilterParam);
 /** Definition of a simple callback type which can only return true/false and has no memory of previous checks. */
 typedef TbBool (*Thing_Bool_Filter)(const struct Thing *);
 /** Definition of a callback type used for selecting best match through all the things by maximizing a value. */
-typedef long (*Thing_Maximizer_Filter)(const struct Thing *, MaxTngFilterParam, long);
-typedef HitTargetFlags(*Thing_Collide_Func)(const struct Thing *, const struct Thing *, HitTargetFlags, long);
+typedef int64_t (*Thing_Maximizer_Filter)(const struct Thing *, MaxTngFilterParam, int64_t);
+typedef HitTargetFlags(*Thing_Collide_Func)(const struct Thing *, const struct Thing *, HitTargetFlags, int64_t);
 /** Definition of a simple callback type which can only return true/false and can modify the thing. */
 typedef TbBool (*Thing_Bool_Modifier)(struct Thing *);
 
 struct CompoundTngFilterParam {
-     long plyr_idx;
-     long class_id;
+     int64_t plyr_idx;
+     int64_t class_id;
      ThingModel model_id;
      union {
-     long primary_number;
+     int64_t primary_number;
      void *primary_pointer;
      };
      union {
-     long secondary_number;
+     int64_t secondary_number;
      void *secondary_pointer;
      };
      union {
-     long tertiary_number;
+     int64_t tertiary_number;
      void *tertiary_pointer;
      };
 };
 
 struct StructureList {
-     unsigned long count;
-     unsigned long index;
+     uint64_t count;
+     uint64_t index;
 };
 
 #pragma pack()
 /******************************************************************************/
 extern Thing_Class_Func class_functions[];
-extern unsigned long thing_create_errors;
+extern uint64_t thing_create_errors;
 extern const struct NamedCommand class_commands[];
 /******************************************************************************/
 void add_thing_to_list(struct Thing *thing, struct StructureList *list);
@@ -177,51 +177,51 @@ void add_thing_to_its_class_list(struct Thing *thing);
 ThingIndex get_thing_class_list_head(ThingClass class_id);
 struct StructureList *get_list_for_thing_class(ThingClass class_id);
 
-long creature_near_filter_is_owned_by(const struct Thing *thing, FilterParam val);
+int64_t creature_near_filter_is_owned_by(const struct Thing *thing, FilterParam val);
 
 // Filters to select creature anywhere on map but belonging to given player
 struct Thing *get_player_list_creature_with_filter(ThingIndex thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
 struct Thing *get_player_list_random_creature_with_filter(ThingIndex thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, PlayerNumber plyr_idx);
-long count_player_list_creatures_with_filter(long thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
-long count_player_list_creatures_of_model_matching_bool_filter(PlayerNumber plyr_idx, int tngmodel, Thing_Bool_Filter matcher_cb);
+int64_t count_player_list_creatures_with_filter(int64_t thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
+int64_t count_player_list_creatures_of_model_matching_bool_filter(PlayerNumber plyr_idx, int64_t tngmodel, Thing_Bool_Filter matcher_cb);
 // Final routines to select creature anywhere on map but belonging to given player
-struct Thing *get_player_list_nth_creature_of_model(long thing_idx, ThingModel crmodel, long crtr_idx);
-struct Thing *get_player_list_nth_creature_of_model_on_territory(long thing_idx, ThingModel crmodel, long crtr_idx, int friendly);
-struct Thing* get_player_list_nth_creature_with_property(long thing_idx, unsigned long crmodelflag, long crtr_idx);
+struct Thing *get_player_list_nth_creature_of_model(int64_t thing_idx, ThingModel crmodel, int64_t crtr_idx);
+struct Thing *get_player_list_nth_creature_of_model_on_territory(int64_t thing_idx, ThingModel crmodel, int64_t crtr_idx, int64_t friendly);
+struct Thing* get_player_list_nth_creature_with_property(int64_t thing_idx, uint64_t crmodelflag, int64_t crtr_idx);
 struct Thing *get_random_players_creature_of_model(PlayerNumber plyr_idx, ThingModel crmodel);
-struct Thing *get_random_players_creature_of_model_on_territory(PlayerNumber plyr_idx, ThingModel crmodel,int friendly);
-long do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int crmodel, Thing_Bool_Modifier do_cb);
+struct Thing *get_random_players_creature_of_model_on_territory(PlayerNumber plyr_idx, ThingModel crmodel,int64_t friendly);
+int64_t do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel, Thing_Bool_Modifier do_cb);
 void setup_all_player_creatures_and_diggers_leave_or_die(PlayerNumber plyr_idx);
 TbBool reset_all_players_creatures_affected_by_cta(PlayerNumber plyr_idx);
-long count_player_creatures_not_counting_to_total(PlayerNumber plyr_idx);
-long count_player_diggers_not_counting_to_total(PlayerNumber plyr_idx);
+int64_t count_player_creatures_not_counting_to_total(PlayerNumber plyr_idx);
+int64_t count_player_diggers_not_counting_to_total(PlayerNumber plyr_idx);
 
 // Filters to select thing on/near given map position
-struct Thing *get_thing_on_map_block_with_filter(long thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, int32_t *maximizer);
+struct Thing *get_thing_on_map_block_with_filter(int64_t thing_idx, Thing_Maximizer_Filter filter, MaxTngFilterParam param, int64_t *maximizer);
 struct Thing *get_thing_near_revealed_map_block_with_filter(MapCoord x, MapCoord y, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
-struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, long spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
-long count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, long spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
-long do_to_things_on_map_block(long thing_idx, Thing_Bool_Modifier do_cb);
-long do_to_things_with_param_on_map_block(ThingIndex thing_idx, Thing_Modifier_Func do_cb, ModTngFilterParam param);
-long do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, long spiral_len, Thing_Bool_Modifier do_cb);
-long do_to_things_with_param_spiral_near_map_block(const struct Coord3d *center_pos, MapCoordDelta max_dist, Thing_Modifier_Func do_cb, ModTngFilterParam param);
-long do_to_things_with_param_around_map_block(const struct Coord3d *center_pos, Thing_Modifier_Func do_cb, ModTngFilterParam param);
-long near_map_block_creature_filter_diagonal_random(const struct Thing* thing, MaxTngFilterParam param, long maximizer);
-long near_map_block_thing_filter_is_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer);
-long anywhere_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, long maximizer);
+struct Thing *get_thing_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
+int64_t count_things_spiral_near_map_block_with_filter(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Maximizer_Filter filter, MaxTngFilterParam param);
+int64_t do_to_things_on_map_block(int64_t thing_idx, Thing_Bool_Modifier do_cb);
+int64_t do_to_things_with_param_on_map_block(ThingIndex thing_idx, Thing_Modifier_Func do_cb, ModTngFilterParam param);
+int64_t do_to_things_spiral_near_map_block(MapCoord x, MapCoord y, int64_t spiral_len, Thing_Bool_Modifier do_cb);
+int64_t do_to_things_with_param_spiral_near_map_block(const struct Coord3d *center_pos, MapCoordDelta max_dist, Thing_Modifier_Func do_cb, ModTngFilterParam param);
+int64_t do_to_things_with_param_around_map_block(const struct Coord3d *center_pos, Thing_Modifier_Func do_cb, ModTngFilterParam param);
+int64_t near_map_block_creature_filter_diagonal_random(const struct Thing* thing, MaxTngFilterParam param, int64_t maximizer);
+int64_t near_map_block_thing_filter_is_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer);
+int64_t anywhere_thing_filter_is_of_class_and_model_and_owned_by(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer);
 // Final routines to select thing on/near given map position
 struct Thing *get_creature_near_to_be_keeper_power_target(MapCoord pos_x, MapCoord pos_y, PowerKind pwmodel, PlayerNumber plyr_idx);
 struct Thing *get_nearest_thing_for_slap(PlayerNumber plyr_idx, MapCoord pos_x, MapCoord pos_y);
-struct Thing *get_creature_near_and_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, long crmodel);
+struct Thing *get_creature_near_and_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, int64_t crmodel);
 struct Thing *get_creature_near(MapCoord pos_x, MapCoord pos_y);
 struct Thing *get_creature_in_range_and_owned_by_or_allied_with(MapCoord pos_x, MapCoord pos_y, MapSubtlDelta distance_stl, PlayerNumber plyr_idx);
-struct Thing *get_creature_in_range_who_is_enemy_of_able_to_attack_and_not_specdigger(MapCoord pos_x, MapCoord pos_y, long distance_stl, PlayerNumber plyr_idx);
-struct Thing *get_creature_of_model_training_at_subtile_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long model_id, PlayerNumber plyr_idx, long skip_thing_id);
-struct Thing *get_object_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long tngmodel, PlayerNumber plyr_idx);
+struct Thing *get_creature_in_range_who_is_enemy_of_able_to_attack_and_not_specdigger(MapCoord pos_x, MapCoord pos_y, int64_t distance_stl, PlayerNumber plyr_idx);
+struct Thing *get_creature_of_model_training_at_subtile_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t model_id, PlayerNumber plyr_idx, int64_t skip_thing_id);
+struct Thing *get_object_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t tngmodel, PlayerNumber plyr_idx);
 struct Thing *get_cavein_at_subtile_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx);
 struct Thing *get_object_around_owned_by_and_matching_bool_filter(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, Thing_Bool_Filter matcher_cb);
-struct Thing *get_food_at_subtile_available_to_eat_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, long plyr_idx);
-struct Thing *get_trap_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel model, long plyr_idx);
+struct Thing *get_food_at_subtile_available_to_eat_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t plyr_idx);
+struct Thing *get_trap_at_subtile_of_model_and_owned_by(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel model, int64_t plyr_idx);
 struct Thing *get_trap_around_of_model_and_owned_by(MapCoord pos_x, MapCoord pos_y, ThingModel model, PlayerNumber plyr_idx);
 struct Thing *get_door_for_position(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 struct Thing *get_door_for_position_for_trap_placement(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
@@ -229,36 +229,36 @@ TbBool slab_has_door_thing_on(MapSlabCoord slb_x, MapSlabCoord slb_y);
 struct Thing* get_nearest_object_with_tooltip_at_position(MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool optional);
 struct Thing *get_nearest_thing_at_position(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 void remove_dead_creatures_from_slab(MapSlabCoord slb_x, MapSlabCoord slb_y);
-long count_creatures_near_and_owned_by_or_allied_with(MapCoord pos_x, MapCoord pos_y, long distance_stl, PlayerNumber plyr_idx);
-long switch_owned_objects_on_destoyed_slab_to_neutral(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber prev_owner);
+int64_t count_creatures_near_and_owned_by_or_allied_with(MapCoord pos_x, MapCoord pos_y, int64_t distance_stl, PlayerNumber plyr_idx);
+int64_t switch_owned_objects_on_destoyed_slab_to_neutral(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber prev_owner);
 
 // Filters to select thing anywhere on map but only of one given class
 struct Thing *get_random_thing_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param, PlayerNumber plyr_idx);
-struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param, long tngindex);
-long count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param);
-long do_to_all_things_of_class_and_model(int tngclass, int tngmodel, Thing_Bool_Modifier do_cb);
+struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param, int64_t tngindex);
+int64_t count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngFilterParam param);
+int64_t do_to_all_things_of_class_and_model(int64_t tngclass, int64_t tngmodel, Thing_Bool_Modifier do_cb);
 // Final routines to select thing anywhere on map but only of one given class
-struct Thing *get_nearest_thing_of_class_and_model_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, int tngclass, int tngmodel);
+struct Thing *get_nearest_thing_of_class_and_model_owned_by(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx, int64_t tngclass, int64_t tngmodel);
 struct Thing *get_random_trap_of_model_owned_by_and_armed(ThingModel tngmodel, PlayerNumber plyr_idx, TbBool armed);
 struct Thing *get_random_door_of_model_owned_by_and_locked(ThingModel tngmodel, PlayerNumber plyr_idx, TbBool locked);
 struct Thing *find_gold_laying_in_dungeon(const struct Dungeon *dungeon);
 struct Thing *get_nearest_enemy_creature_possible_to_attack_by(struct Thing *creatng);
 struct Thing* get_nearest_enemy_creature_in_sight_and_range_of_trap(struct Thing* traptng);
 #define find_nearest_enemy_creature(creatng) get_nearest_enemy_creature_possible_to_attack_by(creatng);
-struct Thing *get_highest_score_enemy_creature_within_distance_possible_to_attack_by(struct Thing *creatng, MapCoordDelta dist, long move_on_ground);
-struct Thing* get_highest_score_enemy_object_within_distance_possible_to_attack_by(struct Thing* creatng, MapCoordDelta dist, long move_on_ground);
+struct Thing *get_highest_score_enemy_creature_within_distance_possible_to_attack_by(struct Thing *creatng, MapCoordDelta dist, int64_t move_on_ground);
+struct Thing* get_highest_score_enemy_object_within_distance_possible_to_attack_by(struct Thing* creatng, MapCoordDelta dist, int64_t move_on_ground);
 struct Thing* get_nearest_enemy_object_possible_to_attack_by(struct Thing* creatng);
 
 // Routines to select all players creatures of model matching the criteria
-long count_creatures_in_dungeon_of_model_flags(const struct Dungeon *dungeon, unsigned long need_mdflags, unsigned long excl_mdflags);
-long count_creatures_in_dungeon_controlled_and_of_model_flags(const struct Dungeon *dungeon, unsigned long need_mdflags, unsigned long excl_mdflags);
+int64_t count_creatures_in_dungeon_of_model_flags(const struct Dungeon *dungeon, uint64_t need_mdflags, uint64_t excl_mdflags);
+int64_t count_creatures_in_dungeon_controlled_and_of_model_flags(const struct Dungeon *dungeon, uint64_t need_mdflags, uint64_t excl_mdflags);
 
 TbBool creature_matches_model(const struct Thing* creatng, ThingModel crmodel);
 TbBool creature_model_matches_model(ThingModel creatng_model, PlayerNumber plyr_idx, ThingModel target_model);
-TbBool thing_matches_model(const struct Thing* thing, long crmodel);
-unsigned long update_things_sounds_in_list(struct StructureList *list);
+TbBool thing_matches_model(const struct Thing* thing, int64_t crmodel);
+uint64_t update_things_sounds_in_list(struct StructureList *list);
 void stop_all_things_playing_samples(void);
-unsigned long update_creatures_not_in_list(void);
+uint64_t update_creatures_not_in_list(void);
 void update_things_in_list(struct StructureList *list);
 void init_player_start(struct PlayerInfo *player, TbBool keep_prev);
 void setup_computer_players(void);
@@ -270,43 +270,43 @@ TbBool update_creature_speed(struct Thing *thing);
 TbBool perform_action_on_all_creatures_in_group(struct Thing *thing, Thing_Bool_Modifier action);
 
 struct Thing *creature_of_model_in_prison_or_tortured(ThingModel crmodel);
-long count_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel);
-long count_player_creatures_for_transfer(PlayerNumber plyr_idx);
-long count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, int crmodel, long apt_index);
-long count_player_list_creatures_of_model(long thing_idx, ThingModel crmodel);
-long count_player_list_creatures_of_model_on_territory(long thing_idx, ThingModel crmodel, int friendly);
+int64_t count_player_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel);
+int64_t count_player_creatures_for_transfer(PlayerNumber plyr_idx);
+int64_t count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, int64_t crmodel, int64_t apt_index);
+int64_t count_player_list_creatures_of_model(int64_t thing_idx, ThingModel crmodel);
+int64_t count_player_list_creatures_of_model_on_territory(int64_t thing_idx, ThingModel crmodel, int64_t friendly);
 GoldAmount compute_player_payday_total(const struct Dungeon *dungeon);
 TbBool lord_of_the_land_in_prison_or_tortured(void);
 struct Thing *lord_of_the_land_find(void);
-long electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immune_plyr_idx, long range, long max_damage);
+int64_t electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immune_plyr_idx, int64_t range, int64_t max_damage);
 
 void update_things(void);
 
 struct Thing *find_base_thing_on_mapwho(ThingClass oclass, ThingModel okind, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-struct Thing *find_object_of_genre_on_mapwho(long genre, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
+struct Thing *find_object_of_genre_on_mapwho(int64_t genre, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 void remove_thing_from_mapwho(struct Thing *thing);
 void place_thing_in_mapwho(struct Thing *thing);
 
-struct Thing *find_hero_gate_of_number(long num);
-long get_free_hero_gate_number(void);
+struct Thing *find_hero_gate_of_number(int64_t num);
+int64_t get_free_hero_gate_number(void);
 
 struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel crmodel);
 
 TbBool thing_is_shootable(const struct Thing *thing, PlayerNumber shot_owner, HitTargetFlags hit_targets);
-HitTargetFlags hit_type_to_hit_targets(long hit_type);
-HitTargetFlags collide_filter_thing_is_of_type(const struct Thing *thing, const struct Thing *sectng, HitTargetFlags a3, long a4);
+HitTargetFlags hit_type_to_hit_targets(int64_t hit_type);
+HitTargetFlags collide_filter_thing_is_of_type(const struct Thing *thing, const struct Thing *sectng, HitTargetFlags a3, int64_t a4);
 
 TbBool imp_already_digging_at_excluding(struct Thing *excltng, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool gold_pile_with_maximum_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 struct Thing *smallest_gold_pile_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-TbBool update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int crmodel);
-TbBool apply_anger_to_all_players_creatures_excluding(PlayerNumber plyr_idx, long anger,
-    long reason, const struct Thing *excltng);
+TbBool update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel);
+TbBool apply_anger_to_all_players_creatures_excluding(PlayerNumber plyr_idx, int64_t anger,
+    int64_t reason, const struct Thing *excltng);
 
 void break_mapwho_infinite_chain(const struct Map *mapblk);
 
 TbBool update_thing(struct Thing *thing);
-short update_thing_sound(struct Thing *thing);
+int64_t update_thing_sound(struct Thing *thing);
 struct Thing* find_players_dungeon_heart(PlayerNumber plyridx);
 struct Thing* find_players_backup_dungeon_heart(PlayerNumber plyridx);
 
@@ -317,10 +317,10 @@ struct Thing* get_timebomb_target(struct Thing *creatng);
 
 void setup_all_player_creatures_and_diggers_leave_or_die(PlayerNumber plyr_idx);
 TbBool setup_creature_leave_or_die_if_possible(struct Thing* thing);
-unsigned short setup_excess_creatures_to_leave_or_die(short max_remain);
+int64_t setup_excess_creatures_to_leave_or_die(int64_t max_remain);
 
-extern int32_t optimised_lights;
-extern int32_t total_lights;
+extern int64_t optimised_lights;
+extern int64_t total_lights;
 extern unsigned char do_lights;
 /******************************************************************************/
 #ifdef __cplusplus

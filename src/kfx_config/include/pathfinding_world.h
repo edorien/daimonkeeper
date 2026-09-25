@@ -46,7 +46,7 @@ struct PathfindingWorldCallbacks {
     struct Map     *(*get_map_block_at_pos)(SubtlCodedCoords stl_num);
     unsigned char   (*map_block_flags)(const struct Map *mapblk);
     TbBool          (*map_block_is_invalid)(const struct Map *mapblk);
-    long            (*get_floor_filled_subtiles_at)(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
+    int64_t            (*get_floor_filled_subtiles_at)(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
     TbBool          (*subtile_is_unsafe)(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
     struct SlabMap *(*get_slabmap_block)(MapSlabCoord slb_x, MapSlabCoord slb_y);
     SlabKind        (*slabmap_block_kind)(const struct SlabMap *slb);
@@ -66,10 +66,10 @@ struct PathfindingWorldCallbacks {
     /* single-purpose struct-Thing queries -- mechanical 1:1 call-site
        substitutions no matter the call count, unlike the position/angle
        field access deferred to Track 3 */
-    short          (*thing_is_invalid)(const struct Thing *thing);
+    int64_t          (*thing_is_invalid)(const struct Thing *thing);
     PlayerNumber   (*thing_get_owner)(const struct Thing *thing);
-    long           (*get_thing_height_at)(const struct Thing *thing, const struct Coord3d *pos);
-    long           (*get_floor_height_under_thing_at)(const struct Thing *thing, const struct Coord3d *pos);
+    int64_t           (*get_thing_height_at)(const struct Thing *thing, const struct Coord3d *pos);
+    int64_t           (*get_floor_height_under_thing_at)(const struct Thing *thing, const struct Coord3d *pos);
     TbBool         (*creature_can_travel_over_lava)(const struct Thing *creatng);
     TbBool         (*thing_is_flying)(const struct Thing *thing); /* movement_flags & TMvF_Flying */
     const char    *(*thing_model_name)(const struct Thing *thing); /* debug logging only */
@@ -81,15 +81,15 @@ struct PathfindingWorldCallbacks {
        (creatng->mappos.z.val = h -> get, mutate the local copy, set). */
     struct Coord3d (*thing_get_position)(const struct Thing *thing);
     void           (*thing_set_position)(struct Thing *thing, const struct Coord3d *pos);
-    short          (*thing_get_move_angle)(const struct Thing *thing);
-    void           (*thing_set_move_angle)(struct Thing *thing, short angle);
-    unsigned short (*thing_get_index)(const struct Thing *thing);
-    unsigned short (*thing_get_clipbox_size)(const struct Thing *thing);
+    int64_t          (*thing_get_move_angle)(const struct Thing *thing);
+    void           (*thing_set_move_angle)(struct Thing *thing, int64_t angle);
+    int64_t (*thing_get_index)(const struct Thing *thing);
+    int64_t (*thing_get_clipbox_size)(const struct Thing *thing);
 
     /* the CreatureControl-embedded pathfinding slot (see stage-06a §5) */
     struct Navigation *(*creature_get_navigation)(struct Thing *creatng);      /* &cctrl->navi */
     struct Ariadne     *(*creature_get_ariadne_state)(struct Thing *creatng);  /* &cctrl->arid */
-    short               (*creature_get_max_speed)(const struct Thing *creatng);
+    int64_t               (*creature_get_max_speed)(const struct Thing *creatng);
     void                (*creature_clear_state_flags_for_wallhug_override)(struct Thing *creatng);
         /* wraps the two direct writes: cctrl->creature_state_flags = 0; cctrl->combat_flags = 0; */
 
@@ -109,7 +109,7 @@ struct PathfindingWorldCallbacks {
     TbBool           (*cross_y_boundary_first)(const struct Coord3d *pos1, const struct Coord3d *pos2);
     struct Around    (*get_small_around)(SmallAroundIndex n); /* small_around[n], map_utils.c */
     SmallAroundIndex (*get_small_around_length)(void); /* SMALL_AROUND_LENGTH, map_utils.h */
-    SmallAroundIndex (*small_around_index_in_direction)(long srcpos_x, long srcpos_y, long dstpos_x, long dstpos_y);
+    SmallAroundIndex (*small_around_index_in_direction)(int64_t srcpos_x, int64_t srcpos_y, int64_t dstpos_x, int64_t dstpos_y);
     MapSubtlCoord    (*get_map_size_z)(void); /* map_subtiles_z, map_data.c */
     TbBool           (*creature_cannot_move_directly_to)(struct Thing *thing, struct Coord3d *pos);
 
@@ -119,12 +119,12 @@ struct PathfindingWorldCallbacks {
        scratch state, not something either side owns exclusively, so it
        stays put and is reached through a getter/setter pair like every
        other cross-layer write in this interface. */
-    long  (*get_owner_player_navigating)(void);
-    void  (*set_owner_player_navigating)(long plyr_idx);
-    long  (*get_nav_thing_can_travel_over_lava)(void);
-    void  (*set_nav_thing_can_travel_over_lava)(long can_travel);
-    long  (*get_nav_thing_is_flying)(void);
-    void  (*set_nav_thing_is_flying)(long is_flying);
+    int64_t  (*get_owner_player_navigating)(void);
+    void  (*set_owner_player_navigating)(int64_t plyr_idx);
+    int64_t  (*get_nav_thing_can_travel_over_lava)(void);
+    void  (*set_nav_thing_can_travel_over_lava)(int64_t can_travel);
+    int64_t  (*get_nav_thing_is_flying)(void);
+    void  (*set_nav_thing_is_flying)(int64_t is_flying);
 
     /* map_columns.h -- Abyss dungeons (stage: Dungeons may now reach into
        the Abyss, #5169): ariadne_update.c needs to know whether a subtile

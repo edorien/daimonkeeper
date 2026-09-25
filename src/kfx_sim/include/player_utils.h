@@ -43,21 +43,21 @@ TbBool player_cannot_win(PlayerNumber plyr_idx);
 void set_player_as_won_level(struct PlayerInfo *player);
 void set_player_as_lost_level(struct PlayerInfo *player);
 
-long compute_player_final_score(struct PlayerInfo *player, long gameplay_score);
+int64_t compute_player_final_score(struct PlayerInfo *player, int64_t gameplay_score);
 
 #define take_money_from_dungeon(plyr_idx, amount_take, only_whole_sum) take_money_from_dungeon_f(plyr_idx, amount_take, only_whole_sum, __func__)
-long take_money_from_dungeon_f(PlayerNumber plyr_idx, GoldAmount amount_take, TbBool only_whole_sum, const char *func_name);
-long update_dungeon_generation_speeds(void);
+int64_t take_money_from_dungeon_f(PlayerNumber plyr_idx, GoldAmount amount_take, TbBool only_whole_sum, const char *func_name);
+int64_t update_dungeon_generation_speeds(void);
 void compute_and_update_player_payday_total(PlayerNumber plyr_idx);
 void compute_and_update_player_backpay_total(PlayerNumber plyr_idx);
 void calculate_dungeon_area_scores(void);
 
 TbBool player_sell_trap_at_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool whole_slab);
 TbBool player_sell_door_at_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-TbBool player_sell_room_at_subtile(long plyr_idx, long stl_x, long stl_y);
+TbBool player_sell_room_at_subtile(int64_t plyr_idx, int64_t stl_x, int64_t stl_y);
 
 void init_players(void);
-void init_player(struct PlayerInfo *player, short no_explore);
+void init_player(struct PlayerInfo *player, int64_t no_explore);
 void init_user_state(NetUserId user);
 void turn_user_cursor_light(NetUserId user, TbBool turn_on);
 void post_init_players(void);
@@ -72,10 +72,10 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx);
 void check_players_won(void);
 void check_players_lost(void);
 void blast_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);
-int set_players_creatures_to_get_paid(PlayerNumber plyr_idx);
+int64_t set_players_creatures_to_get_paid(PlayerNumber plyr_idx);
 void process_payday(void);
 void process_dungeons(void);
-int clear_active_dungeons_stats(void);
+int64_t clear_active_dungeons_stats(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

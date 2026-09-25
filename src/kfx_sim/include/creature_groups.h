@@ -71,23 +71,23 @@ struct PartyMember {
   unsigned char flags;
   ThingModel crtr_kind;
   unsigned char objectv;
-  long countdown;
+  int64_t countdown;
   CrtrExpLevel exp_level;
-  unsigned short carried_gold;
-  unsigned short is_active;
+  int64_t carried_gold;
+  int64_t is_active;
   PlayerNumber target;
 };
 
 struct Party {
   char prtname[100];
   struct PartyMember members[GROUP_MEMBERS_COUNT];
-  unsigned long members_num;
+  uint64_t members_num;
 };
 
 #pragma pack()
 /******************************************************************************/
 struct Thing* get_best_creature_to_lead_group(struct Thing* grptng);
-long get_no_creatures_in_group(const struct Thing *grptng);
+int64_t get_no_creatures_in_group(const struct Thing *grptng);
 TbBool get_free_position_behind_leader(struct Thing *leadtng, struct Coord3d *pos);
 
 void internal_update_leader_index_in_group(struct Thing *leadtng);
@@ -95,7 +95,7 @@ void internal_remove_member_from_group_chain(struct Thing *creatng);
 void internal_add_member_to_group_chain_head(struct Thing *creatng, struct Thing *leadtng);
 
 TbBool add_creature_to_group(struct Thing *crthing, struct Thing *grthing);
-long add_creature_to_group_as_leader(struct Thing *thing1, struct Thing *thing2);
+int64_t add_creature_to_group_as_leader(struct Thing *thing1, struct Thing *thing2);
 TbBool remove_creature_from_group(struct Thing *thing);
 TbBool remove_creature_from_group_without_leader_consideration(struct Thing *creatng);
 
@@ -106,10 +106,10 @@ struct Thing *get_first_follower_creature_in_group(const struct Thing *grptng);
 struct Thing *get_last_follower_creature_in_group(const struct Thing *grptng);
 TbBool make_group_member_leader(struct Thing *leadtng);
 
-long process_obey_leader(struct Thing *thing);
+int64_t process_obey_leader(struct Thing *thing);
 void leader_find_positions_for_followers(struct Thing *leadtng);
 
-struct Thing *script_process_new_party(struct Party *party, PlayerNumber plyr_idx, TbMapLocation location, long copies_num);
+struct Thing *script_process_new_party(struct Party *party, PlayerNumber plyr_idx, TbMapLocation location, int64_t copies_num);
 /******************************************************************************/
 #ifdef __cplusplus
 }

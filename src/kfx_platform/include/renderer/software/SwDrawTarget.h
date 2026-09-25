@@ -18,15 +18,15 @@ TbPixel* SwTargetWScreen(void);
 /** Surface base advanced to the clip window origin. */
 TbPixel* SwTargetGraphicsWindowPtr(void);
 /** Surface pitch, in bytes per row. */
-int32_t SwTargetScanline(void);
+int64_t SwTargetScanline(void);
 /** Full surface height, in rows. */
-int32_t SwTargetScreenHeight(void);
+int64_t SwTargetScreenHeight(void);
 
 /** The clip window the primitives draw within. */
-int32_t SwTargetWindowX(void);
-int32_t SwTargetWindowY(void);
-int32_t SwTargetWindowWidth(void);
-int32_t SwTargetWindowHeight(void);
+int64_t SwTargetWindowX(void);
+int64_t SwTargetWindowY(void);
+int64_t SwTargetWindowWidth(void);
+int64_t SwTargetWindowHeight(void);
 
 /**
  * The 3D rasterizer's own render target, as last configured by setup_vecs()
@@ -58,10 +58,10 @@ const unsigned char* SwTargetVecMap(void);
  * that multiplication happens in 32-bit or 64-bit. Narrowing it silently
  * changes that arithmetic's width, not just this function's own precision.
  */
-unsigned long SwTargetVecScreenWidth(void);
+uint64_t SwTargetVecScreenWidth(void);
 /** The rasterizer's clip width/height, as last set by setup_vecs(). `long`, matching vec_window_width/height exactly -- see SwTargetVecScreenWidth()'s comment. */
-long SwTargetVecWindowWidth(void);
-long SwTargetVecWindowHeight(void);
+int64_t SwTargetVecWindowWidth(void);
+int64_t SwTargetVecWindowHeight(void);
 
 #ifdef __cplusplus
 }

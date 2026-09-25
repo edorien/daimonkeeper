@@ -45,7 +45,7 @@ struct CommandEntry
     std::string signature;
     std::string tmpl;
     std::string summary;
-    int group;
+    int64_t group;
     bool classic;
 };
 
@@ -60,9 +60,9 @@ bool s_classic_only = false;
 char s_filter[64];
 std::vector<CommandEntry> s_commands;
 std::vector<ValueGroup> s_values;
-int s_group_sel = -1;   // -1 = all groups
-int s_command_sel = -1; // index into s_commands
-int s_value_group_sel = 0;
+int64_t s_group_sel = -1;   // -1 = all groups
+int64_t s_command_sel = -1; // index into s_commands
+int64_t s_value_group_sel = 0;
 std::string s_status;
 
 bool contains_nocase(const std::string &hay, const char *needle)
@@ -84,7 +84,7 @@ bool contains_nocase(const std::string &hay, const char *needle)
 void build_catalog()
 {
     s_commands.clear();
-    for (int i = 0; command_desc[i].textptr != NULL; i++)
+    for (int64_t i = 0; command_desc[i].textptr != NULL; i++)
     {
         CommandEntry e;
         e.name = command_desc[i].textptr;
@@ -133,8 +133,8 @@ void insert_command(const CommandEntry &e)
 
 void draw_commands_tab()
 {
-    int group_counts[ScrGroup_Count] = {};
-    int visible_total = 0;
+    int64_t group_counts[ScrGroup_Count] = {};
+    int64_t visible_total = 0;
     for (const CommandEntry &e : s_commands)
     {
         if (s_classic_only && !e.classic)
@@ -146,14 +146,14 @@ void draw_commands_tab()
     if (ImGui::BeginChild("##CmdGroups", ImVec2(210, -130), ImGuiChildFlags_Borders))
     {
         char label[96];
-        snprintf(label, sizeof(label), "All (%d)", visible_total);
+        snprintf(label, sizeof(label), "All (%" PRId64 ")", (int64_t)(visible_total));
         if (ImGui::Selectable(label, s_group_sel == -1))
             s_group_sel = -1;
-        for (int g = 0; g < ScrGroup_Count; g++)
+        for (int64_t g = 0; g < ScrGroup_Count; g++)
         {
             if (group_counts[g] == 0)
                 continue;
-            snprintf(label, sizeof(label), "%s (%d)", editor_script_group_title(g), group_counts[g]);
+            snprintf(label, sizeof(label), "%s (%" PRId64 ")", editor_script_group_title(g), (int64_t)(group_counts[g]));
             if (ImGui::Selectable(label, s_group_sel == g))
                 s_group_sel = g;
         }
@@ -163,7 +163,7 @@ void draw_commands_tab()
 
     if (ImGui::BeginChild("##CmdList", ImVec2(0, -130), ImGuiChildFlags_Borders))
     {
-        int last_group = -2;
+        int64_t last_group = -2;
         for (size_t i = 0; i < s_commands.size(); i++)
         {
             const CommandEntry &e = s_commands[i];
@@ -175,9 +175,9 @@ void draw_commands_tab()
                 last_group = e.group;
             }
             std::string row = e.signature + (e.classic ? "" : "   [KFX]") + "##cmd" + std::to_string(i);
-            if (ImGui::Selectable(row.c_str(), s_command_sel == (int)i, ImGuiSelectableFlags_AllowDoubleClick))
+            if (ImGui::Selectable(row.c_str(), s_command_sel == (int64_t)i, ImGuiSelectableFlags_AllowDoubleClick))
             {
-                s_command_sel = (int)i;
+                s_command_sel = (int64_t)i;
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                     insert_command(e);
             }
@@ -186,7 +186,7 @@ void draw_commands_tab()
     ImGui::EndChild();
 
     // Detail pane for the selected command.
-    if ((s_command_sel >= 0) && (s_command_sel < (int)s_commands.size()))
+    if ((s_command_sel >= 0) && (s_command_sel < (int64_t)s_commands.size()))
     {
         const CommandEntry &e = s_commands[s_command_sel];
         FeSubheading(e.name.c_str());
@@ -220,7 +220,7 @@ void draw_commands_tab()
     }
 }
 
-int s_lua_sel = -1;
+int64_t s_lua_sel = -1;
 std::string s_lua_group_sel; // empty = all
 
 void draw_lua_tab()
@@ -271,9 +271,9 @@ void draw_lua_tab()
                 last = f.group;
             }
             std::string row = editor_lua_signature(f) + "##lua" + std::to_string(i);
-            if (ImGui::Selectable(row.c_str(), s_lua_sel == (int)i, ImGuiSelectableFlags_AllowDoubleClick))
+            if (ImGui::Selectable(row.c_str(), s_lua_sel == (int64_t)i, ImGuiSelectableFlags_AllowDoubleClick))
             {
-                s_lua_sel = (int)i;
+                s_lua_sel = (int64_t)i;
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                     insert(f);
             }
@@ -281,7 +281,7 @@ void draw_lua_tab()
     }
     ImGui::EndChild();
 
-    if (s_lua_sel >= 0 && s_lua_sel < (int)cat.size())
+    if (s_lua_sel >= 0 && s_lua_sel < (int64_t)cat.size())
     {
         const LuaFunctionDoc &f = cat[(size_t)s_lua_sel];
         FeSubheading(f.name.c_str());
@@ -310,8 +310,8 @@ void draw_values_tab()
         {
             char label[96];
             snprintf(label, sizeof(label), "%s (%zu)", s_values[g].title.c_str(), s_values[g].names.size());
-            if (ImGui::Selectable(label, s_value_group_sel == (int)g))
-                s_value_group_sel = (int)g;
+            if (ImGui::Selectable(label, s_value_group_sel == (int64_t)g))
+                s_value_group_sel = (int64_t)g;
         }
     }
     ImGui::EndChild();
@@ -319,7 +319,7 @@ void draw_values_tab()
 
     if (ImGui::BeginChild("##ValList", ImVec2(0, 0), ImGuiChildFlags_Borders))
     {
-        if ((s_value_group_sel >= 0) && (s_value_group_sel < (int)s_values.size()))
+        if ((s_value_group_sel >= 0) && (s_value_group_sel < (int64_t)s_values.size()))
         {
             const ValueGroup &g = s_values[s_value_group_sel];
             for (size_t i = 0; i < g.names.size(); i++)
@@ -350,17 +350,17 @@ extern "C" void editor_dialogs_open_command_browser(void)
     s_show = true;
 }
 
-extern "C" int editor_command_browser_command_count(void)
+extern "C" int64_t editor_command_browser_command_count(void)
 {
     build_catalog();
-    return (int)s_commands.size();
+    return (int64_t)s_commands.size();
 }
 
-extern "C" int editor_command_browser_unclassified(char *out, int out_size)
+extern "C" int64_t editor_command_browser_unclassified(char *out, int64_t out_size)
 {
     build_catalog();
     std::string names;
-    int count = 0;
+    int64_t count = 0;
     for (const CommandEntry &e : s_commands)
     {
         if (e.group != ScrGroup_Other)

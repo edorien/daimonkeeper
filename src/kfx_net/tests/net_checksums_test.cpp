@@ -52,7 +52,7 @@ struct ResetChecksumState {
     // net_user_info slots in NetUserId order, and the host (id 0) already
     // claimed player number 0 above, so the i-th client lands on player
     // number i too.
-    void make_active_client(int i) {
+    void make_active_client(int64_t i) {
         kfx_sim_state.players[i].allocflags |= PlaF_Allocated;
         net_user_info[i].network_user_active = 1;
         setup_network_player_numbers();

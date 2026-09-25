@@ -65,8 +65,8 @@ TbBool jailbreak_possible(struct Room *room, PlayerNumber creature_owner)
     {
         return false;
     }
-    unsigned long k = 0;
-    unsigned long i = room->slabs_list;
+    uint64_t k = 0;
+    uint64_t i = room->slabs_list;
     while (i > 0)
     {
         slb = get_slabmap_direct(i);
@@ -90,7 +90,7 @@ TbBool jailbreak_possible(struct Room *room, PlayerNumber creature_owner)
     return false;
 }
 
-short cleanup_prison(struct Thing *thing)
+int64_t cleanup_prison(struct Thing *thing)
 {
   struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
   cctrl->creature_control_flags &= (CCFlg_Exists | CCFlg_PreventDamage | CCFlg_RepositionedInWall | CCFlg_AvoidCreatureCollision | CCFlg_IsInRoomList | CCFlg_MoveX | CCFlg_MoveY);
@@ -98,7 +98,7 @@ short cleanup_prison(struct Thing *thing)
   return 1;
 }
 
-short creature_arrived_at_prison(struct Thing *creatng)
+int64_t creature_arrived_at_prison(struct Thing *creatng)
 {
     TRACE_THING(creatng);
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
@@ -106,7 +106,7 @@ short creature_arrived_at_prison(struct Thing *creatng)
     struct Room* room = get_room_thing_is_on(creatng);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_CAPTIVITY), creatng))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",room_code_name(room->kind),(int)room->owner,thing_model_name(creatng),(int)creatng->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(creatng),(int64_t)creatng->index);
         set_start_state(creatng);
         return 0;
     }
@@ -141,7 +141,7 @@ short creature_arrived_at_prison(struct Thing *creatng)
 
 }
 
-short creature_drop_body_in_prison(struct Thing *thing)
+int64_t creature_drop_body_in_prison(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct Thing* dragtng = thing_get(cctrl->dragtng_idx);
@@ -173,7 +173,7 @@ short creature_drop_body_in_prison(struct Thing *thing)
 
 struct Thing *find_prisoner_to_freeze(struct Thing *creatng, SpellKind spell_idx)
 {
-    long i;
+    int64_t i;
     TRACE_THING(creatng);
     struct Room* room = INVALID_ROOM;
     if (!is_neutral_thing(creatng)) {
@@ -185,8 +185,8 @@ struct Thing *find_prisoner_to_freeze(struct Thing *creatng, SpellKind spell_idx
         i = 0;
     }
     struct Thing* out_creatng = INVALID_THING;
-    long out_delay = INT32_MAX;
-    unsigned long k = 0;
+    int64_t out_delay = INT32_MAX;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -194,12 +194,12 @@ struct Thing *find_prisoner_to_freeze(struct Thing *creatng, SpellKind spell_idx
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (!creature_control_exists(cctrl))
         {
-            ERRORLOG("Jump to invalid creature %ld detected",i);
+            ERRORLOG("Jump to invalid creature %" PRId64 " detected",(int64_t)(i));
             break;
         }
         i = cctrl->next_in_room;
         // Per creature code
-        long dist = get_chessboard_distance(&creatng->mappos, &thing->mappos);
+        int64_t dist = get_chessboard_distance(&creatng->mappos, &thing->mappos);
         if (out_delay < 0)
         {
             // If we have a victim which isn't frozen, accept only other unfrozen creatures
@@ -211,7 +211,7 @@ struct Thing *find_prisoner_to_freeze(struct Thing *creatng, SpellKind spell_idx
         if (creature_under_spell_effect(thing, CSAfF_Freeze))
         {
             // If the victim is frozen, select one which will unfreeze sooner
-            long durt = get_spell_duration_left_on_thing(thing, spell_idx);
+            int64_t durt = get_spell_duration_left_on_thing(thing, spell_idx);
             if ((durt > 0) && (out_delay > durt)) {
                 out_creatng = thing;
                 out_delay = durt;
@@ -233,7 +233,7 @@ struct Thing *find_prisoner_to_freeze(struct Thing *creatng, SpellKind spell_idx
     return out_creatng;
 }
 
-short creature_freeze_prisoners(struct Thing *creatng)
+int64_t creature_freeze_prisoners(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     if (cctrl->instance_id != CrInst_NULL) {
@@ -259,7 +259,7 @@ short creature_freeze_prisoners(struct Thing *creatng)
         set_start_state(creatng);
         return 0;
     }
-    long dist = get_combat_distance(creatng, victng);
+    int64_t dist = get_combat_distance(creatng, victng);
     if (dist < 156) {
         creature_retreat_from_combat(creatng, victng, CrSt_CreatureFreezePrisoners, 0);
     } else
@@ -414,7 +414,7 @@ TbBool process_prison_food(struct Thing *creatng, struct Room *room)
 
     if ( thing_is_invalid(foodtng) )
     {
-        long offsetted_gameturn = get_gameturn() + creatng->index;
+        int64_t offsetted_gameturn = get_gameturn() + creatng->index;
        if ((offsetted_gameturn % 64 == 0)
         && thing_is_invalid(get_food_at_subtile_available_to_eat_and_owned_by(cctrl->moveto_pos.x.stl.num,cctrl->moveto_pos.y.stl.num, -1)))
         {
@@ -467,7 +467,7 @@ CrCheckRet process_prison_function(struct Thing *creatng)
     struct Room* room = get_room_creature_works_in(creatng);
     if (!room_still_valid_as_type_for_thing(room, RoRoF_Prison, creatng))
     {
-        WARNLOG("Room %s owned by player %d is bad work place for %s index %d owner %d", room_code_name(room->kind), (int)room->owner, thing_model_name(creatng), (int)creatng->index, (int)creatng->owner);
+        WARNLOG("Room %s owned by player %" PRId64 " is bad work place for %s index %" PRId64 " owner %" PRId64, room_code_name(room->kind), (int64_t)room->owner, thing_model_name(creatng), (int64_t)creatng->index, (int64_t)creatng->owner);
         set_start_state(creatng);
         return CrCkRet_Continue;
     }

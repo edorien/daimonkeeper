@@ -25,13 +25,13 @@ public:
 
     // ----- Redbook (CD) audio -----
     virtual void   SetRedbookVolume(SoundVolume vol) = 0;
-    virtual TbBool PlayRedbookTrack(int track) = 0;
+    virtual TbBool PlayRedbookTrack(int64_t track) = 0;
     virtual void   PauseRedbookTrack() = 0;
     virtual void   ResumeRedbookTrack() = 0;
     virtual void   StopRedbookTrack() = 0;
 
     // ----- Steam ----- (Linux stubbed; real libsteam_api.so is future work)
-    virtual int  InitSteam() = 0;   // 0 ok, -1 unsupported, >0 failure
+    virtual int64_t  InitSteam() = 0;   // 0 ok, -1 unsupported, >0 failure
     virtual void ShutdownSteam() = 0;
 
     /** Initialise the display subsystem. Per-OS: Windows adjusts SDL hints

@@ -50,9 +50,9 @@ extern struct TooltipDebugInfo tool_tip_dbg;
 void toggle_tooltips(void);
 void draw_tooltip(void);
 TbBool input_gameplay_tooltips(TbBool gameplay_on);
-short setup_scrolling_tooltips(struct Coord3d *mappos);
+int64_t setup_scrolling_tooltips(struct Coord3d *mappos);
 void setup_gui_tooltip(struct GuiButton *gbtn);
-TbBool gui_button_tooltip_update(int gbtn_idx);
+TbBool gui_button_tooltip_update(int64_t gbtn_idx);
 /******************************************************************************/
 #ifdef __cplusplus
 }

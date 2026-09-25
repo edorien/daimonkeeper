@@ -35,19 +35,19 @@ extern "C" {
 // docs/refactor/stage-06-kfx-sim.md.
 
 struct ErrorStatistics {
-    unsigned long n;
-    unsigned long nprv;
+    uint64_t n;
+    uint64_t nprv;
     const char *msg;
 };
 
 #pragma pack()
 /******************************************************************************/
 void erstats_clear(void);
-long erstat_inc(int stat_num);
+int64_t erstat_inc(int64_t stat_num);
 TbBool erstat_check(void);
 extern struct ErrorStatistics erstat[];
-extern int last_checked_stat_num;
-extern float render_onscreen_msg_time;
+extern int64_t last_checked_stat_num;
+extern double render_onscreen_msg_time;
 extern char onscreen_msg_text[]; // Phase 3: read by the ImGui text overlay
 
 // Phase 3: draw_onscreen_direct_messages()'s last "banner should show"
@@ -56,7 +56,7 @@ extern char onscreen_msg_text[]; // Phase 3: read by the ImGui text overlay
 TbBool onscreen_banner_visible(void);
 
 TbBool is_onscreen_msg_visible(void);
-TbBool show_onscreen_msg(int nturns, const char *fmt_str, ...) KFX_PRINTF_FORMAT(2, 3);
+TbBool show_onscreen_msg(int64_t nturns, const char *fmt_str, ...) KFX_PRINTF_FORMAT(2, 3);
 TbBool draw_onscreen_direct_messages(void);
 /******************************************************************************/
 #ifdef __cplusplus

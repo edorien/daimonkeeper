@@ -26,13 +26,13 @@ namespace {
         "Arabic: حارس الزنزانة",
     };
 
-    int s_slider_val_percent = 50;
+    int64_t s_slider_val_percent = 50;
     bool s_checkbox_invert_mouse = false;
-    int s_combo_index = 0;
+    int64_t s_combo_index = 0;
     char s_text_buf[64] = "Keeper";
     bool s_capturing_key = false;
-    int s_selected_row = 0;
-    int s_selected_nav = 0;
+    int64_t s_selected_row = 0;
+    int64_t s_selected_nav = 0;
 
     void draw_type_scale()
     {
@@ -50,9 +50,9 @@ namespace {
     {
         if (FeBeginPanel("Settings controls", ImVec2(560, 280)))
         {
-            float slider_f = (float)s_slider_val_percent;
-            if (FeSlider("Mouse sensitivity", &slider_f, 0.0f, 100.0f, "%.0f%%"))
-                s_slider_val_percent = (int)slider_f;
+            double slider_f = (double)s_slider_val_percent;
+            if (FeSlider("Mouse sensitivity", &slider_f, 0.0, 100.0, "%.0f%%"))
+                s_slider_val_percent = (int64_t)slider_f;
 
             FeCheckbox("Invert mouse", &s_checkbox_invert_mouse);
 
@@ -79,7 +79,7 @@ namespace {
             static const char *const nav_items[] = {
                 "Start New Game", "Continue Game", "Free Play Levels", "Load Game", "Multiplayer",
             };
-            for (int i = 0; i < IM_ARRAYSIZE(nav_items); i++)
+            for (int64_t i = 0; i < IM_ARRAYSIZE(nav_items); i++)
             {
                 if (FeNavButton(nav_items[i], s_selected_nav == i))
                     s_selected_nav = i;
@@ -90,10 +90,10 @@ namespace {
             bool open = FeBeginListBox("##stylesheet_listbox", ImVec2(0, 100));
             if (open)
             {
-                for (int i = 0; i < 8; i++)
+                for (int64_t i = 0; i < 8; i++)
                 {
                     char label[32];
-                    std::snprintf(label, sizeof(label), "List row %d", i);
+                    std::snprintf(label, sizeof(label), "List row %" PRId64, (int64_t)(i));
                     if (FeListRow(label, s_selected_row == i))
                         s_selected_row = i;
                 }

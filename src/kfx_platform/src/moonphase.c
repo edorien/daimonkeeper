@@ -4,12 +4,12 @@
 #include "globals.h"
 #include "post_inc.h"
 
-static float phase_of_moon;
+static double phase_of_moon;
 
-short is_full_moon = 0;
-short is_near_full_moon = 0;
-short is_new_moon = 0;
-short is_near_new_moon = 0;
+int64_t is_full_moon = 0;
+int64_t is_near_full_moon = 0;
+int64_t is_new_moon = 0;
+int64_t is_near_new_moon = 0;
 
 
 /**
@@ -37,12 +37,12 @@ static double moonphase_calculate()
     return phase.angle / 360;
 }
 
-short calculate_moon_phase(short do_calculate, short add_to_log)
+int64_t calculate_moon_phase(int64_t do_calculate, int64_t add_to_log)
 {
     // Moon phase calculation
     if (do_calculate)
     {
-        phase_of_moon = (float)moonphase_calculate();
+        phase_of_moon = (double)moonphase_calculate();
     }
 
     // Handle moon phases

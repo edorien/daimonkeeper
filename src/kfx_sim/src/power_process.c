@@ -74,7 +74,7 @@ void set_chosen_power(PowerKind pwkind, TextStringId sptooltip)
     const struct PowerConfigStats* powerst = get_power_model_stats(pwkind);
     if (power_model_stats_invalid(powerst))
       pwkind = 0;
-    SYNCDBG(6,"Setting to %u",pwkind);
+    SYNCDBG(6,"Setting to %" PRIu64,(uint64_t)(pwkind));
     kfx_sim_state.chosen_spell_type = pwkind;
     kfx_sim_state.chosen_spell_spridx = powerst->bigsym_sprite_idx;
     kfx_sim_state.chosen_spell_tooltip = sptooltip;
@@ -82,7 +82,7 @@ void set_chosen_power(PowerKind pwkind, TextStringId sptooltip)
 
 void set_chosen_power_none(void)
 {
-    SYNCDBG(6,"Setting to %d",0);
+    SYNCDBG(6,"Setting to %" PRId64,(int64_t)(0));
     kfx_sim_state.chosen_spell_type = 0;
     kfx_sim_state.chosen_spell_spridx = 0;
     kfx_sim_state.chosen_spell_tooltip = 0;
@@ -120,7 +120,7 @@ const Expand_Check_Func powermodel_expand_check_func_list[] = {
 void process_armageddon(void)
 {
     struct PlayerInfo *player;
-    long i;
+    int64_t i;
     SYNCDBG(6,"Starting");
     GameTurnDelta countdown = kfx_config_state.conf.rules[kfx_sim_state.armageddon_caster_idx].magic.armageddon_count_down;
     if (kfx_sim_state.armageddon_cast_turn == 0)
@@ -220,11 +220,11 @@ void process_disease(struct Thing *creatng)
     if (THING_RANDOM(creatng, 100) < kfx_config_state.conf.rules[creatng->owner].magic.disease_transfer_percentage)
     {
         SubtlCodedCoords stl_num = get_subtile_number(creatng->mappos.x.stl.num, creatng->mappos.y.stl.num);
-        for (long n = 0; n < AROUND_MAP_LENGTH; n++)
+        for (int64_t n = 0; n < AROUND_MAP_LENGTH; n++)
         {
             struct Map *mapblk = get_map_block_at_pos(stl_num + kfx_sim_state.around_map[n]);
-            unsigned long k = 0;
-            long i = get_mapwho_thing_index(mapblk);
+            uint64_t k = 0;
+            int64_t i = get_mapwho_thing_index(mapblk);
             while (i != 0)
             {
                 struct Thing *thing = thing_get(i);
@@ -313,7 +313,7 @@ void update_god_lightning_ball(struct Thing *thing)
         return;
     }
     struct ShotConfigStats* shotst;
-    long i = (get_gameturn() - thing->creation_turn) % 16;
+    int64_t i = (get_gameturn() - thing->creation_turn) % 16;
     struct Thing* target;
     switch (i)
     {
@@ -348,14 +348,14 @@ void update_god_lightning_ball(struct Thing *thing)
 
 void god_lightning_choose_next_creature(struct Thing *shotng)
 {
-    SYNCDBG(16,"Starting for %s index %d owner %d",thing_model_name(shotng),(int)shotng->index,(int)shotng->owner);
+    SYNCDBG(16,"Starting for %s index %" PRId64 " owner %" PRId64,thing_model_name(shotng),(int64_t)shotng->index,(int64_t)shotng->owner);
 
-    long best_dist = INT32_MAX;
+    int64_t best_dist = INT32_MAX;
     struct Thing* best_thing = INVALID_THING;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
     struct ShotConfigStats* shotst = get_shot_model_stats(shotng->model);
-    unsigned long k = 0;
-    int i = slist->index;
+    uint64_t k = 0;
+    int64_t i = slist->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -370,7 +370,7 @@ void god_lightning_choose_next_creature(struct Thing *shotng)
         if (!players_are_mutual_allies(shotng->owner,thing->owner) && !thing_is_picked_up(thing)
             && !creature_is_being_unconscious(thing) && !creature_is_dying(thing))
         {
-            long dist = get_2d_distance(&shotng->mappos, &thing->mappos);
+            int64_t dist = get_2d_distance(&shotng->mappos, &thing->mappos);
             if (dist < best_dist)
             {
                 if (shotst->max_range > dist)
@@ -390,9 +390,9 @@ void god_lightning_choose_next_creature(struct Thing *shotng)
             break;
         }
     }
-    SYNCDBG(8,"The best target for %s index %d owner %d is %s index %d owner %d",
-        thing_model_name(shotng),(int)shotng->index,(int)shotng->owner,
-        thing_model_name(best_thing),(int)best_thing->index,(int)best_thing->owner);
+    SYNCDBG(8,"The best target for %s index %" PRId64 " owner %" PRId64 " is %s index %" PRId64 " owner %" PRId64,
+        thing_model_name(shotng),(int64_t)shotng->index,(int64_t)shotng->owner,
+        thing_model_name(best_thing),(int64_t)best_thing->index,(int64_t)best_thing->owner);
     if (thing_exists(best_thing)) {
         shotng->shot.target_idx = best_thing->index;
     } else {
@@ -407,7 +407,7 @@ void draw_god_lightning(struct Thing *shotng)
     if (cam == NULL) {
         return;
     }
-    for (int i = DEGREES_45; i < DEGREES_360; i += DEGREES_90)
+    for (int64_t i = DEGREES_45; i < DEGREES_360; i += DEGREES_90)
     {
         struct Coord3d locpos;
         locpos.x.val = (shotng->mappos.x.val + (LbSinL(i + cam->rotation_angle_x) >> (LbFPMath_TrigmBits - 10))) + 128;
@@ -465,11 +465,11 @@ void turn_off_power_call_to_arms(PlayerNumber plyr_idx)
 void store_backup_explored_flags_for_power_sight(struct PlayerInfo *player, struct Coord3d *soe_pos)
 {
     struct Dungeon* dungeon = get_players_dungeon(player);
-    MapSubtlCoord stl_y = (long)soe_pos->y.stl.num - MAX_SOE_RADIUS;
-    for (long soe_y = 0; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, stl_y++)
+    MapSubtlCoord stl_y = (int64_t)soe_pos->y.stl.num - MAX_SOE_RADIUS;
+    for (int64_t soe_y = 0; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, stl_y++)
     {
-        MapSubtlCoord stl_x = (long)soe_pos->x.stl.num - MAX_SOE_RADIUS;
-        for (long soe_x = 0; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, stl_x++)
+        MapSubtlCoord stl_x = (int64_t)soe_pos->x.stl.num - MAX_SOE_RADIUS;
+        for (int64_t soe_x = 0; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, stl_x++)
         {
             if (dungeon->soe_explored_flags[soe_y][soe_x])
             {
@@ -491,26 +491,26 @@ void store_backup_explored_flags_for_power_sight(struct PlayerInfo *player, stru
 void update_vertical_explored_flags_for_power_sight(struct PlayerInfo *player, struct Coord3d *soe_pos)
 {
     struct Dungeon* dungeon = get_players_dungeon(player);
-    MapSubtlCoord stl_y = (long)soe_pos->y.stl.num - MAX_SOE_RADIUS;
-    for (long soe_y = 0; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, stl_y++)
+    MapSubtlCoord stl_y = (int64_t)soe_pos->y.stl.num - MAX_SOE_RADIUS;
+    for (int64_t soe_y = 0; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, stl_y++)
     {
         if ( (stl_y >= 0) && (stl_y <= kfx_sim_state.map_subtiles_y) )
         {
-            MapSubtlCoord stl_x = (long)soe_pos->x.stl.num - MAX_SOE_RADIUS;
-            for (long soe_x = 0; soe_x <= MAX_SOE_RADIUS; soe_x++, stl_x++)
+            MapSubtlCoord stl_x = (int64_t)soe_pos->x.stl.num - MAX_SOE_RADIUS;
+            for (int64_t soe_x = 0; soe_x <= MAX_SOE_RADIUS; soe_x++, stl_x++)
             {
                 if (dungeon->soe_explored_flags[soe_y][soe_x])
                 {
                     soe_x++;
                     // Find max value for delta
-                    long delta = 0;
-                    long i;
+                    int64_t delta = 0;
+                    int64_t i;
                     for (i = 1; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, i++)
                     {
                         if (dungeon->soe_explored_flags[soe_y][soe_x])
                             delta = i;
                     }
-                    long boundstl_x = stl_x + delta;
+                    int64_t boundstl_x = stl_x + delta;
                     if (stl_x < 0)
                     {
                         stl_x = 0;
@@ -530,12 +530,12 @@ void update_vertical_explored_flags_for_power_sight(struct PlayerInfo *player, s
                     if (boundstl_x >= stl_x)
                     {
                         delta = boundstl_x - stl_x + 1;
-                        long slb_y = subtile_slab(stl_y);
+                        int64_t slb_y = subtile_slab(stl_y);
                         for (i=0; i < delta; i++)
                         {
                             struct Map* mapblk = get_map_block_at(stl_x + i, stl_y);
                             reveal_map_block(mapblk, player->id_number);
-                            long slb_x = subtile_slab(stl_x + i);
+                            int64_t slb_x = subtile_slab(stl_x + i);
                             struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
                             struct SlabConfigStats* slabst = get_slab_stats(slb);
                             if ( !slabst->is_diggable )
@@ -583,26 +583,26 @@ TbBool player_uses_power_hold_audience(PlayerNumber plyr_idx)
 void update_horizonal_explored_flags_for_power_sight(struct PlayerInfo *player, struct Coord3d *soe_pos)
 {
     struct Dungeon* dungeon = get_players_dungeon(player);
-    long stl_x = (long)soe_pos->x.stl.num - MAX_SOE_RADIUS;
-    for (long soe_x = 0; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, stl_x++)
+    int64_t stl_x = (int64_t)soe_pos->x.stl.num - MAX_SOE_RADIUS;
+    for (int64_t soe_x = 0; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, stl_x++)
     {
         if ( (stl_x >= 0) && (stl_x <= 255) )
         {
-            long stl_y = (long)soe_pos->y.stl.num - MAX_SOE_RADIUS;
-            for (long soe_y = 0; soe_y <= MAX_SOE_RADIUS; soe_y++, stl_y++)
+            int64_t stl_y = (int64_t)soe_pos->y.stl.num - MAX_SOE_RADIUS;
+            for (int64_t soe_y = 0; soe_y <= MAX_SOE_RADIUS; soe_y++, stl_y++)
             {
                 if (dungeon->soe_explored_flags[soe_y][soe_x])
                 {
                     soe_y++;
                     // Find max value for delta
-                    long delta = 0;
-                    long i;
+                    int64_t delta = 0;
+                    int64_t i;
                     for (i = 1; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, i++)
                     {
                         if (dungeon->soe_explored_flags[soe_y][soe_x])
                             delta = i;
                     }
-                    long boundstl_y = stl_y + delta;
+                    int64_t boundstl_y = stl_y + delta;
                     if (boundstl_y < 0)
                     {
                         boundstl_y = 0;
@@ -622,10 +622,10 @@ void update_horizonal_explored_flags_for_power_sight(struct PlayerInfo *player, 
                     if (stl_y <= boundstl_y)
                     {
                       delta = boundstl_y - stl_y + 1;
-                      long slb_x = subtile_slab(stl_x);
+                      int64_t slb_x = subtile_slab(stl_x);
                       for (i=0; i < delta; i++)
                       {
-                          long slb_y = subtile_slab(stl_y + i);
+                          int64_t slb_y = subtile_slab(stl_y + i);
                           struct Map* mapblk = get_map_block_at(stl_x, stl_y + i);
                           reveal_map_block(mapblk, player->id_number);
                           struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
@@ -651,7 +651,7 @@ void update_explored_flags_for_power_sight(struct PlayerInfo *player)
     }
     struct Thing* thing = thing_get(dungeon->sight_casted_thing_idx);
     if (!thing_is_object(thing)) {
-        ERRORLOG("Sight thing index %d invalid", (int)dungeon->sight_casted_thing_idx);
+        ERRORLOG("Sight thing index %" PRId64 " invalid", (int64_t)dungeon->sight_casted_thing_idx);
         turn_off_power_sight_of_evil(player->id_number);
         dungeon->sight_casted_thing_idx = 0;
         return;
@@ -675,11 +675,11 @@ void remove_explored_flags_for_power_sight(struct PlayerInfo *player)
     struct Thing *sightng = thing_get(dungeon->sight_casted_thing_idx);
     struct Coord3d *soe_pos = &sightng->mappos;
 
-    MapSubtlCoord stl_y = (long)soe_pos->y.stl.num - MAX_SOE_RADIUS;
-    for (long soe_y = 0; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, stl_y++)
+    MapSubtlCoord stl_y = (int64_t)soe_pos->y.stl.num - MAX_SOE_RADIUS;
+    for (int64_t soe_y = 0; soe_y < 2 * MAX_SOE_RADIUS; soe_y++, stl_y++)
     {
-        MapSubtlCoord stl_x = (long)soe_pos->x.stl.num - MAX_SOE_RADIUS;
-        for (long soe_x = 0; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, stl_x++)
+        MapSubtlCoord stl_x = (int64_t)soe_pos->x.stl.num - MAX_SOE_RADIUS;
+        for (int64_t soe_x = 0; soe_x < 2 * MAX_SOE_RADIUS; soe_x++, stl_x++)
         {
             if (dungeon->soe_explored_flags[soe_y][soe_x])
             {
@@ -718,7 +718,7 @@ void process_timebomb(struct Thing *creatng)
     {
         if ((cctrl->timebomb_countdown % kfx_sim_state.turns_per_second) == 0)
         {
-            long time = (cctrl->timebomb_countdown / kfx_sim_state.turns_per_second);
+            int64_t time = (cctrl->timebomb_countdown / kfx_sim_state.turns_per_second);
             timetng = create_price_effect(&creatng->mappos, creatng->owner, time);
             cctrl->timebomb_countdown_id = timetng->index;
             sim_feedback->thing_play_sample(creatng, 853, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS); // 853 is hardcoded ticking sound, could be configurable.
@@ -745,7 +745,7 @@ void process_timebomb(struct Thing *creatng)
     {
         if ((creatng->mappos.x.stl.num == trgtng->mappos.x.stl.num) && (creatng->mappos.y.stl.num == trgtng->mappos.y.stl.num))
         {
-            if (abs(creatng->mappos.z.val - trgtng->mappos.z.val) <= creatng->solid_size_z)
+            if (llabs(creatng->mappos.z.val - trgtng->mappos.z.val) <= creatng->solid_size_z)
             {
                 timebomb_explode(creatng);
                 return;
@@ -787,11 +787,11 @@ void timebomb_explode(struct Thing *creatng)
         {
             create_effect_around_thing(creatng, TngEff_Blood5);
         }
-        long weight = compute_creature_weight(creatng);
+        int64_t weight = compute_creature_weight(creatng);
         struct CreatureModelConfig *crconf = creature_stats_get_from_thing(creatng);
-        long dist = (compute_creature_attack_range(shotst->area_range * COORD_PER_STL, crconf->luck, cctrl->exp_level) * weight) / WEIGHT_DIVISOR;
+        int64_t dist = (compute_creature_attack_range(shotst->area_range * COORD_PER_STL, crconf->luck, cctrl->exp_level) * weight) / WEIGHT_DIVISOR;
         HitPoints damage = (compute_creature_attack_spell_damage(shotst->area_damage, crconf->luck, cctrl->exp_level, creatng->owner) * weight) / WEIGHT_DIVISOR;
-        long blow_strength = (shotst->area_blow * weight) / WEIGHT_DIVISOR;
+        int64_t blow_strength = (shotst->area_blow * weight) / WEIGHT_DIVISOR;
         HitTargetFlags hit_targets = hit_type_to_hit_targets(shotst->area_hit_type);
         shot_kill_creature(shotng, creatng);
         explosion_affecting_area(shotng, &shotng->mappos, dist, damage, blow_strength, hit_targets);

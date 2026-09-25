@@ -49,7 +49,7 @@ extern "C" struct TbFileFind * LbFileFindFirst(const char * filespec, struct TbF
     return GetPlatform()->FileFindFirst(filespec, fentry);
 }
 
-extern "C" int LbFileFindNext(struct TbFileFind * ffind, struct TbFileEntry * fentry)
+extern "C" int64_t LbFileFindNext(struct TbFileFind * ffind, struct TbFileEntry * fentry)
 {
     if (!ffind) {
         return -1;
@@ -68,7 +68,7 @@ extern "C" void LbFileFindEnd(struct TbFileFind * ffind)
 }
 
 namespace {
-struct SubdirCollect { char* out; int stride; int max; int count; };
+struct SubdirCollect { char* out; int64_t stride; int64_t max; int64_t count; };
 
 SDL_EnumerationResult SDLCALL subdir_enum_cb(void* ud, const char* dirname, const char* fname)
 {
@@ -87,7 +87,7 @@ SDL_EnumerationResult SDLCALL subdir_enum_cb(void* ud, const char* dirname, cons
 }
 } // namespace
 
-extern "C" int PlatformManager_ListSubdirectories(const char* path, char* out, int stride, int max)
+extern "C" int64_t PlatformManager_ListSubdirectories(const char* path, char* out, int64_t stride, int64_t max)
 {
     if (out == nullptr || stride <= 0 || max <= 0)
         return 0;
@@ -99,48 +99,48 @@ extern "C" int PlatformManager_ListSubdirectories(const char* path, char* out, i
 /******************************************************************************/
 
 extern "C" void   SetRedbookVolume(SoundVolume value) { GetPlatform()->SetRedbookVolume(value); }
-extern "C" TbBool PlayRedbookTrack(int track)         { return GetPlatform()->PlayRedbookTrack(track); }
+extern "C" TbBool PlayRedbookTrack(int64_t track)         { return GetPlatform()->PlayRedbookTrack(track); }
 extern "C" void   PauseRedbookTrack(void)             { GetPlatform()->PauseRedbookTrack(); }
 extern "C" void   ResumeRedbookTrack(void)            { GetPlatform()->ResumeRedbookTrack(); }
 extern "C" void   StopRedbookTrack(void)              { GetPlatform()->StopRedbookTrack(); }
 
-extern "C" int  steam_api_init(void)     { return GetPlatform()->InitSteam(); }
+extern "C" int64_t  steam_api_init(void)     { return GetPlatform()->InitSteam(); }
 extern "C" void steam_api_shutdown(void) { GetPlatform()->ShutdownSteam(); }
 
 /******************************************************************************/
 
-extern "C" int PlatformManager_InitVideo(void)
+extern "C" int64_t PlatformManager_InitVideo(void)
 {
     return GetPlatform()->VideoInit() ? 1 : 0;
 }
 
-extern "C" int PlatformManager_HasWindow(void)
+extern "C" int64_t PlatformManager_HasWindow(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return (ws && ws->HasWindow()) ? 1 : 0;
 }
 
-extern "C" int PlatformManager_GetIsAppActive(void)
+extern "C" int64_t PlatformManager_GetIsAppActive(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return (ws && ws->IsAppActive()) ? 1 : 0;
 }
 
-extern "C" int PlatformManager_OwnsDisplay(void)             { return GetPlatform()->OwnsDisplay() ? 1 : 0; }
+extern "C" int64_t PlatformManager_OwnsDisplay(void)             { return GetPlatform()->OwnsDisplay() ? 1 : 0; }
 // -headless (main.cpp): SDL's dummy driver reports zero real display
 // modes, so LbHwCheckIsModeAvailable() (bflib_video.c) would reject every
 // resolution -- including the 320x200 failsafe -- and fail startup
 // entirely. VideoDisabled short-circuits through this same
 // already-existing "trust the requested mode" escape hatch.
-extern "C" int PlatformManager_ForcesAllModesAvailable(void) { return (VideoDisabled || GetPlatform()->ForcesAllModesAvailable()) ? 1 : 0; }
+extern "C" int64_t PlatformManager_ForcesAllModesAvailable(void) { return (VideoDisabled || GetPlatform()->ForcesAllModesAvailable()) ? 1 : 0; }
 
-extern "C" unsigned int PlatformManager_GetWindowFlags(void)
+extern "C" uint64_t PlatformManager_GetWindowFlags(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->GetWindowFlags() : 0;
 }
 
-extern "C" void PlatformManager_GetWindowSize(int* out_w, int* out_h)
+extern "C" void PlatformManager_GetWindowSize(int64_t* out_w, int64_t* out_h)
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
@@ -148,19 +148,19 @@ extern "C" void PlatformManager_GetWindowSize(int* out_w, int* out_h)
     if (ws) ws->GetWindowSize(out_w, out_h);
 }
 
-extern "C" int PlatformManager_GetWindowDisplayIndex(void)
+extern "C" int64_t PlatformManager_GetWindowDisplayIndex(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->GetWindowDisplayIndex() : -1;
 }
 
-extern "C" int PlatformManager_GetNumVideoDisplays(void)
+extern "C" int64_t PlatformManager_GetNumVideoDisplays(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->GetNumVideoDisplays() : 0;
 }
 
-extern "C" int PlatformManager_GetDesktopDisplayMode(int display, int* out_w, int* out_h)
+extern "C" int64_t PlatformManager_GetDesktopDisplayMode(int64_t display, int64_t* out_w, int64_t* out_h)
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
@@ -168,7 +168,7 @@ extern "C" int PlatformManager_GetDesktopDisplayMode(int display, int* out_w, in
     return ws ? ws->GetDesktopDisplayMode(display, out_w, out_h) : -1;
 }
 
-extern "C" int PlatformManager_GetDisplayBounds(int display, int* out_x, int* out_y, int* out_w, int* out_h)
+extern "C" int64_t PlatformManager_GetDisplayBounds(int64_t display, int64_t* out_x, int64_t* out_y, int64_t* out_w, int64_t* out_h)
 {
     if (out_x) *out_x = 0;
     if (out_y) *out_y = 0;
@@ -178,7 +178,7 @@ extern "C" int PlatformManager_GetDisplayBounds(int display, int* out_x, int* ou
     return ws ? ws->GetDisplayBounds(display, out_x, out_y, out_w, out_h) : -1;
 }
 
-extern "C" int PlatformManager_GetClosestDisplayMode(int display, int desired_w, int desired_h, int* out_w, int* out_h)
+extern "C" int64_t PlatformManager_GetClosestDisplayMode(int64_t display, int64_t desired_w, int64_t desired_h, int64_t* out_w, int64_t* out_h)
 {
     if (out_w) *out_w = 0;
     if (out_h) *out_h = 0;
@@ -186,73 +186,73 @@ extern "C" int PlatformManager_GetClosestDisplayMode(int display, int desired_w,
     return ws ? ws->GetClosestDisplayMode(display, desired_w, desired_h, out_w, out_h) : 0;
 }
 
-extern "C" int PlatformManager_SetWindowDisplayMode(int w, int h)
+extern "C" int64_t PlatformManager_SetWindowDisplayMode(int64_t w, int64_t h)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->SetWindowDisplayMode(w, h) : -1;
 }
 
-extern "C" void PlatformManager_SetWindowSize(int w, int h)
+extern "C" void PlatformManager_SetWindowSize(int64_t w, int64_t h)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     if (ws) ws->SetWindowSize(w, h);
 }
 
-extern "C" int PlatformManager_SetWindowFullscreen(unsigned int flags)
+extern "C" int64_t PlatformManager_SetWindowFullscreen(uint64_t flags)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->SetWindowFullscreen(flags) : -1;
 }
 
-extern "C" void PlatformManager_SetWindowBordered(int bordered)
+extern "C" void PlatformManager_SetWindowBordered(int64_t bordered)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     if (ws) ws->SetWindowBordered(bordered);
 }
 
-extern "C" void PlatformManager_SetWindowPosition(int x, int y)
+extern "C" void PlatformManager_SetWindowPosition(int64_t x, int64_t y)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     if (ws) ws->SetWindowPosition(x, y);
 }
 
-extern "C" int PlatformManager_CreateWindow(const char* title, int x, int y, int w, int h, unsigned int flags)
+extern "C" int64_t PlatformManager_CreateWindow(const char* title, int64_t x, int64_t y, int64_t w, int64_t h, uint64_t flags)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return (ws && ws->CreateWindow(title, x, y, w, h, flags)) ? 1 : 0;
 }
 
-extern "C" void PlatformManager_WarpCursor(int x, int y)
+extern "C" void PlatformManager_WarpCursor(int64_t x, int64_t y)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     if (ws) ws->WarpCursor(x, y);
 }
 
-extern "C" int PlatformManager_IsCursorInWindow(void)
+extern "C" int64_t PlatformManager_IsCursorInWindow(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return (ws && ws->IsCursorInWindow()) ? 1 : 0;
 }
 
-extern "C" int PlatformManager_RecreateWindowForSoftwareRenderer(void)
+extern "C" int64_t PlatformManager_RecreateWindowForSoftwareRenderer(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return (ws && ws->RecreateForSoftwareRenderer()) ? 1 : 0;
 }
 
-extern "C" int PlatformManager_GetDisplayRefreshRate(void)
+extern "C" int64_t PlatformManager_GetDisplayRefreshRate(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->GetDisplayRefreshRate() : 0;
 }
 
-extern "C" int PlatformManager_GetFullscreenDisplayModeCount(int display)
+extern "C" int64_t PlatformManager_GetFullscreenDisplayModeCount(int64_t display)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->GetFullscreenDisplayModeCount(display) : 0;
 }
 
-extern "C" int PlatformManager_GetFullscreenDisplayModeAt(int display, int index, int* out_w, int* out_h)
+extern "C" int64_t PlatformManager_GetFullscreenDisplayModeAt(int64_t display, int64_t index, int64_t* out_w, int64_t* out_h)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     if (!ws)

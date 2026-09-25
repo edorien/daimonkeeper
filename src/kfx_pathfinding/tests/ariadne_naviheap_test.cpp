@@ -33,7 +33,7 @@ TEST_CASE_METHOD(ResetNaviheap, "naviheap_add rejects once the heap is full", "[
     // PATH_HEAP_LEN - 1 usable slots (index 0 unused, one more element
     // deliberately left free -- see naviheap_add()'s own comment).
     bool all_accepted = true;
-    for (long i = 0; i < PATH_HEAP_LEN - 1; i++) {
+    for (int64_t i = 0; i < PATH_HEAP_LEN - 1; i++) {
         all_accepted = all_accepted && naviheap_add(i);
     }
     CHECK(all_accepted);
@@ -41,9 +41,9 @@ TEST_CASE_METHOD(ResetNaviheap, "naviheap_add rejects once the heap is full", "[
 }
 
 TEST_CASE_METHOD(ResetNaviheap, "naviheap_top/naviheap_remove pop items in ascending tree_val order (a real min-heap)", "[kfx_pathfinding][ariadne_naviheap]") {
-    constexpr long kLow = TREEITEMS_COUNT - 2;
-    constexpr long kMid = TREEITEMS_COUNT - 3;
-    constexpr long kHigh = TREEITEMS_COUNT - 4;
+    constexpr int64_t kLow = TREEITEMS_COUNT - 2;
+    constexpr int64_t kMid = TREEITEMS_COUNT - 3;
+    constexpr int64_t kHigh = TREEITEMS_COUNT - 4;
     tree_val[kLow] = 10;
     tree_val[kMid] = 50;
     tree_val[kHigh] = 90;

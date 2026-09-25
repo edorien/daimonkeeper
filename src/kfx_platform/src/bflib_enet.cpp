@@ -40,15 +40,15 @@
 #define INCOMING_QUEUE_WARNING_THRESHOLD 200
 #define INCOMING_QUEUE_WARNING_INTERVAL 100
 
-uint16_t external_ipv4_port = 0;
-uint16_t enet_port = ENET_DEFAULT_PORT;
-int skip_holepunch = 0;
+int64_t external_ipv4_port = 0;
+int64_t enet_port = ENET_DEFAULT_PORT;
+int64_t skip_holepunch = 0;
 
 namespace
 {
     struct TransferRateTracker {
         enet_uint32 sample_time;
-        unsigned int bytes_per_second;
+        uint64_t bytes_per_second;
     };
 
     NetDropCallback g_drop_callback = nullptr;
@@ -57,7 +57,7 @@ namespace
     char g_join_lobby_id[ENET_MATCHMAKING_ID_MAX] = {0};
     ENetHost *host = nullptr;
     ENetPeer *client_peer = nullptr;
-    int host_is_dual_stack = 0;
+    int64_t host_is_dual_stack = 0;
     TransferRateTracker download_rate_tracker = {0, 0};
     TransferRateTracker upload_rate_tracker = {0, 0};
     ENetAddress pending_punch_ipv4 = {};
@@ -68,11 +68,11 @@ namespace
     // List
     ENetPacket *oldest_packet[MAX_NET_USERS] = {nullptr};
     ENetPacket *newest_packet[MAX_NET_USERS] = {nullptr};
-    int incoming_queue_size = 0;
+    int64_t incoming_queue_size = 0;
 
     TbBool not_expected_user(NetUserId *);
 
-    unsigned int sample_transfer_bytes_per_second(TransferRateTracker *tracker, enet_uint32 *total)
+    uint64_t sample_transfer_bytes_per_second(TransferRateTracker *tracker, enet_uint32 *total)
     {
         enet_uint32 now = enet_time_get();
         if (tracker->sample_time == 0) {
@@ -87,7 +87,7 @@ namespace
             return tracker->bytes_per_second;
         }
 
-        tracker->bytes_per_second = static_cast<unsigned int>((static_cast<unsigned long long>(*total) * 1000ULL) / elapsed);
+        tracker->bytes_per_second = static_cast<uint64_t>((static_cast<unsigned long long>(*total) * 1000ULL) / elapsed);
         tracker->sample_time = now;
         *total = 0;
         return tracker->bytes_per_second;
@@ -105,11 +105,11 @@ namespace
         }
         incoming_queue_size += 1;
         if (incoming_queue_size == INCOMING_QUEUE_WARNING_THRESHOLD) {
-            fprintf(stderr, "Too many packets %d\n", incoming_queue_size);
-            WARNLOG("Too many packets %d", incoming_queue_size);
+            fprintf(stderr, "Too many packets %" PRId64 "\n", (int64_t)(incoming_queue_size));
+            WARNLOG("Too many packets %" PRId64, (int64_t)(incoming_queue_size));
         } else if (incoming_queue_size > INCOMING_QUEUE_WARNING_THRESHOLD && (incoming_queue_size % INCOMING_QUEUE_WARNING_INTERVAL) == 0) {
-            fprintf(stderr, "Too many packets %d\n", incoming_queue_size);
-            WARNLOG("Too many packets %d", incoming_queue_size);
+            fprintf(stderr, "Too many packets %" PRId64 "\n", (int64_t)(incoming_queue_size));
+            WARNLOG("Too many packets %" PRId64, (int64_t)(incoming_queue_size));
         }
     }
 
@@ -196,7 +196,7 @@ namespace
             return Lb_FAIL;
         const char *port_string = session;
         if (*port_string == ':') port_string++;
-        int port = atoi(port_string);
+        int64_t port = atoi(port_string);
         enet_uint16 actual_port = enet_port;
         if (port > 0)
             actual_port = (enet_uint16)port;
@@ -207,7 +207,7 @@ namespace
         if (host) {
             host_is_dual_stack = 1;
             address = host->address;
-            LbNetLog("ENet: host created (dual-stack IPv4+IPv6) on port %d\n", (int)address.port);
+            LbNetLog("ENet: host created (dual-stack IPv4+IPv6) on port %" PRId64 "\n", (int64_t)address.port);
         } else {
             LbNetLog("ENet: dual-stack host creation failed, falling back to IPv4-only\n");
             enet_address_build_any(&address, ENET_ADDRESS_TYPE_IPV4);
@@ -217,7 +217,7 @@ namespace
                 return Lb_FAIL;
             host_is_dual_stack = 0;
             address = host->address;
-            LbNetLog("ENet: host created (IPv4) on port %d\n", (int)address.port);
+            LbNetLog("ENet: host created (IPv4) on port %" PRId64 "\n", (int64_t)address.port);
         }
         enet_host_compress_with_range_coder(host);
         if (g_connectivity_services) {
@@ -273,7 +273,7 @@ namespace
         return port;
     }
 
-    int resolve_punch_address(const char *address_string, ENetAddressType type, int port, ENetAddress *output)
+    int64_t resolve_punch_address(const char *address_string, ENetAddressType type, int64_t port, ENetAddress *output)
     {
         if (!address_string[0]) return 0;
         if (enet_address_set_host(output, type, address_string) < 0) return 0;
@@ -331,7 +331,7 @@ namespace
         ENetEvent enet_event;
         TbClockMSec connection_deadline = LbTimerClock() + timeout_ms;
         while (LbTimerClock() < connection_deadline) {
-            int service_result = enet_host_service(host, &enet_event, 0);
+            int64_t service_result = enet_host_service(host, &enet_event, 0);
             if (service_result > 0 && enet_event.type == ENET_EVENT_TYPE_CONNECT) {
                 LbNetLog("Join: connected successfully via %s\n", join_type);
                 enet_peer_timeout(client_peer, PEER_TIMEOUT_LIMIT, PEER_TIMEOUT_MIN_MS, PEER_TIMEOUT_MAX_MS);
@@ -342,10 +342,10 @@ namespace
                 break;
             }
             if (service_result > 0) {
-                LbNetLog("Join: unexpected event type=%d\n", (int)enet_event.type);
+                LbNetLog("Join: unexpected event type=%" PRId64 "\n", (int64_t)enet_event.type);
             } else if (service_result < 0) {
-                LbNetLog("Join: enet_host_service error %d\n", service_result);
-                ERRORLOG("Unable to connect: %d", service_result);
+                LbNetLog("Join: enet_host_service error %" PRId64 "\n", (int64_t)(service_result));
+                ERRORLOG("Unable to connect: %" PRId64, (int64_t)(service_result));
                 break;
             }
             TbClockMSec time_remaining = connection_deadline - LbTimerClock();
@@ -354,7 +354,7 @@ namespace
             enet_uint32 wait_ms = (enet_uint32)min((TbClockMSec)JOIN_CONNECT_POLL_DELAY_MS, time_remaining);
             SDL_Delay(wait_ms);
             if (g_connectivity_services) {
-                g_connectivity_services->display_attempting_to_join_message((int)((display_deadline - LbTimerClock()) / 1000));
+                g_connectivity_services->display_attempting_to_join_message((int64_t)((display_deadline - LbTimerClock()) / 1000));
                 if (g_connectivity_services->attempting_to_join_cancel_requested()) {
                     LbNetLog("Join: cancelled by user\n");
                     host_destroy();
@@ -391,29 +391,29 @@ namespace
         TbClockMSec stage_start = LbTimerClock();
         TbError result = connect_to_current_join_host(&connect_address, join_type, display_deadline, timeout_ms);
         const char *stage_name = (connect_type == ENET_ADDRESS_TYPE_IPV6) ? "TIMEOUT_CONNECT_DIRECT_IPV6" : "TIMEOUT_CONNECT_DIRECT_IPV4";
-        LbNetLog("Join: %s took %d ms (%s)\n", stage_name, (int)(LbTimerClock() - stage_start), result == Lb_OK ? "connected" : "failed");
+        LbNetLog("Join: %s took %" PRId64 " ms (%s)\n", stage_name, (int64_t)(LbTimerClock() - stage_start), result == Lb_OK ? "connected" : "failed");
         return result;
     }
 
     TbError join_direct_fallback(const EnetPunchAddresses *punch_addresses, TbClockMSec display_deadline) {
-        const int has_ipv4 = (punch_addresses->ipv4[0] != '\0');
-        const int has_ipv6 = (punch_addresses->ipv6[0] != '\0');
+        const int64_t has_ipv4 = (punch_addresses->ipv4[0] != '\0');
+        const int64_t has_ipv6 = (punch_addresses->ipv6[0] != '\0');
         if (!has_ipv4 && !has_ipv6) {
             LbNetLog("Join: direct-connect fallback has no usable address\n");
             return Lb_FAIL;
         }
         LbNetLog("Join: hole-punch phase timed out, retrying via direct connect\n");
-        const int ipv6_port = punch_addresses->ipv6_port ? punch_addresses->ipv6_port : enet_port;
-        const int ipv4_port = punch_addresses->ipv4_port ? punch_addresses->ipv4_port : enet_port;
+        const int64_t ipv6_port = punch_addresses->ipv6_port ? punch_addresses->ipv6_port : enet_port;
+        const int64_t ipv4_port = punch_addresses->ipv4_port ? punch_addresses->ipv4_port : enet_port;
         char session[ENET_ADDRESS_BUFFER_SIZE];
         if (has_ipv6) {
-            snprintf(session, sizeof(session), "[%s]:%d", punch_addresses->ipv6, ipv6_port);
+            snprintf(session, sizeof(session), "[%s]:%" PRId64, punch_addresses->ipv6, (int64_t)(ipv6_port));
             if (join_direct_session(session, display_deadline, TIMEOUT_CONNECT_DIRECT_IPV6, "direct connect fallback") == Lb_OK)
                 return Lb_OK;
         }
         if (!has_ipv4)
             return Lb_FAIL;
-        snprintf(session, sizeof(session), "%s:%d", punch_addresses->ipv4, ipv4_port);
+        snprintf(session, sizeof(session), "%s:%" PRId64, punch_addresses->ipv4, (int64_t)(ipv4_port));
         return join_direct_session(session, display_deadline, TIMEOUT_CONNECT_DIRECT_IPV4, "direct connect fallback");
     }
 
@@ -426,17 +426,17 @@ namespace
         }
         if (create_join_host(ENET_ADDRESS_TYPE_IPV4) != Lb_OK)
             return Lb_FAIL;
-        uint16_t my_external_ipv4_port = g_connectivity_services->holepunch_stun_query(host, NULL, 0);
+        int64_t my_external_ipv4_port = g_connectivity_services->holepunch_stun_query(host, NULL, 0);
         if (my_external_ipv4_port == 0)
             LbNetLog("Join: STUN failed, proceeding with port 0\n");
         ENetHost *ipv6_host = create_ipv6_host(ENET_PORT_ANY);
-        int my_ipv6_port = 0;
+        int64_t my_ipv6_port = 0;
         if (ipv6_host) {
             enet_host_compress_with_range_coder(ipv6_host);
-            my_ipv6_port = (int)ipv6_host->address.port;
+            my_ipv6_port = (int64_t)ipv6_host->address.port;
         }
         EnetPunchAddresses punch_addresses;
-        if (g_connectivity_services->matchmaking_punch(g_join_lobby_id, (int)my_external_ipv4_port, my_ipv6_port, &punch_addresses) != 0) {
+        if (g_connectivity_services->matchmaking_punch(g_join_lobby_id, (int64_t)my_external_ipv4_port, my_ipv6_port, &punch_addresses) != 0) {
             LbNetLog("Join: matchmaking_punch failed\n");
             cleanup_join_host(ipv6_host, nullptr);
             host_destroy();
@@ -444,8 +444,8 @@ namespace
         }
         ENetAddress ipv4_address = {};
         ENetAddress ipv6_address = {};
-        int has_ipv4 = resolve_punch_address(punch_addresses.ipv4, ENET_ADDRESS_TYPE_IPV4, punch_addresses.ipv4_port, &ipv4_address);
-        int has_ipv6 = (ipv6_host != nullptr) && resolve_punch_address(punch_addresses.ipv6, ENET_ADDRESS_TYPE_IPV6, punch_addresses.ipv6_port, &ipv6_address);
+        int64_t has_ipv4 = resolve_punch_address(punch_addresses.ipv4, ENET_ADDRESS_TYPE_IPV4, punch_addresses.ipv4_port, &ipv4_address);
+        int64_t has_ipv6 = (ipv6_host != nullptr) && resolve_punch_address(punch_addresses.ipv6, ENET_ADDRESS_TYPE_IPV6, punch_addresses.ipv6_port, &ipv6_address);
         if (!has_ipv4 && !has_ipv6) {
             LbNetLog("Join: failed to resolve any peer address from punch\n");
             cleanup_join_host(ipv6_host, nullptr);
@@ -468,8 +468,8 @@ namespace
         }
         enet_host_compress_with_range_coder(host);
         TbClockMSec punch_learn_deadline = LbTimerClock() + HOLEPUNCH_PRE_CONNECT_DELAY_MS * 2;
-        int learned_ipv4 = 0;
-        int learned_ipv6 = 0;
+        int64_t learned_ipv4 = 0;
+        int64_t learned_ipv6 = 0;
         while (LbTimerClock() < punch_learn_deadline) {
             if (has_ipv6 && !learned_ipv6) g_connectivity_services->holepunch_punch_to(ipv6_host, &ipv6_address);
             if (has_ipv4 && !learned_ipv4) g_connectivity_services->holepunch_punch_to(host, &ipv4_address);
@@ -504,11 +504,11 @@ namespace
                 ipv4_peer = enet_host_connect(host, &ipv4_address, NUM_CHANNELS, 0);
             }
             if (ipv6_peer && enet_host_service(ipv6_host, &enet_event, 0) > 0 && enet_event.type == ENET_EVENT_TYPE_CONNECT) {
-                LbNetLog("Join: TIMEOUT_CONNECT_HOLEPUNCH took %d ms (connected)\n", (int)(LbTimerClock() - holepunch_stage_start));
+                LbNetLog("Join: TIMEOUT_CONNECT_HOLEPUNCH took %" PRId64 " ms (connected)\n", (int64_t)(LbTimerClock() - holepunch_stage_start));
                 return finish_join(ipv6_host, ipv6_peer, host, nullptr, "matchmaking server", "IPv6");
             }
             if (ipv4_peer && enet_host_service(host, &enet_event, 0) > 0 && enet_event.type == ENET_EVENT_TYPE_CONNECT) {
-                LbNetLog("Join: TIMEOUT_CONNECT_HOLEPUNCH took %d ms (connected)\n", (int)(LbTimerClock() - holepunch_stage_start));
+                LbNetLog("Join: TIMEOUT_CONNECT_HOLEPUNCH took %" PRId64 " ms (connected)\n", (int64_t)(LbTimerClock() - holepunch_stage_start));
                 if (ipv6_peer)
                     LbNetLog("Join: IPv4 connected first, continuing over IPv4.\n");
                 return finish_join(host, ipv4_peer, ipv6_host, ipv6_peer, "matchmaking server", "IPv4");
@@ -523,7 +523,7 @@ namespace
                     wait_ms = (enet_uint32)min((TbClockMSec)wait_ms, time_to_ipv4);
             }
             SDL_Delay(wait_ms);
-            g_connectivity_services->display_attempting_to_join_message((int)((connection_deadline - LbTimerClock()) / 1000));
+            g_connectivity_services->display_attempting_to_join_message((int64_t)((connection_deadline - LbTimerClock()) / 1000));
             if (g_connectivity_services->attempting_to_join_cancel_requested()) {
                 LbNetLog("Join: cancelled by user during hole-punch\n");
                 cleanup_join_host(ipv6_host, ipv6_peer);
@@ -531,7 +531,7 @@ namespace
                 return Lb_FAIL;
             }
         }
-        LbNetLog("Join: TIMEOUT_CONNECT_HOLEPUNCH took %d ms (timed out)\n", (int)(LbTimerClock() - holepunch_stage_start));
+        LbNetLog("Join: TIMEOUT_CONNECT_HOLEPUNCH took %" PRId64 " ms (timed out)\n", (int64_t)(LbTimerClock() - holepunch_stage_start));
         cleanup_join_host(ipv6_host, ipv6_peer);
         host_destroy();
         return join_direct_fallback(&punch_addresses, connection_deadline);
@@ -550,7 +550,7 @@ namespace
             if (!port_separator)
                 return Lb_FAIL;
             *port_separator = '\0';
-            int lan_game_port = atoi(port_separator + 1);
+            int64_t lan_game_port = atoi(port_separator + 1);
             if (enet_address_set_host(&connect_address, ENET_ADDRESS_TYPE_IPV4, lan_peer_address) < 0) {
                 LbNetLog("Join: failed to resolve LAN peer address %s\n", lan_peer_address);
                 return Lb_FAIL;
@@ -569,18 +569,18 @@ namespace
     /*
      * @returns -1 if error, +1 if there is a packet, 0 if timeoout or no events
      */
-    int bf_enet_read_event(NetNewUserCallback new_user, uint timeout)
+    int64_t bf_enet_read_event(NetNewUserCallback new_user, uint64_t timeout)
     {
         if (!host)
             return -1;
         ENetEvent enet_event;
         NetUserId user_id;
-        int service_result = enet_host_service(host, &enet_event, timeout);
+        int64_t service_result = enet_host_service(host, &enet_event, timeout);
         if (service_result == 0)
             return 0;
         if (service_result < 0)
         {
-            NETDBG(1, "enet_host -> %d", service_result);
+            NETDBG(1, "enet_host -> %" PRId64, (int64_t)(service_result));
             return service_result;
         }
         switch (enet_event.type)
@@ -606,7 +606,7 @@ namespace
                 if (enet_event.type == ENET_EVENT_TYPE_DISCONNECT)
                     disconnect_reason = "disconnected (clean)";
                 destroy_incoming_queue(user_id);
-                LbNetLog("ENet: peer %d %s\n", (int)user_id, disconnect_reason);
+                LbNetLog("ENet: peer %" PRId64 " %s\n", (int64_t)user_id, disconnect_reason);
                 g_drop_callback(user_id, NETDROP_ERROR);
                 break;
             }
@@ -633,8 +633,8 @@ namespace
         if (new_user == nullptr) {
             new_user = not_expected_user;
         }
-        int packets_read = 0;
-        const int MAX_PACKETS_PER_UPDATE = 100;
+        int64_t packets_read = 0;
+        const int64_t MAX_PACKETS_PER_UPDATE = 100;
         while (packets_read < MAX_PACKETS_PER_UPDATE && bf_enet_read_event(new_user, 0))
         {
             packets_read++;
@@ -716,7 +716,7 @@ namespace
         return false;
     }
 
-    bool wait_for_incoming_packet(NetUserId source, unsigned timeout)
+    bool wait_for_incoming_packet(NetUserId source, uint64_t timeout)
     {
         if (oldest_packet[source] != nullptr) {
             return true;
@@ -725,14 +725,14 @@ namespace
         TbClockMSec start = LbTimerClock();
         while (true)
         {
-            unsigned wait_ms = 0;
+            uint64_t wait_ms = 0;
             if (timeout > 0)
             {
                 TbClockMSec elapsed = LbTimerClock() - start;
                 if (elapsed >= timeout) {
                     return false;
                 }
-                wait_ms = (unsigned)(timeout - elapsed);
+                wait_ms = (uint64_t)(timeout - elapsed);
             }
 
             NetNewUserCallback new_user_callback;
@@ -791,7 +791,7 @@ namespace
      *  for a message to arrive before returning.
      * @return The size of the message waiting if there is a message, otherwise 0.
      */
-    size_t bf_enet_msgready(NetUserId source, unsigned timeout)
+    size_t bf_enet_msgready(NetUserId source, uint64_t timeout)
     {
         if (!wait_for_incoming_packet(source, timeout)) {
             return 0;
@@ -805,7 +805,7 @@ namespace
      */
     void bf_enet_drop_user(NetUserId id)
     {
-        LbNetLog("ENet: dropping user %d\n", (int)id);
+        LbNetLog("ENet: dropping user %" PRId64 "\n", (int64_t)id);
         destroy_incoming_queue(id);
         if (host) {
             for (ENetPeer *peer = host->peers; peer < &host->peers[host->peerCount]; peer += 1) {
@@ -830,7 +830,7 @@ static bool IsLocalPeer(NetUserId id, NetUserId local_player_id) {
     return id == SERVER_ID || id == local_player_id;
 }
 
-unsigned long GetPing(NetUserId id, NetUserId local_player_id) {
+uint64_t GetPing(NetUserId id, NetUserId local_player_id) {
     const bool requesting_local_peer = IsLocalPeer(id, local_player_id);
 
     if (IsPeerConnected(client_peer)) {
@@ -841,14 +841,14 @@ unsigned long GetPing(NetUserId id, NetUserId local_player_id) {
         if (value == 0) {
             value = client_peer->lastRoundTripTime;
         }
-        return static_cast<unsigned long>(value);
+        return static_cast<uint64_t>(value);
     }
 
     if (!host) {
         return 0;
     }
 
-    unsigned long best_value = 0;
+    uint64_t best_value = 0;
 
     for (size_t peer_index = 0; peer_index < host->peerCount; ++peer_index) {
         ENetPeer *peer = &host->peers[peer_index];
@@ -860,7 +860,7 @@ unsigned long GetPing(NetUserId id, NetUserId local_player_id) {
         if (peer_round_trip == 0) {
             peer_round_trip = peer->lastRoundTripTime;
         }
-        unsigned long value = static_cast<unsigned long>(peer_round_trip);
+        uint64_t value = static_cast<uint64_t>(peer_round_trip);
         if (!requesting_local_peer) {
             NetUserId peer_id = NetUserId(reinterpret_cast<ptrdiff_t>(peer->data));
             if (peer_id == id) {
@@ -880,7 +880,7 @@ unsigned long GetPing(NetUserId id, NetUserId local_player_id) {
     return 0;
 }
 
-unsigned int GetPacketLoss(NetUserId id, NetUserId local_player_id) {
+uint64_t GetPacketLoss(NetUserId id, NetUserId local_player_id) {
     const bool requesting_local_peer = IsLocalPeer(id, local_player_id);
 
     if (IsPeerConnected(client_peer)) {
@@ -888,7 +888,7 @@ unsigned int GetPacketLoss(NetUserId id, NetUserId local_player_id) {
             return 0;
         }
         enet_uint32 value = client_peer->packetLoss;
-        unsigned int percent = static_cast<unsigned int>((static_cast<unsigned long long>(value) * 100ULL) / ENET_PEER_PACKET_LOSS_SCALE);
+        uint64_t percent = static_cast<uint64_t>((static_cast<unsigned long long>(value) * 100ULL) / ENET_PEER_PACKET_LOSS_SCALE);
         return percent;
     }
 
@@ -896,7 +896,7 @@ unsigned int GetPacketLoss(NetUserId id, NetUserId local_player_id) {
         return 0;
     }
 
-    unsigned int best_value = 0;
+    uint64_t best_value = 0;
 
     for (size_t peer_index = 0; peer_index < host->peerCount; ++peer_index) {
         ENetPeer *peer = &host->peers[peer_index];
@@ -905,7 +905,7 @@ unsigned int GetPacketLoss(NetUserId id, NetUserId local_player_id) {
         }
 
         enet_uint32 peer_packet_loss = peer->packetLoss;
-        unsigned int value = static_cast<unsigned int>((static_cast<unsigned long long>(peer_packet_loss) * 100ULL) / ENET_PEER_PACKET_LOSS_SCALE);
+        uint64_t value = static_cast<uint64_t>((static_cast<unsigned long long>(peer_packet_loss) * 100ULL) / ENET_PEER_PACKET_LOSS_SCALE);
         if (!requesting_local_peer) {
             NetUserId peer_id = NetUserId(reinterpret_cast<ptrdiff_t>(peer->data));
             if (peer_id == id) {
@@ -925,7 +925,7 @@ unsigned int GetPacketLoss(NetUserId id, NetUserId local_player_id) {
     return 0;
 }
 
-unsigned int GetClientDataInTransit() {
+uint64_t GetClientDataInTransit() {
     if (IsPeerConnected(client_peer)) {
         return client_peer->reliableDataInTransit;
     }
@@ -934,7 +934,7 @@ unsigned int GetClientDataInTransit() {
         return 0;
     }
 
-    unsigned int result = 0;
+    uint64_t result = 0;
     for (size_t peer_index = 0; peer_index < host->peerCount; ++peer_index) {
         ENetPeer *peer = &host->peers[peer_index];
         if (!IsPeerConnected(peer)) {
@@ -947,9 +947,9 @@ unsigned int GetClientDataInTransit() {
     return result;
 }
 
-unsigned int GetClientPacketsLost() {
+uint64_t GetClientPacketsLost() {
     if (IsPeerConnected(client_peer)) {
-        return static_cast<unsigned int>(client_peer->packetsLost);
+        return static_cast<uint64_t>(client_peer->packetsLost);
     }
     if (!host) {
         return 0;
@@ -965,10 +965,10 @@ unsigned int GetClientPacketsLost() {
             return UINT_MAX;
         }
     }
-    return static_cast<unsigned int>(total);
+    return static_cast<uint64_t>(total);
 }
 
-unsigned int GetUploadRateBytesPerSecond()
+uint64_t GetUploadRateBytesPerSecond()
 {
     if (!host) {
         return 0;
@@ -976,7 +976,7 @@ unsigned int GetUploadRateBytesPerSecond()
     return sample_transfer_bytes_per_second(&upload_rate_tracker, &host->totalSentData);
 }
 
-unsigned int GetDownloadRateBytesPerSecond()
+uint64_t GetDownloadRateBytesPerSecond()
 {
     if (!host) {
         return 0;
@@ -984,7 +984,7 @@ unsigned int GetDownloadRateBytesPerSecond()
     return sample_transfer_bytes_per_second(&download_rate_tracker, &host->totalReceivedData);
 }
 
-uint16_t enet_get_bound_ipv6_port(void)
+int64_t enet_get_bound_ipv6_port(void)
 {
     if (!host_is_dual_stack || !host) {
         return 0;
@@ -992,13 +992,13 @@ uint16_t enet_get_bound_ipv6_port(void)
     return host->address.port;
 }
 
-int enet_matchmaking_host_update(void)
+int64_t enet_matchmaking_host_update(void)
 {
     if (!host || !g_connectivity_services) {
         return 0;
     }
     EnetPunchAddresses punch_addresses;
-    int poll_result = g_connectivity_services->matchmaking_poll_punch(&punch_addresses);
+    int64_t poll_result = g_connectivity_services->matchmaking_poll_punch(&punch_addresses);
     if (poll_result < 0) {
         return -1;
     }
@@ -1010,7 +1010,7 @@ int enet_matchmaking_host_update(void)
             resolve_punch_address(punch_addresses.ipv6, ENET_ADDRESS_TYPE_IPV6, punch_addresses.ipv6_port, &pending_punch_ipv6);
         }
         if (pending_punch_ipv4.port || pending_punch_ipv6.port) {
-            LbNetLog("Host: received punch ipv4=%s ipv6=%s ipv4_port=%d ipv6_port=%d\n", punch_addresses.ipv4, punch_addresses.ipv6, punch_addresses.ipv4_port, punch_addresses.ipv6_port);
+            LbNetLog("Host: received punch ipv4=%s ipv6=%s ipv4_port=%" PRId64 " ipv6_port=%" PRId64 "\n", punch_addresses.ipv4, punch_addresses.ipv6, (int64_t)(punch_addresses.ipv4_port), (int64_t)(punch_addresses.ipv6_port));
         }
         if (!pending_punch_ipv6.port && punch_addresses.ipv6[0] != '\0') {
             LbNetLog("Host: IPv6 punch skipped (host is not dual-stack)\n");
@@ -1023,7 +1023,7 @@ int enet_matchmaking_host_update(void)
     TbClockMSec now = LbTimerClock();
     if (now < host_punch_learn_deadline) {
         ENetAddress pending_punches[] = {pending_punch_ipv4, pending_punch_ipv6};
-        int punch_result = g_connectivity_services->holepunch_receive(host, pending_punches, 2);
+        int64_t punch_result = g_connectivity_services->holepunch_receive(host, pending_punches, 2);
         pending_punch_ipv4 = pending_punches[0];
         pending_punch_ipv6 = pending_punches[1];
         if (punch_result > 1) {

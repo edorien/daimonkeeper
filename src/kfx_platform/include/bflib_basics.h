@@ -66,9 +66,6 @@ enum TbErrorCode {
 #pragma pack(1)
 
 // These types should be deprecated because we have stdint.h now.
-typedef unsigned long ulong;
-typedef unsigned int uint;
-typedef unsigned short ushort;
 typedef unsigned char uchar;
 
 struct TbTime {
@@ -80,35 +77,37 @@ struct TbTime {
 struct TbDate {
         unsigned char Day;
         unsigned char Month;
-        unsigned short Year;
+        int64_t Year;
         unsigned char DayOfWeek;
 };
-typedef int32_t TbClockMSec;
+typedef int64_t TbClockMSec;
 typedef time_t TbTimeSec;
 
+// 32-bit on purpose: the checksums are a rotate-by-5 accumulate that only means something at 32 bits wide,
+// and Packet.checksum is a 4-byte wire field.
 typedef uint32_t TbBigChecksum;
-typedef int32_t Offset;
+typedef int64_t Offset;
 typedef FILE * TbFileHandle;
 typedef unsigned char TbBool;
-typedef short TbScreenPos;
+typedef int64_t TbScreenPos;
 
 #define LOG_PREFIX_LEN 32
 
 struct TbLog {
         char filename[DISKPATH_SIZE];
         char prefix[LOG_PREFIX_LEN];
-        ulong flags;
+        uint64_t flags;
         TbBool Initialised;
         TbBool Created;
         TbBool Suspended;
-        long position;
+        int64_t position;
 };
 
 struct TbNetworkCallbackData;
 /** Command function result, alias for TbResult. */
-typedef int TbError;
+typedef int64_t TbError;
 /** Command function result, valid values are of TbErrorCode enumeration. */
-typedef int TbResult;
+typedef int64_t TbResult;
 typedef size_t TbSize;
 
 struct DebugMessage {
@@ -124,7 +123,7 @@ extern struct DebugMessage ** debug_messages_tail;
 #pragma pack()
 /******************************************************************************/
 extern const char *log_file_name;
-extern int debug_display_consolelog;
+extern int64_t debug_display_consolelog;
 extern char consoleLogArray[MAX_CONSOLE_LOG_COUNT][MAX_TEXT_LENGTH];
 extern size_t consoleLogArraySize;
 
@@ -137,14 +136,19 @@ extern size_t consoleLogArraySize;
 // what actually read them to decide whether to keep looping.
 extern unsigned char exit_keeper;
 extern unsigned char quit_game;
-extern int FatalError;
+extern int64_t FatalError;
 
 // High level functions - DK specific
-short warning_dialog(const char *codefile,const int ecode,const char *message) __attribute__ ((nonnull(1, 3)));
-short error_dialog(const char *codefile,const int ecode,const char *message) __attribute__ ((nonnull(1, 3)));
-short error_dialog_fatal(const char *codefile,const int ecode,const char *message) __attribute__ ((nonnull(1, 3)));
-int str_append(char * buffer, int size, const char * str) __attribute__ ((nonnull(1, 3)));
-int str_appendf(char * buffer, int size, const char * format, ...) __attribute__ ((format(printf, 3, 4), nonnull(1, 3)));
+int64_t warning_dialog(const char *codefile,const int64_t ecode,const char *message) __attribute__ ((nonnull(1, 3)));
+int64_t error_dialog(const char *codefile,const int64_t ecode,const char *message) __attribute__ ((nonnull(1, 3)));
+int64_t error_dialog_fatal(const char *codefile,const int64_t ecode,const char *message) __attribute__ ((nonnull(1, 3)));
+int64_t str_append(char * buffer, int64_t size, const char * str) __attribute__ ((nonnull(1, 3)));
+/** LbStrToI32()/LbAtoI32() saturating at the int32 range on every platform. The C functions return `long` and clamp at
+ *  LONG_MAX/LONG_MIN: +-2^31 on the 32-bit Windows build, +-2^63 on 64-bit Linux, so an out-of-range number in
+ *  a script/config/console command would parse to different values (and then truncate differently). */
+int64_t LbStrToI32(const char *text, char **endptr, int64_t base);
+int64_t LbAtoI32(const char *text);
+int64_t str_appendf(char * buffer, int64_t size, const char * format, ...) __attribute__ ((format(printf, 3, 4), nonnull(1, 3)));
 
 // Generic name/id lookup pair and its lookup function. Owned here (not
 // kfx_config's config.h, where they used to live) because get_rid() has
@@ -155,49 +159,49 @@ int str_appendf(char * buffer, int size, const char * format, ...) __attribute__
 // check-layering-symbol-level-blind-spot.md.
 struct NamedCommand {
     const char *name;
-    int num;
+    int64_t num;
 };
-long get_rid(const struct NamedCommand *desc, const char *itmname);
+int64_t get_rid(const struct NamedCommand *desc, const char *itmname);
 
 // Registered from main.cpp with kfx_config's emulate_integer_overflow()
 // (config_rules.c, reads kfx_config_state's classic_bugs_flags) --
 // saturate_set_unsigned() below can't include config.h directly. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
-typedef TbBool (*EmulateIntegerOverflowFunc)(unsigned short nbits);
+typedef TbBool (*EmulateIntegerOverflowFunc)(int64_t nbits);
 extern EmulateIntegerOverflowFunc emulate_integer_overflow_provider;
 void set_emulate_integer_overflow_provider(EmulateIntegerOverflowFunc provider);
 /******************************************************************************/
-int LbErrorLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
-int LbWarnLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
-int LbSyncLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
-int LbNetLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
-int LbJustLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
-int LbNaviLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbErrorLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbWarnLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbSyncLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbNetLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbJustLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbNaviLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
 
 #ifdef FUNCTESTING
-int LbFTestLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
+int64_t LbFTestLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
 #endif
-int LbScriptLog(unsigned long line,const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(2)));
-int LbConfigLog(unsigned long line,const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(2)));
+int64_t LbScriptLog(uint64_t line,const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(2)));
+int64_t LbConfigLog(uint64_t line,const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(2)));
 
-int LbErrorLogSetup(const char *directory, const char *filename, TbBool flag);
-int LbErrorLogClose(void);
+int64_t LbErrorLogSetup(const char *directory, const char *filename, TbBool flag);
+int64_t LbErrorLogClose(void);
 
-int LbLogClose(struct TbLog *log) __attribute__ ((nonnull(1)));
-int LbLogSetup(struct TbLog *log, const char *filename, ulong flags) __attribute__ ((nonnull(1, 2)));
-int LbLogSetPrefix(struct TbLog *log, const char *prefix) __attribute__ ((nonnull(1, 2)));
-int LbLogSetPrefixFmt(struct TbLog *log, const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(1, 2)));
+int64_t LbLogClose(struct TbLog *log) __attribute__ ((nonnull(1)));
+int64_t LbLogSetup(struct TbLog *log, const char *filename, uint64_t flags) __attribute__ ((nonnull(1, 2)));
+int64_t LbLogSetPrefix(struct TbLog *log, const char *prefix) __attribute__ ((nonnull(1, 2)));
+int64_t LbLogSetPrefixFmt(struct TbLog *log, const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(1, 2)));
 
 /******************************************************************************/
 typedef void (*TbNetworkCallbackFunc)(struct TbNetworkCallbackData *, void *);
 /******************************************************************************/
-unsigned long llong (unsigned char *p) __attribute__ ((nonnull(1)));
-unsigned long lword (unsigned char *p) __attribute__ ((nonnull(1)));
-long saturate_set_signed(long long val,unsigned short nbits);
-unsigned long saturate_set_unsigned(unsigned long long val,unsigned short nbits);
+uint64_t llong (unsigned char *p) __attribute__ ((nonnull(1)));
+uint64_t lword (unsigned char *p) __attribute__ ((nonnull(1)));
+int64_t saturate_set_signed(long long val,int64_t nbits);
+uint64_t saturate_set_unsigned(unsigned long long val,int64_t nbits);
 void make_lowercase(char *) __attribute__ ((nonnull(1)));
 void make_uppercase(char *) __attribute__ ((nonnull(1)));
-int natoi(const char * str, int len) __attribute__ ((nonnull(1))); // like atoi but stops after len bytes
+int64_t natoi(const char * str, int64_t len) __attribute__ ((nonnull(1))); // like atoi but stops after len bytes
 
 /**
  * Converts an index number to a flag - by creating a bitmask where only the nth bit is set to 1.

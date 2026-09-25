@@ -81,7 +81,7 @@ void initialise_eye_lenses(void)
  * 
  * @param nlens Lens index (0 = no lens, >0 = specific lens type)
  */
-void setup_eye_lens(long nlens)
+void setup_eye_lens(int64_t nlens)
 {
     // Check if lens system is initialized
     if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
@@ -90,7 +90,7 @@ void setup_eye_lens(long nlens)
         return;
     }
     
-    SYNCDBG(7, "Setting up lens %ld", nlens);
+    SYNCDBG(7, "Setting up lens %" PRId64, (int64_t)(nlens));
     
     // Get LensManager and set the lens
     void* mgr = LensManager_GetInstance();
@@ -102,12 +102,12 @@ void setup_eye_lens(long nlens)
     
     if (!LensManager_SetLens(mgr, nlens))
     {
-        WARNLOG("Failed to set lens %ld", nlens);
+        WARNLOG("Failed to set lens %" PRId64, (int64_t)(nlens));
         return;
     }
     
     // Note: LensManager updates kfx_render_state.active_lens_type and kfx_sim_state.applied_lens_type internally
-    SYNCDBG(8, "Lens %ld setup complete", nlens);
+    SYNCDBG(8, "Lens %" PRId64 " setup complete", (int64_t)(nlens));
 }
 
 /**
@@ -116,9 +116,9 @@ void setup_eye_lens(long nlens)
  * 
  * @param nlens Lens index to activate after reinit
  */
-void reinitialise_eye_lens(long nlens)
+void reinitialise_eye_lens(int64_t nlens)
 {
-    SYNCDBG(7, "Reinitializing with lens %ld", nlens);
+    SYNCDBG(7, "Reinitializing with lens %" PRId64, (int64_t)(nlens));
     
     // Reset and reinitialize
     reset_eye_lenses();
@@ -167,8 +167,8 @@ void reset_eye_lenses(void)
  * @param viewport_x X offset of viewport in source buffer
  * @param effect Lens effect index (0 = no effect)
  */
-void draw_lens_effect(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcpitch,
-                     long width, long height, long viewport_x, long effect)
+void draw_lens_effect(TbPixel *dstbuf, int64_t dstpitch, TbPixel *srcbuf, int64_t srcpitch,
+                     int64_t width, int64_t height, int64_t viewport_x, int64_t effect)
 {
     void* mgr = LensManager_GetInstance();
     if (mgr == NULL) {
@@ -177,7 +177,7 @@ void draw_lens_effect(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcp
     }
     
     // If effect doesn't match active lens, set it now (Manager updates game state internally)
-    long active_lens = LensManager_GetActiveLens(mgr);
+    int64_t active_lens = LensManager_GetActiveLens(mgr);
     
     // Special handling for custom lenses (effect=255): don't override them with standard lenses
     // Custom lenses return active_lens=-1, but effect will be 255 if custom lens is active
@@ -186,15 +186,15 @@ void draw_lens_effect(TbPixel *dstbuf, long dstpitch, TbPixel *srcbuf, long srcp
         SYNCDBG(9, "Custom lens active (effect=255), skipping SetLens");
     } else if (active_lens == -1) {
         // Custom lens is active but caller wants standard lens - switch to it
-        SYNCDBG(8, "Switching from custom lens to standard lens %ld", effect);
+        SYNCDBG(8, "Switching from custom lens to standard lens %" PRId64, (int64_t)(effect));
         if (!LensManager_SetLens(mgr, effect)) {
-            WARNLOG("Failed to set lens %ld during draw", effect);
+            WARNLOG("Failed to set lens %" PRId64 " during draw", (int64_t)(effect));
         }
     } else if (active_lens != effect) {
         // Standard lens mismatch - update to requested lens
-        SYNCDBG(8, "Switching lens from %ld to %ld", active_lens, effect);
+        SYNCDBG(8, "Switching lens from %" PRId64 " to %" PRId64, (int64_t)(active_lens), (int64_t)(effect));
         if (!LensManager_SetLens(mgr, effect)) {
-            WARNLOG("Failed to set lens %ld during draw", effect);
+            WARNLOG("Failed to set lens %" PRId64 " during draw", (int64_t)(effect));
         }
     }
     
@@ -255,7 +255,7 @@ TbPixel* lens_get_render_target(void)
  * 
  * @return Width in pixels, or 0 if lens system not ready
  */
-unsigned int lens_get_render_target_width(void)
+uint64_t lens_get_render_target_width(void)
 {
     if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
         return 0;
@@ -268,7 +268,7 @@ unsigned int lens_get_render_target_width(void)
  * 
  * @return Height in pixels, or 0 if lens system not ready
  */
-unsigned int lens_get_render_target_height(void)
+uint64_t lens_get_render_target_height(void)
 {
     if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
         return 0;

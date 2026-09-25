@@ -309,7 +309,7 @@ static const struct { unsigned char code; const char *name; } keycode_table[] = 
     { KC_MOUSEWHEEL_DOWN,  "MOUSEWHEEL_DOWN" },
     { KC_MOUSEWHEEL_UP,    "MOUSEWHEEL_UP" },
 };
-#define KEYCODE_TABLE_SIZE ((int)(sizeof(keycode_table)/sizeof(keycode_table[0])))
+#define KEYCODE_TABLE_SIZE ((int64_t)(sizeof(keycode_table)/sizeof(keycode_table[0])))
 
 static const struct { TbControllerButtons button; const char *name; } controller_button_table[] = {
     { CBtn_A,              "A" },
@@ -343,11 +343,11 @@ static const struct { TbControllerButtons button; const char *name; } controller
     { CBtn_RS_LEFT,        "RS_LEFT" },
     { CBtn_RS_RIGHT,       "RS_RIGHT" },
 };
-#define CONTROLLER_BUTTON_TABLE_SIZE ((int)(sizeof(controller_button_table)/sizeof(controller_button_table[0])))
+#define CONTROLLER_BUTTON_TABLE_SIZE ((int64_t)(sizeof(controller_button_table)/sizeof(controller_button_table[0])))
 
 static const char *keycode_to_name(unsigned char code)
 {
-    for (int i = 0; i < KEYCODE_TABLE_SIZE; i++)
+    for (int64_t i = 0; i < KEYCODE_TABLE_SIZE; i++)
         if (keycode_table[i].code == code)
             return keycode_table[i].name;
     return "UNASSIGNED";
@@ -355,7 +355,7 @@ static const char *keycode_to_name(unsigned char code)
 
 static unsigned char name_to_keycode(const char *name)
 {
-    for (int i = 0; i < KEYCODE_TABLE_SIZE; i++)
+    for (int64_t i = 0; i < KEYCODE_TABLE_SIZE; i++)
         if (strcmp(keycode_table[i].name, name) == 0)
             return keycode_table[i].code;
     return KC_UNASSIGNED;
@@ -363,7 +363,7 @@ static unsigned char name_to_keycode(const char *name)
 
 static void kmod_to_name(unsigned char mods, char *buf, size_t buflen)
 {
-    int len = 0;
+    int64_t len = 0;
     unsigned char flags = mods & (KMod_SHIFT | KMod_CONTROL | KMod_ALT);
 
     if (buflen == 0)
@@ -388,7 +388,7 @@ static unsigned char name_to_kmod(const char *name)
 {
     unsigned char mods = KMod_NONE;
     char token[16];
-    int token_len = 0;
+    int64_t token_len = 0;
 
     if (name == NULL)
         return mods;
@@ -400,7 +400,7 @@ static unsigned char name_to_kmod(const char *name)
 
         if (!token_end)
         {
-            if (token_len < (int)sizeof(token) - 1)
+            if (token_len < (int64_t)sizeof(token) - 1)
                 token[token_len++] = (char)toupper(c);
             continue;
         }
@@ -438,9 +438,9 @@ static void controller_buttons_to_name(TbControllerButtons buttons, char *buf, s
     }
 
     buf[0] = '\0';
-    for (int i = 0; i < CONTROLLER_BUTTON_TABLE_SIZE; i++)
+    for (int64_t i = 0; i < CONTROLLER_BUTTON_TABLE_SIZE; i++)
     {
-        int written;
+        int64_t written;
 
         if ((buttons & controller_button_table[i].button) == 0)
             continue;
@@ -467,7 +467,7 @@ static TbControllerButtons name_to_controller_buttons(const char *name)
 {
     TbControllerButtons buttons = CBtn_NONE;
     char token[32];
-    int token_len = 0;
+    int64_t token_len = 0;
 
     if (name == NULL)
         return buttons;
@@ -479,7 +479,7 @@ static TbControllerButtons name_to_controller_buttons(const char *name)
 
         if (!token_end)
         {
-            if (token_len < (int)sizeof(token) - 1)
+            if (token_len < (int64_t)sizeof(token) - 1)
                 token[token_len++] = (char)toupper(c);
             continue;
         }
@@ -489,7 +489,7 @@ static TbControllerButtons name_to_controller_buttons(const char *name)
             token[token_len] = '\0';
             if (strcmp(token, "NONE") != 0)
             {
-                for (int i = 0; i < CONTROLLER_BUTTON_TABLE_SIZE; i++)
+                for (int64_t i = 0; i < CONTROLLER_BUTTON_TABLE_SIZE; i++)
                 {
                     if (strcmp(token, controller_button_table[i].name) == 0)
                     {
@@ -534,7 +534,7 @@ void setup_default_settings(void)
     settings.isometric_tilt                = CAMERA_TILT_DEFAULT;
     settings.highlight_mode                = false;
 
-    for (int i = 0; i < GAME_KEYS_COUNT; i++)
+    for (int64_t i = 0; i < GAME_KEYS_COUNT; i++)
     {
         settings.kbkeys[i].code = game_key_settings[i].default_code;
         settings.kbkeys[i].mods = game_key_settings[i].default_mods;
@@ -542,7 +542,7 @@ void setup_default_settings(void)
     }
     // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
     // separate table.
-    for (int i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
+    for (int64_t i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
     {
         settings.editor_kbkeys[i].code = editor_key_settings[i].default_code;
         settings.editor_kbkeys[i].mods = editor_key_settings[i].default_mods;
@@ -584,7 +584,7 @@ TbBool load_settings(void)
         val = value_dict_get(vsec, "cluedo_mode");
         if (val && value_type(val) == VALUE_INT32) settings.video_cluedo_mode = (unsigned char)value_int32(val);
         val = value_dict_get(vsec, "gamma_correction");
-        if (val && value_type(val) == VALUE_INT32) settings.gamma_correction = (unsigned short)value_int32(val);
+        if (val && value_type(val) == VALUE_INT32) settings.gamma_correction = (int64_t)value_int32(val);
         val = value_dict_get(vsec, "roomflags_on");
         if (val && value_type(val) == VALUE_INT32) settings.roomflags_on = (unsigned char)value_int32(val);
     }
@@ -598,7 +598,7 @@ TbBool load_settings(void)
         val = value_dict_get(vsec, "music_volume");
         if (val && value_type(val) == VALUE_INT32) settings.music_volume = (unsigned char)value_int32(val);
         val = value_dict_get(vsec, "mentor_volume");
-        if (val && value_type(val) == VALUE_INT32) settings.mentor_volume = (long)value_int32(val);
+        if (val && value_type(val) == VALUE_INT32) settings.mentor_volume = (int64_t)value_int32(val);
     }
 
     /* [display] */
@@ -606,11 +606,11 @@ TbBool load_settings(void)
     if (vsec)
     {
         val = value_dict_get(vsec, "minimap_zoom");
-        if (val && value_type(val) == VALUE_INT32) settings.minimap_zoom = (unsigned int)value_int32(val);
+        if (val && value_type(val) == VALUE_INT32) settings.minimap_zoom = (uint64_t)value_int32(val);
         val = value_dict_get(vsec, "isometric_view_zoom_level");
-        if (val && value_type(val) == VALUE_INT32) settings.isometric_view_zoom_level = (unsigned long)value_int32(val);
+        if (val && value_type(val) == VALUE_INT32) settings.isometric_view_zoom_level = (uint64_t)value_int32(val);
         val = value_dict_get(vsec, "frontview_zoom_level");
-        if (val && value_type(val) == VALUE_INT32) settings.frontview_zoom_level = (unsigned long)value_int32(val);
+        if (val && value_type(val) == VALUE_INT32) settings.frontview_zoom_level = (uint64_t)value_int32(val);
         val = value_dict_get(vsec, "isometric_tilt");
         if (val && value_type(val) == VALUE_INT32) settings.isometric_tilt = value_int32(val);
         val = value_dict_get(vsec, "tooltips_on");
@@ -633,7 +633,7 @@ TbBool load_settings(void)
     vsec = value_dict_get(&root, "keys");
     if (vsec)
     {
-        for (int i = 0; i < GAME_KEYS_COUNT; i++)
+        for (int64_t i = 0; i < GAME_KEYS_COUNT; i++)
         {
             val = value_dict_get(vsec, game_key_settings[i].toml_name);
             if (val && value_type(val) == VALUE_DICT)
@@ -650,7 +650,7 @@ TbBool load_settings(void)
                     if (value_type(vcontroller_buttons) == VALUE_STRING)
                         settings.kbkeys[i].controller_buttons = name_to_controller_buttons(value_string(vcontroller_buttons));
                     else if (value_type(vcontroller_buttons) == VALUE_INT32)
-                        settings.kbkeys[i].controller_buttons = (TbControllerButtons)(unsigned int)value_int32(vcontroller_buttons);
+                        settings.kbkeys[i].controller_buttons = (TbControllerButtons)(uint64_t)value_int32(vcontroller_buttons);
                 }
             }
         }
@@ -662,7 +662,7 @@ TbBool load_settings(void)
     vsec = value_dict_get(&root, "editor_keys");
     if (vsec)
     {
-        for (int i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
+        for (int64_t i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
         {
             val = value_dict_get(vsec, editor_key_settings[i].toml_name);
             if (val && value_type(val) == VALUE_DICT)
@@ -679,7 +679,7 @@ TbBool load_settings(void)
                     if (value_type(vcontroller_buttons) == VALUE_STRING)
                         settings.editor_kbkeys[i].controller_buttons = name_to_controller_buttons(value_string(vcontroller_buttons));
                     else if (value_type(vcontroller_buttons) == VALUE_INT32)
-                        settings.editor_kbkeys[i].controller_buttons = (TbControllerButtons)(unsigned int)value_int32(vcontroller_buttons);
+                        settings.editor_kbkeys[i].controller_buttons = (TbControllerButtons)(uint64_t)value_int32(vcontroller_buttons);
                 }
             }
         }
@@ -706,7 +706,7 @@ TbBool load_settings(void)
     return true;
 }
 
-short save_settings(void)
+int64_t save_settings(void)
 {
     bf_sound_set_volume_config(settings.sound_volume, settings.mentor_volume);
     if (memcmp(&settings, &settings_saved, sizeof(settings)) == 0)
@@ -716,37 +716,37 @@ short save_settings(void)
 
     char *buf = (char *)malloc(16384);
     if (!buf) return false;
-    int len = 0;
-    int maxlen = 16384;
+    int64_t len = 0;
+    int64_t maxlen = 16384;
 #define TOSAVE(...) len += snprintf(buf + len, maxlen - len, __VA_ARGS__)
 
     TOSAVE("# This file gets written by the game automatically.\n");
     TOSAVE("# Do not edit manually unless you know what you're doing.\n");
     TOSAVE("[video]\n");
-    TOSAVE("detail_level = %d\n", (int)settings.video_detail_level);
-    TOSAVE("shadows = %d\n", (int)settings.video_shadows);
-    TOSAVE("view_distance = %d\n", (int)settings.view_distance);
-    TOSAVE("rotate_mode = %d\n", (int)settings.video_rotate_mode);
-    TOSAVE("textures = %d\n", (int)settings.video_textures);
-    TOSAVE("cluedo_mode = %d\n", (int)settings.video_cluedo_mode);
-    TOSAVE("gamma_correction = %d\n", (int)settings.gamma_correction);
-    TOSAVE("roomflags_on = %d\n", (int)settings.roomflags_on);
+    TOSAVE("detail_level = %" PRId64 "\n", (int64_t)settings.video_detail_level);
+    TOSAVE("shadows = %" PRId64 "\n", (int64_t)settings.video_shadows);
+    TOSAVE("view_distance = %" PRId64 "\n", (int64_t)settings.view_distance);
+    TOSAVE("rotate_mode = %" PRId64 "\n", (int64_t)settings.video_rotate_mode);
+    TOSAVE("textures = %" PRId64 "\n", (int64_t)settings.video_textures);
+    TOSAVE("cluedo_mode = %" PRId64 "\n", (int64_t)settings.video_cluedo_mode);
+    TOSAVE("gamma_correction = %" PRId64 "\n", (int64_t)settings.gamma_correction);
+    TOSAVE("roomflags_on = %" PRId64 "\n", (int64_t)settings.roomflags_on);
     TOSAVE("\n[audio]\n");
-    TOSAVE("sound_volume = %d\n", (int)settings.sound_volume);
-    TOSAVE("music_volume = %d\n", (int)settings.music_volume);
-    TOSAVE("mentor_volume = %ld\n", settings.mentor_volume);
+    TOSAVE("sound_volume = %" PRId64 "\n", (int64_t)settings.sound_volume);
+    TOSAVE("music_volume = %" PRId64 "\n", (int64_t)settings.music_volume);
+    TOSAVE("mentor_volume = %" PRId64 "\n", (int64_t)(settings.mentor_volume));
     TOSAVE("\n[display]\n");
-    TOSAVE("minimap_zoom = %u\n", settings.minimap_zoom);
-    TOSAVE("isometric_view_zoom_level = %lu\n", settings.isometric_view_zoom_level);
-    TOSAVE("frontview_zoom_level = %lu\n", settings.frontview_zoom_level);
-    TOSAVE("isometric_tilt = %d\n", settings.isometric_tilt);
+    TOSAVE("minimap_zoom = %" PRIu64 "\n", (uint64_t)(settings.minimap_zoom));
+    TOSAVE("isometric_view_zoom_level = %" PRIu64 "\n", (uint64_t)(settings.isometric_view_zoom_level));
+    TOSAVE("frontview_zoom_level = %" PRIu64 "\n", (uint64_t)(settings.frontview_zoom_level));
+    TOSAVE("isometric_tilt = %" PRId64 "\n", (int64_t)(settings.isometric_tilt));
     TOSAVE("tooltips_on = %s\n", settings.tooltips_on ? "true" : "false");
     TOSAVE("highlight_mode = %s\n", settings.highlight_mode ? "true" : "false");
     TOSAVE("\n[gameplay]\n");
-    TOSAVE("first_person_move_invert = %d\n", (int)settings.first_person_move_invert);
-    TOSAVE("first_person_move_sensitivity = %d\n", (int)settings.first_person_move_sensitivity);
+    TOSAVE("first_person_move_invert = %" PRId64 "\n", (int64_t)settings.first_person_move_invert);
+    TOSAVE("first_person_move_sensitivity = %" PRId64 "\n", (int64_t)settings.first_person_move_sensitivity);
     TOSAVE("\n[keys]\n");
-    for (int i = 0; i < GAME_KEYS_COUNT; i++)
+    for (int64_t i = 0; i < GAME_KEYS_COUNT; i++)
     {
         char mods_buf[32];
         char controller_buttons_buf[512];
@@ -761,7 +761,7 @@ short save_settings(void)
     // docs/refactor/editor/10-definable-keybindings.md -- editor keys' own
     // section, same shape as [keys] above but not sharing its namespace.
     TOSAVE("\n[editor_keys]\n");
-    for (int i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
+    for (int64_t i = 0; i < EDITOR_GAME_KEYS_COUNT; i++)
     {
         char mods_buf[32];
         char controller_buttons_buf[512];
@@ -781,7 +781,7 @@ short save_settings(void)
     return true;
 }
 
-int get_max_i_can_see_from_settings(void)
+int64_t get_max_i_can_see_from_settings(void)
 {
     return i_can_see_levels[settings.view_distance % 4];
 }

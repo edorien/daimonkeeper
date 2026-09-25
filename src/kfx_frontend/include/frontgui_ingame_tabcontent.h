@@ -1,3 +1,4 @@
+#include <stdint.h>
 #ifndef FRONTGUI_INGAME_TABCONTENT_H
 #define FRONTGUI_INGAME_TABCONTENT_H
 
@@ -14,7 +15,7 @@
 // between its tab strip and ImGui::End, so the grid shares one window
 // with the frame and there is no z-order seam). (px,py,pw,ph) is the
 // scaled GMnu_MAIN menu rect.
-void ingame_tabcontent_draw(float px, float py, float pw, float ph);
+void ingame_tabcontent_draw(double px, double py, double pw, double ph);
 #endif
 
 #ifdef FUNCTESTING
@@ -37,7 +38,7 @@ enum IngameTabTestAction {
     ITTA_TendImprison,
     ITTA_TendFlee,
 };
-void ingame_tabcontent_test_fire(int action, long arg);
+void ingame_tabcontent_test_fire(int64_t action, int64_t arg);
 #ifdef __cplusplus
 }
 #endif

@@ -28,14 +28,14 @@
 
 namespace {
 
-struct BrushSlabEntry { int dx, dy; SlabKind kind; PlayerNumber owner; };
+struct BrushSlabEntry { int64_t dx, dy; SlabKind kind; PlayerNumber owner; };
 std::vector<BrushSlabEntry> s_brush_buffer;
-struct BrushThingEntry { int dx, dy; ThingClass class_id; ThingModel model; PlayerNumber owner; CrtrExpLevel exp_level; };
+struct BrushThingEntry { int64_t dx, dy; ThingClass class_id; ThingModel model; PlayerNumber owner; CrtrExpLevel exp_level; };
 std::vector<BrushThingEntry> s_brush_thing_buffer;
 // Lights / action points / effect generators, positions relative to the
 // captured box's top-left in raw map units.
 std::vector<EditorPointSnapshot> s_brush_point_buffer;
-long s_brush_point_origin_x = 0, s_brush_point_origin_y = 0;
+int64_t s_brush_point_origin_x = 0, s_brush_point_origin_y = 0;
 
 bool is_brush_capturable_thing_class(ThingClass class_id)
 {
@@ -135,13 +135,13 @@ void editor_brush_capture(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y, MapSla
             // case.
             s_brush_thing_buffer.clear();
             {
-                s_brush_point_origin_x = (long)slab_subtile(box_beg_x, 0) * 256;
-                s_brush_point_origin_y = (long)slab_subtile(box_beg_y, 0) * 256;
-                const long x1 = ((long)slab_subtile(box_end_x, 0) + STL_PER_SLB) * 256;
-                const long y1 = ((long)slab_subtile(box_end_y, 0) + STL_PER_SLB) * 256;
+                s_brush_point_origin_x = (int64_t)slab_subtile(box_beg_x, 0) * 256;
+                s_brush_point_origin_y = (int64_t)slab_subtile(box_beg_y, 0) * 256;
+                const int64_t x1 = ((int64_t)slab_subtile(box_end_x, 0) + STL_PER_SLB) * 256;
+                const int64_t y1 = ((int64_t)slab_subtile(box_end_y, 0) + STL_PER_SLB) * 256;
                 s_brush_point_buffer.assign(256, EditorPointSnapshot());
-                const int got = editor_points_capture_in_box(s_brush_point_origin_x, s_brush_point_origin_y, x1, y1,
-                    s_brush_point_buffer.data(), (int)s_brush_point_buffer.size());
+                const int64_t got = editor_points_capture_in_box(s_brush_point_origin_x, s_brush_point_origin_y, x1, y1,
+                    s_brush_point_buffer.data(), (int64_t)s_brush_point_buffer.size());
                 s_brush_point_buffer.resize((size_t)got);
             }
             std::vector<ThingIndex> captured_indices;
@@ -151,14 +151,14 @@ void editor_brush_capture(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y, MapSla
             {
                 for (MapSlabCoord sx = box_beg_x; sx <= box_end_x; sx++)
                 {
-                    for (int sub_y = 0; sub_y < STL_PER_SLB; sub_y++)
+                    for (int64_t sub_y = 0; sub_y < STL_PER_SLB; sub_y++)
                     {
-                        for (int sub_x = 0; sub_x < STL_PER_SLB; sub_x++)
+                        for (int64_t sub_x = 0; sub_x < STL_PER_SLB; sub_x++)
                         {
                             MapSubtlCoord tstl_x = slab_subtile(sx, sub_x);
                             MapSubtlCoord tstl_y = slab_subtile(sy, sub_y);
                             struct Map *mapblk = get_map_block_at(tstl_x, tstl_y);
-                            long ti = get_mapwho_thing_index(mapblk);
+                            int64_t ti = get_mapwho_thing_index(mapblk);
                             while (ti != 0)
                             {
                                 struct Thing *thing = thing_get(ti);
@@ -248,8 +248,8 @@ void editor_brush_stamp(MapSlabCoord cur_slb_x, MapSlabCoord cur_slb_y)
         // player_place_trap/door_without_check_at() precedent this mirrors.
         if (!s_brush_point_buffer.empty())
         {
-            const long dx = (long)slab_subtile(cur_slb_x, 0) * 256 - s_brush_point_origin_x;
-            const long dy = (long)slab_subtile(cur_slb_y, 0) * 256 - s_brush_point_origin_y;
+            const int64_t dx = (int64_t)slab_subtile(cur_slb_x, 0) * 256 - s_brush_point_origin_x;
+            const int64_t dy = (int64_t)slab_subtile(cur_slb_y, 0) * 256 - s_brush_point_origin_y;
             for (const EditorPointSnapshot &snap : s_brush_point_buffer)
                 editor_points_stamp(&snap, dx, dy);
         }

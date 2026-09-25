@@ -30,7 +30,7 @@
 
 /**********************************************/
 
-TbBool luaL_isThing(lua_State *L, int index)
+TbBool luaL_isThing(lua_State *L, int64_t index)
 {
     if (!lua_istable(L, index)) {
         return false;
@@ -41,7 +41,7 @@ TbBool luaL_isThing(lua_State *L, int index)
     if (!lua_isnumber(L, -1)) {
         return false;
     }
-    int idx = lua_tointeger(L, -1);
+    int64_t idx = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the idx value off the stack
 
     // Get creation_turn field
@@ -49,7 +49,7 @@ TbBool luaL_isThing(lua_State *L, int index)
     if (!lua_isnumber(L, -1)) {
         return false;
     }
-    int creation_turn = lua_tointeger(L, -1);
+    int64_t creation_turn = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the creation_turn value off the stack
 
     struct Thing* thing = thing_get(idx);
@@ -59,7 +59,7 @@ TbBool luaL_isThing(lua_State *L, int index)
     return true;
 }
 
-TbBool luaL_isCreature(lua_State *L, int index)
+TbBool luaL_isCreature(lua_State *L, int64_t index)
 {
     if (!luaL_isThing(L, index)) {
         return false;
@@ -73,7 +73,7 @@ TbBool luaL_isCreature(lua_State *L, int index)
     return true;
 }
 
-TbBool luaL_isPlayer(lua_State *L, int index)
+TbBool luaL_isPlayer(lua_State *L, int64_t index)
 {
     if(lua_isstring(L, index))
     {
@@ -96,7 +96,7 @@ TbBool luaL_isPlayer(lua_State *L, int index)
 /************    Inputs   **************************************************************************/
 /***************************************************************************************************/
 
-long luaL_checkNamedCommand(lua_State *L, int index,const struct NamedCommand * commanddesc)
+int64_t luaL_checkNamedCommand(lua_State *L, int64_t index,const struct NamedCommand * commanddesc)
 {
     if (lua_isnumber(L, index))
     {
@@ -105,7 +105,7 @@ long luaL_checkNamedCommand(lua_State *L, int index,const struct NamedCommand * 
     else if(lua_isstring(L, index))
     {
         const char* text = lua_tostring(L, index);
-        long id = get_rid(commanddesc, text);
+        int64_t id = get_rid(commanddesc, text);
 
         luaL_argcheck(L,id != -1,index,"unrecognized command");
 
@@ -115,28 +115,28 @@ long luaL_checkNamedCommand(lua_State *L, int index,const struct NamedCommand * 
     return 0;
 }
 
-long luaL_optCheckinteger(lua_State* L, int index)
+int64_t luaL_optCheckinteger(lua_State* L, int64_t index)
 {
     if (lua_isnone(L, index))
         return 0;
     return luaL_checkinteger(L, index);
 }
 
-long luaL_optNamedCommand(lua_State *L, int index,const struct NamedCommand * commanddesc)
+int64_t luaL_optNamedCommand(lua_State *L, int64_t index,const struct NamedCommand * commanddesc)
 {
     if (lua_isnone(L,index))
         return 0;
     return luaL_checkNamedCommand(L,index,commanddesc);
 }
 
-struct Thing *luaL_optCheckThing(lua_State* L, int index)
+struct Thing *luaL_optCheckThing(lua_State* L, int64_t index)
 {
     if (lua_isnone(L, index))
         return 0;
     return luaL_checkThing(L, index);
 }
 
-struct Thing *luaL_checkThing(lua_State *L, int index)
+struct Thing *luaL_checkThing(lua_State *L, int64_t index)
 {
     if (!lua_istable(L, index)) {
         luaL_argerror(L,index, "Expected a table");
@@ -149,7 +149,7 @@ struct Thing *luaL_checkThing(lua_State *L, int index)
         luaL_argerror(L,index, "Expected 'index' to be an integer");
         return INVALID_THING;
     }
-    int idx = lua_tointeger(L, -1);
+    int64_t idx = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the idx value off the stack
 
     // Get creation_turn field
@@ -158,7 +158,7 @@ struct Thing *luaL_checkThing(lua_State *L, int index)
         luaL_argerror(L,index, "Expected 'creation_turn' to be an integer");
         return INVALID_THING;
     }
-    int creation_turn = lua_tointeger(L, -1);
+    int64_t creation_turn = lua_tointeger(L, -1);
     lua_pop(L, 1);  // Pop the creation_turn value off the stack
 
     struct Thing* thing = thing_get(idx);
@@ -169,7 +169,7 @@ struct Thing *luaL_checkThing(lua_State *L, int index)
     return thing;
 }
 
-struct Thing *luaL_checkCreature(lua_State *L, int index)
+struct Thing *luaL_checkCreature(lua_State *L, int64_t index)
 {
     struct Thing *thing = luaL_checkThing(L, index);
     if (thing->class_id != TCls_Creature)
@@ -180,7 +180,7 @@ struct Thing *luaL_checkCreature(lua_State *L, int index)
     return thing;
 }
 
-struct Thing* luaL_checkObject(lua_State* L, int index)
+struct Thing* luaL_checkObject(lua_State* L, int64_t index)
 {
     struct Thing* thing = luaL_checkThing(L, index);
     if (thing->class_id != TCls_Object)
@@ -191,18 +191,18 @@ struct Thing* luaL_checkObject(lua_State* L, int index)
     return thing;
 }
 
-TbMapLocation luaL_checkLocation(lua_State *L, int index)
+TbMapLocation luaL_checkLocation(lua_State *L, int64_t index)
 {
     if (luaL_isPlayer(L, index))
     {
         PlayerNumber playerId = luaL_checkPlayerSingle(L,index);
-        return  ((unsigned long)playerId << 4) | MLoc_PLAYERSHEART;
+        return  ((uint64_t)playerId << 4) | MLoc_PLAYERSHEART;
     }
     else if (lua_istable(L, index)) {
         lua_getfield(L, index, "stl_x");
-        int stl_x = lua_tointeger(L, -1);
+        int64_t stl_x = lua_tointeger(L, -1);
         lua_getfield(L, index, "stl_y");
-        int stl_y = lua_tointeger(L, -1);
+        int64_t stl_y = lua_tointeger(L, -1);
 
         return get_coord_encoded_location(stl_x,stl_y);
     }
@@ -217,7 +217,7 @@ TbMapLocation luaL_checkLocation(lua_State *L, int index)
     return location;
 }
 
-TbMapLocation luaL_optLocation(lua_State *L, int index)
+TbMapLocation luaL_optLocation(lua_State *L, int64_t index)
 {
     if (lua_isnone(L,index))
         return 0;
@@ -225,10 +225,10 @@ TbMapLocation luaL_optLocation(lua_State *L, int index)
         return luaL_checkLocation(L,index);
 }
 
-TbMapLocation luaL_checkHeadingLocation(lua_State *L, int index)
+TbMapLocation luaL_checkHeadingLocation(lua_State *L, int64_t index)
 {
     const char* locname = lua_tostring(L, index);
-    long target = luaL_checkNamedCommand(L, index + 1,head_for_desc);
+    int64_t target = luaL_checkNamedCommand(L, index + 1,head_for_desc);
 
 
     TbMapLocation location;
@@ -239,13 +239,13 @@ TbMapLocation luaL_checkHeadingLocation(lua_State *L, int index)
     return location;
 }
 
-PlayerNumber luaL_checkPlayerRangeId(lua_State *L, int index)
+PlayerNumber luaL_checkPlayerRangeId(lua_State *L, int64_t index)
 {
     if (lua_istable(L, index))
     {
         lua_getfield(L, index, "playerId");
         if (lua_isnumber(L, -1)) {
-            int i = lua_tointeger(L, -1);
+            int64_t i = lua_tointeger(L, -1);
             return i;
         }
         luaL_argerror(L,index, "Expected table to be of class Player");
@@ -257,11 +257,11 @@ PlayerNumber luaL_checkPlayerRangeId(lua_State *L, int index)
     return get_id(player_desc, plrname);
 }
 
-struct PlayerRange luaL_checkPlayerRange(lua_State *L, int index)
+struct PlayerRange luaL_checkPlayerRange(lua_State *L, int64_t index)
 {
     struct PlayerRange playerRange = {0,0};
 
-    long plr_range_id = luaL_checkPlayerRangeId(L,index);
+    int64_t plr_range_id = luaL_checkPlayerRangeId(L,index);
 
     if (plr_range_id == ALL_PLAYERS)
     {
@@ -277,7 +277,7 @@ struct PlayerRange luaL_checkPlayerRange(lua_State *L, int index)
     return playerRange;
 }
 
-PlayerNumber luaL_checkPlayerSingle(lua_State *L, int index)
+PlayerNumber luaL_checkPlayerSingle(lua_State *L, int64_t index)
 {
     PlayerNumber playerId = luaL_checkPlayerRangeId(L,index);
     if(playerId == ALL_PLAYERS)
@@ -291,14 +291,14 @@ PlayerNumber luaL_checkPlayerSingle(lua_State *L, int index)
     return playerId;
 }
 
-PlayerNumber luaL_optPlayerSingle(lua_State *L, int index)
+PlayerNumber luaL_optPlayerSingle(lua_State *L, int64_t index)
 {
     if (lua_isnone(L,index))
         return PLAYER_NEUTRAL;
     return luaL_checkPlayerSingle(L,index);
 }
 
-MapSubtlCoord luaL_checkstl_x(lua_State *L, int index)
+MapSubtlCoord luaL_checkstl_x(lua_State *L, int64_t index)
 {
     MapSubtlCoord stl_x = luaL_checkint(L,index);
     luaL_argcheck(L, 0 <= stl_x && stl_x <= kfx_sim_state.map_subtiles_x, index,
@@ -306,7 +306,7 @@ MapSubtlCoord luaL_checkstl_x(lua_State *L, int index)
     return stl_x;
 }
 
-MapSubtlCoord luaL_checkstl_y(lua_State *L, int index)
+MapSubtlCoord luaL_checkstl_y(lua_State *L, int64_t index)
 {
     MapSubtlCoord stl_y = luaL_checkint(L,index);
     luaL_argcheck(L, 0 <= stl_y && stl_y <= kfx_sim_state.map_subtiles_y, index,
@@ -314,7 +314,7 @@ MapSubtlCoord luaL_checkstl_y(lua_State *L, int index)
     return stl_y;
 }
 
-MapSlabCoord luaL_checkslb_x(lua_State *L, int index)
+MapSlabCoord luaL_checkslb_x(lua_State *L, int64_t index)
 {
     MapSlabCoord slb_x = luaL_checkint(L,index);
     luaL_argcheck(L, 0 <= slb_x && slb_x <= kfx_sim_state.map_tiles_x, index,
@@ -322,7 +322,7 @@ MapSlabCoord luaL_checkslb_x(lua_State *L, int index)
     return slb_x;
 }
 
-MapSlabCoord luaL_checkslb_y(lua_State *L, int index)
+MapSlabCoord luaL_checkslb_y(lua_State *L, int64_t index)
 {
     MapSlabCoord slb_y = luaL_checkint(L,index);
     luaL_argcheck(L, 0 <= slb_y && slb_y <= kfx_sim_state.map_tiles_y, index,
@@ -330,18 +330,18 @@ MapSlabCoord luaL_checkslb_y(lua_State *L, int index)
     return slb_y;
 }
 
-ActionPointId luaL_checkActionPoint(lua_State *L, int index)
+ActionPointId luaL_checkActionPoint(lua_State *L, int64_t index)
 {
-    int apt_num = luaL_checkint(L,index);
+    int64_t apt_num = luaL_checkint(L,index);
     ActionPointId apt_idx = action_point_number_to_index(apt_num);
     if (!action_point_exists_idx(apt_idx))
     {
-        return luaL_argerror(L, index, lua_pushfstring(L, "Non-existing Action Point, no %d", apt_num));
+        return luaL_argerror(L, index, lua_pushfstring(L, "Non-existing Action Point, no %" PRId64, (int64_t)(apt_num)));
     }
     return apt_idx;
 }
 
-unsigned char luaL_checkCrtLevel(lua_State *L, int index)
+unsigned char luaL_checkCrtLevel(lua_State *L, int64_t index)
 {
     MapSubtlCoord crtr_level = luaL_checkint(L,index);
 
@@ -351,11 +351,11 @@ unsigned char luaL_checkCrtLevel(lua_State *L, int index)
 
 }
 
-unsigned char luaL_checkParty(lua_State *L, int index)
+unsigned char luaL_checkParty(lua_State *L, int64_t index)
 {
     const char *party_name = lua_tostring(L,  index);
     // Recognize party name
-    int prty_id = get_party_index_of_name(party_name);
+    int64_t prty_id = get_party_index_of_name(party_name);
     if (prty_id < 0)
     {
         return luaL_argerror(L, index, lua_pushfstring(L, "Party of requested name, '%s', is not defined", party_name));
@@ -363,7 +363,7 @@ unsigned char luaL_checkParty(lua_State *L, int index)
     return prty_id;
 }
 
-void luaL_checkMessageIcon(lua_State *L, int index, char* type, short* id)
+void luaL_checkMessageIcon(lua_State *L, int64_t index, char* type, int64_t* id)
 {
     if (lua_isnone(L, index))
     {
@@ -396,7 +396,7 @@ void luaL_checkMessageIcon(lua_State *L, int index, char* type, short* id)
     
 }
 
-EffectOrEffElModel luaL_checkEffectOrEffElModel(lua_State *L, int index)
+EffectOrEffElModel luaL_checkEffectOrEffElModel(lua_State *L, int64_t index)
 {
     if (lua_isnumber(L, index))
     {
@@ -405,7 +405,7 @@ EffectOrEffElModel luaL_checkEffectOrEffElModel(lua_State *L, int index)
     else if(lua_isstring(L, index))
     {
         const char* text = lua_tostring(L, index);
-        long id = effect_or_effect_element_id(text);
+        int64_t id = effect_or_effect_element_id(text);
 
         luaL_argcheck(L,id != 0,index,"invalid effect option");
 
@@ -415,7 +415,7 @@ EffectOrEffElModel luaL_checkEffectOrEffElModel(lua_State *L, int index)
     return 0;
 }
 
-long luaL_checkCreature_or_creature_wildcard(lua_State *L, int index)
+int64_t luaL_checkCreature_or_creature_wildcard(lua_State *L, int64_t index)
 {
     if (lua_isnumber(L, index))
     {
@@ -424,7 +424,7 @@ long luaL_checkCreature_or_creature_wildcard(lua_State *L, int index)
     else if(lua_isstring(L, index))
     {
         const char* text = lua_tostring(L, index);
-        long id = get_rid(creature_desc, text);
+        int64_t id = get_rid(creature_desc, text);
 
         if (0 == strcasecmp(text, "ANY_CREATURE"))
         {
@@ -440,14 +440,14 @@ long luaL_checkCreature_or_creature_wildcard(lua_State *L, int index)
 
 }
     
-long luaL_checkIntMinMax(lua_State *L, int index,long min, long max)
+int64_t luaL_checkIntMinMax(lua_State *L, int64_t index,int64_t min, int64_t max)
 {
-    long val = luaL_checkinteger(L,index);
+    int64_t val = luaL_checkinteger(L,index);
     luaL_argcheck(L, min <= val && val <= max, index, "value out of range");
     return val;
 }
 
-int luaL_checkSlab(lua_State *L, int idx, MapSlabCoord* slb_x, MapSlabCoord* slb_y)
+int luaL_checkSlab(lua_State *L, int64_t idx, MapSlabCoord* slb_x, MapSlabCoord* slb_y)
 {
     *slb_x = 0;
     *slb_y = 0;
@@ -472,7 +472,7 @@ int luaL_checkSlab(lua_State *L, int idx, MapSlabCoord* slb_x, MapSlabCoord* slb
     return 0;
 }
 
-struct Room* luaL_checkRoom(lua_State *L, int idx)
+struct Room* luaL_checkRoom(lua_State *L, int64_t idx)
 {
     if (!lua_istable(L, idx)) {
         luaL_argerror(L, idx, "Expected a room");
@@ -510,7 +510,7 @@ struct Room* luaL_checkRoom(lua_State *L, int idx)
     return room;
 }
 
-void luaL_checkCoord3d(lua_State *L, int index, struct Coord3d* pos)
+void luaL_checkCoord3d(lua_State *L, int64_t index, struct Coord3d* pos)
 {
     if (lua_istable(L, index)) {
 
@@ -527,7 +527,7 @@ void luaL_checkCoord3d(lua_State *L, int index, struct Coord3d* pos)
     return;
 }
 
-long luaL_checkAnimationId(lua_State* L, int index)
+int64_t luaL_checkAnimationId(lua_State* L, int64_t index)
 {
     if (lua_isnumber(L, index))
     {
@@ -536,7 +536,7 @@ long luaL_checkAnimationId(lua_State* L, int index)
     else if (lua_isstring(L, index))
     {
         const char* text = lua_tostring(L, index);
-        long id = get_anim_id_(text);
+        int64_t id = get_anim_id_(text);
 
         luaL_argcheck(L, id != -1, index, "unrecognized command");
 
@@ -546,7 +546,7 @@ long luaL_checkAnimationId(lua_State* L, int index)
     return 0;
 }
 
-void luaL_checkVariable(lua_State* L, int index, int32_t* varib_id, int32_t* varib_type)
+void luaL_checkVariable(lua_State* L, int64_t index, int64_t* varib_id, int64_t* varib_type)
 {
     const char* variable = luaL_checkstring(L, index);
     if (!parse_get_varib(variable, varib_id, varib_type, 1))
@@ -689,8 +689,8 @@ void lua_pushParent(lua_State *L, const struct Thing *thing)
 //pushes a table of all the creatures in the party onto the stack
 void lua_pushPartyTable(lua_State *L, struct Thing* thing) {
     lua_newtable(L);
-    long i = thing->index;
-    long k = 0;
+    int64_t i = thing->index;
+    int64_t k = 0;
     while (i != 0)
     {
         thing = thing_get(i);
@@ -721,8 +721,8 @@ void lua_pushFamiliarTable(lua_State* L, struct Thing* thing) {
     lua_newtable(L);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct Thing* famlrtng;
-    int k = 1;
-    for (int j = 0; j < FAMILIAR_MAX; j++)
+    int64_t k = 1;
+    for (int64_t j = 0; j < FAMILIAR_MAX; j++)
     {
         if (cctrl->familiar_idx[j])
         {

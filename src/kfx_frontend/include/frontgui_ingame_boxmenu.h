@@ -6,7 +6,7 @@
 // GuiBoxOption system) drawn as ImGui windows unless the player has chosen
 // the classic HUD (ingame_gui_use_classic_hud(), config_keeperfx.h). The
 // boxes are still created / tracked by the legacy machinery
-// (gui_create_box, kfx_frontend_state.gui_cheat_box_*, first_box/last_box) --
+// (gui_create_box, kfx_frontend_local.gui_cheat_box_*, first_box/last_box) --
 // this only swaps drawing + hit-testing.
 
 #include "globals.h" // TbBool

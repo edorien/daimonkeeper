@@ -20,15 +20,15 @@ namespace {
 
 const struct NamedCommand *find(const struct NamedCommand *table, const char *name)
 {
-    for (int i = 0; table[i].name != nullptr; i++)
+    for (int64_t i = 0; table[i].name != nullptr; i++)
         if (strcmp(table[i].name, name) == 0)
             return &table[i];
     return nullptr;
 }
 
-int count(const struct NamedCommand *table)
+int64_t count(const struct NamedCommand *table)
 {
-    int n = 0;
+    int64_t n = 0;
     while (table[n].name != nullptr)
         n++;
     return n;
@@ -46,7 +46,7 @@ TEST_CASE("identical-meaning whitelist names resolve to the same variable at v0 
         REQUIRE(v0 != nullptr);
         CHECK(v0->num == v1->num);
         // ...and through the real lookup the engine uses for IF conditions.
-        int32_t id0, type0, id1, type1;
+        int64_t id0, type0, id1, type1;
         REQUIRE(parse_get_varib(*p, &id0, &type0, 0));
         REQUIRE(parse_get_varib(*p, &id1, &type1, 1));
         CHECK(type0 == type1);
@@ -63,7 +63,7 @@ TEST_CASE("v1-only whitelist names exist only in the v1 table", "[kfx_editor][sc
 }
 
 TEST_CASE("the whitelists cover the engine tables exactly (nothing silently added)", "[kfx_editor][script_setup]") {
-    int identical = 0, v1_only = 0;
+    int64_t identical = 0, v1_only = 0;
     for (const char *const *p = script_setup_win_variables_identical(); *p; p++) identical++;
     for (const char *const *p = script_setup_win_variables_v1_only(); *p; p++) v1_only++;
     // v1 table = identical + v1-only + TOTAL_CREATURES; v0 table = identical + TOTAL_CREATURES + TOTAL_IMPS.

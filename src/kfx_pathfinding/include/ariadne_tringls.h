@@ -34,50 +34,50 @@ extern "C" {
 struct Point;
 
 struct Triangle {
-  short points[3];
-  int tags[3]; // Id of each triangle neighbour of this one
+  int64_t points[3];
+  int64_t tags[3]; // Id of each triangle neighbour of this one
   NavColour tree_alt; // NAV_COL_UNSET is a special value here
   unsigned char navigation_flags;
-  unsigned short region_and_edgelen;
+  int64_t region_and_edgelen;
 };
 
-#define NAV_COL_UNSET USHRT_MAX
+#define NAV_COL_UNSET (-1) // NavColour is a signed 64-bit value now; the old 16-bit "65535" sentinel was what `return -1` produced
 
 /******************************************************************************/
 extern struct Triangle Triangles[TRIANLGLES_COUNT];
-extern long count_Triangles;
-extern long ix_Triangles;
+extern int64_t count_Triangles;
+extern int64_t ix_Triangles;
 
 #pragma pack()
 /******************************************************************************/
 extern struct Triangle bad_triangle;
 #define INVALID_TRIANGLE &bad_triangle
-extern const long MOD3[];
+extern const int64_t MOD3[];
 /******************************************************************************/
-long tri_new(void);
-void tri_dispose(long tri_idx);
+int64_t tri_new(void);
+void tri_dispose(int64_t tri_idx);
 
 TbBool triangle_is_invalid(const struct Triangle *tri);
-struct Triangle *get_triangle(long tri_id);
-long triangle_find_first_used(void);
+struct Triangle *get_triangle(int64_t tri_id);
+int64_t triangle_find_first_used(void);
 
-long get_triangle_region_id(long tri_id);
-TbBool set_triangle_region_id(long tri_id, long reg_id);
-long get_triangle_edgelen(long tri_id);
-TbBool set_triangle_edgelen(long tri_id, long edgelen);
-NavColour get_triangle_tree_alt(long tri_id);
-struct Point *get_triangle_point(long tri_id, long pt_cor);
-TbBool triangle_tip_equals(long tri_id, long pt_cor, long pt_x, long pt_y);
-long link_find(long ntri, long val);
-TbBool outer_locked(long ntri, long ncor);
+int64_t get_triangle_region_id(int64_t tri_id);
+TbBool set_triangle_region_id(int64_t tri_id, int64_t reg_id);
+int64_t get_triangle_edgelen(int64_t tri_id);
+TbBool set_triangle_edgelen(int64_t tri_id, int64_t edgelen);
+NavColour get_triangle_tree_alt(int64_t tri_id);
+struct Point *get_triangle_point(int64_t tri_id, int64_t pt_cor);
+TbBool triangle_tip_equals(int64_t tri_id, int64_t pt_cor, int64_t pt_x, int64_t pt_y);
+int64_t link_find(int64_t ntri, int64_t val);
+TbBool outer_locked(int64_t ntri, int64_t ncor);
 
-long point_loop(long pt_tri, long pt_cor);
-long reduce_point(int32_t *pt_tri, int32_t *pt_cor);
-void edgelen_set(long tri_id);
-long edge_rotateAC(long tri1_id, long cor1_id);
+int64_t point_loop(int64_t pt_tri, int64_t pt_cor);
+int64_t reduce_point(int64_t *pt_tri, int64_t *pt_cor);
+void edgelen_set(int64_t tri_id);
+int64_t edge_rotateAC(int64_t tri1_id, int64_t cor1_id);
 
-void triangulation_init_triangles(long pt_id1, long pt_id2, long pt_id3, long pt_id4);
-char triangle_divide_areas_s8differ(long ntri, long ncorA, long ncorB, long pt_x, long pt_y);
+void triangulation_init_triangles(int64_t pt_id1, int64_t pt_id2, int64_t pt_id3, int64_t pt_id4);
+char triangle_divide_areas_s8differ(int64_t ntri, int64_t ncorA, int64_t ncorB, int64_t pt_x, int64_t pt_y);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -15,7 +15,7 @@
 namespace {
 struct MapUiFixture {
     static inline bool menu_visible;
-    static unsigned long toggle(short visible) { unsigned long old = menu_visible; menu_visible = visible != 0; return old; }
+    static uint64_t toggle(int64_t visible) { uint64_t old = menu_visible; menu_visible = visible != 0; return old; }
     struct SimFeedbackCallbacks callbacks;
     MapUiFixture() {
         std::memset(&local_state, 0, sizeof(local_state));

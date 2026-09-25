@@ -44,55 +44,55 @@ struct LogThingDesyncInfo {
     HitPoints health;
     GameTurn creation_turn;
     uint32_t random_seed;
-    unsigned short anim_sprite;
-    short anim_speed;
-    int32_t anim_time;
+    int64_t anim_sprite;
+    int64_t anim_speed;
+    int64_t anim_time;
     unsigned char current_frame;
     unsigned char max_frames;
     unsigned char active_state;
     unsigned char continue_state;
-    unsigned short movement_flags;
-    short move_angle_xy;
-    short move_angle_z;
+    int64_t movement_flags;
+    int64_t move_angle_xy;
+    int64_t move_angle_z;
     PlayerNumber holding_player;
-    short parent_idx;
+    int64_t parent_idx;
     unsigned char fall_acceleration;
     struct CoordDelta3d veloc_base;
     struct CoordDelta3d veloc_push_once;
     struct CoordDelta3d veloc_push_add;
     TbBool is_special_digger;
     struct Coord3d digger_moveto_pos;
-    short digger_dragtng_idx;
+    int64_t digger_dragtng_idx;
     ThingIndex digger_arming_thing_id;
     ThingIndex digger_pickup_object_id;
     ThingIndex digger_pickup_creature_id;
     unsigned char digger_move_flags;
-    int32_t digger_stack_update_turn;
+    int64_t digger_stack_update_turn;
     SubtlCodedCoords digger_working_stl;
     SubtlCodedCoords digger_task_stl;
-    unsigned short digger_task_idx;
+    int64_t digger_task_idx;
     unsigned char digger_consecutive_reinforcements;
     unsigned char digger_last_did_job;
     unsigned char digger_task_stack_pos;
-    unsigned short digger_task_repeats;
+    int64_t digger_task_repeats;
     TbBigChecksum checksum;
 };
 
 struct LogPlayerDesyncInfo {
     PlayerNumber id;
     unsigned char instance_num;
-    uint32_t instance_remain_turns;
+    uint64_t instance_remain_turns;
     struct Coord3d mappos;
     TbBigChecksum checksum;
 };
 
 struct LogRoomDesyncInfo {
     RoomIndex index;
-    unsigned short slabs_count;
+    int64_t slabs_count;
     MapSubtlCoord central_stl_x;
     MapSubtlCoord central_stl_y;
-    unsigned short efficiency;
-    unsigned short used_capacity;
+    int64_t efficiency;
+    int64_t used_capacity;
     TbBigChecksum checksum;
 };
 
@@ -116,13 +116,13 @@ struct DesyncChecksums {
 
 struct LogDetailedSnapshot {
     struct LogThingDesyncInfo things[SYNCED_THINGS_COUNT];
-    int thing_count;
+    int64_t thing_count;
     struct LogPlayerDesyncInfo players[PLAYERS_COUNT];
-    int player_count;
+    int64_t player_count;
     struct LogRoomDesyncInfo rooms[ROOMS_COUNT];
-    int room_count;
+    int64_t room_count;
     struct MapTask dig_tasks[DUNGEONS_COUNT][MAPTASKS_COUNT];
-    unsigned short dig_task_counts[DUNGEONS_COUNT];
+    int64_t dig_task_counts[DUNGEONS_COUNT];
 };
 
 #pragma pack(1)
@@ -132,23 +132,22 @@ struct KfxNetState {
     unsigned char packet_load_enable;
     char packet_fname[150];
     char packet_fopened;
-    TbFileHandle packet_save_fp;
-    unsigned int packet_file_pos;
+    uint64_t packet_file_pos;
     struct PacketSaveHead packet_save_head;
-    uint32_t turns_stored;
-    uint32_t turns_fastforward;
+    uint64_t turns_stored;
+    uint64_t turns_fastforward;
     unsigned char packet_loading_in_progress;
     unsigned char packet_checksum_verify;
-    uint32_t log_things_start_turn;
-    uint32_t log_things_end_turn;
-    uint32_t turns_packetoff;
+    uint64_t log_things_start_turn;
+    uint64_t log_things_end_turn;
+    uint64_t turns_packetoff;
     PlayerNumber local_plyr_idx;
 
     // Per-turn input packets moved to kfx_sim's sim_packets[] (packet_data.h,
     // docs/refactor/todo/remove-symbol-level-layering-residuals.md) --
     // this file's own packets.c/packets_misc.c/net_exchange_gameplay.c
     // still write into it directly, just no longer as a field here.
-    int input_lag_turns;
+    int64_t input_lag_turns;
     char active_players_count;
 
     // Desync detection (net_checksums.c).
@@ -159,15 +158,15 @@ struct KfxNetState {
        stage-13-enforce-and-document.md) -- both read by kfx_apploop/
        kfx_frontend/kfx_game too, but kfx_net is the lowest-ranked of
        their consumer sets. */
-    long double process_turn_time;
-    unsigned short skip_initial_input_turns;
+    double process_turn_time;
+    int64_t skip_initial_input_turns;
 
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- also read by kfx_platform's
        bflib_sndlib.cpp, which gets pointer access via
        SoundStateCallbacks instead (kfx_platform is the lowest-ranked
        library, can't reach kfx_net_state directly). */
-    int32_t frame_skip;
+    int64_t frame_skip;
 
     /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
        stage-13-enforce-and-document.md) -- read/written by net_resync.cpp
@@ -187,6 +186,13 @@ struct KfxNetState {
 #pragma pack()
 /******************************************************************************/
 extern struct KfxNetState kfx_net_state;
+
+/** Process-local state, NOT part of the saved/resynced KfxNetState blob: a FILE* is meaningless outside the
+ *  process that opened it (a savegame or a multiplayer host would overwrite ours with a dead handle). */
+struct KfxNetLocal {
+    TbFileHandle packet_save_fp;
+};
+extern struct KfxNetLocal kfx_net_local;
 /******************************************************************************/
 #ifdef __cplusplus
 }

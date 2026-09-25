@@ -77,7 +77,7 @@ FTestActionResult ftest_creature_lair_healing_action001__setup(struct FTestActio
 
     if (!ftest_util_replace_slabs(lair_slb_x, lair_slb_y, lair_slb_x + LAIR_SIZE, lair_slb_y + LAIR_SIZE, SlbT_LAIR, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build lair room at slab (%d,%d)", lair_slb_x, lair_slb_y);
+        FTEST_FAIL_TEST("Failed to build lair room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(lair_slb_x), (int64_t)(lair_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     // map00011's own script already has LAIR fully available
@@ -131,7 +131,7 @@ FTestActionResult ftest_creature_lair_healing_action002__wait_for_sleep(struct F
 
     if (creature->active_state == CrSt_CreatureSleep || creature->active_state == CrSt_AtLairToSleep)
     {
-        FTESTLOG("Creature reached lair-sleep state %d at turn %d", (int)creature->active_state, get_gameturn());
+        FTESTLOG("Creature reached lair-sleep state %" PRId64 " at turn %" PRId64, (int64_t)creature->active_state, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -140,7 +140,7 @@ FTestActionResult ftest_creature_lair_healing_action002__wait_for_sleep(struct F
     // creature_states.c) only re-fires every 128 turns per creature.
     if (get_gameturn() >= args->intended_start_at_game_turn + 600)
     {
-        FTEST_FAIL_TEST("Creature never reached CrSt_CreatureSleep/CrSt_AtLairToSleep within the turn budget (active_state=%d)", (int)creature->active_state);
+        FTEST_FAIL_TEST("Creature never reached CrSt_CreatureSleep/CrSt_AtLairToSleep within the turn budget (active_state=%" PRId64 ")", (int64_t)creature->active_state);
         return FTRs_Go_To_Next_Action;
     }
 

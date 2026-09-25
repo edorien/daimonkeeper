@@ -79,29 +79,29 @@ struct Coord3d;
 #pragma pack()
 /******************************************************************************/
 /******************************************************************************/
-struct Thing *create_shot(struct Coord3d *pos, ThingModel model, unsigned short owner);
+struct Thing *create_shot(struct Coord3d *pos, ThingModel model, int64_t owner);
 TngUpdateRet update_shot(struct Thing *thing);
 TbBool thing_is_shot(const struct Thing *thing);
 
-long get_damage_of_melee_shot(struct Thing *shotng, const struct Thing *target, TbBool NeverBlock);
+int64_t get_damage_of_melee_shot(struct Thing *shotng, const struct Thing *target, TbBool NeverBlock);
 void create_relevant_effect_for_shot_hitting_thing(struct Thing *shotng, struct Thing *target);
-int weight_calculated_push_strenght(int weight, int push_strength);
+int64_t weight_calculated_push_strenght(int64_t weight, int64_t push_strength);
 
 TbBool shot_is_slappable_by_player(const struct Thing *thing, PlayerNumber plyr_idx);
-TbBool shot_model_is_navigable(long tngmodel);
-TbBool shot_model_makes_flesh_explosion(long shot_model);
+TbBool shot_model_is_navigable(int64_t tngmodel);
+TbBool shot_model_makes_flesh_explosion(int64_t shot_model);
 TbBool detonate_shot(struct Thing *shotng, TbBool destroy);
 TbBool shot_is_boulder(const struct Thing *shotng);
 
-struct Thing *get_thing_collided_with_at_satisfying_filter(struct Thing *thing, struct Coord3d *pos, Thing_Collide_Func filter, HitTargetFlags a4, long a5);
+struct Thing *get_thing_collided_with_at_satisfying_filter(struct Thing *thing, struct Coord3d *pos, Thing_Collide_Func filter, HitTargetFlags a4, int64_t a5);
 
 void affect_nearby_enemy_creatures_with_wind(struct Thing *thing);
 
-struct Thing* script_process_new_shot(ThingModel tngmodel, TbMapLocation location, PlayerNumber owner, ThingIndex target, int hittype);
+struct Thing* script_process_new_shot(ThingModel tngmodel, TbMapLocation location, PlayerNumber owner, ThingIndex target, int64_t hittype);
 void shot_kill_creature(struct Thing *shotng, struct Thing *creatng);
 
-long apply_wallhug_force_to_boulder(struct Thing *thing);
-int process_boulder_collision(struct Thing *boulder, struct Coord3d *pos, int direction_x, int direction_y);
+int64_t apply_wallhug_force_to_boulder(struct Thing *thing);
+int64_t process_boulder_collision(struct Thing *boulder, struct Coord3d *pos, int64_t direction_x, int64_t direction_y);
 /******************************************************************************/
 #ifdef __cplusplus
 }

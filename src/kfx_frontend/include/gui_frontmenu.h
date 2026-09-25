@@ -54,8 +54,8 @@ extern EventIndex my_visible_event_idx;
 struct GuiMenu *get_active_menu(MenuNumber num);
 void refresh_active_button_sprites_for_player(PlayerNumber plyr_idx);
 MenuNumber menu_id_to_number(MenuID menu_id);
-int first_monopoly_menu(void);
-int point_is_over_gui_menu(long x, long y);
+int64_t first_monopoly_menu(void);
+int64_t point_is_over_gui_menu(int64_t x, int64_t y);
 void update_busy_doing_gui_on_menu(void);
 
 void turn_on_menu(MenuID idx);
@@ -63,19 +63,19 @@ void turn_off_menu(MenuID mnu_idx);
 void update_query_menu();
 void turn_off_query_menus(void);
 void turn_off_all_menus(void);
-short turn_off_all_window_menus(void);
-short turn_off_all_bottom_menus(void);
+int64_t turn_off_all_window_menus(void);
+int64_t turn_off_all_bottom_menus(void);
 void turn_on_main_panel_menu(void);
 void turn_off_all_panel_menus(void);
-void set_menu_mode(long mnu_idx);
+void set_menu_mode(int64_t mnu_idx);
 void set_menu_visible_on(MenuID menu_id);
 void set_menu_visible_off(MenuID menu_id);
 void turn_off_event_box_if_necessary(PlayerNumber plyr_idx, unsigned char event_idx);
 
 void kill_menu(struct GuiMenu *gmnu);
-void remove_from_menu_stack(short mnu_id);
+void remove_from_menu_stack(int64_t mnu_id);
 void add_to_menu_stack(unsigned char mnu_idx);
-long first_available_menu(void);
+int64_t first_available_menu(void);
 void reset_gui_based_on_player_mode(void);
 /******************************************************************************/
 #ifdef __cplusplus

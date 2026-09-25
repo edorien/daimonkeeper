@@ -43,8 +43,8 @@ extern "C" {
 /******************************************************************************/
 #define PACKET_TURN_MAX_SIZE (MAX_NET_USERS*sizeof(struct Packet) + sizeof(TbBigChecksum))
 #define MULTIPLAYER_PAUSE_COOLDOWN_MS 500
-unsigned long initial_replay_seed;
-unsigned long last_pause_toggle_time = 0;
+uint64_t initial_replay_seed;
+uint64_t last_pause_toggle_time = 0;
 extern TbBool IMPRISON_BUTTON_DEFAULT;
 extern TbBool FLEE_BUTTON_DEFAULT;
 extern TbBool get_skip_heart_zoom_feature(void);
@@ -60,29 +60,29 @@ unsigned char get_players_packet_action(struct PlayerInfo *player)
     return pckt->action;
 }
 
-void set_packet_control(struct Packet *pckt, unsigned long flag)
+void set_packet_control(struct Packet *pckt, uint64_t flag)
 {
   pckt->control_flags |= flag;
 }
 
-void set_players_packet_control(struct PlayerInfo *player, unsigned long flag)
+void set_players_packet_control(struct PlayerInfo *player, uint64_t flag)
 {
     struct Packet* pckt = get_packet(player->user_id);
     pckt->control_flags |= flag;
 }
 
-void unset_packet_control(struct Packet *pckt, unsigned long flag)
+void unset_packet_control(struct Packet *pckt, uint64_t flag)
 {
     pckt->control_flags &= ~flag;
 }
 
-void unset_players_packet_control(struct PlayerInfo *player, unsigned long flag)
+void unset_players_packet_control(struct PlayerInfo *player, uint64_t flag)
 {
     struct Packet* pckt = get_packet(player->user_id);
     pckt->control_flags &= ~flag;
 }
 
-void set_players_packet_position(struct Packet *pckt, long x, long y, unsigned char context)
+void set_players_packet_position(struct Packet *pckt, int64_t x, int64_t y, unsigned char context)
 {
     pckt->pos_x = x;
     pckt->pos_y = y;
@@ -93,15 +93,15 @@ void set_players_packet_position(struct Packet *pckt, long x, long y, unsigned c
 
 void clear_packets(void)
 {
-    for (int i = 0; i < PACKETS_COUNT; i++)
+    for (int64_t i = 0; i < PACKETS_COUNT; i++)
     {
         memset(&sim_packets[i], 0, sizeof(struct Packet));
     }
 }
 
-static int packet_saved_users(NetUserId *users)
+static int64_t packet_saved_users(NetUserId *users)
 {
-    int n = 0;
+    int64_t n = 0;
     for (NetUserId user = 0; user < MAX_NET_USERS; user++)
     {
         if (kfx_net_state.packet_save_head.user_players[user] >= 0)
@@ -110,7 +110,7 @@ static int packet_saved_users(NetUserId *users)
     return n;
 }
 
-static int packet_turn_size(void)
+static int64_t packet_turn_size(void)
 {
     NetUserId users[MAX_NET_USERS];
     return packet_saved_users(users) * sizeof(struct Packet) + sizeof(TbBigChecksum);
@@ -120,24 +120,24 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
 {
     memset(centry, 0, sizeof(struct CatalogueEntry));
     strcpy(kfx_net_state.packet_fname, fname);
-    kfx_net_state.packet_save_fp = LbFileOpen(kfx_net_state.packet_fname, Lb_FILE_MODE_READ_ONLY);
-    if (!kfx_net_state.packet_save_fp)
+    kfx_net_local.packet_save_fp = LbFileOpen(kfx_net_state.packet_fname, Lb_FILE_MODE_READ_ONLY);
+    if (!kfx_net_local.packet_save_fp)
     {
         ERRORLOG("Cannot open keeper packet file for load");
         kfx_net_state.packet_fopened = 0;
         return false;
     }
-    int i = net_callbacks->load_game_chunks(kfx_net_state.packet_save_fp, centry);
+    int64_t i = net_callbacks->load_game_chunks(kfx_net_local.packet_save_fp, centry);
     if ((i != GLoad_PacketStart) && (i != GLoad_PacketContinue))
     {
-        LbFileClose(kfx_net_state.packet_save_fp);
-        kfx_net_state.packet_save_fp = NULL;
+        LbFileClose(kfx_net_local.packet_save_fp);
+        kfx_net_local.packet_save_fp = NULL;
         kfx_net_state.packet_fopened = 0;
         WARNMSG("Couldn't correctly read packet file \"%s\" header.",fname);
         return false;
     }
-    kfx_net_state.packet_file_pos = LbFilePosition(kfx_net_state.packet_save_fp);
-    kfx_net_state.turns_stored = (LbFileLengthHandle(kfx_net_state.packet_save_fp) - kfx_net_state.packet_file_pos) / packet_turn_size();
+    kfx_net_state.packet_file_pos = LbFilePosition(kfx_net_local.packet_save_fp);
+    kfx_net_state.turns_stored = (LbFileLengthHandle(kfx_net_local.packet_save_fp) - kfx_net_state.packet_file_pos) / packet_turn_size();
     if ((kfx_net_state.packet_checksum_verify) && (!kfx_net_state.packet_save_head.chksum_available))
     {
         WARNMSG("PacketSave checksum not available, checking disabled.");
@@ -167,8 +167,8 @@ void restore_users_from_packet_save(void)
         if ((plyr_idx >= PLAYERS_COUNT)
          || !flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(plyr_idx)))
         {
-            WARNLOG("Packet file maps user %d to player %d, which the file says does not exist",
-                (int)user, (int)plyr_idx);
+            WARNLOG("Packet file maps user %" PRId64 " to player %" PRId64 ", which the file says does not exist",
+                (int64_t)user, (int64_t)plyr_idx);
             continue;
         }
         set_net_user_player_number(user, plyr_idx);
@@ -178,15 +178,15 @@ void restore_users_from_packet_save(void)
             kfx_net_state.packet_save_head.user_names[user]);
         init_user_state(user);
         local_mapped |= (plyr_idx == my_player_number);
-        SYNCLOG("Replay user %d -> player %d", (int)user, (int)plyr_idx);
+        SYNCLOG("Replay user %" PRId64 " -> player %" PRId64, (int64_t)user, (int64_t)plyr_idx);
     }
     if (!local_mapped)
     {
         set_net_user_player_number(SOLO_HUMAN_ID, my_player_number);
         get_player(my_player_number)->user_id = SOLO_HUMAN_ID;
         init_user_state(SOLO_HUMAN_ID);
-        SYNCLOG("Replay local user %d -> player %d (not in the recorded map)",
-            (int)SOLO_HUMAN_ID, (int)my_player_number);
+        SYNCLOG("Replay local user %" PRId64 " -> player %" PRId64 " (not in the recorded map)",
+            (int64_t)SOLO_HUMAN_ID, (int64_t)my_player_number);
     }
 }
 
@@ -207,7 +207,7 @@ void post_init_packets(void)
 TbBigChecksum compute_replay_integrity(void)
 {
     TbBigChecksum sum = 0;
-    for (long tng_idx = 0; tng_idx < THINGS_COUNT; tng_idx++)
+    for (int64_t tng_idx = 0; tng_idx < THINGS_COUNT; tng_idx++)
     {
         struct Thing* tng = thing_get(tng_idx);
         if ((tng->alloc_flags & TAlF_Exists) != 0)
@@ -216,8 +216,8 @@ TbBigChecksum compute_replay_integrity(void)
             // thing indices are used in packets, lack of effect may cause desync too.
             if (!is_non_synchronized_thing_class(tng->class_id))
             {
-                sum += (ulong)tng->mappos.x.val + (ulong)tng->mappos.y.val + (ulong)tng->mappos.z.val
-                     + (ulong)tng->move_angle_xy + (ulong)tng->owner;
+                sum += (uint64_t)tng->mappos.x.val + (uint64_t)tng->mappos.y.val + (uint64_t)tng->mappos.z.val
+                     + (uint64_t)tng->move_angle_xy + (uint64_t)tng->owner;
             }
         }
     }
@@ -226,7 +226,7 @@ TbBigChecksum compute_replay_integrity(void)
         for (MapSlabCoord slb_x = 0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
         {
             const struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
-            sum += (ulong)slb->kind + (ulong)slb->owner + (ulong)slb->health;
+            sum += (uint64_t)slb->kind + (uint64_t)slb->owner + (uint64_t)slb->health;
         }
     }
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
@@ -241,17 +241,17 @@ TbBigChecksum compute_replay_integrity(void)
         {
             const struct MapTask* task = &dungeon->task_list[i];
             if (task->kind != SDDigTask_None)
-                sum += (ulong)task->kind + (ulong)task->coords;
+                sum += (uint64_t)task->kind + (uint64_t)task->coords;
         }
     }
     return sum;
 }
 
-short save_packets(void)
+int64_t save_packets(void)
 {
     NetUserId users[MAX_NET_USERS];
-    const int nusers = packet_saved_users(users);
-    const int turn_data_size = nusers * sizeof(struct Packet) + sizeof(TbBigChecksum);
+    const int64_t nusers = packet_saved_users(users);
+    const int64_t turn_data_size = nusers * sizeof(struct Packet) + sizeof(TbBigChecksum);
     unsigned char pckt_buf[PACKET_TURN_MAX_SIZE+4];
     TbBigChecksum chksum;
     SYNCDBG(6,"Starting");
@@ -259,35 +259,35 @@ short save_packets(void)
         chksum = compute_replay_integrity();
     else
         chksum = 0;
-    LbFileSeek(kfx_net_state.packet_save_fp, 0, Lb_FILE_SEEK_END);
+    LbFileSeek(kfx_net_local.packet_save_fp, 0, Lb_FILE_SEEK_END);
     // Prepare data in the buffer
-    for (int i = 0; i < nusers; i++)
+    for (int64_t i = 0; i < nusers; i++)
         memcpy(&pckt_buf[i*sizeof(struct Packet)], &sim_packets[users[i]], sizeof(struct Packet));
     memcpy(&pckt_buf[nusers*sizeof(struct Packet)], &chksum, sizeof(TbBigChecksum));
     // Write buffer into file
-    if (LbFileWrite(kfx_net_state.packet_save_fp, &pckt_buf, turn_data_size) != turn_data_size)
+    if (LbFileWrite(kfx_net_local.packet_save_fp, &pckt_buf, turn_data_size) != turn_data_size)
     {
         ERRORLOG("Packet file write error");
     }
-    for (int i = 0; i < nusers; i++) {
+    for (int64_t i = 0; i < nusers; i++) {
         if (sim_packets[users[i]].action == PckA_PlyrMsgEnd) {
-            if (LbFileWrite(kfx_net_state.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) != PLAYER_MP_MESSAGE_LEN) {
+            if (LbFileWrite(kfx_net_local.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) != PLAYER_MP_MESSAGE_LEN) {
                 ERRORLOG("Chat message file write error");
             }
         }
     }
-    if ( !LbFileFlush(kfx_net_state.packet_save_fp) )
+    if ( !LbFileFlush(kfx_net_local.packet_save_fp) )
     {
         ERRORLOG("Unable to flush PacketSave File");
         return false;
     }
     if (packetsave_max_kb > 0)
     {
-        int pos = LbFilePosition(kfx_net_state.packet_save_fp);
-        if ((pos >= 0) && ((uint32_t)pos >= packetsave_max_kb * 1024))
+        int64_t pos = LbFilePosition(kfx_net_local.packet_save_fp);
+        if ((pos >= 0) && ((uint64_t)pos >= packetsave_max_kb * 1024))
         {
-            WARNLOG("PacketSave reached the %u KB limit at turn %u; recording stopped",
-                packetsave_max_kb, get_gameturn());
+            WARNLOG("PacketSave reached the %" PRIu64 " KB limit at turn %" PRIu64 "; recording stopped",
+                (uint64_t)(packetsave_max_kb), (uint64_t)(get_gameturn()));
             close_packet_file();
             kfx_net_state.packet_save_enable = false;
         }
@@ -299,9 +299,9 @@ void close_packet_file(void)
 {
     if ( kfx_net_state.packet_fopened )
     {
-        LbFileClose(kfx_net_state.packet_save_fp);
+        LbFileClose(kfx_net_local.packet_save_fp);
         kfx_net_state.packet_fopened = 0;
-        kfx_net_state.packet_save_fp = NULL;
+        kfx_net_local.packet_save_fp = NULL;
     }
 }
 
@@ -318,14 +318,14 @@ void write_debug_packets(void)
     //note, changed this to be more general and to handle multiplayer where there can
     //be several players writing to same directory if testing on local machine
     char filename[32];
-    snprintf(filename, sizeof(filename), "%s%u.%s", "keeperd", my_player_number, "pck");
+    snprintf(filename, sizeof(filename), "%s%" PRIu64 ".%s", "keeperd", (uint64_t)(my_player_number), "pck");
     dump_memory_to_file(filename, (char*) sim_packets, sizeof(sim_packets));
 }
 
 void write_debug_screenpackets(void)
 {
     char filename[32];
-    snprintf(filename, sizeof(filename), "%s%u.%s", "keeperd", my_player_number, "spck");
+    snprintf(filename, sizeof(filename), "%s%" PRIu64 ".%s", "keeperd", (uint64_t)(my_player_number), "spck");
     dump_memory_to_file(filename, (char*) net_screen_packet, sizeof(net_screen_packet));
 }
 
@@ -333,7 +333,7 @@ TbBool reinit_packets_after_load(void)
 {
     kfx_net_state.packet_save_enable = false;
     kfx_net_state.packet_load_enable = false;
-    kfx_net_state.packet_save_fp = NULL;
+    kfx_net_local.packet_save_fp = NULL;
     kfx_net_state.packet_fopened = 0;
     return true;
 }
@@ -341,7 +341,7 @@ TbBool reinit_packets_after_load(void)
 TbBool open_new_packet_file_for_save(void)
 {
     // Filling the header
-    SYNCMSG("Starting packet saving, turn %lu",(unsigned long)get_gameturn());
+    SYNCMSG("Starting packet saving, turn %" PRIu64,(uint64_t)get_gameturn());
     kfx_net_state.packet_save_head.game_ver_major = VER_MAJOR;
     kfx_net_state.packet_save_head.game_ver_minor = VER_MINOR;
     kfx_net_state.packet_save_head.game_ver_release = VER_RELEASE;
@@ -369,7 +369,7 @@ TbBool open_new_packet_file_for_save(void)
         snprintf(kfx_net_state.packet_save_head.user_names[user],
             sizeof(kfx_net_state.packet_save_head.user_names[user]), "%s", (name != NULL) ? name : "");
     }
-    for (int i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
         if (player_exists(player))
@@ -380,8 +380,8 @@ TbBool open_new_packet_file_for_save(void)
         }
     }
     LbFileDelete(kfx_net_state.packet_fname);
-    kfx_net_state.packet_save_fp = LbFileOpen(kfx_net_state.packet_fname, Lb_FILE_MODE_NEW);
-    if (!kfx_net_state.packet_save_fp)
+    kfx_net_local.packet_save_fp = LbFileOpen(kfx_net_state.packet_fname, Lb_FILE_MODE_NEW);
+    if (!kfx_net_local.packet_save_fp)
     {
         ERRORLOG("Cannot open keeper packet file for save, \"%s\".",kfx_net_state.packet_fname);
         kfx_net_state.packet_fopened = 0;
@@ -389,12 +389,12 @@ TbBool open_new_packet_file_for_save(void)
     }
     struct CatalogueEntry centry;
     net_callbacks->fill_game_catalogue_entry(&centry, "Packet file");
-    if (!net_callbacks->save_packet_chunks(kfx_net_state.packet_save_fp,&centry))
+    if (!net_callbacks->save_packet_chunks(kfx_net_local.packet_save_fp,&centry))
     {
         WARNMSG("Cannot write to packet file, \"%s\".",kfx_net_state.packet_fname);
-        LbFileClose(kfx_net_state.packet_save_fp);
+        LbFileClose(kfx_net_local.packet_save_fp);
         kfx_net_state.packet_fopened = 0;
-        kfx_net_state.packet_save_fp = NULL;
+        kfx_net_local.packet_save_fp = NULL;
         return false;
     }
     kfx_net_state.packet_fopened = 1;
@@ -421,8 +421,8 @@ void load_packets_for_turn(GameTurn nturn)
 {
     SYNCDBG(19,"Starting");
     NetUserId users[MAX_NET_USERS];
-    const int nusers = packet_saved_users(users);
-    const int turn_data_size = nusers * sizeof(struct Packet) + sizeof(TbBigChecksum);
+    const int64_t nusers = packet_saved_users(users);
+    const int64_t turn_data_size = nusers * sizeof(struct Packet) + sizeof(TbBigChecksum);
     unsigned char pckt_buf[PACKET_TURN_MAX_SIZE+4];
     if (nturn >= kfx_net_state.turns_stored)
     {
@@ -431,18 +431,18 @@ void load_packets_for_turn(GameTurn nturn)
         return;
     }
 
-    if (LbFileRead(kfx_net_state.packet_save_fp, &pckt_buf, turn_data_size) == -1)
+    if (LbFileRead(kfx_net_local.packet_save_fp, &pckt_buf, turn_data_size) == -1)
     {
         ERRORDBG(18,"Cannot read turn data from Packet File");
         net_callbacks->report_error_stat(ESE_CantReadPackets);
         return;
     }
     kfx_net_state.packet_file_pos += turn_data_size;
-    for (int i = 0; i < nusers; i++)
+    for (int64_t i = 0; i < nusers; i++)
         memcpy(&sim_packets[users[i]], &pckt_buf[i * sizeof(struct Packet)], sizeof(struct Packet));
-    for (int i = 0; i < nusers; i++) {
+    for (int64_t i = 0; i < nusers; i++) {
         if (sim_packets[users[i]].action == PckA_PlyrMsgEnd) {
-            if (LbFileRead(kfx_net_state.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) == PLAYER_MP_MESSAGE_LEN) {
+            if (LbFileRead(kfx_net_local.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) == PLAYER_MP_MESSAGE_LEN) {
                 kfx_net_state.packet_file_pos += PLAYER_MP_MESSAGE_LEN;
             } else {
                 ERRORDBG(18,"Cannot read chat message from Packet File");
@@ -456,7 +456,7 @@ void load_packets_for_turn(GameTurn nturn)
     {
         if (compute_replay_integrity() != tot_chksum)
         {
-            ERRORLOG("PacketSave checksum - Out of sync (GameTurn %u)", get_gameturn());
+            ERRORLOG("PacketSave checksum - Out of sync (GameTurn %" PRIu64 ")", (uint64_t)(get_gameturn()));
             if (!net_callbacks->is_onscreen_msg_visible())
                 net_callbacks->show_onscreen_msg(kfx_sim_state.turns_per_second, "Out of sync");
         }
@@ -471,7 +471,7 @@ void set_packet_pause_toggle()
     if (player->user_id >= PACKETS_COUNT)
         return;
     if (kfx_sim_state.game_kind != GKind_LocalGame) {
-        unsigned long current_time = LbTimerClock();
+        uint64_t current_time = LbTimerClock();
         if (current_time - last_pause_toggle_time < MULTIPLAYER_PAUSE_COOLDOWN_MS) {
             MULTIPLAYER_LOG("set_packet_pause_toggle: cooldown active, ignoring");
             return;

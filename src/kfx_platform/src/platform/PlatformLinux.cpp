@@ -87,10 +87,10 @@ bool PlatformLinux::VideoInit()
 }
 
 void   PlatformLinux::SetRedbookVolume(SoundVolume) {}
-TbBool PlatformLinux::PlayRedbookTrack(int) { return false; }
+TbBool PlatformLinux::PlayRedbookTrack(int64_t) { return false; }
 void   PlatformLinux::PauseRedbookTrack() {}
 void   PlatformLinux::ResumeRedbookTrack() {}
 void   PlatformLinux::StopRedbookTrack() {}
 
-int  PlatformLinux::InitSteam() { return -1; }
+int64_t  PlatformLinux::InitSteam() { return -1; }
 void PlatformLinux::ShutdownSteam() {}

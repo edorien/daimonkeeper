@@ -46,17 +46,17 @@ RoomKind editor_room_of_slab(SlabKind kind);
 // Door model whose closed/open slab is `kind`, or 0 (the door slabs' columns
 // are empty -- the door is a thing -- so the toolbox shows the door's
 // workshop icon for them instead of a texture).
-int editor_door_of_slab(SlabKind kind);
+int64_t editor_door_of_slab(SlabKind kind);
 
 // Room a wall slab belongs to (the room whose floor slab shares its SlbID --
 // how the config pairs TREASURY_AREA with TREASURY_WALL), or 0.
 RoomKind editor_room_of_wall(SlabKind kind);
 
-int editor_terrain_group_of(SlabKind kind);
-int editor_object_group_of(ThingModel model);
+int64_t editor_terrain_group_of(SlabKind kind);
+int64_t editor_object_group_of(ThingModel model);
 
 // The power a spellbook object teaches, or -1.
-int editor_spellbook_power(ThingModel model);
+int64_t editor_spellbook_power(ThingModel model);
 
 #ifdef __cplusplus
 }

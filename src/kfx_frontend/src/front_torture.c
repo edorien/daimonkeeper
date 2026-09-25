@@ -58,11 +58,11 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static long torture_left_button;
-static long torture_sprite_direction;
-static long torture_end_sprite;
-static long torture_sprite_frame;
-static long torture_door_selected;
+static int64_t torture_left_button;
+static int64_t torture_sprite_direction;
+static int64_t torture_end_sprite;
+static int64_t torture_sprite_frame;
+static int64_t torture_door_selected;
 static struct DoorSoundState door_sound_state[TORTURE_DOORS_COUNT];
 static struct TortureState torture_state;
 static TbClockMSec torture_idle_start;
@@ -71,7 +71,7 @@ static unsigned char *torture_background;
 static unsigned char *torture_palette;
 extern struct DoorDesc doors[TORTURE_DOORS_COUNT];
 extern struct TbSpriteSheet *fronttor_sprites;
-long torture_doors_available = TORTURE_DOORS_COUNT;
+int64_t torture_doors_available = TORTURE_DOORS_COUNT;
 #define TORTURE_MULTIPLAYER_IDLE_TIMEOUT 10000
 #define TORTURE_MULTIPLAYER_MAX_TIME 45000
 /******************************************************************************/
@@ -79,7 +79,7 @@ long torture_doors_available = TORTURE_DOORS_COUNT;
 }
 #endif
 /******************************************************************************/
-void torture_play_sound(long door_id, TbBool state)
+void torture_play_sound(int64_t door_id, TbBool state)
 {
   if ((door_id < 0) || (door_id >= TORTURE_DOORS_COUNT))
     return;
@@ -95,17 +95,17 @@ void torture_play_sound(long door_id, TbBool state)
   }
 }
 
-long torture_door_over_point(long x,long y)
+int64_t torture_door_over_point(int64_t x,int64_t y)
 {
-    int units_per_px = min(units_per_pixel, units_per_pixel_min * 16 / 10);
-    const int img_width = 640;
-    const int img_height = 480;
-    int w = img_width * units_per_px / 16;
-    int h = img_height * units_per_px / 16;
+    int64_t units_per_px = min(units_per_pixel, units_per_pixel_min * 16 / 10);
+    const int64_t img_width = 640;
+    const int64_t img_height = 480;
+    int64_t w = img_width * units_per_px / 16;
+    int64_t h = img_height * units_per_px / 16;
     // Starting point coords
-    int spx = (LbScreenWidth() - w) >> 1;
-    int spy = (LbScreenHeight() - h) >> 1;
-    for (long i = 0; i < torture_doors_available; i++)
+    int64_t spx = (LbScreenWidth() - w) >> 1;
+    int64_t spy = (LbScreenHeight() - h) >> 1;
+    for (int64_t i = 0; i < torture_doors_available; i++)
     {
         struct DoorDesc* door = &doors[i];
         if ((x >= spx + door->pos_x * units_per_px / 16) && (x < spx + door->pos_x * units_per_px / 16 + door->width * units_per_px / 16))
@@ -117,7 +117,7 @@ long torture_door_over_point(long x,long y)
 
 void fronttorture_unload(void)
 {
-  for (int i = 0; i < TORTURE_DOORS_COUNT; ++i) {
+  for (int64_t i = 0; i < TORTURE_DOORS_COUNT; ++i) {
     free_spritesheet(&doors[i].sprites);
   }
   free_spritesheet(&fronttor_sprites);
@@ -142,19 +142,19 @@ void fronttorture_load(void)
     // Load RAW/PAL background
     char* fname = prepare_file_path(FGrp_LoData, "torture.raw");
     torture_background = ptr;
-    long i = LbFileLoadAt(fname, ptr);
+    int64_t i = LbFileLoadAt(fname, ptr);
     ptr += i;
     fname = prepare_file_path(FGrp_LoData,"torture.pal");
     torture_palette = ptr;
     i = LbFileLoadAt(fname, ptr);
     // Load DAT/TAB sprites for doors
-    for (int idx = 0; idx < TORTURE_DOORS_COUNT; ++idx) {
+    for (int64_t idx = 0; idx < TORTURE_DOORS_COUNT; ++idx) {
         char tab_name[2048];
         char dat_name[2048];
-        strcpy(tab_name, prepare_file_fmtpath(FGrp_LoData,"door%02d.tab", idx + 1));
-        strcpy(dat_name, prepare_file_fmtpath(FGrp_LoData,"door%02d.dat", idx + 1));
+        strcpy(tab_name, prepare_file_fmtpath(FGrp_LoData,"door%02" PRId64 ".tab", (int64_t)(idx + 1)));
+        strcpy(dat_name, prepare_file_fmtpath(FGrp_LoData,"door%02" PRId64 ".dat", (int64_t)(idx + 1)));
         doors[idx].sprites = load_spritesheet(dat_name, tab_name);
-        if (!doors[idx].sprites) ERRORLOG("Unable to load torture door %d", idx + 1);
+        if (!doors[idx].sprites) ERRORLOG("Unable to load torture door %" PRId64, (int64_t)(idx + 1));
     }
     fronttor_sprites = load_spritesheet("ldata/fronttor.dat", "ldata/fronttor.tab");
     if (!fronttor_sprites) ERRORLOG("Unable to load torture sprites");
@@ -181,18 +181,18 @@ void fronttorture_load(void)
 
 TbBool fronttorture_draw(void)
 {
-  const int img_width = 640;
-  const int img_height = 480;
-  int units_per_px = min(units_per_pixel, units_per_pixel_min * 16 / 10);
-  int w = img_width * units_per_px / 16;
-  int h = img_height * units_per_px / 16;
+  const int64_t img_width = 640;
+  const int64_t img_height = 480;
+  int64_t units_per_px = min(units_per_pixel, units_per_pixel_min * 16 / 10);
+  int64_t w = img_width * units_per_px / 16;
+  int64_t h = img_height * units_per_px / 16;
   // Starting point coords
-  int spx = (LbScreenWidth() - w) >> 1;
-  int spy = (LbScreenHeight() - h) >> 1;
+  int64_t spx = (LbScreenWidth() - w) >> 1;
+  int64_t spy = (LbScreenHeight() - h) >> 1;
   copy_raw8_image_buffer(RendererGetFramebuffer(),LbGraphicsScreenWidth(),LbGraphicsScreenHeight(),
       w,h,spx,spy,torture_background,img_width,img_height);
 
-  for (int i = 0; i < torture_doors_available; i++)
+  for (int64_t i = 0; i < torture_doors_available; i++)
   {
       const struct TbSprite* spr;
       if (i == torture_door_selected)
@@ -215,8 +215,8 @@ void fronttorture_clear_state(void)
 
 void fronttorture_input(void)
 {
-    long x;
-    long y;
+    int64_t x;
+    int64_t y;
     NetUserId user;
     clear_packets();
     struct PlayerInfo* player = get_my_player();
@@ -287,7 +287,7 @@ void fronttorture_input(void)
         return;
     }
     // Get active door
-    long door_id = torture_door_over_point(x, y);
+    int64_t door_id = torture_door_over_point(x, y);
     if ((torture_door_selected != -1) && (torture_door_selected != door_id))
         door_id = -1;
     // Make the action
@@ -365,13 +365,13 @@ void fronttorture_update(void)
         torture_sprite_frame += torture_sprite_direction;
     }
     SoundEmitterID emit_id = get_emitter_id(S3DGetSoundEmitter(Non3DEmitter));
-    for (int i = 0; i < TORTURE_DOORS_COUNT; i++)
+    for (int64_t i = 0; i < TORTURE_DOORS_COUNT; i++)
     {
         struct DoorDesc* door = &doors[i];
         struct DoorSoundState* doorsnd = &door_sound_state[i];
         if (doorsnd->volume_step != 0)
         {
-            int volume = doorsnd->volume_step + doorsnd->current_volume;
+            int64_t volume = doorsnd->volume_step + doorsnd->current_volume;
             if (volume <= 0)
             {
                 volume = 0;

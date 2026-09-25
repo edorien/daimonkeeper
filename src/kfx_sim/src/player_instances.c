@@ -64,42 +64,42 @@
 extern "C" {
 #endif
 /******************************************************************************/
-long pinstfs_hand_grab(struct PlayerInfo *player, int32_t *n);
-long pinstfe_hand_grab(struct PlayerInfo *player, int32_t *n);
-long pinstfs_hand_drop(struct PlayerInfo *player, int32_t *n);
-long pinstfe_hand_drop(struct PlayerInfo *player, int32_t *n);
-long pinstfs_hand_whip(struct PlayerInfo *player, int32_t *n);
-long pinstfe_hand_whip(struct PlayerInfo *player, int32_t *n);
-long pinstfs_hand_whip_end(struct PlayerInfo *player, int32_t *n);
-long pinstfe_hand_whip_end(struct PlayerInfo *player, int32_t *n);
-long pinstfs_direct_control_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfs_passenger_control_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfm_control_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfe_direct_control_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfe_passenger_control_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfs_direct_leave_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfm_leave_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfs_passenger_leave_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfe_leave_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfs_query_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfs_unquery_creature(struct PlayerInfo *player, int32_t *n);
-long pinstfs_zoom_to_heart(struct PlayerInfo *player, int32_t *n);
-long pinstfm_zoom_to_heart(struct PlayerInfo *player, int32_t *n);
-long pinstfe_zoom_to_heart(struct PlayerInfo *player, int32_t *n);
-long pinstfs_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n);
-long pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n);
-long pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n);
-long pinstfm_control_creature_fade(struct PlayerInfo *player, int32_t *n);
-long pinstfe_control_creature_fade(struct PlayerInfo *player, int32_t *n);
-long pinstfs_fade_to_map(struct PlayerInfo *player, int32_t *n);
-long pinstfm_fade_to_map(struct PlayerInfo *player, int32_t *n);
-long pinstfe_fade_to_map(struct PlayerInfo *player, int32_t *n);
-long pinstfs_fade_from_map(struct PlayerInfo *player, int32_t *n);
-long pinstfm_fade_from_map(struct PlayerInfo *player, int32_t *n);
-long pinstfe_fade_from_map(struct PlayerInfo *player, int32_t *n);
-long pinstfs_zoom_to_position(struct PlayerInfo *player, int32_t *n);
-long pinstfm_zoom_to_position(struct PlayerInfo *player, int32_t *n);
-long pinstfe_zoom_to_position(struct PlayerInfo *player, int32_t *n);
+int64_t pinstfs_hand_grab(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_hand_grab(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_hand_drop(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_hand_drop(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_hand_whip(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_hand_whip(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_hand_whip_end(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_hand_whip_end(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_direct_control_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_passenger_control_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_control_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_direct_control_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_passenger_control_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_direct_leave_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_leave_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_passenger_leave_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_leave_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_query_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_unquery_creature(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_zoom_to_heart(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_zoom_to_heart(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_zoom_to_heart(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_control_creature_fade(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_control_creature_fade(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_fade_to_map(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_fade_to_map(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_fade_to_map(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_fade_from_map(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_fade_from_map(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_fade_from_map(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfs_zoom_to_position(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfm_zoom_to_position(struct PlayerInfo *player, int64_t *n);
+int64_t pinstfe_zoom_to_position(struct PlayerInfo *player, int64_t *n);
 
 struct PlayerInstanceInfo player_instance_info[PLAYER_INSTANCES_COUNT] = {
   { 0, 0, NULL,                                 NULL,                           NULL,                                {0}, {0}, 0, 0}, // PI_Unset
@@ -128,7 +128,7 @@ struct PlayerInstanceInfo player_instance_info[PLAYER_INSTANCES_COUNT] = {
 }
 #endif
 /******************************************************************************/
-long pinstfs_hand_grab(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_hand_grab(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->hand_thing_idx);
     if (!thing_is_invalid(thing))
@@ -138,12 +138,12 @@ long pinstfs_hand_grab(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_hand_grab(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_hand_grab(struct PlayerInfo *player, int64_t *n)
 {
     SYNCDBG(8,"Starting");
     struct Thing* dsttng = thing_get(player->influenced_thing_idx);
     if (dsttng->creation_turn != player->influenced_thing_creation) {
-        WARNLOG("The thing index %d is no longer the same",(int)player->influenced_thing_idx);
+        WARNLOG("The thing index %" PRId64 " is no longer the same",(int64_t)player->influenced_thing_idx);
         player->influenced_thing_creation = 0;
         player->influenced_thing_idx = 0;
         return 0;
@@ -151,13 +151,13 @@ long pinstfe_hand_grab(struct PlayerInfo *player, int32_t *n)
     player->influenced_thing_creation = 0;
     player->influenced_thing_idx = 0;
     if (magic_use_available_power_on_thing(player->id_number, PwrK_HAND, 0,dsttng->mappos.x.stl.num, dsttng->mappos.y.stl.num, dsttng, PwMod_Default) == Lb_FAIL) {
-        WARNLOG("Cannot pick up %s index %d",thing_model_name(dsttng),(int)dsttng->index);
+        WARNLOG("Cannot pick up %s index %" PRId64,thing_model_name(dsttng),(int64_t)dsttng->index);
         return 0;
     }
     return 0;
 }
 
-long pinstfs_hand_drop(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_hand_drop(struct PlayerInfo *player, int64_t *n)
 {
     struct Dungeon* dungeon = get_players_dungeon(player);
     struct Thing* thing = thing_get(player->hand_thing_idx);
@@ -170,7 +170,7 @@ long pinstfs_hand_drop(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_hand_drop(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_hand_drop(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->hand_thing_idx);
     if (thing_exists(thing))
@@ -182,7 +182,7 @@ long pinstfe_hand_drop(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfs_hand_whip(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_hand_whip(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->hand_thing_idx);
     if (thing_exists(thing))
@@ -192,7 +192,7 @@ long pinstfs_hand_whip(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_hand_whip(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_hand_whip(struct PlayerInfo *player, int64_t *n)
 {
     struct PowerConfigStats* powerst = get_power_model_stats(PwrK_SLAP);
     struct Thing* thing = thing_get(player->influenced_thing_idx);
@@ -284,7 +284,7 @@ long pinstfe_hand_whip(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfs_hand_whip_end(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_hand_whip_end(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->hand_thing_idx);
     if (thing_exists(thing))
@@ -294,7 +294,7 @@ long pinstfs_hand_whip_end(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_hand_whip_end(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_hand_whip_end(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->hand_thing_idx);
     if (thing_exists(thing))
@@ -304,7 +304,7 @@ long pinstfe_hand_whip_end(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfs_passenger_control_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_passenger_control_creature(struct PlayerInfo *player, int64_t *n)
 {
   struct UserState* ustate = get_player_user_state(player);
   ustate->init_flags |= UsrIF_MouseInputDisabled;
@@ -327,20 +327,20 @@ long pinstfs_passenger_control_creature(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfs_direct_control_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_direct_control_creature(struct PlayerInfo *player, int64_t *n)
 {
     // Reset state of the thing being possessed
     struct Thing* thing = thing_get(player->influenced_thing_idx);
     if (thing_can_be_controlled_as_controller(thing))
     {
-        SYNCDBG(8,"Cleaning up state %s of %s index %d",creature_state_code_name(thing->active_state),thing_model_name(thing),(int)thing->index);
+        SYNCDBG(8,"Cleaning up state %s of %s index %" PRId64,creature_state_code_name(thing->active_state),thing_model_name(thing),(int64_t)thing->index);
         initialise_thing_state(thing, CrSt_ManualControl);
         LbGrabMouseCheck(MG_OnPossessionEnter);
     }
     return pinstfs_passenger_control_creature(player, n);
 }
 
-long pinstfm_control_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_control_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
     struct Camera* cam = get_player_active_camera(player);
@@ -363,7 +363,7 @@ long pinstfm_control_creature(struct PlayerInfo *player, int32_t *n)
     {
         sim_feedback->view_zoom_camera_in(cam, 30000, 0);
         // Compute new camera angle
-        long mv_a = (thing->move_angle_xy - cam->rotation_angle_x) & ANGLE_MASK;
+        int64_t mv_a = (thing->move_angle_xy - cam->rotation_angle_x) & ANGLE_MASK;
         if (mv_a > DEGREES_180)
           mv_a -= DEGREES_360;
         if (mv_a < -DEGREES_30)
@@ -378,8 +378,8 @@ long pinstfm_control_creature(struct PlayerInfo *player, int32_t *n)
         cam->rotation_angle_x &= ANGLE_MASK;
         // Now mv_a becomes a circle radius
         mv_a = get_creature_eye_height(thing) + thing->mappos.z.val;
-        long mv_x = thing->mappos.x.val + distance_with_angle_to_coord_x(mv_a, cam->rotation_angle_x) - (MapCoordDelta)cam->mappos.x.val;
-        long mv_y = thing->mappos.y.val + distance_with_angle_to_coord_y(mv_a, cam->rotation_angle_x) - (MapCoordDelta)cam->mappos.y.val;
+        int64_t mv_x = thing->mappos.x.val + distance_with_angle_to_coord_x(mv_a, cam->rotation_angle_x) - (MapCoordDelta)cam->mappos.x.val;
+        int64_t mv_y = thing->mappos.y.val + distance_with_angle_to_coord_y(mv_a, cam->rotation_angle_x) - (MapCoordDelta)cam->mappos.y.val;
         if (mv_x < -128)
         {
             mv_x = -128;
@@ -411,7 +411,7 @@ long pinstfm_control_creature(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_direct_control_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_direct_control_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
     struct Thing* thing = thing_get(player->influenced_thing_idx);
@@ -453,7 +453,7 @@ long pinstfe_direct_control_creature(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_passenger_control_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_passenger_control_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->influenced_thing_idx);
     if (thing_exists(thing))
@@ -474,7 +474,7 @@ long pinstfe_passenger_control_creature(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfs_direct_leave_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_direct_leave_creature(struct PlayerInfo *player, int64_t *n)
 {
   struct UserState* ustate = get_player_user_state(player);
   if (player->influenced_thing_idx == 0)
@@ -503,7 +503,7 @@ long pinstfs_direct_leave_creature(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfm_leave_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_leave_creature(struct PlayerInfo *player, int64_t *n)
 {
     if (player->view_mode != PVM_FrontView)
     {
@@ -517,7 +517,7 @@ long pinstfm_leave_creature(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfs_passenger_leave_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_passenger_leave_creature(struct PlayerInfo *player, int64_t *n)
 {
   struct UserState* ustate = get_player_user_state(player);
   if (player->influenced_thing_idx == 0)
@@ -545,7 +545,7 @@ long pinstfs_passenger_leave_creature(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfe_leave_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_leave_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
     sim_feedback->set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
@@ -557,7 +557,7 @@ long pinstfe_leave_creature(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfs_query_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_query_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->influenced_thing_idx);
     player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(get_player_active_camera(player));
@@ -567,7 +567,7 @@ long pinstfs_query_creature(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfs_unquery_creature(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_unquery_creature(struct PlayerInfo *player, int64_t *n)
 {
     set_player_state(player, PSt_CtrlDungeon, 0);
     clear_selected_thing(player);
@@ -576,10 +576,10 @@ long pinstfs_unquery_creature(struct PlayerInfo *player, int32_t *n)
 
 unsigned char zoom_to_heart_palette[768];
 
-long pinstfs_zoom_to_heart(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_zoom_to_heart(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
-    SYNCDBG(6,"Starting for player %d",(int)player->id_number);
+    SYNCDBG(6,"Starting for player %" PRId64,(int64_t)player->id_number);
     if (is_my_player_number(player->id_number)) {
         LbPaletteDataFillWhite(zoom_to_heart_palette);
     }
@@ -602,7 +602,7 @@ long pinstfs_zoom_to_heart(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfm_zoom_to_heart(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_zoom_to_heart(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->controlled_thing_idx);
     if (thing_exists(thing))
@@ -621,7 +621,7 @@ long pinstfm_zoom_to_heart(struct PlayerInfo *player, int32_t *n)
 }
 
 
-long pinstfe_zoom_to_heart(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_zoom_to_heart(struct PlayerInfo *player, int64_t *n)
 {
     set_player_instance(player, PI_HeartZoomOut, false);
     if (is_my_player_number(player->id_number))
@@ -629,7 +629,7 @@ long pinstfe_zoom_to_heart(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfs_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->controlled_thing_idx);
     if (thing_exists(thing))
@@ -667,22 +667,22 @@ long pinstfs_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
 {
     if (player->view_mode != PVM_FrontView)
     {
         struct Camera* cam = get_player_active_camera(player);
         struct Thing* thing = get_player_soul_container(player->id_number);
-        long deltax;
-        long deltay;
-        unsigned long addval;
+        int64_t deltax;
+        int64_t deltay;
+        uint64_t addval;
         if (cam != NULL)
         {
           cam->zoom -= (24000 - player->isometric_view_zoom_level) / 16;
           cam->rotation_angle_x += DEGREES_2_8125;
           addval = (thing->clipbox_size_z >> 1);
-          deltax = distance_with_angle_to_coord_x((long)thing->mappos.z.val+addval, cam->rotation_angle_x);
-          deltay = distance_with_angle_to_coord_y((long)thing->mappos.z.val+addval, cam->rotation_angle_x);
+          deltax = distance_with_angle_to_coord_x((int64_t)thing->mappos.z.val+addval, cam->rotation_angle_x);
+          deltay = distance_with_angle_to_coord_y((int64_t)thing->mappos.z.val+addval, cam->rotation_angle_x);
         } else
         {
           addval = (thing->clipbox_size_z >> 1);
@@ -702,7 +702,7 @@ long pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
 {
   struct UserState* ustate = get_player_user_state(player);
   if (is_my_player(player)) {
@@ -725,13 +725,13 @@ long pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfm_control_creature_fade(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_control_creature_fade(struct PlayerInfo *player, int64_t *n)
 {
   get_player_user_state(player)->init_flags |= UsrIF_MouseInputDisabled;
   return 0;
 }
 
-long pinstfe_control_creature_fade(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_control_creature_fade(struct PlayerInfo *player, int64_t *n)
 {
   struct UserState* ustate = get_player_user_state(player);
   if (is_my_player(player))
@@ -783,7 +783,7 @@ void set_map_ui_hidden(TbBool status_menu, TbBool tooltips)
     }
 }
 
-long pinstfs_fade_to_map(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_fade_to_map(struct PlayerInfo *player, int64_t *n)
 {
     struct Camera* cam = get_player_active_camera(player);
     get_player_user_state(player)->init_flags |= UsrIF_MouseInputDisabled;
@@ -798,12 +798,12 @@ long pinstfs_fade_to_map(struct PlayerInfo *player, int32_t *n)
 
 }
 
-long pinstfm_fade_to_map(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_fade_to_map(struct PlayerInfo *player, int64_t *n)
 {
   return 0;
 }
 
-long pinstfe_fade_to_map(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_fade_to_map(struct PlayerInfo *player, int64_t *n)
 {
   set_player_mode(player, PVT_MapScreen);
   if (is_my_player(player))
@@ -812,7 +812,7 @@ long pinstfe_fade_to_map(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfs_fade_from_map(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_fade_from_map(struct PlayerInfo *player, int64_t *n)
 {
   get_player_user_state(player)->init_flags |= UsrIF_MouseInputDisabled;
   if (is_my_player(player))
@@ -826,12 +826,12 @@ long pinstfs_fade_from_map(struct PlayerInfo *player, int32_t *n)
   return 0;
 }
 
-long pinstfm_fade_from_map(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_fade_from_map(struct PlayerInfo *player, int64_t *n)
 {
   return 0;
 }
 
-long pinstfe_fade_from_map(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_fade_from_map(struct PlayerInfo *player, int64_t *n)
 {
     struct PlayerInfo* myplyr = get_player(my_player_number);
     sim_feedback->set_engine_view(player, player->view_mode_restore);
@@ -869,7 +869,7 @@ void set_player_zoom_to_position(struct PlayerInfo *player,struct Coord3d *pos)
     set_player_instance(player, PI_ZoomToPos, 0);
 }
 
-long pinstfs_zoom_to_position(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfs_zoom_to_position(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
     player->controlled_thing_idx = 0;
@@ -881,7 +881,7 @@ long pinstfs_zoom_to_position(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfm_zoom_to_position(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfm_zoom_to_position(struct PlayerInfo *player, int64_t *n)
 {
     struct Camera* cam = get_player_active_camera(player);
     if (sim_feedback->view_move_camera_to_position(cam, player->zoom_to_pos_x, player->zoom_to_pos_y, player->zoom_to_movement_x, player->zoom_to_movement_y)) {
@@ -891,7 +891,7 @@ long pinstfm_zoom_to_position(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-long pinstfe_zoom_to_position(struct PlayerInfo *player, int32_t *n)
+int64_t pinstfe_zoom_to_position(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
     ustate->init_flags &= ~UsrIF_MouseInputDisabled;
@@ -903,9 +903,9 @@ long pinstfe_zoom_to_position(struct PlayerInfo *player, int32_t *n)
     return 0;
 }
 
-void set_player_instance(struct PlayerInfo *player, long ninum, TbBool force)
+void set_player_instance(struct PlayerInfo *player, int64_t ninum, TbBool force)
 {
-    long inum = player->instance_num;
+    int64_t inum = player->instance_num;
     if (inum >= PLAYER_INSTANCES_COUNT)
         inum = 0;
     if ((inum == 0) || (player_instance_info[inum].instance_state != 1) || (force))
@@ -924,7 +924,7 @@ void process_player_instance(struct PlayerInfo *player)
 {
     struct PlayerInstanceInfo *inst_info;
     InstncInfo_Func callback;
-    SYNCDBG(16,"Starting for instance %d",(int)player->instance_num);
+    SYNCDBG(16,"Starting for instance %" PRId64,(int64_t)player->instance_num);
     if (player->instance_num <= 0) {
         return;
     }
@@ -950,7 +950,7 @@ void process_player_instance(struct PlayerInfo *player)
 
 void process_player_instances(void)
 {
-    for (int i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
         if (player_exists(player))
@@ -962,7 +962,7 @@ void process_player_instances(void)
 void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing)
 {
     struct UserState* ustate = get_player_user_state(player);
-    SYNCDBG(7,"Starting for player %d within %s index %d",(int)player->id_number,thing_model_name(thing),(int)thing->index);
+    SYNCDBG(7,"Starting for player %" PRId64 " within %s index %" PRId64,(int64_t)player->id_number,thing_model_name(thing),(int64_t)thing->index);
     if (((thing->owner != player->id_number) && (player->work_state != PSt_FreeCtrlDirect))
       || (thing->index != player->controlled_thing_idx))
     {
@@ -988,10 +988,10 @@ void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing
     ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
     sim_feedback->set_engine_view(player, player->view_mode_restore);
     struct Camera* cam = get_player_active_camera(player);
-    long i = (cam != NULL) ? cam->rotation_angle_x : 0;
+    int64_t i = (cam != NULL) ? cam->rotation_angle_x : 0;
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-    int32_t k = max(thing->mappos.z.val + get_creature_eye_height(thing), 0);
+    int64_t k = max(thing->mappos.z.val + get_creature_eye_height(thing), 0);
     player->cameras[CamIV_Isometric].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
     player->cameras[CamIV_Isometric].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
     player->cameras[CamIV_FrontView].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
@@ -1017,7 +1017,7 @@ void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing
 void leave_creature_as_passenger(struct PlayerInfo *player, struct Thing *thing)
 {
   struct UserState* ustate = get_player_user_state(player);
-  SYNCDBG(7,"Starting for player %d within %s index %d",(int)player->id_number,thing_model_name(thing),(int)thing->index);
+  SYNCDBG(7,"Starting for player %" PRId64 " within %s index %" PRId64,(int64_t)player->id_number,thing_model_name(thing),(int64_t)thing->index);
   if (((thing->owner != player->id_number) && (player->work_state != PSt_FreeCtrlPassngr))
     || (thing->index != player->controlled_thing_idx))
   {
@@ -1038,8 +1038,8 @@ void leave_creature_as_passenger(struct PlayerInfo *player, struct Thing *thing)
   ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
   sim_feedback->set_engine_view(player, player->view_mode_restore);
     struct Camera* cam = get_player_active_camera(player);
-    long i = (cam != NULL) ? cam->rotation_angle_x : 0;
-  long k = thing->mappos.z.val + get_creature_eye_height(thing);
+    int64_t i = (cam != NULL) ? cam->rotation_angle_x : 0;
+  int64_t k = thing->mappos.z.val + get_creature_eye_height(thing);
   player->cameras[CamIV_Isometric].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
   player->cameras[CamIV_Isometric].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
   player->cameras[CamIV_FrontView].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
@@ -1070,7 +1070,7 @@ TbBool is_thing_passenger_controlled(const struct Thing *thing)
     case PI_WhipEnd:
         return (thing->index == player->controlled_thing_idx);
     default:
-        ERRORLOG("Bad player %d instance %d",(int)thing->owner,(int)player->instance_num);
+        ERRORLOG("Bad player %" PRId64 " instance %" PRId64,(int64_t)thing->owner,(int64_t)player->instance_num);
         break;
     }
     return false;
@@ -1103,7 +1103,7 @@ TbBool is_thing_directly_controlled(const struct Thing *thing)
     case PI_ZoomToPos:
         break;
     default:
-        ERRORLOG("Bad player %d instance %d",(int)thing->owner,(int)player->instance_num);
+        ERRORLOG("Bad player %" PRId64 " instance %" PRId64,(int64_t)thing->owner,(int64_t)player->instance_num);
         break;
     }
     return false;
@@ -1127,7 +1127,7 @@ TbBool set_selected_thing_f(struct PlayerInfo *player, struct Thing *thing, cons
         player->controlled_thing_creatrn = thing->creation_turn;
         return true;
     }
-    ERRORLOG("%s: Cannot select %s index %d",func_name,thing_model_name(thing),(int)thing->index);
+    ERRORLOG("%s: Cannot select %s index %" PRId64,func_name,thing_model_name(thing),(int64_t)thing->index);
     return false;
 }
 
@@ -1139,7 +1139,7 @@ TbBool set_selected_creature_f(struct PlayerInfo *player, struct Thing *thing, c
         player->controlled_thing_creatrn = thing->creation_turn;
         return true;
     }
-    ERRORLOG("%s: Cannot select %s index %d",func_name,thing_model_name(thing),(int)thing->index);
+    ERRORLOG("%s: Cannot select %s index %" PRId64,func_name,thing_model_name(thing),(int64_t)thing->index);
     return false;
 }
 
@@ -1160,7 +1160,7 @@ TbBool clear_selected_thing(struct PlayerInfo *player)
  * @param rkind Kind of the room.
  * @return Returns room struct, or invalid room on error.
  */
-struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, RoomKind rkind, int slabs_left)
+struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, RoomKind rkind, int64_t slabs_left)
 {
     struct PlayerInfo* player = get_player(plyr_idx);
     struct Dungeon* dungeon = get_players_dungeon(player);
@@ -1168,15 +1168,15 @@ struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Play
     // Check if we are allowed to build the room
     if (!is_room_available(plyr_idx, rkind)) {
         // It shouldn't be possible to select unavailable room
-        WARNLOG("Player %d tried to build %s which is unavailable at (%d,%d)",(int)plyr_idx,room_code_name(rkind),(int)stl_x,(int)stl_y);
+        WARNLOG("Player %" PRId64 " tried to build %s which is unavailable at (%" PRId64 ",%" PRId64 ")",(int64_t)plyr_idx,room_code_name(rkind),(int64_t)stl_x,(int64_t)stl_y);
         if (is_my_player(player))
             play_non_3d_sample(snd_refusal);
         return INVALID_ROOM;
     }
     if (!can_build_room_at_slab(plyr_idx, rkind, subtile_slab(stl_x), subtile_slab(stl_y))) {
         // It shouldn't be possible to select unavailable room
-        WARNLOG("Player %d tried to build %s on a forbidden subtile (%d,%d)",(int)plyr_idx,
-            room_code_name(rkind),(int)stl_x,(int)stl_y);
+        WARNLOG("Player %" PRId64 " tried to build %s on a forbidden subtile (%" PRId64 ",%" PRId64 ")",(int64_t)plyr_idx,
+            room_code_name(rkind),(int64_t)stl_x,(int64_t)stl_y);
         if (is_my_player(player))
         {
             if (!player->roomspace.is_active)
@@ -1315,7 +1315,7 @@ TbBool player_place_trap_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
 {
     if (!is_trap_placeable(plyr_idx, tngmodel))
     {
-        WARNLOG("Player %d tried to build %s but has none to place", (int)plyr_idx, trap_code_name(tngmodel));
+        WARNLOG("Player %" PRId64 " tried to build %s but has none to place", (int64_t)plyr_idx, trap_code_name(tngmodel));
         return false;
     }
     return player_place_trap_without_check_at(stl_x, stl_y, plyr_idx, tngmodel,false);
@@ -1335,7 +1335,7 @@ TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     if (!free)
     {
-        int crate_source = remove_workshop_item_from_amount_stored(plyr_idx, TCls_Door, tngmodel, WrkCrtF_Default);
+        int64_t crate_source = remove_workshop_item_from_amount_stored(plyr_idx, TCls_Door, tngmodel, WrkCrtF_Default);
         switch (crate_source)
         {
         case WrkCrtS_Offmap:
@@ -1348,7 +1348,7 @@ TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl
         default:
             if (!dungeon_invalid(dungeon))
             {
-                WARNLOG("Placeable door %s amount for player %d was incorrect; fixed", door_code_name(tngmodel), (int)dungeon->owner);
+                WARNLOG("Placeable door %s amount for player %" PRId64 " was incorrect; fixed", door_code_name(tngmodel), (int64_t)dungeon->owner);
                 dungeon->mnfct_info.door_amount_placeable[tngmodel] = 0;
             }
             break;
@@ -1367,13 +1367,13 @@ TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl
 TbBool player_place_door_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel)
 {
     if (!is_door_placeable(plyr_idx, tngmodel)) {
-        WARNLOG("Player %d tried to build %s but has none to place",(int)plyr_idx,door_code_name(tngmodel));
+        WARNLOG("Player %" PRId64 " tried to build %s but has none to place",(int64_t)plyr_idx,door_code_name(tngmodel));
         return false;
     }
     return player_place_door_without_check_at(stl_x, stl_y, plyr_idx, tngmodel,0);
 }
 
-long packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool allowed)
+int64_t packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool allowed)
 {
     if (!allowed) {
         if (is_my_player_number(plyr_idx))
@@ -1397,7 +1397,7 @@ TbBool is_thing_directly_controlled_by_player(const struct Thing *thing, PlayerN
      struct PlayerInfo* player = get_player(plyr_idx);
      if (player_invalid(player))
      {
-         ERRORLOG("Bad player: %d", plyr_idx);
+         ERRORLOG("Bad player: %" PRId64, (int64_t)(plyr_idx));
          return false;
      }
      else
@@ -1444,7 +1444,7 @@ TbBool is_thing_passenger_controlled_by_player(const struct Thing *thing, Player
      struct PlayerInfo* player = get_player(plyr_idx);
      if (player_invalid(player))
      {
-         ERRORLOG("Bad player: %d", plyr_idx);
+         ERRORLOG("Bad player: %" PRId64, (int64_t)(plyr_idx));
          return false;
      }
     else
@@ -1464,7 +1464,7 @@ TbBool is_thing_passenger_controlled_by_player(const struct Thing *thing, Player
         case PI_WhipEnd:
             return (thing->index == player->controlled_thing_idx);
         default:
-            ERRORLOG("Bad player %d instance %d",plyr_idx,(int)player->instance_num);
+            ERRORLOG("Bad player %" PRId64 " instance %" PRId64,(int64_t)(plyr_idx),(int64_t)player->instance_num);
             break;
         }
     }
@@ -1478,7 +1478,7 @@ void turn_off_query(PlayerNumber plyr_idx)
     set_player_instance(player, PI_UnqueryCrtr, 0);
 }
 
-long filter_creatures_owned_by_keepers(const struct Thing *thing, MaxTngFilterParam param, long a3)
+int64_t filter_creatures_owned_by_keepers(const struct Thing *thing, MaxTngFilterParam param, int64_t a3)
 {
     if (player_is_keeper(thing->owner)) {
         return INT32_MAX;
@@ -1493,11 +1493,11 @@ void level_lost_go_first_person(PlayerNumber plyr_idx)
     struct Dungeon *dungeon;
     struct Thing *thing;
     ThingModel spectator_breed;
-    SYNCDBG(6,"Starting for player %d",(int)plyr_idx);
+    SYNCDBG(6,"Starting for player %" PRId64,(int64_t)plyr_idx);
     player = get_player(plyr_idx);
     dungeon = get_dungeon(player->id_number);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Unable to get player %d dungeon",(int)plyr_idx);
+        ERRORLOG("Unable to get player %" PRId64 " dungeon",(int64_t)plyr_idx);
         return;
     }
     spectator_breed = get_players_spectator_model(plyr_idx);
@@ -1526,7 +1526,7 @@ void level_editor_go_spectator_at(PlayerNumber plyr_idx, MapCoord pos_x, MapCoor
     struct PlayerInfo *player;
     struct Thing *thing;
     ThingModel spectator_breed;
-    SYNCDBG(6,"Starting for player %d",(int)plyr_idx);
+    SYNCDBG(6,"Starting for player %" PRId64,(int64_t)plyr_idx);
     player = get_player(plyr_idx);
     spectator_breed = get_players_spectator_model(plyr_idx);
     player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(get_player_active_camera(player));

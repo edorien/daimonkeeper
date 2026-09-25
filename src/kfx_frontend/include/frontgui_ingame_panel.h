@@ -1,6 +1,7 @@
 #ifndef FRONTGUI_INGAME_PANEL_H
 #define FRONTGUI_INGAME_PANEL_H
 
+#include <stdint.h>
 // Phase 4 (docs/refactor/ingame-gui/05-sidebar-frame-and-minimap.md): the
 // always-on sidebar frame -- procedural background, gold counter, the 5
 // tab headers, the zoom / map / autopilot buttons and the 13 event
@@ -39,7 +40,7 @@ bool ingame_minimal_popup_is_open(void);
 #ifdef __cplusplus
 extern "C" {
 #endif
-void ingame_panel_minimap_screen_pos(long *x, long *y);
+void ingame_panel_minimap_screen_pos(int64_t *x, int64_t *y);
 #ifdef __cplusplus
 }
 #endif

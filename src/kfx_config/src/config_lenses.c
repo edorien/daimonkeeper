@@ -36,7 +36,7 @@ extern "C" {
 struct LensesConfig lenses_conf;
 struct NamedCommand lenses_desc[LENS_ITEMS_MAX];
 /******************************************************************************/
-static TbBool load_lenses_config_file(const char *fname, unsigned short flags);
+static TbBool load_lenses_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_lenses_file_data = {
     .filename = "lenses.cfg",
@@ -45,10 +45,10 @@ const struct ConfigFileData keeper_lenses_file_data = {
     .post_load_func = NULL,
 };
 
-static int64_t value_mist(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static int64_t value_pallete(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static int64_t value_displace(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
-static int64_t value_overlay(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags);
+static int64_t value_mist(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static int64_t value_pallete(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static int64_t value_displace(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+static int64_t value_overlay(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 
 const struct NamedField lenses_data_named_fields[] = {
     //name           //pos    //field                                           //default //min     //max    //NamedCommand
@@ -69,7 +69,7 @@ const struct NamedField lenses_data_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_lenses_count(void) { return &lenses_conf.lenses_count; }
+static int64_t* get_lenses_count(void) { return &lenses_conf.lenses_count; }
 static void* get_lenses_base(void) { return lenses_conf.lenses; }
 
 const struct NamedFieldSet lenses_data_named_fields_set = {
@@ -84,27 +84,27 @@ const struct NamedFieldSet lenses_data_named_fields_set = {
 
 /******************************************************************************/
 
-struct LensConfig *get_lens_config(long lens_idx)
+struct LensConfig *get_lens_config(int64_t lens_idx)
 {
     if ((lens_idx < 1) || (lens_idx > lenses_conf.lenses_count))
         return &lenses_conf.lenses[0];
     return &lenses_conf.lenses[lens_idx];
 }
 
-static int64_t value_mist(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static int64_t value_mist(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (idx < 0 || idx >= named_fields_set->max_count) {
-        ERRORMSG("Config index %d out of bounds [0,%d) for mist in lens.cfg", idx, named_fields_set->max_count);
+        ERRORMSG("Config index %" PRId64 " out of bounds [0,%" PRId64 ") for mist in lens.cfg", (int64_t)(idx), (int64_t)(named_fields_set->max_count));
         return 0;
     }
     lenses_conf.lenses[idx].flags |= LCF_HasMist;
     return value_name(named_field, value_text, named_fields_set, idx, src_str, flags);
 }
 
-static int64_t value_displace(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static int64_t value_displace(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (idx < 0 || idx >= named_fields_set->max_count) {
-        ERRORMSG("Config index %d out of bounds [0,%d) for displace in lens.cfg", idx, named_fields_set->max_count);
+        ERRORMSG("Config index %" PRId64 " out of bounds [0,%" PRId64 ") for displace in lens.cfg", (int64_t)(idx), (int64_t)(named_fields_set->max_count));
         return 0;
     }
     lenses_conf.lenses[idx].flags |= LCF_HasDisplace;
@@ -112,33 +112,33 @@ static int64_t value_displace(const struct NamedField* named_field, const char* 
 }
 
 
-static int64_t value_pallete(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static int64_t value_pallete(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (idx < 0 || idx >= named_fields_set->max_count) {
-        ERRORMSG("Config index %d out of bounds [0,%d) for palette in lens.cfg", idx, named_fields_set->max_count);
+        ERRORMSG("Config index %" PRId64 " out of bounds [0,%" PRId64 ") for palette in lens.cfg", (int64_t)(idx), (int64_t)(named_fields_set->max_count));
         return 0;
     }
     lenses_conf.lenses[idx].flags |= LCF_HasPalette;
     char* fname = prepare_file_path(FGrp_StdData, value_text);
     if (LbFileLoadAt(fname, (char*)named_fields_set->get_struct_base() + named_fields_set->struct_size * idx + (ptrdiff_t)named_field->field) != PALETTE_SIZE)
     {
-        CONFWRNLOG("Couldn't load \"%s\" file for \"%s\" parameter in [%s%d] block of lens.cfg file.",
-            value_text, named_field->name, named_fields_set->block_basename, idx);
+        CONFWRNLOG("Couldn't load \"%s\" file for \"%s\" parameter in [%s%" PRId64 "] block of lens.cfg file.",
+            value_text, named_field->name, named_fields_set->block_basename, (int64_t)(idx));
     }
     return 0;
 }
 
-static int64_t value_overlay(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static int64_t value_overlay(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (idx < 0 || idx >= named_fields_set->max_count) {
-        ERRORMSG("Config index %d out of bounds [0,%d) for overlay in lens.cfg", idx, named_fields_set->max_count);
+        ERRORMSG("Config index %" PRId64 " out of bounds [0,%" PRId64 ") for overlay in lens.cfg", (int64_t)(idx), (int64_t)(named_fields_set->max_count));
         return 0;
     }
-    SYNCDBG (9, "value_overlay called: argnum=%d, value='%s', lens=%d", named_field->argnum, value_text, idx);
+    SYNCDBG (9, "value_overlay called: argnum=%" PRId64 ", value='%s', lens=%" PRId64, (int64_t)(named_field->argnum), value_text, (int64_t)(idx));
     
     if (value_text == NULL || value_text[0] == '\0') {
-        CONFWRNLOG("Empty overlay name for \"%s\" parameter in [%s%d] block of lens.cfg file.",
-            named_field->name, named_fields_set->block_basename, idx);
+        CONFWRNLOG("Empty overlay name for \"%s\" parameter in [%s%" PRId64 "] block of lens.cfg file.",
+            named_field->name, named_fields_set->block_basename, (int64_t)(idx));
         return 0;
     }
     
@@ -153,20 +153,20 @@ static int64_t value_overlay(const struct NamedField* named_field, const char* v
         strncpy(lenscfg->overlay_file, value_text, DISKPATH_SIZE - 1);
         lenscfg->overlay_file[DISKPATH_SIZE - 1] = '\0';
         
-        SYNCDBG(9, "Registered overlay name '%s' for lens %d", value_text, idx);
+        SYNCDBG(9, "Registered overlay name '%s' for lens %" PRId64, value_text, (int64_t)(idx));
     }
     else
     {
-        SYNCLOG("Skipping overlay name storage for argnum=%d (alpha value)", named_field->argnum);
+        SYNCLOG("Skipping overlay name storage for argnum=%" PRId64 " (alpha value)", (int64_t)(named_field->argnum));
     }
     
     return 0;
 }
 
-static TbBool load_lenses_config_file(const char *fname, unsigned short flags)
+static TbBool load_lenses_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)

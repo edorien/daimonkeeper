@@ -22,9 +22,9 @@ struct ResetCampaign {
     ResetCampaign() { std::memset(&campaign, 0, sizeof(campaign)); }
 };
 
-long g_fake_intralvl_next_level = 0;
-int g_fake_intralvl_cleared = 0;
-long fake_get_intralvl_next_level(void) { return g_fake_intralvl_next_level; }
+int64_t g_fake_intralvl_next_level = 0;
+int64_t g_fake_intralvl_cleared = 0;
+int64_t fake_get_intralvl_next_level(void) { return g_fake_intralvl_next_level; }
 void fake_clear_intralvl_next_level(void) { g_fake_intralvl_cleared++; }
 
 // next_singleplayer_level() calls get_intralvl_next_level() twice: once
@@ -33,10 +33,10 @@ void fake_clear_intralvl_next_level(void) { g_fake_intralvl_cleared++; }
 // reach the inner "next_level < 0" check -- the outer guard already
 // requires a positive value first. This fake changes its answer between
 // calls so that check is actually reachable, the only way it can be.
-long g_fake_intralvl_first_call_value = 0;
-long g_fake_intralvl_second_call_value = 0;
-int g_fake_intralvl_call_count = 0;
-long fake_get_intralvl_next_level_changing(void) {
+int64_t g_fake_intralvl_first_call_value = 0;
+int64_t g_fake_intralvl_second_call_value = 0;
+int64_t g_fake_intralvl_call_count = 0;
+int64_t fake_get_intralvl_next_level_changing(void) {
     g_fake_intralvl_call_count++;
     return (g_fake_intralvl_call_count == 1) ? g_fake_intralvl_first_call_value : g_fake_intralvl_second_call_value;
 }

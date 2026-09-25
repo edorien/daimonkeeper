@@ -242,9 +242,9 @@ struct CreatureStateConfig {
     unsigned char state_type;
     TbBool captive;
     TbBool transition;
-    unsigned short follow_behavior;
+    int64_t follow_behavior;
     TbBool blocks_all_state_changes;
-    unsigned short sprite_idx;
+    int64_t sprite_idx;
     TbBool display_thought_bubble;
     TbBool sneaky;
     TbBool react_to_cta;
@@ -256,7 +256,7 @@ struct CreatureInstanceConfig {
 
 typedef TbBool (*Creature_Job_Player_Check_Func)(const struct Thing *, PlayerNumber, CreatureJob);
 typedef TbBool (*Creature_Job_Player_Assign_Func)(struct Thing *, PlayerNumber, CreatureJob);
-typedef TbBool (*Creature_Job_Coords_Check_Func)(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, CreatureJob jobpref, unsigned long flags);
+typedef TbBool (*Creature_Job_Coords_Check_Func)(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, CreatureJob jobpref, uint64_t flags);
 typedef TbBool (*Creature_Job_Coords_Assign_Func)(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, CreatureJob jobpref);
 
 struct CreatureJobConfig {
@@ -271,7 +271,7 @@ struct CreatureJobConfig {
     CrtrStateId initial_crstate;
     /** The state creature should back to after job is interrupted. */
     CrtrStateId continue_crstate;
-    unsigned long job_flags;
+    uint64_t job_flags;
 };
 
 struct CreatureAngerJobConfig {
@@ -280,54 +280,54 @@ struct CreatureAngerJobConfig {
 
 struct CreatureModelConfig {
     char name[COMMAND_WORD_LEN];
-    long namestr_idx;
-    unsigned long model_flags;
-    unsigned short job_primary;
-    unsigned short job_secondary;
-    unsigned short jobs_not_do;
+    int64_t namestr_idx;
+    uint64_t model_flags;
+    int64_t job_primary;
+    int64_t job_secondary;
+    int64_t jobs_not_do;
     unsigned char eye_effect;
     HitPoints health;
     unsigned char heal_requirement;
     unsigned char heal_threshold;
-    unsigned short strength;
+    int64_t strength;
     unsigned char armour;
     unsigned char dexterity;
     unsigned char fear_wounded;
     unsigned char defense;
     unsigned char luck;
     unsigned char sleep_recovery;
-    unsigned short hunger_rate;
+    int64_t hunger_rate;
     unsigned char hunger_fill;
-    unsigned short annoy_level;
+    int64_t annoy_level;
     unsigned char lair_size;
     unsigned char hurt_by_lava;
     unsigned char sleep_exp_slab[SLEEP_XP_COUNT];
-    short sleep_experience[SLEEP_XP_COUNT];
-    short exp_for_hitting;
-    short gold_hold;
-    short training_cost;
-    short scavenger_cost;
-    short scavenge_require;
+    int64_t sleep_experience[SLEEP_XP_COUNT];
+    int64_t exp_for_hitting;
+    int64_t gold_hold;
+    int64_t training_cost;
+    int64_t scavenger_cost;
+    int64_t scavenge_require;
     unsigned char scavenge_value;
-    unsigned long to_level[CREATURE_MAX_LEVEL];
+    uint64_t to_level[CREATURE_MAX_LEVEL];
     unsigned char base_speed;
     ThingModel grow_up;
     CrtrExpLevel grow_up_level;
     TbBool entrance_force;
-    short max_turning_speed;
-    short base_eye_height;
-    unsigned short size_xy;
-    unsigned short size_z;
-    unsigned short thing_size_xy;
-    unsigned short thing_size_z;
-    short shot_shift_x; /**< Initial position of shot created by the creature relative to creature position, X coord. */
-    short shot_shift_y; /**< Initial position of shot created by the creature relative to creature position, Y coord. */
-    short shot_shift_z; /**< Initial position of shot created by the creature relative to creature position, Z coord. */
-    unsigned short walking_anim_speed;
+    int64_t max_turning_speed;
+    int64_t base_eye_height;
+    int64_t size_xy;
+    int64_t size_z;
+    int64_t thing_size_xy;
+    int64_t thing_size_z;
+    int64_t shot_shift_x; /**< Initial position of shot created by the creature relative to creature position, X coord. */
+    int64_t shot_shift_y; /**< Initial position of shot created by the creature relative to creature position, Y coord. */
+    int64_t shot_shift_z; /**< Initial position of shot created by the creature relative to creature position, Z coord. */
+    int64_t walking_anim_speed;
     TbBool flying;
     TbBool fixed_anim_speed;
     unsigned char attack_preference;
-    short field_of_view;
+    int64_t field_of_view;
     /** Instance identifiers of the instances creature can learn. */
     CrInstance learned_instance_id[LEARNED_INSTANCES_COUNT];
     /** Required level to use the instances creature can learn. Scaled 1..CREATURE_MAX_LEVEL. */
@@ -336,7 +336,7 @@ struct CreatureModelConfig {
     TbBool humanoid_creature;
     TbBool piss_on_dead;
     unsigned char training_value;
-    short pay;
+    int64_t pay;
     unsigned char manufacture_value;
     unsigned char hearing;
     unsigned char entrance_rooms[ENTRANCE_ROOMS_COUNT];
@@ -344,61 +344,61 @@ struct CreatureModelConfig {
     unsigned char visual_range;
     unsigned char partner_training;
     /** Minimal game turns a creature must be tortured before it gets a chance to be broken */
-    short torture_break_time;
-    short annoy_no_lair;
-    short annoy_no_hatchery;
-    short annoy_woken_up;
-    short annoy_on_dead_friend;
-    short annoy_sulking;
-    short annoy_no_salary;
-    short annoy_slapped;
-    short annoy_on_dead_enemy;
-    short annoy_in_temple;
-    short annoy_sleeping;
-    short annoy_got_wage;
-    short annoy_in_torture;
-    short annoy_win_battle;
-    short annoy_untrained_time;
-    short annoy_untrained;
-    short annoy_queue;
+    int64_t torture_break_time;
+    int64_t annoy_no_lair;
+    int64_t annoy_no_hatchery;
+    int64_t annoy_woken_up;
+    int64_t annoy_on_dead_friend;
+    int64_t annoy_sulking;
+    int64_t annoy_no_salary;
+    int64_t annoy_slapped;
+    int64_t annoy_on_dead_enemy;
+    int64_t annoy_in_temple;
+    int64_t annoy_sleeping;
+    int64_t annoy_got_wage;
+    int64_t annoy_in_torture;
+    int64_t annoy_win_battle;
+    int64_t annoy_untrained_time;
+    int64_t annoy_untrained;
+    int64_t annoy_queue;
     /* Annoyance caused by tries to assign creature to a job it won't do */
-    short annoy_will_not_do_job;
+    int64_t annoy_will_not_do_job;
     /* Job kinds which cause stress for the creature */
-    unsigned short job_stress;
+    int64_t job_stress;
     /* Amount of annoyance given to creature under stressful job */
-    short annoy_job_stress;
+    int64_t annoy_job_stress;
     /* Job kinds which the creature will start when it is angry */
-    unsigned short jobs_anger;
-    short annoy_others_leaving;
+    int64_t jobs_anger;
+    int64_t annoy_others_leaving;
     unsigned char slaps_to_kill;
     ThingModel lair_enemy[CREATURE_TYPES_MAX];
     unsigned char rebirth;
     TbBool can_see_invisible;
     TbBool can_go_locked_doors;
     TbBool bleeds;
-    short annoy_eat_food;
-    short annoy_in_hand;
-    short damage_to_boulder;
+    int64_t annoy_eat_food;
+    int64_t annoy_in_hand;
+    int64_t damage_to_boulder;
     // New fields go there; don't change earlier fields.
-    unsigned short fear_stronger;
-    unsigned short fearsome_factor;
-    short entrance_score;
-    short annoy_going_postal;
-    short toking_recovery;
+    int64_t fear_stronger;
+    int64_t fearsome_factor;
+    int64_t entrance_score;
+    int64_t annoy_going_postal;
+    int64_t toking_recovery;
     TbBool illuminated;
     unsigned char transparency_flags;
     char corpse_vanish_effect;
-    short footstep_pitch;
-    short lair_object;
-    short status_offset;
-    unsigned short evil_start_state;
-    unsigned short good_start_state;
+    int64_t footstep_pitch;
+    int64_t lair_object;
+    int64_t status_offset;
+    int64_t evil_start_state;
+    int64_t good_start_state;
     unsigned char natural_death_kind;
     unsigned char swipe_idx;
     ThingModel prison_kind;
     ThingModel torture_kind;
     ThingModel hostile_towards[CREATURE_TYPES_MAX];
-    uint32_t immunity_flags;
+    uint64_t immunity_flags;
     struct PickedUpOffset creature_picked_up_offset;
 };
 
@@ -406,41 +406,41 @@ struct CreatureModelConfig {
  * Structure which stores levelling up stats.
  */
 struct CreatureExperience {
-    int32_t size_increase_on_exp;
-    int32_t pay_increase_on_exp;
-    int32_t spell_damage_increase_on_exp;
-    int32_t range_increase_on_exp;
-    int32_t job_value_increase_on_exp;
-    int32_t health_increase_on_exp;
-    int32_t strength_increase_on_exp;
-    int32_t dexterity_increase_on_exp;
-    int32_t defense_increase_on_exp;
-    int32_t loyalty_increase_on_exp;
-    int32_t armour_increase_on_exp;
-    int32_t exp_on_hitting_increase_on_exp;
-    int32_t training_cost_increase_on_exp;
-    int32_t scavenging_cost_increase_on_exp;
+    int64_t size_increase_on_exp;
+    int64_t pay_increase_on_exp;
+    int64_t spell_damage_increase_on_exp;
+    int64_t range_increase_on_exp;
+    int64_t job_value_increase_on_exp;
+    int64_t health_increase_on_exp;
+    int64_t strength_increase_on_exp;
+    int64_t dexterity_increase_on_exp;
+    int64_t defense_increase_on_exp;
+    int64_t loyalty_increase_on_exp;
+    int64_t armour_increase_on_exp;
+    int64_t exp_on_hitting_increase_on_exp;
+    int64_t training_cost_increase_on_exp;
+    int64_t scavenging_cost_increase_on_exp;
 };
 
 struct CreatureConfig {
-    int32_t model_count;
+    int64_t model_count;
     struct CreatureModelConfig model[CREATURE_TYPES_MAX];
-    int32_t states_count;
+    int64_t states_count;
     struct CreatureStateConfig states[CREATURE_STATES_MAX];
-    int32_t instances_count;
+    int64_t instances_count;
     struct CreatureInstanceConfig instances[INSTANCE_TYPES_MAX];
-    int32_t jobs_count;
+    int64_t jobs_count;
     struct CreatureJobConfig jobs[INSTANCE_TYPES_MAX];
-    int32_t angerjobs_count;
+    int64_t angerjobs_count;
     struct CreatureAngerJobConfig angerjobs[INSTANCE_TYPES_MAX];
-    int32_t attacktypes_count;
+    int64_t attacktypes_count;
     struct CommandWord attacktypes[INSTANCE_TYPES_MAX];
     struct CreatureExperience exp;
     ThingModel special_digger_good;
     ThingModel special_digger_evil;
     ThingModel spectator_breed;
-    short creature_graphics[CREATURE_TYPES_MAX][CREATURE_GRAPHICS_INSTANCES];
-    int32_t sprite_size;
+    int64_t creature_graphics[CREATURE_TYPES_MAX][CREATURE_GRAPHICS_INSTANCES];
+    int64_t sprite_size;
     struct CreatureSounds creature_sounds[CREATURE_TYPES_MAX];
 };
 
@@ -474,7 +474,7 @@ void init_creature_model_stats(ThingModel crmodel);
 void init_all_creature_model_stats(void);
 void init_creature_model_graphics(void);
 const char *creature_code_name(ThingModel crmodel);
-long creature_model_id(const char * name);
+int64_t creature_model_id(const char * name);
 // Moved from kfx_game's lvl_script_lib.h (stage 13.3) -- purely a
 // creature_desc/CREATURE_NOT_A_DIGGER lookup, no real kfx_game
 // dependency. See docs/refactor/stage-13-enforce-and-document.md.
@@ -482,15 +482,15 @@ ThingModel parse_creature_name(const char *creature_name);
 // Moved from kfx_sim's creature_graphics.h (stage 13.3) -- purely a
 // kfx_config_state.conf.crtr_conf.creature_graphics[] write. See
 // docs/refactor/stage-13-enforce-and-document.md.
-void set_creature_model_graphics(long crmodel, unsigned short seq_idx, unsigned long val);
+void set_creature_model_graphics(int64_t crmodel, int64_t seq_idx, uint64_t val);
 const char *creature_own_name(const struct Thing *creatng);
 TbBool is_creature_model_wildcard(ThingModel crmodel);
 /******************************************************************************/
-unsigned long get_creature_model_flags(const struct Thing *thing);
-TbBool set_creature_available(PlayerNumber plyr_idx, ThingModel crtr_model, long can_be_avail, long force_avail);
+uint64_t get_creature_model_flags(const struct Thing *thing);
+TbBool set_creature_available(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail);
 ThingModel get_players_special_digger_model(PlayerNumber plyr_idx);
 ThingModel get_players_spectator_model(PlayerNumber plyr_idx);
-ThingModel get_creature_model_with_model_flags(unsigned long needflags);
+ThingModel get_creature_model_with_model_flags(uint64_t needflags);
 void update_players_special_digger_model(PlayerNumber plyr_idx, ThingModel new_dig_model);
 /******************************************************************************/
 struct CreatureInstanceConfig *get_config_for_instance(CrInstance inst_id);
@@ -506,15 +506,15 @@ CrtrStateId get_continue_state_for_job(CreatureJob jobpref);
 CreatureJob get_job_for_creature_state(CrtrStateId crstate_id);
 CreatureJob get_jobs_enemies_may_do_in_room(RoomKind rkind);
 CreatureJob get_jobs_enemies_may_do_in_room_role(RoomRole rrole);
-unsigned long get_flags_for_job(CreatureJob jobpref);
-int get_required_room_capacity_for_job(CreatureJob jobpref, ThingModel crmodel);
+uint64_t get_flags_for_job(CreatureJob jobpref);
+int64_t get_required_room_capacity_for_job(CreatureJob jobpref, ThingModel crmodel);
 CreatureJob get_creature_job_causing_going_postal(CreatureJob job_flags, RoomKind rkind);
 CreatureJob get_creature_job_causing_stress(CreatureJob job_flags, RoomKind rkind);
-CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned long drop_kind_flags);
-CreatureJob get_job_for_room(RoomKind rkind, unsigned long required_kind_flags, CreatureJob has_jobs);
-CreatureJob get_job_for_room_role(RoomRole rrole, unsigned long required_kind_flags, CreatureJob has_jobs);
-CreatureJob get_job_which_qualify_for_room(RoomKind rkind, unsigned long qualify_flags, unsigned long prevent_flags);
-CreatureJob get_job_which_qualify_for_room_role(RoomRole rrole, unsigned long qualify_flags, unsigned long prevent_flags);
+CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags);
+CreatureJob get_job_for_room(RoomKind rkind, uint64_t required_kind_flags, CreatureJob has_jobs);
+CreatureJob get_job_for_room_role(RoomRole rrole, uint64_t required_kind_flags, CreatureJob has_jobs);
+CreatureJob get_job_which_qualify_for_room(RoomKind rkind, uint64_t qualify_flags, uint64_t prevent_flags);
+CreatureJob get_job_which_qualify_for_room_role(RoomRole rrole, uint64_t qualify_flags, uint64_t prevent_flags);
 const char *creature_job_code_name(CreatureJob job_flag);
 struct Thing* thing_death_flesh_explosion(struct Thing* thing);
 /******************************************************************************/

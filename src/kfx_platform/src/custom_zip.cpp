@@ -48,7 +48,7 @@ void set_map_zip_callbacks(const struct MapZipCallbacks *callbacks)
 static VALUE zip_cache_v;
 static VALUE *zip_cache = &zip_cache_v;
 
-int fastUnzLocateFile(unzFile zip, const char *szFileName, int iCaseSensitivity)
+int64_t fastUnzLocateFile(unzFile zip, const char *szFileName, int64_t iCaseSensitivity)
 {
     //return unzLocateFile(file, szFileName, iCaseSensitivity);
     char seek_for[PATH_MAX];
@@ -69,7 +69,7 @@ int fastUnzLocateFile(unzFile zip, const char *szFileName, int iCaseSensitivity)
  * Construct a cache for files.
  * Also if there is no indexFile just return instead
  * */
-int fastUnzConstructCache(unzFile zip)
+int64_t fastUnzConstructCache(unzFile zip)
 {
     char szCurrentFileName[PATH_MAX];
     if (value_type(zip_cache) != VALUE_NULL)
@@ -78,7 +78,7 @@ int fastUnzConstructCache(unzFile zip)
     }
     value_init_dict(zip_cache);
 
-    for (int err = unzGoToFirstFile(zip);
+    for (int64_t err = unzGoToFirstFile(zip);
          err == UNZ_OK;
          err = unzGoToNextFile(zip))
     {
@@ -102,7 +102,7 @@ int fastUnzConstructCache(unzFile zip)
     return UNZ_OK;
 }
 
-int fastUnzClearCache()
+int64_t fastUnzClearCache()
 {
     value_fini(zip_cache);
     return 0;
@@ -166,7 +166,7 @@ TbBool read_map_zip_entry(LevelNumber lvnum, const char *entry_name, unsigned ch
     *out_size = 0;
 
     char zipname[32];
-    snprintf(zipname, sizeof(zipname), "map%05d.zip", lvnum);
+    snprintf(zipname, sizeof(zipname), "map%05" PRId64 ".zip", (int64_t)(lvnum));
     char *fname = map_zip_callbacks->prepare_map_zip_path(lvnum, zipname);
     if ((fname == NULL) || !LbFileExists(fname))
     {
@@ -210,9 +210,9 @@ TbBool read_map_zip_entry(LevelNumber lvnum, const char *entry_name, unsigned ch
     {
         return false;
     }
-    int bytes_read = unzReadCurrentFile(zip.get(), data.get(), zip_info.uncompressed_size);
+    int64_t bytes_read = unzReadCurrentFile(zip.get(), data.get(), zip_info.uncompressed_size);
     unzCloseCurrentFile(zip.get());
-    if (bytes_read != (int)zip_info.uncompressed_size)
+    if (bytes_read != (int64_t)zip_info.uncompressed_size)
     {
         WARNLOG("Failed to read '%s' from '%s'", entry_name, fname);
         return false;

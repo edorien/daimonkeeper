@@ -131,10 +131,10 @@ inline void make_unsynced_thing_index_available(ThingIndex thing_idx)
 // empirically in creature_jobs_test.cpp/room_garden_test.cpp before this
 // helper existed. Grows jobs_count to cover the computed index
 // automatically.
-inline void configure_job(CreatureJob job, RoomRole room_role, unsigned long job_flags, CrtrStateId continue_crstate = 0)
+inline void configure_job(CreatureJob job, RoomRole room_role, uint64_t job_flags, CrtrStateId continue_crstate = 0)
 {
-    unsigned long k = job;
-    long i = 0;
+    uint64_t k = job;
+    int64_t i = 0;
     while (k) { k >>= 1; i++; }
     if (kfx_config_state.conf.crtr_conf.jobs_count <= i)
         kfx_config_state.conf.crtr_conf.jobs_count = i + 1;
@@ -191,8 +191,8 @@ inline struct Computer2 *make_computer_player(PlayerNumber plyr_idx)
 {
     make_player_active(plyr_idx);
     struct Computer2 *comp = get_computer_player(plyr_idx);
-    comp->dungeon = get_dungeon(plyr_idx);
-    comp->dungeon->owner = plyr_idx;
+    computer_set_dungeon(comp, get_dungeon(plyr_idx));
+    computer_dungeon(comp)->owner = plyr_idx;
     return comp;
 }
 
@@ -201,17 +201,17 @@ inline struct Computer2 *make_computer_player(PlayerNumber plyr_idx)
 // through the same CreatureControl::players_next_creature_idx field, per
 // count_creatures_in_dungeon()/count_diggers_in_dungeon()). thing_idx must
 // already be a real creature (see make_creature above).
-inline void link_creature_into_player_list(short *list_head, ThingIndex thing_idx)
+inline void link_creature_into_player_list(int64_t *list_head, ThingIndex thing_idx)
 {
     struct CreatureControl *cctrl = creature_control_get_from_thing(thing_get(thing_idx));
     cctrl->players_next_creature_idx = *list_head;
-    *list_head = (short)thing_idx;
+    *list_head = (int64_t)thing_idx;
 }
 
 // Pushes room_index onto the front of a "rooms of a kind" list threaded
 // through Room::next_of_kind (e.g. kfx_sim_state.entrance_room_id's
 // entrance-room chain, walked by count_entrances()).
-inline void link_room_into_kind_list(unsigned short *list_head, RoomIndex room_index)
+inline void link_room_into_kind_list(int64_t *list_head, RoomIndex room_index)
 {
     struct Room *room = room_get(room_index);
     room->next_of_kind = *list_head;
@@ -222,7 +222,7 @@ inline void link_room_into_kind_list(unsigned short *list_head, RoomIndex room_i
 // (Dungeon::room_list_start[rkind]), threaded through Room::next_of_owner
 // -- per get_room_kind_total_and_used_capacity()/
 // computer_check_move_creatures_to_room()'s room sweeps.
-inline void link_room_into_owner_list(unsigned short *list_head, RoomIndex room_index)
+inline void link_room_into_owner_list(int64_t *list_head, RoomIndex room_index)
 {
     struct Room *room = room_get(room_index);
     room->next_of_owner = *list_head;

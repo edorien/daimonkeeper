@@ -49,19 +49,19 @@ static void light_stat_light_map_clear_area(MapSubtlCoord x1, MapSubtlCoord y1, 
 
 /******************************************************************************/
 
-static unsigned long light_bitmask[32];
-static long stat_light_needs_updating;
-static long light_total_dynamic_lights;
-static long light_total_stat_lights;
-static long light_rendered_dynamic_lights;
-static long light_rendered_optimised_dynamic_lights;
-static long light_updated_stat_lights;
-static long light_out_of_date_stat_lights;
+static uint64_t light_bitmask[32];
+static int64_t stat_light_needs_updating;
+static int64_t light_total_dynamic_lights;
+static int64_t light_total_stat_lights;
+static int64_t light_rendered_dynamic_lights;
+static int64_t light_rendered_optimised_dynamic_lights;
+static int64_t light_updated_stat_lights;
+static int64_t light_out_of_date_stat_lights;
 /******************************************************************************/
 
 struct Light *light_allocate_light(void)
 {
-    for (long i = 1; i < LIGHTS_COUNT; i++)
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
         struct Light* lgt = &lish.lights[i];
         if ((lgt->flags & LgtF_Allocated) == 0)
@@ -74,10 +74,10 @@ struct Light *light_allocate_light(void)
     return NULL;
 }
 
-int light_count_lights()
+int64_t light_count_lights()
 {
-    int cnt = 0;
-    for (int i = 1; i < LIGHTS_COUNT; i++)
+    int64_t cnt = 0;
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
         struct Light *lgt = &lish.lights[i];
         if (lgt->flags & LgtF_Allocated)
@@ -104,7 +104,7 @@ TbBool light_is_invalid(const struct Light *lgt)
 
 struct ShadowCache *light_allocate_shadow_cache(void)
 {
-    for (long i = 1; i < SHADOW_CACHE_COUNT; i++)
+    for (int64_t i = 1; i < SHADOW_CACHE_COUNT; i++)
     {
         struct ShadowCache* shdc = &lish.shadow_cache[i];
         if ((shdc->flags & ShCF_Allocated) == 0)
@@ -125,11 +125,11 @@ TbBool light_shadow_cache_invalid(struct ShadowCache *shdc)
     return false;
 }
 
-long light_shadow_cache_index(struct ShadowCache *shdc)
+int64_t light_shadow_cache_index(struct ShadowCache *shdc)
 {
     if (light_shadow_cache_invalid(shdc))
         return 0;
-    long i = ((char*)shdc - (char*)&lish.shadow_cache[0]);
+    int64_t i = ((char*)shdc - (char*)&lish.shadow_cache[0]);
     return i / sizeof(struct ShadowCache);
 }
 
@@ -152,7 +152,7 @@ TbBool light_add_light_to_list(struct Light *lgt, struct StructureList *list)
   return true;
 }
 
-long light_create_light(struct InitLight *ilght)
+int64_t light_create_light(struct InitLight *ilght)
 {
     struct Light* lgt = light_allocate_light();
     if (light_is_invalid(lgt)) {
@@ -267,10 +267,10 @@ void light_import_system_state(const struct LightSystemState *lightst)
 
 TbBool lights_stats_debug_dump(void)
 {
-    long lights[LIGHTS_COUNT];
-    long lgh_things[THING_CLASSES_COUNT];
-    long shadowcs[SHADOW_CACHE_COUNT];
-    long i;
+    int64_t lights[LIGHTS_COUNT];
+    int64_t lgh_things[THING_CLASSES_COUNT];
+    int64_t shadowcs[SHADOW_CACHE_COUNT];
+    int64_t i;
     for (i=0; i < SHADOW_CACHE_COUNT; i++)
     {
         struct ShadowCache* shdc = &lish.shadow_cache[i];
@@ -279,8 +279,8 @@ TbBool lights_stats_debug_dump(void)
         else
             shadowcs[i] = 0;
     }
-    long lgh_sttc = 0;
-    long lgh_dynm = 0;
+    int64_t lgh_sttc = 0;
+    int64_t lgh_dynm = 0;
     for (i=0; i < LIGHTS_COUNT; i++)
     {
         struct Light* lgt = &lish.lights[i];
@@ -297,14 +297,14 @@ TbBool lights_stats_debug_dump(void)
                     shadowcs[lgt->shadow_index] = i;
                 } else
                 if (shadowcs[lgt->shadow_index] == 0) {
-                    WARNLOG("Shadow Cache %d is not allocated, but used by light %d!",(int)lgt->shadow_index,(int)i);
+                    WARNLOG("Shadow Cache %" PRId64 " is not allocated, but used by light %" PRId64 "!",(int64_t)lgt->shadow_index,(int64_t)i);
                 } else {
-                    WARNLOG("Shadow Cache %d is double-allocated, for lights %d and %d!",(int)lgt->shadow_index,(int)shadowcs[lgt->shadow_index],(int)i);
+                    WARNLOG("Shadow Cache %" PRId64 " is double-allocated, for lights %" PRId64 " and %" PRId64 "!",(int64_t)lgt->shadow_index,(int64_t)shadowcs[lgt->shadow_index],(int64_t)i);
                 }
             } else
             if ((lgt->flags & LgtF_Dynamic) != 0)
             {
-                WARNLOG("Dynamic light %d has bad Shadow Cache %d!",(int)i,(int)lgt->shadow_index);
+                WARNLOG("Dynamic light %" PRId64 " has bad Shadow Cache %" PRId64 "!",(int64_t)i,(int64_t)lgt->shadow_index);
             }
         } else {
             lights[i] = 0;
@@ -317,21 +317,21 @@ TbBool lights_stats_debug_dump(void)
         {
             if ((thing->light_id > 0) && (thing->light_id < LIGHTS_COUNT))
             {
-                long n = 1000 + (long)thing->class_id;
+                int64_t n = 1000 + (int64_t)thing->class_id;
                 if (lights[thing->light_id] == -1) {
                     lights[thing->light_id] = n;
                 } else
                 if (lights[thing->light_id] == 0) {
-                    WARNLOG("Light %d is not allocated, but used by %s!",(int)thing->light_id, thing_model_name(thing));
+                    WARNLOG("Light %" PRId64 " is not allocated, but used by %s!",(int64_t)thing->light_id, thing_model_name(thing));
                 } else {
-                    WARNLOG("Light %d is double-allocated, for %d and %d!",(int)thing->light_id, (int)lights[thing->light_id], (int)n);
+                    WARNLOG("Light %" PRId64 " is double-allocated, for %" PRId64 " and %" PRId64 "!",(int64_t)thing->light_id, (int64_t)lights[thing->light_id], (int64_t)n);
                 }
             }
 
         }
     }
-    long lgh_used = 0;
-    long lgh_free = 0;
+    int64_t lgh_used = 0;
+    int64_t lgh_free = 0;
     for (i=0; i < THING_CLASSES_COUNT; i++)
         lgh_things[i] = 0;
     for (i=0; i < LIGHTS_COUNT; i++)
@@ -346,9 +346,9 @@ TbBool lights_stats_debug_dump(void)
             lgh_free++;
         }
     }
-    long shdc_free = 0;
-    long shdc_used = 0;
-    long shdc_linked = 0;
+    int64_t shdc_free = 0;
+    int64_t shdc_used = 0;
+    int64_t shdc_linked = 0;
     for (i=0; i < SHADOW_CACHE_COUNT; i++)
     {
         if (shadowcs[i] != 0)
@@ -360,40 +360,40 @@ TbBool lights_stats_debug_dump(void)
             shdc_free++;
         }
     }
-    SYNCLOG("Lights: %ld free, %ld used; %ld static, %ld dynamic; for things:%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld",lgh_free,lgh_used,lgh_sttc,lgh_dynm,lgh_things[1],lgh_things[2],lgh_things[3],lgh_things[4],lgh_things[5],lgh_things[6],lgh_things[7],lgh_things[8],lgh_things[9],lgh_things[10],lgh_things[11],lgh_things[12],lgh_things[13]);
+    SYNCLOG("Lights: %" PRId64 " free, %" PRId64 " used; %" PRId64 " static, %" PRId64 " dynamic; for things:%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64,(int64_t)(lgh_free),(int64_t)(lgh_used),(int64_t)(lgh_sttc),(int64_t)(lgh_dynm),(int64_t)(lgh_things[1]),(int64_t)(lgh_things[2]),(int64_t)(lgh_things[3]),(int64_t)(lgh_things[4]),(int64_t)(lgh_things[5]),(int64_t)(lgh_things[6]),(int64_t)(lgh_things[7]),(int64_t)(lgh_things[8]),(int64_t)(lgh_things[9]),(int64_t)(lgh_things[10]),(int64_t)(lgh_things[11]),(int64_t)(lgh_things[12]),(int64_t)(lgh_things[13]));
     if ((shdc_used != shdc_linked) || (shdc_used != lgh_dynm))
     {
-        WARNLOG("Amount of shadow cache mismatches: %ld free, %ld used, %ld linked to lights, %ld dyn. lights.",
-          shdc_free,shdc_used,shdc_linked,light_total_dynamic_lights);
+        WARNLOG("Amount of shadow cache mismatches: %" PRId64 " free, %" PRId64 " used, %" PRId64 " linked to lights, %" PRId64 " dyn. lights.",
+          (int64_t)(shdc_free),(int64_t)(shdc_used),(int64_t)(shdc_linked),(int64_t)(light_total_dynamic_lights));
     }
     if (lgh_sttc != light_total_stat_lights)
     {
-        WARNLOG("Wrong global lights counter: %ld static lights and counter says %ld.",lgh_sttc,light_total_stat_lights);
+        WARNLOG("Wrong global lights counter: %" PRId64 " static lights and counter says %" PRId64 ".",(int64_t)(lgh_sttc),(int64_t)(light_total_stat_lights));
     }
     if (lgh_dynm != light_total_dynamic_lights)
     {
-        WARNLOG("Wrong global lights counter: %ld dynamic lights and counter says %ld.",lgh_dynm,light_total_dynamic_lights);
+        WARNLOG("Wrong global lights counter: %" PRId64 " dynamic lights and counter says %" PRId64 ".",(int64_t)(lgh_dynm),(int64_t)(light_total_dynamic_lights));
     }
     return false;
 }
 
-void light_set_light_never_cache(long lgt_id)
+void light_set_light_never_cache(int64_t lgt_id)
 {
     if (lgt_id <= 0 || lgt_id >= LIGHTS_COUNT)
     {
-        ERRORLOG("Attempt to set size of invalid light %d",(int)lgt_id);
+        ERRORLOG("Attempt to set size of invalid light %" PRId64,(int64_t)lgt_id);
         return;
     }
     struct Light* lgt = &lish.lights[lgt_id];
     if ((lgt->flags & LgtF_Allocated) == 0)
     {
-        ERRORLOG("Attempt to set size of unallocated light structure %d",(int)lgt_id);
+        ERRORLOG("Attempt to set size of unallocated light structure %" PRId64,(int64_t)lgt_id);
         return;
     }
     lgt->flags |= LgtF_NeverCached;
 }
 
-long light_is_light_allocated(long lgt_id)
+int64_t light_is_light_allocated(int64_t lgt_id)
 {
     if (lgt_id <= 0 || lgt_id >= LIGHTS_COUNT)
         return false;
@@ -403,13 +403,13 @@ long light_is_light_allocated(long lgt_id)
     return true;
 }
 
-void light_reset_interpolation(long lgt_id)
+void light_reset_interpolation(int64_t lgt_id)
 {
     struct Light *lgt = &lish.lights[lgt_id];
     lgt->reset_interpolation = true;
 }
 
-void light_set_light_position(long lgt_id, struct Coord3d *pos)
+void light_set_light_position(int64_t lgt_id, struct Coord3d *pos)
 {
   struct Light *lgt = &lish.lights[lgt_id];
 
@@ -425,8 +425,8 @@ void light_set_light_position(long lgt_id, struct Coord3d *pos)
     {
       stat_light_needs_updating = 1;
       unsigned char range = lgt->range;
-      long end_y = lgt->mappos.y.stl.num + range;
-      long end_x = lgt->mappos.x.stl.num + range;
+      int64_t end_y = lgt->mappos.y.stl.num + range;
+      int64_t end_x = lgt->mappos.x.stl.num + range;
       if ( end_y > kfx_sim_state.map_subtiles_y )
       {
         end_y = kfx_sim_state.map_subtiles_y;
@@ -435,12 +435,12 @@ void light_set_light_position(long lgt_id, struct Coord3d *pos)
       {
         end_x = kfx_sim_state.map_subtiles_x;
       }
-      long beg_y = lgt->mappos.y.stl.num - range;
+      int64_t beg_y = lgt->mappos.y.stl.num - range;
       if ( beg_y < 0 )
       {
         beg_y = 0;
       }
-      long beg_x = lgt->mappos.x.stl.num - range;
+      int64_t beg_x = lgt->mappos.x.stl.num - range;
       if ( beg_x < 0 )
       {
         beg_x = 0;
@@ -458,7 +458,7 @@ void light_remove_light_from_list(struct Light *lgt, struct StructureList *list)
 {
   if ( list->count == 0 )
   {
-      ERRORLOG("List %lu has no structures", list->index);
+      ERRORLOG("List %" PRIu64 " has no structures", (uint64_t)(list->index));
       return;
   }
   TbBool Removed = false;
@@ -499,14 +499,14 @@ void light_remove_light_from_list(struct Light *lgt, struct StructureList *list)
     }
     if ( !Removed )
     {
-      ERRORLOG("Could not find light %d in list", lgt->index);
+      ERRORLOG("Could not find light %" PRId64 " in list", (int64_t)(lgt->index));
     }
   }
 }
 
-void light_signal_stat_light_update_in_area(long x1, long y1, long x2, long y2)
+void light_signal_stat_light_update_in_area(int64_t x1, int64_t y1, int64_t x2, int64_t y2)
 {
-  int i = 0;
+  int64_t i = 0;
   struct Light *lgt = &lish.lights[1];
   do
   {
@@ -533,7 +533,7 @@ void light_signal_stat_light_update_in_area(long x1, long y1, long x2, long y2)
     light_stat_light_map_clear_area(x1, y1, x2, y2);
 }
 
-void light_signal_update_in_area(long sx, long sy, long ex, long ey)
+void light_signal_update_in_area(int64_t sx, int64_t sy, int64_t ex, int64_t ey)
 {
   struct Light *lgt = &lish.lights[1];
   do
@@ -557,17 +557,17 @@ void light_signal_update_in_area(long sx, long sy, long ex, long ey)
 
 void light_signal_stat_light_update_in_own_radius(struct Light *lgt)
 {
-    long radius = lgt->range;
-    long end_y = (long)lgt->mappos.y.stl.num + radius;
+    int64_t radius = lgt->range;
+    int64_t end_y = (int64_t)lgt->mappos.y.stl.num + radius;
     if (end_y >= kfx_sim_state.map_subtiles_y)
         end_y = kfx_sim_state.map_subtiles_y;
-    long end_x = (long)lgt->mappos.x.stl.num + radius;
+    int64_t end_x = (int64_t)lgt->mappos.x.stl.num + radius;
     if (end_x >= kfx_sim_state.map_subtiles_x)
         end_x = kfx_sim_state.map_subtiles_x;
-    long start_y = (long)lgt->mappos.y.stl.num - radius;
+    int64_t start_y = (int64_t)lgt->mappos.y.stl.num - radius;
     if (start_y <= 0)
         start_y = 0;
-    long start_x = (long)lgt->mappos.x.stl.num - radius;
+    int64_t start_x = (int64_t)lgt->mappos.x.stl.num - radius;
     if (start_x <= 0)
       start_x = 0;
     if ((end_x <= start_x) || (end_y <= start_y))
@@ -575,10 +575,10 @@ void light_signal_stat_light_update_in_own_radius(struct Light *lgt)
     light_signal_stat_light_update_in_area(start_x, start_y, end_x, end_y);
 }
 
-void light_turn_light_off(long idx)
+void light_turn_light_off(int64_t idx)
 {
     if ((idx <= 0) || (idx >= LIGHTS_COUNT)) {
-        ERRORLOG("Attempt to turn off light %d",(int)idx);
+        ERRORLOG("Attempt to turn off light %" PRId64,(int64_t)idx);
         return;
     }
     struct Light* lgt = &lish.lights[idx];
@@ -599,15 +599,15 @@ void light_turn_light_off(long idx)
     }
 }
 
-void light_turn_light_on(long idx)
+void light_turn_light_on(int64_t idx)
 {
     if ((idx <= 0) || (idx >= LIGHTS_COUNT)) {
-        ERRORLOG("Attempt to turn on light %d",(int)idx);
+        ERRORLOG("Attempt to turn on light %" PRId64,(int64_t)idx);
         return;
     }
     struct Light* lgt = &lish.lights[idx];
     if ((lgt->flags & LgtF_Allocated) == 0) {
-        ERRORLOG("Attempt to turn on unallocated light structure %d",(int)idx);
+        ERRORLOG("Attempt to turn on unallocated light structure %" PRId64,(int64_t)idx);
         return;
     }
     if ((lgt->flags & LgtF_CanTurnOff) != 0) {
@@ -627,7 +627,7 @@ void light_turn_light_on(long idx)
     }
 }
 
-unsigned char light_get_light_intensity(long idx)
+unsigned char light_get_light_intensity(int64_t idx)
 {
   if ( idx )
   {
@@ -648,10 +648,10 @@ unsigned char light_get_light_intensity(long idx)
   }
 }
 
-void light_set_light_intensity(long idx, unsigned char intensity)
+void light_set_light_intensity(int64_t idx, unsigned char intensity)
 {
   struct Light *lgt = &lish.lights[idx];
-  long x1,x2,y1,y2;
+  int64_t x1,x2,y1,y2;
   if ( !light_is_invalid(lgt) )
   {
     if ((lgt->flags & LgtF_Allocated) != 0)
@@ -695,12 +695,12 @@ void light_set_light_intensity(long idx, unsigned char intensity)
 // stage-13-enforce-and-document.md) -- wraps direct
 // lish.lights[idx].radius reads/writes so kfx_sim doesn't need
 // struct Light's full definition, just the callback.
-unsigned short light_get_light_radius(long idx)
+int64_t light_get_light_radius(int64_t idx)
 {
     return lish.lights[idx].radius;
 }
 
-void light_set_light_radius(long idx, unsigned short radius)
+void light_set_light_radius(int64_t idx, int64_t radius)
 {
     struct Light *lgt = &lish.lights[idx];
     lgt->radius = radius;
@@ -710,25 +710,25 @@ void clear_stat_light_map(void)
 {
     lish.global_ambient_light = 32;
     lish.light_enabled = 0;
-    for (unsigned long y = 0; y < (kfx_sim_state.map_subtiles_y + 1); y++)
+    for (uint64_t y = 0; y < (kfx_sim_state.map_subtiles_y + 1); y++)
     {
-        for (unsigned long x = 0; x < (kfx_sim_state.map_subtiles_x + 1); x++)
+        for (uint64_t x = 0; x < (kfx_sim_state.map_subtiles_x + 1); x++)
         {
-            unsigned long i = get_subtile_number(x, y);
+            uint64_t i = get_subtile_number(x, y);
             lish.stat_light_map[i] = 0;
         }
     }
 }
 
-void light_delete_light(long idx)
+void light_delete_light(int64_t idx)
 {
     if ((idx <= 0) || (idx >= LIGHTS_COUNT)) {
-        ERRORLOG("Attempt to delete light %d",(int)idx);
+        ERRORLOG("Attempt to delete light %" PRId64,(int64_t)idx);
         return;
     }
     struct Light* lgt = &lish.lights[idx];
     if ((lgt->flags & LgtF_Allocated) == 0) {
-        ERRORLOG("Attempt to delete unallocated light structure %d",(int)idx);
+        ERRORLOG("Attempt to delete unallocated light structure %" PRId64,(int64_t)idx);
         return;
     }
     if (lgt->shadow_index > 0)
@@ -1460,7 +1460,7 @@ void light_initialise_lighting_tables(void)
 
 void light_initialise(void)
 {
-    int i;
+    int64_t i;
     for (i=0; i < LIGHTS_COUNT; i++)
     {
         struct Light* lgt = &lish.lights[i];
@@ -1487,7 +1487,7 @@ void light_initialise(void)
 static void light_stat_light_map_clear_area(MapSubtlCoord start_stl_x, MapSubtlCoord start_stl_y, MapSubtlCoord end_stl_x, MapSubtlCoord end_stl_y)
 {
   MapSubtlCoord stl_x,stl_y_min_1,stl_x_min_1,stl_y;
-  unsigned short *light_map;
+  int64_t *light_map;
   if ( end_stl_y >= start_stl_y )
   {
     for (stl_y = start_stl_y; stl_y <= end_stl_y; stl_y++)
@@ -1551,20 +1551,20 @@ void light_set_lights_on(char state)
     light_stat_refresh();
 }
 
-static long calculate_shadow_angle(
-        unsigned int pos_x,
-        unsigned int pos_y,
-        int quadrant,
+static int64_t calculate_shadow_angle(
+        uint64_t pos_x,
+        uint64_t pos_y,
+        int64_t quadrant,
         MapSubtlCoord stl_x,
         MapSubtlCoord stl_y,
-        int32_t *shadow_angle_limit_start_index,
-        int32_t *shadow_angle_limit_end_index)
+        int64_t *shadow_angle_limit_start_index,
+        int64_t *shadow_angle_limit_end_index)
 {
     MapSubtlCoord x = coord_subtile(pos_x);
     MapSubtlCoord y = coord_subtile(pos_y);
-    long shadow_end;
-    long result;
-    long shadow_start = 0;
+    int64_t shadow_end;
+    int64_t result;
+    int64_t shadow_start = 0;
 
   if ( x == stl_x )
   {
@@ -1634,18 +1634,18 @@ static TbBool point_is_above_floor(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Map
 }
 
 //used for the hand and the illuminated property of creatures
-static char light_render_light_dynamic_uncached(struct Light *lgt, int radius, int intensity, unsigned int max_1DD41_idx)
+static char light_render_light_dynamic_uncached(struct Light *lgt, int64_t radius, int64_t intensity, uint64_t max_1DD41_idx)
 {
     clear_shadow_limits(&lish);
-    unsigned int lighting_tables_idx = get_floor_filled_subtiles_at(lgt->mappos.x.stl.num, lgt->mappos.y.stl.num);
+    uint64_t lighting_tables_idx = get_floor_filled_subtiles_at(lgt->mappos.x.stl.num, lgt->mappos.y.stl.num);
     if ( lighting_tables_idx <= lgt->mappos.z.stl.num )
     {
-        int light_position_x = lgt->mappos.x.stl.pos;
-        int light_position_y = lgt->mappos.y.stl.pos;
-        int diagonal_length = LbDiagonalLength(light_position_x, light_position_y);
-        short lightness = intensity * (radius - diagonal_length) / radius;
+        int64_t light_position_x = lgt->mappos.x.stl.pos;
+        int64_t light_position_y = lgt->mappos.y.stl.pos;
+        int64_t diagonal_length = LbDiagonalLength(light_position_x, light_position_y);
+        int64_t lightness = intensity * (radius - diagonal_length) / radius;
         SubtlCodedCoords light_stl_num = get_subtile_number(lgt->mappos.x.stl.num,lgt->mappos.y.stl.num);
-        unsigned short *stl_lightness_ptr = &lish.subtile_lightness[light_stl_num];
+        int64_t *stl_lightness_ptr = &lish.subtile_lightness[light_stl_num];
         if ( *stl_lightness_ptr < lightness )
             *stl_lightness_ptr = lightness;
         struct LightingTable *lighting_table_pointer = &lish.lighting_tables[0];
@@ -1661,8 +1661,8 @@ static char light_render_light_dynamic_uncached(struct Light *lgt, int radius, i
                 MapSubtlCoord stl_y = lgt->mappos.y.stl.num + lighting_table_pointer->delta_y;
                 if (!subtile_coords_invalid(stl_x, stl_y))
                 {
-                    int quadrant;
-                    long shadow_angle_limit_primary_index = LbArcTanAngle((stl_x << 8) - lgt->mappos.x.val, (stl_y << 8) - lgt->mappos.y.val) & ANGLE_MASK;
+                    int64_t quadrant;
+                    int64_t shadow_angle_limit_primary_index = LbArcTanAngle((stl_x << 8) - lgt->mappos.x.val, (stl_y << 8) - lgt->mappos.y.val) & ANGLE_MASK;
                     if ( stl_x < lgt->mappos.x.stl.num )
                     {
                         if (stl_y < lgt->mappos.y.stl.num)
@@ -1685,7 +1685,7 @@ static char light_render_light_dynamic_uncached(struct Light *lgt, int radius, i
                             quadrant = 2;
                         }
                     }
-                    int32_t shadow_angle_limit_secondary_index, shadow_angle_limit_tertiary_index;
+                    int64_t shadow_angle_limit_secondary_index, shadow_angle_limit_tertiary_index;
                     unsigned char height = get_floor_filled_subtiles_at(stl_x, stl_y);
                     if ( lish.shadow_limits[shadow_angle_limit_primary_index] )
                     {
@@ -1726,15 +1726,15 @@ static char light_render_light_dynamic_uncached(struct Light *lgt, int radius, i
                         {
                             compute_lighting:
                             {
-                                unsigned int subtile_center_y = stl_y << 8;
-                                unsigned int subtile_center_x = stl_x << 8;
-                                int distance_x = min((lgt->mappos.x.val - subtile_center_x), (subtile_center_x - lgt->mappos.x.val));
-                                int distance_y = min((lgt->mappos.y.val - subtile_center_y), (subtile_center_y - lgt->mappos.y.val));
-                                int diagonal_length2 = LbDiagonalLength(distance_x, distance_y);
+                                uint64_t subtile_center_y = stl_y << 8;
+                                uint64_t subtile_center_x = stl_x << 8;
+                                int64_t distance_x = min((lgt->mappos.x.val - subtile_center_x), (subtile_center_x - lgt->mappos.x.val));
+                                int64_t distance_y = min((lgt->mappos.y.val - subtile_center_y), (subtile_center_y - lgt->mappos.y.val));
+                                int64_t diagonal_length2 = LbDiagonalLength(distance_x, distance_y);
                                 lighting_tables_idx = intensity * max(0, radius - diagonal_length2) / radius;
                                 if ( lighting_tables_idx <= lish.global_ambient_light )
                                     return lighting_tables_idx;
-                                unsigned short *stl_lightness_ptr2 = &lish.subtile_lightness[get_subtile_number(stl_x,stl_y)];
+                                int64_t *stl_lightness_ptr2 = &lish.subtile_lightness[get_subtile_number(stl_x,stl_y)];
                                 if ( *stl_lightness_ptr2 < lighting_tables_idx )
                                     *stl_lightness_ptr2 = lighting_tables_idx;
                             }
@@ -1750,7 +1750,7 @@ static char light_render_light_dynamic_uncached(struct Light *lgt, int radius, i
     return lighting_tables_idx;
 }
 
-static char light_render_light_dynamic(struct Light *lgt, int radius, int render_intensity, unsigned int lighting_tables_idx)
+static char light_render_light_dynamic(struct Light *lgt, int64_t radius, int64_t render_intensity, uint64_t lighting_tables_idx)
 {
     unsigned char *shadow_limits;
     struct LightsShadows *plish = &lish;
@@ -1762,8 +1762,8 @@ static char light_render_light_dynamic(struct Light *lgt, int radius, int render
     if (get_column_floor_filled_subtiles(col) <= lgt->mappos.z.stl.num)
     {
         shadow_cache->lighting_bitmask[lighting_tables_idx] |= 1 << (31 - lighting_tables_idx);
-        int diagonal_length = LbDiagonalLength(lgt->mappos.x.stl.pos, lgt->mappos.y.stl.pos);
-        int intensity = render_intensity * (radius - diagonal_length) / radius;
+        int64_t diagonal_length = LbDiagonalLength(lgt->mappos.x.stl.pos, lgt->mappos.y.stl.pos);
+        int64_t intensity = render_intensity * (radius - diagonal_length) / radius;
         if (plish->subtile_lightness[stl_num] < intensity)
         {
             plish->subtile_lightness[stl_num] = intensity;
@@ -1783,10 +1783,10 @@ static char light_render_light_dynamic(struct Light *lgt, int radius, int render
                 MapSubtlCoord stl_x = lighting_table->delta_x + lgt->mappos.x.stl.num;
                 if (subtile_has_slab(stl_x, stl_y))
                 {
-                    unsigned int coord_y = stl_y << 8; // must be unsigned
-                    unsigned int coord_x = stl_x << 8; // must be unsigned
-                    int angle = LbArcTanAngle(coord_x - lgt->mappos.x.val, coord_y - lgt->mappos.y.val) & ANGLE_MASK;
-                    int quadrant;
+                    uint64_t coord_y = stl_y << 8; // must be unsigned
+                    uint64_t coord_x = stl_x << 8; // must be unsigned
+                    int64_t angle = LbArcTanAngle(coord_x - lgt->mappos.x.val, coord_y - lgt->mappos.y.val) & ANGLE_MASK;
+                    int64_t quadrant;
                     if (stl_x < lgt->mappos.x.stl.num)
                     {
                         quadrant = (stl_y < lgt->mappos.y.stl.num) + 3;
@@ -1796,8 +1796,8 @@ static char light_render_light_dynamic(struct Light *lgt, int radius, int render
                         quadrant = 2 - (stl_y < lgt->mappos.y.stl.num);
                     }
                     unsigned char shadow_limit = plish->shadow_limits[angle];
-                    int32_t shadow_angle_limit_index;
-                    int32_t shadow_angle_limit_secondary_index;
+                    int64_t shadow_angle_limit_index;
+                    int64_t shadow_angle_limit_secondary_index;
                     if (shadow_limit)
                     {
                         calculate_shadow_angle(lgt->mappos.x.val, lgt->mappos.y.val, quadrant, stl_x, stl_y, &shadow_angle_limit_index, &shadow_angle_limit_secondary_index);
@@ -1810,9 +1810,9 @@ static char light_render_light_dynamic(struct Light *lgt, int radius, int render
                     else
                     {
                         const struct Column *col3 = get_column_at(stl_x, stl_y);
-                        int height = get_column_floor_filled_subtiles(col3);
+                        int64_t height = get_column_floor_filled_subtiles(col3);
                         TbBool too_high = (height > lgt->mappos.z.stl.num);
-                        unsigned int shadow;
+                        uint64_t shadow;
                         if (too_high)
                         {
                             calculate_shadow_angle(lgt->mappos.x.val, lgt->mappos.y.val, quadrant, stl_x, stl_y, &shadow_angle_limit_index, &shadow_angle_limit_secondary_index);
@@ -1865,7 +1865,7 @@ static char light_render_light_dynamic(struct Light *lgt, int radius, int render
                         {
                             MapCoordDelta some_delta_x = min((lgt->mappos.x.val - coord_x), (coord_x - lgt->mappos.x.val));
                             MapCoordDelta some_delta_y = min((lgt->mappos.y.val - coord_y), (coord_y - lgt->mappos.y.val));
-                            int length = LbDiagonalLength(some_delta_x, some_delta_y);
+                            int64_t length = LbDiagonalLength(some_delta_x, some_delta_y);
                             stl_num = render_intensity * (radius - length) / radius;
                             if (stl_num <= plish->global_ambient_light)
                             {
@@ -1888,24 +1888,24 @@ static char light_render_light_dynamic(struct Light *lgt, int radius, int render
     return stl_num;
 }
 
-static int light_render_light_static(struct Light *lgt, int radius, int intensity, SubtlCodedCoords stl_num)
+static int64_t light_render_light_static(struct Light *lgt, int64_t radius, int64_t intensity, SubtlCodedCoords stl_num)
 {
     struct LightsShadows *plish = &lish;
     clear_shadow_limits(plish);
     struct Column *col = get_column_at(lgt->mappos.x.stl.num, lgt->mappos.y.stl.num);
-    int floor_filled_stls = get_column_floor_filled_subtiles(col);
+    int64_t floor_filled_stls = get_column_floor_filled_subtiles(col);
     if (floor_filled_stls <= lgt->mappos.z.stl.num)
     {
-        signed int x = lgt->mappos.x.stl.pos;
-        signed int y = lgt->mappos.y.stl.pos;
-        int diagonal_length = LbDiagonalLength(x, y);
-        unsigned short lightness = intensity * (radius - diagonal_length) / radius;
-        unsigned int light_map_idx = get_subtile_number(lgt->mappos.x.stl.num,lgt->mappos.y.stl.num);
+        int64_t x = lgt->mappos.x.stl.pos;
+        int64_t y = lgt->mappos.y.stl.pos;
+        int64_t diagonal_length = LbDiagonalLength(x, y);
+        int64_t lightness = intensity * (radius - diagonal_length) / radius;
+        uint64_t light_map_idx = get_subtile_number(lgt->mappos.x.stl.num,lgt->mappos.y.stl.num);
         if (plish->stat_light_map[light_map_idx] < lightness)
         {
             plish->stat_light_map[light_map_idx] = lightness;
         }
-        unsigned int lighting_table_idx = 0;
+        uint64_t lighting_table_idx = 0;
         for (floor_filled_stls = plish->lighting_tables_count;
              plish->lighting_tables_count > lighting_table_idx;
              floor_filled_stls = plish->lighting_tables_count)
@@ -1930,9 +1930,9 @@ static int light_render_light_static(struct Light *lgt, int radius, int intensit
                 }
                 MapCoord coord_x = subtile_coord(stl_x, 0);
                 MapCoord coord_y = subtile_coord(stl_y, 0);
-                long angle = LbArcTanAngle(coord_x - lgt->mappos.x.val, coord_y - lgt->mappos.y.val) & ANGLE_MASK;
+                int64_t angle = LbArcTanAngle(coord_x - lgt->mappos.x.val, coord_y - lgt->mappos.y.val) & ANGLE_MASK;
                 unsigned char shadow_limit = plish->shadow_limits[angle];
-                int32_t shadow_start, shadow_end;
+                int64_t shadow_start, shadow_end;
                 col = get_column_at(stl_x, stl_y);
                 if (shadow_limit)
                 {
@@ -1944,7 +1944,7 @@ static int light_render_light_static(struct Light *lgt, int radius, int intensit
                 }
                 else
                 {
-                    int height = get_column_floor_filled_subtiles(col);
+                    int64_t height = get_column_floor_filled_subtiles(col);
                     TbBool too_high = (height > lgt->mappos.z.stl.num);
                     if (height > lgt->mappos.z.stl.num)
                     {
@@ -2010,10 +2010,10 @@ static char light_render_light(struct Light* lgt)
   lgt->mappos.y.val = interpolate_synced(lgt->previous_mappos.y.val, lgt->mappos.y.val);
 
   TbBool is_dynamic = (lgt->flags & LgtF_Dynamic) != 0;
-  int intensity;
-  int radius = lgt->radius;
-  int render_radius = radius;
-  int render_intensity;
+  int64_t intensity;
+  int64_t radius = lgt->radius;
+  int64_t render_radius = radius;
+  int64_t render_intensity;
 
   if ( (lgt->flags2 & 0xFE) != 0 )
   {
@@ -2024,7 +2024,7 @@ static char light_render_light(struct Light* lgt)
     }
     lgt->last_turn_randomized = get_gameturn();
 
-    int rand_minimum = (lgt->intensity - 1) << 8;
+    int64_t rand_minimum = (lgt->intensity - 1) << 8;
     intensity = (lgt->intensity << 8) + 257;
     render_intensity = rand_minimum + interpolate_synced(lgt->previous_intensity_random, lgt->intensity_random);
   }
@@ -2042,17 +2042,17 @@ static char light_render_light(struct Light* lgt)
   }
   if (render_radius == 0)
   {
-      ERRORLOG("Light %d has no radius, deleting", lgt->index);
+      ERRORLOG("Light %" PRId64 " has no radius, deleting", (int64_t)(lgt->index));
       light_delete_light(lgt->index);
       return 0;
   }
-  unsigned int lighting_tables_idx;
+  uint64_t lighting_tables_idx;
   if ( intensity >= lish.global_ambient_light << 8 )
   {
-      short subtile_radius = (render_radius / 256);
+      int64_t subtile_radius = (render_radius / 256);
       if (subtile_radius == 0)
           subtile_radius++;
-      short intensity_per_tile = intensity / subtile_radius;
+      int64_t intensity_per_tile = intensity / subtile_radius;
       if (intensity_per_tile == 0)
           intensity_per_tile++;
 
@@ -2082,7 +2082,7 @@ static char light_render_light(struct Light* lgt)
       }
       else
       {
-        int lighting_radius = lighting_tables_idx << 8;
+        int64_t lighting_radius = lighting_tables_idx << 8;
 
         MapCoord x_start = lgt->mappos.x.val - lighting_radius;
         if ( x_start < 0 )
@@ -2109,10 +2109,10 @@ static char light_render_light(struct Light* lgt)
           y_end = ((kfx_sim_state.map_subtiles_y + 1) * COORD_PER_STL - 1);
         MapSubtlCoord stl_x = coord_subtile(x_start);
         MapSubtlCoord stl_y = coord_subtile(y_start);
-        int cache_x = stl_x + lighting_tables_idx - lgt->mappos.x.stl.num;
-        int cache_y = stl_y + lighting_tables_idx - lgt->mappos.y.stl.num;
-        int row_offset = stl_x - coord_subtile(x_end) + kfx_sim_state.map_subtiles_x;
-        unsigned short* lightness = &lish.subtile_lightness[get_subtile_number(stl_x, stl_y)];
+        int64_t cache_x = stl_x + lighting_tables_idx - lgt->mappos.x.stl.num;
+        int64_t cache_y = stl_y + lighting_tables_idx - lgt->mappos.y.stl.num;
+        int64_t row_offset = stl_x - coord_subtile(x_end) + kfx_sim_state.map_subtiles_x;
+        int64_t* lightness = &lish.subtile_lightness[get_subtile_number(stl_x, stl_y)];
         struct ShadowCache *shdc = &lish.shadow_cache[lgt->shadow_index];
         lighting_tables_idx = shdc->lighting_bitmask[cache_y];
         if ( y_end >= y_start )
@@ -2122,7 +2122,7 @@ static char light_render_light(struct Light* lgt)
           do
           {
             MapCoord x = x_start;
-            for (int i = cache_x; x <= x_end; i++)
+            for (int64_t i = cache_x; x <= x_end; i++)
             {
               if ( (light_bitmask[i] & lighting_tables_idx) != 0 )
               {
@@ -2130,7 +2130,7 @@ static char light_render_light(struct Light* lgt)
                 pos.x.val = x;
                 pos.y.val = y;
                 MapCoordDelta dist = get_2d_distance(&lgt->mappos, &pos);
-                short new_lightness = render_intensity * (radius - dist) / radius;
+                int64_t new_lightness = render_intensity * (radius - dist) / radius;
                 if ( *lightness < new_lightness )
                   *lightness = new_lightness;
               }
@@ -2159,7 +2159,7 @@ static char light_render_light(struct Light* lgt)
 static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSubtlCoord endx, MapSubtlCoord endy)
 {
   struct Light *lgt;
-  int range;
+  int64_t range;
   MapSubtlDelta half_width_y;
   MapSubtlDelta half_width_x;
 
@@ -2185,8 +2185,8 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
 
 
 
-        if ( (int)abs(half_width_x + startx - lgt->mappos.x.stl.num) < half_width_x + range
-          && (int)abs(half_width_y + starty - lgt->mappos.y.stl.num) < half_width_y + range )
+        if ( (int64_t)llabs(half_width_x + startx - lgt->mappos.x.stl.num) < half_width_x + range
+          && (int64_t)llabs(half_width_y + starty - lgt->mappos.y.stl.num) < half_width_y + range )
         {
           ++light_updated_stat_lights;
           light_render_light(lgt);
@@ -2202,13 +2202,13 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
 
   if ( starty <= endy )
   {
-    unsigned short *stl_lightness = &lish.subtile_lightness[start_num];
-    unsigned short *stat_light_map = &lish.stat_light_map[start_num];
+    int64_t *stl_lightness = &lish.subtile_lightness[start_num];
+    int64_t *stat_light_map = &lish.stat_light_map[start_num];
 
     MapSubtlDelta y = endy - starty + 1;
     do
     {
-      memcpy(stl_lightness, stat_light_map, 2 * (endx - startx));
+      memcpy(stl_lightness, stat_light_map, sizeof(*stl_lightness) * (endx - startx));
       stl_lightness  += (kfx_sim_state.map_subtiles_x + 1);
       stat_light_map += (kfx_sim_state.map_subtiles_x + 1);
       --y;
@@ -2221,8 +2221,8 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
     for ( lgt = &lish.lights[kfx_sim_state.thing_lists[TngList_DynamLights].index]; lgt > lish.lights; lgt = &lish.lights[lgt->next_in_list] )
     {
       range = lgt->range;
-      if ( (int)abs(half_width_x + startx - lgt->mappos.x.stl.num) < half_width_x + range
-        && (int)abs(half_width_y + starty - lgt->mappos.y.stl.num) < half_width_y + range )
+      if ( (int64_t)llabs(half_width_x + startx - lgt->mappos.x.stl.num) < half_width_x + range
+        && (int64_t)llabs(half_width_y + starty - lgt->mappos.y.stl.num) < half_width_y + range )
       {
         ++light_rendered_dynamic_lights;
         if ( (lgt->flags & LgtF_NeedUpdate) == 0 )
@@ -2292,10 +2292,10 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
 
 void update_light_render_area(void)
 {
-    int subtile_x;
-    int subtile_y;
-    int startx;
-    int starty;
+    int64_t subtile_x;
+    int64_t subtile_y;
+    int64_t startx;
+    int64_t starty;
     SYNCDBG(6,"Starting");
     struct PlayerInfo* player = get_my_player();
     if (
@@ -2307,8 +2307,8 @@ void update_light_render_area(void)
         kfx_render_state.something_light_y = LIGHT_MAX_RANGE;
         kfx_render_state.something_light_x = LIGHT_MAX_RANGE;
     }
-    int delta_x = abs(kfx_render_state.something_light_x);
-    int delta_y = abs(kfx_render_state.something_light_y);
+    int64_t delta_x = llabs(kfx_render_state.something_light_x);
+    int64_t delta_y = llabs(kfx_render_state.something_light_y);
     struct Camera *camera = get_player_active_camera(player);
     // Prepare the area constraints
     if (camera != NULL)
@@ -2320,7 +2320,7 @@ void update_light_render_area(void)
       subtile_y = 0;
       subtile_x = 0;
     }
-//SYNCMSG("LghtRng %d,%d CamTil %d,%d",kfx_render_state.something_light_x,kfx_render_state.something_light_y,tile_x,tile_y);
+//SYNCMSG("LghtRng %d,%d CamTil %d,%d",(int64_t)(kfx_render_state.something_light_x),(int64_t)(kfx_render_state.something_light_y),(int64_t)(tile_x),(int64_t)(tile_y));
     if (subtile_y > delta_y)
     {
       starty = subtile_y - delta_y;
@@ -2333,17 +2333,17 @@ void update_light_render_area(void)
       if (startx > kfx_sim_state.map_subtiles_x) startx = kfx_sim_state.map_subtiles_x;
     } else
       startx = 0;
-    int endy = subtile_y + delta_y;
+    int64_t endy = subtile_y + delta_y;
     if (endy < starty) endy = starty;
     if (endy > kfx_sim_state.map_subtiles_y) endy = kfx_sim_state.map_subtiles_y;
-    int endx = subtile_x + delta_x;
+    int64_t endx = subtile_x + delta_x;
     if (endx < startx) endx = startx;
     if (endx > kfx_sim_state.map_subtiles_x) endx = kfx_sim_state.map_subtiles_x;
     // Set the area
     light_render_area(startx, starty, endx, endy);
 }
 
-void light_init_dungeon_heart(long lgt_id, long min_radius, long min_intensity)
+void light_init_dungeon_heart(int64_t lgt_id, int64_t min_radius, int64_t min_intensity)
 {
   struct Light *lgt;
   if ( lgt_id )
@@ -2411,7 +2411,7 @@ void update_global_lighting(void)
 
 // Moved from game_lghtshdw.c alongside struct LightsShadows (stage 13.3,
 // docs/refactor/stage-13-enforce-and-document.md).
-long get_subtile_lightness(const struct LightsShadows * lish_ptr, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+int64_t get_subtile_lightness(const struct LightsShadows * lish_ptr, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     if (stl_x > kfx_sim_state.map_subtiles_x) stl_x = kfx_sim_state.map_subtiles_x;
     if (stl_y > kfx_sim_state.map_subtiles_y) stl_y = kfx_sim_state.map_subtiles_y;
@@ -2427,13 +2427,13 @@ void clear_subtiles_lightness(struct LightsShadows * lish_ptr)
     {
         for (MapSubtlCoord x = 0; x < (kfx_sim_state.map_subtiles_x + 1); x++)
         {
-            unsigned short* wptr = &lish_ptr->subtile_lightness[get_subtile_number(x, y)];
+            int64_t* wptr = &lish_ptr->subtile_lightness[get_subtile_number(x, y)];
             *wptr = MINIMUM_LIGHTNESS; //Unsure if this value ends up being used.
         }
     }
 }
 
-void create_shadow_limits(struct LightsShadows * lish_ptr, long start, long end)
+void create_shadow_limits(struct LightsShadows * lish_ptr, int64_t start, int64_t end)
 {
     if (start <= end)
     {
@@ -2458,7 +2458,7 @@ void clear_light_system(struct LightsShadows * lish_ptr)
 // Registered on RenderOverlayCallbacks so kfx_sim's map_blocks.c/
 // thing_list.c don't need struct Light/struct LightsShadows visible by
 // value (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
-void light_set_attached_slab(long lgt_id, SlabCodedCoords slb_num)
+void light_set_attached_slab(int64_t lgt_id, SlabCodedCoords slb_num)
 {
     lish.lights[lgt_id].attached_slb = slb_num;
 }
@@ -2467,8 +2467,8 @@ void delete_lights_attached_to_slab_in_area(SlabCodedCoords place_slbnum,
     MapSubtlCoord start_stl_x, MapSubtlCoord start_stl_y,
     MapSubtlCoord end_stl_x, MapSubtlCoord end_stl_y)
 {
-    long i;
-    unsigned long k;
+    int64_t i;
+    uint64_t k;
     i = kfx_sim_state.thing_lists[TngList_StaticLights].index;
     k = 0;
     while (i > 0)
@@ -2476,8 +2476,8 @@ void delete_lights_attached_to_slab_in_area(SlabCodedCoords place_slbnum,
         struct Light *lgt;
         lgt = &lish.lights[i];
         i = lgt->next_in_list;
-        int lgtstl_x = lgt->mappos.x.stl.num;
-        int lgtstl_y = lgt->mappos.y.stl.num;
+        int64_t lgtstl_x = lgt->mappos.x.stl.num;
+        int64_t lgtstl_y = lgt->mappos.y.stl.num;
         if (lgt->attached_slb == place_slbnum)
         {
             if ((lgtstl_x >= start_stl_x) && (lgtstl_x <= end_stl_x) && (lgtstl_y >= start_stl_y) && (lgtstl_y <= end_stl_y))

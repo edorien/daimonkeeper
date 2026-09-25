@@ -28,18 +28,18 @@ public:
     explicit ScopedDrawState(TbDrawFlagsMask flags)
         : m_flags(RendererGetDrawFlags())
     {
-        RendererSetDrawFlags((unsigned short)flags);
+        RendererSetDrawFlags((int64_t)flags);
     }
     ~ScopedDrawState() { RendererSetDrawFlags(m_flags); }
 private:
-    unsigned short m_flags;
+    int64_t m_flags;
 };
 
 } // namespace
 
 /******************************************************************************/
 
-TbResult IUIRenderer::SubmitRawSprite(int32_t x, int32_t y, const struct TbSprite* spr,
+TbResult IUIRenderer::SubmitRawSprite(int64_t x, int64_t y, const struct TbSprite* spr,
                                       KfxDrawState state)
 {
     if (!spr) return Lb_FAIL;
@@ -47,7 +47,7 @@ TbResult IUIRenderer::SubmitRawSprite(int32_t x, int32_t y, const struct TbSprit
     return LbSpriteDrawImmediate(x, y, spr);
 }
 
-TbResult IUIRenderer::SubmitRawSpriteOneColour(int32_t x, int32_t y, const struct TbSprite* spr,
+TbResult IUIRenderer::SubmitRawSpriteOneColour(int64_t x, int64_t y, const struct TbSprite* spr,
                                                TbPixel colour, KfxDrawState state)
 {
     if (!spr) return Lb_FAIL;
@@ -55,16 +55,16 @@ TbResult IUIRenderer::SubmitRawSpriteOneColour(int32_t x, int32_t y, const struc
     return LbSpriteDrawOneColourImmediate(x, y, spr, colour);
 }
 
-TbResult IUIRenderer::SubmitRawSpriteScaled(int32_t x, int32_t y, const struct TbSprite* spr,
-                                            int32_t w, int32_t h, KfxDrawState state)
+TbResult IUIRenderer::SubmitRawSpriteScaled(int64_t x, int64_t y, const struct TbSprite* spr,
+                                            int64_t w, int64_t h, KfxDrawState state)
 {
     if (!spr) return Lb_FAIL;
     ScopedDrawState guard(state.flags);
     return LbSpriteDrawScaledImmediate(x, y, spr, w, h);
 }
 
-TbResult IUIRenderer::SubmitRawSpriteScaledOneColour(int32_t x, int32_t y, const struct TbSprite* spr,
-                                                     int32_t w, int32_t h, TbPixel colour,
+TbResult IUIRenderer::SubmitRawSpriteScaledOneColour(int64_t x, int64_t y, const struct TbSprite* spr,
+                                                     int64_t w, int64_t h, TbPixel colour,
                                                      KfxDrawState state)
 {
     if (!spr) return Lb_FAIL;
@@ -72,8 +72,8 @@ TbResult IUIRenderer::SubmitRawSpriteScaledOneColour(int32_t x, int32_t y, const
     return LbSpriteDrawScaledOneColourImmediate(x, y, spr, w, h, colour);
 }
 
-int IUIRenderer::SubmitRawSpriteScaledRemap(int32_t x, int32_t y, const struct TbSprite* spr,
-                                            int32_t w, int32_t h, const TbPixel* cmap,
+int64_t IUIRenderer::SubmitRawSpriteScaledRemap(int64_t x, int64_t y, const struct TbSprite* spr,
+                                            int64_t w, int64_t h, const TbPixel* cmap,
                                             KfxDrawState state)
 {
     if (!spr || !cmap) return Lb_FAIL;
@@ -81,16 +81,16 @@ int IUIRenderer::SubmitRawSpriteScaledRemap(int32_t x, int32_t y, const struct T
     return LbSpriteDrawScaledRemapImmediate(x, y, spr, w, h, cmap);
 }
 
-void IUIRenderer::SubmitSolidBox(int32_t x, int32_t y, int32_t w, int32_t h,
+void IUIRenderer::SubmitSolidBox(int64_t x, int64_t y, int64_t w, int64_t h,
                                  TbPixel colour_idx, KfxDrawState state)
 {
     if (w <= 0 || h <= 0) return;
     // LbDrawBox reads the outline flag itself, so the whole state just goes ambient.
     ScopedDrawState guard(state.flags);
-    LbDrawBoxImmediate(x, y, (unsigned long)w, (unsigned long)h, colour_idx);
+    LbDrawBoxImmediate(x, y, (uint64_t)w, (uint64_t)h, colour_idx);
 }
 
-void IUIRenderer::SubmitSlabBackground(int32_t x, int32_t y, int32_t w, int32_t h)
+void IUIRenderer::SubmitSlabBackground(int64_t x, int64_t y, int64_t w, int64_t h)
 {
     renderer_draw_callbacks->draw_slab_background_immediate(x, y, w, h);
 }

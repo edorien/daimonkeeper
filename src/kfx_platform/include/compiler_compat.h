@@ -85,7 +85,7 @@
  *   void handler(int event KFX_UNUSED) { }
  *   KFX_UNUSED int debug_val = some_expensive_computation();
  */
-#if __cplusplus >= 201703L || __STDC_VERSION__ >= 202303L
+#if __cplusplus >= 201703 || __STDC_VERSION__ >= 202303
     // C++17 or C23+: use standard attribute
     #define KFX_UNUSED [[maybe_unused]]
 #elif defined(KFX_COMPILER_GCC)
@@ -159,9 +159,9 @@
  * Usage:
  *   KFX_NORETURN void fatal_error(const char *msg);
  */
-#if __cplusplus >= 201103L || __STDC_VERSION__ >= 201112L
+#if __cplusplus >= 201103 || __STDC_VERSION__ >= 201112
     // C++11 or C11+: use standard _Noreturn (deprecated in C23) or [[noreturn]]
-    #if __cplusplus >= 201703L
+    #if __cplusplus >= 201703
         #define KFX_NORETURN [[noreturn]]
     #else
         #define KFX_NORETURN _Noreturn

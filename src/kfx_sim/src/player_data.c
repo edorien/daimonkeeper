@@ -92,7 +92,7 @@ TbPixel player_highlight_colours[] = {
  * which listed every player_data.c array as needing RGB conversion. */
 unsigned char possession_hit_colours[] = {133, 89, 167, 141,  31,  31, 110,  54,  46};
 
-unsigned short const player_cubes[] = {0x00C0, 0x00C1, 0x00C2, 0x00C3, 0x00C7, 0x00C6 };
+int64_t const player_cubes[] = {0x00C0, 0x00C1, 0x00C2, 0x00C3, 0x00C7, 0x00C6 };
 
 struct PlayerInfo bad_player;
 
@@ -134,7 +134,7 @@ struct PlayerInfo *get_player_f(PlayerNumber plyr_idx,const char *func_name)
     }
     else
     {
-        ERRORMSG("%s: Tried to get non-existing player %d!",func_name,(int)plyr_idx);
+        ERRORMSG("%s: Tried to get non-existing player %" PRId64 "!",func_name,(int64_t)plyr_idx);
     }
     return INVALID_PLAYER;
 }
@@ -200,7 +200,7 @@ PlayerNumber get_user_player_number(NetUserId user)
 {
     if (user < 0)
         return -1;
-    for (int i = 0; i < PLAYERS_COUNT; i++) {
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
         const struct PlayerInfo *player = &kfx_sim_state.players[i];
         if (player->user_id == user)
             return player->id_number;
@@ -349,7 +349,7 @@ TbBool player_is_friendly_or_defeated(PlayerNumber check_plyr_idx, PlayerNumber 
 
 void clear_players(void)
 {
-    for (int i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = &kfx_sim_state.players[i];
         memset(player, 0, sizeof(struct PlayerInfo));
@@ -428,10 +428,10 @@ void set_player_ally_locked(PlayerNumber plyr_idx, PlayerNumber ally_idx, TbBool
         clear_flag(player->players_with_locked_ally_status, to_flag(ally_idx)); // unlock ally player's ally status with player plyridx
 }
 
-void set_player_state(struct PlayerInfo *player, short nwrk_state, int32_t chosen_kind)
+void set_player_state(struct PlayerInfo *player, int64_t nwrk_state, int64_t chosen_kind)
 {
   struct UserState* ustate = get_player_user_state(player);
-  SYNCDBG(6,"Player %d state %s to %s",(int)player->id_number,player_state_code_name(player->work_state),player_state_code_name(nwrk_state));
+  SYNCDBG(6,"Player %" PRId64 " state %s to %s",(int64_t)player->id_number,player_state_code_name(player->work_state),player_state_code_name(nwrk_state));
   // Selecting the same state again - update only 2nd parameter
   if (player->work_state == nwrk_state)
   {
@@ -559,7 +559,7 @@ void set_player_state(struct PlayerInfo *player, short nwrk_state, int32_t chose
  * @param player The player for whom view type will be set.
  * @param nview The new view type.
  */
-void set_player_mode(struct PlayerInfo *player, unsigned short nview)
+void set_player_mode(struct PlayerInfo *player, int64_t nview)
 {
   if (is_my_player(player) && local_state.view_type == nview)
     local_state.view_type = PVT_None;
@@ -623,7 +623,7 @@ void set_player_mode(struct PlayerInfo *player, unsigned short nview)
   }
 }
 
-void reset_player_mode(struct PlayerInfo *player, unsigned short nview)
+void reset_player_mode(struct PlayerInfo *player, int64_t nview)
 {
   struct UserState* ustate = get_player_user_state(player);
   player->view_type = nview;
@@ -666,7 +666,7 @@ unsigned char rotate_mode_to_view_mode(unsigned char mode)
         case 0: return PVM_IsoWibbleView;
         case 1: return PVM_IsoStraightView;
         case 2: return PVM_FrontView;
-        default: ERRORLOG("Unrecognised video rotate mode: %u", mode); return PVM_IsoWibbleView;
+        default: ERRORLOG("Unrecognised video rotate mode: %" PRIu64, (uint64_t)(mode)); return PVM_IsoWibbleView;
     }
 }
 
@@ -679,15 +679,15 @@ unsigned char get_player_color_idx(PlayerNumber plyr_idx)
     return dungeon->color_idx;
 }
 
-TbPixel get_player_path_colour(unsigned short owner)
+TbPixel get_player_path_colour(int64_t owner)
 {
   return player_path_colours[get_player_color_idx(owner % PLAYERS_COUNT)];
 }
 
 TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player)
 {
-    long win_plyr_idx;
-    long i;
+    int64_t win_plyr_idx;
+    int64_t i;
     win_plyr_idx = win_player->id_number;
     for (i=0; i < PLAYERS_COUNT; i++)
     {
@@ -696,7 +696,7 @@ TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player)
       if (!player_is_friendly_or_defeated(i,win_plyr_idx))
         return false;
     }
-    SYNCDBG(1,"Returning true for player %ld",win_plyr_idx);
+    SYNCDBG(1,"Returning true for player %" PRId64,(int64_t)(win_plyr_idx));
     return true;
 }
 /******************************************************************************/

@@ -98,12 +98,12 @@ static inline TbBool TbPixel_Equal(TbPixel a, TbPixel b)
  * wherever the call site's own type isn't already fixed by something else
  * (e.g. serialized/queued data); this exists only for the sites that can't.
  */
-static inline uint32_t TbPixel_Pack(TbPixel p)
+static inline uint64_t TbPixel_Pack(TbPixel p)
 {
-    return ((uint32_t)p.r << 24) | ((uint32_t)p.g << 16) | ((uint32_t)p.b << 8) | (uint32_t)p.a;
+    return ((uint64_t)p.r << 24) | ((uint64_t)p.g << 16) | ((uint64_t)p.b << 8) | (uint64_t)p.a;
 }
 
-static inline TbPixel TbPixel_Unpack(uint32_t v)
+static inline TbPixel TbPixel_Unpack(uint64_t v)
 {
     return TbPixel_RGBA((uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v);
 }
@@ -121,12 +121,12 @@ static inline TbPixel TbPixel_Unpack(uint32_t v)
  * directly for byte-counted APIs (memset(), SDL's own pitch parameters).
  */
 typedef struct TbBytePitch {
-    long bytes;
+    int64_t bytes;
 } TbBytePitch;
 
-static inline long TbBytePitch_ToPixels(TbBytePitch bp)
+static inline int64_t TbBytePitch_ToPixels(TbBytePitch bp)
 {
-    return bp.bytes / (long)sizeof(TbPixel);
+    return bp.bytes / (int64_t)sizeof(TbPixel);
 }
 
 /** VGA 6-bit (0-63) palette channel to 8-bit (0-255). Canonical conversion --
@@ -213,8 +213,8 @@ enum ScreenMode {
     Lb_SCREEN_MODE_1600_1200_24 = 0x1B,
 };
 
-typedef unsigned short TbScreenMode;
-typedef long TbScreenCoord;
+typedef int64_t TbScreenMode;
+typedef int64_t TbScreenCoord;
 
 enum TbPaletteFadeFlag {
     Lb_PALETTE_FADE_OPEN   = 0,
@@ -250,10 +250,10 @@ enum TbVideoModeFlags {
 };
 
 struct GraphicsWindow {
-    long x;
-    long y;
-    long width;
-    long height;
+    int64_t x;
+    int64_t y;
+    int64_t width;
+    int64_t height;
     TbPixel *ptr;
 };
 typedef struct GraphicsWindow TbGraphicsWindow;
@@ -264,15 +264,15 @@ struct ScreenModeInfo {
     /** Hardware driver screen height. */
     TbScreenCoord Height;
     /** Hardware driver color depth. */
-    unsigned short BitsPerPixel;
+    int64_t BitsPerPixel;
     /** Is the mode currently available for use. */
-    int Available;
+    int64_t Available;
     /** Video mode flags. */
-    unsigned long VideoFlags;
+    uint64_t VideoFlags;
      /** Window position X. */
-    int window_pos_x;
+    int64_t window_pos_x;
      /** Window position Y. */
-    int window_pos_y;
+    int64_t window_pos_y;
     /** Window-mode flags (KfxWindowFlags). */
     Uint32 windowFlags;
     /** Text description of the mode. */
@@ -297,48 +297,48 @@ struct DisplayStruct {
          *  Note that it's not always "physical" size.
          *  It is the part of screen buffer which is being drawn
          *  on physical screen (WScreen X drawing size). */
-        long PhysicalScreenWidth;
+        int64_t PhysicalScreenWidth;
         /** Resolution in height of the current video mode.
          *  Note that it's not always "physical" size.
          *  It is the part of screen buffer which is being drawn
          *  on physical screen (WScreen Y drawing size). */
-        long PhysicalScreenHeight;
+        int64_t PhysicalScreenHeight;
         /** Width of the screen buffer (WScreen X pitch).
          *  Note that only part of this width may be drawn on real screen. */
-        long GraphicsScreenWidth;
+        int64_t GraphicsScreenWidth;
         /** Height of the screen buffer (WScreen Y pitch).
         *  Note that only part of this height may be drawn on real screen. */
-        long GraphicsScreenHeight;
+        int64_t GraphicsScreenHeight;
         /** Current graphics window beginning X coordinate. */
-        long GraphicsWindowX;
+        int64_t GraphicsWindowX;
         /** Current graphics window beginning Y coordinate. */
-        long GraphicsWindowY;
+        int64_t GraphicsWindowY;
         /** Current graphics window width (size in X axis). */
-        long GraphicsWindowWidth;
+        int64_t GraphicsWindowWidth;
         /** Current graphics window height (size in Y axis). */
-        long GraphicsWindowHeight;
+        int64_t GraphicsWindowHeight;
         /** Current mouse clipping window start X coordinate. */
-        long MouseWindowX;
+        int64_t MouseWindowX;
         /** Current mouse clipping window start Y coordinate. */
-        long MouseWindowY;
+        int64_t MouseWindowY;
         /** Current mouse clipping window width (in pixels). */
-        long MouseWindowWidth;
+        int64_t MouseWindowWidth;
         /** Current mouse clipping window height (in pixels). */
-        long MouseWindowHeight;
+        int64_t MouseWindowHeight;
         /** Mouse position during button "down" event, X coordinate. */
-        int32_t MouseX;
+        int64_t MouseX;
         /** Mouse position during button "down" event, Y coordinate. */
-        int32_t MouseY;
+        int64_t MouseY;
         /** Mouse position during move, X coordinate. */
-        int32_t MMouseX;
+        int64_t MMouseX;
         /** Mouse position during move, Y coordinate. */
-        int32_t MMouseY;
+        int64_t MMouseY;
         /** Mouse position during button release, X coordinate. */
-        int32_t RMouseX;
+        int64_t RMouseX;
         /** Mouse position during button release, Y coordinate. */
-        int32_t RMouseY;
-        short MouseMoveRatio; // was ushort OldVideoMode; but wasn't needed
-        ushort ScreenMode;
+        int64_t RMouseY;
+        int64_t MouseMoveRatio; // was ushort OldVideoMode; but wasn't needed
+        uint64_t ScreenMode;
         /** VESA set-up flag, used only with VBE video modes. */
         uchar VesaIsSetUp;
         uchar LeftButton;
@@ -359,9 +359,9 @@ typedef struct DisplayStruct TbDisplayStruct;
 
 /** Extensions to DisplayStruct - will be later integrated into it. */
 struct DisplayStructEx {
-    short WhellPosition;
-    ushort WhellMoveUp;
-    ushort WhellMoveDown;
+    int64_t WhellPosition;
+    uint64_t WhellMoveUp;
+    uint64_t WhellMoveDown;
     /** Colour index used for drawing shadow. */
     uchar ShadowColour;
 };
@@ -391,23 +391,23 @@ enum UIScaleSettings {
     UI_DOUBLE_SIZE = DEFAULT_UI_SCALE * 2,
 };
 
-extern unsigned short units_per_pixel_width;
-extern unsigned short units_per_pixel_height;
-extern unsigned short units_per_pixel_menu_height;
-extern unsigned short units_per_pixel_best;
-extern unsigned short units_per_pixel_menu;
-extern unsigned short units_per_pixel_landview;
-extern unsigned short units_per_pixel_landview_frame;
-extern unsigned short units_per_pixel_ui;
-extern unsigned long aspect_ratio_factor_HOR_PLUS;
-extern unsigned long aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS;
+extern int64_t units_per_pixel_width;
+extern int64_t units_per_pixel_height;
+extern int64_t units_per_pixel_menu_height;
+extern int64_t units_per_pixel_best;
+extern int64_t units_per_pixel_menu;
+extern int64_t units_per_pixel_landview;
+extern int64_t units_per_pixel_landview_frame;
+extern int64_t units_per_pixel_ui;
+extern uint64_t aspect_ratio_factor_HOR_PLUS;
+extern uint64_t aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS;
 // first_person_horizontal_fov is declared in kfx_render's vidmode.h, not
 // here: it's read only by kfx_render's own engine_camera.c, never by any
 // kfx_platform code, so it doesn't belong on kfx_platform's public
 // surface. See docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
-extern unsigned long first_person_vertical_fov;
-extern unsigned long landview_frame_movement_scale_x;
-extern unsigned long landview_frame_movement_scale_y;
+extern uint64_t first_person_vertical_fov;
+extern uint64_t landview_frame_movement_scale_x;
+extern uint64_t landview_frame_movement_scale_y;
 
 // units_per_pixel_width/height/ui/best/menu above are written by
 // kfx_render's vidmode.c (update_screen_mode_data(), which needs its own
@@ -419,11 +419,11 @@ extern unsigned long landview_frame_movement_scale_y;
 // get_video_scale_values(), which already owns the real values. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 struct VideoScaleValues {
-    unsigned short units_per_pixel_width;
-    unsigned short units_per_pixel_height;
-    unsigned short units_per_pixel_ui;
-    unsigned short units_per_pixel_best;
-    unsigned short units_per_pixel_menu;
+    int64_t units_per_pixel_width;
+    int64_t units_per_pixel_height;
+    int64_t units_per_pixel_ui;
+    int64_t units_per_pixel_best;
+    int64_t units_per_pixel_menu;
 };
 struct VideoScaleCallbacks {
     const struct VideoScaleValues *(*get_video_scale_values)(void);
@@ -431,13 +431,13 @@ struct VideoScaleCallbacks {
 void set_video_scale_callbacks(const struct VideoScaleCallbacks *callbacks);
 extern const struct VideoScaleCallbacks *video_scale_callbacks;
 
-extern unsigned short MyScreenWidth;
-extern unsigned short MyScreenHeight;
-extern unsigned short pixel_size;
-extern unsigned short pixels_per_block;
-extern unsigned short units_per_pixel;
+extern int64_t MyScreenWidth;
+extern int64_t MyScreenHeight;
+extern int64_t pixel_size;
+extern int64_t pixels_per_block;
+extern int64_t units_per_pixel;
 
-extern unsigned short display_id;
+extern int64_t display_id;
 
 extern TbBool vsync_enabled;
 
@@ -453,9 +453,9 @@ extern SDL_Window *lbWindow;
 // only ever touched lbWindow and these three globals, a misclassified
 // function with no real game-loop coupling; kfx_game's writers
 // (main_game.c/console_cmd.c) reach these via a legal downward reference.
-extern int32_t fps_limit_current;
-extern int32_t fps_limit_main; // -1 if auto
-extern int32_t fps_limit_secondary;
+extern int64_t fps_limit_current;
+extern int64_t fps_limit_main; // -1 if auto
+extern int64_t fps_limit_secondary;
 void redetect_screen_refresh_rate_for_draw(void);
 // Populates the standard+modern video mode table (idempotent -- a no-op once
 // lbScreenModeInfoNum is non-zero) without touching SDL/the platform layer,
@@ -473,29 +473,29 @@ void LbRegisterDefaultVideoModesIfNeeded(void);
 TbResult LbScreenInitialize(void);
 TbResult LbScreenSetDoubleBuffering(TbBool state);
 TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord height,
-    unsigned char *palette, short buffers_count, TbBool wscreen_vid);
+    unsigned char *palette, int64_t buffers_count, TbBool wscreen_vid);
 TbResult LbScreenReset(TbBool exiting_application);
 
-TbBool LbScreenIsModeAvailable(TbScreenMode mode, unsigned short display);
+TbBool LbScreenIsModeAvailable(TbScreenMode mode, int64_t display);
 TbScreenMode LbRecogniseVideoModeString(const char *desc);
 TbScreenMode LbRegisterVideoMode(const char *desc, TbScreenCoord width, TbScreenCoord height,
-    unsigned short bpp, unsigned long flags);
+    int64_t bpp, uint64_t flags);
 TbScreenMode LbRegisterVideoModeString(const char *desc);
 TbScreenModeInfo *LbScreenGetModeInfo(TbScreenMode mode);
 
 TbScreenMode LbScreenActiveMode(void);
 TbScreenCoord LbScreenWidth(void);
 TbScreenCoord LbScreenHeight(void);
-unsigned short LbGraphicsScreenBPP(void);
+int64_t LbGraphicsScreenBPP(void);
 TbScreenCoord LbGraphicsScreenWidth(void);
 TbScreenCoord LbGraphicsScreenHeight(void);
 
 TbBool LbScreenIsLocked(void);
 
 TbResult LbScreenWaitVbi(void);
-unsigned short LbGetCurrentDisplayIndex();
+int64_t LbGetCurrentDisplayIndex();
 
-long LbPaletteFade(unsigned char *pal, long n, enum TbPaletteFadeFlag flg);
+int64_t LbPaletteFade(unsigned char *pal, int64_t n, enum TbPaletteFadeFlag flg);
 TbResult LbPaletteStopOpenFade(void);
 TbResult LbPaletteStore(const unsigned char *palette);
 TbResult LbPaletteGet(unsigned char *palette);
@@ -511,25 +511,25 @@ TbResult LbScreenSetGraphicsWindow(TbScreenCoord x, TbScreenCoord y,
     TbScreenCoord width, TbScreenCoord height);
 
 TbResult LbSetTitle(const char *title);
-TbResult LbSetIcon(unsigned short nicon);
+TbResult LbSetIcon(int64_t nicon);
 
-long scale_value_for_resolution(long base_value);
-long scale_value_for_resolution_with_upp(long base_value, long units_per_px);
-long scale_value_by_horizontal_resolution(long base_value);
-long scale_value_by_vertical_resolution(long base_value);
-long scale_ui_value_lofi(long base_value);
-long scale_ui_value(long base_value);
-long scale_fixed_DK_value(long base_value);
-long scale_value_menu(long base_value);
-long scale_value_landview(long base_value);
-void calculate_landview_upp(long width, long height, long landview_width, long landview_height);
-TbBool is_ar_wider_than_original(long width, long height);
-TbBool is_menu_ar_wider_than_original(long width, long height);
-long calculate_relative_upp(long base_length, long reference_upp, long reference_length);
-long resize_ui(long units_per_px, long ui_scale);
-void calculate_aspect_ratio_factor(long width, long height);
-long scale_fixed_DK_value_by_ar(long base_value, TbBool scale_up, TbBool vert_plus);
-long FOV_based_on_aspect_ratio(void);
+int64_t scale_value_for_resolution(int64_t base_value);
+int64_t scale_value_for_resolution_with_upp(int64_t base_value, int64_t units_per_px);
+int64_t scale_value_by_horizontal_resolution(int64_t base_value);
+int64_t scale_value_by_vertical_resolution(int64_t base_value);
+int64_t scale_ui_value_lofi(int64_t base_value);
+int64_t scale_ui_value(int64_t base_value);
+int64_t scale_fixed_DK_value(int64_t base_value);
+int64_t scale_value_menu(int64_t base_value);
+int64_t scale_value_landview(int64_t base_value);
+void calculate_landview_upp(int64_t width, int64_t height, int64_t landview_width, int64_t landview_height);
+TbBool is_ar_wider_than_original(int64_t width, int64_t height);
+TbBool is_menu_ar_wider_than_original(int64_t width, int64_t height);
+int64_t calculate_relative_upp(int64_t base_length, int64_t reference_upp, int64_t reference_length);
+int64_t resize_ui(int64_t units_per_px, int64_t ui_scale);
+void calculate_aspect_ratio_factor(int64_t width, int64_t height);
+int64_t scale_fixed_DK_value_by_ar(int64_t base_value, TbBool scale_up, TbBool vert_plus);
+int64_t FOV_based_on_aspect_ratio(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

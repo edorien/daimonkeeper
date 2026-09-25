@@ -60,20 +60,20 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct TbNetworkUserInfo net_user_info[MAX_NET_USERS];
-extern int32_t multiplayer_speed_adjustment_ns;
+extern int64_t multiplayer_speed_adjustment_ns;
 /******************************************************************************/
 
 #pragma pack(1)
 struct StartupSyncPacket {
     uint8_t startup_sync_packet_valid;
-    int32_t video_rotate_mode;
+    int64_t video_rotate_mode;
     TbBigChecksum map_checksums[NETWORK_STARTUP_MAP_FILE_COUNT];
     TbBigChecksum required_sprite_zip_checksums[REQUIRED_SPRITE_ZIP_COUNT];
-    uint16_t initial_tendencies;
-    uint32_t isometric_view_zoom_level;
-    uint32_t frontview_zoom_level;
-    uint32_t zoom_distance_setting;
-    uint32_t frontview_zoom_distance_setting;
+    int64_t initial_tendencies;
+    uint64_t isometric_view_zoom_level;
+    uint64_t frontview_zoom_level;
+    uint64_t zoom_distance_setting;
+    uint64_t frontview_zoom_distance_setting;
     uint8_t initial_input_lag_turns;
     // TODO: also record alliance matrix.
 };
@@ -91,20 +91,20 @@ static void copy_punch_addresses(struct EnetPunchAddresses *dst, const PunchAddr
     dst->ipv6_port = src->ipv6_port;
 }
 
-static int enet_services_matchmaking_punch(const char *lobby_id, int udp_ipv4_port, int udp_ipv6_port, struct EnetPunchAddresses *output)
+static int64_t enet_services_matchmaking_punch(const char *lobby_id, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output)
 {
     PunchAddresses real_output;
-    int result = matchmaking_punch(lobby_id, udp_ipv4_port, udp_ipv6_port, &real_output);
+    int64_t result = matchmaking_punch(lobby_id, udp_ipv4_port, udp_ipv6_port, &real_output);
     if (result == 0) {
         copy_punch_addresses(output, &real_output);
     }
     return result;
 }
 
-static int enet_services_matchmaking_poll_punch(struct EnetPunchAddresses *output)
+static int64_t enet_services_matchmaking_poll_punch(struct EnetPunchAddresses *output)
 {
     PunchAddresses real_output;
-    int result = matchmaking_poll_punch(&real_output);
+    int64_t result = matchmaking_poll_punch(&real_output);
     if (result) {
         copy_punch_addresses(output, &real_output);
     }
@@ -115,7 +115,7 @@ static int enet_services_matchmaking_poll_punch(struct EnetPunchAddresses *outpu
 // below (which needs compile-time-constant function addresses) can
 // target net_callbacks->* -- those are runtime indirections, not
 // usable directly in a static initializer.
-static void enet_services_display_attempting_to_join_message(int seconds_remaining)
+static void enet_services_display_attempting_to_join_message(int64_t seconds_remaining)
 {
     net_callbacks->display_attempting_to_join_message(seconds_remaining);
 }
@@ -137,10 +137,10 @@ static const struct EnetConnectivityServices enet_connectivity_services = {
     .port_forward_remove_mapping = &port_forward_remove_mapping,
 };
 
-short setup_network_service(enum FrontendNetService service)
+int64_t setup_network_service(enum FrontendNetService service)
 {
   struct ServiceInitData *init_data = NULL;
-  SYNCMSG("Initializing 4-players type %d network", service);
+  SYNCMSG("Initializing 4-players type %" PRId64 " network", (int64_t)(service));
   memset(net_user_info, 0, sizeof(net_user_info));
   network_lobby_ping = 0;
   if (service != FrontendNetSvc_Online && service != FrontendNetSvc_LAN) {
@@ -159,7 +159,7 @@ short setup_network_service(enum FrontendNetService service)
   return 1;
 }
 
-int setup_old_network_service(void)
+int64_t setup_old_network_service(void)
 {
     return setup_network_service(net_service_index_selected);
 }
@@ -208,7 +208,7 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
         if (!net_user_info[i].network_user_active) {
             continue;
         }
-        int k = get_net_user_player_number(i);
+        int64_t k = get_net_user_player_number(i);
         if (k < 0) {
             continue;
         }
@@ -242,20 +242,20 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
 static TbBool verify_map_checksums(const struct StartupSyncPacket startup_sync_packets[MAX_NET_USERS])
 {
     const TbBigChecksum *host = startup_sync_packets[SERVER_ID].map_checksums;
-    for (int i = 0; i < MAX_NET_USERS; i++) {
+    for (int64_t i = 0; i < MAX_NET_USERS; i++) {
         const TbBigChecksum *client = startup_sync_packets[i].map_checksums;
         if (!net_user_info[i].network_user_active) {
             continue;
         }
-        int diff_count = 0;
-        for (int j = 0; j < NETWORK_STARTUP_MAP_FILE_COUNT; j++) {
+        int64_t diff_count = 0;
+        for (int64_t j = 0; j < NETWORK_STARTUP_MAP_FILE_COUNT; j++) {
             if (client[j] == host[j]) {
                 continue;
             }
             if (diff_count == 0) {
-                ERRORLOG("Level checksums differ for player %d", i);
+                ERRORLOG("Level checksums differ for player %" PRId64, (int64_t)(i));
             }
-            ERRORLOG("Level file map%05u.%s differs for player %d", sim_feedback->get_loaded_level_number(), network_startup_compare_files[j], i);
+            ERRORLOG("Level file map%05" PRIu64 ".%s differs for player %" PRId64, (uint64_t)(sim_feedback->get_loaded_level_number()), network_startup_compare_files[j], (int64_t)(i));
             diff_count++;
         }
         if (diff_count != 0) {
@@ -276,7 +276,7 @@ static TbBool verify_startup_sprite_zip_checksums(const struct StartupSyncPacket
             continue;
         }
         const struct StartupSyncPacket *client_sync = &startup_sync_packets[i];
-        for (int zip_idx = 0; zip_idx < REQUIRED_SPRITE_ZIP_COUNT; zip_idx++) {
+        for (int64_t zip_idx = 0; zip_idx < REQUIRED_SPRITE_ZIP_COUNT; zip_idx++) {
             if (client_sync->required_sprite_zip_checksums[zip_idx] == host_sync->required_sprite_zip_checksums[zip_idx]) {
                 continue;
             }
@@ -298,8 +298,8 @@ static TbBool disconnect_victory_enabled[PLAYERS_COUNT];
 
 static uint8_t calculate_initial_input_lag(void)
 {
-    int32_t player_count = 0;
-    for (int32_t i = 0; i < MAX_NET_USERS; i++) {
+    int64_t player_count = 0;
+    for (int64_t i = 0; i < MAX_NET_USERS; i++) {
         if (net_user_info[i].network_user_active) {
             player_count++;
         }
@@ -319,7 +319,7 @@ static uint8_t calculate_initial_input_lag(void)
     if (input_lag_turns > MAXIMUM_INPUT_LAG_TURNS) {
         input_lag_turns = MAXIMUM_INPUT_LAG_TURNS;
     }
-    JUSTLOG("Initial input lag: (%llu ms * %d turns/s + 999) / 1000 = %llu turns, adjusted to %llu", (unsigned long long)ping, kfx_sim_state.turns_per_second, (unsigned long long)uncapped_input_lag_turns, (unsigned long long)input_lag_turns);
+    JUSTLOG("Initial input lag: (%llu ms * %" PRId64 " turns/s + 999) / 1000 = %llu turns, adjusted to %llu", (unsigned long long)ping, (int64_t)(kfx_sim_state.turns_per_second), (unsigned long long)uncapped_input_lag_turns, (unsigned long long)input_lag_turns);
     return input_lag_turns;
 }
 
@@ -330,7 +330,7 @@ static void build_local_startup_sync(void)
     s_local_startup_sync.video_rotate_mode = settings.video_rotate_mode;
     calculate_network_startup_map_checksums(s_local_startup_sync.map_checksums);
     memcpy(s_local_startup_sync.required_sprite_zip_checksums, required_sprite_zip_checksums, sizeof(s_local_startup_sync.required_sprite_zip_checksums));
-    uint16_t initial_tendencies = 0;
+    int64_t initial_tendencies = 0;
     if (IMPRISON_BUTTON_DEFAULT) {initial_tendencies |= CrTend_Imprison;}
     if (FLEE_BUTTON_DEFAULT) {initial_tendencies |= CrTend_Flee;}
     s_local_startup_sync.initial_tendencies = initial_tendencies;
@@ -349,7 +349,7 @@ static TbBool net_startup_sync_exchange_and_apply(void)
         return false;
     }
 
-    for (int i = 0; i < MAX_NET_USERS; i++) {
+    for (int64_t i = 0; i < MAX_NET_USERS; i++) {
         if (net_user_info[i].network_user_active && !s_startup_sync_packets[i].startup_sync_packet_valid) {
             ERRORLOG("Startup sync exchange missed one or more peers");
             return false;
@@ -368,7 +368,7 @@ static TbBool net_startup_sync_exchange_and_apply(void)
     kfx_net_state.input_lag_turns = host_sync->initial_input_lag_turns;
     input_lag_reset();
     kfx_net_state.skip_initial_input_turns = calculate_skip_input();
-    NETLOG("Startup input lag: %d", kfx_net_state.input_lag_turns);
+    NETLOG("Startup input lag: %" PRId64, (int64_t)(kfx_net_state.input_lag_turns));
     kfx_config_state.zoom_distance_setting = host_sync->zoom_distance_setting;
     kfx_config_state.frontview_zoom_distance_setting = host_sync->frontview_zoom_distance_setting;
     setup_players_from_startup_packets(s_startup_sync_packets);
@@ -378,7 +378,7 @@ static TbBool net_startup_sync_exchange_and_apply(void)
 void setup_network_player_numbers(void)
 {
     TbBool is_set = false;
-    int k = 0;
+    int64_t k = 0;
     SYNCDBG(6, "Starting");
     for (NetUserId i = 0; i < MAX_NET_USERS; i++)
     {
@@ -395,7 +395,7 @@ void setup_network_player_numbers(void)
         }
     }
     if (!is_set) {
-        ERRORLOG("Local player number %d not found among active network players", my_player_number);
+        ERRORLOG("Local player number %" PRId64 " not found among active network players", (int64_t)(my_player_number));
     }
 }
 
@@ -407,7 +407,7 @@ void setup_count_players(void)
   } else
   {
     kfx_net_state.active_players_count = 0;
-    for (int i = 0; i < MAX_NET_USERS; i++)
+    for (int64_t i = 0; i < MAX_NET_USERS; i++)
     {
       if (net_user_info[i].network_user_active)
         kfx_net_state.active_players_count++;
@@ -420,7 +420,7 @@ TbBool init_players_network_game(void)
     SYNCDBG(4,"Starting");
     TbBool initialized = true;
     setup_network_player_numbers();
-    for (int zip_idx = 0; zip_idx < REQUIRED_SPRITE_ZIP_COUNT; zip_idx++) {
+    for (int64_t zip_idx = 0; zip_idx < REQUIRED_SPRITE_ZIP_COUNT; zip_idx++) {
         if (required_sprite_zip_checksums[zip_idx] != 0) {
             continue;
         }
@@ -448,7 +448,7 @@ TbBool init_players_network_game(void)
                 map_name = get_string(level_info->name_stridx);
             }
         }
-        matchmaking_close_lobby(MMLobbyResult_Started, (int)map_number, map_name);
+        matchmaking_close_lobby(MMLobbyResult_Started, (int64_t)map_number, map_name);
     }
     if (!initialized) {
         LbNetwork_Stop();
@@ -463,7 +463,7 @@ void are_disconnect_victories_allowed(void)
         if (!player_exists(get_player(plyr_idx))) {
             continue;
         }
-        for (int other_idx = 0; other_idx < kfx_net_state.active_players_count; other_idx++) {
+        for (int64_t other_idx = 0; other_idx < kfx_net_state.active_players_count; other_idx++) {
             struct PlayerInfo *other = get_player(other_idx);
             if (player_exists(other) && (other_idx != plyr_idx) && players_are_enemies(plyr_idx, other->id_number)) {
                 disconnect_victory_enabled[plyr_idx] = true;
@@ -506,7 +506,7 @@ static void resolve_network_quit_outcome(struct PlayerInfo *player)
 
 TbBool player_has_enemies_to_defeat(const struct PlayerInfo *player)
 {
-    for (int i = 0; i < PLAYERS_COUNT; i++) {
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
         struct PlayerInfo *other = get_player(i);
         TbBool is_active_enemy = player_exists(other) && (other != player) && other->is_active == 1 && !player_cannot_win(other->id_number) && players_are_enemies(player->id_number, other->id_number);
         TbBool is_human_driven = (other->allocflags & PlaF_CompCtrl) == 0 && user_present(other->user_id);
@@ -553,7 +553,7 @@ static void replace_network_player_with_ai(struct PlayerInfo *player)
     player->allocflags |= PlaF_CompCtrl;
     toggle_computer_player(player->id_number);
     sim_feedback->message_add(MsgType_Player, player->id_number, get_string(GUIStr_NetAiTookOver));
-    JUSTLOG("p:%d computer took over", player->id_number);
+    JUSTLOG("p:%" PRId64 " computer took over", (int64_t)(player->id_number));
 }
 
 // used when ending a netplay game or recording.
@@ -651,10 +651,10 @@ static void resolve_disconnect_victories(struct PlayerInfo *departed)
         if (player_has_enemies_to_defeat(player)) {
             continue;
         }
-        int32_t plyr_count = 0;
+        int64_t plyr_count = 0;
         TbBool winning_quit = net_callbacks->winning_player_quitting(departed, &plyr_count);
         if (winning_quit) {
-            for (int i = 0; i < PLAYERS_COUNT; i++) {
+            for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
                 struct PlayerInfo *swplyr = get_player(i);
                 if (player_exists(swplyr) && (swplyr->is_active == 1)) {
                     resolve_network_quit_outcome(swplyr);
@@ -684,7 +684,7 @@ static void abandon_network_player(struct PlayerInfo *player, TbBool announce)
         if (announce && player->player_name[0] != '\0') {
             sim_feedback->message_add_fmt(MsgType_Blank, 0, get_string(GUIStr_NetPlayerDisconnected), player->player_name);
         }
-        JUSTLOG("p:%d player %s departed", player->id_number, player->player_name);
+        JUSTLOG("p:%" PRId64 " player %s departed", (int64_t)(player->id_number), player->player_name);
         if (player->victory_state == VicS_Undecided) {
             replace_network_player_with_ai(player);
         }
@@ -701,7 +701,7 @@ static void remove_user_from_game(NetUserId user, TbBool announce)
         return;
     }
     struct PlayerInfo *player = get_player(net_user_player_number[user]);
-    JUSTLOG("u:%d user left the game (player %d)", (int)user, (int)net_user_player_number[user]);
+    JUSTLOG("u:%" PRId64 " user left the game (player %" PRId64 ")", (int64_t)user, (int64_t)net_user_player_number[user]);
     net_user_player_number[user] = -1;
     if (!player_exists(player)) {
         return;
@@ -788,9 +788,9 @@ void process_disconnected_network_players(void)
     stop_network_game_and_continue_locally();
 }
 
-long network_session_join(void)
+int64_t network_session_join(void)
 {
-    int32_t plyr_num;
+    int64_t plyr_num;
     net_callbacks->reset_attempting_to_join_cancel();
     net_callbacks->display_attempting_to_join_message(-1);
     if (net_callbacks->attempting_to_join_cancel_requested())
@@ -821,7 +821,7 @@ void sync_initial_network_seed(void)
    }
    kfx_sim_state.ai_random_seed = kfx_sim_state.action_random_seed * 9377 + 9391;
    kfx_sim_state.player_random_seed = kfx_sim_state.action_random_seed * 9473 + 9479;
-   NETLOG("Initial network seed synced: action_seed=%u", kfx_sim_state.action_random_seed);
+   NETLOG("Initial network seed synced: action_seed=%" PRIu64, (uint64_t)(kfx_sim_state.action_random_seed));
 }
 /******************************************************************************/
 #ifdef __cplusplus

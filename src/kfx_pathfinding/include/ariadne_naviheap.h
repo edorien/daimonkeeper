@@ -31,9 +31,9 @@ extern "C" {
 TbBool naviheap_empty(void);
 void naviheap_init(void);
 
-long naviheap_top(void);
-long naviheap_remove(void);
-TbBool naviheap_add(long heapid);
+int64_t naviheap_top(void);
+int64_t naviheap_remove(void);
+TbBool naviheap_add(int64_t heapid);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -72,7 +72,7 @@ TEST_CASE("the default net_callbacks table's every stub is a safe no-op returnin
     CHECK(net_callbacks->report_error_stat(0) == 0);
     CHECK_FALSE(net_callbacks->show_onscreen_msg(0, nullptr));
     CHECK_FALSE(net_callbacks->is_onscreen_msg_visible());
-    int32_t plyr_count = 0;
+    int64_t plyr_count = 0;
     CHECK(net_callbacks->winning_player_quitting(nullptr, &plyr_count) == 0);
     net_callbacks->reinit_level_after_load();
     CHECK(net_callbacks->complete_level(nullptr) == 0);

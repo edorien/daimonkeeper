@@ -147,34 +147,34 @@ void ConfigDocument::rebuild_index()
     {
         if (lines_[i].kind != CfgLine_Section)
             continue;
-        current.end_line = (long)i;
+        current.end_line = (int64_t)i;
         if (current.header_line >= 0 || current.end_line > current.first_line)
             sections_.push_back(current);
         current = CfgSection();
         current.name = lines_[i].name;
-        current.header_line = (long)i;
-        current.first_line = (long)i + 1;
+        current.header_line = (int64_t)i;
+        current.first_line = (int64_t)i + 1;
     }
-    current.end_line = (long)lines_.size();
+    current.end_line = (int64_t)lines_.size();
     if (current.header_line >= 0 || current.end_line > current.first_line)
         sections_.push_back(current);
 }
 
-long ConfigDocument::find_section(const std::string &name) const
+int64_t ConfigDocument::find_section(const std::string &name) const
 {
     for (size_t i = 0; i < sections_.size(); i++)
         if (sections_[i].header_line >= 0 && sections_[i].name == name)
-            return (long)i;
+            return (int64_t)i;
     return -1;
 }
 
-std::vector<long> ConfigDocument::key_lines(long section_index) const
+std::vector<int64_t> ConfigDocument::key_lines(int64_t section_index) const
 {
-    std::vector<long> out;
+    std::vector<int64_t> out;
     if (section_index < 0 || (size_t)section_index >= sections_.size())
         return out;
     const CfgSection &s = sections_[(size_t)section_index];
-    for (long i = s.first_line; i < s.end_line; i++)
+    for (int64_t i = s.first_line; i < s.end_line; i++)
         if (lines_[(size_t)i].kind == CfgLine_Key)
             out.push_back(i);
     return out;

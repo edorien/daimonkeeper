@@ -47,10 +47,10 @@ extern "C" {
 unsigned char tag_cursor_blocks_dig(struct PlayerInfo *player, NetUserId user, const struct Packet *pckt, struct RoomSpace *render_roomspace, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab)
 {
     struct UserState* ustate = get_user_state(user);
-    SYNCDBG(7,"Starting for player %d at subtile (%d,%d)",(int)player->id_number,(int)stl_x,(int)stl_y);
+    SYNCDBG(7,"Starting for player %" PRId64 " at subtile (%" PRId64 ",%" PRId64 ")",(int64_t)player->id_number,(int64_t)stl_x,(int64_t)stl_y);
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
-    int floor_height_z = floor_height_for_volume_box(player->id_number, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(player->id_number, slb_x, slb_y);
     TbBool allowed = false;
     if (render_roomspace->slab_count > 0 && full_slab) // if roomspace is not empty
     {
@@ -132,7 +132,7 @@ TbBool tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, M
     MapSlabCoord slb_y = subtile_slab(stl_y);
     struct SlabMap *slb;
     slb = get_slabmap_block(slb_x, slb_y);
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     unsigned char colour = SLC_RED;
     if (player->render_roomspace.slab_count > 0 && full_slab)
     {
@@ -171,7 +171,7 @@ TbBool tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, 
     TbBool allowed = false;
     char Orientation;
     TbBool Check = false;
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     if (floor_height_z == 1)
     {
         Orientation = find_door_angle(stl_x, stl_y, plyr_idx);
@@ -222,7 +222,7 @@ TbBool tag_cursor_blocks_place_room(NetUserId user, MapSubtlCoord stl_x, MapSubt
     MapSlabCoord slb_y;
     slb_x = subtile_slab(stl_x);
     slb_y = subtile_slab(stl_y);
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     unsigned char colour = SLC_RED;
     if(can_build_roomspace(plyr_idx, ustate->chosen_room_kind, player->render_roomspace) > 0)
     {
@@ -232,7 +232,7 @@ TbBool tag_cursor_blocks_place_room(NetUserId user, MapSubtlCoord stl_x, MapSubt
     {
         #if (BFDEBUG_LEVEL > 7)
             struct SlabMap* slb = get_slabmap_block(slb_x, slb_y); //inside condition because otherwise it would throw a build warning for not using this variable.
-            SYNCDBG(7,"Cannot build %s on %s slabs centered at (%d,%d)", room_code_name(ustate->chosen_room_kind), slab_code_name(slb->kind), (int)slb_x, (int)slb_y);
+            SYNCDBG(7,"Cannot build %s on %s slabs centered at (%" PRId64 ",%" PRId64 ")", room_code_name(ustate->chosen_room_kind), slab_code_name(slb->kind), (int64_t)slb_x, (int64_t)slb_y);
         #endif
     }
     if (is_my_player_number(plyr_idx) && !render_overlay->game_is_busy_doing_gui() && (kfx_sim_state.small_map_state != 2))
@@ -254,7 +254,7 @@ void tag_cursor_blocks_place_terrain(PlayerNumber plyr_idx, MapSubtlCoord stl_x,
     SYNCDBG(7,"Starting");
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     if ( is_my_player_number(plyr_idx) && !render_overlay->game_is_busy_doing_gui() && kfx_sim_state.small_map_state != 2 )
     {
         map_volume_box.visible = true;
@@ -272,7 +272,7 @@ TbBool tag_cursor_blocks_place_thing(PlayerNumber plyr_idx, MapSubtlCoord stl_x,
     SYNCDBG(7,"Starting");
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     MapCoord height = get_floor_height(stl_x, stl_y);
     unsigned char colour;
     if (map_is_solid_at_height(stl_x, stl_y, height, height))
@@ -307,7 +307,7 @@ TbBool tag_cursor_blocks_order_creature(PlayerNumber plyr_idx, MapSubtlCoord stl
     SYNCDBG(7,"Starting");
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     unsigned char colour;
     struct Coord3d pos;
     pos.x.val = 0;
@@ -346,7 +346,7 @@ TbBool tag_cursor_blocks_steal_slab(NetUserId user, MapSubtlCoord stl_x, MapSubt
     MapSlabCoord slb_y = subtile_slab(stl_y);
     struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
     struct SlabConfigStats* slabst = get_slab_stats(slb);
-    int floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     unsigned char colour;
     if ( ( ( ((slabst->category == SlbAtCtg_FortifiedGround) || (slabst->category == SlbAtCtg_FortifiedWall) ) && (slabmap_owner(slb) != get_user_state(user)->cheatselection.chosen_player) ) )
         || ( (slabst->category == SlbAtCtg_FriableDirt) || ( (slabst->category == SlbAtCtg_Unclaimed) && (slabst->is_safe_land) && (!slab_is_liquid(slb_x, slb_y) ) ) ) )
@@ -377,7 +377,7 @@ TbBool tag_cursor_blocks_place_trap(NetUserId user, MapSubtlCoord stl_x, MapSubt
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
     TbBool can_place = can_place_trap_on(plyr_idx, stl_x, stl_y, trpkind);
-    int floor_height = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
+    int64_t floor_height = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
     struct PlayerInfo* player = get_player(plyr_idx);
     struct UserState* ustate = get_user_state(user);
     TbBool full_slab = !get_trap_model_stats(trpkind)->place_on_subtile;

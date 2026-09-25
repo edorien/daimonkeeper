@@ -47,7 +47,7 @@ struct NamedCommand trap_desc[TRAPDOOR_TYPES_MAX];
 struct NamedCommand door_desc[TRAPDOOR_TYPES_MAX];
 
 /******************************************************************************/
-static TbBool load_trapdoor_config_file(const char *fname, unsigned short flags);
+static TbBool load_trapdoor_config_file(const char *fname, int64_t flags);
 TbBool create_manufacture_array_from_trapdoor_data(void);
 
 const struct ConfigFileData keeper_trapdoor_file_data = {
@@ -86,7 +86,7 @@ static const struct NamedCommand trap_activation_type_commands[] = {
     {NULL,                   0},
 };
 
-static void assign_panel_tab_idx_trap(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_panel_tab_idx_trap(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     struct ManufactureData* manufctr = get_manufacture_data(get_manufacture_data_index_for_thing(TCls_Trap, idx));
 
@@ -98,7 +98,7 @@ static void assign_panel_tab_idx_trap(const struct NamedField* named_field, int6
     }
 }
 
-static void assign_panel_tab_idx_door(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_panel_tab_idx_door(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     struct ManufactureData* manufctr = get_manufacture_data(get_manufacture_data_index_for_thing(TCls_Door, idx));
 
@@ -110,7 +110,7 @@ static void assign_panel_tab_idx_door(const struct NamedField* named_field, int6
     }
 }
 
-static void assign_tooltip_idx_trap(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_tooltip_idx_trap(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     struct ManufactureData* manufctr = get_manufacture_data(get_manufacture_data_index_for_thing(TCls_Trap, idx));
 
@@ -122,7 +122,7 @@ static void assign_tooltip_idx_trap(const struct NamedField* named_field, int64_
     }
 }
 
-static void assign_tooltip_idx_door(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_tooltip_idx_door(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     struct ManufactureData* manufctr = get_manufacture_data(get_manufacture_data_index_for_thing(TCls_Door, idx));
 
@@ -134,7 +134,7 @@ static void assign_tooltip_idx_door(const struct NamedField* named_field, int64_
     }
 }
 
-static void assign_icon_update_trap_tab(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_icon_update_trap_tab(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_icon(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
@@ -143,14 +143,14 @@ static void assign_icon_update_trap_tab(const struct NamedField* named_field, in
     }
 }
 
-static void assign_crate_door(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_crate_door(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     kfx_config_state.conf.object_conf.object_to_door_or_trap[value] = idx;
     kfx_config_state.conf.object_conf.workshop_object_class[value] = TCls_Door;
     kfx_config_state.conf.trapdoor_conf.door_to_object[idx] = value;
 }
 
-static void assign_update_door_stats(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_update_door_stats(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
@@ -159,14 +159,14 @@ static void assign_update_door_stats(const struct NamedField* named_field, int64
     }
 }
 
-static void assign_crate_trap(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_crate_trap(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     kfx_config_state.conf.object_conf.object_to_door_or_trap[value] = idx;
     kfx_config_state.conf.object_conf.workshop_object_class[value] = TCls_Trap;
     kfx_config_state.conf.trapdoor_conf.trap_to_object[idx] = value;
 }
 
-int64_t value_activationeffect(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_activationeffect(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (parameter_is_number(value_text))
     {
@@ -174,7 +174,7 @@ int64_t value_activationeffect(const struct NamedField* named_field, const char*
     }
     else
     {
-        long k;
+        int64_t k;
         struct TrapConfigStats* trapst = get_trap_model_stats(idx);
         switch (trapst->activation_type)
         {
@@ -199,14 +199,14 @@ int64_t value_activationeffect(const struct NamedField* named_field, const char*
         }
         if (k == -1)
         {
-            NAMFIELDWRNLOG("unexpected value '%s' for %s [%s%d].",value_text, named_field->name, named_fields_set->block_basename, idx);
+            NAMFIELDWRNLOG("unexpected value '%s' for %s [%s%" PRId64 "].",value_text, named_field->name, named_fields_set->block_basename, (int64_t)(idx));
             return 0;
         }
         return k;
     }
 }
 
-int64_t value_min1(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+int64_t value_min1(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (parameter_is_number(value_text))
     {
@@ -214,12 +214,12 @@ int64_t value_min1(const struct NamedField* named_field, const char* value_text,
     }
     else
     {
-        NAMFIELDWRNLOG("unexpected value '%s' for %s [%s%d].",value_text, named_field->name, named_fields_set->block_basename, idx);
+        NAMFIELDWRNLOG("unexpected value '%s' for %s [%s%" PRId64 "].",value_text, named_field->name, named_fields_set->block_basename, (int64_t)(idx));
         return 0;
     }
 }
 
-static void assign_multiple_refresh_trap_anim(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_multiple_refresh_trap_anim(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_default(named_field, value, named_fields_set, idx, src_str, flags);
     named_field++;
@@ -232,7 +232,7 @@ static void assign_multiple_refresh_trap_anim(const struct NamedField* named_fie
     }
 }
 
-static void assign_refresh_trap_anim(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_refresh_trap_anim(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
@@ -241,7 +241,7 @@ static void assign_refresh_trap_anim(const struct NamedField* named_field, int64
     }
 }
 
-static void assign_refresh_trap_anim_anim_id(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int idx, const char* src_str, unsigned char flags)
+static void assign_refresh_trap_anim_anim_id(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     assign_animid(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
@@ -274,7 +274,7 @@ const struct NamedField trapdoor_door_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_door_count(void) { return &kfx_config_state.conf.trapdoor_conf.door_types_count; }
+static int64_t* get_door_count(void) { return &kfx_config_state.conf.trapdoor_conf.door_types_count; }
 static void* get_door_base(void) { return kfx_config_state.conf.trapdoor_conf.door_cfgstats; }
 
 const struct NamedFieldSet trapdoor_door_named_fields_set = {
@@ -360,7 +360,7 @@ const struct NamedField trapdoor_trap_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_trap_count(void) { return &kfx_config_state.conf.trapdoor_conf.trap_types_count; }
+static int64_t* get_trap_count(void) { return &kfx_config_state.conf.trapdoor_conf.trap_types_count; }
 static void* get_trap_base(void) { return kfx_config_state.conf.trapdoor_conf.trap_cfgstats; }
 
 
@@ -375,14 +375,14 @@ const struct NamedFieldSet trapdoor_trap_named_fields_set = {
 };
 
 /******************************************************************************/
-struct TrapConfigStats *get_trap_model_stats(int tngmodel)
+struct TrapConfigStats *get_trap_model_stats(int64_t tngmodel)
 {
     if (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)
         return &kfx_config_state.conf.trapdoor_conf.trap_cfgstats[0];
     return &kfx_config_state.conf.trapdoor_conf.trap_cfgstats[tngmodel];
 }
 
-struct DoorConfigStats *get_door_model_stats(int tngmodel)
+struct DoorConfigStats *get_door_model_stats(int64_t tngmodel)
 {
     if (tngmodel >= kfx_config_state.conf.trapdoor_conf.door_types_count)
         return &kfx_config_state.conf.trapdoor_conf.door_cfgstats[0];
@@ -394,7 +394,7 @@ struct DoorConfigStats *get_door_model_stats(int tngmodel)
  * @param manufctr_idx Manufacture array index.
  * @return Dummy entry pinter if not found, manufacture data pointer otherwise.
  */
-struct ManufactureData *get_manufacture_data(int manufctr_idx)
+struct ManufactureData *get_manufacture_data(int64_t manufctr_idx)
 {
     if ((manufctr_idx < 0) || (manufctr_idx >= kfx_config_state.conf.trapdoor_conf.manufacture_types_count)) {
         return &kfx_config_state.conf.trapdoor_conf.manufacture_data[0];
@@ -408,9 +408,9 @@ struct ManufactureData *get_manufacture_data(int manufctr_idx)
  * @param tngmodel Manufacturable thing model.
  * @return 0 if not found, otherwise index where 1 <= index < manufacture_types_count
  */
-int get_manufacture_data_index_for_thing(ThingClass tngclass, ThingModel tngmodel)
+int64_t get_manufacture_data_index_for_thing(ThingClass tngclass, ThingModel tngmodel)
 {
-    for (int i = 1; i < kfx_config_state.conf.trapdoor_conf.manufacture_types_count; i++)
+    for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.manufacture_types_count; i++)
     {
         struct ManufactureData* manufctr = &kfx_config_state.conf.trapdoor_conf.manufacture_data[i];
         if ((manufctr->tngclass == tngclass) && (manufctr->tngmodel == tngmodel)) {
@@ -420,10 +420,10 @@ int get_manufacture_data_index_for_thing(ThingClass tngclass, ThingModel tngmode
     return 0;
 }
 
-static TbBool load_trapdoor_config_file(const char *fname, unsigned short flags)
+static TbBool load_trapdoor_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -436,7 +436,7 @@ static TbBool load_trapdoor_config_file(const char *fname, unsigned short flags)
 
     if ((flags & CnfLd_AcceptPartial) == 0)
     {
-        for (int i = 0; i < TRAPDOOR_TYPES_MAX; i++)
+        for (int64_t i = 0; i < TRAPDOOR_TYPES_MAX; i++)
         {
             kfx_config_state.conf.object_conf.object_to_door_or_trap[i] = 0;
         }
@@ -459,11 +459,11 @@ static TbBool load_trapdoor_config_file(const char *fname, unsigned short flags)
 
 TbBool create_manufacture_array_from_trapdoor_data(void)
 {
-    int i;
+    int64_t i;
     struct ManufactureData *manufctr;
     // Initialize the manufacture array
     kfx_config_state.conf.trapdoor_conf.manufacture_types_count = 0;
-    int arr_size = sizeof(kfx_config_state.conf.trapdoor_conf.manufacture_data) / sizeof(kfx_config_state.conf.trapdoor_conf.manufacture_data[0]);
+    int64_t arr_size = sizeof(kfx_config_state.conf.trapdoor_conf.manufacture_data) / sizeof(kfx_config_state.conf.trapdoor_conf.manufacture_data[0]);
     for (i=0; i < arr_size; i++)
     {
         manufctr = &kfx_config_state.conf.trapdoor_conf.manufacture_data[i];
@@ -525,7 +525,7 @@ ThingModel trap_crate_object_model(ThingModel tngmodel)
 /**
  * Returns Code Name (name to use in script file) of given door model.
  */
-const char *door_code_name(int tngmodel)
+const char *door_code_name(int64_t tngmodel)
 {
     const char* name = get_conf_parameter_text(door_desc, tngmodel);
     if (name[0] != '\0')
@@ -536,7 +536,7 @@ const char *door_code_name(int tngmodel)
 /**
  * Returns Code Name (name to use in script file) of given trap model.
  */
-const char *trap_code_name(int tngmodel)
+const char *trap_code_name(int64_t tngmodel)
 {
     const char* name = get_conf_parameter_text(trap_desc, tngmodel);
     if (name[0] != '\0')
@@ -550,9 +550,9 @@ const char *trap_code_name(int tngmodel)
  * @param code_name
  * @return A positive integer for the door model if found, otherwise -1
  */
-int door_model_id(const char * code_name)
+int64_t door_model_id(const char * code_name)
 {
-    for (int i = 0; i < kfx_config_state.conf.trapdoor_conf.door_types_count; ++i)
+    for (int64_t i = 0; i < kfx_config_state.conf.trapdoor_conf.door_types_count; ++i)
     {
         if (strncasecmp(kfx_config_state.conf.trapdoor_conf.door_cfgstats[i].code_name, code_name,
                 COMMAND_WORD_LEN) == 0) {
@@ -569,9 +569,9 @@ int door_model_id(const char * code_name)
  * @param code_name
  * @return A positive integer for the trap model if found, otherwise -1
  */
-int trap_model_id(const char * code_name)
+int64_t trap_model_id(const char * code_name)
 {
-    for (int i = 0; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; ++i)
+    for (int64_t i = 0; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; ++i)
     {
         if (strncasecmp(kfx_config_state.conf.trapdoor_conf.trap_cfgstats[i].code_name, code_name,
                 COMMAND_WORD_LEN) == 0) {
@@ -587,14 +587,14 @@ int trap_model_id(const char * code_name)
  * Checks only if it's available and if the player is 'alive'.
  * Doesn't check if map position is on correct spot.
  */
-TbBool is_trap_placeable(PlayerNumber plyr_idx, long tngmodel)
+TbBool is_trap_placeable(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     // Check if the player even have a dungeon, and has a heart to place traps
     if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
         return false;
     }
     if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)) {
-        ERRORLOG("Incorrect trap %d (player %d)",(int)tngmodel, (int)plyr_idx);
+        ERRORLOG("Incorrect trap %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->get_trap_placeable(plyr_idx, tngmodel)) {
@@ -608,14 +608,14 @@ TbBool is_trap_placeable(PlayerNumber plyr_idx, long tngmodel)
  * Checks only if it's set as buildable in level script.
  * Doesn't check if player has workshop or workforce for the task.
  */
-TbBool is_trap_buildable(PlayerNumber plyr_idx, long tngmodel)
+TbBool is_trap_buildable(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     // Check if the player even have a dungeon, and has a heart to build anything
     if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
         return false;
     }
     if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)) {
-        ERRORLOG("Incorrect trap %d (player %d)",(int)tngmodel, (int)plyr_idx);
+        ERRORLOG("Incorrect trap %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->get_trap_manufacturable(plyr_idx, tngmodel)) {
@@ -627,14 +627,14 @@ TbBool is_trap_buildable(PlayerNumber plyr_idx, long tngmodel)
 /**
  * Returns if the trap was at least once built by a player.
  */
-TbBool is_trap_built(PlayerNumber plyr_idx, long tngmodel)
+TbBool is_trap_built(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     // Check if the player even have a dungeon
     if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
         return false;
     }
     if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)) {
-        ERRORLOG("Incorrect trap %d (player %d)",(int)tngmodel, (int)plyr_idx);
+        ERRORLOG("Incorrect trap %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->get_trap_built(plyr_idx, tngmodel)) {
@@ -648,14 +648,14 @@ TbBool is_trap_built(PlayerNumber plyr_idx, long tngmodel)
  * Checks only if it's available and if the player is 'alive'.
  * Doesn't check if map position is on correct spot.
  */
-TbBool is_door_placeable(PlayerNumber plyr_idx, long tngmodel)
+TbBool is_door_placeable(PlayerNumber plyr_idx, int64_t tngmodel)
 {
     // Check if the player even have a dungeon, and has a heart to place doors
     if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
         return false;
     }
     if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.door_types_count)) {
-        ERRORLOG("Incorrect door %d (player %d)",(int)tngmodel, (int)plyr_idx);
+        ERRORLOG("Incorrect door %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->get_door_placeable(plyr_idx, tngmodel)) {
@@ -669,14 +669,14 @@ TbBool is_door_placeable(PlayerNumber plyr_idx, long tngmodel)
  * Checks only if it's set as buildable in level script.
  * Doesn't check if player has workshop or workforce for the task.
  */
-TbBool is_door_buildable(PlayerNumber plyr_idx, long door_idx)
+TbBool is_door_buildable(PlayerNumber plyr_idx, int64_t door_idx)
 {
     // Check if the player even have a dungeon, and has a heart to build anything
     if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
         return false;
     }
     if ((door_idx <= 0) || (door_idx >= kfx_config_state.conf.trapdoor_conf.door_types_count)) {
-        ERRORLOG("Incorrect door %d (player %d)",(int)door_idx, (int)plyr_idx);
+        ERRORLOG("Incorrect door %" PRId64 " (player %" PRId64 ")",(int64_t)door_idx, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->get_door_manufacturable(plyr_idx, door_idx)) {
@@ -688,14 +688,14 @@ TbBool is_door_buildable(PlayerNumber plyr_idx, long door_idx)
 /**
  * Returns if the door was at least one built by a player.
  */
-TbBool is_door_built(PlayerNumber plyr_idx, long door_idx)
+TbBool is_door_built(PlayerNumber plyr_idx, int64_t door_idx)
 {
     // Check if the player even have a dungeon, and has a heart to build anything
     if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
         return false;
     }
     if ((door_idx <= 0) || (door_idx >= kfx_config_state.conf.trapdoor_conf.door_types_count)) {
-        ERRORLOG("Incorrect door %d (player %d)",(int)door_idx, (int)plyr_idx);
+        ERRORLOG("Incorrect door %" PRId64 " (player %" PRId64 ")",(int64_t)door_idx, (int64_t)plyr_idx);
         return false;
     }
     if (dungeon_availability->get_door_built(plyr_idx, door_idx)) {
@@ -711,14 +711,14 @@ TbBool make_available_all_doors(PlayerNumber plyr_idx)
 {
   SYNCDBG(0,"Starting");
   if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-      ERRORDBG(11,"Cannot make doors available; player %d has no dungeon",(int)plyr_idx);
+      ERRORDBG(11,"Cannot make doors available; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
       return false;
   }
-  for (long i = 1; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
+  for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
   {
     if (!config_reload_callbacks->set_door_buildable_and_add_to_amount(plyr_idx, i, 1, 0))
     {
-        ERRORLOG("Could not make door %s available for player %d", door_code_name(i), plyr_idx);
+        ERRORLOG("Could not make door %s available for player %" PRId64, door_code_name(i), (int64_t)(plyr_idx));
         return false;
     }
   }
@@ -732,14 +732,14 @@ TbBool make_available_all_traps(PlayerNumber plyr_idx)
 {
   SYNCDBG(0,"Starting");
   if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-      ERRORDBG(11,"Cannot make traps available; player %d has no dungeon",(int)plyr_idx);
+      ERRORDBG(11,"Cannot make traps available; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
       return false;
   }
-  for (long i = 1; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
+  for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
   {
     if (!config_reload_callbacks->set_trap_buildable_and_add_to_amount(plyr_idx, i, 1, 0))
     {
-        ERRORLOG("Could not make trap %s available for player %d", trap_code_name(i), plyr_idx);
+        ERRORLOG("Could not make trap %s available for player %" PRId64, trap_code_name(i), (int64_t)(plyr_idx));
         return false;
     }
   }

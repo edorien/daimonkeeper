@@ -75,7 +75,7 @@ const struct NamedCommand follow_behavior_commands[] = {
 };
 
 int64_t value_overrides(const struct NamedField* named_field, const char* value_text,
-    const struct NamedFieldSet* named_fields_set, int idx,
+    const struct NamedFieldSet* named_fields_set, int64_t idx,
     const char* src_str, unsigned char flags)
 {
     struct CreatureStateConfig* state = &kfx_config_state.conf.crtr_conf.states[idx];
@@ -157,7 +157,7 @@ struct NamedField crstates_states_named_fields[] = {
     {NULL},
 };
 
-static int32_t* get_crstates_count(void) { return &kfx_config_state.conf.crtr_conf.states_count; }
+static int64_t* get_crstates_count(void) { return &kfx_config_state.conf.crtr_conf.states_count; }
 static void* get_crstates_base(void) { return kfx_config_state.conf.crtr_conf.states; }
 
 
@@ -171,7 +171,7 @@ const struct NamedFieldSet crstates_states_named_fields_set = {
     get_crstates_base,
 };
 
-static TbBool load_creaturestates_config_file(const char *fname, unsigned short flags);
+static TbBool load_creaturestates_config_file(const char *fname, int64_t flags);
 
 // Patches the NamedCommand pointers left NULL in
 // crstates_states_named_fields above -- see the comment there and
@@ -193,10 +193,10 @@ const struct ConfigFileData creature_states_file_data = {
 
 /******************************************************************************/
 
-static TbBool load_creaturestates_config_file(const char *fname, unsigned short flags)
+static TbBool load_creaturestates_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -217,7 +217,7 @@ static TbBool load_creaturestates_config_file(const char *fname, unsigned short 
     return result;
 }
 
-const char *creature_state_code_name(long crstate)
+const char *creature_state_code_name(int64_t crstate)
 {
     const char* name = get_conf_parameter_text(creatrstate_desc, crstate);
     if (name[0] != '\0')

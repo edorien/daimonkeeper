@@ -50,8 +50,8 @@ MapContent base_content()
     c.map_tiles_y = 5;
     c.slab_kind.assign(25, kOpenKind);
     c.slab_owner.assign(25, 0);
-    for (long y = 0; y < 5; y++)
-        for (long x = 0; x < 5; x++)
+    for (int64_t y = 0; y < 5; y++)
+        for (int64_t x = 0; x < 5; x++)
             if ((x == 0) || (y == 0) || (x == 4) || (y == 4))
                 c.slab_kind[c.slab_index(x, y)] = kBlockingKind;
 
@@ -131,7 +131,7 @@ TEST_CASE_METHOD(ResetConfig, "verify_map_content flags creature count at the en
     }
     SECTION("at the cap -- ERROR") {
         MapContent c = base_content();
-        for (int i = 0; i < CREATURES_COUNT; i++) {
+        for (int64_t i = 0; i < CREATURES_COUNT; i++) {
             MapThingRecord cr;
             cr.thing_class = TCls_Creature;
             cr.model = 1;
@@ -148,8 +148,8 @@ TEST_CASE_METHOD(ResetConfig, "verify_map_content flags creature count at the en
     }
     SECTION("near the cap (95%) -- WARN, not ERROR") {
         MapContent c = base_content();
-        int near_cap = (CREATURES_COUNT * 95) / 100;
-        for (int i = 0; i < near_cap; i++) {
+        int64_t near_cap = (CREATURES_COUNT * 95) / 100;
+        for (int64_t i = 0; i < near_cap; i++) {
             MapThingRecord cr;
             cr.thing_class = TCls_Creature;
             cr.model = 1;

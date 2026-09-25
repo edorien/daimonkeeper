@@ -1,6 +1,7 @@
 #ifndef IWINDOWSYSTEM_H
 #define IWINDOWSYSTEM_H
 
+#include <stdint.h>
 /** Abstract interface for platform windowing, focus, and OS cursor management.
  *
  */
@@ -38,7 +39,7 @@ public:
     virtual void SetCursorVisible(bool /*visible*/) {}
 
     /** Warp the cursor to (x, y) in game-surface coordinates. */
-    virtual void WarpCursor(int /*x*/, int /*y*/) {}
+    virtual void WarpCursor(int64_t /*x*/, int64_t /*y*/) {}
 
     /** True if the OS cursor is within the window bounds. 
      * On platforms that own the display exclusively the cursor can never leave
@@ -48,21 +49,21 @@ public:
     // ----- Window management -----
 
     virtual bool HasWindow() const { return false; }
-    virtual unsigned int GetWindowFlags() const { return 0; }
-    virtual void GetWindowSize(int* out_w, int* out_h) const
+    virtual uint64_t GetWindowFlags() const { return 0; }
+    virtual void GetWindowSize(int64_t* out_w, int64_t* out_h) const
     {
         if (out_w) *out_w = 0;
         if (out_h) *out_h = 0;
     }
-    virtual int GetWindowDisplayIndex() const { return -1; }
-    virtual int GetNumVideoDisplays() const { return 0; }
-    virtual int GetDesktopDisplayMode(int /*display*/, int* out_w, int* out_h) const
+    virtual int64_t GetWindowDisplayIndex() const { return -1; }
+    virtual int64_t GetNumVideoDisplays() const { return 0; }
+    virtual int64_t GetDesktopDisplayMode(int64_t /*display*/, int64_t* out_w, int64_t* out_h) const
     {
         if (out_w) *out_w = 0;
         if (out_h) *out_h = 0;
         return -1;
     }
-    virtual int GetDisplayBounds(int /*display*/, int* out_x, int* out_y, int* out_w, int* out_h) const
+    virtual int64_t GetDisplayBounds(int64_t /*display*/, int64_t* out_x, int64_t* out_y, int64_t* out_w, int64_t* out_h) const
     {
         if (out_x) *out_x = 0;
         if (out_y) *out_y = 0;
@@ -70,18 +71,18 @@ public:
         if (out_h) *out_h = 0;
         return -1;
     }
-    virtual int GetClosestDisplayMode(int /*display*/, int /*desired_w*/, int /*desired_h*/, int* out_w, int* out_h) const
+    virtual int64_t GetClosestDisplayMode(int64_t /*display*/, int64_t /*desired_w*/, int64_t /*desired_h*/, int64_t* out_w, int64_t* out_h) const
     {
         if (out_w) *out_w = 0;
         if (out_h) *out_h = 0;
         return 0;
     }
-    virtual int SetWindowDisplayMode(int /*w*/, int /*h*/) { return -1; }
-    virtual void SetWindowSize(int /*w*/, int /*h*/) {}
-    virtual int SetWindowFullscreen(unsigned int /*flags*/) { return -1; }
-    virtual void SetWindowBordered(int /*bordered*/) {}
-    virtual void SetWindowPosition(int /*x*/, int /*y*/) {}
-    virtual bool CreateWindow(const char* /*title*/, int /*x*/, int /*y*/, int /*w*/, int /*h*/, unsigned int /*flags*/) { return false; }
+    virtual int64_t SetWindowDisplayMode(int64_t /*w*/, int64_t /*h*/) { return -1; }
+    virtual void SetWindowSize(int64_t /*w*/, int64_t /*h*/) {}
+    virtual int64_t SetWindowFullscreen(uint64_t /*flags*/) { return -1; }
+    virtual void SetWindowBordered(int64_t /*bordered*/) {}
+    virtual void SetWindowPosition(int64_t /*x*/, int64_t /*y*/) {}
+    virtual bool CreateWindow(const char* /*title*/, int64_t /*x*/, int64_t /*y*/, int64_t /*w*/, int64_t /*h*/, uint64_t /*flags*/) { return false; }
 
     /** Recreate the window without SDL_WINDOW_OPENGL so that SDL_GetWindowSurface()
      *  can be used for software rendering.  No-op (returns true) on platforms where
@@ -97,7 +98,7 @@ public:
 
     /** Returns the refresh rate (Hz) of the display the game window is on.
      *  Returns 0 when unavailable or not applicable (consoles with fixed rate). */
-    virtual int GetDisplayRefreshRate() const { return 0; }
+    virtual int64_t GetDisplayRefreshRate() const { return 0; }
 
     /** Number of distinct fullscreen resolutions (width x height,
      *  deduplicated across refresh rates -- callers only want a resolution
@@ -105,12 +106,12 @@ public:
      *  display <= 0 means the primary display. 0 when unavailable.
      *  docs/refactor/renderer/04-imgui-gui-foundation.md §6.2/Phase G:
      *  backs the INGAME_RES settings-screen picker. */
-    virtual int GetFullscreenDisplayModeCount(int /*display*/) const { return 0; }
+    virtual int64_t GetFullscreenDisplayModeCount(int64_t /*display*/) const { return 0; }
     /** Fills out_w/out_h with the index'th distinct resolution (0-based, in
      *  whatever order the platform reports them -- SDL: largest first) for
      *  the given display. Returns false (leaving out_w/out_h at 0) if index
      *  is out of range. */
-    virtual bool GetFullscreenDisplayModeAt(int /*display*/, int /*index*/, int* out_w, int* out_h) const
+    virtual bool GetFullscreenDisplayModeAt(int64_t /*display*/, int64_t /*index*/, int64_t* out_w, int64_t* out_h) const
     {
         if (out_w) *out_w = 0;
         if (out_h) *out_h = 0;

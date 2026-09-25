@@ -47,24 +47,24 @@ enum CubePropertiesFlags {
 
 struct CubeConfigStats {
     char code_name[COMMAND_WORD_LEN];
-    unsigned short texture_id[CUBE_TEXTURES];
+    int64_t texture_id[CUBE_TEXTURES];
     unsigned char ownershipGroup;
     PlayerNumber owner;
     unsigned char properties_flags;
 };
 
 struct CubesConfig {
-    int32_t cube_types_count;
+    int64_t cube_types_count;
     struct CubeConfigStats cube_cfgstats[CUBE_ITEMS_MAX];
-    unsigned short cube_bits[CUBE_OWNERSHIP_GROUPS][CUBE_COLOURS_COUNT];
+    int64_t cube_bits[CUBE_OWNERSHIP_GROUPS][CUBE_COLOURS_COUNT];
 };
 
 /******************************************************************************/
 extern const struct ConfigFileData keeper_cubes_file_data;
 extern struct NamedCommand cubes_desc[CUBE_ITEMS_MAX];
 /******************************************************************************/
-struct CubeConfigStats *get_cube_model_stats(long model);
-const char *cube_code_name(long model);
+struct CubeConfigStats *get_cube_model_stats(int64_t model);
+const char *cube_code_name(int64_t model);
 ThingModel cube_model_id(const char *code_name);
 // Had real external linkage but no header declaration at all -- added,
 // the usual "add the missing declaration" fix.

@@ -9,7 +9,7 @@
 #ifdef __cplusplus
 #  include "renderer/IRenderer.h"
 #else
-typedef int RendererType;
+typedef int64_t RendererType;
 #  define RENDERER_INVALID  (-1)
 #  define RENDERER_AUTO     0
 #  define RENDERER_SOFTWARE 1
@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 // Lifecycle: initialise the requested backend (nonzero on success) / shut it down.
-int          RendererInit(RendererType type);
+int64_t          RendererInit(RendererType type);
 void         RendererShutdown(void);
 RendererType RendererGetActiveType(void);
 
@@ -65,11 +65,11 @@ TbPixel* RendererGetFramebuffer(void);
 // Callers still save/restore the graphics *window* (the clip rect within
 // the target) separately via LbScreenStoreGraphicsWindow()/
 // LbScreenLoadGraphicsWindow() -- this pair only owns the target identity.
-TbPixel* RendererSwapFramebufferTarget(TbPixel *target, uint32_t width, uint32_t height);
+TbPixel* RendererSwapFramebufferTarget(TbPixel *target, uint64_t width, uint64_t height);
 void RendererRestoreFramebufferTarget(TbPixel *previous_target);
 
 // Save the current frame to a file via the active backend (fmt: 1=PNG, 2=BMP).
-TbBool RendererScheduleScreenshot(const char* path, int fmt);
+TbBool RendererScheduleScreenshot(const char* path, int64_t fmt);
 
 // Phase A proof-of-concept only: show imgui_demo.cpp's demo window so the
 // backend wiring can be exercised interactively (§7 Phase A exit criteria).
@@ -93,7 +93,7 @@ void RendererRunImGuiFrameCallback(void);
 // absolute position meaningless near a window edge). fn's out_x/out_y are
 // real window pixels, matching where the game's own cursor sprite draws
 // (e.g. kfx_frontend's GetMouseX()/GetMouseY()).
-typedef void (*RendererMousePositionFn)(long *out_x, long *out_y);
+typedef void (*RendererMousePositionFn)(int64_t *out_x, int64_t *out_y);
 void RendererSetMousePositionCallback(RendererMousePositionFn fn);
 
 // Draws the game's own cursor sprite over ImGui content instead of ImGui's
@@ -123,13 +123,13 @@ TbBool RendererScreenOwned(void);
 // kfx_frontend (which owns imgui.h usage per §3.1/§5.2) never needs to
 // reach into gui/ImGuiContext.h directly, matching every other ImGui-
 // adjacent entry point on this file.
-void* RendererCreateDynamicTexture(int width, int height);
-void RendererUpdateDynamicTexture(void *texture, const void *rgba_data, int width, int height);
+void* RendererCreateDynamicTexture(int64_t width, int64_t height);
+void RendererUpdateDynamicTexture(void *texture, const void *rgba_data, int64_t width, int64_t height);
 void RendererDestroyDynamicTexture(void *texture);
 
 // Screen lifecycle (window + draw surface).
 TbResult RendererSetupScreen(TbScreenMode mode, TbScreenCoord width, TbScreenCoord height,
-    unsigned char *palette, short buffers_count, TbBool wscreen_vid);
+    unsigned char *palette, int64_t buffers_count, TbBool wscreen_vid);
 TbResult RendererResetScreen(TbBool exiting_application);
 TbResult RendererScreenInitialize(void);
 TbResult RendererSetDoubleBuffering(TbBool state);
@@ -137,7 +137,7 @@ TbResult RendererSetDoubleBuffering(TbBool state);
 // Current draw colour — ambient draw-call state, held off lbDisplay.  will be removing in the future, just for now it keeps the pr small
 // Text. LbTextDrawResized routes here so the active backend can record the
 // draw for this frame or draw it now.
-TbBool RendererTextDrawResized(int posx, int posy, int units_per_px, const char *text);
+TbBool RendererTextDrawResized(int64_t posx, int64_t posy, int64_t units_per_px, const char *text);
 
 // gui_draw.h (kfx_frontend) -- draw_slab64k_background_immediate is
 // kfx_frontend's actual tile-drawing code, used as the immediate-mode
@@ -147,7 +147,7 @@ TbBool RendererTextDrawResized(int posx, int posy, int units_per_px, const char 
 // mirroring bflib_inputctrl.h's InputFocusPredicates and
 // bflib_sndlib.h's SoundStateCallbacks.
 struct RendererDrawCallbacks {
-    void (*draw_slab_background_immediate)(long pos_x, long pos_y, long width, long height);
+    void (*draw_slab_background_immediate)(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height);
 };
 void set_renderer_draw_callbacks(const struct RendererDrawCallbacks *callbacks);
 extern const struct RendererDrawCallbacks *renderer_draw_callbacks;
@@ -155,23 +155,23 @@ extern const struct RendererDrawCallbacks *renderer_draw_callbacks;
 // Sprites. The Lb* entry points route here so the active backend can record the
 // draw for this frame or draw it now.
 struct TbSprite;
-TbResult RendererDrawBox(int32_t x, int32_t y, uint32_t width, uint32_t height, TbPixel colour);
-void RendererDrawSlabBackground(int32_t x, int32_t y, int32_t width, int32_t height);
-TbResult RendererSpriteDraw(int32_t x, int32_t y, const struct TbSprite *spr);
-TbResult RendererSpriteDrawOneColour(int32_t x, int32_t y, const struct TbSprite *spr, TbPixel colour);
-TbResult RendererSpriteDrawScaled(int32_t x, int32_t y, const struct TbSprite *spr, int32_t w, int32_t h);
-TbResult RendererSpriteDrawScaledOneColour(int32_t x, int32_t y, const struct TbSprite *spr, int32_t w, int32_t h, TbPixel colour);
-int      RendererSpriteDrawScaledRemap(int32_t x, int32_t y, const struct TbSprite *spr, int32_t w, int32_t h, const TbPixel *cmap);
+TbResult RendererDrawBox(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixel colour);
+void RendererDrawSlabBackground(int64_t x, int64_t y, int64_t width, int64_t height);
+TbResult RendererSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr);
+TbResult RendererSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, TbPixel colour);
+TbResult RendererSpriteDrawScaled(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h);
+TbResult RendererSpriteDrawScaledOneColour(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h, TbPixel colour);
+int64_t      RendererSpriteDrawScaledRemap(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h, const TbPixel *cmap);
 
 unsigned char RendererGetDrawColour(void);
 void RendererSetDrawColour(unsigned char colour);
 
 // Current draw flags (TbDrawFlags bitmask) — ambient draw-call state, held off lbDisplay.
-unsigned short RendererGetDrawFlags(void);
-void RendererSetDrawFlags(unsigned short flags);   // = flags
-void RendererAddDrawFlags(unsigned short flags);    // |= flags
-void RendererClearDrawFlags(unsigned short flags);  // &= ~flags
-void RendererToggleDrawFlags(unsigned short flags); // ^= flags
+int64_t RendererGetDrawFlags(void);
+void RendererSetDrawFlags(int64_t flags);   // = flags
+void RendererAddDrawFlags(int64_t flags);    // |= flags
+void RendererClearDrawFlags(int64_t flags);  // &= ~flags
+void RendererToggleDrawFlags(int64_t flags); // ^= flags
 
 #ifdef __cplusplus
 }

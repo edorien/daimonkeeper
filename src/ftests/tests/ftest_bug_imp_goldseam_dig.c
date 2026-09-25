@@ -65,7 +65,7 @@ FTestActionResult ftest_bug_imp_goldseam_dig_action001__map_setup(struct FTestAc
 
     // store/broadcast the gold stored in a single tile
     vars->game_gold_amount = get_slab_kind_stats(SlbT_GOLD)->gold_held;
-    message_add_fmt(MsgType_Player, PLAYER0, "Game gold per gold block: %d", vars->game_gold_amount);
+    message_add_fmt(MsgType_Player, PLAYER0, "Game gold per gold block: %" PRId64, (int64_t)(vars->game_gold_amount));
 
     return FTRs_Go_To_Next_Action;
 }
@@ -89,7 +89,7 @@ FTestActionResult ftest_bug_imp_goldseam_dig_action002__send_imp_to_dig(struct F
     // store/report the blocks health to user
     struct SlabConfigStats *slbattr = get_slab_stats(slabMapBlock);
     HitPoints goldBlockHealth = kfx_sim_state.block_health[slbattr->block_health_index];
-    message_add_fmt(MsgType_Player, PLAYER0, "Gold block at (%d,%d) has %d health", slb_x_gold_block, slb_y_gold_block, goldBlockHealth);
+    message_add_fmt(MsgType_Player, PLAYER0, "Gold block at (%" PRId64 ",%" PRId64 ") has %" PRId64 " health", (int64_t)(slb_x_gold_block), (int64_t)(slb_y_gold_block), (int64_t)(goldBlockHealth));
 
     // mark the block for digging
     TbResult markForDigResult = game_action(PLAYER0, GA_MarkDig, 0, slab_subtile_center(slb_x_gold_block), slab_subtile_center(slb_y_gold_block), 1, 1);
@@ -116,10 +116,10 @@ FTestActionResult ftest_bug_imp_goldseam_dig_action003__end_test(struct FTestAct
     }
     
     // report total gold
-    message_add_fmt(MsgType_Player, PLAYER0, "Imp returned %d gold", dungeon->total_money_owned);
+    message_add_fmt(MsgType_Player, PLAYER0, "Imp returned %" PRId64 " gold", (int64_t)(dungeon->total_money_owned));
     if(dungeon->total_money_owned != vars->game_gold_amount)
     {
-        FTEST_FAIL_TEST("Goldseams have %d gold, but imp returned %d gold!", vars->game_gold_amount, dungeon->total_money_owned);
+        FTEST_FAIL_TEST("Goldseams have %" PRId64 " gold, but imp returned %" PRId64 " gold!", (int64_t)(vars->game_gold_amount), (int64_t)(dungeon->total_money_owned));
         return FTRs_Go_To_Next_Action;
     }
 

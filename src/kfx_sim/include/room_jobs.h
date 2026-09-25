@@ -55,12 +55,12 @@ TbBool creature_setup_random_move_for_job_in_room_f(struct Thing *creatng, struc
 #define creature_setup_random_move_for_job_in_room(creatng, room, jobpref, nav_flags) creature_setup_random_move_for_job_in_room_f(creatng, room, jobpref, nav_flags, __func__)
 
 // Sending to rooms and moving within rooms - other methods
-short send_creature_to_room(struct Thing *creatng, struct Room *room, CreatureJob jobpref);
+int64_t send_creature_to_room(struct Thing *creatng, struct Room *room, CreatureJob jobpref);
 TbBool setup_random_head_for_room(struct Thing *thing, struct Room *room, unsigned char flags);
 
 struct Thing *find_object_in_room_for_creature_matching_bool_filter(struct Thing *creatng, const struct Room *room, Thing_Bool_Filter matcher_cb);
 
-int worker_needed_in_dungeons_room_role(const struct Dungeon *dungeon, RoomRole rrole);
+int64_t worker_needed_in_dungeons_room_role(const struct Dungeon *dungeon, RoomRole rrole);
 /******************************************************************************/
 #ifdef __cplusplus
 }

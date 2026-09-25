@@ -41,10 +41,10 @@ extern "C" {
 unsigned char block_mem[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_STAT_COUNT * 32 * 32];
 unsigned char *block_ptrs[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT];
 
-long block_dimension = 32;
-long block_count_per_row = 8;
+int64_t block_dimension = 32;
+int64_t block_count_per_row = 8;
 
-static long anim_counter;
+static int64_t anim_counter;
 /******************************************************************************/
 #ifdef __cplusplus
 }
@@ -54,15 +54,15 @@ void setup_texture_block_mem(void)
 {
     unsigned char** dst = block_ptrs;
     unsigned char* src  = block_mem;
-    for (int i = 0; i < (TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT); i++)
+    for (int64_t i = 0; i < (TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT); i++)
     {
         block_ptrs[i] = block_mem + block_dimension;
     }
-    for (int f = 0; f < TEXTURE_VARIATIONS_COUNT; f++)
+    for (int64_t f = 0; f < TEXTURE_VARIATIONS_COUNT; f++)
     {
-        for (int i = 0; i < TEXTURE_BLOCKS_STAT_COUNT_A / block_count_per_row; i++)
+        for (int64_t i = 0; i < TEXTURE_BLOCKS_STAT_COUNT_A / block_count_per_row; i++)
         {
-            for (unsigned long k = 0; k < block_count_per_row; k++)
+            for (uint64_t k = 0; k < block_count_per_row; k++)
             {
                 *dst = src;
                 src += block_dimension;
@@ -72,9 +72,9 @@ void setup_texture_block_mem(void)
         }
         dst += TEXTURE_BLOCKS_ANIM_COUNT;
 
-        for (int i = 0; i < TEXTURE_BLOCKS_STAT_COUNT_B / block_count_per_row; i++)
+        for (int64_t i = 0; i < TEXTURE_BLOCKS_STAT_COUNT_B / block_count_per_row; i++)
         {
-            for (unsigned long k = 0; k < block_count_per_row; k++)
+            for (uint64_t k = 0; k < block_count_per_row; k++)
             {
                 *dst = src;
                 src += block_dimension;
@@ -86,25 +86,25 @@ void setup_texture_block_mem(void)
     }
 }
 
-short init_animating_texture_maps(void)
+int64_t init_animating_texture_maps(void)
 {
     SYNCDBG(8,"Starting");
     anim_counter = TEXTURE_BLOCKS_ANIM_FRAMES-1;
     return update_animating_texture_maps();
 }
 
-short update_animating_texture_maps(void)
+int64_t update_animating_texture_maps(void)
 {
   SYNCDBG(18,"Starting");
   unsigned char** dst = block_ptrs;
-  short result=true;
+  int64_t result=true;
 
   anim_counter = (anim_counter+1) % TEXTURE_BLOCKS_ANIM_FRAMES;
-  for (int f = 0; f < TEXTURE_VARIATIONS_COUNT; f++)
+  for (int64_t f = 0; f < TEXTURE_VARIATIONS_COUNT; f++)
   {
-      for (int i = 0; i < TEXTURE_BLOCKS_ANIM_COUNT; i++)
+      for (int64_t i = 0; i < TEXTURE_BLOCKS_ANIM_COUNT; i++)
       {
-          short j = kfx_config_state.texture_animation[TEXTURE_BLOCKS_ANIM_FRAMES*i+anim_counter];
+          int64_t j = kfx_config_state.texture_animation[TEXTURE_BLOCKS_ANIM_FRAMES*i+anim_counter];
           if (((j>=0) && (j<TEXTURE_BLOCKS_STAT_COUNT_A)) ||
               ((j>=TEX_B_START_POINT) && (j<(TEX_B_START_POINT + TEXTURE_BLOCKS_STAT_COUNT_B))))
           {
@@ -120,7 +120,7 @@ short update_animating_texture_maps(void)
   return result;
 }
 
-static char *prepare_letter_one_file_path_for_mod(unsigned long tmapidx, char letter, LevelNumber lvnum, short fgroup, const struct ModConfigItem *mod_item)
+static char *prepare_letter_one_file_path_for_mod(uint64_t tmapidx, char letter, LevelNumber lvnum, int64_t fgroup, const struct ModConfigItem *mod_item)
 {
     // Note that this is the reverse mods direction
 
@@ -131,21 +131,21 @@ static char *prepare_letter_one_file_path_for_mod(unsigned long tmapidx, char le
 
     if (mod_state->cmpg_lvls)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05lu.tmap%c%03lu.dat", (unsigned long)lvnum, letter, tmapidx);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05" PRIu64 ".tmap%c%03" PRIu64 ".dat", (uint64_t)lvnum, (int)(letter), (uint64_t)(tmapidx));
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
 
     if (mod_state->cmpg_config)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgConfig, "tmap%c%03lu.dat", letter, tmapidx);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgConfig, "tmap%c%03" PRIu64 ".dat", (int)(letter), (uint64_t)(tmapidx));
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
 
     if (mod_state->std_data)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_StdData, "tmap%c%03lu.dat", letter, tmapidx);
+        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_StdData, "tmap%c%03" PRIu64 ".dat", (int)(letter), (uint64_t)(tmapidx));
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
@@ -153,10 +153,10 @@ static char *prepare_letter_one_file_path_for_mod(unsigned long tmapidx, char le
     return NULL;
 }
 
-static char *prepare_letter_one_file_path_for_mod_list(unsigned long tmapidx, char letter, LevelNumber lvnum, short fgroup, const struct ModConfigItem *mod_items, long mod_cnt)
+static char *prepare_letter_one_file_path_for_mod_list(uint64_t tmapidx, char letter, LevelNumber lvnum, int64_t fgroup, const struct ModConfigItem *mod_items, int64_t mod_cnt)
 {
     // Note that this is the reverse mods direction
-    for (long i=mod_cnt-1; i>=0; i--)
+    for (int64_t i=mod_cnt-1; i>=0; i--)
     {
         const struct ModConfigItem *mod_item = mod_items + i;
         if (mod_item->state.mod_dir == 0)
@@ -170,7 +170,7 @@ static char *prepare_letter_one_file_path_for_mod_list(unsigned long tmapidx, ch
     return NULL;
 }
 
-static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, LevelNumber lvnum, short fgroup)
+static char *prepare_letter_one_file_path(uint64_t tmapidx, char letter, LevelNumber lvnum, int64_t fgroup)
 {
     // Note that this is the reverse mods direction
     char* fname = NULL;
@@ -181,7 +181,7 @@ static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, Le
             return fname;
     }
 
-    fname = prepare_file_fmtpath(fgroup, "map%05lu.tmap%c%03lu.dat",(unsigned long)lvnum, letter, tmapidx);
+    fname = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".tmap%c%03" PRIu64 ".dat",(uint64_t)lvnum, (int)(letter), (uint64_t)(tmapidx));
     if (LbFileExists(fname))
         return fname;
 
@@ -192,7 +192,7 @@ static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, Le
             return fname;
     }
 
-    fname = prepare_file_fmtpath(FGrp_CmpgConfig, "tmap%c%03lu.dat", letter, tmapidx);
+    fname = prepare_file_fmtpath(FGrp_CmpgConfig, "tmap%c%03" PRIu64 ".dat", (int)(letter), (uint64_t)(tmapidx));
     if (LbFileExists(fname))
         return fname;
 
@@ -203,17 +203,17 @@ static char *prepare_letter_one_file_path(unsigned long tmapidx, char letter, Le
             return fname;
     }
 
-    fname = prepare_file_fmtpath(FGrp_StdData, "tmap%c%03lu.dat", letter, tmapidx);
+    fname = prepare_file_fmtpath(FGrp_StdData, "tmap%c%03" PRIu64 ".dat", (int)(letter), (uint64_t)(tmapidx));
     return fname;
 }
 
-TbBool texture_pack_available(unsigned long tmapidx, LevelNumber lvnum, short fgroup)
+TbBool texture_pack_available(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup)
 {
     char* fname = prepare_letter_one_file_path(tmapidx, 'a', lvnum, fgroup);
     return (fname != NULL) && LbFileExists(fname);
 }
 
-static TbBool load_letter_one_file(unsigned long tmapidx, char letter, void *dst, LevelNumber lvnum, short fgroup)
+static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, LevelNumber lvnum, int64_t fgroup)
 {
     SYNCDBG(9,"Starting");
 
@@ -233,7 +233,7 @@ static TbBool load_letter_one_file(unsigned long tmapidx, char letter, void *dst
     return true;
 }
 
-TbBool load_texture_map_file(unsigned long tmapidx, LevelNumber lvnum, short fgroup)
+TbBool load_texture_map_file(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup)
 {
     SYNCDBG(7,"Starting");
     memset(block_mem, 130, sizeof(block_mem));
@@ -245,7 +245,7 @@ TbBool load_texture_map_file(unsigned long tmapidx, LevelNumber lvnum, short fgr
     load_letter_one_file(tmapidx,'b', dst, lvnum, fgroup);
     dst += (TEXTURE_BLOCKS_STAT_COUNT_B * 32 * 32);
 
-    for (int i = 0; i < TEXTURE_VARIATIONS_COUNT-1; i++)
+    for (int64_t i = 0; i < TEXTURE_VARIATIONS_COUNT-1; i++)
 
     {
         load_letter_one_file(i,'a', dst, lvnum, fgroup);
@@ -258,15 +258,15 @@ TbBool load_texture_map_file(unsigned long tmapidx, LevelNumber lvnum, short fgr
     return true;
 }
 
-void scale_tmap2(long texture_block_index, long flags, long fade_level, long screen_x, long screen_y, long scaled_width, long scaled_height)
+void scale_tmap2(int64_t texture_block_index, int64_t flags, int64_t fade_level, int64_t screen_x, int64_t screen_y, int64_t scaled_width, int64_t scaled_height)
 {
     if ((scaled_width == 0) || (scaled_height == 0)) {
         return;
     }
-    long xstart;
-    long ystart;
-    long xend;
-    long yend;
+    int64_t xstart;
+    int64_t ystart;
+    int64_t xend;
+    int64_t yend;
     char orient;
     switch (flags)
     {
@@ -329,8 +329,8 @@ void scale_tmap2(long texture_block_index, long flags, long fade_level, long scr
     default:
           return;
     }
-    long local_screen_x;
-    long local_screen_y;
+    int64_t local_screen_x;
+    int64_t local_screen_y;
     local_screen_x = screen_x;
     if (local_screen_x < 0)
     {
@@ -365,18 +365,18 @@ void scale_tmap2(long texture_block_index, long flags, long fade_level, long scr
             return;
         }
     }
-    int i;
-    int32_t hlimits[480];
-    int32_t wlimits[640];
-    int32_t *xlim;
-    int32_t *ylim;
+    int64_t i;
+    int64_t hlimits[480];
+    int64_t wlimits[640];
+    int64_t *xlim;
+    int64_t *ylim;
     TbPixel *dbuf;
     unsigned char *block;
     const unsigned char *const palette = RendererGetActivePalette();
     /* Captured once per call, not per pixel -- the rasterizer's own render
      * target, as last configured by setup_vecs(); see SwDrawTarget.h. */
     TbPixel *const vscreen = SwTargetVecScreen();
-    const unsigned long vscreen_width = SwTargetVecScreenWidth();
+    const uint64_t vscreen_width = SwTargetVecScreenWidth();
     if (!orient)
     {
         xlim = wlimits;
@@ -396,10 +396,10 @@ void scale_tmap2(long texture_block_index, long flags, long fade_level, long scr
         dbuf = &vscreen[local_screen_x + local_screen_y * vscreen_width];
         block = block_ptrs[texture_block_index];
         ylim = hlimits;
-        long px;
-        long py;
-        int srcx;
-        int srcy;
+        int64_t px;
+        int64_t py;
+        int64_t srcx;
+        int64_t srcy;
         TbPixel *d;
         if ( fade_level >= 0 )
         {
@@ -455,10 +455,10 @@ void scale_tmap2(long texture_block_index, long flags, long fade_level, long scr
         dbuf = &vscreen[local_screen_x + local_screen_y * vscreen_width];
         block = block_ptrs[texture_block_index];
         ylim = wlimits;
-        long px;
-        long py;
-        int srcx;
-        int srcy;
+        int64_t px;
+        int64_t py;
+        int64_t srcx;
+        int64_t srcy;
         TbPixel *d;
         if ( fade_level >= 0 )
         {
@@ -498,7 +498,7 @@ void scale_tmap2(long texture_block_index, long flags, long fade_level, long scr
     }
 }
 
-void draw_texture(int32_t texture_x, int32_t texture_y, int32_t texture_width, int32_t texture_height, int32_t texture_block_index, int32_t flags, int32_t fade_level)
+void draw_texture(int64_t texture_x, int64_t texture_y, int64_t texture_width, int64_t texture_height, int64_t texture_block_index, int64_t flags, int64_t fade_level)
 {
     scale_tmap2(texture_block_index, flags, fade_level, texture_x / pixel_size, texture_y / pixel_size, texture_width / pixel_size, texture_height / pixel_size);
 }

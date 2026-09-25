@@ -36,10 +36,10 @@ struct Thing;
 TbBool creature_able_to_eat(const struct Thing *creatng);
 TbBool hunger_is_creature_hungry(const struct Thing *creatng);
 
-short creature_arrived_at_garden(struct Thing *thing);
-short creature_eat(struct Thing *thing);
-short creature_eating_at_garden(struct Thing *thing);
-short creature_to_garden(struct Thing *thing);
+int64_t creature_arrived_at_garden(struct Thing *thing);
+int64_t creature_eat(struct Thing *thing);
+int64_t creature_eating_at_garden(struct Thing *thing);
+int64_t creature_to_garden(struct Thing *thing);
 /******************************************************************************/
 #ifdef __cplusplus
 }

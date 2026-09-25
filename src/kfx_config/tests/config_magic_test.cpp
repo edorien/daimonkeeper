@@ -98,7 +98,7 @@ TEST_CASE_METHOD(ResetConfigState, "load_magic_config_file maps a [power0] block
     CHECK(std::strcmp(powerst->code_name, "POWER_TEST") == 0);
     CHECK(powerst->duration == 100);
     CHECK(powerst->cost_formula == Cost_Default);
-    for (int i = 0; i < MAGIC_OVERCHARGE_LEVELS; i++) {
+    for (int64_t i = 0; i < MAGIC_OVERCHARGE_LEVELS; i++) {
         CHECK(powerst->cost[i] == (i + 1) * 10);
     }
 }
@@ -116,7 +116,7 @@ TEST_CASE_METHOD(ResetConfigState, "load_magic_config_file's [power0] Power fiel
     // just wrote -- not something this test works around, it's the
     // documented intent of that custom assign function.
     struct PowerConfigStats *powerst = get_power_model_stats(0);
-    for (int i = 0; i < 8; i++) {
+    for (int64_t i = 0; i < 8; i++) {
         CHECK(powerst->strength[i] == i + 1);
     }
     CHECK(powerst->strength[8] == 9);
@@ -246,7 +246,7 @@ TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_power_available with
     // so is_power_available(...) is false and the add-power path is reached.
     set_dungeon_availability_callbacks(&fake);
 
-    static int add_calls = 0;
+    static int64_t add_calls = 0;
     add_calls = 0;
     set_power_grant_revoke_callbacks(
         [](PowerKind, PlayerNumber) -> TbBool { add_calls++; return true; },
@@ -305,7 +305,7 @@ TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "make_available_all_resea
     fake_da.get_magic_resrchable = [](PlayerNumber, PowerKind pwkind) -> TbBool { return pwkind == 1; };
     set_dungeon_availability_callbacks(&fake_da);
 
-    static int granted_power = -1;
+    static int64_t granted_power = -1;
     granted_power = -1;
     set_power_grant_revoke_callbacks(
         [](PowerKind pwkind, PlayerNumber) -> TbBool { granted_power = pwkind; return true; },

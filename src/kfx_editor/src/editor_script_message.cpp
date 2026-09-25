@@ -13,6 +13,7 @@
  *     ("overwritten by different text") on reuse, so uniqueness is advice,
  *     not a hard rule.
  */
+#include <stdint.h>
 #include "pre_inc.h"
 #include "editor_script_message.h"
 #include "post_inc.h"
@@ -65,7 +66,7 @@ bool is_identifier(const std::string &s)
 }
 
 // Message numbers used by one script line, or -1.
-int message_number_in_line(const std::string &raw_line)
+int64_t message_number_in_line(const std::string &raw_line)
 {
     std::string line = trim(raw_line);
     if (line.compare(0, 3, "REM") == 0)
@@ -96,12 +97,12 @@ int message_number_in_line(const std::string &raw_line)
 
 } // namespace
 
-const char *editor_script_message_command(int kind)
+const char *editor_script_message_command(int64_t kind)
 {
     return (kind == MsgKind_Information) ? "QUICK_INFORMATION" : "QUICK_OBJECTIVE";
 }
 
-std::string editor_script_format_message(int kind, int number, const std::string &text, const std::string &location)
+std::string editor_script_format_message(int64_t kind, int64_t number, const std::string &text, const std::string &location)
 {
     std::string clean;
     for (char c : text)
@@ -124,7 +125,7 @@ std::string editor_script_format_message(int kind, int number, const std::string
     return out;
 }
 
-bool editor_script_message_number_used(const std::string &script_text, int number)
+bool editor_script_message_number_used(const std::string &script_text, int64_t number)
 {
     for (const std::string &line : split_lines(script_text))
         if (message_number_in_line(line) == number)
@@ -132,16 +133,16 @@ bool editor_script_message_number_used(const std::string &script_text, int numbe
     return false;
 }
 
-int editor_script_next_message_number(const std::string &script_text)
+int64_t editor_script_next_message_number(const std::string &script_text)
 {
     std::vector<bool> used(kScriptMessageCount, false);
     for (const std::string &line : split_lines(script_text))
     {
-        int n = message_number_in_line(line);
+        int64_t n = message_number_in_line(line);
         if (n >= 0 && n < kScriptMessageCount)
             used[n] = true;
     }
-    for (int i = 0; i < kScriptMessageCount; i++)
+    for (int64_t i = 0; i < kScriptMessageCount; i++)
         if (!used[i])
             return i;
     return -1;

@@ -48,7 +48,7 @@ TEST_CASE_METHOD(ResetConfigState, "load_cubes_config_file maps a cube block's N
 
     struct CubeConfigStats *stat = get_cube_model_stats(0);
     CHECK(std::strcmp(stat->code_name, "CUBE_A") == 0);
-    for (int i = 0; i < CUBE_TEXTURES; i++) {
+    for (int64_t i = 0; i < CUBE_TEXTURES; i++) {
         CHECK(stat->texture_id[i] == i + 1);
     }
     CHECK(stat->properties_flags == (CPF_IsLava | CPF_IsWater));

@@ -38,8 +38,8 @@ extern "C" {
 
 void update(void);
 void find_frame_rate(void);
-void packet_load_find_frame_rate(unsigned long incr);
-short display_should_be_updated_this_turn(void);
+void packet_load_find_frame_rate(uint64_t incr);
+int64_t display_should_be_updated_this_turn(void);
 TbBool keeper_screen_swap(void);
 TbBool keeper_wait_for_next_turn(void);
 void keeper_gameplay_loop(void);
@@ -62,7 +62,7 @@ extern long double host_packet_received;
 // as get_interpolate_time -- kfx_render's engine_render.c reads this
 // per-frame interpolation fraction. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-extern float interpolate_time;
+extern double interpolate_time;
 /******************************************************************************/
 #ifdef __cplusplus
 }

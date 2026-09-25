@@ -41,14 +41,14 @@ extern "C" {
 }
 #endif
 /******************************************************************************/
-struct GoldLookup *get_gold_lookup(long idx)
+struct GoldLookup *get_gold_lookup(int64_t idx)
 {
     return &kfx_sim_state.gold_lookup[idx];
 }
 
-long gold_lookup_index(const struct GoldLookup *gldlook)
+int64_t gold_lookup_index(const struct GoldLookup *gldlook)
 {
-    long i = ((char*)gldlook - (char*)&kfx_sim_state.gold_lookup[0]);
+    int64_t i = ((char*)gldlook - (char*)&kfx_sim_state.gold_lookup[0]);
     if ( (i < 0) || (i >= GOLD_LOOKUP_COUNT*sizeof(struct GoldLookup)) )
         return 0;
     return i / sizeof(struct GoldLookup);
@@ -61,12 +61,12 @@ long gold_lookup_index(const struct GoldLookup *gldlook)
  * @param higher_gem_slabs
  * @return
  */
-long smaller_gold_vein_lookup_idx(long higher_gold_slabs, long higher_gem_slabs)
+int64_t smaller_gold_vein_lookup_idx(int64_t higher_gold_slabs, int64_t higher_gem_slabs)
 {
-    long gold_slabs = higher_gold_slabs;
-    long gem_slabs = higher_gem_slabs;
-    long gold_idx = -1;
-    for (long i = 0; i < GOLD_LOOKUP_COUNT; i++)
+    int64_t gold_slabs = higher_gold_slabs;
+    int64_t gem_slabs = higher_gem_slabs;
+    int64_t gold_idx = -1;
+    for (int64_t i = 0; i < GOLD_LOOKUP_COUNT; i++)
     {
         struct GoldLookup* gldlook = get_gold_lookup(i);
         if (gldlook->num_gem_slabs == gem_slabs)
@@ -87,21 +87,21 @@ long smaller_gold_vein_lookup_idx(long higher_gold_slabs, long higher_gem_slabs)
     return gold_idx;
 }
 
-void check_treasure_map(unsigned char *treasure_map, unsigned short *vein_list, int32_t *gold_next_idx, MapSlabCoord veinslb_x, MapSlabCoord veinslb_y)
+void check_treasure_map(unsigned char *treasure_map, int64_t *vein_list, int64_t *gold_next_idx, MapSlabCoord veinslb_x, MapSlabCoord veinslb_y)
 {
-    long gold_idx;
+    int64_t gold_idx;
     // First, find a vein
-    long vein_total = 0;
+    int64_t vein_total = 0;
     MapSlabCoord slb_x = veinslb_x;
     MapSlabCoord slb_y = veinslb_y;
-    long accumulated_x_coordinate = 0;
-    long accumulated_y_coordinate = 0;
-    long coordinate_sample_count = 0;
-    long gem_slabs = 0;
-    long gold_slabs = 0;
+    int64_t accumulated_x_coordinate = 0;
+    int64_t accumulated_y_coordinate = 0;
+    int64_t coordinate_sample_count = 0;
+    int64_t gem_slabs = 0;
+    int64_t gold_slabs = 0;
     SlabCodedCoords slb_num = get_slab_number(slb_x, slb_y);
     treasure_map[slb_num] |= 0x02;
-    for (long vein_idx = 0; vein_idx <= vein_total; vein_idx++)
+    for (int64_t vein_idx = 0; vein_idx <= vein_total; vein_idx++)
     {
         accumulated_x_coordinate += slb_x;
         accumulated_y_coordinate += slb_y;
@@ -191,17 +191,17 @@ void check_treasure_map(unsigned char *treasure_map, unsigned short *vein_list, 
         if (!(treasure_map[center_slb] & 0x02)) //Center slab is not in treasure map. Can happen on donut shaped gold veins.
         {
             // Find nearest vein slab
-            long best_dist = LONG_MAX;
+            int64_t best_dist = INT32_MAX;
 
-            for (long i = vein_total; i > 0; i--)
+            for (int64_t i = vein_total; i > 0; i--)
             {
                 MapSlabCoord vein_x = slb_num_decode_x(vein_list[i]);
                 MapSlabCoord vein_y = slb_num_decode_y(vein_list[i]);
 
-                long dx = vein_x - centerslb_x;
-                long dy = vein_y - centerslb_y;
+                int64_t dx = vein_x - centerslb_x;
+                int64_t dy = vein_y - centerslb_y;
 
-                long dist = dx * dx + dy * dy;
+                int64_t dist = dx * dx + dy * dy;
 
                 if (dist < best_dist)
                 {
@@ -216,7 +216,7 @@ void check_treasure_map(unsigned char *treasure_map, unsigned short *vein_list, 
         gldlook->stl_y = stl_y;
         gldlook->num_gold_slabs = gold_slabs;
         gldlook->num_gem_slabs = gem_slabs;
-        SYNCDBG(8,"Added vein %d at (%d,%d)",(int)gold_idx,(int)gldlook->stl_x,(int)gldlook->stl_y);
+        SYNCDBG(8,"Added vein %" PRId64 " at (%" PRId64 ",%" PRId64 ")",(int64_t)gold_idx,(int64_t)gldlook->stl_x,(int64_t)gldlook->stl_y);
     }
 }
 
@@ -229,13 +229,13 @@ void check_map_for_gold(void)
     MapSlabCoord slb_y;
     SlabCodedCoords slb_num;
     SYNCDBG(8,"Starting");
-    for (long i = 0; i < GOLD_LOOKUP_COUNT; i++)
+    for (int64_t i = 0; i < GOLD_LOOKUP_COUNT; i++)
     {
         memset(&kfx_sim_state.gold_lookup[i], 0, sizeof(struct GoldLookup));
     }
     // Make a map with treasure areas marked
     unsigned char* treasure_map = (unsigned char*)big_scratch;
-    unsigned short* vein_list = (unsigned short*)&big_scratch[kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y];
+    int64_t* vein_list = (int64_t*)&big_scratch[kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y];
     for (slb_y = 0; slb_y < kfx_sim_state.map_tiles_y; slb_y++)
     {
         for (slb_x = 0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
@@ -251,7 +251,7 @@ void check_map_for_gold(void)
         }
     }
     // Add treasures to lookup as gold veins
-    int32_t gold_next_idx = 0;
+    int64_t gold_next_idx = 0;
     for (slb_y = 0; slb_y < kfx_sim_state.map_tiles_y; slb_y++)
     {
         for (slb_x = 0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
@@ -263,7 +263,7 @@ void check_map_for_gold(void)
             }
         }
     }
-    SYNCDBG(8,"Found %d possible digging locations",gold_next_idx);
+    SYNCDBG(8,"Found %" PRId64 " possible digging locations",(int64_t)(gold_next_idx));
     kfx_sim_state.turn_last_checked_for_gold = get_gameturn();
 }
 /******************************************************************************/

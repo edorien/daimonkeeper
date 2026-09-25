@@ -39,7 +39,7 @@ struct DungeonAvailabilityCallbacks {
     TbBool (*players_num_dungeon_valid_with_heart)(PlayerNumber plyr_idx);  /* get_players_num_dungeon-based, + player_has_heart */
 
     /* config_creature.c -- creature_allowed[]/creature_force_enabled[] */
-    void (*set_creature_availability)(PlayerNumber plyr_idx, ThingModel crtr_model, long can_be_avail, long force_avail);
+    void (*set_creature_availability)(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail);
 
     /* config_objects.c -- dnheart_idx/backup_heart_idx */
     void (*try_set_backup_heart_idx)(PlayerNumber owner, ThingIndex thing_idx);
@@ -47,7 +47,7 @@ struct DungeonAvailabilityCallbacks {
     /* config_terrain.c -- room_resrchable[]/room_buildable[]; returns
        the final buildable-bit state so the caller knows whether to
        notify the player's computer AI. */
-    TbBool (*set_room_resrchable_and_buildable)(PlayerNumber plyr_idx, RoomKind rkind, long resrch, long avail);
+    TbBool (*set_room_resrchable_and_buildable)(PlayerNumber plyr_idx, RoomKind rkind, int64_t resrch, int64_t avail);
     TbBool (*get_room_resrchable)(PlayerNumber plyr_idx, RoomKind rkind);
     void (*set_all_room_resrchable)(PlayerNumber plyr_idx);
     TbBool (*get_room_buildable)(PlayerNumber plyr_idx, RoomKind rkind);
@@ -62,12 +62,12 @@ struct DungeonAvailabilityCallbacks {
     /* config_trapdoor.c -- mnfct_info.trap_/door_ fields (each entry
        does its own full validation, including the heart check where
        the original function had one, since each is used exactly once) */
-    TbBool (*get_trap_placeable)(PlayerNumber plyr_idx, long tngmodel);
-    TbBool (*get_trap_manufacturable)(PlayerNumber plyr_idx, long tngmodel);
-    TbBool (*get_trap_built)(PlayerNumber plyr_idx, long tngmodel);
-    TbBool (*get_door_placeable)(PlayerNumber plyr_idx, long door_idx);
-    TbBool (*get_door_manufacturable)(PlayerNumber plyr_idx, long door_idx);
-    TbBool (*get_door_built)(PlayerNumber plyr_idx, long door_idx);
+    TbBool (*get_trap_placeable)(PlayerNumber plyr_idx, int64_t tngmodel);
+    TbBool (*get_trap_manufacturable)(PlayerNumber plyr_idx, int64_t tngmodel);
+    TbBool (*get_trap_built)(PlayerNumber plyr_idx, int64_t tngmodel);
+    TbBool (*get_door_placeable)(PlayerNumber plyr_idx, int64_t door_idx);
+    TbBool (*get_door_manufacturable)(PlayerNumber plyr_idx, int64_t door_idx);
+    TbBool (*get_door_built)(PlayerNumber plyr_idx, int64_t door_idx);
 };
 void set_dungeon_availability_callbacks(const struct DungeonAvailabilityCallbacks *callbacks);
 extern const struct DungeonAvailabilityCallbacks *dungeon_availability;

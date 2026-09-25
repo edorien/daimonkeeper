@@ -16,7 +16,7 @@ namespace {
 // (which only ever writes Triangles[0]/Triangles[1]), so accessor tests
 // can't collide with the allocator tests below even though both share
 // the same module-level array across the whole binary.
-constexpr long kScratchTri = TRIANLGLES_COUNT - 1;
+constexpr int64_t kScratchTri = TRIANLGLES_COUNT - 1;
 
 struct ResetScratchTriangle {
     ResetScratchTriangle() {
@@ -122,7 +122,7 @@ TEST_CASE("tri_new allocates from the free list before extending ix_Triangles", 
     // edge_points_clean() both as production API and as test setup.
     triangulation_init_triangles(0, 1, 2, 3);
 
-    long a = tri_new();
+    int64_t a = tri_new();
     CHECK(a == 2); // first slot past the two seed triangles
     CHECK(ix_Triangles == 3);
     CHECK(count_Triangles == 3);
@@ -131,7 +131,7 @@ TEST_CASE("tri_new allocates from the free list before extending ix_Triangles", 
     CHECK(count_Triangles == 2);
     CHECK(get_triangle_tree_alt(a) == NAV_COL_UNSET);
 
-    long b = tri_new();
+    int64_t b = tri_new();
     CHECK(b == a); // reused from the free list, not a fresh ix_Triangles slot
     CHECK(ix_Triangles == 3); // unchanged: this allocation came from the free list
     CHECK(count_Triangles == 3);

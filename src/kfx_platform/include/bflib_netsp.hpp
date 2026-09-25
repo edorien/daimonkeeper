@@ -27,26 +27,26 @@
 /******************************************************************************/
 class ServiceProvider {
 private:
-    unsigned long nextSessionId;
+    uint64_t nextSessionId;
 protected:
     //see if these can be moved to private later
     bool started;
-    unsigned long players_count;
+    uint64_t players_count;
     struct TbNetworkPlayerEntry players[NETSP_PLAYERS_COUNT];
-    unsigned long nextPlayerId;
-    unsigned long localPlayerId; //local player ID
+    uint64_t nextPlayerId;
+    uint64_t localPlayerId; //local player ID
 
     TbError Initialise(struct ReceiveCallbacks *nCallbacks, void *context);
 
     //session management
-    struct TbNetworkSessionNameEntry *AddSession(unsigned long sess_id, const char *namestr);
+    struct TbNetworkSessionNameEntry *AddSession(uint64_t sess_id, const char *namestr);
     void ClearSessions(void);
-    long SessionIndex(unsigned long sess_id);
+    int64_t SessionIndex(uint64_t sess_id);
 
     TbError EnumeratePlayers(TbNetworkCallbackFunc callback, void *context);
-    long PlayerIndex(unsigned long plyr_id);
-    TbError AddPlayer(unsigned long plyr_id, const char *namestr, unsigned long player_flags, unsigned long unused_param);
-    TbError DeletePlayer(unsigned long plyr_id);
+    int64_t PlayerIndex(uint64_t plyr_id);
+    TbError AddPlayer(uint64_t plyr_id, const char *namestr, uint64_t player_flags, uint64_t unused_param);
+    TbError DeletePlayer(uint64_t plyr_id);
 
     /**
      * Reads a message from some player.
@@ -56,12 +56,12 @@ protected:
      * modified to contain the actual length of the message (including header).
      * @return True if a message was read (which implies there may be more to read).
      */
-    virtual bool ReadMessage(uint32_t * playerId, void * msgBuffer, uint32_t * len) = 0;
+    virtual bool ReadMessage(uint64_t * playerId, void * msgBuffer, uint64_t * len) = 0;
 
     /**
      * Same as ReadMessage but does not remove the received message (if any), which means it can still be Read.
      */
-    virtual bool PeekMessage(uint32_t * playerId, void * msgBuffer, uint32_t * len) = 0;
+    virtual bool PeekMessage(uint64_t * playerId, void * msgBuffer, uint64_t * len) = 0;
 
     /**
      * Sends a message to a specific player.
@@ -70,14 +70,14 @@ protected:
      * @param Not sure... Anyway, it can be deduced from message type.
      * @return Whether operation was a success or a failure.
      */
-    virtual TbError SendMessage(unsigned long playerId, void * msgBuffer, unsigned char) = 0;
+    virtual TbError SendMessage(uint64_t playerId, void * msgBuffer, unsigned char) = 0;
 public:
     ServiceProvider();
     virtual ~ServiceProvider();
-    static void DecodeMessageStub(const void *enc_msg, uint32_t *a2, unsigned char *a3, uint32_t *a4);
-    TbError Send(unsigned long a1, void *a2);
-    TbError Receive(unsigned long a1);
-    TbBool DecodeAddPlayerMsg(const unsigned char *enc_buf, unsigned long &id, char *msg_str);
+    static void DecodeMessageStub(const void *enc_msg, uint64_t *a2, unsigned char *a3, uint64_t *a4);
+    TbError Send(uint64_t a1, void *a2);
+    TbError Receive(uint64_t a1);
+    TbBool DecodeAddPlayerMsg(const unsigned char *enc_buf, uint64_t &id, char *msg_str);
     TbError SystemAddPlayerHandler(const void *enc_buf);
     TbError SystemDeletePlayerHandler(const void *enc_buf);
     TbError CheckForDeletedHost(const void *enc_buf);
@@ -86,18 +86,18 @@ public:
     TbError EnumeratePlayersForSessionRunning(TbNetworkCallbackFunc callback, void *);
     virtual TbError EnableNewPlayers(TbBool allow);
     virtual TbError Start(struct TbNetworkSessionNameEntry *, char *, void *) = 0;
-    virtual TbError Start(char *, char *, unsigned long, void *) = 0;
+    virtual TbError Start(char *, char *, uint64_t, void *) = 0;
     virtual TbError Stop(void) = 0;
     virtual TbError Enumerate(TbNetworkCallbackFunc sessionCb, void * ptr) = 0;
     virtual TbError Enumerate(struct TbNetworkSessionNameEntry * sessionEntry, TbNetworkCallbackFunc playerCb, void * ptr) = 0;
     virtual TbError Init(struct ReceiveCallbacks *, void *) = 0;
     virtual TbError Release(void);
-    virtual TbError ChangeSettings(unsigned long, void *) = 0;
+    virtual TbError ChangeSettings(uint64_t, void *) = 0;
     virtual void update() = 0; //in case SP needs execution time once per frame
 
     struct TbNetworkSessionNameEntry nsnames[SESSION_ENTRIES_COUNT];
-    unsigned long reference_count;
-    unsigned long status_flags;
+    uint64_t reference_count;
+    uint64_t status_flags;
     char session_identifier[32];
     struct ReceiveCallbacks *recvCallbacks;
     void *callback_context;

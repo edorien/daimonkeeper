@@ -53,7 +53,7 @@ void clear_map(void)
 void clear_things_and_persons_data(void)
 {
     struct Thing *thing;
-    long i;
+    int64_t i;
     memset(kfx_sim_state.thing_lists, 0, sizeof(kfx_sim_state.thing_lists));
     sim_feedback->reset_ambient_sound_thing_idx();
     kfx_sim_state.nodungeon_creatr_list_start = 0;
@@ -85,7 +85,7 @@ void clear_things_and_persons_data(void)
 
 void clear_computer(void)
 {
-    long i;
+    int64_t i;
     SYNCDBG(8,"Starting");
     for (i=0; i < COMPUTER_TASKS_COUNT; i++)
     {
@@ -104,7 +104,7 @@ void clear_computer(void)
 void init_keepers_map_exploration(void)
 {
     struct PlayerInfo *player;
-    int i;
+    int64_t i;
     for (i=0; i < PLAYERS_COUNT; i++)
     {
       player = get_player(i);
@@ -122,11 +122,11 @@ void init_keepers_map_exploration(void)
 void clear_players_for_save(void)
 {
     struct PlayerInfo *player;
-    unsigned short saved_player_id;
-    unsigned short saved_is_active;
-    unsigned short saved_allocation_flags;
+    int64_t saved_player_id;
+    int64_t saved_is_active;
+    int64_t saved_allocation_flags;
     struct Camera cammem;
-    int i;
+    int64_t i;
     for (i=0; i < PLAYERS_COUNT; i++)
     {
       player = get_player(i);
@@ -146,7 +146,7 @@ void clear_players_for_save(void)
 
 void delete_all_thing_structures(void)
 {
-    long i;
+    int64_t i;
     struct Thing *thing;
     for (i=1; i < THINGS_COUNT; i++)
     {
@@ -192,8 +192,8 @@ void clear_game_for_save(void)
 
 void reset_creature_max_levels(void)
 {
-    int i;
-    int k;
+    int64_t i;
+    int64_t k;
     for (i=0; i < DUNGEONS_COUNT; i++)
     {
         struct Dungeon *dungeon;

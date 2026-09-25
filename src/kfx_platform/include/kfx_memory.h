@@ -46,10 +46,10 @@ void   KfxMemValidate(void);
 
 /* ---------- Debug-mode overrides ---------- */
 #ifdef KFX_DEBUG_MEMORY
-void*  KfxAlloc_impl(size_t size, const char* file, int line);
-void*  KfxCalloc_impl(size_t count, size_t size, const char* file, int line);
-void*  KfxRealloc_impl(void* ptr, size_t size, const char* file, int line);
-char*  KfxStrDup_impl(const char* s, const char* file, int line);
+void*  KfxAlloc_impl(size_t size, const char* file, int64_t line);
+void*  KfxCalloc_impl(size_t count, size_t size, const char* file, int64_t line);
+void*  KfxRealloc_impl(void* ptr, size_t size, const char* file, int64_t line);
+char*  KfxStrDup_impl(const char* s, const char* file, int64_t line);
 #define KfxAlloc(sz)        KfxAlloc_impl((sz),       __FILE__, __LINE__)
 #define KfxCalloc(n,sz)     KfxCalloc_impl((n),(sz),  __FILE__, __LINE__)
 #define KfxRealloc(p,sz)    KfxRealloc_impl((p),(sz), __FILE__, __LINE__)

@@ -61,9 +61,9 @@ extern "C" {
 }
 #endif
 /******************************************************************************/
-long transfer_creature_scroll_offset;
-long resurrect_creature_scroll_offset;
-unsigned short dungeon_special_selected;
+int64_t transfer_creature_scroll_offset;
+int64_t resurrect_creature_scroll_offset;
+int64_t dungeon_special_selected;
 /******************************************************************************/
 
 /**
@@ -71,7 +71,7 @@ unsigned short dungeon_special_selected;
  * @param plyr_idx target player
  * @param count how many times should the level be increased
  */
-void script_use_special_increase_level(PlayerNumber plyr_idx, int count)
+void script_use_special_increase_level(PlayerNumber plyr_idx, int64_t count)
 {
     increase_level(get_player(plyr_idx), count);
 }
@@ -121,15 +121,15 @@ TbBool activate_bonus_level(struct PlayerInfo *player)
   LevelNumber sp_lvnum = sim_feedback->get_loaded_level_number();
   TbBool result = sim_feedback->activate_bonus_level_for_singleplayer(player, sp_lvnum);
   if (!result)
-    ERRORLOG("No Bonus level assigned to level %d",(int)sp_lvnum);
+    ERRORLOG("No Bonus level assigned to level %" PRId64,(int64_t)sp_lvnum);
   clear_flag(kfx_sim_state.operation_flags, GOF_SingleLevel);
   return result;
 }
 
-void multiply_creatures_in_dungeon_list(struct Dungeon *dungeon, long list_start)
+void multiply_creatures_in_dungeon_list(struct Dungeon *dungeon, int64_t list_start)
 {
-    unsigned long k = 0;
-    int i = list_start;
+    uint64_t k = 0;
+    int64_t i = list_start;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -184,14 +184,14 @@ void multiply_creatures(struct PlayerInfo *player)
     multiply_creatures_in_dungeon_list(dungeon, dungeon->digger_list_start);
 }
 
-void increase_level(struct PlayerInfo *player, int count)
+void increase_level(struct PlayerInfo *player, int64_t count)
 {
     struct CreatureControl *cctrl;
     struct Thing *thing;
     struct Dungeon* dungeon = get_dungeon(player->id_number);
     // Increase level of normal creatures
-    unsigned long k = 0;
-    int i = dungeon->creatr_list_start;
+    uint64_t k = 0;
+    int64_t i = dungeon->creatr_list_start;
     while (i != 0)
     {
         thing = thing_get(i);
@@ -255,21 +255,21 @@ void increase_level(struct PlayerInfo *player, int count)
 TbBool steal_hero(struct PlayerInfo *player, struct Coord3d *pos)
 {
     struct Thing* herotng = INVALID_THING;
-    int heronum;
+    int64_t heronum;
     ThingIndex tng_idx;
     SYNCDBG(8, "Starting");
-    int rand_offset = GAME_RANDOM(PLAYERS_COUNT);
+    int64_t rand_offset = GAME_RANDOM(PLAYERS_COUNT);
     for (size_t j = 0; j < PLAYERS_COUNT; j++)
     {
         PlayerNumber roam_plr_idx = (j + rand_offset) % PLAYERS_COUNT;
         if ((!player_is_roaming(roam_plr_idx)) || (!players_are_enemies(player->id_number, roam_plr_idx)))
             continue;
         struct Dungeon* herodngn = get_players_num_dungeon(roam_plr_idx);
-        unsigned long k = 0;
+        uint64_t k = 0;
         if (herodngn->num_active_creatrs > 0) {
             heronum = PLAYER_RANDOM(roam_plr_idx, herodngn->num_active_creatrs);
             tng_idx = herodngn->creatr_list_start;
-            SYNCDBG(4, "Selecting random creature %d out of %d heroes", (int)heronum, (int)herodngn->num_active_creatrs);
+            SYNCDBG(4, "Selecting random creature %" PRId64 " out of %" PRId64 " heroes", (int64_t)heronum, (int64_t)herodngn->num_active_creatrs);
         } else {
             heronum = 0;
             tng_idx = 0;
@@ -312,7 +312,7 @@ TbBool steal_hero(struct PlayerInfo *player, struct Coord3d *pos)
         move_thing_in_map(herotng, pos);
         reset_interpolation_of_thing(herotng);
         change_creature_owner(herotng, player->id_number);
-        SYNCDBG(3, "Converted %s to owner %d", thing_model_name(herotng), (int)player->id_number);
+        SYNCDBG(3, "Converted %s to owner %" PRId64, thing_model_name(herotng), (int64_t)player->id_number);
     }
     else
     {
@@ -330,7 +330,7 @@ TbBool steal_hero(struct PlayerInfo *player, struct Coord3d *pos)
         struct Thing* creatng = create_creature(pos, crkind, player->id_number);
         if (thing_is_invalid(creatng))
             return false;
-        SYNCDBG(3, "Created %s owner %d", thing_model_name(creatng), (int)player->id_number);
+        SYNCDBG(3, "Created %s owner %" PRId64, thing_model_name(creatng), (int64_t)player->id_number);
     }
     return true;
 }
@@ -364,8 +364,8 @@ void make_safe(struct PlayerInfo *player)
 
     PlayerNumber plyr_idx = player->id_number;
     SlabCodedCoords* slblist = (SlabCodedCoords*)(big_scratch + kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y);
-    unsigned int list_len = 0;
-    unsigned int list_cur = 0;
+    uint64_t list_len = 0;
+    uint64_t list_cur = 0;
     struct Room* room_list[ROOMS_COUNT + 1];
     memset(room_list, 0, sizeof(room_list));
 
@@ -528,7 +528,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
     memcpy(&pos,&cratetng->mappos,sizeof(struct Coord3d));
     SpecialKind spkindidx = box_thing_to_special(cratetng);
     struct SpecialConfigStats* specst = get_special_model_stats(spkindidx);
-    short used = 0;
+    int64_t used = 0;
     TbBool no_speech = false;
     if (thing_exists(cratetng) && thing_is_special_box(cratetng))
     {
@@ -589,7 +589,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
             delete_thing_structure(cratetng, 0);
             break;
         case SpcKind_MakeUnsafe:
-            for (long i = 0; i < PLAYERS_COUNT; i++)
+            for (int64_t i = 0; i < PLAYERS_COUNT; i++)
             {
                 if (players_are_enemies(player->id_number, i))
                 {
@@ -619,7 +619,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
             destroy_object(cratetng);
             break;
         case SpcKind_MakeAngry:
-            for (long i = 0; i < PLAYERS_COUNT; i++)
+            for (int64_t i = 0; i < PLAYERS_COUNT; i++)
             {
                 if (players_are_enemies(player->id_number, i))
                 {
@@ -636,7 +636,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
             {
                 if (kfx_sim_state.current_player_turn == get_gameturn())
                 {
-                    WARNLOG("box activation rejected turn:%u", kfx_sim_state.current_player_turn);
+                    WARNLOG("box activation rejected turn:%" PRIu64, (uint64_t)(kfx_sim_state.current_player_turn));
                     // If two players suddenly activated box at same turn it is not that we want to
                     return;
                 }
@@ -652,7 +652,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
             }
             else
             {
-                ERRORLOG("Invalid dungeon special (Model %d)", (int)cratetng->model);
+                ERRORLOG("Invalid dungeon special (Model %" PRId64 ")", (int64_t)cratetng->model);
             }
             break;
         }
@@ -769,17 +769,17 @@ void start_resurrect_creature(struct PlayerInfo *player, struct Thing *thing)
     }
 }
 
-long create_transferred_creatures_on_level(void)
+int64_t create_transferred_creatures_on_level(void)
 {
     struct Thing* creatng;
     struct Thing* srcetng;
     struct CreatureControl* cctrl;
-    long creature_created = 0;
+    int64_t creature_created = 0;
     PlayerNumber plyr_idx;
-    for (int p = 0; p < PLAYERS_COUNT; p++)
+    for (int64_t p = 0; p < PLAYERS_COUNT; p++)
     {
         plyr_idx = kfx_config_state.neutral_player_num;
-        for (int i = 0; i < TRANSFER_CREATURE_STORAGE_COUNT; i++)
+        for (int64_t i = 0; i < TRANSFER_CREATURE_STORAGE_COUNT; i++)
         {
             ThingModel model;
             CrtrExpLevel exp_level;
@@ -796,7 +796,7 @@ long create_transferred_creatures_on_level(void)
                     plyr_idx = p;
                     if (!thing_exists(srcetng))
                     {
-                        for (long n = 1; n < HERO_GATES_COUNT; n++)
+                        for (int64_t n = 1; n < HERO_GATES_COUNT; n++)
                         {
                             srcetng = find_hero_gate_of_number(n);
                             if (!thing_is_invalid(srcetng))

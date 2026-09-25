@@ -34,21 +34,21 @@ extern "C" {
 #endif
 /******************************************************************************/
 // Forward declarations
-static void snap_cursor_to_button(long *snap_to_x, long *snap_to_y);
+static void snap_cursor_to_button(int64_t *snap_to_x, int64_t *snap_to_y);
 extern void gui_get_creature_in_battle(struct GuiButton *gbtn);
 extern void gui_setup_friend_over(struct GuiButton *gbtn);
 /******************************************************************************/
 
-static TbBool try_scroll_select_list_edge(long mouse_x, long mouse_y, float dx, float dy)
+static TbBool try_scroll_select_list_edge(int64_t mouse_x, int64_t mouse_y, double dx, double dy)
 {
-    if (fabsf(dy) < fabsf(dx)) {
+    if (fabs(dy) < fabs(dx)) {
         return false;
     }
 
-    const TbBool is_down = (dy > 0.0f);
-    const TbBool is_up = (dy < 0.0f);
+    const TbBool is_down = (dy > 0.0);
+    const TbBool is_up = (dy < 0.0);
 
-    for (int i = 0; i < ACTIVE_BUTTONS_COUNT; i++) {
+    for (int64_t i = 0; i < ACTIVE_BUTTONS_COUNT; i++) {
         struct GuiButton* gbtn = &active_buttons[i];
 
         if (!(gbtn->flags & LbBtnF_Active)) continue;
@@ -72,8 +72,8 @@ static TbBool try_scroll_select_list_edge(long mouse_x, long mouse_y, float dx, 
         // base and/or row count instead -- see
         // frontend_select_campaign/mappack/level_items_max_visible and
         // FE_LEVEL_SELECTLIST_ROW_BASE.
-        long first_row = 45;
-        long last_row = 51;
+        int64_t first_row = 45;
+        int64_t last_row = 51;
         if (gbtn->click_event == frontend_campaign_select) {
             first_row = 45;
             last_row = 45 + frontend_select_campaign_items_max_visible - 1;
@@ -124,47 +124,47 @@ static TbBool try_scroll_select_list_edge(long mouse_x, long mouse_y, float dx, 
     return false;
 }
 
-static float get_button_score(long mouse_x, long mouse_y, long btn_center_x, long btn_center_y, float dx, float dy, float MIN_DOT)
+static double get_button_score(int64_t mouse_x, int64_t mouse_y, int64_t btn_center_x, int64_t btn_center_y, double dx, double dy, double MIN_DOT)
 {
     // Vector from mouse to button
-    float to_btn_x = (float)(btn_center_x - mouse_x);
-    float to_btn_y = (float)(btn_center_y - mouse_y);
-    float dist = sqrtf(to_btn_x * to_btn_x + to_btn_y * to_btn_y);
+    double to_btn_x = (double)(btn_center_x - mouse_x);
+    double to_btn_y = (double)(btn_center_y - mouse_y);
+    double dist = sqrt(to_btn_x * to_btn_x + to_btn_y * to_btn_y);
     
-    if (dist < 5.0f) return -1.0f; // Skip if already on button
+    if (dist < 5.0) return -1.0; // Skip if already on button
     
     // Normalize
     to_btn_x /= dist;
     to_btn_y /= dist;
     
     // Check alignment with desired direction
-    float dot = dx * to_btn_x + dy * to_btn_y;
-    if (dot < MIN_DOT) return -1.0f;
+    double dot = dx * to_btn_x + dy * to_btn_y;
+    if (dot < MIN_DOT) return -1.0;
     
     // Score based on alignment and distance (prefer close + aligned)
-    float score = dot / (1.0f + dist / 200.0f);
+    double score = dot / (1.0 + dist / 200.0);
     return score;
 }
 
-static float get_battle_buttons_top_score(const struct GuiButton* gbtn, long *btn_center_x, long *btn_center_y, long mouse_x, long mouse_y, float dx, float dy, float MIN_DOT)
+static double get_battle_buttons_top_score(const struct GuiButton* gbtn, int64_t *btn_center_x, int64_t *btn_center_y, int64_t mouse_x, int64_t mouse_y, double dx, double dy, double MIN_DOT)
 {
-    int visbtl_id = gbtn->btype_value & LbBFeF_IntValueMask;
+    int64_t visbtl_id = gbtn->btype_value & LbBFeF_IntValueMask;
     struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
     BattleIndex battle_id = dungeon->visible_battles[visbtl_id];
     struct CreatureBattle* battle = creature_battle_get(battle_id);
     if (creature_battle_invalid(battle)) {
-        return -1.0f;
+        return -1.0;
     }
     if (battle->fighters_num <= 0) {
-        return -1.0f;
+        return -1.0;
     }
 
-    long btn_y = gbtn->scr_pos_y + gbtn->height / 2;
-    float best_score = -1.0f;
+    int64_t btn_y = gbtn->scr_pos_y + gbtn->height / 2;
+    double best_score = -1.0;
 
     TbBool friendly = (gbtn->ptover_event == gui_setup_friend_over);
 
-    for (int i = 0; i < MESSAGE_BATTLERS_COUNT; i++) {
+    for (int64_t i = 0; i < MESSAGE_BATTLERS_COUNT; i++) {
         struct Thing* thing;
         if (friendly)
             thing = thing_get(friendly_battler_list[(MESSAGE_BATTLERS_COUNT * visbtl_id) + i]);
@@ -173,14 +173,14 @@ static float get_battle_buttons_top_score(const struct GuiButton* gbtn, long *bt
         
         if (thing_exists(thing) && thing_revealed(thing, my_player_number))
         {
-            const int slot_w = gbtn->width / 7;
-            int btn_x;
+            const int64_t slot_w = gbtn->width / 7;
+            int64_t btn_x;
             if (friendly)
                 btn_x = gbtn->scr_pos_x + (6 - i) * slot_w + slot_w / 2;
             else
                 btn_x = gbtn->scr_pos_x + i * slot_w + slot_w / 2;
             
-            float score = get_button_score(mouse_x, mouse_y, btn_x, btn_y, dx, dy, MIN_DOT);
+            double score = get_button_score(mouse_x, mouse_y, btn_x, btn_y, dx, dy, MIN_DOT);
             if (score > best_score) {
                 *btn_center_x = btn_x;
                 *btn_center_y = btn_y;
@@ -193,22 +193,22 @@ static float get_battle_buttons_top_score(const struct GuiButton* gbtn, long *bt
     return best_score;
 }
 
-static TbBool find_nearest_button_in_direction(long mouse_x, long mouse_y, float dx, float dy, long *snap_to_x, long *snap_to_y)
+static TbBool find_nearest_button_in_direction(int64_t mouse_x, int64_t mouse_y, double dx, double dy, int64_t *snap_to_x, int64_t *snap_to_y)
 {
-    float best_score = -1.0f;
-    const float MIN_DOT = 0.3f; // Minimum alignment required
+    double best_score = -1.0;
+    const double MIN_DOT = 0.3; // Minimum alignment required
     *snap_to_x = 0;
     *snap_to_y = 0;
 
     TbBool btn_found = false;
     
     // Normalize direction
-    float mag = sqrtf(dx * dx + dy * dy);
-    if (mag < 0.01f) return false;
+    double mag = sqrt(dx * dx + dy * dy);
+    if (mag < 0.01) return false;
     dx /= mag;
     dy /= mag;
     
-    for (int i = 0; i < ACTIVE_BUTTONS_COUNT; i++) {
+    for (int64_t i = 0; i < ACTIVE_BUTTONS_COUNT; i++) {
         struct GuiButton* gbtn = &active_buttons[i];
         
         // Skip inactive, invisible, or disabled buttons
@@ -219,10 +219,10 @@ static TbBool find_nearest_button_in_direction(long mouse_x, long mouse_y, float
 
         
         // Calculate button center
-        long btn_center_x = gbtn->pos_x + gbtn->width / 2;
-        long btn_center_y = gbtn->pos_y + gbtn->height / 2;
+        int64_t btn_center_x = gbtn->pos_x + gbtn->width / 2;
+        int64_t btn_center_y = gbtn->pos_y + gbtn->height / 2;
 
-        float score;
+        double score;
 
         if (gbtn->click_event == gui_get_creature_in_battle)
         {
@@ -245,20 +245,20 @@ static TbBool find_nearest_button_in_direction(long mouse_x, long mouse_y, float
     return btn_found;
 }
 
-static TbBool find_nearest_landview_flag_in_direction(long mouse_x, long mouse_y, float dx, float dy, long *snap_to_x, long *snap_to_y)
+static TbBool find_nearest_landview_flag_in_direction(int64_t mouse_x, int64_t mouse_y, double dx, double dy, int64_t *snap_to_x, int64_t *snap_to_y)
 {
-    const float MIN_DOT = 0.3f;
-    float best_score = -1.0f;
+    const double MIN_DOT = 0.3;
+    double best_score = -1.0;
     *snap_to_x = 0;
     *snap_to_y = 0;
 
-    float mag = sqrtf(dx * dx + dy * dy);
-    if (mag < 0.01f) return false;
+    double mag = sqrt(dx * dx + dy * dy);
+    if (mag < 0.01) return false;
     dx /= mag;
     dy /= mag;
 
-    long screen_max_x = map_info.screen_shift_x + lbDisplay.PhysicalScreenWidth * 16 / units_per_pixel_landview;
-    long screen_max_y = map_info.screen_shift_y + lbDisplay.PhysicalScreenHeight * 16 / units_per_pixel_landview;
+    int64_t screen_max_x = map_info.screen_shift_x + lbDisplay.PhysicalScreenWidth * 16 / units_per_pixel_landview;
+    int64_t screen_max_y = map_info.screen_shift_y + lbDisplay.PhysicalScreenHeight * 16 / units_per_pixel_landview;
 
     TbBool flag_found = false;
     struct LevelInformation* lvinfo = get_first_level_info();
@@ -276,14 +276,14 @@ static TbBool find_nearest_landview_flag_in_direction(long mouse_x, long mouse_y
             if ((lvinfo->ensign_zoom_x >= map_info.screen_shift_x) && (lvinfo->ensign_zoom_x < screen_max_x)
              && (lvinfo->ensign_zoom_y >= map_info.screen_shift_y) && (lvinfo->ensign_zoom_y < screen_max_y))
             {
-                long btn_center_x = scale_value_landview(lvinfo->ensign_x - (long)map_info.screen_shift_x);
-                long btn_center_y = scale_value_landview(lvinfo->ensign_y - (long)map_info.screen_shift_y);
+                int64_t btn_center_x = scale_value_landview(lvinfo->ensign_x - (int64_t)map_info.screen_shift_x);
+                int64_t btn_center_y = scale_value_landview(lvinfo->ensign_y - (int64_t)map_info.screen_shift_y);
                 const struct TbSprite *spr = get_ensign_sprite_for_level(lvinfo, 0);
                 if (spr != NULL)
                 {
-                    btn_center_y = scale_value_landview(lvinfo->ensign_y - (long)map_info.screen_shift_y - (long)((spr->SHeight * 2) / 3));
+                    btn_center_y = scale_value_landview(lvinfo->ensign_y - (int64_t)map_info.screen_shift_y - (int64_t)((spr->SHeight * 2) / 3));
                 }
-                float score = get_button_score(mouse_x, mouse_y, btn_center_x, btn_center_y, dx, dy, MIN_DOT);
+                double score = get_button_score(mouse_x, mouse_y, btn_center_x, btn_center_y, dx, dy, MIN_DOT);
                 if (score > best_score)
                 {
                     *snap_to_x = btn_center_x;
@@ -300,12 +300,12 @@ static TbBool find_nearest_landview_flag_in_direction(long mouse_x, long mouse_y
 
 }
 
-static void snap_cursor_to_button(long *snap_to_x, long *snap_to_y)
+static void snap_cursor_to_button(int64_t *snap_to_x, int64_t *snap_to_y)
 {
     if (snap_to_x == NULL || snap_to_y == NULL) return;
     
-    long btn_center_x = *snap_to_x;
-    long btn_center_y = *snap_to_y;
+    int64_t btn_center_x = *snap_to_x;
+    int64_t btn_center_y = *snap_to_y;
     
     struct TbPoint delta;
     delta.x = btn_center_x - GetMouseX();
@@ -314,13 +314,13 @@ static void snap_cursor_to_button(long *snap_to_x, long *snap_to_y)
     mouseControl(MActn_MOUSEMOVE, &delta);
 }
 
-void snap_to_direction(long mouse_x, long mouse_y, float dx, float dy)
+void snap_to_direction(int64_t mouse_x, int64_t mouse_y, double dx, double dy)
 {
     if (try_scroll_select_list_edge(mouse_x, mouse_y, dx, dy)) {
         return;
     }
 
-    long snap_to_x, snap_to_y;
+    int64_t snap_to_x, snap_to_y;
     TbBool found;
     if ((frontend_menu_state == FeSt_LAND_VIEW) || (frontend_menu_state == FeSt_NETLAND_VIEW)) {
         found = find_nearest_landview_flag_in_direction(mouse_x, mouse_y, dx, dy, &snap_to_x, &snap_to_y);

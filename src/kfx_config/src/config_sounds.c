@@ -38,7 +38,7 @@ extern "C" {
 /******************************************************************************/
 #define MIN_CONFIG_FILE_SIZE 4
 
-static TbBool load_sounds_config_file(const char *fname, unsigned short flags);
+static TbBool load_sounds_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_sounds_file_data = {
     .filename = "sounds.cfg",
@@ -52,18 +52,18 @@ const struct ConfigFileData keeper_sounds_file_data = {
 // These are populated at startup by cache_common_sound_ids() after sounds.cfg loads.
 /******************************************************************************/
 
-int            snd_gold_pickup_count = 0;
-int            snd_door_place_count = 0;
-int            snd_tunnel_dig_count = 0;
-int            snd_dig_spell_count  = 0;
-int            snd_dig_impact_count = 0;
-int            snd_foot_spur_count = 0;
-int            snd_foot_wet_count  = 0;
-int            snd_foot_snow_count = 0;
-int            snd_chicken_cluck_count = 0;
-int            snd_strike_wall_count = 0;
-int            snd_reinforce_hit_count = 0;
-int            snd_lobby_player_leave_count = 0;
+int64_t            snd_gold_pickup_count = 0;
+int64_t            snd_door_place_count = 0;
+int64_t            snd_tunnel_dig_count = 0;
+int64_t            snd_dig_spell_count  = 0;
+int64_t            snd_dig_impact_count = 0;
+int64_t            snd_foot_spur_count = 0;
+int64_t            snd_foot_wet_count  = 0;
+int64_t            snd_foot_snow_count = 0;
+int64_t            snd_chicken_cluck_count = 0;
+int64_t            snd_strike_wall_count = 0;
+int64_t            snd_reinforce_hit_count = 0;
+int64_t            snd_lobby_player_leave_count = 0;
 
 SoundSmplTblID snd_foot_spur       = 0;
 SoundSmplTblID snd_foot_wet        = 0;
@@ -195,7 +195,7 @@ SoundSmplTblID snd_shot_breath            = 0;
 SoundSmplTblID snd_shot_freeze_fire       = 0;
 
 // Melee swing / misc shot sounds
-int            snd_melee_swing_count      = 0;
+int64_t            snd_melee_swing_count      = 0;
 SoundSmplTblID snd_melee_swing            = 0;
 SoundSmplTblID snd_boulder_roll           = 0;
 SoundSmplTblID snd_shot_magic_travel      = 0;
@@ -206,14 +206,14 @@ SoundSmplTblID snd_cast_cleanse           = 0;
 // Hit impact sounds (HitXxxSound fields in magic.cfg)
 SoundSmplTblID snd_hit_creature_sword    = 0;
 SoundSmplTblID snd_hit_creature          = 0;
-int            snd_hit_wall_count        = 0;
+int64_t            snd_hit_wall_count        = 0;
 SoundSmplTblID snd_hit_wall              = 0;
-int            snd_hit_door_sword_count  = 0;
+int64_t            snd_hit_door_sword_count  = 0;
 SoundSmplTblID snd_hit_door_sword        = 0;
-int            snd_hit_door_count        = 0;
+int64_t            snd_hit_door_count        = 0;
 SoundSmplTblID snd_hit_door              = 0;
 SoundSmplTblID snd_hit_heart             = 0;
-int            snd_hit_heart_fist_count  = 0;
+int64_t            snd_hit_heart_fist_count  = 0;
 SoundSmplTblID snd_hit_heart_fist        = 0;
 SoundSmplTblID snd_hit_wall_boulder      = 0;
 
@@ -349,12 +349,12 @@ static const struct NamedCommand speech_desc[] = {
  * Paths are resolved at playback time, searching campaign configs, levels, media (MEDIA_LOCATION),
  * and game root in that order. Language-specific variants are tried first (e.g. "eng/file.wav").
  */
-static TbBool parse_speech_section(char* buf, long len, const char* config_textname,
-                                   unsigned short flags)
+static TbBool parse_speech_section(char* buf, int64_t len, const char* config_textname,
+                                   int64_t flags)
 {
-    int32_t pos = 0;
+    int64_t pos = 0;
     const char* blockname = NULL;
-    int blocknamelen = 0;
+    int64_t blocknamelen = 0;
     TbBool found_section = false;
 
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
@@ -391,7 +391,7 @@ static TbBool parse_speech_section(char* buf, long len, const char* config_textn
             continue;
         }
 
-        long smsg_id = get_id(speech_desc, name_buf);
+        int64_t smsg_id = get_id(speech_desc, name_buf);
         if (smsg_id <= 0 || smsg_id >= SMsg_MAX)
         {
             if (smsg_id < 0)
@@ -425,7 +425,7 @@ static TbBool parse_speech_section(char* buf, long len, const char* config_textn
         }
 
         snprintf(g_speech_overrides[smsg_id], sizeof(g_speech_overrides[smsg_id]), "%s", path_buf);
-        SYNCDBG(8, "Speech override: %s (%ld) -> %s", name_buf, smsg_id, path_buf);
+        SYNCDBG(8, "Speech override: %s (%" PRId64 ") -> %s", name_buf, (int64_t)(smsg_id), path_buf);
 
         while (pos < len && buf[pos] != '\n' && buf[pos] != '\r') pos++;
         while (pos < len && (buf[pos] == '\n' || buf[pos] == '\r')) pos++;
@@ -450,7 +450,7 @@ enum StackTokenResult
  * mode is "limit" (drop triggers beyond max, default max 1) or "duck" (scale down
  * the gain of all concurrent instances as more start; max optionally also caps count).
  */
-static enum StackTokenResult parse_stack_token(const char* tok, unsigned char* out_mode, short* out_max,
+static enum StackTokenResult parse_stack_token(const char* tok, unsigned char* out_mode, int64_t* out_max,
     const char* config_textname)
 {
     if (strncasecmp(tok, "STACK=", 6) != 0)
@@ -471,16 +471,16 @@ static enum StackTokenResult parse_stack_token(const char* tok, unsigned char* o
     for (size_t i = 0; mode_buf[i] != '\0'; i++)
         mode_buf[i] = (char)tolower((unsigned char)mode_buf[i]);
 
-    int max_val = colon ? atoi(colon + 1) : 0;
+    int64_t max_val = colon ? atoi(colon + 1) : 0;
     if (strcmp(mode_buf, "limit") == 0)
     {
         *out_mode = SStack_Limit;
-        *out_max = (short)(max_val > 0 ? max_val : 1);
+        *out_max = (int64_t)(max_val > 0 ? max_val : 1);
     }
     else if (strcmp(mode_buf, "duck") == 0)
     {
         *out_mode = SStack_Duck;
-        *out_max = (short)(max_val > 0 ? max_val : 0);
+        *out_max = (int64_t)(max_val > 0 ? max_val : 0);
     }
     else
     {
@@ -494,9 +494,9 @@ static enum StackTokenResult parse_stack_token(const char* tok, unsigned char* o
  * @brief Register a stacking policy across a contiguous range of unified sample IDs
  * (used for "count" > 1, e.g. several sequential variant files registered under one name).
  */
-static void register_stack_policy_range(SoundSmplTblID first_id, int count, unsigned char mode, short max_instances)
+static void register_stack_policy_range(SoundSmplTblID first_id, int64_t count, unsigned char mode, int64_t max_instances)
 {
-    for (int i = 0; i < count; i++)
+    for (int64_t i = 0; i < count; i++)
         sound_register_stack_policy((SoundSmplTblID)(first_id + i), mode, max_instances);
 }
 
@@ -512,7 +512,7 @@ static void register_stack_policy_range(SoundSmplTblID first_id, int count, unsi
  * STACK is optional; if omitted, the sound defaults to {Limit, 1} (at most one
  * concurrent instance across all emitters), matching pre-Custom-Sounds behaviour.
  */
-static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const char* config_textname)
+static TbBool parse_sound_line(const char* buf, int64_t* pos, int64_t len, const char* config_textname)
 {
     char name_buf[COMMAND_WORD_LEN];
     char value_buf[COMMAND_WORD_LEN];
@@ -525,7 +525,7 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
     }
 
     // Normalize to uppercase so config names are case-insensitive
-    for (int i = 0; name_buf[i] != '\0'; i++)
+    for (int64_t i = 0; name_buf[i] != '\0'; i++)
         name_buf[i] = (char)toupper((unsigned char)name_buf[i]);
 
     // Skip if it's a section header or comment
@@ -536,7 +536,7 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
 
     // --- Detect whether this is a numeric-key (raw ID redirect) line ---
     char* key_endptr;
-    long raw_id = strtol(name_buf, &key_endptr, 10);
+    int64_t raw_id = LbStrToI32(name_buf, &key_endptr, 10);
     TbBool is_raw_id = (*key_endptr == '\0' && raw_id > 0);
 
     // Get the value (ID or filepath), skipping the '=' separator
@@ -560,10 +560,10 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
     }
 
     // Try to get optional count parameter
-    int count = 1;
+    int64_t count = 1;
     if (get_conf_parameter_single(buf, pos, len, count_buf, sizeof(count_buf)) > 0)
     {
-        int parsed_count = atoi(count_buf);
+        int64_t parsed_count = atoi(count_buf);
         if (parsed_count > 0)
             count = parsed_count;
     }
@@ -575,7 +575,7 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
     {
         // Only filepaths make sense as the target of a raw-ID redirect.
         char* val_endptr;
-        long val_num = strtol(value_buf, &val_endptr, 10);
+        int64_t val_num = LbStrToI32(value_buf, &val_endptr, 10);
         (void)val_num;
         if (*val_endptr == '\0')
         {
@@ -588,7 +588,7 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
         char alias_buf[COMMAND_WORD_LEN] = {0};
         char next_buf[COMMAND_WORD_LEN];
         unsigned char stack_mode = SStack_Limit;
-        short stack_max = 1;
+        int64_t stack_max = 1;
         TbBool has_stack = false;
         if (get_conf_parameter_single(buf, pos, len, next_buf, sizeof(next_buf)) > 0)
         {
@@ -600,7 +600,7 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
             else if (stack_result == StackToken_NotAStackToken && (isalpha((unsigned char)next_buf[0]) || next_buf[0] == '_'))
             {
                 // Normalize alias to uppercase
-                for (int i = 0; next_buf[i] != '\0'; i++)
+                for (int64_t i = 0; next_buf[i] != '\0'; i++)
                     next_buf[i] = (char)toupper((unsigned char)next_buf[i]);
                 snprintf(alias_buf, sizeof(alias_buf), "%s", next_buf);
             }
@@ -618,18 +618,18 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
         if (alias_buf[0] != '\0')
             snprintf(internal_name, sizeof(internal_name), "%s", alias_buf);
         else
-            snprintf(internal_name, sizeof(internal_name), "__RAW_%ld", raw_id);
+            snprintf(internal_name, sizeof(internal_name), "__RAW_%" PRId64, (int64_t)(raw_id));
 
         // Load the custom file(s) and register under internal_name
         SoundSmplTblID first_custom_id = sound_manager_load_named_sound(internal_name, value_buf, count);
         if (first_custom_id <= 0)
         {
-            WARNLOG("Raw-ID redirect %ld: failed to load '%s' in %s", raw_id, value_buf, config_textname);
+            WARNLOG("Raw-ID redirect %" PRId64 ": failed to load '%s' in %s", (int64_t)(raw_id), value_buf, config_textname);
             return false;
         }
 
         // Register per-ID redirects: raw_id+i → first_custom_id+i
-        for (int i = 0; i < count; i++)
+        for (int64_t i = 0; i < count; i++)
             sound_register_id_redirect((SoundSmplTblID)(raw_id + i), (SoundSmplTblID)(first_custom_id + i));
 
         // Stacking policy is keyed by the resolved custom ID, since that's what
@@ -638,11 +638,11 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
             register_stack_policy_range(first_custom_id, count, stack_mode, stack_max);
 
         if (alias_buf[0] != '\0') {
-            SYNCDBG(5, "Raw-ID redirect: %ld..%ld -> custom IDs %d..%d (alias '%s')",
-                    raw_id, raw_id + count - 1, first_custom_id, first_custom_id + count - 1, alias_buf);
+            SYNCDBG(5, "Raw-ID redirect: %" PRId64 "..%" PRId64 " -> custom IDs %" PRId64 "..%" PRId64 " (alias '%s')",
+                    (int64_t)(raw_id), (int64_t)(raw_id + count - 1), (int64_t)(first_custom_id), (int64_t)(first_custom_id + count - 1), alias_buf);
         } else {
-            SYNCDBG(5, "Raw-ID redirect: %ld..%ld -> custom IDs %d..%d",
-                    raw_id, raw_id + count - 1, first_custom_id, first_custom_id + count - 1);
+            SYNCDBG(5, "Raw-ID redirect: %" PRId64 "..%" PRId64 " -> custom IDs %" PRId64 "..%" PRId64,
+                    (int64_t)(raw_id), (int64_t)(raw_id + count - 1), (int64_t)(first_custom_id), (int64_t)(first_custom_id + count - 1));
         }
 
         return true;
@@ -652,12 +652,12 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
     // Named-key path: NAME = id [count] [STACK=...]  OR  NAME = filepath [count] [STACK=...]
     // -----------------------------------------------------------------------
     char* endptr;
-    long id_value = strtol(value_buf, &endptr, 10);
+    int64_t id_value = LbStrToI32(value_buf, &endptr, 10);
 
     // Optional trailing STACK=mode[:max] token
     char stack_buf[COMMAND_WORD_LEN];
     unsigned char stack_mode = SStack_Limit;
-    short stack_max = 1;
+    int64_t stack_max = 1;
     TbBool has_stack = false;
     if (get_conf_parameter_single(buf, pos, len, stack_buf, sizeof(stack_buf)) > 0)
     {
@@ -670,13 +670,13 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
         SoundSmplTblID sample_id = (SoundSmplTblID)id_value;
         if (!sound_manager_register(name_buf, sample_id, count))
         {
-            WARNLOG("Failed to register sound '%s' with ID %d in %s",
-                    name_buf, sample_id, config_textname);
+            WARNLOG("Failed to register sound '%s' with ID %" PRId64 " in %s",
+                    name_buf, (int64_t)(sample_id), config_textname);
             return false;
         }
         if (has_stack)
             register_stack_policy_range(sample_id, count, stack_mode, stack_max);
-        SYNCDBG(8, "Registered sound '%s' -> ID %d (count %d)", name_buf, sample_id, count);
+        SYNCDBG(8, "Registered sound '%s' -> ID %" PRId64 " (count %" PRId64 ")", name_buf, (int64_t)(sample_id), (int64_t)(count));
     }
     else
     {
@@ -690,8 +690,8 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
         }
         if (has_stack)
             register_stack_policy_range(id, count, stack_mode, stack_max);
-        SYNCDBG(8, "Registered custom sound '%s' -> ID %d (file '%s', count %d)",
-                name_buf, id, value_buf, count);
+        SYNCDBG(8, "Registered custom sound '%s' -> ID %" PRId64 " (file '%s', count %" PRId64 ")",
+                name_buf, (int64_t)(id), value_buf, (int64_t)(count));
     }
 
     return true;
@@ -700,12 +700,12 @@ static TbBool parse_sound_line(const char* buf, int32_t* pos, long len, const ch
 /**
  * @brief Parse a [section] block (like [common], [ui], [creatures])
  */
-static TbBool parse_sounds_section(char* buf, long len, const char* config_textname, 
-                                   unsigned short flags, const char* section_name)
+static TbBool parse_sounds_section(char* buf, int64_t len, const char* config_textname, 
+                                   int64_t flags, const char* section_name)
 {
-    int32_t pos = 0;
+    int64_t pos = 0;
     const char* blockname = NULL;
-    int blocknamelen = 0;
+    int64_t blocknamelen = 0;
     TbBool found_section = false;
     
     // Find the requested section
@@ -772,13 +772,13 @@ static TbBool parse_sounds_section(char* buf, long len, const char* config_textn
  * @brief Parse a [system] block with engine-level audio settings.
  *
 */
-static TbBool parse_system_section(char* buf, long len, const char* config_textname,
-                                       unsigned short flags)
+static TbBool parse_system_section(char* buf, int64_t len, const char* config_textname,
+                                       int64_t flags)
 {
     (void)flags;
-    int32_t pos = 0;
+    int64_t pos = 0;
     const char* blockname = NULL;
-    int blocknamelen = 0;
+    int64_t blocknamelen = 0;
     TbBool found_section = false;
 
     while (iterate_conf_blocks(buf, &pos, len, &blockname, &blocknamelen))
@@ -839,15 +839,15 @@ static TbBool parse_system_section(char* buf, long len, const char* config_textn
 
         if (strcasecmp(name_buf, "SpeechQueueLimit") == 0)
         {
-            long limit = strtol(value_buf, NULL, 10);
+            int64_t limit = LbStrToI32(value_buf, NULL, 10);
             if (limit <= 0)
             {
                 WARNLOG("Invalid speech queue limit '%s' in %s; expected a positive integer", value_buf, config_textname);
             }
             else
             {
-                config_reload_callbacks->set_speech_queue_limit((int)limit);
-                SYNCDBG(8, "Speech queue limit set to %d", (int)limit);
+                config_reload_callbacks->set_speech_queue_limit((int64_t)limit);
+                SYNCDBG(8, "Speech queue limit set to %" PRId64, (int64_t)limit);
             }
         } else {
             WARNLOG("Unknown system setting '%s' in %s", name_buf, config_textname);
@@ -863,11 +863,11 @@ static TbBool parse_system_section(char* buf, long len, const char* config_textn
 /**
  * @brief Main loader for sounds.cfg
  */
-static TbBool load_sounds_config_file(const char *fname, unsigned short flags)
+static TbBool load_sounds_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0, "%s file \"%s\".", ((flags & CnfLd_ListOnly) == 0) ? "Reading" : "Parsing", fname);
     
-    long len = LbFileLengthRnc(fname);
+    int64_t len = LbFileLengthRnc(fname);
     if (len < MIN_CONFIG_FILE_SIZE)
     {
         if ((flags & CnfLd_IgnoreErrors) == 0)
@@ -957,9 +957,9 @@ TbBool load_mod_sounds_config(const char* mod_name)
     return result;
 }
 
-TbBool load_level_sounds_config(short fgroup, LevelNumber lvnum)
+TbBool load_level_sounds_config(int64_t fgroup, LevelNumber lvnum)
 {
-    char* fullpath = prepare_file_fmtpath(fgroup, "map%05lu.sounds.cfg", (unsigned long)lvnum);
+    char* fullpath = prepare_file_fmtpath(fgroup, "map%05" PRIu64 ".sounds.cfg", (uint64_t)lvnum);
     if (fullpath == NULL || !LbFileExists(fullpath))
     {
         return false;
@@ -1007,9 +1007,9 @@ TbBool is_sound_registered(const char* name)
 TbBool cache_common_sound_ids(void)
 {
     SoundSmplTblID id;
-    int count;
+    int64_t count;
 
-    #define CACHE_SND(var, name)           id = sound_manager_get_id(name); if (id > 0) { SYNCDBG(7,"cache_common_sound_ids: %s -> %d (was %d)", name, id, var); var = id; }
+    #define CACHE_SND(var, name)           id = sound_manager_get_id(name); if (id > 0) { SYNCDBG(7,"cache_common_sound_ids: %s -> %" PRId64 " (was %" PRId64 ")", name, id, var); var = id; }
     #define CACHE_SND_COUNT(var, cvar, nm) id = sound_manager_get_id(nm);   if (id > 0) { var = id; count = sound_manager_get_count(nm); if (count > 0) cvar = count; }
 
     CACHE_SND(snd_refusal,         "REFUSAL")
@@ -1140,36 +1140,36 @@ static TbBool value_is_sound_filepath(const char* text)
 {
     const char* dot = strrchr(text, '.');
     if (dot == NULL) return false;
-    char ext[8]; int i;
+    char ext[8]; int64_t i;
     for (i = 0; i < 7 && dot[i]; i++)
         ext[i] = (char)tolower((unsigned char)dot[i]);
     ext[i] = '\0';
     return strcmp(ext, ".wav") == 0 || strcmp(ext, ".mp3") == 0 || strcmp(ext, ".flac") == 0 || strcmp(ext, ".ogg") == 0;
 }
 
-int sound_id_from_text(const char* text)
+int64_t sound_id_from_text(const char* text)
 {
-    int id = sound_manager_get_id(text);
+    int64_t id = sound_manager_get_id(text);
     if (id > 0)
         return id;
     if (value_is_sound_filepath(text))
     {
         SoundSmplTblID loaded_id = sound_manager_load_named_sound(text, text, 1);
         if (loaded_id > 0)
-            return (int)loaded_id;
+            return (int64_t)loaded_id;
     }
     return 0;
 }
 
 int64_t value_sound_id(const struct NamedField* named_field, const char* value_text,
-                       const struct NamedFieldSet* named_fields_set, int idx,
+                       const struct NamedFieldSet* named_fields_set, int64_t idx,
                        const char* src_str, unsigned char flags)
 {
     if (parameter_is_number(value_text))
     {
         return value_default(named_field, value_text, named_fields_set, idx, src_str, flags);
     }
-    int id = sound_id_from_text(value_text);
+    int64_t id = sound_id_from_text(value_text);
     if (id > 0)
     {
         return (int64_t)id;
@@ -1202,17 +1202,17 @@ void speech_ref_parse(SpeechRef* ref, const char* text)
     if (text == NULL || text[0] == '\0')
         return;
     char* endptr;
-    long id = strtol(text, &endptr, 10);
+    int64_t id = LbStrToI32(text, &endptr, 10);
     if (*endptr == '\0') {
         if (id >= 0 && id < SMsg_MAX)
-            ref->id = (int32_t)id;
+            ref->id = (int64_t)id;
         else
-            WARNLOG("Speech ID %ld out of range [0,%d], ignoring", id, SMsg_MAX - 1);
+            WARNLOG("Speech ID %" PRId64 " out of range [0,%" PRId64 "], ignoring", (int64_t)(id), (int64_t)(SMsg_MAX - 1));
         return;
     }
-    int smsg = get_id(speech_desc, text);
+    int64_t smsg = get_id(speech_desc, text);
     if (smsg > 0) {
-        ref->id = (int32_t)smsg;
+        ref->id = (int64_t)smsg;
         return;
     }
     if (!value_is_sound_filepath(text)) {
@@ -1228,20 +1228,20 @@ void speech_ref_parse(SpeechRef* ref, const char* text)
  * Sets s_speech_ref_pending_path and returns SPEECH_REF_PATH_SENTINEL for file paths.
  */
 int64_t value_speech_ref(const struct NamedField* named_field, const char* value_text,
-                         const struct NamedFieldSet* named_fields_set, int idx,
+                         const struct NamedFieldSet* named_fields_set, int64_t idx,
                          const char* src_str, unsigned char flags)
 {
     s_speech_ref_pending_path[0] = '\0';
     char* endptr;
-    long id = strtol(value_text, &endptr, 10);
+    int64_t id = LbStrToI32(value_text, &endptr, 10);
     if (*endptr == '\0') {
         if (id < 0 || id >= SMsg_MAX) {
-            NAMFIELDWRNLOG("Speech ID %ld out of range [0,%d] for field '%s'", id, SMsg_MAX - 1, named_field->name);
+            NAMFIELDWRNLOG("Speech ID %" PRId64 " out of range [0,%" PRId64 "] for field '%s'", (int64_t)(id), (int64_t)(SMsg_MAX - 1), named_field->name);
             return 0;
         }
         return (int64_t)id;
     }
-    int smsg = get_id(speech_desc, value_text);
+    int64_t smsg = get_id(speech_desc, value_text);
     if (smsg > 0)
         return (int64_t)smsg;
     if (!value_is_sound_filepath(value_text)) {
@@ -1258,14 +1258,14 @@ int64_t value_speech_ref(const struct NamedField* named_field, const char* value
  * Expects the field pointer to point to the start of a SpeechRef struct.
  */
 void assign_speech_ref(const struct NamedField* named_field, int64_t value,
-                       const struct NamedFieldSet* named_fields_set, int idx,
+                       const struct NamedFieldSet* named_fields_set, int64_t idx,
                        const char* src_str, unsigned char flags)
 {
     char* base = (char*)named_fields_set->get_struct_base();
 
     // Check limits before pointer arithmetic to avoid undefined behavior
     if (base == NULL || idx < 0 || idx >= named_fields_set->max_count) {
-        NAMFIELDERRLOG("Field '%s' index %d out of bounds (structural)", named_field->name, idx);
+        NAMFIELDERRLOG("Field '%s' index %" PRId64 " out of bounds (structural)", named_field->name, (int64_t)(idx));
         return;
     }
 
@@ -1275,7 +1275,7 @@ void assign_speech_ref(const struct NamedField* named_field, int64_t value,
     char* max_allowed_bound = base + (named_fields_set->struct_size * named_fields_set->max_count);
 
     if (field_ptr < base || field_ptr >= max_allowed_bound) {
-        NAMFIELDERRLOG("Field '%s' index %d out of bounds (memory range)", named_field->name, idx);
+        NAMFIELDERRLOG("Field '%s' index %" PRId64 " out of bounds (memory range)", named_field->name, (int64_t)(idx));
         return;
     }
 
@@ -1286,7 +1286,7 @@ void assign_speech_ref(const struct NamedField* named_field, int64_t value,
         ref->id = 0;
         snprintf(ref->path, sizeof(ref->path), "%s", s_speech_ref_pending_path);
     } else {
-        ref->id = (int32_t)value;
+        ref->id = (int64_t)value;
         ref->path[0] = '\0';
     }
 }

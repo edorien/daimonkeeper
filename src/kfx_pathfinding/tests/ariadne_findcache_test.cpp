@@ -24,7 +24,7 @@
 #include "ariadne_tringls.h"
 
 namespace {
-constexpr long kScratchTri = TRIANLGLES_COUNT - 1;
+constexpr int64_t kScratchTri = TRIANLGLES_COUNT - 1;
 
 struct ResetScratchTriangle {
     ResetScratchTriangle() {
@@ -59,6 +59,6 @@ TEST_CASE_METHOD(ResetScratchTriangle, "triangulation_init_cache with a still-un
     Triangles[kScratchTri].tree_alt = NAV_COL_UNSET;
     triangulation_init_cache(kScratchTri);
 
-    long result = triangle_brute_find8_near(0, 0);
+    int64_t result = triangle_brute_find8_near(0, 0);
     CHECK(result != kScratchTri);
 }

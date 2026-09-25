@@ -67,9 +67,9 @@ const char foot_down_sound_sample_variant[] = {
 char sound_dir[64] = "SOUND";
 // atmos_sound_frequency moved to kfx_config_state.h (stage 13.3, docs/refactor/stage-13-enforce-and-document.md); initial value 800 set in kfx_config_state.c.
 static char ambience_timer;
-int sdl_flags = 0;
+int64_t sdl_flags = 0;
 /******************************************************************************/
-void thing_play_sample(struct Thing *thing, SoundSmplTblID smptbl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, long priority, SoundVolume loudness)
+void thing_play_sample(struct Thing *thing, SoundSmplTblID smptbl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, int64_t priority, SoundVolume loudness)
 {
     if (SoundDisabled)
         return;
@@ -79,7 +79,7 @@ void thing_play_sample(struct Thing *thing, SoundSmplTblID smptbl_idx, SoundPitc
         return;
 
     // Apply sound volume setting to current sound's loudness level
-    SoundVolume volume_scale = LbLerp(0, FULL_LOUDNESS, (float)settings.sound_volume/127.0); // [0-127] rescaled to [0-256]
+    SoundVolume volume_scale = LbLerp(0, FULL_LOUDNESS, (double)settings.sound_volume/127.0); // [0-127] rescaled to [0-256]
     SoundVolume adjusted_loudness = (loudness * volume_scale) / FULL_LOUDNESS;
 
     // Convert raw sample IDs to unified ID space:
@@ -98,7 +98,7 @@ void thing_play_sample(struct Thing *thing, SoundSmplTblID smptbl_idx, SoundPitc
     rcpos.z.val = Receiver.pos.val_z;
     if (get_chessboard_3d_distance(&rcpos, &thing->mappos) < MaxSoundDistance)
     {
-        long eidx = thing->snd_emitter_id;
+        int64_t eidx = thing->snd_emitter_id;
         if (eidx > 0)
         {
             S3DAddSampleToEmitterPri(eidx, sample_id, pitch, adjusted_loudness, repeats, ctype, flags | 0x01, priority);
@@ -133,8 +133,8 @@ void play_thing_walking(struct Thing *thing)
     struct Camera* cam = get_local_active_camera(myplyr);
     struct CreatureModelConfig* crconf;
     { // Skip the thing if its distance to camera is too big
-        MapSubtlDelta dist_x = coord_subtile(abs(cam->mappos.x.val - (MapCoordDelta)thing->mappos.x.val));
-        MapSubtlDelta dist_y = coord_subtile(abs(cam->mappos.y.val - (MapCoordDelta)thing->mappos.y.val));
+        MapSubtlDelta dist_x = coord_subtile(llabs(cam->mappos.x.val - (MapCoordDelta)thing->mappos.x.val));
+        MapSubtlDelta dist_y = coord_subtile(llabs(cam->mappos.y.val - (MapCoordDelta)thing->mappos.y.val));
         if (dist_x <= dist_y)
           dist_x = dist_y;
         if (dist_x >= 10) {
@@ -145,7 +145,7 @@ void play_thing_walking(struct Thing *thing)
         // Spectators don't do sounds
         return;
     }
-    long loudness = (myplyr->view_mode == PVM_CreatureView) ? (FULL_LOUDNESS) : (FULL_LOUDNESS / 5);
+    int64_t loudness = (myplyr->view_mode == PVM_CreatureView) ? (FULL_LOUDNESS) : (FULL_LOUDNESS / 5);
     if (((thing->movement_flags & TMvF_Flying) != 0) && !thing_touching_floor(thing))
     {
         // Flying diptera has a buzzing noise sound
@@ -165,13 +165,13 @@ void play_thing_walking(struct Thing *thing)
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (thing_touching_floor(thing) && cctrl->distance_to_destination && get_foot_creature_has_down(thing))
         {
-            int smpl_variant = foot_down_sound_sample_variant[4 * cctrl->footstep_variant + cctrl->footstep_counter];
-            long smpl_idx;
+            int64_t smpl_variant = foot_down_sound_sample_variant[4 * cctrl->footstep_variant + cctrl->footstep_counter];
+            int64_t smpl_idx;
             if ((thing->movement_flags & TMvF_IsOnSnow) != 0) {
                 smpl_idx = snd_foot_snow + smpl_variant;
             } else {
                 struct CreatureSound* crsound = get_creature_sound(thing, CrSnd_Foot);
-                smpl_idx = (long)creature_sound_unified_id(crsound, smpl_variant);
+                smpl_idx = (int64_t)creature_sound_unified_id(crsound, smpl_variant);
             }
             cctrl->footstep_counter++;
             if (cctrl->footstep_counter >= 4)
@@ -188,9 +188,9 @@ void play_thing_walking(struct Thing *thing)
     }
 }
 
-void set_room_playing_ambient_sound(struct Coord3d *pos, long sample_idx)
+void set_room_playing_ambient_sound(struct Coord3d *pos, int64_t sample_idx)
 {
-    long i;
+    int64_t i;
     if (kfx_game_state.ambient_sound_thing_idx == 0)
     {
         ERRORLOG("No room ambient sound object");
@@ -245,9 +245,9 @@ void find_nearest_rooms_for_ambient_sound(void)
         set_room_playing_ambient_sound(NULL, 0);
         return;
     }
-    long slb_x = subtile_slab(cam->mappos.x.stl.num);
-    long slb_y = subtile_slab(cam->mappos.y.stl.num);
-    for (long i = 0; i < 11 * 11; i++)
+    int64_t slb_x = subtile_slab(cam->mappos.x.stl.num);
+    int64_t slb_y = subtile_slab(cam->mappos.y.stl.num);
+    for (int64_t i = 0; i < 11 * 11; i++)
     {
         struct MapOffset* sstep = &spiral_step[i];
         MapSubtlCoord stl_x = slab_subtile_center(slb_x + sstep->h);
@@ -258,10 +258,10 @@ void find_nearest_rooms_for_ambient_sound(void)
             if (room_is_invalid(room))
                 continue;
             struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
-            long k = roomst->ambient_snd_smp_id;
+            int64_t k = roomst->ambient_snd_smp_id;
             if (k > 0)
             {
-                SYNCDBG(8,"Playing ambient for %s at (%d,%d)",room_code_name(room->kind),(int)stl_x,(int)stl_y);
+                SYNCDBG(8,"Playing ambient for %s at (%" PRId64 ",%" PRId64 ")",room_code_name(room->kind),(int64_t)stl_x,(int64_t)stl_y);
                 struct Coord3d pos;
                 pos.x.val = subtile_coord_center(stl_x);
                 pos.y.val = subtile_coord_center(stl_y);
@@ -290,8 +290,8 @@ TbBool update_3d_sound_receiver(struct PlayerInfo* player)
         // Distance from center of camera that you can hear a sound
         S3DSetMaximumSoundDistance(LbLerp(5120, 27648, 1.0-hud_scale));
         // Quieten sounds when zoomed out
-        float upper_range_only = min(hud_scale*2.0, 1.0);
-        float rescale_audio = max(min(fastPow(upper_range_only, 1.25), 1.0), 0.0);
+        double upper_range_only = min(hud_scale*2.0, 1.0);
+        double rescale_audio = max(min(fastPow(upper_range_only, 1.25), 1.0), 0.0);
         S3DSetSoundReceiverSensitivity(LbLerp(2, 64, rescale_audio));
     } else {
         S3DSetMaximumSoundDistance(5120);
@@ -314,7 +314,7 @@ void update_player_sounds(void)
     }
     find_nearest_rooms_for_ambient_sound();
     process_3d_sounds();
-    int k = (kfx_game_state.bonus_time - get_gameturn()) / 2;
+    int64_t k = (kfx_game_state.bonus_time - get_gameturn()) / 2;
     if (game_callbacks->is_bonus_timer_enabled())
     {
         if ((kfx_game_state.bonus_time == get_gameturn()) ||
@@ -337,7 +337,7 @@ void update_player_sounds(void)
             {
                 // Select a random Easter egg speech
                 k = SOUND_RANDOM(10);
-                SYNCDBG(9,"Rare message condition met, selected %d",(int)k);
+                SYNCDBG(9,"Rare message condition met, selected %" PRId64,(int64_t)k);
 
                 if (k == 7)
                 {
@@ -408,8 +408,6 @@ TbBool init_sound(void)
     struct SoundSettings* snd_settng = &kfx_game_state.sound_settings;
     snd_settng->flags = SndSetting_Sound;
     snd_settng->sound_type = 1622;
-    snd_settng->sound_data_path = sound_dir;
-    snd_settng->dir3 = sound_dir;
     snd_settng->sound_buffer_enable = 1;
     snd_settng->stereo = 1;
     snd_settng->max_number_of_samples = 100;
@@ -437,13 +435,13 @@ struct Thing *create_ambient_sound(const struct Coord3d *pos, ThingModel model, 
 {
     if ( !i_can_allocate_free_thing_structure(TCls_AmbientSnd) )
     {
-        ERRORDBG(3,"Cannot create ambient sound %d for player %d. There are too many things allocated.",(int)model,(int)owner);
+        ERRORDBG(3,"Cannot create ambient sound %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)model,(int64_t)owner);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* thing = allocate_free_thing_structure(TCls_AmbientSnd);
     if (thing->index == 0) {
-        ERRORDBG(3,"Should be able to allocate ambient sound %d for player %d, but failed.",(int)model,(int)owner);
+        ERRORDBG(3,"Should be able to allocate ambient sound %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)model,(int64_t)owner);
         sim_feedback->report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
@@ -514,8 +512,8 @@ void sound_reinit_after_load(void)
         if (!play_music(kfx_game_state.music_fname)) {
             WARNLOG("Custom music '%s' unavailable, falling back to default track", kfx_game_state.music_fname);
             LevelNumber lvnum = get_loaded_level_number();
-            long safe_lvnum = (lvnum > 0) ? lvnum : 1; // guard against (lvnum - 1) % 4 going negative
-            play_music_track(3 + (int)((safe_lvnum - 1) % 4)); // tracks 3..6
+            int64_t safe_lvnum = (lvnum > 0) ? lvnum : 1; // guard against (lvnum - 1) % 4 going negative
+            play_music_track(3 + (int64_t)((safe_lvnum - 1) % 4)); // tracks 3..6
         }
     } else if (kfx_game_state.music_track > 0) {
         play_music_track(kfx_game_state.music_track);
@@ -561,12 +559,12 @@ void update_first_person_object_ambience(struct Thing *thing)
     struct Thing *audtng;
     ThingIndex nearest_sounds[3];
     MapCoordDelta sound_distances[3];
-    long hearing_range;
+    int64_t hearing_range;
     struct ObjectConfigStats* objst;
     if (thing->class_id == TCls_Creature)
     {
         struct CreatureModelConfig* crconf = creature_stats_get(thing->model);
-        hearing_range = (long)subtile_coord(crconf->hearing, 0) / 2;
+        hearing_range = (int64_t)subtile_coord(crconf->hearing, 0) / 2;
     }
     else
     {
@@ -575,7 +573,7 @@ void update_first_person_object_ambience(struct Thing *thing)
     sound_distances[0] = hearing_range;
     sound_distances[1] = hearing_range;
     sound_distances[2] = hearing_range;
-    int i;
+    int64_t i;
     if (ambience_timer)
     {
         memset(nearest_sounds, 0, sizeof(nearest_sounds));
@@ -615,7 +613,7 @@ void update_first_person_object_ambience(struct Thing *thing)
                 objst = get_object_model_stats(audtng->model);
                 if (!S3DEmitterIsPlayingSample(audtng->snd_emitter_id, objst->fp_smpl_idx))
                 {
-                    long volume = line_of_sight_2d(&thing->mappos, &audtng->mappos) ? FULL_LOUDNESS : 128;
+                    int64_t volume = line_of_sight_2d(&thing->mappos, &audtng->mappos) ? FULL_LOUDNESS : 128;
                     thing_play_sample(audtng, objst->fp_smpl_idx, NORMAL_PITCH, -1, 3, 1, 2, volume);
                 }
             }

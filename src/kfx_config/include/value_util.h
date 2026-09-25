@@ -21,8 +21,8 @@ static inline MapCoord value_read_stl_coord(VALUE *value)
 {
     if (value_type(value) == VALUE_ARRAY)
     {
-        int stl = value_int32(value_array_get(value, 0));
-        int sub_stl = value_int32(value_array_get(value, 1));
+        int64_t stl = value_int32(value_array_get(value, 0));
+        int64_t sub_stl = value_int32(value_array_get(value, 1));
         if ((stl == -1) || (sub_stl == -1))
         {
             WARNMSG("Invalid coords");
@@ -37,13 +37,13 @@ static inline MapCoord value_read_stl_coord(VALUE *value)
     }
 }
 
-int value_parse_class(VALUE *value);
-int value_parse_model(int oclass, VALUE *value);
-int value_parse_anim(VALUE *value);
-TbBool load_toml_file(const char *fname,VALUE *value, unsigned short flags);
+int64_t value_parse_class(VALUE *value);
+int64_t value_parse_model(int64_t oclass, VALUE *value);
+int64_t value_parse_anim(VALUE *value);
+TbBool load_toml_file(const char *fname,VALUE *value, int64_t flags);
 
 // Forward declaration — implemented in config_sounds.c
-int sound_id_from_text(const char* text);
+int64_t sound_id_from_text(const char* text);
 
 #define KEY_SIZE 64
 
@@ -106,8 +106,8 @@ int sound_id_from_text(const char* text);
     VALUE *val_arr = value_dict_get(section,name);\
     if (value_type(val_arr) == VALUE_ARRAY)\
     {\
-        int v1 = value_int32(value_array_get(val_arr, 0));\
-        int v2 = value_int32(value_array_get(val_arr, 1));\
+        int64_t v1 = value_int32(value_array_get(val_arr, 0));\
+        int64_t v2 = value_int32(value_array_get(val_arr, 1));\
         if (v1 <= v2) { field1 = v1; field2 = v2; } else { field1 = v2; field2 = v1; }\
     }\
 }
@@ -192,7 +192,7 @@ int sound_id_from_text(const char* text);
     {\
         if(strlen(name) > COMMAND_WORD_LEN - 1 )\
         {\
-            ERRORLOG("name (%s) to long max %d chars", name,COMMAND_WORD_LEN - 1);\
+            ERRORLOG("name (%s) to long max %" PRId64 " chars", name,(int64_t)(COMMAND_WORD_LEN - 1));\
             break;\
         }\
         strncpy(namefield,name,COMMAND_WORD_LEN);\

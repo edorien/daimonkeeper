@@ -37,14 +37,14 @@ enum LoadMapFileFlags {
     LMFF_Optional = 0x01,
 };
 /******************************************************************************/
-extern long level_file_version;
+extern int64_t level_file_version;
 extern char *level_strings[];
 /******************************************************************************/
-unsigned char *load_single_map_file_to_buffer(LevelNumber lvnum,const char *fext,int32_t *ldsize,unsigned short flags);
-long get_level_number_from_file_name(const char *fname);
+unsigned char *load_single_map_file_to_buffer(LevelNumber lvnum,const char *fext,int64_t *ldsize,int64_t flags);
+int64_t get_level_number_from_file_name(const char *fname);
 TbBool find_and_load_lif_files(void);
 TbBool find_and_load_lof_files(void);
-long convert_old_column_file(LevelNumber lv_num);
+int64_t convert_old_column_file(LevelNumber lv_num);
 
 TbBool load_map_file(LevelNumber lvnum);
 
@@ -65,9 +65,9 @@ TbBool regenerate_derived_map_data(void);
 // lvnum instead of reading one from disk. Called from kfx_game's
 // init_level() in place of load_map_file() when a blank-map request is
 // pending (see main_game.c's editor_request_blank_map()).
-TbBool create_blank_map(LevelNumber lvnum, MapSlabCoord tiles_x, MapSlabCoord tiles_y, long texture_set);
+TbBool create_blank_map(LevelNumber lvnum, MapSlabCoord tiles_x, MapSlabCoord tiles_y, int64_t texture_set);
 
-void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, short fgroup);
+void load_map_string_data(struct GameCampaign *campgn, LevelNumber lvnum, int64_t fgroup);
 void free_level_strings_data();
 /******************************************************************************/
 #ifdef __cplusplus

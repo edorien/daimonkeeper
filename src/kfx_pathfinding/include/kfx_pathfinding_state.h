@@ -43,8 +43,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct KfxPathfindingState {
-    int32_t navigation_map_size_x;
-    int32_t navigation_map_size_y;
+    int64_t navigation_map_size_x;
+    int64_t navigation_map_size_y;
     NavColour navigation_map[MAX_SUBTILES_X*MAX_SUBTILES_Y];
     TbBool map_changed_for_navigation;
 };

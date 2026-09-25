@@ -29,7 +29,7 @@ extern "C" {
  * Exactly one of the two is active: if path[0] != '\0', the path is used; otherwise id is used.
  */
 typedef struct SpeechRef {
-    int32_t id;
+    int64_t id;
     char path[512];
 } SpeechRef;
 

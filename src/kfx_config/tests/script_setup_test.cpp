@@ -183,7 +183,7 @@ struct AvailDescFixture {
             {"TROLL", "IMP"}, {"TREASURE", "LAIR"}, {"POWER_HAND", "POWER_SLAP"},
             {"POISON_GAS", "LAVA"}, {"WOOD", "STEEL"},
         };
-        for (int t = 0; t < 5; t++) {
+        for (int64_t t = 0; t < 5; t++) {
             std::memcpy(saved[t], tables[t], sizeof(saved[t]));
             tables[t][0].name = names[t][0]; tables[t][0].num = 1;
             tables[t][1].name = names[t][1]; tables[t][1].num = 2;
@@ -191,7 +191,7 @@ struct AvailDescFixture {
         }
     }
     ~AvailDescFixture() {
-        for (int t = 0; t < 5; t++)
+        for (int64_t t = 0; t < 5; t++)
             std::memcpy(tables[t], saved[t], sizeof(saved[t]));
     }
 };
@@ -325,7 +325,7 @@ TEST_CASE_METHOD(AvailDescFixture, "v0 script: creature 'available' must land in
     v.availability.push_back({AvailKind_Creature, -1, 2, 0, 0}); // off
     v.availability.push_back({AvailKind_Room, -1, 1, 1, 1});
     const std::string script = "REM no LEVEL_VERSION here\n";
-    const int ver = script_setup_level_version(script);
+    const int64_t ver = script_setup_level_version(script);
     REQUIRE(ver == 0);
     const std::string body = script_setup_generate(v, 1, ver);
     // The v1 form CREATURE_AVAILABLE(...,1,0) would read as available=0 at v0.

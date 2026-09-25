@@ -41,7 +41,7 @@ void update_turn_checksums(void);
 void pack_desync_history_for_resync(void);
 void compare_desync_history_from_host(void);
 TbBigChecksum get_thing_checksum(const struct Thing *thing);
-short checksums_different(void);
+int64_t checksums_different(void);
 // calculate_file_checksum moved to kfx_platform's bflib_dernc.h (stage 13.3).
 void calculate_network_startup_map_checksums(TbBigChecksum checksums[NETWORK_STARTUP_MAP_FILE_COUNT]);
 

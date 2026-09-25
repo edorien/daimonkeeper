@@ -55,7 +55,7 @@ extern "C" {
 /******************************************************************************/
 TbBool creature_is_doing_temple_pray_activity(const struct Thing *thing)
 {
-    long i = get_creature_state_besides_interruptions(thing);
+    int64_t i = get_creature_state_besides_interruptions(thing);
     if ((i == CrSt_AtTemple) || (i == CrSt_PrayingInTemple))
         return true;
     return false;
@@ -66,7 +66,7 @@ CrStateRet process_temple_visuals(struct Thing *creatng, struct Room *room)
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     if (cctrl->instance_id != CrInst_NULL)
         return CrStRet_Unchanged;
-    long turns_in_temple = cctrl->turns_at_job;
+    int64_t turns_in_temple = cctrl->turns_at_job;
     if (turns_in_temple <= 120)
     {
         // Walk for 120 turns
@@ -87,14 +87,14 @@ CrStateRet process_temple_visuals(struct Thing *creatng, struct Room *room)
 }
 
 // This is state-process function of a creature
-short at_temple(struct Thing *thing)
+int64_t at_temple(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->target_room_id = 0;
     struct Room* room = get_room_thing_is_on(thing);
     if (!room_initially_valid_as_type_for_thing(room, get_room_role_for_job(Job_TEMPLE_PRAY), thing))
     {
-        WARNLOG("Room %s owned by player %d is invalid for %s index %d",room_code_name(room->kind),(int)room->owner,thing_model_name(thing),(int)thing->index);
+        WARNLOG("Room %s owned by player %" PRId64 " is invalid for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->owner,thing_model_name(thing),(int64_t)thing->index);
         set_start_state(thing);
         return 0;
     }
@@ -135,7 +135,7 @@ CrStateRet praying_in_temple(struct Thing *thing)
     }
 }
 
-long process_temple_cure(struct Thing *creatng)
+int64_t process_temple_cure(struct Thing *creatng)
 {
     TRACE_THING(creatng);
     if (creature_under_spell_effect(creatng, CSAfF_Disease))
@@ -164,7 +164,7 @@ CrCheckRet process_temple_function(struct Thing *thing)
     }
     { // Modify anger
         struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
-        long anger_change = process_work_speed_on_work_value(thing, crconf->annoy_in_temple);
+        int64_t anger_change = process_work_speed_on_work_value(thing, crconf->annoy_in_temple);
         anger_apply_anger_to_creature(thing, anger_change, AngR_Other, 1);
     }
     // Terminate spells
@@ -176,7 +176,7 @@ CrCheckRet process_temple_function(struct Thing *thing)
     return CrCkRet_Available;
 }
 
-short state_cleanup_in_temple(struct Thing *creatng)
+int64_t state_cleanup_in_temple(struct Thing *creatng)
 {
     struct Dungeon* dungeon = get_dungeon(creatng->owner);
     if ( dungeon->creatures_praying[creatng->model] > 0 )
@@ -191,9 +191,9 @@ short state_cleanup_in_temple(struct Thing *creatng)
     return 1;
 }
 
-TbBool summon_creature(long model, struct Coord3d *pos, long owner, CrtrExpLevel exp_level)
+TbBool summon_creature(int64_t model, struct Coord3d *pos, int64_t owner, CrtrExpLevel exp_level)
 {
-    SYNCDBG(4,"Creating model %ld for player %ld",model,owner);
+    SYNCDBG(4,"Creating model %" PRId64 " for player %" PRId64,(int64_t)(model),(int64_t)(owner));
     if (!creature_count_below_map_limit(0))
     {
         SYNCLOG("Summon creature %s failed to due to map creature limit", creature_code_name(model));
@@ -213,12 +213,12 @@ TbBool summon_creature(long model, struct Coord3d *pos, long owner, CrtrExpLevel
     return true;
 }
 
-TbBool add_anger_to_all_creatures_of_player(PlayerNumber plyr_idx, short percentage)
+TbBool add_anger_to_all_creatures_of_player(PlayerNumber plyr_idx, int64_t percentage)
 {
     SYNCDBG(8, "Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    unsigned long k = 0;
-    int i = dungeon->creatr_list_start;
+    uint64_t k = 0;
+    int64_t i = dungeon->creatr_list_start;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -244,12 +244,12 @@ TbBool add_anger_to_all_creatures_of_player(PlayerNumber plyr_idx, short percent
     return true;
 }
 
-TbBool make_all_players_creatures_angry(long plyr_idx)
+TbBool make_all_players_creatures_angry(int64_t plyr_idx)
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    unsigned long k = 0;
-    int i = dungeon->creatr_list_start;
+    uint64_t k = 0;
+    int64_t i = dungeon->creatr_list_start;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -289,12 +289,12 @@ TbBool anger_make_creature_happy(struct Thing* creatng)
     return true;
 }
 
-TbBool make_all_players_creatures_happy(long plyr_idx)
+TbBool make_all_players_creatures_happy(int64_t plyr_idx)
 {
     SYNCDBG(8, "Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    unsigned long k = 0;
-    int i = dungeon->creatr_list_start;
+    uint64_t k = 0;
+    int64_t i = dungeon->creatr_list_start;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -320,41 +320,41 @@ TbBool make_all_players_creatures_happy(long plyr_idx)
     return true;
 }
 
-long force_complete_current_manufacturing(long plyr_idx)
+int64_t force_complete_current_manufacturing(int64_t plyr_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon))
     {
-        ERRORLOG("Player %d cannot manufacture.",(int)plyr_idx);
+        ERRORLOG("Player %" PRId64 " cannot manufacture.",(int64_t)plyr_idx);
         return 0;
     }
     if (dungeon->manufacture_class == TCls_Empty)
     {
-        WARNLOG("No manufacture in progress for player %d",(int)plyr_idx);
+        WARNLOG("No manufacture in progress for player %" PRId64,(int64_t)plyr_idx);
         return 0;
     }
-    int manufct_required = manufacture_points_required(dungeon->manufacture_class, dungeon->manufacture_kind);
+    int64_t manufct_required = manufacture_points_required(dungeon->manufacture_class, dungeon->manufacture_kind);
     if (manufct_required <= 0)
     {
-        WARNLOG("No points required to finish manufacture of class %d",(int)dungeon->manufacture_class);
+        WARNLOG("No points required to finish manufacture of class %" PRId64,(int64_t)dungeon->manufacture_class);
         return 0;
     }
-    long i = manufct_required << 8;
+    int64_t i = manufct_required << 8;
     if (i <= dungeon->manufacture_progress)
         i = dungeon->manufacture_progress;
     dungeon->manufacture_progress = i;
     return 0;
 }
 
-void apply_spell_effect_to_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, long spl_idx, CrtrExpLevel overchrg)
+void apply_spell_effect_to_players_creatures(PlayerNumber plyr_idx, ThingModel crmodel, int64_t spl_idx, CrtrExpLevel overchrg)
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    unsigned long k = 0;
+    uint64_t k = 0;
 
     TbBool need_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel);
     struct Thing* thing = INVALID_THING;
-    int i;
+    int64_t i;
     if ((!need_spec_digger) || (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER))
     {
         i = dungeon->creatr_list_start;
@@ -398,7 +398,7 @@ TbBool kill_creature_if_under_chicken_spell(struct Thing *thing)
         thing->health = -1;
         return true;
     }
-    SYNCDBG(19, "Skipped %s index %d", thing_model_name(thing), (int)thing->index);
+    SYNCDBG(19, "Skipped %s index %" PRId64, thing_model_name(thing), (int64_t)thing->index);
     return false;
 }
 
@@ -406,8 +406,8 @@ void kill_all_players_chickens(PlayerNumber plyr_idx)
 {
     SYNCDBG(18,"Starting");
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    unsigned long k = 0;
-    int i = slist->index;
+    uint64_t k = 0;
+    int64_t i = slist->index;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -435,13 +435,13 @@ void kill_all_players_chickens(PlayerNumber plyr_idx)
 }
 
 // This is state-process function of a creature
-short creature_being_summoned(struct Thing *thing)
+int64_t creature_being_summoned(struct Thing *thing)
 {
     struct CreatureControl *cctrl;
-    short orig_w;
-    short orig_h;
-    short unsc_w;
-    short unsc_h;
+    int64_t orig_w;
+    int64_t orig_h;
+    int64_t unsc_w;
+    int64_t unsc_h;
     cctrl = creature_control_get_from_thing(thing);
     if (creature_control_invalid(cctrl)) {
         return 0;
@@ -467,7 +467,7 @@ short creature_being_summoned(struct Thing *thing)
     return 0;
 }
 
-short cleanup_sacrifice(struct Thing *creatng)
+int64_t cleanup_sacrifice(struct Thing *creatng)
 {
     // If the creature has flight ability, return it to flying state
     restore_creature_flight_flag(creatng);
@@ -475,19 +475,19 @@ short cleanup_sacrifice(struct Thing *creatng)
     return 1;
 }
 
-TbBool tally_sacrificed_imps(PlayerNumber plyr_idx, short count)
+TbBool tally_sacrificed_imps(PlayerNumber plyr_idx, int64_t count)
 {
     struct Dungeon* dungeon;
     dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon)) {
-        ERRORDBG(11, "Can't change imp price, player %d has no dungeon.", (int)plyr_idx);
+        ERRORDBG(11, "Can't change imp price, player %" PRId64 " has no dungeon.", (int64_t)plyr_idx);
         return false;
     }
     dungeon->cheaper_diggers += count;
     return true;
 }
 
-long create_sacrifice_unique_award(struct Coord3d *pos, PlayerNumber plyr_idx, long sacfunc, CrtrExpLevel exp_level)
+int64_t create_sacrifice_unique_award(struct Coord3d *pos, PlayerNumber plyr_idx, int64_t sacfunc, CrtrExpLevel exp_level)
 {
   switch (sacfunc)
   {
@@ -521,11 +521,11 @@ long create_sacrifice_unique_award(struct Coord3d *pos, PlayerNumber plyr_idx, l
   }
 }
 
-long creature_sacrifice_average_exp_level(struct Dungeon *dungeon, struct SacrificeRecipe *sac)
+int64_t creature_sacrifice_average_exp_level(struct Dungeon *dungeon, struct SacrificeRecipe *sac)
 {
-    long num = 0;
-    long exp = 0;
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    int64_t num = 0;
+    int64_t exp = 0;
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         ThingModel model = sac->victims[i];
         // Do not count the same model twice
@@ -546,7 +546,7 @@ long creature_sacrifice_average_exp_level(struct Dungeon *dungeon, struct Sacrif
 void creature_sacrifice_reset(struct Dungeon *dungeon, struct SacrificeRecipe *sac)
 {
   // Some models may be set more than once; dut we don't really care...
-  for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+  for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
   {
       ThingModel model = sac->victims[i];
       dungeon->creature_sacrifice[model] = 0;
@@ -554,10 +554,10 @@ void creature_sacrifice_reset(struct Dungeon *dungeon, struct SacrificeRecipe *s
   }
 }
 
-static long sacrifice_victim_model_count(struct SacrificeRecipe *sac, ThingModel model)
+static int64_t sacrifice_victim_model_count(struct SacrificeRecipe *sac, ThingModel model)
 {
-    long k = 0;
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    int64_t k = 0;
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         if (sac->victims[i] == model)
             k++;
@@ -568,28 +568,28 @@ static long sacrifice_victim_model_count(struct SacrificeRecipe *sac, ThingModel
 TbBool sacrifice_victim_conditions_met(struct Dungeon *dungeon, struct SacrificeRecipe *sac)
 {
     // Some models may be checked more than once; dut we don't really care...
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         ThingModel model = sac->victims[i];
         if (model < 1)
             continue;
-        long required = sacrifice_victim_model_count(sac, model);
-        SYNCDBG(6, "Model %d (%s) exists %d times", (int)model, creature_code_name(model), (int)required);
+        int64_t required = sacrifice_victim_model_count(sac, model);
+        SYNCDBG(6, "Model %" PRId64 " (%s) exists %" PRId64 " times", (int64_t)model, creature_code_name(model), (int64_t)required);
         if (dungeon->creature_sacrifice[model] < required)
             return false;
   }
   return true;
 }
 
-long process_sacrifice_award(struct Coord3d *pos, ThingModel model, PlayerNumber plyr_idx)
+int64_t process_sacrifice_award(struct Coord3d *pos, ThingModel model, PlayerNumber plyr_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon))
     {
-        ERRORLOG("Player %d cannot sacrifice creatures.", (int)plyr_idx);
+        ERRORLOG("Player %" PRId64 " cannot sacrifice creatures.", (int64_t)plyr_idx);
         return 0;
   }
-  long ret = SacR_DontCare;
+  int64_t ret = SacR_DontCare;
   struct SacrificeRecipe* sac = &kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[0];
   do {
     // Check if the just sacrificed creature is in the sacrifice
@@ -610,11 +610,11 @@ long process_sacrifice_award(struct Coord3d *pos, ThingModel model, PlayerNumber
           break;
         }
       }
-      SYNCDBG(8,"Creature %d used in sacrifice %d",(int)model,(int)(sac-&kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[0]));
+      SYNCDBG(8,"Creature %" PRId64 " used in sacrifice %" PRId64,(int64_t)model,(int64_t)(sac-&kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[0]));
       // Check if the complete sacrifice condition is met
       if (sacrifice_victim_conditions_met(dungeon, sac))
       {
-        SYNCDBG(6,"Sacrifice recipe %d condition met, action %d for player %d",(int)(sac-&kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[0]),(int)sac->action,(int)plyr_idx);
+        SYNCDBG(6,"Sacrifice recipe %" PRId64 " condition met, action %" PRId64 " for player %" PRId64,(int64_t)(sac-&kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[0]),(int64_t)sac->action,(int64_t)plyr_idx);
         CrtrExpLevel exp_level = creature_sacrifice_average_exp_level(dungeon, sac);
         switch (sac->action)
         {
@@ -662,7 +662,7 @@ long process_sacrifice_award(struct Coord3d *pos, ThingModel model, PlayerNumber
             ret = SacR_Punished;
             break;
         default:
-            ERRORLOG("Unsupported sacrifice action %d!",(int)sac->action);
+            ERRORLOG("Unsupported sacrifice action %" PRId64 "!",(int64_t)sac->action);
             ret = SacR_Pleased;
             break;
         }
@@ -678,7 +678,7 @@ long process_sacrifice_award(struct Coord3d *pos, ThingModel model, PlayerNumber
 
 void process_sacrifice_creature(struct Coord3d *pos, ThingModel model, PlayerNumber owner, TbBool partial)
 {
-    long award = process_sacrifice_award(pos, model, owner);
+    int64_t award = process_sacrifice_award(pos, model, owner);
     if (is_my_player_number(owner))
     {
       switch (award)
@@ -708,14 +708,14 @@ void process_sacrifice_creature(struct Coord3d *pos, ThingModel model, PlayerNum
           sim_feedback->play_sound_message(SMsg_SacrificePunish, 0);
           break;
       default:
-          ERRORLOG("Invalid sacrifice return, %d",(int)award);
+          ERRORLOG("Invalid sacrifice return, %" PRId64,(int64_t)award);
           break;
       }
     }
 }
 
 // This is state-process function of a creature
-short creature_being_sacrificed(struct Thing *thing)
+int64_t creature_being_sacrificed(struct Thing *thing)
 {
     SYNCDBG(6,"Starting");
 
@@ -729,13 +729,13 @@ short creature_being_sacrificed(struct Thing *thing)
         return 0;
     }
     struct SlabMap* slb = get_slabmap_for_subtile(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
-    long owner = slabmap_owner(slb);
+    int64_t owner = slabmap_owner(slb);
     add_creature_to_sacrifice_list(owner, thing->model, cctrl->exp_level);
     struct Coord3d pos;
     pos.x.val = thing->mappos.x.val;
     pos.y.val = thing->mappos.y.val;
     pos.z.val = thing->mappos.z.val;
-    long model = thing->model;
+    int64_t model = thing->model;
 
     memcpy(&kfx_sim_state.triggered_object_location, &pos, sizeof(struct Coord3d));
 
@@ -745,7 +745,7 @@ short creature_being_sacrificed(struct Thing *thing)
 }
 
 // This is state-process function of a creature
-short creature_sacrifice(struct Thing *thing)
+int64_t creature_sacrifice(struct Thing *thing)
 {
     if ((thing->movement_flags & TMvF_Flying) != 0) {
         thing->movement_flags &= ~TMvF_Flying;
@@ -781,8 +781,8 @@ short creature_sacrifice(struct Thing *thing)
 TbBool find_random_sacrifice_center(struct Coord3d *pos, const struct Room *room)
 {
     // Find a random slab in the room to be used as our starting point
-    long i = PLAYER_RANDOM(room->owner, room->slabs_count);
-    unsigned long n = room->slabs_list;
+    int64_t i = PLAYER_RANDOM(room->owner, room->slabs_count);
+    uint64_t n = room->slabs_list;
     while (i > 0)
     {
         n = get_next_slab_number_in_room(n);
@@ -818,10 +818,10 @@ TbBool find_random_sacrifice_center(struct Coord3d *pos, const struct Room *room
     return false;
 }
 
-TbBool find_temple_pool(int player_idx, struct Coord3d *pos)
+TbBool find_temple_pool(int64_t player_idx, struct Coord3d *pos)
 {
     struct Room *best_room = NULL;
-    long max_value = 0;
+    int64_t max_value = 0;
     struct Dungeon *dungeon = get_dungeon(player_idx);
     if (dungeon == INVALID_DUNGEON)
         return false;
@@ -830,7 +830,7 @@ TbBool find_temple_pool(int player_idx, struct Coord3d *pos)
     {
         if(room_role_matches(rkind, RoRoF_CrSacrifice))
         {
-            int k = 0, i = dungeon->room_list_start[rkind];
+            int64_t k = 0, i = dungeon->room_list_start[rkind];
             while (i != 0)
             {
                 struct Room* room = room_get(i);
@@ -870,13 +870,13 @@ TbBool find_temple_pool(int player_idx, struct Coord3d *pos)
     return true;
 }
 
-void script_set_sacrifice_recipe(const int action, const int param, ThingModel* victims)
+void script_set_sacrifice_recipe(const int64_t action, const int64_t param, ThingModel* victims)
 {
     qsort(victims, MAX_SACRIFICE_VICTIMS, sizeof(ThingModel), &sac_compare_fn);
-    for (int i = 1; i < MAX_SACRIFICE_RECIPES; i++)
+    for (int64_t i = 1; i < MAX_SACRIFICE_RECIPES; i++)
     {
         struct SacrificeRecipe* sac = &kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes[i];
-        if (sac->action == (long)SacA_None)
+        if (sac->action == (int64_t)SacA_None)
         {
             break;
         }
@@ -884,11 +884,11 @@ void script_set_sacrifice_recipe(const int action, const int param, ThingModel* 
         {
             sac->action = action;
             sac->param = param;
-            if (action == (long)SacA_None)
+            if (action == (int64_t)SacA_None)
             {
                 // Remove empty slot and shift remaining elements
-                int index = sac - kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes;
-                int remaining = MAX_SACRIFICE_RECIPES - index - 1;
+                int64_t index = sac - kfx_config_state.conf.rules[0].sacrifices.sacrifice_recipes;
+                int64_t remaining = MAX_SACRIFICE_RECIPES - index - 1;
                 if (remaining > 0)
                 {
                     memmove(sac, sac + 1, remaining * sizeof(*sac));
@@ -898,7 +898,7 @@ void script_set_sacrifice_recipe(const int action, const int param, ThingModel* 
         }
     }
 
-    if (action == (long)SacA_None) // No rule found to remove
+    if (action == (int64_t)SacA_None) // No rule found to remove
     {
         WARNLOG("Unable to find sacrifice rule to remove");
         return;
@@ -916,12 +916,12 @@ void script_set_sacrifice_recipe(const int action, const int param, ThingModel* 
     sac->param = param;
 
     struct Coord3d temple_pos;
-    for (int player_idx = 0; player_idx < DUNGEONS_COUNT; player_idx++)
+    for (int64_t player_idx = 0; player_idx < DUNGEONS_COUNT; player_idx++)
     {
         if (find_temple_pool(player_idx, &temple_pos))
         {
             // Process the sacrifice if the pool already matches
-            for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+            for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
             {
                 if (victims[i] == 0)
                     break;

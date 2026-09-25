@@ -24,8 +24,8 @@ namespace {
 
 struct OverrideTex {
     void *texture = nullptr;
-    int   width   = 0;
-    int   height  = 0;
+    int64_t   width   = 0;
+    int64_t   height  = 0;
     bool  attempted = false; // true once a decode has been tried, success or not
 };
 
@@ -77,11 +77,11 @@ void resolve_pack_dir_casing()
     char gui_dir_copy[400];
     std::snprintf(gui_dir_copy, sizeof(gui_dir_copy), "%s", gui_dir);
 
-    const int max_entries = 64;
-    const int name_len = 64;
+    const int64_t max_entries = 64;
+    const int64_t name_len = 64;
     std::vector<char> subs((size_t)max_entries * name_len);
-    int count = PlatformManager_ListSubdirectories(gui_dir_copy, subs.data(), name_len, max_entries);
-    for (int i = 0; i < count; i++)
+    int64_t count = PlatformManager_ListSubdirectories(gui_dir_copy, subs.data(), name_len, max_entries);
+    for (int64_t i = 0; i < count; i++)
     {
         const char *sub = subs.data() + (size_t)i * name_len;
         if (strcasecmp(sub, s_loaded_pack) == 0)
@@ -128,16 +128,16 @@ bool pack_is_none()
 // exactly what ImGui/RendererCreateDynamicTexture already wants, no
 // palette matching at all). Same spng call shape custom_sprites.c already
 // uses for its own buffer-based decode (process_icon_from_list's zip path).
-bool decode_png_rgba(const char *path, std::vector<unsigned char> *out, int *out_w, int *out_h)
+bool decode_png_rgba(const char *path, std::vector<unsigned char> *out, int64_t *out_w, int64_t *out_h)
 {
-    long fsize = LbFileLength(path);
+    int64_t fsize = LbFileLength(path);
     if (fsize <= 0)
         return false;
     TbFileHandle fh = LbFileOpen(path, Lb_FILE_MODE_READ_ONLY);
     if (fh == NULL)
         return false;
     std::vector<unsigned char> file_buf((size_t)fsize);
-    long rlen = (long)LbFileRead(fh, file_buf.data(), (unsigned long)fsize);
+    int64_t rlen = (int64_t)LbFileRead(fh, file_buf.data(), (uint64_t)fsize);
     LbFileClose(fh);
     if (rlen != fsize)
         return false;
@@ -177,15 +177,15 @@ bool decode_png_rgba(const char *path, std::vector<unsigned char> *out, int *out
     }
     spng_ctx_free(ctx);
 
-    *out_w = (int)ihdr.width;
-    *out_h = (int)ihdr.height;
+    *out_w = (int64_t)ihdr.width;
+    *out_h = (int64_t)ihdr.height;
     return true;
 }
 
 // Shared resolver: `name` is a fully-assembled, already-lowercased
 // friendly name. Every public entry point in this file funnels here so
 // there is exactly one cache and one decode path.
-void *resolve(const char *name, int *out_w, int *out_h)
+void *resolve(const char *name, int64_t *out_w, int64_t *out_h)
 {
     ensure_pack_current();
     if (out_w != nullptr) *out_w = 0;
@@ -203,7 +203,7 @@ void *resolve(const char *name, int *out_w, int *out_h)
             char path_copy[512];
             std::snprintf(path_copy, sizeof(path_copy), "%s", path);
             std::vector<unsigned char> rgba;
-            int w = 0, h = 0;
+            int64_t w = 0, h = 0;
             if (decode_png_rgba(path_copy, &rgba, &w, &h))
             {
                 void *tex = RendererCreateDynamicTexture(w, h);
@@ -245,7 +245,7 @@ void *resolve(const char *name, int *out_w, int *out_h)
 // to the tint -- flagged as a follow-up, not silently forgotten) or the
 // ~20 stat_* icons (creature_query_panel()'s Stats page, vertical layout
 // only -- lower value, deferred to keep this table's first landing small).
-struct StaticRow { short idx; bool button_sheet; const char *name; };
+struct StaticRow { int64_t idx; bool button_sheet; const char *name; };
 const StaticRow s_static_rows[] = {
     { GPS_rpanel_tab_crtr_wandr_act,   false, "job_idle" },
     { GPS_rpanel_tab_crtr_work_act,    false, "job_work" },
@@ -272,13 +272,13 @@ const StaticRow s_static_rows[] = {
 
 } // namespace
 
-void *FeIconOverrideTexture(const char *name, int *out_w, int *out_h)
+void *FeIconOverrideTexture(const char *name, int64_t *out_w, int64_t *out_h)
 {
     return resolve(lower(name).c_str(), out_w, out_h);
 }
 
 void *FeIconOverrideActiveInactive(const char *category, const char *code_name, bool active,
-                                   int *out_w, int *out_h, bool *out_dim)
+                                   int64_t *out_w, int64_t *out_h, bool *out_dim)
 {
     if (out_dim != nullptr) *out_dim = false;
     char base[80];
@@ -315,14 +315,14 @@ void *FeIconOverrideActiveInactive(const char *category, const char *code_name, 
     return tex;
 }
 
-void *FeIconOverrideSingle(const char *category, const char *code_name, int *out_w, int *out_h)
+void *FeIconOverrideSingle(const char *category, const char *code_name, int64_t *out_w, int64_t *out_h)
 {
     char name[80];
     build_base_name(category, code_name, name, sizeof(name));
     return resolve(name, out_w, out_h);
 }
 
-void *FeIconOverrideForStaticIndex(short sprite_idx, bool is_button_sheet, int *out_w, int *out_h)
+void *FeIconOverrideForStaticIndex(int64_t sprite_idx, bool is_button_sheet, int64_t *out_w, int64_t *out_h)
 {
     ensure_pack_current();
     if (pack_is_none())

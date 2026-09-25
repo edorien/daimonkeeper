@@ -32,7 +32,7 @@ extern "C" {
  *  be manipulated with LbLocText*() routines.
  */
 typedef char TbLocChar;
-typedef int TbCharCount;
+typedef int64_t TbCharCount;
 /******************************************************************************/
 TbCharCount LbLocTextStringLength(const TbLocChar *s);
 TbSize LbLocTextStringSize(const TbLocChar *s);

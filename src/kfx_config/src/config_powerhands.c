@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-static TbBool load_powerhands_config_file(const char *fname, unsigned short flags);
+static TbBool load_powerhands_config_file(const char *fname, int64_t flags);
 
 const struct ConfigFileData keeper_powerhands_file_data = {
     .filename = "powerhands.toml",
@@ -48,7 +48,7 @@ typedef struct VALUE VALUE;
 
 struct NamedCommand powerhand_desc[NUM_VARIANTS + 1];
 
-static TbBool load_powerhands_config_file(const char *fname, unsigned short flags)
+static TbBool load_powerhands_config_file(const char *fname, int64_t flags)
 {
     VALUE file_root;
     
@@ -58,9 +58,9 @@ static TbBool load_powerhands_config_file(const char *fname, unsigned short flag
     char key[64] = "";
     VALUE *section;
     // Create sections
-    for (int id = 0; id < NUM_VARIANTS; id++)
+    for (int64_t id = 0; id < NUM_VARIANTS; id++)
     {
-        snprintf(key, sizeof(key), "hand%d", id);
+        snprintf(key, sizeof(key), "hand%" PRId64, (int64_t)(id));
         section = value_dict_get(&file_root, key);
         if (value_type(section) == VALUE_DICT)
         {
@@ -86,11 +86,11 @@ static TbBool load_powerhands_config_file(const char *fname, unsigned short flag
         }
     }
 
-    snprintf(key, sizeof(key), "hand%d", NUM_VARIANTS);
+    snprintf(key, sizeof(key), "hand%" PRId64, (int64_t)(NUM_VARIANTS));
     section = value_dict_get(&file_root, key);
     if (value_type(section) == VALUE_DICT)
     {
-        WARNMSG("more powerhands defined then max of %d", NUM_VARIANTS);
+        WARNMSG("more powerhands defined then max of %" PRId64, (int64_t)(NUM_VARIANTS));
     }
 
     value_fini(&file_root);

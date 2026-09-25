@@ -74,7 +74,7 @@ FTestActionResult ftest_creature_guard_post_action001__setup(struct FTestActionA
 
     if (!ftest_util_replace_slabs(room_slb_x, room_slb_y, room_slb_x + GUARDPOST_SIZE, room_slb_y + GUARDPOST_SIZE, SlbT_GUARDPOST, PLAYER0))
     {
-        FTEST_FAIL_TEST("Failed to build guard post room at slab (%d,%d)", room_slb_x, room_slb_y);
+        FTEST_FAIL_TEST("Failed to build guard post room at slab (%" PRId64 ",%" PRId64 ")", (int64_t)(room_slb_x), (int64_t)(room_slb_y));
         return FTRs_Go_To_Next_Action;
     }
     set_room_available(PLAYER0, RoK_GUARDPOST, 1, 1);
@@ -96,7 +96,7 @@ FTestActionResult ftest_creature_guard_post_action001__setup(struct FTestActionA
     }
 
     CreatureJob guard_job = (CreatureJob)get_id(creaturejob_desc, "GUARD");
-    if ((long)guard_job == -1)
+    if ((int64_t)guard_job == -1)
     {
         FTEST_FAIL_TEST("Failed to resolve GUARD job id");
         return FTRs_Go_To_Next_Action;
@@ -132,7 +132,7 @@ FTestActionResult ftest_creature_guard_post_action002__wait_for_guarding(struct 
 
     if (creature->active_state == CrSt_AtGuardPostRoom || creature->active_state == CrSt_Guarding)
     {
-        FTESTLOG("Creature reached guard state %d at turn %d", (int)creature->active_state, get_gameturn());
+        FTESTLOG("Creature reached guard state %" PRId64 " at turn %" PRId64, (int64_t)creature->active_state, (int64_t)(get_gameturn()));
         return FTRs_Go_To_Next_Action;
     }
 
@@ -141,7 +141,7 @@ FTestActionResult ftest_creature_guard_post_action002__wait_for_guarding(struct 
     // creature_states.c) only re-fires every 128 turns per creature.
     if (get_gameturn() >= args->intended_start_at_game_turn + 600)
     {
-        FTEST_FAIL_TEST("Creature never reached CrSt_AtGuardPostRoom/CrSt_Guarding within the turn budget (active_state=%d)", (int)creature->active_state);
+        FTEST_FAIL_TEST("Creature never reached CrSt_AtGuardPostRoom/CrSt_Guarding within the turn budget (active_state=%" PRId64 ")", (int64_t)creature->active_state);
         return FTRs_Go_To_Next_Action;
     }
 

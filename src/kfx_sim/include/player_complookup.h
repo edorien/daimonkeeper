@@ -39,16 +39,16 @@ struct GoldLookup { // sizeof = 28
     unsigned char player_interested[PLAYERS_COUNT];
 MapSubtlCoord stl_x;
 MapSubtlCoord stl_y;
-unsigned short num_gold_slabs;
-unsigned long num_gem_slabs;
+int64_t num_gold_slabs;
+uint64_t num_gem_slabs;
 };
 
 #pragma pack()
 /******************************************************************************/
 void check_map_for_gold(void);
-struct GoldLookup *get_gold_lookup(long idx);
-long gold_lookup_index(const struct GoldLookup *gldlook);
-long smaller_gold_vein_lookup_idx(long higher_gold_slabs, long higher_gem_slabs);
+struct GoldLookup *get_gold_lookup(int64_t idx);
+int64_t gold_lookup_index(const struct GoldLookup *gldlook);
+int64_t smaller_gold_vein_lookup_idx(int64_t higher_gold_slabs, int64_t higher_gem_slabs);
 /******************************************************************************/
 #ifdef __cplusplus
 }

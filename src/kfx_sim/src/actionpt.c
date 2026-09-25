@@ -80,7 +80,7 @@ struct ActionPoint *actnpoint_create_actnpoint(struct InitActionPoint *iapt)
 
 TbBool actnpoint_create_actnpoint_adv(VALUE *init_data)
 {
-    int point_number = value_int32(value_dict_get(init_data, "PointNumber"));
+    int64_t point_number = value_int32(value_dict_get(init_data, "PointNumber"));
     if (point_number < 0)
         return false;
 
@@ -183,11 +183,11 @@ TbBool action_point_activated_by_player(ActionPointId apt_idx, PlayerNumber plyr
     return flag_is_set(apt->activated, to_flag(plyr_idx));
 }
 
-TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, long first_thing_idx)
+TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, int64_t first_thing_idx)
 {
     SYNCDBG(8,"Starting");
-    unsigned long k = 0;
-    int i = first_thing_idx;
+    uint64_t k = 0;
+    int64_t i = first_thing_idx;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -195,7 +195,7 @@ TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, 
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
         {
-            ERRORLOG("Jump to invalid creature (%d) detected", i);
+            ERRORLOG("Jump to invalid creature (%" PRId64 ") detected", (int64_t)(i));
             break;
         }
         i = cctrl->players_next_creature_idx;
@@ -217,7 +217,7 @@ TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, 
             }
         } else
         {
-            long dist = get_distance_xy(thing->mappos.x.val, thing->mappos.y.val, apt->mappos.x.val, apt->mappos.y.val);
+            int64_t dist = get_distance_xy(thing->mappos.x.val, thing->mappos.y.val, apt->mappos.x.val, apt->mappos.y.val);
             if (apt->range > dist) {
                 return true;
             }
@@ -233,7 +233,7 @@ TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, 
     return false;
 }
 
-PlayerBitFlags action_point_get_players_within(long apt_idx)
+PlayerBitFlags action_point_get_players_within(int64_t apt_idx)
 {
     struct ActionPoint* apt = action_point_get(apt_idx);
     PlayerBitFlags activated = apt->activated;
@@ -248,7 +248,7 @@ PlayerBitFlags action_point_get_players_within(long apt_idx)
                 if (dungeon_invalid(dungeon)) {
                     continue;
                 }
-                SYNCDBG(16,"Checking player %d",(int)plyr_idx);
+                SYNCDBG(16,"Checking player %" PRId64,(int64_t)plyr_idx);
                 if (action_point_is_creature_from_list_within(apt, dungeon->digger_list_start)) {
                     set_flag(activated, to_flag(plyr_idx));
                     continue;
@@ -266,7 +266,7 @@ PlayerBitFlags action_point_get_players_within(long apt_idx)
 TbBool process_action_points(void)
 {
     SYNCDBG(6,"Starting");
-    for (long i = 1; i < ACTN_POINTS_COUNT; i++)
+    for (int64_t i = 1; i < ACTN_POINTS_COUNT; i++)
     {
         struct ActionPoint* apt = &kfx_sim_state.action_points[i];
         if (apt->exists == true)
@@ -282,8 +282,8 @@ TbBool process_action_points(void)
                         !flag_is_set(old_activated, to_flag(plyr_idx)))
                     {
                         struct ApiEventData event_data[] = {
-                            {"player",API_EVENT_DATA_INT32,{ .int32_value = (int32_t)plyr_idx }},
-                            {"action_point",API_EVENT_DATA_INT32,{ .int32_value = (int32_t)apt->num }},
+                            {"player",API_EVENT_DATA_INT32,{ .int32_value = (int64_t)plyr_idx }},
+                            {"action_point",API_EVENT_DATA_INT32,{ .int32_value = (int64_t)apt->num }},
                         };
 
                         script_hooks->api_event_with_data(
@@ -301,7 +301,7 @@ TbBool process_action_points(void)
 
 void clear_action_points(void)
 {
-    for (long i = 0; i < ACTN_POINTS_COUNT; i++)
+    for (int64_t i = 0; i < ACTN_POINTS_COUNT; i++)
     {
         memset(&kfx_sim_state.action_points[i], 0, sizeof(struct ActionPoint));
     }
@@ -317,7 +317,7 @@ void delete_action_point_structure(struct ActionPoint *apt)
 
 void delete_all_action_point_structures(void)
 {
-    for (long i = 1; i < ACTN_POINTS_COUNT; i++)
+    for (int64_t i = 1; i < ACTN_POINTS_COUNT; i++)
     {
         struct ActionPoint* apt = &kfx_sim_state.action_points[i];
         if (apt != NULL)

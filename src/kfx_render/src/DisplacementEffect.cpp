@@ -31,8 +31,8 @@
 #include "post_inc.h"
 
 // Reference dimensions for resolution-independent scaling
-static const int REF_WIDTH = 640;
-static const int REF_HEIGHT = 480;
+static const int64_t REF_WIDTH = 640;
+static const int64_t REF_HEIGHT = 480;
 
 /******************************************************************************/
 
@@ -64,7 +64,7 @@ void DisplacementEffect::FreeLookupTable()
  * Build pre-computed lookup table for current resolution.
  * Computes displacement in virtual 640x480 space, then maps to actual coords.
  */
-void DisplacementEffect::BuildLookupTable(long width, long height)
+void DisplacementEffect::BuildLookupTable(int64_t width, int64_t height)
 {
     // Free existing table if any
     FreeLookupTable();
@@ -76,7 +76,7 @@ void DisplacementEffect::BuildLookupTable(long width, long height)
         m_lookup_table.resize((size_t)width * (size_t)height);
     } catch (const std::bad_alloc &) {
         size_t table_size = (size_t)width * (size_t)height * sizeof(DisplaceLookupEntry);
-        ERRORLOG("Failed to allocate displacement lookup table (%" PRIuSIZE " bytes)", SZCAST(table_size));
+        ERRORLOG("Failed to allocate displacement lookup table (%" PRIuSIZE " bytes)", (uint64_t)(SZCAST(table_size)));
         return;
     }
 
@@ -84,10 +84,10 @@ void DisplacementEffect::BuildLookupTable(long width, long height)
     m_table_height = height;
     
     // Fixed-point scale factors (16.16 format)
-    const unsigned int scale_x = (REF_WIDTH << 16) / width;
-    const unsigned int scale_y = (REF_HEIGHT << 16) / height;
-    const unsigned int inv_scale_x = (width << 16) / REF_WIDTH;
-    const unsigned int inv_scale_y = (height << 16) / REF_HEIGHT;
+    const uint64_t scale_x = (REF_WIDTH << 16) / width;
+    const uint64_t scale_y = (REF_HEIGHT << 16) / height;
+    const uint64_t inv_scale_x = (width << 16) / REF_WIDTH;
+    const uint64_t inv_scale_y = (height << 16) / REF_HEIGHT;
     
     // Pre-compute constants
     const double ref_center_x = REF_WIDTH * 0.5;
@@ -99,17 +99,17 @@ void DisplacementEffect::BuildLookupTable(long width, long height)
     
     DisplaceLookupEntry* entry = m_lookup_table.data();
     
-    for (long y = 0; y < height; y++)
+    for (int64_t y = 0; y < height; y++)
     {
-        int virtual_y = (y * scale_y) >> 16;
+        int64_t virtual_y = (y * scale_y) >> 16;
         double flpos_y = virtual_y - ref_center_y;
         
-        for (long x = 0; x < width; x++)
+        for (int64_t x = 0; x < width; x++)
         {
-            int virtual_x = (x * scale_x) >> 16;
+            int64_t virtual_x = (x * scale_x) >> 16;
             double flpos_x = virtual_x - ref_center_x;
             
-            long src_virtual_x, src_virtual_y;
+            int64_t src_virtual_x, src_virtual_y;
             
             switch (m_algorithm)
             {
@@ -119,15 +119,15 @@ void DisplacementEffect::BuildLookupTable(long width, long height)
                 break;
                 
             case DisplaceAlgo_Sinusoidal:
-                src_virtual_x = (long)(sin(flpos_y / REF_WIDTH * flperiod) * flmag + flpos_x + ref_center_x);
-                src_virtual_y = (long)(sin(flpos_x / REF_HEIGHT * flperiod) * flmag + flpos_y + ref_center_y);
+                src_virtual_x = (int64_t)(sin(flpos_y / REF_WIDTH * flperiod) * flmag + flpos_x + ref_center_x);
+                src_virtual_y = (int64_t)(sin(flpos_x / REF_HEIGHT * flperiod) * flmag + flpos_y + ref_center_y);
                 break;
                 
             case DisplaceAlgo_Radial:
                 {
                     double fldist = sqrt(flpos_x * flpos_x + flpos_y * flpos_y + flmag_sq) / fldivs;
-                    src_virtual_x = (long)(fldist * flpos_x + ref_center_x);
-                    src_virtual_y = (long)(fldist * flpos_y + ref_center_y);
+                    src_virtual_x = (int64_t)(fldist * flpos_x + ref_center_x);
+                    src_virtual_y = (int64_t)(fldist * flpos_y + ref_center_y);
                     
                     if ((m_period & 1) == 0 && src_virtual_x < 0) src_virtual_x = 0;
                     if ((m_period & 2) == 0 && src_virtual_y < 0) src_virtual_y = 0;
@@ -147,24 +147,24 @@ void DisplacementEffect::BuildLookupTable(long width, long height)
             if (src_virtual_y < 0)           src_virtual_y = 0;
             
             // Map to actual resolution
-            long actual_src_x = (src_virtual_x * inv_scale_x) >> 16;
-            long actual_src_y = (src_virtual_y * inv_scale_y) >> 16;
+            int64_t actual_src_x = (src_virtual_x * inv_scale_x) >> 16;
+            int64_t actual_src_y = (src_virtual_y * inv_scale_y) >> 16;
             
             if (actual_src_x >= width)  actual_src_x = width - 1;
             if (actual_src_y >= height) actual_src_y = height - 1;
             
-            entry->src_x = (short)actual_src_x;
-            entry->src_y = (short)actual_src_y;
+            entry->src_x = (int64_t)actual_src_x;
+            entry->src_y = (int64_t)actual_src_y;
             entry++;
         }
     }
     
-    SYNCDBG(7, "Built displacement lookup table %ldx%ld", width, height);
+    SYNCDBG(7, "Built displacement lookup table %" PRId64 "x%" PRId64, (int64_t)(width), (int64_t)(height));
 }
 
-TbBool DisplacementEffect::Setup(long lens_idx)
+TbBool DisplacementEffect::Setup(int64_t lens_idx)
 {
-    SYNCDBG(8, "Setting up displacement effect for lens %ld", lens_idx);
+    SYNCDBG(8, "Setting up displacement effect for lens %" PRId64, (int64_t)(lens_idx));
     
     struct LensConfig* cfg = &lenses_conf.lenses[lens_idx];
     
@@ -183,8 +183,8 @@ TbBool DisplacementEffect::Setup(long lens_idx)
     FreeLookupTable();
     
     m_current_lens = lens_idx;
-    SYNCDBG(7, "Displacement effect ready (algo=%d, mag=%d, period=%d)",
-           m_algorithm, m_magnitude, m_period);
+    SYNCDBG(7, "Displacement effect ready (algo=%" PRId64 ", mag=%" PRId64 ", period=%" PRId64 ")",
+           (int64_t)(m_algorithm), (int64_t)(m_magnitude), (int64_t)(m_period));
     return true;
 }
 
@@ -218,9 +218,9 @@ TbBool DisplacementEffect::Draw(LensRenderContext* ctx)
     TbPixel* dst = ctx->dstbuf;
     DisplaceLookupEntry* entry = m_lookup_table.data();
     
-    for (long y = 0; y < ctx->height; y++)
+    for (int64_t y = 0; y < ctx->height; y++)
     {
-        for (long x = 0; x < ctx->width; x++)
+        for (int64_t x = 0; x < ctx->width; x++)
         {
             dst[x] = viewport_src[entry->src_y * ctx->srcpitch + entry->src_x];
             entry++;

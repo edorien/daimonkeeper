@@ -21,9 +21,9 @@
 
 namespace {
 
-void add_names(ScriptNameGroup &g, const struct NamedCommand *table, int max_entries)
+void add_names(ScriptNameGroup &g, const struct NamedCommand *table, int64_t max_entries)
 {
-    for (int i = 0; (i < max_entries) && (table[i].name != NULL); i++)
+    for (int64_t i = 0; (i < max_entries) && (table[i].name != NULL); i++)
         if (table[i].name[0] != '\0')
             g.names.push_back(table[i].name);
 }
@@ -62,7 +62,7 @@ std::vector<ScriptNameGroup> editor_script_collect_name_groups()
         ScriptNameGroup heroes, evil;
         heroes.title = "Hero creatures";
         evil.title = "Evil creatures";
-        for (int i = 0; (i < CREATURE_TYPES_MAX) && (creature_desc[i].name != NULL); i++)
+        for (int64_t i = 0; (i < CREATURE_TYPES_MAX) && (creature_desc[i].name != NULL); i++)
         {
             if (creature_desc[i].num <= 0)
                 continue;
@@ -106,7 +106,7 @@ std::vector<ScriptNameGroup> editor_script_collect_name_groups()
         {
             const struct ActionPoint *apt = action_point_get(i);
             if (action_point_exists(apt))
-                g.names.push_back(std::to_string((int)apt->num));
+                g.names.push_back(std::to_string((int64_t)apt->num));
         }
         std::sort(g.names.begin(), g.names.end(), [](const std::string &a, const std::string &b) {
             return (a.size() != b.size()) ? a.size() < b.size() : a < b;

@@ -76,7 +76,7 @@ TbBool load_mod_sounds_config(const char* mod_name);
  * @param lvnum   Level number
  * @return true if the file was found and loaded
  */
-TbBool load_level_sounds_config(short fgroup, LevelNumber lvnum);
+TbBool load_level_sounds_config(int64_t fgroup, LevelNumber lvnum);
 
 /**
  * @brief Reset the entire sound system back to the fxdata baseline.
@@ -141,7 +141,7 @@ extern SoundSmplTblID snd_room_claim;
 
 /* Gold / salary */
 extern SoundSmplTblID snd_gold_pickup;
-extern int            snd_gold_pickup_count;
+extern int64_t            snd_gold_pickup_count;
 extern SoundSmplTblID snd_salary_full;
 extern SoundSmplTblID snd_salary_partial;
 extern SoundSmplTblID snd_salary_tiny;
@@ -154,33 +154,33 @@ extern SoundSmplTblID snd_heart_beat_up;
 extern SoundSmplTblID snd_door_open;
 extern SoundSmplTblID snd_door_close;
 extern SoundSmplTblID snd_door_place;
-extern int            snd_door_place_count;
+extern int64_t            snd_door_place_count;
 
 /* Digging */
 extern SoundSmplTblID snd_dig_impact;
-extern int            snd_dig_impact_count;
+extern int64_t            snd_dig_impact_count;
 extern SoundSmplTblID snd_dig_dirt;
 
 /* Footstep variants */
 extern SoundSmplTblID snd_foot_spur;
-extern int            snd_foot_spur_count;
+extern int64_t            snd_foot_spur_count;
 extern SoundSmplTblID snd_foot_wet;
-extern int            snd_foot_wet_count;
+extern int64_t            snd_foot_wet_count;
 extern SoundSmplTblID snd_foot_snow;
-extern int            snd_foot_snow_count;
+extern int64_t            snd_foot_snow_count;
 
 /* Creature ambient */
 extern SoundSmplTblID snd_insect_fly;       /* diptera/insect flying buzz */
 extern SoundSmplTblID snd_chicken_cluck;
-extern int            snd_chicken_cluck_count;
+extern int64_t            snd_chicken_cluck_count;
 
 /* Combat / impacts */
 extern SoundSmplTblID snd_splash;
 extern SoundSmplTblID snd_explode;
 extern SoundSmplTblID snd_strike_wall;
-extern int            snd_strike_wall_count;
+extern int64_t            snd_strike_wall_count;
 extern SoundSmplTblID snd_reinforce_hit;    /* imp wall reinforcement impact */
-extern int            snd_reinforce_hit_count;
+extern int64_t            snd_reinforce_hit_count;
 
 /* Spells */
 extern SoundSmplTblID snd_spell_wall;
@@ -190,9 +190,9 @@ extern SoundSmplTblID snd_spell_armageddon;
 
 /* Digging spells */
 extern SoundSmplTblID snd_dig_spell;
-extern int            snd_dig_spell_count;
+extern int64_t            snd_dig_spell_count;
 extern SoundSmplTblID snd_tunnel_dig;
-extern int            snd_tunnel_dig_count;
+extern int64_t            snd_tunnel_dig_count;
 
 /* UI */
 extern SoundSmplTblID snd_button_click;
@@ -200,7 +200,7 @@ extern SoundSmplTblID snd_buzzer;           /* error buzz */
 extern SoundSmplTblID snd_tab_fall;         /* event notification tab fall */
 extern SoundSmplTblID snd_chat_message[2];
 extern SoundSmplTblID snd_lobby_player_leave;
-extern int            snd_lobby_player_leave_count;
+extern int64_t            snd_lobby_player_leave_count;
 
 /* Dungeon heart */
 extern SoundSmplTblID snd_heart_engine;     /* heartbeat engine hum (looping) */
@@ -277,7 +277,7 @@ extern SoundSmplTblID snd_shot_breath;            /* firing; FiringSound for SHO
 extern SoundSmplTblID snd_shot_freeze_fire;       /* firing; FiringSound for SHOT_FREEZE and SHOT_SLOW */
 /* Melee swing / misc shot sounds */
 extern SoundSmplTblID snd_melee_swing;            /* firing; FiringSound for melee shots (SWING_CLAW, SWING_FIST, DIG, CRIPPLE) */
-extern int            snd_melee_swing_count;      /* variants; 6 consecutive IDs (26-31) */
+extern int64_t            snd_melee_swing_count;      /* variants; 6 consecutive IDs (26-31) */
 extern SoundSmplTblID snd_boulder_roll;           /* travel; ShotSound for SHOT_BOULDER */
 extern SoundSmplTblID snd_shot_magic_travel;      /* travel; ShotSound for many generic magic projectiles */
 extern SoundSmplTblID snd_trap_tnt_fire;          /* firing; FiringSound for SHOT_TRAP_TNT */
@@ -288,14 +288,14 @@ extern SoundSmplTblID snd_cast_cleanse;           /* firing; FiringSound for SHO
 extern SoundSmplTblID snd_hit_creature_sword;     /* HitCreatureSound for sword/claw shots (light slice) */
 extern SoundSmplTblID snd_hit_creature;           /* HitCreatureSound for fist/ranged shots (heavy hit) */
 extern SoundSmplTblID snd_hit_wall;               /* HitWallSound for fist/ballista/sentry */
-extern int            snd_hit_wall_count;         /* variants; IDs 138-140 */
+extern int64_t            snd_hit_wall_count;         /* variants; IDs 138-140 */
 extern SoundSmplTblID snd_hit_door_sword;         /* HitDoorSound for sword/claw shots */
-extern int            snd_hit_door_sword_count;   /* variants; IDs 131-133 */
+extern int64_t            snd_hit_door_sword_count;   /* variants; IDs 131-133 */
 extern SoundSmplTblID snd_hit_door;               /* HitDoorSound for fist/heavy shots */
-extern int            snd_hit_door_count;         /* variants; IDs 141-143 */
+extern int64_t            snd_hit_door_count;         /* variants; IDs 141-143 */
 extern SoundSmplTblID snd_hit_heart;              /* HitHeartSound for sword/ballista/ranged shots */
 extern SoundSmplTblID snd_hit_heart_fist;         /* HitHeartSound for fist/heavy shots */
-extern int            snd_hit_heart_fist_count;   /* variants; IDs 144-146 */
+extern int64_t            snd_hit_heart_fist_count;   /* variants; IDs 144-146 */
 extern SoundSmplTblID snd_hit_wall_boulder;       /* HitWallSound for SHOT_BOULDER */
 
 /******************************************************************************/
@@ -319,7 +319,7 @@ extern char g_speech_overrides[SMsg_MAX][512];
  * @param text Sound name or file path string
  * @return Sample ID, or 0 if unresolvable
  */
-int sound_id_from_text(const char* text);
+int64_t sound_id_from_text(const char* text);
 
 /**
  * @brief NamedField parse function that resolves a sound name, numeric ID, or inline file path.
@@ -333,7 +333,7 @@ int sound_id_from_text(const char* text);
  * Returns the sample ID, or 0 on failure.
  */
 int64_t value_sound_id(const struct NamedField* named_field, const char* value_text,
-                       const struct NamedFieldSet* named_fields_set, int idx,
+                       const struct NamedFieldSet* named_fields_set, int64_t idx,
                        const char* src_str, unsigned char flags);
 
 /**
@@ -352,7 +352,7 @@ void speech_ref_parse(SpeechRef* ref, const char* text);
  * Must be paired with assign_speech_ref.
  */
 int64_t value_speech_ref(const struct NamedField* named_field, const char* value_text,
-                         const struct NamedFieldSet* named_fields_set, int idx,
+                         const struct NamedFieldSet* named_fields_set, int64_t idx,
                          const char* src_str, unsigned char flags);
 
 /**
@@ -362,7 +362,7 @@ int64_t value_speech_ref(const struct NamedField* named_field, const char* value
  * Must be paired with value_speech_ref.
  */
 void assign_speech_ref(const struct NamedField* named_field, int64_t value,
-                       const struct NamedFieldSet* named_fields_set, int idx,
+                       const struct NamedFieldSet* named_fields_set, int64_t idx,
                        const char* src_str, unsigned char flags);
 
 /******************************************************************************/

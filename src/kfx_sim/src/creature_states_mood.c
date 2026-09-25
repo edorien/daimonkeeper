@@ -61,10 +61,10 @@ TbBool creature_can_get_angry(const struct Thing *creatng)
     return (crconf->annoy_level > 0);
 }
 
-short creature_moan(struct Thing *thing)
+int64_t creature_moan(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-    long i = cctrl->countdown;
+    int64_t i = cctrl->countdown;
     if (i > 0) i--;
     cctrl->countdown = i;
     if (i <= 0)
@@ -85,7 +85,7 @@ short creature_moan(struct Thing *thing)
     return 1;
 }
 
-short creature_roar(struct Thing *thing)
+int64_t creature_roar(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
 
@@ -106,10 +106,10 @@ short creature_roar(struct Thing *thing)
     return 1;
 }
 
-short creature_be_happy(struct Thing *thing)
+int64_t creature_be_happy(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-    long i = cctrl->countdown;
+    int64_t i = cctrl->countdown;
     if (i > 0) i--;
     cctrl->countdown = i;
     if (i <= 0)
@@ -130,16 +130,16 @@ short creature_be_happy(struct Thing *thing)
     return 1;
 }
 
-short creature_piss(struct Thing *thing)
+int64_t creature_piss(struct Thing *thing)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct CreatureSound* crsound = get_creature_sound(thing, CrSnd_Piss);
-    long piss_i = THING_RANDOM(thing, crsound->count);
+    int64_t piss_i = THING_RANDOM(thing, crsound->count);
     SoundSmplTblID sound_idx = creature_sound_unified_id(crsound, piss_i);
     if (!S3DEmitterIsPlayingSample(thing->snd_emitter_id, sound_idx)) {
         sim_feedback->thing_play_sample(thing, sound_idx, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
     }
-    long i = cctrl->countdown;
+    int64_t i = cctrl->countdown;
     if (i > 0) {
         i--;
     }
@@ -152,13 +152,13 @@ short creature_piss(struct Thing *thing)
     return 0;
 }
 
-short mad_killing_psycho(struct Thing *creatng)
+int64_t mad_killing_psycho(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     // Find a position for killing - use random dungeon
     struct Coord3d pos;
-    int i;
-    int n = THING_RANDOM(creatng, PLAYERS_COUNT);
+    int64_t i;
+    int64_t n = THING_RANDOM(creatng, PLAYERS_COUNT);
     for (i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(n);
@@ -200,7 +200,7 @@ void anger_calculate_creature_is_angry(struct Thing *creatng)
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     cctrl->mood_flags &= ~CCMoo_Angry;
     cctrl->mood_flags &= ~CCMoo_Livid;
-    for (int i = 1; i < 5; i++)
+    for (int64_t i = 1; i < 5; i++)
     {
         if (crconf->annoy_level <= cctrl->annoyance_level[i])
         {
@@ -233,7 +233,7 @@ TbBool anger_free_for_anger_decrease(struct Thing *creatng)
     return true;
 }
 
-void anger_increase_creature_anger_f(struct Thing *creatng, long anger, AnnoyMotive reason, const char *func_name)
+void anger_increase_creature_anger_f(struct Thing *creatng, int64_t anger, AnnoyMotive reason, const char *func_name)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     if (anger_free_for_anger_increase(creatng))
@@ -246,7 +246,7 @@ void anger_increase_creature_anger_f(struct Thing *creatng, long anger, AnnoyMot
     }
 }
 
-void anger_reduce_creature_anger_f(struct Thing *creatng, long anger, AnnoyMotive reason, const char *func_name)
+void anger_reduce_creature_anger_f(struct Thing *creatng, int64_t anger, AnnoyMotive reason, const char *func_name)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     if (anger_free_for_anger_decrease(creatng))
@@ -255,9 +255,9 @@ void anger_reduce_creature_anger_f(struct Thing *creatng, long anger, AnnoyMotiv
     }
 }
 
-void anger_set_creature_anger_f(struct Thing *creatng, long annoy_lv, AnnoyMotive reason, const char *func_name)
+void anger_set_creature_anger_f(struct Thing *creatng, int64_t annoy_lv, AnnoyMotive reason, const char *func_name)
 {
-    SYNCDBG(18,"%s: Setting reason %d to %d for %s index %d",func_name,(int)reason,(int)annoy_lv,thing_model_name(creatng),(int)creatng->index);
+    SYNCDBG(18,"%s: Setting reason %" PRId64 " to %" PRId64 " for %s index %" PRId64,func_name,(int64_t)reason,(int64_t)annoy_lv,thing_model_name(creatng),(int64_t)creatng->index);
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     if (!creature_can_get_angry(creatng))
@@ -328,8 +328,8 @@ AnnoyMotive anger_get_creature_anger_type(const struct Thing *creatng)
     if ((cctrl->mood_flags & CCMoo_Angry) == 0)
         return AngR_None;
     AnnoyMotive anger_type = AngR_None;
-    long anger_level = 0;
-    for (long i = 1; i < 5; i++)
+    int64_t anger_level = 0;
+    for (int64_t i = 1; i < 5; i++)
     {
         if (anger_level < cctrl->annoyance_level[i])
         {
@@ -337,12 +337,12 @@ AnnoyMotive anger_get_creature_anger_type(const struct Thing *creatng)
             anger_type = i;
         }
     }
-    if (anger_level < (long)crconf->annoy_level)
+    if (anger_level < (int64_t)crconf->annoy_level)
         return AngR_None;
     return anger_type;
 }
 
-void anger_apply_anger_to_creature_all_types_f(struct Thing *thing, long anger, const char *func_name)
+void anger_apply_anger_to_creature_all_types_f(struct Thing *thing, int64_t anger, const char *func_name)
 {
     if (!creature_can_get_angry(thing) || anger == 0) {
         return;
@@ -372,7 +372,7 @@ TbBool anger_make_creature_angry(struct Thing *creatng, AnnoyMotive reason)
     return true;
 }
 
-TbBool anger_give_creatures_annoyance_percentage(struct Thing* creatng, short percentage, AnnoyMotive reason)
+TbBool anger_give_creatures_annoyance_percentage(struct Thing* creatng, int64_t percentage, AnnoyMotive reason)
 {
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     if ((crconf->annoy_level <= 0))
@@ -405,11 +405,11 @@ TbBool creature_will_go_postal_on_victim_during_job(const struct Thing *creatng,
     return false;
 }
 
-TbBool find_combat_target_passing_by_subtile_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint32_t *found_dist, struct Thing **found_thing)
+TbBool find_combat_target_passing_by_subtile_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t *found_dist, struct Thing **found_thing)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    unsigned long k = 0;
-    long i = get_mapwho_thing_index(mapblk);
+    uint64_t k = 0;
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -423,7 +423,7 @@ TbBool find_combat_target_passing_by_subtile_but_having_unrelated_job(const stru
         // Per thing code start
         if (creature_will_go_postal_on_victim_during_job(creatng, thing, job_kind))
         {
-            long dist = get_combat_distance(creatng, thing);
+            int64_t dist = get_combat_distance(creatng, thing);
             // If we have combat sight - we want that target, don't search anymore
             if (creature_can_see_combat_path(creatng, thing, dist))
             {
@@ -462,7 +462,7 @@ TbBool find_combat_target_passing_by_subtile_but_having_unrelated_job(const stru
  * @return True if a target with combat sight was found. False if closest creature was found, or no creature met the conditions.
  * @note If no creature met the conditions, output variables are not initialized. Therefore, they should be initialized before calling this function.
  */
-TbBool find_combat_target_passing_by_slab_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, MapSlabCoord slb_x, MapSlabCoord slb_y, uint32_t *found_dist, struct Thing **found_thing)
+TbBool find_combat_target_passing_by_slab_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, MapSlabCoord slb_x, MapSlabCoord slb_y, uint64_t *found_dist, struct Thing **found_thing)
 {
     MapSubtlCoord endstl_x = 3 * slb_x + 3;
     MapSubtlCoord endstl_y = 3 * slb_y + 3;
@@ -489,10 +489,10 @@ TbBool find_combat_target_passing_by_slab_but_having_unrelated_job(const struct 
  * @return True if a target with combat sight was found. False if closest creature was found, or no creature met the conditions.
  * @note If no creature met the conditions, output variables are not initialized. Therefore, they should be initialized before calling this function.
  */
-TbBool find_combat_target_passing_by_room_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, const struct Room *room, uint32_t *found_dist, struct Thing **found_thing)
+TbBool find_combat_target_passing_by_room_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, const struct Room *room, uint64_t *found_dist, struct Thing **found_thing)
 {
-    unsigned long k = 0;
-    unsigned long i = room->slabs_list;
+    uint64_t k = 0;
+    uint64_t i = room->slabs_list;
     while (i > 0)
     {
         MapSubtlCoord slb_x = slb_num_decode_x(i);
@@ -518,16 +518,16 @@ TbBool process_job_causes_going_postal(struct Thing *creatng, struct Room *room,
 {
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     // Find a target
-    uint32_t combt_dist = INT32_MAX;
+    uint64_t combt_dist = INT32_MAX;
     struct Thing* combt_thing = INVALID_THING;
     if (find_combat_target_passing_by_room_but_having_unrelated_job(creatng, going_postal_job, room, &combt_dist, &combt_thing))
     {
-        SYNCDBG(8,"The %s index %d goes postal on %s index %d during %s",thing_model_name(creatng),(int)creatng->index,thing_model_name(combt_thing),(int)combt_thing->index,creature_job_code_name(going_postal_job));
+        SYNCDBG(8,"The %s index %" PRId64 " goes postal on %s index %" PRId64 " during %s",thing_model_name(creatng),(int64_t)creatng->index,thing_model_name(combt_thing),(int64_t)combt_thing->index,creature_job_code_name(going_postal_job));
 
         CrInstance inst_use = get_postal_instance_to_use(creatng, combt_dist);
         if (inst_use <= 0)
         {
-        SYNCDBG(8,"The %s index %d cannot go postal during %s; no ranged instance",thing_model_name(creatng),(int)creatng->index,creature_job_code_name(going_postal_job));
+        SYNCDBG(8,"The %s index %" PRId64 " cannot go postal during %s; no ranged instance",thing_model_name(creatng),(int64_t)creatng->index,creature_job_code_name(going_postal_job));
         return false;
         }
 
@@ -565,7 +565,7 @@ TbBool process_job_stress_and_going_postal(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
-    SYNCDBG(18,"Starting for %s index %d state %s",thing_model_name(creatng),(int)creatng->index,creatrtng_realstate_name(creatng));
+    SYNCDBG(18,"Starting for %s index %" PRId64 " state %s",thing_model_name(creatng),(int64_t)creatng->index,creatrtng_realstate_name(creatng));
     if (cctrl->instance_id != CrInst_NULL) {
         return false;
     }
@@ -595,7 +595,7 @@ TbBool process_job_stress_and_going_postal(struct Thing *creatng)
         CreatureJob going_postal_job = get_creature_job_causing_going_postal(crconf->job_primary, room->kind);
         if (going_postal_job != Job_NULL)
         {
-            SYNCDBG(18,"The %s index %d has postal job %s",thing_model_name(creatng),(int)creatng->index,creature_job_code_name(going_postal_job));
+            SYNCDBG(18,"The %s index %" PRId64 " has postal job %s",thing_model_name(creatng),(int64_t)creatng->index,creature_job_code_name(going_postal_job));
             if (process_job_causes_going_postal(creatng, room, going_postal_job)) {
                 return true;
             }
@@ -612,7 +612,7 @@ TbBool process_job_stress_and_going_postal(struct Thing *creatng)
     {
         if (!creature_job_player_check_func_list[jobcfg->func_plyr_check_idx](creatng, creatng->owner, cctrl->job_assigned))
         {
-            SYNCDBG(13, "Creature %s index %d owner %d can no longer do job %s; check callback failed", thing_model_name(creatng), (int)creatng->index, (int)creatng->owner, creature_job_code_name(cctrl->job_assigned));
+            SYNCDBG(13, "Creature %s index %" PRId64 " owner %" PRId64 " can no longer do job %s; check callback failed", thing_model_name(creatng), (int64_t)creatng->index, (int64_t)creatng->owner, creature_job_code_name(cctrl->job_assigned));
             state_cleanup_in_room(creatng);
             return true;
         }
@@ -624,8 +624,8 @@ TbBool process_job_stress_and_going_postal(struct Thing *creatng)
 TbBool any_worker_will_go_postal_on_creature_in_room(const struct Room *room, const struct Thing *victng)
 {
     TRACE_THING(victng);
-    long i = room->creatures_list;
-    unsigned long k = 0;
+    int64_t i = room->creatures_list;
+    uint64_t k = 0;
     while (i != 0)
     {
         struct Thing* thing = thing_get(i);
@@ -633,7 +633,7 @@ TbBool any_worker_will_go_postal_on_creature_in_room(const struct Room *room, co
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (!creature_control_exists(cctrl))
         {
-            ERRORLOG("Jump to invalid creature %ld detected",i);
+            ERRORLOG("Jump to invalid creature %" PRId64 " detected",(int64_t)(i));
             break;
         }
         i = cctrl->next_in_room;

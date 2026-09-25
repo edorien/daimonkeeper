@@ -54,25 +54,25 @@ struct MapThingRecord
     PlayerNumber owner = 0;        // Ownership
     MapCoord pos_x = 0, pos_y = 0, pos_z = 0; // SubtileX/Y/Z
 
-    long parent_tile = -1;         // ParentTile (object/trap/effectgen); -1 = none
-    long orientation = 0;          // Orientation (object/creature/trap)
+    int64_t parent_tile = -1;         // ParentTile (object/trap/effectgen); -1 = none
+    int64_t orientation = 0;          // Orientation (object/creature/trap)
 
     // Creature-only.
-    int creature_level = 0;        // CreatureLevel, 1-10 in the file, stored 0-based
-    long creature_gold = 0;        // CreatureGold
-    int creature_health_percent = 0; // CreatureInitialHealth (% of max health)
+    int64_t creature_level = 0;        // CreatureLevel, 1-10 in the file, stored 0-based
+    int64_t creature_gold = 0;        // CreatureGold
+    int64_t creature_health_percent = 0; // CreatureInitialHealth (% of max health)
     std::string creature_name;     // CreatureName
 
     // Object-only, mutually exclusive by the object's own model.
-    long gold_value = 0;           // GoldValue (gold pile objects)
-    long custom_box_kind = 0;      // CustomBox (custom special-box objects)
-    long herogate_number = 0;      // HerogateNumber (hero gate objects)
+    int64_t gold_value = 0;           // GoldValue (gold pile objects)
+    int64_t custom_box_kind = 0;      // CustomBox (custom special-box objects)
+    int64_t herogate_number = 0;      // HerogateNumber (hero gate objects)
 
     // Effect-generator-only.
     MapCoord effect_range = 0;     // EffectRange
 
     // Door-only.
-    long door_orientation = 0;     // DoorOrientation
+    int64_t door_orientation = 0;     // DoorOrientation
     TbBool door_locked = false;    // DoorLocked
 };
 
@@ -85,8 +85,8 @@ struct MapLightRecord
     TbBool is_dynamic = false;     // Dynamic
     MapCoord pos_x = 0, pos_y = 0, pos_z = 0; // SubtileX/Y/Z
     MapCoord range = 0;            // LightRange
-    unsigned long intensity = 0;   // LightIntensity
-    unsigned long parent_tile = 0; // ParentTile
+    uint64_t intensity = 0;   // LightIntensity
+    uint64_t parent_tile = 0; // ParentTile
 };
 
 // F3, cross-checked against actnpoint_create_actnpoint_adv() (src/kfx_sim/
@@ -94,7 +94,7 @@ struct MapLightRecord
 // independent); hero gates are MapThingRecord objects, not this.
 struct MapActionPointRecord
 {
-    long point_number = 0;         // PointNumber
+    int64_t point_number = 0;         // PointNumber
     MapCoord pos_x = 0, pos_y = 0; // SubtileX/Y
     MapCoord range = 0;            // PointRange
 };
@@ -105,7 +105,7 @@ struct MapActionPointRecord
 struct MapLevelInfo
 {
     std::string name_text;
-    int players = 1;
+    int64_t players = 1;
     bool is_multiplayer = false;   // KIND = SINGLE vs MULTI
     // docs/refactor/editor/05-script-and-level-settings.md -- DESCRIPTION
     // was already a recognized .lof keyword and an existing
@@ -123,11 +123,11 @@ struct MapLevelInfo
 // own editor_snapshot_slab_rect()/journal replay already use.
 struct MapContent
 {
-    long map_tiles_x = 0;
-    long map_tiles_y = 0;
+    int64_t map_tiles_x = 0;
+    int64_t map_tiles_y = 0;
     std::vector<SlabKind> slab_kind;      // size map_tiles_x * map_tiles_y
     std::vector<PlayerNumber> slab_owner; // size map_tiles_x * map_tiles_y
-    long texture_id = 0;                  // .inf
+    int64_t texture_id = 0;                  // .inf
     // Per-slab base-texture-set override (.slx, "ExtSlab" -- kfx_config_
     // state.slab_ext_data's own on-disk form, load_ext_slabs()/lvl_filesdk1.c).
     // 0 means "no override, use texture_id's own set" for that slab -- same
@@ -167,7 +167,7 @@ struct MapContent
     std::string lua_text;
     bool has_lua = false;
 
-    long slab_index(long x, long y) const { return y * map_tiles_x + x; }
+    int64_t slab_index(int64_t x, int64_t y) const { return y * map_tiles_x + x; }
 };
 
 #endif

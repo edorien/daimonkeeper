@@ -63,18 +63,18 @@ TEST_CASE_METHOD(ScratchFile, "LbFileOpen in NEW mode creates the file, and a fu
     TbFileHandle h = LbFileOpen(kTestFile, Lb_FILE_MODE_NEW);
     REQUIRE(h != nullptr);
     const char *payload = "hello, kfx";
-    long written = LbFileWrite(h, payload, std::strlen(payload));
-    CHECK(written == (long)std::strlen(payload));
+    int64_t written = LbFileWrite(h, payload, std::strlen(payload));
+    CHECK(written == (int64_t)std::strlen(payload));
     CHECK(LbFileClose(h) == 1);
 
     CHECK(LbFileExists(kTestFile) != 0);
-    CHECK(LbFileLength(kTestFile) == (long)std::strlen(payload));
+    CHECK(LbFileLength(kTestFile) == (int64_t)std::strlen(payload));
 
     TbFileHandle rh = LbFileOpen(kTestFile, Lb_FILE_MODE_READ_ONLY);
     REQUIRE(rh != nullptr);
     char buffer[32] = {0};
-    int read_bytes = LbFileRead(rh, buffer, sizeof(buffer) - 1);
-    CHECK(read_bytes == (int)std::strlen(payload));
+    int64_t read_bytes = LbFileRead(rh, buffer, sizeof(buffer) - 1);
+    CHECK(read_bytes == (int64_t)std::strlen(payload));
     CHECK(std::strcmp(buffer, payload) == 0);
     CHECK(LbFileClose(rh) == 1);
 }
@@ -126,7 +126,7 @@ TEST_CASE_METHOD(ScratchFile, "LbFileOpen in OLD mode opens an existing file for
     TbFileHandle oh = LbFileOpen(kTestFile, Lb_FILE_MODE_OLD);
     REQUIRE(oh != nullptr);
     LbFileSeek(oh, 0, Lb_FILE_SEEK_END);
-    long written = LbFileWrite(oh, "def", 3);
+    int64_t written = LbFileWrite(oh, "def", 3);
     CHECK(written == 3);
     LbFileClose(oh);
     CHECK(LbFileLength(kTestFile) == 6);
@@ -176,8 +176,8 @@ TEST_CASE_METHOD(ScratchAbsoluteTree, "LbFileOpen in NEW mode creates every miss
     TbFileHandle h = LbFileOpen(nested_file.c_str(), Lb_FILE_MODE_NEW);
     REQUIRE(h != nullptr);
     const char *payload = "abs path works";
-    CHECK(LbFileWrite(h, payload, std::strlen(payload)) == (long)std::strlen(payload));
+    CHECK(LbFileWrite(h, payload, std::strlen(payload)) == (int64_t)std::strlen(payload));
     CHECK(LbFileClose(h) == 1);
     CHECK(LbFileExists(nested_file.c_str()) != 0);
-    CHECK(LbFileLength(nested_file.c_str()) == (long)std::strlen(payload));
+    CHECK(LbFileLength(nested_file.c_str()) == (int64_t)std::strlen(payload));
 }

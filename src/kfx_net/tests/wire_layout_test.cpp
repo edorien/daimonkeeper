@@ -15,26 +15,26 @@
 #include <cstdint>
 
 TEST_CASE("struct Packet has one fixed byte layout on every ABI", "[kfx_net][lp64][wire]") {
-    CHECK(sizeof(struct Packet) == 35);
+    CHECK(sizeof(struct Packet) == 39);
     CHECK(offsetof(struct Packet, turn) == 0);
-    CHECK(offsetof(struct Packet, checksum) == 4);
-    CHECK(offsetof(struct Packet, action) == 9);
-    CHECK(offsetof(struct Packet, actn_par1) == 10);
-    CHECK(offsetof(struct Packet, actn_par2) == 14);
-    CHECK(offsetof(struct Packet, pos_x) == 18);
-    CHECK(offsetof(struct Packet, pos_y) == 22);
-    CHECK(offsetof(struct Packet, control_flags) == 26);
-    CHECK(offsetof(struct Packet, actn_par3) == 31);
-    CHECK(offsetof(struct Packet, actn_par4) == 33);
-    CHECK(sizeof(struct PacketEx) == 35 + 4 * CKS_MAX);
+    CHECK(offsetof(struct Packet, checksum) == 8);
+    CHECK(offsetof(struct Packet, action) == 13);
+    CHECK(offsetof(struct Packet, actn_par1) == 14);
+    CHECK(offsetof(struct Packet, actn_par2) == 18);
+    CHECK(offsetof(struct Packet, pos_x) == 22);
+    CHECK(offsetof(struct Packet, pos_y) == 26);
+    CHECK(offsetof(struct Packet, control_flags) == 30);
+    CHECK(offsetof(struct Packet, actn_par3) == 35);
+    CHECK(offsetof(struct Packet, actn_par4) == 37);
+    CHECK(sizeof(struct PacketEx) == 39 + 4 * CKS_MAX);
 }
 
 TEST_CASE("Replay header, save catalogue entry and lobby version keep their on-disk/wire size", "[kfx_net][lp64][wire]") {
-    CHECK(sizeof(struct PacketSaveHead) == 124);
-    CHECK(sizeof(struct CatalogueEntry) == 412);
+    CHECK(sizeof(struct PacketSaveHead) == 180);
+    CHECK(sizeof(struct CatalogueEntry) == 446);
     CHECK(sizeof(struct GameVersionPacket) == 16);
     CHECK(sizeof(struct ScreenPacket) == 9);
-    CHECK(sizeof(struct DesyncChecksums) == 60);
+    CHECK(sizeof(struct DesyncChecksums) == 64);
     CHECK(sizeof(TbBigChecksum) == 4);
-    CHECK(sizeof(GameTurn) == 4);
+    CHECK(sizeof(GameTurn) == 8);
 }

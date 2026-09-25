@@ -85,7 +85,7 @@ static int lua_Computer_player(lua_State *L)
     PlayerNumber player_idx = luaL_checkPlayerSingle(L,1);
     if (lua_isnumber(L, 2))
     {
-        long attitude       = luaL_checkint(L,2);
+        int64_t attitude       = luaL_checkint(L,2);
         script_support_setup_player_as_computer_keeper(player_idx, attitude);
         return 0;
     }
@@ -137,7 +137,7 @@ static int lua_Start_money(lua_State *L)
         if (gold_val > SENSIBLE_GOLD)
         {
             gold_val = SENSIBLE_GOLD;
-            SCRPTWRNLOG("Gold added to player reduced to %d", SENSIBLE_GOLD);
+            SCRPTWRNLOG("Gold added to player reduced to %" PRId64, (int64_t)(SENSIBLE_GOLD));
         }
         player_add_offmap_gold(i, gold_val);
     }
@@ -148,11 +148,11 @@ static int lua_Start_money(lua_State *L)
 static int lua_Max_creatures(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long max_amount                 = luaL_checkinteger(L, 2);
+    int64_t max_amount                 = luaL_checkinteger(L, 2);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
-        SYNCDBG(4,"Setting player %d max attracted creatures to %d.",(int)i,(int)max_amount);
+        SYNCDBG(4,"Setting player %" PRId64 " max attracted creatures to %" PRId64 ".",(int64_t)i,(int64_t)max_amount);
         struct Dungeon* dungeon = get_dungeon(i);
         if (dungeon_invalid(dungeon))
             continue;
@@ -163,8 +163,8 @@ static int lua_Max_creatures(lua_State *L)
 
 static int lua_Add_creature_to_pool(lua_State *L)
 {
-    long crtr_model = luaL_checkNamedCommand(L,1,creature_desc);
-    long amount     = luaL_checkinteger(L, 2);
+    int64_t crtr_model = luaL_checkNamedCommand(L,1,creature_desc);
+    int64_t amount     = luaL_checkinteger(L, 2);
 
     add_creature_to_pool(crtr_model, amount);
     return 0;
@@ -173,14 +173,14 @@ static int lua_Add_creature_to_pool(lua_State *L)
 static int lua_Creature_available(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long cr_kind                    = luaL_checkNamedCommand(L,2,creature_desc);
+    int64_t cr_kind                    = luaL_checkNamedCommand(L,2,creature_desc);
     TbBool can_be_attracted         = lua_toboolean(L, 3);
-    long amount_forced              = luaL_checkinteger(L, 4);
+    int64_t amount_forced              = luaL_checkinteger(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         if (!set_creature_available(i,cr_kind,can_be_attracted,amount_forced))
-            WARNLOG("Setting creature %s availability for player %d failed.",creature_code_name(cr_kind),(int)i);
+            WARNLOG("Setting creature %s availability for player %" PRId64 " failed.",creature_code_name(cr_kind),(int64_t)i);
     }
     return 0;
 }
@@ -195,7 +195,7 @@ static int lua_Dead_creatures_return_to_pool(lua_State *L)
 static int lua_Room_available(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long rkind                      = luaL_checkNamedCommand(L,2,room_desc);
+    int64_t rkind                      = luaL_checkNamedCommand(L,2,room_desc);
     TbBool can_be_available         = lua_tointeger(L, 3);
     TbBool is_available             = lua_toboolean(L, 4);
 
@@ -209,7 +209,7 @@ static int lua_Room_available(lua_State *L)
 static int lua_Magic_available(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long power                      = luaL_checkNamedCommand(L,2,power_desc);
+    int64_t power                      = luaL_checkNamedCommand(L,2,power_desc);
     TbBool can_be_available         = lua_toboolean(L, 3);
     TbBool is_available             = lua_toboolean(L, 4);
 
@@ -223,9 +223,9 @@ static int lua_Magic_available(lua_State *L)
 static int lua_Door_available(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long door_type                  = luaL_checkNamedCommand(L,2,door_desc);
+    int64_t door_type                  = luaL_checkNamedCommand(L,2,door_desc);
     TbBool can_be_available         = lua_toboolean(L, 3);
-    long number_available           = luaL_checkinteger(L, 4);
+    int64_t number_available           = luaL_checkinteger(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -237,9 +237,9 @@ static int lua_Door_available(lua_State *L)
 static int lua_Trap_available(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long trap_type                  = luaL_checkNamedCommand(L,2,trap_desc);
+    int64_t trap_type                  = luaL_checkNamedCommand(L,2,trap_desc);
     TbBool can_be_available         = lua_toboolean(L, 3);
-    long number_available           = luaL_checkinteger(L, 4);
+    int64_t number_available           = luaL_checkinteger(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -296,9 +296,9 @@ static int lua_Count_creatures_at_action_point(lua_State *L)
 {
     ActionPointId ap_idx = luaL_checkActionPoint(L, 1);
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 2);
-    long crtr_model = luaL_checkCreature_or_creature_wildcard(L,3);
+    int64_t crtr_model = luaL_checkCreature_or_creature_wildcard(L,3);
 
-    long sum = 0;
+    int64_t sum = 0;
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         sum += count_player_creatures_of_model_in_action_point(i, crtr_model, ap_idx);
@@ -310,7 +310,7 @@ static int lua_Count_creatures_at_action_point(lua_State *L)
 static int lua_Set_timer(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long timr_id              = luaL_checkNamedCommand(L,2,timer_desc);
+    int64_t timr_id              = luaL_checkNamedCommand(L,2,timer_desc);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -322,8 +322,8 @@ static int lua_Set_timer(lua_State *L)
 static int lua_Add_to_timer(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long timr_id              = luaL_checkNamedCommand(L,2,timer_desc);
-    long amount               = luaL_checkinteger(L, 3);
+    int64_t timr_id              = luaL_checkNamedCommand(L,2,timer_desc);
+    int64_t amount               = luaL_checkinteger(L, 3);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -334,8 +334,8 @@ static int lua_Add_to_timer(lua_State *L)
 static int lua_Display_timer(lua_State *L)
 {
     PlayerNumber player_id = luaL_checkPlayerSingle(L, 1);
-    long timr_id              = luaL_checkNamedCommand(L,2,timer_desc);
-    long display              = luaL_checkinteger(L, 3);
+    int64_t timr_id              = luaL_checkNamedCommand(L,2,timer_desc);
+    int64_t display              = luaL_checkinteger(L, 3);
 
     kfx_game_state.script_timer_player = player_id;
     kfx_game_state.script_timer_id = timr_id;
@@ -389,7 +389,7 @@ static int lua_Set_next_level(lua_State *L)
     LevelNumber lvnum = luaL_checkinteger(L, 1);
     if(!is_level_in_current_campaign(lvnum))
     {
-        return luaL_argerror(L, 1, lua_pushfstring(L, "Level '%d' not part of current campaign", lvnum));
+        return luaL_argerror(L, 1, lua_pushfstring(L, "Level '%" PRId64 "' not part of current campaign", (int64_t)(lvnum)));
     }
 
     intralvl.next_level = lvnum;
@@ -417,9 +417,9 @@ static int lua_Add_creature_to_level(lua_State *L)
     PlayerNumber plr_idx   = luaL_checkPlayerSingle(L, 1);
     ThingModel crtr_id     = luaL_checkNamedCommand(L,2,creature_desc);
     TbMapLocation location = luaL_checkLocation(L,  3);
-    long crtr_level        = luaL_checkinteger(L, 4);
-    long carried_gold      = luaL_checkinteger(L, 5);
-    long spawn_type;
+    int64_t crtr_level        = luaL_checkinteger(L, 4);
+    int64_t carried_gold      = luaL_checkinteger(L, 5);
+    int64_t spawn_type;
     if(!lua_isnoneornil(L, 6))
     {
         spawn_type = luaL_checkNamedCommand(L, 6,spawn_type_desc);
@@ -449,8 +449,8 @@ static int lua_Add_tunneller_to_level(lua_State *L)
     PlayerNumber plr_id          = luaL_checkPlayerSingle(L,1);
     TbMapLocation spawn_location = luaL_checkLocation(L,2);
     TbMapLocation head_for       = luaL_checkHeadingLocation(L,3); // checks 2 params
-    long level                   = luaL_checkinteger(L,5);
-    long gold_held               = luaL_checkinteger(L,6);
+    int64_t level                   = luaL_checkinteger(L,5);
+    int64_t gold_held               = luaL_checkinteger(L,6);
 
     struct Thing* thing = script_process_new_tunneler(plr_id, spawn_location, head_for, level-1, gold_held);
 
@@ -466,17 +466,17 @@ static int lua_Create_party(lua_State *L)
 }
 static int lua_Add_to_party(lua_State *L)
 {
-    long party_id          = luaL_checkParty(L,  1);
-    long crtr_id           = luaL_checkNamedCommand(L,2,creature_desc);
-    long experience        = luaL_checklong(L, 3);
-    long gold              = luaL_checklong(L, 4);
-    long objective_id      = luaL_checkNamedCommand(L, 5,hero_objective_desc);
-    long countdown         = luaL_checklong (L, 6);
+    int64_t party_id          = luaL_checkParty(L,  1);
+    int64_t crtr_id           = luaL_checkNamedCommand(L,2,creature_desc);
+    int64_t experience        = luaL_checklong(L, 3);
+    int64_t gold              = luaL_checklong(L, 4);
+    int64_t objective_id      = luaL_checkNamedCommand(L, 5,hero_objective_desc);
+    int64_t countdown         = luaL_checklong (L, 6);
 
 
     if ((experience < 1) || (experience > CREATURE_MAX_LEVEL))
     {
-      SCRPTERRLOG("Invalid Creature Level parameter; %ld not in range (%d,%d)",experience,1,CREATURE_MAX_LEVEL);
+      SCRPTERRLOG("Invalid Creature Level parameter; %" PRId64 " not in range (%" PRId64 ",%" PRId64 ")",(int64_t)(experience),(int64_t)(1),(int64_t)(CREATURE_MAX_LEVEL));
       return 0;
     }
 
@@ -486,11 +486,11 @@ static int lua_Add_to_party(lua_State *L)
 
 static int lua_Delete_from_party(lua_State *L)
 {
-    long party_id          = luaL_checkParty(L,  1);
+    int64_t party_id          = luaL_checkParty(L,  1);
     const char* creature   = lua_tostring(L,  2);
-    long experience  = lua_tointeger(L, 3);
+    int64_t experience  = lua_tointeger(L, 3);
 
-    long creature_id = get_rid(creature_desc, creature);
+    int64_t creature_id = get_rid(creature_desc, creature);
     if (creature_id == -1)
     {
       SCRPTERRLOG("Unknown creature, '%s'", creature);
@@ -504,17 +504,17 @@ static int lua_Delete_from_party(lua_State *L)
 static int lua_Add_tunneller_party_to_level(lua_State *L)
 {
     PlayerNumber owner           = luaL_checkPlayerSingle(L, 1);
-    long prty_id                 = luaL_checkParty(L,  2);
+    int64_t prty_id                 = luaL_checkParty(L,  2);
     TbMapLocation spawn_location = luaL_checkLocation(L,  3);
     TbMapLocation head_for       = luaL_checkHeadingLocation(L,4); // checks 2 params
-    long crtr_level              = luaL_checkCrtLevel(L, 6);
+    int64_t crtr_level              = luaL_checkCrtLevel(L, 6);
     GoldAmount carried_gold      = luaL_checkinteger(L, 7);
 
 
     struct Party* party = &kfx_game_state.script.creature_partys[prty_id];
     if (party->members_num >= GROUP_MEMBERS_COUNT-1)
     {
-        SCRPTERRLOG("Party too big for ADD_TUNNELLER (Max %d members)", GROUP_MEMBERS_COUNT-1);
+        SCRPTERRLOG("Party too big for ADD_TUNNELLER (Max %" PRId64 " members)", (int64_t)(GROUP_MEMBERS_COUNT-1));
         return 0;
     }
 
@@ -530,7 +530,7 @@ static int lua_Add_tunneller_party_to_level(lua_State *L)
 static int lua_Add_party_to_level(lua_State *L)
 {
     PlayerNumber owner     = luaL_checkPlayerSingle(L, 1);
-    int32_t prty_id        = luaL_checkParty(L,  2);
+    int64_t prty_id        = luaL_checkParty(L,  2);
     TbMapLocation location = luaL_checkLocation(L,  3);
 
     // Recognize place where party is created
@@ -551,7 +551,7 @@ static int lua_Add_party_to_level(lua_State *L)
 
 static int lua_Display_objective(lua_State *L)
 {
-    int32_t msg_id    = luaL_checkinteger(L, 1);
+    int64_t msg_id    = luaL_checkinteger(L, 1);
     TbMapLocation zoom_location = luaL_optLocation(L,2);
 
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
@@ -563,7 +563,7 @@ static int lua_Display_objective(lua_State *L)
 
 static int lua_Display_objective_with_pos(lua_State *L)
 {
-    int32_t msg_id   = luaL_checkinteger(L, 1);
+    int64_t msg_id   = luaL_checkinteger(L, 1);
     MapSubtlCoord stl_x    = luaL_checkstl_x(L, 2);
     MapSubtlCoord stl_y    = luaL_checkstl_y(L, 3);
 
@@ -577,7 +577,7 @@ static int lua_Display_objective_with_pos(lua_State *L)
 
 static int lua_Display_information(lua_State *L)
 {
-    int32_t msg_id    = luaL_checkinteger(L, 1);
+    int64_t msg_id    = luaL_checkinteger(L, 1);
     TbMapLocation zoom_location = luaL_optLocation(L,2);
 
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
@@ -589,7 +589,7 @@ static int lua_Display_information(lua_State *L)
 
 static int lua_Display_information_with_pos(lua_State *L)
 {
-    int32_t msg_id    = luaL_checkinteger(L, 1);
+    int64_t msg_id    = luaL_checkinteger(L, 1);
     MapSubtlCoord  stl_x    = luaL_checkstl_x(L, 2);
     MapSubtlCoord  stl_y    = luaL_checkstl_y(L, 3);
 
@@ -614,7 +614,7 @@ static int lua_Quick_objective(lua_State *L)
 
 static int lua_Quick_information(lua_State *L)
 {
-    int32_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
+    int64_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
     const char *msg_text = lua_tostring(L, 2);
     TbMapLocation target = luaL_optLocation(L, 3);
     snprintf(kfx_sim_state.quick_messages[slot], MESSAGE_TEXT_LEN, "%s", msg_text);
@@ -641,7 +641,7 @@ static int lua_Quick_objective_with_pos(lua_State *L)
 
 static int lua_Quick_information_with_pos(lua_State *L)
 {
-    int32_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
+    int64_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
     const char *msg_text = lua_tostring(L, 2);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 3);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 4);
@@ -656,7 +656,7 @@ static int lua_Quick_information_with_pos(lua_State *L)
 
 static int lua_Display_player_objective(lua_State* L)
 {
-    int32_t msg_id = luaL_checkinteger(L, 1);
+    int64_t msg_id = luaL_checkinteger(L, 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     TbMapLocation zoom_location = luaL_optLocation(L, 3);
 
@@ -666,7 +666,7 @@ static int lua_Display_player_objective(lua_State* L)
 
 static int lua_Display_player_objective_with_pos(lua_State* L)
 {
-    int32_t msg_id = luaL_checkinteger(L, 1);
+    int64_t msg_id = luaL_checkinteger(L, 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 3);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 4);
@@ -677,7 +677,7 @@ static int lua_Display_player_objective_with_pos(lua_State* L)
 
 static int lua_Display_player_information(lua_State* L)
 {
-    int32_t msg_id = luaL_checkinteger(L, 1);
+    int64_t msg_id = luaL_checkinteger(L, 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     TbMapLocation zoom_location = luaL_optLocation(L, 3);
 
@@ -687,7 +687,7 @@ static int lua_Display_player_information(lua_State* L)
 
 static int lua_Display_player_information_with_pos(lua_State* L)
 {
-    int32_t msg_id = luaL_checkinteger(L, 1);
+    int64_t msg_id = luaL_checkinteger(L, 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 3);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 4);
@@ -708,7 +708,7 @@ static int lua_Quick_player_objective(lua_State* L)
 
 static int lua_Quick_player_information(lua_State* L)
 {
-    int32_t slot = luaL_checkIntMinMax(L, 1, 0, QUICK_MESSAGES_COUNT - 1);
+    int64_t slot = luaL_checkIntMinMax(L, 1, 0, QUICK_MESSAGES_COUNT - 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     const char* msg_text = lua_tostring(L, 3);
     TbMapLocation target = luaL_optLocation(L, 4);
@@ -731,7 +731,7 @@ static int lua_Quick_player_objective_with_pos(lua_State* L)
 
 static int lua_Quick_player_information_with_pos(lua_State* L)
 {
-    int32_t slot = luaL_checkIntMinMax(L, 1, 0, QUICK_MESSAGES_COUNT - 1);
+    int64_t slot = luaL_checkIntMinMax(L, 1, 0, QUICK_MESSAGES_COUNT - 1);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 2);
     const char* msg_text = lua_tostring(L, 3);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 4);
@@ -744,9 +744,9 @@ static int lua_Quick_player_information_with_pos(lua_State* L)
 
 static int lua_Display_message(lua_State *L)
 {
-    int32_t msg_id = luaL_checkinteger(L, 1);
+    int64_t msg_id = luaL_checkinteger(L, 1);
     const char *msg =  get_string(msg_id);
-    short id;
+    int64_t id;
     char type;
     luaL_checkMessageIcon(L, 2, &type, &id);
 
@@ -758,7 +758,7 @@ static int lua_Display_message(lua_State *L)
 static int lua_Quick_message(lua_State *L)
 {
     const char *msg = lua_tostring(L, 1);
-    short id;
+    int64_t id;
     char type;
     luaL_checkMessageIcon(L, 2, &type, &id);
 
@@ -774,7 +774,7 @@ static int lua_Clear_message(lua_State* L)
     {
         count = GUI_MESSAGES_COUNT;
     }
-    for (int k = kfx_sim_state.active_messages_count - 1; k >= (kfx_sim_state.active_messages_count - count); k--)
+    for (int64_t k = kfx_sim_state.active_messages_count - 1; k >= (kfx_sim_state.active_messages_count - count); k--)
     {
         kfx_sim_state.messages[k].expiration_turn = get_gameturn();
     }
@@ -783,7 +783,7 @@ static int lua_Clear_message(lua_State* L)
 
 static int lua_Heart_lost_objective(lua_State *L)
 {
-    long message_id = luaL_checkinteger(L, 1);
+    int64_t message_id = luaL_checkinteger(L, 1);
     TbMapLocation target = luaL_checkLocation(L, 2);
 
     kfx_sim_state.heart_lost_display_message = true;
@@ -794,7 +794,7 @@ static int lua_Heart_lost_objective(lua_State *L)
 }
 static int lua_Heart_lost_quick_objective(lua_State *L)
 {
-    long slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
+    int64_t slot = luaL_checkIntMinMax(L, 1, 0,QUICK_MESSAGES_COUNT-1);
     const char *msg = lua_tostring(L, 2);
     TbMapLocation target = luaL_checkLocation(L, 3);
 
@@ -811,11 +811,11 @@ static int lua_Play_message(lua_State *L)
 {
     PlayerNumber player_idx = luaL_checkPlayerSingle(L, 1);
 
-    long msgtype_id = luaL_checkNamedCommand(L, 2, msgtype_desc);
+    int64_t msgtype_id = luaL_checkNamedCommand(L, 2, msgtype_desc);
 
     TbBool param_is_string;
     const char* filename = NULL;
-    long msg_id = 0;
+    int64_t msg_id = 0;
     if (lua_isnumber(L, 3)) {
         param_is_string = false;
         msg_id = luaL_checkinteger(L, 3);
@@ -833,7 +833,7 @@ static int lua_Play_message(lua_State *L)
 
 static int lua_Tutorial_flash_button(lua_State *L)
 {
-    long button = -1;
+    int64_t button = -1;
 
     if (lua_isnumber(L, 1))
     {
@@ -843,10 +843,10 @@ static int lua_Tutorial_flash_button(lua_State *L)
     {
         const char* str = luaL_checkstring(L, 1);
         static const struct NamedCommand *desc[4] = {room_desc, power_desc, trap_desc, door_desc};
-        static const short btn_group[4] = {GID_ROOM_PANE, GID_POWER_PANE, GID_TRAP_PANE, GID_DOOR_PANE};
-        for (int i = 0; i < 4; i++)
+        static const int64_t btn_group[4] = {GID_ROOM_PANE, GID_POWER_PANE, GID_TRAP_PANE, GID_DOOR_PANE};
+        for (int64_t i = 0; i < 4; i++)
         {
-            short id = get_rid(desc[i], str);
+            int64_t id = get_rid(desc[i], str);
             if (id >= 0)
             {
                 button = get_button_designation(btn_group[i], id);
@@ -865,9 +865,9 @@ static int lua_Tutorial_flash_button(lua_State *L)
 static int lua_Display_countdown(lua_State *L)
 {
     PlayerNumber player   = luaL_checkPlayerSingle(L, 1);
-    int timer = luaL_checkNamedCommand(L,2,timer_desc);
-    int target = luaL_checkinteger(L,3);
-    int clocktime = lua_toboolean(L,4);
+    int64_t timer = luaL_checkNamedCommand(L,2,timer_desc);
+    int64_t target = luaL_checkinteger(L,3);
+    int64_t clocktime = lua_toboolean(L,4);
 
     kfx_game_state.script_timer_player = player;
     kfx_game_state.script_timer_id = timer;
@@ -880,12 +880,12 @@ static int lua_Display_countdown(lua_State *L)
 static int lua_Display_variable(lua_State *L)
 {
     PlayerNumber player   = luaL_checkPlayerSingle(L, 1);
-    int32_t varib_id, varib_type;
+    int64_t varib_id, varib_type;
     luaL_checkVariable(L, 2, &varib_id, &varib_type);
-    int target = luaL_optinteger(L,3,0);
+    int64_t target = luaL_optinteger(L,3,0);
     unsigned char target_type = luaL_optinteger(L,4,0);
 
-    for (int i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
+    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
     {
         memcpy(&kfx_game_state.script_variables[i], &kfx_game_state.script_variables[i-1], sizeof(struct ScriptVariable));
     }
@@ -911,14 +911,14 @@ static int lua_Display_variable(lua_State *L)
 static int lua_DISPLAY_VARIABLE_WITH_LABEL(lua_State *L)
 {
     PlayerNumber player   = luaL_checkPlayerSingle(L, 1);
-    int32_t varib_id, varib_type;
+    int64_t varib_id, varib_type;
     luaL_checkVariable(L, 2, &varib_id, &varib_type);
-    for (int i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
+    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
     {
         memcpy(&kfx_game_state.script_variables[i], &kfx_game_state.script_variables[i-1], sizeof(struct ScriptVariable));
     }
 
-    short id;
+    int64_t id;
     char type;
     luaL_checkMessageIcon(L, 3, &type, &id);
     kfx_game_state.script_variables[0].variable_player = player;
@@ -938,7 +938,7 @@ static int lua_DISPLAY_VARIABLE_WITH_LABEL(lua_State *L)
 
 static int lua_Hide_variable(lua_State *L)
 {
-    int32_t varib_id, varib_type;
+    int64_t varib_id, varib_type;
     PlayerNumber player   = luaL_checkPlayerSingle(L, 1);
     varib_id = -1;
     varib_type = -1;
@@ -949,10 +949,10 @@ static int lua_Hide_variable(lua_State *L)
 
     if(varib_id > -1 && varib_type > -1)
     {
-        for (int i = 0; i < DISPLAY_VARIABLES_LIMIT; i++)
+        for (int64_t i = 0; i < DISPLAY_VARIABLES_LIMIT; i++)
         {
             if(kfx_game_state.script_variables[i].value_id == varib_id && kfx_game_state.script_variables[i].value_type == varib_type && kfx_game_state.script_variables[i].variable_player == player){
-                for (int j = i; j < kfx_game_state.active_script_var_count - 1; j++)
+                for (int64_t j = i; j < kfx_game_state.active_script_var_count - 1; j++)
                 {
                     kfx_game_state.script_variables[j] = kfx_game_state.script_variables[j+1];
                 }
@@ -978,7 +978,7 @@ static int lua_Reveal_map_location(lua_State *L)
     MapSubtlDelta range = luaL_checkinteger(L, 3);
 
 
-    SYNCDBG(0, "Revealing location type %u", target);
+    SYNCDBG(0, "Revealing location type %" PRIu64, (uint64_t)(target));
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         MapSubtlCoord x = 0;
@@ -986,7 +986,7 @@ static int lua_Reveal_map_location(lua_State *L)
         find_map_location_coords(target, &x, &y, i, __func__);
         if ((x == 0) && (y == 0))
         {
-            WARNLOG("Can't decode location %u", target);
+            WARNLOG("Can't decode location %" PRIu64, (uint64_t)(target));
             return 0;
         }
         if (range == -1)
@@ -1032,7 +1032,7 @@ static int lua_Conceal_map_rect(lua_State *L)
 
 static int lua_Set_door(lua_State *L)
 {
-    long doorAction = luaL_checkNamedCommand(L,1,locked_desc);
+    int64_t doorAction = luaL_checkNamedCommand(L,1,locked_desc);
     MapSlabCoord slb_x = luaL_checkslb_x(L,2);
     MapSlabCoord slb_y = luaL_checkslb_y(L,3);
 
@@ -1065,11 +1065,11 @@ static int lua_Add_heart_health(lua_State *L)
 
 static int lua_Add_object_to_level(lua_State *L)
 {
-    long obj_id            = luaL_checkNamedCommand(L,1,object_desc);
+    int64_t obj_id            = luaL_checkNamedCommand(L,1,object_desc);
     TbMapLocation location = luaL_checkLocation(L,  2);
-    long arg               = lua_tointeger(L,3);
+    int64_t arg               = lua_tointeger(L,3);
     PlayerNumber plr_idx   = luaL_optPlayerSingle(L, 4);
-    short angle            = lua_tointeger(L, 5);
+    int64_t angle            = lua_tointeger(L, 5);
 
     struct Coord3d pos;
     if (!get_coords_at_location(&pos, location,true))
@@ -1082,12 +1082,12 @@ static int lua_Add_object_to_level(lua_State *L)
 
 static int lua_Add_object_to_level_at_pos(lua_State *L)
 {
-    long obj_id            = luaL_checkNamedCommand(L,1,object_desc);
+    int64_t obj_id            = luaL_checkNamedCommand(L,1,object_desc);
     MapSubtlCoord stl_x    = luaL_checkstl_x(L, 2);
     MapSubtlCoord stl_y    = luaL_checkstl_y(L, 3);
-    long arg               = lua_tointeger(L,4);
+    int64_t arg               = lua_tointeger(L,4);
     PlayerNumber plr_idx   = luaL_optPlayerSingle(L, 5);
-    short angle            = lua_tointeger(L, 6);
+    int64_t angle            = lua_tointeger(L, 6);
 
     lua_pushThing(L,script_process_new_object(obj_id, stl_x, stl_y, arg, plr_idx,angle));
     return 1;
@@ -1098,9 +1098,9 @@ static int lua_Add_shot_to_level(lua_State *L)
     ThingModel shot_id     = luaL_checkNamedCommand(L,1,shot_desc);
     TbMapLocation location = luaL_checkLocation(L,  2);
     PlayerNumber owner     = luaL_checkPlayerSingle(L, 3);
-    int hittype            = luaL_checkNamedCommand(L, 4, hit_type_desc);
+    int64_t hittype            = luaL_checkNamedCommand(L, 4, hit_type_desc);
     struct Thing *target   = luaL_optCheckThing(L, 5);
-    int32_t speed          = luaL_optCheckinteger(L, 6);
+    int64_t speed          = luaL_optCheckinteger(L, 6);
 
     ThingIndex target_index;
 
@@ -1168,7 +1168,7 @@ static int lua_Add_effect_generator_to_level(lua_State *L)
 {
     ThingModel gen_id      = luaL_checkNamedCommand(L,1,effectgen_desc);
     TbMapLocation location = luaL_checkLocation(L,  2);
-    long range             = luaL_checkinteger(L, 3);
+    int64_t range             = luaL_checkinteger(L, 3);
 
     lua_pushThing(L,script_process_new_effectgen(gen_id, location, range));
     return 1;
@@ -1177,7 +1177,7 @@ static int lua_Add_effect_generator_to_level(lua_State *L)
 static int lua_Place_door(lua_State *L)
 {
     PlayerNumber plyridx = luaL_checkPlayerSingle(L,1);
-    long doorkind = luaL_checkNamedCommand(L,2,door_desc);
+    int64_t doorkind = luaL_checkNamedCommand(L,2,door_desc);
     MapSlabCoord slb_x = luaL_checkslb_x(L,3);
     MapSlabCoord slb_y = luaL_checkslb_y(L,4);
     TbBool locked = lua_toboolean(L,5);
@@ -1190,7 +1190,7 @@ static int lua_Place_door(lua_State *L)
 static int lua_Place_trap(lua_State *L)
 {
     PlayerNumber plyridx = luaL_checkPlayerSingle(L,1);
-    long trapkind = luaL_checkNamedCommand(L,2,trap_desc);
+    int64_t trapkind = luaL_checkNamedCommand(L,2,trap_desc);
     MapSubtlCoord stl_x = luaL_checkstl_x(L,3);
     MapSubtlCoord stl_y = luaL_checkstl_y(L,4);
     TbBool free = lua_toboolean(L,5);
@@ -1223,7 +1223,7 @@ static void set_configuration(lua_State *L, const struct NamedFieldSet* named_fi
     const char* id_str      = lua_tostring(L, 1);
     const char* property    = lua_tostring(L, 2);
 
-    short id = get_id(named_fields_set->names, id_str);
+    int64_t id = get_id(named_fields_set->names, id_str);
     if (id == -1)
     {
         char error_msg[256];
@@ -1234,12 +1234,12 @@ static void set_configuration(lua_State *L, const struct NamedFieldSet* named_fi
     if (id > named_fields_set->max_count)
     {
         char error_msg[256];
-        snprintf(error_msg, sizeof(error_msg), "'%s%d' is out of range",named_fields_set->block_basename, id);
+        snprintf(error_msg, sizeof(error_msg), "'%s%" PRId64 "' is out of range",named_fields_set->block_basename, (int64_t)(id));
         luaL_argerror(L, 1, error_msg);
         return;
     }
 
-    long property_id = get_named_field_id(named_fields_set->named_fields, property);
+    int64_t property_id = get_named_field_id(named_fields_set->named_fields, property);
     if (property_id == -1)
     {
         char error_msg[256];
@@ -1254,7 +1254,7 @@ static void set_configuration(lua_State *L, const struct NamedFieldSet* named_fi
     if (field->argnum == -1)
     {
         concatenated_values[0] = '\0';
-        for (int i = 3; lua_tostring(L, i) != NULL; i++) {
+        for (int64_t i = 3; lua_tostring(L, i) != NULL; i++) {
             strncat(concatenated_values, lua_tostring(L, i), sizeof(concatenated_values) - strlen(concatenated_values) - 1);
             if (lua_tostring(L, i + 1) != NULL) {
             strncat(concatenated_values, " ", sizeof(concatenated_values) - strlen(concatenated_values) - 1);
@@ -1266,7 +1266,7 @@ static void set_configuration(lua_State *L, const struct NamedFieldSet* named_fi
     }
     else
     {
-        int i = 0;
+        int64_t i = 0;
         while (lua_tostring(L, i + 3) != NULL)
         {
             if( named_fields_set->named_fields[property_id + i].name == NULL ||
@@ -1350,11 +1350,11 @@ static int lua_Set_game_rule(lua_State *L)
 static int lua_Set_hand_rule(lua_State *L)
 {
     PlayerNumber player_idx = luaL_checkPlayerSingle(L, 1);
-    long crtr_id = luaL_checkNamedCommand(L,2,creature_desc);
-    long rule_slot = luaL_checkinteger(L, 3);
-    long rule_action = luaL_checkNamedCommand(L,4,rule_action_desc);
-    long rule = luaL_checkNamedCommand(L,5,hand_rule_desc);
-    long param = luaL_checkinteger(L, 6);
+    int64_t crtr_id = luaL_checkNamedCommand(L,2,creature_desc);
+    int64_t rule_slot = luaL_checkinteger(L, 3);
+    int64_t rule_action = luaL_checkNamedCommand(L,4,rule_action_desc);
+    int64_t rule = luaL_checkNamedCommand(L,5,hand_rule_desc);
+    int64_t param = luaL_checkinteger(L, 6);
 
     script_set_hand_rule(player_idx, crtr_id, rule_action, rule_slot, rule, param);
     return 0;
@@ -1362,8 +1362,8 @@ static int lua_Set_hand_rule(lua_State *L)
 
 static int lua_Swap_creature(lua_State *L)
 {
-    long crtr_id1 = luaL_checkNamedCommand(L,1,creature_desc);
-    long crtr_id2 = luaL_checkNamedCommand(L,2,creature_desc);
+    int64_t crtr_id1 = luaL_checkNamedCommand(L,1,creature_desc);
+    int64_t crtr_id2 = luaL_checkNamedCommand(L,2,creature_desc);
 
     swap_creature(crtr_id1, crtr_id2);
     return 0;
@@ -1372,11 +1372,11 @@ static int lua_Swap_creature(lua_State *L)
 static int lua_Set_sacrifice_recipe(lua_State *L)
 {
 
-    int command = luaL_checkNamedCommand(L,1,rules_sacrifices_commands);
+    int64_t command = luaL_checkNamedCommand(L,1,rules_sacrifices_commands);
     const char * reward_str = luaL_checkstring(L,2);
-    int reward =  0;
+    int64_t reward =  0;
     ThingModel victims[MAX_SACRIFICE_VICTIMS];
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         ThingModel crtr_model  = luaL_optNamedCommand(L,i + 3,creature_desc);
         victims[i] = crtr_model;
@@ -1418,11 +1418,11 @@ static int lua_Set_sacrifice_recipe(lua_State *L)
 
 static int lua_Remove_sacrifice_recipe(lua_State *L)
 {
-    int command = SacA_None;
-    int reward =  0;
+    int64_t command = SacA_None;
+    int64_t reward =  0;
     ThingModel victims[MAX_SACRIFICE_VICTIMS];
 
-    for (int i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
+    for (int64_t i = 0; i < MAX_SACRIFICE_VICTIMS; i++)
     {
         ThingModel crtr_model  = luaL_optNamedCommand(L,i + 1,creature_desc);
         victims[i] = crtr_model;
@@ -1439,8 +1439,8 @@ static int lua_Remove_sacrifice_recipe(lua_State *L)
 static int lua_Set_creature_instance(lua_State *L)
 {
     ThingModel crmodel = luaL_checkNamedCommand(L,1,creature_desc);
-    int slot = luaL_checkinteger(L, 2);
-    int instance = luaL_checkNamedCommand(L, 3,instance_desc);
+    int64_t slot = luaL_checkinteger(L, 2);
+    int64_t instance = luaL_checkNamedCommand(L, 3,instance_desc);
     unsigned char level = luaL_checkinteger(L, 4);
 
     script_set_creature_instance(crmodel, slot, instance, level);
@@ -1451,8 +1451,8 @@ static int lua_Set_creature_max_level(lua_State *L)
 {
 
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long crtr_model                 = luaL_checkNamedCommand(L,2,creature_desc);
-    long max_level                  = luaL_checkinteger(L, 3);
+    int64_t crtr_model                 = luaL_checkNamedCommand(L,2,creature_desc);
+    int64_t max_level                  = luaL_checkinteger(L, 3);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -1471,8 +1471,8 @@ static int lua_Set_creature_max_level(lua_State *L)
 static int lua_Set_creature_tendencies(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    int tendancy = luaL_checkNamedCommand(L, 2, tendency_desc);
-    int val = luaL_checkinteger(L, 3);
+    int64_t tendancy = luaL_checkNamedCommand(L, 2, tendency_desc);
+    int64_t val = luaL_checkinteger(L, 3);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -1510,8 +1510,8 @@ static int lua_Creature_entrance_level(lua_State *L)
 static int lua_Research(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long research_type              = luaL_checkNamedCommand(L,2,research_desc);
-    int room_or_spell;
+    int64_t research_type              = luaL_checkNamedCommand(L,2,research_desc);
+    int64_t room_or_spell;
     switch (research_type)
     {
         case 1:
@@ -1521,10 +1521,10 @@ static int lua_Research(lua_State *L)
             room_or_spell = luaL_checkNamedCommand(L,3,room_desc);
             break;
         default:
-            luaL_error (L,"invalid research_type %d",research_type);
+            luaL_error (L,"invalid research_type %" PRId64,(int64_t)(research_type));
             return 0;
     }
-    long research_value         = luaL_checkint(L, 4);
+    int64_t research_value         = luaL_checkint(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -1536,8 +1536,8 @@ static int lua_Research(lua_State *L)
 static int lua_Research_order(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long research_type              = luaL_checkNamedCommand(L,2,research_desc);
-    int room_or_spell;
+    int64_t research_type              = luaL_checkNamedCommand(L,2,research_desc);
+    int64_t room_or_spell;
     switch (research_type)
     {
         case 1:
@@ -1547,10 +1547,10 @@ static int lua_Research_order(lua_State *L)
             room_or_spell = luaL_checkNamedCommand(L,3,room_desc);
             break;
         default:
-            luaL_error (L,"invalid research_type %d",research_type);
+            luaL_error (L,"invalid research_type %" PRId64,(int64_t)(research_type));
             return 0;
     }
-    long research_value         = luaL_checkint(L, 4);
+    int64_t research_value         = luaL_checkint(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -1577,18 +1577,18 @@ static int lua_Set_computer_process(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     const char* procname = luaL_checkstring(L, 2);
-    long priority = luaL_checkinteger(L,3);
-    long config_value_2 = luaL_checkinteger(L,4);
-    long config_value_3 = luaL_checkinteger(L,5);
-    long config_value_4 = luaL_checkinteger(L,6);
-    long config_value_5 = luaL_checkinteger(L,7);
-    for (long i = player_range.start_idx; i < player_range.end_idx; i++)
+    int64_t priority = luaL_checkinteger(L,3);
+    int64_t config_value_2 = luaL_checkinteger(L,4);
+    int64_t config_value_3 = luaL_checkinteger(L,5);
+    int64_t config_value_4 = luaL_checkinteger(L,6);
+    int64_t config_value_5 = luaL_checkinteger(L,7);
+    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp)) {
             continue;
         }
-        for (long k = 0; k < COMPUTER_PROCESSES_COUNT; k++)
+        for (int64_t k = 0; k < COMPUTER_PROCESSES_COUNT; k++)
         {
             struct ComputerProcess* cproc = &comp->processes[k];
             if (flag_is_set(cproc->flags, ComProc_ListEnd))
@@ -1610,19 +1610,19 @@ static int lua_Set_computer_checks(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     const char* chkname = luaL_checkstring(L, 2);
-    long turns_interval = luaL_checkinteger(L,3);
-    long primary_parameter = luaL_checkinteger(L,4);
-    long secondary_parameter = luaL_checkinteger(L,5);
-    long tertiary_parameter = luaL_checkinteger(L,6);
-    long last_run_turn = luaL_checkinteger(L,7);
+    int64_t turns_interval = luaL_checkinteger(L,3);
+    int64_t primary_parameter = luaL_checkinteger(L,4);
+    int64_t secondary_parameter = luaL_checkinteger(L,5);
+    int64_t tertiary_parameter = luaL_checkinteger(L,6);
+    int64_t last_run_turn = luaL_checkinteger(L,7);
 
-    for (long i = player_range.start_idx; i < player_range.end_idx; i++)
+    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp)) {
             continue;
         }
-        for (long k = 0; k < COMPUTER_CHECKS_COUNT; k++)
+        for (int64_t k = 0; k < COMPUTER_CHECKS_COUNT; k++)
         {
             struct ComputerCheck* ccheck = &comp->checks[k];
             if ((ccheck->flags & ComChk_Unkn0002) != 0)
@@ -1643,15 +1643,15 @@ static int lua_Set_computer_checks(lua_State *L)
 static int lua_Set_computer_globals(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    int dig_stack_size       = luaL_checkinteger(L,2);
-    int processes_time       = luaL_checkinteger(L,3);
-    int click_rate           = luaL_checkinteger(L,4);
-    int max_room_build_tasks = luaL_checkinteger(L,5);
-    int turn_begin           = luaL_checkinteger(L,6);
-    int sim_before_dig       = luaL_checkinteger(L,7);
-    int min_drop_delay       = luaL_checkinteger(L,8);
+    int64_t dig_stack_size       = luaL_checkinteger(L,2);
+    int64_t processes_time       = luaL_checkinteger(L,3);
+    int64_t click_rate           = luaL_checkinteger(L,4);
+    int64_t max_room_build_tasks = luaL_checkinteger(L,5);
+    int64_t turn_begin           = luaL_checkinteger(L,6);
+    int64_t sim_before_dig       = luaL_checkinteger(L,7);
+    int64_t min_drop_delay       = luaL_checkinteger(L,8);
 
-    for (long i = player_range.start_idx; i < player_range.end_idx; i++)
+    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp))
@@ -1676,19 +1676,19 @@ static int lua_Set_computer_event(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     const char* evntname = luaL_checkstring(L, 2);
-    long test_interval = luaL_checkinteger(L,3);
-    long primary_parameter = luaL_checkinteger(L,4);
-    long secondary_parameter = luaL_checkinteger(L,5);
-    long tertiary_parameter = luaL_checkinteger(L,6);
-    long last_test_gameturn = luaL_checkinteger(L,7);
+    int64_t test_interval = luaL_checkinteger(L,3);
+    int64_t primary_parameter = luaL_checkinteger(L,4);
+    int64_t secondary_parameter = luaL_checkinteger(L,5);
+    int64_t tertiary_parameter = luaL_checkinteger(L,6);
+    int64_t last_test_gameturn = luaL_checkinteger(L,7);
 
-    for (long i = player_range.start_idx; i < player_range.end_idx; i++)
+    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
     {
         struct Computer2* comp = get_computer_player(i);
         if (computer_player_invalid(comp)) {
             continue;
         }
-        for (long k = 0; k < COMPUTER_EVENTS_COUNT; k++)
+        for (int64_t k = 0; k < COMPUTER_EVENTS_COUNT; k++)
         {
             struct ComputerEvent* event = &comp->events[k];
             if (strcasecmp(evntname, event->name) == 0)
@@ -1761,7 +1761,7 @@ static int lua_Make_unsafe(lua_State *L)
 
 static int lua_Set_box_tooltip(lua_State *L)
 {
-    long box_id = luaL_checkinteger(L, 1);
+    int64_t box_id = luaL_checkinteger(L, 1);
     const char* tooltip = luaL_checkstring(L, 2);
 
     snprintf(kfx_sim_state.box_tooltip[box_id], MESSAGE_TEXT_LEN, "%s", tooltip);
@@ -1769,8 +1769,8 @@ static int lua_Set_box_tooltip(lua_State *L)
 }
 static int lua_Set_box_tooltip_id(lua_State *L)
 {
-    long box_id = luaL_checkinteger(L, 1);
-    long tooltip_id = luaL_checkinteger(L, 2);
+    int64_t box_id = luaL_checkinteger(L, 1);
+    int64_t tooltip_id = luaL_checkinteger(L, 2);
 
     snprintf(kfx_sim_state.box_tooltip[box_id], MESSAGE_TEXT_LEN, "%s", get_string(tooltip_id));
     return 0;
@@ -1787,7 +1787,7 @@ static int lua_Create_effect(lua_State *L)
 {
     EffectOrEffElModel effect_id = luaL_checkEffectOrEffElModel(L,1);
     TbMapLocation location = luaL_checkLocation(L,  2);
-    long height = luaL_checkinteger(L, 3);
+    int64_t height = luaL_checkinteger(L, 3);
 
     struct Coord3d pos;
     if (!get_coords_at_location(&pos, location,true))
@@ -1804,7 +1804,7 @@ static int lua_Create_effect_at_pos(lua_State *L)
     EffectOrEffElModel effect_id = luaL_checkEffectOrEffElModel(L,1);
     MapSubtlCoord stl_x = luaL_checkstl_x(L, 2);
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 3);
-    long height = luaL_checkinteger(L, 4);
+    int64_t height = luaL_checkinteger(L, 4);
 
     struct Coord3d pos;
     set_coords_to_subtile_center(&pos, stl_x, stl_y, 0);
@@ -1843,7 +1843,7 @@ static int lua_Set_music(lua_State *L)
 {
     if (lua_isnumber(L, 1)) {
 
-        long track_number = luaL_checkinteger(L, 1);
+        int64_t track_number = luaL_checkinteger(L, 1);
         if (track_number == 0) {
             stop_music(true);
         }
@@ -1860,7 +1860,7 @@ static int lua_Set_music(lua_State *L)
 static int lua_Set_hand_graphic(lua_State *L)
 {
     PlayerNumber player_idx = luaL_checkPlayerSingle(L, 1);
-    long hand_idx = luaL_checkNamedCommand(L,2,powerhand_desc);
+    int64_t hand_idx = luaL_checkNamedCommand(L,2,powerhand_desc);
 
     struct PlayerInfo * player = get_player(player_idx);
     player->hand_idx = hand_idx;
@@ -1900,7 +1900,7 @@ static int lua_Lock_possession(lua_State *L)
 static int lua_Set_digger(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long new_dig_model = luaL_checkNamedCommand(L,2,creature_desc);
+    int64_t new_dig_model = luaL_checkNamedCommand(L,2,creature_desc);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -1912,7 +1912,7 @@ static int lua_Set_digger(lua_State *L)
 static int lua_Set_texture(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    long texture_id = luaL_checkNamedCommand(L,2,texture_pack_desc);
+    int64_t texture_id = luaL_checkNamedCommand(L,2,texture_pack_desc);
 
     if (texture_id == -1)
     {
@@ -1933,8 +1933,8 @@ static int lua_Set_texture(lua_State *L)
 static int lua_Use_power_on_creature(lua_State *L)
 {
     struct Thing *thing = luaL_checkThing(L, 1);
-    long pwkind = luaL_checkNamedCommand(L,2,power_desc);
-    long power_level = luaL_checkinteger(L, 3) + 1; //+1 because lua starts at 1
+    int64_t pwkind = luaL_checkNamedCommand(L,2,power_desc);
+    int64_t power_level = luaL_checkinteger(L, 3) + 1; //+1 because lua starts at 1
     PlayerNumber caster = luaL_checkPlayerSingle(L, 4);
     TbBool is_free = lua_toboolean(L, 5);
 
@@ -1951,8 +1951,8 @@ static int lua_Use_power_at_pos(lua_State *L)
     KeepPwrLevel power_level = luaL_checkinteger(L, 5) + 1; //+1 because lua starts at 1
     TbBool is_free = lua_toboolean(L, 6);
 
-    unsigned long allow_flags = PwCast_AllGround | PwCast_Unrevealed;
-    unsigned long mod_flags = 0;
+    uint64_t allow_flags = PwCast_AllGround | PwCast_Unrevealed;
+    uint64_t mod_flags = 0;
     if (is_free)
         set_flag(mod_flags,PwMod_CastForFree);
 
@@ -1972,8 +1972,8 @@ static int lua_Use_power_at_location(lua_State *L)
     MapSubtlCoord stl_y = 0;
     find_map_location_coords(location, &stl_x, &stl_y, caster, __func__);
 
-    unsigned long allow_flags = PwCast_AllGround | PwCast_Unrevealed;
-    unsigned long mod_flags = 0;
+    uint64_t allow_flags = PwCast_AllGround | PwCast_Unrevealed;
+    uint64_t mod_flags = 0;
     if (is_free)
         set_flag(mod_flags,PwMod_CastForFree);
 
@@ -2008,7 +2008,7 @@ static int lua_Change_slab_owner(lua_State *L)
     MapSlabCoord slb_x = luaL_checkslb_x(L, 1);
     MapSlabCoord slb_y = luaL_checkslb_y(L, 2);
     PlayerNumber plyr_idx = luaL_checkPlayerSingle(L, 3);
-    long fill_type = luaL_optNamedCommand(L,4,fill_desc);
+    int64_t fill_type = luaL_optNamedCommand(L,4,fill_desc);
 
     if (fill_type > 0)
     {
@@ -2028,7 +2028,7 @@ static int lua_Change_slab_type(lua_State *L)
     MapSlabCoord slb_x = luaL_checkslb_x(L, 1);
     MapSlabCoord slb_y = luaL_checkslb_y(L, 2);
     SlabKind slb_kind = luaL_checkNamedCommand(L, 3,slab_desc);
-    int fill_type = luaL_optNamedCommand(L, 4,fill_desc);
+    int64_t fill_type = luaL_optNamedCommand(L, 4,fill_desc);
 
     if (fill_type > 0)
     {
@@ -2050,8 +2050,8 @@ static int lua_Change_slab_texture(lua_State *L)
 {
     MapSlabCoord slb_x = luaL_checkslb_x(L, 1);
     MapSlabCoord slb_y = luaL_checkslb_y(L, 2);
-    long texture_id = luaL_checkNamedCommand(L, 3,texture_pack_desc);
-    int fill_type = luaL_optNamedCommand(L, 4,fill_desc);
+    int64_t texture_id = luaL_checkNamedCommand(L, 3,texture_pack_desc);
+    int64_t fill_type = luaL_optNamedCommand(L, 4,fill_desc);
 
     if (fill_type > 0)
     {
@@ -2074,8 +2074,8 @@ static int lua_Change_slab_texture(lua_State *L)
 static int lua_Use_spell_on_creature(lua_State *L)
 {
     struct Thing *thing = luaL_checkThing(L, 1);
-    long spell_id = luaL_checkNamedCommand(L,2,spell_desc);
-    int spell_level = luaL_checkinteger(L, 3);
+    int64_t spell_id = luaL_checkNamedCommand(L,2,spell_desc);
+    int64_t spell_level = luaL_checkinteger(L, 3);
 
     script_use_spell_on_creature(thing->owner, thing, spell_id, spell_level);
     return 0;
@@ -2083,7 +2083,7 @@ static int lua_Use_spell_on_creature(lua_State *L)
 
 static int lua_Hide_hero_gate(lua_State *L)
 {
-    long gate_number = luaL_checkinteger(L, 1);
+    int64_t gate_number = luaL_checkinteger(L, 1);
     TbBool hide = lua_toboolean(L, 2);
 
     struct Thing* thing = find_hero_gate_of_number(gate_number);
@@ -2106,8 +2106,8 @@ static int lua_Change_creatures_annoyance(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
     ThingModel crmodel = luaL_checkNamedCommand(L,2,creature_desc);
-    long operation = luaL_checkNamedCommand(L,3,script_operator_desc);
-    long anger = luaL_checkinteger(L, 4);
+    int64_t operation = luaL_checkNamedCommand(L,3,script_operator_desc);
+    int64_t anger = luaL_checkinteger(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -2168,7 +2168,7 @@ static int lua_get_creature_by_criterion(lua_State *L)
 {
     PlayerNumber plyr_idx = luaL_checkPlayerRangeId(L, 1);
     ThingModel crmodel = luaL_checkCreature_or_creature_wildcard(L,2);
-    long criteria = luaL_checkNamedCommand(L,3,creature_select_criteria_desc);
+    int64_t criteria = luaL_checkNamedCommand(L,3,creature_select_criteria_desc);
 
     struct Thing* thing = script_get_creature_by_criteria(plyr_idx, crmodel, criteria);
     lua_pushThing(L, thing);
@@ -2181,11 +2181,11 @@ static int lua_print(lua_State *L)
     //const char* msg = lua_tostring(L, 1);
     //JUSTLOG("%s",msg);
 
-    int nargs = lua_gettop(L);
+    int64_t nargs = lua_gettop(L);
     char buffer[16384]; // Adjust size as needed
-    int offset = 0;
+    int64_t offset = 0;
 
-    for (int i = 1; i <= nargs; i++) {
+    for (int64_t i = 1; i <= nargs; i++) {
         size_t len;
         const char *str;
 
@@ -2228,7 +2228,7 @@ static int lua_get_things_of_class(lua_State *L)
 
     const struct StructureList* slist = get_list_for_thing_class(class_id);
     ThingIndex i = slist->index;
-    long k = 0;
+    int64_t k = 0;
 
     lua_newtable(L);
 
@@ -2267,10 +2267,10 @@ static int lua_get_things_on_subtile(lua_State *L)
     struct Thing* thing = INVALID_THING;
 
     lua_newtable(L);
-    uint16_t k = 0;
-    uint16_t table_index = 0;
+    int64_t k = 0;
+    int64_t table_index = 0;
 
-    long i = get_mapwho_thing_index(mapblk);
+    int64_t i = get_mapwho_thing_index(mapblk);
     while (i != 0)
     {
         thing = thing_get(i);
@@ -2305,18 +2305,18 @@ static int lua_get_things_on_slab(lua_State *L)
     ThingClass class_id = luaL_optNamedCommand(L,3,class_commands);
 
     lua_newtable(L);
-    uint16_t k = 0;
-    uint16_t table_index = 0;
+    int64_t k = 0;
+    int64_t table_index = 0;
 
-    for (int x = 0; x < STL_PER_SLB; x++)
+    for (int64_t x = 0; x < STL_PER_SLB; x++)
     {
-        for (int y = 0; y < STL_PER_SLB; y++)
+        for (int64_t y = 0; y < STL_PER_SLB; y++)
         {
             MapSubtlCoord stl_x = slb_x * STL_PER_SLB + x;
             MapSubtlCoord stl_y = slb_y * STL_PER_SLB + y;
             struct Map* mapblk = get_map_block_at(stl_x, stl_y);
             struct Thing* thing = thing_get(get_mapwho_thing_index(mapblk));
-            long i = get_mapwho_thing_index(mapblk);
+            int64_t i = get_mapwho_thing_index(mapblk);
             while (i != 0)
             {
                 thing = thing_get(i);
@@ -2346,9 +2346,9 @@ static int lua_get_things_on_slab(lua_State *L)
     return 1; // return value is the amount of args you push back
 }
 
-static void push_rooms_of_kind(lua_State *L, struct Dungeon* dungeon, RoomKind rkind, uint32_t *k)
+static void push_rooms_of_kind(lua_State *L, struct Dungeon* dungeon, RoomKind rkind, uint64_t *k)
 {
-    int ri = dungeon->room_list_start[rkind];
+    int64_t ri = dungeon->room_list_start[rkind];
 
     while (ri != 0)
     {
@@ -2377,7 +2377,7 @@ static int lua_get_rooms_of_player_and_kind(lua_State *L)
     const char* room_name = luaL_checkstring(L, 2);
 
     lua_newtable(L);
-    uint32_t k = 0;
+    uint64_t k = 0;
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -2435,7 +2435,7 @@ static int lua_run_dkscript_command(lua_State *L)
 
 static int lua_get_string(lua_State *L)
 {
-    long msg_id;
+    int64_t msg_id;
     if (lua_isstring(L, 1))
     {
         const char* alias = lua_tostring(L, 1);
@@ -2449,7 +2449,7 @@ static int lua_get_string(lua_State *L)
     const char* msg = get_string(msg_id);
     if (msg == NULL)
     {
-        ERRORLOG("String ID %ld not found", msg_id);
+        ERRORLOG("String ID %" PRId64 " not found", (int64_t)(msg_id));
         lua_pushnil(L);
         return 1;
     }

@@ -16,7 +16,7 @@
 #  include <fcntl.h>
 #  include <errno.h>
 #  include <sys/select.h>
-   typedef int kfx_socket_t;
+   typedef int64_t kfx_socket_t;
 #  define KFX_INVALID_SOCKET (-1)
 #  define kfx_closesocket(s) close(s)
 #  define kfx_socket_error() errno
@@ -76,7 +76,7 @@ struct SubscribedVariable
     char name[COMMAND_WORD_LEN];
     unsigned char type;
     unsigned char id;
-    long val;
+    int64_t val;
 };
 
 /**
@@ -90,7 +90,7 @@ struct Subscription
 {
     struct SubscribedVariable var;
     char event[COMMAND_WORD_LEN];
-    int type;
+    int64_t type;
 } api_subscriptions[API_SUBSCRIBE_LIST_SIZE];
 
 /**
@@ -100,7 +100,7 @@ struct Subscription
  * subscription slots when we are sure there's no more subscriptions left.
  * This is done for performance reasons.
  */
-int api_sub_count = 0;
+int64_t api_sub_count = 0;
 
 /**
  * Structure to hold the state of a dump buffer.
@@ -112,7 +112,7 @@ int api_sub_count = 0;
 struct dump_buf_state
 {
     char *out;     /**< Pointer to the output buffer. */
-    int out_space; /**< Remaining space available in the output buffer. */
+    int64_t out_space; /**< Remaining space available in the output buffer. */
 };
 
 /**
@@ -142,7 +142,7 @@ static int json_value_dump_writer(const char *str, size_t size, void *dump_buffe
     // Copy data into current part of buffer
     memcpy(((struct dump_buf_state *)dump_buffer_state)->out, str, size);
     ((struct dump_buf_state *)dump_buffer_state)->out += size;
-    ((struct dump_buf_state *)dump_buffer_state)->out_space -= (int)size;
+    ((struct dump_buf_state *)dump_buffer_state)->out_space -= (int64_t)size;
 
     return 0;
 }
@@ -166,14 +166,14 @@ size_t get_max_flags()
  * Send raw bytes over the active client socket (blocking until all sent or error).
  * Replaces SDLNet_TCP_Send().
  */
-static void api_send(const char *data, int len)
+static void api_send(const char *data, int64_t len)
 {
     if (api.activeSocket == KFX_INVALID_SOCKET || len <= 0)
         return;
-    int sent = 0;
+    int64_t sent = 0;
     while (sent < len)
     {
-        int r = (int)send(api.activeSocket, data + sent, len - sent, 0);
+        int64_t r = (int64_t)send(api.activeSocket, data + sent, len - sent, 0);
         if (r > 0)
         {
             sent += r;
@@ -190,7 +190,7 @@ static void api_send(const char *data, int len)
                 fd_set wfds;
                 FD_ZERO(&wfds);
                 FD_SET(api.activeSocket, &wfds);
-                if (select((int)(api.activeSocket + 1), NULL, &wfds, NULL, NULL) > 0)
+                if (select((int64_t)(api.activeSocket + 1), NULL, &wfds, NULL, NULL) > 0)
                     continue;
             }
         }
@@ -207,7 +207,7 @@ static void api_send(const char *data, int len)
  *
  * @return 0 on success, 1 on failure.
  */
-int api_init_server()
+int64_t api_init_server()
 {
     // Ignore if server is already active
     if (api.serverSocket != KFX_INVALID_SOCKET)
@@ -222,14 +222,14 @@ int api_init_server()
     }
     else
     {
-        JUSTLOG("API server starting on port: %u", api_port);
+        JUSTLOG("API server starting on port: %" PRIu64, (uint64_t)(api_port));
     }
 
 #ifdef _WIN32
     WSADATA wsa_data;
     if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0)
     {
-        JUSTLOG("WSAStartup failed: %d", kfx_socket_error());
+        JUSTLOG("WSAStartup failed: %" PRId64, (int64_t)(kfx_socket_error()));
         return 1;
     }
 #endif
@@ -239,13 +239,13 @@ int api_init_server()
     kfx_socket_t srv = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (srv == KFX_INVALID_SOCKET)
     {
-        JUSTLOG("socket() failed: %d", kfx_socket_error());
+        JUSTLOG("socket() failed: %" PRId64, (int64_t)(kfx_socket_error()));
         api_close_server();
         return 1;
     }
 
     // Allow quick restart after close
-    int reuse = 1;
+    int64_t reuse = 1;
     setsockopt(srv, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse));
 
     // Non-blocking server socket so accept() doesn't stall the game loop
@@ -254,7 +254,7 @@ int api_init_server()
     ioctlsocket(srv, FIONBIO, &nb);
 #else
     {
-        int flags = fcntl(srv, F_GETFL, 0);
+        int64_t flags = fcntl(srv, F_GETFL, 0);
         fcntl(srv, F_SETFL, flags | O_NONBLOCK);
     }
 #endif
@@ -263,11 +263,11 @@ int api_init_server()
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // localhost only, as SDL_net bound NULL host
-    addr.sin_port = htons((unsigned short)api_port);
+    addr.sin_port = htons((int64_t)api_port);
 
     if (bind(srv, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
-        JUSTLOG("bind() failed: %d", kfx_socket_error());
+        JUSTLOG("bind() failed: %" PRId64, (int64_t)(kfx_socket_error()));
         kfx_closesocket(srv);
         api_close_server();
         return 1;
@@ -275,7 +275,7 @@ int api_init_server()
 
     if (listen(srv, 1) == SOCKET_ERROR)
     {
-        JUSTLOG("listen() failed: %d", kfx_socket_error());
+        JUSTLOG("listen() failed: %" PRId64, (int64_t)(kfx_socket_error()));
         kfx_closesocket(srv);
         api_close_server();
         return 1;
@@ -286,12 +286,12 @@ int api_init_server()
     JUSTLOG("API server active");
 
     // Initialize all subscription slots
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; ++i)
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; ++i)
     {
         api_subscriptions[i].type = API_SUBSCRIBE_INACTIVE;
     }
 
-    JUSTLOG("Allocated %d API subscription slots", API_SUBSCRIBE_LIST_SIZE);
+    JUSTLOG("Allocated %" PRId64 " API subscription slots", (int64_t)(API_SUBSCRIBE_LIST_SIZE));
 
     return 0;
 }
@@ -335,7 +335,7 @@ static void api_err(const char *err, VALUE *ack_id)
     // Create JSON response
     char json_string[1024];
     struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
+    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
@@ -392,7 +392,7 @@ static void api_ok(VALUE *ack_id)
     // Create JSON response
     char json_string[1024];
     struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
+    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
@@ -451,7 +451,7 @@ static void api_return_data(TbBool success, VALUE value, VALUE *ack_id)
     // Create JSON response
     char json_string[1024];
     struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
+    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
@@ -494,7 +494,7 @@ static void api_return_data(TbBool success, VALUE value, VALUE *ack_id)
 //     api_return_data(true, dataValue);
 // }
 
-void api_return_var_update(PlayerNumber plyr_idx, const char *var_name, long value)
+void api_return_var_update(PlayerNumber plyr_idx, const char *var_name, int64_t value)
 {
     // Do nothing if API server is not active
     if (!api.activeSocket)
@@ -530,7 +530,7 @@ void api_return_var_update(PlayerNumber plyr_idx, const char *var_name, long val
     // Create JSON response
     char json_string[1024];
     struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
+    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
@@ -558,7 +558,7 @@ void api_return_var_update(PlayerNumber plyr_idx, const char *var_name, long val
  *
  * @param data The long integer data to be sent to the API client.
  */
-static void api_return_data_number(long data, VALUE *ack_id)
+static void api_return_data_number(int64_t data, VALUE *ack_id)
 {
     // Do nothing if API server is not active
     if (!api.activeSocket)
@@ -571,7 +571,7 @@ static void api_return_data_number(long data, VALUE *ack_id)
     {
         // Send back the JSON as a string. A number should never be able to break the syntax.
         char buf[256];
-        int len = snprintf(buf, sizeof(buf) - 1, "{\"success\":true,\"data\":%ld}\n", data);
+        int64_t len = snprintf(buf, sizeof(buf) - 1, "{\"success\":true,\"data\":%" PRId64 "}\n", (int64_t)(data));
         api_send(buf, len);
         return;
     }
@@ -596,7 +596,7 @@ static void api_return_data_number(long data, VALUE *ack_id)
     // Create JSON response
     char json_string[1024];
     struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
+    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
@@ -624,7 +624,7 @@ void api_clear_all_subscriptions()
     // Loop trough all subscriptions
     // We don't exit the loop earlier just incase
     // This way this function also works as a full subscription list refresh
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
         // If this subscription slot is inactive we can skip it
         if (api_subscriptions[i].type == API_SUBSCRIBE_INACTIVE)
@@ -641,11 +641,11 @@ void api_clear_all_subscriptions()
     api_sub_count = 0;
 }
 
-int api_is_subscribed_to_event(const char *event_name)
+int64_t api_is_subscribed_to_event(const char *event_name)
 {
     // Look up if we are subscribed to this event
-    int api_sub_found_count = 0;
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    int64_t api_sub_found_count = 0;
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
         // Cancel this subscription search if we have
         // seen the same amount of subscriptions as we are subscribed to
@@ -678,7 +678,7 @@ int api_is_subscribed_to_event(const char *event_name)
     return false;
 }
 
-int api_subscribe_event(const char *event_name)
+int64_t api_subscribe_event(const char *event_name)
 {
     // Return if we are already subscribed to this event
     if (api_is_subscribed_to_event(event_name) == true)
@@ -690,15 +690,15 @@ int api_subscribe_event(const char *event_name)
     if (api_sub_count >= API_SUBSCRIBE_LIST_SIZE)
     {
         WARNLOG(
-            "Tried to register API event '%s' but we are already at the limit of %d subscription slots",
+            "Tried to register API event '%s' but we are already at the limit of %" PRId64 " subscription slots",
             event_name,
-            API_SUBSCRIBE_LIST_SIZE);
+            (int64_t)(API_SUBSCRIBE_LIST_SIZE));
 
         return false;
     }
 
     // Loop trough the list of subscription slots to find an empty slot and create a subscription
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
 
         // If this subscription slot is inactive we'll use it
@@ -714,7 +714,7 @@ int api_subscribe_event(const char *event_name)
     return false;
 }
 
-int api_unsubscribe_event(const char *event_name)
+int64_t api_unsubscribe_event(const char *event_name)
 {
     // First make sure we are actually subscribed to this event
     if (api_is_subscribed_to_event(event_name) == false)
@@ -723,7 +723,7 @@ int api_unsubscribe_event(const char *event_name)
     }
 
     // Loop trough the list of subscription slots to find an empty slot and create a subscription
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
 
         // If this subscription slot is not an event we'll skip it
@@ -745,11 +745,11 @@ int api_unsubscribe_event(const char *event_name)
     return false;
 }
 
-int api_is_subscribed_to_var(PlayerNumber plyr_idx, unsigned char valtype, short validx)
+int64_t api_is_subscribed_to_var(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx)
 {
     // Look up if we are subscribed to updates of this variable
-    int api_sub_found_count = 0;
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    int64_t api_sub_found_count = 0;
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
         // Cancel this subscription search if we have
         // seen the same amount of subscriptions as we are subscribed to
@@ -784,9 +784,9 @@ int api_is_subscribed_to_var(PlayerNumber plyr_idx, unsigned char valtype, short
     return false;
 }
 
-int api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char valtype, short validx)
+int64_t api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char valtype, int64_t validx)
 {
-    JUSTLOG("Sub: %d, %d, %d", plyr_idx, valtype, validx);
+    JUSTLOG("Sub: %" PRId64 ", %" PRId64 ", %" PRId64, (int64_t)(plyr_idx), (int64_t)(valtype), (int64_t)(validx));
 
     // Return if we are already subscribed to this var
     if (api_is_subscribed_to_var(plyr_idx, valtype, validx) == true)
@@ -797,12 +797,12 @@ int api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char
     // Make sure we have an open subscription slot
     if (api_sub_count >= API_SUBSCRIBE_LIST_SIZE)
     {
-        WARNLOG("Tried to register to update of var but we are already at the limit of %d subscription slots", API_SUBSCRIBE_LIST_SIZE);
+        WARNLOG("Tried to register to update of var but we are already at the limit of %" PRId64 " subscription slots", (int64_t)(API_SUBSCRIBE_LIST_SIZE));
         return false;
     }
 
     // Loop trough the list of subscription slots to find an empty slot and create a subscription
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
 
         // If this subscription slot is inactive we'll use it
@@ -827,7 +827,7 @@ int api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char
     return false;
 }
 
-int api_unsubscribe_var(PlayerNumber plyr_idx, unsigned char valtype, short validx)
+int64_t api_unsubscribe_var(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx)
 {
     // First make sure we are actually subscribed to this var
     if (api_is_subscribed_to_var(plyr_idx, valtype, validx) == false)
@@ -836,7 +836,7 @@ int api_unsubscribe_var(PlayerNumber plyr_idx, unsigned char valtype, short vali
     }
 
     // Loop trough the list of subscription slots to find an empty slot and create a subscription
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
 
         // If this subscription slot is not an event we'll skip it
@@ -869,8 +869,8 @@ void api_check_var_update()
     }
 
     // Loop trough all our subscriptions
-    int api_sub_found_count = 0;
-    for (int i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
+    int64_t api_sub_found_count = 0;
+    for (int64_t i = 0; i < API_SUBSCRIBE_LIST_SIZE; i++)
     {
         // Cancel this subscription search if we have
         // seen the same amount of subscriptions as we are subscribed to
@@ -894,7 +894,7 @@ void api_check_var_update()
         }
 
         // Get the variable value
-        long variable_value = get_condition_value(
+        int64_t variable_value = get_condition_value(
             api_subscriptions[i].var.player_id,
             api_subscriptions[i].var.type,
             api_subscriptions[i].var.id);
@@ -993,7 +993,7 @@ void api_event_with_data(const char *event_name, const struct ApiEventData *data
 
     char json_string[API_SERVER_BUFFER];
     struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
+    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
@@ -1053,7 +1053,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
     }
 
     // Decode the json object
-    int ret = json_dom_parse(buffer, buf_size, NULL, 0, value, NULL);
+    int64_t ret = json_dom_parse(buffer, buf_size, NULL, 0, value, NULL);
     if (ret != 0)
     {
         api_err("INVALID_JSON", NULL);
@@ -1129,7 +1129,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         }
 
         // Recognize variable
-        int32_t variable_id, variable_type;
+        int64_t variable_id, variable_type;
         if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
         {
             api_err("UNKNOWN_VAR", ack_id);
@@ -1165,7 +1165,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         }
 
         // Recognize variable
-        int32_t variable_id, variable_type;
+        int64_t variable_id, variable_type;
         if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
         {
             api_err("UNKNOWN_VAR", ack_id);
@@ -1359,7 +1359,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         VALUE *flag_data = &flag_data_real;
         value_init_dict(flag_data);
 
-        for (int player_index = 0; player_index < ALL_PLAYERS; player_index++)
+        for (int64_t player_index = 0; player_index < ALL_PLAYERS; player_index++)
         {
             // Create object for this player
             VALUE *player_info = value_dict_add(flag_data, player_code_name(player_index));
@@ -1368,7 +1368,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
             for (size_t flag_index = 0; flag_index < get_max_flags(); flag_index++)
             {
                 // Get flag value
-                long flag_value = get_condition_value(player_id, SVar_FLAG, flag_index);
+                int64_t flag_value = get_condition_value(player_id, SVar_FLAG, flag_index);
 
                 // Add flag to player flag
                 const char *flag_string = get_conf_parameter_text(flag_desc, flag_index);
@@ -1397,7 +1397,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         }
 
         // Recognize variable
-        int32_t variable_id, variable_type;
+        int64_t variable_id, variable_type;
         if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
         {
             api_err("UNKNOWN_VAR", ack_id);
@@ -1406,7 +1406,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         }
 
         // Get the variable
-        long variable_value = get_condition_value(player_id, variable_type, variable_id);
+        int64_t variable_value = get_condition_value(player_id, variable_type, variable_id);
 
         // Return the variable to the user
         api_return_data_number(variable_value, ack_id);
@@ -1429,7 +1429,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         }
 
         // Recognize variable
-        int32_t variable_id, variable_type;
+        int64_t variable_id, variable_type;
         if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
         {
             api_err("UNKNOWN_VAR", ack_id);
@@ -1557,12 +1557,12 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
  * @param buffer Pointer to the buffer containing concatenated JSON data.
  * @param buf_size Size of the buffer in bytes.
  */
-void api_process_multipart_json(const char *buffer, int buf_size)
+void api_process_multipart_json(const char *buffer, int64_t buf_size)
 {
-    int start = -1;
-    int depth = 0;
+    int64_t start = -1;
+    int64_t depth = 0;
 
-    for (int i = 0; i < buf_size; ++i)
+    for (int64_t i = 0; i < buf_size; ++i)
     {
         if (buffer[i] == '{')
         {
@@ -1578,7 +1578,7 @@ void api_process_multipart_json(const char *buffer, int buf_size)
             if (depth == 0 && start != -1)
             {
                 // Extract the JSON object from buffer[start] to buffer[i+1]
-                int json_length = i - start + 1;
+                int64_t json_length = i - start + 1;
                 //char json_string[json_length + 1]; // +1 for null terminator
                 char* json_string = (char*)malloc((json_length + 1) * sizeof(char));
                 if (!json_string) return;
@@ -1639,7 +1639,7 @@ void api_update_server()
                 u_long nb = 1;
                 ioctlsocket(client, FIONBIO, &nb);
 #else
-                int flags = fcntl(client, F_GETFL, 0);
+                int64_t flags = fcntl(client, F_GETFL, 0);
                 fcntl(client, F_SETFL, flags | O_NONBLOCK);
 #endif
                 api.activeSocket = client;
@@ -1654,7 +1654,7 @@ void api_update_server()
         char buffer[API_SERVER_BUFFER];
         memset(buffer, 0, API_SERVER_BUFFER);
 
-        int received = (int)recv(api.activeSocket, buffer, API_SERVER_BUFFER - 1, 0);
+        int64_t received = (int64_t)recv(api.activeSocket, buffer, API_SERVER_BUFFER - 1, 0);
         if (received > 0)
         {
             // TODO: non nullbyte terminated buffers can crash

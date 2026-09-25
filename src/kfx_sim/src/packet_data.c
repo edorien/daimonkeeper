@@ -71,7 +71,7 @@ struct Packet *get_packet(NetUserId user)
     return &sim_packets[user];
 }
 
-void set_packet_action(struct Packet *pckt, unsigned char pcktype, long par1, long par2, unsigned short par3, unsigned short par4)
+void set_packet_action(struct Packet *pckt, unsigned char pcktype, int64_t par1, int64_t par2, int64_t par3, int64_t par4)
 {
     pckt->actn_par1 = par1;
     pckt->actn_par2 = par2;
@@ -81,7 +81,7 @@ void set_packet_action(struct Packet *pckt, unsigned char pcktype, long par1, lo
 }
 
 void set_players_packet_action(struct PlayerInfo *player, unsigned char pcktype,
-        unsigned long par1, unsigned long par2, unsigned short par3, unsigned short par4)
+        uint64_t par1, uint64_t par2, int64_t par3, int64_t par4)
 {
     struct Packet* pckt = get_packet(player->user_id);
     pckt->actn_par1 = par1;

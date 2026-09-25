@@ -77,7 +77,7 @@ LevelNumber fake_get_loaded_level_number(void) { return g_fake_loaded_level; }
 
 TbBool g_fake_activate_result = false;
 LevelNumber g_captured_sp_lvnum = -1;
-TbBool fake_activate_bonus_level_for_singleplayer(struct PlayerInfo *player, unsigned long sp_lvnum) {
+TbBool fake_activate_bonus_level_for_singleplayer(struct PlayerInfo *player, uint64_t sp_lvnum) {
     (void)player;
     g_captured_sp_lvnum = sp_lvnum;
     return g_fake_activate_result;

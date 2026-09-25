@@ -167,12 +167,12 @@ struct GuiMenu frontend_add_session_box =
 void frontnet_draw_session_selected(struct GuiButton *gbtn)
 {
     const struct TbSprite *spr;
-    long pos_x;
-    long pos_y;
-    int i;
+    int64_t pos_x;
+    int64_t pos_y;
+    int64_t i;
     pos_x = gbtn->scr_pos_x;
     pos_y = gbtn->scr_pos_y;
-    int fs_units_per_px;
+    int64_t fs_units_per_px;
     fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_largearea_xts_tx1_c, 100);
     spr = get_frontend_sprite(GFS_largearea_xts_cor_l);
     for (i=0; i < 6; i++)
@@ -191,9 +191,9 @@ void frontnet_draw_session_selected(struct GuiButton *gbtn)
             RendererSetDrawFlags(0);
             LbTextSetFont(frontend_font[i]);
             // Set drawing window and draw the text
-            int tx_units_per_px;
+            int64_t tx_units_per_px;
             tx_units_per_px = (gbtn->height*13/14) * 16 / LbTextLineHeight();
-            int h;
+            int64_t h;
             h = LbTextLineHeight()*tx_units_per_px/16;
             LbTextSetWindow(gbtn->scr_pos_x + 13*fs_units_per_px/16, gbtn->scr_pos_y, gbtn->width - 26*fs_units_per_px/16, h);
             LbTextDrawResized(0, 0, tx_units_per_px, text);
@@ -208,7 +208,7 @@ void frontnet_draw_session_selected(struct GuiButton *gbtn)
  * ImGui screen (frontgui_screens.cpp), which iterates net_session[]
  * directly and already has a real index.
  */
-void frontnet_session_select_by_index(long i)
+void frontnet_session_select_by_index(int64_t i)
 {
     if (net_number_of_sessions > i)
     {
@@ -219,24 +219,24 @@ void frontnet_session_select_by_index(long i)
 
 void frontnet_session_select(struct GuiButton *gbtn)
 {
-    long i;
+    int64_t i;
     i = frontend_selectlist_row_to_item_index(&net_session_list, gbtn);
     frontnet_session_select_by_index(i);
 }
 
 void frontnet_draw_session_button(struct GuiButton *gbtn)
 {
-    long sessionIndex;
-    long height;
+    int64_t sessionIndex;
+    int64_t height;
 
     sessionIndex = frontend_selectlist_row_to_item_index(&net_session_list, gbtn);
     if ((sessionIndex < 0) || (sessionIndex >= net_number_of_sessions))
         return;
-    int font_idx;
+    int64_t font_idx;
     font_idx = frontend_button_caption_font(gbtn,frontend_mouse_over_button);
     LbTextSetFont(frontend_font[font_idx]);
     RendererSetDrawFlags(0);
-    int tx_units_per_px;
+    int64_t tx_units_per_px;
     tx_units_per_px = gbtn->height * 16 / LbTextLineHeight();
     height = LbTextLineHeight() * tx_units_per_px / 16;
     LbTextSetWindow(gbtn->scr_pos_x, gbtn->scr_pos_y, gbtn->width, height);
@@ -248,12 +248,12 @@ void frontnet_draw_session_button(struct GuiButton *gbtn)
  * for why. process_network_error() only pops the (legacy GuiMenu-based,
  * not ImGui) error box, so it's safe to call here regardless.
  */
-int frontnet_session_create_resolve(void)
+int64_t frontnet_session_create_resolve(void)
 {
     // Create a new session using the player name as the session name.
     // Append a number to the session name if it already exists.
-    long idx = 0;
-    for (int i = 0; i < net_number_of_sessions; i++)
+    int64_t idx = 0;
+    for (int64_t i = 0; i < net_number_of_sessions; i++)
     {
         const auto nsname = net_session[i];
         if (nsname == nullptr) continue;
@@ -270,11 +270,11 @@ int frontnet_session_create_resolve(void)
     }
     char text[sizeof(net_session[0]->text) + 16];
     if (idx > 0) {
-        snprintf(text, sizeof(text), "%s (%ld)", net_player_name, idx + 1);
+        snprintf(text, sizeof(text), "%s (%" PRId64 ")", net_player_name, (int64_t)(idx + 1));
     } else {
         snprintf(text, sizeof(text), "%s", net_player_name);
     }
-    uint32_t plyr_num;
+    uint64_t plyr_num;
     if (LbNetwork_Create(text, net_player_name, &plyr_num, nullptr))
     {
         process_network_error(-801);
@@ -287,7 +287,7 @@ int frontnet_session_create_resolve(void)
 
 void frontnet_session_create(struct GuiButton *gbtn)
 {
-    int next_state = frontnet_session_create_resolve();
+    int64_t next_state = frontnet_session_create_resolve();
     if (next_state >= 0)
         frontend_set_state((FrontendMenuState)next_state);
 }

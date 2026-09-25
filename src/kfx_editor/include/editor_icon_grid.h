@@ -18,6 +18,7 @@
 #ifndef DK_EDITOR_ICON_GRID_H
 #define DK_EDITOR_ICON_GRID_H
 
+#include <stdint.h>
 #ifdef __cplusplus
 
 // How a tile's PNG-pack override is looked up (frontgui_ingame_icon_overrides.h).
@@ -31,12 +32,12 @@ enum EditorIconOverrideKind
 struct EditorIconTile
 {
     const char *id = "";                 // unique within the grid
-    short sprite = 0;                    // panel sprite index (medsym etc.); 0 = none
+    int64_t sprite = 0;                    // panel sprite index (medsym etc.); 0 = none
     EditorIconOverrideKind ov_kind = EIO_None;
     const char *ov_category = nullptr;   // e.g. "room", "power", "trap", "creature_icon"
     const char *ov_code = nullptr;       // code name for the override lookup
     void *thumb = nullptr;               // renderer texture (editor_thumbs.h): shown beside the label
-    int thumb_w = 0, thumb_h = 0;
+    int64_t thumb_w = 0, thumb_h = 0;
     const char *label = nullptr;         // text tile (no sprite / fallback while a sprite loads)
     const char *tooltip = nullptr;
     bool selected = false;
@@ -45,7 +46,7 @@ struct EditorIconTile
 // Opens the grid's scrolling child, `height` px tall, laid out in `cols`
 // columns across the toolbox's fixed 240 px width. `cols` 5 suits icon tiles;
 // 3 suits text tiles. Always pair with editor_icon_grid_end().
-void editor_icon_grid_begin(const char *id, float height, int cols);
+void editor_icon_grid_begin(const char *id, double height, int64_t cols);
 
 // A full-width caption row that starts a new group of tiles.
 void editor_icon_grid_heading(const char *text);

@@ -42,17 +42,52 @@ extern const struct ConfigFileData keeper_columns_file_data;
 #define COLUMNS_COUNT          16384
 #define COLUMN_STACK_HEIGHT        8
 struct Column { // sizeof=0x18
-    short use;
+    int64_t use;
     unsigned char bitfields;
-    unsigned short solidmask;
-    unsigned short floor_texture;
+    int64_t solidmask;
+    int64_t floor_texture;
     unsigned char orient;
-    unsigned short cubes[COLUMN_STACK_HEIGHT];
+    int64_t cubes[COLUMN_STACK_HEIGHT];
 };
 #pragma pack()
 
+/** One column record of the original game's .clm map file: a FILE FORMAT, fixed-width on purpose (24 bytes).
+ *  struct Column above is the in-memory form (64-bit fields); convert with the helpers below. */
+#pragma pack(1)
+struct LegacyColumn { // sizeof=0x18
+    uint16_t use;
+    uint8_t bitfields;
+    uint16_t solidmask;
+    uint16_t floor_texture;
+    uint8_t orient;
+    uint16_t cubes[COLUMN_STACK_HEIGHT];
+};
+#pragma pack()
+
+static inline void column_from_legacy(struct Column *dst, const struct LegacyColumn *src)
+{
+    dst->use = src->use;
+    dst->bitfields = src->bitfields;
+    dst->solidmask = src->solidmask;
+    dst->floor_texture = src->floor_texture;
+    dst->orient = src->orient;
+    for (int i = 0; i < COLUMN_STACK_HEIGHT; i++)
+        dst->cubes[i] = src->cubes[i];
+}
+
+static inline void column_to_legacy(struct LegacyColumn *dst, const struct Column *src)
+{
+    dst->use = (uint16_t)src->use;
+    dst->bitfields = src->bitfields;
+    dst->solidmask = (uint16_t)src->solidmask;
+    dst->floor_texture = (uint16_t)src->floor_texture;
+    dst->orient = src->orient;
+    for (int i = 0; i < COLUMN_STACK_HEIGHT; i++)
+        dst->cubes[i] = (uint16_t)src->cubes[i];
+}
+
 struct ColumnConfig {
-    long columns_count;
+    int64_t columns_count;
     struct Column cols[COLUMNS_COUNT];
 };
 
@@ -74,11 +109,11 @@ struct SlabSet { // sizeof = 18
 
 struct SlabObj {
   TbBool isLight;
-  short slabset_id;
+  int64_t slabset_id;
   unsigned char stl_id;
-  short offset_x; // position within the subtile
-  short offset_y;
-  short offset_z;
+  int64_t offset_x; // position within the subtile
+  int64_t offset_y;
+  int64_t offset_z;
   ThingClass class_id;
   ThingModel model; //for lights this is intencity
   unsigned char range; //radius for lights / range for effect generators

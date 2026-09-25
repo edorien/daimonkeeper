@@ -60,9 +60,9 @@ TbBool event_exists(const struct Event* event)
     return true;
 }
 
-struct Event *get_event_nearby_of_type_for_player(MapCoord map_x, MapCoord map_y, int32_t max_dist, EventKind evkind, PlayerNumber plyr_idx)
+struct Event *get_event_nearby_of_type_for_player(MapCoord map_x, MapCoord map_y, int64_t max_dist, EventKind evkind, PlayerNumber plyr_idx)
 {
-    for (int i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if (((event->flags & EvF_Exists) != 0) && (event->owner == plyr_idx) && (event->kind == evkind)
@@ -73,9 +73,9 @@ struct Event *get_event_nearby_of_type_for_player(MapCoord map_x, MapCoord map_y
     return INVALID_EVENT;
 }
 
-struct Event *get_event_of_target_and_type_for_player(int32_t target, EventKind evkind, PlayerNumber plyr_idx)
+struct Event *get_event_of_target_and_type_for_player(int64_t target, EventKind evkind, PlayerNumber plyr_idx)
 {
-    for (int i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if (((event->flags & EvF_Exists) != 0) && (event->owner == plyr_idx) && (event->kind == evkind)
@@ -88,7 +88,7 @@ struct Event *get_event_of_target_and_type_for_player(int32_t target, EventKind 
 
 struct Event *get_event_of_type_for_player(EventKind evkind, PlayerNumber plyr_idx)
 {
-    for (int i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if (((event->flags & EvF_Exists) != 0) && (event->owner == plyr_idx) && (event->kind == evkind)) {
@@ -107,17 +107,17 @@ struct Event *get_event_of_type_for_player(EventKind evkind, PlayerNumber plyr_i
  * @param target Event target identification parameter, its meaning depends on event kind.
  * @return Index of the new event, or negative index of updated event. Zero if no action was taken.
  */
-EventIndex event_create_event_or_update_nearby_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t target)
+EventIndex event_create_event_or_update_nearby_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target)
 {
-    short range = (evkind == EvKind_HeartAttacked) ? 35 : 5;
+    int64_t range = (evkind == EvKind_HeartAttacked) ? 35 : 5;
     struct Event* event = get_event_nearby_of_type_for_player(map_x, map_y, subtile_coord(range, 0), evkind, dngn_id);
     if (!event_is_invalid(event))
     {
-        SYNCDBG(3,"Updating event %d to be kind %d at (%d,%d)",(int)event->index,(int)evkind,(int)coord_subtile(map_x),(int)coord_subtile(map_y));
+        SYNCDBG(3,"Updating event %" PRId64 " to be kind %" PRId64 " at (%" PRId64 ",%" PRId64 ")",(int64_t)event->index,(int64_t)evkind,(int64_t)coord_subtile(map_x),(int64_t)coord_subtile(map_y));
         event_initialise_event(event, map_x, map_y, evkind, dngn_id, target);
         return -(EventIndex)event->index;
     }
-    SYNCDBG(3,"Creating event kind %d at (%d,%d)",(int)evkind,(int)coord_subtile(map_x),(int)coord_subtile(map_y));
+    SYNCDBG(3,"Creating event kind %" PRId64 " at (%" PRId64 ",%" PRId64 ")",(int64_t)evkind,(int64_t)coord_subtile(map_x),(int64_t)coord_subtile(map_y));
     event = event_create_event(map_x, map_y, evkind, dngn_id, target);
     if (event_is_invalid(event)) {
         return 0;
@@ -134,16 +134,16 @@ EventIndex event_create_event_or_update_nearby_existing_event(MapCoord map_x, Ma
  * @param target Event target identification parameter, its meaning depends on event kind.
  * @return Index of the new event, or negative index of updated event. Zero if no action was taken.
  */
-EventIndex event_create_event_or_update_same_target_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, long target)
+EventIndex event_create_event_or_update_same_target_existing_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target)
 {
     struct Event* event = get_event_of_target_and_type_for_player(target, evkind, dngn_id);
     if (!event_is_invalid(event))
     {
-        SYNCDBG(3,"Updating event %d to be kind %d at (%d,%d)",(int)event->index,(int)evkind,(int)coord_subtile(map_x),(int)coord_subtile(map_y));
+        SYNCDBG(3,"Updating event %" PRId64 " to be kind %" PRId64 " at (%" PRId64 ",%" PRId64 ")",(int64_t)event->index,(int64_t)evkind,(int64_t)coord_subtile(map_x),(int64_t)coord_subtile(map_y));
         event_initialise_event(event, map_x, map_y, evkind, dngn_id, target);
         return -(EventIndex)event->index;
     }
-    SYNCDBG(3,"Creating event kind %d at (%d,%d)",(int)evkind,(int)coord_subtile(map_x),(int)coord_subtile(map_y));
+    SYNCDBG(3,"Creating event kind %" PRId64 " at (%" PRId64 ",%" PRId64 ")",(int64_t)evkind,(int64_t)coord_subtile(map_x),(int64_t)coord_subtile(map_y));
     event = event_create_event(map_x, map_y, evkind, dngn_id, target);
     if (event_is_invalid(event)) {
         return 0;
@@ -160,7 +160,7 @@ EventIndex event_create_event_or_update_same_target_existing_event(MapCoord map_
  * @param target Event target identification parameter, its meaning depends on event kind.
  * @return Index of the new event, or negative index of updated event. Zero if no action was taken.
  */
-EventIndex event_create_event_or_update_old_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char plyr_idx, int32_t target)
+EventIndex event_create_event_or_update_old_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char plyr_idx, int64_t target)
 {
     // Check if such event already exists
     struct Event* event = get_event_of_type_for_player(evkind, plyr_idx);
@@ -183,17 +183,17 @@ void event_initialise_all(void)
 {
     sim_feedback->set_visible_event_idx(0);
     sim_feedback->clear_all_event_button_states();
-    for (int i = 0; i < DUNGEONS_COUNT; i++)
+    for (int64_t i = 0; i < DUNGEONS_COUNT; i++)
     {
         struct Dungeon* dungeon = get_dungeon(i);
-        for (int k = 0; k <= EVENT_BUTTONS_COUNT; k++)
+        for (int64_t k = 0; k <= EVENT_BUTTONS_COUNT; k++)
         {
             dungeon->event_button_index[k] = 0;
         }
     }
 }
 
-long event_move_player_towards_event(struct PlayerInfo *player, long event_idx)
+int64_t event_move_player_towards_event(struct PlayerInfo *player, int64_t event_idx)
 {
     struct Event* event = &kfx_sim_state.event[event_idx];
 
@@ -204,21 +204,21 @@ long event_move_player_towards_event(struct PlayerInfo *player, long event_idx)
     return 1;
 }
 
-struct Event *event_create_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t target)
+struct Event *event_create_event(MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target)
 {
-    long i;
+    int64_t i;
     if (dngn_id == kfx_config_state.neutral_player_num) {
         return INVALID_EVENT;
     }
     if (evkind >= EVENT_KIND_COUNT) {
-        ERRORLOG("Illegal Event kind %d to be created",(int)evkind);
+        ERRORLOG("Illegal Event kind %" PRId64 " to be created",(int64_t)evkind);
         return INVALID_EVENT;
     }
     struct Dungeon* dungeon = get_dungeon(dngn_id);
     i = dungeon->event_last_run_turn[evkind];
     if (i != 0)
     {
-        long k = sim_feedback->get_event_button_info(evkind)->turns_between_events;
+        int64_t k = sim_feedback->get_event_button_info(evkind)->turns_between_events;
         if ((k != 0) && (i+k >= get_gameturn()))
         {
           return INVALID_EVENT;
@@ -235,7 +235,7 @@ struct Event *event_create_event(MapCoord map_x, MapCoord map_y, EventKind evkin
 
 struct Event *event_allocate_free_event_structure(void)
 {
-    for (long i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if ((event->flags & EvF_Exists) == 0)
@@ -248,7 +248,7 @@ struct Event *event_allocate_free_event_structure(void)
     return INVALID_EVENT;
 }
 
-void event_initialise_event(struct Event *event, MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int32_t target)
+void event_initialise_event(struct Event *event, MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target)
 {
     sim_feedback->clear_event_button_state(event->index);
     event->mappos_x = map_x;
@@ -261,7 +261,7 @@ void event_initialise_event(struct Event *event, MapCoord map_x, MapCoord map_y,
     event->flags |= EvF_BtnFirstFall;
 }
 
-void event_delete_event_structure(long ev_idx)
+void event_delete_event_structure(int64_t ev_idx)
 {
     memset(&kfx_sim_state.event[ev_idx], 0, sizeof(struct Event));
 }
@@ -270,24 +270,24 @@ void event_update_last_use(struct Event *event)
 {
     struct Dungeon* dungeon = get_dungeon(event->owner);
     if (dungeon_invalid(dungeon)) {
-        ERRORLOG("Player %d dungeon doesn't exist",(int)event->owner);
+        ERRORLOG("Player %" PRId64 " dungeon doesn't exist",(int64_t)event->owner);
         return;
     }
     if ((event->kind < 1) || (event->kind >= EVENT_KIND_COUNT)) {
-        ERRORLOG("Illegal Event kind %d to be updated",(int)event->kind);
+        ERRORLOG("Illegal Event kind %" PRId64 " to be updated",(int64_t)event->kind);
         return;
     }
     dungeon->event_last_run_turn[event->kind] = get_gameturn();
 }
 
-void event_delete_event(long plyr_idx, EventIndex evidx)
+void event_delete_event(int64_t plyr_idx, EventIndex evidx)
 {
     struct Event* event = &kfx_sim_state.event[evidx];
     event_update_last_use(event);
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    for (long i = 0; i <= EVENT_BUTTONS_COUNT; i++)
+    for (int64_t i = 0; i <= EVENT_BUTTONS_COUNT; i++)
     {
-        long k = dungeon->event_button_index[i];
+        int64_t k = dungeon->event_button_index[i];
         if (k == evidx)
         {
             sim_feedback->turn_off_event_box_if_necessary(plyr_idx, evidx);
@@ -326,7 +326,7 @@ void event_add_to_event_buttons_list_or_replace_button(struct Event *event, stru
         return;
     }
     EventKind replace_evkind = sim_feedback->get_event_button_info(event->kind)->replace_event_kind_button;
-    long i;
+    int64_t i;
     EventIndex evidx;
     if (replace_evkind != EvKind_Nothing)
     {
@@ -335,7 +335,7 @@ void event_add_to_event_buttons_list_or_replace_button(struct Event *event, stru
             evidx = dungeon->event_button_index[i];
             struct Event* event_prev = &kfx_sim_state.event[evidx];
             if ((event_prev->kind == event->kind) || (event_prev->kind == replace_evkind)) {
-                SYNCDBG(1,"Replacing button at position %d",(int)i);
+                SYNCDBG(1,"Replacing button at position %" PRId64,(int64_t)i);
                 dungeon->event_button_index[i] = event->index;
                 break;
             }
@@ -357,7 +357,7 @@ void event_add_to_event_buttons_list_or_replace_button(struct Event *event, stru
                         play_non_3d_sample(snd_tab_fall);
                     }
                 }
-                SYNCDBG(1,"New button at position %d",(int)i);
+                SYNCDBG(1,"New button at position %" PRId64,(int64_t)i);
                 dungeon->event_button_index[i] = event->index;
                 break;
             }
@@ -384,11 +384,11 @@ void activate_event_box(EventIndex evidx)
     struct DoorConfigStats *doorst;
     struct TrapConfigStats *trapst;
     struct Thing *thing;
-    int i;
+    int64_t i;
     PlayerNumber plyr_idx = my_player_number;
     struct Dungeon* dungeon = get_my_dungeon();
     struct Event* event = &kfx_sim_state.event[evidx];
-    SYNCDBG(6,"Starting for event kind %d",event->kind);
+    SYNCDBG(6,"Starting for event kind %" PRId64,(int64_t)(event->kind));
     sim_feedback->set_visible_event_idx(evidx);
     sim_feedback->mark_event_button_read(evidx);
     i = sim_feedback->get_event_button_info(event->kind)->msg_stridx;
@@ -401,7 +401,7 @@ void activate_event_box(EventIndex evidx)
         dungeon->visible_battles[1] = 0;
         dungeon->visible_battles[2] = 0;
     }
-    short other_off = 0;
+    int64_t other_off = 0;
     switch (event->kind)
     {
         case EvKind_HeartAttacked:
@@ -417,7 +417,7 @@ void activate_event_box(EventIndex evidx)
         case EvKind_Objective:
         {
             strcpy(kfx_sim_state.evntbox_scroll_window.text, kfx_sim_state.evntbox_text_objective[plyr_idx]);
-            int k;
+            int64_t k;
             for (i = EVENT_BUTTONS_COUNT; i >= 0; i--)
             {
               k = dungeon->event_button_index[i];
@@ -493,7 +493,7 @@ void activate_event_box(EventIndex evidx)
             break;
         case EvKind_CreaturePayday:
             other_off = 1;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%d", event->target);
+            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%" PRId64, (int64_t)(event->target));
             sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_SpellPickedUp:
@@ -541,7 +541,7 @@ void activate_event_box(EventIndex evidx)
             sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_Information:
-            i = (long)event->target;
+            i = (int64_t)event->target;
             if (i < 0) {
                 i = -i;
             }
@@ -580,7 +580,7 @@ void activate_event_box(EventIndex evidx)
             sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_QuickInformation:
-            i = (long)event->target;
+            i = (int64_t)event->target;
             if (i < 0) {
               i = -i;
             }
@@ -590,7 +590,7 @@ void activate_event_box(EventIndex evidx)
             sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
             break;
         default:
-            ERRORLOG("Undefined event kind: %d", (int)event->kind);
+            ERRORLOG("Undefined event kind: %" PRId64, (int64_t)event->kind);
             break;
     }
     event_reset_scroll_window();
@@ -606,7 +606,7 @@ void activate_event_box(EventIndex evidx)
 
 void maintain_my_event_list(struct Dungeon *dungeon)
 {
-    for (int i = 1; i <= EVENT_BUTTONS_COUNT; i++)
+    for (int64_t i = 1; i <= EVENT_BUTTONS_COUNT; i++)
     {
         unsigned char curr_ev_idx = dungeon->event_button_index[i];
         if (curr_ev_idx != 0)
@@ -638,11 +638,11 @@ void maintain_my_event_list(struct Dungeon *dungeon)
 
 void kill_oldest_my_event(struct Dungeon *dungeon)
 {
-    int32_t old_idx = -1;
-    int32_t old_birth = INT_MAX;
-    for (long i = EVENT_BUTTONS_COUNT; i > 0; i--)
+    int64_t old_idx = -1;
+    int64_t old_birth = INT_MAX;
+    for (int64_t i = EVENT_BUTTONS_COUNT; i > 0; i--)
     {
-        long k = dungeon->event_button_index[i];
+        int64_t k = dungeon->event_button_index[i];
         struct Event* event = &kfx_sim_state.event[k];
         if (event->lifespan_turns < old_birth)
         {
@@ -657,7 +657,7 @@ void kill_oldest_my_event(struct Dungeon *dungeon)
 
 void maintain_all_players_event_lists(void)
 {
-    for (long i = 0; i < PLAYERS_COUNT; i++)
+    for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
         if (player_exists(player))
@@ -670,7 +670,7 @@ void maintain_all_players_event_lists(void)
 
 ThingIndex get_thing_index_event_is_attached_to(const struct Event *event)
 {
-    long i;
+    int64_t i;
     switch (event->kind)
     {
     case EvKind_Objective:
@@ -705,7 +705,7 @@ struct Thing *event_is_attached_to_thing(EventIndex evidx)
 
 void event_process_events(void)
 {
-    for (long i = 0; i < EVENTS_COUNT; i++)
+    for (int64_t i = 0; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if (!event_exists(event)) {
@@ -720,12 +720,12 @@ void event_process_events(void)
         }
         if (event->lifespan_turns <= 0)
         {
-            int ev_owner = event->owner;
+            int64_t ev_owner = event->owner;
             EventIndex subev_idx = event->index;
             struct Dungeon* dungeon = get_dungeon(ev_owner);
             struct Event* subevent = &kfx_sim_state.event[subev_idx];
             event_update_last_use(subevent);
-            for (int j = 0; j <= EVENT_BUTTONS_COUNT; j++)
+            for (int64_t j = 0; j <= EVENT_BUTTONS_COUNT; j++)
             {
                 if (dungeon->event_button_index[j] == subev_idx) {
                     sim_feedback->turn_off_event_box_if_necessary(ev_owner, dungeon->event_button_index[j]);
@@ -740,7 +740,7 @@ void event_process_events(void)
 
 void update_all_events(void)
 {
-    for (int32_t i = EVENTS_COUNT - 1; i > 0; i--)
+    for (int64_t i = EVENTS_COUNT - 1; i > 0; i--)
     {
         struct Thing* thing = event_is_attached_to_thing(i);
         if (thing_exists(thing))
@@ -760,11 +760,11 @@ void update_all_events(void)
     maintain_all_players_event_lists();
 }
 
-void event_kill_all_players_events(long plyr_idx)
+void event_kill_all_players_events(int64_t plyr_idx)
 {
     SYNCDBG(8,"Starting");
     TbBool keep_objective = kfx_sim_state.heart_lost_display_message;
-    for (int i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if (((event->flags & EvF_Exists) != 0) && (event->owner == plyr_idx)) {
@@ -786,7 +786,7 @@ void event_kill_all_players_events(long plyr_idx)
 void remove_events_thing_is_attached_to(struct Thing *thing)
 {
     SYNCDBG(8,"Starting");
-    for (int i = 1; i < EVENTS_COUNT; i++)
+    for (int64_t i = 1; i < EVENTS_COUNT; i++)
     {
         struct Event* event = &kfx_sim_state.event[i];
         if (((event->flags & EvF_Exists) != 0) && (event->kind != EvKind_Objective))
@@ -804,7 +804,7 @@ void remove_events_thing_is_attached_to(struct Thing *thing)
 
 void clear_events(void)
 {
-    int i;
+    int64_t i;
     sim_feedback->set_visible_event_idx(0);
     sim_feedback->clear_all_event_button_states();
     for (i=0; i < EVENTS_COUNT; i++)

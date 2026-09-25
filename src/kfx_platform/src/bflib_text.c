@@ -32,7 +32,7 @@
 
 
 // Reversed codepage map: indexed by byte value (0-255), contains unicode codepoint
-static const uint32_t internal_codepage_map[256] = {
+static const uint64_t internal_codepage_map[256] = {
          0, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,  // 0x00-0x07
     0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x0404,  // 0x08-0x0F
     0x0454, 0x0490, 0x0491, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017,  // 0x10-0x17
@@ -71,15 +71,15 @@ static const uint32_t internal_codepage_map[256] = {
 /******************************************************************************/
 
 
-static uint32_t internal_byte_to_unicode(unsigned char byte)
+static uint64_t internal_byte_to_unicode(unsigned char byte)
 {
     if (byte == 0)
         return 0;
-    uint32_t unicode = internal_codepage_map[byte];
-    return (unicode != 0) ? unicode : (uint32_t)'?';
+    uint64_t unicode = internal_codepage_map[byte];
+    return (unicode != 0) ? unicode : (uint64_t)'?';
 }
 
-size_t encode_utf8_codepoint(uint32_t codepoint, char *dst, size_t dst_size)
+size_t encode_utf8_codepoint(uint64_t codepoint, char *dst, size_t dst_size)
 {
     if (dst_size == 0)
         return 0;
@@ -125,7 +125,7 @@ size_t convert_codepage_to_utf8_buffer(const char *src, size_t src_size, char *d
         size_t out_pos = 0;
         for (size_t i = 0; i < src_size; ++i)
         {
-            uint32_t codepoint = internal_byte_to_unicode((unsigned char)src[i]);
+            uint64_t codepoint = internal_byte_to_unicode((unsigned char)src[i]);
             size_t written = encode_utf8_codepoint(codepoint, dst + out_pos, dst_size - out_pos);
             if (written == 0)
             {
@@ -153,7 +153,7 @@ size_t convert_codepage_to_utf8_buffer(const char *src, size_t src_size, char *d
     else
         return 0;
 
-    int wlen = MultiByteToWideChar(codepage, 0, src, (int)src_size, NULL, 0);
+    int64_t wlen = MultiByteToWideChar(codepage, 0, src, (int64_t)src_size, NULL, 0);
     if (wlen <= 0)
         return 0;
 
@@ -161,13 +161,13 @@ size_t convert_codepage_to_utf8_buffer(const char *src, size_t src_size, char *d
     if (wbuf == NULL)
         return 0;
 
-    if (MultiByteToWideChar(codepage, 0, src, (int)src_size, wbuf, wlen) == 0)
+    if (MultiByteToWideChar(codepage, 0, src, (int64_t)src_size, wbuf, wlen) == 0)
     {
         free(wbuf);
         return 0;
     }
 
-    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, wbuf, wlen, dst, (int)dst_size, NULL, NULL);
+    int64_t utf8_len = WideCharToMultiByte(CP_UTF8, 0, wbuf, wlen, dst, (int64_t)dst_size, NULL, NULL);
     free(wbuf);
     if (utf8_len <= 0)
     {
@@ -223,7 +223,7 @@ size_t convert_codepage_to_utf8_buffer(const char *src, size_t src_size, char *d
 #endif
 }
 
-uint32_t read_utf_8_codepoint_f(const char *text, size_t *out_seq_len, const char *func_name)
+uint64_t read_utf_8_codepoint_f(const char *text, size_t *out_seq_len, const char *func_name)
 {
     if ((text[0] & 0x80) == 0)
     {
@@ -248,7 +248,7 @@ uint32_t read_utf_8_codepoint_f(const char *text, size_t *out_seq_len, const cha
     else
     {
         *out_seq_len = 1;
-        ERRORLOG("%s: Invalid UTF-8 sequence starting with byte 0x%02X; using '?'", func_name, (unsigned char)text[0]);
+        ERRORLOG("%s: Invalid UTF-8 sequence starting with byte 0x%02" PRIX64 "; using '?'", func_name, (uint64_t)((unsigned char)text[0]));
         return '?';
     }
 }

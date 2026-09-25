@@ -54,20 +54,20 @@
 
 namespace pf_fake {
 
-constexpr int kGridDim = 24; // subtiles per axis -- generous headroom for every test below
+constexpr int64_t kGridDim = 24; // subtiles per axis -- generous headroom for every test below
 
 struct Cell {
     unsigned char map_flags = 0;       // SlbAtFlg_* bitmask -> map_block_flags
     SlabKind slab_kind = SlbT_PATH;    // -> slabmap_block_kind
     PlayerNumber owner = 0;            // -> slabmap_owner
-    long floor_filled_subtiles = 1;    // -> get_floor_filled_subtiles_at
+    int64_t floor_filled_subtiles = 1;    // -> get_floor_filled_subtiles_at
     bool unsafe = false;               // -> subtile_is_unsafe
     bool walkable = true;              // drives hug_can_move_on / thing_in_wall_at(inverted) / is_valid_hug_subtile(inverted)
 };
 
 struct Grid {
-    int size_x = kGridDim;
-    int size_y = kGridDim;
+    int64_t size_x = kGridDim;
+    int64_t size_y = kGridDim;
     Cell cells[kGridDim][kGridDim];
     Cell oob_sentinel; // returned (by reference) for any out-of-bounds lookup
 
@@ -83,11 +83,11 @@ struct Grid {
         size_y = kGridDim;
     }
 
-    bool in_bounds(int x, int y) const {
+    bool in_bounds(int64_t x, int64_t y) const {
         return x >= 0 && y >= 0 && x < size_x && y < size_y;
     }
 
-    Cell &at(int x, int y) {
+    Cell &at(int64_t x, int64_t y) {
         if (!in_bounds(x, y)) {
             return oob_sentinel;
         }
@@ -96,9 +96,9 @@ struct Grid {
 
     // Sets every subtile in slab (slb_x,slb_y) consistently -- the shape
     // real map data always has (a whole slab shares kind/owner/blocking).
-    void set_slab(int slb_x, int slb_y, SlabKind kind, PlayerNumber owner, bool walkable, unsigned char map_flags) {
-        for (int dy = 0; dy < STL_PER_SLB; dy++) {
-            for (int dx = 0; dx < STL_PER_SLB; dx++) {
+    void set_slab(int64_t slb_x, int64_t slb_y, SlabKind kind, PlayerNumber owner, bool walkable, unsigned char map_flags) {
+        for (int64_t dy = 0; dy < STL_PER_SLB; dy++) {
+            for (int64_t dx = 0; dx < STL_PER_SLB; dx++) {
                 Cell &c = at(slb_x * STL_PER_SLB + dx, slb_y * STL_PER_SLB + dy);
                 c.slab_kind = kind;
                 c.owner = owner;
@@ -113,11 +113,11 @@ inline Grid grid;
 
 struct FakeThing {
     struct Coord3d pos{};
-    short move_angle = 0;
-    unsigned short index = 1;
-    unsigned short clipbox_size = 0; // clamps thing_nav_sizexy/thing_nav_block_sizexy to table entry 0
+    int64_t move_angle = 0;
+    int64_t index = 1;
+    int64_t clipbox_size = 0; // clamps thing_nav_sizexy/thing_nav_block_sizexy to table entry 0
     PlayerNumber owner = 0;
-    short max_speed = 32;
+    int64_t max_speed = 32;
     struct Navigation navi{};
     struct Ariadne arid{};
 };
@@ -143,17 +143,17 @@ inline struct Map *fake_get_map_block_at(MapSubtlCoord stl_x, MapSubtlCoord stl_
     }
     return reinterpret_cast<struct Map *>(static_cast<intptr_t>(stl_y * grid.size_x + stl_x + 1));
 }
-inline bool decode_map(const struct Map *m, int &x, int &y) {
+inline bool decode_map(const struct Map *m, int64_t &x, int64_t &y) {
     if (!m) {
         return false;
     }
     intptr_t idx = reinterpret_cast<intptr_t>(m) - 1;
-    x = static_cast<int>(idx % grid.size_x);
-    y = static_cast<int>(idx / grid.size_x);
+    x = static_cast<int64_t>(idx % grid.size_x);
+    y = static_cast<int64_t>(idx / grid.size_x);
     return true;
 }
 inline unsigned char fake_map_block_flags(const struct Map *mapblk) {
-    int x, y;
+    int64_t x, y;
     if (!decode_map(mapblk, x, y)) {
         return 0;
     }
@@ -161,27 +161,27 @@ inline unsigned char fake_map_block_flags(const struct Map *mapblk) {
 }
 inline TbBool fake_map_block_is_invalid(const struct Map *mapblk) { return mapblk == nullptr; }
 
-inline long fake_get_floor_filled_subtiles_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
+inline int64_t fake_get_floor_filled_subtiles_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
     return grid.at(stl_x, stl_y).floor_filled_subtiles;
 }
 inline TbBool fake_subtile_is_unsafe(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
     return grid.at(stl_x, stl_y).unsafe;
 }
 
-inline struct SlabMap *encode_slab(int slb_x, int slb_y) {
+inline struct SlabMap *encode_slab(int64_t slb_x, int64_t slb_y) {
     if (slb_x < 0 || slb_y < 0 || slb_x * STL_PER_SLB >= grid.size_x || slb_y * STL_PER_SLB >= grid.size_y) {
         return nullptr;
     }
     // Distinct index space from encode_map's -- never compared to a Map*.
     return reinterpret_cast<struct SlabMap *>(static_cast<intptr_t>(slb_y * 1000 + slb_x + 1));
 }
-inline bool decode_slab(const struct SlabMap *s, int &slb_x, int &slb_y) {
+inline bool decode_slab(const struct SlabMap *s, int64_t &slb_x, int64_t &slb_y) {
     if (!s) {
         return false;
     }
     intptr_t idx = reinterpret_cast<intptr_t>(s) - 1;
-    slb_x = static_cast<int>(idx % 1000);
-    slb_y = static_cast<int>(idx / 1000);
+    slb_x = static_cast<int64_t>(idx % 1000);
+    slb_y = static_cast<int64_t>(idx / 1000);
     return true;
 }
 inline struct SlabMap *fake_get_slabmap_block(MapSlabCoord slb_x, MapSlabCoord slb_y) { return encode_slab(slb_x, slb_y); }
@@ -189,7 +189,7 @@ inline struct SlabMap *fake_get_slabmap_for_subtile(MapSubtlCoord stl_x, MapSubt
     return encode_slab(subtile_slab(stl_x), subtile_slab(stl_y));
 }
 inline SlabKind fake_slabmap_block_kind(const struct SlabMap *slb) {
-    int slb_x, slb_y;
+    int64_t slb_x, slb_y;
     if (!decode_slab(slb, slb_x, slb_y)) {
         return SlbT_ROCK;
     }
@@ -197,7 +197,7 @@ inline SlabKind fake_slabmap_block_kind(const struct SlabMap *slb) {
 }
 inline TbBool fake_slabmap_block_is_invalid(const struct SlabMap *slb) { return slb == nullptr; }
 inline PlayerNumber fake_slabmap_owner(const struct SlabMap *slb) {
-    int slb_x, slb_y;
+    int64_t slb_x, slb_y;
     if (!decode_slab(slb, slb_x, slb_y)) {
         return 0;
     }
@@ -219,23 +219,23 @@ inline TbBool fake_thing_in_wall_at(const struct Thing *, const struct Coord3d *
 // fixture below (no test here exercises door subtiles) ------------------
 
 // --- single-purpose struct-Thing queries --------------------------------
-inline short fake_thing_is_invalid(const struct Thing *thing) { return thing == nullptr; }
+inline int64_t fake_thing_is_invalid(const struct Thing *thing) { return thing == nullptr; }
 inline PlayerNumber fake_thing_get_owner(const struct Thing *thing) { return as_fake(thing).owner; }
-inline long fake_get_thing_height_at(const struct Thing *, const struct Coord3d *) { return g_thing_height_at_reply; }
-inline long fake_get_floor_height_under_thing_at(const struct Thing *, const struct Coord3d *) { return 0; }
+inline int64_t fake_get_thing_height_at(const struct Thing *, const struct Coord3d *) { return g_thing_height_at_reply; }
+inline int64_t fake_get_floor_height_under_thing_at(const struct Thing *, const struct Coord3d *) { return 0; }
 
 // --- Track 3: struct Thing field access ---------------------------------
 inline struct Coord3d fake_thing_get_position(const struct Thing *thing) { return as_fake(thing).pos; }
 inline void fake_thing_set_position(struct Thing *thing, const struct Coord3d *pos) { as_fake(thing).pos = *pos; }
-inline short fake_thing_get_move_angle(const struct Thing *thing) { return as_fake(thing).move_angle; }
-inline void fake_thing_set_move_angle(struct Thing *thing, short angle) { as_fake(thing).move_angle = angle; }
-inline unsigned short fake_thing_get_index(const struct Thing *thing) { return as_fake(thing).index; }
-inline unsigned short fake_thing_get_clipbox_size(const struct Thing *thing) { return as_fake(thing).clipbox_size; }
+inline int64_t fake_thing_get_move_angle(const struct Thing *thing) { return as_fake(thing).move_angle; }
+inline void fake_thing_set_move_angle(struct Thing *thing, int64_t angle) { as_fake(thing).move_angle = angle; }
+inline int64_t fake_thing_get_index(const struct Thing *thing) { return as_fake(thing).index; }
+inline int64_t fake_thing_get_clipbox_size(const struct Thing *thing) { return as_fake(thing).clipbox_size; }
 
 // --- CreatureControl-embedded pathfinding slot --------------------------
 inline struct Navigation *fake_creature_get_navigation(struct Thing *thing) { return &as_fake(thing).navi; }
 inline struct Ariadne *fake_creature_get_ariadne_state(struct Thing *thing) { return &as_fake(thing).arid; }
-inline short fake_creature_get_max_speed(const struct Thing *thing) { return as_fake(thing).max_speed; }
+inline int64_t fake_creature_get_max_speed(const struct Thing *thing) { return as_fake(thing).max_speed; }
 inline void fake_creature_clear_state_flags_for_wallhug_override(struct Thing *) {}
 
 // --- physical-split follow-ups ------------------------------------------
@@ -259,23 +259,23 @@ inline TbBool fake_cross_y_boundary_first(const struct Coord3d *, const struct C
 inline const struct Around kSmallAroundTable[4] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
 inline struct Around fake_get_small_around(SmallAroundIndex n) { return kSmallAroundTable[n & 3]; }
 inline SmallAroundIndex fake_get_small_around_length(void) { return 4; }
-inline SmallAroundIndex fake_small_around_index_in_direction(long srcpos_x, long srcpos_y, long dstpos_x, long dstpos_y) {
+inline SmallAroundIndex fake_small_around_index_in_direction(int64_t srcpos_x, int64_t srcpos_y, int64_t dstpos_x, int64_t dstpos_y) {
     // Same formula as kfx_sim's real small_around_index_in_direction
     // (src/kfx_sim/src/map_utils.c) -- reproduced here rather than faked
     // away, since it's pure math over LbArcTanAngle (kfx_platform, real,
     // already linked), not a piece of world state to stub out.
-    long i = ((LbArcTanAngle(dstpos_x - srcpos_x, dstpos_y - srcpos_y) & ANGLE_MASK) + DEGREES_45);
+    int64_t i = ((LbArcTanAngle(dstpos_x - srcpos_x, dstpos_y - srcpos_y) & ANGLE_MASK) + DEGREES_45);
     return static_cast<SmallAroundIndex>((i / DEGREES_90) & 3);
 }
 
 inline TbBool fake_creature_cannot_move_directly_to(struct Thing *, struct Coord3d *) { return false; }
 
-inline long g_owner_player_navigating = -1;
-inline long fake_get_owner_player_navigating(void) { return g_owner_player_navigating; }
-inline void fake_set_owner_player_navigating(long plyr_idx) { g_owner_player_navigating = plyr_idx; }
-inline long g_nav_thing_can_travel_over_lava = 0;
-inline long fake_get_nav_thing_can_travel_over_lava(void) { return g_nav_thing_can_travel_over_lava; }
-inline void fake_set_nav_thing_can_travel_over_lava(long can_travel) { g_nav_thing_can_travel_over_lava = can_travel; }
+inline int64_t g_owner_player_navigating = -1;
+inline int64_t fake_get_owner_player_navigating(void) { return g_owner_player_navigating; }
+inline void fake_set_owner_player_navigating(int64_t plyr_idx) { g_owner_player_navigating = plyr_idx; }
+inline int64_t g_nav_thing_can_travel_over_lava = 0;
+inline int64_t fake_get_nav_thing_can_travel_over_lava(void) { return g_nav_thing_can_travel_over_lava; }
+inline void fake_set_nav_thing_can_travel_over_lava(int64_t can_travel) { g_nav_thing_can_travel_over_lava = can_travel; }
 
 // Builds a PathfindingWorldCallbacks table with every grid/thing-backed
 // field above wired in, starting from the real safe-default table for
@@ -370,12 +370,12 @@ struct GridWorldFixture {
 // (kfx_pathfinding_state.navigation_map is a fixed 511*511 array either
 // way).
 struct TriangulatedWorldFixture : GridWorldFixture {
-    static constexpr int kLogicalSize = 8;
+    static constexpr int64_t kLogicalSize = 8;
     TriangulatedWorldFixture() {
         grid.size_x = kLogicalSize;
         grid.size_y = kLogicalSize;
-        for (int y = 0; y < kLogicalSize; y++) {
-            for (int x = 0; x < kLogicalSize; x++) {
+        for (int64_t y = 0; y < kLogicalSize; y++) {
+            for (int64_t x = 0; x < kLogicalSize; x++) {
                 grid.at(x, y).floor_filled_subtiles = 1;
                 grid.at(x, y).unsafe = false;
                 grid.at(x, y).map_flags = 0;
