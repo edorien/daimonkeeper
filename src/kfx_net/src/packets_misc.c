@@ -116,6 +116,108 @@ static int64_t packet_turn_size(void)
     return packet_saved_users(users) * sizeof(struct Packet) + sizeof(TbBigChecksum);
 }
 
+// If the turn-end checksum is LONG_TURN_MARKER, additional data follows, for what can't
+// be expressed just in regular packets. (The real checksum comes right after the long turn marker.)
+#define LONG_TURN_MARKER ((TbBigChecksum)0x80000000)
+enum LongTurnReplayRecordKind {
+    LTK_End = 0,
+    LTK_ChatMessage = 1, // payload: uint16_t user, char message[PLAYER_MP_MESSAGE_LEN]
+    // TODO: resyncs / state transfers?
+};
+
+static TbBool chat_messages_recorded(void)
+{
+    // Chat messages are sent out-of-band, so they break the requirements
+    // for determinism if they don't arrive the same turn they are sent.
+    // (Also, it's nice to preserve privacy too, in case any couples send a bug report...)
+    return !network_is_active() && (kfx_net_state.input_lag_turns == 0);
+}
+
+static TbBool write_long_turn_record(unsigned char kind, uint32_t len, const void *payload)
+{
+    return (LbFileWrite(kfx_net_local.packet_save_fp, &kind, sizeof(kind)) == sizeof(kind))
+        && (LbFileWrite(kfx_net_local.packet_save_fp, &len, sizeof(len)) == sizeof(len))
+        && (LbFileWrite(kfx_net_local.packet_save_fp, payload, len) == (long)len);
+}
+
+static TbBool read_long_turn_data(TbBigChecksum *chksum, TbBool apply, int32_t *consumed)
+{
+    TbFileHandle fh = kfx_net_local.packet_save_fp;
+    if (LbFileRead(fh, chksum, sizeof(*chksum)) != sizeof(*chksum))
+        return false;
+    *consumed += sizeof(*chksum);
+    while (true)
+    {
+        unsigned char kind;
+        if (LbFileRead(fh, &kind, sizeof(kind)) != sizeof(kind))
+            return false;
+        *consumed += sizeof(kind);
+        if (kind == LTK_End)
+            return true;
+        uint32_t len;
+        if (LbFileRead(fh, &len, sizeof(len)) != sizeof(len))
+            return false;
+        *consumed += sizeof(len);
+        const int32_t remaining = LbFileLengthHandle(fh) - LbFilePosition(fh);
+        if ((remaining < 0) || (len > (uint32_t)remaining))
+        {
+            ERRORLOG("Long turn record kind %u length %u exceeds Packet File (%d bytes left)", (unsigned)kind, (unsigned)len, (int)remaining);
+            return false;
+        }
+        uint32_t used = 0;
+        if (apply && (kind == LTK_ChatMessage) && (len >= sizeof(uint16_t)))
+        {
+            uint16_t user;
+            if (LbFileRead(fh, &user, sizeof(user)) != sizeof(user))
+                return false;
+            used += sizeof(user);
+            const uint32_t msg_len = min(len - used, (uint32_t)PLAYER_MP_MESSAGE_LEN);
+            char message[PLAYER_MP_MESSAGE_LEN] = {0};
+            if (LbFileRead(fh, message, msg_len) != (int)msg_len)
+                return false;
+            used += msg_len;
+            message[PLAYER_MP_MESSAGE_LEN - 1] = '\0';
+            PlayerNumber plyr_idx = (user < MAX_NET_USERS) ? get_net_user_player_number(user) : -1;
+            if (plyr_idx >= 0)
+                memcpy(get_player(plyr_idx)->mp_pending_message, message, PLAYER_MP_MESSAGE_LEN);
+            else
+                WARNLOG("Chat message for invalid user %u in Packet File", (unsigned)user);
+        }
+        if ((len > used) && (LbFileSeek(fh, len - used, Lb_FILE_SEEK_CURRENT) < 0))
+            return false;
+        *consumed += len;
+    }
+}
+
+static GameTurn count_stored_turns(void)
+{
+    NetUserId users[MAX_NET_USERS];
+    const int nusers = packet_saved_users(users);
+    const int turn_data_size = packet_turn_size();
+    const int32_t file_len = LbFileLengthHandle(kfx_net_local.packet_save_fp);
+    unsigned char pckt_buf[PACKET_TURN_MAX_SIZE+4];
+    GameTurn turns = 0;
+    int32_t pos = kfx_net_state.packet_file_pos;
+    LbFileSeek(kfx_net_local.packet_save_fp, pos, Lb_FILE_SEEK_BEGINNING);
+    while (pos + turn_data_size <= file_len)
+    {
+        if (LbFileRead(kfx_net_local.packet_save_fp, &pckt_buf, turn_data_size) != turn_data_size)
+            break;
+        int32_t consumed = turn_data_size;
+        TbBigChecksum chksum = llong(&pckt_buf[nusers * sizeof(struct Packet)]);
+        if ((chksum == LONG_TURN_MARKER) && !read_long_turn_data(&chksum, false, &consumed))
+            break;
+        if (pos + consumed > file_len)
+            break;
+        pos += consumed;
+        turns++;
+    }
+    if (pos != file_len)
+        ERRORLOG("Packet File unreadable at offset %d of %d; replay ends after %u turns", (int)pos, (int)file_len, (unsigned)turns);
+    LbFileSeek(kfx_net_local.packet_save_fp, kfx_net_state.packet_file_pos, Lb_FILE_SEEK_BEGINNING);
+    return turns;
+}
+
 TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
 {
     memset(centry, 0, sizeof(struct CatalogueEntry));
@@ -137,7 +239,7 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry)
         return false;
     }
     kfx_net_state.packet_file_pos = LbFilePosition(kfx_net_local.packet_save_fp);
-    kfx_net_state.turns_stored = (LbFileLengthHandle(kfx_net_local.packet_save_fp) - kfx_net_state.packet_file_pos) / packet_turn_size();
+    kfx_net_state.turns_stored = count_stored_turns();
     if ((kfx_net_state.packet_checksum_verify) && (!kfx_net_state.packet_save_head.chksum_available))
     {
         WARNMSG("PacketSave checksum not available, checking disabled.");
@@ -263,18 +365,36 @@ int64_t save_packets(void)
     // Prepare data in the buffer
     for (int64_t i = 0; i < nusers; i++)
         memcpy(&pckt_buf[i*sizeof(struct Packet)], &sim_packets[users[i]], sizeof(struct Packet));
-    memcpy(&pckt_buf[nusers*sizeof(struct Packet)], &chksum, sizeof(TbBigChecksum));
+    TbBool has_chat = false;
+    if (chat_messages_recorded()) {
+        for (int64_t i = 0; i < nusers; i++)
+            has_chat |= (sim_packets[users[i]].action == PckA_PlyrMsgEnd);
+    }
+    const TbBool long_turn = has_chat || (chksum == LONG_TURN_MARKER);
+    const TbBigChecksum chksum_slot = long_turn ? LONG_TURN_MARKER : chksum;
+    memcpy(&pckt_buf[nusers*sizeof(struct Packet)], &chksum_slot, sizeof(TbBigChecksum));
     // Write buffer into file
     if (LbFileWrite(kfx_net_local.packet_save_fp, &pckt_buf, turn_data_size) != turn_data_size)
     {
         ERRORLOG("Packet file write error");
     }
-    for (int64_t i = 0; i < nusers; i++) {
-        if (sim_packets[users[i]].action == PckA_PlyrMsgEnd) {
-            if (LbFileWrite(kfx_net_local.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) != PLAYER_MP_MESSAGE_LEN) {
-                ERRORLOG("Chat message file write error");
-            }
+    if (long_turn)
+    {
+        TbBool ok = (LbFileWrite(kfx_net_local.packet_save_fp, &chksum, sizeof(chksum)) == sizeof(chksum));
+        // write a null-terminated sequence of additional records
+        for (int64_t i = 0; has_chat && (i < nusers); i++) {
+            if (sim_packets[users[i]].action != PckA_PlyrMsgEnd)
+                continue;
+            unsigned char payload[sizeof(uint16_t) + PLAYER_MP_MESSAGE_LEN];
+            const uint16_t user = users[i];
+            memcpy(payload, &user, sizeof(user));
+            memcpy(payload + sizeof(user), get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN);
+            ok &= write_long_turn_record(LTK_ChatMessage, sizeof(payload), payload);
         }
+        const unsigned char end = LTK_End;
+        ok &= (LbFileWrite(kfx_net_local.packet_save_fp, &end, sizeof(end)) == sizeof(end));
+        if (!ok)
+            ERRORLOG("Long turn data file write error");
     }
     if ( !LbFileFlush(kfx_net_local.packet_save_fp) )
     {
@@ -431,7 +551,7 @@ void load_packets_for_turn(GameTurn nturn)
         return;
     }
 
-    if (LbFileRead(kfx_net_local.packet_save_fp, &pckt_buf, turn_data_size) == -1)
+    if (LbFileRead(kfx_net_local.packet_save_fp, &pckt_buf, turn_data_size) != turn_data_size)
     {
         ERRORDBG(18,"Cannot read turn data from Packet File");
         net_callbacks->report_error_stat(ESE_CantReadPackets);
@@ -441,15 +561,21 @@ void load_packets_for_turn(GameTurn nturn)
     for (int64_t i = 0; i < nusers; i++)
         memcpy(&sim_packets[users[i]], &pckt_buf[i * sizeof(struct Packet)], sizeof(struct Packet));
     for (int64_t i = 0; i < nusers; i++) {
-        if (sim_packets[users[i]].action == PckA_PlyrMsgEnd) {
-            if (LbFileRead(kfx_net_local.packet_save_fp, get_player(get_net_user_player_number(users[i]))->mp_pending_message, PLAYER_MP_MESSAGE_LEN) == PLAYER_MP_MESSAGE_LEN) {
-                kfx_net_state.packet_file_pos += PLAYER_MP_MESSAGE_LEN;
-            } else {
-                ERRORDBG(18,"Cannot read chat message from Packet File");
-            }
-        }
+        if (sim_packets[users[i]].action == PckA_PlyrMsgEnd)
+            memset(get_player(get_net_user_player_number(users[i]))->mp_pending_message, 0, PLAYER_MP_MESSAGE_LEN);
     }
     TbBigChecksum tot_chksum = llong(&pckt_buf[nusers * sizeof(struct Packet)]);
+    if (tot_chksum == LONG_TURN_MARKER)
+    {
+        int32_t consumed = 0;
+        if (!read_long_turn_data(&tot_chksum, true, &consumed)) {
+            ERRORLOG("Cannot read long turn data from Packet File; replay aborted at turn %" PRIu64, (uint64_t)(get_gameturn()));
+            net_callbacks->report_error_stat(ESE_CantReadPackets);
+            disable_packet_mode();
+            return;
+        }
+        kfx_net_state.packet_file_pos += consumed;
+    }
     if (kfx_net_state.turns_fastforward > 0)
         kfx_net_state.turns_fastforward--;
     if (kfx_net_state.packet_checksum_verify && !turn_has_quit_packet())

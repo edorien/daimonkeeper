@@ -83,7 +83,8 @@ struct RenderOverlayCallbacks {
     TbBool (*get_unpausing_in_progress)(void);
     TbBool (*can_process_creature_input)(struct Thing *thing);
     void (*process_first_person_look)(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll);
-    void (*process_camera_controls)(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player, TbBool is_local_camera);
+    void (*process_camera_controls)(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player);
+    void (*process_camera_view_controls)(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player);
     void (*process_camera_action)(struct Camera *cams, const struct Packet *pckt);
     const struct Packet *(*get_history_packet)(NetUserId user, GameTurn turn);
     void (*set_packet_control)(struct Packet *pckt, uint64_t flag);

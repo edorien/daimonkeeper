@@ -68,8 +68,6 @@ struct CatalogueEntry;
 extern uint64_t initial_replay_seed;
 extern TbBool unpausing_in_progress;
 
-extern double camera_movement_x;
-extern double camera_movement_y;
 
 struct PacketEx
 {
@@ -91,7 +89,8 @@ void process_user_creature_passenger_packet_action(NetUserId user);
 void process_user_creature_control_packet_action(NetUserId user);
 void process_map_packet_clicks(NetUserId user);
 void process_pause_packet(int64_t a1, int64_t a2);
-void process_camera_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player, TbBool is_local_camera);
+void process_camera_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player);
+void process_camera_view_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player);
 void process_camera_action(struct Camera *cams, const struct Packet *pckt);
 void process_first_person_look(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll);
 TbBool can_process_creature_input(struct Thing *thing);

@@ -31,7 +31,8 @@ static void noop_reload_parchment_file(TbBool hires) {}
 static TbBool noop_point_to_overhead_map(const struct Camera *camera, int64_t screen_x, int64_t screen_y, int64_t *map_x, int64_t *map_y) { return false; }
 static TbBool noop_can_process_creature_input(struct Thing *thing) { return false; }
 static void noop_process_first_person_look(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll) {}
-static void noop_process_camera_controls(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player, TbBool is_local_camera) {}
+static void noop_process_camera_controls(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player) {}
+static void noop_process_camera_view_controls(struct Camera *cam, const struct Packet *pckt, struct PlayerInfo *player) {}
 static void noop_process_camera_action(struct Camera *cams, const struct Packet *pckt) {}
 static const struct Packet *noop_get_history_packet(NetUserId user, GameTurn turn) { return NULL; }
 static void noop_set_packet_control(struct Packet *pckt, uint64_t flag) {}
@@ -73,6 +74,7 @@ static const struct RenderOverlayCallbacks default_render_overlay = {
     &noop_can_process_creature_input,
     &noop_process_first_person_look,
     &noop_process_camera_controls,
+    &noop_process_camera_view_controls,
     &noop_process_camera_action,
     &noop_get_history_packet,
     &noop_set_packet_control,

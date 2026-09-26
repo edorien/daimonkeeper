@@ -34,6 +34,7 @@
 #include "frontend.h"
 #include "front_input.h"
 #include "player_data.h"
+#include "packet_data.h"
 #include "game_legacy.h"
 #include "creature_states.h"
 #include "creature_states_hero.h"
@@ -828,11 +829,10 @@ static void do_map_rotate_stuff_subtile(double relpos_x, double relpos_y, MapSub
     *stl_y = lround(tmp_y) / COORD_PER_STL;
 }
 
-int64_t do_left_map_drag(int64_t begin_x, int64_t begin_y, int64_t curr_x, int64_t curr_y, int64_t zoom)
+int64_t do_left_map_drag(int64_t begin_x, int64_t begin_y, int64_t curr_x, int64_t curr_y, int64_t zoom, struct Packet *pckt)
 {
   SYNCDBG(17,"Starting");
   static double frac_x, frac_y;
-  struct PlayerInfo *player;
   if (!clicked_on_small_map)
   {
     grabbed_small_map = 0;
@@ -860,23 +860,20 @@ int64_t do_left_map_drag(int64_t begin_x, int64_t begin_y, int64_t curr_x, int64
   const MapSubtlCoord stl_y = coord_y / COORD_PER_STL;
   frac_x = exact_x - coord_x;
   frac_y = exact_y - coord_y;
-  player = get_my_player();
   kfx_sim_state.hand_over_subtile_x = stl_x;
   kfx_sim_state.hand_over_subtile_y = stl_y;
   if (subtile_has_slab(stl_x, stl_y))
   {
-    set_players_packet_action(player, PckA_BookmarkLoad, coord_x, coord_y, 0, 0);
+    set_packet_action(pckt, PckA_BookmarkLoad, coord_x, coord_y, 0, 0);
   }
   return 1;
 }
 
-int64_t do_left_map_click(int64_t begin_x, int64_t begin_y, int64_t curr_x, int64_t curr_y, int64_t zoom)
+int64_t do_left_map_click(int64_t begin_x, int64_t begin_y, int64_t curr_x, int64_t curr_y, int64_t zoom, struct Packet *pckt)
 {
   SYNCDBG(17,"Starting");
-  struct PlayerInfo *player;
   int64_t result;
   result = 0;
-  player = get_my_player();
   if ((left_button_released) && (clicked_on_small_map))
   {
       if (grabbed_small_map)
@@ -892,7 +889,7 @@ int64_t do_left_map_click(int64_t begin_x, int64_t begin_y, int64_t curr_x, int6
         {
           const MapCoord x = subtile_coord_center(curr_x);
           const MapCoord y = subtile_coord_center(curr_y);
-          set_players_packet_action(player, PckA_BookmarkLoad, x, y, 0, 0);
+          set_packet_action(pckt, PckA_BookmarkLoad, x, y, 0, 0);
           result = 1;
         }
       }
@@ -903,7 +900,7 @@ int64_t do_left_map_click(int64_t begin_x, int64_t begin_y, int64_t curr_x, int6
   return result;
 }
 
-int64_t do_right_map_click(int64_t start_x, int64_t start_y, int64_t curr_mx, int64_t curr_my, int64_t zoom)
+int64_t do_right_map_click(int64_t start_x, int64_t start_y, int64_t curr_mx, int64_t curr_my, int64_t zoom, struct Packet *pckt)
 {
     int64_t x;
     int64_t y;
@@ -927,7 +924,7 @@ int64_t do_right_map_click(int64_t start_x, int64_t start_y, int64_t curr_mx, in
         right_button_released = 0;
         if (subtile_has_slab(x, y))
         {
-            set_players_packet_action(player, PckA_UsePwrHandDrop, x, y, 0, 0);
+            set_packet_action(pckt, PckA_UsePwrHandDrop, x, y, 0, 0);
             return 1;
         }
     }

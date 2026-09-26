@@ -250,13 +250,13 @@ struct SimFeedbackCallbacks {
     /* kfx_net_state.h -- session state kfx_net (and kfx_game/kfx_frontend/
        kfx_apploop) own; engine_redraw.c/player_computer.c/
        roomspace_prediction.c only ever read it, and player_data.c's one
-       write (resetting active_players_count on player removal) is the
+       write (resetting human_players_count on player removal) is the
        "config/sim writes into a value owned above" shape covered
        elsewhere in this codebase by setter-shaped callback entries. */
     TbBool (*get_packet_load_enable)(void);
     PlayerNumber (*get_local_plyr_idx)(void);
     int64_t (*get_input_lag_turns)(void);
-    void (*set_active_players_count)(int64_t count);
+    void (*set_human_players_count)(int64_t count);
     // player_utils.c's init_player_as_type()/init_players() -- narrow
     // reads/one increment of kfx_net_state.packet_save_head fields, same
     // "config/sim needs a value owned above" shape as the entries above.
@@ -264,7 +264,7 @@ struct SimFeedbackCallbacks {
     int64_t (*get_frontview_zoom_level)(void);
     TbBool (*get_player_exists_flag)(PlayerNumber plyr_idx);
     TbBool (*get_player_comp_flag)(PlayerNumber plyr_idx);
-    void (*increment_active_players_count)(void);
+    void (*increment_human_players_count)(void);
     // kfx_game_state.h -- get_loaded_level_number() is a static inline
     // there (no external symbol to bare-extern); player_utils.c reads
     // just the one field, same shape as the entries above.
@@ -276,8 +276,6 @@ struct SimFeedbackCallbacks {
     /* front_input.h */
     void (*update_time)(void);
     void (*get_game_time)(struct GameTime *GT, uint64_t turns, uint64_t fps);
-    /* net_game.h -- kfx_net owns the rule for who still counts as an opponent (dropped users do not) */
-    TbBool (*player_has_enemies_to_defeat)(const struct PlayerInfo *player);
     int64_t (*get_zoom_key_room_order)(int64_t idx);
 
     /* net_exchange_gameplay.h */

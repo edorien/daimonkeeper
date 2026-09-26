@@ -52,7 +52,8 @@ TEST_CASE("the default render_overlay table's every stub is a safe no-op returni
     CHECK_FALSE(render_overlay->can_process_creature_input(nullptr));
     int64_t out_h = 0, out_v = 0, out_r = 0;
     render_overlay->process_first_person_look(nullptr, nullptr, 0, 0, &out_h, &out_v, &out_r);
-    render_overlay->process_camera_controls(nullptr, nullptr, nullptr, false);
+    render_overlay->process_camera_controls(nullptr, nullptr, nullptr);
+    render_overlay->process_camera_view_controls(nullptr, nullptr, nullptr);
     render_overlay->process_camera_action(nullptr, nullptr);
     CHECK(render_overlay->get_history_packet(0, 0) == nullptr);
     render_overlay->set_packet_control(nullptr, 0);

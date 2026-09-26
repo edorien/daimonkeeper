@@ -109,8 +109,6 @@ extern TbBool process_user_global_cheats_packet_action(NetUserId user, struct Pa
 extern TbBool process_players_dungeon_control_cheats_packet_action(PlayerNumber plyr_idx, struct Packet* pckt);
 /******************************************************************************/
 TbBool unpausing_in_progress = 0;
-double camera_movement_x = 0.0;
-double camera_movement_y = 0.0;
 /******************************************************************************/
 #define RESYNC_LIMIT_BEFORE_COOLDOWN 5
 #define RESYNC_COOLDOWN_MS (5 * 60 * 1000)
@@ -304,79 +302,33 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
   }
 }
 
-void process_camera_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player, TbBool is_local_camera)
+static void process_camera_position(struct Camera* cam, const struct Packet* pckt)
+{
+    if ((cam->view_mode != PVM_IsoWibbleView) && (cam->view_mode != PVM_IsoStraightView) && (cam->view_mode != PVM_FrontView))
+        return;
+    MapCoord x;
+    MapCoord y;
+    if (!packet_get_camera_position(pckt, &x, &y))
+        return;
+    view_set_camera_position(cam, x, y);
+    cam->velocity_x = 0;
+    cam->velocity_y = 0;
+}
+
+void process_camera_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player)
 {
     if (cam == NULL) {
         return;
     }
-    int64_t inter_val;
-    int64_t scroll_speed = cam->zoom;
-    if (scroll_speed <= 0)
-        scroll_speed = 1;
-    switch (cam->view_mode)
-    {
-    case PVM_IsoWibbleView:
-    case PVM_IsoStraightView:
-        if (player->roomspace_drag_paint_mode == 1)
-        {
-            if (scroll_speed < 4100)
-            {
-                scroll_speed = 4100;
-            }
-        }
-        inter_val = 2560000 / scroll_speed;
-        break;
-    case PVM_FrontView:
-        if (player->roomspace_drag_paint_mode == 1)
-        {
-            if (scroll_speed < 16384)
-            {
-                scroll_speed = 16384;
-            }
-        }
-        inter_val = 12800000 / scroll_speed;
-        break;
-    default:
-        inter_val = 256;
-        break;
-    }
-    if (pckt->additional_packet_values & PCAdV_SpeedupPressed)
-      inter_val *= 3;
+    process_camera_position(cam, pckt);
+    if (packet_action_has_camera_angle(pckt)
+     && ((cam->view_mode == PVM_IsoWibbleView) || (cam->view_mode == PVM_IsoStraightView)))
+        cam->rotation_angle_x = pckt->actn_par3 & ANGLE_MASK;
+    process_camera_view_controls(cam, pckt, player);
+}
 
-    if (is_local_camera && !kfx_net_state.packet_load_enable && cam->view_mode != PVM_ParchmentView)
-    {        
-        // Apply same scaling as packet-based movement for consistency
-        if (camera_movement_y != 0.0) {
-            int64_t delta = (int64_t)(camera_movement_y * inter_val / 4.0);
-            int64_t limit = (int64_t)(camera_movement_y * inter_val);
-            view_set_camera_y_inertia(cam, delta, limit);
-        }
-        if (camera_movement_x != 0.0) {
-            int64_t delta = (int64_t)(camera_movement_x * inter_val / 4.0);
-            int64_t limit = (int64_t)(camera_movement_x * inter_val);
-            view_set_camera_x_inertia(cam, delta, limit);
-        }
-    }
-    else
-    {
-        if ((pckt->control_flags & PCtr_MoveUp) != 0) {
-            view_set_camera_y_inertia(cam, -inter_val/4, -inter_val);
-        }
-        if ((pckt->control_flags & PCtr_MoveDown) != 0) {
-            view_set_camera_y_inertia(cam, inter_val/4, inter_val);
-        }
-        if ((pckt->control_flags & PCtr_MoveLeft) != 0) {
-            view_set_camera_x_inertia(cam, -inter_val/4, -inter_val);
-        }
-        if ((pckt->control_flags & PCtr_MoveRight) != 0) {
-            view_set_camera_x_inertia(cam, inter_val/4, inter_val);
-        }
-    }
-    if (is_local_camera) {
-        camera_movement_x = 0.0;
-        camera_movement_y = 0.0;
-    }
-
+void process_camera_view_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player)
+{
     const TbBool use_rotate_pos = flag_is_set(pckt->control_flags, PCtr_ViewRotatePos | PCtr_MapCoordsValid);
     const MapCoord rot_x = use_rotate_pos ? pckt->pos_x : -1;
     const MapCoord rot_y = use_rotate_pos ? pckt->pos_y : -1;
@@ -386,7 +338,7 @@ void process_camera_controls(struct Camera* cam, const struct Packet* pckt, stru
         {
         case PVM_IsoWibbleView:
         case PVM_IsoStraightView:
-             view_set_camera_rotation_inertia_around(cam, 16, 64, rot_x, rot_y);
+             view_set_camera_rotation_velocity_around(cam, 16, 64, rot_x, rot_y);
             break;
         case PVM_FrontView:
             cam->rotation_angle_x = (cam->rotation_angle_x + DEGREES_90) & ANGLE_MASK;
@@ -399,7 +351,7 @@ void process_camera_controls(struct Camera* cam, const struct Packet* pckt, stru
         {
         case PVM_IsoWibbleView:
         case PVM_IsoStraightView:
-            view_set_camera_rotation_inertia_around(cam, -16, -64, rot_x, rot_y);
+            view_set_camera_rotation_velocity_around(cam, -16, -64, rot_x, rot_y);
             break;
         case PVM_FrontView:
             cam->rotation_angle_x = (cam->rotation_angle_x - DEGREES_90) & ANGLE_MASK;
@@ -506,7 +458,7 @@ void process_user_dungeon_control_packet_control(NetUserId user)
         ERRORLOG("No active camera");
         return;
     }
-    process_camera_controls(cam, pckt, player, false);
+    process_camera_controls(cam, pckt, player);
     if (is_my_player(player)) {
         TbBool settings_changed = false;
         if ((pckt->control_flags & (PCtr_ViewTiltUp | PCtr_ViewTiltDown | PCtr_ViewTiltReset)) != 0) {
@@ -547,7 +499,7 @@ static void set_all_cameras_rotation(struct Camera *cams, int64_t angle)
     cams[CamIV_Parchment].rotation_angle_x = angle;
     cams[CamIV_FrontView].rotation_angle_x = angle;
     cams[CamIV_Isometric].rotation_angle_x = angle;
-    cams[CamIV_Isometric].inertia_rotation = 0;
+    cams[CamIV_Isometric].velocity_rotation = 0;
 }
 
 void process_camera_action(struct Camera *cams, const struct Packet *pckt)
@@ -566,9 +518,9 @@ void process_camera_action(struct Camera *cams, const struct Packet *pckt)
         set_all_cameras_position(cams, subtile_coord_center(pckt->actn_par1), subtile_coord_center(pckt->actn_par2));
         set_all_cameras_rotation(cams, 0);
         for (int64_t i = 0; i < CamIV_EndList; i++) {
-            cams[i].inertia_x = 0;
-            cams[i].inertia_y = 0;
-            cams[i].inertia_rotation = 0;
+            cams[i].velocity_x = 0;
+            cams[i].velocity_y = 0;
+            cams[i].velocity_rotation = 0;
         }
         break;
     }
@@ -976,7 +928,7 @@ TbBool process_user_global_packet_action(NetUserId user)
     }
     case PckA_PlyrQueryCreature:
     {
-        query_creature(player, pckt->actn_par1, pckt->actn_par2, pckt->actn_par3);
+        query_creature(player, pckt->actn_par1, (pckt->actn_par2 & 0x01) != 0, (pckt->actn_par2 & 0x02) != 0);
         return false;
     }
     default:
@@ -1535,6 +1487,8 @@ void exchange_packets(void)
     set_local_packet_turn();
     update_turn_checksums();
     update_local_dig_tag_prediction();
+    if (!kfx_net_state.packet_load_enable)
+        camera_packet_set_state(get_local_packet());
     store_packet_history(local_user, get_local_packet());
     host_spoof_dropped_user_packets();
     if (kfx_sim_state.game_kind != GKind_LocalGame)

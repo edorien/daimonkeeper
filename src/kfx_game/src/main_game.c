@@ -621,7 +621,7 @@ TbBool startup_saved_packet_game(void)
     game_callbacks->set_frontend_alliances(kfx_net_state.packet_save_head.frontend_alliances);
     game_callbacks->setup_alliances();
     are_disconnect_victories_allowed();
-    if (kfx_net_state.active_players_count == 1)
+    if (kfx_net_state.human_players_count == 1)
         kfx_sim_state.game_kind = GKind_LocalGame;
     if (kfx_net_state.turns_stored < kfx_net_state.turns_fastforward)
         kfx_net_state.turns_fastforward = kfx_net_state.turns_stored;

@@ -27,6 +27,7 @@ static int64_t hook_noop_crstate_func(FuncIdx func_idx, struct Thing *thing) { r
 static int64_t hook_noop_shot_hit_thing_func(FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y) { return -1; }
 static TbResult hook_noop_luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags) { return -1; }
 static int64_t hook_noop_luafunc_trap_activation_func(FuncIdx func_idx, struct Thing *trap, struct Thing *creature) { return -1; }
+static void hook_noop_luafunc_room_capacity_func(FuncIdx func_idx, struct Room *room) {}
 static void hook_noop_api_event(const char *event_name) {}
 static void hook_noop_api_event_with_data(const char *event_name, const struct ApiEventData *data, size_t data_count) {}
 
@@ -61,6 +62,7 @@ static const struct ScriptHookCallbacks default_script_hooks = {
     &hook_noop_shot_hit_thing_func,
     &hook_noop_luafunc_magic_use_power,
     &hook_noop_luafunc_trap_activation_func,
+    &hook_noop_luafunc_room_capacity_func,
     &hook_noop_api_event,
     &hook_noop_api_event_with_data,
 

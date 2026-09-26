@@ -104,12 +104,14 @@ int64_t get_camera_zoom(struct Camera *cam);
 uint64_t scale_camera_zoom_to_screen(uint64_t zoom_lvl);
 void update_camera_zoom_bounds(struct Camera *cam,uint64_t zoom_max,uint64_t zoom_min);
 
-void view_set_camera_y_inertia(struct Camera *cam, int64_t delta, int64_t ilimit);
-void view_set_camera_x_inertia(struct Camera *cam, int64_t delta, int64_t ilimit);
-void view_set_camera_rotation_inertia(struct Camera *cam, int64_t delta, int64_t ilimit);
-void view_set_camera_rotation_inertia_around(struct Camera *cam, int64_t delta, int64_t ilimit, MapCoord x, MapCoord y);
+void view_set_camera_y_velocity(struct Camera *cam, int64_t delta, int64_t ilimit);
+void view_set_camera_x_velocity(struct Camera *cam, int64_t delta, int64_t ilimit);
+void view_set_camera_rotation_velocity(struct Camera *cam, int64_t delta, int64_t ilimit);
+void view_set_camera_rotation_velocity_around(struct Camera *cam, int64_t delta, int64_t ilimit, MapCoord x, MapCoord y);
 void view_set_camera_tilt(struct Camera *cam, unsigned char mode);
-void view_process_camera_inertia(struct Camera *cam);
+void view_process_camera_velocity(struct Camera *cam);
+int64_t camera_move_rate(const struct Camera* cam, const struct PlayerInfo* player, TbBool speedup);
+void view_set_camera_position(struct Camera *cam, MapCoord x, MapCoord y);
 void view_set_camera_move_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta *move_x, MapCoordDelta *move_y);
 TbBool view_move_camera_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta move_x, MapCoordDelta move_y);
 

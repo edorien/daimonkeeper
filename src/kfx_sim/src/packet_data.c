@@ -26,6 +26,8 @@
 #include "globals.h"
 #include "bflib_basics.h"
 #include "player_data.h"
+#include "camera_data.h"
+#include "map_data.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -90,6 +92,69 @@ void set_players_packet_action(struct PlayerInfo *player, unsigned char pcktype,
     pckt->actn_par4 = par4;
     pckt->action = pcktype;
 }
+
+TbBool packet_action_has_camera_position(enum TbPacketAction action)
+{
+    // Some packets require an additional par3 or par4, replacing the usual camera coordinates sent on that turn.
+    // (This is fine so long as such packets are occasional, the camera coordinates don't need to be exact.)
+    
+    switch (action)
+    {
+    case PckA_ApplyRoomspaceDigTag:
+    case PckA_UsePwrOnThing:
+        return false;
+    default:
+        return true;
+    }
+}
+
+// Some packets set the user's camera angle directly in par3.
+// (Used where the action's effect depends on camera angle, e.g. power slap)
+TbBool packet_action_has_camera_angle(const struct Packet *pckt)
+{
+    return (pckt->action == PckA_UsePwrOnThing) && (pckt->actn_par4 == CamIV_Isometric);
+}
+
+// shift that fits camera position in 16 bits.
+static int64_t camera_position_shift(void)
+{
+    const int32_t max_coord = max(MAX_SUBTILES_X, MAX_SUBTILES_Y) * COORD_PER_STL - 1;
+    int64_t shift = 0;
+    while ((max_coord >> shift) >= UINT16_MAX)
+        shift++;
+    return shift;
+}
+
+void packet_set_camera_position(struct Packet *pckt, MapCoord x, MapCoord y)
+{
+    if (!packet_action_has_camera_position(pckt->action))
+        return;
+    const int64_t shift = camera_position_shift();
+    pckt->cam_x = (uint16_t)((max(x, 0) >> shift) + 1);
+    pckt->cam_y = (uint16_t)((max(y, 0) >> shift) + 1);
+}
+
+void packet_clear_camera_position(struct Packet *pckt)
+{
+    if (!packet_action_has_camera_position(pckt->action))
+        return;
+    pckt->cam_x = 0;
+    pckt->cam_y = 0;
+}
+
+TbBool packet_get_camera_position(const struct Packet *pckt, MapCoord *x, MapCoord *y)
+{
+    if (!packet_action_has_camera_position(pckt->action))
+        return false;
+    if (pckt->cam_x == 0 || pckt->cam_y == 0)
+        return false;
+    const int64_t shift = camera_position_shift();
+    const MapCoord half = (1 << shift) >> 1;
+    *x = (((MapCoord)pckt->cam_x - 1) << shift) + half;
+    *y = (((MapCoord)pckt->cam_y - 1) << shift) + half;
+    return true;
+}
+
 /******************************************************************************/
 #ifdef __cplusplus
 }

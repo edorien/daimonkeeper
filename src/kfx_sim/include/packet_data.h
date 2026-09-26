@@ -422,8 +422,20 @@ struct Packet {
     int32_t pos_y; //! Mouse Cursor Position Y
     uint32_t control_flags;
     uint8_t additional_packet_values; // uses the flags and values from TbPacketAddValues
-    int16_t actn_par3; //! Players action parameter #3
-    int16_t actn_par4; //! Players action parameter #4
+
+    // union on packet_action_has_camera_position()
+    union
+    {
+        uint16_t cam_x;
+        int16_t actn_par3; //! Players action parameter #3
+    };
+
+    // union on packet_action_has_camera_position()
+    union
+    {
+        uint16_t cam_y;
+        int16_t actn_par4; //! Players action parameter #4
+    };
 };
 
 // save file header for .pck files.
@@ -481,6 +493,11 @@ extern struct Packet sim_packets[PACKETS_COUNT];
 
 /******************************************************************************/
 struct Packet *get_local_packet(void);
+TbBool packet_action_has_camera_position(enum TbPacketAction action);
+TbBool packet_action_has_camera_angle(const struct Packet *pckt);
+void packet_set_camera_position(struct Packet *pckt, MapCoord x, MapCoord y);
+void packet_clear_camera_position(struct Packet *pckt);
+TbBool packet_get_camera_position(const struct Packet *pckt, MapCoord *x, MapCoord *y);
 NetUserId get_local_user(void);
 struct Packet *get_packet(NetUserId user);
 void set_packet_action(struct Packet *pckt, unsigned char pcktype, int64_t par1, int64_t par2, int64_t par3, int64_t par4);

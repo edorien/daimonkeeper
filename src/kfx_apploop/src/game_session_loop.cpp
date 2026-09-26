@@ -507,7 +507,7 @@ static void gameplay_loop_logic()
             // Aim to exchange network packets before the turn ends.  If drawing
             // another frame could miss this deadline, skip it.
             // In a 3-4 player game, clients must be 2 frames early.
-            const int64_t frames = 1 + (netstate.my_id != SERVER_ID && kfx_net_state.active_players_count > 2);
+            const int64_t frames = 1 + (netstate.my_id != SERVER_ID && kfx_net_state.human_players_count > 2);
             const long double offset = frames * average_frame_draw_time * multiplayer_clock_adjust * max(kfx_net_state.frame_skip, 1);
             if (kfx_net_state.process_turn_time + offset < 1.0)
                 return;

@@ -91,12 +91,13 @@ static void copy_punch_addresses(struct EnetPunchAddresses *dst, const PunchAddr
     snprintf(dst->ipv6, sizeof(dst->ipv6), "%s", src->ipv6);
     dst->ipv4_port = src->ipv4_port;
     dst->ipv6_port = src->ipv6_port;
+    dst->direct_ipv4_port = src->direct_ipv4_port;
 }
 
-static int64_t enet_services_matchmaking_punch(const char *lobby_id, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output)
+static int64_t enet_services_matchmaking_punch(const char *lobby_id, const char *udp_ipv4, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output)
 {
     PunchAddresses real_output;
-    int64_t result = matchmaking_punch(lobby_id, udp_ipv4_port, udp_ipv6_port, &real_output);
+    int64_t result = matchmaking_punch(lobby_id, udp_ipv4, udp_ipv4_port, udp_ipv6_port, &real_output);
     if (result == 0) {
         copy_punch_addresses(output, &real_output);
     }
@@ -132,7 +133,8 @@ static const struct EnetConnectivityServices enet_connectivity_services = {
     .attempting_to_join_cancel_requested = &enet_services_attempting_to_join_cancel_requested,
     .holepunch_stun_query = &holepunch_stun_query,
     .holepunch_punch_to = &holepunch_punch_to,
-    .holepunch_receive = &holepunch_receive,
+    .holepunch_handle_packet = &holepunch_handle_packet,
+    .holepunch_stun_keepalive = &holepunch_stun_keepalive,
     .matchmaking_punch = &enet_services_matchmaking_punch,
     .matchmaking_poll_punch = &enet_services_matchmaking_poll_punch,
     .port_forward_add_mapping = &port_forward_add_mapping,
@@ -380,7 +382,7 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
         struct PlayerInfo *player = get_player(k);
         player->id_number = k;
         player->user_id = i;
-        player->allocflags |= PlaF_Allocated;
+        player->allocflags |= PlaF_Allocated | PlaF_OriginallyHuman;
         switch (sync->video_rotate_mode) {
             case 0: player->view_mode_restore = PVM_IsoWibbleView; break;
             case 1: player->view_mode_restore = PVM_IsoStraightView; break;
@@ -568,14 +570,14 @@ void setup_count_players(void)
 {
   if (kfx_sim_state.game_kind == GKind_LocalGame)
   {
-    kfx_net_state.active_players_count = 1;
+    kfx_net_state.human_players_count = 1;
   } else
   {
-    kfx_net_state.active_players_count = 0;
+    kfx_net_state.human_players_count = 0;
     for (int64_t i = 0; i < MAX_NET_USERS; i++)
     {
       if (net_user_info[i].network_user_active)
-        kfx_net_state.active_players_count++;
+        kfx_net_state.human_players_count++;
     }
   }
 }
@@ -628,9 +630,10 @@ void are_disconnect_victories_allowed(void)
         if (!player_exists(get_player(plyr_idx))) {
             continue;
         }
-        for (int64_t other_idx = 0; other_idx < kfx_net_state.active_players_count; other_idx++) {
+        for (PlayerNumber other_idx = 0; other_idx < PLAYERS_COUNT; other_idx++) {
             struct PlayerInfo *other = get_player(other_idx);
-            if (player_exists(other) && (other_idx != plyr_idx) && players_are_enemies(plyr_idx, other->id_number)) {
+            if (player_exists(other) && flag_is_set(other->allocflags, PlaF_OriginallyHuman)
+                && (other_idx != plyr_idx) && players_are_enemies(plyr_idx, other->id_number)) {
                 disconnect_victory_enabled[plyr_idx] = true;
                 break;
             }
@@ -667,20 +670,6 @@ static void resolve_network_quit_outcome(struct PlayerInfo *player)
         return;
     }
     set_player_as_won_level(player);
-}
-
-TbBool player_has_enemies_to_defeat(const struct PlayerInfo *player)
-{
-    for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
-        struct PlayerInfo *other = get_player(i);
-        TbBool is_active_enemy = player_exists(other) && (other != player) && other->is_active == 1 && !player_cannot_win(other->id_number) && players_are_enemies(player->id_number, other->id_number);
-        TbBool is_human_driven = (other->allocflags & PlaF_CompCtrl) == 0 && user_present(other->user_id);
-        TbBool is_initial_computer_player = (other->allocflags & PlaF_CompCtrl) != 0 && i >= kfx_net_state.active_players_count;
-        if (is_active_enemy && (is_human_driven || is_initial_computer_player)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 TbBool network_human_contenders_remain(void)
@@ -810,10 +799,10 @@ static void resolve_disconnect_victories(struct PlayerInfo *departed)
         if (!player_exists(player) || (player == departed) || (player->is_active != 1) || ((player->allocflags & PlaF_CompCtrl) != 0)) {
             continue;
         }
-        if (!disconnect_victory_enabled[plyr_idx] || !players_are_enemies(plyr_idx, departed->id_number)) {
+        if (!disconnect_victory_enabled[plyr_idx] || players_are_mutual_allies(plyr_idx, departed->id_number)) {
             continue;
         }
-        if (player_has_enemies_to_defeat(player)) {
+        if (!victory_candidates_fully_allied(false)) {
             continue;
         }
         int64_t plyr_count = 0;

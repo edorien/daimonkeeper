@@ -98,19 +98,18 @@ static TbBool noop_output_message_far_from_thing(const struct Thing *thing, Soun
 static TbBool noop_get_packet_load_enable(void) { return false; }
 static PlayerNumber noop_get_local_plyr_idx(void) { return 0; }
 static int64_t noop_get_input_lag_turns(void) { return 0; }
-static void noop_set_active_players_count(int64_t count) {}
+static void noop_set_human_players_count(int64_t count) {}
 static int64_t noop_get_isometric_view_zoom_level(void) { return 0; }
 static int64_t noop_get_frontview_zoom_level(void) { return 0; }
 static TbBool noop_get_player_exists_flag(PlayerNumber plyr_idx) { return false; }
 static TbBool noop_get_player_comp_flag(PlayerNumber plyr_idx) { return false; }
-static void noop_increment_active_players_count(void) {}
+static void noop_increment_human_players_count(void) {}
 static LevelNumber noop_get_loaded_level_number(void) { return 0; }
 static LevelNumber noop_get_selected_level_number(void) { return 0; }
 static LevelNumber noop_get_level_number(void) { return 0; }
 static GameTurn noop_get_play_gameturn(void) { return 0; }
 static void noop_update_time(void) {}
 static void noop_get_game_time(struct GameTime *GT, uint64_t turns, uint64_t fps) { GT->Seconds = 0; GT->Minutes = 0; GT->Hours = 0; }
-static TbBool noop_player_has_enemies_to_defeat(const struct PlayerInfo *player) { return false; }
 static int64_t noop_get_zoom_key_room_order(int64_t idx) { return 0; }
 static const struct Packet *noop_get_history_packet(NetUserId user, GameTurn turn) { return NULL; }
 static void noop_setup_eye_lens(int64_t nlens) {}
@@ -248,17 +247,17 @@ static const struct SimFeedbackCallbacks default_sim_feedback = {
     &noop_get_packet_load_enable,
     &noop_get_local_plyr_idx,
     &noop_get_input_lag_turns,
-    &noop_set_active_players_count,
+    &noop_set_human_players_count,
     &noop_get_isometric_view_zoom_level,
     &noop_get_frontview_zoom_level,
     &noop_get_player_exists_flag,
     &noop_get_player_comp_flag,
-    &noop_increment_active_players_count,
+    &noop_increment_human_players_count,
     &noop_get_loaded_level_number,
     &noop_get_selected_level_number,
     &noop_get_level_number,
     &noop_get_play_gameturn,
-    &noop_update_time, &noop_get_game_time, &noop_player_has_enemies_to_defeat, &noop_get_zoom_key_room_order,
+    &noop_update_time, &noop_get_game_time, &noop_get_zoom_key_room_order,
     &noop_get_history_packet,
     &noop_setup_eye_lens,
     &noop_lens_is_ready,

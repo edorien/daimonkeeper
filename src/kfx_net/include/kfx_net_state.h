@@ -148,7 +148,7 @@ struct KfxNetState {
     // this file's own packets.c/packets_misc.c/net_exchange_gameplay.c
     // still write into it directly, just no longer as a field here.
     int64_t input_lag_turns;
-    char active_players_count;
+    char human_players_count;
 
     // Desync detection (net_checksums.c).
     struct DesyncChecksums host_checksums;

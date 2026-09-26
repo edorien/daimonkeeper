@@ -42,7 +42,7 @@ extern "C" {
 
 enum PlayerInitFlags {
     PlaF_Allocated               = 0x01,
-    PlaF_unusedparam             = 0x02,
+    PlaF_OriginallyHuman         = 0x02, /**< Was controlled by a human user when match started > */
     PlaF_CompCtrl                = 0x40,
     /** A human-shaped seat whose packets are written by something other than the local input
      *  device (an external agent). Stored in the save blob, so a load can rebuild the local
@@ -304,6 +304,14 @@ extern struct LocalState {
     int64_t minimap_pos_y;
     int64_t minimap_zoom;
     int64_t roomspace_size;
+    // FIXME: use fixed-point precision instead
+    double camera_movement_x;
+    double camera_movement_y;
+    TbBool camera_speedup_pressed;
+    // freecam. TODO: use spectator implementation instead, once that is implemented
+    TbBool replay_detached;
+    unsigned char replay_view_type;
+    unsigned char replay_cam_idx;
 } local_state;
 
 extern int64_t player_colors_map[];

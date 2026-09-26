@@ -638,9 +638,9 @@ static int64_t get_input_lag_turns(void)
     return kfx_net_state.input_lag_turns;
 }
 
-static void set_active_players_count(int64_t count)
+static void set_human_players_count(int64_t count)
 {
-    kfx_net_state.active_players_count = count;
+    kfx_net_state.human_players_count = count;
 }
 static int64_t get_isometric_view_zoom_level(void)
 {
@@ -658,9 +658,9 @@ static TbBool get_player_comp_flag(PlayerNumber plyr_idx)
 {
     return flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(plyr_idx));
 }
-static void increment_active_players_count(void)
+static void increment_human_players_count(void)
 {
-    kfx_net_state.active_players_count++;
+    kfx_net_state.human_players_count++;
 }
 static LevelNumber sim_feedback_get_loaded_level_number(void)
 {
@@ -1415,7 +1415,7 @@ int64_t setup_game(void)
       &lua_on_apply_damage_to_thing, &lua_on_level_up, &lua_on_pick_up, &lua_on_slap,
       &lua_on_slab_kind_change, &lua_on_slab_owner_change, &lua_on_room_owner_change,
       &lua_on_shot_hit, &lua_on_dungeon_destroyed, &luafunc_crstate_func, &luafunc_thing_update_func,
-      &luafunc_shot_hit_thing_func, &luafunc_magic_use_power, &luafunc_trap_activation_func, &api_event,
+      &luafunc_shot_hit_thing_func, &luafunc_magic_use_power, &luafunc_trap_activation_func, &luafunc_room_capacity_func, &api_event,
       &api_event_with_data,
       &lua_on_game_start, &open_lua_script, &execute_lua_code_from_console,
       &execute_lua_code_from_script, &generate_lua_types_file,
@@ -1468,15 +1468,15 @@ int64_t setup_game(void)
       &packet_crtr_control_pressed,
       &output_message_far_from_thing,
       &get_packet_load_enable, &get_local_plyr_idx, &get_input_lag_turns,
-      &set_active_players_count,
+      &set_human_players_count,
       &get_isometric_view_zoom_level, &get_frontview_zoom_level,
       &get_player_exists_flag, &get_player_comp_flag,
-      &increment_active_players_count,
+      &increment_human_players_count,
       &sim_feedback_get_loaded_level_number,
       &sim_feedback_get_selected_level_number,
       &sim_feedback_get_level_number,
       &sim_feedback_get_play_gameturn,
-      &update_time, &get_game_time, &player_has_enemies_to_defeat, &get_zoom_key_room_order,
+      &update_time, &get_game_time, &get_zoom_key_room_order,
       &get_history_packet,
       &setup_eye_lens, &lens_is_ready, &lens_get_render_target,
       &lens_get_render_target_width, &lens_get_render_target_height, &draw_lens_effect,
@@ -1550,7 +1550,7 @@ int64_t setup_game(void)
       &render_overlay_draw_debug_overlays, &render_overlay_bonus_script_or_variable_overlay_active, &render_overlay_get_battle_creature_over,
       &render_overlay_get_map_diagonal_length,
       &render_overlay_get_unpausing_in_progress,
-      &can_process_creature_input, &process_first_person_look, &process_camera_controls,
+      &can_process_creature_input, &process_first_person_look, &process_camera_controls, &process_camera_view_controls,
       &process_camera_action,
       &get_history_packet, &set_packet_control,
       &frontend_load_data_from_cd, &frontend_load_data_reset, &menu_is_active, &reinit_all_menus,

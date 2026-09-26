@@ -44,6 +44,7 @@ typedef struct {
     char ipv6[MATCHMAKING_IP_MAX];
     int64_t ipv4_port;
     int64_t ipv6_port;
+    int64_t direct_ipv4_port;
 } PunchAddresses;
 
 extern struct TbNetworkSessionNameEntry matchmaking_sessions[MATCHMAKING_SESSIONS_MAX];
@@ -60,8 +61,8 @@ int64_t matchmaking_request_list(void);
 void matchmaking_disconnect(void);
 void matchmaking_close_lobby(enum MatchmakingLobbyResult result, int64_t map_number, const char *map_name);
 void matchmaking_refresh_sessions(void);
-int64_t matchmaking_create(const char *name, int64_t udp_ipv4_port, int64_t udp_ipv6_port);
-int64_t matchmaking_punch(const char *lobby_id, int64_t udp_ipv4_port, int64_t udp_ipv6_port, PunchAddresses *output);
+int64_t matchmaking_create(const char *name, const char *udp_ipv4, int64_t udp_ipv4_port, int64_t udp_ipv6_port, int64_t direct_ipv4_port);
+int64_t matchmaking_punch(const char *lobby_id, const char *udp_ipv4, int64_t udp_ipv4_port, int64_t udp_ipv6_port, PunchAddresses *output);
 int64_t matchmaking_poll_punch(PunchAddresses *output);
 
 #ifdef __cplusplus

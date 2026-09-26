@@ -34,6 +34,7 @@ TbResult luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerK
     int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags);
 
 int64_t luafunc_crstate_func(FuncIdx func_idx,struct Thing *thing);
+void luafunc_room_capacity_func(FuncIdx func_idx, struct Room *room);
 int64_t luafunc_thing_update_func(FuncIdx func_idx,struct Thing *thing);
 int64_t luafunc_trap_activation_func(FuncIdx func_idx,struct Thing *trap, struct Thing *creature);
 int64_t luafunc_shot_hit_thing_func(FuncIdx func_idx,struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y);

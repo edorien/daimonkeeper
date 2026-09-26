@@ -30,6 +30,8 @@
 #include "thing_objects.h"
 #include "power_hand.h"
 #include "sim_feedback.h"
+#include "config.h"
+#include "player_utils.h"
 #include "render_overlay.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
@@ -374,7 +376,7 @@ void clear_players(void)
     memset(kfx_sim_state.user_states, 0, sizeof(kfx_sim_state.user_states));
     memset(&local_state, 0, sizeof(local_state));
     memset(&bad_user_state, 0, sizeof(bad_user_state));
-    sim_feedback->set_active_players_count(0);
+    sim_feedback->set_human_players_count(0);
     //kfx_sim_state.game_kind = GKind_LocalGame;
 }
 
@@ -696,6 +698,19 @@ TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player)
       if (!player_is_friendly_or_defeated(i,win_plyr_idx))
         return false;
     }
+
+    // KeeperFX behaviour on skirmish maps diverges from original in
+    // order to be more intuitive on existing multiplayer maps.
+    //
+    // This is to ensure that in competitive multiplayer, so long as
+    // two unallied humans can both plausibly win, the game will go on.
+    //
+    // (The unintuitive behaviour of the original is preserved for non-skirmish maps
+    // so that custom campaign levels built for the original behave faithfully.)
+    TbBool legacy_behaviour = !is_multiplayer_level(get_loaded_level_number());
+
+    if (!victory_candidates_fully_allied(legacy_behaviour))
+        return false;
     SYNCDBG(1,"Returning true for player %" PRId64,(int64_t)(win_plyr_idx));
     return true;
 }

@@ -177,13 +177,13 @@ TEST_CASE_METHOD(kfx_test::ResetSimAndConfig, "detect_bridge_shape sets horizont
     player->roomspace_l_shape = 7; // sentinel: must survive unchanged
     player->render_roomspace.drag_start_x = 1; player->render_roomspace.drag_start_y = 1;
     player->render_roomspace.drag_end_x = 4;   player->render_roomspace.drag_end_y = 1;
-    detect_bridge_shape(0);
+    detect_bridge_shape(0, &player->render_roomspace);
     CHECK(player->roomspace_horizontal_first);
     CHECK(player->roomspace_l_shape == 7);
 
     // a horizontal-then-down L: horizontal-first stays, l_shape becomes 0
     player->render_roomspace.drag_end_y = 3;
-    detect_bridge_shape(0);
+    detect_bridge_shape(0, &player->render_roomspace);
     CHECK(player->roomspace_horizontal_first);
     CHECK(player->roomspace_l_shape == 0);
 
@@ -192,7 +192,7 @@ TEST_CASE_METHOD(kfx_test::ResetSimAndConfig, "detect_bridge_shape sets horizont
     player->roomspace_horizontal_first = true;
     player->render_roomspace.drag_start_x = 1; player->render_roomspace.drag_start_y = 1;
     player->render_roomspace.drag_end_x = 1;   player->render_roomspace.drag_end_y = 4;
-    detect_bridge_shape(0);
+    detect_bridge_shape(0, &player->render_roomspace);
     CHECK_FALSE(player->roomspace_horizontal_first);
     CHECK(player->roomspace_l_shape == 1);
 
@@ -202,7 +202,7 @@ TEST_CASE_METHOD(kfx_test::ResetSimAndConfig, "detect_bridge_shape sets horizont
     player->roomspace_horizontal_first = true;
     player->render_roomspace.drag_start_x = 2; player->render_roomspace.drag_start_y = 2;
     player->render_roomspace.drag_end_x = 2;   player->render_roomspace.drag_end_y = 2;
-    detect_bridge_shape(0);
+    detect_bridge_shape(0, &player->render_roomspace);
     CHECK(player->roomspace_horizontal_first); // stale value survives
 }
 

@@ -132,12 +132,12 @@ TEST_CASE("the default sim_feedback table's every stub is a safe no-op returning
     CHECK_FALSE(sim_feedback->get_packet_load_enable());
     CHECK(sim_feedback->get_local_plyr_idx() == 0);
     CHECK(sim_feedback->get_input_lag_turns() == 0);
-    sim_feedback->set_active_players_count(0);
+    sim_feedback->set_human_players_count(0);
     CHECK(sim_feedback->get_isometric_view_zoom_level() == 0);
     CHECK(sim_feedback->get_frontview_zoom_level() == 0);
     CHECK_FALSE(sim_feedback->get_player_exists_flag(0));
     CHECK_FALSE(sim_feedback->get_player_comp_flag(0));
-    sim_feedback->increment_active_players_count();
+    sim_feedback->increment_human_players_count();
     CHECK(sim_feedback->get_loaded_level_number() == 0);
     CHECK(sim_feedback->get_selected_level_number() == 0);
     CHECK(sim_feedback->get_level_number() == 0);
@@ -146,7 +146,6 @@ TEST_CASE("the default sim_feedback table's every stub is a safe no-op returning
     struct GameTime gt;
     sim_feedback->get_game_time(&gt, 0, 0);
     CHECK(gt.Hours == 0);
-    CHECK_FALSE(sim_feedback->player_has_enemies_to_defeat(nullptr));
     CHECK(sim_feedback->get_zoom_key_room_order(0) == 0);
     CHECK(sim_feedback->get_history_packet(0, 0) == nullptr);
 

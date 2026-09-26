@@ -43,11 +43,11 @@ struct Camera {
     int64_t rotation_angle_z;
     int64_t horizontal_fov; // Horizontal Field of View in degrees
     int64_t zoom;
-    int64_t inertia_rotation;
+    int64_t velocity_rotation;
     TbBool in_active_movement_rotation;
-    int64_t inertia_x;
+    int64_t velocity_x;
     TbBool in_active_movement_x;
-    int64_t inertia_y;
+    int64_t velocity_y;
     TbBool in_active_movement_y;
     TbBool use_rotation_pivot;
     struct Coord2d rotation_pivot;

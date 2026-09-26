@@ -510,13 +510,25 @@ void draw_round_slab64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int6
 {
     int64_t drwflags_mem = RendererGetDrawFlags();
     RendererClearDrawFlags(Lb_SPRITE_OUTLINE);
+    int32_t fill_inset = scale_ui_value_lofi(4);
+    /* Keep the fill out of the rounded outer edge, but cover the transparent
+       interior of the larger corner and button sprites. */
+    int32_t corner_width = scale_ui_value_lofi(12);
+    int32_t corner_height = scale_ui_value_lofi(12);
+    RendererClearDrawFlags(Lb_SPRITE_OUTLINE);
     if (style_type == ROUNDSLAB64K_LIGHT) {
         RendererAddDrawFlags(Lb_SPRITE_TRANSPAR4);
         LbDrawBox(pos_x + scale_ui_value_lofi(4), pos_y + scale_ui_value_lofi(4), width - scale_ui_value_lofi(8), height - scale_ui_value_lofi(8), resolve_indexed_pixel(1, RendererGetActivePalette()));
+        LbDrawBox(pos_x + fill_inset, pos_y + fill_inset, width - 2 * fill_inset, height - 2 * fill_inset, resolve_indexed_pixel(1, RendererGetActivePalette()));
+        LbDrawBox(pos_x + width - fill_inset, pos_y + corner_height, fill_inset, height - 2 * corner_height, resolve_indexed_pixel(1, RendererGetActivePalette()));
+        LbDrawBox(pos_x + corner_width, pos_y + height - fill_inset, width - 2 * corner_width, fill_inset, resolve_indexed_pixel(1, RendererGetActivePalette()));
         RendererClearDrawFlags(Lb_SPRITE_TRANSPAR4);
     } else {
         RendererAddDrawFlags(Lb_SPRITE_TRANSPAR8);
         LbDrawBox(pos_x + scale_ui_value_lofi(4), pos_y + scale_ui_value_lofi(4), width - scale_ui_value_lofi(8), height - scale_ui_value_lofi(8), resolve_indexed_pixel(1, RendererGetActivePalette()));
+        LbDrawBox(pos_x + fill_inset, pos_y + fill_inset, width - 2 * fill_inset, height - 2 * fill_inset, resolve_indexed_pixel(1, RendererGetActivePalette()));
+        LbDrawBox(pos_x + width - fill_inset, pos_y + corner_height, fill_inset, height - 2 * corner_height, resolve_indexed_pixel(1, RendererGetActivePalette()));
+        LbDrawBox(pos_x + corner_width, pos_y + height - fill_inset, width - 2 * corner_width, fill_inset, resolve_indexed_pixel(1, RendererGetActivePalette()));
         RendererClearDrawFlags(Lb_SPRITE_TRANSPAR8);
     }
     int64_t x;

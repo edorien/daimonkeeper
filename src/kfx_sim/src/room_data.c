@@ -648,9 +648,14 @@ void update_room_total_capacity(struct Room *room)
 {
     SYNCDBG(7, "Starting for %s index %" PRId64 " owned by player %" PRId64, room_code_name(room->kind), (int64_t)room->index, (int64_t)room->owner);
     const struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
-    Room_Update_Func cb = terrain_room_total_capacity_func_list[roomst->update_total_capacity_idx];
-    if (cb != NULL) {
-        cb(room);
+    if (roomst->update_total_capacity_idx < 0) {
+        script_hooks->luafunc_room_capacity_func(roomst->update_total_capacity_idx, room);
+    } else
+    {
+        Room_Update_Func cb = terrain_room_total_capacity_func_list[roomst->update_total_capacity_idx];
+        if (cb != NULL) {
+            cb(room);
+        }
     }
     SYNCDBG(7, "Finished");
 }
@@ -1337,13 +1342,24 @@ TbBool update_room_contents(struct Room *room)
 {
     const struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
     SYNCDBG(17,"Starting for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
-    Room_Update_Func cb = terrain_room_used_capacity_func_list[roomst->update_storage_in_room_idx];
-    if (cb != NULL) {
-        cb(room);
+    if (roomst->update_storage_in_room_idx < 0) {
+        script_hooks->luafunc_room_capacity_func(roomst->update_storage_in_room_idx, room);
+    } else
+    {
+        Room_Update_Func cb = terrain_room_used_capacity_func_list[roomst->update_storage_in_room_idx];
+        if (cb != NULL) {
+            cb(room);
+        }
     }
-    cb = terrain_room_used_capacity_func_list[roomst->update_workers_in_room_idx];
-    if (cb != NULL) {
-        cb(room);
+
+    if (roomst->update_workers_in_room_idx < 0) {
+        script_hooks->luafunc_room_capacity_func(roomst->update_workers_in_room_idx, room);
+    } else
+    {
+        Room_Update_Func cb = terrain_room_used_capacity_func_list[roomst->update_workers_in_room_idx];
+        if (cb != NULL) {
+            cb(room);
+        }
     }
     return true;
 }

@@ -24,7 +24,10 @@ struct CameraCallbackSpy {
 
     static const struct Packet *history_packet(NetUserId, GameTurn) { return &packet; }
     static void camera_action(struct Camera *, const struct Packet *) { action_calls++; }
-    static void camera_controls(struct Camera *, const struct Packet *, struct PlayerInfo *, TbBool) { controls_calls++; }
+    static void camera_controls(struct Camera *, const struct Packet *, struct PlayerInfo *) { controls_calls++; }
+    // The local (non-replay) camera applies packet controls through the view-controls half only
+    // (position comes from the local camera itself; upstream #5353).
+    static void camera_view_controls(struct Camera *, const struct Packet *, struct PlayerInfo *) { controls_calls++; }
 
     struct RenderOverlayCallbacks callbacks;
     CameraCallbackSpy() {
@@ -36,6 +39,7 @@ struct CameraCallbackSpy {
         callbacks.get_history_packet = &CameraCallbackSpy::history_packet;
         callbacks.process_camera_action = &CameraCallbackSpy::camera_action;
         callbacks.process_camera_controls = &CameraCallbackSpy::camera_controls;
+        callbacks.process_camera_view_controls = &CameraCallbackSpy::camera_view_controls;
         set_render_overlay_callbacks(&callbacks);
 
         my_player_number = 0;

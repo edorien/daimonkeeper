@@ -188,7 +188,7 @@ struct Game {
     // docs/refactor/stage-13-enforce-and-document.md.
     // top_cube, small_map_state moved to kfx_sim_state.h (stage 13) -- see
     // docs/refactor/stage-13-enforce-and-document.md.
-    // packets[], input_lag_turns, active_players_count moved to
+    // packets[], input_lag_turns, human_players_count moved to
     // kfx_net_state.h (stage 8.3) -- see docs/refactor/stage-08-kfx-net.md.
     // neutral_player_num moved to kfx_config_state.h (stage 13) -- a
     // kfx_config consumer (config_objects.c) has since appeared, making

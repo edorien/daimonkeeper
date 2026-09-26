@@ -133,6 +133,10 @@ enum RotateAroundMouseOptions rotate_around_mouse_option = RotateAroundMouse_Nev
 
 /******************************************************************************/
 static void get_dungeon_control_nonaction_inputs(void);
+static void get_isometric_view_nonaction_inputs(struct Packet* packet);
+static void get_dungeon_small_map_placement(int64_t *x, int64_t *y, int64_t *zoom);
+static int64_t get_dungeon_small_map_inputs(struct Packet *pckt);
+static void get_front_view_nonaction_inputs(struct Packet* pckt);
 static void get_creature_control_nonaction_inputs(void);
 static int64_t zoom_shortcuts(void);
 static int64_t get_bookmark_inputs(void);
@@ -609,8 +613,165 @@ static int64_t get_speed_control_inputs(void)
 /**
  * Handles control inputs in PacketLoad mode.
  */
+static void cycle_replay_player(int step)
+{
+    for (int i = 1; i < PLAYERS_COUNT; i++) {
+        const PlayerNumber plyr_idx = (my_player_number + step * i + PLAYERS_COUNT) % PLAYERS_COUNT;
+        if (!flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(plyr_idx))
+         || flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(plyr_idx)))
+            continue;
+        my_player_number = plyr_idx;
+        init_local_cameras(get_my_player());
+        reinit_tagged_blocks_for_player(plyr_idx);
+        panel_map_update(0, 0, kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y);
+        return;
+    }
+}
+
+static void get_snap_camera_inputs(const struct Camera *cam, struct Packet *pckt)
+{
+    int angle = cam->rotation_angle_x;
+    if (cam->view_mode == PVM_FrontView)
+    {
+        if (key_modifiers & KMod_CONTROL)
+        {
+            set_packet_control(pckt, PCtr_ViewRotateCW);
+            return;
+        }
+        if (key_modifiers & KMod_SHIFT)
+        {
+            set_packet_control(pckt, PCtr_ViewRotateCCW);
+            return;
+        }
+        angle = ((angle == ANGLE_NORTH) || (angle == DEGREES_360)) ? ANGLE_SOUTH : ANGLE_NORTH;
+    }
+    else if (key_modifiers & KMod_CONTROL)
+    {
+        angle = (angle + DEGREES_45) & -DEGREES_45 & ANGLE_MASK;
+    }
+    else if (key_modifiers & KMod_SHIFT)
+    {
+        angle = (angle - 1) & -DEGREES_45 & ANGLE_MASK;
+    }
+    else if (angle == ANGLE_NORTH || angle == DEGREES_360)
+    {
+        angle = ANGLE_SOUTH;
+    }
+    else if (angle == ANGLE_EAST)
+    {
+        angle = ANGLE_WEST;
+    }
+    else if (angle == ANGLE_WEST)
+    {
+        angle = ANGLE_EAST;
+    }
+    else
+    {
+        angle = ANGLE_NORTH;
+    }
+    set_packet_action(pckt, PckA_SetMapRotation, angle, 0, 0, 0);
+}
+
+static TbBool replay_camera_keys_pressed(void)
+{
+    static const long keys[] = {Gkey_ZoomIn, Gkey_ZoomOut, Gkey_TiltUp, Gkey_TiltDown, Gkey_TiltReset};
+    if ((get_game_key_axis_value(Gkey_MoveLeft, true) != 0.0f) || (get_game_key_axis_value(Gkey_MoveRight, true) != 0.0f)
+     || (get_game_key_axis_value(Gkey_MoveUp, true) != 0.0f) || (get_game_key_axis_value(Gkey_MoveDown, true) != 0.0f))
+        return true;
+    for (int i = 0; i < (int)(sizeof(keys) / sizeof(keys[0])); i++) {
+        if (is_game_key_pressed(keys[i], false, false))
+            return true;
+    }
+    if (left_button_clicked && ((kfx_sim_state.operation_flags & GOF_ShowGui) != 0))
+    {
+        int64_t x;
+        int64_t y;
+        int64_t zoom;
+        get_dungeon_small_map_placement(&x, &y, &zoom);
+        if (mouse_is_over_panel_map(x, y))
+            return true;
+    }
+    return false;
+}
+
+static void get_replay_freecam_inputs(void)
+{
+    struct PlayerInfo* player = get_my_player();
+    if (!replay_camera_detached())
+    {
+        const unsigned char view_type = get_local_view_type(player);
+        const TbBool possessed = (view_type == PVT_CreatureContrl) || (view_type == PVT_CreaturePasngr);
+        if (is_game_key_pressed(Gkey_SwitchToMap, true, false))
+        {
+            replay_detach();
+            replay_freecam_set_map(true);
+            return;
+        }
+        if (possessed && (right_button_released || is_key_pressed(KC_ESCAPE, KMod_DONTCARE)))
+        {
+            right_button_released = 0;
+            clear_key_pressed(KC_ESCAPE);
+            replay_detach();
+            return;
+        }
+        if (!replay_camera_keys_pressed())
+            return;
+        replay_detach();
+    }
+    kfx_game_state.my_mouse_x = GetMouseX();
+    kfx_game_state.my_mouse_y = GetMouseY();
+    struct Camera* camera = get_local_active_camera(player);
+    if (get_local_view_type(player) == PVT_MapScreen)
+    {
+        if (right_button_released || is_game_key_pressed(Gkey_SwitchToMap, true, false))
+        {
+            right_button_released = 0;
+            replay_freecam_set_map(false);
+            return;
+        }
+        int64_t map_x;
+        int64_t map_y;
+        if (left_button_released && point_to_overhead_map(camera, kfx_game_state.my_mouse_x / pixel_size, kfx_game_state.my_mouse_y / pixel_size, &map_x, &map_y))
+        {
+            left_button_released = 0;
+            replay_freecam_jump(coord_subtile(map_x), coord_subtile(map_y));
+        }
+        return;
+    }
+    if (is_game_key_pressed(Gkey_SwitchToMap, true, false))
+    {
+        replay_freecam_set_map(true);
+        return;
+    }
+    if (get_dungeon_small_map_inputs(get_freecam_packet()))
+        return;
+    if (is_game_key_pressed(Gkey_SnapCamera, true, true))
+    {
+        get_snap_camera_inputs(camera, get_freecam_packet());
+        return;
+    }
+    switch (camera->view_mode)
+    {
+    case PVM_IsoWibbleView:
+    case PVM_IsoStraightView:
+        get_isometric_view_nonaction_inputs(get_freecam_packet());
+        break;
+    case PVM_FrontView:
+        get_front_view_nonaction_inputs(get_freecam_packet());
+        break;
+    }
+}
+
 static int64_t get_packet_load_game_control_inputs(void)
 {
+  if (is_game_key_pressed(Gkey_ToggleGui, true, true))
+  {
+    if (replay_camera_detached())
+      replay_attach();
+    else
+      cycle_replay_player(is_game_key_pressed(Gkey_SpeedMod, false, true) ? -1 : 1);
+    return true;
+  }
   if (is_game_key_pressed(Gkey_ExitGame, true, false))
   {
     if (network_is_active())
@@ -624,10 +785,28 @@ static int64_t get_packet_load_game_control_inputs(void)
     disable_packet_mode();
     return true;
   }
+  if (is_game_key_pressed(Gkey_ToggleConsole, true, false)) 
+  {
+      debug_display_consolelog = !debug_display_consolelog;
+      return true;
+  }
+  struct UserState* ustate = get_local_user_state();
+  if ((ustate->init_flags & UsrIF_NewMPMessage) != 0)
+  {
+      get_players_message_inputs();
+      return true;
+  }
+  if (is_key_pressed(KC_RETURN, KMod_NONE))
+  {
+      ustate->init_flags |= UsrIF_NewMPMessage;
+      LbStartTextInput();
+      clear_key_pressed(KC_RETURN);
+      return true;
+  }
   return false;
 }
 
-static int64_t get_small_map_inputs(int64_t x, int64_t y, int64_t zoom)
+static int64_t get_small_map_inputs(int64_t x, int64_t y, int64_t zoom, struct Packet *pckt)
 {
   SYNCDBG(7,"Starting");
   int64_t result = 0;
@@ -642,9 +821,9 @@ static int64_t get_small_map_inputs(int64_t x, int64_t y, int64_t zoom)
       clicked_on_small_map = 1;
       left_button_clicked = 0;
     }
-    if ( do_left_map_click(x, y, curr_mx, curr_my, zoom)
-      || do_right_map_click(x, y, curr_mx, curr_my, zoom)
-      || do_left_map_drag(x, y, curr_mx, curr_my, zoom) )
+    if ( do_left_map_click(x, y, curr_mx, curr_my, zoom, pckt)
+      || do_right_map_click(x, y, curr_mx, curr_my, zoom, pckt)
+      || do_left_map_drag(x, y, curr_mx, curr_my, zoom, pckt) )
       result = 1;
   } else
   {
@@ -1006,7 +1185,7 @@ static TbBool get_level_lost_inputs(void)
                   mmzoom = (local_state.minimap_zoom);
               int64_t mm_x, mm_y;
               ingame_panel_minimap_screen_pos(&mm_x, &mm_y);
-              inp_done = get_small_map_inputs(mm_x, mm_y, mmzoom);
+              inp_done = get_small_map_inputs(mm_x, mm_y, mmzoom, get_local_packet());
               if ( !inp_done )
                 get_bookmark_inputs();
               get_dungeon_control_nonaction_inputs();
@@ -1266,34 +1445,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
         // Middle mouse camera actions for IsometricView
         if (is_game_key_pressed(Gkey_SnapCamera, true, true))
         {
-            struct Camera* cam = &player->cameras[CamIV_Isometric];
-            struct Packet* pckt = get_local_packet();
-            int64_t angle = cam->rotation_angle_x;
-            if (key_modifiers & KMod_CONTROL)
-            {
-                angle = (angle + DEGREES_45) & -DEGREES_45 & ANGLE_MASK;
-            }
-            else if (key_modifiers & KMod_SHIFT)
-            {
-                angle = (angle - 1) & -DEGREES_45 & ANGLE_MASK;
-            }
-            else if (angle == ANGLE_NORTH || angle == DEGREES_360)
-            {
-                angle = ANGLE_SOUTH;
-            }
-            else if (angle == ANGLE_EAST)
-            {
-                angle = ANGLE_WEST;
-            }
-            else if (angle == ANGLE_WEST)
-            {
-                angle = ANGLE_EAST;
-            }
-            else
-            {
-                angle = ANGLE_NORTH;
-            }
-            set_packet_action(pckt, PckA_SetMapRotation, angle, 0, 0, 0);
+            get_snap_camera_inputs(camera, get_local_packet());
             return true;
         }
     }
@@ -1306,29 +1458,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
         // Middle mouse camera actions for FrontView
         if (is_game_key_pressed(Gkey_SnapCamera, true, true))
         {
-            struct Camera* cam = &player->cameras[CamIV_FrontView];
-            struct Packet* pckt = get_local_packet();
-            int64_t angle = cam->rotation_angle_x;
-            if (key_modifiers & KMod_CONTROL)
-            {
-                set_packet_control(pckt, PCtr_ViewRotateCW);
-            }
-            else if (key_modifiers & KMod_SHIFT)
-            {
-                set_packet_control(pckt, PCtr_ViewRotateCCW);
-            }
-            else
-            {
-                if (angle == ANGLE_NORTH || angle == DEGREES_360)
-                {
-                    angle = ANGLE_SOUTH;
-                }
-                else
-                {
-                    angle = ANGLE_NORTH;
-                }
-                set_packet_action(pckt, PckA_SetMapRotation, angle, 0, 0, 0);
-            }
+            get_snap_camera_inputs(camera, get_local_packet());
             return true;
         }
     }
@@ -1366,12 +1496,8 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
     return false;
 }
 
-static TbBool get_dungeon_control_action_inputs(void)
+static void get_dungeon_small_map_placement(int64_t *x, int64_t *y, int64_t *zoom)
 {
-    struct PlayerInfo* player = get_my_player();
-    struct UserState* ustate = get_local_user_state();
-    if (get_players_packet_action(player) != PckA_None)
-        return true;
     int64_t mm_units_per_px;
     {
         int64_t mnu_num = menu_id_to_number(GMnu_MAIN);
@@ -1382,16 +1508,31 @@ static TbBool get_dungeon_control_action_inputs(void)
             mm_units_per_px = 1;
         }
     }
-    int64_t mmzoom;
     if (16 / mm_units_per_px < 3)
     {
-        mmzoom = (local_state.minimap_zoom) / scale_value_for_resolution_with_upp(2, mm_units_per_px);
+        *zoom = (local_state.minimap_zoom) / scale_value_for_resolution_with_upp(2, mm_units_per_px);
     }
     else
-        mmzoom = (local_state.minimap_zoom);
-    int64_t mm_x, mm_y;
-    ingame_panel_minimap_screen_pos(&mm_x, &mm_y);
-    if (get_small_map_inputs(mm_x, mm_y, mmzoom))
+        *zoom = (local_state.minimap_zoom);
+    ingame_panel_minimap_screen_pos(x, y);
+}
+
+static int64_t get_dungeon_small_map_inputs(struct Packet *pckt)
+{
+    int64_t x;
+    int64_t y;
+    int64_t zoom;
+    get_dungeon_small_map_placement(&x, &y, &zoom);
+    return get_small_map_inputs(x, y, zoom, pckt);
+}
+
+static TbBool get_dungeon_control_action_inputs(void)
+{
+    struct PlayerInfo* player = get_my_player();
+    struct UserState* ustate = get_local_user_state();
+    if (get_players_packet_action(player) != PckA_None)
+        return true;
+    if (get_dungeon_small_map_inputs(get_local_packet()))
         return 1;
 
     if (player->work_state == PSt_CtrlDungeon)
@@ -2043,7 +2184,7 @@ static void set_packet_action_for_thing_under_hand(struct Packet* pckt)
     }
     int64_t cursor_state = (pckt->additional_packet_values & PCAdV_ContextMask) >> 1;
     if (right_button_released && (player->work_state == PSt_CtrlDungeon) && (cursor_state == CSt_PowerHand) && power_hand_is_empty(player) && !ustate->one_click_lock_cursor && thing_slappable(thing_get(local_state.local_thing_under_hand), player->id_number)) {
-        set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_state.local_thing_under_hand, 0, 0);
+        set_packet_power_on_thing(pckt, PwrK_SLAP, local_state.local_thing_under_hand);
         return;
     }
     if (!left_button_released) {
@@ -2062,21 +2203,21 @@ static void set_packet_action_for_thing_under_hand(struct Packet* pckt)
     switch (work_state) {
         case PSt_CtrlDungeon:
             if ((pckt->additional_packet_values & PCAdV_CrtrContrlPressed) != 0) {
-                set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_POSSESS, local_state.local_thing_under_hand, 0, 0);
+                set_packet_power_on_thing(pckt, PwrK_POSSESS, local_state.local_thing_under_hand);
             } else if (((pckt->additional_packet_values & PCAdV_CrtrQueryPressed) == 0) && (cursor_state == CSt_PowerHand)) {
                 set_packet_action(pckt, PckA_UsePwrHandPick, local_state.local_thing_under_hand, 0, 0, 0);
                 hand_pick_pending_turn = get_gameturn();
             }
             break;
         case PSt_Slap:
-            set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_SLAP, local_state.local_thing_under_hand, 0, 0);
+            set_packet_power_on_thing(pckt, PwrK_SLAP, local_state.local_thing_under_hand);
             break;
         case PSt_CtrlDirect:
         case PSt_FreeCtrlDirect:
-            set_packet_action(pckt, PckA_UsePwrOnThing, PwrK_POSSESS, local_state.local_thing_under_hand, 0, 0);
+            set_packet_power_on_thing(pckt, PwrK_POSSESS, local_state.local_thing_under_hand);
             break;
         case PST_CastPowerOnTarget:
-            set_packet_action(pckt, PckA_UsePwrOnThing, pwkind, local_state.local_thing_under_hand, 0, 0);
+            set_packet_power_on_thing(pckt, pwkind, local_state.local_thing_under_hand);
             break;
     }
 }
@@ -2237,7 +2378,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int64_t
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_x = -1.0;
+            local_state.camera_movement_x = -1.0;
         }
         if (mx >= MyScreenWidth-edge_scrolling_border)
         {
@@ -2246,7 +2387,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int64_t
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_x = 1.0;
+            local_state.camera_movement_x = 1.0;
         }
         if (my <= edge_scrolling_border)
         {
@@ -2255,7 +2396,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int64_t
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_y = -1.0;
+            local_state.camera_movement_y = -1.0;
         }
         if (my >= MyScreenHeight-edge_scrolling_border)
         {
@@ -2264,14 +2405,13 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int64_t
               if (!rotate_pressed)
                 pckt->additional_packet_values |= PCAdV_SpeedupPressed;
             }
-            camera_movement_y = 1.0;
+            local_state.camera_movement_y = 1.0;
         }
     }
 }
 
-static void get_isometric_view_nonaction_inputs(void)
+static void get_isometric_view_nonaction_inputs(struct Packet* packet)
 {
-    struct Packet* packet = get_local_packet();
     // docs/refactor/editor/10-definable-keybindings.md -- every
     // is_game_key_pressed() call in this function reads from
     // settings.editor_kbkeys[]/EditorGameKeys instead while an editor
@@ -2282,7 +2422,11 @@ static void get_isometric_view_nonaction_inputs(void)
     int64_t rotate_pressed = is_dual_context_key_pressed(Gkey_RotateMod, Gkey_EditorRotateMod, false, true);
     int64_t speed_pressed = is_dual_context_key_pressed(Gkey_SpeedMod, Gkey_EditorSpeedMod, false, true);
     if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) != 0)
+    {
+      local_state.camera_speedup_pressed = false;
       return;
+    }
+    local_state.camera_speedup_pressed = (speed_pressed != 0);
     if (speed_pressed != 0)
         packet->additional_packet_values |= PCAdV_SpeedupPressed;
     TbBool no_mods = ((rotate_pressed != 0) || (speed_pressed != 0) || (check_current_gui_layer(GuiLayer_OneClick)));
@@ -2342,7 +2486,7 @@ static void get_isometric_view_nonaction_inputs(void)
             if (is_dual_context_key_pressed(Gkey_TiltReset, Gkey_EditorTiltReset, false, false))
                 set_packet_control(packet, PCtr_ViewTiltReset);
 
-            get_movement_inputs(&camera_movement_x, &camera_movement_y, no_mods);
+            get_movement_inputs(&local_state.camera_movement_x, &local_state.camera_movement_y, no_mods);
         }
         if (! set_rotate_pos)
             unset_packet_control(packet, PCtr_ViewRotatePos);
@@ -2353,12 +2497,12 @@ static void get_overhead_view_nonaction_inputs(void)
 {
     SYNCDBG(19,"Starting");
     struct Packet* pckt = get_local_packet();
-    int64_t my = kfx_game_state.my_mouse_y;
-    int64_t mx = kfx_game_state.my_mouse_x;
     int64_t rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
     int64_t speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
+    local_state.camera_speedup_pressed = false;
     if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) == 0)
     {
+        local_state.camera_speedup_pressed = (speed_pressed != 0);
         if (speed_pressed)
           pckt->additional_packet_values |= PCAdV_SpeedupPressed;
         if (rotate_pressed)
@@ -2368,28 +2512,23 @@ static void get_overhead_view_nonaction_inputs(void)
           if ( is_game_key_pressed(Gkey_MoveDown, false, speed_pressed!=0) )
             set_packet_control(pckt, PCtr_ViewZoomOut);
         }
-        if (my <= 4)
-          set_packet_control(pckt, PCtr_MoveUp);
-        if (my >= MyScreenHeight-4)
-          set_packet_control(pckt, PCtr_MoveDown);
-        if (mx <= 4)
-          set_packet_control(pckt, PCtr_MoveLeft);
-        if (mx >= MyScreenWidth-4)
-          set_packet_control(pckt, PCtr_MoveRight);
     }
 }
 
-static void get_front_view_nonaction_inputs(void)
+static void get_front_view_nonaction_inputs(struct Packet* pckt)
 {
     static TbClockMSec last_rotate_left_time = 0;
     static TbClockMSec last_rotate_right_time = 0;
-    struct Packet* pckt = get_local_packet();
     int64_t rotate_pressed = is_game_key_pressed(Gkey_RotateMod, false, true);
     int64_t speed_pressed = is_game_key_pressed(Gkey_SpeedMod, false, true);
     TbBool no_mods = ((rotate_pressed != 0) || (speed_pressed != 0) || (check_current_gui_layer(GuiLayer_OneClick)));
 
     if ((get_local_user_state()->init_flags & UsrIF_KeyboardInputDisabled) != 0)
+    {
+      local_state.camera_speedup_pressed = false;
       return;
+    }
+    local_state.camera_speedup_pressed = (speed_pressed != 0);
     if (speed_pressed != 0)
       pckt->additional_packet_values |= PCAdV_SpeedupPressed;
 
@@ -2439,7 +2578,7 @@ static void get_front_view_nonaction_inputs(void)
                 }
             }
 
-            get_movement_inputs(&camera_movement_x, &camera_movement_y, no_mods);
+            get_movement_inputs(&local_state.camera_movement_x, &local_state.camera_movement_y, no_mods);
         }
         if (is_game_key_pressed(Gkey_ZoomIn, false, false))
             set_packet_control(pckt, PCtr_ViewZoomIn);
@@ -2619,13 +2758,13 @@ static void get_dungeon_control_nonaction_inputs(void)
       {
       case PVM_IsoWibbleView:
       case PVM_IsoStraightView:
-          get_isometric_view_nonaction_inputs();
+          get_isometric_view_nonaction_inputs(pckt);
           break;
       case PVM_ParchmentView:
           get_overhead_view_nonaction_inputs();
           break;
       case PVM_FrontView:
-          get_front_view_nonaction_inputs();
+          get_front_view_nonaction_inputs(pckt);
           break;
       }
   }
@@ -2658,7 +2797,8 @@ static int64_t get_packet_load_game_inputs(void)
 {
     load_packets_for_turn(kfx_net_state.pckt_gameturn);
     kfx_net_state.pckt_gameturn++;
-    get_packet_load_game_control_inputs();
+    if (!get_packet_load_game_control_inputs())
+        get_replay_freecam_inputs();
     if (get_speed_control_inputs())
         return false;
     if (get_screen_capture_inputs())

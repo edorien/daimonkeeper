@@ -3,13 +3,13 @@
 //  * user_present(): a user exists to the game layer while the game still maps them to a
 //    player -- even if their connection has already dropped -- so the game hears about the
 //    drop through the proper channel first (determinism).
-//  * player_has_enemies_to_defeat(): what check_players_won() and the disconnect-victory
-//    resolution ask; a human enemy only counts while user_present(), an enemy with no
-//    heart never counts.
+//  * victory_candidates_fully_allied(): what check_players_won() and the disconnect-victory
+//    resolution ask (see the [victory] cases below).
 #include <catch2/catch_test_macros.hpp>
 
 #include "net_game.h"
 #include "player_data.h"
+#include "player_utils.h"
 #include "dungeon_data.h"
 #include "thing_data.h"
 #include "kfx_sim_state.h"
@@ -73,30 +73,44 @@ TEST_CASE_METHOD(DropFixture, "user_present is false when no network game is act
     CHECK_FALSE(user_present(1));
 }
 
-TEST_CASE_METHOD(DropFixture, "player_has_enemies_to_defeat is true while a connected human enemy has a heart", "[kfx_net][net_game]") {
+// Upstream #5350 replaced player_has_enemies_to_defeat() with victory_candidates_fully_allied()
+// (kfx_sim): the game goes on while two unallied players can both still plausibly win.
+TEST_CASE_METHOD(DropFixture, "victory_candidates_fully_allied is false while two unallied humans have hearts", "[kfx_net][net_game][victory]") {
     make_human_enemy(1);
-    CHECK(player_has_enemies_to_defeat(&kfx_sim_state.players[0]));
-    CHECK(player_has_enemies_to_defeat(&kfx_sim_state.players[1])); // symmetric
+    CHECK_FALSE(victory_candidates_fully_allied(false));
+    CHECK_FALSE(victory_candidates_fully_allied(true));
 }
 
-TEST_CASE_METHOD(DropFixture, "player_has_enemies_to_defeat is false when the only enemy has no heart", "[kfx_net][net_game]") {
+TEST_CASE_METHOD(DropFixture, "victory_candidates_fully_allied is true when the only enemy has no heart", "[kfx_net][net_game][victory]") {
     make_human_enemy(1);
     get_dungeon(1)->dnheart_idx = 0;
-    CHECK_FALSE(player_has_enemies_to_defeat(&kfx_sim_state.players[0]));
+    CHECK(victory_candidates_fully_allied(false));
 }
 
-TEST_CASE_METHOD(DropFixture, "player_has_enemies_to_defeat is false when the human enemy is no longer bound to a user", "[kfx_net][net_game]") {
-    make_human_enemy(1);
-    kfx_sim_state.players[1].user_id = -1; // what remove_user_from_game() does on a drop
-    net_user_info[1].network_user_active = 0;
-    setup_network_player_numbers();
-    CHECK_FALSE(player_has_enemies_to_defeat(&kfx_sim_state.players[0]));
-}
-
-TEST_CASE_METHOD(DropFixture, "player_has_enemies_to_defeat ignores a player who has already lost", "[kfx_net][net_game]") {
+TEST_CASE_METHOD(DropFixture, "victory_candidates_fully_allied ignores a player who has already lost", "[kfx_net][net_game][victory]") {
     make_human_enemy(1);
     kfx_sim_state.players[1].victory_state = VicS_LostLevel;
-    CHECK_FALSE(player_has_enemies_to_defeat(&kfx_sim_state.players[0]));
+    CHECK(victory_candidates_fully_allied(false));
+}
+
+TEST_CASE_METHOD(DropFixture, "victory_candidates_fully_allied is true when the remaining players are mutual allies", "[kfx_net][net_game][victory]") {
+    make_human_enemy(1);
+    kfx_sim_state.players[0].allied_players |= to_flag(1);
+    kfx_sim_state.players[1].allied_players |= to_flag(0);
+    CHECK(victory_candidates_fully_allied(false));
+    // a one-sided alliance proposal does not count
+    kfx_sim_state.players[1].allied_players &= ~to_flag(0);
+    CHECK_FALSE(victory_candidates_fully_allied(false));
+}
+
+TEST_CASE_METHOD(DropFixture, "humans_only ignores computer players; a dropped human's AI stand-in is never a candidate", "[kfx_net][net_game][victory]") {
+    make_player(1);
+    kfx_sim_state.players[1].allocflags |= PlaF_CompCtrl;
+    CHECK_FALSE(victory_candidates_fully_allied(false)); // an unallied computer keeper still counts
+    CHECK(victory_candidates_fully_allied(true));
+    kfx_sim_state.players[1].allocflags |= PlaF_OriginallyHuman; // AI took over a dropped human
+    CHECK_FALSE(player_is_victory_candidate(&kfx_sim_state.players[1]));
+    CHECK(victory_candidates_fully_allied(false));
 }
 
 // Upstream #5317 (multiplayer -packetload): a replay header records which player each

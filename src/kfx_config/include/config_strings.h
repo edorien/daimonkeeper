@@ -642,6 +642,7 @@ TbBool fill_strings_list(char **strings,char *strings_data,char *strings_data_en
 uint64_t count_strings(char *strings, int64_t size);
 const char * cmpgn_string(uint64_t index);
 const char * gui_string(uint64_t index);
+TbBool string_idx_is_empty(TextStringId stridx);
 extern char *gui_strings[GUI_STRINGS_COUNT];
 /******************************************************************************/
 #ifdef __cplusplus

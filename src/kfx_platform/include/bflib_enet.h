@@ -41,6 +41,7 @@ uint64_t GetUploadRateBytesPerSecond();
 uint64_t GetDownloadRateBytesPerSecond();
 int64_t enet_matchmaking_host_update(void);
 extern int64_t external_ipv4_port;
+extern char external_ipv4_address[64];
 extern int64_t skip_holepunch;
 int64_t enet_get_bound_ipv6_port(void);
 
@@ -58,6 +59,7 @@ struct EnetPunchAddresses {
     char ipv6[ENET_MATCHMAKING_IP_MAX];
     int64_t ipv4_port;
     int64_t ipv6_port;
+    int64_t direct_ipv4_port;
 };
 
 // Injected by the net layer so bflib_enet.cpp (platform layer) doesn't
@@ -68,8 +70,9 @@ struct EnetConnectivityServices {
     TbBool (*attempting_to_join_cancel_requested)(void);
     int64_t (*holepunch_stun_query)(struct _ENetHost *host, char *output_ip, size_t output_ip_buffer_size);
     void (*holepunch_punch_to)(struct _ENetHost *host, const struct _ENetAddress *target);
-    int64_t (*holepunch_receive)(struct _ENetHost *host, struct _ENetAddress *expected, size_t expected_count);
-    int64_t (*matchmaking_punch)(const char *lobby_id, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output);
+    int64_t (*holepunch_handle_packet)(struct _ENetHost *host, struct _ENetAddress *expected, size_t expected_count, int64_t *received_mask);
+    void (*holepunch_stun_keepalive)(struct _ENetHost *host);
+    int64_t (*matchmaking_punch)(const char *lobby_id, const char *udp_ipv4, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output);
     int64_t (*matchmaking_poll_punch)(struct EnetPunchAddresses *output);
     int64_t (*port_forward_add_mapping)(int64_t port);
     void (*port_forward_remove_mapping)(void);

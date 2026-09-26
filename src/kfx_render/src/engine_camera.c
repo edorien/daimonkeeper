@@ -67,7 +67,7 @@ int64_t camera_zoom;
 // depends on kfx_sim's point_in_map_is_solid(). See
 // docs/refactor/stage-07-kfx-render.md.
 
-static void view_set_camera_position(struct Camera *cam, MapCoord x, MapCoord y)
+void view_set_camera_position(struct Camera *cam, MapCoord x, MapCoord y)
 {
     cam->mappos.x.val = clamp(x, 0, kfx_sim_state.map_subtiles_x * COORD_PER_STL - 1);
     cam->mappos.y.val = clamp(y, 0, kfx_sim_state.map_subtiles_y * COORD_PER_STL - 1);
@@ -256,43 +256,43 @@ uint64_t scale_camera_zoom_to_screen(uint64_t zoom_lvl)
     return scale_fixed_DK_value(zoom_lvl);
 }
 
-void view_set_camera_y_inertia(struct Camera *cam, int64_t delta, int64_t ilimit)
+void view_set_camera_y_velocity(struct Camera *cam, int64_t delta, int64_t ilimit)
 {
     int64_t abslimit = llabs(ilimit);
-    cam->inertia_y += delta;
-    if (cam->inertia_y < -abslimit) {
-        cam->inertia_y = -abslimit;
+    cam->velocity_y += delta;
+    if (cam->velocity_y < -abslimit) {
+        cam->velocity_y = -abslimit;
     } else
-    if (cam->inertia_y > abslimit) {
-        cam->inertia_y = abslimit;
+    if (cam->velocity_y > abslimit) {
+        cam->velocity_y = abslimit;
     }
     cam->in_active_movement_y = true;
 }
 
-void view_set_camera_x_inertia(struct Camera *cam, int64_t delta, int64_t ilimit)
+void view_set_camera_x_velocity(struct Camera *cam, int64_t delta, int64_t ilimit)
 {
     int64_t abslimit = llabs(ilimit);
-    cam->inertia_x += delta;
-    if (cam->inertia_x < -abslimit) {
-        cam->inertia_x = -abslimit;
+    cam->velocity_x += delta;
+    if (cam->velocity_x < -abslimit) {
+        cam->velocity_x = -abslimit;
     } else
-    if (cam->inertia_x > abslimit) {
-        cam->inertia_x = abslimit;
+    if (cam->velocity_x > abslimit) {
+        cam->velocity_x = abslimit;
     }
     cam->in_active_movement_x = true;
 }
 
-void view_set_camera_rotation_inertia(struct Camera *cam, int64_t delta, int64_t ilimit)
+void view_set_camera_rotation_velocity(struct Camera *cam, int64_t delta, int64_t ilimit)
 {
     const int64_t limit_val = llabs(ilimit);
-    const int64_t new_val = delta + cam->inertia_rotation;
-    cam->inertia_rotation = clamp(new_val, -limit_val, +limit_val);
+    const int64_t new_val = delta + cam->velocity_rotation;
+    cam->velocity_rotation = clamp(new_val, -limit_val, +limit_val);
     cam->in_active_movement_rotation = true;
 }
 
-void view_set_camera_rotation_inertia_around(struct Camera *cam, int64_t delta, int64_t ilimit, MapCoord x, MapCoord y)
+void view_set_camera_rotation_velocity_around(struct Camera *cam, int64_t delta, int64_t ilimit, MapCoord x, MapCoord y)
 {
-    view_set_camera_rotation_inertia(cam, delta, ilimit);
+    view_set_camera_rotation_velocity(cam, delta, ilimit);
     if ((x | y) < 0)
         return;
 
@@ -582,23 +582,62 @@ static void view_move_camera_y(struct Camera *cam, int64_t distance)
     }
 }
 
-void view_process_camera_inertia(struct Camera *cam)
+int64_t camera_move_rate(const struct Camera* cam, const struct PlayerInfo* player, TbBool speedup)
 {
-    if (cam->inertia_x)
-        view_move_camera_x(cam, cam->inertia_x);
-
-    if (cam->inertia_y)
-        view_move_camera_y(cam, cam->inertia_y);
-
-    if (cam->inertia_rotation)
+    int64_t inter_val;
+    int64_t scroll_speed = cam->zoom;
+    if (scroll_speed <= 0)
+        scroll_speed = 1;
+    switch (cam->view_mode)
     {
-        cam->rotation_angle_x = (cam->inertia_rotation + cam->rotation_angle_x) & ANGLE_MASK;
+    case PVM_IsoWibbleView:
+    case PVM_IsoStraightView:
+        if (player->roomspace_drag_paint_mode == 1)
+        {
+            if (scroll_speed < 4100)
+            {
+                scroll_speed = 4100;
+            }
+        }
+        inter_val = 2560000 / scroll_speed;
+        break;
+    case PVM_FrontView:
+        if (player->roomspace_drag_paint_mode == 1)
+        {
+            if (scroll_speed < 16384)
+            {
+                scroll_speed = 16384;
+            }
+        }
+        inter_val = 12800000 / scroll_speed;
+        break;
+    default:
+        inter_val = 256;
+        break;
+    }
+    if (speedup)
+      inter_val *= 3;
+    return inter_val;
+}
+
+
+void view_process_camera_velocity(struct Camera *cam)
+{
+    if (cam->velocity_x)
+        view_move_camera_x(cam, cam->velocity_x);
+
+    if (cam->velocity_y)
+        view_move_camera_y(cam, cam->velocity_y);
+
+    if (cam->velocity_rotation)
+    {
+        cam->rotation_angle_x = (cam->velocity_rotation + cam->rotation_angle_x) & ANGLE_MASK;
         if (cam->use_rotation_pivot)
         {
             const MapCoordDelta x0 = cam->mappos.x.val - cam->rotation_pivot.x.val;
             const MapCoordDelta y0 = cam->mappos.y.val - cam->rotation_pivot.y.val;
-            const int64_t sin = LbSinL(cam->inertia_rotation);
-            const int64_t cos = LbCosL(cam->inertia_rotation);
+            const int64_t sin = LbSinL(cam->velocity_rotation);
+            const int64_t cos = LbCosL(cam->velocity_rotation);
             const MapCoordDelta x1 = (x0 * cos - y0 * sin) >> 16;
             const MapCoordDelta y1 = (x0 * sin + y0 * cos) >> 16;
             const MapCoord new_x = (MapCoord)cam->rotation_pivot.x.val + x1;
@@ -608,15 +647,15 @@ void view_process_camera_inertia(struct Camera *cam)
     }
 
     if (! cam->in_active_movement_x)
-        cam->inertia_x /= 2;
+        cam->velocity_x /= 2;
 
     if (! cam->in_active_movement_y)
-        cam->inertia_y /= 2;
+        cam->velocity_y /= 2;
 
     if (! cam->in_active_movement_rotation)
-        cam->inertia_rotation /= 2;
+        cam->velocity_rotation /= 2;
 
-    if (cam->inertia_rotation == 0)
+    if (cam->velocity_rotation == 0)
         cam->use_rotation_pivot = false;
 
     cam->in_active_movement_x = false;
@@ -642,8 +681,8 @@ TbBool view_move_camera_to_position(struct Camera *cam, MapCoord x, MapCoord y, 
     MapCoord *positions[] = {&cam->mappos.x.val, &cam->mappos.y.val};
     MapCoord targets[] = {x, y};
     MapCoordDelta movement[] = {move_x, move_y};
-    cam->inertia_x = 0;
-    cam->inertia_y = 0;
+    cam->velocity_x = 0;
+    cam->velocity_y = 0;
     for (int64_t i = 0; i < 2; i++) {
         if (llabs(*positions[i] - targets[i]) >= llabs(movement[i])) {
             *positions[i] += movement[i];
@@ -659,7 +698,7 @@ void update_player_camera(struct PlayerInfo *player)
     struct Dungeon *dungeon = get_players_dungeon(player);
     struct Camera *cam = get_player_active_camera(player);
 
-    view_process_camera_inertia(cam);
+    view_process_camera_velocity(cam);
     switch (cam->view_mode)
     {
     case PVM_CreatureView:
@@ -705,9 +744,6 @@ void update_all_players_cameras(void)
           update_player_camera(player);
     }
   }
-
-  // Send catchup packets if local camera has drifted too far from packet-based camera
-  send_camera_catchup_packets();
 }
 
 void set_player_cameras_position(struct PlayerInfo *player, int64_t pos_x, int64_t pos_y)
