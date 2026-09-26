@@ -84,7 +84,7 @@ bool game_is_running(void)
 }
 
 // The pause-menu family (the launcher + the screens it opens). Reachable
-// via GUI_ICON_PACK=CLASSIC's sidebar just like the modern one -- unlike the
+// via GUI_POSITION=CLASSIC's sidebar just like the modern one -- unlike the
 // rest of menu_is_migrated()'s entries (the sidebar frame/tabs themselves,
 // and the objective/battle/confirm boxes), classic-sidebar players still get
 // the modern ImGui Options/Load/Save/Quit screens rather than the retired
@@ -542,7 +542,7 @@ extern "C" void ingame_options_back_to_launcher(void)
 
 extern "C" TbBool ingame_imgui_menu_active(MenuID menu_id)
 {
-    // GUI_ICON_PACK=CLASSIC only reverts the sidebar and the rest of
+    // GUI_POSITION=CLASSIC only reverts the sidebar and the rest of
     // menu_is_migrated()'s registry -- the options/quit/load/save family
     // stays on the ImGui path regardless (see menu_is_options_family()).
     const bool classic_gated = ingame_gui_use_classic_hud() && !menu_is_options_family(menu_id);
@@ -597,14 +597,14 @@ extern "C" void ingame_imgui_frame(void)
     if (!game_is_running())
         return;
 
-    // GUI_ICON_PACK=CLASSIC reverts the sidebar frame (and the rest of the
+    // GUI_POSITION=CLASSIC reverts the sidebar frame (and the rest of the
     // ImGui-owned HUD below it) to its sprite-based predecessor, but the
     // options/quit/load/save family -- screen-centered popups with no
     // dependency on sidebar layout -- stays on the ImGui path either way
     // (see menu_is_options_family()).
     const TbBool classic_hud = ingame_gui_use_classic_hud();
 
-    // GUI_ICON_PACK can now be flipped live from this very Options menu
+    // GUI_POSITION can now be flipped live from this very Options menu
     // (menu_is_options_family() above) -- unlike a GOF_ShowGui toggle (Tab),
     // that doesn't otherwise touch the engine window's viewport inset, so
     // poll for the transition here and re-apply it (frontend.cpp's own

@@ -95,3 +95,6 @@ debug.log
 .vscode/compile_and_copy_files.ps1
 third_party/
 /keeperfx_vs2010
+
+# Local-only design notes; removed from the remote (to be folded into docs/Architecture)
+/docs/refactor/

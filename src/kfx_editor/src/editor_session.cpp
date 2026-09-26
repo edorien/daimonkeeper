@@ -149,7 +149,7 @@ namespace {
         set_skip_heart_zoom_feature(s_prev_skip_heart_zoom);
         set_flag_value(kfx_sim_state.operation_flags, GOF_ShowGui, s_prev_show_gui);
         s_editor_active = false;
-        // The GUI_ICON_PACK=CLASSIC override (see editor_open()) ends with the session.
+        // The GUI_POSITION=CLASSIC override (see editor_open()) ends with the session.
         ingame_gui_force_imgui_hud(false);
     }
 }
@@ -406,7 +406,7 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
 {
     SYNCDBG(0, "Opening editor session for level %" PRIu64 " (new=%" PRId64 ")", (uint64_t)lvnum, (int64_t)is_new);
     s_editor_active = true;
-    // The editor is built on the ImGui HUD: ignore GUI_ICON_PACK=CLASSIC
+    // The editor is built on the ImGui HUD: ignore GUI_POSITION=CLASSIC
     // for the length of the session (the saved setting is left alone).
     ingame_gui_force_imgui_hud(true);
     // The classic HUD insets the 3D view by its sidebar width; the ImGui HUD

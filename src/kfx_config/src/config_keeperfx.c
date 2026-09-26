@@ -74,6 +74,7 @@ struct KeeperFxUiConfig keeperfx_ui_config = {
     .hud_position = 1, // HudPos_Left
     .gui_icon_pack = "NONE",
     .minimap_corner = 1, // HudMinimalCorner_UpperLeft
+    .overhead_fade = 60,
     .panel_corner = 2, // HudMinimalCorner_UpperRight -- matches the pre-decoupling diagonally-opposite default
 };
 static NetworkIsActiveFn g_network_is_active_fn = NULL;
@@ -178,6 +179,7 @@ const struct NamedCommand hud_position_type[] = {
   {"RIGHT",   2}, // HudPos_Right
   {"BOTTOM",  3}, // HudPos_Bottom -- docs/refactor/ingame-gui/11-horizontal-layout.md
   {"MINIMAL", 4}, // HudPos_Minimal -- docs/refactor/ingame-gui/13-minimal-layout.md
+  {"CLASSIC", 5}, // HudPos_Classic -- the legacy sprite sidebar (ingame_gui_use_classic_hud()); lays out like LEFT elsewhere
   {NULL,  0},
   };
 
@@ -267,6 +269,7 @@ const struct NamedCommand conf_commands[] = {
   {"RENDERER"                      , 60},
   {"GPU_TRUE_DEPTH"                , 61},
   {"LIGHTING"                      , 62},
+  {"OVERHEAD_FADE"                 , 63},
   {NULL,                   0},
   };
 
@@ -394,8 +397,8 @@ TbBool use_relative_mouse_mode(void)
 
 /**
  * Returns if the in-game HUD's legacy sprite renderer should be used for
- * this session instead of the ImGui one -- GUI_ICON_PACK's reserved
- * "CLASSIC" value (config_settingschema.c's ensure_gui_icon_pack_enum(),
+ * this session instead of the ImGui one -- GUI_POSITION=CLASSIC
+ * (formerly GUI_ICON_PACK=CLASSIC, still accepted and migrated on load),
  * docs/refactor/ingame-gui/00-overview.md), the replacement for the old
  * `-classicmenu` switch now that the frontend menus have no legacy path
  * left to fall back to. Every in-game HUD draw call checks this instead of
@@ -403,16 +406,18 @@ TbBool use_relative_mouse_mode(void)
  * (menus, options, load/save) reads it.
  */
 static TbBool force_imgui_hud = false;
+// A GUI_ICON_PACK=CLASSIC line (the pre-GUI_POSITION=CLASSIC spelling) was read: it wins over any GUI_POSITION line.
+static TbBool legacy_classic_pack_seen = false;
 
 TbBool ingame_gui_use_classic_hud(void)
 {
   if (force_imgui_hud)
     return false;
-  return (strcasecmp(keeperfx_ui_config.gui_icon_pack, "CLASSIC") == 0);
+  return keeperfx_ui_config.hud_position == 5; // HudPos_Classic
 }
 
 /**
- * Overrides GUI_ICON_PACK=CLASSIC while true: the level editor is built on
+ * Overrides GUI_POSITION=CLASSIC while true: the level editor is built on
  * the ImGui HUD (its windows, sidebar-free full-screen view and icon
  * tiles), so an active editor session always uses it whatever the player
  * chose. The saved setting is untouched and applies again once cleared.
@@ -1221,7 +1226,8 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           i = recognize_conf_parameter(buf, &pos, len, hud_position_type);
           if (i > 0)
           {
-              keeperfx_ui_config.hud_position = i;
+              if (!legacy_classic_pack_seen)
+                  keeperfx_ui_config.hud_position = i;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
@@ -1230,7 +1236,14 @@ static void load_file_configuration(const char *fname, const char *sname, const 
                 // (docs/refactor/ingame-gui/12-png-icon-overrides.md).
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              snprintf(keeperfx_ui_config.gui_icon_pack, sizeof(keeperfx_ui_config.gui_icon_pack), "%s", word_buf);
+              if (strcasecmp(word_buf, "CLASSIC") == 0)
+              {
+                  // Legacy spelling: classic is a GUI_POSITION now.
+                  legacy_classic_pack_seen = true;
+                  keeperfx_ui_config.hud_position = 5; // HudPos_Classic
+                  snprintf(keeperfx_ui_config.gui_icon_pack, sizeof(keeperfx_ui_config.gui_icon_pack), "NONE");
+              } else
+                  snprintf(keeperfx_ui_config.gui_icon_pack, sizeof(keeperfx_ui_config.gui_icon_pack), "%s", word_buf);
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
@@ -1291,6 +1304,25 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           if (i > 0)
           {
               RendererSetLightingMode((int)(i - 1));
+          } else {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+          }
+          break;
+      case 63: // OVERHEAD_FADE -- 0..100 (percent dimming at the screen edge)
+          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+          {
+              // The words are what the first version of this option used.
+              if (strcasecmp(word_buf, "OFF") == 0) i = 0;
+              else if (strcasecmp(word_buf, "SUBTLE") == 0) i = 35;
+              else if (strcasecmp(word_buf, "MEDIUM") == 0) i = 60;
+              else if (strcasecmp(word_buf, "STRONG") == 0) i = 85;
+              else i = atoi(word_buf);
+          } else {
+              i = -1;
+          }
+          if ((i >= 0) && (i <= 100))
+          {
+              keeperfx_ui_config.overhead_fade = i;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }

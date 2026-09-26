@@ -230,7 +230,9 @@ struct KeeperFxUiConfig {
     // GUI_POSITION row): 1 = left edge, 2 = right edge, 3 = bottom strip
     // (docs/refactor/ingame-gui/11-horizontal-layout.md), 4 = minimal --
     // free-floating buttons + pop-up panels, no persistent panel
-    // (docs/refactor/ingame-gui/13-minimal-layout.md) -- starts at 1, not
+    // (docs/refactor/ingame-gui/13-minimal-layout.md), 5 = classic -- the legacy
+    // sprite sidebar, CPU-drawn over the GPU world view (ingame_gui_use_classic_hud())
+    // -- starts at 1, not
     // 0, see hud_position_type[]'s own comment (config_keeperfx.c). Plain int
     // (not a frontend enum type) for the same reason as zoom_to_mouse_option
     // above. KeeperFX-only.
@@ -258,6 +260,10 @@ struct KeeperFxUiConfig {
     // comment, config_keeperfx.c). Independent of minimap_corner -- either
     // may pick either corner, including both sharing one. KeeperFX-only.
     int64_t panel_corner;
+    // OVERHEAD_FADE (case 63): strength of the overhead-view vignette (engine_render.c,
+    // overhead_fade_shade()), 0..100: the edge of the screen is dimmed by this many percent
+    // (0 = off, default 60). KeeperFX-only.
+    int64_t overhead_fade;
 };
 extern struct KeeperFxUiConfig keeperfx_ui_config;
 

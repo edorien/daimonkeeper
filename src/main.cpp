@@ -1302,22 +1302,10 @@ int64_t setup_game(void)
   // gpu-v2 Phase C.1 (docs/refactor/renderer/gpu-v2/07-phased-delivery.md):
   // RendererInit(RENDERER_SOFTWARE) above already brought up an active
   // renderer for the pre-config-load splash/legal screens -- load_configuration()
-  // just above is the earliest point RENDERER's cfg value (and R13's
-  // GUI_ICON_PACK=CLASSIC check) is actually known, so the real backend
+  // just above is the earliest point RENDERER's cfg value is actually known, so the real backend
   // swap (if the user asked for one) happens here, not earlier.
   {
       RendererType desired = RendererGetDesiredType();
-      // R13 (docs/refactor/renderer/gpu-v2/08-risks.md, gpu-v2/04's
-      // "CLASSIC's compositing assumption doesn't survive Phase C
-      // unmodified"): CLASSIC's draw calls assume they're painting directly
-      // onto a lbDrawSurface that already contains the CPU-rasterized 3D
-      // scene -- once RendererGpu3D is active that's no longer true. Fail
-      // clearly (fall back, logged) rather than let a broken frame render.
-      if (desired == RENDERER_GPU3D && ingame_gui_use_classic_hud())
-      {
-          WARNLOG("RENDERER=VULKAN is incompatible with GUI_ICON_PACK=CLASSIC (R13) -- falling back to the software renderer");
-          desired = RENDERER_SOFTWARE;
-      }
       if (desired != RendererGetActiveType() && RendererInit(desired) == 0)
       {
           ERRORLOG("Renderer initialisation error.");
@@ -1379,7 +1367,7 @@ int64_t setup_game(void)
   // ranks above kfx_platform), so push the resolved flag down through the
   // struct above instead. ImGui itself is unconditional now (every
   // frontend menu needs it, and the in-game HUD's own classic-vs-ImGui
-  // choice, GUI_ICON_PACK's "CLASSIC" value, is decided per-draw-call
+  // choice, GUI_POSITION=CLASSIC, is decided per-draw-call
   // inside kfx_frontend -- see ingame_gui_use_classic_hud()) -- there is no
   // longer a session-wide "ImGui enabled" switch to push down here.
   RendererSetImGuiDemoVisible((start_params.debug_flags & DFlg_ImGuiDemo) != 0);

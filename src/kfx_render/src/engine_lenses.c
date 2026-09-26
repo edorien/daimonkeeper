@@ -204,7 +204,10 @@ void rotpers_standard(struct EngineCoord *epos, const struct M33 *matx)
     pers_set_view_width(epos, view_width_over_2 + (wx >> 16));
     pers_set_view_height(epos, view_height_over_2 - (wy >> 16));
     epos->clip_flags |= 0x0400;
-    flicker_fix(epos);
+    // No flicker_fix() here: it culled every triangle whose vertices were all within 256 of the
+    // camera plane and 768 to the side, which also removed visible wall triangles beside a
+    // first-person camera (holes showing the clear colour). The terrain triangle emitters now
+    // clip properly against the near plane (engine_render.c, near_clip_triangle()) instead.
 }
 
 void rotpers_circular(struct EngineCoord *epos, const struct M33 *matx)

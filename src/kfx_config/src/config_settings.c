@@ -191,7 +191,11 @@ const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
 #define CAMERA_TILT_MIN -350
 #define CAMERA_TILT_MAX -200
 
-unsigned char i_can_see_levels[] = {30, 45, 60, 254,};
+// First-person view range in subtiles for View Distance 0..3 (3 subtiles = 1 tile, so 96 = 32 tiles;
+// standard maps are 85 tiles across). Terrain fades to darkness over the outer half of it
+// (update_fade_limits(), engine_render.c). Was {30, 45, 60, 254}: 254 reached beyond any real line of
+// sight, so the fade could never be seen and every distant wall was still processed.
+unsigned char i_can_see_levels[] = {24, 36, 54, 96,};
 struct GameSettings settings;
 static struct GameSettings settings_saved;
 /******************************************************************************/

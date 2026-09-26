@@ -43,7 +43,7 @@ static FTestActionResult action001__seam_predicates(struct FTestActionArgs *cons
 {
     if (ingame_gui_use_classic_hud())
     {
-        FTEST_FAIL_TEST("ImGui in-game HUD is not active -- run without GUI_ICON_PACK=CLASSIC");
+        FTEST_FAIL_TEST("ImGui in-game HUD is not active -- run without GUI_POSITION=CLASSIC");
         return FTRs_Go_To_Next_Action;
     }
 

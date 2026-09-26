@@ -608,7 +608,9 @@ static void update_fade_limits(int64_t ncells_a)
     fade_max = (ncells_a << 8);
     fade_scaler = (ncells_a << 8);
     fade_way_out = (ncells_a + 1) << 8;
-    fade_min = (768 * ncells_a) / 4;
+    // Terrain starts to fade toward darkness at half the view range (was three quarters, a short
+    // band that read as a hard edge); linear from there to fade_max.
+    fade_min = (128 * ncells_a);
     z_threshold_near = (split1at << 8);
     split_2 = (split2at << 8);
 }
@@ -866,6 +868,62 @@ struct WibbleTable *get_wibble_from_table(struct Camera *cam, int64_t table_inde
     return &blank_wibble_table[table_index];
 }
 
+/******************************************************************************/
+// The first-person (creature) view displaces every wall/floor vertex by the wibble table's small
+// 3-D offsets, which makes walls bulge irregularly. With the eye right next to a wall that lets a
+// bulge cross the camera, so triangles flip back-facing or pass the near plane and holes open up.
+// The offsets are therefore faded out for vertices close to the eye (full strength from
+// WIBBLE_FADE_FAR away), per vertex -- so shared vertices stay shared and no cracks appear.
+#define WIBBLE_FADE_NEAR 256
+#define WIBBLE_FADE_FAR 512
+
+static int64_t wibble_near_scale(const struct Camera *cam, int64_t rx, int64_t ry, int64_t rz, int64_t offset)
+{
+    if (cam->view_mode != PVM_CreatureView || offset == 0)
+        return offset;
+    const double d = sqrt((double)rx * (double)rx + (double)ry * (double)ry + (double)rz * (double)rz);
+    if (d >= WIBBLE_FADE_FAR)
+        return offset;
+    if (d <= WIBBLE_FADE_NEAR)
+        return 0;
+    return (int64_t)((double)offset * (d - WIBBLE_FADE_NEAR) / (double)(WIBBLE_FADE_FAR - WIBBLE_FADE_NEAR));
+}
+/******************************************************************************/
+
+/******************************************************************************/
+// Overhead views have no distance fade in the engine (fade_min is set out of reach), so terrain is
+// drawn at full brightness right to the edge of the screen. This adds a very subtle vignette: shade
+// is scaled down with the (screen) distance of a vertex from the centre of the view, measured in
+// tiles at the current zoom, easing (smoothstep) from no change at OVERHEAD_FADE_START_TILES to
+// (100 - the OVERHEAD_FADE setting)% of the brightness at OVERHEAD_FADE_END_TILES and beyond.
+#define OVERHEAD_FADE_START_TILES 3
+#define OVERHEAD_FADE_END_TILES 10
+
+static int64_t overhead_fade_shade(int64_t shade, int64_t view_w, int64_t view_h)
+{
+    const int64_t zoom = camera_zoom / pixel_size;
+    if (zoom <= 0)
+        return shade;
+    const double tile_px = 768.0 * (double)zoom / 65536.0;
+    if (tile_px < 1.0)
+        return shade;
+    const double dx = (double)(view_w - view_width_over_2);
+    const double dy = (double)(view_h - view_height_over_2);
+    const double tiles = sqrt(dx * dx + dy * dy) / tile_px;
+    double t = (tiles - OVERHEAD_FADE_START_TILES) / (double)(OVERHEAD_FADE_END_TILES - OVERHEAD_FADE_START_TILES);
+    if (t <= 0.0)
+        return shade;
+    if (t > 1.0)
+        t = 1.0;
+    t = t * t * (3.0 - 2.0 * t);
+    const int64_t strength = keeperfx_ui_config.overhead_fade; // percent dimming at full effect
+    if (strength <= 0)
+        return shade;
+    const double scale = 1.0 - t * (double)(strength > 100 ? 100 : strength) / 100.0;
+    return (int64_t)((double)shade * scale);
+}
+/******************************************************************************/
+
 static struct BasicQ *get_bucket_item(int64_t min_cor_z, enum QKinds kind, size_t size)
 {
     if (getpoly >= poly_pool_end)
@@ -1055,9 +1113,9 @@ static void fill_in_points_perspective(struct Camera *cam, int64_t bstl_x, int64
         int64_t idxh;
         for (idxh = hmax-hmin+1; idxh > 0; idxh--)
         {
-            ecord->x = apos + wibl->offset_x;
-            ecord->y = hpos + wibl->offset_y;
-            ecord->z = bpos + wibl->offset_z;
+            ecord->x = apos + wibble_near_scale(cam, apos, hpos, bpos, wibl->offset_x);
+            ecord->y = hpos + wibble_near_scale(cam, apos, hpos, bpos, wibl->offset_y);
+            ecord->z = bpos + wibble_near_scale(cam, apos, hpos, bpos, wibl->offset_z);
             ecord->clip_flags = 0;
             lightness += wibl->lightness_offset;
             if (lightness < 0)
@@ -1081,9 +1139,9 @@ static void fill_in_points_perspective(struct Camera *cam, int64_t bstl_x, int64
         }
         ecord = &ecol->cors[ENGINE_COL_CEILING_CORNER];
         {
-            ecord->x = apos + wibl->offset_x;
-            ecord->y = hpos + wibl->offset_y;
-            ecord->z = bpos + wibl->offset_z;
+            ecord->x = apos + wibble_near_scale(cam, apos, hpos, bpos, wibl->offset_x);
+            ecord->y = hpos + wibble_near_scale(cam, apos, hpos, bpos, wibl->offset_y);
+            ecord->z = bpos + wibble_near_scale(cam, apos, hpos, bpos, wibl->offset_z);
             ecord->clip_flags = 0;
             // Use lightness from last cube
             ecord->shade_intensity = lightness;
@@ -1293,7 +1351,7 @@ static void fill_in_points_cluedo(struct Camera *cam, int64_t bstl_x, int64_t bs
                 lightness = 0;
             if (lightness > 16128)
                 lightness = 16128;
-            ecord->shade_intensity = lightness;
+            ecord->shade_intensity = overhead_fade_shade(lightness, ecord->view_width, ecord->view_height);
             if (ecord->z < 32) {
                 ecord->z = 0;
             } else
@@ -1532,7 +1590,7 @@ static void fill_in_points_isometric(struct Camera *cam, int64_t bstl_x, int64_t
                 lightness = 0;
             if (lightness > 15872)
                 lightness = 15872;
-            ecord->shade_intensity = lightness;
+            ecord->shade_intensity = overhead_fade_shade(lightness, ecord->view_width, ecord->view_height);
             if (ecord->z < 32) {
                 ecord->z = 0;
             } else
@@ -2902,8 +2960,167 @@ static void process_isometric_map_volume_box(int64_t x, int64_t y, int64_t z, Pl
     map_volume_box.color = default_color;
 }
 
+/******************************************************************************/
+// Near-plane clipping of the standard-perspective terrain triangles. A vertex closer than the
+// near plane projects to garbage, and flicker_fix() culls whole triangles whose vertices are all
+// behind/beside the camera -- so a wall whose non-planar tris poke across a first-person camera
+// lost pieces. A triangle with a vertex nearer than NEAR_CLIP_Z is instead clipped against that
+// plane in view space (attributes interpolated), split finely (affine texturing is inaccurate
+// on big near triangles) and emitted as ordinary standard polygons. Triangles wholly nearer
+// than the plane are dropped.
+#define NEAR_CLIP_Z 48
+#define NEAR_CLIP_SPLITS 2
+
+enum NearClipKind { NCK_TRIG_TR, NCK_TRIG_BL, NCK_GOURAD_TR, NCK_GOURAD_BL, NCK_UNLIT_TR, NCK_UNLIT_BL };
+
+struct NearClipVertex {
+    int64_t x, y, z;   // view space
+    int64_t si;        // shade_intensity
+    int64_t u, v;      // texture corner, 0..0x1FFFFF (+scroll added on emit)
+    int64_t sx, sy;    // projected
+};
+
+static void near_clip_project(struct NearClipVertex *nv)
+{
+    const long long wx = nv->x * (lens << 16) / nv->z;
+    const long long wy = nv->y * (lens << 16) / nv->z;
+    nv->sx = view_width_over_2 + (wx >> 16);
+    nv->sy = view_height_over_2 - (wy >> 16);
+}
+
+static void near_clip_lerp(struct NearClipVertex *out, const struct NearClipVertex *a, const struct NearClipVertex *b, int64_t num, int64_t den)
+{
+    out->x = a->x + (b->x - a->x) * num / den;
+    out->y = a->y + (b->y - a->y) * num / den;
+    out->z = a->z + (b->z - a->z) * num / den;
+    out->si = a->si + (b->si - a->si) * num / den;
+    out->u = a->u + (b->u - a->u) * num / den;
+    out->v = a->v + (b->v - a->v) * num / den;
+    if (out->z < NEAR_CLIP_Z)
+        out->z = NEAR_CLIP_Z;
+    near_clip_project(out);
+}
+
+static void near_clip_emit(enum NearClipKind kind, const struct NearClipVertex *a, const struct NearClipVertex *b, const struct NearClipVertex *c, int64_t textr_id, int64_t a5)
+{
+    if ((a->sx < 0 && b->sx < 0 && c->sx < 0) || (a->sx >= vec_window_width && b->sx >= vec_window_width && c->sx >= vec_window_width)
+        || (a->sy < 0 && b->sy < 0 && c->sy < 0) || (a->sy >= vec_window_height && b->sy >= vec_window_height && c->sy >= vec_window_height))
+        return;
+    const int64_t area = (a->sy - b->sy) * (c->sx - b->sx) + (c->sy - b->sy) * (b->sx - a->sx);
+    if (area == 0)
+        return;
+    if (area < 0)
+    {
+        // Back-facing pieces of a triangle that had to be clipped: the camera is right at the surface,
+        // and culling would leave a hole, so draw it from behind (two vertices swapped so the winding is
+        // the one the rasterizers expect; each keeps its own UV and shade).
+        const struct NearClipVertex *t = b;
+        b = c;
+        c = t;
+    }
+    if (getpoly >= poly_pool_end)
+        return;
+    int64_t z = a->z;
+    if (b->z > z) z = b->z;
+    if (c->z > z) z = c->z;
+    struct BucketKindPolygonStandard *poly = (struct BucketKindPolygonStandard *)getpoly;
+    getpoly += sizeof(struct BucketKindPolygonStandard);
+    const int64_t bucket_index = z / 16;
+    poly->b.next = buckets[bucket_index];
+    poly->b.kind = 0;
+    buckets[bucket_index] = &poly->b;
+    poly->block = textr_id;
+    const struct NearClipVertex *vs[3] = { a, b, c };
+    struct PolyPoint *pts[3] = { &poly->vertex_first, &poly->vertex_second, &poly->vertex_third };
+    const TbBool unlit = (kind == NCK_UNLIT_TR) || (kind == NCK_UNLIT_BL);
+    for (int i = 0; i < 3; i++)
+    {
+        int64_t si = vs[i]->si;
+        int64_t shade;
+        if (unlit)
+            shade = (si + 3072) << 8;
+        else if (kind == NCK_TRIG_TR || kind == NCK_TRIG_BL)
+            shade = ((a5 >= 0) ? ((si * (3 * a5 + 81920)) >> 17) : si) << 8;
+        else
+            shade = ((a5 >= 0) ? ((4 * si * (a5 + 0x4000)) >> 17) : si) << 8;
+        pts[i]->X = vs[i]->sx;
+        pts[i]->Y = vs[i]->sy;
+        pts[i]->Z = worldframe_depth_from_view_z(vs[i]->z);
+        pts[i]->U = vs[i]->u + (unlit ? 0 : texture_scroll.x.val);
+        pts[i]->V = vs[i]->v + (unlit ? 0 : texture_scroll.y.val);
+        pts[i]->S = shade;
+    }
+}
+
+static void near_clip_split(enum NearClipKind kind, const struct NearClipVertex *a, const struct NearClipVertex *b, const struct NearClipVertex *c, int64_t textr_id, int64_t a5, int depth)
+{
+    if (depth <= 0)
+    {
+        near_clip_emit(kind, a, b, c, textr_id, a5);
+        return;
+    }
+    struct NearClipVertex ab, bc, ca;
+    near_clip_lerp(&ab, a, b, 1, 2);
+    near_clip_lerp(&bc, b, c, 1, 2);
+    near_clip_lerp(&ca, c, a, 1, 2);
+    near_clip_split(kind, a, &ab, &ca, textr_id, a5, depth - 1);
+    near_clip_split(kind, &ab, b, &bc, textr_id, a5, depth - 1);
+    near_clip_split(kind, &ca, &bc, c, textr_id, a5, depth - 1);
+    near_clip_split(kind, &ab, &bc, &ca, textr_id, a5, depth - 1);
+}
+
+/** Returns true when the triangle was handled here (clipped, or dropped for lying wholly before the plane). */
+static TbBool near_clip_triangle(enum NearClipKind kind, const struct EngineCoord *e1, const struct EngineCoord *e2, const struct EngineCoord *e3, int64_t textr_id, int64_t a5)
+{
+    if (rotpers != rotpers_standard)
+        return false;
+    if (e1->z >= NEAR_CLIP_Z && e2->z >= NEAR_CLIP_Z && e3->z >= NEAR_CLIP_Z)
+        return false;
+    if (e1->z < NEAR_CLIP_Z && e2->z < NEAR_CLIP_Z && e3->z < NEAR_CLIP_Z)
+        return true;
+    static const int64_t uv_tr[3][2] = { {0, 0}, {0x1FFFFF, 0}, {0x1FFFFF, 0x1FFFFF} };
+    static const int64_t uv_bl[3][2] = { {0x1FFFFF, 0x1FFFFF}, {0, 0x1FFFFF}, {0, 0} };
+    const TbBool bl = (kind == NCK_TRIG_BL) || (kind == NCK_GOURAD_BL) || (kind == NCK_UNLIT_BL);
+    const struct EngineCoord *ec[3] = { e1, e2, e3 };
+    struct NearClipVertex in[3];
+    for (int i = 0; i < 3; i++)
+    {
+        in[i].x = ec[i]->x; in[i].y = ec[i]->y; in[i].z = ec[i]->z;
+        in[i].si = ec[i]->shade_intensity;
+        in[i].u = bl ? uv_bl[i][0] : uv_tr[i][0];
+        in[i].v = bl ? uv_bl[i][1] : uv_tr[i][1];
+    }
+    // Sutherland-Hodgman against z = NEAR_CLIP_Z: at most 4 vertices out.
+    struct NearClipVertex poly[4];
+    int n = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        const struct NearClipVertex *cur = &in[i];
+        const struct NearClipVertex *nxt = &in[(i + 1) % 3];
+        const TbBool cur_in = cur->z >= NEAR_CLIP_Z;
+        const TbBool nxt_in = nxt->z >= NEAR_CLIP_Z;
+        if (cur_in)
+        {
+            poly[n] = *cur;
+            near_clip_project(&poly[n]);
+            n++;
+        }
+        if (cur_in != nxt_in)
+        {
+            near_clip_lerp(&poly[n], cur, nxt, NEAR_CLIP_Z - cur->z, nxt->z - cur->z);
+            n++;
+        }
+    }
+    for (int i = 1; i + 1 < n; i++)
+        near_clip_split(kind, &poly[0], &poly[i], &poly[i + 1], textr_id, a5, NEAR_CLIP_SPLITS);
+    return true;
+}
+/******************************************************************************/
+
 static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct EngineCoord *engine_coordinate_2, struct EngineCoord *engine_coordinate_3, int64_t textr_idx, int64_t argument5)
 {
+    if (near_clip_triangle(NCK_TRIG_TR, engine_coordinate_1, engine_coordinate_2, engine_coordinate_3, textr_idx, argument5))
+        return;
     struct BucketKindPolygonNearFP *triangle_bucket_near_1;
     struct BucketKindPolygonNearFP *triangle_bucket_near_2;
     struct BucketKindPolygonNearFP *triangle_bucket_near_3;
@@ -3379,6 +3596,8 @@ static void do_a_trig_gourad_tr(struct EngineCoord *engine_coordinate_1, struct 
 
 static void do_a_trig_gourad_bl(struct EngineCoord *engine_coordinate_1, struct EngineCoord *engine_coordinate_2, struct EngineCoord *engine_coordinate_3, int64_t argument4, int64_t argument5)
 {
+    if (near_clip_triangle(NCK_TRIG_BL, engine_coordinate_1, engine_coordinate_2, engine_coordinate_3, argument4, argument5))
+        return;
     struct BucketKindPolygonNearFP *triangle_bucket_near_1;
     struct BucketKindPolygonNearFP *triangle_bucket_near_2;
     struct BucketKindPolygonNearFP *triangle_bucket_near_3;
@@ -4330,6 +4549,8 @@ static void do_a_plane_of_engine_columns_perspective(int64_t stl_x, int64_t stl_
 
 static void do_a_gpoly_gourad_tr(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, int64_t textr_id, int64_t a5)
 {
+    if (near_clip_triangle(NCK_GOURAD_TR, ec1, ec2, ec3, textr_id, a5))
+        return;
     int64_t z;
     struct BucketKindPolygonStandard *current_polygon_bucket;
     int64_t bucket_index;
@@ -4398,6 +4619,8 @@ static void do_a_gpoly_gourad_tr(struct EngineCoord *ec1, struct EngineCoord *ec
 
 static void do_a_gpoly_unlit_tr(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, int64_t textr_id)
 {
+    if (near_clip_triangle(NCK_UNLIT_TR, ec1, ec2, ec3, textr_id, 0))
+        return;
     int64_t z;
     struct BucketKindPolygonStandard *current_polygon_bucket;
     int64_t bucket_index;
@@ -4448,6 +4671,8 @@ static void do_a_gpoly_unlit_tr(struct EngineCoord *ec1, struct EngineCoord *ec2
 
 static void do_a_gpoly_unlit_bl(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, int64_t textr_id)
 {
+    if (near_clip_triangle(NCK_UNLIT_BL, ec1, ec2, ec3, textr_id, 0))
+        return;
     int64_t z;
     struct BucketKindPolygonStandard *current_polygon_bucket;
     int64_t bucket_index;
@@ -4496,6 +4721,8 @@ static void do_a_gpoly_unlit_bl(struct EngineCoord *ec1, struct EngineCoord *ec2
 
 static void do_a_gpoly_gourad_bl(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, int64_t textr_id, int64_t a5)
 {
+    if (near_clip_triangle(NCK_GOURAD_BL, ec1, ec2, ec3, textr_id, a5))
+        return;
     int64_t z;
     struct BucketKindPolygonStandard *current_polygon_bucket;
     int64_t zdiv16;
@@ -7085,6 +7312,11 @@ void draw_view(struct Camera *cam, unsigned char a2)
     view_alt = z;
     if (lens_mode != 0)
     { // 1st person
+        // Clear the view to black: the terrain fades to (almost) black with distance, so anything
+        // beyond the view range must match it -- the screen-wide clear colour (index 144, dark green)
+        // showed through as a green rectangle behind the faded far wall.
+        for (int64_t row = 0; row < vec_window_height; row++)
+            memset(vec_screen + row * (int64_t)vec_screen_width, 0, (size_t)vec_window_width);
         cells_away = max_i_can_see;
         update_fade_limits(cells_away);
         fade_range = (fade_max - fade_min) >> 8;

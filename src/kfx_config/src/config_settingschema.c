@@ -302,7 +302,6 @@ static void ensure_gui_icon_pack_enum(void)
 
     int64_t n = 0;
     gui_icon_pack_add(&n, "NONE");
-    gui_icon_pack_add(&n, "CLASSIC");
 
     char *gui_dir = prepare_file_path(FGrp_FxData, "gui");
     if (gui_dir != NULL)
@@ -620,6 +619,9 @@ static void set_renderer(int64_t val)
 {
     RendererSetDesiredType((RendererType)val);
 }
+
+static int64_t get_overhead_fade(void) { return keeperfx_ui_config.overhead_fade; }
+static void set_overhead_fade(int64_t val) { keeperfx_ui_config.overhead_fade = val; }
 
 // LIGHTING (gpu-v2 Phase C.5): config values are 1-based (see lighting_type[]).
 static int64_t get_lighting(void)
@@ -981,6 +983,13 @@ const struct SettingOption setting_options[] = {
         .enum_table = lighting_type, .get_enum = &get_lighting, .set_enum = &set_lighting,
     },
     {
+        .cfg_key = "OVERHEAD_FADE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Overhead Fade",
+        .help_literal = "Darkens the overhead view toward the edges of the screen (from about 3 tiles "
+                        "out to 10). The number is how many percent darker the edge gets; 0 is off.",
+        .get_int = &get_overhead_fade, .set_int = &set_overhead_fade, .int_min = 0, .int_max = 100,
+    },
+    {
         .cfg_key = "UI_FONT_SCALE", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetUiFontScale,
         .help_stridx = GUIStr_HelpUiFontScale,
@@ -1002,7 +1011,7 @@ const struct SettingOption setting_options[] = {
         // UI_FONT, this is safe to change mid-match: not frontend_only.
         .cfg_key = "GUI_POSITION", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
         .label_literal = "Position",
-        .help_literal = "Which edge of the screen the in-game sidebar sits against.",
+        .help_literal = "Which edge of the screen the in-game sidebar sits against, or CLASSIC for the original sprite-drawn sidebar.",
         .enum_table = hud_position_type, .get_enum = &get_hud_position, .set_enum = &set_hud_position,
     },
     {
@@ -1025,8 +1034,7 @@ const struct SettingOption setting_options[] = {
         .cfg_key = "GUI_ICON_PACK", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
         .label_literal = "Icon Pack",
         .help_literal = "Replaces HUD icons with PNGs from a fxdata/gui/ sub-folder (add more by "
-                        "dropping a folder of same-named PNGs in there), or CLASSIC for the "
-                        "original sprite-drawn in-game HUD instead of the modern one.",
+                        "dropping a folder of same-named PNGs in there).",
         .enum_table = gui_icon_pack_enum, .get_enum = &get_gui_icon_pack, .set_enum = &set_gui_icon_pack,
         .ensure_enum_table = &ensure_gui_icon_pack_enum,
     },

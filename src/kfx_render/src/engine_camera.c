@@ -33,6 +33,8 @@
 #include "thing_physics.h"
 #include "vidmode.h"
 #include "map_blocks.h"
+#include "map_columns.h"
+#include "map_data.h"
 #include "dungeon_data.h"
 #include "config_settings.h"
 #include "player_instances.h"
@@ -398,6 +400,30 @@ static int64_t get_walking_bob_direction(struct Thing *thing)
     }
 }
 
+/**
+ * True when a first-person camera at (x, y, z) would sit inside, or closer than
+ * FP_CAMERA_WALL_MARGIN to, a solid column that reaches up to z. Probes the
+ * point and four axis-aligned neighbours so a wall alongside counts too.
+ */
+#define FP_CAMERA_WALL_MARGIN 56
+static TbBool first_person_camera_near_wall(int64_t x, int64_t y, int64_t z)
+{
+    static const int64_t probe[5][2] = { {0, 0}, {FP_CAMERA_WALL_MARGIN, 0}, {-FP_CAMERA_WALL_MARGIN, 0}, {0, FP_CAMERA_WALL_MARGIN}, {0, -FP_CAMERA_WALL_MARGIN} };
+    for (int64_t i = 0; i < 5; i++)
+    {
+        const int64_t px = x + probe[i][0];
+        const int64_t py = y + probe[i][1];
+        if (px < 0 || py < 0)
+            return true;
+        const struct Map *mapblk = get_map_block_at(coord_subtile(px), coord_subtile(py));
+        if (mapblk == NULL)
+            return true;
+        if (get_column_floor_filled_subtiles(get_map_column(mapblk)) * COORD_PER_STL > z)
+            return true;
+    }
+    return false;
+}
+
 void update_first_person_position(struct Camera *cam, struct Thing *thing, int64_t eye_height)
 {
     if ( thing_is_creature(thing) )
@@ -447,6 +473,23 @@ void update_first_person_position(struct Camera *cam, struct Thing *thing, int64
 
         if ( cam->mappos.z.val > ceiling - 64 )
             cam->mappos.z.val = ceiling - 64;
+
+        // The eye sits 90 units behind the creature: with its back to a wall that puts the
+        // camera inside the wall (the near plane then clips the geometry away). Pull it
+        // forward along that offset to the furthest point that clears the wall.
+        if (first_person_camera_near_wall(pos_x, pos_y, cam->mappos.z.val))
+        {
+            int64_t back = 90;
+            while (back > 0)
+            {
+                back -= 10;
+                pos_x = move_coord_with_angle_x(thing->mappos.x.val, -back, thing->move_angle_xy);
+                pos_y = move_coord_with_angle_y(thing->mappos.y.val, -back, thing->move_angle_xy);
+                if (!first_person_camera_near_wall(pos_x, pos_y, cam->mappos.z.val))
+                    break;
+            }
+            view_set_camera_position(cam, pos_x, pos_y);
+        }
 
     }
     else
