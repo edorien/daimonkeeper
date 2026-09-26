@@ -70,6 +70,33 @@ TbBool network_is_host(void);
 PlayerNumber get_net_user_player_number(NetUserId user);
 void set_net_user_player_number(NetUserId user, PlayerNumber plyr_idx);
 void remap_local_user_to_solo(void);
+/** External seats (local games only): human-shaped players driven by packets an outside process
+ *  writes into sim_packets[user]. See docs/refactor/AI/LLM/04-seat-and-action-api.md section 1. */
+/** Makes plyr_idx an External seat and returns its NetUserId (1..MAX_NET_USERS-1), or -1 if refused:
+ *  network game, the local player's slot, no free user id, or a slot held by a human. An unclaimed
+ *  slot is set up like a network player; a computer-controlled slot is converted, keeping its
+ *  dungeon, and stops running the built-in AI. */
+NetUserId net_add_external_seat(PlayerNumber plyr_idx);
+/** Hands an External seat back to the built-in AI (docs/refactor/AI/LLM/06 section 2.2 Option B): drops its queued
+ * steps, unmaps its user, and re-arms the built-in AI with the model the slot had before it became a seat.
+ * Deliberately does NOT reset the creatures' states (no init_creature_states_for_player): whatever they were doing
+ * carries on, and the AI picks up from there. Returns false if plyr_idx is not a seat. */
+TbBool net_release_external_seat(PlayerNumber plyr_idx);
+/** Releases every External seat; returns how many were handed back. */
+int64_t net_release_all_external_seats(void);
+/** Slots the Skirmish "Slots & AI" page marked External for the next local game (docs/refactor/AI/LLM/01 M5). The list
+ * is set when Play is pressed and consumed once by net_claim_pending_external_seats() when the game's players exist. */
+void net_pending_external_seats_clear(void);
+void net_pending_external_seats_add(PlayerNumber plyr_idx);
+int64_t net_pending_external_seats_count(void);
+/** Turns each pending slot that has a player with a dungeon heart into an External seat, then empties the list.
+ * Returns how many became seats; a slot that cannot (no heart, not computer-controlled) is logged and skipped. */
+int64_t net_claim_pending_external_seats(void);
+/** Forgets every External seat mapping. Call when a fresh local game starts. */
+void net_clear_external_seats(void);
+/** Rebuilds the mapping from the players' PlaF_ExternalSeat flag and user_id. Call after loading a
+ *  save: the mapping is process-global and never saved, but the flag and user_id are. */
+void net_restore_external_seats_after_load(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

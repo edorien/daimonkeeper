@@ -226,6 +226,7 @@ void reinit_level_after_load(void)
     player = get_my_player();
     reinit_tagged_blocks_for_player(player->id_number);
     restore_computer_player_after_load();
+    net_restore_external_seats_after_load();
     sound_reinit_after_load();
     game_callbacks->update_panel_colors();
     reset_postal_instance_cache();
@@ -660,6 +661,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
     if (local)
     {
         kfx_sim_state.game_kind = GKind_LocalGame;
+        net_clear_external_seats();
         init_players_local_game();
         if (AssignCpuKeepers || campaign.assignCpuKeepers) {
             ShouldAssignCpuKeepers = 1;
@@ -696,6 +698,11 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
     post_init_level();
     post_init_players();
     post_init_packets();
+    if (kfx_sim_state.game_kind == GKind_LocalGame) {
+        // Slots the Skirmish page marked External (docs/refactor/AI/LLM/01 M5): after the script has run, so the
+        // keeper already exists, and consumed here so a later game does not inherit them.
+        net_claim_pending_external_seats();
+    }
     set_selected_level_number(0);
 
 #ifdef FUNCTESTING

@@ -89,7 +89,9 @@
 #include "config_keeperfx.h"
 #ifdef FUNCTESTING
 #include "ftests/ftest_packet_capture.h"
+#include "ftests/ftest_packet_inject.h"
 #endif
+#include "external_seat.h"
 #include "frontmenu_ingame_evnt.h"
 #include "scrcapt.h"
 #include "gui_topmsg.h"
@@ -538,9 +540,13 @@ static void gameplay_loop_logic()
     input_eastegg();
     input();
     exchange_packets();
+    extseat_tick();
 #ifdef FUNCTESTING
     if (flag_is_set(start_params.functest_flags, FTF_Enabled))
+    {
+        ftest_packet_inject_tick();
         ftest_packet_capture_tick();
+    }
 #endif
 
     update_gameplay_delta_time();

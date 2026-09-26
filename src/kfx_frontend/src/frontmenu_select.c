@@ -50,6 +50,7 @@
 #include "config_keeperfx.h" // features_enabled, Ft_AdvAmbSound
 #include "skirmish_setup.h"
 #include "level_script_override.h"
+#include "net_game.h"
 #include "post_inc.h"
 
 #include <string.h> // strcmp
@@ -583,6 +584,7 @@ int64_t frontend_freeplay_enter_resolve(void)
     else
     {
         level_script_override_clear();
+        net_pending_external_seats_clear();
     }
     kfx_sim_state.selected_level_number = freeplay_highlighted_level;
     // Mirrors front_landview_multiplayer.c's own frontnetmap_update()

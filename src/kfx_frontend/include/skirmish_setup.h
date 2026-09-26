@@ -50,6 +50,7 @@ struct SkirmishSetup
     SetupAnalysis analysis;
     SetupChoices choices;
     std::vector<int64_t> teams;       // per slot, 0 = no team; equal non-zero = allied
+    std::vector<int64_t> external_slots; // slots played by an outside agent (SkirmishCtl_External); never the human slot
     std::vector<int64_t> hearts;      // per slot: 1 = the map has a Dungeon Heart for it, 0 = none, -1 = unknown
     std::string unavailable_reason; // non-empty: the tab is disabled, with this reason
     bool enabled() const { return loaded && unavailable_reason.empty(); }
@@ -99,7 +100,8 @@ void skirmish_setup_set_max_creatures(int64_t player, int64_t count);          /
 void skirmish_setup_set_generate_speed(int64_t speed);                     // < 0 = level default / unset
 
 // ---- slots & AI ---------------------------------------------------------------
-enum SkirmishControllerChoice { SkirmishCtl_LevelDefault = 0, SkirmishCtl_Model, SkirmishCtl_Roaming, SkirmishCtl_Off };
+enum SkirmishControllerChoice { SkirmishCtl_LevelDefault = 0, SkirmishCtl_Model, SkirmishCtl_Roaming, SkirmishCtl_Off,
+    SkirmishCtl_External /* an outside agent plays this slot through the in-game API (docs/refactor/AI/LLM) */ };
 SkirmishControllerChoice skirmish_setup_controller_choice(int64_t slot, int64_t *model);
 void skirmish_setup_set_controller(int64_t slot, SkirmishControllerChoice choice, int64_t model);
 void skirmish_setup_set_team(int64_t slot, int64_t team);

@@ -712,7 +712,10 @@ void get_dungeon_sell_user_roomspace(struct RoomSpace *roomspace, NetUserId user
         ustate->ignore_next_PCtr_LBtnRelease = false;
         return;
     }
-    if (!player->render_roomspace.drag_mode) // reset drag start slab
+    // Reset the drag start slab. The drag-mode branch below keeps render_roomspace.drag_mode set on every frame, so
+    // unlike the build path it never falls back to false between two drags: a fresh press has to reset the start
+    // itself, or the next drag inherits the previous one's start slab (visible when dragging the other way).
+    if (!player->render_roomspace.drag_mode || ((pckt->control_flags & PCtr_LBtnClick) != 0))
     {
         player->render_roomspace.drag_start_x = slb_x;
         player->render_roomspace.drag_start_y = slb_y;

@@ -26,6 +26,10 @@
 #endif
 
 #include "api.h"
+#include "api_seat_view.h"
+#include "api_seat_diff.h"
+#include "external_seat.h"
+#include "net_game.h"
 #include "front_landview.h"
 #include <json.h>
 #include <json-dom.h>
@@ -45,6 +49,9 @@
 #include "value_util.h"
 
 #define API_SERVER_BUFFER 4096
+
+/** Largest data response (get_player_view and friends), in bytes. */
+#define API_DATA_BUFFER (1024 * 1024)
 
 #define API_SUBSCRIBE_LIST_SIZE 256
 
@@ -448,15 +455,23 @@ static void api_return_data(TbBool success, VALUE value, VALUE *ack_id)
     VALUE *val_data = value_dict_add(json_root, "data");
     *val_data = value;
 
-    // Create JSON response
-    char json_string[1024];
-    struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
+    // Create JSON response. Data responses (a seat's view is several KB) do not fit the small stack
+    // buffers the ack/error replies use, so this one is heap-allocated.
+    char *json_string = (char *)malloc(API_DATA_BUFFER);
+    if (json_string == NULL)
+    {
+        api_err("OUT_OF_MEMORY", ack_id);
+        value_fini(json_root);
+        return;
+    }
+    struct dump_buf_state dump_state = {json_string, API_DATA_BUFFER - 2};
     int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
 
     *dump_state.out = 0;
     if (json_dump_return_value != 0)
     {
-        api_err("FAILED_TO_CREATE_JSON", ack_id);
+        free(json_string);
+        api_err("RESPONSE_TOO_LARGE", ack_id);
         value_fini(json_root);
         return;
     }
@@ -467,6 +482,7 @@ static void api_return_data(TbBool success, VALUE value, VALUE *ack_id)
 
     // Send data to client
     api_send(json_string, dump_state.out - json_string);
+    free(json_string);
     value_fini(json_root);
 }
 
@@ -1384,6 +1400,214 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         return;
     }
 
+    // ==================================================================================================================================
+    // External seat commands (docs/refactor/AI/LLM/02-transport-and-protocol.md). Unlike the commands above they work
+    // while the game is paused, and they require an explicit "player": defaulting to the local human would be wrong here.
+    // ==================================================================================================================================
+
+    if (strcasecmp("claim_seat", action) == 0)
+    {
+        // Interim, until the Skirmish Slots & AI page can choose an External controller (milestone M5): make
+        // an existing computer-controlled or unclaimed slot an External seat.
+        VALUE *pv = value_dict_get(value, "player");
+        PlayerNumber claim_id = -1;
+        if (value_type(pv) == VALUE_INT32) claim_id = (PlayerNumber)value_int32(pv);
+        else if (value_type(pv) == VALUE_STRING) claim_id = get_id(player_desc, (char *)value_string(pv));
+        else { api_err("MISSING_PLAYER", ack_id); value_fini(&json_data); return; }
+        // Idempotent: a slot the Skirmish page already made External is answered with its existing user.
+        NetUserId claimed = -1;
+        if ((claim_id >= 0) && (claim_id < PLAYERS_COUNT) && player_exists(get_player(claim_id))
+         && flag_is_set(get_player(claim_id)->allocflags, PlaF_ExternalSeat)
+         && (get_net_user_player_number(get_player(claim_id)->user_id) == claim_id)) {
+            claimed = get_player(claim_id)->user_id;
+        } else {
+            claimed = net_add_external_seat(claim_id);
+        }
+        if (claimed < 0) { api_err("CANNOT_CLAIM_SEAT", ack_id); value_fini(&json_data); return; }
+        extseat_note_activity();
+        VALUE data_real; VALUE *data = &data_real;
+        value_init_dict(data);
+        value_init_int32(value_dict_add(data, "player"), (int32_t)claim_id);
+        value_init_int32(value_dict_add(data, "user"), (int32_t)claimed);
+        api_return_data(true, data_real, ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    if (strcasecmp("release_seat", action) == 0)
+    {
+        // The agent hands its seat back to the built-in AI (06 section 2.2, Option B, explicit form).
+        VALUE *pv = value_dict_get(value, "player");
+        PlayerNumber rel_id = -1;
+        if (value_type(pv) == VALUE_INT32) rel_id = (PlayerNumber)value_int32(pv);
+        else if (value_type(pv) == VALUE_STRING) rel_id = get_id(player_desc, (char *)value_string(pv));
+        else { api_err("MISSING_PLAYER", ack_id); value_fini(&json_data); return; }
+        extseat_note_activity();
+        if (!net_release_external_seat(rel_id)) { api_err("NOT_A_VALID_SEAT", ack_id); value_fini(&json_data); return; }
+        api_ok(ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    if (strcasecmp("set_takeover", action) == 0)
+    {
+        // Opt-in: if this connection is lost, or the pause watchdog fires, the built-in AI takes every External seat.
+        VALUE *ev = value_dict_get(value, "enabled");
+        if (value_type(ev) != VALUE_BOOL && value_type(ev) != VALUE_INT32) { api_err("MISSING_ENABLED", ack_id); value_fini(&json_data); return; }
+        extseat_set_takeover((value_type(ev) == VALUE_BOOL) ? value_bool(ev) : (value_int32(ev) != 0));
+        extseat_note_activity();
+        api_ok(ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    if (strcasecmp("get_seats", action) == 0)
+    {
+        // Every External seat in this game: the ones the Skirmish page created at start, plus any claimed since.
+        VALUE data_real; VALUE *data = &data_real;
+        value_init_dict(data);
+        VALUE *arr = value_dict_add(data, "seats");
+        value_init_array(arr);
+        for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++)
+        {
+            const struct PlayerInfo *pl = get_player(p);
+            if (!player_exists(pl) || !flag_is_set(pl->allocflags, PlaF_ExternalSeat) || (get_net_user_player_number(pl->user_id) != p))
+                continue;
+            VALUE *e = value_array_append(arr);
+            value_init_dict(e);
+            value_init_int32(value_dict_add(e, "player"), (int32_t)p);
+            value_init_int32(value_dict_add(e, "user"), (int32_t)pl->user_id);
+        }
+        api_return_data(true, data_real, ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    if (strcasecmp("get_player_view", action) == 0 || strcasecmp("submit_action", action) == 0
+     || strcasecmp("set_pause", action) == 0 || strcasecmp("advance_turns", action) == 0)
+    {
+        VALUE *pv = value_dict_get(value, "player");
+        PlayerNumber seat_id = -1;
+        if (value_type(pv) == VALUE_INT32) seat_id = (PlayerNumber)value_int32(pv);
+        else if (value_type(pv) == VALUE_STRING) seat_id = get_id(player_desc, (char *)value_string(pv));
+        else { api_err("MISSING_PLAYER", ack_id); value_fini(&json_data); return; }
+        if ((seat_id < 0) || (seat_id >= PLAYERS_COUNT) || !player_exists(get_player(seat_id))) {
+            api_err("INVALID_PLAYER", ack_id); value_fini(&json_data); return;
+        }
+        const struct PlayerInfo *seat_player = get_player(seat_id);
+        const NetUserId seat_user = seat_player->user_id;
+        if (!flag_is_set(seat_player->allocflags, PlaF_ExternalSeat) || (get_net_user_player_number(seat_user) != seat_id)) {
+            api_err("NOT_A_VALID_SEAT", ack_id); value_fini(&json_data); return;
+        }
+        extseat_note_activity();
+
+        VALUE *wd = value_dict_get(value, "watchdog_ms");
+        if (value_type(wd) == VALUE_INT32) extseat_set_watchdog_ms(value_int32(wd));
+
+        if (strcasecmp("get_player_view", action) == 0)
+        {
+            VALUE view_real; VALUE *view = &view_real;
+            api_seat_build_view(view, seat_id);
+            // since=<view_id of the last view received>: only what changed (03 M6); anything else gets the full view.
+            VALUE *sv = value_dict_get(value, "since");
+            const TbBool want_diff = (value_type(sv) == VALUE_INT32) || (value_type(sv) == VALUE_INT64);
+            api_seat_finish_view(view, seat_id, want_diff, want_diff ? value_int64(sv) : 0);
+            api_return_data(true, view_real, ack_id);
+        }
+        else if (strcasecmp("set_pause", action) == 0)
+        {
+            VALUE *pa = value_dict_get(value, "paused");
+            if (value_type(pa) != VALUE_BOOL && value_type(pa) != VALUE_INT32) { api_err("MISSING_PAUSED", ack_id); value_fini(&json_data); return; }
+            const TbBool want = (value_type(pa) == VALUE_BOOL) ? value_bool(pa) : (value_int32(pa) != 0);
+            if (want) extseat_pause(); else extseat_resume();
+            api_ok(ack_id);
+        }
+        else if (strcasecmp("advance_turns", action) == 0)
+        {
+            VALUE *tv = value_dict_get(value, "turns");
+            if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS", ack_id); value_fini(&json_data); return; }
+            const int32_t turns = value_int32(tv);
+            if ((turns < 1) || (turns > 100000)) { api_err("BAD_TURNS", ack_id); value_fini(&json_data); return; }
+            extseat_advance(turns);
+            api_ok(ack_id);
+        }
+        else
+        {
+            struct ExtSeatVerb verb;
+            memset(&verb, 0, sizeof(verb));
+            const char *vname = value_string(value_dict_get(value, "verb"));
+            if (vname == NULL) { api_err("MISSING_VERB", ack_id); value_fini(&json_data); return; }
+            if (strcasecmp(vname, "place_trap") == 0) verb.kind = ESV_PlaceTrap;
+            else if (strcasecmp(vname, "place_door") == 0) verb.kind = ESV_PlaceDoor;
+            else if (strcasecmp(vname, "slap") == 0) verb.kind = ESV_Slap;
+            else if (strcasecmp(vname, "pick_up") == 0) verb.kind = ESV_PickUp;
+            else if (strcasecmp(vname, "drop") == 0) verb.kind = ESV_Drop;
+            else if (strcasecmp(vname, "cast_power") == 0) verb.kind = ESV_CastPower;
+            else if (strcasecmp(vname, "build_room") == 0) verb.kind = ESV_BuildRoom;
+            else if (strcasecmp(vname, "mark_dig") == 0) verb.kind = ESV_MarkDig;
+            else if (strcasecmp(vname, "sell") == 0) verb.kind = ESV_Sell;
+            else if (strcasecmp(vname, "cancel") == 0) verb.kind = ESV_Cancel;
+            else if (strcasecmp(vname, "move_creature") == 0) verb.kind = ESV_MoveCreature;
+            else if (strcasecmp(vname, "release_creature") == 0) verb.kind = ESV_ReleaseCreature;
+            else { api_err("UNKNOWN_VERB", ack_id); value_fini(&json_data); return; }
+
+            const char *kind = value_string(value_dict_get(value, (verb.kind == ESV_CastPower) ? "power" : "kind"));
+            if (kind != NULL) snprintf(verb.name, sizeof(verb.name), "%s", kind);
+            VALUE *pos = value_dict_get(value, "pos");
+            if (value_type(pos) == VALUE_ARRAY && value_array_size(pos) == 2)
+            {
+                verb.has_pos = true;
+                verb.stl_x = value_int32(value_array_get(pos, 0));
+                verb.stl_y = value_int32(value_array_get(pos, 1));
+            }
+            VALUE *rect = value_dict_get(value, "slab_rect");
+            if (value_type(rect) == VALUE_ARRAY && value_array_size(rect) == 4)
+            {
+                verb.has_rect = true;
+                verb.slab_x0 = value_int32(value_array_get(rect, 0));
+                verb.slab_y0 = value_int32(value_array_get(rect, 1));
+                verb.slab_x1 = value_int32(value_array_get(rect, 2));
+                verb.slab_y1 = value_int32(value_array_get(rect, 3));
+            }
+            VALUE *ht = value_dict_get(value, "hold_turns");
+            if (value_type(ht) == VALUE_INT32) verb.hold_turns = value_int32(ht);
+            VALUE *ov = value_dict_get(value, "overcharge_turns");
+            if (value_type(ov) == VALUE_INT32) verb.overcharge_turns = value_int32(ov);
+            VALUE *tid = value_dict_get(value, "thing_id");
+            if (value_type(tid) == VALUE_INT32)
+            {
+                verb.has_thing = true;
+                verb.thing_id = value_int32(tid);
+            }
+            // Real-time play: queue=true lets a verb wait behind the running gesture. view_turn (the `turn` of the
+            // view the decision was based on) with max_age_turns bounds how stale the order may be when it starts.
+            VALUE *qv = value_dict_get(value, "queue");
+            const TbBool queue = ((value_type(qv) == VALUE_BOOL) && value_bool(qv)) || ((value_type(qv) == VALUE_INT32) && (value_int32(qv) != 0));
+            VALUE *vt = value_dict_get(value, "view_turn");
+            VALUE *ma = value_dict_get(value, "max_age_turns");
+            int64_t age = -1;
+            if (value_type(vt) == VALUE_INT32) {
+                age = (int64_t)get_gameturn() - (int64_t)value_int32(vt);
+                if ((value_type(ma) == VALUE_INT32) && (value_int32(ma) >= 0)) {
+                    verb.expires_turn = (int64_t)value_int32(vt) + (int64_t)value_int32(ma);
+                }
+            }
+            struct ExtSeatSubmitInfo info;
+            memset(&info, 0, sizeof(info));
+            const char *err = extseat_submit_verb_ex(seat_user, seat_id, &verb, queue, &info);
+            if (err != NULL) { api_err(err, ack_id); value_fini(&json_data); return; }
+            VALUE data_real; VALUE *data = &data_real;
+            value_init_dict(data);
+            value_init_int32(value_dict_add(data, "steps"), (int32_t)info.steps);
+            value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
+            value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
+            if (age >= 0) value_init_int32(value_dict_add(data, "age_turns"), (int32_t)age);
+            api_return_data(true, data_real, ack_id);
+        }
+        value_fini(&json_data);
+        return;
+    }
+
     // Handle read var command
     if (strcasecmp("read_var", action) == 0)
     {
@@ -1609,6 +1833,9 @@ void api_process_multipart_json(const char *buffer, int64_t buf_size)
  */
 void api_update_server()
 {
+    // Ends an agent's turn-advance and runs the stuck-pause watchdog; cheap, and needed even with no client.
+    extseat_poll();
+
     // Return if the TCP server is not listening
     if (api.serverSocket == KFX_INVALID_SOCKET)
     {
@@ -1674,6 +1901,7 @@ void api_update_server()
         {
             // Graceful disconnect
             api_clear_all_subscriptions();
+            extseat_on_client_lost();
             kfx_closesocket(api.activeSocket);
             api.activeSocket = KFX_INVALID_SOCKET;
             JUSTLOG("API connection closed");
@@ -1689,6 +1917,7 @@ void api_update_server()
 #endif
             {
                 api_clear_all_subscriptions();
+                extseat_on_client_lost();
                 kfx_closesocket(api.activeSocket);
                 api.activeSocket = KFX_INVALID_SOCKET;
                 JUSTLOG("API connection closed");

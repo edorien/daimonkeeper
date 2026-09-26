@@ -21,6 +21,7 @@
 #include "frontgui_sprite_tex.h" // FeGuiPanelSpriteAvailable
 #include "skirmish_setup.h"
 
+#include "config_keeperfx.h"
 #include "config_compp.h"
 #include "config_creature.h"
 #include "config_magic.h"
@@ -767,11 +768,11 @@ void draw_slots()
                     : (seed_ctl->second.kind == SetupController::Off ? "Level default: off"
                     : "Level default: AI " + std::to_string(seed_ctl->second.model));
             }
-            const char *const kinds[] = { default_label.c_str(), "Built-in AI", "Roaming", "Off (does nothing)" };
+            const char *const kinds[] = { default_label.c_str(), "Built-in AI", "Roaming", "Off (does nothing)", "External agent (API)" };
             int64_t kind = (int64_t)ch;
             ImGui::BeginDisabled(ctl_locked);
             ImGui::SetNextItemWidth(230.0);
-            bool changed = FeCombo("##ctl", &kind, kinds, 4);
+            bool changed = FeCombo("##ctl", &kind, kinds, 5);
             int64_t model_idx = 0;
             for (size_t k = 0; k < model_ids.size(); k++)
                 if (model_ids[k] == model)
@@ -790,6 +791,12 @@ void draw_slots()
             {
                 ImGui::SameLine();
                 FeCaption("decided by the level script");
+            }
+            else if (ch == SkirmishCtl_External)
+            {
+                ImGui::SameLine();
+                FeCaption(api_enabled ? "an outside program plays this keeper (in-game API)"
+                                      : "needs API_ENABLED=TRUE in keeperfx.cfg, or this keeper does nothing");
             }
             else if (no_heart)
             {

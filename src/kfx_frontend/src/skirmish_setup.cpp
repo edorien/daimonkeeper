@@ -20,6 +20,7 @@
 #include "config_trapdoor.h"
 #include "level_script_override.h"
 #include "map_content_reader.h"
+#include "net_game.h"
 #include "thing_objects.h" // ObjMdl_SoulCountainer (the Dungeon Heart)
 #include "thing_data.h"    // TCls_Object
 #include "lvl_filesdk1.h"
@@ -254,6 +255,7 @@ void skirmish_setup_reset_choices()
         return;
     s_state.choices = script_setup_default_choices(s_state.analysis);
     s_state.teams.assign((size_t)s_state.players, 0);
+    s_state.external_slots.clear();
 }
 
 static SetupChoices choices_with_allies()
@@ -446,6 +448,8 @@ SkirmishControllerChoice skirmish_setup_controller_choice(int64_t slot, int64_t 
 {
     if (model != nullptr)
         *model = 0;
+    if (std::find(s_state.external_slots.begin(), s_state.external_slots.end(), slot) != s_state.external_slots.end())
+        return SkirmishCtl_External;
     const auto it = s_state.choices.values.controllers.find(slot);
     if (it == s_state.choices.values.controllers.end())
         return SkirmishCtl_LevelDefault;
@@ -467,6 +471,15 @@ void skirmish_setup_set_controller(int64_t slot, SkirmishControllerChoice choice
     if (!s_state.enabled() || slot == s_state.human_slot || s_state.analysis.is_locked(SetupField_Controller, slot))
         return;
     std::map<int64_t, SetupController> &m = s_state.choices.values.controllers;
+    auto &ext = s_state.external_slots;
+    ext.erase(std::remove(ext.begin(), ext.end(), slot), ext.end());
+    if (choice == SkirmishCtl_External)
+    {
+        // The slot starts as the level's own computer keeper and is handed to the agent when the game starts
+        // (net_claim_pending_external_seats), so the script side stays at the level default.
+        ext.push_back(slot);
+        choice = SkirmishCtl_LevelDefault;
+    }
     if (choice == SkirmishCtl_LevelDefault)
     {
         const auto seed = s_state.analysis.seed.controllers.find(slot);
@@ -539,6 +552,11 @@ bool skirmish_setup_rule_summary(const SetupWinLoseRule &rule, std::string &out)
 extern "C" void skirmish_setup_install_for_play(LevelNumber lvnum)
 {
     level_script_override_clear();
+    net_pending_external_seats_clear();
+    if (s_state.enabled() && s_state.lvnum == lvnum)
+        for (const int64_t slot : s_state.external_slots)
+            if (slot != s_state.human_slot)
+                net_pending_external_seats_add((PlayerNumber)slot);
     if (!s_state.enabled() || s_state.lvnum != lvnum || !skirmish_setup_is_changed())
         return;
     const SetupOverride o = skirmish_setup_build();

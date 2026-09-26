@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "skirmish_setup.h"
+#include "net_game.h"
 #include "config_campaigns.h" // SkirmishSetupOption
 #include "level_script_override.h"
 #include "lvl_script.h"
@@ -258,4 +259,33 @@ TEST_CASE_METHOD(Fixture, "a controller for a slot with no Dungeon Heart gets a 
         CHECK(i.message.find("no Dungeon Heart") == std::string::npos);
     skirmish_setup().hearts = { 1, 0 };
     CHECK(skirmish_setup_play_blocked(kLevel) == 0);
+}
+
+TEST_CASE_METHOD(Fixture, "an External slot is remembered, exclusive with the other controllers, and queued for Play", "[kfx_frontend][skirmish_setup][external]") {
+    skirmish_setup_install_for_play(kLevel);
+    CHECK(net_pending_external_seats_count() == 0);
+
+    skirmish_setup_set_controller(1, SkirmishCtl_External, 0);
+    CHECK(skirmish_setup_controller_choice(1, nullptr) == SkirmishCtl_External);
+    CHECK_FALSE(skirmish_setup_is_changed()); // the script side is untouched: no override is needed for it
+    skirmish_setup_install_for_play(kLevel);
+    CHECK(net_pending_external_seats_count() == 1);
+    CHECK_FALSE(level_script_override_is_set());
+
+    skirmish_setup_set_controller(0, SkirmishCtl_External, 0); // the human slot is never an agent
+    CHECK(skirmish_setup_controller_choice(0, nullptr) != SkirmishCtl_External);
+
+    skirmish_setup_install_for_play(kLevel + 1); // another level: nothing carried over
+    CHECK(net_pending_external_seats_count() == 0);
+
+    skirmish_setup_set_controller(1, SkirmishCtl_Model, 13); // choosing something else replaces External
+    CHECK(skirmish_setup_controller_choice(1, nullptr) == SkirmishCtl_Model);
+    skirmish_setup_install_for_play(kLevel);
+    CHECK(net_pending_external_seats_count() == 0);
+
+    skirmish_setup_set_controller(1, SkirmishCtl_External, 0);
+    skirmish_setup_reset_choices(); // Reset returns to the level's defaults
+    CHECK(skirmish_setup_controller_choice(1, nullptr) == SkirmishCtl_LevelDefault);
+    skirmish_setup_install_for_play(kLevel);
+    CHECK(net_pending_external_seats_count() == 0);
 }

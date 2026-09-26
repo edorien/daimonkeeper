@@ -19,6 +19,7 @@
 #include "pre_inc.h"
 #include "net_matchmaking.h"
 #include "net_game.h"
+#include "external_seat.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
@@ -46,6 +47,7 @@
 #include "config_strings.h"
 #include "custom_sprites.h"
 #include "dungeon_data.h"
+#include "thing_list.h"
 #include "engine_camera.h"
 #include "net_exchange_gameplay.h"
 #include "net_input_lag.h"
@@ -173,6 +175,12 @@ TbBool network_is_host(void)
 // Currently, this mapping is 1-1.
 // Potential future work: "archon mode" (multiple users share a player)
 static PlayerNumber net_user_player_number[MAX_NET_USERS];
+// Local (non-networked) games: the same mapping for External seats. The local human is never in
+// here (SOLO_HUMAN_ID always follows my_player_number), and it is kept apart from the table
+// above so a stale networked mapping can never leak into a local game.
+static PlayerNumber net_local_external_player[MAX_NET_USERS] = {-1, -1, -1, -1};
+/** The built-in AI model each seat had before it became a seat, for net_release_external_seat(). */
+static int64_t net_local_external_prev_model[MAX_NET_USERS];
 
 PlayerNumber get_net_user_player_number(NetUserId user)
 {
@@ -180,9 +188,166 @@ PlayerNumber get_net_user_player_number(NetUserId user)
         return -1;
     }
     if (!network_is_active() && !kfx_net_state.packet_load_enable) {
-        return (user == SOLO_HUMAN_ID) ? my_player_number : -1;
+        return (user == SOLO_HUMAN_ID) ? my_player_number : net_local_external_player[user];
     }
     return net_user_player_number[user];
+}
+
+void net_clear_external_seats(void)
+{
+    extseat_reset();
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        net_local_external_player[user] = -1;
+    }
+}
+
+NetUserId net_add_external_seat(PlayerNumber plyr_idx)
+{
+    if (network_is_active() || (plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT) || (plyr_idx == my_player_number)) {
+        return -1;
+    }
+    struct PlayerInfo *player = get_player(plyr_idx);
+    const TbBool exists = player_exists(player);
+    if (exists && !flag_is_set(player->allocflags, PlaF_CompCtrl)) {
+        return -1; // a human, or already an External seat
+    }
+    NetUserId user = -1;
+    for (NetUserId i = SOLO_HUMAN_ID + 1; i < MAX_NET_USERS; i++) {
+        if (net_local_external_player[i] < 0) {
+            user = i;
+            break;
+        }
+    }
+    if (user < 0) {
+        return -1;
+    }
+    if (exists) {
+        // Same fields the built-in AI would have used; without CompCtrl and the assist bit it is
+        // never ticked again.
+        clear_flag(player->allocflags, PlaF_CompCtrl);
+        struct Dungeon *dungeon = get_players_dungeon(player);
+        if (!dungeon_invalid(dungeon)) {
+            dungeon->computer_enabled &= ~0x01;
+        }
+        struct Computer2 *comp = get_computer_player(plyr_idx);
+        net_local_external_prev_model[user] = computer_player_invalid(comp) ? 0 : comp->model;
+        if (!computer_player_invalid(comp)) {
+            memset(comp, 0, sizeof(struct Computer2));
+            computer_set_dungeon(comp, dungeon);
+        }
+    }
+    player->id_number = plyr_idx;
+    player->user_id = user;
+    set_flag(player->allocflags, PlaF_Allocated | PlaF_ExternalSeat);
+    player->is_active = 1;
+    player->view_mode_restore = PVM_IsoWibbleView;
+    init_player(player, 0);
+    init_user_state(user);
+    set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
+    set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);
+    snprintf(player->player_name, sizeof(player->player_name), "External %d", (int)user);
+    net_local_external_player[user] = plyr_idx;
+    SYNCLOG("External seat: user %" PRId64 " -> player %" PRId64, (int64_t)user, (int64_t)plyr_idx);
+    return user;
+}
+
+TbBool net_release_external_seat(PlayerNumber plyr_idx)
+{
+    if ((plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT) || network_is_active()) {
+        return false;
+    }
+    struct PlayerInfo *player = get_player(plyr_idx);
+    if (!player_exists(player) || !flag_is_set(player->allocflags, PlaF_ExternalSeat)) {
+        return false;
+    }
+    const NetUserId user = player->user_id;
+    if ((user <= SOLO_HUMAN_ID) || (user >= MAX_NET_USERS) || (net_local_external_player[user] != plyr_idx)) {
+        return false;
+    }
+    extseat_release_ordered_now(user, "seat_released");
+    extseat_forget_user(user);
+    net_local_external_player[user] = -1;
+    clear_flag(player->allocflags, PlaF_ExternalSeat);
+    player->user_id = SOLO_HUMAN_ID;
+    player->player_name[0] = '\0';
+    if (!script_support_setup_player_as_computer_keeper(plyr_idx, net_local_external_prev_model[user])) {
+        WARNLOG("Released External seat %" PRId64 " could not be handed to the built-in AI", (int64_t)plyr_idx);
+        return true; // still released: it is an idle keeper, not a seat
+    }
+    SYNCLOG("External seat released: player %" PRId64 " is computer-controlled again (model %" PRId64 ")", (int64_t)plyr_idx, (int64_t)net_local_external_prev_model[user]);
+    return true;
+}
+
+int64_t net_release_all_external_seats(void)
+{
+    int64_t released = 0;
+    for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++) {
+        if (net_release_external_seat(p)) {
+            released++;
+        }
+    }
+    return released;
+}
+
+static PlayerNumber net_pending_external_player[PLAYERS_COUNT];
+static int64_t net_pending_external_count = 0;
+
+void net_pending_external_seats_clear(void)
+{
+    net_pending_external_count = 0;
+}
+
+void net_pending_external_seats_add(PlayerNumber plyr_idx)
+{
+    if ((plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT)) {
+        return;
+    }
+    for (int64_t i = 0; i < net_pending_external_count; i++) {
+        if (net_pending_external_player[i] == plyr_idx) {
+            return;
+        }
+    }
+    net_pending_external_player[net_pending_external_count++] = plyr_idx;
+}
+
+int64_t net_pending_external_seats_count(void)
+{
+    return net_pending_external_count;
+}
+
+int64_t net_claim_pending_external_seats(void)
+{
+    int64_t claimed = 0;
+    for (int64_t i = 0; i < net_pending_external_count; i++) {
+        const PlayerNumber plyr_idx = net_pending_external_player[i];
+        if (!player_exists(get_player(plyr_idx)) || thing_is_invalid(find_players_dungeon_heart(plyr_idx))) {
+            WARNLOG("Skirmish External slot %" PRId64 " has no keeper with a dungeon heart; left as it is", (int64_t)plyr_idx);
+            continue;
+        }
+        if (net_add_external_seat(plyr_idx) < 0) {
+            WARNLOG("Skirmish External slot %" PRId64 " could not become a seat", (int64_t)plyr_idx);
+            continue;
+        }
+        claimed++;
+    }
+    net_pending_external_count = 0;
+    return claimed;
+}
+
+void net_restore_external_seats_after_load(void)
+{
+    net_clear_external_seats();
+    for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++) {
+        const struct PlayerInfo *player = get_player(plyr_idx);
+        if (!player_exists(player) || !flag_is_set(player->allocflags, PlaF_ExternalSeat)) {
+            continue;
+        }
+        if ((player->user_id <= SOLO_HUMAN_ID) || (player->user_id >= MAX_NET_USERS)) {
+            WARNLOG("External seat player %" PRId64 " has unusable user id %" PRId64, (int64_t)plyr_idx, (int64_t)player->user_id);
+            continue;
+        }
+        net_local_external_player[player->user_id] = plyr_idx;
+    }
 }
 
 // user exists to the game layer (even if their connection has dropped,

@@ -44,6 +44,10 @@ enum PlayerInitFlags {
     PlaF_Allocated               = 0x01,
     PlaF_unusedparam             = 0x02,
     PlaF_CompCtrl                = 0x40,
+    /** A human-shaped seat whose packets are written by something other than the local input
+     *  device (an external agent). Stored in the save blob, so a load can rebuild the local
+     *  user->player mapping (net_restore_external_seats_after_load). Never set together with PlaF_CompCtrl. */
+    PlaF_ExternalSeat            = 0x80,
 };
 
 enum PlayerField6Flags {
