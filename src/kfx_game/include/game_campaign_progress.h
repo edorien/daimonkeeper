@@ -32,6 +32,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 
+#define TRACKED_COMPLETED_LEVELS_COUNT 200
+
 // One campaign's worth of progress -- struct IntralevelData is reused
 // verbatim for everything it already held (transferred_creatures,
 // bonus tracking via bonuses_found, campaign_flags, next_level,
@@ -53,6 +55,18 @@ struct CampaignProgressEntry {
     LevelNumber bonus_available[BONUS_LEVEL_STORAGE_COUNT];
     uint64_t bonus_available_count;
     struct IntralevelData intralvl;
+    // Skirmish/Free Play completion tracking: which of campaign.multi_levels/
+    // freeplay_levels have been won at least once, for this same entry
+    // (a mappack is just a struct GameCampaign with its own .fname, keyed
+    // identically to a real campaign). Deliberately separate from
+    // unlocked_levels/intralvl -- a mappack entry never gets its intralvl
+    // populated (no transfer creatures/bonuses/next_level tracked for
+    // Skirmish or Free Play), only this array. Bounded well below
+    // MULTI_LEVELS_COUNT/FREE_LEVELS_COUNT (1000/5000, config_campaigns.h)
+    // -- a practical cap on how many distinct levels one pack realistically
+    // has, not an attempt to cover the theoretical maximum.
+    LevelNumber completed_levels[TRACKED_COMPLETED_LEVELS_COUNT];
+    uint64_t completed_levels_count;
 };
 
 // Parses one already-located `[campaign.fname]` block's contents (buf/len/pos
@@ -95,6 +109,12 @@ TbBool campaign_progress_has_unlocked_level(const struct CampaignProgressEntry *
 // itself uses -- every singleplayer level in a campaign fits by construction).
 TbBool campaign_progress_unlock_level(struct CampaignProgressEntry *entry, LevelNumber lvnum);
 
+// Skirmish/Free Play completion tracking -- see struct CampaignProgressEntry's
+// own comment on completed_levels[]. Mirrors campaign_progress_has_unlocked_level()/
+// campaign_progress_unlock_level() exactly, against the separate array.
+TbBool campaign_progress_has_completed_level(const struct CampaignProgressEntry *entry, LevelNumber lvnum);
+TbBool campaign_progress_mark_level_completed(struct CampaignProgressEntry *entry, LevelNumber lvnum);
+
 // Clears every campaign's progress in memory and rewrites an empty
 // save/progress.cfg -- the Reset Progress action's own implementation
 // (Phase E), exposed here since it belongs next to the rest of this
@@ -123,6 +143,15 @@ TbBool any_campaign_progress_exists(void);
 // level" is itself meaningful and still updates next_level (nothing gets
 // added to unlocked_levels for it, since it isn't a real level).
 TbBool campaign_progress_record_level_completed(LevelNumber lvnum);
+
+// Skirmish/Free Play counterpart of campaign_progress_record_level_completed()
+// above: same self-contained "reload progress.cfg, mutate the currently
+// loaded campaign/mappack's entry (campaign.fname), save" pattern, but marks
+// `lvnum` in completed_levels instead of touching unlocked_levels/intralvl.
+// Called from frontend_save_continue_game() (frontend.cpp) for a won
+// Skirmish or Free Play level -- see that call site for the network/
+// packet-mode/GOF_SingleLevel gating that decides when this applies.
+TbBool campaign_progress_record_pack_level_completed(LevelNumber lvnum);
 
 // One-directional fx1contn.sav -> progress.cfg absorption: if the old
 // file names a campaign progress.cfg has no entry for yet (or whose

@@ -124,7 +124,6 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="editor_brush",                         .init_func=ftest_editor_brush_init,                     .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="skirmish_setup_override",              .init_func=ftest_skirmish_setup_init,                   .pre_start_func=ftest_skirmish_setup_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="skirmish_setup_locks",                 .init_func=ftest_skirmish_setup_locks_init,             .pre_start_func=ftest_skirmish_setup_locks_pre_start,   .level_file="dk2maps",  .level=220, .frame_skip=8 },
-         { .test_name="harness_setup_failure",                .init_func=ftest_harness_setup_failure_init,            .pre_start_func=ftest_harness_setup_failure_pre_start,  .level_file="keeporig", .level=1,   .frame_skip=8 },
          { .test_name="config_content_anchor",                 .init_func=ftest_config_content_anchor_init,            .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="config_content_readback",              .init_func=ftest_config_content_readback_init,          .pre_start_func=ftest_config_content_readback_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
          { .test_name="config_content_reset",                 .init_func=ftest_config_content_reset_init,             .pre_start_func=ftest_config_content_reset_pre_start,    .level_file="keeporig", .level=1, .frame_skip=8 },
@@ -199,6 +198,14 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
         // scripts/run_ftest_net_enet_loopback.sh, not via -includelongtests.
         { .test_name="net_enet_loopback_host",              .init_func=ftest_net_enet_loopback_host_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
         { .test_name="net_enet_loopback_join",              .init_func=ftest_net_enet_loopback_join_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
+
+        // Not long-running either, and fails on purpose: its pre_start_func calls FTEST_FAIL_TEST to
+        // prove a failed setup aborts the run instead of hanging. In tests_list it stopped every
+        // wildcard `-ftests -exitonfailedtest` sweep (including CMakeLists.txt's `coverage` target)
+        // with exit 255, so nothing registered after it ever ran. Its pass/fail is judged from
+        // outside, by scripts/run_ftest_harness_setup_failure.sh (expects exit 255 plus specific
+        // log lines), which runs it by name with -includelongtests.
+        { .test_name="harness_setup_failure",               .init_func=ftest_harness_setup_failure_init,            .pre_start_func=ftest_harness_setup_failure_pre_start, .level_file="keeporig", .level=1, .frame_skip=8 },
     }
 };
 

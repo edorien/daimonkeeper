@@ -85,6 +85,43 @@ TEST_CASE_METHOD(ResetCampaignProgress, "campaign_progress_has_unlocked_level/un
     CHECK_FALSE(campaign_progress_unlock_level(nullptr, 1));
 }
 
+// Skirmish/Free Play completion tracking (item 3): completed_levels[] is a
+// separate array from unlocked_levels[], mirroring its accessors exactly.
+TEST_CASE_METHOD(ResetCampaignProgress, "campaign_progress_mark_level_completed adds a level once and is idempotent", "[kfx_game][game_campaign_progress]") {
+    struct CampaignProgressEntry *entry = make_entry("mymappack.cfg");
+    CHECK_FALSE(campaign_progress_has_completed_level(entry, 30));
+    CHECK(campaign_progress_mark_level_completed(entry, 30));
+    CHECK(campaign_progress_has_completed_level(entry, 30));
+    CHECK(entry->completed_levels_count == 1);
+
+    CHECK(campaign_progress_mark_level_completed(entry, 30)); // already completed -- true, no duplicate
+    CHECK(entry->completed_levels_count == 1);
+
+    CHECK(campaign_progress_mark_level_completed(entry, 31));
+    CHECK(entry->completed_levels_count == 2);
+
+    // Independent of unlocked_levels -- a mappack entry never populates that array.
+    CHECK(entry->unlocked_levels_count == 0);
+}
+
+TEST_CASE_METHOD(ResetCampaignProgress, "campaign_progress_has_completed_level/mark_level_completed are false/no-op for a null entry", "[kfx_game][game_campaign_progress]") {
+    CHECK_FALSE(campaign_progress_has_completed_level(nullptr, 1));
+    CHECK_FALSE(campaign_progress_mark_level_completed(nullptr, 1));
+}
+
+TEST_CASE_METHOD(ResetCampaignProgress, "parsing COMPLETED_LEVELS marks every listed level, independent of UNLOCKED_LEVELS", "[kfx_game][game_campaign_progress]") {
+    struct CampaignProgressEntry *entry = make_entry("mymappack.cfg");
+    const char *buf = "COMPLETED_LEVELS = 10 20 30\n[nextblock]\n";
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
+
+    CHECK(entry->completed_levels_count == 3);
+    CHECK(campaign_progress_has_completed_level(entry, 10));
+    CHECK(campaign_progress_has_completed_level(entry, 20));
+    CHECK(campaign_progress_has_completed_level(entry, 30));
+    CHECK_FALSE(campaign_progress_has_completed_level(entry, 15));
+    CHECK(entry->unlocked_levels_count == 0);
+}
+
 TEST_CASE_METHOD(ResetCampaignProgress, "reset_all_campaign_progress clears every in-memory entry", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     campaign_progress_unlock_level(entry, 1);

@@ -12,6 +12,9 @@
 # process's behaviour (bounded run time under -exitonfailedtest) and the log content (proves init/actions
 # genuinely never ran, not just that the process happened to exit).
 #
+# The test lives in long_running_tests_list (src/ftests/ftest_list.c), not tests_list, so a wildcard
+# -ftests sweep never hits its deliberate failure; hence -includelongtests below.
+#
 # Usage:
 #   scripts/run_ftest_harness_setup_failure.sh [keeperfx-dir]
 #
@@ -34,7 +37,7 @@ echo "Running harness_setup_failure (timeout ${TIMEOUT_SECS}s)..."
 EXIT_CODE=0
 (
     cd "$KEEPERFX_DIR"
-    timeout "$TIMEOUT_SECS" ./keeperfx -ftests harness_setup_failure -headless -exitonfailedtest -log "$LOG"
+    timeout "$TIMEOUT_SECS" ./keeperfx -ftests harness_setup_failure -includelongtests -headless -exitonfailedtest -log "$LOG"
 ) || EXIT_CODE=$?
 
 LOG_PATH="$KEEPERFX_DIR/$LOG"

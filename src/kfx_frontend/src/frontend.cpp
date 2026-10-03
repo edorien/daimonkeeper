@@ -1919,6 +1919,21 @@ int64_t frontend_save_continue_game(int64_t allow_lvnum_grow)
     player->victory_state = victory_state;
     memcpy(&dungeon->lvstats, scratch, sizeof(struct LevelStats));
     set_flag_value(ustate->additional_flags, UsrAF_UnlockedLordTorture, flg_mem);
+    // Skirmish/Free Play completion tracking ("scenario" levels in the
+    // player-facing sense): a separate, much lighter record than
+    // singleplayer campaign progress below -- no transfer creatures/bonus
+    // tracking/next_level, just "was this level ever won". Recorded here,
+    // not skipped by the early-return right below, since that return is
+    // specifically about the singleplayer continue-game path.
+    // !network_is_active() is what excludes real networked multiplayer --
+    // Skirmish-vs-AI is is_multiplayer_level()==true but network_is_active()
+    // ==false, so it's still tracked; an actual network game is not.
+    if (!network_is_active()
+     && ((kfx_sim_state.operation_flags & GOF_SingleLevel) == 0)
+     && (!kfx_net_state.packet_load_enable)
+     && (player->victory_state == VicS_WonLevel)
+     && (is_freeplay_level(lvnum) || is_multiplayer_level(lvnum)))
+        campaign_progress_record_pack_level_completed(lvnum);
     // Only save continue if level was won, not a free play level, not a multiplayer level and not in packet mode
     if (network_is_active()
      || ((kfx_sim_state.operation_flags & GOF_SingleLevel) != 0)
@@ -3046,7 +3061,14 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
           frontstory_load();
           break;
       case FeSt_CREDITS:
-          set_pointer_graphic_none();
+          // Item 5: the ImGui credits screen (frontgui_credits_frame()) now
+          // has real controls (pack picker, Return button) -- unlike the
+          // legacy crawl this used to be unconditionally, the cursor must
+          // stay visible so they're usable. -classicmenu's crawl keeps
+          // hiding it, same as the still-pure-text FeSt_STORY_POEM/
+          // FeSt_STORY_BIRTHDAY cases just above.
+          if (!frontend_imgui_screen_active(FeSt_CREDITS))
+              set_pointer_graphic_none();
           credits_offset = lbDisplay.PhysicalScreenHeight;
           credits_end = 0;
           LbTextSetWindow(0, 0, lbDisplay.PhysicalScreenWidth, lbDisplay.PhysicalScreenHeight);
@@ -3337,11 +3359,21 @@ void frontend_input(void)
         input_consumed = frontstory_input();
         break;
     case FeSt_CREDITS:
-        input_consumed = frontscreen_end_input(front_continue_pressed(credits_end));
-        if (input_consumed) {
-            break;
+        // Unlike FeSt_STORY_POEM/_BIRTHDAY just above (still pure "click
+        // anywhere to continue" text, no widgets), the ImGui credits screen
+        // (frontgui_credits_frame()) now has a pack-picker combo and a
+        // Return button -- front_continue_pressed()'s unconditional
+        // left_button_clicked check would otherwise fire on every click
+        // meant for those widgets and immediately exit the screen. Gated
+        // the same way FeSt_HIGH_SCORES/FeSt_NET_START already are.
+        if (!frontend_imgui_screen_active(FeSt_CREDITS))
+        {
+            input_consumed = frontscreen_end_input(front_continue_pressed(credits_end));
+            if (input_consumed) {
+                break;
+            }
+            frontcredits_input();
         }
-        frontcredits_input();
         break;
     case FeSt_HIGH_SCORES:
         // §8: belongs entirely to one system while migrated -- ImGui's

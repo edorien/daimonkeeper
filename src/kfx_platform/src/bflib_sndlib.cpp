@@ -788,6 +788,8 @@ extern "C" TbBool play_music(const char * fname) {
 	// MIX_SetTrackAudio replaces any currently-bound audio; the old audio is no
 	// longer referenced by the track afterwards, so it is safe to destroy.
 	MIX_SetTrackAudio(g_music_track, new_audio);
+	// The volume may have been set before the track existed, or the gain reset by rebinding audio.
+	MIX_SetTrackGain(g_music_track, double(g_music_volume) / FULL_LOUDNESS);
 	MIX_Audio* old_audio = std::exchange(g_music_audio, new_audio);
 	if (old_audio) {
 		MIX_DestroyAudio(old_audio);
@@ -1344,6 +1346,8 @@ extern "C" int64_t InitialiseSDLAudio()
 		MIX_Quit();
 		return 0;
 	}
+	// set_music_volume() may have run before the track existed; apply the stored value now.
+	MIX_SetTrackGain(g_music_track, double(g_music_volume) / FULL_LOUDNESS);
 	return 1;
 }
 

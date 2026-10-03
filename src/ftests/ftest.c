@@ -11,6 +11,9 @@
 #include "room_util.h"
 #include "player_instances.h"
 #include "gui_msgs.h"
+#include "config.h"
+#include "config_campaigns.h"
+#include "bflib_fileio.h"
 
 #include "post_inc.h"
 
@@ -302,12 +305,36 @@ TbBool ftest_setup_test(struct FTestConfig* const test_config)
         FTEST_FAIL_TEST("Failed to load campaign '%s'", start_params.selected_campaign);
         return false;
     }
-    else
+
+    // change_campaign() still returns true when the requested campaign/map pack is missing: it logs
+    // "falling back to default campaign" and loads keeporig instead. Left alone, the test then waits
+    // forever for a level keeporig doesn't have (or silently runs on the wrong one), so fail fast.
+    char requested_file[DISKPATH_SIZE];
+    prepare_campaign_file_name(test_config->level_file, requested_file, sizeof(requested_file));
+    if(strcasecmp(campaign.fname, requested_file) != 0)
     {
-        set_selected_level_number(selected_level);
-        if(test_config->pre_start_func)
+        FTEST_FAIL_TEST("Test '%s' asked for campaign/map pack '%s' but '%s' was loaded instead -- is '%s' missing from the game data?",
+            test_config->test_name, requested_file, campaign.fname, requested_file);
+        return false;
+    }
+
+    set_selected_level_number(selected_level);
+    if(test_config->pre_start_func)
+    {
+        test_config->pre_start_func();
+    }
+
+    // Checked after pre_start_func, which may create the level itself (config_content_scratch_level
+    // writes its own map900002.* files). Same lookup load_level_file() (lvl_filesdk1.c) makes; if it
+    // fails there, the level never reaches FTF_LevelLoaded and the test would hang instead of failing.
+    if(!flag_is_set(start_params.functest_flags, FTF_TestFailed))
+    {
+        const char* slb_fname = prepare_file_fmtpath(get_level_fgroup(selected_level), "map%05" PRIu64 ".slb", (uint64_t)selected_level);
+        if(!LbFileExists(slb_fname))
         {
-            test_config->pre_start_func();
+            FTEST_FAIL_TEST("Test '%s' asked for level %" PRId64 " in '%s', but there is no '%s'",
+                test_config->test_name, (int64_t)selected_level, requested_file, slb_fname);
+            return false;
         }
     }
 

@@ -196,7 +196,8 @@ std::string cfgc_campaign_add_level(const std::string &file_text, int64_t n, Cam
         const ChangeSet entry = cfgc_default_entry(n, (int64_t)lv.all().size() - 1, name);
         cs.changes.insert(cs.changes.end(), entry.changes.begin(), entry.changes.end());
     }
-    cfgc_make_writer(build_engine_schema(), "campaign")->apply(doc, cs, nullptr);
+    const ConfigSchema schema = build_engine_schema();
+    cfgc_make_writer(schema, "campaign")->apply(doc, cs, nullptr);
     const std::string out = doc.serialize();
     if (changed != nullptr)
         *changed = out != file_text;
@@ -236,7 +237,8 @@ std::string cfgc_campaign_remove_level(const std::string &file_text, int64_t n, 
         cs = cfgc_levels_changes(content, lv);
     if (remove_entry && content.find_section("map", n) != nullptr)
         cs.reset_section("map" + std::to_string(n));
-    cfgc_make_writer(build_engine_schema(), "campaign")->apply(doc, cs, nullptr);
+    const ConfigSchema schema = build_engine_schema();
+    cfgc_make_writer(schema, "campaign")->apply(doc, cs, nullptr);
     const std::string out = doc.serialize();
     if (changed != nullptr)
         *changed = out != file_text;

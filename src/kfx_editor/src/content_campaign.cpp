@@ -362,11 +362,12 @@ ChangeSet pending_changes()
 // Recomputes the preview (the file with the pending edits), the content the pages show and the findings.
 void rebuild_view(const ContentCampaign &camp)
 {
+    const ConfigSchema schema = build_engine_schema();
     s_cs.preview = s_cs.doc;
     if (dirty())
-        cfgc_make_writer(build_engine_schema(), "campaign")->apply(s_cs.preview, pending_changes(), nullptr);
+        cfgc_make_writer(schema, "campaign")->apply(s_cs.preview, pending_changes(), nullptr);
     s_cs.view = read_config_content(s_cs.preview, "campaign", false);
-    s_cs.findings = cfgc_check_campaign(s_cs.preview, build_engine_schema(), make_env(camp));
+    s_cs.findings = cfgc_check_campaign(s_cs.preview, schema, make_env(camp));
     rebuild_rows(camp);
 }
 
@@ -587,7 +588,8 @@ bool apply_own_config(const ContentCampaign &camp, std::string *error);
 bool apply_pending(const ContentCampaign &camp, std::string *error)
 {
     ConfigDocument doc = s_cs.doc;
-    const auto writer = cfgc_make_writer(build_engine_schema(), "campaign");
+    const ConfigSchema schema = build_engine_schema();
+    const auto writer = cfgc_make_writer(schema, "campaign");
     const ChangeResult res = writer->apply(doc, pending_changes(), nullptr);
     if (!res.ok)
     {
@@ -636,7 +638,8 @@ bool apply_own_config(const ContentCampaign &camp, std::string *error)
     if (cs.changes.empty())
         return true;
     ConfigDocument doc = s_cs.doc;
-    cfgc_make_writer(build_engine_schema(), "campaign")->apply(doc, cs, nullptr);
+    const ConfigSchema schema = build_engine_schema();
+    cfgc_make_writer(schema, "campaign")->apply(doc, cs, nullptr);
     batch.put(camp.cfg_file, doc.serialize());
     return batch.commit(error);
 }

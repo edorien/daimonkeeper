@@ -91,6 +91,25 @@ void load_or_create_high_score_table(void)
   }
 }
 
+void ensure_high_score_table_loaded(struct GameCampaign *campgn)
+{
+    if ((campgn == NULL) || (campgn->hiscore_table != NULL))
+        return;
+    int64_t arr_size = campgn->hiscore_count * sizeof(struct HighScore);
+    if (arr_size <= 0)
+        return;
+    char *fname = prepare_file_path(FGrp_Save, campgn->hiscore_fname);
+    if (LbFileLengthRnc(fname) != arr_size)
+        return; // no save file for this pack yet -- leave hiscore_table NULL, "no scores yet"
+    struct HighScore *table = (struct HighScore *)calloc(arr_size, 1);
+    if (table == NULL)
+        return;
+    if (LbFileLoadAt(fname, table) == arr_size)
+        campgn->hiscore_table = table;
+    else
+        free(table);
+}
+
 TbBool save_high_score_table(void)
 {
     char* fname = prepare_file_path(FGrp_Save, campaign.hiscore_fname);

@@ -16,6 +16,7 @@
 #include "front_easter.h"
 #include "frontmenu_options.h"
 #include "front_highscore.h"
+#include "highscores.h" // ensure_high_score_table_loaded() -- pack picker on the High Scores screen
 #include "kjm_input.h"
 #include "config_settings.h"
 #include "game_saves.h"
@@ -49,6 +50,16 @@
 #include "post_inc.h"
 
 namespace {
+    // Defined further down, alongside frontgui_highscores_frame() which
+    // shares it -- forward-declared here so frontgui_credits_frame() (next)
+    // can use it too. `filter`, when given, excludes packs that don't pass
+    // it from the picker entirely (used to hide packs with no credits from
+    // the Credits screen's dropdown, rather than showing an empty result).
+    // Returns nullptr (and sets *inout_selected to nullptr) if nothing
+    // passes the filter -- the caller then hides the whole picker.
+    static struct GameCampaign *draw_pack_picker(const char *combo_id, struct GameCampaign **inout_selected,
+        bool (*filter)(const struct GameCampaign *) = nullptr);
+
     // frontend_set_state() (frontend.cpp) has arbitrarily heavy side effects
     // -- turn_on_menu/turn_off_menu, palette fades, campaign/level setup for
     // some target states -- found live (real crash, real stack trace) to
@@ -251,62 +262,77 @@ namespace {
         ImGui::End();
     }
 
-    // Real-time (delta-time based) auto-scroll rather than the legacy
-    // fixed-per-tick units_per_pixel advance (§4.3 -- ImGui text uses its
-    // own metrics, not bflib_sprfnt's scale model) -- an approximation of
-    // "the same rate", not a byte-exact port: framerate-independent pacing
-    // is a real improvement over the tick-based original, but the exact
-    // px/sec constants below are hand-tuned, not derived from it.
+    // Used as draw_pack_picker()'s filter for the Credits screen -- a pack
+    // with no CREDITS block parses to a credits[] whose very first entry is
+    // already CIK_None (config.c's setup_campaign_credits_data()/
+    // parse_credits_block()), so this is enough to detect "nothing to show".
+    static bool pack_has_credits(const struct GameCampaign *pack)
+    {
+        return pack->credits[0].kind != CIK_None;
+    }
+
+    // Item 5: a conventional, user-scrolled text box instead of an
+    // auto-scrolling crawl, reachable from a proper main-menu "Credits"
+    // button + pack picker (frontgui_mainmenu_frame()) rather than only
+    // the Shift+G cheat key / idle timer. credits_offset/credits_end
+    // (front_credits.h) are the legacy (-classicmenu) crawl's own timing
+    // state -- unused here now; frontend.cpp's FeSt_CREDITS input dispatch
+    // (frontcredits_input()) still runs unconditionally alongside this draw
+    // path (pre-existing, not gated per-path like most other migrated
+    // screens), but it only ever mutates that now-unread state, so it's
+    // harmless dead motion rather than a conflict.
     void frontgui_credits_frame()
     {
         ImGuiIO &io = ImGui::GetIO();
-        double speed = 40.0; // px/sec baseline
-        if (ImGui::IsKeyDown(ImGuiKey_DownArrow))
-            speed *= 5.0; // legacy: holding Down jumps a full line per tick
-        else if (ImGui::IsKeyDown(ImGuiKey_UpArrow) && credits_offset <= 0)
-            speed = -200.0; // legacy: Up only scrolls back before the end
-        credits_offset -= (int64_t)(speed * io.DeltaTime);
+        ImVec2 win_size(io.DisplaySize.x * 0.6, io.DisplaySize.y * 0.8);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
+        ImGui::SetNextWindowSize(win_size, ImGuiCond_Always);
+        ImGui::Begin("##FeCredits", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
 
-        begin_text_overlay();
-        ImDrawList *dl = ImGui::GetWindowDrawList();
+        FeHeading(get_string(frontend_button_info[FEBtn_Credits].capstr_idx));
+        FeSeparator();
 
-        double h = (double)credits_offset;
-        bool did_draw = h > 0.0;
-        for (int64_t i = 0; campaign.credits[i].kind != CIK_None; i++)
+        static struct GameCampaign *s_credits_pack = nullptr;
+        // A pack with an empty CREDITS block (config_campaigns.c) is common
+        // -- most mappacks don't define one -- so it's excluded from the
+        // picker entirely rather than being a pickable option that just
+        // shows nothing.
+        struct GameCampaign *pack = draw_pack_picker("##credits_pack", &s_credits_pack, pack_has_credits);
+        if (pack != nullptr)
+            FeSeparator();
+
+        ImGui::BeginChild("##credits_scroll", ImVec2(0, ImGui::GetContentRegionAvail().y - 40.0), true);
+        if (pack == nullptr)
         {
-            if (h >= io.DisplaySize.y)
-                break;
-            struct CreditsItem *credit = &campaign.credits[i];
-            // Loose best-effort mapping of the legacy 4-slot frontend_font[]
-            // roster onto our 4-role type scale -- the two font systems
-            // don't correspond exactly, this just keeps the "mixed faces"
-            // character of the credits screen (§2.2).
-            FeFontRole role = (credit->font < FeFont_COUNT) ? (FeFontRole)credit->font : FeFont_Body;
-            FeStylePushFont(role);
-            double line_h = ImGui::GetFontSize() + 4.0;
-            if (h > -line_h)
+            FeCenterNextItem(ImGui::CalcTextSize("No credits available.").x);
+            ImGui::TextUnformatted("No credits available.");
+        }
+        else
+        {
+            for (int64_t i = 0; pack->credits[i].kind != CIK_None; i++)
             {
+                struct CreditsItem *credit = &pack->credits[i];
+                // Loose best-effort mapping of the legacy 4-slot frontend_font[]
+                // roster onto our 4-role type scale -- the two font systems
+                // don't correspond exactly, this just keeps the "mixed faces"
+                // character of the credits screen (§2.2).
+                FeFontRole role = (credit->font < FeFont_COUNT) ? (FeFontRole)credit->font : FeFont_Body;
+                FeStylePushFont(role);
                 const char *text = (credit->kind == CIK_StringId) ? get_string(credit->num) : credit->str;
                 if (text == nullptr)
                     text = "";
-                ImVec2 sz = ImGui::CalcTextSize(text);
-                dl->AddText(ImVec2((io.DisplaySize.x - sz.x) * 0.5, h), ImGui::GetColorU32(ImGuiCol_Text), text);
-                did_draw = true;
+                FeCenterNextItem(ImGui::CalcTextSize(text).x);
+                ImGui::TextUnformatted(text);
+                FeStylePopFont();
             }
-            FeStylePopFont();
-            h += line_h;
         }
-        ImGui::End();
+        ImGui::EndChild();
 
-        if (!did_draw)
-        {
-            // Mirrors frontcredits_draw()'s own end-of-list handling
-            // (front_credits.c): credits_end feeds frontend.cpp's
-            // front_continue_pressed(credits_end) so the screen still
-            // auto-advances once every line has scrolled past.
-            credits_end = 1;
-            credits_offset = (int64_t)io.DisplaySize.y;
-        }
+        FeSeparator();
+        if (FeButton(get_string(frontend_button_info[FEBtn_MnuReturnToMain].capstr_idx)))
+            request_frontend_state(FeSt_MAIN_MENU);
+
+        ImGui::End();
     }
 
     // Phase G §6.3's generic schema renderer: one FeCheckbox/FeSlider per
@@ -363,11 +389,19 @@ namespace {
 
     static void draw_setting_options_for_category(enum SettingCategory category)
     {
+        // Two settings per row instead of one -- found live that a single
+        // full-width row per checkbox/slider left the Options window mostly
+        // empty horizontal space (SetNextItemWidth already fixes each
+        // widget's own width at 220px regardless of column width, so this
+        // is a pure layout wrap, no change to what's inside a cell).
+        bool table_open = ImGui::BeginTable("##options_grid", 2, ImGuiTableFlags_SizingStretchSame);
         for (int64_t i = 0; i < setting_options_count; i++)
         {
             const struct SettingOption *opt = &setting_options[i];
             if (opt->category != category)
                 continue;
+            if (table_open)
+                ImGui::TableNextColumn();
             const bool restart_blocked_in_game =
                 s_options_in_game && (opt->apply_class == SApply_NeedsRestart || opt->frontend_only);
             bool enabled = ((opt->is_enabled == nullptr) || opt->is_enabled()) && !restart_blocked_in_game;
@@ -428,6 +462,8 @@ namespace {
                 FeHelpTooltip(get_string(opt->help_stridx));
             ImGui::EndDisabled();
         }
+        if (table_open)
+            ImGui::EndTable();
     }
 
     static bool category_has_needs_restart_option(enum SettingCategory category)
@@ -530,6 +566,12 @@ namespace {
         }
     }
 
+    // Defined further down, alongside frontgui_definekeys_frame() which
+    // shares them -- forward-declared here so the Options screen's
+    // "Keyboard" tab (below) can call them too.
+    static void draw_definekeys_tab_contents(double list_h);
+    static void draw_definekeys_pending_modal();
+
     void frontgui_options_frame(bool in_game)
     {
         s_options_in_game = in_game;
@@ -614,15 +656,23 @@ namespace {
             {
                 FeBeginScrollArea("##sound_scroll", ImVec2(0, scroll_h));
                 double v;
+                bool sound_table_open = ImGui::BeginTable("##sound_options_grid", 2, ImGuiTableFlags_SizingStretchSame);
+                if (sound_table_open) ImGui::TableNextColumn();
                 v = (double)sound_volume_ctrl.get_value();
+                ImGui::SetNextItemWidth(220.0);
                 if (FeSlider("Sound volume", &v, 0.0, 255.0, "%.0f"))
                     sound_volume_ctrl.set_value((int64_t)v);
+                if (sound_table_open) ImGui::TableNextColumn();
                 v = (double)music_volume_ctrl.get_value();
+                ImGui::SetNextItemWidth(220.0);
                 if (FeSlider("Music volume", &v, 0.0, 255.0, "%.0f"))
                     music_volume_ctrl.set_value((int64_t)v);
+                if (sound_table_open) ImGui::TableNextColumn();
                 v = (double)mentor_volume_ctrl.get_value();
+                ImGui::SetNextItemWidth(220.0);
                 if (FeSlider("Mentor volume", &v, 0.0, 255.0, "%.0f"))
                     mentor_volume_ctrl.set_value((int64_t)v);
+                if (sound_table_open) ImGui::EndTable();
                 FeSeparator();
                 draw_setting_options_for_category(SCat_Sound);
                 FeEndScrollArea();
@@ -632,30 +682,50 @@ namespace {
             if (FeTab(get_string(frontend_button_info[FEBtn_MouseOptions].capstr_idx)))
             {
                 FeBeginScrollArea("##input_scroll", ImVec2(0, scroll_h));
+                bool input_table_open = ImGui::BeginTable("##input_options_grid", 2, ImGuiTableFlags_SizingStretchSame);
+                if (input_table_open) ImGui::TableNextColumn();
                 double v = (double)mouse_sensitivity_ctrl.get_value();
+                ImGui::SetNextItemWidth(220.0);
                 if (FeSlider(get_string(frontend_button_info[FEBtn_Sensitivity].capstr_idx), &v, 0.0, 7.0, "%.0f"))
                     mouse_sensitivity_ctrl.set_value((int64_t)v);
 
+                if (input_table_open) ImGui::TableNextColumn();
                 bool inverted = mouse_invert_ctrl.get_value() != 0;
                 if (FeCheckbox(get_string(frontend_button_info[FEBtn_MnuInvertMouse].capstr_idx), &inverted))
                     mouse_invert_ctrl.toggle_value();
+                if (input_table_open) ImGui::EndTable();
                 FeSeparator();
                 draw_setting_options_for_category(SCat_Input);
                 FeEndScrollArea();
                 draw_setting_options_restart_note(SCat_Input);
                 FeEndTab();
             }
+            // Item 2: "Define Keys" used to be a button below the tab bar,
+            // next to Return -- moved into its own tab alongside Sound/Mouse
+            // rather than a separate button-triggered full-screen state.
+            // draw_definekeys_tab_contents()/draw_definekeys_pending_modal()
+            // (below, shared with frontgui_definekeys_frame()) are the exact
+            // same content FeSt_FEDEFINE_KEYS draws -- FeSt_FEDEFINE_KEYS
+            // itself is kept fully intact (unreachable from here now, but
+            // still what -classicmenu's Options screen "Define Keys" button
+            // transitions to).
+            if (FeTab("Keyboard"))
+            {
+                // No outer FeBeginScrollArea here (unlike the other tabs) --
+                // the listboxes inside draw_definekeys_tab_contents() already
+                // scroll on their own; wrapping them in another fixed-height
+                // scroll area just left a fixed 320px box with dead space
+                // below it (found live). Give it the same height budget the
+                // other tabs' scroll areas get, minus this tab's own nested
+                // Game/Map Editor tab strip.
+                double list_h = scroll_h - ImGui::GetFrameHeightWithSpacing();
+                draw_definekeys_tab_contents(list_h);
+                FeEndTab();
+            }
         }
         FeEndTabBar(tabbar_open);
 
         FeSeparator();
-        // Define Keys: frontend-only for now -- there is no in-game key-rebind
-        // path (docs/refactor/ingame-gui/02-pause-menu-and-options.md §7).
-        ImGui::BeginDisabled(in_game);
-        if (FeButton(get_string(frontend_button_info[FEBtn_DefineKeys_95].capstr_idx)))
-            request_frontend_state(FeSt_FEDEFINE_KEYS);
-        ImGui::EndDisabled();
-        ImGui::SameLine();
         if (in_game)
         {
             // English literal, same as the "Game"/"Graphics" tab captions
@@ -673,6 +743,11 @@ namespace {
 
         ImGui::End();
         s_options_in_game = false;
+
+        // Key capture (defining_a_key) can now be initiated from the
+        // Keyboard tab above, same as from frontgui_definekeys_frame() --
+        // this draws the same "press a key" modal from either entry point.
+        draw_definekeys_pending_modal();
     }
 
     // §6.1: "In ImGui the remap screen is a for loop over
@@ -681,15 +756,16 @@ namespace {
     // disappear." FeBeginListBox's native scrolling replaces
     // kfx_frontend_state.define_key_scroll_offset entirely -- no manual
     // paging needed.
-    void frontgui_definekeys_frame()
+    // Shared by frontgui_definekeys_frame() (FeSt_FEDEFINE_KEYS, still the
+    // state -classicmenu's Options screen "Define Keys" button transitions
+    // to) and the ImGui Options screen's own "Keyboard" tab
+    // (frontgui_options_frame() -- item 2: moved off a separate
+    // button-triggered full-screen state and into a tab alongside
+    // Sound/Mouse). Just the row lists -- no window chrome, no Return
+    // button, so both call sites can wrap it in whatever's appropriate for
+    // where it's drawn.
+    static void draw_definekeys_tab_contents(double list_h)
     {
-        ImGuiIO &io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
-        ImGui::Begin("##FeDefineKeys", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
-
-        FeHeading(get_string(frontend_button_info[FEBtn_DefineKeys].capstr_idx));
-        FeSeparator();
-
         // docs/refactor/editor/10-definable-keybindings.md -- editor
         // keybindings get their own tab/table (editor_key_settings[]/
         // settings.editor_kbkeys[]) rather than sharing the ~90-entry
@@ -701,7 +777,7 @@ namespace {
         {
             if (FeTab("Game"))
             {
-                bool open = FeBeginListBox("##definekeys_list", ImVec2(520, 320));
+                bool open = FeBeginListBox("##definekeys_list", ImVec2(ImGui::GetContentRegionAvail().x, list_h));
                 if (open)
                 {
                     // docs/refactor/editor/10-definable-keybindings.md §2.2
@@ -751,7 +827,7 @@ namespace {
             }
             if (FeTab("Map Editor"))
             {
-                bool open = FeBeginListBox("##definekeys_editor_list", ImVec2(520, 320));
+                bool open = FeBeginListBox("##definekeys_editor_list", ImVec2(ImGui::GetContentRegionAvail().x, list_h));
                 if (open)
                 {
                     for (int64_t key_id = 0; key_id < EDITOR_GAME_KEYS_COUNT; key_id++)
@@ -777,13 +853,10 @@ namespace {
             }
         }
         FeEndTabBar(tabbar_open);
+    }
 
-        FeSeparator();
-        if (FeButton(get_string(frontend_button_info[FEBtn_MnuRetToOptions].capstr_idx)))
-            request_frontend_state(FeSt_FEOPTIONS);
-
-        ImGui::End();
-
+    static void draw_definekeys_pending_modal()
+    {
         if (defining_a_key)
         {
             FeOpenModal("FeDefineKeyModal");
@@ -792,6 +865,119 @@ namespace {
                 FeBodyText(get_string(GUIStr_PressAKey));
             FeEndModal(modal_open);
         }
+    }
+
+    void frontgui_definekeys_frame()
+    {
+        ImGuiIO &io = ImGui::GetIO();
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5, io.DisplaySize.y * 0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
+        ImGui::Begin("##FeDefineKeys", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+
+        FeHeading(get_string(frontend_button_info[FEBtn_DefineKeys].capstr_idx));
+        FeSeparator();
+
+        draw_definekeys_tab_contents(320.0); // unchanged from before the Options "Keyboard" tab reused this content
+
+        FeSeparator();
+        if (FeButton(get_string(frontend_button_info[FEBtn_MnuRetToOptions].capstr_idx)))
+            request_frontend_state(FeSt_FEOPTIONS);
+
+        ImGui::End();
+
+        draw_definekeys_pending_modal();
+    }
+
+    // Shared by frontgui_highscores_frame() and frontgui_credits_frame() --
+    // item 4/5's "browse another pack's high scores/credits" dropdown. A
+    // mappack's own campaign.cfg can define HIGH_SCORES/CREDITS exactly
+    // like a real campaign's (config_campaigns.c), so all three lists are
+    // valid picks (Credits additionally filters out packs with nothing to
+    // show, see pack_has_credits() above). Returns whichever entry is
+    // selected; *inout_selected is the caller's own static pointer,
+    // defaulted to (or falling back to, if filtered out) the active
+    // campaign.
+    //
+    // Note: the global `campaign` is never pointer-identical to a
+    // campaigns_list/mappacks_list/mp_mappacks_list entry, even for the
+    // same pack -- change_campaign() loads into it as its own separate
+    // struct instance (config_campaigns.c), distinct from whatever
+    // load_campaigns_list() populated those lists with at startup. Matching
+    // by fname (below) is what lets the picker both display the right
+    // selection AND -- by pointing *inout_selected at the literal &campaign
+    // whenever that's the pack in question -- keep reading/writing the
+    // live, in-play struct (current hiscore_table, any pending high-score
+    // name entry) rather than a separate, possibly-stale list copy.
+    static struct GameCampaign *draw_pack_picker(const char *combo_id, struct GameCampaign **inout_selected,
+        bool (*filter)(const struct GameCampaign *))
+    {
+        std::vector<struct GameCampaign *> entries;
+        for (uint64_t i = 0; i < campaigns_list.items_num; i++)
+            if ((filter == nullptr) || filter(&campaigns_list.items[i])) entries.push_back(&campaigns_list.items[i]);
+        for (uint64_t i = 0; i < mappacks_list.items_num; i++)
+            if ((filter == nullptr) || filter(&mappacks_list.items[i])) entries.push_back(&mappacks_list.items[i]);
+        for (uint64_t i = 0; i < mp_mappacks_list.items_num; i++)
+            if ((filter == nullptr) || filter(&mp_mappacks_list.items[i])) entries.push_back(&mp_mappacks_list.items[i]);
+
+        if (entries.empty())
+        {
+            *inout_selected = nullptr;
+            return nullptr; // nothing passes the filter -- caller hides the whole picker
+        }
+
+        int64_t current = -1;
+        if (*inout_selected != nullptr)
+        {
+            for (size_t i = 0; i < entries.size(); i++)
+            {
+                if ((entries[i] == *inout_selected) || (strcasecmp(entries[i]->fname, (*inout_selected)->fname) == 0))
+                {
+                    current = (int64_t)i;
+                    break;
+                }
+            }
+        }
+        if (current < 0)
+        {
+            // Not selected yet, or the previous selection got filtered out
+            // (e.g. switched onto the Credits screen's pack picker, whose
+            // filter the previously-browsed pack fails) -- prefer the
+            // active campaign if it qualifies, else just the first entry.
+            for (size_t i = 0; i < entries.size(); i++)
+            {
+                if (strcasecmp(entries[i]->fname, campaign.fname) == 0)
+                {
+                    current = (int64_t)i;
+                    break;
+                }
+            }
+            if (current < 0)
+                current = 0;
+        }
+        *inout_selected = (strcasecmp(entries[current]->fname, campaign.fname) == 0) ? &campaign : entries[current];
+
+        std::vector<const char *> names(entries.size());
+        for (size_t i = 0; i < entries.size(); i++)
+            names[i] = entries[i]->display_name;
+        ImGui::SetNextItemWidth(320.0);
+        if (FeCombo(combo_id, &current, names.data(), (int64_t)names.size())
+         && (current >= 0) && (current < (int64_t)entries.size()))
+            *inout_selected = (strcasecmp(entries[current]->fname, campaign.fname) == 0) ? &campaign : entries[current];
+        return *inout_selected;
+    }
+
+    // count_high_scores() (front_highscore.c) hardcodes the global
+    // `campaign` -- this is its exact body, scoped to an arbitrary pack, for
+    // the High Scores screen's pack picker (draw_pack_picker() above).
+    static uint64_t count_high_scores_for(const struct GameCampaign *pack)
+    {
+        uint64_t i;
+        for (i = 0; i < pack->hiscore_count; i++)
+        {
+            struct HighScore *hscore = &pack->hiscore_table[i];
+            if ((hscore->name[0] == '\0') && (hscore->score == 0) && (hscore->lvnum == 0))
+                break;
+        }
+        return i;
     }
 
     void frontgui_highscores_frame()
@@ -803,6 +989,18 @@ namespace {
         FeHeading(get_string(GUIStr_MnuHighScoreTable));
         FeSeparator();
 
+        static struct GameCampaign *s_highscore_pack = nullptr;
+        struct GameCampaign *pack = draw_pack_picker("##highscore_pack", &s_highscore_pack);
+        // Inline name entry (below) only ever makes sense against the
+        // actually-active campaign's table -- a browsed pack that isn't
+        // the active one is read-only, and never triggers the lazy loader
+        // below either (its own load_or_create_high_score_table() already
+        // keeps campaign.hiscore_table current).
+        bool is_active_pack = (pack == &campaign);
+        if (!is_active_pack)
+            ensure_high_score_table_loaded(pack);
+        FeSeparator();
+
         // Same defensive check frontend_draw_high_score_table() (the legacy
         // draw_call) already makes: hiscore_count and the hiscore_table
         // allocation can transiently disagree (e.g. between a campaign's
@@ -810,23 +1008,23 @@ namespace {
         // create_empty_high_score_table() actually populating the
         // pointer) -- count_high_scores() itself doesn't guard against
         // this, so this screen has to.
-        uint64_t count = (campaign.hiscore_table != NULL) ? count_high_scores() : 0;
+        uint64_t count = (pack->hiscore_table != NULL) ? count_high_scores_for(pack) : 0;
 
         // SetKeyboardFocusHere() only on the frame editing actually starts
         // -- calling it every frame the row happens to match would keep
         // stealing focus back from the InputText the user is already
         // typing into.
         static int64_t s_last_editing_index = -1;
-        bool start_editing = (high_score_entry_input_active >= 0) && (high_score_entry_input_active != s_last_editing_index);
+        bool start_editing = is_active_pack && (high_score_entry_input_active >= 0) && (high_score_entry_input_active != s_last_editing_index);
         s_last_editing_index = high_score_entry_input_active;
 
         bool open = FeBeginListBox("##highscores_list", ImVec2(520, 320));
         if (open)
         {
-            for (uint64_t i = 0; i < count && i < campaign.hiscore_count; i++)
+            for (uint64_t i = 0; i < count && i < pack->hiscore_count; i++)
             {
-                struct HighScore *hs = &campaign.hiscore_table[i];
-                if ((int64_t)i == high_score_entry_input_active)
+                struct HighScore *hs = &pack->hiscore_table[i];
+                if (is_active_pack && ((int64_t)i == high_score_entry_input_active))
                 {
                     // §7 Phase D: "Text entry ... is Latin-only -- ImGui's
                     // SDL3 backend text input is enough" -- ImGui's own
@@ -1484,6 +1682,11 @@ namespace {
         {
             uint64_t levels_count;
             LevelNumber *levels = frontend_freeplay_active_levels(&levels_count);
+            // Item 3: Skirmish/Free Play ("scenario") completion tracking --
+            // read once per list draw, not per row, same as any other
+            // per-frame lookup here (get_campaign_progress() is a linear
+            // scan over a handful of in-memory entries, not a file read).
+            const struct CampaignProgressEntry *pack_progress = get_campaign_progress(campaign.fname, false);
             for (int64_t i = 0; i < (int64_t)levels_count; i++)
             {
                 LevelNumber lvnum = levels[i];
@@ -1492,7 +1695,17 @@ namespace {
                     continue;
                 const char *name = (lvinfo->name_stridx > 0) ? get_string(lvinfo->name_stridx) : lvinfo->name;
                 bool selected = (lvnum == freeplay_highlighted_level);
-                if (FeListRow(name, selected))
+                bool completed = campaign_progress_has_completed_level(pack_progress, lvnum);
+                if (completed)
+                {
+                    ImVec4 faded = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+                    faded.w *= 0.6f;
+                    ImGui::PushStyleColor(ImGuiCol_Text, faded);
+                }
+                bool clicked = FeListRow(name, selected);
+                if (completed)
+                    ImGui::PopStyleColor();
+                if (clicked)
                     frontend_level_select_by_index(i);
             }
         }
@@ -1793,13 +2006,19 @@ namespace {
         // cursor, SameLine() keeps the rest flush after it.
         const char *opt_label = get_string(frontend_button_info[FEBtn_MnuOptions_97].capstr_idx);
         const char *scores_label = get_string(frontend_button_info[FEBtn_MnuHighScoreTable_104].capstr_idx);
+        // Item 5: a real, discoverable Credits entry point (with the same
+        // pack picker as High Scores, frontgui_credits_frame()) alongside
+        // the existing Shift+G cheat key and the idle timer (which itself
+        // goes to the FMV demo, FeSt_DEMO -- unrelated, untouched).
+        const char *credits_label = get_string(frontend_button_info[FEBtn_Credits].capstr_idx);
         const char *quit_label = get_string(frontend_button_info[FEBtn_MnuQuit].capstr_idx);
         FeStylePushFont(FeFont_Body);
         const ImGuiStyle &style = ImGui::GetStyle();
         double row_w = ImGui::CalcTextSize(opt_label).x + style.FramePadding.x * 2.0
             + ImGui::CalcTextSize(scores_label).x + style.FramePadding.x * 2.0
+            + ImGui::CalcTextSize(credits_label).x + style.FramePadding.x * 2.0
             + ImGui::CalcTextSize(quit_label).x + style.FramePadding.x * 2.0
-            + style.ItemSpacing.x * 2.0;
+            + style.ItemSpacing.x * 3.0;
         FeStylePopFont();
         FeCenterNextItem(row_w);
         if (FeButton(opt_label))
@@ -1811,6 +2030,9 @@ namespace {
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
         }
+        ImGui::SameLine();
+        if (FeButton(credits_label))
+            request_frontend_state(FeSt_CREDITS);
         ImGui::SameLine();
         if (FeButton(quit_label))
             request_frontend_state(FeSt_QUIT_GAME);

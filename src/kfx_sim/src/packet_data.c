@@ -102,6 +102,25 @@ TbBool packet_action_has_camera_position(enum TbPacketAction action)
     {
     case PckA_ApplyRoomspaceDigTag:
     case PckA_UsePwrOnThing:
+    // In-game level editor verbs (docs/refactor/editor/): these carry real
+    // per-action data in actn_par3/actn_par4 (model/owner/thing_idx/z/...),
+    // read back by packets_cheats.c's dispatch switch. The camera-position
+    // piggyback above (packet_set_camera_position(), called every turn from
+    // exchange_packets() via camera_packet_set_state()) predates these
+    // fork-only actions and doesn't know about them, so without this
+    // exclusion it silently clobbers their actn_par3/actn_par4 with encoded
+    // camera coordinates before the packet is processed -- same root-cause
+    // class as the pos_x/pos_y clobbering documented next to
+    // PckA_EditorRedoCreature and friends in packet_data.h, just via the
+    // cam_x/cam_y union instead.
+    case PckA_EditorPlaceObject:
+    case PckA_EditorPlaceTerrainRect:
+    case PckA_EditorRectSetOwner:
+    case PckA_EditorSetThingPosition:
+    case PckA_EditorRedoCreature:
+    case PckA_EditorRedoDigger:
+    case PckA_EditorRedoTrap:
+    case PckA_EditorRedoDoor:
         return false;
     default:
         return true;

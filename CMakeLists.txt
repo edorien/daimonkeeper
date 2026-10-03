@@ -413,20 +413,25 @@ endif()
 # loading and actually run a level (see src/ftests/README.md) -- KFX_FTEST_DATA_DIR
 # points at a real install (not distributed with this repo, hence no
 # default other than a local staging convention); StageFtestData.cmake
-# copies just the subset the registered tests need (~90MB, determined
-# empirically via strace against a real run -- not all of a real
-# install's ~1.5GB is needed) into this build tree, so keeperfx runs from
-# CMAKE_BINARY_DIR like every other COMMAND here already does. Verified
-# against a real install: 6 of 7 registered short tests passed
-# (example_template_test, bug_imp_tp_attack_door__claim/prisoner/deadbody,
-# bug_imp_goldseam_dig, bug_pathing_stair_treasury); the 7th
-# (bug_invisible_units_cant_select) never completed within 3 minutes on
-# its own, well past its other-test siblings' each-under-15-seconds pace --
-# it drives mouse-cursor/thing-under-hand selection
-# (ftest_util_center_cursor_over_dungeon_view(), player->thing_under_hand),
-# which plausibly never resolves against a real display's absence under
-# -headless. Not excluded from the wildcard run below (yet) -- flagged
-# here rather than silently worked around.
+# copies just the subset the registered tests need into this build tree,
+# so keeperfx runs from CMAKE_BINARY_DIR like every other COMMAND here
+# already does. Engine-wide data (data/, fxdata/, creatrs/, every pack's
+# top-level cfg, active mods) is a fixed rule; the campaigns/map packs are
+# derived on every run from ftest_list.c's own .level_file entries (each
+# pack cfg's LEVELS/LAND/CREATURES/CONFIGS_LOCATION copied whole), so the
+# staged tree tracks newly-registered tests instead of rotting -- the old
+# hand-kept keeporig/deepdngn list silently missed multiplayer/original
+# (hanging every AI-seat test: change_campaign() falls back to keeporig,
+# which has no level 50) and levels/classic_cfgs + classic_crtr. ~145MB
+# today (keeporig, deepdngn, multiplayer original + dk2maps), vs. ~1.5GB
+# for a full install. Verified 2026-09-28 against a real install with a
+# plain KFX_FUNCTESTING build: the wildcard run below passes all 70
+# registered short tests (exit 0). harness_setup_failure, which fails on
+# purpose, lives in long_running_tests_list so it no longer stops the
+# sweep (scripts/run_ftest_harness_setup_failure.sh runs it by name), and
+# ftest_setup_test() fails a test at once if change_campaign() fell back
+# to keeporig or the level's .slb is missing, so a data gap fails
+# promptly instead of hanging.
 option(KFX_FTEST_DATA_DIR "Path to a real KeeperFX game-data install (proprietary, not distributed with this repo) to stage into the build tree for the KFX_FUNCTESTING+KFX_TEST_COVERAGE `coverage` target -- see src/ftests/README.md" "")
 if(KFX_FUNCTESTING AND KFX_TEST_COVERAGE)
     add_custom_target(coverage

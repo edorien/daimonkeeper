@@ -29,6 +29,7 @@
 #include "bflib_vidraw.h"
 #include "config_strings.h"
 #include "game_saves.h"
+#include "game_campaign_progress.h" // Skirmish/Free Play completion tracking
 #include "gui_draw.h"
 #include "gui_frontbtns.h"
 #include "gui_soundmsgs.h"
@@ -750,6 +751,13 @@ LevelNumber *frontend_freeplay_active_levels(uint64_t *out_count)
 // selection), not just this menu's first-ever creation.
 void frontend_mappack_list_load(void)
 {
+    // Defensive reload: guarantees Skirmish/Free Play completion tracking
+    // (game_campaign_progress.h's completed_levels[]) reflects prior
+    // sessions regardless of whether progress.cfg's own startup load ran
+    // before or after mappacks_list/mp_mappacks_list were populated --
+    // cheap (small file), same "reload defensively" convention
+    // campaign_progress_record_level_completed() already documents.
+    load_campaign_progress_file();
     frontend_selectlist_set_visible(&mappack_select_list);
     freeplay_highlighted_mappack = NULL;
     freeplay_highlighted_level = 0;

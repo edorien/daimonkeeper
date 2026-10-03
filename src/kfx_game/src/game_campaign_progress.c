@@ -72,6 +72,7 @@ const struct NamedCommand progress_cfg_commands[] = {
   {"BONUS_AVAILABLE",    4},
   {"CAMPAIGN_FLAG",      5},
   {"ENSIGN_OVERRIDE",    6},
+  {"COMPLETED_LEVELS",   7},
   {NULL,                 0},
 };
 
@@ -124,6 +125,35 @@ TbBool campaign_progress_unlock_level(struct CampaignProgressEntry *entry, Level
     }
     entry->unlocked_levels[entry->unlocked_levels_count] = lvnum;
     entry->unlocked_levels_count++;
+    return true;
+}
+
+TbBool campaign_progress_has_completed_level(const struct CampaignProgressEntry *entry, LevelNumber lvnum)
+{
+    if (entry == NULL)
+        return false;
+    for (uint64_t i = 0; i < entry->completed_levels_count; i++)
+    {
+        if (entry->completed_levels[i] == lvnum)
+            return true;
+    }
+    return false;
+}
+
+TbBool campaign_progress_mark_level_completed(struct CampaignProgressEntry *entry, LevelNumber lvnum)
+{
+    if (entry == NULL)
+        return false;
+    if (campaign_progress_has_completed_level(entry, lvnum))
+        return true;
+    if (entry->completed_levels_count >= TRACKED_COMPLETED_LEVELS_COUNT)
+    {
+        ERRORLOG("Cannot record completion of level %" PRId64 " for \"%s\" -- TRACKED_COMPLETED_LEVELS_COUNT (%" PRId64 ") reached.",
+            (int64_t)lvnum, entry->cmpgn_fname, (int64_t)(TRACKED_COMPLETED_LEVELS_COUNT));
+        return false;
+    }
+    entry->completed_levels[entry->completed_levels_count] = lvnum;
+    entry->completed_levels_count++;
     return true;
 }
 
@@ -292,6 +322,14 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             override->ensign_type = (int64_t)ensign_type;
             break;
         }
+        case 7: // COMPLETED_LEVELS -- Skirmish/Free Play, mirrors UNLOCKED_LEVELS
+            while (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+            {
+                LevelNumber lvnum = (LevelNumber)atoi(word_buf);
+                if (lvnum > 0)
+                    campaign_progress_mark_level_completed(entry, lvnum);
+            }
+            break;
         case ccr_comment:
             break;
         case ccr_endOfFile:
@@ -326,17 +364,30 @@ TbBool load_campaign_progress_file(void)
     TbBool result = (len > 0);
     if (result)
     {
-        for (uint64_t i = 0; i < campaigns_list.items_num; i++)
+        // Three lists, identical reconcile steps each -- campaigns_list for
+        // singleplayer campaigns' unlocked_levels/intralvl, mappacks_list/
+        // mp_mappacks_list (Free Play/Skirmish, config_campaigns.h) for
+        // completed_levels (see struct CampaignProgressEntry's own comment).
+        // Harmless if a list isn't populated yet at this call site --
+        // items_num is just 0 -- callers that need pack completion state
+        // fresh regardless of load ordering reload via this same function
+        // (frontend_mappack_list_load(), frontmenu_select.c).
+        struct CampaignsList *lists[3] = { &campaigns_list, &mappacks_list, &mp_mappacks_list };
+        for (int64_t l = 0; l < 3; l++)
         {
-            struct GameCampaign *campgn = &campaigns_list.items[i];
-            int64_t pos = 0;
-            int64_t k = find_conf_block(buf, &pos, len, campgn->fname);
-            if (k < 0)
-                continue; // no progress recorded for this campaign yet
-            struct CampaignProgressEntry *entry = get_campaign_progress(campgn->fname, true);
-            if (entry == NULL)
-                continue;
-            parse_progress_cfg_campaign_block(entry, buf, len, pos);
+            struct CampaignsList *clist = lists[l];
+            for (uint64_t i = 0; i < clist->items_num; i++)
+            {
+                struct GameCampaign *campgn = &clist->items[i];
+                int64_t pos = 0;
+                int64_t k = find_conf_block(buf, &pos, len, campgn->fname);
+                if (k < 0)
+                    continue; // no progress recorded for this campaign/pack yet
+                struct CampaignProgressEntry *entry = get_campaign_progress(campgn->fname, true);
+                if (entry == NULL)
+                    continue;
+                parse_progress_cfg_campaign_block(entry, buf, len, pos);
+            }
         }
     }
     KfxFree(buf);
@@ -376,6 +427,15 @@ TbBool save_campaign_progress_file(void)
             int64_t n = snprintf(line, sizeof(line), "UNLOCKED_LEVELS =");
             for (uint64_t i = 0; (i < entry->unlocked_levels_count) && (n < (int64_t)sizeof(line) - 16); i++)
                 n += snprintf(line + n, sizeof(line) - n, " %" PRId64, (int64_t)entry->unlocked_levels[i]);
+            snprintf(line + n, sizeof(line) - n, "\n");
+            ok = ok && write_line(fh, line);
+        }
+
+        if (entry->completed_levels_count > 0)
+        {
+            int64_t n = snprintf(line, sizeof(line), "COMPLETED_LEVELS =");
+            for (uint64_t i = 0; (i < entry->completed_levels_count) && (n < (int64_t)sizeof(line) - 16); i++)
+                n += snprintf(line + n, sizeof(line) - n, " %" PRId64, (int64_t)entry->completed_levels[i]);
             snprintf(line + n, sizeof(line) - n, "\n");
             ok = ok && write_line(fh, line);
         }
@@ -479,6 +539,19 @@ TbBool campaign_progress_record_level_completed(LevelNumber lvnum)
     }
 
     return save_campaign_progress_file();
+}
+
+TbBool campaign_progress_record_pack_level_completed(LevelNumber lvnum)
+{
+    if (lvnum <= 0)
+        return false;
+    if (!load_campaign_progress_file())
+        return false;
+    struct CampaignProgressEntry *entry = get_campaign_progress(campaign.fname, true);
+    if (entry == NULL)
+        return false;
+    TbBool marked = campaign_progress_mark_level_completed(entry, lvnum);
+    return save_campaign_progress_file() && marked;
 }
 
 /******************************************************************************/

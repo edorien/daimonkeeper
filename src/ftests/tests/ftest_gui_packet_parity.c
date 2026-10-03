@@ -45,16 +45,21 @@ extern "C" {
  *   8. ImGui   "tend to imprison"              -> PckA_ToggleTendency par1=1
  *   9. ImGui   "tend to flee"                  -> PckA_ToggleTendency par1=2
  */
+/* par3/par4 are FTEST_PKT_ANY throughout: none of these actions reserve
+ * those fields for real data, so packet_set_camera_position() (see
+ * packet_action_has_camera_position(), packet_data.c) legitimately
+ * piggybacks the local camera position onto them on whichever turn each
+ * action fires -- not a fixed golden value. */
 static const struct FtestPacketExpectation gui_parity_golden[] = {
-    { .action = PckA_ToggleTendency, .par1 = 1,             .par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_ToggleTendency, .par1 = 2,             .par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_ToggleComputer, .par1 = 0,             .par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_SetPlyrState,   .par1 = PSt_BuildRoom, .par2 = 2, .par3 = 0, .par4 = 0 },
-    { .action = PckA_SetPlyrState,   .par1 = PSt_Sell,      .par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_SetPlyrState,   .par1 = PSt_Sell,      .par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_SetPlyrState,   .par1 = PSt_CreatrQuery,.par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_ToggleTendency, .par1 = 1,             .par2 = 0, .par3 = 0, .par4 = 0 },
-    { .action = PckA_ToggleTendency, .par1 = 2,             .par2 = 0, .par3 = 0, .par4 = 0 },
+    { .action = PckA_ToggleTendency, .par1 = 1,             .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_ToggleTendency, .par1 = 2,             .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_ToggleComputer, .par1 = 0,             .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_SetPlyrState,   .par1 = PSt_BuildRoom, .par2 = 2, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_SetPlyrState,   .par1 = PSt_Sell,      .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_SetPlyrState,   .par1 = PSt_Sell,      .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_SetPlyrState,   .par1 = PSt_CreatrQuery,.par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_ToggleTendency, .par1 = 1,             .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
+    { .action = PckA_ToggleTendency, .par1 = 2,             .par2 = 0, .par3 = FTEST_PKT_ANY, .par4 = FTEST_PKT_ANY },
 };
 #define GUI_PARITY_GOLDEN_N ((int64_t)(sizeof(gui_parity_golden) / sizeof(gui_parity_golden[0])))
 

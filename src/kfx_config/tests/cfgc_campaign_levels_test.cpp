@@ -14,7 +14,8 @@ ConfigContent content_of(const std::string &text)
 std::string apply_changes(const std::string &text, const ChangeSet &cs)
 {
     ConfigDocument doc = ConfigDocument::parse(text);
-    cfgc_make_writer(build_engine_schema(), "campaign")->apply(doc, cs, nullptr);
+    const ConfigSchema schema = build_engine_schema();
+    cfgc_make_writer(schema, "campaign")->apply(doc, cs, nullptr);
     return doc.serialize();
 }
 

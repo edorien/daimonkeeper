@@ -109,6 +109,7 @@ class TrapDoorConfigWriter : public TableConfigWriter
 {
 public:
     explicit TrapDoorConfigWriter(const ConfigSchema &schema);
+    explicit TrapDoorConfigWriter(ConfigSchema &&) = delete; // keeps a pointer into the schema
 };
 
 // rules.cfg: named blocks plus the list blocks [research] and [sacrifices].
@@ -116,10 +117,13 @@ class RulesConfigWriter : public TableConfigWriter
 {
 public:
     explicit RulesConfigWriter(const ConfigSchema &schema);
+    explicit RulesConfigWriter(ConfigSchema &&) = delete; // keeps a pointer into the schema
 };
 
 // The writer for a schema kind: the dedicated child where there is one, else a TableConfigWriter with the
-// standard header. Null if the kind has no schema.
+// standard header. Null if the kind has no schema. The writer points into `schema`, which must outlive it;
+// passing a temporary does not compile.
 std::unique_ptr<ConfigContentWriter> cfgc_make_writer(const ConfigSchema &schema, const std::string &kind);
+std::unique_ptr<ConfigContentWriter> cfgc_make_writer(ConfigSchema &&schema, const std::string &kind) = delete;
 
 #endif
