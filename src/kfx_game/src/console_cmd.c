@@ -684,7 +684,7 @@ TbBool cmd_cls(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_ver(PlayerNumber plyr_idx, char * args)
 {
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, PRODUCT_VERSION);
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, PRODUCT_VERSION_LABEL_ASCII " (ver " PRODUCT_VERSION ")");
     return true;
 }
 

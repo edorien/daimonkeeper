@@ -245,13 +245,13 @@ jobs:
         # already provides the binaries and SDL runtime DLLs. Then archive with CPack.
         make BUILD_NUMBER=$BUILD_NUMBER PACKAGE_SUFFIX=$PACKAGE_SUFFIX pkg-assemble
         cmake --build out --target package
-        echo "ZIP_NAME=$(basename -s .7z pkg/keeperfx*.7z)" >> $GITHUB_ENV
-        # CPack stages the binary (keeperfx.exe) and the SDL3
+        echo "ZIP_NAME=$(basename -s .7z pkg/daimonkeeper*.7z)" >> $GITHUB_ENV
+        # CPack stages the binary (daimonkeeper.exe) and the SDL3
         # runtime DLLs only inside the .7z archive, not into the loose pkg/ tree, so
         # uploading pkg/** would drop them. Install the full package layout into
         # dist/ so the uploaded artifact holds the binaries + DLLs + game data.
         cmake --install out --prefix dist
-        rm pkg/keeperfx*.7z
+        rm pkg/daimonkeeper*.7z
 
     - name: Upload artifact
       id: upload
@@ -265,7 +265,7 @@ jobs:
       with:
         name: ${{ env.ZIP_NAME }}-symbols
         path: |
-          out/keeperfx.exe.debug
+          out/daimonkeeper.exe.debug
 
   # CMake is the canonical, cross-platform build description (single
   # GLOB source list for main.cpp/ftests + src/kfx_*/CMakeLists.txt for
@@ -387,7 +387,7 @@ jobs:
         BUILD_NUMBER=$(git rev-list --count origin/master)
         GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
         PACKAGE_SUFFIX=Prototype_$(git rev-parse --short=7 "$GITHUB_SHA")
-        LINUX_ARTIFACT_NAME=keeperfx-linux_x86_64-${VER_MAJOR}_${VER_MINOR}_${VER_RELEASE}_${BUILD_NUMBER}_${PACKAGE_SUFFIX}-patch
+        LINUX_ARTIFACT_NAME=daimonkeeper-linux_x86_64-${VER_MAJOR}.${VER_MINOR}.${VER_RELEASE}.${BUILD_NUMBER}_${PACKAGE_SUFFIX}
         echo "LINUX_ARTIFACT_NAME=$LINUX_ARTIFACT_NAME" >> $GITHUB_ENV
         # Native Linux build with CMake (pkg-config deps + prebuilt lin64 static libs).
         cmake -S . -B out -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -399,4 +399,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.LINUX_ARTIFACT_NAME }}
-        path: out/keeperfx
+        path: out/daimonkeeper

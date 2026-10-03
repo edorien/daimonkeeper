@@ -81,6 +81,8 @@
 #include "ports/audio_port.h"
 #include "local_state.h"
 #include "agent_memory.h"
+#include "compat_report.h"
+#include "game_compat_review.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -368,6 +370,7 @@ void editor_request_blank_map(MapSlabCoord tiles_x, MapSlabCoord tiles_y, int64_
 static TbBool init_level(void)
 {
     SYNCDBG(6,"Starting");
+    compat_report_clear(); // collects this level's unsupported content until post_init_level()
     struct IntralevelData transfer_mem;
     //memcpy(&transfer_mem,&game.intralvl.transferred_creature,sizeof(struct CreatureStorage));
     memcpy(&transfer_mem,&intralvl,sizeof(struct IntralevelData));
@@ -515,6 +518,7 @@ static void post_init_level(void)
     clear_creature_pool();
     setup_computer_players2();
     load_script(get_loaded_level_number());
+    compat_review_after_level_load(get_loaded_level_number());
     script_lua_on_game_start();
     init_dungeons_research();
     init_dungeons_essential_position();
@@ -562,7 +566,7 @@ TbBool startup_saved_packet_game(void)
           if (kfx_net_state.log_things_end_turn != kfx_net_state.log_things_start_turn)
             SYNCMSG("Logging things, game turns %" PRIu64 " -> %" PRIu64, (uint64_t)(kfx_net_state.log_things_start_turn), (uint64_t)(kfx_net_state.log_things_end_turn));
         }
-        SYNCMSG("Packet file prepared on KeeperFX %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)kfx_net_state.packet_save_head.game_ver_major,(int64_t)kfx_net_state.packet_save_head.game_ver_minor,
+        SYNCMSG("Packet file prepared on " PRODUCT_NAME " %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)kfx_net_state.packet_save_head.game_ver_major,(int64_t)kfx_net_state.packet_save_head.game_ver_minor,
             (int64_t)kfx_net_state.packet_save_head.game_ver_release,(int64_t)kfx_net_state.packet_save_head.game_ver_build);
     }
     if ((kfx_net_state.packet_save_head.game_ver_major != VER_MAJOR) || (kfx_net_state.packet_save_head.game_ver_minor != VER_MINOR)

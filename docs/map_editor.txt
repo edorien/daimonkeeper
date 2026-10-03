@@ -1,4 +1,4 @@
-KeeperFX Map Editor
+dAImon Keeper Map Editor
 ===================
 
 The Map Editor runs inside the game: open it from the main menu with
@@ -9,6 +9,10 @@ Motion (unpause) lets it run.
 Files: a map is saved as the usual map<NNNNN>.* files. The editor writes the
 classic Dungeon Keeper format when the map uses nothing KeeperFX-specific
 (Auto), or the KeeperFX format otherwise; Save As lets you force either.
+"Force KeeperFX" also guarantees the map loads in KeeperFX (the release shown
+as "KFX" in the version, e.g. KeeperFX 1.4.0): it refuses to save a map that
+uses script commands, Lua functions or kinds of object/slab only dAImon Keeper
+has, and lists them. A plain Save keeps the format you last chose in Save As.
 Maps you save appear in Free Play automatically. Editing a shipped level and
 saving over it changes the game's copy: use Save As with a new level number.
 

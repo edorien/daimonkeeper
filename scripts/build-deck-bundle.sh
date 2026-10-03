@@ -2,7 +2,7 @@
 #
 #
 # Usage:   scripts/build-deck-bundle.sh
-# Output:  out/keeperfx-deck/   (deploy it with scripts/deploy-to-deck.sh)
+# Output:  out/daimonkeeper-deck/   (deploy it with scripts/deploy-to-deck.sh)
 #
 # Requires Docker. On Windows, run from Git Bash. See docs/steam-deck.md.
 #
@@ -31,16 +31,17 @@ docker run --rm \
         find /src -maxdepth 1 -type f -exec cp {} /work/ \;
         cp -r /src/build /work/build
         cp -r /src/src   /work/src
+        cp -r /src/res   /work/res
         [ -d /src/tools ] && cp -r /src/tools /work/tools || true
         mkdir -p /work/deps && cp -r /src/deps/centitoml /work/deps/centitoml
         find /src/deps -maxdepth 1 -type f -name "*.h" -exec cp {} /work/deps/ \;
         cmake -S /work -B /work/out -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DKFX_DECK_BUNDLE=ON
         cmake --build /work/out --target keeperfx -j"$(nproc)"
-        rm -rf /out/keeperfx-deck
-        cmake --install /work/out --prefix /out/keeperfx-deck
+        rm -rf /out/daimonkeeper-deck
+        cmake --install /work/out --prefix /out/daimonkeeper-deck
     '
 
-echo ">> bundle ready: $REPO/out/keeperfx-deck"
+echo ">> bundle ready: $REPO/out/daimonkeeper-deck"
 echo "   glibc floor: $(docker run --rm -v "${HOSTREPO}/out:/out" "$IMAGE" \
-        bash -c "objdump -T /out/keeperfx-deck/keeperfx | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1")"
-echo "   deploy it:   scripts/deploy-to-deck.sh --bundle out/keeperfx-deck --assets <your-game-dir>"
+        bash -c "objdump -T /out/daimonkeeper-deck/daimonkeeper | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1")"
+echo "   deploy it:   scripts/deploy-to-deck.sh --bundle out/daimonkeeper-deck --assets <your-game-dir>"

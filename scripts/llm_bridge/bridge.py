@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reference bridge: plays one External seat of a running keeperfx in real time with a decision policy.
+"""Reference bridge: plays one External seat of a running dAImon Keeper game in real time with a decision policy.
 
     python3 scripts/llm_bridge/bridge.py --port 5599 --policy anthropic      # a Claude model plays (needs ANTHROPIC_API_KEY)
     python3 scripts/llm_bridge/bridge.py --port 5599 --policy scripted       # deterministic, no model

@@ -117,7 +117,7 @@ int64_t process_command_line(int64_t argc, char *argv[])
       } else
       if (strcasecmp(parstr, "nocd") == 0) // kept for legacy reasons
       {
-          WARNLOG("The -nocd commandline parameter is no longer functional. Game music from CD is a setting in keeperfx.cfg instead.");
+          WARNLOG("The -nocd commandline parameter is no longer functional. Game music from CD is a setting in " PRODUCT_SLUG ".cfg instead.");
       } else
       if (strcasecmp(parstr, "columnconvert") == 0) //todo remove once it's no longer in the launcher
       {

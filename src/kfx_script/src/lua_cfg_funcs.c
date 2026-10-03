@@ -89,6 +89,7 @@ TbResult luafunc_magic_use_power(FuncIdx func_idx, PlayerNumber plyr_idx, PowerK
         if (lua_pcall(Lvl_script, 7, 1, 0) != LUA_OK) {
             const char *error_msg = lua_tostring(Lvl_script, -1);
             ERRORLOG("Error calling Lua function '%s': %s", func_name, error_msg);
+            lua_report_missing_function(error_msg);
             lua_pop(Lvl_script, 1); // Remove error message from stack
             return Lb_FAIL; // Indicate an error
         }

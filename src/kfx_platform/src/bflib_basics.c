@@ -631,7 +631,7 @@ int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
       if (header == CREATE)
       {
         static const char *const log_level_names[] = {"off", "normal", "debug", "debug max"};
-        fprintf(file, PROGRAM_NAME" ver "VER_STRING" (log level: %s) git:%s\n",
+        fprintf(file, PRODUCT_VERSION_LABEL " -- ver " VER_STRING " (log level: %s) git:%s\n",
             log_level_names[(kfx_log_level >= LogLvl_Off && kfx_log_level <= LogLvl_DebugMax) ? kfx_log_level : LogLvl_Normal], GIT_REVISION);
         actn = "CREATED";
       } else

@@ -54,6 +54,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "editor_kfx_compat.h"
 #include "post_inc.h"
 
 namespace {
@@ -69,6 +70,16 @@ namespace {
     bool s_new_map_lua = false;
 
     int64_t s_save_as_format = 0; // index into kFormatItems below
+    // The format the current map was last saved with through Save As, so a
+    // plain Save keeps it -- a Force KeeperFX map stays checked. Keyed by the
+    // level it was saved as, so opening another map starts from Auto again.
+    enum EditorSaveFormat s_session_save_format = EdSaveFmt_Auto;
+    std::string s_session_save_key;
+
+    std::string session_save_key(const char *dir, LevelNumber lvnum)
+    {
+        return std::string(dir != nullptr ? dir : "") + "#" + std::to_string((int64_t)lvnum);
+    }
     // Destination for Save As -- defaults to the session's own save dir
     // each time the dialog opens, overridden by "Browse..." (native folder
     // picker, tinyfiledialogs) for an arbitrary destination.
@@ -113,13 +124,34 @@ namespace {
     // through kfx_frontend's create_frontend_error_box()/GMnu_FEERROR_BOX,
     // whose draw path is wired to frontend_menu_state and isn't confirmed
     // to run while a local game session (the editor) is active.
-    char s_dialog_error[256] = "";
+    char s_dialog_error[2048] = "";
 
     void show_dialog_error(const char *msg)
     {
         snprintf(s_dialog_error, sizeof(s_dialog_error), "%s", msg);
         s_dialog_error[sizeof(s_dialog_error) - 1] = '\0';
         s_show_dialog_error = true;
+    }
+
+    // Why editor_save_map() just failed: Force KeeperFX's refusal (exactly what
+    // KeeperFX can't load), or a write failure.
+    void show_save_failure(void)
+    {
+        const std::vector<std::string> &problems = editor_last_save_compat_problems();
+        if (problems.empty())
+        {
+            show_dialog_error("Save failed -- check the destination folder is writable.");
+            return;
+        }
+        std::string msg = std::string("Not saved: ") + editor_kfx_compat_reference_label()
+            + " can't load this map (Format: Force KeeperFX). It uses:\n";
+        const size_t shown_max = 12;
+        for (size_t i = 0; i < problems.size() && i < shown_max; i++)
+            msg += "  " + problems[i] + "\n";
+        if (problems.size() > shown_max)
+            msg += "  ...and " + std::to_string(problems.size() - shown_max) + " more\n";
+        msg += "Remove them, or save with Format: Auto.";
+        show_dialog_error(msg.c_str());
     }
 
     // What the unsaved-changes confirm should do on "Discard" -- stashed
@@ -363,12 +395,14 @@ namespace {
             // identity from now on, same as editor_set_current_lvnum_and_dir()'s
             // own comment.
             editor_set_current_lvnum_and_dir(lvnum, dir);
+            s_session_save_format = fmt;
+            s_session_save_key = session_save_key(dir, lvnum);
             editor_set_current_level_name(name);
             editor_clear_dirty();
         }
         else
         {
-            show_dialog_error("Save failed -- check the destination folder is writable.");
+            show_save_failure();
         }
     }
 
@@ -512,6 +546,10 @@ namespace {
             FeTextInput("Level Name", s_save_as_name, sizeof(s_save_as_name));
             static const char *kFormatItems[] = { "Auto", "Force KeeperFX", "Force Classic" };
             FeCombo("Format", &s_save_as_format, kFormatItems, 3);
+            FeHelpTooltip((std::string("Auto: the original Dungeon Keeper format when the map fits in it, otherwise KeeperFX's.\n"
+                "Force KeeperFX: KeeperFX's format, checked to load in ") + editor_kfx_compat_reference_label()
+                + " -- refuses a map using anything only this game has.\n"
+                "Force Classic: the original Dungeon Keeper format; drops what it can't store.").c_str());
             FeSeparator();
 
             const ImVec2 btn_size(140, 0);
@@ -1339,6 +1377,8 @@ void editor_dialogs_open_open_map(void)
 void editor_dialogs_open_save_as(void)
 {
     s_save_as_format = 0;
+    if (s_session_save_key == session_save_key(editor_current_save_dir(), editor_current_lvnum()))
+        s_save_as_format = (int64_t)s_session_save_format; // kFormatItems follows enum EditorSaveFormat's order
     snprintf(s_save_as_dir, sizeof(s_save_as_dir), "%s", editor_current_save_dir());
     s_save_as_dir[sizeof(s_save_as_dir) - 1] = '\0';
     s_save_as_lvnum = (int64_t)editor_current_lvnum();
@@ -1399,10 +1439,15 @@ void editor_dialogs_save_now(void)
     // plain Save must not blank out settings Save As/Level Settings already
     // set (or ones read back from an existing .lof when the session
     // opened).
-    if (editor_save_map(editor_current_lvnum(), editor_current_save_dir(), EdSaveFmt_Auto,
+    const enum EditorSaveFormat fmt =
+        (s_session_save_key == session_save_key(editor_current_save_dir(), editor_current_lvnum()))
+        ? s_session_save_format : EdSaveFmt_Auto;
+    if (editor_save_map(editor_current_lvnum(), editor_current_save_dir(), fmt,
             editor_current_level_name(), editor_current_level_players(), editor_current_level_is_multiplayer(),
             editor_current_level_description()))
         editor_clear_dirty();
+    else
+        show_save_failure();
 }
 
 void editor_dialogs_request_exit(void)

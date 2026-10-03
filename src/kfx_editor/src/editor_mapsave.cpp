@@ -41,6 +41,7 @@
 #include "light_registry.h"
 #include "editor_points.h"
 #include "lvl_filesdk1.h"
+#include "editor_kfx_compat.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -314,6 +315,21 @@ TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat
         return false; // still in 1st Person: leave it first, so the map is saved as placed
     MapContent content;
     snapshot_map(content, lvnum, level_name, level_players, level_is_multiplayer, level_description);
+
+    // Force KeeperFX promises a map that loads in the KeeperFX release this game
+    // is compatible with (editor_kfx_compat.h): refuse, writing nothing, if the
+    // map uses anything only this game has.
+    editor_set_last_save_compat_problems({});
+    if (format == EdSaveFmt_ForceKeeperFX)
+    {
+        const std::vector<std::string> problems = editor_kfx_compat_problems(content);
+        if (!problems.empty())
+        {
+            editor_set_last_save_compat_problems(problems);
+            WARNLOG("Not saved: %" PRId64 " thing(s) in this map don't load in %s", (int64_t)problems.size(), editor_kfx_compat_reference_label());
+            return false;
+        }
+    }
 
     // docs/refactor/editor/phase3/01-slice2-classic-save.md -- Auto picks
     // classic only when nothing would be silently lost by doing so;

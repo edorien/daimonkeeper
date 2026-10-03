@@ -155,7 +155,7 @@ _backtrace(int64_t depth , LPCONTEXT context)
     char mapFileLine[512];
 
     // One map file: logging is a runtime option, not a separate build.
-    FILE *mapFile = fopen("keeperfx.map", "r");
+    FILE *mapFile = fopen(PRODUCT_SLUG ".map", "r");
 
     if (mapFile)
     {
@@ -164,7 +164,7 @@ _backtrace(int64_t depth , LPCONTEXT context)
         {
             if (sscanf(mapFileLine, " %*x __image_base__ = %llx", &keeperFxBaseAddr) == 1)
             {
-                SYNCDBG(0, "KeeperFX base address in map file: %I64x", keeperFxBaseAddr);
+                SYNCDBG(0, PRODUCT_NAME " base address in map file: %I64x", keeperFxBaseAddr);
                 break;
             }
         }
@@ -179,7 +179,7 @@ _backtrace(int64_t depth , LPCONTEXT context)
     }
     else
     {
-        LbWarnLog("No keeperfx.map file found for stacktrace map lookups\n");
+        LbWarnLog("No " PRODUCT_SLUG ".map file found for stacktrace map lookups\n");
     }
 
     STACKFRAME frame;
@@ -226,12 +226,12 @@ _backtrace(int64_t depth , LPCONTEXT context)
             }
         }
 
-        // Check if the name of this module starts with 'keeperfx'
-        // This can be done better but at this moment it should only match our own keeperfx.exe
-        if (strncmp(module_name, "keeperfx", strlen("keeperfx")) == 0)
+        // Check if the name of this module starts with the executable's name
+        // This can be done better but at this moment it should only match our own executable
+        if (strncmp(module_name, PRODUCT_SLUG, strlen(PRODUCT_SLUG)) == 0)
         {
 
-            // Look up using the keeperfx.map file
+            // Look up using the executable's .map file
             if(mapFile)
             {
 
@@ -550,7 +550,7 @@ static void ctrl_handler_posix(int sig_id, siginfo_t *info, void *context)
     const void *fault_addr = (info != NULL) ? info->si_addr : NULL;
 
     {
-        static const char crash_msg[] = "KeeperFX fatal signal received\n";
+        static const char crash_msg[] = PRODUCT_NAME " fatal signal received\n";
         write_stderr_line(crash_msg, sizeof(crash_msg) - 1);
     }
 

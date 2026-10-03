@@ -1,12 +1,21 @@
-How to play custom maps in KeeperFX
-------------------------------
+How to play custom maps in dAImon Keeper
+----------------------------------------
 
-1. Download the map from here:
- http://keeper.lubie.org/html/dk1_maps.php
-2. Extract the map to "levels" folder inside KeeperFX.
-3. Open KeeperFX, click "Free play levels" (this option may be called
+dAImon Keeper plays maps made for KeeperFX (and for the original game).
+
+1. Download the map, e.g. from the KeeperFX workshop (https://keeperfx.net)
+ or http://keeper.lubie.org/html/dk1_maps.php
+2. Extract the map to the "levels" folder of your game folder.
+3. Start the game, click "Free play levels" (this option may be called
  "Deeper Dungeons" in some languages.)
 4. Select your map from the list, and play.
+
+Which KeeperFX a map needs: the workshop's "Min. game version" says which
+KeeperFX release a map was made for. The main menu shows which one this
+version plays -- "KFX 1.4" in "dAImon Keeper 1.0.0 - KFX 1.4". A map whose
+script uses commands this version doesn't know is marked [!] in the list
+(hover over it to see which), and a level that uses anything else this
+version doesn't support says so before it starts.
 
 TROUBLESHOOTING:
 
@@ -17,21 +26,20 @@ A: These are archives. You can extract them in any archive tool;
  Extracting means copying the files stored inside ZIP file
  into separate files, stored outside of the ZIP.
 
-Q: Where is my KeeperFX levels folder?
-A: I don't know. If you have KeeperFX, you must have extracted (or installed) it
- somewhere. You've selected a place to extract by yourself. If you can't remember,
- try looking at "properties" of the shortcut you're using to run KeeperFX.
+Q: Where is my levels folder?
+A: In the folder you unpacked the game into, next to "daimonkeeper.exe" (or
+ "daimonkeeper" on Linux). If you can't remember where that is, look at the
+ "properties" of the shortcut you use to start the game.
 
 Q: There's no "Free play levels" nor "Deeper Dungeons" button in the game.
-A: Make sure you're using KeeperFX, not original DK. Also, check if you have
- the latest version of KeeperFX.
+A: Make sure you're running dAImon Keeper (or KeeperFX), not the original DK.
 
 Q: The map does not appear in the "Free play levels" menu.
-A: Make sure the files form ZIP file are inside "levels" folder of your KeeperFX.
+A: Make sure the files form ZIP file are inside the "levels" folder of your game.
  Make sure they are stored directly there, not in any subfolder. Make sure the file 
  with "LIF" or "LOF" extension is there (ie. "MAP00500.LIF"). If there is a LIF file
  for your map, the level will appear. On any further problems, try debug version and
- check if the LOG file shows a reason why your LIF wasn't loaded.
+ check if the log (daimonkeeper.log) shows a reason why your LIF wasn't loaded.
 
 Q: The map is on the list, but when I click on it, empty level is started
  (there's literally nothing on the level) and I hear that I'm defeated.
@@ -39,7 +47,9 @@ A: This means the LIF file is where it should be, but some of the other map file
  located. Make sure you have all of them, especially SLB, TNG and TXT files. Make sure
  that level number inside LIF file (open it with text editor) is correct (corresponds to
  names of files). Also, make sure the level number is lower than 32767 - only levels up to
- this number are supported. Finally, make sure you're running KeeperFX in latest version.
+ this number are supported. Finally, check the map isn't marked [!] in the list, and
+ look for lines starting with "COMPAT:" in daimonkeeper.log: the map may need a newer
+ KeeperFX than this version plays.
 
 Q: Why the enemy keeper isn't doing anything when I'm playing the map?
 A: You've probably downloaded a multiplayer map. In multiplayer maps, enemy keepers are not
@@ -83,7 +93,7 @@ DATE = 2010-01-01
  and locks the few settings a map's script changes while it runs. If your map's script has logic the tab
  cannot see, add "SKIRMISH_SETUP = LOCKED" to the LOF file to switch the tab off for that map
  ("SKIRMISH_SETUP = ALLOW" states that customising is fine; it currently changes nothing).
- Examples of LOF files can be found in "levels" folder of keeperFX - here's one of them:
+ Examples of LOF files can be found in the game's "levels" folder - here's one of them:
 ---
 ; KeeperFX Level Overview File (LOF)
 KIND = MULTI

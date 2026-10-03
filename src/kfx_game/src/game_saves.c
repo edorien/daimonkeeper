@@ -135,6 +135,21 @@ TbBool is_primitive_save_version(int64_t filesize)
     return false;
 }
 
+/** Writes the SGC_Product chunk that marks the file as this game's (see struct ProductChunk). */
+static TbBool write_product_chunk(TbFileHandle fhandle)
+{
+    struct FileChunkHeader hdr;
+    hdr.id = SGC_Product;
+    hdr.ver = PRODUCT_CHUNK_VER;
+    hdr.len = sizeof(struct ProductChunk);
+    struct ProductChunk prod;
+    memset(&prod, 0, sizeof(prod));
+    prod.magic = PRODUCT_MAGIC;
+    snprintf(prod.slug, sizeof(prod.slug), "%s", PRODUCT_SLUG);
+    return (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
+        && (LbFileWrite(fhandle, &prod, sizeof(struct ProductChunk)) == sizeof(struct ProductChunk));
+}
+
 TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     struct FileChunkHeader hdr;
@@ -147,6 +162,8 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
         if (LbFileWrite(fhandle, centry, sizeof(struct CatalogueEntry)) == sizeof(struct CatalogueEntry))
             chunks_done |= SGF_InfoBlock;
     }
+    if (write_product_chunk(fhandle))
+        chunks_done |= SGF_Product;
     { // Game data chunk
         hdr.id = SGC_GameOrig;
         hdr.ver = KFX_GAME_ORIG_VER;
@@ -252,6 +269,8 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         if (LbFileWrite(fhandle, centry, sizeof(struct CatalogueEntry)) == sizeof(struct CatalogueEntry))
             chunks_done |= SGF_InfoBlock;
     }
+    if (write_product_chunk(fhandle))
+        chunks_done |= SGF_Product;
     // If it's not start of a level, save progress data too
     if (get_gameturn() != 0)
     {
@@ -320,6 +339,7 @@ static TbBool expected_chunk_layout(uint64_t id, uint64_t *ver, uint64_t *len)
     switch (id)
     {
     case SGC_InfoBlock:        *ver = CATALOGUE_ENTRY_VER;     *len = sizeof(struct CatalogueEntry); return true;
+    case SGC_Product:          *ver = PRODUCT_CHUNK_VER;       *len = sizeof(struct ProductChunk); return true;
     case SGC_GameOrig:         *ver = KFX_GAME_ORIG_VER;       *len = sizeof(struct Game); return true;
     case SGC_KfxSimState:      *ver = KFX_SIM_STATE_VER;       *len = sizeof(struct KfxSimState); return true;
     case SGC_KfxNetState:      *ver = KFX_NET_STATE_VER;       *len = sizeof(struct KfxNetState); return true;
@@ -349,6 +369,7 @@ TbBool validate_save_chunks(TbFileHandle fhandle)
     const int64_t file_len = LbFileLengthHandle(fhandle);
     int64_t pos = start;
     TbBool ok = true;
+    TbBool have_product = false;
     save_refusal_reason[0] = '\0';
     while (pos < file_len)
     {
@@ -377,9 +398,33 @@ TbBool validate_save_chunks(TbFileHandle fhandle)
             ok = false;
             break;
         }
+        if (hdr.id == SGC_Product)
+        {
+            struct ProductChunk prod;
+            if (LbFileRead(fhandle, &prod, sizeof(struct ProductChunk)) != sizeof(struct ProductChunk))
+            {
+                snprintf(save_refusal_reason, sizeof(save_refusal_reason), "unreadable product chunk");
+                ok = false;
+                break;
+            }
+            if (prod.magic != PRODUCT_MAGIC)
+            {
+                snprintf(save_refusal_reason, sizeof(save_refusal_reason),
+                    "made by another game (product id %08" PRIx64 "), not " PRODUCT_NAME, (uint64_t)prod.magic);
+                ok = false;
+                break;
+            }
+            have_product = true;
+        }
         if (hdr.id == SGC_PacketData)
             break; // a replay's packet stream follows; it isn't chunked
         pos += hdr.len;
+    }
+    if (ok && !have_product)
+    {
+        snprintf(save_refusal_reason, sizeof(save_refusal_reason),
+            "not made by " PRODUCT_NAME " (a KeeperFX file, or from a build before 1.0.0)");
+        ok = false;
     }
     LbFileSeek(fhandle, start, Lb_FILE_SEEK_BEGINNING);
     return ok;
@@ -453,6 +498,12 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 load_stats_files();
                 ui_set_high_score_entry(centry->player_name);
             }
+            break;
+        case SGC_Product:
+            // Checked (magic, version, size) by validate_save_chunks() above.
+            if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
+                LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
+            chunks_done |= SGF_Product;
             break;
         case SGC_GameOrig:
             if (hdr.len != sizeof(struct Game))

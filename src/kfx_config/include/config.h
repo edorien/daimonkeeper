@@ -293,6 +293,10 @@ char *prepare_file_path_mod(const char *mod_dir, int64_t fgroup, const char *fna
 char *prepare_file_fmtpath_mod(const char *mod_dir, int64_t fgroup, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
 char *prepare_file_path_buf(char *dst, int64_t dst_size, int64_t fgroup, const char *fname);
 char *prepare_file_path(int64_t fgroup, const char *fname);
+struct GameCampaign;
+/** A file in a campaign's or map pack's levels folder, for any campaign -- not
+ *  only the loaded one (FGrp_CmpgLvls). dst is set to "" when it has none. */
+char *prepare_campaign_levels_path(char *dst, int64_t dst_size, const struct GameCampaign *campgn, const char *fname);
 char *prepare_file_fmtpath(int64_t fgroup, const char *fmt_str, ...) KFX_PRINTF_FORMAT(2, 3);
 /* New API - self-documenting game vs. mod distinction */
 char *get_game_file_path(int64_t fgroup, const char *fname);

@@ -14,7 +14,7 @@ import tempfile as _tempfile
 
 # Never let a test touch the real experience store (experience.default_path(), next to the bridge's own files).
 _TEST_DATA_HOME = _tempfile.mkdtemp(prefix="kfx-bridge-test-data-")
-os.environ["KEEPERFX_EXPERIENCE"] = os.path.join(_TEST_DATA_HOME, "experience.sqlite")
+os.environ["DAIMONKEEPER_EXPERIENCE"] = os.path.join(_TEST_DATA_HOME, "experience.sqlite")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -77,7 +77,7 @@ class ProtocolTests(unittest.TestCase):
 
     def test_initialize_advertises_tools_and_prompts(self):
         resp = self.server.handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
-        self.assertEqual(resp["result"]["serverInfo"]["name"], "keeperfx-bridge")
+        self.assertEqual(resp["result"]["serverInfo"]["name"], "daimonkeeper-bridge")
         self.assertIn("tools", resp["result"]["capabilities"])
         self.assertIn("prompts", resp["result"]["capabilities"])
 
@@ -106,8 +106,8 @@ class ProtocolTests(unittest.TestCase):
 
     def test_prompts_list_and_get(self):
         resp = self.server.handle({"jsonrpc": "2.0", "id": 5, "method": "prompts/list"})
-        self.assertEqual([p["name"] for p in resp["result"]["prompts"]], ["play_keeperfx"])
-        resp = self.server.handle({"jsonrpc": "2.0", "id": 6, "method": "prompts/get", "params": {"name": "play_keeperfx"}})
+        self.assertEqual([p["name"] for p in resp["result"]["prompts"]], ["play_daimonkeeper"])
+        resp = self.server.handle({"jsonrpc": "2.0", "id": 6, "method": "prompts/get", "params": {"name": "play_daimonkeeper"}})
         self.assertIn("Dungeon Keeper", resp["result"]["messages"][0]["content"]["text"])
         resp = self.server.handle({"jsonrpc": "2.0", "id": 7, "method": "prompts/get", "params": {"name": "nope"}})
         self.assertEqual(resp["error"]["code"], -32602)
@@ -585,7 +585,7 @@ class SubprocessTransportTest(unittest.TestCase):
 
             send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
             resp = recv()
-            self.assertEqual(resp["result"]["serverInfo"]["name"], "keeperfx-bridge")
+            self.assertEqual(resp["result"]["serverInfo"]["name"], "daimonkeeper-bridge")
 
             send({"jsonrpc": "2.0", "method": "notifications/initialized"})  # no reply
 

@@ -132,6 +132,7 @@ static const struct NamedField rules_game_named_fields[] = {
   {"LIGHTENABLED",              0, field_t(struct RulesConfig, gameplay.light_enabled),           1,        0,                  1,NULL,                           value_default, assign_default},
   {"MAPCREATURELIMIT",          0, field_t(struct RulesConfig, gameplay.creatures_count),         255,        0,  CREATURES_COUNT-2,NULL,                           value_default, assign_MapCreatureLimit_script},
   {"PRESERVECLASSICBUGS",      -1, field_t(struct RulesConfig, gameplay.classic_bugs_flags),ClscBug_None,ClscBug_None, ClscBug_ListEnd,rules_game_classicbugs_commands,value_flagsfield, assign_default},
+  {"WINNERTORTURESLOSER",       0, field_t(struct RulesConfig, gameplay.winner_tortures_loser),         0,        0,                  1,NULL,                           value_default, assign_default},
   {NULL},
 };
 
@@ -153,6 +154,7 @@ static const struct NamedField rules_creatures_named_fields[] = {
   {"STUNEVILENEMYCHANCE",        0, field_t(struct RulesConfig, creature.stun_enemy_chance_evil)    , 100,        0,       100,NULL,value_default, assign_default},
   {"STUNGOODENEMYCHANCE",        0, field_t(struct RulesConfig, creature.stun_enemy_chance_good)    , 100,        0,       100,NULL,value_default, assign_default},
   {"STUNWITHOUTPRISONCHANCE",    0, field_t(struct RulesConfig, creature.stun_without_prison_chance),   0,        0,       100,NULL,value_default, assign_default},
+  {"INSTANCEDELAYONDROP",        0, field_t(struct RulesConfig, creature.instance_delay_on_drop),       0,        0, INT32_MAX,NULL,value_default, assign_default},
   {NULL},
 };
 
@@ -202,6 +204,8 @@ static const struct NamedField rules_rooms_named_fields[] = {
   {"WORKEFFICIENCY",                      0, field_t(struct RulesConfig, rooms.work_efficiency), 256,        0,            USHRT_MAX,NULL,value_default, assign_default},
   {"RESEARCHEFFICIENCY",                  0, field_t(struct RulesConfig, rooms.research_efficiency), 256,        0,            USHRT_MAX,NULL,value_default, assign_default},
   {"SCAVENGEEFFICIENCY",                  0, field_t(struct RulesConfig, rooms.scavenge_efficiency), 256,        0,            USHRT_MAX,NULL,value_default, assign_default},
+  // Obsolete (nothing ever read it; upstream dropped its row in #2948) but still shipped in rules.cfg: accept and discard.
+  {"BARRACKTIME",                         0, NULL, dt_int,                                              0,        0,           INT32_MAX,NULL,value_default, assign_null},
   {NULL},
 };
 

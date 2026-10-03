@@ -53,21 +53,22 @@ else()
 endif()
 
 # Window icon (non-Windows only -- the Windows executable gets its icon
-# from a .rc resource instead). Embeds res/keeperfx_icon256-24bpp.png as a
+# from a .rc resource instead). Embeds res/daimonkeeper_icon256.png as a
 # C byte array at configure time; platform/WindowSystemSDL.cpp loads it via
 # SDL3_image and applies it with SDL_SetWindowIcon. Generated here (not at
 # the top-level executable target) so kfx_platform -- the lowest-ranked
 # library -- doesn't reach up to app_entry-level generated code for a
 # symbol it's the only consumer of (check_layering_symbols.py --strict).
 if(NOT WIN32)
-    set(KFX_ICON_PNG "${CMAKE_SOURCE_DIR}/res/keeperfx_icon256-24bpp.png")
+    set(KFX_ICON_PNG "${CMAKE_SOURCE_DIR}/res/daimonkeeper_icon256.png")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${KFX_ICON_PNG}")
     file(READ "${KFX_ICON_PNG}" _icon_hex HEX)
     string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _icon_bytes "${_icon_hex}")
     set(KFX_ICON_C "${CMAKE_CURRENT_BINARY_DIR}/generated/window_icon.c")
     file(WRITE "${KFX_ICON_C}.in"
+        "#include <stdint.h>\n"
         "const unsigned char kfx_window_icon_png[] = {${_icon_bytes}};\n"
-        "const unsigned int kfx_window_icon_png_size = sizeof(kfx_window_icon_png);\n")
+        "const uint64_t kfx_window_icon_png_size = sizeof(kfx_window_icon_png);\n")
     configure_file("${KFX_ICON_C}.in" "${KFX_ICON_C}" COPYONLY)
     list(APPEND KFX_PLATFORM_SOURCES_C "${KFX_ICON_C}")
 endif()

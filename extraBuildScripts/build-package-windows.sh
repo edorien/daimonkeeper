@@ -89,7 +89,7 @@ cmake --install "$BUILD_DIR" --prefix "$DIST_DIR" --component mcp >/dev/null
 
 echo
 echo "===================================================================="
-echo "Archive:    $(ls -1 pkg/keeperfx*.7z 2>/dev/null | tail -n1)"
+echo "Archive:    $(ls -1 pkg/daimonkeeper*.7z 2>/dev/null | tail -n1)"
 echo "Unpacked:   $DIST_DIR/"
 echo "MCP bridge: $DIST_DIR/mcp/ (see $DIST_DIR/mcp/README.md)"
 echo "===================================================================="

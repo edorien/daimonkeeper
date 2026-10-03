@@ -116,7 +116,7 @@ class Memory:
         try:
             data = api.data(action="get_agent_memory", player=seat)
         except ApiError as e:
-            print("keeperfx does not keep agent memory (%s); the plan will not survive a save or a restart" % e.code,
+            print("the game does not keep agent memory (%s); the plan will not survive a save or a restart" % e.code,
                   file=sys.stderr)
             return None
         return cls.from_blob((data or {}).get("data"))

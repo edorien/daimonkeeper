@@ -30,6 +30,8 @@
 #include "packets.h"
 
 #include "local_state.h"
+#include "compat_report.h" // content this build doesn't support: the unsupported-content warning
+#include "version.h" // KFX_COMPAT_STRING, DEFAULT_LOG_FILENAME
 #include "post_inc.h"
 
 #include <cstdio> // snprintf
@@ -212,6 +214,95 @@ void quitmenu_frame(void)
 {
     confirm_modal_frame(GMnu_QUIT, "IngameQuit", get_string(GUIStr_MnuQuit),
                         get_string(GUIStr_ConfirmYouSure), yes_quit_to_main_menu);
+}
+
+// ---------------------------------------------------------------------------
+// Unsupported-content warning (docs/rebadge, local notes): a level that loaded
+// with script commands / config keys / names this build doesn't know
+// (kfx_config's compat_report.h; kfx_game's game_compat_review.c decides when
+// the player should see it) stops here, paused, before play: back to the menu,
+// or play anyway. Not an active_menus entry -- there's no legacy menu behind
+// it -- so ingame_imgui_modal_active() asks compat_warning_showing() directly.
+// Captions are English-only for now, like the main menu's "Tools".
+// ---------------------------------------------------------------------------
+bool s_compat_started = false;    // pause decision made for the current warning
+bool s_compat_we_paused = false;  // ...and it was us who paused, so "Play anyway" resumes
+
+bool compat_warning_showing(void)
+{
+    return compat_report_review_pending() && game_is_running();
+}
+
+void apply_compat_play_anyway(void)
+{
+    compat_report_set_review_pending(0);
+    if (s_compat_we_paused)
+        set_players_packet_action(get_my_player(), PckA_UpdatePause, 0, 0, 0, 0);
+    s_compat_started = false;
+    s_compat_we_paused = false;
+}
+
+void apply_compat_back(void)
+{
+    compat_report_set_review_pending(0);
+    s_compat_started = false;
+    s_compat_we_paused = false;
+    yes_quit_to_main_menu();
+}
+
+void compat_warning_frame(void)
+{
+    if (!s_compat_started)
+    {
+        // Pause the way the save/load menus do -- once, and only if the game isn't paused already.
+        s_compat_started = true;
+        s_compat_we_paused = (kfx_sim_state.operation_flags & GOF_Paused) == 0;
+        if (s_compat_we_paused)
+            set_players_packet_action(get_my_player(), PckA_UpdatePause, 1, 1, 0, 0);
+    }
+    static const char *const modal_id = "Unsupported content###IngameCompatWarning";
+    FeOpenModal(modal_id);
+    const bool open = FeBeginModal(modal_id);
+    if (open)
+    {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 32.0);
+        FeBodyText("This map uses features this version doesn't support:");
+        const int64_t shown_max = 10;
+        const int64_t count = compat_report_count();
+        for (int64_t i = 0; (i < count) && (i < shown_max); i++)
+        {
+            const struct CompatIssue *issue = compat_report_get(i);
+            char text[COMPAT_WHAT_LEN + COMPAT_WHERE_LEN + 96];
+            compat_issue_describe(issue, text, sizeof(text));
+            char line[sizeof(text) + 4];
+            snprintf(line, sizeof(line), "  %s", text);
+            FeCaption(line);
+        }
+        const int64_t hidden = count - ((count < shown_max) ? count : shown_max) + compat_report_overflow();
+        if (hidden > 0)
+        {
+            char more[128];
+            snprintf(more, sizeof(more), "  ...and %" PRId64 " more (see the COMPAT: lines in " DEFAULT_LOG_FILENAME ")", hidden);
+            FeCaption(more);
+        }
+        FeSeparator();
+        FeBodyText("It may have been made for a newer KeeperFX (this version supports "
+                   KFX_COMPAT_STRING " content), or have a mistake. It may not play correctly.");
+        ImGui::PopTextWrapPos();
+        FeSeparator();
+        if (FeButton("Back to menu"))
+        {
+            request_deferred(apply_compat_back);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (FeButton("Play anyway"))
+        {
+            request_deferred(apply_compat_play_anyway);
+            ImGui::CloseCurrentPopup();
+        }
+    }
+    FeEndModal(open);
 }
 
 // ---------------------------------------------------------------------------
@@ -586,6 +677,9 @@ extern "C" TbBool ingame_imgui_modal_active(void)
 {
     if (!game_is_running())
         return 0;
+    // The unsupported-content warning owns the screen while it's up (not a menu-stack entry).
+    if (compat_warning_showing())
+        return 1;
     // The topmost turned-on monopoly menu owns input. Walk the menu stack
     // from the top down: if the first monopoly menu found is a migrated
     // one, ImGui owns; if a still-legacy child menu (e.g. GMnu_ERROR_BOX
@@ -715,6 +809,12 @@ extern "C" void ingame_imgui_frame(void)
             default:             break;
         }
     }
+
+    // Unsupported-content warning, over everything else (independent of GUI_POSITION).
+    if (compat_warning_showing())
+        compat_warning_frame();
+    else
+        s_compat_started = false;
 
     // Phase 3: context tooltip -- last, so it sits on top of the menus.
     // (Self-gated on classic_hud -- frontgui_ingame_text.cpp's

@@ -402,7 +402,12 @@ int64_t setup_game(void)
   // View second splash screen
   if (flag_is_set(start_params.startup_flags, SFlg_FX))
   {
-      result = init_actv_bitmap_screen(RBmp_SplashFx);
+      if (is_ar_wider_than_original(LbGraphicsScreenWidth(), LbGraphicsScreenHeight()))
+      {
+        result = init_actv_bitmap_screen(RBmp_SplashFxWide);
+      } else {
+        result = init_actv_bitmap_screen(RBmp_SplashFx);
+      }
       if ( result == 1 )
       {
           result = show_actv_bitmap_screen(4000);
@@ -501,7 +506,7 @@ static const char* determine_log_filename(int64_t argument_count, char *argument
         if (argument_values[argument_index] && (argument_values[argument_index][0] == '-' || argument_values[argument_index][0] == '/')) {
             char* argument_name = argument_values[argument_index] + 1;
             if (strcasecmp(argument_name, "log") == 0 && argument_index + 1 < argument_count) {
-                remove("keeperfx.log");
+                remove(DEFAULT_LOG_FILENAME);
                 return argument_values[argument_index + 1];
             }
         }

@@ -63,6 +63,7 @@
 #include "ports/ui_port.h"
 #include "ports/render_port.h"
 #include "ports/sim_port.h"
+#include "compat_report.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -2774,7 +2775,9 @@ TbBool parse_creaturemodel_sounds_blocks(int64_t crtr_model,char *buf,int64_t le
     return true;
 }
 
-static TbBool load_creaturemodel_config_file(int64_t crtr_model, const char *fname, int64_t flags)
+static TbBool load_creaturemodel_config_file(int64_t crtr_model, const char *fname, int64_t flags);
+
+static TbBool load_creaturemodel_config_file_impl(int64_t crtr_model, const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s model %" PRId64 " from file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",(int64_t)(crtr_model),fname);
     int64_t len = LbFileLengthRnc(fname);
@@ -2871,6 +2874,16 @@ static TbBool load_creaturemodel_config_for_mod_list(ThingModel crmodel, int64_t
  * @comment
  *     The loading items of load_creaturemodel_config and load_creaturemodel_config_for_mod need to be consistent.
  */
+// Names the file for the compat report while it's parsed (the legacy command
+// parser doesn't know which file it's in).
+static TbBool load_creaturemodel_config_file(int64_t crtr_model, const char *fname, int64_t flags)
+{
+    compat_report_set_source(fname);
+    const TbBool result = load_creaturemodel_config_file_impl(crtr_model, fname, flags);
+    compat_report_set_source(NULL);
+    return result;
+}
+
 TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, int64_t flags)
 {
     if ((flags & CnfLd_AcceptPartial) == 0)

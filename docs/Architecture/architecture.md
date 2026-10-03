@@ -1,4 +1,9 @@
-# KeeperFX — Architecture
+# dAImon Keeper — Architecture
+
+dAImon Keeper is derived from KeeperFX (dkfans/keeperfx) and still merges from
+it; it plays KeeperFX campaigns and map packs but is a separate product (§10a).
+Internal names keep their KeeperFX-era form (`kfx_*` libraries, `keeperfx_*`
+symbols, the `keeperfx` CMake target).
 
 **Status:** steady-state. The multi-stage refactor described in
 [`docs/refactor/`](../refactor/) (stages 0–13) is **complete**; this document
@@ -224,13 +229,18 @@ are in `kfx_model`, §2.2c) and keeps its own copy of the map size in
   `ariadne_navitree`, `ariadne_points`, `ariadne_regions`, `ariadne_tringls`,
   `ariadne_update`, `ariadne_wallhug`.
 - `kfx_pathfinding_state.h/.c` — `struct KfxPathfindingState`: the
-  navigation-map cache (`navigation_map`, its size, and its dirty flag).
-  Deliberately **not** part of the save-game/network-resync raw-blob
-  serialization (see §6.2) — `reinit_level_after_load()` unconditionally
-  calls `init_navigation()` on both paths, which fully recomputes this
-  cache before anything reads it, so serializing it would be redundant.
-  Still `memset` in `clear_complete_game()` to match every sibling state
-  struct's clear-on-level-reset invariant.
+  navigation map (`navigation_map`, its size, and its dirty flag).
+- `ariadne_saved_state.h/.c` — the navigation mesh as one saved block:
+  `kfx_pathfinding_state` plus the triangles, points, regions and
+  point-location cache, each file listing its own part
+  (`ariadne_*_visit_saved_state()`). The mesh is updated incrementally as the
+  map changes, so it is not a function of the map: a mesh built again from
+  the map is a different one, and paths follow it differently. Saves
+  (`SGC_AriadneState`) and resyncs carry the block, and
+  `reinit_level_after_load()` no longer calls `init_navigation()` (refactor
+  pass 4, P4-F7; before, a loaded or resynced game diverged from the
+  uninterrupted one within tens of turns). `init_navigation()` builds the
+  mesh at level start.
 
 ### 2.2c `kfx_model` — header-only type layouts
 
@@ -890,14 +900,23 @@ time**, timed to land alongside each library's physical extraction (stages
 ### 6.2 Raw-blob serialization (a deliberate invariant)
 
 The state structs are **raw-serialized wholesale** — `memcpy`'d as opaque
-blobs — in three places:
+blobs — in two places:
 
 - **Network resync** — `kfx_net/src/net_resync.cpp`
-- **Save games** — `kfx_game/src/game_saves.c`
-- **Level reset** — `kfx_game/src/main_game.c::clear_complete_game()`
+- **Save games** (and continue-replays) — `kfx_game/src/game_saves.c`
 
-At all three call sites the per-library state structs are synced/saved/reset
-*alongside one another* as a single fixed chain. `net_resync.cpp` used to
+At both the per-library state structs, and Ariadne's navigation mesh
+(`ariadne_saved_state.h`, §2), are synced/saved *alongside one another* as a
+single fixed chain. `main_game.c::clear_complete_game()` zeroes them all once,
+at start-up; between levels `clear_game()` clears chosen parts, so a field it
+doesn't clear carries into the next level (refactor pass 4, S07: its
+`sim_state_continuity_restart` ftest plays a level twice in one process to
+catch that). State the simulation keeps anywhere else — a global, a file or
+function `static` — is carried by none of these; pass 4's S07 classified every
+such variable in kfx_sim, kfx_pathfinding and kfx_ai
+(docs/refactor-pass4/stage-07-sim-state-audit.md), and its
+`sim_state_continuity` ftest checks that a game carries on the same after a
+save and load and after a resync. `net_resync.cpp` used to
 reach this by `#include`-ing `kfx_frontend_state.h`/`kfx_game_state.h`/
 `game_legacy.h` directly (a `kfx_net -> kfx_game`/`kfx_frontend` layering
 violation, previously an accepted residual — §8.2) — fixed by exporting/
@@ -909,7 +928,7 @@ layers' headers to produce it.
 
 **Layout versions (refactor pass 2, S09).** Every raw-serialized struct —
 `struct Game`, `kfx_sim_state`, `kfx_net_state`, `kfx_game_state`,
-`kfx_frontend_state`, `intralvl` — has a version and an
+`kfx_frontend_state`, `intralvl`, and the Ariadne block — has a version and an
 expected size in `kfx_config/include/state_versions.h`.
 - Saves stamp the version into each chunk header. Loading first walks every
   chunk (`validate_save_chunks()`), checking version, size and that the chunk
@@ -918,6 +937,12 @@ expected size in `kfx_config/include/state_versions.h`.
   box, and the save lists show such saves greyed out as "(other version)"
   (`CEF_OtherVersion`).
 - Continue-replays go through the same check.
+- **Product chunk.** Every save and replay also carries a `PROD` chunk
+  (`struct ProductChunk`: `PRODUCT_MAGIC` 'DMKR' + slug), right after `INFO` --
+  `INFO` stays first so the save list still reads names from KeeperFX saves.
+  `validate_save_chunks()` refuses a file without it (KeeperFX's, or from
+  before 1.0.0) or with another product's magic, by name, before any layout
+  check (§10a).
 - Network resync sends the versions in a header and rejects a mismatch before
   parsing anything else.
 - There are no migrations: saves from before a version bump can't be loaded.
@@ -1066,8 +1091,15 @@ blobs via ports (`GamePort`/`UiPort`) instead of `#include`-ing their headers di
 
 Game content is data, not code, and is loaded by `kfx_config` / `kfx_sim`:
 
-- **`config/keeperfx.cfg`** — top-level user settings (install path, language,
-  resolutions, display, VSYNC, focus/pause behavior, …).
+- **`config/daimonkeeper.cfg`** — top-level user settings (install path, language,
+  resolutions, display, VSYNC, focus/pause behavior, …), shipped as
+  `daimonkeeper.cfg` next to the executable. On first run a missing one is
+  seeded from an existing `keeperfx.cfg` (never written). Mods still override
+  settings with `mods/<mod>/keeperfx.cfg` (content compatibility, §10a).
+- **`config/fxdata/daimonkeeper/`** — the 32-bit PNG start-up splash and legal
+  screens (4:3 and wide), generated with the icon and README banner from
+  `res/branding/`; they live apart from `data/*.raw` so installing over a
+  KeeperFX folder doesn't replace its screens.
 - **`config/fxdata/`** — the core balance/rules files: `creature.cfg`,
   `crstates.cfg`, `cubes.cfg`, `effects.toml`, `keepcompp.cfg`, `lenses.cfg`,
   `magic.cfg`, `objects.cfg`, `playerstates.toml`, `powerhands.toml`,
@@ -1090,6 +1122,101 @@ Game content is data, not code, and is loaded by `kfx_config` / `kfx_sim`:
   `original`).
 - **`lang/`** — translations (gettext `.po`/`.pot`), organized per campaign and
   per level set, plus global `gtext_*` and `speech_*`.
+
+---
+
+## 10a. Product identity and KeeperFX compatibility
+
+The tree ships as **dAImon Keeper**. Two goals pull in opposite directions,
+and each piece below serves one of them: never be mistaken for KeeperFX (by the
+network, save files, the file system or players), and keep playing KeeperFX
+content -- saying clearly when a map needs something this build doesn't have,
+instead of crashing.
+
+**Names and versions -- one source.** `build/make/version.mk` holds
+`PRODUCT_SLUG` (`daimonkeeper`), the product version `VER_*` (1.0.0) and
+`KFX_COMPAT_MAJOR/MINOR` (1.4: the KeeperFX *release* whose content this plays).
+CMake (`OUTPUT_NAME`, map/debug file names, CPack package
+`daimonkeeper-<ver>.<build>-kfx<compat>`), the Makefile and the code read it;
+the code through the generated `ver_defs.h` and `kfx_platform/include/version.h`
+(`PRODUCT_NAME`, `PRODUCT_SLUG`, `PRODUCT_EXE_NAME`, `PRODUCT_MAGIC`,
+`PRODUCT_VERSION_LABEL` "dAImon Keeper 1.0.0 — KFX 1.4" -- UTF-8, with an ASCII
+variant for the bitmap fonts). The label shows on the main menu, in the log
+header, the `ver` command and PE metadata; the TCP API's `get_kfx_info` reports
+the compat level as `kfx_version` plus `product`/`product_version`.
+
+**Kept apart from KeeperFX.**
+- Files: executable `daimonkeeper`, base config `daimonkeeper.cfg`
+  (`import_kfx_base_config()`), log `daimonkeeper.log`. `fxdata/`, `save/`
+  and `replays/` keep KeeperFX's names (an own-folder scheme --
+  `fxdata-daimonkeeper/`, `save/daimonkeeper/` -- was tried and reverted):
+  the two games need separate install folders, sharing data by symlink.
+- Saves/replays: the `PROD` chunk (§6.2).
+- Network: LAN discovery uses `DAIMONKEEPER_DISCOVER`/`DAIMONKEEPER_HOST:`;
+  matchmaking is off by default, refuses KeeperFX's server, and announces
+  `daimonkeeper-<version>`. (The multiplayer handshake itself doesn't carry the
+  product magic yet.)
+
+**Content compatibility -- what must not change.** Script command names and
+arguments, `LEVEL_VERSION` semantics, config file names/keys/named values, Lua
+API names, folder layout, `mods/<mod>/keeperfx.cfg`, string indices, map file
+formats. New features are added, never repurposed.
+
+**Checking content at load (the compat report).** `kfx_config/compat_report.{h,c}`
+collects, during a level load, what the content uses that this build doesn't
+know:
+- unknown level-script commands and creature/room/slab names (`lvl_script.c`);
+  a command of the *other* `LEVEL_VERSION`'s table isn't counted -- it fails the
+  same in KeeperFX, so it's the level's own mistake;
+- unknown config keys (legacy `recognize_conf_command()` and NamedField
+  `assign_conf_command_field()`, not list-only passes) and unknown named
+  values/flags -- values are held as *pending* with their name table and only
+  reported if they still don't resolve once every config has loaded
+  (`compat_report_resolve_pending()`), since a name can come from a file loaded
+  later;
+- Lua calls to missing functions (`lua_report_missing_function()`, from
+  `CheckLua()`'s error text, LuaJIT and Lua 5.4 wording);
+- limit overflows (config blocks beyond a table's size, script VALUE slots).
+
+Issues are deduplicated, carry the file (every config load names it via
+`compat_report_set_source()`) and line, and are written as `COMPAT:` log lines.
+`init_level()` clears the report; after `load_script()`,
+`game_compat_review.c` logs it and, for a local human-attended game (not
+multiplayer, a replay, ftests, the editor, or with the TCP API enabled), flags it
+for the in-game warning (`frontgui_ingame.cpp`): paused, "Back to menu" / "Play
+anyway", modal for input.
+
+**Checking content before play (list markers).** `script_preflight_*()`
+(`lvl_script.c`) checks a level script without loading it, with the parser's own
+tokenizer, comment, line and `LEVEL_VERSION` rules -- commands only, since names
+depend on which configs are loaded. `kfx_frontend/frontgui_compat_badges.cpp`
+caches results per file (re-checked on change, 16 scans per frame) and marks
+level, map-pack and campaign rows `[!]` with a tooltip;
+`prepare_campaign_levels_path()` reaches any campaign's level files, not just
+the loaded one's.
+
+**The editor's "Force KeeperFX" save** guarantees a map that loads in the
+compat release: `kfx_editor/editor_kfx_compat.cpp` refuses (writing nothing)
+fork-only script commands, Lua functions and base-game kinds missing at that
+model number, listing them in Save As. The list is
+`kfx_compat_reference.inc`, generated by `scripts/gen_kfx_compat_reference.py`
+against the `v<KFX_COMPAT>.0` tag. Every file type and key the native writer
+emits is read by that release, so the check is on content, not format. A plain
+Save reuses the format the map was last saved with.
+
+**Keeping it true.** `scripts/kfx_parity.py` diffs the content tables (script
+commands/names, config keys/values, Lua registrations; the player's own
+settings files separately) between an upstream ref and this tree. Tests pin the
+rest: every key and named value in `config/fxdata` is read (loaded in the game's
+own order), every shipped level script preflights clean, and the generated
+reference matches the shipped data. When to re-run each generator, and the
+`KFX_COMPAT_*` bump rule, are in [`upstream-merge-workflow.md`](upstream-merge-workflow.md)
+§6a.
+
+**Attribution.** `NOTICE` (origin, modification statement, upstream base,
+licences), `THIRD_PARTY_NOTICES.txt` (generated by
+`scripts/gen_third_party_notices.py`), `LICENSE` and the graphics licence all
+ship in the package; the Credits screen starts with a "Based on KeeperFX" block.
 
 ---
 
@@ -1196,13 +1323,13 @@ there is one, and how much it logs is the `LOG_LEVEL` option
   `KFX_DEBUG_CEILING` (globals.h, 20). Former `#if (BFDEBUG_LEVEL > N)` blocks
   are `if (KFX_DEBUG_ON(N))`. **Debug-only code must never write simulation
   state**, so the log level can't desync a multiplayer game.
-- Off writes nothing but crash reports. Lines written before `keeperfx.cfg`
-  is read are buffered until the level is known. Debug and above buffer their
+- Off writes nothing but crash reports. Lines written before `daimonkeeper.cfg`
+  is read are buffered until the level is known. The log is `daimonkeeper.log`. Debug and above buffer their
   writes and flush once per frame and on errors.
 - GPU validation is its own restart-only option, `GPU_DEBUG`.
 - `BFDEBUG_LEVEL` stays defined (0) only so upstream code compiles; merged
   `#if (BFDEBUG_LEVEL > N)` blocks are dead until converted.
-- Functional-test runs pin Normal, whatever keeperfx.cfg says. There is no
+- Functional-test runs pin Normal, whatever daimonkeeper.cfg says. There is no
   `keeperfx_hvlog` any more, not even as a copy (the external launcher's
   heavy-log option is obsolete).
 
@@ -1242,8 +1369,9 @@ there is one, and how much it logs is the `LOG_LEVEL` option
 | Why a boundary is where it is                     | [`docs/refactor/`](../refactor/) stage docs (historical)                                  |
 | How the layering check works / accepted residuals | this doc (§8) + [`scripts/check_layering.py`](../../scripts/check_layering.py)            |
 | Map / thing / slab data structures                | [`docs/data_structure.md`](../data_structure.md)                                          |
-| How to build                                      | [`docs/build_instructions.txt`](../build_instructions.txt) §7                             |
+| How to build                                      | [`docs/build_instructions.txt`](../build_instructions.txt) (source layout: §7)            |
 | How to write a functional test                    | [`src/ftests/README.md`](../../src/ftests/README.md)                                      |
 | How the `KFX_BUILD_TESTS` unit-test/coverage harness works | [`testing-harness.md`](testing-harness.md)                                       |
 | How to merge upstream (dkfans/keeperfx) into this fork | [`upstream-merge-workflow.md`](upstream-merge-workflow.md)                          |
+| How this tree stays apart from, and compatible with, KeeperFX | this doc (§10a) + [`upstream-merge-workflow.md`](upstream-merge-workflow.md) §6a |
 |                                                   |                                                                                           |

@@ -3,6 +3,7 @@
 #include "frontgui_ingame.h" // Phase 0: the in-game HUD/menu ImGui arm
 #include "frontgui_widgets.h"
 #include "frontgui_skirmish_setup.h" // Skirmish Setup tab (docs/refactor/skirmish/)
+#include "frontgui_compat_badges.h" // "needs a newer KeeperFX" markers on level/campaign rows
 #include "skirmish_setup.h"
 #include "main_game.h" // default_loc_player -- the Skirmish human slot
 #include "frontgui_deferred.h" // FeDeferredQueue
@@ -302,10 +303,31 @@ namespace {
             FeSeparator();
 
         ImGui::BeginChild("##credits_scroll", ImVec2(0, ImGui::GetContentRegionAvail().y - 40.0), true);
+        // The game's own credits come first, whichever pack is picked: where it
+        // comes from (NOTICE) and the original game's owners. English-only for now.
+        static const struct { FeFontRole role; const char *text; } game_credits[] = {
+            {FeFont_Heading,    PRODUCT_NAME},
+            {FeFont_Body,       "Based on KeeperFX, by the KeeperFX Team and contributors"},
+            {FeFont_Caption,    "github.com/dkfans/keeperfx"},
+            {FeFont_Body,       ""},
+            {FeFont_Body,       "Dungeon Keeper by Bullfrog Productions"},
+            {FeFont_Caption,    "Dungeon Keeper is a trademark of Electronic Arts"},
+            {FeFont_Body,       ""},
+            {FeFont_Caption,    "Free software under the GNU GPL: see LICENSE.txt, NOTICE.txt"},
+            {FeFont_Caption,    "and THIRD_PARTY_NOTICES.txt next to the game"},
+        };
+        for (const auto &line : game_credits)
+        {
+            FeStylePushFont(line.role);
+            FeCenterNextItem(ImGui::CalcTextSize(line.text).x);
+            ImGui::TextUnformatted(line.text);
+            FeStylePopFont();
+        }
+        FeSeparator();
         if (pack == nullptr)
         {
-            FeCenterNextItem(ImGui::CalcTextSize("No credits available.").x);
-            ImGui::TextUnformatted("No credits available.");
+            FeCenterNextItem(ImGui::CalcTextSize("No campaign credits available.").x);
+            ImGui::TextUnformatted("No campaign credits available.");
         }
         else
         {
@@ -1554,8 +1576,12 @@ namespace {
             {
                 struct GameCampaign *campgn = &campaigns_list.items[i];
                 bool selected = (campgn == land_selection_highlighted_campaign);
-                if (FeListRow(campgn->display_name, selected))
+                std::string compat_detail;
+                const FeCompatState compat = fe_compat_campaign_state(campgn, &compat_detail);
+                const std::string row_id = "campaign" + std::to_string(i);
+                if (FeListRow(fe_compat_row_label(campgn->display_name, compat, row_id.c_str()).c_str(), selected))
                     frontend_campaign_select_by_index(i);
+                fe_compat_row_tooltip(compat, compat_detail);
             }
         }
         FeEndListBox(open);
@@ -1752,8 +1778,12 @@ namespace {
             {
                 struct GameCampaign *campgn = &active_mappacks_list->items[i];
                 bool selected = (campgn == freeplay_highlighted_mappack);
-                if (FeListRow(campgn->display_name, selected))
+                std::string compat_detail;
+                const FeCompatState compat = fe_compat_campaign_state(campgn, &compat_detail);
+                const std::string row_id = "mappack" + std::to_string(i);
+                if (FeListRow(fe_compat_row_label(campgn->display_name, compat, row_id.c_str()).c_str(), selected))
                     frontend_mappack_select_by_index(i);
+                fe_compat_row_tooltip(compat, compat_detail);
             }
         }
         FeEndListBox(mappack_open);
@@ -1784,9 +1814,14 @@ namespace {
                     faded.w *= 0.6f;
                     ImGui::PushStyleColor(ImGuiCol_Text, faded);
                 }
-                bool clicked = FeListRow(name, selected);
+                // The listed levels are the loaded pack's (get_level_info() above).
+                std::string compat_detail;
+                const FeCompatState compat = fe_compat_level_state(&campaign, lvnum, &compat_detail);
+                const std::string row_id = "level" + std::to_string((int64_t)lvnum);
+                bool clicked = FeListRow(fe_compat_row_label(name, compat, row_id.c_str()).c_str(), selected);
                 if (completed)
                     ImGui::PopStyleColor();
+                fe_compat_row_tooltip(compat, compat_detail);
                 if (clicked)
                     frontend_level_select_by_index(i);
             }
@@ -2122,6 +2157,17 @@ namespace {
         draw_tools_modal();
 
         ImGui::End();
+
+        // Product + supported KeeperFX level, bottom-left: what players compare
+        // against a map's "Min. game version" on the workshop.
+        const double version_margin = 8.0;
+        ImGui::SetNextWindowPos(ImVec2(version_margin, io.DisplaySize.y - version_margin), ImGuiCond_Always, ImVec2(0.0, 1.0));
+        ImGui::Begin("##FeVersion", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs
+            | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+        FeCaption(PRODUCT_VERSION_LABEL);
+        ImGui::End();
+
         // The content editor windows (docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5), if any
         // are open: separate windows over the menu, drawn after the menu window is closed.
         editorport_content_tools_frame();

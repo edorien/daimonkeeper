@@ -1,43 +1,64 @@
-![KeeperFX Logo](/docs/assets/readme-banner.png)
+![dAImon Keeper](/docs/assets/readme-banner.png)
 
 ![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)
-![License](https://img.shields.io/badge/license-GPL--2.0-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue?style=flat-square)
 
 ## Intro
 
-This is an independent fork of **KeeperFX** (Dungeon Keeper Fan eXpansion), the
-open-source project that fixes up, enhances and modernizes Bullfrog's classic
+**dAImon Keeper** is a free, open-source reimplementation of Bullfrog's classic
 dungeon-management game, [Dungeon Keeper](https://en.wikipedia.org/wiki/Dungeon_Keeper).
+It is derived from **KeeperFX** (Dungeon Keeper Fan eXpansion), and plays the
+campaigns and map packs made for it.
 
-The upstream KeeperFX project began as a decompilation of the original game
-executables; over the years the entire codebase was rewritten in C/C++. This
-fork continues from that rewritten codebase and focuses on **structural
-modernization**: `src/` has been refactored from one flat 266-file directory
+KeeperFX began as a decompilation of the original game executables; over the
+years its entire codebase was rewritten in C/C++. dAImon Keeper continues from
+that rewritten codebase and focuses on **structural modernization**: `src/` has been refactored from one flat 266-file directory
 into a set of internal libraries with a strict, enforced dependency graph, the
 platform layer has moved to SDL3, the build now produces first-class
 **native Linux** binaries alongside the Windows build (all driven by CMake), and
 the game now ships an **in-game level, content and campaign editor** plus an
 optional **GPU (Vulkan) renderer** with dynamic lighting and soft shadows.
 
-KeeperFX is a standalone game but requires a copy of the original Dungeon Keeper
-data files as proof of ownership. These can be copied from an old CD or from a
-digital edition (EA, GOG, Steam).
+dAImon Keeper is a standalone game, but it needs a copy of the original Dungeon
+Keeper data files as proof of ownership -- it contains none of them. These can be
+copied from an old CD or from a digital edition (EA, GOG, Steam).
 
-### Relationship to the upstream project
+### Relationship to KeeperFX
 
-This fork is **not affiliated with the KeeperFX team** and is maintained
-separately. Please direct issues, questions and pull requests **about this fork**
-to [this repository](https://github.com/edorien/keeperfx-refactor) — not to the
-upstream project's Discord, forums or issue tracker.
+dAImon Keeper is **not affiliated with the KeeperFX team** and is maintained
+separately. Please direct issues, questions and pull requests **about dAImon
+Keeper** to [this repository](https://github.com/edorien/keeperfx-refactor) --
+not to KeeperFX's Discord, forums or issue tracker.
 
-For the original project, its community and its official releases, see
+For KeeperFX itself, its community and its releases, see
 [keeperfx.net](https://keeperfx.net). All credit for the original reimplementation
 work belongs to the KeeperFX project and the Keeper Klan community (see
-[Acknowledgements](#acknowledgements)).
+[Acknowledgements](#acknowledgements) and [NOTICE](NOTICE)).
+
+### Compatibility with KeeperFX
+
+- **Campaigns and map packs**: the version label says which KeeperFX release's
+  content this version plays -- `dAImon Keeper 1.0.0 — KFX 1.4` plays content
+  made for **KeeperFX 1.4**. Content that needs a newer KeeperFX is marked
+  `[!]` in the level and campaign lists (with the reason on hover), and a level
+  that uses something this version doesn't support says so before play, instead
+  of crashing. Mods still override settings with their own `keeperfx.cfg`.
+- **Saves, replays and multiplayer are not shared**: dAImon Keeper and KeeperFX
+  refuse each other's saves and replays, don't see each other's LAN games, and
+  dAImon Keeper doesn't use KeeperFX's matchmaking server (online matchmaking is
+  off by default).
+- **Install it in its own folder**: dAImon Keeper has its own settings
+  (`daimonkeeper.cfg`, seeded once from an existing `keeperfx.cfg`) and log
+  (`daimonkeeper.log`), but uses the same `fxdata/`, `save/` and `replays/`
+  folders as KeeperFX, whose contents differ between the two games. Keep each
+  game in its own folder; to share files between them (the original game data,
+  campaigns, maps), use symlinks.
+- **Map editor**: saving with Format "Force KeeperFX" writes a map that loads in
+  KeeperFX 1.4 -- it refuses maps that use anything only dAImon Keeper has.
 
 ## Features
 
-Everything from upstream KeeperFX, including:
+Everything from KeeperFX, including:
 
 - Windows 7/10/11 support
 - Higher screen resolutions
@@ -49,7 +70,7 @@ Everything from upstream KeeperFX, including:
 - Improved computer-player AI
 - Additional campaigns, maps, creatures and other content
 
-This fork additionally provides:
+dAImon Keeper additionally provides:
 
 - **Native Linux builds** — a real ELF binary, not a Wine wrapper, portable
   enough to copy to a machine that never ran the build
@@ -78,7 +99,11 @@ This fork additionally provides:
   AI slots, layered over the level's own script
 - Frontend/Options-screen and campaign-progress reworks
 - Catch2 unit tests per library, alongside the in-game functional tests
-- Note: Multiplayer is **not** compatible with original KeeperFX
+- **Compatibility checks** for KeeperFX content: `[!]` markers in the level
+  and campaign lists and a warning before play (see
+  [Compatibility with KeeperFX](#compatibility-with-keeperfx))
+- **External/AI player seats** over an in-game TCP API, with an MCP bridge
+  (`scripts/llm_bridge/`) so an AI assistant can play a keeper
 
 Still in progress or planned: finishing the GPU renderer (depth-buffer rollout,
 more effects), bringing the modernised HUD further into line with the classic
@@ -110,26 +135,30 @@ digital edition available on
 [GOG](https://www.gog.com/game/dungeon_keeper) or
 [Steam](https://store.steampowered.com/app/1996630/Dungeon_Keeper_Gold/).
 
-General installation guidance and an FAQ for KeeperFX are on the upstream
-[GitHub Wiki](https://github.com/dkfans/keeperfx/wiki). Which files the game
-needs from the original release is documented in
-[docs/files_required_from_original_dk.txt](docs/files_required_from_original_dk.txt).
+Unpack the dAImon Keeper package into a folder with the original game's files
+(an existing KeeperFX folder works too), and run `daimonkeeper` (`daimonkeeper.exe`
+on Windows). Which files the game needs from the original release is documented
+in [docs/files_required_from_original_dk.txt](docs/files_required_from_original_dk.txt);
+see also [docs/daimonkeeper_readme.txt](docs/daimonkeeper_readme.txt). KeeperFX's
+[GitHub Wiki](https://github.com/dkfans/keeperfx/wiki) has general installation
+guidance and an FAQ that largely applies here too.
 
 ## Development
 
 The build is CMake-based and fetches / builds its own third-party dependencies
 (SDL3, OpenAL, ffmpeg, LuaJIT, …), so a machine with just a C/C++ toolchain,
 `cmake`, `ninja` and `pkg-config` can build end-to-end. It produces one
-binary, `keeperfx`. How much it logs is the **Logging** option (`LOG_LEVEL` in
-`keeperfx.cfg`: `OFF`, `NORMAL`, `DEBUG` or `DEBUGMAX`), which applies at once.
+binary, `daimonkeeper` (the CMake target is still called `keeperfx`). How much it
+logs is the **Logging** option (`LOG_LEVEL` in `daimonkeeper.cfg`: `OFF`,
+`NORMAL`, `DEBUG` or `DEBUGMAX`), which applies at once.
 
 ### Linux (native)
 
 Needs `gcc`/`g++`, `cmake`, `ninja`, `pkg-config`. Everything else is fetched.
 
 ```bash
-./build-cmake-linux.sh                        # build out/linux/keeperfx
-KFX_OS=linux ./build-package.sh               # full package -> dist/linux/
+./build-cmake-linux.sh                        # build out/linux/daimonkeeper
+SKIP_WINDOWS=1 ./build-package.sh             # full package -> dist/linux/
 ```
 
 ### Windows
@@ -138,7 +167,7 @@ KFX_OS=linux ./build-package.sh               # full package -> dist/linux/
 toolchain (`g++-mingw-w64-i686`), `cmake`, `ninja`:
 
 ```bash
-KFX_OS=windows ./build-cmake-linux.sh                 # build out/windows/keeperfx.exe
+KFX_OS=windows ./build-cmake-linux.sh                 # build out/windows/daimonkeeper.exe
 USE_DOCKER=1 KFX_OS=windows ./build-cmake-linux.sh    # do it in an Ubuntu 24.04 container
 ```
 
@@ -165,11 +194,14 @@ Tests:
 - Standalone CUnit programs: `tests/`
 - Per-library Catch2 unit tests: `src/kfx_*/tests/` (`KFX_BUILD_TESTS=ON`, native
   Linux)
+- KeeperFX content parity: `python3 scripts/kfx_parity.py` (what KeeperFX has that
+  this tree lacks, and the reverse)
 
 ## Components
 
-These are resources of the **upstream** KeeperFX project. This fork tracks the
-game engine only; it reuses upstream's asset and infrastructure repositories.
+These are resources of the KeeperFX project. dAImon Keeper merges from its game
+engine and reuses its asset repositories; the dAImon Keeper artwork (icon,
+start-up screens, banner) is generated from `res/branding/`.
 
 | Component                                                       | Language  | Info                                                 |
 | --------------------------------------------------------------- | --------- | ---------------------------------------------------- |
@@ -181,18 +213,22 @@ game engine only; it reuses upstream's asset and infrastructure repositories.
 
 ## Tools
 
-Bundled under [tools/](tools/), built via `tools/CMakeLists.txt`:
+Bundled under [tools/](tools/), built by the asset pipeline's Makefile rules
+(`build/make/tool_*.mk`):
 
 | Tool        | Usage                                                                              |
 | ----------- | ---------------------------------------------------------------------------------- |
 | po2ngdat    | Converts `.po` files (language) to `.dat`.                                         |
 | pngpal2raw  | Creates a `.raw` image file usable by the game from a `.png` and a `.pal` palette. |
-| png2ico     | Converts `.png` files to `.ico`.                                                   |
 | fxfontmaker | Builds the in-game bitmap fonts.                                                   |
+
+Scripts under [scripts/](scripts/) include the layering check, the KeeperFX parity
+check (`kfx_parity.py`), and the generators for `THIRD_PARTY_NOTICES.txt` and the
+editor's KeeperFX-compatibility list.
 
 ## Contributing
 
-Contributions to this fork are welcome.
+Contributions to dAImon Keeper are welcome.
 
 - Report bugs by opening [issues](https://github.com/edorien/keeperfx-refactor/issues).
 - Contribute code by opening [pull requests](https://github.com/edorien/keeperfx-refactor/pulls).
@@ -202,10 +238,15 @@ Contributions to this fork are welcome.
 
 - **Bullfrog Productions** for the original *Dungeon Keeper*.
 - **The KeeperFX project and the Keeper Klan community** for many years of work
-  reverse-engineering, rewriting and expanding the game. This fork would not
-  exist without it — visit [keeperfx.net](https://keeperfx.net).
+  reverse-engineering, rewriting and expanding the game. dAImon Keeper would not
+  exist without it -- visit [keeperfx.net](https://keeperfx.net).
+- The authors of the bundled campaigns and maps, and of the libraries listed in
+  [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
 
 ## License
 
-This project is licensed under the [GNU General Public License v2.0](LICENSE).
-Feel free to use, modify, and distribute it according to the terms of this license.
+The program is licensed under the [GNU General Public License](LICENSE), version 2
+or (at your option) any later version. The graphics are GPLv3 (`gfx/LICENSE`),
+the fonts SIL OFL. [NOTICE](NOTICE) says where dAImon Keeper comes from and what
+each licence covers; [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) holds the
+bundled libraries' licences.

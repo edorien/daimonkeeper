@@ -954,7 +954,7 @@ const struct SettingOption setting_options[] = {
         // test screen (Shift+F in the menus) also needs DEBUG.
         .cfg_key = "LOG_LEVEL", .type = SOptT_Enum, .category = SCat_Game, .apply_class = SApply_Live,
         .label_literal = "Logging",
-        .help_literal = "How much the game writes to keeperfx.log. OFF: nothing, except crash reports. "
+        .help_literal = "How much the game writes to " DEFAULT_LOG_FILENAME ". OFF: nothing, except crash reports. "
                         "NORMAL: errors, warnings and progress (the default). DEBUG: extra detail for bug "
                         "reports. DEBUGMAX: everything; the log grows quickly.",
         .enum_table = log_level_type, .get_enum = &get_log_level_opt, .set_enum = &set_log_level_opt,
@@ -964,7 +964,7 @@ const struct SettingOption setting_options[] = {
         .cfg_key = "AUTOSAVE_REPLAYS", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
         .label_literal = "Save replays",
         .help_literal = "Record every game you play as a replay in the replays folder, keeping the "
-                        "newest few of each kind (MAX_REPLAYS in keeperfx.cfg). Applies from the next game.",
+                        "newest few of each kind (MAX_REPLAYS in " PRODUCT_SLUG ".cfg). Applies from the next game.",
         .get_bool = &get_autosave_replays, .set_bool = &set_autosave_replays,
     },
     {

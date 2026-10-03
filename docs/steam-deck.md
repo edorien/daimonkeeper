@@ -1,9 +1,9 @@
-# KeeperFX on a Steam Deck — remote dev-kit workflow
+# dAImon Keeper on a Steam Deck — remote dev-kit workflow
 
 Two commands once it's set up:
 
 ```bash
-scripts/build-deck-bundle.sh                              # produces out/keeperfx-deck/
+scripts/build-deck-bundle.sh                              # produces out/daimonkeeper-deck/
 scripts/deploy-to-deck.sh --assets "<your game dir>" --run
 ```
 
@@ -35,10 +35,10 @@ scripts/build-deck-bundle.sh
 ```
 
 ## 3. Deploy + run
-assets is where the full data of keeperfx is on your machine.
+assets is where the game's full data is on your machine.
 
 ```bash
-scripts/deploy-to-deck.sh --assets "C:/path/to/keeperfx game dir" --run
+scripts/deploy-to-deck.sh --assets "C:/path/to/game dir" --run
 ```
 
 The first deploy will push everything, the rest just what changes
@@ -56,7 +56,7 @@ The first deploy will push everything, the rest just what changes
 3. Or use the **"Deploy + Debug on Steam Deck"** task to do the deploy + server
    launch first.
 
-Point `program` at your local `out/keeperfx-deck/keeperfx` (same binary, with
+Point `program` at your local `out/daimonkeeper-deck/daimonkeeper` (same binary, with
 symbols); `sourceFileMap` binds breakpoints to your working copy.
 
 ### B. VS Code — Remote-SSH (edit/build/run *on* the Deck)

@@ -15,7 +15,7 @@ import tempfile as _tempfile
 
 # Never let a test touch the real experience store (experience.default_path(), next to the bridge's own files).
 _TEST_DATA_HOME = _tempfile.mkdtemp(prefix="kfx-bridge-test-data-")
-os.environ["KEEPERFX_EXPERIENCE"] = os.path.join(_TEST_DATA_HOME, "experience.sqlite")
+os.environ["DAIMONKEEPER_EXPERIENCE"] = os.path.join(_TEST_DATA_HOME, "experience.sqlite")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

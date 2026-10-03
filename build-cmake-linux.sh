@@ -18,7 +18,7 @@
 #   ./build-cmake-linux.sh                     # Linux keeperfx (default)
 #   KFX_OS=windows ./build-cmake-linux.sh      # Windows keeperfx
 #   (there is no separate heavy-log build any more: logging is the LOG_LEVEL
-#    option in keeperfx.cfg / the options screen)
+#    option in daimonkeeper.cfg / the options screen)
 #   USE_DOCKER=1 ./build-cmake-linux.sh        # build in an Ubuntu 24.04 container
 #   BUILD_DIR=out/foo ./build-cmake-linux.sh   # override the build directory (default: out/<KFX_OS>/)
 #
@@ -33,7 +33,7 @@ set -euo pipefail
 
 TARGET="${1:-keeperfx}"
 if [ "$TARGET" = "keeperfx_hvlog" ]; then
-    echo "keeperfx_hvlog is no longer a separate build (see LOG_LEVEL in keeperfx.cfg); building keeperfx." >&2
+    echo "keeperfx_hvlog is no longer a separate build (see LOG_LEVEL in daimonkeeper.cfg); building keeperfx." >&2
     TARGET=keeperfx
 fi
 KFX_OS="${KFX_OS:-linux}"

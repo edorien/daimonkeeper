@@ -213,6 +213,23 @@ int64_t clear_script(void);
 int64_t load_script(int64_t lvl_num);
 TbBool script_scan_line(char *line,TbBool preloaded, int64_t file_version);
 TbBool preload_script(int64_t lvnum);
+
+/* Level script preflight (docs/rebadge, local notes): whether a level's script
+ * uses commands this build doesn't know, found without loading or running it --
+ * the same comment, line and command-table rules as load_script(), so for the
+ * level and campaign lists' "needs a newer KeeperFX" markers. Commands only:
+ * they're defined in code, so the answer doesn't depend on which configs are
+ * loaded (creature/room names would). */
+#define SCRIPT_PREFLIGHT_NAMES_MAX 8
+struct ScriptPreflight {
+    TbBool file_found;
+    int64_t unknown_count;                        // distinct unknown commands
+    char names[SCRIPT_PREFLIGHT_NAMES_MAX][64];   // the first few, upper case
+    int64_t lines[SCRIPT_PREFLIGHT_NAMES_MAX];    // where each first appears
+};
+void script_preflight_text(const char *text, int64_t len, struct ScriptPreflight *out);
+/** False (and file_found false) when the file can't be read. */
+TbBool script_preflight_file(const char *fname, struct ScriptPreflight *out);
 /** Numbers written in a script: LbStrToI32()/LbAtoI32() (bflib_basics.h), which clamp to the int32 range.
  *  The script language was defined on the 32-bit build, where strtol() saturates at +-2^31 (3000000000 reads
  *  as 2147483647); a 64-bit strtol would keep the value and the store into a 32-bit ScriptValue slot would

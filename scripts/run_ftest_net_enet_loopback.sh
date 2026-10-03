@@ -2,7 +2,7 @@
 #
 # Runs the Phase 2 real-ENet-loopback ftest pair
 # (docs/refactor/todo/ftest-fake-multiplayer.md) -- net_enet_loopback_host
-# and net_enet_loopback_join -- as two separate keeperfx processes talking
+# and net_enet_loopback_join -- as two separate daimonkeeper processes talking
 # over real 127.0.0.1 UDP. Exists because these two tests are only halves
 # of one session: neither can pass run alone (see src/ftests/ftest_list.c's
 # comment on why they live in long_running_tests_list, and each test file's
@@ -22,7 +22,7 @@
 #
 # keeperfx-dir defaults to out/coverage-ftest (a KFX_FUNCTESTING build tree
 # with staged game data -- see src/ftests/README.md). Must contain a built
-# `keeperfx` binary and its staged fxdata/campgns/levels/etc.
+# `daimonkeeper` binary and its staged fxdata/campgns/levels/etc.
 #
 # Known limitation (see the plan doc's "Phase 2 port allocation" note):
 # FTEST_NET_ENET_LOOPBACK_PORT (src/ftests/tests/ftest_net_enet_loopback_shared.h)
@@ -33,8 +33,8 @@
 set -euo pipefail
 
 KEEPERFX_DIR="${1:-out/coverage-ftest}"
-if [ ! -x "$KEEPERFX_DIR/keeperfx" ]; then
-    echo "error: no keeperfx binary at $KEEPERFX_DIR/keeperfx (build it first, or pass the right directory)" >&2
+if [ ! -x "$KEEPERFX_DIR/daimonkeeper" ]; then
+    echo "error: no daimonkeeper binary at $KEEPERFX_DIR/daimonkeeper (build it first, or pass the right directory)" >&2
     exit 1
 fi
 KEEPERFX_DIR="$(cd "$KEEPERFX_DIR" && pwd)"
@@ -59,7 +59,7 @@ echo "Starting net_enet_loopback_host..."
 (
     cd "$KEEPERFX_DIR"
     GCOV_PREFIX="$GCOV_HOST_DIR" GCOV_PREFIX_STRIP=0 \
-        ./keeperfx -ftests net_enet_loopback_host -includelongtests -headless -exitonfailedtest -log "$HOST_LOG"
+        ./daimonkeeper -ftests net_enet_loopback_host -includelongtests -headless -exitonfailedtest -log "$HOST_LOG"
 ) &
 HOST_PID=$!
 
@@ -74,7 +74,7 @@ JOIN_EXIT=0
 (
     cd "$KEEPERFX_DIR"
     GCOV_PREFIX="$GCOV_JOIN_DIR" GCOV_PREFIX_STRIP=0 \
-        ./keeperfx -ftests net_enet_loopback_join -includelongtests -headless -exitonfailedtest -log "$JOIN_LOG"
+        ./daimonkeeper -ftests net_enet_loopback_join -includelongtests -headless -exitonfailedtest -log "$JOIN_LOG"
 ) || JOIN_EXIT=$?
 
 HOST_EXIT=0

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP server: play a keeperfx External seat through whichever MCP-capable assistant is already connected, instead of a
+"""MCP server: play a dAImon Keeper External seat through whichever MCP-capable assistant is already connected, instead of a
 script calling a model API on its own.
 
 **Why MCP instead of bridge.py --policy anthropic.** That policy calls the Messages API directly with a raw
@@ -14,16 +14,16 @@ anywhere it is possible to misuse one".
 
 **Usage.** Register this as an MCP server (stdio transport) with your client, e.g. for Claude Code:
 
-    claude mcp add keeperfx -- python3 /path/to/scripts/llm_bridge/mcp_server.py
+    claude mcp add daimonkeeper -- python3 /path/to/scripts/llm_bridge/mcp_server.py
 
 or in Claude Desktop's config (claude_desktop_config.json):
 
-    "keeperfx": {"command": "python3", "args": ["/path/to/scripts/llm_bridge/mcp_server.py"]}
+    "daimonkeeper": {"command": "python3", "args": ["/path/to/scripts/llm_bridge/mcp_server.py"]}
 
 Then, in a conversation: connect (host/port of the running keeperfx, API_ENABLED=TRUE; the game must already have an
 External seat, made from Skirmish's Slots & AI page, or pass `claim` to convert a computer keeper), then repeatedly
 wait_for_decision -> decide -> submit_orders, as long as you want to keep playing. get_instructions returns the system
-prompt this was designed against, for a client that has nowhere else to put it; `prompts/get "play_keeperfx"` offers the
+prompt this was designed against, for a client that has nowhere else to put it; `prompts/get "play_daimonkeeper"` offers the
 same text as an MCP prompt, for a client that surfaces those to the person as a slash command.
 
 **Protocol notes.** Implements just enough of MCP (2024-11-05) over stdio for this purpose: initialize, notifications/initialized,
@@ -44,17 +44,19 @@ from mcp_session import Session, SessionError  # noqa: E402
 _ORDER_ITEM_SCHEMA = {"type": "object", "properties": prompt.ORDER_ITEM_PROPERTIES, "required": prompt.ORDER_ITEM_REQUIRED}
 
 PROTOCOL_VERSION = "2024-11-05"
-SERVER_NAME, SERVER_VERSION = "keeperfx-bridge", "0.1.0"
+SERVER_NAME, SERVER_VERSION = "daimonkeeper-bridge", "0.1.0"
+# The prompt's name before the game was renamed; still answered, so existing client setups keep working.
+OLD_PROMPT_NAME = "play_keeperfx"
 
 TOOLS = [
     {
         "name": "connect",
-        "description": "Connect to a running keeperfx and take its External seat. Call this once, before anything else.",
+        "description": "Connect to a running dAImon Keeper game and take its External seat. Call this once, before anything else.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "host": {"type": "string", "description": "default 127.0.0.1"},
-                "port": {"type": "integer", "description": "default 5599 (keeperfx.cfg API_PORT)"},
+                "port": {"type": "integer", "description": "default 5599 (daimonkeeper.cfg API_PORT)"},
                 "claim": {"type": "integer", "description": "convert this player's computer keeper into the seat, if the game did not already make one"},
                 "min_interval_turns": {"type": "integer", "description": "least game turns between two decision-due notices (default 100)"},
                 "takeover": {"type": "boolean", "description": "let the built-in AI take the seat if this connection drops"},
@@ -138,7 +140,7 @@ TOOLS = [
     },
     {
         "name": "get_log_tail",
-        "description": "The game's own recent log output, for debugging a confusing session without a human tailing keeperfx.log by hand.",
+        "description": "The game's own recent log output, for debugging a confusing session without a human tailing daimonkeeper.log by hand.",
         "inputSchema": {
             "type": "object",
             "properties": {"lines": {"type": "integer", "minimum": 1, "maximum": 500, "description": "default 100"}},
@@ -168,7 +170,7 @@ TOOLS = [
 ]
 
 PROMPTS = [
-    {"name": "play_keeperfx", "description": "How to play a keeperfx External seat through this server's tools."},
+    {"name": "play_daimonkeeper", "description": "How to play a dAImon Keeper External seat through this server's tools."},
 ]
 
 
@@ -239,7 +241,7 @@ class Server:
             elif method == "prompts/list":
                 result = {"prompts": PROMPTS}
             elif method == "prompts/get":
-                if (req.get("params") or {}).get("name") != "play_keeperfx":
+                if (req.get("params") or {}).get("name") not in ("play_daimonkeeper", OLD_PROMPT_NAME):
                     return self._error(req_id, -32602, "unknown prompt")
                 result = {"messages": [{"role": "user", "content": {"type": "text", "text": prompt.SYSTEM_PROMPT}}]}
             elif method == "tools/call":
@@ -280,7 +282,7 @@ def main():
         try:
             req = json.loads(line)
         except ValueError as e:
-            print("keeperfx-bridge: bad JSON on stdin: %s" % (e,), file=sys.stderr)
+            print("daimonkeeper-bridge: bad JSON on stdin: %s" % (e,), file=sys.stderr)
             sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}) + "\n")
             sys.stdout.flush()
             continue

@@ -1,4 +1,4 @@
-"""One agent's play session against a running keeperfx, driven step by step from the outside (mcp_server.py's tools) rather
+"""One agent's play session against a running dAImon Keeper game, driven step by step from the outside (mcp_server.py's tools) rather
 than by an autonomous loop with a policy (bridge.py). Each method is one MCP tool call: connect once, then repeatedly
 wait_for_decision (or status/look) and submit; the calling assistant decides in its own turn, in between.
 

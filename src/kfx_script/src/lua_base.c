@@ -21,6 +21,7 @@
 #include "config_trapdoor.h"
 #include "config_crtrstates.h"
 
+#include "compat_report.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -57,6 +58,56 @@ static void disable_lua_functions(lua_State *L)
 }
 
 
+/**
+ * A Lua error that's a call to a function that doesn't exist -- most likely a
+ * KeeperFX API function this build doesn't have -- goes into the compat report
+ * (compat_report.h) and a COMPAT: log line. Understands LuaJIT's wording
+ * ("attempt to call global 'X' (a nil value)") and Lua 5.4's ("attempt to call
+ * a nil value (global 'X')"); "global" may also be "method" or "field".
+ * @return true if it was one.
+ */
+TbBool lua_report_missing_function(const char *message)
+{
+    if (message == NULL)
+        return false;
+    const char *call = strstr(message, "attempt to call ");
+    if (call == NULL)
+        return false;
+    static const char *const scopes[] = {"global '", "method '", "field '"};
+    const char *name = NULL;
+    for (size_t i = 0; (i < sizeof(scopes) / sizeof(scopes[0])) && (name == NULL); i++)
+    {
+        const char *at = strstr(call, scopes[i]);
+        if (at != NULL)
+            name = at + strlen(scopes[i]);
+    }
+    if ((name == NULL) || (strstr(call, "nil value") == NULL))
+        return false;
+    char what[COMPAT_WHAT_LEN];
+    size_t n = 0;
+    while ((name[n] != '\0') && (name[n] != '\'') && (n + 1 < sizeof(what)))
+    {
+        what[n] = name[n];
+        n++;
+    }
+    what[n] = '\0';
+    // "<chunk>:<line>: attempt ...": the chunk (file) and line it happened on.
+    char where[COMPAT_WHERE_LEN] = "";
+    uint64_t line = 0;
+    const char *colon = NULL;
+    for (const char *p = message; p < call; p++)
+        if ((p[0] == ':') && (p[1] >= '0') && (p[1] <= '9'))
+            colon = p;
+    if (colon != NULL)
+    {
+        snprintf(where, sizeof(where), "%.*s", (int)(colon - message), message);
+        line = strtoull(colon + 1, NULL, 10);
+    }
+    compat_report_add(CompatIssue_LuaFunction, what, where, line);
+    JUSTMSG("COMPAT: Lua called '%s' (%s line %" PRIu64 "), which this build doesn't have", what, where, line);
+    return true;
+}
+
 TbBool CheckLua(lua_State *L, int64_t result, const char* func)
 {
     if (result != LUA_OK) {
@@ -70,6 +121,7 @@ TbBool CheckLua(lua_State *L, int64_t result, const char* func)
 
         const char *message = lua_tostring(L, -1);
         ERRORLOG("Lua error in %s: %s", func, message ? message : "Unknown error");
+        lua_report_missing_function(message);
         lua_pop(L, 1); // pop error string
 
         if (exit_on_lua_error) {

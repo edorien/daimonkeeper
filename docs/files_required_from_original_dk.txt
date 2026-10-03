@@ -2,7 +2,8 @@ List of files required from original DK.
 ------------------------------
 
 This document lists files which need to be added
- to KeeperFX from original Dungeon Keeper CD.
+ to dAImon Keeper (as to KeeperFX) from the original
+ Dungeon Keeper CD.
 
 These files have been checked to be identical
  in the following versions of Dungeon Keeper:

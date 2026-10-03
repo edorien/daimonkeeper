@@ -18,24 +18,26 @@
 #        cmake --build build --target package
 #
 #
-# Output: pkg/keeperfx-<maj>_<min>_<rel>_<build>[-<suffix>]-patch.7z
+# Output: pkg/<slug>-<maj>.<min>.<rel>.<build>-kfx<compat>[-<suffix>].7z
+#   e.g. pkg/daimonkeeper-1.0.0.1234-kfx1.4-Alpha.7z (the slug and both
+#   versions come from build/make/version.mk)
 # ---------------------------------------------------------------------------
 
-set(CPACK_PACKAGE_NAME      "keeperfx")
-set(CPACK_PACKAGE_VENDOR    "KeeperFX Team")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "KeeperFX - Free implementation of Dungeon Keeper")
+set(CPACK_PACKAGE_NAME      "${PRODUCT_SLUG}")
+set(CPACK_PACKAGE_VENDOR    "dAImon Keeper contributors")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "dAImon Keeper - based on KeeperFX; requires the original Dungeon Keeper data files")
 set(CPACK_PACKAGE_VERSION   "${VER_MAJOR}.${VER_MINOR}.${VER_RELEASE}.${BUILD_NUMBER}")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VER_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${VER_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${VER_RELEASE}")
 
-# Archive filename keeperfx-<maj>_<min>_<rel>_<build>[-<suffix>]-patch
+# Archive filename <slug>-<maj>.<min>.<rel>.<build>-kfx<compat>[-<suffix>]: our
+# version, and the KeeperFX release whose content it supports.
+set(_kfx_pkg_base "${PRODUCT_SLUG}-${VER_MAJOR}.${VER_MINOR}.${VER_RELEASE}.${BUILD_NUMBER}-kfx${KFX_COMPAT_MAJOR}.${KFX_COMPAT_MINOR}")
 if(PACKAGE_SUFFIX AND NOT "${PACKAGE_SUFFIX}" STREQUAL "")
-    set(CPACK_PACKAGE_FILE_NAME
-        "keeperfx-${VER_MAJOR}_${VER_MINOR}_${VER_RELEASE}_${BUILD_NUMBER}-${PACKAGE_SUFFIX}-patch")
+    set(CPACK_PACKAGE_FILE_NAME "${_kfx_pkg_base}-${PACKAGE_SUFFIX}")
 else()
-    set(CPACK_PACKAGE_FILE_NAME
-        "keeperfx-${VER_MAJOR}_${VER_MINOR}_${VER_RELEASE}_${BUILD_NUMBER}-patch")
+    set(CPACK_PACKAGE_FILE_NAME "${_kfx_pkg_base}")
 endif()
 
 # Place generated archives in the source-tree pkg/ directory
@@ -86,7 +88,16 @@ set(CPACK_COMPONENTS_ALL runtime gamedata mcp)
 # protocol XML) -- none of which are tagged "runtime", so --component
 # runtime skips them.
 install(TARGETS keeperfx RUNTIME DESTINATION . COMPONENT runtime)
-install(FILES "${CMAKE_BINARY_DIR}/keeperfx.map" DESTINATION . OPTIONAL COMPONENT runtime)
+install(FILES "${CMAKE_BINARY_DIR}/${PRODUCT_SLUG}.map" DESTINATION . OPTIONAL COMPONENT runtime)
+
+# Linux desktop integration: the icons plus a script that writes a per-user
+# .desktop entry pointing at wherever this folder ends up (the game runs from
+# its own folder, so the entry needs the absolute path -- no static .desktop).
+if(NOT WIN32)
+    file(GLOB _kfx_desktop_icons "${CMAKE_SOURCE_DIR}/res/${PRODUCT_SLUG}_icon[0-9][0-9][0-9].png")
+    install(FILES ${_kfx_desktop_icons} DESTINATION icons COMPONENT runtime)
+    install(PROGRAMS "${CMAKE_SOURCE_DIR}/res/linux/install-desktop-entry.sh" DESTINATION . COMPONENT runtime)
+endif()
 
 # The game data assembled by "make pkg-assemble" (configs, campaigns, levels,
 # language/sound .dat files, SDL3 runtime DLLs, docs). Evaluated at pack time so
@@ -111,15 +122,27 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/scripts/llm_bridge/"
     REGEX "experience\\.sqlite" EXCLUDE
 )
 
+# pkg/ and dist/<os>/ are never wiped between runs, so names earlier builds staged and no
+# longer do -- KeeperFX's keeperfx.cfg/keeperfx_readme.txt from before the rename, the
+# reverted fxdata-<slug>/ data folder -- are skipped here and removed from the install
+# folder, instead of shipping next to their replacements.
 install(CODE "
     set(_pkg_src \"${CMAKE_SOURCE_DIR}/pkg\")
+    set(_pkg_obsolete \"^(keeperfx\\\\.cfg|keeperfx_readme\\\\.txt|fxdata-[^/]+/.*)\$\")
+    file(REMOVE_RECURSE
+        \"\${CMAKE_INSTALL_PREFIX}/keeperfx.cfg\"
+        \"\${CMAKE_INSTALL_PREFIX}/keeperfx_readme.txt\"
+        \"\${CMAKE_INSTALL_PREFIX}/fxdata-${PRODUCT_SLUG}\")
     if(EXISTS \"\${_pkg_src}\")
         file(GLOB_RECURSE _pkg_files
             LIST_DIRECTORIES false
             RELATIVE \"\${_pkg_src}\"
             \"\${_pkg_src}/*\")
         foreach(_f IN LISTS _pkg_files)
-            if(NOT _f MATCHES \"keeperfx.*\\\\.(7z|tar\\\\.gz|tgz)\$\")
+            if(_f MATCHES \"\${_pkg_obsolete}\")
+                continue()
+            endif()
+            if(NOT _f MATCHES \"(keeperfx|${PRODUCT_SLUG}).*\\\\.(7z|tar\\\\.gz|tgz)\$\")
                 get_filename_component(_dir \"\${_f}\" DIRECTORY)
                 file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/\${_dir}\")
                 file(COPY \"\${_pkg_src}/\${_f}\"

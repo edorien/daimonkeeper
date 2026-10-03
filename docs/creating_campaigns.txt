@@ -1,5 +1,13 @@
-How to prepare a new campaign for KeeperFX
-------------------------------
+How to prepare a new campaign for KeeperFX (and dAImon Keeper)
+--------------------------------------------------------------
+
+This guide describes the KeeperFX campaign format, which dAImon Keeper plays
+too; "KeeperFX" below means that format and its engine. dAImon Keeper also has
+an in-game campaign editor (main menu -> Tools) that writes these files for
+you. A campaign that uses features only dAImon Keeper has won't work in
+KeeperFX -- to keep one playable in both, save its maps from the map editor
+with Format "Force KeeperFX", which refuses anything KeeperFX can't load.
+
 TOC
 1. Introduction
 2. Creating levels

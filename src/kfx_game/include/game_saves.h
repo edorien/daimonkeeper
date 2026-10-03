@@ -50,12 +50,14 @@ enum SaveGameChunks {
      SGC_KfxNetState    = 0x54454E4B, //"KNET"
      SGC_KfxGameState   = 0x4D41474B, //"KGAM"
      SGC_KfxFrontendState = 0x4F52464B, //"KFRO"
-     SGC_AgentMemory    = 0x544E4741  //"AGNT" optional: External seat agents' memory (agent_memory.h)
+     SGC_AgentMemory    = 0x544E4741, //"AGNT" optional: External seat agents' memory (agent_memory.h)
+     SGC_Product        = 0x444F5250  //"PROD" which game wrote the file (struct ProductChunk)
 };
 
 enum SaveGameChunkFlags {
      SGF_InfoBlock      = 0x0001,
      SGF_GameOrig       = 0x0002,
+     SGF_Product        = 0x0004,
      SGF_PacketHeader   = 0x0100,
      SGF_PacketData     = 0x0200,
      SGF_IntralevelData = 0x0400,
@@ -65,9 +67,9 @@ enum SaveGameChunkFlags {
      SGF_KfxGameState   = 0x4000,
      SGF_KfxFrontendState = 0x8000,
 };
-#define SGF_SavedGame      (SGF_InfoBlock|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_IntralevelData|SGF_LuaData)
-#define SGF_PacketStart    (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock)
-#define SGF_PacketContinue (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState)
+#define SGF_SavedGame      (SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_IntralevelData|SGF_LuaData)
+#define SGF_PacketStart    (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product)
+#define SGF_PacketContinue (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState)
 
 /* enum GameLoadStatus, enum CatalogueEntryFlags, struct CatalogueEntry
    moved to save_catalogue.h (kfx_net, stage 13.3) -- kfx_net's
@@ -82,6 +84,15 @@ struct FileChunkHeader {
     uint64_t len;
     uint64_t id;
     uint64_t ver;
+};
+
+/* SGC_Product payload, written right after the INFO chunk of every save and
+   replay. KeeperFX files (and this game's before 1.0.0) have no such chunk,
+   so validate_save_chunks() refuses them by name instead of by layout. */
+#define PRODUCT_CHUNK_VER 1
+struct ProductChunk {
+    uint64_t magic;     // PRODUCT_MAGIC (version.h)
+    char slug[32];      // PRODUCT_SLUG, for anyone reading the file by hand
 };
 
 /******************************************************************************/

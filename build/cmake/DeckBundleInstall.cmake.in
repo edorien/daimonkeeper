@@ -3,7 +3,7 @@
 # the non-system ones into <prefix>/lib, and gives everything an $ORIGIN rpath
 # so the bundle is relocatable. Do not edit the generated copy in the build dir.
 
-set(_bin "${CMAKE_INSTALL_PREFIX}/keeperfx")
+set(_bin "${CMAKE_INSTALL_PREFIX}/daimonkeeper")
 if(NOT EXISTS "${_bin}")
     message(FATAL_ERROR "Deck bundle: ${_bin} not found — install the keeperfx target first")
 endif()

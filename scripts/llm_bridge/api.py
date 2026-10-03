@@ -1,4 +1,4 @@
-"""Newline-delimited JSON client for keeperfx's in-game TCP API (API_ENABLED=TRUE, API_PORT). Standard library only."""
+"""Newline-delimited JSON client for the game's in-game TCP API (API_ENABLED=TRUE, API_PORT). Standard library only."""
 import collections
 import json
 import select

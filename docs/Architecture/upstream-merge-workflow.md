@@ -1,5 +1,9 @@
 # Merging upstream (dkfans/keeperfx) into this fork
 
+dAImon Keeper is derived from KeeperFX and keeps merging its engine changes, so
+that it keeps playing the content made for it. Besides the merge itself, each
+merge refreshes the compatibility data -- step 6a.
+
 This fork's `src/` is reorganized into layered `src/kfx_*/` libraries
 (architecture.md), while upstream (`origin` remote, dkfans/keeperfx `master`)
 stays a flat, pre-refactor tree. A plain `git merge` between these two shapes
@@ -168,7 +172,7 @@ patterns from the 2026-09 merge:
 ```bash
 python3 scripts/check_layering.py --strict
 python3 scripts/check_layering_symbols.py --strict
-KFX_OS=linux ./build-cmake.sh           # keeperfx
+./build-cmake-linux.sh                  # out/linux/daimonkeeper (target: keeperfx)
 cmake --build out/linux_tests --target kfx_platform_utest kfx_config_utest \
   kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest \
   kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest -j"$(nproc)"
@@ -196,6 +200,43 @@ the conflicted files themselves:
 
 Once green, update the coverage-first tests from step 4 to their post-merge
 expected values (if step 4 wrote a "before" assertion) and re-run.
+
+## 6a. Keep the KeeperFX-compatibility data current
+
+What upstream's content can use is what dAImon Keeper promises to play ("KFX
+1.4" in its version label), so after every merge:
+
+1. **Parity.** `python3 scripts/kfx_parity.py` (against `origin/master`). Its
+   "missing" list is upstream content features (script commands, config keys and
+   values, Lua API) this tree doesn't have -- after a full merge it should be
+   empty. Its "fork-only" list shouldn't grow by accident: a new entry that
+   isn't a deliberate dAImon Keeper feature usually means a merge renamed or
+   dropped something.
+2. **Content level.** If the merge brings in everything of a KeeperFX release
+   (tag `vX.Y.Z`; `git fetch origin --tags`), check
+   `python3 scripts/kfx_parity.py --upstream vX.Y.Z --fail-on-missing`. Only if
+   that passes, bump `KFX_COMPAT_MAJOR/MINOR` in `build/make/version.mk`. Never
+   bump for alpha-only features: the label names a release.
+3. **Editor's "Force KeeperFX" list.** `python3 scripts/gen_kfx_compat_reference.py`
+   and commit `src/kfx_editor/src/kfx_compat_reference.inc` if it changed
+   (`--check` confirms it's current). Also after a `KFX_COMPAT_*` bump, and
+   whenever `config/fxdata` gains or renumbers kinds.
+4. **Third-party notices.** If the merge changed a dependency
+   (`build/cmake/modules/Dependencies.cmake`), build once (it fills the
+   dependency caches), then `python3 scripts/gen_third_party_notices.py`.
+5. **NOTICE.** Update its "Upstream base" line to the merged upstream commit
+   and date.
+6. **Shipped data sweeps** (already in step 6's test run):
+   `compat_report_test.cpp` (every config key and named value in
+   `config/fxdata` is read, loaded in the game's own order) and
+   `script_preflight_test.cpp` (every shipped level script uses only known
+   commands). A failure means upstream shipped data our parsers don't read --
+   upstream once dropped parser rows its own data still used (#4944) -- or the
+   merge lost something.
+7. **Product names in merged code.** Upstream strings that name the product
+   ("KeeperFX" in a window title, a message box, a log header) become
+   `PRODUCT_NAME` / `PRODUCT_SLUG` (`version.h`); "KeeperFX" stays where it
+   names the content format or the project's origin.
 
 ## 7. Commit and record gaps
 

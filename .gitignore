@@ -51,7 +51,6 @@ docs/latex
 *.o
 *.d
 *.Tpo
-res/keeperfx_icon.ico
 .header_checksum
 /deps/enet
 /deps/enet6
@@ -86,6 +85,7 @@ res/keeperfx_icon.ico
 # needs its own ignore entry alongside the one above.
 /ver_defs.h
 keeperfx.log
+daimonkeeper.log
 crash_log.txt
 debug.log
 # Local staging of the real, proprietary Dungeon Keeper data files (not
@@ -100,3 +100,4 @@ third_party/
 
 # Local-only design notes; removed from the remote (to be folded into docs/Architecture)
 /docs/refactor/
+/docs/rebadge/

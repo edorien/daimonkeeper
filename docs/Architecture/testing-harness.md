@@ -330,10 +330,10 @@ neither the ftest scenarios nor coverage capture care about). The
   `SDL_Init(SDL_INIT_VIDEO)` — a real (if never-shown) window/surface
   still gets created, so the rest of the engine's window/renderer code
   runs completely unmodified. Verified directly (a standalone SDL3 probe,
-  then the real `keeperfx` binary): `SDL_Init`/`SDL_CreateWindow`/
+  then the real game binary): `SDL_Init`/`SDL_CreateWindow`/
   `SDL_GetWindowSurface`/`SDL_UpdateWindowSurface` all succeed against the
   dummy driver, including with `DISPLAY`/`WAYLAND_DISPLAY` both unset.
-  `keeperfx.log` logs `SDL video driver: dummy` (`LbScreenInitialize`,
+  `daimonkeeper.log` logs `SDL video driver: dummy` (`LbScreenInitialize`,
   `bflib_video.c`) to confirm it took effect.
 - A dummy display reports zero real display modes, which broke
   `LbHwCheckIsModeAvailable()` (`bflib_video.c`) for *every* requested
@@ -356,7 +356,7 @@ proprietary Dungeon Keeper data files this repo can't distribute (root
 `core_files/` directory — gitignored, not part of this repo);
 `build/cmake/modules/StageFtestData.cmake` copies only the subset the
 *registered, non-long-running* tests actually need into the build tree
-`keeperfx` runs from, determined empirically with `strace` against a real
+the game (`daimonkeeper`, target `keeperfx`) runs from, determined empirically with `strace` against a real
 run rather than guessed:
 
 | Staged | Size | Why |
@@ -396,7 +396,7 @@ mutually exclusive in a single configure).
 ```bash
 cmake -S . -B out/coverage-ftest -G Ninja -DKFX_OS=linux \
   -DKFX_BUILD_TESTS=OFF -DKFX_FUNCTESTING=ON -DKFX_TEST_COVERAGE=ON \
-  -DKFX_FTEST_DATA_DIR=/path/to/a/real/keeperfx/install
+  -DKFX_FTEST_DATA_DIR=/path/to/a/real/game-data/install
 cmake --build out/coverage-ftest --target coverage
 # report: out/coverage-ftest/coverage-html/index.html
 ```

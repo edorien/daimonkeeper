@@ -4469,7 +4469,7 @@ void frontend_draw_product_version(struct GuiButton *gbtn)
     int64_t h = LbTextLineHeight() * units_per_px / 16;
     LbTextSetWindow(0, gbtn->scr_pos_y, gbtn->width, h);
     char text[128];
-    snprintf(text, sizeof(text), "%s %s", PRODUCT_NAME, PRODUCT_VERSION);
+    snprintf(text, sizeof(text), "%s", PRODUCT_VERSION_LABEL_ASCII);
     LbTextDrawResized(0, 0, units_per_px, text);
 }
 

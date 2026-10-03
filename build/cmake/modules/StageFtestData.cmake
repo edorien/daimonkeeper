@@ -10,7 +10,17 @@
 # or map pack gets its data staged without touching this file.
 #
 # Usage: cmake -DSOURCE_DIR=<install> -DDEST_DIR=<dest> -DKEEPERFX_CFG=<cfg>
+#              -DREPO_DIR=<repo root>
 #              [-DFTEST_LIST=<src/ftests/ftest_list.c>] -P StageFtestData.cmake
+#
+# SOURCE_DIR is usually a KeeperFX install, whose fxdata/ holds KeeperFX's
+# configs, Lua and language files. The tests must run on this repo's, so the
+# staged fxdata/ is SOURCE_DIR's (for the sprite packs and .fxfont fonts only
+# an install has) with the repo's config/fxdata and compiled language files
+# copied over it.
+if(NOT DEFINED REPO_DIR)
+    message(FATAL_ERROR "StageFtestData: REPO_DIR must be set (see Usage above)")
+endif()
 if(NOT EXISTS "${SOURCE_DIR}")
     message(FATAL_ERROR "StageFtestData: SOURCE_DIR '${SOURCE_DIR}' does not "
         "exist -- see src/ftests/README.md for how to obtain the real, "
@@ -41,13 +51,13 @@ endif()
 # each run's starting data depend on what the previous one did. Only the data directories this script itself
 # stages are removed (none of these names is a CMake build output), and
 # re-staging is cheap (~1-2s for ~145MB).
-foreach(_staged_dir campgns levels multiplayer data fxdata creatrs mods save)
+foreach(_staged_dir campgns levels multiplayer data fxdata creatrs mods save replays)
     file(REMOVE_RECURSE "${DEST_DIR}/${_staged_dir}")
 endforeach()
 
 file(COPY "${KEEPERFX_CFG}" DESTINATION "${DEST_DIR}")
 
-# config/keeperfx.cfg's own default is INGAME_RES=DESKTOP (fullscreen at the
+# config/daimonkeeper.cfg's own default is INGAME_RES=DESKTOP (fullscreen at the
 # current desktop's real resolution) -- meaningless under -headless's dummy
 # SDL video driver, which has no real desktop to query. That combination is
 # a guaranteed SIGFPE, not a slow/degraded path: PlatformManager_
@@ -196,7 +206,23 @@ message(STATUS "StageFtestData: staged locations: ${_staged_locations}")
 # needed unconditionally by any game session, small enough (~50MB
 # combined) to copy in full rather than figure out a real subset.
 file(COPY "${SOURCE_DIR}/data" DESTINATION "${DEST_DIR}")
-file(COPY "${SOURCE_DIR}/fxdata" DESTINATION "${DEST_DIR}")
+if(EXISTS "${SOURCE_DIR}/fxdata")
+    file(COPY "${SOURCE_DIR}/fxdata" DESTINATION "${DEST_DIR}")
+else()
+    message(STATUS "StageFtestData: ${SOURCE_DIR} has no fxdata/ -- staging the repo's "
+        "config/fxdata only (no sprite packs or .fxfont fonts)")
+endif()
+file(COPY "${REPO_DIR}/config/fxdata/" DESTINATION "${DEST_DIR}/fxdata")
+# Language files from `make pkg-languages` when it has been run; otherwise
+# SOURCE_DIR's stay, and strings this repo added show untranslated -- which the
+# functional tests don't mind.
+file(GLOB _lang_dats "${REPO_DIR}/pkg/fxdata/gtext_*.dat")
+if(_lang_dats)
+    file(COPY ${_lang_dats} DESTINATION "${DEST_DIR}/fxdata")
+else()
+    message(STATUS "StageFtestData: no pkg/fxdata/gtext_*.dat (make pkg-languages) -- "
+        "language files only as ${SOURCE_DIR}/fxdata has them")
+endif()
 file(COPY "${SOURCE_DIR}/creatrs" DESTINATION "${DEST_DIR}")
 
 # mods/load_order.cfg (SOURCE_DIR's own, not keeperfx.cfg) is what

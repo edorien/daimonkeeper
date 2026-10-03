@@ -4,11 +4,11 @@ setlocal
 REM ===========================================================================
 REM  build-package-windows.bat
 REM
-REM  Native Windows MinGW build + full package: keeperfx.exe,
+REM  Native Windows MinGW build + full package: daimonkeeper.exe,
 REM  the SDL3 runtime DLLs and all game data (configs, campaigns, levels,
 REM  language / sound .dat files). Produces:
 REM
-REM    pkg\keeperfx*.7z     - the release archive (CPack)
+REM    pkg\daimonkeeper*.7z     - the release archive (CPack)
 REM    dist\windows\        - the same contents unpacked, ready to run
 REM
 REM  The Linux build and the coverage / unit-test pass are intentionally

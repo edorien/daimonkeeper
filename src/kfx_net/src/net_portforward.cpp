@@ -26,6 +26,7 @@
 #include <windows.h>
 #endif
 #include "net_portforward.h"
+#include "version.h" // PRODUCT_NAME, the UPnP mapping label
 #include "bflib_basics.h"
 #include "bflib_datetm.h"
 
@@ -231,10 +232,10 @@ static void port_forward_add_mapping_internal(int64_t port)
     snprintf(port_string, sizeof(port_string), "%" PRIu64, (uint64_t)(port));
     UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, "UDP", "");
     LbNetLog("UPnP: lanaddr=%s\n", upnp_lanaddr);
-    int64_t result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, "KeeperFX", "UDP", "", "0");
+    int64_t result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", "0");
     if (result != UPNPCOMMAND_SUCCESS) {
         LbNetLog("UPnP: permanent lease rejected (error %" PRId64 "), trying timed lease\n", (int64_t)(result));
-        result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, "KeeperFX", "UDP", "", "3600");
+        result = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_string, port_string, upnp_lanaddr, PRODUCT_NAME, "UDP", "", "3600");
         if (result != UPNPCOMMAND_SUCCESS) {
             LbNetLog("UPnP: failed to add port mapping (error %" PRId64 "), UDP hole punching will be used\n", (int64_t)(result));
             FreeUPNPUrls(&upnp_urls);

@@ -49,7 +49,12 @@ extern "C" {
 /******************************************************************************/
 
 
-static const char keeper_config_file[]="keeperfx.cfg";
+static const char keeper_config_file[]=PRODUCT_SLUG ".cfg";
+// KeeperFX's name for its base config. Mods still override settings through a
+// keeperfx.cfg of their own (content compatibility), and an existing one next
+// to the game is copied once to become keeper_config_file (see
+// import_kfx_base_config()).
+static const char kfx_config_file[]="keeperfx.cfg";
 // Set by load_configuration() -- see keeperfx_cfg_write_values()'s own comment.
 static char loaded_keeperfx_cfg_path[DISKPATH_SIZE] = "";
 
@@ -1405,8 +1410,8 @@ static void load_configuration_for_mod(const struct ModConfigItem *mod_item)
     sprintf(mod_dir, "%s/%s", MODS_DIR_NAME, mod_item->name);
     sprintf(config_textname, "Mod config '%s'", mod_item->name);
 
-    char *fname = get_mod_file_path_fmt(mod_dir, FGrp_Main, "%s", keeper_config_file);
-    load_file_configuration(fname, keeper_config_file, config_textname, CnfLd_IgnoreErrors);
+    char *fname = get_mod_file_path_fmt(mod_dir, FGrp_Main, "%s", kfx_config_file);
+    load_file_configuration(fname, kfx_config_file, config_textname, CnfLd_IgnoreErrors);
 }
 
 static void load_configuration_for_mod_list(const struct ModConfigItem *mod_items, int64_t mod_cnt)
@@ -1437,6 +1442,25 @@ void load_configuration_for_mod_all(void)
     {
         load_configuration_for_mod_list(mods_conf.after_map_item, mods_conf.after_map_cnt);
     }
+}
+
+TbBool import_kfx_base_config(const char *ours, const char *theirs)
+{
+    if (LbFileExists(ours) || !LbFileExists(theirs))
+        return false;
+    const int64_t len = LbFileLength(theirs);
+    if (len <= 0)
+        return false;
+    char *buf = (char *)KfxCalloc((size_t)len, 1);
+    if (buf == NULL)
+        return false;
+    const TbBool ok = (LbFileLoadAt(theirs, buf) == len) && (LbFileSaveAt(ours, buf, len) == len);
+    KfxFree(buf);
+    if (ok)
+        SYNCMSG("No %s yet: copied settings from \"%s\" (that file is left untouched)", keeper_config_file, theirs);
+    else
+        WARNMSG("Couldn't copy settings from \"%s\" to \"%s\"", theirs, ours);
+    return ok;
 }
 
 int64_t load_configuration(void)
@@ -1481,6 +1505,11 @@ int64_t load_configuration(void)
   }
   else
   {
+    char ours[DISKPATH_SIZE];
+    char theirs[DISKPATH_SIZE];
+    prepare_file_path_buf(ours, sizeof(ours), FGrp_Main, keeper_config_file);
+    prepare_file_path_buf(theirs, sizeof(theirs), FGrp_Main, kfx_config_file);
+    import_kfx_base_config(ours, theirs);
     sname = keeper_config_file;
     fname = prepare_file_path(FGrp_Main, sname);
   }

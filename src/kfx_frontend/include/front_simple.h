@@ -36,6 +36,7 @@ enum RawBitmaps {
     RBmp_SplashLegal        =  0x03,
     RBmp_SplashFx           =  0x04,
     RBmp_SplashLegalWide    =  0x05,
+    RBmp_SplashFxWide       =  0x06,
 };
 
 struct RawBitmap {
@@ -46,6 +47,9 @@ struct RawBitmap {
   int64_t fgroup;
   const char *raw_fname;
   const char *pal_fname;
+  // 32-bit PNG under fxdata/, used in preference to the raw+pal pair when
+  // present (its own size replaces width/height); raw_fname NULL = PNG only.
+  const char *png_fname;
 };
 
 struct ActiveBitmap {
@@ -58,6 +62,12 @@ struct ActiveBitmap {
   // per pixel on disk) -- genuinely a byte buffer, not TbPixel storage.
   unsigned char *raw_data;
   unsigned char *pal_data;
+  // Set instead of raw_data/pal_data when the screen came from a PNG, plus
+  // the copy scaled to the current screen (rebuilt when the size changes).
+  TbPixel *rgba_data;
+  TbPixel *scaled_data;
+  int64_t scaled_width;
+  int64_t scaled_height;
 };
 
 /******************************************************************************/
@@ -70,6 +80,7 @@ struct ActiveBitmap {
 // docs/refactor/stage-10-kfx-frontend.md).
 TbBool copy_raw8_image_to_screen_center(const unsigned char *buf,const int64_t img_width,const int64_t img_height);
 TbBool show_rawimage_screen(unsigned char *raw,unsigned char *pal,int64_t width,int64_t height,TbClockMSec tmdelay);
+TbPixel *decode_png_screen_rgba(const unsigned char *data, size_t len, int64_t *out_width, int64_t *out_height);
 /******************************************************************************/
 TbBool draw_clear_screen(void);
 TbBool init_actv_bitmap_screen(int64_t stype);

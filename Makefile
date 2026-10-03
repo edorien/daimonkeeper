@@ -63,7 +63,7 @@ TEST_BIN = bin/tests$(EXEEXT)
 HVLOGBIN = bin/keeperfx_hvlog$(EXEEXT)
 # Names of intermediate build products
 GENSRC   = src/ver_defs.h
-RES      = obj/keeperfx_stdres.res
+RES      = obj/daimonkeeper_stdres.res
 
 DEPS = \
 obj/centitoml/toml_api.o \
@@ -577,7 +577,6 @@ clean-build:
 	-$(RM) $(HVLOGBIN) $(HVLOGBIN:%.exe=%.pdb)
 	-$(RM) bin/keeperfx.dll
 	-$(RM) $(GENSRC)
-	-$(RM) res/*.ico
 	-$(RM) obj/keeperfx.*
 
 $(BIN): $(GENSRC) $(STDOBJS) $(STD_MAIN_OBJ) std-before | $$(@D)/
@@ -806,18 +805,14 @@ define BUILD_RESOURCE_CMD
 	-$(ECHO) ' '
 endef
 
-obj/std/%.res: res/%.rc res/keeperfx_icon.ico $(GENSRC) | $$(@D)/
+obj/std/%.res: res/%.rc res/daimonkeeper_icon.ico $(GENSRC) | $$(@D)/
 	$(BUILD_RESOURCE_CMD)
 
-obj/hvlog/%.res: res/%.rc res/keeperfx_icon.ico $(GENSRC) | $$(@D)/
+obj/hvlog/%.res: res/%.rc res/daimonkeeper_icon.ico $(GENSRC) | $$(@D)/
 	$(BUILD_RESOURCE_CMD)
 
 
-# Creation of Windows icon files from PNG files
-res/%.ico: res/%016-08bpp.png res/%032-08bpp.png res/%048-08bpp.png res/%064-08bpp.png res/%128-08bpp.png res/%128-24bpp.png res/%256-24bpp.png res/%512-24bpp.png $(PNGTOICO)
-	-$(ECHO) 'Building icon: $@'
-	$(PNGTOICO) "$@" $(word 8,$^) $(word 7,$^) $(word 6,$^) --colors 256 $(word 5,$^) $(word 4,$^) $(word 3,$^) --colors 16 $(word 2,$^) $(word 1,$^)
-	-$(ECHO) ' '
+# res/daimonkeeper_icon.ico is committed: res/branding/make_assets.py writes it (32-bit, which png2ico can't).
 
 src/ver_defs.h: build/make/version.mk Makefile
 	$(ECHO) \#define VER_MAJOR   $(VER_MAJOR) > "$(@D)/tmp"
@@ -825,6 +820,13 @@ src/ver_defs.h: build/make/version.mk Makefile
 	$(ECHO) \#define VER_RELEASE $(VER_RELEASE) >> "$(@D)/tmp"
 	$(ECHO) \#define VER_BUILD   $(BUILD_NUMBER) >> "$(@D)/tmp"
 	$(ECHO) \#define VER_STRING  \"$(VER_STRING)\" >> "$(@D)/tmp"
+	$(ECHO) \#define VER_SHORT_STRING  \"$(VER_MAJOR).$(VER_MINOR).$(VER_RELEASE)\" >> "$(@D)/tmp"
+	$(ECHO) \#define KFX_COMPAT_MAJOR  $(KFX_COMPAT_MAJOR) >> "$(@D)/tmp"
+	$(ECHO) \#define KFX_COMPAT_MINOR  $(KFX_COMPAT_MINOR) >> "$(@D)/tmp"
+	$(ECHO) \#define KFX_COMPAT_VERSION  \"$(KFX_COMPAT_MAJOR).$(KFX_COMPAT_MINOR)\" >> "$(@D)/tmp"
+	$(ECHO) \#define KFX_COMPAT_STRING  \"KFX $(KFX_COMPAT_MAJOR).$(KFX_COMPAT_MINOR)\" >> "$(@D)/tmp"
+	$(ECHO) \#define PRODUCT_SLUG  \"$(PRODUCT_SLUG)\" >> "$(@D)/tmp"
+	$(ECHO) \#define PRODUCT_EXE_NAME  \"$(PRODUCT_SLUG).exe\" >> "$(@D)/tmp"
 	$(ECHO) \#define PACKAGE_SUFFIX  \"$(PACKAGE_SUFFIX)\" >> "$(@D)/tmp"
 	$(ECHO) \#define GIT_REVISION  \"`git describe  --always`\" >> "$(@D)/tmp"
 	$(MV) "$(@D)/tmp" "$@"

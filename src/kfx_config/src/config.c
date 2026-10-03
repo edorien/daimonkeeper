@@ -47,6 +47,7 @@
 
 // Real usage: effect_or_effect_element_id() -- same library, kfx_config.
 #include "config_effects.h"
+#include "compat_report.h"
 // Real usage: kfx_sim's map_data.h COORD_PER_STL (only reachable
 // transitively) -- literal-duplicated locally.
 #define COORD_PER_STL 256
@@ -314,6 +315,24 @@ TbBool iterate_conf_blocks(const char * buf, int64_t * pos, int64_t buflen, cons
 }
 
 /**
+ * Records a config key this build doesn't know in the compat report (compat_report.h):
+ * content made for a newer KeeperFX, most likely. text points at the key; where is the
+ * config file name, or NULL when the parser doesn't know it.
+ */
+static void report_unknown_config_key(const char *text, int64_t maxlen, const char *where)
+{
+    char key[COMPAT_WHAT_LEN];
+    int64_t n = 0;
+    while ((n < maxlen) && (n < (int64_t)sizeof(key) - 1) && (text[n] != '\0') && (strchr(" =\t\r\n", text[n]) == NULL))
+    {
+        key[n] = text[n];
+        n++;
+    }
+    key[n] = '\0';
+    compat_report_add(CompatIssue_ConfigKey, key, where, text_line_number);
+}
+
+/**
  * Recognizes config command and returns its number, or negative status code.
  * The string comparison is done by case-insensitive.
  * @param buf
@@ -380,6 +399,7 @@ int64_t recognize_conf_command(const char *buf,int64_t *pos,int64_t buflen,const
     }
     const int64_t len = strcspn(&buf[(*pos)], " \n\r\t");
     CONFWRNLOG("Unrecognized command '%.*s'", (int)(len), &buf[(*pos)]);
+    report_unknown_config_key(&buf[(*pos)], buflen - (*pos), NULL);
     return ccr_unrecognised;
 }
 
@@ -477,6 +497,7 @@ int64_t value_default(const struct NamedField* named_field, const char* value_te
             return value;
         }
         NAMFIELDWRNLOG("Unrecognized parameter for field '%s', got '%s'",named_field->name,value_text);
+        compat_report_add_value(named_field->name, value_text, src_str, text_line_number, named_field->namedCommand);
     }
     else
     {
@@ -527,7 +548,11 @@ int64_t value_longflagsfield(const struct NamedField* named_field, const char* v
         if(k >= 0)
             value |= k;
         else
+        {
             NAMFIELDWRNLOG("Unexpected value for field '%s', got '%s'",named_field->name,word_buf);
+            compat_report_add_long_value(named_field->name, word_buf, src_str, text_line_number,
+                (const struct LongNamedCommand*)named_field->namedCommand);
+        }
         i++;
     }
     return value;
@@ -568,7 +593,10 @@ int64_t value_flagsfield(const struct NamedField* named_field, const char* value
         if(k >= 0)
             value |= k;
         else
+        {
             NAMFIELDWRNLOG("Unexpected value for field '%s', got '%s'",named_field->name,word_buf);
+            compat_report_add_value(named_field->name, word_buf, src_str, text_line_number, named_field->namedCommand);
+        }
         i++;
     }
     return value;
@@ -988,6 +1016,13 @@ int64_t assign_conf_command_field(const char *buf,int64_t *pos,int64_t buflen,co
         }
         i++;
     }
+    // A list-only pass reads just the Name fields; every other key is expected to fall through here.
+    if (!flag_is_set(flags, CnfLd_ListOnly))
+    {
+        const int64_t len = (int64_t)strcspn(&buf[(*pos)], " =\n\r\t");
+        CONFWRNLOG("Unrecognized field '%.*s' in %s", (int)(len), &buf[(*pos)], config_textname);
+        report_unknown_config_key(&buf[(*pos)], buflen - (*pos), config_textname);
+    }
     return ccr_unrecognised;
 }
 
@@ -1083,7 +1118,16 @@ TbBool parse_named_field_blocks(char *buf, int64_t len, const char *config_textn
             continue;
         }
         const int64_t i = natoi(&blockname[basename_len], blocknamelen - basename_len);
-        if (i < 0 || i >= named_fields_set->max_count) {
+        if (i >= named_fields_set->max_count) {
+            // Content defining more of these than this build has room for (a newer
+            // KeeperFX's bigger table, most likely): skipped, so say so.
+            char what[COMPAT_WHAT_LEN];
+            snprintf(what, sizeof(what), "[%.*s] (room for %" PRId64 ")", (int)blocknamelen, blockname, (int64_t)named_fields_set->max_count);
+            WARNLOG("%s: block %s is beyond this build's limit, skipped", config_textname, what);
+            compat_report_add(CompatIssue_Limit, what, config_textname, 0);
+            continue;
+        }
+        if (i < 0) {
             continue;
         } else if (i >= *named_fields_set->get_count()) {
             *named_fields_set->get_count() = i + 1;
@@ -1506,6 +1550,17 @@ char *prepare_file_path_buf_mod(char *dst, int64_t dst_size, const char *mod_dir
 char *prepare_file_path_mod(const char *mod_dir, int64_t fgroup, const char *fname)
 {
   return get_mod_file_path(mod_dir, fgroup, fname);
+}
+
+char *prepare_campaign_levels_path(char *dst, int64_t dst_size, const struct GameCampaign *campgn, const char *fname)
+{
+  // Same folder FGrp_CmpgLvls resolves to for the loaded campaign.
+  dst[0] = '\0';
+  if ((campgn == NULL) || (campgn->levels_location[0] == '\0'))
+      return dst;
+  const char *mdir = install_info.inst_path[0] ? install_info.inst_path : keeper_runtime_directory;
+  snprintf(dst, (size_t)dst_size, "%s/%s/%s", mdir, campgn->levels_location, fname);
+  return dst;
 }
 
 char *prepare_file_path(int64_t fgroup, const char *fname)
@@ -2246,6 +2301,16 @@ TbBool is_level_in_current_campaign(LevelNumber lvnum)
 /* @comment
  *     The loading items of load_config and load_config_for_mod need to be consistent.
  */
+// Every config file load goes through here, so the compat report can name the
+// file for issues its parser doesn't know the file of (the legacy command parsers).
+static TbBool load_config_file_from(const struct ConfigFileData* file_data, const char *fname, int64_t flags)
+{
+    compat_report_set_source(fname);
+    const TbBool result = file_data->load_func(fname, flags);
+    compat_report_set_source(NULL);
+    return result;
+}
+
 static void load_config_for_mod(const struct ConfigFileData* file_data, int64_t flags, const struct ModConfigItem *mod_item)
 {
     set_flag(flags, (CnfLd_AcceptPartial | CnfLd_IgnoreErrors));
@@ -2261,7 +2326,7 @@ static void load_config_for_mod(const struct ConfigFileData* file_data, int64_t 
         fname = prepare_file_path_mod(mod_dir, FGrp_FxData, conf_fname);
         if (strlen(fname) > 0)
         {
-            file_data->load_func(fname, flags);
+            load_config_file_from(file_data, fname, flags);
         }
     }
 
@@ -2270,7 +2335,7 @@ static void load_config_for_mod(const struct ConfigFileData* file_data, int64_t 
         fname = prepare_file_path_mod(mod_dir, FGrp_CmpgConfig, conf_fname);
         if (strlen(fname) > 0)
         {
-            file_data->load_func(fname,flags);
+            load_config_file_from(file_data, fname,flags);
         }
     }
 
@@ -2279,7 +2344,7 @@ static void load_config_for_mod(const struct ConfigFileData* file_data, int64_t 
         fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(config_selected_level_number()), conf_fname);
         if (fname && strlen(fname) > 0)
         {
-            file_data->load_func(fname,flags);
+            load_config_file_from(file_data, fname,flags);
         }
     }
 }
@@ -2309,7 +2374,7 @@ TbBool load_config(const struct ConfigFileData* file_data, int64_t flags)
     const char* conf_fname = file_data->filename;
 
     char* fname = prepare_file_path(FGrp_FxData, conf_fname);
-    TbBool result = file_data->load_func(fname, flags);
+    TbBool result = load_config_file_from(file_data, fname, flags);
 
     if (mods_conf.after_base_cnt > 0)
     {
@@ -2319,7 +2384,7 @@ TbBool load_config(const struct ConfigFileData* file_data, int64_t flags)
     fname = prepare_file_path(FGrp_CmpgConfig, conf_fname);
     if (strlen(fname) > 0)
     {
-        file_data->load_func(fname,flags|CnfLd_AcceptPartial|CnfLd_IgnoreErrors);
+        load_config_file_from(file_data, fname,flags|CnfLd_AcceptPartial|CnfLd_IgnoreErrors);
     }
 
     if (mods_conf.after_campaign_cnt > 0)
@@ -2330,7 +2395,7 @@ TbBool load_config(const struct ConfigFileData* file_data, int64_t flags)
     fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(config_selected_level_number()), conf_fname);
     if (fname && strlen(fname) > 0)
     {
-        file_data->load_func(fname,flags|CnfLd_AcceptPartial|CnfLd_IgnoreErrors);
+        load_config_file_from(file_data, fname,flags|CnfLd_AcceptPartial|CnfLd_IgnoreErrors);
     }
 
     if (mods_conf.after_map_cnt > 0)

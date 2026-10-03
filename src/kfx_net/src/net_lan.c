@@ -13,8 +13,10 @@
 #define LAN_DISCOVERY_PORT               5557
 #define LAN_BROADCAST_INTERVAL_MS        1000
 #define LAN_SESSION_TIMEOUT_MS           4000
-#define LAN_DISCOVER_MSG                 "KEEPERFX_DISCOVER"
-#define LAN_HOST_REPLY_PREFIX            "KEEPERFX_HOST:"
+// Not KeeperFX's "KEEPERFX_DISCOVER"/"KEEPERFX_HOST:": the two games can't play
+// together, so neither should list the other's LAN hosts.
+#define LAN_DISCOVER_MSG                 "DAIMONKEEPER_DISCOVER"
+#define LAN_HOST_REPLY_PREFIX            "DAIMONKEEPER_HOST:"
 #define LAN_IP_MAX                       64
 #define LAN_MSG_MAX                      256
 

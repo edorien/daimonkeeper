@@ -41,6 +41,8 @@
 #include "creature_states_hero.h"
 #include "kfx_game_state.h"
 #include "ports/ui_port.h"
+#include "compat_report.h"
+#include "bflib_dernc.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -295,6 +297,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
             if (crtr_id == -1)
             {
                 SCRPTERRLOG("Unknown creature, \"%s\"", scline->tp[idx]);
+                compat_report_add(CompatIssue_ScriptName, scline->tp[idx], NULL, text_line_number);
                 return false;
             }
             scline->np[idx] = crtr_id;
@@ -306,6 +309,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
             if (room_id == -1)
             {
                 SCRPTERRLOG("Unknown room kind, \"%s\"", scline->tp[idx]);
+                compat_report_add(CompatIssue_ScriptName, scline->tp[idx], NULL, text_line_number);
                 return false;
             }
             scline->np[idx] = room_id;
@@ -317,6 +321,7 @@ static TbBool script_command_param_to_number(char type_chr, struct ScriptLine *s
             if (slab_id == -1)
             {
                 SCRPTERRLOG("Unknown slab kind, \"%s\"", scline->tp[idx]);
+                compat_report_add(CompatIssue_ScriptName, scline->tp[idx], NULL, text_line_number);
                 return false;
             }
             scline->np[idx] = slab_id;
@@ -775,6 +780,10 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
     {
         if (isalnum(scline->tcmnd[0])) {
           SCRPTERRLOG("Invalid command, '%s' (lev ver %" PRId64 ")", scline->tcmnd, (int64_t)(file_version));
+          // A command of the other LEVEL_VERSION's table is the level's own mistake (it
+          // fails the same in KeeperFX), not something a newer KeeperFX has.
+          if (find_command_desc(&token, (file_version > 0) ? dk1_command_desc : command_desc) == NULL)
+              compat_report_add(CompatIssue_ScriptCommand, scline->tcmnd, NULL, text_line_number);
         }
         free(scline);
         return false;
@@ -981,6 +990,118 @@ static void parse_txt_data(char *script_data, int64_t script_len)
       buf += lnlen;
     }
     free(script_data);
+}
+
+/**
+ * Walks a script's lines the way parse_txt_data() does (block comments, line
+ * ends), calling visit(first_token, line_number, ctx) with each line's first
+ * token. Works on its own copy: the tokenizer upper-cases and splits in place.
+ */
+static void preflight_walk(const char *text, int64_t len,
+    void (*visit)(struct CommandToken *token, int64_t line_no, void *ctx), void *ctx)
+{
+    char *copy = (char *)calloc((size_t)len + 2, 1);
+    if (copy == NULL)
+        return;
+    memcpy(copy, text, (size_t)len);
+    char *buf = copy;
+    char *end = copy + len;
+    int64_t line_no = 1;
+    while (buf < end)
+    {
+        // A block comment can span lines: count them, so line numbers stay the file's own.
+        char *after = process_multiline_comment(buf, end);
+        for (char *c = buf; c < after; c++)
+            if (*c == '\n')
+                line_no++;
+        buf = after;
+        int64_t lnlen = 0;
+        while ((&buf[lnlen] < end) && (buf[lnlen] != '\r') && (buf[lnlen] != '\n'))
+            lnlen++;
+        buf[lnlen] = 0;
+        lnlen++;
+        if ((&buf[lnlen] < end) && ((buf[lnlen] == '\r') || (buf[lnlen] == '\n')))
+            lnlen++;
+        struct CommandToken token = { 0 };
+        get_next_token(buf, &token);
+        visit(&token, line_no, ctx);
+        line_no++;
+        buf += lnlen;
+    }
+    free(copy);
+}
+
+static void preflight_find_version(struct CommandToken *token, int64_t line_no, void *ctx)
+{
+    (void)line_no;
+    int64_t *version = (int64_t *)ctx;
+    if ((token->type != TkCommand) || (token->end - token->start != 13) || (strncmp(token->start, "LEVEL_VERSION", 13) != 0))
+        return;
+    struct CommandToken arg = { 0 };
+    char *p = get_next_token(token->end, &arg);
+    if (arg.type != TkOpen)
+        return;
+    get_next_token(p, &arg);
+    // A plain number tokenizes as TkCommand (anything alphanumeric does); only negative ones are TkNumber.
+    if ((arg.type == TkNumber) || ((arg.type == TkCommand) && isdigit((unsigned char)arg.start[0])))
+        *version = atoll(arg.start);
+}
+
+struct PreflightCheck {
+    int64_t version;
+    struct ScriptPreflight *out;
+};
+
+static void preflight_check_command(struct CommandToken *token, int64_t line_no, void *ctx)
+{
+    struct PreflightCheck *chk = (struct PreflightCheck *)ctx;
+    if ((token->type != TkCommand) || !isalnum((unsigned char)token->start[0]))
+        return;
+    if (find_command_desc(token, (chk->version > 0) ? command_desc : dk1_command_desc) != NULL)
+        return;
+    // In the other LEVEL_VERSION's table: the level's own mistake, failing the same way
+    // in KeeperFX -- not a sign it needs a newer one (see script_scan_line()).
+    if (find_command_desc(token, (chk->version > 0) ? dk1_command_desc : command_desc) != NULL)
+        return;
+    struct ScriptPreflight *out = chk->out;
+    char name[COMPAT_WHAT_LEN];
+    snprintf(name, sizeof(name), "%.*s", (int)(token->end - token->start), token->start);
+    for (int64_t i = 0; (i < out->unknown_count) && (i < SCRIPT_PREFLIGHT_NAMES_MAX); i++)
+        if (strcmp(out->names[i], name) == 0)
+            return;
+    if (out->unknown_count < SCRIPT_PREFLIGHT_NAMES_MAX)
+    {
+        memcpy(out->names[out->unknown_count], name, sizeof(name));
+        out->lines[out->unknown_count] = line_no;
+    }
+    out->unknown_count++;
+}
+
+void script_preflight_text(const char *text, int64_t len, struct ScriptPreflight *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->file_found = true;
+    // load_script() runs every line with the version the file sets (preload_script()
+    // found it), so find that first, then check each line's command against it.
+    struct PreflightCheck chk = { DEFAULT_LEVEL_VERSION, out };
+    preflight_walk(text, len, preflight_find_version, &chk.version);
+    preflight_walk(text, len, preflight_check_command, &chk);
+}
+
+TbBool script_preflight_file(const char *fname, struct ScriptPreflight *out)
+{
+    memset(out, 0, sizeof(*out));
+    const int64_t len = LbFileLengthRnc(fname);
+    if (len <= 0)
+        return false;
+    char *text = (char *)calloc((size_t)len + 1, 1);
+    if (text == NULL)
+        return false;
+    const int64_t got = LbFileLoadAt(fname, text);
+    if (got > 0)
+        script_preflight_text(text, got, out);
+    free(text);
+    return (got > 0);
 }
 
 TbBool preload_script(int64_t lvnum)

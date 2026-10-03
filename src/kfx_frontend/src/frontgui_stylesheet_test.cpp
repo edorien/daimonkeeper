@@ -36,7 +36,7 @@ namespace {
 
     void draw_type_scale()
     {
-        FeHeading("KeeperFX ImGui Style Sheet");
+        FeHeading(PRODUCT_NAME " ImGui Style Sheet");
         FeSubheading(FeStyleUsingExocet() ? "Display face: Exocet (installed)" : "Display face: Cinzel (bundled fallback)");
         FeBodyText("This screen exercises every frontgui_widgets.h wrapper against the current "
                     "window resolution -- resize the window (or launch at a different resolution) "

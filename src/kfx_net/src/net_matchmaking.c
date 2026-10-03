@@ -21,7 +21,7 @@
 #include "bflib_basics.h"
 #include "net_lan.h"
 #include "net_game.h"
-#include "ver_defs.h"
+#include "version.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -46,9 +46,9 @@
 #include <stdlib.h>
 #include "post_inc.h"
 
-#define STR_(x) #x
-#define STR(x) STR_(x)
-#define MATCHMAKING_VERSION STR(VER_MAJOR) "." STR(VER_MINOR) "." STR(VER_RELEASE)
+// Slug-prefixed so a lobby server shared with KeeperFX clients (whose
+// version is a bare "1.4.0") can never match us to them.
+#define MATCHMAKING_VERSION PRODUCT_SLUG "-" VER_SHORT_STRING
 
 #define WEBSOCKET_BUFFER_SIZE         8192
 #define WEBSOCKET_RECEIVE_TIMEOUT_MS  3000
@@ -63,11 +63,15 @@
 #define MATCHMAKING_WS_SUFFIX "/ws"
 #define MATCHMAKING_IP_PREFIX "https://"
 #define MATCHMAKING_IP_SUFFIX "/ip"
-#define MATCHMAKING_HOST_DEFAULT "matchmaking.keeperfx.workers.dev"
+// Upstream KeeperFX's lobby server. This fork's builds are not KeeperFX and
+// can't play with KeeperFX clients, so they must never advertise there -- not
+// even when a keeperfx.cfg copied from an upstream install still names it.
+#define MATCHMAKING_UPSTREAM_HOST "matchmaking.keeperfx.workers.dev"
 
-TbBool matchmaking_enabled = true;
-char matchmaking_ws_url[MATCHMAKING_URL_MAX] = MATCHMAKING_WS_PREFIX MATCHMAKING_HOST_DEFAULT MATCHMAKING_WS_SUFFIX;
-char matchmaking_ip_url[MATCHMAKING_URL_MAX] = MATCHMAKING_IP_PREFIX MATCHMAKING_HOST_DEFAULT MATCHMAKING_IP_SUFFIX;
+// Off by default, no built-in server: MATCHMAKING_SERVER=<host> enables it.
+TbBool matchmaking_enabled = false;
+char matchmaking_ws_url[MATCHMAKING_URL_MAX] = "";
+char matchmaking_ip_url[MATCHMAKING_URL_MAX] = "";
 
 static CURL *curl_handle = NULL;
 static char hosted_lobby_id[MATCHMAKING_ID_MAX] = {0};
@@ -119,7 +123,13 @@ void matchmaking_set_server(const char* host)
     len = min(len, sizeof(host_stripped)-1);
     strncpy(host_stripped, host, len);
     host_stripped[len] = 0;
-    
+
+    if (strcasecmp(host_stripped, MATCHMAKING_UPSTREAM_HOST) == 0)
+    {
+        SYNCLOG("Matchmaking server \"%s\" is upstream KeeperFX's and can't be used by this game; matchmaking disabled", host_stripped);
+        return matchmaking_set_server(NULL);
+    }
+
     // add schemes and paths
     int64_t lws = snprintf(matchmaking_ws_url, sizeof(matchmaking_ws_url), MATCHMAKING_WS_PREFIX "%s" MATCHMAKING_WS_SUFFIX, host_stripped);
     int64_t lip = snprintf(matchmaking_ip_url, sizeof(matchmaking_ip_url), MATCHMAKING_IP_PREFIX "%s" MATCHMAKING_IP_SUFFIX, host_stripped);

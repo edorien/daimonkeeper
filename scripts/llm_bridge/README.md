@@ -1,6 +1,6 @@
 # LLM bridge
 
-Two ways to play a keeperfx External seat, and a shared core underneath them.
+Two ways to play a dAImon Keeper External seat, and a shared core underneath them.
 
 ## Recommended: MCP
 
@@ -18,16 +18,16 @@ same problem one layer up -- the fix here is "no key in the bridge", not "no key
 **Setup**: register it with your client, e.g. for Claude Code:
 
 ```bash
-claude mcp add keeperfx -- python3 /path/to/scripts/llm_bridge/mcp_server.py
+claude mcp add daimonkeeper -- python3 /path/to/scripts/llm_bridge/mcp_server.py
 ```
 
 or in Claude Desktop's `claude_desktop_config.json`:
 
 ```json
-"keeperfx": {"command": "python3", "args": ["/path/to/scripts/llm_bridge/mcp_server.py"]}
+"daimonkeeper": {"command": "python3", "args": ["/path/to/scripts/llm_bridge/mcp_server.py"]}
 ```
 
-**Playing**: `keeperfx.cfg` needs `API_ENABLED=TRUE`; start a Skirmish game with a slot set to **External agent (API)** on
+**Playing**: `daimonkeeper.cfg` needs `API_ENABLED=TRUE`; start a Skirmish game with a slot set to **External agent (API)** on
 the Slots & AI page (or the tool's `claim` argument converts a computer keeper in a running game). Then, in a
 conversation: `connect`, `get_instructions` (once, near the start), then repeatedly `wait_for_decision` -> decide ->
 `submit_orders`, for as long as you want to keep playing, `disconnect` when done. `wait_for_decision` blocks until the
@@ -40,7 +40,7 @@ it was. `connect(agent: "Claude")` names your seat; `experience_path` picks the 
 Tools: `connect`, `get_instructions`, `wait_for_decision`, `status`, `look`, `submit_orders`, `check_orders` (validate a
 batch, including cost, without spending it), `set_game_speed` (slow the whole game down to buy more thinking time -- global,
 not just your seat), `get_log_tail` (the game's own recent log, for debugging a confusing session), `get_recipes` (the active temple sacrifice recipes, once you own a temple), `get_experience` (your lessons from earlier games, in full), `record_debrief` (after a game ends: a summary and rewritten lessons), `disconnect`. One
-`play_keeperfx` MCP prompt offers the same instructions text for a client that surfaces prompts as slash commands.
+`play_daimonkeeper` MCP prompt (`play_keeperfx` still works) offers the same instructions text for a client that surfaces prompts as slash commands.
 Each of your creatures keeps a stable name ("Orc #3") for its whole life; orders that take a creature accept `name` in
 place of `thing_id`.
 Tests: `test_mcp_server.py` (protocol, tool dispatch, and a fake-game integration test, offline); the real engine is
@@ -60,7 +60,7 @@ An autonomous script: it runs the whole loop itself with a `policy` object, no a
 anything but an unattended, metered benchmark run. Design and protocol: `docs/refactor/AI/LLM/` (`02` §4a is the loop,
 §4b is decision-due).
 
-1. `keeperfx.cfg`: `API_ENABLED=TRUE` (and `API_PORT` if not 5599).
+1. `daimonkeeper.cfg`: `API_ENABLED=TRUE` (and `API_PORT` if not 5599).
 2. Start a Skirmish game with a slot set to **External agent (API)** on the Slots & AI page, or pass `--claim PLAYER` to convert a
    computer keeper in a running local game.
 3. Run the bridge. It never pauses the game. By default (`--beat decision`) it thinks when the game says a decision is due: it subscribes to

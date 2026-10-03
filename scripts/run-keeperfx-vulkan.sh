@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launches keeperfx with RENDERER=VULKAN working on systems where a driver
+# Launches the game with RENDERER=VULKAN working on systems where a driver
 # package shadows the system libwayland-client.
 #
 # Symptom: the log says "SDL_CreateGPUDevice (vulkan) failed: SDL_HINT_GPU_DRIVER
@@ -11,8 +11,8 @@
 # Fix: preload the system copy -- done here only when the shadowing is detected,
 # so on healthy systems this is just a plain launch.
 #
-# Usage: scripts/run-keeperfx-vulkan.sh [path/to/keeperfx] [game args...]
-#        (default binary: ./keeperfx, i.e. run it from the game directory)
+# Usage: scripts/run-keeperfx-vulkan.sh [path/to/daimonkeeper] [game args...]
+#        (default binary: ./daimonkeeper, i.e. run it from the game directory)
 set -u
 
 sys_wl=""
@@ -31,6 +31,6 @@ if [ -n "$sys_wl" ] && [ -n "$first_wl" ] \
     export LD_PRELOAD="$sys_wl${LD_PRELOAD:+:$LD_PRELOAD}"
 fi
 
-bin="${1:-./keeperfx}"
+bin="${1:-./daimonkeeper}"
 [ $# -gt 0 ] && shift
 exec "$bin" "$@"

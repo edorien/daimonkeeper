@@ -5,7 +5,7 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(FATAL_ERROR "Do not build in the root. Create a bin directory and remove ${CMAKE_SOURCE_DIR}/CMakeCache.txt")
 endif ()
 
-project(keeperfx C CXX)
+project(daimonkeeper C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
@@ -15,11 +15,13 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" describe --always OUTPUT_VARIABLE CO
 
 file(STRINGS "${CMAKE_SOURCE_DIR}/build/make/version.mk" _kfx_version_lines)
 foreach(_line IN LISTS _kfx_version_lines)
-    if(_line MATCHES "^(VER_MAJOR|VER_MINOR|VER_RELEASE|VER_BUILD)=([0-9]+)")
+    if(_line MATCHES "^(VER_MAJOR|VER_MINOR|VER_RELEASE|VER_BUILD|KFX_COMPAT_MAJOR|KFX_COMPAT_MINOR)=([0-9]+)")
         set(${CMAKE_MATCH_1} "${CMAKE_MATCH_2}")
+    elseif(_line MATCHES "^PRODUCT_SLUG=([a-z0-9_-]+)")
+        set(PRODUCT_SLUG "${CMAKE_MATCH_1}")
     endif()
 endforeach()
-foreach(_v VER_MAJOR VER_MINOR VER_RELEASE VER_BUILD)
+foreach(_v PRODUCT_SLUG VER_MAJOR VER_MINOR VER_RELEASE VER_BUILD KFX_COMPAT_MAJOR KFX_COMPAT_MINOR)
     if(NOT DEFINED ${_v})
         message(FATAL_ERROR "version.mk is missing ${_v}")
     endif()
@@ -182,12 +184,13 @@ target_include_directories(kfx_common_opts INTERFACE
     "${CMAKE_SOURCE_DIR}/src/kfx_script/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_apploop/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_editor/include"
-    "${CMAKE_SOURCE_DIR}/src"
     # ver_defs.h is configure_file()'d to the repo root (see above), not
-    # under src/ -- this was a pre-existing latent gap (predates the
-    # libs/->src/ move) that a stray leftover src/ver_defs.h from the
-    # Makefile build happened to mask until now.
-    "${CMAKE_SOURCE_DIR}")
+    # under src/. The root must come BEFORE src/: the Makefile's cppcheck
+    # target still writes its own src/ver_defs.h (git-ignored), and with
+    # src/ first that stale copy silently won -- local builds reported an
+    # old version and git revision.
+    "${CMAKE_SOURCE_DIR}"
+    "${CMAKE_SOURCE_DIR}/src")
 if(UNIX AND NOT APPLE)
     # Same suppression linux.mk already carries for this GCC/glibc combo
     # (not needed by the mingw-w64 cross-compiler, hence kept Linux-only):
@@ -438,7 +441,8 @@ if(KFX_FUNCTESTING AND KFX_TEST_COVERAGE)
         COMMAND ${CMAKE_COMMAND}
             "-DSOURCE_DIR=${KFX_FTEST_DATA_DIR}"
             "-DDEST_DIR=${CMAKE_BINARY_DIR}"
-            "-DKEEPERFX_CFG=${CMAKE_SOURCE_DIR}/config/keeperfx.cfg"
+            "-DKEEPERFX_CFG=${CMAKE_SOURCE_DIR}/config/${PRODUCT_SLUG}.cfg"
+            "-DREPO_DIR=${CMAKE_SOURCE_DIR}"
             -P "${CMAKE_SOURCE_DIR}/build/cmake/modules/StageFtestData.cmake"
         COMMAND "$<TARGET_FILE:keeperfx>" -ftests -headless -exitonfailedtest
         COMMAND ${CMAKE_COMMAND} -E env perl "${KFX_LCOV_BIN}"
@@ -517,6 +521,9 @@ list(REVERSE KFX_STATIC_LIBS)
 # it (check_layering_symbols.py --strict).
 
 add_executable(keeperfx ${KFX_SOURCES_REMAINING})
+# The target stays "keeperfx" (build scripts, CI and docs build it by that
+# name); the file it produces is the product's: daimonkeeper(.exe).
+set_target_properties(keeperfx PROPERTIES OUTPUT_NAME "${PRODUCT_SLUG}")
 target_link_libraries(keeperfx PRIVATE ${KFX_STATIC_LIBS} kfx_log_opts kfx_common_opts)
 
 if(KFX_FUNCTESTING)
@@ -552,7 +559,7 @@ target_link_libraries(keeperfx PRIVATE tinyfiledialogs)
 target_link_libraries(keeperfx PRIVATE imgui)
 
 if(WIN32)
-    target_sources(keeperfx PRIVATE "res/keeperfx_stdres.rc")
+    target_sources(keeperfx PRIVATE "res/daimonkeeper_stdres.rc")
 endif()
 
 if(WIN32)
@@ -566,7 +573,7 @@ if(WIN32)
     endif()
 
     set(GNU_LINK_FLAG -mwindows -Wl,--enable-auto-import)
-    target_link_options(keeperfx PRIVATE ${GNU_LINK_FLAG} -Wl,-Map,keeperfx.map)
+    target_link_options(keeperfx PRIVATE ${GNU_LINK_FLAG} -Wl,-Map,${PRODUCT_SLUG}.map)
     target_link_libraries (keeperfx PUBLIC -static stdc++ winpthread -dynamic)
 
     # System libraries -- kept identical to and in the same relative
@@ -586,7 +593,7 @@ if(WIN32)
     # "-symbols" artifact). No-op for MSVC/non-Windows, see Helpers.cmake.
     apply_keeperfx_debug_split(keeperfx)
 elseif(UNIX AND NOT APPLE)
-    target_link_options(keeperfx PRIVATE -rdynamic -Wl,-Map,keeperfx.map)
+    target_link_options(keeperfx PRIVATE -rdynamic -Wl,-Map,${PRODUCT_SLUG}.map)
     target_link_libraries(keeperfx PRIVATE m dl)
     # Any SDL3-family libs built from source (Dependencies.cmake's Linux
     # fallback when the system doesn't have libsdl3-dev) get installed
@@ -602,11 +609,6 @@ elseif(UNIX AND NOT APPLE)
     # ~90 MB of DWARF. Symbols land in <binary>.debug next to it.
     apply_keeperfx_debug_split(keeperfx)
 endif()
-
-# tools/ builds a host-native icon-conversion utility (png2ico) used to
-# generate the Windows resource icon; unrelated to keeperfx
-# linking, so its position here doesn't matter.
-add_subdirectory(tools)
 
 # CPack-based release packaging (build/cmake/modules/Packaging.cmake, from
 # upstream's SDL3 migration) -- produces the same kind of release archive

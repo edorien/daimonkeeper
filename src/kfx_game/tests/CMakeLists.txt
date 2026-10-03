@@ -11,6 +11,8 @@
 file(GLOB KFX_GAME_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 add_executable(kfx_game_utest ${KFX_GAME_TEST_SOURCES})
+# script_preflight_test.cpp sweeps the level scripts this game ships.
+target_compile_definitions(kfx_game_utest PRIVATE KFX_GAME_TEST_REPO_ROOT="${CMAKE_SOURCE_DIR}")
 target_link_libraries(kfx_game_utest PRIVATE
     kfx_game
     kfx_net

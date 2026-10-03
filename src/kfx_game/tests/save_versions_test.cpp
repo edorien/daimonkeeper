@@ -184,3 +184,57 @@ TEST_CASE_METHOD(SaveFixture, "load_game_chunks refuses a mismatched save withou
     CHECK(live_state_hash() == before);
     CHECK(kfx_sim_state.loaded_level_number == 12345);
 }
+
+// Product chunk (docs/rebadge): files carry which game wrote them, so a
+// KeeperFX save or replay is refused by name rather than by accident of
+// layout.
+
+TEST_CASE_METHOD(SaveFixture, "the product chunk follows INFO, so the save list still reads INFO first", "[kfx_game][save_versions]") {
+    CHECK(chunk_offset(SGC_InfoBlock) == 0);
+    CHECK(chunk_offset(SGC_Product) == (int64_t)(sizeof(struct FileChunkHeader) + sizeof(struct CatalogueEntry)));
+}
+
+TEST_CASE_METHOD(SaveFixture, "a save without the product chunk (KeeperFX, or pre-1.0.0) is refused", "[kfx_game][save_versions]") {
+    patch_header(SGC_Product, &FileChunkHeader::id, 0x58585858); // "XXXX": an unknown chunk, as if never written
+    CHECK_FALSE(validate());
+    CHECK(std::string(last_save_refusal_reason()).find("KeeperFX") != std::string::npos);
+}
+
+TEST_CASE_METHOD(SaveFixture, "a save written by another product is refused", "[kfx_game][save_versions]") {
+    const int64_t pos = chunk_offset(SGC_Product);
+    REQUIRE(pos >= 0);
+    std::FILE *f = std::fopen(kSavePath, "r+b");
+    REQUIRE(f);
+    const uint64_t other_magic = 0x58465045u; // anything but PRODUCT_MAGIC
+    std::fseek(f, (long)(pos + sizeof(struct FileChunkHeader)), SEEK_SET);
+    REQUIRE(std::fwrite(&other_magic, sizeof(other_magic), 1, f) == 1);
+    std::fclose(f);
+    CHECK_FALSE(validate());
+    CHECK(std::string(last_save_refusal_reason()).find("another game") != std::string::npos);
+}
+
+TEST_CASE("a replay written by this build carries the product chunk and validates", "[kfx_game][save_versions]") {
+    // Start-of-level replay (game turn 0): PHDR, INFO, PROD, then the packet stream.
+    REQUIRE(get_gameturn() == 0);
+    const std::string path = "kfx_save_versions_test_" + std::to_string(getpid()) + ".pck";
+    struct CatalogueEntry centry;
+    std::memset(&centry, 0, sizeof(centry));
+    TbFileHandle fh = LbFileOpen(path.c_str(), Lb_FILE_MODE_NEW);
+    REQUIRE(fh);
+    REQUIRE(save_packet_chunks(fh, &centry));
+    LbFileClose(fh);
+
+    fh = LbFileOpen(path.c_str(), Lb_FILE_MODE_READ_ONLY);
+    REQUIRE(fh);
+    struct FileChunkHeader hdr;
+    bool saw_product = false;
+    while (LbFileRead(fh, &hdr, sizeof(hdr)) == (int64_t)sizeof(hdr) && hdr.id != SGC_PacketData) {
+        saw_product = saw_product || (hdr.id == SGC_Product);
+        LbFileSeek(fh, hdr.len, Lb_FILE_SEEK_CURRENT);
+    }
+    CHECK(saw_product);
+    LbFileSeek(fh, 0, Lb_FILE_SEEK_BEGINNING);
+    CHECK(validate_save_chunks(fh));
+    LbFileClose(fh);
+    std::remove(path.c_str());
+}

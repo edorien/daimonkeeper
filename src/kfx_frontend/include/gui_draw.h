@@ -101,6 +101,13 @@ TbBool copy_raw8_image_buffer_rect(TbPixel *dst_buf,const int64_t scanline,const
     const int64_t dst_width,const int64_t dst_height,const int64_t spw,const int64_t sph,
     const unsigned char *src_buf,const int64_t src_width,const int64_t src_height);
 
+// 32-bit counterparts, for images loaded as true colour (the start-up
+// splash/legal PNGs): a tent-filter resize and an unscaled whole-screen copy.
+TbBool resample_rgba_image(const TbPixel *src, int64_t src_width, int64_t src_height,
+    TbPixel *dst, int64_t dst_width, int64_t dst_height);
+TbBool copy_rgba_image_buffer(TbPixel *dst_buf, const int64_t scanline, const int64_t nlines,
+    const int64_t pos_x, const int64_t pos_y, const TbPixel *src_buf, const int64_t src_width, const int64_t src_height);
+
 void draw_bar64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width);
 void draw_lit_bar64k(int64_t pos_x, int64_t pos_y, int64_t units_per_px, int64_t width);
 void draw_slab64k_background(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height);

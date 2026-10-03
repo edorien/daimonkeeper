@@ -46,8 +46,9 @@ _SCHEMA = [
 
 def default_path():
     """experience.sqlite in the bridge's own folder (the game's mcp/ folder once installed), where a person can see it --
-    not a hidden per-user directory. $KEEPERFX_EXPERIENCE overrides it (the tests use that to stay out of the tree)."""
-    return os.environ.get("KEEPERFX_EXPERIENCE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "experience.sqlite")
+    not a hidden per-user directory. $DAIMONKEEPER_EXPERIENCE (or the older $KEEPERFX_EXPERIENCE) overrides it (the tests
+    use that to stay out of the tree)."""
+    return os.environ.get("DAIMONKEEPER_EXPERIENCE") or os.environ.get("KEEPERFX_EXPERIENCE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "experience.sqlite")
 
 
 def scope_kind(scope):

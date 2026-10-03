@@ -117,7 +117,7 @@ def main():
     decisions = []
     try:
         init = client.request("initialize", {"protocolVersion": "2024-11-05"})
-        check("initialize identifies the server", init["result"]["serverInfo"]["name"] == "keeperfx-bridge", init)
+        check("initialize identifies the server", init["result"]["serverInfo"]["name"] == "daimonkeeper-bridge", init)
         client.notify("notifications/initialized")
 
         instructions = client.call_tool("get_instructions")

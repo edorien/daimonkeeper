@@ -27,6 +27,8 @@ extern "C" {
 #endif
 
 TbBool CheckLua(lua_State *L, int64_t result,const char* func);
+/** Records a Lua error that is a call to a missing function in the compat report; true if it was one. */
+TbBool lua_report_missing_function(const char *message);
 TbBool open_lua_script(LevelNumber lvnum);
 void close_lua_script();
 

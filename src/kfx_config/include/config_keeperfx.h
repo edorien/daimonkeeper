@@ -315,6 +315,9 @@ extern TbBool IMPRISON_BUTTON_DEFAULT;
 /******************************************************************************/
 void load_configuration_for_mod_all(void);
 int64_t load_configuration(void);
+/** Copies theirs (KeeperFX's keeperfx.cfg) to ours (this game's base config) when ours
+ *  doesn't exist yet; theirs is never changed. True if it copied. */
+TbBool import_kfx_base_config(const char *ours, const char *theirs);
 void process_cmdline_overrides(void);
 int64_t parse_draw_fps_config_val(const char *arg, int64_t *fps_draw_main, int64_t *fps_draw_secondary);
 int64_t parse_atmos_volume_config_val(const char *arg);

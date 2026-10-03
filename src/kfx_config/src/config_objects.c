@@ -154,6 +154,8 @@ static const struct NamedField objects_named_fields[] = {
     {"LIGHTGREEN",               0, field_t(struct ObjectConfigStats, ilght.colour_g),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
     {"LIGHTBLUE",                0, field_t(struct ObjectConfigStats, ilght.colour_b),                0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
     {"LIGHTFLAGS",               0, field_t(struct ObjectConfigStats, ilght.flags),                   0, INT32_MIN,UINT32_MAX, NULL,                        value_default,   assign_default},
+    {"LAVADESTROYEFFECT",        0, field_t(struct ObjectConfigStats, lava_burn_effect), TngEff_HarmlessGas2, INT32_MIN,UINT32_MAX, NULL,                        value_effOrEffEl,assign_default},
+    {"WATERDESTROYEFFECT",       0, field_t(struct ObjectConfigStats, water_splash_effect),    TngEff_Drip3, INT32_MIN,UINT32_MAX, NULL,                        value_effOrEffEl,assign_default},
     {NULL},
 };
 

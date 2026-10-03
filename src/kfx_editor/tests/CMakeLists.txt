@@ -10,6 +10,9 @@
 file(GLOB KFX_EDITOR_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 add_executable(kfx_editor_utest ${KFX_EDITOR_TEST_SOURCES})
+# editor_kfx_compat_test.cpp checks the generated compat reference against the
+# shipped config/fxdata.
+target_compile_definitions(kfx_editor_utest PRIVATE KFX_EDITOR_TEST_REPO_ROOT="${CMAKE_SOURCE_DIR}")
 target_link_libraries(kfx_editor_utest PRIVATE
     kfx_editor
     kfx_apploop

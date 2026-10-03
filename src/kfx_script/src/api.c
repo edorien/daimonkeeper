@@ -1195,7 +1195,12 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         value_init_dict(data_kfx_info);
 
         // Add stuff to level data
-        value_init_string(value_dict_add(data_kfx_info, "kfx_version"), VER_STRING);
+        // kfx_version stays for KeeperFX-aware tools, but reports the KeeperFX
+        // release whose content this game supports ("1.4"), not our own
+        // product version -- that is product/product_version.
+        value_init_string(value_dict_add(data_kfx_info, "kfx_version"), KFX_COMPAT_VERSION);
+        value_init_string(value_dict_add(data_kfx_info, "product"), PRODUCT_NAME);
+        value_init_string(value_dict_add(data_kfx_info, "product_version"), VER_STRING);
 
         // Return data to client
         api_return_data(true, data_kfx_info_real, ack_id);
@@ -1573,7 +1578,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
 
     if (strcasecmp("get_log_tail", action) == 0)
     {
-        // The running game's own log (log_file_name, normally keeperfx.log in its data directory), for an agent
+        // The running game's own log (log_file_name, normally daimonkeeper.log in its data directory), for an agent
         // debugging a confusing session without a human tailing the file by hand. Reads only a bounded tail window
         // of the file (never the whole thing, however large the log has grown) and returns at most `lines` of that
         // window's complete lines (api_log_tail_lines does the actual splitting, and is what is unit-tested).

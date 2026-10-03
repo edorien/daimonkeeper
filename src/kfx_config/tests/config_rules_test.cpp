@@ -8,10 +8,16 @@
 // real external linkage but no header declaration; added.
 #include <catch2/catch_test_macros.hpp>
 
+#include "compat_report.h"
+#include "config.h"
 #include "config_rules.h"
 #include "kfx_config_state.h"
 
+#include <cstdio>
 #include <cstring>
+#include <string>
+
+#include <unistd.h>
 
 namespace {
 struct ResetConfigState {
@@ -112,4 +118,91 @@ TEST_CASE("keeper_rules_file_data has a pre_load_func but no post_load_func", "[
     CHECK(keeper_rules_file_data.pre_load_func != nullptr); // set_rules_defaults
     CHECK(keeper_rules_file_data.post_load_func == nullptr);
     CHECK(std::strcmp(keeper_rules_file_data.filename, "rules.cfg") == 0);
+}
+
+// The rules.cfg rows upstream's "Compiler portability (#4944)" dropped from
+// the field tables (WinnerTorturesLoser, InstanceDelayOnDrop), plus the
+// obsolete BarrackTime row that's accepted and discarded. Each test loads a
+// small rules.cfg written on the fly, through the real NamedField loader.
+namespace {
+const char *const kRulesWithRestoredRows =
+    "[game]\nWinnerTorturesLoser = 1\n"
+    "[creatures]\nInstanceDelayOnDrop = 40\n"
+    "[rooms]\nBarrackTime = 100\nBarrackMaxPartySize = 5\n";
+
+std::string write_rules(const char *text)
+{
+    const std::string path = "config_rules_test_" + std::to_string(getpid()) + ".cfg";
+    std::FILE *f = std::fopen(path.c_str(), "wb");
+    REQUIRE(f);
+    std::fputs(text, f);
+    std::fclose(f);
+    return path;
+}
+
+// Defaults, then the file -- the order load_config() runs them in.
+void load_rules(const char *text)
+{
+    std::memset(&kfx_config_state, 0, sizeof(kfx_config_state));
+    compat_report_clear();
+    keeper_rules_file_data.pre_load_func();
+    const std::string path = write_rules(text);
+    CHECK(keeper_rules_file_data.load_func(path.c_str(), 0));
+    std::remove(path.c_str());
+}
+
+const struct NamedField *rules_row(const char *name)
+{
+    for (const struct NamedField *block : ruleblocks) {
+        const int64_t id = get_named_field_id(block, name);
+        if (id >= 0)
+            return block + id;
+    }
+    return nullptr;
+}
+}
+
+TEST_CASE("WinnerTorturesLoser and InstanceDelayOnDrop default to off", "[kfx_config][config_rules]") {
+    load_rules("[game]\n");
+    for (int64_t plyr = 0; plyr < PLAYERS_COUNT; plyr++) {
+        CHECK(kfx_config_state.conf.rules[plyr].gameplay.winner_tortures_loser == 0);
+        CHECK(kfx_config_state.conf.rules[plyr].creature.instance_delay_on_drop == 0);
+    }
+}
+
+TEST_CASE("rules.cfg's WinnerTorturesLoser and InstanceDelayOnDrop load for every player", "[kfx_config][config_rules]") {
+    load_rules(kRulesWithRestoredRows);
+    CHECK(compat_report_count() == 0);
+    for (int64_t plyr = 0; plyr < PLAYERS_COUNT; plyr++) {
+        CHECK(kfx_config_state.conf.rules[plyr].gameplay.winner_tortures_loser == 1);
+        CHECK(kfx_config_state.conf.rules[plyr].creature.instance_delay_on_drop == 40);
+    }
+}
+
+TEST_CASE("the restored rules rows keep upstream's limits", "[kfx_config][config_rules]") {
+    const struct NamedField *wtl = rules_row("WinnerTorturesLoser");
+    REQUIRE(wtl != nullptr);
+    CHECK(parse_named_field_value(wtl, "7", &rules_named_fields_set, 0, "test", 0) == 1);
+    CHECK(parse_named_field_value(wtl, "-1", &rules_named_fields_set, 0, "test", 0) == 0);
+
+    const struct NamedField *delay = rules_row("InstanceDelayOnDrop");
+    REQUIRE(delay != nullptr);
+    CHECK(parse_named_field_value(delay, "-5", &rules_named_fields_set, 0, "test", 0) == 0);
+    CHECK(parse_named_field_value(delay, "250", &rules_named_fields_set, 0, "test", 0) == 250);
+}
+
+TEST_CASE("BarrackTime is accepted but changes nothing", "[kfx_config][config_rules]") {
+    load_rules("[game]\nWinnerTorturesLoser = 1\n[rooms]\nBarrackMaxPartySize = 5\n");
+    const struct RulesConfig without = kfx_config_state.conf.rules[0];
+
+    load_rules("[game]\nWinnerTorturesLoser = 1\n[rooms]\nBarrackTime = 100\nBarrackMaxPartySize = 5\n");
+    CHECK(compat_report_count() == 0); // known key: no compat-report warning
+    CHECK(std::memcmp(&kfx_config_state.conf.rules[0], &without, sizeof(without)) == 0);
+
+    // Setting it the way SET_GAME_RULE does is a no-op too.
+    const struct NamedField *barrack = rules_row("BarrackTime");
+    REQUIRE(barrack != nullptr);
+    const int64_t value = parse_named_field_value(barrack, "250", &rules_named_fields_set, 0, "test", 0);
+    assign_named_field_value(barrack, value, &rules_named_fields_set, 0, "test", 0);
+    CHECK(std::memcmp(&kfx_config_state.conf.rules[0], &without, sizeof(without)) == 0);
 }

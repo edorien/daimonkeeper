@@ -7,10 +7,15 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "kfx_config_test_paths.h" // KFX_CONFIG_TEST_FIXTURES_DIR
+#include "compat_report.h"
 #include "config_objects.h"
 #include "kfx_config_state.h"
 
+#include <cstdio>
 #include <cstring>
+#include <string>
+
+#include <unistd.h>
 
 namespace {
 struct ResetConfigState {
@@ -48,4 +53,29 @@ TEST_CASE("keeper_objects_file_data has no pre/post-load hooks", "[kfx_config][c
     CHECK(keeper_objects_file_data.pre_load_func == nullptr);
     CHECK(keeper_objects_file_data.post_load_func == nullptr);
     CHECK(std::strcmp(keeper_objects_file_data.filename, "objects.cfg") == 0);
+}
+
+// LavaDestroyEffect/WaterDestroyEffect (upstream #4637), whose rows upstream's
+// "Compiler portability (#4944)" dropped: an object that doesn't set them keeps
+// the effects liquid slabs always used (gas on lava, drips on water).
+TEST_CASE_METHOD(ResetConfigState, "LavaDestroyEffect/WaterDestroyEffect load, defaulting to the classic effects", "[kfx_config][config_objects]") {
+    const std::string path = "config_objects_test_" + std::to_string(getpid()) + ".cfg";
+    std::FILE *f = std::fopen(path.c_str(), "wb");
+    REQUIRE(f);
+    std::fputs("[object0]\nName = NULL\nLavaDestroyEffect = 0\nWaterDestroyEffect = 0\n"
+               "[object1]\nName = BARREL\nDestroyOnLiquid = 1\n"
+               "[object2]\nName = CANDLE\nDestroyOnLiquid = 1\nLavaDestroyEffect = 12\nWaterDestroyEffect = -3\n", f);
+    std::fclose(f);
+    compat_report_clear();
+    const bool loaded = keeper_objects_file_data.load_func(path.c_str(), 0);
+    std::remove(path.c_str());
+    REQUIRE(loaded);
+    CHECK(compat_report_count() == 0);
+
+    CHECK(get_object_model_stats(0)->lava_burn_effect == 0);          // explicitly none
+    CHECK(get_object_model_stats(0)->water_splash_effect == 0);
+    CHECK(get_object_model_stats(1)->lava_burn_effect == TngEff_HarmlessGas2); // unset: default
+    CHECK(get_object_model_stats(1)->water_splash_effect == TngEff_Drip3);
+    CHECK(get_object_model_stats(2)->lava_burn_effect == 12);         // an effect
+    CHECK(get_object_model_stats(2)->water_splash_effect == -3);      // negative: an effect element
 }

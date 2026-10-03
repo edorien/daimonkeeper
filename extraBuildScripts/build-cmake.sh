@@ -36,7 +36,7 @@ set -euo pipefail
 
 TARGET="${1:-keeperfx}"
 if [ "$TARGET" = "keeperfx_hvlog" ]; then
-    echo "keeperfx_hvlog is no longer a separate build (see LOG_LEVEL in keeperfx.cfg); building keeperfx." >&2
+    echo "keeperfx_hvlog is no longer a separate build (see LOG_LEVEL in daimonkeeper.cfg); building keeperfx." >&2
     TARGET=keeperfx
 fi
 KFX_OS="${KFX_OS:-windows}"

@@ -1,0 +1,60 @@
+dAImon Keeper
+=============
+
+dAImon Keeper is a free, open-source reimplementation of Bullfrog Productions'
+Dungeon Keeper. It is derived from KeeperFX.
+
+It is not the original game and contains none of its data: a purchased copy of
+the original Dungeon Keeper data files (CD, GOG, Steam or EA edition) is
+required to play. Dungeon Keeper is a trademark of Electronic Arts. The
+original game was made by Bullfrog Productions. This project is not
+affiliated with or endorsed by Electronic Arts or Bullfrog Productions.
+
+
+Based on KeeperFX
+-----------------
+
+This program is derived from KeeperFX (Dungeon Keeper Fan eXpansion),
+https://github.com/dkfans/keeperfx, copyright (C) the KeeperFX Team and
+contributors, and is distributed under the same licence (see "Licences"
+below). It is not affiliated with the KeeperFX project.
+
+This version has been extensively modified from KeeperFX: the source has been
+reorganised into layered libraries, ported to SDL3 and native Linux, and
+extended (in-game level and content editor, Vulkan renderer, ImGui interface,
+external/AI player seats, and more). The git history of this project,
+https://github.com/edorien/keeperfx-refactor, records every change and its
+date. The copyright and author notices in the individual source files are
+kept as they were.
+
+Upstream base: KeeperFX master merged up to commit 3ca592163 (2026-09-29).
+Content compatibility: campaigns and map packs made for KeeperFX 1.4
+("KFX 1.4" in the version label).
+
+Contributors to dAImon Keeper: see the git history.
+
+
+Bundled campaigns and maps
+--------------------------
+
+The campaigns, map packs and levels shipped with this game (campgns/,
+levels/, and their texts in lang/) are community-made content distributed
+with KeeperFX. They remain the work of their authors, who are credited in
+each campaign's own credits (in-game: main menu > Credits) and in the files
+themselves.
+
+
+Licences
+--------
+
+- Program code: GNU General Public License, version 2 or (at your option) any
+  later version -- see LICENSE. The corresponding source code is available
+  from the project's repository (above); each release names the commit it was
+  built from.
+- Graphics in gfx/ and the engine graphics packaged from
+  https://github.com/dkfans/FXGraphics: GNU General Public License, version 3
+  -- see gfx/LICENSE (shipped as LICENSE-graphics.txt).
+- Fonts in fxdata/font/: SIL Open Font License 1.1 -- see the OFL.txt next to
+  each font.
+- Third-party libraries built into or shipped with the game: see
+  THIRD_PARTY_NOTICES.txt for each one's licence and copyright notice.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Client half of the External-seat smoke test (docs/refactor/AI/LLM/05-testing-and-rollout.md, 1.2 step 5).
 
-Talks to a running keeperfx over its in-game TCP JSON API (API_ENABLED=TRUE) the way an agent bridge
+Talks to a running dAImon Keeper game over its in-game TCP JSON API (API_ENABLED=TRUE) the way an agent bridge
 would: claim a seat, read its view, submit verbs, advance turns, and survive a stuck pause and a
 disconnect. Standard library only. Exit status 0 = every check passed.
 Usage: ai_bridge_smoke.py [port]   (default 5599)

@@ -24,6 +24,7 @@
 #include "bflib_math.h"
 #include "player_instances.h"
 #include "game_legacy.h"
+#include "compat_report.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -377,6 +378,7 @@ int64_t script_strdup(const char *src);
         if (value == NULL) \
         { \
             SCRPTERRLOG("Too many VALUEs in script (limit is %" PRId64 ")", (int64_t)(SCRIPT_VALUES_COUNT)); \
+            compat_report_add(CompatIssue_Limit, "script VALUE slots (conditional commands)", NULL, text_line_number); \
             return; \
         } \
     } \

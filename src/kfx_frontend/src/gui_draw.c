@@ -20,6 +20,10 @@
 #include "renderer/RendererManager.h"
 #include "gui_draw.h"
 
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "globals.h"
 #include "bflib_basics.h"
 #include "bflib_video.h"
@@ -273,6 +277,164 @@ TbBool copy_raw8_image_buffer_rect(TbPixel *dst_buf,const int64_t scanline,const
             }
         }
         dhstart = dhend;
+    }
+    return true;
+}
+
+/** Per-output-pixel tap list of a tent filter along one axis. */
+struct TentAxis {
+    int64_t *first; // first source index (may be outside the image; clamped when read)
+    int64_t *count; // taps used
+    float *weight;  // span weights per output pixel, normalised
+    int64_t span;
+};
+
+static void tent_axis_free(struct TentAxis *ax)
+{
+    free(ax->first);
+    free(ax->count);
+    free(ax->weight);
+}
+
+static TbBool tent_axis_init(struct TentAxis *ax, int64_t src_len, int64_t dst_len)
+{
+    // Filter radius one source pixel when enlarging, one destination pixel when shrinking,
+    // so shrinking averages every source pixel instead of skipping some.
+    const double scale = (double)src_len / (double)dst_len;
+    const double radius = scale > 1.0 ? scale : 1.0;
+    ax->span = (int64_t)ceil(radius) * 2 + 1;
+    ax->first = malloc(sizeof(int64_t) * dst_len);
+    ax->count = malloc(sizeof(int64_t) * dst_len);
+    ax->weight = malloc(sizeof(float) * dst_len * ax->span);
+    if ((ax->first == NULL) || (ax->count == NULL) || (ax->weight == NULL))
+    {
+        tent_axis_free(ax);
+        return false;
+    }
+    for (int64_t i = 0; i < dst_len; i++)
+    {
+        const double centre = (i + 0.5) * scale - 0.5;
+        const int64_t lo = (int64_t)ceil(centre - radius);
+        float *w = ax->weight + i * ax->span;
+        double sum = 0.0;
+        int64_t k = 0;
+        for (int64_t x = lo; (x <= (int64_t)floor(centre + radius)) && (k < ax->span); x++, k++)
+        {
+            double t = 1.0 - fabs((double)x - centre) / radius;
+            w[k] = (float)(t > 0.0 ? t : 0.0);
+            sum += w[k];
+        }
+        for (int64_t j = 0; j < k; j++)
+            w[j] = (float)(w[j] / sum);
+        ax->first[i] = lo;
+        ax->count[i] = k;
+    }
+    return true;
+}
+
+static inline uint8_t clamp_channel(float v)
+{
+    return (uint8_t)(v <= 0.0f ? 0 : v >= 255.0f ? 255 : (int)(v + 0.5f));
+}
+
+/**
+ * Resizes a 32-bit image with a separable tent filter (bilinear when enlarging,
+ * area-averaging when shrinking).
+ *
+ * @return Gives true on success, false on bad sizes or when out of memory.
+ */
+TbBool resample_rgba_image(const TbPixel *src, int64_t src_width, int64_t src_height,
+    TbPixel *dst, int64_t dst_width, int64_t dst_height)
+{
+    if ((src_width <= 0) || (src_height <= 0) || (dst_width <= 0) || (dst_height <= 0))
+        return false;
+    struct TentAxis ax;
+    struct TentAxis ay;
+    if (!tent_axis_init(&ax, src_width, dst_width))
+        return false;
+    if (!tent_axis_init(&ay, src_height, dst_height))
+    {
+        tent_axis_free(&ax);
+        return false;
+    }
+    float *tmp = malloc(sizeof(float) * 4 * dst_width * src_height);
+    if (tmp == NULL)
+    {
+        tent_axis_free(&ax);
+        tent_axis_free(&ay);
+        return false;
+    }
+    // Horizontal pass: src_width x src_height -> dst_width x src_height
+    for (int64_t y = 0; y < src_height; y++)
+    {
+        const TbPixel *row = src + y * src_width;
+        for (int64_t i = 0; i < dst_width; i++)
+        {
+            const float *w = ax.weight + i * ax.span;
+            float r = 0.0f, g = 0.0f, b = 0.0f, a = 0.0f;
+            for (int64_t k = 0; k < ax.count[i]; k++)
+            {
+                int64_t x = ax.first[i] + k;
+                x = x < 0 ? 0 : x >= src_width ? src_width - 1 : x;
+                r += w[k] * row[x].r;
+                g += w[k] * row[x].g;
+                b += w[k] * row[x].b;
+                a += w[k] * row[x].a;
+            }
+            float *t = tmp + (y * dst_width + i) * 4;
+            t[0] = r; t[1] = g; t[2] = b; t[3] = a;
+        }
+    }
+    // Vertical pass: dst_width x src_height -> dst_width x dst_height
+    for (int64_t j = 0; j < dst_height; j++)
+    {
+        const float *w = ay.weight + j * ay.span;
+        for (int64_t i = 0; i < dst_width; i++)
+        {
+            float acc[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            for (int64_t k = 0; k < ay.count[j]; k++)
+            {
+                int64_t y = ay.first[j] + k;
+                y = y < 0 ? 0 : y >= src_height ? src_height - 1 : y;
+                const float *t = tmp + (y * dst_width + i) * 4;
+                for (int c = 0; c < 4; c++)
+                    acc[c] += w[k] * t[c];
+            }
+            dst[j * dst_width + i] = TbPixel_RGBA(clamp_channel(acc[0]), clamp_channel(acc[1]),
+                                                  clamp_channel(acc[2]), clamp_channel(acc[3]));
+        }
+    }
+    free(tmp);
+    tent_axis_free(&ax);
+    tent_axis_free(&ay);
+    return true;
+}
+
+/**
+ * Copies a 32-bit image, unscaled, to (pos_x, pos_y) of the buffer and fills
+ * everything around it with black -- the true-colour counterpart of
+ * copy_raw8_image_buffer for a caller that owns the whole screen.
+ *
+ * @return Gives true on success.
+ */
+TbBool copy_rgba_image_buffer(TbPixel *dst_buf, const int64_t scanline, const int64_t nlines,
+    const int64_t pos_x, const int64_t pos_y, const TbPixel *src_buf, const int64_t src_width, const int64_t src_height)
+{
+    const TbPixel black = TbPixel_RGB(0, 0, 0);
+    const int64_t x0 = max(pos_x, 0);
+    const int64_t x1 = min(pos_x + src_width, scanline);
+    for (int64_t y = 0; y < nlines; y++)
+    {
+        TbPixel *dst = dst_buf + y * scanline;
+        const int64_t sy = y - pos_y;
+        if ((sy < 0) || (sy >= src_height) || (x1 <= x0))
+        {
+            fill_pixel_run(dst, black, scanline);
+            continue;
+        }
+        fill_pixel_run(dst, black, x0);
+        memcpy(dst + x0, src_buf + sy * src_width + (x0 - pos_x), sizeof(TbPixel) * (x1 - x0));
+        fill_pixel_run(dst + x1, black, scanline - x1);
     }
     return true;
 }

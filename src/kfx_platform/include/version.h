@@ -30,19 +30,35 @@
 #endif
 /* Version definitions */
 #include "ver_defs.h"
+/* Product identity. This game ships as dAImon Keeper, derived from KeeperFX
+ * (it still needs the original Dungeon Keeper data files). PRODUCT_* is the
+ * one place the name/slug/magic are spelled; KFX_COMPAT_* (ver_defs.h, from
+ * build/make/version.mk) is the KeeperFX release whose content it supports. */
+#define PRODUCT_NAME      "dAImon Keeper"
+/* PRODUCT_SLUG ("daimonkeeper": executable, base config, log, save folder) comes
+ * from build/make/version.mk through ver_defs.h, so the build tooling shares it. */
 /* Program name, copyrights and file names */
-#define PROGRAM_NAME      "Dungeon Keeper FX"
-#define PROGRAM_FULL_NAME "KeeperFX"
-#define COMPANY_NAME      "Fan community"
-#define INTERNAL_NAME     "keeperfx"
-#define LEGAL_COPYRIGHT   "Open Source"
+#define PROGRAM_NAME      PRODUCT_NAME
+#define PROGRAM_FULL_NAME PRODUCT_NAME
+#define COMPANY_NAME      "dAImon Keeper contributors"
+#define INTERNAL_NAME     PRODUCT_SLUG
+#define LEGAL_COPYRIGHT   "GPLv2 or later; based on KeeperFX"
 #define LEGAL_TRADEMARKS  "DK is a trademark of Electronic Arts"
 #define FILE_VERSION VER_STRING
 #define FILE_DESCRIPTION PROGRAM_NAME
-#define ORIGINAL_FILENAME INTERNAL_NAME".exe"
-#define PRODUCT_NAME PROGRAM_FULL_NAME
+/* One literal, not INTERNAL_NAME".exe": in a .rc file "" inside a string is an
+ * escaped quote, so that concatenation read daimonkeeper".exe" in the PE info. */
+#define ORIGINAL_FILENAME PRODUCT_EXE_NAME
 #define PRODUCT_VERSION    VER_STRING
 #define DEFAULT_LOG_FILENAME INTERNAL_NAME".log"
+
+/* 'D','M','K','R' in file/wire byte order (little-endian uint32). Identifies
+ * this game -- as opposed to KeeperFX -- in net/save/replay headers. */
+#define PRODUCT_MAGIC     0x524B4D44u
+/* "dAImon Keeper 1.0.0 <em dash U+2014> KFX 1.4", UTF-8: ImGui text and logs. */
+#define PRODUCT_VERSION_LABEL PRODUCT_NAME " " VER_SHORT_STRING " \xE2\x80\x94" " " KFX_COMPAT_STRING
+/* Same with a plain hyphen, for the legacy bitmap fonts (no em dash glyph). */
+#define PRODUCT_VERSION_LABEL_ASCII PRODUCT_NAME " " VER_SHORT_STRING " - " KFX_COMPAT_STRING
 
 #endif /*KEEPERFX_VERSION_H*/
 /******************************************************************************/

@@ -19,13 +19,13 @@
 #   scripts/run_ftest_harness_setup_failure.sh [keeperfx-dir]
 #
 # keeperfx-dir defaults to out/coverage-ftest (a KFX_FUNCTESTING build tree with staged game data --
-# see src/ftests/README.md). Must contain a built `keeperfx` binary and its staged campgns/levels/etc.
+# see src/ftests/README.md). Must contain a built `daimonkeeper` binary and its staged campgns/levels/etc.
 
 set -euo pipefail
 
 KEEPERFX_DIR="${1:-out/coverage-ftest}"
-if [ ! -x "$KEEPERFX_DIR/keeperfx" ]; then
-    echo "error: no keeperfx binary at $KEEPERFX_DIR/keeperfx (build it first, or pass the right directory)" >&2
+if [ ! -x "$KEEPERFX_DIR/daimonkeeper" ]; then
+    echo "error: no daimonkeeper binary at $KEEPERFX_DIR/daimonkeeper (build it first, or pass the right directory)" >&2
     exit 1
 fi
 KEEPERFX_DIR="$(cd "$KEEPERFX_DIR" && pwd)"
@@ -37,7 +37,7 @@ echo "Running harness_setup_failure (timeout ${TIMEOUT_SECS}s)..."
 EXIT_CODE=0
 (
     cd "$KEEPERFX_DIR"
-    timeout "$TIMEOUT_SECS" ./keeperfx -ftests harness_setup_failure -includelongtests -headless -exitonfailedtest -log "$LOG"
+    timeout "$TIMEOUT_SECS" ./daimonkeeper -ftests harness_setup_failure -includelongtests -headless -exitonfailedtest -log "$LOG"
 ) || EXIT_CODE=$?
 
 LOG_PATH="$KEEPERFX_DIR/$LOG"

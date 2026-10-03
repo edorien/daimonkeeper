@@ -21,8 +21,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CORE_FILES="$(realpath "${CORE_FILES:-core_files}")"
-if [ ! -f "$CORE_FILES/keeperfx.cfg" ] || [ ! -d "$CORE_FILES/data" ]; then
-    echo "error: '$CORE_FILES' doesn't look like a KeeperFX install (need keeperfx.cfg and data/)." >&2
+if { [ ! -f "$CORE_FILES/daimonkeeper.cfg" ] && [ ! -f "$CORE_FILES/keeperfx.cfg" ]; } || [ ! -d "$CORE_FILES/data" ]; then
+    echo "error: '$CORE_FILES' doesn't look like a game-data install (need daimonkeeper.cfg or keeperfx.cfg, and data/)." >&2
     exit 1
 fi
 
