@@ -1,4 +1,5 @@
 #include "globals.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 
@@ -10,6 +11,7 @@
  * Add the header files for all tests below here
  */
 #include "tests/ftest_template.h"
+#include "tests/ftest_local_view_transitions.h"
 #include "tests/ftest_bug_imp_tp_job_attack_door.h"
 #include "tests/ftest_bug_pathing_pillar_circling.h"
 #include "tests/ftest_bug_imp_goldseam_dig.h"
@@ -96,6 +98,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="bug_imp_goldseam_dig",               .init_func=ftest_bug_imp_goldseam_dig_init,             .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="bug_pathing_stair_treasury",         .init_func=ftest_bug_pathing_stair_treasury_init,       .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="creature_combat_power_hand",         .init_func=ftest_creature_combat_power_hand_init,       .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="local_view_transitions",             .init_func=ftest_local_view_transitions_init,           .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="ai_gesture_single_turn",            .init_func=ftest_ai_gesture_single_turn_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="ai_gesture_order_creature",         .init_func=ftest_ai_gesture_order_creature_init,        .pre_start_func=ftest_ai_gesture_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_gesture_drag_verbs",            .init_func=ftest_ai_gesture_drag_verbs_init,            .pre_start_func=ftest_ai_gesture_drag_verbs_pre_start, .level_file="original", .level=50, .frame_skip=8 },

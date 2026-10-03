@@ -35,6 +35,7 @@
 //   them here isn't attempted; speech_ref_parse (the plain, non-NamedField
 //   entry point with the same resolution logic) is tested directly instead.
 #include <catch2/catch_test_macros.hpp>
+#include "config_settings.h"
 
 #include "kfx_config_test_paths.h" // KFX_CONFIG_TEST_FIXTURES_DIR
 #include "config_sounds.h"
@@ -54,12 +55,6 @@ struct ResetSoundState {
         snd_gold_pickup = 0;
         snd_gold_pickup_count = 0;
     }
-};
-
-struct ResetConfigReloadCallbacks {
-    const struct ConfigReloadCallbacks *saved;
-    ResetConfigReloadCallbacks() : saved(config_reload_callbacks) {}
-    ~ResetConfigReloadCallbacks() { set_config_reload_callbacks(saved); }
 };
 }
 
@@ -84,16 +79,14 @@ TEST_CASE_METHOD(ResetSoundState, "load_sounds_config_file's [speech] section st
     CHECK(std::strcmp(g_speech_overrides[SMsg_LevelWon], "speech/custom_levelwon.wav") == 0);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "load_sounds_config_file's [system] section forwards SpeechQueueLimit to config_reload_callbacks->set_speech_queue_limit", "[kfx_config][config_sounds]") {
+TEST_CASE_METHOD(ResetSoundState, "load_sounds_config_file's [system] section sets kfx_runtime_settings.speech_queue_limit", "[kfx_config][config_sounds]") {
     ResetSoundState::reset();
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static int64_t last_limit = -1;
-    last_limit = -1;
-    fake.set_speech_queue_limit = [](int64_t limit) { last_limit = limit; };
-    set_config_reload_callbacks(&fake);
+    const int64_t saved_limit = kfx_runtime_settings.speech_queue_limit;
+    kfx_runtime_settings.speech_queue_limit = -1;
 
     REQUIRE(keeper_sounds_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/sounds_minimal.cfg", 0));
-    CHECK(last_limit == 7);
+    CHECK(kfx_runtime_settings.speech_queue_limit == 7);
+    kfx_runtime_settings.speech_queue_limit = saved_limit;
 }
 
 TEST_CASE_METHOD(ResetSoundState, "cache_common_sound_ids caches only already-registered names, leaving others untouched", "[kfx_config][config_sounds]") {

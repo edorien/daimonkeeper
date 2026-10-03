@@ -7,7 +7,7 @@
 // and the Thing_Maximizer_Filter family are pure functions of a Thing and
 // a struct CompoundTngFilterParam -- no traversal needed to call them
 // directly. creature_stats_get (unlike creature_stats_get_from_thing) is a
-// direct by-model-id lookup, not routed through ConfigReloadCallbacks, so
+// direct by-model-id lookup, not routed through SimPort, so
 // real per-model creature config (model_flags) is testable here.
 #include <catch2/catch_test_macros.hpp>
 
@@ -17,6 +17,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "kfx_sim_test_fixtures.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

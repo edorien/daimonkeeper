@@ -15,7 +15,7 @@ target_link_libraries(kfx_pathfinding_utest PRIVATE
     kfx_pathfinding
     kfx_config
     kfx_platform
-    kfx_bfdebug_std
+    kfx_log_opts
     kfx_common_opts
     centitoml
     tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --

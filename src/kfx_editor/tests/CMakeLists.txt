@@ -18,11 +18,13 @@ target_link_libraries(kfx_editor_utest PRIVATE
     kfx_game
     kfx_net
     kfx_render
+    kfx_ai
     kfx_sim
     kfx_pathfinding
+    kfx_content
     kfx_config
     kfx_platform
-    kfx_bfdebug_std
+    kfx_log_opts
     kfx_common_opts
     kfx_luajit
     centitoml

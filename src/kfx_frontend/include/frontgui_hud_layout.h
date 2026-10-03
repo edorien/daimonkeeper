@@ -79,7 +79,7 @@ struct HudLayout {
     HudRect region[HudRegion_COUNT];
     // How far the 3D viewport must inset, on this layout's axis:
     // a left-edge width for VerticalRight, a bottom-edge height for
-    // HorizontalBottom. Consumed via render_overlay->get_status_panel_width().
+    // HorizontalBottom. Consumed via ui_get_status_panel_width().
     double viewport_inset;
 };
 
@@ -108,7 +108,7 @@ inline const HudRect &hud_region_rect(HudRegion r) { return hud_layout_current()
 #endif // __cplusplus
 
 // C-callable: the current viewport inset (panel width for VerticalRight),
-// for render_overlay->get_status_panel_width(). 0 before the first frame.
+// for ui_get_status_panel_width(). 0 before the first frame.
 #ifdef __cplusplus
 extern "C" {
 #endif

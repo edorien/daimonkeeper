@@ -51,7 +51,6 @@ extern "C" {
 TbBool wheel_scrolled_up;
 TbBool wheel_scrolled_down;
 
-uint64_t key_modifiers;
 int64_t defining_a_key;
 int64_t defining_a_key_id;
 // docs/refactor/editor/10-definable-keybindings.md -- which table
@@ -324,29 +323,6 @@ TbBool poll_inputs(void)
     return user_not_quit;
 }
 
-/**
- * Returns X position of mouse cursor on screen.
- */
-int64_t GetMouseX(void)
-{
-    int64_t result = lbDisplay.MMouseX * (int64_t)pixel_size;
-    return result;
-}
-
-/**
- * Returns Y position of mouse cursor on screen.
- */
-int64_t GetMouseY(void)
-{
-    int64_t result = lbDisplay.MMouseY * (int64_t)pixel_size;
-    return result;
-}
-
-int64_t is_mouse_pressed_lrbutton(void)
-{
-  return (lbDisplay.LeftButton || lbDisplay.RightButton);
-}
-
 void clear_mouse_pressed_lrbutton(void)
 {
   lbDisplay.LeftButton = 0;
@@ -459,56 +435,6 @@ void update_mouse(void)
   lbKeyOn[KC_MOUSEWHEEL_DOWN] = wheel_scrolled_down;
   lbInkey = lbDisplay.MiddleButton ? KC_MOUSE3 : wheel_scrolled_down ? KC_MOUSEWHEEL_DOWN : wheel_scrolled_up ? KC_MOUSEWHEEL_UP : lbInkey;
 
-}
-
-/**
- * Checks if a specific key is pressed.
- * @param key Code of the key to check.
- * @param kmodif Key modifier flags required.
- */
-int64_t is_key_pressed(TbKeyCode key, TbKeyMods kmodif)
-{
-  if ((kmodif == KMod_DONTCARE) || (kmodif == key_modifiers))
-    return lbKeyOn[key];
-  return 0;
-}
-
-/**
- * Clears the marking that a specific key is pressed.
- */
-void clear_key_pressed(int64_t key)
-{
-    if (key >= sizeof(lbKeyOn))
-    {
-        return;
-    }
-    if ((key >= 0xF0) && (key <= 0xFC)) // This is a mouse button
-    {
-        if (key == KC_MOUSE3)
-        {
-            lbDisplay.MiddleButton = 0;
-        }
-    }
-    lbKeyOn[key] = 0;
-    if (key == lbInkey)
-    {
-        lbInkey = KC_UNASSIGNED;
-    }
-}
-
-/**
- * Set key modifiers based on the pressed key codes.
- */
-void update_key_modifiers(void)
-{
-  int64_t key_mods=0;
-  if ( lbKeyOn[KC_LSHIFT] || lbKeyOn[KC_RSHIFT] )
-    key_mods |= KMod_SHIFT;
-  if ( lbKeyOn[KC_LCONTROL] || lbKeyOn[KC_RCONTROL] )
-    key_mods |= KMod_CONTROL;
-  if ( lbKeyOn[KC_LALT] || lbKeyOn[KC_RALT] )
-    key_mods |= KMod_ALT;
-  key_modifiers = key_mods;
 }
 
 // docs/refactor/editor/10-definable-keybindings.md -- swap-on-conflict/

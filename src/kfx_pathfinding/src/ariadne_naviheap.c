@@ -23,7 +23,7 @@
 #include "bflib_basics.h"
 #include "ariadne_tringls.h"
 #include "ariadne_navitree.h"
-#include "sim_feedback.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -110,7 +110,7 @@ int64_t naviheap_remove(void)
 {
   if (heap_end < 1)
   {
-      sim_feedback->report_error_stat(ESE_BadPathHeap);
+      ui_report_error_stat(ESE_BadPathHeap);
       return -1;
   }
   int64_t popval = Heap[1];
@@ -136,7 +136,7 @@ void heap_up_f(int64_t heapid, const char *func_name)
           break;
         if (pmask == 0)
         {
-            sim_feedback->report_error_stat(ESE_BadPathHeap);
+            ui_report_error_stat(ESE_BadPathHeap);
             ERRORDBG(8,"%s: sabotaged navigate heap, heapid=%" PRId64,func_name,(int64_t)heapid);
             break;
         }
@@ -170,7 +170,7 @@ static int64_t naviheap_item_tree_val(int64_t heapid)
     int64_t tree_id = naviheap_get(heapid);
     if ((tree_id < 0) || (tree_id >= TREEVALS_COUNT))
     {
-        sim_feedback->report_error_stat(ESE_BadPathHeap);
+        ui_report_error_stat(ESE_BadPathHeap);
         return -1;
     }
     return tree_val[tree_id];

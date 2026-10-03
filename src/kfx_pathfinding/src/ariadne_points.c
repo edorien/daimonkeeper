@@ -21,7 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
-#include "sim_feedback.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -45,7 +45,7 @@ static AridPointId point_new(void)
         if ((i < 0) || (i >= POINTS_COUNT))
         {
             WARNLOG("ix_Points overflow; %" PRId64 " allocated, id %" PRId64 " outranged",(int64_t)count_Points,(int64_t)ix_Points);
-            sim_feedback->report_error_stat(ESE_NoFreePathPts);
+            ui_report_error_stat(ESE_NoFreePathPts);
             return -1;
         }
         ix_Points++;
@@ -55,7 +55,7 @@ static AridPointId point_new(void)
         if ((i < 0) || (i >= POINTS_COUNT))
         {
             ERRORDBG(13,"free_Points overflow; %" PRId64 " allocated, id %" PRId64 " outranged",(int64_t)count_Points,(int64_t)free_Points);
-            sim_feedback->report_error_stat(ESE_NoFreePathPts);
+            ui_report_error_stat(ESE_NoFreePathPts);
             return -1;
         }
         free_Points = ari_Points[i].x;

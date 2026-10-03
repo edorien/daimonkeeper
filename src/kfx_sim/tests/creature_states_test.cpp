@@ -23,6 +23,7 @@
 #include "thing_data.h"
 #include "globals.h"
 #include "kfx_sim_test_fixtures.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

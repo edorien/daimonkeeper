@@ -34,6 +34,7 @@
 #include "creature_instances.h"
 
 #include "kfx_frontend_state.h"
+#include "packets.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -54,7 +55,7 @@ struct GuiMenu *get_active_menu(MenuNumber num)
 // Refresh GUI panel button sprites for a player whose colour just changed.
 // Workaround for multiplayer. Moved from kfx_sim's player_utils.c (stage
 // 13.3, docs/refactor/stage-13-enforce-and-document.md) -- called via
-// SimFeedbackCallbacks since active_buttons/get_gui_button_init are
+// UiPort since active_buttons/get_gui_button_init are
 // kfx_frontend-owned.
 void refresh_active_button_sprites_for_player(PlayerNumber plyr_idx)
 {

@@ -37,7 +37,6 @@ struct Coord3d;
 
 #pragma pack()
 /******************************************************************************/
-extern unsigned char smooth_on;
 /******************************************************************************/
 void setup_engine_window(int64_t x1, int64_t y1, int64_t x2, int64_t y2);
 void store_engine_window(TbGraphicsWindow *ewnd,int64_t divider);
@@ -45,12 +44,8 @@ void load_engine_window(TbGraphicsWindow *ewnd);
 
 void set_engine_view(struct PlayerInfo *player, int64_t val);
 
-void draw_overlay_compass(int64_t a1, int64_t a2);
-
-TbBool keeper_screen_redraw(void);
+void map_fade(TbPixel *outbuf, TbPixel *srcbuf1, TbPixel *srcbuf2, int64_t a6, int64_t const xmax, int64_t const ymax, int64_t a9);
 void smooth_screen_area(TbPixel *a1, int64_t a2, int64_t a3, int64_t a4, int64_t a5, int64_t a6);
-
-int64_t get_place_terrain_pointer_graphics(SlabKind skind);
 
 TbBool players_cursor_is_at_top_of_view(void);
 TbBool engine_point_to_map(struct Camera *camera, int64_t screen_x, int64_t screen_y, int64_t *map_x, int64_t *map_y);

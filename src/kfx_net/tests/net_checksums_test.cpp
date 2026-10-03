@@ -60,7 +60,7 @@ struct ResetChecksumState {
 };
 
 // Index 0 is thing_is_invalid()'s reserved sentinel (thing_data.c), same
-// convention as ari_Points[0]/lish.lights[0] in earlier stages.
+// convention as ari_Points[0]/kfx_sim_state.light_registry.lights[0] in earlier stages.
 struct Thing *make_existing_thing(ThingIndex idx, unsigned char class_id)
 {
     struct Thing *thing = thing_get(idx);

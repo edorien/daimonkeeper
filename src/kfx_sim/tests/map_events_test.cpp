@@ -4,14 +4,13 @@
 // (event_is_invalid/_exists, the get_event_of_*_for_player search family,
 // event_allocate_free_event_structure, event_delete_event_structure,
 // event_update_last_use, clear_events, get_thing_index_event_is_attached_to)
-// needs no sim_feedback fixture at all -- either it doesn't call sim_feedback,
-// or (clear_events) only calls members the default no-op table already
-// handles safely.
+// needs no UiPort fixture at all -- either it doesn't call UiPort, or
+// (clear_events) only calls entries the unwired defaults already handle
+// safely.
 //
 // event_create_event and friends are different: event_initialise_event
-// unconditionally dereferences sim_feedback->get_event_button_info(evkind),
-// whose *default* implementation returns NULL (noop_get_event_button_info,
-// sim_feedback.c) -- calling it without a fake would crash, not just
+// unconditionally dereferences ui_get_event_button_info(evkind),
+// whose unwired default returns NULL (ports/ui_port.def) -- calling it without a fake would crash, not just
 // return a wrong value. EventFeedbackFixture below fakes it to return a
 // button-less EventTypeInfo (bttn_sprite==0), which also makes
 // event_add_to_event_buttons_list_or_replace_button's more involved
@@ -23,9 +22,10 @@
 #include "thing_data.h"
 #include "dungeon_data.h"
 #include "player_data.h"
-#include "sim_feedback.h"
+#include "kfx_config/tests/scoped_port_override.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
 
 #include <cstring>
 
@@ -41,13 +41,13 @@ struct ResetState {
 const struct EventTypeInfo buttonless_event_info{}; // bttn_sprite==0 -- "no button" branch
 
 struct EventFeedbackFixture : ResetState {
-    struct SimFeedbackCallbacks callbacks;
+    struct UiPort callbacks;
 
-    EventFeedbackFixture() : callbacks(*sim_feedback) {
+    EventFeedbackFixture() : callbacks(*ui_port) {
         callbacks.get_event_button_info = fake_get_event_button_info;
-        set_sim_feedback_callbacks(&callbacks);
+        set_ui_port(&callbacks);
     }
-    ~EventFeedbackFixture() { set_sim_feedback_callbacks(nullptr); }
+    ~EventFeedbackFixture() { set_ui_port(nullptr); }
 
     static const struct EventTypeInfo *fake_get_event_button_info(EventKind evkind) {
         (void)evkind;
@@ -191,20 +191,17 @@ TEST_CASE_METHOD(EventFeedbackFixture, "event_create_event allocates and initial
 }
 
 TEST_CASE_METHOD(EventFeedbackFixture, "event_create_event is blocked while the per-kind cooldown hasn't elapsed", "[kfx_sim][map_events]") {
-    struct SimFeedbackCallbacks cooldown_callbacks = *sim_feedback;
+    ScopedPortOverride<UiPort> port(ui_port, set_ui_port);
     static const struct EventTypeInfo cooldown_info = []{
         struct EventTypeInfo info{};
         info.turns_between_events = 100;
         return info;
     }();
-    cooldown_callbacks.get_event_button_info = [](EventKind) -> const struct EventTypeInfo* { return &cooldown_info; };
-    set_sim_feedback_callbacks(&cooldown_callbacks);
+    port->get_event_button_info = [](EventKind) -> const struct EventTypeInfo* { return &cooldown_info; };
 
     get_dungeon(0)->event_last_run_turn[EvKind_HeartAttacked] = 5; // last fired at turn 5, cooldown 100 -- still active at turn 0
 
     CHECK(event_create_event(0, 0, EvKind_HeartAttacked, 0, 0) == INVALID_EVENT);
-
-    set_sim_feedback_callbacks(nullptr);
 }
 
 TEST_CASE_METHOD(EventFeedbackFixture, "event_create_event_or_update_nearby_existing_event creates once, then updates the nearby event instead of duplicating it", "[kfx_sim][map_events]") {

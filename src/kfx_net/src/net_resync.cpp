@@ -23,8 +23,6 @@
 #include "net_main.h"
 #include <zlib.h>
 #include "globals.h"
-#include "render_overlay.h"
-#include "net_callbacks.h"
 #include "player_data.h"
 #include "net_game.h"
 #include "lens_api.h"
@@ -32,7 +30,12 @@
 #include "net_checksums.h"
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
-#include "light_data.h"
+#include "light_registry.h"
+#include "state_versions.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/game_port.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -107,7 +110,7 @@ void animate_resync_progress_bar(int64_t current_phase, int64_t total_phases) {
     }
     const int64_t max_progress = (int64_t)(32 * units_per_pixel / 16);
     const int64_t progress_pixels = (int64_t)((double)max_progress * current_phase / total_phases);
-    net_callbacks->draw_out_of_sync_box(progress_pixels, max_progress, render_overlay->get_status_panel_width());
+    ui_draw_out_of_sync_box(progress_pixels, max_progress, ui_get_status_panel_width());
 }
 
 void store_localised_game_structure(void) {
@@ -328,6 +331,31 @@ TbBool LbNetwork_Resync(void * data_buffer, size_t buffer_length)
     return true;
 }
 
+/*
+ * Layout versions of every raw blob in a full resync (state_versions.h), sent
+ * first and checked before anything else is read (refactor pass 2, S09).
+ * Multiplayer already requires matching builds; this makes a mismatch fail
+ * cleanly instead of copying a struct of another layout.
+ */
+struct ResyncVersions {
+    uint64_t game_orig;
+    uint64_t sim_state;
+    uint64_t net_state;
+    uint64_t game_state;
+    uint64_t frontend_state;
+};
+
+static struct ResyncVersions current_resync_versions(void)
+{
+    struct ResyncVersions v;
+    v.game_orig = KFX_GAME_ORIG_VER;
+    v.sim_state = KFX_SIM_STATE_VER;
+    v.net_state = KFX_NET_STATE_VER;
+    v.game_state = KFX_GAME_STATE_VER;
+    v.frontend_state = KFX_FRONTEND_STATE_VER;
+    return v;
+}
+
 TbBool send_resync_game(void)
 {
     pack_desync_history_for_resync();
@@ -336,41 +364,38 @@ TbBool send_resync_game(void)
     NETLOG("Initiating re-synchronization of network game");
 
     size_t lua_data_len = 0;
-    const char * lua_data = net_callbacks->lua_resync_export(&lua_data_len);
+    const char * lua_data = script_lua_resync_export(&lua_data_len);
     if (lua_data == NULL) {
-        net_callbacks->lua_cleanup_serialized_data();
+        script_cleanup_serialized_data();
         return false;
     }
 
     // game/kfx_game_state (kfx_game) and kfx_frontend_state (kfx_frontend)
     // are both above kfx_net -- exported as opaque (pointer, length) blobs
-    // via NetCallbacks (same reasoning/shape as the Lua pair above) rather
+    // via GamePort/UiPort (same reasoning/shape as the Lua pair above) rather
     // than #include'd and memcpy'd directly. See
     // docs/refactor/todo/remove-remaining-layering-violations.md.
     size_t game_state_len = 0;
-    const char * game_state_data = net_callbacks->resync_export_game_state(&game_state_len);
+    const char * game_state_data = game_resync_export_game_state(&game_state_len);
     size_t frontend_state_len = 0;
-    const char * frontend_state_data = net_callbacks->resync_export_frontend_state(&frontend_state_len);
+    const char * frontend_state_data = ui_resync_export_frontend_state(&frontend_state_len);
     if (game_state_len > UINT32_MAX || frontend_state_len > UINT32_MAX) {
         ERRORLOG("Full resync data too large");
-        net_callbacks->lua_cleanup_serialized_data();
+        script_cleanup_serialized_data();
         return false;
     }
 
-    // lish (kfx_render's struct LightsShadows) added as its own blob
-    // here (stage 13.3, docs/refactor/stage-13-enforce-and-document.md)
-    // -- it used to be struct Game's last field and rode along with the
-    // `game` memcpy; now it's a standalone kfx_render global, so it's
-    // synced explicitly to keep this wire format's behaviour unchanged.
-    // game_state/frontend_state are each prefixed with their own u32
+    // The lights travel inside kfx_sim_state (light_registry); kfx_render's
+    // shading (lish) isn't sent -- the receiver rebuilds it (refactor pass
+    // 2, S11). game_state/frontend_state are each prefixed with their own u32
     // length now that they're opaque blobs of a size this file can't
     // sizeof() directly -- same framing lua_data already used below.
-    size_t fixed_state_size = sizeof(uint64_t) + game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state)
-        + sizeof(uint64_t) + frontend_state_len + sizeof(lish);
+    size_t fixed_state_size = sizeof(struct ResyncVersions) + sizeof(uint64_t) + game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state)
+        + sizeof(uint64_t) + frontend_state_len;
     size_t lua_data_offset = fixed_state_size + sizeof(uint64_t);
     if (lua_data_len > UINT32_MAX - lua_data_offset) {
         ERRORLOG("Full resync data too large");
-        net_callbacks->lua_cleanup_serialized_data();
+        script_cleanup_serialized_data();
         return false;
     }
 
@@ -378,7 +403,7 @@ TbBool send_resync_game(void)
     char * full_resync_data = (char *) malloc(full_resync_len);
     if (full_resync_data == NULL) {
         ERRORLOG("Failed to allocate full resync buffer");
-        net_callbacks->lua_cleanup_serialized_data();
+        script_cleanup_serialized_data();
         return false;
     }
 
@@ -386,18 +411,19 @@ TbBool send_resync_game(void)
     uint64_t frontend_state_len32 = (uint64_t)frontend_state_len;
     uint64_t lua_data_len32 = (uint64_t)lua_data_len;
     char * write_ptr = full_resync_data;
+    const struct ResyncVersions versions = current_resync_versions();
+    memcpy(write_ptr, &versions, sizeof(versions)); write_ptr += sizeof(versions);
     memcpy(write_ptr, &game_state_len32, sizeof(game_state_len32)); write_ptr += sizeof(game_state_len32);
     memcpy(write_ptr, game_state_data, game_state_len); write_ptr += game_state_len;
     memcpy(write_ptr, &kfx_sim_state, sizeof(kfx_sim_state)); write_ptr += sizeof(kfx_sim_state);
     memcpy(write_ptr, &kfx_net_state, sizeof(kfx_net_state)); write_ptr += sizeof(kfx_net_state);
     memcpy(write_ptr, &frontend_state_len32, sizeof(frontend_state_len32)); write_ptr += sizeof(frontend_state_len32);
     memcpy(write_ptr, frontend_state_data, frontend_state_len); write_ptr += frontend_state_len;
-    memcpy(write_ptr, &lish, sizeof(lish)); write_ptr += sizeof(lish);
     memcpy(write_ptr, &lua_data_len32, sizeof(lua_data_len32)); write_ptr += sizeof(lua_data_len32);
     memcpy(full_resync_data + lua_data_offset, lua_data, lua_data_len);
     TbBool result = send_resync_data(full_resync_data, full_resync_len);
     free(full_resync_data);
-    net_callbacks->lua_cleanup_serialized_data();
+    script_cleanup_serialized_data();
     if (!result) {
         return false;
     }
@@ -420,16 +446,34 @@ TbBool receive_resync_game(void)
     }
 
     // Two-phase, same discipline the original fixed-offset version used
-    // (net_callbacks.h's own comment on the Lua pair explains why): parse
+    // (ports/script_port.def's comment on the Lua pair explains why): parse
     // and validate every length/pointer *without* mutating any local
     // state first, so a failure at any point below leaves game/
-    // kfx_sim_state/kfx_net_state/kfx_game_state/kfx_frontend_state/lish
+    // kfx_sim_state/kfx_net_state/kfx_game_state/kfx_frontend_state
     // all untouched -- only once every import has actually succeeded do
     // the raw memcpy()s for the fields that don't go through a callback
-    // (kfx_sim_state/kfx_net_state/lish) happen, right at the end.
+    // (kfx_sim_state/kfx_net_state) happen, right at the end.
     const char * const data_end = full_resync_data + full_resync_len;
     const char * read_ptr = full_resync_data;
-    size_t min_header_size = sizeof(uint64_t) + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(lish) + sizeof(uint64_t);
+    struct ResyncVersions versions;
+    const struct ResyncVersions expected = current_resync_versions();
+    if (full_resync_len < sizeof(versions)) {
+        ERRORLOG("Full resync data too small for its version header: %" PRIu64 " bytes", (uint64_t)full_resync_len);
+        free(full_resync_data);
+        return false;
+    }
+    memcpy(&versions, read_ptr, sizeof(versions)); read_ptr += sizeof(versions);
+    if (memcmp(&versions, &expected, sizeof(versions)) != 0) {
+        ERRORLOG("Resync data is from a build with other state layouts (sim %" PRIu64 "/%" PRIu64 ", net %" PRIu64 "/%" PRIu64
+            ", game %" PRIu64 "/%" PRIu64 ", frontend %" PRIu64 "/%" PRIu64 ", orig %" PRIu64 "/%" PRIu64 "; theirs/ours)",
+            versions.sim_state, expected.sim_state, versions.net_state, expected.net_state,
+            versions.game_state, expected.game_state, versions.frontend_state, expected.frontend_state,
+            versions.game_orig, expected.game_orig);
+        free(full_resync_data);
+        return false;
+    }
+    full_resync_len -= sizeof(versions);
+    size_t min_header_size = sizeof(uint64_t) + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(uint64_t);
     if (full_resync_len < min_header_size) {
         ERRORLOG("Full resync data too small: %" PRIu64 " bytes", (uint64_t)full_resync_len);
         free(full_resync_data);
@@ -438,7 +482,7 @@ TbBool receive_resync_game(void)
 
     uint64_t game_state_len = 0;
     memcpy(&game_state_len, read_ptr, sizeof(game_state_len)); read_ptr += sizeof(game_state_len);
-    if ((size_t)(data_end - read_ptr) < (size_t)game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(lish) + sizeof(uint64_t)) {
+    if ((size_t)(data_end - read_ptr) < (size_t)game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(uint64_t)) {
         ERRORLOG("Full resync data truncated (game state)");
         free(full_resync_data);
         return false;
@@ -450,14 +494,12 @@ TbBool receive_resync_game(void)
 
     uint64_t frontend_state_len = 0;
     memcpy(&frontend_state_len, read_ptr, sizeof(frontend_state_len)); read_ptr += sizeof(frontend_state_len);
-    if ((size_t)(data_end - read_ptr) < (size_t)frontend_state_len + sizeof(lish) + sizeof(uint64_t)) {
+    if ((size_t)(data_end - read_ptr) < (size_t)frontend_state_len + sizeof(uint64_t)) {
         ERRORLOG("Full resync data truncated (frontend state)");
         free(full_resync_data);
         return false;
     }
     const char * frontend_state_data = read_ptr; read_ptr += frontend_state_len;
-
-    const char * lish_data = read_ptr; read_ptr += sizeof(lish);
 
     uint64_t lua_data_len = 0;
     memcpy(&lua_data_len, read_ptr, sizeof(lua_data_len)); read_ptr += sizeof(lua_data_len);
@@ -468,22 +510,22 @@ TbBool receive_resync_game(void)
     }
     const char * lua_data = read_ptr;
 
-    if (!net_callbacks->resync_import_game_state(game_state_data, game_state_len)) {
+    if (!game_resync_import_game_state(game_state_data, game_state_len)) {
         free(full_resync_data);
         return false;
     }
-    if (!net_callbacks->resync_import_frontend_state(frontend_state_data, frontend_state_len)) {
+    if (!ui_resync_import_frontend_state(frontend_state_data, frontend_state_len)) {
         free(full_resync_data);
         return false;
     }
-    if (!net_callbacks->lua_resync_import(lua_data, lua_data_len)) {
+    if (!script_lua_resync_import(lua_data, lua_data_len)) {
         free(full_resync_data);
         return false;
     }
 
     memcpy(&kfx_sim_state, kfx_sim_state_data, sizeof(kfx_sim_state));
     memcpy(&kfx_net_state, kfx_net_state_data, sizeof(kfx_net_state));
-    memcpy(&lish, lish_data, sizeof(lish));
+    light_registry_invalidate_shading();
     free(full_resync_data);
 
     animate_resync_progress_bar(2, 6);
@@ -499,7 +541,7 @@ TbBool receive_resync_game(void)
 void resync_game(void)
 {
     SYNCDBG(2,"Starting");
-    net_callbacks->draw_out_of_sync_box(0, 32*units_per_pixel/16, local_state.engine_window_x);
+    ui_draw_out_of_sync_box(0, 32*units_per_pixel/16, local_state.engine_window_x);
     reset_eye_lenses();
     store_localised_game_structure();
     TbBool result;
@@ -512,11 +554,11 @@ void resync_game(void)
         recall_localised_game_structure();
         return;
     }
-    if (net_callbacks->lua_script_active()) {
-        net_callbacks->lua_set_random_seed(kfx_sim_state.action_random_seed);
+    if (script_lua_script_active()) {
+        script_lua_set_random_seed(kfx_sim_state.action_random_seed);
     }
     recall_localised_game_structure();
-    net_callbacks->reinit_level_after_load();
+    game_reinit_level_after_load();
 
     kfx_net_state.skip_initial_input_turns = calculate_skip_input();
     initialize_packet_history();

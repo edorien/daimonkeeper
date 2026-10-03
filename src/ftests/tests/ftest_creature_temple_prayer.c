@@ -7,6 +7,7 @@
 // assigns a creature the TEMPLE_PRAY job, and waits for the real AI to
 // walk it there and enter CrSt_AtTemple/CrSt_PrayingInTemple.
 #include "ftest_creature_temple_prayer.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

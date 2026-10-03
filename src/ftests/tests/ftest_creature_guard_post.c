@@ -5,6 +5,7 @@
 // creature_states.c), and map00011's script already leaves GUARD_POST
 // fully available (ROOM_AVAILABLE(ALL_PLAYERS,GUARD_POST,1,1)).
 #include "ftest_creature_guard_post.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

@@ -31,6 +31,7 @@
 #include "config_keeperfx.h"
 #include "config_campaigns.h"
 #include "config_translation.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -38,7 +39,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 // level_strings[] (kfx_sim's lvl_filesdk1.h) is reached through
-// config_reload_callbacks instead of a same-file bare-extern
+// SimPort instead of a same-file bare-extern
 // forward-declaration. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
@@ -419,7 +420,7 @@ const char * get_string(TextStringId stridx)
     }
     if (stridx < TRANSLATION_STRINGS_START)
     {
-        char **level_strings = config_reload_callbacks->get_level_strings();
+        char **level_strings = simport_get_level_strings();
         if (level_strings[stridx] != NULL)
         {
             if (*level_strings[stridx] != '\0')

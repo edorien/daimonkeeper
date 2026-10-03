@@ -11,7 +11,7 @@
 #define DK_CONTENT_TOOLS_H
 
 #include "bflib_basics.h"
-#include "content_tools_callbacks.h"
+#include "editor_types.h"
 
 #ifdef __cplusplus
 extern "C" {

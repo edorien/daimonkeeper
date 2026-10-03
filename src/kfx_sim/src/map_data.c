@@ -31,6 +31,8 @@
 #include "ariadne_update.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "light_registry.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -473,15 +475,7 @@ TbBool set_coords_add_velocity(struct Coord3d *pos, const struct Coord3d *source
  */
 SubtlCodedCoords get_subtile_number(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
-  if (stl_x > kfx_sim_state.map_subtiles_x+1)
-      stl_x = kfx_sim_state.map_subtiles_x+1;
-  if (stl_y > kfx_sim_state.map_subtiles_y+1)
-      stl_y = kfx_sim_state.map_subtiles_y+1;
-  if (stl_x < 0)
-      stl_x = 0;
-  if (stl_y < 0)
-      stl_y = 0;
-  return stl_y*(kfx_sim_state.map_subtiles_x+1) + stl_x;
+  return kfx_subtile_number(kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, stl_x, stl_y);
 }
 
 /**
@@ -489,7 +483,7 @@ SubtlCodedCoords get_subtile_number(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
  */
 MapSubtlCoord stl_num_decode_x(SubtlCodedCoords stl_num)
 {
-  return stl_num % (kfx_sim_state.map_subtiles_x+1);
+  return kfx_stl_num_decode_x(kfx_sim_state.map_subtiles_x, stl_num);
 }
 
 /**
@@ -497,7 +491,7 @@ MapSubtlCoord stl_num_decode_x(SubtlCodedCoords stl_num)
  */
 MapSubtlCoord stl_num_decode_y(SubtlCodedCoords stl_num)
 {
-  return (stl_num/(kfx_sim_state.map_subtiles_x+1))%kfx_sim_state.map_subtiles_y;
+  return kfx_stl_num_decode_y(kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, stl_num);
 }
 
 /**
@@ -506,14 +500,6 @@ MapSubtlCoord stl_num_decode_y(SubtlCodedCoords stl_num)
 SubtlCodedCoords get_subtile_number_at_slab_center(int64_t slb_x, int64_t slb_y)
 {
   return get_subtile_number(slb_x*STL_PER_SLB+1,slb_y*STL_PER_SLB+1);
-}
-
-/**
- * Returns subtile coordinate for central subtile on given slab.
- */
-MapSubtlCoord stl_slab_center_subtile(MapSubtlCoord stl_v)
-{
-  return subtile_slab(stl_v)*STL_PER_SLB+1;
 }
 
 /**
@@ -557,7 +543,7 @@ void clear_mapmap(void)
         }
     }
     ariadne_reset_navigation_map();
-    config_reload_callbacks->clear_subtiles_lightness();
+    light_request_lightness_reset();
 }
 
 /**
@@ -664,7 +650,7 @@ void reveal_map_area(PlayerNumber plyr_idx,MapSubtlCoord start_x,MapSubtlCoord e
   clear_dig_for_map_rect(plyr_idx,subtile_slab(start_x),subtile_slab(end_x),
       subtile_slab(start_y),subtile_slab(end_y));
   reveal_map_rect(plyr_idx,start_x,end_x,start_y,end_y);
-  config_reload_callbacks->panel_map_update(start_x,start_y,end_x - start_x,end_y - start_y);
+  ui_panel_map_update(start_x,start_y,end_x - start_x,end_y - start_y);
 }
 
 void conceal_map_area(PlayerNumber plyr_idx,MapSubtlCoord start_x,MapSubtlCoord end_x,MapSubtlCoord start_y,MapSubtlCoord end_y, TbBool all)
@@ -697,7 +683,7 @@ void conceal_map_area(PlayerNumber plyr_idx,MapSubtlCoord start_x,MapSubtlCoord 
             conceal_map_block(mapblk, plyr_idx);
         }
     }
-    config_reload_callbacks->panel_map_update(start_x,start_y,end_x - start_x,end_y - start_y);
+    ui_panel_map_update(start_x,start_y,end_x - start_x,end_y - start_y);
 }
 
 TbBool map_pos_is_lava(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
@@ -837,6 +823,7 @@ void set_map_size(MapSlabCoord x,MapSlabCoord y)
     kfx_sim_state.map_tiles_y = y;
 
     ariadne_set_navigation_map_size(kfx_sim_state.map_subtiles_x + 1, kfx_sim_state.map_subtiles_y + 1);
+    ariadne_set_map_dimensions(kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, map_subtiles_z);
 
     kfx_sim_state.small_around_slab[0] = -kfx_sim_state.map_tiles_x;
     kfx_sim_state.small_around_slab[1] = 1;

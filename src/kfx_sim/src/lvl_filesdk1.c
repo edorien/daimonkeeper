@@ -33,21 +33,16 @@
 #include "config_strings.h"
 #include "config_terrain.h"
 #include "config_keeperfx.h"
-#include "sim_feedback.h"
-#include "sprite_lookup.h"
 #include "map_ceiling.h"
 #include "map_blocks.h"
 #include "map_utils.h"
-// LIGHTS_COUNT literal-duplicated from kfx_render's light_data.h (stage
-// 13.3, docs/refactor/stage-13-enforce-and-document.md) -- simple
-// stable constant, not worth a relocation for one value used only for
-// bounds-checking here.
-#define LIGHTS_COUNT 2048
-
+#include "thing_factory.h"
 #include <toml.h>
 #include "game_lifecycle.h"
 #include "kfx_sim_state.h"
 #include "kfx_config_state.h"
+#include "light_registry.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -65,7 +60,7 @@ char *level_strings[STRINGS_MAX+1];
 char *level_strings_data;
 
 // load_texture_map_file() (kfx_render's engine_textures.h) is reached
-// through sim_feedback instead of a same-file bare-extern
+// through RenderPort instead of a same-file bare-extern
 // forward-declaration. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 /******************************************************************************/
@@ -374,7 +369,7 @@ TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
     }
     lvinfo->location = LvLc_Custom;
 
-    sprite_lookup->load_sprites_for_multi_front(lvinfo->lvnum);
+    render_load_sprites_for_multi_front(lvinfo->lvnum);
     pos = 0;
 #define COMMAND_TEXT(cmd_num) get_conf_parameter_text(cmpgn_map_commands,cmd_num)
     while (pos<len)
@@ -486,7 +481,7 @@ TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
                 }
                 else
                 {
-                    k = sprite_lookup->get_ensign_id(word_buf);
+                    k = render_get_ensign_id(word_buf);
 
                     if (k >= 0)
                     {
@@ -754,7 +749,7 @@ TbBool load_map_data_file(LevelNumber lv_num)
     }
     free(buf);
     // Clear some bits and do some other setup
-    config_reload_callbacks->clear_subtiles_lightness();
+    light_request_lightness_reset();
     for (y=0; y < (kfx_sim_state.map_subtiles_y+1); y++)
     {
         for (x=0; x < (kfx_sim_state.map_subtiles_x+1); x++)
@@ -805,7 +800,7 @@ static TbBool load_thing_file(LevelNumber lv_num)
         itng.index  = litng.index;
         memcpy(&itng.params, &litng.params, 8);
 
-        config_reload_callbacks->thing_create_thing(&itng);
+        thing_create_thing(&itng);
         i += sizeof(struct LegacyInitThing);
     }
     free(buf);
@@ -897,7 +892,7 @@ static TbBool load_tngfx_file(LevelNumber lv_num)
 {
     return load_kfx_toml_file(lv_num, "tngfx", "TNGFX",
                               "thing", "ThingsCount", "thing%" PRId64, (int64_t)(THINGS_COUNT - 2),
-                              config_reload_callbacks->thing_create_thing_adv) == 0;
+                              &thing_create_thing_adv) == 0;
 }
 
 TbBool load_action_point_file(LevelNumber lv_num)
@@ -1295,7 +1290,7 @@ static TbBool load_static_light_file(uint64_t lv_num)
     unsigned char* buf = load_single_map_file_to_buffer(lv_num, "lgt", &fsize, LMFF_Optional);
     if (buf == NULL)
         return false;
-    sim_feedback->light_initialise();
+    light_initialise();
     uint64_t i = 0;
     int64_t total = llong(&buf[i]);
     i += 4;
@@ -1329,7 +1324,7 @@ static TbBool load_static_light_file(uint64_t lv_num)
         ilght.mappos.y.val = legilght.mappos.y.val;
         ilght.mappos.z.val = legilght.mappos.z.val;
 
-        if (sim_feedback->light_create_light(&ilght) == 0)
+        if (light_create_light(&ilght) == 0)
         {
             WARNLOG("Couldn't allocate static light %" PRId64,(int64_t)k);
         }
@@ -1337,14 +1332,6 @@ static TbBool load_static_light_file(uint64_t lv_num)
     }
     free(buf);
     return true;
-}
-
-// Wraps sim_feedback->light_create_light_adv so its address can be
-// taken and passed to load_kfx_toml_file() as a plain function pointer
-// (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
-static TbBool light_create_light_adv_wrapper(VALUE *init_data)
-{
-    return sim_feedback->light_create_light_adv(init_data);
 }
 
 static TbBool load_lgtfx_file(uint64_t lv_num)
@@ -1357,10 +1344,10 @@ static TbBool load_lgtfx_file(uint64_t lv_num)
     // maps that only ship classic-format files (no .lgtfx/.aptfx/.tngfx).
     TbBool ret = load_kfx_toml_file(lv_num, "lgtfx", "LGTFX",
                              "light", "LightsCount", "light%" PRId64, (int64_t)(LIGHTS_COUNT - 1),
-                             &light_create_light_adv_wrapper) >= 0;
-    if (sim_feedback->light_count_lights() > LIGHTS_COUNT / 2)
+                             &light_create_light_adv) >= 0;
+    if (light_count_lights() > LIGHTS_COUNT / 2)
     {
-        WARNMSG("More than %" PRId64 "%% " PRIo64 "f light slots used by static lights.", (int64_t)(100*sim_feedback->light_count_lights()/LIGHTS_COUNT));
+        WARNMSG("More than %" PRId64 "%% " PRIo64 "f light slots used by static lights.", (int64_t)(100*light_count_lights()/LIGHTS_COUNT));
     }
     return ret;
 }
@@ -1542,7 +1529,7 @@ static TbBool load_level_file(LevelNumber lvnum)
           result = false;
         load_map_wibble_file(lvnum);
         load_and_setup_map_info(lvnum);
-        sim_feedback->load_texture_map_file(kfx_config_state.texture_id, lvnum, fgroup);
+        render_load_texture_map_file(kfx_config_state.texture_id, lvnum, fgroup);
         if (new_format)
         {
             load_aptfx_file(lvnum);
@@ -1585,7 +1572,7 @@ static TbBool load_level_file(LevelNumber lvnum)
         load_slab_file();
         init_columns();
         kfx_config_state.texture_id = 0;
-        sim_feedback->load_texture_map_file(kfx_config_state.texture_id, lvnum, fgroup);
+        render_load_texture_map_file(kfx_config_state.texture_id, lvnum, fgroup);
         init_top_texture_to_cube_table();
         result = false;
     }
@@ -1652,7 +1639,7 @@ TbBool create_blank_map(LevelNumber lvnum, MapSlabCoord tiles_x, MapSlabCoord ti
     load_slab_file();
     init_columns();
     kfx_config_state.texture_id = texture_set;
-    sim_feedback->load_texture_map_file(kfx_config_state.texture_id, lvnum, fgroup);
+    render_load_texture_map_file(kfx_config_state.texture_id, lvnum, fgroup);
     init_top_texture_to_cube_table();
 
     // Every slab starts as SlbT_ROCK ("HARD" in the palette) -- solid,

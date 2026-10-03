@@ -32,13 +32,14 @@
 #include "config_campaigns.h"
 #include "config_creature.h"
 #include "config_trapdoor.h"
-#include "sim_feedback.h"
 #include "room_workshop.h"
 #include "power_hand.h"
 #include "config_players.h"
 #include "player_instances.h"
 #include "kfx_config_state.h"
 #include "thing_objects.h"
+#include "thing_stats.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -181,8 +182,8 @@ EventIndex event_create_event_or_update_old_event(MapCoord map_x, MapCoord map_y
 
 void event_initialise_all(void)
 {
-    sim_feedback->set_visible_event_idx(0);
-    sim_feedback->clear_all_event_button_states();
+    ui_set_visible_event_idx(0);
+    ui_clear_all_event_button_states();
     for (int64_t i = 0; i < DUNGEONS_COUNT; i++)
     {
         struct Dungeon* dungeon = get_dungeon(i);
@@ -218,7 +219,7 @@ struct Event *event_create_event(MapCoord map_x, MapCoord map_y, EventKind evkin
     i = dungeon->event_last_run_turn[evkind];
     if (i != 0)
     {
-        int64_t k = sim_feedback->get_event_button_info(evkind)->turns_between_events;
+        int64_t k = ui_get_event_button_info(evkind)->turns_between_events;
         if ((k != 0) && (i+k >= get_gameturn()))
         {
           return INVALID_EVENT;
@@ -250,12 +251,12 @@ struct Event *event_allocate_free_event_structure(void)
 
 void event_initialise_event(struct Event *event, MapCoord map_x, MapCoord map_y, EventKind evkind, unsigned char dngn_id, int64_t target)
 {
-    sim_feedback->clear_event_button_state(event->index);
+    ui_clear_event_button_state(event->index);
     event->mappos_x = map_x;
     event->mappos_y = map_y;
     event->kind = evkind;
     event->owner = dngn_id;
-    event->lifespan_turns = sim_feedback->get_event_button_info(evkind)->lifespan_turns;
+    event->lifespan_turns = ui_get_event_button_info(evkind)->lifespan_turns;
     event->target = target;
     event->icon_idx = -1;
     event->flags |= EvF_BtnFirstFall;
@@ -290,7 +291,7 @@ void event_delete_event(int64_t plyr_idx, EventIndex evidx)
         int64_t k = dungeon->event_button_index[i];
         if (k == evidx)
         {
-            sim_feedback->turn_off_event_box_if_necessary(plyr_idx, evidx);
+            ui_turn_off_event_box_if_necessary(plyr_idx, evidx);
             dungeon->event_button_index[i] = 0;
             break;
         }
@@ -320,12 +321,12 @@ void event_add_to_event_buttons_list_or_replace_button(struct Event *event, stru
     if (dungeon->owner != event->owner) {
       ERRORLOG("Illegal my_event player allocation");
     }
-    if (sim_feedback->get_event_button_info(event->kind)->bttn_sprite == 0)
+    if (ui_get_event_button_info(event->kind)->bttn_sprite == 0)
     {
         //Event without a button
         return;
     }
-    EventKind replace_evkind = sim_feedback->get_event_button_info(event->kind)->replace_event_kind_button;
+    EventKind replace_evkind = ui_get_event_button_info(event->kind)->replace_event_kind_button;
     int64_t i;
     EventIndex evidx;
     if (replace_evkind != EvKind_Nothing)
@@ -389,9 +390,9 @@ void activate_event_box(EventIndex evidx)
     struct Dungeon* dungeon = get_my_dungeon();
     struct Event* event = &kfx_sim_state.event[evidx];
     SYNCDBG(6,"Starting for event kind %" PRId64,(int64_t)(event->kind));
-    sim_feedback->set_visible_event_idx(evidx);
-    sim_feedback->mark_event_button_read(evidx);
-    i = sim_feedback->get_event_button_info(event->kind)->msg_stridx;
+    ui_set_visible_event_idx(evidx);
+    ui_mark_event_button_read(evidx);
+    i = ui_get_event_button_info(event->kind)->msg_stridx;
     strcpy(kfx_sim_state.evntbox_scroll_window.text, get_string(i));
     if ((event->kind == EvKind_FriendlyFight) || (event->kind == EvKind_EnemyFight)) {
         // Restart the list of visible battles from the first one; the other slots are
@@ -407,12 +408,12 @@ void activate_event_box(EventIndex evidx)
         case EvKind_HeartAttacked:
         case EvKind_Breach:
             other_off = 1;
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_EnemyFight:
         case EvKind_FriendlyFight:
-            sim_feedback->turn_off_menu(GMnu_TEXT_INFO);
-            sim_feedback->turn_on_menu(GMnu_BATTLE);
+            ui_turn_off_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_BATTLE);
             break;
         case EvKind_Objective:
         {
@@ -424,7 +425,7 @@ void activate_event_box(EventIndex evidx)
               if (kfx_sim_state.event[k%EVENTS_COUNT].kind == EvKind_Objective)
               {
                   other_off = 1;
-                  sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+                  ui_turn_on_menu(GMnu_TEXT_INFO);
                   kfx_sim_state.new_objective = 0;
                   break;
               }
@@ -437,7 +438,7 @@ void activate_event_box(EventIndex evidx)
             const struct RoomConfigStats* roomst = get_room_kind_stats(event->target);
             i = roomst->name_stridx;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         }
         case EvKind_NewCreature:
@@ -451,27 +452,27 @@ void activate_event_box(EventIndex evidx)
                 i = crconf->namestr_idx;
                 str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
             }
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_NewSpellResrch:
             other_off = 1;
             i = get_power_name_strindex(event->target);
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_NewTrap:
             other_off = 1;
             trapst = get_trap_model_stats(event->target);
             i = trapst->name_stridx;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_NewDoor:
             other_off = 1;
             doorst = get_door_model_stats(event->target);
             i = doorst->name_stridx;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_CreatrScavenged: // Scavenge detected
             other_off = 1;
@@ -484,17 +485,17 @@ void activate_event_box(EventIndex evidx)
                 i = crconf->namestr_idx;
                 str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
             }
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_TreasureRoomFull:
         case EvKind_AreaDiscovered:
             other_off = 1;
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_CreaturePayday:
             other_off = 1;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%" PRId64, (int64_t)(event->target));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_SpellPickedUp:
             other_off = 1;
@@ -503,7 +504,7 @@ void activate_event_box(EventIndex evidx)
                 break;
             i = get_power_name_strindex(book_thing_to_power_kind(thing));
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_RoomTakenOver:
         case EvKind_WorkRoomUnreachable:
@@ -513,7 +514,7 @@ void activate_event_box(EventIndex evidx)
             const struct RoomConfigStats* roomst = get_room_kind_stats(event->target);
             i = roomst->name_stridx;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         }
         case EvKind_CreatrIsAnnoyed:
@@ -527,7 +528,7 @@ void activate_event_box(EventIndex evidx)
                 i = crconf->namestr_idx;
                 str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
             }
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_NoMoreLivingSet:
         case EvKind_AlarmTriggered:
@@ -538,7 +539,7 @@ void activate_event_box(EventIndex evidx)
         case EvKind_SecretDoorDiscovered:
         case EvKind_SecretDoorSpotted:
             other_off = 1;
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_Information:
             i = (int64_t)event->target;
@@ -548,7 +549,7 @@ void activate_event_box(EventIndex evidx)
             snprintf(kfx_sim_state.evntbox_text_buffer, sizeof(kfx_sim_state.evntbox_text_buffer), "%s", get_string(i));
             snprintf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), "%s", kfx_sim_state.evntbox_text_buffer);
             other_off = 1;
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_TrapCrateFound:
             other_off = 1;
@@ -558,7 +559,7 @@ void activate_event_box(EventIndex evidx)
             trapst = get_trap_model_stats(crate_thing_to_workshop_item_model(thing));
             i = trapst->name_stridx;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_DoorCrateFound:
             other_off = 1;
@@ -568,7 +569,7 @@ void activate_event_box(EventIndex evidx)
             doorst = get_door_model_stats(crate_thing_to_workshop_item_model(thing));
             i = doorst->name_stridx;
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_DnSpecialFound:
             other_off = 1;
@@ -577,7 +578,7 @@ void activate_event_box(EventIndex evidx)
               break;
             i = get_special_description_strindex(box_thing_to_special(thing));
             str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         case EvKind_QuickInformation:
             i = (int64_t)event->target;
@@ -587,7 +588,7 @@ void activate_event_box(EventIndex evidx)
             snprintf(kfx_sim_state.evntbox_text_buffer, sizeof(kfx_sim_state.evntbox_text_buffer), "%s", kfx_sim_state.quick_messages[i % QUICK_MESSAGES_COUNT]);
             snprintf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), "%s", kfx_sim_state.evntbox_text_buffer);
             other_off = 1;
-            sim_feedback->turn_on_menu(GMnu_TEXT_INFO);
+            ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
         default:
             ERRORLOG("Undefined event kind: %" PRId64, (int64_t)event->kind);
@@ -596,10 +597,10 @@ void activate_event_box(EventIndex evidx)
     event_reset_scroll_window();
     if (other_off)
     {
-        sim_feedback->turn_off_menu(GMnu_BATTLE);
-        sim_feedback->turn_off_menu(GMnu_DUNGEON_SPECIAL);
-        sim_feedback->turn_off_menu(GMnu_RESURRECT_CREATURE);
-        sim_feedback->turn_off_menu(GMnu_TRANSFER_CREATURE);
+        ui_turn_off_menu(GMnu_BATTLE);
+        ui_turn_off_menu(GMnu_DUNGEON_SPECIAL);
+        ui_turn_off_menu(GMnu_RESURRECT_CREATURE);
+        ui_turn_off_menu(GMnu_TRANSFER_CREATURE);
     }
     SYNCDBG(8,"Finished");
 }
@@ -728,7 +729,7 @@ void event_process_events(void)
             for (int64_t j = 0; j <= EVENT_BUTTONS_COUNT; j++)
             {
                 if (dungeon->event_button_index[j] == subev_idx) {
-                    sim_feedback->turn_off_event_box_if_necessary(ev_owner, dungeon->event_button_index[j]);
+                    ui_turn_off_event_box_if_necessary(ev_owner, dungeon->event_button_index[j]);
                     dungeon->event_button_index[j] = 0;
                     break;
                 }
@@ -805,8 +806,8 @@ void remove_events_thing_is_attached_to(struct Thing *thing)
 void clear_events(void)
 {
     int64_t i;
-    sim_feedback->set_visible_event_idx(0);
-    sim_feedback->clear_all_event_button_states();
+    ui_set_visible_event_idx(0);
+    ui_clear_all_event_button_states();
     for (i=0; i < EVENTS_COUNT; i++)
     {
       memset(&kfx_sim_state.event[i], 0, sizeof(struct Event));

@@ -14,10 +14,10 @@
 #include "bflib_fileio.h"
 #include "bflib_dernc.h"
 #include "value_util.h"
-#include "sprite_lookup.h"
 
 
 #include <string.h>
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 TbBool load_toml_file(const char *fname,VALUE *value, int64_t flags)
@@ -127,7 +127,7 @@ int64_t value_parse_anim(VALUE *value)
     {
         const char *tst = value_string(value);
         struct ObjectConfigStats obj_tmp;
-        return sprite_lookup->get_anim_id(tst, &obj_tmp);
+        return render_get_anim_id(tst, &obj_tmp);
     }
     return -1;
 }

@@ -143,6 +143,10 @@ void mouseControl(uint64_t action, struct TbPoint *pos);
 // docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md's cursor
 // unification removed (see bflib_mspointer.hpp's own comment).
 /******************************************************************************/
+/* Mouse position in screen pixels, and whether a main button is down. */
+int64_t GetMouseX(void);
+int64_t GetMouseY(void);
+int64_t is_mouse_pressed_lrbutton(void);
 #ifdef __cplusplus
 }
 #endif

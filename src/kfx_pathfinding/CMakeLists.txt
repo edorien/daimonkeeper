@@ -8,17 +8,11 @@ file(GLOB KFX_PATHFINDING_SOURCES_CXX "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 set(KFX_PATHFINDING_SOURCES ${KFX_PATHFINDING_SOURCES_C} ${KFX_PATHFINDING_SOURCES_CXX})
 
 add_library(kfx_pathfinding STATIC ${KFX_PATHFINDING_SOURCES})
-target_link_libraries(kfx_pathfinding PRIVATE kfx_common_opts kfx_bfdebug_std)
+target_link_libraries(kfx_pathfinding PRIVATE kfx_common_opts kfx_log_opts)
 target_include_directories(kfx_pathfinding PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_library(kfx_pathfinding_hvlog STATIC ${KFX_PATHFINDING_SOURCES})
-target_link_libraries(kfx_pathfinding_hvlog PRIVATE kfx_common_opts kfx_bfdebug_hvlog)
-target_include_directories(kfx_pathfinding_hvlog PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-list(APPEND KFX_OBJECT_LIBS_STD kfx_pathfinding)
-set(KFX_OBJECT_LIBS_STD ${KFX_OBJECT_LIBS_STD} PARENT_SCOPE)
-list(APPEND KFX_OBJECT_LIBS_HVLOG kfx_pathfinding_hvlog)
-set(KFX_OBJECT_LIBS_HVLOG ${KFX_OBJECT_LIBS_HVLOG} PARENT_SCOPE)
+list(APPEND KFX_OBJECT_LIBS kfx_pathfinding)
+set(KFX_OBJECT_LIBS ${KFX_OBJECT_LIBS} PARENT_SCOPE)
 
 # docs/refactor/testing/stage-01-framework-and-scaffold.md: opt-in Catch2
 # unit tests, gated the same way as the FetchContent(Catch2) block itself.

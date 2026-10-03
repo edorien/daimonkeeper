@@ -28,10 +28,14 @@
 #include "thing_stats.h"
 #include "thing_effects.h"
 #include "player_instances.h"
-#include "sim_feedback.h"
 #include "bflib_sound.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "config_strings.h"
+#include "light_registry.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -144,8 +148,8 @@ struct Thing *create_and_control_creature_as_controller(struct PlayerInfo *playe
     dungeon->owned_creatures_of_model[thing->model]--;
     if (is_my_player(player))
     {
-        sim_feedback->toggle_status_menu(0);
-        sim_feedback->turn_off_roaming_menus();
+        ui_toggle_status_menu(0);
+        ui_turn_off_roaming_menus();
     }
     const struct Camera* cam = get_player_active_camera(player);
     set_selected_creature(player, thing);
@@ -170,10 +174,10 @@ struct Thing *create_and_control_creature_as_controller(struct PlayerInfo *playe
     ilght.colour_r = kfx_config_state.conf.rules[thing->owner].gameplay.possession_light_r;
     ilght.colour_g = kfx_config_state.conf.rules[thing->owner].gameplay.possession_light_g;
     ilght.colour_b = kfx_config_state.conf.rules[thing->owner].gameplay.possession_light_b;
-    thing->light_id = sim_feedback->light_create_light(&ilght);
+    thing->light_id = light_create_light(&ilght);
     if (thing->light_id != 0)
     {
-        sim_feedback->light_set_light_never_cache(thing->light_id);
+        light_set_light_never_cache(thing->light_id);
     } else
     {
         ERRORLOG("Cannot allocate light to new hero");
@@ -184,7 +188,7 @@ struct Thing *create_and_control_creature_as_controller(struct PlayerInfo *playe
         {
             struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
             SYNCDBG(7,"Possessing creature '%s', eye_effect=%" PRId64, crconf->name, (int64_t)(crconf->eye_effect));
-            sim_feedback->setup_eye_lens(crconf->eye_effect);
+            render_setup_eye_lens(crconf->eye_effect);
         }
     }
     return thing;
@@ -318,9 +322,9 @@ void play_creature_sound(struct Thing *thing, int64_t snd_idx, int64_t priority,
             (int64_t)(sample_idx), (int64_t)(snd_idx), (int64_t)(crsound->index), (int64_t)(thing->model));
     
     if ( use_flags ) {
-        sim_feedback->thing_play_sample(thing, sample_idx, NORMAL_PITCH, 0, 3, 8, priority, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, sample_idx, NORMAL_PITCH, 0, 3, 8, priority, FULL_LOUDNESS);
     } else {
-        sim_feedback->thing_play_sample(thing, sample_idx, NORMAL_PITCH, 0, 3, 0, priority, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, sample_idx, NORMAL_PITCH, 0, 3, 0, priority, FULL_LOUDNESS);
     }
 }
 
@@ -337,7 +341,7 @@ void play_creature_sound_and_create_sound_thing(struct Thing *thing, int64_t snd
     int64_t i = SOUND_RANDOM(crsound->count);
     struct Thing* efftng = create_effect(&thing->mappos, TngEff_Dummy, thing->owner);
     if (!thing_is_invalid(efftng)) {
-        sim_feedback->thing_play_sample(efftng, (SoundSmplTblID)(crsound->index < 0 ? crsound->index - i : crsound->index + i),
+        audio_thing_play_sample(efftng, (SoundSmplTblID)(crsound->index < 0 ? crsound->index - i : crsound->index + i),
             NORMAL_PITCH, 0, 3, 0, sound_priority, FULL_LOUDNESS);
     }
 }
@@ -354,6 +358,111 @@ TbBool creature_can_gain_experience(const struct Thing *thing)
     if ((cctrl->exp_level >= (CREATURE_MAX_LEVEL-1)) && (crconf->grow_up == 0))
         return false;
     return true;
+}
+
+// creature_own_name() and its name-part tables moved here from kfx_config's
+// config_creature.c (refactor pass 2, S05): it reads and fills the live
+// cctrl->creature_name buffer.
+static const char *name_starts[] = {
+    "B", "C", "D", "F",
+    "G", "H", "J", "K",
+    "L", "M", "N", "P",
+    "R", "S", "T", "V",
+    "Y", "Z", "Ch",
+    "Sh", "Al", "Th",
+};
+
+static const char *name_vowels[] = {
+    "a",  "e",  "i", "o",
+    "u",  "ee", "oo",
+    "oa", "ai", "ea",
+};
+
+static const char *name_consonants[] = {
+    "b", "c", "d", "f",
+    "g", "h", "j", "k",
+    "l", "m", "n", "p",
+    "r", "s", "t", "v",
+    "y", "z", "ch", "sh"
+};
+
+const char *creature_own_name(const struct Thing *creatng)
+{
+    if ((get_creature_model_flags(creatng) & CMF_OneOfKind) != 0) {
+        struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
+        return get_string(crconf->namestr_idx);
+    }
+    char* creature_name = creature_control_get_from_thing(creatng)->creature_name;
+    if (creature_name[0] > 0)
+    {
+        return creature_name;
+    }
+    const char ** starts;
+    int64_t starts_len;
+    const char ** vowels;
+    int64_t vowels_len;
+    const char ** consonants;
+    int64_t consonants_len;
+    const char ** end_vowels;
+    int64_t end_vowels_len;
+    const char ** end_consonants;
+    int64_t end_consonants_len;
+    {
+        starts = name_starts;
+        starts_len = sizeof(name_starts)/sizeof(name_starts[0]);
+        vowels = name_vowels;
+        vowels_len = sizeof(name_vowels)/sizeof(name_vowels[0]);
+        consonants = name_consonants;
+        consonants_len = sizeof(name_consonants)/sizeof(name_consonants[0]);
+        end_vowels = name_vowels;
+        end_vowels_len = sizeof(name_vowels)/sizeof(name_vowels[0]);
+        end_consonants = name_consonants;
+        end_consonants_len = sizeof(name_consonants)/sizeof(name_consonants[0]);
+    }
+    {
+        uint32_t seed = creatng->creation_turn + creatng->index
+            + (creature_control_get_from_thing(creatng)->blood_type << 8);
+        // Get amount of nucleus
+        int64_t name_len = 0;
+        {
+            int64_t n = LB_RANDOM(65536, &seed);
+            name_len = ((n & 7) + ((n>>8) & 7)) >> 1;
+            name_len = min(max(2, name_len), 8);
+        }
+        // Get starting part of a name
+        {
+            int64_t n = LB_RANDOM(starts_len, &seed);
+            const char* part = starts[n];
+            str_append(creature_name, CREATURE_NAME_MAX, part);
+        }
+        // Append nucleus items to the name
+        for (int64_t i = 0; i < name_len - 1; i++)
+        {
+            const char *part;
+            int64_t n;
+            if (i & 1) {
+                n = LB_RANDOM(consonants_len, &seed);
+                part = consonants[n];
+            } else {
+                n = LB_RANDOM(vowels_len, &seed);
+                part = vowels[n];
+            }
+            str_append(creature_name, CREATURE_NAME_MAX, part);
+        }
+        {
+            const char *part;
+            int64_t n;
+            if ((name_len & 1) == 0) {
+                n = LB_RANDOM(end_consonants_len, &seed);
+                part = end_consonants[n];
+            } else {
+                n = LB_RANDOM(end_vowels_len, &seed);
+                part = end_vowels[n];
+            }
+            str_append(creature_name, CREATURE_NAME_MAX, part);
+        }
+    }
+    return creature_name;
 }
 
 /******************************************************************************/

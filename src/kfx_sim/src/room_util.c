@@ -39,10 +39,12 @@
 #include "config_terrain.h"
 #include "config_creature.h"
 #include "magic_powers.h"
-#include "sim_feedback.h"
 #include <math.h>
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -558,7 +560,7 @@ EventIndex update_cannot_find_room_of_role_wth_spare_capacity_event(PlayerNumber
                 break;
             }
             if (evidx > 0) {
-                sim_feedback->output_room_message(plyr_idx, find_first_roomkind_with_role(rrole), OMsg_RoomTooSmall);
+                audio_output_room_message(plyr_idx, find_first_roomkind_with_role(rrole), OMsg_RoomTooSmall);
             }
         } else
         {
@@ -567,7 +569,7 @@ EventIndex update_cannot_find_room_of_role_wth_spare_capacity_event(PlayerNumber
             evidx = event_create_event_or_update_nearby_existing_event(
                 creatng->mappos.x.val, creatng->mappos.y.val, EvKind_WorkRoomUnreachable, plyr_idx, rkind);
             if (evidx > 0) {
-                sim_feedback->output_room_message(plyr_idx, rkind, OMsg_RoomNoRoute);
+                audio_output_room_message(plyr_idx, rkind, OMsg_RoomNoRoute);
             }
         }
     } else
@@ -588,7 +590,7 @@ EventIndex update_cannot_find_room_of_role_wth_spare_capacity_event(PlayerNumber
                 break;
             }
             if (evidx > 0) {
-                sim_feedback->output_room_message(plyr_idx, find_first_roomkind_with_role(rrole), OMsg_RoomNeeded);
+                audio_output_room_message(plyr_idx, find_first_roomkind_with_role(rrole), OMsg_RoomNeeded);
             }
         }
     }
@@ -609,7 +611,7 @@ void query_room(struct Room *room)
     snprintf(capacity, sizeof(capacity), "Capacity: %" PRId64 "/%" PRId64, (int64_t)(room->used_capacity), (int64_t)(room->total_capacity));
     double room_efficiency_percent = ((double)room->efficiency / (double)ROOM_EFFICIENCY_MAX) * 100;
     snprintf(efficiency, sizeof(efficiency), "Efficiency: %" PRId64, (int64_t)((unsigned char)round(room_efficiency_percent)));
-    sim_feedback->create_message_box((const char*)&title, name, (const char*)&owner, (const char*)&health, (const char*)&capacity, (const char*)&efficiency);
+    ui_create_message_box((const char*)&title, name, (const char*)&owner, (const char*)&health, (const char*)&capacity, (const char*)&efficiency);
 }
 
 /******************************************************************************/

@@ -98,7 +98,7 @@ struct ColumnConfig {
 // of their real by-value consumers. The arrays themselves stay
 // kfx_sim-owned (kfx_sim_state.h) since map_blocks.c reads them
 // pervasively at runtime; config_slabsets.c reaches them via
-// ConfigReloadCallbacks pointer accessors.
+// SimPort pointer accessors.
 #define SLABSET_COUNT (TERRAIN_ITEMS_MAX * SLABSETS_PER_SLAB)
 #define SLABOBJS_COUNT 1024
 

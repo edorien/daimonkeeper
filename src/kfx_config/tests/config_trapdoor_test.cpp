@@ -6,9 +6,9 @@
 // by the real loader's NAME field) -- populated directly here too,
 // since they're plain extern arrays.
 //
-// is_trap_placeable/is_trap_buildable/is_door_placeable/etc. all reach
-// into dungeon_availability's real callbacks (a different
-// already-tested *Callbacks file) and aren't attempted here.
+// is_trap_placeable/is_trap_buildable/is_door_placeable/etc. moved to
+// kfx_sim's player_availability.c (refactor pass 2, S05) and are tested
+// in kfx_sim/tests/player_availability_test.cpp.
 #include <catch2/catch_test_macros.hpp>
 
 #include "config_trapdoor.h"

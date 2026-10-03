@@ -33,17 +33,19 @@
 #include "sound_manager.h"
 #include "config_translation.h"
 #include "highscores.h"
-#include "sprite_lookup.h"
 
 // Literal-dup of kfx_sim's map_data.h DEFAULT_MAP_SIZE (only reachable
 // transitively). See docs/refactor/stage-13-enforce-and-document.md.
 #define CAMPAIGNS_DEFAULT_MAP_SIZE 85
 
 // find_and_load_lif_files()/find_and_load_lof_files() (kfx_sim's
-// lvl_filesdk1.h) are reached through config_reload_callbacks instead of
+// lvl_filesdk1.h) are reached through SimPort instead of
 // same-file bare-extern forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
+#include "ports/ui_port.h"
+#include "ports/render_port.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -987,7 +989,7 @@ int64_t parse_campaign_map_block(int64_t lvnum, uint64_t lvoptions, char *buf, i
                 }
                 else
                 {   
-                    k = sprite_lookup->get_ensign_id(word_buf);
+                    k = render_get_ensign_id(word_buf);
 
                     if (k >= 0)
                     {
@@ -1177,7 +1179,7 @@ TbBool load_campaign(const char *cmpgn_fname,struct GameCampaign *campgn,int64_t
     {            
         // Loading campaign sprites, we know config location after parse_campaign_common_blocks, need to be loaded before parse_campaign_map_blocks
         char *dname = prepare_file_path(FGrp_CmpgConfig, NULL);
-        sprite_lookup->init_custom_campaign_sprites(dname, "Main CmpgConfig dir");
+        render_init_custom_campaign_sprites(dname, "Main CmpgConfig dir");
         result = parse_campaign_strings_blocks(campgn, buf, len, fname);
         if (!result)
           WARNMSG("Parsing campaign file \"%s\" strings block failed.",cmpgn_fname);
@@ -1261,14 +1263,14 @@ TbBool change_campaign(uint8_t pack, const char *cmpgn_fname)
         campaign.fgroup = FGrp_None;
     }
     if (fgroup != FGrp_Campgn) {
-        config_reload_callbacks->find_and_load_lof_files();
-        config_reload_callbacks->find_and_load_lif_files();
+        simport_find_and_load_lof_files();
+        simport_find_and_load_lif_files();
     }
     load_or_create_high_score_table();
     // Update GUI arrays to new config
-    config_reload_callbacks->update_room_tab_to_config();
-    config_reload_callbacks->update_trap_tab_to_config();
-    config_reload_callbacks->update_powers_tab_to_config();
+    ui_update_room_tab_to_config();
+    ui_update_trap_tab_to_config();
+    ui_update_powers_tab_to_config();
     // Load campaign-specific and mod sound overrides (optional; errors are ignored)
     // Prefer CONFIGS_LOCATION for sounds.cfg (it's a config), fall back to LEVELS_LOCATION.
     if (result)
@@ -1485,21 +1487,15 @@ TbBool load_campaigns_list(struct CampaignsList *clist, int64_t fgroup, const ch
     char* fname = prepare_file_path(fgroup, "*.cfg"); // add campaigns
     struct TbFileEntry fe;
     struct TbFileFind * ff = LbFileFindFirst(fname, &fe);
-#if (BFDEBUG_LEVEL > 0)
     int64_t cnum_all = 0;
     int64_t cnum_ok = 0;
-#endif
     if (ff) {
         do {
             if (load_campaign_to_list(fe.Filename, clist, fgroup))
             {
-#if (BFDEBUG_LEVEL > 0)
                 cnum_ok++;
-#endif
             }
-#if (BFDEBUG_LEVEL > 0)
             cnum_all++;
-#endif
         } while (LbFileFindNext(ff, &fe) >= 0);
         LbFileFindEnd(ff);
     }
@@ -1541,8 +1537,8 @@ static TbBool check_lif_files_in_mappack(struct GameCampaign *campgn,uint64_t * 
     struct GameCampaign campbuf;
     memcpy(&campbuf, &campaign, sizeof(struct GameCampaign));
     memcpy(&campaign, campgn, sizeof(struct GameCampaign));
-    config_reload_callbacks->find_and_load_lif_files();
-    config_reload_callbacks->find_and_load_lof_files();
+    simport_find_and_load_lif_files();
+    simport_find_and_load_lof_files();
     TbBool result  = (*out_count != 0);
     if (!result) {
         // Could be either: no valid levels in LEVELS_LOCATION, no LEVELS_LOCATION specified, or LEVELS_LOCATION does not exist

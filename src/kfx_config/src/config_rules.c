@@ -34,9 +34,11 @@
 #include "config_players.h"
 // setup_excess_creatures_to_leave_or_die() (kfx_sim's thing_list.h) and
 // thing_class_and_model_name() (kfx_sim's thing_stats.h) are reached
-// through config_reload_callbacks instead of same-file bare-extern
+// through SimPort instead of same-file bare-extern
 // forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
+#include "ports/ui_port.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -293,7 +295,7 @@ static void assign_MapCreatureLimit_script(const struct NamedField* named_field,
     if (flag_is_set(flags,ccf_DuringLevel))
     {
 
-        int64_t count = config_reload_callbacks->setup_excess_creatures_to_leave_or_die(kfx_config_state.conf.rules[idx].gameplay.creatures_count);
+        int64_t count = simport_setup_excess_creatures_to_leave_or_die(kfx_config_state.conf.rules[idx].gameplay.creatures_count);
         if (count > 0)
         {
             SCRPTLOG("Map creature limit reduced, causing %" PRId64 " creatures to leave or die",(int64_t)(count));
@@ -306,7 +308,7 @@ static void assign_AlliesShareVision_script(const struct NamedField* named_field
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-      config_reload_callbacks->panel_map_update(0, 0, config_reload_callbacks->get_map_subtiles_x() + 1, config_reload_callbacks->get_map_subtiles_y() + 1);
+      ui_panel_map_update(0, 0, simport_get_map_subtiles_x() + 1, simport_get_map_subtiles_y() + 1);
     }
 }
 
@@ -472,7 +474,7 @@ TbBool parse_rules_research_blocks(char *buf, int64_t len, const char *config_te
       return false;
   }
   // Clear research list if there's new one in this file.
-  config_reload_callbacks->clear_research_for_all_players();
+  simport_clear_research_for_all_players();
   // Now we can start with analysis of commands.
 #define COMMAND_TEXT(cmd_num) get_conf_parameter_text(rules_research_commands,cmd_num)
   while (pos<len)
@@ -510,7 +512,7 @@ TbBool parse_rules_research_blocks(char *buf, int64_t len, const char *config_te
                       COMMAND_TEXT(cmd_num), block_name, config_textname);
                   break;
               }
-              config_reload_callbacks->add_research_to_all_players(i, l, k);
+              simport_add_research_to_all_players(i, l, k);
               break;
       case ccr_comment:
           break;
@@ -549,7 +551,7 @@ static void mark_cheaper_diggers_sacrifice(void)
             }
         }
     }
-    SYNCDBG(4,"Marked sacrifice of %s",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, kfx_config_state.conf.rules[0].sacrifices.cheaper_diggers_sacrifice_model));
+    SYNCDBG(4,"Marked sacrifice of %s",simport_thing_class_and_model_name(TCls_Creature, kfx_config_state.conf.rules[0].sacrifices.cheaper_diggers_sacrifice_model));
 }
 
 TbBool parse_rules_sacrifices_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)

@@ -4,7 +4,7 @@
 // (trap_is_active/_is_slappable_by_player, thing_is_destructible_trap/
 // _is_sellable_trap/_is_deployed_trap, creature_available_for_trap_trigger).
 // get_trap_model_stats is a direct by-model-id config lookup, not routed
-// through ConfigReloadCallbacks, so real per-model trap config (slappable/
+// through SimPort, so real per-model trap config (slappable/
 // destructible/unsellable) is testable directly here -- unlike the
 // get_creature_model_flags-based CMF_IsSpectator gate in
 // creature_available_for_trap_trigger, which stays at its default (unset)
@@ -19,6 +19,7 @@
 #include "creature_states.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

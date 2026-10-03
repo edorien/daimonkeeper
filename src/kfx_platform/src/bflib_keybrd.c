@@ -24,6 +24,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include "globals.h"
+#include "bflib_video.h" // lbDisplay -- clear_key_pressed()
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -121,6 +122,60 @@ void keyboardControl(uint64_t action, TbKeyCode code, TbKeyMods modifiers, int64
 }
 
 /******************************************************************************/
+// Moved from kfx_frontend's kjm_input.c (refactor pass 2, S03): they only
+// read platform input state, and kfx_sim/kfx_render/kfx_net call them.
+uint64_t key_modifiers;
+
+/**
+ * Checks if a specific key is pressed.
+ * @param key Code of the key to check.
+ * @param kmodif Key modifier flags required.
+ */
+int64_t is_key_pressed(TbKeyCode key, TbKeyMods kmodif)
+{
+  if ((kmodif == KMod_DONTCARE) || (kmodif == key_modifiers))
+    return lbKeyOn[key];
+  return 0;
+}
+
+/**
+ * Clears the marking that a specific key is pressed.
+ */
+void clear_key_pressed(int64_t key)
+{
+    if (key >= sizeof(lbKeyOn))
+    {
+        return;
+    }
+    if ((key >= 0xF0) && (key <= 0xFC)) // This is a mouse button
+    {
+        if (key == KC_MOUSE3)
+        {
+            lbDisplay.MiddleButton = 0;
+        }
+    }
+    lbKeyOn[key] = 0;
+    if (key == lbInkey)
+    {
+        lbInkey = KC_UNASSIGNED;
+    }
+}
+
+/**
+ * Set key modifiers based on the pressed key codes.
+ */
+void update_key_modifiers(void)
+{
+  int64_t key_mods=0;
+  if ( lbKeyOn[KC_LSHIFT] || lbKeyOn[KC_RSHIFT] )
+    key_mods |= KMod_SHIFT;
+  if ( lbKeyOn[KC_LCONTROL] || lbKeyOn[KC_RCONTROL] )
+    key_mods |= KMod_CONTROL;
+  if ( lbKeyOn[KC_LALT] || lbKeyOn[KC_RALT] )
+    key_mods |= KMod_ALT;
+  key_modifiers = key_mods;
+}
+
 #ifdef __cplusplus
 }
 #endif

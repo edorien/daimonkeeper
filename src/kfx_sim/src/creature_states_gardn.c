@@ -32,8 +32,6 @@
 #include "creature_states.h"
 #include "creature_states_prisn.h"
 #include "creature_states_mood.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "player_instances.h"
 #include "power_hand.h"
 #include "room_data.h"
@@ -47,6 +45,8 @@
 #include "thing_stats.h"
 
 #include "kfx_sim_state.h"
+#include "ports/script_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -85,7 +85,7 @@ void person_eat_food(struct Thing *creatng, struct Thing *foodtng, struct Room *
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     int64_t old_hunger_level = cctrl->hunger_level;
-    sim_feedback->thing_play_sample(creatng, snd_chicken_cluck + SOUND_RANDOM(snd_chicken_cluck_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_chicken_cluck + SOUND_RANDOM(snd_chicken_cluck_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     internal_set_thing_state(creatng, CrSt_CreatureEat);
     set_creature_instance(creatng, CrInst_EAT, 0, 0);
     creatng->continue_state = CrSt_CreatureToGarden;
@@ -103,7 +103,7 @@ void person_eat_food(struct Thing *creatng, struct Thing *foodtng, struct Room *
     } else
     {
         int64_t required_cap = get_required_room_capacity_for_object(RoRoF_FoodStorage, foodtng->model, 0);
-        script_hooks->lua_on_object_destroyed(foodtng);
+        script_lua_on_object_destroyed(foodtng);
         if (room->used_capacity >= required_cap)
         {
             room->used_capacity -= required_cap;
@@ -160,7 +160,7 @@ void person_search_for_food_again(struct Thing *creatng, struct Room *room)
         RoomRole job_rrole = get_room_role_for_job(Job_TAKE_FEED);
         // Warn about no food in this room
         event_create_event_or_update_nearby_existing_event(0, 0, EvKind_CreatrHungry, creatng->owner, 0);
-        sim_feedback->output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomTooSmall);
+        audio_output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomTooSmall);
         // Check whether there's a room which does have food
         // Try to find one which has plenty of food
         struct Room* nroom = find_nearest_room_of_role_for_thing_with_used_capacity(creatng, creatng->owner, job_rrole, NavRtF_Default, crconf->hunger_fill + 1);
@@ -279,7 +279,7 @@ int64_t creature_to_garden(struct Thing *creatng)
     {
         // No room for feeding creatures
         event_create_event_or_update_nearby_existing_event(0, 0, EvKind_CreatrHungry, creatng->owner, 0);
-        sim_feedback->output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomNeeded);
+        audio_output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomNeeded);
         nroom = INVALID_ROOM;
     } else
     {
@@ -294,12 +294,12 @@ int64_t creature_to_garden(struct Thing *creatng)
             nroom = find_nearest_room_of_role_for_thing(creatng, creatng->owner, job_rrole, NavRtF_Default);
             if (room_is_invalid(nroom)) {
                 // There seem to be a correct room, but we can't reach it
-                sim_feedback->output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomNoRoute);
+                audio_output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomNoRoute);
             } else
             {
                 // The room is reachable, so it probably has just no food
                 event_create_event_or_update_nearby_existing_event(0, 0, EvKind_CreatrHungry, creatng->owner, 0);
-                sim_feedback->output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomTooSmall);
+                audio_output_room_message(creatng->owner, find_first_roomkind_with_role(job_rrole), OMsg_RoomTooSmall);
             }
         }
     }

@@ -58,6 +58,20 @@ categories need special handling:
   fork's own refactor) — same treatment: find the real current home by
   symbol, not by path.
 
+Refactor pass 2 keeps a **move ledger** of every function, prototype, global
+and callback entry it moves
+([`docs/refactor-pass2/function-moves.md`](../refactor-pass2/function-moves.md)).
+For each upstream file in the diff, run:
+
+```bash
+python3 docs/refactor-pass2/tools/move_ledger.py upstream <upstream path>
+```
+
+It lists the functions in that upstream file that now live elsewhere, with
+their current file. Hunks in those functions go to the listed file; read the
+ledger note before applying (it says, for example, when a function now takes
+a parameter instead of reading a global).
+
 ## 3. Cluster the commits
 
 Group commits by shared file/subsystem, not one at a time. Several commits in
@@ -111,18 +125,38 @@ and re-apply it to the current file **by function name**, not by line number
 patterns from the 2026-09 merge:
 
 - **A cross-layer call upstream made directly, that this fork routes through
-  a callback struct.** If the current (lower-ranked) file already calls the
-  same thing via `sim_feedback->foo(...)` / `render_overlay->foo(...)`
-  elsewhere, keep that shape — don't adopt upstream's direct call. If the
-  callback member doesn't exist yet for a genuinely new upstream call, add it
-  (new struct member + no-op default in the config-layer `.c` + real wiring
-  in `main.cpp`'s `setup_game()`), mirroring the existing members around it.
+  a port.** Upstream's `foo(...)` in a lower-ranked file becomes the port
+  wrapper, `ui_foo(...)` / `audio_foo(...)` / `game_foo(...)` / … (grep
+  `src/*/include/ports/*.def` for `foo`; the wrapper is the port's prefix +
+  the entry name). If the entry doesn't exist yet for a genuinely new
+  upstream call, add one line to the provider's `.def` (its unwired default
+  comes with it) and the real function to the provider's table in its
+  `*_port_impl.c(pp)`, mirroring the entries around it. Before refactor pass
+  2's S15 this was `sim_feedback->foo(...)` and friends; the ledger maps every
+  old entry to its port. **Before re-routing** an upstream direct call
+  through a port, run
+  `python3 docs/refactor-pass2/tools/move_ledger.py lookup <function>`: if a
+  `callback-entry … (direct call)` row is `done`, this fork deliberately went
+  back to the direct call, so keep upstream's.
+- **Upstream debug logging.** Upstream still has the `keeperfx_hvlog` build and
+  `#if (BFDEBUG_LEVEL > N)` blocks; this fork has one binary with a runtime
+  `LOG_LEVEL` (refactor pass 2, S02). The `*DBG` macros keep their names and
+  signatures, so merged calls compile unchanged. A merged
+  `#if (BFDEBUG_LEVEL > N)` block compiles as dead code (`BFDEBUG_LEVEL` is 0
+  here): convert it to `if (KFX_DEBUG_ON(N)) { … }` in the review step. Drop
+  upstream changes to the `keeperfx_hvlog` target, its CI steps or its
+  packaging.
 - **A state field the two sides moved to different homes.** If upstream
   moves something into its own `struct Game`, but this fork's `struct Game`
   is a near-empty placeholder (per architecture.md §6), the field almost
   certainly belongs in one of the per-library `extern` state structs instead
   — pick the lowest-ranked library among its real consumers, matching how
-  the rest of that state struct is organized.
+  the rest of that state struct is organized. **Any merge that adds, removes
+  or moves a field in a saved/resynced struct is a layout change**: the
+  `_Static_assert` in that struct's `.c` file fails the build until you
+  bump its version and size in `kfx_config/include/state_versions.h`, and
+  the bump needs a release-note line in `docs/refactor-pass2/README.md`'s
+  decisions table (refactor pass 2, S09).
 - **A whole-file "our side is empty" conflict.** Before assuming the content
   is missing, `grep` for each function's current definition across
   `src/kfx_*/`. If every function in the block already exists elsewhere
@@ -135,7 +169,6 @@ patterns from the 2026-09 merge:
 python3 scripts/check_layering.py --strict
 python3 scripts/check_layering_symbols.py --strict
 KFX_OS=linux ./build-cmake.sh           # keeperfx
-KFX_OS=linux ./build-cmake.sh keeperfx_hvlog
 cmake --build out/linux_tests --target kfx_platform_utest kfx_config_utest \
   kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest \
   kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest -j"$(nproc)"
@@ -209,9 +242,10 @@ Mechanics that saved time:
 * Never `git add <dir>` while conflicts remain in it (it marks conflicted files resolved). Use
   `git grep -n '^<<<<<<<'` as the source of truth; `git checkout HEAD -- <file>` if you staged one by accident.
 * When upstream calls a higher layer (kfx_net from kfx_sim/kfx_render), add a lower-layer helper reading
-  `PlayerInfo::user_id` (`get_user_player_number`) or a callback member — not a new upward include.
-* Positional callback-struct initialisers in `main.cpp`/`*_callbacks.c`: insert the new member at the same
-  position in the struct, the no-op table, and `setup_game()`.
+  `PlayerInfo::user_id` (`get_user_player_number`) or a port entry — not a new upward include.
+* Port tables are designated initializers (`.entry = &fn`) in the provider's `*_port_impl.c(pp)` since refactor
+  pass 2's S15 (the struct and the unwired defaults are generated from the `.def`). A forgotten slot is reported at
+  startup by `ports_verify_wired()` and by the `port_tables_test` Catch2 case.
 * Coverage-first still applies per fix: write the test, prove it fails (`git stash push <src>`), apply the fix.
   Watch for tests that pass "by accident" after a semantic change (`checksums_different` tests that used the
   magic `action = 1`, which is `PckA_QuitToMainMenu`).

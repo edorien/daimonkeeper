@@ -23,6 +23,7 @@
 #include "bflib_basics.h"
 
 #include "globals.h"
+#include "port_check.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,21 +62,8 @@ void LbGrabMouseCheck(int64_t grab_event);
 void LbGrabMouseInit(void);
 void LbSetMouseGrab(TbBool grab_mouse);
 
-// Injected config/network/struct-Game-derived predicates for focus-loss
-// and pause/possession cursor behaviour. Queried live (not snapshotted)
-// since these depend on live network and per-frame game state. See
-// docs/refactor/stage-02-decouple-bflib.md.
-struct InputFocusPredicates {
-    TbBool (*freeze_game_on_focus_lost)(void);
-    TbBool (*mute_audio_on_focus_lost)(void);
-    TbBool (*unlock_cursor_when_game_paused)(void);
-    TbBool (*lock_cursor_in_possession)(void);
-    TbBool (*is_game_paused)(void);
-    TbBool (*is_possession_mode_active)(void);
-    TbBool (*is_packet_load_enabled)(void);
-    TbBool (*use_relative_mouse_mode)(void);
-};
-void set_input_focus_predicates(const struct InputFocusPredicates *predicates);
+// The focus-loss and pause/possession cursor predicates are queried live
+// through ports/input_focus_port.h (refactor pass 2, S15).
 TbBool LbIsFrozenOrPaused(void);
 /******************************************************************************/
 #ifdef __cplusplus

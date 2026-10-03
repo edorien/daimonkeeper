@@ -32,19 +32,15 @@
 #include "map_blocks.h"
 #include "player_computer.h"
 #include "packets.h"
-#include "render_overlay.h"
 #include "creature_states_combt.h"
 #include "dungeon_data.h"
 #include "engine_lenses.h"
 #include "engine_redraw.h"
 #include "engine_textures.h"
-#include "game_callbacks.h"
-#include "script_hooks.h"
 #include "game_heap.h"
 #include "game_legacy.h"
 #include "bflib_video.h"
 #include "renderer/RendererManager.h"
-#include "net_callbacks.h"
 #include "game_merge.h"
 #include "game_lifecycle.h"
 #include "lvl_script.h"
@@ -66,7 +62,6 @@
 #include "room_list.h"
 #include "power_specials.h"
 #include "magic_powers.h"
-#include "sim_feedback.h"
 #include "player_data.h"
 #include "player_instances.h"
 #include "player_utils.h"
@@ -75,11 +70,16 @@
 #include "sounds.h"
 #include "net_resync.h"
 #include "timer.h"
+#include "game_replay.h"
 
 #ifdef FUNCTESTING
   #include "ftests/ftest.h"
 #endif
 
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -171,6 +171,7 @@ void clear_game_for_summary(void)
     clear_columns();
     clear_action_points();
     clear_players();
+    memset(&local_state, 0, sizeof(local_state));
     clear_dungeons();
 }
 
@@ -200,35 +201,38 @@ void reinit_level_after_load(void)
     player = get_my_player();
     local_state.lens_palette = 0;
     local_state.main_palette = engine_palette;
+    // A loaded save or a resync replaced kfx_sim_state wholesale, map size
+    // included, without going through set_map_size().
+    ariadne_set_map_dimensions(kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, map_subtiles_z);
     init_navigation();
     reinit_packets_after_load();
     kfx_sim_state.easter_eggs_enabled = start_params.easter_egg;
-    render_overlay->set_parchment_loaded(0);
+    ui_set_parchment_loaded(0);
     for (i=0; i < PLAYERS_COUNT; i++)
     {
         player = get_player(i);
         if (player_exists(player))
         {
             set_engine_view(player, player->view_mode);
-            config_reload_callbacks->update_panel_color_player_color(player->id_number, get_dungeon(i)->color_idx);
+            ui_update_panel_color_player_color(player->id_number, get_dungeon(i)->color_idx);
         }
     }
     start_rooms = &kfx_sim_state.rooms[1];
     end_rooms = &kfx_sim_state.rooms[ROOMS_COUNT];
-    config_reload_callbacks->update_room_tab_to_config();
-    config_reload_callbacks->update_powers_tab_to_config();
-    config_reload_callbacks->update_trap_tab_to_config();
+    ui_update_room_tab_to_config();
+    ui_update_powers_tab_to_config();
+    ui_update_trap_tab_to_config();
     load_texture_map_file(kfx_config_state.texture_id, get_loaded_level_number(), get_level_fgroup(get_loaded_level_number()));
     init_animating_texture_maps();
-    game_callbacks->init_gui();
-    game_callbacks->reset_gui_based_on_player_mode();
-    game_callbacks->clear_top_message_stats();
+    ui_init_gui();
+    ui_reset_gui_based_on_player_mode();
+    ui_clear_top_message_stats();
     player = get_my_player();
     reinit_tagged_blocks_for_player(player->id_number);
     restore_computer_player_after_load();
     net_restore_external_seats_after_load();
     sound_reinit_after_load();
-    game_callbacks->update_panel_colors();
+    ui_update_panel_colors();
     reset_postal_instance_cache();
 }
 
@@ -283,8 +287,8 @@ void process_objective_with_icon(const char *msg_text, PlayerNumber plyr_idx, Tb
 {
     struct PlayerInfo *player = get_player(plyr_idx);
     find_map_location_coords(target, &x, &y, plyr_idx, __func__);
-    game_callbacks->set_level_objective(player->id_number, msg_text);
-    game_callbacks->display_objectives_with_icon(player->id_number, x, y, icon_idx);
+    ui_set_level_objective(player->id_number, msg_text);
+    ui_display_objectives_with_icon(player->id_number, x, y, icon_idx);
 }
 
 void set_general_objective(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y)
@@ -399,7 +403,7 @@ static TbBool init_level(void)
     clear_flag(kfx_sim_state.system_flags, GSF_RunAfterVictory);
     free_swipe_graphic();
     kfx_sim_state.loaded_swipe_idx = -1;
-    kfx_game_state.play_gameturn = 0;
+    kfx_sim_state.play_gameturn = 0;
     kfx_game_state.paused_at_gameturn = false;
     game_flags2 &= (GF2_PERSISTENT_FLAGS | GF2_Timer);
     clear_game();
@@ -413,7 +417,7 @@ static TbBool init_level(void)
 
     recheck_all_mod_exist();
 
-    luascript_loaded = script_hooks->open_lua_script(get_selected_level_number());
+    luascript_loaded = script_open_lua_script(get_selected_level_number());
     // Restore campaign-layer sounds before creature configs load, so creature cfg custom
     // sounds are added to the already-restored bank (not wiped afterwards).
     sound_restore_to_campaign_snapshot();
@@ -426,9 +430,9 @@ static TbBool init_level(void)
     check_and_auto_fix_stats();
 
     // We should do this after 'load stats'
-    config_reload_callbacks->update_room_tab_to_config();
-    config_reload_callbacks->update_powers_tab_to_config();
-    config_reload_callbacks->update_trap_tab_to_config();
+    ui_update_room_tab_to_config();
+    ui_update_powers_tab_to_config();
+    ui_update_trap_tab_to_config();
 
     init_creature_scores();
 
@@ -437,9 +441,9 @@ static TbBool init_level(void)
     start_rooms = &kfx_sim_state.rooms[1];
     end_rooms = &kfx_sim_state.rooms[ROOMS_COUNT];
 
-    game_callbacks->clear_top_message_stats();
+    ui_clear_top_message_stats();
     init_dungeons();
-    config_reload_callbacks->setup_panel_colors();
+    ui_setup_panel_colors();
     // This early call above runs before this level's own map/camera has
     // rendered a single frame, so on any level after the first in this
     // process it builds the minimap panel's colours from a previous
@@ -448,9 +452,9 @@ static TbBool init_level(void)
     // rebuild (frontmenu_ingame_map.c's auto_gen_tables(), invoked from
     // the first real panel_map_draw_slabs() call) to run again once this
     // level is actually rendering, so it captures and rebuilds correctly.
-    config_reload_callbacks->reset_panel_map_background_cache();
+    ui_reset_panel_map_background_cache();
     init_map_size(get_selected_level_number());
-    sim_feedback->clear_sound_messages();
+    audio_clear_sound_messages();
     
     // Load the actual level files
     LevelNumber level = get_selected_level_number();
@@ -472,7 +476,7 @@ static TbBool init_level(void)
     }
     if (!map_loaded)
     {
-        net_callbacks->create_frontend_error_box(15000, "Map content is missing or incompatible.");
+        ui_create_frontend_error_box(15000, "Map content is missing or incompatible.");
         JUSTMSG("Unable to load level %" PRIu64 " from %s", (uint64_t)(level), campaign.name);
         return false;
     }
@@ -481,7 +485,7 @@ static TbBool init_level(void)
     {
         char no_script_msg[MESSAGE_TEXT_LEN];
         snprintf(no_script_msg, sizeof(no_script_msg), "%s: No Script %" PRIu64, get_string(GUIStr_Error), (uint64_t)(level));
-        sim_feedback->show_onscreen_msg(200, no_script_msg);
+        ui_show_onscreen_msg(200, no_script_msg);
         JUSTMSG("Unable to load script level %" PRIu64 " from %s", (uint64_t)(level), campaign.name);
     }
     level_load_time_phase(LevelLoadTime_Navigation);
@@ -506,10 +510,10 @@ static TbBool init_level(void)
     event_initialise_all();
     battle_initialise();
     ambient_sound_prepare();
-    sim_feedback->zero_messages();
+    ui_zero_messages();
     kfx_sim_state.armageddon_cast_turn = 0;
     kfx_sim_state.armageddon_over_turn = 0;
-    sim_feedback->clear_sound_messages();
+    audio_clear_sound_messages();
     show_ignored_fxdata_zip_messages();
     kfx_sim_state.creatures_tend_imprison = 0;
     kfx_sim_state.creatures_tend_flee = 0;
@@ -524,7 +528,7 @@ static TbBool init_level(void)
     reset_postal_instance_cache();
     JUSTMSG("Started level %" PRIu64 " from %s", (uint64_t)(get_selected_level_number()), campaign.name);
 
-    script_hooks->api_event("GAME_STARTED");
+    script_api_event("GAME_STARTED");
     return true;
 }
 
@@ -539,7 +543,7 @@ static void post_init_level(void)
     clear_creature_pool();
     setup_computer_players2();
     load_script(get_loaded_level_number());
-    script_hooks->lua_on_game_start();
+    script_lua_on_game_start();
     init_dungeons_research();
     init_dungeons_essential_position();
     if (!is_map_pack())
@@ -573,21 +577,22 @@ TbBool startup_saved_packet_game(void)
     set_selected_level_number(kfx_net_state.packet_save_head.level_num);
     RendererSetDrawColour(kfx_sim_state.colours[15][15][15]);
     kfx_net_state.pckt_gameturn = 0;
-#if (BFDEBUG_LEVEL > 0)
-    SYNCDBG(0,"Initialising level %" PRId64, (int64_t)get_selected_level_number());
-    SYNCMSG("Packet Loading Active (File contains %" PRIu64 " turns)", (uint64_t)(kfx_net_state.turns_stored));
-    SYNCMSG("Packet Checksum Verification %s",kfx_net_state.packet_checksum_verify ? "Enabled" : "Disabled");
-    SYNCMSG("Fast Forward through %" PRIu64 " game turns", (uint64_t)(kfx_net_state.turns_fastforward));
-    if (kfx_net_state.turns_packetoff != -1)
-        SYNCMSG("Packet Quit at %" PRIu64, (uint64_t)(kfx_net_state.turns_packetoff));
-    if (kfx_net_state.packet_load_enable)
+    if (KFX_DEBUG_ON(0))
     {
-      if (kfx_net_state.log_things_end_turn != kfx_net_state.log_things_start_turn)
-        SYNCMSG("Logging things, game turns %" PRIu64 " -> %" PRIu64, (uint64_t)(kfx_net_state.log_things_start_turn), (uint64_t)(kfx_net_state.log_things_end_turn));
+        SYNCDBG(0,"Initialising level %" PRId64, (int64_t)get_selected_level_number());
+        SYNCMSG("Packet Loading Active (File contains %" PRIu64 " turns)", (uint64_t)(kfx_net_state.turns_stored));
+        SYNCMSG("Packet Checksum Verification %s",kfx_net_state.packet_checksum_verify ? "Enabled" : "Disabled");
+        SYNCMSG("Fast Forward through %" PRIu64 " game turns", (uint64_t)(kfx_net_state.turns_fastforward));
+        if (kfx_net_state.turns_packetoff != -1)
+            SYNCMSG("Packet Quit at %" PRIu64, (uint64_t)(kfx_net_state.turns_packetoff));
+        if (kfx_sim_state.replay_active)
+        {
+          if (kfx_net_state.log_things_end_turn != kfx_net_state.log_things_start_turn)
+            SYNCMSG("Logging things, game turns %" PRIu64 " -> %" PRIu64, (uint64_t)(kfx_net_state.log_things_start_turn), (uint64_t)(kfx_net_state.log_things_end_turn));
+        }
+        SYNCMSG("Packet file prepared on KeeperFX %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)kfx_net_state.packet_save_head.game_ver_major,(int64_t)kfx_net_state.packet_save_head.game_ver_minor,
+            (int64_t)kfx_net_state.packet_save_head.game_ver_release,(int64_t)kfx_net_state.packet_save_head.game_ver_build);
     }
-    SYNCMSG("Packet file prepared on KeeperFX %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)kfx_net_state.packet_save_head.game_ver_major,(int64_t)kfx_net_state.packet_save_head.game_ver_minor,
-        (int64_t)kfx_net_state.packet_save_head.game_ver_release,(int64_t)kfx_net_state.packet_save_head.game_ver_build);
-#endif
     if ((kfx_net_state.packet_save_head.game_ver_major != VER_MAJOR) || (kfx_net_state.packet_save_head.game_ver_minor != VER_MINOR)
         || (kfx_net_state.packet_save_head.game_ver_release != VER_RELEASE) || (kfx_net_state.packet_save_head.game_ver_build != VER_BUILD)) {
         WARNLOG("Packet file was created with different version of the game; this rarely works");
@@ -599,7 +604,7 @@ TbBool startup_saved_packet_game(void)
         if (!start_params.force_player_num && (rec_user >= 0) && (rec_user < MAX_NET_USERS))
             view_plyr = kfx_net_state.packet_save_head.user_players[rec_user];
         if (view_plyr < 0)
-            view_plyr = kfx_net_state.local_plyr_idx;
+            view_plyr = kfx_sim_state.level_human_player;
         if (!flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(view_plyr))
             || flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(view_plyr)))
             my_player_number = 0;
@@ -616,12 +621,12 @@ TbBool startup_saved_packet_game(void)
     if (!init_level())
         return false;
     setup_zombie_players();
-    init_players();
+    init_players(&kfx_net_state.packet_save_head);
     restore_users_from_packet_save();
-    game_callbacks->set_frontend_alliances(kfx_net_state.packet_save_head.frontend_alliances);
-    game_callbacks->setup_alliances();
+    ui_set_frontend_alliances(kfx_net_state.packet_save_head.frontend_alliances);
+    ui_setup_alliances();
     are_disconnect_victories_allowed();
-    if (kfx_net_state.human_players_count == 1)
+    if (kfx_sim_state.human_players_count == 1)
         kfx_sim_state.game_kind = GKind_LocalGame;
     if (kfx_net_state.turns_stored < kfx_net_state.turns_fastforward)
         kfx_net_state.turns_fastforward = kfx_net_state.turns_stored;
@@ -647,7 +652,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
     if (local && (campaign.human_player >= 0) && (!start_params.force_player_num))
     {
         default_loc_player = campaign.human_player;
-        kfx_net_state.local_plyr_idx = default_loc_player;
+        kfx_sim_state.level_human_player = default_loc_player;
         my_player_number = default_loc_player;
     }
     if (!init_level()) {
@@ -662,7 +667,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
     {
         kfx_sim_state.game_kind = GKind_LocalGame;
         net_clear_external_seats();
-        init_players_local_game();
+        init_players_local_game(&kfx_net_state.packet_save_head);
         if (AssignCpuKeepers || campaign.assignCpuKeepers) {
             ShouldAssignCpuKeepers = 1;
         }
@@ -683,10 +688,10 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
 {
     TbBool ShouldAssignCpuKeepers = coroutine_args(context)[0];
     if (kfx_sim_state.game_kind == GKind_MultiGame) {
-        game_callbacks->setup_alliances();
+        ui_setup_alliances();
         are_disconnect_victories_allowed();
     }
-    if (game_callbacks->is_fe_computer_players_active() || ShouldAssignCpuKeepers)
+    if (ui_is_fe_computer_players_active() || ShouldAssignCpuKeepers)
     {
         SYNCDBG(5,"Setting up uninitialized players as computer players");
         setup_computer_players();
@@ -704,7 +709,7 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
         net_claim_pending_external_seats();
         // Campaign/scenario "Spectate" checkbox (docs/refactor/AI/LLM/01 M9b): same timing requirement as
         // above -- the local player's dungeon must already exist (post_init_players() just ran).
-        if (game_callbacks->is_fe_spectate_campaign_active())
+        if (ui_is_fe_spectate_campaign_active())
             player_enter_spectator_mode(my_player_number);
     }
     set_selected_level_number(0);
@@ -735,7 +740,7 @@ void startup_local_game_for_editor(CoroutineLoop *context, LevelNumber lvnum, Tb
         return;
     }
     kfx_sim_state.game_kind = GKind_LocalGame;
-    init_players_local_game();
+    init_players_local_game(&kfx_net_state.packet_save_head);
     setup_count_players(); // It is reset by init_level
     int64_t args[COROUTINE_ARGS] = {trim_post_init, suspend};
     coroutine_add_args(context, &startup_local_game_for_editor_tail, args);
@@ -819,7 +824,7 @@ void faststartup_saved_packet_game(void)
         player = get_my_player();
         player->display_flags &= ~PlaF6_PlyrHasQuit;
     }
-    game_callbacks->set_gui_visible(false);
+    ui_set_gui_visible(false);
     clear_flag(kfx_sim_state.operation_flags, GOF_ShowPanel);
 }
 
@@ -851,11 +856,11 @@ void clear_complete_game(void)
     memset(&kfx_game_state, 0, sizeof(struct KfxGameState));
     // kfx_frontend's own field group, migrated out of struct Game/
     // keeperfx.hpp (stage 10.1, docs/refactor/stage-10-kfx-frontend.md) --
-    // reset via GameCallbacks (stage 13.3) since kfx_frontend owns the type.
-    game_callbacks->reset_frontend_state();
+    // reset via UiPort since kfx_frontend owns the type.
+    ui_reset_frontend_state();
     memset(&intralvl, 0, sizeof(struct IntralevelData));
     kfx_net_state.turns_packetoff = -1;
-    kfx_net_state.local_plyr_idx = default_loc_player;
+    kfx_sim_state.level_human_player = default_loc_player;
     kfx_net_state.packet_checksum_verify = start_params.packet_checksum_verify;
     // Set levels to 0, as we may not have the campaign loaded yet
     set_continue_level_number(first_singleplayer_level());
@@ -874,7 +879,7 @@ void clear_complete_game(void)
     kfx_sim_state.operation_flags = start_params.operation_flags;
     snprintf(kfx_net_state.packet_fname,150, "%s", start_params.packet_fname);
     kfx_net_state.packet_save_enable = start_params.packet_save_enable;
-    kfx_net_state.packet_load_enable = start_params.packet_load_enable;
+    kfx_sim_state.replay_active = start_params.packet_load_enable;
     my_player_number = default_loc_player;
 }
 
@@ -894,7 +899,7 @@ void init_seeds()
         kfx_sim_state.sound_random_seed = calender_time * 7919 + 7927;
 
         // If doing -packetload then use the replay's stored seed
-        if ((kfx_net_state.packet_save_head.action_seed != 0) && (kfx_net_state.packet_load_enable == true)) {
+        if ((kfx_net_state.packet_save_head.action_seed != 0) && (kfx_sim_state.replay_active == true)) {
             kfx_sim_state.action_random_seed = kfx_net_state.packet_save_head.action_seed;
         } else {
             kfx_sim_state.action_random_seed = calender_time * 9311 + 9319;

@@ -20,6 +20,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "bflib_video.h"
+#include "port_check.h"
 
 #include "bflib_mouse.h"
 #include "bflib_render.h"
@@ -30,6 +31,7 @@
 
 #include <SDL3/SDL.h>
 #include <math.h>
+#include "ports/display_host_port.h"
 #include "post_inc.h"
 
 #define SCREEN_MODES_COUNT 40
@@ -99,25 +101,10 @@ int64_t units_per_pixel_landview_frame;
 uint64_t aspect_ratio_factor_HOR_PLUS;
 uint64_t aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS;
 uint64_t first_person_vertical_fov;
+uint64_t first_person_horizontal_fov;
 uint64_t landview_frame_movement_scale_x;
 uint64_t landview_frame_movement_scale_y;
 
-// See VideoScaleCallbacks (bflib_video.h) and docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
-static const struct VideoScaleValues default_video_scale_values = {16, 16, 16, 16, 16};
-static const struct VideoScaleValues *default_get_video_scale_values(void)
-{
-    return &default_video_scale_values;
-}
-static const struct VideoScaleCallbacks default_video_scale_callbacks = {
-    &default_get_video_scale_values,
-};
-const struct VideoScaleCallbacks *video_scale_callbacks = &default_video_scale_callbacks;
-
-void set_video_scale_callbacks(const struct VideoScaleCallbacks *callbacks)
-{
-    video_scale_callbacks = callbacks ? callbacks : &default_video_scale_callbacks;
-}
 
 /**
   * The id number of the current display that the game renders to, defaults to 0.
@@ -1173,7 +1160,7 @@ int64_t scale_value_for_resolution_with_upp(int64_t base_value, int64_t units_pe
  */
 int64_t scale_value_by_horizontal_resolution(int64_t base_value)
 {
-    int64_t upp_width = video_scale_callbacks->get_video_scale_values()->units_per_pixel_width;
+    int64_t upp_width = display_get_video_scale_values()->units_per_pixel_width;
     // return value is equivalent to: round(base_value * units_per_pixel_width /16)
     int64_t value = ((((upp_width * base_value) >> 3) + (((upp_width * base_value) >> 3) & 1)) >> 1);
     return value;
@@ -1187,7 +1174,7 @@ int64_t scale_value_by_horizontal_resolution(int64_t base_value)
  */
 int64_t scale_value_by_vertical_resolution(int64_t base_value)
 {
-    int64_t upp_height = video_scale_callbacks->get_video_scale_values()->units_per_pixel_height;
+    int64_t upp_height = display_get_video_scale_values()->units_per_pixel_height;
     // return value is equivalent to: round(base_value * units_per_pixel_height /16)
     int64_t value = ((((upp_height * base_value) >> 3) + (((upp_height * base_value) >> 3) & 1)) >> 1);
     return value;
@@ -1201,7 +1188,7 @@ int64_t scale_value_by_vertical_resolution(int64_t base_value)
  */
 int64_t scale_ui_value(int64_t base_value)
 {
-    int64_t upp_ui = video_scale_callbacks->get_video_scale_values()->units_per_pixel_ui;
+    int64_t upp_ui = display_get_video_scale_values()->units_per_pixel_ui;
     // return value is equivalent to: round(base_value * units_per_pixel_ui /16)
     int64_t value = ((((upp_ui * base_value) >> 3) + (((upp_ui * base_value) >> 3) & 1)) >> 1);
     return value; // can return zero
@@ -1236,7 +1223,7 @@ int64_t scale_ui_value_lofi(int64_t base_value)
  */
 int64_t scale_fixed_DK_value(int64_t base_value)
 {
-    int64_t upp_best = video_scale_callbacks->get_video_scale_values()->units_per_pixel_best;
+    int64_t upp_best = display_get_video_scale_values()->units_per_pixel_best;
     // return value is equivalent to: round(base_value * units_per_pixel_best /16)
     int64_t value = ((((upp_best * base_value) >> 3) + (((upp_best * base_value) >> 3) & 1)) >> 1);
     return value;
@@ -1255,7 +1242,7 @@ int64_t scale_fixed_DK_value(int64_t base_value)
  */
 int64_t scale_value_menu(int64_t base_value)
 {
-    int64_t upp_menu = video_scale_callbacks->get_video_scale_values()->units_per_pixel_menu;
+    int64_t upp_menu = display_get_video_scale_values()->units_per_pixel_menu;
     // return value is equivalent to: round(base_value * units_per_pixel_menu /16)
     int64_t value = ((((upp_menu * base_value) >> 3) + (((upp_menu * base_value) >> 3) & 1)) >> 1);
     return value;

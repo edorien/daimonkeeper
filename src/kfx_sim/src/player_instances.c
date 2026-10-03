@@ -47,17 +47,22 @@
 #include "config_players.h"
 #include "room_workshop.h"
 #include "magic_powers.h"
-#include "sim_feedback.h"
 #include "config_settings.h"
 #include "config_terrain.h"
 #include "config_magic.h"
 #include "thing_shots.h"
 #include "bflib_inputctrl.h"
 #include "map_blocks.h"
-#include "script_hooks.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "player_camera.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -220,7 +225,7 @@ int64_t pinstfe_hand_whip(struct PlayerInfo *player, int64_t *n)
           pos.z.val = thing->mappos.z.val + (thing->clipbox_size_z >> 1);
           if ( creature_model_bleeds(thing->model) )
               create_effect(&pos, TngEff_HitBleedingUnit, thing->owner);
-          sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+          audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
           struct Camera* cam = get_player_active_camera(player);
           if (cam != NULL)
           {
@@ -274,7 +279,7 @@ int64_t pinstfe_hand_whip(struct PlayerInfo *player, int64_t *n)
           {
             efftng = create_effect(&thing->mappos, TngEff_Dummy, thing->owner);
             if (!thing_is_invalid(efftng))
-              sim_feedback->thing_play_sample(efftng, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+              audio_thing_play_sample(efftng, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
             slap_object(thing);
           }
           break;
@@ -310,14 +315,11 @@ int64_t pinstfs_passenger_control_creature(struct PlayerInfo *player, int64_t *n
   ustate->init_flags |= UsrIF_MouseInputDisabled;
   if (is_my_player(player))
   {
-    local_state.palette_fade_step_possession = 1;
-    sim_feedback->turn_off_all_window_menus();
-    sim_feedback->turn_off_menu(GMnu_CREATURE_QUERY1);
-    sim_feedback->turn_off_menu(GMnu_CREATURE_QUERY2);
+    ui_local_view_transition(player, LVTr_PassengerBegin);
   }
     struct Camera* cam = get_player_active_camera(player);
   ustate->init_flags |= UsrIF_KeyboardInputDisabled;
-  player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(cam);
+  player->dungeon_camera_zoom = get_camera_zoom(cam);
   // Play possession sound
   if (is_my_player(player))
   {
@@ -349,9 +351,9 @@ int64_t pinstfm_control_creature(struct PlayerInfo *player, int64_t *n)
     struct Thing* thing = thing_get(player->influenced_thing_idx);
     if (!thing_exists(thing) || (thing->class_id == TCls_DeadCreature) || creature_is_dying(thing))
     {
-        sim_feedback->set_camera_zoom(cam, player->dungeon_camera_zoom);
+        set_camera_zoom(cam, player->dungeon_camera_zoom);
         if (is_my_player(player))
-            sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+            render_PaletteSetUserPalette(player->user_id, engine_palette);
         player->influenced_thing_idx = 0;
         player->influenced_thing_creation = 0;
         ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
@@ -361,7 +363,7 @@ int64_t pinstfm_control_creature(struct PlayerInfo *player, int64_t *n)
     }
     if (player->view_mode != PVM_FrontView)
     {
-        sim_feedback->view_zoom_camera_in(cam, 30000, 0);
+        view_zoom_camera_in(cam, 30000, 0);
         // Compute new camera angle
         int64_t mv_a = (thing->move_angle_xy - cam->rotation_angle_x) & ANGLE_MASK;
         if (mv_a > DEGREES_180)
@@ -406,7 +408,7 @@ int64_t pinstfm_control_creature(struct PlayerInfo *player, int64_t *n)
         {
           cam->rotation_angle_x -= DEGREES_360;
         }
-        sim_feedback->set_local_camera_destination(player);
+        signal_local_camera_retarget(player);
     }
     return 0;
 }
@@ -423,9 +425,9 @@ int64_t pinstfe_direct_control_creature(struct PlayerInfo *player, int64_t *n)
     }
     if (!thing_exists(thing))
     {
-        sim_feedback->set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
+        set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
         if (is_my_player(player)) {
-            sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+            render_PaletteSetUserPalette(player->user_id, engine_palette);
         }
         ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
         ustate->init_flags &= ~UsrIF_MouseInputDisabled;
@@ -441,14 +443,14 @@ int64_t pinstfe_direct_control_creature(struct PlayerInfo *player, int64_t *n)
         if (my_player) {
             if (creature_under_spell_effect(thing, CSAfF_Freeze))
             {
-                sim_feedback->PaletteSetUserPalette(player->user_id, blue_palette);
+                render_PaletteSetUserPalette(player->user_id, blue_palette);
             }
         }
         creature_choose_first_available_instance(thing);
     }
     if (my_player)
     {
-        sim_feedback->turn_on_menu(GMnu_CREATURE_QUERY1);
+        ui_turn_on_menu(GMnu_CREATURE_QUERY1);
     }
     return 0;
 }
@@ -468,7 +470,7 @@ int64_t pinstfe_passenger_control_creature(struct PlayerInfo *player, int64_t *n
     {
         if (thing->class_id == TCls_Creature)
         {
-            sim_feedback->turn_on_menu(GMnu_CREATURE_QUERY1);
+            ui_turn_on_menu(GMnu_CREATURE_QUERY1);
         }
     }
     return 0;
@@ -486,13 +488,7 @@ int64_t pinstfs_direct_leave_creature(struct PlayerInfo *player, int64_t *n)
   struct Thing* thing = thing_get(player->influenced_thing_idx);
   if (is_my_player(player))
   {
-      sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
-      local_state.palette_fade_step_possession = 11;
-      sim_feedback->turn_off_all_window_menus();
-      sim_feedback->turn_off_query_menus();
-      sim_feedback->turn_on_main_panel_menu();
-      set_flag_value(kfx_sim_state.operation_flags, GOF_ShowPanel, (kfx_sim_state.operation_flags & GOF_ShowGui) != 0);
-      LbGrabMouseCheck(MG_OnPossessionLeave);
+      ui_local_view_transition(player, LVTr_PossessionLeave);
   }
   thing = thing_get(player->influenced_thing_idx);
   leave_creature_as_controller(player, thing);
@@ -508,11 +504,11 @@ int64_t pinstfm_leave_creature(struct PlayerInfo *player, int64_t *n)
     if (player->view_mode != PVM_FrontView)
     {
         struct Camera* camera = get_player_active_camera(player);
-        sim_feedback->view_zoom_camera_out(camera, 30000, 0);
-        if (sim_feedback->get_camera_zoom(camera) < player->dungeon_camera_zoom) {
-            sim_feedback->set_camera_zoom(camera, player->dungeon_camera_zoom);
+        view_zoom_camera_out(camera, 30000, 0);
+        if (get_camera_zoom(camera) < player->dungeon_camera_zoom) {
+            set_camera_zoom(camera, player->dungeon_camera_zoom);
         }
-        sim_feedback->set_local_camera_destination(player);
+        signal_local_camera_retarget(player);
     }
     return 0;
 }
@@ -529,13 +525,7 @@ int64_t pinstfs_passenger_leave_creature(struct PlayerInfo *player, int64_t *n)
   struct Thing* thing = thing_get(player->influenced_thing_idx);
   if (is_my_player(player))
   {
-    sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
-    local_state.palette_fade_step_possession = 11;
-    sim_feedback->turn_off_all_window_menus();
-    sim_feedback->turn_off_query_menus();
-    sim_feedback->turn_off_all_panel_menus();
-    sim_feedback->turn_on_main_panel_menu();
-    set_flag_value(kfx_sim_state.operation_flags, GOF_ShowPanel, (kfx_sim_state.operation_flags & GOF_ShowGui) != 0);
+    ui_local_view_transition(player, LVTr_PassengerLeave);
   }
   leave_creature_as_passenger(player, thing);
   ustate->init_flags |= UsrIF_KeyboardInputDisabled;
@@ -548,9 +538,9 @@ int64_t pinstfs_passenger_leave_creature(struct PlayerInfo *player, int64_t *n)
 int64_t pinstfe_leave_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
-    sim_feedback->set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
+    set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
   if (is_my_player(player)) {
-    sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+    render_PaletteSetUserPalette(player->user_id, engine_palette);
   }
   ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
   ustate->init_flags &= ~UsrIF_MouseInputDisabled;
@@ -560,7 +550,7 @@ int64_t pinstfe_leave_creature(struct PlayerInfo *player, int64_t *n)
 int64_t pinstfs_query_creature(struct PlayerInfo *player, int64_t *n)
 {
     struct Thing* thing = thing_get(player->influenced_thing_idx);
-    player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(get_player_active_camera(player));
+    player->dungeon_camera_zoom = get_camera_zoom(get_player_active_camera(player));
     set_selected_creature(player, thing);
     unsigned char state = ( (player->work_state == PSt_QueryAll) || (player->work_state == PSt_CreatrInfoAll) ) ? PSt_CreatrInfoAll : PSt_CreatrInfo;
     set_player_state(player, state, 0);
@@ -658,7 +648,7 @@ int64_t pinstfs_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
     cam->zoom = 24000;
   }
   cam->rotation_angle_x = 0;
-  sim_feedback->sync_local_camera(player);
+  signal_local_camera_sync(player);
   if (!kfx_sim_state.TimerNoReset)
   {
      kfx_sim_state.timerstarttime = LbTimerClock();
@@ -695,7 +685,7 @@ int64_t pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
         dstcam = &player->cameras[CamIV_FrontView];
         dstcam->mappos.x.val = thing->mappos.x.val + deltax;
         dstcam->mappos.y.val = thing->mappos.y.val + deltay;
-        sim_feedback->set_local_camera_destination(player);
+        signal_local_camera_retarget(player);
     }
     if (is_my_player_number(player->id_number) && (player->instance_remain_turns >= 8))
         LbPaletteFade(engine_palette, 8, Lb_PALETTE_FADE_OPEN);
@@ -713,14 +703,14 @@ int64_t pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
   {
     cam->zoom = player->isometric_view_zoom_level;
     cam->rotation_angle_x = DEGREES_45;
-    sim_feedback->set_local_camera_destination(player);
+    signal_local_camera_retarget(player);
   }
   turn_user_cursor_light(player->user_id, true);
   ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
   ustate->init_flags &= ~UsrIF_MouseInputDisabled;
   kfx_sim_state.view_mode_flags &= ~GNFldD_CreaturePasngr;
   if (is_my_player(player)) {
-    sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+    render_PaletteSetUserPalette(player->user_id, engine_palette);
   }
   return 0;
 }
@@ -737,50 +727,14 @@ int64_t pinstfe_control_creature_fade(struct PlayerInfo *player, int64_t *n)
   if (is_my_player(player))
   {
     if ((ustate->additional_flags & UsrAF_FreezePaletteIsActive) != 0)
-      sim_feedback->PaletteSetUserPalette(player->user_id, blue_palette);
+      render_PaletteSetUserPalette(player->user_id, blue_palette);
     else
-      sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+      render_PaletteSetUserPalette(player->user_id, engine_palette);
   }
   ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
   turn_user_cursor_light(player->user_id, false);
   ustate->init_flags &= ~UsrIF_MouseInputDisabled;
   return 0;
-}
-
-/** Saves `current` as the value to put back when a hold ends. Holding again
- *  keeps the first saved value, unless the value was put back in between (an
- *  exit that skipped the restore). */
-static void begin_map_ui_hold(TbBool* held, TbBool* saved, TbBool current)
-{
-    if (current || !*held)
-        *saved = current;
-    *held = true;
-}
-
-/** Hides the status menu and turns tooltips off for the map and its fades, or
- *  puts them back. Each argument is the state wanted from this call on. */
-void set_map_ui_hidden(TbBool status_menu, TbBool tooltips)
-{
-    if (status_menu)
-    {
-        begin_map_ui_hold(&local_state.status_menu_hidden_for_map, &local_state.status_menu_restore, sim_feedback->toggle_status_menu(0));
-    }
-    else if (local_state.status_menu_hidden_for_map)
-    {
-        sim_feedback->toggle_status_menu(local_state.status_menu_restore);
-        local_state.status_menu_hidden_for_map = false;
-    }
-
-    if (tooltips)
-    {
-        begin_map_ui_hold(&local_state.tooltips_hidden_for_map, &local_state.tooltips_restore, settings.tooltips_on);
-        settings.tooltips_on = false;
-    }
-    else if (local_state.tooltips_hidden_for_map)
-    {
-        settings.tooltips_on = local_state.tooltips_restore;
-        local_state.tooltips_hidden_for_map = false;
-    }
 }
 
 int64_t pinstfs_fade_to_map(struct PlayerInfo *player, int64_t *n)
@@ -790,10 +744,9 @@ int64_t pinstfs_fade_to_map(struct PlayerInfo *player, int64_t *n)
     player->view_mode_restore = cam->view_mode;
     if (is_my_player(player))
     {
-        local_state.palette_fade_step_map = 0;
-        set_map_ui_hidden(true, true);
+        ui_local_view_transition(player, LVTr_MapFadeInBegin);
   }
-  sim_feedback->set_engine_view(player, PVM_ParchFadeIn);
+  render_set_engine_view(player, PVM_ParchFadeIn);
   return 0;
 
 }
@@ -807,7 +760,7 @@ int64_t pinstfe_fade_to_map(struct PlayerInfo *player, int64_t *n)
 {
   set_player_mode(player, PVT_MapScreen);
   if (is_my_player(player))
-    set_map_ui_hidden(true, false);
+    ui_local_view_transition(player, LVTr_MapShown);
   get_player_user_state(player)->init_flags &= ~UsrIF_MouseInputDisabled;
   return 0;
 }
@@ -817,12 +770,10 @@ int64_t pinstfs_fade_from_map(struct PlayerInfo *player, int64_t *n)
   get_player_user_state(player)->init_flags |= UsrIF_MouseInputDisabled;
   if (is_my_player(player))
   {
-    set_map_ui_hidden(true, true);
-    kfx_sim_state.operation_flags &= ~GOF_ShowPanel;
-    local_state.palette_fade_step_map = 32;
+    ui_local_view_transition(player, LVTr_MapFadeOutBegin);
   }
   set_player_mode(player, PVT_DungeonTop);
-  sim_feedback->set_engine_view(player, PVM_ParchFadeOut);
+  render_set_engine_view(player, PVM_ParchFadeOut);
   return 0;
 }
 
@@ -834,9 +785,9 @@ int64_t pinstfm_fade_from_map(struct PlayerInfo *player, int64_t *n)
 int64_t pinstfe_fade_from_map(struct PlayerInfo *player, int64_t *n)
 {
     struct PlayerInfo* myplyr = get_player(my_player_number);
-    sim_feedback->set_engine_view(player, player->view_mode_restore);
+    render_set_engine_view(player, player->view_mode_restore);
     if (player->id_number == myplyr->id_number) {
-        set_map_ui_hidden(false, false);
+        ui_local_view_transition(player, LVTr_MapHidden);
     }
     get_player_user_state(player)->init_flags &= ~UsrIF_MouseInputDisabled;
     return 0;
@@ -877,17 +828,17 @@ int64_t pinstfs_zoom_to_position(struct PlayerInfo *player, int64_t *n)
     ustate->init_flags |= UsrIF_MouseInputDisabled;
     ustate->init_flags |= UsrIF_KeyboardInputDisabled;
     struct Camera* cam = get_player_active_camera(player);
-    sim_feedback->view_set_camera_move_to_position(cam, player->zoom_to_pos_x, player->zoom_to_pos_y, &player->zoom_to_movement_x, &player->zoom_to_movement_y);
+    view_set_camera_move_to_position(cam, player->zoom_to_pos_x, player->zoom_to_pos_y, &player->zoom_to_movement_x, &player->zoom_to_movement_y);
     return 0;
 }
 
 int64_t pinstfm_zoom_to_position(struct PlayerInfo *player, int64_t *n)
 {
     struct Camera* cam = get_player_active_camera(player);
-    if (sim_feedback->view_move_camera_to_position(cam, player->zoom_to_pos_x, player->zoom_to_pos_y, player->zoom_to_movement_x, player->zoom_to_movement_y)) {
+    if (view_move_camera_to_position(cam, player->zoom_to_pos_x, player->zoom_to_pos_y, player->zoom_to_movement_x, player->zoom_to_movement_y)) {
         player->instance_remain_turns = 0;
     }
-    sim_feedback->set_local_camera_destination(player);
+    signal_local_camera_retarget(player);
     return 0;
 }
 
@@ -969,24 +920,24 @@ void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing
         set_player_instance(player, PI_Unset, 1);
         set_player_mode(player, PVT_DungeonTop);
         ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
-        sim_feedback->set_engine_view(player, player->view_mode_restore);
+        render_set_engine_view(player, player->view_mode_restore);
         player->cameras[CamIV_Isometric].mappos.x.val = subtile_coord_center(kfx_sim_state.map_subtiles_x/2);
         player->cameras[CamIV_Isometric].mappos.y.val = subtile_coord_center(kfx_sim_state.map_subtiles_y/2);
         player->cameras[CamIV_FrontView].mappos.x.val = subtile_coord_center(kfx_sim_state.map_subtiles_x/2);
         player->cameras[CamIV_FrontView].mappos.y.val = subtile_coord_center(kfx_sim_state.map_subtiles_y/2);
-        sim_feedback->sync_local_camera(player);
+        signal_local_camera_sync(player);
         clear_selected_thing(player);
         return;
     }
     clear_selected_thing(player);
     set_player_mode(player, PVT_DungeonTop);
     if (is_my_player(player)) {
-        sim_feedback->setup_eye_lens(0);
+        render_setup_eye_lens(0);
     }
     thing->alloc_flags &= ~TAlF_IsControlled;
     thing->rendering_flags &= ~TRF_Invisible;
     ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
-    sim_feedback->set_engine_view(player, player->view_mode_restore);
+    render_set_engine_view(player, player->view_mode_restore);
     struct Camera* cam = get_player_active_camera(player);
     int64_t i = (cam != NULL) ? cam->rotation_angle_x : 0;
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
@@ -996,7 +947,7 @@ void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing
     player->cameras[CamIV_Isometric].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
     player->cameras[CamIV_FrontView].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
     player->cameras[CamIV_FrontView].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
-    sim_feedback->sync_local_camera(player);
+    signal_local_camera_sync(player);
     if (thing->class_id == TCls_Creature)
     {
         set_start_state(thing);
@@ -1009,7 +960,7 @@ void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing
     }
     if ((thing->light_id != 0) && (!crconf->illuminated) && (!creature_under_spell_effect(thing, CSAfF_Light)))
     {
-        sim_feedback->light_delete_light(thing->light_id);
+        light_delete_light(thing->light_id);
         thing->light_id = 0;
     }
 }
@@ -1024,19 +975,19 @@ void leave_creature_as_passenger(struct PlayerInfo *player, struct Thing *thing)
     set_player_instance(player, PI_Unset, 1);
     set_player_mode(player, PVT_DungeonTop);
     ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
-    sim_feedback->set_engine_view(player, player->view_mode_restore);
+    render_set_engine_view(player, player->view_mode_restore);
     player->cameras[CamIV_Isometric].mappos.x.val = subtile_coord_center(kfx_sim_state.map_subtiles_x/2);
     player->cameras[CamIV_Isometric].mappos.y.val = subtile_coord_center(kfx_sim_state.map_subtiles_y/2);
     player->cameras[CamIV_FrontView].mappos.x.val = subtile_coord_center(kfx_sim_state.map_subtiles_x/2);
     player->cameras[CamIV_FrontView].mappos.y.val = subtile_coord_center(kfx_sim_state.map_subtiles_y/2);
-    sim_feedback->sync_local_camera(player);
+    signal_local_camera_sync(player);
     clear_selected_thing(player);
     return;
   }
   set_player_mode(player, PVT_DungeonTop);
   thing->rendering_flags &= ~TRF_Invisible;
   ustate->init_flags &= ~UsrIF_CreaturePassengerMode;
-  sim_feedback->set_engine_view(player, player->view_mode_restore);
+  render_set_engine_view(player, player->view_mode_restore);
     struct Camera* cam = get_player_active_camera(player);
     int64_t i = (cam != NULL) ? cam->rotation_angle_x : 0;
   int64_t k = thing->mappos.z.val + get_creature_eye_height(thing);
@@ -1044,7 +995,7 @@ void leave_creature_as_passenger(struct PlayerInfo *player, struct Thing *thing)
   player->cameras[CamIV_Isometric].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
   player->cameras[CamIV_FrontView].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
   player->cameras[CamIV_FrontView].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
-  sim_feedback->sync_local_camera(player);
+  signal_local_camera_sync(player);
   clear_selected_thing(player);
 }
 
@@ -1200,14 +1151,14 @@ struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Play
         if (take_money_from_dungeon(plyr_idx, roomst->cost, 1) < 0)
         {
             if (is_my_player(player))
-                sim_feedback->play_sound_message(SMsg_GoldNotEnough, 0);
+                audio_output_message(SMsg_GoldNotEnough, 0);
             return INVALID_ROOM;
         }
     }
     else
     {
         if (is_my_player(player))
-            sim_feedback->play_sound_message(SMsg_GoldNotEnough, 0);
+            audio_output_message(SMsg_GoldNotEnough, 0);
         return INVALID_ROOM;
     }
     struct Room* room = place_room(plyr_idx, rkind, stl_x, stl_y);
@@ -1301,13 +1252,13 @@ TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos_in, Play
         }
     }
     if (!dungeon_invalid(dungeon))
-        dungeon->camera_deviate_jump = 192;
+        kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 192;
     if (is_my_player_number(plyr_idx))
     {
         play_non_3d_sample(trap_cfg->place_sound_idx);
     }
 
-    script_hooks->lua_on_trap_placed(traptng);
+    script_lua_on_trap_placed(traptng);
     return true;
 }
 
@@ -1355,7 +1306,7 @@ TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl
         }
     }
     if (!dungeon_invalid(dungeon))
-        dungeon->camera_deviate_jump = 192;
+        kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 192;
     if (is_my_player_number(plyr_idx))
     {
         struct DoorConfigStats* door_cfg = get_door_model_stats(tngmodel);
@@ -1501,7 +1452,7 @@ void level_lost_go_first_person(PlayerNumber plyr_idx)
         return;
     }
     spectator_breed = get_players_spectator_model(plyr_idx);
-    player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(get_player_active_camera(player));
+    player->dungeon_camera_zoom = get_camera_zoom(get_player_active_camera(player));
     struct CompoundTngFilterParam param = {};
     param.class_id = TCls_Creature;
     struct Thing *spawn_creatng = get_random_thing_of_class_with_filter(filter_creatures_owned_by_keepers, &param, plyr_idx);
@@ -1529,7 +1480,7 @@ void level_editor_go_spectator_at(PlayerNumber plyr_idx, MapCoord pos_x, MapCoor
     SYNCDBG(6,"Starting for player %" PRId64,(int64_t)plyr_idx);
     player = get_player(plyr_idx);
     spectator_breed = get_players_spectator_model(plyr_idx);
-    player->dungeon_camera_zoom = sim_feedback->get_camera_zoom(get_player_active_camera(player));
+    player->dungeon_camera_zoom = get_camera_zoom(get_player_active_camera(player));
     struct Coord3d mappos;
     mappos.x.val = pos_x;
     mappos.y.val = pos_y;

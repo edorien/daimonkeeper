@@ -35,8 +35,6 @@
 #include "config_spritecolors.h"
 #include "config_strings.h"
 #include "vidfade.h"
-#include "render_overlay.h"
-#include "sim_feedback.h"
 #include "engine_redraw.h"
 #include "engine_textures.h"
 #include "config_keeperfx.h"
@@ -46,6 +44,8 @@
 #include "custom_sprites.h"
 #include "sprites.h"
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
+#include "ports/game_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -57,7 +57,6 @@ extern "C" {
 // separate screen-specific modes (failsafe/movies/frontend/an Alt+R cycle
 // list) -- collapsed to one per docs/refactor/renderer/
 // 04-imgui-gui-foundation.md sec 6.4, ahead of Phase G's settings screen.
-static TbScreenMode screen_vidmode = Lb_SCREEN_MODE_640_480_8;
 
 //struct IPOINT_2D units_per_pixel;
 int64_t units_per_pixel_min;
@@ -67,8 +66,6 @@ int64_t units_per_pixel_menu_height;
 int64_t units_per_pixel_best;
 int64_t units_per_pixel_menu;
 int64_t units_per_pixel_ui;
-uint64_t first_person_horizontal_fov;
-int64_t base_mouse_sensitivity = 256;
 
 // units_per_pixel_landview, units_per_pixel_landview_frame,
 // aspect_ratio_factor_HOR_PLUS(_AND_VERT_PLUS),
@@ -80,12 +77,6 @@ int64_t base_mouse_sensitivity = 256;
 // the values directly. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
-// Registered with config.h's ConfigReloadCallbacks; config_keeperfx.c
-// sets this from keeperfx.cfg's POINTER_SENSITIVITY command.
-void set_base_mouse_sensitivity(int64_t val)
-{
-    base_mouse_sensitivity = val;
-}
 
 static TbBool force_video_mode_reset = true;
 struct TbSpriteSheet * pointer_sprites = NULL;
@@ -96,10 +87,8 @@ struct TbColorTables pixmap;
 struct TbAlphaTables alpha_sprite_table;
 /******************************************************************************/
 
-#if (BFDEBUG_LEVEL > 0)
-// Declarations for font testing screen (debug version only)
+// Declarations for font testing screen (reachable at the Debug log level)
 extern struct TbLoadFiles testfont_load_files[];
-#endif
 
 extern struct TbLoadFiles gui_load_files_320[];
 extern struct TbLoadFiles gui_load_files_640[];
@@ -208,15 +197,6 @@ void FreeMcgaData(void)
     free_spritesheet(&gui_panel_sprites);
 }
 
-TbScreenMode get_screen_vidmode(void)
-{
-  return screen_vidmode;
-}
-
-void set_screen_vidmode(TbScreenMode nmode)
-{
-  screen_vidmode=nmode;
-}
 
 /**
  * Hardcoded emergency fallback used by setup_screen_mode()'s failsafe path
@@ -536,8 +516,8 @@ TbBool init_rgb2idx_table(void)
     return true;
 }
 
-/* Kept as a no-op rather than removed: still called through
- * RenderOverlayCallbacks (power_hand.c, gui_parchment.c) after state changes
+/* Kept as a no-op rather than removed: still called (render_power_hand.c)
+ * after state changes
  * that used to require re-pointing render_fade_tables/render_ghost/
  * render_alpha at pixmap/alpha_sprite_table. Nothing to sync anymore -- see
  * init_fades_table()'s comment -- but the callback contract stays so those
@@ -624,7 +604,7 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
     if (!MinimalResolutionSetup)
     {
       reset_eye_lenses();
-      render_overlay->reset_heap_manager();
+      game_reset_heap_manager();
       unload_pointer_file(hi_res);
     }
     if (nmode != old_mode)
@@ -684,17 +664,17 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
   RendererClearScreen(0);
   RendererPresentStepFrame();
   update_screen_mode_data(new_mdinfo->Width, new_mdinfo->Height);
-  if (render_overlay->is_parchment_loaded())
-    render_overlay->reload_parchment_file(hi_res);
+  if (ui_is_parchment_loaded())
+    ui_reload_parchment_file(hi_res);
   reinitialise_eye_lens(lens_mem);
   RendererSetDrawFlags(flg_mem);
-  render_overlay->setup_heap_manager();
+  game_setup_heap_manager();
   force_video_mode_reset = false;
   SYNCDBG(8,"Finished");
   return nmode;
 }
 
-// Registered with bflib_video.h's VideoScaleCallbacks (see
+// Registered with ports/display_host_port.h's DisplayHostPort (see
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md);
 // bflib_video.c's scaling math can't read units_per_pixel_width/height/
 // ui/best/menu (assigned below) directly.
@@ -753,7 +733,7 @@ TbBool update_screen_mode_data(int64_t width, int64_t height)
   // Main menu scaling: Campaign map "land view" screen (including the window frame)
   calculate_landview_upp(width, height, LANDVIEW_MAP_WIDTH, LANDVIEW_MAP_HEIGHT); // 16 is "kfx default" for 640x480 game window (1x), a 960x720 frame (1.5x), and a 1280x960 landview (2x)
 
-  LbMouseChangeMoveRatio(base_mouse_sensitivity, base_mouse_sensitivity);
+  LbMouseChangeMoveRatio(kfx_runtime_settings.base_mouse_sensitivity, kfx_runtime_settings.base_mouse_sensitivity);
   LbMouseSetPointerHotspot(0, 0);
   LbScreenSetGraphicsWindow(0, 0, MyScreenWidth/pixel_size, MyScreenHeight/pixel_size);
   LbTextSetWindow(0, 0, MyScreenWidth/pixel_size, MyScreenHeight/pixel_size);
@@ -808,7 +788,7 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
     if (!MinimalResolutionSetup)
     {
       reset_eye_lenses();
-      render_overlay->reset_heap_manager();
+      game_reset_heap_manager();
     }
     if ((!MinimalResolutionSetup && !hi_res) || (MinimalResolutionSetup && hi_res))
       unload_pointer_file(hi_res);
@@ -840,14 +820,14 @@ TbScreenMode setup_screen_mode_minimal(TbScreenMode nmode)
     MinimalResolutionSetup = true;
     if (hi_res)
     {
-      render_overlay->frontend_load_data_from_cd();
+      ui_frontend_load_data_from_cd();
       if (!LoadVResMinimal())
       {
         ERRORLOG("Unable to load VRes256 front_load minimal files");
         force_video_mode_reset = true;
         return Lb_SCREEN_MODE_INVALID;
       }
-      render_overlay->frontend_load_data_reset();
+      ui_frontend_load_data_reset();
     }
 
     if ((nmode != old_mode) || (force_video_mode_reset))
@@ -927,7 +907,6 @@ TbScreenMode reenter_video_mode(void)
   return scrmode;
 }
 
-#if (BFDEBUG_LEVEL > 0)
 TbBool load_testfont_fonts(void)
 {
     testfont[0] = load_font("ldata/frontft1.dat", "ldata/frontft1.tab");
@@ -962,7 +941,6 @@ void free_testfont_fonts(void)
     }
     LbDataFreeAll(testfont_load_files);
 }
-#endif
 
 void setup_stuff(void)
 {

@@ -23,8 +23,6 @@
 #include "bflib_math.h"
 #include "globals.h"
 #include "bflib_sound.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "thing_objects.h"
 #include "thing_effects.h"
 #include "thing_traps.h"
@@ -53,8 +51,11 @@
 #include "bflib_planar.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
-#include "render_overlay.h"
 #include "ariadne_update.h"
+#include "player_availability.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ai_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1137,7 +1138,7 @@ void update_things(void)
     SYNCDBG(7,"Starting");
     optimised_lights = 0;
     total_lights = 0;
-    do_lights = render_overlay->get_lights_enabled();
+    do_lights = light_get_lights_enabled();
     update_things_in_list(&kfx_sim_state.thing_lists[TngList_Creatures]);
     update_creatures_not_in_list();
     update_things_in_list(&kfx_sim_state.thing_lists[TngList_Traps]);
@@ -1280,7 +1281,7 @@ void setup_computer_player(int64_t plr_idx)
     struct Thing* thing = find_players_dungeon_heart(plr_idx); // cannot use player->id_number, as it isn't set yet
     if (thing_exists(thing))
     {
-        script_support_setup_player_as_computer_keeper(plr_idx, 0);
+        ai_script_support_setup_player_as_computer_keeper(plr_idx, 0);
     } else
     {
         script_support_setup_player_as_zombie_keeper(plr_idx);
@@ -3217,7 +3218,7 @@ TbBool update_thing(struct Thing *thing)
     }
     if (falling && (thing->mappos.z.val <= -subtile_coord(ABYSS_DEPTH, 0))) {
         if (thing_is_creature(thing)) {
-            script_hooks->lua_on_creature_fell_into_abyss(thing);
+            script_lua_on_creature_fell_into_abyss(thing);
             if (!flag_is_set(thing->state_flags, TF1_FallingIntoAbyss)) {
                 return true;
             }
@@ -3270,13 +3271,13 @@ TbBool update_thing(struct Thing *thing)
     update_thing_sound(thing);
     if ((do_lights) && (thing->light_id != 0))
     {
-        if (sim_feedback->light_is_light_allocated(thing->light_id))
+        if (light_is_light_allocated(thing->light_id))
         {
             struct Coord3d pos;
             pos.x.val = thing->mappos.x.val;
             pos.y.val = thing->mappos.y.val;
             pos.z.val = thing->mappos.z.val + thing->clipbox_size_z;
-            sim_feedback->light_set_light_position(thing->light_id, &pos);
+            light_set_light_position(thing->light_id, &pos);
         } else
         {
             WARNLOG("The %s index %" PRId64 " tries to use non-existing light %" PRId64,thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->light_id);

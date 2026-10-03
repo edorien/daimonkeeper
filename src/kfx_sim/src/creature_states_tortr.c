@@ -38,9 +38,9 @@
 #include "room_data.h"
 #include "room_jobs.h"
 #include "map_blocks.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -94,7 +94,7 @@ int64_t at_torture_room(struct Thing *thing)
     }
     if (!add_creature_to_work_room(thing, room, Job_PAINFUL_TORTURE))
     {
-        sim_feedback->output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
+        audio_output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
         set_start_state(thing);
         return 0;
     }
@@ -307,7 +307,7 @@ void convert_creature_to_ghost(struct Room *room, struct Thing *thing)
         dungeon->lvstats.ghosts_raised++;
     }
     if (is_my_player_number(room->owner)) {
-        sim_feedback->play_sound_message(SMsg_TortureMadeGhost, 0);
+        audio_output_message(SMsg_TortureMadeGhost, 0);
     }
 }
 
@@ -315,11 +315,11 @@ void convert_tortured_creature_owner(struct Thing *creatng, PlayerNumber new_own
 {
     if (is_my_player_number(new_owner))
     {
-        sim_feedback->play_sound_message(SMsg_TortureConverted, 0);
+        audio_output_message(SMsg_TortureConverted, 0);
     } else
     if (is_my_player_number(creatng->owner))
     {
-        sim_feedback->play_sound_message(SMsg_CreatureJoinedEnemy, 0);
+        audio_output_message(SMsg_CreatureJoinedEnemy, 0);
     }
     change_creature_owner(creatng, new_owner);
     anger_set_creature_anger_all_types(creatng, 0);
@@ -454,11 +454,11 @@ int64_t reveal_players_map_to_player(struct Thing *thing, PlayerNumber benefit_p
     if (reveal_success)
     {
         if (is_my_player_number(benefit_plyr_idx)) {
-          sim_feedback->play_sound_message(SMsg_TortureInformation, 0);
+          audio_output_message(SMsg_TortureInformation, 0);
           return 1;
         }
         if (is_my_player_number(thing->owner)) {
-          sim_feedback->play_sound_message(SMsg_CreatureRevealInfo, 0);
+          audio_output_message(SMsg_CreatureRevealInfo, 0);
           return 1;
         }
     }

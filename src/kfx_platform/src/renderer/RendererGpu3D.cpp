@@ -41,13 +41,8 @@ bool RendererGpu3D::init_gpu_device()
 
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
-    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN,
-#if (BFDEBUG_LEVEL > 0)
-        true
-#else
-        false
-#endif
-    );
+    // GPU_DEBUG option (RendererSetGpuDebug()): Vulkan validation layers.
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, RendererGetGpuDebug() != 0);
     m_device = SDL_CreateGPUDeviceWithProperties(props);
     SDL_DestroyProperties(props);
 
@@ -780,8 +775,8 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
         }
     }
     SDL_EndGPURenderPass(pass);
-#if (BFDEBUG_LEVEL > 0)
-    // Counters for the heavy-log RPROF report (see renderer/RendererProfile.h).
+    // Counters for the RPROF report (Debug log level; see renderer/RendererProfile.h).
+    if (RPROF_ACTIVE())
     {
         int64_t polys = 0, sprites = 0, shadows = 0;
         for (int64_t i = 0; i < frame.op_count; ++i)
@@ -811,7 +806,6 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
         }
     }
     else
-#endif
     {
         SDL_SubmitGPUCommandBuffer(cmd);
         RPROF_END(RPS_ENCODE);

@@ -24,17 +24,11 @@ list(APPEND KFX_FRONTEND_SOURCES_CXX ${KFX_FRONTEND_SOURCES_CXX_GUI})
 set(KFX_FRONTEND_SOURCES ${KFX_FRONTEND_SOURCES_C} ${KFX_FRONTEND_SOURCES_CXX})
 
 add_library(kfx_frontend STATIC ${KFX_FRONTEND_SOURCES})
-target_link_libraries(kfx_frontend PRIVATE kfx_common_opts kfx_bfdebug_std imgui)
+target_link_libraries(kfx_frontend PRIVATE kfx_common_opts kfx_log_opts imgui)
 target_include_directories(kfx_frontend PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_library(kfx_frontend_hvlog STATIC ${KFX_FRONTEND_SOURCES})
-target_link_libraries(kfx_frontend_hvlog PRIVATE kfx_common_opts kfx_bfdebug_hvlog imgui)
-target_include_directories(kfx_frontend_hvlog PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-list(APPEND KFX_OBJECT_LIBS_STD kfx_frontend)
-set(KFX_OBJECT_LIBS_STD ${KFX_OBJECT_LIBS_STD} PARENT_SCOPE)
-list(APPEND KFX_OBJECT_LIBS_HVLOG kfx_frontend_hvlog)
-set(KFX_OBJECT_LIBS_HVLOG ${KFX_OBJECT_LIBS_HVLOG} PARENT_SCOPE)
+list(APPEND KFX_OBJECT_LIBS kfx_frontend)
+set(KFX_OBJECT_LIBS ${KFX_OBJECT_LIBS} PARENT_SCOPE)
 
 # docs/refactor/testing/stage-01-framework-and-scaffold.md: opt-in Catch2
 # unit tests, gated the same way as the FetchContent(Catch2) block itself.

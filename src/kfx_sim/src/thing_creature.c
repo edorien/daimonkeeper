@@ -17,7 +17,6 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
-#include "renderer/RendererManager.h"
 #include <assert.h>
 
 #include "thing_creature.h"
@@ -56,8 +55,6 @@
 #include "creature_states_spdig.h"
 #include "creature_states_train.h"
 #include "dungeon_data.h"
-#include "sim_feedback.h"
-#include "render_overlay.h"
 #include "magic_powers.h"
 #include "map_blocks.h"
 #include "map_utils.h"
@@ -84,12 +81,14 @@
 #include "thing_shots.h"
 #include "thing_stats.h"
 #include "thing_traps.h"
-#include "script_hooks.h"
 #include "room_workshop.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "packet_data.h"
+#include "player_availability.h"
+#include "player_camera.h"
+#include "light_registry.h"
 // Literal-dup of kfx_game's lvl_script.h enum ScriptOperator values
 // (only reachable transitively) -- kept local to this .c file since
 // kfx_sim can't include lvl_script.h directly (see config_crtrstates.c's
@@ -98,6 +97,10 @@
 #define SOpr_INCREASE 2
 #define SOpr_DECREASE 3
 #define SOpr_MULTIPLY 4
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -253,8 +256,8 @@ TbBool control_creature_as_controller(struct PlayerInfo *player, struct Thing *t
     }
     if (is_my_player(player))
     {
-      sim_feedback->toggle_status_menu(0);
-      sim_feedback->turn_off_roaming_menus();
+      ui_toggle_status_menu(0);
+      ui_turn_off_roaming_menus();
     }
     set_selected_creature(player, thing);
         cam = get_player_active_camera(player);
@@ -287,7 +290,7 @@ TbBool control_creature_as_controller(struct PlayerInfo *player, struct Thing *t
     if ((thing->class_id == TCls_Creature) && is_my_player(player)) {
         crconf = creature_stats_get_from_thing(thing);
         SYNCDBG(7,"Controlling creature '%s', eye_effect=%" PRId64, crconf->name, (int64_t)(crconf->eye_effect));
-        sim_feedback->setup_eye_lens(crconf->eye_effect);
+        render_setup_eye_lens(crconf->eye_effect);
     }
     return true;
 }
@@ -307,8 +310,8 @@ TbBool control_creature_as_passenger(struct PlayerInfo *player, struct Thing *th
     }
     if (is_my_player(player))
     {
-        sim_feedback->toggle_status_menu(0);
-        sim_feedback->turn_off_roaming_menus();
+        ui_toggle_status_menu(0);
+        ui_turn_off_roaming_menus();
     }
     set_selected_thing(player, thing);
         struct Camera* cam = get_player_active_camera(player);
@@ -359,102 +362,6 @@ TbBool load_swipe_graphic_for_creature(const struct Thing *thing)
     }
     kfx_sim_state.loaded_swipe_idx = swpe_idx;
     return true;
-}
-
-/**
- * Randomise the draw direction of the swipe sprite in the first-person possession view.
- *
- * Sets local_state.swipe_sprite_drawLR to either TRUE or FALSE.
- *
- * Draw direction is either: left-to-right (TRUE) or right-to-left (FALSE)
- */
-void randomise_swipe_graphic_direction()
-{
-    local_state.swipe_sprite_drawLR = UNSYNC_RANDOM(2); // equal chance to be left-to-right or right-to-left
-}
-
-static void draw_swipe_graphic_impl(void);
-
-/* gpu-v2: the swipe is a translucent overlay drawn over the finished scene; with the Vulkan
- * renderer it must be recorded onto the GPU image (see RendererOverlayBegin) rather than blended
- * against the transparent CPU layer, which turned the whole view into flat colour. */
-void draw_swipe_graphic(void)
-{
-    RendererOverlayBegin();
-    draw_swipe_graphic_impl();
-    RendererOverlayEnd();
-}
-
-static void draw_swipe_graphic_impl(void)
-{
-    struct PlayerInfo* myplyr = get_my_player();
-    struct Thing* thing = thing_get(myplyr->controlled_thing_idx);
-    if (thing_is_creature(thing))
-    {
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (instance_draws_possession_swipe(cctrl->instance_id))
-        {
-            RendererSetDrawFlags(Lb_SPRITE_TRANSPAR4);
-            int64_t n = (int64_t)cctrl->inst_turn * (5 << 8) / cctrl->inst_total_turns;
-            int64_t allwidth = 0;
-            int64_t i = max(((llabs(n) >> 8) -1),0);
-            if (i >= SWIPE_SPRITE_FRAMES)
-                i = SWIPE_SPRITE_FRAMES-1;
-            const struct TbSprite* sprlist = get_sprite(swipe_sprites, SWIPE_SPRITES_X * SWIPE_SPRITES_Y * i);
-            if (sprlist == NULL)
-            {
-                ERRORLOG("Failed to draw swipe sprite for thing %" PRId64, (int64_t)thing->index);
-                return;
-            }
-            const struct TbSprite* startspr = &sprlist[1];
-            const struct TbSprite* endspr = &sprlist[1];
-            for (n=0; n < SWIPE_SPRITES_X; n++)
-            {
-                allwidth += endspr->SWidth;
-                endspr++;
-            }
-            int64_t units_per_px = (LbScreenWidth() * 59 / 64) * 16 / allwidth;
-            int64_t scrpos_y = (MyScreenHeight * 16 / units_per_px - (startspr->SHeight + endspr->SHeight)) / 2;
-            const struct TbSprite *spr;
-            int64_t scrpos_x;
-            if (local_state.swipe_sprite_drawLR)
-            {
-                int64_t delta_y = sprlist[1].SHeight;
-                for (i=0; i < SWIPE_SPRITES_X*SWIPE_SPRITES_Y; i+=SWIPE_SPRITES_X)
-                {
-                    spr = &startspr[i];
-                    scrpos_x = ((MyScreenWidth + (2 * local_state.engine_window_x)) * 16 / units_per_px - allwidth)/ 2;
-                    for (n=0; n < SWIPE_SPRITES_X; n++)
-                    {
-                        LbSpriteDrawResized(scrpos_x * units_per_px / 16, scrpos_y * units_per_px / 16, units_per_px, spr);
-                        scrpos_x += spr->SWidth;
-                        spr++;
-                    }
-                    scrpos_y += delta_y;
-                }
-            } else
-            {
-                RendererSetDrawFlags(Lb_SPRITE_TRANSPAR4 | Lb_SPRITE_FLIP_HORIZ);
-                for (i=0; i < SWIPE_SPRITES_X*SWIPE_SPRITES_Y; i+=SWIPE_SPRITES_X)
-                {
-                    spr = &sprlist[SWIPE_SPRITES_X+i];
-                    int64_t delta_y = spr->SHeight;
-                    scrpos_x = (MyScreenWidth * 16 / units_per_px - allwidth) / 2;
-                    for (n=0; n < SWIPE_SPRITES_X; n++)
-                    {
-                        LbSpriteDrawResized(scrpos_x * units_per_px / 16, scrpos_y * units_per_px / 16, units_per_px, spr);
-                        scrpos_x += spr->SWidth;
-                        spr--;
-                    }
-                    scrpos_y += delta_y;
-                }
-            }
-            RendererSetDrawFlags(0);
-            return;
-        }
-    }
-    // we get here many times a second when in possession mode and not attacking: to randomise the swipe direction
-    randomise_swipe_graphic_direction();
 }
 
 int64_t creature_available_for_combat_this_turn(struct Thing *creatng)
@@ -643,7 +550,7 @@ void food_eaten_by_creature(struct Thing *foodtng, struct Thing *creatng)
         cctrl->hunger_level = 0;
     }
     // Food is destroyed just below, so the sound must be made by creature
-    sim_feedback->thing_play_sample(creatng, 112+SOUND_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, 112+SOUND_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
 
     anger_set_creature_anger(creatng, 0, AngR_Hungry);
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
@@ -1142,8 +1049,8 @@ TbBool set_thing_spell_flags_f(struct Thing *thing, SpellKind spell_idx, GameTur
                     control_creature_as_passenger(player, thing);
                     if (is_my_player(player))
                     {
-                        sim_feedback->turn_off_all_panel_menus();
-                        sim_feedback->turn_on_menu(active_menu);
+                        ui_turn_off_all_panel_menus();
+                        ui_turn_on_menu(active_menu);
                     }
                 }
             }
@@ -1299,12 +1206,12 @@ TbBool clear_thing_spell_flags_f(struct Thing *thing, uint64_t spell_flags, cons
             {
                 if (flag_is_set(thing->rendering_flags, TRF_Invisible))
                 {
-                    sim_feedback->light_set_light_intensity(thing->light_id, (sim_feedback->light_get_light_intensity(thing->light_id) - 20));
-                    sim_feedback->light_set_light_radius(thing->light_id, 2560);
+                    light_set_light_intensity(thing->light_id, (light_get_light_intensity(thing->light_id) - 20));
+                    light_set_light_radius(thing->light_id, 2560);
                 }
                 else
                 {
-                    sim_feedback->light_delete_light(thing->light_id);
+                    light_delete_light(thing->light_id);
                     thing->light_id = 0;
                 }
             }
@@ -1366,8 +1273,8 @@ TbBool clear_thing_spell_flags_f(struct Thing *thing, uint64_t spell_flags, cons
             control_creature_as_controller(player, thing);
             if (is_my_player(player))
             {
-                sim_feedback->turn_off_all_panel_menus();
-                sim_feedback->turn_on_menu(active_menu);
+                ui_turn_off_all_panel_menus();
+                ui_turn_on_menu(active_menu);
             }
         }
         cleared = true;
@@ -1656,7 +1563,7 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
     RoomKind rkind = 0;
     int64_t i;
     TbBool allowed = true;
-    sim_feedback->clear_messages_from_player(MsgType_CreatureInstance, CrInst_TELEPORT);
+    ui_clear_messages_from_player(MsgType_CreatureInstance, CrInst_TELEPORT);
     if (cspell->duration == spconf->duration / 2)
     {
         PlayerNumber plyr_idx = get_appropriate_player_for_creature(thing);
@@ -1779,7 +1686,7 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
                 }
                 default:
                 {
-                    rkind = sim_feedback->get_zoom_key_room_order(destination);
+                    rkind = ui_get_zoom_key_room_order(destination);
                 }
             }
             if (rkind > 0)
@@ -1797,7 +1704,7 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
                         {
                             break;
                         }
-                        room = room_get(sim_feedback->find_next_room_of_type(thing->owner, rkind));
+                        room = room_get(ui_find_next_room_of_type(thing->owner, rkind));
                         find_first_valid_position_for_thing_anywhere_in_room(thing, room, &room_pos);
                         count++;
                     }
@@ -2321,7 +2228,7 @@ void creature_cast_spell(struct Thing *castng, SpellKind spl_idx, CrtrExpLevel s
     {
         if (spconf->caster_affect_sound > 0)
         {
-            sim_feedback->thing_play_sample(castng, spconf->caster_affect_sound + SOUND_RANDOM(spconf->caster_sounds_count), NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+            audio_thing_play_sample(castng, spconf->caster_affect_sound + SOUND_RANDOM(spconf->caster_sounds_count), NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
         }
         apply_spell_effect_to_thing(castng, spl_idx, cctrl->exp_level, castng->owner);
     }
@@ -2486,7 +2393,7 @@ TbBool creature_pick_up_interesting_object_laying_nearby(struct Thing *creatng)
                     creatng->creature.gold_carried += tgthing->valuable.gold_stored;
                     delete_thing_structure(tgthing, 0);
                 }
-                sim_feedback->thing_play_sample(creatng, snd_gold_pickup, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                audio_thing_play_sample(creatng, snd_gold_pickup, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
             }
         } else
         {
@@ -2616,7 +2523,7 @@ TngUpdateRet process_creature_state(struct Thing *thing)
         if (stati->process_state > 0)
             k = process_func_list[stati->process_state](thing);
         else
-            k = script_hooks->luafunc_crstate_func(stati->process_state, thing);
+            k = script_luafunc_crstate_func(stati->process_state, thing);
 
         if (k == CrStRet_Deleted) {
             SYNCDBG(18,"Finished with creature deleted");
@@ -2669,7 +2576,7 @@ TbBool update_kills_counters(struct Thing *victim, struct Thing *killer,
 int64_t creature_is_ambulating(struct Thing *thing)
 {
     int64_t n = get_creature_model_graphics(thing->model, CGI_Ambulate);
-    int64_t i = sim_feedback->get_td_animation_sprite(n);
+    int64_t i = render_get_td_animation_sprite(n);
     if (i != thing->anim_sprite)
         return 0;
     return 1;
@@ -2911,7 +2818,7 @@ int64_t move_creature(struct Thing *thing)
                     }
                     else if (stati->move_from_slab < 0)
                     {
-                        script_hooks->luafunc_crstate_func(stati->move_from_slab, thing);
+                        script_luafunc_crstate_func(stati->move_from_slab, thing);
                     }
                 }
             }
@@ -2971,7 +2878,7 @@ void creature_rebirth_at_lair(struct Thing *thing)
     create_effect(&thing->mappos, TngEff_HarmlessGas2, thing->owner);
     move_thing_in_map(thing, &lairtng->mappos);
     reset_interpolation_of_thing(thing);
-    script_hooks->lua_on_creature_rebirth(thing);
+    script_lua_on_creature_rebirth(thing);
     create_effect(&lairtng->mappos, TngEff_HarmlessGas2, thing->owner);
 }
 
@@ -3087,7 +2994,7 @@ struct Thing* thing_death_flesh_explosion(struct Thing *thing)
     deadtng->veloc_base.x.val = memaccl.x.val;
     deadtng->veloc_base.y.val = memaccl.y.val;
     deadtng->veloc_base.z.val = memaccl.z.val;
-    sim_feedback->thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+    audio_thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
     return deadtng;
 }
 
@@ -3122,7 +3029,7 @@ struct Thing* thing_death_gas_and_flesh_explosion(struct Thing *thing)
     deadtng->veloc_base.x.val = memaccl.x.val;
     deadtng->veloc_base.y.val = memaccl.y.val;
     deadtng->veloc_base.z.val = memaccl.z.val;
-    sim_feedback->thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+    audio_thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
     return deadtng;
 }
 
@@ -3149,7 +3056,7 @@ struct Thing* thing_death_smoke_explosion(struct Thing *thing)
     deadtng->veloc_base.x.val = memaccl.x.val;
     deadtng->veloc_base.y.val = memaccl.y.val;
     deadtng->veloc_base.z.val = memaccl.z.val;
-    sim_feedback->thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+    audio_thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
     return deadtng;
 }
 
@@ -3183,7 +3090,7 @@ struct Thing* thing_death_ice_explosion(struct Thing *thing)
     deadtng->veloc_base.x.val = memaccl.x.val;
     deadtng->veloc_base.y.val = memaccl.y.val;
     deadtng->veloc_base.z.val = memaccl.z.val;
-    sim_feedback->thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+    audio_thing_play_sample(deadtng, 47, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
     return deadtng;
 }
 
@@ -3270,7 +3177,7 @@ struct Thing* cause_creature_death(struct Thing *thing, CrDeathFlags flags)
 
     if (!flag_is_set(flags,CrDed_NotReallyDying))
     {
-        script_hooks->lua_on_creature_death(thing);
+        script_lua_on_creature_death(thing);
     }
 
     creature_throw_out_gold(thing);
@@ -3329,15 +3236,10 @@ void prepare_to_controlled_creature_death(struct Thing *thing)
     leave_creature_as_controller(player, thing);
     player->influenced_thing_idx = 0;
     player->influenced_thing_creation = 0;
-    sim_feedback->set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
-    sim_feedback->sync_local_camera(player);
+    set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
+    signal_local_camera_sync(player);
     if (is_my_player(player)) {
-        sim_feedback->turn_off_all_window_menus();
-        sim_feedback->turn_off_query_menus();
-        sim_feedback->turn_on_main_panel_menu();
-        set_flag_value(kfx_sim_state.operation_flags, GOF_ShowPanel, (kfx_sim_state.operation_flags & GOF_ShowGui) != 0);
-        sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
-        local_state.palette_fade_step_possession = 11;
+        ui_local_view_transition(player, LVTr_ControlledCreatureDied);
     }
     turn_user_cursor_light(player->user_id, true);
 }
@@ -3488,12 +3390,12 @@ struct Thing *kill_creature(struct Thing *creatng, struct Thing *killertng, Play
     {
         if (flag_is_set(flags, CrDed_DiedInBattle))
         {
-            sim_feedback->output_message_far_from_thing(creatng, SMsg_BattleDeath, MESSAGE_DURATION_BATTLE);
+            audio_output_message_far_from_thing(creatng, SMsg_BattleDeath, MESSAGE_DURATION_BATTLE);
         }
     }
     else if (is_my_player_number(killertng->owner))
     {
-        sim_feedback->output_message_far_from_thing(creatng, SMsg_BattleWon, MESSAGE_DURATION_BATTLE);
+        audio_output_message_far_from_thing(creatng, SMsg_BattleWon, MESSAGE_DURATION_BATTLE);
     }
     SYNCDBG(18, "Almost finished");
     if (!creature_can_be_set_unconscious(creatng, killertng, flags))
@@ -3871,21 +3773,19 @@ void thing_fire_shot(struct Thing *firing, struct Thing *target, ThingModel shot
       // Special debug code that shows amount of damage the shot will make
       if (flag_is_set(start_params.debug_flags, DFlg_ShotsDamage))
           create_price_effect(&pos1, my_player_number, damage);
-#if (BFDEBUG_LEVEL > 0)
-      if ((damage < 0) || (damage > 2000))
+      if (KFX_DEBUG_ON(0) && ((damage < 0) || (damage > 2000)))
       {
         WARNLOG("Shot of type %" PRId64 " carries %" PRId64 " damage",(int64_t)shot_model,(int64_t)damage);
       }
-#endif
       shotng->shot.hit_type = hit_type;
       if (shotst->firing_sound > 0)
       {
-        sim_feedback->thing_play_sample(firing, shotst->firing_sound + SOUND_RANDOM(shotst->firing_sound_variants),
+        audio_thing_play_sample(firing, shotst->firing_sound + SOUND_RANDOM(shotst->firing_sound_variants),
             100, 0, 3, 0, 3, FULL_LOUDNESS);
       }
       if (shotst->shot_sound > 0)
       {
-        sim_feedback->thing_play_sample(shotng, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, shotst->sound_priority, FULL_LOUDNESS);
+        audio_thing_play_sample(shotng, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, shotst->sound_priority, FULL_LOUDNESS);
       }
       set_flag_value(shotng->movement_flags, TMvF_GoThroughWalls, flag1);
     }
@@ -3977,7 +3877,7 @@ ThingIndex get_human_controlled_creature_target(struct Thing *thing, CrInstance 
     if((inst_inf->instance_property_flags & InstPF_SelfBuff) != 0)
     {
         if ((inst_inf->instance_property_flags & InstPF_RangedBuff) == 0 ||
-            sim_feedback->packet_crtr_control_pressed(packet))
+            packet_crtr_control_pressed(packet))
         {
             // If it doesn't have RANGED_BUFF or the Possession key (default:left shift) is pressed,
             // cast on the caster itself.
@@ -4361,77 +4261,6 @@ int64_t zoom_to_next_annoyed_creature(void)
     }
     set_players_packet_action(player, PckA_ZoomToPosition, thing->mappos.x.val, thing->mappos.y.val, 0, 0);
     return true;
-}
-
-void draw_creature_view(struct Thing *thing)
-{
-  // If no eye lens required - just draw on the screen, directly
-  struct PlayerInfo* player = get_my_player();
-  struct Camera* render_cam = sim_feedback->get_local_camera(&player->cameras[CamIV_FirstPerson]);
-  if (!sim_feedback->lens_is_ready())
-  {
-      sim_feedback->engine(player, render_cam);
-      // Still need to draw swipe even when no lens effect is active.
-      draw_swipe_graphic();
-      return;
-  }
-  // GPU world renderer (gpu-v2 Phase C.3): keep the scene on the GPU rather
-  // than redirecting the whole engine into a CPU buffer. Render normally,
-  // read the finished frame (GPU layer + CPU overlays) back into the lens
-  // source buffer, then run the unchanged CPU lens post-pass over it. The
-  // per-effect decision is 'CPU post-pass over a read-back frame' -- see
-  // docs/refactor/renderer/gpu-v2/07-phased-delivery.md.
-  if (RendererWorldFrameActive())
-  {
-      TbPixel* srcmem = sim_feedback->lens_get_render_target();
-      uint64_t src_width = sim_feedback->lens_get_render_target_width();
-      sim_feedback->engine(player, render_cam);
-      draw_swipe_graphic();
-      int64_t vw = local_state.engine_window_width / pixel_size;
-      int64_t vh = local_state.engine_window_height / pixel_size;
-      int64_t vx = local_state.engine_window_x / pixel_size;
-      int64_t vy = local_state.engine_window_y / pixel_size;
-      memset(srcmem, 0, src_width * sim_feedback->lens_get_render_target_height() * sizeof(TbPixel));
-      RendererCopyFrameRect(srcmem, src_width, vx, vy, vw, vh);
-      sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
-      sim_feedback->draw_lens_effect(RendererGetFramebuffer() + vy * lbDisplay.GraphicsScreenWidth + vx,
-          lbDisplay.GraphicsScreenWidth, srcmem, src_width, vw, vh, vx, kfx_sim_state.applied_lens_type);
-      return;
-  }
-  // So there is an eye lens - we have to put a buffer in place of screen,
-  // draw on that buffer, an then copy it to screen applying lens effect.
-  TbPixel* scrmem = sim_feedback->lens_get_render_target();
-  uint64_t render_width = sim_feedback->lens_get_render_target_width();
-  uint64_t render_height = sim_feedback->lens_get_render_target_height();
-  
-  // Store previous graphics settings
-  TbGraphicsWindow grwnd;
-  LbScreenStoreGraphicsWindow(&grwnd);
-  // Prepare new settings
-  memset(scrmem, 0, render_width*render_height*sizeof(TbPixel));
-  TbPixel* wscr_cp = RendererSwapFramebufferTarget(scrmem, render_width, render_height);
-  LbScreenSetGraphicsWindow(0, 0, MyScreenWidth/pixel_size, MyScreenHeight/pixel_size);
-  // Draw on our buffer
-  sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
-  sim_feedback->engine(player, render_cam);
-  // Draw swipe into buffer BEFORE lens effects (so overlay renders on top of swipe)
-  draw_swipe_graphic();
-  // Get the actual viewport dimensions (accounts for sidebar)
-  int64_t view_width = local_state.engine_window_width / pixel_size;
-  int64_t view_height = local_state.engine_window_height / pixel_size;
-  int64_t view_x = local_state.engine_window_x / pixel_size;
-  int64_t view_y = local_state.engine_window_y / pixel_size;
-  // Restore original graphics settings
-  RendererRestoreFramebufferTarget(wscr_cp);
-  LbScreenLoadGraphicsWindow(&grwnd);
-  // Draw the buffer on real screen using actual viewport dimensions
-  sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
-  // Apply lens effect to the viewport area only (not including sidebar)
-  // Pass full srcbuf so displacement map lookups work correctly
-  // Calculate 2D viewport offset for destination buffer
-  int64_t dst_offset = view_y * lbDisplay.GraphicsScreenWidth + view_x;
-  sim_feedback->draw_lens_effect(RendererGetFramebuffer() + dst_offset, lbDisplay.GraphicsScreenWidth,
-      scrmem, render_width, view_width, view_height, view_x, kfx_sim_state.applied_lens_type);
 }
 
 struct Thing *get_creature_near_for_controlling(PlayerNumber plyr_idx, MapCoord x, MapCoord y)
@@ -4857,7 +4686,7 @@ void change_creature_owner(struct Thing *creatng, PlayerNumber nowner)
     SYNCDBG(6,"Starting for %s, owner %" PRId64 " to %" PRId64,thing_model_name(creatng),(int64_t)creatng->owner,(int64_t)nowner);
     // Remove the creature from old owner
     if (creatng->light_id != 0) {
-        sim_feedback->light_delete_light(creatng->light_id);
+        light_delete_light(creatng->light_id);
         creatng->light_id = 0;
     }
     cleanup_creature_state_and_interactions(creatng);
@@ -4914,20 +4743,20 @@ struct Thing *create_creature(struct Coord3d *pos, ThingModel model, PlayerNumbe
     if (!i_can_allocate_free_thing_structure(TCls_Creature))
     {
         ERRORDBG(3, "Cannot create %s for player %" PRId64 ". There are too many things allocated.", creature_code_name(model), (int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     if (!i_can_allocate_free_control_structure())
     {
         ERRORDBG(3, "Cannot create %s for player %" PRId64 ". There are too many creatures allocated.", creature_code_name(model), (int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeCreatrs);
+        ui_report_error_stat(ESE_NoFreeCreatrs);
         return INVALID_THING;
     }
     struct Thing *crtng = allocate_free_thing_structure(TCls_Creature);
     if (crtng->index == 0)
     {
         ERRORDBG(3, "Should be able to allocate %s for player %" PRId64 ", but failed.", creature_code_name(model), (int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct CreatureControl *cctrl = allocate_free_control_structure();
@@ -5743,22 +5572,6 @@ struct Thing *pick_up_creature_of_model_and_gui_job(int64_t crmodel, int64_t job
     return thing;
 }
 
-/**
- *
- * @param crmodel
- * @param job_idx
-  * @param pick_flags
- * @note originally was go_to_next_creature_of_breed_and_job()
- */
-void go_to_next_creature_of_model_and_gui_job(int64_t crmodel, int64_t job_idx, unsigned char pick_flags)
-{
-    struct Thing* creatng = find_players_next_creature_of_breed_and_gui_job(crmodel, job_idx, my_player_number, pick_flags);
-    if (!thing_is_invalid(creatng))
-    {
-        sim_feedback->move_local_camera_to_position(creatng->mappos.x.val, creatng->mappos.y.val);
-    }
-}
-
 TbBool creature_is_doing_job_in_room_role(const struct Thing *creatng, RoomRole rrole)
 {
     {
@@ -5777,175 +5590,6 @@ TbBool creature_is_doing_job_in_room_role(const struct Thing *creatng, RoomRole 
         }
     }
     return false;
-}
-
-int64_t player_list_creature_filter_needs_to_be_placed_in_room_for_job(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
-{
-    SYNCDBG(19,"Starting for %s index %" PRId64 " owner %" PRId64,thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
-    struct Computer2* comp = (struct Computer2*)(param->primary_pointer);
-    struct Dungeon* dungeon = computer_dungeon(comp);
-    if (!can_thing_be_picked_up_by_player(thing, dungeon->owner)) {
-        return -1;
-    }
-    if (creature_is_being_dropped(thing)) {
-        return -1;
-    }
-    struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
-
-    // If the creature is too angry to help it
-    if (creature_is_doing_anger_job(thing) || anger_is_creature_livid(thing))
-    {
-        // If the creature is not running free, then leave it where it is
-        if (creature_is_kept_in_prison(thing) ||
-            creature_is_being_tortured(thing) ||
-            creature_is_being_sacrificed(thing)) {
-            return -1;
-        }
-        // Try torturing it
-        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_PAINFUL_TORTURE)))
-        {
-            param->secondary_number = Job_PAINFUL_TORTURE;
-            return INT32_MAX;
-        }
-        // Or putting in prison
-        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_CAPTIVITY)))
-        {
-            param->secondary_number = Job_CAPTIVITY;
-            return INT32_MAX;
-        }
-        // If we can't, then just let it leave the dungeon
-        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_EXEMPT)))
-        {
-            param->secondary_number = Job_EXEMPT;
-            return INT32_MAX;
-        }
-    }
-
-    HitPoints health_permil = get_creature_health_permil(thing);
-    // If it's angry but not furious, or has lost health due to disease, then should be placed in temple.
-    if ((anger_is_creature_angry(thing)
-    || (creature_under_spell_effect(thing, CSAfF_Disease) && (health_permil <= (kfx_config_state.conf.rules[thing->owner].computer.disease_to_temple_pct * 10))))
-    && creature_can_do_job_for_player(thing, dungeon->owner, Job_TEMPLE_PRAY, JobChk_None))
-    {
-        // If already at temple, then don't do anything
-        if (creature_is_doing_temple_pray_activity(thing))
-            return -1;
-        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_TEMPLE_PRAY)))
-        {
-            param->secondary_number = Job_TEMPLE_PRAY;
-            return INT32_MAX;
-        }
-    }
-
-    // If the creature require healing, then drop it to lair. When in combat, try to cast heal first.
-    if (cctrl->combat_flags)
-    {
-        // Simplified algorithm when creature is in combat
-        if (creature_requires_healing(thing))
-        {
-            // If already at lair, then don't do anything
-            if (!creature_is_doing_lair_activity(thing))
-            {
-                // cast heal if we can, don't always use max level to appear lifelike
-                CrtrExpLevel spell_level = PLAYER_RANDOM(dungeon->owner, 4) + 5;
-                if (computer_able_to_use_power(comp, PwrK_HEALCRTR, spell_level, 1))
-                {
-                    if (try_game_action(comp, dungeon->owner, GA_UsePwrHealCrtr, spell_level, thing->mappos.x.stl.num, thing->mappos.y.stl.num, thing->index, 1) > Lb_OK)
-                    {
-                        return INT32_MAX;
-                    } else
-                    {
-                        return -1;
-                    }
-                } else
-                // otherwise, put it into room we want
-                {
-                    if (creature_can_do_healing_sleep(thing))
-                    {
-                        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_TAKE_SLEEP)))
-                        {
-                            param->secondary_number = Job_TAKE_SLEEP;
-                            return INT32_MAX;
-                        }
-                    }
-                }
-            }
-        }
-        return -1;
-    } else
-    {
-        if (creature_can_do_healing_sleep(thing))
-        {
-            // Be more careful when not in combat
-            if ((health_permil < 1000*crconf->heal_threshold/256) || !creature_has_lair_room(thing))
-            {
-                // If already at lair, then don't do anything
-                if (creature_is_doing_lair_activity(thing))
-                    return -1;
-                // don't force it to lair if it wants to eat or take salary
-                if (creature_is_doing_garden_activity(thing) || creature_is_taking_salary_activity(thing))
-                    return -1;
-                // otherwise, put it into room we want
-                if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_TAKE_SLEEP)))
-                {
-                    param->secondary_number = Job_TAKE_SLEEP;
-                    return INT32_MAX;
-                }
-            }
-        }
-    }
-
-    // If creature is hungry, place it at garden
-    if (hunger_is_creature_hungry(thing))
-    {
-        // If already at garden, then don't do anything
-        if (creature_is_doing_garden_activity(thing))
-            return -1;
-        // don't force it if it wants to take salary
-        if (creature_is_taking_salary_activity(thing))
-            return -1;
-        // otherwise, put it into room we want
-        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_TAKE_FEED)))
-        {
-            param->secondary_number = Job_TAKE_FEED;
-            return INT32_MAX;
-        }
-    }
-
-    // If creature wants salary, let it go get the gold
-    if ( cctrl->paydays_owed )
-    {
-        // If already taking salary, then don't do anything
-        if (creature_is_taking_salary_activity(thing))
-            return -1;
-        if (player_has_room_of_role(dungeon->owner, get_room_role_for_job(Job_TAKE_SALARY)))
-        {
-            param->secondary_number = Job_TAKE_SALARY;
-            return INT32_MAX;
-        }
-    }
-
-    TbBool force_state_reset = false;
-    // Creatures may have primary jobs other than training, or selected when there was no possibility to train
-    // Make sure they are re-assigned sometimes
-    if (creature_could_be_placed_in_better_room(comp, thing))
-    {
-        force_state_reset = true;
-    }
-
-    // Get other rooms the creature may work in
-    if (creature_state_is_unset(thing) || force_state_reset)
-    {
-        CreatureJob new_job = get_job_to_place_creature_in_room(comp, thing);
-        // Make sure the place we've selected is not the same as the one creature works in now
-        if (!creature_is_doing_job_in_room_role(thing, get_room_role_for_job(new_job)))
-        {
-            param->secondary_number = new_job;
-            return INT32_MAX;
-        }
-    }
-    return -1;
 }
 
 struct Thing *create_footprint_sine(struct Coord3d *crtr_pos, int64_t phase, int64_t nfoot, int64_t model, int64_t owner)
@@ -6416,7 +6060,7 @@ int64_t update_creature_levels(struct Thing *thing)
         return 0;
     }
     cctrl->exp_level_up = false;
-    script_hooks->lua_on_level_up(thing);
+    script_lua_on_level_up(thing);
 
     // If a creature is not on highest level, just update the level.
     if (cctrl->exp_level+1 < CREATURE_MAX_LEVEL)
@@ -6492,7 +6136,7 @@ TngUpdateRet update_creature(struct Thing *thing)
         clear_flag(cctrl->creature_state_flags, TF2_CreatureOutOfPlay);
         remove_thing_from_creature_controlled_limbo(thing);
         if (thing->light_id != 0) {
-            sim_feedback->light_turn_light_on(thing->light_id);
+            light_turn_light_on(thing->light_id);
         }
         set_start_state(thing);
     }
@@ -6539,14 +6183,14 @@ TngUpdateRet update_creature(struct Thing *thing)
         {
             if (!flag_is_set(ustate->additional_flags, UsrAF_FreezePaletteIsActive))
             {
-                sim_feedback->PaletteSetUserPalette(player->user_id, blue_palette);
+                render_PaletteSetUserPalette(player->user_id, blue_palette);
             }
         }
         else
         {
             if (flag_is_set(ustate->additional_flags, UsrAF_FreezePaletteIsActive))
             {
-                sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+                render_PaletteSetUserPalette(player->user_id, engine_palette);
             }
         }
     } else
@@ -6741,7 +6385,7 @@ int64_t claim_neutral_creatures_in_sight(struct Thing *creatng, int64_t can_see_
                     mark_creature_joined_dungeon(thing);
                     if (is_my_player_number(thing->owner))
                     {
-                        sim_feedback->play_sound_message(SMsg_CreaturesJoinedYou, MESSAGE_DURATION_CRTR_JOINED);
+                        audio_output_message(SMsg_CreaturesJoinedYou, MESSAGE_DURATION_CRTR_JOINED);
                     }
                     n++;
                 }
@@ -6842,9 +6486,9 @@ void create_light_for_possession(struct Thing *creatng)
     ilght.colour_r = kfx_config_state.conf.rules[creatng->owner].gameplay.possession_light_r;
     ilght.colour_g = kfx_config_state.conf.rules[creatng->owner].gameplay.possession_light_g;
     ilght.colour_b = kfx_config_state.conf.rules[creatng->owner].gameplay.possession_light_b;
-    creatng->light_id = sim_feedback->light_create_light(&ilght);
+    creatng->light_id = light_create_light(&ilght);
     if (creatng->light_id != 0) {
-        sim_feedback->light_set_light_never_cache(creatng->light_id);
+        light_set_light_never_cache(creatng->light_id);
     } else {
       ERRORLOG("Cannot allocate light to new controlled thing");
     }
@@ -6856,8 +6500,8 @@ void illuminate_creature(struct Thing *creatng)
     {
         create_light_for_possession(creatng);
     }
-    sim_feedback->light_set_light_intensity(creatng->light_id, (sim_feedback->light_get_light_intensity(creatng->light_id) + 20));
-    sim_feedback->light_set_light_radius(creatng->light_id, sim_feedback->light_get_light_radius(creatng->light_id) << 1);
+    light_set_light_intensity(creatng->light_id, (light_get_light_intensity(creatng->light_id) + 20));
+    light_set_light_radius(creatng->light_id, light_get_light_radius(creatng->light_id) << 1);
 }
 
 struct Thing *script_create_creature_at_location(PlayerNumber plyr_idx, ThingModel crmodel, TbMapLocation location, char spawn_type)
@@ -6906,8 +6550,8 @@ struct Thing *script_create_creature_at_location(PlayerNumber plyr_idx, ThingMod
     // Lord of the land random speech message.
     if (flag_is_set(get_creature_model_flags(thing), CMF_IsLordOfLand))
     {
-        sim_feedback->play_sound_message(SMsg_LordOfLandComming, MESSAGE_DURATION_LORD);
-        sim_feedback->play_sound_message(SMsg_EnemyLordQuote + SOUND_RANDOM(8), MESSAGE_DURATION_LORD);
+        audio_output_message(SMsg_LordOfLandComming, MESSAGE_DURATION_LORD);
+        audio_output_message(SMsg_EnemyLordQuote + SOUND_RANDOM(8), MESSAGE_DURATION_LORD);
     }
 
     switch (spawn_type)
@@ -6997,7 +6641,7 @@ void controlled_creature_pick_thing_up(struct Thing *creatng, struct Thing *pick
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     cctrl->pickup_object_id = picktng->index;
     struct CreatureSound* crsound = get_creature_sound(creatng, CrSnd_Hit);
-    sim_feedback->thing_play_sample(creatng, creature_sound_unified_id(crsound, 1), 90, 0, 3, 0, 2, FULL_LOUDNESS * 5/4);
+    audio_thing_play_sample(creatng, creature_sound_unified_id(crsound, 1), 90, 0, 3, 0, 2, FULL_LOUDNESS * 5/4);
     display_controlled_pick_up_thing_name(picktng, (GUI_MESSAGES_DELAY >> 4), plyr_idx);
 }
 /**
@@ -7018,8 +6662,8 @@ void controlled_creature_drop_thing(struct Thing *creatng, struct Thing *droptng
     {
         creature_drop_dragged_object(creatng, droptng);
     }
-    sim_feedback->clear_messages_from_player(MsgType_Room, RoK_LIBRARY);
-    sim_feedback->clear_messages_from_player(MsgType_Room, RoK_WORKSHOP);
+    ui_clear_messages_from_player(MsgType_Room, RoK_LIBRARY);
+    ui_clear_messages_from_player(MsgType_Room, RoK_WORKSHOP);
     int64_t smpl_idx, pitch;
     if (subtile_has_water_on_top(droptng->mappos.x.stl.num, droptng->mappos.y.stl.num))
     {
@@ -7089,7 +6733,7 @@ void controlled_creature_drop_thing(struct Thing *creatng, struct Thing *droptng
             }
         }
     }
-    sim_feedback->thing_play_sample(droptng, smpl_idx, pitch, 0, 3, 0, 2, volume);
+    audio_thing_play_sample(droptng, smpl_idx, pitch, 0, 3, 0, 2, volume);
     struct Room* room = subtile_room_get(creatng->mappos.x.stl.num, creatng->mappos.y.stl.num);
     if (!room_is_invalid(room))
     {
@@ -7109,7 +6753,7 @@ void controlled_creature_drop_thing(struct Thing *creatng, struct Thing *droptng
                         WARNLOG("Adding %s index %" PRId64 " to %s room capacity failed",thing_model_name(droptng),(int64_t)droptng->index,room_role_code_name(RoRoF_PowersStorage));
                         if (is_my_player_number(plyr_idx))
                         {
-                            sim_feedback->play_sound_message(SMsg_LibraryTooSmall, 0);
+                            audio_output_message(SMsg_LibraryTooSmall, 0);
                         }
                     }
                 }
@@ -7132,7 +6776,7 @@ void controlled_creature_drop_thing(struct Thing *creatng, struct Thing *droptng
                         WARNLOG("Adding %s index %" PRId64 " to %s room capacity failed",thing_model_name(droptng),(int64_t)droptng->index,room_role_code_name(RoRoF_CratesStorage));
                         if (is_my_player_number(plyr_idx))
                         {
-                            sim_feedback->play_sound_message(SMsg_WorkshopTooSmall, 0);
+                            audio_output_message(SMsg_WorkshopTooSmall, 0);
                         }
                     }
                 }
@@ -7149,7 +6793,7 @@ void controlled_creature_drop_thing(struct Thing *creatng, struct Thing *droptng
                     {
                         if (is_my_player_number(plyr_idx))
                         {
-                            sim_feedback->play_sound_message(SMsg_GraveyardTooSmall, 0);
+                            audio_output_message(SMsg_GraveyardTooSmall, 0);
                         }
                     }
                 }
@@ -7171,7 +6815,7 @@ void controlled_creature_drop_thing(struct Thing *creatng, struct Thing *droptng
                         {
                             if (is_my_player_number(plyr_idx))
                             {
-                                sim_feedback->play_sound_message(SMsg_PrisonTooSmall, 0);
+                                audio_output_message(SMsg_PrisonTooSmall, 0);
                             }
                         }
                     }
@@ -7410,8 +7054,8 @@ void display_controlled_pick_up_thing_name(struct Thing *picktng, uint64_t timeo
     {
         return;
     }
-    sim_feedback->zero_messages();
-    sim_feedback->targeted_message_add(type, id, plyr_idx, timeout, str);
+    ui_zero_messages();
+    ui_targeted_message_add(type, id, plyr_idx, timeout, str);
 }
 
 struct Thing *controlled_get_thing_to_pick_up(struct Thing *creatng)
@@ -7684,19 +7328,19 @@ void query_creature(struct PlayerInfo *player, ThingIndex index, TbBool reset, T
         }
         else
         {
-            if (render_overlay->menu_is_active(GMnu_CREATURE_QUERY1))
+            if (ui_menu_is_active(GMnu_CREATURE_QUERY1))
             {
                 menu = GMnu_CREATURE_QUERY1;
             }
-            else if (render_overlay->menu_is_active(GMnu_CREATURE_QUERY2))
+            else if (ui_menu_is_active(GMnu_CREATURE_QUERY2))
             {
                 menu = GMnu_CREATURE_QUERY2;
             }
-            else if (render_overlay->menu_is_active(GMnu_CREATURE_QUERY3))
+            else if (ui_menu_is_active(GMnu_CREATURE_QUERY3))
             {
                 menu = GMnu_CREATURE_QUERY3;
             }
-            else if (render_overlay->menu_is_active(GMnu_CREATURE_QUERY4))
+            else if (ui_menu_is_active(GMnu_CREATURE_QUERY4))
             {
                 menu = GMnu_CREATURE_QUERY4;
             }
@@ -7705,9 +7349,9 @@ void query_creature(struct PlayerInfo *player, ThingIndex index, TbBool reset, T
                 menu = GMnu_CREATURE_QUERY1;
             }
         }
-        sim_feedback->turn_off_all_panel_menus();
-        sim_feedback->initialise_tab_tags_and_menu(menu);
-        sim_feedback->turn_on_menu(menu);
+        ui_turn_off_all_panel_menus();
+        ui_initialise_tab_tags_and_menu(menu);
+        ui_turn_on_menu(menu);
     }
     struct Thing* creatng = thing_get(index);
     player->influenced_thing_idx = index;
@@ -7939,7 +7583,7 @@ TbResult script_use_spell_on_creature(PlayerNumber plyr_idx, struct Thing *thing
         }
         if (spconf->caster_affect_sound)
         {
-            sim_feedback->thing_play_sample(thing, spconf->caster_affect_sound + SOUND_RANDOM(spconf->caster_sounds_count), NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+            audio_thing_play_sample(thing, spconf->caster_affect_sound + SOUND_RANDOM(spconf->caster_sounds_count), NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
         }
         apply_spell_effect_to_thing(thing, spkind, spell_level, plyr_idx);
         if (flag_is_set(spconf->spell_flags, CSAfF_Disease))
@@ -8107,7 +7751,7 @@ int64_t get_foot_creature_has_down(struct Thing *thing)
         return 0;
     int64_t frame = (creature_is_dragging_something(thing)) ? CGI_Drag : CGI_Ambulate;
     n = get_creature_model_graphics(thing->model, frame);
-    i = sim_feedback->get_td_animation_sprite(n);
+    i = render_get_td_animation_sprite(n);
     if (i != thing->anim_sprite)
         return 0;
     if (val == 1)
@@ -8301,7 +7945,7 @@ void update_footsteps_nearest_camera(struct Camera *cam)
         thing = thing_get(near_creatures[i]);
         if (thing_is_creature(thing)) {
             thing->state_flags |= TF1_DoFootsteps;
-            sim_feedback->play_thing_walking(thing);
+            audio_play_thing_walking(thing);
         }
     }
     if (timeslice == 0)

@@ -1,4 +1,5 @@
 #include "ftest_editor_strokes.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 

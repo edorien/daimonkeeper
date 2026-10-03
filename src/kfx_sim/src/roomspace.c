@@ -24,11 +24,9 @@
 #include "config_sounds.h"
 #include "player_utils.h"
 #include "map_blocks.h"
-#include "sim_feedback.h"
 #include "config_settings.h"
 #include "slab_data.h"
 #include "tasks_list.h"
-#include "roomspace_prediction.h"
 #include "player_instances.h"
 #include "thing_effects.h"
 #include "config_terrain.h"
@@ -37,14 +35,17 @@
 #include "kfx_sim_state.h"
 #include "kfx_config_state.h"
 #include "packet_data.h"
+#include "player_availability.h"
+#include "player_camera.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 /******************************************************************************/
-TbBool reset_roomspace = false;
-
 static int64_t get_packet_roomspace_size(const struct Packet *pckt, int64_t size)
 {
     switch (pckt->action) {
@@ -493,56 +494,6 @@ int64_t can_build_roomspace(PlayerNumber plyr_idx, RoomKind rkind, struct RoomSp
     return canbuild;
 }
 
-int64_t numpad_to_value(TbBool allow_zero)
-{
-    int64_t value = 0;
-    if (!allow_zero)
-    {
-        value = 1;
-    }
-    if (sim_feedback->is_key_pressed(KC_NUMPAD0, KMod_DONTCARE) && allow_zero)
-    {
-        value = 0;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD1, KMod_DONTCARE))
-    {
-        value = 1;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD2, KMod_DONTCARE))
-    {
-        value = 2;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD3, KMod_DONTCARE))
-    {
-        value = 3;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD4, KMod_DONTCARE))
-    {
-        value = 4;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD5, KMod_DONTCARE))
-    {
-        value = 5;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD6, KMod_DONTCARE))
-    {
-        value = 6;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD7, KMod_DONTCARE))
-    {
-        value = 7;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD8, KMod_DONTCARE))
-    {
-        value = 8;
-    }
-    else if (sim_feedback->is_key_pressed(KC_NUMPAD9, KMod_DONTCARE))
-    {
-        value = 9;
-    }
-    return value;
-}
-
 void reset_dungeon_build_room_ui_variables(PlayerNumber plyr_idx)
 {
     struct PlayerInfo* player = get_player(plyr_idx);
@@ -899,10 +850,10 @@ TbBool update_dungeon_build_roomspace_preview(NetUserId user, MapSubtlCoord stl_
     struct UserState* ustate = get_user_state(user);
     ustate->full_slab_cursor = 1;
     if (is_my_player(player)) {
-        sim_feedback->set_room_type_highlighted(ustate->chosen_room_kind);
+        ui_set_room_type_highlighted(ustate->chosen_room_kind);
     }
     get_dungeon_build_user_roomspace(&player->render_roomspace, user, ustate->chosen_room_kind, stl_x, stl_y, player->roomspace_mode);
-    return sim_feedback->tag_cursor_blocks_place_room(user, stl_x, stl_y, ustate->full_slab_cursor);
+    return render_tag_cursor_blocks_place_room(user, stl_x, stl_y, ustate->full_slab_cursor);
 }
 
 TbBool update_dungeon_sell_roomspace_preview(NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
@@ -916,7 +867,7 @@ TbBool update_dungeon_sell_roomspace_preview(NetUserId user, MapSubtlCoord stl_x
         ustate->full_slab_cursor = 0;
     }
     get_dungeon_sell_user_roomspace(&player->render_roomspace, user, stl_x, stl_y);
-    return sim_feedback->tag_cursor_blocks_sell_area(plyr_idx, stl_x, stl_y, ustate->full_slab_cursor);
+    return render_tag_cursor_blocks_sell_area(plyr_idx, stl_x, stl_y, ustate->full_slab_cursor);
 }
 
 void apply_roomspace_packet_action(struct PlayerInfo *player, NetUserId user, const struct Packet *pckt)
@@ -1131,7 +1082,7 @@ int64_t apply_roomspace_dig_tag_selection(PlayerNumber plyr_idx, struct RoomSpac
                         dig_change_count += tag_blocks_for_digging_in_area(stl_x, stl_y, plyr_idx);
                     } else if (is_my_player(player)) {
                         if (subtile_is_diggable_for_player(plyr_idx, stl_x, stl_y, false)) {
-                            sim_feedback->play_sound_message(SMsg_WorkerJobsLimit, 500);
+                            audio_output_message(SMsg_WorkerJobsLimit, 500);
                         }
                         return dig_change_count;
                     }
@@ -1256,11 +1207,11 @@ struct Room *keeper_build_room(NetUserId user, int64_t stl_x, int64_t stl_y, int
             ustate->boxsize--;
         if (ustate->boxsize > 1)
         {
-            dungeon->camera_deviate_jump = 240;
+            kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 240;
         }
         else
         {
-            dungeon->camera_deviate_jump = 192;
+            kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 192;
         }
         struct Coord3d pos;
         set_coords_to_slab_center(&pos, subtile_slab(stl_x), subtile_slab(stl_y));
@@ -1416,115 +1367,6 @@ void update_roomspaces()
         {
             keeper_update_roomspace(&get_player(plyr_idx)->roomspace);
         }
-    }
-}
-
-static int64_t get_roomspace_size_input(void)
-{
-    if (sim_feedback->is_roomspace_incsize_key_pressed()) {
-        if (local_state.roomspace_size < MAX_USER_ROOMSPACE_WIDTH) {
-            local_state.roomspace_size++;
-        }
-    } else if (sim_feedback->is_roomspace_decsize_key_pressed() && local_state.roomspace_size > MIN_USER_ROOMSPACE_WIDTH) {
-        local_state.roomspace_size--;
-    }
-    return local_state.roomspace_size;
-}
-
-static void process_box_roomspace_inputs(struct Packet *pckt)
-{
-    if (sim_feedback->is_square_roomspace_key_pressed()) {
-        set_packet_action(pckt, PckA_SetRoomspaceMan, get_roomspace_size_input(), 0, 0, 0);
-    } else {
-        local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
-        int64_t size = numpad_to_value(false);
-        if (size > 1) {
-            set_packet_action(pckt, PckA_SetRoomspaceDefault, size, 0, 0, 0);
-        } else {
-            set_packet_action(pckt, PckA_SetRoomspaceDrag, 0, 0, 0, 0);
-        }
-    }
-}
-
-void process_build_roomspace_inputs(PlayerNumber plyr_idx)
-{
-    struct PlayerInfo* player = get_player(plyr_idx);
-    struct UserState* ustate = get_local_user_state(); // local input path
-    struct Packet* pckt = get_local_packet() /* local input path */;
-    if (room_role_matches(ustate->chosen_room_kind,RoRoF_PassLava|RoRoF_PassWater|RoRoF_PassAbyss)) {
-        local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
-        TbBool drag_check = ( ( (sim_feedback->is_best_roomspace_key_pressed()) || (sim_feedback->is_square_roomspace_key_pressed()) ) && (sim_feedback->is_left_button_held()));
-        if (drag_check) { // Enable "paint mode" if Ctrl or Shift are held
-            set_packet_action(pckt, PckA_SetRoomspaceDragPaint, 0, 0, 0, 0);
-        } else {
-            set_packet_action(pckt, PckA_SetRoomspaceDrag, 0, 0, 0, 0);
-        }
-    } else if (sim_feedback->is_best_roomspace_key_pressed()) { // Find "best" room
-        unsigned char looseness = player->roomspace_detection_looseness;
-        if (sim_feedback->is_roomspace_incsize_key_pressed()) {
-            if (looseness < tolerate_gold) {
-                looseness = tolerate_gold;
-            } else if (looseness != tolerate_rock) {
-                looseness = tolerate_rock;
-            }
-        } else if (sim_feedback->is_roomspace_decsize_key_pressed()) {
-            if (looseness == tolerate_rock) {
-                looseness = tolerate_gold;
-            } else if (looseness != disable_tolerance_layers) {
-                looseness = disable_tolerance_layers;
-            }
-        }
-        if (looseness != player->roomspace_detection_looseness || player->roomspace_mode != roomspace_detection_mode) {
-            set_packet_action(pckt, PckA_SetRoomspaceAuto, looseness, 0, 0, 0);
-        }
-    } else {
-        process_box_roomspace_inputs(pckt);
-    }
-}
-
-void process_sell_roomspace_inputs(PlayerNumber plyr_idx)
-{
-    struct Packet* pckt = get_local_packet() /* local input path */;
-    if (sim_feedback->is_sell_trap_on_subtile_key_pressed()) {
-        set_packet_action(pckt, PckA_SetRoomspaceSubtile, 0, 0, 0, 0);
-    } else if (sim_feedback->is_best_roomspace_key_pressed()) {
-        set_packet_action(pckt, PckA_SetRoomspaceWholeRoom, 0, 0, 0, 0);
-    } else {
-        process_box_roomspace_inputs(pckt);
-    }
-}
-
-void process_highlight_roomspace_inputs(PlayerNumber plyr_idx)
-{
-    struct UserState* ustate = get_local_user_state(); // local input path
-    struct PlayerInfo* player = get_player(plyr_idx);
-    if (sim_feedback->is_best_roomspace_key_pressed()) {
-        set_players_packet_action(player, PckA_SetRoomspaceHighlight, settings.highlight_mode ^ 1, settings.highlight_mode, 0, 0);
-        reset_roomspace = true;
-        return;
-    } else if (sim_feedback->is_square_roomspace_key_pressed()) {
-        set_players_packet_action(player, PckA_SetRoomspaceHighlight, roomspace_detection_mode, get_roomspace_size_input(), 0, 0);
-        reset_roomspace = true;
-        return;
-    } else if (sim_feedback->is_sell_trap_on_subtile_key_pressed()) {
-        if (ustate->primary_cursor_state == CSt_PowerHand && player->roomspace_mode != single_subtile_mode) {
-            set_players_packet_action(player, PckA_SetRoomspaceSubtile, 0, 0, 0, 0);
-            reset_roomspace = true;
-        }
-        return;
-    } else {
-        int64_t par2 = numpad_to_value(false);
-        if (par2 > 1) {
-            local_state.roomspace_size = par2;
-            set_players_packet_action(player, PckA_SetRoomspaceHighlight, roomspace_detection_mode, par2, 0, 0);
-            reset_roomspace = true;
-            return;
-        }
-    }
-    local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
-    if (reset_roomspace) {
-        set_players_packet_action(player, PckA_SetRoomspaceHighlight, settings.highlight_mode, 1, 0, 0);
-        reset_roomspace = false; // don't constantly send packets we don't need to
     }
 }
 

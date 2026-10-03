@@ -17,11 +17,12 @@ file(GLOB KFX_RENDER_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 add_executable(kfx_render_utest ${KFX_RENDER_TEST_SOURCES})
 target_link_libraries(kfx_render_utest PRIVATE
     kfx_render
+    kfx_ai
     kfx_sim
     kfx_pathfinding
     kfx_config
     kfx_platform
-    kfx_bfdebug_std
+    kfx_log_opts
     kfx_common_opts
     centitoml
     tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --

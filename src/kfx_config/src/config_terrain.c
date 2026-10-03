@@ -31,14 +31,13 @@
 #include "config_strings.h"
 
 #include "kfx_config_state.h"
-#include "dungeon_availability.h"
-// get_computer_player_f()/reactivate_build_process()/
 // reinitialise_rooms_of_kind()/recalculate_effeciency_for_rooms_of_kind()/
 // slabmap_block_invalid()/slabmap_kind() (all kfx_sim) are reached
-// through config_reload_callbacks instead of same-file bare-extern
+// through SimPort instead of same-file bare-extern
 // forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-#define get_computer_player(plyr_idx) config_reload_callbacks->get_computer_player_f(plyr_idx, __func__)
+#include "ports/ui_port.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -201,7 +200,7 @@ static void assign_update_room_tab(const struct NamedField* named_field, int64_t
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->update_room_tab_to_config();
+        ui_update_room_tab_to_config();
     }
 }
 
@@ -216,7 +215,7 @@ static void assign_icon_update_room_tab(const struct NamedField* named_field, in
     assign_icon(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->update_room_tab_to_config();
+        ui_update_room_tab_to_config();
     }
 }
 
@@ -231,7 +230,7 @@ static void assign_reinitialise_rooms(const struct NamedField* named_field, int6
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->reinitialise_rooms_of_kind(idx);
+        simport_reinitialise_rooms_of_kind(idx);
     }
 }
 
@@ -246,7 +245,7 @@ static void assign_recalculate_effeciency(const struct NamedField* named_field, 
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->recalculate_effeciency_for_rooms_of_kind(idx);
+        simport_recalculate_effeciency_for_rooms_of_kind(idx);
     }
 }
 
@@ -314,13 +313,6 @@ struct SlabConfigStats *get_slab_kind_stats(SlabKind slab_kind)
     if (slab_kind >= kfx_config_state.conf.slab_conf.slab_types_count)
         return &kfx_config_state.conf.slab_conf.slab_cfgstats[0];
     return &kfx_config_state.conf.slab_conf.slab_cfgstats[slab_kind];
-}
-
-struct SlabConfigStats *get_slab_stats(const struct SlabMap *slb)
-{
-    if (config_reload_callbacks->slabmap_block_invalid(slb))
-        return &kfx_config_state.conf.slab_conf.slab_cfgstats[0];
-    return get_slab_kind_stats(config_reload_callbacks->slabmap_kind(slb));
 }
 
 /**
@@ -412,7 +404,7 @@ TbBool parse_block_health_block(char *buf, int64_t len, const char *config_textn
             if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
             {
               k = atoi(word_buf);
-              config_reload_callbacks->set_block_health(cmd_num-1, k);
+              simport_set_block_health(cmd_num-1, k);
               n++;
             }
             if (n < 1)
@@ -475,139 +467,6 @@ TbBool make_all_rooms_free(void)
         struct RoomConfigStats* roomst = get_room_kind_stats(rkind);
         roomst->cost = 0;
     }
-    return true;
-}
-
-/**
- * Makes all rooms to be available to research for the player.
- */
-TbBool make_all_rooms_researchable(PlayerNumber plyr_idx)
-{
-    if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-        return false;
-    }
-    dungeon_availability->set_all_room_resrchable(plyr_idx);
-    return true;
-}
-
-/**
- * Sets room availability state.
- */
-TbBool set_room_available(PlayerNumber plyr_idx, RoomKind rkind, int64_t resrch, int64_t avail)
-{
-    // note that we can't get_players_num_dungeon() because players
-    // may be uninitialized yet when this is called.
-    if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-        return false;
-    }
-    if (rkind >= kfx_config_state.conf.slab_conf.room_types_count)
-    {
-        ERRORLOG("Can't add incorrect room %" PRId64 " to player %" PRId64,(int64_t)rkind, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->set_room_resrchable_and_buildable(plyr_idx, rkind, resrch, avail))
-    {
-        struct Computer2* comp = get_computer_player(plyr_idx);
-        if (comp != NULL)
-        {
-            config_reload_callbacks->reactivate_build_process(comp, rkind);
-        }
-    }
-
-    return true;
-}
-
-/**
- * Returns if the room can be built by a player.
- * Checks only if it's available and if the player is 'alive'.
- * Doesn't check if the player has enough money or map position is on correct spot.
- */
-TbBool is_room_available(PlayerNumber plyr_idx, RoomKind rkind)
-{
-    // Check if the player even have a dungeon, and has a heart to build rooms
-    if (!dungeon_availability->player_has_valid_dungeon_with_heart(plyr_idx)) {
-        return false;
-    }
-    if (rkind >= kfx_config_state.conf.slab_conf.room_types_count)
-    {
-      ERRORLOG("Incorrect room %" PRId64 " (player %" PRId64 ")",(int64_t)rkind, (int64_t)plyr_idx);
-      return false;
-    }
-    if (dungeon_availability->get_room_buildable(plyr_idx, rkind)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the room can be or already is obtained by a player.
- */
-TbBool is_room_obtainable(PlayerNumber plyr_idx, RoomKind rkind)
-{
-    // Check if the player even has a dungeon, and has a heart to build rooms
-    if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
-        return false;
-    }
-    if (rkind >= kfx_config_state.conf.slab_conf.room_types_count) {
-        ERRORLOG("Incorrect room %" PRIu64 " (player %" PRId64 ")",(uint64_t)(rkind), (int64_t)(plyr_idx));
-        return false;
-    }
-    return dungeon_availability->get_room_buildable(plyr_idx, rkind) || dungeon_availability->get_room_resrchable(plyr_idx, rkind);
-}
-
-/**
- * Returns if a room that has role can be built by a player.
- * Checks only if it's available and if the player is 'alive'.
- * Doesn't check if the player has enough money or map position is on correct spot.
- */
-RoomKind find_first_available_roomkind_with_role(PlayerNumber plyr_idx, RoomRole rrole)
-{
-    // Check if the player even have a dungeon, and has a heart to build rooms
-    if (!dungeon_availability->player_has_valid_dungeon_with_heart(plyr_idx)) {
-        return RoK_NONE;
-    }
-
-    for (RoomKind rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
-    {
-        if (room_role_matches(rkind, rrole))
-        {
-            if (dungeon_availability->get_room_buildable(plyr_idx, rkind))
-            {
-                return rkind;
-            }
-        }
-    }
-    return RoK_NONE;
-}
-
-/**
- * Returns if a room that has role can be built by a player.
- * Checks only if it's available and if the player is 'alive'.
- * Doesn't check if the player has enough money or map position is on correct spot.
- */
-TbBool is_room_of_role_available(PlayerNumber plyr_idx, RoomRole rrole)
-{
-    if (find_first_available_roomkind_with_role(plyr_idx, rrole) > RoK_NONE)
-    {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Makes all the rooms, which are researchable, to be instantly available.
- */
-TbBool make_available_all_researchable_rooms(PlayerNumber plyr_idx)
-{
-    SYNCDBG(0,"Starting");
-    // Check if the player even have a dungeon
-    if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-        return false;
-    }
-    dungeon_availability->set_all_room_buildable_from_resrchable(plyr_idx);
     return true;
 }
 

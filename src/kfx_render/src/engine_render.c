@@ -41,7 +41,6 @@
 #include "config_spritecolors.h"
 #include "config_terrain.h"
 #include "config_keeperfx.h"
-#include "editor_callbacks.h" // is_active(), for the compute_cells_away() diagnostic below
 #include "creature_graphics.h"
 #include "creature_states.h"
 #include "creature_states_combt.h"
@@ -59,8 +58,6 @@
 #include "map_columns.h"
 #include "map_utils.h"
 #include "sim_scratch.h"
-#include "render_overlay.h"
-#include "sim_feedback.h"
 #include "player_instances.h"
 #include "roomspace_prediction.h"
 #include "slab_data.h"
@@ -74,6 +71,12 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "light_data.h"
+#include "bflib_mouse.h"
+#include "ports/ui_port.h"
+#include "ports/game_port.h"
+#include "ports/session_loop_port.h"
+#include "ports/editor_port.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -431,7 +434,7 @@ static void calculate_hud_scale(struct Camera *cam) {
 }
 
 // interpolate_time (kfx_apploop's game_session_loop.cpp) is reached
-// through render_overlay instead of a same-file bare-extern
+// through SessionLoopPort instead of a same-file bare-extern
 // forward-declaration. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
@@ -440,7 +443,7 @@ double interpolate(double previous, double current)
     if (! is_feature_on(Ft_DeltaTime))
         return current;
 
-    return LbLerp(previous, current, render_overlay->get_interpolate_time());
+    return LbLerp(previous, current, loop_get_interpolate_time());
 }
 
 double interpolate_angle(double previous, double current)
@@ -448,7 +451,7 @@ double interpolate_angle(double previous, double current)
     if (! is_feature_on(Ft_DeltaTime))
         return current;
 
-    return lerp_angle(previous, current, render_overlay->get_interpolate_time());
+    return lerp_angle(previous, current, loop_get_interpolate_time());
 }
 
 // For things that stop moving when the game is paused.
@@ -572,7 +575,7 @@ static int64_t compute_cells_away(void) // For overhead view, not for 1st person
     // reach it. New-peak-triggered (not edge-triggered on the clamp
     // itself) so a session's log shows the actual growth curve toward
     // whatever ncells_a really reaches, not just a single crossing.
-    if (editor_callbacks->is_active())
+    if (editorport_is_active())
     {
         static int64_t s_peak_ncells_a = 0;
         if (ncells_a > s_peak_ncells_a)
@@ -4098,7 +4101,7 @@ static void find_closest_lights_on_list(struct NearestLights *nlgt, int64_t *nlg
     while (i > 0)
     {
         struct Light *lgt;
-        lgt = &lish.lights[i];
+        lgt = &kfx_sim_state.light_registry.lights[i];
         i = lgt->next_in_list;
         // Per-light code
         if ((lgt->flags & LgtF_Allocated) != 0)
@@ -5405,7 +5408,7 @@ static void draw_fastview_mapwho(struct Camera *cam, struct BucketKindJontySprit
             RendererAddDrawFlags(Lb_SPRITE_REMAP);
             SetupSpriteRemapWhiteFlash();
         } else {
-            if (thing->last_turn_damaged == sim_feedback->get_play_gameturn())
+            if (thing->last_turn_damaged == kfx_sim_state.play_gameturn)
             {
                 RendererAddDrawFlags(Lb_SPRITE_REMAP);
                 SetupSpriteRemapRedFlash();
@@ -7270,7 +7273,7 @@ void draw_view(struct Camera *cam, unsigned char a2)
     // result crossed 50% (8728656/16777216) with the dropout already
     // present, nowhere near exhaustion, so this may turn out to be a red
     // herring too; the peak curve will show whether it ever gets close.
-    if (editor_callbacks->is_active() && (getpoly != NULL))
+    if (editorport_is_active() && (getpoly != NULL))
     {
         static size_t s_peak_used = 0;
         size_t used = (size_t)(getpoly - poly_pool);
@@ -7339,7 +7342,7 @@ void draw_view(struct Camera *cam, unsigned char a2)
 
     draw_view_map_plane(cam, aposc, bposc, xcell, ycell);
 
-    if ( (map_volume_box.visible) && (!render_overlay->game_is_busy_doing_gui()) )
+    if ( (map_volume_box.visible) && (!ui_game_is_busy_doing_gui()) )
     {
         poly_pool_end_reserve(0);
         process_isometric_map_volume_box(x, y, z, my_player_number);
@@ -7811,7 +7814,7 @@ static void draw_element(struct Map *map, int64_t lightness, int64_t stl_x, int6
     const struct Column *wall_col = get_abyss_wall_column(col, map, stl_x, stl_y);
     const TbBool abyss = cube_is_abyss(kfx_sim_state.top_cube[wall_col->floor_texture]);
     if (abyss)
-        lightness_arr[0][0] = lightness_arr[1][0] = lightness_arr[2][0] = lightness_arr[3][0] = TO_FIXED(lish.global_ambient_light);
+        lightness_arr[0][0] = lightness_arr[1][0] = lightness_arr[2][0] = lightness_arr[3][0] = TO_FIXED(kfx_sim_state.light_registry.global_ambient_light);
     int64_t textr_idx;
     // Draw the columns base block
 
@@ -7977,7 +7980,7 @@ static int64_t load_single_frame(TbSpriteData *data_ptr, int64_t kspr_idx)
 {
     int64_t nlength;
     nlength = creature_table[kspr_idx+1].DataOffset - creature_table[kspr_idx].DataOffset;
-    *data_ptr = render_overlay->he_alloc(nlength);
+    *data_ptr = game_he_alloc(nlength);
 
     LbFileSeek(jty_file_handle, creature_table[kspr_idx].DataOffset, 0);
     LbFileRead(jty_file_handle, *data_ptr, nlength);
@@ -8465,7 +8468,7 @@ static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr)
               }
           }
         } else {
-            if (thing->last_turn_damaged == sim_feedback->get_play_gameturn())
+            if (thing->last_turn_damaged == kfx_sim_state.play_gameturn)
             {
                 RendererAddDrawFlags(Lb_SPRITE_REMAP);
                 SetupSpriteRemapRedFlash();
@@ -8853,8 +8856,8 @@ static void update_frontview_pointed_block(uint64_t laaa, unsigned char qdrant, 
     int64_t i;
     SYNCDBG(16,"Starting");
     store_engine_window(&ewnd,1);
-    point_a = (((sim_feedback->GetMouseX() - ewnd.x) << 8) - qx) << 8;
-    point_b = (((sim_feedback->GetMouseY() - ewnd.y) << 8) - qy) << 8;
+    point_a = (((GetMouseX() - ewnd.x) << 8) - qx) << 8;
+    point_b = (((GetMouseY() - ewnd.y) << 8) - qy) << 8;
     delta = (laaa << 7) / 256 << 8;
     for (i=0; i < 8; i++)
     {
@@ -9522,8 +9525,8 @@ void draw_frontview_engine(struct Camera *cam)
     cam->zoom = camera_zoom;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
     cam_x = cam->mappos.x.val;
     cam_y = cam->mappos.y.val;
-    kfx_render_state.pointer_x = (sim_feedback->GetMouseX() - local_state.engine_window_x) / pixel_size;
-    kfx_render_state.pointer_y = (sim_feedback->GetMouseY() - local_state.engine_window_y) / pixel_size;
+    kfx_render_state.pointer_x = (GetMouseX() - local_state.engine_window_x) / pixel_size;
+    kfx_render_state.pointer_y = (GetMouseY() - local_state.engine_window_y) / pixel_size;
     LbScreenStoreGraphicsWindow(&grwnd);
     store_engine_window(&ewnd,pixel_size);
     LbScreenSetGraphicsWindow(ewnd.x, ewnd.y, ewnd.width, ewnd.height);
@@ -9581,7 +9584,7 @@ void draw_frontview_engine(struct Camera *cam)
 
     update_frontview_pointed_block(zoom, qdrant, px, py, qx, qy);
     update_local_mouse_light();
-    if ( (map_volume_box.visible) && (!render_overlay->game_is_busy_doing_gui()) )
+    if ( (map_volume_box.visible) && (!ui_game_is_busy_doing_gui()) )
     {
         process_frontview_map_volume_box(cam, ((zoom >> 8) & 0xFF), player->id_number);
     }
@@ -9809,8 +9812,8 @@ void engine(struct PlayerInfo *player, struct Camera *cam)
     mx = cam->mappos.x.val;
     my = cam->mappos.y.val;
     mz = cam->mappos.z.val;
-    kfx_render_state.pointer_x = (sim_feedback->GetMouseX() - local_state.engine_window_x) / pixel_size;
-    kfx_render_state.pointer_y = (sim_feedback->GetMouseY() - local_state.engine_window_y) / pixel_size;
+    kfx_render_state.pointer_x = (GetMouseX() - local_state.engine_window_x) / pixel_size;
+    kfx_render_state.pointer_y = (GetMouseY() - local_state.engine_window_y) / pixel_size;
     lens = cam->horizontal_fov * scale_value_by_horizontal_resolution(4) / pixel_size;
     if (lens_mode == 0)
         update_blocks_pointed();

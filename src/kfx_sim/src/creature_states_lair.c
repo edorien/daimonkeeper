@@ -42,10 +42,10 @@
 #include "room_lair.h"
 #include "room_util.h"
 #include "map_utils.h"
-#include "sim_feedback.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -290,7 +290,7 @@ CrStateRet creature_add_lair_to_room(struct Thing *creatng, struct Room *room)
         return CrStRet_Modified; // Return that so we won't try to redo the action over and over
     }
 
-    sim_feedback->thing_play_sample(creatng, 158, NORMAL_PITCH, 0, 3, 1, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, 158, NORMAL_PITCH, 0, 3, 1, 2, FULL_LOUDNESS);
     create_effect(&creatng->mappos, imp_spangle_effects[get_player_color_idx(creatng->owner)], creatng->owner);
     remove_thing_from_mapwho(creatng);
     place_thing_in_mapwho(creatng);

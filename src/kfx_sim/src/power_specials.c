@@ -38,17 +38,21 @@
 #include "thing_objects.h"
 #include "sim_scratch.h"
 #include "config.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
+#include "player_camera.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/game_port.h"
 #include "post_inc.h"
 
 // TRANSFER_CREATURE_STORAGE_COUNT (kfx_game's game_merge.h) literal-
 // duplicated -- only this file uses it, not worth pulling in game_merge.h
 // just for one constant. create_transferred_creatures_on_level() reaches
-// kfx_game's intralvl data via sim_feedback->get_transferred_creature()
+// kfx_game's intralvl data via game_get_transferred_creature()
 // instead of the struct directly.
 #define TRANSFER_CREATURE_STORAGE_COUNT 255
 
@@ -118,8 +122,8 @@ TbBool script_locate_hidden_world()
 TbBool activate_bonus_level(struct PlayerInfo *player)
 {
   SYNCDBG(5,"Starting");
-  LevelNumber sp_lvnum = sim_feedback->get_loaded_level_number();
-  TbBool result = sim_feedback->activate_bonus_level_for_singleplayer(player, sp_lvnum);
+  LevelNumber sp_lvnum = get_loaded_level_number();
+  TbBool result = game_activate_bonus_level_for_singleplayer(player, sp_lvnum);
   if (!result)
     ERRORLOG("No Bonus level assigned to level %" PRId64,(int64_t)sp_lvnum);
   clear_flag(kfx_sim_state.operation_flags, GOF_SingleLevel);
@@ -471,7 +475,7 @@ void make_safe(struct PlayerInfo *player)
         list_cur++;
     }
     recalculate_rooms_in_list(room_list, sizeof(room_list)/sizeof(room_list[0]));
-    config_reload_callbacks->panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
+    ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
 }
 
 void make_unsafe(PlayerNumber plyr_idx)
@@ -500,12 +504,12 @@ void make_unsafe(PlayerNumber plyr_idx)
                 {
                     SlabKind newslab = choose_rock_type(plyr_idx, slb_x, slb_y);
                     dungeon = get_dungeon(plyr_idx);
-                    dungeon->camera_deviate_jump = dungeon->camera_deviate_jump + 3; //Bigger jump on more slabs changed
-                    dungeon->camera_deviate_quake = 30; //30 frames of camera shaking
+                    kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] + 3; //Bigger jump on more slabs changed
+                    kfx_sim_view_signals.camera_deviate_quake[dungeon->owner] = 30; //30 frames of camera shaking
 
                     set_coords_to_slab_center(&pos, slb_x, slb_y);
                     powerst = get_power_model_stats(PwrK_DESTRWALLS);
-                    sim_feedback->play_sound_if_close_to_receiver(&pos, powerst->select_sound_idx);
+                    audio_play_sound_if_close_to_receiver(&pos, powerst->select_sound_idx);
                     place_slab_type_on_map(newslab, slab_subtile_center(slb_x), slab_subtile_center(slb_y), kfx_config_state.neutral_player_num, 0);
                     collect_rooms_around_slab(slb_x, slb_y, room_list, sizeof(room_list)/sizeof(room_list[0]));
                 }
@@ -513,7 +517,7 @@ void make_unsafe(PlayerNumber plyr_idx)
         }
     }
     recalculate_rooms_in_list(room_list, sizeof(room_list)/sizeof(room_list[0]));
-    config_reload_callbacks->panel_map_update(0, 0, kfx_sim_state.map_subtiles_x + 1, kfx_sim_state.map_subtiles_y + 1);
+    ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x + 1, kfx_sim_state.map_subtiles_y + 1);
 }
 
 void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
@@ -521,7 +525,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
     SYNCDBG(6,"Starting");
     struct Coord3d pos;
 
-    script_hooks->lua_on_special_box_activate(player->id_number,cratetng);
+    script_lua_on_special_box_activate(player->id_number,cratetng);
 
     // Gathering data which we'll need if the special is used and disposed.
     struct Dungeon* dungeon = get_dungeon(player->id_number);
@@ -543,10 +547,10 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
         { .name = "x", .type = API_EVENT_DATA_INT32, .value.int32_value = cratetng->mappos.x.val >> 8},
         { .name = "y", .type = API_EVENT_DATA_INT32, .value.int32_value = cratetng->mappos.y.val >> 8 },
         { .name = "z", .type = API_EVENT_DATA_INT32, .value.int32_value = cratetng->mappos.z.val >> 8 },
-        { .name = "level_number", .type = API_EVENT_DATA_INT32, .value.int32_value = sim_feedback->get_loaded_level_number() },
+        { .name = "level_number", .type = API_EVENT_DATA_INT32, .value.int32_value = get_loaded_level_number() },
         { .name = "game_turn", .type = API_EVENT_DATA_UINT64, .value.uint64_value = (uint64_t)get_gameturn() },
     };
-    script_hooks->api_event_with_data("SPECIAL_ACTIVATED", event_data, sizeof(event_data) / sizeof(event_data[0]));
+    script_api_event_with_data("SPECIAL_ACTIVATED", event_data, sizeof(event_data) / sizeof(event_data[0]));
 
     switch (spkindidx)
     {
@@ -660,7 +664,7 @@ void activate_dungeon_special(struct Thing *cratetng, struct PlayerInfo *player)
         {
             if (is_my_player(player) && !no_speech)
             {
-                sim_feedback->play_speech_ref(&specst->speech, 0);
+                audio_play_speech_ref(&specst->speech, 0);
             }
             create_used_effect_or_element(&pos, specst->effect_id, player->id_number, cratetng->index);
         }
@@ -683,7 +687,7 @@ void resurrect_creature(struct Thing *boxtng, PlayerNumber owner, ThingModel crm
     {
         init_creature_level(creatng, exp_level);
         if (is_my_player_number(owner))
-          sim_feedback->play_sound_message(SMsg_CommonAcknowledge, 0);
+          audio_output_message(SMsg_CommonAcknowledge, 0);
     }
     struct SpecialConfigStats* specst = get_special_model_stats(SpcKind_Resurrect);
     create_used_effect_or_element(&boxtng->mappos, specst->effect_id, owner, boxtng->index);
@@ -719,7 +723,7 @@ void transfer_creature(struct Thing *boxtng, struct Thing *transftng, unsigned c
     }
 
     struct CreatureControl* cctrl = creature_control_get_from_thing(transftng);
-    if (sim_feedback->add_transfered_creature(plyr_idx, transftng->model, cctrl->exp_level,cctrl->creature_name))
+    if (game_add_transfered_creature(plyr_idx, transftng->model, cctrl->exp_level,cctrl->creature_name))
     {
         dungeon->creatures_transferred++;
     }
@@ -734,7 +738,7 @@ void transfer_creature(struct Thing *boxtng, struct Thing *transftng, unsigned c
         delete_thing_structure(boxtng, 0);
     }
     if (is_my_player_number(plyr_idx))
-      sim_feedback->play_sound_message(SMsg_CommonAcknowledge, 0);
+      audio_output_message(SMsg_CommonAcknowledge, 0);
 }
 
 void start_transfer_creature(struct PlayerInfo *player, struct Thing *thing)
@@ -746,9 +750,9 @@ void start_transfer_creature(struct PlayerInfo *player, struct Thing *thing)
         {
             dungeon_special_selected = thing->index;
             transfer_creature_scroll_offset = 0;
-            sim_feedback->play_sound_message(SMsg_SpecTransfer, MESSAGE_DURATION_SPECIAL);
-            sim_feedback->turn_off_menu(GMnu_DUNGEON_SPECIAL);
-            sim_feedback->turn_on_menu(GMnu_TRANSFER_CREATURE);
+            audio_output_message(SMsg_SpecTransfer, MESSAGE_DURATION_SPECIAL);
+            ui_turn_off_menu(GMnu_DUNGEON_SPECIAL);
+            ui_turn_on_menu(GMnu_TRANSFER_CREATURE);
         }
   }
 }
@@ -762,9 +766,9 @@ void start_resurrect_creature(struct PlayerInfo *player, struct Thing *thing)
         {
           dungeon_special_selected = thing->index;
           resurrect_creature_scroll_offset = 0;
-          sim_feedback->play_sound_message(SMsg_SpecResurrect, MESSAGE_DURATION_SPECIAL);
-          sim_feedback->turn_off_menu(GMnu_DUNGEON_SPECIAL);
-          sim_feedback->turn_on_menu(GMnu_RESURRECT_CREATURE);
+          audio_output_message(SMsg_SpecResurrect, MESSAGE_DURATION_SPECIAL);
+          ui_turn_off_menu(GMnu_DUNGEON_SPECIAL);
+          ui_turn_on_menu(GMnu_RESURRECT_CREATURE);
         }
     }
 }
@@ -784,7 +788,7 @@ int64_t create_transferred_creatures_on_level(void)
             ThingModel model;
             CrtrExpLevel exp_level;
             char creature_name[CREATURE_NAME_MAX];
-            if (!sim_feedback->get_transferred_creature(p, i, &model, &exp_level, creature_name, sizeof(creature_name)))
+            if (!game_get_transferred_creature(p, i, &model, &exp_level, creature_name, sizeof(creature_name)))
             {
                 continue;
             }
@@ -823,7 +827,7 @@ int64_t create_transferred_creatures_on_level(void)
             }
         }
     }
-    sim_feedback->clear_transfered_creatures();
+    game_clear_transfered_creatures();
     return creature_created;
 }
 

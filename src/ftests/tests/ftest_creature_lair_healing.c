@@ -7,6 +7,7 @@
 // forces the need, the same way ftest_creature_combat_power_hand.c nerfs
 // an enemy's health to force a fast, deterministic outcome.
 #include "ftest_creature_lair_healing.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

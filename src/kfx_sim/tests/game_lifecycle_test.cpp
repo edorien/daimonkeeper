@@ -2,11 +2,9 @@
 // stage-08b-kfx-sim-clusters.md's "still open" list: game_lifecycle.c, a
 // previously wholly-untouched file of world-reset routines. All ten
 // functions are pattern A on kfx_sim_state (plus reset_creature_max_levels
-// reading kfx_config_state.conf.crtr_conf.model_count); the few sim_feedback
-// calls (reset_ambient_sound_thing_idx/light_initialise) are exercised
-// through the default no-op SimFeedbackCallbacks table -- confirmed safe to
-// call unregistered, the same table power_specials_test.cpp's
-// SimFeedbackFixture restores via set_sim_feedback_callbacks(nullptr).
+// reading kfx_config_state.conf.crtr_conf.model_count); the few port
+// calls are exercised through the unwired defaults -- confirmed safe to
+// call unregistered.
 //
 // Every fixture here deliberately keeps things/rooms/creatures *absent*
 // (zeroed alloc/exists flags), which is real production shape: at the point
@@ -158,7 +156,7 @@ TEST_CASE_METHOD(ResetSimState, "delete_all_thing_structures rebuilds the free-i
 
 TEST_CASE_METHOD(ResetSimState, "delete_all_structures runs its guard-only branches cleanly when nothing exists to delete", "[kfx_sim][game_lifecycle]") {
     // No thing/creature/room/action-point slot is allocated/existing, and
-    // sim_feedback's default no-op table absorbs light_initialise() --
+    // light_initialise() is safe against the zeroed fixture --
     // this is exercising that the orchestration itself doesn't crash and
     // still rebuilds the free-thing lists via delete_all_thing_structures.
     kfx_sim_state.synced_free_things_count = 0;

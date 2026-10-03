@@ -5,8 +5,7 @@
 // already set up (no orchestration, no mutation) -- pattern A on
 // kfx_sim_state, same fixture player_data_test.cpp/thing_data_test.cpp
 // use. compute_player_final_score/take_money_from_dungeon_f and friends
-// are NOT attempted here: they additionally reach through sim_feedback
-// (a callback struct) and/or dungeon gold bookkeeping across many slabs,
+// are NOT attempted here: they additionally reach through the ports and/or dungeon gold bookkeeping across many slabs,
 // a bigger increment than this pass's two functions.
 #include <catch2/catch_test_macros.hpp>
 

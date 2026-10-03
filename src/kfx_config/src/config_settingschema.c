@@ -18,7 +18,7 @@
  *     platform/PlatformManager.h's display-mode enumeration all live in
  *     kfx_platform, below kfx_config in the layering, so they're plain
  *     includes. A few rows (SCREENSHOT, HAND_SIZE, POINTER_SENSITIVITY)
- *     needed a new getter added to ConfigReloadCallbacks (config.h) because
+ *     needed a new getter added to SimPort (config.h) because
  *     the value was previously only ever written, never read back.
  * @par Comment:
  *     None.
@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h> // strcasecmp -- UI_FONT token match
+#include "ports/game_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -339,9 +340,9 @@ static void set_gui_icon_pack(int64_t idx)
 // §3.5): SOptT_Action's only row so far. reset_all_campaign_progress()
 // itself is kfx_game-owned (save/progress.cfg); reached the same way
 // every other "kfx_config needs something from above" case in this
-// schema is, through ConfigReloadCallbacks (config.h) -- not a
+// schema is, through SimPort (config.h) -- not a
 // bespoke callback struct just for this one row.
-static void reset_campaign_progress_action(void) { config_reload_callbacks->reset_campaign_progress(); }
+static void reset_campaign_progress_action(void) { game_reset_campaign_progress(); }
 
 // SHADOWS/VIEW_DISTANCE: the in-game "Video" options menu's own
 // shadows/view_distance toggles (frontmenu_ingame_opts_data.cpp's
@@ -471,11 +472,11 @@ static void set_rotate_around_mouse(int64_t val) { keeperfx_ui_config.rotate_aro
 // screenshot_format (kfx_render-owned, scrcapt.h) only had a *setter*
 // callback (config_keeperfx.c's own SCREENSHOT config-key case has never
 // needed to read it back). Added get_screenshot_format to
-// ConfigReloadCallbacks (config.h) alongside the existing
+// SimPort (config.h) alongside the existing
 // set_screenshot_format for this row to have something to read the
 // current value from.
-static int64_t get_screenshot_format(void) { return config_reload_callbacks->get_screenshot_format(); }
-static void set_screenshot_format_val(int64_t val) { config_reload_callbacks->set_screenshot_format((unsigned char)val); }
+static int64_t get_screenshot_format(void) { return kfx_runtime_settings.screenshot_format; }
+static void set_screenshot_format_val(int64_t val) { kfx_runtime_settings.screenshot_format = (unsigned char)val; }
 
 // HAND_SIZE's own config-key parsing (case 30, config_keeperfx.c) already
 // reads/writes it as an integer *percentage* (atoi(word_buf), then
@@ -485,8 +486,8 @@ static void set_screenshot_format_val(int64_t val) { config_reload_callbacks->se
 // new float schema type. Needed a new get_hand_scale callback the same way
 // SCREENSHOT needed get_screenshot_format -- config_keeperfx.c's own
 // parser only ever wrote this value, never read it back.
-static int64_t get_hand_size_pct(void) { return (int64_t)(config_reload_callbacks->get_hand_scale() * 100.0 + 0.5); }
-static void set_hand_size_pct(int64_t val) { config_reload_callbacks->set_hand_scale((double)val / 100.0); }
+static int64_t get_hand_size_pct(void) { return (int64_t)(kfx_runtime_settings.hand_scale * 100.0 + 0.5); }
+static void set_hand_size_pct(int64_t val) { kfx_runtime_settings.hand_scale = (double)val / 100.0; }
 
 // RESIZE_MOVIES's own config-key parsing (case 14, config_keeperfx.c) is
 // two storage locations combined into one option: Ft_Resizemovies (on/off)
@@ -584,7 +585,7 @@ static int64_t get_ingame_res(void)
     // mode doesn't actually change until next launch. get_screen_vidmode()
     // reads the *pending* mode (screen_vidmode itself, kfx_render/vidmode.c)
     // instead, which set_ingame_res() below updates immediately.
-    TbScreenMode mode = config_reload_callbacks->get_screen_vidmode();
+    TbScreenMode mode = get_screen_vidmode();
     TbScreenModeInfo *info = LbScreenGetModeInfo(mode);
     if (info == NULL)
         return 0;
@@ -597,7 +598,7 @@ static void set_ingame_res(int64_t val)
     snprintf(word_buf, sizeof(word_buf), "%" PRId64 "x%" PRId64 "x32", (int64_t)(INGAME_RES_WIDTH(val)), (int64_t)(INGAME_RES_HEIGHT(val)));
     TbScreenMode mode = LbRegisterVideoModeString(word_buf);
     if (mode != Lb_SCREEN_MODE_INVALID)
-        config_reload_callbacks->set_screen_vidmode(mode);
+        set_screen_vidmode(mode);
     else
         ERRORLOG("Couldn't register video mode \"%s\" chosen from the settings screen.", word_buf);
 }
@@ -607,7 +608,7 @@ static void set_ingame_res(int64_t val)
 // RendererGetActiveType() -- the active backend doesn't actually change
 // until next launch, and reading it here would make the combo immediately
 // revert to the old choice the instant a new one is picked. Unlike
-// INGAME_RES/SCREENSHOT, no config_reload_callbacks indirection is needed:
+// INGAME_RES/SCREENSHOT, no SimPort indirection is needed:
 // RendererManager.h's functions live in kfx_platform, a layer *below*
 // kfx_config, so this file can call them directly.
 static int64_t get_renderer(void)
@@ -619,6 +620,13 @@ static void set_renderer(int64_t val)
 {
     RendererSetDesiredType((RendererType)val);
 }
+
+// LOG_LEVEL / GPU_DEBUG -- docs/refactor-pass2/stage-02-logging-option.md.
+// log_level_type[] is 1-based (config_keeperfx.c), enum LogLevel is 0-based.
+static int64_t get_log_level_opt(void) { return get_log_level() + 1; }
+static void set_log_level_opt(int64_t val) { set_log_level(val - 1); }
+static TbBool get_gpu_debug(void) { return RendererGetGpuDebug(); }
+static void set_gpu_debug(TbBool val) { RendererSetGpuDebug(val); }
 
 static int64_t get_overhead_fade(void) { return keeperfx_ui_config.overhead_fade; }
 static void set_overhead_fade(int64_t val) { keeperfx_ui_config.overhead_fade = val; }
@@ -644,8 +652,8 @@ static void set_lighting(int64_t val)
 // beyond zeroing LbMouseChangeMoveRatio() isn't something this pass could
 // confirm, and a checkbox asserting an unverified behaviour is worse than
 // no checkbox. The plain slider still reaches 0 by dragging it down.)
-static int64_t get_pointer_sensitivity_pct(void) { return config_reload_callbacks->get_base_mouse_sensitivity() * 100 / 256; }
-static void set_pointer_sensitivity_pct(int64_t val) { config_reload_callbacks->set_base_mouse_sensitivity(val * 256 / 100); }
+static int64_t get_pointer_sensitivity_pct(void) { return kfx_runtime_settings.base_mouse_sensitivity * 100 / 256; }
+static void set_pointer_sensitivity_pct(int64_t val) { kfx_runtime_settings.base_mouse_sensitivity = val * 256 / 100; }
 
 // STARTUP's own config-key parsing (case 22, config_keeperfx.c) accepts a
 // space-separated token list -- LEGAL/FX/BULLFROG(hidden)/EA(hidden)/INTRO,
@@ -933,6 +941,24 @@ const struct SettingOption setting_options[] = {
         .label_stridx = GUIStr_SetRotateAroundMouse,
         .help_stridx = GUIStr_HelpRotateAroundMouse,
         .enum_table = rotate_around_mouse_enum, .get_enum = &get_rotate_around_mouse, .set_enum = &set_rotate_around_mouse,
+    },
+    {
+        // Applies live: set_log_level() only updates the threshold. The font
+        // test screen (Shift+F in the menus) also needs DEBUG.
+        .cfg_key = "LOG_LEVEL", .type = SOptT_Enum, .category = SCat_Game, .apply_class = SApply_Live,
+        .label_literal = "Logging",
+        .help_literal = "How much the game writes to keeperfx.log. OFF: nothing, except crash reports. "
+                        "NORMAL: errors, warnings and progress (the default). DEBUG: extra detail for bug "
+                        "reports. DEBUGMAX: everything; the log grows quickly.",
+        .enum_table = log_level_type, .get_enum = &get_log_level_opt, .set_enum = &set_log_level_opt,
+    },
+    {
+        .cfg_key = "GPU_DEBUG", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_NeedsRestart,
+        .frontend_only = true,
+        .label_literal = "GPU validation",
+        .help_literal = "Vulkan validation layers, for developers: slow, and needs the Vulkan SDK's "
+                        "validation layers installed. Vulkan renderer only. Takes effect after a restart.",
+        .get_bool = &get_gpu_debug, .set_bool = &set_gpu_debug,
     },
     {
         .cfg_key = "SCREENSHOT", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,

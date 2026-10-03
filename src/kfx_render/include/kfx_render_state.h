@@ -58,7 +58,7 @@ struct KfxRenderState {
 
     // Moved from struct Game (stage 13) -- also read by kfx_platform's
     // sound_manager.cpp, which gets pointer access via
-    // SoundStateCallbacks instead (kfx_platform is the lowest-ranked
+    // SoundHostPort instead (kfx_platform is the lowest-ranked
     // library, can't reach kfx_render_state directly). Used to restore
     // custom sprites.
     LevelNumber last_level;

@@ -31,6 +31,8 @@
 // single call's accumulated_torture_points delta alone already proves
 // which branch ran.
 #include "ftest_creature_torture_ownership.h"
+#include "player_availability.h"
+#include "creature_jobs.h"
 
 #ifdef FUNCTESTING
 

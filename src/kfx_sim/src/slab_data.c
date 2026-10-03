@@ -29,10 +29,11 @@
 #include "creature_states.h"
 #include "map_data.h"
 #include "config.h"
-#include "script_hooks.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
-#include "sim_feedback.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -170,6 +171,18 @@ SlabKind slabmap_kind(const struct SlabMap *slb)
 }
 
 /**
+ * The terrain config of a slab; slab kind 0's for an invalid slab.
+ * Was in config_terrain.c, reaching back into kfx_sim through SimPort for
+ * the two slab reads (refactor pass 2, S15).
+ */
+struct SlabConfigStats *get_slab_stats(const struct SlabMap *slb)
+{
+    if (slabmap_block_invalid(slb))
+        return &kfx_config_state.conf.slab_conf.slab_cfgstats[0];
+    return get_slab_kind_stats(slabmap_kind(slb));
+}
+
+/**
  * Sets owner of a slab on given position.
  */
 void set_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber owner)
@@ -192,7 +205,7 @@ void set_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber owner)
     slb->owner = owner;
     if(old_owner != owner)
     {
-        script_hooks->lua_on_slab_owner_change(slb_x, slb_y, old_owner);
+        script_lua_on_slab_owner_change(slb_x, slb_y, old_owner);
     }
 }
 
@@ -575,14 +588,14 @@ void reveal_whole_map(struct PlayerInfo *player)
 {
     clear_dig_for_map_rect(player->id_number,0,kfx_sim_state.map_tiles_x,0,kfx_sim_state.map_tiles_y);
     reveal_map_rect(player->id_number,1,kfx_sim_state.map_subtiles_x,1,kfx_sim_state.map_subtiles_y);
-    config_reload_callbacks->panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
+    ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
 }
 
 void update_blocks_in_area(MapSubtlCoord sx, MapSubtlCoord sy, MapSubtlCoord ex, MapSubtlCoord ey)
 {
     update_navigation_triangulation(sx, sy, ex, ey);
     ceiling_partially_recompute_heights(sx, sy, ex, ey);
-    sim_feedback->light_signal_update_in_area(sx, sy, ex, ey);
+    light_signal_update_in_area(sx, sy, ex, ey);
 }
 
 void update_blocks_around_slab(MapSlabCoord slb_x, MapSlabCoord slb_y)

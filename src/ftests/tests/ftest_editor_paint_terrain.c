@@ -1,4 +1,5 @@
 #include "ftest_editor_paint_terrain.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 

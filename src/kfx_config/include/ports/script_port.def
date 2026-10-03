@@ -1,0 +1,54 @@
+/* ScriptPort entries: see ports/script_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_VOID(lua_on_power_cast, (PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing), (plyr_idx, pwkind, splevel, stl_x, stl_y, thing))
+KFX_PORT_VOID(lua_on_special_box_activate, (PlayerNumber plyr_idx, struct Thing *cratetng), (plyr_idx, cratetng))
+KFX_PORT_VOID(lua_on_creature_death, (struct Thing *crtng), (crtng))
+KFX_PORT_VOID(lua_on_creature_fell_into_abyss, (struct Thing *crtng), (crtng))
+KFX_PORT_VOID(lua_on_creature_rebirth, (struct Thing *crtng), (crtng))
+KFX_PORT_VOID(lua_on_trap_placed, (struct Thing *traptng), (traptng))
+KFX_PORT_VOID(lua_on_object_destroyed, (struct Thing *objtng), (objtng))
+KFX_PORT_VOID(lua_on_apply_damage_to_thing, (struct Thing *thing, HitPoints dmg, PlayerNumber dealing_plyr_idx), (thing, dmg, dealing_plyr_idx))
+KFX_PORT_VOID(lua_on_level_up, (struct Thing *thing), (thing))
+KFX_PORT_VOID(lua_on_pick_up, (struct Thing *thing, PlayerNumber plyr_idx), (thing, plyr_idx))
+KFX_PORT_VOID(lua_on_slap, (struct Thing *thing, PlayerNumber plyr_idx), (thing, plyr_idx))
+KFX_PORT_VOID(lua_on_slab_kind_change, (MapSlabCoord slb_x, MapSlabCoord slb_y, SlabKind old_slab), (slb_x, slb_y, old_slab))
+KFX_PORT_VOID(lua_on_slab_owner_change, (MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber old_owner), (slb_x, slb_y, old_owner))
+KFX_PORT_VOID(lua_on_room_owner_change, (struct Room *room, PlayerNumber old_owner), (room, old_owner))
+KFX_PORT_VOID(lua_on_shot_hit, (struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y, bool rebound_hit), (shot, shooter, target, next_stl_x, next_stl_y, rebound_hit))
+KFX_PORT_VOID(lua_on_dungeon_destroyed, (PlayerNumber plyr_idx), (plyr_idx))
+KFX_PORT_RET(int64_t, luafunc_crstate_func, (FuncIdx func_idx, struct Thing *thing), (func_idx, thing), -1)
+KFX_PORT_RET(int64_t, luafunc_thing_update_func, (FuncIdx func_idx, struct Thing *thing), (func_idx, thing), -1)
+KFX_PORT_RET(int64_t, luafunc_shot_hit_thing_func, (FuncIdx func_idx, struct Thing *shot, struct Thing *shooter, struct Thing *target, MapSubtlCoord next_stl_x, MapSubtlCoord next_stl_y), (func_idx, shot, shooter, target, next_stl_x, next_stl_y), -1)
+KFX_PORT_RET(TbResult, luafunc_magic_use_power, (FuncIdx func_idx, PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags), (func_idx, plyr_idx, pwkind, splevel, stl_x, stl_y, thing, allow_flags), -1)
+KFX_PORT_RET(int64_t, luafunc_trap_activation_func, (FuncIdx func_idx, struct Thing *trap, struct Thing *creature), (func_idx, trap, creature), -1)
+KFX_PORT_VOID(luafunc_room_capacity_func, (FuncIdx func_idx, struct Room *room), (func_idx, room))
+KFX_PORT_VOID(api_event, (const char *event_name), (event_name))
+KFX_PORT_VOID(api_event_with_data, (const char *event_name, const struct ApiEventData *data, size_t data_count), (event_name, data, data_count))
+KFX_PORT_VOID(lua_on_game_start, (void), ())
+KFX_PORT_RET(TbBool, open_lua_script, (LevelNumber lvnum), (lvnum), false)
+KFX_PORT_RET(TbBool, execute_lua_code_from_console, (const char *code), (code), false)
+KFX_PORT_RET(TbBool, execute_lua_code_from_script, (const char *code), (code), false)
+KFX_PORT_VOID(generate_lua_types_file, (void), ())
+KFX_PORT_RETX(const char *, lua_get_serialised_data, (size_t *len), (len), NULL, if (len) *len = 0;)
+KFX_PORT_RET(TbBool, lua_set_serialised_data, (const char *data, size_t len), (data, len), false)
+KFX_PORT_VOID(cleanup_serialized_data, (void), ())
+/* The Lua part of a full resync (net_resync.cpp). lua_script_active() and
+   lua_set_random_seed() stay separate from lua_resync_export()/import():
+   the resync imports the wire data before the game-state memcpy (so a
+   failure leaves local state untouched) but resets the random seed after it
+   (it needs the freshly synced value). cleanup_serialized_data() frees the
+   export buffer after sending. */
+KFX_PORT_VOID(lua_on_chatmsg, (PlayerNumber plyr_idx, char *msg), (plyr_idx, msg))
+KFX_PORT_RET(TbBool, lua_script_active, (void), (), false)
+KFX_PORT_RETX(const char *, lua_resync_export, (size_t *len), (len), "", if (len) *len = 0;)
+KFX_PORT_RET(TbBool, lua_resync_import, (const char *data, size_t len), (data, len), true)
+KFX_PORT_VOID(lua_set_random_seed, (uint64_t seed), (seed))
+/* Config parsing (value_function()) resolves a config file's Lua function
+   name to its registered FuncIdx. */
+KFX_PORT_RET(FuncIdx, get_lua_function_idx, (const char *func_name, const struct NamedCommand *named_command), (func_name, named_command), -1)

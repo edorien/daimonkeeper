@@ -8,6 +8,7 @@
 #include "pre_inc.h"
 #include "kfx_frontend_state.h"
 #include "bflib_fileio.h"
+#include "state_versions.h"
 #include <string.h>
 #include "post_inc.h"
 
@@ -16,9 +17,10 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct KfxFrontendState kfx_frontend_state;
+// Saved/resynced as raw bytes: see state_versions.h before changing the layout.
+_Static_assert(sizeof(struct KfxFrontendState) == KFX_FRONTEND_STATE_SIZE, "struct KfxFrontendState changed size: bump KFX_FRONTEND_STATE_VER and update KFX_FRONTEND_STATE_SIZE in state_versions.h");
 
-// Registered on GameCallbacks (src/kfx_config/include/game_callbacks.h)
-// so kfx_game's game_saves.c/main_game.c don't need to reach up into
+// Tabled in UiPort (ports/ui_port.def) so kfx_game's game_saves.c/main_game.c don't need to reach up into
 // kfx_frontend_state.h directly to save/load/reset this struct as a
 // raw blob.
 TbBool save_frontend_state(TbFileHandle fhandle)
@@ -44,7 +46,7 @@ size_t get_frontend_state_size(void)
     return sizeof(struct KfxFrontendState);
 }
 
-// Registered on NetCallbacks (kfx_config/include/net_callbacks.h) --
+// Tabled in UiPort too --
 // same reasoning as save_frontend_state()/load_frontend_state() above,
 // just returning a (pointer, length) blob for the network resync payload
 // (net_resync.cpp) instead of writing to a file handle.

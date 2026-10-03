@@ -324,13 +324,18 @@ void message_add(char type, int64_t idx, const char *text)
     }
 }
 
-void message_add_fmt(char type, int64_t idx, const char *fmt_str, ...)
+void message_add_vfmt(char type, int64_t idx, const char *fmt_str, va_list val)
 {
     static char full_msg_text[2048];
-    va_list val;
-    va_start(val, fmt_str);
     vsnprintf(full_msg_text, sizeof(full_msg_text), fmt_str, val);
     message_add(type, idx, full_msg_text);
+}
+
+void message_add_fmt(char type, int64_t idx, const char *fmt_str, ...)
+{
+    va_list val;
+    va_start(val, fmt_str);
+    message_add_vfmt(type, idx, fmt_str, val);
     va_end(val);
 }
 

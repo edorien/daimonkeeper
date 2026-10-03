@@ -24,10 +24,7 @@
 #include "bflib_video.h"
 #include "config_sounds.h"
 #include "config_keeperfx.h"
-#include "net_callbacks.h"
-#include "engine_redraw.h"
 #include "globals.h"
-#include "sim_feedback.h"
 #include "net_exchange_common.h"
 #include "net_input_lag.h"
 #include "net_main.h"
@@ -41,6 +38,10 @@
 #include <zlib.h>
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/game_port.h"
+#include "ports/session_loop_port.h"
 #include "post_inc.h"
 
 // Owning definition: this file manages the multiplayer clock-adjustment
@@ -149,7 +150,7 @@ TbError process_network_unpause_message(void)
     }
     MULTIPLAYER_LOG("ProcessMessage NETMSG_UNPAUSE: applying unpause");
     unpausing_in_progress = 1;
-    keeper_screen_redraw();
+    ui_redraw_gameplay_frame();
     RendererPresentStepFrame();
     if (network_is_host()) {
         LbNetwork_BroadcastUnpause();
@@ -165,9 +166,9 @@ void process_gameplay_chat_message(NetUserId user, const char *message)
     struct PlayerInfo *player = prepare_network_chat_message(plyr_idx, message);
     if (message[0] != '\0') {
         SYNCLOG("Gameplay chat from user %" PRId64 " (player %" PRId64 "): %s", (int64_t)user, (int64_t)plyr_idx, message);
-        net_callbacks->lua_on_chatmsg(plyr_idx, player->mp_message_text);
-        if (player->mp_message_text[0] != cmd_char || !net_callbacks->cmd_exec(plyr_idx, player->mp_message_text + 1) || network_is_active()) {
-            sim_feedback->message_add(MsgType_Player, plyr_idx, player->mp_message_text);
+        script_lua_on_chatmsg(plyr_idx, player->mp_message_text);
+        if (player->mp_message_text[0] != cmd_char || !game_cmd_exec(plyr_idx, player->mp_message_text + 1) || network_is_active()) {
+            ui_message_add(MsgType_Player, plyr_idx, player->mp_message_text);
             play_non_3d_sample(snd_chat_message[user == get_local_user()]);
         }
     }
@@ -459,7 +460,7 @@ static TbError wait_for_missing_packets(void *server_buf, size_t frame_size, Net
             break;
         }
         update_turn_speed_adjustment();
-        net_callbacks->network_yield_waiting_gameplay_packets();
+        loop_network_yield_waiting_gameplay_packets();
         if (quit_game || exit_keeper) {
             netstate.seq_nbr += 1;
             return Lb_OK;

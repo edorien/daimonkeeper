@@ -7,8 +7,8 @@
 // behind lava" (#5190) removed that function entirely -- its BFS moved
 // into ariadne.c as a static navigation_triangle_reachable() that no
 // longer takes an owner parameter at all (delegates to
-// navigation_rule_normal(), which reads owner_player_navigating via
-// pathfinding_world-> instead) -- so both the function and the header
+// navigation_rule_normal(), which reads owner_player_navigating from
+// kfx_pathfinding_state instead) -- so both the function and the header
 // include it justified are gone from this file now. Not independently
 // unit-tested: it's static in ariadne.c, unlike
 // navigation_regions_connected() which lived here as an

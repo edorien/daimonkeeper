@@ -3,13 +3,10 @@
 // corpse-classification predicates and the dead-creature-list bookkeeping
 // (a ring buffer once dungeon->dead_creatures[] fills up, DEAD_CREATURES_
 // MAX_COUNT==128). creature_can_be_resurrected/corpse_is_rottable's
-// CMF_NoCorpseRotting/CMF_NoResurrect branches can't be driven true in
-// this test binary: get_creature_model_flags() resolves through
-// ConfigReloadCallbacks' get_thing_model, whose default always returns 0,
-// and the function itself short-circuits to 0 flags whenever model<1 --
-// confirmed by reading the body (the same default-model-0 limitation
-// room_graveyard_test.cpp's corpse_laid_to_rest coverage relied on), so
-// only their default (flags-clear) behavior is exercised here.
+// CMF_NoCorpseRotting/CMF_NoResurrect branches aren't driven true here:
+// the corpses keep the zeroed thing->model 0, for which
+// get_creature_model_flags() returns 0 flags (it short-circuits whenever
+// model<1), so only their default (flags-clear) behavior is exercised.
 #include <catch2/catch_test_macros.hpp>
 
 #include "thing_corpses.h"
@@ -19,6 +16,7 @@
 #include "player_data.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

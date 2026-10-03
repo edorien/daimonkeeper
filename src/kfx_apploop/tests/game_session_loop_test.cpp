@@ -13,10 +13,8 @@
 // don't guess" note in stage-04b/04c.
 //
 // Also exercises pattern B for the first time in this library: kfx_platform's
-// get_gameturn() is a thin wrapper around a registered GetGameTurnFunc
-// provider (docs/refactor/todo/check-layering-symbol-level-blind-spot.md),
-// defaulting to a safe stub (always 0) -- this fixture registers its own
-// fake provider so the gameturn-modulo branches below are actually
+// get_gameturn() reads through a source pointer (globals.h) that reads 0
+// until wired -- this fixture points it at its own fake turn so the gameturn-modulo branches below are actually
 // reachable and controllable, not stuck at the default's degenerate "0 %
 // anything == 0" case.
 #include <catch2/catch_test_macros.hpp>
@@ -32,7 +30,6 @@
 
 namespace {
 GameTurn g_fake_gameturn = 0;
-GameTurn fake_gameturn_provider() { return g_fake_gameturn; }
 
 // Settable, defaulting to 0 so the pre-existing display_should_be_updated_
 // this_turn tests below (which never touch it) keep seeing the same
@@ -50,10 +47,10 @@ struct AppLoopFixture {
         LbTimerClock = fake_clock_provider;
         g_fake_gameturn = 0;
         g_fake_clock = 0;
-        set_get_gameturn_provider(fake_gameturn_provider);
+        set_gameturn_source(&g_fake_gameturn);
     }
     ~AppLoopFixture() {
-        set_get_gameturn_provider(nullptr); // restores kfx_platform's own default stub
+        set_gameturn_source(nullptr); // restores kfx_platform's unwired 0
     }
 };
 }

@@ -1,0 +1,15 @@
+/* FilePathPort entries: see ports/file_path_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+/* config.h's path resolution: install directories, mods, file groups. */
+KFX_PORT_RET(char *, prepare_file_path, (int64_t fgroup, const char *fname), (fgroup, fname), NULL)
+KFX_PORT_RET(char *, prepare_file_path_mod, (const char *mod_dir, int64_t fgroup, const char *fname), (mod_dir, fgroup, fname), NULL)
+KFX_PORT_RETS(char *, prepare_file_path_buf, (char *dst, int64_t dst_size, int64_t fgroup, const char *fname), (dst, dst_size, fgroup, fname), if (dst && dst_size > 0) dst[0] = '\0'; return dst;)
+/* custom_zip.cpp: the full path of a level's already-formatted
+   "mapNNNNN.zip" archive name. */
+KFX_PORT_RET(char *, prepare_map_zip_path, (LevelNumber lvnum, const char *fname), (lvnum, fname), NULL)

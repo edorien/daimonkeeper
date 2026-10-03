@@ -46,6 +46,7 @@
 #include "game_legacy.h"
 #include "local_camera.h"
 #include "kfx_frontend_state.h"
+#include "player_availability.h"
 #include "post_inc.h"
 #include <math.h>
 

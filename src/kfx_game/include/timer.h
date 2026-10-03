@@ -11,7 +11,7 @@
  *     timerstarttime/update_time()/get_game_time()) were split apart by
  *     the src/ -> src/kfx_* refactor: the state and update_time() moved
  *     into kfx_sim_state.h/kfx_frontend's front_input.c, reached from
- *     lower layers via sim_feedback->. This file only carries the new
+ *     lower layers via the ports. This file only carries the new
  *     level_load_time_phase() mechanism (added upstream after that
  *     split), which has no lower-layer caller -- every call site
  *     (game_loop.c, main_game.c, main.cpp) is kfx_game or app_entry, so

@@ -29,11 +29,12 @@
 #include "creature_states_mood.h"
 #include "thing_stats.h"
 #include "local_camera.h"
-#include "light_data.h"
+#include "light_registry.h"
 
 #include "lua_base.h"
 #include "lua_params.h"
 #include "lua_utils.h"
+#include "creature_control.h"
 
 
 #include "post_inc.h"

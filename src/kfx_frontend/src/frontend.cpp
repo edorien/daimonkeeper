@@ -99,6 +99,8 @@
 #include "kfx_frontend_state.h"
 #include "game_lifecycle.h"
 #include "frontgui_skirmish_setup.h"
+#include "player_availability.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -423,12 +425,10 @@ const uint64_t alliance_grid[4][4] = {
   {0x04, 0x10, 0x20, 0x00,},
 };
 
-#if (BFDEBUG_LEVEL > 0)
-// Declarations for font testing screen (debug version only)
+// Declarations for font testing screen (reachable at the Debug log level)
 // testfont/testfont_palette moved to kfx_render's vidmode.h (stage 13.3,
 // docs/refactor/stage-13-enforce-and-document.md).
 int64_t num_chars_in_font = 128;
-#endif
 
 int64_t status_panel_width = 140;
 // struct MsgBoxInfo MsgBox;
@@ -602,7 +602,7 @@ void add_message(int64_t plyr_idx, char *msg)
  */
 void create_error_box(TextStringId msg_idx)
 {
-    if (!kfx_net_state.packet_load_enable)
+    if (!kfx_sim_state.replay_active)
     {
         //change the length into  when gui_error_text will not be exported
         snprintf(gui_error_text, sizeof(gui_error_text), "%s", get_string(msg_idx));
@@ -610,6 +610,16 @@ void create_error_box(TextStringId msg_idx)
     }
 }
 
+
+/** Like create_error_box(), for a message that has no translated string yet. */
+void create_error_box_text(const char *text)
+{
+    if (!kfx_sim_state.replay_active)
+    {
+        snprintf(gui_error_text, sizeof(gui_error_text), "%s", text);
+        turn_on_menu(GMnu_ERROR_BOX);
+    }
+}
 
 void create_message_box(const char *title, const char *line1, const char *line2, const char *line3, const char* line4, const char* line5)
 {
@@ -1221,8 +1231,7 @@ void gui_area_slider(struct GuiButton *gbtn)
     LbSpriteDrawResized(gbtn->scr_pos_x + shift_x + 24*units_per_px/16, gbtn->scr_pos_y + 6*units_per_px/16, bs_units_per_px, spr);
 }
 
-#if (BFDEBUG_LEVEL > 0)
-// Code for font testing screen (debug version only)
+// Code for font testing screen (reachable at the Debug log level)
 TbBool fronttestfont_draw(void)
 {
   const struct TbSprite *spr;
@@ -1285,7 +1294,6 @@ TbBool fronttestfont_input(void)
   }
   return false;
 }
-#endif
 
 
 void frontend_draw_icon(struct GuiButton *gbtn)
@@ -1932,14 +1940,14 @@ int64_t frontend_save_continue_game(int64_t allow_lvnum_grow)
     // ==false, so it's still tracked; an actual network game is not.
     if (!network_is_active()
      && ((kfx_sim_state.operation_flags & GOF_SingleLevel) == 0)
-     && (!kfx_net_state.packet_load_enable)
+     && (!kfx_sim_state.replay_active)
      && (player->victory_state == VicS_WonLevel)
      && (is_freeplay_level(lvnum) || is_multiplayer_level(lvnum)))
         campaign_progress_record_pack_level_completed(lvnum);
     // Only save continue if level was won, not a free play level, not a multiplayer level and not in packet mode
     if (network_is_active()
      || ((kfx_sim_state.operation_flags & GOF_SingleLevel) != 0)
-     || (kfx_net_state.packet_load_enable)
+     || (kfx_sim_state.replay_active)
      || (is_freeplay_level(lvnum))
      || (is_multiplayer_level(lvnum)))
         return false;
@@ -2962,11 +2970,9 @@ void frontend_shutdown_state(FrontendMenuState pstate)
     case FeSt_OUTRO:
     case FeSt_PACKET_DEMO:
         break;
-#if (BFDEBUG_LEVEL > 0)
     case FeSt_FONT_TEST:
         free_testfont_fonts();
         break;
-#endif
     default:
         ERRORLOG("Unhandled FRONTEND state %" PRId64 " shutdown",(int64_t)pstate);
         break;
@@ -3130,12 +3136,10 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
         frontend_mp_mappack_list_load();
         set_pointer_graphic_menu();
         break;
-  #if (BFDEBUG_LEVEL > 0)
     case FeSt_FONT_TEST:
         load_testfont_fonts();
         set_pointer_graphic_menu();
         break;
-  #endif
       default:
         ERRORLOG("Unhandled FRONTEND new state");
         break;
@@ -3233,8 +3237,8 @@ TbBool frontmainmnu_input(void)
             return true;
         }
     }
-#if (BFDEBUG_LEVEL > 0)
-    if (lbKeyOn[KC_F] && lbKeyOn[KC_LSHIFT])
+    // The font test screen is a debugging aid: only reachable at the Debug log level.
+    if (KFX_DEBUG_ON(0) && lbKeyOn[KC_F] && lbKeyOn[KC_LSHIFT])
     {
         if (kfx_sim_state.easter_eggs_enabled == true)
         {
@@ -3243,7 +3247,6 @@ TbBool frontmainmnu_input(void)
             return true;
         }
     }
-#endif
     return false;
 }
 
@@ -3464,7 +3467,6 @@ void frontend_input(void)
             input_consumed = true;
         }
         break;
-#if (BFDEBUG_LEVEL > 0)
     case FeSt_FONT_TEST:
         get_gui_inputs(0);
         input_consumed = frontscreen_end_input(false);
@@ -3473,7 +3475,6 @@ void frontend_input(void)
         }
         fronttestfont_input();
         break;
-#endif
     default:
         get_gui_inputs(0);
         input_consumed = frontscreen_end_input(false);
@@ -3846,11 +3847,9 @@ int64_t frontend_draw(void)
         if (!frontend_imgui_screen_active(FeSt_STORY_BIRTHDAY))
             frontbirthday_draw(); // calls frontend_copy_background() itself
         break;
-#if (BFDEBUG_LEVEL > 0)
     case FeSt_FONT_TEST:
         fronttestfont_draw();
         break;
-#endif
     default:
         break;
     }

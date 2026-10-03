@@ -2,6 +2,7 @@
 // the creatures' job, the agent only needs the result), the army per creature kind (count, levels, health) with a profile of each
 // kind it owns (what it is good at, its pay and hunger, abilities), and the imprison/flee tendencies with the set_tendency verb.
 #include "ftest_ai_seat_intel.h"
+#include "thing_stats.h"
 
 #ifdef FUNCTESTING
 

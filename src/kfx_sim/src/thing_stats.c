@@ -38,13 +38,13 @@
 #include "thing_list.h"
 #include "thing_physics.h"
 #include "thing_stats.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "power_process.h"
 #include "config_rules.h"
+#include "ports/script_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -990,7 +990,7 @@ static HitPoints apply_damage_to_creature(struct Thing *thing, HitPoints dmg)
       cdamage = 1;
     // Apply damage to the thing.
     thing->health -= cdamage;
-    thing->last_turn_damaged = sim_feedback->get_play_gameturn() + 1;
+    thing->last_turn_damaged = kfx_sim_state.play_gameturn + 1;
     // Red palette if the possessed creature is hit very strong.
     if (is_thing_some_way_controlled(thing))
     {
@@ -1005,7 +1005,7 @@ static HitPoints apply_damage_to_creature(struct Thing *thing, HitPoints dmg)
         if (i <= 0) {
             i = 1;
         }
-        sim_feedback->PaletteApplyPainToPlayer(player, i);
+        render_PaletteApplyPainToPlayer(player, i);
 
         if (is_my_player(player))
         {
@@ -1019,7 +1019,7 @@ static HitPoints apply_damage_to_object(struct Thing *thing, HitPoints dmg)
 {
     HitPoints cdamage = dmg;
     thing->health -= cdamage;
-    thing->last_turn_damaged = sim_feedback->get_play_gameturn() + 1;
+    thing->last_turn_damaged = kfx_sim_state.play_gameturn + 1;
     return cdamage;
 }
 
@@ -1133,7 +1133,7 @@ HitPoints apply_damage_to_thing(struct Thing *thing, HitPoints dmg, PlayerNumber
     // If it's already dead, then don't interfere.
     if (thing->health < 0)
         return 0;
-    script_hooks->lua_on_apply_damage_to_thing(thing, dmg, dealing_plyr_idx);
+    script_lua_on_apply_damage_to_thing(thing, dmg, dealing_plyr_idx);
 
     HitPoints cdamage;
     switch (thing->class_id)
@@ -1365,6 +1365,29 @@ const char *creature_statistic_text(const struct Thing *creatng, CreatureLiveSta
         break;
     }
     return text;
+}
+
+// creature_stats_get_from_thing()/get_creature_model_flags() moved here from
+// kfx_config's config_creature.c (refactor pass 2, S05): the Thing-to-model
+// step belongs with the Thing; creature_stats_get(model) stays in config.
+/**
+ * Returns CreatureModelConfig assigned to given thing.
+ * Thing must be a creature.
+ */
+struct CreatureModelConfig *creature_stats_get_from_thing(const struct Thing *thing)
+{
+  ThingModel model = thing->model;
+  if ((model < 1) || (model >= kfx_config_state.conf.crtr_conf.model_count))
+    return &kfx_config_state.conf.crtr_conf.model[0];
+  return &kfx_config_state.conf.crtr_conf.model[model];
+}
+
+uint64_t get_creature_model_flags(const struct Thing *thing)
+{
+    ThingModel model = thing->model;
+    if ((model < 1) || (model >= kfx_config_state.conf.crtr_conf.model_count))
+      return 0;
+  return kfx_config_state.conf.crtr_conf.model[model].model_flags;
 }
 
 /******************************************************************************/

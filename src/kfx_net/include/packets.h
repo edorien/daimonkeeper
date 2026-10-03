@@ -65,7 +65,6 @@ enum ChecksumKind {
 struct PlayerInfo;
 struct CatalogueEntry;
 
-extern uint64_t initial_replay_seed;
 extern TbBool unpausing_in_progress;
 
 
@@ -79,42 +78,16 @@ struct PacketEx
 /******************************************************************************/
 /******************************************************************************/
 void force_application_close(void);
-TbBool is_mouse_on_map(struct Packet* pckt);
-void remember_cursor_subtile(NetUserId user);
-struct Thing *get_thing_under_hand(struct PlayerInfo *player, MapCoord x, MapCoord y);
-TbBool process_dungeon_control_packet_clicks(NetUserId user);
-TbBool process_user_dungeon_control_packet_action(NetUserId user);
-void process_user_creature_control_packet_control(NetUserId user);
-void process_user_creature_passenger_packet_action(NetUserId user);
-void process_user_creature_control_packet_action(NetUserId user);
-void process_map_packet_clicks(NetUserId user);
 void process_pause_packet(int64_t a1, int64_t a2);
-void process_camera_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player);
-void process_camera_view_controls(struct Camera* cam, const struct Packet* pckt, struct PlayerInfo* player);
-void process_camera_action(struct Camera *cams, const struct Packet *pckt);
-void process_first_person_look(struct Thing *thing, const struct Packet *pckt, int64_t current_horizontal, int64_t current_vertical, int64_t *out_horizontal, int64_t *out_vertical, int64_t *out_roll);
-TbBool can_process_creature_input(struct Thing *thing);
 void exchange_packets(void);
 TbBool is_desync_warning_active(void);
-void process_packets(void);
+TbBool resync_game_allowed(void);
 void set_local_packet_turn(void);
 void clear_packets(void);
-TbBigChecksum compute_replay_integrity(void);
-void post_init_packets(void);
-
-TbBool open_new_packet_file_for_save(void);
-void load_packets_for_turn(GameTurn nturn);
-TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry);
-int64_t save_packets(void);
-void close_packet_file(void);
-TbBool reinit_packets_after_load(void);
-TbBool packets_process_cheats(NetUserId user, PlayerNumber plyr_idx, MapCoord x, MapCoord y,
-    struct Packet* pckt, MapSubtlCoord stl_x, MapSubtlCoord stl_y, MapSlabCoord slb_x, MapSlabCoord slb_y);
-void disable_packet_mode(void);
+void set_packet_pause_toggle(void);
 /******************************************************************************/
-// The editor's Fill tool (PckA_EditorFloodFill), callable directly so a test
-// can drive it: the packet carries the seed only in the ambient cursor field.
-void editor_flood_fill_terrain(MapSlabCoord seed_x, MapSlabCoord seed_y, SlabKind target_kind, PlayerNumber owner);
+// Applying the packets (process_packets() and the rest) is kfx_game's
+// game_commands.h; replay file I/O is game_replay.h (refactor pass 2, S12).
 
 #ifdef __cplusplus
 }

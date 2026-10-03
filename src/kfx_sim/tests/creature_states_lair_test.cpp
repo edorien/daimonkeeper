@@ -7,13 +7,14 @@
 // is a plain field read (thing->active_state/continue_state, with the
 // CrSt_CreatureSlapCowers backup-state indirection), and
 // creature_stats_get_from_thing resolves through the same default
-// model-0 ConfigReloadCallbacks provider used throughout this plan.
+// model-0 SimPort provider used throughout this plan.
 #include <catch2/catch_test_macros.hpp>
 
 #include "creature_states_lair.h"
 #include "creature_control.h"
 #include "globals.h"
 #include "kfx_sim_test_fixtures.h"
+#include "thing_stats.h"
 
 using namespace kfx_test;
 

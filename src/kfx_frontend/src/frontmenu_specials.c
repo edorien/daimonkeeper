@@ -37,6 +37,7 @@
 #include "front_input.h"
 #include "game_legacy.h"
 #include "kjm_input.h"
+#include "thing_stats.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

@@ -33,6 +33,7 @@
 #include "config_creature.h"
 #include "room_jobs.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

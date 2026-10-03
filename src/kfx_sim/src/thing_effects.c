@@ -33,7 +33,6 @@
 #include "creature_senses.h"
 #include "creature_states_mood.h"
 #include "globals.h"
-#include "sim_feedback.h"
 #include "map_blocks.h"
 #include "map_data.h"
 #include "player_utils.h"
@@ -50,6 +49,11 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "config.h"
+#include "player_camera.h"
+#include "light_registry.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -84,7 +88,7 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
     if (!i_can_allocate_free_thing_structure(TCls_EffectElem)) {
         return INVALID_THING;
     }
-    if (!sim_feedback->any_player_close_enough_to_see(pos)) {
+    if (!any_player_close_enough_to_see(pos)) {
         return INVALID_THING;
     }
     struct EffectElementConfigStats* eestat = get_effect_element_model_stats(eelmodel);
@@ -174,7 +178,7 @@ struct Thing *create_effect_element(const struct Coord3d *pos, ThingModel eelmod
         ilght.is_dynamic = 1;
         ilght.flags = eestat->light_flags;
         ilght.colour_r = eestat->light_colour_r; ilght.colour_g = eestat->light_colour_g; ilght.colour_b = eestat->light_colour_b;
-        thing->light_id = sim_feedback->light_create_light(&ilght);
+        thing->light_id = light_create_light(&ilght);
         if (thing->light_id <= 0) {
             SYNCDBG(8,"Cannot allocate dynamic light to %s.",thing_model_name(thing));
         }
@@ -342,7 +346,7 @@ void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct C
           }
           int64_t sample_id = eestat->water_snd_smpid;
           if (sample_id > 0) {
-              sim_feedback->thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->water_loudness);
+              audio_thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->water_loudness);
           }
           if ( eestat->water_destroy_on_impact )
               thing->health = 0;
@@ -356,7 +360,7 @@ void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct C
             }
             int64_t sample_id = eestat->lava_snd_smpid;
             if (sample_id > 0) {
-                sim_feedback->thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->lava_loudness);
+                audio_thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->lava_loudness);
             }
             if ( eestat->lava_destroy_on_impact )
                 thing->health = 0;
@@ -369,7 +373,7 @@ void move_effect_blocked(struct Thing *thing, struct Coord3d *prev_pos, struct C
             }
             int64_t sample_id = eestat->solidgnd_snd_smpid;
             if (sample_id > 0) {
-                sim_feedback->thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->solidgnd_loudness);
+                audio_thing_play_sample(efftng, sample_id, NORMAL_PITCH, 0, 3, 0, 2, eestat->solidgnd_loudness);
             }
             if ( eestat->solidgnd_destroy_on_impact )
                 thing->health = 0;
@@ -552,13 +556,13 @@ struct Thing *create_effect_generator(struct Coord3d *pos, ThingModel model, int
     if (!i_can_allocate_free_thing_structure(TCls_EffectGen))
     {
         ERRORDBG(3,"Cannot create effect generator model %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)model,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* effgentng = allocate_free_thing_structure(TCls_EffectGen);
     if (effgentng->index == 0) {
         ERRORDBG(3,"Should be able to allocate effect generator %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)model,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
 
@@ -674,8 +678,8 @@ void update_effect_light_intensity(struct Thing *thing)
   {
       if (thing->health < 4)
       {
-          int64_t i = sim_feedback->light_get_light_intensity(thing->light_id);
-          sim_feedback->light_set_light_intensity(thing->light_id, (3*i)/4);
+          int64_t i = light_get_light_intensity(thing->light_id);
+          light_set_light_intensity(thing->light_id, (3*i)/4);
       }
   }
 }
@@ -778,7 +782,7 @@ void effect_generate_effect_elements(const struct Thing *thing)
         } else
         {
             player = get_my_player();
-            sim_feedback->PaletteSetUserPalette(player->user_id, engine_palette);
+            render_PaletteSetUserPalette(player->user_id, engine_palette);
             LbPaletteStopOpenFade();
         }
         break;
@@ -802,10 +806,19 @@ TngUpdateRet process_effect_generator(struct Thing *thing)
         delete_thing_structure(thing, 0);
         return TUFRet_Deleted;
     }
-    if ( !sim_feedback->any_player_close_enough_to_see(&thing->mappos) )
+    if ( !any_player_close_enough_to_see(&thing->mappos) )
     {
         SYNCDBG(18,"No player sees %s at (%" PRId64 ",%" PRId64 ",%" PRId64 ")",thing_model_name(thing),(int64_t)thing->mappos.x.stl.num,(int64_t)thing->mappos.y.stl.num,(int64_t)thing->mappos.z.stl.num);
         return TUFRet_Modified;
+    }
+    // Everything below runs only where some player's camera is close, which
+    // can differ between machines, so it may change nothing synced about the
+    // generator except generation_delay (see the rule above
+    // update_all_players_cameras() in player_camera.c). Checked at Debug.
+    const TbBool check_unsynced_rule = KFX_DEBUG_ON(9);
+    struct Thing before;
+    if (check_unsynced_rule) {
+        memcpy(&before, thing, sizeof(before)); // memcpy, not =, so padding compares too
     }
     if (thing->effect_generator.generation_delay > 0)
         thing->effect_generator.generation_delay--;
@@ -861,12 +874,18 @@ TngUpdateRet process_effect_generator(struct Thing *thing)
                 struct Thing* sectng = create_effect(&elemtng->mappos, TngEff_Dummy, thing->owner);
                 TRACE_THING(sectng);
                 if (!thing_is_invalid(sectng)) {
-                    sim_feedback->thing_play_sample(sectng, egenstat->sound_sample_idx + SOUND_RANDOM(egenstat->sound_sample_rng), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                    audio_thing_play_sample(sectng, egenstat->sound_sample_idx + SOUND_RANDOM(egenstat->sound_sample_rng), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
                 }
             }
         }
     }
     thing->effect_generator.generation_delay = egenstat->generation_delay_min + UNSYNC_RANDOM(egenstat->generation_delay_max - egenstat->generation_delay_min + 1);
+    if (check_unsynced_rule) {
+        before.effect_generator.generation_delay = thing->effect_generator.generation_delay;
+        if (memcmp(&before, thing, sizeof(before)) != 0) {
+            ERRORLOG("Camera-gated code changed synced fields of %s index %" PRId64, thing_model_name(thing), (int64_t)thing->index);
+        }
+    }
     return TUFRet_Modified;
 }
 
@@ -905,7 +924,7 @@ struct Thing *create_effect(const struct Coord3d *pos, ThingModel effmodel, Play
         ilght.mappos.x.val = thing->mappos.x.val;
         ilght.mappos.y.val = thing->mappos.y.val;
         ilght.mappos.z.val = thing->mappos.z.val;
-        thing->light_id = sim_feedback->light_create_light(&ilght);
+        thing->light_id = light_create_light(&ilght);
         if (thing->light_id == 0) {
             // Note that there's an error here in original DK, and it makes unusable Thing entries if cannot allocate light.
             SYNCDBG(8,"Cannot allocate dynamic light to %s.",thing_model_name(thing));
@@ -915,7 +934,7 @@ struct Thing *create_effect(const struct Coord3d *pos, ThingModel effmodel, Play
     place_thing_in_mapwho(thing);
     if (effcst->effect_sound != 0)
     {
-        sim_feedback->thing_play_sample(thing, effcst->effect_sound, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, effcst->effect_sound, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
     }
     return thing;
 }
@@ -1075,7 +1094,7 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
                 event_create_event_or_update_nearby_existing_event(tngdst->mappos.x.val, tngdst->mappos.y.val,EvKind_HeartAttacked, tngdst->owner, 0);
                 if (is_my_player_number(tngdst->owner))
                 {
-                    sim_feedback->play_sound_message(SMsg_HeartUnderAttack, 400);
+                    audio_output_message(SMsg_HeartUnderAttack, 400);
                     controller_rumble(50);
                 }
             } else // Explosions move creatures and other things
@@ -1594,7 +1613,7 @@ TngUpdateRet update_effect(struct Thing *efftng)
     }
     update_effect_light_intensity(efftng);
     // Effect generators can be used to generate effect elements
-    if ( (effcst->always_generate) || sim_feedback->any_player_close_enough_to_see(&efftng->mappos) )
+    if ( (effcst->always_generate) || any_player_close_enough_to_see(&efftng->mappos) )
     {
         effect_generate_effect_elements(efftng);
     }

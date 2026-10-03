@@ -1,14 +1,11 @@
 // kfx_pathfinding: ariadne.c -- the largest of the "big three" (3,313
 // lines) previously left untouched because most of its surface needs a
-// functioning PathfindingWorldCallbacks fake (51-entry interface, a
+// functioning PathfindingWorldPort fake (51-entry interface, a
 // dedicated sub-effort of its own -- docs/Architecture/
 // testing-harness.md §10). Two functions turned out narrow enough not
-// to need that: thing_nav_block_sizexy/thing_nav_sizexy each call
-// exactly one callback (thing_get_clipbox_size) and index a private
-// lookup table with clamping, testable with a minimal single-field
-// PathfindingWorldCallbacks fake (copy the default table, override just
-// that one field -- kfx_config's pathfinding_world_test.cpp's own
-// pattern). Exact table contents are private static arrays this file
+// to need that: thing_nav_block_sizexy/thing_nav_sizexy each read one
+// field (thing->clipbox_size_xy, a direct read since refactor pass 2's S08)
+// and index a private lookup table with clamping. Exact table contents are private static arrays this file
 // doesn't expose, so the clamp tests assert structurally (two
 // out-of-range inputs both clamp to the same table entry) rather than
 // against a hard-coded magic number.
@@ -38,47 +35,31 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "ariadne.h"
-#include "pathfinding_world.h"
 #include "pathfinding_fake_world.h"
 
 using namespace pf_fake;
 
-namespace {
-int64_t fake_clipbox_size = 0;
-int64_t fake_thing_get_clipbox_size(const struct Thing *) { return fake_clipbox_size; }
+TEST_CASE("thing_nav_block_sizexy/thing_nav_sizexy look up the same table entry for any clipbox size below the table's length", "[kfx_pathfinding][ariadne]") {
+    FakeThing thing;
+    thing.tng.clipbox_size_xy = 0;
+    int64_t block_at_0 = thing_nav_block_sizexy(as_thing(thing));
+    int64_t sizexy_at_0 = thing_nav_sizexy(as_thing(thing));
 
-struct PathfindingWorldFixture {
-    struct PathfindingWorldCallbacks fake;
-    PathfindingWorldFixture() {
-        fake = *pathfinding_world;
-        fake.thing_get_clipbox_size = fake_thing_get_clipbox_size;
-        set_pathfinding_world_callbacks(&fake);
-    }
-    ~PathfindingWorldFixture() {
-        set_pathfinding_world_callbacks(nullptr);
-    }
-};
+    thing.tng.clipbox_size_xy = 1;
+    CHECK(thing_nav_block_sizexy(as_thing(thing)) == block_at_0);
+    CHECK(thing_nav_sizexy(as_thing(thing)) == sizexy_at_0);
 }
 
-TEST_CASE_METHOD(PathfindingWorldFixture, "thing_nav_block_sizexy/thing_nav_sizexy look up the same table entry for any clipbox size below the table's length", "[kfx_pathfinding][ariadne]") {
-    fake_clipbox_size = 0;
-    int64_t block_at_0 = thing_nav_block_sizexy(nullptr);
-    int64_t sizexy_at_0 = thing_nav_sizexy(nullptr);
-
-    fake_clipbox_size = 1;
-    CHECK(thing_nav_block_sizexy(nullptr) == block_at_0);
-    CHECK(thing_nav_sizexy(nullptr) == sizexy_at_0);
-}
-
-TEST_CASE_METHOD(PathfindingWorldFixture, "thing_nav_block_sizexy/thing_nav_sizexy clamp an out-of-range clipbox size to the table's last entry", "[kfx_pathfinding][ariadne]") {
+TEST_CASE("thing_nav_block_sizexy/thing_nav_sizexy clamp an out-of-range clipbox size to the table's last entry", "[kfx_pathfinding][ariadne]") {
     // Two different huge indices must clamp to the exact same slot.
-    fake_clipbox_size = 60000;
-    int64_t block_huge = thing_nav_block_sizexy(nullptr);
-    int64_t sizexy_huge = thing_nav_sizexy(nullptr);
+    FakeThing thing;
+    thing.tng.clipbox_size_xy = 60000;
+    int64_t block_huge = thing_nav_block_sizexy(as_thing(thing));
+    int64_t sizexy_huge = thing_nav_sizexy(as_thing(thing));
 
-    fake_clipbox_size = 65000;
-    CHECK(thing_nav_block_sizexy(nullptr) == block_huge);
-    CHECK(thing_nav_sizexy(nullptr) == sizexy_huge);
+    thing.tng.clipbox_size_xy = 65000;
+    CHECK(thing_nav_block_sizexy(as_thing(thing)) == block_huge);
+    CHECK(thing_nav_sizexy(as_thing(thing)) == sizexy_huge);
 }
 
 TEST_CASE("angle_to_quadrant buckets an angle into one of 4 quadrants, rounding at the 45-degree midpoints", "[kfx_pathfinding][ariadne]") {
@@ -109,10 +90,10 @@ struct RouteFixture : TriangulatedWorldFixture {
     FakeThing thing;
     RouteFixture() {
         REQUIRE(init_navigation() == 1);
-        thing.pos.x.val = subtile_coord_center(2);
-        thing.pos.y.val = subtile_coord_center(2);
-        thing.pos.z.val = 0;
-        thing.clipbox_size = 0;
+        thing.tng.mappos.x.val = subtile_coord_center(2);
+        thing.tng.mappos.y.val = subtile_coord_center(2);
+        thing.tng.mappos.z.val = 0;
+        thing.tng.clipbox_size_xy = 0;
     }
     struct Thing *t() { return as_thing(thing); }
 };
@@ -134,7 +115,7 @@ TEST_CASE_METHOD(RouteFixture, "ariadne_initialise_creature_route_f finds a real
 }
 
 TEST_CASE_METHOD(RouteFixture, "ariadne_initialise_creature_route_f takes the already-at-target shortcut when thing is already at pos", "[kfx_pathfinding][ariadne][triangulation]") {
-    struct Coord3d target = thing.pos; // same x/y as the thing's own starting position
+    struct Coord3d target = thing.tng.mappos; // same x/y as the thing's own starting position
 
     AriadneReturn ret = ariadne_initialise_creature_route(t(), &target, 32, AridRtF_Default);
     CHECK(ret == AridRet_OK);
@@ -146,7 +127,7 @@ TEST_CASE_METHOD(RouteFixture, "ariadne_initialise_creature_route_f takes the al
 }
 
 TEST_CASE_METHOD(RouteFixture, "ariadne_count_waypoints_on_creature_route_to_target_f reports a positive waypoint count without touching the creature's own Ariadne state", "[kfx_pathfinding][ariadne][triangulation]") {
-    struct Coord3d src = thing.pos;
+    struct Coord3d src = thing.tng.mappos;
     struct Coord3d dst{};
     dst.x.val = subtile_coord_center(6);
     dst.y.val = subtile_coord_center(6);

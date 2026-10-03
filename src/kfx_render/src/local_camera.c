@@ -20,8 +20,8 @@
 #include "pre_inc.h"
 #include "local_camera.h"
 #include "engine_camera.h"
+#include "player_camera.h"
 #include "engine_render.h"
-#include "render_overlay.h"
 #include "packet_data.h"
 #include "player_data.h"
 #include "config_creature.h"
@@ -29,10 +29,12 @@
 #include "dungeon_data.h"
 #include "map_data.h"
 #include "bflib_math.h"
-#include "sim_feedback.h"
 
 #include <math.h>
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
+#include "ports/net_port.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -52,15 +54,22 @@ static MapCoord local_camera_move_target[2];
 static MapCoordDelta local_camera_move_delta[2];
 static struct Camera *local_camera_move_cam;
 static struct Packet freecam_packet;
+// The kfx_sim_view_signals counters (player_camera.h) as last applied here,
+// for the local player.
+static uint64_t seen_camera_init_seq;
+static uint64_t seen_camera_sync_seq;
+static uint64_t seen_camera_retarget_seq;
+static void apply_sim_camera_signals(void);
 /******************************************************************************/
 
 static TbBool replay_is_detached(void)
 {
-    return sim_feedback->get_packet_load_enable() && local_state.replay_detached;
+    return kfx_sim_state.replay_active && local_state.replay_detached;
 }
 
 void camera_packet_set_state(struct Packet *pckt)
 {
+    apply_sim_camera_signals();
     struct PlayerInfo* player = get_my_player();
     if (!local_camera_ready || (get_local_view_type(player) != PVT_DungeonTop) || (player->view_type != PVT_DungeonTop)) {
         // senseless to transmit camera coords during these times
@@ -128,6 +137,7 @@ void init_local_cameras(struct PlayerInfo *player)
 
 void move_local_camera_to_position(MapCoord x, MapCoord y)
 {
+    apply_sim_camera_signals();
     if (!local_camera_ready) {
         return;
     }
@@ -157,7 +167,7 @@ static void update_local_first_person_camera(struct Thing *ctrltng, const struct
     update_first_person_position(cam, ctrltng, eye_height);
 
     if ((flag_is_set(kfx_sim_state.operation_flags, GOF_Paused) && kfx_sim_state.game_kind != GKind_LocalGame)
-        || ! render_overlay->can_process_creature_input(ctrltng))
+        || ! can_process_creature_input(ctrltng))
     {
         cam->rotation_angle_x = ctrltng->move_angle_xy;
         cam->rotation_angle_y = ctrltng->move_angle_z;
@@ -170,7 +180,7 @@ static void update_local_first_person_camera(struct Thing *ctrltng, const struct
     const int64_t current_horizontal = cam->rotation_angle_x;
     const int64_t current_vertical = cam->rotation_angle_y;
     int64_t new_horizontal, new_vertical, new_roll;
-    render_overlay->process_first_person_look(ctrltng, pckt, current_horizontal, current_vertical, &new_horizontal, &new_vertical, &new_roll);
+    process_first_person_look(ctrltng, pckt, current_horizontal, current_vertical, &new_horizontal, &new_vertical, &new_roll);
     cam->rotation_angle_x = new_horizontal;
     cam->rotation_angle_y = new_vertical;
     if ((ctrltng->movement_flags & TMvF_Flying) != 0) {
@@ -180,12 +190,13 @@ static void update_local_first_person_camera(struct Thing *ctrltng, const struct
 
 void update_local_cameras(void)
 {
+    apply_sim_camera_signals();
     if (!local_camera_ready) {
         return;
     }
     struct PlayerInfo *player = get_my_player();
     struct Thing *ctrltng = thing_get(player->controlled_thing_idx);
-    const struct Packet *pckt = render_overlay->get_history_packet(get_local_user(), get_gameturn());
+    const struct Packet *pckt = netport_get_history_packet(get_local_user(), get_gameturn());
     previous_deviation_x = destination_deviation_x;
     previous_deviation_y = destination_deviation_y;
     destination_deviation_x = 0;
@@ -194,10 +205,10 @@ void update_local_cameras(void)
     memcpy(previous_local_cameras, destination_local_cameras, sizeof(previous_local_cameras));
     if (replay_is_detached()) {
         if (local_state.replay_view_type == PVT_DungeonTop) {
-            render_overlay->process_camera_action(destination_local_cameras, &freecam_packet);
+            process_camera_action(destination_local_cameras, &freecam_packet);
             struct Camera *cam = &destination_local_cameras[local_state.replay_cam_idx];
             process_local_camera_movement(cam, player);
-            render_overlay->process_camera_view_controls(cam, &freecam_packet, player);
+            process_camera_view_controls(cam, &freecam_packet, player);
             view_process_camera_velocity(cam);
         }
         local_state.camera_movement_x = 0.0;
@@ -206,7 +217,7 @@ void update_local_cameras(void)
         return;
     }
     if (pckt != NULL) {
-        render_overlay->process_camera_action(destination_local_cameras, pckt);
+        process_camera_action(destination_local_cameras, pckt);
         // Skip interpolation for parchment jumps, while retaining it for minimap dragging.
         if (pckt->action == PckA_ZoomFromMap) {
             memcpy(previous_local_cameras, destination_local_cameras, sizeof(previous_local_cameras));
@@ -235,11 +246,11 @@ void update_local_cameras(void)
     if (local_camera_move_cam != cam) {
         // Same as the packet camera: a parchment map jump ignores the packet's camera controls.
         if (pckt->action != PckA_ZoomFromMap) {
-            if (!sim_feedback->get_packet_load_enable() && cam->view_mode != PVM_ParchmentView) {
+            if (!kfx_sim_state.replay_active && cam->view_mode != PVM_ParchmentView) {
                 process_local_camera_movement(cam, player);
-                render_overlay->process_camera_view_controls(cam, pckt, player);
+                process_camera_view_controls(cam, pckt, player);
             } else {
-                render_overlay->process_camera_controls(cam, pckt, player);
+                process_camera_controls(cam, pckt, player);
             }
             local_state.camera_movement_x = 0.0;
             local_state.camera_movement_y = 0.0;
@@ -249,10 +260,10 @@ void update_local_cameras(void)
 
     if (active_cam_idx == CamIV_Isometric) {
         struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
-        if (dungeon->camera_deviate_jump != 0) {
+        if (kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] != 0) {
             int64_t angle = cam->rotation_angle_x;
-            destination_deviation_x += ( (dungeon->camera_deviate_jump * LbSinL(angle) >> 8) >> 8);
-            destination_deviation_y += (-(dungeon->camera_deviate_jump * LbCosL(angle) >> 8) >> 8);
+            destination_deviation_x += ( (kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] * LbSinL(angle) >> 8) >> 8);
+            destination_deviation_y += (-(kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] * LbCosL(angle) >> 8) >> 8);
         }
     }
 }
@@ -272,7 +283,7 @@ static void interpolate_camera_deviations(void)
     int64_t total_deviation_x = (int64_t)interpolated_deviation_x;
     int64_t total_deviation_y = (int64_t)interpolated_deviation_y;
     struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
-    if (dungeon->camera_deviate_quake != 0) {
+    if (kfx_sim_view_signals.camera_deviate_quake[dungeon->owner] != 0) {
         total_deviation_x += UNSYNC_RANDOM(80) - 40;
         total_deviation_y += UNSYNC_RANDOM(80) - 40;
     }
@@ -288,6 +299,7 @@ static void interpolate_camera_deviations(void)
 
 void interpolate_local_cameras(void)
 {
+    apply_sim_camera_signals();
     if (!local_camera_ready) {
         return;
     }
@@ -344,6 +356,59 @@ void set_local_camera_destination(struct PlayerInfo *player)
     }
 }
 
+/**
+ * Applies whatever kfx_sim asked of the local camera since the last call:
+ * re-initialise (init_player_cameras() ran), snap to the synced cameras, then
+ * ease towards them -- in that order, so a snap sets the base a retarget in
+ * the same batch starts from. The sim used to make these three calls
+ * directly; it now only bumps kfx_sim_view_signals (refactor pass 2, S07).
+ * Called at the start of every function here that reads the local cameras,
+ * so a change is seen by the next reader, just as the direct call was.
+ */
+static void apply_sim_camera_signals(void)
+{
+    const PlayerNumber plyr_idx = my_player_number;
+    if (plyr_idx >= PLAYERS_COUNT) {
+        return;
+    }
+    struct PlayerInfo *player = get_player(plyr_idx);
+    const uint64_t init_seq = kfx_sim_view_signals.camera_init_seq[plyr_idx];
+    const uint64_t sync_seq = kfx_sim_view_signals.camera_sync_seq[plyr_idx];
+    const uint64_t retarget_seq = kfx_sim_view_signals.camera_retarget_seq[plyr_idx];
+    if (init_seq != seen_camera_init_seq) {
+        seen_camera_init_seq = init_seq;
+        init_local_cameras(player);
+    }
+    if (sync_seq != seen_camera_sync_seq) {
+        seen_camera_sync_seq = sync_seq;
+        sync_local_camera(player);
+    }
+    if (retarget_seq != seen_camera_retarget_seq) {
+        seen_camera_retarget_seq = retarget_seq;
+        set_local_camera_destination(player);
+    }
+}
+
+/**
+ * Moves the local camera to the local player's next creature of the given
+ * model and GUI job (the creature panel's and the console's "go to").
+ * Moved here from kfx_sim's thing_creature.c in refactor pass 2 (S07): it
+ * only moves the local camera, and every caller is local UI.
+ *
+ * @param crmodel
+ * @param job_idx
+  * @param pick_flags
+ * @note originally was go_to_next_creature_of_breed_and_job()
+ */
+void go_to_next_creature_of_model_and_gui_job(int64_t crmodel, int64_t job_idx, unsigned char pick_flags)
+{
+    struct Thing* creatng = find_players_next_creature_of_breed_and_gui_job(crmodel, job_idx, my_player_number, pick_flags);
+    if (!thing_is_invalid(creatng))
+    {
+        move_local_camera_to_position(creatng->mappos.x.val, creatng->mappos.y.val);
+    }
+}
+
 void update_local_view_prediction(const struct Packet *pckt)
 {
     if (pckt->action == PckA_ZoomFromMap) {
@@ -351,10 +416,10 @@ void update_local_view_prediction(const struct Packet *pckt)
     }
     if (pckt->action == PckA_SaveViewType && pckt->actn_par1 == PVT_MapScreen) {
         local_state.view_type = PVT_MapScreen;
-        sim_feedback->toggle_status_menu(0);
+        ui_toggle_status_menu(0);
     } else if ((pckt->action == PckA_LoadViewType && pckt->actn_par1 == PVT_DungeonTop) || pckt->action == PckA_ZoomFromMap) {
         local_state.view_type = PVT_DungeonTop;
-        sim_feedback->toggle_status_menu((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0);
+        ui_toggle_status_menu((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0);
     }
 }
 
@@ -404,7 +469,7 @@ void replay_freecam_set_map(TbBool on)
         return;
     }
     local_state.replay_view_type = on ? PVT_MapScreen : PVT_DungeonTop;
-    sim_feedback->toggle_status_menu(on ? 0 : ((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0));
+    ui_toggle_status_menu(on ? 0 : ((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0));
 }
 
 void replay_freecam_jump(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
@@ -417,10 +482,17 @@ void replay_freecam_jump(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
     jump.action = PckA_ZoomFromMap;
     jump.actn_par1 = stl_x;
     jump.actn_par2 = stl_y;
-    render_overlay->process_camera_action(destination_local_cameras, &jump);
+    process_camera_action(destination_local_cameras, &jump);
     memcpy(previous_local_cameras, destination_local_cameras, sizeof(previous_local_cameras));
     memcpy(local_cameras, destination_local_cameras, sizeof(local_cameras));
     replay_freecam_set_map(false);
+}
+
+TbBool local_view_type_settle(int64_t nview)
+{
+    if (local_state.view_type == nview)
+        local_state.view_type = PVT_None;
+    return local_state.view_type != PVT_None;
 }
 
 unsigned char get_local_view_type(const struct PlayerInfo *player)
@@ -439,6 +511,7 @@ unsigned char get_local_view_type(const struct PlayerInfo *player)
 
 int get_local_active_camera_index(struct PlayerInfo *player)
 {
+    apply_sim_camera_signals();
     if (!is_my_player(player) || !local_camera_ready)
         return player->active_camera_idx;
     return get_local_active_camera(player) - local_cameras;
@@ -446,6 +519,7 @@ int get_local_active_camera_index(struct PlayerInfo *player)
 
 struct Camera* get_local_active_camera(struct PlayerInfo *player)
 {
+    apply_sim_camera_signals();
     struct Camera *camera = get_player_active_camera(player);
     if (camera == NULL || !is_my_player(player) || !local_camera_ready) {
         return camera;
@@ -470,7 +544,7 @@ struct Camera* get_local_active_camera(struct PlayerInfo *player)
 }
 
 // Pre-#5226 compatibility shim: some kfx_sim callers (routed through
-// sim_feedback, since kfx_sim can't call get_local_active_camera()
+// a port, since kfx_sim can't call get_local_active_camera()
 // directly) still resolve a specific struct Camera* they already hold
 // (e.g. &player->cameras[CamIV_FirstPerson]) to its local_cameras[]
 // counterpart, rather than resolving fresh from a PlayerInfo* the way

@@ -469,8 +469,8 @@ else()
 
         # Built from source, so not on the system's library path -- ship the
         # .so files next to the installed binary (mirrors the WIN32 branch's
-        # SDL3*.dll install(FILES ...) above). Matches keeperfx/
-        # keeperfx_hvlog's INSTALL_RPATH "$ORIGIN" (CMakeLists.txt).
+        # SDL3*.dll install(FILES ...) above). Matches keeperfx's
+        # INSTALL_RPATH "$ORIGIN" (CMakeLists.txt).
         #
         # install(CODE ...) + a glob at install time (not install(DIRECTORY
         # ... FILES_MATCHING)): the .so files don't exist yet at configure
@@ -767,11 +767,8 @@ endfunction()
 # included too (Phase A's imgui_demo proof, §7); it costs nothing in a
 # release build if ImGui::ShowDemoWindow() is never called.
 #
-# One OBJECT library shared between the std/hvlog kfx_platform variants --
-# kfx_common_opts is a single INTERFACE target linked into both (see
-# centitoml just above for the identical reasoning): ImGui doesn't touch
-# BFDEBUG_LEVEL or any bflib header, so nothing differs between the two
-# builds and compiling it twice would be pure waste.
+# One OBJECT library, linked through kfx_common_opts (see centitoml just
+# above for the identical reasoning).
 set(KFX_IMGUI_SRC "${CMAKE_SOURCE_DIR}/deps/imgui")
 add_library(imgui OBJECT
     "${KFX_IMGUI_SRC}/imgui.cpp"

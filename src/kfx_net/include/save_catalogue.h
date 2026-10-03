@@ -41,6 +41,10 @@ enum GameLoadStatus {
 
 enum CatalogueEntryFlags {
     CEF_InUse       = 0x0001,
+    /* Set in memory when the save list is built (refactor pass 2, S09): the
+       file's chunks don't match this build's layout versions, so it can't
+       be loaded. Never written to a file. */
+    CEF_OtherVersion = 0x0002,
 };
 
 // file header for game saves. Also used in packet recordings.

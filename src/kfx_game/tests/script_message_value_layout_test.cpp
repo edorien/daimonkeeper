@@ -10,7 +10,7 @@
 #include "lvl_filesdk1.h"
 #include "level_script_override.h"
 #include "kfx_game_state.h"
-#include "sim_feedback.h"
+#include "ports/ui_port.h"
 
 #include <cstring>
 #include <string>
@@ -33,22 +33,22 @@ void capture_message(char type, int64_t idx, const char *text)
 
 struct Capture
 {
-    struct SimFeedbackCallbacks fake;
-    const struct SimFeedbackCallbacks *saved;
+    struct UiPort fake;
+    const struct UiPort *saved;
     Capture()
     {
         std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
         level_script_override_clear();
         g_messages.clear();
         g_icon_types.clear();
-        saved = sim_feedback;
-        fake = *sim_feedback;
+        saved = ui_port;
+        fake = *ui_port;
         fake.message_add = &capture_message;
-        set_sim_feedback_callbacks(&fake);
+        set_ui_port(&fake);
     }
     ~Capture()
     {
-        set_sim_feedback_callbacks(saved);
+        set_ui_port(saved);
         level_script_override_clear();
         std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
     }

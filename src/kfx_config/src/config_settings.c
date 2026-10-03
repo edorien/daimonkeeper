@@ -179,9 +179,9 @@ const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
     {"EditorReinforceTool",   GUIStr_Empty,                   KC_N, KMod_NONE,               CBtn_NONE,                BMV_Visible, "Map Editor: Switch to Reinforce Tool", },   // Gkey_EditorReinforceTool,
 };
 
-// Mirror engine_camera.h's camera zoom/tilt bounds, used here only as
-// clamp/default values (not runtime state), so this file doesn't need
-// engine_camera.h directly. See docs/refactor/stage-04-kfx-config.md
+// Mirror kfx_sim's player_camera.h camera tilt bounds (and the zoom
+// bounds), used here only as clamp/default values (not runtime state), so
+// this file doesn't need player_camera.h directly. See docs/refactor/stage-04-kfx-config.md
 // issue B.
 #define CAMERA_ZOOM_MAX 12000
 #define CAMERA_ZOOM_MIN 520
@@ -198,6 +198,25 @@ const struct GamekeySettings editor_key_settings[EDITOR_GAME_KEYS_COUNT] = {
 unsigned char i_can_see_levels[] = {24, 36, 54, 96,};
 struct GameSettings settings;
 static struct GameSettings settings_saved;
+
+struct KfxRuntimeSettings kfx_runtime_settings = {
+    .screenshot_format = 1,
+    .vid_smooth = false,
+    .screen_vidmode = Lb_SCREEN_MODE_640_480_8,
+    .base_mouse_sensitivity = 256,
+    .hand_scale = 1.0,
+    .speech_queue_limit = 4,
+};
+
+TbScreenMode get_screen_vidmode(void)
+{
+    return kfx_runtime_settings.screen_vidmode;
+}
+
+void set_screen_vidmode(TbScreenMode nmode)
+{
+    kfx_runtime_settings.screen_vidmode = nmode;
+}
 /******************************************************************************/
 
 static const struct { unsigned char code; const char *name; } keycode_table[] = {

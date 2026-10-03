@@ -24,7 +24,6 @@
 #include "config.h"
 #include "config_campaigns.h"
 #include "lvl_script.h"
-#include "light_data.h"
 #include "sounds.h"
 
 #ifdef __cplusplus
@@ -44,7 +43,6 @@ struct KfxGameState {
 
     char campaign_fname[CAMPAIGN_FNAME_LEN];
     TbBool paused_at_gameturn;
-    GameTurn play_gameturn;
     TbBool frame_step;
 
     /* Mischaracterized as kfx_frontend in stage 10's initial research
@@ -63,19 +61,20 @@ struct KfxGameState {
        stage-13-enforce-and-document.md) -- flags_gui/timer_real/bonus_time
        are read by kfx_frontend/kfx_script too, but kfx_game is the
        lowest-ranked of their consumer sets; ambient_sound_thing_idx/
-       sound_settings/lightst are kfx_game-only. */
+       sound_settings are kfx_game-only. (lightst, the light system's
+       counters, went with the lights to kfx_sim_state.light_registry in
+       refactor pass 2, S11.) */
     unsigned char flags_gui;
     TbBool timer_real;
     int64_t bonus_time;
     int64_t ambient_sound_thing_idx;
     struct SoundSettings sound_settings;
-    struct LightSystemState lightst;
 
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- also read/written by
        kfx_platform's bflib_sndlib.cpp, which can't reach kfx_game_state
        directly (kfx_platform is the lowest-ranked library). See
-       bflib_sndlib.h's SoundStateCallbacks for how it gets pointer
+       ports/sound_host_port.h's SoundHostPort for how it gets pointer
        access instead. */
     char music_track; // cdrom / default music track to resume after load
     char music_fname[DISKPATH_SIZE]; // custom music file to resume after load

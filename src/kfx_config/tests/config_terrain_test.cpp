@@ -10,12 +10,10 @@
 //
 // enemies_may_work_in_room()/get_room_create_creature_model() reach
 // into config_creature.c's get_jobs_enemies_may_do_in_room() (a
-// different, large file) and aren't attempted here. make_all_rooms_*/
-// set_room_available/is_room_available/is_room_obtainable/
-// find_first_available_roomkind_with_role/make_available_all_researchable_rooms
-// all reach into dungeon_availability's real callbacks (a different
-// already-tested *Callbacks file) and aren't attempted here either --
-// this round stays on the pure config-data predicates.
+// different, large file) and aren't attempted here. The per-player room
+// availability functions (set_room_available and friends) moved to
+// kfx_sim's player_availability.c (refactor pass 2, S05) and are tested
+// in kfx_sim/tests/player_availability_test.cpp.
 #include <catch2/catch_test_macros.hpp>
 
 #include "config_terrain.h"

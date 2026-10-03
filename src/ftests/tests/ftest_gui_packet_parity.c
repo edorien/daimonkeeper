@@ -19,6 +19,7 @@
 #include "config_strings.h"
 #include "frontgui_ingame_tabcontent.h"   // ingame_tabcontent_test_fire, ITTA_*
 
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

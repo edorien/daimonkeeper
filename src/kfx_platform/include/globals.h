@@ -154,34 +154,41 @@ extern TbBool detailed_multiplayer_logging;
 #define NETLOG(format, ...) LbNetLog("[%" PRIu64 "] %s: " format "\n", get_gameturn(), __func__ , ##__VA_ARGS__)
 #define NOLOG(format, ...)
 
-// Debug function-like macros - for debug code logging
-#if (BFDEBUG_LEVEL > 0)
-  #define SYNCDBG(dblv,format, ...) {\
-    if (BFDEBUG_LEVEL > dblv)\
-      LbSyncLog("%s: " format "\n", __func__ , ##__VA_ARGS__); }
-  #define WARNDBG(dblv,format, ...) {\
-    if (BFDEBUG_LEVEL > dblv)\
-      LbWarnLog("%s: " format "\n", __func__ , ##__VA_ARGS__); }
-  #define ERRORDBG(dblv,format, ...) {\
-    if (BFDEBUG_LEVEL > dblv)\
-      LbErrorLog("%s: " format "\n", __func__ , ##__VA_ARGS__); }
-  #define NAVIDBG(dblv,format, ...) {\
-    if (BFDEBUG_LEVEL > dblv)\
-      LbNaviLog("%s: " format "\n", __func__ , ##__VA_ARGS__); }
-  #define NETDBG(dblv,format, ...) {\
-    if (BFDEBUG_LEVEL > dblv)\
-      LbNetLog("%s: " format "\n", __func__ , ##__VA_ARGS__); }
-  #define SCRIPTDBG(dblv,format, ...) {\
-    if (BFDEBUG_LEVEL > dblv)\
-      LbScriptLog(text_line_number,"%s: " format "\n", __func__ , ##__VA_ARGS__); }
+// Debug function-like macros - for debug code logging.
+// A *DBG(dblv, ...) line prints when dblv is below both the compile-time
+// ceiling and the runtime threshold that the LOG_LEVEL option sets
+// (kfx_debug_threshold, bflib_basics.h). KFX_DEBUG_CEILING is a constant, so
+// every site at or above it compiles away; the default 20 compiles in every
+// level the code uses (Debug max). A build may lower it (e.g.
+// -DKFX_DEBUG_CEILING=10) to drop the deepest traces entirely.
+// BFDEBUG_LEVEL no longer affects logging: it stays defined (0) only so that
+// #if (BFDEBUG_LEVEL > N) blocks merged from upstream compile, as dead code,
+// until they are converted to KFX_DEBUG_ON(N).
+// Rule: debug-only code (a *DBG argument, or a block gated on
+// kfx_debug_threshold) must never write simulation state, so the log level
+// can never cause a multiplayer desync.
+#if defined(__GNUC__) || defined(__clang__)
+  #define KFX_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
-  #define SYNCDBG(dblv,format, ...)
-  #define WARNDBG(dblv,format, ...)
-  #define ERRORDBG(dblv,format, ...)
-  #define NAVIDBG(dblv,format, ...)
-  #define NETDBG(dblv,format, ...)
-  #define SCRIPTDBG(dblv,format, ...)
+  #define KFX_UNLIKELY(x) (x)
 #endif
+#ifndef KFX_DEBUG_CEILING
+  #define KFX_DEBUG_CEILING 20
+#endif
+/** True when a *DBG line of level dblv should print. */
+#define KFX_DEBUG_ON(dblv) (((dblv) < KFX_DEBUG_CEILING) && KFX_UNLIKELY(kfx_debug_threshold > (dblv)))
+#define SYNCDBG(dblv,format, ...) do { if (KFX_DEBUG_ON(dblv)) \
+      LbSyncLog("%s: " format "\n", __func__ , ##__VA_ARGS__); } while (0)
+#define WARNDBG(dblv,format, ...) do { if (KFX_DEBUG_ON(dblv)) \
+      LbWarnLog("%s: " format "\n", __func__ , ##__VA_ARGS__); } while (0)
+#define ERRORDBG(dblv,format, ...) do { if (KFX_DEBUG_ON(dblv)) \
+      LbErrorLog("%s: " format "\n", __func__ , ##__VA_ARGS__); } while (0)
+#define NAVIDBG(dblv,format, ...) do { if (KFX_DEBUG_ON(dblv)) \
+      LbNaviLog("%s: " format "\n", __func__ , ##__VA_ARGS__); } while (0)
+#define NETDBG(dblv,format, ...) do { if (KFX_DEBUG_ON(dblv)) \
+      LbNetLog("%s: " format "\n", __func__ , ##__VA_ARGS__); } while (0)
+#define SCRIPTDBG(dblv,format, ...) do { if (KFX_DEBUG_ON(dblv)) \
+      LbScriptLog(text_line_number,"%s: " format "\n", __func__ , ##__VA_ARGS__); } while (0)
 
 #define MAX_TILES_X 170
 #define MAX_TILES_Y 170
@@ -701,7 +708,7 @@ struct PickedUpOffset
 
 // Moved here from gui_topmsg.h (stage 6, docs/refactor/stage-06-kfx-sim.md)
 // so kfx_sim code can report allocation/pathing exhaustion via
-// sim_feedback->report_error_stat() without depending on the frontend
+// ui_report_error_stat() without depending on the frontend
 // header that implements the on-screen display.
 enum ErrorStatisticEntries {
     ESE_NoFreeThings = 0,
@@ -718,7 +725,7 @@ enum ErrorStatisticEntries {
 
 // Moved here from gui_soundmsgs.h (stage 6) for the same reason as
 // ErrorStatisticEntries above -- kfx_sim reports speech-message triggers
-// via sim_feedback->play_sound_message() and needs the SMsg_* vocabulary
+// via audio_output_message() and needs the SMsg_* vocabulary
 // without depending on gui_soundmsgs.h itself.
 enum TbSpeechMessages {
     SMsg_None = 0,
@@ -887,7 +894,7 @@ enum MessageTypes {
 
 // Moved here from gui_frontmenu.h (stage 9, docs/refactor/stage-09-kfx-game.md)
 // -- kfx_game callers (lvl_script_commands.c) need the GMnu_* menu-ID
-// vocabulary to pass through game_callbacks->is_menu_active()/
+// vocabulary to pass through ui_menu_is_active()/
 // turn_on_ingame_menu()/turn_off_ingame_menu(), without depending on
 // gui_frontmenu.h's menu-management functions (kfx_frontend, above
 // kfx_game). Same "small vocabulary enum" treatment as MessageTypes above.
@@ -1694,15 +1701,21 @@ enum EditorGameKeys {
  */
 typedef int64_t MenuNumber;
 
-// get_gameturn() itself (bflib_basics.c) is a thin wrapper over a
-// registered provider -- kfx_game's game_legacy.c owns the real
-// kfx_game_state read and is wired up as that provider from main.cpp.
-// Every ERRORLOG/WARNLOG/etc. call site above is unaffected: they still
-// just call get_gameturn(). See docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
-GameTurn get_gameturn(void);
-typedef GameTurn (*GetGameTurnFunc)(void);
-void set_get_gameturn_provider(GetGameTurnFunc provider);
+// The game turn is kfx_sim_state.play_gameturn (saved and resynced with
+// the rest of the sim state). kfx_platform can't see kfx_sim_state, so it
+// holds a read-only pointer to it instead, pointed there once by main.cpp's
+// wire_ports() (set_gameturn_source()). get_gameturn() is then a plain load
+// -- no call on one of the game's hottest paths (every log macro above) --
+// and never stale, even right after a save load or resync replaces the
+// sim state wholesale. Until wired (and in unit tests that don't wire it)
+// it reads 0. Refactor pass 2, S10; the registered provider function it
+// replaces went with it.
+extern const GameTurn *lb_gameturn_source;
+static inline GameTurn get_gameturn(void)
+{
+    return *lb_gameturn_source;
+}
+void set_gameturn_source(const GameTurn *source);
 #ifdef __cplusplus
 }
 #endif

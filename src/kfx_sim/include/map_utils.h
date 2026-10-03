@@ -21,6 +21,7 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
+#include "map_types.h"
 
 #define SPIRAL_STEPS_RANGE     50
 #define SPIRAL_STEPS_COUNT   (SPIRAL_STEPS_RANGE*SPIRAL_STEPS_RANGE)
@@ -78,8 +79,7 @@ extern struct Around const around[];
 extern struct Around const mid_around[MID_AROUND_LENGTH];
 extern struct Around const large_around[LARGE_AROUND_MAX];
 extern struct Around const start_at_around[MID_AROUND_LENGTH];
-#define SMALL_AROUND_LENGTH 4
-extern struct Around const small_around[];
+// small_around[]/SMALL_AROUND_LENGTH are in kfx_model's map_types.h.
 #define SMALL_AROUND_MID_LENGTH 5
 extern struct Around const small_around_mid[];
 
@@ -99,7 +99,6 @@ void get_min_floor_and_ceiling_heights_for_rect(MapSubtlCoord stl_x_beg, MapSubt
 void slabs_fill_iterate_from_slab(MapSlabCoord src_slab_x, MapSlabCoord src_slab_y, SlabsFillIterAction f_action, MaxCoordFilterParam param);
 
 SmallAroundIndex small_around_index_towards_destination(int64_t curr_x, int64_t curr_y, int64_t dest_x, int64_t dest_y);
-SmallAroundIndex small_around_index_in_direction(int64_t srcpos_x, int64_t srcpos_y, int64_t dstpos_x, int64_t dstpos_y);
 
 int64_t pos_move_in_direction_to_last_allowing_drop(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, int64_t slabs_dist);
 int64_t pos_move_in_direction_to_outside_player_room(struct Coord3d *mvpos, unsigned char round_directn, PlayerNumber plyr_idx, int64_t slabs_dist);

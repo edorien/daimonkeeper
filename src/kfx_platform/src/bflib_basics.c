@@ -61,19 +61,13 @@ void set_emulate_integer_overflow_provider(EmulateIntegerOverflowFunc provider)
     emulate_integer_overflow_provider = provider ? provider : &default_emulate_integer_overflow;
 }
 
-// See get_gameturn()/GetGameTurnFunc (globals.h) and docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
-static GameTurn default_get_gameturn(void) { return 0; }
-static GetGameTurnFunc get_gameturn_provider = &default_get_gameturn;
+// See get_gameturn() (globals.h).
+static const GameTurn unwired_gameturn = 0;
+const GameTurn *lb_gameturn_source = &unwired_gameturn;
 
-void set_get_gameturn_provider(GetGameTurnFunc provider)
+void set_gameturn_source(const GameTurn *source)
 {
-    get_gameturn_provider = provider ? provider : &default_get_gameturn;
-}
-
-GameTurn get_gameturn(void)
-{
-    return get_gameturn_provider();
+    lb_gameturn_source = source ? source : &unwired_gameturn;
 }
 
 /**
@@ -244,8 +238,18 @@ int64_t error_dialog(const char *codefile,const int64_t ecode,const char *messag
 
 int64_t error_dialog_fatal(const char *codefile,const int64_t ecode,const char *message)
 {
-  LbErrorLog("In source %s:\n %5" PRId64 " - %s\n",codefile,(int64_t)(ecode),message);
   char msg_text[2048];
+  if (kfx_log_level == LogLvl_Off)
+  {
+      // Nothing is written at Off (docs/refactor-pass2/stage-02-logging-option.md),
+      // so don't point the player at a log that doesn't exist.
+      snprintf(msg_text, sizeof(msg_text), "%s This error in '%s' makes the program unable to continue. "
+          "Logging is off: set Logging to Normal in the options (or LOG_LEVEL=NORMAL in keeperfx.cfg) and try again to get details in '%s'.",
+          message, codefile, log_file_name);
+      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, PROGRAM_FULL_NAME, msg_text, NULL);
+      return 0;
+  }
+  LbErrorLog("In source %s:\n %5" PRId64 " - %s\n",codefile,(int64_t)(ecode),message);
   snprintf(msg_text, sizeof(msg_text), "%s This error in '%s' makes the program unable to continue. See '%s' for details.", message, codefile, log_file_name);
   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, PROGRAM_FULL_NAME, msg_text, NULL);
   return 0;
@@ -254,6 +258,121 @@ int64_t error_dialog_fatal(const char *codefile,const int64_t ecode,const char *
 /******************************************************************************/
 int64_t error_log_initialised=false;
 struct TbLog error_log;
+
+// Normal until keeperfx.cfg's LOG_LEVEL (or a session override, main.cpp) says otherwise.
+int64_t kfx_log_level = LogLvl_Normal;
+int64_t kfx_debug_threshold = 0;
+
+int64_t log_level_debug_threshold(int64_t level)
+{
+    switch (level)
+    {
+    case LogLvl_Debug:
+        return 10;
+    case LogLvl_DebugMax:
+        return 20;
+    default:
+        return 0;
+    }
+}
+
+void set_log_level(int64_t level)
+{
+    if ((level < LogLvl_Off) || (level > LogLvl_DebugMax))
+        level = LogLvl_Normal;
+    LbLogFlush(); // lines written under the old level's policy
+    kfx_log_level = level;
+    kfx_debug_threshold = log_level_debug_threshold(level);
+}
+
+int64_t get_log_level(void)
+{
+    return kfx_log_level;
+}
+
+static TbBool log_level_pinned = false;
+
+void set_log_level_pinned(int64_t level)
+{
+    set_log_level(level);
+    log_level_pinned = true;
+}
+
+TbBool log_level_is_pinned(void)
+{
+    return log_level_pinned;
+}
+
+void set_log_level_from_config(int64_t level)
+{
+    if (!log_level_pinned)
+        set_log_level(level);
+}
+
+/** Set by LbLogForceOn(): the crash report is written even at Off. */
+static TbBool log_forced_on = false;
+/** Set by LbErrorLog()/LbWarnLog(): flush that line at once, whatever the level. */
+static TbBool log_flush_next = false;
+
+/** Startup buffer (LbLogStartStartupBuffering()): whole lines, prefix included. */
+static TbBool log_startup_buffering = false;
+static char *log_startup_buf = NULL;
+static size_t log_startup_len = 0;
+static size_t log_startup_cap = 0;
+/** While set, LbLog() skips the on-screen list (the flushed lines are already in it). */
+static TbBool log_skip_live_view = false;
+
+static void log_startup_append(const char *text, size_t len)
+{
+    if (log_startup_len + len + 1 > log_startup_cap)
+    {
+        size_t cap = (log_startup_cap > 0) ? log_startup_cap : 4096;
+        while (log_startup_len + len + 1 > cap)
+            cap *= 2;
+        char *nbuf = (char *)realloc(log_startup_buf, cap);
+        if (nbuf == NULL)
+            return; // out of memory: lose the line rather than the process
+        log_startup_buf = nbuf;
+        log_startup_cap = cap;
+    }
+    memcpy(log_startup_buf + log_startup_len, text, len);
+    log_startup_len += len;
+    log_startup_buf[log_startup_len] = '\0';
+}
+
+void LbLogStartStartupBuffering(void)
+{
+    log_startup_buffering = true;
+}
+
+void LbLogEndStartupBuffering(TbBool write)
+{
+    if (!log_startup_buffering)
+        return;
+    log_startup_buffering = false;
+    if (write && (log_startup_len > 0))
+    {
+        // The buffered lines already carry their prefix and are already in the
+        // on-screen list, so write them out verbatim.
+        char saved_prefix[LOG_PREFIX_LEN];
+        snprintf(saved_prefix, sizeof(saved_prefix), "%s", error_log.prefix);
+        error_log.prefix[0] = '\0';
+        log_skip_live_view = true;
+        LbJustLog("%s", log_startup_buf);
+        log_skip_live_view = false;
+        snprintf(error_log.prefix, sizeof(error_log.prefix), "%s", saved_prefix);
+    }
+    free(log_startup_buf);
+    log_startup_buf = NULL;
+    log_startup_len = 0;
+    log_startup_cap = 0;
+}
+
+void LbLogForceOn(void)
+{
+    log_forced_on = true;
+    LbLogEndStartupBuffering(true);
+}
 /******************************************************************************/
 int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg);
 /******************************************************************************/
@@ -263,6 +382,7 @@ int64_t LbErrorLog(const char *format, ...)
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Error: ");
+    log_flush_next = true;
     va_list val;
     va_start(val, format);
     int64_t result=LbLog(&error_log, format, val);
@@ -275,6 +395,7 @@ int64_t LbWarnLog(const char *format, ...)
     if (!error_log_initialised)
         return -1;
     LbLogSetPrefix(&error_log, "Warning: ");
+    log_flush_next = true;
     va_list val;
     va_start(val, format);
     int64_t result=LbLog(&error_log, format, val);
@@ -402,10 +523,19 @@ int64_t LbErrorLogClose(void)
 {
     if (!error_log_initialised)
         return -1;
+    // Closing before the level was known (an early exit): keep the lines.
+    LbLogEndStartupBuffering(true);
+    LbLogFlush();
     return LbLogClose(&error_log);
 }
 
 FILE *file = NULL;
+
+void LbLogFlush(void)
+{
+    if (file != NULL)
+        fflush(file);
+}
 
 void write_log_to_array_for_live_viewing(const char* fmt_str, va_list args, const char* add_log_prefix) {
     if (consoleLogArraySize >= MAX_CONSOLE_LOG_COUNT) {
@@ -441,6 +571,22 @@ int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
     return -1;
   if ( log->Suspended )
     return 1;
+  if (log_startup_buffering)
+  {
+      char line[MAX_TEXT_LENGTH];
+      va_list copy;
+      va_copy(copy, arg);
+      int64_t len = snprintf(line, sizeof(line), "%s", log->prefix);
+      if ((len >= 0) && (len < (int64_t)sizeof(line)))
+          vsnprintf(line + len, sizeof(line) - len, fmt_str, copy);
+      va_end(copy);
+      log_startup_append(line, strlen(line));
+      write_log_to_array_for_live_viewing(fmt_str, arg, log->prefix);
+      return 1;
+  }
+  // Off writes nothing but crash reports (LbLogForceOn()).
+  if ((kfx_log_level == LogLvl_Off) && !log_forced_on)
+    return 1;
   char header = NONE;
   int64_t need_initial_newline = false;
   if ( !log->Created )
@@ -473,6 +619,8 @@ int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
       // Couldn't open. Abort
       if (file == NULL)
         return -1;
+      // Larger buffer for the Debug levels, which flush less often (LbLogFlush()).
+      setvbuf(file, NULL, _IOFBF, 64 * 1024);
     }
     log->Created = true;
     if (header != NONE)
@@ -482,7 +630,9 @@ int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
       const char *actn;
       if (header == CREATE)
       {
-        fprintf(file, PROGRAM_NAME" ver "VER_STRING" (%s release) git:%s\n", (BFDEBUG_LEVEL>7)?"heavylog":"standard", GIT_REVISION);
+        static const char *const log_level_names[] = {"off", "normal", "debug", "debug max"};
+        fprintf(file, PROGRAM_NAME" ver "VER_STRING" (log level: %s) git:%s\n",
+            log_level_names[(kfx_log_level >= LogLvl_Off && kfx_log_level <= LogLvl_DebugMax) ? kfx_log_level : LogLvl_Normal], GIT_REVISION);
         actn = "CREATED";
       } else
       {
@@ -537,14 +687,20 @@ int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
   }
 
   // Write formatted message to the array
-  write_log_to_array_for_live_viewing(fmt_str, arg, log->prefix);
+  if (!log_skip_live_view)
+    write_log_to_array_for_live_viewing(fmt_str, arg, log->prefix);
 
   vfprintf(file, fmt_str, arg);
   log->position = ftell(file);
   // fclose is slow and automatically happens on normal program exit.
   // Opening/closing every time we log something hits performance hard.
   // fclose(file);
-  fflush(file);
+  // Off/Normal (low volume; bug reports rely on the last line being on disk),
+  // errors and warnings, and crash reports are flushed at once. Debug and
+  // above are flushed by LbLogFlush().
+  if ((kfx_log_level <= LogLvl_Normal) || log_flush_next || log_forced_on)
+    fflush(file);
+  log_flush_next = false;
   return 1;
 }
 

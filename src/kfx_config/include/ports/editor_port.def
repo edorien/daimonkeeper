@@ -1,0 +1,71 @@
+/* EditorPort entries: see ports/editor_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+/* kfx_editor.h -- called from kfx_apploop's `case FeSt_START_EDITOR:`
+   (game_session_loop.cpp) once startup_local_game_for_editor()'s
+   coroutine has finished loading the sim: the hand-off point from
+   "sim is loaded and paused" to "the editor session is active".
+   new_map/is_new mirror what the FeSt_EDITOR browser (kfx_frontend)
+   stashed before requesting FeSt_START_EDITOR. */
+KFX_PORT_VOID(request_open, (LevelNumber lvnum, TbBool is_new), (lvnum, is_new))
+/* docs/refactor/editor/10-definable-keybindings.md -- lets kfx_frontend's
+   front_input.c ask "is an editor session currently active" so it can
+   read camera/console keys from settings.editor_kbkeys[]/
+   EditorGameKeys instead of settings.kbkeys[]/GameKeys, without
+   depending on kfx_editor.h directly (kfx_editor is ranked above
+   kfx_frontend too). Mirrors kfx_editor.h's own editor_is_active() --
+   same no-op-until-wired convention as every other callback here
+   (false, not a NULL-deref, until wire_ports() installs the real one). */
+KFX_PORT_RET(TbBool, is_active, (void), (), false)
+/* The editor's per-frame ImGui submission and logic (kfx_editor.h's
+   editor_frame()); kfx_frontend's FrontendImGuiFrame() calls it every
+   frame, after its own screens. No-op unless an editor session is active. */
+KFX_PORT_VOID(frame, (void), ())
+/* True if the tool is built; the menus grey the others out as "coming soon". */
+KFX_PORT_RET(TbBool, content_tools_is_available, (int tool), (tool), false)
+/* Opens the tool as a window of its own (main menu: no map, target picker inside). */
+KFX_PORT_VOID(content_tools_open, (int tool), (tool))
+/* Draws the open tool windows; called every frame by the host screen (main menu). */
+KFX_PORT_VOID(content_tools_frame, (void), ())
+/* True while any tool window is open. */
+KFX_PORT_RET(TbBool, content_tools_is_open, (void), (), false)
+/* docs/refactor/editor/02-editing-toolbox.md §4 -- called right after
+   any editor placement tool's create_*() call succeeds (creature/hero/
+   digger, object, trap, door), so Undo can delete it later and Redo
+   can recreate it. No-ops outside an active editor session (checked
+   inside the real implementation, not by callers).
+   pcktype/par1-4/pos_x/pos_y are the exact packet fields that created
+   this thing, so Redo can resend the identical action later -- needed
+   because several of these verbs (PckA_CheatMakeCreature/_MakeDigger/
+   PckA_EditorPlaceTrap/_PlaceDoor) read position from the packet's own
+   *ambient* pos_x/pos_y rather than a param, so replaying them
+   correctly means overriding that field too, not just resending
+   par1-4 (see editor_journal.cpp's own Redo comment). */
+KFX_PORT_VOID(record_placement, (int64_t thing_idx, unsigned char pcktype, uint64_t par1, uint64_t par2, int64_t par3, int64_t par4, int64_t pos_x, int64_t pos_y), (thing_idx, pcktype, par1, par2, par3, par4, pos_x, pos_y))
+/* docs/refactor/editor/09-toolbox-remainder.md §1 -- rect-terrain-op
+   undo/redo (PckA_EditorPlaceTerrainRect/_RectClearEarth/_RectSetOwner
+   only -- PckA_EditorRectDeleteThings stays unjournaled, see this
+   callback's implementation for why). Called by the packet handler
+   BEFORE applying the mutation (unlike record_placement, called after),
+   since the whole point is capturing the pre-mutation state: `before`
+   is one entry per slab in the box, row-major (sy outer, sx inner,
+   matching the mutation's own iteration order) -- the implementation
+   copies it into its own storage before this call returns, so the
+   caller's buffer only needs to survive the call itself. new_kind/
+   new_owner are the value the mutation is about to apply (uniform over
+   the whole box for PlaceTerrainRect/RectClearEarth; new_owner only for
+   RectSetOwner, which leaves each slab's own kind alone) -- recorded so
+   Redo can reapply the same op without needing a second server round
+   trip. No-ops outside an active editor session, same convention as
+   record_placement. */
+KFX_PORT_VOID(record_rect_terrain, (unsigned char pcktype, int64_t box_beg_x, int64_t box_beg_y, int64_t box_end_x, int64_t box_end_y, SlabKind new_kind, PlayerNumber new_owner, const struct EditorRectSlabSnapshot *before, int64_t count), (pcktype, box_beg_x, box_beg_y, box_end_x, box_end_y, new_kind, new_owner, before, count))
+/* fx-plans/00 item A7 -- a door's lock is about to be toggled
+   (Ctrl+click in the Door tool); `was_locked` is the state before.
+   Called by the packet handler before it toggles. No-ops outside an
+   active editor session. */
+KFX_PORT_VOID(record_door_lock, (int64_t thing_idx, TbBool was_locked), (thing_idx, was_locked))

@@ -130,9 +130,9 @@ struct Game {
     // are lish's actual functional owners (hundreds of accesses each),
     // and struct LightsShadows already embedded struct Light
     // (kfx_render/light_data.h) by value, so kfx_render was always its
-    // true home. kfx_sim's narrow accesses now go through
-    // RenderOverlayCallbacks/ConfigReloadCallbacks instead of touching
-    // struct Game directly.
+    // true home. Its lights then moved on to kfx_sim_state.light_registry
+    // in refactor pass 2 (S11, docs/refactor-pass2/
+    // stage-11-lighting-split.md); lish keeps only the shading.
     //
     // struct Game is kept as a non-empty placeholder (rather than
     // deleted outright) because net_resync.cpp/game_saves.c still treat
@@ -180,7 +180,8 @@ struct Game {
     // kfx_sim_state.h (stage 6.7 increment 3) -- see
     // docs/refactor/stage-06-kfx-sim.md.
     // play_gameturn, pckt_gameturn moved to kfx_game_state.h (stage 9) --
-    // see docs/refactor/stage-09-kfx-game.md.
+    // see docs/refactor/stage-09-kfx-game.md; play_gameturn then to
+    // kfx_sim_state.h (refactor pass 2, S10).
     // action_random_seed, ai_random_seed, player_random_seed,
     // unsync_random_seed, sound_random_seed moved to kfx_sim_state.h
     // (stage 6.7 increment 7) -- see docs/refactor/stage-06-kfx-sim.md.
@@ -247,8 +248,8 @@ struct Game {
     // actual usage is exclusively kfx_game/kfx_sim. quick_messages,
     // messages moved to kfx_frontend_state.h, same stage. See
     // docs/refactor/stage-10-kfx-frontend.md.
-    // lightst moved to kfx_game_state.h (stage 13) -- see
-    // docs/refactor/stage-13-enforce-and-document.md.
+    // lightst moved to kfx_game_state.h (stage 13), then into
+    // kfx_sim_state.light_registry (refactor pass 2, S11).
     // current_player_turn, script_current_player, triggered_object_location
     // moved to kfx_sim_state.h (stage 9) -- mischaracterized as kfx_game in
     // stage 9's initial research; actual usage is exclusively kfx_sim. See
@@ -294,9 +295,8 @@ struct Game {
 #pragma pack()
 /******************************************************************************/
 extern struct Game game;
-GameTurn game_legacy_get_gameturn(void);
 
-// Registered on NetCallbacks (kfx_config/include/net_callbacks.h) so
+// Tabled in GamePort (ports/game_port.def) so
 // net_resync.cpp (kfx_net) doesn't need to #include this header directly
 // just to memcpy `game`+`kfx_game_state` wholesale as part of the raw-blob
 // resync wire format -- see

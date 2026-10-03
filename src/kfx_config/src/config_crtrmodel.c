@@ -33,10 +33,8 @@
 #include "config_terrain.h"
 #include "config_lenses.h"
 #include "config_translation.h"
-#include "sprite_lookup.h"
 #include "config_objects.h"
 #include "kfx_config_state.h"
-#include "sim_feedback.h"
 // Literal-dup of kfx_sim's creature_control.h CreatureSoundTypes values
 // (only reachable transitively) -- kept local to this .c file (not
 // config_creature.h) since kfx_sim files that include both
@@ -59,9 +57,12 @@
 // update_relative_creature_health()/do_to_players_all_creatures_of_model()/
 // do_to_all_things_of_class_and_model()/recalculate_all_creature_digger_lists()/
 // update_speed_of_player_creatures_of_model() (all kfx_sim) are reached
-// through config_reload_callbacks instead of same-file bare-extern
+// through SimPort instead of same-file bare-extern
 // forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
+#include "ports/ui_port.h"
+#include "ports/render_port.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -2219,7 +2220,7 @@ TbBool parse_creaturemodel_sprites_blocks(int64_t crtr_model,char *buf,int64_t l
           char word_buf[COMMAND_WORD_LEN];
           if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
           {
-              n = sprite_lookup->get_icon_id(word_buf);
+              n = render_get_icon_id(word_buf);
               if (n >= 0)
               {
                   set_creature_model_graphics(crtr_model, cmd_num-1, n);
@@ -2237,7 +2238,7 @@ TbBool parse_creaturemodel_sprites_blocks(int64_t crtr_model,char *buf,int64_t l
           char word_buf[COMMAND_WORD_LEN];
           if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
           {
-            k = sprite_lookup->get_anim_id_(word_buf);
+            k = render_get_anim_id_(word_buf);
             set_creature_model_graphics(crtr_model, cmd_num-1, k);
             n++;
           }
@@ -2838,7 +2839,7 @@ static TbBool load_creaturemodel_config_for_mod(ThingModel crmodel, int64_t flag
 
     if (mod_state->cmpg_lvls)
     {
-        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s.cfg", (int64_t)(sim_feedback->get_level_number()), conf_fnstr);
+        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s.cfg", (int64_t)(config_level_number()), conf_fnstr);
         if (fname && strlen(fname) > 0)
         {
             result |= load_creaturemodel_config_file(crmodel, fname, flags);
@@ -2922,7 +2923,7 @@ TbBool load_creaturemodel_config(ThingModel conf_crmodel, ThingModel crmodel, in
         }
     }
 
-    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s.cfg", (int64_t)(sim_feedback->get_level_number()), conf_fnstr);
+    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s.cfg", (int64_t)(config_level_number()), conf_fnstr);
     if (fname && strlen(fname) > 0)
     {
         result |= load_creaturemodel_config_file(crmodel, fname, flags);
@@ -2986,18 +2987,18 @@ TbBool swap_creature(ThingModel ncrt_id, ThingModel crtr_id)
     ThingModel newlair = ncrconf->lair_object;
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
-        config_reload_callbacks->do_to_players_all_creatures_of_model(plyr_idx, crtr_id, config_reload_callbacks->update_relative_creature_health);
-        config_reload_callbacks->do_to_players_all_creatures_of_model(plyr_idx, crtr_id, config_reload_callbacks->creature_increase_available_instances);
-        config_reload_callbacks->update_speed_of_player_creatures_of_model(plyr_idx, crtr_id);
+        simport_do_to_players_all_creatures_of_model(plyr_idx, crtr_id, sim_port->update_relative_creature_health);
+        simport_do_to_players_all_creatures_of_model(plyr_idx, crtr_id, sim_port->creature_increase_available_instances);
+        simport_update_speed_of_player_creatures_of_model(plyr_idx, crtr_id);
         if (oldlair != newlair)
         {
-            config_reload_callbacks->do_to_players_all_creatures_of_model(plyr_idx, crtr_id, config_reload_callbacks->remove_creature_lair);
+            simport_do_to_players_all_creatures_of_model(plyr_idx, crtr_id, sim_port->remove_creature_lair);
         }
-        config_reload_callbacks->do_to_players_all_creatures_of_model(plyr_idx, crtr_id, config_reload_callbacks->process_job_stress_and_going_postal);
+        simport_do_to_players_all_creatures_of_model(plyr_idx, crtr_id, sim_port->process_job_stress_and_going_postal);
     }
 
-    config_reload_callbacks->recalculate_all_creature_digger_lists();
-    config_reload_callbacks->update_creatr_model_activities_list(1);
+    simport_recalculate_all_creature_digger_lists();
+    ui_update_creatr_model_activities_list(1);
 
     return true;
 }
@@ -3029,7 +3030,7 @@ TbBool change_max_health_of_creature_kind(ThingModel crmodel, HitPoints new_max)
     }
     SYNCDBG(3,"Changing all %s health from %" PRId64 " to %" PRId64 ".",creature_code_name(crmodel),(int64_t)crconf->health,(int64_t)new_max);
     crconf->health = saturate_set_signed(new_max, 16);
-    int64_t n = config_reload_callbacks->do_to_all_things_of_class_and_model(TCls_Creature, crmodel, config_reload_callbacks->update_creature_health_to_max);
+    int64_t n = simport_do_to_all_things_of_class_and_model(TCls_Creature, crmodel, sim_port->update_creature_health_to_max);
     return (n > 0);
 }
 

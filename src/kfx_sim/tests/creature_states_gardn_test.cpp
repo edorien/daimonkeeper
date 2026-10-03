@@ -1,8 +1,8 @@
 // kfx_sim "creature" cluster: creature_states_gardn.c (Hatchery/garden
 // job), the third individual creature_states_*.c file to get direct
 // coverage. creature_able_to_eat/hunger_is_creature_hungry are both
-// Pattern A/B, same ConfigReloadCallbacks fake as creature_states_tresr_
-// test.cpp/creature_states_mood_test.cpp -- no Room/thing-list fixture
+// Pattern A, the model set on the thing itself (same as creature_states_
+// tresr_test.cpp/creature_states_mood_test.cpp) -- no Room/thing-list fixture
 // needed, unlike the actual garden-room state-machine entry points
 // (creature_to_garden/creature_eating_at_garden/person_eat_food/...) in
 // the rest of this file, deliberately not attempted here (see
@@ -19,11 +19,7 @@
 #include <cstring>
 
 namespace {
-ThingModel g_fake_model = 0;
-ThingModel fake_get_thing_model(const struct Thing *) { return g_fake_model; }
-
 struct GardnFixture {
-    struct ConfigReloadCallbacks callbacks{};
     struct Thing* thing;
     struct CreatureControl* cctrl;
 
@@ -31,15 +27,12 @@ struct GardnFixture {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
         std::memset(&kfx_config_state, 0, sizeof(kfx_config_state));
         kfx_config_state.conf.crtr_conf.model_count = CREATURE_TYPES_MAX;
-        g_fake_model = 1;
-        callbacks.get_thing_model = fake_get_thing_model;
-        set_config_reload_callbacks(&callbacks);
 
         thing = thing_get(1);
+        thing->model = 1;
         thing->ccontrol_idx = 1;
         cctrl = creature_control_get(1);
     }
-    ~GardnFixture() { set_config_reload_callbacks(nullptr); }
 };
 }
 
@@ -62,7 +55,7 @@ TEST_CASE_METHOD(GardnFixture, "creature_able_to_eat is false when both hunger_r
 }
 
 TEST_CASE_METHOD(GardnFixture, "creature_able_to_eat is false for the reserved model-0 sentinel", "[kfx_sim][creature_states_gardn]") {
-    g_fake_model = 0;
+    thing->model = 0;
     kfx_config_state.conf.crtr_conf.model[0].hunger_rate = 5; // would look eligible if read directly
     CHECK_FALSE(creature_able_to_eat(thing));
 }

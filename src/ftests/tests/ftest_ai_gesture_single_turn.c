@@ -14,6 +14,7 @@
 // POWER_SLAP available. Trap/door stock is granted directly; the point is the packet path,
 // not the workshop.
 #include "ftest_ai_gesture_single_turn.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 

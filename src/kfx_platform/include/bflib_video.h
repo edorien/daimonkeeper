@@ -26,6 +26,7 @@
 
 #include <stdint.h>
 #include <SDL3/SDL.h>
+#include "port_check.h"
 
 /** Window-mode flags: the currency passed across the window-system seam. */
 enum KfxWindowFlags {
@@ -401,11 +402,12 @@ extern int64_t units_per_pixel_landview_frame;
 extern int64_t units_per_pixel_ui;
 extern uint64_t aspect_ratio_factor_HOR_PLUS;
 extern uint64_t aspect_ratio_factor_HOR_PLUS_AND_VERT_PLUS;
-// first_person_horizontal_fov is declared in kfx_render's vidmode.h, not
-// here: it's read only by kfx_render's own engine_camera.c, never by any
-// kfx_platform code, so it doesn't belong on kfx_platform's public
-// surface. See docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 extern uint64_t first_person_vertical_fov;
+// Set by kfx_render's vidmode.c (from FOV_based_on_aspect_ratio()) on a
+// video-mode change; read by kfx_sim's player_camera.c when it sets up the
+// first-person camera. Defined here next to its vertical sibling since
+// refactor pass 2's S07 (it used to live in vidmode.c).
+extern uint64_t first_person_horizontal_fov;
 extern uint64_t landview_frame_movement_scale_x;
 extern uint64_t landview_frame_movement_scale_y;
 
@@ -413,11 +415,10 @@ extern uint64_t landview_frame_movement_scale_y;
 // kfx_render's vidmode.c (update_screen_mode_data(), which needs its own
 // render-config/RendererManager context to compute them) -- this file's
 // scaling math (scale_value_by_horizontal_resolution and friends) reads
-// them back through this callback instead of the bare extern, since that
-// bare read is a genuine kfx_render-state dependency, not just a
-// misplaced definition. Registered from main.cpp with vidmode.c's own
-// get_video_scale_values(), which already owns the real values. See
-// docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
+// them back through ports/display_host_port.h's get_video_scale_values
+// instead of the bare extern, since that bare read is a genuine
+// kfx_render-state dependency. vidmode.c's own get_video_scale_values()
+// provides it.
 struct VideoScaleValues {
     int64_t units_per_pixel_width;
     int64_t units_per_pixel_height;
@@ -425,11 +426,6 @@ struct VideoScaleValues {
     int64_t units_per_pixel_best;
     int64_t units_per_pixel_menu;
 };
-struct VideoScaleCallbacks {
-    const struct VideoScaleValues *(*get_video_scale_values)(void);
-};
-void set_video_scale_callbacks(const struct VideoScaleCallbacks *callbacks);
-extern const struct VideoScaleCallbacks *video_scale_callbacks;
 
 extern int64_t MyScreenWidth;
 extern int64_t MyScreenHeight;

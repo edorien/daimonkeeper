@@ -3,6 +3,7 @@
 
 #include "bflib_basics.h"  // TbResult
 #include "bflib_video.h"   // TbScreenMode, TbScreenCoord
+#include "port_check.h"    // KFX_ASSERT_PORT_TABLE
 
 struct SDL_Window;
 struct SDL_Renderer;
@@ -75,6 +76,11 @@ void   RendererWorldFrameSetDepth(int64_t bucket, int64_t bucket_count);
 // to agree with depth, so the GPU depth buffer -- not the painter's algorithm -- decides
 // visibility. Off (default): output identical to the CPU path.
 void   RendererSetTrueDepth(TbBool enabled);
+// GPU_DEBUG (keeperfx.cfg / options, restart needed): create the Vulkan device in debug
+// mode, i.e. with the validation layers (slow; developers only). Read when the GPU device
+// is created. Used to be tied to the heavy-log build (docs/refactor-pass2/stage-02-logging-option.md).
+void   RendererSetGpuDebug(TbBool enabled);
+TbBool RendererGetGpuDebug(void);
 
 // gpu-v2 Phase C.5 lighting pass. RENDERER_LIGHTING_CLASSIC: the engine bakes every light into
 // its per-subtile lightness grid (vertex shade, gouraud). RENDERER_LIGHTING_PERPIXEL: with the
@@ -195,55 +201,16 @@ TbBool RendererScheduleScreenshot(const char* path, int64_t fmt);
 
 // docs/refactor/renderer/05-imgui-linkage-consolidation.md: ImGui context
 // and backend ownership lives in kfx_frontend (gui/FrontendImGui.{h,cpp}),
-// the one library that submits real ImGui widgets -- kfx_platform can't
+// the one library that submits real ImGui widgets. kfx_platform can't
 // #include that header (layering), so RendererSoftware::PresentFrame(),
 // bflib_inputctrl.cpp's poll loop and bflib_mspointer.cpp reach it through
-// this single callback struct instead, the same *Callbacks-in-kfx_platform,
-// registered-in-main.cpp::setup_game() pattern RendererDrawCallbacks above
-// already uses. Mirrors gui/FrontendImGui.h's free functions 1:1; see that
-// header for what each member actually does.
-struct RendererImGuiCallbacks {
-    // Lifecycle. ensure() is called every frame (idempotent -- cheaply
-    // detects an unchanged window/renderer and returns) and gates the rest
-    // of the per-frame block below: PresentFrame() only calls begin_frame/
-    // submit/render when it returns true, so a failed backend init (or a
-    // null window/renderer) safely skips them for that frame rather than
-    // calling into an inactive context. renderer_destroying() must run
-    // before the SDL_Renderer it was created against is destroyed -- the
-    // ImGui SDLRenderer3 backend holds references into it.
-    TbBool (*ensure)(struct SDL_Window *window, struct SDL_Renderer *renderer);
-    void (*renderer_destroying)(void);
-    // Per-frame, bracketing submit() -- RendererSoftware::PresentFrame is
-    // the single call site for all three, inside its reentrancy guard.
-    void (*begin_frame)(void);
-    void (*submit)(void);                // kfx_frontend's own submission entry point
-    void (*render)(void);
-    // Input -- bflib_inputctrl.cpp's poll loop / bflib_mspointer.cpp.
-    void (*process_event)(const union SDL_Event *event);
-    TbBool (*is_active)(void);
-    TbBool (*want_capture_mouse)(void);
-    TbBool (*want_capture_keyboard)(void);
-    // True while the current frontend screen is entirely ImGui-owned (docs/
-    // refactor/renderer/05-imgui-owned-menu-backdrop.md's migrated states)
-    // or the in-game parchment map is up -- RendererSoftware::PresentFrame()
-    // checks this to skip its own legacy framebuffer blit for those
-    // screens; bflib_mspointer.cpp checks the same thing to skip the
-    // legacy cursor draw, not just when want_capture_mouse happens to be
-    // true.
-    TbBool (*screen_owned)(void);
-    // Phase A proof-of-concept only: show imgui_demo.cpp's demo window so
-    // the backend wiring can be exercised interactively (§7 Phase A exit
-    // criteria).
-    void (*set_demo_visible)(TbBool visible);
-};
-void set_renderer_imgui_callbacks(const struct RendererImGuiCallbacks *callbacks);
-extern const struct RendererImGuiCallbacks *renderer_imgui_callbacks;
+// ports/display_host_port.h's imgui_* entries.
 
-// Thin facade over renderer_imgui_callbacks above, for the kfx_platform
+// Thin facade over DisplayHostPort's imgui_screen_owned, for the kfx_platform for the kfx_platform
 // call sites (RendererSoftware::PresentFrame) that only need this one
-// query rather than the whole struct. want_capture_mouse's own facade
-// (RendererWantCaptureMouse) was retired alongside it -- its one caller,
-// bflib_mspointer.cpp's legacy cursor draw, is gone
+// query rather than the whole struct. The want_capture_mouse/_keyboard
+// entries and their facade (RendererWantCaptureMouse) were retired once
+// their one caller, bflib_mspointer.cpp's legacy cursor draw, was gone
 // (docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md's cursor
 // unification).
 TbBool RendererScreenOwned(void);
@@ -273,18 +240,9 @@ TbResult RendererSetDoubleBuffering(TbBool state);
 // draw for this frame or draw it now.
 TbBool RendererTextDrawResized(int64_t posx, int64_t posy, int64_t units_per_px, const char *text);
 
-// gui_draw.h (kfx_frontend) -- draw_slab64k_background_immediate is
-// kfx_frontend's actual tile-drawing code, used as the immediate-mode
-// fallback by RendererDrawSlabBackground below when no UI-renderer
-// sub-backend is active yet. kfx_platform is the lowest-ranked library
-// and can't include gui_draw.h directly, so this is injected instead,
-// mirroring bflib_inputctrl.h's InputFocusPredicates and
-// bflib_sndlib.h's SoundStateCallbacks.
-struct RendererDrawCallbacks {
-    void (*draw_slab_background_immediate)(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height);
-};
-void set_renderer_draw_callbacks(const struct RendererDrawCallbacks *callbacks);
-extern const struct RendererDrawCallbacks *renderer_draw_callbacks;
+// RendererDrawSlabBackground below falls back to kfx_frontend's own tile
+// drawing (DisplayHostPort's draw_slab_background_immediate) when no
+// UI-renderer sub-backend is active yet.
 
 // Sprites. The Lb* entry points route here so the active backend can record the
 // draw for this frame or draw it now.

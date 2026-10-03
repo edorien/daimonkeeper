@@ -66,12 +66,13 @@ const struct TbSprite *LbMouseGetSprite(void)
 TbResult LbMouseChangeSpriteAndHotspot(const struct TbSprite *pointerSprite, int64_t hot_x, int64_t hot_y)
 {
   lbMousePointerSprite = pointerSprite;
-#if (BFDEBUG_LEVEL > 18)
-  if (pointerSprite == NULL)
-    SYNCLOG("Setting to %s","NONE");
-  else
-    SYNCLOG("Setting to %" PRId64 "x%" PRId64 ", data at %p",(int64_t)pointerSprite->SWidth,(int64_t)pointerSprite->SHeight,pointerSprite);
-#endif
+  if (KFX_DEBUG_ON(18))
+  {
+      if (pointerSprite == NULL)
+        SYNCLOG("Setting to %s","NONE");
+      else
+        SYNCLOG("Setting to %" PRId64 "x%" PRId64 ", data at %p",(int64_t)pointerSprite->SWidth,(int64_t)pointerSprite->SHeight,pointerSprite);
+  }
   if (!lbMouseInstalled)
     return Lb_FAIL;
   if (!pointerHandler.SetMousePointerAndOffset(pointerSprite, hot_x, hot_y))
@@ -167,12 +168,13 @@ TbBool IsMouseInsideWindow(void)
 
 TbResult LbMouseChangeSprite(const struct TbSprite *pointerSprite)
 {
-#if (BFDEBUG_LEVEL > 18)
-  if (pointerSprite == NULL)
-    SYNCLOG("Setting to %s","NONE");
-  else
-    SYNCLOG("Setting to %" PRId64 "x%" PRId64 ", data at %p",(int64_t)pointerSprite->SWidth,(int64_t)pointerSprite->SHeight,pointerSprite);
-#endif
+  if (KFX_DEBUG_ON(18))
+  {
+      if (pointerSprite == NULL)
+        SYNCLOG("Setting to %s","NONE");
+      else
+        SYNCLOG("Setting to %" PRId64 "x%" PRId64 ", data at %p",(int64_t)pointerSprite->SWidth,(int64_t)pointerSprite->SHeight,pointerSprite);
+  }
   if (!lbMouseInstalled)
     return Lb_FAIL;
   lbMousePointerSprite = pointerSprite;
@@ -340,6 +342,31 @@ TbResult LbMouseChangeMoveRatio(int64_t ratio_x, int64_t ratio_y)
     return Lb_SUCCESS;
 }
 /******************************************************************************/
+// Moved from kfx_frontend's kjm_input.c (refactor pass 2, S03): they only
+// read platform input state, and kfx_sim/kfx_render/kfx_net call them.
+/**
+ * Returns X position of mouse cursor on screen.
+ */
+int64_t GetMouseX(void)
+{
+    int64_t result = lbDisplay.MMouseX * (int64_t)pixel_size;
+    return result;
+}
+
+/**
+ * Returns Y position of mouse cursor on screen.
+ */
+int64_t GetMouseY(void)
+{
+    int64_t result = lbDisplay.MMouseY * (int64_t)pixel_size;
+    return result;
+}
+
+int64_t is_mouse_pressed_lrbutton(void)
+{
+  return (lbDisplay.LeftButton || lbDisplay.RightButton);
+}
+
 #ifdef __cplusplus
 }
 #endif

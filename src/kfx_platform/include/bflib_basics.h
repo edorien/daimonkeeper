@@ -171,6 +171,58 @@ typedef TbBool (*EmulateIntegerOverflowFunc)(int64_t nbits);
 extern EmulateIntegerOverflowFunc emulate_integer_overflow_provider;
 void set_emulate_integer_overflow_provider(EmulateIntegerOverflowFunc provider);
 /******************************************************************************/
+/**
+ * How much the game writes to keeperfx.log: the LOG_LEVEL game option.
+ * See docs/refactor-pass2/stage-02-logging-option.md.
+ * - Off: nothing, except crash reports.
+ * - Normal: the always-on lines (ERRORLOG, WARNLOG, SYNCLOG, JUSTLOG, ...).
+ * - Debug: Normal plus every *DBG(lv, ...) line with lv < 10.
+ * - DebugMax: Normal plus every *DBG line, whatever its level.
+ */
+enum LogLevel {
+    LogLvl_Off = 0,
+    LogLvl_Normal,
+    LogLvl_Debug,
+    LogLvl_DebugMax,
+};
+/** Current level, an enum LogLevel. Change it with set_log_level(). */
+extern int64_t kfx_log_level;
+/** Derived from kfx_log_level: a *DBG(lv, ...) line prints when lv < this. */
+extern int64_t kfx_debug_threshold;
+void set_log_level(int64_t level);
+int64_t get_log_level(void);
+/**
+ * Pins the level for this session: keeperfx.cfg's LOG_LEVEL (set_log_level_from_config())
+ * no longer changes it, and nothing is written back. Used for functional-test runs
+ * (main.cpp). An explicit change on the options screen still applies (set_log_level()).
+ */
+void set_log_level_pinned(int64_t level);
+TbBool log_level_is_pinned(void);
+/** keeperfx.cfg's LOG_LEVEL: applied unless the session level is pinned. */
+void set_log_level_from_config(int64_t level);
+/** The *DBG threshold a level maps to: Off/Normal 0, Debug 10, DebugMax 20. */
+int64_t log_level_debug_threshold(int64_t level);
+/**
+ * Makes every later log call write, whatever the level. The crash handlers
+ * (bflib_crash.c) call it first, so a crash report is written even at Off.
+ */
+void LbLogForceOn(void);
+/**
+ * Startup buffering: until the configuration has set the level, log lines
+ * go into memory instead of keeperfx.log. LbLogEndStartupBuffering(write)
+ * then writes them out (write=true) or drops them (Off). Forcing the log on
+ * or closing it while buffering writes the buffer out.
+ */
+void LbLogStartStartupBuffering(void);
+void LbLogEndStartupBuffering(TbBool write);
+/**
+ * Writes buffered log lines to disk. At Off and Normal every line is flushed as
+ * it is written; at Debug and above lines are flushed on ERRORLOG/WARNLOG, once
+ * per presented frame (RendererPresentFrame()), on a level change and when the
+ * log closes, so heavy debug output doesn't stall on the disk.
+ */
+void LbLogFlush(void);
+
 int64_t LbErrorLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
 int64_t LbWarnLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));
 int64_t LbSyncLog(const char *format, ...) __attribute__ ((format(printf, 1, 2), nonnull(1)));

@@ -23,13 +23,14 @@
 #include "bflib_fileio.h"
 #include "bflib_dernc.h"
 #include "config_strings.h"
-#include "sprite_lookup.h"
 #include "kfx_config_state.h"
 // Real usage: PLAYER_NEUTRAL.
 #include "value_util.h"
 
 #include <toml.h>
 #include "config.h"
+#include "ports/render_port.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -104,15 +105,15 @@ static TbBool load_spritecolors_config_file(const char *fname, int64_t flags)
     if (!load_toml_file(fname,&file_root,flags))
         return false;
 
-    load_array(&file_root,"gui_panel_sprites",gui_panel_sprites_eq,flags,sprite_lookup->get_icon_id);
-    load_array(&file_root,"pointer_sprites",pointer_sprites_eq,flags,sprite_lookup->get_icon_id);
-    load_array(&file_root,"button_sprite",button_sprite_eq,flags,sprite_lookup->get_icon_id);
-    load_array(&file_root,"animationIds",animationIds_eq,flags,sprite_lookup->get_anim_id_);
-    load_array(&file_root,"objects",objects_eq,flags,sprite_lookup->get_anim_id_);
+    load_array(&file_root,"gui_panel_sprites",gui_panel_sprites_eq,flags,render_port->get_icon_id);
+    load_array(&file_root,"pointer_sprites",pointer_sprites_eq,flags,render_port->get_icon_id);
+    load_array(&file_root,"button_sprite",button_sprite_eq,flags,render_port->get_icon_id);
+    load_array(&file_root,"animationIds",animationIds_eq,flags,render_port->get_anim_id_);
+    load_array(&file_root,"objects",objects_eq,flags,render_port->get_anim_id_);
 
     for (size_t plr_idx = 0; plr_idx < PLAYER_COLORS_COUNT; plr_idx++)
     {
-        config_reload_callbacks->set_call_to_arms_graphics(plr_idx,
+        simport_set_call_to_arms_graphics(plr_idx,
             get_player_colored_idx(867,plr_idx + 1,animationIds_eq),
             get_player_colored_idx(868,plr_idx + 1,animationIds_eq),
             get_player_colored_idx(869,plr_idx + 1,animationIds_eq));
@@ -146,11 +147,11 @@ static int64_t get_player_colored_idx(int64_t base_icon_idx,unsigned char color_
 
 int64_t get_player_colored_icon_idx(int64_t base_icon_idx,PlayerNumber plyr_idx)
 {
-    return get_player_colored_idx(base_icon_idx,config_reload_callbacks->get_player_color_idx(plyr_idx) + 1,gui_panel_sprites_eq);
+    return get_player_colored_idx(base_icon_idx,simport_get_player_color_idx(plyr_idx) + 1,gui_panel_sprites_eq);
 }
 int64_t get_player_colored_pointer_icon_idx(int64_t base_icon_idx,PlayerNumber plyr_idx)
 {
-    return get_player_colored_idx(base_icon_idx,config_reload_callbacks->get_player_color_idx(plyr_idx) + 1,pointer_sprites_eq);
+    return get_player_colored_idx(base_icon_idx,simport_get_player_color_idx(plyr_idx) + 1,pointer_sprites_eq);
 }
 
 int64_t get_player_colored_button_sprite_idx(const int64_t base_icon_idx,const PlayerNumber plyr_idx)
@@ -162,7 +163,7 @@ int64_t get_player_colored_button_sprite_idx(const int64_t base_icon_idx,const P
     }
     else
     {
-        color_idx = config_reload_callbacks->get_player_color_idx(plyr_idx);
+        color_idx = simport_get_player_color_idx(plyr_idx);
     }
 
     return get_player_colored_idx(base_icon_idx,color_idx + 1,button_sprite_eq);
@@ -170,7 +171,7 @@ int64_t get_player_colored_button_sprite_idx(const int64_t base_icon_idx,const P
 
 ThingModel get_player_colored_object_model(ThingModel base_model_idx,PlayerNumber plyr_idx)
 {
-    return get_player_colored_idx(base_model_idx,config_reload_callbacks->get_player_color_idx(plyr_idx) + 1,objects_eq);
+    return get_player_colored_idx(base_model_idx,simport_get_player_color_idx(plyr_idx) + 1,objects_eq);
 }
 
 ThingModel get_coloured_object_base_model(ThingModel model_idx)

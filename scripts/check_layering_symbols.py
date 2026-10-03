@@ -96,7 +96,7 @@ def classify_object(path: Path, build_dir: Path) -> str | None:
     if m:
         return m.group(1)
     # Anything not under a src/kfx_*/ OBJECT library directory but still
-    # part of the main keeperfx(_hvlog) target is app_entry (main.cpp) --
+    # part of the main keeperfx target is app_entry (main.cpp) --
     # excluding ftests/, a separate exempt tier (test code may depend on
     # anything), same as check_layering.py.
     if "/CMakeFiles/keeperfx" in rel and "/src/ftests/" not in rel:
@@ -105,9 +105,8 @@ def classify_object(path: Path, build_dir: Path) -> str | None:
 
 
 def find_object_files(build_dir: Path) -> list[Path]:
-    # The _hvlog variant is the same source compiled with a different
-    # BFDEBUG_LEVEL -- same symbols, same layering shape. Only auditing
-    # the plain variant avoids doing (and reporting) everything twice.
+    # Skips objects of the retired keeperfx_hvlog variant that an older
+    # build tree may still hold (same source, same layering shape).
     return [p for p in build_dir.rglob("*.o") if "_hvlog" not in str(p)]
 
 

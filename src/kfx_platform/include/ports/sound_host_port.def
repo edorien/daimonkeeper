@@ -1,0 +1,55 @@
+/* SoundHostPort entries: see ports/sound_host_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_RETS(char *, get_music_track, (void), (), static char track = -1; return &track;)
+KFX_PORT_RETS(char *, get_music_fname, (void), (), static char fname[DISKPATH_SIZE]; return fname;)
+KFX_PORT_RET(int64_t, get_frame_skip, (void), (), 0)
+KFX_PORT_RET(TbBool, get_easter_eggs_enabled, (void), (), false)
+KFX_PORT_RET(int64_t, get_last_level, (void), (), 0)
+// Narrowed from an opaque `struct CreatureConfig *(*get_creature_config)`
+// to these 2 entries (stage 13.3, docs/refactor/
+// stage-13-enforce-and-document.md) -- sound_manager.cpp only ever
+// read model_count and indexed creature_sounds[crmodel]; struct
+// CreatureSounds is already kfx_platform-owned (creature_sounds.h),
+// so this avoids sound_manager.cpp needing struct CreatureConfig
+// (the whole kfx_config creature-config aggregate) visible at all.
+KFX_PORT_RET(int64_t, get_creature_model_count, (void), (), 0)
+KFX_PORT_RET(struct CreatureSounds *, get_creature_sounds, (int64_t crmodel), (crmodel), NULL)
+// config_mods.h (kfx_config) -- bflib_sndlib.cpp/sound_manager.cpp
+// both walk a mod list by value to resolve music/sound file paths;
+// struct ModConfigItem is kfx_platform-owned (mod_config_types.h),
+// struct ModsConfig/mods_conf stays kfx_config-owned. See
+// docs/refactor/stage-13-enforce-and-document.md.
+KFX_PORT_RET(const struct ModConfigItem *, get_mods_after_map, (void), (), NULL)
+KFX_PORT_RET(int64_t, get_mods_after_map_count, (void), (), 0)
+KFX_PORT_RET(const struct ModConfigItem *, get_mods_after_campaign, (void), (), NULL)
+KFX_PORT_RET(int64_t, get_mods_after_campaign_count, (void), (), 0)
+KFX_PORT_RET(const struct ModConfigItem *, get_mods_after_base, (void), (), NULL)
+KFX_PORT_RET(int64_t, get_mods_after_base_count, (void), (), 0)
+// Backs SOUND_RANDOM(range) (game_merge.h, kfx_game) -- inlined here
+// as LbRandomSeries(range, get_sound_random_seed(), ...) instead,
+// since that macro itself only touches kfx_sim_state (kfx_sim), not
+// anything kfx_game-specific.
+KFX_PORT_RETS(uint32_t *, get_sound_random_seed, (void), (), static uint32_t seed; return &seed;)
+// Backs UNSYNC_RANDOM(range) (game_merge.h, kfx_game), used by
+// sound_manager.cpp -- same reasoning as get_sound_random_seed above.
+KFX_PORT_RETS(uint32_t *, get_unsync_random_seed, (void), (), static uint32_t seed; return &seed;)
+// sounds.h (kfx_game) -- init_sound() is kfx_game's orchestration of
+// platform audio init (reads kfx_game_state config, then calls back
+// down into InitAudio()/InitialiseSDLAudio()); sound_manager.cpp's
+// SoundManager::initialize() needs to trigger it as a lazy-init
+// fallback for callers that reach it before main() has already
+// called init_sound() directly. mute_audio() is bflib_inputctrl.cpp's
+// focus-lost/focus-gained handler.
+KFX_PORT_RET(TbBool, init_sound, (void), (), false)
+KFX_PORT_VOID(mute_audio, (TbBool mute), (mute))
+// config_creature.h (kfx_config) -- creature model name lookup and
+// the creature-model name registry, used by sound_manager.cpp's
+// per-creature sound override commands and error logging.
+KFX_PORT_RET(const char *, creature_code_name, (ThingModel crmodel), (crmodel), "")
+KFX_PORT_RET(const struct NamedCommand *, get_creature_desc, (void), (), NULL)

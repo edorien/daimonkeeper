@@ -21,7 +21,6 @@
 
 #include "globals.h"
 #include "thing_list.h"
-#include "bflib_keybrd.h"
 #include "bflib_basics.h"
 #include "bflib_sound.h"
 #include "bflib_math.h"
@@ -31,9 +30,11 @@
 #include "thing_stats.h"
 #include "thing_effects.h"
 #include "creature_graphics.h"
-#include "sim_feedback.h"
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
+#include "light_registry.h"
+#include "ports/ui_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -153,7 +154,7 @@ TbBool i_can_allocate_free_thing_structure(unsigned char class_id)
             return true;
         }
         // No free allocation space at all
-        sim_feedback->report_error_stat(ESE_NoFreeUnsyncedThings);
+        ui_report_error_stat(ESE_NoFreeUnsyncedThings);
         return false;
     }
 
@@ -164,7 +165,7 @@ TbBool i_can_allocate_free_thing_structure(unsigned char class_id)
 
     char msg[128];
     snprintf(msg, sizeof(msg), "Warning: Cannot create thing, %" PRId64 "/%" PRId64 " slots used.", (int64_t)(SYNCED_THINGS_COUNT - kfx_sim_state.synced_free_things_count), (int64_t)(SYNCED_THINGS_COUNT));
-    sim_feedback->show_onscreen_msg(2 * kfx_sim_state.turns_per_second, msg);
+    ui_show_onscreen_msg(2 * kfx_sim_state.turns_per_second, msg);
     return false;
 }
 
@@ -191,7 +192,7 @@ void delete_thing_structure_f(struct Thing *thing, TbBool deleting_everything, c
             delete_control_structure(cctrl);
         }
         if (thing->light_id != 0) {
-            sim_feedback->light_delete_light(thing->light_id);
+            light_delete_light(thing->light_id);
             thing->light_id = 0;
         }
     }
@@ -209,9 +210,10 @@ void delete_thing_structure_f(struct Thing *thing, TbBool deleting_everything, c
             push_free_thing_index(kfx_sim_state.unsynced_free_things, &kfx_sim_state.unsynced_free_things_count, UNSYNCED_THINGS_COUNT, thing->index);
         }
     } else {
-#if (BFDEBUG_LEVEL > 0)
-        ERRORMSG("%s: Performed deleting of thing with bad index %" PRId64 "!", func_name, (int64_t)thing->index);
-#endif
+        if (KFX_DEBUG_ON(0))
+        {
+            ERRORMSG("%s: Performed deleting of thing with bad index %" PRId64 "!", func_name, (int64_t)thing->index);
+        }
     }
     memset(thing, 0, sizeof(struct Thing));
 }
@@ -251,12 +253,13 @@ TbBool thing_exists(const struct Thing *thing)
         return false;
     if ((thing->alloc_flags & TAlF_Exists) == 0)
         return false;
-#if (BFDEBUG_LEVEL > 0)
-    if (thing->index != (thing-thing_get(0)))
-        WARNLOG("Incorrectly indexed thing (%" PRId64 ") at pos %" PRId64,(int64_t)thing->index,(int64_t)(thing-thing_get(0)));
-    if ((thing->class_id < 1) || (thing->class_id >= THING_CLASSES_COUNT))
-        WARNLOG("Thing %" PRId64 " is of invalid class %" PRId64,(int64_t)thing->index,(int64_t)thing->class_id);
-#endif
+    if (KFX_DEBUG_ON(0))
+    {
+        if (thing->index != (thing-thing_get(0)))
+            WARNLOG("Incorrectly indexed thing (%" PRId64 ") at pos %" PRId64,(int64_t)thing->index,(int64_t)(thing-thing_get(0)));
+        if ((thing->class_id < 1) || (thing->class_id >= THING_CLASSES_COUNT))
+            WARNLOG("Thing %" PRId64 " is of invalid class %" PRId64,(int64_t)thing->index,(int64_t)thing->class_id);
+    }
     return true;
 }
 
@@ -298,7 +301,7 @@ struct PlayerInfo *get_player_thing_is_controlled_by(const struct Thing *thing)
 
 void set_thing_animation(struct Thing *thing, int64_t animation_index, int64_t speed)
 {
-    thing->anim_sprite = sim_feedback->get_td_animation_sprite(animation_index);
+    thing->anim_sprite = render_get_td_animation_sprite(animation_index);
     thing->max_frames = keepersprite_frames(thing->anim_sprite);
     if (speed != -1) {
         thing->anim_speed = speed;
@@ -338,10 +341,14 @@ void set_thing_draw(struct Thing *thing, int64_t anim, int64_t speed, int64_t sc
     thing->anim_time = current_frame << 8;
 }
 
-void query_thing(struct Thing *thing)
+/**
+ * Shows the query box for a thing; for a door's key, the door's, unless the
+ * player held Left Alt (the packet's PCtr_ModLAlt, refactor pass 2, S12).
+ */
+void query_thing(struct Thing *thing, TbBool key_itself)
 {
     struct Thing *querytng;
-    if ( (thing->class_id == TCls_Object) && (thing->model == ObjMdl_SpinningKey) && (!sim_feedback->is_key_pressed(KC_LALT, KMod_DONTCARE)) )
+    if ( (thing->class_id == TCls_Object) && (thing->model == ObjMdl_SpinningKey) && (!key_itself) )
     {
         querytng = get_door_for_position(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
     }
@@ -396,7 +403,7 @@ void query_thing(struct Thing *thing)
                 snprintf(health, sizeof(health), "Health: %" PRId64, (int64_t)(querytng->health));
             }
         }
-        sim_feedback->create_message_box((const char*)&title, name, (const char*)&owner, (const char*)&health, (const char*)&position, (const char*)&amount);
+        ui_create_message_box((const char*)&title, name, (const char*)&owner, (const char*)&health, (const char*)&position, (const char*)&amount);
     }
 }
 /******************************************************************************/

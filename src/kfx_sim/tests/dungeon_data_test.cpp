@@ -6,7 +6,7 @@
 // read/write on kfx_sim_state.dungeon[], the same broad-coverage-pass
 // shape used for config_creature.c elsewhere in this plan. add_heart_health's
 // warn_on_damage branch (event_create_event_or_update_nearby_existing_event/
-// sim_feedback->play_sound_message/controller_rumble) and the room-list-
+// audio_play_sound_message()/controller rumble) and the room-list-
 // walking accessors that need a live struct Room fixture
 // (init_dungeon_essential_position's "room found" branch,
 // get_player_soul_container's thing_exists path) are covered only on

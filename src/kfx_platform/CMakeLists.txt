@@ -8,7 +8,7 @@
 # Every kfx_* library is a real STATIC library, not an OBJECT one
 # (docs/refactor/todo/remove-symbol-level-layering-residuals.md's "Next
 # steps" -- proved out first on just this library before converting the
-# rest). Still appended to KFX_OBJECT_LIBS_STD/_HVLOG in the parent scope
+# rest). Still appended to KFX_OBJECT_LIBS in the parent scope
 # the same way as before (the variable name is now a slight misnomer,
 # kept to avoid a repo-wide rename) -- the root CMakeLists.txt reverses
 # that list before linking, since a real archive only gets its needed
@@ -75,17 +75,11 @@ endif()
 set(KFX_PLATFORM_SOURCES ${KFX_PLATFORM_SOURCES_C} ${KFX_PLATFORM_SOURCES_CXX})
 
 add_library(kfx_platform STATIC ${KFX_PLATFORM_SOURCES})
-target_link_libraries(kfx_platform PRIVATE kfx_common_opts kfx_bfdebug_std)
+target_link_libraries(kfx_platform PRIVATE kfx_common_opts kfx_log_opts)
 target_include_directories(kfx_platform PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_library(kfx_platform_hvlog STATIC ${KFX_PLATFORM_SOURCES})
-target_link_libraries(kfx_platform_hvlog PRIVATE kfx_common_opts kfx_bfdebug_hvlog)
-target_include_directories(kfx_platform_hvlog PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-list(APPEND KFX_OBJECT_LIBS_STD kfx_platform)
-set(KFX_OBJECT_LIBS_STD ${KFX_OBJECT_LIBS_STD} PARENT_SCOPE)
-list(APPEND KFX_OBJECT_LIBS_HVLOG kfx_platform_hvlog)
-set(KFX_OBJECT_LIBS_HVLOG ${KFX_OBJECT_LIBS_HVLOG} PARENT_SCOPE)
+list(APPEND KFX_OBJECT_LIBS kfx_platform)
+set(KFX_OBJECT_LIBS ${KFX_OBJECT_LIBS} PARENT_SCOPE)
 
 # docs/refactor/testing/stage-01-framework-and-scaffold.md: opt-in Catch2
 # unit tests, gated the same way as the FetchContent(Catch2) block itself.

@@ -38,7 +38,7 @@ struct Camera;
 // clamp (MAX_I_CAN_SEE_OVERHEAD/MINMAX_LENGTH -- ruled out first, that fix
 // stays for its own sake but didn't touch this bug), is the real cause of
 // the editor's zoom-out render dropout: a diagnostic added to
-// engine_render.c's draw_view() (editor_callbacks->is_active()-gated, a
+// engine_render.c's draw_view() (editorport_is_active()-gated, a
 // peak-usage WARNLOG) confirmed poly_pool filling to exactly
 // 16777216/16777216 bytes during a reproduction, at which point every one
 // of the dozens of "if (getpoly < poly_pool_end)" terrain-column insertion

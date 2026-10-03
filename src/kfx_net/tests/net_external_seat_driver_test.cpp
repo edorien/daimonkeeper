@@ -18,7 +18,6 @@
 namespace {
 GameTurn g_turn = 100;
 TbClockMSec g_clock = 1000;
-GameTurn fake_turn() { return g_turn; }
 TbClockMSec fake_clock() { return g_clock; }
 TbClockMSec (*saved_clock)(void) = nullptr;
 
@@ -41,7 +40,7 @@ struct DriverFixture {
         seat_user = net_add_external_seat(2);
         g_turn = 100;
         g_clock = 1000;
-        set_get_gameturn_provider(&fake_turn);
+        set_gameturn_source(&g_turn);
         saved_clock = LbTimerClock;
         LbTimerClock = &fake_clock;
         extseat_reset();
@@ -49,7 +48,7 @@ struct DriverFixture {
     }
     ~DriverFixture() {
         LbTimerClock = saved_clock;
-        set_get_gameturn_provider(nullptr);
+        set_gameturn_source(nullptr);
         net_clear_external_seats();
     }
     static bool paused() { return flag_is_set(kfx_sim_state.operation_flags, GOF_Paused); }

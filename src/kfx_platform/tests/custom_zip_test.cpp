@@ -1,6 +1,6 @@
 // kfx_platform: custom_zip.c's read_map_zip_entry(). Only its early-
 // return validation paths are attempted here (pattern B on
-// MapZipCallbacks, same shape as every other *Callbacks fake in this
+// FilePathPort, same shape as every other port fake in this
 // plan): NULL out-parameter guards, and the prepare_map_zip_path
 // callback returning NULL or a path to a file that doesn't exist. The
 // actual zip-reading path (fastUnzConstructCache/fastUnzLocateFile/
@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "custom_zip.h"
+#include "ports/file_path_port.h"
 
 namespace {
 char *fake_path_returns_null(LevelNumber, const char *) { return nullptr; }
@@ -17,13 +18,13 @@ char *fake_path_returns_null(LevelNumber, const char *) { return nullptr; }
 char g_missing_path[] = "kfx_platform_utest_custom_zip_definitely_missing.zip";
 char *fake_path_returns_missing_file(LevelNumber, const char *) { return g_missing_path; }
 
-struct MapZipCallbacksFixture {
-    struct MapZipCallbacks callbacks{};
-    explicit MapZipCallbacksFixture(char *(*fn)(LevelNumber, const char *)) {
-        callbacks.prepare_map_zip_path = fn;
-        set_map_zip_callbacks(&callbacks);
+struct MapZipPathFixture {
+    struct FilePathPort port = file_path_port_defaults;
+    explicit MapZipPathFixture(char *(*fn)(LevelNumber, const char *)) {
+        port.prepare_map_zip_path = fn;
+        set_file_path_port(&port);
     }
-    ~MapZipCallbacksFixture() { set_map_zip_callbacks(nullptr); }
+    ~MapZipPathFixture() { set_file_path_port(nullptr); }
 };
 }
 
@@ -44,7 +45,7 @@ TEST_CASE("read_map_zip_entry returns false when entry_name is NULL", "[kfx_plat
 }
 
 TEST_CASE("read_map_zip_entry returns false when the callback reports no zip path", "[kfx_platform][custom_zip]") {
-    MapZipCallbacksFixture fixture(fake_path_returns_null);
+    MapZipPathFixture fixture(fake_path_returns_null);
     unsigned char *data = nullptr;
     size_t size = 999;
     CHECK_FALSE(read_map_zip_entry(1, "entry.txt", &data, &size));
@@ -53,7 +54,7 @@ TEST_CASE("read_map_zip_entry returns false when the callback reports no zip pat
 }
 
 TEST_CASE("read_map_zip_entry returns false when the resolved zip file doesn't exist on disk", "[kfx_platform][custom_zip]") {
-    MapZipCallbacksFixture fixture(fake_path_returns_missing_file);
+    MapZipPathFixture fixture(fake_path_returns_missing_file);
     unsigned char *data = nullptr;
     size_t size = 999;
     CHECK_FALSE(read_map_zip_entry(1, "entry.txt", &data, &size));

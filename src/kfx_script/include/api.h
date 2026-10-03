@@ -6,10 +6,10 @@
 #include <stdint.h>
 
 // enum ApiEventDataType/struct ApiEventData live in kfx_config's
-// script_hooks.h -- kfx_sim's actionpt.c is the lowest-ranked real
+// ports/script_port.h -- kfx_sim's actionpt.c is the lowest-ranked real
 // producer of event data payloads and can't reach up to this (kfx_script)
 // header, so the type is defined there and just used here.
-#include "script_hooks.h"
+#include "ports/script_port.h"
 
 #ifdef __cplusplus
 extern "C"

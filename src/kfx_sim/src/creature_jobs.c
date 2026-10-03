@@ -38,7 +38,6 @@
 #include "spdigger_stack.h"
 #include "player_instances.h"
 #include "player_utils.h"
-#include "sim_feedback.h"
 
 #include "creature_states_prisn.h"
 #include "creature_states_rsrch.h"
@@ -54,6 +53,8 @@
 #include "map_data.h"
 #include "power_process.h"
 #include "kfx_sim_state.h"
+#include "config_funcnames.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -85,19 +86,7 @@ TbBool attempt_job_work_in_room_and_cure_near_pos(struct Thing *creatng, MapSubt
 TbBool attempt_job_sleep_in_lair_near_pos(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, CreatureJob new_job);
 TbBool attempt_job_in_state_internal_near_pos(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, CreatureJob new_job);
 
-const struct NamedCommand creature_job_player_check_func_type[] = {
-  {"can_do_job_always",        1},
-  {"can_do_training",          2},
-  {"can_do_research",          3},
-  {"can_do_manufacturing",     4},
-  {"can_do_scavenging",        5},
-  {"can_freeze_prisoners",     6},
-  {"can_join_fight",           7},
-  {"can_do_barracking",        8},
-  {"none",                     9},
-  {NULL,                       0},
-};
-
+// Indexed by the values in creature_job_player_check_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Job_Player_Check_Func creature_job_player_check_func_list[] = {
   NULL,
   creature_can_do_job_always_for_player,
@@ -111,16 +100,10 @@ Creature_Job_Player_Check_Func creature_job_player_check_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(creature_job_player_check_func_list) / sizeof(creature_job_player_check_func_list[0]) >= CREATURE_JOB_PLAYER_CHECK_FUNC_TYPE_SLOTS,
+    "creature_job_player_check_func_list must have a slot for every index in creature_job_player_check_func_type[] (config_funcnames.c)");
 
-const struct NamedCommand creature_job_player_assign_func_type[] = {
-  {"work_in_room",             1},
-  {"in_state_on_room_content", 2},
-  {"move_to_event",            3},
-  {"in_state_internal",        4},
-  {"none",                     5},
-  {NULL,                       0},
-};
-
+// Indexed by the values in creature_job_player_assign_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Job_Player_Assign_Func creature_job_player_assign_func_list[] = {
   NULL,
   attempt_job_work_in_room_for_player,
@@ -130,20 +113,10 @@ Creature_Job_Player_Assign_Func creature_job_player_assign_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(creature_job_player_assign_func_list) / sizeof(creature_job_player_assign_func_list[0]) >= CREATURE_JOB_PLAYER_ASSIGN_FUNC_TYPE_SLOTS,
+    "creature_job_player_assign_func_list must have a slot for every index in creature_job_player_assign_func_type[] (config_funcnames.c)");
 
-const struct NamedCommand creature_job_coords_check_func_type[] = {
-  {"can_do_job_always",        1},
-  {"can_do_research",          2},
-  {"can_do_training",          3},
-  {"can_do_manufacturing",     4},
-  {"can_do_scavenging",        5},
-  {"can_place_in_vault",       6},
-  {"can_take_salary",          7},
-  {"can_take_sleep",           8},
-  {"none",                     9},
-  {NULL,                       0},
-};
-
+// Indexed by the values in creature_job_coords_check_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Job_Coords_Check_Func creature_job_coords_check_func_list[] = {
   NULL,
   creature_can_do_job_always_near_pos,
@@ -157,16 +130,10 @@ Creature_Job_Coords_Check_Func creature_job_coords_check_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(creature_job_coords_check_func_list) / sizeof(creature_job_coords_check_func_list[0]) >= CREATURE_JOB_COORDS_CHECK_FUNC_TYPE_SLOTS,
+    "creature_job_coords_check_func_list must have a slot for every index in creature_job_coords_check_func_type[] (config_funcnames.c)");
 
-const struct NamedCommand creature_job_coords_assign_func_type[] = {
-  {"work_in_room",             1},
-  {"work_in_room_and_cure",    2},
-  {"sleep_in_lair",            3},
-  {"in_state_internal",        4},
-  {"none",                     5},
-  {NULL,                       0},
-};
-
+// Indexed by the values in creature_job_coords_assign_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Job_Coords_Assign_Func creature_job_coords_assign_func_list[] = {
   NULL,
   attempt_job_work_in_room_near_pos,
@@ -176,6 +143,8 @@ Creature_Job_Coords_Assign_Func creature_job_coords_assign_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(creature_job_coords_assign_func_list) / sizeof(creature_job_coords_assign_func_list[0]) >= CREATURE_JOB_COORDS_ASSIGN_FUNC_TYPE_SLOTS,
+    "creature_job_coords_assign_func_list must have a slot for every index in creature_job_coords_assign_func_type[] (config_funcnames.c)");
 
 /******************************************************************************/
 TbBool set_creature_assigned_job(struct Thing *thing, CreatureJob new_job)
@@ -402,13 +371,13 @@ int64_t attempt_anger_job(struct Thing *creatng, int64_t ajob_kind)
         if (!attempt_anger_job_destroy_rooms(creatng))
             break;
         if (is_my_player_number(creatng->owner))
-            sim_feedback->play_sound_message(SMsg_CreatrDestroyRooms, MESSAGE_DURATION_CRTR_MOOD);
+            audio_output_message(SMsg_CreatrDestroyRooms, MESSAGE_DURATION_CRTR_MOOD);
         return true;
     case 4:
         if (!attempt_anger_job_leave_dungeon(creatng))
             break;
         if (is_my_player_number(creatng->owner))
-            sim_feedback->play_sound_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
+            audio_output_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
         return true;
     case 8:
         if (!attempt_anger_job_steal_gold(creatng))
@@ -418,7 +387,7 @@ int64_t attempt_anger_job(struct Thing *creatng, int64_t ajob_kind)
         if (!attempt_anger_job_damage_walls(creatng))
             break;
         if (is_my_player_number(creatng->owner))
-            sim_feedback->play_sound_message(SMsg_CreatrDestroyRooms, MESSAGE_DURATION_CRTR_MOOD);
+            audio_output_message(SMsg_CreatrDestroyRooms, MESSAGE_DURATION_CRTR_MOOD);
         return true;
     case 32:
         if (!attempt_anger_job_mad_psycho(creatng))
@@ -430,7 +399,7 @@ int64_t attempt_anger_job(struct Thing *creatng, int64_t ajob_kind)
             if (!attempt_anger_job_leave_dungeon(creatng))
                 break;
             if (is_my_player_number(creatng->owner))
-                sim_feedback->play_sound_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
+                audio_output_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
         }
         return true;
     case 128:
@@ -731,7 +700,7 @@ TbBool creature_can_do_job_for_player(const struct Thing *creatng, PlayerNumber 
         {
             SYNCDBG(3,"Cannot assign %s in player %" PRId64 " room for %s index %" PRId64 " owner %" PRId64 "; no required room built",creature_job_code_name(new_job),(int64_t)plyr_idx,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
             if ((flags & JobChk_PlayMsgOnFail) != 0) {
-                sim_feedback->output_room_message(plyr_idx, get_first_room_kind_for_job(new_job), OMsg_RoomNeeded);
+                audio_output_room_message(plyr_idx, get_first_room_kind_for_job(new_job), OMsg_RoomNeeded);
             }
             return false;
         }
@@ -742,7 +711,7 @@ TbBool creature_can_do_job_for_player(const struct Thing *creatng, PlayerNumber 
             {
                 SYNCDBG(3,"Cannot assign %s in player %" PRId64 " room for %s index %" PRId64 " owner %" PRId64 "; not enough room capacity",creature_job_code_name(new_job),(int64_t)plyr_idx,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
                 if ((flags & JobChk_PlayMsgOnFail) != 0) {
-                    sim_feedback->output_room_message(plyr_idx, get_first_room_kind_for_job(new_job), OMsg_RoomTooSmall);
+                    audio_output_room_message(plyr_idx, get_first_room_kind_for_job(new_job), OMsg_RoomTooSmall);
                 }
                 return false;
             }
@@ -798,7 +767,7 @@ TbBool creature_can_do_research_near_pos(const struct Thing *creatng, MapSubtlCo
         if (!is_neutral_thing(creatng) && (dungeon->current_research_idx < 0))
         {
             if (is_my_player_number(dungeon->owner) && ((flags & JobChk_PlayMsgOnFail) != 0)) {
-                sim_feedback->play_sound_message(SMsg_NoMoreReseach, MESSAGE_DURATION_KEEPR_TAUNT);
+                audio_output_message(SMsg_NoMoreReseach, MESSAGE_DURATION_KEEPR_TAUNT);
             }
         }
         return false;
@@ -917,7 +886,7 @@ TbBool creature_can_do_job_near_position(struct Thing *creatng, MapSubtlCoord st
         {
             SYNCDBG(3,"Cannot assign %s at (%" PRId64 ",%" PRId64 ") for %s index %" PRId64 " owner %" PRId64 "; not enough room capacity",creature_job_code_name(new_job),(int64_t)stl_x,(int64_t)stl_y,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)creatng->owner);
             if ((flags & JobChk_PlayMsgOnFail) != 0) {
-                sim_feedback->output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
+                audio_output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
             }
             return false;
         }
@@ -1224,4 +1193,71 @@ TbBool creature_try_doing_secondary_job(struct Thing *creatng)
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     return attempt_job_secondary_preference(creatng, crconf->job_secondary);
 }
+
+// get_job_for_subtile() moved here from kfx_config's config_creature.c
+// (refactor pass 2, S05): it reads the creature, its room and the slab map.
+/**
+ * Returns a job which creature could be doing on specific subtile.
+ * @param creatng
+ * @param stl_x
+ * @param stl_y
+ * @return
+ */
+CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags)
+{
+    // Detect the job which we will do in the area
+    uint64_t required_kind_flags = drop_kind_flags;
+    if (slab_is_area_inner_fill(subtile_slab(stl_x), subtile_slab(stl_y))) {
+        required_kind_flags |= JoKF_AssignOnAreaCenter;
+    } else {
+        required_kind_flags |= JoKF_AssignOnAreaBorder;
+    }
+    struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
+    struct Room* room = get_room_thing_is_on(creatng);
+    RoomKind rkind = room_is_invalid(room) ? RoK_NONE : room->kind;
+    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
+    if (rkind != RoK_NONE)
+    {
+        required_kind_flags |= JoKF_AssignAreaWithinRoom;
+    }
+    else
+    {
+        required_kind_flags |= JoKF_AssignAreaOutsideRoom;
+    }
+    if (creatng->owner == slabmap_owner(slb))
+    {
+        if (thing_is_creature_digger(creatng))
+        {
+            if (creature_is_for_dungeon_diggers_list(creatng))
+            {
+                required_kind_flags |= JoKF_OwnedDiggers;
+            }
+            else
+            {
+                CreatureJob jobpref = get_job_for_room(rkind, required_kind_flags | JoKF_OwnedDiggers, crconf->job_primary | crconf->job_secondary);
+                if (jobpref == Job_NULL)
+                {
+                    return get_job_for_room(rkind, required_kind_flags | JoKF_OwnedCreatures, crconf->job_primary | crconf->job_secondary);
+                }
+                else
+                {
+                    return jobpref;
+                }
+            }
+        }
+        else
+        {
+            required_kind_flags |= JoKF_OwnedCreatures;
+        }
+    } else
+    {
+        if (creature_is_for_dungeon_diggers_list(creatng)) {
+            required_kind_flags |= JoKF_EnemyDiggers;
+        } else {
+            required_kind_flags |= JoKF_EnemyCreatures;
+        }
+    }
+    return get_job_for_room(rkind, required_kind_flags, crconf->job_primary | crconf->job_secondary);
+}
+
 /******************************************************************************/

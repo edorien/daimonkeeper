@@ -21,6 +21,7 @@
 #include "thing_factory.h"
 #include "dungeon_data.h"
 #include "kfx_sim_test_fixtures.h"
+#include "player_camera.h"
 
 using namespace kfx_test;
 
@@ -54,7 +55,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "create_cave_in triggers a camera quake on t
     struct Coord3d pos = {};
 
     struct Thing *thing = create_cave_in(&pos, 1, 0);
-    CHECK(get_dungeon(0)->camera_deviate_quake == thing->cave_in.time);
+    CHECK(kfx_sim_view_signals.camera_deviate_quake[get_dungeon(0)->owner] == thing->cave_in.time);
 
     make_synced_thing_index_available(6);
     struct Thing *neutral_thing = create_cave_in(&pos, 1, PLAYER_NEUTRAL);

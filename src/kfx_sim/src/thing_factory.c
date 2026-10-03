@@ -36,7 +36,6 @@
 #include "thing_physics.h"
 #include "thing_navigate.h"
 #include "room_util.h"
-#include "sim_feedback.h"
 #include "dungeon_data.h"
 #include "config_magic.h"
 
@@ -44,6 +43,10 @@
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_camera.h"
+#include "light_registry.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -52,13 +55,13 @@ struct Thing *create_cave_in(struct Coord3d *pos, ThingModel cimodel, int64_t ow
     if ( !i_can_allocate_free_thing_structure(TCls_CaveIn) )
     {
         ERRORDBG(3,"Cannot create cave in %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)cimodel,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* thing = allocate_free_thing_structure(TCls_CaveIn);
     if (thing->index == 0) {
         ERRORDBG(3,"Should be able to allocate cave in %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)cimodel,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     thing->class_id = TCls_CaveIn;
@@ -76,7 +79,7 @@ struct Thing *create_cave_in(struct Coord3d *pos, ThingModel cimodel, int64_t ow
     if (owner != kfx_config_state.neutral_player_num)
     {
         struct Dungeon* dungeon = get_dungeon(owner);
-        dungeon->camera_deviate_quake = thing->cave_in.time;
+        kfx_sim_view_signals.camera_deviate_quake[dungeon->owner] = thing->cave_in.time;
     }
     add_thing_to_its_class_list(thing);
     place_thing_in_mapwho(thing);
@@ -110,7 +113,7 @@ struct Thing *create_thing(struct Coord3d *pos, int64_t tngclass, ThingModel tng
         thing = create_trap(pos, tngmodel, owner);
         break;
     case TCls_AmbientSnd:
-        thing = sim_feedback->create_ambient_sound(pos, tngmodel, owner);
+        thing = audio_create_ambient_sound(pos, tngmodel, owner);
         break;
     case TCls_CaveIn:
         // for cave in, model is really a level
@@ -464,9 +467,9 @@ struct Thing *create_thing_at_position_then_move_to_valid_and_add_light(struct C
         ilght.colour_r = kfx_config_state.conf.rules[thing->owner].gameplay.hero_light_r;
         ilght.colour_g = kfx_config_state.conf.rules[thing->owner].gameplay.hero_light_g;
         ilght.colour_b = kfx_config_state.conf.rules[thing->owner].gameplay.hero_light_b;
-        thing->light_id = sim_feedback->light_create_light(&ilght);
+        thing->light_id = light_create_light(&ilght);
         if (thing->light_id != 0) {
-            sim_feedback->light_set_light_never_cache(thing->light_id);
+            light_set_light_never_cache(thing->light_id);
         } else {
             ERRORLOG("Cannot allocate light to new hero");
         }

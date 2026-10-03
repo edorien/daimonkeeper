@@ -35,6 +35,7 @@
 #include "player_instances.h"
 #include "config_keeperfx.h"
 #include "kfx_sim_state.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

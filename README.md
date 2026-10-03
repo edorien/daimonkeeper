@@ -119,17 +119,16 @@ needs from the original release is documented in
 
 The build is CMake-based and fetches / builds its own third-party dependencies
 (SDL3, OpenAL, ffmpeg, LuaJIT, …), so a machine with just a C/C++ toolchain,
-`cmake`, `ninja` and `pkg-config` can build end-to-end. There are two produced
-binaries — `keeperfx` and `keeperfx_hvlog` — identical apart from the verbose
-debug logging compiled into the `_hvlog` variant.
+`cmake`, `ninja` and `pkg-config` can build end-to-end. It produces one
+binary, `keeperfx`. How much it logs is the **Logging** option (`LOG_LEVEL` in
+`keeperfx.cfg`: `OFF`, `NORMAL`, `DEBUG` or `DEBUGMAX`), which applies at once.
 
 ### Linux (native)
 
 Needs `gcc`/`g++`, `cmake`, `ninja`, `pkg-config`. Everything else is fetched.
 
 ```bash
-KFX_OS=linux ./build-cmake.sh                 # build out/linux/keeperfx
-KFX_OS=linux ./build-cmake.sh keeperfx_hvlog  # heavy-log variant
+./build-cmake-linux.sh                        # build out/linux/keeperfx
 KFX_OS=linux ./build-package.sh               # full package -> dist/linux/
 ```
 
@@ -139,9 +138,8 @@ KFX_OS=linux ./build-package.sh               # full package -> dist/linux/
 toolchain (`g++-mingw-w64-i686`), `cmake`, `ninja`:
 
 ```bash
-./build-cmake.sh                 # build out/windows/keeperfx.exe
-./build-cmake.sh keeperfx_hvlog  # heavy-log variant
-USE_DOCKER=1 ./build-cmake.sh    # do it in an Ubuntu 24.04 container
+KFX_OS=windows ./build-cmake-linux.sh                 # build out/windows/keeperfx.exe
+USE_DOCKER=1 KFX_OS=windows ./build-cmake-linux.sh    # do it in an Ubuntu 24.04 container
 ```
 
 **Natively on Windows** — from an [MSYS2](https://www.msys2.org) *MINGW32*

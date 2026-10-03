@@ -105,7 +105,7 @@ jobs:
       run: |
         set -eux
         cmake -S . -B out -G Ninja -DCMAKE_BUILD_TYPE=Debug -DKFX_BUILD_TESTS=ON
-        cmake --build out --target kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest -j"$(nproc)"
+        cmake --build out --target kfx_platform_utest kfx_config_utest kfx_content_utest kfx_pathfinding_utest kfx_sim_utest kfx_ai_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest -j"$(nproc)"
 
     - name: Run tests
       run: ctest --test-dir out --output-on-failure
@@ -183,7 +183,7 @@ jobs:
         set -eux
         cmake -S . -B out/coverage -G Ninja -DKFX_OS=linux -DCMAKE_BUILD_TYPE=Debug \
           -DKFX_BUILD_TESTS=ON -DKFX_TEST_COVERAGE=ON
-        cmake --build out/coverage --target kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest -j"$(nproc)"
+        cmake --build out/coverage --target kfx_platform_utest kfx_config_utest kfx_content_utest kfx_pathfinding_utest kfx_sim_utest kfx_ai_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest -j"$(nproc)"
 
     - name: Run tests
       run: ctest --test-dir out/coverage --output-on-failure
@@ -240,13 +240,13 @@ jobs:
         cmake -S . -B out -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DBUILD_NUMBER=$BUILD_NUMBER -DPACKAGE_SUFFIX=$PACKAGE_SUFFIX
-        cmake --build out --target keeperfx keeperfx_hvlog -j"$(nproc)"
+        cmake --build out --target keeperfx -j"$(nproc)"
         # Assemble game data with the make pipeline (.dat data); the CMake build
         # already provides the binaries and SDL runtime DLLs. Then archive with CPack.
         make BUILD_NUMBER=$BUILD_NUMBER PACKAGE_SUFFIX=$PACKAGE_SUFFIX pkg-assemble
         cmake --build out --target package
         echo "ZIP_NAME=$(basename -s .7z pkg/keeperfx*.7z)" >> $GITHUB_ENV
-        # CPack stages the binaries (keeperfx.exe, keeperfx_hvlog.exe) and the SDL3
+        # CPack stages the binary (keeperfx.exe) and the SDL3
         # runtime DLLs only inside the .7z archive, not into the loose pkg/ tree, so
         # uploading pkg/** would drop them. Install the full package layout into
         # dist/ so the uploaded artifact holds the binaries + DLLs + game data.
@@ -266,15 +266,14 @@ jobs:
         name: ${{ env.ZIP_NAME }}-symbols
         path: |
           out/keeperfx.exe.debug
-          out/keeperfx_hvlog.exe.debug
 
   # CMake is the canonical, cross-platform build description (single
   # GLOB source list for main.cpp/ftests + src/kfx_*/CMakeLists.txt for
   # everything else -- see build/cmake/modules/Dependencies.cmake and
   # build/cmake/toolchains/mingw32.cmake). The job above drives packaging
   # through CMake too, but that goes via the `package` target (CPack), which
-  # doesn't exercise CMake's own native compile of the keeperfx/
-  # keeperfx_hvlog targets directly outside that pipeline. This job does, so
+  # doesn't exercise CMake's own native compile of the keeperfx
+  # target directly outside that pipeline. This job does, so
   # a regression in CMake's own compile still gets caught even though it's
   # redundant compute today.
   build-prototype-windows-cmake:
@@ -306,7 +305,7 @@ jobs:
       run: cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
-      run: cmake --build build --target keeperfx keeperfx_hvlog -j"$(nproc)"
+      run: cmake --build build --target keeperfx -j"$(nproc)"
 
   build-prototype-linux:
     name: "Build Prototype Linux x86_64"

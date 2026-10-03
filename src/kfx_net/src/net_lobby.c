@@ -23,7 +23,6 @@
 #include "bflib_netsession.h"
 #include "bflib_sound.h"
 #include "config_sounds.h"
-#include "net_callbacks.h"
 #include "net_lan.h"
 #include "net_matchmaking.h"
 #include "packets.h"
@@ -31,6 +30,7 @@
 #include <SDL3/SDL.h>
 #include "kfx_sim_state.h"
 #include "net_game.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 /******************************************************************************/
 
@@ -246,10 +246,10 @@ TbError LbNetwork_Create(char *, char *plyr_name, uint64_t *plyr_num, void *optn
         ipv4_port = external_ipv4_port;
     }
     const int64_t ipv6_port = enet_get_bound_ipv6_port();
-    if (net_callbacks->frontnet_service_selected(FrontendNetSvc_LAN)) {
+    if (ui_frontnet_service_selected(FrontendNetSvc_LAN)) {
         lan_host_start(plyr_name, local_port);
     }
-    if (net_callbacks->frontnet_service_selected(FrontendNetSvc_Online) && matchmaking_create(plyr_name, external_ipv4_address, ipv4_port, ipv6_port, local_port) != 0) {
+    if (ui_frontnet_service_selected(FrontendNetSvc_Online) && matchmaking_create(plyr_name, external_ipv4_address, ipv4_port, ipv6_port, local_port) != 0) {
         netstate.sp->exit();
         return Lb_FAIL;
     }

@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "state_versions.h"
 #include <string.h>
 #include "post_inc.h"
 
@@ -29,15 +30,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct Game game;
-
-// Registered from main.cpp as kfx_platform's get_gameturn() provider (see
-// GetGameTurnFunc, globals.h) -- renamed from get_gameturn() since that
-// name is now owned by the thin wrapper in kfx_platform's bflib_basics.c.
-// See docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
-GameTurn game_legacy_get_gameturn(void)
-{
-    return kfx_game_state.play_gameturn;
-}
+// Saved/resynced as raw bytes: see state_versions.h before changing the layout.
+_Static_assert(sizeof(struct Game) == KFX_GAME_ORIG_SIZE, "struct Game changed size: bump KFX_GAME_ORIG_VER and update KFX_GAME_ORIG_SIZE in state_versions.h");
 
 // Static buffer, not malloc'd -- mirrors lua_resync_export()'s (pointer,
 // length) shape (kfx_script/src/lua_base.c) but neither of these structs

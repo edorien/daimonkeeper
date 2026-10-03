@@ -125,6 +125,7 @@ void fronttorture_unload(void)
   StopAllSamples();
   // Clearing the space used for torture graphics
   clear_light_system(&lish);
+  light_registry_clear();
   clear_computer();
   clear_things_and_persons_data();
   clear_mapmap();

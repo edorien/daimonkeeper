@@ -29,6 +29,7 @@
 #include "bflib_fileio.h"
 #include "bflib_planar.h"
 #include "globals.h"
+#include "ports/sound_host_port.h"
 #include "post_inc.h"
 
 #define INVALID_SOUND_EMITTER (&emitter[0])
@@ -690,11 +691,11 @@ void play_atmos_sound(SoundSmplTblID smpl_idx)
     SoundVolume volume_scale = LbLerp(0, FULL_LOUDNESS, (double)bf_sound_volume/127.0); // [0-127] rescaled to [0-256]
     SoundVolume adjusted_volume = (atmos_sound_volume * volume_scale) / FULL_LOUDNESS;
 
-    int64_t ATMOS_SOUND_PITCH = (73 + (LbRandomSeries(10, sound_state_callbacks->get_sound_random_seed(), __func__, __LINE__) * 6));
+    int64_t ATMOS_SOUND_PITCH = (73 + (LbRandomSeries(10, soundhost_get_sound_random_seed(), __func__, __LINE__) * 6));
     // ATMOS0 has bigger range in pitch than other atmos sounds.
     if (smpl_idx == 1013)
     {
-        ATMOS_SOUND_PITCH = (54 + (LbRandomSeries(16, sound_state_callbacks->get_sound_random_seed(), __func__, __LINE__) * 4));
+        ATMOS_SOUND_PITCH = (54 + (LbRandomSeries(16, soundhost_get_sound_random_seed(), __func__, __LINE__) * 4));
     }
     if (Non3DEmitter != 0)
     {

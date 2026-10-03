@@ -28,6 +28,7 @@
 #include "bflib_math.h"
 #include "lvl_script_lib.h"
 #include "sprites.h"
+#include "player_availability.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

@@ -24,11 +24,11 @@
 #include "bflib_basics.h"
 #include "config_terrain.h"
 #include "player_instances.h"
-#include "sim_feedback.h"
 #include "bflib_joyst.h"
-#include "dungeon_availability.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "magic_powers.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -231,7 +231,7 @@ void add_heart_health(PlayerNumber plyr_idx,HitPoints healthdelta,TbBool warn_on
                 event_create_event_or_update_nearby_existing_event(heartng->mappos.x.val, heartng->mappos.y.val, EvKind_HeartAttacked, heartng->owner, heartng->index);
                 if (is_my_player_number(heartng->owner))
                 {
-                    sim_feedback->play_sound_message(SMsg_HeartUnderAttack, 400);
+                    audio_output_message(SMsg_HeartUnderAttack, 400);
                     controller_rumble(50);
                 }
             }
@@ -567,11 +567,9 @@ void init_dungeons(void)
     }
 }
 
-// Registered on DungeonAvailabilityCallbacks (src/kfx_config/include/
-// dungeon_availability.h) so config_creature.c/config_magic.c/
-// config_objects.c/config_trapdoor.c don't need dungeon_data.h directly
-// for their narrow per-kind availability/build-state field touches.
-// See dungeon_availability() and docs/refactor/stage-13-enforce-and-document.md.
+// Narrow per-kind availability/build-state accessors, used by
+// player_availability.c (they were the DungeonAvailabilityCallbacks
+// entries until refactor pass 2's S05 moved their callers into kfx_sim).
 TbBool player_has_valid_dungeon(PlayerNumber plyr_idx)
 {
     return !dungeon_invalid(get_dungeon(plyr_idx));
@@ -719,6 +717,22 @@ TbBool get_door_built(PlayerNumber plyr_idx, int64_t door_idx)
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     return (dungeon->mnfct_info.door_build_flags[door_idx] & MnfBldF_Built) != 0;
+}
+
+/**
+ * The dungeon's money after keeping enough back for the next payday (or a
+ * digger, if that costs more). Moved from the AI's player_computer.c in
+ * refactor pass 2 (S14): room_jobs.c uses it too.
+ */
+GoldAmount get_dungeon_money_less_cost(const struct Dungeon *dungeon)
+{
+    // As payday need, take amount planned for next payday
+    GoldAmount money_payday = dungeon->creatures_total_pay;
+    // In case payday expenses are low, require enough money to make special digger
+    GoldAmount money_mkdigger = compute_power_price(dungeon->owner, PwrK_MKDIGGER, 0);
+    if (money_payday < money_mkdigger)
+        money_payday = money_mkdigger;
+    return dungeon->total_money_owned - money_payday;
 }
 
 /******************************************************************************/

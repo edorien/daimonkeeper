@@ -4,7 +4,7 @@
 /** @file content_target.h
  *     docs/refactor/editor/fx-plans/03-content-editors-foundation.md §3/§5 -- what a content
  *     editor edits: a campaign or mappack (and optionally a level of it) turned into the
- *     explicit directories the config content layer (kfx_config cfgc_*) works on.
+ *     explicit directories the config content layer (kfx_content cfgc_*) works on.
  * @par Comment:
  *     Internal to kfx_editor. The pure builders take plain strings; only
  *     content_list_campaigns() reads the engine's campaign lists.

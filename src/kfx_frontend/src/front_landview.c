@@ -60,9 +60,9 @@
 #include "front_input.h"
 #include "net_game.h"
 #include "game_lifecycle.h"
-#include "script_hooks.h"
 #include "custom_sprites.h"
 #include "landview_image.h"
+#include "ports/script_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -972,6 +972,7 @@ void compressed_window_draw(void)
 void unload_map_and_window(void)
 {
     clear_light_system(&lish);
+    light_registry_clear();
     clear_things_and_persons_data();
     clear_mapmap();
     clear_computer();
@@ -1243,7 +1244,7 @@ TbBool frontmap_load(void)
     fe_computer_players = 0;
     update_ensigns_visibility();
     SYNCDBG(7,"Finished");
-    script_hooks->api_event("CAMPAIGN_LOADED");
+    script_api_event("CAMPAIGN_LOADED");
     return true;
 }
 

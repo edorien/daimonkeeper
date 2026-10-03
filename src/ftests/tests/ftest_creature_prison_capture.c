@@ -35,6 +35,7 @@
 // the dungeon heart thing doesn't provide a usable position/CreatureControl
 // for this) to exercise the exact engine code a real capture goes through.
 #include "ftest_creature_prison_capture.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

@@ -35,8 +35,6 @@
 #include "config_terrain.h"
 #include "creature_states_pray.h"
 #include "dungeon_data.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "magic_powers.h"
 #include "bflib_inputctrl.h"
 #include "map_columns.h"
@@ -55,14 +53,23 @@
 #include "config_rules.h"
 #include "kfx_sim_state.h"
 #include "kfx_config_state.h"
+#include "player_availability.h"
+#include "room_workshop.h"
+#include "room_data.h"
+#include "player_camera.h"
+#include "light_registry.h"
 // process_dungeon_destroy()/initialise_devastate_dungeon_from_heart()
 // (kfx_game's game_loop.h) and light_create_light()/
 // light_init_dungeon_heart()/light_get_light_intensity()/
 // light_set_light_intensity() (kfx_render's light_data.h) are reached
-// through sim_feedback instead of same-file bare-extern
+// through ports instead of same-file bare-extern
 // forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/game_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -109,7 +116,7 @@ int64_t food_grow_objects[] = {ObjMdl_ChickenStb, ObjMdl_ChickenWob, ObjMdl_Chic
 
 struct CallToArmsGraphics call_to_arms_graphics[10];
 
-// Registered with config.h's ConfigReloadCallbacks; config_spritecolors.c
+// Registered with ports/sim_port.h's SimPort; config_spritecolors.c
 // populates this array from animationIds.cfg at config-load time.
 void set_call_to_arms_graphics(PlayerNumber plyr_idx, int64_t birth_anim_idx, int64_t alive_anim_idx, int64_t leave_anim_idx)
 {
@@ -126,13 +133,13 @@ struct Thing *create_object(const struct Coord3d *pos, ThingModel model, int64_t
     if (!i_can_allocate_free_thing_structure(TCls_Object))
     {
         ERRORDBG(3,"Cannot create object model %" PRId64 " (%s) for player %" PRId64 ". There are too many things allocated.",(int64_t)model,object_code_name(model),(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* thing = allocate_free_thing_structure(TCls_Object);
     if (thing->index == 0) {
         ERRORDBG(3,"Should be able to allocate object %" PRId64 " (%s) for player %" PRId64 ", but failed.",(int64_t)model,object_code_name(model),(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     thing->class_id = TCls_Object;
@@ -188,7 +195,7 @@ struct Thing *create_object(const struct Coord3d *pos, ThingModel model, int64_t
         ilight.flags = objst->ilght.flags;
         ilight.is_dynamic = objst->ilght.is_dynamic;
         ilight.colour_r = objst->ilght.colour_r; ilight.colour_g = objst->ilght.colour_g; ilight.colour_b = objst->ilght.colour_b;
-        thing->light_id = sim_feedback->light_create_light(&ilight);
+        thing->light_id = light_create_light(&ilight);
         if (thing->light_id == 0) {
             SYNCDBG(8,"Cannot allocate light to %s",thing_model_name(thing));
         }
@@ -198,7 +205,7 @@ struct Thing *create_object(const struct Coord3d *pos, ThingModel model, int64_t
     if (thing_is_beating_dungeon_heart(thing))
     {
         thing->heart.beat_direction = 1;
-        sim_feedback->light_init_dungeon_heart(thing->light_id, 0, 56);
+        light_init_dungeon_heart(thing->light_id, 0, 56);
     }
     switch (thing->model)
     {
@@ -262,7 +269,7 @@ void destroy_food(struct Thing *foodtng)
         struct Thing* efftng = create_effect(&foodtng->mappos, TngEff_FeatherPuff, plyr_idx);
         if (!thing_is_invalid(efftng))
         {
-            sim_feedback->thing_play_sample(efftng, 112 + SOUND_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(efftng, 112 + SOUND_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         }
     }
     create_effect(&pos, TngEff_ChickenBlood, plyr_idx);
@@ -272,7 +279,7 @@ void destroy_food(struct Thing *foodtng)
 
 void destroy_object(struct Thing *thing)
 {
-    script_hooks->lua_on_object_destroyed(thing);
+    script_lua_on_object_destroyed(thing);
     if (object_is_mature_food(thing) || object_is_growing_food(thing))
     {
         destroy_food(thing);
@@ -434,7 +441,7 @@ void update_all_objects_of_model(ThingModel model)
 
         if (thing->light_id != 0)
         {
-            sim_feedback->light_delete_light(thing->light_id);
+            light_delete_light(thing->light_id);
         }
         if (objst->ilght.radius != 0)
         {
@@ -446,7 +453,7 @@ void update_all_objects_of_model(ThingModel model)
             ilight.flags = objst->ilght.flags;
             ilight.is_dynamic = objst->ilght.is_dynamic;
             ilight.colour_r = objst->ilght.colour_r; ilight.colour_g = objst->ilght.colour_g; ilight.colour_b = objst->ilght.colour_b;
-            thing->light_id = sim_feedback->light_create_light(&ilight);
+            thing->light_id = light_create_light(&ilight);
         }
     }
 }
@@ -845,7 +852,7 @@ static int64_t food_moves(struct Thing *objtng)
         objtng->move_angle_xy = (objtng->move_angle_xy + dangle * sangle) & ANGLE_MASK;
         struct PlayerInfo* my_player = get_my_player();
         if (my_player->controlled_thing_idx == objtng->index && my_player->view_mode == PVM_CreatureView) {
-            sim_feedback->set_local_camera_destination(my_player);
+            signal_local_camera_retarget(my_player);
         }
         if (get_angle_difference(objtng->move_angle_xy, objtng->food.angle) < DEGREES_50)
         {
@@ -859,7 +866,7 @@ static int64_t food_moves(struct Thing *objtng)
         if (objtng->snd_emitter_id == 0)
         {
             if (snd_smplidx > 0) {
-              sim_feedback->thing_play_sample(objtng, snd_smplidx, 100, 0, 3, 0, 1, 256);
+              audio_thing_play_sample(objtng, snd_smplidx, 100, 0, 3, 0, 1, 256);
               return TUFRet_Modified;
             }
             if (SOUND_RANDOM(80) == 0)
@@ -869,7 +876,7 @@ static int64_t food_moves(struct Thing *objtng)
         }
     }
     if (snd_smplidx > 0) {
-        sim_feedback->thing_play_sample(objtng, snd_smplidx, 100, 0, 3u, 0, 1, 256);
+        audio_thing_play_sample(objtng, snd_smplidx, 100, 0, 3u, 0, 1, 256);
     }
     return TUFRet_Modified;
 }
@@ -927,7 +934,7 @@ static int64_t food_grows(struct Thing *objtng)
             nobjtng->move_angle_xy = THING_RANDOM(objtng, DEGREES_360);
             nobjtng->food.freshness_state = THING_RANDOM(objtng, 0x6FF);
             nobjtng->food.possession_startup_timer = 0;
-          sim_feedback->thing_play_sample(nobjtng, 80 + SOUND_RANDOM(3), 100, 0, 3u, 0, 1, 64);
+          audio_thing_play_sample(nobjtng, 80 + SOUND_RANDOM(3), 100, 0, 3u, 0, 1, 64);
           if (!is_neutral_thing(nobjtng)) {
               struct Dungeon *dungeon;
               dungeon = get_dungeon(nobjtng->owner);
@@ -1065,7 +1072,7 @@ void process_object_sacrifice(struct Thing *thing, int64_t sacowner)
         process_temple_special(thing, sacowner);
         kill_all_players_chickens(thing->owner);
         if (is_my_player_number(sacowner))
-            sim_feedback->play_sound_message(SMsg_SacrificePunish, 0);
+            audio_output_message(SMsg_SacrificePunish, 0);
     } else
     if (object_is_gold_pile(thing))
     {
@@ -1094,7 +1101,7 @@ void process_object_sacrifice(struct Thing *thing, int64_t sacowner)
             } else
             {
                 if (is_my_player_number(sacowner))
-                    sim_feedback->play_sound_message(SMsg_SacrificeWishing, 0);
+                    audio_output_message(SMsg_SacrificeWishing, 0);
             }
         }
     }
@@ -1211,28 +1218,28 @@ void update_dungeon_heart_beat(struct Thing *heartng)
         }
         if (k > 0)
         {
-            int64_t intensity = sim_feedback->light_get_light_intensity(heartng->light_id) + (i * 36 / k);
+            int64_t intensity = light_get_light_intensity(heartng->light_id) + (i * 36 / k);
             // intensity capped to 63 to fix the first beat flickering black which is visible when SKIP_HEART_ZOOM is on
-            sim_feedback->light_set_light_intensity(heartng->light_id, min(intensity, 63));
+            light_set_light_intensity(heartng->light_id, min(intensity, 63));
             heartng->anim_time += (i * base_heart_beat_rate / k);
             if (heartng->anim_time < 0)
             {
                 heartng->anim_time = 0;
-                sim_feedback->light_set_light_intensity(heartng->light_id, 20);
+                light_set_light_intensity(heartng->light_id, 20);
                 heartng->heart.beat_direction = 1;
             }
             if (heartng->anim_time > base_heart_beat_rate - 1)
             {
                 heartng->anim_time = base_heart_beat_rate - 1;
-                sim_feedback->light_set_light_intensity(heartng->light_id, 56);
+                light_set_light_intensity(heartng->light_id, 56);
                 heartng->heart.beat_direction = (unsigned char)-1;
                 if (bounce)
                 {
-                    sim_feedback->thing_play_sample(heartng, snd_heart_beat_up, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
+                    audio_thing_play_sample(heartng, snd_heart_beat_up, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
                 }
                 else
                 {
-                    sim_feedback->thing_play_sample(heartng, snd_heart_beat_down, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
+                    audio_thing_play_sample(heartng, snd_heart_beat_down, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
                 }
                 bounce = !bounce;
             }
@@ -1241,11 +1248,11 @@ void update_dungeon_heart_beat(struct Thing *heartng)
         heartng->current_frame = k >> 8;
         if (LbIsFrozenOrPaused())
         {
-            sim_feedback->stop_thing_playing_sample(heartng, 93);
+            audio_stop_thing_playing_sample(heartng, 93);
         }
         else if ( !S3DEmitterIsPlayingSample(heartng->snd_emitter_id, 93) )
         {
-            sim_feedback->thing_play_sample(heartng, 93, NORMAL_PITCH, -1, 3, 1, 6, FULL_LOUDNESS);
+            audio_thing_play_sample(heartng, 93, NORMAL_PITCH, -1, 3, 1, 6, FULL_LOUDNESS);
         }
     }
 }
@@ -1351,7 +1358,7 @@ static TngUpdateRet object_update_dungeon_heart(struct Thing *heartng)
 
         }
     }
-    sim_feedback->process_dungeon_destroy(heartng);
+    game_process_dungeon_destroy(heartng);
 
     SYNCDBG(18,"Beat update");
     if ((heartng->alloc_flags & TAlF_Exists) == 0)
@@ -1388,8 +1395,8 @@ void set_call_to_arms_as_birthing(struct Thing *objtng)
     set_thing_draw(objtng, ctagfx->birth_anim_idx, 256, objst->sprite_size_max, 0, frame, ODC_Default);
     objtng->call_to_arms_flag.state = CTAOL_Birthing;
     struct PowerConfigStats* powerst = get_power_model_stats(PwrK_CALL2ARMS);
-    sim_feedback->stop_thing_playing_sample(objtng, powerst->select_sound_idx);
-    sim_feedback->thing_play_sample(objtng, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 6, FULL_LOUDNESS);
+    audio_stop_thing_playing_sample(objtng, powerst->select_sound_idx);
+    audio_thing_play_sample(objtng, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 6, FULL_LOUDNESS);
 }
 
 void set_call_to_arms_as_dying(struct Thing *objtng)
@@ -1489,8 +1496,8 @@ static TngUpdateRet object_update_call_to_arms(struct Thing *thing)
             reset_interpolation_of_thing(thing);
             set_thing_draw(thing, ctagfx->birth_anim_idx, 256, objst->sprite_size_max, 0, 0, ODC_Default);
             thing->call_to_arms_flag.state = CTAOL_Birthing;
-            sim_feedback->stop_thing_playing_sample(thing, powerst->select_sound_idx);
-            sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 6, FULL_LOUDNESS);
+            audio_stop_thing_playing_sample(thing, powerst->select_sound_idx);
+            audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 6, FULL_LOUDNESS);
         }
         break;
     }
@@ -1597,7 +1604,7 @@ static TngUpdateRet object_update_power_sight(struct Thing *objtng)
     struct PowerConfigStats* powerst = get_power_model_stats(PwrK_SIGHT);
 
     if ( !S3DEmitterIsPlayingSample(objtng->snd_emitter_id, powerst->select_sound_idx) ) {
-        sim_feedback->thing_play_sample(objtng, powerst->select_sound_idx, NORMAL_PITCH, -1, 3, 1, 3, FULL_LOUDNESS);
+        audio_thing_play_sample(objtng, powerst->select_sound_idx, NORMAL_PITCH, -1, 3, 1, 3, FULL_LOUDNESS);
     }
 
     KeepPwrLevel sight_casted_power_level = dungeon->sight_casted_power_level;
@@ -1802,7 +1809,7 @@ TngUpdateRet move_object(struct Thing *thing)
             // GOLD_POT to make a sound when hitting the floor
             if (thing->model == ObjMdl_GoldPot)
             {
-                sim_feedback->thing_play_sample(thing, 79, NORMAL_PITCH, 0, 3, 0, 1, FULL_LOUDNESS);
+                audio_thing_play_sample(thing, 79, NORMAL_PITCH, 0, 3, 0, 1, FULL_LOUDNESS);
             }
             if (thing_in_wall_at(thing, &pos) == 0) //TODO: Improve 'slide_thing_against_wall_at' so it does not return a pos inside a wall
             {
@@ -1838,7 +1845,7 @@ TngUpdateRet update_object(struct Thing *thing)
     }
     else if (objst->updatefn_idx < 0)
     {
-        if (script_hooks->luafunc_thing_update_func(objst->updatefn_idx, thing) < 0) {
+        if (script_luafunc_thing_update_func(objst->updatefn_idx, thing) < 0) {
             return TUFRet_Deleted;
         }
     }

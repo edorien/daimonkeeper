@@ -289,38 +289,6 @@ extern NetUserId my_local_user_id;
  *
  * Not sync'd over the network.
  */
-extern struct LocalState {
-    unsigned char view_type;
-    TbBool tooltips_restore; /**< Used to store/restore the value of settings.tooltips_on when transitioning to/from the map. */
-    TbBool status_menu_restore; /**< Used to store/restore the current status menu visibility when the map is shown/hidden. */
-    TbBool status_menu_hidden_for_map; /**< The status menu is hidden for the map and status_menu_restore holds its visibility. */
-    TbBool tooltips_hidden_for_map; /**< Tooltips are off for a map fade and tooltips_restore holds the setting. */
-    TbBool paused_state_restore; /**< Used to restore pause state after saving */
-    TbBool display_needs_update;
-    int64_t local_thing_under_hand;
-    TbBool swipe_sprite_drawLR; /**< Used to decide whether to draw the swipe sprite left to right (TRUE), or [default] right to left (FALSE). */
-    unsigned char *lens_palette;
-    unsigned char *main_palette;
-    int64_t palette_fade_step_map;
-    int64_t palette_fade_step_pain;
-    int64_t palette_fade_step_possession;
-    int64_t engine_window_width;
-    int64_t engine_window_height;
-    int64_t engine_window_x;
-    int64_t engine_window_y;
-    int64_t minimap_pos_x;
-    int64_t minimap_pos_y;
-    int64_t minimap_zoom;
-    int64_t roomspace_size;
-    // FIXME: use fixed-point precision instead
-    double camera_movement_x;
-    double camera_movement_y;
-    TbBool camera_speedup_pressed;
-    // freecam. TODO: use spectator implementation instead, once that is implemented
-    TbBool replay_detached;
-    unsigned char replay_view_type;
-    unsigned char replay_cam_idx;
-} local_state;
 
 extern int64_t player_colors_map[];
 extern TbPixel player_path_colours[];

@@ -43,13 +43,16 @@
 #include "config_creature.h"
 #include "config_effects.h"
 #include "slab_data.h"
-#include "sim_feedback.h"
 #include "power_hand.h"
 #include "magic_powers.h"
 #include "player_instances.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
+#include "player_camera.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -267,11 +270,11 @@ void lightning_modify_palette(struct Thing *thing)
 {
     struct PlayerInfo* myplyr = get_my_player();
     struct UserState* ustate = get_user_state(get_local_user());
-    struct Camera* camera = sim_feedback->get_local_camera(get_player_active_camera(myplyr));
+    struct Camera* camera = get_player_active_camera(myplyr);
 
     if (thing->health == 0)
     {
-      sim_feedback->PaletteSetUserPalette(get_local_user(), engine_palette);
+      render_PaletteSetUserPalette(get_local_user(), engine_palette);
       ustate->additional_flags &= ~UsrAF_LightningPaletteIsActive;
       return;
     }
@@ -286,7 +289,7 @@ void lightning_modify_palette(struct Thing *thing)
         {
             if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
             {
-                sim_feedback->PaletteSetUserPalette(get_local_user(), engine_palette);
+                render_PaletteSetUserPalette(get_local_user(), engine_palette);
                 ustate->additional_flags &= ~UsrAF_LightningPaletteIsActive;
             }
         }
@@ -298,7 +301,7 @@ void lightning_modify_palette(struct Thing *thing)
         {
                         if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
             {
-              sim_feedback->PaletteSetUserPalette(get_local_user(), lightning_palette);
+              render_PaletteSetUserPalette(get_local_user(), lightning_palette);
               ustate->additional_flags |= UsrAF_LightningPaletteIsActive;
             }
         }
@@ -403,7 +406,7 @@ void god_lightning_choose_next_creature(struct Thing *shotng)
 void draw_god_lightning(struct Thing *shotng)
 {
     struct PlayerInfo* player = get_player(shotng->owner);
-    const struct Camera* cam = sim_feedback->get_local_camera(get_player_active_camera(player));
+    const struct Camera* cam = get_player_active_camera(player);
     if (cam == NULL) {
         return;
     }
@@ -721,7 +724,7 @@ void process_timebomb(struct Thing *creatng)
             int64_t time = (cctrl->timebomb_countdown / kfx_sim_state.turns_per_second);
             timetng = create_price_effect(&creatng->mappos, creatng->owner, time);
             cctrl->timebomb_countdown_id = timetng->index;
-            sim_feedback->thing_play_sample(creatng, 853, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS); // 853 is hardcoded ticking sound, could be configurable.
+            audio_thing_play_sample(creatng, 853, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS); // 853 is hardcoded ticking sound, could be configurable.
         }
     }
     else

@@ -45,8 +45,6 @@ TbBool thing_above_flight_altitude(const struct Thing* thing);
 
 TbBool thing_on_thing_at(const struct Thing *firstng, const struct Coord3d *pos, const struct Thing *sectng);
 TbBool things_collide_while_first_moves_to(const struct Thing *firstng, const struct Coord3d *dstpos, const struct Thing *sectng);
-TbBool cross_x_boundary_first(const struct Coord3d *pos1, const struct Coord3d *pos2);
-TbBool cross_y_boundary_first(const struct Coord3d *pos1, const struct Coord3d *pos2);
 
 void slide_thing_against_wall_at(struct Thing *thing, struct Coord3d *pos, int64_t blocked_flags);
 void bounce_thing_off_wall_at(struct Thing *thing, struct Coord3d *pos, int64_t blocked_flags);

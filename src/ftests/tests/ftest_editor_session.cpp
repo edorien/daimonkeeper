@@ -20,7 +20,7 @@ extern "C" {
 #include "thing_list.h"
 #include "lvl_filesdk1.h"
 #include "map_data.h"
-#include "light_data.h"
+#include "light_registry.h"
 #include "game_lifecycle.h"
 #include "actionpt.h"
 #include "post_inc.h"

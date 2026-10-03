@@ -50,10 +50,11 @@
 #include "power_hand.h"
 #include "map_utils.h"
 #include "map_events.h"
-#include "sim_feedback.h"
 #include "sim_scratch.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "room_workshop.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -3335,7 +3336,7 @@ int64_t check_out_worker_pickup_trap_for_workshop(struct Thing *thing, struct Di
             {
                 if (sectng->owner == kfx_config_state.neutral_player_num)
                 {
-                    sim_feedback->play_sound_message(SMsg_DiscoveredTrap, 0);
+                    audio_output_message(SMsg_DiscoveredTrap, 0);
                 }
             }
         }
@@ -3351,7 +3352,7 @@ int64_t check_out_worker_pickup_trap_for_workshop(struct Thing *thing, struct Di
             {
                 if (sectng->owner == kfx_config_state.neutral_player_num)
                 {
-                    sim_feedback->play_sound_message(SMsg_DiscoveredDoor, 0);
+                    audio_output_message(SMsg_DiscoveredDoor, 0);
                 }
             }
         }

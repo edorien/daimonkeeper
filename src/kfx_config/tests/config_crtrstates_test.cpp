@@ -4,7 +4,7 @@
 // space-separated-token parser (OVERRIDES field), independently
 // exercisable through the loaded state's override_* bitfields.
 // PROCESSFUNCTION/CLEANUPFUNCTION/MOVEFROMSLABFUNCTION/MOVECHECKFUNCTION
-// need config_reload_callbacks' real function-command NamedCommand
+// need SimPort's real function-command NamedCommand
 // tables (patched in by this file's own pre_load_func,
 // resolve_crstates_func_commands_pointers) and SPRITEIDX needs a real
 // sprite lookup -- none of the four/one attempted here, the fixture

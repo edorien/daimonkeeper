@@ -5,7 +5,7 @@
 // kfx_config_state.conf.magic_conf.power_cfgstats[]). compute_power_price
 // is only exercised for its Cost_Default branch here -- Cost_Digger/
 // Cost_Dwarf additionally reach into a real dungeon's creature counts
-// and a ConfigReloadCallbacks provider (get_players_special_digger_model),
+// and a SimPort provider (get_players_special_digger_model),
 // a bigger increment left open.
 //
 // compute_power_price_scaled_with_amount had no header declaration
@@ -18,6 +18,7 @@
 #include "magic_powers.h"
 #include "config_magic.h"
 #include "kfx_config_state.h"
+#include "player_availability.h"
 
 #include <cstring>
 

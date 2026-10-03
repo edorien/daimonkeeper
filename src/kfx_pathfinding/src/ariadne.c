@@ -30,9 +30,12 @@
 #include "ariadne_points.h"
 #include "ariadne_findcache.h"
 #include "ariadne_naviheap.h"
-#include "sim_feedback.h"
-#include "pathfinding_world.h"
 #include "kfx_pathfinding_state.h"
+#include "thing_types.h"
+#include "map_types.h"
+#include "slab_types.h"
+#include "ports/ui_port.h"
+#include "ports/pathfinding_world_port.h"
 #include "post_inc.h"
 
 /* Same permanently-empty debug-trace hook as kfx_sim's thing_data.h
@@ -221,7 +224,7 @@ static struct Path best_path;
 int64_t thing_nav_block_sizexy(const struct Thing *thing)
 {
     int64_t i;
-    i = pathfinding_world->thing_get_clipbox_size(thing);
+    i = thing->clipbox_size_xy;
     if (i >= (int64_t)(sizeof(actual_sizexy_to_nav_block_sizexy_table)/sizeof(actual_sizexy_to_nav_block_sizexy_table[0])))
         i = (int64_t)(sizeof(actual_sizexy_to_nav_block_sizexy_table)/sizeof(actual_sizexy_to_nav_block_sizexy_table[0]))-1;
     if (i < 0)
@@ -232,7 +235,7 @@ int64_t thing_nav_block_sizexy(const struct Thing *thing)
 int64_t thing_nav_sizexy(const struct Thing *thing)
 {
     int64_t i;
-    i = pathfinding_world->thing_get_clipbox_size(thing);
+    i = thing->clipbox_size_xy;
     if (i >= (int64_t)(sizeof(actual_sizexy_to_nav_sizexy_table)/sizeof(actual_sizexy_to_nav_sizexy_table[0])))
         i = (int64_t)(sizeof(actual_sizexy_to_nav_sizexy_table)/sizeof(actual_sizexy_to_nav_sizexy_table[0]))-1;
     if (i < 0)
@@ -264,7 +267,7 @@ static uint64_t fits_thro(int64_t tri_idx, int64_t ormask_idx)
     if (tri_idx >= TRIANLGLES_COUNT)
     {
         ERRORDBG(5,"triangles overflow");
-        sim_feedback->report_error_stat(ESE_NoFreeTriangls);
+        ui_report_error_stat(ESE_NoFreeTriangls);
         return 0;
     }
     if (ormask_idx >= EDGEOR_COUNT)
@@ -310,18 +313,18 @@ static int64_t navigation_rule_normal(NavColour treeA, NavColour treeB)
       return NavigationRule_Blocked;
     if ((treeB & (NAVMAP_OWNERSELECT_MASK | NAVMAP_UNSAFE_SURFACE | NAVMAP_ABYSS)) == 0)
       return NavigationRule_Normal;
-    if (pathfinding_world->get_owner_player_navigating() != -1)
+    if (kfx_pathfinding_state.owner_player_navigating != -1)
     {
-        if (get_navtree_owner_flags(treeB) & (1 << pathfinding_world->get_owner_player_navigating()))
+        if (get_navtree_owner_flags(treeB) & (1 << kfx_pathfinding_state.owner_player_navigating))
           return NavigationRule_Blocked;
     }
-    if ((treeB & NAVMAP_ABYSS) != 0 && !pathfinding_world->get_nav_thing_is_flying())
+    if ((treeB & NAVMAP_ABYSS) != 0 && !kfx_pathfinding_state.nav_thing_is_flying)
         return NavigationRule_Blocked;
     if ((treeB & NAVMAP_UNSAFE_SURFACE) == 0)
         return NavigationRule_Normal;
     if ((treeA & NAVMAP_UNSAFE_SURFACE) != 0)
         return NavigationRule_Normal;
-    return pathfinding_world->get_nav_thing_can_travel_over_lava();
+    return kfx_pathfinding_state.nav_thing_can_travel_over_lava;
 }
 
 static TbBool navigation_triangle_reachable(int64_t first_triangle, int64_t second_triangle)
@@ -1704,7 +1707,7 @@ static int64_t triangle_route_do_fwd(int64_t ttriA, int64_t ttriB, int64_t *rout
     int64_t i;
     i = copy_tree_to_route(ttriA, ttriB, route, TRIANLGLES_COUNT+1);
     if (i < 0) {
-        sim_feedback->report_error_stat(ESE_BadRouteTree);
+        ui_report_error_stat(ESE_BadRouteTree);
         ERRORLOG("route length overflow");
     }
     return i;
@@ -1772,7 +1775,7 @@ static int64_t triangle_route_do_bak(int64_t ttriA, int64_t ttriB, int64_t *rout
     int64_t i;
     i = copy_tree_to_route(ttriA, ttriB, route, TRIANLGLES_COUNT+1);
     if (i < 0) {
-        sim_feedback->report_error_stat(ESE_BadRouteTree);
+        ui_report_error_stat(ESE_BadRouteTree);
         ERRORLOG("route length overflow");
     }
     return i;
@@ -1883,7 +1886,7 @@ static void edgelen_init(void)
 
 static TbBool ariadne_creature_reached_position(const struct Thing *thing, const struct Coord3d *pos)
 {
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     if (thing_pos.x.val != pos->x.val)
     return false;
     if (thing_pos.y.val != pos->y.val)
@@ -1893,23 +1896,23 @@ static TbBool ariadne_creature_reached_position(const struct Thing *thing, const
 
 static int64_t ariadne_creature_blocked_by_wall_at(struct Thing *thing, const struct Coord3d *pos)
 {
-    if (pathfinding_world->creature_steps_into_toxic_terrain(thing, pos)) {
+    if (world_creature_steps_into_toxic_terrain(thing, pos)) {
         return true;
     }
     struct Coord3d mvpos;
     int64_t zmem;
     int64_t ret;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     zmem = thing_pos.z.val;
     mvpos.x.val = pos->x.val;
     mvpos.y.val = pos->y.val;
     mvpos.z.val = pos->z.val;
-    mvpos.z.val = pathfinding_world->get_floor_height_under_thing_at(thing, &thing_pos);
+    mvpos.z.val = world_get_floor_height_under_thing_at(thing, &thing_pos);
     thing_pos.z.val = mvpos.z.val;
-    pathfinding_world->thing_set_position(thing, &thing_pos);
-    ret = pathfinding_world->creature_cannot_move_directly_to(thing, &mvpos);
+    thing->mappos = thing_pos;
+    ret = world_creature_cannot_move_directly_to(thing, &mvpos);
     thing_pos.z.val = zmem;
-    pathfinding_world->thing_set_position(thing, &thing_pos);
+    thing->mappos = thing_pos;
     return ret;
 }
 
@@ -1963,9 +1966,9 @@ static void ariadne_pull_out_waypoint(const struct Thing *thing, const struct Ar
  */
 static void ariadne_init_current_waypoint(const struct Thing *thing, struct Ariadne *arid)
 {
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     ariadne_pull_out_waypoint(thing, arid, arid->current_waypoint, &arid->current_waypoint_pos);
-    arid->current_waypoint_pos.z.val = pathfinding_world->get_thing_height_at(thing, &arid->current_waypoint_pos);
+    arid->current_waypoint_pos.z.val = world_get_thing_height_at(thing, &arid->current_waypoint_pos);
     arid->straight_dist_to_next_waypoint = get_2d_distance(&thing_pos, &arid->current_waypoint_pos);
 }
 
@@ -1977,7 +1980,7 @@ int64_t angle_to_quadrant(int64_t angle)
 static TbBool ariadne_wallhug_angle_valid(struct Thing *thing, struct Ariadne *arid, int64_t angle)
 {
     struct Coord3d pos;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     pos.x.val = thing_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, angle);
     pos.y.val = thing_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, angle);
     pos.z.val = subtile_coord(1,0);
@@ -1987,7 +1990,7 @@ static TbBool ariadne_wallhug_angle_valid(struct Thing *thing, struct Ariadne *a
 static int64_t ariadne_get_wallhug_angle(struct Thing *thing, struct Ariadne *arid)
 {
     int64_t whangle;
-    int64_t move_angle_xy = pathfinding_world->thing_get_move_angle(thing);
+    int64_t move_angle_xy = thing->move_angle_xy;
     if (arid->hug_side == WallhugPreference_Right)
     {
         whangle = DEGREES_90 * ((angle_to_quadrant(move_angle_xy) - 1) & 3);
@@ -2024,12 +2027,12 @@ static int64_t ariadne_get_wallhug_angle(struct Thing *thing, struct Ariadne *ar
 static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(struct Thing *thing, struct Ariadne *arid, int64_t inangle, int64_t *rangle, unsigned char *rflag)
 {
     struct Coord3d bkp_mappos;
-    bkp_mappos = pathfinding_world->thing_get_position(thing);
+    bkp_mappos = thing->mappos;
     int64_t inangle_oneaxis;
     int64_t bkp_angle_xy;
     int64_t bkp_hug_side;
     int64_t bkp_speed;
-    bkp_angle_xy = pathfinding_world->thing_get_move_angle(thing);
+    bkp_angle_xy = thing->move_angle_xy;
     bkp_speed = arid->move_speed;
     bkp_hug_side = arid->hug_side;
     int64_t angle_beg;
@@ -2076,7 +2079,7 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
     int64_t wallhug_distance_right;
     int64_t size_steps;
     size_steps = thing_nav_sizexy(thing) >> 9;
-    pathfinding_world->thing_set_move_angle(thing, angle_beg);
+    thing->move_angle_xy = angle_beg;
     size_steps += 2;
     whsteps = size_steps;
     wallhug_distance_right = size_steps;
@@ -2094,20 +2097,20 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
                 wallhug_distance_right = i;
                 break;
             }
-            struct Coord3d cur_pos = pathfinding_world->thing_get_position(thing);
+            struct Coord3d cur_pos = thing->mappos;
             pos.x.val = cur_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, hug_angle);
             pos.y.val = cur_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, hug_angle);
-            pos.z.val = pathfinding_world->get_thing_height_at(thing, &pos);
+            pos.z.val = world_get_thing_height_at(thing, &pos);
             if (ariadne_check_forward_for_wallhug_gap(thing, arid, &pos, hug_angle)) {
                 wallhug_distance_right = i;
                 break;
             }
-            pathfinding_world->thing_set_position(thing, &pos);
+            thing->mappos = pos;
         }
     }
-    pathfinding_world->thing_set_move_angle(thing, angle_end);
+    thing->move_angle_xy = angle_end;
     arid->hug_side = inangle_oneaxis;
-    pathfinding_world->thing_set_position(thing, &bkp_mappos);
+    thing->mappos = bkp_mappos;
     for (i = 0; i < whsteps; i++)
     {
         hug_angle = ariadne_get_wallhug_angle(thing, arid);
@@ -2117,19 +2120,19 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
                 wallhug_distance_left = i;
                 break;
             }
-            struct Coord3d cur_pos = pathfinding_world->thing_get_position(thing);
+            struct Coord3d cur_pos = thing->mappos;
             pos.x.val = cur_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, hug_angle);
             pos.y.val = cur_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, hug_angle);
-            pos.z.val = pathfinding_world->get_thing_height_at(thing, &pos);
+            pos.z.val = world_get_thing_height_at(thing, &pos);
             if (ariadne_check_forward_for_wallhug_gap(thing, arid, &pos, hug_angle)) {
                 wallhug_distance_left = i;
                 break;
             }
-            pathfinding_world->thing_set_position(thing, &pos);
+            thing->mappos = pos;
         }
     }
-    pathfinding_world->thing_set_move_angle(thing, bkp_angle_xy);
-    pathfinding_world->thing_set_position(thing, &bkp_mappos);
+    thing->move_angle_xy = bkp_angle_xy;
+    thing->mappos = bkp_mappos;
     arid->move_speed = bkp_speed;
     arid->hug_side = bkp_hug_side;
     if (wallhug_distance_left > wallhug_distance_right)
@@ -2154,7 +2157,7 @@ static TbBool ariadne_get_starting_angle_and_side_of_wallhug(struct Thing *thing
     TbBool nxdelta_y_neg;
     TbBool crdelta_x_neg;
     TbBool crdelta_y_neg;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     crdelta_x_neg = (thing_pos.x.val - (int64_t)pos->x.val) <= 0;
     crdelta_y_neg = (thing_pos.y.val - (int64_t)pos->y.val) <= 0;
     nxdelta_x_neg = (thing_pos.x.val - (int64_t)arid->current_waypoint_pos.x.val) <= 0;
@@ -2225,7 +2228,7 @@ static AriadneReturn ariadne_init_wallhug(struct Thing *thing, struct Ariadne *a
     }
     if (!ariadne_get_starting_angle_and_side_of_wallhug(thing, arid, pos, &arid->wallhug_angle, &arid->hug_side))
     {
-        struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+        struct Coord3d thing_pos = thing->mappos;
         arid->next_position.x.val = thing_pos.x.val;
         arid->next_position.y.val = thing_pos.y.val;
         arid->next_position.z.val = thing_pos.z.val;
@@ -2233,10 +2236,10 @@ static AriadneReturn ariadne_init_wallhug(struct Thing *thing, struct Ariadne *a
         return AridRet_OK;
     }
     arid->update_state = AridUpSt_Wallhug;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     arid->next_position.x.val = thing_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, arid->wallhug_angle);
     arid->next_position.y.val = thing_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, arid->wallhug_angle);
-    arid->next_position.z.val = pathfinding_world->get_thing_height_at(thing, &arid->next_position);
+    arid->next_position.z.val = world_get_thing_height_at(thing, &arid->next_position);
     arid->previous_position = thing_pos;
     arid->wallhug_stored_angle = arid->wallhug_angle;
     if (ariadne_check_forward_for_wallhug_gap(thing, arid, &arid->next_position, arid->wallhug_angle))
@@ -2270,7 +2273,7 @@ static int64_t ariadne_get_blocked_flags(struct Thing *thing, const struct Coord
 {
     struct Coord3d lpos;
     uint64_t blkflags;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     lpos.x.val = pos->x.val;
     lpos.y.val = thing_pos.y.val;
     lpos.z.val = thing_pos.z.val;
@@ -2303,7 +2306,7 @@ static TbBool blocked_by_door_at(struct Thing *thing, struct Coord3d *pos, uint6
     int64_t stl_x;
     int64_t stl_y;
 
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     radius = thing_nav_sizexy(thing) >> 1;
     start_x = ((int64_t)pos->x.val - radius) / 256;
     end_x = ((int64_t)pos->x.val + radius) / 256;
@@ -2318,7 +2321,7 @@ static TbBool blocked_by_door_at(struct Thing *thing, struct Coord3d *pos, uint6
         {
             for (stl_y = start_y; stl_y <= end_y; stl_y++)
             {
-                if (pathfinding_world->subtile_is_door(stl_x, stl_y))
+                if (world_subtile_is_door(stl_x, stl_y))
                     return true;
             }
         }
@@ -2332,7 +2335,7 @@ static TbBool blocked_by_door_at(struct Thing *thing, struct Coord3d *pos, uint6
         {
             for (stl_x = start_x; stl_x <= end_x; stl_x++)
             {
-                if (pathfinding_world->subtile_is_door(stl_x, stl_y))
+                if (world_subtile_is_door(stl_x, stl_y))
                     return true;
             }
         }
@@ -2345,7 +2348,7 @@ static int64_t ariadne_push_position_against_wall(struct Thing *thing, const str
     struct Coord3d lpos;
     int64_t radius;
     uint64_t blk_flags;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     blk_flags = ariadne_get_blocked_flags(thing, pos1);
     radius = thing_nav_sizexy(thing) >> 1;
     lpos.x.val = pos1->x.val;
@@ -2365,7 +2368,7 @@ static int64_t ariadne_push_position_against_wall(struct Thing *thing, const str
           lpos.x.stl.pos = 0;
           lpos.x.val += radius;
       }
-      lpos.z.val = pathfinding_world->get_thing_height_at(thing, &lpos);
+      lpos.z.val = world_get_thing_height_at(thing, &lpos);
     }
     if ((blk_flags & SlbBloF_WalledY) != 0)
     {
@@ -2380,7 +2383,7 @@ static int64_t ariadne_push_position_against_wall(struct Thing *thing, const str
         lpos.y.stl.pos = 0;
         lpos.y.val += radius;
       }
-      lpos.z.val = pathfinding_world->get_thing_height_at(thing, &lpos);
+      lpos.z.val = world_get_thing_height_at(thing, &lpos);
     }
     if ((blk_flags & SlbBloF_WalledZ) != 0)
     {
@@ -2407,7 +2410,7 @@ static int64_t ariadne_push_position_against_wall(struct Thing *thing, const str
           lpos.y.stl.pos = 0;
           lpos.y.val += radius;
       }
-      lpos.z.val = pathfinding_world->get_thing_height_at(thing, &lpos);
+      lpos.z.val = world_get_thing_height_at(thing, &lpos);
     }
     pos_out->x.val = lpos.x.val;
     pos_out->y.val = lpos.y.val;
@@ -2424,13 +2427,13 @@ static int64_t ariadne_init_movement_to_current_waypoint(struct Thing *thing, st
     int64_t delta_y;
     uint64_t blk_flags;
     TRACE_THING(thing);
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     angle = get_angle_xy_to(&thing_pos, &arid->current_waypoint_pos);
     delta_x = distance_with_angle_to_coord_x(arid->move_speed, angle);
     delta_y = distance_with_angle_to_coord_y(arid->move_speed, angle);
     requested_pos.x.val = (int64_t)thing_pos.x.val + delta_x;
     requested_pos.y.val = (int64_t)thing_pos.y.val + delta_y;
-    requested_pos.z.val = pathfinding_world->get_thing_height_at(thing, &requested_pos);
+    requested_pos.z.val = world_get_thing_height_at(thing, &requested_pos);
     if (!ariadne_creature_blocked_by_wall_at(thing, &requested_pos))
     {
         arid->update_state = AridUpSt_OnLine;
@@ -2467,7 +2470,7 @@ static int64_t ariadne_init_movement_to_current_waypoint(struct Thing *thing, st
 static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thing *thing, struct Ariadne *arid, int64_t speed)
 {
     int64_t angle;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     angle = get_angle_xy_to(&thing_pos, &arid->current_waypoint_pos);
     struct Coord3d pos_dlim;
     pos_dlim.x.val = thing_pos.x.val;
@@ -2475,7 +2478,7 @@ static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thin
     pos_dlim.z.val = thing_pos.z.val;
     pos_dlim.x.val += distance_with_angle_to_coord_x(speed, angle);
     pos_dlim.y.val += distance_with_angle_to_coord_y(speed, angle);
-    pos_dlim.z.val = pathfinding_world->get_thing_height_at(thing, &pos_dlim);
+    pos_dlim.z.val = world_get_thing_height_at(thing, &pos_dlim);
     struct Coord3d pos_xlim;
     struct Coord3d pos_ylim;
     {
@@ -2489,7 +2492,7 @@ static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thin
         }
         pos_xlim.x.val = coord_fix;
         pos_xlim.y.val = thing_pos.y.val;
-        pos_xlim.z.val = pathfinding_world->get_thing_height_at(thing, &pos_xlim);
+        pos_xlim.z.val = world_get_thing_height_at(thing, &pos_xlim);
         coord_fix = thing_pos.y.val;
         if (pos_dlim.y.val > thing_pos.y.val) {
             coord_fix += speed;
@@ -2499,7 +2502,7 @@ static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thin
         }
         pos_ylim.x.val = thing_pos.x.val;
         pos_ylim.y.val = coord_fix;
-        pos_ylim.z.val = pathfinding_world->get_thing_height_at(thing, &pos_ylim);
+        pos_ylim.z.val = world_get_thing_height_at(thing, &pos_ylim);
     }
     if (!ariadne_creature_blocked_by_wall_at(thing, &pos_xlim))
     {
@@ -2536,7 +2539,7 @@ static AriadneReturn ariadne_prepare_creature_route_target_reached(const struct 
     arid->current_waypoint_pos.y.val = srcpos->y.val;
     arid->current_waypoint_pos.z.val = srcpos->z.val;
     arid->current_waypoint = 0;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     arid->next_position.x.val = thing_pos.x.val;
     arid->next_position.y.val = thing_pos.y.val;
     arid->next_position.z.val = thing_pos.z.val;
@@ -2562,25 +2565,25 @@ static AriadneReturn ariadne_prepare_creature_route_to_target_f(const struct Thi
 {
     struct Path path;
     int64_t nav_sizexy;
-    NAVIDBG(18,"%s: The %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, pathfinding_world->thing_model_name(thing), (int64_t)pathfinding_world->thing_get_index(thing),
+    NAVIDBG(18,"%s: The %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, world_thing_model_name(thing), (int64_t)thing->index,
         (int64_t)srcpos->x.stl.num, (int64_t)srcpos->y.stl.num, (int64_t)dstpos->x.stl.num, (int64_t)dstpos->y.stl.num);
     memset(&path, 0, sizeof(struct Path));
     // Set the required parameters
-    pathfinding_world->set_nav_thing_can_travel_over_lava(pathfinding_world->creature_can_travel_over_lava(thing));
-    pathfinding_world->set_nav_thing_is_flying(pathfinding_world->thing_is_flying(thing));
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = world_creature_can_travel_over_lava(thing);
+    kfx_pathfinding_state.nav_thing_is_flying = flag_is_set(thing->movement_flags, TMvF_Flying);
     if ((flags & AridRtF_NoOwner) != 0)
-        pathfinding_world->set_owner_player_navigating(-1);
+        kfx_pathfinding_state.owner_player_navigating = -1;
     else
-        pathfinding_world->set_owner_player_navigating(pathfinding_world->thing_get_owner(thing));
+        kfx_pathfinding_state.owner_player_navigating = thing->owner;
     nav_sizexy = thing_nav_block_sizexy(thing);
     if (nav_sizexy > 0) nav_sizexy--;
     // Find the path
     path_init8_wide_f(&path, srcpos->x.val, srcpos->y.val,
         dstpos->x.val, dstpos->y.val, -2, nav_sizexy, func_name);
     // Reset globals
-    pathfinding_world->set_nav_thing_can_travel_over_lava(0);
-    pathfinding_world->set_nav_thing_is_flying(0);
-    pathfinding_world->set_owner_player_navigating(-1);
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = 0;
+    kfx_pathfinding_state.nav_thing_is_flying = 0;
+    kfx_pathfinding_state.owner_player_navigating = -1;
     // Fill the Ariadne struct
     arid->startpos.x.val = srcpos->x.val;
     arid->startpos.y.val = srcpos->y.val;
@@ -2618,7 +2621,7 @@ static AriadneReturn ariadne_prepare_creature_route_to_target_f(const struct Thi
     }
     arid->current_waypoint = 0;
     arid->route_flags = flags;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     arid->next_position.x.val = thing_pos.x.val;
     arid->next_position.y.val = thing_pos.y.val;
     arid->next_position.z.val = thing_pos.z.val;
@@ -2641,25 +2644,25 @@ int64_t ariadne_count_waypoints_on_creature_route_to_target_f(const struct Thing
 {
     struct Path path;
     int64_t nav_sizexy;
-    NAVIDBG(18,"%s: The %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, pathfinding_world->thing_model_name(thing), (int64_t)pathfinding_world->thing_get_index(thing),
+    NAVIDBG(18,"%s: The %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name, world_thing_model_name(thing), (int64_t)thing->index,
         (int64_t)srcpos->x.stl.num, (int64_t)srcpos->y.stl.num, (int64_t)dstpos->x.stl.num, (int64_t)dstpos->y.stl.num);
     memset(&path, 0, sizeof(struct Path));
     // Set the required parameters
-    pathfinding_world->set_nav_thing_can_travel_over_lava(pathfinding_world->creature_can_travel_over_lava(thing));
-    pathfinding_world->set_nav_thing_is_flying(pathfinding_world->thing_is_flying(thing));
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = world_creature_can_travel_over_lava(thing);
+    kfx_pathfinding_state.nav_thing_is_flying = flag_is_set(thing->movement_flags, TMvF_Flying);
     if ((flags & AridRtF_NoOwner) != 0)
-        pathfinding_world->set_owner_player_navigating(-1);
+        kfx_pathfinding_state.owner_player_navigating = -1;
     else
-        pathfinding_world->set_owner_player_navigating(pathfinding_world->thing_get_owner(thing));
+        kfx_pathfinding_state.owner_player_navigating = thing->owner;
     nav_sizexy = thing_nav_block_sizexy(thing);
     if (nav_sizexy > 0) nav_sizexy--;
     // Find the path
     path_init8_wide_f(&path, srcpos->x.val, srcpos->y.val,
         dstpos->x.val, dstpos->y.val, -2, nav_sizexy, func_name);
     // Reset globals
-    pathfinding_world->set_nav_thing_can_travel_over_lava(0);
-    pathfinding_world->set_nav_thing_is_flying(0);
-    pathfinding_world->set_owner_player_navigating(-1);
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = 0;
+    kfx_pathfinding_state.nav_thing_is_flying = 0;
+    kfx_pathfinding_state.owner_player_navigating = -1;
     // Note: since this point, the function body should be identical to ariadne_prepare_creature_route_to_target().
     NAVIDBG(19,"%s: Finished, %" PRId64 " waypoints",func_name,(int64_t)path.waypoints_num);
     return path.waypoints_num;
@@ -2669,7 +2672,7 @@ AriadneReturn ariadne_invalidate_creature_route(struct Thing *thing)
 {
     struct Ariadne *arid;
     TRACE_THING(thing);
-    arid = pathfinding_world->creature_get_ariadne_state(thing);
+    arid = world_creature_get_ariadne_state(thing);
     memset(arid, 0, sizeof(struct Ariadne));
     return AridRet_OK;
 }
@@ -2678,11 +2681,11 @@ AriadneReturn ariadne_initialise_creature_route_f(struct Thing *thing, const str
 {
     struct Ariadne *arid;
     AriadneReturn ret;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    NAVIDBG(18,"%s: Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name,pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+    struct Coord3d thing_pos = thing->mappos;
+    NAVIDBG(18,"%s: Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, func_name,world_thing_model_name(thing),(int64_t)thing->index,
         (int64_t)thing_pos.x.stl.num, (int64_t)thing_pos.y.stl.num, (int64_t)pos->x.stl.num, (int64_t)pos->y.stl.num);
     TRACE_THING(thing);
-    arid = pathfinding_world->creature_get_ariadne_state(thing);
+    arid = world_creature_get_ariadne_state(thing);
     memset(arid, 0, sizeof(struct Ariadne));
     if (ariadne_creature_reached_position(thing, pos))
     {
@@ -2733,8 +2736,8 @@ static AriadneReturn ariadne_creature_get_next_waypoint(struct Thing *thing, str
     pos.x.val = arid->endpos.x.val;
     pos.y.val = arid->endpos.y.val;
     pos.z.val = arid->endpos.z.val;
-    NAVIDBG(8,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
-        (int64_t)pathfinding_world->thing_get_position(thing).x.stl.num, (int64_t)pathfinding_world->thing_get_position(thing).y.stl.num, (int64_t)pos.x.stl.num, (int64_t)pos.y.stl.num);
+    NAVIDBG(8,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, world_thing_model_name(thing),(int64_t)thing->index,
+        (int64_t)thing->mappos.x.stl.num, (int64_t)thing->mappos.y.stl.num, (int64_t)pos.x.stl.num, (int64_t)pos.y.stl.num);
     return ariadne_initialise_creature_route(thing, &pos, arid->move_speed, arid->route_flags);
 }
 
@@ -2748,14 +2751,14 @@ static AriadneReturn ariadne_update_state_manoeuvre_to_position(struct Thing *th
     struct Coord3d pos;
     MapCoord dist;
     int64_t hug_angle;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
 
     if (ariadne_creature_blocked_by_wall_at(thing, &arid->manoeuvre_fixed_position))
     {
         pos.x.val = arid->endpos.x.val;
         pos.y.val = arid->endpos.y.val;
         pos.z.val = arid->endpos.z.val;
-        NAVIDBG(8,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+        NAVIDBG(8,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, world_thing_model_name(thing),(int64_t)thing->index,
             (int64_t)thing_pos.x.stl.num, (int64_t)thing_pos.y.stl.num, (int64_t)pos.x.stl.num, (int64_t)pos.y.stl.num);
         AriadneReturn aret;
         aret = ariadne_initialise_creature_route(thing, &pos, arid->move_speed, arid->route_flags);
@@ -2797,7 +2800,7 @@ static AriadneReturn ariadne_update_state_on_line(struct Thing *thing, struct Ar
     int64_t angle;
     int64_t distance;
     NAVIDBG(19,"Starting");
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     angle = get_angle_xy_to(&thing_pos, &arid->current_waypoint_pos);
     distance = get_2d_distance(&thing_pos, &arid->current_waypoint_pos);
     if ((distance - arid->straight_dist_to_next_waypoint) > 4 * COORD_PER_STL)
@@ -2824,7 +2827,7 @@ static AriadneReturn ariadne_update_state_on_line(struct Thing *thing, struct Ar
         {
             arid->next_position.x.val = thing_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, angle);
             arid->next_position.y.val = thing_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, angle);
-            arid->next_position.z.val = pathfinding_world->get_thing_height_at(thing, &arid->next_position);
+            arid->next_position.z.val = world_get_thing_height_at(thing, &arid->next_position);
         }
     }
     if (arid->straight_dist_to_next_waypoint > distance) {
@@ -2874,7 +2877,7 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
     struct Coord3d original_mappos;
 
     int64_t nav_radius = thing_nav_sizexy(thing) / 2;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
 
     TbBool isOk = false;
     switch (hug_angle)
@@ -2930,30 +2933,30 @@ static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct 
 
     potentional_next_pos_3d.x.val = move_coord_with_angle_x(thing_pos.x.val, arid->move_speed, quadrant);
     potentional_next_pos_3d.y.val = move_coord_with_angle_y(thing_pos.y.val, arid->move_speed, quadrant);
-    potentional_next_pos_3d.z.val = pathfinding_world->get_floor_height_under_thing_at(thing, &thing_pos);
+    potentional_next_pos_3d.z.val = world_get_floor_height_under_thing_at(thing, &thing_pos);
 
     thing_pos.z.val = potentional_next_pos_3d.z.val;
-    pathfinding_world->thing_set_position(thing, &thing_pos);
+    thing->mappos = thing_pos;
     TbBool cant_move_to_pos_directly = ariadne_creature_blocked_by_wall_at(thing, &potentional_next_pos_3d);
 
     if (cant_move_to_pos_directly)
     {
         original_mappos = thing_pos;
         thing_pos = nav_boundry_pos;
-        pathfinding_world->thing_set_position(thing, &thing_pos);
+        thing->mappos = thing_pos;
 
-        thing_pos.z.val = pathfinding_world->get_thing_height_at(thing, &thing_pos);
-        pathfinding_world->thing_set_position(thing, &thing_pos);
+        thing_pos.z.val = world_get_thing_height_at(thing, &thing_pos);
+        thing->mappos = thing_pos;
 
         potentional_next_pos_3d.x.val = move_coord_with_angle_x(thing_pos.x.val, arid->move_speed, quadrant);
         potentional_next_pos_3d.y.val = move_coord_with_angle_y(thing_pos.y.val, arid->move_speed, quadrant);
-        potentional_next_pos_3d.z.val = pathfinding_world->get_floor_height_under_thing_at(thing, &thing_pos);
+        potentional_next_pos_3d.z.val = world_get_floor_height_under_thing_at(thing, &thing_pos);
         thing_pos.z.val = potentional_next_pos_3d.z.val;
-        pathfinding_world->thing_set_position(thing, &thing_pos);
+        thing->mappos = thing_pos;
         cant_move_to_pos_directly = ariadne_creature_blocked_by_wall_at(thing, &potentional_next_pos_3d);
 
         thing_pos = original_mappos;
-        pathfinding_world->thing_set_position(thing, &thing_pos);
+        thing->mappos = thing_pos;
 
         if (cant_move_to_pos_directly)
         {
@@ -2971,7 +2974,7 @@ static TbBool ariadne_creature_on_circular_hug(const struct Thing *thing, const 
     int64_t src_y;
     int64_t dst_x;
     int64_t dst_y;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
+    struct Coord3d thing_pos = thing->mappos;
     dst_x = arid->previous_position.x.val;
     src_x = thing_pos.x.val;
     dst_y = arid->previous_position.y.val;
@@ -3001,9 +3004,9 @@ static TbBool ariadne_creature_on_circular_hug(const struct Thing *thing, const 
 static AriadneReturn ariadne_update_state_wallhug(struct Thing *thing, struct Ariadne *arid)
 {
     MapCoordDelta distance;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    int64_t move_angle_xy = pathfinding_world->thing_get_move_angle(thing);
-    NAVIDBG(18,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+    struct Coord3d thing_pos = thing->mappos;
+    int64_t move_angle_xy = thing->move_angle_xy;
+    NAVIDBG(18,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, world_thing_model_name(thing),(int64_t)thing->index,
         (int64_t)thing_pos.x.val, (int64_t)thing_pos.y.val, (int64_t)arid->current_waypoint_pos.x.val, (int64_t)arid->current_waypoint_pos.y.val);
     distance = get_2d_distance(&thing_pos, &arid->current_waypoint_pos);
     if ((distance - arid->straight_dist_to_next_waypoint) > 4 * COORD_PER_STL)
@@ -3091,7 +3094,7 @@ static AriadneReturn ariadne_update_state_wallhug(struct Thing *thing, struct Ar
         }
         arid->next_position.x.val = thing_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, hug_angle);
         arid->next_position.y.val = thing_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, hug_angle);
-        arid->next_position.z.val = pathfinding_world->get_thing_height_at(thing, &arid->next_position);
+        arid->next_position.z.val = world_get_thing_height_at(thing, &arid->next_position);
         if ((move_angle_xy == hug_angle) && ariadne_check_forward_for_wallhug_gap(thing, arid, &arid->next_position, hug_angle))
         {
             arid->update_state = AridUpSt_Manoeuvre;
@@ -3154,10 +3157,10 @@ static AriadneReturn ariadne_get_next_position_for_route(struct Thing *thing, st
     struct Ariadne *arid;
     AriadneReturn result;
     AriadneReturn aret;
-    struct Coord3d thing_pos = pathfinding_world->thing_get_position(thing);
-    NAVIDBG(18,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, pathfinding_world->thing_model_name(thing),(int64_t)pathfinding_world->thing_get_index(thing),
+    struct Coord3d thing_pos = thing->mappos;
+    NAVIDBG(18,"Route for %s index %" PRId64 " from %3" PRId64 ",%3" PRId64 " to %3" PRId64 ",%3" PRId64, world_thing_model_name(thing),(int64_t)thing->index,
         (int64_t)thing_pos.x.stl.num, (int64_t)thing_pos.y.stl.num, (int64_t)finalpos->x.stl.num, (int64_t)finalpos->y.stl.num);
-    arid = pathfinding_world->creature_get_ariadne_state(thing);
+    arid = world_creature_get_ariadne_state(thing);
     arid->wallhug_active = WallhugActive_Off;
     if ((finalpos->x.val != arid->endpos.x.val)
      || (finalpos->y.val != arid->endpos.y.val)
@@ -3245,7 +3248,7 @@ AriadneReturn creature_follow_route_to_using_gates(struct Thing *thing, struct C
     SYNCDBG(18,"Starting");
     if (kfx_pathfinding_state.map_changed_for_navigation)
     {
-        pathfinding_world->creature_get_ariadne_state(thing)->may_need_reroute = 1;
+        world_creature_get_ariadne_state(thing)->may_need_reroute = 1;
     }
     return ariadne_get_next_position_for_route(thing, finalpos, speed, nextpos, flags);
 }

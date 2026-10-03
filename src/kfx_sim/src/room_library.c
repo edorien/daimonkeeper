@@ -34,10 +34,10 @@
 #include "creature_states.h"
 #include "creature_states_rsrch.h"
 #include "magic_powers.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
-#include "script_hooks.h"
+#include "ports/script_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -115,7 +115,7 @@ EventIndex update_library_object_pickup_event(struct Thing *creatng, struct Thin
         {
             if ( (is_my_player_number(picktng->owner)) && (!is_my_player_number(creatng->owner)) )
             {
-                sim_feedback->play_sound_message(SMsg_SpellbookStolen, 0);
+                audio_output_message(SMsg_SpellbookStolen, 0);
             }
             else if ( (is_my_player_number(creatng->owner)) && (!is_my_player_number(picktng->owner)) )
             {
@@ -124,14 +124,14 @@ EventIndex update_library_object_pickup_event(struct Thing *creatng, struct Thin
                 {
                    if (creatng->index != player->influenced_thing_idx)
                    {
-                        sim_feedback->play_sound_message(SMsg_DiscoveredSpell, 0);
+                        audio_output_message(SMsg_DiscoveredSpell, 0);
                    }
                 }
                 else
                 {
                    if (creatng->index != player->influenced_thing_idx)
                    {
-                        sim_feedback->play_sound_message(SMsg_SpellbookTaken, 0);
+                        audio_output_message(SMsg_SpellbookTaken, 0);
                    }
                 }
             }
@@ -150,7 +150,7 @@ EventIndex update_library_object_pickup_event(struct Thing *creatng, struct Thin
               player = get_my_player();
               if (creatng->index != player->influenced_thing_idx)
               {
-                sim_feedback->play_sound_message(SMsg_DiscoveredSpecial, 0);
+                audio_output_message(SMsg_DiscoveredSpecial, 0);
               }
           }
         }
@@ -375,7 +375,7 @@ static void process_player_research(PlayerNumber plyr_idx)
             }
             if (is_my_player_number(plyr_idx))
             {
-                sim_feedback->play_sound_message(SMsg_ResearchedSpell, 0);
+                audio_output_message(SMsg_ResearchedSpell, 0);
             }
             research_completed = true;
         }
@@ -389,7 +389,7 @@ static void process_player_research(PlayerNumber plyr_idx)
             event_create_event(0, 0, EvKind_NewRoomResrch, plyr_idx, rkind);
             dungeon->room_buildable[rkind] |= 3; // Player may build room and may research it again
             if (is_my_player_number(plyr_idx))
-                sim_feedback->play_sound_message(SMsg_ResearchedRoom, 0);
+                audio_output_message(SMsg_ResearchedRoom, 0);
             room = find_room_of_role_with_spare_room_item_capacity(plyr_idx, RoRoF_PowersStorage);
             if (!room_is_invalid(room))
             {
@@ -461,10 +461,10 @@ void send_research_complete_event(struct ResearchVal *rsrchval, PlayerNumber ply
         {"category", API_EVENT_DATA_INT32, {.int32_value = (int64_t)rsrchval->rtyp}},
         {"kind", API_EVENT_DATA_INT32, {.int32_value = (int64_t)rsrchval->rkind}},
         {"kind_description", API_EVENT_DATA_STRING, {.string_value = kind_description}},
-        {"level_number", API_EVENT_DATA_INT32, {.int32_value = sim_feedback->get_loaded_level_number()}}
+        {"level_number", API_EVENT_DATA_INT32, {.int32_value = get_loaded_level_number()}}
     };
 
-    script_hooks->api_event_with_data("RESEARCH_COMPLETED",event_data,sizeof(event_data) / sizeof(event_data[0]));
+    script_api_event_with_data("RESEARCH_COMPLETED",event_data,sizeof(event_data) / sizeof(event_data[0]));
 }
 
 void update_research(void)
@@ -639,7 +639,7 @@ int64_t position_books_in_room_with_capacity(PlayerNumber plyr_idx, RoomKind rki
         }
         if (rrepos->used <= 0)
         {
-            SYNCDBG(7,"Nothing left to reposition")
+            SYNCDBG(7,"Nothing left to reposition");
             break;
         }
         room = find_room_of_role_with_spare_room_item_capacity(plyr_idx, RoRoF_PowersStorage);

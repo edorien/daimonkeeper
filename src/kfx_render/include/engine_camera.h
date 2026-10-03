@@ -72,9 +72,6 @@ struct Thing;
 // unaffected either way.
 #define MINMAX_LENGTH 2048
 #define MINMAX_ALMOST_HALF ((MINMAX_LENGTH/2)-1)
-#define CAMERA_TILT_DEFAULT -266
-#define CAMERA_TILT_MIN -350
-#define CAMERA_TILT_MAX -200
 
 struct MinMax { // sizeof = 8
     int64_t min;
@@ -95,36 +92,13 @@ extern int64_t camera_zoom;
 // project_point_to_wall_on_angle() moved to map_blocks.h (kfx_sim,
 // stage 7 prep).
 
-void view_zoom_camera_in(struct Camera *cam, int64_t limit_max, int64_t limit_min);
-void view_zoom_camera_in_to(struct Camera *cam, int64_t limit_max, int64_t limit_min, MapCoord x, MapCoord y);
-void set_camera_zoom(struct Camera *cam, int64_t val);
-void view_zoom_camera_out(struct Camera *cam, int64_t limit_max, int64_t limit_min);
-void view_zoom_camera_out_from(struct Camera *cam, int64_t limit_max, int64_t limit_min, MapCoord x, MapCoord y);
-int64_t get_camera_zoom(struct Camera *cam);
 uint64_t scale_camera_zoom_to_screen(uint64_t zoom_lvl);
-void update_camera_zoom_bounds(struct Camera *cam,uint64_t zoom_max,uint64_t zoom_min);
 
-void view_set_camera_y_velocity(struct Camera *cam, int64_t delta, int64_t ilimit);
-void view_set_camera_x_velocity(struct Camera *cam, int64_t delta, int64_t ilimit);
-void view_set_camera_rotation_velocity(struct Camera *cam, int64_t delta, int64_t ilimit);
-void view_set_camera_rotation_velocity_around(struct Camera *cam, int64_t delta, int64_t ilimit, MapCoord x, MapCoord y);
-void view_set_camera_tilt(struct Camera *cam, unsigned char mode);
-void view_process_camera_velocity(struct Camera *cam);
-int64_t camera_move_rate(const struct Camera* cam, const struct PlayerInfo* player, TbBool speedup);
-void view_set_camera_position(struct Camera *cam, MapCoord x, MapCoord y);
-void view_set_camera_move_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta *move_x, MapCoordDelta *move_y);
-TbBool view_move_camera_to_position(struct Camera *cam, MapCoord x, MapCoord y, MapCoordDelta move_x, MapCoordDelta move_y);
 
-void update_all_players_cameras(void);
-void init_player_cameras(struct PlayerInfo *player);
-void update_first_person_position(struct Camera *cam, struct Thing *thing, int64_t eye_height);
 
-void set_player_cameras_position(struct PlayerInfo *player, int64_t pos_x, int64_t pos_y);
 void change_engine_window_relative_size(int64_t w_delta, int64_t h_delta);
 void centre_engine_window(void);
 
-TbBool any_player_close_enough_to_see(const struct Coord3d *pos);
-uint64_t lightning_is_close_to_player(struct PlayerInfo *player, struct Coord3d *pos);
 
 /******************************************************************************/
 #ifdef __cplusplus

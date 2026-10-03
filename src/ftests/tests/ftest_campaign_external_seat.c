@@ -18,10 +18,11 @@
 // packet turn after turn, and process_dungeon_control_packet_clicks()'s own early
 // `if (flag_is_set(pckt->control_flags,PCtr_Gui)) return false;` silently no-opped the seat's every submitted
 // click -- accepted, drained to idle, zero reported error, and zero dig-tagged slabs. Fixed the same way as
-// get_local_user(): a get_players_own_packet() helper (packets_misc.c) and set_players_packet_action's own
+// get_local_user(): a get_players_own_packet() helper (packet_data.c) and set_players_packet_action's own
 // packet_data.c body now resolve to get_local_packet() whenever the target player is my_player_number, instead
 // of trusting player->user_id (which net_add_external_seat() is now allowed to have reassigned).
 #include "ftest_campaign_external_seat.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 

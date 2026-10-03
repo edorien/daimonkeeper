@@ -23,29 +23,14 @@
 // role into kfx_config_state.conf.slab_conf.room_cfgstats[], the same
 // struct config_terrain.c's get_room_roles()/get_room_kind_stats() read.
 //
-// Found while reading this file, not fixed: config_creature.h declares
-// `struct Thing* thing_death_flesh_explosion(struct Thing* thing);` but
-// config_creature.c never defines it -- a dead, unimplemented
-// declaration (would fail to link if anything ever called it; nothing
-// currently does). Not touched here, same restraint as other
-// found-not-fixed quirks in this library's tests.
-//
-// creature_own_name()'s CMF_OneOfKind branch is tested with namestr_idx
-// set to TRANSLATION_STRINGS_START (config_strings.h's STRINGS_MAX):
-// get_string() routes any lower index through
-// config_reload_callbacks->get_level_strings(), whose default stub
-// returns NULL (config_reload_callbacks_test.cpp) -- dereferencing it
-// would crash, so this test deliberately picks an index that instead
-// takes the self-contained get_translation_file_string() branch. The
-// RNG-based procedural-name-generation fallback (used when a creature
-// has neither a one-of-kind name nor an already-stored one) is not
-// attempted.
+// The Thing-taking functions (creature_stats_get_from_thing,
+// get_creature_model_flags, creature_own_name, get_job_for_subtile) moved
+// to kfx_sim in refactor pass 2 (S05); their tests moved with them.
 #include <catch2/catch_test_macros.hpp>
 
 #include "config_creature.h"
 #include "config_terrain.h" // RoRoF_*, RoomRole
 #include "config_strings.h" // TRANSLATION_STRINGS_START
-#include "dungeon_availability.h"
 #include "kfx_config_state.h"
 
 #include <cstring>
@@ -60,16 +45,6 @@ struct ResetAll {
         std::memset(breed_activities, 0, sizeof(breed_activities));
     }
 };
-
-struct ResetDungeonAvailabilityAndCallbacks {
-    const struct DungeonAvailabilityCallbacks *saved_da;
-    const struct ConfigReloadCallbacks *saved_crc;
-    ResetDungeonAvailabilityAndCallbacks() : saved_da(dungeon_availability), saved_crc(config_reload_callbacks) {}
-    ~ResetDungeonAvailabilityAndCallbacks() {
-        set_dungeon_availability_callbacks(saved_da);
-        set_config_reload_callbacks(saved_crc);
-    }
-};
 }
 
 TEST_CASE_METHOD(ResetAll, "creature_stats_get falls back to slot 0 for index 0 or any out-of-range index", "[kfx_config][config_creature]") {
@@ -77,19 +52,6 @@ TEST_CASE_METHOD(ResetAll, "creature_stats_get falls back to slot 0 for index 0 
     CHECK(creature_stats_get(1)->health == 42);
     CHECK(creature_stats_get(0) == creature_stats_get(-1));
     CHECK(creature_stats_get(0) == creature_stats_get(CREATURE_TYPES_MAX + 1));
-}
-
-TEST_CASE_METHOD(ResetAll, "creature_stats_get_from_thing resolves the thing's model via config_reload_callbacks->get_thing_model", "[kfx_config][config_creature]") {
-    // Default get_thing_model returns 0 -> falls back to slot 0.
-    CHECK(creature_stats_get_from_thing(nullptr) == creature_stats_get(0));
-
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    fake.get_thing_model = [](const struct Thing *) -> ThingModel { return 2; };
-    const struct ConfigReloadCallbacks *saved = config_reload_callbacks;
-    set_config_reload_callbacks(&fake);
-    kfx_config_state.conf.crtr_conf.model_count = 3;
-    CHECK(creature_stats_get_from_thing(nullptr) == creature_stats_get(2));
-    set_config_reload_callbacks(saved);
 }
 
 TEST_CASE_METHOD(ResetAll, "creature_stats_invalid rejects slot 0 and NULL, accepting anything past it", "[kfx_config][config_creature]") {
@@ -246,126 +208,12 @@ TEST_CASE_METHOD(ResetAll, "set_creature_model_graphics writes a slot, refusing 
     CHECK(kfx_config_state.conf.crtr_conf.creature_graphics[5][0] == 0);
 }
 
-TEST_CASE_METHOD(ResetAll, "get_creature_model_flags resolves the thing's model via config_reload_callbacks, defaulting to 0", "[kfx_config][config_creature]") {
-    CHECK(get_creature_model_flags(nullptr) == 0); // default get_thing_model() -> 0 -> out of range
-
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    fake.get_thing_model = [](const struct Thing *) -> ThingModel { return 1; };
-    const struct ConfigReloadCallbacks *saved = config_reload_callbacks;
-    set_config_reload_callbacks(&fake);
-    kfx_config_state.conf.crtr_conf.model_count = 2;
-    creature_stats_get(1)->model_flags = CMF_IsEvil;
-    CHECK(get_creature_model_flags(nullptr) == CMF_IsEvil);
-    set_config_reload_callbacks(saved);
-}
-
 TEST_CASE_METHOD(ResetAll, "get_creature_model_with_model_flags finds the first model with all the needed flags set, or 0 if none match", "[kfx_config][config_creature]") {
     kfx_config_state.conf.crtr_conf.model_count = 3;
     creature_stats_get(2)->model_flags = CMF_IsEvil | CMF_Insect;
 
     CHECK(get_creature_model_with_model_flags(CMF_IsEvil) == 2);
     CHECK(get_creature_model_with_model_flags(CMF_IsArachnid) == 0);
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_creature_available fails without a valid dungeon or an in-range model, and clamps force_avail", "[kfx_config][config_creature]") {
-    std::memset(&kfx_config_state, 0, sizeof(kfx_config_state));
-
-    CHECK_FALSE(set_creature_available(0, 1, 1, 1)); // no valid dungeon (default stub)
-
-    struct DungeonAvailabilityCallbacks fake_da = *dungeon_availability;
-    fake_da.player_has_valid_dungeon = [](PlayerNumber) -> TbBool { return true; };
-    static int64_t captured_force_avail = -999;
-    captured_force_avail = -999;
-    fake_da.set_creature_availability = [](PlayerNumber, ThingModel, int64_t, int64_t force_avail) { captured_force_avail = force_avail; };
-    set_dungeon_availability_callbacks(&fake_da);
-
-    kfx_config_state.conf.crtr_conf.model_count = 2;
-    CHECK_FALSE(set_creature_available(0, 0, 1, 1));  // model 0 is out of range (models start at 1)
-    CHECK_FALSE(set_creature_available(0, 5, 1, 1));  // model 5 is out of range
-
-    CHECK(set_creature_available(0, 1, 1, CREATURES_COUNT + 10));
-    CHECK(captured_force_avail == CREATURES_COUNT - 1); // clamped to the max
-
-    CHECK(set_creature_available(0, 1, 1, -5));
-    CHECK(captured_force_avail == 0); // clamped to the min
-}
-
-TEST_CASE_METHOD(ResetAll, "get_players_special_digger_model prefers config_reload_callbacks' stored digger, then falls back by roaming status", "[kfx_config][config_creature]") {
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    const struct ConfigReloadCallbacks *saved = config_reload_callbacks;
-
-    fake.get_player_special_digger = [](PlayerNumber) -> ThingModel { return 7; };
-    set_config_reload_callbacks(&fake);
-    CHECK(get_players_special_digger_model(0) == 7);
-
-    fake.get_player_special_digger = [](PlayerNumber) -> ThingModel { return 0; };
-    fake.player_is_roaming = [](PlayerNumber) -> TbBool { return true; };
-    set_config_reload_callbacks(&fake);
-    kfx_config_state.conf.crtr_conf.special_digger_good = 3;
-    CHECK(get_players_special_digger_model(0) == 3); // roaming (hero) -> good digger
-
-    fake.player_is_roaming = [](PlayerNumber) -> TbBool { return false; };
-    set_config_reload_callbacks(&fake);
-    kfx_config_state.conf.crtr_conf.special_digger_evil = 4;
-    CHECK(get_players_special_digger_model(0) == 4); // not roaming (keeper) -> evil digger
-
-    set_config_reload_callbacks(saved);
-}
-
-TEST_CASE_METHOD(ResetAll, "get_players_spectator_model falls back to special_digger_good when no spectator breed is configured", "[kfx_config][config_creature]") {
-    CHECK(get_players_spectator_model(0) == 0); // both spectator_breed and special_digger_good are 0
-
-    kfx_config_state.conf.crtr_conf.spectator_breed = 9;
-    CHECK(get_players_spectator_model(0) == 9);
-}
-
-TEST_CASE_METHOD(ResetAll, "update_players_special_digger_model is a no-op when the new model matches the current one", "[kfx_config][config_creature]") {
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    const struct ConfigReloadCallbacks *saved = config_reload_callbacks;
-    fake.get_player_special_digger = [](PlayerNumber) -> ThingModel { return 5; };
-    static bool set_called = false;
-    set_called = false;
-    fake.set_player_special_digger = [](PlayerNumber, ThingModel) { set_called = true; };
-    set_config_reload_callbacks(&fake);
-
-    update_players_special_digger_model(0, 5);
-    CHECK_FALSE(set_called);
-
-    update_players_special_digger_model(0, 6);
-    CHECK(set_called);
-
-    set_config_reload_callbacks(saved);
-}
-
-TEST_CASE_METHOD(ResetAll, "creature_own_name returns the creature's already-stored name without generating one", "[kfx_config][config_creature]") {
-    static char stored_name[25] = "Grumbeard";
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    const struct ConfigReloadCallbacks *saved = config_reload_callbacks;
-    fake.get_thing_model = [](const struct Thing *) -> ThingModel { return 0; }; // -> CMF_OneOfKind branch skipped
-    fake.get_creature_name_buffer = [](const struct Thing *) -> char * { return stored_name; };
-    set_config_reload_callbacks(&fake);
-
-    CHECK(std::strcmp(creature_own_name(nullptr), "Grumbeard") == 0);
-
-    set_config_reload_callbacks(saved);
-}
-
-TEST_CASE_METHOD(ResetAll, "creature_own_name resolves a CMF_OneOfKind creature's name via namestr_idx/get_string instead of the stored-name buffer", "[kfx_config][config_creature]") {
-    kfx_config_state.conf.crtr_conf.model_count = 2;
-    creature_stats_get(1)->model_flags = CMF_OneOfKind;
-    creature_stats_get(1)->namestr_idx = TRANSLATION_STRINGS_START; // routes get_string() away from the crash-prone get_level_strings() default
-
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    const struct ConfigReloadCallbacks *saved = config_reload_callbacks;
-    fake.get_thing_model = [](const struct Thing *) -> ThingModel { return 1; };
-    set_config_reload_callbacks(&fake);
-
-    // get_translation_file_string() bounds-checks against translation_count
-    // (0 here, since nothing loaded a translation file), so
-    // TRANSLATION_STRINGS_START itself is already out of range.
-    CHECK(std::strcmp(creature_own_name(nullptr), "oh_crap_invalid_string_id") == 0);
-
-    set_config_reload_callbacks(saved);
 }
 
 TEST_CASE_METHOD(ResetAll, "get_config_for_instance falls back to slot 0 for an out-of-range instance; creature_instance_code_name round-trips a set name", "[kfx_config][config_creature]") {

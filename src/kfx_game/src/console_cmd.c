@@ -40,11 +40,8 @@
 #include "creature_states.h"
 #include "creature_states_hero.h"
 #include "dungeon_data.h"
-#include "game_callbacks.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "game_legacy.h"
-#include "light_data.h"
+#include "light_registry.h"
 #include "bflib_video.h"
 #include "game_merge.h"
 #include "lvl_script_lib.h"
@@ -72,13 +69,19 @@
 #include "net_resync.h"
 #include "game_lifecycle.h"
 #include "net_game.h"
+#include "player_availability.h"
+#include "local_camera.h"
+#include "game_commands.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Thin printf-style bridges to sim_feedback's non-variadic message
+// Thin printf-style bridges to UiPort's non-variadic message
 // callbacks (see stage-09-kfx-game.md) -- console_cmd.c has ~250
 // message_add_fmt()/targeted_message_add() call sites with varying
 // format strings, so rewriting each one to format into its own local
@@ -92,7 +95,7 @@ KFX_PRINTF_FORMAT(3, 4) static void message_add_fmt(char type, PlayerNumber plyr
     va_start(val, fmt_str);
     vsnprintf(buf, sizeof(buf), fmt_str, val);
     va_end(val);
-    sim_feedback->message_add(type, plyr_idx, buf);
+    ui_message_add(type, plyr_idx, buf);
 }
 
 KFX_PRINTF_FORMAT(5, 6) static void targeted_message_add(char type, PlayerNumber plyr_idx, PlayerNumber target_idx, uint64_t timeout, const char *fmt_str, ...)
@@ -102,7 +105,7 @@ KFX_PRINTF_FORMAT(5, 6) static void targeted_message_add(char type, PlayerNumber
     va_start(val, fmt_str);
     vsnprintf(buf, sizeof(buf), fmt_str, val);
     va_end(val);
-    sim_feedback->targeted_message_add(type, plyr_idx, target_idx, timeout, buf);
+    ui_targeted_message_add(type, plyr_idx, target_idx, timeout, buf);
 }
 
 #if defined(__MINGW32__)
@@ -154,7 +157,6 @@ void do_param1_completion_for_name_command(PlayerNumber plyr_idx, char *args_str
 
 
 extern void render_set_sprite_debug(int64_t level);
-extern TbBool process_user_global_packet_action(NetUserId user);
 
 // player's user, or if that's invalid then the local user
 static NetUserId console_cmd_user(PlayerNumber plyr_idx)
@@ -269,7 +271,7 @@ int64_t cmd_comp_list(PlayerNumber plyr_idx, int64_t max_count,
     Gf_OptnBox_4Callback click_fn
     )
 {
-    game_callbacks->close_creature_cheat_menu();
+    ui_close_creature_cheat_menu();
     //kfx_game_local.gui_cheat_box_2
     int64_t i = 0;
     struct Computer2 *comp;
@@ -563,7 +565,7 @@ TbBool cmd_frametime_max(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_network_stats(PlayerNumber plyr_idx, char * args)
 {
-    game_callbacks->toggle_debug_network_stats();
+    ui_toggle_debug_network_stats();
     return true;
 }
 
@@ -580,7 +582,7 @@ TbBool cmd_time(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     GameTurn turn = (pr1str != NULL) ? (GameTurn) atoi(pr1str) : get_gameturn();
     int64_t frames = (pr2str != NULL) ? (int64_t) atoi(pr2str) : kfx_sim_state.turns_per_second;
-    game_callbacks->show_game_time_taken(frames, turn);
+    ui_show_game_time_taken(frames, turn);
     return true;
 }
 
@@ -588,9 +590,9 @@ TbBool cmd_timer_toggle(PlayerNumber plyr_idx, char * args)
 {
     game_flags2 ^= GF2_Timer;
     struct PlayerInfo * player = get_player(plyr_idx);
-    if ( (player->victory_state == VicS_WonLevel) && (game_callbacks->is_timer_enabled()) && (kfx_sim_state.TimerGame) ) {
+    if ( (player->victory_state == VicS_WonLevel) && (ui_timer_enabled()) && (kfx_sim_state.TimerGame) ) {
         struct Dungeon * dungeon = get_my_dungeon();
-        game_callbacks->set_timer_turns(dungeon->lvstats.hopes_dashed);
+        ui_set_timer_turns(dungeon->lvstats.hopes_dashed);
     }
     return true;
 }
@@ -599,9 +601,9 @@ TbBool cmd_timer_switch(PlayerNumber plyr_idx, char * args)
 {
     kfx_sim_state.TimerGame ^= 1;
     struct PlayerInfo * player = get_player(plyr_idx);
-    if ( (player->victory_state == VicS_WonLevel) && (game_callbacks->is_timer_enabled()) && (kfx_sim_state.TimerGame) ) {
+    if ( (player->victory_state == VicS_WonLevel) && (ui_timer_enabled()) && (kfx_sim_state.TimerGame) ) {
         struct Dungeon * dungeon = get_my_dungeon();
-        game_callbacks->set_timer_turns(dungeon->lvstats.hopes_dashed);
+        ui_set_timer_turns(dungeon->lvstats.hopes_dashed);
     }
     return true;
 }
@@ -641,10 +643,10 @@ TbBool cmd_game_save(PlayerNumber plyr_idx, char * args)
     set_flag(kfx_sim_state.operation_flags, GOF_Paused); // games are saved in a paused state
     TbBool result = save_game(slot_num);
     if (result) {
-        sim_feedback->play_sound_message(SMsg_GameSaved, 0);
+        audio_output_message(SMsg_GameSaved, 0);
     } else {
         ERRORLOG("Error in save!");
-        game_callbacks->create_error_box(GUIStr_ErrorSaving);
+        ui_create_error_box(GUIStr_ErrorSaving);
     }
     clear_flag(kfx_sim_state.operation_flags, GOF_Paused); // unpause after save attempt
     return result;
@@ -676,7 +678,7 @@ TbBool cmd_game_load(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_cls(PlayerNumber plyr_idx, char * args)
 {
-    game_callbacks->zero_all_messages();
+    ui_zero_messages();
     return true;
 }
 
@@ -790,7 +792,7 @@ TbBool cmd_comp_procs(PlayerNumber plyr_idx, char * args)
     i++;
     cmd_comp_procs_data[i].label = "!";
     cmd_comp_procs_data[i].is_enabled = 0;
-    kfx_game_local.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_procs_data);
+    kfx_game_local.gui_cheat_box_2 = ui_create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_procs_data);
     return true;
 }
 
@@ -814,7 +816,7 @@ TbBool cmd_comp_events(PlayerNumber plyr_idx, char * args)
         cmd_comp_events_data, cmd_comp_events_label,
         &get_event_name, &get_event_flags, NULL);
     cmd_comp_events_data[0].active_cb = NULL;
-    kfx_game_local.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_events_data);
+    kfx_game_local.gui_cheat_box_2 = ui_create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_events_data);
     return true;
 }
 
@@ -838,7 +840,7 @@ TbBool cmd_comp_checks(PlayerNumber plyr_idx, char * args)
         cmd_comp_checks_data, cmd_comp_checks_label,
         &get_check_name, &get_check_flags, &cmd_comp_checks_click);
     cmd_comp_checks_data[0].active_cb = NULL;
-    kfx_game_local.gui_cheat_box_2 = game_callbacks->create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_checks_data);
+    kfx_game_local.gui_cheat_box_2 = ui_create_gui_box(kfx_game_state.my_mouse_x, 20, cmd_comp_checks_data);
     return true;
 }
 
@@ -866,7 +868,7 @@ TbBool cmd_reveal(PlayerNumber plyr_idx, char * args)
                                 subtile_slab(stl_y + r - radius_offset)
         );
         reveal_map_rect(player->id_number, stl_x - radius_offset, stl_x + r - radius_offset, stl_y - radius_offset, stl_y + r - radius_offset);
-        config_reload_callbacks->panel_map_update(stl_x - radius_offset, stl_y - radius_offset, r, r);
+        ui_panel_map_update(stl_x - radius_offset, stl_y - radius_offset, r, r);
     } else {
         reveal_whole_map(player);
     }
@@ -1019,7 +1021,7 @@ TbBool cmd_give_trap(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     unsigned char num = (pr2str != NULL) ? atoi(pr2str) : 1;
     set_trap_buildable_and_add_to_amount(plyr_idx, id, 1, num);
-    config_reload_callbacks->update_trap_tab_to_config();
+    ui_update_trap_tab_to_config();
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "done!");
     return true;
 }
@@ -1045,7 +1047,7 @@ TbBool cmd_give_door(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     unsigned char num = (pr2str != NULL) ? atoi(pr2str) : 1;
     set_door_buildable_and_add_to_amount(plyr_idx, id, 1, num);
-    config_reload_callbacks->update_trap_tab_to_config();
+    ui_update_trap_tab_to_config();
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "done!");
     return true;
 }
@@ -1135,7 +1137,7 @@ TbBool cmd_look(PlayerNumber plyr_idx, char * args)
     make_uppercase(pr1str);
     int64_t room_id = get_id(room_desc, pr1str);
     if (room_id != -1) {
-        game_callbacks->go_to_my_next_room_of_type(room_id);
+        ui_go_to_my_next_room_of_type(room_id);
         process_user_global_packet_action(console_cmd_user(plyr_idx)); // Dirty hack
         return true;
     }
@@ -1677,7 +1679,7 @@ TbBool cmd_room_available(PlayerNumber plyr_idx, char * args)
         }
         set_room_available(id, roomid, available, available);
     }
-    config_reload_callbacks->update_room_tab_to_config();
+    ui_update_room_tab_to_config();
     return true;
 }
 
@@ -1702,7 +1704,7 @@ TbBool cmd_give_power(PlayerNumber plyr_idx, char * args)
                 WARNLOG("Setting power %s availability for player %" PRId64 " failed.", power_code_name(pw), (int64_t)(plyr_idx));
             }
         }
-        config_reload_callbacks->update_powers_tab_to_config();
+        ui_update_powers_tab_to_config();
         return true;
     }
     int64_t power = get_rid(power_desc, pr1str);
@@ -1713,7 +1715,7 @@ TbBool cmd_give_power(PlayerNumber plyr_idx, char * args)
         WARNLOG("Setting power %s availability for player %" PRId64 " failed.", power_code_name(power), (int64_t)(plyr_idx));
         return false;
     }
-    config_reload_callbacks->update_powers_tab_to_config();
+    ui_update_powers_tab_to_config();
     return true;
 }
 
@@ -2641,14 +2643,14 @@ TbBool cmd_quick_show(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_toggle_tooltip_land_coord(PlayerNumber plyr_idx, char * args)
 {
-    TbBool new_state = game_callbacks->toggle_tooltip_land_coord();
+    TbBool new_state = ui_toggle_tooltip_land_coord();
     targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "tooltip_land_coord is turned %s", new_state ? "on" : "off");
     return true;
 }
 
 TbBool cmd_toggle_lights(PlayerNumber plyr_idx, char * args)
 {
-    light_set_lights_on(lish.light_enabled == 0);
+    light_set_lights_on(kfx_sim_state.light_registry.light_enabled == 0);
     return true;
 }
 
@@ -2658,7 +2660,7 @@ TbBool cmd_lua(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require 'cheat mode'");
         return false;
     }
-    script_hooks->execute_lua_code_from_console(args);
+    script_execute_lua_code_from_console(args);
     return true;
 }
 
@@ -2668,7 +2670,7 @@ TbBool cmd_luatypedump(PlayerNumber plyr_idx, char * args)
         targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require 'cheat mode'");
         return false;
     }
-    script_hooks->generate_lua_types_file();
+    script_generate_lua_types_file();
     return true;
 }
 
@@ -2703,36 +2705,36 @@ TbBool cmd_cheat_menu(PlayerNumber plyr_idx, char * args)
 
     if (menu_type != 1)
     {
-        game_callbacks->close_main_cheat_menu();
+        ui_close_main_cheat_menu();
     }
     if (menu_type != 2)
     {
-        game_callbacks->close_creature_cheat_menu();
+        ui_close_creature_cheat_menu();
     }
     if (menu_type != 3)
     {
-        game_callbacks->close_instance_cheat_menu();
+        ui_close_instance_cheat_menu();
     }
     if (menu_type != 4)
     {
-        game_callbacks->close_secondary_cheat_menu();
+        ui_close_secondary_cheat_menu();
     }
 
     if (menu_type == 1)
     {
-        game_callbacks->toggle_main_cheat_menu();
+        ui_toggle_main_cheat_menu();
     }
     else if (menu_type == 2)
     {
-        game_callbacks->toggle_creature_cheat_menu();
+        ui_toggle_creature_cheat_menu();
     }
     else if (menu_type == 3)
     {
-        game_callbacks->toggle_instance_cheat_menu();
+        ui_toggle_instance_cheat_menu();
     }
     else if (menu_type == 4)
     {
-        game_callbacks->toggle_secondary_cheat_menu();
+        ui_toggle_secondary_cheat_menu();
     }
 
     return true;

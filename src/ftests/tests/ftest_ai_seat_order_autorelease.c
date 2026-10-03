@@ -3,6 +3,7 @@
 // hunger at 3/4 of its limit (hungry), the agent's connection lost (agent_lost). The same conditions refuse a new order up
 // front (PAYDAY_TOO_CLOSE, OWED_PAY, HUNGRY), and an oversized hold is BAD_HOLD. The view reports what was released and why.
 #include "ftest_ai_seat_order_autorelease.h"
+#include "thing_stats.h"
 
 #ifdef FUNCTESTING
 

@@ -5,10 +5,9 @@
 // which -- like creature_states_rsrch.c's get_next_research_item -- reaches
 // through kfx_sim_state's room/thing/creature-control linked lists but
 // takes its Dungeon by pointer, so a local zeroed Dungeon works fine (no
-// need for a real kfx_sim_state.dungeon[] slot). creature_stats_get_from_thing's
-// ConfigReloadCallbacks default (get_thing_model always returning 0)
-// resolves every thing to model 0, the same default-provider reliance
-// room_graveyard_test.cpp's corpse_laid_to_rest coverage used.
+// need for a real kfx_sim_state.dungeon[] slot). The things keep the
+// zeroed thing->model 0, which creature_stats_get_from_thing resolves to
+// model[0].
 #include <catch2/catch_test_macros.hpp>
 
 #include "room_lair.h"
@@ -18,6 +17,7 @@
 #include "creature_control.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

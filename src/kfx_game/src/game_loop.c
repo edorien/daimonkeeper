@@ -32,7 +32,8 @@
 #include "sounds.h"
 #include "game_legacy.h"
 #include "game_loop.h"
-#include "script_hooks.h"
+#include "player_availability.h"
+#include "ports/script_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -60,7 +61,7 @@ static void powerful_magic_breaking_sparks(struct Thing* breaktng)
 
 void initialise_devastate_dungeon_from_heart(PlayerNumber plyr_idx)
 {
-    script_hooks->lua_on_dungeon_destroyed(plyr_idx);
+    script_lua_on_dungeon_destroyed(plyr_idx);
 
     struct Dungeon* dungeon;
     dungeon = get_dungeon(plyr_idx);

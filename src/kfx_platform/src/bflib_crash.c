@@ -112,6 +112,7 @@ void exit_handler(void)
 void ctrl_handler(int sig_id)
 {
     signal(sig_id, SIG_DFL);
+    LbLogForceOn();
     LbErrorLog("Failure signal: %s.\n",sigstr(sig_id));
     RendererResetScreen(true);
     LbErrorLogClose();
@@ -153,11 +154,8 @@ _backtrace(int64_t depth , LPCONTEXT context)
     int64_t keeperFxBaseAddr = 0x00000000;
     char mapFileLine[512];
 
-    #if (BFDEBUG_LEVEL > 7)
-        FILE *mapFile = fopen("keeperfx_hvlog.map", "r");
-    #else
-        FILE *mapFile = fopen("keeperfx.map", "r");
-    #endif
+    // One map file: logging is a runtime option, not a separate build.
+    FILE *mapFile = fopen("keeperfx.map", "r");
 
     if (mapFile)
     {
@@ -229,7 +227,7 @@ _backtrace(int64_t depth , LPCONTEXT context)
         }
 
         // Check if the name of this module starts with 'keeperfx'
-        // This can be done better but at this moment it should only match our own keeperfx.exe and keeperfx_hvlog.exe
+        // This can be done better but at this moment it should only match our own keeperfx.exe
         if (strncmp(module_name, "keeperfx", strlen("keeperfx")) == 0)
         {
 
@@ -339,6 +337,7 @@ _backtrace(int64_t depth , LPCONTEXT context)
 
 static LONG CALLBACK ctrl_handler_w32(LPEXCEPTION_POINTERS info)
 {
+    LbLogForceOn();
     switch (info->ExceptionRecord->ExceptionCode) {
     case EXCEPTION_ACCESS_VIOLATION:
         switch (info->ExceptionRecord->ExceptionInformation[0])
@@ -571,6 +570,7 @@ static void ctrl_handler_posix(int sig_id, siginfo_t *info, void *context)
         write_stderr_line(fpe_msg, sizeof(fpe_msg) - 1);
     }
 
+    LbLogForceOn();
     LbErrorLog("Failure signal: %s (%" PRId64 ").\n", sigstr(sig_id), (int64_t)(sig_id));
     if (info != NULL)
     {

@@ -35,11 +35,12 @@
 #include "renderer/RendererManager.h" // RendererSetDesiredType, RENDERER_SOFTWARE/RENDERER_GPU3D
 #include "kfx_config_state.h"
 #include "moonphase.h"
-#include "matchmaking_config.h"
 // Real usage: start_params/Clo_* (command-line override state). Used to
 // arrive transitively via bflib_datetm.h -> keeperfx.hpp; made explicit
 // after that transitive include was removed (see
 // docs/refactor/stage-02-decouple-bflib.md).
+#include "config_settings.h"
+#include "ports/net_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -136,7 +137,7 @@ const struct NamedCommand scrshot_type[] = {
   };
 
 // RENDERER -- gpu-v2 Phase C.1 (docs/refactor/renderer/gpu-v2/07-phased-delivery.md).
-// Unlike SCREENSHOT/INGAME_RES above, this doesn't need a config_reload_callbacks
+// Unlike SCREENSHOT/INGAME_RES above, this doesn't need a SimPort
 // indirection: RendererSetDesiredType() (renderer/RendererManager.h) lives in
 // kfx_platform, a layer *below* kfx_config, so this file can call it directly.
 // Same 1-based-sentinel reasoning as hud_position_type[] etc. above --
@@ -152,6 +153,16 @@ const struct NamedCommand renderer_type[] = {
 const struct NamedCommand lighting_type[] = {
   {"CLASSIC",  1},
   {"PERPIXEL", 2},
+  {NULL,       0},
+  };
+
+// LOG_LEVEL -- docs/refactor-pass2/stage-02-logging-option.md. 1-based like
+// renderer_type[] (0 is "not recognized"): enum LogLevel = value - 1.
+const struct NamedCommand log_level_type[] = {
+  {"OFF",      LogLvl_Off + 1},
+  {"NORMAL",   LogLvl_Normal + 1},
+  {"DEBUG",    LogLvl_Debug + 1},
+  {"DEBUGMAX", LogLvl_DebugMax + 1},
   {NULL,       0},
   };
 
@@ -270,6 +281,8 @@ const struct NamedCommand conf_commands[] = {
   {"GPU_TRUE_DEPTH"                , 61},
   {"LIGHTING"                      , 62},
   {"OVERHEAD_FADE"                 , 63},
+  {"LOG_LEVEL"                     , 64},
+  {"GPU_DEBUG"                     , 65},
   {NULL,                   0},
   };
 
@@ -467,10 +480,11 @@ TbBool get_skip_heart_zoom_feature(void)
 const char *get_language_lwrstr(int64_t lang_id)
 {
     const char* src = get_conf_parameter_text(lang_type, lang_id);
-#if (BFDEBUG_LEVEL > 0)
-  if (strlen(src) != 3)
-      WARNLOG("Bad text code for language index %" PRId64,(int64_t)lang_id);
-#endif
+  if (KFX_DEBUG_ON(0))
+  {
+      if (strlen(src) != 3)
+          WARNLOG("Bad text code for language index %" PRId64,(int64_t)lang_id);
+  }
   static char lang_str[4];
   snprintf(lang_str, 4, "%s", src);
   make_lowercase(lang_str);
@@ -595,14 +609,14 @@ static void load_file_configuration(const char *fname, const char *sname, const 
                 COMMAND_TEXT(cmd_num),config_textname);
             break;
           }
-          config_reload_callbacks->set_screenshot_format(i);
+          kfx_runtime_settings.screenshot_format = (unsigned char)i;
           break;
       case 7: // INGAME_RES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
             k = LbRegisterVideoModeString(word_buf);
             if (k > 0)
-                config_reload_callbacks->set_screen_vidmode((TbScreenMode)k);
+                set_screen_vidmode((TbScreenMode)k);
             else
                 CONFWRNLOG("Couldn't recognize video mode in \"%s\" command of %s file.",
                   COMMAND_TEXT(cmd_num),config_textname);
@@ -631,7 +645,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
             i = atoi(word_buf);
           }
           if ((i >= 0) && (i <= 10000)) {
-              config_reload_callbacks->set_base_mouse_sensitivity(i*256/100);
+              kfx_runtime_settings.base_mouse_sensitivity = i*256/100;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
                 COMMAND_TEXT(cmd_num),config_textname);
@@ -927,7 +941,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
             i = atoi(word_buf);
           }
           if ((i >= 0) && (i <= SHRT_MAX)) {
-              config_reload_callbacks->set_hand_scale(i/100.0);
+              kfx_runtime_settings.hand_scale = i/100.0;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
@@ -1138,15 +1152,15 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf));
           if (get_id(logicval_type, word_buf) == 2)
           {
-              matchmaking_config->set_enabled(false);
-              matchmaking_config->set_server(NULL);
+              netport_matchmaking_set_enabled(false);
+              netport_matchmaking_set_server(NULL);
               SYNCLOG("Matchmaking disabled (server set to OFF)");
           }
           else
           {
-              matchmaking_config->set_enabled(true);
-              matchmaking_config->set_server(word_buf);
-              SYNCLOG("Matchmaking server: %s", matchmaking_config->get_ws_url());
+              netport_matchmaking_set_enabled(true);
+              netport_matchmaking_set_server(word_buf);
+              SYNCLOG("Matchmaking server: %s", netport_matchmaking_get_ws_url());
           }
           break;
       case 49: // EASTER_EGG -- docs/refactor/renderer/04-imgui-gui-foundation.md §6.2 finding 2
@@ -1172,7 +1186,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
                     COMMAND_TEXT(cmd_num),config_textname);
                 break;
               }
-              config_reload_callbacks->set_vid_smooth(i == 1);
+              kfx_runtime_settings.vid_smooth = (i == 1);
           }
           break;
       case 51: // ALT_INPUT -- §6.2 finding 2
@@ -1288,6 +1302,26 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
+          break;
+      case 64: // LOG_LEVEL -- docs/refactor-pass2/stage-02-logging-option.md
+          i = recognize_conf_parameter(buf,&pos,len,log_level_type);
+          if (i <= 0)
+          {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
+                COMMAND_TEXT(cmd_num),config_textname);
+              break;
+          }
+          set_log_level_from_config(i - 1);
+          break;
+      case 65: // GPU_DEBUG -- Vulkan validation layers, read at GPU device creation
+          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
+          if (i <= 0)
+          {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
+                COMMAND_TEXT(cmd_num),config_textname);
+              break;
+          }
+          RendererSetGpuDebug(i == 1);
           break;
       case 61: // GPU_TRUE_DEPTH -- gpu-v2 Phase C.5 (experimental, no options-menu row)
           i = recognize_conf_parameter(buf,&pos,len,logicval_type);
@@ -1472,7 +1506,7 @@ void process_cmdline_overrides(void)
   }
   if (start_params.overrides[Clo_VidSmooth])
   {
-    config_reload_callbacks->set_vid_smooth(true);
+    kfx_runtime_settings.vid_smooth = true;
   }
   if (start_params.overrides[Clo_AltInput])
   {

@@ -33,13 +33,13 @@
 #include "config_terrain.h"
 #include "config_effects.h"
 #include "power_hand.h"
-#include "sim_feedback.h"
 #include "player_instances.h"
 #include "creature_states.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
-#include "script_hooks.h"
+#include "ports/script_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -149,7 +149,7 @@ TbBool create_workshop_object_in_workshop_room(PlayerNumber plyr_idx, ThingClass
         break;
     }
     create_effect(&pos, TngEff_RoomSparkeLarge, cratetng->owner);
-    sim_feedback->thing_play_sample(cratetng, 89, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(cratetng, 89, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     return true;
 }
 
@@ -651,13 +651,13 @@ static int64_t process_player_manufacturing(PlayerNumber plyr_idx)
         dungeon->lvstats.manufactured_traps++;
         // If that's local player - make a message
         if (is_my_player_number(plyr_idx))
-            sim_feedback->play_sound_message(SMsg_ManufacturedTrap, 0);
+            audio_output_message(SMsg_ManufacturedTrap, 0);
         break;
     case TCls_Door:
         dungeon->lvstats.manufactured_doors++;
         // If that's local player - make a message
         if (is_my_player_number(plyr_idx))
-            sim_feedback->play_sound_message(SMsg_ManufacturedDoor, 0);
+            audio_output_message(SMsg_ManufacturedDoor, 0);
         break;
     default:
         ERRORLOG("Invalid type of new manufacture: %" PRId64 " (%s)",(int64_t)dungeon->manufacture_class, thing_class_code_name(dungeon->manufacture_class));
@@ -704,7 +704,7 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
             EvKind_TrapCrateFound, creatng->owner, picktng->index);
             if ( (is_my_player_number(picktng->owner)) && (!is_my_player_number(creatng->owner)) )
             {
-                sim_feedback->play_sound_message(SMsg_TrapStolen, 0);
+                audio_output_message(SMsg_TrapStolen, 0);
             }
             else if ( (is_my_player_number(creatng->owner)) && (!is_my_player_number(picktng->owner)) )
             {
@@ -713,7 +713,7 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
                     player = get_my_player();
                     if (creatng->index != player->influenced_thing_idx)
                     {
-                        sim_feedback->play_sound_message(SMsg_TrapTaken, 0);
+                        audio_output_message(SMsg_TrapTaken, 0);
                     }
                 }
             }
@@ -724,7 +724,7 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
             EvKind_DoorCrateFound, creatng->owner, picktng->index);
             if ( (is_my_player_number(picktng->owner)) && (!is_my_player_number(creatng->owner)) )
             {
-                sim_feedback->play_sound_message(SMsg_DoorStolen, 0);
+                audio_output_message(SMsg_DoorStolen, 0);
             }
             else if ( (is_my_player_number(creatng->owner)) && (!is_my_player_number(picktng->owner)) )
             {
@@ -733,7 +733,7 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
                     player = get_my_player();
                     if (creatng->index != player->influenced_thing_idx)
                     {
-                        sim_feedback->play_sound_message(SMsg_DoorTaken, 0);
+                        audio_output_message(SMsg_DoorTaken, 0);
                     }
                 }
             }
@@ -970,12 +970,35 @@ void send_manufacture_complete_event(struct Dungeon *dungeon, PlayerNumber plyr_
         {"class_description", API_EVENT_DATA_STRING, {.string_value = class_description}},
         {"kind", API_EVENT_DATA_INT32, {.int32_value = (int64_t)dungeon->manufacture_kind}},
         {"kind_description", API_EVENT_DATA_STRING, {.string_value = kind_description}},
-        {"level_number", API_EVENT_DATA_INT32, {.int32_value = sim_feedback->get_loaded_level_number()}}
+        {"level_number", API_EVENT_DATA_INT32, {.int32_value = get_loaded_level_number()}}
     };
 
-    script_hooks->api_event_with_data("MANUFACTURE_COMPLETED",event_data,sizeof(event_data) / sizeof(event_data[0]));
+    script_api_event_with_data("MANUFACTURE_COMPLETED",event_data,sizeof(event_data) / sizeof(event_data[0]));
 
 }
 
+
+// crate_thing_to_workshop_item_class()/_model() moved here from kfx_config's
+// config_objects.c (refactor pass 2, S05); crate_to_workshop_item_model(model)
+// stays in config.
+ThingClass crate_thing_to_workshop_item_class(const struct Thing *thing)
+{
+    if (!thing_is_workshop_crate(thing))
+        return thing->class_id;
+    ThingModel tngmodel = thing->model;
+    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.object_conf.object_types_count))
+        return kfx_config_state.conf.object_conf.workshop_object_class[0];
+    return kfx_config_state.conf.object_conf.workshop_object_class[tngmodel];
+}
+
+ThingModel crate_thing_to_workshop_item_model(const struct Thing *thing)
+{
+    if (thing_is_invalid(thing) || (thing->class_id != TCls_Object))
+        return kfx_config_state.conf.object_conf.object_to_door_or_trap[0];
+    ThingModel tngmodel = thing->model;
+    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.object_conf.object_types_count))
+        return kfx_config_state.conf.object_conf.object_to_door_or_trap[0];
+    return kfx_config_state.conf.object_conf.object_to_door_or_trap[tngmodel];
+}
 
 /******************************************************************************/

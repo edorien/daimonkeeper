@@ -8,7 +8,7 @@
 // rather than being split across a kfx_platform/kfx_frontend callback
 // boundary. kfx_platform still owns the SDL_Window/SDL_Renderer these
 // backends attach to; it reaches this lifecycle through the
-// RendererImGuiCallbacks struct (renderer/RendererManager.h) instead of
+// DisplayHostPort's imgui_* entries (ports/display_host_port.h) instead of
 // #including this header, so no ImGui knowledge leaks below kfx_frontend.
 
 #include "bflib_basics.h" // TbBool
@@ -77,7 +77,7 @@ struct ImGuiCursorImage {
 // drawn by ImGui itself) or the in-game parchment map is up. Queried both
 // internally (the cursor-draw logic below) and from kfx_platform
 // (RendererSoftware::PresentFrame's legacy-blit skip, bflib_mspointer.cpp's
-// legacy-cursor skip) via the screen_owned member of RendererImGuiCallbacks
+// legacy-cursor skip) via DisplayHostPort's imgui_screen_owned
 // -- WantCaptureMouse alone is only true over the actual centred menu
 // panel, not the surrounding backdrop area, which has no legacy cursor
 // fallback left once the legacy blit is skipped for these screens.

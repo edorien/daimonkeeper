@@ -36,10 +36,8 @@
 #include "player_data.h"
 #include "player_utils.h"
 #include "player_computer.h"
-#include "light_data.h"
+#include "light_registry.h"
 #include "packets.h"
-#include "sim_feedback.h"
-#include "net_callbacks.h"
 #include "config.h"
 #include "config_campaigns.h"
 #include "config_settings.h"
@@ -55,6 +53,8 @@
 #include "kfx_config_state.h"
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
+#include "ports/game_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -116,16 +116,16 @@ static int64_t enet_services_matchmaking_poll_punch(struct EnetPunchAddresses *o
 
 // Thin adapters so the enet_connectivity_services static initializer
 // below (which needs compile-time-constant function addresses) can
-// target net_callbacks->* -- those are runtime indirections, not
+// target the ui_*() port wrappers -- those are runtime indirections, not
 // usable directly in a static initializer.
 static void enet_services_display_attempting_to_join_message(int64_t seconds_remaining)
 {
-    net_callbacks->display_attempting_to_join_message(seconds_remaining);
+    ui_display_attempting_to_join_message(seconds_remaining);
 }
 
 static TbBool enet_services_attempting_to_join_cancel_requested(void)
 {
-    return net_callbacks->attempting_to_join_cancel_requested();
+    return ui_attempting_to_join_cancel_requested();
 }
 
 static const struct EnetConnectivityServices enet_connectivity_services = {
@@ -148,18 +148,18 @@ int64_t setup_network_service(enum FrontendNetService service)
   memset(net_user_info, 0, sizeof(net_user_info));
   network_lobby_ping = 0;
   if (service != FrontendNetSvc_Online && service != FrontendNetSvc_LAN) {
-    net_callbacks->process_network_error(-800);
+    ui_process_network_error(-800);
     return 0;
   }
   bf_enet_set_connectivity_services(&enet_connectivity_services);
   if ( LbNetwork_Init(NS_ENET_UDP, MAX_NET_USERS, &net_user_info[0], init_data) )
   {
-    net_callbacks->process_network_error(-800);
+    ui_process_network_error(-800);
     return 0;
   }
   net_service_index_selected = service;
-  net_callbacks->set_lobby_button_labels(service == FrontendNetSvc_LAN);
-  net_callbacks->enter_net_session_screen();
+  ui_set_lobby_button_labels(service == FrontendNetSvc_LAN);
+  ui_enter_net_session_screen();
   return 1;
 }
 
@@ -189,7 +189,7 @@ PlayerNumber get_net_user_player_number(NetUserId user)
     if ((user < 0) || (user >= MAX_NET_USERS)) {
         return -1;
     }
-    if (!network_is_active() && !kfx_net_state.packet_load_enable) {
+    if (!network_is_active() && !kfx_sim_state.replay_active) {
         return (user == SOLO_HUMAN_ID) ? my_player_number : net_local_external_player[user];
     }
     return net_user_player_number[user];
@@ -211,7 +211,7 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
     struct PlayerInfo *player = get_player(plyr_idx);
     const TbBool exists = player_exists(player);
     // The local player's own seat is the one deliberate exception to "a human seat can't be claimed": they are
-    // handing over their own dungeon, not someone else's. process_packets() (packets.c) is what keeps this
+    // handing over their own dungeon, not someone else's. process_packets() (kfx_game's game_commands.c) is what keeps this
     // safe once claimed -- PVT_DungeonTop's dispatch for a PlaF_ExternalSeat player only accepts packets from
     // the seat's own user_id, so the local human's own leftover front_input.c packet (still generated every
     // frame regardless of seat type) can no longer act on it.
@@ -253,7 +253,7 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
     set_flag(player->allocflags, PlaF_Allocated | PlaF_ExternalSeat);
     player->is_active = 1;
     player->view_mode_restore = PVM_IsoWibbleView;
-    init_player(player, 0);
+    init_player(player, 0, &kfx_net_state.packet_save_head);
     init_user_state(user);
     set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
     set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);
@@ -408,7 +408,7 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
             default: player->view_mode_restore = PVM_IsoWibbleView; break;
         }
         player->is_active = 1;
-        init_player(player, 0);
+        init_player(player, 0, &kfx_net_state.packet_save_head);
         init_user_state(player->user_id);
         player->isometric_view_zoom_level = sync->isometric_view_zoom_level;
         player->frontview_zoom_level = sync->frontview_zoom_level;
@@ -441,7 +441,7 @@ static TbBool verify_map_checksums(const struct StartupSyncPacket startup_sync_p
             if (diff_count == 0) {
                 ERRORLOG("Level checksums differ for player %" PRId64, (int64_t)(i));
             }
-            ERRORLOG("Level file map%05" PRIu64 ".%s differs for player %" PRId64, (uint64_t)(sim_feedback->get_loaded_level_number()), network_startup_compare_files[j], (int64_t)(i));
+            ERRORLOG("Level file map%05" PRIu64 ".%s differs for player %" PRId64, (uint64_t)(get_loaded_level_number()), network_startup_compare_files[j], (int64_t)(i));
             diff_count++;
         }
         if (diff_count != 0) {
@@ -470,7 +470,7 @@ static TbBool verify_startup_sprite_zip_checksums(const struct StartupSyncPacket
             {
                 char msg_buf[128];
                 snprintf(msg_buf, sizeof(msg_buf), "/fxdata/%.30s differs for %.12s", required_sprite_zips[zip_idx], network_user_name(i));
-                sim_feedback->message_add(MsgType_Blank, 0, msg_buf);
+                ui_message_add(MsgType_Blank, 0, msg_buf);
             }
             verified = false;
         }
@@ -542,12 +542,12 @@ static TbBool net_startup_sync_exchange_and_apply(void)
         }
     }
     if (!verify_map_checksums(s_startup_sync_packets)) {
-        net_callbacks->create_frontend_error_box(5000, get_string(GUIStr_NetUnsyncedMap));
+        ui_create_frontend_error_box(5000, get_string(GUIStr_NetUnsyncedMap));
         return false;
     }
 
     if (!verify_startup_sprite_zip_checksums(s_startup_sync_packets)) {
-        net_callbacks->create_frontend_error_box(5000, get_string(GUIStr_NetVerifyFxdataSame));
+        ui_create_frontend_error_box(5000, get_string(GUIStr_NetVerifyFxdataSame));
         return false;
     }
     const struct StartupSyncPacket *host_sync = &s_startup_sync_packets[SERVER_ID];
@@ -589,14 +589,14 @@ void setup_count_players(void)
 {
   if (kfx_sim_state.game_kind == GKind_LocalGame)
   {
-    kfx_net_state.human_players_count = 1;
+    kfx_sim_state.human_players_count = 1;
   } else
   {
-    kfx_net_state.human_players_count = 0;
+    kfx_sim_state.human_players_count = 0;
     for (int64_t i = 0; i < MAX_NET_USERS; i++)
     {
       if (net_user_info[i].network_user_active)
-        kfx_net_state.human_players_count++;
+        kfx_sim_state.human_players_count++;
     }
   }
 }
@@ -614,9 +614,9 @@ TbBool init_players_network_game(void)
         {
             char msg_buf[128];
             snprintf(msg_buf, sizeof(msg_buf), "/fxdata/%.30s missing", required_sprite_zips[zip_idx]);
-            sim_feedback->message_add(MsgType_Blank, 0, msg_buf);
+            ui_message_add(MsgType_Blank, 0, msg_buf);
         }
-        net_callbacks->create_frontend_error_box(5000, get_string(GUIStr_NetVerifyFxdataSame));
+        ui_create_frontend_error_box(5000, get_string(GUIStr_NetVerifyFxdataSame));
         initialized = false;
         break;
     }
@@ -624,8 +624,8 @@ TbBool init_players_network_game(void)
         build_local_startup_sync();
         initialized = net_startup_sync_exchange_and_apply();
     }
-    if (initialized && netstate.my_id == SERVER_ID && net_callbacks->frontnet_service_selected(FrontendNetSvc_Online)) {
-        LevelNumber map_number = sim_feedback->get_level_number();
+    if (initialized && netstate.my_id == SERVER_ID && ui_frontnet_service_selected(FrontendNetSvc_Online)) {
+        LevelNumber map_number = get_level_number();
         struct LevelInformation *level_info = get_level_info(map_number);
         const char *map_name = "";
         if (level_info) {
@@ -725,7 +725,7 @@ static void replace_network_player_with_ai(struct PlayerInfo *player)
 {
     player->allocflags |= PlaF_CompCtrl;
     toggle_computer_player(player->id_number);
-    sim_feedback->message_add(MsgType_Player, player->id_number, get_string(GUIStr_NetAiTookOver));
+    ui_message_add(MsgType_Player, player->id_number, get_string(GUIStr_NetAiTookOver));
     JUSTLOG("p:%" PRId64 " computer took over", (int64_t)(player->id_number));
 }
 
@@ -825,7 +825,7 @@ static void resolve_disconnect_victories(struct PlayerInfo *departed)
             continue;
         }
         int64_t plyr_count = 0;
-        TbBool winning_quit = net_callbacks->winning_player_quitting(departed, &plyr_count);
+        TbBool winning_quit = game_winning_player_quitting(departed, &plyr_count);
         if (winning_quit) {
             for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
                 struct PlayerInfo *swplyr = get_player(i);
@@ -855,7 +855,7 @@ static void abandon_network_player(struct PlayerInfo *player, TbBool announce)
             input_lag_reset_request(calculate_initial_input_lag());
         }
         if (announce && player->player_name[0] != '\0') {
-            sim_feedback->message_add_fmt(MsgType_Blank, 0, get_string(GUIStr_NetPlayerDisconnected), player->player_name);
+            ui_message_add_fmt(MsgType_Blank, 0, get_string(GUIStr_NetPlayerDisconnected), player->player_name);
         }
         JUSTLOG("p:%" PRId64 " player %s departed", (int64_t)(player->id_number), player->player_name);
         if (player->victory_state == VicS_Undecided) {
@@ -893,7 +893,7 @@ static void leave_network_if_alone(void)
 void process_player_leave_game_packet(struct PlayerInfo *player)
 {
     if (player != get_my_player()) {
-        if (network_is_active() || kfx_net_state.packet_load_enable /* handle replays */) {
+        if (network_is_active() || kfx_sim_state.replay_active /* handle replays */) {
             NetUserId user = player->user_id;
             if (network_is_active()) {
                 OnDroppedUser(user, NETDROP_MANUAL);
@@ -952,7 +952,7 @@ void process_disconnected_network_players(void)
         quit_game = 1;
         return;
     }
-    sim_feedback->message_add(MsgType_Blank, 0, get_string(GUIStr_NetHostConnectionLost));
+    ui_message_add(MsgType_Blank, 0, get_string(GUIStr_NetHostConnectionLost));
     for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
         if (user != netstate.my_id) {
             remove_user_from_game(user, false);
@@ -964,21 +964,21 @@ void process_disconnected_network_players(void)
 int64_t network_session_join(void)
 {
     int64_t plyr_num;
-    net_callbacks->reset_attempting_to_join_cancel();
-    net_callbacks->display_attempting_to_join_message(-1);
-    if (net_callbacks->attempting_to_join_cancel_requested())
+    ui_reset_attempting_to_join_cancel();
+    ui_display_attempting_to_join_message(-1);
+    if (ui_attempting_to_join_cancel_requested())
         return -1;
     bf_enet_set_join_lobby_id(net_session[net_session_index_active]->join_address);
     if (LbNetwork_Join(net_session[net_session_index_active], net_player_name, &plyr_num, NULL) == 0)
         return plyr_num;
     bf_enet_set_join_lobby_id("");
-    if (!net_callbacks->attempting_to_join_cancel_requested()) {
-        if (net_callbacks->frontnet_service_selected(FrontendNetSvc_Online)) {
+    if (!ui_attempting_to_join_cancel_requested()) {
+        if (ui_frontnet_service_selected(FrontendNetSvc_Online)) {
             net_session_index_active = -1;
             net_session_index_active_id = -1;
             matchmaking_request_list();
         }
-        net_callbacks->process_network_error(-802);
+        ui_process_network_error(-802);
     }
     return -1;
 }

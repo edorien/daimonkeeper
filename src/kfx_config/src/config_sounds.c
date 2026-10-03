@@ -29,6 +29,7 @@
 #include "bflib_guibtns.h"
 #include <ctype.h>
 
+#include "config_settings.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -846,7 +847,7 @@ static TbBool parse_system_section(char* buf, int64_t len, const char* config_te
             }
             else
             {
-                config_reload_callbacks->set_speech_queue_limit((int64_t)limit);
+                kfx_runtime_settings.speech_queue_limit = (int64_t)limit;
                 SYNCDBG(8, "Speech queue limit set to %" PRId64, (int64_t)limit);
             }
         } else {
@@ -989,7 +990,7 @@ void sound_reset_to_fxdata_baseline(void)
 {
     sound_manager_clear_custom_sounds();
     sound_manager_clear_registry();
-    config_reload_callbacks->set_speech_queue_limit(4);
+    kfx_runtime_settings.speech_queue_limit = 4;
     load_sounds_config();
     SYNCDBG(7, "sound_reset_to_fxdata_baseline: reset to fxdata defaults");
 }

@@ -514,6 +514,7 @@ int64_t frontend_font_char_width(int64_t fnt_idx,char c);
 int64_t frontend_font_string_width(int64_t fnt_idx, const char *str);
 
 void create_error_box(TextStringId msg_idx);
+void create_error_box_text(const char *text);
 void create_message_box(const char *title, const char *line1, const char *line2, const char *line3, const char *line4, const char* line5);
 void gui_area_text(struct GuiButton *gbtn);
 TbBool get_button_area_input(struct GuiButton *gbtn, int64_t a2);
@@ -615,6 +616,8 @@ void frontend_set_alliance(int64_t idx1, int64_t idx2);
 char update_menu_fade_level(struct GuiMenu *gmnu);
 void draw_menu_buttons(struct GuiMenu *gmnu);
 MenuNumber create_menu(struct GuiMenu *mnu);
+void do_button_click_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Callback callback);
+void do_button_press_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Callback callback);
 void do_button_release_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Callback callback);
 void draw_gui(void);
 void init_gui(void);

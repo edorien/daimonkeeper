@@ -38,6 +38,7 @@
 #define FlwB_FollowLeader       1
 #define FlwB_MatchWorkRoom      2
 #define FlwB_JoinCombatOrFollow 3
+#include "config_funcnames.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -135,7 +136,7 @@ int64_t value_overrides(const struct NamedField* named_field, const char* value_
 // callback call can't sit directly in the initializer. Instead, the
 // array is left mutable, initialized to NULL here, and patched by
 // resolve_crstates_func_commands_pointers() (below, wired as
-// creature_states_file_data's pre_load_func) once config_reload_callbacks
+// creature_states_file_data's pre_load_func) once SimPort
 // is registered. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 struct NamedField crstates_states_named_fields[] = {
@@ -178,10 +179,10 @@ static TbBool load_creaturestates_config_file(const char *fname, int64_t flags);
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 static void resolve_crstates_func_commands_pointers(void)
 {
-    crstates_states_named_fields[1].namedCommand = config_reload_callbacks->get_process_func_commands();
-    crstates_states_named_fields[2].namedCommand = config_reload_callbacks->get_cleanup_func_commands();
-    crstates_states_named_fields[3].namedCommand = config_reload_callbacks->get_move_from_slab_func_commands();
-    crstates_states_named_fields[4].namedCommand = config_reload_callbacks->get_move_check_func_commands();
+    crstates_states_named_fields[1].namedCommand = process_func_commands;
+    crstates_states_named_fields[2].namedCommand = cleanup_func_commands;
+    crstates_states_named_fields[3].namedCommand = move_from_slab_func_commands;
+    crstates_states_named_fields[4].namedCommand = move_check_func_commands;
 }
 
 const struct ConfigFileData creature_states_file_data = {

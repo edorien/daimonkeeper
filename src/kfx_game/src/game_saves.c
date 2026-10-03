@@ -39,15 +39,17 @@
 #include "custom_sprites.h"
 #include "lens_api.h"
 #include "local_camera.h"
-#include "sim_feedback.h"
-#include "game_callbacks.h"
-#include "script_hooks.h"
 #include "game_legacy.h"
 #include "game_merge.h"
 #include "net_exchange_gameplay.h"
 #include "packets.h"
 #include "lvl_filesdk1.h"
 #include "moonphase.h"
+#include "state_versions.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -136,8 +138,6 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     struct FileChunkHeader hdr;
     int64_t chunks_done = 0;
-    // Currently there is some game data outside of structs - make sure it is updated
-    light_export_system_state(&kfx_game_state.lightst);
     { // Info chunk
         hdr.id = SGC_InfoBlock;
         hdr.ver = CATALOGUE_ENTRY_VER;
@@ -148,7 +148,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     }
     { // Game data chunk
         hdr.id = SGC_GameOrig;
-        hdr.ver = 0;
+        hdr.ver = KFX_GAME_ORIG_VER;
         hdr.len = sizeof(struct Game);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, &game, sizeof(struct Game)) == sizeof(struct Game))
@@ -156,7 +156,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     }
     { // KfxSimState data chunk
         hdr.id = SGC_KfxSimState;
-        hdr.ver = 0;
+        hdr.ver = KFX_SIM_STATE_VER;
         hdr.len = sizeof(struct KfxSimState);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, &kfx_sim_state, sizeof(struct KfxSimState)) == sizeof(struct KfxSimState))
@@ -164,7 +164,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     }
     { // KfxNetState data chunk
         hdr.id = SGC_KfxNetState;
-        hdr.ver = 0;
+        hdr.ver = KFX_NET_STATE_VER;
         hdr.len = sizeof(struct KfxNetState);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, &kfx_net_state, sizeof(struct KfxNetState)) == sizeof(struct KfxNetState))
@@ -172,7 +172,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     }
     { // KfxGameState data chunk
         hdr.id = SGC_KfxGameState;
-        hdr.ver = 0;
+        hdr.ver = KFX_GAME_STATE_VER;
         hdr.len = sizeof(struct KfxGameState);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, &kfx_game_state, sizeof(struct KfxGameState)) == sizeof(struct KfxGameState))
@@ -180,15 +180,15 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     }
     { // KfxFrontendState data chunk
         hdr.id = SGC_KfxFrontendState;
-        hdr.ver = 0;
-        hdr.len = game_callbacks->get_frontend_state_size();
+        hdr.ver = KFX_FRONTEND_STATE_VER;
+        hdr.len = ui_get_frontend_state_size();
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
-        if (game_callbacks->save_frontend_state(fhandle))
+        if (ui_save_frontend_state(fhandle))
             chunks_done |= SGF_KfxFrontendState;
     }
     { // IntralevelData data chunk
         hdr.id = SGC_IntralevelData;
-        hdr.ver = 0;
+        hdr.ver = KFX_INTRALEVEL_VER;
         hdr.len = sizeof(struct IntralevelData);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, &intralvl, sizeof(struct IntralevelData)) == sizeof(struct IntralevelData))
@@ -198,7 +198,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     // Adding Lua serialized data chunk
     {
         size_t lua_data_len;
-        const char* lua_data = script_hooks->lua_get_serialised_data(&lua_data_len);
+        const char* lua_data = script_lua_get_serialised_data(&lua_data_len);
 
         hdr.id = SGC_LuaData;
         hdr.ver = 0;
@@ -206,7 +206,7 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         if (LbFileWrite(fhandle, lua_data, lua_data_len) == lua_data_len)
             chunks_done |= SGF_LuaData;
-        script_hooks->cleanup_serialized_data();
+        script_cleanup_serialized_data();
     }
 
     if (chunks_done != SGF_SavedGame)
@@ -239,7 +239,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     {
         { // Game data chunk
             hdr.id = SGC_GameOrig;
-            hdr.ver = 0;
+            hdr.ver = KFX_GAME_ORIG_VER;
             hdr.len = sizeof(struct Game);
             if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
             if (LbFileWrite(fhandle, &game, sizeof(struct Game)) == sizeof(struct Game))
@@ -247,7 +247,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         }
         { // KfxSimState data chunk
             hdr.id = SGC_KfxSimState;
-            hdr.ver = 0;
+            hdr.ver = KFX_SIM_STATE_VER;
             hdr.len = sizeof(struct KfxSimState);
             if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
             if (LbFileWrite(fhandle, &kfx_sim_state, sizeof(struct KfxSimState)) == sizeof(struct KfxSimState))
@@ -255,7 +255,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         }
         { // KfxNetState data chunk
             hdr.id = SGC_KfxNetState;
-            hdr.ver = 0;
+            hdr.ver = KFX_NET_STATE_VER;
             hdr.len = sizeof(struct KfxNetState);
             if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
             if (LbFileWrite(fhandle, &kfx_net_state, sizeof(struct KfxNetState)) == sizeof(struct KfxNetState))
@@ -263,7 +263,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         }
         { // KfxGameState data chunk
             hdr.id = SGC_KfxGameState;
-            hdr.ver = 0;
+            hdr.ver = KFX_GAME_STATE_VER;
             hdr.len = sizeof(struct KfxGameState);
             if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
             if (LbFileWrite(fhandle, &kfx_game_state, sizeof(struct KfxGameState)) == sizeof(struct KfxGameState))
@@ -271,10 +271,10 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         }
         { // KfxFrontendState data chunk
             hdr.id = SGC_KfxFrontendState;
-            hdr.ver = 0;
-            hdr.len = game_callbacks->get_frontend_state_size();
+            hdr.ver = KFX_FRONTEND_STATE_VER;
+            hdr.len = ui_get_frontend_state_size();
             if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
-            if (game_callbacks->save_frontend_state(fhandle))
+            if (ui_save_frontend_state(fhandle))
                 chunks_done |= SGF_KfxFrontendState;
         }
     }
@@ -288,6 +288,93 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
     if ((chunks_done != SGF_PacketStart) && (chunks_done != SGF_PacketContinue))
         return false;
     return true;
+}
+
+static char save_refusal_reason[160];
+static TbBool save_refused;
+
+/**
+ * The version and length a chunk must have to be loaded, by chunk ID.
+ * @return false for chunks with no fixed expectation (LuaData, unknown IDs).
+ */
+static TbBool expected_chunk_layout(uint64_t id, uint64_t *ver, uint64_t *len)
+{
+    switch (id)
+    {
+    case SGC_InfoBlock:        *ver = CATALOGUE_ENTRY_VER;     *len = sizeof(struct CatalogueEntry); return true;
+    case SGC_GameOrig:         *ver = KFX_GAME_ORIG_VER;       *len = sizeof(struct Game); return true;
+    case SGC_KfxSimState:      *ver = KFX_SIM_STATE_VER;       *len = sizeof(struct KfxSimState); return true;
+    case SGC_KfxNetState:      *ver = KFX_NET_STATE_VER;       *len = sizeof(struct KfxNetState); return true;
+    case SGC_KfxGameState:     *ver = KFX_GAME_STATE_VER;      *len = sizeof(struct KfxGameState); return true;
+    case SGC_KfxFrontendState: *ver = KFX_FRONTEND_STATE_VER;  *len = ui_get_frontend_state_size(); return true;
+    case SGC_IntralevelData:   *ver = KFX_INTRALEVEL_VER;      *len = sizeof(struct IntralevelData); return true;
+    case SGC_PacketHeader:     *ver = PACKET_SAVE_HEAD_VER;    *len = sizeof(struct PacketSaveHead); return true;
+    case SGC_PacketData:       *ver = PACKET_VER;              *len = 0; return true;
+    default:                   return false;
+    }
+}
+
+/**
+ * First phase of loading a save or a continue-replay (refactor pass 2, S09):
+ * walks every chunk header from the current file position and checks each
+ * chunk's version and length against state_versions.h, and that the whole
+ * chunk is in the file -- without applying anything. load_game_chunks()
+ * only starts changing the game once this has accepted the file, so a save
+ * from another layout is refused with the running game untouched.
+ * Leaves the file position where it was.
+ * @return true if the file can be loaded; false with the reason in
+ *   save_refusal_reason (see last_save_refusal_reason()).
+ */
+TbBool validate_save_chunks(TbFileHandle fhandle)
+{
+    const int64_t start = LbFilePosition(fhandle);
+    const int64_t file_len = LbFileLengthHandle(fhandle);
+    int64_t pos = start;
+    TbBool ok = true;
+    save_refusal_reason[0] = '\0';
+    while (pos < file_len)
+    {
+        struct FileChunkHeader hdr;
+        if ((LbFileSeek(fhandle, pos, Lb_FILE_SEEK_BEGINNING) < 0)
+          || (LbFileRead(fhandle, &hdr, sizeof(struct FileChunkHeader)) != sizeof(struct FileChunkHeader)))
+        {
+            snprintf(save_refusal_reason, sizeof(save_refusal_reason), "truncated chunk header at offset %" PRId64, pos);
+            ok = false;
+            break;
+        }
+        pos += sizeof(struct FileChunkHeader);
+        if (hdr.len > (uint64_t)(file_len - pos))
+        {
+            snprintf(save_refusal_reason, sizeof(save_refusal_reason), "chunk %08" PRIx64 " is cut short", (uint64_t)hdr.id);
+            ok = false;
+            break;
+        }
+        uint64_t ver;
+        uint64_t len;
+        if (expected_chunk_layout(hdr.id, &ver, &len) && ((hdr.ver != ver) || (hdr.len != len)))
+        {
+            snprintf(save_refusal_reason, sizeof(save_refusal_reason),
+                "chunk %08" PRIx64 " is version %" PRIu64 " (%" PRIu64 " bytes); this build expects version %" PRIu64 " (%" PRIu64 " bytes)",
+                (uint64_t)hdr.id, (uint64_t)hdr.ver, (uint64_t)hdr.len, ver, len);
+            ok = false;
+            break;
+        }
+        if (hdr.id == SGC_PacketData)
+            break; // a replay's packet stream follows; it isn't chunked
+        pos += hdr.len;
+    }
+    LbFileSeek(fhandle, start, Lb_FILE_SEEK_BEGINNING);
+    return ok;
+}
+
+TbBool last_save_was_refused(void)
+{
+    return save_refused;
+}
+
+const char *last_save_refusal_reason(void)
+{
+    return save_refusal_reason;
 }
 
 static TbBool chunk_version_ok(TbFileHandle fhandle, const struct FileChunkHeader *hdr, uint64_t expected)
@@ -304,6 +391,12 @@ static TbBool chunk_version_ok(TbFileHandle fhandle, const struct FileChunkHeade
 int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     int64_t chunks_done = 0;
+    save_refused = !validate_save_chunks(fhandle);
+    if (save_refused)
+    {
+        WARNLOG("Refusing to load: %s", save_refusal_reason);
+        return GLoad_Failed;
+    }
     while (!LbFileEof(fhandle))
     {
         struct FileChunkHeader hdr;
@@ -328,7 +421,7 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 recheck_all_mod_exist();
                 init_custom_sprites(centry->level_num);
                 load_stats_files();
-                game_callbacks->set_high_score_entry(centry->player_name);
+                ui_set_high_score_entry(centry->player_name);
             }
             break;
         case SGC_GameOrig:
@@ -388,14 +481,14 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
             }
             break;
         case SGC_KfxFrontendState:
-            if (hdr.len != game_callbacks->get_frontend_state_size())
+            if (hdr.len != ui_get_frontend_state_size())
             {
                 if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
                     LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
                 WARNLOG("Incompatible KfxFrontendState chunk");
                 break;
             }
-            if (game_callbacks->load_frontend_state(fhandle)) {
+            if (ui_load_frontend_state(fhandle)) {
                 chunks_done |= SGF_KfxFrontendState;
             } else {
                 WARNLOG("Could not read KfxFrontendState chunk");
@@ -457,9 +550,9 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 }
                 if (LbFileRead(fhandle, lua_data, hdr.len) == hdr.len) {
                     //has to be loaded here as level num only filled while gamestruct loaded, and need it for setting serialised_data
-                    script_hooks->open_lua_script(get_loaded_level_number());
+                    script_open_lua_script(get_loaded_level_number());
 
-                    script_hooks->lua_set_serialised_data(lua_data, hdr.len);
+                    script_lua_set_serialised_data(lua_data, hdr.len);
                     chunks_done |= SGF_LuaData;
                 } else {
                     WARNLOG("Could not read LuaData chunk");
@@ -477,8 +570,8 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
     if ((chunks_done & SGF_SavedGame) == SGF_SavedGame)
     {
         // Update interface items
-        config_reload_callbacks->update_trap_tab_to_config();
-        config_reload_callbacks->update_room_tab_to_config();
+        ui_update_trap_tab_to_config();
+        ui_update_room_tab_to_config();
         return GLoad_SavedGame;
     }
     return GLoad_Failed;
@@ -512,7 +605,7 @@ TbBool save_game(int64_t slot_num)
         return false;
     }
     LbFileClose(handle);
-    script_hooks->api_event("GAME_SAVED");
+    script_api_event("GAME_SAVED");
     return true;
 }
 
@@ -543,6 +636,7 @@ TbBool load_game(int64_t slot_num)
         return false;
     }
     TbFileHandle fh;
+    save_refused = false;
 //  unsigned char buf[14];
 //  char cmpgn_fname[CAMPAIGN_FNAME_LEN];
     SYNCDBG(6,"Starting");
@@ -591,7 +685,7 @@ TbBool load_game(int64_t slot_num)
         WARNMSG("Couldn't correctly load saved game in slot %" PRId64 ".",(int64_t)slot_num);
         return false;
     }
-    my_player_number = kfx_net_state.local_plyr_idx;
+    my_player_number = kfx_sim_state.level_human_player;
     LbFileClose(fh);
     // Re-apply creature sound overrides: SGC_GameOrig restored kfx_config_state.conf with
     // session-specific negative bank indices from the save; fix them to match
@@ -604,12 +698,12 @@ TbBool load_game(int64_t slot_num)
     process_pause_packet(0, 0);
     clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
     clear_flag(kfx_sim_state.operation_flags, GOF_WorldInfluence);
-    game_callbacks->close_main_cheat_menu();
-    game_callbacks->close_creature_cheat_menu();
-    game_callbacks->close_instance_cheat_menu();
-    game_callbacks->close_secondary_cheat_menu();
-    sim_feedback->play_sound_message(SMsg_GameLoaded, 0);
-    config_reload_callbacks->panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
+    ui_close_main_cheat_menu();
+    ui_close_creature_cheat_menu();
+    ui_close_instance_cheat_menu();
+    ui_close_secondary_cheat_menu();
+    audio_output_message(SMsg_GameLoaded, 0);
+    ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
     calculate_moon_phase(false,false);
     update_extra_levels_visibility();
     struct PlayerInfo* player = get_my_player();
@@ -629,12 +723,13 @@ TbBool load_game(int64_t slot_num)
     // Apply the appropriate palette (lens palette if active, otherwise engine default)
     PaletteSetUserPalette(player->user_id, local_state.lens_palette ? local_state.lens_palette : engine_palette);
     init_local_cameras(player);
-    // Update the lights system state
-    light_import_system_state(&kfx_game_state.lightst);
+    // The lights came with kfx_sim_state; the shading kfx_render built for
+    // the previous ones is stale.
+    light_registry_invalidate_shading();
     // Victory state
     if (player->victory_state != VicS_Undecided)
     {
-      game_callbacks->frontstats_initialise();
+      ui_frontstats_initialise();
       struct Dungeon* dungeon = get_players_dungeon(player);
       dungeon->lvstats.player_score = 0;
       dungeon->lvstats.allow_save_score = 1;
@@ -642,7 +737,7 @@ TbBool load_game(int64_t slot_num)
     kfx_sim_state.loaded_swipe_idx = -1;
     JUSTMSG("Loaded level %" PRId64 " from %s", (int64_t)(kfx_sim_state.continue_level_number), campaign.name);
 
-    script_hooks->api_event("GAME_LOADED");
+    script_api_event("GAME_LOADED");
 
     return true;
 }
@@ -672,8 +767,9 @@ TbBool fill_game_catalogue_entry(struct CatalogueEntry *centry,const char *textn
         }
     }
     snprintf(centry->campaign_fname, DISKPATH_SIZE, "%s%s", cmpgn_pfx, campaign.fname);
-    game_callbacks->get_high_score_entry(centry->player_name, PLAYER_NAME_LENGTH);
+    ui_get_high_score_entry(centry->player_name, PLAYER_NAME_LENGTH);
     set_flag(centry->flags, CEF_InUse);
+    clear_flag(centry->flags, CEF_OtherVersion); // this build is writing it
     centry->game_ver_major = VER_MAJOR;
     centry->game_ver_minor = VER_MINOR;
     centry->game_ver_release = VER_RELEASE;
@@ -708,12 +804,14 @@ TbBool save_catalogue_slot_disable(uint64_t slot_idx)
 TbBool load_catalogue_entry(TbFileHandle fh,struct FileChunkHeader *hdr,struct CatalogueEntry *centry)
 {
     clear_flag(centry->flags, CEF_InUse);
+    clear_flag(centry->flags, CEF_OtherVersion);
     if ((hdr->id == SGC_InfoBlock) && (hdr->len == sizeof(struct CatalogueEntry)))
     {
         if (LbFileRead(fh, centry, sizeof(struct CatalogueEntry))
           == sizeof(struct CatalogueEntry))
         {
             set_flag(centry->flags, CEF_InUse);
+            clear_flag(centry->flags, CEF_OtherVersion); // an in-memory flag, never trust the file's
         }
     }
     centry->textname[SAVE_TEXTNAME_LEN-1] = '\0';
@@ -764,7 +862,14 @@ TbBool load_game_save_catalogue(void)
         if (LbFileRead(fh, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
         {
             if (load_catalogue_entry(fh,&hdr,centry))
+            {
                 saves_found++;
+                // Mark saves this build can't load, so the menus can show them
+                // as from another version instead of failing on click.
+                LbFileSeek(fh, 0, Lb_FILE_SEEK_BEGINNING);
+                if (!validate_save_chunks(fh))
+                    set_flag(centry->flags, CEF_OtherVersion);
+            }
         }
         LbFileClose(fh);
     }

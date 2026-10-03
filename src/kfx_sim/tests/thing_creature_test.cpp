@@ -8,14 +8,11 @@
 // and creature_has_lair_room.
 //
 // thing_is_creature_digger/is_creature_droppable_on_path/
-// thing_is_creature_special_digger all route through
-// get_creature_model_flags(), whose default no-op always returns 0 (the
-// same indirection noted in player_instances_test.cpp) -- so all three
-// are always false in this test binary regardless of the creature's
-// actual model, confirmed below rather than assumed. This makes them
-// degenerate to test individually; thing_is_creature_spectator is
-// different since it compares thing->model directly, with no such
-// indirection, so it gets real branch coverage.
+// thing_is_creature_special_digger read the model's flags through
+// get_creature_model_flags(), which reads thing->model directly since
+// refactor pass 2's S05 moved it into kfx_sim (it used to go through a
+// ConfigReloadCallbacks accessor that defaulted to model 0 here, which
+// left all three untestable).
 //
 // fill_spell_slot had only a same-file forward declaration -- added to
 // thing_creature.h alongside get_spell_slot/free_spell_slot.
@@ -31,6 +28,7 @@
 #include "config_magic.h"
 #include "config_creature.h"
 #include "kfx_sim_test_fixtures.h"
+#include "thing_stats.h"
 
 using namespace kfx_test;
 
@@ -44,15 +42,29 @@ TEST_CASE_METHOD(ResetSimAndConfig, "thing_is_creature/thing_is_dead_creature ar
     CHECK(thing_is_dead_creature(creature));
 }
 
-TEST_CASE_METHOD(ResetSimAndConfig, "thing_is_creature_digger/is_creature_droppable_on_path/thing_is_creature_special_digger are always false here, since get_creature_model_flags() always resolves to 0", "[kfx_sim][thing_creature]") {
+TEST_CASE_METHOD(ResetSimAndConfig, "thing_is_creature_digger/is_creature_droppable_on_path/thing_is_creature_special_digger check the creature model's flags", "[kfx_sim][thing_creature]") {
     struct Thing *creature = make_creature(1, 1, 0);
-    kfx_config_state.conf.crtr_conf.model_count = 2;
-    kfx_config_state.conf.crtr_conf.model[1].model_flags = CMF_IsSpecDigger | CMF_IsDiggingCreature | CMF_DropOnPath;
-    creature->model = 1; // matches the configured model, but get_thing_model()'s default no-op ignores it
+    kfx_config_state.conf.crtr_conf.model_count = 4;
+    kfx_config_state.conf.crtr_conf.model[1].model_flags = CMF_IsSpecDigger;
+    kfx_config_state.conf.crtr_conf.model[2].model_flags = CMF_IsDiggingCreature;
+    kfx_config_state.conf.crtr_conf.model[3].model_flags = CMF_DropOnPath;
 
-    CHECK_FALSE(thing_is_creature_digger(creature));
+    creature->model = 1;
+    CHECK(thing_is_creature_digger(creature));
+    CHECK(is_creature_droppable_on_path(creature));
+    CHECK(thing_is_creature_special_digger(creature));
+
+    creature->model = 2;
+    CHECK(thing_is_creature_digger(creature));
     CHECK_FALSE(is_creature_droppable_on_path(creature));
     CHECK_FALSE(thing_is_creature_special_digger(creature));
+
+    creature->model = 3;
+    CHECK_FALSE(thing_is_creature_digger(creature));
+    CHECK(is_creature_droppable_on_path(creature));
+
+    creature->class_id = TCls_Object; // not a creature
+    CHECK_FALSE(is_creature_droppable_on_path(creature));
 }
 
 TEST_CASE_METHOD(ResetSimAndConfig, "thing_is_creature_spectator compares thing->model directly against the configured spectator breed", "[kfx_sim][thing_creature]") {

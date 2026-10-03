@@ -33,17 +33,9 @@
 #include "config_translation.h"
 #include "config_players.h"
 #include "config_rules.h"
-#include "sprite_lookup.h"
-// struct Dungeon's magic_resrchable[]/magic_level[] fields are reached
-// through DungeonAvailabilityCallbacks instead of dungeon_data.h
-// directly (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
-#include "dungeon_availability.h"
-// player_has_heart() (kfx_sim's dungeon_data.h) is reached through
-// config_reload_callbacks instead of a same-file bare-extern
-// forward-declaration. See docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
 
 #include "kfx_config_state.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -818,7 +810,7 @@ TbBool parse_magic_spell_blocks(char *buf, int64_t len, const char *config_textn
       case 7: // SYMBOLSPRITES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              spconf->bigsym_sprite_idx = sprite_lookup->get_icon_id(word_buf);
+              spconf->bigsym_sprite_idx = render_get_icon_id(word_buf);
               if (spconf->bigsym_sprite_idx != INT16_MAX) // bad_icon_id (kfx_render's custom_sprites.c) literal-duplicated
               {
                   n++;
@@ -826,7 +818,7 @@ TbBool parse_magic_spell_blocks(char *buf, int64_t len, const char *config_textn
           }
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              spconf->medsym_sprite_idx = sprite_lookup->get_icon_id(word_buf);
+              spconf->medsym_sprite_idx = render_get_icon_id(word_buf);
               if (spconf->medsym_sprite_idx != INT16_MAX) // bad_icon_id (kfx_render's custom_sprites.c) literal-duplicated
               {
                   n++;
@@ -1368,23 +1360,6 @@ int64_t power_model_id(const char * code_name)
 }
 
 /**
- * Adds given power to players available powers.
- *
- * @param pwkind
- * @param plyr_idx
- * @return
- * @note originally add_spell_to_player()
- */
-static AddPowerToPlayerFn g_add_power_to_player_fn = NULL;
-static RemovePowerFromPlayerFn g_remove_power_from_player_fn = NULL;
-
-void set_power_grant_revoke_callbacks(AddPowerToPlayerFn add_fn, RemovePowerFromPlayerFn remove_fn)
-{
-    g_add_power_to_player_fn = add_fn;
-    g_remove_power_from_player_fn = remove_fn;
-}
-
-/**
  * Zeroes all the costs for all spells.
  */
 TbBool make_all_powers_cost_free(void)
@@ -1396,122 +1371,6 @@ TbBool make_all_powers_cost_free(void)
             powerst->cost[n] = 0;
   }
   return true;
-}
-
-/**
- * Makes all keeper spells to be available to research.
- */
-TbBool make_all_powers_researchable(PlayerNumber plyr_idx)
-{
-    dungeon_availability->set_all_magic_resrchable_unchecked(plyr_idx);
-    return true;
-}
-
-/**
- * Sets power availability state.
- */
-TbBool set_power_available(PlayerNumber plyr_idx, PowerKind pwkind, int64_t resrch, int64_t avail)
-{
-    SYNCDBG(8,"Starting for power %" PRId64 ", player %" PRId64 ", state %" PRId64 ",%" PRId64,(int64_t)pwkind,(int64_t)plyr_idx,(int64_t)(resrch),(int64_t)(avail));
-    // note that we can't get_players_num_dungeon() because players
-    // may be uninitialized yet when this is called.
-    if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot set power availability; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-        return false;
-    }
-    dungeon_availability->set_magic_resrchable(plyr_idx, pwkind, resrch);
-    if (avail <= 0)
-    {
-        if (is_power_available(plyr_idx, pwkind) && (g_remove_power_from_player_fn != NULL))
-        {
-            g_remove_power_from_player_fn(pwkind, plyr_idx);
-        }
-        return true;
-    }
-    if (is_power_available(plyr_idx, pwkind))
-    {
-        return true;
-    }
-    return (g_add_power_to_player_fn != NULL) && g_add_power_to_player_fn(pwkind, plyr_idx);
-}
-
-/**
- * Returns if the power can be used by a player.
- * Checks only if it's available and if the player is 'alive'.
- * Doesn't check if the player has enough money or map position is on correct spot.
- */
-TbBool is_power_available(PlayerNumber plyr_idx, PowerKind pwkind)
-{
-    // Check if the player even have a dungeon
-    if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-        return false;
-    }
-    //TODO POWERS Mapping child powers to their parent - remove that when magic_level array is enlarged
-    {
-        const struct PowerConfigStats* powerst = get_power_model_stats(pwkind);
-        if (powerst->parent_power != 0)
-            pwkind = powerst->parent_power;
-    }
-    // Player must have dungeon heart to cast spells, with no heart only floating spirit spell works
-    if (!config_reload_callbacks->player_has_heart(plyr_idx) && (pwkind != PwrK_POSSESS)) {
-        return false;
-    }
-    if (pwkind >= kfx_config_state.conf.magic_conf.power_types_count)
-    {
-        ERRORLOG("Incorrect power %" PRIu64 " (player %" PRId64 ")", (uint64_t)(pwkind), (int64_t)(plyr_idx));
-        return false;
-    }
-    if (dungeon_availability->get_magic_level_gt0(plyr_idx, pwkind)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the power can be or already is obtained by a player.
- */
-TbBool is_power_obtainable(PlayerNumber plyr_idx, PowerKind pwkind)
-{
-    // Check if the player even have a dungeon
-    if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-        return false;
-    }
-    //TODO POWERS Mapping child powers to their parent - remove that when magic_level array is enlarged
-    {
-        const struct PowerConfigStats* powerst = get_power_model_stats(pwkind);
-        if (powerst->parent_power != 0)
-            pwkind = powerst->parent_power;
-    }
-    // Player must have dungeon heart to cast spells, with no heart only floating spirit spell works
-    if (!config_reload_callbacks->player_has_heart(plyr_idx) && (pwkind != PwrK_POSSESS)) {
-        return false;
-    }
-    if (pwkind >= kfx_config_state.conf.magic_conf.power_types_count) {
-        ERRORLOG("Incorrect power %" PRIu64 " (player %" PRId64 ")",(uint64_t)(pwkind), (int64_t)(plyr_idx));
-        return false;
-    }
-    return dungeon_availability->get_magic_level_gt0(plyr_idx, pwkind) || dungeon_availability->get_magic_resrchable(plyr_idx, pwkind);
-}
-
-/**
- * Makes all the powers, which are researchable, to be instantly available.
- */
-TbBool make_available_all_researchable_powers(PlayerNumber plyr_idx)
-{
-  SYNCDBG(0,"Starting");
-  TbBool ret = true;
-  if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-      ERRORDBG(11,"Cannot make research available; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-      return false;
-  }
-  for (int64_t i = 0; i < kfx_config_state.conf.magic_conf.power_types_count; i++)
-  {
-    if (dungeon_availability->get_magic_resrchable(plyr_idx, i) && (g_add_power_to_player_fn != NULL))
-    {
-      ret &= g_add_power_to_player_fn(i, plyr_idx);
-    }
-  }
-  return ret;
 }
 
 /******************************************************************************/

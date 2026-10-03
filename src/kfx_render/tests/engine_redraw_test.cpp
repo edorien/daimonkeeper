@@ -2,7 +2,7 @@
 // user's request to focus coverage around scripts/check_layering_symbols.py's
 // ACCEPTED (architecture.md §8.2) kfx_render -> kfx_net residual:
 // get_packet(player->user_id), called here as the fallback when
-// sim_feedback->get_history_packet() (default no-op) returns NULL --
+// netport_get_history_packet() (default no-op) returns NULL --
 // which it always does without a fake, so this function's real behavior
 // is only reachable through the get_packet accepted-residual call,
 // every time, by default.
@@ -13,8 +13,8 @@
 // below. With a real allocated light, the valid/invalid branches
 // (driven by pckt->control_flags & PCtr_MapCoordsValid, read straight
 // from the packet the residual stub returns) call light_turn_light_on/
-// _off, observable directly via lish.lights[idx].flags -- same array
-// light_data_test.cpp already exercises.
+// _off, observable directly via kfx_sim_state.light_registry.lights[idx].flags -- same array
+// light_registry_test.cpp (kfx_sim) already exercises.
 #include <catch2/catch_test_macros.hpp>
 
 #include "engine_redraw.h"
@@ -55,13 +55,13 @@ TEST_CASE_METHOD(ResetRedrawState, "update_mouse_light turns the cursor light on
     pckt->pos_x = 2560; // 10 subtiles * COORD_PER_STL(256)
     pckt->pos_y = 5120; // 20 subtiles
 
-    CHECK_FALSE(lish.lights[lgt->index].flags & LgtF_CanTurnOff); // off before
+    CHECK_FALSE(kfx_sim_state.light_registry.lights[lgt->index].flags & LgtF_CanTurnOff); // off before
 
     update_mouse_light(0);
 
-    CHECK((lish.lights[lgt->index].flags & LgtF_CanTurnOff) != 0); // light_turn_light_on ran
-    CHECK(lish.lights[lgt->index].mappos.x.val == 2560);
-    CHECK(lish.lights[lgt->index].mappos.y.val == 5120);
+    CHECK((kfx_sim_state.light_registry.lights[lgt->index].flags & LgtF_CanTurnOff) != 0); // light_turn_light_on ran
+    CHECK(kfx_sim_state.light_registry.lights[lgt->index].mappos.x.val == 2560);
+    CHECK(kfx_sim_state.light_registry.lights[lgt->index].mappos.y.val == 5120);
 }
 
 TEST_CASE_METHOD(ResetRedrawState, "update_mouse_light leaves the cursor light off when the packet reports invalid map coords", "[kfx_render][engine_redraw]") {
@@ -78,5 +78,5 @@ TEST_CASE_METHOD(ResetRedrawState, "update_mouse_light leaves the cursor light o
     // set (a freshly allocated light never has it) -- so the observable
     // contract here is simply "still off", the same state as before the
     // call, confirming the invalid branch never reaches light_turn_light_on.
-    CHECK_FALSE(lish.lights[lgt->index].flags & LgtF_CanTurnOff);
+    CHECK_FALSE(kfx_sim_state.light_registry.lights[lgt->index].flags & LgtF_CanTurnOff);
 }

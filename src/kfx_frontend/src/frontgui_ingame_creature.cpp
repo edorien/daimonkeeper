@@ -19,7 +19,7 @@
 #include "config_creature.h"           // get_players_special_digger_model, breed_activities, CREATURE_ANY
 #include "creature_graphics.h"         // get_creature_model_graphics, CGI_HandSymbol/CGI_QuerySymbol
 #include "creature_states.h"           // state_type_to_gui_state, STATE_TYPES_COUNT
-#include "thing_creature.h"            // pick_up_creature_of_model_and_gui_job, go_to_next_creature_of_model_and_gui_job
+#include "thing_creature.h"            // pick_up_creature_of_model_and_gui_job
 #include "kfx_frontend_state.h"        // no_of_breeds_owned, top_of_breed_list
 #include "creature_states_rsrch.h"     // get_players_current_research_val
 #include "room_workshop.h"             // manufacture_points_required
@@ -31,6 +31,8 @@
 #include "kfx_config_state.h"          // conf.crtr_conf.model_count, conf.rules[...].gameplay.pay_day_gap
 #include "kfx_sim_state.h"             // creatures_tend_imprison / _flee
 #include "frontgui_ingame_icon_overrides.h" // FeIconOverride* -- docs/refactor/ingame-gui/12-png-icon-overrides.md
+#include "player_availability.h"
+#include "local_camera.h"
 
 #include "post_inc.h"
 

@@ -1411,7 +1411,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
     if (strcasecmp("claim_seat", action) == 0)
     {
         // Interim, until the Skirmish Slots & AI page can choose an External controller (milestone M5): make
-        // an existing computer-controlled or unclaimed slot an External seat.
+        // an existing computer-controlled or unclaimed slot, or the local human's own (M10), an External seat.
         VALUE *pv = value_dict_get(value, "player");
         PlayerNumber claim_id = -1;
         if (value_type(pv) == VALUE_INT32) claim_id = (PlayerNumber)value_int32(pv);
@@ -1511,7 +1511,22 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         int64_t want = (value_type(lv) == VALUE_INT32) ? value_int32(lv) : 100;
         if (want < 1) want = 1;
         if (want > 500) want = 500;
+        // The Debug log levels buffer their writes (docs/refactor-pass2/stage-02-logging-option.md).
+        LbLogFlush();
+        // Reported with every reply, so an agent can tell why a tail is short or empty.
+        const char *log_level_name = get_conf_parameter_text(log_level_type, get_log_level() + 1);
         FILE *f = fopen(log_file_name, "rb");
+        if ((f == NULL) && (get_log_level() == LogLvl_Off))
+        {
+            // Logging is off, so there is no file: an empty tail, not an error.
+            VALUE data_real; VALUE *data = &data_real;
+            value_init_dict(data);
+            value_init_array(value_dict_add(data, "lines"));
+            value_init_string(value_dict_add(data, "log_level"), (char *)log_level_name);
+            api_return_data(true, data_real, ack_id);
+            value_fini(&json_data);
+            return;
+        }
         if (f == NULL) { api_err("LOG_UNAVAILABLE", ack_id); value_fini(&json_data); return; }
         fseek(f, 0, SEEK_END);
         const int64_t size = (int64_t)ftell(f);
@@ -1529,6 +1544,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         value_init_array(arr);
         api_log_tail_lines(buf, got, /*is_whole_buffer=*/(start == 0), want, arr);
         free(buf);
+        value_init_string(value_dict_add(data, "log_level"), (char *)log_level_name);
         api_return_data(true, data_real, ack_id);
         value_fini(&json_data);
         return;

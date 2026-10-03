@@ -47,11 +47,13 @@
 #include "tasks_list.h"
 #include "config_magic.h"
 #include "config_terrain.h"
-#include "sim_feedback.h"
 #include "player_instances.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "packet_data.h"
+#include "config_funcnames.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -75,24 +77,7 @@ int64_t instf_reinforce(struct Thing *creatng, int64_t *param);
 int64_t instf_tortured(struct Thing *creatng, int64_t *param);
 int64_t instf_tunnel(struct Thing *creatng, int64_t *param);
 
-const struct NamedCommand creature_instances_func_type[] = {
-  {"attack_room_slab",         1},
-  {"creature_cast_spell",      2},
-  {"creature_fire_shot",       3},
-  {"creature_damage_wall",     4},
-  {"creature_destroy",         5},
-  {"creature_dig",             6},
-  {"creature_eat",             7},
-  {"creature_fart",            8},
-  {"first_person_do_imp_task", 9},
-  {"creature_pretty_path",     10},
-  {"creature_reinforce",       11},
-  {"creature_tortured",        12},
-  {"creature_tunnel",          13},
-  {"none",                     14},
-  {NULL,                       0},
-};
-
+// Indexed by the values in creature_instances_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Instf_Func creature_instances_func_list[] = {
   NULL,
   instf_attack_room_slab,
@@ -111,24 +96,10 @@ Creature_Instf_Func creature_instances_func_list[] = {
   NULL,
   NULL,
 };
+_Static_assert(sizeof(creature_instances_func_list) / sizeof(creature_instances_func_list[0]) >= CREATURE_INSTANCES_FUNC_TYPE_SLOTS,
+    "creature_instances_func_list must have a slot for every index in creature_instances_func_type[] (config_funcnames.c)");
 
-const struct NamedCommand creature_instances_validate_func_type[] = {
-    {"validate_source_generic",                                 1},
-    {"validate_source_even_in_prison",                          2},
-    {"validate_target_generic",                                 3},
-    {"validate_target_even_in_prison",                          4},
-    {"validate_target_benefits_from_missile_defense",           5},
-    {"validate_target_benefits_from_defensive",                 6},
-    {"validate_target_benefits_from_healing",                   7},
-    {"validate_target_benefits_from_higher_altitude",           8},
-    {"validate_target_benefits_from_offensive",                 9},
-    {"validate_target_benefits_from_wind",                      10},
-    {"validate_target_non_idle",                                11},
-    {"validate_target_takes_gas_damage",                        12},
-    {"validate_target_requires_cleansing",                      13},
-    {NULL, 0},
-};
-
+// Indexed by the values in creature_instances_validate_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Validate_Func creature_instances_validate_func_list[] = {
     NULL,
     validate_source_generic,
@@ -146,19 +117,18 @@ Creature_Validate_Func creature_instances_validate_func_list[] = {
     validate_target_requires_cleansing,
     NULL,
 };
+_Static_assert(sizeof(creature_instances_validate_func_list) / sizeof(creature_instances_validate_func_list[0]) >= CREATURE_INSTANCES_VALIDATE_FUNC_TYPE_SLOTS,
+    "creature_instances_validate_func_list must have a slot for every index in creature_instances_validate_func_type[] (config_funcnames.c)");
 
-const struct NamedCommand creature_instances_search_targets_func_type[] = {
-    {"search_target_generic",        1},
-    {"search_target_ranged_heal",    2},
-    {NULL,                           0},
-};
-
+// Indexed by the values in creature_instances_search_targets_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
 Creature_Target_Search_Func creature_instances_search_targets_func_list[] = {
     NULL,
     search_target_generic,
     search_target_ranged_heal,
     NULL,
 };
+_Static_assert(sizeof(creature_instances_search_targets_func_list) / sizeof(creature_instances_search_targets_func_list[0]) >= CREATURE_INSTANCES_SEARCH_TARGETS_FUNC_TYPE_SLOTS,
+    "creature_instances_search_targets_func_list must have a slot for every index in creature_instances_search_targets_func_type[] (config_funcnames.c)");
 /******************************************************************************/
 #ifdef __cplusplus
 }
@@ -651,7 +621,7 @@ int64_t instf_dig(struct Thing *creatng, int64_t *param)
         if (!slab_kind_is_indestructible(slb->kind))
             slb->health -= dig_damage;
         struct ShotConfigStats* shotst = get_shot_model_stats(ShM_Dig);
-        sim_feedback->thing_play_sample(creatng, shotst->dig.sndsample_idx + SOUND_RANDOM(shotst->dig.sndsample_range), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, shotst->dig.sndsample_idx + SOUND_RANDOM(shotst->dig.sndsample_range), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         create_effect(&creatng->mappos, shotst->dig.effect_model, creatng->owner);
         if (taskkind == SDDigTask_MineGold)
         {
@@ -677,7 +647,7 @@ int64_t instf_dig(struct Thing *creatng, int64_t *param)
                 subtile_coord_center(stl_x), subtile_coord_center(stl_y),
                 EvKind_AreaDiscovered, creatng->owner, 0);
             if ((evidx > 0) && is_my_player_number(creatng->owner))
-                sim_feedback->play_sound_message(SMsg_DugIntoNewArea, 0);
+                audio_output_message(SMsg_DugIntoNewArea, 0);
         }
     } else
     if (taskkind == SDDigTask_DigEarth)
@@ -690,11 +660,11 @@ int64_t instf_dig(struct Thing *creatng, int64_t *param)
                 subtile_coord_center(stl_x), subtile_coord_center(stl_y),
                 EvKind_AreaDiscovered, creatng->owner, 0);
             if ((evidx > 0) && is_my_player_number(creatng->owner))
-                sim_feedback->play_sound_message(SMsg_DugIntoNewArea, 0);
+                audio_output_message(SMsg_DugIntoNewArea, 0);
         }
     }
     check_map_explored(creatng, stl_x, stl_y);
-    sim_feedback->thing_play_sample(creatng, snd_dig_impact + SOUND_RANDOM(snd_dig_impact_count), NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_dig_impact + SOUND_RANDOM(snd_dig_impact_count), NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
     return 1;
 }
 
@@ -720,7 +690,7 @@ int64_t instf_destroy(struct Thing *creatng, int64_t *param)
             {
                 volume = FULL_LOUDNESS;
             }
-            sim_feedback->thing_play_sample(creatng, snd_foot_spur + SOUND_RANDOM(2), 200, 0, 3, 0, 2, volume);
+            audio_thing_play_sample(creatng, snd_foot_spur + SOUND_RANDOM(2), 200, 0, 3, 0, 2, volume);
             return 0;
         }
         clear_dig_on_room_slabs(room, creatng->owner);
@@ -735,7 +705,7 @@ int64_t instf_destroy(struct Thing *creatng, int64_t *param)
             event_create_event_or_update_nearby_existing_event(ccor_x, ccor_y, EvKind_RoomLost, room->owner, room->kind);
             claim_enemy_room(room, creatng);
         }
-        sim_feedback->thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         create_effects_on_room_slabs(room, imp_spangle_effects[get_player_color_idx(creatng->owner)], 0, creatng->owner);
         return 0;
     }
@@ -746,7 +716,7 @@ int64_t instf_destroy(struct Thing *creatng, int64_t *param)
         {
             volume = FULL_LOUDNESS;
         }
-        sim_feedback->thing_play_sample(creatng, snd_strike_wall + SOUND_RANDOM(snd_strike_wall_count), 200, 0, 3, 0, 2, volume);
+        audio_thing_play_sample(creatng, snd_strike_wall + SOUND_RANDOM(snd_strike_wall_count), 200, 0, 3, 0, 2, volume);
         return 0;
     }
     if (prev_owner != kfx_config_state.neutral_player_num) {
@@ -757,7 +727,7 @@ int64_t instf_destroy(struct Thing *creatng, int64_t *param)
     {
         volume = FULL_LOUDNESS;
     }
-    sim_feedback->thing_play_sample(creatng, 128 + SOUND_RANDOM(3), 200, 0, 3, 0, 2, volume);
+    audio_thing_play_sample(creatng, 128 + SOUND_RANDOM(3), 200, 0, 3, 0, 2, volume);
     decrease_dungeon_area(prev_owner, 1);
     neutralise_enemy_block(creatng->mappos.x.stl.num, creatng->mappos.y.stl.num, creatng->owner);
     remove_traps_around_subtile(slab_subtile_center(slb_x), slab_subtile_center(slb_y), NULL);
@@ -786,7 +756,7 @@ int64_t instf_attack_room_slab(struct Thing *creatng, int64_t *param)
     {
         //TODO CONFIG damage made to room slabs is constant - doesn't look good
         slb->health -= 2;
-        sim_feedback->thing_play_sample(creatng, snd_strike_wall + SOUND_RANDOM(snd_strike_wall_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, snd_strike_wall + SOUND_RANDOM(snd_strike_wall_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         return 1;
     }
     if (room->owner != kfx_config_state.neutral_player_num)
@@ -805,7 +775,7 @@ int64_t instf_attack_room_slab(struct Thing *creatng, int64_t *param)
         return 0;
     }
     create_effect(&creatng->mappos, TngEff_Explosion3, creatng->owner);
-    sim_feedback->thing_play_sample(creatng, snd_explode, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_explode, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     if (z > 0)
     {
         for (int64_t k = 0; k < AROUND_TILES_COUNT; k++)
@@ -840,9 +810,9 @@ int64_t instf_damage_wall(struct Thing *creatng, int64_t *param)
         place_slab_type_on_map(SlbT_EARTH, stl_x, stl_y, creatng->owner, 0);
         do_slab_efficiency_alteration(slb_x, slb_y);
         create_dirt_rubble_for_dug_slab(slb_x, slb_y);
-        sim_feedback->thing_play_sample(creatng, snd_dig_dirt, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, snd_dig_dirt, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     }
-    sim_feedback->thing_play_sample(creatng, snd_dig_spell + SOUND_RANDOM(snd_dig_spell_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_dig_spell + SOUND_RANDOM(snd_dig_spell_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     return 1;
 }
 
@@ -952,21 +922,21 @@ int64_t instf_first_person_do_imp_task(struct Thing *creatng, int64_t *param)
                             EvKind_RoomUnderAttack, room->owner, 0);
                         if (is_my_player_number(room->owner))
                         {
-                            sim_feedback->play_sound_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
+                            audio_output_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
                         }
                         if (kfx_sim_state.active_messages_count > 0)
                         {
-                            sim_feedback->clear_messages_from_player(MsgType_Room, room->kind);
+                            ui_clear_messages_from_player(MsgType_Room, room->kind);
                         }
                         char room_health_msg[32];
                         snprintf(room_health_msg, sizeof(room_health_msg), "%" PRId64 "/%" PRId64, (int64_t)room->health, (int64_t)compute_room_max_health(room->slabs_count, room->efficiency));
-                        sim_feedback->targeted_message_add(MsgType_Room, room->kind, player->id_number, 50, room_health_msg);
+                        ui_targeted_message_add(MsgType_Room, room->kind, player->id_number, 50, room_health_msg);
                     }
                     else
                     {
                         if (kfx_sim_state.active_messages_count > 0)
                         {
-                            sim_feedback->clear_messages_from_player(MsgType_Room, room->kind);
+                            ui_clear_messages_from_player(MsgType_Room, room->kind);
                         }
                     }
                 }
@@ -1040,7 +1010,7 @@ int64_t instf_pretty_path(struct Thing *creatng, int64_t *param)
     MapSlabCoord slb_x = subtile_slab(creatng->mappos.x.stl.num);
     MapSlabCoord slb_y = subtile_slab(creatng->mappos.y.stl.num);
     create_effect(&creatng->mappos, imp_spangle_effects[get_player_color_idx(creatng->owner)], creatng->owner);
-    sim_feedback->thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     place_slab_type_on_map(SlbT_CLAIMED, slab_subtile_center(slb_x), slab_subtile_center(slb_y), creatng->owner, 1);
     do_unprettying(creatng->owner, slb_x, slb_y);
     do_slab_efficiency_alteration(slb_x, slb_y);
@@ -1073,7 +1043,7 @@ int64_t instf_reinforce(struct Thing *creatng, int64_t *param)
             {
                 volume = FULL_LOUDNESS;
             }
-            sim_feedback->thing_play_sample(creatng, snd_reinforce_hit + SOUND_RANDOM(snd_reinforce_hit_count), NORMAL_PITCH, 0, 3, 0, 2, volume);
+            audio_thing_play_sample(creatng, snd_reinforce_hit + SOUND_RANDOM(snd_reinforce_hit_count), NORMAL_PITCH, 0, 3, 0, 2, volume);
         }
         return 0;
     }
@@ -1091,7 +1061,7 @@ int64_t instf_reinforce(struct Thing *creatng, int64_t *param)
             create_effect(&pos, imp_spangle_effects[get_player_color_idx(creatng->owner)], creatng->owner);
         }
     }
-    sim_feedback->thing_play_sample(creatng, snd_spell_wall, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_spell_wall, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
     return 0;
 }
 
@@ -1112,7 +1082,7 @@ int64_t instf_tunnel(struct Thing *creatng, int64_t *param)
     if (slabmap_block_invalid(slb)) {
         return 0;
     }
-    sim_feedback->thing_play_sample(creatng, snd_tunnel_dig + SOUND_RANDOM(snd_tunnel_dig_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_tunnel_dig + SOUND_RANDOM(snd_tunnel_dig_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         if (slb->health > 1) {
         slb->health--;
         } else {

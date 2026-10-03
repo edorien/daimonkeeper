@@ -27,6 +27,7 @@
 #include "kfx_sim_state.h"             // chosen_room_kind / _spridx / _tooltip, manufactr_*, chosen_spell_type
 #include "config_keeperfx.h"           // keeperfx_ui_config.hud_position -- GUI_POSITION
 #include "frontgui_ingame_icon_overrides.h" // FeIconOverrideActiveInactive -- docs/refactor/ingame-gui/12-png-icon-overrides.md
+#include "player_availability.h"
 
 #include "post_inc.h"
 

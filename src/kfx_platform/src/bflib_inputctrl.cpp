@@ -19,6 +19,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "port_check.h"
 #include <math.h>
 #include <map>
 #include "bflib_inputctrl.h"
@@ -31,8 +32,11 @@
 #include "bflib_planar.h"
 #include "bflib_sndlib.h"
 #include "bflib_mshandler.hpp"
-#include "renderer/RendererManager.h" // renderer_imgui_callbacks
+#include "renderer/RendererManager.h"
 #include <SDL3/SDL.h>
+#include "ports/sound_host_port.h"
+#include "ports/input_focus_port.h"
+#include "ports/display_host_port.h"
 #include "post_inc.h"
 
 using namespace std;
@@ -57,20 +61,6 @@ std::map<int64_t, TbKeyCode> keymap_sdl_to_bf;
 //defined here instead of bflib_joyst.h to avoid making header depend on SDL
 void JEvent(const SDL_Event *ev);
 
-// See set_input_focus_predicates() and docs/refactor/stage-02-decouple-bflib.md.
-namespace {
-    TbBool no_focus_predicate(void) { return false; }
-    const InputFocusPredicates default_focus_predicates = {
-        &no_focus_predicate, &no_focus_predicate, &no_focus_predicate, &no_focus_predicate,
-        &no_focus_predicate, &no_focus_predicate, &no_focus_predicate, &no_focus_predicate
-    };
-    const InputFocusPredicates *focus_predicates = &default_focus_predicates;
-}
-
-void set_input_focus_predicates(const InputFocusPredicates *predicates)
-{
-    focus_predicates = predicates ? predicates : &default_focus_predicates;
-}
 /******************************************************************************/
 
 /**
@@ -288,7 +278,7 @@ static TbKeyMods keyboard_mods_mapping(const SDL_KeyboardEvent * key)
 
 TbBool LbIsFrozenOrPaused(void)
 {
-    return ((focus_predicates->freeze_game_on_focus_lost() && !LbIsActive()) || focus_predicates->is_game_paused());
+    return ((focus_freeze_game_on_focus_lost() && !LbIsActive()) || focus_is_game_paused());
 }
 
 static TbKeyCode mousebutton_to_keycode(const Uint8 *button)
@@ -441,13 +431,13 @@ static void process_event(const SDL_Event *ev)
         isMouseActive = true;
         isMouseActivated = true;
         LbGrabMouseCheck(MG_OnFocusGained);
-        if (focus_predicates->freeze_game_on_focus_lost() && !LbIsFrozenOrPaused())
+        if (focus_freeze_game_on_focus_lost() && !LbIsFrozenOrPaused())
         {
             resume_music();
         }
-        if (focus_predicates->mute_audio_on_focus_lost() && !LbIsFrozenOrPaused())
+        if (focus_mute_audio_on_focus_lost() && !LbIsFrozenOrPaused())
         {
-            sound_state_callbacks->mute_audio(false);
+            soundhost_mute_audio(false);
         }
         redetect_screen_refresh_rate_for_draw();
         break;
@@ -458,13 +448,13 @@ static void process_event(const SDL_Event *ev)
         isMouseActive = false;
         isMouseActivated = false;
         LbGrabMouseCheck(MG_OnFocusLost);
-        if (focus_predicates->freeze_game_on_focus_lost())
+        if (focus_freeze_game_on_focus_lost())
         {
             pause_music();
         }
-        if (focus_predicates->mute_audio_on_focus_lost())
+        if (focus_mute_audio_on_focus_lost())
         {
-            sound_state_callbacks->mute_audio(true);
+            soundhost_mute_audio(true);
         }
         break;
     }
@@ -540,8 +530,8 @@ TbBool LbPollInputs(void)
         // ImGui the game's own tracked position instead, once per frame,
         // so forwarding these here would just fight that override with
         // stale/warped values.
-        if (renderer_imgui_callbacks->is_active() && ev.type != SDL_EVENT_MOUSE_MOTION)
-            renderer_imgui_callbacks->process_event(&ev);
+        if (display_imgui_is_active() && ev.type != SDL_EVENT_MOUSE_MOTION)
+            display_imgui_process_event(&ev);
         process_event(&ev);
     }
 
@@ -616,7 +606,7 @@ void LbSetMouseGrab(TbBool grab_mouse)
         return;
     TbBool previousGrabState = lbMouseGrabbed;
     lbMouseGrabbed = grab_mouse;
-    ws->SetUseRelativeMouse(focus_predicates->use_relative_mouse_mode());
+    ws->SetUseRelativeMouse(focus_use_relative_mouse_mode());
     if (lbMouseGrabbed)
     {
         LbMouseCheckPosition((previousGrabState != lbMouseGrabbed));
@@ -674,36 +664,36 @@ void LbGrabMouseInit(void)
 
 void LbGrabMouseCheck(int64_t grab_event)
 {
-    TbBool paused = focus_predicates->is_game_paused();
-    TbBool possession_mode = focus_predicates->is_possession_mode_active();
+    TbBool paused = focus_is_game_paused();
+    TbBool possession_mode = focus_is_possession_mode_active();
     TbBool grab_cursor = lbMouseGrabbed;
     // ASSUMPTION: SDL3 auto-suspends/resumes relative mode on focus; grab is driven
     // by game intent only, never forced off by focus loss.
     {
-        if (!focus_predicates->is_packet_load_enabled())
+        if (!focus_is_packet_load_enabled())
         {
             switch (grab_event)
             {
             case MG_OnPauseEnter:
-                if (focus_predicates->unlock_cursor_when_game_paused() && lbMouseGrabbed)
+                if (focus_unlock_cursor_when_game_paused() && lbMouseGrabbed)
                 {
                     grab_cursor = false;
                 }
                 break;
             case MG_OnPauseLeave:
-                if ((focus_predicates->unlock_cursor_when_game_paused() && lbMouseGrab) || (!lbMouseGrab && focus_predicates->lock_cursor_in_possession() && possession_mode && focus_predicates->unlock_cursor_when_game_paused()))
+                if ((focus_unlock_cursor_when_game_paused() && lbMouseGrab) || (!lbMouseGrab && focus_lock_cursor_in_possession() && possession_mode && focus_unlock_cursor_when_game_paused()))
                 {
                     grab_cursor = true;
                 }
                 break;
             case MG_OnPossessionEnter:
-                if (focus_predicates->lock_cursor_in_possession() && !lbMouseGrabbed)
+                if (focus_lock_cursor_in_possession() && !lbMouseGrabbed)
                 {
                     grab_cursor = true;
                 }
                 break;
             case MG_OnPossessionLeave:
-                if (focus_predicates->lock_cursor_in_possession() && !lbMouseGrab)
+                if (focus_lock_cursor_in_possession() && !lbMouseGrab)
                 {
                     grab_cursor = false;
                 }
@@ -713,11 +703,11 @@ void LbGrabMouseCheck(int64_t grab_event)
                 break;
             case MG_OnFocusGained:
                 grab_cursor = lbMouseGrab;
-                if (paused && focus_predicates->unlock_cursor_when_game_paused())
+                if (paused && focus_unlock_cursor_when_game_paused())
                 {
                     grab_cursor = false;
                 }
-                if (!paused && possession_mode && focus_predicates->lock_cursor_in_possession() && !lbMouseGrab)
+                if (!paused && possession_mode && focus_lock_cursor_in_possession() && !lbMouseGrab)
                 {
                     grab_cursor = true;
                 }

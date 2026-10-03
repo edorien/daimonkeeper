@@ -78,7 +78,6 @@
 #include "local_camera.h"
 #include "packets.h"
 #include "console_cmd.h"
-#include "editor_callbacks.h"
 #include "engine_redraw.h"
 #include "frontgui_ingame_panel.h" // ingame_panel_minimap_screen_pos -- GUI_POSITION minimap hit-test
 
@@ -89,6 +88,13 @@
 #include "kfx_game_state.h"
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
+#include "front_input_roomspace.h"
+#include "game_replay.h"
+#include "game_commands.h"
+#include "ports/editor_port.h"
+#include "local_state.h"
+#include "local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -102,7 +108,7 @@ int64_t const zoom_key_room_order[] =
      RoK_SCAVENGER, RoK_TEMPLE, RoK_GRAVEYARD, RoK_BARRACKS,
      RoK_GARDEN, RoK_GUARDPOST, RoK_BRIDGE, RoK_ENTRANCE, RoK_NONE,};
 
-// Registered with sim_feedback.h's SimFeedbackCallbacks; thing_creature.c
+// Tabled in UiPort; thing_creature.c
 // indexes this array while resolving a player's teleport destination.
 int64_t get_zoom_key_room_order(int64_t idx)
 {
@@ -141,6 +147,7 @@ static void get_creature_control_nonaction_inputs(void);
 static int64_t zoom_shortcuts(void);
 static int64_t get_bookmark_inputs(void);
 static void process_cheat_mode_selection_inputs(void);
+static void set_packet_modifier_keys(struct Packet *pckt);
 // docs/refactor/editor/10-definable-keybindings.md -- forward-declared here
 // (defined further down, alongside is_editor_key_pressed()) since
 // get_movement_inputs() above their definition needs
@@ -431,7 +438,7 @@ static double get_editor_key_axis_value(int64_t key_id, TbBool ignore_mods)
 // docs/refactor/editor/10-definable-keybindings.md -- single dispatch point
 // for "read this camera/console key from whichever table applies right
 // now": settings.editor_kbkeys[]/EditorGameKeys while an editor session is
-// active (editor_callbacks->is_active(), the one inbound edge into
+// active (editorport_is_active(), the one inbound edge into
 // kfx_editor this file needs -- kfx_editor is ranked above kfx_frontend,
 // so it can't be called directly), settings.kbkeys[]/GameKeys otherwise.
 // Centralised here rather than inlined at each of
@@ -440,14 +447,14 @@ static double get_editor_key_axis_value(int64_t key_id, TbBool ignore_mods)
 // copies.
 static int64_t is_dual_context_key_pressed(int64_t game_key_id, int64_t editor_key_id, TbBool clear_pressed, TbBool ignore_mods)
 {
-    if (editor_callbacks->is_active())
+    if (editorport_is_active())
         return is_editor_key_pressed(editor_key_id, clear_pressed, ignore_mods);
     return is_game_key_pressed(game_key_id, clear_pressed, ignore_mods);
 }
 
 static double get_dual_context_key_axis_value(int64_t game_key_id, int64_t editor_key_id, TbBool ignore_mods)
 {
-    if (editor_callbacks->is_active())
+    if (editorport_is_active())
         return get_editor_key_axis_value(editor_key_id, ignore_mods);
     return get_game_key_axis_value(game_key_id, ignore_mods);
 }
@@ -1562,7 +1569,7 @@ static TbBool get_dungeon_control_action_inputs(void)
     // have a meaningful answer for). Skipped outright rather than
     // duplicated into EditorGameKeys, unlike the camera/console keys above
     // -- there's no editor-side action to bind these to.
-    if (!editor_callbacks->is_active())
+    if (!editorport_is_active())
     {
         // Zooming cannot be done paused because it's a player instance.
         if (is_game_key_pressed(Gkey_ZoomToFight, true, false))
@@ -3070,7 +3077,7 @@ static TbBool active_menu_functions_while_paused(void)
  */
 static int64_t get_inputs(void)
 {
-    move_camera_this_turn = kfx_net_state.frame_skip == 0 || kfx_game_state.play_gameturn % kfx_net_state.frame_skip == 0;
+    move_camera_this_turn = kfx_net_state.frame_skip == 0 || kfx_sim_state.play_gameturn % kfx_net_state.frame_skip == 0;
 
     if ((kfx_sim_state.mode_flags & MFlg_IsDemoMode) != 0)
     {
@@ -3080,7 +3087,7 @@ static int64_t get_inputs(void)
         get_packet_load_demo_inputs();
         return false;
     }
-    if (kfx_net_state.packet_load_enable)
+    if (kfx_sim_state.replay_active)
     {
         SYNCDBG(5,"Loading packet inputs");
         return get_packet_load_game_inputs();
@@ -3220,9 +3227,10 @@ void input(void)
         pckt->additional_packet_values |= PCAdV_RotatePressed;
     else
         pckt->additional_packet_values &= ~PCAdV_RotatePressed;
+    set_packet_modifier_keys(pckt);
 
     get_inputs();
-    if ((kfx_sim_state.mode_flags & MFlg_IsDemoMode) == 0 && !kfx_net_state.packet_load_enable) {
+    if ((kfx_sim_state.mode_flags & MFlg_IsDemoMode) == 0 && !kfx_sim_state.replay_active) {
         update_local_view_prediction(pckt);
     }
 
@@ -3750,43 +3758,82 @@ static void process_cheat_mode_selection_inputs(void)
     }
 }
 
-TbBool process_cheat_heart_health_inputs(HitPoints *value, HitPoints max_health)
+/**
+ * The heart health cheat's keys, as a step for the packet (PCtr_HeartHealthMask).
+ * Was process_cheat_heart_health_inputs(), which packet application called
+ * to read the local keyboard (refactor pass 2, S12). The +1 step still only
+ * applies below the heart's maximum; the handler checks that.
+ */
+static enum PacketHeartHealthStep get_cheat_heart_health_step(void)
 {
-   HitPoints new_health = *value;
-   if ( (is_key_pressed(KC_ADD, KMod_ALT)) || (is_key_pressed(KC_EQUALS, KMod_SHIFT)) || (is_key_pressed(KC_EQUALS, KMod_NONE)) )
-   {
-        if (new_health < max_health)
+    const struct Thing *heartng = get_player_soul_container(get_local_user_state()->cheatselection.chosen_player);
+    if ( (is_key_pressed(KC_ADD, KMod_ALT)) || (is_key_pressed(KC_EQUALS, KMod_SHIFT)) || (is_key_pressed(KC_EQUALS, KMod_NONE)) )
+    {
+        // At the maximum the key is left pressed and no step sent, as before.
+        if (thing_exists(heartng) && (heartng->health < get_object_model_stats(heartng->model)->health))
         {
-            new_health++;
-            *value = new_health;
             clear_key_pressed(KC_ADD);
             clear_key_pressed(KC_EQUALS);
-            return true;
+            return PHHS_Up1;
         }
     }
     else if ( (is_key_pressed(KC_PERIOD, KMod_SHIFT)) || (is_key_pressed(KC_PERIOD, KMod_NONE)) )
     {
-        new_health += 100;
-        *value = new_health;
         clear_key_pressed(KC_PERIOD);
-        return true;
+        return PHHS_Up100;
     }
     else if ( (is_key_pressed(KC_COMMA, KMod_SHIFT)) || (is_key_pressed(KC_COMMA, KMod_NONE)) )
     {
-        new_health -= 100;
-        *value = new_health;
         clear_key_pressed(KC_COMMA);
-        return true;
+        return PHHS_Down100;
     }
     else if ( (is_key_pressed(KC_SUBTRACT, KMod_ALT)) || (is_key_pressed(KC_MINUS, KMod_NONE)) )
     {
-        new_health--;
-        *value = new_health;
         clear_key_pressed(KC_SUBTRACT);
         clear_key_pressed(KC_MINUS);
-        return true;
+        return PHHS_Down1;
     }
-    return false;
+    return PHHS_None;
+}
+
+/**
+ * Puts the keys packet application needs into the local packet (refactor
+ * pass 2, S12): the held modifiers every frame, and the cheat keys that are
+ * consumed when pressed -- the query-all cheat's Right Shift toggle and the
+ * heart health cheat's step -- only while the player is in that cheat. The
+ * consumed ones stay set until the packet is sent.
+ */
+static void set_packet_modifier_keys(struct Packet *pckt)
+{
+    struct PlayerInfo *player = get_my_player();
+    if ((player->work_state == PSt_QueryAll) || (player->work_state == PSt_CreatrInfoAll))
+    {
+        if (is_key_pressed(KC_RSHIFT, KMod_DONTCARE))
+        {
+            set_packet_control(pckt, PCtr_ToggleDetails);
+            clear_key_pressed(KC_RSHIFT);
+        }
+    }
+    if ((player->work_state == PSt_HeartHealth) && ((pckt->control_flags & PCtr_HeartHealthMask) == 0))
+    {
+        pckt->control_flags |= ((uint32_t)get_cheat_heart_health_step() << PCtr_HeartHealthShift);
+    }
+    if (is_key_pressed(KC_RALT, KMod_DONTCARE))
+        set_packet_control(pckt, PCtr_ModRAlt);
+    else
+        unset_packet_control(pckt, PCtr_ModRAlt);
+    if (is_key_pressed(KC_RSHIFT, KMod_DONTCARE))
+        set_packet_control(pckt, PCtr_ModRShift);
+    else
+        unset_packet_control(pckt, PCtr_ModRShift);
+    if (is_key_pressed(KC_LCONTROL, KMod_DONTCARE) || is_key_pressed(KC_RCONTROL, KMod_DONTCARE))
+        set_packet_control(pckt, PCtr_ModCtrl);
+    else
+        unset_packet_control(pckt, PCtr_ModCtrl);
+    if (is_key_pressed(KC_LALT, KMod_DONTCARE))
+        set_packet_control(pckt, PCtr_ModLAlt);
+    else
+        unset_packet_control(pckt, PCtr_ModLAlt);
 }
 
 void toggle_hero_health_flowers(void)

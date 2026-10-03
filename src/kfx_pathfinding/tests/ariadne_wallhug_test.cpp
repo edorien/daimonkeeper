@@ -10,12 +10,9 @@
 //   dig_to_position, get_hug_side_options,
 //   get_next_position_and_angle_required_to_tunnel_creature_to,
 //   initialise_wallhugging_path_from_to, slab_wall_hug_route.
-// slab_good_for_computer_dig_path is declared in ariadne_wallhug.h too,
-// but is actually implemented in kfx_sim/src/slab_data.c (a higher
-// layer) -- not testable here, not this library's code to cover.
 //
 // Technique: pathfinding_fake_world.h's GridWorldFixture (grid-backed
-// PathfindingWorldCallbacks fake with real, controllable backing storage
+// PathfindingWorldPort fake with real, controllable backing storage
 // for map/slab/thing state). slab_wall_hug_route and
 // get_next_position_and_angle_required_to_tunnel_creature_to internally
 // call every one of ariadne_wallhug.c's `static` helpers (hug_round,
@@ -49,10 +46,10 @@ struct WallhugFixture : GridWorldFixture {
     FakeThing thing;
     WallhugFixture() {
         thing = FakeThing{};
-        thing.pos.x.val = subtile_coord_center(10);
-        thing.pos.y.val = subtile_coord_center(10);
-        thing.pos.z.val = 0;
-        thing.clipbox_size = 0; // smallest nav radius entry
+        thing.tng.mappos.x.val = subtile_coord_center(10);
+        thing.tng.mappos.y.val = subtile_coord_center(10);
+        thing.tng.mappos.z.val = 0;
+        thing.tng.clipbox_size_xy = 0; // smallest nav radius entry
     }
     struct Thing *t() { return as_thing(thing); }
 };
@@ -90,8 +87,8 @@ TEST_CASE_METHOD(WallhugFixture, "dig_to_position accepts the very first subtile
     // once from direction_around) is accepted immediately.
     SubtlCodedCoords result = dig_to_position(0, 9, 9, 0, false);
     CHECK(result != (SubtlCodedCoords)-1);
-    MapSubtlCoord x = fake_stl_num_decode_x(result);
-    MapSubtlCoord y = fake_stl_num_decode_y(result);
+    MapSubtlCoord x = ariadne_stl_num_decode_x(result);
+    MapSubtlCoord y = ariadne_stl_num_decode_y(result);
     // direction_around=0 ({0,-1}), revside=false -> round_change=3,
     // round_idx = (0 + 4 - 3) % 4 = 1 -> small_around[1] = {1,0}.
     CHECK(x == 9 + STL_PER_SLB * 1);
@@ -113,8 +110,8 @@ TEST_CASE_METHOD(WallhugFixture, "dig_to_position with revside=true walks the op
     SubtlCodedCoords result = dig_to_position(0, 9, 9, 0, true);
     CHECK(result != (SubtlCodedCoords)-1);
     // revside=true -> round_change=1, round_idx = (0+4-1)%4 = 3 -> small_around[3] = {-1,0}.
-    MapSubtlCoord x = fake_stl_num_decode_x(result);
-    MapSubtlCoord y = fake_stl_num_decode_y(result);
+    MapSubtlCoord x = ariadne_stl_num_decode_x(result);
+    MapSubtlCoord y = ariadne_stl_num_decode_y(result);
     CHECK(x == 9 - STL_PER_SLB * 1);
     CHECK(y == 9);
 }
@@ -232,8 +229,8 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
 TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel_creature_to's WallhugRestartSetup advances to InitialWallhugSetup once close enough", "[kfx_pathfinding][ariadne_wallhug]") {
     thing.navi.navstate = NavS_WallhugRestartSetup;
     thing.navi.side = 1;
-    thing.navi.pos_next = thing.pos; // distance 0 <= 16
-    thing.move_angle = ANGLE_NORTH;
+    thing.navi.pos_next = thing.tng.mappos; // distance 0 <= 16
+    thing.tng.move_angle_xy = ANGLE_NORTH;
 
     struct Coord3d target{};
     target.x.val = subtile_coord_center(15);
@@ -248,7 +245,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
 
 TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel_creature_to's WallhugRestartSetup waits when still far from pos_next", "[kfx_pathfinding][ariadne_wallhug]") {
     thing.navi.navstate = NavS_WallhugRestartSetup;
-    thing.navi.pos_next = thing.pos;
+    thing.navi.pos_next = thing.tng.mappos;
     thing.navi.pos_next.x.val += 5000; // far away -> chessboard distance > 16
 
     struct Coord3d target{};
@@ -267,7 +264,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     // Blocking, via the fake's own get_subtile_number encoding.
     MapSubtlCoord blk_x = 15, blk_y = 10;
     grid.set_slab(subtile_slab(blk_x), subtile_slab(blk_y), SlbT_ROCK, 0, false, SlbAtFlg_Blocking);
-    thing.navi.first_colliding_block = fake_get_subtile_number(blk_x, blk_y);
+    thing.navi.first_colliding_block = ariadne_subtile_number(blk_x, blk_y);
 
     struct Coord3d target{};
     target.x.val = subtile_coord_center(15);
@@ -283,7 +280,7 @@ TEST_CASE_METHOD(WallhugFixture, "get_next_position_and_angle_required_to_tunnel
     thing.navi.navstate = NavS_WallhugAngleCorrection;
     MapSubtlCoord blk_x = 15, blk_y = 10;
     // Grid defaults to open/non-blocking -- nothing more to set up.
-    thing.navi.first_colliding_block = fake_get_subtile_number(blk_x, blk_y);
+    thing.navi.first_colliding_block = ariadne_subtile_number(blk_x, blk_y);
 
     struct Coord3d target{};
     target.x.val = subtile_coord_center(15);

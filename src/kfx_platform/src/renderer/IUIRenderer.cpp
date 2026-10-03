@@ -16,6 +16,7 @@
 #include "bflib_vidraw.h"   // the raster primitives
 #include "bflib_sprite.h"   // TbSprite
 #include "bflib_video.h"    // Lb_SPRITE_* draw flags
+#include "ports/display_host_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -92,7 +93,7 @@ void IUIRenderer::SubmitSolidBox(int64_t x, int64_t y, int64_t w, int64_t h,
 
 void IUIRenderer::SubmitSlabBackground(int64_t x, int64_t y, int64_t w, int64_t h)
 {
-    renderer_draw_callbacks->draw_slab_background_immediate(x, y, w, h);
+    display_draw_slab_background_immediate(x, y, w, h);
 }
 
 /******************************************************************************/

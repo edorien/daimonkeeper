@@ -20,8 +20,9 @@
 #define KEEPERFX_VERSION_H
 
 #ifndef BFDEBUG_LEVEL
-/* Debug level is scaled 0..10, usually defined in Makefile. */
-#define BFDEBUG_LEVEL 10
+/* No longer affects logging (that is the LOG_LEVEL option, see globals.h's
+ * *DBG macros); kept defined for code merged from upstream. */
+#define BFDEBUG_LEVEL 0
 #endif
 #ifndef DEBUG_NETWORK_PACKETS
 /* Network packets debugging. */

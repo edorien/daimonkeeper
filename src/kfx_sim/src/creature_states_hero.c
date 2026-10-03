@@ -44,10 +44,12 @@
 #include "room_list.h"
 #include "map_utils.h"
 #include "player_utils.h"
-#include "sim_feedback.h"
 #include "map_locations.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -516,7 +518,7 @@ int64_t good_arrived_at_attack_room(struct Thing *thing)
         MapCoord ev_coord_y = subtile_coord_center(room->central_stl_y);
         event_create_event_or_update_nearby_existing_event(ev_coord_x, ev_coord_y, EvKind_RoomUnderAttack, room->owner, 0);
         if (is_my_player_number(room->owner))
-          sim_feedback->play_sound_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
+          audio_output_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
         return 1;
     }
     set_start_state(thing);
@@ -546,7 +548,7 @@ int64_t good_attack_room(struct Thing *thing)
             MapCoord ev_coord_y = subtile_coord_center(room->central_stl_y);
             event_create_event_or_update_nearby_existing_event(ev_coord_x, ev_coord_y, EvKind_RoomUnderAttack, room->owner, 0);
             if (is_my_player_number(room->owner))
-                sim_feedback->play_sound_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
+                audio_output_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
         }
         return 1;
     }
@@ -1013,7 +1015,7 @@ int64_t good_drops_gold(struct Thing *thing)
     {
         ERRORLOG("Non hero %s index %" PRId64 ", owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return 0;
     }
     GoldAmount amount = kfx_config_state.conf.rules[thing->owner].gameplay.pot_of_gold_holds;
@@ -1038,7 +1040,7 @@ int64_t good_leave_through_exit_door(struct Thing *thing)
     {
         ERRORLOG("Non hero %s index %" PRId64 ", owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return false;
     }
     struct Thing* tmptng = find_object_of_genre_on_mapwho(OCtg_HeroGate, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
@@ -1070,7 +1072,7 @@ int64_t good_returns_to_start(struct Thing *thing)
     {
         ERRORLOG("Non hero %s index %" PRId64 ", owner %" PRId64 " - reset",thing_model_name(thing),(int64_t)thing->index,(int64_t)thing->owner);
         set_start_state(thing);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return 0;
     }
     struct Thing* heartng = get_player_soul_container(thing->owner);
@@ -1092,7 +1094,7 @@ int64_t good_wait_in_exit_door(struct Thing *thing)
         ERRORLOG("Non hero thing %s index %" PRId64 ", owner %" PRId64 " - reset",
             thing_model_name(thing), (int64_t)thing->index, (int64_t)thing->owner);
         set_start_state(thing);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return 0;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);

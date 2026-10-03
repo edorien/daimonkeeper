@@ -26,11 +26,11 @@
  *     (same-or-higher-ranked) consumers need any changes.
  *
  *     The packet *processing* functions (process_packets/
- *     exchange_packets/process_camera_controls/process_first_person_look/
- *     can_process_creature_input/...) stay declared in kfx_net's
- *     packets.h -- they're genuine network/simulation orchestration, not
- *     data, and several of them reach into kfx_net_state/net_callbacks
- *     directly.
+ *     exchange_packets/...) stay declared in kfx_net's packets.h --
+ *     they're genuine network/simulation orchestration, not data, and
+ *     several of them reach into kfx_net_state and the ports directly.
+ *     The camera handlers (process_camera_controls and friends) are in
+ *     kfx_sim's player_camera.h since refactor pass 2's S07.
  * @par Comment:
  *     Just a header file - #defines, typedefs, function prototypes etc.
  */
@@ -276,7 +276,7 @@ enum TbPacketAction {
         // both deferred). kfx_editor sends this in response to Ctrl+Z,
         // carrying the thing index of the most recently journaled
         // placement (actn_par1) -- the journal itself lives client-side in
-        // kfx_editor, populated via EditorJournalCallbacks::record_placement,
+        // kfx_editor, populated via EditorPort's record_placement,
         // called from every editor placement handler below right after its
         // own create_*() call succeeds.
         PckA_EditorUndo,
@@ -381,7 +381,29 @@ enum TbPacketControl {
         PCtr_Ascend         = 0x80000,
         PCtr_Descend        = 0x100000,
         PCtr_ViewZoomPos    = 0x200000,
-        PCtr_ViewRotatePos  = 0x400000
+        PCtr_ViewRotatePos  = 0x400000,
+        /* Keys held by the player when the packet was made, for the cheat,
+           editor and query handlers (refactor pass 2, S12): packet
+           application reads them here, never from the local keyboard, which
+           belongs to whoever runs the game, not to the packet's player. */
+        PCtr_ModRAlt        = 0x800000,
+        PCtr_ModRShift      = 0x1000000,
+        PCtr_ModCtrl        = 0x2000000, //!< Either Ctrl key.
+        PCtr_ModLAlt        = 0x4000000,
+        PCtr_ToggleDetails  = 0x8000000, //!< Right Shift tapped in the query-all cheat: toggle the terrain details line.
+        /* Bits 28-30: the heart health cheat's step (enum PacketHeartHealthStep). */
+};
+
+#define PCtr_HeartHealthShift 28
+#define PCtr_HeartHealthMask  (0x7u << PCtr_HeartHealthShift)
+
+/** Heart health cheat keys, as packet bits (PCtr_HeartHealthMask). */
+enum PacketHeartHealthStep {
+    PHHS_None = 0,
+    PHHS_Up1,
+    PHHS_Down1,
+    PHHS_Up100,
+    PHHS_Down100,
 };
 
 /**
@@ -509,9 +531,7 @@ unsigned char get_players_packet_action(struct PlayerInfo *player);
 void unset_packet_control(struct Packet *pckt, uint64_t flag);
 void unset_players_packet_control(struct PlayerInfo *player, uint64_t flag);
 void set_players_packet_position(struct Packet *pckt, int64_t x, int64_t y, unsigned char context);
-void set_packet_pause_toggle(void);
 TbBool packet_crtr_control_pressed(struct Packet *packet);
-void restore_users_from_packet_save(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

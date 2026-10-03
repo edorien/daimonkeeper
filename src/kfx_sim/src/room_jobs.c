@@ -34,7 +34,6 @@
 #include "config_terrain.h"
 #include "config_creature.h"
 #include "room_workshop.h"
-#include "sim_feedback.h"
 
 #include "creature_states_rsrch.h"
 #include "creature_states_train.h"
@@ -44,6 +43,8 @@
 #include "creature_states_pray.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "light_registry.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -89,7 +90,7 @@ TbBool add_creature_to_torture_room(struct Thing *creatng, const struct Room *ro
 {
     TRACE_THING(creatng);
     if (creatng->light_id != 0) {
-        sim_feedback->light_delete_light(creatng->light_id);
+        light_delete_light(creatng->light_id);
         creatng->light_id = 0;
     }
     if (creature_under_spell_effect(creatng, CSAfF_Speed))
@@ -142,7 +143,7 @@ TbBool remove_creature_from_torture_room(struct Thing *creatng)
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon) || (dungeon->tortured_creatures[creatng->model] < 1)) {
         ERRORLOG("The %s is tortured by wrong player %" PRId64,thing_model_name(creatng),(int64_t)plyr_idx);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return false;
     }
     dungeon->tortured_creatures[creatng->model]--;
@@ -251,7 +252,7 @@ TbBool remove_creature_from_work_room(struct Thing *creatng)
     if (room_is_invalid(room))
     {
         WARNLOG("Creature had invalid room index %" PRId64,(int64_t)cctrl->work_room_id);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return false;
     }
     CreatureJob jobpref = get_job_for_creature_state(get_creature_state_besides_interruptions(creatng));

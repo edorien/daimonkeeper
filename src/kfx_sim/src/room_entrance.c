@@ -33,9 +33,10 @@
 #include "config_creature.h"
 #include "config_terrain.h"
 #include "map_columns.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 #include <stdint.h>
 
@@ -341,7 +342,7 @@ void generate_creature_for_dungeon(struct Dungeon * dungeon)
         {
             SYNCDBG(8,"The %s will not come as player %" PRId64 " has less than %" PRId64 " gold",creature_code_name(crmodel),(int64_t)dungeon->owner,(int64_t)crconf->pay);
             if (is_my_player_number(dungeon->owner)) {
-                sim_feedback->play_sound_message(SMsg_GoldLow, MESSAGE_DURATION_TREASURY);
+                audio_output_message(SMsg_GoldLow, MESSAGE_DURATION_TREASURY);
             }
         }
         else if (lair_space >= 0)
@@ -368,9 +369,9 @@ void generate_creature_for_dungeon(struct Dungeon * dungeon)
             }
             if (dungeon_has_room_of_role(dungeon, RoRoF_LairStorage)) {
                 event_create_event_or_update_nearby_existing_event(0, 0, EvKind_NoMoreLivingSet, dungeon->owner, 0);
-                sim_feedback->output_room_message(dungeon->owner, rkind, OMsg_RoomTooSmall);
+                audio_output_room_message(dungeon->owner, rkind, OMsg_RoomTooSmall);
             } else {
-                sim_feedback->output_room_message(dungeon->owner, rkind, OMsg_RoomNeeded);
+                audio_output_room_message(dungeon->owner, rkind, OMsg_RoomNeeded);
             }
         }
     }

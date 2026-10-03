@@ -12,6 +12,7 @@
 #include "dungeon_data.h"
 #include "config_creature.h"
 #include "kfx_sim_test_fixtures.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

@@ -32,7 +32,6 @@
 #include "lvl_filesdk1.h"
 #include "level_script_override.h"
 #include "main_game.h"
-#include "game_callbacks.h"
 
 #include "lvl_script_conditions.h"
 #include "lvl_script_value.h"
@@ -41,6 +40,7 @@
 #include "game_lifecycle.h"
 #include "creature_states_hero.h"
 #include "kfx_game_state.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1015,7 +1015,7 @@ int64_t load_script(int64_t lvnum)
     SYNCDBG(7,"Starting");
 
     // Clear script data
-    game_callbacks->gui_set_button_flashing(0, 0);
+    ui_gui_set_button_flashing(0, 0);
     clear_script();
     set_script_current_condition(CONDITION_ALWAYS);
     next_command_reusable = 0;

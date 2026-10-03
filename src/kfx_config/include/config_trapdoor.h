@@ -162,15 +162,7 @@ const char *trap_code_name(int64_t tngmodel);
 int64_t door_model_id(const char * code_name);
 int64_t trap_model_id(const char * code_name);
 
-TbBool is_trap_placeable(PlayerNumber plyr_idx, int64_t trap_idx);
-TbBool is_trap_buildable(PlayerNumber plyr_idx, int64_t trap_idx);
-TbBool is_trap_built(PlayerNumber plyr_idx, int64_t tngmodel);
-TbBool is_door_placeable(PlayerNumber plyr_idx, int64_t door_idx);
-TbBool is_door_buildable(PlayerNumber plyr_idx, int64_t door_idx);
-TbBool is_door_built(PlayerNumber plyr_idx, int64_t door_idx);
 TbBool create_manufacture_array_from_trapdoor_data(void);
-TbBool make_available_all_doors(PlayerNumber plyr_idx);
-TbBool make_available_all_traps(PlayerNumber plyr_idx);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -7,6 +7,7 @@
 // (ROOM_AVAILABLE(ALL_PLAYERS,TRAINING,1,1)), so this needs neither the
 // anger-config gate nor the set_room_available() workaround temple did.
 #include "ftest_creature_training.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

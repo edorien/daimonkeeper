@@ -20,16 +20,10 @@
 #include "config_spritecolors.h"
 #include "config_keeperfx.h" // for PlayerNumber -> pulled in via config.h too
 #include "kfx_config_state.h"
+#include "ports/sim_port.h"
+#include "kfx_config/tests/scoped_port_override.h"
 
 #include <cstring>
-
-namespace {
-struct ResetConfigReloadCallbacks {
-    const struct ConfigReloadCallbacks *saved;
-    ResetConfigReloadCallbacks() : saved(config_reload_callbacks) {}
-    ~ResetConfigReloadCallbacks() { set_config_reload_callbacks(saved); }
-};
-}
 
 TEST_CASE("load_spritecolors_config_file returns false for a missing file", "[kfx_config][config_spritecolors]") {
     CHECK_FALSE(keeper_spritecolors_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/does_not_exist.toml", CnfLd_IgnoreErrors));
@@ -53,7 +47,7 @@ TEST_CASE("get_player_colored_icon_idx/pointer/object_model fall back to base_ic
 TEST_CASE("get_player_colored_icon_idx/pointer/object_model look up the row matching base_icon_idx and index by get_player_color_idx()+1", "[kfx_config][config_spritecolors]") {
     REQUIRE(keeper_spritecolors_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/spritecolors_minimal.toml", 0));
 
-    // Default config_reload_callbacks->get_player_color_idx stub
+    // SimPort's unwired get_player_color_idx default
     // returns 0 for every player -> color_idx = 0 + 1 = 1 -> the second
     // column of each configured row.
     CHECK(get_player_colored_icon_idx(867, 0) == 900);
@@ -61,33 +55,30 @@ TEST_CASE("get_player_colored_icon_idx/pointer/object_model look up the row matc
     CHECK(get_player_colored_object_model(100, 0) == 150);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "get_player_colored_icon_idx indexes by a non-default player color", "[kfx_config][config_spritecolors]") {
+TEST_CASE("get_player_colored_icon_idx indexes by a non-default player color", "[kfx_config][config_spritecolors]") {
     REQUIRE(keeper_spritecolors_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/spritecolors_minimal.toml", 0));
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    fake.get_player_color_idx = [](PlayerNumber) -> unsigned char { return 3; };
-    set_config_reload_callbacks(&fake);
+    ScopedPortOverride<SimPort> port(sim_port, set_sim_port);
+    port->get_player_color_idx = [](PlayerNumber) -> unsigned char { return 3; };
 
     // color_idx = 3 + 1 = 4 -> the fifth column of the gui_panel_sprites row.
     CHECK(get_player_colored_icon_idx(867, 0) == 903);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "get_player_colored_icon_idx falls back to base_icon_idx once the color index reaches PLAYER_COLORS_COUNT", "[kfx_config][config_spritecolors]") {
+TEST_CASE("get_player_colored_icon_idx falls back to base_icon_idx once the color index reaches PLAYER_COLORS_COUNT", "[kfx_config][config_spritecolors]") {
     REQUIRE(keeper_spritecolors_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/spritecolors_minimal.toml", 0));
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    fake.get_player_color_idx = [](PlayerNumber) -> unsigned char { return 250; };
-    set_config_reload_callbacks(&fake);
+    ScopedPortOverride<SimPort> port(sim_port, set_sim_port);
+    port->get_player_color_idx = [](PlayerNumber) -> unsigned char { return 250; };
 
     CHECK(get_player_colored_icon_idx(867, 0) == 867);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "get_player_colored_button_sprite_idx uses get_player_color_idx for non-neutral players", "[kfx_config][config_spritecolors]") {
+TEST_CASE("get_player_colored_button_sprite_idx uses get_player_color_idx for non-neutral players", "[kfx_config][config_spritecolors]") {
     REQUIRE(keeper_spritecolors_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/spritecolors_minimal.toml", 0));
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    fake.get_player_color_idx = [](PlayerNumber) -> unsigned char { return 2; };
-    set_config_reload_callbacks(&fake);
+    ScopedPortOverride<SimPort> port(sim_port, set_sim_port);
+    port->get_player_color_idx = [](PlayerNumber) -> unsigned char { return 2; };
 
     // color_idx = 2 + 1 = 3 -> the fourth column of the button_sprite row.
     CHECK(get_player_colored_button_sprite_idx(5, 0) == 52);

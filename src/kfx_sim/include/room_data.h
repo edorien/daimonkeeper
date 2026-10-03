@@ -229,6 +229,7 @@ void redraw_slab_map_elements(MapSlabCoord slb_x, MapSlabCoord slb_y);
 TbBool store_reposition_entry(struct RoomReposition * rrepos, ThingModel tngmodel);
 void init_reposition_struct(struct RoomReposition * rrepos);
 TbBool store_creature_reposition_entry(struct RoomReposition * rrepos, ThingModel tngmodel, CrtrExpLevel exp_level);
+int64_t get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel);
 /******************************************************************************/
 #ifdef __cplusplus
 }

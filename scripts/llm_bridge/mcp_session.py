@@ -155,7 +155,11 @@ class Session:
         """The game's own recent log (get_log_tail), for debugging a confusing session."""
         self._require_connected()
         data = self.api.data(action="get_log_tail", lines=lines)
-        return "\n".join(data["lines"]) if data["lines"] else "(log empty or unavailable)"
+        if data["lines"]:
+            return "\n".join(data["lines"])
+        if data.get("log_level") == "OFF":
+            return "(logging is off in this game: LOG_LEVEL=OFF, so it writes no log)"
+        return "(log empty or unavailable)"
 
     def instructions(self):
         return prompt.SYSTEM_PROMPT

@@ -589,11 +589,24 @@ int64_t frontend_freeplay_enter_resolve(void)
         if (skirmish_setup_play_blocked(freeplay_highlighted_level))
             return -1;
         skirmish_setup_install_for_play(freeplay_highlighted_level);
+        // Skirmish has no "Scripted" concept of its own and never shows the Seat control dropdown that sets
+        // this -- reset it so a choice left over from an earlier scenario/campaign visit this session can't
+        // silently hand the human's own Skirmish seat to the built-in AI. fe_external_campaign needs no
+        // matching reset: skirmish_setup_install_for_play() above already clears and rebuilds the pending
+        // seat queue from its own Setup tab state regardless.
+        fe_spectate_campaign = 0;
     }
     else
     {
         level_script_override_clear();
+        // Arms the local player's own seat as External when the scenario screen's "Seat control" dropdown is
+        // set to LLM -- same mechanism and same consumption point (net_claim_pending_external_seats(),
+        // main_game.c::startup_network_game_tail()) as the campaign select screen's own dropdown
+        // (frontend_land_selection_enter_resolve() above). Cleared first regardless, so an earlier Skirmish
+        // visit this session (its own, different External-slot mechanism) can't leave a stale pending seat here.
         net_pending_external_seats_clear();
+        if (fe_external_campaign)
+            net_pending_external_seats_add(my_player_number);
     }
     kfx_sim_state.selected_level_number = freeplay_highlighted_level;
     // Mirrors front_landview_multiplayer.c's own frontnetmap_update()

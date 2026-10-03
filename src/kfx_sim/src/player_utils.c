@@ -26,18 +26,16 @@
 #include "bflib_netsp.h"
 #include "config_sounds.h"
 #include "bflib_sndlib.h"
-#include "script_hooks.h"
 #include "player_data.h"
 #include "player_instances.h"
 #include "config_players.h"
-#include "player_computer.h"
+#include "player_computer_types.h"
 #include "dungeon_data.h"
 #include "power_hand.h"
 #include "thing_objects.h"
 #include "thing_effects.h"
 #include "room_util.h"
 #include "sim_scratch.h"
-#include "sim_feedback.h"
 #include "config_settings.h"
 #include "config_keeperfx.h"
 #include "config_spritecolors.h"
@@ -51,23 +49,32 @@
 #include "thing_list.h"
 #include "slab_data.h"
 #include "magic_powers.h"
-#include "game_callbacks.h"
 #include "config.h"
 #include "kfx_sim_state.h"
 #include "renderer/RendererManager.h"
 #include "kfx_config_state.h"
 #include "power_process.h"
+#include "thing_stats.h"
+#include "player_camera.h"
+#include "packet_data.h"
+#include "light_registry.h"
 // initialise_devastate_dungeon_from_heart() (kfx_game's game_loop.h)
 // and light_create_light()/light_set_light_never_cache() (kfx_render's
-// light_data.h) are reached through sim_feedback instead of same-file
+// light_data.h) are reached through ports instead of same-file
 // bare-extern forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/game_port.h"
+#include "ports/render_port.h"
+#include "ports/ai_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
 
 // frontstats_initialise() (kfx_frontend's front_lvlstats.h) is reached
-// through sim_feedback instead of a same-file bare-extern
+// through UiPort instead of a same-file bare-extern
 // forward-declaration. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
@@ -147,23 +154,23 @@ void set_player_as_won_level(struct PlayerInfo *player)
   struct Dungeon* dungeon = get_dungeon(player->id_number);
   if (my_player)
   {
-      script_hooks->api_event("WIN_GAME");
-      sim_feedback->frontstats_initialise();
-      if ( sim_feedback->timer_enabled() )
+      script_api_event("WIN_GAME");
+      ui_frontstats_initialise();
+      if ( ui_timer_enabled() )
       {
         if (kfx_sim_state.TimerGame)
         {
-            sim_feedback->set_timer_turns(dungeon->lvstats.hopes_dashed);
-            sim_feedback->update_time();
+            ui_set_timer_turns(dungeon->lvstats.hopes_dashed);
+            ui_update_time();
         }
         else
         {
-            sim_feedback->show_real_time_taken();
+            ui_show_real_time_taken();
         }
         struct GameTime GT;
-        sim_feedback->get_game_time(&GT, dungeon->lvstats.hopes_dashed, kfx_sim_state.turns_per_second);
+        ui_get_game_time(&GT, dungeon->lvstats.hopes_dashed, kfx_sim_state.turns_per_second);
         SYNCMSG("Won level %" PRIu64 ". Total turns taken: %" PRIu64 " (%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64 " at %" PRId64 " fps). Real time elapsed: %02" PRIu64 ":%02" PRIu64 ":%02" PRIu64 ":%03" PRIu64 ".",
-            (uint64_t)(sim_feedback->get_loaded_level_number()), (uint64_t)(dungeon->lvstats.hopes_dashed),
+            (uint64_t)(get_loaded_level_number()), (uint64_t)(dungeon->lvstats.hopes_dashed),
             (uint64_t)(GT.Hours), (uint64_t)(GT.Minutes), (uint64_t)(GT.Seconds), (int64_t)(kfx_sim_state.turns_per_second),
             (uint64_t)(kfx_sim_state.Timer.Hours), (uint64_t)(kfx_sim_state.Timer.Minutes), (uint64_t)(kfx_sim_state.Timer.Seconds), (uint64_t)(kfx_sim_state.Timer.MSeconds));
       }
@@ -181,7 +188,7 @@ void set_player_as_won_level(struct PlayerInfo *player)
         SYNCLOG("Lord Of The Land kept captive. Torture tower unlocked.");
         get_user_state(player->user_id)->additional_flags |= UsrAF_UnlockedLordTorture;
     }
-    sim_feedback->play_sound_message(SMsg_LevelWon, 0);
+    audio_output_message(SMsg_LevelWon, 0);
   }
 }
 
@@ -200,8 +207,8 @@ void set_player_as_lost_level(struct PlayerInfo *player)
     SYNCLOG("%s lost",player_code_name(player->id_number));
     if (is_my_player(player))
     {
-        script_hooks->api_event("LOSE_GAME");
-        sim_feedback->frontstats_initialise();
+        script_api_event("LOSE_GAME");
+        ui_frontstats_initialise();
     }
     player->victory_state = VicS_LostLevel;
     struct Dungeon* dungeon = get_dungeon(player->id_number);
@@ -209,9 +216,9 @@ void set_player_as_lost_level(struct PlayerInfo *player)
     dungeon->lvstats.player_score = compute_player_final_score(player, dungeon->max_gameplay_score);
     if (is_my_player(player))
     {
-        sim_feedback->play_sound_message(SMsg_LevelFailed, 0);
-        sim_feedback->turn_off_all_menus();
-        sim_feedback->clear_transfered_creatures();
+        audio_output_message(SMsg_LevelFailed, 0);
+        ui_turn_off_all_menus();
+        game_clear_transfered_creatures();
     }
     if ((kfx_config_state.conf.rules[player->id_number].gameplay.classic_bugs_flags & ClscBug_NoHandPurgeOnDefeat) == 0) {
         clear_things_in_hand(player);
@@ -226,7 +233,7 @@ void set_player_as_lost_level(struct PlayerInfo *player)
         dungeon->sight_casted_thing_idx = 0;
     }
     if (is_my_player(player))
-        game_callbacks->gui_set_button_flashing(0, 0);
+        ui_gui_set_button_flashing(0, 0);
     if (player->view_type == PVT_CreatureContrl)
     {
         struct Thing *thing = thing_get(player->controlled_thing_idx);
@@ -250,17 +257,17 @@ void set_player_as_lost_level(struct PlayerInfo *player)
     if (network_is_active())
         reveal_whole_map(player);
     if ((dungeon->computer_enabled & 0x01) != 0)
-        toggle_computer_player(player->id_number);
+        ai_toggle_computer_player(player->id_number);
 }
 
 int64_t compute_player_final_score(struct PlayerInfo *player, int64_t gameplay_score)
 {
     int64_t i;
     if (network_is_active()
-      || !is_singleplayer_level(sim_feedback->get_loaded_level_number())) {
+      || !is_singleplayer_level(get_loaded_level_number())) {
         i = 2 * gameplay_score;
     } else {
-        i = gameplay_score + 10 * gameplay_score * array_index_for_singleplayer_level(sim_feedback->get_loaded_level_number()) / 100;
+        i = gameplay_score + 10 * gameplay_score * array_index_for_singleplayer_level(get_loaded_level_number()) / 100;
     }
     if (player_has_lost(player->id_number))
         i /= 2;
@@ -449,7 +456,7 @@ int64_t take_money_from_dungeon_f(PlayerNumber plyr_idx, GoldAmount amount_take,
                         if (is_my_player_number(plyr_idx))
                         {
                             if ((total_money >= 1000) && (total_money - amount_take < 1000)) {
-                                sim_feedback->play_sound_message(SMsg_GoldLow, MESSAGE_DURATION_TREASURY);
+                                audio_output_message(SMsg_GoldLow, MESSAGE_DURATION_TREASURY);
                             }
                         }
                         return amount_take;
@@ -771,7 +778,7 @@ void fill_in_explored_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlC
             }
         }
     }
-    config_reload_callbacks->panel_map_update(0, 0, 256, 256);
+    ui_panel_map_update(0, 0, 256, 256);
 
 }
 
@@ -809,9 +816,9 @@ void turn_user_cursor_light(NetUserId user, TbBool turn_on)
     if (idx == 0)
         return;
     if (turn_on)
-        sim_feedback->light_turn_light_on(idx);
+        light_turn_light_on(idx);
     else
-        sim_feedback->light_turn_light_off(idx);
+        light_turn_light_off(idx);
 }
 
 void init_user_state(NetUserId user)
@@ -834,26 +841,21 @@ void init_user_state(NetUserId user)
     ilght.colour_r = kfx_config_state.conf.rules[0].gameplay.cursor_light_r;
     ilght.colour_g = kfx_config_state.conf.rules[0].gameplay.cursor_light_g;
     ilght.colour_b = kfx_config_state.conf.rules[0].gameplay.cursor_light_b;
-    int64_t idx = sim_feedback->light_create_light(&ilght);
+    int64_t idx = light_create_light(&ilght);
     ustate->cursor_light_idx = idx;
     if (idx != 0) {
-        sim_feedback->light_set_light_never_cache(idx);
+        light_set_light_never_cache(idx);
     } else {
         WARNLOG("Cannot allocate cursor light to user %" PRId64 ".",(int64_t)user);
     }
 }
 
-void init_player(struct PlayerInfo *player, int64_t no_explore)
+void init_player(struct PlayerInfo *player, int64_t no_explore, const struct PacketSaveHead *replay_head)
 {
     SYNCDBG(5,"Starting");
     if (is_my_player(player))
     {
-        local_state.minimap_pos_x = 11;
-        local_state.minimap_pos_y = 11;
-        local_state.minimap_zoom = settings.minimap_zoom;
-        local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
-        sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
-        local_state.main_palette = engine_palette;
+        ui_local_view_transition(player, LVTr_LevelStart);
     }
     player->continue_work_state = PSt_CtrlDungeon;
     player->work_state = PSt_CtrlDungeon;
@@ -874,10 +876,10 @@ void init_player(struct PlayerInfo *player, int64_t no_explore)
         player->roomspace_highlight_mode = settings.highlight_mode;
         player->roomspace_mode = settings.highlight_mode;
         set_flag(kfx_sim_state.operation_flags, GOF_ShowPanel);
-        sim_feedback->set_gui_visible(true);
-        sim_feedback->init_gui();
-        sim_feedback->turn_on_menu(GMnu_MAIN);
-        sim_feedback->turn_on_menu(GMnu_ROOM);
+        ui_set_gui_visible(true);
+        ui_init_gui();
+        ui_turn_on_menu(GMnu_MAIN);
+        ui_turn_on_menu(GMnu_ROOM);
     }
     player->roomspace_width = 1;
     player->roomspace_height = 1;
@@ -893,14 +895,11 @@ void init_player(struct PlayerInfo *player, int64_t no_explore)
         }
         break;
     case GKind_MultiGame:
-        //workaround until settings are synced through multiplayer
-        if (is_my_player(player))
-            local_state.minimap_zoom = 256;
-        if (sim_feedback->get_isometric_view_zoom_level() == 0)
+        if (replay_head->isometric_view_zoom_level == 0)
         {
             player->isometric_view_zoom_level = CAMERA_ZOOM_MAX;
         }
-        if (sim_feedback->get_frontview_zoom_level() == 0)
+        if (replay_head->frontview_zoom_level == 0)
         {
             player->frontview_zoom_level = FRONTVIEW_CAMERA_ZOOM_MAX;
         }
@@ -918,7 +917,7 @@ void init_player(struct PlayerInfo *player, int64_t no_explore)
         ERRORLOG("How do I set up this player?");
         break;
     }
-    sim_feedback->init_player_cameras(player);
+    init_player_cameras(player);
     player->mp_message_text[0] = '\0';
     // By default, player is his own ally
     player->allied_players = to_flag(player->id_number);
@@ -927,35 +926,35 @@ void init_player(struct PlayerInfo *player, int64_t no_explore)
       player->generate_speed = kfx_config_state.conf.rules[player->id_number].rooms.default_generate_speed;
     if (is_my_player(player)) {
         // new game, play one of the default tracks
-        LevelNumber lvnum = sim_feedback->get_loaded_level_number();
+        LevelNumber lvnum = get_loaded_level_number();
         int64_t safe_lvnum = (lvnum > 0) ? lvnum : 1; // guard against (lvnum - 1) % 4 going negative
         play_music_track(3 + (int64_t)((safe_lvnum - 1) % 4)); // tracks 3..6
     }
 }
 
-void init_players(void)
+void init_players(const struct PacketSaveHead *replay_head)
 {
     for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
-        if (sim_feedback->get_player_exists_flag(i))
+        if (flag_is_set(replay_head->players_exist, to_flag(i)))
             player->allocflags |= PlaF_Allocated;
         else
             player->allocflags &= ~PlaF_Allocated;
         if (player_exists(player))
         {
             player->id_number = i;
-            if (sim_feedback->get_player_comp_flag(i))
+            if (flag_is_set(replay_head->players_comp, to_flag(i)))
                 player->allocflags |= PlaF_CompCtrl;
             else
                 player->allocflags &= ~PlaF_CompCtrl;
             if ((player->allocflags & PlaF_CompCtrl) == 0)
             {
               player->allocflags |= PlaF_OriginallyHuman;
-              sim_feedback->increment_human_players_count();
+              kfx_sim_state.human_players_count++;
               player->is_active = 1;
               kfx_sim_state.game_kind = GKind_MultiGame;
-              init_player(player, 0);
+              init_player(player, 0, replay_head);
             }
         }
     }
@@ -1161,7 +1160,7 @@ void post_init_player(struct PlayerInfo *player)
         }
         break;
     }
-    config_reload_callbacks->panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
+    ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x+1, kfx_sim_state.map_subtiles_y+1);
 }
 
 void post_init_players(void)
@@ -1176,7 +1175,7 @@ void post_init_players(void)
     }
 }
 
-void init_players_local_game(void)
+void init_players_local_game(const struct PacketSaveHead *replay_head)
 {
     SYNCDBG(4,"Starting");
     struct PlayerInfo* player = get_my_player();
@@ -1196,7 +1195,7 @@ void init_players_local_game(void)
         case 2: player->view_mode_restore = PVM_FrontView; break;
         default: player->view_mode_restore = PVM_IsoWibbleView; break;
     }
-    init_player(player, 0);
+    init_player(player, 0, replay_head);
     init_user_state(player->user_id);
     set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
     set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);
@@ -1219,7 +1218,7 @@ void process_player_states(void)
                 if ((cam != NULL) && thing_exists(thing)) {
                     cam->mappos.x.val = thing->mappos.x.val;
                     cam->mappos.y.val = thing->mappos.y.val;
-                    sim_feedback->set_local_camera_destination(player);
+                    signal_local_camera_retarget(player);
                 }
             }
         }
@@ -1241,7 +1240,7 @@ void process_players(void)
             wander_point_update(&player->wandr_within);
             wander_point_update(&player->wandr_outside);
             update_power_sight_explored(player);
-            sim_feedback->update_player_objectives(i);
+            ui_update_player_objectives(i);
         }
     }
     SYNCDBG(17,"Finished");
@@ -1284,7 +1283,7 @@ TbBool player_sell_trap_at_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, M
     {
         play_non_3d_sample(snd_tile_sell);
     }
-    dungeon->camera_deviate_jump = 192;
+    kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 192;
     if (sell_value != 0)
     {
         create_price_effect(&pos, plyr_idx, sell_value);
@@ -1313,7 +1312,7 @@ TbBool player_sell_door_at_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, M
     }
     struct DoorConfigStats *doorst = get_door_model_stats(thing->model);
     struct Dungeon* dungeon = get_players_num_dungeon(thing->owner);
-    dungeon->camera_deviate_jump = 192;
+    kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 192;
     GoldAmount sell_value = compute_value_percentage(doorst->selling_value, kfx_config_state.conf.rules[plyr_idx].gameplay.door_sale_percent);
     dungeon->doors_sold++;
     dungeon->manufacture_gold += sell_value;
@@ -1358,7 +1357,7 @@ TbBool player_sell_room_at_subtile(int64_t plyr_idx, int64_t stl_x, int64_t stl_
     {
         struct Dungeon* dungeon = get_players_num_dungeon(room->owner);
         dungeon->rooms_destroyed++;
-        dungeon->camera_deviate_jump = 192;
+        kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 192;
     }
     delete_room_slab(subtile_slab(stl_x), subtile_slab(stl_y), 0);
     if (is_my_player_number(plyr_idx))
@@ -1395,7 +1394,7 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx)
         if (dungeon->color_idx != colour_idx)
         {
             dungeon->color_idx = colour_idx;
-            config_reload_callbacks->update_panel_color_player_color(plyr_idx,colour_idx);
+            ui_update_panel_color_player_color(plyr_idx,colour_idx);
             for (MapSlabCoord slb_y=0; slb_y < kfx_sim_state.map_tiles_y; slb_y++)
             {
                 for (MapSlabCoord slb_x=0; slb_x < kfx_sim_state.map_tiles_x; slb_x++)
@@ -1440,7 +1439,7 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx)
             }
             // Refresh GUI panel button sprites for local player. Workaround for multiplayer.
             if (plyr_idx == my_player_number) {
-                sim_feedback->refresh_active_button_sprites_for_player(my_player_number);
+                ui_refresh_active_button_sprites_for_player(my_player_number);
             }
         }
     }
@@ -1483,7 +1482,7 @@ void check_players_lost(void)
               init_player_start(player, true);
               if (dungeon->dnheart_idx == 0)
               {
-                  sim_feedback->initialise_devastate_dungeon_from_heart(player->id_number);
+                  game_initialise_devastate_dungeon_from_heart(player->id_number);
               }
           }
           if ((!thing_exists(heartng) || ((heartng->active_state == ObSt_BeingDestroyed) && !(dungeon->backup_heart_idx > 0))) && (player->victory_state == VicS_Undecided))
@@ -1649,7 +1648,7 @@ void process_payday(void)
         if (kfx_config_state.conf.rules[plyr_idx].gameplay.pay_day_gap <= kfx_config_state.pay_day_progress[plyr_idx])
         {
             if (is_my_player_number(plyr_idx))
-                sim_feedback->play_sound_message(SMsg_Payday, 0);
+                audio_output_message(SMsg_Payday, 0);
             kfx_config_state.pay_day_progress[plyr_idx] = 0;
             player_paid_creatures_count = set_players_creatures_to_get_paid(plyr_idx);
             if (player_paid_creatures_count > 0)
@@ -1708,7 +1707,7 @@ TbBool player_enter_spectator_mode(PlayerNumber plyr_idx)
         return false;
     if (!flag_is_set(player->allocflags, PlaF_CompCtrl))
     {
-        if (!setup_a_computer_player(plyr_idx, comp_player_conf.player_assist_default))
+        if (!ai_setup_a_computer_player(plyr_idx, comp_player_conf.player_assist_default))
             return false;
         set_flag(player->allocflags, PlaF_CompCtrl);
     }

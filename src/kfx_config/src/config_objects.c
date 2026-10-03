@@ -31,10 +31,6 @@
 #include "config_terrain.h"
 #include "kfx_config_state.h"
 #include "config_strings.h"
-// thing_is_invalid() (kfx_sim's thing_data.h) is reached through
-// config_reload_callbacks instead of a same-file bare-extern
-// forward-declaration. See docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -196,26 +192,6 @@ ThingModel crate_to_workshop_item_model(ThingModel tngmodel)
     return kfx_config_state.conf.object_conf.object_to_door_or_trap[tngmodel];
 }
 
-ThingClass crate_thing_to_workshop_item_class(const struct Thing *thing)
-{
-    if (!config_reload_callbacks->thing_is_workshop_crate(thing))
-        return config_reload_callbacks->get_thing_class_id(thing);
-    ThingModel tngmodel = config_reload_callbacks->get_thing_model(thing);
-    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.object_conf.object_types_count))
-        return kfx_config_state.conf.object_conf.workshop_object_class[0];
-    return kfx_config_state.conf.object_conf.workshop_object_class[tngmodel];
-}
-
-ThingModel crate_thing_to_workshop_item_model(const struct Thing *thing)
-{
-    if (config_reload_callbacks->thing_is_invalid(thing) || (config_reload_callbacks->get_thing_class_id(thing) != TCls_Object))
-        return kfx_config_state.conf.object_conf.object_to_door_or_trap[0];
-    ThingModel tngmodel = config_reload_callbacks->get_thing_model(thing);
-    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.object_conf.object_types_count))
-        return kfx_config_state.conf.object_conf.object_to_door_or_trap[0];
-    return kfx_config_state.conf.object_conf.object_to_door_or_trap[tngmodel];
-}
-
 static TbBool load_objects_config_file(const char *fname, int64_t flags)
 {
     SYNCDBG(0,"%s file \"%s\".",((flags & CnfLd_ListOnly) == 0)?"Reading":"Parsing",fname);
@@ -271,56 +247,6 @@ ThingModel object_model_id(const char * code_name)
     }
 
     return -1;
-}
-
-/**
- * Returns required room capacity for given object model storage in room.
- * @param room_role The room role of target room.
- * @param objmodel The object model to be checked. May be 0 for lair or dead creature check, as this requires related model.
- * @param relmodel Related thing model, if object model is not unequivocal.
- * @return
- */
-int64_t get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel)
-{
-    struct CreatureModelConfig *crconf;
-    struct ObjectConfigStats *objst;
-    switch (room_role)
-    {
-    case RoRoF_LairStorage:
-        crconf = creature_stats_get(relmodel);
-        return crconf->lair_size;
-    case RoRoF_DeadStorage:
-        crconf = creature_stats_get(relmodel);
-        if (!creature_stats_invalid(crconf))
-            return 1;
-        break;
-    case RoRoF_KeeperStorage:
-        break;
-    case RoRoF_GoldStorage:
-        objst = get_object_model_stats(objmodel);
-        if (objst->genre == OCtg_GoldHoard)
-            return config_reload_callbacks->get_wealth_size_of_gold_hoard_model(objmodel);
-        break;
-    case RoRoF_FoodSpawn:
-    case RoRoF_FoodStorage:
-        objst = get_object_model_stats(objmodel);
-        if ((objst->genre == OCtg_Food) || (objst->genre == OCtg_Furniture)) // non-mature chickens are furniture
-            return 1;
-        break;
-    case RoRoF_CratesStorage:
-        objst = get_object_model_stats(objmodel);
-        if (objst->genre == OCtg_WrkshpBox)
-            return 1;
-        break;
-    case RoRoF_PowersStorage:
-        objst = get_object_model_stats(objmodel);
-        if ((objst->genre == OCtg_Spellbook) || (objst->genre == OCtg_SpecialBox))
-            return 1;
-        break;
-    default:
-        break;
-    }
-    return 0;
 }
 
 /******************************************************************************/

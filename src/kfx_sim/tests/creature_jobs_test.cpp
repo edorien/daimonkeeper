@@ -26,6 +26,7 @@
 #include "config_creature.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

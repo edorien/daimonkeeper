@@ -20,22 +20,15 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "custom_zip.h"
+#include "port_check.h"
 #include "bflib_basics.h"
 #include "bflib_fileio.h"
 #include <json.h>
 #include <json-dom.h>
+#include "ports/file_path_port.h"
 #include "post_inc.h"
 
-static char *noop_prepare_map_zip_path(LevelNumber lvnum, const char *fname) { return NULL; }
-static const struct MapZipCallbacks default_map_zip_callbacks = {
-    &noop_prepare_map_zip_path,
-};
-const struct MapZipCallbacks *map_zip_callbacks = &default_map_zip_callbacks;
 
-void set_map_zip_callbacks(const struct MapZipCallbacks *callbacks)
-{
-    map_zip_callbacks = callbacks ? callbacks : &default_map_zip_callbacks;
-}
 
 #ifndef PATH_MAX
 #define PATH_MAX 4096
@@ -167,7 +160,7 @@ TbBool read_map_zip_entry(LevelNumber lvnum, const char *entry_name, unsigned ch
 
     char zipname[32];
     snprintf(zipname, sizeof(zipname), "map%05" PRId64 ".zip", (int64_t)(lvnum));
-    char *fname = map_zip_callbacks->prepare_map_zip_path(lvnum, zipname);
+    char *fname = filepath_prepare_map_zip_path(lvnum, zipname);
     if ((fname == NULL) || !LbFileExists(fname))
     {
         return false;

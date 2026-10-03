@@ -17,6 +17,7 @@
 #include "kfx_sim_state.h"    // operation_flags GOF_*, system_flags GSF_*, messages[]
 #include "packets.h"          // unpausing_in_progress
 
+#include "local_state.h"
 #include "post_inc.h"
 
 #include <cfloat> // FLT_MAX

@@ -1,23 +1,13 @@
-// kfx_sim: power_specials.c -- targeted per the user's request to focus
-// coverage around scripts/check_layering.py's CURRENTLY-FAILING (not
-// accepted) kfx_sim -> kfx_script violation: this file #includes
-// kfx_script's api.h, but only for one symbol, script_hooks (the
-// ScriptHookCallbacks global). api.h itself just re-includes
-// kfx_config's own script_hooks.h (see that header's own comment: "the
-// type is defined there and just used here" -- kfx_config is already a
-// legitimate lower-ranked dependency of kfx_sim), so the fix path is the
-// same shape as ariadne_regions_test.cpp's PLAYERS_COUNT finding: swap
-// the include for the header that actually defines the symbol.
+// kfx_sim: power_specials.c.
 //
-// activate_dungeon_special(), the one script_hooks->lua_on_special_box_
-// activate() call site, is a large orchestration function (dungeon/
+// activate_dungeon_special(), the one script_lua_on_special_box_activate()
+// call site, is a large orchestration function (dungeon/
 // thing/config state throughout) -- not attempted here, the same
 // "process_*-shaped, needs a fuller context" call this whole plan has
 // made for similar functions elsewhere. Instead: box_thing_to_special()
 // (pattern A, self-contained, called from several other files too) and
-// activate_bonus_level() -- kfx_sim's first SimFeedbackCallbacks
-// pattern-B test in this whole plan, despite sim_feedback being called
-// through pervasively across kfx_sim.
+// activate_bonus_level(), which reaches kfx_game through GamePort (faked
+// here).
 #include <catch2/catch_test_macros.hpp>
 
 #include "power_specials.h"
@@ -25,8 +15,8 @@
 #include "thing_data.h"
 #include "kfx_sim_state.h"
 #include "kfx_config_state.h"
-#include "sim_feedback.h"
 #include "player_data.h"
+#include "ports/game_port.h"
 
 #include <cstring>
 
@@ -72,8 +62,6 @@ TEST_CASE_METHOD(ResetSimState, "box_thing_to_special looks up the configured sp
 }
 
 namespace {
-LevelNumber g_fake_loaded_level = 0;
-LevelNumber fake_get_loaded_level_number(void) { return g_fake_loaded_level; }
 
 TbBool g_fake_activate_result = false;
 LevelNumber g_captured_sp_lvnum = -1;
@@ -83,31 +71,30 @@ TbBool fake_activate_bonus_level_for_singleplayer(struct PlayerInfo *player, uin
     return g_fake_activate_result;
 }
 
-struct SimFeedbackFixture : ResetSimState {
-    struct SimFeedbackCallbacks callbacks{};
+struct GamePortFixture : ResetSimState {
+    struct GamePort callbacks = game_port_defaults;
     struct PlayerInfo player{};
 
-    SimFeedbackFixture() {
-        g_fake_loaded_level = 0;
+    GamePortFixture() {
+        kfx_sim_state.loaded_level_number = 0;
         g_fake_activate_result = false;
         g_captured_sp_lvnum = -1;
-        callbacks.get_loaded_level_number = fake_get_loaded_level_number;
         callbacks.activate_bonus_level_for_singleplayer = fake_activate_bonus_level_for_singleplayer;
-        set_sim_feedback_callbacks(&callbacks);
+        set_game_port(&callbacks);
         kfx_sim_state.operation_flags |= GOF_SingleLevel;
     }
-    ~SimFeedbackFixture() { set_sim_feedback_callbacks(nullptr); } // restores the default no-op table
+    ~GamePortFixture() { set_game_port(nullptr); } // restores the default no-op table
 };
 }
 
-TEST_CASE_METHOD(SimFeedbackFixture, "activate_bonus_level passes the loaded level number through to the provider and returns its result", "[kfx_sim][power_specials]") {
-    g_fake_loaded_level = 7;
+TEST_CASE_METHOD(GamePortFixture, "activate_bonus_level passes the loaded level number through to the provider and returns its result", "[kfx_sim][power_specials]") {
+    kfx_sim_state.loaded_level_number = 7;
     g_fake_activate_result = true;
     CHECK(activate_bonus_level(&player));
     CHECK(g_captured_sp_lvnum == 7);
 }
 
-TEST_CASE_METHOD(SimFeedbackFixture, "activate_bonus_level clears GOF_SingleLevel unconditionally, even when the provider fails", "[kfx_sim][power_specials]") {
+TEST_CASE_METHOD(GamePortFixture, "activate_bonus_level clears GOF_SingleLevel unconditionally, even when the provider fails", "[kfx_sim][power_specials]") {
     g_fake_activate_result = false;
     CHECK_FALSE(activate_bonus_level(&player));
     CHECK((kfx_sim_state.operation_flags & GOF_SingleLevel) == 0);

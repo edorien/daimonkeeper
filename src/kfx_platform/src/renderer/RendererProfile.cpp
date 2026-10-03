@@ -1,5 +1,5 @@
-// gpu-v2 Phase C.5: heavy-log-only renderer frame-time measurement. See
-// renderer/RendererProfile.h. Empty in the standard build.
+// gpu-v2 Phase C.5: renderer frame-time measurement, active at the Debug
+// log level and above. See renderer/RendererProfile.h.
 #include "pre_inc.h"
 #include "renderer/RendererProfile.h"
 #include "bflib_basics.h"
@@ -9,7 +9,6 @@
 #include <string.h>
 #include "post_inc.h"
 
-#if (BFDEBUG_LEVEL > 0)
 
 #define RPROF_REPORT_FRAMES 120
 
@@ -114,4 +113,3 @@ void RendererProfileFrame(const char *renderer_name)
     for (int i = 0; i < RPC_COUNT; i++) s_counter_sum[i] = 0;
 }
 
-#endif

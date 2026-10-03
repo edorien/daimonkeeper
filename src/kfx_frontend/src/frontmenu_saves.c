@@ -39,6 +39,7 @@
 #include "kfx_frontend_state.h"
 #include "kjm_input.h"
 #include "sprites.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -84,6 +85,13 @@ void gui_load_game(struct GuiButton *gbtn)
     int64_t slot_num = loadsave_row_slot(gbtn);
     if (!load_game(slot_num))
     {
+        if (last_save_was_refused())
+        {
+            // Refused before anything changed (refactor pass 2, S09): the
+            // current game carries on.
+            create_error_box_text("This save is from a different KeeperFX build and can't be loaded.");
+            return;
+        }
         ERRORLOG("Loading game %" PRId64 " failed; quitting.", (int64_t)slot_num);
         // Even on quit, we still should unpause the game
         set_players_packet_action(player, PckA_TogglePause, 0, 0, 0, 0);

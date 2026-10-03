@@ -1,4 +1,5 @@
 #include "ftest_gui_seam_ingame.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 

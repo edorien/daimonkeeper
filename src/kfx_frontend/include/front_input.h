@@ -22,8 +22,8 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
-#include "sim_feedback.h"
 #include "config_settings.h"
+#include "game_time.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -95,13 +95,12 @@ int64_t get_gui_inputs(int64_t gameplay_on);
 extern int64_t const zoom_key_room_order[];
 int64_t get_zoom_key_room_order(int64_t idx);
 TbBool check_current_gui_layer(int64_t layer_id);
-TbBool process_cheat_heart_health_inputs(HitPoints *value, HitPoints max_health);
 TbControllerButtons get_game_key_controller_buttons(int64_t key_id);
 double get_game_key_axis_value(int64_t key_id, TbBool ignore_mods);
 
 void toggle_hero_health_flowers(void);
 void update_time(void);
-// struct GameTime moved to sim_feedback.h (kfx_config) -- see include below.
+// struct GameTime is in kfx_config's game_time.h.
 void get_game_time(struct GameTime *GT, uint64_t turns, uint64_t fps);
 void update_game_time(struct GameTime *GT, uint64_t *gameseconds);
 

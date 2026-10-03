@@ -23,7 +23,7 @@
 #include "config_magic.h"
 #include "config_trapdoor.h"
 #include "config_terrain.h"
-#include "player_computer.h"
+#include "player_computer_types.h"
 #include "globals.h"
 #include "dungeon_stats.h"
 #include "thing_creature.h"
@@ -211,8 +211,7 @@ struct Dungeon {
     struct MapTask task_list[MAPTASKS_COUNT];
     int64_t task_count;
     unsigned char owner;
-    int64_t camera_deviate_quake;
-    int64_t camera_deviate_jump;
+    // camera_deviate_quake/_jump moved to kfx_sim_view_signals (player_camera.h, refactor pass 2, S10).
     int64_t score;
     struct ResearchVal research[DUNGEON_RESEARCH_COUNT];
     int64_t current_research_idx;
@@ -351,9 +350,8 @@ void add_to_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, int64_t 
 
 void add_heart_health(PlayerNumber plyr_idx,HitPoints healthdelta,TbBool warn_on_damage);
 
-// Registered on DungeonAvailabilityCallbacks (src/kfx_config/include/
-// dungeon_availability.h); see dungeon_data.c and docs/refactor/
-// stage-13-enforce-and-document.md.
+// Per-kind availability/build-state accessors used by
+// player_availability.c; see dungeon_data.c.
 TbBool player_has_valid_dungeon(PlayerNumber plyr_idx);
 TbBool player_has_valid_dungeon_with_heart(PlayerNumber plyr_idx);
 TbBool players_num_dungeon_valid(PlayerNumber plyr_idx);
@@ -375,6 +373,7 @@ TbBool get_trap_built(PlayerNumber plyr_idx, int64_t tngmodel);
 TbBool get_door_placeable(PlayerNumber plyr_idx, int64_t door_idx);
 TbBool get_door_manufacturable(PlayerNumber plyr_idx, int64_t door_idx);
 TbBool get_door_built(PlayerNumber plyr_idx, int64_t door_idx);
+GoldAmount get_dungeon_money_less_cost(const struct Dungeon *dungeon);
 
 /******************************************************************************/
 #ifdef __cplusplus

@@ -25,7 +25,7 @@
 #include "ariadne_points.h"
 #include "ariadne_edge.h"
 #include "ariadne.h"
-#include "sim_feedback.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #define EDGELEN_BITS 6
@@ -53,7 +53,7 @@ int64_t tri_new(void)
         if ((i < 0) || (i >= TRIANLGLES_COUNT))
         {
             ERRORLOG("ix_Triangles overflow, got %" PRId64,(int64_t)(i));
-            sim_feedback->report_error_stat(ESE_NoFreeTriangls);
+            ui_report_error_stat(ESE_NoFreeTriangls);
             return -1;
         }
         if (i > (TRIANLGLES_COUNT * 999 / 1000))
@@ -67,7 +67,7 @@ int64_t tri_new(void)
         if ((i < 0) || (i >= TRIANLGLES_COUNT))
         {
             ERRORLOG("free_Triangles overflow, got %" PRId64,(int64_t)(i));
-            sim_feedback->report_error_stat(ESE_NoFreeTriangls);
+            ui_report_error_stat(ESE_NoFreeTriangls);
             return -1;
         }
         free_Triangles = Triangles[i].tags[0];

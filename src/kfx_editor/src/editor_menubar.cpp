@@ -23,7 +23,7 @@
 #include "player_data.h"
 #include "packet_data.h"
 #include "camera_data.h" // struct Camera::mappos, for View > 1st Person's spawn point
-#include "light_data.h" // lish.light_enabled, View > Lights
+#include "kfx_sim_state.h" // light_registry.light_enabled, View > Lights
 #include "gui_parchment.h" // zoom_to_parchment_map()/zoom_from_parchment_map(), View > Map View
 #include "editor_overlay.h" // View > Slab Grid/Coordinates/Ownership Tint
 #include "editor_toolbox.h" // View > Toolbox
@@ -142,7 +142,7 @@ void editor_menubar_frame(void)
                 }
             }
 
-            bool lights_on = (lish.light_enabled != 0);
+            bool lights_on = (kfx_sim_state.light_registry.light_enabled != 0);
             bool lights_label_cb = lights_on;
             if (FeCheckbox("Lights", &lights_label_cb))
                 set_players_packet_action(player, PckA_ToggleLights, 0, 0, 0, 0);

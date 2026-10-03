@@ -22,7 +22,6 @@
 #include "creature_control.h"
 #include "room_data.h"
 #include "actionpt.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "player_data.h"
 #include "player_instances.h"
@@ -30,6 +29,8 @@
 #include "dungeon_data.h"
 #include "thing_data.h"
 #include "thing_list.h"
+#include "light_registry.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -55,7 +56,7 @@ void clear_things_and_persons_data(void)
     struct Thing *thing;
     int64_t i;
     memset(kfx_sim_state.thing_lists, 0, sizeof(kfx_sim_state.thing_lists));
-    sim_feedback->reset_ambient_sound_thing_idx();
+    audio_reset_ambient_sound_thing_idx();
     kfx_sim_state.nodungeon_creatr_list_start = 0;
     for (i=0; i < THINGS_COUNT; i++)
     {
@@ -171,7 +172,7 @@ void delete_all_structures(void)
     delete_all_control_structures();
     delete_all_room_structures();
     delete_all_action_point_structures();
-    sim_feedback->light_initialise();
+    light_initialise();
     SYNCDBG(16,"Done");
 }
 
@@ -179,7 +180,7 @@ void clear_game_for_save(void)
 {
     SYNCDBG(6,"Starting");
     delete_all_structures();
-    sim_feedback->light_initialise();
+    light_initialise();
     clear_mapwho();
     kfx_sim_state.entrance_room_id = 0;
     kfx_sim_state.action_random_seed = 0;

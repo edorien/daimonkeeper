@@ -37,6 +37,7 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
+#include "map_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,9 +48,38 @@ struct KfxPathfindingState {
     int64_t navigation_map_size_y;
     NavColour navigation_map[MAX_SUBTILES_X*MAX_SUBTILES_Y];
     TbBool map_changed_for_navigation;
+    /* The thing being routed, set by kfx_sim (thing_navigate.c,
+       creature_states.c) just before it calls into Ariadne, and read by
+       Ariadne's navigation rules. Moved here from kfx_sim globals in
+       refactor pass 2 (S03), replacing six PathfindingWorldCallbacks
+       get/set entries. -1 owner = no owner restriction. */
+    int64_t owner_player_navigating;
+    int64_t nav_thing_can_travel_over_lava;
+    int64_t nav_thing_is_flying;
+    /* The map's size in subtiles, a copy of kfx_sim_state's, set through
+       ariadne_set_map_dimensions() by set_map_size() and by
+       reinit_level_after_load() (save load, network resync). Ariadne uses
+       it instead of asking kfx_sim every time (refactor pass 2, S08). */
+    MapSubtlCoord map_subtiles_x;
+    MapSubtlCoord map_subtiles_y;
+    MapSubtlCoord map_subtiles_z;
 };
 
 extern struct KfxPathfindingState kfx_pathfinding_state;
+
+/* kfx_model's subtile-number encoding over the cached map size. */
+static inline SubtlCodedCoords ariadne_subtile_number(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    return kfx_subtile_number(kfx_pathfinding_state.map_subtiles_x, kfx_pathfinding_state.map_subtiles_y, stl_x, stl_y);
+}
+static inline MapSubtlCoord ariadne_stl_num_decode_x(SubtlCodedCoords stl_num)
+{
+    return kfx_stl_num_decode_x(kfx_pathfinding_state.map_subtiles_x, stl_num);
+}
+static inline MapSubtlCoord ariadne_stl_num_decode_y(SubtlCodedCoords stl_num)
+{
+    return kfx_stl_num_decode_y(kfx_pathfinding_state.map_subtiles_x, kfx_pathfinding_state.map_subtiles_y, stl_num);
+}
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -10,7 +10,7 @@
  *     Internal to kfx_editor (not part of kfx_editor.h's public surface,
  *     same split as editor_toolbox.h) except for
  *     editor_journal_record_placement(), which lives in kfx_editor.h
- *     itself since main.cpp needs it as an EditorJournalCallbacks target.
+ *     itself since editor_port_impl.cpp tables it in EditorPort.
  * @par Comment:
  *     Just a header file - #defines, typedefs, function prototypes etc.
  */

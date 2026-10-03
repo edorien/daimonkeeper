@@ -114,11 +114,10 @@ TbBool erstat_check(void)
     // Display an error if any things were not created in this game turn
     if (sdiff != 0)
     {
-#if (BFDEBUG_LEVEL > 0)
-        show_onscreen_msg(kfx_sim_state.turns_per_second,"%s, %" PRId64 " occurrences",erstat[stat_num].msg,(int64_t)(sdiff));
-#else
-        WARNLOG("%s, %" PRId64 " occurrences",erstat[stat_num].msg,(int64_t)(sdiff));
-#endif
+        if (KFX_DEBUG_ON(0))
+            show_onscreen_msg(kfx_sim_state.turns_per_second,"%s, %" PRId64 " occurrences",erstat[stat_num].msg,(int64_t)(sdiff));
+        else
+            WARNLOG("%s, %" PRId64 " occurrences",erstat[stat_num].msg,(int64_t)(sdiff));
         erstat[stat_num].nprv = erstat[stat_num].n;
     }
     last_checked_stat_num = (last_checked_stat_num+1) % (sizeof(erstat)/sizeof(erstat[0]));

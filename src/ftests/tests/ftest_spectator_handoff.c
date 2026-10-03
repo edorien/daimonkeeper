@@ -4,6 +4,7 @@
 // engine_camera.c fix that keeps updating the local player's camera despite PlaF_CompCtrl (update_player_camera
 // is normally skipped for a CompCtrl player -- nothing renders them -- but the local player IS on screen here).
 #include "ftest_spectator_handoff.h"
+#include "player_camera.h"
 
 #ifdef FUNCTESTING
 
@@ -74,8 +75,7 @@ FTestActionResult sh01_setup(struct FTestActionArgs* const args)
     conceal_map_area(my_player_number, s_far_x - 1, s_far_x + 1, s_far_y - 1, s_far_y + 1, true);
     CHECK_TRUE("the far corner starts unrevealed for the local player", !subtile_revealed_directly(s_far_x, s_far_y, my_player_number));
 
-    struct Dungeon* d = get_players_dungeon(get_player(my_player_number));
-    d->camera_deviate_quake = 5;
+    kfx_sim_view_signals.camera_deviate_quake[my_player_number] = 5;
 
     CHECK_TRUE("player_enter_spectator_mode succeeds for the local player", player_enter_spectator_mode(my_player_number));
     return FTRs_Go_To_Next_Action;
@@ -87,11 +87,10 @@ FTestActionResult sh02_check(struct FTestActionArgs* const args)
     CHECK_TRUE("the local player is now CompCtrl (handed off to the built-in AI)", flag_is_set(player->allocflags, PlaF_CompCtrl));
     CHECK_TRUE("the whole map was revealed for them", subtile_revealed_directly(s_far_x, s_far_y, my_player_number));
 
-    struct Dungeon* d = get_players_dungeon(player);
     // A turn of the real game loop has passed (update_all_players_cameras runs every turn, game_session_loop.cpp)
     // since the handoff; the quake decay in update_player_camera only runs if the camera guard's local-spectator
-    // exception (engine_camera.c) is actually letting it through despite CompCtrl.
-    CHECK_TRUE("the local player's camera still updates despite CompCtrl (engine_camera.c exception)", d->camera_deviate_quake < 5);
+    // exception (player_camera.c) is actually letting it through despite CompCtrl.
+    CHECK_TRUE("the local player's camera still updates despite CompCtrl (player_camera.c exception)", kfx_sim_view_signals.camera_deviate_quake[my_player_number] < 5);
 
     CHECK_TRUE("re-entering spectator mode on an already-handed-off seat is a harmless no-op", player_enter_spectator_mode(my_player_number));
 

@@ -14,7 +14,7 @@
 #include "editor_points.h"
 #include "editor_journal.h"
 #include "actionpt.h"
-#include "light_data.h"
+#include "kfx_sim_state.h"
 #include "thing_list.h"
 #include "lvl_filesdk1.h"
 #include "game_lifecycle.h"
@@ -76,7 +76,7 @@ static int64_t count_level_lights(void)
     int64_t n = 0;
     for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
-        const struct Light* lgt = &lish.lights[i];
+        const struct Light* lgt = &kfx_sim_state.light_registry.lights[i];
         if (((lgt->flags & LgtF_Allocated) != 0) && ((lgt->flags & LgtF_Dynamic) == 0) && !owned[i])
             n++;
     }
@@ -89,7 +89,7 @@ static const struct Light* find_level_light_at(int64_t x, int64_t y)
     editor_points_mark_thing_owned_lights(owned);
     for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
-        const struct Light* lgt = &lish.lights[i];
+        const struct Light* lgt = &kfx_sim_state.light_registry.lights[i];
         if (((lgt->flags & LgtF_Allocated) != 0) && ((lgt->flags & LgtF_Dynamic) == 0) && !owned[i]
             && (lgt->mappos.x.val == x) && (lgt->mappos.y.val == y))
             return lgt;

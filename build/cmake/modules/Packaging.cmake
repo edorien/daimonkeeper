@@ -86,9 +86,7 @@ set(CPACK_COMPONENTS_ALL runtime gamedata mcp)
 # protocol XML) -- none of which are tagged "runtime", so --component
 # runtime skips them.
 install(TARGETS keeperfx RUNTIME DESTINATION . COMPONENT runtime)
-install(TARGETS keeperfx_hvlog RUNTIME DESTINATION . OPTIONAL COMPONENT runtime)
 install(FILES "${CMAKE_BINARY_DIR}/keeperfx.map" DESTINATION . OPTIONAL COMPONENT runtime)
-install(FILES "${CMAKE_BINARY_DIR}/keeperfx_hvlog.map" DESTINATION . OPTIONAL COMPONENT runtime)
 
 # The game data assembled by "make pkg-assemble" (configs, campaigns, levels,
 # language/sound .dat files, SDL3 runtime DLLs, docs). Evaluated at pack time so

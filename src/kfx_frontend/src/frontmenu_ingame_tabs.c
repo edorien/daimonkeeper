@@ -74,6 +74,8 @@
 #include "custom_sprites.h"
 #include "sprites.h"
 #include "kfx_frontend_state.h"
+#include "player_availability.h"
+#include "local_state.h"
 #include "post_inc.h"
 #include "room_workshop.h"
 

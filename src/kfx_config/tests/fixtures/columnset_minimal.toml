@@ -1,9 +1,9 @@
 # Fixture for config_slabsets_test.cpp -- a minimal columnset.toml
 # exercising load_columns_config_file()'s real field-mapping. This
 # loader writes directly into kfx_config_state.conf.column_conf, no
-# config_reload_callbacks needed (unlike load_slabset_config_file() in
+# SimPort needed (unlike load_slabset_config_file() in
 # the same source file, which needs real slabset/slabobj backing
-# storage via config_reload_callbacks -- see the fake built in the test
+# storage via SimPort -- see the fake built in the test
 # file for that half).
 [column0]
 Lintel = 3

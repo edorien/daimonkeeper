@@ -11,7 +11,7 @@
 // real Delaunay triangulation algorithm (tri_set_rectangle,
 // triangulation_init/_initxy/_border_init, fringe_get_rectangle,
 // border_clip_horizontal/_vertical, uniform_area_colour, ...) entirely
-// through pathfinding_world's map callbacks and kfx_pathfinding_state's
+// through pathfinding_world_port's map entries and kfx_pathfinding_state's
 // navigation_map -- every one of those helpers is `static` to this file
 // (confirmed via `nm`), so init_navigation()/update_navigation_
 // triangulation() are the only way to reach any of it. This is the
@@ -70,6 +70,7 @@ struct TriangulationFixture : GridWorldFixture {
             }
         }
         ariadne_set_navigation_map_size(kLogicalSize + 1, kLogicalSize + 1);
+        ariadne_set_map_dimensions(kLogicalSize, kLogicalSize, g_map_size_z);
     }
 };
 } // namespace

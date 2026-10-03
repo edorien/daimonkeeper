@@ -6,11 +6,11 @@
 // gameplay.max_things_in_hand config value, making insert/remove real
 // array-shifting logic rather than pointer relinking.
 //
-// insert_thing_into_power_hand_list's sim_feedback->thing_play_sample/
+// insert_thing_into_power_hand_list's thing_play_sample/
 // remove_all_traces_of_combat/play_creature_sound side effects were
 // confirmed safe against a zeroed fixture by running the test, not
-// assumed from reading the source: sim_feedback's default no-op table
-// (architecture.md's callback-struct pattern) covers the sound calls, and
+// assumed from reading the source: the ports' unwired defaults cover the
+// sound calls, and
 // remove_all_traces_of_combat's cctrl->combat_flags==0 default skips its
 // only real branch.
 //

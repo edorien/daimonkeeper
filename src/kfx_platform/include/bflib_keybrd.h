@@ -214,6 +214,11 @@ int64_t LbIKeyboardOpen(void);
 int64_t LbIKeyboardClose(void);
 void keyboardControl(uint64_t action, TbKeyCode code, TbKeyMods modifiers, int64_t ScanCode);
 /******************************************************************************/
+/* Current Shift/Ctrl/Alt state (KMod_* flags), refreshed by update_key_modifiers(). */
+extern uint64_t key_modifiers;
+int64_t is_key_pressed(TbKeyCode key, TbKeyMods kmodif);
+void clear_key_pressed(int64_t key);
+void update_key_modifiers(void);
 #ifdef __cplusplus
 }
 #endif

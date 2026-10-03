@@ -49,7 +49,6 @@ void set_power_hand_graphic(unsigned char plyr_idx, int64_t HandAnimationID);
 TbBool power_hand_is_empty(const struct PlayerInfo *player);
 TbBool power_hand_is_full(const struct PlayerInfo *player);
 struct Thing *get_first_thing_in_power_hand(struct PlayerInfo *player);
-void draw_power_hand(void);
 void clear_things_in_hand(struct PlayerInfo *player);
 TbResult use_power_hand(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t tng_idx);
 struct Thing *get_nearest_thing_for_hand_or_slap(PlayerNumber plyr_idx, MapCoord x, MapCoord y);
@@ -124,7 +123,6 @@ struct HandRule {
 
 TbBool eval_hand_rule_for_thing(struct HandRule *rule, const struct Thing *thing_to_pick);
 
-extern double global_hand_scale;
 
 /* draw_square moved from kfx_frontend's gui_draw.h/gui_draw.c (stage
    13.3, docs/refactor/stage-13-enforce-and-document.md) -- a static
@@ -135,7 +133,6 @@ extern double global_hand_scale;
 extern struct Around const draw_square[];
 
 void process_things_in_dungeon_hand(void);
-void draw_mini_things_in_hand(int64_t x, int64_t y);
 int64_t dump_first_held_thing_on_map(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool update_hand);
 int64_t dump_all_held_things_on_map(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 void dump_thing_held_by_any_player(struct Thing *thing);

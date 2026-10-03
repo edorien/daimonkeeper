@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "map_types.h"
 #include "map_utils.h"
 
 #ifdef __cplusplus
@@ -35,15 +36,6 @@ enum MapCoordClipFlags {
     MapCoord_ClipX    = 0x01,
     MapCoord_ClipY    = 0x02,
     MapCoord_ClipZ    = 0x04,
-};
-
-struct Map {
-      unsigned char flags; // flags in enum SlabAttrFlags
-      unsigned char filled_subtiles;
-      unsigned char wibble_value;
-      ColumnIndex col_idx;
-      ThingIndex mapwho;
-      PlayerBitFlags revealed;
 };
 
 #define INVALID_MAP_BLOCK (&bad_map_block)
@@ -106,7 +98,6 @@ SubtlCodedCoords get_subtile_number(MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 SubtlCodedCoords get_subtile_number_at_slab_center(int64_t slb_x, int64_t slb_y);
 MapSubtlCoord stl_num_decode_x(SubtlCodedCoords stl_num);
 MapSubtlCoord stl_num_decode_y(SubtlCodedCoords stl_num);
-MapSubtlCoord stl_slab_center_subtile(MapSubtlCoord stl_v);
 MapSubtlCoord stl_slab_starting_subtile(MapSubtlCoord stl_v);
 MapSubtlCoord stl_slab_ending_subtile(MapSubtlCoord stl_v);
 

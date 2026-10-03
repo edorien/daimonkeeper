@@ -51,10 +51,11 @@
 #include "tasks_list.h"
 #include "power_hand.h"
 #include "magic_powers.h"
-#include "sim_feedback.h"
 #include "player_instances.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 #include "creature_states_lair.h"
 
@@ -1060,7 +1061,7 @@ int64_t imp_converts_dungeon(struct Thing *spdigtng)
                           EvKind_RoomUnderAttack, room->owner, 0);
                       if (is_my_player_number(room->owner))
                       {
-                          sim_feedback->play_sound_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
+                          audio_output_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
                       }
                 }
               }
@@ -1179,7 +1180,7 @@ int64_t imp_doing_nothing(struct Thing *spdigtng)
     {
         ERRORLOG("Non digger thing %" PRId64 ", %s, owner %" PRId64 " - reset",(int64_t)spdigtng->index,thing_model_name(spdigtng),(int64_t)spdigtng->owner);
         set_start_state(spdigtng);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return 0;
     }
 
@@ -1254,7 +1255,7 @@ int64_t imp_drops_gold(struct Thing *spdigtng)
     }
     if ( (gold_added > 0) || (gold_created) )
     {
-        sim_feedback->thing_play_sample(spdigtng, snd_gold_pickup + SOUND_RANDOM(snd_gold_pickup_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(spdigtng, snd_gold_pickup + SOUND_RANDOM(snd_gold_pickup_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         if (kfx_config_state.conf.rules[spdigtng->owner].workers.digger_work_experience != 0)
         {
             struct CreatureControl* cctrl = creature_control_get_from_thing(spdigtng);
@@ -1397,7 +1398,7 @@ int64_t imp_picks_up_gold_pile(struct Thing *spdigtng)
         spdigtng->creature.gold_carried += gold_taken;
         if (gold_taken > 0)
         {
-            sim_feedback->thing_play_sample(spdigtng, snd_gold_pickup, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(spdigtng, snd_gold_pickup, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         }
     }
     internal_set_thing_state(spdigtng, state);
@@ -2090,7 +2091,7 @@ int64_t creature_arms_trap(struct Thing *thing)
     dungeon->lvstats.traps_armed++;
     creature_drop_dragged_object(thing, cratetng);
     destroy_thing(cratetng);
-    sim_feedback->thing_play_sample(traptng, 1000, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(traptng, 1000, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     // The action of moving object is now finished
     set_start_state(thing);
     if (imp_will_soon_be_arming_trap(traptng)) //Another crate is still earmarked for this trap, refund it.
@@ -2113,7 +2114,7 @@ int64_t creature_arms_trap_first_person(struct Thing *creatng)
     controlled_creature_drop_thing(creatng, cratetng, get_appropriate_player_for_creature(creatng));
     move_thing_in_map(cratetng, &traptng->mappos);
     rearm_trap(traptng);
-    sim_feedback->thing_play_sample(traptng, 1000, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(traptng, 1000, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     struct Dungeon* dungeon = get_dungeon(creatng->owner);
     dungeon->lvstats.traps_armed++;
     if (kfx_config_state.conf.rules[creatng->owner].workers.digger_work_experience != 0)

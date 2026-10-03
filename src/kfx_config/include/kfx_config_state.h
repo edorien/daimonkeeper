@@ -174,10 +174,11 @@ struct KfxConfigState {
 // Moved from kfx_render's engine_camera.h (stage 13.3, docs/refactor/
 // stage-13-enforce-and-document.md) -- read by kfx_config's
 // config_keeperfx.c and kfx_net's packets.c, kfx_config is the
-// lowest-ranked of their real consumers. CAMERA_TILT_*/MINMAX_*/
-// struct MinMax stay in kfx_render's engine_camera.h -- kfx_render is
-// their only real consumer (config_settings.c already locally
-// duplicates the tilt values it needs).
+// lowest-ranked of their real consumers. MINMAX_*/struct MinMax stay in
+// kfx_render's engine_camera.h -- kfx_render is their only real consumer.
+// CAMERA_TILT_* are in kfx_sim's player_camera.h since refactor pass 2's
+// S07 (config_settings.c already locally duplicates the tilt values it
+// needs).
 #define CAMERA_ZOOM_MAX 12000
 #define CAMERA_ZOOM_MIN 520 // Originally 4100, adjusted for view distance
 #define FRONTVIEW_CAMERA_ZOOM_MAX 65536

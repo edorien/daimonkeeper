@@ -2,11 +2,9 @@
 // comprehensive/stage-08b-kfx-sim-clusters.md's "still open" list:
 // room_graveyard.c's add_body_to_graveyard(), the one function in this file
 // that's a self-contained pattern-A candidate. Its guard,
-// corpse_laid_to_rest(), reaches through get_creature_model_flags() ->
-// ConfigReloadCallbacks' get_thing_model -- but the default no-op provider
-// (model 0) already resolves to "no CMF_NoCorpseRotting flag", so no fake
-// registration is needed here, confirmed by reading get_creature_model_flags'
-// body rather than assumed. The rest of the file (reposition/count_bodies_*)
+// corpse_laid_to_rest(), reads get_creature_model_flags() -- and a corpse
+// with the zeroed thing->model 0 resolves to "no CMF_NoCorpseRotting
+// flag" (get_creature_model_flags returns 0 for any model below 1). The rest of the file (reposition/count_bodies_*)
 // needs a real map+thing-list fixture and is left for a later increment.
 //
 // deadtng must be a real kfx_sim_state.things_data[] slot, not a stack
@@ -22,6 +20,7 @@
 #include "thing_data.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

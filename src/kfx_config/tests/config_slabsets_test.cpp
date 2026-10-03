@@ -1,24 +1,25 @@
 // kfx_config: config_slabsets.c -- two independent loaders in one file.
 //
 // load_columns_config_file() writes directly into
-// kfx_config_state.conf.column_conf, no config_reload_callbacks needed
+// kfx_config_state.conf.column_conf, no SimPort entries needed
 // -- the easy half.
 //
 // load_slabset_config_file()/clear_slabsets() are different: they
-// reach into config_reload_callbacks->get_slabset_array()/
+// reach into simport_get_slabset_array()/
 // get_slabobjs_array()/get_slabobjs_idx_array()/get_slabset_num_ptr()/
 // get_slabobjs_num_ptr(), all of which default to returning NULL
-// (config_reload_callbacks_test.cpp) -- calling either function against
+// (ports/sim_port.def) -- calling either function against
 // the default table would dereference a null pointer. A real fake with
 // real backing storage is required here, not just "the safe default"
 // the way config_objects.c's crate_thing_to_workshop_item_* functions
 // were -- built below, the same shape as ariadne_test.cpp's
-// PathfindingWorldCallbacks fake but for ConfigReloadCallbacks.
+// PathfindingWorldPort fake but for SimPort.
 #include <catch2/catch_test_macros.hpp>
 
 #include "kfx_config_test_paths.h" // KFX_CONFIG_TEST_FIXTURES_DIR
 #include "config_slabsets.h"
 #include "kfx_config_state.h"
+#include "ports/sim_port.h"
 
 #include <cstring>
 
@@ -40,7 +41,7 @@ int64_t *fake_get_slabset_num_ptr(void) { return &g_fake_slabset_num; }
 int64_t *fake_get_slabobjs_num_ptr(void) { return &g_fake_slabobjs_num; }
 
 struct SlabsetFixture : ResetConfigState {
-    struct ConfigReloadCallbacks fake;
+    struct SimPort fake;
     SlabsetFixture() {
         std::memset(g_fake_slabset_arr, 0, sizeof(g_fake_slabset_arr));
         std::memset(g_fake_slabobjs_arr, 0, sizeof(g_fake_slabobjs_arr));
@@ -48,18 +49,18 @@ struct SlabsetFixture : ResetConfigState {
         g_fake_slabset_num = 0;
         g_fake_slabobjs_num = 0;
 
-        fake = *config_reload_callbacks;
+        fake = *sim_port;
         fake.get_slabset_array = fake_get_slabset_array;
         fake.get_slabobjs_array = fake_get_slabobjs_array;
         fake.get_slabobjs_idx_array = fake_get_slabobjs_idx_array;
         fake.get_slabset_num_ptr = fake_get_slabset_num_ptr;
         fake.get_slabobjs_num_ptr = fake_get_slabobjs_num_ptr;
-        set_config_reload_callbacks(&fake);
+        set_sim_port(&fake);
 
         kfx_config_state.conf.slab_conf.slab_types_count = 1; // normally set by config_terrain.c's own loader
     }
     ~SlabsetFixture() {
-        set_config_reload_callbacks(nullptr);
+        set_sim_port(nullptr);
     }
 };
 }

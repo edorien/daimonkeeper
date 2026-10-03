@@ -35,10 +35,11 @@
 #include "player_instances.h"
 #include "dungeon_data.h"
 #include "config_creature.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -139,7 +140,7 @@ TbBool create_vampire_in_room(struct Room *room)
     dungeon->lvstats.vamps_created++;
     create_effect(&pos, TngEff_Explosion3, thing->owner);
     if (is_my_player_number(room->owner)) {
-        sim_feedback->play_sound_message(SMsg_GraveyardMadeVampire, 0);
+        audio_output_message(SMsg_GraveyardMadeVampire, 0);
     }
     return true;
 }
@@ -427,13 +428,13 @@ struct Thing *create_dead_creature(const struct Coord3d *pos, ThingModel model, 
     if (!i_can_allocate_free_thing_structure(TCls_DeadCreature))
     {
         ERRORDBG(3,"Cannot create dead creature model %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)model,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* thing = allocate_free_thing_structure(TCls_DeadCreature);
     if (thing->index == 0) {
         ERRORDBG(3,"Should be able to allocate dead creature %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)model,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     thing->class_id = TCls_DeadCreature;

@@ -22,7 +22,8 @@
 #include "bflib_basics.h"
 #include "globals.h"
 
-#include "bflib_keybrd.h"
+#include "bflib_keybrd.h" // is_key_pressed/clear_key_pressed/key_modifiers (moved there, S03)
+#include "bflib_mouse.h"  // GetMouseX/GetMouseY/is_mouse_pressed_lrbutton (moved there, S03)
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,7 +39,6 @@ struct KeyToStringInit { // sizeof = 5
 struct TbSpriteSheet;
 
 /******************************************************************************/
-extern uint64_t key_modifiers;
 extern int64_t defining_a_key;
 extern int64_t defining_a_key_id;
 // docs/refactor/editor/10-definable-keybindings.md -- which table
@@ -86,16 +86,10 @@ extern TbBool wheel_scrolled_down;
 
 TbBool poll_inputs(void);
 
-int64_t GetMouseX(void);
-int64_t GetMouseY(void);
-int64_t is_mouse_pressed_lrbutton(void);
 void clear_mouse_pressed_lrbutton(void);
 void update_mouse(void);
 void update_wheel_scrolled(void);
 
-int64_t is_key_pressed(TbKeyCode key, TbKeyMods kmodif);
-void clear_key_pressed(int64_t key);
-void update_key_modifiers(void);
 void define_key_input(void);
 void init_key_to_strings(void);
 TbBool add_input_text_to_message(char *message, int64_t max_message_length, struct TbSpriteSheet *font, int64_t max_width);

@@ -100,6 +100,14 @@ FTestActionResult bridge_a02_wait_for_client(struct FTestActionArgs* const args)
     const int64_t done = get_players_dungeon(get_player(my_player_number))->script_flags[0];
     if (done == 1)
     {
+        // The one thing the client can't see over the API: its claim_seat/release_seat of the local human's own
+        // slot (M10) gave it back to the human, not to the built-in AI.
+        const struct PlayerInfo* me = get_player(my_player_number);
+        if (flag_is_set(me->allocflags, PlaF_CompCtrl) || flag_is_set(me->allocflags, PlaF_ExternalSeat) || (me->user_id != SOLO_HUMAN_ID))
+        {
+            FTEST_FAIL_TEST("the local human's slot was not handed back to the human after the client released it");
+            return FTRs_Go_To_Next_Action;
+        }
         FTESTLOG("Test passed: the external client finished its session");
         return FTRs_Go_To_Next_Action;
     }

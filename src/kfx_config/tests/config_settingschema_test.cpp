@@ -17,6 +17,9 @@
 // (set_bool/set_int actually being called) is checked.
 #include <catch2/catch_test_macros.hpp>
 
+#include "kfx_config/tests/scoped_port_override.h"
+#include "ports/game_port.h"
+
 #include "config_settingschema.h"
 #include "config_keeperfx.h"
 #include "config_settings.h" // struct GameSettings settings -- SHADOWS/VIEW_DISTANCE
@@ -112,17 +115,6 @@ struct ResetSchemaState {
         lbDisplay.ScreenMode = saved_screen_mode;
         keeperfx_ui_config.ui_font_scale_pct = saved_ui_font_scale_pct;
     }
-};
-
-// SCREENSHOT/HAND_SIZE go through config_reload_callbacks (screenshot_format
-// is kfx_render-owned, global_hand_scale is kfx_sim-owned -- neither
-// reachable from this library directly). Same double-installing pattern
-// config_sounds_test.cpp's own ResetConfigReloadCallbacks uses: copy the
-// current (default noop) table, override just the fields under test.
-struct ResetConfigReloadCallbacks {
-    const struct ConfigReloadCallbacks *saved;
-    ResetConfigReloadCallbacks() : saved(config_reload_callbacks) {}
-    ~ResetConfigReloadCallbacks() { set_config_reload_callbacks(saved); }
 };
 
 const struct SettingOption *find_option(const char *cfg_key)
@@ -493,29 +485,24 @@ TEST_CASE_METHOD(ResetSchemaState, "ROTATE_AROUND_MOUSE's table values match kee
     CHECK(keeperfx_ui_config.rotate_around_mouse_option == 1); // RotateAroundMouse_Never
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "SCREENSHOT reuses scrshot_type[] and round-trips through config_reload_callbacks->get_screenshot_format/set_screenshot_format", "[kfx_config][config_settingschema]") {
+TEST_CASE("SCREENSHOT reuses scrshot_type[] and round-trips through kfx_runtime_settings.screenshot_format", "[kfx_config][config_settingschema]") {
     const struct SettingOption *opt = find_option("SCREENSHOT");
     REQUIRE(opt != nullptr);
     CHECK(opt->enum_table == scrshot_type);
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static unsigned char fake_format = 1;
-    fake_format = 1;
-    fake.get_screenshot_format = []() -> unsigned char { return fake_format; };
-    fake.set_screenshot_format = [](unsigned char val) { fake_format = val; };
-    set_config_reload_callbacks(&fake);
-
+    const struct KfxRuntimeSettings saved = kfx_runtime_settings;
+    kfx_runtime_settings.screenshot_format = 1;
     CHECK(setting_option_enum_current_index(opt) == 0); // PNG == 1, index 0
     setting_option_apply_enum_index(opt, 1); // BMP == 2
-    CHECK(fake_format == 2);
+    CHECK(kfx_runtime_settings.screenshot_format == 2);
     CHECK(opt->get_enum() == 2);
+    kfx_runtime_settings = saved;
 }
 
 // gpu-v2 Phase C.1: unlike SCREENSHOT/INGAME_RES above, RENDERER's
 // get_enum/set_enum call RendererGetDesiredType/RendererSetDesiredType
 // (renderer/RendererManager.h) directly -- kfx_platform is a layer *below*
-// kfx_config, so no config_reload_callbacks indirection is needed. No
-// ResetConfigReloadCallbacks fixture required for the same reason.
+// kfx_config, so no port indirection is needed.
 TEST_CASE("RENDERER reuses renderer_type[] and round-trips through RendererGetDesiredType/RendererSetDesiredType", "[kfx_config][config_settingschema]") {
     RendererSetDesiredType(RENDERER_SOFTWARE); // known starting state
     const struct SettingOption *opt = find_option("RENDERER");
@@ -530,21 +517,17 @@ TEST_CASE("RENDERER reuses renderer_type[] and round-trips through RendererGetDe
     RendererSetDesiredType(RENDERER_SOFTWARE); // leave global state as found
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "HAND_SIZE presents global_hand_scale as an integer percentage, matching HAND_SIZE's own keeperfx.cfg format", "[kfx_config][config_settingschema]") {
+TEST_CASE("HAND_SIZE presents kfx_runtime_settings.hand_scale as an integer percentage, matching HAND_SIZE's own keeperfx.cfg format", "[kfx_config][config_settingschema]") {
     const struct SettingOption *opt = find_option("HAND_SIZE");
     REQUIRE(opt != nullptr);
     CHECK(opt->type == SOptT_Int);
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static double fake_scale = 1.0;
-    fake_scale = 1.0;
-    fake.get_hand_scale = []() -> double { return fake_scale; };
-    fake.set_hand_scale = [](double val) { fake_scale = val; };
-    set_config_reload_callbacks(&fake);
-
+    const struct KfxRuntimeSettings saved = kfx_runtime_settings;
+    kfx_runtime_settings.hand_scale = 1.0;
     CHECK(opt->get_int() == 100); // 1.0 scale == 100%
     opt->set_int(150);
-    CHECK(fake_scale == 1.5);
+    CHECK(kfx_runtime_settings.hand_scale == 1.5);
+    kfx_runtime_settings = saved;
 }
 
 // RESIZE_MOVIES is two storage locations (Ft_Resizemovies + vid_scale_flags)
@@ -570,21 +553,17 @@ TEST_CASE_METHOD(ResetSchemaState, "RESIZE_MOVIES combines Ft_Resizemovies and v
     CHECK(opt->get_enum() == 0);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "POINTER_SENSITIVITY presents base_mouse_sensitivity as the same integer percentage keeperfx.cfg uses", "[kfx_config][config_settingschema]") {
+TEST_CASE("POINTER_SENSITIVITY presents kfx_runtime_settings.base_mouse_sensitivity as the same integer percentage keeperfx.cfg uses", "[kfx_config][config_settingschema]") {
     const struct SettingOption *opt = find_option("POINTER_SENSITIVITY");
     REQUIRE(opt != nullptr);
     CHECK(opt->type == SOptT_Int);
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
-    static int64_t fake_sensitivity = 256; // config_keeperfx.c's own case 9: i*256/100, default i==100
-    fake_sensitivity = 256;
-    fake.get_base_mouse_sensitivity = []() -> int64_t { return fake_sensitivity; };
-    fake.set_base_mouse_sensitivity = [](int64_t val) { fake_sensitivity = val; };
-    set_config_reload_callbacks(&fake);
-
+    const struct KfxRuntimeSettings saved = kfx_runtime_settings;
+    kfx_runtime_settings.base_mouse_sensitivity = 256; // config_keeperfx.c's own case 9: i*256/100, default i==100
     CHECK(opt->get_int() == 100); // 256 scaled back down == 100%
     opt->set_int(50);
-    CHECK(fake_sensitivity == 128); // 50*256/100
+    CHECK(kfx_runtime_settings.base_mouse_sensitivity == 128); // 50*256/100
+    kfx_runtime_settings = saved;
 }
 
 // STARTUP: two rows sharing one cfg_key, each toggling its own bits of
@@ -742,7 +721,6 @@ TEST_CASE_METHOD(ResetSchemaState, "INGAME_RES's get_enum reads the pending scre
     // combo immediately revert to the old resolution the instant a new one
     // is chosen -- confirmed live ("the ingame res button isnt changing
     // from 640x when clicked").
-    ResetConfigReloadCallbacks callbacks_guard;
     const struct SettingOption *opt = find_option("INGAME_RES");
     REQUIRE(opt != nullptr);
 
@@ -754,25 +732,24 @@ TEST_CASE_METHOD(ResetSchemaState, "INGAME_RES's get_enum reads the pending scre
     REQUIRE(pending_mode != Lb_SCREEN_MODE_INVALID);
     lbDisplay.ScreenMode = active_mode; // still-active mode -- must NOT be what's read
 
-    struct ConfigReloadCallbacks overridden = *config_reload_callbacks;
-    overridden.get_screen_vidmode = []() -> int64_t { return pending_mode; };
-    set_config_reload_callbacks(&overridden);
+    const TbScreenMode saved_mode = get_screen_vidmode();
+    set_screen_vidmode(pending_mode);
 
     CHECK(opt->get_enum() == ingame_res_encode(800, 600));
+    set_screen_vidmode(saved_mode);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "INGAME_RES's set_enum registers the chosen resolution and applies it via set_screen_vidmode", "[kfx_config][config_settingschema]") {
+TEST_CASE("INGAME_RES's set_enum registers the chosen resolution and applies it via set_screen_vidmode", "[kfx_config][config_settingschema]") {
     const struct SettingOption *opt = find_option("INGAME_RES");
     REQUIRE(opt != nullptr);
 
-    static TbScreenMode applied_mode = Lb_SCREEN_MODE_INVALID;
-    applied_mode = Lb_SCREEN_MODE_INVALID;
-    struct ConfigReloadCallbacks overridden = *config_reload_callbacks;
-    overridden.set_screen_vidmode = [](int64_t nmode) { applied_mode = nmode; };
-    set_config_reload_callbacks(&overridden);
+    const TbScreenMode saved_mode = get_screen_vidmode();
+    set_screen_vidmode(Lb_SCREEN_MODE_INVALID);
 
     ensure_screen_mode_registry_nonempty();
     opt->set_enum(ingame_res_encode(1024, 768));
+    const TbScreenMode applied_mode = get_screen_vidmode();
+    set_screen_vidmode(saved_mode);
 
     REQUIRE(applied_mode != Lb_SCREEN_MODE_INVALID);
     TbScreenModeInfo *info = LbScreenGetModeInfo(applied_mode);
@@ -837,15 +814,14 @@ TEST_CASE("Reset Campaign Progress's row shape: SOptT_Action, Game category, no 
     REQUIRE(opt->on_action != nullptr);
 }
 
-TEST_CASE_METHOD(ResetConfigReloadCallbacks, "Reset Campaign Progress's on_action calls config_reload_callbacks->reset_campaign_progress", "[kfx_config][config_settingschema]") {
+TEST_CASE("Reset Campaign Progress's on_action calls GamePort's reset_campaign_progress", "[kfx_config][config_settingschema]") {
     const struct SettingOption *opt = find_option_by_label(GUIStr_SetResetCampaignProgress);
     REQUIRE(opt != nullptr);
 
-    struct ConfigReloadCallbacks fake = *config_reload_callbacks;
+    ScopedPortOverride<GamePort> port(game_port, set_game_port);
     static bool called = false;
     called = false;
-    fake.reset_campaign_progress = []() { called = true; };
-    set_config_reload_callbacks(&fake);
+    port->reset_campaign_progress = []() { called = true; };
 
     opt->on_action();
     CHECK(called);
@@ -905,4 +881,30 @@ TEST_CASE("SHADOWS/VIEW_DISTANCE's get_int/set_int read/write struct GameSetting
 
     settings.video_shadows = saved_shadows;
     settings.view_distance = saved_view_distance;
+}
+
+// docs/refactor-pass2/stage-02-logging-option.md
+TEST_CASE_METHOD(ResetSchemaState, "LOG_LEVEL's get/set map the 1-based OFF..DEBUGMAX table onto enum LogLevel", "[kfx_config][config_settingschema]") {
+    const struct SettingOption *opt = find_option("LOG_LEVEL");
+    REQUIRE(opt != nullptr);
+    CHECK(opt->apply_class == SApply_Live);
+    const int64_t saved = get_log_level();
+    for (int64_t i = 0; opt->enum_table[i].name != nullptr; i++) {
+        opt->set_enum(opt->enum_table[i].num);
+        CHECK(get_log_level() == i); // OFF, NORMAL, DEBUG, DEBUGMAX in enum LogLevel order
+        CHECK(setting_option_enum_current_index(opt) == i);
+    }
+    CHECK(strcmp(opt->enum_table[LogLvl_DebugMax].name, "DEBUGMAX") == 0);
+    set_log_level(saved);
+}
+
+TEST_CASE_METHOD(ResetSchemaState, "GPU_DEBUG's get/set round-trip through the renderer's GPU-debug flag", "[kfx_config][config_settingschema]") {
+    const struct SettingOption *opt = find_option("GPU_DEBUG");
+    REQUIRE(opt != nullptr);
+    CHECK(opt->apply_class == SApply_NeedsRestart);
+    opt->set_bool(true);
+    CHECK(RendererGetGpuDebug());
+    CHECK(opt->get_bool());
+    opt->set_bool(false);
+    CHECK_FALSE(RendererGetGpuDebug());
 }

@@ -39,8 +39,6 @@
 #include "map_blocks.h"
 #include "map_utils.h"
 #include "room_util.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 
 #include "creature_senses.h"
 #include "player_instances.h"
@@ -49,6 +47,11 @@
 #include "kfx_sim_state.h"
 #include "config.h"
 #include "thing_objects.h"
+#include "thing_stats.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -467,11 +470,11 @@ void activate_trap_shot_head_for_target90(struct Thing *traptng, struct Thing *c
         shotng->state_flags |= TF1_PushAdd;
         shotng->shot.hit_type = trapst->hit_type;
         if (shotst->firing_sound > 0) {
-            sim_feedback->thing_play_sample(traptng, shotst->firing_sound+SOUND_RANDOM(shotst->firing_sound_variants),
+            audio_thing_play_sample(traptng, shotst->firing_sound+SOUND_RANDOM(shotst->firing_sound_variants),
                 NORMAL_PITCH, 0, 3, 0, 6, FULL_LOUDNESS);
         }
         if (shotst->shot_sound > 0) {
-            sim_feedback->thing_play_sample(shotng, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(shotng, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         }
     }
 }
@@ -600,7 +603,7 @@ void activate_trap_god_spell(struct Thing *traptng, struct Thing *creatng, Power
 
 TbBool activate_trap_lua(struct Thing *traptng, struct Thing *creatng, FuncIdx func_idx)
 {
-    return script_hooks->luafunc_trap_activation_func(func_idx, traptng, creatng);
+    return script_luafunc_trap_activation_func(func_idx, traptng, creatng);
 }
 
 void activate_trap(struct Thing *traptng, struct Thing *creatng)
@@ -618,7 +621,7 @@ void activate_trap(struct Thing *traptng, struct Thing *creatng)
     {
         event_create_event(traptng->mappos.x.val, traptng->mappos.y.val, EvKind_AlarmTriggered, traptng->owner, 0);
     }
-    sim_feedback->thing_play_sample(traptng, trapst->trigger_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(traptng, trapst->trigger_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     switch (trapst->activation_type)
     {
     case TrpAcT_HeadforTarget90:
@@ -685,7 +688,7 @@ void activate_trap_by_slap(struct PlayerInfo *player, struct Thing* traptng)
             {
                 event_create_event(traptng->mappos.x.val, traptng->mappos.y.val, EvKind_AlarmTriggered, traptng->owner, 0);
             }
-            sim_feedback->thing_play_sample(traptng, trapst->trigger_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(traptng, trapst->trigger_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
 
             switch (trapst->activation_type)
             {
@@ -1004,7 +1007,7 @@ TngUpdateRet update_trap(struct Thing *traptng)
 
     if (trapst->updatefn_idx < 0)
     {
-        if (script_hooks->luafunc_thing_update_func(trapst->updatefn_idx, traptng) <= 0) {
+        if (script_luafunc_thing_update_func(trapst->updatefn_idx, traptng) <= 0) {
             return TUFRet_Deleted;
         }
     }
@@ -1065,7 +1068,7 @@ struct Thing *create_trap(struct Coord3d *pos, ThingModel trpkind, PlayerNumber 
     struct TrapConfigStats *trapst = get_trap_model_stats(trpkind);
     if (!i_can_allocate_free_thing_structure(TCls_Trap)) {
         ERRORDBG(3,"Cannot create trap %s for player %" PRId64 ". There are too many things allocated.",trap_code_name(trpkind),(int64_t)plyr_idx);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct InitLight ilght;
@@ -1073,7 +1076,7 @@ struct Thing *create_trap(struct Coord3d *pos, ThingModel trpkind, PlayerNumber 
     struct Thing* thing = allocate_free_thing_structure(TCls_Trap);
     if (thing->index == 0) {
         ERRORDBG(3,"Should be able to allocate trap %s for player %" PRId64 ", but failed.",trap_code_name(trpkind),(int64_t)plyr_idx);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     thing->class_id = TCls_Trap;
@@ -1126,7 +1129,7 @@ struct Thing *create_trap(struct Coord3d *pos, ThingModel trpkind, PlayerNumber 
         ilght.is_dynamic = 1;
         ilght.flags = trapst->light_flag;
         ilght.colour_r = trapst->light_colour_r; ilght.colour_g = trapst->light_colour_g; ilght.colour_b = trapst->light_colour_b;
-        thing->light_id = sim_feedback->light_create_light(&ilght);
+        thing->light_id = light_create_light(&ilght);
         if (thing->light_id <= 0) {
             SYNCDBG(8,"Cannot allocate dynamic light to %s.",thing_model_name(thing));
         }

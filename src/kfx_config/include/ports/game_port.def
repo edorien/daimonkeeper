@@ -1,0 +1,27 @@
+/* GamePort entries: see ports/game_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_VOID(process_dungeon_destroy, (struct Thing *heartng), (heartng))
+KFX_PORT_VOID(initialise_devastate_dungeon_from_heart, (PlayerNumber plyr_idx), (plyr_idx))
+KFX_PORT_RET(TbBool, add_transfered_creature, (PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, char *name), (plyr_idx, model, exp_level, name), false)
+KFX_PORT_VOID(clear_transfered_creatures, (void), ())
+KFX_PORT_RET(TbBool, get_transferred_creature, (PlayerNumber plyr_idx, int64_t idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size), (plyr_idx, idx, model, exp_level, name_buf, name_buf_size), false)
+KFX_PORT_RET(TbBool, activate_bonus_level_for_singleplayer, (struct PlayerInfo *player, uint64_t sp_lvnum), (player, sp_lvnum), false)
+KFX_PORT_RET(int64_t, get_intralvl_next_level, (void), (), 0)
+KFX_PORT_VOID(clear_intralvl_next_level, (void), ())
+KFX_PORT_RET(TbBool, cmd_exec, (PlayerNumber plyr_idx, char *msg), (plyr_idx, msg), false)
+KFX_PORT_RETX(const char *, resync_export_game_state, (size_t *len), (len), "", if (len) *len = 0;)
+KFX_PORT_RET(TbBool, resync_import_game_state, (const char *data, size_t len), (data, len), true)
+KFX_PORT_RET(int64_t, winning_player_quitting, (struct PlayerInfo *player, int64_t *plyr_count), (player, plyr_count), 0)
+KFX_PORT_VOID(reinit_level_after_load, (void), ())
+KFX_PORT_RET(TbBool, setup_heap_manager, (void), (), false)
+KFX_PORT_VOID(reset_heap_manager, (void), ())
+KFX_PORT_RET(void *, he_alloc, (size_t size), (size), NULL)
+KFX_PORT_RET(int64_t, script_strdup, (const char *src), (src), -1)
+KFX_PORT_RET(const char *, script_strval, (int64_t offset), (offset), NULL)
+KFX_PORT_VOID(reset_campaign_progress, (void), ())

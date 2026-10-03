@@ -39,8 +39,8 @@
 #include "room_data.h"
 #include "room_jobs.h"
 #include "player_utils.h"
-#include "sim_feedback.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 const struct NamedCommand anger_reason_desc[] = {
@@ -137,7 +137,7 @@ int64_t creature_piss(struct Thing *thing)
     int64_t piss_i = THING_RANDOM(thing, crsound->count);
     SoundSmplTblID sound_idx = creature_sound_unified_id(crsound, piss_i);
     if (!S3DEmitterIsPlayingSample(thing->snd_emitter_id, sound_idx)) {
-        sim_feedback->thing_play_sample(thing, sound_idx, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, sound_idx, NORMAL_PITCH, 0, 3, 1, 6, FULL_LOUDNESS);
     }
     int64_t i = cctrl->countdown;
     if (i > 0) {

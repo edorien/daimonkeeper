@@ -27,7 +27,6 @@ extern "C" {
 #endif
 
 /******************************************************************************/
-extern unsigned char screenshot_format;
 
 /******************************************************************************/
 TbBool perform_any_screen_capturing(void);

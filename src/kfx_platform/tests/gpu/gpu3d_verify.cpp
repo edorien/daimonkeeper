@@ -18,6 +18,7 @@
 
 #include "renderer/RendererGpu3D.h"
 #include "renderer/RendererManager.h"
+#include "ports/display_host_port.h"
 #include "renderer/WorldFrameRecorder.h"
 #include "bflib_video.h"
 #include "bflib_vidsurface.h"
@@ -30,11 +31,7 @@
 #include <cstdlib>
 
 static TbBool t_ensure(SDL_Window*, SDL_Renderer*) { return 1; }
-static void t_void(void) {}
-static void t_ev(const SDL_Event*) {}
-static TbBool t_false(void) { return 0; }
-static void t_demo(TbBool) {}
-static const RendererImGuiCallbacks cbs = { t_ensure, t_void, t_void, t_void, t_void, t_ev, t_false, t_false, t_false, t_false, t_demo };
+static struct DisplayHostPort cbs;
 
 static unsigned char atlas[32 * 256];
 // Test helper: record polys through the real recorder and return a WorldFrame view.
@@ -86,7 +83,9 @@ int main()
     const int W = 64, H = 64;
     lbWindow = SDL_CreateWindow("gpu3d-verify", W, H, SDL_WINDOW_HIDDEN);
     lbDrawSurface = SDL_CreateSurface(W, H, SDL_PIXELFORMAT_RGBA32);
-    set_renderer_imgui_callbacks(&cbs);
+    cbs = display_host_port_defaults;
+    cbs.imgui_ensure = t_ensure;
+    set_display_host_port(&cbs);
     lbDisplay.Palette = palette_buf;
     memset(lbDisplay.Palette, 0, 768);
     lbDisplay.Palette[3 * 5 + 0] = 63;                                    // index 5 = red

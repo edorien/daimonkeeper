@@ -129,7 +129,6 @@ struct LogDetailedSnapshot {
 struct KfxNetState {
     // Packet save/replay file state (packets.c/packets_misc.c).
     unsigned char packet_save_enable;
-    unsigned char packet_load_enable;
     char packet_fname[150];
     char packet_fopened;
     uint64_t packet_file_pos;
@@ -141,14 +140,15 @@ struct KfxNetState {
     uint64_t log_things_start_turn;
     uint64_t log_things_end_turn;
     uint64_t turns_packetoff;
-    PlayerNumber local_plyr_idx;
+    // packet_load_enable (now replay_active), local_plyr_idx (now
+    // level_human_player) and human_players_count moved to kfx_sim_state
+    // (refactor pass 2, S10).
 
     // Per-turn input packets moved to kfx_sim's sim_packets[] (packet_data.h,
     // docs/refactor/todo/remove-symbol-level-layering-residuals.md) --
     // this file's own packets.c/packets_misc.c/net_exchange_gameplay.c
     // still write into it directly, just no longer as a field here.
     int64_t input_lag_turns;
-    char human_players_count;
 
     // Desync detection (net_checksums.c).
     struct DesyncChecksums host_checksums;
@@ -164,7 +164,7 @@ struct KfxNetState {
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- also read by kfx_platform's
        bflib_sndlib.cpp, which gets pointer access via
-       SoundStateCallbacks instead (kfx_platform is the lowest-ranked
+       SoundHostPort instead (kfx_platform is the lowest-ranked
        library, can't reach kfx_net_state directly). */
     int64_t frame_skip;
 

@@ -41,9 +41,9 @@
 #include "room_entrance.h"
 #include "room_lair.h"
 #include "power_hand.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -78,7 +78,7 @@ int64_t at_scavenger_room(struct Thing *thing)
     if (scavenger_cost >= dungeon->total_money_owned)
     {
         if (is_my_player_number(thing->owner))
-            sim_feedback->play_sound_message(SMsg_NoGoldToScavenge, MESSAGE_DURATION_TREASURY);
+            audio_output_message(SMsg_NoGoldToScavenge, MESSAGE_DURATION_TREASURY);
         set_start_state(thing);
         return 0;
     }
@@ -163,7 +163,7 @@ int64_t creature_being_scavenged(struct Thing *creatng)
     }
     creatng->continue_state = CrSt_CreatureBeingScavenged;
     if (!S3DEmitterIsPlayingSample(creatng->snd_emitter_id, snd_scavenge))
-        sim_feedback->thing_play_sample(creatng, snd_scavenge, NORMAL_PITCH, 0, 3, 1, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, snd_scavenge, NORMAL_PITCH, 0, 3, 1, 2, FULL_LOUDNESS);
     SYNCDBG(19,"Finished");
     return 1;
 }
@@ -195,7 +195,7 @@ int64_t creature_scavenged_disappear(struct Thing *thing)
         reset_interpolation_of_thing(thing);
         anger_set_creature_anger_all_types(thing, 0);
         if (is_my_player_number(thing->owner))
-          sim_feedback->play_sound_message(SMsg_MinionScanvenged, 0);
+          audio_output_message(SMsg_MinionScanvenged, 0);
         cctrl->scavenge.previous_owner = thing->owner;
         change_creature_owner(thing, cctrl->scavenge.effect_id);
         internal_set_thing_state(thing, CrSt_CreatureScavengedReappear);
@@ -425,7 +425,7 @@ TbBool process_scavenge_creature_from_level(struct Thing *scavtng, struct Thing 
         // Start the new scavenging
         calldngn->scavenge_targets[calltng->model] = scavtng->index;
         if (is_my_player_number(scavtng->owner)) {
-            sim_feedback->play_sound_message(SMsg_CreatureScanvenged, 500);
+            audio_output_message(SMsg_CreatureScanvenged, 500);
         }
         event_create_event(scavtng->mappos.x.val, scavtng->mappos.y.val, EvKind_CreatrScavenged, scavtng->owner, scavtng->index);
     } else
@@ -523,7 +523,7 @@ CrCheckRet process_scavenge_function(struct Thing *calltng)
     if (!player_can_afford_to_scavenge_creature(calltng))
     {
         if (is_my_player_number(calltng->owner))
-            sim_feedback->play_sound_message(SMsg_NoGoldToScavenge, 500);
+            audio_output_message(SMsg_NoGoldToScavenge, 500);
         set_start_state(calltng);
         return CrCkRet_Continue;
     }

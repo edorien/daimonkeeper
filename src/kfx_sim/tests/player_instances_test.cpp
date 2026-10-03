@@ -7,17 +7,16 @@
 // deferred -- this pass covers only the pure "does player X currently
 // control/select thing Y" queries, which read PlayerInfo fields directly.
 //
-// get_creature_model_flags() (used by is_thing_directly_controlled_by_player's
-// PI_HeartZoom/_HeartZoomOut/_Drop branch) resolves through
-// config_reload_callbacks->get_thing_model, whose default no-op always
-// returns 0 -- confirmed via config_creature_test.cpp's existing note --
-// so that branch's CMF_IsSpectator half is unobservable here without a
-// stubbed callback; only its influenced_thing_idx half is exercised.
+// is_thing_directly_controlled_by_player's PI_HeartZoom/_HeartZoomOut/
+// _Drop branch: only its influenced_thing_idx half is exercised; the
+// CMF_IsSpectator half (get_creature_model_flags on the thing's model)
+// isn't covered yet.
 #include <catch2/catch_test_macros.hpp>
 
 #include "player_instances.h"
 #include "player_data.h"
 #include "kfx_sim_test_fixtures.h"
+#include "thing_stats.h"
 
 using namespace kfx_test;
 

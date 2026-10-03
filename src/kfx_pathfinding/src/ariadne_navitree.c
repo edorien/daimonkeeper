@@ -28,7 +28,7 @@
 #include "ariadne_points.h"
 #include "ariadne_findcache.h"
 #include "ariadne_naviheap.h"
-#include "sim_feedback.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -97,7 +97,7 @@ int64_t update_border_tags(int64_t tag_id, int64_t *border_pt, int64_t border_le
         int64_t n = border_pt[ipt];
         if ((n < 0) || (n >= TREEITEMS_COUNT))
         {
-            sim_feedback->report_error_stat(ESE_BadRouteTree);
+            ui_report_error_stat(ESE_BadRouteTree);
             continue;
         }
         Tags[n] = tag_id;

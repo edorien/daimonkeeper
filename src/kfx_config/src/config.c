@@ -19,6 +19,7 @@
 #include "kfx_memory.h"
 #include "pre_inc.h"
 #include "config.h"
+#include "port_check.h"
 
 #include <stdarg.h>
 #include <inttypes.h>
@@ -35,11 +36,10 @@
 #include "bflib_fmvids.h"
 #include "config_campaigns.h"
 // script_strdup()/script_strval() (kfx_game's lvl_script_lib.h) are
-// reached through config_reload_callbacks instead of same-file
+// reached through SimPort instead of same-file
 // bare-extern forward-declarations. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
-// Real usage: sprite_lookup->get_icon_id()/sprite_lookup->get_anim_id_().
-#include "sprite_lookup.h"
+// Real usage: render_get_icon_id()/render_get_anim_id_().
 // Real usage: get_string_id_by_alias().
 #include "config_translation.h"
 // Real usage: install_info.
@@ -47,11 +47,12 @@
 
 // Real usage: effect_or_effect_element_id() -- same library, kfx_config.
 #include "config_effects.h"
-#include "sim_feedback.h"
-#include "game_callbacks.h"
 // Real usage: kfx_sim's map_data.h COORD_PER_STL (only reachable
 // transitively) -- literal-duplicated locally.
 #define COORD_PER_STL 256
+#include "ports/script_port.h"
+#include "ports/game_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -62,165 +63,12 @@ extern "C" {
 /** Line number, used when loading text files. */
 uint64_t text_line_number;
 
-// See struct ConfigReloadCallbacks and docs/refactor/stage-04-kfx-config.md
+// See struct SimPort and docs/refactor/stage-04-kfx-config.md
 // issue A.
-static void config_reload_noop_void(void) {}
-static void config_reload_noop_update_all_trap_draws_of_model(int64_t trap_model) {}
-static TbBool config_reload_noop_bool_amount(int64_t rtyp, int64_t rkind, int64_t amount) { return false; }
-static TbBool config_reload_noop_bool(void) { return false; }
-static void config_reload_noop_panel_map_update(int64_t x, int64_t y, int64_t w, int64_t h) {}
-static void config_reload_noop_update_panel_color_player_color(PlayerNumber plyr_idx, unsigned char color_idx) {}
-static FuncIdx config_reload_noop_get_lua_function_idx(const char *func_name, const struct NamedCommand *named_command) { return -1; }
-static int64_t config_reload_noop_get_map_dimension(void) { return 0; }
-static TbBool config_reload_noop_thing_query(const struct Thing *thing) { return false; }
-static ThingModel config_reload_noop_get_thing_model(const struct Thing *thing) { return 0; }
-static ThingClass config_reload_noop_get_thing_class_id(const struct Thing *thing) { return 0; }
-static PlayerNumber config_reload_noop_get_thing_owner(const struct Thing *thing) { return 0; }
-static uint64_t config_reload_noop_get_thing_creation_turn(const struct Thing *thing) { return 0; }
-static int64_t config_reload_noop_get_thing_index(const struct Thing *thing) { return 0; }
-static unsigned char config_reload_noop_get_creature_blood_type(const struct Thing *creatng) { return 0; }
-static char *config_reload_noop_get_creature_name_buffer(const struct Thing *creatng) { return NULL; }
-static int64_t config_reload_noop_get_wealth_size_of_gold_hoard_model(ThingModel objmodel) { return 0; }
-static void config_reload_noop_set_call_to_arms_graphics(PlayerNumber plyr_idx, int64_t birth_anim_idx, int64_t alive_anim_idx, int64_t leave_anim_idx) {}
-static void config_reload_noop_set_screen_vidmode(int64_t nmode) {}
-static int64_t config_reload_noop_get_screen_vidmode(void) { return 0; }
-static void config_reload_noop_set_base_mouse_sensitivity(int64_t val) {}
-static int64_t config_reload_noop_get_base_mouse_sensitivity(void) { return 0; }
-static void config_reload_noop_setup_panel_colors(void) {}
-static void config_reload_noop_reset_panel_map_background_cache(void) {}
-static void config_reload_noop_update_creatr_model_activities_list(TbBool forced) {}
-static struct SlabMap *config_reload_noop_get_slabmap_for_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y) { return NULL; }
-static int64_t config_reload_noop_slabmap_owner(const struct SlabMap *slb) { return 0; }
-static TbBool config_reload_noop_thing_create_thing(struct InitThing *itng) { return false; }
-static TbBool config_reload_noop_thing_create_thing_adv(VALUE *init_data) { return false; }
-static void config_reload_noop_set_screenshot_format(unsigned char val) {}
-static unsigned char config_reload_noop_get_screenshot_format(void) { return 0; }
-static void config_reload_noop_set_vid_smooth(TbBool val) {}
-static void config_reload_noop_set_hand_scale(double val) {}
-static double config_reload_noop_get_hand_scale(void) { return 1.0; }
-static RoomKind config_reload_noop_get_room_kind_thing_is_on(const struct Thing *creatng) { return 0; }
-static unsigned char config_reload_noop_get_player_color_idx(PlayerNumber plyr_idx) { return 0; }
-static struct SlabSet *config_reload_noop_get_slabset_array(void) { return NULL; }
-static int64_t *config_reload_noop_get_slabset_num_ptr(void) { return NULL; }
-static struct SlabObj *config_reload_noop_get_slabobjs_array(void) { return NULL; }
-static int64_t *config_reload_noop_get_slabobjs_idx_array(void) { return NULL; }
-static int64_t *config_reload_noop_get_slabobjs_num_ptr(void) { return NULL; }
-static void config_reload_noop_set_block_health(int64_t idx, int64_t val) {}
-static ThingModel config_reload_noop_get_player_special_digger(PlayerNumber plyr_idx) { return 0; }
-static void config_reload_noop_set_player_special_digger(PlayerNumber plyr_idx, ThingModel model) {}
 
 // See docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
-static struct Computer2 *config_reload_noop_get_computer_player_f(int64_t plyr_idx, const char *func_name) { return NULL; }
-static TbBool config_reload_noop_reactivate_build_process(struct Computer2 *comp, RoomKind rkind) { return false; }
-static int64_t config_reload_noop_get_room_kind_long(RoomKind rkind) { return 0; }
-static TbBool config_reload_noop_slabmap_block_invalid(const struct SlabMap *slb) { return true; }
-static SlabKind config_reload_noop_slabmap_kind(const struct SlabMap *slb) { return 0; }
-static const struct NamedCommand *config_reload_noop_get_named_command_array(void) { return NULL; }
-static unsigned char config_reload_noop_get_my_player_number(void) { return 0; }
-static TbBool config_reload_noop_bool_from_player(PlayerNumber plyr_idx) { return false; }
-static TbBool config_reload_noop_slab_is_area_inner_fill(MapSlabCoord slb_x, MapSlabCoord slb_y) { return false; }
-static const char *config_reload_noop_thing_class_and_model_name(ThingClass class_id, ThingModel model) { return ""; }
-static TbBool config_reload_noop_bool_thing(struct Thing *thing) { return false; }
-static int64_t config_reload_noop_do_to_players_all_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel, TbBool (*do_cb)(struct Thing *)) { return 0; }
-static int64_t config_reload_noop_do_to_all_things_of_class_and_model(int64_t tngclass, int64_t tngmodel, TbBool (*do_cb)(struct Thing *)) { return 0; }
-static TbBool config_reload_noop_update_speed_of_player_creatures_of_model(PlayerNumber plyr_idx, int64_t crmodel) { return false; }
-static int64_t config_reload_noop_thing_is_invalid(const struct Thing *thing) { return true; }
-static int64_t config_reload_noop_setup_excess_creatures_to_leave_or_die(int64_t max_remain) { return 0; }
-static char **config_reload_noop_get_level_strings(void) { return NULL; }
-static TbBool config_reload_noop_bool_door_trap(PlayerNumber plyr_idx, ThingModel kind, int64_t buildable, int64_t amount) { return false; }
-static void config_reload_noop_set_speech_queue_limit(int64_t limit) {}
-static int64_t config_reload_noop_script_strdup(const char *src) { return -1; }
-static const char *config_reload_noop_script_strval(int64_t offset) { return NULL; }
-static void config_reload_noop_reset_campaign_progress(void) {}
 
-static const struct ConfigReloadCallbacks default_config_reload_callbacks = {
-    &config_reload_noop_void, &config_reload_noop_void, &config_reload_noop_void,
-    &config_reload_noop_update_creatr_model_activities_list,
-    &config_reload_noop_void, &config_reload_noop_update_all_trap_draws_of_model,
-    &config_reload_noop_bool_amount, &config_reload_noop_bool,
-    &config_reload_noop_panel_map_update,
-    &config_reload_noop_update_panel_color_player_color,
-    &config_reload_noop_setup_panel_colors,
-    &config_reload_noop_reset_panel_map_background_cache,
-    &config_reload_noop_void,
-    &config_reload_noop_get_lua_function_idx,
-    &config_reload_noop_get_map_dimension,
-    &config_reload_noop_get_map_dimension,
-    &config_reload_noop_thing_query,
-    &config_reload_noop_get_wealth_size_of_gold_hoard_model,
-    &config_reload_noop_set_call_to_arms_graphics,
-    &config_reload_noop_set_screen_vidmode,
-    &config_reload_noop_get_screen_vidmode,
-    &config_reload_noop_set_base_mouse_sensitivity,
-    &config_reload_noop_get_base_mouse_sensitivity,
-    &config_reload_noop_thing_query,
-    &config_reload_noop_thing_query,
-    &config_reload_noop_get_thing_model,
-    &config_reload_noop_get_thing_class_id,
-    &config_reload_noop_get_thing_owner,
-    &config_reload_noop_get_thing_creation_turn,
-    &config_reload_noop_get_thing_index,
-    &config_reload_noop_get_creature_blood_type,
-    &config_reload_noop_get_creature_name_buffer,
-    &config_reload_noop_get_slabmap_for_subtile,
-    &config_reload_noop_slabmap_owner,
-    &config_reload_noop_thing_create_thing,
-    &config_reload_noop_thing_create_thing_adv,
-    &config_reload_noop_set_screenshot_format,
-    &config_reload_noop_get_screenshot_format,
-    &config_reload_noop_set_vid_smooth,
-    &config_reload_noop_set_hand_scale,
-    &config_reload_noop_get_hand_scale,
-    &config_reload_noop_get_room_kind_thing_is_on,
-    &config_reload_noop_get_player_color_idx,
-    &config_reload_noop_get_slabset_array,
-    &config_reload_noop_get_slabset_num_ptr,
-    &config_reload_noop_get_slabobjs_array,
-    &config_reload_noop_get_slabobjs_idx_array,
-    &config_reload_noop_get_slabobjs_num_ptr,
-    &config_reload_noop_set_block_health,
-    &config_reload_noop_get_player_special_digger,
-    &config_reload_noop_set_player_special_digger,
-    &config_reload_noop_get_computer_player_f,
-    &config_reload_noop_reactivate_build_process,
-    &config_reload_noop_get_room_kind_long,
-    &config_reload_noop_get_room_kind_long,
-    &config_reload_noop_slabmap_block_invalid,
-    &config_reload_noop_slabmap_kind,
-    &config_reload_noop_bool, &config_reload_noop_bool,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_get_my_player_number,
-    &config_reload_noop_bool_from_player,
-    &config_reload_noop_slab_is_area_inner_fill,
-    &config_reload_noop_thing_class_and_model_name,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_get_named_command_array,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_bool_thing, &config_reload_noop_bool_thing, &config_reload_noop_bool_thing,
-    &config_reload_noop_do_to_players_all_creatures_of_model,
-    &config_reload_noop_do_to_all_things_of_class_and_model,
-    &config_reload_noop_void,
-    &config_reload_noop_update_speed_of_player_creatures_of_model,
-    &config_reload_noop_bool_thing, &config_reload_noop_bool_thing,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_get_named_command_array, &config_reload_noop_get_named_command_array,
-    &config_reload_noop_bool_from_player,
-    &config_reload_noop_thing_is_invalid,
-    &config_reload_noop_setup_excess_creatures_to_leave_or_die,
-    &config_reload_noop_get_level_strings,
-    &config_reload_noop_bool_door_trap, &config_reload_noop_bool_door_trap,
-    &config_reload_noop_set_speech_queue_limit,
-    &config_reload_noop_script_strdup, &config_reload_noop_script_strval,
-    &config_reload_noop_reset_campaign_progress,
-};
-const struct ConfigReloadCallbacks *config_reload_callbacks = &default_config_reload_callbacks;
 
-void set_config_reload_callbacks(const struct ConfigReloadCallbacks *callbacks)
-{
-    config_reload_callbacks = callbacks ? callbacks : &default_config_reload_callbacks;
-}
 
 /******************************************************************************/
 #ifdef __cplusplus
@@ -730,7 +578,7 @@ int64_t value_icon(const struct NamedField* named_field, const char* value_text,
 {
     if (flag_is_set(flags,ccf_SplitExecution))
     {
-        int64_t script_string_offset = config_reload_callbacks->script_strdup(value_text);
+        int64_t script_string_offset = game_script_strdup(value_text);
         if (script_string_offset < 0)
         {
             NAMFIELDWRNLOG("Run out script strings space");
@@ -740,7 +588,7 @@ int64_t value_icon(const struct NamedField* named_field, const char* value_text,
     }
     else
     {
-        return sprite_lookup->get_icon_id(value_text);
+        return render_get_icon_id(value_text);
     }
 }
 
@@ -748,7 +596,7 @@ int64_t value_animid(const struct NamedField* named_field, const char* value_tex
 {
   if (flag_is_set(flags,ccf_SplitExecution))
   {
-      int64_t script_string_offset = config_reload_callbacks->script_strdup(value_text);
+      int64_t script_string_offset = game_script_strdup(value_text);
       if (script_string_offset < 0)
       {
           NAMFIELDWRNLOG("Run out script strings space");
@@ -758,7 +606,7 @@ int64_t value_animid(const struct NamedField* named_field, const char* value_tex
   }
   else
   {
-      return sprite_lookup->get_anim_id_(value_text);
+      return render_get_anim_id_(value_text);
   }
 }
 
@@ -774,14 +622,14 @@ int64_t value_effOrEffEl(const struct NamedField* named_field, const char* value
 
 int64_t value_function(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
-    return config_reload_callbacks->get_lua_function_idx(value_text, named_field->namedCommand);
+    return script_get_lua_function_idx(value_text, named_field->namedCommand);
 }
 
 void assign_icon(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (flag_is_set(flags,ccf_SplitExecution))
     {
-        int64_t icon_id = sprite_lookup->get_icon_id(config_reload_callbacks->script_strval(value));
+        int64_t icon_id = render_get_icon_id(game_script_strval(value));
         assign_default(named_field,icon_id,named_fields_set,idx,src_str,flags);
     }
     else
@@ -794,7 +642,7 @@ void assign_animid(const struct NamedField* named_field, int64_t value, const st
 {
     if (flag_is_set(flags,ccf_SplitExecution))
     {
-        int64_t anim_id = sprite_lookup->get_anim_id_(config_reload_callbacks->script_strval(value));
+        int64_t anim_id = render_get_anim_id_(game_script_strval(value));
         assign_default(named_field,anim_id,named_fields_set,idx,src_str,flags);
     }
     else
@@ -2159,10 +2007,10 @@ LevelNumber next_singleplayer_level(LevelNumber sp_lvnum, TbBool ignore)
   if (sp_lvnum < 1) return LEVELNUMBER_ERROR;
   int64_t next_level;
 
-  if ((game_callbacks->get_intralvl_next_level() > 0) && !ignore)
+  if ((game_get_intralvl_next_level() > 0) && !ignore)
   {
-      next_level = game_callbacks->get_intralvl_next_level();
-      game_callbacks->clear_intralvl_next_level();
+      next_level = game_get_intralvl_next_level();
+      game_clear_intralvl_next_level();
       if (next_level < 0)
           return SINGLEPLAYER_FINISHED;
 
@@ -2344,12 +2192,40 @@ int64_t is_freeplay_level(LevelNumber lvnum)
   return false;
 }
 
+static const LevelNumber unwired_level_number = 0;
+static const LevelNumber *config_selected_level_source = &unwired_level_number;
+static const LevelNumber *config_loaded_level_source = &unwired_level_number;
+
+void set_config_level_sources(const LevelNumber *selected_level, const LevelNumber *loaded_level)
+{
+    config_selected_level_source = selected_level ? selected_level : &unwired_level_number;
+    config_loaded_level_source = loaded_level ? loaded_level : &unwired_level_number;
+}
+
+LevelNumber config_selected_level_number(void)
+{
+    return *config_selected_level_source;
+}
+
+LevelNumber config_loaded_level_number(void)
+{
+    return *config_loaded_level_source;
+}
+
+LevelNumber config_level_number(void)
+{
+    LevelNumber lvnum = config_selected_level_number();
+    if (lvnum <= 0)
+        lvnum = config_loaded_level_number();
+    return lvnum;
+}
+
 /**
   * checks if currently in a campaign, and if the provided level number is also part of it.
  */
 TbBool is_level_in_current_campaign(LevelNumber lvnum)
 {
-    if (!is_campaign_level(sim_feedback->get_loaded_level_number()))
+    if (!is_campaign_level(config_loaded_level_number()))
     {
         return false;
     }
@@ -2396,7 +2272,7 @@ static void load_config_for_mod(const struct ConfigFileData* file_data, int64_t 
 
     if (mod_state->cmpg_lvls)
     {
-        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(sim_feedback->get_selected_level_number()), conf_fname);
+        fname = get_mod_file_path_fmt(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(config_selected_level_number()), conf_fname);
         if (fname && strlen(fname) > 0)
         {
             file_data->load_func(fname,flags);
@@ -2447,7 +2323,7 @@ TbBool load_config(const struct ConfigFileData* file_data, int64_t flags)
         load_config_for_mod_list(file_data, flags, mods_conf.after_campaign_item, mods_conf.after_campaign_cnt);
     }
 
-    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(sim_feedback->get_selected_level_number()), conf_fname);
+    fname = get_game_file_path_fmt(FGrp_CmpgLvls, "map%05" PRId64 ".%s", (int64_t)(config_selected_level_number()), conf_fname);
     if (fname && strlen(fname) > 0)
     {
         file_data->load_func(fname,flags|CnfLd_AcceptPartial|CnfLd_IgnoreErrors);

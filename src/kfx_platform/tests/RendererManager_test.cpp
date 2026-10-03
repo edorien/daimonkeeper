@@ -15,6 +15,7 @@
 
 #include "renderer/RendererManager.h"
 #include "bflib_video.h"
+#include "ports/display_host_port.h"
 
 #include <cstring>
 
@@ -24,8 +25,7 @@ struct RendererManagerFixture {
         lbScreenInitialised = false;
     }
     ~RendererManagerFixture() {
-        set_renderer_draw_callbacks(nullptr);  // restores the default no-op stub
-        set_renderer_imgui_callbacks(nullptr); // ditto
+        set_display_host_port(nullptr); // restores the unwired defaults
     }
 };
 }
@@ -139,22 +139,20 @@ TEST_CASE_METHOD(RendererManagerFixture, "draw flags round-trip through Renderer
 }
 
 TEST_CASE_METHOD(RendererManagerFixture, "RendererDrawSlabBackground falls through to the default no-op callback with no UI renderer", "[kfx_platform][RendererManager]") {
-    // Default renderer_draw_callbacks->draw_slab_background_immediate is
-    // itself a no-op stub (RendererManager.cpp's own
-    // noop_draw_slab_background_immediate) -- must not crash even
-    // though nothing observable happens.
+    // DisplayHostPort's unwired draw_slab_background_immediate is a no-op
+    // -- must not crash even though nothing observable happens.
     RendererDrawSlabBackground(0, 0, 32, 32);
     CHECK(true);
 }
 
 TEST_CASE_METHOD(RendererManagerFixture, "RendererDrawSlabBackground calls a fake draw_slab_background_immediate with no UI renderer", "[kfx_platform][RendererManager]") {
     static int64_t g_last_x = -1, g_last_y = -1, g_last_w = -1, g_last_h = -1;
-    struct RendererDrawCallbacks fake = {
-        [](int64_t x, int64_t y, int64_t w, int64_t h) {
-            g_last_x = x; g_last_y = y; g_last_w = w; g_last_h = h;
-        }
+    static struct DisplayHostPort fake;
+    fake = display_host_port_defaults;
+    fake.draw_slab_background_immediate = [](int64_t x, int64_t y, int64_t w, int64_t h) {
+        g_last_x = x; g_last_y = y; g_last_w = w; g_last_h = h;
     };
-    set_renderer_draw_callbacks(&fake);
+    set_display_host_port(&fake);
 
     RendererDrawSlabBackground(10, 20, 30, 40);
     CHECK(g_last_x == 10);
@@ -163,40 +161,31 @@ TEST_CASE_METHOD(RendererManagerFixture, "RendererDrawSlabBackground calls a fak
     CHECK(g_last_h == 40);
 }
 
-TEST_CASE_METHOD(RendererManagerFixture, "set_renderer_draw_callbacks(nullptr) restores the default no-op stub", "[kfx_platform][RendererManager]") {
-    set_renderer_draw_callbacks(nullptr);
-    // Must not crash -- proves renderer_draw_callbacks fell back to
-    // &default_renderer_draw_callbacks rather than staying null.
+TEST_CASE_METHOD(RendererManagerFixture, "set_display_host_port(nullptr) restores the unwired defaults", "[kfx_platform][RendererManager]") {
+    set_display_host_port(nullptr);
+    // Must not crash -- proves display_host_port fell back to
+    // &display_host_port_defaults rather than staying null.
     RendererDrawSlabBackground(0, 0, 1, 1);
     CHECK(true);
 }
 
-TEST_CASE_METHOD(RendererManagerFixture, "RendererSetImGuiDemoVisible/RendererScreenOwned are safe with the default no-op RendererImGuiCallbacks", "[kfx_platform][RendererManager][imgui]") {
-    // No test in this binary ever calls set_renderer_imgui_callbacks(), so
-    // these all fall through to RendererManager.cpp's default no-op
-    // struct -- must not crash, and the bool-returning ones must report
-    // "nothing active" rather than garbage.
+TEST_CASE_METHOD(RendererManagerFixture, "RendererSetImGuiDemoVisible/RendererScreenOwned are safe with DisplayHostPort unwired", "[kfx_platform][RendererManager][imgui]") {
+    // The fixture leaves DisplayHostPort at its unwired defaults -- must not
+    // crash, and the bool-returning ones must report "nothing active"
+    // rather than garbage.
     RendererSetImGuiDemoVisible(1);
     RendererSetImGuiDemoVisible(0);
     CHECK_FALSE(RendererScreenOwned());
 }
 
-TEST_CASE_METHOD(RendererManagerFixture, "set_renderer_imgui_callbacks wires a fake RendererImGuiCallbacks struct", "[kfx_platform][RendererManager][imgui]") {
-    static int64_t g_ensure_calls = 0, g_demo_visible = -1;
-    struct RendererImGuiCallbacks fake = {
-        [](struct SDL_Window*, struct SDL_Renderer*) -> TbBool { g_ensure_calls++; return 1; },
-        []() {},                                    // renderer_destroying
-        []() {},                                    // begin_frame
-        []() {},                                    // submit
-        []() {},                                    // render
-        [](const union SDL_Event*) {},               // process_event
-        []() -> TbBool { return 1; },                // is_active
-        []() -> TbBool { return 1; },                // want_capture_mouse
-        []() -> TbBool { return 0; },                // want_capture_keyboard
-        []() -> TbBool { return 1; },                // screen_owned
-        [](TbBool visible) { g_demo_visible = visible; },
-    };
-    set_renderer_imgui_callbacks(&fake);
+TEST_CASE_METHOD(RendererManagerFixture, "RendererScreenOwned/RendererSetImGuiDemoVisible reach DisplayHostPort's imgui entries", "[kfx_platform][RendererManager][imgui]") {
+    static int64_t g_demo_visible = -1;
+    static struct DisplayHostPort fake;
+    fake = display_host_port_defaults;
+    fake.imgui_is_active = []() -> TbBool { return 1; };
+    fake.imgui_screen_owned = []() -> TbBool { return 1; };
+    fake.imgui_set_demo_visible = [](TbBool visible) { g_demo_visible = visible; };
+    set_display_host_port(&fake);
 
     CHECK(RendererScreenOwned());
     RendererSetImGuiDemoVisible(1);

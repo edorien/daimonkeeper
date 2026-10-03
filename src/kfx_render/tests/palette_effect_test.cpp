@@ -8,6 +8,7 @@
 #include "player_data.h"
 #include "vidmode.h"
 #include "kfx_sim_state.h"
+#include "local_state.h"
 
 #include <cstring>
 

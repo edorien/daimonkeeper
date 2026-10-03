@@ -23,12 +23,15 @@
 #include "ariadne_edge.h"
 #include "ariadne_navitree.h"
 
-#include "pathfinding_world.h"
 #include "kfx_pathfinding_state.h"
 #include "bflib_math.h"
 #include "config_terrain.h"
 #include "kfx_config_state.h"
+#include "thing_types.h"
+#include "map_types.h"
+#include "slab_types.h"
 
+#include "ports/pathfinding_world_port.h"
 #include "post_inc.h"
 
 
@@ -608,7 +611,7 @@ static int64_t fringe_get_rectangle(int64_t *outfri_x1, int64_t *outfri_y1, int6
         return 0;
     }
     NavColour *fri_map;
-    fri_map = &fringe_map[pathfinding_world->get_subtile_number(fri_x,fri_y)];
+    fri_map = &fringe_map[ariadne_subtile_number(fri_x, fri_y)];
     // Find dx and dy
     int64_t dx;
     int64_t dy;
@@ -621,7 +624,7 @@ static int64_t fringe_get_rectangle(int64_t *outfri_x1, int64_t *outfri_y1, int6
     for (dy = 1; dy < len_y; dy++)
     {
         // Our data is 0-terminated, so we can use string functions to compare
-        if (memcmp(&fri_map[(pathfinding_world->get_map_size_x() + 1) * dy], &fri_map[0], dx*sizeof(NavColour)) != 0) {
+        if (memcmp(&fri_map[(kfx_pathfinding_state.map_subtiles_x + 1) * dy], &fri_map[0], dx*sizeof(NavColour)) != 0) {
             break;
         }
     }
@@ -1536,16 +1539,16 @@ static TbBool triangulate_area(NavColour *imap, int64_t start_x, int64_t start_y
     }
     // Prepare some basic logic information
     one_tile = (((end_x - start_x) == 1) && ((end_y - start_y) == 1));
-    not_whole_map = (start_x != 0) || (start_y != 0) || (end_x != pathfinding_world->get_map_size_x() + 1) || (end_y != pathfinding_world->get_map_size_y() + 1);
+    not_whole_map = (start_x != 0) || (start_y != 0) || (end_x != kfx_pathfinding_state.map_subtiles_x + 1) || (end_y != kfx_pathfinding_state.map_subtiles_y + 1);
     // If coordinates are out of range, update the whole map area
-    if ((start_x < 1) || (start_y < 1) || (end_x >= pathfinding_world->get_map_size_x()) || (end_y >= pathfinding_world->get_map_size_y()))
+    if ((start_x < 1) || (start_y < 1) || (end_x >= kfx_pathfinding_state.map_subtiles_x) || (end_y >= kfx_pathfinding_state.map_subtiles_y))
     {
         one_tile = 0;
         not_whole_map = 0;
         start_x = 0;
-        end_x = pathfinding_world->get_map_size_x() + 1;
+        end_x = kfx_pathfinding_state.map_subtiles_x + 1;
         start_y = 0;
-        end_y = pathfinding_world->get_map_size_y() + 1;
+        end_y = kfx_pathfinding_state.map_subtiles_y + 1;
     }
     triangulation_init();
     if ( not_whole_map )
@@ -1560,7 +1563,7 @@ static TbBool triangulate_area(NavColour *imap, int64_t start_x, int64_t start_y
         }
     } else
     {
-        triangulation_initxy(-(pathfinding_world->get_map_size_x() + 1), -(pathfinding_world->get_map_size_y() + 1), (pathfinding_world->get_map_size_x() + 1) * 2, (pathfinding_world->get_map_size_y() + 1) * 2);
+        triangulation_initxy(-(kfx_pathfinding_state.map_subtiles_x + 1), -(kfx_pathfinding_state.map_subtiles_y + 1), (kfx_pathfinding_state.map_subtiles_x + 1) * 2, (kfx_pathfinding_state.map_subtiles_y + 1) * 2);
         tri_set_rectangle(start_x, start_y, end_x, end_y, 0);
     }
     colour = -1;
@@ -1610,8 +1613,8 @@ static NavColour get_navigation_colour_for_door(int64_t stl_x, int64_t stl_y)
     struct Thing *doortng;
     NavColour colour = (1 << NAVMAP_FLOORHEIGHT_BIT);
 
-    doortng = pathfinding_world->get_door_for_position(stl_x, stl_y);
-    if (pathfinding_world->thing_is_invalid(doortng))
+    doortng = world_get_door_for_position(stl_x, stl_y);
+    if (world_thing_is_invalid(doortng))
     {
         ERRORLOG("Cannot find door for flagged position (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
         return colour;
@@ -1619,8 +1622,8 @@ static NavColour get_navigation_colour_for_door(int64_t stl_x, int64_t stl_y)
 
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
-        if ((pathfinding_world->players_are_mutual_allies(plyr_idx,pathfinding_world->thing_get_owner(doortng)) && pathfinding_world->door_is_locked(doortng)) ||
-            pathfinding_world->door_is_hidden_to_player(doortng,plyr_idx))
+        if ((world_players_are_mutual_allies(plyr_idx,doortng->owner) && (doortng->door.is_locked != 0)) ||
+            world_door_is_hidden_to_player(doortng,plyr_idx))
         {
             colour |= 1 << (NAVMAP_OWNERSELECT_BIT + plyr_idx);
         }
@@ -1632,12 +1635,12 @@ static NavColour get_navigation_colour_for_door(int64_t stl_x, int64_t stl_y)
 static NavColour get_navigation_colour_for_cube(int64_t stl_x, int64_t stl_y)
 {
     NavColour i;
-    i = pathfinding_world->get_floor_filled_subtiles_at(stl_x, stl_y);
+    i = world_get_floor_filled_subtiles_at(stl_x, stl_y);
     if (i > NAVMAP_FLOORHEIGHT_MAX)
       i = NAVMAP_FLOORHEIGHT_MAX;
-    if (pathfinding_world->subtile_is_unsafe(stl_x, stl_y))
+    if (world_subtile_is_unsafe(stl_x, stl_y))
       i |= NAVMAP_UNSAFE_SURFACE;
-    if (pathfinding_world->subtile_has_abyss_on_top(stl_x, stl_y))
+    if (world_subtile_has_abyss_on_top(stl_x, stl_y))
       i |= NAVMAP_ABYSS;
     return i;
 }
@@ -1645,12 +1648,12 @@ static NavColour get_navigation_colour_for_cube(int64_t stl_x, int64_t stl_y)
 static NavColour get_navigation_colour(int64_t stl_x, int64_t stl_y)
 {
     struct Map *mapblk;
-    mapblk = pathfinding_world->get_map_block_at(stl_x, stl_y);
-    if ((pathfinding_world->map_block_flags(mapblk) & SlbAtFlg_IsDoor) != 0)
+    mapblk = world_get_map_block_at(stl_x, stl_y);
+    if ((mapblk->flags & SlbAtFlg_IsDoor) != 0)
     {
         return get_navigation_colour_for_door(stl_x, stl_y);
     }
-    if ((pathfinding_world->map_block_flags(mapblk) & SlbAtFlg_Blocking) != 0)
+    if ((mapblk->flags & SlbAtFlg_Blocking) != 0)
     {
         return (NAVMAP_FLOORHEIGHT_MAX << NAVMAP_FLOORHEIGHT_BIT);
     }
@@ -1711,11 +1714,11 @@ int64_t update_navigation_triangulation(int64_t start_x, int64_t start_y, int64_
     if (sy <= 2)
       sy = 2;
     ex = end_x + 1;
-    if (ex >= pathfinding_world->get_map_size_x()-2)
-      ex = pathfinding_world->get_map_size_x()-2;
+    if (ex >= kfx_pathfinding_state.map_subtiles_x-2)
+      ex = kfx_pathfinding_state.map_subtiles_x-2;
     ey = end_y + 1;
-    if (ey >= pathfinding_world->get_map_size_y()-2)
-      ey = pathfinding_world->get_map_size_y()-2;
+    if (ey >= kfx_pathfinding_state.map_subtiles_y-2)
+      ey = kfx_pathfinding_state.map_subtiles_y-2;
     // Fill a rectangle with nav colors (based on columns and blocks)
     TbBool changed = false;
     for (y = sy; y <= ey; y++)
@@ -1752,6 +1755,13 @@ void ariadne_set_navigation_map_size(MapSubtlCoord size_x, MapSubtlCoord size_y)
 {
     kfx_pathfinding_state.navigation_map_size_x = size_x;
     kfx_pathfinding_state.navigation_map_size_y = size_y;
+}
+
+void ariadne_set_map_dimensions(MapSubtlCoord size_x, MapSubtlCoord size_y, MapSubtlCoord size_z)
+{
+    kfx_pathfinding_state.map_subtiles_x = size_x;
+    kfx_pathfinding_state.map_subtiles_y = size_y;
+    kfx_pathfinding_state.map_subtiles_z = size_z;
 }
 
 TbBool ariadne_is_map_dirty_for_navigation(void)

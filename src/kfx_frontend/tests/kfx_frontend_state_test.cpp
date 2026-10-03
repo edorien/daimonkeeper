@@ -1,5 +1,5 @@
 // kfx_frontend: kfx_frontend_state.c -- the raw-blob save/load/reset
-// wrappers registered on GameCallbacks so kfx_game doesn't need to reach
+// wrappers tabled in UiPort so kfx_game doesn't need to reach
 // up into this header directly. All fully testable: reset_frontend_state/
 // get_frontend_state_size are pure, and save_frontend_state/
 // load_frontend_state are thin LbFileWrite/LbFileRead wrappers -- reuses

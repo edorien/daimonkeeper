@@ -1,0 +1,29 @@
+/* RenderPort entries: see ports/render_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_RET(TbBool, tag_cursor_blocks_place_door, (PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y), (plyr_idx, stl_x, stl_y), false)
+KFX_PORT_RET(TbBool, tag_cursor_blocks_place_room, (NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab), (user, stl_x, stl_y, full_slab), false)
+KFX_PORT_RET(TbBool, tag_cursor_blocks_sell_area, (PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab), (plyr_idx, stl_x, stl_y, full_slab), false)
+KFX_PORT_VOID(set_engine_view, (struct PlayerInfo *player, int64_t val), (player, val))
+KFX_PORT_VOID(setup_engine_window, (int64_t x1, int64_t y1, int64_t x2, int64_t y2), (x1, y1, x2, y2))
+KFX_PORT_RET(TbBool, load_texture_map_file, (uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup), (tmapidx, lvnum, fgroup), false)
+KFX_PORT_VOID(PaletteSetUserPalette, (NetUserId user, unsigned char *pal), (user, pal))
+KFX_PORT_VOID(PaletteApplyPainToPlayer, (struct PlayerInfo *player, int64_t intense), (player, intense))
+KFX_PORT_VOID(setup_eye_lens, (int64_t nlens), (nlens))
+KFX_PORT_RET(int64_t, get_td_animation_sprite, (int64_t animation_sprite), (animation_sprite), 0)
+KFX_PORT_RET(unsigned char, get_lens_mode, (void), (), 0)
+KFX_PORT_RET(int64_t, get_icon_id, (const char *name), (name), 0)
+KFX_PORT_RET(int64_t, get_anim_id, (const char *name, struct ObjectConfigStats *objst), (name, objst), 0)
+KFX_PORT_RET(int64_t, get_anim_id_, (const char *name), (name), 0)
+KFX_PORT_RET(int64_t, get_ensign_id, (const char *name), (name), -1)
+KFX_PORT_VOID(init_custom_campaign_sprites, (const char *dir_path, const char *dir_desc), (dir_path, dir_desc))
+KFX_PORT_VOID(load_sprites_for_multi_front, (LevelNumber lvnum), (lvnum))
+/* set_player_mode(): the local player's authoritative view type became
+   nview. Clears the local view-type prediction (local_camera.c) if it
+   predicted nview; true while a prediction is still pending. */
+KFX_PORT_RET(TbBool, local_view_type_settle, (int64_t nview), (nview), false)

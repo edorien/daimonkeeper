@@ -50,6 +50,7 @@
 #include "net_matchmaking.h"
 #include "net_lan.h"
 #include "config_campaigns.h"
+#include "game_replay.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

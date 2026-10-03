@@ -87,13 +87,6 @@ public:
                                    int64_t priority = 3,
                                    SoundVolume volume = 256);
     
-    /**
-     * @brief Play creature sound (uses existing system)
-     * @param thing Creature thing
-     * @param sound_type Sound type (CrSnd_Hit, CrSnd_Slap, etc.)
-     * @param priority Priority (default 3)
-     */
-    void playCreatureSound(struct Thing* thing, int64_t sound_type, int64_t priority = 3);
     
     /**
      * @brief Stop a playing sound
@@ -273,7 +266,6 @@ extern "C" {
 // C API for testing
 TbBool sound_manager_init(void);
 SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, int64_t priority, SoundVolume volume);
-void sound_manager_play_creature_sound(struct Thing* thing, int64_t sound_type, int64_t priority);
 void sound_manager_stop_effect(SoundEmitterID emitter_id);
 TbBool sound_manager_play_music(int64_t track_number);
 void sound_manager_stop_music(void);

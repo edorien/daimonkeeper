@@ -38,9 +38,9 @@
 #include "room_data.h"
 #include "room_jobs.h"
 #include "map_utils.h"
-#include "sim_feedback.h"
 
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -399,7 +399,7 @@ int64_t manufacturing(struct Thing *creatng)
     }
     if (room->used_capacity > room->total_capacity)
     {
-        sim_feedback->output_room_message(room->owner, room->kind, OMsg_RoomFull);
+        audio_output_room_message(room->owner, room->kind, OMsg_RoomFull);
         remove_creature_from_work_room(creatng);
         set_start_state(creatng);
         return CrStRet_ResetOk;

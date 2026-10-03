@@ -761,7 +761,7 @@ void frontnet_draw_service_button(struct GuiButton *gbtn)
  * extraction so far, this one is NOT safe to call directly from an active
  * ImGui window even once split: setup_network_service() (kfx_net/
  * net_game.c) itself calls frontend_set_state() three layers down, via
- * net_callbacks->enter_net_session_screen() -- across the kfx_net/
+ * ui_enter_net_session_screen() -- across the kfx_net/
  * kfx_frontend layering boundary, too deep to return a target state the
  * way the single-layer cases elsewhere in this file could. The ImGui
  * screen defers this whole function via frontgui_screens.cpp's generic

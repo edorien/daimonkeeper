@@ -291,6 +291,7 @@ extern const struct NamedCommand tag_modes[];
 // RENDERER (gpu-v2 Phase C.1) -- same reuse as above.
 extern const struct NamedCommand renderer_type[];
 extern const struct NamedCommand lighting_type[];
+extern const struct NamedCommand log_level_type[];
 extern const struct NamedCommand hud_position_type[];
 extern const struct NamedCommand minimap_corner_type[];
 extern const struct NamedCommand panel_corner_type[];

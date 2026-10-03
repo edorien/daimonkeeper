@@ -1,6 +1,5 @@
 #include "pre_inc.h"
 #include "frontgui_screens.h"
-#include "content_tools_callbacks.h"
 #include "frontgui_ingame.h" // Phase 0: the in-game HUD/menu ImGui arm
 #include "frontgui_widgets.h"
 #include "frontgui_skirmish_setup.h" // Skirmish Setup tab (docs/refactor/skirmish/)
@@ -47,6 +46,7 @@
 #include "kfx_net_state.h" // autopilot comp_player_* flags (in-game options fold)
 #include <cstdio>
 #include <vector>
+#include "ports/editor_port.h"
 #include "post_inc.h"
 
 namespace {
@@ -85,7 +85,7 @@ namespace {
     // above, generalized: Phase F's network flow has several click
     // handlers that reach frontend_set_state() indirectly, sometimes
     // several layers down and across the kfx_net/kfx_frontend boundary
-    // (setup_network_service() -> net_callbacks->enter_net_session_screen()
+    // (setup_network_service() -> ui_enter_net_session_screen()
     // -> frontend_set_state()) or with a conditional fallback baked in
     // (init_menu_state_on_net_stats_exit(), frontnet_return_to_session_menu())
     // -- too deep or too branchy to give each one its own
@@ -1104,8 +1104,19 @@ namespace {
                 struct CatalogueEntry *centry = &save_game_catalogue[i];
                 if ((centry->flags & CEF_InUse) == 0)
                     continue;
-                if (FeListRow(centry->textname, false))
+                ImGui::PushID((int)i);
+                if ((centry->flags & CEF_OtherVersion) != 0)
+                {
+                    // Can't be loaded by this build (S09): listed, but not clickable.
+                    char label[SAVE_TEXTNAME_LEN + 32];
+                    snprintf(label, sizeof(label), "%s (other version)", centry->textname);
+                    ImGui::BeginDisabled();
+                    FeListRow(label, false);
+                    ImGui::EndDisabled();
+                }
+                else if (FeListRow(centry->textname, false))
                     s_pending_load_slot = i; // load_game() is at least as heavy as frontend_set_state() -- same deferral
+                ImGui::PopID();
             }
         }
         FeEndListBox(open);
@@ -1495,38 +1506,30 @@ namespace {
         FeHeading(get_string(frontend_button_info[FEBtn_MnuLandSelection].capstr_idx));
         {
             // Upper right corner, same line as the title: letting a campaign/scenario seat be handed off instead
-            // of played directly (docs/refactor/AI/LLM/01-integration-plan.md, M9b/M10) -- either to the
-            // built-in AI (Spectate) or to a connected External agent, mutually exclusive (checking one unchecks
-            // the other, same as Skirmish's own per-slot controller choice, skirmish_setup.cpp
-            // skirmish_setup_set_controller). Spectate is consumed once at level start
-            // (main_game.c::startup_network_game_tail, via game_callbacks so kfx_game -- below kfx_frontend --
-            // doesn't need to see this file) as player_enter_spectator_mode on the local player. External agent
-            // is armed the same way Skirmish arms an External slot -- net_pending_external_seats_add(), consumed
-            // by the same net_claim_pending_external_seats() call already unconditional there -- from
-            // frontend_land_selection_enter_resolve() (frontmenu_select.c) right before a level actually starts,
-            // not here: this checkbox only records intent. Neither flag is reset here, so each stays checked
-            // across levels until the player unchecks it.
-            const char *spectate_label = "Spectate (let the AI play this level)";
-            const char *external_label = "External agent (let a connected LLM play this level)";
+            // of played directly (docs/refactor/AI/LLM/01-integration-plan.md, M9b/M10). A single three-way
+            // choice, not two independent checkboxes -- Human/Scripted/LLM are mutually exclusive by
+            // construction here, same as Skirmish's own per-slot controller combo (skirmish_setup.cpp,
+            // skirmish_setup_set_controller). "Scripted" (fe_spectate_campaign) is consumed once at level start
+            // (main_game.c::startup_network_game_tail, via UiPort so kfx_game -- below kfx_frontend --
+            // doesn't need to see this file) as player_enter_spectator_mode on the local player. "LLM"
+            // (fe_external_campaign) is armed the same way Skirmish arms an External slot --
+            // net_pending_external_seats_add(), consumed by the same net_claim_pending_external_seats() call
+            // already unconditional there -- from frontend_land_selection_enter_resolve() (frontmenu_select.c)
+            // right before a level actually starts, not here: this combo only records intent. Not reset here,
+            // so the choice stays across levels until the player changes it.
+            const char *seat_items[] = { "Human", "Scripted", "LLM" };
+            const char *seat_label = "Seat control";
+            int64_t seat_mode = fe_external_campaign ? 2 : (fe_spectate_campaign ? 1 : 0);
             FeStylePushFont(FeFont_Body);
-            const double spectate_w = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(spectate_label).x;
-            const double external_w = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(external_label).x;
+            const double combo_box_w = 110.0;
+            const double seat_w = combo_box_w + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(seat_label).x;
             FeStylePopFont();
-            ImGui::SameLine(ImGui::GetWindowWidth() - spectate_w - ImGui::GetStyle().WindowPadding.x);
-            bool spectate = fe_spectate_campaign != 0;
-            if (FeCheckbox(spectate_label, &spectate))
+            ImGui::SameLine(ImGui::GetWindowWidth() - seat_w - ImGui::GetStyle().WindowPadding.x);
+            ImGui::SetNextItemWidth(combo_box_w);
+            if (FeCombo(seat_label, &seat_mode, seat_items, 3))
             {
-                fe_spectate_campaign = spectate ? 1 : 0;
-                if (spectate)
-                    fe_external_campaign = 0;
-            }
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - external_w - ImGui::GetStyle().WindowPadding.x);
-            bool external = fe_external_campaign != 0;
-            if (FeCheckbox(external_label, &external))
-            {
-                fe_external_campaign = external ? 1 : 0;
-                if (external)
-                    fe_spectate_campaign = 0;
+                fe_spectate_campaign = (seat_mode == 1) ? 1 : 0;
+                fe_external_campaign = (seat_mode == 2) ? 1 : 0;
             }
         }
         FeSeparator();
@@ -1672,6 +1675,30 @@ namespace {
         bool is_skirmish = frontend_freeplay_is_skirmish();
         FeHeading(is_skirmish ? get_string(GUIStr_NetServiceSkirmish)
             : get_string(frontend_button_info[FEBtn_MnuFreePlayLevels_107].capstr_idx));
+        if (!is_skirmish)
+        {
+            // Same "Seat control" combo as frontgui_campaignselect_frame() (docs/refactor/AI/LLM/01, M9b/M10),
+            // and the same underlying fe_spectate_campaign/fe_external_campaign globals -- one persistent
+            // choice shared across screens, not a per-screen setting, consistent with how fe_computer_players
+            // already works. Skirmish gets none of this: it already has its own, more granular per-slot
+            // External-agent picker (skirmish_setup_set_controller) that deliberately never offers the human's
+            // own slot (skirmish_setup.h's own external_slots comment), so a second, screen-level control here
+            // would either duplicate or conflict with it.
+            const char *seat_items[] = { "Human", "Scripted", "LLM" };
+            const char *seat_label = "Seat control";
+            int64_t seat_mode = fe_external_campaign ? 2 : (fe_spectate_campaign ? 1 : 0);
+            FeStylePushFont(FeFont_Body);
+            const double combo_box_w = 110.0;
+            const double seat_w = combo_box_w + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(seat_label).x;
+            FeStylePopFont();
+            ImGui::SameLine(ImGui::GetWindowWidth() - seat_w - ImGui::GetStyle().WindowPadding.x);
+            ImGui::SetNextItemWidth(combo_box_w);
+            if (FeCombo(seat_label, &seat_mode, seat_items, 3))
+            {
+                fe_spectate_campaign = (seat_mode == 1) ? 1 : 0;
+                fe_external_campaign = (seat_mode == 2) ? 1 : 0;
+            }
+        }
         FeSeparator();
 
         double list_w = win_size.x * 0.3;
@@ -1909,7 +1936,7 @@ namespace {
             // map; they open as windows over the menu. Tools that are not built yet are listed greyed out.
             for (int64_t t = 0; t < ContentTool_Count; t++)
             {
-                const bool available = content_tools_callbacks->is_available((int)t);
+                const bool available = editorport_content_tools_is_available((int)t);
                 FeCenterNextItem(btn_size.x);
                 if (!available)
                     ImGui::BeginDisabled();
@@ -1917,7 +1944,7 @@ namespace {
                 {
                     s_tools_modal_open = false;
                     ImGui::CloseCurrentPopup();
-                    content_tools_callbacks->open((int)t);
+                    editorport_content_tools_open((int)t);
                 }
                 if (!available)
                 {
@@ -1943,13 +1970,13 @@ namespace {
         {
             const int tool = (int)content_tool_reopen_tool;
             content_tool_reopen_tool = -1;
-            content_tools_callbacks->open(tool);
+            editorport_content_tools_open(tool);
         }
         // A content editor window (Tools) takes the screen: the menu behind it would show through and
         // could be clicked by mistake, so it is not drawn while a tool is open.
-        if (content_tools_callbacks->is_open())
+        if (editorport_content_tools_is_open())
         {
-            content_tools_callbacks->frame();
+            editorport_content_tools_frame();
             return;
         }
         ImGuiIO &io = ImGui::GetIO();
@@ -2089,7 +2116,7 @@ namespace {
         ImGui::End();
         // The content editor windows (docs/refactor/editor/fx-plans/03-content-editors-foundation.md §5), if any
         // are open: separate windows over the menu, drawn after the menu window is closed.
-        content_tools_callbacks->frame();
+        editorport_content_tools_frame();
     }
 
     // docs/refactor/editor/phase3/02-slice3-dialogs-menubar.md -- the
@@ -2401,7 +2428,7 @@ namespace {
     // Not folded into any one screen's case below: the error box
     // (GMnu_FEERROR_BOX) can appear over any migrated screen -- network
     // errors, map-desync/fxdata-mismatch messages -- triggered from deep
-    // inside kfx_net/kfx_game via net_callbacks->create_frontend_error_box,
+    // inside kfx_net/kfx_game via ui_create_frontend_error_box(),
     // not just at startup. Polled here, independent of frontend_menu_state,
     // mirroring frontend_maintain_error_text_box's own dismiss logic
     // (ESC or timeout, frontend.cpp) since that legacy maintain_call never
@@ -2524,7 +2551,7 @@ static void draw_menu_backdrop(void)
         ImVec2((double)area.left, (double)area.top), ImVec2((double)area.right, (double)area.bottom));
 }
 
-void FrontendImGuiFrame(void)
+static void frontend_screens_frame(void)
 {
     // Apply anything requested last frame here, before any ImGui window
     // from this module is open -- see s_pending_state's own comment for why
@@ -2537,9 +2564,19 @@ void FrontendImGuiFrame(void)
         struct PlayerInfo *player = get_my_player();
         if (!load_game(slot))
         {
-            ERRORLOG("Loading game %" PRId64 " failed; quitting.", (int64_t)(slot));
-            set_players_packet_action(player, PckA_TogglePause, 0, 0, 0, 0);
-            quit_game = 1;
+            if (last_save_was_refused())
+            {
+                // Refused before anything changed (S09): stay in the menu,
+                // with the list refreshed so the save shows as another version.
+                ERRORLOG("Loading game %" PRId64 " refused: %s", (int64_t)(slot), last_save_refusal_reason());
+                load_game_save_catalogue();
+            }
+            else
+            {
+                ERRORLOG("Loading game %" PRId64 " failed; quitting.", (int64_t)(slot));
+                set_players_packet_action(player, PckA_TogglePause, 0, 0, 0, 0);
+                quit_game = 1;
+            }
         }
     }
     if (s_pending_state >= 0)
@@ -2583,6 +2620,14 @@ void FrontendImGuiFrame(void)
     }
 
     draw_error_box_overlay(); // independent of frontend_menu_state -- see its own comment
+}
+
+void FrontendImGuiFrame(void)
+{
+    frontend_screens_frame();
+    // The level editor (kfx_editor, ranked above this library) draws after
+    // the screens; a no-op outside an editor session.
+    editorport_frame();
 }
 
 // docs/refactor/ingame-gui/02-pause-menu-and-options.md: the in-game pause

@@ -12,7 +12,7 @@ typedef unsigned char TbBool;
 
 /**
  * docs/refactor/editor/fx-plans/10-config-content-model-and-writers.md, W5: the config content layer
- * (kfx_config's cfgc_*: ConfigStack, ConfigSchema, name registry, ConfigContentWriter) against the real
+ * (kfx_content's cfgc_*: ConfigStack, ConfigSchema, name registry, ConfigContentWriter) against the real
  * loaders in a running game.
  *
  * config_content_anchor: with the real configs loaded, the content layer's view (layers merged by

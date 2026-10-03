@@ -40,6 +40,9 @@ int64_t init_navigation(void);
 // own state struct later without touching call sites again.
 void ariadne_reset_navigation_map(void);
 void ariadne_set_navigation_map_size(MapSubtlCoord size_x, MapSubtlCoord size_y);
+/* The map's size in subtiles (kfx_sim_state.map_subtiles_x/y and
+   map_subtiles_z), cached for Ariadne. Call whenever those change. */
+void ariadne_set_map_dimensions(MapSubtlCoord size_x, MapSubtlCoord size_y, MapSubtlCoord size_z);
 TbBool ariadne_is_map_dirty_for_navigation(void);
 void ariadne_clear_map_dirty_for_navigation(void);
 void ariadne_mark_map_dirty_for_navigation(void);

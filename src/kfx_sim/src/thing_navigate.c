@@ -37,10 +37,11 @@
 #include "dungeon_data.h"
 #include "ariadne.h"
 #include "player_data.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "kfx_pathfinding_state.h"
+#include "player_camera.h"
+#include "ports/script_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -52,9 +53,6 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-int64_t owner_player_navigating;
-int64_t nav_thing_can_travel_over_lava;
-int64_t nav_thing_is_flying;
 
 /******************************************************************************/
 
@@ -131,12 +129,12 @@ static void get_nearest_navigable_point_for_thing(struct Thing *thing, struct Co
     int64_t nav_sizexy;
     int64_t px;
     int64_t py;
-    nav_thing_can_travel_over_lava = creature_can_travel_over_lava(thing);
-    nav_thing_is_flying = flag_is_set(thing->movement_flags, TMvF_Flying);
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = creature_can_travel_over_lava(thing);
+    kfx_pathfinding_state.nav_thing_is_flying = flag_is_set(thing->movement_flags, TMvF_Flying);
     if ((flags & AridRtF_NoOwner) != 0)
-        owner_player_navigating = -1;
+        kfx_pathfinding_state.owner_player_navigating = -1;
     else
-        owner_player_navigating = thing->owner;
+        kfx_pathfinding_state.owner_player_navigating = thing->owner;
     nav_sizexy = thing_nav_block_sizexy(thing);
     if (nav_sizexy > 0) nav_sizexy--;
     nearest_search(nav_sizexy, thing->mappos.x.val, thing->mappos.y.val,
@@ -146,8 +144,8 @@ static void get_nearest_navigable_point_for_thing(struct Thing *thing, struct Co
     pos2->z.val = get_thing_height_at(thing, pos2);
     if (thing_in_wall_at(thing, pos2))
         get_nearest_valid_position_for_creature_at(thing, pos2);
-    nav_thing_can_travel_over_lava = 0;
-    nav_thing_is_flying = 0;
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = 0;
+    kfx_pathfinding_state.nav_thing_is_flying = 0;
 }
 
 TbBool setup_person_move_to_position_f(struct Thing *thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y, NaviRouteFlags flags, const char *func_name)
@@ -515,7 +513,7 @@ int64_t creature_turn_to_face_angle(struct Thing *thing, int64_t angle)
 
     struct PlayerInfo* my_player = get_my_player();
     if (my_player->controlled_thing_idx == thing->index && my_player->view_mode == PVM_CreatureView) {
-        sim_feedback->set_local_camera_destination(my_player);
+        signal_local_camera_retarget(my_player);
     }
 
     return get_angle_difference(thing->move_angle_xy, angle);
@@ -664,7 +662,7 @@ int64_t move_to_position(struct Thing *creatng)
         else if (stati->move_check < 0)
         {
             SYNCDBG(18,"Doing move check callback for continue state %s",creature_state_code_name(creatng->continue_state));
-            state_check = script_hooks->luafunc_crstate_func(stati->move_check,creatng);
+            state_check = script_luafunc_crstate_func(stati->move_check,creatng);
         }
     }
     if (state_check == CrCkRet_Available)

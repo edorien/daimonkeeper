@@ -23,6 +23,7 @@
 #include "bflib_basics.h"
 #include "bflib_sound.h"
 #include "globals.h"
+#include "port_check.h"
 
 #define FIRST_REDBOOK_TRACK 2
 #define LAST_REDBOOK_TRACK 7
@@ -56,94 +57,9 @@ void ShutDownSDLAudio(void);
 // directly. See docs/refactor/stage-02-decouple-bflib.md.
 void bf_sndlib_set_audio_config(const char *language_lwrstr, TbBool no_cd_music);
 
-// Injected pointer/value accessors for struct-Game-derived state this
-// file's music/sound playback logic needs (see the "Real (not dead)
-// coupling" comment at the top of bflib_sndlib.cpp and
-// sound_manager.cpp's is_running_under_wine-style precedent). kfx_platform
-// is the lowest-ranked library, so it can't reach kfx_game_state/
-// kfx_net_state/kfx_sim_state/kfx_render_state/kfx_config_state
-// directly -- the struct is defined here instead and implemented by
-// small wrapper functions registered from main.cpp, mirroring
-// bflib_inputctrl.h's InputFocusPredicates. get_music_track/
-// get_music_fname return pointers into the real (kfx_game_state-owned)
-// storage for direct read/write, since this file both reads and writes
-// them. See docs/refactor/stage-13-enforce-and-document.md.
-struct Thing;
-struct CreatureSounds;
-struct ModConfigItem;
-struct SoundStateCallbacks {
-    char *(*get_music_track)(void);
-    char *(*get_music_fname)(void);
-    int64_t (*get_frame_skip)(void);
-    TbBool (*get_easter_eggs_enabled)(void);
-    int64_t (*get_last_level)(void);
-    // Narrowed from an opaque `struct CreatureConfig *(*get_creature_config)`
-    // to these 2 entries (stage 13.3, docs/refactor/
-    // stage-13-enforce-and-document.md) -- sound_manager.cpp only ever
-    // read model_count and indexed creature_sounds[crmodel]; struct
-    // CreatureSounds is already kfx_platform-owned (creature_sounds.h),
-    // so this avoids sound_manager.cpp needing struct CreatureConfig
-    // (the whole kfx_config creature-config aggregate) visible at all.
-    int64_t (*get_creature_model_count)(void);
-    struct CreatureSounds *(*get_creature_sounds)(int64_t crmodel);
-    // config_mods.h (kfx_config) -- bflib_sndlib.cpp/sound_manager.cpp
-    // both walk a mod list by value to resolve music/sound file paths;
-    // struct ModConfigItem is kfx_platform-owned (mod_config_types.h),
-    // struct ModsConfig/mods_conf stays kfx_config-owned. See
-    // docs/refactor/stage-13-enforce-and-document.md.
-    const struct ModConfigItem *(*get_mods_after_map)(void);
-    int64_t (*get_mods_after_map_count)(void);
-    const struct ModConfigItem *(*get_mods_after_campaign)(void);
-    int64_t (*get_mods_after_campaign_count)(void);
-    const struct ModConfigItem *(*get_mods_after_base)(void);
-    int64_t (*get_mods_after_base_count)(void);
-    // Backs SOUND_RANDOM(range) (game_merge.h, kfx_game) -- inlined here
-    // as LbRandomSeries(range, get_sound_random_seed(), ...) instead,
-    // since that macro itself only touches kfx_sim_state (kfx_sim), not
-    // anything kfx_game-specific.
-    uint32_t *(*get_sound_random_seed)(void);
-    // Backs UNSYNC_RANDOM(range) (game_merge.h, kfx_game), used by
-    // sound_manager.cpp -- same reasoning as get_sound_random_seed above.
-    uint32_t *(*get_unsync_random_seed)(void);
-
-    // sounds.h (kfx_game) -- init_sound() is kfx_game's orchestration of
-    // platform audio init (reads kfx_game_state config, then calls back
-    // down into InitAudio()/InitialiseSDLAudio()); sound_manager.cpp's
-    // SoundManager::initialize() needs to trigger it as a lazy-init
-    // fallback for callers that reach it before main() has already
-    // called init_sound() directly. mute_audio() is bflib_inputctrl.cpp's
-    // focus-lost/focus-gained handler.
-    TbBool (*init_sound)(void);
-    void (*mute_audio)(TbBool mute);
-
-    // creature_control.h (kfx_sim) -- SoundManager::playCreatureSound()
-    // bridges to kfx_sim's own creature-sound-index-to-sample resolution.
-    void (*play_creature_sound)(struct Thing *thing, int64_t snd_idx, int64_t priority, int64_t use_flags);
-
-    // config.h (kfx_config) file-path resolution -- both this file and
-    // sound_manager.cpp need to locate sound/level/config asset files,
-    // which requires kfx_config's install_info/mods-list state they
-    // can't otherwise reach. Replaces a same-file bare-extern
-    // forward-declaration precedent. See docs/refactor/todo/
-    // check-layering-symbol-level-blind-spot.md.
-    char *(*prepare_file_path)(int64_t fgroup, const char *fname);
-    char *(*prepare_file_path_mod)(const char *mod_dir, int64_t fgroup, const char *fname);
-    char *(*prepare_file_path_buf)(char *dst, int64_t dst_size, int64_t fgroup, const char *fname);
-    char *(*prepare_file_fmtpath)(int64_t fgroup, const char *fmt_str, ...);
-
-    // config_creature.h (kfx_config) -- creature model name lookup and
-    // the creature-model name registry, used by sound_manager.cpp's
-    // per-creature sound override commands and error logging.
-    const char *(*creature_code_name)(ThingModel crmodel);
-    const struct NamedCommand *(*get_creature_desc)(void);
-
-    // thing_data.h (kfx_sim) -- bounds-checks a Thing pointer against
-    // kfx_sim_state.things_data; sound_manager.cpp can't reach
-    // kfx_sim_state directly.
-    int64_t (*thing_is_invalid)(const struct Thing *thing);
-};
-void set_sound_state_callbacks(const struct SoundStateCallbacks *callbacks);
-extern const struct SoundStateCallbacks *sound_state_callbacks;
+// The game state this file's music and sound playback reads, and the
+// file paths it resolves, come through ports/sound_host_port.h and
+// ports/file_path_port.h (refactor pass 2, S15).
 
 TbBool IsSamplePlaying(SoundMilesID);
 SoundVolume GetCurrentSoundMasterVolume(void);

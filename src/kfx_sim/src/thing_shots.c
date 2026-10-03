@@ -44,8 +44,6 @@
 #include "config_creature.h"
 #include "config_terrain.h"
 #include "power_process.h"
-#include "script_hooks.h"
-#include "sim_feedback.h"
 #include "packet_data.h"
 #include "creature_states.h"
 #include "creature_groups.h"
@@ -55,6 +53,12 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "config.h"
+#include "player_camera.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -152,8 +156,8 @@ TbBool detonate_shot(struct Thing *shotng, TbBool destroy)
     case ShM_Lightning:
     case ShM_GodLightning:
     case ShM_GodLightBall:
-        if (sim_feedback->get_lens_mode() != 0) {
-            sim_feedback->PaletteSetUserPalette(get_local_user(), engine_palette);
+        if (render_get_lens_mode() != 0) {
+            render_PaletteSetUserPalette(get_local_user(), engine_palette);
         }
         break;
     case ShM_TrapTNT:
@@ -372,12 +376,12 @@ SubtlCodedCoords process_dig_shot_hit_wall(struct Thing *thing, int64_t blocked_
                 }
                 give_gold_to_creature_or_drop_on_map_when_digging(diggertng, stl_x, stl_y, damage);
                 mine_out_block(stl_x, stl_y, diggertng->owner);
-                sim_feedback->thing_play_sample(diggertng, snd_dig_impact + SOUND_RANDOM(snd_dig_impact_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                audio_thing_play_sample(diggertng, snd_dig_impact + SOUND_RANDOM(snd_dig_impact_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
             } else
             if ((mapblk->flags & SlbAtFlg_IsDoor) == 0)
             { // All non-gold and non-door slabs are just destroyed
                 dig_out_block(stl_x, stl_y, diggertng->owner);
-                sim_feedback->thing_play_sample(diggertng, snd_dig_impact + SOUND_RANDOM(snd_dig_impact_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                audio_thing_play_sample(diggertng, snd_dig_impact + SOUND_RANDOM(snd_dig_impact_count), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
             }
             check_map_explored(diggertng, stl_x, stl_y);
         } else
@@ -409,7 +413,7 @@ struct Thing *create_shot_hit_effect(struct Coord3d *effpos, int64_t effowner, E
             int64_t i = snd_idx;
             if (snd_range > 1)
                 i += SOUND_RANDOM(snd_range);
-            sim_feedback->thing_play_sample(efftng, i, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(efftng, i, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         }
     }
     return efftng;
@@ -421,11 +425,11 @@ int64_t lua_process_shot_hit(struct Thing *shotng, struct Thing *target, MapSubt
         return 1;
     }
     struct Thing *shooter = get_parent_thing(shotng);
-    int64_t lua_ret_val = script_hooks->luafunc_shot_hit_thing_func(shotst->hit_thing_lua_func_idx, shotng, shooter, target, next_stl_x, next_stl_y);
+    int64_t lua_ret_val = script_luafunc_shot_hit_thing_func(shotst->hit_thing_lua_func_idx, shotng, shooter, target, next_stl_x, next_stl_y);
     if (lua_ret_val >= 0)
     {
         bool rebound_hit = thing_is_creature(target) && creature_under_spell_effect(target, CSAfF_Rebound) && !flag_is_set(shotst->model_flags, ShMF_ReboundImmune);
-        script_hooks->lua_on_shot_hit(shotng, shooter, target, next_stl_x, next_stl_y, rebound_hit);
+        script_lua_on_shot_hit(shotng, shooter, target, next_stl_x, next_stl_y, rebound_hit);
     }
 
     return lua_ret_val;
@@ -712,7 +716,7 @@ int64_t shot_hit_door_at(struct Thing *shotng, struct Coord3d *pos)
                 if (!thing_is_invalid(efftng))
                 {
                     i = shotst->hit_door.sndsample_range;
-                    sim_feedback->thing_play_sample(efftng, n + SOUND_RANDOM(i), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                    audio_thing_play_sample(efftng, n + SOUND_RANDOM(i), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
                 }
             }
             // Shall the shot be destroyed on impact
@@ -784,7 +788,7 @@ int64_t shot_kill_object(struct Thing *shotng, struct Thing *target)
             struct PlayerInfo* player = get_player(target->owner);
             if (player_exists(player) && (player->is_active == 1) && (shotng->owner != target->owner))
             {
-                sim_feedback->play_sound_message(SMsg_DefeatedKeeper, 0);
+                audio_output_message(SMsg_DefeatedKeeper, 0);
             }
         }
         struct Dungeon* dungeon = get_players_num_dungeon(shotng->owner);
@@ -823,7 +827,7 @@ static TbBool shot_hit_trap_at(struct Thing* shotng, struct Thing* target, struc
     }
     int64_t i = shotst->hit_generic.sndsample_idx;
     if (i > 0) {
-        sim_feedback->thing_play_sample(target, i, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+        audio_thing_play_sample(target, i, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
     }
     HitPoints damage_done = 0;
     if (shotng->shot.damage)
@@ -893,13 +897,13 @@ static TbBool shot_hit_object_at(struct Thing *shotng, struct Thing *target, str
         }
         if (shotst->hit_heart.sndsample_idx > 0)
         {
-            sim_feedback->thing_play_sample(target, shotst->hit_heart.sndsample_idx + SOUND_RANDOM(shotst->hit_heart.sndsample_range), NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+            audio_thing_play_sample(target, shotst->hit_heart.sndsample_idx + SOUND_RANDOM(shotst->hit_heart.sndsample_range), NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
         }
         if (shotng->owner != target->owner)
         {
             event_create_event_or_update_nearby_existing_event(shootertng->mappos.x.val, shootertng->mappos.y.val, EvKind_HeartAttacked, target->owner, shootertng->index);
             if (is_my_player_number(target->owner)) {
-                sim_feedback->play_sound_message(SMsg_HeartUnderAttack, 400);
+                audio_output_message(SMsg_HeartUnderAttack, 400);
                 controller_rumble(50);
             }
         }
@@ -907,7 +911,7 @@ static TbBool shot_hit_object_at(struct Thing *shotng, struct Thing *target, str
     {
         int64_t i = shotst->hit_generic.sndsample_idx;
         if (i > 0) {
-            sim_feedback->thing_play_sample(target, i, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+            audio_thing_play_sample(target, i, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
         }
     }
 
@@ -968,7 +972,7 @@ void create_relevant_effect_for_shot_hitting_thing(struct Thing *shotng, struct 
     struct ShotConfigStats* shotst = get_shot_model_stats(shotng->model);
     if (target->class_id == TCls_Creature)
     {
-        sim_feedback->thing_play_sample(target, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(target, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         if (shotst->hit_creature.effect_model != 0) {
             create_used_effect_or_element(&shotng->mappos, shotst->hit_creature.effect_model, shotng->owner, shotng->index);
         }
@@ -988,7 +992,7 @@ void create_relevant_effect_for_shot_hitting_thing(struct Thing *shotng, struct 
     if (target->class_id == TCls_Trap)
     {
         // TODO for a later PR: introduces trap/object hit, for now it uses the on hit creature sound and effect.
-        sim_feedback->thing_play_sample(target, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(target, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         if (shotst->hit_creature.effect_model != 0) {
             create_used_effect_or_element(&shotng->mappos, shotst->hit_creature.effect_model, shotng->owner, shotng->index);
         }
@@ -1359,7 +1363,7 @@ int64_t shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct 
             if (shotst->hit_creature.sndsample_idx != 0)
             {
                 play_creature_sound(trgtng, CrSnd_Hit, 1, 0);
-                sim_feedback->thing_play_sample(trgtng, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                audio_thing_play_sample(trgtng, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
             }
         }
         else
@@ -1398,7 +1402,7 @@ int64_t shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct 
         if (shotst->hit_creature.sndsample_idx != 0)
         {
             play_creature_sound(trgtng, CrSnd_Hit, 1, 0);
-            sim_feedback->thing_play_sample(trgtng, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(trgtng, shotst->hit_creature.sndsample_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         }
     }
 
@@ -1627,7 +1631,7 @@ TngUpdateRet update_shot(struct Thing *thing)
     if (shotst->shot_sound != 0)
     {
         if (!S3DEmitterIsPlayingSample(thing->snd_emitter_id, shotst->shot_sound))
-            sim_feedback->thing_play_sample(thing, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(thing, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     }
     if (!(shotst->model_flags & ShMF_NoAirDamage))
     {
@@ -1711,13 +1715,13 @@ TngUpdateRet update_shot(struct Thing *thing)
         {
             case ShUL_Lightning:
             {
-                if (sim_feedback->lightning_is_close_to_player(myplyr, &thing->mappos))
+                if (lightning_is_close_to_player(myplyr, &thing->mappos))
                 {
                   if (is_my_player_number(thing->owner))
                   {
                       if ((thing->parent_idx > 0) && (myplyr->controlled_thing_idx == thing->parent_idx))
                       {
-                          sim_feedback->PaletteSetUserPalette(get_local_user(), lightning_palette);
+                          render_PaletteSetUserPalette(get_local_user(), lightning_palette);
                           get_user_state(get_local_user())->additional_flags |= UsrAF_LightningPaletteIsActive;
                       }
                   }
@@ -1776,7 +1780,7 @@ TngUpdateRet update_shot(struct Thing *thing)
                 break;
         default:
             if (shotst->update_logic < 0)
-                script_hooks->luafunc_thing_update_func(shotst->update_logic, thing);
+                script_luafunc_thing_update_func(shotst->update_logic, thing);
 
             // All shots that do not require special processing
             break;
@@ -1798,14 +1802,14 @@ struct Thing *create_shot(struct Coord3d *pos, ThingModel model, int64_t owner)
     if ( !i_can_allocate_free_thing_structure(TCls_Shot) )
     {
         ERRORDBG(3,"Cannot create shot %" PRId64 " (%s) for player %" PRId64 ". There are too many things allocated.",(int64_t)model,shot_code_name(model),(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct ShotConfigStats* shotst = get_shot_model_stats(model);
     struct Thing* thing = allocate_free_thing_structure(TCls_Shot);
     if (thing->index == 0) {
         ERRORDBG(3,"Should be able to allocate shot %" PRId64 " (%s) for player %" PRId64 ", but failed.",(int64_t)model,shot_code_name(model),(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     thing->creation_turn = get_gameturn();
@@ -1842,7 +1846,7 @@ struct Thing *create_shot(struct Coord3d *pos, ThingModel model, int64_t owner)
         ilght.is_dynamic = 1;
         ilght.flags = shotst->light_flags;
         ilght.colour_r = shotst->light_colour_r; ilght.colour_g = shotst->light_colour_g; ilght.colour_b = shotst->light_colour_b;
-        thing->light_id = sim_feedback->light_create_light(&ilght);
+        thing->light_id = light_create_light(&ilght);
         if (thing->light_id == 0) {
             // Being out of free lights is quite common - so info instead of warning here
             SYNCDBG(8,"Cannot allocate dynamic light to %s.",thing_model_name(thing));

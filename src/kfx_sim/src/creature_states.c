@@ -53,14 +53,12 @@
 #include "map_blocks.h"
 #include "map_utils.h"
 #include "power_hand.h"
-#include "sim_feedback.h"
 #include "player_utils.h"
 #include "player_instances.h"
-#include "player_computer.h"
+#include "player_computer_types.h"
 #include "thing_traps.h"
 #include "magic_powers.h"
 #include "config_sounds.h"
-#include "script_hooks.h"
 
 #include "creature_states_gardn.h"
 #include "creature_states_hero.h"
@@ -82,6 +80,13 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "power_process.h"
+#include "kfx_pathfinding_state.h"
+#include "config_funcnames.h"
+#include "player_camera.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -163,147 +168,7 @@ int64_t creature_timebomb(struct Thing *creatng);
 #endif
 /******************************************************************************/
 
-const struct NamedCommand process_func_commands[] = {
-    {"NULL",                                         0},
-    {"imp_doing_nothing",                            1},
-    {"imp_arrives_at_dig_or_mine",                   2},
-    {"imp_digs_mines",                               3},
-    {"creature_casting_preparation",                 4},
-    {"imp_drops_gold",                               5},
-    {"imp_last_did_job",                             6},
-    {"imp_arrives_at_improve_dungeon",               7},
-    {"imp_improves_dungeon",                         8},
-    {"creature_picks_up_trap_object",                9},
-    {"creature_arms_trap",                          10},
-    {"creature_picks_up_crate_for_workshop",        11},
-    {"move_to_position",                            12},
-    {"creature_drops_crate_in_workshop",            13},
-    {"creature_doing_nothing",                      14},
-    {"creature_to_garden",                          15},
-    {"creature_arrived_at_garden",                  16},
-    {"creature_wants_a_home",                       17},
-    {"creature_choose_room_for_lair_site",          18},
-    {"creature_at_new_lair",                        19},
-    {"person_sulk_head_for_lair",                   20},
-    {"person_sulk_at_lair",                         21},
-    {"creature_going_home_to_sleep",                22},
-    {"creature_sleep",                              23},
-    {"tunnelling",                                  24},
-    {"at_research_room",                            25},
-    {"researching",                                 26},
-    {"at_training_room",                            27},
-    {"training",                                    28},
-    {"good_doing_nothing",                          29},
-    {"good_returns_to_start",                       30},
-    {"good_back_at_start",                          31},
-    {"good_drops_gold",                             32},
-    {"arrive_at_call_to_arms",                      33},
-    {"creature_arrived_at_prison",                  34},
-    {"creature_in_prison",                          35},
-    {"at_torture_room",                             36},
-    {"torturing",                                   37},
-    {"at_workshop_room",                            38},
-    {"manufacturing",                               39},
-    {"at_scavenger_room",                           40},
-    {"scavengering",                                41},
-    {"creature_dormant",                            42},
-    {"creature_in_combat",                          43},
-    {"creature_leaving_dungeon",                    44},
-    {"creature_leaves",                             45},
-    {"creature_in_hold_audience",                   46},
-    {"patrol_here",                                 47},
-    {"patrolling",                                  48},
-    {"creature_kill_creatures",                     49},
-    {"creature_kill_diggers",                       50},
-    {"person_sulking",                              51},
-    {"at_barrack_room",                             52},
-    {"barracking",                                  53},
-    {"creature_slap_cowers",                        54},
-    {"creature_unconscious",                        55},
-    {"creature_pick_up_unconscious_body",           56},
-    {"imp_toking",                                  57},
-    {"imp_picks_up_gold_pile",                      58},
-    {"move_backwards_to_position",                  59},
-    {"creature_drop_body_in_prison",                60},
-    {"imp_arrives_at_convert_dungeon",              61},
-    {"imp_converts_dungeon",                        62},
-    {"creature_wants_salary",                       63},
-    {"creature_take_salary",                        64},
-    {"tunneller_doing_nothing",                     65},
-    {"creature_object_combat",                      66},
-    {"creature_change_lair",                        67},
-    {"imp_birth",                                   68},
-    {"at_temple",                                   69},
-    {"praying_in_temple",                           70},
-    {"creature_follow_leader",                      71},
-    {"creature_door_combat",                        72},
-    {"creature_combat_flee",                        73},
-    {"creature_sacrifice",                          74},
-    {"at_lair_to_sleep",                            75},
-    {"creature_exempt",                             76},
-    {"creature_being_dropped",                      77},
-    {"creature_being_sacrificed",                   78},
-    {"creature_scavenged_disappear",                79},
-    {"creature_scavenged_reappear",                 80},
-    {"creature_being_summoned",                     81},
-    {"creature_hero_entering",                      82},
-    {"imp_arrives_at_reinforce",                    83},
-    {"imp_reinforces",                              84},
-    {"arrive_at_alarm",                             85},
-    {"creature_picks_up_spell_object",              86},
-    {"creature_drops_spell_object_in_library",      87},
-    {"creature_picks_up_corpse",                    88},
-    {"creature_drops_corpse_in_graveyard",          89},
-    {"at_guard_post_room",                          90},
-    {"guarding",                                    91},
-    {"creature_eat",                                92},
-    {"creature_evacuate_room",                      93},
-    {"creature_wait_at_treasure_room_door",         94},
-    {"at_kinky_torture_room",                       95},
-    {"kinky_torturing",                             96},
-    {"mad_killing_psycho",                          97},
-    {"creature_search_for_gold_to_steal_in_room",   98},
-    {"creature_vandalise_rooms",                    99},
-    {"creature_steal_gold",                        100},
-    {"seek_the_enemy",                             101},
-    {"already_at_call_to_arms",                    102},
-    {"creature_damage_walls",                      103},
-    {"creature_attempt_to_damage_walls",           104},
-    {"creature_persuade",                          105},
-    {"creature_change_to_chicken",                 106},
-    {"creature_change_from_chicken",               107},
-    {"creature_cannot_find_anything_to_do",        108},
-    {"creature_piss",                              109},
-    {"creature_roar",                              110},
-    {"creature_at_changed_lair",                   111},
-    {"creature_be_happy",                          112},
-    {"good_leave_through_exit_door",               113},
-    {"good_wait_in_exit_door",                     114},
-    {"good_attack_room",                           115},
-    {"good_arrived_at_attack_room",                116},
-    {"creature_pretend_chicken_setup_move",        117},
-    {"creature_pretend_chicken_move",              118},
-    {"creature_attack_rooms",                      119},
-    {"creature_freeze_prisoners",                  120},
-    {"creature_explore_dungeon",                   121},
-    {"creature_eating_at_garden",                  122},
-    {"creature_leaves_or_dies",                    123},
-    {"creature_moan",                              124},
-    {"creature_set_work_room_based_on_position",   125},
-    {"creature_being_scavenged",                   126},
-    {"creature_escaping_death",                    127},
-    {"creature_present_to_dungeon_heart",          128},
-    {"creature_search_for_spell_to_steal_in_room", 129},
-    {"creature_pick_up_spell_to_steal",            130},
-    {"creature_going_to_safety_for_toking",        131},
-    {"creature_timebomb",                          132},
-    {"good_arrived_at_combat",                     133},
-    {"good_arrived_at_attack_dungeon_heart",       134},
-    {"creature_drop_unconscious_in_lair",          135},
-    {"creature_save_unconscious_creature",         136},
-    {NULL,                                           0},
-};
-
+// Indexed by the values in process_func_commands[] (kfx_config/src/config_funcnames.c): keep both in step.
 const CreatureStateFunc1 process_func_list[] = {
     NULL,
     imp_doing_nothing,
@@ -443,30 +308,10 @@ const CreatureStateFunc1 process_func_list[] = {
     creature_drop_unconscious_in_lair,
     creature_save_unconscious_creature,
 };
+_Static_assert(sizeof(process_func_list) / sizeof(process_func_list[0]) >= PROCESS_FUNC_COMMANDS_SLOTS,
+    "process_func_list must have a slot for every index in process_func_commands[] (config_funcnames.c)");
 
-const struct NamedCommand cleanup_func_commands[] = {
-    {"none",                                0},
-    {"state_cleanup_dragging_object",       1},
-    {"state_cleanup_in_room",               2},
-    {"cleanup_sleep",                       3},
-    {"state_cleanup_unable_to_fight",       4},
-    {"cleanup_prison",                      5},
-    {"cleanup_torturing",                   6},
-    {"cleanup_combat",                      7},
-    {"cleanup_hold_audience",               8},
-    {"state_cleanup_unconscious",           9},
-    {"state_cleanup_dragging_body",        10},
-    {"cleanup_object_combat",              11},
-    {"state_cleanup_in_temple",            12},
-    {"cleanup_door_combat",                13},
-    {"cleanup_sacrifice",                  14},
-    {"state_cleanup_wait_at_door",         15},
-    {"cleanup_seek_the_enemy",             16},
-    {"cleanup_creature_leaves_or_dies",    17},
-    {"cleanup_timebomb",                   18},
-    {NULL,                                  0},
-};
-
+// Indexed by the values in cleanup_func_commands[] (kfx_config/src/config_funcnames.c): keep both in step.
 const CreatureStateFunc1 cleanup_func_list[] = {
     NULL,
     state_cleanup_dragging_object,
@@ -488,37 +333,18 @@ const CreatureStateFunc1 cleanup_func_list[] = {
     cleanup_creature_leaves_or_dies,
     cleanup_timebomb,
 };
+_Static_assert(sizeof(cleanup_func_list) / sizeof(cleanup_func_list[0]) >= CLEANUP_FUNC_COMMANDS_SLOTS,
+    "cleanup_func_list must have a slot for every index in cleanup_func_commands[] (config_funcnames.c)");
 
-const struct NamedCommand move_from_slab_func_commands[] = {
-    {"none",                                         0},
-    {"new_slab_tunneller_check_for_breaches",        1},
-    {NULL,                                           0},
-};
-
+// Indexed by the values in move_from_slab_func_commands[] (kfx_config/src/config_funcnames.c): keep both in step.
 const CreatureStateFunc2 move_from_slab_func_list[] = {
     NULL,
     new_slab_tunneller_check_for_breaches
 };
+_Static_assert(sizeof(move_from_slab_func_list) / sizeof(move_from_slab_func_list[0]) >= MOVE_FROM_SLAB_FUNC_COMMANDS_SLOTS,
+    "move_from_slab_func_list must have a slot for every index in move_from_slab_func_commands[] (config_funcnames.c)");
 
-const struct NamedCommand move_check_func_commands[] = {
-    {"none",                               0},
-    {"move_check_on_head_for_room",        1},
-    {"process_research_function",          2},
-    {"process_prison_function",            3},
-    {"process_torture_function",           4},
-    {"process_scavenge_function",          5},
-    {"move_check_near_dungeon_heart",      6},
-    {"move_check_kill_creatures",          7},
-    {"move_check_kill_diggers",            8},
-    {"move_check_wait_at_door_for_wage",   9},
-    {"process_temple_function",           10},
-    {"process_kinky_function",            11},
-    {"move_check_attack_any_door",        12},
-    {"move_check_can_damage_wall",        13},
-    {"move_check_persuade",               14},
-    {NULL,                                 0},
-};
-
+// Indexed by the values in move_check_func_commands[] (kfx_config/src/config_funcnames.c): keep both in step.
 const CreatureStateCheck move_check_func_list[] = {
     NULL,
     move_check_on_head_for_room,
@@ -536,6 +362,8 @@ const CreatureStateCheck move_check_func_list[] = {
     move_check_can_damage_wall,
     move_check_persuade,
 };
+_Static_assert(sizeof(move_check_func_list) / sizeof(move_check_func_list[0]) >= MOVE_CHECK_FUNC_COMMANDS_SLOTS,
+    "move_check_func_list must have a slot for every index in move_check_func_commands[] (config_funcnames.c)");
 
 /** GUI States of creatures - from "Creatures" Tab in UI.
  * There are three states:
@@ -672,7 +500,7 @@ int64_t get_creature_gui_job(const struct Thing *thing)
     } else
     {
         WARNLOG("The %s index %" PRId64 " has invalid state type(%" PRId64 ")!",thing_model_name(thing),(int64_t)thing->index,(int64_t)state_type);
-        sim_feedback->report_error_stat(ESE_BadCreatrState);
+        ui_report_error_stat(ESE_BadCreatrState);
         return state_type_to_gui_state[0];
     }
 }
@@ -1103,7 +931,7 @@ TbBool attempt_to_destroy_enemy_room(struct Thing *thing, MapSubtlCoord stl_x, M
         subtile_coord_center(room->central_stl_x), subtile_coord_center(room->central_stl_y),
         EvKind_RoomUnderAttack, room->owner, 0);
     if (is_my_player_number(room->owner))
-        sim_feedback->play_sound_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
+        audio_output_message(SMsg_EnemyDestroyRooms, MESSAGE_DURATION_FIGHT);
     thing->continue_state = CrSt_CreatureAttackRooms;
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     if (!creature_control_invalid(cctrl))
@@ -1549,7 +1377,7 @@ int64_t creature_being_dropped(struct Thing *creatng)
         {
             struct Dungeon* dungeon = get_dungeon(creatng->owner);
             if (!dungeon_invalid(dungeon)) {
-                dungeon->camera_deviate_jump = 96;
+                kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 96;
             }
         }
         // Make sure computer control flag is set (almost) accordingly to job, so that we won't start a fight when in captivity
@@ -2505,7 +2333,7 @@ int64_t creature_leaving_dungeon(struct Thing *creatng)
         return 0;
     }
     if (is_my_player_number(creatng->owner))
-        sim_feedback->play_sound_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
+        audio_output_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
     creatng->continue_state = CrSt_CreatureLeaves;
     return 1;
 }
@@ -2565,7 +2393,7 @@ TbBool make_creature_leave_dungeon(struct Thing *creatng)
         return false;
     }
     if (is_my_player_number(creatng->owner))
-        sim_feedback->play_sound_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
+        audio_output_message(SMsg_CreatureLeaving, MESSAGE_DURATION_CRTR_MOOD);
     creatng->continue_state = CrSt_CreatureLeaves;
     return true;
 }
@@ -2616,7 +2444,7 @@ void creature_drag_object(struct Thing *creatng, struct Thing *dragtng)
     dragtng->state_flags |= TF1_IsDragged1;
     dragtng->owner = kfx_config_state.neutral_player_num;
     if (dragtng->light_id != 0) {
-      sim_feedback->light_turn_light_off(dragtng->light_id);
+      light_turn_light_off(dragtng->light_id);
     }
 }
 
@@ -2638,7 +2466,7 @@ void creature_drop_dragged_object(struct Thing *creatng, struct Thing *dragtng)
     dragtng->state_flags &= ~TF1_IsDragged1;
     move_thing_in_map(dragtng, &creatng->mappos);
     if (dragtng->light_id != 0) {
-        sim_feedback->light_turn_light_on(dragtng->light_id);
+        light_turn_light_on(dragtng->light_id);
     }
 }
 
@@ -2819,7 +2647,7 @@ int64_t creature_present_to_dungeon_heart(struct Thing *creatng)
 {
     TRACE_THING(creatng);
     create_effect(&creatng->mappos, imp_spangle_effects[get_player_color_idx(creatng->owner)], creatng->owner);
-    sim_feedback->thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, snd_spell_stars, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     if ( !external_set_thing_state(creatng, CrSt_CreatureDoingNothing) )
       set_start_state(creatng);
     return 1;
@@ -3171,7 +2999,7 @@ int64_t creature_take_salary(struct Thing *creatng)
     {
         anger_apply_anger_to_creature_all_types(creatng, crconf->annoy_got_wage);
     }
-    sim_feedback->thing_play_sample(efftng, snd_gold_pickup, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(efftng, snd_gold_pickup, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     dungeon->lvstats.salary_cost += salary;
     return 1;
 }
@@ -3367,7 +3195,7 @@ int64_t creature_wait_at_treasure_room_door(struct Thing *creatng)
     EventIndex evidx = event_create_event_or_update_nearby_existing_event(creatng->mappos.x.val, creatng->mappos.y.val, EvKind_WorkRoomUnreachable, creatng->owner, RoK_TREASURE);
     if (evidx > 0)
     {
-        sim_feedback->output_room_message(creatng->owner, RoK_TREASURE, OMsg_RoomNoRoute);
+        audio_output_room_message(creatng->owner, RoK_TREASURE, OMsg_RoomNoRoute);
     }
     if (is_creature_other_than_given_waiting_at_closed_door_on_subtile(base_stl_x, base_stl_y, creatng))
     {
@@ -3447,7 +3275,7 @@ struct Room* get_room_for_thing_salary(struct Thing* creatng, unsigned char *nav
             if (room_is_invalid(room))
             {
                 // There seem to be a correct room, but we can't reach it
-                sim_feedback->output_room_message(creatng->owner, job_rrole, OMsg_RoomNoRoute);
+                audio_output_room_message(creatng->owner, job_rrole, OMsg_RoomNoRoute);
             }
         }
     }
@@ -3984,7 +3812,7 @@ char new_slab_tunneller_check_for_breaches(struct Thing *creatng)
         event_create_event_or_update_nearby_existing_event(creatng->mappos.x.val, creatng->mappos.y.val, EvKind_Breach, i, 0);
         if (is_my_player_number(i))
         {
-            sim_feedback->play_sound_message(SMsg_WallsBreach, 0);
+            audio_output_message(SMsg_WallsBreach, 0);
         }
     }
     return 0;
@@ -4668,12 +4496,12 @@ int64_t get_thing_navigation_distance(struct Thing* creatng, struct Coord3d* pos
     if (pos->x.val == creatng->mappos.x.val && pos->y.val == creatng->mappos.y.val)
         return 0;
 
-    nav_thing_can_travel_over_lava = creature_can_travel_over_lava(creatng);
-    nav_thing_is_flying = flag_is_set(creatng->movement_flags, TMvF_Flying);
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = creature_can_travel_over_lava(creatng);
+    kfx_pathfinding_state.nav_thing_is_flying = flag_is_set(creatng->movement_flags, TMvF_Flying);
     if (resetOwnerPlayerNavigating)
-        owner_player_navigating = -1;
+        kfx_pathfinding_state.owner_player_navigating = -1;
     else
-        owner_player_navigating = creatng->owner;
+        kfx_pathfinding_state.owner_player_navigating = creatng->owner;
     int64_t nav_sizexy = thing_nav_block_sizexy(creatng);
     if (nav_sizexy > 0)
         --nav_sizexy;
@@ -4685,8 +4513,8 @@ int64_t get_thing_navigation_distance(struct Thing* creatng, struct Coord3d* pos
         pos->x.val,
         pos->y.val,
         -2, nav_sizexy, __func__);
-    nav_thing_can_travel_over_lava = 0;
-    nav_thing_is_flying = 0;
+    kfx_pathfinding_state.nav_thing_can_travel_over_lava = 0;
+    kfx_pathfinding_state.nav_thing_is_flying = 0;
 
     int64_t distance = 0;
     if (!path.waypoints_num)
@@ -4730,7 +4558,7 @@ int64_t seek_the_enemy(struct Thing *creatng)
                 {
                     crsound = get_creature_sound(creatng, CrSnd_Fight);
                     int64_t fight_i = SOUND_RANDOM(crsound->count);
-                    sim_feedback->thing_play_sample(creatng, creature_sound_unified_id(crsound, fight_i), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+                    audio_thing_play_sample(creatng, creature_sound_unified_id(crsound, fight_i), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
                     set_creature_instance(creatng, CrInst_CELEBRATE_SHORT, 0, 0);
                     return 1;
                 }
@@ -4928,7 +4756,7 @@ TbBool cleanup_current_thing_state(struct Thing *creatng)
     }
     else if (stati->cleanup_state < 0)
     {
-        script_hooks->luafunc_crstate_func(stati->cleanup_state, creatng);
+        script_luafunc_crstate_func(stati->cleanup_state, creatng);
     }
     else
     {
@@ -5303,7 +5131,7 @@ int64_t process_creature_needs_to_eat(struct Thing *creatng, const struct Creatu
     if (!player_has_room_of_role(creatng->owner, RoRoF_FoodStorage))
     {
         rkind = find_first_roomkind_with_role(RoRoF_FoodStorage);
-        sim_feedback->output_room_message(creatng->owner, rkind, OMsg_RoomNeeded);
+        audio_output_room_message(creatng->owner, rkind, OMsg_RoomNeeded);
         anger_apply_anger_to_creature(creatng, crconf->annoy_no_hatchery, AngR_Hungry, 1);
         return 0;
     }
@@ -5321,11 +5149,11 @@ int64_t process_creature_needs_to_eat(struct Thing *creatng, const struct Creatu
         {
             // There seem to be a correct room, but we can't reach it
             rkind = find_first_roomkind_with_role(RoRoF_FoodStorage);
-            sim_feedback->output_room_message(creatng->owner, rkind, OMsg_RoomNoRoute);
+            audio_output_room_message(creatng->owner, rkind, OMsg_RoomNoRoute);
         } else
         {
             // The room is reachable, so it probably has just no food
-            sim_feedback->output_room_message(creatng->owner, nroom->kind, OMsg_RoomTooSmall);
+            audio_output_room_message(creatng->owner, nroom->kind, OMsg_RoomTooSmall);
         }
     }
     if (room_is_invalid(nroom)) {
@@ -5397,36 +5225,36 @@ int64_t anger_process_creature_anger(struct Thing *creatng, const struct Creatur
                 }
                 else
                 {
-                    sim_feedback->play_sound_message(SMsg_CreatrAngryNotPaid, MESSAGE_DURATION_CRTR_MOOD);
+                    audio_output_message(SMsg_CreatrAngryNotPaid, MESSAGE_DURATION_CRTR_MOOD);
                 }
             }
             if (cctrl->paydays_advanced >= 0)
             {
-                sim_feedback->play_sound_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
+                audio_output_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
             }
             else
             {
-                sim_feedback->play_sound_message(SMsg_CreatrAngryNotPaid, MESSAGE_DURATION_CRTR_MOOD);
+                audio_output_message(SMsg_CreatrAngryNotPaid, MESSAGE_DURATION_CRTR_MOOD);
             }
             break;
         case AngR_Hungry:
-            sim_feedback->play_sound_message(SMsg_CreatrAngryNoFood, MESSAGE_DURATION_CRTR_MOOD);
+            audio_output_message(SMsg_CreatrAngryNoFood, MESSAGE_DURATION_CRTR_MOOD);
             break;
         case AngR_NoLair:
             if (cctrl->lairtng_idx != 0)
             {
-                sim_feedback->play_sound_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
+                audio_output_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
             }
             else
             {
-                sim_feedback->play_sound_message(SMsg_CreatrAngryNoLair, MESSAGE_DURATION_CRTR_MOOD);
+                audio_output_message(SMsg_CreatrAngryNoLair, MESSAGE_DURATION_CRTR_MOOD);
             }
             break;
         case AngR_Other:
-            sim_feedback->play_sound_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
+            audio_output_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
             break;
         default:
-            sim_feedback->play_sound_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
+            audio_output_message(SMsg_CreatrAngryAnyReason, MESSAGE_DURATION_CRTR_MOOD);
             ERRORLOG("The %s owned by player %" PRId64 " is angry but has no motive (%" PRId64 ").",thing_model_name(creatng),(int64_t)creatng->owner,(int64_t)anger_motive);
             break;
         }

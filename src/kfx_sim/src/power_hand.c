@@ -17,17 +17,14 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
-#include "renderer/RendererManager.h"
 #include "power_hand.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
 #include "bflib_math.h"
 #include "bflib_planar.h"
-#include "bflib_vidraw.h"
 #include "bflib_sound.h"
 #include "config_sounds.h"
-#include "sprite_lookup.h"
 #include "magic_powers.h"
 #include "power_specials.h"
 #include "power_process.h"
@@ -55,20 +52,14 @@
 #include "config_powerhands.h"
 #include "player_instances.h"
 #include "config_players.h"
-#include "render_overlay.h"
-#include "sim_feedback.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "light_registry.h"
+#include "ports/audio_port.h"
+#include "ports/ai_port.h"
 #include "post_inc.h"
-
-// Literal-dup of kfx_render's sprites.h sprite-ID values (only reachable
-// transitively), passed as plain integers to sprite_lookup->get_panel_sprite()/
-// get_button_sprite(). See docs/refactor/stage-13-enforce-and-document.md.
-#define POWER_HAND_GPS_TRAPDOOR_BONUS_BOX_STD_S 164
-#define POWER_HAND_GBS_CREATURE_FLOWER_LEVEL_01 184
-#define POWER_HAND_GPS_ROOM_GRAVEYARD_STD_S 71
-#define POWER_HAND_GPS_ROOM_HATCHERY_STD_S 59
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,7 +69,6 @@ extern "C" {
 }
 #endif
 /******************************************************************************/
-double global_hand_scale = 1.0;
 
 // Moved from kfx_frontend's gui_draw.c (stage 13.3, docs/refactor/
 // stage-13-enforce-and-document.md).
@@ -317,14 +307,14 @@ struct Thing *process_object_being_picked_up(struct Thing *thing, PlayerNumber p
             create_price_effect(&pos, thing->owner, i);
         }
         powerst = get_power_model_stats(PwrK_PICKUPGOLD);
-        sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         picktng = thing;
     }
     else if (thing_is_mature_food(thing))
     {
         i = UNSYNC_RANDOM(3);
         powerst = get_power_model_stats(PwrK_PICKUPFOOD);
-        sim_feedback->thing_play_sample(thing, powerst->select_sound_idx + i, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, powerst->select_sound_idx + i, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         set_thing_draw(thing, 122, 256, -1, -1, 0, ODC_Default);
         remove_food_from_food_room_if_possible(thing);
         picktng = thing;
@@ -476,14 +466,14 @@ TbBool insert_thing_into_power_hand_list(struct Thing *thing, PlayerNumber plyr_
     dungeon->num_things_in_hand++;
     dungeon->things_in_hand[0] = thing->index;
     powerst = get_power_model_stats(PwrK_HAND);
-    sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     if (thing->class_id == TCls_Creature) {
         remove_all_traces_of_combat(thing);
     }
     if (thing->class_id == TCls_Creature)
     {
         powerst = get_power_model_stats(PwrK_PICKUPCRTR);
-        sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         if (is_my_player_number(thing->owner)) {
             play_creature_sound(thing, CrSnd_Hang, 3, 1);
         }
@@ -533,7 +523,7 @@ void place_thing_in_limbo(struct Thing *thing)
     remove_thing_from_mapwho(thing);
     if (thing->light_id != 0)
     {
-        sim_feedback->light_delete_light(thing->light_id);
+        light_delete_light(thing->light_id);
         thing->light_id = 0;
     }
     thing->rendering_flags |= TRF_Invisible;
@@ -545,198 +535,6 @@ void remove_thing_from_limbo(struct Thing *thing)
     thing->alloc_flags &= ~TAlF_IsInLimbo;
     thing->rendering_flags &= ~TRF_Invisible;
     place_thing_in_mapwho(thing);
-}
-
-void draw_power_hand(void)
-{
-    SYNCDBG(17,"Starting");
-    struct PlayerInfo *player;
-    struct PickedUpOffset *pickoffs;
-    struct Thing *thing;
-    struct Thing *picktng;
-    struct Room *room;
-    struct RoomConfigStats* roomst;
-    player = get_my_player();
-    struct UserState* ustate = get_user_state(get_local_user());
-    if (local_state.display_needs_update)
-        return;
-    if (kfx_sim_state.small_map_state == 2)
-        return;
-    RendererSetDrawFlags(0x00);
-    if (player->view_type != PVT_DungeonTop)
-        return;
-    // Color rendering array pointers used by draw_keepersprite()
-    render_overlay->sync_render_globals();
-    // Scale factor
-    int64_t ps_units_per_px;
-    {
-        const struct TbSprite *spr = sprite_lookup->get_panel_sprite(POWER_HAND_GPS_TRAPDOOR_BONUS_BOX_STD_S); // Use dungeon special box as reference
-        ps_units_per_px = calculate_relative_upp(46, video_scale_callbacks->get_video_scale_values()->units_per_pixel_ui, spr->SHeight);
-    }
-    // Now draw
-    if (((kfx_sim_state.operation_flags & GOF_ShowGui) != 0) && (kfx_sim_state.small_map_state != 2)
-      && sim_feedback->mouse_is_over_panel_map(local_state.minimap_pos_x, local_state.minimap_pos_y))
-    {
-        MapSubtlCoord stl_x;
-        MapSubtlCoord stl_y;
-        stl_x = kfx_sim_state.hand_over_subtile_x;
-        stl_y = kfx_sim_state.hand_over_subtile_y;
-        SYNCDBG(7,"Drawing over pannel map");
-        room = subtile_room_get(stl_x,stl_y);
-        if ((!room_is_invalid(room)) && (subtile_revealed(stl_x, stl_y, player->id_number)))
-        {
-            roomst = get_room_kind_stats(room->kind);
-
-            render_overlay->draw_gui_panel_sprite_centered(sim_feedback->GetMouseX()+scale_ui_value(24*global_hand_scale), sim_feedback->GetMouseY()+scale_ui_value(32*global_hand_scale), ps_units_per_px, roomst->medsym_sprite_idx);
-        }
-        if ((!power_hand_is_empty(player)) && (kfx_sim_state.small_map_state == 1))
-        {
-            draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(10*global_hand_scale), sim_feedback->GetMouseY()+scale_ui_value(10*global_hand_scale));
-        }
-        return;
-    }
-    if (render_overlay->game_is_busy_doing_gui())
-    {
-        SYNCDBG(7,"Drawing while GUI busy");
-        draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(10*global_hand_scale), sim_feedback->GetMouseY()+scale_ui_value(10*global_hand_scale));
-        return;
-    }
-    thing = thing_get(player->hand_thing_idx);
-    if (!thing_exists(thing))
-    {
-        if ((local_state.local_thing_under_hand > 0) && (player->work_state == PSt_CtrlDungeon)) {
-            sim_feedback->process_keeper_sprite(sim_feedback->GetMouseX()+scale_ui_value(60*global_hand_scale), sim_feedback->GetMouseY()+scale_ui_value(40*global_hand_scale),
-              kfx_config_state.conf.power_hand_conf.pwrhnd_cfg_stats[player->hand_idx].anim_idx[HndA_Hover], 0, 0, scale_ui_value(64*global_hand_scale));
-        }
-        return;
-    }
-    if (player->hand_busy_until_turn > get_gameturn())
-    {
-        SYNCDBG(7,"Drawing hand %s index %" PRId64 ", busy state", thing_model_name(thing), (int64_t)thing->index);
-        sim_feedback->process_keeper_sprite(sim_feedback->GetMouseX()+scale_ui_value(60*global_hand_scale), sim_feedback->GetMouseY()+scale_ui_value(40*global_hand_scale),
-          thing->anim_sprite, 0, thing->current_frame, scale_ui_value(64*global_hand_scale));
-        draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(60*global_hand_scale), sim_feedback->GetMouseY());
-        return;
-    }
-    SYNCDBG(7,"Drawing hand %s index %" PRId64, thing_model_name(thing), (int64_t)thing->index);
-    if ((ustate->additional_flags & UsrAF_ChosenSubTileIsHigh) != 0)
-    {
-        draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(18*global_hand_scale), sim_feedback->GetMouseY());
-        return;
-    }
-    if (player->work_state != PSt_HoldInHand)
-    {
-      TbBool draw_hand = (local_state.local_thing_under_hand > 0);
-      if ((player->work_state == PSt_CtrlDungeon) && !power_hand_is_empty(player)) {
-        draw_hand = (ustate->primary_cursor_state != CSt_DoorKey) && (ustate->secondary_cursor_state != CSt_DoorKey);
-      }
-      if ((player->work_state != PSt_CtrlDungeon) || !draw_hand)
-      {
-        if ((player->instance_num != PI_Grab) && (player->instance_num != PI_Drop) && (player->instance_num != PI_Whip) && (player->instance_num != PI_WhipEnd))
-        {
-          if (player->work_state == PSt_Slap)
-          {
-            sim_feedback->process_keeper_sprite(sim_feedback->GetMouseX() + scale_ui_value(70*global_hand_scale), sim_feedback->GetMouseY() + scale_ui_value(46*global_hand_scale),
-                thing->anim_sprite, 0, thing->current_frame, scale_ui_value(64*global_hand_scale));
-          } else
-          if (player->work_state == PSt_CtrlDungeon)
-          {
-            if ((ustate->secondary_cursor_state == CSt_DoorKey) || (ustate->primary_cursor_state == CSt_DoorKey))
-            {
-              draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(18*global_hand_scale), sim_feedback->GetMouseY());
-            }
-          }
-          return;
-        }
-      }
-    }
-    int64_t inputpos_x;
-    int64_t inputpos_y;
-    picktng = get_first_thing_in_power_hand(player);
-    if ((thing_exists(picktng)) && ((picktng->rendering_flags & TRF_Invisible) == 0))
-    {
-        SYNCDBG(7,"Holding %s",thing_model_name(picktng));
-        switch (picktng->class_id)
-        {
-        case TCls_Creature:
-            if (!creature_under_spell_effect(picktng, CSAfF_Chicken))
-            {
-                pickoffs = get_creature_picked_up_offset(picktng);
-                inputpos_x = sim_feedback->GetMouseX() + scale_ui_value(pickoffs->delta_x*global_hand_scale);
-                inputpos_y = sim_feedback->GetMouseY() + scale_ui_value(pickoffs->delta_y*global_hand_scale);
-                struct CreatureModelConfig* crconf = creature_stats_get(picktng->model);
-                if (crconf->transparency_flags == TRF_Transpar_8)
-                {
-                    RendererAddDrawFlags(Lb_SPRITE_TRANSPAR8);
-                    RendererClearDrawFlags(Lb_SPRITE_REMAP);
-                }
-                else if (crconf->transparency_flags == TRF_Transpar_4)
-                {
-                    RendererAddDrawFlags(Lb_SPRITE_TRANSPAR4);
-                    RendererClearDrawFlags(Lb_SPRITE_REMAP);
-                }
-                else if(crconf->transparency_flags == TRF_Transpar_Alpha)
-                {
-                    EngineSpriteDrawUsingAlpha = 1;
-                }
-
-                sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-                    picktng->anim_sprite, 0, picktng->current_frame, scale_ui_value(64*global_hand_scale));
-                RendererSetDrawFlags(0);
-                EngineSpriteDrawUsingAlpha = 0;
-            } else
-            {
-                inputpos_x = sim_feedback->GetMouseX() + scale_ui_value(11*global_hand_scale);
-                inputpos_y = sim_feedback->GetMouseY() + scale_ui_value(56*global_hand_scale);
-                sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-                    picktng->anim_sprite, 0, picktng->current_frame, scale_ui_value(64*global_hand_scale));
-            }
-            break;
-        case TCls_Object:
-            if (object_is_mature_food(picktng))
-            {
-              inputpos_x = sim_feedback->GetMouseX() + scale_ui_value(11*global_hand_scale);
-              inputpos_y = sim_feedback->GetMouseY() + scale_ui_value(56*global_hand_scale);
-              sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-                  picktng->anim_sprite, 0, picktng->current_frame, scale_ui_value(64*global_hand_scale));
-              break;
-            } else
-            if ((picktng->class_id == TCls_Object) && object_is_gold_pile(picktng))
-            {
-                break;
-            }
-            else
-            {
-                pickoffs = get_object_picked_up_offset(picktng);
-                inputpos_x = sim_feedback->GetMouseX() + scale_ui_value(pickoffs->delta_x * global_hand_scale);
-                inputpos_y = sim_feedback->GetMouseY() + scale_ui_value(pickoffs->delta_y * global_hand_scale);
-                sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-                    picktng->anim_sprite, 0, picktng->current_frame, scale_ui_value(64 * global_hand_scale));
-            }
-            break;
-        default:
-            inputpos_x = sim_feedback->GetMouseX();
-            inputpos_y = sim_feedback->GetMouseY();
-            sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-                  picktng->anim_sprite, 0, picktng->current_frame, scale_ui_value(64*global_hand_scale));
-            break;
-        }
-    }
-    if (player->hand_animationId == HndA_Hold)
-    {
-        inputpos_x = sim_feedback->GetMouseX() + scale_ui_value(58*global_hand_scale);
-        inputpos_y = sim_feedback->GetMouseY() +  scale_ui_value(6*global_hand_scale);
-        sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-            thing->anim_sprite, 0, thing->current_frame, scale_ui_value(64*global_hand_scale));
-        draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(60*global_hand_scale), sim_feedback->GetMouseY());
-    } else
-    {
-        inputpos_x = sim_feedback->GetMouseX() + scale_ui_value(60*global_hand_scale);
-        inputpos_y = sim_feedback->GetMouseY() + scale_ui_value(40*global_hand_scale);
-        sim_feedback->process_keeper_sprite(inputpos_x / pixel_size, inputpos_y / pixel_size,
-            thing->anim_sprite, 0, thing->current_frame, scale_ui_value(64*global_hand_scale));
-        draw_mini_things_in_hand(sim_feedback->GetMouseX()+scale_ui_value(60*global_hand_scale), sim_feedback->GetMouseY());
-    }
 }
 
 TbBool object_is_slappable(const struct Thing* thing)
@@ -910,15 +708,15 @@ int64_t gold_being_dropped_on_creature(int64_t plyr_idx, struct Thing *goldtng, 
     drop_gold_coins(&pos, 0, plyr_idx);
     if (tribute >= salary)
     {
-        sim_feedback->thing_play_sample(creatng, snd_salary_full, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, snd_salary_full, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     }
     else if ((tribute * 2) >= salary)
     {
-        sim_feedback->thing_play_sample(creatng, snd_salary_partial, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(creatng, snd_salary_partial, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     }
     else
     {
-        sim_feedback->thing_play_sample(creatng, snd_salary_tiny, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS/2);
+        audio_thing_play_sample(creatng, snd_salary_tiny, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS/2);
     }
     if ( !taking_salary )
     {
@@ -1088,7 +886,7 @@ void dump_thing_held_by_any_player(struct Thing *thing)
             // Remove from computer player hand
             struct Computer2 *comp;
             comp = get_computer_player(dungeon->owner);
-            computer_force_dump_specific_held_thing(comp, thing, pos);
+            ai_computer_force_dump_specific_held_thing(comp, thing, pos);
         }
     }
 }
@@ -1169,149 +967,6 @@ void process_things_in_dungeon_hand(void)
                     }
                 }
             }
-        }
-    }
-}
-
-void draw_mini_things_in_hand(int64_t x, int64_t y)
-{
-    SYNCDBG(7,"Starting");
-    struct Dungeon *dungeon = get_my_dungeon();
-    int64_t i;
-    int64_t expshift_x;
-    int64_t flash_color;
-    // Scale factor
-    int64_t ps_units_per_px;
-    {
-        const struct TbSprite *spr = sprite_lookup->get_panel_sprite(POWER_HAND_GPS_TRAPDOOR_BONUS_BOX_STD_S); // Use dungeon special box as reference
-        ps_units_per_px = calculate_relative_upp(46, video_scale_callbacks->get_video_scale_values()->units_per_pixel_ui, spr->SHeight);
-    }
-    uint64_t spr_idx = get_creature_model_graphics(get_players_special_digger_model(dungeon->owner), CGI_HandSymbol);
-    if (spr_idx > 0) {
-        i = sprite_lookup->get_panel_sprite(spr_idx)->SWidth - sprite_lookup->get_button_sprite(POWER_HAND_GBS_CREATURE_FLOWER_LEVEL_01)->SWidth;
-    } else {
-        i = 0;
-    }
-    int64_t scrbase_x = x;
-    int64_t scrbase_y = y - scale_ui_value(58);
-    expshift_x = scale_ui_value(llabs(i)) / 2;
-    for (i = dungeon->num_things_in_hand-1; i >= 0; i--)
-    {
-        unsigned char ratio = (kfx_config_state.conf.rules[my_player_number].gameplay.max_things_in_hand / 2);
-        if (kfx_config_state.conf.rules[my_player_number].gameplay.max_things_in_hand % 2)
-        {
-            ratio ++;
-        }
-        int64_t icol = i % ratio;
-        int64_t irow = i / ratio;
-        struct Thing *thing = thing_get(dungeon->things_in_hand[i]);
-        if (!thing_exists(thing)) {
-            continue;
-        }
-        flash_color = get_player_color_idx(thing->owner);
-        int64_t scrpos_x;
-        int64_t scrpos_y;
-        int64_t shift_y;
-        if (thing->class_id == TCls_Creature)
-        {
-            spr_idx = get_creature_model_graphics(thing->model, CGI_HandSymbol);
-            if (spr_idx > 0)
-            {
-                struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
-                int64_t expspr_idx = POWER_HAND_GBS_CREATURE_FLOWER_LEVEL_01 + cctrl->exp_level;
-                if (irow > 0)
-                    shift_y = 40;
-                else
-                    shift_y = 6;
-                scrpos_x = scrbase_x + scale_ui_value(16) * icol;
-                scrpos_y = scrbase_y + scale_ui_value(18) * irow;
-                // Draw creature symbol
-                render_overlay->draw_gui_panel_sprite_left(scrpos_x, scrpos_y, ps_units_per_px, spr_idx);
-                char ownshift_y;
-                if (MyScreenHeight < 400)
-                {
-                    char expshift_y = (irow > 0) ? 32 : -6;
-                    render_overlay->draw_button_sprite_left(scrpos_x, scrpos_y + scale_ui_value(expshift_y), ps_units_per_px, expspr_idx);
-                    if (thing->owner != my_player_number)
-                    {
-                        ownshift_y = (irow == 0) ? 1 : 56;
-                        LbDrawCircle(scrpos_x + scale_ui_value(16), scrpos_y + scale_ui_value(ownshift_y), ps_units_per_px / 16, player_path_colours[flash_color]);
-                    }
-                }
-                else
-                {
-                    ownshift_y = (irow > 0) ? 44 : 10;
-                    if (thing->owner != my_player_number)
-                    {
-                        int64_t relative_window_a = lbDisplay.GraphicsScreenWidth;
-                        int64_t relative_window_b = lbDisplay.GraphicsScreenHeight;
-                        int64_t n = min(scale_ui_value(1),4);
-                        ScreenCoord coord_y = scrpos_y + scale_ui_value(ownshift_y);
-                        ScreenCoord draw_y;
-                        ScreenCoord draw_x;
-                        for (int64_t p = 0; p < (n*n); p++)
-                        {
-                            draw_y = coord_y + draw_square[p].delta_y;
-                            if (draw_y >= 0)
-                            {
-                                draw_x = scrpos_x + ((expshift_x * 3)) + draw_square[p].delta_x;
-                                // Draw the pixel if it's within the bounds of the window
-                                if ((draw_x >= 0) && (draw_x < relative_window_a) && (draw_y < relative_window_b))
-                                {
-                                    LbDrawPixel(draw_x, draw_y, player_flash_colours[flash_color]);
-                                }
-                            }
-                        }
-                        for (int64_t p = (n * n); p < (n * n)+(4 * n + 4); p++)
-                        {
-                            draw_y = coord_y + draw_square[p].delta_y;
-                            if (draw_y >= 0)
-                            {
-                                draw_x = scrpos_x + ((expshift_x * 3)) + draw_square[p].delta_x;
-                                // Draw the pixel if it's within the bounds of the window
-                                if ((draw_x >= 0) && (draw_x < relative_window_a) && (draw_y < relative_window_b))
-                                {
-                                    LbDrawPixel(draw_x, draw_y, player_path_colours[flash_color]);
-                                }
-                            }
-                        }
-                    }
-                    // Draw exp level
-                    render_overlay->draw_button_sprite_left(scrpos_x + expshift_x, scrpos_y + scale_ui_value(shift_y), ps_units_per_px, expspr_idx);
-                }
-            }
-        } else
-        if (thing->class_id == TCls_DeadCreature)
-        {
-            spr_idx = POWER_HAND_GPS_ROOM_GRAVEYARD_STD_S;
-            if (irow > 0)
-                shift_y = 20;
-            else
-                shift_y = 0;
-            scrpos_x = scrbase_x + scale_ui_value(16) * icol;
-            scrpos_y = scrbase_y + scale_ui_value(14) * irow;
-            render_overlay->draw_gui_panel_sprite_left(scrpos_x - 2, scrpos_y + scale_ui_value(shift_y), ps_units_per_px, spr_idx);
-        } else
-        if ((thing->class_id == TCls_Object))
-        {
-            spr_idx = get_object_model_stats(thing->model)->hand_icon;
-            if (irow > 0)
-                shift_y = 20;
-            else
-                shift_y = 0;
-            scrpos_x = scrbase_x + scale_ui_value(16) * icol;
-            scrpos_y = scrbase_y + scale_ui_value(14) * irow;
-            render_overlay->draw_gui_panel_sprite_left(scrpos_x - 2, scrpos_y + scale_ui_value(shift_y), ps_units_per_px, spr_idx);
-        } else
-        {
-            spr_idx = POWER_HAND_GPS_ROOM_HATCHERY_STD_S;
-            if (irow > 0)
-                shift_y = 20;
-            else
-                shift_y = 0;
-            scrpos_x = scrbase_x + scale_ui_value(16) * icol;
-            scrpos_y = scrbase_y + scale_ui_value(14) * irow;
-            render_overlay->draw_gui_panel_sprite_left(scrpos_x - 2, scrpos_y + scale_ui_value(shift_y), ps_units_per_px, spr_idx);
         }
     }
 }

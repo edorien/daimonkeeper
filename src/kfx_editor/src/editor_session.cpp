@@ -48,6 +48,8 @@
 #include "bflib_fileio.h" // LbFileLength -- read_level_script_text()
 #include "bflib_dernc.h" // LbFileLoadAt -- read_level_script_text()
 #include "frontgui_widgets.h"
+#include "player_availability.h"
+#include "game_commands.h"
 #include <imgui.h>
 #include <cctype>
 #include <cstring>

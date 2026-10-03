@@ -1,14 +1,13 @@
 // kfx_sim "thing" cluster depth increment, per docs/refactor/testing/
 // comprehensive/stage-08b-kfx-sim-clusters.md's "still open" list:
 // thing_navigate.c's lava/toxicity predicates -- the only self-contained,
-// non-pathfinding functions in this file. creature_stats_get_from_thing's
-// default ConfigReloadCallbacks (get_thing_model always 0) resolves every
-// creature to kfx_config_state.conf.crtr_conf.model[0], the same
-// default-model-0 reliance used throughout this plan. Extends the small
+// non-pathfinding functions in this file. The creatures keep the zeroed
+// thing->model 0, which creature_stats_get_from_thing resolves to
+// kfx_config_state.conf.crtr_conf.model[0]. Extends the small
 // map+Column fixture (thing_doors_test.cpp's DoorAngleFixture) one level
 // further: a "lava" subtile needs its Column's top cube to resolve
 // (via cube_is_lava, a direct-by-id config lookup, not routed through
-// ConfigReloadCallbacks) to a cube_cfgstats entry with CPF_IsLava set.
+// SimPort) to a cube_cfgstats entry with CPF_IsLava set.
 // The pathfinding-heavy functions (creature_move_to_using_gates,
 // setup_person_move_*, hug_can_move_on, etc.) need a real Ariadne
 // route-planning fixture and are left for a later increment.
@@ -21,6 +20,7 @@
 #include "slab_data.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 

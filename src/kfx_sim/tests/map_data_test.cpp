@@ -13,13 +13,11 @@
 // valid_dig_position (need subtile_has_lava_on_top's cube lookup);
 // subtile_is_sellable_room/_sellable_door_or_trap (need a full Room +
 // door/trap-thing fixture on top of the slabmap); subtile_is_diggable_for_player
-// (config-only but with a subtle mixed indirection -- slab_kind_is_door
-// reads slab_cfgstats[slb->kind] directly while get_slab_stats(slb) always
-// resolves to slab_cfgstats[0], per slab_data_test.cpp's note -- left for
-// a dedicated increment); the slabs_reveal_slab_and_corners/slabs_change_*
+// (config-only; slab_kind_is_door reads slab_cfgstats[slb->kind] and
+// get_slab_stats(slb) the same entry -- left for a dedicated increment); the slabs_reveal_slab_and_corners/slabs_change_*
 // MaxCoordFilterParam callbacks and the reveal/conceal *_rect/*_area/
 // clear_slab_dig family (rectangle iteration wrapping the above, plus
-// config_reload_callbacks->panel_map_update); and set_map_size/
+// ui_panel_map_update()); and set_map_size/
 // init_map_size (full map (re)initialization).
 #include <catch2/catch_test_macros.hpp>
 
@@ -27,6 +25,7 @@
 #include "slab_data.h"
 #include "config_terrain.h"
 #include "kfx_sim_test_fixtures.h"
+#include "ports/ui_port.h"
 
 using namespace kfx_test;
 
@@ -194,7 +193,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "subtile_is_door reads the SlbAtFlg_IsDoor m
 }
 
 // reveal_map_area()/conceal_map_area() refresh the minimap by calling
-// config_reload_callbacks->panel_map_update(x, y, w, h) -- a position plus a
+// ui_panel_map_update(x, y, w, h) -- a position plus a
 // WIDTH/HEIGHT, not an end corner (upstream #5302 fixed the calls that passed
 // end coordinates). The rect they touch is half-open ([start, end)), so
 // w = end - start.
@@ -204,14 +203,14 @@ struct PanelMapUpdateSpy {
     static inline int64_t x, y, w, h;
     static void record(int64_t px, int64_t py, int64_t pw, int64_t ph) { calls++; x = px; y = py; w = pw; h = ph; }
 
-    struct ConfigReloadCallbacks callbacks;
+    struct UiPort callbacks;
     PanelMapUpdateSpy() {
-        callbacks = *config_reload_callbacks; // keep the default no-ops for everything else
+        callbacks = *ui_port; // keep the default no-ops for everything else
         calls = 0; x = y = w = h = -1;
         callbacks.panel_map_update = &PanelMapUpdateSpy::record;
-        set_config_reload_callbacks(&callbacks);
+        set_ui_port(&callbacks);
     }
-    ~PanelMapUpdateSpy() { set_config_reload_callbacks(nullptr); }
+    ~PanelMapUpdateSpy() { set_ui_port(nullptr); }
 };
 }
 

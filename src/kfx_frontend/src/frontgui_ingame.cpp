@@ -27,7 +27,9 @@
 #include "kfx_sim_state.h" // kfx_sim_state.game_kind, GOF_Paused
 #include "game_saves.h" // save_game_catalogue, load_game, save_game, fill_game_catalogue_slot
 #include "config_keeperfx.h" // keeperfx_ui_config.hud_position -- GUI_POSITION
+#include "packets.h"
 
+#include "local_state.h"
 #include "post_inc.h"
 
 #include <cstdio> // snprintf
@@ -274,7 +276,13 @@ void apply_pending_load(void)
     s_pending_load_slot = -1;
     turn_off_menu(GMnu_LOAD);
     if (!load_game(slot))
+    {
         ERRORLOG("Loading game %" PRId64 " failed", (int64_t)(slot));
+        // A save from another layout is refused before anything changes, so
+        // the current game carries on; say why (refactor pass 2, S09).
+        if (last_save_was_refused())
+            create_error_box_text("This save is from a different KeeperFX build and can't be loaded.");
+    }
     // load_game() rebuilds the level; no pause packet needed (and the old
     // player state is gone). On failure the classic path quits; leave that
     // to the existing error handling rather than duplicating it here.
@@ -321,7 +329,16 @@ void loadmenu_frame(void)
                 continue;
             any = true;
             ImGui::PushID((int64_t)i); // two saves can share a display name
-            if (FeListRow(ce->textname, false))
+            if ((ce->flags & CEF_OtherVersion) != 0)
+            {
+                // Can't be loaded by this build (S09): listed, but not clickable.
+                char label[SAVE_TEXTNAME_LEN + 32];
+                std::snprintf(label, sizeof(label), "%s (other version)", ce->textname);
+                ImGui::BeginDisabled();
+                FeListRow(label, false);
+                ImGui::EndDisabled();
+            }
+            else if (FeListRow(ce->textname, false))
             {
                 s_pending_load_slot = i;
                 request_deferred(apply_pending_load);
@@ -364,7 +381,14 @@ void savemenu_frame(void)
         {
             const struct CatalogueEntry *ce = &save_game_catalogue[i];
             const bool in_use = (ce->flags & CEF_InUse) != 0;
+            char other_label[SAVE_TEXTNAME_LEN + 32];
             const char *row = in_use ? ce->textname : get_string(GUIStr_SlotUnused);
+            if (in_use && ((ce->flags & CEF_OtherVersion) != 0))
+            {
+                // Still overwritable; the label says why it can't be loaded.
+                std::snprintf(other_label, sizeof(other_label), "%s (other version)", ce->textname);
+                row = other_label;
+            }
             ImGui::PushID((int64_t)i); // every free slot shows the same "unused" label
             if (FeListRow(row, i == s_save_sel_slot))
             {

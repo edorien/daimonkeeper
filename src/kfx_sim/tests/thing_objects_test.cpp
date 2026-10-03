@@ -14,7 +14,7 @@
 // allocation + animation/sprite setup), gold hoard/treasury room capacity
 // bookkeeping (add_gold_to_hoarde, gold_being_dropped_at_treasury), and
 // thing_is_trap_crate/thing_is_door_crate (route through
-// crate_thing_to_workshop_item_class's config_reload_callbacks indirection
+// crate_thing_to_workshop_item_class's SimPort indirection
 // rather than a direct config lookup) -- all of these need either a fuller
 // room/animation fixture or a stubbed callback table, left for a later
 // increment.
@@ -27,6 +27,7 @@
 #include "config_rules.h"
 #include "map_data.h"
 #include "kfx_sim_test_fixtures.h"
+#include "room_workshop.h"
 
 using namespace kfx_test;
 

@@ -1,67 +1,82 @@
 // kfx_render: local_camera.c's update_local_cameras() -- the prediction of the
-// authoritative packet camera. Everything it reaches outside kfx_render goes through
-// render_overlay callbacks, so the recorded calls below are enough to pin the rule:
-// a parchment-map jump (PckA_ZoomFromMap) moves the camera to the clicked location
-// and ignores that packet's camera controls, exactly as the packet camera in
-// kfx_net's process_camera_action() does (controls first, then the jump overwrites
-// them). Applying controls locally AFTER the jump made the predicted camera drift
-// off the authoritative one by one tick of scrolling (upstream #5315).
+// authoritative packet camera. The rule pinned here: a parchment-map jump
+// (PckA_ZoomFromMap) moves the camera to the clicked location and ignores that
+// packet's camera controls, exactly as the packet camera in kfx_sim's
+// process_camera_action() does (controls first, then the jump overwrites them).
+// Applying controls locally AFTER the jump made the predicted camera drift off
+// the authoritative one by one tick of scrolling (upstream #5315).
+//
+// The packet camera handlers used to be kfx_net functions reached through
+// render_overlay callbacks, and this test spied on those callbacks. Since
+// refactor pass 2's S07 they are kfx_sim functions called directly, so the test
+// checks where the camera ends up instead. With the delta-time feature off,
+// interpolate() returns the destination, so get_local_active_camera() shows it.
 #include <catch2/catch_test_macros.hpp>
 
 #include "local_camera.h"
-#include "render_overlay.h"
 #include "player_data.h"
 #include "packet_data.h"
 #include "kfx_sim_state.h"
+#include "ports/net_port.h"
+#include "local_state.h"
 
 #include <cstring>
 
 namespace {
-struct CameraCallbackSpy {
-    static inline int64_t controls_calls;
-    static inline int64_t action_calls;
+constexpr MapCoord start_pos = 5000;
+
+struct LocalCameraFixture {
     static inline struct Packet packet;
-
     static const struct Packet *history_packet(NetUserId, GameTurn) { return &packet; }
-    static void camera_action(struct Camera *, const struct Packet *) { action_calls++; }
-    static void camera_controls(struct Camera *, const struct Packet *, struct PlayerInfo *) { controls_calls++; }
-    // The local (non-replay) camera applies packet controls through the view-controls half only
-    // (position comes from the local camera itself; upstream #5353).
-    static void camera_view_controls(struct Camera *, const struct Packet *, struct PlayerInfo *) { controls_calls++; }
 
-    struct RenderOverlayCallbacks callbacks;
-    CameraCallbackSpy() {
+    struct NetPort callbacks;
+    struct PlayerInfo *player;
+    LocalCameraFixture() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+        std::memset(&local_state, 0, sizeof(local_state));
         std::memset(&packet, 0, sizeof(packet));
-        controls_calls = 0;
-        action_calls = 0;
-        callbacks = *render_overlay; // keep every other default no-op
-        callbacks.get_history_packet = &CameraCallbackSpy::history_packet;
-        callbacks.process_camera_action = &CameraCallbackSpy::camera_action;
-        callbacks.process_camera_controls = &CameraCallbackSpy::camera_controls;
-        callbacks.process_camera_view_controls = &CameraCallbackSpy::camera_view_controls;
-        set_render_overlay_callbacks(&callbacks);
+        kfx_sim_state.map_subtiles_x = 100;
+        kfx_sim_state.map_subtiles_y = 100;
+        callbacks = *net_port; // keep every other default no-op
+        callbacks.get_history_packet = &LocalCameraFixture::history_packet;
+        set_net_port(&callbacks);
 
         my_player_number = 0;
-        struct PlayerInfo *player = &kfx_sim_state.players[0];
+        player = &kfx_sim_state.players[0];
         player->id_number = 0;
         player->user_id = 0;
+        player->view_type = PVT_DungeonTop;
+        player->active_camera_idx = CamIV_Isometric;
+        struct Camera *cam = &player->cameras[CamIV_Isometric];
+        cam->view_mode = PVM_IsoWibbleView;
+        cam->mappos.x.val = start_pos;
+        cam->mappos.y.val = start_pos;
+        cam->zoom = CAMERA_ZOOM_MAX;
         init_local_cameras(player);
     }
-    ~CameraCallbackSpy() { set_render_overlay_callbacks(nullptr); }
+    ~LocalCameraFixture() { set_net_port(nullptr); }
+
+    const struct Camera *predicted() {
+        interpolate_local_cameras();
+        return get_local_active_camera(player);
+    }
 };
 }
 
-TEST_CASE_METHOD(CameraCallbackSpy, "update_local_cameras applies the packet's camera controls on a normal packet", "[kfx_render][local_camera]") {
+TEST_CASE_METHOD(LocalCameraFixture, "update_local_cameras applies the local scroll on a normal packet", "[kfx_render][local_camera]") {
     packet.action = PckA_None;
+    local_state.camera_movement_x = 1.0;
     update_local_cameras();
-    CHECK(action_calls == 1);
-    CHECK(controls_calls == 1);
+    CHECK(predicted()->mappos.x.val != start_pos);
 }
 
-TEST_CASE_METHOD(CameraCallbackSpy, "update_local_cameras ignores the packet's camera controls on a parchment jump (PckA_ZoomFromMap)", "[kfx_render][local_camera]") {
+TEST_CASE_METHOD(LocalCameraFixture, "update_local_cameras ignores the local scroll on a parchment jump (PckA_ZoomFromMap)", "[kfx_render][local_camera]") {
     packet.action = PckA_ZoomFromMap;
+    packet.actn_par1 = 10;
+    packet.actn_par2 = 20;
+    local_state.camera_movement_x = 1.0;
     update_local_cameras();
-    CHECK(action_calls == 1);   // the jump itself is still applied
-    CHECK(controls_calls == 0); // but nothing is scrolled on top of it
+    const struct Camera *cam = predicted();
+    CHECK(cam->mappos.x.val == subtile_coord_center(10)); // the jump itself is applied
+    CHECK(cam->mappos.y.val == subtile_coord_center(20)); // and nothing is scrolled on top of it
 }

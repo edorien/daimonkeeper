@@ -19,6 +19,7 @@
 #include "bflib_mouse.h"
 #include "bflib_planar.h"
 
+#include "local_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

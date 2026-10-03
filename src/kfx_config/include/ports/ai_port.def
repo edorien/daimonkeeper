@@ -1,0 +1,17 @@
+/* AiPort entries: see ports/ai_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+/* player_utils.c: a level's computer players and the assist mode. */
+KFX_PORT_RET(TbBool, setup_a_computer_player, (PlayerNumber plyr_idx, int64_t comp_model), (plyr_idx, comp_model), false)
+KFX_PORT_RET(TbBool, toggle_computer_player, (PlayerNumber plyr_idx), (plyr_idx), false)
+/* player_utils.c, thing_list.c: script and dungeon-heart takeovers. */
+KFX_PORT_RET(TbBool, script_support_setup_player_as_computer_keeper, (PlayerNumber plyr_idx, int64_t comp_model), (plyr_idx, comp_model), false)
+/* power_hand.c: a thing the computer player holds must be dropped. */
+KFX_PORT_RET(TbBool, computer_force_dump_specific_held_thing, (struct Computer2 *comp, struct Thing *thing, const struct Coord3d *pos), (comp, thing, pos), false)
+/* player_availability.c: a room became available; restart its build process. */
+KFX_PORT_RET(TbBool, reactivate_build_process, (struct Computer2 *comp, RoomKind rkind), (comp, rkind), false)

@@ -1,0 +1,51 @@
+/* PathfindingWorldPort entries: see ports/pathfinding_world_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+/* Map and terrain. Ariadne reads struct Map/struct SlabMap fields itself
+   (their layouts are in kfx_model since refactor pass 2's S08); these reach
+   the storage, kfx_sim_state's map[]/slabmap[], and kfx_sim's terrain
+   rules. The map size is cached in kfx_pathfinding_state. */
+KFX_PORT_RET(struct Map *, get_map_block_at, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), NULL)
+KFX_PORT_RET(struct Map *, get_map_block_at_pos, (SubtlCodedCoords stl_num), (stl_num), NULL)
+KFX_PORT_RET(TbBool, map_block_is_invalid, (const struct Map *mapblk), (mapblk), true)
+KFX_PORT_RET(int64_t, get_floor_filled_subtiles_at, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), 0)
+KFX_PORT_RET(TbBool, subtile_is_unsafe, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), false)
+KFX_PORT_RET(struct SlabMap *, get_slabmap_block, (MapSlabCoord slb_x, MapSlabCoord slb_y), (slb_x, slb_y), NULL)
+KFX_PORT_RET(TbBool, slabmap_block_is_invalid, (const struct SlabMap *slb), (slb), true)
+KFX_PORT_RET(PlayerNumber, slabmap_owner, (const struct SlabMap *slb), (slb), 0)
+KFX_PORT_RET(TbBool, is_valid_hug_subtile, (MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx), (stl_x, stl_y, plyr_idx), false)
+KFX_PORT_RET(TbBool, subtile_is_door, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), false)
+KFX_PORT_RET(TbBool, thing_in_wall_at, (const struct Thing *thing, const struct Coord3d *pos), (thing, pos), false)
+/* Doors. */
+KFX_PORT_RET(struct Thing *, get_door_for_position, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), NULL)
+KFX_PORT_RET(TbBool, door_is_hidden_to_player, (struct Thing *doortng, PlayerNumber plyr_idx), (doortng, plyr_idx), false)
+KFX_PORT_RET(TbBool, door_will_open_for_thing, (const struct Thing *doortng, const struct Thing *creatng), (doortng, creatng), false)
+KFX_PORT_RET(TbBool, players_are_mutual_allies, (PlayerNumber plyr1_idx, PlayerNumber plyr2_idx), (plyr1_idx, plyr2_idx), false)
+/* struct Thing queries that need kfx_sim's storage or rules. Plain field
+   reads are direct since S08: struct Thing's layout is in kfx_model. */
+KFX_PORT_RET(int64_t, thing_is_invalid, (const struct Thing *thing), (thing), true)
+KFX_PORT_RET(int64_t, get_thing_height_at, (const struct Thing *thing, const struct Coord3d *pos), (thing, pos), 0)
+KFX_PORT_RET(int64_t, get_floor_height_under_thing_at, (const struct Thing *thing, const struct Coord3d *pos), (thing, pos), 0)
+KFX_PORT_RET(TbBool, creature_can_travel_over_lava, (const struct Thing *creatng), (creatng), false)
+KFX_PORT_RET(const char *, thing_model_name, (const struct Thing *thing), (thing), "")
+/* The CreatureControl-embedded pathfinding slot (&cctrl->navi, &cctrl->arid)
+   and the two fields wall-hugging reads or clears. */
+KFX_PORT_RET(struct Navigation *, creature_get_navigation, (struct Thing *creatng), (creatng), NULL)
+KFX_PORT_RET(struct Ariadne *, creature_get_ariadne_state, (struct Thing *creatng), (creatng), NULL)
+KFX_PORT_RET(int64_t, creature_get_max_speed, (const struct Thing *creatng), (creatng), 0)
+KFX_PORT_VOID(creature_clear_state_flags_for_wallhug_override, (struct Thing *creatng), (creatng))
+/* kfx_sim-state-reading helpers ariadne.c/ariadne_update.c depend on. */
+KFX_PORT_RET(struct SlabMap *, get_slabmap_for_subtile, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), NULL)
+KFX_PORT_RET(TbBool, hug_can_move_on, (struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y), (creatng, stl_x, stl_y), false)
+KFX_PORT_RET(TbBool, creature_cannot_move_directly_to, (struct Thing *thing, struct Coord3d *pos), (thing, pos), true)
+/* Abyss dungeons (#5169): ariadne_update.c marks abyss subtiles
+   NAVMAP_ABYSS in the nav tree. */
+KFX_PORT_RET(TbBool, subtile_has_abyss_on_top, (MapSubtlCoord stl_x, MapSubtlCoord stl_y), (stl_x, stl_y), false)
+/* #5310: an uncontrolled creature on safe terrain stepping onto terrain
+   toxic for it; ariadne_creature_blocked_by_wall_at() treats that as a wall. */
+KFX_PORT_RET(TbBool, creature_steps_into_toxic_terrain, (struct Thing *thing, const struct Coord3d *pos), (thing, pos), false)

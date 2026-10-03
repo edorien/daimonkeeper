@@ -54,15 +54,18 @@
 #include "config_terrain.h"
 #include "config_magic.h"
 #include "config_effects.h"
-#include "sim_feedback.h"
 #include "room_jobs.h"
 #include "map_blocks.h"
 #include "map_columns.h"
 #include "creature_instances.h"
 #include "map_locations.h"
-#include "script_hooks.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "player_camera.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -955,7 +958,7 @@ TbBool pay_for_spell(PlayerNumber plyr_idx, PowerKind pwkind, KeepPwrLevel power
     }
     // If failed, say "you do not have enough gold"
     if (is_my_player_number(plyr_idx))
-        sim_feedback->play_sound_message(SMsg_GoldNotEnough, 0);
+        audio_output_message(SMsg_GoldNotEnough, 0);
     return false;
 }
 
@@ -1004,7 +1007,7 @@ static TbResult magic_use_power_armageddon(PowerKind power_kind, PlayerNumber pl
         // If we can't afford the power, fail
         if (!pay_for_spell(plyr_idx, power_kind, 0)) {
             if (is_my_player_number(plyr_idx))
-                sim_feedback->play_sound_message(SMsg_GoldNotEnough, 0);
+                audio_output_message(SMsg_GoldNotEnough, 0);
             return Lb_OK;
         }
     }
@@ -1210,7 +1213,7 @@ static TbResult magic_use_power_hand(PowerKind power_kind, PlayerNumber plyr_idx
         return Lb_FAIL;
     else if (place_thing_in_power_hand(thing, plyr_idx))
     {
-        script_hooks->lua_on_pick_up(thing, plyr_idx);
+        script_lua_on_pick_up(thing, plyr_idx);
         return Lb_SUCCESS;
     }
     else
@@ -1338,7 +1341,7 @@ static TbResult magic_use_power_imp(PowerKind power_kind, PlayerNumber plyr_idx,
     thing->move_angle_xy = ANGLE_NORTH;
     initialise_thing_state(thing, CrSt_ImpBirth);
 
-    sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     play_creature_sound(thing, CrSnd_Happy, 2, 0);
     return Lb_SUCCESS;
 }
@@ -1394,7 +1397,7 @@ static TbResult magic_use_power_tunneller(PowerKind power_kind, PlayerNumber ply
         creature_change_multiple_levels(thing, powerst->strength[power_level]);
     }
 
-    sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     play_creature_sound(thing, CrSnd_Happy, 2, 0);
     return Lb_SUCCESS;
 }
@@ -1426,7 +1429,7 @@ static TbResult magic_use_power_apply_spell(PowerKind power_kind, PlayerNumber p
     if (creature_is_immune_to_spell_effect(thing, spconf->spell_flags))
     {
         // Refusal sound.
-        sim_feedback->thing_play_sample(thing, 58, 20, 0, 3, 0, 2, 128);
+        audio_thing_play_sample(thing, 58, 20, 0, 3, 0, 2, 128);
         return Lb_SUCCESS;
     }
     // Create an effect originating from the ceiling.
@@ -1436,7 +1439,7 @@ static TbResult magic_use_power_apply_spell(PowerKind power_kind, PlayerNumber p
         effpos.z.val = get_ceiling_height_above_thing_at(thing, &thing->mappos);
         create_used_effect_or_element(&effpos, powerst->effect_id, thing->owner, 0);
     }
-    sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     apply_spell_effect_to_thing(thing, powerst->spell_idx, power_level, plyr_idx);
     // Special cases.
     if (flag_is_set(spconf->spell_flags, CSAfF_Disease))
@@ -1489,7 +1492,7 @@ static TbResult magic_use_power_lightning(PowerKind power_kind, PlayerNumber ply
     }
     powerst = get_power_model_stats(power_kind);
     shotst = get_shot_model_stats(ShM_GodLightning);
-    dungeon->camera_deviate_jump = 256;
+    kfx_sim_view_signals.camera_deviate_jump[dungeon->owner] = 256;
     i = powerst->strength[power_level];
     max_damage = i * shotst->damage;
     range = (i << 8) / 2;
@@ -1513,7 +1516,7 @@ static TbResult magic_use_power_lightning(PowerKind power_kind, PlayerNumber ply
         efftng = create_effect(&shtng->mappos, TngEff_Dummy, shtng->owner);
         if (!thing_is_invalid(efftng))
         {
-            sim_feedback->thing_play_sample(efftng, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+            audio_thing_play_sample(efftng, powerst->select_sound_idx, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
         }
     }
     return Lb_SUCCESS;
@@ -1563,7 +1566,7 @@ static TbResult magic_use_power_sight(PowerKind power_kind, PlayerNumber plyr_id
         // If we can't afford the power, fail
         if (!pay_for_spell(plyr_idx, PwrK_SIGHT, power_level)) {
             if (is_my_player_number(plyr_idx))
-                sim_feedback->play_sound_message(SMsg_GoldNotEnough, 0);
+                audio_output_message(SMsg_GoldNotEnough, 0);
             return Lb_FAIL;
         }
     }
@@ -1579,7 +1582,7 @@ static TbResult magic_use_power_sight(PowerKind power_kind, PlayerNumber plyr_id
         dungeon->sight_casted_thing_idx = thing->index;
         memset(dungeon->soe_explored_flags, 0, sizeof(dungeon->soe_explored_flags));
         thing->rendering_flags |= TRF_Invisible;
-        sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, -1, 3, 0, 3, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, powerst->select_sound_idx, NORMAL_PITCH, -1, 3, 0, 3, FULL_LOUDNESS);
     }
     return Lb_SUCCESS;
 }
@@ -1642,7 +1645,7 @@ static TbResult magic_use_power_cave_in(PowerKind power_kind, PlayerNumber plyr_
         thing = create_thing(&pos, TCls_CaveIn, power_level, plyr_idx, -1);
         struct PowerConfigStats *powerst;
         powerst = get_power_model_stats(power_kind);
-        sim_feedback->thing_play_sample(thing, powerst->select_sound_idx, 25, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, powerst->select_sound_idx, 25, 0, 3, 0, 2, FULL_LOUDNESS);
     }
     return Lb_SUCCESS;
 }
@@ -1802,7 +1805,7 @@ static TbResult magic_use_power_slap_thing(PowerKind power_kind, PlayerNumber pl
 {
     struct PlayerInfo *player;
     struct Dungeon *dungeon;
-    script_hooks->lua_on_slap(thing, plyr_idx);
+    script_lua_on_slap(thing, plyr_idx);
     if (!thing_exists(thing)) {
         return Lb_FAIL;
     }
@@ -1835,7 +1838,7 @@ static TbResult magic_use_power_possess_thing(PowerKind power_kind, PlayerNumber
         // If we can't afford the power, fail
         if (!pay_for_spell(plyr_idx, power_kind, 0)) {
             if (is_my_player_number(plyr_idx))
-                sim_feedback->play_sound_message(SMsg_GoldNotEnough, 0);
+                audio_output_message(SMsg_GoldNotEnough, 0);
             return Lb_OK;
         }
     }
@@ -1850,7 +1853,7 @@ static TbResult magic_use_power_possess_thing(PowerKind power_kind, PlayerNumber
     // Note that setting Direct Control player instance requires player->influenced_thing_idx to be set correctly
     set_player_instance(player, PI_DirctCtrl, 0);
     if (is_my_player(player)) {
-        sim_feedback->hide_tooltip();
+        ui_hide_tooltip();
     }
     return Lb_SUCCESS;
 }
@@ -2082,7 +2085,7 @@ TbResult magic_use_available_power_on_thing(PlayerNumber plyr_idx, PowerKind pwk
 TbResult magic_use_power_direct(PlayerNumber plyr_idx, PowerKind pwkind,
     KeepPwrLevel power_level, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, uint64_t allow_flags)
 {
-    script_hooks->lua_on_power_cast(plyr_idx, pwkind, power_level, stl_x, stl_y, thing);
+    script_lua_on_power_cast(plyr_idx, pwkind, power_level, stl_x, stl_y, thing);
 
     const struct PowerConfigStats* powerst = get_power_model_stats(pwkind);
     if(powerst->magic_use_func_idx > 0 && magic_use_func_list[powerst->magic_use_func_idx] != NULL)
@@ -2091,7 +2094,7 @@ TbResult magic_use_power_direct(PlayerNumber plyr_idx, PowerKind pwkind,
     }
     else if (powerst->magic_use_func_idx < 0)
     {
-        return script_hooks->luafunc_magic_use_power(powerst->magic_use_func_idx, plyr_idx, pwkind, power_level, stl_x, stl_y, thing, allow_flags);
+        return script_luafunc_magic_use_power(powerst->magic_use_func_idx, plyr_idx, pwkind, power_level, stl_x, stl_y, thing, allow_flags);
     }
     else
     {

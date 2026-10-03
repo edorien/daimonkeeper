@@ -37,7 +37,9 @@
 #include "room_util.h"
 #include "thing_data.h"
 #include "thing_list.h"
+#include "player_availability.h"
 
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -331,7 +333,7 @@ void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t par
               clear_flag(crconf->model_flags,CMF_IsSpecDigger);
           }
           recalculate_all_creature_digger_lists();
-          config_reload_callbacks->update_creatr_model_activities_list(1);
+          ui_update_creatr_model_activities_list(1);
           break;
       case 11: // ARACHNID
           if (param3 >= 1)
@@ -571,7 +573,7 @@ void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t par
               clear_flag(crconf->model_flags, CMF_IsDiggingCreature);
           }
           recalculate_all_creature_digger_lists();
-          config_reload_callbacks->update_creatr_model_activities_list(1);
+          ui_update_creatr_model_activities_list(1);
           break;
       case 36: // NO_HEALTH_FLOWER
           if (param3 >= 1) {
@@ -615,7 +617,7 @@ void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t par
           set_player_ally_locked(param1, i, (param2 & 2) ? true : false);
           if (kfx_config_state.conf.rules[i].gameplay.allies_share_vision)
           {
-              config_reload_callbacks->panel_map_update(0, 0, kfx_sim_state.map_subtiles_x + 1, kfx_sim_state.map_subtiles_y + 1);
+              ui_panel_map_update(0, 0, kfx_sim_state.map_subtiles_x + 1, kfx_sim_state.map_subtiles_y + 1);
           }
       }
       update_navigation_around_all_doors();

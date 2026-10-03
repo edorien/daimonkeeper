@@ -32,8 +32,6 @@
 #include "creature_states.h"
 #include "creature_states_spdig.h"
 #include "creature_states_combt.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "player_instances.h"
 #include "thing_objects.h"
 #include "thing_effects.h"
@@ -43,9 +41,13 @@
 #include "room_data.h"
 #include "room_jobs.h"
 #include "room_list.h"
+#include "thing_creature.h"
 
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -112,7 +114,7 @@ int64_t creature_arrived_at_prison(struct Thing *creatng)
     }
     if (!add_creature_to_work_room(creatng, room, Job_CAPTIVITY))
     {
-        sim_feedback->output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
+        audio_output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
         cctrl->creature_control_flags &= ~CCFlg_NoCompControl;
         set_start_state(creatng);
         return 0;
@@ -134,7 +136,7 @@ int64_t creature_arrived_at_prison(struct Thing *creatng)
         clean_spell_effect(creatng, CSAfF_SpellBlocks);
     }
     if (creatng->light_id != 0) {
-        sim_feedback->light_delete_light(creatng->light_id);
+        light_delete_light(creatng->light_id);
         creatng->light_id = 0;
     }
     return 1;
@@ -313,7 +315,7 @@ CrStateRet creature_in_prison(struct Thing *thing)
     }
     if (room->used_capacity > room->total_capacity)
     {
-        sim_feedback->output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
+        audio_output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
         set_start_state(thing);
         return CrStRet_ResetOk;
     }
@@ -380,7 +382,7 @@ TbBool process_prisoner_skelification(struct Thing *thing, struct Room *room)
     {
         if (is_my_player_number(room->owner))
         {
-            sim_feedback->play_sound_message(SMsg_PrisonMadeSkeleton, 0);
+            audio_output_message(SMsg_PrisonMadeSkeleton, 0);
         }
     }
     return true; // Return true even if no skeleton could be created due to creature limit. Otherwise there's a confusing sound message.
@@ -443,7 +445,7 @@ TbBool process_prison_food(struct Thing *creatng, struct Room *room)
     if ( is_thing_directly_controlled(foodtng) )
         return false;
 
-    sim_feedback->thing_play_sample(creatng, 112 + SOUND_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(creatng, 112 + SOUND_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     if ( creatng->active_state != CrSt_CreatureInPrison )
         internal_set_thing_state(creatng, CrSt_CreatureInPrison);
     set_creature_instance(creatng, CrInst_EAT, 0, 0);
@@ -453,7 +455,7 @@ TbBool process_prison_food(struct Thing *creatng, struct Room *room)
     }
     else
     {
-        script_hooks->lua_on_object_destroyed(foodtng);
+        script_lua_on_object_destroyed(foodtng);
         delete_thing_structure(foodtng, 0);
     }
     struct Dungeon* dungeon = get_players_num_dungeon(room->owner);
@@ -481,7 +483,7 @@ CrCheckRet process_prison_function(struct Thing *creatng)
     {
         if (is_my_player_number(room->owner))
         {
-            sim_feedback->play_sound_message(SMsg_PrisonersStarving, MESSAGE_DURATION_STARVING);
+            audio_output_message(SMsg_PrisonersStarving, MESSAGE_DURATION_STARVING);
         }
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
@@ -495,10 +497,10 @@ CrCheckRet process_prison_function(struct Thing *creatng)
         if (jailbreak_possible(room, creatng->owner) && (THING_RANDOM(creatng, 100) < kfx_config_state.conf.rules[room->owner].rooms.prison_break_chance))
         {
             if (is_my_player_number(room->owner)) {
-                sim_feedback->play_sound_message(SMsg_PrisonersEscaping, 40);
+                audio_output_message(SMsg_PrisonersEscaping, 40);
             }
             else if (is_my_player_number(room->owner)) {
-                sim_feedback->play_sound_message(SMsg_CreatrFreedPrison, 40);
+                audio_output_message(SMsg_CreatrFreedPrison, 40);
             }
             set_start_state(creatng);
             return CrCkRet_Continue;

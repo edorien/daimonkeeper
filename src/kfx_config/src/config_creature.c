@@ -32,29 +32,18 @@
 #include "config_strings.h"
 #include "config_crtrstates.h"
 #include "config_translation.h"
-#include "sprite_lookup.h"
 #include "kfx_config_state.h"
-#include "dungeon_availability.h"
-// my_player_number/player_is_roaming()/slab_is_area_inner_fill()/
-// thing_class_and_model_name() (all kfx_sim) are reached through
-// config_reload_callbacks instead of same-file bare-extern
-// forward-declarations. See docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
+#include "config_funcnames.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
-// Literal-dup of kfx_sim's map_data.h STL_PER_SLB (only reachable
-// transitively, backing its subtile_slab() macro). See
-// docs/refactor/stage-13-enforce-and-document.md.
-#define CREATURE_STL_PER_SLB 3
-#define creature_subtile_slab(stl) ((stl)/CREATURE_STL_PER_SLB)
 // RoK_NONE from kfx_sim's room_data.h; bit-identical sentinel for "no room".
 #define ROOM_KIND_NONE 0
 // CrInst_NULL from kfx_sim's creature_instances.h; bit-identical sentinel
 // for "no instance".
 #define CREATURE_INSTANCE_NULL 0
-// creature_instances_func_type/creature_instances_validate_func_type/
-// creature_instances_search_targets_func_type (kfx_sim) are reached
-// through config_reload_callbacks -- see the comment above.
+// creature_instances_func_type and the other name tables used below are
+// in config_funcnames.c.
 
 #ifdef __cplusplus
 extern "C" {
@@ -286,10 +275,7 @@ void set_creature_model_graphics(int64_t crmodel, int64_t seq_idx, uint64_t val)
 /******************************************************************************/
 // creature_job_player_assign_func_type/creature_job_player_check_func_type/
 // creature_job_coords_check_func_type/creature_job_coords_assign_func_type
-// (kfx_sim) are reached through config_reload_callbacks -- see
-// docs/refactor/todo/check-layering-symbol-level-blind-spot.md. The
-// _func_list (not _func_type) siblings were declared here too but never
-// actually used in this file -- dead declarations, removed.
+// are in config_funcnames.c.
 
 const struct NamedCommand mevents_desc[] = {
     {"MEVENT_NOTHING",         EvKind_Nothing},
@@ -326,29 +312,6 @@ const struct NamedCommand mevents_desc[] = {
     {NULL,                    0},
 };
 
-const char *name_starts[] = {
-    "B", "C", "D", "F",
-    "G", "H", "J", "K",
-    "L", "M", "N", "P",
-    "R", "S", "T", "V",
-    "Y", "Z", "Ch",
-    "Sh", "Al", "Th",
-};
-
-const char *name_vowels[] = {
-    "a",  "e",  "i", "o",
-    "u",  "ee", "oo",
-    "oa", "ai", "ea",
-};
-
-const char *name_consonants[] = {
-    "b", "c", "d", "f",
-    "g", "h", "j", "k",
-    "l", "m", "n", "p",
-    "r", "s", "t", "v",
-    "y", "z", "ch", "sh"
-};
-
 /******************************************************************************/
 /**
  * Returns CreatureModelConfig of given creature model.
@@ -358,18 +321,6 @@ struct CreatureModelConfig *creature_stats_get(ThingModel crconf_idx)
   if ((crconf_idx < 1) || (crconf_idx >= CREATURE_TYPES_MAX))
     return &kfx_config_state.conf.crtr_conf.model[0];
   return &kfx_config_state.conf.crtr_conf.model[crconf_idx];
-}
-
-/**
- * Returns CreatureModelConfig assigned to given thing.
- * Thing must be a creature.
- */
-struct CreatureModelConfig *creature_stats_get_from_thing(const struct Thing *thing)
-{
-  ThingModel model = config_reload_callbacks->get_thing_model(thing);
-  if ((model < 1) || (model >= kfx_config_state.conf.crtr_conf.model_count))
-    return &kfx_config_state.conf.crtr_conf.model[0];
-  return &kfx_config_state.conf.crtr_conf.model[model];
 }
 
 /**
@@ -1227,7 +1178,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, int64_t len, const char *co
         case 10: // SYMBOLSPRITES
             if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
             {
-              k = sprite_lookup->get_icon_id(word_buf);
+              k = render_get_icon_id(word_buf);
               if (k >= 0)
               {
                   inst_inf->symbol_spridx = k;
@@ -1257,7 +1208,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, int64_t len, const char *co
             }
             break;
         case 12: // FUNCTION
-            k = recognize_conf_parameter(buf,&pos,len,config_reload_callbacks->get_creature_instances_func_type());
+            k = recognize_conf_parameter(buf,&pos,len,creature_instances_func_type);
             if (k > 0)
             {
                 inst_inf->func_idx = k;
@@ -1381,7 +1332,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, int64_t len, const char *co
             }
             break;
         case 18: // ValidateSourceFunc
-            k = recognize_conf_parameter(buf, &pos, len, config_reload_callbacks->get_creature_instances_validate_func_type());
+            k = recognize_conf_parameter(buf, &pos, len, creature_instances_validate_func_type);
             if (k > 0)
             {
                 inst_inf->validate_source_func = k;
@@ -1401,7 +1352,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, int64_t len, const char *co
             }
             break;
         case 19: // ValidateTargetFunc
-            k = recognize_conf_parameter(buf, &pos, len, config_reload_callbacks->get_creature_instances_validate_func_type());
+            k = recognize_conf_parameter(buf, &pos, len, creature_instances_validate_func_type);
             if (k > 0)
             {
                 inst_inf->validate_target_func = k;
@@ -1421,7 +1372,7 @@ TbBool parse_creaturetype_instance_blocks(char *buf, int64_t len, const char *co
             }
             break;
         case 20: // SearchTargetsFunc
-            k = recognize_conf_parameter(buf, &pos, len, config_reload_callbacks->get_creature_instances_search_targets_func_type());
+            k = recognize_conf_parameter(buf, &pos, len, creature_instances_search_targets_func_type);
             if (k > 0)
             {
                 inst_inf->search_func = k;
@@ -1680,13 +1631,13 @@ TbBool parse_creaturetype_job_blocks(char *buf, int64_t len, const char *config_
             case 7: // PLAYERFUNCTIONS
                 jobcfg->func_plyr_check_idx = 0;
                 jobcfg->func_plyr_assign_idx = 0;
-                k = recognize_conf_parameter(buf,&pos,len,config_reload_callbacks->get_creature_job_player_check_func_type());
+                k = recognize_conf_parameter(buf,&pos,len,creature_job_player_check_func_type);
                 if (k > 0)
                 {
                     jobcfg->func_plyr_check_idx = k;
                     n++;
                 }
-                k = recognize_conf_parameter(buf,&pos,len,config_reload_callbacks->get_creature_job_player_assign_func_type());
+                k = recognize_conf_parameter(buf,&pos,len,creature_job_player_assign_func_type);
                 if (k > 0)
                 {
                     jobcfg->func_plyr_assign_idx = k;
@@ -1701,13 +1652,13 @@ TbBool parse_creaturetype_job_blocks(char *buf, int64_t len, const char *config_
             case 8: // COORDSFUNCTIONS
                 jobcfg->func_cord_check_idx = 0;
                 jobcfg->func_cord_assign_idx = 0;
-                k = recognize_conf_parameter(buf,&pos,len,config_reload_callbacks->get_creature_job_coords_check_func_type());
+                k = recognize_conf_parameter(buf,&pos,len,creature_job_coords_check_func_type);
                 if (k > 0)
                 {
                     jobcfg->func_cord_check_idx = k;
                     n++;
                 }
-                k = recognize_conf_parameter(buf,&pos,len,config_reload_callbacks->get_creature_job_coords_assign_func_type());
+                k = recognize_conf_parameter(buf,&pos,len,creature_job_coords_assign_func_type);
                 if (k > 0)
                 {
                     jobcfg->func_cord_assign_idx = k;
@@ -2040,14 +1991,6 @@ static TbBool load_creaturetypes_config_file(const char *fname, int64_t flags)
     return result;
 }
 
-uint64_t get_creature_model_flags(const struct Thing *thing)
-{
-    ThingModel model = config_reload_callbacks->get_thing_model(thing);
-    if ((model < 1) || (model >= kfx_config_state.conf.crtr_conf.model_count))
-      return 0;
-  return kfx_config_state.conf.crtr_conf.model[model].model_flags;
-}
-
 ThingModel get_creature_model_with_model_flags(uint64_t needflags)
 {
     for (ThingModel crmodel = 0; crmodel < kfx_config_state.conf.crtr_conf.model_count; crmodel++)
@@ -2057,187 +2000,6 @@ ThingModel get_creature_model_with_model_flags(uint64_t needflags)
         }
     }
     return 0;
-}
-
-/**
- * Sets creature availability state.
- */
-TbBool set_creature_available(PlayerNumber plyr_idx, ThingModel crtr_model, int64_t can_be_avail, int64_t force_avail)
-{
-    // note that we can't get_players_num_dungeon() because players
-    // may be uninitialized yet when this is called.
-    if (!dungeon_availability->player_has_valid_dungeon(plyr_idx)) {
-        ERRORDBG(11,"Cannot set %s availability; player %" PRId64 " has no dungeon.",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, crtr_model),(int64_t)plyr_idx);
-        return false;
-    }
-    if ((crtr_model < 1) || (crtr_model >= kfx_config_state.conf.crtr_conf.model_count)) {
-        ERRORDBG(4,"Cannot set creature availability; player %" PRId64 ", invalid model %" PRId64 ".",(int64_t)plyr_idx,(int64_t)crtr_model);
-        return false;
-    }
-    if (force_avail < 0)
-        force_avail = 0;
-    if (force_avail >= CREATURES_COUNT)
-        force_avail = CREATURES_COUNT-1;
-    SYNCDBG(7,"Setting %s availability for player %" PRId64 " to allowed=%" PRId64 ", forced=%" PRId64 ".",config_reload_callbacks->thing_class_and_model_name(TCls_Creature, crtr_model),(int64_t)plyr_idx,(int64_t)can_be_avail,(int64_t)force_avail);
-    dungeon_availability->set_creature_availability(plyr_idx, crtr_model, can_be_avail, force_avail);
-    return true;
-}
-
-void update_players_special_digger_model(PlayerNumber plyr_idx, ThingModel new_dig_model)
-{
-
-    ThingModel old_dig_model = get_players_special_digger_model(plyr_idx);
-    if (old_dig_model == new_dig_model)
-    {
-        return;
-    }
-    config_reload_callbacks->set_player_special_digger(plyr_idx, new_dig_model);
-
-    if (plyr_idx == config_reload_callbacks->get_my_player_number())
-    {
-        for (size_t i = 0; i < CREATURE_TYPES_MAX; i++)
-        {
-            if (breed_activities[i] == old_dig_model)
-                breed_activities[i] = new_dig_model;
-            else if (breed_activities[i] == new_dig_model)
-                breed_activities[i] = old_dig_model;
-        }
-        config_reload_callbacks->update_creatr_model_activities_list(1);
-    }
-
-
-}
-
-ThingModel get_players_special_digger_model(PlayerNumber plyr_idx)
-{
-    ThingModel current_digger = config_reload_callbacks->get_player_special_digger(plyr_idx);
-
-    if(current_digger != 0)
-        return current_digger;
-
-    ThingModel crmodel;
-
-    if (config_reload_callbacks->player_is_roaming(plyr_idx))
-    {
-        crmodel = kfx_config_state.conf.crtr_conf.special_digger_good;
-        if (crmodel == 0)
-        {
-            WARNLOG("Heroes (player %" PRId64 ") have no digger breed!",(int64_t)plyr_idx);
-            crmodel = kfx_config_state.conf.crtr_conf.special_digger_evil;
-        }
-    } else
-    {
-        crmodel = kfx_config_state.conf.crtr_conf.special_digger_evil;
-        if (crmodel == 0)
-        {
-            WARNLOG("Keepers have no digger breed!");
-            crmodel = kfx_config_state.conf.crtr_conf.special_digger_good;
-        }
-    }
-    return crmodel;
-}
-
-ThingModel get_players_spectator_model(PlayerNumber plyr_idx)
-{
-    ThingModel breed = kfx_config_state.conf.crtr_conf.spectator_breed;
-    if (breed == 0)
-    {
-        WARNLOG("There is no spectator breed for player %" PRId64 "!",(int64_t)plyr_idx);
-        breed = kfx_config_state.conf.crtr_conf.special_digger_good;
-    }
-    return breed;
-}
-
-/**
- * Returns personal name of a creature.
- *
- * @param creatng The input creature.
- * @return Pointer to the buffer containing name.
- */
-// Literal-dup of kfx_sim's thing_creature.h CREATURE_NAME_MAX (only
-// reachable transitively), the fixed size of the live
-// cctrl->creature_name buffer returned by
-// config_reload_callbacks->get_creature_name_buffer(). See
-// docs/refactor/stage-13-enforce-and-document.md.
-#define CREATURE_NAME_MAX 25
-
-const char *creature_own_name(const struct Thing *creatng)
-{
-    if ((get_creature_model_flags(creatng) & CMF_OneOfKind) != 0) {
-        struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
-        return get_string(crconf->namestr_idx);
-    }
-    char* creature_name = config_reload_callbacks->get_creature_name_buffer(creatng);
-    if (creature_name[0] > 0)
-    {
-        return creature_name;
-    }
-    const char ** starts;
-    int64_t starts_len;
-    const char ** vowels;
-    int64_t vowels_len;
-    const char ** consonants;
-    int64_t consonants_len;
-    const char ** end_vowels;
-    int64_t end_vowels_len;
-    const char ** end_consonants;
-    int64_t end_consonants_len;
-    {
-        starts = name_starts;
-        starts_len = sizeof(name_starts)/sizeof(name_starts[0]);
-        vowels = name_vowels;
-        vowels_len = sizeof(name_vowels)/sizeof(name_vowels[0]);
-        consonants = name_consonants;
-        consonants_len = sizeof(name_consonants)/sizeof(name_consonants[0]);
-        end_vowels = name_vowels;
-        end_vowels_len = sizeof(name_vowels)/sizeof(name_vowels[0]);
-        end_consonants = name_consonants;
-        end_consonants_len = sizeof(name_consonants)/sizeof(name_consonants[0]);
-    }
-    {
-        uint32_t seed = config_reload_callbacks->get_thing_creation_turn(creatng) + config_reload_callbacks->get_thing_index(creatng)
-            + (config_reload_callbacks->get_creature_blood_type(creatng) << 8);
-        // Get amount of nucleus
-        int64_t name_len = 0;
-        {
-            int64_t n = LB_RANDOM(65536, &seed);
-            name_len = ((n & 7) + ((n>>8) & 7)) >> 1;
-            name_len = min(max(2, name_len), 8);
-        }
-        // Get starting part of a name
-        {
-            int64_t n = LB_RANDOM(starts_len, &seed);
-            const char* part = starts[n];
-            str_append(creature_name, CREATURE_NAME_MAX, part);
-        }
-        // Append nucleus items to the name
-        for (int64_t i = 0; i < name_len - 1; i++)
-        {
-            const char *part;
-            int64_t n;
-            if (i & 1) {
-                n = LB_RANDOM(consonants_len, &seed);
-                part = consonants[n];
-            } else {
-                n = LB_RANDOM(vowels_len, &seed);
-                part = vowels[n];
-            }
-            str_append(creature_name, CREATURE_NAME_MAX, part);
-        }
-        {
-            const char *part;
-            int64_t n;
-            if ((name_len & 1) == 0) {
-                n = LB_RANDOM(end_consonants_len, &seed);
-                part = end_consonants[n];
-            } else {
-                n = LB_RANDOM(end_vowels_len, &seed);
-                part = end_vowels[n];
-            }
-            str_append(creature_name, CREATURE_NAME_MAX, part);
-        }
-    }
-    return creature_name;
 }
 
 struct CreatureInstanceConfig *get_config_for_instance(CrInstance inst_id)
@@ -2273,69 +2035,6 @@ struct CreatureJobConfig *get_config_for_job(CreatureJob job_flags)
         return &kfx_config_state.conf.crtr_conf.jobs[0];
     }
     return &kfx_config_state.conf.crtr_conf.jobs[i];
-}
-
-/**
- * Returns a job which creature could be doing on specific subtile.
- * @param creatng
- * @param stl_x
- * @param stl_y
- * @return
- */
-CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags)
-{
-    // Detect the job which we will do in the area
-    uint64_t required_kind_flags = drop_kind_flags;
-    if (config_reload_callbacks->slab_is_area_inner_fill(creature_subtile_slab(stl_x), creature_subtile_slab(stl_y))) {
-        required_kind_flags |= JoKF_AssignOnAreaCenter;
-    } else {
-        required_kind_flags |= JoKF_AssignOnAreaBorder;
-    }
-    struct SlabMap* slb = config_reload_callbacks->get_slabmap_for_subtile(stl_x, stl_y);
-    RoomKind rkind = config_reload_callbacks->get_room_kind_thing_is_on(creatng);
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
-    if (rkind != ROOM_KIND_NONE)
-    {
-        required_kind_flags |= JoKF_AssignAreaWithinRoom;
-    }
-    else
-    {
-        required_kind_flags |= JoKF_AssignAreaOutsideRoom;
-    }
-    if (config_reload_callbacks->get_thing_owner(creatng) == config_reload_callbacks->slabmap_owner(slb))
-    {
-        if (config_reload_callbacks->thing_is_creature_digger(creatng))
-        {
-            if (config_reload_callbacks->creature_is_for_dungeon_diggers_list(creatng))
-            {
-                required_kind_flags |= JoKF_OwnedDiggers;
-            }
-            else
-            {
-                CreatureJob jobpref = get_job_for_room(rkind, required_kind_flags | JoKF_OwnedDiggers, crconf->job_primary | crconf->job_secondary);
-                if (jobpref == Job_NULL)
-                {
-                    return get_job_for_room(rkind, required_kind_flags | JoKF_OwnedCreatures, crconf->job_primary | crconf->job_secondary);
-                }
-                else
-                {
-                    return jobpref;
-                }
-            }
-        }
-        else
-        {
-            required_kind_flags |= JoKF_OwnedCreatures;
-        }
-    } else
-    {
-        if (config_reload_callbacks->creature_is_for_dungeon_diggers_list(creatng)) {
-            required_kind_flags |= JoKF_EnemyDiggers;
-        } else {
-            required_kind_flags |= JoKF_EnemyCreatures;
-        }
-    }
-    return get_job_for_room(rkind, required_kind_flags, crconf->job_primary | crconf->job_secondary);
 }
 
 /**

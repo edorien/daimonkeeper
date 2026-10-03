@@ -24,6 +24,7 @@
 #include "game_legacy.h"
 #include "moonphase.h"
 #include "config.h"
+#include "state_versions.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -31,6 +32,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct IntralevelData intralvl;
+// Saved/resynced as raw bytes: see state_versions.h before changing the layout.
+_Static_assert(sizeof(struct IntralevelData) == KFX_INTRALEVEL_SIZE, "struct IntralevelData changed size: bump KFX_INTRALEVEL_VER and update KFX_INTRALEVEL_SIZE in state_versions.h");
 uint64_t game_flags2 = 0;
 /******************************************************************************/
 /******************************************************************************/

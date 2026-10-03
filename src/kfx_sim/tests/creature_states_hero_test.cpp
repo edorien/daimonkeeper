@@ -9,7 +9,7 @@
 // through get_players_special_digger_model's default (non-roaming,
 // zeroed digger breed config) fallback chain -- traced by reading the
 // body rather than assumed, since it routes through two
-// ConfigReloadCallbacks members (get_player_special_digger,
+// SimPort members (get_player_special_digger,
 // player_is_roaming) before falling back to the plain
 // special_digger_good/_evil config fields.
 #include <catch2/catch_test_macros.hpp>
@@ -18,6 +18,7 @@
 #include "creature_states.h"
 #include "globals.h"
 #include "kfx_sim_test_fixtures.h"
+#include "player_availability.h"
 
 using namespace kfx_test;
 
@@ -30,7 +31,7 @@ TEST_CASE_METHOD(ResetSimAndConfig, "check_out_hero_has_money_for_treasure_room 
 
 TEST_CASE_METHOD(ResetSimAndConfig, "is_hero_tunnelling_to_attack requires the player's special digger model and a tunnelling-related state", "[kfx_sim][creature_states_hero]") {
     struct Thing *thing = make_creature(1, 1, 0);
-    // Default ConfigReloadCallbacks: get_player_special_digger returns 0,
+    // Default SimPort: get_player_special_digger returns 0,
     // player_is_roaming returns false -- falls back to special_digger_evil,
     // and (since that's also 0 by default) then to special_digger_good.
     kfx_config_state.conf.crtr_conf.special_digger_good = 7;

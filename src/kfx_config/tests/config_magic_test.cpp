@@ -24,19 +24,13 @@
 // have this quirk -- their own NAME handling works in a single ordinary
 // pass, verified by an actual test run.
 //
-// The player-power-availability functions (make_all_powers_researchable/
-// set_power_available/is_power_available/is_power_obtainable/
-// make_available_all_researchable_powers) all route through
-// `dungeon_availability` (dungeon_availability.h's *Callbacks table,
-// already exhaustively covered in dungeon_availability_test.cpp) and
-// config_reload_callbacks->player_has_heart -- tested here against
-// local fakes of both, following dungeon_availability_test.cpp's own
-// save-and-restore-the-real-table pattern, not the shared default.
+// The player-power-availability functions (set_power_available and
+// friends) moved to kfx_sim's player_availability.c in refactor pass 2
+// (S05); their tests are in kfx_sim/tests/player_availability_test.cpp.
 #include <catch2/catch_test_macros.hpp>
 
 #include "kfx_config_test_paths.h" // KFX_CONFIG_TEST_FIXTURES_DIR
 #include "config_magic.h"
-#include "dungeon_availability.h"
 #include "kfx_config_state.h"
 
 #include <cstring>
@@ -44,17 +38,6 @@
 namespace {
 struct ResetConfigState {
     ResetConfigState() { std::memset(&kfx_config_state, 0, sizeof(kfx_config_state)); }
-};
-
-struct ResetDungeonAvailabilityAndCallbacks {
-    const struct DungeonAvailabilityCallbacks *saved_da;
-    const struct ConfigReloadCallbacks *saved_crc;
-    ResetDungeonAvailabilityAndCallbacks() : saved_da(dungeon_availability), saved_crc(config_reload_callbacks) {}
-    ~ResetDungeonAvailabilityAndCallbacks() {
-        set_dungeon_availability_callbacks(saved_da);
-        set_config_reload_callbacks(saved_crc);
-        set_power_grant_revoke_callbacks(nullptr, nullptr);
-    }
 };
 
 // Mirrors dungeon_stats.c's real two-call sequence for
@@ -220,100 +203,6 @@ TEST_CASE_METHOD(ResetConfigState, "make_all_powers_cost_free zeroes every confi
     CHECK(make_all_powers_cost_free());
     CHECK(get_power_model_stats(0)->cost[0] == 0);
     CHECK(get_power_model_stats(0)->cost[MAGIC_OVERCHARGE_LEVELS - 1] == 0);
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "make_all_powers_researchable always succeeds, calling dungeon_availability's default no-op set_all_magic_resrchable_unchecked", "[kfx_config][config_magic]") {
-    CHECK(make_all_powers_researchable(0));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_power_available fails immediately when the player has no valid dungeon", "[kfx_config][config_magic]") {
-    // Default dungeon_availability->player_has_valid_dungeon returns false.
-    CHECK_FALSE(set_power_available(0, 0, 1, 1));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_power_available with avail<=0 succeeds once the player has a dungeon, without needing a remove callback", "[kfx_config][config_magic]") {
-    struct DungeonAvailabilityCallbacks fake = *dungeon_availability;
-    fake.player_has_valid_dungeon = [](PlayerNumber) -> TbBool { return true; };
-    set_dungeon_availability_callbacks(&fake);
-
-    CHECK(set_power_available(0, 0, 1, 0));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_power_available with avail>0 grants the power via the registered add-power callback once", "[kfx_config][config_magic]") {
-    struct DungeonAvailabilityCallbacks fake = *dungeon_availability;
-    fake.player_has_valid_dungeon = [](PlayerNumber) -> TbBool { return true; };
-    // is_power_available's own players_num_dungeon_valid stays false (default),
-    // so is_power_available(...) is false and the add-power path is reached.
-    set_dungeon_availability_callbacks(&fake);
-
-    static int64_t add_calls = 0;
-    add_calls = 0;
-    set_power_grant_revoke_callbacks(
-        [](PowerKind, PlayerNumber) -> TbBool { add_calls++; return true; },
-        nullptr);
-
-    CHECK(set_power_available(0, 0, 1, 1));
-    CHECK(add_calls == 1);
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "set_power_available with avail>0 fails when no add-power callback is registered", "[kfx_config][config_magic]") {
-    struct DungeonAvailabilityCallbacks fake = *dungeon_availability;
-    fake.player_has_valid_dungeon = [](PlayerNumber) -> TbBool { return true; };
-    set_dungeon_availability_callbacks(&fake);
-
-    CHECK_FALSE(set_power_available(0, 0, 1, 1));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "is_power_available/is_power_obtainable default to false when the player has no valid dungeon", "[kfx_config][config_magic]") {
-    CHECK_FALSE(is_power_available(0, 0));
-    CHECK_FALSE(is_power_obtainable(0, 0));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "is_power_available requires config_reload_callbacks->player_has_heart unless the power is POWER_POSSESS", "[kfx_config][config_magic]") {
-    struct DungeonAvailabilityCallbacks fake_da = *dungeon_availability;
-    fake_da.players_num_dungeon_valid = [](PlayerNumber) -> TbBool { return true; };
-    fake_da.get_magic_level_gt0 = [](PlayerNumber, PowerKind) -> TbBool { return true; };
-    set_dungeon_availability_callbacks(&fake_da);
-
-    // player_has_heart defaults to false (config_reload_callbacks_test.cpp) --
-    // so a non-POSSESS power is unavailable even with a dungeon and magic level.
-    CHECK_FALSE(is_power_available(0, PwrK_SLAP));
-    // POWER_POSSESS is exempted from the heart requirement.
-    kfx_config_state.conf.magic_conf.power_types_count = PwrK_POSSESS + 1;
-    CHECK(is_power_available(0, PwrK_POSSESS));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "is_power_obtainable succeeds via either get_magic_level_gt0 or get_magic_resrchable", "[kfx_config][config_magic]") {
-    struct DungeonAvailabilityCallbacks fake_da = *dungeon_availability;
-    fake_da.players_num_dungeon_valid = [](PlayerNumber) -> TbBool { return true; };
-    fake_da.get_magic_resrchable = [](PlayerNumber, PowerKind) -> TbBool { return true; };
-    set_dungeon_availability_callbacks(&fake_da);
-
-    struct ConfigReloadCallbacks fake_crc = *config_reload_callbacks;
-    fake_crc.player_has_heart = [](PlayerNumber) -> TbBool { return true; };
-    set_config_reload_callbacks(&fake_crc);
-
-    kfx_config_state.conf.magic_conf.power_types_count = 1;
-    CHECK(is_power_obtainable(0, 0));
-}
-
-TEST_CASE_METHOD(ResetDungeonAvailabilityAndCallbacks, "make_available_all_researchable_powers fails when the player has no valid dungeon, and otherwise grants every researchable power", "[kfx_config][config_magic]") {
-    CHECK_FALSE(make_available_all_researchable_powers(0));
-
-    struct DungeonAvailabilityCallbacks fake_da = *dungeon_availability;
-    fake_da.players_num_dungeon_valid = [](PlayerNumber) -> TbBool { return true; };
-    fake_da.get_magic_resrchable = [](PlayerNumber, PowerKind pwkind) -> TbBool { return pwkind == 1; };
-    set_dungeon_availability_callbacks(&fake_da);
-
-    static int64_t granted_power = -1;
-    granted_power = -1;
-    set_power_grant_revoke_callbacks(
-        [](PowerKind pwkind, PlayerNumber) -> TbBool { granted_power = pwkind; return true; },
-        nullptr);
-
-    kfx_config_state.conf.magic_conf.power_types_count = 3;
-    CHECK(make_available_all_researchable_powers(0));
-    CHECK(granted_power == 1);
 }
 
 TEST_CASE("load_magic_config_file returns false for a missing file", "[kfx_config][config_magic]") {

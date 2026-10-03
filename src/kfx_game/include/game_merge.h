@@ -119,7 +119,7 @@ extern struct IntralevelData intralvl;
 // kfx_game_state field, and kfx_sim is the lowest-ranked of their real
 // consumers.
 TbBool activate_bonus_level(struct PlayerInfo *player);
-// Wrapper for SimFeedbackCallbacks -- fixes visible=true, matching
+// GamePort's activate_bonus_level_for_singleplayer -- fixes visible=true, matching
 // power_specials.c's own use of set_bonus_level_visibility_for_singleplayer_level.
 TbBool activate_bonus_level_for_singleplayer(struct PlayerInfo *player, uint64_t sp_lvnum);
 TbBool is_bonus_level_visible(struct PlayerInfo *player, LevelNumber bn_lvnum);
@@ -128,7 +128,6 @@ int64_t get_extra_level_kind_visibility(int64_t elv_kind);
 void update_extra_levels_visibility(void);
 TbBool set_bonus_level_visibility_for_singleplayer_level(struct PlayerInfo *player, uint64_t sp_lvnum, int64_t visible);
 TbBool set_bonus_level_visibility(LevelNumber bn_lvnum, TbBool visible);
-TbBool emulate_integer_overflow(int64_t nbits);
 TbBool update_or_create_level_ensign_override(LevelNumber lvnum, int64_t ensign_type);
 struct LevelEnsignOverride *get_level_ensign_override(LevelNumber lvnum);
 TbBool set_level_ensign(LevelNumber lvnum, int64_t ensign_id);

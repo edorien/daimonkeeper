@@ -1,0 +1,12 @@
+/* NetPort entries: see ports/net_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_RET(const struct Packet *, get_history_packet, (NetUserId user, GameTurn turn), (user, turn), NULL)
+KFX_PORT_VOID(matchmaking_set_enabled, (TbBool enabled), (enabled))
+KFX_PORT_VOID(matchmaking_set_server, (const char *host), (host))
+KFX_PORT_RET(const char *, matchmaking_get_ws_url, (void), (), "")

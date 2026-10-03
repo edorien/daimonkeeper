@@ -6,10 +6,8 @@
 // increment. A handful of functions are pure field/config lookups with no
 // navigation dependency, verified by reading their bodies (and the
 // dependencies they call) before writing each test:
-//   - slab_is_my_door routes through get_slab_stats(), which -- per
-//     slab_data_test.cpp's note -- always resolves to slab_cfgstats[0] in
-//     this test binary via the default ConfigReloadCallbacks no-op, so the
-//     test configures slab_cfgstats[0] directly rather than by SlabKind.
+//   - slab_is_my_door routes through get_slab_stats(); the fixture's slab
+//     is kind 0, so the test configures slab_cfgstats[0].
 //   - digger_work_experience is a straight creature_can_gain_experience()
 //     gate (already exercised via creature_states_train_test.cpp) over a
 //     per-player config value.

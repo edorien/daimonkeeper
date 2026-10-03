@@ -26,6 +26,8 @@
 #include "thing_data.h"
 #include "thing_list.h"
 #include "thing_navigate.h"
+#include "player_availability.h"
+#include "thing_stats.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

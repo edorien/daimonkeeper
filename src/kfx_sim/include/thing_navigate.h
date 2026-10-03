@@ -48,9 +48,6 @@ struct Room;
 void reset_interpolation_of_thing(struct Thing *thing);
 
 /******************************************************************************/
-extern int64_t owner_player_navigating;
-extern int64_t nav_thing_can_travel_over_lava;
-extern int64_t nav_thing_is_flying;
 
 #pragma pack()
 /******************************************************************************/

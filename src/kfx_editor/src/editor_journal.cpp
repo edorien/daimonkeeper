@@ -84,7 +84,6 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "editor_journal.h"
-#include "editor_journal_callbacks.h"
 #include "editor_points.h"
 #include "kfx_editor.h"
 #include "packet_data.h"
@@ -112,6 +111,7 @@
 #include <vector>
 #include <cstdio>
 #include <imgui.h>
+#include "editor_types.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -624,12 +624,12 @@ extern "C" void editor_journal_test_force_active(TbBool force_active)
     s_test_force_active = force_active;
 }
 
-// Wired into EditorJournalCallbacks::record_placement (main.cpp). Called
+// Wired into EditorPort's record_placement (editor_port_impl.cpp). Called
 // unconditionally by packets_cheats.c after every placement tool's
 // create_*() call, including outside an editor session (PckA_CheatMakeCreature/
 // PckA_CheatMakeDigger are also the classic cheat menu's own verbs) -- the
 // editor_is_active() check belongs here, in the implementation, not on the
-// (always-non-NULL) caller side, same convention EditorCallbacks already
+// (always-non-NULL) caller side, same convention EditorPort already
 // established.
 extern "C" void editor_journal_record_placement(int64_t thing_idx, unsigned char pcktype,
     uint64_t par1, uint64_t par2, int64_t par3, int64_t par4,
@@ -721,11 +721,11 @@ extern "C" void editor_journal_record_point(TbBool placed, const struct EditorPo
     stack_push(s_undo_stack, &s_undo_count, entry);
 }
 
-// Wired into EditorJournalCallbacks::record_rect_terrain (main.cpp). Called
+// Wired into EditorPort's record_rect_terrain (editor_port_impl.cpp). Called
 // by packets_cheats.c's PckA_EditorPlaceTerrainRect/_RectClearEarth/
 // _RectSetOwner handlers BEFORE applying the mutation -- see this
 // function's own declaration (kfx_editor.h) and the callback's comment
-// (editor_journal_callbacks.h) for why. Copies `before` into rect_before
+// (ports/editor_port.def) for why. Copies `before` into rect_before
 // immediately, since the caller frees its own buffer right after this call
 // returns.
 extern "C" void editor_journal_record_rect_terrain(unsigned char pcktype,

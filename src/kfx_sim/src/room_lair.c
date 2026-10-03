@@ -34,6 +34,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
+#include "thing_stats.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus

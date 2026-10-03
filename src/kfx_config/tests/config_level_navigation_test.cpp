@@ -4,8 +4,8 @@
 // bookkeeping tested in config_levels_test.cpp's membership predicates.
 // Pattern A on the module-level `campaign` global throughout, except
 // next_singleplayer_level, which also reaches through
-// game_callbacks->get_intralvl_next_level()/clear_intralvl_next_level()
-// -- kfx_config's own first pattern-B test (it owns the GameCallbacks
+// game_get_intralvl_next_level()/clear_intralvl_next_level()
+// -- kfx_config's own first pattern-B test (it owns the GamePort
 // struct and calls through it here, the same "callback-struct seams are
 // a real, load-bearing part of this codebase" case stage-08 §1 calls
 // out).
@@ -13,7 +13,7 @@
 
 #include "config.h"
 #include "config_campaigns.h"
-#include "game_callbacks.h"
+#include "ports/game_port.h"
 
 #include <cstring>
 
@@ -42,15 +42,15 @@ int64_t fake_get_intralvl_next_level_changing(void) {
 }
 
 struct GameCallbacksFixture : ResetCampaign {
-    struct GameCallbacks callbacks{};
+    struct GamePort callbacks = game_port_defaults;
     GameCallbacksFixture() {
         g_fake_intralvl_next_level = 0;
         g_fake_intralvl_cleared = 0;
         callbacks.get_intralvl_next_level = fake_get_intralvl_next_level;
         callbacks.clear_intralvl_next_level = fake_clear_intralvl_next_level;
-        set_game_callbacks(&callbacks);
+        set_game_port(&callbacks);
     }
-    ~GameCallbacksFixture() { set_game_callbacks(nullptr); } // restores the default no-op table
+    ~GameCallbacksFixture() { set_game_port(nullptr); } // restores the default no-op table
 };
 }
 

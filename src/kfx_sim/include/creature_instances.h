@@ -107,11 +107,8 @@ typedef TbBool (*Creature_Target_Search_Func)(struct Thing *, CrInstance, ThingI
 
 #pragma pack()
 /******************************************************************************/
-extern const struct NamedCommand creature_instances_func_type[];
 extern Creature_Instf_Func creature_instances_func_list[];
-extern const struct NamedCommand creature_instances_validate_func_type[];
 extern Creature_Validate_Func creature_instances_validate_func_list[];
-extern const struct NamedCommand creature_instances_search_targets_func_type[];
 extern Creature_Target_Search_Func creature_instances_search_targets_func_list[];
 /******************************************************************************/
 /** Returns creature instance info structure for given instance index. */

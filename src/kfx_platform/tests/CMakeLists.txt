@@ -16,7 +16,7 @@ file(GLOB KFX_PLATFORM_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 add_executable(kfx_platform_utest ${KFX_PLATFORM_TEST_SOURCES})
 target_link_libraries(kfx_platform_utest PRIVATE
     kfx_platform
-    kfx_bfdebug_std
+    kfx_log_opts
     kfx_common_opts
     # No imgui link here any more -- docs/refactor/renderer/
     # 05-imgui-linkage-consolidation.md moved ImGui context/backend
@@ -32,7 +32,7 @@ target_link_libraries(kfx_platform_utest PRIVATE
 # Manual GPU verification program (see its header comment) -- deliberately not
 # registered with ctest: it needs a real Vulkan device and a window.
 add_executable(gpu3d_verify gpu/gpu3d_verify.cpp)
-target_link_libraries(gpu3d_verify PRIVATE kfx_platform kfx_bfdebug_std kfx_common_opts tinyfiledialogs)
+target_link_libraries(gpu3d_verify PRIVATE kfx_platform kfx_log_opts kfx_common_opts tinyfiledialogs)
 
 include(CTest)
 include(Catch)

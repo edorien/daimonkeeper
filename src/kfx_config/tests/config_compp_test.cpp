@@ -4,11 +4,11 @@
 // Unlike every other file in that list, this one also has a genuine
 // pre_load_func (resolve_compp_func_type_pointers, patching the
 // FUNCTIONS fields' NamedCommand pointers from
-// config_reload_callbacks->get_computer_*_func_type()) -- called
+// sim_port->get_computer_*_func_type()) -- called
 // explicitly below before load_func, the way the real load_config()
 // orchestrator would, though every FUNCTIONS value in the fixture is
 // numeric so it resolves the same with or without it (the default
-// config_reload_callbacks stubs return NULL tables anyway).
+// SimPort stubs return NULL tables anyway).
 //
 // comp_player_conf is a plain top-level extern global, not part of
 // kfx_config_state -- ResetConfigState (used throughout this library's

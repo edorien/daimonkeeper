@@ -351,46 +351,6 @@ void creature_set_speed(struct Thing *thing, int64_t speed)
     cctrl->creature_control_flags |= CCFlg_MoveY;
 }
 
-TbBool cross_x_boundary_first(const struct Coord3d *pos1, const struct Coord3d *pos2)
-{
-    int64_t mul_x;
-    int64_t mul_y;
-    int64_t delta_x = pos2->x.val - (int64_t)pos1->x.val;
-    int64_t delta_y = pos2->y.val - (int64_t)pos1->y.val;
-    if (delta_x < 0)
-    {
-        mul_x = pos1->x.stl.pos;
-  } else {
-      mul_x = 255 - (int64_t)pos1->x.stl.pos;
-  }
-  if ( delta_y < 0 ) {
-      mul_y = pos1->y.stl.pos;
-  } else {
-      mul_y = 255 - (int64_t)pos1->y.stl.pos;
-  }
-  return llabs(delta_x * mul_y) > llabs(mul_x * delta_y);
-}
-
-TbBool cross_y_boundary_first(const struct Coord3d *pos1, const struct Coord3d *pos2)
-{
-    int64_t mul_x;
-    int64_t mul_y;
-    int64_t delta_x = pos2->x.val - (int64_t)pos1->x.val;
-    int64_t delta_y = pos2->y.val - (int64_t)pos1->y.val;
-    if (delta_x < 0)
-    {
-        mul_x = pos1->x.stl.pos;
-  } else {
-      mul_x = 255 - (int64_t)pos1->x.stl.pos;
-  }
-  if ( delta_y < 0 ) {
-      mul_y = pos1->y.stl.pos;
-  } else {
-      mul_y = 255 - (int64_t)pos1->y.stl.pos;
-  }
-  return llabs(delta_y * mul_x) > llabs(mul_y * delta_x);
-}
-
 TbBool thing_can_traverse_abyss_at(const struct Thing *thing, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     return !subtile_has_abyss_on_top(stl_x, stl_y) || flag_is_set(thing->movement_flags, TMvF_Flying);

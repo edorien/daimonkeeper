@@ -1,9 +1,9 @@
 // kfx_sim "creature" cluster: creature_states_mood.c's anger/mood
 // bookkeeping cluster -- the second individual creature_states_*.c file
 // to get direct coverage (after creature_states_tresr.c), and the first
-// to combine both established fixture pieces at once: pattern B's
-// ConfigReloadCallbacks fake for creature_stats_get_from_thing() (same
-// as creature_states_tresr_test.cpp) plus creature_control_test.cpp's
+// to combine both established fixture pieces at once: the model set on
+// the thing for creature_stats_get_from_thing() (same as
+// creature_states_tresr_test.cpp) plus creature_control_test.cpp's
 // thing_get(1)/ccontrol_idx wiring for creature_control_get_from_thing().
 // Picked because its anger_* accessors/mutators are pure Thing+
 // CreatureControl+CreatureModelConfig computation -- no Room/dungeon
@@ -31,15 +31,12 @@
 #include "config_magic.h" // CSAfF_MadKilling
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "thing_stats.h"
 
 #include <cstring>
 
 namespace {
-ThingModel g_fake_model = 0;
-ThingModel fake_get_thing_model(const struct Thing *) { return g_fake_model; }
-
 struct MoodFixture {
-    struct ConfigReloadCallbacks callbacks{};
     struct Thing* thing;
     struct CreatureControl* cctrl;
 
@@ -47,15 +44,12 @@ struct MoodFixture {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
         std::memset(&kfx_config_state, 0, sizeof(kfx_config_state));
         kfx_config_state.conf.crtr_conf.model_count = CREATURE_TYPES_MAX;
-        g_fake_model = 1;
-        callbacks.get_thing_model = fake_get_thing_model;
-        set_config_reload_callbacks(&callbacks);
 
         thing = thing_get(1);
+        thing->model = 1;
         thing->ccontrol_idx = 1;
         cctrl = creature_control_get(1);
     }
-    ~MoodFixture() { set_config_reload_callbacks(nullptr); }
 };
 }
 

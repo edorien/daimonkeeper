@@ -2,7 +2,7 @@
 // had no header declaration anywhere (only reachable from within the
 // same file otherwise) -- added to config_strings.h, the usual "add the
 // missing declaration" fix. get_string() itself (reaches through
-// config_reload_callbacks->get_level_strings() plus
+// simport_get_level_strings() plus
 // get_translation_file_string()) and the file-loading functions
 // (load_gui_strings_data_from_file/load_campaign_strings_data_from_file,
 // real file I/O + mod-list iteration) aren't attempted here.

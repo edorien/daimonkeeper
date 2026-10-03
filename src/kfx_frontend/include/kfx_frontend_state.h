@@ -120,14 +120,13 @@ struct KfxFrontendLocal {
 };
 extern struct KfxFrontendLocal kfx_frontend_local;
 
-// Registered on GameCallbacks (src/kfx_config/include/game_callbacks.h);
-// see kfx_frontend_state.c.
+// Tabled in UiPort (ports/ui_port.def); see kfx_frontend_state.c.
 TbBool save_frontend_state(TbFileHandle fhandle);
 TbBool load_frontend_state(TbFileHandle fhandle);
 void reset_frontend_state(void);
 size_t get_frontend_state_size(void);
 
-// Registered on NetCallbacks (src/kfx_config/include/net_callbacks.h) --
+// Tabled in UiPort too --
 // same reasoning as the save/load pair above, just for the network resync
 // payload (net_resync.cpp) instead of the save-game file format. See
 // docs/refactor/todo/remove-remaining-layering-violations.md.

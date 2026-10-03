@@ -8,12 +8,9 @@
 // tasks_list_test.cpp already exercise) and calls slab_by_players_land.
 //
 // slab_by_players_land's slab_is_safe_land call routes through
-// get_slab_stats(), which (per slab_data_test.cpp/thing_doors_test.cpp's
-// documented limitation) always resolves to slab_cfgstats[0] in this test
-// binary regardless of the real slab -- so is_safe_land is set globally
-// via slab_cfgstats[0], while slabmap_owner/slab_is_liquid (both reading
-// slb->kind/slb->owner directly, no callback involved) reflect the real
-// per-slab state set up here.
+// get_slab_stats(). The fixture's slabs are kind 0, so is_safe_land is set
+// via slab_cfgstats[0], while slabmap_owner/slab_is_liquid (reading
+// slb->kind/slb->owner directly) reflect the per-slab state set up here.
 //
 // The escaping player is tested as player 3, not 5: PLAYER_NEUTRAL is 5,
 // and the fixture sets neutral_player_num to that same value (needed so

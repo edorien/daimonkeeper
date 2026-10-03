@@ -85,6 +85,7 @@ void update_creature_count(struct Thing *thing);
 TngUpdateRet process_creature_state(struct Thing *thing);
 
 struct Thing *create_owned_special_digger(MapCoord x, MapCoord y, PlayerNumber owner);
+struct Thing *thing_death_flesh_explosion(struct Thing *thing);
 
 TbBool creature_increase_level(struct Thing *thing);
 TbBool creature_change_multiple_levels(struct Thing *thing, int64_t count);
@@ -103,7 +104,6 @@ struct Thing *get_creature_near_for_controlling(PlayerNumber plyr_idx, MapCoord 
 
 TbBool load_swipe_graphic_for_creature(const struct Thing *thing);
 void free_swipe_graphic(void);
-void draw_swipe_graphic(void);
 
 int64_t creature_available_for_combat_this_turn(struct Thing *thing);
 TbBool set_creature_object_combat(struct Thing *crthing, struct Thing *obthing);
@@ -131,14 +131,12 @@ void process_creature_standing_on_corpses_at(struct Thing *thing, struct Coord3d
 int64_t creature_instance_has_reset(const struct Thing *thing, int64_t a2);
 void set_creature_instance(struct Thing *thing, CrInstance inst_idx, int64_t targtng_idx, const struct Coord3d *pos);
 int64_t find_next_annoyed_creature(PlayerNumber plyr_idx, int64_t current_annoyed_creature_idx);
-void draw_creature_view(struct Thing *thing);
 
 TbBool creature_is_for_dungeon_diggers_list(const struct Thing *creatng);
 TbBool creature_kind_is_for_dungeon_diggers_list(PlayerNumber plyr_idx, ThingModel crmodel);
 TbBool is_creature_droppable_on_path(const struct Thing *thing);
 void set_first_creature(struct Thing *thing);
 void remove_first_creature(struct Thing *thing);
-int64_t player_list_creature_filter_needs_to_be_placed_in_room_for_job(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer);
 void recalculate_player_creature_digger_lists(PlayerNumber plr_idx);
 void recalculate_all_creature_digger_lists();
 
@@ -184,7 +182,6 @@ void anger_set_creature_anger_all_types(struct Thing *thing, int64_t new_value);
 void change_creature_owner(struct Thing *thing, PlayerNumber nowner);
 struct Thing *find_players_next_creature_of_breed_and_gui_job(int64_t breed_idx, int64_t job_idx, PlayerNumber plyr_idx, unsigned char pick_flags);
 struct Thing *pick_up_creature_of_model_and_gui_job(int64_t breed_idx, int64_t job_idx, PlayerNumber owner, unsigned char pick_flags);
-void go_to_next_creature_of_model_and_gui_job(int64_t crmodel, int64_t job_idx, unsigned char pick_flags);
 struct Thing *find_creature_dragging_thing(const struct Thing *dragtng);
 struct Thing *find_players_highest_score_creature_in_fight_not_affected_by_spell(PlayerNumber plyr_idx, SpellKind spell_kind);
 int64_t claim_neutral_creatures_in_sight(struct Thing *creatng, int64_t can_see_slabs);
@@ -257,6 +254,7 @@ int64_t near_map_block_thing_filter_queryable_object(const struct Thing *thing, 
 struct Thing *get_queryable_object_near(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx);
 TbBool can_thing_be_queried(struct Thing *thing, PlayerNumber plyr_idx);
 int64_t zoom_to_next_annoyed_creature(void);
+TbBool creature_is_doing_job_in_room_role(const struct Thing *creatng, RoomRole rrole);
 /******************************************************************************/
 #ifdef __cplusplus
 }

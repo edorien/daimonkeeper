@@ -1,22 +1,17 @@
-// kfx_pathfinding: shared reusable test fake for PathfindingWorldCallbacks
-// (src/kfx_config/include/pathfinding_world.h), built out for
+// kfx_pathfinding: shared reusable test fake for PathfindingWorldPort
+// (src/kfx_config/include/ports/pathfinding_world_port.h), built out for
 // ariadne_wallhug.c (previously zero coverage -- see ariadne_wallhug_test.cpp)
 // and reused by ariadne_update_test.cpp for the triangulation entry points.
 //
-// Technique: struct Map/struct SlabMap/struct Navigation/struct Ariadne are
-// forward-declared opaque in pathfinding_world.h -- ariadne only ever passes
-// their pointers back through the callback table, never dereferences them.
-// That means this fake is free to invent its own backing storage and encode
-// a grid index straight into the "pointer" value (see encode_map/decode_map,
-// encode_slab/decode_slab below) rather than allocate anything -- the
-// pointer is never dereferenced by production code, only round-tripped
-// through our own callbacks.
-//
-// struct Thing stays opaque the same way; FakeThing below is this test's own
-// definition (never needs to match kfx_sim's real struct Thing layout) and
-// every pointer of type "struct Thing *" handed to production code is really
-// a `reinterpret_cast<struct Thing *>(&some_fake_thing)`, unwound the same
-// way in the thing_* callbacks.
+// Technique: since refactor pass 2's S08, Ariadne reads struct Thing,
+// struct Map and struct SlabMap fields directly (their layouts are in
+// kfx_model), so the pointers this fake hands out point at real structs: a
+// real struct Map/struct SlabMap per grid cell (kept in step with the Cell
+// that describes it each time it's looked up), and FakeThing wraps a real
+// struct Thing as its first member, so a FakeThing* and its struct Thing* are
+// the same address (as_thing()/as_fake()). The map size lives in
+// kfx_pathfinding_state (ariadne_set_map_dimensions()), which the fixtures
+// below keep equal to the grid's.
 //
 // Grid model: a single flat 2D array of Cell, one per subtile, covering
 // kGridDim x kGridDim subtiles (comfortably larger than any test's map, with
@@ -33,18 +28,22 @@
 // are expected to touch a whole 3x3 slab's worth of subtiles if they want
 // internally-consistent data (the helper below does this).
 //
-// Every callback not overridden here is left at pathfinding_world's real
+// Every entry not overridden here is left at pathfinding_world_port's real
 // default (a safe no-op/0/false/NULL/true-for-"is_invalid" -- see
-// src/kfx_config/src/pathfinding_world.c) via `fake = *pathfinding_world;`
+// ports/pathfinding_world_port.def) via `fake = *pathfinding_world_port;`
 // then overriding just the fields exercised, the same pattern already used
 // by ariadne_test.cpp/ariadne_regions_test.cpp.
 #ifndef KFX_PATHFINDING_TESTS_FAKE_WORLD_H
 #define KFX_PATHFINDING_TESTS_FAKE_WORLD_H
 
-#include "pathfinding_world.h"
+#include "ports/pathfinding_world_port.h"
 #include "ariadne_wallhug.h" // struct Navigation
 #include "ariadne.h"         // struct Ariadne
 #include "ariadne_update.h"  // ariadne_set_navigation_map_size/init_navigation, for TriangulatedWorldFixture
+#include "kfx_pathfinding_state.h" // owner_player_navigating etc., reset per fixture
+#include "thing_types.h"     // struct Thing
+#include "map_types.h"       // struct Map
+#include "slab_types.h"      // struct SlabMap
 #include "bflib_math.h"      // LbArcTanAngle, ANGLE_MASK, DEGREES_45/90
 #include "bflib_planar.h"    // chessboard_distance and friends (used by test bodies)
 #include "config_terrain.h"  // SlbAtFlg_*
@@ -70,6 +69,15 @@ struct Grid {
     int64_t size_y = kGridDim;
     Cell cells[kGridDim][kGridDim];
     Cell oob_sentinel; // returned (by reference) for any out-of-bounds lookup
+    // The real structs Ariadne dereferences, filled from cells[] on lookup.
+    struct Map map_blocks[kGridDim][kGridDim];
+    struct SlabMap slabs[kGridDim][kGridDim];
+    // Off-map lookups get these, like kfx_sim's INVALID_MAP_BLOCK/
+    // INVALID_SLABMAP_BLOCK: real structs, reported invalid, with the values
+    // the old field callbacks returned for them (flags 0; kind SlbT_ROCK,
+    // owner 0).
+    struct Map oob_map_block;
+    struct SlabMap oob_slab;
 
     void reset_open() {
         for (auto &row : cells) {
@@ -112,14 +120,14 @@ struct Grid {
 inline Grid grid;
 
 struct FakeThing {
-    struct Coord3d pos{};
-    int64_t move_angle = 0;
-    int64_t index = 1;
-    int64_t clipbox_size = 0; // clamps thing_nav_sizexy/thing_nav_block_sizexy to table entry 0
-    PlayerNumber owner = 0;
+    struct Thing tng; // must stay first: as_thing()/as_fake() cast between the two
     int64_t max_speed = 32;
     struct Navigation navi{};
     struct Ariadne arid{};
+    FakeThing() {
+        std::memset(&tng, 0, sizeof(tng));
+        tng.index = 1; // clipbox_size_xy 0 picks nav-size table entry 0
+    }
 };
 
 // Global knobs a test can poke before calling into production code -- kept
@@ -128,38 +136,21 @@ struct FakeThing {
 inline MapCoord g_thing_height_at_reply = 0;
 inline MapSubtlCoord g_map_size_z = 8;
 
-inline struct Thing *as_thing(FakeThing &t) { return reinterpret_cast<struct Thing *>(&t); }
+inline struct Thing *as_thing(FakeThing &t) { return &t.tng; }
 inline FakeThing &as_fake(struct Thing *t) { return *reinterpret_cast<FakeThing *>(t); }
 inline const FakeThing &as_fake(const struct Thing *t) { return *reinterpret_cast<const FakeThing *>(t); }
 
 // --- map/terrain -------------------------------------------------------
-inline MapSubtlCoord fake_get_map_size_x(void) { return grid.size_x; }
-inline MapSubtlCoord fake_get_map_size_y(void) { return grid.size_y; }
-inline MapSubtlCoord fake_get_map_size_z(void) { return g_map_size_z; }
-
 inline struct Map *fake_get_map_block_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
     if (!grid.in_bounds(stl_x, stl_y)) {
-        return nullptr;
+        std::memset(&grid.oob_map_block, 0, sizeof(grid.oob_map_block));
+        return &grid.oob_map_block;
     }
-    return reinterpret_cast<struct Map *>(static_cast<intptr_t>(stl_y * grid.size_x + stl_x + 1));
+    struct Map *mapblk = &grid.map_blocks[stl_y][stl_x];
+    mapblk->flags = grid.at(stl_x, stl_y).map_flags;
+    return mapblk;
 }
-inline bool decode_map(const struct Map *m, int64_t &x, int64_t &y) {
-    if (!m) {
-        return false;
-    }
-    intptr_t idx = reinterpret_cast<intptr_t>(m) - 1;
-    x = static_cast<int64_t>(idx % grid.size_x);
-    y = static_cast<int64_t>(idx / grid.size_x);
-    return true;
-}
-inline unsigned char fake_map_block_flags(const struct Map *mapblk) {
-    int64_t x, y;
-    if (!decode_map(mapblk, x, y)) {
-        return 0;
-    }
-    return grid.at(x, y).map_flags;
-}
-inline TbBool fake_map_block_is_invalid(const struct Map *mapblk) { return mapblk == nullptr; }
+inline TbBool fake_map_block_is_invalid(const struct Map *mapblk) { return (mapblk == nullptr) || (mapblk == &grid.oob_map_block); }
 
 inline int64_t fake_get_floor_filled_subtiles_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
     return grid.at(stl_x, stl_y).floor_filled_subtiles;
@@ -168,41 +159,23 @@ inline TbBool fake_subtile_is_unsafe(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
     return grid.at(stl_x, stl_y).unsafe;
 }
 
-inline struct SlabMap *encode_slab(int64_t slb_x, int64_t slb_y) {
+inline struct SlabMap *fake_get_slabmap_block(MapSlabCoord slb_x, MapSlabCoord slb_y) {
     if (slb_x < 0 || slb_y < 0 || slb_x * STL_PER_SLB >= grid.size_x || slb_y * STL_PER_SLB >= grid.size_y) {
-        return nullptr;
+        std::memset(&grid.oob_slab, 0, sizeof(grid.oob_slab));
+        grid.oob_slab.kind = SlbT_ROCK;
+        return &grid.oob_slab;
     }
-    // Distinct index space from encode_map's -- never compared to a Map*.
-    return reinterpret_cast<struct SlabMap *>(static_cast<intptr_t>(slb_y * 1000 + slb_x + 1));
+    const Cell &c = grid.at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
+    struct SlabMap *slb = &grid.slabs[slb_y][slb_x];
+    slb->kind = c.slab_kind;
+    slb->owner = c.owner;
+    return slb;
 }
-inline bool decode_slab(const struct SlabMap *s, int64_t &slb_x, int64_t &slb_y) {
-    if (!s) {
-        return false;
-    }
-    intptr_t idx = reinterpret_cast<intptr_t>(s) - 1;
-    slb_x = static_cast<int64_t>(idx % 1000);
-    slb_y = static_cast<int64_t>(idx / 1000);
-    return true;
-}
-inline struct SlabMap *fake_get_slabmap_block(MapSlabCoord slb_x, MapSlabCoord slb_y) { return encode_slab(slb_x, slb_y); }
 inline struct SlabMap *fake_get_slabmap_for_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
-    return encode_slab(subtile_slab(stl_x), subtile_slab(stl_y));
+    return fake_get_slabmap_block(subtile_slab(stl_x), subtile_slab(stl_y));
 }
-inline SlabKind fake_slabmap_block_kind(const struct SlabMap *slb) {
-    int64_t slb_x, slb_y;
-    if (!decode_slab(slb, slb_x, slb_y)) {
-        return SlbT_ROCK;
-    }
-    return grid.at(slab_subtile_center(slb_x), slab_subtile_center(slb_y)).slab_kind;
-}
-inline TbBool fake_slabmap_block_is_invalid(const struct SlabMap *slb) { return slb == nullptr; }
-inline PlayerNumber fake_slabmap_owner(const struct SlabMap *slb) {
-    int64_t slb_x, slb_y;
-    if (!decode_slab(slb, slb_x, slb_y)) {
-        return 0;
-    }
-    return grid.at(slab_subtile_center(slb_x), slab_subtile_center(slb_y)).owner;
-}
+inline TbBool fake_slabmap_block_is_invalid(const struct SlabMap *slb) { return (slb == nullptr) || (slb == &grid.oob_slab); }
+inline PlayerNumber fake_slabmap_owner(const struct SlabMap *slb) { return (slb == nullptr) ? 0 : slb->owner; }
 
 inline TbBool fake_is_valid_hug_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber) {
     // "valid hug subtile" == a wall the creature can hug along, i.e. NOT walkable.
@@ -215,22 +188,13 @@ inline TbBool fake_thing_in_wall_at(const struct Thing *, const struct Coord3d *
     return !grid.at(coord_subtile(pos->x.val), coord_subtile(pos->y.val)).walkable;
 }
 
-// --- doors -- left at pathfinding_world's real no-op defaults by every
+// --- doors -- left at pathfinding_world_port's real no-op defaults by every
 // fixture below (no test here exercises door subtiles) ------------------
 
 // --- single-purpose struct-Thing queries --------------------------------
 inline int64_t fake_thing_is_invalid(const struct Thing *thing) { return thing == nullptr; }
-inline PlayerNumber fake_thing_get_owner(const struct Thing *thing) { return as_fake(thing).owner; }
 inline int64_t fake_get_thing_height_at(const struct Thing *, const struct Coord3d *) { return g_thing_height_at_reply; }
 inline int64_t fake_get_floor_height_under_thing_at(const struct Thing *, const struct Coord3d *) { return 0; }
-
-// --- Track 3: struct Thing field access ---------------------------------
-inline struct Coord3d fake_thing_get_position(const struct Thing *thing) { return as_fake(thing).pos; }
-inline void fake_thing_set_position(struct Thing *thing, const struct Coord3d *pos) { as_fake(thing).pos = *pos; }
-inline int64_t fake_thing_get_move_angle(const struct Thing *thing) { return as_fake(thing).move_angle; }
-inline void fake_thing_set_move_angle(struct Thing *thing, int64_t angle) { as_fake(thing).move_angle = angle; }
-inline int64_t fake_thing_get_index(const struct Thing *thing) { return as_fake(thing).index; }
-inline int64_t fake_thing_get_clipbox_size(const struct Thing *thing) { return as_fake(thing).clipbox_size; }
 
 // --- CreatureControl-embedded pathfinding slot --------------------------
 inline struct Navigation *fake_creature_get_navigation(struct Thing *thing) { return &as_fake(thing).navi; }
@@ -239,94 +203,38 @@ inline int64_t fake_creature_get_max_speed(const struct Thing *thing) { return a
 inline void fake_creature_clear_state_flags_for_wallhug_override(struct Thing *) {}
 
 // --- physical-split follow-ups ------------------------------------------
-inline SubtlCodedCoords fake_get_subtile_number(MapSubtlCoord stl_x, MapSubtlCoord stl_y) {
-    if (stl_x > grid.size_x + 1) stl_x = grid.size_x + 1;
-    if (stl_y > grid.size_y + 1) stl_y = grid.size_y + 1;
-    if (stl_x < 0) stl_x = 0;
-    if (stl_y < 0) stl_y = 0;
-    return stl_y * (grid.size_x + 1) + stl_x;
-}
-inline MapSubtlCoord fake_stl_num_decode_x(SubtlCodedCoords stl_num) { return stl_num % (grid.size_x + 1); }
-inline MapSubtlCoord fake_stl_num_decode_y(SubtlCodedCoords stl_num) { return (stl_num / (grid.size_x + 1)) % grid.size_y; }
-inline MapSubtlCoord fake_stl_slab_center_subtile(MapSubtlCoord stl_v) { return slab_subtile_center(subtile_slab(stl_v)); }
 inline struct Map *fake_get_map_block_at_pos(SubtlCodedCoords stl_num) {
-    return fake_get_map_block_at(fake_stl_num_decode_x(stl_num), fake_stl_num_decode_y(stl_num));
-}
-
-inline TbBool fake_cross_x_boundary_first(const struct Coord3d *, const struct Coord3d *) { return false; }
-inline TbBool fake_cross_y_boundary_first(const struct Coord3d *, const struct Coord3d *) { return false; }
-
-inline const struct Around kSmallAroundTable[4] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-inline struct Around fake_get_small_around(SmallAroundIndex n) { return kSmallAroundTable[n & 3]; }
-inline SmallAroundIndex fake_get_small_around_length(void) { return 4; }
-inline SmallAroundIndex fake_small_around_index_in_direction(int64_t srcpos_x, int64_t srcpos_y, int64_t dstpos_x, int64_t dstpos_y) {
-    // Same formula as kfx_sim's real small_around_index_in_direction
-    // (src/kfx_sim/src/map_utils.c) -- reproduced here rather than faked
-    // away, since it's pure math over LbArcTanAngle (kfx_platform, real,
-    // already linked), not a piece of world state to stub out.
-    int64_t i = ((LbArcTanAngle(dstpos_x - srcpos_x, dstpos_y - srcpos_y) & ANGLE_MASK) + DEGREES_45);
-    return static_cast<SmallAroundIndex>((i / DEGREES_90) & 3);
+    return fake_get_map_block_at(ariadne_stl_num_decode_x(stl_num), ariadne_stl_num_decode_y(stl_num));
 }
 
 inline TbBool fake_creature_cannot_move_directly_to(struct Thing *, struct Coord3d *) { return false; }
 
-inline int64_t g_owner_player_navigating = -1;
-inline int64_t fake_get_owner_player_navigating(void) { return g_owner_player_navigating; }
-inline void fake_set_owner_player_navigating(int64_t plyr_idx) { g_owner_player_navigating = plyr_idx; }
-inline int64_t g_nav_thing_can_travel_over_lava = 0;
-inline int64_t fake_get_nav_thing_can_travel_over_lava(void) { return g_nav_thing_can_travel_over_lava; }
-inline void fake_set_nav_thing_can_travel_over_lava(int64_t can_travel) { g_nav_thing_can_travel_over_lava = can_travel; }
 
-// Builds a PathfindingWorldCallbacks table with every grid/thing-backed
+// Builds a PathfindingWorldPort table with every grid/thing-backed
 // field above wired in, starting from the real safe-default table for
 // everything else (doors, players_are_mutual_allies, ...).
-inline struct PathfindingWorldCallbacks make_fake_callbacks() {
-    struct PathfindingWorldCallbacks fake = *pathfinding_world;
-    fake.get_map_size_x = fake_get_map_size_x;
-    fake.get_map_size_y = fake_get_map_size_y;
-    fake.get_map_size_z = fake_get_map_size_z;
+inline struct PathfindingWorldPort make_fake_callbacks() {
+    struct PathfindingWorldPort fake = *pathfinding_world_port;
     fake.get_map_block_at = fake_get_map_block_at;
     fake.get_map_block_at_pos = fake_get_map_block_at_pos;
-    fake.map_block_flags = fake_map_block_flags;
     fake.map_block_is_invalid = fake_map_block_is_invalid;
     fake.get_floor_filled_subtiles_at = fake_get_floor_filled_subtiles_at;
     fake.subtile_is_unsafe = fake_subtile_is_unsafe;
     fake.get_slabmap_block = fake_get_slabmap_block;
     fake.get_slabmap_for_subtile = fake_get_slabmap_for_subtile;
-    fake.slabmap_block_kind = fake_slabmap_block_kind;
     fake.slabmap_block_is_invalid = fake_slabmap_block_is_invalid;
     fake.slabmap_owner = fake_slabmap_owner;
     fake.is_valid_hug_subtile = fake_is_valid_hug_subtile;
     fake.hug_can_move_on = fake_hug_can_move_on;
     fake.thing_in_wall_at = fake_thing_in_wall_at;
     fake.thing_is_invalid = fake_thing_is_invalid;
-    fake.thing_get_owner = fake_thing_get_owner;
     fake.get_thing_height_at = fake_get_thing_height_at;
     fake.get_floor_height_under_thing_at = fake_get_floor_height_under_thing_at;
-    fake.thing_get_position = fake_thing_get_position;
-    fake.thing_set_position = fake_thing_set_position;
-    fake.thing_get_move_angle = fake_thing_get_move_angle;
-    fake.thing_set_move_angle = fake_thing_set_move_angle;
-    fake.thing_get_index = fake_thing_get_index;
-    fake.thing_get_clipbox_size = fake_thing_get_clipbox_size;
     fake.creature_get_navigation = fake_creature_get_navigation;
     fake.creature_get_ariadne_state = fake_creature_get_ariadne_state;
     fake.creature_get_max_speed = fake_creature_get_max_speed;
     fake.creature_clear_state_flags_for_wallhug_override = fake_creature_clear_state_flags_for_wallhug_override;
-    fake.get_subtile_number = fake_get_subtile_number;
-    fake.stl_num_decode_x = fake_stl_num_decode_x;
-    fake.stl_num_decode_y = fake_stl_num_decode_y;
-    fake.stl_slab_center_subtile = fake_stl_slab_center_subtile;
-    fake.cross_x_boundary_first = fake_cross_x_boundary_first;
-    fake.cross_y_boundary_first = fake_cross_y_boundary_first;
-    fake.get_small_around = fake_get_small_around;
-    fake.get_small_around_length = fake_get_small_around_length;
-    fake.small_around_index_in_direction = fake_small_around_index_in_direction;
     fake.creature_cannot_move_directly_to = fake_creature_cannot_move_directly_to;
-    fake.get_owner_player_navigating = fake_get_owner_player_navigating;
-    fake.set_owner_player_navigating = fake_set_owner_player_navigating;
-    fake.get_nav_thing_can_travel_over_lava = fake_get_nav_thing_can_travel_over_lava;
-    fake.set_nav_thing_can_travel_over_lava = fake_set_nav_thing_can_travel_over_lava;
     return fake;
 }
 
@@ -335,18 +243,20 @@ inline struct PathfindingWorldCallbacks make_fake_callbacks() {
 // teardown. Individual tests carve walls/doors/etc. out of the grid via
 // grid.at()/grid.set_slab() before calling into production code.
 struct GridWorldFixture {
-    struct PathfindingWorldCallbacks fake;
+    struct PathfindingWorldPort fake;
     GridWorldFixture() {
         grid.reset_open();
         g_thing_height_at_reply = 0;
         g_map_size_z = 8;
-        g_owner_player_navigating = -1;
-        g_nav_thing_can_travel_over_lava = 0;
+        ariadne_set_map_dimensions(grid.size_x, grid.size_y, g_map_size_z);
+        kfx_pathfinding_state.owner_player_navigating = -1;
+        kfx_pathfinding_state.nav_thing_can_travel_over_lava = 0;
+        kfx_pathfinding_state.nav_thing_is_flying = 0;
         fake = make_fake_callbacks();
-        set_pathfinding_world_callbacks(&fake);
+        set_pathfinding_world_port(&fake);
     }
     ~GridWorldFixture() {
-        set_pathfinding_world_callbacks(nullptr);
+        set_pathfinding_world_port(nullptr);
     }
 };
 
@@ -383,6 +293,7 @@ struct TriangulatedWorldFixture : GridWorldFixture {
             }
         }
         ariadne_set_navigation_map_size(kLogicalSize + 1, kLogicalSize + 1);
+        ariadne_set_map_dimensions(kLogicalSize, kLogicalSize, g_map_size_z);
     }
 };
 

@@ -38,6 +38,7 @@
 #include "thing_doors.h"
 #include "thing_list.h"
 #include "thing_traps.h"
+#include "player_availability.h"
 #include "post_inc.h"
 
 #define VIEW_LIST_CAP 2000

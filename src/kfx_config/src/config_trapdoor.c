@@ -32,11 +32,12 @@
 #include "config_strings.h"
 
 #include "kfx_config_state.h"
-#include "dungeon_availability.h"
 // set_trap_buildable_and_add_to_amount()/set_door_buildable_and_add_to_amount()
-// (kfx_sim's dungeon_data.h) are reached through config_reload_callbacks
+// (kfx_sim's dungeon_data.h) are reached through SimPort
 // instead of same-file bare-extern forward-declarations. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
+#include "ports/ui_port.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -94,7 +95,7 @@ static void assign_panel_tab_idx_trap(const struct NamedField* named_field, int6
     assign_default(named_field, value, named_fields_set, idx, src_str, flags);
     if (flag_is_set(flags, ccf_DuringLevel))
     {
-        config_reload_callbacks->update_trap_tab_to_config();
+        ui_update_trap_tab_to_config();
     }
 }
 
@@ -106,7 +107,7 @@ static void assign_panel_tab_idx_door(const struct NamedField* named_field, int6
     assign_default(named_field, value, named_fields_set, idx, src_str, flags);
     if (flag_is_set(flags, ccf_DuringLevel))
     {
-        config_reload_callbacks->update_trap_tab_to_config();
+        ui_update_trap_tab_to_config();
     }
 }
 
@@ -118,7 +119,7 @@ static void assign_tooltip_idx_trap(const struct NamedField* named_field, int64_
     assign_default(named_field, value, named_fields_set, idx, src_str, flags);
     if (flag_is_set(flags, ccf_DuringLevel))
     {
-        config_reload_callbacks->update_trap_tab_to_config();
+        ui_update_trap_tab_to_config();
     }
 }
 
@@ -130,7 +131,7 @@ static void assign_tooltip_idx_door(const struct NamedField* named_field, int64_
     assign_default(named_field, value, named_fields_set, idx, src_str, flags);
     if (flag_is_set(flags, ccf_DuringLevel))
     {
-        config_reload_callbacks->update_trap_tab_to_config();
+        ui_update_trap_tab_to_config();
     }
 }
 
@@ -139,7 +140,7 @@ static void assign_icon_update_trap_tab(const struct NamedField* named_field, in
     assign_icon(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->update_trap_tab_to_config();
+        ui_update_trap_tab_to_config();
     }
 }
 
@@ -155,7 +156,7 @@ static void assign_update_door_stats(const struct NamedField* named_field, int64
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->update_all_door_stats();
+        simport_update_all_door_stats();
     }
 }
 
@@ -228,7 +229,7 @@ static void assign_multiple_refresh_trap_anim(const struct NamedField* named_fie
     assign_default(named_field, value, named_fields_set, idx, src_str, flags);
     if (flag_is_set(flags, ccf_DuringLevel))
     {
-        config_reload_callbacks->update_all_trap_draws_of_model(idx);
+        simport_update_all_trap_draws_of_model(idx);
     }
 }
 
@@ -237,7 +238,7 @@ static void assign_refresh_trap_anim(const struct NamedField* named_field, int64
     assign_default(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->update_all_trap_draws_of_model(idx);
+        simport_update_all_trap_draws_of_model(idx);
     }
 }
 
@@ -246,7 +247,7 @@ static void assign_refresh_trap_anim_anim_id(const struct NamedField* named_fiel
     assign_animid(named_field,value,named_fields_set,idx,src_str,flags);
     if (flag_is_set(flags,ccf_DuringLevel))
     {
-        config_reload_callbacks->update_all_trap_draws_of_model(idx);
+        simport_update_all_trap_draws_of_model(idx);
     }
 }
 
@@ -583,170 +584,6 @@ int64_t trap_model_id(const char * code_name)
     }
 
     return -1;
-}
-
-/**
- * Returns if the trap can be placed by a player.
- * Checks only if it's available and if the player is 'alive'.
- * Doesn't check if map position is on correct spot.
- */
-TbBool is_trap_placeable(PlayerNumber plyr_idx, int64_t tngmodel)
-{
-    // Check if the player even have a dungeon, and has a heart to place traps
-    if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
-        return false;
-    }
-    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)) {
-        ERRORLOG("Incorrect trap %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->get_trap_placeable(plyr_idx, tngmodel)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the trap can be manufactured by a player.
- * Checks only if it's set as buildable in level script.
- * Doesn't check if player has workshop or workforce for the task.
- */
-TbBool is_trap_buildable(PlayerNumber plyr_idx, int64_t tngmodel)
-{
-    // Check if the player even have a dungeon, and has a heart to build anything
-    if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
-        return false;
-    }
-    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)) {
-        ERRORLOG("Incorrect trap %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->get_trap_manufacturable(plyr_idx, tngmodel)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the trap was at least once built by a player.
- */
-TbBool is_trap_built(PlayerNumber plyr_idx, int64_t tngmodel)
-{
-    // Check if the player even have a dungeon
-    if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-        return false;
-    }
-    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.trap_types_count)) {
-        ERRORLOG("Incorrect trap %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->get_trap_built(plyr_idx, tngmodel)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the door can be placed by a player.
- * Checks only if it's available and if the player is 'alive'.
- * Doesn't check if map position is on correct spot.
- */
-TbBool is_door_placeable(PlayerNumber plyr_idx, int64_t tngmodel)
-{
-    // Check if the player even have a dungeon, and has a heart to place doors
-    if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
-        return false;
-    }
-    if ((tngmodel <= 0) || (tngmodel >= kfx_config_state.conf.trapdoor_conf.door_types_count)) {
-        ERRORLOG("Incorrect door %" PRId64 " (player %" PRId64 ")",(int64_t)tngmodel, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->get_door_placeable(plyr_idx, tngmodel)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the door can be manufactured by a player.
- * Checks only if it's set as buildable in level script.
- * Doesn't check if player has workshop or workforce for the task.
- */
-TbBool is_door_buildable(PlayerNumber plyr_idx, int64_t door_idx)
-{
-    // Check if the player even have a dungeon, and has a heart to build anything
-    if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
-        return false;
-    }
-    if ((door_idx <= 0) || (door_idx >= kfx_config_state.conf.trapdoor_conf.door_types_count)) {
-        ERRORLOG("Incorrect door %" PRId64 " (player %" PRId64 ")",(int64_t)door_idx, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->get_door_manufacturable(plyr_idx, door_idx)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Returns if the door was at least one built by a player.
- */
-TbBool is_door_built(PlayerNumber plyr_idx, int64_t door_idx)
-{
-    // Check if the player even have a dungeon, and has a heart to build anything
-    if (!dungeon_availability->players_num_dungeon_valid_with_heart(plyr_idx)) {
-        return false;
-    }
-    if ((door_idx <= 0) || (door_idx >= kfx_config_state.conf.trapdoor_conf.door_types_count)) {
-        ERRORLOG("Incorrect door %" PRId64 " (player %" PRId64 ")",(int64_t)door_idx, (int64_t)plyr_idx);
-        return false;
-    }
-    if (dungeon_availability->get_door_built(plyr_idx, door_idx)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Makes all door types manufacturable.
- */
-TbBool make_available_all_doors(PlayerNumber plyr_idx)
-{
-  SYNCDBG(0,"Starting");
-  if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-      ERRORDBG(11,"Cannot make doors available; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-      return false;
-  }
-  for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.door_types_count; i++)
-  {
-    if (!config_reload_callbacks->set_door_buildable_and_add_to_amount(plyr_idx, i, 1, 0))
-    {
-        ERRORLOG("Could not make door %s available for player %" PRId64, door_code_name(i), (int64_t)(plyr_idx));
-        return false;
-    }
-  }
-  return true;
-}
-
-/**
- * Makes all trap types manufacturable.
- */
-TbBool make_available_all_traps(PlayerNumber plyr_idx)
-{
-  SYNCDBG(0,"Starting");
-  if (!dungeon_availability->players_num_dungeon_valid(plyr_idx)) {
-      ERRORDBG(11,"Cannot make traps available; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
-      return false;
-  }
-  for (int64_t i = 1; i < kfx_config_state.conf.trapdoor_conf.trap_types_count; i++)
-  {
-    if (!config_reload_callbacks->set_trap_buildable_and_add_to_amount(plyr_idx, i, 1, 0))
-    {
-        ERRORLOG("Could not make trap %s available for player %" PRId64, trap_code_name(i), (int64_t)(plyr_idx));
-        return false;
-    }
-  }
-  return true;
 }
 
 // update_all_trap_draws_of_model() moved to kfx_sim's thing_traps.c -- it

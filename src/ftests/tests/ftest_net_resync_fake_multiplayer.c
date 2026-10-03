@@ -17,7 +17,7 @@
 // then receive it back as the "client" and prove the live state was
 // restored byte-for-byte. The fake wire is genuinely exercised end to
 // end (real zlib compress/decompress, real CRC verification, real
-// ResyncHeader framing, real net_callbacks->lua_resync_export/import) --
+// ResyncHeader framing, real ScriptPort lua_resync_export/import) --
 // only the transport (sockets, ENet) is faked.
 #include "ftest_net_resync_fake_multiplayer.h"
 
@@ -36,7 +36,6 @@
 #include "net_resync.h"
 #include "config_keeperfx.h"
 #include "game_legacy.h"
-#include "light_data.h"
 #include "player_data.h"
 #include "kfx_sim_state.h"
 #include "kfx_net_state.h"
@@ -58,7 +57,6 @@ struct ftest_net_resync_fake_multiplayer__variables
     void *snapshot_kfx_net_state;
     void *snapshot_kfx_game_state;
     void *snapshot_kfx_frontend_state;
-    void *snapshot_lish;
 
     uint64_t instance_remain_before;
 };
@@ -69,7 +67,6 @@ struct ftest_net_resync_fake_multiplayer__variables ftest_net_resync_fake_multip
     .snapshot_kfx_net_state = NULL,
     .snapshot_kfx_game_state = NULL,
     .snapshot_kfx_frontend_state = NULL,
-    .snapshot_lish = NULL,
     .instance_remain_before = 0,
 };
 
@@ -124,9 +121,8 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     vars->snapshot_kfx_net_state = malloc(sizeof(kfx_net_state));
     vars->snapshot_kfx_game_state = malloc(sizeof(kfx_game_state));
     vars->snapshot_kfx_frontend_state = malloc(sizeof(kfx_frontend_state));
-    vars->snapshot_lish = malloc(sizeof(lish));
     if (vars->snapshot_game == NULL || vars->snapshot_kfx_sim_state == NULL || vars->snapshot_kfx_net_state == NULL
-        || vars->snapshot_kfx_game_state == NULL || vars->snapshot_kfx_frontend_state == NULL || vars->snapshot_lish == NULL)
+        || vars->snapshot_kfx_game_state == NULL || vars->snapshot_kfx_frontend_state == NULL)
     {
         FTEST_FAIL_TEST("Failed to allocate state snapshot buffers");
         return FTRs_Go_To_Next_Action;
@@ -136,7 +132,6 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     memcpy(vars->snapshot_kfx_net_state, &kfx_net_state, sizeof(kfx_net_state));
     memcpy(vars->snapshot_kfx_game_state, &kfx_game_state, sizeof(kfx_game_state));
     memcpy(vars->snapshot_kfx_frontend_state, &kfx_frontend_state, sizeof(kfx_frontend_state));
-    memcpy(vars->snapshot_lish, &lish, sizeof(lish));
 
     // Force real divergence the same way the debug console's "desync"
     // command does, so the next action's receive side has something
@@ -162,7 +157,6 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     TbBool net_ok = receive_ok && (memcmp(vars->snapshot_kfx_net_state, &kfx_net_state, sizeof(kfx_net_state)) == 0);
     TbBool gamest_ok = receive_ok && (memcmp(vars->snapshot_kfx_game_state, &kfx_game_state, sizeof(kfx_game_state)) == 0);
     TbBool front_ok = receive_ok && (memcmp(vars->snapshot_kfx_frontend_state, &kfx_frontend_state, sizeof(kfx_frontend_state)) == 0);
-    TbBool lish_ok = receive_ok && (memcmp(vars->snapshot_lish, &lish, sizeof(lish)) == 0);
     uint64_t instance_remain_restored = get_player(0)->instance_remain_turns;
 
     free(vars->snapshot_game);
@@ -170,7 +164,6 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     free(vars->snapshot_kfx_net_state);
     free(vars->snapshot_kfx_game_state);
     free(vars->snapshot_kfx_frontend_state);
-    free(vars->snapshot_lish);
     netstate.sp = vars->saved_netstate_sp;
     memset(netstate.users, 0, sizeof(netstate.users));
     ftest_net_fake_reset();
@@ -180,10 +173,10 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
         FTEST_FAIL_TEST("receive_resync_game() failed while playing the client role");
         return FTRs_Go_To_Next_Action;
     }
-    if (!game_ok || !sim_ok || !net_ok || !gamest_ok || !front_ok || !lish_ok)
+    if (!game_ok || !sim_ok || !net_ok || !gamest_ok || !front_ok)
     {
-        FTEST_FAIL_TEST("Resync round-trip did not restore state byte-for-byte (game=%" PRId64 " sim=%" PRId64 " net=%" PRId64 " game_state=%" PRId64 " frontend=%" PRId64 " lish=%" PRId64 ")",
-            (int64_t)game_ok, (int64_t)sim_ok, (int64_t)net_ok, (int64_t)gamest_ok, (int64_t)front_ok, (int64_t)lish_ok);
+        FTEST_FAIL_TEST("Resync round-trip did not restore state byte-for-byte (game=%" PRId64 " sim=%" PRId64 " net=%" PRId64 " game_state=%" PRId64 " frontend=%" PRId64 ")",
+            (int64_t)game_ok, (int64_t)sim_ok, (int64_t)net_ok, (int64_t)gamest_ok, (int64_t)front_ok);
         return FTRs_Go_To_Next_Action;
     }
     if (instance_remain_restored != vars->instance_remain_before)

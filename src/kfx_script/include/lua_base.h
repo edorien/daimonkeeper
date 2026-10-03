@@ -52,7 +52,7 @@ void lua_set_random_seed(uint64_t seed);
 // (it needs the freshly-synced value) -- collapsing all three into one
 // call would force one side of that ordering to be wrong. Not a
 // replacement for lua_get_serialised_data()/lua_set_serialised_data()
-// themselves -- game_saves.c's save/load path (via script_hooks) still
+// themselves -- game_saves.c's save/load path (via ScriptPort) still
 // calls those directly, with different default-on-inactive behaviour.
 const char* lua_resync_export(size_t *len);
 TbBool lua_resync_import(const char *data, size_t len);

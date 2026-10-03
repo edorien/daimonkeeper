@@ -10,16 +10,14 @@
 // Column), so only the specific neighbor subtiles under test need their
 // own column_idx pointed at the shared "wall" Column (index 1).
 //
-// door_can_stand's slabst->category check is a no-op in this test binary:
-// get_slab_stats() routes through ConfigReloadCallbacks'
-// slabmap_block_invalid, whose default no-op always returns true, so it
-// always resolves to slab_cfgstats[0] (category SlbAtCtg_Unclaimed, not a
-// wall category) regardless of the real neighboring slab -- confirmed by
-// reading config.c's default table before relying on it, not assumed.
-// Only the direct slb->kind checks (SlbT_ROCK and friends) are real here,
-// which is enough: SlbT_ROCK is 0, so a freshly-zeroed slabmap is already
-// "solid" everywhere and needs explicit clearing to test the "can stand"
-// branches.
+// door_can_stand's slabst->category check reads the fixture's
+// slab_cfgstats, which are zeroed (category SlbAtCtg_Unclaimed, not a wall
+// category) for every kind. Until refactor pass 2's S15 get_slab_stats()
+// reached the slab through an unwired port here and always resolved to
+// slab_cfgstats[0]; it now reads the real slab kind. The direct slb->kind
+// checks (SlbT_ROCK and friends) are what these tests drive: SlbT_ROCK is
+// 0, so a freshly-zeroed slabmap is already "solid" everywhere and needs
+// explicit clearing to test the "can stand" branches.
 //
 // The rest of thing_doors.c (door creation/locking/opening state machine)
 // needs a full Thing+CreatureControl fixture and is left for a later

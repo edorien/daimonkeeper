@@ -189,7 +189,6 @@ extern const struct NamedFieldSet terrain_slab_named_fields_set;
 extern const struct NamedCommand terrain_health_commands[]; // keys of the [block_health] block
 /******************************************************************************/
 struct SlabConfigStats *get_slab_kind_stats(SlabKind slab_kind);
-struct SlabConfigStats *get_slab_stats(const struct SlabMap *slb);
 const char *room_role_code_name(RoomRole rrole);
 const char *room_code_name(RoomKind rkind);
 const char *slab_code_name(SlabKind slbkind);
@@ -207,13 +206,6 @@ TbBool slab_kind_has_torches(SlabKind slbkind);
 /******************************************************************************/
 struct RoomConfigStats *get_room_kind_stats(RoomKind room_kind);
 TbBool make_all_rooms_free(void);
-TbBool set_room_available(PlayerNumber plyr_idx, RoomKind roomkind, int64_t resrch, int64_t avail);
-TbBool make_available_all_researchable_rooms(PlayerNumber plyr_idx);
-TbBool make_all_rooms_researchable(PlayerNumber plyr_idx);
-TbBool is_room_available(PlayerNumber plyr_idx, RoomKind roomkind);
-TbBool is_room_obtainable(PlayerNumber plyr_idx, RoomKind rkind);
-TbBool is_room_of_role_available(PlayerNumber plyr_idx, RoomRole rrole);
-RoomKind find_first_available_roomkind_with_role(PlayerNumber plyr_idx, RoomRole rrole);
 ThingModel get_room_create_creature_model(RoomKind room_kind);
 TbBool enemies_may_work_in_room(RoomKind rkind);
 RoomRole get_room_roles(RoomKind rkind);

@@ -35,13 +35,13 @@
 #include "room_data.h"
 #include "dungeon_data.h"
 #include "thing_list.h"
-#include "player_complookup.h"
-#include "player_computer.h"
+#include "player_computer_types.h"
 #include "creature_battle.h"
 #include "actionpt.h"
 #include "map_events.h"
 #include "config.h"
 #include "game_time.h" // struct GameTime
+#include "light_registry.h"
 
 // struct TimerTime moved here from kfx_frontend_state.h (stage 13.2,
 // docs/refactor/stage-13-enforce-and-document.md) -- the only global of
@@ -335,7 +335,7 @@ struct KfxSimState {
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- also read by kfx_platform's
        bflib_sndlib.cpp, which gets pointer access via
-       SoundStateCallbacks instead (kfx_platform is the lowest-ranked
+       SoundHostPort instead (kfx_platform is the lowest-ranked
        library, can't reach kfx_sim_state directly). */
     TbBool easter_eggs_enabled;
 
@@ -427,6 +427,19 @@ struct KfxSimState {
     LevelNumber continue_level_number;
     LevelNumber selected_level_number;
     int64_t loaded_level_number;
+    /* The game turn: moved from kfx_game_state in refactor pass 2 (S10),
+       since the whole sim reads it. get_gameturn() (globals.h) reads it
+       through a pointer main.cpp installs. */
+    GameTurn play_gameturn;
+    /* Session values moved from kfx_net_state in refactor pass 2 (S10):
+       the sim reads or writes each of them. level_human_player is the
+       level's designated human seat (campaign.human_player), the same on
+       every machine -- not the local machine's player, which is
+       my_player_number (it was kfx_net_state.local_plyr_idx); replay_active
+       is -packetload replay mode (was packet_load_enable). */
+    PlayerNumber level_human_player;
+    int64_t human_players_count;
+    TbBool replay_active;
     int64_t computer_chat_flags;
     char loaded_swipe_idx;
     TbBool heart_lost_display_message;
@@ -438,6 +451,11 @@ struct KfxSimState {
        replay inspector) can reuse it. Blob-safe like every other field in
        this struct (survives the save/resync/reset memcpy's). */
     TbBool simulation_suspended;
+
+    /* The lights (light_registry.h): moved from kfx_render's lish in
+       refactor pass 2 (S11). The sim creates, moves and deletes them and
+       reads their intensity back; kfx_render shades from them. */
+    struct LightRegistry light_registry;
 };
 
 #pragma pack()

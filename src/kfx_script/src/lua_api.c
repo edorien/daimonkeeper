@@ -40,6 +40,7 @@
 
 
 #include "kfx_frontend_state.h"
+#include "player_availability.h"
 #include "post_inc.h"
 
 /**********************************************/

@@ -27,7 +27,7 @@
 
 #include "value_util.h"
 #include "kfx_sim_state.h"
-#include "script_hooks.h"
+#include "ports/script_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -286,7 +286,7 @@ TbBool process_action_points(void)
                             {"action_point",API_EVENT_DATA_INT32,{ .int32_value = (int64_t)apt->num }},
                         };
 
-                        script_hooks->api_event_with_data(
+                        script_api_event_with_data(
                             "ACTION_POINT",
                             event_data,
                             sizeof(event_data) / sizeof(event_data[0])

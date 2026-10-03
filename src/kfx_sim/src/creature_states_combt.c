@@ -45,9 +45,9 @@
 #include "room_jobs.h"
 #include "map_blocks.h"
 #include "map_utils.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1174,14 +1174,14 @@ TbBool set_creature_combat_state(struct Thing *fighter, struct Thing *enemy, CrA
       if (is_my_player_number(fighter->owner))
       {
           if (is_my_player_number(enemy->owner)) {
-              sim_feedback->play_sound_message_far_from_thing(fighter,SMsg_FingthingFriends, MESSAGE_DURATION_FIGHT);
+              audio_output_message_far_from_thing(fighter,SMsg_FingthingFriends, MESSAGE_DURATION_FIGHT);
           } else {
-              sim_feedback->play_sound_message_far_from_thing(fighter,SMsg_CreatureAttacking, MESSAGE_DURATION_FIGHT);
+              audio_output_message_far_from_thing(fighter,SMsg_CreatureAttacking, MESSAGE_DURATION_FIGHT);
           }
       } else
       {
           if (is_my_player_number(enemy->owner)) {
-              sim_feedback->play_sound_message_far_from_thing(enemy,SMsg_CreatureDefending, MESSAGE_DURATION_FIGHT);
+              audio_output_message_far_from_thing(enemy,SMsg_CreatureDefending, MESSAGE_DURATION_FIGHT);
           }
       }
     }

@@ -9,12 +9,11 @@
  *     engine state into a MapContent (src/kfx_sim/include/map_content.h)
  *     and hand it to a MapContentWriter. All the real format knowledge
  *     lives in kfx_sim (map_content_writer.h/.cpp), not here -- this file
- *     exists specifically because gathering that snapshot needs to reach
- *     into both kfx_sim_state (slabs/things/action points) *and*
- *     kfx_render's lish (lights), and kfx_sim itself can't reach the
- *     latter (kfx_render ranks above it) -- kfx_editor, ranked above both,
- *     can reach both directly, the same way editor_toolbox.cpp already
- *     does for kfx_sim.
+ *     was written when gathering that snapshot needed to reach into both
+ *     kfx_sim_state (slabs/things/action points) *and* kfx_render's lish
+ *     (lights), which kfx_sim couldn't. Since refactor pass 2 (S11) the
+ *     lights are in kfx_sim_state.light_registry too, so the gathering
+ *     could now move down into kfx_sim.
  * @par Comment:
  *     None.
  */
@@ -39,7 +38,7 @@
 #include "slab_data.h"
 #include "map_data.h"
 #include "map_columns.h"
-#include "light_data.h"
+#include "light_registry.h"
 #include "editor_points.h"
 #include "lvl_filesdk1.h"
 
@@ -167,7 +166,7 @@ void snapshot_lights(MapContent &content)
     editor_points_mark_thing_owned_lights(owned);
     for (int64_t i = 1; i < LIGHTS_COUNT; i++)
     {
-        const struct Light *lgt = &lish.lights[i];
+        const struct Light *lgt = &kfx_sim_state.light_registry.lights[i];
         if ((lgt->flags & LgtF_Allocated) == 0)
             continue;
         if (owned[i])
@@ -341,7 +340,7 @@ TbBool editor_save_map(LevelNumber lvnum, const char *dir, enum EditorSaveFormat
     // auto-discovery only runs at campaign load, not on demand, so a
     // freshly saved map needs an explicit re-scan to show up in Free Play
     // without a full campaign reload. Direct call, not via
-    // config_reload_callbacks: every existing downward reach from
+    // SimPort: every existing downward reach from
     // kfx_editor into kfx_sim in this codebase is a plain #include+call
     // (kfx_sim ranks below kfx_editor), not a callback-struct indirection
     // -- that pattern exists only for the reverse direction (a lower

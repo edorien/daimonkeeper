@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "slab_types.h"
 #include "config_terrain.h"
 // struct SlabSet/SlabObj/SLABSET_COUNT/SLABOBJS_COUNT moved to kfx_config's
 // config_slabsets.h (stage 13.3) -- kfx_config embeds them by value and
@@ -45,15 +46,6 @@ extern "C" {
 struct PlayerInfo;
 struct Thing;
 
-struct SlabMap {
-      SlabCodedCoords next_in_room;
-      HitPoints health;
-      SlabKind kind;
-      RoomIndex room_index;
-      unsigned char wlb_type;
-      PlayerNumber owner;
-};
-
 #pragma pack()
 /******************************************************************************/
 extern struct SlabMap bad_slabmap_block;
@@ -73,6 +65,7 @@ TbBool slabmap_block_invalid(const struct SlabMap *slb);
 TbBool slab_coords_invalid(MapSlabCoord slb_x, MapSlabCoord slb_y);
 int64_t slabmap_owner(const struct SlabMap *slb);
 SlabKind slabmap_kind(const struct SlabMap *slb);
+struct SlabConfigStats *get_slab_stats(const struct SlabMap *slb);
 void set_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber owner);
 PlayerNumber get_slab_owner_thing_is_on(const struct Thing *thing);
 uint64_t slabmap_wlb(struct SlabMap *slb);

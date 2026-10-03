@@ -1,0 +1,13 @@
+/* SessionLoopPort entries: see ports/session_loop_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_VOID(network_yield_poll_gameplay, (void), ())
+KFX_PORT_VOID(network_yield_waiting_gameplay_packets, (void), ())
+KFX_PORT_VOID(network_yield_draw_frontend, (void), ())
+KFX_PORT_VOID(set_host_packet_received, (long double value), (value))
+KFX_PORT_RET(double, get_interpolate_time, (void), (), 0.0)

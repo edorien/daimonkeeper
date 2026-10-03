@@ -62,8 +62,18 @@ SRC_DIR = REPO_ROOT / "src"
 LIBRARY_ORDER = [
     "kfx_platform",
     "kfx_config",
+    # refactor pass 2, S04: the cfgc_* content layer, split out of kfx_config.
+    # Only kfx_editor (and the exempt ftests) use it.
+    "kfx_content",
+    # refactor pass 2, S08: header-only type layouts (struct Thing, struct Map,
+    # struct SlabMap) the pathfinder reads directly. Headers only: see
+    # check_model_headers() below.
+    "kfx_model",
     "kfx_pathfinding",
     "kfx_sim",
+    # refactor pass 2, S14: the computer-player AI, a client of the sim.
+    # kfx_sim reaches it only through kfx_config's AiPort.
+    "kfx_ai",
     "kfx_render",
     "kfx_net",
     "kfx_game",
@@ -165,6 +175,37 @@ def extract_includes(path: Path) -> list[str]:
     return includes
 
 
+MODEL_INCLUDE_DIR = REPO_ROOT / "src" / "kfx_model" / "include"
+
+
+def check_model_headers() -> list[str]:
+    """kfx_model is header-only (refactor pass 2, S08): its headers may declare
+    types, macros and static inline functions, but no non-inline function
+    prototypes and no extern data. That keeps it from ever creating a symbol
+    reference to a higher library. Returns one message per offending line."""
+    problems = []
+    for hdr in sorted(MODEL_INCLUDE_DIR.glob("*.h")):
+        text = hdr.read_text(errors="replace")
+        text = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
+        text = re.sub(r"//[^\n]*", "", text)
+        # Blank out the #ifdef __cplusplus / extern "C" { ... } wrappers, so
+        # their braces don't make the whole header look nested.
+        text = re.sub(r"#ifdef __cplusplus[^\n]*\n.*?#endif",
+                      lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
+        depth = 0
+        for lineno, line in enumerate(text.split("\n"), 1):
+            stripped = line.strip()
+            if depth == 0 and stripped and not stripped.startswith("#"):
+                if re.match(r"extern\b(?!\s*\"C\")", stripped):
+                    problems.append(f"{hdr.relative_to(REPO_ROOT)}:{lineno}: extern data in kfx_model")
+                elif (stripped.endswith(");") and "(" in stripped
+                      and not stripped.startswith(("static", "typedef", "#"))
+                      and not re.search(r"\(\s*\*", stripped)):
+                    problems.append(f"{hdr.relative_to(REPO_ROOT)}:{lineno}: function prototype in kfx_model")
+            depth += line.count("{") - line.count("}")
+    return problems
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="machine-readable output")
@@ -249,7 +290,11 @@ def main() -> int:
             print(f"\nUnclassified files ({len(unclassified)}), skipped: "
                   f"{', '.join(sorted(unclassified))}")
 
-    if args.strict and new_violations:
+    model_problems = check_model_headers()
+    if not args.json:
+        for msg in model_problems:
+            print(msg)
+    if args.strict and (new_violations or model_problems):
         return 1
     return 0
 

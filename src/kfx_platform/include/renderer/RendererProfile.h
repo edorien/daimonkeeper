@@ -2,12 +2,13 @@
 #define RENDERER_RENDERERPROFILE_H
 
 #include <stdint.h>
+#include "globals.h" // KFX_DEBUG_ON
 
 /* gpu-v2 Phase C.5: frame-time measurement for the renderer backends.
  *
- * Compiled in ONLY for the heavy-log build (keeperfx_hvlog, BFDEBUG_LEVEL > 0);
- * in the standard build every RPROF_* macro is `((void)0)` and
- * RendererProfile.cpp is empty, so the release binary carries no timing code.
+ * Active only at the Debug log level and above (the LOG_LEVEL option,
+ * docs/refactor-pass2/stage-02-logging-option.md): below it every RPROF_*
+ * macro is a single predictable branch, and no timing or report happens.
  *
  * Stages are wall-clock CPU intervals (SDL_GetPerformanceCounter). Every
  * RPROF_FRAME() (one per game-frame present) closes the current frame; every
@@ -51,38 +52,30 @@ enum RendererProfileCounter {
     RPC_COUNT
 };
 
-#if (BFDEBUG_LEVEL > 0)
 void RendererProfileBegin(int stage);
 void RendererProfileEnd(int stage);
 void RendererProfileCount(int counter, int64_t amount);
 /* Closes a frame; `renderer_name` labels the report. */
 void RendererProfileFrame(const char *renderer_name);
 int  RendererProfileSyncGpu(void); /* KFX_GPU_PROF_SYNC=1 */
-#define RPROF_BEGIN(stage)         RendererProfileBegin(stage)
-#define RPROF_END(stage)           RendererProfileEnd(stage)
-#define RPROF_COUNT(counter, n)    RendererProfileCount((counter), (int64_t)(n))
-#define RPROF_FRAME(name)          RendererProfileFrame(name)
-#define RPROF_SYNC_GPU()           RendererProfileSyncGpu()
-#else
-#define RPROF_BEGIN(stage)         ((void)0)
-#define RPROF_END(stage)           ((void)0)
-#define RPROF_COUNT(counter, n)    ((void)0)
-#define RPROF_FRAME(name)          ((void)0)
-#define RPROF_SYNC_GPU()           (0)
-#endif
+/* True while the profiler runs (Debug log level and above). */
+#define RPROF_ACTIVE()             KFX_DEBUG_ON(0)
+#define RPROF_BEGIN(stage)         do { if (RPROF_ACTIVE()) RendererProfileBegin(stage); } while (0)
+#define RPROF_END(stage)           do { if (RPROF_ACTIVE()) RendererProfileEnd(stage); } while (0)
+#define RPROF_COUNT(counter, n)    do { if (RPROF_ACTIVE()) RendererProfileCount((counter), (int64_t)(n)); } while (0)
+#define RPROF_FRAME(name)          do { if (RPROF_ACTIVE()) RendererProfileFrame(name); } while (0)
+#define RPROF_SYNC_GPU()           (RPROF_ACTIVE() && RendererProfileSyncGpu())
 
 #ifdef __cplusplus
 }
-#if (BFDEBUG_LEVEL > 0)
-/* RAII stage timer for functions with several return paths. */
+/* RAII stage timer for functions with several return paths. Ends only a
+ * stage it began, so a level change in between is harmless. */
 struct RendererProfileScope {
     int stage;
-    explicit RendererProfileScope(int s) : stage(s) { RendererProfileBegin(s); }
-    ~RendererProfileScope() { RendererProfileEnd(stage); }
+    bool active;
+    explicit RendererProfileScope(int s) : stage(s), active(RPROF_ACTIVE()) { if (active) RendererProfileBegin(s); }
+    ~RendererProfileScope() { if (active) RendererProfileEnd(stage); }
 };
 #define RPROF_SCOPE(stage) RendererProfileScope rprof_scope_##stage(stage)
-#else
-#define RPROF_SCOPE(stage) ((void)0)
-#endif
 #endif
 #endif

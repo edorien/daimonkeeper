@@ -25,6 +25,7 @@
 #include "globals.h"
 
 #include "bflib_video.h"
+#include "config_settings.h" // kfx_runtime_settings, get/set_screen_vidmode (moved there, S03)
 #include "bflib_filelst.h"
 
 #ifdef __cplusplus
@@ -137,13 +138,6 @@ extern struct TbSpriteSheet *pointer_sprites;
 extern struct TbLoadFiles legal_load_files[];
 extern struct TbLoadFilesV2 game_load_files[];
 extern int64_t units_per_pixel_min;
-// Declared here, not bflib_video.h (kfx_platform): its only reader is
-// this library's own engine_camera.c, so it doesn't belong on
-// kfx_platform's public surface. See docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
-extern uint64_t first_person_horizontal_fov;
-extern int64_t base_mouse_sensitivity;
-void set_base_mouse_sensitivity(int64_t val);
 
 extern struct TbColorTables pixmap;
 extern struct TbAlphaTables alpha_sprite_table;
@@ -167,8 +161,6 @@ extern unsigned char *hires_parchment;
 // docs/refactor/stage-13-enforce-and-document.md.
 extern unsigned char *frontend_backup_palette;
 /******************************************************************************/
-TbScreenMode get_screen_vidmode(void);
-void set_screen_vidmode(TbScreenMode nmode);
 TbScreenMode reenter_video_mode(void);
 char *get_vidmode_name(TbScreenMode mode);
 
@@ -178,7 +170,7 @@ TbScreenMode setup_screen_mode_zero(TbScreenMode nmode);
 
 int64_t LoadMcgaData(void);
 TbBool update_screen_mode_data(int64_t width, int64_t height);
-// Registered with bflib_video.h's VideoScaleCallbacks. See
+// Registered with ports/display_host_port.h's DisplayHostPort. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 const struct VideoScaleValues *get_video_scale_values(void);
 void load_pointer_file(int64_t hi_res);
@@ -188,7 +180,7 @@ void free_testfont_fonts(void);
 TbBool init_fades_table(void);
 TbBool init_alpha_table(void);
 void init_colours(void);
-// Registered with render_overlay.h's RenderOverlayCallbacks; kept as a
+// Kept as a
 // no-op now that there's nothing left to sync (see its definition's
 // comment in vidmode.c).
 void sync_render_globals(void);
@@ -220,11 +212,9 @@ extern struct TbSpriteSheet *button_sprites;
 extern struct TbSpriteSheet *winfont;
 #define FRONTEND_FONTS_COUNT 4
 extern struct TbSpriteSheet *frontend_font[FRONTEND_FONTS_COUNT];
-#if (BFDEBUG_LEVEL > 0)
 #define TESTFONTS_COUNT 12
 extern struct TbSpriteSheet *testfont[TESTFONTS_COUNT];
 extern unsigned char *testfont_palette[3];
-#endif
 
 /* frontend_sprite moved from kfx_frontend's gui_draw.h/gui_draw.c (stage
    13.3, docs/refactor/stage-13-enforce-and-document.md) -- written by

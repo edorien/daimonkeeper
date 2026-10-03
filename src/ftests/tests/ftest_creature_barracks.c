@@ -5,6 +5,7 @@
 // creature_states.c), and map00011's script already leaves BARRACKS
 // fully available (ROOM_AVAILABLE(ALL_PLAYERS,BARRACKS,1,1)).
 #include "ftest_creature_barracks.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

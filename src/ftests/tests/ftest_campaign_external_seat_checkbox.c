@@ -1,6 +1,7 @@
-// The campaign/scenario select screen's "External agent" checkbox (fe_external_campaign, frontend.h),
-// mutually exclusive with the existing Spectate one. Unlike Spectate (game_callbacks-mediated, applied
-// directly in main_game.c::startup_network_game_tail()), this checkbox is consumed at the "Enter this land"
+// The campaign/scenario select screen's "Seat control" dropdown (Human/Scripted/LLM), specifically its "LLM"
+// option (fe_external_campaign, frontend.h) -- mutually exclusive with "Scripted" (fe_spectate_campaign) by
+// construction, being one combo rather than independent checkboxes. Unlike Scripted (UiPort-mediated,
+// applied directly in main_game.c::startup_network_game_tail()), "LLM" is consumed at the "Enter this land"
 // moment, in kfx_frontend itself -- frontend_land_selection_enter_resolve() (frontmenu_select.c) arms the
 // local player's own seat the same way Skirmish arms a rival's slot
 // (skirmish_setup_install_for_play()/skirmish_setup_set_controller(SkirmishCtl_External), see
@@ -38,7 +39,7 @@ FTestActionResult cesc01_check(struct FTestActionArgs* const args);
 
 void ftest_campaign_external_seat_checkbox_pre_start()
 {
-    // What frontend_land_selection_enter_resolve() does when fe_external_campaign is checked -- the arming
+    // What frontend_land_selection_enter_resolve() does when "Seat control" is set to "LLM" -- the arming
     // step alone, not the whole "Enter this land" resolve (which also picks a campaign/level the ftest
     // harness's own level_file/level config already handles).
     net_pending_external_seats_clear();
@@ -65,7 +66,7 @@ FTestActionResult cesc01_check(struct FTestActionArgs* const args)
     net_release_external_seat(my_player_number);
 
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " campaign external seat checkbox check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
-    FTESTLOG("Test passed: the campaign select screen's External agent checkbox arms the local player's own "
+    FTESTLOG("Test passed: the campaign select screen's Seat control dropdown (LLM) arms the local player's own "
              "seat, claimed at level start the same way Skirmish's own External slots are");
     return FTRs_Go_To_Next_Action;
 }

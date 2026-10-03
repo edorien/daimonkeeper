@@ -40,9 +40,9 @@
 #include "room_data.h"
 #include "room_jobs.h"
 #include "map_utils.h"
-#include "sim_feedback.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -520,7 +520,7 @@ int64_t at_training_room(struct Thing *thing)
     if (!player_can_afford_to_train_creature(thing))
     {
         if (is_my_player_number(thing->owner))
-            sim_feedback->play_sound_message(SMsg_NoGoldToTrain, MESSAGE_DURATION_TREASURY);
+            audio_output_message(SMsg_NoGoldToTrain, MESSAGE_DURATION_TREASURY);
         set_start_state(thing);
         return 0;
     }
@@ -559,7 +559,7 @@ CrStateRet training(struct Thing *thing)
     {
         SYNCDBG(19,"Ending training %s index %" PRId64 "; cannot afford",thing_model_name(thing),(int64_t)thing->index);
         if (is_my_player_number(thing->owner))
-            sim_feedback->play_sound_message(SMsg_NoGoldToTrain, MESSAGE_DURATION_TREASURY);
+            audio_output_message(SMsg_NoGoldToTrain, MESSAGE_DURATION_TREASURY);
         remove_creature_from_work_room(thing);
         set_start_state(thing);
         return CrStRet_ResetFail;

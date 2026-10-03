@@ -1,0 +1,44 @@
+/* DisplayHostPort entries: see ports/display_host_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+// Lifecycle. ensure() is called every frame (idempotent -- cheaply
+// detects an unchanged window/renderer and returns) and gates the rest
+// of the per-frame block below: PresentFrame() only calls begin_frame/
+// submit/render when it returns true, so a failed backend init (or a
+// null window/renderer) safely skips them for that frame rather than
+// calling into an inactive context. renderer_destroying() must run
+// before the SDL_Renderer it was created against is destroyed -- the
+// ImGui SDLRenderer3 backend holds references into it.
+KFX_PORT_RET(TbBool, imgui_ensure, (struct SDL_Window *window, struct SDL_Renderer *renderer), (window, renderer), false)
+KFX_PORT_VOID(imgui_renderer_destroying, (void), ())
+// Per-frame, bracketing submit() -- RendererSoftware::PresentFrame is
+// the single call site for all three, inside its reentrancy guard.
+KFX_PORT_VOID(imgui_begin_frame, (void), ())
+// kfx_frontend's own submission entry point (FrontendImGuiFrame).
+KFX_PORT_VOID(imgui_submit, (void), ())
+KFX_PORT_VOID(imgui_render, (void), ())
+// Input -- bflib_inputctrl.cpp's poll loop / bflib_mspointer.cpp.
+KFX_PORT_VOID(imgui_process_event, (const union SDL_Event *event), (event))
+KFX_PORT_RET(TbBool, imgui_is_active, (void), (), false)
+// True while the current frontend screen is entirely ImGui-owned (docs/
+// refactor/renderer/05-imgui-owned-menu-backdrop.md's migrated states)
+// or the in-game parchment map is up -- RendererSoftware::PresentFrame()
+// checks this to skip its own legacy framebuffer blit for those
+// screens; bflib_mspointer.cpp checks the same thing to skip the
+// legacy cursor draw, not just when ImGui happens to want the mouse.
+KFX_PORT_RET(TbBool, imgui_screen_owned, (void), (), false)
+// Phase A proof-of-concept only: show imgui_demo.cpp's demo window so
+// the backend wiring can be exercised interactively (§7 Phase A exit
+// criteria).
+KFX_PORT_VOID(imgui_set_demo_visible, (TbBool visible), (visible))
+/* kfx_render's vidmode.c: the current UI scale values (see bflib_video.h).
+   Unwired, 16 units per pixel everywhere (display_host_port.c). */
+KFX_PORT_RETS(const struct VideoScaleValues *, get_video_scale_values, (void), (), return unscaled_video_scale_values();)
+/* gui_draw.c's slab tile drawing, RendererDrawSlabBackground()'s fallback
+   while no UI-renderer sub-backend is active. */
+KFX_PORT_VOID(draw_slab_background_immediate, (int64_t pos_x, int64_t pos_y, int64_t width, int64_t height), (pos_x, pos_y, width, height))

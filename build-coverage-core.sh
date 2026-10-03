@@ -27,7 +27,7 @@ if [ ! -f "$CORE_FILES/keeperfx.cfg" ] || [ ! -d "$CORE_FILES/data" ]; then
 fi
 
 JOBS="$(nproc 2>/dev/null || echo 4)"
-UNIT_TARGETS="kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest"
+UNIT_TARGETS="kfx_platform_utest kfx_config_utest kfx_content_utest kfx_pathfinding_utest kfx_sim_utest kfx_ai_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest"
 
 if [ "${SKIP_UNIT:-0}" != "1" ]; then
     echo "==> [coverage] Configuring (native Linux, instrumented)"

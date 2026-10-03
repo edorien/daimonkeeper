@@ -26,6 +26,7 @@
 
 #include "kfx_sim_state.h"
 #include "renderer/RendererManager.h"
+#include "local_state.h"
 #include "post_inc.h"
 
 /******************************************************************************/

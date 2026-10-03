@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "net_game.h"
+#include "packets.h"
 #include "player_data.h"
 #include "player_utils.h"
 #include "dungeon_data.h"
@@ -111,38 +112,4 @@ TEST_CASE_METHOD(DropFixture, "humans_only ignores computer players; a dropped h
     kfx_sim_state.players[1].allocflags |= PlaF_OriginallyHuman; // AI took over a dropped human
     CHECK_FALSE(player_is_victory_candidate(&kfx_sim_state.players[1]));
     CHECK(victory_candidates_fully_allied(false));
-}
-
-// Upstream #5317 (multiplayer -packetload): a replay header records which player each
-// network user controlled; restore_users_from_packet_save() rebuilds that user<->player
-// mapping (and each user's name) so the replayed packets reach the right players.
-TEST_CASE_METHOD(DropFixture, "restore_users_from_packet_save maps recorded users to their players", "[kfx_net][net_game][replay]") {
-    std::memset(&kfx_net_state.packet_save_head, 0, sizeof(kfx_net_state.packet_save_head));
-    std::memset(kfx_net_state.packet_save_head.user_players, -1, sizeof(kfx_net_state.packet_save_head.user_players));
-    kfx_net_state.packet_save_head.players_exist = (1 << 0) | (1 << 2);
-    kfx_net_state.packet_save_head.user_players[1] = 2; // user 1 drove player 2
-    kfx_net_state.packet_save_head.user_players[0] = 0; // the host drove player 0
-    std::snprintf(kfx_net_state.packet_save_head.user_names[1], sizeof(kfx_net_state.packet_save_head.user_names[1]), "Guest");
-    my_player_number = 0;
-
-    restore_users_from_packet_save();
-
-    CHECK(get_net_user_player_number(1) == 2);
-    CHECK(get_net_user_player_number(0) == 0);
-    CHECK(kfx_sim_state.players[2].user_id == 1);
-    CHECK(std::string(kfx_sim_state.players[2].player_name) == "Guest");
-}
-
-TEST_CASE_METHOD(DropFixture, "restore_users_from_packet_save ignores a user mapped to a player the file says did not exist", "[kfx_net][net_game][replay]") {
-    std::memset(&kfx_net_state.packet_save_head, 0, sizeof(kfx_net_state.packet_save_head));
-    std::memset(kfx_net_state.packet_save_head.user_players, -1, sizeof(kfx_net_state.packet_save_head.user_players));
-    kfx_net_state.packet_save_head.players_exist = (1 << 0);
-    kfx_net_state.packet_save_head.user_players[0] = 0;
-    kfx_net_state.packet_save_head.user_players[3] = 4; // player 4 not in players_exist
-    my_player_number = 0;
-
-    restore_users_from_packet_save();
-
-    CHECK(get_net_user_player_number(0) == 0);
-    CHECK(get_net_user_player_number(3) == -1);
 }

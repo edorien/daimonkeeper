@@ -23,6 +23,7 @@
 #include "slab_data.h"
 #include "kfx_sim_state.h"
 #include "kfx_config_state.h"
+#include "config_creature.h"
 
 #include <cstring>
 
@@ -265,4 +266,24 @@ TEST_CASE_METHOD(ResetSimState, "calculate_gold_digged_out_of_slab_with_single_h
 
     // base gold = (10*60)/30 == 20; gold = 60 - (30/10)*20 == 60-60 == 0 -> clamped to 1
     CHECK(calculate_gold_digged_out_of_slab_with_single_hit(10, slb) == 1);
+}
+
+// creature_stats_get_from_thing/get_creature_model_flags moved here from
+// kfx_config's config_creature.c (refactor pass 2, S05).
+TEST_CASE_METHOD(ResetSimState, "creature_stats_get_from_thing/get_creature_model_flags resolve the thing's model, falling back to slot 0 and no flags when it's out of range", "[kfx_sim][thing_stats]") {
+    struct Thing *thing = thing_get(1);
+    kfx_config_state.conf.crtr_conf.model_count = 3;
+    creature_stats_get(2)->model_flags = CMF_IsEvil;
+
+    thing->model = 2;
+    CHECK(creature_stats_get_from_thing(thing) == creature_stats_get(2));
+    CHECK(get_creature_model_flags(thing) == CMF_IsEvil);
+
+    thing->model = 0;
+    CHECK(creature_stats_get_from_thing(thing) == creature_stats_get(0));
+    CHECK(get_creature_model_flags(thing) == 0);
+
+    thing->model = 3; // == model_count
+    CHECK(creature_stats_get_from_thing(thing) == creature_stats_get(0));
+    CHECK(get_creature_model_flags(thing) == 0);
 }

@@ -39,7 +39,6 @@
 #include "post_inc.h"
 
 // Maximum number of messages that can be queued at once.
-int64_t g_speech_queue_limit = 4;
 
 namespace {
 
@@ -120,7 +119,7 @@ bool already_in_queue(const Message & msg)
 
 bool push_queue(std::unique_ptr<Message> msg)
 {
-	if (g_message_queue.size() >= (size_t)g_speech_queue_limit) {
+	if (g_message_queue.size() >= (size_t)kfx_runtime_settings.speech_queue_limit) {
 		SYNCDBG(8, "message queue full");
 		return false;
 	} else if (g_current_message && g_current_message->is(*msg)) {

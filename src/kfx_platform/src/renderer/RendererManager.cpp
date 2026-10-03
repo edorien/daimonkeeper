@@ -1,5 +1,6 @@
 #include "pre_inc.h"
 #include "renderer/RendererManager.h"
+#include "port_check.h"
 #include "renderer/RendererSoftware.h"
 #include "renderer/RendererGpu3D.h"
 #include "renderer/WorldFrameRecorder.h"
@@ -11,6 +12,7 @@
 #include "renderer/ITextRenderer.h"
 #include "renderer/IUIRenderer.h"
 #include "bflib_vidraw.h"   // LbSpriteDraw*Immediate
+#include "ports/display_host_port.h"
 #include "post_inc.h"
 
 static IRenderer*   s_active_renderer = nullptr;
@@ -20,46 +22,6 @@ static bool s_framebuffer_redirected = false; // RendererSwapFramebufferTarget()
 static unsigned char s_draw_colour = 0;
 static int64_t s_draw_flags = 0;
 
-static void noop_draw_slab_background_immediate(int64_t pos_x, int64_t pos_y, int64_t width, int64_t height) {}
-static const struct RendererDrawCallbacks default_renderer_draw_callbacks = {
-    &noop_draw_slab_background_immediate,
-};
-const struct RendererDrawCallbacks *renderer_draw_callbacks = &default_renderer_draw_callbacks;
-
-void set_renderer_draw_callbacks(const struct RendererDrawCallbacks *callbacks)
-{
-    renderer_draw_callbacks = callbacks ? callbacks : &default_renderer_draw_callbacks;
-}
-
-// Safe no-op defaults, same idiom as default_renderer_draw_callbacks above
-// -- active before main.cpp::setup_game() registers kfx_frontend's real
-// FrontendImGui* functions (e.g. the "legal screens, intro" presents that
-// happen ahead of that point), and in every *_utest binary, which never
-// calls set_renderer_imgui_callbacks() at all.
-static TbBool noop_imgui_ensure(struct SDL_Window *window, struct SDL_Renderer *renderer) { (void)window; (void)renderer; return 0; }
-static void noop_imgui_void(void) {}
-static void noop_imgui_process_event(const union SDL_Event *event) { (void)event; }
-static TbBool noop_imgui_bool(void) { return 0; }
-static void noop_imgui_set_demo_visible(TbBool visible) { (void)visible; }
-static const struct RendererImGuiCallbacks default_renderer_imgui_callbacks = {
-    &noop_imgui_ensure,
-    &noop_imgui_void,       // renderer_destroying
-    &noop_imgui_void,       // begin_frame
-    &noop_imgui_void,       // submit
-    &noop_imgui_void,       // render
-    &noop_imgui_process_event,
-    &noop_imgui_bool,       // is_active
-    &noop_imgui_bool,       // want_capture_mouse
-    &noop_imgui_bool,       // want_capture_keyboard
-    &noop_imgui_bool,       // screen_owned
-    &noop_imgui_set_demo_visible,
-};
-const struct RendererImGuiCallbacks *renderer_imgui_callbacks = &default_renderer_imgui_callbacks;
-
-void set_renderer_imgui_callbacks(const struct RendererImGuiCallbacks *callbacks)
-{
-    renderer_imgui_callbacks = callbacks ? callbacks : &default_renderer_imgui_callbacks;
-}
 
 // Allocate a backend for the requested type, or nullptr if unknown.
 static IRenderer* create_renderer(RendererType type)
@@ -257,6 +219,18 @@ void    RendererSpriteLightClear(void)            { s_sprite_light = -1; }
 int64_t RendererSpriteLightGet(void)              { return s_sprite_light; }
 TbBool  RendererWorldFrameHasLighting(void)       { return ((s_world_capturing || s_overlay_capturing) && s_world_recorder.HasLighting()) ? 1 : 0; }
 
+static bool s_gpu_debug = false; // GPU_DEBUG: Vulkan validation layers
+
+void RendererSetGpuDebug(TbBool enabled)
+{
+    s_gpu_debug = (enabled != 0);
+}
+
+TbBool RendererGetGpuDebug(void)
+{
+    return s_gpu_debug ? 1 : 0;
+}
+
 void RendererSetTrueDepth(TbBool enabled)
 {
     s_true_depth = (enabled != 0);
@@ -388,6 +362,8 @@ static void RendererPresentFrame(void)
 {
     if (s_active_renderer != nullptr)
         s_active_renderer->PresentFrame();
+    // Debug log levels buffer their writes; get each frame's lines to disk.
+    LbLogFlush();
 }
 
 void RendererPresentGameFrame(void)
@@ -509,12 +485,12 @@ TbBool RendererScheduleScreenshot(const char* path, int64_t fmt)
 
 void RendererSetImGuiDemoVisible(TbBool visible)
 {
-    renderer_imgui_callbacks->set_demo_visible(visible);
+    display_imgui_set_demo_visible(visible);
 }
 
 TbBool RendererScreenOwned(void)
 {
-    return renderer_imgui_callbacks->screen_owned();
+    return display_imgui_screen_owned();
 }
 
 void* RendererCreateDynamicTexture(int64_t width, int64_t height)
@@ -578,7 +554,7 @@ static KfxDrawState ambient_draw_state(void)
 void RendererDrawSlabBackground(int64_t x, int64_t y, int64_t width, int64_t height)
 {
     IUIRenderer* ui = active_ui_renderer();
-    if (ui == nullptr) { renderer_draw_callbacks->draw_slab_background_immediate(x, y, width, height); return; }
+    if (ui == nullptr) { display_draw_slab_background_immediate(x, y, width, height); return; }
     ui->SubmitSlabBackground((int64_t)x, (int64_t)y, (int64_t)width, (int64_t)height);
 }
 

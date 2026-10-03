@@ -6,7 +6,7 @@
 // load_default_creaturemodel_config()/swap_creature() both funnel into
 // a static load_creaturemodel_config() that constructs real paths via
 // get_game_file_path_fmt() across several FGrp_* locations and
-// sim_feedback->get_level_number(), with no caller-supplied path -- same
+// the current level number, with no caller-supplied path -- same
 // class of gap as config_settings_test.cpp's load_settings(). Only
 // swap_creature()'s upfront bounds validation (which returns false
 // before any file I/O) is tested here; load_default_creaturemodel_config()
@@ -65,7 +65,7 @@ TEST_CASE_METHOD(ResetConfigState, "change_max_health_of_creature_kind fails for
     CHECK_FALSE(change_max_health_of_creature_kind(1, 500));
 }
 
-TEST_CASE_METHOD(ResetConfigState, "change_max_health_of_creature_kind updates health via saturate_set_signed even though it reports failure -- config_reload_callbacks' default do_to_all_things_of_class_and_model returns 0", "[kfx_config][config_crtrmodel]") {
+TEST_CASE_METHOD(ResetConfigState, "change_max_health_of_creature_kind updates health via saturate_set_signed even though it reports failure -- SimPort's unwired do_to_all_things_of_class_and_model returns 0", "[kfx_config][config_crtrmodel]") {
     kfx_config_state.conf.crtr_conf.model_count = 2;
     struct CreatureModelConfig *crconf = creature_stats_get(1);
     crconf->health = 100;

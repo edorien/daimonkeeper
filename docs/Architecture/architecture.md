@@ -25,13 +25,18 @@ src/
 ├── ftests/                  ← functional-test scaffolding (exempt tier)
 ├── kfx_platform/            { include/ , src/ , CMakeLists.txt }
 ├── kfx_config/              { include/ , src/ , CMakeLists.txt }
+├── kfx_content/             { include/ , src/ , CMakeLists.txt }
+├── kfx_model/               { include/ , CMakeLists.txt }   (header-only)
+├── kfx_pathfinding/         { include/ , src/ , CMakeLists.txt }
 ├── kfx_sim/                 { include/ , src/ , CMakeLists.txt }
+├── kfx_ai/                  { include/ , src/ , CMakeLists.txt }
 ├── kfx_render/              { include/ , src/ , CMakeLists.txt }
 ├── kfx_net/                 { include/ , src/ , CMakeLists.txt }
 ├── kfx_game/                { include/ , src/ , CMakeLists.txt }
 ├── kfx_frontend/            { include/ , src/ , CMakeLists.txt }
 ├── kfx_script/              { include/ , src/ , CMakeLists.txt }
-└── kfx_apploop/             { include/ , src/ , CMakeLists.txt }
+├── kfx_apploop/             { include/ , src/ , CMakeLists.txt }
+└── kfx_editor/              { include/ , src/ , CMakeLists.txt }
 ```
 
 Every `src/kfx_<name>/` directory is a real CMake `OBJECT` library target whose
@@ -69,6 +74,9 @@ a library **below** it. Enforced in CI by
             │  kfx_render    3D engine, lighting, textures, video        │
             └────────────────────────────────────────────────────────────┘
             ┌────────────────────────────────────────────────────────────┐
+            │  kfx_ai        computer-player AI (a client of the sim)    │
+            └────────────────────────────────────────────────────────────┘
+            ┌────────────────────────────────────────────────────────────┐
             │  kfx_sim       simulation core: map/thing/creature/room/   │
             │                player/dungeon                               │
             └────────────────────────────────────────────────────────────┘
@@ -76,8 +84,14 @@ a library **below** it. Enforced in CI by
             │  kfx_pathfinding  Ariadne routing/pathfinding (see §12.1)   │
             └────────────────────────────────────────────────────────────┘
             ┌────────────────────────────────────────────────────────────┐
-            │  kfx_config    config loading + the callback "interface"   │
-            │                structs (see §5)                            │
+            │  kfx_model     header-only layouts: struct Thing/Map/SlabMap│
+            └────────────────────────────────────────────────────────────┘
+            ┌────────────────────────────────────────────────────────────┐
+            │  kfx_content   the editors' .cfg content layer (cfgc_*)    │
+            └────────────────────────────────────────────────────────────┘
+            ┌────────────────────────────────────────────────────────────┐
+            │  kfx_config    config loading + the ports (the cross-layer │
+            │                "interface" layer, see §5)                  │
             └────────────────────────────────────────────────────────────┘
             ┌────────────────────────────────────────────────────────────┐
             │  kfx_platform  OS/SDL integration (bflib_*), globals.h,    │
@@ -90,8 +104,8 @@ The authoritative rank list lives in
 `LIBRARY_ORDER` (lowest → highest):
 
 ```
-kfx_platform, kfx_config, kfx_pathfinding, kfx_sim, kfx_render, kfx_net,
-kfx_game, kfx_frontend, kfx_script, kfx_apploop, app_entry
+kfx_platform, kfx_config, kfx_content, kfx_model, kfx_pathfinding, kfx_sim, kfx_ai,
+kfx_render, kfx_net, kfx_game, kfx_frontend, kfx_script, kfx_apploop, kfx_editor, app_entry
 ```
 
 **Special ranks.** `kfx_script`, `kfx_apploop`, and `app_entry` are allowed to
@@ -100,12 +114,12 @@ depend on *anything below them*; nothing may depend on *them*.
 - `kfx_script` is wide by design — it is the mod-facing scripting API surface.
 - `kfx_apploop` holds the top-level `game_loop()` / `update()` session loop.
   It genuinely ties every other layer together each frame, so forcing it through
-  per-call callback injection (the pattern every other "layer X needs layer Y"
-  case uses) would mean adding ~40 new callback entries for what is the app's
+  per-call port entries (the pattern every other "layer X needs layer Y"
+  case uses) would mean adding ~40 new entries for what is the app's
   main loop, not domain logic. It is therefore its own top-ranked library.
 - `app_entry` (`main.cpp`) is the composition root: the only place that knows
-  about every layer at once, because that is where the callback tables are
-  implemented and wired up (see §5).
+  about every layer at once, because that is where every provider's port
+  table is installed (see §5).
 
 ### Why this shape
 
@@ -129,7 +143,7 @@ depend on. File counts are sources / headers.
 
 **Owns:** OS/SDL integration; the shared low-level vocabulary header; memory /
 zip / version helpers. **Depends on:** external libs only (SDL3, enet, zlib, …).
-**46 sources / 59 headers.**
+**55 sources / 75 headers.**
 
 - `bflib_*` — the legacy Bullfrog engine emulation layer: video
   (`bflib_video`, `bflib_vidraw*`, `bflib_vidsurface`), sprites
@@ -140,9 +154,8 @@ zip / version helpers. **Depends on:** external libs only (SDL3, enet, zlib, …
   (`bflib_coroutine`), timing (`bflib_datetm`), networking primitives
   (`bflib_enet`, `bflib_netsession`, `bflib_netsp`, `bflib_netconfig`), buttons
   (`bflib_guibtns`), movies (`bflib_fmvids`), CPU/crash (`bflib_cpu`,
-  `bflib_crash`), basics (`bflib_basics` — includes the cross-cutting
-  `quit_game` / `exit_keeper` / `FatalError` session-exit signals), and the
-  engine entry (`bflib_main`).
+  `bflib_crash`), and basics (`bflib_basics` — includes the cross-cutting
+  `quit_game` / `exit_keeper` / `FatalError` session-exit signals).
 - `globals.h` — the **shared vocabulary header**: coordinate structs
   (`Coord3d`, `Coord2d`, …) and ~55 domain-ID typedefs (`PlayerNumber`,
   `ThingIndex`, `RoomKind`, …) used identically by every other library. This is
@@ -153,16 +166,21 @@ zip / version helpers. **Depends on:** external libs only (SDL3, enet, zlib, …
   (C-callable facade over `IRenderer` / `RendererSoftware`). This is the
   "complete refactor of the platform seam" — the C engine talks to a swappable
   backend through these `extern "C"` entry points.
-- Helpers: `kfx_memory`, `custom_zip` (+ `MapZipCallbacks`), `cdrom`,
+- Helpers: `kfx_memory`, `custom_zip`, `cdrom`,
   `steam_api`, `moonphase`, `sound_manager`, `thread.hpp` / `mutex.hpp`,
   `platform.h`, `compiler_compat.h`, `version.h`, `creature_sounds.h`,
-  `mod_config_types.h`.
+  `mod_config_types.h`, `port_check.h` (port-table completeness checks
+  and the `KFX_UNWIRED` default-stub marker, §5.2).
+- **Its own ports** (`include/ports/`, §5): `FilePathPort`, `SoundHostPort`,
+  `InputFocusPort`, `DisplayHostPort` — what the platform code needs from the
+  game (file paths, music and sound state, focus predicates, the ImGui
+  context and UI scale).
 
 ### 2.2 `kfx_config` — config + the interface layer
 
-**Owns:** config-file loading, **and** the callback-struct declarations that let
-lower/adjacent layers reach state or behavior owned above them without a direct
-`#include`. **Depends on:** `kfx_platform`. **60 sources / 61 headers.**
+**Owns:** config-file loading, **and** the port declarations
+(`include/ports/*.def`, §5) that let lower/adjacent layers reach state or
+behavior owned above them without a direct `#include`. **Depends on:** `kfx_platform`. **44 sources / 48 headers.**
 
 - `config_*` loaders: `config.c` (the master), plus `config_creature`,
   `config_crtrmodel`, `config_crtrstates`, `config_cubes`, `config_effects`,
@@ -171,48 +189,36 @@ lower/adjacent layers reach state or behavior owned above them without a direct
   `config_settings`, `config_slabsets`, `config_sounds`, `config_spritecolors`,
   `config_strings`, `config_terrain`, `config_textures`, `config_translation`,
   `config_trapdoor`, `config_campaigns`, `config_compp`.
-- **Content layer** (`cfgc_*`; plan:
-  `docs/refactor/editor/fx-plans/03-content-editors-foundation.md`, the
-  campaign-specific pieces in `08-campaign-editor.md`): a second,
-  engine-decoupled read/write layer over the same `.cfg` files, built for the
-  in-game content editors (`kfx_editor`'s `content_*`, see §2.9a) — the
-  engine's own `config_*` loaders above never call into it, and it never
-  calls into them. `cfgc_document` (lossless line-level parse/edit of a
-  `.cfg` file), `cfgc_content`/`cfgc_stack` (typed field access, merging the
-  base/campaign/level layers), `cfgc_schema`/`cfgc_schema_engine` (+
-  `_creature`, `_campaign`, `_shapes`: reflection off the engine's own field
-  tables plus curated value shapes) and `cfgc_validate` (per-file
-  diagnostics: what the loader would clamp, ignore or skip), `cfgc_writer`/
-  `cfgc_writebatch` (patch-in-place writes that leave an untouched file byte
-  for byte; staged, atomic multi-file commits), `cfgc_help` (help text mined
-  from the base files' own comments) and `cfgc_strings` (the byte-preserving
-  language string files). The campaign/mappack family:
-  `cfgc_campaign_check` (the validator: level lists, shared folders, land
-  view, `[strings]`/`[speech]`), `cfgc_campaign_levels` (the level-list
-  model: add/move/remove, number allocation, default entries) and
-  `cfgc_campaign_edit` (new-campaign/pack text, giving a campaign its own
-  configuration folders, copying/moving a level's files).
-- **Callback-struct homes** (see §5): `config.h` (`ConfigReloadCallbacks`),
-  `sim_feedback.h`, `game_callbacks.h`, `net_callbacks.h`, `render_overlay.h`,
-  `script_hooks.h`, `sprite_lookup.h`, `dungeon_availability.h`,
-  `pathfinding_world.h` (`PathfindingWorldCallbacks`, 51 entries — the
-  largest, since it covers `kfx_pathfinding`'s entire map/door/creature/
-  `struct Thing` query surface, see §12.1). Each has a matching
-  `set_*_callbacks()` and a no-op default implementation in its `.c`.
+- The editors' content layer (`cfgc_*`) used to live here too; it is its own
+  library, `kfx_content`, since refactor pass 2 (§2.2b).
+- **Port homes** (see §5): `include/ports/<stem>.def` + generated
+  `<stem>.h` and `src/<stem>.c` (the unwired defaults) for `UiPort`,
+  `ScriptPort`, `SimPort`, `PathfindingWorldPort` (what `kfx_pathfinding`
+  needs from `kfx_sim`'s storage and rules, see §2.2a and §12.1), `GamePort`,
+  `RenderPort`, `AudioFeedbackPort`, `EditorPort`, `AiPort`,
+  `SessionLoopPort`, `NetPort`. `editor_types.h` holds the plain types
+  EditorPort's callers share with kfx_editor.
 - `kfx_config_state.h/.c` — `struct Configs` (the aggregate of all the
   `*.cfg` sub-structs) plus the config-owned field group migrated out of
   `struct Game`.
 - Misc: `highscores`, `value_util`, `instance_info`, `speech_ref`,
-  `init_thing`, `dungeon_availability`.
+  `init_thing`.
+- Per-player availability (what a player may build, cast or attract) and
+  the config functions that took a `struct Thing` moved to `kfx_sim` in
+  refactor pass 2's S05 (§2.3); only model-index lookups stay here.
 
 ### 2.2a `kfx_pathfinding` — Ariadne routing
 
 **Owns:** creature pathfinding/routing (the "Ariadne" system: triangulated
 navigation mesh, wall-hugging collision-avoidance movement). **Depends on:**
-`kfx_config`, `kfx_platform`. Extracted out of `kfx_sim` (see §12.1) via a
-`PathfindingWorldCallbacks` interface (`kfx_config/include/
-pathfinding_world.h`, 51 entries) that lets it query map/door/creature/
-`struct Thing` state without an upward `#include`.
+`kfx_model`, `kfx_config`, `kfx_platform`. Extracted out of `kfx_sim` (see
+§12.1) via `PathfindingWorldPort` (`kfx_config/include/ports/
+pathfinding_world_port.def`, 29 entries) that lets it query map/door/creature
+state without an upward `#include`. Since refactor pass 2's S08 it reads
+`struct Thing`/`struct Map`/`struct SlabMap` fields directly (the layouts
+are in `kfx_model`, §2.2c) and keeps its own copy of the map size in
+`kfx_pathfinding_state` (`ariadne_set_map_dimensions()`, called by
+`set_map_size()` and `reinit_level_after_load()`).
 
 - `ariadne`, `ariadne_edge`, `ariadne_findcache`, `ariadne_naviheap`,
   `ariadne_navitree`, `ariadne_points`, `ariadne_regions`, `ariadne_tringls`,
@@ -226,10 +232,58 @@ pathfinding_world.h`, 51 entries) that lets it query map/door/creature/
   Still `memset` in `clear_complete_game()` to match every sibling state
   struct's clear-on-level-reset invariant.
 
+### 2.2c `kfx_model` — header-only type layouts
+
+**Owns:** the layouts of `struct Thing` (`thing_types.h`, with its flag
+enums), `struct Map` (`map_types.h`) and `struct SlabMap`
+(`slab_types.h`), and pure `static inline` helpers over them
+(`small_around[]`, `small_around_index_in_direction`,
+`stl_slab_center_subtile`, `cross_x/y_boundary_first`, and the
+subtile-number encoding `kfx_subtile_number`/`kfx_stl_num_decode_x/y`
+parameterised by map size). **Depends on:** `kfx_platform` (`globals.h`,
+`bflib_basics.h`, `bflib_math.h`). A CMake `INTERFACE` target with no
+sources, ranked below `kfx_pathfinding` so Ariadne can read these fields
+directly (refactor pass 2, S08). `check_layering.py --strict` rejects any
+non-inline function prototype or `extern` data in its headers, so it can
+never reference a higher library. The storage (`things_data[]`, `map[]`,
+`slabmap[]`, `INVALID_THING`, `thing_get()`) stays in `kfx_sim`, whose
+`thing_data.h`/`map_data.h`/`slab_data.h` include these headers.
+
+### 2.2b `kfx_content` — the editors' config content layer
+
+**Owns:** the engine-decoupled read/write layer over `.cfg` files that the
+content editors use. **Depends on:** `kfx_config`, `kfx_platform` (it only
+includes `config_*.h` headers and `bflib_text.h`). **Used by:** `kfx_editor`
+and the (exempt) ftests only. Split out of `kfx_config` in refactor pass 2
+(`docs/refactor-pass2/stage-04-content-library.md`); its tests are
+`kfx_content_utest`. **16 sources / 13 headers.**
+
+The content layer (`cfgc_*`; plan:
+`docs/refactor/editor/fx-plans/03-content-editors-foundation.md`, the
+campaign-specific pieces in `08-campaign-editor.md`): a second,
+engine-decoupled read/write layer over the same `.cfg` files, built for the
+in-game content editors (`kfx_editor`'s `content_*`, see §2.9a) — the
+engine's own `config_*` loaders never call into it, and it never
+calls into them. `cfgc_document` (lossless line-level parse/edit of a
+`.cfg` file), `cfgc_content`/`cfgc_stack` (typed field access, merging the
+base/campaign/level layers), `cfgc_schema`/`cfgc_schema_engine` (+
+`_creature`, `_campaign`, `_shapes`: reflection off the engine's own field
+tables plus curated value shapes) and `cfgc_validate` (per-file
+diagnostics: what the loader would clamp, ignore or skip), `cfgc_writer`/
+`cfgc_writebatch` (patch-in-place writes that leave an untouched file byte
+for byte; staged, atomic multi-file commits), `cfgc_help` (help text mined
+from the base files' own comments) and `cfgc_strings` (the byte-preserving
+language string files). The campaign/mappack family:
+`cfgc_campaign_check` (the validator: level lists, shared folders, land
+view, `[strings]`/`[speech]`), `cfgc_campaign_levels` (the level-list
+model: add/move/remove, number allocation, default entries) and
+`cfgc_campaign_edit` (new-campaign/pack text, giving a campaign its own
+configuration folders, copying/moving a level's files).
+
 ### 2.3 `kfx_sim` — the simulation core
 
 **Owns:** the deterministic, network-synced game world. **Depends on:**
-`kfx_config`, `kfx_platform`. **83 sources / 80 headers** — the largest library.
+`kfx_config`, `kfx_platform`. **86 sources / 88 headers** — the largest library.
 
 - **Map/terrain:** `map_data`, `map_blocks`, `map_columns`, `map_ceiling`,
   `map_events`, `map_locations`, `map_utils`, `slab_data`.
@@ -246,13 +300,35 @@ pathfinding_world.h`, 51 entries) that lets it query map/door/creature/
 - **Rooms:** `room_data`, `room_util`, `room_list`, `room_entrance`,
   `room_garden`, `room_graveyard`, `room_jobs`, `room_lair`, `room_library`,
   `room_scavenge`, `room_treasure`, `room_workshop`, and the room-placement
-  engine `roomspace*` (`roomspace`, `roomspace_detection`,
-  `roomspace_prediction`).
-- **Players & computer AI:** `player_data`, `player_instances`, `player_utils`,
-  `player_computer*` (`player_computer`, `_comptask`, `_compevents`,
-  `_compchecks`, `_compprocs`, `_complookup`, `_computer_data`).
+  engine `roomspace*` (`roomspace`, `roomspace_detection`; the local dig
+  prediction, `roomspace_prediction`, is in `kfx_render` since refactor pass
+  2's S15).
+- **Players:** `player_data`, `player_instances`, `player_utils`,
+  `player_computer_state` (the computer players' state accessors; the AI
+  itself is `kfx_ai` since refactor pass 2's S14, §2.3a), and
+  `player_camera`: the synced cameras (`PlayerInfo.cameras[]`: zoom,
+  velocity, first-person tracking, the per-turn update and the packet camera
+  handlers), moved from `kfx_render`'s `engine_camera.c` and `kfx_net`'s
+  `packets.c` in refactor pass 2's S07. It also holds
+  `kfx_sim_view_signals`, per-player counters the sim bumps to ask the local
+  camera to re-seed, snap or retarget itself, and (since S10) the per-player
+  camera shake (`camera_deviate_quake/_jump`, once `struct Dungeon` fields). They sit outside
+  `kfx_sim_state`, so they are never saved, resynced or checksummed.
+  `any_player_close_enough_to_see()`/`lightning_is_close_to_player()` may gate
+  only unsynced effects (the camera they read advances on one machine for a
+  spectated seat).
+- **Lights:** `light_registry`, moved from `kfx_render`'s `light_data.c` in
+  refactor pass 2's S11. The lights live in `kfx_sim_state.light_registry`
+  (saved and resynced), with the shadow-cache slot allocation, since a
+  dynamic light can't be created when none is free. A change that makes the
+  shading stale records a dirty area in `light_shading_signals` (never
+  saved) instead of clearing `kfx_render`'s static light map; `kfx_render`
+  drains it before it shades. A load or resync calls
+  `light_registry_invalidate_shading()` to have everything rebuilt.
 - **Dungeons / powers:** `dungeon_data`, `dungeon_stats`, `power_hand`,
-  `power_process`, `power_specials`, `magic_powers`, `actionpt`, `tasks_list`.
+  `power_process`, `power_specials`, `magic_powers`, `actionpt`, `tasks_list`,
+  and `player_availability` (room/power/trap/door/creature availability per
+  player, moved from `kfx_config`'s `config_*.c` in refactor pass 2's S05).
 - `kfx_sim_state.h/.c` — the biggest state struct: map geometry,
   `columns_data[]`, `map[]`, `slabmap[]`, `things_data[]`, `cctrl_data[]`,
   `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, the
@@ -260,20 +336,61 @@ pathfinding_world.h`, 51 entries) that lets it query map/door/creature/
   the lowest-ranked consumer of.
 - `game_lifecycle`, `lvl_filesdk1` (level-file loading), `sim_scratch`.
 
+### 2.3a `kfx_ai` — the computer players
+
+**Owns:** the computer-player AI: processes, checks, events, tasks, the
+gold lookup. **Depends on:** `kfx_sim` and below. Split out of `kfx_sim` in
+refactor pass 2's S14 (docs/refactor-pass2/stage-14-ai-library-spike.md).
+**7 sources / 2 headers.**
+
+- `player_computer` (setup, per-turn processing, the process tables),
+  `player_comptask` (tasks and the game-action executor), `player_compprocs`,
+  `player_compchecks`, `player_compevents`, `player_complookup` (gold
+  veins), `player_computer_data` (the default process/check/event tables).
+- Its state stays in `kfx_sim_state` (`computer[]`, `computer_task[]`,
+  `gold_lookup[]`), typed by `kfx_sim`'s `player_computer_types.h`, so saves
+  and resyncs are unchanged. `kfx_sim` keeps the few accessors it needs
+  (`player_computer_state.c`: `get_computer_player()`,
+  `computer_player_invalid()`, `computer_dungeon()`, the trap-location and
+  held-thing records) and reaches the AI's behaviour only through
+  `kfx_config`'s `AiPort` (5 entries). Everything above `kfx_ai` calls it
+  directly.
+- Its own test binary, `kfx_ai_utest`.
+
 ### 2.4 `kfx_render` — rendering
 
 **Owns:** the 3D engine, lighting, textures, sprites, video modes. **Depends
-on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
+on:** `kfx_sim`, `kfx_platform`. **28 sources / 27 headers.**
 
 - Engine: `engine_render` (the big one — bucketed polygon/sprite renderer),
-  `engine_arrays`, `engine_camera`, `engine_textures`, `engine_lenses`,
-  `engine_redraw`, `engine_render_data`.
-- Lighting: `light_data` (owns `extern struct LightsShadows lish;`).
+  `engine_arrays`, `engine_camera` (the engine window and zoom scaling; the
+  synced cameras moved to `kfx_sim`'s `player_camera` in S07),
+  `engine_textures`, `engine_lenses`,
+  `engine_redraw` (the engine window, the map-fade blend, screen-to-map, the
+  mouse light; composing the frame moved to `kfx_frontend` in refactor pass
+  2's S13), `engine_render_data`.
+- Views drawn over the engine output: `render_power_hand` (the local
+  player's hand and the things it holds) and `render_creature_view` (the
+  possession view through the eye lens, and the attack swipe), moved out of
+  `kfx_sim` in refactor pass 2's S06.
+- Lighting: `light_data` shades the map from `kfx_sim`'s light registry and
+  owns the result, `extern struct LightsShadows lish;` (lighting tables,
+  shadow caches, static light map, subtile lightness). None of it is saved
+  or resynced: it is rebuilt from the registry (`light_drain_shading_signals()`,
+  run first thing in `update_light_render_area()`).
 - **Lens effect system (C++ class hierarchy):** `LensManager`, `LensEffect`
   (base) with `MistEffect`, `FlyeyeEffect`, `OverlayEffect`,
   `DisplacementEffect`, `PaletteEffect`, `LuaLensEffect`; plus `lens_api`.
 - Video: `vidmode` (+ `_data`), `vidfade`, `scrcapt`, `spritesheet`,
-  `custom_sprites`, `cursor_tag`, `local_camera`.
+  `custom_sprites`, `cursor_tag`, `local_camera` (the interpolated local
+  camera; it reads `kfx_sim_view_signals` before it reads its own state, and
+  owns the local view-type prediction, `local_view_type_settle()`),
+  `roomspace_prediction` (the local dig prediction).
+- `local_state.h/.c` — `struct LocalState local_state`, the local machine's
+  presentation state (predicted view type, palette fades, the map's UI hold,
+  minimap, the thing under the hand). Never saved, synced or checksummed.
+  Moved out of `kfx_sim` in refactor pass 2's S15; kfx_sim reaches it only
+  through `UiPort.local_view_transition` and `RenderPort.local_view_type_settle`.
 - `landview_image` — decodes a land-view background from a PNG (indexed as
   it is, anything else quantised to 256 colours) or the classic `.raw` +
   `.pal` pair; shared by the game's own land-view loader (`kfx_frontend`)
@@ -285,8 +402,8 @@ on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
 
 ### 2.5 `kfx_net` — networking
 
-**Owns:** multiplayer networking and packet handling. **Depends on:**
-`kfx_sim`, `kfx_config`, `kfx_platform`. **17 sources / 15 headers.**
+**Owns:** multiplayer networking and the packet exchange. **Depends on:**
+`kfx_sim`, `kfx_config`, `kfx_platform`. **16 sources / 16 headers.**
 
 - Transport/session: `net_main`, `net_game`, `net_lobby`, `net_lan`,
   `net_holepunch`, `net_portforward` (UPnP/NAT-PMP), `net_matchmaking`,
@@ -294,7 +411,10 @@ on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
 - Exchange: `net_exchange_common`, `net_exchange_gameplay` (turn sync, chat,
   unpause), `net_resync` (raw-blob resync — see §6.2), `net_checksums`
   (host-vs-client desync detection).
-- Packets: `packets`, `packets_input`, `packets_cheats`, `packets_misc`.
+- Packets: `packets` (the turn's exchange, pause, resync gating) and
+  `packets_misc` (packet storage, the local pause command). Applying the
+  packets and the replay file moved to `kfx_game` in refactor pass 2's
+  S12.
 - `save_catalogue`, `kfx_net_state.h/.c` (packets array, input-lag turn
   count, active-player count, packet save/load state, desync-debug snapshots +
   checksums).
@@ -303,33 +423,45 @@ on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
 
 **Owns:** game-loop orchestration, level scripting data/CRUD, save/load.
 **Depends on:** `kfx_sim`, `kfx_render`, `kfx_net`, `kfx_config`.
-**15 sources / 15 headers.**
+**21 sources / 19 headers.**
 
-- `game_legacy` — `get_gameturn()` (a top hotspot, fan-in 329) and the
-  (now-near-empty) `struct Game` placeholder.
+- `game_legacy` — the (now-near-empty) `struct Game` placeholder and the
+  game/frontend resync blobs. (`get_gameturn()` used to be provided from
+  here; since refactor pass 2's S10 the turn is `kfx_sim_state.play_gameturn`,
+  see §5.2.)
 - `game_loop` — dungeon-destruction / level-end logic
   (`process_dungeon_destroy`).
 - `main_game` — level startup (`startup_network_game`,
   `faststartup_network_game`, `faststartup_saved_packet_game`), win/lose/resign
   (`winning_player_quitting`, `lose_level`, `resign_level`, `complete_level`),
   `clear_complete_game`, `init_seeds`.
+- Packet application (refactor pass 2, S12, from `kfx_net`):
+  `game_commands` (`process_packets()` and the per-user global, dungeon,
+  creature and map handlers), `game_commands_input` (dungeon-view clicks),
+  `game_commands_cheats` (cheat cursor states and the editor's packet
+  actions), and `game_replay` (the `-packetsave`/`-packetload` file and
+  `compute_replay_integrity()`). They read the player's modifier keys from
+  the packet (`PCtr_Mod*`, set by `kfx_frontend`'s `input()`), never from
+  the keyboard, and reach the UI through `UiPort`.
 - `game_saves`, `game_merge` (level visibility / next-level), `game_heap`,
   `sounds`, `console_cmd` (debug console — has the one accepted direct call
   into `update()`, see §8).
 - Level scripting: `lvl_script`, `lvl_script_commands` (+ `_old`),
   `lvl_script_conditions`, `lvl_script_value`, `lvl_script_lib`.
 - `kfx_game_state.h/.c` — level script + timers, campaign name,
-  `play_gameturn`, pause/frame-step, music, sound settings.
+  pause/frame-step, music, sound settings.
 
 ### 2.7 `kfx_frontend` — the UI
 
 **Owns:** menus, in-game panels, input handling. **Depends on:** `kfx_game`,
 `kfx_render`, `kfx_config`, `kfx_platform` (and reads sim state).
-**43 sources / 33 headers** — the largest file count.
+**72 sources / 66 headers.**
 
 - Screens: `front_simple` (main menu), `front_network`, `front_landview`
   (+ `_multiplayer`), `front_credits`, `front_easter`, `front_fmvids`,
-  `front_highscore`, `front_lvlstats` (+ `_data`), `front_input`,
+  `front_highscore`, `front_lvlstats` (+ `_data`), `front_input` (+
+  `front_input_roomspace`, the roomspace-cursor keys, moved out of `kfx_sim`
+  in refactor pass 2's S06),
   `front_torture` (+ `_data`).
 - In-game menus: `frontmenu_ingame_evnt` (+ `_data`), `frontmenu_ingame_map`,
   `frontmenu_ingame_opts` (+ `_data`), `frontmenu_ingame_tabs` (+ `_data`),
@@ -339,6 +471,19 @@ on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
 - GUI widgets: `gui_boxmenu`, `gui_draw`, `gui_frontbtns`, `gui_frontmenu`,
   `gui_msgs`, `gui_parchment`, `gui_soundmsgs`, `gui_tooltips`, `gui_topmsg`,
   `gui_vscroll`, `button_snapping`, `kjm_input`, `frontend.cpp`.
+- In-game frame: `frame_compose` (`keeper_screen_redraw()`,
+  `redraw_display()`: `kfx_render` draws the world view, then this lays the
+  status panel, GUI, compass, messages, boxes, tooltips, captions and debug
+  overlays over it, and runs the map fade) and `pointer_graphics` (which
+  pointer to show), moved from `kfx_render`'s `engine_redraw` in refactor
+  pass 2's S13.
+- `local_view` — the local player's view transitions (possession, passenger,
+  the parchment map and its UI hold, level start): kfx_sim reports each one
+  through `UiPort.local_view_transition` and this sets the palette fades,
+  menus and `LocalState` fields (refactor pass 2's S15; the blocks used to
+  sit in kfx_sim's player instances).
+- The port tables it provides (§5): `ui_port_impl.c`, `audio_port_impl.c`,
+  `display_host_port_impl.cpp`.
 - `kfx_frontend_state.h/.c` — GUI cheat boxes, flash-button, east-egg
   counters, `save_game_slot`, `time_delta`, land-map start.
 
@@ -346,7 +491,7 @@ on:** `kfx_sim`, `kfx_platform`. **26 sources / 25 headers.**
 
 **Owns:** Lua scripting bindings and the external HTTP API. **Deliberately wide
 access** — it is the mod-facing API surface. **Depends on:** anything below
-(rank 7). **15 sources / 9 headers.**
+(rank 7). **19 sources / 13 headers.**
 
 - Lua core: `lua_base`, `lua_params`, `lua_utils`, `lua_triggers` (event
   dispatch), `lua_cfg_funcs` (Lua-registered function dispatch).
@@ -364,8 +509,10 @@ access** — it is the mod-facing API surface. **Depends on:** anything below
 ### 2.9 `kfx_apploop` — the session loop
 
 **Owns:** the top-level per-frame session loop. **Depends on:** anything below
-(rank 8). **1 source / 1 header** — a single file, `game_session_loop.cpp`,
-extracted from `src/main.cpp` in stage 12.5.
+(rank 8). `game_session_loop.cpp`, extracted from `src/main.cpp` in stage
+12.5; `command_line.cpp` (`process_command_line()`,
+`set_default_startup_parameters()`, moved out of `main.cpp` in refactor pass
+2's S15); and its `SessionLoopPort` table (`session_loop_port_impl.cpp`).
 
 - `game_loop()` — the outer `while(!exit_keeper)` loop:
   `wait_at_frontend()` → per-level (heart-zoom setup → `keeper_gameplay_loop()`
@@ -381,7 +528,7 @@ extracted from `src/main.cpp` in stage 12.5.
 - Frame pacing: `find_frame_rate`, `keeper_wait_for_next_turn`,
   `keeper_screen_swap`, `display_should_be_updated_this_turn`,
   `update_gameplay_delta_time`.
-- `network_yield_*` — called **via** `NetCallbacks` by `kfx_net` while blocked
+- `network_yield_*` — called **via** `SessionLoopPort` by `kfx_net` while blocked
   on network I/O (kfx_net is lower-ranked than kfx_apploop, so it can't call
   these directly).
 
@@ -389,9 +536,11 @@ extracted from `src/main.cpp` in stage 12.5.
 
 **Owns:** the level editor, reachable from the main menu (Tools → Editor).
 **Depends on:** everything below (rank 9, the highest library; only
-`app_entry` ranks above it). Nothing includes it back; the one inbound edge is
-`main.cpp`, which calls `editor_frame()` from the ImGui frame callback and
-wires the `EditorCallbacks` / `EditorJournalCallbacks` implementations.
+`app_entry` ranks above it). Nothing includes it back. Lower libraries reach
+it through `EditorPort` (tabled in `editor_port_impl.cpp`, §5): kfx_apploop
+opens the session, kfx_frontend asks whether it is active, draws the content
+tools and calls `editorport_frame()` (→ `editor_frame()`) at the end of each
+ImGui frame, and kfx_game records placements in the undo journal.
 Full plan and history: `docs/refactor/editor/` (start with `00-overview.md`;
 open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/map_editor.txt`.
 
@@ -426,10 +575,11 @@ open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/map_editor.tx
   `docs/map_editor.txt`'s "Content editors" chapter): a second family of
   tools, reached from the main menu's own Tools list as well as the Map
   Editor's Tools menu, that edit configuration rather than the map — built
-  on `kfx_config`'s `cfgc_*` layer (see §2.2), not on the map-editing
+  on `kfx_content`'s `cfgc_*` layer (see §2.2b), not on the map-editing
   machinery above. `content_tools.cpp` is the host (window management,
-  dispatch by `ContentTool`, wired to the frontend through
-  `ContentToolsCallbacks`, `content_tools_callbacks.h`, `kfx_config`);
+  dispatch by `ContentTool`, wired to the frontend through `EditorPort`'s
+  `content_tools_*` entries; `ContentTool` is in `kfx_config`'s
+  `editor_types.h`);
   `content_picker.cpp` (target picker: campaign/pack, level, layer),
   `content_target.cpp` (`ConfigTarget`/`ContentCampaign`, the game's
   campaign lists turned into resolved directories), `content_struct.cpp` /
@@ -447,18 +597,21 @@ open items in `fx-plans/00-audit-and-index.md`). User guide: `docs/map_editor.tx
 ### 2.10 `app_entry` — `src/main.cpp` + `src/native_entry.cpp`
 
 **Owns:** the composition root. Two free-standing files under `src/` (aside
-from the exempt `ftests/`): `main.cpp` (**1,821 lines**) and the small
+from the exempt `ftests/`): `main.cpp` (about 650 lines) and the small
 `native_entry.cpp`.
 
-- `kfxmain()` → `LbBullfrogMain()`: log setup → `process_command_line` →
-  `LbTimerInit` → `RendererScreenInitialize` → `RendererInit(RENDERER_SOFTWARE)`
-  → `setup_game()` → `steam_api_init` → `api_init_server()` → `game_loop()` →
-  `reset_game` → renderer shutdown.
-- `setup_game()` — loads config, pushes resolved state down into `bflib_*`, and
-  wires **all** the callback tables (see §5).
-- `init_keeper`, `initial_setup`, and a large set of `static` callback-wrapper
-  functions that implement the `*Callbacks` tables (e.g.
-  `net_callbacks_*`, `game_callbacks_*`, `config_reload_*`, `sim_feedback_*`).
+- `kfxmain()` → `LbBullfrogMain()`: log setup → `wire_ports()` →
+  `process_command_line` → `LbTimerInit` → `RendererScreenInitialize` →
+  `RendererInit(RENDERER_SOFTWARE)` → `setup_game()` → `steam_api_init` →
+  `api_init_server()` → `game_loop()` → `reset_game` → renderer shutdown.
+- `wire_ports()` — installs every provider's port table (one
+  `set_*_port()` line each) and the function-pointer providers and value
+  sources, before anything else runs (see §5.2). The tables themselves and
+  their small wrappers live in the providers' `*_port_impl.c(pp)` files
+  since refactor pass 2's S15.
+- `setup_game()` — loads config and pushes resolved state down into `bflib_*`.
+- `init_keeper`, `initial_setup`, `reset_game`. Command-line parsing is
+  kfx_apploop's `command_line.cpp`.
 - `main.cpp` is the one translation unit that `#include`s headers from every
   layer — which is exactly the point: the cross-layer knowledge is isolated in
   a single file instead of being smeared across the codebase via `#include`.
@@ -480,8 +633,9 @@ The call chain from process start to a single game turn:
 main()  (OS)                                  [app_entry / native_entry.cpp]
 └─ kfxmain()                                  [app_entry / main.cpp]
    └─ LbBullfrogMain()                        [app_entry / main.cpp]
+      ├─ wire_ports()   ← installs every port table            [app_entry]
       ├─ process_command_line / LbTimerInit / Renderer*Init   [kfx_platform]
-      ├─ setup_game()   ← wires every *Callbacks table        [app_entry]
+      ├─ setup_game()   ← config load, bflib_* pushes         [app_entry]
       ├─ api_init_server()                                          [kfx_script]
       └─ game_loop()                                             [kfx_apploop]
          └─ while (!exit_keeper) {
@@ -491,7 +645,8 @@ main()  (OS)                                  [app_entry / native_entry.cpp]
                  │   ├─ poll_inputs() / input()                  [kfx_frontend]
                  │   ├─ exchange_packets()                       [kfx_net]
                  │   ├─ while (process_turn_time < 1.0)
-                 │   │    gameplay_loop_draw()                   [kfx_render]
+                 │   │    gameplay_loop_draw()                   [kfx_apploop]
+                 │   │     └─ keeper_screen_redraw()             [kfx_frontend]
                  │   └─ update()   ← THE per-turn dispatcher     [kfx_apploop]
                  └─ gameplay_loop_network()  (if network active) [kfx_net]
            }
@@ -501,7 +656,7 @@ main()  (OS)                                  [app_entry / native_entry.cpp]
 (`kfx_apploop/src/game_session_loop.cpp`):
 
 ```
-process_packets()            [kfx_net]
+process_packets()            [kfx_game]
 update_local_cameras()       [kfx_render]
 api_update_server()          [kfx_script]
    … if not paused …
@@ -522,15 +677,15 @@ update_footsteps_nearest_camera() [kfx_sim]
 PaletteFadePlayer()          [kfx_render]
 process_armageddon()         [kfx_sim]
 update_global_lighting()     [kfx_render]
-   (kfx_game_state.play_gameturn++)
+   (kfx_sim_state.play_gameturn++)
 message_update()             [kfx_frontend]
-update_all_players_cameras() [kfx_render]
+update_all_players_cameras() [kfx_sim]
 update_player_sounds()       [kfx_game]
 ```
 
 Note the shape: `kfx_apploop` orchestrates the tick and calls straight into the
 other layers (it's top-ranked, so it's allowed to). Every *other* cross-layer
-call in the game goes through a callback struct instead — that asymmetry is
+call in the game goes through a port instead — that asymmetry is
 deliberate (see the `kfx_apploop` note in §1).
 
 ---
@@ -574,9 +729,9 @@ by its library:
 
 | State struct         | Owner          | Key contents                                                                                                                                                                             |
 | -------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kfx_sim_state`      | `kfx_sim`      | `map[]`, `slabmap[]`, `columns_data[]`, `things_data[]`, `cctrl_data[]`, `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, random seeds, timers, mode/operation flags |
+| `kfx_sim_state`      | `kfx_sim`      | `map[]`, `slabmap[]`, `columns_data[]`, `things_data[]`, `cctrl_data[]`, `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, random seeds, timers, mode/operation flags; session values: `play_gameturn`, level numbers, `level_human_player`, `human_players_count`, `replay_active` |
 | `kfx_net_state`      | `kfx_net`      | `packets[]`, `input_lag_turns`, `active_players_count`, packet save/load state, desync snapshots + checksums                                                                             |
-| `kfx_game_state`     | `kfx_game`     | level script + timers, campaign name, `play_gameturn`, pause/frame-step, music, sound settings                                                                                           |
+| `kfx_game_state`     | `kfx_game`     | level script + timers, campaign name, pause/frame-step, music, sound settings                                                                                                             |
 | `kfx_config_state`   | `kfx_config`   | `struct Configs` (all `*.cfg` aggregates), texture-count constants                                                                                                                       |
 | `kfx_render_state`   | `kfx_render`   | active/applied lens, mouse-light position, `delta_time`, lighting state                                                                                                                  |
 | `kfx_frontend_state` | `kfx_frontend` | GUI cheat boxes, flash-button, east-egg counters, `save_game_slot`, `time_delta`                                                                                                         |
@@ -588,70 +743,134 @@ fixed serialization chain (see §6.2).
 
 ---
 
-## 5. Cross-layer interfaces (the callback pattern)
+## 5. Cross-layer interfaces (ports)
 
 This is the load-bearing mechanism of the whole refactor. When a lower-ranked
 layer needs something from a higher one (a state read, a UI action, a sound, a
 Lua event), the fix is **never** a raw `#include` of the higher header. It is
 one of:
 
-1. **A callback struct** — declared in the lower layer (in practice almost
-   always in `kfx_config`), implemented by the higher layer, wired up once in
-   `src/main.cpp` via a `set_*_callbacks()` call.
+1. **A port entry** — a function-pointer slot in a *port* declared low (in
+   `kfx_config` or, for the platform code, `kfx_platform`), implemented and
+   tabled by the higher *provider* library, installed once by
+   `src/main.cpp::wire_ports()`.
 2. **A narrow accessor function** the lower layer owns.
 3. **Moving the field/function** to whichever library is actually the
    lowest-ranked real consumer.
 
-### 5.1 The callback structs
+Until refactor pass 2's S15 the ports were consumer-grouped "callback
+structs" (`SimFeedbackCallbacks`, `GameCallbacks`, …) tabled in `main.cpp`;
+`docs/refactor-pass2/stage-15-ports-and-events.md` and the move ledger map
+each old entry to its port.
 
-Game-facing callback structs live in `kfx_config/include/` (the "interface
-layer"). Each has a `set_*_callbacks()` and a no-op default in its `.c`:
+### 5.1 The ports
 
-| Struct                         | Header                   | Lets (lower) call into (higher)                                                                                            |
-| ------------------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `ConfigReloadCallbacks`        | `config.h`               | `kfx_config` → sim/game (re-derive thing models, map dims, room kinds on config reload)                                    |
-| `SimFeedbackCallbacks`         | `sim_feedback.h`         | `kfx_sim` → frontend/game (error stats, on-screen msgs, sound/speech, roomspace key queries, roomspace-prediction queries) |
-| `GameCallbacks`                | `game_callbacks.h`       | `kfx_game` → frontend (cheat menus, debug overlays, GUI boxes, high-score, menu visibility, frontend-state save/load)      |
-| `NetCallbacks`                 | `net_callbacks.h`        | `kfx_net` → frontend/game/script (menu state, join/session UI, chat, Lua resync payloads)                                  |
-| `RenderOverlayCallbacks`       | `render_overlay.h`       | `kfx_render` → frontend/net (draw GUI/debug overlays, parchment, panel sprites)                                            |
-| `ScriptHookCallbacks`          | `script_hooks.h`         | `kfx_sim`/`kfx_game` → script/app (Lua `lua_on_*` events, `luafunc_*` dispatch, HTTP API events)                           |
-| `SpriteLookupCallbacks`        | `sprite_lookup.h`        | `kfx_config`/`kfx_sim` → render (resolve sprite indices)                                                                   |
-| `DungeonAvailabilityCallbacks` | `dungeon_availability.h` | `kfx_config` → sim (creature-availability queries)                                                                         |
+Each port has one provider library, which builds its table. Entry counts are
+from `docs/refactor-pass2/tools/callback_inventory.py` (2026-09-28: 15
+ports, 325 entries).
 
-Platform-level callback structs (declared in `kfx_platform`, also wired in
-`main.cpp`):
+| Port | Prefix | Provider | Entries | Lets (lower) call into (higher) |
+| --- | --- | --- | ---: | --- |
+| `UiPort` | `ui_` | kfx_frontend | 113 | sim/game/net/render/config → UI: menus and panels, on-screen and targeted messages, message boxes, tooltips, event buttons, objectives, cheat menus, high score, frontend-state save/load/resync, the network session screens, the local player's view transitions (`local_view_transition`) |
+| `ScriptPort` | `script_` | kfx_script | 38 | sim/game/net → Lua: `lua_on_*` events, `luafunc_*` dispatch, HTTP API events, the Lua resync payload |
+| `SimPort` | `simport_` | kfx_sim | 30 | config → sim: push a reloaded config value into live state (door/trap/room stats, research, creature health and speed), the slab set storage, level strings |
+| `PathfindingWorldPort` | `world_` | kfx_sim | 29 | pathfinding → sim: map/door/creature storage and rules for routing (§2.2a) |
+| `GamePort` | `game_` | kfx_game | 19 | config/sim/net/render → game: level end and bonus levels, campaign progress, game-state resync |
+| `RenderPort` | `render_` | kfx_render | 18 | config/sim/ai → render: cursor tagging, engine view and window, palettes, sprite lookups, the local view-type prediction |
+| `AudioFeedbackPort` | `audio_` | kfx_frontend | 12 | sim/game → sound messages, speech, thing samples |
+| `EditorPort` | `editorport_` | kfx_editor | 10 | apploop/frontend/game → the level editor: open it, is it active, its ImGui frame, the content tools, the undo journal |
+| `AiPort` | `ai_` | kfx_ai | 5 | sim → ai: make a player a computer keeper and back, drop a held thing, restart a build process |
+| `SessionLoopPort` | `loop_` | kfx_apploop | 5 | net/render → the session loop: network-yield hooks, host-packet timestamp, interpolation time |
+| `NetPort` | `netport_` | kfx_net | 4 | config/render → net: packet history (local lag compensation), matchmaking settings |
 
-| Struct                 | Header               | Purpose                                                                                |
-| ---------------------- | -------------------- | -------------------------------------------------------------------------------------- |
-| `SoundStateCallbacks`  | `bflib_sndlib.h`     | audio → game (music track, frame skip, random seeds, creature sounds, mod sound lists) |
-| `MapZipCallbacks`      | `custom_zip.h`       | zip I/O → game (resolve map-zip paths)                                                 |
-| `ReceiveCallbacks`     | `bflib_netsession.h` | enet session → net (receive path)                                                      |
-| `InputFocusPredicates` | `bflib_inputctrl.h`  | input → game (focus-loss / pause / possession predicates)                              |
-| `RendererImGuiCallbacks` | `renderer/RendererManager.h` | renderer → frontend (ImGui context lifecycle/per-frame submission/input feed; `kfx_frontend`'s `gui/FrontendImGui.cpp` owns the real ImGui context — see [05-imgui-linkage-consolidation.md](../refactor/renderer/05-imgui-linkage-consolidation.md)) |
+Platform ports (declared in `kfx_platform/include/ports/`):
 
-### 5.2 Wiring (composition root)
+| Port | Prefix | Provider | Entries | Purpose |
+| --- | --- | --- | ---: | --- |
+| `SoundHostPort` | `soundhost_` | kfx_game | 19 | audio → game: music track, frame skip, random seeds, creature sounds, mod sound lists, audio init and mute |
+| `DisplayHostPort` | `display_` | kfx_frontend | 11 | renderer/input → frontend: the ImGui context `kfx_frontend` owns (`imgui_*`, see [05-imgui-linkage-consolidation.md](../refactor/renderer/05-imgui-linkage-consolidation.md)), UI scale values, the slab-background fallback draw |
+| `InputFocusPort` | `focus_` | kfx_sim | 8 | input → focus-loss, pause and possession predicates |
+| `FilePathPort` | `filepath_` | kfx_config | 4 | sound/input/zip → install, mod and level file paths |
 
-`src/main.cpp::setup_game()` assembles every table from static wrapper
-functions defined in `main.cpp` and registers them:
+### 5.2 Anatomy and wiring
+
+A port is listed once, in `<lib>/include/ports/<stem>.def`, one X-macro line
+per entry:
 
 ```c
-set_input_focus_predicates(&input_focus_predicates);
-set_renderer_imgui_callbacks(&renderer_imgui_callbacks_impl);
-set_sound_state_callbacks(&sound_state_callback_table);
-set_map_zip_callbacks(&map_zip_callback_table);
-set_power_grant_revoke_callbacks(add_power_to_player, remove_power_from_player);
-set_config_reload_callbacks(&config_reload_callbacks_impl);
-set_script_hook_callbacks(&script_hooks_impl);
-set_sim_feedback_callbacks(&sim_feedback_impl);
-set_sprite_lookup_callbacks(&sprite_lookup_impl);
-set_render_overlay_callbacks(&render_overlay_impl);
-set_dungeon_availability_callbacks(&dungeon_availability_impl);
-set_net_callbacks(&net_callbacks_impl);
-set_game_callbacks(&game_callbacks_impl);
+KFX_PORT_VOID(turn_off_menu, (MenuID mnu_idx), (mnu_idx))
+KFX_PORT_RET(TbBool, is_active, (void), (), false)          /* unwired: false */
+KFX_PORT_RETX(const char *, lua_resync_export, (size_t *len), (len), "", if (len) *len = 0;)
+KFX_PORT_RETS(char *, get_music_track, (void), (), static char track = -1; return &track;)
 ```
 
+`..VOIDX`/`..RETX` add a statement the unwired default runs first;
+`KFX_PORT_RETS` is for a default that returns something non-constant. The
+`.def` drives:
+
+- `ports/<stem>.h` — `struct <Port>` (+ `KFX_ASSERT_PORT_TABLE`), the
+  installed pointer (never NULL), `<stem>_defaults`, `set_<stem>()`, and one
+  `static inline` wrapper per entry, `PREFIX##name`, which callers use:
+  `ui_turn_off_menu(GMnu_MAIN)`.
+- `src/<stem>.c` — the unwired defaults, each starting with
+  `KFX_UNWIRED("<Port>")`.
+- `tests/ports_defaults_test.cpp` (kfx_config's and kfx_platform's) — one
+  `TEST_CASE` per port calling every default and checking its return.
+
+The provider defines the table in `src/<provider>/src/<stem>_impl.c(pp)`
+(with any small wrappers it needs), and `main.cpp` installs it.
+`wire_ports()` also installs the function-pointer providers
+(`set_emulate_integer_overflow_provider`, …) and the read-only value
+sources: `set_gameturn_source(&kfx_sim_state.play_gameturn)` (kfx_platform's
+`get_gameturn()`, a `static inline` load used by every log macro) and
+`set_config_level_sources()` (the level numbers kfx_config's per-level config
+loading needs). A value source is a `const` pointer to a field owned higher
+up: reading it is one load, and it can't go stale after a save load or
+resync replaces the state wholesale (refactor pass 2, S10):
+
+```c
+static TbBool wire_ports(void)
+{
+    set_file_path_port(&kfx_config_file_path_port);
+    set_sound_host_port(&kfx_game_sound_host_port);
+    ...
+    set_editor_port(&kfx_editor_port);
+    set_emulate_integer_overflow_provider(&emulate_integer_overflow);
+    set_gameturn_source(&kfx_sim_state.play_gameturn);
+    set_config_level_sources(&kfx_sim_state.selected_level_number, &kfx_sim_state.loaded_level_number);
+    ...
+    return ports_verify_wired();
+}
+```
+
+`LbBullfrogMain()` calls it right after opening the log file, before
+`process_command_line()`, so nothing that runs at startup can reach an
+unwired default (wiring late used to drop keeperfx.cfg's INGAME_RES and
+MATCHMAKING_SERVER silently). Value pushes that need loaded config
+(`bf_sprfnt_set_language_lwrstr()`, …) stay in `setup_game()`.
+
+Safety nets (`kfx_platform/include/port_check.h`):
+
+- Provider tables are **designated initializers** (`.entry = &fn`), so a slot
+  can't be silently paired with the wrong member.
+- `ports_verify_wired()` checks that no slot of an installed table is NULL
+  (`KFX_TABLE_COMPLETE`) and logs each one; a FUNCTESTING build fails its
+  `-ftests` run on an incomplete table. Catch2 checks the defaults the same
+  way (`kfx_config/tests/port_tables_test.cpp`,
+  `kfx_platform/tests/port_check_test.cpp`).
+- At the Debug log level a call that reaches an unwired default is logged
+  once per entry.
+- Tests override entries with `ScopedPortOverride<T>`
+  (`kfx_config/tests/scoped_port_override.h`), which restores the previous
+  table on scope exit.
+
+There is no event dispatcher. Where several things react to one change, the
+change is one named entry and its provider does all of it (for example
+`UiPort.local_view_transition`, whose kfx_frontend implementation also sets
+kfx_render's palette fades).
+
 **Design consequence:** a lower layer can be compiled, reasoned about, and
-tested without ever seeing a higher layer's types. Callback signatures use only
+tested without ever seeing a higher layer's types. Port signatures use only
 `globals.h` vocabulary plus opaque forward declarations (`struct Thing;`,
 `struct PlayerInfo;`, `struct Camera;`) — never the higher layer's full header.
 This is what makes each library independently buildable and testable.
@@ -682,46 +901,61 @@ At all three call sites the per-library state structs are synced/saved/reset
 reach this by `#include`-ing `kfx_frontend_state.h`/`kfx_game_state.h`/
 `game_legacy.h` directly (a `kfx_net -> kfx_game`/`kfx_frontend` layering
 violation, previously an accepted residual — §8.2) — fixed by exporting/
-importing those three structs as opaque blobs through `NetCallbacks`
-instead (same pattern the file already used for the Lua resync payload),
-so the raw-blob wire format itself is unchanged but `net_resync.cpp` no
-longer needs the higher layers' headers to produce it.
+importing those three structs as opaque blobs through ports (`GamePort`,
+`UiPort`; `NetCallbacks` until refactor pass 2's S15) instead (same pattern
+the file already used for the Lua resync payload), so the raw-blob wire
+format itself is unchanged but `net_resync.cpp` no longer needs the higher
+layers' headers to produce it.
 
-Save-game loading tolerates a chunk-size mismatch
-(`hdr.len != sizeof(struct Game)` → WARNLOG + skip), so an old save loses only
-its (regenerable) lighting/shadow-cache snapshot, not player progress.
+**Layout versions (refactor pass 2, S09).** Every raw-serialized struct —
+`struct Game`, `kfx_sim_state`, `kfx_net_state`, `kfx_game_state`,
+`kfx_frontend_state`, `intralvl` — has a version and an
+expected size in `kfx_config/include/state_versions.h`.
+- Saves stamp the version into each chunk header. Loading first walks every
+  chunk (`validate_save_chunks()`), checking version, size and that the chunk
+  is complete. Only if all pass does it apply anything, so a save of another
+  layout is refused with the game untouched: the in-game load shows an error
+  box, and the save lists show such saves greyed out as "(other version)"
+  (`CEF_OtherVersion`).
+- Continue-replays go through the same check.
+- Network resync sends the versions in a header and rejects a mismatch before
+  parsing anything else.
+- There are no migrations: saves from before a version bump can't be loaded.
+  S09's own version 1 already refuses every earlier save.
 
-**Implication for contributors:** you can move *fields between* the state
-structs freely (that's how the refactor proceeded), but you cannot reorder or
-change the *on-disk / on-wire layout* of a struct without a save/migration
-concern.
+**Implication for contributors:** you can move fields between the state
+structs, but every such move changes a layout. A `_Static_assert` next to
+each struct fails the build until you bump its `*_VER` and update its
+`*_SIZE` in `state_versions.h`. Then add a line to the decisions table in
+`docs/refactor-pass2/README.md`, so the release notes say old saves won't
+load. The sizes are the same on every target (explicit `int64_t` fields,
+packed layouts).
 
 ---
 
 ## 7. Build system
 
-There are **three independent build definitions** — a file move or add must be
-reflected in all of them, or a build path silently stops compiling it
-(discovered in stage 0; see `docs/refactor/00-overview.md` §8).
+**CMake is the only build definition that compiles the game**, for every
+target: native Linux, Windows via MSVC/clang-cl (vcpkg), and Windows via
+mingw-w64 cross-compile (`build/cmake/toolchains/mingw32.cmake`). It is what
+CI runs.
 
-| Build file                                    | Target                                                                                              | How it lists sources                                       |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `CMakeLists.txt` + `src/kfx_*/CMakeLists.txt` | Windows (MSVC/clang-cl via vcpkg) **and** native Linux                                              | `file(GLOB ...)` per library — **auto-follows file moves** |
-| `Makefile`                                    | Windows, mingw-w64 cross-compile (what CI's `build-prototype.yml` + release workflows actually use) | hand-maintained `OBJS = \` flat list                       |
-| `linux.mk`                                    | native Linux, via `scripts/setup-linux-thirdparty.sh` (git-ignored `third_party/` staging, no sudo) | hand-maintained `KFX_SOURCES = \` flat list                |
+| Build file                                    | Role                                                                                     | How it lists sources                                       |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `CMakeLists.txt` + `src/kfx_*/CMakeLists.txt` | compiles `keeperfx` and the Catch2 test binaries, every platform                          | `file(GLOB ...)` per library — **auto-follows file moves** |
+| `Makefile` (+ `build/make/*.mk`)              | asset/data pipeline only (`pkg-languages`, `pkg-gfx`, `pkg-enginegfx`, `pkg-assemble`)    | its `OBJS` list is unmaintained; don't use it to compile   |
 
-Only the CMake path auto-follows a `git mv`. **Every physical file add/move
-needs a matching edit to `Makefile`'s `OBJS` and `linux.mk`'s `KFX_SOURCES`**,
-or those two build paths silently drop the file.
+`linux.mk` and `scripts/setup-linux-thirdparty.sh` are gone. A new or moved
+source file needs no build-file edit: re-run the CMake configure step
+(`cmake <build-dir>`) so the glob sees it.
 
 ### 7.1 CMake target shape
 
-- Each `src/kfx_*/CMakeLists.txt` globs its own `src/*.c|*.cpp` into an
-  `OBJECT` library, and emits **two variants** — a `std` and an `_hvlog` one —
-  differing only in the `BFDEBUG_LEVEL` compile definition (0 vs 10), carried
-  by the INTERFACE targets `kfx_bfdebug_std` / `kfx_bfdebug_hvlog`.
-- The root `CMakeLists.txt` links the matching variant of every OBJECT library
-  into **two executables**: `keeperfx` and `keeperfx_hvlog`. `KFX_SOURCES_REMAINING`
+- Each `src/kfx_*/CMakeLists.txt` globs its own `src/*.c|*.cpp` into a
+  `STATIC` library, compiled once, with the logging settings of the INTERFACE
+  target `kfx_log_opts`.
+- The root `CMakeLists.txt` links every library (`KFX_OBJECT_LIBS`, reversed
+  into link order) into **one executable**, `keeperfx`. `KFX_SOURCES_REMAINING`
   (what's left after the libraries carve themselves out) is exactly
   `main.cpp` + `src/ftests/*`.
 - `kfx_common_opts` (INTERFACE) carries the shared include paths for all nine
@@ -797,7 +1031,7 @@ include) were fixed once real functional-test coverage of both files existed
 to verify the fix against (`docs/refactor/todo/ftest-fake-multiplayer.md`,
 `docs/refactor/todo/remove-remaining-layering-violations.md`): `net_resync.cpp`
 now exports/imports `game`/`kfx_game_state`/`kfx_frontend_state` as opaque
-blobs via `NetCallbacks` instead of `#include`-ing their headers directly
+blobs via ports (`GamePort`/`UiPort`) instead of `#include`-ing their headers directly
 (same pattern already used there for the Lua resync payload), and
 `bflib_enet.cpp` now includes a new `kfx_platform/include/bflib_netsp.h`
 (holding `struct NetSP` and its supporting types) instead of reaching up into
@@ -889,11 +1123,11 @@ room/slab stats from config on hot paths.)
 | `creature_control_get_from_thing` | `kfx_sim`    | 707    |
 | `thing_is_invalid`                | `kfx_sim`    | 536    |
 | `thing_model_name`                | `kfx_sim`    | 368    |
-| `get_gameturn`                    | `kfx_game`   | 329    |
+| `get_gameturn`                    | `kfx_platform` (inline) | 329    |
 | `room_is_invalid`                 | `kfx_sim`    | 226    |
 | `thing_exists`                    | `kfx_sim`    | 184    |
 | `get_map_block_at`                | `kfx_sim`    | 180    |
-| `creature_stats_get_from_thing`   | `kfx_config` | 171    |
+| `creature_stats_get_from_thing`   | `kfx_sim`    | 171    |
 | `thing_is_creature`               | `kfx_sim`    | 151    |
 | `dungeon_invalid`                 | `kfx_sim`    | 141    |
 
@@ -914,8 +1148,11 @@ room/slab stats from config on hot paths.)
 Ariadne (`ariadne*`, 9 `.c` + 9 `.h` files, see §2.2a) is a **standalone
 `kfx_pathfinding` library**, ranked between `kfx_config` and `kfx_sim`.
 Every world-query dependency it has on `kfx_sim` goes through
-`PathfindingWorldCallbacks` (`kfx_config/include/pathfinding_world.h`, 51
-entries): map/door queries, the `CreatureControl`-embedded
+`PathfindingWorldPort` (`kfx_config/include/ports/pathfinding_world_port.def`;
+`PathfindingWorldCallbacks` until refactor pass 2's S15; then 51 entries, 29
+since refactor pass 2's S08 moved the `struct Thing`/`Map`/
+`SlabMap` layouts into `kfx_model` and the plain field accessors went):
+map/door queries, the `CreatureControl`-embedded
 `struct Navigation`/`struct Ariadne` slot, direct `struct Thing` field
 access (creature position/move-angle, read and written throughout the
 wall-hugging/A* collision code — ~450 call sites, the piece originally
@@ -946,33 +1183,49 @@ API needs versioning for mod compatibility.
 
 ### 
 
-### 12.3 Two executables differ only in `BFDEBUG_LEVEL`
+### 12.3 One executable; logging is a runtime option
 
-`keeperfx` (BFDEBUG_LEVEL=0) and `keeperfx_hvlog` (BFDEBUG_LEVEL=10) are the
-same code with a different debug verbosity. That's why every library emits a
-`std` and an `_hvlog` OBJECT variant. If a library ever reads `BFDEBUG_LEVEL`
-in a way that changes behavior (not just log volume), it needs two build
-variants — which the current setup already supports.
+There used to be two executables, `keeperfx` and `keeperfx_hvlog`, differing
+only in `BFDEBUG_LEVEL` (0 or 10), with every library compiled twice. Since
+refactor pass 2's stage S02 (`docs/refactor-pass2/stage-02-logging-option.md`)
+there is one, and how much it logs is the `LOG_LEVEL` option
+(Off/Normal/Debug/Debug max, applied live):
+
+- `*DBG(lv, …)` lines print when `lv` is below the runtime threshold
+  (Normal 0, Debug 10, Debug max 20) and below the compile-time
+  `KFX_DEBUG_CEILING` (globals.h, 20). Former `#if (BFDEBUG_LEVEL > N)` blocks
+  are `if (KFX_DEBUG_ON(N))`. **Debug-only code must never write simulation
+  state**, so the log level can't desync a multiplayer game.
+- Off writes nothing but crash reports. Lines written before `keeperfx.cfg`
+  is read are buffered until the level is known. Debug and above buffer their
+  writes and flush once per frame and on errors.
+- GPU validation is its own restart-only option, `GPU_DEBUG`.
+- `BFDEBUG_LEVEL` stays defined (0) only so upstream code compiles; merged
+  `#if (BFDEBUG_LEVEL > N)` blocks are dead until converted.
+- Functional-test runs pin Normal, whatever keeperfx.cfg says. There is no
+  `keeperfx_hvlog` any more, not even as a copy (the external launcher's
+  heavy-log option is obsolete).
 
 ---
 
 ## 13. Conventions for contributors
 
 1. **Never break the layering.** If you find yourself wanting a lower library to
-   `#include` a higher one, stop. Add a callback struct (in `kfx_config`), a
-   narrow accessor, or move the field/function to the lowest-ranked real
-   consumer. `check_layering.py --strict` will reject a raw back-edge.
-2. **A new file must be added to all three build definitions.** Drop it in the
-   right `src/kfx_<name>/src/` (CMake auto-globs it), then add it to
-   `Makefile`'s `OBJS` and `linux.mk`'s `KFX_SOURCES`. Forgetting the latter two
-   silently drops the file from the Windows and native-Linux builds.
+   `#include` a higher one, stop. Add a port entry (§5), a narrow accessor,
+   or move the field/function to the lowest-ranked real consumer. `check_layering.py --strict` will reject a raw back-edge.
+2. **A new file just goes in the right `src/kfx_<name>/src/`.** CMake globs
+   it (re-run the configure step so the glob sees it); no other build file
+   lists sources (§7).
 3. **World state belongs in the owning library's state struct**, not in
    `struct Game` (which is a serialization placeholder). Respect the raw-blob
    serialization invariant (§6.2) — moving fields between structs is fine;
    changing on-disk/on-wire layout is not, without a migration story.
-4. **Cross-layer knowledge lives in `main.cpp`.** If a new callback is needed,
-   declare the struct in the lower layer (usually `kfx_config`), implement the
-   wrapper in `main.cpp`, and register it in `setup_game()`.
+4. **A new cross-layer call is a port entry.** Add one line to the
+   provider's port `.def` (the unwired default comes with it), and the real
+   function to the provider's table in its `*_port_impl.c(pp)`; callers use
+   the `PREFIX_name()` wrapper. A new port also needs its generated header
+   and defaults file (copy an existing one) and one `set_*_port()` line plus
+   a `KFX_TABLE_COMPLETE` line in `main.cpp`. §5.2.
 5. **`kfx_apploop` and `kfx_script` are top-ranked by design.** Put genuinely
    cross-cutting per-frame orchestration in `kfx_apploop`; put mod-facing API
    surface in `kfx_script`. Don't add new top-ranked libraries casually.
@@ -989,7 +1242,7 @@ variants — which the current setup already supports.
 | Why a boundary is where it is                     | [`docs/refactor/`](../refactor/) stage docs (historical)                                  |
 | How the layering check works / accepted residuals | this doc (§8) + [`scripts/check_layering.py`](../../scripts/check_layering.py)            |
 | Map / thing / slab data structures                | [`docs/data_structure.md`](../data_structure.md)                                          |
-| How to build (all three build paths)              | [`docs/build_instructions.txt`](../build_instructions.txt) §7                             |
+| How to build                                      | [`docs/build_instructions.txt`](../build_instructions.txt) §7                             |
 | How to write a functional test                    | [`src/ftests/README.md`](../../src/ftests/README.md)                                      |
 | How the `KFX_BUILD_TESTS` unit-test/coverage harness works | [`testing-harness.md`](testing-harness.md)                                       |
 | How to merge upstream (dkfans/keeperfx) into this fork | [`upstream-merge-workflow.md`](upstream-merge-workflow.md)                          |

@@ -429,16 +429,18 @@ int64_t LbFileLengthRnc(const char *fname)
     if (!handle) {
         return -1;
     }
-#if (BFDEBUG_LEVEL > 19)
-    LbSyncLog("%s: file opened\n", fname);
-#endif
+    if (KFX_DEBUG_ON(19))
+    {
+        LbSyncLog("%s: file opened\n", fname);
+    }
     rnc_header header = {0};
     int64_t header_read = LbFileRead(handle, &header, sizeof(header));
     if (header_read != sizeof(header))
     {
-#if (BFDEBUG_LEVEL > 19)
-        LbSyncLog("%s: cannot read even %" PRId64 " bytes\n", fname, (int64_t)sizeof(header));
-#endif
+        if (KFX_DEBUG_ON(19))
+        {
+            LbSyncLog("%s: cannot read even %" PRId64 " bytes\n", fname, (int64_t)sizeof(header));
+        }
         if (header_read < 0)
         {
             LbFileClose(handle);
@@ -454,14 +456,16 @@ int64_t LbFileLengthRnc(const char *fname)
     }
     if (header.signature == RNC_SIGNATURE)
     {
-#if (BFDEBUG_LEVEL > 19)
-        LbSyncLog("%s: file size from RNC header: %" PRIu64 " bytes\n", fname, (uint64_t)(header.packed_size));
-#endif
+        if (KFX_DEBUG_ON(19))
+        {
+            LbSyncLog("%s: file size from RNC header: %" PRIu64 " bytes\n", fname, (uint64_t)(header.packed_size));
+        }
         flength = ntohl(header.unpacked_size);
     } else {
-#if (BFDEBUG_LEVEL > 19)
-        LbSyncLog("%s: file is not RNC\n", fname);
-#endif
+        if (KFX_DEBUG_ON(19))
+        {
+            LbSyncLog("%s: file is not RNC\n", fname);
+        }
         flength = LbFileLengthHandle(handle);
     }
     LbFileClose(handle);

@@ -34,7 +34,9 @@
 #include "custom_sprites.h"           // is_custom_icon, get_custom_icon_frame_count
 #include "config_strings.h"           // GUIStr_MapN/S/E/W
 #include "local_camera.h"             // get_local_camera
+#include "frame_compose.h"
 
+#include "local_state.h"
 #include "post_inc.h"
 
 #include <algorithm> // std::min -- draw_event_markers_horizontal

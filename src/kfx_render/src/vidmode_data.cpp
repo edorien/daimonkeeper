@@ -52,8 +52,7 @@ struct TbSpriteSheet *winfont = NULL;
 struct TbSpriteSheet *frontend_font[FRONTEND_FONTS_COUNT] = {};
 MenuID vid_change_query_menu = GMnu_CREATURE_QUERY1;
 
-#if (BFDEBUG_LEVEL > 0)
-// Declarations for font testing screen (debug version only)
+// Declarations for font testing screen (reachable at the Debug log level)
 struct TbSpriteSheet *testfont[TESTFONTS_COUNT];
 unsigned char *testfont_palette[3];
 
@@ -62,7 +61,6 @@ struct TbLoadFiles testfont_load_files[] = {
   {"data/palette.dat",   (unsigned char **)&testfont_palette[1],NULL,                                           0, 0, 0},
   {"",                    NULL,                                 NULL,                                           0, 0, 0},
 };
-#endif
 
 struct TbLoadFiles gui_load_files_320[] = {
   {"data/slab0-0.dat",   (unsigned char **)&gui_slab,           NULL,                                           0, 0, 0},

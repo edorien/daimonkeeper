@@ -37,8 +37,6 @@
 #include "creature_states_pray.h"
 #include "custom_sprites.h"
 #include "dungeon_data.h"
-#include "game_callbacks.h"
-#include "script_hooks.h"
 #include "lens_api.h"
 #include "lvl_script_commands.h"
 #include "vidmode.h"
@@ -51,7 +49,6 @@
 #include "power_hand.h"
 #include "power_specials.h"
 #include "room_util.h"
-#include "sim_feedback.h"
 #include "sounds.h"
 #include "spdigger_stack.h"
 #include "thing_data.h"
@@ -59,7 +56,10 @@
 #include "thing_navigate.h"
 #include "thing_objects.h"
 #include "thing_physics.h"
+#include "player_availability.h"
 
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -4959,7 +4959,7 @@ static void play_message_process(struct ScriptContext *context)
 
     if (context->player_idx == my_player_number)
     {
-        game_callbacks->script_play_message(param_is_string,msgtype_id,msg_id,filename);
+        ui_script_play_message(param_is_string,msgtype_id,msg_id,filename);
     }
 }
 
@@ -5331,7 +5331,6 @@ static void set_power_configuration_check(const struct ScriptLine *scline)
         default:
             value->longs[2] = atoi(new_value);
     }
-    #if (BFDEBUG_LEVEL >= 7)
     {
         if ( (powervar == 5) && (value->chars[3] != -1) )
         {
@@ -5346,7 +5345,6 @@ static void set_power_configuration_check(const struct ScriptLine *scline)
             SCRIPTDBG(7, "Setting power %s property %s to %" PRId64, powername, property, (int64_t)(number_value));
         }
     }
-    #endif
     value->shorts[0] = power_id;
     value->bytes[2] = powervar;
 
@@ -5455,19 +5453,19 @@ static void set_power_configuration_process(struct ScriptContext *context)
             WARNMSG("Unsupported power configuration, variable %" PRId64 ".", (int64_t)(context->value->bytes[2]));
             break;
     }
-    config_reload_callbacks->update_powers_tab_to_config();
+    ui_update_powers_tab_to_config();
     struct PlayerInfo *player = get_my_player();
     if (player->view_type == PVT_DungeonTop)
     {
-        if (game_callbacks->is_menu_active(GMnu_SPELL))
+        if (ui_menu_is_active(GMnu_SPELL))
         {
-            game_callbacks->turn_off_ingame_menu(GMnu_SPELL);
-            game_callbacks->turn_on_ingame_menu(GMnu_SPELL);
+            ui_turn_off_menu(GMnu_SPELL);
+            ui_turn_on_menu(GMnu_SPELL);
         }
-        else if (game_callbacks->is_menu_active(GMnu_SPELL2))
+        else if (ui_menu_is_active(GMnu_SPELL2))
         {
-            game_callbacks->turn_off_ingame_menu(GMnu_SPELL2);
-            game_callbacks->turn_on_ingame_menu(GMnu_SPELL2);
+            ui_turn_off_menu(GMnu_SPELL2);
+            ui_turn_on_menu(GMnu_SPELL2);
         }
     }
 }
@@ -5602,9 +5600,7 @@ static void set_increase_on_experience_check(const struct ScriptLine* scline)
 static void set_increase_on_experience_process(struct ScriptContext* context)
 {
     int64_t variable = context->value->shorts[0];
-  #if (BFDEBUG_LEVEL > 0)
     const char *varname = on_experience_desc[variable - 1].name;
-  #endif
     switch (variable)
     {
     case 1: //SizeIncreaseOnExp
@@ -5699,9 +5695,7 @@ static void set_player_modifier_process(struct ScriptContext* context)
     struct Dungeon* dungeon;
     int64_t mdfrdesc = context->value->shorts[0];
     int64_t mdfrval = context->value->shorts[1];
-    #if (BFDEBUG_LEVEL > 0)
-        const char *mdfrname = get_conf_parameter_text(modifier_desc,mdfrdesc);
-    #endif
+    const char *mdfrname = get_conf_parameter_text(modifier_desc,mdfrdesc);
     PlayerNumber plyr_idx = context->player_idx;
     dungeon = get_dungeon(plyr_idx);
     switch (mdfrdesc)
@@ -5993,7 +5987,7 @@ static void quick_message_check(const struct ScriptLine* scline)
 
 static void quick_message_process(struct ScriptContext* context)
 {
-    sim_feedback->message_add(context->value->chars[6], context->value->shorts[4], kfx_sim_state.quick_messages[context->value->ulongs[0]]);
+    ui_message_add(context->value->chars[6], context->value->shorts[4], kfx_sim_state.quick_messages[context->value->ulongs[0]]);
 }
 
 static void display_message_check(const struct ScriptLine* scline)
@@ -6015,7 +6009,7 @@ static void display_message_check(const struct ScriptLine* scline)
 
 static void display_message_process(struct ScriptContext* context)
 {
-    sim_feedback->message_add(context->value->chars[7], context->value->shorts[4], get_string(context->value->ulongs[0]));
+    ui_message_add(context->value->chars[7], context->value->shorts[4], get_string(context->value->ulongs[0]));
 }
 
 static void clear_message_check(const struct ScriptLine* scline)
@@ -6779,7 +6773,7 @@ static void run_lua_code_check(const struct ScriptLine* scline)
 static void run_lua_code_process(struct ScriptContext* context)
 {
     const char* code = script_strval(context->value->longs[0]);
-    script_hooks->execute_lua_code_from_script(code);
+    script_execute_lua_code_from_script(code);
 }
 
 static void set_generate_speed_check(const struct ScriptLine* scline)
@@ -6898,20 +6892,20 @@ static void tutorial_flash_button_process(struct ScriptContext* context)
     {
         if (context->value->shorts[0] > GID_NONE)
         {
-            int64_t button_id = game_callbacks->get_button_designation(context->value->shorts[0], context->value->shorts[1]);
+            int64_t button_id = ui_get_button_designation(context->value->shorts[0], context->value->shorts[1]);
             if (button_id >= 0)
             {
-                game_callbacks->gui_set_button_flashing(button_id, context->value->longs[1]);
+                ui_gui_set_button_flashing(button_id, context->value->longs[1]);
             }
         }
         else
         {
-            game_callbacks->gui_set_button_flashing(context->value->shorts[1], context->value->longs[1]);
+            ui_gui_set_button_flashing(context->value->shorts[1], context->value->longs[1]);
         }
     }
     else
     {
-        game_callbacks->gui_set_button_flashing(context->value->shorts[1], context->value->longs[1]);
+        ui_gui_set_button_flashing(context->value->shorts[1], context->value->longs[1]);
     }
 }
 

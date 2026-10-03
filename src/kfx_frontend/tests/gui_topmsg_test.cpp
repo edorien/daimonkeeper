@@ -12,13 +12,13 @@
 // itself) -- added to gui_topmsg.h, the usual "add the missing
 // declaration" fix. erstat_check() needs get_gameturn() to land on a
 // multiple of 8 (its own "don't check more than every 7 turns" gate),
-// so this reuses kfx_platform's GetGameTurnFunc pattern-B fixture
-// (bflib_basics_test.cpp) rather than depending on real wall-clock/game
+// so this points get_gameturn()'s source (set_gameturn_source(), globals.h)
+// at a fake turn rather than depending on real wall-clock/game
 // state.
 #include <catch2/catch_test_macros.hpp>
 
 #include "gui_topmsg.h"
-#include "globals.h" // GameTurn/set_get_gameturn_provider
+#include "globals.h" // GameTurn/set_gameturn_source
 
 namespace {
 struct ResetErrorStats {
@@ -26,14 +26,13 @@ struct ResetErrorStats {
 };
 
 GameTurn g_fake_turn = 0;
-GameTurn fake_gameturn() { return g_fake_turn; }
 
 struct ResetErrorStatsWithGameTurn : ResetErrorStats {
     ResetErrorStatsWithGameTurn() {
         g_fake_turn = 0;
-        set_get_gameturn_provider(fake_gameturn);
+        set_gameturn_source(&g_fake_turn);
     }
-    ~ResetErrorStatsWithGameTurn() { set_get_gameturn_provider(nullptr); }
+    ~ResetErrorStatsWithGameTurn() { set_gameturn_source(nullptr); }
 };
 
 // erstat[] is declared `extern ...[]` (incomplete array type), so

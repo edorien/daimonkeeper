@@ -33,7 +33,7 @@
 #include "slab_data.h"
 #include "dungeon_data.h"
 #include "player_data.h"
-#include "player_computer.h"
+#include "player_computer_types.h"
 #include "globals.h"
 
 #include <cstring>
@@ -180,20 +180,6 @@ inline struct PlayerInfo *make_player_active(PlayerNumber plyr_idx)
     player->allocflags |= PlaF_Allocated;
     player->is_active = 1;
     return player;
-}
-
-// Makes player plyr_idx exist (via make_player_active) and wires up its
-// Computer2 slot's ->dungeon pointer to the matching real Dungeon slot
-// (also stamping Dungeon::owner, since that's likewise left at its
-// zeroed/aliasing-with-0 default otherwise). Computer2 itself lives in
-// kfx_sim_state.computer[] and is already zeroed by ResetSimAndConfig.
-inline struct Computer2 *make_computer_player(PlayerNumber plyr_idx)
-{
-    make_player_active(plyr_idx);
-    struct Computer2 *comp = get_computer_player(plyr_idx);
-    computer_set_dungeon(comp, get_dungeon(plyr_idx));
-    computer_dungeon(comp)->owner = plyr_idx;
-    return comp;
 }
 
 // Pushes thing_idx onto the front of a per-dungeon creature list

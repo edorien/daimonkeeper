@@ -71,8 +71,8 @@ file(GLOB KEEPERFX_SOURCES_CXX "src/*.cpp")
 # appended directly into KEEPERFX_SOURCES_C/CXX: several src/kfx_*/
 # libraries call into it (ftest_srand()/ftest_update()) under #ifdef
 # FUNCTESTING, so it needs to be linked wherever those libraries are --
-# see KFX_FUNCTESTING's own comment for why that means keeperfx/
-# keeperfx_hvlog only, never alongside KFX_BUILD_TESTS.
+# see KFX_FUNCTESTING's own comment for why that means keeperfx only,
+# never alongside KFX_BUILD_TESTS.
 file(GLOB_RECURSE KEEPERFX_FTESTS_C "src/ftests/*.c")
 file(GLOB_RECURSE KEEPERFX_FTESTS_CXX "src/ftests/*.cpp")
 # The platform-exclusive OS-integration files (windows.cpp/steam_api.cpp/
@@ -95,17 +95,10 @@ message(STATUS "We are using ${CMAKE_CXX_COMPILER_ID}")
 # exactly src/main.cpp and the src/ftests/*.c functional-test scaffolding,
 # both deliberately never migrated into a library.
 #
-# keeperfx and keeperfx_hvlog need genuinely different BFDEBUG_LEVEL
-# compiled into nearly every translation unit (globals.h's SYNCDBG/
-# WARNDBG/etc macros key off it, and globals.h is included almost
-# everywhere) -- not just linked differently. OBJECT library sources are
-# compiled once according to that library's own settings, so sharing one
-# set of kfx_* libraries between both executables would silently drop
-# keeperfx_hvlog's enhanced debug logging across the whole codebase. Each
-# library is therefore built twice, once per BFDEBUG_LEVEL -- exactly the
-# same total compile work the old single GLOB_RECURSE approach already
-# did (every source file was already compiled twice, once per
-# add_executable call).
+# There is one executable, keeperfx. How much it logs is the LOG_LEVEL game
+# option (Off/Normal/Debug/Debug max), a runtime setting; the separate
+# heavy-log build (keeperfx_hvlog, BFDEBUG_LEVEL=10) is gone, so every
+# library is compiled once. See docs/refactor-pass2/stage-02-logging-option.md.
 # ---------------------------------------------------------------------------
 
 # Kept identical to Makefile's WARNFLAGS (line 448) -- this list had drifted
@@ -116,8 +109,7 @@ set(WARNFLAGS -Wall -W -Wshadow -Wno-sign-compare -Wno-unused-parameter -Wno-may
 set(GNU_COMPILER_FLAG -march=x86-64 -fno-omit-frame-pointer -fmessage-length=0)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wimplicit")
 
-# Compile settings shared by every kfx_* library and by keeperfx/
-# keeperfx_hvlog's own directly-owned sources (KFX_SOURCES_REMAINING) --
+# Compile settings shared by every kfx_* library and by keeperfx's own directly-owned sources (KFX_SOURCES_REMAINING) --
 # an INTERFACE library so there's exactly one place to change a flag,
 # instead of ~20 target_compile_options calls drifting apart. Also carries
 # every external dependency (SDL3 + the rest of Dependencies.cmake's
@@ -128,13 +120,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wimplicit")
 # CURL_STATICLIB) through this same INTERFACE chain -- linking them here
 # doesn't duplicate anything at the final executable link, since OBJECT
 # libraries don't perform a real link step; kfx_link_dependencies() below
-# is what actually links them onto keeperfx/keeperfx_hvlog.
+# is what actually links them onto keeperfx.
 add_library(kfx_common_opts INTERFACE)
 target_compile_options(kfx_common_opts INTERFACE ${WARNFLAGS} ${GNU_COMPILER_FLAG})
 target_link_libraries(kfx_common_opts INTERFACE kfx_sdl3)
 # Individual kfx_* OBJECT libraries #include headers from these dependencies
 # directly (lua.h, AL/al.h, curl/curl.h, toml.h, json.h, minizip/unzip.h,
-# enet6/enet.h, astronomy.h, ...), not just the final keeperfx/keeperfx_hvlog
+# enet6/enet.h, astronomy.h, ...), not just the final keeperfx
 # executables -- so their INTERFACE_INCLUDE_DIRECTORIES need to reach every
 # OBJECT library's own compilation via this same INTERFACE chain, mirroring
 # kfx_link_dependencies() (Dependencies.cmake) but with INTERFACE instead of
@@ -178,8 +170,11 @@ target_link_libraries(kfx_common_opts INTERFACE tinyfiledialogs)
 target_include_directories(kfx_common_opts INTERFACE
     "${CMAKE_SOURCE_DIR}/src/kfx_platform/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_config/include"
+    "${CMAKE_SOURCE_DIR}/src/kfx_content/include"
+    "${CMAKE_SOURCE_DIR}/src/kfx_model/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_pathfinding/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_sim/include"
+    "${CMAKE_SOURCE_DIR}/src/kfx_ai/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_render/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_net/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_game/include"
@@ -200,11 +195,14 @@ if(UNIX AND NOT APPLE)
     target_compile_options(kfx_common_opts INTERFACE $<$<COMPILE_LANGUAGE:C>:-Wno-absolute-value>)
 endif()
 
-# The two BFDEBUG_LEVEL variants (see block comment above).
-add_library(kfx_bfdebug_std INTERFACE)
-target_compile_definitions(kfx_bfdebug_std INTERFACE BFDEBUG_LEVEL=0)
-add_library(kfx_bfdebug_hvlog INTERFACE)
-target_compile_definitions(kfx_bfdebug_hvlog INTERFACE BFDEBUG_LEVEL=10)
+# Logging compile settings shared by every library and keeperfx itself.
+# BFDEBUG_LEVEL stays defined (0) only so that code merged from upstream,
+# which still uses #if (BFDEBUG_LEVEL > N) blocks, compiles; such blocks are
+# dead until converted to KFX_DEBUG_ON(N). The *DBG macros compile every
+# level below KFX_DEBUG_CEILING (globals.h, default 20) and the LOG_LEVEL
+# option picks which ones print.
+add_library(kfx_log_opts INTERFACE)
+target_compile_definitions(kfx_log_opts INTERFACE BFDEBUG_LEVEL=0)
 
 # docs/refactor/testing/: opt-in Catch2 unit-test harness, one test binary
 # per src/kfx_*/ library (see stage-01-framework-and-scaffold.md for the
@@ -229,7 +227,7 @@ endif()
 # Compiles in the src/ftests/ in-game functional-test harness (every
 # #ifdef FUNCTESTING block, spread across src/ftests/ itself plus
 # kfx_platform/kfx_config/kfx_sim/kfx_game/kfx_frontend/kfx_apploop/main.cpp)
-# into keeperfx/keeperfx_hvlog. The legacy Makefile's FTEST_DEBUG=1 is the
+# into keeperfx. The legacy Makefile's FTEST_DEBUG=1 is the
 # only place that ever defined this; it is undefined here otherwise, so
 # without this option every #ifdef FUNCTESTING block -- and the -ftests
 # launch flag it gates -- compiles to nothing. Running the resulting
@@ -274,7 +272,7 @@ if(KFX_FUNCTESTING)
 
     # main.cpp and src/ftests/* itself are the only consumers now that
     # KFX_BUILD_TESTS is guaranteed OFF whenever this is ON (see above) --
-    # a plain OBJECT library linked only into keeperfx/keeperfx_hvlog below.
+    # a plain OBJECT library linked only into keeperfx below.
     #
     # imgui: some src/ftests/tests/*.cpp exercise real ImGui-driven editor/
     # frontend screens directly (e.g. ftest_config_content.cpp's
@@ -323,8 +321,7 @@ if((KFX_BUILD_TESTS OR KFX_FUNCTESTING) AND KFX_TEST_COVERAGE)
 endif()
 
 set(KFX_SOURCES_REMAINING ${KEEPERFX_SOURCES_C} ${KEEPERFX_SOURCES_CXX})
-set(KFX_OBJECT_LIBS_STD "")
-set(KFX_OBJECT_LIBS_HVLOG "")
+set(KFX_OBJECT_LIBS "")
 
 # Every kfx_* component is now a real, physically-extracted library target
 # -- see src/kfx_*/CMakeLists.txt -- so nothing here subtracts from
@@ -334,12 +331,15 @@ set(KFX_OBJECT_LIBS_HVLOG "")
 # carved libraries out of KFX_SOURCES_REMAINING by regex-matching stem
 # lists before their physical src/kfx_*/ directory existed, is gone now
 # that every component has one -- each src/kfx_*/CMakeLists.txt appends
-# itself to KFX_OBJECT_LIBS_STD/_HVLOG directly, so all of them must come
-# before those lists are consumed below.
+# itself to KFX_OBJECT_LIBS directly, so all of them must come
+# before that list is consumed below.
 add_subdirectory(src/kfx_platform)
 add_subdirectory(src/kfx_config)
+add_subdirectory(src/kfx_content)
+add_subdirectory(src/kfx_model)
 add_subdirectory(src/kfx_pathfinding)
 add_subdirectory(src/kfx_sim)
+add_subdirectory(src/kfx_ai)
 add_subdirectory(src/kfx_render)
 add_subdirectory(src/kfx_net)
 add_subdirectory(src/kfx_game)
@@ -370,8 +370,8 @@ if(KFX_BUILD_TESTS AND KFX_TEST_COVERAGE)
             "${CMAKE_BINARY_DIR}/coverage.info"
             --output-directory "${CMAKE_BINARY_DIR}/coverage-html" --quiet
         DEPENDS
-            kfx_platform_utest kfx_config_utest kfx_pathfinding_utest
-            kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest
+            kfx_platform_utest kfx_config_utest kfx_content_utest kfx_pathfinding_utest
+            kfx_sim_utest kfx_ai_utest kfx_render_utest kfx_net_utest kfx_game_utest
             kfx_frontend_utest kfx_script_utest kfx_apploop_utest
             kfx_editor_utest
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
@@ -477,11 +477,10 @@ endif()
 # tree) after the SDL3 merge, so a single "everything the app builds from
 # lives under src/" root matches upstream's own layout too.
 
-message(STATUS "kfx: ${KFX_OBJECT_LIBS_STD} grouped; ${KFX_SOURCES_REMAINING} left ungrouped (app entry point + test scaffolding)")
+message(STATUS "kfx: ${KFX_OBJECT_LIBS} grouped; ${KFX_SOURCES_REMAINING} left ungrouped (app entry point + test scaffolding)")
 
-# Add two executable targets: keeperfx and keeperfx_hvlog. Each owns
-# whatever's left in KFX_SOURCES_REMAINING directly (main.cpp, ftests/*)
-# and links in every kfx_* OBJECT library's matching BFDEBUG_LEVEL variant.
+# The keeperfx executable owns whatever's left in KFX_SOURCES_REMAINING
+# directly (main.cpp, ftests/*) and links in every kfx_* library.
 #
 # Order matters: the default linker on both platforms (ld.bfd -- confirmed
 # on both native Linux and mingw-w64) resolves static-library symbols in a
@@ -499,7 +498,7 @@ message(STATUS "kfx: ${KFX_OBJECT_LIBS_STD} grouped; ${KFX_SOURCES_REMAINING} le
 # now matters too: a real archive only gets its needed members pulled in
 # to satisfy symbols already undefined at that point in the scan, whereas
 # OBJECT .o files were unconditionally included regardless of position.
-# KFX_OBJECT_LIBS_STD/_HVLOG is built lowest-ranked-first (kfx_platform,
+# KFX_OBJECT_LIBS is built lowest-ranked-first (kfx_platform,
 # kfx_config, ... kfx_apploop -- each add_subdirectory() appends itself in
 # that call order); references only ever flow from a higher-ranked
 # library down to a lower-ranked one (check_layering.py/
@@ -509,10 +508,8 @@ message(STATUS "kfx: ${KFX_OBJECT_LIBS_STD} grouped; ${KFX_SOURCES_REMAINING} le
 # libraries this same way (confirmed by inspection, not assumed) -- this
 # just reverses the one list built in construction order instead of
 # hand-ordering it again.
-set(KFX_STATIC_LIBS_STD ${KFX_OBJECT_LIBS_STD})
-list(REVERSE KFX_STATIC_LIBS_STD)
-set(KFX_STATIC_LIBS_HVLOG ${KFX_OBJECT_LIBS_HVLOG})
-list(REVERSE KFX_STATIC_LIBS_HVLOG)
+set(KFX_STATIC_LIBS ${KFX_OBJECT_LIBS})
+list(REVERSE KFX_STATIC_LIBS)
 
 # Window icon: generated as part of kfx_platform (src/kfx_platform/
 # CMakeLists.txt), the only consumer of kfx_window_icon_png -- not here,
@@ -520,14 +517,10 @@ list(REVERSE KFX_STATIC_LIBS_HVLOG)
 # it (check_layering_symbols.py --strict).
 
 add_executable(keeperfx ${KFX_SOURCES_REMAINING})
-target_link_libraries(keeperfx PRIVATE ${KFX_STATIC_LIBS_STD} kfx_bfdebug_std kfx_common_opts)
-
-add_executable(keeperfx_hvlog ${KFX_SOURCES_REMAINING})
-target_link_libraries(keeperfx_hvlog PRIVATE ${KFX_STATIC_LIBS_HVLOG} kfx_bfdebug_hvlog kfx_common_opts)
+target_link_libraries(keeperfx PRIVATE ${KFX_STATIC_LIBS} kfx_log_opts kfx_common_opts)
 
 if(KFX_FUNCTESTING)
     target_link_libraries(keeperfx PRIVATE kfx_ftests)
-    target_link_libraries(keeperfx_hvlog PRIVATE kfx_ftests)
 endif()
 
 # kfx_link_dependencies() (Dependencies.cmake) links every external
@@ -536,7 +529,6 @@ endif()
 # zlib/minizip/centijson/miniupnpc/libnatpmp, plus (Windows) the
 # RESCAN-grouped static-archive linking their circular refs need.
 kfx_link_dependencies(keeperfx)
-kfx_link_dependencies(keeperfx_hvlog)
 
 # centitoml (Dependencies.cmake) is itself an OBJECT library, wrapped
 # inside kfx_sdl3/kfx_link_dependencies' INTERFACE indirection. Its
@@ -546,12 +538,10 @@ kfx_link_dependencies(keeperfx_hvlog)
 # callers compile clean -- but the object file itself doesn't), so link it
 # directly here too, the same way the pre-Stage-1 CMakeLists.txt always did.
 target_link_libraries(keeperfx PRIVATE centitoml)
-target_link_libraries(keeperfx_hvlog PRIVATE centitoml)
 
 # tinyfiledialogs: same two-levels-of-INTERFACE-indirection object-linking
 # gap as centitoml just above.
 target_link_libraries(keeperfx PRIVATE tinyfiledialogs)
-target_link_libraries(keeperfx_hvlog PRIVATE tinyfiledialogs)
 
 # imgui: same two-levels-of-INTERFACE-indirection object-linking gap as
 # centitoml just above -- link its compiled object directly onto the final
@@ -560,11 +550,9 @@ target_link_libraries(keeperfx_hvlog PRIVATE tinyfiledialogs)
 # libraries neither reliably carries the OBJECT library's compiled object
 # through to here on its own.)
 target_link_libraries(keeperfx PRIVATE imgui)
-target_link_libraries(keeperfx_hvlog PRIVATE imgui)
 
 if(WIN32)
     target_sources(keeperfx PRIVATE "res/keeperfx_stdres.rc")
-    target_sources(keeperfx_hvlog PRIVATE "res/keeperfx_stdres.rc")
 endif()
 
 if(WIN32)
@@ -575,14 +563,11 @@ if(WIN32)
     find_program(KFX_LLD_LINKER NAMES ld.lld i686-w64-mingw32-ld.lld)
     if(KFX_LLD_LINKER)
         set_property(TARGET keeperfx PROPERTY LINKER_TYPE LLD)
-        set_property(TARGET keeperfx_hvlog PROPERTY LINKER_TYPE LLD)
     endif()
 
     set(GNU_LINK_FLAG -mwindows -Wl,--enable-auto-import)
     target_link_options(keeperfx PRIVATE ${GNU_LINK_FLAG} -Wl,-Map,keeperfx.map)
-    target_link_options(keeperfx_hvlog PRIVATE ${GNU_LINK_FLAG} -Wl,-Map,keeperfx_hvlog.map)
     target_link_libraries (keeperfx PUBLIC -static stdc++ winpthread -dynamic)
-    target_link_libraries (keeperfx_hvlog PUBLIC -static stdc++ winpthread -dynamic)
 
     # System libraries -- kept identical to and in the same relative
     # position as Makefile's LINKLIB tail (`-lwinmm -lmingw32 -limagehlp
@@ -595,18 +580,14 @@ if(WIN32)
     # after it. bcrypt is also linked by Dependencies.cmake's openal_static
     # block; relinking it here is harmless.
     target_link_libraries(keeperfx PRIVATE winmm mingw32 imagehlp ws2_32 dbghelp bcrypt ole32 uuid)
-    target_link_libraries(keeperfx_hvlog PRIVATE winmm mingw32 imagehlp ws2_32 dbghelp bcrypt ole32 uuid)
 
     # Ship the Windows exes without their debug symbols (#5318): objcopy splits
     # them into <exe>.debug next to the binary (CI uploads those as a separate
     # "-symbols" artifact). No-op for MSVC/non-Windows, see Helpers.cmake.
     apply_keeperfx_debug_split(keeperfx)
-    apply_keeperfx_debug_split(keeperfx_hvlog)
 elseif(UNIX AND NOT APPLE)
     target_link_options(keeperfx PRIVATE -rdynamic -Wl,-Map,keeperfx.map)
-    target_link_options(keeperfx_hvlog PRIVATE -rdynamic -Wl,-Map,keeperfx_hvlog.map)
     target_link_libraries(keeperfx PRIVATE m dl)
-    target_link_libraries(keeperfx_hvlog PRIVATE m dl)
     # Any SDL3-family libs built from source (Dependencies.cmake's Linux
     # fallback when the system doesn't have libsdl3-dev) get installed
     # alongside the binary -- see that file's install(DIRECTORY ...) calls.
@@ -614,17 +595,16 @@ elseif(UNIX AND NOT APPLE)
     # LD_LIBRARY_PATH, without touching the build tree's own absolute RPATH
     # into _deps/ (CMake only applies INSTALL_RPATH at `cmake --install`
     # time; running straight out of the build dir is unaffected).
-    set_target_properties(keeperfx keeperfx_hvlog PROPERTIES
+    set_target_properties(keeperfx PROPERTIES
         INSTALL_RPATH "$ORIGIN")
 
     # Same debug-symbol split as the Windows exes: without it the ELF carries
     # ~90 MB of DWARF. Symbols land in <binary>.debug next to it.
     apply_keeperfx_debug_split(keeperfx)
-    apply_keeperfx_debug_split(keeperfx_hvlog)
 endif()
 
 # tools/ builds a host-native icon-conversion utility (png2ico) used to
-# generate the Windows resource icon; unrelated to keeperfx/keeperfx_hvlog
+# generate the Windows resource icon; unrelated to keeperfx
 # linking, so its position here doesn't matter.
 add_subdirectory(tools)
 
@@ -635,7 +615,7 @@ add_subdirectory(tools)
 # comment for the exact command sequence). Replaces the old
 # Makefile-passthrough `package` custom target, which built its own
 # separate copies of the binaries via Make's own object directory instead
-# of reusing this CMake build tree's keeperfx/keeperfx_hvlog -- CPack's
+# of reusing this CMake build tree's keeperfx -- CPack's
 # install()-based approach also correctly bundles SDL3's runtime DLLs on
 # Windows (see Dependencies.cmake's install(FILES ...) calls), which the
 # old target had no equivalent for.

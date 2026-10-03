@@ -9,8 +9,8 @@
  *     app_entry, above kfx_apploop). It owns the editor session lifecycle,
  *     the in-session ImGui toolbox, the map serializer and the blank-map
  *     builder. main.cpp is the only #include edge into this library --
- *     everything below it reaches the editor only via EditorCallbacks
- *     (src/kfx_config/include/editor_callbacks.h).
+ *     everything below it reaches the editor only via EditorPort
+ *     (src/kfx_config/include/ports/editor_port.def).
  * @par Comment:
  *     Just a header file - #defines, typedefs, function prototypes etc.
  */
@@ -20,8 +20,8 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
-#include "editor_journal_callbacks.h"
 #include <stddef.h> // size_t -- editor_level_save_dir()
+#include "editor_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +29,7 @@ extern "C" {
 /******************************************************************************/
 
 // Called once the sim is loaded and running for an editor session
-// (kfx_apploop's `case FeSt_START_EDITOR:`, via EditorCallbacks::request_open
+// (kfx_apploop's `case FeSt_START_EDITOR:`, via EditorPort's request_open
 // -- kfx_apploop can't call this directly, it's ranked below kfx_editor).
 // Marks the session active, reveals the whole map for the editor player and
 // puts them in the god/build state (§3 -- no "enable cheats" step needed).
@@ -42,7 +42,8 @@ void editor_close(void);
 TbBool editor_is_active(void);
 
 // ImGui submission + per-frame editor logic -- called every frame from
-// main.cpp's ImGui-frame wrapper regardless of what's on screen; no-ops
+// kfx_frontend's FrontendImGuiFrame() (EditorPort's frame) regardless of
+// what's on screen; no-ops
 // unless editor_is_active(). Re-asserts GOF_Paused every frame while
 // suspended (§3) and draws the Esc editor menu / toolbox.
 void editor_frame(void);
@@ -157,13 +158,13 @@ void editor_set_current_level_author(const char *author);
 void editor_level_save_dir(LevelNumber lvnum, char *out, size_t out_size);
 
 // docs/refactor/editor/02-editing-toolbox.md §4 -- the one inbound edge for
-// the undo/redo journal: wired via EditorJournalCallbacks
-// (editor_journal_callbacks.h) in main.cpp's setup_game(), the same way
-// EditorCallbacks::request_open above is. Called from packets_cheats.c
+// the undo/redo journal: wired via EditorPort
+// (ports/editor_port.def) in main.cpp's setup_game(), the same way
+// EditorPort's request_open above is. Called from packets_cheats.c
 // right after any editor placement tool's create_*() call succeeds; no-ops
 // unless editor_is_active() (checked internally, not by the caller).
 // pcktype/par1-4/pos_x/pos_y are the packet fields that created this thing
-// -- see EditorJournalCallbacks::record_placement's own comment for why
+// -- see EditorPort's record_placement's own comment for why
 // Redo needs all of them, not just the thing index.
 void editor_journal_record_placement(int64_t thing_idx, unsigned char pcktype,
     uint64_t par1, uint64_t par2, int64_t par3, int64_t par4,
@@ -171,15 +172,15 @@ void editor_journal_record_placement(int64_t thing_idx, unsigned char pcktype,
 
 // docs/refactor/editor/09-toolbox-remainder.md §1 -- rect-terrain-op
 // undo/redo counterpart to editor_journal_record_placement() above; see
-// EditorJournalCallbacks::record_rect_terrain's own comment
-// (editor_journal_callbacks.h) for the parameter shapes and why this is
+// EditorPort's record_rect_terrain's own comment
+// (ports/editor_port.def) for the parameter shapes and why this is
 // called BEFORE the mutation rather than after.
 void editor_journal_record_rect_terrain(unsigned char pcktype,
     int64_t box_beg_x, int64_t box_beg_y, int64_t box_end_x, int64_t box_end_y,
     SlabKind new_kind, PlayerNumber new_owner,
     const struct EditorRectSlabSnapshot *before, int64_t count);
 
-// fx-plans/00 item A7 -- door-lock toggle counterpart (EditorJournalCallbacks::
+// fx-plans/00 item A7 -- door-lock toggle counterpart (EditorPort::
 // record_door_lock): called before the toggle, journals it for undo.
 void editor_journal_record_door_lock(int64_t thing_idx, TbBool was_locked);
 

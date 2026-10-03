@@ -1,0 +1,38 @@
+/* SimPort entries: see ports/sim_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_VOID(update_all_door_stats, (void), ())
+KFX_PORT_VOID(update_all_trap_draws_of_model, (int64_t trap_model), (trap_model))
+KFX_PORT_RET(TbBool, add_research_to_all_players, (int64_t rtyp, int64_t rkind, int64_t amount), (rtyp, rkind, amount), false)
+KFX_PORT_RET(TbBool, clear_research_for_all_players, (void), (), false)
+KFX_PORT_RET(int64_t, get_map_subtiles_x, (void), (), 0)
+KFX_PORT_RET(int64_t, get_map_subtiles_y, (void), (), 0)
+KFX_PORT_VOID(set_call_to_arms_graphics, (PlayerNumber plyr_idx, int64_t birth_anim_idx, int64_t alive_anim_idx, int64_t leave_anim_idx), (plyr_idx, birth_anim_idx, alive_anim_idx, leave_anim_idx))
+KFX_PORT_RET(unsigned char, get_player_color_idx, (PlayerNumber plyr_idx), (plyr_idx), 0)
+KFX_PORT_RET(struct SlabSet *, get_slabset_array, (void), (), NULL)
+KFX_PORT_RET(int64_t *, get_slabset_num_ptr, (void), (), NULL)
+KFX_PORT_RET(struct SlabObj *, get_slabobjs_array, (void), (), NULL)
+KFX_PORT_RET(int64_t *, get_slabobjs_idx_array, (void), (), NULL)
+KFX_PORT_RET(int64_t *, get_slabobjs_num_ptr, (void), (), NULL)
+KFX_PORT_VOID(set_block_health, (int64_t idx, int64_t val), (idx, val))
+KFX_PORT_RET(int64_t, reinitialise_rooms_of_kind, (RoomKind rkind), (rkind), 0)
+KFX_PORT_RET(int64_t, recalculate_effeciency_for_rooms_of_kind, (RoomKind rkind), (rkind), 0)
+KFX_PORT_RET(TbBool, find_and_load_lif_files, (void), (), false)
+KFX_PORT_RET(TbBool, find_and_load_lof_files, (void), (), false)
+KFX_PORT_RET(const char *, thing_class_and_model_name, (ThingClass class_id, ThingModel model), (class_id, model), "")
+KFX_PORT_RET(TbBool, remove_creature_lair, (struct Thing *thing), (thing), false)
+KFX_PORT_RET(TbBool, update_creature_health_to_max, (struct Thing *creatng), (creatng), false)
+KFX_PORT_RET(TbBool, update_relative_creature_health, (struct Thing *creatng), (creatng), false)
+KFX_PORT_RET(int64_t, do_to_players_all_creatures_of_model, (PlayerNumber plyr_idx, int64_t crmodel, TbBool (*do_cb)(struct Thing *)), (plyr_idx, crmodel, do_cb), 0)
+KFX_PORT_RET(int64_t, do_to_all_things_of_class_and_model, (int64_t tngclass, int64_t tngmodel, TbBool (*do_cb)(struct Thing *)), (tngclass, tngmodel, do_cb), 0)
+KFX_PORT_VOID(recalculate_all_creature_digger_lists, (void), ())
+KFX_PORT_RET(TbBool, update_speed_of_player_creatures_of_model, (PlayerNumber plyr_idx, int64_t crmodel), (plyr_idx, crmodel), false)
+KFX_PORT_RET(TbBool, creature_increase_available_instances, (struct Thing *thing), (thing), false)
+KFX_PORT_RET(TbBool, process_job_stress_and_going_postal, (struct Thing *creatng), (creatng), false)
+KFX_PORT_RET(int64_t, setup_excess_creatures_to_leave_or_die, (int64_t max_remain), (max_remain), 0)
+KFX_PORT_RET(char **, get_level_strings, (void), (), NULL)

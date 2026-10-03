@@ -12,8 +12,10 @@
 
 #include "frontmenu_select.h"
 #include "frontend.h"
+#include "net_game.h" // net_pending_external_seats_clear/_add/_count
 #include "net_main.h" // net_service_index_selected, FrontendNetSvc_Skirmish/Online
 #include "kfx_sim_state.h"
+#include "player_data.h" // my_player_number
 #include "skirmish_setup.h"
 
 namespace {
@@ -25,13 +27,17 @@ struct FreeplayTestGuard {
     FreeplayTestGuard()
     {
         skirmish_setup_forget();
+        net_pending_external_seats_clear();
     }
     ~FreeplayTestGuard()
     {
         freeplay_highlighted_level = 0;
         net_service_index_selected = FrontendNetSvc_Online;
         fe_computer_players = 0;
+        fe_spectate_campaign = 0;
+        fe_external_campaign = 0;
         skirmish_setup_forget();
+        net_pending_external_seats_clear();
     }
 };
 
@@ -78,4 +84,73 @@ TEST_CASE("frontend_land_selection_enter_resolve resets a stale fe_computer_play
     CHECK(fe_computer_players == 0);
 
     fe_computer_players = 0;
+}
+
+// M10: the campaign select screen's "Seat control" dropdown (Human/Scripted/LLM) arms the local player's own
+// seat as External via fe_external_campaign -- same mechanism as Skirmish's own External-slot picker
+// (skirmish_setup_install_for_play(), ftest_skirmish_external_slot.cpp's own pre_start), just one slot: the
+// human's own. The early-return path (nothing highlighted) already covers this, same reasoning as the
+// fe_computer_players case above: the arming call runs unconditionally before that guard.
+TEST_CASE("frontend_land_selection_enter_resolve arms the local player's own seat when fe_external_campaign is set", "[kfx_frontend][frontmenu_select]") {
+    land_selection_highlighted_campaign = nullptr;
+    fe_external_campaign = 1;
+    net_pending_external_seats_clear();
+
+    CHECK(frontend_land_selection_enter_resolve() == -1);
+    CHECK(net_pending_external_seats_count() == 1);
+
+    fe_external_campaign = 0;
+    net_pending_external_seats_clear();
+}
+
+TEST_CASE("frontend_land_selection_enter_resolve arms nothing when fe_external_campaign is unset (Human)", "[kfx_frontend][frontmenu_select]") {
+    land_selection_highlighted_campaign = nullptr;
+    fe_external_campaign = 0;
+    net_pending_external_seats_clear();
+
+    CHECK(frontend_land_selection_enter_resolve() == -1);
+    CHECK(net_pending_external_seats_count() == 0);
+}
+
+// The scenario/Free play screen's own copy of the same dropdown, wired at frontend_freeplay_enter_resolve()'s
+// non-Skirmish branch instead -- same underlying fe_external_campaign global and the same downstream
+// net_claim_pending_external_seats() consumption, just a different arming call site.
+TEST_CASE_METHOD(FreeplayTestGuard, "frontend_freeplay_enter_resolve arms the local player's own seat for a plain Free play level when fe_external_campaign is set", "[kfx_frontend][frontmenu_select]") {
+    net_service_index_selected = FrontendNetSvc_Online; // not Skirmish
+    freeplay_highlighted_level = 1;
+    fe_external_campaign = 1;
+
+    CHECK(frontend_freeplay_enter_resolve() == FeSt_START_KPRLEVEL);
+    CHECK(net_pending_external_seats_count() == 1);
+}
+
+TEST_CASE_METHOD(FreeplayTestGuard, "frontend_freeplay_enter_resolve arms nothing for a plain Free play level when fe_external_campaign is unset", "[kfx_frontend][frontmenu_select]") {
+    net_service_index_selected = FrontendNetSvc_Online;
+    freeplay_highlighted_level = 1;
+    fe_external_campaign = 0;
+
+    CHECK(frontend_freeplay_enter_resolve() == FeSt_START_KPRLEVEL);
+    CHECK(net_pending_external_seats_count() == 0);
+}
+
+// Skirmish has no "Scripted" concept of its own and never shows the dropdown that sets fe_spectate_campaign --
+// a stale 1 left over from an earlier scenario/campaign visit this session must not silently hand the human's
+// own Skirmish seat to the built-in AI. Mirrors the fe_computer_players precedent above exactly, just the
+// opposite direction (that one is set FOR Skirmish; this one is cleared for it).
+TEST_CASE_METHOD(FreeplayTestGuard, "frontend_freeplay_enter_resolve resets a stale fe_spectate_campaign for Skirmish", "[kfx_frontend][frontmenu_select]") {
+    net_service_index_selected = FrontendNetSvc_Skirmish;
+    freeplay_highlighted_level = 1;
+    fe_spectate_campaign = 1; // simulates a leftover flag from an earlier scenario/campaign visit this session
+
+    CHECK(frontend_freeplay_enter_resolve() == FeSt_START_KPRLEVEL);
+    CHECK(fe_spectate_campaign == 0);
+}
+
+TEST_CASE_METHOD(FreeplayTestGuard, "frontend_freeplay_enter_resolve leaves fe_spectate_campaign alone for a plain Free play level", "[kfx_frontend][frontmenu_select]") {
+    net_service_index_selected = FrontendNetSvc_Online;
+    freeplay_highlighted_level = 1;
+    fe_spectate_campaign = 1;
+
+    CHECK(frontend_freeplay_enter_resolve() == FeSt_START_KPRLEVEL);
+    CHECK(fe_spectate_campaign == 1);
 }

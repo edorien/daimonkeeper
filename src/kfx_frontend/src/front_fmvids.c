@@ -190,7 +190,7 @@ void demo(void)
         if ( LbFileExists(fname) )
         {
           strcpy(kfx_net_state.packet_fname, fname);
-          kfx_net_state.packet_load_enable = 1;
+          kfx_sim_state.replay_active = 1;
           kfx_net_state.turns_fastforward = 0;
           frontend_set_state(FeSt_PACKET_DEMO);
         }

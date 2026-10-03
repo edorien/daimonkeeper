@@ -39,7 +39,12 @@ void interpolate_local_cameras(void);
 void sync_local_camera(struct PlayerInfo *player);
 void set_local_camera_destination(struct PlayerInfo *player);
 void move_local_camera_to_position(MapCoord x, MapCoord y);
+void go_to_next_creature_of_model_and_gui_job(int64_t crmodel, int64_t job_idx, unsigned char pick_flags);
 void update_local_view_prediction(const struct Packet *pckt);
+/** The authoritative view type of the local player became nview: clears
+ *  update_local_view_prediction()'s prediction if it predicted nview.
+ *  @return true while a predicted view type is still pending. */
+TbBool local_view_type_settle(int64_t nview);
 unsigned char get_local_view_type(const struct PlayerInfo *player);
 struct Camera* get_local_active_camera(struct PlayerInfo *player);
 struct Camera* get_local_camera(struct Camera* cam);

@@ -23,7 +23,6 @@
 #include "sim_scratch.h"
 #include "engine_render.h"
 #include "bflib_fileio.h"
-#include "sim_feedback.h"
 #include "config_strings.h"
 #include "vidmode.h"
 #include "bflib_dernc.h"
@@ -36,6 +35,7 @@
 #include "kfx_render_state.h"
 #include "kfx_config_state.h"
 #include "config_mods.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 #include "bflib_sprite.h"
 
@@ -381,8 +381,8 @@ void show_ignored_fxdata_zip_messages(void)
             continue;
         }
         WARNLOG("/fxdata/%s was not loaded. Please install it as a mod inside the /mods/ folder.", fe.Filename);
-        sim_feedback->message_add(MsgType_Blank, 0, get_string(GUIStr_FxdataZipInstallAsMod));
-        sim_feedback->message_add_fmt(MsgType_Blank, 0, get_string(GUIStr_FxdataZipNotLoaded), fe.Filename);
+        ui_message_add(MsgType_Blank, 0, get_string(GUIStr_FxdataZipInstallAsMod));
+        ui_message_add_fmt(MsgType_Blank, 0, get_string(GUIStr_FxdataZipNotLoaded), fe.Filename);
     } while (LbFileFindNext(ff, &fe) >= 0);
     LbFileFindEnd(ff);
 }
@@ -1285,15 +1285,12 @@ static void compress_raw(struct TbHugeSprite *sprite, unsigned char *inp_buf, in
     #undef TEST_TRANSP
 }
 
-#if BFDEBUG_LEVEL > 0
 struct StrBuf
 {
     char *ptr;
     size_t size;
 };
-#endif
 
-#if BFDEBUG_LEVEL > 10
 static int dump_callback(const char *str, size_t size, void *user_data)
 {
     struct StrBuf *buf = user_data;
@@ -1303,7 +1300,6 @@ static int dump_callback(const char *str, size_t size, void *user_data)
     buf->ptr[buf->size] = 0;
     return 0;
 }
-#endif
 
 /**
  * Collect sprites from zipfile with specific blender_scene
@@ -1348,13 +1344,13 @@ collect_sprites(const char *path, unzFile zip, const char *blender_scene, struct
         }
     }
 
-#if BFDEBUG_LEVEL > 10
-    struct StrBuf buf = {0, 0};
-
-    json_dom_dump(node, &dump_callback, &buf, 2, 0);
-
-    fprintf(stderr, "%s", buf.ptr);
-#endif
+    if (KFX_DEBUG_ON(10))
+    {
+        struct StrBuf buf = {0, 0};
+        json_dom_dump(node, &dump_callback, &buf, 2, 0);
+        fprintf(stderr, "%s", buf.ptr);
+        free(buf.ptr);
+    }
     context->rotatable = (value_bool(value_dict_get(node, "rotatable")) > 0);
 
     int64_t prev_sz;

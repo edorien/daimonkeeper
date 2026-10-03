@@ -57,14 +57,15 @@ Running KeeperFX:
   legacy launcher press 'Start game'. You can also run "keeperfx.exe"
   directly.
 
-  If you want to report any errors you encounter, you may 
-  run "keeperfx_hvlog.exe" instead. 
-  This will run a "heavylog version", which writes a lot of information
-  into "keeperfx.log". In case of the game hanging
+  If you want to report any errors you encounter, set Options -> Game ->
+  Logging to DEBUG (or LOG_LEVEL=DEBUG in keeperfx.cfg). The game then writes
+  a lot of information into "keeperfx.log". In case of the game hanging
   on suddenly disappearing, you may send the last few lines of the
   generated LOG to the authors with your description of the bug.
+  DEBUGMAX writes even more; OFF writes no log at all, except when the
+  game crashes. (There is no separate "keeperfx_hvlog.exe" any more.)
 
-  Note that "keeperfx_hvlog.exe" may be slow even on new computers.
+  Note that the DEBUG levels may be slow even on new computers.
 
   Also, the generated LOG file may be very large. After
   a few hours of play it will be several hundred megabytes large.
@@ -109,7 +110,7 @@ Reporting a bug:
   the LOG file. If you want to keep it, you'll have to make a copy.
 
   The second step is to try reproducing the error and generate a more detailed log.
-  Run 'keeperfx_hvlog.exe' and play the level again, doing similar things you did the first time to check if it crashes. If you can't reproduce the error, there is
+  Set Logging to DEBUG in the options and play the level again, doing similar things you did the first time to check if it crashes. If you can't reproduce the error, there is
 
   still a chance that the LOG file from the first crash is enough to locate the
   problem. Post the copy you've made on the issue tracker with your description

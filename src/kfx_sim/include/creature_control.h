@@ -463,6 +463,7 @@ static inline SoundSmplTblID creature_sound_unified_id(const struct CreatureSoun
         return (SoundSmplTblID)(get_custom_offset() + (-crsound->index - 1) + i);
     return (SoundSmplTblID)(crsound->index + i);
 }
+const char *creature_own_name(const struct Thing *creatng);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -20,7 +20,6 @@
 #include "bflib_datetm.h"
 #include "bflib_video.h"
 #include "bflib_inputctrl.h"
-#include "net_callbacks.h"
 #include "net_game.h"
 #include "net_exchange_gameplay.h"
 #include "net_lobby.h"
@@ -29,6 +28,8 @@
 #include <SDL3/SDL.h>
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
+#include "ports/session_loop_port.h"
 #include "post_inc.h"
 /******************************************************************************/
 
@@ -43,7 +44,7 @@
 // 3 duplicate and 2 redundant = Micro stutter
 
 // host_packet_received (kfx_apploop's game_session_loop.cpp) is reached
-// through net_callbacks instead of a same-file bare-extern
+// through SessionLoopPort instead of a same-file bare-extern
 // forward-declaration. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 
@@ -123,7 +124,7 @@ static TbError handle_exchange_message(NetUserId source, void *server_buf, size_
             && packets[0].turn == get_gameturn()
             && get_history_packet((PlayerNumber)peer_id, packets[0].turn) == NULL)
         {
-            net_callbacks->set_host_packet_received(kfx_net_state.process_turn_time);
+            loop_set_host_packet_received(kfx_net_state.process_turn_time);
         }
         for (unsigned char i = 0; i < packet_count; i += 1) {
             if (is_packet_empty(&packets[i])) {
@@ -164,7 +165,7 @@ static TbError handle_chat_message(NetUserId source, char *read_pos, size_t mess
     if (expected_frame_type == NETMSG_GAMEPLAY_UNSEQUENCED) {
         process_gameplay_chat_message(sender, message);
     } else {
-        net_callbacks->process_frontend_chat_message(sender, message);
+        ui_process_frontend_chat_message(sender, message);
     }
     if (netstate.my_id == SERVER_ID && source != SERVER_ID) {
         send_to_active_peers(1, NetSend_Reliable, netstate.msg_buffer, message_size, netstate.my_id, source);
@@ -329,7 +330,7 @@ TbError exchange_frame_block(enum NetMessageType msg_type, void *send_buf, void 
     TbClockMSec wait_start_time = LbTimerClock();
     TbBool stop_waiting = false;
     while (LbTimerClock() - wait_start_time < TIMEOUT_LOBBY_EXCHANGE) {
-        if (frontend_exchange && net_callbacks->is_frontend_starting_mp_level()) {
+        if (frontend_exchange && ui_is_frontend_starting_mp_level()) {
             break;
         }
         if (frontend_exchange && frame_size == sizeof(struct ScreenPacket)) {
@@ -359,7 +360,7 @@ TbError exchange_frame_block(enum NetMessageType msg_type, void *send_buf, void 
                     if (frame_peer_id != INVALID_USER_ID) {
                         has_received_frame[frame_peer_id] = true;
                     }
-                    if (frontend_exchange && net_callbacks->is_frontend_starting_mp_level()) {
+                    if (frontend_exchange && ui_is_frontend_starting_mp_level()) {
                         stop_waiting = true;
                         break;
                     }
@@ -373,11 +374,11 @@ TbError exchange_frame_block(enum NetMessageType msg_type, void *send_buf, void 
             break;
         }
         if (frontend_exchange) {
-            net_callbacks->network_yield_draw_frontend();
+            loop_network_yield_draw_frontend();
         } else {
             // Gameplay-time wait: only poll input (no draw -- rendering here was the
             // #5282 startup-sync crash), so ESC/window-close can still abort the wait.
-            net_callbacks->network_yield_poll_gameplay();
+            loop_network_yield_poll_gameplay();
             if (quit_game || exit_keeper) {
                 break;
             }

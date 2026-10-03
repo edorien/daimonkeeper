@@ -51,12 +51,6 @@ struct Around const mid_around[] = {
   { 1, -1}, {-1,  1}, { 1,  1},
 };
 
-struct Around const small_around[] = {
-  { 0,-1},
-  { 1, 0},
-  { 0, 1},
-  {-1, 0},
-};
 struct Around const small_around_mid[] = {
     { 0, -1},
     { 1,  0},
@@ -273,20 +267,6 @@ SmallAroundIndex small_around_index_towards_destination(int64_t curr_x, int64_t 
     }
     SYNCDBG(18,"Vector (%" PRId64 ",%" PRId64 ") returned ArcTan=%" PRId64 ", around (%" PRId64 ",%" PRId64 ")",(int64_t)(dest_x - curr_x), (int64_t)(dest_y - curr_y),(int64_t)(i),(int64_t)small_around[n].delta_x,(int64_t)small_around[n].delta_y);
     return n & 3;
-}
-
-/**
- * Computes index in small_around[] array which contains coordinates directing towards given destination.
- * @param srcpos_x Source position X; either map coordinates or subtiles, but have to match type of other coords.
- * @param srcpos_y Source position Y; either map coordinates or subtiles, but have to match type of other coords.
- * @param dstpos_x Destination position X; either map coordinates or subtiles, but have to match type of other coords.
- * @param dstpos_y Destination position Y; either map coordinates or subtiles, but have to match type of other coords.
- * @return Index for small_around[] array.
- */
-SmallAroundIndex small_around_index_in_direction(int64_t srcpos_x, int64_t srcpos_y, int64_t dstpos_x, int64_t dstpos_y)
-{
-    int64_t i = ((LbArcTanAngle(dstpos_x - srcpos_x, dstpos_y - srcpos_y) & ANGLE_MASK) + DEGREES_45);
-    return (i / DEGREES_90) & 3;
 }
 
 /**

@@ -45,21 +45,19 @@ TbBool keeper_wait_for_next_turn(void);
 void keeper_gameplay_loop(void);
 void game_loop(void);
 
-/* Called via NetCallbacks (src/kfx_config/include/net_callbacks.h) by
+/* Called via SessionLoopPort (ports/session_loop_port.def) by
  * kfx_net while blocked on network I/O -- kfx_net is ranked below
  * kfx_apploop, so it cannot call these directly. */
 void network_yield_poll_gameplay(void);
 void network_yield_waiting_gameplay_packets(void);
 void network_yield_draw_frontend(void);
 
-// Registered with kfx_config's NetCallbacks (net_callbacks.h) as
-// set_host_packet_received -- kfx_net's net_exchange_common.c updates
+// SessionLoopPort's set_host_packet_received -- kfx_net's net_exchange_common.c updates
 // this timestamp, read by the multiplayer clock-adjust logic above. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 extern long double host_packet_received;
 
-// Registered with kfx_config's RenderOverlayCallbacks (render_overlay.h)
-// as get_interpolate_time -- kfx_render's engine_render.c reads this
+// SessionLoopPort's get_interpolate_time -- kfx_render's engine_render.c reads this
 // per-frame interpolation fraction. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 extern double interpolate_time;

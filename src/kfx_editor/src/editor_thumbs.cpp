@@ -30,11 +30,11 @@
 #include "config_cubes.h"
 #include "config_objects.h"
 #include "config_slabsets.h"
-#include "sim_feedback.h"
 #include "map_columns.h"
 #include "engine_textures.h"
 #include "engine_render.h"
 #include "renderer/RendererManager.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #include <map>
@@ -165,7 +165,7 @@ bool editor_thumb_object_pixels(ThingModel model, std::vector<uint64_t> &pixels,
     const struct ObjectConfigStats *ostat = get_object_model_stats(model);
     if ((ostat == NULL) || (ostat->sprite_anim_idx <= 0))
         return false;
-    const int64_t anim = sim_feedback->get_td_animation_sprite(ostat->sprite_anim_idx);
+    const int64_t anim = render_get_td_animation_sprite(ostat->sprite_anim_idx);
     if (anim <= 0)
         return false;
     static std::vector<unsigned char> scratch;

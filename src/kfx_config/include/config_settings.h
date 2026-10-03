@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "bflib_video.h" // TbScreenMode
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,6 +105,25 @@ struct GameSettings {
 #pragma pack()
 /******************************************************************************/
 extern struct GameSettings settings; // KFX settings
+
+/**
+ * Values read from keeperfx.cfg (and sounds.cfg) that other libraries use.
+ * kfx_config's loaders and the settings schema write them; kfx_render,
+ * kfx_sim and kfx_frontend read them directly. Not part of the settings file
+ * (struct GameSettings) or of any saved/resynced state.
+ * Refactor pass 2, S03: replaced ten ConfigReloadCallbacks get/set entries.
+ */
+struct KfxRuntimeSettings {
+    unsigned char screenshot_format; /**< SCREENSHOT: 1 = PNG, 2 = BMP (scrshot_type[]) */
+    TbBool vid_smooth;               /**< VID_SMOOTH, or the -vidsmooth launch flag */
+    TbScreenMode screen_vidmode;     /**< INGAME_RES: the configured mode; the active one is kfx_render's */
+    int64_t base_mouse_sensitivity;  /**< POINTER_SENSITIVITY, 256 = 100% */
+    double hand_scale;               /**< HAND_SIZE, 1.0 = 100% */
+    int64_t speech_queue_limit;      /**< sounds.cfg [system] SPEECH_QUEUE_LIMIT */
+};
+extern struct KfxRuntimeSettings kfx_runtime_settings;
+TbScreenMode get_screen_vidmode(void);
+void set_screen_vidmode(TbScreenMode nmode);
 /******************************************************************************/
 TbBool load_settings(void);
 int64_t save_settings(void);

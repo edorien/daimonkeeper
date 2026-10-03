@@ -45,7 +45,6 @@
 #include "front_input.h"
 #include "front_landview.h"
 #include "front_torture.h"
-#include "net_callbacks.h"
 #include "net_main.h"
 #include "net_exchange_gameplay.h"
 #include "net_lobby.h"
@@ -82,7 +81,6 @@
 #include "game_loop.h"
 #include "timer.h"
 #include "main_game.h"
-#include "editor_callbacks.h" // docs/refactor/editor/01-entry-and-editor-session.md -- case FeSt_START_EDITOR
 #include "game_lifecycle.h"
 #include "moonphase.h"
 #include "kfx_frontend_state.h"
@@ -102,9 +100,14 @@
 #include "lvl_filesdk1.h"
 #include "config_sounds.h"
 #include "renderer/RendererManager.h"
+#include "player_camera.h"
+#include "game_replay.h"
+#include "game_commands.h"
+#include "frame_compose.h"
 
 #include <cstdint>
 
+#include "ports/editor_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -186,13 +189,14 @@ void update(void)
         PaletteFadePlayer(player);
         process_armageddon();
         update_global_lighting();
-#if (BFDEBUG_LEVEL > 9)
-        lights_stats_debug_dump();
-        things_stats_debug_dump();
-        creature_stats_debug_dump();
-#endif
-        kfx_game_state.play_gameturn++;
-        if (kfx_net_state.turns_packetoff == kfx_game_state.play_gameturn)
+        if (KFX_DEBUG_ON(9))
+        {
+            lights_stats_debug_dump();
+            things_stats_debug_dump();
+            creature_stats_debug_dump();
+        }
+        kfx_sim_state.play_gameturn++;
+        if (kfx_net_state.turns_packetoff == kfx_sim_state.play_gameturn)
             exit_keeper = 1;
     }
 
@@ -489,7 +493,7 @@ static void gameplay_loop_logic()
                 kfx_game_state.paused_at_gameturn = true;
 
                 kfx_net_state.frame_skip = 0;
-                if(kfx_net_state.packet_load_enable)
+                if(kfx_sim_state.replay_active)
                 {
                     disable_packet_mode();
                 }
@@ -507,7 +511,7 @@ static void gameplay_loop_logic()
             // Aim to exchange network packets before the turn ends.  If drawing
             // another frame could miss this deadline, skip it.
             // In a 3-4 player game, clients must be 2 frames early.
-            const int64_t frames = 1 + (netstate.my_id != SERVER_ID && kfx_net_state.human_players_count > 2);
+            const int64_t frames = 1 + (netstate.my_id != SERVER_ID && kfx_sim_state.human_players_count > 2);
             const long double offset = frames * average_frame_draw_time * multiplayer_clock_adjust * max(kfx_net_state.frame_skip, 1);
             if (kfx_net_state.process_turn_time + offset < 1.0)
                 return;
@@ -643,7 +647,7 @@ static void gameplay_loop_timestep()
     if (! use_delta_time()) {
         frametime_start_measurement(Frametime_Sleep);
         // Make delay if the machine is too fast
-        if ( (!kfx_net_state.packet_load_enable) || (kfx_net_state.turns_fastforward == 0) ) {
+        if ( (!kfx_sim_state.replay_active) || (kfx_net_state.turns_fastforward == 0) ) {
             keeper_wait_for_next_turn();
         }
         frametime_end_measurement(Frametime_Sleep);
@@ -740,7 +744,7 @@ static TbBool wait_at_frontend(void)
     if (kfx_sim_state.mode_flags & MFlg_IsDemoMode)
     {
       close_packet_file();
-      kfx_net_state.packet_load_enable = 0;
+      kfx_sim_state.replay_active = 0;
     }
     kfx_frontend_state.save_game_slot = -1;
     // Make sure campaigns are loaded
@@ -813,7 +817,7 @@ static TbBool wait_at_frontend(void)
     #endif
 
     // Prepare to enter PacketLoad game
-    if (kfx_net_state.packet_load_enable)
+    if (kfx_sim_state.replay_active)
     {
       faststartup_saved_packet_game();
       return true;
@@ -974,7 +978,7 @@ static TbBool wait_at_frontend(void)
           // browser (frontgui_editorbrowser_frame). startup_local_game_for_editor
           // is a kfx_game function (below kfx_apploop, no header violation);
           // the coroutine always runs to completion synchronously below for
-          // a local game (no network wait), so editor_callbacks->request_open()
+          // a local game (no network wait), so editorport_request_open()
           // right after coroutine_process() sees a fully loaded, paused sim.
           my_player_number = default_loc_player;
           kfx_sim_state.game_kind = GKind_LocalGame;
@@ -996,16 +1000,14 @@ static TbBool wait_at_frontend(void)
     }
     if (prev_state == FeSt_START_EDITOR)
     {
-        editor_callbacks->request_open(editor_pending_lvnum, editor_pending_is_new);
+        editorport_request_open(editor_pending_lvnum, editor_pending_is_new);
     }
     return true;
 }
 
 void game_loop(void)
 {
-#if (BFDEBUG_LEVEL > 0)
     uint64_t playtime = 0;
-#endif
     SYNCDBG(0,"Entering gameplay loop.");
 
     while ( !exit_keeper )
@@ -1034,7 +1036,7 @@ void game_loop(void)
                     }
                 }
             } else {
-                if (!kfx_net_state.packet_load_enable) {
+                if (!kfx_sim_state.replay_active) {
                     toggle_status_menu(1); // Required when skipping PI_HeartZoom
                 }
             }
@@ -1058,9 +1060,7 @@ void game_loop(void)
       LbMouseSetPosition(mspos_x_bak, mspos_y_bak);
 
       uint64_t starttime;
-#if (BFDEBUG_LEVEL > 0)
       uint64_t endtime;
-#endif
       struct Dungeon *dungeon;
       // get_my_dungeon() can't be used here because players are not initialized yet
       dungeon = get_dungeon(my_player_number);
@@ -1098,19 +1098,15 @@ void game_loop(void)
       // Reset sounds back to the fxdata baseline so the main menu (and any
       // subsequent campaign/freeplay selection) hears unmodified defaults.
       sound_reset_to_fxdata_baseline();
-#if (BFDEBUG_LEVEL > 0)
       endtime = LbTimerClock();
-#endif
       quit_game = 0;
       if ((kfx_sim_state.operation_flags & GOF_SingleLevel) != 0)
           exit_keeper=true;
-#if (BFDEBUG_LEVEL > 0)
       playtime += endtime-starttime;
-#endif
       SYNCDBG(0,"Play time is %" PRIu64 " seconds",(uint64_t)(playtime>>10));
       reset_eye_lenses();
       close_packet_file();
-      kfx_net_state.packet_load_enable = false;
+      kfx_sim_state.replay_active = false;
       kfx_net_state.packet_save_enable = false;
     } // end while
 

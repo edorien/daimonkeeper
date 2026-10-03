@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include <stdarg.h>
 #include "compiler_compat.h"
 
 #ifdef __cplusplus
@@ -53,6 +54,7 @@ void zero_messages(void);
 void message_add(char type, int64_t idx, const char *text);
 void message_add_custom_icon(int64_t icon_idx, const char *text);
 void message_add_fmt(char type, int64_t idx, const char *fmt_str, ...) KFX_PRINTF_FORMAT(3, 4);
+void message_add_vfmt(char type, int64_t idx, const char *fmt_str, va_list val);
 void show_game_time_taken(uint64_t fps, uint64_t turns);
 void show_real_time_taken(void);
 void clear_messages_from_player(char type, PlayerNumber plyr_idx);

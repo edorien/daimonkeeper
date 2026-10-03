@@ -1,0 +1,20 @@
+/* AudioFeedbackPort entries: see ports/audio_port.h. One line per entry:
+   KFX_PORT_VOID(name, (params), (args))
+   KFX_PORT_RET(return_type, name, (params), (args), default_return)
+   ..X forms add a statement the unwired default runs first (e.g. zeroing an
+   out-parameter; guard pointers against NULL).
+   KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
+   default runs body, which returns (a default that is not a constant).
+   Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
+KFX_PORT_RET(TbBool, output_message, (SoundSmplTblID smpl_idx, int64_t duration), (smpl_idx, duration), false)
+KFX_PORT_RET(TbBool, output_room_message, (PlayerNumber plyr_idx, RoomKind rkind, OutputMessageKind msg_kind), (plyr_idx, rkind, msg_kind), false)
+KFX_PORT_RET(TbBool, play_speech_ref, (const struct SpeechRef *ref, int64_t duration), (ref, duration), false)
+KFX_PORT_VOID(clear_sound_messages, (void), ())
+KFX_PORT_VOID(process_sound_messages, (void), ())
+KFX_PORT_RET(TbBool, output_message_far_from_thing, (const struct Thing *thing, SoundSmplTblID smpl_idx, int64_t duration), (thing, smpl_idx, duration), false)
+KFX_PORT_VOID(thing_play_sample, (struct Thing *thing, SoundSmplTblID smpl_idx, SoundPitch pitch, char repeats, unsigned char ctype, unsigned char flags, int64_t priority, SoundVolume volume), (thing, smpl_idx, pitch, repeats, ctype, flags, priority, volume))
+KFX_PORT_VOID(stop_thing_playing_sample, (struct Thing *thing, SoundSmplTblID smpl_idx), (thing, smpl_idx))
+KFX_PORT_RET(struct Thing *, create_ambient_sound, (const struct Coord3d *pos, ThingModel model, PlayerNumber owner), (pos, model, owner), NULL)
+KFX_PORT_VOID(play_sound_if_close_to_receiver, (struct Coord3d *soundpos, SoundSmplTblID smpl_idx), (soundpos, smpl_idx))
+KFX_PORT_VOID(play_thing_walking, (struct Thing *thing), (thing))
+KFX_PORT_VOID(reset_ambient_sound_thing_idx, (void), ())

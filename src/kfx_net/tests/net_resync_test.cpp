@@ -14,8 +14,8 @@
 // the missing declaration" fix used repeatedly across this plan.
 //
 // animate_resync_progress_bar() is the first kfx_net test to combine
-// three simultaneous pattern-B fakes (GetGameTurnFunc, NetCallbacks,
-// RenderOverlayCallbacks) -- confirms both its early-return guards
+// two simultaneous fakes (the get_gameturn() source and UiPort)
+// -- confirms both its early-return guards
 // (gameturn 0, GOF_Paused) and, past them, the actual progress-bar pixel
 // math it hands to draw_out_of_sync_box().
 #include <catch2/catch_test_macros.hpp>
@@ -23,10 +23,9 @@
 #include "net_resync.h"
 #include "kfx_sim_state.h"
 #include "kfx_net_state.h"
-#include "net_callbacks.h"
-#include "render_overlay.h"
 #include "bflib_video.h" // units_per_pixel
-#include "globals.h" // GetGameTurnFunc/set_get_gameturn_provider
+#include "globals.h" // set_gameturn_source
+#include "ports/ui_port.h"
 
 #include <cstring>
 
@@ -106,7 +105,6 @@ TEST_CASE_METHOD(ResetStates, "store_localised_game_structure/recall_localised_g
 
 namespace {
 GameTurn g_fake_gameturn = 1;
-GameTurn fake_get_gameturn(void) { return g_fake_gameturn; }
 
 int64_t g_captured_progress_pixels = -1;
 int64_t g_captured_max_progress = -1;
@@ -121,8 +119,7 @@ int64_t g_fake_status_panel_width = 200;
 int64_t fake_get_status_panel_width(void) { return g_fake_status_panel_width; }
 
 struct AnimateResyncFixture : ResetStates {
-    struct NetCallbacks net_cb{};
-    struct RenderOverlayCallbacks overlay_cb{};
+    struct UiPort ui_cb{};
 
     AnimateResyncFixture() {
         g_fake_gameturn = 1;
@@ -131,16 +128,14 @@ struct AnimateResyncFixture : ResetStates {
         g_captured_box_width = -1;
         g_fake_status_panel_width = 200;
         units_per_pixel = 16; // "native" scale -- see bflib_video_test.cpp
-        set_get_gameturn_provider(fake_get_gameturn);
-        net_cb.draw_out_of_sync_box = fake_draw_out_of_sync_box;
-        set_net_callbacks(&net_cb);
-        overlay_cb.get_status_panel_width = fake_get_status_panel_width;
-        set_render_overlay_callbacks(&overlay_cb);
+        set_gameturn_source(&g_fake_gameturn);
+        ui_cb.draw_out_of_sync_box = fake_draw_out_of_sync_box;
+        ui_cb.get_status_panel_width = fake_get_status_panel_width;
+        set_ui_port(&ui_cb);
     }
     ~AnimateResyncFixture() {
-        set_get_gameturn_provider(nullptr);
-        set_net_callbacks(nullptr);
-        set_render_overlay_callbacks(nullptr);
+        set_gameturn_source(nullptr);
+        set_ui_port(nullptr);
     }
 };
 }
@@ -149,10 +144,10 @@ TEST_CASE_METHOD(AnimateResyncFixture, "animate_resync_progress_bar computes the
     animate_resync_progress_bar(1, 4);
     CHECK(g_captured_max_progress == 32);      // 32 * units_per_pixel(16) / 16
     CHECK(g_captured_progress_pixels == 8);    // max_progress * 1 / 4
-    CHECK(g_captured_box_width == 200);        // read through render_overlay->get_status_panel_width()
+    CHECK(g_captured_box_width == 200);        // read through ui_get_status_panel_width()
 }
 
-TEST_CASE_METHOD(AnimateResyncFixture, "animate_resync_progress_bar is a no-op at gameturn 0 (the default GetGameTurnFunc)", "[kfx_net][net_resync]") {
+TEST_CASE_METHOD(AnimateResyncFixture, "animate_resync_progress_bar is a no-op at gameturn 0 (the unwired default)", "[kfx_net][net_resync]") {
     g_fake_gameturn = 0;
     animate_resync_progress_bar(1, 4);
     CHECK(g_captured_max_progress == -1); // draw_out_of_sync_box never called

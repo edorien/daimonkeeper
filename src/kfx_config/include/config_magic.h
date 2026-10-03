@@ -466,21 +466,6 @@ const char *power_code_name(PowerKind pwkind);
 int64_t power_model_id(const char * code_name);
 /******************************************************************************/
 TbBool make_all_powers_cost_free(void);
-TbBool make_all_powers_researchable(PlayerNumber plyr_idx);
-TbBool set_power_available(PlayerNumber plyr_idx, PowerKind spl_idx, int64_t resrch, int64_t avail);
-TbBool is_power_available(PlayerNumber plyr_idx, PowerKind spl_idx);
-TbBool is_power_obtainable(PlayerNumber plyr_idx, PowerKind pwkind);
-TbBool make_available_all_researchable_powers(PlayerNumber plyr_idx);
-
-// add_power_to_player()/remove_power_from_player() moved to magic_powers.h:
-// they're the live "grant/revoke a keeper power" runtime operations, not
-// config parsing (see docs/refactor/stage-04-kfx-config.md issue D).
-// set_power_available() below still needs them; injected via
-// set_power_grant_revoke_callbacks() instead of calling them directly, so
-// this file stays kfx_config (not kfx_sim).
-typedef TbBool (*AddPowerToPlayerFn)(PowerKind pwkind, PlayerNumber plyr_idx);
-typedef void (*RemovePowerFromPlayerFn)(PowerKind pwkind, PlayerNumber plyr_idx);
-void set_power_grant_revoke_callbacks(AddPowerToPlayerFn add_fn, RemovePowerFromPlayerFn remove_fn);
 /******************************************************************************/
 #ifdef __cplusplus
 }

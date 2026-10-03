@@ -1,11 +1,12 @@
 #include "pre_inc.h"
 #include "renderer/RendererSoftware.h"
-#include "renderer/RendererManager.h" // RendererScreenOwned, renderer_imgui_callbacks
+#include "renderer/RendererManager.h" // RendererScreenOwned
 #include "bflib_video.h"       // PALETTE_COLORS, lbWindow, SDL, vsync_enabled
 #include "bflib_vidsurface.h"  // lbDrawSurface
 #include "bflib_render.h"      // draw_gpoly, vec_mode, VecModes
 #include "bflib_vidraw.h"      // vec_map
 #include <SDL3_image/SDL_image.h> // IMG_SavePNG (screenshots)
+#include "ports/display_host_port.h"
 #include "post_inc.h"
 
 bool RendererSoftware::Init()
@@ -108,7 +109,7 @@ void RendererSoftware::destroy_present_target()
 {
     // Must happen before m_renderer is destroyed below -- the ImGui
     // SDLRenderer3 backend holds references into it.
-    renderer_imgui_callbacks->renderer_destroying();
+    display_imgui_renderer_destroying();
     if (m_underlay_tex != nullptr) { SDL_DestroyTexture(m_underlay_tex); m_underlay_tex = nullptr; m_underlay_tex_src = nullptr; }
     if (m_texture != nullptr) { SDL_DestroyTexture(m_texture); m_texture = nullptr; }
     if (m_renderer != nullptr) { SDL_DestroyRenderer(m_renderer); m_renderer = nullptr; }
@@ -311,7 +312,7 @@ void RendererSoftware::PresentFrame()
     // a true overlay on top of it, between the backdrop blit and present.
     //
     // Reentrancy guard: found live (real SIGABRT, real backtrace) that
-    // frontend_set_state() -- called from renderer_imgui_callbacks->submit()'s
+    // frontend_set_state() -- called from display_imgui_submit()'s
     // own deferred-pending-state application, itself already inside this
     // function's begin_frame()/render() pair -- used to trigger
     // fade_out()/fade_in() (ProperFadePalette -> LbPaletteFade ->
@@ -331,12 +332,12 @@ void RendererSoftware::PresentFrame()
     // rather than removed sight unseen; revisit once live testing confirms
     // nothing else re-enters this function the same way.
     static bool s_presenting_imgui_frame = false;
-    if (!s_presenting_imgui_frame && renderer_imgui_callbacks->ensure(lbWindow, m_renderer))
+    if (!s_presenting_imgui_frame && display_imgui_ensure(lbWindow, m_renderer))
     {
         s_presenting_imgui_frame = true;
-        renderer_imgui_callbacks->begin_frame();
-        renderer_imgui_callbacks->submit(); // kfx_frontend's §5 wrappers / Phase B style-sheet test screen
-        renderer_imgui_callbacks->render();
+        display_imgui_begin_frame();
+        display_imgui_submit(); // kfx_frontend's §5 wrappers / Phase B style-sheet test screen
+        display_imgui_render();
         // docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md B2:
         // the composited backbuffer (backdrop + ImGui overlay) is complete
         // right here -- after render(), before SDL_RenderPresent() below.

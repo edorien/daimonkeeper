@@ -63,6 +63,7 @@
 #include "sprites.h"
 #include "player_instances.h"
 
+#include "local_state.h"
 #include "post_inc.h"
 
 /******************************************************************************/

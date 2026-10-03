@@ -40,10 +40,12 @@
 #include "thing_physics.h"
 #include "config_spritecolors.h"
 #include "config.h"
-#include "script_hooks.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
-#include "render_overlay.h"
+#include "thing_stats.h"
+#include "light_registry.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -225,7 +227,7 @@ TbBool tag_blocks_for_digging_in_area(MapSubtlCoord stl_x, MapSubtlCoord stl_y, 
               }
           }
       }
-      config_reload_callbacks->panel_map_update(x, y, STL_PER_SLB, STL_PER_SLB);
+      ui_panel_map_update(x, y, STL_PER_SLB, STL_PER_SLB);
     }
     return task_added;
 }
@@ -268,7 +270,7 @@ TbBool untag_blocks_for_digging_in_area(MapSubtlCoord stl_x, MapSubtlCoord stl_y
             }
         }
     }
-    config_reload_callbacks->panel_map_update(x, y, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(x, y, STL_PER_SLB, STL_PER_SLB);
     return num_untagged > 0;
 }
 
@@ -308,7 +310,7 @@ TbBool set_slab_explored(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord
     reveal_map_subtile(slab_subtile(slb_x,0), slab_subtile(slb_y,2), plyr_idx);
     reveal_map_subtile(slab_subtile(slb_x,1), slab_subtile(slb_y,2), plyr_idx);
     reveal_map_subtile(slab_subtile(slb_x,2), slab_subtile(slb_y,2), plyr_idx);
-    config_reload_callbacks->panel_map_update(slab_subtile(slb_x,0), slab_subtile(slb_y,0), STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(slab_subtile(slb_x,0), slab_subtile(slb_y,0), STL_PER_SLB, STL_PER_SLB);
     return true;
 }
 
@@ -332,7 +334,7 @@ void set_slab_explored_flags(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabC
         get_map_block_at(stl_x + 1, stl_y + 2)->revealed = flag;
         get_map_block_at(stl_x + 2, stl_y + 2)->revealed = flag;
 
-        config_reload_callbacks->panel_map_update(stl_x, stl_y, STL_PER_SLB, STL_PER_SLB);
+        ui_panel_map_update(stl_x, stl_y, STL_PER_SLB, STL_PER_SLB);
     }
 }
 
@@ -880,9 +882,9 @@ void place_slab_object(SlabCodedCoords slb_num, MapSubtlCoord stl_x,MapSubtlCoor
                 ilght.flags = 0;
                 ilght.is_dynamic = 0;
                 int64_t lgt_id;
-                lgt_id = render_overlay->light_create_light(&ilght);
+                lgt_id = light_create_light(&ilght);
                 if (lgt_id != 0) {
-                    render_overlay->light_set_attached_slab(lgt_id, slb_num);
+                    light_set_attached_slab(lgt_id, slb_num);
                 } else {
                     WARNLOG("Cannot allocate light");
                     continue;
@@ -1079,7 +1081,7 @@ void delete_attached_lights_on_slab(MapSlabCoord slb_x, MapSlabCoord slb_y)
     end_stl_y = 3 * slb_y + 4;
     if (end_stl_y >= kfx_sim_state.map_subtiles_y)
       end_stl_y = kfx_sim_state.map_subtiles_y;
-    render_overlay->delete_lights_attached_to_slab_in_area(place_slbnum, start_stl_x, start_stl_y, end_stl_x, end_stl_y);
+    delete_lights_attached_to_slab_in_area(place_slbnum, start_stl_x, start_stl_y, end_stl_x, end_stl_y);
 }
 
 void place_single_slab_fill_style_array(MapSlabCoord slb_x, MapSlabCoord slb_y, int64_t *style_set)
@@ -1541,7 +1543,7 @@ void dump_slab_on_map(SlabKind slbkind, int64_t slabset_id, MapSubtlCoord stl_x,
 
     slb = get_slabmap_block(slb_x, slb_y);
     slb->kind = slbkind;
-    config_reload_callbacks->panel_map_update(stl_xa, stl_ya, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(stl_xa, stl_ya, STL_PER_SLB, STL_PER_SLB);
     if (slab_kind_is_animated(slbkind) && !slab_kind_is_door(slbkind))
     {
         MapSubtlCoord stl_xb;
@@ -1585,7 +1587,7 @@ void place_animating_slab_type_on_map(SlabKind slbkind, char ani_frame, MapSubtl
     }
         if (slbmap->kind != old_kind)
         {
-            script_hooks->lua_on_slab_kind_change(slb_x, slb_y, old_kind);
+            script_lua_on_slab_kind_change(slb_x, slb_y, old_kind);
         }
 }
 
@@ -1727,7 +1729,7 @@ void place_slab_type_on_map_f(SlabKind nslab, MapSubtlCoord stl_x, MapSubtlCoord
       }
     }
 
-    config_reload_callbacks->panel_map_update(slab_subtile(slb_x,0), slab_subtile(slb_y,0), STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(slab_subtile(slb_x,0), slab_subtile(slb_y,0), STL_PER_SLB, STL_PER_SLB);
 
     for (i = 0; i < AROUND_EIGHT_LENGTH; i++)
     {
@@ -1791,7 +1793,7 @@ void place_slab_type_on_map_f(SlabKind nslab, MapSubtlCoord stl_x, MapSubtlCoord
     }
     if (old_kind != nslab)
     {
-        script_hooks->lua_on_slab_kind_change(slb_x, slb_y, old_kind);
+        script_lua_on_slab_kind_change(slb_x, slb_y, old_kind);
     }
 }
 
@@ -2670,7 +2672,7 @@ void pretty_map_remove_flags_and_update(MapSlabCoord slb_x, MapSlabCoord slb_y)
         mapblk->flags &= ~SlbAtFlg_TaggedValuable;
         mapblk->flags &= ~SlbAtFlg_Unexplored;
     }
-    config_reload_callbacks->panel_map_update(stl_x, stl_y, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(stl_x, stl_y, STL_PER_SLB, STL_PER_SLB);
 }
 
 void place_and_process_pretty_wall_slab(struct Thing *creatng, MapSlabCoord slb_x, MapSlabCoord slb_y)

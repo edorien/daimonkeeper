@@ -2,14 +2,11 @@
 // stage-08b-kfx-sim-clusters.md's "still open" list: a broad-coverage pass
 // over slab_data.c's accessor/coordinate/kind-check family -- the same
 // shape as dungeon_data_test.cpp's pass. slab_is_safe_land/
-// slab_good_for_computer_dig_path/is_valid_hug_subtile are deliberately
-// skipped: they all route through get_slab_stats(), which (per
-// thing_doors_test.cpp's note) always resolves to slab_cfgstats[0] in this
-// test binary via the default ConfigReloadCallbacks::slabmap_block_invalid
-// no-op, making their config-dependent branches unobservable without a
-// fake. Functions parametrized directly by SlabKind (get_slab_kind_stats,
-// not the slb-pointer + callback route) don't have that limitation and are
-// covered here for real.
+// slab_good_for_computer_dig_path/is_valid_hug_subtile are not covered
+// yet: they route through get_slab_stats(), which until refactor pass 2's
+// S15 always resolved to slab_cfgstats[0] in this binary (it reached the
+// slab through an unwired port). It now reads the real slab kind, so they
+// can be tested with a per-kind slab_cfgstats fixture.
 #include <catch2/catch_test_macros.hpp>
 
 #include "slab_data.h"

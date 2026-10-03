@@ -4,7 +4,7 @@ setlocal
 REM ===========================================================================
 REM  build-package-windows.bat
 REM
-REM  Native Windows MinGW build + full package: keeperfx.exe, keeperfx_hvlog.exe,
+REM  Native Windows MinGW build + full package: keeperfx.exe,
 REM  the SDL3 runtime DLLs and all game data (configs, campaigns, levels,
 REM  language / sound .dat files). Produces:
 REM
@@ -24,9 +24,10 @@ REM
 REM  First run needs network access (fetches third-party libs, clones
 REM  dkfans/FXGraphics, downloads the pngpal2raw tool).
 REM
-REM  Usage - from a normal Command Prompt in the repo root:
+REM  Usage - from a normal Command Prompt (any directory; the script switches
+REM  to the repo root itself):
 REM
-REM    build-package-windows.bat
+REM    extraBuildScripts\build-package-windows.bat
 REM
 REM  Optional environment variables:
 REM
@@ -45,14 +46,15 @@ if not exist "%MSYS2_SHELL%" (
     exit /b 1
 )
 
-cd /d "%~dp0"
+REM This script lives in extraBuildScripts\; build from the repo root one level up.
+cd /d "%~dp0.."
 
 REM -mingw32   : MSYSTEM=MINGW32 (32-bit toolchain, matches the prebuilt deps)
 REM -defterm   : don't open a new terminal window
 REM -no-start  : run in this console and wait for it to finish
 REM -here      : keep the current directory (the repo root)
 REM -c         : the command to run
-call "%MSYS2_SHELL%" -mingw32 -defterm -no-start -here -c "./build-package-windows.sh"
+call "%MSYS2_SHELL%" -mingw32 -defterm -no-start -here -c "./extraBuildScripts/build-package-windows.sh"
 set "RC=%ERRORLEVEL%"
 
 echo.

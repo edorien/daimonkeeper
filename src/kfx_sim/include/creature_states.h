@@ -85,10 +85,6 @@ typedef CrCheckRet (*CreatureStateCheck)(struct Thing *);
 
 
 /******************************************************************************/
-extern const struct NamedCommand process_func_commands[];
-extern const struct NamedCommand cleanup_func_commands[];
-extern const struct NamedCommand move_from_slab_func_commands[];
-extern const struct NamedCommand move_check_func_commands[];
 
 extern const CreatureStateFunc1 process_func_list[];
 extern const CreatureStateFunc2 move_from_slab_func_list[];

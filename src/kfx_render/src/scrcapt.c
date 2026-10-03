@@ -26,16 +26,16 @@
 #include "bflib_vidsurface.h"
 #include "globals.h"
 
-#include "sim_feedback.h"
 #include "config.h"
 
 #include <string.h>
 #include <ctype.h>
 #include "kfx_sim_state.h"
+#include "config_settings.h"
+#include "ports/ui_port.h"
 #include "post_inc.h"
 /******************************************************************************/
 
-unsigned char screenshot_format = 1;
 
 /******************************************************************************/
 // docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md B2:
@@ -47,14 +47,14 @@ unsigned char screenshot_format = 1;
 // which is meaningless now that this just queues a request.
 TbBool take_screenshot(char *fname)
 {
-    return RendererScheduleScreenshot(fname, screenshot_format);
+    return RendererScheduleScreenshot(fname, kfx_runtime_settings.screenshot_format);
 }
 
 TbBool cumulative_screen_shot(void)
 {
     char fname[255] = "";
     const char *fext;
-    switch (screenshot_format)
+    switch (kfx_runtime_settings.screenshot_format)
     {
         case 1:
         fext = "png";
@@ -74,7 +74,7 @@ TbBool cumulative_screen_shot(void)
     }
     if (i >= 10000)
     {
-        sim_feedback->show_onscreen_msg(kfx_sim_state.turns_per_second, "No free filename for screenshot.");
+        ui_show_onscreen_msg(kfx_sim_state.turns_per_second, "No free filename for screenshot.");
         return false;
     }
     TbBool ret = take_screenshot(fname);
@@ -87,7 +87,7 @@ TbBool cumulative_screen_shot(void)
     {
         snprintf(msg, sizeof(msg), "Cannot save \"%s\".", fname);
     }
-    sim_feedback->show_onscreen_msg(kfx_sim_state.turns_per_second, msg);
+    ui_show_onscreen_msg(kfx_sim_state.turns_per_second, msg);
     return ret;
 }
 

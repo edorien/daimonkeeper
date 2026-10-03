@@ -37,11 +37,14 @@
 #include "map_utils.h"
 #include "config_sounds.h"
 #include "config.h"
-#include "sim_feedback.h"
-#include "script_hooks.h"
 #include "player_instances.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "player_availability.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -104,13 +107,13 @@ struct Thing *create_door(struct Coord3d *pos, ThingModel tngmodel, unsigned cha
     if (!i_can_allocate_free_thing_structure(TCls_Door))
     {
         ERRORDBG(3,"Cannot create door model %" PRId64 " (%s) for player %" PRId64 ". There are too many things allocated.",(int64_t)tngmodel, door_code_name(tngmodel), (int64_t)plyr_idx);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* doortng = allocate_free_thing_structure(TCls_Door);
     if (doortng->index == 0) {
         ERRORDBG(3,"Should be able to allocate door %" PRId64 " (%s) for player %" PRId64 ", but failed.",(int64_t)tngmodel, door_code_name(tngmodel), (int64_t)plyr_idx);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
 
@@ -228,7 +231,7 @@ void unlock_door(struct Thing *thing)
     thing->door.is_locked = false;
     update_navigation_triangulation(thing->mappos.x.stl.num-1, thing->mappos.y.stl.num-1,
       thing->mappos.x.stl.num+1, thing->mappos.y.stl.num+1);
-    config_reload_callbacks->panel_map_update(thing->mappos.x.stl.num-1, thing->mappos.y.stl.num-1, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(thing->mappos.x.stl.num-1, thing->mappos.y.stl.num-1, STL_PER_SLB, STL_PER_SLB);
     if (!remove_key_on_door(thing)) {
         WARNMSG("Cannot remove keyhole when unlocking door.");
     }
@@ -244,7 +247,7 @@ void lock_door(struct Thing *doortng)
     doortng->door.is_locked = 1;
     place_animating_slab_type_on_map(doorst->slbkind[doortng->door.orientation], 0, stl_x, stl_y, doortng->owner);
     update_navigation_triangulation(stl_x-1,  stl_y-1, stl_x+1,stl_y+1);
-    config_reload_callbacks->panel_map_update(stl_x-1, stl_y-1, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(stl_x-1, stl_y-1, STL_PER_SLB, STL_PER_SLB);
     if (!add_key_on_door(doortng)) {
         WARNMSG("Cannot create a keyhole when locking a door.");
     }
@@ -274,7 +277,7 @@ int64_t destroy_door(struct Thing *doortng)
     }
     struct Thing* efftng = create_effect(&pos, TngEff_Dummy, plyr_idx);
     if (!thing_is_invalid(efftng)) {
-        sim_feedback->thing_play_sample(efftng, snd_door_place + SOUND_RANDOM(snd_door_place_count), NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+        audio_thing_play_sample(efftng, snd_door_place + SOUND_RANDOM(snd_door_place_count), NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
     }
     if (plyr_idx != kfx_config_state.neutral_player_num)
     {
@@ -487,7 +490,7 @@ void reveal_secret_door_to_player(struct Thing *doortng,PlayerNumber plyr_idx)
     MapSubtlCoord stl_x = doortng->mappos.x.stl.num;
     MapSubtlCoord stl_y = doortng->mappos.y.stl.num;
     update_navigation_triangulation(stl_x-1,  stl_y-1, stl_x+1,stl_y+1);
-    config_reload_callbacks->panel_map_update(stl_x-1, stl_y-1, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(stl_x-1, stl_y-1, STL_PER_SLB, STL_PER_SLB);
 
 }
 
@@ -507,7 +510,7 @@ int64_t process_door_open(struct Thing *thing)
         return 0;
     }
     thing->active_state = DorSt_Closing;
-    sim_feedback->thing_play_sample(thing, snd_door_open, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(thing, snd_door_open, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     return 1;
 }
 
@@ -516,7 +519,7 @@ int64_t process_door_closed(struct Thing *thing)
     if ( !check_door_should_open(thing) )
       return 0;
     thing->active_state = DorSt_Opening;
-    sim_feedback->thing_play_sample(thing, snd_door_close, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+    audio_thing_play_sample(thing, snd_door_close, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     return 1;
 }
 
@@ -550,7 +553,7 @@ int64_t process_door_closing(struct Thing *thing)
     if ( check_door_should_open(thing) )
     {
         thing->active_state = DorSt_Opening;
-        sim_feedback->thing_play_sample(thing, snd_door_close, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
+        audio_thing_play_sample(thing, snd_door_close, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     }
     if (thing->door.closing_counter > delta_h)
     {
@@ -575,7 +578,7 @@ TngUpdateRet process_door(struct Thing *thing)
 
     if (doorst->updatefn_idx < 0)
     {
-        if (script_hooks->luafunc_thing_update_func(doorst->updatefn_idx, thing) <= 0) {
+        if (script_luafunc_thing_update_func(doorst->updatefn_idx, thing) <= 0) {
             return TUFRet_Deleted;
         }
     }
@@ -812,7 +815,7 @@ void script_place_door(PlayerNumber plyridx, ThingModel doorkind, MapSlabCoord s
     MapSubtlCoord stl_y = slab_subtile_center(slb_y);
     TbBool success;
 
-    if (sim_feedback->tag_cursor_blocks_place_door(plyridx, stl_x, stl_y))
+    if (render_tag_cursor_blocks_place_door(plyridx, stl_x, stl_y))
     {
         if (!free)
         {

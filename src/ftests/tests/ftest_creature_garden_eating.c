@@ -7,6 +7,7 @@
 // room_create_new_food_at() (room_garden.c) creates it directly rather
 // than waiting for a fresh room's natural growth.
 #include "ftest_creature_garden_eating.h"
+#include "player_availability.h"
 
 #ifdef FUNCTESTING
 

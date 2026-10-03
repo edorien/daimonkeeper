@@ -15,11 +15,15 @@
 # packaged, only falling back to a source build when one isn't found.
 #
 # Usage:
-#   ./build-cmake.sh                     # Windows keeperfx (standard log)
-#   KFX_OS=linux ./build-cmake.sh        # Linux keeperfx
-#   ./build-cmake.sh keeperfx_hvlog      # heavy-log variant
-#   USE_DOCKER=1 ./build-cmake.sh        # build in an Ubuntu 24.04 container
-#   BUILD_DIR=out/foo ./build-cmake.sh   # override the build directory (default: out/<KFX_OS>/)
+# Legacy: superseded by ../build-cmake-linux.sh (same logic, defaults to
+# KFX_OS=linux, also installs the mcp component). Run from the repo root --
+# the configure step uses the current directory as the source tree.
+#
+#   extraBuildScripts/build-cmake.sh                     # Windows keeperfx
+#   KFX_OS=linux extraBuildScripts/build-cmake.sh        # Linux keeperfx
+#   (no separate heavy-log build any more: logging is the LOG_LEVEL option)
+#   USE_DOCKER=1 extraBuildScripts/build-cmake.sh        # build in an Ubuntu 24.04 container
+#   BUILD_DIR=out/foo extraBuildScripts/build-cmake.sh   # override the build directory (default: out/<KFX_OS>/)
 #
 # Requirements (native):
 #   windows: a MinGW-w64 i686 toolchain (Ubuntu: g++-mingw-w64-i686), cmake, ninja
@@ -31,6 +35,10 @@
 set -euo pipefail
 
 TARGET="${1:-keeperfx}"
+if [ "$TARGET" = "keeperfx_hvlog" ]; then
+    echo "keeperfx_hvlog is no longer a separate build (see LOG_LEVEL in keeperfx.cfg); building keeperfx." >&2
+    TARGET=keeperfx
+fi
 KFX_OS="${KFX_OS:-windows}"
 # One build tree per platform (out/linux/, out/windows/, git-ignored) --
 # a CMakeCache.txt bakes in its compiler/toolchain, so linux and windows
@@ -60,7 +68,7 @@ if [ "${USE_DOCKER:-0}" = "1" ]; then
         apt-get update -qq
         apt-get install -y -qq $PKGS
         git config --global --add safe.directory /src || true
-        KFX_OS='$KFX_OS' BUILD_DIR='$BUILD_DIR' bash build-cmake.sh '$TARGET'
+        KFX_OS='$KFX_OS' BUILD_DIR='$BUILD_DIR' bash extraBuildScripts/build-cmake.sh '$TARGET'
     "
 fi
 

@@ -97,6 +97,14 @@ extern struct CatalogueEntry *save_game_catalogue;
 extern int64_t save_game_catalogue_count;
 /******************************************************************************/
 int64_t load_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);
+/* Refactor pass 2, S09: checks every chunk's version and size against
+   state_versions.h without loading anything; load_game_chunks() runs it
+   first and refuses the whole file if it fails. */
+TbBool validate_save_chunks(TbFileHandle fhandle);
+/* Whether the last load_game()/load_game_chunks() refused the file for
+   being from another layout (the game was left untouched), and why. */
+TbBool last_save_was_refused(void);
+const char *last_save_refusal_reason(void);
 TbBool fill_game_catalogue_entry(struct CatalogueEntry *centry,const char *textname);
 TbBool save_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);
 TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry);

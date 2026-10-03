@@ -26,7 +26,7 @@
 #include "thing_objects.h" // thing_is_object/object_is_hero_gate
 #include "thing_traps.h" // thing_is_deployed_trap
 #include "thing_doors.h" // thing_is_deployed_door
-#include "light_data.h" // lish.lights[]/LgtF_Allocated/LgtF_Dynamic
+#include "light_registry.h" // kfx_sim_state.light_registry.lights[]/LgtF_Allocated/LgtF_Dynamic
 #include "actionpt.h" // action_point_get/ACTN_POINTS_COUNT
 
 #include <imgui.h>
@@ -270,7 +270,7 @@ namespace {
     {
         for (int64_t i = 1; i < LIGHTS_COUNT; i++)
         {
-            struct Light *light = &lish.lights[i];
+            struct Light *light = &kfx_sim_state.light_registry.lights[i];
             if ((light->flags & LgtF_Allocated) == 0)
                 continue;
             if ((light->flags & LgtF_Dynamic) != 0)

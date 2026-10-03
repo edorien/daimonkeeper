@@ -1292,7 +1292,7 @@ void update_panel_colors(void)
     }
 }
 
-/* config_reload_callbacks->reset_panel_map_background_cache(): called once
+/* ui_reset_panel_map_background_cache(): called once
  * early during level (re)start (main_game.c, right after the existing
  * setup_panel_colors() call), well before this level's own map/camera has
  * rendered a single frame. auto_gen_tables()'s PrevPixelSize gate only

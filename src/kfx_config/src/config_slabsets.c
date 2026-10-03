@@ -29,6 +29,7 @@
 #include <toml.h>
 #include "config_strings.h"
 #include "kfx_config_state.h"
+#include "ports/sim_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -99,10 +100,10 @@ static TbBool load_slabset_config_file(const char *fname, int64_t flags)
 
     char key[64] = "";
     VALUE *slb_section;
-    struct SlabSet *slabset_arr = config_reload_callbacks->get_slabset_array();
-    struct SlabObj *slabobjs_arr = config_reload_callbacks->get_slabobjs_array();
-    int64_t *slabobjs_idx_arr = config_reload_callbacks->get_slabobjs_idx_array();
-    int64_t *slabobjs_num_ptr = config_reload_callbacks->get_slabobjs_num_ptr();
+    struct SlabSet *slabset_arr = simport_get_slabset_array();
+    struct SlabObj *slabobjs_arr = simport_get_slabobjs_array();
+    int64_t *slabobjs_idx_arr = simport_get_slabobjs_idx_array();
+    int64_t *slabobjs_num_ptr = simport_get_slabobjs_num_ptr();
     // Create sections
     for (int64_t slab_kind = 0; slab_kind < kfx_config_state.conf.slab_conf.slab_types_count; slab_kind++)
     {
@@ -237,9 +238,9 @@ static TbBool load_columns_config_file(const char *fname, int64_t flags)
 
 void clear_slabsets(void)
 {
-    struct SlabSet *slabset_arr = config_reload_callbacks->get_slabset_array();
-    struct SlabObj *slabobjs_arr = config_reload_callbacks->get_slabobjs_array();
-    int64_t *slabobjs_idx_arr = config_reload_callbacks->get_slabobjs_idx_array();
+    struct SlabSet *slabset_arr = simport_get_slabset_array();
+    struct SlabObj *slabobjs_arr = simport_get_slabobjs_array();
+    int64_t *slabobjs_idx_arr = simport_get_slabobjs_idx_array();
     struct SlabSet *sset;
     struct SlabObj *sobj;
     int64_t i;
@@ -249,8 +250,8 @@ void clear_slabsets(void)
         memset(sset, 0, sizeof(struct SlabSet));
         slabobjs_idx_arr[i] = -1;
     }
-    *config_reload_callbacks->get_slabset_num_ptr() = SLABSET_COUNT;
-    *config_reload_callbacks->get_slabobjs_num_ptr() = 0;
+    *simport_get_slabset_num_ptr() = SLABSET_COUNT;
+    *simport_get_slabobjs_num_ptr() = 0;
     for (i=0; i < SLABOBJS_COUNT; i++)
     {
         sobj = &slabobjs_arr[i];

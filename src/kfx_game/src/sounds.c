@@ -30,8 +30,6 @@
 #include "map_utils.h"
 #include "engine_camera.h"
 #include "local_camera.h"
-#include "sim_feedback.h"
-#include "game_callbacks.h"
 #include "thing_data.h"
 #include "thing_list.h"
 #include "thing_navigate.h"
@@ -52,6 +50,9 @@
 
 #include "bflib_inputctrl.h"
 #include "game_heap.h"
+#include "thing_stats.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -306,7 +307,7 @@ void update_player_sounds(void)
     if ((kfx_sim_state.operation_flags & GOF_Paused) == 0)
     {
         struct PlayerInfo* player = get_my_player();
-        sim_feedback->process_sound_messages();
+        audio_process_sound_messages();
         if (!SoundDisabled)
         {
             update_3d_sound_receiver(player);
@@ -315,7 +316,7 @@ void update_player_sounds(void)
     find_nearest_rooms_for_ambient_sound();
     process_3d_sounds();
     int64_t k = (kfx_game_state.bonus_time - get_gameturn()) / 2;
-    if (game_callbacks->is_bonus_timer_enabled())
+    if (ui_is_bonus_timer_enabled())
     {
         if ((kfx_game_state.bonus_time == get_gameturn()) ||
             ((kfx_game_state.bonus_time > get_gameturn()) &&
@@ -343,12 +344,12 @@ void update_player_sounds(void)
                 {
                     // Replace SMsg_Glaagh with SMsg_PantsTooTight
                     // Most likely because 'Glaagh' is a bit negative in this scenario
-                    sim_feedback->play_sound_message(SMsg_PantsTooTight, 0);
+                    audio_output_message(SMsg_PantsTooTight, 0);
                 }
                 else
                 {
                     // Play one of the speeches
-                    sim_feedback->play_sound_message(SMsg_FunnyMessages+k, 0);
+                    audio_output_message(SMsg_FunnyMessages+k, 0);
                 }
             }
 
@@ -436,13 +437,13 @@ struct Thing *create_ambient_sound(const struct Coord3d *pos, ThingModel model, 
     if ( !i_can_allocate_free_thing_structure(TCls_AmbientSnd) )
     {
         ERRORDBG(3,"Cannot create ambient sound %" PRId64 " for player %" PRId64 ". There are too many things allocated.",(int64_t)model,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     struct Thing* thing = allocate_free_thing_structure(TCls_AmbientSnd);
     if (thing->index == 0) {
         ERRORDBG(3,"Should be able to allocate ambient sound %" PRId64 " for player %" PRId64 ", but failed.",(int64_t)model,(int64_t)owner);
-        sim_feedback->report_error_stat(ESE_NoFreeThings);
+        ui_report_error_stat(ESE_NoFreeThings);
         return INVALID_THING;
     }
     thing->class_id = TCls_AmbientSnd;
@@ -505,7 +506,7 @@ void sound_reinit_after_load(void)
     }
     ambient_sound_stop();
     stop_streamed_samples();
-    sim_feedback->clear_sound_messages();
+    audio_clear_sound_messages();
     if (kfx_game_state.music_track < 0 && strlen(kfx_game_state.music_fname) > 0) {
         // Play the saved custom music. play_music() itself will skip restarting it if
         // this exact file is already playing

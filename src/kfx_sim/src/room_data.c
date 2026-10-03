@@ -50,12 +50,13 @@
 #include "room_util.h"
 #include "config_sounds.h"
 #include "config.h"
-#include "sim_feedback.h"
 #include "config_spritecolors.h"
-#include "script_hooks.h"
 #include "ariadne_update.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/script_port.h"
+#include "ports/ui_port.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -649,7 +650,7 @@ void update_room_total_capacity(struct Room *room)
     SYNCDBG(7, "Starting for %s index %" PRId64 " owned by player %" PRId64, room_code_name(room->kind), (int64_t)room->index, (int64_t)room->owner);
     const struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
     if (roomst->update_total_capacity_idx < 0) {
-        script_hooks->luafunc_room_capacity_func(roomst->update_total_capacity_idx, room);
+        script_luafunc_room_capacity_func(roomst->update_total_capacity_idx, room);
     } else
     {
         Room_Update_Func cb = terrain_room_total_capacity_func_list[roomst->update_total_capacity_idx];
@@ -989,7 +990,7 @@ struct Room *prepare_new_room(PlayerNumber owner, RoomKind rkind, MapSubtlCoord 
     if ( !i_can_allocate_free_room_structure() )
     {
         ERRORDBG(2,"Cannot allocate any more rooms.");
-        sim_feedback->report_error_stat(ESE_NoFreeRooms);
+        ui_report_error_stat(ESE_NoFreeRooms);
         return INVALID_ROOM;
     }
     struct Room* room = allocate_free_room_structure();
@@ -1343,7 +1344,7 @@ TbBool update_room_contents(struct Room *room)
     const struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
     SYNCDBG(17,"Starting for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
     if (roomst->update_storage_in_room_idx < 0) {
-        script_hooks->luafunc_room_capacity_func(roomst->update_storage_in_room_idx, room);
+        script_luafunc_room_capacity_func(roomst->update_storage_in_room_idx, room);
     } else
     {
         Room_Update_Func cb = terrain_room_used_capacity_func_list[roomst->update_storage_in_room_idx];
@@ -1353,7 +1354,7 @@ TbBool update_room_contents(struct Room *room)
     }
 
     if (roomst->update_workers_in_room_idx < 0) {
-        script_hooks->luafunc_room_capacity_func(roomst->update_workers_in_room_idx, room);
+        script_luafunc_room_capacity_func(roomst->update_workers_in_room_idx, room);
     } else
     {
         Room_Update_Func cb = terrain_room_used_capacity_func_list[roomst->update_workers_in_room_idx];
@@ -3354,7 +3355,7 @@ struct Room *place_room(PlayerNumber owner, RoomKind rkind, MapSubtlCoord stl_x,
         struct Dungeon* dungeon = get_dungeon(owner);
         dungeon->lvstats.rooms_constructed++;
     }
-    config_reload_callbacks->panel_map_update(stl_x, stl_y, STL_PER_SLB, STL_PER_SLB);
+    ui_panel_map_update(stl_x, stl_y, STL_PER_SLB, STL_PER_SLB);
     return room;
 }
 
@@ -3743,7 +3744,7 @@ static void change_room_map_element_ownership(struct Room *room, PlayerNumber pl
                 change_room_subtile_things_ownership(room, stl_x, stl_y, plyr_idx);
             }
         }
-        config_reload_callbacks->panel_map_update(start_stl_x, start_stl_y, STL_PER_SLB, STL_PER_SLB);
+        ui_panel_map_update(start_stl_x, start_stl_y, STL_PER_SLB, STL_PER_SLB);
         // Per-slab code ends
         k++;
         if (k > room->slabs_count)
@@ -3842,19 +3843,19 @@ void output_room_takeover_message(struct Room *room, PlayerNumber oldowner, Play
     if (room->kind == RoK_ENTRANCE)
     {
         if (is_my_player_number(oldowner)) {
-            sim_feedback->play_sound_message(SMsg_EntranceLost, 0);
+            audio_output_message(SMsg_EntranceLost, 0);
         } else
         if (is_my_player_number(newowner))
         {
-            sim_feedback->play_sound_message(SMsg_EntranceClaimed, 0);
+            audio_output_message(SMsg_EntranceClaimed, 0);
         }
     } else
     if (is_my_player_number(newowner))
     {
         if (oldowner == kfx_config_state.neutral_player_num) {
-            sim_feedback->play_sound_message(SMsg_NewRoomTakenOver, 0);
+            audio_output_message(SMsg_NewRoomTakenOver, 0);
         } else {
-            sim_feedback->play_sound_message(SMsg_EnemyRoomTakeOver, 0);
+            audio_output_message(SMsg_EnemyRoomTakeOver, 0);
         }
     }
 }
@@ -3878,13 +3879,13 @@ int64_t claim_room(struct Room *room, struct Thing *claimtng)
     room->health = compute_room_max_health(room->slabs_count, room->efficiency);
     add_room_to_players_list(room, claimtng->owner);
     change_room_map_element_ownership(room, claimtng->owner);
-    script_hooks->lua_on_room_owner_change(room, oldowner);
+    script_lua_on_room_owner_change(room, oldowner);
     redraw_room_map_elements(room);
     do_room_unprettying(room, claimtng->owner);
     event_create_event(subtile_coord_center(room->central_stl_x), subtile_coord_center(room->central_stl_y),
         EvKind_RoomTakenOver, claimtng->owner, room->kind);
     do_room_integration(room);
-    sim_feedback->thing_play_sample(claimtng, snd_room_claim, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
+    audio_thing_play_sample(claimtng, snd_room_claim, NORMAL_PITCH, 0, 3, 0, 4, FULL_LOUDNESS);
     output_room_takeover_message(room, oldowner, claimtng->owner);
     return 1;
 }
@@ -3910,7 +3911,7 @@ int64_t claim_enemy_room(struct Room *room, struct Thing *claimtng)
     room->health = compute_room_max_health(room->slabs_count, room->efficiency);
     add_room_to_players_list(room, claimtng->owner);
     change_room_map_element_ownership(room, claimtng->owner);
-    script_hooks->lua_on_room_owner_change(room, oldowner);
+    script_lua_on_room_owner_change(room, oldowner);
     redraw_room_map_elements(room);
     do_room_unprettying(room, claimtng->owner);
     event_create_event(subtile_coord_center(room->central_stl_x), subtile_coord_center(room->central_stl_y),
@@ -3942,7 +3943,7 @@ int64_t take_over_room(struct Room* room, PlayerNumber newowner)
         room->health = compute_room_max_health(room->slabs_count, room->efficiency);
         add_room_to_players_list(room, newowner);
         change_room_map_element_ownership(room, newowner);
-        script_hooks->lua_on_room_owner_change(room, oldowner);
+        script_lua_on_room_owner_change(room, oldowner);
         redraw_room_map_elements(room);
         do_room_unprettying(room, newowner);
         do_room_integration(room);
@@ -4012,4 +4013,57 @@ void destroy_dungeon_heart_room(PlayerNumber plyr_idx, const struct Thing *heart
     remove_room_from_players_list(room, plyr_idx);
     destroy_room_leaving_unclaimed_ground(room, true);
 }
+
+// get_required_room_capacity_for_object() moved here from kfx_config's
+// config_objects.c (refactor pass 2, S05).
+/**
+ * Returns required room capacity for given object model storage in room.
+ * @param room_role The room role of target room.
+ * @param objmodel The object model to be checked. May be 0 for lair or dead creature check, as this requires related model.
+ * @param relmodel Related thing model, if object model is not unequivocal.
+ * @return
+ */
+int64_t get_required_room_capacity_for_object(RoomRole room_role, ThingModel objmodel, ThingModel relmodel)
+{
+    struct CreatureModelConfig *crconf;
+    struct ObjectConfigStats *objst;
+    switch (room_role)
+    {
+    case RoRoF_LairStorage:
+        crconf = creature_stats_get(relmodel);
+        return crconf->lair_size;
+    case RoRoF_DeadStorage:
+        crconf = creature_stats_get(relmodel);
+        if (!creature_stats_invalid(crconf))
+            return 1;
+        break;
+    case RoRoF_KeeperStorage:
+        break;
+    case RoRoF_GoldStorage:
+        objst = get_object_model_stats(objmodel);
+        if (objst->genre == OCtg_GoldHoard)
+            return get_wealth_size_of_gold_hoard_model(objmodel);
+        break;
+    case RoRoF_FoodSpawn:
+    case RoRoF_FoodStorage:
+        objst = get_object_model_stats(objmodel);
+        if ((objst->genre == OCtg_Food) || (objst->genre == OCtg_Furniture)) // non-mature chickens are furniture
+            return 1;
+        break;
+    case RoRoF_CratesStorage:
+        objst = get_object_model_stats(objmodel);
+        if (objst->genre == OCtg_WrkshpBox)
+            return 1;
+        break;
+    case RoRoF_PowersStorage:
+        objst = get_object_model_stats(objmodel);
+        if ((objst->genre == OCtg_Spellbook) || (objst->genre == OCtg_SpecialBox))
+            return 1;
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
 /******************************************************************************/

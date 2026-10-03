@@ -23,6 +23,7 @@
 
 #include "globals.h"
 #include <minizip/unzip.h>
+#include "port_check.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,17 +62,8 @@ int64_t fastUnzClearCache(void);
  */
 TbBool read_map_zip_entry(LevelNumber lvnum, const char *entry_name, unsigned char **out_data, size_t *out_size);
 
-// custom_zip.c's only real coupling to kfx_config: resolving the already-
-// formatted "mapNNNNN.zip" filename's full path via
-// prepare_file_path()/get_level_fgroup() (config.h). Kept as a plain
-// (non-variadic) filename-in/path-out callback rather than pulling in
-// the variadic prepare_file_fmtpath() directly. See
-// docs/refactor/stage-13-enforce-and-document.md.
-struct MapZipCallbacks {
-    char *(*prepare_map_zip_path)(LevelNumber lvnum, const char *fname);
-};
-void set_map_zip_callbacks(const struct MapZipCallbacks *callbacks);
-extern const struct MapZipCallbacks *map_zip_callbacks;
+// The zip's full path comes from ports/file_path_port.h's
+// prepare_map_zip_path (kfx_config owns the level file groups).
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,6 @@
 #include "pre_inc.h"
 #include "cdrom.h"
+#include "port_check.h"
 #include "bflib_sndlib.h"
 #include "bflib_datetm.h"
 #include "bflib_sound.h"
@@ -7,15 +8,11 @@
 #include "bflib_math.h"
 // struct ModConfigItem/MODS_DIR_NAME are kfx_platform-owned
 // (mod_config_types.h); the mods list itself (mods_conf) is reached
-// through SoundStateCallbacks.get_mods_after_*() instead of the
-// kfx_config-owned config_mods.h directly. See docs/refactor/
-// stage-13-enforce-and-document.md.
+// through SoundHostPort's get_mods_after_*() instead of the
+// kfx_config-owned config_mods.h directly.
 #include "mod_config_types.h"
-// prepare_file_path()/prepare_file_path_buf()/prepare_file_path_mod()/
-// prepare_file_fmtpath() (config.h) are reached through
-// SoundStateCallbacks below instead of a same-file bare-extern
-// forward-declaration. See docs/refactor/todo/
-// check-layering-symbol-level-blind-spot.md.
+// prepare_file_path()/prepare_file_path_buf()/prepare_file_path_mod()
+// (config.h) are reached through FilePathPort.
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alext.h>
@@ -42,6 +39,8 @@
 #include <atomic>
 #include <cmath>
 
+#include "ports/file_path_port.h"
+#include "ports/sound_host_port.h"
 #include "post_inc.h"
 
 namespace {
@@ -50,64 +49,8 @@ namespace {
 char g_audio_language_lwrstr[4] = "eng";
 TbBool g_audio_no_cd_music = false;
 
-// See set_sound_state_callbacks() and docs/refactor/stage-13-enforce-and-document.md.
-char default_music_track = -1;
-char default_music_fname[DISKPATH_SIZE] = {0};
-uint32_t default_sound_random_seed = 0;
-char *default_get_music_track(void) { return &default_music_track; }
-char *default_get_music_fname(void) { return default_music_fname; }
-int64_t default_get_frame_skip(void) { return 0; }
-TbBool default_get_easter_eggs_enabled(void) { return false; }
-int64_t default_get_last_level(void) { return 0; }
-int64_t default_get_creature_model_count(void) { return 0; }
-struct CreatureSounds *default_get_creature_sounds(int64_t crmodel) { return nullptr; }
-uint32_t *default_get_sound_random_seed(void) { return &default_sound_random_seed; }
-uint32_t default_unsync_random_seed = 0;
-uint32_t *default_get_unsync_random_seed(void) { return &default_unsync_random_seed; }
-TbBool default_init_sound(void) { return false; }
-void default_mute_audio(TbBool mute) {}
-void default_play_creature_sound(struct Thing *thing, int64_t snd_idx, int64_t priority, int64_t use_flags) {}
-const struct ModConfigItem *default_get_mods_after_map(void) { return nullptr; }
-int64_t default_get_mods_after_map_count(void) { return 0; }
-const struct ModConfigItem *default_get_mods_after_campaign(void) { return nullptr; }
-int64_t default_get_mods_after_campaign_count(void) { return 0; }
-const struct ModConfigItem *default_get_mods_after_base(void) { return nullptr; }
-int64_t default_get_mods_after_base_count(void) { return 0; }
-char *default_prepare_file_path(int64_t fgroup, const char *fname) { return nullptr; }
-char *default_prepare_file_path_mod(const char *mod_dir, int64_t fgroup, const char *fname) { return nullptr; }
-char *default_prepare_file_path_buf(char *dst, int64_t dst_size, int64_t fgroup, const char *fname) { if (dst && dst_size > 0) dst[0] = '\0'; return dst; }
-char *default_prepare_file_fmtpath(int64_t fgroup, const char *fmt_str, ...) { return nullptr; }
-const char *default_creature_code_name(ThingModel crmodel) { return ""; }
-const struct NamedCommand *default_get_creature_desc(void) { return nullptr; }
-int64_t default_thing_is_invalid(const struct Thing *thing) { return thing == nullptr; }
-
-const SoundStateCallbacks default_sound_state_callbacks = {
-    &default_get_music_track, &default_get_music_fname, &default_get_frame_skip,
-    &default_get_easter_eggs_enabled, &default_get_last_level,
-    &default_get_creature_model_count, &default_get_creature_sounds,
-    &default_get_mods_after_map, &default_get_mods_after_map_count,
-    &default_get_mods_after_campaign, &default_get_mods_after_campaign_count,
-    &default_get_mods_after_base, &default_get_mods_after_base_count,
-    &default_get_sound_random_seed, &default_get_unsync_random_seed,
-    &default_init_sound, &default_mute_audio,
-    &default_play_creature_sound,
-    &default_prepare_file_path, &default_prepare_file_path_mod,
-    &default_prepare_file_path_buf, &default_prepare_file_fmtpath,
-    &default_creature_code_name, &default_get_creature_desc,
-    &default_thing_is_invalid,
-};
 
 } // namespace
-
-// Not anonymous-namespace-local: sound_manager.cpp (same library) also
-// reads the registered callbacks, e.g. for get_creature_config()/
-// get_last_level(). See docs/refactor/stage-13-enforce-and-document.md.
-const SoundStateCallbacks *sound_state_callbacks = &default_sound_state_callbacks;
-
-extern "C" void set_sound_state_callbacks(const SoundStateCallbacks *callbacks)
-{
-    sound_state_callbacks = callbacks ? callbacks : &default_sound_state_callbacks;
-}
 
 namespace {
 
@@ -575,16 +518,18 @@ static void apply_duck_gain(SoundSmplTblID smptbl_id) {
 
 void load_sound_banks() {
 	char snd_fname[2048];
-	sound_state_callbacks->prepare_file_path_buf(snd_fname, sizeof(snd_fname), FGrp_LrgSound, "sound.dat");
+	filepath_prepare_file_path_buf(snd_fname, sizeof(snd_fname), FGrp_LrgSound, "sound.dat");
 	// language-specific speech file
-	char * spc_fname = sound_state_callbacks->prepare_file_fmtpath(FGrp_LrgSound, "speech_%s.dat", g_audio_language_lwrstr);
+	char spc_name[32];
+	snprintf(spc_name, sizeof(spc_name), "speech_%s.dat", g_audio_language_lwrstr);
+	char * spc_fname = filepath_prepare_file_path(FGrp_LrgSound, spc_name);
 	// default speech file
 	if (!LbFileExists(spc_fname)) {
-		spc_fname = sound_state_callbacks->prepare_file_path(FGrp_LrgSound, "speech.dat");
+		spc_fname = filepath_prepare_file_path(FGrp_LrgSound, "speech.dat");
 	}
 	// speech file for english
 	if (!LbFileExists(spc_fname)) {
-		spc_fname = sound_state_callbacks->prepare_file_fmtpath(FGrp_LrgSound, "speech_%s.dat", "eng");
+		spc_fname = filepath_prepare_file_path(FGrp_LrgSound, "speech_eng.dat");
 	}
 	g_banks[0] = load_sound_bank(snd_fname);
 	g_banks[1] = load_sound_bank(spc_fname);
@@ -770,19 +715,19 @@ extern "C" TbBool play_music(const char * fname) {
 	if (g_current_music_fname == fname) {
 		return true;
 	}
-    (*sound_state_callbacks->get_music_track()) = -1;
-	// Guard against fname aliasing sound_state_callbacks->get_music_fname() itself — snprintf with overlapping
+    (*soundhost_get_music_track()) = -1;
+	// Guard against fname aliasing soundhost_get_music_fname() itself — snprintf with overlapping
 	// src/dest is undefined behaviour.
-	if (fname != sound_state_callbacks->get_music_fname()) {
-		snprintf(sound_state_callbacks->get_music_fname(), DISKPATH_SIZE, "%s", fname);
+	if (fname != soundhost_get_music_fname()) {
+		snprintf(soundhost_get_music_fname(), DISKPATH_SIZE, "%s", fname);
 	}
 	if (!g_mixer || !g_music_track) {
 		return false;
 	}
 	// SDL3_mixer: load into a MIX_Audio and bind it to the persistent music track.
-	MIX_Audio* new_audio = MIX_LoadAudio(g_mixer, sound_state_callbacks->get_music_fname(), false);
+	MIX_Audio* new_audio = MIX_LoadAudio(g_mixer, soundhost_get_music_fname(), false);
 	if (!new_audio) {
-		WARNLOG("Cannot load music from %s: %s", sound_state_callbacks->get_music_fname(), SDL_GetError());
+		WARNLOG("Cannot load music from %s: %s", soundhost_get_music_fname(), SDL_GetError());
 		return false;
 	}
 	// MIX_SetTrackAudio replaces any currently-bound audio; the old audio is no
@@ -795,7 +740,7 @@ extern "C" TbBool play_music(const char * fname) {
 		MIX_DestroyAudio(old_audio);
 	}
 	if (!MIX_PlayTrack(g_music_track, 0)) {
-		WARNLOG("Cannot play music from %s: %s", sound_state_callbacks->get_music_fname(), SDL_GetError());
+		WARNLOG("Cannot play music from %s: %s", soundhost_get_music_fname(), SDL_GetError());
 		return false;
 	}
 	MIX_SetTrackLoops(g_music_track, -1); // loop forever (was Mix_PlayMusic(music, -1))
@@ -826,7 +771,7 @@ static const char * find_music_file_for_mod_list(int64_t fgroup, const char * fn
         char mod_dir[256] = {0};
         sprintf(mod_dir, "%s/%s", MODS_DIR_NAME, mod_item->name);
 
-        const char *fpath = sound_state_callbacks->prepare_file_path_mod(mod_dir, fgroup, fname);
+        const char *fpath = filepath_prepare_file_path_mod(mod_dir, fgroup, fname);
         if (fpath[0] != 0 && LbFileExists(fpath))
             return fpath;
     }
@@ -838,24 +783,24 @@ extern "C" TbBool play_music_fgroup(int64_t fgroup, const char * fname) {
     const char * fpath = NULL;
 
     // Note that this is the reverse mods direction
-    int64_t after_map_cnt = sound_state_callbacks->get_mods_after_map_count();
+    int64_t after_map_cnt = soundhost_get_mods_after_map_count();
     if (fpath == NULL && after_map_cnt > 0)
     {
-        fpath = find_music_file_for_mod_list(fgroup, fname, sound_state_callbacks->get_mods_after_map(), after_map_cnt);
+        fpath = find_music_file_for_mod_list(fgroup, fname, soundhost_get_mods_after_map(), after_map_cnt);
     }
-    int64_t after_campaign_cnt = sound_state_callbacks->get_mods_after_campaign_count();
+    int64_t after_campaign_cnt = soundhost_get_mods_after_campaign_count();
     if (fpath == NULL && after_campaign_cnt > 0)
     {
-        fpath = find_music_file_for_mod_list(fgroup, fname, sound_state_callbacks->get_mods_after_campaign(), after_campaign_cnt);
+        fpath = find_music_file_for_mod_list(fgroup, fname, soundhost_get_mods_after_campaign(), after_campaign_cnt);
     }
-    int64_t after_base_cnt = sound_state_callbacks->get_mods_after_base_count();
+    int64_t after_base_cnt = soundhost_get_mods_after_base_count();
     if (fpath == NULL && after_base_cnt > 0)
     {
-        fpath = find_music_file_for_mod_list(fgroup, fname, sound_state_callbacks->get_mods_after_base(), after_base_cnt);
+        fpath = find_music_file_for_mod_list(fgroup, fname, soundhost_get_mods_after_base(), after_base_cnt);
     }
 
     if (fpath == NULL)
-        fpath = sound_state_callbacks->prepare_file_fmtpath(fgroup, "%s", fname);
+        fpath = filepath_prepare_file_path(fgroup, fname);
 
     return play_music(fpath);
 }
@@ -890,7 +835,7 @@ static TbBool resolve_track_music_path(int64_t track, char *dst, int64_t dst_siz
 	const int64_t wanted = track - 2; // 0-based position within the chosen format's files
 
 	char filespec[2048];
-	sound_state_callbacks->prepare_file_path_buf(filespec, sizeof(filespec), FGrp_Music, "*");
+	filepath_prepare_file_path_buf(filespec, sizeof(filespec), FGrp_Music, "*");
 	if (filespec[0] == '\0') {
 		return false;
 	}
@@ -926,7 +871,7 @@ static TbBool resolve_track_music_path(int64_t track, char *dst, int64_t dst_siz
 			continue;
 		}
 		if (index == wanted) {
-			sound_state_callbacks->prepare_file_path_buf(dst, dst_size, FGrp_Music, f.second.c_str());
+			filepath_prepare_file_path_buf(dst, dst_size, FGrp_Music, f.second.c_str());
 			return (dst[0] != '\0');
 		}
 		index++;
@@ -935,9 +880,9 @@ static TbBool resolve_track_music_path(int64_t track, char *dst, int64_t dst_siz
 }
 
 extern "C" TbBool play_music_track(int64_t track) {
-	(*sound_state_callbacks->get_music_track()) = track;
-	memset(sound_state_callbacks->get_music_fname(), 0, DISKPATH_SIZE);
-	if ((*sound_state_callbacks->get_music_track()) == 0) {
+	(*soundhost_get_music_track()) = track;
+	memset(soundhost_get_music_fname(), 0, DISKPATH_SIZE);
+	if ((*soundhost_get_music_track()) == 0) {
 		stop_music(true);
 		return true;
 	} else if (g_audio_no_cd_music) {
@@ -960,7 +905,7 @@ extern "C" TbBool play_music_track(int64_t track) {
 			g_current_music_fname.clear();
 			return true;
 		} else {
-			WARNLOG("Cannot play track %" PRId64, (int64_t)((*sound_state_callbacks->get_music_track())));
+			WARNLOG("Cannot play track %" PRId64, (int64_t)((*soundhost_get_music_track())));
 			return false;
 		}
 	}
@@ -983,8 +928,8 @@ extern "C" void resume_music() {
 }
 
 extern "C" void stop_music(TbBool fade_out) {
-	(*sound_state_callbacks->get_music_track()) = 0;
-	memset(sound_state_callbacks->get_music_fname(), 0, DISKPATH_SIZE);
+	(*soundhost_get_music_track()) = 0;
+	memset(soundhost_get_music_fname(), 0, DISKPATH_SIZE);
 	g_current_music_track = 0;
 	g_current_music_fname.clear();
 	if (g_audio_no_cd_music) {
@@ -1046,7 +991,7 @@ extern "C" void StopAllSamples() {
 
 extern "C" TbBool InitAudio(unsigned char max_number_of_samples) {
 	try {
-		if (sound_state_callbacks->get_easter_eggs_enabled() == true) {
+		if (soundhost_get_easter_eggs_enabled() == true) {
 			TbDate date;
 			LbDate(&date);
 			g_bb_king_mode |= ((date.Day == 1) && (date.Month == 2));
@@ -1252,9 +1197,9 @@ extern "C" SoundMilesID play_sample(
 				source.repeat(repeats == -1);
 				if (g_bb_king_mode) {
 					// ben enjoyed dofi's stream so much I made random pitch an easter egg
-                    if (LbRandomSeries(10000, sound_state_callbacks->get_sound_random_seed(), __func__, __LINE__) <= 3) { // ~0.03% of the time
+                    if (LbRandomSeries(10000, soundhost_get_sound_random_seed(), __func__, __LINE__) <= 3) { // ~0.03% of the time
 						source.flags |= bb_king_mode;
-						source.pitch((NORMAL_PITCH / 2) + LbRandomSeries(NORMAL_PITCH, sound_state_callbacks->get_sound_random_seed(), __func__, __LINE__));
+						source.pitch((NORMAL_PITCH / 2) + LbRandomSeries(NORMAL_PITCH, soundhost_get_sound_random_seed(), __func__, __LINE__));
 					} else {
 						source.flags &= ~bb_king_mode;
 						source.pitch(pitch);
@@ -1271,7 +1216,7 @@ extern "C" SoundMilesID play_sample(
 				return source.mss_id;
 			}
 		}
-		if (sound_state_callbacks->get_frame_skip() < 2) {
+		if (soundhost_get_frame_skip() < 2) {
 			ERRORLOG("Can't play sample %" PRId64 ", too many samples playing at once", (int64_t)(smptbl_id));
 		}
 		return 0;

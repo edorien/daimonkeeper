@@ -53,7 +53,7 @@ struct Packet bad_packet;
  * id genuinely isn't always 0, and nothing there ever reassigns it independently the way net_add_external_seat
  * does for a local game.
  *
- * kfx_net_state.packet_load_enable (replay) can't be checked here -- kfx_net is above kfx_sim -- so replay
+ * kfx_sim_state.replay_active (replay) can't be checked here -- kfx_net is above kfx_sim -- so replay
  * also takes the SOLO_HUMAN_ID branch; the one thing that costs is get_local_user()-derived effects (palette,
  * lightning) not following cycle_replay_player()'s Tab-cycling to a different recorded player's perspective,
  * a purely cosmetic replay-review detail, not a live-game concern.
@@ -97,8 +97,8 @@ void set_packet_action(struct Packet *pckt, unsigned char pcktype, int64_t par1,
     pckt->action = pcktype;
 }
 
-// "For player" writer: always means "my own local input" (see get_players_own_packet's comment in
-// packets_misc.c for why player->user_id alone stopped being safe once net_add_external_seat() could
+// "For player" writer: always means "my own local input" (see get_players_own_packet's comment
+// below for why player->user_id alone stopped being safe once net_add_external_seat() could
 // reassign my_player_number's own user_id).
 void set_players_packet_action(struct PlayerInfo *player, unsigned char pcktype,
         uint64_t par1, uint64_t par2, int64_t par3, int64_t par4)
@@ -190,6 +190,88 @@ TbBool packet_get_camera_position(const struct Packet *pckt, MapCoord *x, MapCoo
     *x = (((MapCoord)pckt->cam_x - 1) << shift) + half;
     *y = (((MapCoord)pckt->cam_y - 1) << shift) + half;
     return true;
+}
+
+// Pure struct Packet helpers, moved from kfx_net's packets.c/packets_misc.c
+// (refactor pass 2, S01): they only touch struct Packet fields and
+// get_packet()/get_local_packet(), which already live here.
+TbBool is_packet_empty(const struct Packet *pckt) {
+    if (pckt->turn != 0 ||
+        pckt->checksum != 0 ||
+        pckt->action != 0 ||
+        pckt->actn_par1 != 0 ||
+        pckt->actn_par2 != 0 ||
+        pckt->pos_x != 0 ||
+        pckt->pos_y != 0 ||
+        pckt->control_flags != 0 ||
+        pckt->additional_packet_values != 0 ||
+        pckt->actn_par3 != 0 ||
+        pckt->actn_par4 != 0 ||
+        pckt->input_lag_turns != 0) {
+        return false;
+    }
+    return true;
+}
+
+// These three "for player" writers are how the local human's own input (front_input.c, and every frontend/editor
+// menu action) reaches its packet -- always meaning "my own local input", never a specific remote/seat player,
+// the same assumption get_local_user()/get_local_packet() (packet_data.c) already encode for front_input.c's
+// other writes. Reading player->user_id directly broke that once net_add_external_seat() could reassign
+// my_player_number's own user_id (M10): converting the local player's own seat to an External one, everything
+// here would silently redirect into the seat's packet slot instead, racing extseat_tick()'s writes to that same
+// slot -- e.g. front_input.c's per-frame set_players_packet_control(get_my_player(), PCtr_Gui) would land on the
+// seat's packet turn after turn, and process_dungeon_control_packet_clicks()'s own early
+// `if (flag_is_set(pckt->control_flags,PCtr_Gui)) return false;` would then silently no-op the seat's
+// agent-submitted clicks, with no error anywhere.
+static struct Packet *get_players_own_packet(struct PlayerInfo *player)
+{
+    if (player->id_number == my_player_number) {
+        return get_local_packet();
+    }
+    return get_packet(player->user_id);
+}
+
+unsigned char get_players_packet_action(struct PlayerInfo *player)
+{
+    return get_players_own_packet(player)->action;
+}
+
+void set_packet_control(struct Packet *pckt, uint64_t flag)
+{
+  pckt->control_flags |= flag;
+}
+
+void set_players_packet_control(struct PlayerInfo *player, uint64_t flag)
+{
+    get_players_own_packet(player)->control_flags |= flag;
+}
+
+void unset_packet_control(struct Packet *pckt, uint64_t flag)
+{
+    pckt->control_flags &= ~flag;
+}
+
+void unset_players_packet_control(struct PlayerInfo *player, uint64_t flag)
+{
+    get_players_own_packet(player)->control_flags &= ~flag;
+}
+
+void set_players_packet_position(struct Packet *pckt, int64_t x, int64_t y, unsigned char context)
+{
+    pckt->pos_x = x;
+    pckt->pos_y = y;
+    pckt->control_flags |= PCtr_MapCoordsValid;
+    pckt->additional_packet_values &= ~PCAdV_ContextMask;
+    pckt->additional_packet_values |= (context << 1);
+}
+
+// Wraps a single struct Packet field dereference so thing_creature.c only
+// needs a forward-declared struct Packet. Pass 1 (stage 13.3) had moved it
+// up to kfx_net's packets.c behind a SimFeedbackCallbacks entry; pass 2
+// (S01) brought it back next to the other pure struct Packet helpers.
+TbBool packet_crtr_control_pressed(struct Packet *packet)
+{
+    return (packet != NULL) && (packet->additional_packet_values & PCAdV_CrtrContrlPressed) != 0;
 }
 
 /******************************************************************************/

@@ -4,7 +4,7 @@
 // friends living in config.c, a different file. This file's own
 // struct-management functions (level/campaign array append, grow,
 // clear, swap, sort, lookup) are all pattern-A/real-KfxAlloc-family
-// pure logic, no config_reload_callbacks fake needed -- unlike
+// pure logic, no SimPort fake needed -- unlike
 // parse_campaign_*_blocks()/load_campaign()/load_campaigns_list(), which
 // need a real .cfg fixture file and the find_and_load_lif/lof_files
 // callback pair, not attempted here.

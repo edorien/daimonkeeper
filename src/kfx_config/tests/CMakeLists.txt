@@ -8,7 +8,7 @@
 # centitoml (an OBJECT library, Dependencies.cmake) doesn't reliably
 # survive two INTERFACE-library hops into a final link -- the same
 # reason root CMakeLists.txt links it directly onto keeperfx/
-# keeperfx_hvlog rather than trusting kfx_common_opts's INTERFACE
+# keeperfx rather than trusting kfx_common_opts's INTERFACE
 # chain alone. config_translation.c/value_util.c call toml_parse()
 # directly, so this target needs the same explicit link.
 # kfx_config_test_paths.h.in -> kfx_config_test_paths.h: gives
@@ -25,7 +25,7 @@ add_executable(kfx_config_utest ${KFX_CONFIG_TEST_SOURCES})
 target_link_libraries(kfx_config_utest PRIVATE
     kfx_config
     kfx_platform
-    kfx_bfdebug_std
+    kfx_log_opts
     kfx_common_opts
     centitoml
     tinyfiledialogs # same OBJECT-library explicit-link gap as centitoml --

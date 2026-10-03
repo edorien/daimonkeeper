@@ -4,7 +4,7 @@
 // flag-bookkeeping family (pattern A on kfx_sim_state.action_points[]) plus
 // process_action_points' cheap "gate closed" branch (default GetGameTurnFunc
 // returns 0, so an apt->num not divisible-by-8-when-added-to-turn-0 never
-// reaches script_hooks->api_event_with_data -- no fake needed for that
+// reaches script_api_event_with_data() -- no fake needed for that
 // path). The heavier thing/creature-list traversal functions
 // (action_point_is_creature_from_list_within, action_point_get_players_within,
 // process_action_points' triggered branch) need a fuller Thing/
@@ -189,7 +189,7 @@ TEST_CASE_METHOD(ResetSimState, "delete_all_action_point_structures clears every
 TEST_CASE_METHOD(ResetSimState, "process_action_points leaves activation state untouched on turns its own gate doesn't open", "[kfx_sim][actionpt]") {
     // Default GetGameTurnFunc returns 0, so the gate ((num+turn)&7)==0 opens
     // only when num is itself a multiple of 8 -- num=1 never opens it, so
-    // action_point_get_players_within/script_hooks are never reached.
+    // action_point_get_players_within/ScriptPort are never reached.
     struct ActionPoint *apt = &kfx_sim_state.action_points[1];
     apt->exists = true;
     apt->num = 1;

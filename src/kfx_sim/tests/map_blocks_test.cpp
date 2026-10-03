@@ -2,12 +2,11 @@
 // map-revealing helpers.
 //
 // block_has_diggable_side/block_count_diggable_sides both route through
-// get_slab_stats(slb) -- per slab_data_test.cpp's established note, this
-// always resolves to slab_cfgstats[0] regardless of the neighbor's real
-// SlabKind, so every one of the 4 small_around neighbors reads the exact
-// same is_safe_land flag. The tests below exercise both the "all 4 count"
-// and "none count" cases (the only two this indirection makes
-// observable), not per-neighbor variation.
+// get_slab_stats(slb). The fixture's neighbors are all one slab kind, so
+// every one of the 4 small_around neighbors reads the same is_safe_land
+// flag; the tests below exercise the "all 4 count" and "none count" cases,
+// not per-neighbor variation. (Before refactor pass 2's S15,
+// get_slab_stats() always resolved to slab_cfgstats[0] in this binary.)
 //
 // set_slab_explored_flags/torch_flags_for_slab weren't declared in
 // map_blocks.h (only forward-declared inside map_blocks.c) -- added

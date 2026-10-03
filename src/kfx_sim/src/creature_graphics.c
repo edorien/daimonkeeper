@@ -34,7 +34,8 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
-#include "sim_feedback.h"
+#include "thing_stats.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -373,7 +374,7 @@ int64_t get_creature_model_graphics(int64_t crmodel, int64_t seq_idx)
 int64_t get_creature_anim(struct Thing *thing, int64_t seq_idx)
 {
     int64_t idx = get_creature_model_graphics(thing->model, seq_idx);
-    return sim_feedback->get_td_animation_sprite(idx);
+    return render_get_td_animation_sprite(idx);
 }
 
 void untint_thing(struct Thing *thing)
@@ -410,7 +411,7 @@ TbBool update_creature_anim(struct Thing *thing, int64_t speed, int64_t seq_idx)
 
 TbBool update_creature_animation_by_sprite(struct Thing *thing, int64_t speed, int64_t anim_idx)
 {
-    uint64_t i = sim_feedback->get_td_animation_sprite(anim_idx);
+    uint64_t i = render_get_td_animation_sprite(anim_idx);
     // Only update when it's a different sprite, or a different animation speed.
     if ((i != thing->anim_sprite) || ((speed != thing->anim_speed) && (speed != -1)))
     {

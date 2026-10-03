@@ -16,6 +16,9 @@ extern "C" {
 #endif
 
 int64_t kfxmain(int64_t argc, char *argv[]);
+// LbBullfrogMain() is main.cpp's too. It was the only declaration in
+// kfx_platform's bflib_main.h, removed in refactor pass 2 (S01).
+int64_t LbBullfrogMain(int64_t argc, char *argv[]);
 
 #ifdef __cplusplus
 }

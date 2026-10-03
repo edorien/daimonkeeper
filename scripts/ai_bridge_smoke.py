@@ -119,7 +119,18 @@ def main():
     # Before the seat exists, nothing seat-shaped is allowed.
     expect_error(api, "no player given is refused", "MISSING_PLAYER", action="get_player_view")
     expect_error(api, "a player that is not a seat is refused", "NOT_A_VALID_SEAT", action="get_player_view", player=0)
-    expect_error(api, "the local human's slot cannot be claimed", "CANNOT_CLAIM_SEAT", action="claim_seat", player=0)
+    # M10: the local human's own slot is the one human slot that can be claimed (handing their own dungeon to an
+    # agent), and releasing it gives it back to the human, not the built-in AI -- the game side checks that part once
+    # we are done. Released straight away, so the rival below still gets user 1.
+    r = api.call(action="claim_seat", player=0)
+    check("the local human's own slot can be claimed (M10)", r.get("success") and r["data"] == {"player": 0, "user": 1}, repr(r))
+    r = api.call(action="get_seats")
+    check("get_seats lists the local human's seat", r.get("success") and [(e["player"], e["user"]) for e in r["data"]["seats"]] == [(0, 1)], repr(r))
+    r = api.call(action="release_seat", player=0)
+    check("release_seat hands the local human's slot back", r.get("success"), repr(r))
+    expect_error(api, "the released local slot is no longer a seat", "NOT_A_VALID_SEAT", action="get_player_view", player=0)
+    r = api.call(action="get_seats")
+    check("get_seats is empty again", r.get("success") and r["data"]["seats"] == [], repr(r))
 
     r = api.call(action="claim_seat", player=SEAT)
     check("claim_seat takes the rival keeper", r.get("success") and r["data"]["user"] == 1, repr(r))

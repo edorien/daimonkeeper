@@ -45,7 +45,7 @@
 #include "thing_data.h"
 #include "thing_list.h"
 #include "thing_effects.h"
-#include "light_data.h"
+#include "light_registry.h"
 #include "actionpt.h"
 #include <imgui.h>
 #include <algorithm>
@@ -113,7 +113,7 @@ namespace {
     {
         if ((idx <= 0) || (idx >= LIGHTS_COUNT))
             return false;
-        const struct Light *lgt = &lish.lights[idx];
+        const struct Light *lgt = &kfx_sim_state.light_registry.lights[idx];
         if ((lgt->flags & LgtF_Allocated) == 0)
             return false;
         if ((lgt->flags & LgtF_Dynamic) != 0)
@@ -164,7 +164,7 @@ namespace {
             {
                 if (!light_is_level_content(id))
                     return false;
-                const struct Light *lgt = &lish.lights[id];
+                const struct Light *lgt = &kfx_sim_state.light_registry.lights[id];
                 out->x = lgt->mappos.x.val;
                 out->y = lgt->mappos.y.val;
                 out->z = lgt->mappos.z.val;
@@ -239,7 +239,7 @@ namespace {
         {
             if (!light_is_level_content(i))
                 continue;
-            const struct Light *lgt = &lish.lights[i];
+            const struct Light *lgt = &kfx_sim_state.light_registry.lights[i];
             out.push_back({EPK_Light, i, lgt->mappos.x.val, lgt->mappos.y.val, lgt->mappos.z.val});
         }
         for (ActionPointId i = 1; i < ACTN_POINTS_COUNT; i++)

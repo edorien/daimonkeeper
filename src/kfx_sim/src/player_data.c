@@ -29,12 +29,12 @@
 #include "config_players.h"
 #include "thing_objects.h"
 #include "power_hand.h"
-#include "sim_feedback.h"
 #include "config.h"
 #include "player_utils.h"
-#include "render_overlay.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "ports/ui_port.h"
+#include "ports/render_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -98,7 +98,6 @@ int64_t const player_cubes[] = {0x00C0, 0x00C1, 0x00C2, 0x00C3, 0x00C7, 0x00C6 }
 
 struct PlayerInfo bad_player;
 
-struct LocalState local_state;
 struct UserState bad_user_state;
 
 /** The current player's number. */
@@ -377,9 +376,8 @@ void clear_players(void)
     bad_player.id_number = PLAYERS_COUNT;
     bad_player.user_id = -1;
     memset(kfx_sim_state.user_states, 0, sizeof(kfx_sim_state.user_states));
-    memset(&local_state, 0, sizeof(local_state));
     memset(&bad_user_state, 0, sizeof(bad_user_state));
-    sim_feedback->set_human_players_count(0);
+    kfx_sim_state.human_players_count = 0;
     //kfx_sim_state.game_kind = GKind_LocalGame;
 }
 
@@ -530,12 +528,12 @@ void set_player_state(struct PlayerInfo *player, int64_t nwrk_state, int64_t cho
       ustate->chosen_power_kind = chosen_kind;
       break;
   case PSt_MkGoodCreatr:
-        sim_feedback->clear_messages_from_player(MsgType_Player, ustate->cheatselection.chosen_player);
+        ui_clear_messages_from_player(MsgType_Player, ustate->cheatselection.chosen_player);
         ustate->cheatselection.chosen_player = PLAYER_GOOD;
         break;
   case PSt_MkBadCreatr:
   case PSt_MkDigger:
-        sim_feedback->clear_messages_from_player(MsgType_Player, ustate->cheatselection.chosen_player);
+        ui_clear_messages_from_player(MsgType_Player, ustate->cheatselection.chosen_player);
         ustate->cheatselection.chosen_player = player->id_number;
         break;
   case PSt_FreeCtrlPassngr:
@@ -566,8 +564,9 @@ void set_player_state(struct PlayerInfo *player, int64_t nwrk_state, int64_t cho
  */
 void set_player_mode(struct PlayerInfo *player, int64_t nview)
 {
-  if (is_my_player(player) && local_state.view_type == nview)
-    local_state.view_type = PVT_None;
+  // True while the local view-type prediction (kfx_render's local_camera.c)
+  // is still ahead of this player's authoritative view type.
+  const TbBool local_view_pending = is_my_player(player) && render_local_view_type_settle(nview);
   if (player->view_type == nview)
     return;
   player->view_type = nview;
@@ -585,39 +584,39 @@ void set_player_mode(struct PlayerInfo *player, int64_t nview)
   case PVT_DungeonTop:
   {
       if (player->view_mode_restore == PVM_FrontView) {
-        sim_feedback->set_engine_view(player, PVM_FrontView);
+        render_set_engine_view(player, PVM_FrontView);
       } else if (player->view_mode_restore == PVM_IsoStraightView) {
-        sim_feedback->set_engine_view(player, PVM_IsoStraightView);
+        render_set_engine_view(player, PVM_IsoStraightView);
       } else {
-        sim_feedback->set_engine_view(player, PVM_IsoWibbleView);
+        render_set_engine_view(player, PVM_IsoWibbleView);
       }
       if (is_my_player(player))
       {
-        if (local_state.view_type == PVT_None) {
-          sim_feedback->toggle_status_menu((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0);
+        if (!local_view_pending) {
+          ui_toggle_status_menu((kfx_sim_state.operation_flags & GOF_ShowPanel) != 0);
         }
         if ((kfx_sim_state.operation_flags & GOF_ShowGui) != 0)
-          sim_feedback->setup_engine_window(render_overlay->get_status_panel_width(), 0, MyScreenWidth, MyScreenHeight);
+          render_setup_engine_window(ui_get_status_panel_width(), 0, MyScreenWidth, MyScreenHeight);
         else
-          sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
+          render_setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
       }
       break;
   }
   case PVT_CreatureContrl:
   case PVT_CreaturePasngr:
-      sim_feedback->set_engine_view(player, PVM_CreatureView);
+      render_set_engine_view(player, PVM_CreatureView);
       if (is_my_player(player))
       {
         kfx_sim_state.view_mode_flags &= ~GNFldD_CreatureViewMode;
-        sim_feedback->setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
+        render_setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
       }
       break;
   case PVT_MapScreen:
-      if (is_my_player(player) && local_state.view_type == PVT_None) {
-        sim_feedback->toggle_status_menu(0);
+      if (is_my_player(player) && !local_view_pending) {
+        ui_toggle_status_menu(0);
       }
       player->continue_work_state = player->work_state;
-      sim_feedback->set_engine_view(player, PVM_ParchmentView);
+      render_set_engine_view(player, PVM_ParchmentView);
       break;
   case PVT_MapFadeIn:
       set_player_instance(player, PI_MapFadeTo, 0);
@@ -638,11 +637,11 @@ void reset_player_mode(struct PlayerInfo *player, int64_t nview)
     case PVT_DungeonTop:
       player->work_state = player->continue_work_state;
       if (player->view_mode_restore == PVM_FrontView) {
-        sim_feedback->set_engine_view(player, PVM_FrontView);
+        render_set_engine_view(player, PVM_FrontView);
       } else if (player->view_mode_restore == PVM_IsoStraightView) {
-        sim_feedback->set_engine_view(player, PVM_IsoStraightView);
+        render_set_engine_view(player, PVM_IsoStraightView);
       } else {
-        sim_feedback->set_engine_view(player, PVM_IsoWibbleView);
+        render_set_engine_view(player, PVM_IsoWibbleView);
       }
       if (is_my_player(player))
         kfx_sim_state.view_mode_flags &= ~GNFldD_CreatureViewMode;
@@ -650,13 +649,13 @@ void reset_player_mode(struct PlayerInfo *player, int64_t nview)
     case PVT_CreatureContrl:
     case PVT_CreaturePasngr:
       player->work_state = player->continue_work_state;
-      sim_feedback->set_engine_view(player, PVM_CreatureView);
+      render_set_engine_view(player, PVM_CreatureView);
       if (is_my_player(player))
         kfx_sim_state.view_mode_flags |= GNFldD_CreatureViewMode;
       break;
     case PVT_MapScreen:
       player->work_state = player->continue_work_state;
-      sim_feedback->set_engine_view(player, PVM_ParchmentView);
+      render_set_engine_view(player, PVM_ParchmentView);
       if (is_my_player(player))
         kfx_sim_state.view_mode_flags &= ~GNFldD_CreatureViewMode;
       break;

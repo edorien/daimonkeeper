@@ -37,8 +37,8 @@
 #include "room_data.h"
 #include "room_jobs.h"
 #include "room_library.h"
-#include "sim_feedback.h"
 #include "kfx_sim_state.h"
+#include "ports/audio_port.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -62,7 +62,7 @@ int64_t at_research_room(struct Thing *thing)
         if (!is_neutral_thing(thing) && (dungeon->current_research_idx < 0))
         {
             if (is_my_player_number(dungeon->owner))
-                sim_feedback->play_sound_message(SMsg_NoMoreReseach, 500);
+                audio_output_message(SMsg_NoMoreReseach, 500);
         }
         set_start_state(thing);
         return 0;
@@ -245,7 +245,7 @@ int64_t researching(struct Thing *thing)
         if (!is_neutral_thing(thing) && (dungeon->current_research_idx < 0))
         {
             if (is_my_player_number(dungeon->owner))
-                sim_feedback->play_sound_message(SMsg_NoMoreReseach, 500);
+                audio_output_message(SMsg_NoMoreReseach, 500);
         }
         remove_creature_from_work_room(thing);
         set_start_state(thing);
@@ -262,7 +262,7 @@ int64_t researching(struct Thing *thing)
 
     if (room->used_capacity > room->total_capacity)
     {
-        sim_feedback->output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
+        audio_output_room_message(room->owner, room->kind, OMsg_RoomTooSmall);
         remove_creature_from_work_room(thing);
         set_start_state(thing);
         return CrStRet_ResetOk;

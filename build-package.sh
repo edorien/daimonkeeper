@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Full local build: compiles the Windows and Linux packages (keeperfx +
-# keeperfx_hvlog, installed with the runtime libs + game data into
+# Full local build: compiles the Windows and Linux packages (keeperfx,
+# installed with the runtime libs + game data into
 # dist/<platform>/) and the Catch2 test suite (instrumented for coverage,
 # run under ctest, with an HTML report rendered). Generalizes what CI's
 # release, unit-tests and coverage workflows do (.github/workflows/
-# build-prototype.yml) for local iteration, reusing build-cmake.sh's same
+# build-prototype.yml) for local iteration, reusing build-cmake-linux.sh's same
 # out/<KFX_OS>/ build-tree convention plus a third out/coverage/ tree.
 #
 # Runs all three passes by default: Windows package, Linux package,
@@ -31,7 +31,7 @@
 #   KFX_FTEST_DATA_DIR=/path/to/keeperfx/install ./build-package.sh
 #
 # Network access is needed: pkg-enginegfx clones dkfans/FXGraphics, and a
-# first run fetches every third-party dependency (see build-cmake.sh) --
+# first run fetches every third-party dependency (see build-cmake-linux.sh) --
 # once per build tree (out/windows/, out/linux/, out/coverage/ each fetch
 # their own, since a CMakeCache.txt bakes in its compiler/toolchain and
 # trees can't share one).
@@ -40,7 +40,7 @@
 #   ./build-package.sh                              # Windows + Linux packages, coverage report
 #   BUILD_NUMBER=1234 PACKAGE_SUFFIX=Alpha ./build-package.sh
 #
-# Requirements: same as build-cmake.sh (both platforms) plus a real
+# Requirements: same as build-cmake-linux.sh (both platforms) plus a real
 # `make` (mingw32-make's actual usual name; the asset pipeline's own
 # Makefile is platform-agnostic) for the package passes; KFX_BUILD_TESTS'
 # own requirements (native Linux, no cross-compile) for the coverage
@@ -78,8 +78,8 @@ build_platform_package() {
             -DBUILD_NUMBER="$BUILD_NUMBER" -DPACKAGE_SUFFIX="$PACKAGE_SUFFIX"
     fi
 
-    echo "==> [$os] Building keeperfx + keeperfx_hvlog"
-    cmake --build "$build_dir" --target keeperfx keeperfx_hvlog -j"$(nproc 2>/dev/null || echo 4)"
+    echo "==> [$os] Building keeperfx"
+    cmake --build "$build_dir" --target keeperfx -j"$(nproc 2>/dev/null || echo 4)"
 
     # Three separate --component calls, not a plain `cmake --install`: the
     # latter would also run every install() rule the fetched SDL3
@@ -98,7 +98,7 @@ build_platform_package() {
 
 build_coverage() {
     local build_dir="out/coverage"
-    local utest_targets="kfx_platform_utest kfx_config_utest kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest"
+    local utest_targets="kfx_platform_utest kfx_config_utest kfx_content_utest kfx_pathfinding_utest kfx_sim_utest kfx_ai_utest kfx_render_utest kfx_net_utest kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest kfx_editor_utest"
 
     echo "==> [coverage] Configuring (native Linux, instrumented)"
     cmake -S . -B "$build_dir" -G Ninja -DKFX_OS=linux -DCMAKE_BUILD_TYPE=Debug \

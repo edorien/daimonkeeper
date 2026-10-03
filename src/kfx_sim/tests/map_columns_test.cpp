@@ -8,8 +8,7 @@
 // column allocation (create_column et al, deliberately deferred below).
 // cube_is_lava/_water/_sacrificial/_unclaimed_path are plain
 // CubeConfigStats::properties_flags lookups indexed directly by cube_id
-// (no pointer-identity indirection to worry about, unlike SlabMap's
-// get_slab_stats route).
+// (no SlabMap lookup in between, unlike get_slab_stats()).
 //
 // Deliberately deferred: make_solidmask/find_column_height/
 // column_is_equivalent/find_column/create_column/clear_columns/

@@ -32,5 +32,5 @@ TEST_CASE("Serialized game structs have platform-independent sizes", "[kfx_game]
     CHECK(sizeof(struct Thing) == 8657);
     CHECK(sizeof(struct CreatureControl) == 20147);
     CHECK(sizeof(struct PlayerInfo) == 8554);
-    CHECK(sizeof(struct Dungeon) == 163512);
+    CHECK(sizeof(struct Dungeon) == 163496); // S10: camera_deviate_quake/_jump moved out
 }

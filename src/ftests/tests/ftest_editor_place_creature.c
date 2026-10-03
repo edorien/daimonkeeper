@@ -1,4 +1,5 @@
 #include "ftest_editor_place_creature.h"
+#include "game_commands.h"
 
 #ifdef FUNCTESTING
 
@@ -38,7 +39,7 @@ extern "C" {
 // Also found live (well, live in the sense of reading the code, not
 // running it yet): editor_open() sets kfx_sim_state.simulation_suspended
 // = true, and get_gameturn() (game_legacy_get_gameturn() ->
-// kfx_game_state.play_gameturn) only increments *inside*
+// kfx_sim_state.play_gameturn) only increments *inside*
 // game_session_loop.cpp's own "!GOF_Paused && !simulation_suspended" gate
 // -- so the game turn counter freezes the instant the editor session
 // opens. ftest.c's own action scheduler (ftest_update()) gates moving to

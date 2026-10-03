@@ -29,7 +29,6 @@ extern "C" {
 #endif
 
 /** Maximum number of queued speeches before new ones are skipped. */
-extern int64_t g_speech_queue_limit;
 
 // enum TbSpeechMessages, its SMsg_* alias macros, the MESSAGE_DURATION_*
 // macros, and enum OutputMessageKinds/OutputMessageKind all moved to

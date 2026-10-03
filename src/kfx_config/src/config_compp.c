@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "config_strings.h"
+#include "config_funcnames.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -108,7 +109,7 @@ const struct NamedFieldSet compp_common_named_fields_set = {
 // in the initializer. Instead, the array is left mutable, initialized to
 // NULL here, and patched by resolve_compp_func_type_pointers() (below,
 // wired as keeper_keepcomp_file_data's pre_load_func) once
-// config_reload_callbacks is registered. See docs/refactor/todo/
+// SimPort is registered. See docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md.
 static struct NamedField compp_process_named_fields[] = {
   //name           //pos    //field                                   //default //min     //max    //NamedCommand
@@ -202,19 +203,19 @@ const struct NamedFieldSet compp_event_named_fields_set = {
 // computer_event_func_type/computer_event_test_func_type can't sit in a
 // compile-time array initializer. Run as keeper_keepcomp_file_data's
 // pre_load_func, so it's always fresh before this file's tables are parsed
-// (config_reload_callbacks is registered well before the first config
+// (SimPort is registered well before the first config
 // (re)load -- see docs/refactor/todo/check-layering-symbol-level-blind-spot.md).
 static void resolve_compp_func_type_pointers(void)
 {
-    const struct NamedCommand *process_types = config_reload_callbacks->get_computer_process_func_type();
+    const struct NamedCommand *process_types = computer_process_func_type;
     compp_process_named_fields[7].namedCommand = process_types;
     compp_process_named_fields[8].namedCommand = process_types;
     compp_process_named_fields[9].namedCommand = process_types;
     compp_process_named_fields[10].namedCommand = process_types;
     compp_process_named_fields[11].namedCommand = process_types;
-    compp_check_named_fields[4].namedCommand = config_reload_callbacks->get_computer_check_func_type();
-    compp_event_named_fields[5].namedCommand = config_reload_callbacks->get_computer_event_func_type();
-    compp_event_named_fields[6].namedCommand = config_reload_callbacks->get_computer_event_test_func_type();
+    compp_check_named_fields[4].namedCommand = computer_check_func_type;
+    compp_event_named_fields[5].namedCommand = computer_event_func_type;
+    compp_event_named_fields[6].namedCommand = computer_event_test_func_type;
 }
 
 

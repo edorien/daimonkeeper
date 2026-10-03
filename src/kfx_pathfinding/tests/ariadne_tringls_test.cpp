@@ -4,7 +4,7 @@
 // tree_alt), the pointer-bounds-checked invalid/get pair, link_find's
 // pure array search, and the free-list-vs-ix_Triangles allocator split
 // in tri_new/tri_dispose -- all self-contained against the module-level
-// Triangles[] array, no PathfindingWorldCallbacks needed.
+// Triangles[] array, no PathfindingWorldPort needed.
 #include <catch2/catch_test_macros.hpp>
 
 #include "ariadne_tringls.h"
