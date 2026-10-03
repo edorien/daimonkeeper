@@ -40,6 +40,8 @@
 #include "thing_objects.h"
 #include "ports/script_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
+#include "room_util.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -188,27 +190,13 @@ void set_manufacture_level(struct Dungeon *dungeon)
 
 struct Thing *get_workshop_box_thing(PlayerNumber owner, ThingModel objmodel)
 {
-    int64_t k = 0;
-    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Objects].index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ( ((thing->alloc_flags & TAlF_Exists) != 0) && (thing->model == objmodel) && (thing->owner == owner) )
         {
             struct Room* room = get_room_thing_is_on(thing);
             if (!thing_is_picked_up(thing) && room_role_matches(room->kind, RoRoF_CratesStorage) && (room->owner == owner))
                 return thing;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return INVALID_THING;
@@ -745,203 +733,38 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
     return evidx;
 }
 
-TbBool recreate_repositioned_crate_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
+static TbBool workshop_stores(const struct Room *room, const struct Thing *thing)
 {
-    if ((rrepos->used < 0) || (room->used_capacity >= room->total_capacity)) {
-        return false;
-    }
-    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
-    {
-        if (rrepos->models[ri] != 0)
-        {
-            struct Thing* objtng = create_crate_in_workshop(room, rrepos->models[ri], stl_x, stl_y);
-            if (!thing_is_invalid(objtng))
-            {
-                rrepos->used--;
-                rrepos->models[ri] = 0;
-                return true;
-            }
-        }
-    }
-    return false;
+    return thing_is_workshop_crate(thing) && !thing_is_dragged_or_pulled(thing) && (thing->owner == room->owner);
 }
 
-int64_t check_crates_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+static void workshop_take_out(struct Room *room, struct Thing *thing, struct RoomReposition *rrepos)
 {
-    struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    if (map_block_invalid(mapblk))
-        return -2; // do nothing
-    struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
-    if ((roomst->storage_height >= 0) && (get_map_floor_filled_subtiles(mapblk) != roomst->storage_height)) {
-        return -1; // re-create all
+    ThingClass tngclass = crate_thing_to_workshop_item_class(thing);
+    ThingModel tngmodel = crate_thing_to_workshop_item_model(thing);
+    if (!store_reposition_entry(rrepos, thing->model)) {
+        WARNLOG("Too many things to reposition in %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
     }
-    int64_t matching_things_at_subtile = 0;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    if (!is_neutral_thing(thing) && player_exists(get_player(thing->owner)))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code
-        if (thing_is_workshop_crate(thing) && !thing_is_dragged_or_pulled(thing) && (thing->owner == room->owner))
-        {
-            // If exceeded capacity of the library
-            if (room->used_capacity >= room->total_capacity)
-            {
-                WARNLOG("The %s capacity %" PRId64 " exceeded; space used is %" PRId64,room_code_name(room->kind),(int64_t)room->total_capacity,(int64_t)room->used_capacity);
-                return -1; // re-create all (this could save the object if there are duplicates)
-            } else
-            // If the thing is in wall, remove it but store to re-create later
-            if (thing_in_wall_at(thing, &thing->mappos))
-            {
-                if (position_over_floor_level(thing, &thing->mappos)) //If it's inside the floors, simply move it up and count it.
-                {
-                    matching_things_at_subtile++;
-                }
-                else
-                {
-                    return -1; // If it's inside the wall or cannot be moved up, recreate all items.
-                }
-            } else
-            {
-                matching_things_at_subtile++;
-            }
-        }
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
+        if (remove_workshop_item_from_amount_stored(thing->owner, tngclass, tngmodel, WrkCrtF_NoOffmap) > WrkCrtS_None) {
+            remove_workshop_item_from_amount_placeable(thing->owner, tngclass, tngmodel);
         }
     }
-    return matching_things_at_subtile; // Increase used capacity
+    destroy_object(thing);
 }
 
-void reposition_all_crates_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
+static struct Thing *workshop_put_back(struct Room *room, ThingModel model, CrtrExpLevel exp_level, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
-    struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    if (map_block_invalid(mapblk))
-        return;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
-    {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code
-        if (thing_is_workshop_crate(thing) && !thing_is_dragged_or_pulled(thing) && (thing->owner == room->owner))
-        {
-            ThingModel objkind = thing->model;
-            ThingClass tngclass = crate_thing_to_workshop_item_class(thing);
-            ThingModel tngmodel = crate_thing_to_workshop_item_model(thing);
-            if (!store_reposition_entry(rrepos, objkind)) {
-                WARNLOG("Too many things to reposition in %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
-            }
-            if (!is_neutral_thing(thing) && player_exists(get_player(thing->owner)))
-            {
-                if (remove_workshop_item_from_amount_stored(thing->owner, tngclass, tngmodel, WrkCrtF_NoOffmap) > WrkCrtS_None) {
-                    remove_workshop_item_from_amount_placeable(thing->owner, tngclass, tngmodel);
-                }
-            }
-            destroy_object(thing);
-        }
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
-    }
+    return create_crate_in_workshop(room, model, stl_x, stl_y);
 }
 
-void count_and_reposition_crates_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
-{
-    int64_t matching_things_at_subtile = check_crates_on_subtile_for_reposition_in_room(room, stl_x, stl_y);
-    if (matching_things_at_subtile > 0) {
-        // This subtile contains matching things
-        SYNCDBG(19,"Got %" PRId64 " matching things at (%" PRId64 ",%" PRId64 ")",(int64_t)matching_things_at_subtile,(int64_t)stl_x,(int64_t)stl_y);
-        room->used_capacity += matching_things_at_subtile;
-    } else
-    {
-        switch (matching_things_at_subtile)
-        {
-        case -2:
-            // No matching things, but also cannot recreate anything on this subtile
-            break;
-        case -1:
-            // All matching things are to be removed from the subtile and stored for re-creation
-            reposition_all_crates_in_room_on_subtile(room, stl_x, stl_y, rrepos);
-            break;
-        case 0:
-            // There are no matching things there, something can be re-created
-            recreate_repositioned_crate_in_room_on_subtile(room, stl_x, stl_y, rrepos);
-            break;
-        default:
-            WARNLOG("Invalid value returned by reposition check");
-            break;
-        }
-    }
-}
+/** Crates: one sunk into the floor is lifted and counted, capacity_used_for_storage follows the count, two sweeps. */
+static const struct RoomStorageKind workshop_storage = { "crates", workshop_stores, workshop_take_out, workshop_put_back, NULL, NULL, 1, 1, 0 };
 
-/**
- * Updates count of crates (used capacity) in a workshop.
- * Also repositions crates which are in solid columns.
- * @param room The room to be recomputed and repositioned.
- */
 void count_crates_in_room(struct Room *room)
 {
-    SYNCDBG(17,"Starting for %s",room_code_name(room->kind));
-    struct RoomReposition rrepos;
-    init_reposition_struct(&rrepos);
-    // Making two loops guarantees that no rrepos things will be lost
-    for (int64_t n = 0; n < 2; n++)
-    {
-        // The correct count should be taken from last sweep
-        room->used_capacity = 0;
-        room->capacity_used_for_storage = 0;
-        uint64_t k = 0;
-        uint64_t i = room->slabs_list;
-        while (i > 0)
-        {
-            MapSubtlCoord slb_x = slb_num_decode_x(i);
-            MapSubtlCoord slb_y = slb_num_decode_y(i);
-            // Per-slab code
-            for (int64_t dy = 0; dy < STL_PER_SLB; dy++)
-            {
-                for (int64_t dx = 0; dx < STL_PER_SLB; dx++)
-                {
-                    count_and_reposition_crates_in_room_on_subtile(room, STL_PER_SLB*slb_x+dx, STL_PER_SLB*slb_y+dy, &rrepos);
-                }
-            }
-            // Per-slab code ends
-            i = get_next_slab_number_in_room(i);
-            k++;
-            if (k > room->slabs_count)
-            {
-                ERRORLOG("Infinite loop detected when sweeping room slabs");
-                break;
-            }
-        }
-    }
-    if (rrepos.used > 0) {
-        ERRORLOG("The %s index %" PRId64 " capacity %" PRId64 " wasn't enough; %" PRId64 " items belonging to player %" PRId64 " dropped",
-          room_code_name(room->kind),(int64_t)room->index,(int64_t)room->total_capacity,(int64_t)rrepos.used,(int64_t)room->owner);
-    }
-    room->capacity_used_for_storage = room->used_capacity;
+    room_storage_recount(&workshop_storage, room);
 }
 
 void send_manufacture_complete_event(struct Dungeon *dungeon, PlayerNumber plyr_idx)
@@ -976,7 +799,6 @@ void send_manufacture_complete_event(struct Dungeon *dungeon, PlayerNumber plyr_
     script_api_event_with_data("MANUFACTURE_COMPLETED",event_data,sizeof(event_data) / sizeof(event_data[0]));
 
 }
-
 
 // crate_thing_to_workshop_item_class()/_model() moved here from kfx_config's
 // config_objects.c (refactor pass 2, S05); crate_to_workshop_item_model(model)

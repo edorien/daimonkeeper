@@ -50,6 +50,7 @@
 #include "console_cmd.h"
 #include "agent_memory.h"
 #include "api_framing.h"
+#include "api_json_out.h"
 #include "post_inc.h"
 #include "value_util.h"
 
@@ -113,51 +114,6 @@ struct Subscription
  * This is done for performance reasons.
  */
 int64_t api_sub_count = 0;
-
-/**
- * Structure to hold the state of a dump buffer.
- *
- * This structure holds the state of a dump buffer, which is used by functions
- * for writing JSON data. It includes a pointer to the output buffer and the
- * remaining space available in the buffer.
- */
-struct dump_buf_state
-{
-    char *out;     /**< Pointer to the output buffer. */
-    int64_t out_space; /**< Remaining space available in the output buffer. */
-};
-
-/**
- * Callback function for writing JSON value dump.
- *
- * This function is a callback used by the JSON library for writing JSON value dump.
- * It copies the JSON data into a buffer, tracking the buffer space available.
- *
- * @param str Pointer to the buffer containing the JSON data.
- * @param size Size of the JSON data in bytes.
- * @param dump_buffer_state Pointer to the dump buffer state structure.
- *            It holds information about the output buffer and available space.
- *
- * @return 0 on success, JSON_ERR_OUTOFMEMORY (-2) if the buffer is too small.
- */
-static int json_value_dump_writer(const char *str, size_t size, void *dump_buffer_state)
-{
-    // @author: https://github.com/wolfSSL/wolfsentry/blob/857c85d1b3a6c7b297efa2bbb6ea89817aea7b4b/src/kv.c#L395
-
-    // Check if buffer is too small
-    if (size > (size_t)((struct dump_buf_state *)dump_buffer_state)->out_space)
-    {
-        JUSTLOG("buffer too small");
-        return JSON_ERR_OUTOFMEMORY;
-    }
-
-    // Copy data into current part of buffer
-    memcpy(((struct dump_buf_state *)dump_buffer_state)->out, str, size);
-    ((struct dump_buf_state *)dump_buffer_state)->out += size;
-    ((struct dump_buf_state *)dump_buffer_state)->out_space -= (int64_t)size;
-
-    return 0;
-}
 
 /**
  * Function to get the number of max available KeeperFX flags with a name
@@ -271,6 +227,32 @@ static void api_send(const char *data, int64_t len)
         }
         break;
     }
+}
+
+static void api_err(const char *err, VALUE *ack_id);
+
+/**
+ * Sends `root` to the client as one message (minimised JSON and a newline) and frees it. A message that
+ * would be longer than API_DATA_BUFFER is replaced by a RESPONSE_TOO_LARGE error for `ack_id` when there
+ * is one, so a client waiting for that acknowledgement isn't left waiting (pass 3 finding F4: the fixed
+ * 1 KB and 4 KB buffers used to drop such replies).
+ */
+static void api_send_json(VALUE *root, VALUE *ack_id)
+{
+    size_t len = 0;
+    char *msg = api_json_serialise(root, API_DATA_BUFFER - 1, &len);
+    if (msg != NULL)
+    {
+        api_send(msg, (int64_t)len);
+        free(msg);
+    }
+    else
+    {
+        JUSTLOG("API message too large, not sent");
+        if (ack_id != NULL)
+            api_err("RESPONSE_TOO_LARGE", ack_id);
+    }
+    value_fini(root);
 }
 
 /**
@@ -396,7 +378,7 @@ static void api_err(const char *err, VALUE *ack_id)
     if (ack_id != NULL)
     {
         VALUE *val_ack = value_dict_add(json_root, "ack");
-        *val_ack = *ack_id;
+        api_json_clone(val_ack, ack_id);
     }
 
     // Create success key
@@ -407,25 +389,7 @@ static void api_err(const char *err, VALUE *ack_id)
     VALUE *val_err = value_dict_add(json_root, "error");
     value_init_string(val_err, (char *)err);
 
-    // Create JSON response
-    char json_string[1024];
-    struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
-
-    *dump_state.out = 0;
-    if (json_dump_return_value != 0)
-    {
-        value_fini(json_root);
-        return;
-    }
-
-    // Add newline to end of data
-    dump_state.out[0] = '\n';
-    dump_state.out++;
-
-    // Send data to client
-    api_send(json_string, dump_state.out - json_string);
-    value_fini(json_root);
+    api_send_json(json_root, NULL);
 }
 
 /**
@@ -458,31 +422,13 @@ static void api_ok(VALUE *ack_id)
 
     // Add ack
     VALUE *val_ack = value_dict_add(json_root, "ack");
-    *val_ack = *ack_id;
+    api_json_clone(val_ack, ack_id);
 
     // Create success key
     VALUE *val_success = value_dict_add(json_root, "success");
     value_init_bool(val_success, true);
 
-    // Create JSON response
-    char json_string[1024];
-    struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
-
-    *dump_state.out = 0;
-    if (json_dump_return_value != 0)
-    {
-        value_fini(json_root);
-        return;
-    }
-
-    // Add newline to end of data
-    dump_state.out[0] = '\n';
-    dump_state.out++;
-
-    // Send data to client
-    api_send(json_string, dump_state.out - json_string);
-    value_fini(json_root);
+    api_send_json(json_root, ack_id);
 }
 
 /**
@@ -512,7 +458,7 @@ static void api_return_data(TbBool success, VALUE value, VALUE *ack_id)
     if (ack_id != NULL)
     {
         VALUE *val_ack = value_dict_add(json_root, "ack");
-        *val_ack = *ack_id;
+        api_json_clone(val_ack, ack_id);
     }
 
     // Create success key
@@ -523,35 +469,8 @@ static void api_return_data(TbBool success, VALUE value, VALUE *ack_id)
     VALUE *val_data = value_dict_add(json_root, "data");
     *val_data = value;
 
-    // Create JSON response. Data responses (a seat's view is several KB) do not fit the small stack
-    // buffers the ack/error replies use, so this one is heap-allocated.
-    char *json_string = (char *)malloc(API_DATA_BUFFER);
-    if (json_string == NULL)
-    {
-        api_err("OUT_OF_MEMORY", ack_id);
-        value_fini(json_root);
-        return;
-    }
-    struct dump_buf_state dump_state = {json_string, API_DATA_BUFFER - 2};
-    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
-
-    *dump_state.out = 0;
-    if (json_dump_return_value != 0)
-    {
-        free(json_string);
-        api_err("RESPONSE_TOO_LARGE", ack_id);
-        value_fini(json_root);
-        return;
-    }
-
-    // Add newline to end of data
-    dump_state.out[0] = '\n';
-    dump_state.out++;
-
-    // Send data to client
-    api_send(json_string, dump_state.out - json_string);
-    free(json_string);
-    value_fini(json_root);
+    // A seat's view is several KB; api_send_json() grows its buffer as needed.
+    api_send_json(json_root, ack_id);
 }
 
 /**
@@ -611,25 +530,7 @@ void api_return_var_update(PlayerNumber plyr_idx, const char *var_name, int64_t 
     VALUE *val_var_new_val = value_dict_add(val_var, "value");
     value_init_int32(val_var_new_val, value);
 
-    // Create JSON response
-    char json_string[1024];
-    struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
-
-    *dump_state.out = 0;
-    if (json_dump_return_value != 0)
-    {
-        value_fini(json_root);
-        return;
-    }
-
-    // Add newline to end of data
-    dump_state.out[0] = '\n';
-    dump_state.out++;
-
-    // Send data to client
-    api_send(json_string, dump_state.out - json_string);
-    value_fini(json_root);
+    api_send_json(json_root, NULL);
 }
 
 /**
@@ -667,7 +568,7 @@ static void api_return_data_number(int64_t data, VALUE *ack_id)
 
     // Add ack
     VALUE *val_ack = value_dict_add(json_root, "ack");
-    *val_ack = *ack_id;
+    api_json_clone(val_ack, ack_id);
 
     // Create success key
     VALUE *val_success = value_dict_add(json_root, "success");
@@ -677,25 +578,7 @@ static void api_return_data_number(int64_t data, VALUE *ack_id)
     VALUE *val_data = value_dict_add(json_root, "data");
     value_init_int32(val_data, data);
 
-    // Create JSON response
-    char json_string[1024];
-    struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
-
-    *dump_state.out = 0;
-    if (json_dump_return_value != 0)
-    {
-        value_fini(json_root);
-        return;
-    }
-
-    // Add newline to end of data
-    dump_state.out[0] = '\n';
-    dump_state.out++;
-
-    // Send data to client
-    api_send(json_string, dump_state.out - json_string);
-    value_fini(json_root);
+    api_send_json(json_root, ack_id);
 }
 
 void api_clear_all_subscriptions()
@@ -1075,20 +958,7 @@ void api_event_with_data(const char *event_name, const struct ApiEventData *data
 
     }
 
-    char json_string[API_SERVER_BUFFER];
-    struct dump_buf_state dump_state = {json_string, sizeof(json_string) - 1};
-    int64_t json_dump_return_value = json_dom_dump(json_root, json_value_dump_writer, &dump_state, 0, JSON_DOM_DUMP_MINIMIZE);
-
-    *dump_state.out = 0;
-    if (json_dump_return_value != 0)
-    {
-        value_fini(json_root);
-        return;
-    }
-
-    *dump_state.out++ = '\n';
-    api_send(json_string, dump_state.out - json_string);
-    value_fini(json_root);
+    api_send_json(json_root, NULL);
 }
 
 /**
@@ -1112,6 +982,836 @@ void api_event(const char *event_name)
  * @param buffer The buffer containing the JSON data sent by the client.
  * @param buf_size The size of the buffer.
  */
+/** A request being handled: the parsed message and what api_process_buffer read from it. */
+struct ApiRequest
+{
+    VALUE *root;            /**< the request object */
+    VALUE *ack_id;          /**< its "ack", sent back with the reply; NULL when there is none */
+    PlayerNumber player_id; /**< its "player", or the local player */
+    PlayerNumber seat_id;   /**< ApiNeeds_Seat: the External seat's player */
+    NetUserId seat_user;    /**< ApiNeeds_Seat: the seat's user */
+};
+
+/** When an action is answered. */
+enum ApiNeeds
+{
+    ApiNeeds_Nothing,   /**< always */
+    ApiNeeds_LocalGame, /**< in a local game */
+    ApiNeeds_Seat,      /**< in a local game, for the External seat named by "player" (also while paused) */
+};
+
+struct ApiAction
+{
+    const char *name;
+    void (*handler)(const struct ApiRequest *req);
+    enum ApiNeeds needs;
+};
+
+/** get_kfx_info: The product and the KeeperFX release whose content it plays. */
+static void api_action_get_kfx_info(const struct ApiRequest *req)
+{
+    // Create level data to return to client
+    VALUE data_kfx_info_real;
+    VALUE *data_kfx_info = &data_kfx_info_real;
+    value_init_dict(data_kfx_info);
+
+    // Add stuff to level data
+    // kfx_version stays for KeeperFX-aware tools, but reports the KeeperFX
+    // release whose content this game supports ("1.4"), not our own
+    // product version -- that is product/product_version.
+    value_init_string(value_dict_add(data_kfx_info, "kfx_version"), KFX_COMPAT_VERSION);
+    value_init_string(value_dict_add(data_kfx_info, "product"), PRODUCT_NAME);
+    value_init_string(value_dict_add(data_kfx_info, "product_version"), VER_STRING);
+
+    // Return data to client
+    api_return_data(true, data_kfx_info_real, req->ack_id);
+}
+
+/** subscribe_var: Reports a script variable to the client whenever it changes. */
+static void api_action_subscribe_var(const struct ApiRequest *req)
+{
+    // Get variable name
+    const char *variable_name = (char *)value_string(value_dict_get(req->root, "var"));
+    if (variable_name == NULL || strlen(variable_name) < 1)
+    {
+        api_err("MISSING_VAR", req->ack_id);
+        return;
+    }
+
+    // Recognize variable
+    int64_t variable_id, variable_type;
+    if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
+    {
+        api_err("UNKNOWN_VAR", req->ack_id);
+        return;
+    }
+
+    // Try to subscribe to the variable
+    if (api_subscribe_var(req->player_id, variable_name, variable_type, variable_id))
+    {
+        api_ok(req->ack_id);
+    }
+    else
+    {
+        api_err("SUB_FAILED", req->ack_id);
+    }
+}
+
+/** unsubscribe_var: Stops reporting a script variable. */
+static void api_action_unsubscribe_var(const struct ApiRequest *req)
+{
+    // Get variable name
+    char *variable_name = (char *)value_string(value_dict_get(req->root, "var"));
+    if (variable_name == NULL || strlen(variable_name) < 1)
+    {
+        api_err("MISSING_VAR", req->ack_id);
+        return;
+    }
+
+    // Recognize variable
+    int64_t variable_id, variable_type;
+    if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
+    {
+        api_err("UNKNOWN_VAR", req->ack_id);
+        return;
+    }
+
+    // Try to subscribe to the variable
+    if (api_unsubscribe_var(req->player_id, variable_type, variable_id))
+    {
+        api_ok(req->ack_id);
+    }
+    else
+    {
+        api_err("SUB_FAILED", req->ack_id);
+    }
+}
+
+/** subscribe_event: Reports an event to the client whenever it happens. */
+static void api_action_subscribe_event(const struct ApiRequest *req)
+{
+    // Get event name
+    char *event_name = (char *)value_string(value_dict_get(req->root, "event"));
+    if (event_name == NULL || strlen(event_name) < 1)
+    {
+        api_err("MISSING_EVENT", req->ack_id);
+        return;
+    }
+
+    // Make sure event name is not too long
+    if (strlen(event_name) > COMMAND_WORD_LEN)
+    {
+        api_err("STRING_TOO_LONG", req->ack_id);
+        return;
+    }
+
+    // Try to subscribe to the variable
+    if (api_subscribe_event(event_name))
+    {
+        api_ok(req->ack_id);
+    }
+    else
+    {
+        api_err("SUB_FAILED", req->ack_id);
+    }
+}
+
+/** unsubscribe_event: Stops reporting an event. */
+static void api_action_unsubscribe_event(const struct ApiRequest *req)
+{
+    // Get event name
+    char *event_name = (char *)value_string(value_dict_get(req->root, "event"));
+    if (event_name == NULL || strlen(event_name) < 1)
+    {
+        api_err("MISSING_EVENT", req->ack_id);
+        return;
+    }
+
+    // Try to subscribe to the variable
+    if (api_unsubscribe_event(event_name))
+    {
+        api_ok(req->ack_id);
+    }
+    else
+    {
+        api_err("SUB_FAILED", req->ack_id);
+    }
+}
+
+/** unsubscribe_all: Stops reporting every variable and event. */
+static void api_action_unsubscribe_all(const struct ApiRequest *req)
+{
+    // Unsubscribe from every subscriptions
+    api_clear_all_subscriptions();
+    api_ok(req->ack_id);
+}
+
+/** map_command: Runs one level script line. */
+static void api_action_map_command(const struct ApiRequest *req)
+{
+    // Do not allow this command when the game is paused
+    if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
+    {
+        api_err("GAME_IS_PAUSED", req->ack_id);
+        return;
+    }
+
+    // Get map command
+    char *map_command = (char *)value_string(value_dict_get(req->root, "command"));
+    if (map_command == NULL)
+    {
+        api_err("MISSING_COMMAND", req->ack_id);
+        return;
+    }
+
+    // Execute map command
+    if (script_scan_line(map_command, false, 99)) // Maximum level of a command support
+    {
+        api_ok(req->ack_id);
+    }
+    else
+    {
+        api_err("FAILED_TO_EXECUTE_MAP_COMMAND", req->ack_id);
+    }
+}
+
+/** console_command: Runs one console command, as the given player. */
+static void api_action_console_command(const struct ApiRequest *req)
+{
+    // Do not allow this command when the game is paused
+    if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
+    {
+        api_err("GAME_IS_PAUSED", req->ack_id);
+        return;
+    }
+
+    // Get console command
+    char *console_command = (char *)value_string(value_dict_get(req->root, "command"));
+    if (console_command == NULL || strlen(console_command) < 1)
+    {
+        api_err("MISSING_COMMAND", req->ack_id);
+        return;
+    }
+
+    // If the console-prefix-character is at the start of the string we'll ignore that char
+    if (console_command[0] == cmd_char)
+    {
+        console_command += 1;
+    }
+
+    // Execute console command
+    if (cmd_exec(req->player_id, console_command))
+    {
+        api_ok(req->ack_id);
+    }
+    else
+    {
+        api_err("FAILED_TO_EXECUTE_CONSOLE_COMMAND", req->ack_id);
+    }
+}
+
+/** get_all_player_flags: Every script flag of every player. */
+static void api_action_get_all_player_flags(const struct ApiRequest *req)
+{
+
+    // Create flag data to return to client
+    VALUE flag_data_real;
+    VALUE *flag_data = &flag_data_real;
+    value_init_dict(flag_data);
+
+    for (int64_t player_index = 0; player_index < ALL_PLAYERS; player_index++)
+    {
+        // Create object for this player
+        VALUE *player_info = value_dict_add(flag_data, player_code_name(player_index));
+        value_init_dict(player_info);
+
+        for (size_t flag_index = 0; flag_index < get_max_flags(); flag_index++)
+        {
+            // Get flag value
+            int64_t flag_value = get_condition_value(req->player_id, SVar_FLAG, flag_index);
+
+            // Add flag to player flag
+            const char *flag_string = get_conf_parameter_text(flag_desc, flag_index);
+            value_init_int32(value_dict_add(player_info, flag_string), flag_value);
+        }
+    }
+
+    // Return data to client
+    api_return_data(true, flag_data_real, req->ack_id);
+}
+
+/** claim_seat: Makes a player an External seat (idempotent). */
+static void api_action_claim_seat(const struct ApiRequest *req)
+{
+    // Interim, until the Skirmish Slots & AI page can choose an External controller (milestone M5): make
+    // an existing computer-controlled or unclaimed slot, or the local human's own (M10), an External seat.
+    VALUE *pv = value_dict_get(req->root, "player");
+    PlayerNumber claim_id = -1;
+    if (value_type(pv) == VALUE_INT32) claim_id = (PlayerNumber)value_int32(pv);
+    else if (value_type(pv) == VALUE_STRING) claim_id = get_id(player_desc, (char *)value_string(pv));
+    else { api_err("MISSING_PLAYER", req->ack_id); return; }
+    // Idempotent: a slot the Skirmish page already made External is answered with its existing user.
+    NetUserId claimed = -1;
+    if ((claim_id >= 0) && (claim_id < PLAYERS_COUNT) && player_exists(get_player(claim_id))
+     && flag_is_set(get_player(claim_id)->allocflags, PlaF_ExternalSeat)
+     && (get_net_user_player_number(get_player(claim_id)->user_id) == claim_id)) {
+        claimed = get_player(claim_id)->user_id;
+    } else {
+        claimed = net_add_external_seat(claim_id);
+    }
+    if (claimed < 0) { api_err("CANNOT_CLAIM_SEAT", req->ack_id); return; }
+    extseat_note_activity();
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    value_init_int32(value_dict_add(data, "player"), (int32_t)claim_id);
+    value_init_int32(value_dict_add(data, "user"), (int32_t)claimed);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** release_seat: Hands an External seat back to the built-in AI. */
+static void api_action_release_seat(const struct ApiRequest *req)
+{
+    // The agent hands its seat back to the built-in AI (06 section 2.2, Option B, explicit form).
+    VALUE *pv = value_dict_get(req->root, "player");
+    PlayerNumber rel_id = -1;
+    if (value_type(pv) == VALUE_INT32) rel_id = (PlayerNumber)value_int32(pv);
+    else if (value_type(pv) == VALUE_STRING) rel_id = get_id(player_desc, (char *)value_string(pv));
+    else { api_err("MISSING_PLAYER", req->ack_id); return; }
+    extseat_note_activity();
+    if (!net_release_external_seat(rel_id)) { api_err("NOT_A_VALID_SEAT", req->ack_id); return; }
+    api_ok(req->ack_id);
+}
+
+/** set_takeover: Whether the built-in AI takes the External seats when the connection is lost. */
+static void api_action_set_takeover(const struct ApiRequest *req)
+{
+    // Opt-in: if this connection is lost, or the pause watchdog fires, the built-in AI takes every External seat.
+    VALUE *ev = value_dict_get(req->root, "enabled");
+    if (value_type(ev) != VALUE_BOOL && value_type(ev) != VALUE_INT32) { api_err("MISSING_ENABLED", req->ack_id); return; }
+    extseat_set_takeover((value_type(ev) == VALUE_BOOL) ? value_bool(ev) : (value_int32(ev) != 0));
+    extseat_note_activity();
+    api_ok(req->ack_id);
+}
+
+/** set_decision_policy: The minimum game turns between two DECISION_DUE events. */
+static void api_action_set_decision_policy(const struct ApiRequest *req)
+{
+    // Minimum game turns between two DECISION_DUE events (default 100); reasons inside the window are held and delivered together.
+    VALUE *mi = value_dict_get(req->root, "min_interval_turns");
+    if (value_type(mi) != VALUE_INT32) { api_err("MISSING_MIN_INTERVAL", req->ack_id); return; }
+    api_seat_decision_set_min_interval(value_int32(mi));
+    extseat_note_activity();
+    api_ok(req->ack_id);
+}
+
+/** set_game_speed: Simulated turns per real second. */
+static void api_action_set_game_speed(const struct ApiRequest *req)
+{
+    // The console's own "FPS"/turn-rate cheat (console_cmd.c), exposed here: how many simulated turns run per real
+    // second. Global to the game (not per seat) -- an agent buying itself more real-time to think this way slows
+    // the game for everyone watching, the same trade-off a human slowing it down for themselves would make.
+    // turns_per_second=0 resets to the level's/command line's own configured rate (start_params.num_fps).
+    VALUE *tv = value_dict_get(req->root, "turns_per_second");
+    if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS_PER_SECOND", req->ack_id); return; }
+    const int32_t requested = value_int32(tv);
+    if (requested == 0) {
+        kfx_sim_state.turns_per_second = start_params.num_fps;
+    } else if ((requested < 1) || (requested > 100)) {
+        api_err("BAD_TURNS_PER_SECOND", req->ack_id); return;
+    } else {
+        kfx_sim_state.turns_per_second = requested;
+    }
+    extseat_note_activity();
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    value_init_int64(value_dict_add(data, "turns_per_second"), (int64_t)kfx_sim_state.turns_per_second);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** get_log_tail: The last lines of the game's own log. */
+static void api_action_get_log_tail(const struct ApiRequest *req)
+{
+    // The running game's own log (log_file_name, normally daimonkeeper.log in its data directory), for an agent
+    // debugging a confusing session without a human tailing the file by hand. Reads only a bounded tail window
+    // of the file (never the whole thing, however large the log has grown) and returns at most `lines` of that
+    // window's complete lines (api_log_tail_lines does the actual splitting, and is what is unit-tested).
+    VALUE *lv = value_dict_get(req->root, "lines");
+    int64_t want = (value_type(lv) == VALUE_INT32) ? value_int32(lv) : 100;
+    if (want < 1) want = 1;
+    if (want > 500) want = 500;
+    // The Debug log levels buffer their writes (docs/refactor-pass2/stage-02-logging-option.md).
+    LbLogFlush();
+    // Reported with every reply, so an agent can tell why a tail is short or empty.
+    const char *log_level_name = get_conf_parameter_text(log_level_type, get_log_level() + 1);
+    FILE *f = fopen(log_file_name, "rb");
+    if ((f == NULL) && (get_log_level() == LogLvl_Off))
+    {
+        // Logging is off, so there is no file: an empty tail, not an error.
+        VALUE data_real; VALUE *data = &data_real;
+        value_init_dict(data);
+        value_init_array(value_dict_add(data, "lines"));
+        value_init_string(value_dict_add(data, "log_level"), (char *)log_level_name);
+        api_return_data(true, data_real, req->ack_id);
+        return;
+    }
+    if (f == NULL) { api_err("LOG_UNAVAILABLE", req->ack_id); return; }
+    fseek(f, 0, SEEK_END);
+    const int64_t size = (int64_t)ftell(f);
+    const int64_t window = 262144; // comfortably more bytes than 500 lines will ever need
+    const int64_t start = (size > window) ? (size - window) : 0;
+    const size_t to_read = (size_t)(size - start);
+    char *buf = (char *)malloc(to_read);
+    if (buf == NULL) { fclose(f); api_err("LOG_UNAVAILABLE", req->ack_id); return; }
+    fseek(f, start, SEEK_SET);
+    const size_t got = fread(buf, 1, to_read, f);
+    fclose(f);
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    VALUE *arr = value_dict_add(data, "lines");
+    value_init_array(arr);
+    api_log_tail_lines(buf, got, /*is_whole_buffer=*/(start == 0), want, arr);
+    free(buf);
+    value_init_string(value_dict_add(data, "log_level"), (char *)log_level_name);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** get_seats: Every External seat in this game. */
+static void api_action_get_seats(const struct ApiRequest *req)
+{
+    // Every External seat in this game: the ones the Skirmish page created at start, plus any claimed since.
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    VALUE *arr = value_dict_add(data, "seats");
+    value_init_array(arr);
+    for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++)
+    {
+        const struct PlayerInfo *pl = get_player(p);
+        if (!player_exists(pl) || !flag_is_set(pl->allocflags, PlaF_ExternalSeat) || (get_net_user_player_number(pl->user_id) != p))
+            continue;
+        VALUE *e = value_array_append(arr);
+        value_init_dict(e);
+        value_init_int32(value_dict_add(e, "player"), (int32_t)p);
+        value_init_int32(value_dict_add(e, "user"), (int32_t)pl->user_id);
+    }
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** get_player_view: What the seat sees (or what changed since the given view). */
+static void api_action_get_player_view(const struct ApiRequest *req)
+{
+    VALUE view_real; VALUE *view = &view_real;
+    api_seat_build_view(view, req->seat_id);
+    // since=<view_id of the last view received>: only what changed (03 M6); anything else gets the full view.
+    VALUE *sv = value_dict_get(req->root, "since");
+    const TbBool want_diff = (value_type(sv) == VALUE_INT32) || (value_type(sv) == VALUE_INT64);
+    api_seat_finish_view(view, req->seat_id, want_diff, want_diff ? value_int64(sv) : 0);
+    api_return_data(true, view_real, req->ack_id);
+}
+
+/** set_pause: Pauses or resumes the game for the seat's agent. */
+static void api_action_set_pause(const struct ApiRequest *req)
+{
+    VALUE *pa = value_dict_get(req->root, "paused");
+    if (value_type(pa) != VALUE_BOOL && value_type(pa) != VALUE_INT32) { api_err("MISSING_PAUSED", req->ack_id); return; }
+    const TbBool want = (value_type(pa) == VALUE_BOOL) ? value_bool(pa) : (value_int32(pa) != 0);
+    if (want) extseat_pause(); else extseat_resume();
+    api_ok(req->ack_id);
+}
+
+/** set_agent_memory: The agent's own memory of this game, kept and saved by the engine. */
+static void api_action_set_agent_memory(const struct ApiRequest *req)
+{
+    // The agent's own memory of this game, kept by the engine and saved with it (09-persistent-memory.md).
+    VALUE *dv = value_dict_get(req->root, "data");
+    if (value_type(dv) != VALUE_STRING) { api_err("MISSING_DATA", req->ack_id); return; }
+    const size_t len = value_string_length(dv);
+    if (len > AGENT_MEMORY_MAX) { api_err("MEMORY_TOO_LARGE", req->ack_id); return; }
+    if (!agent_memory_set(req->seat_id, value_string(dv), len)) { api_err("MEMORY_NOT_STORED", req->ack_id); return; }
+    api_ok(req->ack_id);
+}
+
+/** set_player_name: The seat's keeper name. */
+static void api_action_set_player_name(const struct ApiRequest *req)
+{
+    // An agent names its own seat, as a human types a keeper name (09-persistent-memory.md section 6.8): the
+    // name other players see, and how agents that play it again know it.
+    const char *name = value_string(value_dict_get(req->root, "name"));
+    if ((name == NULL) || (name[0] == 0)) { api_err("MISSING_NAME", req->ack_id); return; }
+    struct PlayerInfo *named = get_player(req->seat_id);
+    const size_t len = strlen(name);
+    if (len >= sizeof(named->player_name)) { api_err("NAME_TOO_LONG", req->ack_id); return; }
+    for (size_t i = 0; i < len; i++) {
+        if ((unsigned char)name[i] < 0x20) { api_err("BAD_NAME", req->ack_id); return; }
+    }
+    snprintf(named->player_name, sizeof(named->player_name), "%s", name);
+    api_ok(req->ack_id);
+}
+
+/** get_agent_memory: The agent's memory of this game. */
+static void api_action_get_agent_memory(const struct ApiRequest *req)
+{
+    size_t len = 0;
+    const char *mem = agent_memory_get(req->seat_id, &len);
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    if (mem != NULL) value_init_string_(value_dict_add(data, "data"), mem, len);
+    else value_init_null(value_dict_add(data, "data"));
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** advance_turns: Lets the paused game run the given number of turns. */
+static void api_action_advance_turns(const struct ApiRequest *req)
+{
+    VALUE *tv = value_dict_get(req->root, "turns");
+    if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS", req->ack_id); return; }
+    const int32_t turns = value_int32(tv);
+    if ((turns < 1) || (turns > 100000)) { api_err("BAD_TURNS", req->ack_id); return; }
+    extseat_advance(turns);
+    api_ok(req->ack_id);
+}
+
+/** submit_action: One of the seat's verbs, queued as a gesture (or only checked, with dry_run). */
+static void api_action_submit_action(const struct ApiRequest *req)
+{
+    struct ExtSeatVerb verb;
+    memset(&verb, 0, sizeof(verb));
+    const char *vname = value_string(value_dict_get(req->root, "verb"));
+    if (vname == NULL) { api_err("MISSING_VERB", req->ack_id); return; }
+    if (strcasecmp(vname, "place_trap") == 0) verb.kind = ESV_PlaceTrap;
+    else if (strcasecmp(vname, "place_door") == 0) verb.kind = ESV_PlaceDoor;
+    else if (strcasecmp(vname, "slap") == 0) verb.kind = ESV_Slap;
+    else if (strcasecmp(vname, "pick_up") == 0) verb.kind = ESV_PickUp;
+    else if (strcasecmp(vname, "drop") == 0) verb.kind = ESV_Drop;
+    else if (strcasecmp(vname, "pick_up_and_drop") == 0) verb.kind = ESV_PickUpAndDrop;
+    else if (strcasecmp(vname, "unmark_dig") == 0) verb.kind = ESV_UnmarkDig;
+    else if (strcasecmp(vname, "set_door_lock") == 0) verb.kind = ESV_SetDoorLock;
+    else if (strcasecmp(vname, "power_off") == 0) verb.kind = ESV_PowerOff;
+    else if (strcasecmp(vname, "use_special") == 0) verb.kind = ESV_UseSpecial;
+    else if (strcasecmp(vname, "send_message") == 0) verb.kind = ESV_SendMessage;
+    else if (strcasecmp(vname, "cast_power") == 0) verb.kind = ESV_CastPower;
+    else if (strcasecmp(vname, "build_room") == 0) verb.kind = ESV_BuildRoom;
+    else if (strcasecmp(vname, "mark_dig") == 0) verb.kind = ESV_MarkDig;
+    else if (strcasecmp(vname, "sell") == 0) verb.kind = ESV_Sell;
+    else if (strcasecmp(vname, "cancel") == 0) verb.kind = ESV_Cancel;
+    else if (strcasecmp(vname, "set_tendency") == 0) verb.kind = ESV_SetTendency;
+    else if (strcasecmp(vname, "move_creature") == 0) verb.kind = ESV_MoveCreature;
+    else if (strcasecmp(vname, "release_creature") == 0) verb.kind = ESV_ReleaseCreature;
+    else if (strcasecmp(vname, "set_alliance") == 0) verb.kind = ESV_SetAlliance;
+    else { api_err("UNKNOWN_VERB", req->ack_id); return; }
+
+    const char *kind = value_string(value_dict_get(req->root, ((verb.kind == ESV_CastPower) || (verb.kind == ESV_PowerOff)) ? "power" : "kind"));
+    if (kind != NULL) snprintf(verb.name, sizeof(verb.name), "%s", kind);
+    VALUE *pos = value_dict_get(req->root, "pos");
+    if (value_type(pos) == VALUE_ARRAY && value_array_size(pos) == 2)
+    {
+        verb.has_pos = true;
+        verb.stl_x = value_int32(value_array_get(pos, 0));
+        verb.stl_y = value_int32(value_array_get(pos, 1));
+    }
+    VALUE *rect = value_dict_get(req->root, "slab_rect");
+    if (value_type(rect) == VALUE_ARRAY && value_array_size(rect) == 4)
+    {
+        verb.has_rect = true;
+        verb.slab_x0 = value_int32(value_array_get(rect, 0));
+        verb.slab_y0 = value_int32(value_array_get(rect, 1));
+        verb.slab_x1 = value_int32(value_array_get(rect, 2));
+        verb.slab_y1 = value_int32(value_array_get(rect, 3));
+    }
+    VALUE *en = value_dict_get(req->root, "enabled");
+    if ((value_type(en) == VALUE_BOOL) || (value_type(en) == VALUE_INT32)) {
+        verb.has_enabled = true;
+        verb.enabled = (value_type(en) == VALUE_BOOL) ? value_bool(en) : (value_int32(en) != 0);
+    }
+    VALUE *ht = value_dict_get(req->root, "hold_turns");
+    if (value_type(ht) == VALUE_INT32) verb.hold_turns = value_int32(ht);
+    VALUE *ov = value_dict_get(req->root, "overcharge_turns");
+    if (value_type(ov) == VALUE_INT32) verb.overcharge_turns = value_int32(ov);
+    VALUE *tid = value_dict_get(req->root, "thing_id");
+    if (value_type(tid) == VALUE_INT32)
+    {
+        verb.has_thing = true;
+        verb.thing_id = value_int32(tid);
+    }
+    VALUE *tids = value_dict_get(req->root, "thing_ids");
+    if (value_type(tids) == VALUE_ARRAY) {
+        if (value_array_size(tids) > EXTSEAT_MAX_HAND_SET) { api_err("TOO_MANY", req->ack_id); return; }
+        for (size_t i = 0; i < value_array_size(tids); i++) {
+            VALUE *t = value_array_get(tids, i);
+            if (value_type(t) != VALUE_INT32) { api_err("BAD_THING_IDS", req->ack_id); return; }
+            verb.thing_ids[verb.thing_count++] = value_int32(t);
+        }
+    }
+    const char *dir = value_string(value_dict_get(req->root, "direction"));
+    if (dir != NULL) {
+        static const struct { const char *name; int64_t angle; } dirs[] = {
+            { "N", ANGLE_NORTH }, { "NE", ANGLE_NORTHEAST }, { "E", ANGLE_EAST }, { "SE", ANGLE_SOUTHEAST },
+            { "S", ANGLE_SOUTH }, { "SW", ANGLE_SOUTHWEST }, { "W", ANGLE_WEST }, { "NW", ANGLE_NORTHWEST } };
+        for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+            if (strcasecmp(dir, dirs[i].name) == 0) { verb.has_direction = true; verb.direction_angle = dirs[i].angle; }
+        }
+        if (!verb.has_direction) { api_err("BAD_DIRECTION", req->ack_id); return; }
+    }
+    VALUE *lvl = value_dict_get(req->root, "level");
+    if (value_type(lvl) == VALUE_INT32) verb.level = value_int32(lvl);
+    VALUE *tgt = value_dict_get(req->root, "target_thing");
+    if (value_type(tgt) == VALUE_INT32) { verb.has_target_thing = true; verb.target_thing = value_int32(tgt); }
+    const char *msg = value_string(value_dict_get(req->root, "message"));
+    if (msg != NULL) {
+        if (strlen(msg) >= sizeof(verb.message)) { api_err("BAD_MESSAGE", req->ack_id); return; }
+        snprintf(verb.message, sizeof(verb.message), "%s", msg);
+    }
+    VALUE *tr = value_dict_get(req->root, "to_room");
+    if (value_type(tr) == VALUE_INT32) { verb.has_room = true; verb.room_id = value_int32(tr); }
+    VALUE *rel = value_dict_get(req->root, "release");
+    verb.release = ((value_type(rel) == VALUE_BOOL) && value_bool(rel)) || ((value_type(rel) == VALUE_INT32) && (value_int32(rel) != 0));
+    VALUE *sac = value_dict_get(req->root, "sacrifice");
+    verb.sacrifice = ((value_type(sac) == VALUE_BOOL) && value_bool(sac)) || ((value_type(sac) == VALUE_INT32) && (value_int32(sac) != 0));
+    VALUE *ap = value_dict_get(req->root, "ally_player");
+    if (value_type(ap) == VALUE_INT32) { verb.has_target_player = true; verb.target_player = value_int32(ap); }
+    else if (value_type(ap) == VALUE_STRING) { verb.has_target_player = true; verb.target_player = get_id(player_desc, (char *)value_string(ap)); }
+    // Real-time play: queue=true lets a verb wait behind the running gesture. view_turn (the `turn` of the
+    // view the decision was based on) with max_age_turns bounds how stale the order may be when it starts.
+    VALUE *qv = value_dict_get(req->root, "queue");
+    const TbBool queue = ((value_type(qv) == VALUE_BOOL) && value_bool(qv)) || ((value_type(qv) == VALUE_INT32) && (value_int32(qv) != 0));
+    VALUE *vt = value_dict_get(req->root, "view_turn");
+    VALUE *ma = value_dict_get(req->root, "max_age_turns");
+    int64_t age = -1;
+    if (value_type(vt) == VALUE_INT32) {
+        age = (int64_t)get_gameturn() - (int64_t)value_int32(vt);
+        if ((value_type(ma) == VALUE_INT32) && (value_int32(ma) >= 0)) {
+            verb.expires_turn = (int64_t)value_int32(vt) + (int64_t)value_int32(ma);
+        }
+    }
+    // dry_run: validated exactly as a real submit would be (same error codes), but never queued, tracked, or
+    // subject to the seat's queue-busy state -- so an agent can check "would this be accepted, and how many
+    // steps" before spending a real decision on an order it is not sure it can afford, any number of times.
+    VALUE *dr = value_dict_get(req->root, "dry_run");
+    const TbBool dry_run = ((value_type(dr) == VALUE_BOOL) && value_bool(dr)) || ((value_type(dr) == VALUE_INT32) && (value_int32(dr) != 0));
+    if (dry_run)
+    {
+        int64_t steps = 0;
+        const char *err = extseat_check_verb(req->seat_user, req->seat_id, &verb, &steps);
+        if (err != NULL) { api_err(err, req->ack_id); return; }
+        VALUE data_real; VALUE *data = &data_real;
+        value_init_dict(data);
+        value_init_bool(value_dict_add(data, "would_succeed"), true);
+        value_init_int32(value_dict_add(data, "steps"), (int32_t)steps);
+        add_dig_reach_warning(data, req->seat_id, &verb, value_dict_get(req->root, "assume_dig_rects"));
+        add_build_warning(data, req->seat_id, &verb);
+        api_return_data(true, data_real, req->ack_id);
+        return;
+    }
+
+    struct ExtSeatSubmitInfo info;
+    memset(&info, 0, sizeof(info));
+    const char *err = extseat_submit_verb_ex(req->seat_user, req->seat_id, &verb, queue, &info);
+    if (err != NULL) { api_err(err, req->ack_id); return; }
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    // After the submit: this verb now counts as pending itself, so only its own rectangle is being judged.
+    add_dig_reach_warning(data, req->seat_id, &verb, NULL);
+    add_build_warning(data, req->seat_id, &verb);
+    value_init_int32(value_dict_add(data, "steps"), (int32_t)info.steps);
+    value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
+    value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
+    if (age >= 0) value_init_int32(value_dict_add(data, "age_turns"), (int32_t)age);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** read_var: The value of a script variable. */
+static void api_action_read_var(const struct ApiRequest *req)
+{
+    // Get variable name
+    char *variable_name = (char *)value_string(value_dict_get(req->root, "var"));
+    if (variable_name == NULL || strlen(variable_name) < 1)
+    {
+        api_err("MISSING_VAR", req->ack_id);
+        return;
+    }
+
+    // Recognize variable
+    int64_t variable_id, variable_type;
+    if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
+    {
+        api_err("UNKNOWN_VAR", req->ack_id);
+        return;
+    }
+
+    // Get the variable
+    int64_t variable_value = get_condition_value(req->player_id, variable_type, variable_id);
+
+    // Return the variable to the user
+    api_return_data_number(variable_value, req->ack_id);
+}
+
+/** set_var: Sets a script flag or similar variable. */
+static void api_action_set_var(const struct ApiRequest *req)
+{
+    // Get variable name
+    char *variable_name = (char *)value_string(value_dict_get(req->root, "var"));
+    if (variable_name == NULL || strlen(variable_name) < 1)
+    {
+        api_err("MISSING_VAR", req->ack_id);
+        return;
+    }
+
+    // Recognize variable
+    int64_t variable_id, variable_type;
+    if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
+    {
+        api_err("UNKNOWN_VAR", req->ack_id);
+        return;
+    }
+
+    // Check if this type of variable can be set dynamically
+    if (!variable_is_settable(variable_type))
+    {
+        api_err("UNABLE_TO_SET_VAR", req->ack_id);
+        return;
+    }
+
+    // Get the new value
+    VALUE *new_value = value_dict_get(req->root, "value");
+    if (new_value == NULL || value_type(new_value) != VALUE_INT32)
+    {
+        api_err("VALUE_MUST_BE_INT", req->ack_id);
+        return;
+    }
+
+    // Set the variable
+    set_variable(req->player_id, variable_type, variable_id, value_int32(new_value));
+
+    // Return success
+    api_ok(req->ack_id);
+}
+
+/** get_level_info: The loaded level and its campaign. */
+static void api_action_get_level_info(const struct ApiRequest *req)
+{
+    // Get level info and name
+    const char *lv_name = NULL;
+    LevelNumber lv_number = get_loaded_level_number();
+    struct LevelInformation *lv_info = get_level_info(lv_number);
+    if (lv_info != NULL)
+    {
+        if (lv_info->name_stridx > 0)
+        {
+            lv_name = get_string(lv_info->name_stridx);
+        }
+        else
+        {
+            lv_name = lv_info->name;
+        }
+    }
+    else if (is_multiplayer_level(lv_number))
+    {
+        lv_name = (const char *)level_name;
+    }
+
+    // Create level data to return to client
+    VALUE data_level_info_real;
+    VALUE *data_level_info = &data_level_info_real;
+    value_init_dict(data_level_info);
+
+    // Add stuff to level data; a level without level information (none loaded, or a multiplayer map with no
+    // entry) has no name, players or size (pass 4 finding P4-F3: they were read through a NULL pointer)
+    value_init_string(value_dict_add(data_level_info, "level_name"), (lv_name != NULL) ? lv_name : "");
+    value_init_int32(value_dict_add(data_level_info, "level_number"), lv_number);
+    value_init_int32(value_dict_add(data_level_info, "players"), (lv_info != NULL) ? lv_info->players : 0);
+    value_init_int32(value_dict_add(data_level_info, "mapsize_x"), (lv_info != NULL) ? lv_info->mapsize_x : 0);
+    value_init_int32(value_dict_add(data_level_info, "mapsize_y"), (lv_info != NULL) ? lv_info->mapsize_y : 0);
+    value_init_bool(value_dict_add(data_level_info, "is_multiplayer"), is_multiplayer_level(lv_number));
+
+    // Create campaign data and add to level data
+    VALUE *data_campaign_info = value_dict_add(data_level_info, "campaign");
+    value_init_dict(data_campaign_info);
+
+    // Add stuff to campaign data
+    value_init_string(value_dict_add(data_campaign_info, "campaign_name"), campaign.name);
+    value_init_string(value_dict_add(data_campaign_info, "campaign_display_name"), campaign.display_name);
+    value_init_string(value_dict_add(data_campaign_info, "campaign_fname"), campaign.fname);
+    value_init_bool(value_dict_add(data_campaign_info, "is_map_pack"), is_map_pack());
+
+    // Return data to client
+    api_return_data(true, data_level_info_real, req->ack_id);
+}
+
+/** get_current_game_info: The game turn. */
+static void api_action_get_current_game_info(const struct ApiRequest *req)
+{
+    // Create level data to return to client
+    VALUE data_current_game_info_real;
+    VALUE *data_current_game_info = &data_current_game_info_real;
+    value_init_dict(data_current_game_info);
+
+    // Add stuff to level data
+    value_init_int32(value_dict_add(data_current_game_info, "game_turn"), get_gameturn());
+
+    // Return data to client
+    api_return_data(true, data_current_game_info_real, req->ack_id);
+}
+
+/**
+ * For the External seat actions (docs/refactor/AI/LLM/02-transport-and-protocol.md), which need an explicit
+ * "player" (defaulting to the local human would be wrong here): fills req's seat from it, notes the agent's
+ * activity and its watchdog_ms. Refuses the request, and returns false, when "player" isn't an External seat.
+ */
+static TbBool api_request_seat(struct ApiRequest *req)
+{
+    VALUE *pv = value_dict_get(req->root, "player");
+    PlayerNumber seat_id = -1;
+    if (value_type(pv) == VALUE_INT32) seat_id = (PlayerNumber)value_int32(pv);
+    else if (value_type(pv) == VALUE_STRING) seat_id = get_id(player_desc, (char *)value_string(pv));
+    else { api_err("MISSING_PLAYER", req->ack_id); return false; }
+    if ((seat_id < 0) || (seat_id >= PLAYERS_COUNT) || !player_exists(get_player(seat_id))) {
+        api_err("INVALID_PLAYER", req->ack_id); return false;
+    }
+    const struct PlayerInfo *seat_player = get_player(seat_id);
+    const NetUserId seat_user = seat_player->user_id;
+    if (!flag_is_set(seat_player->allocflags, PlaF_ExternalSeat) || (get_net_user_player_number(seat_user) != seat_id)) {
+        api_err("NOT_A_VALID_SEAT", req->ack_id); return false;
+    }
+    req->seat_id = seat_id;
+    req->seat_user = seat_user;
+    extseat_note_activity();
+
+    VALUE *wd = value_dict_get(req->root, "watchdog_ms");
+    if (value_type(wd) == VALUE_INT32) extseat_set_watchdog_ms(value_int32(wd));
+    return true;
+}
+
+/** Every action and when it is answered. Only map_command and console_command refuse a paused game (themselves). */
+static const struct ApiAction api_actions[] = {
+    {"get_kfx_info",          api_action_get_kfx_info,           ApiNeeds_Nothing},
+    {"subscribe_var",         api_action_subscribe_var,          ApiNeeds_Nothing},
+    {"unsubscribe_var",       api_action_unsubscribe_var,        ApiNeeds_Nothing},
+    {"subscribe_event",       api_action_subscribe_event,        ApiNeeds_Nothing},
+    {"unsubscribe_event",     api_action_unsubscribe_event,      ApiNeeds_Nothing},
+    {"unsubscribe_all",       api_action_unsubscribe_all,        ApiNeeds_Nothing},
+    {"map_command",           api_action_map_command,            ApiNeeds_LocalGame},
+    {"console_command",       api_action_console_command,        ApiNeeds_LocalGame},
+    {"get_all_player_flags",  api_action_get_all_player_flags,   ApiNeeds_LocalGame},
+    {"claim_seat",            api_action_claim_seat,             ApiNeeds_LocalGame},
+    {"release_seat",          api_action_release_seat,           ApiNeeds_LocalGame},
+    {"set_takeover",          api_action_set_takeover,           ApiNeeds_LocalGame},
+    {"set_decision_policy",   api_action_set_decision_policy,    ApiNeeds_LocalGame},
+    {"set_game_speed",        api_action_set_game_speed,         ApiNeeds_LocalGame},
+    {"get_log_tail",          api_action_get_log_tail,           ApiNeeds_LocalGame},
+    {"get_seats",             api_action_get_seats,              ApiNeeds_LocalGame},
+    {"get_player_view",       api_action_get_player_view,        ApiNeeds_Seat},
+    {"set_pause",             api_action_set_pause,              ApiNeeds_Seat},
+    {"set_agent_memory",      api_action_set_agent_memory,       ApiNeeds_Seat},
+    {"set_player_name",       api_action_set_player_name,        ApiNeeds_Seat},
+    {"get_agent_memory",      api_action_get_agent_memory,       ApiNeeds_Seat},
+    {"advance_turns",         api_action_advance_turns,          ApiNeeds_Seat},
+    {"submit_action",         api_action_submit_action,          ApiNeeds_Seat},
+    {"read_var",              api_action_read_var,               ApiNeeds_LocalGame},
+    {"set_var",               api_action_set_var,                ApiNeeds_LocalGame},
+    {"get_level_info",        api_action_get_level_info,         ApiNeeds_LocalGame},
+    {"get_map_info",          api_action_get_level_info,         ApiNeeds_LocalGame},
+    {"get_current_game_info", api_action_get_current_game_info,  ApiNeeds_LocalGame},
+};
+
 static void api_process_buffer(const char *buffer, size_t buf_size)
 {
     // Acknowledgement ID
@@ -1182,871 +1882,38 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         player_id = get_id(player_desc, (char *)value_string(player));
     }
 
-    // ==================================================================================================================================
-    // Commands that always work
-    // ==================================================================================================================================
-
-    // Handle get KeeperFX info command
-    if (strcasecmp("get_kfx_info", action) == 0)
+    struct ApiRequest req = { value, ack_id, player_id, -1, -1 };
+    const struct ApiAction *act = NULL;
+    for (size_t i = 0; i < sizeof(api_actions) / sizeof(api_actions[0]); i++)
     {
-        // Create level data to return to client
-        VALUE data_kfx_info_real;
-        VALUE *data_kfx_info = &data_kfx_info_real;
-        value_init_dict(data_kfx_info);
-
-        // Add stuff to level data
-        // kfx_version stays for KeeperFX-aware tools, but reports the KeeperFX
-        // release whose content this game supports ("1.4"), not our own
-        // product version -- that is product/product_version.
-        value_init_string(value_dict_add(data_kfx_info, "kfx_version"), KFX_COMPAT_VERSION);
-        value_init_string(value_dict_add(data_kfx_info, "product"), PRODUCT_NAME);
-        value_init_string(value_dict_add(data_kfx_info, "product_version"), VER_STRING);
-
-        // Return data to client
-        api_return_data(true, data_kfx_info_real, ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
+        if (strcasecmp(api_actions[i].name, action) == 0)
+        {
+            act = &api_actions[i];
+            break;
+        }
     }
-
-    // Handle subscribe var command
-    if (strcasecmp("subscribe_var", action) == 0)
-    {
-        // Get variable name
-        const char *variable_name = (char *)value_string(value_dict_get(value, "var"));
-        if (variable_name == NULL || strlen(variable_name) < 1)
-        {
-            api_err("MISSING_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Recognize variable
-        int64_t variable_id, variable_type;
-        if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
-        {
-            api_err("UNKNOWN_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Try to subscribe to the variable
-        if (api_subscribe_var(player_id, variable_name, variable_type, variable_id))
-        {
-            api_ok(ack_id);
-        }
-        else
-        {
-            api_err("SUB_FAILED", ack_id);
-        }
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle subscribe var command
-    if (strcasecmp("unsubscribe_var", action) == 0)
-    {
-        // Get variable name
-        char *variable_name = (char *)value_string(value_dict_get(value, "var"));
-        if (variable_name == NULL || strlen(variable_name) < 1)
-        {
-            api_err("MISSING_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Recognize variable
-        int64_t variable_id, variable_type;
-        if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
-        {
-            api_err("UNKNOWN_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Try to subscribe to the variable
-        if (api_unsubscribe_var(player_id, variable_type, variable_id))
-        {
-            api_ok(ack_id);
-        }
-        else
-        {
-            api_err("SUB_FAILED", ack_id);
-        }
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle subscribe var command
-    if (strcasecmp("subscribe_event", action) == 0)
-    {
-        // Get event name
-        char *event_name = (char *)value_string(value_dict_get(value, "event"));
-        if (event_name == NULL || strlen(event_name) < 1)
-        {
-            api_err("MISSING_EVENT", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Make sure event name is not too long
-        if (strlen(event_name) > COMMAND_WORD_LEN)
-        {
-            api_err("STRING_TOO_LONG", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Try to subscribe to the variable
-        if (api_subscribe_event(event_name))
-        {
-            api_ok(ack_id);
-        }
-        else
-        {
-            api_err("SUB_FAILED", ack_id);
-        }
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle subscribe var command
-    if (strcasecmp("unsubscribe_event", action) == 0)
-    {
-        // Get event name
-        char *event_name = (char *)value_string(value_dict_get(value, "event"));
-        if (event_name == NULL || strlen(event_name) < 1)
-        {
-            api_err("MISSING_EVENT", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Try to subscribe to the variable
-        if (api_unsubscribe_event(event_name))
-        {
-            api_ok(ack_id);
-        }
-        else
-        {
-            api_err("SUB_FAILED", ack_id);
-        }
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle unsubscribe all
-    if (strcasecmp("unsubscribe_all", action) == 0)
-    {
-        // Unsubscribe from every subscriptions
-        api_clear_all_subscriptions();
-        api_ok(ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // ==================================================================================================================================
-    // Commands that only work when a map is loaded
-    // ==================================================================================================================================
-
-    // At this point our game needs to be a LOCAL game before we do anything
-    if (kfx_sim_state.game_kind != GKind_LocalGame)
+    // Every action but the few that always work needs a LOCAL game, and so does telling an unknown one apart
+    if (((act == NULL) || (act->needs != ApiNeeds_Nothing)) && (kfx_sim_state.game_kind != GKind_LocalGame))
     {
         api_err("NOT_IN_LOCAL_GAME", ack_id);
-        value_fini(&json_data);
-        return;
     }
-
-    // Handle map command
-    if (strcasecmp("map_command", action) == 0)
+    else if (act == NULL)
     {
-        // Do not allow this command when the game is paused
-        if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
-        {
-            api_err("GAME_IS_PAUSED", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Get map command
-        char *map_command = (char *)value_string(value_dict_get(value, "command"));
-        if (map_command == NULL)
-        {
-            api_err("MISSING_COMMAND", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Execute map command
-        if (script_scan_line(map_command, false, 99)) // Maximum level of a command support
-        {
-            api_ok(ack_id);
-        }
-        else
-        {
-            api_err("FAILED_TO_EXECUTE_MAP_COMMAND", ack_id);
-        }
-
-        // End
-        value_fini(&json_data);
-        return;
+        api_err("UNKNOWN_ACTION", ack_id);
     }
-
-    // Handle console command
-    if (strcasecmp("console_command", action) == 0)
+    else if ((act->needs != ApiNeeds_Seat) || api_request_seat(&req))
     {
-        // Do not allow this command when the game is paused
-        if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
-        {
-            api_err("GAME_IS_PAUSED", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Get console command
-        char *console_command = (char *)value_string(value_dict_get(value, "command"));
-        if (console_command == NULL || strlen(console_command) < 1)
-        {
-            api_err("MISSING_COMMAND", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // If the console-prefix-character is at the start of the string we'll ignore that char
-        if (console_command[0] == cmd_char)
-        {
-            console_command += 1;
-        }
-
-        // Execute console command
-        if (cmd_exec(player_id, console_command))
-        {
-            api_ok(ack_id);
-        }
-        else
-        {
-            api_err("FAILED_TO_EXECUTE_CONSOLE_COMMAND", ack_id);
-        }
-
-        // End
-        value_fini(&json_data);
-        return;
+        act->handler(&req);
     }
-
-    // Handle get all player flags command
-    if (strcasecmp("get_all_player_flags", action) == 0)
-    {
-
-        // Create flag data to return to client
-        VALUE flag_data_real;
-        VALUE *flag_data = &flag_data_real;
-        value_init_dict(flag_data);
-
-        for (int64_t player_index = 0; player_index < ALL_PLAYERS; player_index++)
-        {
-            // Create object for this player
-            VALUE *player_info = value_dict_add(flag_data, player_code_name(player_index));
-            value_init_dict(player_info);
-
-            for (size_t flag_index = 0; flag_index < get_max_flags(); flag_index++)
-            {
-                // Get flag value
-                int64_t flag_value = get_condition_value(player_id, SVar_FLAG, flag_index);
-
-                // Add flag to player flag
-                const char *flag_string = get_conf_parameter_text(flag_desc, flag_index);
-                value_init_int32(value_dict_add(player_info, flag_string), flag_value);
-            }
-        }
-
-        // Return data to client
-        api_return_data(true, flag_data_real, ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // ==================================================================================================================================
-    // External seat commands (docs/refactor/AI/LLM/02-transport-and-protocol.md). Unlike the commands above they work
-    // while the game is paused, and they require an explicit "player": defaulting to the local human would be wrong here.
-    // ==================================================================================================================================
-
-    if (strcasecmp("claim_seat", action) == 0)
-    {
-        // Interim, until the Skirmish Slots & AI page can choose an External controller (milestone M5): make
-        // an existing computer-controlled or unclaimed slot, or the local human's own (M10), an External seat.
-        VALUE *pv = value_dict_get(value, "player");
-        PlayerNumber claim_id = -1;
-        if (value_type(pv) == VALUE_INT32) claim_id = (PlayerNumber)value_int32(pv);
-        else if (value_type(pv) == VALUE_STRING) claim_id = get_id(player_desc, (char *)value_string(pv));
-        else { api_err("MISSING_PLAYER", ack_id); value_fini(&json_data); return; }
-        // Idempotent: a slot the Skirmish page already made External is answered with its existing user.
-        NetUserId claimed = -1;
-        if ((claim_id >= 0) && (claim_id < PLAYERS_COUNT) && player_exists(get_player(claim_id))
-         && flag_is_set(get_player(claim_id)->allocflags, PlaF_ExternalSeat)
-         && (get_net_user_player_number(get_player(claim_id)->user_id) == claim_id)) {
-            claimed = get_player(claim_id)->user_id;
-        } else {
-            claimed = net_add_external_seat(claim_id);
-        }
-        if (claimed < 0) { api_err("CANNOT_CLAIM_SEAT", ack_id); value_fini(&json_data); return; }
-        extseat_note_activity();
-        VALUE data_real; VALUE *data = &data_real;
-        value_init_dict(data);
-        value_init_int32(value_dict_add(data, "player"), (int32_t)claim_id);
-        value_init_int32(value_dict_add(data, "user"), (int32_t)claimed);
-        api_return_data(true, data_real, ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("release_seat", action) == 0)
-    {
-        // The agent hands its seat back to the built-in AI (06 section 2.2, Option B, explicit form).
-        VALUE *pv = value_dict_get(value, "player");
-        PlayerNumber rel_id = -1;
-        if (value_type(pv) == VALUE_INT32) rel_id = (PlayerNumber)value_int32(pv);
-        else if (value_type(pv) == VALUE_STRING) rel_id = get_id(player_desc, (char *)value_string(pv));
-        else { api_err("MISSING_PLAYER", ack_id); value_fini(&json_data); return; }
-        extseat_note_activity();
-        if (!net_release_external_seat(rel_id)) { api_err("NOT_A_VALID_SEAT", ack_id); value_fini(&json_data); return; }
-        api_ok(ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("set_takeover", action) == 0)
-    {
-        // Opt-in: if this connection is lost, or the pause watchdog fires, the built-in AI takes every External seat.
-        VALUE *ev = value_dict_get(value, "enabled");
-        if (value_type(ev) != VALUE_BOOL && value_type(ev) != VALUE_INT32) { api_err("MISSING_ENABLED", ack_id); value_fini(&json_data); return; }
-        extseat_set_takeover((value_type(ev) == VALUE_BOOL) ? value_bool(ev) : (value_int32(ev) != 0));
-        extseat_note_activity();
-        api_ok(ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("set_decision_policy", action) == 0)
-    {
-        // Minimum game turns between two DECISION_DUE events (default 100); reasons inside the window are held and delivered together.
-        VALUE *mi = value_dict_get(value, "min_interval_turns");
-        if (value_type(mi) != VALUE_INT32) { api_err("MISSING_MIN_INTERVAL", ack_id); value_fini(&json_data); return; }
-        api_seat_decision_set_min_interval(value_int32(mi));
-        extseat_note_activity();
-        api_ok(ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("set_game_speed", action) == 0)
-    {
-        // The console's own "FPS"/turn-rate cheat (console_cmd.c), exposed here: how many simulated turns run per real
-        // second. Global to the game (not per seat) -- an agent buying itself more real-time to think this way slows
-        // the game for everyone watching, the same trade-off a human slowing it down for themselves would make.
-        // turns_per_second=0 resets to the level's/command line's own configured rate (start_params.num_fps).
-        VALUE *tv = value_dict_get(value, "turns_per_second");
-        if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS_PER_SECOND", ack_id); value_fini(&json_data); return; }
-        const int32_t requested = value_int32(tv);
-        if (requested == 0) {
-            kfx_sim_state.turns_per_second = start_params.num_fps;
-        } else if ((requested < 1) || (requested > 100)) {
-            api_err("BAD_TURNS_PER_SECOND", ack_id); value_fini(&json_data); return;
-        } else {
-            kfx_sim_state.turns_per_second = requested;
-        }
-        extseat_note_activity();
-        VALUE data_real; VALUE *data = &data_real;
-        value_init_dict(data);
-        value_init_int64(value_dict_add(data, "turns_per_second"), (int64_t)kfx_sim_state.turns_per_second);
-        api_return_data(true, data_real, ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("get_log_tail", action) == 0)
-    {
-        // The running game's own log (log_file_name, normally daimonkeeper.log in its data directory), for an agent
-        // debugging a confusing session without a human tailing the file by hand. Reads only a bounded tail window
-        // of the file (never the whole thing, however large the log has grown) and returns at most `lines` of that
-        // window's complete lines (api_log_tail_lines does the actual splitting, and is what is unit-tested).
-        VALUE *lv = value_dict_get(value, "lines");
-        int64_t want = (value_type(lv) == VALUE_INT32) ? value_int32(lv) : 100;
-        if (want < 1) want = 1;
-        if (want > 500) want = 500;
-        // The Debug log levels buffer their writes (docs/refactor-pass2/stage-02-logging-option.md).
-        LbLogFlush();
-        // Reported with every reply, so an agent can tell why a tail is short or empty.
-        const char *log_level_name = get_conf_parameter_text(log_level_type, get_log_level() + 1);
-        FILE *f = fopen(log_file_name, "rb");
-        if ((f == NULL) && (get_log_level() == LogLvl_Off))
-        {
-            // Logging is off, so there is no file: an empty tail, not an error.
-            VALUE data_real; VALUE *data = &data_real;
-            value_init_dict(data);
-            value_init_array(value_dict_add(data, "lines"));
-            value_init_string(value_dict_add(data, "log_level"), (char *)log_level_name);
-            api_return_data(true, data_real, ack_id);
-            value_fini(&json_data);
-            return;
-        }
-        if (f == NULL) { api_err("LOG_UNAVAILABLE", ack_id); value_fini(&json_data); return; }
-        fseek(f, 0, SEEK_END);
-        const int64_t size = (int64_t)ftell(f);
-        const int64_t window = 262144; // comfortably more bytes than 500 lines will ever need
-        const int64_t start = (size > window) ? (size - window) : 0;
-        const size_t to_read = (size_t)(size - start);
-        char *buf = (char *)malloc(to_read);
-        if (buf == NULL) { fclose(f); api_err("LOG_UNAVAILABLE", ack_id); value_fini(&json_data); return; }
-        fseek(f, start, SEEK_SET);
-        const size_t got = fread(buf, 1, to_read, f);
-        fclose(f);
-        VALUE data_real; VALUE *data = &data_real;
-        value_init_dict(data);
-        VALUE *arr = value_dict_add(data, "lines");
-        value_init_array(arr);
-        api_log_tail_lines(buf, got, /*is_whole_buffer=*/(start == 0), want, arr);
-        free(buf);
-        value_init_string(value_dict_add(data, "log_level"), (char *)log_level_name);
-        api_return_data(true, data_real, ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("get_seats", action) == 0)
-    {
-        // Every External seat in this game: the ones the Skirmish page created at start, plus any claimed since.
-        VALUE data_real; VALUE *data = &data_real;
-        value_init_dict(data);
-        VALUE *arr = value_dict_add(data, "seats");
-        value_init_array(arr);
-        for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++)
-        {
-            const struct PlayerInfo *pl = get_player(p);
-            if (!player_exists(pl) || !flag_is_set(pl->allocflags, PlaF_ExternalSeat) || (get_net_user_player_number(pl->user_id) != p))
-                continue;
-            VALUE *e = value_array_append(arr);
-            value_init_dict(e);
-            value_init_int32(value_dict_add(e, "player"), (int32_t)p);
-            value_init_int32(value_dict_add(e, "user"), (int32_t)pl->user_id);
-        }
-        api_return_data(true, data_real, ack_id);
-        value_fini(&json_data);
-        return;
-    }
-
-    if (strcasecmp("get_player_view", action) == 0 || strcasecmp("submit_action", action) == 0
-     || strcasecmp("set_pause", action) == 0 || strcasecmp("advance_turns", action) == 0
-     || strcasecmp("set_agent_memory", action) == 0 || strcasecmp("get_agent_memory", action) == 0
-     || strcasecmp("set_player_name", action) == 0)
-    {
-        VALUE *pv = value_dict_get(value, "player");
-        PlayerNumber seat_id = -1;
-        if (value_type(pv) == VALUE_INT32) seat_id = (PlayerNumber)value_int32(pv);
-        else if (value_type(pv) == VALUE_STRING) seat_id = get_id(player_desc, (char *)value_string(pv));
-        else { api_err("MISSING_PLAYER", ack_id); value_fini(&json_data); return; }
-        if ((seat_id < 0) || (seat_id >= PLAYERS_COUNT) || !player_exists(get_player(seat_id))) {
-            api_err("INVALID_PLAYER", ack_id); value_fini(&json_data); return;
-        }
-        const struct PlayerInfo *seat_player = get_player(seat_id);
-        const NetUserId seat_user = seat_player->user_id;
-        if (!flag_is_set(seat_player->allocflags, PlaF_ExternalSeat) || (get_net_user_player_number(seat_user) != seat_id)) {
-            api_err("NOT_A_VALID_SEAT", ack_id); value_fini(&json_data); return;
-        }
-        extseat_note_activity();
-
-        VALUE *wd = value_dict_get(value, "watchdog_ms");
-        if (value_type(wd) == VALUE_INT32) extseat_set_watchdog_ms(value_int32(wd));
-
-        if (strcasecmp("get_player_view", action) == 0)
-        {
-            VALUE view_real; VALUE *view = &view_real;
-            api_seat_build_view(view, seat_id);
-            // since=<view_id of the last view received>: only what changed (03 M6); anything else gets the full view.
-            VALUE *sv = value_dict_get(value, "since");
-            const TbBool want_diff = (value_type(sv) == VALUE_INT32) || (value_type(sv) == VALUE_INT64);
-            api_seat_finish_view(view, seat_id, want_diff, want_diff ? value_int64(sv) : 0);
-            api_return_data(true, view_real, ack_id);
-        }
-        else if (strcasecmp("set_pause", action) == 0)
-        {
-            VALUE *pa = value_dict_get(value, "paused");
-            if (value_type(pa) != VALUE_BOOL && value_type(pa) != VALUE_INT32) { api_err("MISSING_PAUSED", ack_id); value_fini(&json_data); return; }
-            const TbBool want = (value_type(pa) == VALUE_BOOL) ? value_bool(pa) : (value_int32(pa) != 0);
-            if (want) extseat_pause(); else extseat_resume();
-            api_ok(ack_id);
-        }
-        else if (strcasecmp("set_agent_memory", action) == 0)
-        {
-            // The agent's own memory of this game, kept by the engine and saved with it (09-persistent-memory.md).
-            VALUE *dv = value_dict_get(value, "data");
-            if (value_type(dv) != VALUE_STRING) { api_err("MISSING_DATA", ack_id); value_fini(&json_data); return; }
-            const size_t len = value_string_length(dv);
-            if (len > AGENT_MEMORY_MAX) { api_err("MEMORY_TOO_LARGE", ack_id); value_fini(&json_data); return; }
-            if (!agent_memory_set(seat_id, value_string(dv), len)) { api_err("MEMORY_NOT_STORED", ack_id); value_fini(&json_data); return; }
-            api_ok(ack_id);
-        }
-        else if (strcasecmp("set_player_name", action) == 0)
-        {
-            // An agent names its own seat, as a human types a keeper name (09-persistent-memory.md section 6.8): the
-            // name other players see, and how agents that play it again know it.
-            const char *name = value_string(value_dict_get(value, "name"));
-            if ((name == NULL) || (name[0] == 0)) { api_err("MISSING_NAME", ack_id); value_fini(&json_data); return; }
-            struct PlayerInfo *named = get_player(seat_id);
-            const size_t len = strlen(name);
-            if (len >= sizeof(named->player_name)) { api_err("NAME_TOO_LONG", ack_id); value_fini(&json_data); return; }
-            for (size_t i = 0; i < len; i++) {
-                if ((unsigned char)name[i] < 0x20) { api_err("BAD_NAME", ack_id); value_fini(&json_data); return; }
-            }
-            snprintf(named->player_name, sizeof(named->player_name), "%s", name);
-            api_ok(ack_id);
-        }
-        else if (strcasecmp("get_agent_memory", action) == 0)
-        {
-            size_t len = 0;
-            const char *mem = agent_memory_get(seat_id, &len);
-            VALUE data_real; VALUE *data = &data_real;
-            value_init_dict(data);
-            if (mem != NULL) value_init_string_(value_dict_add(data, "data"), mem, len);
-            else value_init_null(value_dict_add(data, "data"));
-            api_return_data(true, data_real, ack_id);
-        }
-        else if (strcasecmp("advance_turns", action) == 0)
-        {
-            VALUE *tv = value_dict_get(value, "turns");
-            if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS", ack_id); value_fini(&json_data); return; }
-            const int32_t turns = value_int32(tv);
-            if ((turns < 1) || (turns > 100000)) { api_err("BAD_TURNS", ack_id); value_fini(&json_data); return; }
-            extseat_advance(turns);
-            api_ok(ack_id);
-        }
-        else
-        {
-            struct ExtSeatVerb verb;
-            memset(&verb, 0, sizeof(verb));
-            const char *vname = value_string(value_dict_get(value, "verb"));
-            if (vname == NULL) { api_err("MISSING_VERB", ack_id); value_fini(&json_data); return; }
-            if (strcasecmp(vname, "place_trap") == 0) verb.kind = ESV_PlaceTrap;
-            else if (strcasecmp(vname, "place_door") == 0) verb.kind = ESV_PlaceDoor;
-            else if (strcasecmp(vname, "slap") == 0) verb.kind = ESV_Slap;
-            else if (strcasecmp(vname, "pick_up") == 0) verb.kind = ESV_PickUp;
-            else if (strcasecmp(vname, "drop") == 0) verb.kind = ESV_Drop;
-            else if (strcasecmp(vname, "pick_up_and_drop") == 0) verb.kind = ESV_PickUpAndDrop;
-            else if (strcasecmp(vname, "unmark_dig") == 0) verb.kind = ESV_UnmarkDig;
-            else if (strcasecmp(vname, "set_door_lock") == 0) verb.kind = ESV_SetDoorLock;
-            else if (strcasecmp(vname, "power_off") == 0) verb.kind = ESV_PowerOff;
-            else if (strcasecmp(vname, "use_special") == 0) verb.kind = ESV_UseSpecial;
-            else if (strcasecmp(vname, "send_message") == 0) verb.kind = ESV_SendMessage;
-            else if (strcasecmp(vname, "cast_power") == 0) verb.kind = ESV_CastPower;
-            else if (strcasecmp(vname, "build_room") == 0) verb.kind = ESV_BuildRoom;
-            else if (strcasecmp(vname, "mark_dig") == 0) verb.kind = ESV_MarkDig;
-            else if (strcasecmp(vname, "sell") == 0) verb.kind = ESV_Sell;
-            else if (strcasecmp(vname, "cancel") == 0) verb.kind = ESV_Cancel;
-            else if (strcasecmp(vname, "set_tendency") == 0) verb.kind = ESV_SetTendency;
-            else if (strcasecmp(vname, "move_creature") == 0) verb.kind = ESV_MoveCreature;
-            else if (strcasecmp(vname, "release_creature") == 0) verb.kind = ESV_ReleaseCreature;
-            else if (strcasecmp(vname, "set_alliance") == 0) verb.kind = ESV_SetAlliance;
-            else { api_err("UNKNOWN_VERB", ack_id); value_fini(&json_data); return; }
-
-            const char *kind = value_string(value_dict_get(value, ((verb.kind == ESV_CastPower) || (verb.kind == ESV_PowerOff)) ? "power" : "kind"));
-            if (kind != NULL) snprintf(verb.name, sizeof(verb.name), "%s", kind);
-            VALUE *pos = value_dict_get(value, "pos");
-            if (value_type(pos) == VALUE_ARRAY && value_array_size(pos) == 2)
-            {
-                verb.has_pos = true;
-                verb.stl_x = value_int32(value_array_get(pos, 0));
-                verb.stl_y = value_int32(value_array_get(pos, 1));
-            }
-            VALUE *rect = value_dict_get(value, "slab_rect");
-            if (value_type(rect) == VALUE_ARRAY && value_array_size(rect) == 4)
-            {
-                verb.has_rect = true;
-                verb.slab_x0 = value_int32(value_array_get(rect, 0));
-                verb.slab_y0 = value_int32(value_array_get(rect, 1));
-                verb.slab_x1 = value_int32(value_array_get(rect, 2));
-                verb.slab_y1 = value_int32(value_array_get(rect, 3));
-            }
-            VALUE *en = value_dict_get(value, "enabled");
-            if ((value_type(en) == VALUE_BOOL) || (value_type(en) == VALUE_INT32)) {
-                verb.has_enabled = true;
-                verb.enabled = (value_type(en) == VALUE_BOOL) ? value_bool(en) : (value_int32(en) != 0);
-            }
-            VALUE *ht = value_dict_get(value, "hold_turns");
-            if (value_type(ht) == VALUE_INT32) verb.hold_turns = value_int32(ht);
-            VALUE *ov = value_dict_get(value, "overcharge_turns");
-            if (value_type(ov) == VALUE_INT32) verb.overcharge_turns = value_int32(ov);
-            VALUE *tid = value_dict_get(value, "thing_id");
-            if (value_type(tid) == VALUE_INT32)
-            {
-                verb.has_thing = true;
-                verb.thing_id = value_int32(tid);
-            }
-            VALUE *tids = value_dict_get(value, "thing_ids");
-            if (value_type(tids) == VALUE_ARRAY) {
-                if (value_array_size(tids) > EXTSEAT_MAX_HAND_SET) { api_err("TOO_MANY", ack_id); value_fini(&json_data); return; }
-                for (size_t i = 0; i < value_array_size(tids); i++) {
-                    VALUE *t = value_array_get(tids, i);
-                    if (value_type(t) != VALUE_INT32) { api_err("BAD_THING_IDS", ack_id); value_fini(&json_data); return; }
-                    verb.thing_ids[verb.thing_count++] = value_int32(t);
-                }
-            }
-            const char *dir = value_string(value_dict_get(value, "direction"));
-            if (dir != NULL) {
-                static const struct { const char *name; int64_t angle; } dirs[] = {
-                    { "N", ANGLE_NORTH }, { "NE", ANGLE_NORTHEAST }, { "E", ANGLE_EAST }, { "SE", ANGLE_SOUTHEAST },
-                    { "S", ANGLE_SOUTH }, { "SW", ANGLE_SOUTHWEST }, { "W", ANGLE_WEST }, { "NW", ANGLE_NORTHWEST } };
-                for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
-                    if (strcasecmp(dir, dirs[i].name) == 0) { verb.has_direction = true; verb.direction_angle = dirs[i].angle; }
-                }
-                if (!verb.has_direction) { api_err("BAD_DIRECTION", ack_id); value_fini(&json_data); return; }
-            }
-            VALUE *lvl = value_dict_get(value, "level");
-            if (value_type(lvl) == VALUE_INT32) verb.level = value_int32(lvl);
-            VALUE *tgt = value_dict_get(value, "target_thing");
-            if (value_type(tgt) == VALUE_INT32) { verb.has_target_thing = true; verb.target_thing = value_int32(tgt); }
-            const char *msg = value_string(value_dict_get(value, "message"));
-            if (msg != NULL) {
-                if (strlen(msg) >= sizeof(verb.message)) { api_err("BAD_MESSAGE", ack_id); value_fini(&json_data); return; }
-                snprintf(verb.message, sizeof(verb.message), "%s", msg);
-            }
-            VALUE *tr = value_dict_get(value, "to_room");
-            if (value_type(tr) == VALUE_INT32) { verb.has_room = true; verb.room_id = value_int32(tr); }
-            VALUE *rel = value_dict_get(value, "release");
-            verb.release = ((value_type(rel) == VALUE_BOOL) && value_bool(rel)) || ((value_type(rel) == VALUE_INT32) && (value_int32(rel) != 0));
-            VALUE *sac = value_dict_get(value, "sacrifice");
-            verb.sacrifice = ((value_type(sac) == VALUE_BOOL) && value_bool(sac)) || ((value_type(sac) == VALUE_INT32) && (value_int32(sac) != 0));
-            VALUE *ap = value_dict_get(value, "ally_player");
-            if (value_type(ap) == VALUE_INT32) { verb.has_target_player = true; verb.target_player = value_int32(ap); }
-            else if (value_type(ap) == VALUE_STRING) { verb.has_target_player = true; verb.target_player = get_id(player_desc, (char *)value_string(ap)); }
-            // Real-time play: queue=true lets a verb wait behind the running gesture. view_turn (the `turn` of the
-            // view the decision was based on) with max_age_turns bounds how stale the order may be when it starts.
-            VALUE *qv = value_dict_get(value, "queue");
-            const TbBool queue = ((value_type(qv) == VALUE_BOOL) && value_bool(qv)) || ((value_type(qv) == VALUE_INT32) && (value_int32(qv) != 0));
-            VALUE *vt = value_dict_get(value, "view_turn");
-            VALUE *ma = value_dict_get(value, "max_age_turns");
-            int64_t age = -1;
-            if (value_type(vt) == VALUE_INT32) {
-                age = (int64_t)get_gameturn() - (int64_t)value_int32(vt);
-                if ((value_type(ma) == VALUE_INT32) && (value_int32(ma) >= 0)) {
-                    verb.expires_turn = (int64_t)value_int32(vt) + (int64_t)value_int32(ma);
-                }
-            }
-            // dry_run: validated exactly as a real submit would be (same error codes), but never queued, tracked, or
-            // subject to the seat's queue-busy state -- so an agent can check "would this be accepted, and how many
-            // steps" before spending a real decision on an order it is not sure it can afford, any number of times.
-            VALUE *dr = value_dict_get(value, "dry_run");
-            const TbBool dry_run = ((value_type(dr) == VALUE_BOOL) && value_bool(dr)) || ((value_type(dr) == VALUE_INT32) && (value_int32(dr) != 0));
-            if (dry_run)
-            {
-                int64_t steps = 0;
-                const char *err = extseat_check_verb(seat_user, seat_id, &verb, &steps);
-                if (err != NULL) { api_err(err, ack_id); value_fini(&json_data); return; }
-                VALUE data_real; VALUE *data = &data_real;
-                value_init_dict(data);
-                value_init_bool(value_dict_add(data, "would_succeed"), true);
-                value_init_int32(value_dict_add(data, "steps"), (int32_t)steps);
-                add_dig_reach_warning(data, seat_id, &verb, value_dict_get(value, "assume_dig_rects"));
-                add_build_warning(data, seat_id, &verb);
-                api_return_data(true, data_real, ack_id);
-                value_fini(&json_data);
-                return;
-            }
-
-            struct ExtSeatSubmitInfo info;
-            memset(&info, 0, sizeof(info));
-            const char *err = extseat_submit_verb_ex(seat_user, seat_id, &verb, queue, &info);
-            if (err != NULL) { api_err(err, ack_id); value_fini(&json_data); return; }
-            VALUE data_real; VALUE *data = &data_real;
-            value_init_dict(data);
-            // After the submit: this verb now counts as pending itself, so only its own rectangle is being judged.
-            add_dig_reach_warning(data, seat_id, &verb, NULL);
-            add_build_warning(data, seat_id, &verb);
-            value_init_int32(value_dict_add(data, "steps"), (int32_t)info.steps);
-            value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
-            value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
-            if (age >= 0) value_init_int32(value_dict_add(data, "age_turns"), (int32_t)age);
-            api_return_data(true, data_real, ack_id);
-        }
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle read var command
-    if (strcasecmp("read_var", action) == 0)
-    {
-        // Get variable name
-        char *variable_name = (char *)value_string(value_dict_get(value, "var"));
-        if (variable_name == NULL || strlen(variable_name) < 1)
-        {
-            api_err("MISSING_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Recognize variable
-        int64_t variable_id, variable_type;
-        if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
-        {
-            api_err("UNKNOWN_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Get the variable
-        int64_t variable_value = get_condition_value(player_id, variable_type, variable_id);
-
-        // Return the variable to the user
-        api_return_data_number(variable_value, ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle set var command
-    if (strcasecmp("set_var", action) == 0)
-    {
-        // Get variable name
-        char *variable_name = (char *)value_string(value_dict_get(value, "var"));
-        if (variable_name == NULL || strlen(variable_name) < 1)
-        {
-            api_err("MISSING_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Recognize variable
-        int64_t variable_id, variable_type;
-        if (parse_get_varib(variable_name, &variable_id, &variable_type,1) == false)
-        {
-            api_err("UNKNOWN_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Check if this type of variable can be set dynamically
-        if (
-            variable_type != SVar_FLAG &&
-            variable_type != SVar_CAMPAIGN_FLAG &&
-            variable_type != SVar_BOX_ACTIVATED &&
-            variable_type != SVar_TRAP_ACTIVATED &&
-            variable_type != SVar_SACRIFICED &&
-            variable_type != SVar_REWARDED)
-        {
-            api_err("UNABLE_TO_SET_VAR", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Get the new value
-        VALUE *new_value = value_dict_get(value, "value");
-        if (new_value == NULL || value_type(new_value) != VALUE_INT32)
-        {
-            api_err("VALUE_MUST_BE_INT", ack_id);
-            value_fini(&json_data);
-            return;
-        }
-
-        // Set the variable
-        set_variable(player_id, variable_type, variable_id, value_int32(new_value));
-
-        // Return success
-        api_ok(ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle get level info command
-    if (strcasecmp("get_level_info", action) == 0 || strcasecmp("get_map_info", action) == 0)
-    {
-        // Get level info and name
-        const char *lv_name = NULL;
-        LevelNumber lv_number = get_loaded_level_number();
-        struct LevelInformation *lv_info = get_level_info(lv_number);
-        if (lv_info != NULL)
-        {
-            if (lv_info->name_stridx > 0)
-            {
-                lv_name = get_string(lv_info->name_stridx);
-            }
-            else
-            {
-                lv_name = lv_info->name;
-            }
-        }
-        else if (is_multiplayer_level(lv_number))
-        {
-            lv_name = (const char *)level_name;
-        }
-
-        // Create level data to return to client
-        VALUE data_level_info_real;
-        VALUE *data_level_info = &data_level_info_real;
-        value_init_dict(data_level_info);
-
-        // Add stuff to level data
-        value_init_string(value_dict_add(data_level_info, "level_name"), lv_name);
-        value_init_int32(value_dict_add(data_level_info, "level_number"), lv_number);
-        value_init_int32(value_dict_add(data_level_info, "players"), lv_info->players);
-        value_init_int32(value_dict_add(data_level_info, "mapsize_x"), lv_info->mapsize_x);
-        value_init_int32(value_dict_add(data_level_info, "mapsize_y"), lv_info->mapsize_y);
-        value_init_bool(value_dict_add(data_level_info, "is_multiplayer"), is_multiplayer_level(lv_number));
-
-        // Create campaign data and add to level data
-        VALUE *data_campaign_info = value_dict_add(data_level_info, "campaign");
-        value_init_dict(data_campaign_info);
-
-        // Add stuff to campaign data
-        value_init_string(value_dict_add(data_campaign_info, "campaign_name"), campaign.name);
-        value_init_string(value_dict_add(data_campaign_info, "campaign_display_name"), campaign.display_name);
-        value_init_string(value_dict_add(data_campaign_info, "campaign_fname"), campaign.fname);
-        value_init_bool(value_dict_add(data_campaign_info, "is_map_pack"), is_map_pack());
-
-        // Return data to client
-        api_return_data(true, data_level_info_real, ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Handle get level info command
-    if (strcasecmp("get_current_game_info", action) == 0)
-    {
-        // Create level data to return to client
-        VALUE data_current_game_info_real;
-        VALUE *data_current_game_info = &data_current_game_info_real;
-        value_init_dict(data_current_game_info);
-
-        // Add stuff to level data
-        value_init_int32(value_dict_add(data_current_game_info, "game_turn"), get_gameturn());
-
-        // Return data to client
-        api_return_data(true, data_current_game_info_real, ack_id);
-
-        // End
-        value_fini(&json_data);
-        return;
-    }
-
-    // Return unknown action
-    // TODO: we should do this check before...
-    api_err("UNKNOWN_ACTION", ack_id);
     value_fini(&json_data);
+}
+
+void api_process_message_for_test(const char *message, size_t len, int64_t reply_socket)
+{
+    const kfx_socket_t saved = api.activeSocket;
+    api.activeSocket = (kfx_socket_t)reply_socket;
+    api_process_buffer(message, len);
+    api.activeSocket = saved;
 }
 
 // What the client has sent that is not yet a whole message: TCP is a stream, so a message may arrive over several

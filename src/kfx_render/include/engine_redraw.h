@@ -40,7 +40,6 @@ struct Coord3d;
 /******************************************************************************/
 void setup_engine_window(int64_t x1, int64_t y1, int64_t x2, int64_t y2);
 void store_engine_window(TbGraphicsWindow *ewnd,int64_t divider);
-void load_engine_window(TbGraphicsWindow *ewnd);
 
 void set_engine_view(struct PlayerInfo *player, int64_t val);
 

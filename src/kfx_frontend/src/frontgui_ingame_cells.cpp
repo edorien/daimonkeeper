@@ -82,7 +82,9 @@ void draw_big_glyph(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &sz, const ch
     FeStylePopFont();
 }
 
-void wrapped_tooltip(const char *s)
+// A word-wrapped tooltip (creature stat / instance descriptions are long
+// sentences that otherwise run off the screen edge).
+static void wrapped_tooltip(const char *s)
 {
     if (s == nullptr || s[0] == '\0')
         return;

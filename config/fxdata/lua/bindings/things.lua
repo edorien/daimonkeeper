@@ -46,7 +46,9 @@ function GetCreatureNear(stl_x,stl_y) end
 ---@nodiscard
 function GetThingByIdx(index) end
 
+--[[ Not available in Lua: use the creature's change_owner method, creature:change_owner(new_owner).
 function ChangeCreatureOwner(creature,new_owner) end
+]]
 
 ---Can set, increase or decrease the happiness level of all your units.
 ---@param player playerrange

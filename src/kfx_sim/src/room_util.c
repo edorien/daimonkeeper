@@ -45,6 +45,8 @@
 #include "player_availability.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
+#include "map_columns.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -156,25 +158,15 @@ void process_rooms(void)
 
 void kill_all_room_slabs_and_contents(struct Room *room)
 {
-    uint64_t k = 0;
-    int64_t i = room->slabs_list;
-    while (i != 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_ahead(room))
     {
-        int64_t slb_x = slb_num_decode_x(i);
-        int64_t slb_y = slb_num_decode_y(i);
-        i = get_next_slab_number_in_room(i);
-        // Per room tile code
+        int64_t slb_x = slb_num_decode_x(slb_num);
+        int64_t slb_y = slb_num_decode_y(slb_num);
+        
         struct SlabMap* slb = get_slabmap_block(slb_x, slb_y);
         kill_room_slab_and_contents(room->owner, slb_x, slb_y);
         slb->next_in_room = 0;
         slb->room_index = 0;
-        // Per room tile code ends
-        k++;
-        if (k > room->slabs_count)
-        {
-            ERRORLOG("Room slabs list length exceeded when sweeping");
-            break;
-        }
     }
     room->slabs_list = 0;
     room->slabs_count = 0;
@@ -200,37 +192,24 @@ void recreate_rooms_from_room_slabs(struct Room *room, unsigned char gnd_slab)
     // Clear room index in all slabs
     // This will make sure that the old room won't be returned by subtile_room_get()
     // and used as one of new rooms.
-    uint64_t k = 0;
-    int64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slab_num, room_slab_walk_ahead(room))
     {
-        struct SlabMap* slb = get_slabmap_direct(i);
+        struct SlabMap* slb = get_slabmap_direct(slab_num);
         if (slabmap_block_invalid(slb))
         {
           ERRORLOG("Jump to invalid item when sweeping Slabs.");
           break;
         }
-        i = get_next_slab_number_in_room(i);
-        // Per room tile code
+        
         slb->room_index = 0;
-        // Per room tile code ends
-        k++;
-        if (k > room->slabs_count)
-        {
-            ERRORLOG("Room slabs list length exceeded when sweeping");
-            break;
-        }
     }
     // Create a new room for every slab
     struct Room* proom = INVALID_ROOM;
-    k = 0;
-    i = room->slabs_list;
-    while (i != 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_ahead(room))
     {
-        int64_t slb_x = slb_num_decode_x(i);
-        int64_t slb_y = slb_num_decode_y(i);
-        i = get_next_slab_number_in_room(i);
-        // Per room tile code
+        int64_t slb_x = slb_num_decode_x(slb_num);
+        int64_t slb_y = slb_num_decode_y(slb_num);
+        
         struct Room* nroom = create_room(room->owner, room->kind, slab_subtile_center(slb_x), slab_subtile_center(slb_y));
         if (room_is_invalid(nroom)) // In case of error, sell the whole thing
         {
@@ -245,13 +224,6 @@ void recreate_rooms_from_room_slabs(struct Room *room, unsigned char gnd_slab)
             }
         }
         proom = nroom;
-        // Per room tile code ends
-        k++;
-        if (k > room->slabs_count)
-        {
-            ERRORLOG("Room slabs list length exceeded when sweeping");
-            break;
-        }
     }
     if (room_exists(proom)) {
         do_room_integration(proom);
@@ -632,4 +604,154 @@ void place_slab_type_replacing_room(SlabKind slbkind, MapSlabCoord slb_x, MapSla
     else
         place_slab_type_on_map(slbkind, stl_x, stl_y, owner, 0);
     do_slab_efficiency_alteration(slb_x, slb_y);
+}
+
+/******************************************************************************/
+static void room_storage_reposition_all_on_subtile(const struct RoomStorageKind *kind, struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition *rrepos)
+{
+    struct Map* mapblk = get_map_block_at(stl_x, stl_y);
+    if (map_block_invalid(mapblk))
+        return;
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
+    {
+        if (kind->is_stored(room, thing))
+            kind->take_out(room, thing, rrepos);
+    }
+}
+
+/**
+ * How many stored items a subtile holds, or -1 when all of them have to be taken out
+ * and re-created, or -2 when the subtile is to be left alone.
+ */
+static int64_t room_storage_check_subtile(const struct RoomStorageKind *kind, struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    if (kind->check_subtile != NULL)
+        return kind->check_subtile(room, stl_x, stl_y);
+    struct Map* mapblk = get_map_block_at(stl_x, stl_y);
+    if (map_block_invalid(mapblk))
+        return -2; // do nothing
+    struct RoomConfigStats* roomst = get_room_kind_stats(room->kind);
+    if ((roomst->storage_height >= 0) && (get_map_floor_filled_subtiles(mapblk) != roomst->storage_height)) {
+        return -1; // re-create all
+    }
+    int64_t matching_things_at_subtile = 0;
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
+    {
+        if (!kind->is_stored(room, thing))
+            continue;
+        // If exceeded capacity of the room
+        if (room->used_capacity >= room->total_capacity)
+        {
+            WARNLOG("The %s capacity %" PRId64 " exceeded; space used is %" PRId64,room_code_name(room->kind),(int64_t)room->total_capacity,(int64_t)room->used_capacity);
+            return -1; // re-create all (this could save the object if there are duplicates)
+        } else
+        // If the thing is in wall, remove it but store to re-create later
+        if (thing_in_wall_at(thing, &thing->mappos))
+        {
+            // If it's inside the floor, it may be moved up and counted
+            if (kind->lift_out_of_floor && position_over_floor_level(thing, &thing->mappos))
+                matching_things_at_subtile++;
+            else
+                return -1; // re-create all
+        } else
+        {
+            matching_things_at_subtile++;
+        }
+    }
+    return matching_things_at_subtile; // Increase used capacity
+}
+
+static TbBool room_storage_recreate_on_subtile(const struct RoomStorageKind *kind, struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition *rrepos)
+{
+    if ((rrepos->used < 0) || (room->used_capacity >= room->total_capacity)) {
+        return false;
+    }
+    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    {
+        if (rrepos->models[ri] != 0)
+        {
+            struct Thing* tng = kind->put_back(room, rrepos->models[ri], rrepos->exp_level[ri], stl_x, stl_y);
+            if (!thing_is_invalid(tng))
+            {
+                rrepos->used--;
+                rrepos->models[ri] = 0;
+                rrepos->exp_level[ri] = 0;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static void room_storage_count_and_reposition_on_subtile(const struct RoomStorageKind *kind, struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition *rrepos)
+{
+    int64_t matching_things_at_subtile = room_storage_check_subtile(kind, room, stl_x, stl_y);
+    if (matching_things_at_subtile > 0) {
+        // This subtile contains stored items
+        SYNCDBG(19,"Got %" PRId64 " matching things at (%" PRId64 ",%" PRId64 ")",(int64_t)matching_things_at_subtile,(int64_t)stl_x,(int64_t)stl_y);
+        room->used_capacity += matching_things_at_subtile;
+    } else
+    {
+        switch (matching_things_at_subtile)
+        {
+        case -2:
+            // No matching things, but also cannot recreate anything on this subtile
+            break;
+        case -1:
+            // All matching things are to be removed from the subtile and stored for re-creation
+            room_storage_reposition_all_on_subtile(kind, room, stl_x, stl_y, rrepos);
+            break;
+        case 0:
+            // There are no matching things there, something can be re-created
+            room_storage_recreate_on_subtile(kind, room, stl_x, stl_y, rrepos);
+            break;
+        default:
+            WARNLOG("Invalid value returned by reposition check");
+            break;
+        }
+    }
+}
+
+/** Recounts a storage room's contents, putting back what is out of place. */
+void room_storage_recount(const struct RoomStorageKind *kind, struct Room *room)
+{
+    SYNCDBG(17,"Starting for %s index %" PRId64,room_code_name(room->kind),(int64_t)room->index);
+    struct RoomReposition rrepos;
+    init_reposition_struct(&rrepos);
+    // Making two loops guarantees that no rrepos things will be lost
+    for (int64_t n = 0; n < 2; n++)
+    {
+        // The correct count should be taken from last sweep
+        room->used_capacity = 0;
+        if (kind->tracks_storage_capacity)
+            room->capacity_used_for_storage = 0;
+        FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk(room))
+        {
+            MapSlabCoord slb_x = slb_num_decode_x(slb_num);
+            MapSlabCoord slb_y = slb_num_decode_y(slb_num);
+            for (int64_t dy = 0; dy < STL_PER_SLB; dy++)
+            {
+                for (int64_t dx = 0; dx < STL_PER_SLB; dx++)
+                {
+                    room_storage_count_and_reposition_on_subtile(kind, room, slab_subtile(slb_x,dx), slab_subtile(slb_y,dy), &rrepos);
+                }
+            }
+        }
+        if (kind->stops_when_settled && ((rrepos.used <= 0) || (room->used_capacity >= room->total_capacity)))
+            break;
+    }
+    SYNCDBG(7,"The %s index %" PRId64 " contains %" PRId64 " %s",room_code_name(room->kind),(int64_t)room->index,(int64_t)room->used_capacity,kind->what);
+    if (rrepos.used > 0)
+    {
+        if (kind->overflow != NULL)
+        {
+            kind->overflow(room, &rrepos);
+        } else
+        {
+            ERRORLOG("The %s index %" PRId64 " capacity %" PRId64 " wasn't enough; %" PRId64 " items belonging to player %" PRId64 " dropped",
+              room_code_name(room->kind),(int64_t)room->index,(int64_t)room->total_capacity,(int64_t)rrepos.used,(int64_t)room->owner);
+        }
+    }
+    if (kind->tracks_storage_capacity)
+        room->capacity_used_for_storage = room->used_capacity;
 }

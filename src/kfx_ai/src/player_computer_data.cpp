@@ -48,7 +48,7 @@ extern "C" {
 
 /******************************************************************************/
 
-struct ValidRooms valid_rooms_to_build[] = {
+const struct ValidRooms valid_rooms_to_build[] = {
   {RoK_TREASURE,  9},
   {RoK_LAIR,      12},
   {RoK_GARDEN,    11},

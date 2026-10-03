@@ -87,6 +87,7 @@
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -2342,21 +2343,8 @@ struct Thing *find_random_creature_for_persuade(PlayerNumber plyr_idx, struct Co
 {
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     int64_t n = PLAYER_RANDOM(plyr_idx, dungeon->num_active_creatrs);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Per thing code starts
-
         if ((n <= 0) )
         {
             if (!thing_is_picked_up(thing) && !creature_is_kept_in_custody(thing)
@@ -2366,13 +2354,6 @@ struct Thing *find_random_creature_for_persuade(PlayerNumber plyr_idx, struct Co
             }
         }
         n--;
-        // Per thing code ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     return INVALID_THING;
 }
@@ -3108,33 +3089,14 @@ int64_t creature_vandalise_rooms(struct Thing *creatng)
 TbBool is_creature_other_than_given_waiting_at_closed_door_on_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, const struct Thing *besidetng)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per-thing code start
         if ((thing->index != besidetng->index) && thing_is_creature(thing))
         {
             CrtrStateId crstate = get_creature_state_besides_interruptions(thing);
             if (crstate == CrSt_CreatureWaitAtTreasureRoomDoor) {
                 return true;
             }
-        }
-        // Per-thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return false;
@@ -3553,19 +3515,8 @@ CrAttackType creature_can_have_combat_with_creature_on_slab(struct Thing *creatn
         for (MapSubtlCoord stl_x = slab_subtile(slb_x, 0); stl_x < endstl_x; stl_x++)
         {
             struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-            uint64_t k = 0;
-            int64_t i = get_mapwho_thing_index(mapblk);
-            while (i != 0)
+            FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
             {
-                struct Thing* thing = thing_get(i);
-                TRACE_THING(thing);
-                if (thing_is_invalid(thing))
-                {
-                    ERRORLOG("Jump to invalid thing detected");
-                    break;
-                }
-                i = thing->next_on_mapblk;
-                // Per thing code start
                 if ( thing_is_creature(thing) && (thing != creatng) )
                 {
                     if (!exclude_diggers || !flag_is_set(get_creature_model_flags(thing), CMF_IsSpecDigger))
@@ -3577,14 +3528,6 @@ CrAttackType creature_can_have_combat_with_creature_on_slab(struct Thing *creatn
                             return attack_type;
                         }
                     }
-                }
-                // Per thing code end
-                k++;
-                if (k > THINGS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping things list");
-                    break_mapwho_infinite_chain(mapblk);
-                    break;
                 }
             }
         }

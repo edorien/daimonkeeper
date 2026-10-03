@@ -31,6 +31,7 @@
 #include "thing_list.h"
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -139,21 +140,8 @@ static TbBigChecksum get_room_checksum(const struct Room* room) {
 
 static TbBigChecksum compute_things_list_checksum(struct StructureList *list) {
     TbBigChecksum sum = 0;
-    uint64_t k = 0;
-    int64_t i = list->index;
-    while (i != 0) {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing)) {
-            ERRORLOG("Jump to invalid thing detected in list");
-            break;
-        }
-        i = thing->next_of_class;
+    FOR_EACH_THING(thing, thing_walk_list(list->index, THINGS_COUNT)) {
         sum += get_thing_checksum(thing);
-        k++;
-        if (k > THINGS_COUNT) {
-            ERRORLOG("Infinite loop detected in thing list");
-            break;
-        }
     }
     return sum;
 }

@@ -639,14 +639,4 @@ void editor_frame(void)
     content_tools_frame();
 }
 
-void editor_notify_playtest_end(void)
-{
-    // docs/refactor/editor/phase3/04-slice5-playtest-settings-overwrite.md
-    // -- Playtest itself is implemented (editor_dialogs.cpp), but a
-    // playtest session quitting/winning/losing still just lands wherever a
-    // normal single-player game would (main menu, level stats, ...), not
-    // back in the editor -- that needs a "return to editor" ribbon/session
-    // hand-off this hook would drive, deliberately not built this slice
-    // (kept a no-op; see that doc's own scope note on why).
-}
 /******************************************************************************/

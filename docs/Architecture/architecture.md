@@ -194,6 +194,23 @@ behavior owned above them without a direct `#include`. **Depends on:** `kfx_plat
   `config_settings`, `config_slabsets`, `config_sounds`, `config_spritecolors`,
   `config_strings`, `config_terrain`, `config_textures`, `config_translation`,
   `config_trapdoor`, `config_campaigns`, `config_compp`.
+- **Block parsers are `NamedField` tables** (`config.c`'s `parse_named_field_block()`
+  and friends): one row per key, with a parse and an assign function. The
+  creature model files, creature.cfg's blocks and magic.cfg's
+  `[spellN]` / `[specialN]` joined the other files in refactor pass 3, S04,
+  keeping their hand-written rules through lenient row functions
+  (`value_atoi` / `assign_cast`, `value_id_positive`, `value_ids_or`, …;
+  `NAMFIELD_KEEP` leaves a field as it is), `NAMFIELD_WHOLE_LINE_UNLIMITED`
+  rows for list keys, `CnfLd_ListKnownKeys` for the list-only pass, and
+  `parse_named_field_block_lines()` for parsers that walk their numbered
+  blocks themselves. rules.cfg's `[research]` and `[sacrifices]` stay
+  hand-written: they are lists of records, not keys. The golden test
+  (`tests/config_creature_golden_test.cpp`) guards the conversion. The
+  editor schema (`kfx_content`, §2.2b) is built from these tables too:
+  keys, value kinds and bounds come from the rows, and only rows with a
+  parse function of their own have a hand-kept shape
+  (`cfgc_schema_creature.cpp`); `cfgc_schema_parser_tables_test.cpp`
+  keeps the two, and level scripts' creature model key tables, in step.
 - The editors' content layer (`cfgc_*`) used to live here too; it is its own
   library, `kfx_content`, since refactor pass 2 (§2.2b).
 - **Port homes** (see §5): `include/ports/<stem>.def` + generated
@@ -345,6 +362,19 @@ configuration folders, copying/moving a level's files).
   random seeds, timers, and the GUI message / mode-flag fields that kfx_sim is
   the lowest-ranked consumer of.
 - `game_lifecycle`, `lvl_filesdk1` (level-file loading), `sim_scratch`.
+- **List walks:** `list_walk.h/.c` (refactor pass 3, S01). The things on a
+  map block, of a class list and of a player's creature list, the rooms of a
+  player or kind, and a room's slabs are linked lists; walk them with
+  `FOR_EACH_THING` / `FOR_EACH_ROOM` / `FOR_EACH_ROOM_SLAB` and a
+  `thing_walk_*()` / `room_walk_*()` / `room_slab_walk*()` starter, not by
+  hand. The iterator reads the next index before the body; slab walks step
+  after it, except the `room_slab_walk_ahead*()` ones, which read ahead for a
+  body that unlinks or relinks the current slab. It stops on an invalid element, and guards against a cycle with the
+  loop's own limit (a class list's live count, `THINGS_COUNT`, …); a
+  map-block walk repairs the chain on overflow. A few dozen loops stay
+  hand-written because they are not plain walks: wrap-around sweeps from a
+  random slab, skip-ahead searches, and `break_mapwho_infinite_chain()`
+  itself.
 
 ### 2.3a `kfx_ai` — the computer players
 
@@ -770,13 +800,13 @@ one of:
 
 Until refactor pass 2's S15 the ports were consumer-grouped "callback
 structs" (`SimFeedbackCallbacks`, `GameCallbacks`, …) tabled in `main.cpp`;
-`docs/refactor-pass2/stage-15-ports-and-events.md` and the move ledger map
-each old entry to its port.
+the move ledger ([`move-ledger.md`](move-ledger.md),
+`scripts/move_ledger.py lookup <entry>`) maps each old entry to its port.
 
 ### 5.1 The ports
 
 Each port has one provider library, which builds its table. Entry counts are
-from `docs/refactor-pass2/tools/callback_inventory.py` (2026-09-28: 15
+from `scripts/callback_inventory.py` (2026-09-28: 15
 ports, 325 entries).
 
 | Port | Prefix | Provider | Entries | Lets (lower) call into (higher) |
@@ -905,9 +935,14 @@ blobs — in two places:
 - **Network resync** — `kfx_net/src/net_resync.cpp`
 - **Save games** (and continue-replays) — `kfx_game/src/game_saves.c`
 
-At both the per-library state structs, and Ariadne's navigation mesh
-(`ariadne_saved_state.h`, §2), are synced/saved *alongside one another* as a
-single fixed chain. `main_game.c::clear_complete_game()` zeroes them all once,
+At both the per-library state structs, Ariadne's navigation mesh
+(`ariadne_saved_state.h`, §2), and the saved part of `kfx_config_state`
+(`KFX_CONFIG_STATE_SAVED_*`: from `texture_animation` to `pay_day_progress`,
+what upstream's `struct Game` held -- the level's configuration as its script
+changed it, the payday progress, the slabs' texture packs; the
+daimonkeeper.cfg settings after it stay out; refactor pass 4, P4-F16) are
+synced/saved *alongside one another* as a single fixed chain. A load reads the
+configuration files again (the info chunk) and then the saved part over them. `main_game.c::clear_complete_game()` zeroes them all once,
 at start-up; between levels `clear_game()` clears chosen parts, so a field it
 doesn't clear carries into the next level (refactor pass 4, S07: its
 `sim_state_continuity_restart` ftest plays a level twice in one process to
@@ -928,8 +963,13 @@ layers' headers to produce it.
 
 **Layout versions (refactor pass 2, S09).** Every raw-serialized struct —
 `struct Game`, `kfx_sim_state`, `kfx_net_state`, `kfx_game_state`,
-`kfx_frontend_state`, `intralvl`, and the Ariadne block — has a version and an
-expected size in `kfx_config/include/state_versions.h`.
+`kfx_frontend_state`, `intralvl`, the Ariadne block and `kfx_config_state`'s
+saved part — has a version and an expected size in
+`kfx_config/include/state_versions.h`. The state headers check their struct's
+size in every file that includes them, not only in the struct's own `.c`: a
+`#pragma pack` leaking into a header's includes once gave `kfx_config_state`
+another layout in 45 files (refactor pass 4, P4-F17), so keep `#include`s
+outside a header's `pack(1)` region.
 - Saves stamp the version into each chunk header. Loading first walks every
   chunk (`validate_save_chunks()`), checking version, size and that the chunk
   is complete. Only if all pass does it apply anything, so a save of another
@@ -951,10 +991,21 @@ expected size in `kfx_config/include/state_versions.h`.
 **Implication for contributors:** you can move fields between the state
 structs, but every such move changes a layout. A `_Static_assert` next to
 each struct fails the build until you bump its `*_VER` and update its
-`*_SIZE` in `state_versions.h`. Then add a line to the decisions table in
-`docs/refactor-pass2/README.md`, so the release notes say old saves won't
-load. The sizes are the same on every target (explicit `int64_t` fields,
-packed layouts).
+`*_SIZE` in `state_versions.h`. Then add a line to the save-compatibility
+list below, so the release notes say old saves won't load. The sizes are the
+same on every target (explicit `int64_t` fields, packed layouts).
+
+**Save-compatibility breaks** (one line per version bump, for release notes):
+
+- Refactor pass 2, S09: every state chunk versioned; older saves can't be loaded.
+- Refactor pass 2, S10: sim, net and game state version 2; older saves can't be loaded.
+- Refactor pass 2, S11: sim and game state version 3; older saves can't be loaded.
+- Refactor pass 4, S07: game state version 4 (P4-F8), sim state versions 4 and 5 (P4-F10, P4-F11), and the
+  navigation mesh saved as a new chunk, version 1 (P4-F7); older saves can't be loaded.
+- Refactor pass 5, S04: sim state version 9 (the drawing and local-camera fields out of `Thing`, `CreatureControl`
+  and `kfx_sim_state`); older saves can't be loaded.
+- Refactor pass 5, S11: sim state version 10 (the light registry's drawing state out of `struct Light`); older saves
+  can't be loaded.
 
 ---
 
@@ -1138,7 +1189,8 @@ instead of crashing.
 `KFX_COMPAT_MAJOR/MINOR` (1.4: the KeeperFX *release* whose content this plays).
 CMake (`OUTPUT_NAME`, map/debug file names, CPack package
 `daimonkeeper-<ver>.<build>-kfx<compat>`), the Makefile and the code read it;
-the code through the generated `ver_defs.h` and `kfx_platform/include/version.h`
+the code through `ver_defs.h` (generated into each build tree, so a tree's
+`-DBUILD_NUMBER` is its own) and `kfx_platform/include/version.h`
 (`PRODUCT_NAME`, `PRODUCT_SLUG`, `PRODUCT_EXE_NAME`, `PRODUCT_MAGIC`,
 `PRODUCT_VERSION_LABEL` "dAImon Keeper 1.0.0 — KFX 1.4" -- UTF-8, with an ASCII
 variant for the bitmap fonts). The label shows on the main menu, in the log

@@ -1049,11 +1049,6 @@ TbResult LbSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr)
     return RendererSpriteDraw(x, y, spr);
 }
 
-TbResult LbSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, const TbPixel colour)
-{
-    return RendererSpriteDrawOneColour(x, y, spr, colour);
-}
-
 TbResult LbSpriteDrawScaled(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height)
 {
     return RendererSpriteDrawScaled(xpos, ypos, sprite, dest_width, dest_height);

@@ -57,8 +57,6 @@ bool landview_load(const std::string &base, LandviewImage &out, std::string &err
 /** Expands to RGBA (8-bit channels) for display. */
 std::vector<uint8_t> landview_to_rgba(const LandviewImage &img);
 
-/** Loads `<base>.png` only (no `.raw` fallback); false when it is missing or not usable. */
-bool landview_png_exists(const std::string &base);
 #endif
 
 #endif

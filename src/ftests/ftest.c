@@ -14,6 +14,7 @@
 #include "config.h"
 #include "config_campaigns.h"
 #include "bflib_fileio.h"
+#include "bflib_mouse.h"
 
 #include "post_inc.h"
 
@@ -294,6 +295,10 @@ TbBool ftest_setup_test(struct FTestConfig* const test_config)
 
     // set seed
     start_params.functest_seed = test_config->seed;
+
+    // The pointer where the first test has it: a test that moves it (possessing a creature centres it) would
+    // otherwise decide what the next test's cursor is over -- whether the keeper's hand appears, for one.
+    LbMouseSetPositionInitial(0, 0);
 
     // change campaign / level
     strcpy(start_params.selected_campaign, test_config->level_file);

@@ -63,8 +63,11 @@ void clear_things_and_persons_data(void)
         thing = &kfx_sim_state.things_data[i];
         memset(thing, 0, sizeof(struct Thing));
         thing->owner = PLAYERS_COUNT;
-        thing->mappos.x.val = subtile_coord_center(kfx_sim_state.map_subtiles_x/2);
-        thing->mappos.y.val = subtile_coord_center(kfx_sim_state.map_subtiles_y/2);
+        // Not the map's centre: this runs before the level's map size is read, so that was the previous level's,
+        // and a level's state (saved, resynced) depended on what was played before it. Subtile 0's centre is
+        // what the first level after start-up always got.
+        thing->mappos.x.val = subtile_coord_center(0);
+        thing->mappos.y.val = subtile_coord_center(0);
 
         // Create the list of free indices (skip index 0 since that's INVALID_THING
         if (i > 0) {

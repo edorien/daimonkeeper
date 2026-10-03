@@ -25,6 +25,12 @@
 #include "tests/ftest_ai_multi_seat.h"
 #include "tests/ftest_ai_seat_research.h"
 #include "tests/ftest_spectator_handoff.h"
+#include "tests/ftest_sim_state_continuity.h"
+#include "tests/ftest_script_legacy_golden.h"
+#include "tests/ftest_lua_api_golden.h"
+#include "tests/ftest_console_cmd_golden.h"
+#include "tests/ftest_cheats_golden.h"
+#include "tests/ftest_script_creature_config_golden.h"
 #include "tests/ftest_campaign_spectate_checkbox.h"
 #include "tests/ftest_campaign_external_seat.h"
 #include "tests/ftest_campaign_external_seat_checkbox.h"
@@ -65,6 +71,7 @@
 #include "tests/ftest_creature_temple_prayer.h"
 #include "tests/ftest_creature_lair_healing.h"
 #include "tests/ftest_creature_garden_eating.h"
+#include "tests/ftest_room_storage_reposition.h"
 #include "tests/ftest_creature_training.h"
 #include "tests/ftest_creature_guard_post.h"
 #include "tests/ftest_creature_barracks.h"
@@ -111,6 +118,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="bug_imp_tp_attack_door__deadbody",   .init_func=ftest_bug_imp_tp_attack_door__deadbody_init, .level_file="deepdngn", .level=80, .frame_skip=8 },
          { .test_name="bug_imp_goldseam_dig",               .init_func=ftest_bug_imp_goldseam_dig_init,             .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="bug_pathing_stair_treasury",         .init_func=ftest_bug_pathing_stair_treasury_init,       .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="bug_pathing_pillar_circling",        .init_func=ftest_bug_pathing_pillar_circling_init,      .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="creature_combat_power_hand",         .init_func=ftest_creature_combat_power_hand_init,       .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="local_view_transitions",             .init_func=ftest_local_view_transitions_init,           .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="ai_gesture_single_turn",            .init_func=ftest_ai_gesture_single_turn_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
@@ -148,6 +156,13 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_speed",                     .init_func=ftest_ai_seat_speed_init,                    .pre_start_func=ftest_ai_seat_speed_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_research",                  .init_func=ftest_ai_seat_research_init,                 .pre_start_func=ftest_ai_seat_research_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="spectator_handoff",                 .init_func=ftest_spectator_handoff_init,                .pre_start_func=ftest_spectator_handoff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="sim_state_continuity",              .init_func=ftest_sim_state_continuity_init,             .pre_start_func=ftest_sim_state_continuity_pre_start, .level_file="original", .level=60, .frame_skip=8 },
+         { .test_name="sim_state_continuity_restart",      .init_func=ftest_sim_state_continuity_restart_init,     .pre_start_func=ftest_sim_state_continuity_pre_start, .level_file="original", .level=60, .frame_skip=8, .repeat_n_times=2 },
+         { .test_name="script_legacy_golden",              .init_func=ftest_script_legacy_golden_init,             .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="lua_api_golden",                    .init_func=ftest_lua_api_golden_init,                   .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="console_cmd_golden",                .init_func=ftest_console_cmd_golden_init,               .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="cheats_golden",                     .init_func=ftest_cheats_golden_init,                    .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="script_creature_config_golden",     .init_func=ftest_script_creature_config_golden_init,    .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="campaign_spectate_checkbox",         .init_func=ftest_campaign_spectate_checkbox_init,       .pre_start_func=ftest_campaign_spectate_checkbox_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="campaign_external_seat",             .init_func=ftest_campaign_external_seat_init,           .pre_start_func=ftest_campaign_external_seat_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="campaign_external_seat_checkbox",    .init_func=ftest_campaign_external_seat_checkbox_init,  .pre_start_func=ftest_campaign_external_seat_checkbox_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -156,6 +171,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="creature_temple_prayer",             .init_func=ftest_creature_temple_prayer_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_lair_healing",              .init_func=ftest_creature_lair_healing_init,            .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_garden_eating",             .init_func=ftest_creature_garden_eating_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="room_storage_reposition",            .init_func=ftest_room_storage_reposition_init,          .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_training",                  .init_func=ftest_creature_training_init,                .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_guard_post",                .init_func=ftest_creature_guard_post_init,              .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_barracks",                  .init_func=ftest_creature_barracks_init,                .level_file="keeporig", .level=11, .frame_skip=8 },
@@ -224,7 +240,6 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          // KFX_TEST_COVERAGE `coverage` target (see CMakeLists.txt).
          // { .test_name="bug_invisible_units_cant_select", .init_func=ftest_bug_invisible_units_cant_select_init,  .level_file="keeporig", .level=1,  .frame_skip=0 },
 
-         // WIP TEST { .test_name="bug_pathing_pillar_circling",        .init_func=ftest_bug_pathing_pillar_circling_init,      .level_file="keeporig", .level=1, .frame_skip=0 },
          // WIP TEST { .test_name="bug_invisible_units_cant_select",    .init_func=ftest_bug_invisible_units_cant_select_init,  .level_file="lostlvls", .level=103, .frame_skip=0 },
          // append your test to tests_list here, eg: { .test_name="your_test_name",    .init_func=ftest_your_test_name_init, .level_file="lostlvls", .level=103 },
     },

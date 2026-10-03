@@ -52,7 +52,7 @@ TEST_CASE("condition_inactive returns false (not inactive) for an out-of-range i
 // get_script_current_condition/set_script_current_condition/pop_condition
 // all read/write module-private statics (script_current_condition/
 // condition_stack/condition_stack_pos), none exposed through any
-// accessor except these three functions themselves. condition_stack_pos
+// accessor except these functions themselves (and reset_script_conditions()). condition_stack_pos
 // in particular has no setter at all -- only command_add_condition()
 // (real script-parsing state, not attempted here) ever pushes onto it --
 // so the only pop_condition() branch reachable from a test is the
@@ -74,4 +74,18 @@ TEST_CASE("pop_condition with an empty condition_stack resets to CONDITION_ALWAY
     set_script_current_condition(3); // anything other than CONDITION_ALWAYS
     CHECK(pop_condition() == CONDITION_ALWAYS);
     CHECK(get_script_current_condition() == CONDITION_ALWAYS);
+}
+
+TEST_CASE("a script left with open IFs doesn't leak them into the next one (P4-F14)", "[kfx_game][lvl_script_conditions]") {
+    // The condition stack was never emptied: a script missing ENDIFs left its outer IF on it, and the next
+    // script's first ENDIF went back to that IF instead of to the top level.
+    std::memset(&kfx_game_state.script, 0, sizeof(kfx_game_state.script));
+    reset_script_conditions();
+    command_add_condition(0, 0, 0, 0, 0); // IF
+    command_add_condition(0, 0, 0, 0, 0); // a nested IF: the first is pushed
+    reset_script_conditions();            // the script ends without its ENDIFs
+    CHECK(get_script_current_condition() == CONDITION_ALWAYS);
+    command_add_condition(0, 0, 0, 0, 0); // the next script's IF ...
+    CHECK(pop_condition() == CONDITION_ALWAYS); // ... and its ENDIF
+    std::memset(&kfx_game_state.script, 0, sizeof(kfx_game_state.script));
 }

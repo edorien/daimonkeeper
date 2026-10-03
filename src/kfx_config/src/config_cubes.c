@@ -139,17 +139,6 @@ static TbBool load_cubes_config_file(const char *fname, int64_t flags)
     return result;
 }
 
-/* Returns Code Name (name to use in script file) of given cube model. */
-const char *cube_code_name(int64_t model)
-{
-    const char *name = get_conf_parameter_text(cube_desc, model);
-    if (name[0] != '\0')
-    {
-        return name;
-    }
-    return "INVALID";
-}
-
 /*
  * Returns the cube model identifier for a given code name (found in script file). Linear running time.
  * @param code_name
@@ -165,11 +154,6 @@ ThingModel cube_model_id(const char *code_name)
         }
     }
     return -1;
-}
-
-void clear_cubes(void)
-{
-    memset(&kfx_config_state.conf.cube_conf, 0, sizeof(kfx_config_state.conf.cube_conf));
 }
 
 /******************************************************************************/

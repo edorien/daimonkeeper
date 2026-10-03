@@ -105,18 +105,6 @@ void SoundManager::stopEffect(SoundEmitterID emitter_id) {
     S3DDestroySoundEmitterAndSamples(emitter_id);
 }
 
-// Check if playing
-bool SoundManager::isEffectPlaying(SoundEmitterID emitter_id) const {
-    if (emitter_id == 0) {
-        return false;
-    }
-    
-    bool playing = S3DEmitterIsPlayingAnySample(emitter_id);
-    SYNCDBG(18,"Checking if playing: emitter_id=%" PRId64 ", playing=%" PRId64,
-           (int64_t)(emitter_id), (int64_t)(playing));
-    return playing;
-}
-
 // Play music
 bool SoundManager::playMusic(int64_t track_number) {
     if (!initialized_) {
@@ -296,10 +284,6 @@ bool SoundManager::isCustomSoundLoaded(const std::string& name) const {
     return it != custom_sounds_.end() && it->second.loaded;
 }
 
-size_t SoundManager::getTotalCustomSounds() const {
-    return total_custom_sounds_;
-}
-
 // Get custom sound ID
 SoundSmplTblID SoundManager::getCustomSoundId(const std::string& name) const {
     auto it = custom_sounds_.find(name);
@@ -397,18 +381,6 @@ int64_t SoundManager::getSoundCount(const char* name) const {
     return 0;
 }
 
-// Play a named sound effect (picks a random variant when count > 1)
-SoundEmitterID SoundManager::playEffectNamed(const char* name, int64_t priority, SoundVolume volume) {
-    SoundSmplTblID base_id = getSoundId(name);
-    if (base_id == 0) {
-        WARNLOG("Cannot play unknown sound '%s'", name);
-        return 0;
-    }
-    int64_t count = getSoundCount(name);
-    SoundSmplTblID id = (count > 1) ? base_id + LbRandomSeries(count, soundhost_get_unsync_random_seed(), __func__, __LINE__) : base_id;
-    return playEffect(id, priority, volume);
-}
-
 // Forward declaration for C function in bflib_sndlib.cpp
 extern "C" void custom_sound_bank_clear();
 
@@ -482,10 +454,6 @@ void SoundManager::reapplyCreatureSounds() {
 extern "C" {
 
 
-TbBool sound_manager_init(void) {
-    return KeeperFX::SoundManager::getInstance().initialize();
-}
-
 SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, int64_t priority, SoundVolume volume) {
     return KeeperFX::SoundManager::getInstance().playEffect(sample_id, priority, volume);
 }
@@ -553,10 +521,6 @@ TbBool sound_manager_is_registered(const char* name) {
 
 int64_t sound_manager_get_count(const char* name) {
     return KeeperFX::SoundManager::getInstance().getSoundCount(name);
-}
-
-SoundEmitterID sound_manager_play_effect_named(const char* name, int64_t priority, SoundVolume volume) {
-    return KeeperFX::SoundManager::getInstance().playEffectNamed(name, priority, volume);
 }
 
 // Attempt to find a sound file candidate in the sound/ subdir of every mod in a list.
@@ -822,46 +786,6 @@ SoundSmplTblID sound_manager_load_named_sound(const char* name, const char* path
         SYNCDBG(5, "Named sound '%s' loaded %" PRId64 " variant(s) starting at ID %" PRId64, name, (int64_t)(count), (int64_t)(first_id));
     }
     return first_id;
-}
-
-// Config parser bridge: load custom sound from creature cfg file
-int64_t load_creature_custom_sound(int64_t crtr_model, const char* sound_type, const char* wav_path, const char* config_textname) {
-    using namespace KeeperFX;
-    
-    // Ensure SoundManager is initialized
-    SoundManager& sm = SoundManager::getInstance();
-    if (!sm.isInitialized()) {
-        if (!sm.initialize()) {
-            WARNLOG("Failed to initialize SoundManager");
-            // Continue anyway - sound system might be disabled
-        }
-    }
-    
-    // Get creature name
-    const char* creature_name = soundhost_creature_code_name((ThingModel)crtr_model);
-
-    // Generate unique name for this custom sound
-    char sound_name[256];
-    snprintf(sound_name, sizeof(sound_name), "%s_%s_custom", creature_name, sound_type);
-
-    // Resolve and load - filesystem first (FGrp_CmpgCrtrs, FGrp_CmpgMedia, etc.), then the
-    // current level's map zip if not found on disk.
-    SoundSmplTblID bank_index = load_creature_sound_fs_or_zip(sm, sound_name, wav_path);
-
-    if (bank_index <= 0) {
-        WARNLOG("Custom sound not found on disk or in map zip: %s (for %s.%s)", wav_path, creature_name, sound_type);
-        return 0;
-    }
-    
-    // Set the creature sound override
-    bool success = sm.setCreatureSound(creature_name, sound_type, sound_name);
-    
-    if (success) {
-        return 1;
-    } else {
-        WARNLOG("Failed to set creature sound override");
-        return 0;
-    }
 }
 
 // Config parser bridge: load multiple custom sounds from creature cfg file

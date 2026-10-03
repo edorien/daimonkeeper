@@ -34,6 +34,7 @@
 #include "bflib_sprite.h"
 #include "bflib_mouse.h"
 #include "bflib_render.h"
+#include "bflib_vidraw_spr_scale.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -60,96 +61,10 @@ TbResult LbSpriteDrawRemapUsingScalingDownDataSolidLR(TbPixel *outbuf, int64_t s
  */
 TbResult LbSpriteDrawUsingScalingUpDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, TbBool use_alpha_blend)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            const unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0] + xcurstep[1];
-                        xcurstep -= 2 * pxlen;
-                        out_end += xcurstep[0] + xcurstep[1];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                uint8_t texel = *sprdata;
-                                TbPixel ref = expand_indexed_pixel(texel, palette);
-                                for (;xdup > 0; xdup--)
-                                {
-                                    TbPixel dest = *out_end;
-                                    *out_end = use_alpha_blend ? render_alpha_blend(texel, dest) : render_ghost_blend(ref, dest);
-                                    out_end--;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep -= 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    if (use_alpha_blend)
+        return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Alpha, true, &px);
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans1, true, &px);
 }
 
 /**
@@ -166,96 +81,10 @@ TbResult LbSpriteDrawUsingScalingUpDataTrans1RL(TbPixel *outbuf, int64_t scanlin
  */
 TbResult LbSpriteDrawUsingScalingUpDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, TbBool use_alpha_blend)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            const unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0];
-                        xcurstep += 2 * pxlen;
-                        out_end += xcurstep[0];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                uint8_t texel = *sprdata;
-                                TbPixel ref = expand_indexed_pixel(texel, palette);
-                                for (;xdup > 0; xdup--)
-                                {
-                                    TbPixel dest = *out_end;
-                                    *out_end = use_alpha_blend ? render_alpha_blend(texel, dest) : render_ghost_blend(ref, dest);
-                                    out_end++;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep += 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    if (use_alpha_blend)
+        return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Alpha, false, &px);
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans1, false, &px);
 }
 
 /**
@@ -275,95 +104,8 @@ TbResult LbSpriteDrawUsingScalingUpDataTrans1LR(TbPixel *outbuf, int64_t scanlin
  * unlike Trans1 above this needs no runtime mode switch. */
 TbResult LbSpriteDrawUsingScalingUpDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            const unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0] + xcurstep[1];
-                        xcurstep -= 2 * pxlen;
-                        out_end += xcurstep[0] + xcurstep[1];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                uint8_t texel = *sprdata;
-                                TbPixel ref = expand_indexed_pixel(texel, palette);
-                                for (;xdup > 0; xdup--)
-                                {
-                                    TbPixel dest = *out_end;
-                                    *out_end = render_ghost_blend_2(ref, dest);
-                                    out_end--;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep -= 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans2, true, &px);
 }
 
 /**
@@ -381,95 +123,8 @@ TbResult LbSpriteDrawUsingScalingUpDataTrans2RL(TbPixel *outbuf, int64_t scanlin
 /* Ghost-only, same reasoning as LbSpriteDrawUsingScalingUpDataTrans2RL(). */
 TbResult LbSpriteDrawUsingScalingUpDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            const unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0];
-                        xcurstep += 2 * pxlen;
-                        out_end += xcurstep[0];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                uint8_t texel = *sprdata;
-                                TbPixel ref = expand_indexed_pixel(texel, palette);
-                                for (;xdup > 0; xdup--)
-                                {
-                                    TbPixel dest = *out_end;
-                                    *out_end = render_ghost_blend_2(ref, dest);
-                                    out_end++;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep += 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans2, false, &px);
 }
 
 /**
@@ -485,111 +140,8 @@ TbResult LbSpriteDrawUsingScalingUpDataTrans2LR(TbPixel *outbuf, int64_t scanlin
  */
 TbResult LbSpriteDrawUsingScalingUpDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t ycur;
-            int64_t solid_len;
-            TbPixel * out_line;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    TbPixel *out_start;
-                    out_start = out_end;
-                    for(;pxlen > 0; pxlen--)
-                    {
-                        xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > llabs(scanline))
-                            xdup = llabs(scanline)-xcurstep[0];
-                        if (xdup > 0)
-                        {
-                            TbPixel pxval = expand_indexed_pixel(*sprdata, palette);
-                            for (;xdup > 0; xdup--)
-                            {
-                                *out_end = pxval;
-                                out_end--;
-                            }
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                    ycur = ydup - 1;
-                    if (ycur > 0)
-                    {
-                        solid_len = out_start - out_end;
-                        out_start = out_end;
-                        solid_len++;
-                        out_line = out_start + scanline;
-                        for (;ycur > 0; ycur--)
-                        {
-                            if (solid_len > 0) {
-                                LbPixelBlockCopyForward(out_line, out_start, solid_len);
-                            }
-                            out_line += scanline;
-                        }
-                    }
-                }
-            }
-            outbuf += scanline;
-            ycur = ydup - 1;
-            for (;ycur > 0; ycur--)
-            {
-                outbuf += scanline;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Solid, true, &px);
 }
 
 /**
@@ -606,109 +158,8 @@ TbResult LbSpriteDrawUsingScalingUpDataSolidRL(TbPixel *outbuf, int64_t scanline
  */
 TbResult LbSpriteDrawUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t ycur;
-            int64_t solid_len;
-            TbPixel * out_line;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    TbPixel *out_start;
-                    out_start = out_end;
-                    for(;pxlen > 0; pxlen--)
-                    {
-                        xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > llabs(scanline))
-                            xdup = llabs(scanline)-xcurstep[0];
-                        if (xdup > 0)
-                        {
-                            TbPixel pxval = expand_indexed_pixel(*sprdata, palette);
-                            for (;xdup > 0; xdup--)
-                            {
-                                *out_end = pxval;
-                                out_end++;
-                            }
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                    ycur = ydup - 1;
-                    if (ycur > 0)
-                    {
-                        solid_len = out_end - out_start;
-                        out_line = out_start + scanline;
-                        for (;ycur > 0; ycur--)
-                        {
-                            if (solid_len > 0) {
-                                LbPixelBlockCopyForward(out_line, out_start, solid_len);
-                            }
-                            out_line += scanline;
-                        }
-                    }
-                }
-            }
-            outbuf += scanline;
-            ycur = ydup - 1;
-            for (;ycur > 0; ycur--)
-            {
-                outbuf += scanline;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Solid, false, &px);
 }
 
 /**
@@ -725,77 +176,10 @@ TbResult LbSpriteDrawUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t scanline
  */
 TbResult LbSpriteDrawUsingScalingDownDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, TbBool use_alpha_blend)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            uint8_t texel = *sprdata;
-                            TbPixel dest = *out_end;
-                            *out_end = use_alpha_blend ? render_alpha_blend(texel, dest) : render_ghost_blend(expand_indexed_pixel(texel, palette), dest);
-                            out_end--;
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    if (use_alpha_blend)
+        return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Alpha, true, &px);
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans1, true, &px);
 }
 
 /**
@@ -812,76 +196,10 @@ TbResult LbSpriteDrawUsingScalingDownDataTrans1RL(TbPixel *outbuf, int64_t scanl
  */
 TbResult LbSpriteDrawUsingScalingDownDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf, TbBool use_alpha_blend)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            uint8_t texel = *sprdata;
-                            TbPixel dest = *out_end;
-                            *out_end = use_alpha_blend ? render_alpha_blend(texel, dest) : render_ghost_blend(expand_indexed_pixel(texel, palette), dest);
-                            out_end++;
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    if (use_alpha_blend)
+        return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Alpha, false, &px);
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans1, false, &px);
 }
 
 /**
@@ -899,75 +217,8 @@ TbResult LbSpriteDrawUsingScalingDownDataTrans1LR(TbPixel *outbuf, int64_t scanl
 /* Ghost-only, same reasoning as LbSpriteDrawUsingScalingUpDataTrans2RL(). */
 TbResult LbSpriteDrawUsingScalingDownDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            TbPixel ref = expand_indexed_pixel(*sprdata, palette);
-                            *out_end = render_ghost_blend_2(ref, *out_end);
-                            out_end--;
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans2, true, &px);
 }
 
 /**
@@ -985,75 +236,8 @@ TbResult LbSpriteDrawUsingScalingDownDataTrans2RL(TbPixel *outbuf, int64_t scanl
 /* Ghost-only, same reasoning as LbSpriteDrawUsingScalingUpDataTrans2RL(). */
 TbResult LbSpriteDrawUsingScalingDownDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            TbPixel ref = expand_indexed_pixel(*sprdata, palette);
-                            *out_end = render_ghost_blend_2(ref, *out_end);
-                            out_end++;
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Trans2, false, &px);
 }
 
 /**
@@ -1069,77 +253,8 @@ TbResult LbSpriteDrawUsingScalingDownDataTrans2LR(TbPixel *outbuf, int64_t scanl
  */
 TbResult LbSpriteDrawUsingScalingDownDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            TbPixel pxval = expand_indexed_pixel(*sprdata, palette);
-                            {
-                                *out_end = pxval;
-                                out_end--;
-                            }
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Solid, true, &px);
 }
 
 /**
@@ -1155,77 +270,8 @@ TbResult LbSpriteDrawUsingScalingDownDataSolidRL(TbPixel *outbuf, int64_t scanli
  */
 TbResult LbSpriteDrawUsingScalingDownDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSourceBuffer * src_buf)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    int64_t *ycurstep;
-    const unsigned char *palette = RendererGetActivePalette();
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    const unsigned char * sprdata = src_buf->data;
-    ycurstep = ystep;
-
-    for (int64_t h = src_buf->height; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            TbPixel pxval = expand_indexed_pixel(*sprdata, palette);
-                            {
-                                *out_end = pxval;
-                                out_end++;
-                            }
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.palette = RendererGetActivePalette()};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, src_buf->data, src_buf->height, SprPx_Copy, SprBl_Solid, false, &px);
 }
 
 /**

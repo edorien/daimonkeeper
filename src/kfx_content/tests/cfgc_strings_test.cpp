@@ -151,5 +151,4 @@ TEST_CASE("language codes", "[cfgc_strings]")
     CHECK(cfgc_lang_is_legacy_codepage("rus"));
     CHECK_FALSE(cfgc_lang_is_legacy_codepage("jpn"));
     CHECK_FALSE(cfgc_lang_is_legacy_codepage("chi"));
-    CHECK(cfgc_string_languages().size() >= 17);
 }

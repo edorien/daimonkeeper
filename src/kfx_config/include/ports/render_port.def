@@ -6,13 +6,19 @@
    KFX_PORT_RETS(return_type, name, (params), (args), body): the unwired
    default runs body, which returns (a default that is not a constant).
    Refactor pass 2, S15 (docs/refactor-pass2/stage-15-ports-and-events.md). */
-KFX_PORT_RET(TbBool, tag_cursor_blocks_place_door, (PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y), (plyr_idx, stl_x, stl_y), false)
 KFX_PORT_RET(TbBool, tag_cursor_blocks_place_room, (NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab), (user, stl_x, stl_y, full_slab), false)
 KFX_PORT_RET(TbBool, tag_cursor_blocks_sell_area, (PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab), (plyr_idx, stl_x, stl_y, full_slab), false)
 KFX_PORT_VOID(set_engine_view, (struct PlayerInfo *player, int64_t val), (player, val))
 KFX_PORT_VOID(setup_engine_window, (int64_t x1, int64_t y1, int64_t x2, int64_t y2), (x1, y1, x2, y2))
 KFX_PORT_RET(TbBool, load_texture_map_file, (uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup), (tmapidx, lvnum, fgroup), false)
-KFX_PORT_VOID(PaletteSetUserPalette, (NetUserId user, unsigned char *pal), (user, pal))
+/* The local view's palette, by kind (enum ViewPalette): a user's palette, the palette now, a step of a fade to it.
+   Refactor pass 4, S08: the sim passed the palettes themselves, which made them kfx_sim globals. */
+KFX_PORT_VOID(PaletteSetUserViewPalette, (NetUserId user, enum ViewPalette pal), (user, pal))
+KFX_PORT_VOID(PaletteSetViewPalette, (enum ViewPalette pal), (pal))
+KFX_PORT_VOID(PaletteFadeToView, (enum ViewPalette pal, int64_t fade_steps), (pal, fade_steps))
+/* The local player starts possessing a creature: load its swipe sprites (refactor pass 4, S08: the sheet is
+   kfx_render's). */
+KFX_PORT_RET(TbBool, load_swipe_graphic_for_creature, (const struct Thing *thing), (thing), false)
 KFX_PORT_VOID(PaletteApplyPainToPlayer, (struct PlayerInfo *player, int64_t intense), (player, intense))
 KFX_PORT_VOID(setup_eye_lens, (int64_t nlens), (nlens))
 KFX_PORT_RET(int64_t, get_td_animation_sprite, (int64_t animation_sprite), (animation_sprite), 0)

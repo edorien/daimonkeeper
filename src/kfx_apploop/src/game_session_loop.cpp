@@ -72,6 +72,7 @@
 #include "room_workshop.h"
 #include "map_blocks.h"
 #include "light_data.h"
+#include "light_registry.h"
 #include "thing_effects.h"
 #include "local_camera.h"
 #include "vidfade.h"

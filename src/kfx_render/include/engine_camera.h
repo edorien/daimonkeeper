@@ -23,6 +23,7 @@
 #include "bflib_basics.h"
 #include "globals.h"
 #include "camera_data.h"
+#include "kfx_config_state.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,8 +44,9 @@ struct Thing;
 // kfx_config's kfx_config_state.h (stage 13.3, docs/refactor/
 // stage-13-enforce-and-document.md) -- kfx_config is the lowest-ranked
 // of their real consumers (config_keeperfx.c writes them; kfx_net's
-// packets.c/net_game.c also read them).
-#include "kfx_config_state.h"
+// packets.c/net_game.c also read them). kfx_config_state.h is included above, outside this header's
+// pack(1): included here, its config structs were packed in every file that reached them through this header
+// first, so those files read kfx_config_state at other offsets than the rest of the game (refactor pass 4, P4-F17).
 // docs/refactor/editor/04-views-camera-overlays.md -- bumped 512 -> 2048
 // (originally 64, already bumped once "for view distance") after the
 // editor's own looser zoom-out (EDITOR_CAMERA_ZOOM_MIN, kfx_config_state.h)

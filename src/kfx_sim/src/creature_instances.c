@@ -54,6 +54,7 @@
 #include "config_funcnames.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -78,7 +79,7 @@ int64_t instf_tortured(struct Thing *creatng, int64_t *param);
 int64_t instf_tunnel(struct Thing *creatng, int64_t *param);
 
 // Indexed by the values in creature_instances_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
-Creature_Instf_Func creature_instances_func_list[] = {
+Creature_Instf_Func const creature_instances_func_list[] = {
   NULL,
   instf_attack_room_slab,
   instf_creature_cast_spell,
@@ -100,7 +101,7 @@ _Static_assert(sizeof(creature_instances_func_list) / sizeof(creature_instances_
     "creature_instances_func_list must have a slot for every index in creature_instances_func_type[] (config_funcnames.c)");
 
 // Indexed by the values in creature_instances_validate_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
-Creature_Validate_Func creature_instances_validate_func_list[] = {
+Creature_Validate_Func const creature_instances_validate_func_list[] = {
     NULL,
     validate_source_generic,
     validate_source_even_in_prison,
@@ -121,7 +122,7 @@ _Static_assert(sizeof(creature_instances_validate_func_list) / sizeof(creature_i
     "creature_instances_validate_func_list must have a slot for every index in creature_instances_validate_func_type[] (config_funcnames.c)");
 
 // Indexed by the values in creature_instances_search_targets_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
-Creature_Target_Search_Func creature_instances_search_targets_func_list[] = {
+Creature_Target_Search_Func const creature_instances_search_targets_func_list[] = {
     NULL,
     search_target_generic,
     search_target_ranged_heal,
@@ -1787,18 +1788,8 @@ void script_set_creature_instance(ThingModel crmodel, int64_t slot, int64_t inst
         crconf->learned_instance_id[slot - 1] = instance;
         crconf->learned_instance_level[slot - 1] = level;
         const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-        uint64_t k = 0;
-        int64_t i = slist->index;
-        while (i != 0)
+        FOR_EACH_THING(thing, thing_walk_structure_list(slist))
         {
-            struct Thing* thing = thing_get(i);
-            if (thing_is_invalid(thing))
-            {
-                ERRORLOG("Jump to invalid thing detected");
-                break;
-            }
-            i = thing->next_of_class;
-            // Per-thing code
             if (thing->model == crmodel)
             {
                 if (old_instance != CrInst_NULL)
@@ -1807,13 +1798,6 @@ void script_set_creature_instance(ThingModel crmodel, int64_t slot, int64_t inst
                     cctrl->instance_available[old_instance] = false;
                 }
                 creature_increase_available_instances(thing);
-            }
-            // Per-thing code ends
-            k++;
-            if (k > slist->count)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break;
             }
         }
 

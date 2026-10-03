@@ -29,6 +29,7 @@
 #include "power_hand.h"
 #include "thing_physics.h"
 #include "thing_navigate.h"
+#include "thing_doors.h"
 #include "packet_data.h"
 #include "kfx_sim_state.h"
 #include "ports/ui_port.h"
@@ -159,33 +160,6 @@ TbBool tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, M
         player->render_roomspace.is_roomspace_a_single_subtile = !full_slab;
     }
     return (colour != SLC_RED);
-}
-
-TbBool door_placement_allowed(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
-{
-    MapSlabCoord slb_x = subtile_slab(stl_x);
-    MapSlabCoord slb_y = subtile_slab(stl_y);
-    struct SlabMap *slb = get_slabmap_block(slb_x, slb_y);
-    if (floor_height_for_volume_box(plyr_idx, slb_x, slb_y) != 1)
-        return false;
-    char Orientation = find_door_angle(stl_x, stl_y, plyr_idx);
-    TbBool Check = false;
-    switch(Orientation)
-    {
-        case 0:
-        {
-            Check = (!slab_middle_row_has_trap_on(slb_x, slb_y) );
-            break;
-        }
-        case 1:
-        {
-            Check = (!slab_middle_column_has_trap_on(slb_x, slb_y) );
-            break;
-        }
-    }
-    return ( (slabmap_owner(slb) == plyr_idx) && (slb->kind == SlbT_CLAIMED) )
-        && (Orientation != -1) && ( Check )
-        && (!slab_has_door_thing_on(slb_x, slb_y));
 }
 
 TbBool tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)

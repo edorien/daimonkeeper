@@ -21,6 +21,7 @@
 extern "C" {
 #include "config.h"
 #include "config_creature.h"
+#include "config_crtrmodel.h"
 #include "config_trapdoor.h"
 #include "config_rules.h"
 #include "config_objects.h"
@@ -116,6 +117,14 @@ CfgFieldKind kind_of(const struct NamedField &f)
     if (f.parse_func == value_effOrEffEl) return CfgKind_EffectRef;
     if (f.parse_func == value_function) return CfgKind_Function;
     if (f.parse_func == value_stltocoord) return CfgKind_Coord;
+    // The lenient functions that keep the hand-written creature and magic parsers' rules (refactor pass 3, S04).
+    if (f.parse_func == value_atoi || f.parse_func == value_atoi_nonneg || f.parse_func == value_atoi_in_bounds
+        || f.parse_func == value_creature_number)
+        return CfgKind_Number;
+    if (f.parse_func == value_id_nonneg || f.parse_func == value_id_positive) return CfgKind_Enum;
+    if (f.parse_func == value_ids_or) return CfgKind_Flags;
+    if (f.parse_func == value_word) return CfgKind_Text;
+    if (f.parse_func == value_string_id_positive) return CfgKind_StringId;
     return CfgKind_Custom;
 }
 
@@ -178,6 +187,13 @@ void add_table_fields(CfgSectionSpec &sec, const struct NamedField *fields)
         part.max = std::min<int64_t>(f->max, datatype_max(f->type));
         part.default_value = f->default_value;
         fill_names(*f, part);
+        if (f->parse_func == value_id_positive && std::find(part.enum_names.begin(), part.enum_names.end(), "NULL") == part.enum_names.end())
+            part.enum_names.push_back("NULL"); // accepted, and leaves the field as it is
+        if (f->parse_func == value_ignored)
+        {
+            spec->state = CfgState_Ignored;
+            spec->note = "this build's loader reads the key and ignores it";
+        }
     }
 }
 
@@ -340,6 +356,21 @@ void apply_ignored_keys(ConfigSchema &schema)
 
 } // namespace
 
+void cfgc_add_table_fields(CfgSectionSpec &sec, const struct NamedField *fields)
+{
+    add_table_fields(sec, fields);
+}
+
+CfgSectionSpec &cfgc_schema_section(CfgFileSchema &file, const std::string &basename, bool numbered)
+{
+    return section(file, basename, numbered);
+}
+
+CfgFieldKind cfgc_table_row_kind(const struct NamedField &row)
+{
+    return kind_of(row);
+}
+
 void describe_creature_schemas(ConfigSchema &schema); // cfgc_schema_creature.cpp
 void describe_campaign_schema(ConfigSchema &schema);  // cfgc_schema_campaign.cpp
 
@@ -398,24 +429,25 @@ ConfigSchema build_engine_schema()
         f.file_name = "magic.cfg";
         add_table_set(f, magic_shot_named_fields_set);
         add_table_set(f, magic_powers_named_fields_set);
-        add_key_table(section(f, "spell", true), magic_spell_commands);
-        add_key_table(section(f, "special", true), magic_special_commands);
+        add_table_fields(section(f, "spell", true), magic_spell_named_fields);
+        add_table_fields(section(f, "special", true), magic_special_named_fields);
         schema.files.push_back(std::move(f));
     }
     {
-        // One file per creature; the nine sections are read by hand-written parsers whose key tables are exported.
+        // One file per creature; its nine blocks are NamedField tables (refactor pass 3, S04). Keys whose parse
+        // function the schema can't read get their shape in cfgc_schema_creature.cpp.
         CfgFileSchema f;
         f.kind = "creaturemodel";
         f.file_name = "<creature>.cfg";
-        add_key_table(section(f, "attributes", false), creatmodel_attributes_commands);
-        add_key_table(section(f, "jobs", false), creatmodel_jobs_commands);
-        add_key_table(section(f, "attraction", false), creatmodel_attraction_commands);
-        add_key_table(section(f, "sounds", false), creatmodel_sounds_commands);
-        add_key_table(section(f, "sprites", false), creature_graphics_desc);
-        add_key_table(section(f, "annoyance", false), creatmodel_annoyance_commands);
-        add_key_table(section(f, "experience", false), creatmodel_experience_commands);
-        add_key_table(section(f, "senses", false), creatmodel_senses_commands);
-        add_key_table(section(f, "appearance", false), creatmodel_appearance_commands);
+        add_table_fields(section(f, "attributes", false), creaturemodel_attributes_named_fields);
+        add_table_fields(section(f, "jobs", false), creaturemodel_jobs_named_fields);
+        add_table_fields(section(f, "attraction", false), creaturemodel_attraction_named_fields);
+        add_table_fields(section(f, "sounds", false), creaturemodel_sounds_named_fields);
+        add_table_fields(section(f, "sprites", false), creaturemodel_sprites_named_fields);
+        add_table_fields(section(f, "annoyance", false), creaturemodel_annoyance_named_fields);
+        add_table_fields(section(f, "experience", false), creaturemodel_experience_named_fields);
+        add_table_fields(section(f, "senses", false), creaturemodel_senses_named_fields);
+        add_table_fields(section(f, "appearance", false), creaturemodel_appearance_named_fields);
         schema.files.push_back(std::move(f));
     }
 

@@ -145,24 +145,6 @@ TbScreenMode LbScreenActiveMode(void)
     return lbDisplay.ScreenMode;
 }
 
-/** Color depth for the Graphics Screen.
- *  Gives BPP of the graphics canvas buffer. This value
- *  may differ from BPP used by Video Driver.
- *
- * @return Graphics canvas Bits Per Pixel, in bits.
- */
-int64_t LbGraphicsScreenBPP(void)
-{
-    if (lbDrawSurface != NULL) {
-        return SDL_BITSPERPIXEL(lbDrawSurface->format);
-    }
-    // On error, return 0
-    return 0;
-    // Old way - returns video BPP, not graphics BPP
-    // TbScreenModeInfo *mdinfo = LbScreenGetModeInfo(lbDisplay.ScreenMode);
-    // return mdinfo->BitsPerPixel;
-}
-
 TbScreenCoord LbGraphicsScreenWidth(void)
 {
     return lbDisplay.GraphicsScreenWidth;
@@ -341,10 +323,6 @@ static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, int64_t display)
     mdinfo->Available = false;
     mdinfo->window_pos_x = SDL_WINDOWPOS_CENTERED_DISPLAY(display_sdlid);
     mdinfo->window_pos_y = SDL_WINDOWPOS_CENTERED_DISPLAY(display_sdlid);
-    if (PlatformManager_ForcesAllModesAvailable()) {
-        mdinfo->Available = true;
-        return true;
-    }
     // if this is window mode
     if (mdinfo->VideoFlags & Lb_VF_WINDOWED)
     {
@@ -406,11 +384,22 @@ static TbBool LbHwCheckIsModeAvailable(TbScreenMode mode, int64_t display)
             ERRORLOG("PlatformManager_GetDesktopDisplayMode failed: %s", SDL_GetError());
             return false; // for some reason we can't get the current desktop resolution!
         }
+        if ((desktop_w <= 0) || (desktop_h <= 0))
+        {
+            // Reject rather than keep the registered 0x0 placeholder; callers then fall back to the failsafe mode.
+            ERRORLOG("desktop resolution of display %" PRId64 " is %" PRId64 "x%" PRId64 ", not usable", display, desktop_w, desktop_h);
+            return false;
+        }
         // update the mode's width and height to the desktop resolution of the current monitor
         mdinfo->Width = desktop_w;
         mdinfo->Height = desktop_h;
     }
     // else if this is a specific fullscreen mode
+    else if (PlatformManager_ForcesAllModesAvailable())
+    {
+        // Trust the requested mode (-headless: the dummy driver lists no fullscreen modes).
+        // The DESKTOP/ALL branches above still run, so those modes get a real size.
+    }
     else
     {
         // See if the desired fullscreen mode is a valid mode for the current display
@@ -517,6 +506,12 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
     int64_t hot_y;
     const struct TbSprite* msspr = NULL;
     LbExeReferenceNumber();
+    TbScreenModeInfo* mdinfo = LbScreenGetModeInfo(mode); // The desired mode has already been checked
+    if ((mdinfo->Width <= 0) || (mdinfo->Height <= 0))
+    {
+        ERRORLOG("Mode %" PRId64 " (%s) has no size (%" PRId64 "x%" PRId64 ")", (int64_t)mode, mdinfo->Desc, (int64_t)mdinfo->Width, (int64_t)mdinfo->Height);
+        return Lb_FAIL;
+    }
     if (lbDisplay.MouseSprite != NULL)
     {
         msspr = lbDisplay.MouseSprite;
@@ -529,8 +524,6 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
     }
     lbDrawSurface = NULL;
     lbScreenInitialised = false;
-
-    TbScreenModeInfo* mdinfo = LbScreenGetModeInfo(mode); // The desired mode has already been checked
 
     if (PlatformManager_HasWindow())
     {
@@ -1340,6 +1333,8 @@ void calculate_landview_upp(int64_t width, int64_t height, int64_t landview_widt
  */
 TbBool is_ar_wider_than_original(int64_t width, int64_t height)
 {
+    if (height <= 0)
+        return (width > 0); // degenerate (0-height) window: no ratio to compare
     int64_t original_aspect_ratio = (320 << 8) / 200;
     int64_t current_aspect_ratio = (width << 8) / height;
     return (current_aspect_ratio > original_aspect_ratio);
@@ -1352,6 +1347,8 @@ TbBool is_ar_wider_than_original(int64_t width, int64_t height)
  */
 TbBool is_menu_ar_wider_than_original(int64_t width, int64_t height)
 {
+    if (height <= 0)
+        return (width > 0); // degenerate (0-height) window: no ratio to compare
     int64_t original_aspect_ratio = (640 << 8) / 480;
     int64_t current_aspect_ratio = (width << 8) / height;
     return (current_aspect_ratio > original_aspect_ratio);

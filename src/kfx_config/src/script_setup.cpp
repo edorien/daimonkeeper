@@ -208,11 +208,6 @@ const char *const *script_setup_win_lose_operators(int64_t *count)
     return kOperators;
 }
 
-const char *script_setup_availability_command_name(int64_t kind)
-{
-    return ((kind >= 0) && (kind < AvailKind_Count)) ? kAvailCommandNames[kind] : "";
-}
-
 const struct NamedCommand *script_setup_availability_desc(int64_t kind)
 {
     switch (kind)
@@ -226,7 +221,7 @@ const struct NamedCommand *script_setup_availability_desc(int64_t kind)
     }
 }
 
-const char *script_setup_availability_item_name(int64_t kind, int64_t item)
+static const char *script_setup_availability_item_name(int64_t kind, int64_t item)
 {
     const struct NamedCommand *desc = script_setup_availability_desc(kind);
     if (desc == nullptr)

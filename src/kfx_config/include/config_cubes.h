@@ -61,14 +61,9 @@ struct CubesConfig {
 
 /******************************************************************************/
 extern const struct ConfigFileData keeper_cubes_file_data;
-extern struct NamedCommand cubes_desc[CUBE_ITEMS_MAX];
 /******************************************************************************/
 struct CubeConfigStats *get_cube_model_stats(int64_t model);
-const char *cube_code_name(int64_t model);
 ThingModel cube_model_id(const char *code_name);
-// Had real external linkage but no header declaration at all -- added,
-// the usual "add the missing declaration" fix.
-void clear_cubes(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -33,8 +33,6 @@ void api_seat_decision_add_sacrifice_outcomes(VALUE *sacrifices, PlayerNumber pl
 void api_seat_decision_add_objectives(VALUE *own, PlayerNumber plyr_idx);
 /** Minimum game turns between two decisions (default 100; victory / defeat are never held back by it). */
 void api_seat_decision_set_min_interval(int64_t turns);
-/** Forgets every seat's baseline (a new game). */
-void api_seat_decision_reset(void);
 
 #ifdef __cplusplus
 }

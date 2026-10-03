@@ -88,8 +88,9 @@ TEST_CASE_METHOD(ResetSimState, "clear_things_and_persons_data rebuilds every th
 
     CHECK(kfx_sim_state.things_data[5].owner == PLAYERS_COUNT);
     CHECK(kfx_sim_state.things_data[5].alloc_flags == 0);
-    CHECK(kfx_sim_state.things_data[5].mappos.x.val == subtile_coord_center(5));
-    CHECK(kfx_sim_state.things_data[5].mappos.y.val == subtile_coord_center(5));
+    // the same whatever map the previous level had (map_subtiles_x/y above): a level's state doesn't depend on it
+    CHECK(kfx_sim_state.things_data[5].mappos.x.val == subtile_coord_center(0));
+    CHECK(kfx_sim_state.things_data[5].mappos.y.val == subtile_coord_center(0));
     CHECK(kfx_sim_state.nodungeon_creatr_list_start == 0);
     CHECK(kfx_sim_state.cctrl_data[7].creature_control_flags == 0);
     CHECK(kfx_sim_state.synced_free_things_count == SYNCED_THINGS_COUNT - 1);

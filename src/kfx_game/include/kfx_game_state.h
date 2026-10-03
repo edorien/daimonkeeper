@@ -19,12 +19,15 @@
 #ifndef DK_KFX_GAME_STATE_H
 #define DK_KFX_GAME_STATE_H
 
+#include "port_check.h"
+#include "state_versions.h"
 #include "bflib_basics.h"
 #include "globals.h"
 #include "config.h"
 #include "config_campaigns.h"
 #include "lvl_script.h"
 #include "sounds.h"
+#include "creature_control.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,13 +95,41 @@ struct KfxGameState {
        (debug console commands), the lower-ranked of the two.
        gui_cheat_box_1/3/4 stay in kfx_frontend_state -- only box_2 is
        touched cross-layer. */
+
+    /* The level script's LEVEL_VERSION (0 for a script without one), set
+       while the script is read. Was the global level_file_version, which
+       a save and a resync didn't carry although script commands that run
+       during play read it (BONUS_LEVEL_TIME, SET_COMPUTER_EVENT,
+       TUTORIAL_FLASH_BUTTON, and commands from Lua and the API): after a
+       load they used whatever version the last level read had (refactor
+       pass 4, P4-F8). */
+    int64_t level_file_version;
 };
 
 extern struct KfxGameState kfx_game_state;
+/* In every file that includes this header, not only the struct's own: a file that sees another layout reads the
+   state at other offsets than the rest of the game (P4-F17). */
+KFX_STATIC_ASSERT(sizeof(struct KfxGameState) == KFX_GAME_STATE_SIZE,
+    "struct KfxGameState has another size in this file than state_versions.h says: a #pragma pack leaking into the headers it includes (refactor pass 4, P4-F17), or a layout change (bump KFX_GAME_STATE_VER and update KFX_GAME_STATE_SIZE)");
+
+/** A creature's footstep sound: which of the 4 sample variants, and the step within it. */
+struct FootstepSound {
+    unsigned char variant;
+    unsigned char counter;
+};
 
 /** Process-local pointer, NOT part of the saved/resynced KfxGameState blob (see KfxFrontendLocal). */
 struct KfxGameLocal {
     struct GuiBox *gui_cheat_box_2;
+    /** update_footsteps_nearest_camera(): the turn of its 4-turn cycle, and the (up to 3) creatures nearest this
+     *  machine's camera whose footsteps play (refactor pass 5 S04: were in kfx_sim_state, but the camera is the
+     *  local player's). */
+    int64_t footstep_timeslice;
+    ThingIndex footstep_near_creatures[3];
+    /** play_thing_walking()'s per creature control (refactor pass 5 S04: were CreatureControl.footstep_variant and
+     *  footstep_counter, written only for the creatures near this machine's camera, the variant from the unsynced
+     *  random). */
+    struct FootstepSound footstep_sounds[CREATURES_COUNT];
 };
 extern struct KfxGameLocal kfx_game_local;
 

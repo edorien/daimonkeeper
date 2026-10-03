@@ -14,12 +14,9 @@ const char * PlatformManager_GetWineHost(void);
 
 int64_t          PlatformManager_InitVideo(void);
 int64_t          PlatformManager_HasWindow(void);
-int64_t          PlatformManager_GetIsAppActive(void);
-int64_t          PlatformManager_OwnsDisplay(void);
 int64_t          PlatformManager_ForcesAllModesAvailable(void);
 
 uint64_t PlatformManager_GetWindowFlags(void);
-void         PlatformManager_GetWindowSize(int64_t* out_w, int64_t* out_h);
 // Returns the window's SDL display ID (opaque), not a 0-based index.
 int64_t          PlatformManager_GetWindowDisplayIndex(void);
 int64_t          PlatformManager_GetNumVideoDisplays(void);
@@ -34,7 +31,6 @@ void         PlatformManager_SetWindowPosition(int64_t x, int64_t y);
 int64_t          PlatformManager_CreateWindow(const char* title, int64_t x, int64_t y, int64_t w, int64_t h, uint64_t flags);
 void         PlatformManager_WarpCursor(int64_t x, int64_t y);
 int64_t          PlatformManager_IsCursorInWindow(void);
-int64_t          PlatformManager_RecreateWindowForSoftwareRenderer(void);
 int64_t          PlatformManager_GetDisplayRefreshRate(void);
 int64_t          PlatformManager_GetFullscreenDisplayModeCount(int64_t display);
 int64_t          PlatformManager_GetFullscreenDisplayModeAt(int64_t display, int64_t index, int64_t* out_w, int64_t* out_h);

@@ -125,7 +125,7 @@ static void check_edited_setup(const char *phase, bool fresh_load)
     {
         CHECK_EQ("override installed before the level loaded", s_installed, 1);
         // The file is v0; the prelude's forced v1 must not have leaked into the file's own version.
-        CHECK_EQ("level_file_version is the file's own (0)", level_file_version, 0);
+        CHECK_EQ("level_file_version is the file's own (0)", kfx_game_state.level_file_version, 0);
     }
 
     const struct Dungeon *d0 = get_dungeon(0);
@@ -259,7 +259,7 @@ FTestActionResult ftest_skirmish_setup_locks_action001__check(struct FTestAction
     s_checks = 0;
     CHECK_EQ("override installed before the level loaded", s_locks_installed, 1);
     CHECK_EQ("override consumed", level_script_override_is_set(), 0);
-    CHECK_EQ("level_file_version is the file's own (1)", level_file_version, 1);
+    CHECK_EQ("level_file_version is the file's own (1)", kfx_game_state.level_file_version, 1);
 
     const struct Dungeon *d0 = get_dungeon(0);
     const struct Dungeon *d1 = get_dungeon(1);

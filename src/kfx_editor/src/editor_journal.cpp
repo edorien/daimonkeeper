@@ -549,11 +549,6 @@ extern "C" void editor_journal_preview_restore(void)
     s_preview_slabs.clear();
 }
 
-extern "C" TbBool editor_journal_stroke_open(void)
-{
-    return s_stroke_open;
-}
-
 extern "C" TbBool editor_journal_stroke_end(const char *label)
 {
     if (!s_stroke_open)

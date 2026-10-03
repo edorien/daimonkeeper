@@ -1062,43 +1062,6 @@ TbBool draw_text_box(const char *text)
     return LbTextDrawResized(0, (box_height - line_count * n) / 2, tx_units_per_px, text);
 }
 
-TbBool draw_text_box_top(const char* text, uint64_t drawflags)
-{
-    int64_t spritesy;
-    int64_t spritesx;
-    LbTextSetFont(frontend_font[1]);
-    int64_t n = LbTextStringWidth(text);
-    if (n < (4 * 108)) {
-        spritesy = 1;
-        spritesx = n / 108;
-    }
-    else {
-        spritesx = 4;
-        spritesy = n / (3 * 108);
-    }
-    if (spritesy > 4) {
-        ERRORLOG("Text too long for error box");
-    }
-    if (spritesx < 2) {
-        spritesx = 2;
-    }
-    else
-        if (spritesx > 4) {
-            spritesx = 4;
-        }
-    int64_t box_width = (108 * spritesx + 18) * units_per_pixel / 16;
-    int64_t box_height = 92 * units_per_pixel / 16;
-    int64_t startx = (lbDisplay.PhysicalScreenWidth - box_width) / 2;
-    int64_t starty = (lbDisplay.PhysicalScreenHeight - box_height) / 2;
-    draw_message_box_at(startx, starty, box_width, box_height, spritesx, spritesy);
-    // Draw the text inside box
-    RendererSetDrawFlags(drawflags);
-    int64_t tx_units_per_px = ((box_height / 4) * 13 / 11) * 16 / LbTextLineHeight();
-    LbTextSetWindow(startx, starty, box_width, box_height);
-    n = LbTextLineHeight() * tx_units_per_px / 16;
-    return LbTextDrawResized(tx_units_per_px/2, 0, tx_units_per_px, text);
-}
-
 int64_t scroll_box_get_units_per_px(struct GuiButton *gbtn)
 {
     int64_t width = 0;

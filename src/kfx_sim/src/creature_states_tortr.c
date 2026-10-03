@@ -306,7 +306,7 @@ void convert_creature_to_ghost(struct Room *room, struct Thing *thing)
         create_effect_around_thing(newthing, TngEff_Blood5); // TODO CONFIG: make this effect configurable?
     }
     set_start_state(newthing);
-    strcpy(newcctrl->creature_name, cctrl->creature_name);
+    snprintf(newcctrl->creature_name, sizeof(newcctrl->creature_name), "%s", creature_kept_name(thing));
     kill_creature(thing, INVALID_THING, -1, CrDed_NoEffects|CrDed_DiedInBattle);
     struct Dungeon* dungeon = get_dungeon(room->owner);
     if (!dungeon_invalid(dungeon)) {

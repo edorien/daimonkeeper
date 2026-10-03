@@ -16,6 +16,7 @@
 
 #include "creature_states_hero.h"
 #include "creature_states.h"
+#include "creature_control.h"
 #include "globals.h"
 #include "kfx_sim_test_fixtures.h"
 #include "player_availability.h"
@@ -48,4 +49,45 @@ TEST_CASE_METHOD(ResetSimAndConfig, "is_hero_tunnelling_to_attack requires the p
 
     thing->active_state = CrSt_TunnellerDoingNothing;
     CHECK(is_hero_tunnelling_to_attack(thing));
+}
+
+// Refactor pass 4, P4-F11 and P4-F12: a tunneller is stuck after 150 turns standing still without digging, each
+// tunneller counted on its own. It was a function static counting turns at an unchanged distance to the next step:
+// one distance for all tunnellers (two stuck ones moved in turn reset each other's count), and an unchanged distance
+// is also what standing to dig a slab looks like.
+TEST_CASE("tunneller_stuck_at: 150 turns standing still and not digging, each tunneller on its own", "[kfx_sim][creature_states_hero]") {
+    struct CreatureControl a = {};
+    struct CreatureControl b = {};
+    struct Coord3d pa = {}, pb = {};
+    pa.x.val = 300; pa.y.val = 400;
+    pb.x.val = 900; pb.y.val = 100;
+    // the first turn somewhere starts the count; the 150th turn after it, still there, is stuck
+    int64_t turns = 0;
+    while (!tunneller_stuck_at(&a, &pa, false))
+    {
+        REQUIRE(++turns <= 200);
+    }
+    CHECK(turns == 150);
+
+    // two tunnellers stuck at different places, moved one after the other
+    a = {};
+    int64_t a_turns = 0, b_turns = 0;
+    TbBool a_stuck = false, b_stuck = false;
+    for (int64_t turn = 0; (turn < 200) && !(a_stuck && b_stuck); turn++)
+    {
+        if (!a_stuck) { a_stuck = tunneller_stuck_at(&a, &pa, false); a_turns++; }
+        if (!b_stuck) { b_stuck = tunneller_stuck_at(&b, &pb, false); b_turns++; }
+    }
+    CHECK(a_stuck);
+    CHECK(b_stuck);
+    CHECK(a_turns == 151);
+    CHECK(b_turns == 151);
+
+    // moving, or digging, resets the count: standing to dig a slab for a long time is not being stuck
+    a = {};
+    for (int64_t turn = 0; turn < 400; turn++)
+        CHECK_FALSE(tunneller_stuck_at(&a, &pa, (turn % 20) == 0)); // a dig hit every 20 turns
+    pa.x.val += 8;
+    CHECK_FALSE(tunneller_stuck_at(&a, &pa, false));
+    CHECK(a.party.tunnel_still_turns == 0);
 }

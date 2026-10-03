@@ -227,7 +227,7 @@ TEST_CASE_METHOD(Fixture, "end to end: an installed override drives the real scr
     CHECK(kfx_game_state.script.win_conditions_num == 3);          // 2 last-keeper + 1 survive; the level's own 2 were replaced
     // conditions: 3 prelude rules + the file's own runtime Reaper IF = 4
     CHECK(kfx_game_state.script.conditions_num == 4);
-    CHECK(level_file_version == 1); // the file's own version, untouched by the prelude
+    CHECK(kfx_game_state.level_file_version == 1); // the file's own version, untouched by the prelude
 }
 
 TEST_CASE("a Lua companion that changes the setup is reported, not locked", "[kfx_frontend][skirmish_setup]") {

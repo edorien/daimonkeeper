@@ -142,6 +142,14 @@ struct SettingOption {
     // actually needs it.
     TbBool cfg_bool_inverted;
 
+    // The base config reader (daimonkeeper.cfg, and a mod's keeperfx.cfg) reads cfg_key through this row
+    // instead of a case of its own (config_keeperfx.c; refactor pass 4 S04): a boolean word (cfg_bool_inverted
+    // applied), a name of enum_table, or a whole number limited to int_min..int_max like the screen's (a value
+    // outside is set to the nearer limit, with a warning), set with the row's setter; anything else refused
+    // with a warning. Only for a key whose file value means exactly that: one row per key, the row's own
+    // table, no command-line override or other rule.
+    TbBool cfg_read_by_row;
+
     // Overrides how this option's value is written to keeperfx.cfg,
     // consulted by both setting_option_apply_bool() and _apply_int(). NULL
     // (most rows) means the generic per-type format already used
@@ -194,6 +202,10 @@ extern const int64_t setting_options_count;
 // opt->persist_via_save_settings is set. Does nothing (beyond an ERRORLOG)
 // if opt->type doesn't match the call.
 void setting_option_apply_bool(const struct SettingOption *opt, TbBool val);
+
+const struct SettingOption *setting_option_read_by_row(const char *cfg_key);
+void setting_option_read_cfg_value(const struct SettingOption *opt, const char *buf, int64_t *pos, int64_t len,
+    const char *config_textname);
 void setting_option_apply_int(const struct SettingOption *opt, int64_t val);
 
 // SOptT_Enum helpers -- translate between enum_table's own .num values (what

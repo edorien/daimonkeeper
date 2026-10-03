@@ -39,6 +39,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct LightShadingSignals light_shading_signals;
+static void light_signal_light_changed(const struct Light *lgt, unsigned char change);
 
 /******************************************************************************/
 struct Light *light_allocate_light(void)
@@ -143,10 +144,9 @@ int64_t light_create_light(struct InitLight *ilght)
     {
         kfx_sim_state.light_registry.total_stat_lights++;
         light_add_light_to_list(lgt, &kfx_sim_state.thing_lists[TngList_StaticLights]);
-        kfx_sim_state.light_registry.stat_light_needs_updating = 1;
     }
     lgt->flags |= LgtF_CanTurnOff;
-    lgt->flags |= LgtF_NeedUpdate;
+    light_signal_light_changed(lgt, LgtCh_Created | LgtCh_Reshade);
     lgt->mappos.x.val = ilght->mappos.x.val;
     lgt->mappos.y.val = ilght->mappos.y.val;
     lgt->mappos.z.val = ilght->mappos.z.val;
@@ -186,11 +186,10 @@ TbBool light_create_light_adv(VALUE *init_data)
     {
         kfx_sim_state.light_registry.total_stat_lights++;
         light_add_light_to_list(lgt, &kfx_sim_state.thing_lists[TngList_StaticLights]);
-        kfx_sim_state.light_registry.stat_light_needs_updating = 1;
         clear_flag(lgt->flags, LgtF_Dynamic);
     }
     lgt->flags |= LgtF_CanTurnOff;
-    lgt->flags |= LgtF_NeedUpdate;
+    light_signal_light_changed(lgt, LgtCh_Created | LgtCh_Reshade);
     lgt->mappos.x.val = value_read_stl_coord(value_dict_get(init_data, "SubtileX"));
     lgt->mappos.y.val = value_read_stl_coord(value_dict_get(init_data, "SubtileY"));
     lgt->mappos.z.val = value_read_stl_coord(value_dict_get(init_data, "SubtileZ"));
@@ -351,18 +350,16 @@ int64_t light_is_light_allocated(int64_t lgt_id)
     return true;
 }
 
-void light_reset_interpolation(int64_t lgt_id)
-{
-    struct Light *lgt = &kfx_sim_state.light_registry.lights[lgt_id];
-    lgt->reset_interpolation = true;
-}
-
 void light_set_light_position(int64_t lgt_id, struct Coord3d *pos)
 {
   struct Light *lgt = &kfx_sim_state.light_registry.lights[lgt_id];
 
   if (get_gameturn() > lgt->last_turn_moved)
+  {
+      // the first move of a turn: drawing interpolates from here on, a teleport's reset is over
       lgt->previous_mappos = lgt->mappos;
+      lgt->reset_interpolation = false;
+  }
   lgt->last_turn_moved = get_gameturn();
 
   if ( pos->x.val != lgt->mappos.x.val
@@ -371,34 +368,13 @@ void light_set_light_position(int64_t lgt_id, struct Coord3d *pos)
   {
     if ( (lgt->flags & LgtF_Dynamic) == 0 )
     {
-      kfx_sim_state.light_registry.stat_light_needs_updating = 1;
-      unsigned char range = lgt->range;
-      int64_t end_y = lgt->mappos.y.stl.num + range;
-      int64_t end_x = lgt->mappos.x.stl.num + range;
-      if ( end_y > kfx_sim_state.map_subtiles_y )
-      {
-        end_y = kfx_sim_state.map_subtiles_y;
-      }
-      if ( end_x > kfx_sim_state.map_subtiles_x )
-      {
-        end_x = kfx_sim_state.map_subtiles_x;
-      }
-      int64_t beg_y = lgt->mappos.y.stl.num - range;
-      if ( beg_y < 0 )
-      {
-        beg_y = 0;
-      }
-      int64_t beg_x = lgt->mappos.x.stl.num - range;
-      if ( beg_x < 0 )
-      {
-        beg_x = 0;
-      }
-      light_signal_stat_light_update_in_area(beg_x, beg_y, end_x, end_y);
+      // the area it shaded where it was
+      light_signal_light_changed(lgt, LgtCh_OwnArea);
     }
     lgt->mappos.x.val = pos->x.val;
     lgt->mappos.y.val = pos->y.val;
     lgt->mappos.z.val = pos->z.val;
-    lgt->flags |= LgtF_NeedUpdate;
+    light_signal_light_changed(lgt, LgtCh_Reshade);
   }
 }
 
@@ -453,11 +429,11 @@ void light_remove_light_from_list(struct Light *lgt, struct StructureList *list)
 }
 
 /**
- * Records a static light map area for kfx_render to clear before it next
- * shades (see struct LightShadingSignals). Used to clear it right here, which
- * reached into kfx_render.
+ * Records an area for kfx_render to apply before it next shades (see struct
+ * LightShadingSignals): clear the static light map there, or shade again the
+ * lights that shade it.
  */
-static void light_signal_stat_light_map_area(int64_t x1, int64_t y1, int64_t x2, int64_t y2)
+static void light_signal_area(int64_t x1, int64_t y1, int64_t x2, int64_t y2, unsigned char kind)
 {
     struct LightShadingSignals *sig = &light_shading_signals;
     if (sig->areas_overflowed)
@@ -465,7 +441,7 @@ static void light_signal_stat_light_map_area(int64_t x1, int64_t y1, int64_t x2,
     if (sig->areas_count > 0)
     {
         const struct LightShadingArea *last = &sig->areas[sig->areas_count - 1];
-        if ((last->x1 == x1) && (last->y1 == y1) && (last->x2 == x2) && (last->y2 == y2))
+        if ((last->x1 == x1) && (last->y1 == y1) && (last->x2 == x2) && (last->y2 == y2) && (last->kind == kind))
             return;
     }
     if (sig->areas_count >= LIGHT_SHADING_AREAS_MAX)
@@ -479,77 +455,32 @@ static void light_signal_stat_light_map_area(int64_t x1, int64_t y1, int64_t x2,
     area->y1 = y1;
     area->x2 = x2;
     area->y2 = y2;
+    area->kind = kind;
+}
+
+/** Records that a light changed (LightChangeFlags) for kfx_render; LgtCh_OwnArea keeps where it is now. */
+static void light_signal_light_changed(const struct Light *lgt, unsigned char change)
+{
+    struct LightShadingSignals *sig = &light_shading_signals;
+    int64_t idx = lgt->index;
+    if ((idx <= 0) || (idx >= LIGHTS_COUNT))
+        return;
+    if (((change & LgtCh_OwnArea) != 0) && ((sig->light_changed[idx] & LgtCh_OwnArea) == 0))
+    {
+        sig->changed_stl_x[idx] = lgt->mappos.x.stl.num;
+        sig->changed_stl_y[idx] = lgt->mappos.y.stl.num;
+    }
+    sig->light_changed[idx] |= change;
 }
 
 void light_signal_stat_light_update_in_area(int64_t x1, int64_t y1, int64_t x2, int64_t y2)
 {
-  int64_t i = 0;
-  struct Light *lgt = &kfx_sim_state.light_registry.lights[1];
-  do
-  {
-    if ( lgt->flags & LgtF_Allocated )
-    {
-      if ( !(lgt->flags & LgtF_Dynamic) )
-      {
-        unsigned char range = lgt->range;
-        MapSubtlCoord x = lgt->mappos.x.stl.num;
-        MapSubtlCoord y = lgt->mappos.y.stl.num;
-        if ( range + x >= x1 && x - range <= x2 && range + y >= y1 && y - range <= y2 )
-        {
-          kfx_sim_state.light_registry.stat_light_needs_updating = 1;
-          i++;
-          lgt->flags |= LgtF_NeedUpdate;
-          lgt->flags &= ~LgtF_OutOfDate;
-        }
-      }
-    }
-    lgt++;
-  }
-  while ( lgt < &kfx_sim_state.light_registry.lights[LIGHTS_COUNT] );
-  if ( i )
-    light_signal_stat_light_map_area(x1, y1, x2, y2);
+    light_signal_area(x1, y1, x2, y2, LgtArea_StaticLights);
 }
 
 void light_signal_update_in_area(int64_t sx, int64_t sy, int64_t ex, int64_t ey)
 {
-  struct Light *lgt = &kfx_sim_state.light_registry.lights[1];
-  do
-  {
-    if ( lgt->flags & LgtF_Allocated )
-    {
-      if ( lgt->flags & LgtF_Dynamic )
-      {
-        unsigned char range = lgt->range;;
-        MapSubtlCoord x = lgt->mappos.x.stl.num;
-        MapSubtlCoord y = lgt->mappos.y.stl.num;
-        if ( range + x >= sx && x - range <= ex && range + y >= sy && y - range <= ey )
-          lgt->flags |= LgtF_NeedUpdate;
-      }
-    }
-    lgt++;
-  }
-  while ( lgt < &kfx_sim_state.light_registry.lights[LIGHTS_COUNT] );
-  light_signal_stat_light_update_in_area(sx, sy, ex, ey);
-}
-
-static void light_signal_stat_light_update_in_own_radius(struct Light *lgt)
-{
-    int64_t radius = lgt->range;
-    int64_t end_y = (int64_t)lgt->mappos.y.stl.num + radius;
-    if (end_y >= kfx_sim_state.map_subtiles_y)
-        end_y = kfx_sim_state.map_subtiles_y;
-    int64_t end_x = (int64_t)lgt->mappos.x.stl.num + radius;
-    if (end_x >= kfx_sim_state.map_subtiles_x)
-        end_x = kfx_sim_state.map_subtiles_x;
-    int64_t start_y = (int64_t)lgt->mappos.y.stl.num - radius;
-    if (start_y <= 0)
-        start_y = 0;
-    int64_t start_x = (int64_t)lgt->mappos.x.stl.num - radius;
-    if (start_x <= 0)
-      start_x = 0;
-    if ((end_x <= start_x) || (end_y <= start_y))
-        return;
-    light_signal_stat_light_update_in_area(start_x, start_y, end_x, end_y);
+    light_signal_area(sx, sy, ex, ey, LgtArea_AllLights);
 }
 
 void light_turn_light_off(int64_t idx)
@@ -570,9 +501,8 @@ void light_turn_light_off(int64_t idx)
     if ((lgt->flags & LgtF_Dynamic) != 0) {
         light_remove_light_from_list(lgt, &kfx_sim_state.thing_lists[TngList_DynamLights]);
     } else {
-        light_signal_stat_light_update_in_own_radius(lgt);
+        light_signal_light_changed(lgt, LgtCh_OwnArea);
         light_remove_light_from_list(lgt, &kfx_sim_state.thing_lists[TngList_StaticLights]);
-        kfx_sim_state.light_registry.stat_light_needs_updating = 1;
     }
 }
 
@@ -595,13 +525,11 @@ void light_turn_light_on(int64_t idx)
     if ((lgt->flags & LgtF_Dynamic) != 0)
     {
         light_add_light_to_list(lgt, &kfx_sim_state.thing_lists[TngList_DynamLights]);
-        lgt->flags |= LgtF_NeedUpdate;
     } else
     {
         light_add_light_to_list(lgt, &kfx_sim_state.thing_lists[TngList_StaticLights]);
-        kfx_sim_state.light_registry.stat_light_needs_updating = 1;
-        lgt->flags |= LgtF_NeedUpdate;
     }
+    light_signal_light_changed(lgt, LgtCh_Reshade);
 }
 
 unsigned char light_get_light_intensity(int64_t idx)
@@ -628,7 +556,6 @@ unsigned char light_get_light_intensity(int64_t idx)
 void light_set_light_intensity(int64_t idx, unsigned char intensity)
 {
   struct Light *lgt = &kfx_sim_state.light_registry.lights[idx];
-  int64_t x1,x2,y1,y2;
   if ( !light_is_invalid(lgt) )
   {
     if ((lgt->flags & LgtF_Allocated) != 0)
@@ -637,24 +564,12 @@ void light_set_light_intensity(int64_t idx, unsigned char intensity)
       {
         if ((lgt->flags & LgtF_Dynamic) == 0)
         {
-          y2 = lgt->mappos.y.stl.num + lgt->range;
-          if ( y2 > kfx_sim_state.map_subtiles_y )
-            y2 = kfx_sim_state.map_subtiles_y;
-          x2 = lgt->mappos.x.stl.num + lgt->range;
-          if ( x2 > kfx_sim_state.map_subtiles_x )
-            x2 = kfx_sim_state.map_subtiles_x;
-          y1 = lgt->mappos.y.stl.num - lgt->range;
-          if ( y1 < 0 )
-            y1 = 0;
-          x1 = lgt->mappos.x.stl.num - lgt->range;
-          if ( x1 < 0 )
-            x1 = 0;
-          light_signal_stat_light_update_in_area(x1, y1, x2, y2);
-          kfx_sim_state.light_registry.stat_light_needs_updating = 1;
+          // the area it shaded at the old intensity
+          light_signal_light_changed(lgt, LgtCh_OwnArea);
         }
         lgt->intensity = intensity;
         if ( lgt->min_intensity < intensity )
-          lgt->flags |= LgtF_NeedUpdate;
+          light_signal_light_changed(lgt, LgtCh_Reshade);
       }
     }
     else
@@ -705,7 +620,7 @@ void light_delete_light(int64_t idx)
     } else
     {
         kfx_sim_state.light_registry.total_stat_lights--;
-        light_signal_stat_light_update_in_own_radius(lgt);
+        light_signal_light_changed(lgt, LgtCh_OwnArea);
         light_remove_light_from_list(lgt, &kfx_sim_state.thing_lists[TngList_StaticLights]);
     }
     light_free_light(lgt);
@@ -722,7 +637,6 @@ void light_initialise(void)
     }
     // kfx_render builds its lighting tables itself, the first time it
     // shades (light_data.c's light_initialise_shading()).
-    kfx_sim_state.light_registry.stat_light_needs_updating = 1;
     kfx_sim_state.light_registry.total_dynamic_lights = 0;
     kfx_sim_state.light_registry.total_stat_lights = 0;
 }
@@ -745,6 +659,31 @@ void light_set_lights_on(char state)
     }
 
     light_request_stat_refresh();
+}
+
+/**
+ * The rules can change by script or Lua: while the lights follow them (light_auto_sync), a change of the ambient
+ * light or of the lights being on reaches the registry here, once a turn, and the static map is rebuilt. Moved from
+ * kfx_render's light_data.c (refactor pass 5, S11): it writes simulation state.
+ */
+void update_global_lighting(void)
+{
+    if (!kfx_sim_state.light_registry.light_auto_sync)
+        return;
+    if ((kfx_config_state.conf.rules[0].gameplay.global_ambient_light != kfx_sim_state.light_registry.global_ambient_light) ||
+        (kfx_config_state.conf.rules[0].gameplay.light_enabled != kfx_sim_state.light_registry.light_enabled))
+    {
+        kfx_sim_state.light_registry.global_ambient_light = kfx_config_state.conf.rules[0].gameplay.global_ambient_light;
+        kfx_sim_state.light_registry.light_enabled = kfx_config_state.conf.rules[0].gameplay.light_enabled;
+        light_request_stat_refresh();
+    }
+}
+
+/** Fullbright, no lights: the registry's lighting at the end of a level (was kfx_render's clear_stat_light_map()). */
+void light_registry_reset_lighting(void)
+{
+    kfx_sim_state.light_registry.global_ambient_light = 32;
+    kfx_sim_state.light_registry.light_enabled = 0;
 }
 
 void light_init_dungeon_heart(int64_t lgt_id, int64_t min_radius, int64_t min_intensity)
@@ -830,7 +769,7 @@ TbBool light_get_lights_enabled(void)
 void light_request_stat_refresh(void)
 {
     // Enable lights on all but bounding subtiles
-    light_signal_stat_light_map_area(0, 0, kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y);
+    light_signal_area(0, 0, kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, LgtArea_ClearMap);
     light_signal_stat_light_update_in_area(1, 1, kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y);
 }
 

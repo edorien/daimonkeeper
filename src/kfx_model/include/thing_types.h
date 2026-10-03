@@ -52,7 +52,7 @@ enum ThingFlags1 {
     TF1_InCtrldLimbo   = 0x02,
     TF1_PushAdd        = 0x04,
     TF1_PushOnce       = 0x08,
-    TF1_DoFootsteps    = 0x10,
+    // 0x10 was TF1_DoFootsteps (the local camera's; refactor pass 5 S04 moved it to kfx_game_local)
     TF1_Teleported     = 0x20,
     TF1_FallingIntoAbyss = 0x40,
 };
@@ -171,8 +171,6 @@ struct Thing {
       } disease;
       struct {
         int64_t room_idx;
-        int64_t last_turn_drawn;
-        unsigned char display_timer;
       } roomflag;
 //TCls_Shot
       struct {
@@ -296,7 +294,6 @@ struct Thing {
     int64_t next_of_class;
     int64_t prev_of_class;
     uint64_t flags; //ThingAddFlags
-    GameTurn last_turn_drawn;
     GameTurn last_turn_damaged;
     int64_t previous_floor_height;
     struct Coord3d previous_mappos;

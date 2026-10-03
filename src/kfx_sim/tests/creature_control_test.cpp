@@ -106,16 +106,18 @@ TEST_CASE_METHOD(ResetSimAndConfigState, "creature_own_name resolves a CMF_OneOf
     CHECK(std::strcmp(creature_own_name(thing), "oh_crap_invalid_string_id") == 0);
 }
 
-TEST_CASE_METHOD(ResetSimAndConfigState, "creature_own_name generates a name into the empty buffer once, seeded from the thing", "[kfx_sim][creature_control]") {
+TEST_CASE_METHOD(ResetSimAndConfigState, "creature_own_name generates a name seeded from the thing, without storing it", "[kfx_sim][creature_control]") {
     struct Thing *thing = make_creature();
     thing->creation_turn = 1234;
     const char *name = creature_own_name(thing);
-    CHECK(name == creature_control_get(1)->creature_name);
     CHECK(std::strlen(name) >= 2);
     std::string first(name);
-
-    CHECK(creature_own_name(thing) == first); // stored now, so returned as-is
-
-    creature_control_get(1)->creature_name[0] = '\0';
+    // reading a name changes nothing in the creature (refactor pass 5, P5-F20)
+    CHECK(creature_control_get(1)->creature_name[0] == '\0');
     CHECK(creature_own_name(thing) == first); // same seed, same name
+    CHECK(std::string(creature_kept_name(thing)) == first); // what a transform or a transfer keeps
+
+    std::strcpy(creature_control_get(1)->creature_name, "Given");
+    CHECK(std::string(creature_own_name(thing)) == "Given"); // a name it was given
+    CHECK(std::string(creature_kept_name(thing)) == "Given");
 }

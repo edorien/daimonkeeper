@@ -294,6 +294,40 @@ void PaletteApplyPainToPlayer(struct PlayerInfo *player, int64_t intense)
     local_state.palette_fade_step_pain = i;
 }
 
+/** The palette a ViewPalette names. */
+unsigned char *view_palette(enum ViewPalette pal)
+{
+    static unsigned char white_palette[PALETTE_SIZE];
+    switch (pal)
+    {
+    case VPal_Freeze:
+        return blue_palette;
+    case VPal_Lightning:
+        return lightning_palette;
+    case VPal_White:
+        LbPaletteDataFillWhite(white_palette);
+        return white_palette;
+    case VPal_Engine:
+    default:
+        return engine_palette;
+    }
+}
+
+void PaletteSetUserViewPalette(NetUserId user, enum ViewPalette pal)
+{
+    PaletteSetUserPalette(user, view_palette(pal));
+}
+
+void PaletteSetViewPalette(enum ViewPalette pal)
+{
+    RendererPaletteSet(view_palette(pal));
+}
+
+void PaletteFadeToView(enum ViewPalette pal, int64_t fade_steps)
+{
+    LbPaletteFade(view_palette(pal), fade_steps, Lb_PALETTE_FADE_OPEN);
+}
+
 void PaletteSetUserPalette(NetUserId user, unsigned char *pal)
 {
     struct UserState* ustate = get_user_state(user);

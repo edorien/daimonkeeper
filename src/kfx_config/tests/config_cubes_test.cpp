@@ -9,25 +9,14 @@
 // config/fxdata/cubes.cfg's own syntax ("[cube0]", space-separated
 // array values, named flag tokens).
 //
-// Found while reading this file, not fixed: config_cubes.h declares
-// `extern struct NamedCommand cubes_desc[...]` but config_cubes.c
-// defines `cube_desc` (no trailing "s") -- two different names, so
-// `cubes_desc` is a dead, never-defined, never-referenced-elsewhere
-// declaration. Not touched here, same restraint as other
-// found-not-fixed quirks this pass. clear_cubes() had real external
-// linkage but no header declaration at all; added.
-//
-// A second, more consequential quirk, confirmed by an actual test
-// failure (not assumed from reading): config.c's set_defaults() only
-// auto-populates a NamedFieldSet's `names[]` table (cube_desc here) for
-// a field literally named "NAME" (uppercase, matched with strcmp) --
-// config_lenses.c's Name field IS "NAME" and gets this for free, but
-// config_cubes.c's is "Name" (mixed case), so cube_desc[] is NEVER
-// populated by load_cubes_config_file(), and cube_code_name() (which
-// reads cube_desc via get_conf_parameter_text()) always returns
-// "INVALID" regardless of what was actually loaded. Currently dormant:
-// cube_code_name()/cube_model_id() aren't called from anywhere outside
-// this file. cube_model_id() itself is unaffected -- it scans
+// A quirk: config.c's set_defaults() only auto-populates a
+// NamedFieldSet's `names[]` table (cube_desc here) for a field literally
+// named "NAME" (uppercase, matched with strcmp) -- config_lenses.c's Name
+// field IS "NAME" and gets this for free, but config_cubes.c's is "Name"
+// (mixed case), so cube_desc[] is NEVER populated by
+// load_cubes_config_file(). Nothing reads it (cube_code_name(), which did
+// and so always returned "INVALID", was never called and went in
+// refactor pass 4 S01, with clear_cubes()). cube_model_id() scans
 // cube_cfgstats[].code_name directly, not cube_desc.
 #include <catch2/catch_test_macros.hpp>
 
@@ -65,25 +54,6 @@ TEST_CASE_METHOD(ResetConfigState, "cube_model_id finds a loaded cube by code na
 
     CHECK(cube_model_id("CUBE_A") == 0);
     CHECK(cube_model_id("NOT_A_REAL_CUBE") == -1);
-}
-
-TEST_CASE_METHOD(ResetConfigState, "cube_code_name always returns INVALID, even for a just-loaded cube -- cube_desc is never populated (see file comment)", "[kfx_config][config_cubes]") {
-    REQUIRE(keeper_cubes_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/cubes_minimal.cfg", 0));
-
-    CHECK(std::strcmp(cube_code_name(0), "INVALID") == 0);
-}
-
-TEST_CASE_METHOD(ResetConfigState, "cube_code_name falls back to INVALID for an unnamed model", "[kfx_config][config_cubes]") {
-    CHECK(std::strcmp(cube_code_name(5), "INVALID") == 0);
-}
-
-TEST_CASE_METHOD(ResetConfigState, "clear_cubes zeroes the whole cube config, including a previously loaded entry", "[kfx_config][config_cubes]") {
-    REQUIRE(keeper_cubes_file_data.load_func(KFX_CONFIG_TEST_FIXTURES_DIR "/cubes_minimal.cfg", 0));
-    clear_cubes();
-
-    struct CubeConfigStats *stat = get_cube_model_stats(0);
-    CHECK(stat->code_name[0] == '\0');
-    CHECK(stat->texture_id[0] == 0);
 }
 
 TEST_CASE_METHOD(ResetConfigState, "load_cubes_config_file returns false for a missing file", "[kfx_config][config_cubes]") {

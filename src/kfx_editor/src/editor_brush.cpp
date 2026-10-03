@@ -24,6 +24,7 @@
 #include "player_instances.h"
 #include "config_terrain.h"
 #include <vector>
+#include "list_walk.h"
 #include "post_inc.h"
 
 namespace {
@@ -158,13 +159,8 @@ void editor_brush_capture(MapSlabCoord box_beg_x, MapSlabCoord box_beg_y, MapSla
                             MapSubtlCoord tstl_x = slab_subtile(sx, sub_x);
                             MapSubtlCoord tstl_y = slab_subtile(sy, sub_y);
                             struct Map *mapblk = get_map_block_at(tstl_x, tstl_y);
-                            int64_t ti = get_mapwho_thing_index(mapblk);
-                            while (ti != 0)
+                            FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
                             {
-                                struct Thing *thing = thing_get(ti);
-                                if (thing_is_invalid(thing))
-                                    break;
-                                ti = thing->next_on_mapblk;
                                 if (!is_brush_capturable_thing_class(thing->class_id))
                                     continue;
                                 // Same "Heart/Portal excluded" restriction

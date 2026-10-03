@@ -43,8 +43,6 @@ std::vector<std::string> content_strings_languages(const std::string &root, cons
 std::map<int64_t, std::vector<std::string>> content_strings_usage(const ContentCampaign *campaign, const std::string &levels_dir,
     const std::vector<int64_t> &levels);
 
-/** Display text of an entry: code page -> UTF-8, CR LF shown as a plain line break. */
-std::string content_strings_display(const std::string &raw);
 
 class StringsSession
 {

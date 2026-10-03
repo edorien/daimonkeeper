@@ -52,6 +52,7 @@
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -87,29 +88,10 @@ TbBool trap_is_slappable_by_player(const struct Thing *thing, PlayerNumber plyr_
 struct Thing *get_trap_for_position(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing->class_id == TCls_Trap) {
             return thing;
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -232,19 +214,8 @@ TbBool creature_available_for_trap_trigger(struct Thing* creatng)
 TbBool update_trap_trigger_line_of_sight_90_on_subtile(struct Thing *traptng, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_is_creature(thing) && (thing->owner != traptng->owner))
         {
             // Trigger for enemy player, or any player for neutral traps (otherwise neutral traps would be useless)
@@ -264,14 +235,6 @@ TbBool update_trap_trigger_line_of_sight_90_on_subtile(struct Thing *traptng, Ma
                     return true;
                 }
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return false;
@@ -711,19 +674,8 @@ void activate_trap_by_slap(struct PlayerInfo *player, struct Thing* traptng)
 TbBool find_pressure_trigger_trap_target_passing_by_subtile(const struct Thing *traptng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing **found_thing)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_is_creature(thing))
         {
             if (creature_available_for_trap_trigger(thing) && (thing->owner != traptng->owner))
@@ -742,14 +694,6 @@ TbBool find_pressure_trigger_trap_target_passing_by_subtile(const struct Thing *
                     return true;
                 }
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return false;
@@ -1146,29 +1090,12 @@ struct Thing *create_trap(struct Coord3d *pos, ThingModel trpkind, PlayerNumber 
 
 void init_traps(void)
 {
-    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, slist->index))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per thing code
         if (thing->trap.num_shots == 0)
         {
             rearm_trap(thing);
-        }
-        // Per thing code ends
-        k++;
-        if (k > slist->index)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
 }

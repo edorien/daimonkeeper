@@ -30,6 +30,7 @@
 #include "config_strings.h"
 #include "config_keeperfx.h"
 #include "local_view.h"
+#include "frontmenu_specials.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -235,6 +236,7 @@ const struct UiPort kfx_frontend_ui_port = {
     .update_player_objectives = &update_player_objectives,
     .create_message_box = &create_message_box,
     .turn_on_menu = &turn_on_menu,
+    .open_dungeon_special_menu = &open_dungeon_special_menu,
     .turn_off_menu = &turn_off_menu,
     .turn_off_query_menus = &turn_off_query_menus,
     .turn_off_all_menus = &turn_off_all_menus,

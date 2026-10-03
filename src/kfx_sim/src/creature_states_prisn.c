@@ -48,6 +48,7 @@
 #include "light_registry.h"
 #include "ports/script_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -67,26 +68,17 @@ TbBool jailbreak_possible(struct Room *room, PlayerNumber creature_owner)
     {
         return false;
     }
-    uint64_t k = 0;
-    uint64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_from(room->slabs_list, kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y))
     {
-        slb = get_slabmap_direct(i);
+        slb = get_slabmap_direct(slb_num);
         if (slabmap_block_invalid(slb))
         {
             ERRORLOG("Jump to invalid room slab detected");
             break;
         }
-        if (slab_by_players_land(creature_owner, slb_num_decode_x(i), slb_num_decode_y(i)))
+        if (slab_by_players_land(creature_owner, slb_num_decode_x(slb_num), slb_num_decode_y(slb_num)))
         {
             return true;
-        }
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
         }
     }
     return false;

@@ -64,11 +64,11 @@ categories need special handling:
 
 Refactor pass 2 keeps a **move ledger** of every function, prototype, global
 and callback entry it moves
-([`docs/refactor-pass2/function-moves.md`](../refactor-pass2/function-moves.md)).
+([`move-ledger.md`](move-ledger.md)).
 For each upstream file in the diff, run:
 
 ```bash
-python3 docs/refactor-pass2/tools/move_ledger.py upstream <upstream path>
+python3 scripts/move_ledger.py upstream <upstream path>
 ```
 
 It lists the functions in that upstream file that now live elsewhere, with
@@ -139,9 +139,58 @@ patterns from the 2026-09 merge:
   2's S15 this was `sim_feedback->foo(...)` and friends; the ledger maps every
   old entry to its port. **Before re-routing** an upstream direct call
   through a port, run
-  `python3 docs/refactor-pass2/tools/move_ledger.py lookup <function>`: if a
+  `python3 scripts/move_ledger.py lookup <function>`: if a
   `callback-entry … (direct call)` row is `done`, this fork deliberately went
   back to the direct call, so keep upstream's.
+- **A hand-written list walk.** This fork walks the sim's linked lists with
+  `list_walk.h`'s `FOR_EACH_THING` / `FOR_EACH_ROOM` / `FOR_EACH_ROOM_SLAB`
+  (refactor pass 3, S01), so upstream's `while (i != 0) { thing =
+  thing_get(i); … i = thing->next_…; … k++; if (k > …) … }` loops no longer
+  exist here. An upstream hunk inside one goes into the body of the matching
+  `FOR_EACH_*` loop; its header and footer lines have no counterpart. A new
+  upstream walk can be merged as written (it still works) and converted in
+  the same merge when it has the plain shape. `python3 scripts/clone_report.py
+  --walks` shows the count creeping back up.
+- **A `case` in a creature, creature model or magic block parser.** This
+  fork parses the creature model files (`config_crtrmodel.c`), creature.cfg's
+  blocks (`config_creature.c`) and magic.cfg's `[spellN]` / `[specialN]`
+  (`config_magic.c`) with `NamedField` tables (refactor pass 3, S04), so
+  upstream's `switch (cmd_num)` cases there have no counterpart:
+  `python3 scripts/move_ledger.py lookup parse_creaturemodel_<block>_blocks`
+  names the table. An upstream `case` for a new key becomes a row: a plain
+  `atoi` number is a `value_atoi` / `assign_cast` row (the hand-written
+  rules, README finding F10 of pass 3); a key with its own rules gets a
+  parse function next to the table, its body moved from the `case` with
+  `buf, &pos, len` reading `value_text` instead (argnum
+  `NAMFIELD_WHOLE_LINE_UNLIMITED`). The editor schema reads the row (key, kind,
+  bounds); only a row with its own parse function also needs a shape in
+  `cfgc_schema_creature.cpp`. A creature model key also goes into the
+  block's `creatmodel_*_commands` key table (level scripts'
+  `SET_CREATURE_CONFIGURATION` names keys through it).
+  `cfgc_schema_parser_tables_test.cpp` fails until all agree. Run the
+  `[golden]` tests of `kfx_config_utest`: every changed hash must be
+  explained by the new key (a corpus file that uses it, which was reporting
+  it as unknown); then add the key to the test's key list and regenerate
+  with `KFX_CONFIG_GOLDEN_WRITE=1`.
+- **A level-information key.** A campaign's `[mapN]` blocks and a level's
+  `.lof` file share one key parser here, `parse_level_info_key()` in
+  `config_campaigns.c` (refactor pass 3, S05): an upstream change to a
+  `case` of `parse_campaign_map_block()` or `level_lof_file_parse()` that
+  both have goes there, once. Only `KIND` and `MAP_FORMAT_VERSION` stay in
+  the `.lof` parser. Run `kfx_sim_utest "[golden]"`.
+- **Console commands, script command checks and their Lua twins** (refactor
+  pass 3, S07). A console command that needs cheat mode says so in
+  `console_commands[]`'s `needs_cheats` column; an upstream command that
+  arrives with the old five-line cheat-mode preamble loses it when merged
+  and gets `true` there. Replies use `console_reply(plyr_idx, …)`. A fix to
+  `SET_COMPUTER_GLOBALS`/`_PROCESS`/`_CHECKS` or `HIDE_HERO_GATE`, in either
+  the script `_process` or the Lua function, goes into the shared worker
+  (`computer_set_*()` in `kfx_ai/src/player_computer.c`,
+  `hero_gate_set_hidden()` in `kfx_sim/src/thing_list.c`) and then applies to
+  both. The quick message, player modifier, `IF`-family and
+  `SET_CREATURE_CONFIGURATION` checks share helpers in
+  `lvl_script_commands.c`; `move_ledger.py lookup` names them. Run
+  `kfx_game_utest "[script_golden]"`.
 - **Upstream debug logging.** Upstream still has the `keeperfx_hvlog` build and
   `#if (BFDEBUG_LEVEL > N)` blocks; this fork has one binary with a runtime
   `LOG_LEVEL` (refactor pass 2, S02). The `*DBG` macros keep their names and
@@ -159,8 +208,8 @@ patterns from the 2026-09 merge:
   or moves a field in a saved/resynced struct is a layout change**: the
   `_Static_assert` in that struct's `.c` file fails the build until you
   bump its version and size in `kfx_config/include/state_versions.h`, and
-  the bump needs a release-note line in `docs/refactor-pass2/README.md`'s
-  decisions table (refactor pass 2, S09).
+  the bump needs a line in architecture.md §6's save-compatibility list
+  (refactor pass 2, S09).
 - **A whole-file "our side is empty" conflict.** Before assuming the content
   is missing, `grep` for each function's current definition across
   `src/kfx_*/`. If every function in the block already exists elsewhere
@@ -172,12 +221,20 @@ patterns from the 2026-09 merge:
 ```bash
 python3 scripts/check_layering.py --strict
 python3 scripts/check_layering_symbols.py --strict
+python3 scripts/move_ledger.py check
 ./build-cmake-linux.sh                  # out/linux/daimonkeeper (target: keeperfx)
 cmake --build out/linux_tests --target kfx_platform_utest kfx_config_utest \
   kfx_pathfinding_utest kfx_sim_utest kfx_render_utest kfx_net_utest \
   kfx_game_utest kfx_frontend_utest kfx_script_utest kfx_apploop_utest -j"$(nproc)"
 ctest --test-dir out/linux_tests --output-on-failure
 ```
+
+`move_ledger.py check` reports `DRIFT` when the merge moved or deleted a
+symbol the move ledger tracks (upstream removing a function the fork had
+turned into a port entry, for example). Record it with a `merge` row in
+`scripts/function-moves.tsv` (`from` where the ledger last put it, `to` the new home
+or `(deleted)`, the merge commit, and the upstream change in the notes) until
+`check` is clean.
 
 A clean full build is the real test of whether every conflict resolution was
 correct — the compiler and linker will surface anything a conflict-marker

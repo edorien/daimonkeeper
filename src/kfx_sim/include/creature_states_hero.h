@@ -46,6 +46,8 @@ enum CreatureHeroTasks {
 };
 
 struct Thing;
+struct CreatureControl;
+struct Coord3d;
 
 #pragma pack()
 /******************************************************************************/
@@ -59,6 +61,7 @@ int64_t good_returns_to_start(struct Thing *thing);
 int64_t good_wait_in_exit_door(struct Thing *thing);
 int64_t creature_hero_entering(struct Thing *thing);
 int64_t tunneller_doing_nothing(struct Thing *creatng);
+TbBool tunneller_stuck_at(struct CreatureControl *cctrl, const struct Coord3d *pos, TbBool digging);
 int64_t tunnelling(struct Thing *creatng);
 int64_t good_arrived_at_attack_dungeon_heart(struct Thing* thing);
 int64_t good_arrived_at_combat(struct Thing* thing);

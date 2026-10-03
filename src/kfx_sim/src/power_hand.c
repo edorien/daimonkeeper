@@ -59,6 +59,7 @@
 #include "light_registry.h"
 #include "ports/audio_port.h"
 #include "ports/ai_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -554,20 +555,8 @@ TbBool object_is_slappable_by_player(const struct Thing *thing, PlayerNumber ply
 
 /*void get_nearest_thing_for_hand_or_slap_on_map_block(int32_t *near_distance, struct Thing **near_thing,struct Map *mapblk, long plyr_idx, long x, long y)
 {
-  struct Thing *thing;
-  long i;
-  unsigned long k;
-  k = 0;
-  i = get_mapwho_thing_index(mapblk);
-  while (i != 0)
+  FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
   {
-    thing = thing_get(i);
-    if (thing_is_invalid(thing))
-    {
-      ERRORLOG("Jump to invalid thing detected");
-      break;
-    }
-    i = thing->next_on_mapblk;
     // Begin per-loop code
     if (((thing->alloc_flags & TAlF_IsInLimbo) == 0) && ((thing->state_flags & TF1_InCtrldLimbo) == 0) && (thing->continue_state != 67))
     {
@@ -581,13 +570,6 @@ TbBool object_is_slappable_by_player(const struct Thing *thing, PlayerNumber ply
       }
     }
     // End of per-loop code
-    k++;
-    if (k > THINGS_COUNT)
-    {
-      ERRORLOG("Infinite loop detected when sweeping things list");
-      break_mapwho_infinite_chain(mapblk);
-      break;
-    }
   }
 }*/
 
@@ -1173,32 +1155,13 @@ void stop_creatures_around_hand(PlayerNumber plyr_idx, MapSubtlCoord stl_x,  Map
         if(mapblk == INVALID_MAP_BLOCK)
             continue;
 
-        uint64_t k = 0;
-        int64_t j = get_mapwho_thing_index(mapblk);
-        while (j != 0)
+        FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
         {
-            struct Thing* thing = thing_get(j);
-            TRACE_THING(thing);
-            if (thing_is_invalid(thing))
-            {
-                ERRORLOG("Jump to invalid thing detected");
-                break;
-            }
-            j = thing->next_on_mapblk;
-            // Per thing code start
                 if ( thing_is_creature(thing) && can_thing_be_picked_up_by_player(thing, plyr_idx) && thing->owner == plyr_idx )
                 {
                     struct CreatureControl  *cctrl = creature_control_get_from_thing(thing);
                     cctrl->stopped_for_hand_turns = 20;
                 }
-            // Per thing code end
-            k++;
-            if (k > THINGS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break_mapwho_infinite_chain(mapblk);
-                break;
-            }
         }
     }
 }
@@ -1357,7 +1320,7 @@ static TbBool hand_rule_block_pickup(struct HandRule* hand_rule, const struct Th
 }
 
 typedef TbBool (*HandTestFn) (struct HandRule *rule, const struct Thing *thing);
-static HandTestFn hand_rule_test_fns[] = {
+static HandTestFn const hand_rule_test_fns[] = {
     hand_rule_unset,
     hand_rule_always,
     hand_rule_age_lower,

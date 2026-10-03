@@ -42,6 +42,7 @@
 #include "kfx_pathfinding_state.h"
 #include "player_camera.h"
 #include "ports/script_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -284,19 +285,9 @@ struct Thing *find_best_hero_gate_to_navigate_to(struct Thing *herotng)
     }
 
     //Go through all objects to find gates and record distance
-    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    int64_t k = 0;
     int64_t found_gates = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Objects].index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per thing code
         if (!object_is_hero_gate(thing) || thing_is_picked_up(thing))
         {
             continue;
@@ -306,16 +297,8 @@ struct Thing *find_best_hero_gate_to_navigate_to(struct Thing *herotng)
         hero_gates[found_gates].distance = get_chessboard_distance(&thing->mappos, &herotng->mappos);;
         hero_gates[found_gates].friendly = (players_are_enemies(herotng->owner, get_slab_owner_thing_is_on(thing)) == false);
         found_gates++;
-        if (found_gates > HERO_GATES_COUNT)
+        if (found_gates >= HERO_GATES_COUNT)
             break;
-
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
 
     //sort them by friendly first, distance second

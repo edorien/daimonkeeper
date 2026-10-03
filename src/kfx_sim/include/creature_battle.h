@@ -45,8 +45,6 @@ struct CreatureBattle {
 /******************************************************************************/
 #define INVALID_CRTR_BATTLE (&kfx_sim_state.battles[0])
 /******************************************************************************/
-extern int64_t friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
-extern int64_t enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
 /******************************************************************************/
 
 struct CreatureBattle *creature_battle_get(BattleIndex battle_id);
@@ -58,6 +56,8 @@ BattleIndex find_first_battle_of_mine(PlayerNumber plyr_idx);
 BattleIndex find_last_battle_of_mine(PlayerNumber plyr_idx);
 BattleIndex find_next_battle_of_mine(PlayerNumber plyr_idx, BattleIndex prev_idx);
 BattleIndex find_previous_battle_of_mine(PlayerNumber plyr_idx, BattleIndex next_idx);
+TbBool clear_battlers(int64_t *friendly_battlers, int64_t *enemy_battlers);
+int64_t setup_player_battlers(struct PlayerInfo *player, struct CreatureBattle *battle, int64_t *friendly_battlers, int64_t *enemy_battlers);
 BattleIndex find_next_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex prev_idx);
 BattleIndex find_previous_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex next_idx);
 uint64_t count_active_battles(PlayerNumber plyr_idx);
@@ -73,7 +73,6 @@ void set_creature_in_combat(struct Thing *fightng, struct Thing *enmtng, CrAttac
 int64_t get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_pref);
 
 TbBool active_battle_exists(PlayerNumber plyr_idx);
-void maintain_my_battle_list(void);
 TbBool step_battles_forward(PlayerNumber plyr_idx);
 int64_t battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex battle_id);
 void battle_initialise(void);

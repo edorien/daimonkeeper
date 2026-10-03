@@ -51,6 +51,8 @@
 #include "ports/audio_port.h"
 #include "local_state.h"
 #include "agent_memory.h"
+#include "ariadne_saved_state.h"
+#include "render_creature_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -150,6 +152,36 @@ static TbBool write_product_chunk(TbFileHandle fhandle)
         && (LbFileWrite(fhandle, &prod, sizeof(struct ProductChunk)) == sizeof(struct ProductChunk));
 }
 
+/** Writes the navigation mesh chunk (refactor pass 4, P4-F7: ariadne_saved_state.h). */
+static TbBool write_ariadne_state_chunk(TbFileHandle fhandle)
+{
+    const size_t len = ariadne_saved_state_size();
+    void *buf = malloc(len);
+    if (buf == NULL)
+        return false;
+    ariadne_saved_state_write(buf);
+    struct FileChunkHeader hdr;
+    hdr.id = SGC_AriadneState;
+    hdr.ver = KFX_ARIADNE_STATE_VER;
+    hdr.len = len;
+    const TbBool written = (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
+        && (LbFileWrite(fhandle, buf, len) == (int64_t)len);
+    free(buf);
+    return written;
+}
+
+/** Writes kfx_config_state's saved part (refactor pass 4, P4-F16: what upstream's struct Game held of it, the level's
+ *  configuration as its script changed it among it; KFX_CONFIG_STATE_SAVED_*). */
+static TbBool write_config_state_chunk(TbFileHandle fhandle)
+{
+    struct FileChunkHeader hdr;
+    hdr.id = SGC_KfxConfigState;
+    hdr.ver = KFX_CONFIG_STATE_VER;
+    hdr.len = KFX_CONFIG_STATE_SAVED_LEN;
+    return (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
+        && (LbFileWrite(fhandle, KFX_CONFIG_STATE_SAVED_PTR, KFX_CONFIG_STATE_SAVED_LEN) == (int64_t)KFX_CONFIG_STATE_SAVED_LEN);
+}
+
 TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     struct FileChunkHeader hdr;
@@ -180,6 +212,10 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
         if (LbFileWrite(fhandle, &kfx_sim_state, sizeof(struct KfxSimState)) == sizeof(struct KfxSimState))
             chunks_done |= SGF_KfxSimState;
     }
+    if (write_ariadne_state_chunk(fhandle))
+        chunks_done |= SGF_AriadneState;
+    if (write_config_state_chunk(fhandle))
+        chunks_done |= SGF_KfxConfigState;
     { // KfxNetState data chunk
         hdr.id = SGC_KfxNetState;
         hdr.ver = KFX_NET_STATE_VER;
@@ -290,6 +326,10 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
             if (LbFileWrite(fhandle, &kfx_sim_state, sizeof(struct KfxSimState)) == sizeof(struct KfxSimState))
                 chunks_done |= SGF_KfxSimState;
         }
+        if (write_ariadne_state_chunk(fhandle))
+            chunks_done |= SGF_AriadneState;
+        if (write_config_state_chunk(fhandle))
+            chunks_done |= SGF_KfxConfigState;
         { // KfxNetState data chunk
             hdr.id = SGC_KfxNetState;
             hdr.ver = KFX_NET_STATE_VER;
@@ -342,6 +382,8 @@ static TbBool expected_chunk_layout(uint64_t id, uint64_t *ver, uint64_t *len)
     case SGC_Product:          *ver = PRODUCT_CHUNK_VER;       *len = sizeof(struct ProductChunk); return true;
     case SGC_GameOrig:         *ver = KFX_GAME_ORIG_VER;       *len = sizeof(struct Game); return true;
     case SGC_KfxSimState:      *ver = KFX_SIM_STATE_VER;       *len = sizeof(struct KfxSimState); return true;
+    case SGC_AriadneState:     *ver = KFX_ARIADNE_STATE_VER;   *len = KFX_ARIADNE_STATE_SIZE; return true;
+    case SGC_KfxConfigState:   *ver = KFX_CONFIG_STATE_VER;    *len = KFX_CONFIG_STATE_SAVED_LEN; return true;
     case SGC_KfxNetState:      *ver = KFX_NET_STATE_VER;       *len = sizeof(struct KfxNetState); return true;
     case SGC_KfxGameState:     *ver = KFX_GAME_STATE_VER;      *len = sizeof(struct KfxGameState); return true;
     case SGC_KfxFrontendState: *ver = KFX_FRONTEND_STATE_VER;  *len = ui_get_frontend_state_size(); return true;
@@ -545,6 +587,46 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 chunks_done |= SGF_KfxNetState;
             } else {
                 WARNLOG("Could not read KfxNetState chunk");
+            }
+            break;
+        case SGC_AriadneState:
+            if (hdr.len != ariadne_saved_state_size())
+            {
+                if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
+                    LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
+                WARNLOG("Incompatible AriadneState chunk");
+                break;
+            }
+            {
+                void *buf = malloc(hdr.len);
+                if ((buf != NULL) && (LbFileRead(fhandle, buf, hdr.len) == (int64_t)hdr.len)) {
+                    ariadne_saved_state_read(buf);
+                    chunks_done |= SGF_AriadneState;
+                } else {
+                    WARNLOG("Could not read AriadneState chunk");
+                }
+                free(buf);
+            }
+            break;
+        case SGC_KfxConfigState:
+            // After the info block's load_stats_files(): the level's configuration as its script left it, over the
+            // files' (what upstream's struct Game chunk did; P4-F16).
+            if (hdr.len != KFX_CONFIG_STATE_SAVED_LEN)
+            {
+                if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
+                    LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
+                WARNLOG("Incompatible KfxConfigState chunk");
+                break;
+            }
+            {
+                void *buf = malloc(hdr.len);
+                if ((buf != NULL) && (LbFileRead(fhandle, buf, hdr.len) == (int64_t)hdr.len)) {
+                    memcpy(KFX_CONFIG_STATE_SAVED_PTR, buf, KFX_CONFIG_STATE_SAVED_LEN);
+                    chunks_done |= SGF_KfxConfigState;
+                } else {
+                    WARNLOG("Could not read KfxConfigState chunk");
+                }
+                free(buf);
             }
             break;
         case SGC_KfxGameState:
@@ -799,7 +881,7 @@ TbBool load_game(int64_t slot_num)
     if (!agent_memory_deserialise(loaded_agent_memory, loaded_agent_memory_len))
         WARNLOG("Malformed agent memory chunk; the agents start without memory");
     forget_loaded_agent_memory();
-    // Re-apply creature sound overrides: SGC_GameOrig restored kfx_config_state.conf with
+    // Re-apply creature sound overrides: SGC_KfxConfigState restored kfx_config_state.conf with
     // session-specific negative bank indices from the save; fix them to match
     // the current session's custom bank layout.
     sound_manager_reapply_creature_sounds();
@@ -846,7 +928,7 @@ TbBool load_game(int64_t slot_num)
       dungeon->lvstats.player_score = 0;
       dungeon->lvstats.allow_save_score = 1;
     }
-    kfx_sim_state.loaded_swipe_idx = -1;
+    forget_loaded_swipe_graphic();
     JUSTMSG("Loaded level %" PRId64 " from %s", (int64_t)(kfx_sim_state.continue_level_number), campaign.name);
 
     {
@@ -1051,7 +1133,7 @@ TbBool continue_game_available(void)
     return any_campaign_progress_exists();
 }
 
-TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, char *name)
+TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, const char *name)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     if (dungeon_invalid(dungeon))

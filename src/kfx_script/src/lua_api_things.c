@@ -230,7 +230,7 @@ static int lua_Transfer_creature(lua_State *L)
 
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
 
-    if (add_transfered_creature(thing->owner, thing->model, cctrl->exp_level, cctrl->creature_name))
+    if (add_transfered_creature(thing->owner, thing->model, cctrl->exp_level, creature_kept_name(thing)))
     {
         struct Dungeon* dungeon = get_dungeon(thing->owner);
         dungeon->creatures_transferred++;
@@ -337,22 +337,9 @@ static int thing_set_field(lua_State *L) {
         change_creature_owner(thing, new_owner);
     } else if (strcmp(key, "health") == 0)
     {
-        HitPoints new_health = luaL_checkinteger(L, 3);
-        if (thing_is_creature(thing))
-        {
-            HitPoints old_health = thing->health;
-            if (new_health > old_health)
-            {
-                apply_health_to_thing_and_display_health(thing, new_health - old_health);
-            } else if (new_health < old_health) 
-            {
-                apply_damage_to_thing(thing, old_health - new_health, -1);
-            }
-        }
-        else
-        {
-            thing->health = new_health;    // Doors, Hearts, Traps, ...
-        }
+        // The value as written, for every kind of thing: no armour, no damage or healing effects (a creature
+        // below 0 dies on its next turn, as from any other cause).
+        thing->health = luaL_checkinteger(L, 3);
     } else if (strcmp(key, "pos") == 0) 
     {
         struct Coord3d pos;

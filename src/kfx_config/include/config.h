@@ -107,6 +107,7 @@ enum TbConfigLoadFlags {
     CnfLd_AcceptPartial =  0x02, /**< Accept partial files (with only some options set), and don't clear previous configuration. */
     CnfLd_IgnoreErrors  =  0x04, /**< Do not log error message on failures (still, return with error). */
     CnfLd_PreListed     =  0x08, /**< Already parsed the names. */
+    CnfLd_ListKnownKeys =  0x10, /**< With CnfLd_ListOnly, for NamedField tables: still recognise the other keys (and skip them) so that only unknown keys are reported, as the hand-written parsers do. */
 };
 
 #pragma pack(1)
@@ -210,7 +211,7 @@ struct NamedFieldSet;
 
 struct NamedField {
     const char *name;
-    char argnum; //for fields that assign multiple values, -1 passes full string to assign function
+    char argnum; //for fields that assign multiple values, -1 passes full string to assign function (-2: without its length limit)
     void* field;
     uchar type;
     int64_t default_value;
@@ -322,8 +323,6 @@ TbBool is_level_in_current_campaign(LevelNumber lvnum);
    replaces the sim state. They read 0 until wired. Refactor pass 2, S10
    (they were SimFeedbackCallbacks getters). */
 void set_config_level_sources(const LevelNumber *selected_level, const LevelNumber *loaded_level);
-LevelNumber config_selected_level_number(void);
-LevelNumber config_loaded_level_number(void);
 /* The selected level, or the loaded one when none is selected: the same
    rule as kfx_sim's get_level_number(). */
 LevelNumber config_level_number(void);
@@ -366,6 +365,9 @@ int64_t get_conf_parameter_whole(const char *buf,int64_t *pos,int64_t buflen,cha
 
 TbBool parse_named_field_block(const char *buf, int64_t len, const char *config_textname, int64_t flags,const char* blockname,
     const struct NamedField named_field[], const struct NamedFieldSet* named_fields_set, int64_t idx);
+/** Parses the lines of the block pos is in (just after its header), up to the next block; leaves pos there. */
+void parse_named_field_block_lines(const char *buf, int64_t *pos, int64_t len, const char *config_textname, int64_t flags,
+    const struct NamedField named_field[], const struct NamedFieldSet* named_fields_set, int64_t idx);
 TbBool parse_named_field_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags,
         const struct NamedFieldSet* named_fields_set);
 int64_t recognize_conf_parameter(const char *buf,int64_t *pos,int64_t buflen,const struct NamedCommand *commands);
@@ -386,6 +388,29 @@ int64_t value_transpflg      (const struct NamedField* named_field, const char* 
 int64_t value_stltocoord     (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 int64_t value_function       (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 int64_t value_stringId       (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+
+/**
+ * argnum for a row that, like -1, gets the whole rest of the line, but with no
+ * length limit (-1 rows get at most 1023 characters), and with the line's end
+ * character when there is one, so get_conf_parameter_single() on it behaves as
+ * on the file (an empty value still writes an empty word). For list keys.
+ */
+#define NAMFIELD_WHOLE_LINE_UNLIMITED -2
+/** A row's min and max when the row has no bounds of its own (the editor schema then uses the field type's range). */
+#define NAMFIELD_NO_BOUNDS INT64_MIN, INT64_MAX
+/** Returned by a parse function to leave the field as it is (assign_cast stores nothing). */
+#define NAMFIELD_KEEP INT64_MIN
+// The hand-written parsers' rules, kept by refactor pass 3 (S04); see config.c.
+int64_t value_atoi           (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_atoi_nonneg    (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_atoi_in_bounds (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_id_nonneg      (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_id_positive    (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_ignored        (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_string_id_positive(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_word           (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+int64_t value_ids_or         (const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
+void assign_cast   (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 
 void assign_icon   (const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);
 void assign_default(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags);

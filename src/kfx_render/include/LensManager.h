@@ -78,7 +78,6 @@ public:
     // Configuration
     void LoadAccessibilityConfig();
     void SetEffectEnabled(LensEffectType type, TbBool enabled);
-    TbBool IsEffectEnabled(LensEffectType type) const;
     
     // Custom lens support (for LUA-created lenses)
     TbBool RegisterCustomLens(const char* name, LensEffect* effect);

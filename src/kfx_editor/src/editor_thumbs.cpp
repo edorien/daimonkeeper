@@ -26,6 +26,7 @@
 #include "editor_thumbs.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "game_palettes.h"
 #include "config_terrain.h"
 #include "config_cubes.h"
 #include "config_objects.h"

@@ -30,8 +30,6 @@ struct ScriptIssue
 // nullptr when there is no such command.
 typedef std::function<const char *(const std::string &)> ScriptCommandLookup;
 
-// True if the command opens an IF block (IF, IF_AVAILABLE, IF_ACTION_POINT, ...).
-bool editor_script_command_opens_block(const std::string &name);
 
 // Issues sorted by line.
 std::vector<ScriptIssue> editor_script_validate(const std::string &text, const ScriptCommandLookup &lookup);

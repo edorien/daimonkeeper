@@ -139,7 +139,6 @@ bool WindowSystemSDL::IsCursorInWindow() const
 // ----- Window management -----
 
 bool WindowSystemSDL::HasWindow() const          { return lbWindow != nullptr; }
-SDL_Window* WindowSystemSDL::GetSDLWindow() const { return lbWindow; }
 
 uint64_t WindowSystemSDL::GetWindowFlags() const
 {

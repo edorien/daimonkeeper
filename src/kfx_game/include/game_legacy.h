@@ -196,7 +196,7 @@ struct Game {
     // kfx_config the new lowest-ranked of its consumer set (superseding
     // the stage 7.2-era "stays here" reasoning below, which predates that
     // consumer). See docs/refactor/stage-13-enforce-and-document.md.
-    // gold_lookup, block_health, entrance_room_id, entrances_count moved to
+    // gold_lookup, block_health, entrance_room_id (and entrances_count, since deleted) moved to
     // kfx_sim_state.h (stage 6.7 increment 4) -- see
     // docs/refactor/stage-06-kfx-sim.md.
     // ambient_sound_thing_idx moved to kfx_game_state.h (stage 13) -- see

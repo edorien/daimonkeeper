@@ -47,6 +47,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/game_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 // TRANSFER_CREATURE_STORAGE_COUNT (kfx_game's game_merge.h) literal-
@@ -65,18 +66,31 @@ extern "C" {
 }
 #endif
 /******************************************************************************/
-int64_t transfer_creature_scroll_offset;
-int64_t resurrect_creature_scroll_offset;
-int64_t dungeon_special_selected;
 /******************************************************************************/
 
 /**
  * Increases creatures' levels for player.
  * @param plyr_idx target player
- * @param count how many times should the level be increased
+ * @param count how many levels up (or, negative, down); limited to -9..9, and 0 counts as 1, as for the level
+ *     script's USE_SPECIAL_INCREASE_LEVEL (which checks when the script loads; Lua calls come here unchecked)
  */
 void script_use_special_increase_level(PlayerNumber plyr_idx, int64_t count)
 {
+    if (count == 0)
+    {
+        WARNLOG("Invalid count: %" PRId64 ", setting to 1.", (int64_t)(count));
+        count = 1;
+    }
+    if (count > 9)
+    {
+        WARNLOG("Count too high: %" PRId64 ", setting to 9.", (int64_t)(count));
+        count = 9;
+    }
+    if (count < -9)
+    {
+        WARNLOG("Count too low: %" PRId64 ", setting to -9.", (int64_t)(count));
+        count = -9;
+    }
     increase_level(get_player(plyr_idx), count);
 }
 
@@ -132,19 +146,9 @@ TbBool activate_bonus_level(struct PlayerInfo *player)
 
 void multiply_creatures_in_dungeon_list(struct Dungeon *dungeon, int64_t list_start)
 {
-    uint64_t k = 0;
-    int64_t i = list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (!creature_count_below_map_limit(0))
         {
             WARNLOG("Can't duplicate all creature due to map creature limit.");
@@ -154,7 +158,6 @@ void multiply_creatures_in_dungeon_list(struct Dungeon *dungeon, int64_t list_st
         if (thing_is_invalid(tncopy))
         {
             WARNLOG("Can't create a copy of creature %s", thing_model_name(thing));
-            k++;
             continue;
         }
         struct CreatureControl* newcctrl = creature_control_get_from_thing(tncopy);
@@ -168,13 +171,6 @@ void multiply_creatures_in_dungeon_list(struct Dungeon *dungeon, int64_t list_st
         for (unsigned char al = 0; al < AngR_ListEnd; al++)
         {
             newcctrl->annoyance_level[al] = cctrl->annoyance_level[al];
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
 }
@@ -190,69 +186,31 @@ void multiply_creatures(struct PlayerInfo *player)
 
 void increase_level(struct PlayerInfo *player, int64_t count)
 {
-    struct CreatureControl *cctrl;
-    struct Thing *thing;
     struct Dungeon* dungeon = get_dungeon(player->id_number);
     // Increase level of normal creatures
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        thing = thing_get(i);
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-          ERRORLOG("Jump to invalid creature detected");
-          break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (count != 1) creature_change_multiple_levels(thing, count);
         else creature_increase_level(thing);
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping creatures list");
-          break;
-        }
     }
-    // Increase level of special diggers
-    k = 0;
-    i = dungeon->digger_list_start;
-    while (i != 0)
+    // Increase level of special diggers: the same rule (a count other than 1 used to raise them one level
+    // whenever it wasn't above 1, so a level-down raised them; refactor pass 4 finding P4-F1)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->digger_list_start, CREATURES_COUNT))
     {
-        thing = thing_get(i);
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-          ERRORLOG("Jump to invalid creature detected");
-          break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
-        if (count > 1) creature_change_multiple_levels(thing, count);
+        if (count != 1) creature_change_multiple_levels(thing, count);
         else creature_increase_level(thing);
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping creatures list");
-          break;
-        }
     }
-    i = 0;
-    while (i < dungeon->num_summon)
+    for (int64_t i = 0; i < dungeon->num_summon; i++)
     {
         struct Thing* famlrtng = thing_get(dungeon->summon_list[i]);
-        cctrl = creature_control_get_from_thing(famlrtng);
         if (!thing_exists(famlrtng))
         {
           ERRORLOG("Jump to invalid creature detected");
           continue;
         }
-        level_up_familiar(famlrtng);
-        i++;
+        // They follow their summoner down as well as up (P4-F1)
+        if (count < 0) familiar_follow_summoner_level(famlrtng);
+        else level_up_familiar(famlrtng);
     }
 }
 
@@ -723,7 +681,7 @@ void transfer_creature(struct Thing *boxtng, struct Thing *transftng, unsigned c
     }
 
     struct CreatureControl* cctrl = creature_control_get_from_thing(transftng);
-    if (game_add_transfered_creature(plyr_idx, transftng->model, cctrl->exp_level,cctrl->creature_name))
+    if (game_add_transfered_creature(plyr_idx, transftng->model, cctrl->exp_level, creature_kept_name(transftng)))
     {
         dungeon->creatures_transferred++;
     }
@@ -748,11 +706,8 @@ void start_transfer_creature(struct PlayerInfo *player, struct Thing *thing)
     {
         if (is_my_player(player))
         {
-            dungeon_special_selected = thing->index;
-            transfer_creature_scroll_offset = 0;
             audio_output_message(SMsg_SpecTransfer, MESSAGE_DURATION_SPECIAL);
-            ui_turn_off_menu(GMnu_DUNGEON_SPECIAL);
-            ui_turn_on_menu(GMnu_TRANSFER_CREATURE);
+            ui_open_dungeon_special_menu(GMnu_TRANSFER_CREATURE, thing->index);
         }
   }
 }
@@ -764,11 +719,8 @@ void start_resurrect_creature(struct PlayerInfo *player, struct Thing *thing)
     {
         if (is_my_player(player))
         {
-          dungeon_special_selected = thing->index;
-          resurrect_creature_scroll_offset = 0;
           audio_output_message(SMsg_SpecResurrect, MESSAGE_DURATION_SPECIAL);
-          ui_turn_off_menu(GMnu_DUNGEON_SPECIAL);
-          ui_turn_on_menu(GMnu_RESURRECT_CREATURE);
+          ui_open_dungeon_special_menu(GMnu_RESURRECT_CREATURE, thing->index);
         }
     }
 }

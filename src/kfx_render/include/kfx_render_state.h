@@ -24,12 +24,33 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
+#include "light_registry.h"
+#include "thing_list.h"
+#include "thing_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 /******************************************************************************/
 #pragma pack(1)
+
+/** What the shading keeps for a light: the range it shaded (subtiles), whether to shade it again, its flicker. */
+struct LightDrawState {
+    unsigned char range;
+    TbBool need_update;
+    TbBool reported_no_radius;
+    int64_t intensity_random;
+    int64_t previous_intensity_random;
+    GameTurn last_turn_randomized;
+};
+
+/** A thing's drawing timer: the turn it was last drawn, how long it has been on screen since, and the creation turn
+ *  of the thing it was for (an index can hold another thing later). */
+struct DrawTimer {
+    GameTurn creation_turn;
+    GameTurn last_turn_drawn;
+    unsigned char display_timer;
+};
 
 struct Thing;
 struct Map;
@@ -81,6 +102,21 @@ struct KfxRenderState {
     int64_t top_pointed_at_frac_y;
     struct Thing *thing_pointed_at;
     struct Map *me_pointed_at;
+
+    // Refactor pass 5 S04: the room flags' (per thing index) and the creatures' thought bubbles' (per creature
+    // control index) fade-in timers. They were in Thing.roomflag (last_turn_drawn, display_timer) and CreatureControl
+    // (thought_bubble_last_turn_drawn, thought_bubble_display_timer), which are simulation state: what was on this
+    // machine's screen changed them.
+    struct DrawTimer roomflag_draw[THINGS_COUNT];
+    struct DrawTimer thought_bubble_draw[CREATURES_COUNT];
+
+    // Refactor pass 5, S11: what the shading keeps for each light (per light registry index). It was in struct
+    // Light (range, LgtF_NeedUpdate, intensity_random, previous_intensity_random, last_turn_randomized), which is
+    // simulation state.
+    struct LightDrawState light_draw[LIGHTS_COUNT];
+    /** The local user's cursor: where the mouse points this frame, and whether it points at the map. Its cursor light
+     *  is drawn there (it moves in the registry from the user's packets, as the other users'). */
+    TbBool local_cursor_valid;
 };
 
 #pragma pack()

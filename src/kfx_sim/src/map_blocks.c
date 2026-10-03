@@ -46,6 +46,7 @@
 #include "light_registry.h"
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -381,30 +382,17 @@ int64_t torch_flags_for_slab(MapSlabCoord slb_x, MapSlabCoord slb_y)
 uint64_t delete_unwanted_things_from_liquid_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, SlabKind slabkind)
 {
     SubtlCodedCoords stl_num;
-    struct Thing *thing;
     struct Map *mapblk;
     struct Coord3d pos;
     uint64_t removed_num;
-    uint64_t k;
-    int64_t i;
     int64_t n;
     stl_num = get_subtile_number_at_slab_center(slb_x, slb_y);
     removed_num = 0;
     for (n=0; n < AROUND_MAP_LENGTH; n++)
     {
         mapblk = get_map_block_at_pos(stl_num+kfx_sim_state.around_map[n]);
-        k = 0;
-        i = get_mapwho_thing_index(mapblk);
-        while (i != 0)
+        FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
         {
-            thing = thing_get(i);
-            if (thing_is_invalid(thing))
-            {
-                WARNLOG("Jump out of things array");
-                break;
-            }
-            i = thing->next_on_mapblk;
-            // Per thing code
             if (thing->class_id == TCls_Object)
             {
                 struct ObjectConfigStats *objst = get_object_model_stats(thing->model);
@@ -434,14 +422,6 @@ uint64_t delete_unwanted_things_from_liquid_slab(MapSlabCoord slb_x, MapSlabCoor
                 remove_key_on_door(thing);
                 delete_thing_structure(thing, 0);
             }
-            // Per thing code ends
-            k++;
-            if (k > THINGS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break_mapwho_infinite_chain(mapblk);
-                break;
-            }
         }
     }
     return removed_num;
@@ -454,18 +434,8 @@ uint64_t remove_unwanted_things_from_wall_slab(MapSlabCoord slb_x, MapSlabCoord 
     for (int64_t n=0; n < AROUND_MAP_LENGTH; n++)
     {
         struct Map *mapblk = get_map_block_at_pos(stl_num+kfx_sim_state.around_map[n]);
-        uint64_t k = 0;
-        int64_t i = get_mapwho_thing_index(mapblk);
-        while (i != 0)
+        FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
         {
-            struct Thing * thing = thing_get(i);
-            if (thing_is_invalid(thing))
-            {
-                WARNLOG("Jump out of things array");
-                break;
-            }
-            i = thing->next_on_mapblk;
-            // Per thing code
             if (thing_in_wall_at(thing, &thing->mappos))
             {
                 switch(thing->class_id)
@@ -545,14 +515,6 @@ uint64_t remove_unwanted_things_from_wall_slab(MapSlabCoord slb_x, MapSlabCoord 
                     break;
                 }
             }
-            // Per thing code ends
-            k++;
-            if (k > THINGS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break_mapwho_infinite_chain(mapblk);
-                break;
-            }
         }
     }
     return removed_num;
@@ -566,18 +528,8 @@ uint64_t remove_unwanted_things_from_floor_slab(MapSlabCoord slb_x, MapSlabCoord
     for (int64_t n=0; n < AROUND_MAP_LENGTH; n++)
     {
         struct Map *mapblk = get_map_block_at_pos(stl_num+kfx_sim_state.around_map[n]);
-        uint64_t k = 0;
-        int64_t i = get_mapwho_thing_index(mapblk);
-        while (i != 0)
+        FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
         {
-            struct Thing *thing = thing_get(i);
-            if (thing_is_invalid(thing))
-            {
-                WARNLOG("Jump out of things array");
-                break;
-            }
-            i = thing->next_on_mapblk;
-            // Per thing code
             switch(thing->class_id)
             {
                 case TCls_Door:
@@ -602,14 +554,6 @@ uint64_t remove_unwanted_things_from_floor_slab(MapSlabCoord slb_x, MapSlabCoord
                 }
                 break;
             }
-        }
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return removed_num;
@@ -1512,22 +1456,8 @@ void dump_slab_on_map(SlabKind slbkind, int64_t slabset_id, MapSubtlCoord stl_x,
 
             struct Map *mapblk;
             mapblk = get_map_block_at(sstl_x, sstl_y);
-            int64_t i;
-            uint64_t k;
-            k = 0;
-            i = get_mapwho_thing_index(mapblk);
-            while (i != 0)
+            FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
             {
-                struct Thing *thing;
-                thing = thing_get(i);
-                TRACE_THING(thing);
-                if (thing_is_invalid(thing))
-                {
-                    ERRORLOG("Jump to invalid thing detected");
-                    break;
-                }
-                i = thing->next_on_mapblk;
-                // Per thing code start
                 int64_t floor_height;
                 floor_height = get_map_floor_filled_subtiles(mapblk);
                 //TODO this condition does not look consistent
@@ -1539,14 +1469,6 @@ void dump_slab_on_map(SlabKind slbkind, int64_t slabset_id, MapSubtlCoord stl_x,
                     {
                         thing->mappos.z.val = subtile_coord(floor_height,0);
                     }
-                }
-                // Per thing code end
-                k++;
-                if (k > THINGS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping things list");
-                    break_mapwho_infinite_chain(mapblk);
-                    break;
                 }
             }
 
@@ -2108,321 +2030,128 @@ void clear_dig_and_set_explored_around(MapSlabCoord slb_x, MapSlabCoord slb_y, P
     }
 }
 
-void clear_dig_and_set_explored_can_see_x(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx, int64_t can_see_slabs)
+/******************************************************************************/
+/*
+ * Refactor pass 3, S02: the x and y reveal sweeps are one algorithm with the
+ * axes swapped. It fans rays out across one axis ("across") and walks each
+ * ray both ways along the other ("along"), revealing slabs until a wall.
+ */
+struct RevealAxis {
+    unsigned char across_is_y;         /**< 0: the _x sweep (rays across x, rows along y); 1: the _y sweep */
+    unsigned char far_wall_allows_next; /**< on the far side with a positive shift, a wall corner still lets the
+                                            filled slab behind it be revealed: 1 for x; for y, 0 with the
+                                            CORNER_WALL_UNREVEALED classic bug (pass 3 finding F2), else 1 */
+};
+
+struct RevealRay {
+    TbBool go;          /**< still revealing in this direction */
+    TbBool allow_next;  /**< stopped by a wall corner; may still reveal the filled slab there */
+};
+
+static inline TbBool slab_blocks_reveal(MapSlabCoord slb_x, MapSlabCoord slb_y)
 {
-    int64_t delta_see;
-    for (delta_see = -can_see_slabs; delta_see <= can_see_slabs; delta_see++)
+    const struct SlabConfigStats *slabst = get_slab_stats(get_slabmap_block(slb_x, slb_y));
+    return (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0;
+}
+
+/**
+ * One step of one ray direction: slab (across, along) = (acr, row), with the slab back
+ * towards the start at along + back.
+ */
+static void reveal_ray_step(const struct RevealAxis *axis, struct RevealRay *ray, MapSlabCoord acr, MapSlabCoord row,
+    int64_t back, int64_t delta_shift, TbBool wall_allows_next, PlayerNumber plyr_idx)
+{
+#define REVEAL_X(a, b) (axis->across_is_y ? (b) : (a))
+#define REVEAL_Y(a, b) (axis->across_is_y ? (a) : (b))
+    if (!ray->go)
+        return;
+    if (delta_shift != 0)
     {
-        if ((delta_see + slb_x < 0) || (delta_see + slb_x >= kfx_sim_state.map_tiles_x)) {
+        // A diagonal ray is stopped by walls on both sides of the corner it passes
+        const int64_t side = (delta_shift > 0) ? -1 : 1;
+        if (slab_blocks_reveal(REVEAL_X(acr + side, row), REVEAL_Y(acr + side, row)) &&
+            slab_blocks_reveal(REVEAL_X(acr, row + back), REVEAL_Y(acr, row + back)))
+        {
+            ray->allow_next = wall_allows_next;
+            ray->go = 0;
+        }
+    }
+    const MapSlabCoord slb_x = REVEAL_X(acr, row);
+    const MapSlabCoord slb_y = REVEAL_Y(acr, row);
+    if (ray->go)
+    {
+        clear_slab_dig(slb_x, slb_y, plyr_idx);
+        const struct SlabConfigStats *slabst = get_slab_stats(get_slabmap_block(slb_x, slb_y));
+        if (ray->go || (slabst->block_flags & SlbAtFlg_Blocking)) {
+            set_slab_explored(plyr_idx, slb_x, slb_y);
+        }
+        if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
+            ray->go = 0;
+        }
+    } else
+    if (ray->allow_next)
+    {
+        ray->allow_next = 0;
+        const struct SlabConfigStats *slabst = get_slab_stats(get_slabmap_block(slb_x, slb_y));
+        if (slabst->block_flags & SlbAtFlg_Filled)
+        {
+            clear_slab_dig(slb_x, slb_y, plyr_idx);
+            if (ray->go || (slabst->block_flags & SlbAtFlg_Blocking)) {
+                set_slab_explored(plyr_idx, slb_x, slb_y);
+            }
+        }
+    }
+#undef REVEAL_X
+#undef REVEAL_Y
+}
+
+static void clear_dig_and_set_explored_can_see_axis(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx,
+    int64_t can_see_slabs, const struct RevealAxis *axis)
+{
+    const MapSlabCoord start_across = axis->across_is_y ? slb_y : slb_x;
+    const MapSlabCoord start_along = axis->across_is_y ? slb_x : slb_y;
+    const MapSlabCoord tiles_across = axis->across_is_y ? kfx_sim_state.map_tiles_y : kfx_sim_state.map_tiles_x;
+    const MapSlabCoord tiles_along = axis->across_is_y ? kfx_sim_state.map_tiles_x : kfx_sim_state.map_tiles_y;
+    const TbBool far_wall_allows_next = axis->far_wall_allows_next ||
+        !flag_is_set(kfx_config_state.conf.rules[plyr_idx].gameplay.classic_bugs_flags, ClscBug_CornerWallUnrevealed);
+    for (int64_t delta_see = -can_see_slabs; delta_see <= can_see_slabs; delta_see++)
+    {
+        if ((delta_see + start_across < 0) || (delta_see + start_across >= tiles_across)) {
             continue;
         }
-        TbBool go_dir1;
-        TbBool go_dir2;
-        TbBool allow_next_dir1;
-        TbBool allow_next_dir2;
-        int64_t delta_shift;
-        int64_t delta_x;
-        int64_t rad_y;
-        int64_t rad_x;
-        delta_shift = 256 * delta_see;
-        rad_x = 128;
-        allow_next_dir1 = 0;
-        allow_next_dir2 = 0;
-        rad_y = 0;
-        delta_x = delta_shift / can_see_slabs;
-        go_dir1 = 1;
-        go_dir2 = 1;
-        while (rad_y < can_see_slabs<<8)
+        const int64_t delta_shift = 256 * delta_see;
+        const int64_t delta_across = delta_shift / can_see_slabs;
+        int64_t rad_across = 128;
+        int64_t rad_along = 0;
+        struct RevealRay low = { 1, 0 };
+        struct RevealRay high = { 1, 0 };
+        while (rad_along < can_see_slabs<<8)
         {
-            struct SlabMap *slb;
-            struct SlabConfigStats *slabst;
-            MapSlabCoord lslb_y;
-            MapSlabCoord hslb_x;
-            MapSlabCoord hslb_y;
-            if (!go_dir1 && !go_dir2)
+            if (!low.go && !high.go)
               break;
-            rad_x += delta_x;
-            rad_y += 256;
-            hslb_x = slb_x + (rad_x >> 8);
-            lslb_y = slb_y - (rad_y >> 8);
-            hslb_y = slb_y + (rad_y >> 8);
-            if ((lslb_y < 0) || (hslb_y >= kfx_sim_state.map_tiles_y))
+            rad_across += delta_across;
+            rad_along += 256;
+            const MapSlabCoord acr = start_across + (rad_across >> 8);
+            const MapSlabCoord low_row = start_along - (rad_along >> 8);
+            const MapSlabCoord high_row = start_along + (rad_along >> 8);
+            if ((low_row < 0) || (high_row >= tiles_along))
                 continue;
-            if ( go_dir1 )
-            {
-                if (delta_shift > 0)
-                {
-                    slb = get_slabmap_block(hslb_x-1, lslb_y);
-                    slabst = get_slab_stats(slb);
-                    if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0)
-                    {
-                        slb = get_slabmap_block(hslb_x, lslb_y+1);
-                        slabst = get_slab_stats(slb);
-                        if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) {
-                            allow_next_dir1 = 1;
-                            go_dir1 = 0;
-                        }
-                    }
-                }
-                else
-                if (delta_shift < 0)
-                {
-                    slb = get_slabmap_block(hslb_x+1, lslb_y);
-                    slabst = get_slab_stats(slb);
-                    if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0)
-                    {
-                        slb = get_slabmap_block(hslb_x, lslb_y+1);
-                        slabst = get_slab_stats(slb);
-                        if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) {
-                            allow_next_dir1 = 1;
-                            go_dir1 = 0;
-                        }
-                    }
-                }
-                if ( go_dir1 )
-                {
-                  clear_slab_dig(hslb_x, lslb_y, plyr_idx);
-                  slb = get_slabmap_block(hslb_x, lslb_y);
-                  slabst = get_slab_stats(slb);
-                  if (go_dir1 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                      set_slab_explored(plyr_idx, hslb_x, lslb_y);
-                  }
-                  if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                      go_dir1 = 0;
-                  }
-                }
-                else
-                if ( allow_next_dir1 )
-                {
-                    allow_next_dir1 = 0;
-                    slb = get_slabmap_block(hslb_x, lslb_y);
-                    slabst = get_slab_stats(slb);
-                    if (slabst->block_flags & SlbAtFlg_Filled)
-                    {
-                      clear_slab_dig(hslb_x, lslb_y, plyr_idx);
-                      if (go_dir1 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                          set_slab_explored(plyr_idx, hslb_x, lslb_y);
-                      }
-                    }
-                }
-            }
-            if ( go_dir2 )
-            {
-              if (delta_shift > 0)
-              {
-                  slb = get_slabmap_block(hslb_x, hslb_y-1);
-                  slabst = get_slab_stats(slb);
-                  if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable))
-                  {
-                      slb = get_slabmap_block(hslb_x-1, hslb_y);
-                      slabst = get_slab_stats(slb);
-                      if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                        allow_next_dir2 = 1;
-                        go_dir2 = 0;
-                      }
-                  }
-              }
-              else
-              if (delta_shift < 0)
-              {
-                  slb = get_slabmap_block(hslb_x, hslb_y-1);
-                  slabst = get_slab_stats(slb);
-                  if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable))
-                  {
-                      slb = get_slabmap_block(hslb_x+1, hslb_y);
-                      slabst = get_slab_stats(slb);
-                      if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                        allow_next_dir2 = 1;
-                        go_dir2 = 0;
-                      }
-                  }
-              }
-              if ( go_dir2 )
-              {
-                  clear_slab_dig(hslb_x, hslb_y, plyr_idx);
-                  slb = get_slabmap_block(hslb_x, hslb_y);
-                  slabst = get_slab_stats(slb);
-                  if (go_dir2 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                      set_slab_explored(plyr_idx, hslb_x, hslb_y);
-                  }
-                  if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                      go_dir2 = 0;
-                  }
-              }
-              else
-              if ( allow_next_dir2 )
-              {
-                  allow_next_dir2 = 0;
-                  slb = get_slabmap_block(hslb_x, hslb_y);
-                  slabst = get_slab_stats(slb);
-                  if (slabst->block_flags & SlbAtFlg_Filled)
-                  {
-                      clear_slab_dig(hslb_x, hslb_y, plyr_idx);
-                      slb = get_slabmap_block(hslb_x, hslb_y);
-                      slabst = get_slab_stats(slb);
-                      if (go_dir2 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                          set_slab_explored(plyr_idx, hslb_x, hslb_y);
-                      }
-                  }
-              }
-            }
+            reveal_ray_step(axis, &low, acr, low_row, 1, delta_shift, 1, plyr_idx);
+            reveal_ray_step(axis, &high, acr, high_row, -1, delta_shift, (delta_shift > 0) ? far_wall_allows_next : 1, plyr_idx);
         }
     }
 }
 
+void clear_dig_and_set_explored_can_see_x(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx, int64_t can_see_slabs)
+{
+    static const struct RevealAxis axis = { 0, 1 };
+    clear_dig_and_set_explored_can_see_axis(slb_x, slb_y, plyr_idx, can_see_slabs, &axis);
+}
+
 void clear_dig_and_set_explored_can_see_y(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx, int64_t can_see_slabs)
 {
-    int64_t delta_see;
-    for (delta_see = -can_see_slabs; delta_see <= can_see_slabs; delta_see++)
-    {
-        if ((delta_see + slb_y < 0) || (delta_see + slb_y >= kfx_sim_state.map_tiles_y)) {
-            continue;
-        }
-        TbBool go_dir1;
-        TbBool go_dir2;
-        TbBool allow_next_dir1;
-        TbBool allow_next_dir2;
-        int64_t delta_shift;
-        int64_t delta_y;
-        int64_t rad_y;
-        int64_t rad_x;
-        delta_shift = 256 * delta_see;
-        rad_y = 128;
-        allow_next_dir1 = 0;
-        allow_next_dir2 = 0;
-        rad_x = 0;
-        delta_y = delta_shift / can_see_slabs;
-        go_dir1 = 1;
-        go_dir2 = 1;
-        while (rad_x < can_see_slabs<<8)
-        {
-            struct SlabMap *slb;
-            struct SlabConfigStats *slabst;
-            MapSlabCoord lslb_x;
-            MapSlabCoord hslb_x;
-            MapSlabCoord hslb_y;
-            if (!go_dir1 && !go_dir2)
-              break;
-            rad_x += 256;
-            rad_y += delta_y;
-            lslb_x = slb_x - (rad_x >> 8);
-            hslb_x = slb_x + (rad_x >> 8);
-            hslb_y = slb_y + (rad_y >> 8);
-            if ((lslb_x < 0) || (hslb_x >= kfx_sim_state.map_tiles_x))
-                continue;
-            if ( go_dir1 )
-            {
-                if (delta_shift > 0)
-                {
-                    slb = get_slabmap_block(lslb_x, hslb_y-1);
-                    slabst = get_slab_stats(slb);
-                    if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0)
-                    {
-                        slb = get_slabmap_block(lslb_x+1, hslb_y);
-                        slabst = get_slab_stats(slb);
-                        if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) {
-                            allow_next_dir1 = 1;
-                            go_dir1 = 0;
-                        }
-                    }
-                }
-                else
-                if (delta_shift < 0)
-                {
-                    slb = get_slabmap_block(lslb_x+1, hslb_y);
-                    slabst = get_slab_stats(slb);
-                    if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0)
-                    {
-                        slb = get_slabmap_block(lslb_x, hslb_y+1);
-                        slabst = get_slab_stats(slb);
-                        if ((slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) {
-                            allow_next_dir1 = 1;
-                            go_dir1 = 0;
-                        }
-                    }
-                }
-                if ( go_dir1 )
-                {
-                    clear_slab_dig(lslb_x, hslb_y, plyr_idx);
-                    slb = get_slabmap_block(lslb_x, hslb_y);
-                    slabst = get_slab_stats(slb);
-                    if ( go_dir1 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                        set_slab_explored(plyr_idx, lslb_x, hslb_y);
-                    }
-                    if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                        go_dir1 = 0;
-                    }
-                } else
-                if ( allow_next_dir1 )
-                {
-                    allow_next_dir1 = 0;
-                    slb = get_slabmap_block(lslb_x, hslb_y);
-                    slabst = get_slab_stats(slb);
-                    if (slabst->block_flags & SlbAtFlg_Filled)
-                    {
-                        clear_slab_dig(lslb_x, hslb_y, plyr_idx);
-                        if ( go_dir1 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                            set_slab_explored(plyr_idx, lslb_x, hslb_y);
-                        }
-                    }
-                }
-            }
-            if ( go_dir2 )
-            {
-              if (delta_shift > 0)
-              {
-                  slb = get_slabmap_block(hslb_x-1, hslb_y);
-                  slabst = get_slab_stats(slb);
-                  if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable))
-                  {
-                      slb = get_slabmap_block(hslb_x, hslb_y-1);
-                      slabst = get_slab_stats(slb);
-                      if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                          allow_next_dir2 = 0;
-                          go_dir2 = 0;
-                      }
-                  }
-              } else
-              if (delta_shift < 0)
-              {
-                  slb = get_slabmap_block(hslb_x-1, hslb_y);
-                  slabst = get_slab_stats(slb);
-                  if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable))
-                  {
-                      slb = get_slabmap_block(hslb_x, hslb_y+1);
-                      slabst = get_slab_stats(slb);
-                      if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) {
-                          allow_next_dir2 = 1;
-                          go_dir2 = 0;
-                      }
-                  }
-              }
-              if ( go_dir2 )
-              {
-                clear_slab_dig(hslb_x, hslb_y, plyr_idx);
-                slb = get_slabmap_block(hslb_x, hslb_y);
-                slabst = get_slab_stats(slb);
-                if (go_dir2 || (slabst->block_flags & SlbAtFlg_Blocking))
-                  set_slab_explored(plyr_idx, hslb_x, hslb_y);
-                if (slabst->block_flags & (SlbAtFlg_IsDoor|SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable))
-                  go_dir2 = 0;
-              } else
-              if ( allow_next_dir2 )
-              {
-                  allow_next_dir2 = 0;
-                  slb = get_slabmap_block(hslb_x, hslb_y);
-                  slabst = get_slab_stats(slb);
-                  if (slabst->block_flags & SlbAtFlg_Filled)
-                  {
-                      clear_slab_dig(hslb_x, hslb_y, plyr_idx);
-                      if (go_dir2 || (slabst->block_flags & SlbAtFlg_Blocking)) {
-                          set_slab_explored(plyr_idx, hslb_x, hslb_y);
-                      }
-                  }
-              }
-            }
-        }
-    }
+    static const struct RevealAxis axis = { 1, 0 };
+    clear_dig_and_set_explored_can_see_axis(slb_x, slb_y, plyr_idx, can_see_slabs, &axis);
 }
 
 void check_map_explored(struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y)

@@ -509,9 +509,6 @@ extern const uint64_t alliance_grid[4][4];
 // vidmode.h (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
 /******************************************************************************/
 const char * mdlf_default(const char *);
-/******************************************************************************/
-int64_t frontend_font_char_width(int64_t fnt_idx,char c);
-int64_t frontend_font_string_width(int64_t fnt_idx, const char *str);
 
 void create_error_box(TextStringId msg_idx);
 void create_error_box_text(const char *text);
@@ -581,8 +578,6 @@ void frontend_ldcampaign_change_state(struct GuiButton *gbtn);
 int64_t frontend_netservice_change_state_resolve(void);
 void frontend_netservice_change_state(struct GuiButton *gbtn);
 int64_t frontend_start_skirmish_resolve(void);
-void frontend_start_skirmish(struct GuiButton *gbtn);
-void frontend_main_menu_skirmish_maintain(struct GuiButton *gbtn);
 int64_t frontend_start_new_game_resolve(void);
 void frontend_start_new_game(struct GuiButton *gbtn);
 void frontend_load_mappacks(struct GuiButton *gbtn);
@@ -595,9 +590,6 @@ void frontend_main_menu_load_game_maintain(struct GuiButton *gbtn);
 void frontend_mappacks_maintain(struct GuiButton *gbtn);
 void frontend_main_menu_netservice_maintain(struct GuiButton *gbtn);
 void frontend_main_menu_highscores_maintain(struct GuiButton *gbtn);
-void frontend_main_menu_start_game_maintain(struct GuiButton *gbtn);
-void frontend_main_menu_options_maintain(struct GuiButton *gbtn);
-void frontend_main_menu_quit_maintain(struct GuiButton *gbtn);
 // The width frontend_draw_button_icon's flexible chrome will actually
 // render for febtn_idx's caption (fit to whole middle-tile steps -- see
 // the definition in frontend.cpp for why raw/unquantized widths cause
@@ -621,7 +613,6 @@ void do_button_press_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Cal
 void do_button_release_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Callback callback);
 void draw_gui(void);
 void init_gui(void);
-void reinit_all_menus(void);
 
 void gui_set_autopilot(struct GuiButton *gbtn);
 
@@ -645,7 +636,6 @@ void toggle_gui(void);
 void add_message(int64_t plyr_idx, char *msg);
 uint64_t toggle_status_menu(int64_t visib);
 TbBool toggle_first_person_menu(TbBool visible);
-void toggle_gui_overlay_map(void);
 
 void update_player_objectives(PlayerNumber plyr_idx);
 void set_level_objective(PlayerNumber plyr_idx, const char *msg_text);

@@ -37,7 +37,6 @@ enum LoadMapFileFlags {
     LMFF_Optional = 0x01,
 };
 /******************************************************************************/
-extern int64_t level_file_version;
 extern char *level_strings[];
 /******************************************************************************/
 unsigned char *load_single_map_file_to_buffer(LevelNumber lvnum,const char *fext,int64_t *ldsize,int64_t flags);

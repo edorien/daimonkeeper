@@ -233,7 +233,6 @@ void LbSpriteClearScalingWidthArray(int64_t * xsteps_arr, int64_t swidth);
 void LbSpriteClearScalingHeightArray(int64_t * ysteps_arr, int64_t sheight);
 
 TbResult LbSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr);
-TbResult LbSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, const TbPixel colour);
 
 TbResult LbSpriteDrawScaled(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height);
 TbResult LbSpriteDrawScaledOneColour(int64_t xpos, int64_t ypos, const struct TbSprite *sprite, int64_t dest_width, int64_t dest_height, const TbPixel colour);

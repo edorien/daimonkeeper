@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "cheat_mode.h"
 
 #include "thing_objects.h"
 #include "globals.h"
@@ -70,6 +71,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/game_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -86,7 +88,7 @@ static TngUpdateRet object_update_object_scale(struct Thing *objtng);
 static TngUpdateRet object_update_power_sight(struct Thing *objtng);
 static TngUpdateRet object_update_power_lightning(struct Thing *objtng);
 
-static Thing_State_Func object_state_functions[] = {
+static Thing_State_Func const object_state_functions[] = {
     NULL,
     food_moves,
     food_grows,
@@ -98,7 +100,7 @@ static Thing_State_Func object_state_functions[] = {
 // Index order must stay in sync with config_objects.c's
 // object_update_functions_desc (its only real consumer, moved there --
 // see docs/refactor/stage-13-enforce-and-document.md).
-static Thing_Class_Func object_update_functions[] = {
+static Thing_Class_Func const object_update_functions[] = {
     NULL,
     object_update_dungeon_heart,
     object_update_call_to_arms,
@@ -108,11 +110,11 @@ static Thing_Class_Func object_update_functions[] = {
     object_update_power_lightning,
 };
 
-int64_t lightning_spangles[] =   {TngEffElm_RedTwinkle3, TngEffElm_BlueTwinke2, TngEffElm_GreenTwinkle2, TngEffElm_YellowTwinkle2, TngEffElm_WhiteTwinkle2, TngEffElm_None,TngEffElm_PurpleTwinkle2,TngEffElm_BlackTwinkle2,TngEffElm_OrangeTwinkle2,};
-int64_t twinkle_eff_elements[] = {TngEffElm_RedTwinkle,  TngEffElm_BlueTwinkle, TngEffElm_GreenTwinkle,  TngEffElm_YellowTwinkle,  TngEffElm_WhiteTwinkle,  TngEffElm_None,TngEffElm_PurpleTwinkle, TngEffElm_BlackTwinkle, TngEffElm_OrangeTwinkle, };
+const int64_t lightning_spangles[] =   {TngEffElm_RedTwinkle3, TngEffElm_BlueTwinke2, TngEffElm_GreenTwinkle2, TngEffElm_YellowTwinkle2, TngEffElm_WhiteTwinkle2, TngEffElm_None,TngEffElm_PurpleTwinkle2,TngEffElm_BlackTwinkle2,TngEffElm_OrangeTwinkle2,};
+const int64_t twinkle_eff_elements[] = {TngEffElm_RedTwinkle,  TngEffElm_BlueTwinkle, TngEffElm_GreenTwinkle,  TngEffElm_YellowTwinkle,  TngEffElm_WhiteTwinkle,  TngEffElm_None,TngEffElm_PurpleTwinkle, TngEffElm_BlackTwinkle, TngEffElm_OrangeTwinkle, };
 
-int64_t gold_hoard_objects[] = {ObjMdl_GoldHoard1, ObjMdl_GoldHoard2, ObjMdl_GoldHoard3, ObjMdl_GoldHoard4, ObjMdl_GoldHoard5};
-int64_t food_grow_objects[] = {ObjMdl_ChickenStb, ObjMdl_ChickenWob, ObjMdl_ChickenCrk};
+const int64_t gold_hoard_objects[] = {ObjMdl_GoldHoard1, ObjMdl_GoldHoard2, ObjMdl_GoldHoard3, ObjMdl_GoldHoard4, ObjMdl_GoldHoard5};
+const int64_t food_grow_objects[] = {ObjMdl_ChickenStb, ObjMdl_ChickenWob, ObjMdl_ChickenCrk};
 
 struct CallToArmsGraphics call_to_arms_graphics[10];
 
@@ -1051,7 +1053,7 @@ int64_t process_temple_special(struct Thing *thing, int64_t sacowner)
     if (object_is_mature_food(thing))
     {
         dungeon->chickens_sacrificed++;
-        if (temple_check_for_arachnid_join_dungeon(dungeon) && (kfx_sim_state.easter_eggs_enabled == true))
+        if (temple_check_for_arachnid_join_dungeon(dungeon) && cheat_mode_enabled())
             return true;
     } else
     {
@@ -2142,29 +2144,13 @@ TbBool thing_is_gold_hoard(const struct Thing *thing)
 
 struct Thing *find_gold_hoard_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
-    uint64_t k = 0;
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-      }
-      i = thing->next_on_mapblk;
       // Per-thing block
       if (thing_is_gold_hoard(thing))
           return thing;
       // Per-thing block ends
-      k++;
-      if (k > THINGS_COUNT)
-      {
-        ERRORLOG("Infinite loop detected when sweeping things list");
-        break_mapwho_infinite_chain(mapblk);
-        break;
-      }
     }
     return INVALID_THING;
 }

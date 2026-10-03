@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "ariadne_saved_state.h"
 #include "ariadne_points.h"
 
 #include "globals.h"
@@ -145,6 +146,7 @@ void triangulation_initxy_points(int64_t startx, int64_t starty, int64_t endx, i
     for (int64_t i = 0; i < POINTS_COUNT; i++)
     {
         struct Point* pt = &ari_Points[i];
+        pt->x = 0; // not the previous level's (P5-F22): the mesh is saved and resynced
         pt->y = 0x8000;
     }
     ari_Points[0].x = startx;
@@ -158,6 +160,15 @@ void triangulation_initxy_points(int64_t startx, int64_t starty, int64_t endx, i
     ix_Points = 4;
     count_Points = 4;
     free_Points = -1;
+}
+/******************************************************************************/
+/** The points and their allocator: part of the saved navigation mesh (ariadne_saved_state.h). */
+void ariadne_points_visit_saved_state(AriadneStateVisitor visit, void *ctx)
+{
+    visit(ctx, ari_Points, sizeof(ari_Points));
+    visit(ctx, &count_Points, sizeof(count_Points));
+    visit(ctx, &ix_Points, sizeof(ix_Points));
+    visit(ctx, &free_Points, sizeof(free_Points));
 }
 /******************************************************************************/
 #ifdef __cplusplus

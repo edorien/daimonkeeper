@@ -69,6 +69,7 @@
 #include "ports/game_port.h"
 #include "ports/render_port.h"
 #include "ports/ai_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -291,18 +292,15 @@ GoldAmount take_money_from_room(struct Room *room, GoldAmount amount_take)
 {
     GoldAmount amount = amount_take;
     // Remove gold from room border slabs
-    uint64_t k = 0;
-    uint64_t slbnum = room->slabs_list;
-    while (slbnum > 0)
+    FOR_EACH_ROOM_SLAB(slab_num, room_slab_walk_from(room->slabs_list, kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y))
     {
-        struct SlabMap* slb = get_slabmap_direct(slbnum);
+        struct SlabMap* slb = get_slabmap_direct(slab_num);
         if (slabmap_block_invalid(slb)) {
             ERRORLOG("Jump to invalid room slab detected");
             break;
         }
-        // Per-slab code starts
-        MapSlabCoord slb_x = slb_num_decode_x(slbnum);
-        MapSlabCoord slb_y = slb_num_decode_y(slbnum);
+        MapSlabCoord slb_x = slb_num_decode_x(slab_num);
+        MapSlabCoord slb_y = slb_num_decode_y(slab_num);
         MapSubtlCoord stl_x = slab_subtile_center(slb_x);
         MapSubtlCoord stl_y = slab_subtile_center(slb_y);
         if (slab_is_area_outer_border(slb_x, slb_y))
@@ -314,30 +312,19 @@ GoldAmount take_money_from_room(struct Room *room, GoldAmount amount_take)
         }
         if (amount <= 0)
           break;
-        // Per-slab code ends
-        slbnum = get_next_slab_number_in_room(slbnum);
-        k++;
-        if (k > kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
-        }
     }
     if (amount <= 0)
         return amount_take-amount;
     // Remove gold from room center only if borders are clear
-    k = 0;
-    slbnum = room->slabs_list;
-    while (slbnum > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_from(room->slabs_list, kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y))
     {
-        struct SlabMap* slb = get_slabmap_direct(slbnum);
+        struct SlabMap* slb = get_slabmap_direct(slb_num);
         if (slabmap_block_invalid(slb)) {
             ERRORLOG("Jump to invalid room slab detected");
             break;
         }
-        // Per-slab code starts
-        MapSubtlCoord stl_x = slab_subtile_center(slb_num_decode_x(slbnum));
-        MapSubtlCoord stl_y = slab_subtile_center(slb_num_decode_y(slbnum));
+        MapSubtlCoord stl_x = slab_subtile_center(slb_num_decode_x(slb_num));
+        MapSubtlCoord stl_y = slab_subtile_center(slb_num_decode_y(slb_num));
         {
             struct Thing* hrdtng = find_gold_hoard_at(stl_x, stl_y);
             if (!thing_is_invalid(hrdtng)) {
@@ -346,14 +333,6 @@ GoldAmount take_money_from_room(struct Room *room, GoldAmount amount_take)
         }
         if (amount <= 0)
           break;
-        // Per-slab code ends
-        slbnum = get_next_slab_number_in_room(slbnum);
-        k++;
-        if (k > kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
-        }
     }
     return amount_take-amount;
 }
@@ -371,25 +350,9 @@ void recalculate_total_gold(struct Dungeon* dungeon, const char* func_name)
     {
         if (room_role_matches(rkind, RoRoF_GoldStorage))
         {
-            int64_t i = dungeon->room_list_start[rkind];
-            uint64_t k = 0;
-            while (i != 0)
+            FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
             {
-                struct Room* room = room_get(i);
-                if (room_is_invalid(room))
-                {
-                    ERRORLOG("Jump to invalid room detected");
-                    break;
-                }
-                i = room->next_of_owner;
                 dungeon->total_money_owned += room->capacity_used_for_storage;
-                // Per-room code ends
-                k++;
-                if (k > ROOMS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping rooms list");
-                    break;
-                }
             }
         }
     }
@@ -443,18 +406,8 @@ int64_t take_money_from_dungeon_f(PlayerNumber plyr_idx, GoldAmount amount_take,
     {
         if(room_role_matches(rkind,RoRoF_GoldStorage))
         {
-            int64_t i = dungeon->room_list_start[rkind];
-            uint64_t k = 0;
-            while (i != 0)
+            FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
             {
-                struct Room* room = room_get(i);
-                if (room_is_invalid(room))
-                {
-                    ERRORLOG("Jump to invalid room detected");
-                    break;
-                }
-                i = room->next_of_owner;
-                // Per-room code
                 if (room->capacity_used_for_storage > 0)
                 {
                     take_remain -= take_money_from_room(room, take_remain);
@@ -468,13 +421,6 @@ int64_t take_money_from_dungeon_f(PlayerNumber plyr_idx, GoldAmount amount_take,
                         }
                         return amount_take;
                     }
-                }
-                // Per-room code ends
-                k++;
-                if (k > ROOMS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping rooms list");
-                    break;
                 }
             }
         }
@@ -1413,18 +1359,8 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx)
                 }
             }
             const struct StructureList *slist = get_list_for_thing_class(TCls_Object);
-            int64_t k = 0;
-            uint64_t i = slist->index;
-            while (i > 0)
+            FOR_EACH_THING(thing, thing_walk_structure_list(slist))
             {
-                struct Thing *thing = thing_get(i);
-                TRACE_THING(thing);
-                if (thing_is_invalid(thing)) {
-                    ERRORLOG("Jump to invalid thing detected");
-                    break;
-                }
-                i = thing->next_of_class;
-                // Per-thing code
                 if (thing->owner == plyr_idx)
                 {
                     ThingModel base_model = get_coloured_object_base_model(thing->model);
@@ -1433,13 +1369,6 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx)
                         create_coloured_object(&thing->mappos, plyr_idx, thing->parent_idx,base_model);
                         delete_thing_structure(thing, 0);
                     }
-                }
-                // Per-thing code ends
-                k++;
-                if (k > slist->count)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping things list");
-                    break;
                 }
             }
             // Refresh GUI panel button sprites for local player. Workaround for multiplayer.
@@ -1514,7 +1443,7 @@ void check_players_lost(void)
             //this would easily prevent computer player activities on dead player, but it also makes dead player unable to use
             //floating spirit, so defeated keepers must stay active keepers
             if (is_my_player_number(i)) {
-                RendererPaletteSet(engine_palette);
+                render_PaletteSetViewPalette(VPal_Engine);
             }
           }
       }
@@ -1593,24 +1522,11 @@ static void process_dungeon_devastation_effects(void)
  */
 int64_t set_players_creatures_to_get_paid(PlayerNumber plyr_idx)
 {
-    uint64_t k;
-    int64_t i;
     int64_t count = 0;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Creature);
-    i = slist->index;
-    k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing->owner == plyr_idx)
         {
             struct CreatureModelConfig *crconf;
@@ -1635,13 +1551,6 @@ int64_t set_players_creatures_to_get_paid(PlayerNumber plyr_idx)
                     }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return count;

@@ -18,6 +18,8 @@
 #ifndef DK_KFX_NET_STATE_H
 #define DK_KFX_NET_STATE_H
 
+#include "port_check.h"
+#include "state_versions.h"
 #include "bflib_basics.h"
 #include "globals.h"
 #include "thing_list.h"
@@ -186,6 +188,10 @@ struct KfxNetState {
 #pragma pack()
 /******************************************************************************/
 extern struct KfxNetState kfx_net_state;
+/* In every file that includes this header, not only the struct's own: a file that sees another layout reads the
+   state at other offsets than the rest of the game (P4-F17). */
+KFX_STATIC_ASSERT(sizeof(struct KfxNetState) == KFX_NET_STATE_SIZE,
+    "struct KfxNetState has another size in this file than state_versions.h says: a #pragma pack leaking into the headers it includes (refactor pass 4, P4-F17), or a layout change (bump KFX_NET_STATE_VER and update KFX_NET_STATE_SIZE)");
 
 /** Process-local state, NOT part of the saved/resynced KfxNetState blob: a FILE* is meaningless outside the
  *  process that opened it (a savegame or a multiplayer host would overwrite ours with a dead handle). */

@@ -707,6 +707,155 @@ int64_t value_stltocoord(const struct NamedField* named_field, const char* value
     return 0;
 }
 
+/******************************************************************************/
+// Parse functions that keep the hand-written block parsers' rules, for the
+// blocks refactor pass 3 (S04) moved onto NamedField tables. They are more
+// lenient than value_default: numbers go through atoi() with no range check
+// and are stored with C's conversion (README finding F10), and a name that
+// isn't found leaves the field as it is instead of setting 0. Switching a row
+// to value_default/assign_default is the fix for F10.
+
+/** atoi(): no range check; text reads as 0, "12abc" as 12. */
+int64_t value_atoi(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    return atoi(value_text);
+}
+
+/** atoi(); a negative value leaves the field as it is. */
+int64_t value_atoi_nonneg(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    const int64_t value = atoi(value_text);
+    if (value < 0)
+    {
+        NAMFIELDWRNLOG("Incorrect value of field '%s', got '%s'", named_field->name, value_text);
+        return NAMFIELD_KEEP;
+    }
+    return value;
+}
+
+/** atoi(); a value outside the row's min..max leaves the field as it is. */
+int64_t value_atoi_in_bounds(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    const int64_t value = atoi(value_text);
+    if ((value < named_field->min) || (value > named_field->max))
+    {
+        NAMFIELDWRNLOG("Incorrect value of field '%s', got '%s'", named_field->name, value_text);
+        return NAMFIELD_KEEP;
+    }
+    return value;
+}
+
+/** A name from the field's list (get_id()); an unknown one leaves the field as it is. */
+int64_t value_id_nonneg(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    const int64_t value = get_id(named_field->namedCommand, value_text);
+    if (value < 0)
+    {
+        NAMFIELDWRNLOG("Incorrect value of field '%s', got '%s'", named_field->name, value_text);
+        return NAMFIELD_KEEP;
+    }
+    return value;
+}
+
+/** As value_id_nonneg, but entry 0 (usually "NULL") also leaves the field as it is. */
+int64_t value_id_positive(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    const int64_t value = get_id(named_field->namedCommand, value_text);
+    if (value <= 0)
+    {
+        if (strcasecmp(value_text, "NULL") != 0)
+            NAMFIELDWRNLOG("Incorrect value of field '%s', got '%s'", named_field->name, value_text);
+        return NAMFIELD_KEEP;
+    }
+    return value;
+}
+
+/** A known key whose value is ignored (kept so the key isn't reported as unknown). */
+int64_t value_ignored(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    return NAMFIELD_KEEP;
+}
+
+/**
+ * For argnum -1 rows: the whole line is a list of names from the field's list,
+ * OR'ed together (flags). Starts from 0, so an empty line clears the field.
+ * Unknown names, and names whose value is 0, are skipped with a warning.
+ */
+int64_t value_ids_or(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t value = 0;
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    while (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        const int64_t k = get_id(named_field->namedCommand, word_buf);
+        if (k > 0)
+            value |= k;
+        else
+            NAMFIELDWRNLOG("Incorrect value of field '%s', got '%s'", named_field->name, word_buf);
+    }
+    return value;
+}
+
+/** A string alias or number (get_string_id_by_alias()); not found (or 0) leaves the field as it is. */
+int64_t value_string_id_positive(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    const int64_t k = get_string_id_by_alias(value_text);
+    if (k <= 0)
+    {
+        CONFWRNLOG("Incorrect value of \"%s\" parameter in %s file.", named_field->name, src_str);
+        return NAMFIELD_KEEP;
+    }
+    return k;
+}
+
+/**
+ * For -2 rows over a char[COMMAND_WORD_LEN] field: the line's first word, read
+ * as from the file (an empty value clears the field).
+ */
+int64_t value_word(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    char* field = (char*)named_fields_set->get_struct_base() + named_fields_set->struct_size * idx + (ptrdiff_t)named_field->field;
+    int64_t pos = 0;
+    if (get_conf_parameter_single(value_text, &pos, (int64_t)strlen(value_text), field, COMMAND_WORD_LEN) <= 0)
+    {
+        NAMFIELDWRNLOG("Couldn't read field '%s'", named_field->name);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** Stores the value with C's conversion to the field's type; NAMFIELD_KEEP stores nothing. */
+void assign_cast(const struct NamedField* named_field, int64_t value, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    if (value == NAMFIELD_KEEP)
+        return;
+    char* base = (char*)named_fields_set->get_struct_base();
+    if ((base == NULL) || (idx < 0) || (idx >= named_fields_set->max_count))
+    {
+        NAMFIELDERRLOG("Field '%s' index %" PRId64 " out of bounds", named_field->name, (int64_t)(idx));
+        return;
+    }
+    char* field = base + named_fields_set->struct_size * idx + (ptrdiff_t)named_field->field;
+    switch (named_field->type)
+    {
+    case dt_uchar:     { unsigned char v = (unsigned char)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_schar:     { signed char v = (signed char)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_char:      { char v = (char)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_short:     { short v = (short)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_ushort:    { unsigned short v = (unsigned short)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_int:       { int v = (int)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_uint:      { unsigned int v = (unsigned int)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_long:      { long v = (long)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_ulong:     { unsigned long v = (unsigned long)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_longlong:  { long long v = (long long)value; memcpy(field, &v, sizeof(v)); break; }
+    case dt_ulonglong: { unsigned long long v = (unsigned long long)value; memcpy(field, &v, sizeof(v)); break; }
+    default:
+        assign_default(named_field, value, named_fields_set, idx, src_str, flags);
+        break;
+    }
+}
+
 int64_t parse_named_field_value(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
     if (named_field->parse_func != NULL)
@@ -919,7 +1068,8 @@ int64_t assign_conf_command_field(const char *buf,int64_t *pos,int64_t buflen,co
     int64_t i = 0;
     while (commands[i].name != NULL)
     {
-        if (flag_is_set(flags,CnfLd_ListOnly) && strcasecmp(commands[i].name,"Name") != 0)
+        const TbBool list_skips = flag_is_set(flags,CnfLd_ListOnly) && strcasecmp(commands[i].name,"Name") != 0;
+        if (list_skips && !flag_is_set(flags,CnfLd_ListKnownKeys))
         {
             i++;
             continue;
@@ -961,8 +1111,32 @@ int64_t assign_conf_command_field(const char *buf,int64_t *pos,int64_t buflen,co
             }
 
 
+            if (list_skips)
+                return ccr_ok; // CnfLd_ListKnownKeys: a known key, not read in the list pass
             int64_t k = 0;
-            if (commands[i].argnum == -1)
+            if (commands[i].argnum == NAMFIELD_WHOLE_LINE_UNLIMITED)
+            {
+                // As -1, without its line length limit: for lists read to the end of the line.
+                // The text keeps the line's end character (if the file has one there), so a parse
+                // function reading it with get_conf_parameter_single() sees what it would in the file.
+                int64_t line_len = 0;
+                while ((*pos) + line_len < buflen && buf[(*pos) + line_len] != '\n' && buf[(*pos) + line_len] != '\r')
+                    line_len++;
+                const int64_t text_len = ((*pos) + line_len < buflen) ? line_len + 1 : line_len;
+                char* line_buf = (char*)KfxCalloc((size_t)text_len + 1, 1);
+                if (line_buf == NULL)
+                {
+                    ERRORLOG("Can't allocate %" PRId64 " bytes for a conf line", (int64_t)(text_len + 1));
+                    return ccr_error;
+                }
+                memcpy(line_buf, buf + (*pos), (size_t)text_len);
+                line_buf[text_len] = '\0';
+                (*pos) += line_len;
+                k = parse_named_field_value(&commands[i], line_buf,named_fields_set,idx,config_textname,ccf_None);
+                assign_named_field_value(&commands[i],k,named_fields_set,idx,config_textname,ccf_None);
+                KfxFree(line_buf);
+            }
+            else if (commands[i].argnum == -1)
             {
                 #define MAX_LINE_LEN 1024
                 char line_buf[MAX_LINE_LEN];
@@ -1000,7 +1174,7 @@ int64_t assign_conf_command_field(const char *buf,int64_t *pos,int64_t buflen,co
                 uchar n = 0;
                 while (get_conf_parameter_single(buf,pos,buflen,word_buf,sizeof(word_buf)) > 0)
                 {
-                    if(strcmp(commands[i + n].name, commands[i].name) != 0)
+                    if ((commands[i + n].name == NULL) || (strcmp(commands[i + n].name, commands[i].name) != 0)) // past the table's last row: README F11
                     {
                         CONFWRNLOG("more params than expected for command '%s' '%s'",commands[i].name, word_buf);
                     }
@@ -1017,7 +1191,7 @@ int64_t assign_conf_command_field(const char *buf,int64_t *pos,int64_t buflen,co
         i++;
     }
     // A list-only pass reads just the Name fields; every other key is expected to fall through here.
-    if (!flag_is_set(flags, CnfLd_ListOnly))
+    if (!flag_is_set(flags, CnfLd_ListOnly) || flag_is_set(flags, CnfLd_ListKnownKeys))
     {
         const int64_t len = (int64_t)strcspn(&buf[(*pos)], " =\n\r\t");
         CONFWRNLOG("Unrecognized field '%.*s' in %s", (int)(len), &buf[(*pos)], config_textname);
@@ -1038,18 +1212,25 @@ TbBool parse_named_field_block(const char *buf, int64_t len, const char *config_
         return false;
     }
 
-    while (pos<len)
+    parse_named_field_block_lines(buf, &pos, len, config_textname, flags, named_field, named_fields_set, idx);
+    return true;
+}
+
+void parse_named_field_block_lines(const char *buf, int64_t *pos, int64_t len, const char *config_textname, int64_t flags,
+                         const struct NamedField named_field[], const struct NamedFieldSet* named_fields_set, int64_t idx)
+{
+    while (*pos<len)
     {
         // Finding command number in this line.
-        int64_t assignresult = assign_conf_command_field(buf, &pos, len, named_field,named_fields_set,idx,flags,config_textname);
+        int64_t assignresult = assign_conf_command_field(buf, pos, len, named_field,named_fields_set,idx,flags,config_textname);
         if( assignresult == ccr_ok || assignresult == ccr_comment )
         {
-            skip_conf_to_next_line(buf,&pos,len);
+            skip_conf_to_next_line(buf,pos,len);
             continue;
         }
         else if( assignresult == ccr_unrecognised)
         {
-            skip_conf_to_next_line(buf,&pos,len);
+            skip_conf_to_next_line(buf,pos,len);
             continue;
         }
         else if( assignresult == ccr_endOfBlock || assignresult == ccr_error || assignresult == ccr_endOfFile)
@@ -1057,7 +1238,6 @@ TbBool parse_named_field_block(const char *buf, int64_t len, const char *config_
             break;
         }
     }
-    return true;
 }
 
 void set_defaults(const struct NamedFieldSet* named_fields_set, const char *config_textname)
@@ -2261,12 +2441,12 @@ void set_config_level_sources(const LevelNumber *selected_level, const LevelNumb
     config_loaded_level_source = loaded_level ? loaded_level : &unwired_level_number;
 }
 
-LevelNumber config_selected_level_number(void)
+static LevelNumber config_selected_level_number(void)
 {
     return *config_selected_level_source;
 }
 
-LevelNumber config_loaded_level_number(void)
+static LevelNumber config_loaded_level_number(void)
 {
     return *config_loaded_level_source;
 }

@@ -73,8 +73,6 @@ struct CreatureStorage {
 
 #pragma pack()
 /******************************************************************************/
-extern struct TbSpriteSheet *swipe_sprites;
-extern uint64_t creature_create_errors;
 /******************************************************************************/
 struct Thing *create_creature(struct Coord3d *pos, ThingModel model, PlayerNumber owner);
 TbBool creature_count_below_map_limit(TbBool temp_creature);
@@ -102,8 +100,6 @@ ThingIndex process_player_use_instance(struct Thing *thing, CrInstance inst_id, 
 ThingIndex get_human_controlled_creature_target(struct Thing *thing, CrInstance inst_id, struct Packet *packet);
 struct Thing *get_creature_near_for_controlling(PlayerNumber plyr_idx, MapCoord x, MapCoord y);
 
-TbBool load_swipe_graphic_for_creature(const struct Thing *thing);
-void free_swipe_graphic(void);
 
 int64_t creature_available_for_combat_this_turn(struct Thing *thing);
 TbBool set_creature_object_combat(struct Thing *crthing, struct Thing *obthing);
@@ -115,6 +111,7 @@ void creature_cast_spell(struct Thing *caster, SpellKind spl_idx, CrtrExpLevel s
 
 void thing_summon_temporary_creature(struct Thing* creatng, ThingModel model, char level, char count, GameTurn duration, int64_t spl_idx);
 void level_up_familiar(struct Thing* famlrtng);
+void familiar_follow_summoner_level(struct Thing* famlrtng);
 void teleport_familiar_to_summoner(struct Thing* famlrtng, struct Thing* creatng);
 void add_creature_to_summon_list(struct Dungeon* dungeon, ThingIndex famlrtng);
 void remove_creature_from_summon_list(struct Dungeon* dungeon, ThingIndex famlrtng);
@@ -247,11 +244,6 @@ struct Thing *grow_up_creature(struct Thing *thing, ThingModel grow_up_model, Cr
 int64_t get_foot_creature_has_down(struct Thing *thing);
 void update_thing_animation(struct Thing *thing);
 
-void update_near_creatures_for_footsteps(int64_t *near_creatures, const struct Coord3d *srcpos);
-int64_t stop_playing_flight_sample_in_all_flying_creatures(void);
-void update_footsteps_nearest_camera(struct Camera *cam);
-int64_t near_map_block_thing_filter_queryable_object(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer);
-struct Thing *get_queryable_object_near(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx);
 TbBool can_thing_be_queried(struct Thing *thing, PlayerNumber plyr_idx);
 int64_t zoom_to_next_annoyed_creature(void);
 TbBool creature_is_doing_job_in_room_role(const struct Thing *creatng, RoomRole rrole);

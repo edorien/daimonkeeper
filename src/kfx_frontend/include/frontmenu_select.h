@@ -126,7 +126,6 @@ void frontend_draw_campaign_select_button(struct GuiButton *gbtn);
 void frontend_campaign_select_by_index(int64_t i);
 void frontend_campaign_select(struct GuiButton *gbtn);
 void frontend_campaign_select_update(void);
-void frontend_draw_simple_scroll_track(struct GuiButton *gbtn);
 void frontend_draw_campaign_scroll_tab(struct GuiButton *gbtn);
 // Returns the FrontendMenuState to transition to (as int -- see
 // frontend_mp_mappack_select_resolve's comment for the convention), or -1

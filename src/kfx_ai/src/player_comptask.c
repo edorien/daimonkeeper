@@ -42,6 +42,7 @@
 #include "creature_states_combt.h"
 #include "creature_states_mood.h"
 #include "magic_powers.h"
+#include "thing_doors.h"
 #include "thing_traps.h"
 #include "thing_physics.h"
 #include "thing_effects.h"
@@ -68,7 +69,7 @@
 #include "player_complookup.h"
 #include "creature_states_gardn.h"
 #include "ports/ui_port.h"
-#include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -382,7 +383,7 @@ TbResult game_action(PlayerNumber plyr_idx, int64_t gaction, KeepPwrLevel power_
             break;
         return Lb_SUCCESS;
     case GA_PlaceDoor: {
-        k = render_tag_cursor_blocks_place_door(plyr_idx, stl_x, stl_y);
+        k = door_placement_allowed(plyr_idx, stl_x, stl_y);
         if (packet_place_door(stl_x, stl_y, plyr_idx, param1, k)) {
             return Lb_SUCCESS;
         } else {
@@ -605,19 +606,9 @@ static struct ComputerTask *get_free_task(struct Computer2 *comp, TbBool use_com
  */
 static TbBool any_digger_is_digging_indestructible_valuables(struct Dungeon *dungeon)
 {
-    uint64_t k = 0;
-    int64_t i = dungeon->digger_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->digger_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (cctrl->combat_flags == 0)
         {
             int64_t state_type = get_creature_state_type(thing);
@@ -629,13 +620,6 @@ static TbBool any_digger_is_digging_indestructible_valuables(struct Dungeon *dun
                 SYNCDBG(18, "Indestructible valuables being dug by player %" PRId64, (int64_t)dungeon->owner);
                 return true;
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            return false;
         }
     }
     SYNCDBG(18, "Indestructible valuables NOT being dug by player %" PRId64, (int64_t)dungeon->owner);
@@ -2750,24 +2734,9 @@ struct Thing *find_creature_for_pickup(struct Computer2 *comp, struct Coord3d *p
     pick_score = INT32_MIN;
     pick_thing = INVALID_THING;
 
-    uint64_t k;
-    int64_t i;
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl *cctrl;
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
+        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         int64_t score;
         if (can_thing_be_picked_up_by_player(thing, dungeon->owner) && !creature_is_being_dropped(thing))
         {
@@ -2819,87 +2788,9 @@ struct Thing *find_creature_for_pickup(struct Computer2 *comp, struct Coord3d *p
                 }
             }
         }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     SYNCDBG(19,"Finished");
     return pick_thing;
-}
-
-int64_t count_creatures_for_pickup(struct Computer2 *comp, struct Coord3d *pos, struct Room *room, int64_t a4)
-{
-    struct CreatureControl *cctrl;
-    struct Thing *thing;
-    uint64_t k;
-    int64_t i;
-    SYNCDBG(8,"Starting");
-    MapSubtlCoord stl_x;
-    MapSubtlCoord stl_y;
-    stl_x = 0;
-    stl_y = 0;
-    if (pos != NULL)
-    {
-      stl_x = pos->x.stl.num;
-      stl_y = pos->y.stl.num;
-    }
-    int64_t count;
-    count = 0;
-    k = 0;
-    i = computer_dungeon(comp)->creatr_list_start;
-    while (i != 0)
-    {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
-        if (!thing_is_picked_up(thing))
-        {
-            if ((thing->active_state != CrSt_CreatureUnconscious) && (cctrl->combat_flags == 0))
-            {
-                if (!creature_is_called_to_arms(thing) && !creature_is_being_dropped(thing))
-                {
-                    struct CreatureStateConfig *stati;
-                    int64_t n;
-                    n = get_creature_state_besides_move(thing);
-                    stati = get_thing_state_info_num(n);
-                    if ((stati->state_type != CrStTyp_Work) || a4 )
-                    {
-                        if (room_is_invalid(room))
-                        {
-                            if (grid_distance(thing->mappos.x.stl.num, thing->mappos.y.stl.num, stl_x, stl_y) < 2)
-                              continue;
-                        } else
-                        {
-                            //This needs finishing
-                            //if ( !person_will_do_job_for_room(thing, room) )
-                              continue;
-                        }
-                        count++;
-                    }
-                }
-            }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
-    }
-    SYNCDBG(19,"Finished");
-    return count;
 }
 
 int64_t task_pickup_for_attack(struct Computer2 *comp, struct ComputerTask *ctask)
@@ -3071,28 +2962,14 @@ int64_t task_move_creature_to_pos(struct Computer2 *comp, struct ComputerTask *c
 struct Thing *find_creature_for_defend_pickup(struct Computer2 *comp)
 {
     struct Dungeon *dungeon;
-    uint64_t k;
-    int64_t i;
     dungeon = computer_dungeon(comp);
     int64_t best_factor;
     struct Thing *best_creatng;
     best_creatng = INVALID_THING;
     best_factor = INT32_MIN;
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, THINGS_COUNT))
     {
-        struct CreatureControl *cctrl;
-        struct Thing *thing;
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
+        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (can_thing_be_picked_up_by_player(thing, dungeon->owner))
         {
             if (cctrl->combat_flags == 0)
@@ -3121,13 +2998,6 @@ struct Thing *find_creature_for_defend_pickup(struct Computer2 *comp)
                     }
                 }
             }
-        }
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return best_creatng;
@@ -3280,20 +3150,8 @@ int64_t task_slap_imps(struct Computer2 *comp, struct ComputerTask *ctask)
         TbBool allow_slap_to_kill;
         // Make sure we can accept situation where the creature will die because of the slap
         allow_slap_to_kill = computer_able_to_use_power(comp, PwrK_MKDIGGER, 0, 10);
-        struct Thing *thing;
-        struct CreatureControl *cctrl;
-        int64_t i;
-        uint64_t k;
-        k = 0;
-        i = dungeon->digger_list_start;
-        while (i > 0)
+        FOR_EACH_THING(thing, thing_walk_creatures(dungeon->digger_list_start, THINGS_COUNT))
         {
-            thing = thing_get(i);
-            if (thing_is_invalid(thing))
-                break;
-            cctrl = creature_control_get_from_thing(thing);
-            i = cctrl->players_next_creature_idx;
-            // Per-thing code
             // Don't slap if picked up or already slapped
             if (!thing_is_picked_up(thing) && !creature_affected_by_slap(thing) && !(creature_under_spell_effect(thing, CSAfF_Speed) && ctask->slap_imps.skip_speed))
             {
@@ -3316,13 +3174,6 @@ int64_t task_slap_imps(struct Computer2 *comp, struct ComputerTask *ctask)
                         }
                     }
                 }
-            }
-            // Per-thing code ends
-            k++;
-            if (k > THINGS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break;
             }
         }
     }

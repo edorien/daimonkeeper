@@ -200,8 +200,6 @@ void set_log_level_pinned(int64_t level);
 TbBool log_level_is_pinned(void);
 /** keeperfx.cfg's LOG_LEVEL: applied unless the session level is pinned. */
 void set_log_level_from_config(int64_t level);
-/** The *DBG threshold a level maps to: Off/Normal 0, Debug 10, DebugMax 20. */
-int64_t log_level_debug_threshold(int64_t level);
 /**
  * Makes every later log call write, whatever the level. The crash handlers
  * (bflib_crash.c) call it first, so a crash report is written even at Off.

@@ -31,6 +31,7 @@
 #include "config_terrain.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -141,27 +142,10 @@ int64_t calculate_player_num_rooms_built(PlayerNumber plyr_idx)
 int64_t count_player_rooms_entrances(PlayerNumber plyr_idx)
 {
     int64_t count = 0;
-    int64_t i = kfx_sim_state.entrance_room_id;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_kind(kfx_sim_state.entrance_room_id))
     {
-        struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-        }
-        i = room->next_of_kind;
-        // Per-room code
         if ((plyr_idx < 0) || (room->owner == plyr_idx))
             count++;
-        // Per-room code ends
-        k++;
-        if (k > ROOMS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping rooms list");
-            break;
-        }
     }
     return count;
 }
@@ -172,30 +156,13 @@ struct Room *get_player_room_of_kind_nearest_to(PlayerNumber plyr_idx, RoomKind 
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     int64_t nearest_dist = INT32_MAX;
     struct Room* nearest_room = INVALID_ROOM;
-    int64_t i = dungeon->room_list_start[rkind];
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
     {
-        struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-      }
-      i = room->next_of_owner;
-      // Per-room code
       int64_t dist = grid_distance(room->central_stl_x, room->central_stl_y, stl_x, stl_y);
       if (dist < nearest_dist)
       {
           nearest_dist = dist;
           nearest_room = room;
-      }
-      // Per-room code ends
-      k++;
-      if (k > ROOMS_COUNT)
-      {
-          ERRORLOG("Infinite loop detected when sweeping rooms list");
-          break;
       }
     }
     if (retdist != NULL)
@@ -224,18 +191,8 @@ struct Room *get_player_room_any_kind_nearest_to(PlayerNumber plyr_idx,
 
 struct Room * find_next_navigable_room_for_thing_with_capacity_and_closer_than(struct Thing *thing, int64_t prev_room_idx, unsigned char nav_flags, int64_t used, int64_t *neardistance)
 {
-    uint64_t k = 0;
-    int64_t i = prev_room_idx;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_owner(prev_room_idx))
     {
-        struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-        }
-        i = room->next_of_owner;
-        // Per-room code
         // Compute simplified distance - without use of mul or div
         int64_t distance = grid_distance(thing->mappos.x.stl.num, thing->mappos.y.stl.num, room->central_stl_x, room->central_stl_y);
         if ((*neardistance > distance) && (room->used_capacity >= used))
@@ -259,13 +216,6 @@ struct Room * find_next_navigable_room_for_thing_with_capacity_and_closer_than(s
                     return room;
                 }
             }
-        }
-        // Per-room code ends
-        k++;
-        if (k > ROOMS_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping rooms list");
-          break;
         }
     }
     return INVALID_ROOM;

@@ -19,7 +19,7 @@ function SetGenerateSpeed(interval,player) end
 ---So this command is mostly for controlling the computer players behavior.
 ---@param player1 playerrange players this should affect.
 ---@param player2 playersingle player this should affect.
----@param state? integer What happens to the alliance, it can have the following values:
+---@param state integer What happens to the alliance, it can have the following values:
 --- 0: Players are enemies, but may change that. Computer Players never will.
 --- 1: Players are allied, but may change that. Computer Players never will.
 --- 2: Players are enemies, and cannot change this.

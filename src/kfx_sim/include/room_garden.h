@@ -35,10 +35,6 @@ extern "C" {
 /******************************************************************************/
 TbBool remove_food_from_food_room_if_possible(struct Thing *thing);
 int64_t room_grow_food(struct Room *room);
-TbBool recreate_repositioned_food_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos);
-void reposition_all_food_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos);
-int64_t check_food_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-void count_and_reposition_food_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos);
 void count_food_in_room(struct Room *room);
 TbBool room_create_new_food_at(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 

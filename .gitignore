@@ -100,4 +100,8 @@ third_party/
 
 # Local-only design notes; removed from the remote (to be folded into docs/Architecture)
 /docs/refactor/
+/docs/refactor-pass2/
+/docs/refactor-pass3/
+/docs/refactor-pass4/
+/docs/refactor-pass5/
 /docs/rebadge/

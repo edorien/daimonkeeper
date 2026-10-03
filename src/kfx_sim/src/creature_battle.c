@@ -37,8 +37,6 @@
 
 /******************************************************************************/
 
-int64_t friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
-int64_t enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
 
 /******************************************************************************/
 /**
@@ -473,73 +471,6 @@ int64_t setup_player_battlers(struct PlayerInfo *player, struct CreatureBattle *
         }
     }
     return friendly_pos+enemy_pos;
-}
-
-int64_t setup_my_battlers(unsigned char battle_idx, int64_t *friendly_battlers, int64_t *enemy_battlers)
-{
-    // Clear the battlers
-    clear_battlers(friendly_battlers, enemy_battlers);
-    // And fill them with new data
-    struct PlayerInfo* player = get_my_player();
-    struct CreatureBattle* battle = creature_battle_get(battle_idx);
-    if (creature_battle_invalid(battle)) {
-        ERRORLOG("Invalid battle %" PRId64,(int64_t)battle_idx);
-        return 0;
-    }
-    return setup_player_battlers(player, battle, friendly_battlers, enemy_battlers);
-}
-
-void maintain_my_battle_list(void)
-{
-    int64_t i;
-    // Find battle index
-    struct PlayerInfo* player = get_my_player();
-    struct Dungeon* dungeon = get_players_dungeon(player);
-    BattleIndex battle_id = 0;
-    for (i=0; i < 3; i++)
-    {
-        struct CreatureBattle* battle = creature_battle_get(dungeon->visible_battles[i]);
-        if (battle->fighters_num > 0) {
-            battle_id = dungeon->visible_battles[i];
-        } else {
-            dungeon->visible_battles[i] = 0;
-        }
-    }
-    // Move array items down to make sure empty slots are at end
-    for (i=0; i < 2; i++)
-    {
-      if (dungeon->visible_battles[i] <= 0)
-      {
-          // Got empty spot - fill it with first non-empty item
-          for (int64_t n = i + 1; n < 3; n++)
-          {
-              if (dungeon->visible_battles[n] > 0)
-              {
-                  dungeon->visible_battles[i] = dungeon->visible_battles[n];
-                  dungeon->visible_battles[n] = 0;
-                  break;
-              }
-          }
-      }
-    }
-    // Find battles to fill empty slots
-    for (i=0; i < 3; i++)
-    {
-      if (dungeon->visible_battles[i] <= 0)
-      {
-          battle_id = find_next_battle_of_mine_excluding_current_list(player->id_number, battle_id);
-          if (battle_id > 0) {
-              dungeon->visible_battles[i] = battle_id;
-          }
-      }
-    }
-    for (i=0; i < 3; i++)
-    {
-        battle_id = dungeon->visible_battles[i];
-        if (battle_id > 0) {
-            setup_my_battlers(dungeon->visible_battles[i], &friendly_battler_list[MESSAGE_BATTLERS_COUNT*i], &enemy_battler_list[MESSAGE_BATTLERS_COUNT*i]);
-        }
-    }
 }
 
 uint64_t count_active_battles(PlayerNumber plyr_idx)

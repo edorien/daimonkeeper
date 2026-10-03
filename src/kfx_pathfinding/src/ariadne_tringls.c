@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "ariadne_saved_state.h"
 #include "ariadne_tringls.h"
 
 #include "globals.h"
@@ -404,6 +405,15 @@ char triangle_divide_areas_s8differ(int64_t ntri, int64_t ncorA, int64_t ncorB, 
     int64_t tipB_x = (pt->x << 8);
     int64_t tipB_y = (pt->y << 8);
     return LbCompareMultiplications(tipA_x-pt_x, tipB_y-pt_y, tipA_y-pt_y, tipB_x-pt_x);
+}
+/******************************************************************************/
+/** The triangles and their allocator: part of the saved navigation mesh (ariadne_saved_state.h). */
+void ariadne_tringls_visit_saved_state(AriadneStateVisitor visit, void *ctx)
+{
+    visit(ctx, Triangles, sizeof(Triangles));
+    visit(ctx, &count_Triangles, sizeof(count_Triangles));
+    visit(ctx, &ix_Triangles, sizeof(ix_Triangles));
+    visit(ctx, &free_Triangles, sizeof(free_Triangles));
 }
 /******************************************************************************/
 #ifdef __cplusplus

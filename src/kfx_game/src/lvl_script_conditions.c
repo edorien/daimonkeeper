@@ -127,7 +127,7 @@ static const VariableIconMapping variable_icon_mapping[] = {
     {SVar_TRAP_ACTIVATED,      GPS_trapdoor_trap_boulder_std_l, 0, 2.5, NULL},
     {SVar_TRAPS_SOLD,          GPS_trapdoor_trap_boulder_std_l, 0, 2.5, NULL},
 };
-static int64_t script_current_condition = 0;
+static int64_t script_current_condition = CONDITION_ALWAYS;
 static int64_t condition_stack_pos;
 static int64_t condition_stack[CONDITIONS_COUNT];
 struct ScriptVariableDetails get_condition_details(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx)
@@ -460,7 +460,7 @@ static void process_condition(struct Condition *condt, int64_t idx)
     int64_t plr_end;
     int64_t i;
     SYNCDBG(18,"Starting for type %" PRId64 ", player %" PRId64,(int64_t)condt->variabl_type,(int64_t)condt->plyr_range);
-    if (condition_inactive(condt->condit_idx))
+    if (condition_inactive(condt->condit_idx) || (condt->variabl_type == SVar_NEVER_TRUE))
     {
         clear_flag(condt->status, 0x01);
         return;
@@ -551,6 +551,25 @@ void process_conditions(void)
     }
 }
 
+/**
+ * After an IF-type line was read: when it opened no condition (the line was refused: an unknown variable,
+ * a bad argument, ...), opens one that is never true, so the lines up to its ENDIF don't run and the ENDIF
+ * closes it rather than the enclosing block (refactor pass 4 finding P4-F2). A refused IF used to leave
+ * its body running under the enclosing condition, and its ENDIF closing that.
+ */
+void script_balance_refused_condition(int64_t conditions_before)
+{
+    if (kfx_game_state.script.conditions_num != conditions_before)
+        return;
+    if (kfx_game_state.script.conditions_num >= CONDITIONS_COUNT)
+    {
+        SCRPTERRLOG("Too many (over %" PRId64 ") conditions in script; the refused condition's block runs unconditionally", (int64_t)(CONDITIONS_COUNT));
+        return;
+    }
+    SCRPTWRNLOG("Condition refused; the lines up to its ENDIF will never run");
+    command_add_condition(0, 0, SVar_NEVER_TRUE, 0, 0);
+}
+
 int64_t pop_condition(void)
 {
   if (script_current_condition == CONDITION_ALWAYS)
@@ -577,6 +596,15 @@ int64_t get_script_current_condition()
 void set_script_current_condition(int64_t current_condition)
 {
     script_current_condition = current_condition;
+}
+
+/** No condition open: a script line runs at once. Before a script is read, and after it (a script missing ENDIFs
+ *  would otherwise leave its last condition open for the lines Lua and the API run in play, and its stack for the
+ *  next script read). */
+void reset_script_conditions(void)
+{
+    script_current_condition = CONDITION_ALWAYS;
+    condition_stack_pos = 0;
 }
 
 void command_add_condition(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id, int64_t value)

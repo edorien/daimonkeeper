@@ -43,6 +43,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -217,28 +218,9 @@ TbBool add_anger_to_all_creatures_of_player(PlayerNumber plyr_idx, int64_t perce
 {
     SYNCDBG(8, "Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         anger_give_creatures_annoyance_percentage(thing, percentage, AngR_Other);
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     SYNCDBG(19, "Finished");
     return true;
@@ -248,28 +230,9 @@ TbBool make_all_players_creatures_angry(int64_t plyr_idx)
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         anger_make_creature_angry(thing, AngR_Other);
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     SYNCDBG(19,"Finished");
     return true;
@@ -293,28 +256,9 @@ TbBool make_all_players_creatures_happy(int64_t plyr_idx)
 {
     SYNCDBG(8, "Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         anger_make_creature_happy(thing);
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     SYNCDBG(19, "Finished");
     return true;
@@ -350,42 +294,11 @@ void apply_spell_effect_to_players_creatures(PlayerNumber plyr_idx, ThingModel c
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    uint64_t k = 0;
-
-    TbBool need_spec_digger = (crmodel > 0) && creature_kind_is_for_dungeon_diggers_list(plyr_idx, crmodel);
-    struct Thing* thing = INVALID_THING;
-    int64_t i;
-    if ((!need_spec_digger) || (crmodel == CREATURE_ANY) || (crmodel == CREATURE_NOT_A_DIGGER))
+    FOR_EACH_THING(thing, thing_walk_players_creatures_of_model(dungeon, plyr_idx, crmodel))
     {
-        i = dungeon->creatr_list_start;
-    }
-    else
-    {
-        i = dungeon->digger_list_start;
-    }
-
-    while (i != 0)
-    {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (creature_matches_model(thing,crmodel))
         {
             apply_spell_effect_to_thing(thing, spl_idx, overchrg, plyr_idx);
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19,"Finished");
@@ -406,28 +319,11 @@ void kill_all_players_chickens(PlayerNumber plyr_idx)
 {
     SYNCDBG(18,"Starting");
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_exists(thing) && thing_is_mature_food(thing) && (thing->owner == plyr_idx)
           && !thing_is_picked_up(thing)) {
             thing->food.some_chicken_was_sacrificed = true;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     // Force leave or kill normal creatures and special diggers
@@ -830,17 +726,8 @@ TbBool find_temple_pool(int64_t player_idx, struct Coord3d *pos)
     {
         if(room_role_matches(rkind, RoRoF_CrSacrifice))
         {
-            int64_t k = 0, i = dungeon->room_list_start[rkind];
-            while (i != 0)
+            FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
             {
-                struct Room* room = room_get(i);
-                if (room_is_invalid(room))
-                {
-                    ERRORLOG("Jump to invalid room detected");
-                    break;
-                }
-                i = room->next_of_owner;
-                // Per-room code
                 if (find_random_sacrifice_center(pos, room))
                 {
                     if (max_value < room->total_capacity)
@@ -848,13 +735,6 @@ TbBool find_temple_pool(int64_t player_idx, struct Coord3d *pos)
                         max_value = room->total_capacity;
                         best_room = room;
                     }
-                }
-                // Per-room code ends
-                k++;
-                if (k > ROOMS_COUNT)
-                {
-                ERRORLOG("Infinite loop detected when sweeping rooms list");
-                break;
                 }
             }
         }

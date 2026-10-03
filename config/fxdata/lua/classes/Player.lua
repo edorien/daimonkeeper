@@ -19,11 +19,13 @@
 ---@field CAMPAIGN_FLAG6 integer
 ---@field CAMPAIGN_FLAG7 integer
 
+---The fields read the player's script variables. These can also be set: the flags and campaign flags, MONEY,
+---HEART_HEALTH, max_creatures, player_name, colour; setting any other variable does nothing (it logs a warning).
 ---@class Player: creaturefields,roomfields,flagfields,trapfields,doorfields
 ---@field private name string
 ---
 ---@field CONTROLS creaturefields
----@field MONEY integer
+---@field MONEY integer The gold the player has; setting it adds the difference to the treasury, or takes it away
 ---@field GAME_TURN integer
 ---@field VIEW_TYPE integer What the player is currently viewing. Returns 1 when keeping, 2 in Possession, 4 on the map screen
 ---@field BREAK_IN integer The number of times that players walls have been breached
@@ -41,7 +43,7 @@
 ---@field SPELLS_STOLEN integer
 ---@field TIMES_BROKEN_INTO integer
 ---@field GOLD_POTS_STOLEN integer
----@field HEART_HEALTH integer The amount of health the dungeon heart of the player has
+---@field HEART_HEALTH integer The amount of health the dungeon heart of the player has; setting it sets the value as written
 ---@field GHOSTS_RAISED integer
 ---@field SKELETONS_RAISED integer
 ---@field VAMPIRES_RAISED integer
@@ -83,7 +85,7 @@
 ---@field heart Thing The player's primary dungeon heart
 ---@field camera Camera The player's camera
 ---@field type string The type of player ("Human", "Computer", "Placeholder", "Roaming", "Neutral", "Inactive"). A "placeholder" is when a computer takes over a dropped human.
----@field max_creatures integer The maximum number of creatures the player can have from portals
+---@field max_creatures integer The maximum number of creatures the player can have from portals (settable, as MaxCreatures)
 ---@field colour string The colour of the player
 ---@field player_name string The name of the player
 if not Player then Player = {} end

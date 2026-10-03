@@ -236,11 +236,6 @@ void RendererSetTrueDepth(TbBool enabled)
     s_true_depth = (enabled != 0);
 }
 
-TbBool RendererGetTrueDepth(void)
-{
-    return s_true_depth ? 1 : 0;
-}
-
 const TbPixel *RendererWorldFrameWindow(void)
 {
     return (s_world_capturing || s_overlay_capturing) ? s_capture_window : nullptr;
@@ -571,13 +566,6 @@ TbResult RendererSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr)
     IUIRenderer* ui = active_ui_renderer();
     if (ui == nullptr) return LbSpriteDrawImmediate(x, y, spr);
     return ui->SubmitRawSprite(x, y, spr, ambient_draw_state());
-}
-
-TbResult RendererSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, TbPixel colour)
-{
-    IUIRenderer* ui = active_ui_renderer();
-    if (ui == nullptr) return LbSpriteDrawOneColourImmediate(x, y, spr, colour);
-    return ui->SubmitRawSpriteOneColour(x, y, spr, colour, ambient_draw_state());
 }
 
 TbResult RendererSpriteDrawScaled(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h)

@@ -79,10 +79,6 @@ void bevel(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max,
 // (the outer edge_frame, an adjacent well) rather than standing alone.
 void face(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max);
 
-// Raised flat plateau: `face` + a 2px raised bevel -- a standalone raised
-// element.
-void plateau(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max, double rounding = 0.0);
-
 // Recessed well: inverted gradient (dark top) + 2px sunken bevel + a hard
 // inner shadow line along the top lip.
 void well(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max, double rounding = 3.0);
@@ -93,13 +89,6 @@ void well_circle(ImDrawList *dl, const ImVec2 &c, double radius);
 // Recessed triangular pocket (the corner nav-button wells around the
 // minimap): filled with the well tone + a sunken bevel on the 3 edges.
 void well_tri(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b, const ImVec2 &c);
-
-// Raised boss (button / plinth): drop shadow + crown gradient + raised
-// bevel. `lit` 0..1 lerps the crown toward `crown_lit`. `omit_bottom`
-// drops the bottom bevel + drop shadow so the element blends into whatever
-// sits below it (the active tab -> the content area).
-void boss(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max,
-          double lit = 0.0, double rounding = 3.0, bool omit_bottom = false);
 
 // Engraved horizontal groove between plate sections: dark line, light line
 // one px below.
@@ -118,10 +107,6 @@ void ring(ImDrawList *dl, const ImVec2 &c, double r_outer, double r_inner, doubl
 // corners are 09 §7's open question).
 void edge_frame(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max);
 
-// One faint static mottle pass over a rect. Fixed seed -> identical
-// between runs; the fleck grid walks the rect, so it re-lays on a
-// resolution / layout change (accepted, 09 §5).
-void mottle(ImDrawList *dl, const ImVec2 &p_min, const ImVec2 &p_max);
 
 } // namespace relief
 

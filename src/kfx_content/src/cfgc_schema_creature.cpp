@@ -27,17 +27,13 @@ extern "C" {
 #include "config.h"
 #include "config_creature.h"
 #include "config_crtrmodel.h"
-extern const struct NamedCommand creaturetype_common_commands[];
-extern const struct NamedCommand creaturetype_experience_commands[];
-extern const struct NamedCommand creaturetype_instance_commands[];
+#include "config_magic.h"
 extern const struct NamedCommand creaturetype_instance_properties[];
-extern const struct NamedCommand creaturetype_job_commands[];
 extern const struct NamedCommand creaturetype_job_assign[];
 extern const struct NamedCommand creaturetype_job_properties[];
-extern const struct NamedCommand creaturetype_angerjob_commands[];
-extern const struct NamedCommand creaturetype_attackpref_commands[];
 extern const struct NamedCommand instance_range_desc[];
 extern const struct NamedCommand spell_effect_flags[];
+extern const struct NamedCommand magic_spell_properties[];
 }
 #include "post_inc.h"
 
@@ -56,6 +52,7 @@ const struct NamedCommand *table_by_name(const std::string &name)
     if (name == "instance_range") return instance_range_desc;
     if (name == "graphics") return creature_graphics_desc;
     if (name == "spell_effect") return spell_effect_flags;
+    if (name == "spell_props") return magic_spell_properties;
     return nullptr;
 }
 
@@ -74,100 +71,66 @@ struct Shape
     const char *shape;
 };
 
+// Shapes for the keys whose parse function the schema can't read (cfgc_table_row_kind() gives CfgKind_Custom).
+// Every other key's shape comes from its NamedField row (refactor pass 3, S04); the "every key has a shape" test in
+// cfgc_schema_parser_tables_test.cpp keeps these lists to exactly those keys.
 const Shape kModelShapes[] = {
-    {"attributes", "Armour", "N"}, {"attributes", "AttackPreference", "E:attackpref"}, {"attributes", "BaseSpeed", "N"},
-    {"attributes", "DamageToBoulder", "N"}, {"attributes", "Defence", "N"}, {"attributes", "Dexterity", "N"},
-    {"attributes", "FearsomeFactor", "N"}, {"attributes", "FearStronger", "N"}, {"attributes", "FearWounded", "N"},
-    {"attributes", "GoldHold", "N"}, {"attributes", "HealRequirement", "N"}, {"attributes", "Health", "N"},
-    {"attributes", "HealThreshold", "N"}, {"attributes", "HostileTowards", "E:creature|NULL ..."},
-    {"attributes", "HungerFill", "N"}, {"attributes", "HungerRate", "N"}, {"attributes", "HurtByLava", "N"},
-    {"attributes", "LairObject", "E:object|NULL"}, {"attributes", "LairSize", "N"}, {"attributes", "Luck", "N"},
-    {"attributes", "NameTextID", "N"}, {"attributes", "Pay", "N"}, {"attributes", "PrisonKind", "E:creature|NULL"},
-    {"attributes", "Properties", "F:creature_props"}, {"attributes", "Recovery", "N"}, {"attributes", "Size", "N N"},
-    {"attributes", "SlapsToKill", "N"}, {"attributes", "SpellImmunity", "F:spell_effect"}, {"attributes", "Strength", "N"},
-    {"attributes", "ThingSize", "N N"}, {"attributes", "TokingRecovery", "N"}, {"attributes", "TortureKind", "E:creature|NULL"},
+    {"attributes", "Properties", "F:creature_props"}, {"attributes", "SpellImmunity", "F:spell_effect"},
+    {"attributes", "HostileTowards", "E:creature|NULL ..."},
 
-    {"attraction", "BaseEntranceScore", "N"}, {"attraction", "EntranceRoom", "E:room|NULL E:room|NULL E:room|NULL"},
-    {"attraction", "RoomSlabsRequired", "N N N"}, {"attraction", "ScavengeRequirement", "N"}, {"attraction", "TortureTime", "N"},
+    {"attraction", "EntranceRoom", "E:room|NULL E:room|NULL E:room|NULL"}, {"attraction", "RoomSlabsRequired", "N N N"},
 
-    {"annoyance", "AngerJobs", "F:angerjob"}, {"annoyance", "AnnoyLevel", "N"}, {"annoyance", "EatFood", "N"},
-    {"annoyance", "GoingPostal", "N"}, {"annoyance", "GotWage", "N"}, {"annoyance", "InHand", "N"}, {"annoyance", "InTemple", "N"},
-    {"annoyance", "InTorture", "N"}, {"annoyance", "JobStress", "N"}, {"annoyance", "LairEnemy", "F:creature|NULL"},
-    {"annoyance", "NoHatchery", "N"}, {"annoyance", "NoLair", "N"}, {"annoyance", "NoSalary", "N"},
-    {"annoyance", "OthersLeaving", "N"}, {"annoyance", "Queue", "N"}, {"annoyance", "Slapped", "N"}, {"annoyance", "Sleeping", "N"},
-    {"annoyance", "StandingOnDeadEnemy", "N"}, {"annoyance", "StandingOnDeadFriend", "N"}, {"annoyance", "Sulking", "N"},
-    {"annoyance", "Untrained", "N N"}, {"annoyance", "WillNotDoJob", "N"}, {"annoyance", "WinBattle", "N"}, {"annoyance", "WokenUp", "N"},
+    {"annoyance", "LairEnemy", "F:creature|NULL"},
 
-    {"experience", "ExperienceForHitting", "N"}, {"experience", "GrowUp", "N E:creature|NULL N"},
-    {"experience", "LevelsTrainValues", "N*9"}, {"experience", "Powers", "E:instance|NULL*10"},
-    {"experience", "PowersLevelRequired", "N*10"}, {"experience", "Rebirth", "N"}, {"experience", "SleepExperience", "text"},
+    {"experience", "Powers", "E:instance|NULL*10"}, {"experience", "PowersLevelRequired", "N*10"},
+    {"experience", "LevelsTrainValues", "N*9"}, {"experience", "GrowUp", "N E:creature|NULL N"},
+    {"experience", "SleepExperience", "text"},
 
-    {"jobs", "ManufactureValue", "N"}, {"jobs", "NotDoJobs", "F:creaturejob"}, {"jobs", "PartnerTraining", "N"},
-    {"jobs", "PrimaryJobs", "F:creaturejob"}, {"jobs", "ResearchValue", "N"}, {"jobs", "ScavengerCost", "N"},
-    {"jobs", "ScavengeValue", "N"}, {"jobs", "SecondaryJobs", "F:creaturejob"}, {"jobs", "StressfulJobs", "F:creaturejob"},
-    {"jobs", "TrainingCost", "N"}, {"jobs", "TrainingValue", "N"},
-
-    {"senses", "EyeEffect", "S"}, {"senses", "EyeHeight", "N"}, {"senses", "FieldOfView", "N"}, {"senses", "Hearing", "N"},
     {"senses", "MaxAngleChange", "N"},
 
-    {"appearance", "CorpseVanishEffect", "N"}, {"appearance", "FixedAnimSpeed", "N"}, {"appearance", "FootstepPitch", "N"},
-    {"appearance", "NaturalDeathKind", "T:deathkind"}, {"appearance", "PickupOffset", "N N"}, {"appearance", "PossessSwipeIndex", "N"},
-    {"appearance", "ShotOrigin", "N N N"}, {"appearance", "StatusOffset", "text"}, {"appearance", "TransparencyFlags", "N"},
-    {"appearance", "VisualRange", "N"}, {"appearance", "WalkingAnimSpeed", "N"},
+    {"appearance", "TransparencyFlags", "N"},
 
-    {"sounds", "Die", "N N"}, {"sounds", "Drop", "N N"}, {"sounds", "Fight", "N N"}, {"sounds", "Foot", "N N"},
-    {"sounds", "Hang", "N N"}, {"sounds", "Happy", "N N"}, {"sounds", "Hit", "N N"}, {"sounds", "Piss", "N N"},
-    {"sounds", "Sad", "N N"}, {"sounds", "Slap", "N N"}, {"sounds", "Torture", "N N"},
+    {"sprites", "QuerySymbol", "I"}, {"sprites", "HandSymbol", "I"},
+
+    {"sounds", "Hit", "N N"}, {"sounds", "Happy", "N N"}, {"sounds", "Sad", "N N"}, {"sounds", "Hang", "N N"},
+    {"sounds", "Drop", "N N"}, {"sounds", "Torture", "N N"}, {"sounds", "Slap", "N N"}, {"sounds", "Die", "N N"},
+    {"sounds", "Foot", "N N"}, {"sounds", "Fight", "N N"}, {"sounds", "Piss", "N N"},
 };
 
-// magic.cfg keys with a known grammar (the rest of the spell and special keys are still inferred).
 const Shape kMagicShapes[] = {
-    {"spell", "SpellFlags", "F:spell_effect"},
-    {"spell", "CleanseFlags", "F:spell_effect"},
+    {"spell", "Name", "S"}, {"spell", "SelfCasted", "N S N"}, {"spell", "ShotModel", "E:shot"}, {"spell", "EffectModel", "S"},
+    {"spell", "SymbolSprites", "I I"}, {"spell", "SpellPower", "S"}, {"spell", "AuraEffect", "S"},
+    {"spell", "SpellFlags", "F:spell_effect"}, {"spell", "SummonCreature", "S N N"}, {"spell", "CleanseFlags", "F:spell_effect"},
+    {"spell", "Properties", "F:spell_props"},
+
+    {"special", "Artifact", "E:object"}, {"special", "SpeechPlayed", "S"},
 };
 
 const Shape kCreatureShapes[] = {
-    {"common", "Creatures", "text"}, {"common", "JobsCount", "N"}, {"common", "AngerJobsCount", "N"},
-    {"common", "AttackPreferencesCount", "N"}, {"common", "SpriteSize", "N"},
+    {"common", "Creatures", "text"},
 
-    {"experience", "PayIncreaseOnExp", "N"}, {"experience", "SpellDamageIncreaseOnExp", "N"}, {"experience", "RangeIncreaseOnExp", "N"},
-    {"experience", "JobValueIncreaseOnExp", "N"}, {"experience", "HealthIncreaseOnExp", "N"}, {"experience", "StrengthIncreaseOnExp", "N"},
-    {"experience", "DexterityIncreaseOnExp", "N"}, {"experience", "DefenseIncreaseOnExp", "N"}, {"experience", "LoyaltyIncreaseOnExp", "N"},
-    {"experience", "ArmourIncreaseOnExp", "N"}, {"experience", "SizeIncreaseOnExp", "N"}, {"experience", "ExpForHittingIncreaseOnExp", "N"},
-    {"experience", "TrainingCostIncreaseOnExp", "N"}, {"experience", "ScavengingCostIncreaseOnExp", "N"},
-
-    {"instance", "Name", "S"}, {"instance", "Time", "N"}, {"instance", "ActionTime", "N"}, {"instance", "ResetTime", "N"},
-    {"instance", "FPTime", "N"}, {"instance", "FPActionTime", "N"}, {"instance", "FPResetTime", "N"}, {"instance", "ForceVisibility", "N"},
-    {"instance", "TooltipTextID", "N"}, {"instance", "SymbolSprites", "S"}, {"instance", "Graphics", "T:graphics"},
+    {"instance", "Name", "S"}, {"instance", "SymbolSprites", "I"}, {"instance", "Graphics", "T:graphics"},
     {"instance", "Function", "text"}, {"instance", "RangeMin", "R:instance_range"}, {"instance", "RangeMax", "R:instance_range"},
-    {"instance", "Properties", "F:inst_props"}, {"instance", "FPInstantCast", "N"}, {"instance", "PrimaryTarget", "N"},
-    {"instance", "ValidateSourceFunc", "text"}, {"instance", "ValidateTargetFunc", "text"}, {"instance", "SearchTargetsFunc", "text"},
-    {"instance", "PostalPriority", "N"}, {"instance", "NoAnimationLoop", "N"}, {"instance", "FPAllowSelfCastWhileFrozen", "N"},
-    {"instance", "FPAllowSelfCastWhenChicken", "N"},
+    {"instance", "NoAnimationLoop", "N"}, {"instance", "ValidateSourceFunc", "text"}, {"instance", "ValidateTargetFunc", "text"},
+    {"instance", "SearchTargetsFunc", "text"},
 
-    {"job", "Name", "S"}, {"job", "RelatedRoomRole", "S"}, {"job", "RelatedEvent", "S"}, {"job", "Assign", "F:job_assign"},
-    {"job", "InitialState", "S"}, {"job", "ContinueState", "S"}, {"job", "PlayerFunctions", "text"}, {"job", "CoordsFunctions", "text"},
-    {"job", "Properties", "F:job_props"},
-
-    {"angerjob", "Name", "S"}, {"attackpref", "Name", "S"},
+    {"job", "RelatedRoomRole", "S"}, {"job", "RelatedEvent", "S"}, {"job", "Assign", "F:job_assign"},
+    {"job", "InitialState", "S"}, {"job", "ContinueState", "S"}, {"job", "PlayerFunctions", "text"},
+    {"job", "CoordsFunctions", "text"}, {"job", "Properties", "F:job_props"},
 };
 
-void add_keys(CfgFileSchema &file, const char *section, bool numbered, const struct NamedCommand *table)
+struct ShapeList
 {
-    file.sections.push_back(CfgSectionSpec());
-    CfgSectionSpec &s = file.sections.back();
-    s.basename = section;
-    s.numbered = numbered;
-    for (const struct NamedCommand *c = table; c != nullptr && c->name != nullptr; c++)
-    {
-        CfgFieldSpec f;
-        f.key = c->name;
-        CfgValueSpec p;
-        p.kind = CfgKind_Unspecified;
-        f.parts.push_back(p);
-        s.fields.push_back(std::move(f));
-    }
-}
+    const char *kind;
+    const Shape *shapes;
+    size_t count;
+};
+
+const ShapeList kShapeLists[] = {
+    {"creaturemodel", kModelShapes, sizeof(kModelShapes) / sizeof(kModelShapes[0])},
+    {"magic", kMagicShapes, sizeof(kMagicShapes) / sizeof(kMagicShapes[0])},
+    {"creature", kCreatureShapes, sizeof(kCreatureShapes) / sizeof(kCreatureShapes[0])},
+};
 
 void apply_shapes(CfgFileSchema &file, const Shape *shapes, size_t count)
 {
@@ -175,12 +138,6 @@ void apply_shapes(CfgFileSchema &file, const Shape *shapes, size_t count)
     {
         CfgSectionSpec *sec = file.find_section(shapes[i].section);
         CfgFieldSpec *f = sec != nullptr ? sec->find_field(shapes[i].key) : nullptr;
-        if (f == nullptr && sec != nullptr)
-        {
-            sec->fields.push_back(CfgFieldSpec());
-            f = &sec->fields.back();
-            f->key = shapes[i].key;
-        }
         if (f != nullptr)
             cfgc_apply_shape(*f, shapes[i].shape, table_names);
     }
@@ -188,23 +145,39 @@ void apply_shapes(CfgFileSchema &file, const Shape *shapes, size_t count)
 
 } // namespace
 
+bool cfgc_creature_shape_override(const std::string &kind, const std::string &section, const std::string &key)
+{
+    for (const ShapeList &list : kShapeLists)
+        if (kind == list.kind)
+            for (size_t i = 0; i < list.count; i++)
+                if (strcasecmp(list.shapes[i].section, section.c_str()) == 0 && strcasecmp(list.shapes[i].key, key.c_str()) == 0)
+                    return true;
+    return false;
+}
+
+std::vector<CfgShapeOverride> cfgc_creature_shape_overrides()
+{
+    std::vector<CfgShapeOverride> out;
+    for (const ShapeList &list : kShapeLists)
+        for (size_t i = 0; i < list.count; i++)
+            out.push_back({list.kind, list.shapes[i].section, list.shapes[i].key});
+    return out;
+}
+
 void describe_creature_schemas(ConfigSchema &schema)
 {
-    if (CfgFileSchema *model = schema.find("creaturemodel"))
-        apply_shapes(*model, kModelShapes, sizeof(kModelShapes) / sizeof(kModelShapes[0]));
-
-    if (CfgFileSchema *magic = schema.find("magic"))
-        apply_shapes(*magic, kMagicShapes, sizeof(kMagicShapes) / sizeof(kMagicShapes[0]));
-
     CfgFileSchema f;
     f.kind = "creature";
     f.file_name = "creature.cfg";
-    add_keys(f, "common", false, creaturetype_common_commands);
-    add_keys(f, "experience", false, creaturetype_experience_commands);
-    add_keys(f, "instance", true, creaturetype_instance_commands);
-    add_keys(f, "job", true, creaturetype_job_commands);
-    add_keys(f, "angerjob", true, creaturetype_angerjob_commands);
-    add_keys(f, "attackpref", true, creaturetype_attackpref_commands);
-    apply_shapes(f, kCreatureShapes, sizeof(kCreatureShapes) / sizeof(kCreatureShapes[0]));
+    cfgc_add_table_fields(cfgc_schema_section(f, "common", false), creaturetype_common_named_fields);
+    cfgc_add_table_fields(cfgc_schema_section(f, "experience", false), creaturetype_experience_named_fields);
+    cfgc_add_table_fields(cfgc_schema_section(f, "instance", true), creaturetype_instance_named_fields);
+    cfgc_add_table_fields(cfgc_schema_section(f, "job", true), creaturetype_job_named_fields);
+    cfgc_add_table_fields(cfgc_schema_section(f, "angerjob", true), creaturetype_angerjob_named_fields);
+    cfgc_add_table_fields(cfgc_schema_section(f, "attackpref", true), creaturetype_attackpref_named_fields);
     schema.files.push_back(std::move(f));
+
+    for (const ShapeList &list : kShapeLists)
+        if (CfgFileSchema *file = schema.find(list.kind))
+            apply_shapes(*file, list.shapes, list.count);
 }

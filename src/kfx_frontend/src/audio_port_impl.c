@@ -28,7 +28,6 @@ const struct AudioFeedbackPort kfx_frontend_audio_port = {
     .stop_thing_playing_sample = &stop_thing_playing_sample,
     .create_ambient_sound = &create_ambient_sound,
     .play_sound_if_close_to_receiver = &play_sound_if_close_to_receiver,
-    .play_thing_walking = &play_thing_walking,
     .reset_ambient_sound_thing_idx = &reset_ambient_sound_thing_idx,
 };
 /******************************************************************************/

@@ -108,3 +108,7 @@ function Creature:get_annoyance(reason) end
 ---@param reason anger_reason The reason to set
 ---@param value integer The annoyance value to set
 function Creature:set_annoyance(reason, value) end
+
+---Gives the creature to another player.
+---@param new_owner playersingle
+function Creature:change_owner(new_owner) end

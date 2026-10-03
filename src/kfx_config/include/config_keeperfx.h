@@ -312,6 +312,8 @@ extern uint64_t max_replays[ReplTyp_Count];
 extern TbBool autosave_replays;
 extern TbBool FLEE_BUTTON_DEFAULT;
 extern TbBool IMPRISON_BUTTON_DEFAULT;
+/** Test hook: reads one file as the base config (no mods, no keeperfx.cfg seeding), from a fresh start. */
+void load_base_config_file_for_test(const char *fname);
 /******************************************************************************/
 void load_configuration_for_mod_all(void);
 int64_t load_configuration(void);

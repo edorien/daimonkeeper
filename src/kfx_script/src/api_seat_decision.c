@@ -93,11 +93,6 @@ void api_seat_decision_set_min_interval(int64_t turns)
     s_min_interval = (turns < 0) ? 0 : turns;
 }
 
-void api_seat_decision_reset(void)
-{
-    memset(s_seat, 0, sizeof(s_seat));
-}
-
 static void add_pending(struct SeatDecision *d, const char *reason)
 {
     for (int i = 0; i < d->pending_count; i++) {

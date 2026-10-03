@@ -369,13 +369,6 @@ TbBool LbSleepUntilExt(long double tick_ns_end)
   return true;
 }
 
-TbBool LbSleepDelayExt(long double tick_ns_delay)
-{
-    long double tick_ns_cur = TimeTickNs;
-    long double tick_ns_end = tick_ns_cur + tick_ns_delay;
-    return LbSleepUntilExt(tick_ns_end);
-}
-
 TbResult LbTimerInit(void)
 {
   // Initialize program start time for chrono-based timer

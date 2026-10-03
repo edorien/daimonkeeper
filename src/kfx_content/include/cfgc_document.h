@@ -71,10 +71,6 @@ public:
     const std::vector<CfgLine> &lines() const { return lines_; }
     const std::vector<CfgSection> &sections() const { return sections_; }
 
-    // Index of the first block called `name` (case-sensitive, like the
-    // loader's block matching), or -1.
-    int64_t find_section(const std::string &name) const;
-
     // Line indices of the keys in a block, in file order.
     std::vector<int64_t> key_lines(int64_t section_index) const;
 

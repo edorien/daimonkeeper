@@ -53,7 +53,6 @@ extern unsigned char last_used_input_device;
 /******************************************************************************/
 TbBool LbPollInputs(void);
 TbBool LbIsActive(void);
-TbBool LbIsMouseActive(void);
 TbBool LbIsTextInputActive(void);
 void LbStartTextInput(void);
 void LbStopTextInput(void);

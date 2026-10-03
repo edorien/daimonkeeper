@@ -32,6 +32,8 @@ extern "C"
     int64_t api_is_subscribed_to_var(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
     int64_t api_subscribe_var(PlayerNumber plyr_idx, const char *var_name, unsigned char valtype, int64_t validx);
     int64_t api_unsubscribe_var(PlayerNumber plyr_idx, unsigned char valtype, int64_t validx);
+    /** Test hook: handles one whole request message as if the client had sent it, replying on reply_socket. */
+    void api_process_message_for_test(const char *message, size_t len, int64_t reply_socket);
 
 #ifdef __cplusplus
 }

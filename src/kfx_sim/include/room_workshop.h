@@ -77,10 +77,6 @@ TbBool get_next_manufacture(struct Dungeon *dungeon);
 void update_manufacturing(void);
 EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thing *picktng);
 
-TbBool recreate_repositioned_crate_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos);
-int64_t check_crates_on_subtile_for_reposition_in_room(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
-void reposition_all_crates_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos);
-void count_and_reposition_crates_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos);
 void count_crates_in_room(struct Room *room);
 void send_manufacture_complete_event(struct Dungeon *dungeon, PlayerNumber plyr_idx);
 ThingClass crate_thing_to_workshop_item_class(const struct Thing *thing);

@@ -13,8 +13,6 @@
 #include <string>
 #include <vector>
 
-/** The tabs of the creature form that are the sections of its file, in order. */
-const std::vector<std::string> &creature_sections(void);
 
 #ifdef __cplusplus
 extern "C" {

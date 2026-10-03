@@ -23,8 +23,6 @@ struct EditorQueryResult {
     char extra2[48] = "";
 };
 
-void editor_query_from_thing(const struct Thing *thing, EditorQueryResult *out);
-void editor_query_from_room(const struct Room *room, EditorQueryResult *out);
 
 /** Looks at what is at `pos`: a creature (its index goes to *creature_idx and the result stays empty, the
  *  creature has its own panel), else the nearest thing, else the room. */

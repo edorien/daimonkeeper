@@ -9,6 +9,13 @@
 # functions' real implementations moved down into kfx_sim itself
 # (packet_data.c, docs/refactor/todo/remove-symbol-level-layering-residuals.md),
 # so kfx_sim (always linked here) already provides them for real.
+# kfx_sim_test_paths.h.in -> kfx_sim_test_paths.h: fixtures/ and repo-root paths
+# for corpus tests (level_info_golden_test.cpp), as in kfx_config's tests.
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/kfx_sim_test_paths.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/kfx_sim_test_paths.h"
+    @ONLY)
+
 file(GLOB KFX_SIM_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 add_executable(kfx_sim_utest ${KFX_SIM_TEST_SOURCES})
@@ -24,6 +31,7 @@ target_link_libraries(kfx_sim_utest PRIVATE
                      # kfx_platform now links bflib_filedialogs.cpp, which
                      # needs tinyfiledialogs's compiled object.
     Catch2::Catch2WithMain)
+target_include_directories(kfx_sim_utest PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 include(CTest)
 include(Catch)

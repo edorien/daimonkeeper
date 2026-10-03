@@ -64,8 +64,6 @@ struct GuiButton;
 // gui_panel_sprites/frontend_sprite/gui_slab moved to kfx_render's
 // vidmode.h (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
 extern unsigned char *frontend_background;
-extern int64_t gui_blink_rate;
-extern int64_t neutral_flash_rate;
 // Moved here from frontmenu_ingame_tabs.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
 extern char gui_room_type_highlighted;
@@ -121,7 +119,6 @@ void draw_string64k(int64_t x, int64_t y, int64_t units_per_px, const char * tex
 
 void draw_button_string(struct GuiButton *gbtn, int64_t base_width, const char *text);
 TbBool draw_text_box(const char *text);
-TbBool draw_text_box_top(const char* text, uint64_t drawflags);
 void draw_scroll_box(struct GuiButton *gbtn, int64_t units_per_px, int64_t num_rows);
 int64_t scroll_box_get_units_per_px(struct GuiButton *gbtn);
 

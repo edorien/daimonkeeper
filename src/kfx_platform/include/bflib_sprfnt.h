@@ -113,7 +113,6 @@ void bf_sprfnt_set_font_role_resolver(TbFontRoleResolverFn resolver_fn);
 int64_t LbTextStringWidth(const char *str);
 int64_t LbTextStringPartWidth(const char *text, int64_t part);
 int64_t LbTextStringHeight(const char *str);
-int64_t LbTextWordWidth(const char *str);
 int64_t LbTextCharWidth(const uint64_t chr);
 int64_t LbTextCharWidthM(const uint64_t chr, int64_t units_per_px);
 int64_t LbTextStringWidthM(const char *str, int64_t units_per_px);

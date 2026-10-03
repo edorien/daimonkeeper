@@ -9,9 +9,8 @@
 function UseSpecialIncreaseLevel(player,count) end
 
 ---Activates the effect of an 'Multiply Creatures' dungeon special.
----@param player Player
----@param count integer How many times the special is activated.
-function UseSpecialMultiplyCreatures(player,count) end
+---@param player playerrange
+function UseSpecialMultiplyCreatures(player) end
 
 ---Opens the transfer creature special menu for the player, allowing the transfer of a creature.
 ---@param player Player

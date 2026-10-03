@@ -214,6 +214,7 @@ enum TbScriptCommands {
 
 struct ScriptLine {
   enum TbScriptCommands command;
+  int64_t file_version; /**< The level file version the line is read with (a few original commands read old forms) */
   int64_t np[COMMANDDESC_ARGS_COUNT]; /**< Numeric parameters (to be changed into interpreted parameters, containing ie. in-game random) */
   char tcmnd[MAX_TEXT_LENGTH]; /**< Command text */
   char tp[COMMANDDESC_ARGS_COUNT][MAX_TEXT_LENGTH]; /**< Text parameters */
@@ -314,6 +315,7 @@ enum ScriptVariables {
   SVar_PLAYER_SCORE                    = 89,
   SVar_MANAGE_SCORE                    = 90,
   SVar_CONTROLLED_THING                = 91,
+  SVar_NEVER_TRUE                      = 255, // dAImon Keeper: the condition of a refused IF (refactor pass 4, P4-F2)
  };
 
 extern const struct NamedCommand player_desc[];
@@ -333,7 +335,6 @@ extern const struct NamedCommand script_operator_desc[];
 extern const struct NamedCommand variable_desc[];
 extern const struct NamedCommand dk1_variable_desc[];
 extern const struct NamedCommand fill_desc[];
-extern const struct NamedCommand set_door_desc[];
 extern const struct NamedCommand texture_pack_desc[];
 extern const struct NamedCommand locked_desc[];
 
@@ -354,9 +355,23 @@ int64_t parse_criteria(const char *criteria);
 #define get_players_range_single(plr_range_id) get_players_range_single_f(plr_range_id, __func__, text_line_number)
 int64_t get_players_range_single_f(int64_t plr_range_id, const char *func_name, int64_t ln_num);
 TbBool parse_get_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type, int64_t level_file_version);
+/** parse_get_varib()/parse_set_varib() for a level script line: an unknown variable also goes to the compat report. */
+TbBool script_parse_get_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type, int64_t lvl_file_version);
+TbBool script_parse_set_varib(const char *varib_name, int64_t *varib_id, int64_t *varib_type);
 void get_chat_icon_from_value(const char* txt, int64_t* id, char* type);
 int64_t get_chat_icon_sprite_idx_from_id(int64_t id, char type);
 int64_t get_chat_icon_sprite_idx(const char* txt);
+/** DISPLAY_VARIABLE(_WITH_LABEL), Lua's DisplayVariable(WithLabel): shows a script variable at the top of the
+ *  list (the oldest leaves a full list). With include_icon, icon_idx is a panel sprite, or -1 for the variable
+ *  kind's own icon. */
+/** Whether set_variable() can set this kind of script variable (flags, campaign flags, box and trap activations,
+ *  sacrifices, rewards, money, heart health). */
+TbBool variable_is_settable(int64_t var_type);
+void script_display_variable(PlayerNumber plyr_idx, unsigned char value_type, int64_t value_id, int64_t target,
+    unsigned char target_type, TbBool include_icon, int64_t icon_idx);
+/** HIDE_VARIABLE, Lua's HideVariable: hides plyr_idx's displayed variable (its newest entry), or with
+ *  value_type -1 all of plyr_idx's; plyr_idx -1: everyone's. */
+void script_hide_variable(PlayerNumber plyr_idx, int64_t value_type, int64_t value_id);
 #define get_player_id(plrname, plr_range_id) get_player_id_f(plrname, plr_range_id, __func__, text_line_number)
 TbBool get_player_id_f(const char *plrname, int64_t *plr_range_id, const char *func_name, int64_t ln_num);
 PlayerNumber get_objective_id_with_potential_target(const char* locname, PlayerNumber* target);
@@ -391,12 +406,12 @@ int64_t script_strdup(const char *src);
         kfx_game_state.script.values_num--; \
     }
 
-    void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3, struct ScriptValue *value);
+    void script_process_value(uint64_t var_index, uint64_t plr_range_id, struct ScriptValue *value);
 
 #define PROCESS_SCRIPT_VALUE(cmd) \
     if ((get_script_current_condition() == CONDITION_ALWAYS) && (next_command_reusable == 0)) \
     { \
-        script_process_value(cmd, value->plyr_range, 0, 0, 0, value); \
+        script_process_value(cmd, value->plyr_range, value); \
     }
 
 

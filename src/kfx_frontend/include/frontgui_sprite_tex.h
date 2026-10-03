@@ -49,11 +49,6 @@ void FeGuiPanelReleaseMenuSheet();
 // Returns true on click.
 bool FeSpriteButton(const char *str_id, int64_t sprite_idx, const char *label, double icon_h = 0.0);
 
-// Same button, but the icon is a GUI *panel* sprite (get_panel_sprite() /
-// GPS_* -- e.g. the message-box zoom / close / scroll arrows). Falls back
-// to a text button (str_id or label) until the texture is ready.
-bool FeGuiPanelButton(const char *str_id, int64_t sprite_idx, const char *label, double icon_h = 0.0);
-
 // Icon-only panel-sprite button: no label drawn beside the icon, but
 // `fallback_label` is shown as a text button until the texture is ready.
 bool FeGuiPanelIconButton(const char *str_id, int64_t sprite_idx, const char *fallback_label, double icon_h = 0.0);

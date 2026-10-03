@@ -48,6 +48,7 @@
 #include "config_slabsets.h"
 #include "lvl_filesdk1.h"
 #include "light_data.h"
+#include "light_registry.h"
 #include "map_data.h"
 #include "map_columns.h"
 #include "map_ceiling.h"
@@ -83,6 +84,7 @@
 #include "agent_memory.h"
 #include "compat_report.h"
 #include "game_compat_review.h"
+#include "render_creature_view.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -164,6 +166,7 @@ void clear_game_for_summary(void)
     SYNCDBG(6,"Starting");
     delete_all_structures();
     clear_shadow_limits(&lish);
+    light_registry_reset_lighting();
     clear_stat_light_map();
     clear_mapwho();
     kfx_sim_state.entrance_room_id = 0;
@@ -207,7 +210,8 @@ void reinit_level_after_load(void)
     // A loaded save or a resync replaced kfx_sim_state wholesale, map size
     // included, without going through set_map_size().
     ariadne_set_map_dimensions(kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, map_subtiles_z);
-    init_navigation();
+    // The navigation mesh came with the save or the resync (ariadne_saved_state.h): not built again from the map,
+    // which gives a different mesh that creatures path through differently (refactor pass 4, P4-F7).
     reinit_packets_after_load();
     kfx_sim_state.easter_eggs_enabled = start_params.easter_egg;
     ui_set_parchment_loaded(0);
@@ -377,7 +381,6 @@ static TbBool init_level(void)
     kfx_game_state.flags_gui = GGUI_SoloChatEnabled;
     clear_flag(kfx_sim_state.system_flags, GSF_RunAfterVictory);
     free_swipe_graphic();
-    kfx_sim_state.loaded_swipe_idx = -1;
     kfx_sim_state.play_gameturn = 0;
     kfx_game_state.paused_at_gameturn = false;
     game_flags2 &= (GF2_PERSISTENT_FLAGS | GF2_Timer);
@@ -607,6 +610,7 @@ TbBool startup_saved_packet_game(void)
         kfx_net_state.turns_fastforward = kfx_net_state.turns_stored;
     post_init_level();
     post_init_players();
+    computer_players_set_dungeons(); // as after a load (P5-F21)
     set_selected_level_number(0);
     struct PlayerInfo* player = get_my_player();
     set_engine_view(player, rotate_mode_to_view_mode(kfx_net_state.packet_save_head.video_rotate_mode));
@@ -677,6 +681,7 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
         setup_auto_replay_save();
     post_init_level();
     post_init_players();
+    computer_players_set_dungeons(); // as after a load (P5-F21)
     post_init_packets();
     if (kfx_sim_state.game_kind == GKind_LocalGame) {
         // Slots the Skirmish page marked External (docs/refactor/AI/LLM/01 M5): after the script has run, so the
@@ -742,6 +747,7 @@ static CoroutineLoopState startup_local_game_for_editor_tail(CoroutineLoop *cont
         post_init_level();
     }
     post_init_players();
+    computer_players_set_dungeons(); // as after a load (P5-F21)
     post_init_packets();
     set_selected_level_number(0);
     // docs/refactor/editor/01-entry-and-editor-session.md §3, revised after

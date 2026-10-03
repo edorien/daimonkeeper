@@ -281,12 +281,6 @@ std::vector<uint8_t> landview_to_rgba(const LandviewImage &img)
     return out;
 }
 
-bool landview_png_exists(const std::string &base)
-{
-    std::vector<uint8_t> bytes;
-    return slurp_file(base + ".png", bytes);
-}
-
 extern "C" int landview_load_png_indexed(const char *base, uint8_t *pixels, uint8_t *palette)
 {
     std::vector<uint8_t> bytes;

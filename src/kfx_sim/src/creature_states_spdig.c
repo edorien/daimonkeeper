@@ -56,6 +56,7 @@
 #include "kfx_sim_state.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 #include "creature_states_lair.h"
 
@@ -73,29 +74,14 @@ extern "C" {
 struct Thing *check_for_empty_trap_for_imp(struct Thing *spdigtng, int64_t tngmodel)
 {
     TRACE_THING(spdigtng);
-    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ((thing->model == tngmodel) && (thing->trap.num_shots == 0) && (thing->owner == spdigtng->owner))
         {
             if (!imp_will_soon_be_arming_trap(thing)) {
                 return thing;
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return INVALID_THING;
@@ -110,15 +96,8 @@ int64_t check_out_unclaimed_unconscious_bodies(struct Thing *spdigtng, int64_t r
     struct Room* room = find_nearest_room_of_role_for_thing_with_spare_capacity(spdigtng, spdigtng->owner, RoRoF_Prison, NavRtF_Default, 1);
     // We either found a room or not - but we can't generate event based on it yet, because we don't even know if there's any thing to pick
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_dragged_or_pulled(thing) && (thing->owner != spdigtng->owner)
           && thing_revealed(thing, spdigtng->owner) && creature_is_being_unconscious(thing))
         {
@@ -138,13 +117,6 @@ int64_t check_out_unclaimed_unconscious_bodies(struct Thing *spdigtng, int64_t r
                     }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return 0;
@@ -168,16 +140,8 @@ int64_t check_out_unsaved_unconscious_creature(struct Thing *spdigtng, int64_t r
     struct CreatureControl* cctrl = creature_control_get_from_thing(spdigtng);
     // We either found a room or not - but we can't generate event based on it yet, because we don't even know if there's any thing to pick
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
-
         if (!thing_is_dragged_or_pulled(thing) && (thing->owner == spdigtng->owner)
           && thing_revealed(thing, spdigtng->owner) && creature_is_being_unconscious(thing))
         {
@@ -208,13 +172,6 @@ int64_t check_out_unsaved_unconscious_creature(struct Thing *spdigtng, int64_t r
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
     }
     return 0;
 }
@@ -228,15 +185,8 @@ int64_t check_out_unclaimed_dead_bodies(struct Thing *spdigtng, int64_t range)
     struct Room* room = find_nearest_room_of_role_for_thing_with_spare_capacity(spdigtng, spdigtng->owner, RoRoF_DeadStorage, NavRtF_Default, 1);
     // We either found a room or not - but we can't generate event based on it yet, because we don't even know if there's any thing to pick
     const struct StructureList* slist = get_list_for_thing_class(TCls_DeadCreature);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (corpse_ready_for_collection(thing) && thing_revealed(thing, spdigtng->owner)
          && players_creatures_tolerate_each_other(spdigtng->owner,get_slab_owner_thing_is_on(thing)))
         {
@@ -259,13 +209,6 @@ int64_t check_out_unclaimed_dead_bodies(struct Thing *spdigtng, int64_t range)
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
     }
     return 0;
 }
@@ -279,15 +222,8 @@ int64_t check_out_unclaimed_spells(struct Thing *spdigtng, int64_t range)
     struct Room* room = find_nearest_room_of_role_for_thing_with_spare_item_capacity(spdigtng, spdigtng->owner, RoRoF_PowersStorage, NavRtF_Default);
     // We either found a room or not - but we can't generate event based on it yet, because we don't even know if there's any thing to pick
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_is_spellbook(thing) || thing_is_special_box(thing))
         {
             if ((thing->owner != spdigtng->owner) && !thing_is_dragged_or_pulled(thing)
@@ -324,13 +260,6 @@ int64_t check_out_unclaimed_spells(struct Thing *spdigtng, int64_t range)
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
     }
     return 0;
 }
@@ -344,15 +273,8 @@ int64_t check_out_unclaimed_traps(struct Thing *spdigtng, int64_t range)
     struct Room* room = find_nearest_room_of_role_for_thing_with_spare_item_capacity(spdigtng, spdigtng->owner, RoRoF_CratesStorage, NavRtF_Default);
     // We either found a room or not - but we can't generate event based on it yet, because we don't even know if there's any thing to pick
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_can_be_picked_to_place_in_player_room_of_role(thing, spdigtng->owner, RoRoF_CratesStorage, TngFRPickF_AllowStoredInOwnedRoom))
         {
             if ((range < 0) || get_chessboard_distance(&thing->mappos, &spdigtng->mappos) < range)
@@ -405,13 +327,6 @@ int64_t check_out_unclaimed_traps(struct Thing *spdigtng, int64_t range)
                     }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return 0;
@@ -526,15 +441,8 @@ int64_t check_out_unclaimed_gold(struct Thing *spdigtng, int64_t range)
         return 0;
     }
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_is_object(thing) && !thing_is_picked_up(thing) && thing_revealed(thing, spdigtng->owner))
         {
             if (object_is_gold_pile(thing))
@@ -555,13 +463,6 @@ int64_t check_out_unclaimed_gold(struct Thing *spdigtng, int64_t range)
                     }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return 0;
@@ -624,16 +525,8 @@ int64_t check_out_object_for_trap(struct Thing *spdigtng, struct Thing *traptng)
     int64_t find_model = trap_crate_object_model(traptng->model);
     int64_t find_owner = spdigtng->owner;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing->model == find_model)
         {
             struct SlabMap* slb = get_slabmap_for_subtile(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
@@ -651,30 +544,15 @@ int64_t check_out_object_for_trap(struct Thing *spdigtng, struct Thing *traptng)
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return 0;
 }
 
 int64_t check_out_empty_traps(struct Thing *spdigtng, int64_t range)
 {
-    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ((thing->trap.num_shots == 0) && (thing->owner == spdigtng->owner))
         {
             if ( (range < 0) || (get_chessboard_distance(&thing->mappos, &spdigtng->mappos) < range) )
@@ -684,13 +562,6 @@ int64_t check_out_empty_traps(struct Thing *spdigtng, int64_t range)
                     return 1;
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return 0;
@@ -754,16 +625,8 @@ TbBool check_out_crates_to_arm_trap_in_room(struct Thing *spdigtng)
     }
 
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ( thing_is_trap_crate(thing) )
         {
           if ( ((thing->state_flags & TF1_IsDragged1) == 0) && (get_room_thing_is_on(thing) == room) )
@@ -781,13 +644,6 @@ TbBool check_out_crates_to_arm_trap_in_room(struct Thing *spdigtng)
                   }
               }
           }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return false;
@@ -1333,19 +1189,8 @@ GoldAmount take_from_gold_pile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t
 {
     GoldAmount total_taken = 0;
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (object_is_gold_pile(thing))
         {
             GoldAmount pot_stored = thing->valuable.gold_stored;
@@ -1359,14 +1204,6 @@ GoldAmount take_from_gold_pile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t
                 add_gold_to_pile(thing, 0);
                 return limit;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return total_taken;

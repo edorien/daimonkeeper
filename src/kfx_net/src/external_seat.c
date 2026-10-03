@@ -33,7 +33,7 @@
 #include "power_specials.h"
 #include "power_process.h"
 #include "thing_traps.h"
-#include "cursor_tag.h"
+#include "thing_doors.h"
 #include "thing_navigate.h"
 #include "player_availability.h"
 #include "thing_stats.h"
@@ -726,12 +726,16 @@ static const struct Thing *creature_thing(int64_t id)
 #define HOLD  (PCtr_LBtnHeld)
 #define LET_GO (PCtr_LBtnRelease)
 
+static int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int corner);
+
 int64_t extseat_plan_dig_sweep(struct ExtSeatStep *out, int64_t max, int64_t x0, int64_t y0, int64_t x1, int64_t y1)
 {
     return extseat_plan_dig_sweep_from(out, max, x0, y0, x1, y1, 0);
 }
 
-int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int corner)
+/** extseat_plan_dig_sweep starting from a chosen corner (0 top-left, 1 bottom-right, 2 top-right, 3 bottom-left): a
+ *  pickaxe drag tags or untags depending on its first slab, so mark_dig starts on one not already marked. */
+static int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int corner)
 {
     const int64_t lx = (x0 < x1) ? x0 : x1, rx = (x0 < x1) ? x1 : x0;
     const int64_t ty = (y0 < y1) ? y0 : y1, by = (y0 < y1) ? y1 : y0;

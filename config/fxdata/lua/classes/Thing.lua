@@ -21,7 +21,7 @@
 ---@field orientation integer
 ---@field pitch integer
 ---@field owner Player
----@field health integer
+---@field health integer Setting it sets the value as written: no armour, no healing or damage effects (a creature set below 0 dies on its next turn).
 ---@field max_health integer If the health gets beyond this point, it will be decreased.
 ---@field picked_up boolean
 if not Thing then Thing = {} end

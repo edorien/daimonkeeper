@@ -36,7 +36,10 @@ set(VER_STRING     "${VER_MAJOR}.${VER_MINOR}.${VER_RELEASE}.${BUILD_NUMBER} ${P
 set(GIT_REVISION   "${COMMIT_ID}")
 
 set(KEEPERFX_VER_DEFS_H_IN ${CMAKE_SOURCE_DIR}/ver_defs.h.in)
-set(KEEPERFX_VER_DEFS_H_OUT ${CMAKE_SOURCE_DIR}/ver_defs.h)
+# Into the build tree, not the source tree: each tree has its own version (a packaging configure's
+# -DBUILD_NUMBER), and a shared copy let one tree's configure change every other tree's version and
+# rebuild them all.
+set(KEEPERFX_VER_DEFS_H_OUT ${CMAKE_BINARY_DIR}/ver_defs.h)
 configure_file(${KEEPERFX_VER_DEFS_H_IN} ${KEEPERFX_VER_DEFS_H_OUT})
 
 # build/cmake/modules/: brought in from upstream's SDL3 migration (merge of
@@ -184,12 +187,13 @@ target_include_directories(kfx_common_opts INTERFACE
     "${CMAKE_SOURCE_DIR}/src/kfx_script/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_apploop/include"
     "${CMAKE_SOURCE_DIR}/src/kfx_editor/include"
-    # ver_defs.h is configure_file()'d to the repo root (see above), not
-    # under src/. The root must come BEFORE src/: the Makefile's cppcheck
-    # target still writes its own src/ver_defs.h (git-ignored), and with
-    # src/ first that stale copy silently won -- local builds reported an
-    # old version and git revision.
-    "${CMAKE_SOURCE_DIR}"
+    # ver_defs.h is configure_file()'d into the build tree (see above).
+    # It must come BEFORE src/: the Makefile's cppcheck target still
+    # writes its own src/ver_defs.h (git-ignored), and with src/ first
+    # that stale copy silently won -- local builds reported an old version
+    # and git revision. (An older build wrote it to the repo root, which
+    # is no longer on the include path.)
+    "${CMAKE_BINARY_DIR}"
     "${CMAKE_SOURCE_DIR}/src")
 if(UNIX AND NOT APPLE)
     # Same suppression linux.mk already carries for this GCC/glibc combo
@@ -406,11 +410,15 @@ endif()
 # KFX_FUNCTESTING and KFX_BUILD_TESTS are mutually exclusive (see
 # KFX_FUNCTESTING's own comment), this never collides with the `coverage`
 # target defined there -- exactly one of the two ever exists in a given
-# configure. Runs every registered non-long-running src/ftests/ test
-# (wildcard -ftests, no name) via -headless (bflib_video.c/main.cpp: SDL's
-# "dummy" video driver + SoundDisabled, so this needs no real display or
-# audio device) and -exitonfailedtest (nonzero exit on failure, aborting
-# the target the same way a failing `ctest` would).
+# configure. Runs every registered non-long-running src/ftests/ test, each
+# in a process of its own (scripts/run_ftest_coverage.sh: JOBS at a time,
+# default 2), via -headless (bflib_video.c/main.cpp: SDL's "dummy" video
+# driver + SoundDisabled, so this needs no real display or audio device).
+# A failing test costs only itself -- the report still covers every other
+# test -- and the target fails at the end, after the report is written,
+# listing the failed tests (ftest-coverage-results.txt; logs in
+# ftest-coverage-logs/). One process for the whole list stopped at the
+# first failure and left every later test out of the report.
 #
 # Needs the real, proprietary Dungeon Keeper data files to get past config
 # loading and actually run a level (see src/ftests/README.md) -- KFX_FTEST_DATA_DIR
@@ -444,7 +452,9 @@ if(KFX_FUNCTESTING AND KFX_TEST_COVERAGE)
             "-DKEEPERFX_CFG=${CMAKE_SOURCE_DIR}/config/${PRODUCT_SLUG}.cfg"
             "-DREPO_DIR=${CMAKE_SOURCE_DIR}"
             -P "${CMAKE_SOURCE_DIR}/build/cmake/modules/StageFtestData.cmake"
-        COMMAND "$<TARGET_FILE:keeperfx>" -ftests -headless -exitonfailedtest
+        COMMAND ${CMAKE_COMMAND} -E env "KFX_FTEST_CORE_FILES=${KFX_FTEST_DATA_DIR}"
+            "${CMAKE_SOURCE_DIR}/scripts/run_ftest_coverage.sh" "${CMAKE_BINARY_DIR}"
+            "${CMAKE_BINARY_DIR}/ftest-coverage-results.txt"
         COMMAND ${CMAKE_COMMAND} -E env perl "${KFX_LCOV_BIN}"
             --capture --directory "${CMAKE_BINARY_DIR}"
             --output-file "${CMAKE_BINARY_DIR}/coverage.raw.info"
@@ -457,6 +467,8 @@ if(KFX_FUNCTESTING AND KFX_TEST_COVERAGE)
         COMMAND perl "${KFX_GENHTML_BIN}"
             "${CMAKE_BINARY_DIR}/coverage.info"
             --output-directory "${CMAKE_BINARY_DIR}/coverage-html" --quiet
+        COMMAND "${CMAKE_SOURCE_DIR}/scripts/run_ftest_coverage.sh" --check
+            "${CMAKE_BINARY_DIR}/ftest-coverage-results.txt"
         DEPENDS keeperfx
         # Every COMMAND above uses fully-qualified paths (KFX_LCOV_BIN,
         # ${CMAKE_BINARY_DIR}/..., ${CMAKE_SOURCE_DIR}/...), including

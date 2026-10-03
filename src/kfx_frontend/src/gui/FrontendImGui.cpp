@@ -283,18 +283,4 @@ void FrontendImGuiSetDemoVisible(TbBool visible)
     s_demo_visible = (visible != 0);
 }
 
-TbBool FrontendImGuiWantCaptureMouse(void)
-{
-    if (!s_active)
-        return 0;
-    return ImGui::GetIO().WantCaptureMouse ? 1 : 0;
-}
-
-TbBool FrontendImGuiWantCaptureKeyboard(void)
-{
-    if (!s_active)
-        return 0;
-    return ImGui::GetIO().WantCaptureKeyboard ? 1 : 0;
-}
-
 } // extern "C"

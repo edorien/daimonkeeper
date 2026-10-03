@@ -19,6 +19,7 @@
 #include "custom_sprites.h"
 #include "sprites.h"
 #include "dungeon_data.h"
+#include "player_utils.h"
 #include "lvl_filesdk1.h"
 #include "lvl_script_lib.h"
 #include "lvl_script_conditions.h"
@@ -29,6 +30,9 @@
 #include "thing_physics.h"
 #include "creature_instances.h"
 #include "kfx_config_state.h"
+#include "kfx_game_state.h"
+#include "game_merge.h"
+#include "lvl_script.h"
 
 #include "post_inc.h"
 
@@ -43,6 +47,23 @@ struct ScriptValue *allocate_script_value(void)
     struct ScriptValue* value = &kfx_game_state.script.values[kfx_game_state.script.values_num];
     kfx_game_state.script.values_num++;
     return value;
+}
+
+/** A command's script value with three values (the original game's commands keep theirs this way): run at once at the
+ *  top level, kept for later inside an IF (or after NEXT_COMMAND_REUSABLE). */
+void command_add_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3)
+{
+    ALLOCATE_SCRIPT_VALUE(var_index, plr_range_id);
+
+    value->longs[0] = param1;
+    value->longs[1] = param2;
+    value->longs[2] = param3;
+
+    if ((get_script_current_condition() == CONDITION_ALWAYS) && (next_command_reusable == 0))
+    {
+        script_process_value(var_index, plr_range_id, value);
+        return;
+    }
 }
 
 void command_init_value(struct ScriptValue* value, uint64_t var_index, uint64_t plr_range_id)
@@ -274,6 +295,24 @@ TbBool script_copy_creature_type(ThingModel source_id, const char* name)
     return true;
 }
 
+TbBool variable_is_settable(int64_t var_type)
+{
+    switch (var_type)
+    {
+    case SVar_FLAG:
+    case SVar_CAMPAIGN_FLAG:
+    case SVar_BOX_ACTIVATED:
+    case SVar_TRAP_ACTIVATED:
+    case SVar_SACRIFICED:
+    case SVar_REWARDED:
+    case SVar_MONEY:
+    case SVar_HEART_HEALTH:
+        return true;
+    default:
+        return false;
+    }
+}
+
 void set_variable(int64_t player_idx, int64_t var_type, int64_t var_idx, int64_t new_val)
 {
     struct Dungeon *dungeon = get_dungeon(player_idx);
@@ -303,6 +342,26 @@ void set_variable(int64_t player_idx, int64_t var_type, int64_t var_idx, int64_t
     case SVar_REWARDED:
         dungeon->creature_awarded[var_idx] = new_val;
         break;
+    case SVar_MONEY:
+    {
+        // the difference as off-map gold, or taken from the treasury, as Lua's add_gold does
+        if (dungeon_invalid(dungeon))
+            break;
+        const GoldAmount delta = new_val - dungeon->total_money_owned;
+        if (delta > 0)
+            player_add_offmap_gold(player_idx, delta);
+        else if (delta < 0)
+            take_money_from_dungeon(player_idx, -delta, 0);
+        break;
+    }
+    case SVar_HEART_HEALTH:
+    {
+        // the value as written (a heart set below 0 is destroyed on its next turn)
+        struct Thing *heart = get_player_soul_container(player_idx);
+        if (thing_is_dungeon_heart(heart))
+            heart->health = new_val;
+        break;
+    }
     default:
         WARNLOG("Unexpected type:%" PRId64,(int64_t)var_type);
     }
@@ -387,6 +446,47 @@ int64_t get_chat_icon_sprite_idx_from_id(int64_t id, char type)
         default:
             return -1;
     }
+}
+
+void script_display_variable(PlayerNumber plyr_idx, unsigned char value_type, int64_t value_id, int64_t target,
+    unsigned char target_type, TbBool include_icon, int64_t icon_idx)
+{
+    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
+        kfx_game_state.script_variables[i] = kfx_game_state.script_variables[i-1];
+    struct ScriptVariable *scvar = &kfx_game_state.script_variables[0];
+    memset(scvar, 0, sizeof(*scvar));
+    scvar->variable_player = plyr_idx;
+    scvar->value_type = value_type;
+    scvar->value_id = (unsigned char)value_id;
+    scvar->variable_target = target;
+    scvar->variable_target_type = target_type;
+    scvar->include_icon = include_icon;
+    scvar->icon_idx = icon_idx;
+    scvar->is_active = true;
+    if (kfx_game_state.active_script_var_count < DISPLAY_VARIABLES_LIMIT)
+        kfx_game_state.active_script_var_count++;
+    kfx_game_state.flags_gui |= GGUI_Variable;
+}
+
+void script_hide_variable(PlayerNumber plyr_idx, int64_t value_type, int64_t value_id)
+{
+    for (int64_t i = 0; i < kfx_game_state.active_script_var_count; i++)
+    {
+        const struct ScriptVariable *scvar = &kfx_game_state.script_variables[i];
+        if ((plyr_idx != -1) && (scvar->variable_player != plyr_idx))
+            continue;
+        if ((value_type != -1) && ((scvar->value_type != value_type) || (scvar->value_id != value_id)))
+            continue;
+        for (int64_t j = i; j < kfx_game_state.active_script_var_count - 1; j++)
+            kfx_game_state.script_variables[j] = kfx_game_state.script_variables[j+1];
+        kfx_game_state.active_script_var_count--;
+        memset(&kfx_game_state.script_variables[kfx_game_state.active_script_var_count], 0, sizeof(struct ScriptVariable));
+        if (value_type != -1)
+            break; // a named variable: its newest entry
+        i--;
+    }
+    if (kfx_game_state.active_script_var_count == 0)
+        kfx_game_state.flags_gui &= ~GGUI_Variable;
 }
 
 int64_t get_chat_icon_sprite_idx(const char* txt)

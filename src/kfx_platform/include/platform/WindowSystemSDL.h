@@ -23,7 +23,6 @@ public:
     bool IsCursorInWindow() const override;
 
     bool HasWindow() const override;
-    SDL_Window* GetSDLWindow() const;
     uint64_t GetWindowFlags() const override;
     void GetWindowSize(int64_t* out_w, int64_t* out_h) const override;
     int64_t GetWindowDisplayIndex() const override;

@@ -20,6 +20,8 @@
 #ifndef DK_KFX_CONFIG_STATE_H
 #define DK_KFX_CONFIG_STATE_H
 
+#include "port_check.h"
+#include "state_versions.h"
 #include "bflib_basics.h"
 #include "globals.h"
 #include "config_magic.h"
@@ -98,7 +100,11 @@ enum ClassicBugFlags {
     ClscBug_FriendlyFaint                 = 0x0800,
     ClscBug_PassiveNeutrals               = 0x1000,
     ClscBug_NeutralTortureConverts        = 0x2000,
-    ClscBug_ListEnd                       = 0x4000,
+    ClscBug_LibraryExtraBook              = 0x4000, // dAImon Keeper: pass 3 finding F9
+    ClscBug_CreatureStatsWrap             = 0x8000, // dAImon Keeper: pass 3 finding F10
+    ClscBug_CornerWallUnrevealed          = 0x10000, // dAImon Keeper: pass 3 finding F2
+    ClscBug_CrookedSightLines             = 0x20000, // dAImon Keeper: pass 3 finding F3
+    ClscBug_ListEnd                       = 0x40000,
 };
 
 struct Configs {
@@ -148,6 +154,9 @@ struct KfxConfigState {
     // offsetof expressions in config_rules.c were updated to match.
     struct Configs conf;
     GameTurnDelta pay_day_progress[9]; // PLAYERS_COUNT (kfx_sim) -- see comment above.
+
+    // Everything above is the game's: upstream's struct Game held it, so saves and resyncs carry it
+    // (KFX_CONFIG_STATE_SAVED_*, refactor pass 4 P4-F16). Everything below is daimonkeeper.cfg's settings.
 
     // Moved from kfx_game's sounds.c (stage 13.3, docs/refactor/
     // stage-13-enforce-and-document.md) -- only written by kfx_config's
@@ -214,6 +223,18 @@ struct KfxConfigState {
 #pragma pack()
 /******************************************************************************/
 extern struct KfxConfigState kfx_config_state;
+/* In every file that includes this header, not only the struct's own: a file that sees another layout reads the
+   state at other offsets than the rest of the game (P4-F17). */
+KFX_STATIC_ASSERT(sizeof(struct KfxConfigState) == KFX_CONFIG_STATE_SIZE,
+    "struct KfxConfigState has another size in this file than state_versions.h says: a #pragma pack leaking into the headers it includes (refactor pass 4, P4-F17), or a layout change (bump KFX_CONFIG_STATE_VER and update KFX_CONFIG_STATE_SIZE)");
+/** The part of kfx_config_state a save (SGC_KfxConfigState) and a network resync carry: from texture_animation to
+ *  pay_day_progress (the level's configuration as its script changed it, the payday progress, the slabs' texture
+ *  packs...: what upstream's struct Game held). Refactor pass 4, P4-F16. */
+#define KFX_CONFIG_STATE_SAVED_OFFSET offsetof(struct KfxConfigState, texture_animation)
+#define KFX_CONFIG_STATE_SAVED_LEN (offsetof(struct KfxConfigState, atmos_sound_frequency) - KFX_CONFIG_STATE_SAVED_OFFSET)
+#define KFX_CONFIG_STATE_SAVED_PTR ((void *)((char *)&kfx_config_state + KFX_CONFIG_STATE_SAVED_OFFSET))
+KFX_STATIC_ASSERT(KFX_CONFIG_STATE_SAVED_LEN == KFX_CONFIG_STATE_SAVED_SIZE,
+    "kfx_config_state's saved part changed size: bump KFX_CONFIG_STATE_VER and update KFX_CONFIG_STATE_SAVED_SIZE in state_versions.h");
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "ariadne_saved_state.h"
 #include "ariadne_findcache.h"
 
 #include "globals.h"
@@ -220,6 +221,13 @@ TbBool point_find(int64_t pt_x, int64_t pt_y, int64_t *output_triangle_index, in
         }
     }
     return false;
+}
+/******************************************************************************/
+/** Where point location starts looking: part of the saved navigation mesh (ariadne_saved_state.h), as which of
+ *  two triangles sharing an edge a walk ends in depends on where it starts. */
+void ariadne_findcache_visit_saved_state(AriadneStateVisitor visit, void *ctx)
+{
+    visit(ctx, find_cache, sizeof(find_cache));
 }
 /******************************************************************************/
 #ifdef __cplusplus

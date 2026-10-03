@@ -218,6 +218,8 @@ void frontend_draw_level_select_button(struct GuiButton *gbtn)
     }
 }
 
+static void frontend_draw_simple_scroll_track(struct GuiButton *gbtn);
+
 void frontend_draw_levels_scroll_tab(struct GuiButton *gbtn)
 {
     // frontend_draw_scroll_tab (frontend.cpp) only ever draws the movable
@@ -686,7 +688,7 @@ void frontend_campaign_select_update(void)
  * narrower scroll column -- see frontend_draw_levels_scroll_tab's comment
  * for why the ornate groove sprite doesn't fit here.
  */
-void frontend_draw_simple_scroll_track(struct GuiButton *gbtn)
+static void frontend_draw_simple_scroll_track(struct GuiButton *gbtn)
 {
     int64_t track_w = max(4, gbtn->width / 3);
     int64_t track_x = gbtn->scr_pos_x + (gbtn->width - track_w) / 2;

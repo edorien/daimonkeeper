@@ -107,7 +107,6 @@ TbBool RendererPerPixelLightingActive(void);
 void   RendererWorldFrameSetLighting(const double map_x[4], const double map_y[4], const double map_z[4], double lens, double centre_x, double centre_y,
                                      const double fade[4], const float *lights, int64_t light_count,
                                      const unsigned char *grid, int64_t grid_w, int64_t grid_h);
-TbBool RendererGetTrueDepth(void);
 void   RendererWorldFrameAddPoly(const struct PolyPoint *a, const struct PolyPoint *b, const struct PolyPoint *c, unsigned char *texture);
 // Sprite ops -- see WorldFrameSpriteOp (renderer/WorldFrame.h). xmap/ymap:
 // per destination column/row, the source column/row; cmap: 256 RGBA8
@@ -250,7 +249,6 @@ struct TbSprite;
 TbResult RendererDrawBox(int64_t x, int64_t y, uint64_t width, uint64_t height, TbPixel colour);
 void RendererDrawSlabBackground(int64_t x, int64_t y, int64_t width, int64_t height);
 TbResult RendererSpriteDraw(int64_t x, int64_t y, const struct TbSprite *spr);
-TbResult RendererSpriteDrawOneColour(int64_t x, int64_t y, const struct TbSprite *spr, TbPixel colour);
 TbResult RendererSpriteDrawScaled(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h);
 TbResult RendererSpriteDrawScaledOneColour(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h, TbPixel colour);
 int64_t      RendererSpriteDrawScaledRemap(int64_t x, int64_t y, const struct TbSprite *spr, int64_t w, int64_t h, const TbPixel *cmap);

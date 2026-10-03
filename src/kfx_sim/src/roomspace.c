@@ -40,6 +40,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -381,13 +382,10 @@ void create_roomspace_from_current_room(struct RoomSpace *roomspace, int64_t sea
     int64_t right_extent = centre_x;
     int64_t bottom_extent = centre_y;
     // Loop through list of slabs in the room to find extents
-    uint64_t k = 0;
-    int64_t i = current_room->slabs_list;
-    while (i != 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk(current_room))
     {
-        int64_t slb_x = slb_num_decode_x(i);
-        int64_t slb_y = slb_num_decode_y(i);
-        // Per room tile code
+        int64_t slb_x = slb_num_decode_x(slb_num);
+        int64_t slb_y = slb_num_decode_y(slb_num);
         if (slb_x < left_extent)
         {
             left_extent = slb_x;
@@ -403,14 +401,6 @@ void create_roomspace_from_current_room(struct RoomSpace *roomspace, int64_t sea
         if (slb_y > bottom_extent)
         {
             bottom_extent = slb_y;
-        }
-        // Per room tile code ends
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > current_room->slabs_count)
-        {
-            // have gone through every slab in room, so exit loop
-            break;
         }
     }
     // Set width and height of roomspace (making sure it is between 1 and MAX_ROOMSPACE_WIDTH)

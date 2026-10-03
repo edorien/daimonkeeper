@@ -353,7 +353,7 @@ int64_t pinstfm_control_creature(struct PlayerInfo *player, int64_t *n)
     {
         set_camera_zoom(cam, player->dungeon_camera_zoom);
         if (is_my_player(player))
-            render_PaletteSetUserPalette(player->user_id, engine_palette);
+            render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
         player->influenced_thing_idx = 0;
         player->influenced_thing_creation = 0;
         ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
@@ -427,7 +427,7 @@ int64_t pinstfe_direct_control_creature(struct PlayerInfo *player, int64_t *n)
     {
         set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
         if (is_my_player(player)) {
-            render_PaletteSetUserPalette(player->user_id, engine_palette);
+            render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
         }
         ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
         ustate->init_flags &= ~UsrIF_MouseInputDisabled;
@@ -438,12 +438,12 @@ int64_t pinstfe_direct_control_creature(struct PlayerInfo *player, int64_t *n)
     if (thing->class_id == TCls_Creature)
     {
         if (my_player) {
-            load_swipe_graphic_for_creature(thing);
+            render_load_swipe_graphic_for_creature(thing);
         }
         if (my_player) {
             if (creature_under_spell_effect(thing, CSAfF_Freeze))
             {
-                render_PaletteSetUserPalette(player->user_id, blue_palette);
+                render_PaletteSetUserViewPalette(player->user_id, VPal_Freeze);
             }
         }
         creature_choose_first_available_instance(thing);
@@ -461,7 +461,7 @@ int64_t pinstfe_passenger_control_creature(struct PlayerInfo *player, int64_t *n
     if (thing_exists(thing))
     {
         if (is_my_player(player)) {
-            load_swipe_graphic_for_creature(thing);
+            render_load_swipe_graphic_for_creature(thing);
         }
         control_creature_as_passenger(player, thing);
     }
@@ -540,7 +540,7 @@ int64_t pinstfe_leave_creature(struct PlayerInfo *player, int64_t *n)
     struct UserState* ustate = get_player_user_state(player);
     set_camera_zoom(get_player_active_camera(player), player->dungeon_camera_zoom);
   if (is_my_player(player)) {
-    render_PaletteSetUserPalette(player->user_id, engine_palette);
+    render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
   }
   ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
   ustate->init_flags &= ~UsrIF_MouseInputDisabled;
@@ -564,15 +564,10 @@ int64_t pinstfs_unquery_creature(struct PlayerInfo *player, int64_t *n)
     return 0;
 }
 
-unsigned char zoom_to_heart_palette[768];
-
 int64_t pinstfs_zoom_to_heart(struct PlayerInfo *player, int64_t *n)
 {
     struct UserState* ustate = get_player_user_state(player);
     SYNCDBG(6,"Starting for player %" PRId64,(int64_t)player->id_number);
-    if (is_my_player_number(player->id_number)) {
-        LbPaletteDataFillWhite(zoom_to_heart_palette);
-    }
     turn_user_cursor_light(player->user_id, false);
     struct Thing* thing = get_player_soul_container(player->id_number);
     ThingModel spectator_breed = get_players_spectator_model(player->id_number);
@@ -605,7 +600,7 @@ int64_t pinstfm_zoom_to_heart(struct PlayerInfo *player, int64_t *n)
   }
   if (is_my_player_number(player->id_number)) {
       if (player->instance_remain_turns <= 8)
-        LbPaletteFade(zoom_to_heart_palette, 8, Lb_PALETTE_FADE_OPEN);
+        render_PaletteFadeToView(VPal_White, 8);
   }
   return 0;
 }
@@ -688,7 +683,7 @@ int64_t pinstfm_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
         signal_local_camera_retarget(player);
     }
     if (is_my_player_number(player->id_number) && (player->instance_remain_turns >= 8))
-        LbPaletteFade(engine_palette, 8, Lb_PALETTE_FADE_OPEN);
+        render_PaletteFadeToView(VPal_Engine, 8);
     return 0;
 }
 
@@ -710,7 +705,7 @@ int64_t pinstfe_zoom_out_of_heart(struct PlayerInfo *player, int64_t *n)
   ustate->init_flags &= ~UsrIF_MouseInputDisabled;
   kfx_sim_state.view_mode_flags &= ~GNFldD_CreaturePasngr;
   if (is_my_player(player)) {
-    render_PaletteSetUserPalette(player->user_id, engine_palette);
+    render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
   }
   return 0;
 }
@@ -727,9 +722,9 @@ int64_t pinstfe_control_creature_fade(struct PlayerInfo *player, int64_t *n)
   if (is_my_player(player))
   {
     if ((ustate->additional_flags & UsrAF_FreezePaletteIsActive) != 0)
-      render_PaletteSetUserPalette(player->user_id, blue_palette);
+      render_PaletteSetUserViewPalette(player->user_id, VPal_Freeze);
     else
-      render_PaletteSetUserPalette(player->user_id, engine_palette);
+      render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
   }
   ustate->init_flags &= ~UsrIF_KeyboardInputDisabled;
   turn_user_cursor_light(player->user_id, false);
@@ -1186,6 +1181,8 @@ struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Play
     return room;
 }
 
+static TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos_in, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
+
 TbBool player_place_trap_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free)
 {
     struct TrapConfigStats* trap_cfg = get_trap_model_stats(tngmodel);
@@ -1208,7 +1205,7 @@ TbBool player_place_trap_at_subtile_without_check(MapSubtlCoord stl_x, MapSubtlC
     return player_place_trap_at_pos_without_check(&pos, plyr_idx, tngmodel, free);
 }
 
-TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos_in, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free)
+static TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos_in, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free)
 {
     struct TrapConfigStats* trap_cfg = get_trap_model_stats(tngmodel);
     struct Coord3d pos = *pos_in;

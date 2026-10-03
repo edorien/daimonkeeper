@@ -36,11 +36,10 @@ enum LightFlags {
     LgtF_Allocated    = 0x01,
     LgtF_CanTurnOff   = 0x02,
     LgtF_Dynamic      = 0x04,
-    LgtF_NeedUpdate   = 0x08,
-    LgtF_RadiusOscillation = 0x10,
-    LgtF_IntensityAnimation = 0x20,
+    // 0x08 was LgtF_NeedUpdate: whether to shade a light again is kfx_render's (refactor pass 5, S11)
+    // 0x10, 0x20 were LgtF_RadiusOscillation, LgtF_IntensityAnimation: nothing set them (refactor pass 5, S11)
     LgtF_NeverCached  = 0x40,
-    LgtF_OutOfDate    = 0x80,
+    // 0x80 was LgtF_OutOfDate: nothing set it
 };
 
 enum LightFlags2 {
@@ -51,28 +50,16 @@ struct Light {
   unsigned char flags;
   unsigned char flags2;
   unsigned char intensity;
-  unsigned char intensity_toggling_field;//toggles between 1 and 2 when flags has LgtF_IntensityAnimation
-  unsigned char intensity_delta;//seems never assigned
-  unsigned char range;
-  unsigned char radius_oscillation_direction;
-  unsigned char max_intensity;//seems never assigned
   unsigned char min_radius;
   int64_t index;
   int64_t shadow_index;
   SlabCodedCoords attached_slb;
   int64_t radius;
-  int64_t force_render_update;
-  int64_t radius_delta;//seems never assigned
-  int64_t max_radius;//seems never assigned
-  int64_t min_radius2;//seems never assigned
   int64_t min_intensity;
   int64_t next_in_list;
   struct Coord3d mappos;
   struct Coord3d previous_mappos;
-  int64_t intensity_random;
-  int64_t previous_intensity_random;
   GameTurn last_turn_moved;
-  GameTurn last_turn_randomized;
   TbBool reset_interpolation;
   // gpu-v2 lighting pass: 0,0,0 = white (see InitLight). Only the Vulkan renderer's per-pixel lighting uses it.
   unsigned char colour_r, colour_g, colour_b;
@@ -82,11 +69,12 @@ struct Light {
  * The light registry, kfx_sim_state.light_registry: saved and resynced with
  * the rest of the sim state.
  *
- * Some struct Light fields are kept up to date by kfx_render's shading
- * rather than by the sim: range (the shading radius in subtiles, which the
- * invalidation below uses too), the interpolation and flicker fields, and
- * the LgtF_NeedUpdate/LgtF_OutOfDate flags. The sim never reads them to
- * decide anything, and nothing checksums them.
+ * Only the simulation writes it (refactor pass 5, S11): what the shading
+ * keeps for each light (its range, whether to shade it again, the flicker)
+ * is kfx_render_state.light_draw[], and the sim tells the shading what
+ * changed through light_shading_signals. previous_mappos, last_turn_moved
+ * and reset_interpolation are the sim's: where a light was last turn, and
+ * whether it was teleported since, which the drawing interpolates from.
  */
 struct LightRegistry {
     struct Light lights[LIGHTS_COUNT];
@@ -100,7 +88,6 @@ struct LightRegistry {
     TbBool light_auto_sync;
     int64_t total_dynamic_lights;
     int64_t total_stat_lights;
-    int64_t stat_light_needs_updating;
 };
 
 #pragma pack()
@@ -109,14 +96,16 @@ struct LightRegistry {
 /**
  * Registry -> shading signals.
  *
- * A registry change that makes kfx_render's static light map stale (a static
- * light moved, dimmed, deleted, or a slab changed under the lights) records
- * the area here instead of clearing the map itself; kfx_render's
- * light_drain_shading_signals() clears those areas before it next shades,
- * and whenever kfx_render changes the registry itself. The lights whose
- * shading the areas held are flagged LgtF_NeedUpdate at the same time, so
- * the drain only has to clear. Same "sim signals, view polls" shape as
- * kfx_sim_view_signals (player_camera.h).
+ * A registry change that makes kfx_render's shading stale records it here:
+ * an area (a slab changed under the lights, the whole map), or a light that
+ * changed (created, moved, dimmed, turned on or off, deleted) with, for a
+ * static light, where it was. kfx_render's light_drain_shading_signals()
+ * applies them before it next shades: it clears the static light map's areas
+ * and decides which lights to shade again, with the shading range it keeps
+ * for each light (refactor pass 5, S11: the range and the "shade again" flag
+ * were in struct Light, saved and resynced, and the renderer wrote them).
+ * Same "sim signals, view polls" shape as kfx_sim_view_signals
+ * (player_camera.h).
  *
  * Deliberately outside kfx_sim_state: not saved, not resynced. After a load
  * or a resync, light_registry_invalidate_shading() asks for everything to be
@@ -124,8 +113,23 @@ struct LightRegistry {
  */
 #define LIGHT_SHADING_AREAS_MAX 64
 
+/** What an area asks for. */
+enum LightShadingAreaKind {
+    LgtArea_ClearMap = 0,  /**< clear the static light map there */
+    LgtArea_StaticLights,  /**< the static lights shading it are shaded again (and the area cleared, if any is) */
+    LgtArea_AllLights,     /**< the dynamic lights shading it too */
+};
+
 struct LightShadingArea {
     int64_t x1, y1, x2, y2;
+    unsigned char kind;
+};
+
+/** What a light's change asks for (LightShadingSignals.light_changed). */
+enum LightChangeFlags {
+    LgtCh_Reshade = 0x01,  /**< shade it again */
+    LgtCh_OwnArea = 0x02,  /**< a static light: the area it shaded, around changed_stl_x/y, is a LgtArea_StaticLights */
+    LgtCh_Created = 0x04,  /**< a new light at this index: nothing drawn for the old one applies */
 };
 
 struct LightShadingSignals {
@@ -143,6 +147,11 @@ struct LightShadingSignals {
        map and the lightness. kfx_render flags the lights when it drains
        this, so the registry itself is left exactly as it arrived. */
     TbBool registry_replaced;
+    /* Per light: what changed (LightChangeFlags), and where a static light was at the first change with
+       LgtCh_OwnArea since the last drain. */
+    unsigned char light_changed[LIGHTS_COUNT];
+    MapSubtlCoord changed_stl_x[LIGHTS_COUNT];
+    MapSubtlCoord changed_stl_y[LIGHTS_COUNT];
 };
 
 extern struct LightShadingSignals light_shading_signals;
@@ -166,13 +175,14 @@ TbBool lights_stats_debug_dump(void);
 void light_set_light_never_cache(int64_t lgt_id);
 int64_t light_is_light_allocated(int64_t lgt_id);
 void light_set_light_position(int64_t lgt_id, struct Coord3d *pos);
-void light_reset_interpolation(int64_t lgt_id);
 unsigned char light_get_light_intensity(int64_t idx);
 void light_set_light_intensity(int64_t idx, unsigned char intensity);
 int64_t light_get_light_radius(int64_t idx);
 void light_set_light_radius(int64_t idx, int64_t radius);
 void light_turn_light_off(int64_t num);
 void light_turn_light_on(int64_t num);
+void update_global_lighting(void);
+void light_registry_reset_lighting(void);
 void light_init_dungeon_heart(int64_t lgt_id, int64_t radius, int64_t intensity);
 void light_set_attached_slab(int64_t lgt_id, SlabCodedCoords slb_num);
 void delete_lights_attached_to_slab_in_area(SlabCodedCoords place_slbnum,

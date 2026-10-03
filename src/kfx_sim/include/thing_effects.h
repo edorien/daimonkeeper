@@ -81,7 +81,6 @@ TbBool explosion_affecting_door(struct Thing *tngsrc, struct Thing *tngdst, cons
 
 void give_shooter_drained_health(struct Thing *shooter, HitPoints health_delta);
 void process_keeper_spell_aura(struct Thing *thing);
-void affect_nearby_stuff_with_vortex(struct Thing *thing);
 void affect_nearby_friends_with_alarm(struct Thing *traptng);
 
 TngUpdateRet damage_creatures_with_physical_force(struct Thing *thing, ModTngFilterParam param);
@@ -91,7 +90,6 @@ int64_t update_cave_in(struct Thing *thing);
 void draw_flame_breath(struct Coord3d *pos1, struct Coord3d *pos2, int64_t delta_step, int64_t num_per_step, int64_t ef_or_efel_model, ThingIndex parent_idx);
 void draw_lightning(const struct Coord3d *pos1, const struct Coord3d *pos2, int64_t eeinterspace, EffectOrEffElModel ef_or_efel_model);
 
-extern unsigned char temp_pal[768];
 /******************************************************************************/
 #ifdef __cplusplus
 }

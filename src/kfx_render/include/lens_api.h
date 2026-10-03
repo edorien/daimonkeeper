@@ -61,9 +61,6 @@ const char* LensManager_GetActiveCustomLensName(void* mgr);
 TbBool LensManager_IsReady(void* mgr);
 void LensManager_Draw(void* mgr, TbPixel* srcbuf, TbPixel* dstbuf,
                       int64_t srcpitch, int64_t dstpitch, int64_t width, int64_t height, int64_t viewport_x);
-void LensManager_CopyBuffer(TbPixel* dstbuf, int64_t dstpitch,
-                           TbPixel* srcbuf, int64_t srcpitch,
-                           int64_t width, int64_t height);
 
 // Custom lens registration (for LUA integration)
 TbBool LensManager_RegisterCustomLens(void* mgr, const char* name, void* effect);

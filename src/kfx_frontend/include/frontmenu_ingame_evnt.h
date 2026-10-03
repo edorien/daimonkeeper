@@ -39,6 +39,9 @@ enum EventButtonState {
 };
 
 extern int64_t battle_creature_over;
+extern int64_t friendly_battler_list[];
+extern int64_t enemy_battler_list[];
+void maintain_my_battle_list(void);
 // my_visible_event_idx moved to gui_frontmenu.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
 extern unsigned char my_event_button_state[];
@@ -77,7 +80,6 @@ TbBool script_timer_enabled(void);
 TbBool gameturn_timer_enabled(void);
 void draw_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, uint64_t limit, TbBool real);
 TbBool display_variable_enabled(void);
-void draw_script_variable_list(void);
 void draw_script_variable(PlayerNumber plyr_idx, unsigned char valtype, unsigned char validx, int64_t target, unsigned char targettype);
 
 extern uint64_t TimerTurns;

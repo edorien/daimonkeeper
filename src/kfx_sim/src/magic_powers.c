@@ -66,6 +66,7 @@
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1019,47 +1020,28 @@ static TbResult magic_use_power_armageddon(PowerKind power_kind, PlayerNumber pl
     kfx_sim_state.armageddon_mappos.y.val = heartng->mappos.y.val;
     kfx_sim_state.armageddon_mappos.z.val = heartng->mappos.z.val;
 
-    int64_t i;
-    int64_t k;
-    k = 0;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Creature);
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(creatng, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         struct CreatureControl *cctrl;
-        cctrl = creature_control_get_from_thing(thing);
-        if (is_neutral_thing(thing) && !kfx_config_state.conf.rules[plyr_idx].magic.armageddon_teleport_neutrals) // Creatures unaffected by Armageddon.
+        cctrl = creature_control_get_from_thing(creatng);
+        if (is_neutral_thing(creatng) && !kfx_config_state.conf.rules[plyr_idx].magic.armageddon_teleport_neutrals) // Creatures unaffected by Armageddon.
         {
             cctrl->armageddon_teleport_turn = 0;
         }
-        else if (creature_under_spell_effect(thing, CSAfF_Chicken)) // Creatures killed by Armageddon.
+        else if (creature_under_spell_effect(creatng, CSAfF_Chicken)) // Creatures killed by Armageddon.
         {
-            kill_creature(thing, heartng, plyr_idx, CrDed_DiedInBattle);
+            kill_creature(creatng, heartng, plyr_idx, CrDed_DiedInBattle);
         }
         else // Creatures teleported by Armageddon.
         {
             cctrl->armageddon_teleport_turn = your_time_gap;
-            if (thing->owner == plyr_idx) {
+            if (creatng->owner == plyr_idx) {
                 your_time_gap += kfx_config_state.conf.rules[plyr_idx].magic.armageddon_teleport_your_time_gap;
             } else {
                 enemy_time_gap += kfx_config_state.conf.rules[plyr_idx].magic.armageddon_teleport_enemy_time_gap;
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     if (enemy_time_gap <= your_time_gap)
@@ -1153,31 +1135,17 @@ static TbResult magic_use_power_hold_audience(PowerKind power_kind, PlayerNumber
         }
     }
     dungeon->hold_audience_cast_turn = get_gameturn();
-    uint64_t k;
-    int64_t i;
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(creatng, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct CreatureControl *cctrl;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
+        struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
+        if (!thing_is_picked_up(creatng) && !creature_is_kept_in_custody(creatng) && !creature_is_being_unconscious(creatng) && !creature_is_leaving_and_cannot_be_stopped(creatng))
         {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
-        if (!thing_is_picked_up(thing) && !creature_is_kept_in_custody(thing) && !creature_is_being_unconscious(thing) && !creature_is_leaving_and_cannot_be_stopped(thing))
-        {
-            create_effect(&thing->mappos, imp_spangle_effects[get_player_color_idx(thing->owner)], thing->owner);
+            create_effect(&creatng->mappos, imp_spangle_effects[get_player_color_idx(creatng->owner)], creatng->owner);
             const struct Coord3d *pos;
-            pos = dungeon_get_essential_pos(thing->owner);
-            move_thing_in_map(thing, pos);
-            reset_interpolation_of_thing(thing);
-            initialise_thing_state(thing, CrSt_CreatureInHoldAudience);
+            pos = dungeon_get_essential_pos(creatng->owner);
+            move_thing_in_map(creatng, pos);
+            reset_interpolation_of_thing(creatng);
+            initialise_thing_state(creatng, CrSt_CreatureInHoldAudience);
             cctrl->turns_at_job = -1;
 
             struct Thing* famlrtng; //familiars are not in the dungeon creature list
@@ -1186,16 +1154,9 @@ static TbResult magic_use_power_hold_audience(PowerKind power_kind, PlayerNumber
                 if (cctrl->familiar_idx[j])
                 {
                     famlrtng = thing_get(cctrl->familiar_idx[j]);
-                    teleport_familiar_to_summoner(famlrtng, thing);
+                    teleport_familiar_to_summoner(famlrtng, creatng);
                 }
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     if (plyr_idx == my_player_number)
@@ -1701,24 +1662,8 @@ int64_t update_creatures_influenced_by_call_to_arms(PlayerNumber plyr_idx)
     cta_pos.z.val = get_floor_height_at(&cta_pos);
     int64_t count;
     count = 0;
-    uint64_t k;
-    int64_t i;
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing *thing;
-        struct CreatureControl *cctrl;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (!thing_is_picked_up(thing) && !creature_is_being_unconscious(thing))
         {
             if (creature_affected_by_call_to_arms(thing))
@@ -1734,13 +1679,6 @@ int64_t update_creatures_influenced_by_call_to_arms(PlayerNumber plyr_idx)
                     }
                 }
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     return count;
@@ -1868,34 +1806,11 @@ static void magic_power_hold_audience_update(PlayerNumber plyr_idx)
     }
     // Dispose hold audience effect
     dungeon->hold_audience_cast_turn = 0;
-    struct CreatureControl *cctrl;
-    struct Thing *thing;
-    uint64_t k;
-    int64_t i;
     dungeon = get_players_num_dungeon(plyr_idx);
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (get_creature_state_besides_interruptions(thing) == CrSt_CreatureInHoldAudience) {
             set_start_state(thing);
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19,"Finished");
@@ -1924,41 +1839,18 @@ TbBool affect_creature_by_power_call_to_arms(struct Thing *creatng, int64_t rang
 int64_t affect_nearby_creatures_by_power_call_to_arms(PlayerNumber plyr_idx, int64_t range, const struct Coord3d * pos)
 {
     struct Dungeon *dungeon;
-    uint64_t k;
-    int64_t i;
     int64_t n;
     SYNCDBG(8,"Starting");
     dungeon = get_players_num_dungeon(plyr_idx);
     n = 0;
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl *cctrl;
-        cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (!thing_is_picked_up(thing) && !creature_is_kept_in_custody(thing) &&
             !creature_is_being_unconscious(thing) && !creature_is_dying(thing) && !creature_is_leaving_and_cannot_be_stopped(thing))
         {
             if (affect_creature_by_power_call_to_arms(thing, range, pos)) {
                 n++;
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19,"Finished");

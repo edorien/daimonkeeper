@@ -145,17 +145,10 @@ static inline size_t compressed_sprite_buf_size(int64_t w, int64_t h)
 }
 
 static uint8_t *create_rgb_to_pal_table(const uint8_t *palette);
-struct SheetLoadContext
-{
-    struct TbSpriteSheet *sheet;
-    const uint8_t *conversion_table;
-};
 static TbBool add_custom_sprite(const char *path);
 
 static TbBool add_custom_json(const char *path, const char *name, TbBool (*process)(const char *path, unzFile zip, VALUE *root));
-static TbBool add_custom_json_with_data(const char *path, const char *name, TbBool (*process)(const char *path, unzFile zip, VALUE *root, void *data), void *data);
 static size_t decode_png_to_sprite(unzFile zip, const char *path, const char *subpath, struct TbHugeSprite *sprite, const uint8_t *conversion_table);
-static TbBool process_sheet(const char *path, unzFile zip, VALUE *root, void *data);
 static TbBool process_lens_overlay(const char *path, unzFile zip, VALUE *root);
 static TbBool process_lens_mist(const char *path, unzFile zip, VALUE *root);
 static TbBool process_ensign(const char *path, unzFile zip, VALUE *root);
@@ -212,35 +205,6 @@ static int cmp_named_command(const void *a, const void *b)
     const struct NamedCommand *val_a = a;
     const struct NamedCommand *val_b = b;
     return strcasecmp(val_a->name, val_b->name);
-}
-
-struct TbSpriteSheet *load_custom_sheet_from_zip(const char *path, const unsigned char *palette) {
-    if (path == NULL || path[0] == '\0' || palette == NULL) return NULL;
-    struct TbSpriteSheet *sheet = create_spritesheet();
-
-    if (sheet == NULL)
-        return NULL;
-    const uint8_t *conversion_table = create_rgb_to_pal_table(palette);
-        if (conversion_table == NULL)
-        {
-            free_spritesheet(&sheet);
-            return NULL;
-        }
-
-    struct SheetLoadContext context = {
-        .sheet = sheet,
-        .conversion_table = conversion_table,
-        };
-
-    if (!add_custom_json_with_data(path, "ensigns.json", process_sheet, &context))
-    {
-        ERRORLOG("add_custom_json_with_data failed");
-        free((void *)conversion_table);
-        free_spritesheet(&sheet);
-        return NULL;
-    }
-    free((void *)conversion_table);
-    return sheet;
 }
 
 
@@ -1518,98 +1482,6 @@ static int64_t process_sprite_from_list(const char *path, unzFile zip, int64_t i
     return 1;
 }
 
-static TbBool add_custom_json_with_data(
-    const char *path,
-    const char *name,
-    TbBool (*process)(const char *path, unzFile zip, VALUE *root, void *data),
-    void *data)
-    {
-        SYNCDBG(8, "Starting");
-        unz_file_info64 zip_info = {0};
-        VALUE root;
-        JSON_INPUT_POS json_input_pos;
-        unzFile zip = unzOpen(path);
-
-        if (zip == NULL)
-        {
-            JUSTLOG("add_custom_json_with_data zip == NULL");
-            return 0;
-        }
-
-        if (UNZ_OK != fastUnzConstructCache(zip))
-        {
-            JUSTLOG("add_custom_json_with_data UNZ_OK != fastUnzConstructCache(zip)");
-            goto end;
-        }
-
-        JUSTLOG("add_custom_json_with_data name - %s",name);
-        if (UNZ_OK != fastUnzLocateFile(zip, name, 0))
-        {
-            JUSTLOG("add_custom_json_with_data UNZ_OK != fastUnzLocateFile(zip, name, 0)");
-            goto end;
-        }
-
-        if (UNZ_OK != unzGetCurrentFileInfo64(zip, &zip_info, NULL, 0, NULL, 0, NULL, 0))
-        {
-            JUSTLOG("add_custom_json_with_data UNZ_OK != unzGetCurrentFileInfo64(zip, &zip_info, NULL, 0, NULL, 0, NULL, 0)");
-            goto end;
-        }
-
-        if (zip_info.uncompressed_size >= 1024 * 1024)
-        {
-            JUSTLOG("add_custom_json_with_data zip_info.uncompressed_size >= 1024 * 1024");
-            WARNLOG("File too big %s/%s", path, name);
-            goto end;
-        }
-
-        if (UNZ_OK != unzOpenCurrentFile(zip))
-        {
-            JUSTLOG("add_custom_json_with_data UNZ_OK != unzOpenCurrentFile(zip)");
-            goto end;
-        }
-
-        if (unzReadCurrentFile(zip, big_scratch, zip_info.uncompressed_size) != zip_info.uncompressed_size)
-        {
-            JUSTLOG("add_custom_json_with_data unzReadCurrentFile(zip, big_scratch, zip_info.uncompressed_size) != zip_info.uncompressed_size");
-            WARNLOG("Unable to read %s/%s", path, name);
-            goto end;
-        }
-        big_scratch[zip_info.uncompressed_size] = 0;
-
-        if (UNZ_OK != unzCloseCurrentFile(zip))
-        {
-            JUSTLOG("add_custom_json_with_data UNZ_OK != unzCloseCurrentFile(zip)");
-            goto end;
-        }
-
-        int64_t ret = json_dom_parse((char *) big_scratch, zip_info.uncompressed_size, NULL, 0, &root, &json_input_pos);
-        if (ret)
-        {
-            JUSTLOG("add_custom_json_with_data ret");
-            WARNLOG("Incorrect %s/%s line:%" PRId64 " col:%" PRId64, path, name, (int64_t)(json_input_pos.line_number),
-                    (int64_t)(json_input_pos.column_number));
-            goto end;
-        }
-
-        if (VALUE_ARRAY != value_type(&root))
-        {
-            WARNLOG("%s/%s should be array of dictionaries", path, name);
-            goto end;
-        }
-        TbBool ret_ok = process(path, zip, &root, data);
-        JUSTLOG("add_custom_json_with_data ret_ok - %" PRId64,(int64_t)(ret_ok));    
-        value_fini(&root);
-
-        fastUnzClearCache();
-        unzClose(zip);
-
-        return ret_ok;
-    end:
-        fastUnzClearCache();
-        unzClose(zip);
-        return 0;
-}
-
 static TbBool
 add_custom_json(const char *path, const char *name, TbBool (*process)(const char *path, unzFile zip, VALUE *root))
 {
@@ -2134,65 +2006,6 @@ static int64_t process_icon_from_list(const char *path, unzFile zip, int64_t idx
             added_icon_frame_count[frame_idx] = icons_count;
         }
         num_added_icons++;
-    }
-
-    return 1;
-}
-
-static int64_t process_sheet_from_list(const char *path, unzFile zip, int64_t idx, VALUE *root, struct TbSpriteSheet *sheet, const uint8_t *conversion_table)
-{
-    
-    JUSTLOG("inside process_sheet_from_list");
-    const char *file_key = "file";
-    VALUE *file_value = value_dict_get(root, file_key);
-
-    if (file_value == NULL)
-    {
-        WARNLOG("Invalid sprite %s/icons.json[%" PRId64 "]: no \"%s\" key",
-                path, (int64_t)(idx), file_key);
-        return 0;
-    }
-
-    if (value_type(file_value) == VALUE_STRING)
-    {
-        char *tmp = strdup(value_string(file_value));
-        value_init_array(file_value);
-        value_init_string(value_array_append(file_value), tmp);
-        free(tmp);
-    }
-    else if (value_type(file_value) != VALUE_ARRAY)
-    {
-        WARNLOG("Invalid sprite %s/icons.json[%" PRId64 "]: invalid value for %s",
-                path, (int64_t)(idx), file_key);
-        return 0;
-    }
-
-    int64_t files_count = value_array_size(file_value);
-
-    JUSTLOG("process_sheet_from_list files_count - %" PRId64,(int64_t)(files_count));
-    for (int64_t i = 0; i < files_count; i++)
-    {
-        const char *file =
-            value_string(value_array_get(file_value, i));
-
-        if (fastUnzLocateFile(zip, file, 0))
-        {
-            WARNLOG("Png '%s' not found in '%s'", file, path);
-            return 0;
-        }
-
-        if (UNZ_OK != unzOpenCurrentFile(zip))
-            return 0;
-
-        if (!read_png_to_sheet(zip, path, file, sheet, conversion_table))
-        {            
-            JUSTLOG("read_png_to_sheet failed");
-            unzCloseCurrentFile(zip);
-            return 0;
-        }
-
-        if (UNZ_OK != unzCloseCurrentFile(zip))
-            return 0;
     }
 
     return 1;
@@ -2761,29 +2574,6 @@ static TbBool process_sprite(const char *path, unzFile zip, VALUE *root)
     }
 
     qsort(added_sprites, num_added_sprite, sizeof(added_sprites[0]), &cmp_named_command);
-    return ret_ok;
-}
-
-static TbBool process_sheet(const char *path, unzFile zip, VALUE *root, void *data)
-{
-
-    JUSTLOG("inside process_sheet");
-    struct SheetLoadContext *context = data;
-    struct TbSpriteSheet* sheet = context->sheet;
-    TbBool ret_ok = true;
-
-    for (int64_t i = 0; i < value_array_size(root); i++)
-    {
-        VALUE *val = value_array_get(root, i);
-
-        if (!process_sheet_from_list(path, zip, i, val, sheet, context->conversion_table))
-        {            
-            JUSTLOG("process_sheet_from_list failed");
-            ret_ok = false;
-            continue;
-        }
-    }
-
     return ret_ok;
 }
 

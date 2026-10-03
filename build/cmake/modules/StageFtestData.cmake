@@ -57,25 +57,6 @@ endforeach()
 
 file(COPY "${KEEPERFX_CFG}" DESTINATION "${DEST_DIR}")
 
-# config/daimonkeeper.cfg's own default is INGAME_RES=DESKTOP (fullscreen at the
-# current desktop's real resolution) -- meaningless under -headless's dummy
-# SDL video driver, which has no real desktop to query. That combination is
-# a guaranteed SIGFPE, not a slow/degraded path: PlatformManager_
-# ForcesAllModesAvailable() (bflib_video.c, set by -headless) short-circuits
-# LbHwCheckIsModeAvailable() before the DESKTOP/ALL branches ever compute a
-# real width/height, leaving the mode's registered 0x0 placeholder in place
-# -- LbScreenSetup() then creates a 0x0 draw surface, and
-# is_ar_wider_than_original() divides by that zero height. Confirmed via
-# gdb/coredumpctl against a real install: identical crash with DESKTOP,
-# clean run (loads levels, executes ftest actions) with a fixed resolution
-# and nothing else changed. Force one here so every ftest-coverage run gets
-# it, regardless of what the repo's own default config says.
-get_filename_component(_cfg_name "${KEEPERFX_CFG}" NAME)
-set(_staged_cfg "${DEST_DIR}/${_cfg_name}")
-file(READ "${_staged_cfg}" _cfg_contents)
-string(REGEX REPLACE "INGAME_RES=[A-Za-z0-9]+" "INGAME_RES=1920x1080x32" _cfg_contents "${_cfg_contents}")
-file(WRITE "${_staged_cfg}" "${_cfg_contents}")
-
 # Every game session scans all installed campaigns/mappacks/multiplayer
 # maps at startup (to list them in menus / validate NAME_TEXT_ID etc.),
 # regardless of which one actually gets loaded -- so their top-level

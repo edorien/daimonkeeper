@@ -51,6 +51,8 @@ enum SaveGameChunks {
      SGC_KfxGameState   = 0x4D41474B, //"KGAM"
      SGC_KfxFrontendState = 0x4F52464B, //"KFRO"
      SGC_AgentMemory    = 0x544E4741, //"AGNT" optional: External seat agents' memory (agent_memory.h)
+     SGC_AriadneState   = 0x41495241, //"ARIA" the navigation mesh (ariadne_saved_state.h)
+     SGC_KfxConfigState = 0x4746434B, //"KCFG" kfx_config_state's saved part (KFX_CONFIG_STATE_SAVED_*)
      SGC_Product        = 0x444F5250  //"PROD" which game wrote the file (struct ProductChunk)
 };
 
@@ -66,10 +68,12 @@ enum SaveGameChunkFlags {
      SGF_KfxNetState    = 0x2000,
      SGF_KfxGameState   = 0x4000,
      SGF_KfxFrontendState = 0x8000,
+     SGF_AriadneState   = 0x10000,
+     SGF_KfxConfigState = 0x20000,
 };
-#define SGF_SavedGame      (SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_IntralevelData|SGF_LuaData)
+#define SGF_SavedGame      (SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_AriadneState|SGF_KfxConfigState|SGF_IntralevelData|SGF_LuaData)
 #define SGF_PacketStart    (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product)
-#define SGF_PacketContinue (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState)
+#define SGF_PacketContinue (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_AriadneState|SGF_KfxConfigState)
 
 /* enum GameLoadStatus, enum CatalogueEntryFlags, struct CatalogueEntry
    moved to save_catalogue.h (kfx_net, stage 13.3) -- kfx_net's
@@ -131,7 +135,7 @@ TbBool save_catalogue_slot_disable(uint64_t slot_idx);
 TbBool load_game_save_catalogue(void);
 TbBool fill_game_catalogue_slot(int64_t slot_num,const char *textname);
 /******************************************************************************/
-TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, char *name);
+TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, CrtrExpLevel exp_level, const char *name);
 void clear_transfered_creatures(void);
 TbBool get_transferred_creature(PlayerNumber plyr_idx, int64_t idx, ThingModel *model, CrtrExpLevel *exp_level, char *name_buf, size_t name_buf_size);
 /******************************************************************************/

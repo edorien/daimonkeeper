@@ -44,8 +44,10 @@ int64_t pop_condition(void);
 
 int64_t get_script_current_condition();
 void set_script_current_condition(int64_t current_condition);
+void reset_script_conditions(void);
 
 void command_add_condition(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id, int64_t value);
+void script_balance_refused_condition(int64_t conditions_before);
 void command_add_condition_2variables(int64_t plr_range_id, int64_t opertr_id, int64_t varib_type, int64_t varib_id,int64_t plr_range_id_right, int64_t varib_type_right, int64_t varib_id_right);
 
 #ifdef __cplusplus

@@ -101,6 +101,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -108,8 +109,6 @@ extern "C" {
 #endif
 
 /******************************************************************************/
-int64_t creature_swap_idx[CREATURE_TYPES_MAX];
-struct TbSpriteSheet * swipe_sprites = NULL;
 /******************************************************************************/
 /**
  * Returns creature health scaled 0..1000.
@@ -322,47 +321,6 @@ TbBool control_creature_as_passenger(struct PlayerInfo *player, struct Thing *th
     return true;
 }
 
-void free_swipe_graphic(void)
-{
-    SYNCDBG(6,"Starting");
-    free_spritesheet(&swipe_sprites);
-    kfx_sim_state.loaded_swipe_idx = -1;
-}
-
-TbBool load_swipe_graphic_for_creature(const struct Thing *thing)
-{
-    SYNCDBG(6,"Starting for %s",thing_model_name(thing));
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
-    if ((crconf->swipe_idx == 0) || (kfx_sim_state.loaded_swipe_idx == crconf->swipe_idx))
-        return true;
-    free_swipe_graphic();
-    int64_t swpe_idx = crconf->swipe_idx;
-    char dat_fname[2048];
-    char tab_fname[2048];
-#ifdef SPRITE_FORMAT_V2
-    strcpy(dat_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 "-32.dat", (int64_t)(swpe_idx)));
-    strcpy(tab_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 "-32.tab", (int64_t)(swpe_idx)));
-    if (!LbFileExists(dat_fname)) {
-        strcpy(dat_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 "-32.dat", (int64_t)(swpe_idx)));
-        strcpy(tab_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 "-32.tab", (int64_t)(swpe_idx)));
-    }
-#else
-    strcpy(dat_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 ".dat", (int64_t)(swpe_idx)));
-    strcpy(tab_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 ".tab", (int64_t)(swpe_idx)));
-    if (!LbFileExists(dat_fname)) {
-        strcpy(dat_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 ".dat", (int64_t)(swpe_idx)));
-        strcpy(tab_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 ".tab", (int64_t)(swpe_idx)));
-    }
-#endif
-    swipe_sprites = load_spritesheet(dat_fname, tab_fname);
-    if (!swipe_sprites) {
-        free_swipe_graphic();
-        ERRORLOG("Unable to load swipe graphics for %s",thing_model_name(thing));
-        return false;
-    }
-    kfx_sim_state.loaded_swipe_idx = swpe_idx;
-    return true;
-}
 
 int64_t creature_available_for_combat_this_turn(struct Thing *creatng)
 {
@@ -2096,7 +2054,11 @@ void thing_summon_temporary_creature(struct Thing* creatng, ThingModel model, ch
     }
 }
 
-void level_up_familiar(struct Thing* famlrtng)
+/**
+ * Brings a familiar to the level its summoner and summon spell give it: a fixed level, or one relative to the
+ * summoner's (counting a level-up the summoner has pending). Only upwards, or with allow_down both ways.
+ */
+static void familiar_match_summoner_level(struct Thing* famlrtng, TbBool allow_down)
 {
     struct CreatureControl *famlrcctrl = creature_control_get_from_thing(famlrtng);
     //get summoner of familiar
@@ -2117,12 +2079,24 @@ void level_up_familiar(struct Thing* famlrtng)
         }
         sumxp = summonerxp + level;
     }
-    //level up the summon
+    //level up (or down) the summon
     char expdiff = sumxp - famlrcctrl->exp_level;
-    if (expdiff > 0)
+    if ((expdiff > 0) || (allow_down && (expdiff < 0)))
     {
         creature_change_multiple_levels(famlrtng, expdiff);
     }
+}
+
+/** A familiar re-summoned or its summoner levelled up: it rises to its summoner's level, keeping any it gained itself. */
+void level_up_familiar(struct Thing* famlrtng)
+{
+    familiar_match_summoner_level(famlrtng, false);
+}
+
+/** Its summoner's level went down: the familiar follows it down (or up) to the level the summon spell gives it. */
+void familiar_follow_summoner_level(struct Thing* famlrtng)
+{
+    familiar_match_summoner_level(famlrtng, true);
 }
 
 TbBool creature_is_familiar(const struct Thing* thing)
@@ -2301,17 +2275,8 @@ void update_creature_count(struct Thing *creatng)
 
 struct Thing *find_gold_pile_or_chicken_laying_on_mapblk(struct Map *mapblk)
 {
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         if (thing->class_id == TCls_Object)
         {
             if ((thing->model == ObjMdl_Goldl) && thing_touching_floor(thing))
@@ -2325,14 +2290,7 @@ struct Thing *find_gold_pile_or_chicken_laying_on_mapblk(struct Map *mapblk)
                     return thing;
             }
         }
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
-  }
+    }
   return INVALID_THING;
 }
 
@@ -3125,27 +3083,12 @@ uint64_t remove_parent_thing_from_things_in_list(struct StructureList *list,int6
 {
     SYNCDBG(18,"Starting");
     uint64_t n = 0;
-    uint64_t k = 0;
-    int64_t i = list->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(list->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing)) {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing->parent_idx == remove_idx)
         {
             thing->parent_idx = thing->index;
             n++;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT) {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -3419,19 +3362,8 @@ void process_creature_standing_on_corpses_at(struct Thing *creatng, struct Coord
     SYNCDBG(18,"Starting for %s at %" PRId64 ",%" PRId64,thing_model_name(creatng),(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num);
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
     struct Map* mapblk = get_map_block_at(pos->x.stl.num, pos->y.stl.num);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing->class_id == TCls_DeadCreature)
         {
             if (!is_hero_thing(creatng))
@@ -3454,14 +3386,6 @@ void process_creature_standing_on_corpses_at(struct Thing *creatng, struct Coord
             }
             cctrl->corpse_to_piss_on = thing->index;
             // Stop after one body was found
-            break;
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
             break;
         }
     }
@@ -6024,7 +5948,7 @@ void transfer_creature_data_and_gold(struct Thing *oldtng, struct Thing *newtng)
     struct CreatureControl* newcctrl = creature_control_get_from_thing(newtng);
     struct CreatureModelConfig* ncrconf = creature_stats_get_from_thing(newtng);
 
-    strcpy(newcctrl->creature_name, oldcctrl->creature_name);
+    snprintf(newcctrl->creature_name, sizeof(newcctrl->creature_name), "%s", creature_kept_name(oldtng));
     HitPoints health_permil = get_creature_health_permil(oldtng);
     HitPoints new_health = (HitPoints)(((int64_t)newcctrl->max_health * health_permil) / 1000);
     if (new_health < 1)
@@ -6183,14 +6107,14 @@ TngUpdateRet update_creature(struct Thing *thing)
         {
             if (!flag_is_set(ustate->additional_flags, UsrAF_FreezePaletteIsActive))
             {
-                render_PaletteSetUserPalette(player->user_id, blue_palette);
+                render_PaletteSetUserViewPalette(player->user_id, VPal_Freeze);
             }
         }
         else
         {
             if (flag_is_set(ustate->additional_flags, UsrAF_FreezePaletteIsActive))
             {
-                render_PaletteSetUserPalette(player->user_id, engine_palette);
+                render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
             }
         }
     } else
@@ -6357,14 +6281,8 @@ int64_t claim_neutral_creatures_in_sight(struct Thing *creatng, int64_t can_see_
     MapSlabCoord slb_x = subtile_slab(creatng->mappos.x.stl.num);
     MapSlabCoord slb_y = subtile_slab(creatng->mappos.y.stl.num);
     int64_t n = 0;
-    int64_t i = kfx_sim_state.nodungeon_creatr_list_start;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(kfx_sim_state.nodungeon_creatr_list_start, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per thing code starts
         int64_t dx = llabs(slb_x - subtile_slab(thing->mappos.x.stl.num));
         int64_t dy = llabs(slb_y - subtile_slab(thing->mappos.y.stl.num));
         if ((dx <= can_see_slabs) && (dy <= can_see_slabs))
@@ -6390,13 +6308,6 @@ int64_t claim_neutral_creatures_in_sight(struct Thing *creatng, int64_t can_see_
                     n++;
                 }
             }
-        }
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -7673,28 +7584,12 @@ TbBool script_change_creatures_annoyance(PlayerNumber plyr_idx, ThingModel crmod
 {
     SYNCDBG(8, "Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    if (creature_kind_is_for_dungeon_diggers_list(plyr_idx,crmodel))
+    ThingIndex first = creature_kind_is_for_dungeon_diggers_list(plyr_idx,crmodel) ? dungeon->digger_list_start : dungeon->creatr_list_start;
+    FOR_EACH_THING(thing, thing_walk_creatures(first, CREATURES_COUNT))
     {
-        i = dungeon->digger_list_start;
-    }
-    while (i != 0)
-    {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
-
         if (thing_matches_model(thing,crmodel))
         {
-            i = cctrl->players_next_creature_idx;
             if (operation == SOpr_SET)
             {
                 anger_set_creature_anger(thing, 0, AngR_NotPaid);
@@ -7725,14 +7620,6 @@ TbBool script_change_creatures_annoyance(PlayerNumber plyr_idx, ThingModel crmod
                 anger_set_creature_anger(thing, cctrl->annoyance_level[AngR_NoLair] * anger, AngR_NoLair);
                 anger_set_creature_anger(thing, cctrl->annoyance_level[AngR_Hungry] * anger, AngR_Hungry);
             }
-
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19, "Finished");
@@ -7816,175 +7703,6 @@ void update_thing_animation(struct Thing *thing)
           thing->transformation_speed = 0;
       }
     }
-}
-
-void update_near_creatures_for_footsteps(int64_t *near_creatures, const struct Coord3d *srcpos)
-{
-    int64_t near_distance[3];
-    // Don't allow creatures which are far by over 20 subtiles
-    near_distance[0] = subtile_coord(20,0);
-    near_distance[1] = subtile_coord(20,0);
-    near_distance[2] = subtile_coord(20,0);
-    near_creatures[0] = 0;
-    near_creatures[1] = 0;
-    near_creatures[2] = 0;
-    // Find the closest thing for footsteps
-    struct Thing *thing;
-    uint64_t k;
-    int64_t i;
-    const struct StructureList *slist;
-    slist = get_list_for_thing_class(TCls_Creature);
-    i = slist->index;
-    k = 0;
-    while (i != 0)
-    {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
-        thing->state_flags &= ~TF1_DoFootsteps;
-        if ( (!thing_is_picked_up(thing)) && (!thing_is_dragged_or_pulled(thing)) )
-        {
-            struct CreatureSound *crsound;
-            crsound = get_creature_sound(thing, CrSnd_Foot);
-            if (crsound->index != 0)
-            {
-                struct CreatureControl *cctrl;
-                cctrl = creature_control_get_from_thing(thing);
-                int64_t ndist;
-                ndist = get_chessboard_distance(srcpos, &thing->mappos);
-                if (ndist < near_distance[0])
-                {
-                    if (((cctrl->distance_to_destination != 0) && thing_touching_floor(thing)) || ((thing->movement_flags & TMvF_Flying) != 0))
-                    {
-                        // Insert the new item to our list
-                        int64_t n;
-                        for (n = 2; n>0; n--)
-                        {
-                            near_creatures[n] = near_creatures[n-1];
-                            near_distance[n] = near_distance[n-1];
-                        }
-                        near_distance[0] = ndist;
-                        near_creatures[0] = thing->index;
-                    }
-                }
-            }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
-    }
-}
-
-int64_t stop_playing_flight_sample_in_all_flying_creatures(void)
-{
-    struct Thing *thing;
-    uint64_t k;
-    int64_t i;
-    int64_t naffected;
-    naffected = 0;
-    const struct StructureList *slist;
-    slist = get_list_for_thing_class(TCls_Creature);
-    i = slist->index;
-    k = 0;
-    while (i != 0)
-    {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
-        if ((get_creature_model_flags(thing) & CMF_IsDiptera) && ((thing->state_flags & TF1_DoFootsteps) == 0))
-        {
-            if ( S3DEmitterIsPlayingSample(thing->snd_emitter_id, 25) ) {
-                S3DDeleteSampleFromEmitter(thing->snd_emitter_id, 25);
-            }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
-    }
-    return naffected;
-}
-
-void update_footsteps_nearest_camera(struct Camera *cam)
-{
-    static int64_t timeslice = 0;
-    static int64_t near_creatures[3];
-    struct Coord3d srcpos;
-    SYNCDBG(6,"Starting");
-    if (cam == NULL)
-        return;
-    srcpos.x.val = cam->mappos.x.val;
-    srcpos.y.val = cam->mappos.y.val;
-    srcpos.z.val = cam->mappos.z.val;
-    if (timeslice == 0) {
-        update_near_creatures_for_footsteps(near_creatures, &srcpos);
-    }
-    int64_t i;
-    for (i=0; i < 3; i++)
-    {
-        struct Thing *thing;
-        if (near_creatures[i] == 0)
-            break;
-        thing = thing_get(near_creatures[i]);
-        if (thing_is_creature(thing)) {
-            thing->state_flags |= TF1_DoFootsteps;
-            audio_play_thing_walking(thing);
-        }
-    }
-    if (timeslice == 0)
-    {
-        stop_playing_flight_sample_in_all_flying_creatures();
-    }
-    timeslice = (timeslice + 1) % 4;
-}
-
-int64_t near_map_block_thing_filter_queryable_object(const struct Thing *thing, MaxTngFilterParam param, int64_t maximizer)
-{
-/* Currently this only makes Dungeon Heart blinking; maybe I'll find a purpose for it later
-    long dist_x,dist_y;
-    if ((thing->class_id == TCls_Object) && (thing->model == 5))
-    {
-      if (thing->owner == param->plyr_idx)
-      {
-          // note that abs() is not required because we're computing square of the values
-          dist_x = param->primary_number-(MapCoord)thing->mappos.x.val;
-          dist_y = param->secondary_number-(MapCoord)thing->mappos.y.val;
-          // This function should return max value when the distance is minimal, so:
-          return INT32_MAX-(dist_x*dist_x + dist_y*dist_y);
-      }
-    }
-*/
-    // If conditions are not met, return -1 to be sure thing will not be returned.
-    return -1;
-}
-
-struct Thing *get_queryable_object_near(MapCoord pos_x, MapCoord pos_y, PlayerNumber plyr_idx)
-{
-    Thing_Maximizer_Filter filter;
-    struct CompoundTngFilterParam param;
-    SYNCDBG(19,"Starting");
-    filter = near_map_block_thing_filter_queryable_object;
-    param.plyr_idx = plyr_idx;
-    param.primary_number = pos_x;
-    param.secondary_number = pos_y;
-    return get_thing_near_revealed_map_block_with_filter(pos_x, pos_y, filter, &param);
 }
 
 TbBool can_thing_be_queried(struct Thing *thing, PlayerNumber plyr_idx)

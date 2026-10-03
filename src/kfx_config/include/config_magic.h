@@ -432,11 +432,12 @@ extern const struct ConfigFileData keeper_magic_file_data;
 extern struct NamedCommand spell_desc[];
 extern struct NamedCommand shot_desc[];
 extern struct NamedCommand power_desc[];
+extern struct NamedCommand special_desc[];
 extern const struct NamedFieldSet magic_shot_named_fields_set;
+/** magic.cfg's [spellN] and [specialN] blocks as NamedField tables (refactor pass 3, S04). */
+extern const struct NamedField magic_spell_named_fields[];
+extern const struct NamedField magic_special_named_fields[];
 extern const struct NamedFieldSet magic_powers_named_fields_set;
-extern const struct NamedCommand magic_spell_commands[]; // keys of a [spellN] block
-extern const struct NamedCommand magic_special_commands[]; // keys of a [specialN] block
-extern struct SpellConfig spell_config[];
 extern const struct NamedCommand hit_type_desc[];
 extern const struct NamedCommand spell_effect_flags[];
 extern const struct NamedCommand powermodel_properties_commands[];

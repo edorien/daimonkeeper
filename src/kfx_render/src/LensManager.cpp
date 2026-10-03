@@ -292,16 +292,6 @@ void LensManager::SetEffectEnabled(LensEffectType type, TbBool enabled)
     }
 }
 
-TbBool LensManager::IsEffectEnabled(LensEffectType type) const
-{
-    for (const LensEffect* effect : m_effects) {
-        if (effect->GetType() == type) {
-            return effect->IsEnabled();
-        }
-    }
-    return false;
-}
-
 TbBool LensManager::RegisterCustomLens(const char* name, LensEffect* effect)
 {
     if (name == nullptr || effect == nullptr) {
@@ -541,13 +531,6 @@ void LensManager_Draw(void* mgr, TbPixel* srcbuf, TbPixel* dstbuf,
         static_cast<LensManager*>(mgr)->Draw(srcbuf, dstbuf, srcpitch, dstpitch,
                                              width, height, viewport_x);
     }
-}
-
-void LensManager_CopyBuffer(TbPixel* dstbuf, int64_t dstpitch,
-                           TbPixel* srcbuf, int64_t srcpitch,
-                           int64_t width, int64_t height)
-{
-    LensManager::CopyBuffer(dstbuf, dstpitch, srcbuf, srcpitch, width, height);
 }
 
 TbBool LensManager_RegisterCustomLens(void* mgr, const char* name, void* effect)

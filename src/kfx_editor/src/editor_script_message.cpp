@@ -97,7 +97,7 @@ int64_t message_number_in_line(const std::string &raw_line)
 
 } // namespace
 
-const char *editor_script_message_command(int64_t kind)
+static const char *editor_script_message_command(int64_t kind)
 {
     return (kind == MsgKind_Information) ? "QUICK_INFORMATION" : "QUICK_OBJECTIVE";
 }

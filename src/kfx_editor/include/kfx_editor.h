@@ -48,9 +48,6 @@ TbBool editor_is_active(void);
 // suspended (§3) and draws the Esc editor menu / toolbox.
 void editor_frame(void);
 
-// Playtest (§6) hook: called when a playtest session ends (win/lose/quit),
-// so "Return to editor" can reload the pre-playtest scratch-slot state.
-void editor_notify_playtest_end(void);
 /** Called just before a playtest launches: remembers which level is being edited so the return from the playtest re-opens it. */
 void editor_playtest_begin(void);
 /** Same, for a playtest that runs under another campaign: the current campaign is put back, and the scratch copy of the

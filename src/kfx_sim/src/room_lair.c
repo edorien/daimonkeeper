@@ -35,6 +35,7 @@
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
 #include "thing_stats.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -54,62 +55,26 @@ int64_t calculate_free_lair_space(struct Dungeon * dungeon)
     SYNCDBG(9,"Starting");
     int64_t cap_used = 0;
     int64_t cap_total = 0;
-    uint64_t k = 0;
-    int64_t i;
 
     for (RoomKind rkind = 0; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
         if(room_role_matches(rkind,RoRoF_LairStorage))
         {
-            i = dungeon->room_list_start[rkind];
-            while (i != 0)
+            FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
             {
-                struct Room* room = room_get(i);
-                if (room_is_invalid(room))
-                {
-                    ERRORLOG("Jump to invalid room detected");
-                    break;
-                }
-                i = room->next_of_owner;
-                // Per-room code
                 cap_total += room->total_capacity;
                 cap_used += room->used_capacity;
-                // Per-room code ends
-                k++;
-                if (k > ROOMS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping rooms list");
-                    break;
-                }
             }
         }
     }
     int64_t cap_required = 0;
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (cctrl->lair_room_id == 0)
         {
             struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
             cap_required += crconf->lair_size;
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(9,"Total lair capacity %" PRId64 ", used %" PRId64 ", will need %" PRId64 " more",(int64_t)cap_total,(int64_t)cap_used,(int64_t)cap_required);
@@ -307,57 +272,28 @@ void count_lair_occupants(struct Room *room)
 {
     room->used_capacity = 0;
     memset(room->content_per_model, 0, sizeof(room->content_per_model));
-    uint64_t k = 0;
-    uint64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_ahead_from(room->slabs_list, kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y))
     {
-        MapSubtlCoord slb_x = slb_num_decode_x(i);
-        MapSubtlCoord slb_y = slb_num_decode_y(i);
-        struct SlabMap* slb = get_slabmap_direct(i);
+        MapSubtlCoord slb_x = slb_num_decode_x(slb_num);
+        MapSubtlCoord slb_y = slb_num_decode_y(slb_num);
+        struct SlabMap* slb = get_slabmap_direct(slb_num);
         if (slabmap_block_invalid(slb))
         {
             ERRORLOG("Jump to invalid room slab detected");
             break;
         }
-        i = get_next_slab_number_in_room(i);
-        // Per slab code
+        
         count_lair_occupants_on_slab(room, slb_x, slb_y);
-        // Per slab code ends
-        k++;
-        if (k > kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
-        }
     }
 }
 
 struct Thing *find_lair_totem_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_is_lair_totem(thing)) {
             return thing;
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;

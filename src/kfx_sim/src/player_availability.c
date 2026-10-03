@@ -201,6 +201,11 @@ TbBool set_power_available(PlayerNumber plyr_idx, PowerKind pwkind, int64_t resr
         ERRORDBG(11,"Cannot set power availability; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
         return false;
     }
+    if ((pwkind < 0) || (pwkind >= kfx_config_state.conf.magic_conf.power_types_count))
+    {
+        ERRORLOG("Can't add incorrect power %" PRId64 " to player %" PRId64,(int64_t)pwkind, (int64_t)plyr_idx);
+        return false;
+    }
     set_magic_resrchable(plyr_idx, pwkind, resrch);
     if (avail <= 0)
     {

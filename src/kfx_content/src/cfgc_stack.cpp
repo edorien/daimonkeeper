@@ -87,17 +87,6 @@ std::vector<const CfgContentSection *> applied_blocks(const ConfigContent &layer
 
 } // namespace
 
-const char *cfgc_layer_name(CfgLayer layer)
-{
-    switch (layer)
-    {
-    case CfgLayer_Base: return "base";
-    case CfgLayer_Campaign: return "campaign";
-    case CfgLayer_Level: return "level";
-    default: return "?";
-    }
-}
-
 std::string ConfigTarget::path_for(const std::string &file_name, CfgLayer layer, bool creature_model) const
 {
     switch (layer)

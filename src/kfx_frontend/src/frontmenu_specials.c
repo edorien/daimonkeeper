@@ -46,6 +46,25 @@ extern "C" {
 /******************************************************************************/
 
 // Non-NULL no-op callback so that the controller snapping logic does not ignore the button
+/* Which special box opened the resurrect or transfer menu, and where each menu's list is scrolled to. Moved from
+ * kfx_sim's power_specials.c in refactor pass 4 (S08): menu state, which the sim set through
+ * ui_open_dungeon_special_menu() now. */
+int64_t transfer_creature_scroll_offset;
+int64_t resurrect_creature_scroll_offset;
+int64_t dungeon_special_selected;
+
+/** A special box the local player picked up opens its creature menu (UiPort open_dungeon_special_menu). */
+void open_dungeon_special_menu(MenuID menu, ThingIndex special_idx)
+{
+    dungeon_special_selected = special_idx;
+    if (menu == GMnu_TRANSFER_CREATURE)
+        transfer_creature_scroll_offset = 0;
+    else
+        resurrect_creature_scroll_offset = 0;
+    turn_off_menu(GMnu_DUNGEON_SPECIAL);
+    turn_on_menu(menu);
+}
+
 static void no_op(struct GuiButton* gbtn) {}
 
 #define resurrect_creature_items_visible  6

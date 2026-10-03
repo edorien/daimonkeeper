@@ -51,29 +51,6 @@ const struct ConfigFileData keeper_magic_file_data = {
     .post_load_func = NULL,
 };
 
-const struct NamedCommand magic_spell_commands[] = {
-    {"NAME",             1},
-    {"DURATION",         2},
-    {"SELFCASTED",       3},
-    {"CASTATTHING",      4},
-    {"SHOTMODEL",        5},
-    {"EFFECTMODEL",      6},
-    {"SYMBOLSPRITES",    7},
-    {"SPELLPOWER",       8},
-    {"AURAEFFECT",       9},
-    {"SPELLFLAGS",      10},
-    {"SUMMONCREATURE",  11},
-    {"COUNTDOWN",       12},
-    {"HEALINGRECOVERY", 13},
-    {"DAMAGE",          14},
-    {"DAMAGEFREQUENCY", 15},
-    {"AURADURATION",    16},
-    {"AURAFREQUENCY",   17},
-    {"CLEANSEFLAGS",    18},
-    {"PROPERTIES",      19},
-    {NULL,               0},
-};
-
 const struct NamedCommand spell_effect_flags[] = {
     {"SLOW",          CSAfF_Slow},
     {"SPEED",         CSAfF_Speed},
@@ -322,16 +299,6 @@ const struct NamedCommand magic_power_commands[] = {
   {"CREATURETYPE",   23},
   {"COSTFORMULA",    24},
   {NULL,              0},
-  };
-
-const struct NamedCommand magic_special_commands[] = {
-  {"NAME",             1},
-  {"ARTIFACT",         2},
-  {"TOOLTIPTEXTID",    3},
-  {"SPEECHPLAYED",     4},
-  {"ACTIVATIONEFFECT", 5},
-  {"VALUE",            6},
-  {NULL,               0},
   };
 
 const struct LongNamedCommand powermodel_castability_commands[] = {
@@ -626,13 +593,433 @@ struct SpecialConfigStats *get_special_model_stats(SpecialKind spckind)
     return &kfx_config_state.conf.magic_conf.special_cfgstats[spckind];
 }
 
-int64_t write_magic_shot_to_log(const struct ShotConfigStats *shotst, int64_t num)
+/**
+ * The load flags of the magic.cfg being parsed, for the parse functions that
+ * depend on them (a NamedField parse function gets no load flags).
+ */
+static int64_t magic_load_flags;
+
+/** Name: read in the list-only pass only (magic_load_flags). */
+static int64_t value_spell_name(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
 {
-  JUSTMSG("[shot%" PRId64 "]",(int64_t)num);
-  JUSTMSG("Name = %s",shotst->code_name);
-  JUSTMSG("Values = %" PRId64 " %" PRId64,(int64_t)shotst->is_magical,(int64_t)shotst->experience_given_to_shooter);
-  return true;
+    struct SpellConfigStats* spellst = &kfx_config_state.conf.magic_conf.spell_cfgstats[idx];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    //Do the name when listing, the rest when not listing.
+    if (!flag_is_set(magic_load_flags, CnfLd_ListOnly))
+        return NAMFIELD_KEEP;
+    if (get_conf_parameter_single(value_text,&pos,len,spellst->code_name,COMMAND_WORD_LEN) <= 0)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    else
+    {
+        spell_desc[idx].name = spellst->code_name;
+        spell_desc[idx].num = idx;
+    }
+    return NAMFIELD_KEEP;
 }
+
+/** SelfCasted: whether the caster is affected, its sound (number or name) and sound count. */
+static int64_t value_spell_self_casted(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        k = atoi(word_buf);
+        spconf->caster_affected = k;
+        n++;
+    }
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        k = atoi(word_buf);
+        if (k == 0 && word_buf[0] != '0')
+            k = sound_id_from_text(word_buf);
+        spconf->caster_affect_sound = k;
+        n++;
+    }
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        k = atoi(word_buf);
+        spconf->caster_sounds_count = k;
+        n++;
+    }
+    if (n < 3)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** ShotModel: a shot name; an unknown one leaves the field as it is. */
+static int64_t value_spell_shot_model(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        k = get_id(shot_desc, word_buf);
+        if (k >= 0) {
+            spconf->shot_model = k;
+            n++;
+        }
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Incorrect shot model \"%s\" in [%.*s] block of %s file.",
+            word_buf, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** EffectModel: an effect or effect element. */
+static int64_t value_spell_effect_model(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        k = effect_or_effect_element_id(word_buf);
+        spconf->cast_effect_model = k;
+        n++;
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Incorrect effect model \"%s\" in [%.*s] block of %s file.",
+            word_buf, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** SymbolSprites: the big and the medium symbol icon. */
+static int64_t value_spell_symbol_sprites(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        spconf->bigsym_sprite_idx = render_get_icon_id(word_buf);
+        if (spconf->bigsym_sprite_idx != INT16_MAX) // bad_icon_id (kfx_render's custom_sprites.c) literal-duplicated
+        {
+            n++;
+        }
+    }
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        spconf->medsym_sprite_idx = render_get_icon_id(word_buf);
+        if (spconf->medsym_sprite_idx != INT16_MAX) // bad_icon_id (kfx_render's custom_sprites.c) literal-duplicated
+        {
+            n++;
+        }
+    }
+    if (n < 2)
+    {
+        CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** SpellPower: the linked keeper power, by name or number. */
+static int64_t value_spell_power(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        if (parameter_is_number(word_buf))
+        {
+            k = atoi(word_buf);
+        }
+        else
+        {
+            k = get_id(power_desc, word_buf);
+        }
+        if (k >= 0)
+        {
+            spconf->linked_power = k;
+            n++;
+        }
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** AuraEffect: an effect or effect element. */
+static int64_t value_spell_aura_effect(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        k = effect_or_effect_element_id(word_buf);
+        spconf->aura_effect = k;
+        n++;
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** SpellFlags: a number, or spell effect flag names added to a cleared set; POISON_CLOUD and WIND are dropped. */
+static int64_t value_spell_flags(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    spconf->spell_flags = 0;
+    while (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        if (parameter_is_number(word_buf))
+        {
+            k = atoi(word_buf);
+            spconf->spell_flags = k;
+            n++;
+        }
+        else
+        {
+            k = get_id(spell_effect_flags, word_buf);
+            if (k > 0)
+            {
+                set_flag(spconf->spell_flags, k);
+                n++;
+            }
+        }
+        if (flag_is_set(spconf->spell_flags, CSAfF_PoisonCloud))
+        {
+            clear_flag(spconf->spell_flags, CSAfF_PoisonCloud);
+            WARNLOG("'POISON_CLOUD' has no effect on spells, spell flag is not set on %s", spell_code_name(idx));
+        }
+        if (flag_is_set(spconf->spell_flags, CSAfF_Wind))
+        {
+            clear_flag(spconf->spell_flags, CSAfF_Wind);
+            WARNLOG("'WIND' has no effect on spells, spell flag is not set on %s", spell_code_name(idx));
+        }
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** SummonCreature: the creature (name or number), its level and how many. */
+static int64_t value_spell_summon_creature(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        k = get_id(creature_desc, word_buf);
+        if (k < 0)
+        {
+            if (parameter_is_number(word_buf))
+            {
+                k = atoi(word_buf);
+                spconf->crtr_summon_model = k;
+                n++;
+            }
+        }
+        else
+        {
+            spconf->crtr_summon_model = k;
+            n++;
+        }
+    }
+    if (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        k = atoi(word_buf);
+        spconf->crtr_summon_level = k;
+        n++;
+    }
+    if (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        k = atoi(word_buf);
+        spconf->crtr_summon_amount = k;
+        n++;
+    }
+    if (n < 3)
+    {
+        CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** CleanseFlags: as SpellFlags, for the effects the spell removes. */
+static int64_t value_spell_cleanse_flags(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    spconf->cleanse_flags = 0;
+    while (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        if (parameter_is_number(word_buf))
+        {
+            k = atoi(word_buf);
+            spconf->cleanse_flags = k;
+            n++;
+        }
+        else
+        {
+            k = get_id(spell_effect_flags, word_buf);
+            if (k > 0)
+            {
+                set_flag(spconf->cleanse_flags, k);
+                n++;
+            }
+        }
+        if (flag_is_set(spconf->cleanse_flags, CSAfF_PoisonCloud))
+        {
+            clear_flag(spconf->cleanse_flags, CSAfF_PoisonCloud);
+            WARNLOG("'POISON_CLOUD' has no effect on spells, cleanse flag is not set on %s", spell_code_name(idx));
+        }
+        if (flag_is_set(spconf->cleanse_flags, CSAfF_Wind))
+        {
+            clear_flag(spconf->cleanse_flags, CSAfF_Wind);
+            WARNLOG("'WIND' has no effect on spells, cleanse flag is not set on %s", spell_code_name(idx));
+        }
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** Properties: a number, or FIXED_DAMAGE, PERCENT_BASED and MAX_HEALTH. */
+static int64_t value_spell_properties(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpellConfig* spconf = &kfx_config_state.conf.magic_conf.spell_config[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    spconf->properties_flags = 0;
+    while (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        if (parameter_is_number(word_buf))
+        {
+            k = atoi(word_buf);
+            spconf->properties_flags = k;
+            n++;
+        }
+        else
+        {
+            k = get_id(magic_spell_properties, word_buf);
+            switch (k)
+            {
+                case 1: // FIXED_DAMAGE
+                    set_flag(spconf->properties_flags, SPF_FixedDamage);
+                    n++;
+                    break;
+                case 2: // PERCENT_BASED
+                    set_flag(spconf->properties_flags, SPF_PercentBased);
+                    n++;
+                    break;
+                case 3: // MAX_HEALTH
+                    set_flag(spconf->properties_flags, SPF_MaxHealth);
+                    n++;
+                    break;
+                default:
+                    CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+                        named_field->name, (int)strlen("spell"), "spell", src_str);
+                    break;
+            }
+        }
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("spell"), "spell", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+
+static int64_t* get_spell_types_count(void) { return &kfx_config_state.conf.magic_conf.spell_types_count; }
+static void* get_spell_config_base(void) { return kfx_config_state.conf.magic_conf.spell_config; }
+
+/** magic.cfg's [spellN] blocks: SpellConfig (the name goes to SpellConfigStats). */
+const struct NamedFieldSet magic_spell_named_fields_set = {
+    get_spell_types_count,
+    "spell",
+    NULL,
+    NULL,
+    MAGIC_ITEMS_MAX,
+    sizeof(struct SpellConfig),
+    get_spell_config_base,
+};
+
+const struct NamedField magic_spell_named_fields[] = {
+    {"NAME",            -2, NULL, dt_void,                                       0, NAMFIELD_NO_BOUNDS, NULL,                  value_spell_name,            assign_null},
+    {"DURATION",         0, field_t(struct SpellConfig, duration),               0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"SELFCASTED",      -2, field_t(struct SpellConfig, caster_affected),        0, NAMFIELD_NO_BOUNDS, NULL,                  value_spell_self_casted,     assign_null},
+    {"CASTATTHING",      0, field_t(struct SpellConfig, cast_at_thing),          0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"SHOTMODEL",       -2, field_t(struct SpellConfig, shot_model),             0, NAMFIELD_NO_BOUNDS, shot_desc,             value_spell_shot_model,      assign_null},
+    {"EFFECTMODEL",     -2, field_t(struct SpellConfig, cast_effect_model),      0, NAMFIELD_NO_BOUNDS, NULL,                  value_spell_effect_model,    assign_null},
+    {"SYMBOLSPRITES",   -2, field_t(struct SpellConfig, bigsym_sprite_idx),      0, NAMFIELD_NO_BOUNDS, NULL,                  value_spell_symbol_sprites,  assign_null},
+    {"SPELLPOWER",      -2, field_t(struct SpellConfig, linked_power),           0, NAMFIELD_NO_BOUNDS, power_desc,            value_spell_power,           assign_null},
+    {"AURAEFFECT",      -2, field_t(struct SpellConfig, aura_effect),            0, NAMFIELD_NO_BOUNDS, NULL,                  value_spell_aura_effect,     assign_null},
+    {"SPELLFLAGS",      -2, field_t(struct SpellConfig, spell_flags),            0, NAMFIELD_NO_BOUNDS, spell_effect_flags,    value_spell_flags,           assign_null},
+    {"SUMMONCREATURE",  -2, field_t(struct SpellConfig, crtr_summon_model),      0, NAMFIELD_NO_BOUNDS, creature_desc,         value_spell_summon_creature, assign_null},
+    {"COUNTDOWN",        0, field_t(struct SpellConfig, countdown),              0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"HEALINGRECOVERY",  0, field_t(struct SpellConfig, healing_recovery),       0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"DAMAGE",           0, field_t(struct SpellConfig, damage),                 0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"DAMAGEFREQUENCY",  0, field_t(struct SpellConfig, damage_frequency),       0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"AURADURATION",     0, field_t(struct SpellConfig, aura_duration),          0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"AURAFREQUENCY",    0, field_t(struct SpellConfig, aura_frequency),         0, NAMFIELD_NO_BOUNDS, NULL,                  value_atoi,                  assign_cast},
+    {"CLEANSEFLAGS",    -2, field_t(struct SpellConfig, cleanse_flags),          0, NAMFIELD_NO_BOUNDS, spell_effect_flags,    value_spell_cleanse_flags,   assign_null},
+    {"PROPERTIES",      -2, field_t(struct SpellConfig, properties_flags),       0, NAMFIELD_NO_BOUNDS, magic_spell_properties, value_spell_properties,      assign_null},
+    {NULL,                 0, NULL, dt_void,                                            0, 0, 0, NULL,                  NULL,                        NULL},
+};
 
 TbBool parse_magic_spell_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
@@ -692,427 +1079,92 @@ TbBool parse_magic_spell_blocks(char *buf, int64_t len, const char *config_textn
     } else if (i >= kfx_config_state.conf.magic_conf.spell_types_count) {
       kfx_config_state.conf.magic_conf.spell_types_count = i + 1;
     }
-    spconf = &kfx_config_state.conf.magic_conf.spell_config[i];
-    spellst = &kfx_config_state.conf.magic_conf.spell_cfgstats[i];
-#define COMMAND_TEXT(cmd_num) get_conf_parameter_text(magic_spell_commands,cmd_num)
-    while (pos < len)
-    {
-      // Finding command number in this line
-      int64_t cmd_num = recognize_conf_command(buf, &pos, len, magic_spell_commands);
-      // Now store the config item in correct place
-      if (cmd_num == ccr_endOfBlock) break; // if next block starts
-      //Do the name when listing, the rest when not listing.
-      if ((flag_is_set(flags, CnfLd_ListOnly) && cmd_num > 1) || (!flag_is_set(flags, CnfLd_ListOnly) && cmd_num <= 1))
-      {
-          cmd_num = ccr_comment;
-      }
-      int64_t n = 0, k = 0;
-      char word_buf[COMMAND_WORD_LEN];
-      switch (cmd_num)
-      {
-      case 1: // NAME
-          if (get_conf_parameter_single(buf,&pos,len,spellst->code_name,COMMAND_WORD_LEN) <= 0)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-              break;
-          }
-          else
-          {
-              spell_desc[i].name = spellst->code_name;
-              spell_desc[i].num = i;
-          }
-          n++;
-          break;
-      case 2: // DURATION
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              spconf->duration = k;
-              n++;
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 3: // SELFCASTED
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              spconf->caster_affected = k;
-              n++;
-          }
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              if (k == 0 && word_buf[0] != '0')
-                  k = sound_id_from_text(word_buf);
-              spconf->caster_affect_sound = k;
-              n++;
-          }
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              spconf->caster_sounds_count = k;
-              n++;
-          }
-          if (n < 3)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 4: // CASTATTHING
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              spconf->cast_at_thing = k;
-              n++;
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 5: // SHOTMODEL
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = get_id(shot_desc, word_buf);
-              if (k >= 0) {
-                  spconf->shot_model = k;
-                  n++;
-              }
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Incorrect shot model \"%s\" in [%.*s] block of %s file.",
-                  word_buf, (int)(blocknamelen), blockname, config_textname);
-              break;
-          }
-          break;
-      case 6: // EFFECTMODEL
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = effect_or_effect_element_id(word_buf);
-              spconf->cast_effect_model = k;
-              n++;
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Incorrect effect model \"%s\" in [%.*s] block of %s file.",
-                  word_buf, (int)(blocknamelen), blockname, config_textname);
-              break;
-          }
-          break;
-      case 7: // SYMBOLSPRITES
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              spconf->bigsym_sprite_idx = render_get_icon_id(word_buf);
-              if (spconf->bigsym_sprite_idx != INT16_MAX) // bad_icon_id (kfx_render's custom_sprites.c) literal-duplicated
-              {
-                  n++;
-              }
-          }
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              spconf->medsym_sprite_idx = render_get_icon_id(word_buf);
-              if (spconf->medsym_sprite_idx != INT16_MAX) // bad_icon_id (kfx_render's custom_sprites.c) literal-duplicated
-              {
-                  n++;
-              }
-          }
-          if (n < 2)
-          {
-              CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 8: // SPELLPOWER
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              if (parameter_is_number(word_buf))
-              {
-                  k = atoi(word_buf);
-              }
-              else
-              {
-                  k = get_id(power_desc, word_buf);
-              }
-              if (k >= 0)
-              {
-                  spconf->linked_power = k;
-                  n++;
-              }
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 9: // AURAEFFECT
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              k = effect_or_effect_element_id(word_buf);
-              spconf->aura_effect = k;
-              n++;
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-        case 10: // SPELLFLAGS
-            spconf->spell_flags = 0;
-            while (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                if (parameter_is_number(word_buf))
-                {
-                    k = atoi(word_buf);
-                    spconf->spell_flags = k;
-                    n++;
-                }
-                else
-                {
-                    k = get_id(spell_effect_flags, word_buf);
-                    if (k > 0)
-                    {
-                        set_flag(spconf->spell_flags, k);
-                        n++;
-                    }
-                }
-                if (flag_is_set(spconf->spell_flags, CSAfF_PoisonCloud))
-                {
-                    clear_flag(spconf->spell_flags, CSAfF_PoisonCloud);
-                    WARNLOG("'POISON_CLOUD' has no effect on spells, spell flag is not set on %s", spell_code_name(i));
-                }
-                if (flag_is_set(spconf->spell_flags, CSAfF_Wind))
-                {
-                    clear_flag(spconf->spell_flags, CSAfF_Wind);
-                    WARNLOG("'WIND' has no effect on spells, spell flag is not set on %s", spell_code_name(i));
-                }
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 11: // SUMMONCREATURE
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              k = get_id(creature_desc, word_buf);
-              if (k < 0)
-              {
-                  if (parameter_is_number(word_buf))
-                  {
-                      k = atoi(word_buf);
-                      spconf->crtr_summon_model = k;
-                      n++;
-                  }
-              }
-              else
-              {
-                  spconf->crtr_summon_model = k;
-                  n++;
-              }
-          }
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              spconf->crtr_summon_level = k;
-              n++;
-          }
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              spconf->crtr_summon_amount = k;
-              n++;
-          }
-          if (n < 3)
-          {
-              CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-        case 12: // COUNTDOWN
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                spconf->countdown = k;
-                n++;
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 13: // HEALINGRECOVERY
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                spconf->healing_recovery = k;
-                n++;
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 14: // DAMAGE
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                spconf->damage = k;
-                n++;
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 15: // DAMAGEFREQUENCY
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                spconf->damage_frequency = k;
-                n++;
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 16: // AURADURATION
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                spconf->aura_duration = k;
-                n++;
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 17: // AURAFREQUENCY
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                spconf->aura_frequency = k;
-                n++;
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 18: // CLEANSEFLAGS
-            spconf->cleanse_flags = 0;
-            while (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                if (parameter_is_number(word_buf))
-                {
-                    k = atoi(word_buf);
-                    spconf->cleanse_flags = k;
-                    n++;
-                }
-                else
-                {
-                    k = get_id(spell_effect_flags, word_buf);
-                    if (k > 0)
-                    {
-                        set_flag(spconf->cleanse_flags, k);
-                        n++;
-                    }
-                }
-                if (flag_is_set(spconf->cleanse_flags, CSAfF_PoisonCloud))
-                {
-                    clear_flag(spconf->cleanse_flags, CSAfF_PoisonCloud);
-                    WARNLOG("'POISON_CLOUD' has no effect on spells, cleanse flag is not set on %s", spell_code_name(i));
-                }
-                if (flag_is_set(spconf->cleanse_flags, CSAfF_Wind))
-                {
-                    clear_flag(spconf->cleanse_flags, CSAfF_Wind);
-                    WARNLOG("'WIND' has no effect on spells, cleanse flag is not set on %s", spell_code_name(i));
-                }
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-        case 19: // PROPERTIES
-            spconf->properties_flags = 0;
-            while (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                if (parameter_is_number(word_buf))
-                {
-                    k = atoi(word_buf);
-                    spconf->properties_flags = k;
-                    n++;
-                }
-                else
-                {
-                    k = get_id(magic_spell_properties, word_buf);
-                    switch (k)
-                    {
-                        case 1: // FIXED_DAMAGE
-                            set_flag(spconf->properties_flags, SPF_FixedDamage);
-                            n++;
-                            break;
-                        case 2: // PERCENT_BASED
-                            set_flag(spconf->properties_flags, SPF_PercentBased);
-                            n++;
-                            break;
-                        case 3: // MAX_HEALTH
-                            set_flag(spconf->properties_flags, SPF_MaxHealth);
-                            n++;
-                            break;
-                        default:
-                            CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                                COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-                            break;
-                    }
-                }
-            }
-            if (n < 1)
-            {
-                CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                    COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-            }
-            break;
-      case ccr_comment:
-          break;
-      case ccr_endOfFile:
-          break;
-      default:
-          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
-              (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          break;
-      }
-      skip_conf_to_next_line(buf,&pos,len);
-    }
-#undef COMMAND_TEXT
+    // The name is read in the list-only pass, the other keys in the full pass (value_spell_name
+    // checks magic_load_flags); unknown keys are reported in both.
+    magic_load_flags = flags;
+    parse_named_field_block_lines(buf, &pos, len, config_textname,
+        flag_is_set(flags, CnfLd_ListOnly) ? (flags | CnfLd_ListKnownKeys) : flags,
+        magic_spell_named_fields, &magic_spell_named_fields_set, i);
   }
   return true;
 }
 
+/** Artifact: the object that is this special's artifact (and the object's link back). */
+static int64_t value_special_artifact(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpecialConfigStats* specst = &kfx_config_state.conf.magic_conf.special_cfgstats[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    int64_t k;
+    if (get_conf_parameter_single(value_text,&pos,len,word_buf,sizeof(word_buf)) > 0)
+    {
+        k = get_id(object_desc, word_buf);
+        if (k >= 0) {
+            specst->artifact_model = k;
+            kfx_config_state.conf.object_conf.object_to_special_artifact[k] = idx;
+            n++;
+        }
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Incorrect object model \"%s\" in [%.*s] block of %s file.",
+            word_buf, (int)strlen("special"), "special", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+/** SpeechPlayed: the speech played when the special is activated. */
+static int64_t value_special_speech(const struct NamedField* named_field, const char* value_text, const struct NamedFieldSet* named_fields_set, int64_t idx, const char* src_str, unsigned char flags)
+{
+    struct SpecialConfigStats* specst = &kfx_config_state.conf.magic_conf.special_cfgstats[idx];
+    char word_buf[COMMAND_WORD_LEN];
+    int64_t pos = 0;
+    const int64_t len = (int64_t)strlen(value_text);
+    int64_t n = 0;
+    if (get_conf_parameter_single(value_text, &pos, len, word_buf, sizeof(word_buf)) > 0)
+    {
+        speech_ref_parse(&specst->speech, word_buf);
+        n++;
+    }
+    if (n < 1)
+    {
+        CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
+            named_field->name, (int)strlen("special"), "special", src_str);
+    }
+    return NAMFIELD_KEEP;
+}
+
+
+static int64_t* get_special_types_count(void) { return &kfx_config_state.conf.magic_conf.special_types_count; }
+static void* get_special_base(void) { return kfx_config_state.conf.magic_conf.special_cfgstats; }
+
+/** magic.cfg's [specialN] blocks. */
+const struct NamedFieldSet magic_special_named_fields_set = {
+    get_special_types_count,
+    "special",
+    NULL,
+    NULL,
+    MAGIC_ITEMS_MAX,
+    sizeof(struct SpecialConfigStats),
+    get_special_base,
+};
+
+const struct NamedField magic_special_named_fields[] = {
+    //name              //pos //field                                               //default //min //max //NamedCommand //parse                    //assign
+    {"NAME",               -2, field_t(struct SpecialConfigStats, code_name),               0, NAMFIELD_NO_BOUNDS, NULL,         value_word,                assign_null},
+    {"ARTIFACT",           -2, field_t(struct SpecialConfigStats, artifact_model),          0, NAMFIELD_NO_BOUNDS, object_desc,  value_special_artifact,    assign_null},
+    {"TOOLTIPTEXTID",       0, field_t(struct SpecialConfigStats, tooltip_stridx),          0, NAMFIELD_NO_BOUNDS, NULL,         value_string_id_positive,  assign_cast},
+    {"SPEECHPLAYED",       -2, NULL, dt_void,                                               0, NAMFIELD_NO_BOUNDS, NULL,         value_special_speech,      assign_null},
+    {"ACTIVATIONEFFECT",    0, field_t(struct SpecialConfigStats, effect_id),               0, NAMFIELD_NO_BOUNDS, NULL,         value_effOrEffEl,          assign_cast},
+    {"VALUE",               0, field_t(struct SpecialConfigStats, value),                   0, NAMFIELD_NO_BOUNDS, NULL,         value_atoi,                assign_cast},
+    {NULL,                  0, NULL, dt_void,                                               0, 0, 0, NULL,         NULL,                      NULL},
+};
+
 TbBool parse_magic_special_blocks(char *buf, int64_t len, const char *config_textname, int64_t flags)
 {
   struct SpecialConfigStats *specst;
-  int64_t k = 0;
   // Initialize the array
   if ((flags & CnfLd_AcceptPartial) == 0) {
       for (int64_t i = 0; i < MAGIC_ITEMS_MAX; i++) {
@@ -1145,109 +1197,10 @@ TbBool parse_magic_special_blocks(char *buf, int64_t len, const char *config_tex
     } else if (i >= kfx_config_state.conf.magic_conf.special_types_count) {
         kfx_config_state.conf.magic_conf.special_types_count = i + 1;
     }
-    specst = &kfx_config_state.conf.magic_conf.special_cfgstats[i];
-#define COMMAND_TEXT(cmd_num) get_conf_parameter_text(magic_special_commands,cmd_num)
-    while (pos < len)
-    {
-      // Finding command number in this line
-      int64_t cmd_num = recognize_conf_command(buf, &pos, len, magic_special_commands);
-      // Now store the config item in correct place
-      if (cmd_num == ccr_endOfBlock) break; // if next block starts
-      if ((flags & CnfLd_ListOnly) != 0) {
-          // In "List only" mode, accept only name command
-          if (cmd_num > 1) {
-              cmd_num = 0;
-          }
-      }
-      int64_t n = 0;
-      char word_buf[COMMAND_WORD_LEN];
-      switch (cmd_num)
-      {
-      case 1: // NAME
-          if (get_conf_parameter_single(buf,&pos,len,specst->code_name,COMMAND_WORD_LEN) <= 0)
-          {
-              CONFWRNLOG("Couldn't read \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-              break;
-          }
-          break;
-      case 2: // ARTIFACT
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              k = get_id(object_desc, word_buf);
-              if (k >= 0) {
-                  specst->artifact_model = k;
-                  kfx_config_state.conf.object_conf.object_to_special_artifact[k] = i;
-                  n++;
-              }
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Incorrect object model \"%s\" in [%.*s] block of %s file.",
-                  word_buf, (int)(blocknamelen), blockname, config_textname);
-              break;
-          }
-          break;
-      case 3: // TOOLTIPTEXTID
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            k = get_string_id_by_alias(word_buf);
-            if (k > 0)
-            {
-                specst->tooltip_stridx = k;
-                n++;
-            }
-          }
-          if (n < 1)
-          {
-            CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 4: // SPEECHPLAYED
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              speech_ref_parse(&specst->speech, word_buf);
-              n++;
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 5: // ACTIVATIONEFFECT
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              k = effect_or_effect_element_id(word_buf);
-              specst->effect_id = k;
-              n++;
-          }
-          if (n < 1)
-          {
-              CONFWRNLOG("Incorrect value of \"%s\" parameter in [%.*s] block of %s file.",
-                  COMMAND_TEXT(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          }
-          break;
-      case 6: // VALUE
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              k = atoi(word_buf);
-              specst->value = k;
-          }
-          break;
-      case ccr_comment:
-          break;
-      case ccr_endOfFile:
-          break;
-      default:
-          CONFWRNLOG("Unrecognized command (%" PRId64 ") in [%.*s] block of %s file.",
-              (int64_t)(cmd_num), (int)(blocknamelen), blockname, config_textname);
-          break;
-      }
-      skip_conf_to_next_line(buf,&pos,len);
-    }
-#undef COMMAND_TEXT
+    // In "List only" mode only the names are read; other known keys are skipped, unknown ones still reported.
+    parse_named_field_block_lines(buf, &pos, len, config_textname,
+        flag_is_set(flags, CnfLd_ListOnly) ? (flags | CnfLd_ListKnownKeys) : flags,
+        magic_special_named_fields, &magic_special_named_fields_set, i);
   }
   return true;
 }

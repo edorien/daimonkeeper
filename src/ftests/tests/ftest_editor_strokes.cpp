@@ -40,7 +40,9 @@ extern "C" {
 #include "editor_script_validate.h"
 
 #include <cstring>
+#include <cstdlib>
 #include <filesystem>
+#include <vector>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -605,12 +607,27 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
     else
         JUSTLOG("Script validate: no script file at %s, skipped", fname);
 
-    // Every script in the campaigns folder: the validator must not cry wolf.
+    // Every script in the campaigns folder: the validator must not cry wolf. The folders: a game-data install
+    // (KFX_FTEST_CORE_FILES, which the coverage target sets to the install it staged from; or core_files/ next to
+    // a build tree in out/), else the run directory's own campaigns and levels. Never relative to where the test
+    // happens to run from alone: a run from another directory had no ../../core_files, and the iterator threw.
     {
         int64_t files = 0, bad_files = 0, total_errors = 0;
         std::string samples;
-        for (const auto& ent : std::filesystem::recursive_directory_iterator("../../core_files"))
+        std::vector<std::string> roots;
+        const char* install = std::getenv("KFX_FTEST_CORE_FILES");
+        if ((install != nullptr) && (install[0] != '\0'))
+            roots.push_back(install);
+        else if (std::filesystem::is_directory("../../core_files"))
+            roots.push_back("../../core_files");
+        else
+            roots = {"campgns", "levels"};
+        std::error_code ec;
+        for (const std::string& root : roots)
+        for (auto it = std::filesystem::recursive_directory_iterator(root, ec);
+             !ec && (it != std::filesystem::recursive_directory_iterator()); it.increment(ec))
         {
+            const auto& ent = *it;
             const std::string fn = ent.path().filename().string();
             if (!ent.is_regular_file() || fn.size() != 12 || fn.compare(0, 3, "map") != 0 || fn.substr(fn.size() - 4) != ".txt")
                 continue;
@@ -632,6 +649,8 @@ FTestActionResult ftest_editor_strokes_action001__strokes(struct FTestActionArgs
             FTEST_FAIL_TEST("validator flags %" PRId64 " of %" PRId64 " shipped scripts with errors -- too many false positives", (int64_t)(bad_files), (int64_t)(files));
             return FTRs_Go_To_Next_Action;
         }
+        if (ec)
+            JUSTLOG("Script validate sweep: stopped at a folder it couldn't read: %s", ec.message().c_str());
         JUSTLOG("Script validate sweep: %" PRId64 " files, %" PRId64 " with errors (%" PRId64 " errors)%s", (int64_t)(files), (int64_t)(bad_files), (int64_t)(total_errors), samples.c_str());
     }
     return FTRs_Go_To_Next_Action;

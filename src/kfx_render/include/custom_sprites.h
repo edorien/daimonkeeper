@@ -63,7 +63,6 @@ const struct TbSprite *get_button_sprite(int64_t sprite_idx);
 const struct TbSprite *get_frontend_sprite(int64_t sprite_idx);
 const struct TbSprite *get_new_icon_sprite(int64_t sprite_idx);
 const struct TbSprite *get_panel_sprite(int64_t sprite_idx);
-struct TbSpriteSheet *load_custom_sheet_from_zip(const char *path, const unsigned char *palette);
 int64_t is_custom_icon(int64_t icon_idx);
 /** True when get_panel_sprite(sprite_idx) would return a real sprite rather than the engine's magenta checkerboard placeholder (bad_icon). */
 TbBool is_panel_sprite_drawable(int64_t sprite_idx);

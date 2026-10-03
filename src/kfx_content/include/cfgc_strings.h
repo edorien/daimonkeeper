@@ -21,8 +21,6 @@
 #include <string>
 #include <vector>
 
-/** Language codes of the shipped string files, lower case. */
-const std::vector<std::string> &cfgc_string_languages(void);
 /** True for the languages that share the game's single-byte code page; Japanese, Chinese and Korean use multi-byte
  *  code pages the editor can show as raw bytes only (it never edits them). */
 bool cfgc_lang_is_legacy_codepage(const std::string &lang_code);

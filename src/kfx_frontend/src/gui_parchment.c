@@ -45,6 +45,7 @@
 #include "map_data.h"
 #include "map_blocks.h"
 #include "player_data.h"
+#include "player_colours.h"
 #include "config_strings.h"
 #include "config_campaigns.h"
 #include "config_creature.h"
@@ -64,6 +65,7 @@
 #include "player_instances.h"
 
 #include "local_state.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -472,19 +474,9 @@ int64_t draw_overhead_creatures(const struct TbRect *map_area, int64_t block_siz
     int64_t pixel_end;
     int64_t p;
     int64_t n = 0;
-    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_picked_up(thing))
         {
             unsigned char color_idx = get_player_color_idx(thing->owner);
@@ -552,13 +544,6 @@ int64_t draw_overhead_creatures(const struct TbRect *map_area, int64_t block_siz
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
     }
     return n;
 }
@@ -566,19 +551,9 @@ int64_t draw_overhead_creatures(const struct TbRect *map_area, int64_t block_siz
 int64_t draw_overhead_traps(const struct TbRect *map_area, int64_t block_size, PlayerNumber plyr_idx)
 {
     int64_t n = 0;
-    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_picked_up(thing))
         {
             if (thing->owner == plyr_idx)
@@ -603,13 +578,6 @@ int64_t draw_overhead_traps(const struct TbRect *map_area, int64_t block_size, P
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
     }
     return n;
 }
@@ -618,18 +586,8 @@ int64_t draw_overhead_spells(const struct TbRect *map_area, int64_t block_size, 
 {
     int64_t n = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Object);
-    int64_t k = 0;
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_picked_up(thing))
         {
             if (thing_revealed(thing, plyr_idx))
@@ -655,13 +613,6 @@ int64_t draw_overhead_spells(const struct TbRect *map_area, int64_t block_size, 
                   }
               }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return n;
@@ -739,18 +690,9 @@ void draw_zoom_box_things_on_mapblk(struct Map *mapblk,int64_t subtile_size,int6
         ps_units_per_px = (46 * units_per_pixel) / spr->SHeight;
     }
     struct PlayerInfo* player = get_my_player();
-    uint64_t k = 0;
     struct ObjectConfigStats* objst;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         if (!thing_is_picked_up(thing))
         {
             int64_t spos_x = ((subtile_size * ((int64_t)thing->mappos.x.stl.pos)) >> 8);
@@ -804,13 +746,6 @@ void draw_zoom_box_things_on_mapblk(struct Map *mapblk,int64_t subtile_size,int6
             default:
                 break;
             }
-        }
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
 }

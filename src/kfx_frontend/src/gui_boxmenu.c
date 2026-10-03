@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "cheat_mode.h"
 #include "renderer/RendererManager.h"
 #include "config_keeperfx.h" // ingame_gui_use_classic_hud
 #include "gui_boxmenu.h"
@@ -555,7 +556,7 @@ int64_t toggle_main_cheat_menu(void)
   int64_t mouse_y = GetMouseY();
   if ((kfx_frontend_local.gui_cheat_box_1==NULL) || (gui_box_is_not_valid(kfx_frontend_local.gui_cheat_box_1)))
   {
-    if (kfx_sim_state.easter_eggs_enabled == false)
+    if (!cheat_mode_enabled())
       return false;
     kfx_frontend_local.gui_cheat_box_1 = gui_create_box(mouse_x,mouse_y,gui_main_cheat_list);
     gui_move_box(kfx_frontend_local.gui_cheat_box_1, mouse_x, mouse_y, Fnt_CenterLeftPos);
@@ -590,7 +591,7 @@ int64_t toggle_instance_cheat_menu(void)
     int64_t mouse_y = GetMouseY();
     if (gui_box_is_not_valid(kfx_frontend_local.gui_cheat_box_3))
     {
-        if (kfx_sim_state.easter_eggs_enabled == false)
+        if (!cheat_mode_enabled())
             return false;
        kfx_frontend_local.gui_cheat_box_3 = gui_create_box(200,20,gui_instance_option_list);
        if (kfx_frontend_local.gui_cheat_box_3 == NULL)
@@ -623,7 +624,7 @@ int64_t toggle_instance_cheat_menu(void)
  */
 TbBool open_creature_cheat_menu(void)
 {
-  if (kfx_sim_state.easter_eggs_enabled == false)
+  if (!cheat_mode_enabled())
     return false;
   if (!gui_box_is_not_valid(kfx_game_local.gui_cheat_box_2))
     return false;
@@ -669,7 +670,7 @@ TbBool toggle_creature_cheat_menu(void)
  */
 TbBool open_secondary_cheat_menu(void)
 {
-  if (kfx_sim_state.easter_eggs_enabled == false)
+  if (!cheat_mode_enabled())
     return false;
   if (!gui_box_is_not_valid(kfx_game_local.gui_cheat_box_2))
     return false;

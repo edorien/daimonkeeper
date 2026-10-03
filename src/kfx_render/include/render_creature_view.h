@@ -24,6 +24,11 @@ struct Thing;
 
 void draw_creature_view(struct Thing *thing);
 void draw_swipe_graphic(void);
+
+extern struct TbSpriteSheet *swipe_sprites;
+TbBool load_swipe_graphic_for_creature(const struct Thing *thing);
+void free_swipe_graphic(void);
+void forget_loaded_swipe_graphic(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

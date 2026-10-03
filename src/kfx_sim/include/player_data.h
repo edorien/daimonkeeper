@@ -295,11 +295,6 @@ extern NetUserId my_local_user_id;
  * Not sync'd over the network.
  */
 
-extern int64_t player_colors_map[];
-extern TbPixel player_path_colours[];
-extern TbPixel player_room_colours[];
-extern TbPixel player_flash_colours[];
-extern TbPixel player_highlight_colours[];
 /* Palette INDEX array, not a colour array -- see the definition's comment
  * in player_data.c. */
 extern unsigned char possession_hit_colours[];
@@ -345,7 +340,6 @@ void set_player_active_camera(struct PlayerInfo *player, unsigned char cam_idx);
 unsigned char rotate_mode_to_view_mode(unsigned char mode);
 
 unsigned char get_player_color_idx(PlayerNumber plyr_idx);
-TbPixel get_player_path_colour(int64_t owner);
 TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player);
 /******************************************************************************/
 #ifdef __cplusplus

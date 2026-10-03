@@ -501,17 +501,6 @@ ChangeResult ConfigContentWriter::apply(ConfigDocument &doc, const ChangeSet &ch
     return res;
 }
 
-std::string ConfigContentWriter::create(const ChangeSet &changes, const ConfigStack *lower) const
-{
-    ConfigDocument doc;
-    apply(doc, changes, lower);
-    if (!has_keys(doc))
-        return std::string();
-    doc.insert_line(0, header_line(), doc.dominant_eol());
-    doc.insert_line(1, "", doc.dominant_eol());
-    return doc.serialize();
-}
-
 bool ConfigContentWriter::write(const ConfigTarget &target, CfgLayer layer, const std::string &file_name,
     const ChangeSet &changes, WriteBatch &batch, ChangeResult *result, bool creature_model) const
 {

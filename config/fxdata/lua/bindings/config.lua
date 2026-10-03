@@ -102,16 +102,20 @@ function SwapCreature(new_creature,creature) end
 ---@param max_level integer the max level they should train to
 function SetCreatureMaxLevel(player,creature_type,max_level) end
 
+--[[ Not available in Lua: the command isn't registered (use RunDKScriptCommand("SET_CREATURE_PROPERTY(...)")).
 ---sets properties of a creature.
 ---@param creature_type creature_type The creature name, e.g. BILE_DEMON.
 ---@param property creature_property The name of the creature property you want to set, e.g. NEVER_CHICKENS. See imp.cfg for options.
 ---@param enable boolean Set this to true to enable the property, or false to disable to property.
 function SetCreatureProperty(creature_type,property,enable) end
+]]
 
+--[[ Not available in Lua: the command isn't registered (use RunDKScriptCommand("SET_INCREASE_ON_EXPERIENCE(...)")).
 ---Allows you to make change to "IncreaseOnExp" variable, originally set in creature.cfg. 
 ---@param valname string The name of the variable you want to change. Accepts 'SizeIncreaseOnExp', 'PayIncreaseOnExp', 'SpellDamageIncreaseOnExp', 'RangeIncreaseOnExp', 'JobValueIncreaseOnExp', 'HealthIncreaseOnExp', 'StrengthIncreaseOnExp', 'DexterityIncreaseOnExp', 'DefenseIncreaseOnExp', 'LoyaltyIncreaseOnExp', 'ExpForHittingIncreaseOnExp', 'TrainingCostIncreaseOnExp', 'ScavengingCostIncreaseOnExp'.
 ---@param valnum integer The value you want to give it. 0 for no increase on experience. Range 0..32767.
 function SetIncreaseOnExperience(valname,valnum) end
+]]
 
 ---Specifies advanced rules to limit picking up units.
 ---@param player Player

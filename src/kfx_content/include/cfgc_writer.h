@@ -77,9 +77,6 @@ public:
     // to what shows through is not written (an existing line for it is removed instead).
     ChangeResult apply(ConfigDocument &doc, const ChangeSet &changes, const ConfigStack *lower) const;
 
-    // Text of a brand-new file for the changes (header, blank line, blocks); "" if nothing to write.
-    std::string create(const ChangeSet &changes, const ConfigStack *lower) const;
-
     // Edits the file of `layer` for the target: reads it (or starts a new one), applies the changes and
     // queues the result in `batch` -- a put, or a delete when a generated file is left with no keys.
     // Returns false when nothing could be queued (no such layer for the target, malformed change).

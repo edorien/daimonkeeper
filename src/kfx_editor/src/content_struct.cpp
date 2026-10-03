@@ -315,11 +315,6 @@ void StructuredSession::reset_list(const std::string &section, const std::string
         pending_.erase(k);
 }
 
-bool StructuredSession::is_pending(const std::string &section, const std::string &key) const
-{
-    return pending_.find(make_key(section, key)) != pending_.end();
-}
-
 std::string StructuredSession::spelled(const std::string &section, const std::string &key) const
 {
     auto find_in = [&](const std::string &id) -> std::string {

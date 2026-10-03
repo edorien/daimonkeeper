@@ -59,6 +59,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -157,7 +158,7 @@ TbBool detonate_shot(struct Thing *shotng, TbBool destroy)
     case ShM_GodLightning:
     case ShM_GodLightBall:
         if (render_get_lens_mode() != 0) {
-            render_PaletteSetUserPalette(get_local_user(), engine_palette);
+            render_PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
         }
         break;
     case ShM_TrapTNT:
@@ -1490,19 +1491,8 @@ struct Thing *get_thing_collided_with_at_satisfying_filter_for_subtile(struct Th
 {
     struct Thing* parntng = get_parent_thing(shotng);
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing->index != shotng->index)
         {
             if (filter(thing, parntng, param1, param2))
@@ -1511,14 +1501,6 @@ struct Thing *get_thing_collided_with_at_satisfying_filter_for_subtile(struct Th
                     return thing;
                 }
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return false;
@@ -1721,7 +1703,7 @@ TngUpdateRet update_shot(struct Thing *thing)
                   {
                       if ((thing->parent_idx > 0) && (myplyr->controlled_thing_idx == thing->parent_idx))
                       {
-                          render_PaletteSetUserPalette(get_local_user(), lightning_palette);
+                          render_PaletteSetUserViewPalette(get_local_user(), VPal_Lightning);
                           get_user_state(get_local_user())->additional_flags |= UsrAF_LightningPaletteIsActive;
                       }
                   }

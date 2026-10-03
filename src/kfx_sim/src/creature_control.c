@@ -386,17 +386,16 @@ static const char *name_consonants[] = {
     "y", "z", "ch", "sh"
 };
 
-const char *creature_own_name(const struct Thing *creatng)
+/** The name generated for a creature that has none of its own: from its creation turn, index and blood type,
+ *  into one of a few rotating buffers (a caller can hold a couple at once). Nothing in the creature is written:
+ *  reading a name changed simulation state before (refactor pass 5, P5-F20). */
+static const char *creature_generated_name(const struct Thing *creatng)
 {
-    if ((get_creature_model_flags(creatng) & CMF_OneOfKind) != 0) {
-        struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
-        return get_string(crconf->namestr_idx);
-    }
-    char* creature_name = creature_control_get_from_thing(creatng)->creature_name;
-    if (creature_name[0] > 0)
-    {
-        return creature_name;
-    }
+    static char generated_names[4][CREATURE_NAME_MAX];
+    static int64_t next_generated_name;
+    char *creature_name = generated_names[next_generated_name];
+    next_generated_name = (next_generated_name + 1) % 4;
+    creature_name[0] = '\0';
     const char ** starts;
     int64_t starts_len;
     const char ** vowels;
@@ -463,6 +462,28 @@ const char *creature_own_name(const struct Thing *creatng)
         }
     }
     return creature_name;
+}
+
+const char *creature_own_name(const struct Thing *creatng)
+{
+    if ((get_creature_model_flags(creatng) & CMF_OneOfKind) != 0) {
+        struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
+        return get_string(crconf->namestr_idx);
+    }
+    return creature_kept_name(creatng);
+}
+
+const char *creature_kept_name(const struct Thing *creatng)
+{
+    const char* creature_name = creature_control_get_from_thing(creatng)->creature_name;
+    if (creature_name[0] > 0)
+    {
+        return creature_name;
+    }
+    if ((get_creature_model_flags(creatng) & CMF_OneOfKind) != 0) {
+        return ""; // its kind's name, not its own
+    }
+    return creature_generated_name(creatng);
 }
 
 /******************************************************************************/

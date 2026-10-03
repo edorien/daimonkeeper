@@ -36,7 +36,6 @@ void FreeAudio(void);
 void SetSoundMasterVolume(SoundVolume);
 TbBool GetSoundInstalled(void);
 void MonitorStreamedSoundTrack(void);
-void * GetSoundDriver(void);
 void StopAllSamples(void);
 // Narrowed from a `const struct SoundSettings *` (kfx_game-owned,
 // sounds.h) to the one field this actually reads. See
@@ -79,13 +78,6 @@ void toggle_bbking_mode(void);
  * @param to_id    Unified custom bank ID returned by sound_manager_load_named_sound()
  */
 void sound_register_id_redirect(SoundSmplTblID from_id, SoundSmplTblID to_id);
-
-/**
- * @brief Clear all registered raw-ID redirects.
- *
- * Called during audio teardown and alongside custom_sound_bank_clear() on level reload.
- */
-void sound_clear_id_redirects(void);
 
 /**
  * @brief Save a snapshot of the ID-redirect table and custom-bank watermark.
@@ -140,12 +132,6 @@ enum SoundStackMode {
  *                        For SStack_Duck: 0 means uncapped, >0 also caps concurrency.
  */
 void sound_register_stack_policy(SoundSmplTblID smptbl_id, unsigned char mode, int64_t max_instances);
-
-/**
- * @brief Clear all registered stacking policies (samples with no policy revert to the
- * legacy once-per-turn gate described above).
- */
-void sound_clear_stack_policies(void);
 
 #ifdef __cplusplus
 }

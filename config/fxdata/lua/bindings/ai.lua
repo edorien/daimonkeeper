@@ -10,14 +10,15 @@
 function ComputerDigToLocation(player,origin,destination) end
 
 ---Allows the player to configure the behavior of an AI for specific criteria.
----@param player playersingle the AI player affected
+---@param player playerrange the AI player affected
+---@param dig_stack_size integer how many dig tasks the AI keeps queued
 ---@param processes_time integer game turns between performing processes
 ---@param click_rate integer game turns between actions: each room tile placed, each dirt highlighted, each unit dropped
 ---@param max_room_build_tasks integer how many rooms can be built at once
 ---@param turn_begin integer game turns until AI initializes
 ---@param sim_before_dig integer simulate outcome before starting action
 ---@param min_drop_delay integer when the click rate is faster, take this as a minimum delay between dropping units
-function SetComputerGlobals(player,processes_time,click_rate,max_room_build_tasks,turn_begin,sim_before_dig,min_drop_delay) end
+function SetComputerGlobals(player,dig_stack_size,processes_time,click_rate,max_room_build_tasks,turn_begin,sim_before_dig,min_drop_delay) end
 
 ---If no importand event is occuring, the computer player searches for things that need to be done using checks.
 ---Checks are similar to IF commands which allows computer player to undertake a process under some circumstances determined by values of variables.
@@ -29,9 +30,14 @@ function SetComputerChecks(player,checks_name,check_every,data1,data2,data3,data
 
 ---Event is a sudden situation that needs a process to be undertaken. Unlike checks, events are triggered by often complicated logic conditions.
 ---Both checks and events are used to test if a process should be started.player The computer player’s name, e.g. PLAYER1. See players section for more information.
+---@param player playerrange The computer player's name, e.g. PLAYER1.
 ---@param event_name string Text name of the event which is being altered. See player control parameters for more information.
----@param data1 string ,data2 These parameters can have different meaning for different values of "event name".
-function SetComputerEvent(player,event_name,data1,data2) end
+---@param test_interval integer Game turns between tests of the event.
+---@param data1 integer These three parameters can have different meaning for different values of "event name".
+---@param data2 integer
+---@param data3 integer
+---@param last_test_gameturn integer The game turn the event was last tested.
+function SetComputerEvent(player,event_name,test_interval,data1,data2,data3,last_test_gameturn) end
 
 ---Changes conditions and parameters for one of the computer processes.
 ---A process is started if the computer player realizes that any action is needed. Some of the processes have more than one version, and specific one is selected by checking variables inside the processes.

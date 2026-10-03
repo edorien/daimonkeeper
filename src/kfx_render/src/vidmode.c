@@ -691,6 +691,12 @@ const struct VideoScaleValues *get_video_scale_values(void)
 
 TbBool update_screen_mode_data(int64_t width, int64_t height)
 {
+  // Everything below divides by the window size; a 0x0 mode would SIGFPE.
+  if ((width <= 0) || (height <= 0))
+  {
+    ERRORLOG("Refusing screen mode data for %" PRId64 "x%" PRId64 " window", width, height);
+    return false;
+  }
   // if ((width >= 640) && (height >= 400))
   // {
     pixel_size = 1;

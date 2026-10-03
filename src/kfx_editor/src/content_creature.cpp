@@ -31,7 +31,8 @@ int64_t creature_level_value(int64_t base, int64_t percent, int64_t level_index)
     return base + (percent * base * level_index) / 100;
 }
 
-const std::vector<std::string> &creature_sections(void)
+/** The tabs of the creature form that are the sections of its file, in order. */
+static const std::vector<std::string> &creature_sections(void)
 {
     static const std::vector<std::string> s = {"attributes", "attraction", "annoyance", "jobs", "experience", "appearance",
         "senses", "sprites", "sounds"};

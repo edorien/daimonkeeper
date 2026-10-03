@@ -97,9 +97,6 @@ void FrontendImGuiRender(void);
 // per-screen submission in Phase C onward.
 void FrontendImGuiSetDemoVisible(TbBool visible);
 
-TbBool FrontendImGuiWantCaptureMouse(void);
-TbBool FrontendImGuiWantCaptureKeyboard(void);
-
 #ifdef __cplusplus
 }
 #endif

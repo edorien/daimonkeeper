@@ -263,7 +263,8 @@ struct TbLog error_log;
 int64_t kfx_log_level = LogLvl_Normal;
 int64_t kfx_debug_threshold = 0;
 
-int64_t log_level_debug_threshold(int64_t level)
+/** The *DBG threshold a level maps to: Off/Normal 0, Debug 10, DebugMax 20. */
+static int64_t log_level_debug_threshold(int64_t level)
 {
     switch (level)
     {

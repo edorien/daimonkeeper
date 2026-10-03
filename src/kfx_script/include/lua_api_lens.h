@@ -34,12 +34,6 @@ extern "C" {
  */
 void Lens_register(lua_State *L);
 
-/**
- * Cleanup lens LUA state.
- * Called during shutdown.
- */
-void Lens_cleanup_lua(void);
-
 /******************************************************************************/
 #ifdef __cplusplus
 }

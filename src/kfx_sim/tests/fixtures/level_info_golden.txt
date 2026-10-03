@@ -1,0 +1,1085 @@
+# Golden hashes for level_info_golden_test.cpp (refactor pass 3, S05).
+# Regenerate only on a commit meant to change parsing: KFX_SIM_GOLDEN_WRITE=1.
+campaign/ami2019.cfg/map1	7a97fd4ffb655c83
+campaign/ami2019.cfg/map10	8804ab2ade5732c4
+campaign/ami2019.cfg/map11	8ede4b43a33ed13f
+campaign/ami2019.cfg/map12	f2bdfbabe146a8df
+campaign/ami2019.cfg/map13	78014449fa9e234e
+campaign/ami2019.cfg/map14	f38df71a76195e97
+campaign/ami2019.cfg/map2	27eb59ecb6a1e3b7
+campaign/ami2019.cfg/map21	e440a6f9a7051947
+campaign/ami2019.cfg/map22	9db5f42749a67cf4
+campaign/ami2019.cfg/map3	2dc123b2177941ae
+campaign/ami2019.cfg/map4	aed5e9b77d189056
+campaign/ami2019.cfg/map5	590d79fd4a45eebc
+campaign/ami2019.cfg/map6	a005d69271cc2600
+campaign/ami2019.cfg/map7	08eb632c5a80187b
+campaign/ami2019.cfg/map8	7690bf81e2a7abd5
+campaign/ami2019.cfg/map9	c485b3f4781b68b2
+campaign/ancntkpr.cfg/map1	d19687673c80a061
+campaign/ancntkpr.cfg/map10	35962f6374f9baac
+campaign/ancntkpr.cfg/map100	b8f2862c59f9130a
+campaign/ancntkpr.cfg/map101	11fc94585c208235
+campaign/ancntkpr.cfg/map102	e452552f08b9f391
+campaign/ancntkpr.cfg/map103	5e65e13a80e3a614
+campaign/ancntkpr.cfg/map104	c56da2e5ea6d7fa6
+campaign/ancntkpr.cfg/map105	6388297c00483de3
+campaign/ancntkpr.cfg/map11	4219fdd94142f656
+campaign/ancntkpr.cfg/map12	8ff8f252583b67a1
+campaign/ancntkpr.cfg/map13	6aa6c7b204499794
+campaign/ancntkpr.cfg/map14	85a5c62a82bff933
+campaign/ancntkpr.cfg/map15	94eb14bc0f8f9d5d
+campaign/ancntkpr.cfg/map16	f9d06c48c0cffcea
+campaign/ancntkpr.cfg/map17	d616d562b62fb347
+campaign/ancntkpr.cfg/map18	0f4cc5b04dac43f1
+campaign/ancntkpr.cfg/map19	3b4b77eedca25f1c
+campaign/ancntkpr.cfg/map2	a6f949072299456b
+campaign/ancntkpr.cfg/map20	15288e5acf49179c
+campaign/ancntkpr.cfg/map3	6025ea7fb3c91b10
+campaign/ancntkpr.cfg/map4	da6555e543c32c7f
+campaign/ancntkpr.cfg/map5	b04f16aae83c051c
+campaign/ancntkpr.cfg/map6	db0eda3d38edfa24
+campaign/ancntkpr.cfg/map7	f5b69e82bce134e2
+campaign/ancntkpr.cfg/map8	551dc29d731c9513
+campaign/ancntkpr.cfg/map9	df594bcd61af46c4
+campaign/burdnimp.cfg/map220	f4322de8e255c718
+campaign/burdnimp.cfg/map221	be4d4fe7b1ff849a
+campaign/burdnimp.cfg/map222	dc7fbad4513f0803
+campaign/burdnimp.cfg/map223	25f129cda5f168f5
+campaign/burdnimp.cfg/map224	fef0c4efb6fa79a7
+campaign/burdnimp.cfg/map225	287fa3afc5bea582
+campaign/burdnimp.cfg/map226	1278303cc8d39328
+campaign/burdnimp.cfg/map227	363f30d702c01937
+campaign/dzjr06lv.cfg/map1	fa66e56b2a6ec2d9
+campaign/dzjr06lv.cfg/map2	d6af97d9ad1cbb06
+campaign/dzjr06lv.cfg/map3	9a792cc336d72a9b
+campaign/dzjr06lv.cfg/map4	76d8cceea83047e1
+campaign/dzjr06lv.cfg/map5	814c194a51f4526b
+campaign/dzjr06lv.cfg/map6	d4a9ce59ba8706a3
+campaign/jdkmaps8.cfg/map203	db01ce18b5e2437e
+campaign/jdkmaps8.cfg/map204	f115332b093b993f
+campaign/jdkmaps8.cfg/map205	ec1a78b518fd2ec3
+campaign/jdkmaps8.cfg/map206	b5138b8589375d14
+campaign/jdkmaps8.cfg/map207	a00ee55970fdd588
+campaign/jdkmaps8.cfg/map208	fdd02934761940fb
+campaign/jdkmaps8.cfg/map209	1260943acd00cfec
+campaign/jdkmaps8.cfg/map210	7cc4ecbcd324f986
+campaign/jdkmaps8.cfg/map211	4e90c2bc1be49150
+campaign/keeporig.cfg/map1	aacd71249ad33d9b
+campaign/keeporig.cfg/map10	2f8f9a3efee2e000
+campaign/keeporig.cfg/map100	118407bd5f7e95f5
+campaign/keeporig.cfg/map101	45341d4bfd8e9b29
+campaign/keeporig.cfg/map102	6a025edd9ffc447d
+campaign/keeporig.cfg/map103	5de044a04be4bff9
+campaign/keeporig.cfg/map104	60c1ffab3426d68d
+campaign/keeporig.cfg/map105	942bfd10e5e3f1d5
+campaign/keeporig.cfg/map11	31c857f5243fb557
+campaign/keeporig.cfg/map12	4854139d1a0cd21b
+campaign/keeporig.cfg/map13	875cf362cae10f2c
+campaign/keeporig.cfg/map14	df2618fcc8fb1afb
+campaign/keeporig.cfg/map15	b33d6f3181c10286
+campaign/keeporig.cfg/map16	41278512e3036bdc
+campaign/keeporig.cfg/map17	660bffb2d4b1b9e8
+campaign/keeporig.cfg/map18	481b3751254fb98a
+campaign/keeporig.cfg/map19	c2541154df2e2a49
+campaign/keeporig.cfg/map2	d3b8cd64ac47ae2e
+campaign/keeporig.cfg/map20	13d4001a7922b76c
+campaign/keeporig.cfg/map3	3aca45059c8b3cea
+campaign/keeporig.cfg/map4	e00e7c30cd296533
+campaign/keeporig.cfg/map5	8f54433871d58c4b
+campaign/keeporig.cfg/map6	e204d55c30bf6eeb
+campaign/keeporig.cfg/map7	f1568a7dc81c60d0
+campaign/keeporig.cfg/map8	f55931eaec98e2be
+campaign/keeporig.cfg/map9	105b2eadb62a46c1
+campaign/lqizgood.cfg/map204	bc36e12583a75d85
+campaign/lqizgood.cfg/map205	f62ebc2425f05341
+campaign/lqizgood.cfg/map206	d795f81b0a08dbe8
+campaign/lqizgood.cfg/map207	cb83148476c36074
+campaign/lqizgood.cfg/map208	c69b1971854b76ea
+campaign/lqizgood.cfg/map209	bbc4d5ae6df713cf
+campaign/lqizgood.cfg/map210	3d22f896de359224
+campaign/lqizgood.cfg/map211	e96bd303b34af0e4
+campaign/lqizgood.cfg/map212	d78ab3f78700257b
+campaign/lqizgood.cfg/map213	eb093ee90a8a6761
+campaign/lqizgood.cfg/map214	2d2ddcfc1aeddb69
+campaign/origplus.cfg/map1	47c00541f369a299
+campaign/origplus.cfg/map10	2f8f9a3efee2e000
+campaign/origplus.cfg/map100	118407bd5f7e95f5
+campaign/origplus.cfg/map101	45341d4bfd8e9b29
+campaign/origplus.cfg/map102	6a025edd9ffc447d
+campaign/origplus.cfg/map103	5de044a04be4bff9
+campaign/origplus.cfg/map104	60c1ffab3426d68d
+campaign/origplus.cfg/map105	942bfd10e5e3f1d5
+campaign/origplus.cfg/map11	31c857f5243fb557
+campaign/origplus.cfg/map12	4854139d1a0cd21b
+campaign/origplus.cfg/map13	875cf362cae10f2c
+campaign/origplus.cfg/map14	df2618fcc8fb1afb
+campaign/origplus.cfg/map15	b33d6f3181c10286
+campaign/origplus.cfg/map16	41278512e3036bdc
+campaign/origplus.cfg/map17	660bffb2d4b1b9e8
+campaign/origplus.cfg/map18	481b3751254fb98a
+campaign/origplus.cfg/map19	c2541154df2e2a49
+campaign/origplus.cfg/map2	04b7b1c2a0b4f42c
+campaign/origplus.cfg/map20	13d4001a7922b76c
+campaign/origplus.cfg/map3	d7bcd922f521a1e8
+campaign/origplus.cfg/map4	7d01104e25bfca31
+campaign/origplus.cfg/map5	c05327966642d249
+campaign/origplus.cfg/map6	e204d55c30bf6eeb
+campaign/origplus.cfg/map7	f1568a7dc81c60d0
+campaign/origplus.cfg/map8	f55931eaec98e2be
+campaign/origplus.cfg/map9	105b2eadb62a46c1
+campaign/postanck.cfg/map190	63c9b194be773ba2
+campaign/postanck.cfg/map191	204068c0af1f880e
+campaign/postanck.cfg/map192	49b017a81939c079
+campaign/postanck.cfg/map193	9ddc78f14e87d3cb
+campaign/postanck.cfg/map194	79a4cfd59feb3965
+campaign/postanck.cfg/map195	ddb04fedbaa8b2e7
+campaign/postanck.cfg/map196	2a0a21312a665e82
+campaign/pstunded.cfg/map305	4587355cc73e798f
+campaign/pstunded.cfg/map306	a9d0337d6cbe9f5b
+campaign/pstunded.cfg/map307	9cdbaa84a4dee404
+campaign/pstunded.cfg/map308	37edb4f431dc7344
+campaign/pstunded.cfg/map309	f5152f7522cee00a
+campaign/pstunded.cfg/map310	e9ccf2f5efa0946a
+campaign/revlord.cfg/map1234	3c6e76d05850855b
+campaign/revlord.cfg/map1235	1dd9da5098966189
+campaign/revlord.cfg/map1236	39a5af9ca7e212e8
+campaign/revlord.cfg/map1237	7b3e2d46b3333a14
+campaign/revlord.cfg/map1238	ed50b8e6b1e5b56e
+campaign/revlord.cfg/map1239	6a4d7b4b0360ff77
+campaign/revlord.cfg/map1240	a32ec4d24382362c
+campaign/revlord.cfg/map1241	93050060b81c0478
+campaign/revlord.cfg/map1242	650c3002017b3716
+campaign/revlord.cfg/map1243	c409bbfb06ba880b
+campaign/revlord.cfg/map1244	6fbbd4982482e2e6
+campaign/twinkprs.cfg/map203	7315fb695c827ef7
+campaign/twinkprs.cfg/map204	645bca5c1ee10d60
+campaign/twinkprs.cfg/map205	4bc5cc8649b40812
+campaign/twinkprs.cfg/map206	fb828a9d804d5246
+campaign/twinkprs.cfg/map207	ea6f9979d3994678
+campaign/twinkprs.cfg/map208	175eb6ec3ad269ea
+campaign/undedkpr.cfg/map285	837b80f8c8cfadac
+campaign/undedkpr.cfg/map286	8dd4056b3b0cee15
+campaign/undedkpr.cfg/map287	a95ef36b9640649c
+campaign/undedkpr.cfg/map288	8d827274883f46c2
+campaign/undedkpr.cfg/map289	068c6fb3fde3d4ad
+campaign/undedkpr.cfg/map290	d669db4e249f0585
+variant/campaign/AUTHOR=	372841ea9e6cd082
+variant/campaign/AUTHOR=   padded   	6c3283d0bae6b1d8
+variant/campaign/AUTHOR=-1	48c30730482a1878
+variant/campaign/AUTHOR=-3 4	79a6253e4559d2be
+variant/campaign/AUTHOR=0	5c361eb09ecd39b2
+variant/campaign/AUTHOR=0 5	c198d06c4cd5fd2f
+variant/campaign/AUTHOR=1	d84d676045069f93
+variant/campaign/AUTHOR=12 34	3d3e2c2dcd902ab0
+variant/campaign/AUTHOR=12abc	3ce07eda0fea23ed
+variant/campaign/AUTHOR=300 400 500	4dcf9b17635dde10
+variant/campaign/AUTHOR=7	7e9f00e5ff940655
+variant/campaign/AUTHOR=EXTRA	faec718893602634
+variant/campaign/AUTHOR=GUI_NO_SUCH_ALIAS	675b1d49dd4e7d46
+variant/campaign/AUTHOR=LOCKED	e46ae659745d0ce4
+variant/campaign/AUTHOR=Level Name With Spaces	007abbf8ff265330
+variant/campaign/AUTHOR=MAYBE	630f91e95c6e561a
+variant/campaign/AUTHOR=MULTI BONUS FREE	401951f163c81186
+variant/campaign/AUTHOR=NO_SUCH_ENSIGN	60b13ac2bb526ddc
+variant/campaign/AUTHOR=NULL	fdbac5362db02357
+variant/campaign/AUTHOR=SINGLE	a5e26e778671ca52
+variant/campaign/AUTHOR=TUTORIAL	3a179bee77afb294
+variant/campaign/AUTHOR=a.wav b.wav	03a34bb7b9c87155
+variant/campaign/AUTHOR=abc	cd61e2918abc2db6
+variant/campaign/AUTHOR=allow	1831adcdcb79bbad
+variant/campaign/AUTHOR=only_one.wav	1ed150e8e567593f
+variant/campaign/AUTHOR=xxxxxxxxxxxx...(300 chars)	1513ef4be9a94d4a
+variant/campaign/AUTHOR=yyyyyyyyyyyy...(1100 chars)	1f24c6a20174e0b9
+variant/campaign/DATE=	372841ea9e6cd082
+variant/campaign/DATE=   padded   	372841ea9e6cd082
+variant/campaign/DATE=-1	372841ea9e6cd082
+variant/campaign/DATE=-3 4	372841ea9e6cd082
+variant/campaign/DATE=0	372841ea9e6cd082
+variant/campaign/DATE=0 5	372841ea9e6cd082
+variant/campaign/DATE=1	372841ea9e6cd082
+variant/campaign/DATE=12 34	372841ea9e6cd082
+variant/campaign/DATE=12abc	372841ea9e6cd082
+variant/campaign/DATE=300 400 500	372841ea9e6cd082
+variant/campaign/DATE=7	372841ea9e6cd082
+variant/campaign/DATE=EXTRA	372841ea9e6cd082
+variant/campaign/DATE=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/DATE=LOCKED	372841ea9e6cd082
+variant/campaign/DATE=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/DATE=MAYBE	372841ea9e6cd082
+variant/campaign/DATE=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/DATE=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/DATE=NULL	372841ea9e6cd082
+variant/campaign/DATE=SINGLE	372841ea9e6cd082
+variant/campaign/DATE=TUTORIAL	372841ea9e6cd082
+variant/campaign/DATE=a.wav b.wav	372841ea9e6cd082
+variant/campaign/DATE=abc	372841ea9e6cd082
+variant/campaign/DATE=allow	372841ea9e6cd082
+variant/campaign/DATE=only_one.wav	372841ea9e6cd082
+variant/campaign/DATE=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/DATE=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/DESCRIPTION=	372841ea9e6cd082
+variant/campaign/DESCRIPTION=   padded   	ddfad611797509d8
+variant/campaign/DESCRIPTION=-1	55f00cd9e074f078
+variant/campaign/DESCRIPTION=-3 4	a57fd97b8e58c2be
+variant/campaign/DESCRIPTION=0	e15b723326f4f9b2
+variant/campaign/DESCRIPTION=0 5	41a240c6f61ea92f
+variant/campaign/DESCRIPTION=1	15c5101af5b0db93
+variant/campaign/DESCRIPTION=12 34	e53426355267e2b0
+variant/campaign/DESCRIPTION=12abc	f18fe68ebe89c7ed
+variant/campaign/DESCRIPTION=300 400 500	5f7c65bed9e11610
+variant/campaign/DESCRIPTION=7	4b71ff305f394a55
+variant/campaign/DESCRIPTION=EXTRA	e19e739dc4c5ee34
+variant/campaign/DESCRIPTION=GUI_NO_SUCH_ALIAS	ab1dc1e0f6f28d46
+variant/campaign/DESCRIPTION=LOCKED	d316ce180d8194e4
+variant/campaign/DESCRIPTION=Level Name With Spaces	c2a544bc63180b30
+variant/campaign/DESCRIPTION=MAYBE	17af80e37a38b61a
+variant/campaign/DESCRIPTION=MULTI BONUS FREE	68e9496a303d2186
+variant/campaign/DESCRIPTION=NO_SUCH_ENSIGN	b7fa16256100d5dc
+variant/campaign/DESCRIPTION=NULL	c480c3da580d6f57
+variant/campaign/DESCRIPTION=SINGLE	20968ae026ba0a52
+variant/campaign/DESCRIPTION=TUTORIAL	5220b3587324fa94
+variant/campaign/DESCRIPTION=a.wav b.wav	0d6b151b3e19b555
+variant/campaign/DESCRIPTION=abc	1d2c0ab1b25efdb6
+variant/campaign/DESCRIPTION=allow	67181bb39d7c5fad
+variant/campaign/DESCRIPTION=only_one.wav	75b26457d585453f
+variant/campaign/DESCRIPTION=xxxxxxxxxxxx...(300 chars)	f1055f4b7258a54a
+variant/campaign/DESCRIPTION=yyyyyyyyyyyy...(1100 chars)	8b7822f865078479
+variant/campaign/ENSIGN=	372841ea9e6cd082
+variant/campaign/ENSIGN=   padded   	75b01eba0210dac5
+variant/campaign/ENSIGN=-1	c4a80c7df0d36484
+variant/campaign/ENSIGN=-3 4	98ba7fc845badcbd
+variant/campaign/ENSIGN=0	e73a27bc150137ba
+variant/campaign/ENSIGN=0 5	e73a27bc150137ba
+variant/campaign/ENSIGN=1	4ceeaac1029464a3
+variant/campaign/ENSIGN=12 34	961bf8a35f0735d2
+variant/campaign/ENSIGN=12abc	43ae5ddef9e20cad
+variant/campaign/ENSIGN=300 400 500	12f2f67b5534afcd
+variant/campaign/ENSIGN=7	670d1d66a9fd49bb
+variant/campaign/ENSIGN=EXTRA	15f749f80edb8f85
+variant/campaign/ENSIGN=GUI_NO_SUCH_ALIAS	c6710e752a127bbe
+variant/campaign/ENSIGN=LOCKED	38d87f83d2b8ff14
+variant/campaign/ENSIGN=Level Name With Spaces	1bdee4e3f175ccad
+variant/campaign/ENSIGN=MAYBE	e8dddd2740ba6360
+variant/campaign/ENSIGN=MULTI BONUS FREE	f01ccee07cfb349c
+variant/campaign/ENSIGN=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/ENSIGN=NULL	e094cf6efbd9e049
+variant/campaign/ENSIGN=SINGLE	3837e5115cfbdf88
+variant/campaign/ENSIGN=TUTORIAL	d41ad607f7033580
+variant/campaign/ENSIGN=a.wav b.wav	2186708c7eff9777
+variant/campaign/ENSIGN=abc	89c7976f8208ee71
+variant/campaign/ENSIGN=allow	940a4d4313a4e088
+variant/campaign/ENSIGN=only_one.wav	73fed763c7a1451f
+variant/campaign/ENSIGN=xxxxxxxxxxxx...(300 chars)	f4eb2e11760492a2
+variant/campaign/ENSIGN=yyyyyyyyyyyy...(1100 chars)	82fff5c3ee3892f5
+variant/campaign/ENSIGN_POS=	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=   padded   	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=-1	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=-3 4	7523a1a18b415e99
+variant/campaign/ENSIGN_POS=0	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=0 5	d5eb3d9dda2e9c38
+variant/campaign/ENSIGN_POS=1	da587754c5962619
+variant/campaign/ENSIGN_POS=12 34	58ae67d558f12a7d
+variant/campaign/ENSIGN_POS=12abc	f77ef57f17804798
+variant/campaign/ENSIGN_POS=300 400 500	09a5816d5778b403
+variant/campaign/ENSIGN_POS=7	af54129819397baf
+variant/campaign/ENSIGN_POS=EXTRA	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=LOCKED	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=MAYBE	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=NULL	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=SINGLE	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=TUTORIAL	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=a.wav b.wav	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=abc	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=allow	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=only_one.wav	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/ENSIGN_POS=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=   padded   	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=-1	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=-3 4	ac7284a6d5cebe99
+variant/campaign/ENSIGN_ZOOM=0	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=0 5	47eef65bae9d3998
+variant/campaign/ENSIGN_ZOOM=1	a906a3afc53e4321
+variant/campaign/ENSIGN_ZOOM=12 34	f521219e92e70cc9
+variant/campaign/ENSIGN_ZOOM=12abc	ce276296a932aa90
+variant/campaign/ENSIGN_ZOOM=300 400 500	0af685095878629b
+variant/campaign/ENSIGN_ZOOM=7	985c3fc4b2a3125b
+variant/campaign/ENSIGN_ZOOM=EXTRA	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=LOCKED	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=MAYBE	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=NULL	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=SINGLE	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=TUTORIAL	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=a.wav b.wav	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=abc	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=allow	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=only_one.wav	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/ENSIGN_ZOOM=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/KIND=	372841ea9e6cd082
+variant/campaign/KIND=   padded   	372841ea9e6cd082
+variant/campaign/KIND=-1	372841ea9e6cd082
+variant/campaign/KIND=-3 4	372841ea9e6cd082
+variant/campaign/KIND=0	372841ea9e6cd082
+variant/campaign/KIND=0 5	372841ea9e6cd082
+variant/campaign/KIND=1	372841ea9e6cd082
+variant/campaign/KIND=12 34	372841ea9e6cd082
+variant/campaign/KIND=12abc	372841ea9e6cd082
+variant/campaign/KIND=300 400 500	372841ea9e6cd082
+variant/campaign/KIND=7	372841ea9e6cd082
+variant/campaign/KIND=EXTRA	372841ea9e6cd082
+variant/campaign/KIND=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/KIND=LOCKED	372841ea9e6cd082
+variant/campaign/KIND=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/KIND=MAYBE	372841ea9e6cd082
+variant/campaign/KIND=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/KIND=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/KIND=NULL	372841ea9e6cd082
+variant/campaign/KIND=SINGLE	372841ea9e6cd082
+variant/campaign/KIND=TUTORIAL	372841ea9e6cd082
+variant/campaign/KIND=a.wav b.wav	372841ea9e6cd082
+variant/campaign/KIND=abc	372841ea9e6cd082
+variant/campaign/KIND=allow	372841ea9e6cd082
+variant/campaign/KIND=only_one.wav	372841ea9e6cd082
+variant/campaign/KIND=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/KIND=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/LAND_VIEW=	372841ea9e6cd082
+variant/campaign/LAND_VIEW=   padded   	9f6919512a9283f8
+variant/campaign/LAND_VIEW=-1	185de7fa8416ea78
+variant/campaign/LAND_VIEW=-3 4	bb5d8cd8308885f6
+variant/campaign/LAND_VIEW=0	5777aa07a1d289b2
+variant/campaign/LAND_VIEW=0 5	ba6742215e75d027
+variant/campaign/LAND_VIEW=1	b3430b6cb83c4493
+variant/campaign/LAND_VIEW=12 34	e85b4817fd1586c2
+variant/campaign/LAND_VIEW=12abc	80132fc400cba6ed
+variant/campaign/LAND_VIEW=300 400 500	6a3c468436b5c825
+variant/campaign/LAND_VIEW=7	9a2c738792690155
+variant/campaign/LAND_VIEW=EXTRA	bfbb13cc031d0c34
+variant/campaign/LAND_VIEW=GUI_NO_SUCH_ALIAS	43acc2bfbb6ba946
+variant/campaign/LAND_VIEW=LOCKED	86f060ced35e82e4
+variant/campaign/LAND_VIEW=Level Name With Spaces	b26ea9542c81ab2b
+variant/campaign/LAND_VIEW=MAYBE	d2d3ad164536de1a
+variant/campaign/LAND_VIEW=MULTI BONUS FREE	ba1337166ac21dc0
+variant/campaign/LAND_VIEW=NO_SUCH_ENSIGN	bcd1f8dce2db0bdc
+variant/campaign/LAND_VIEW=NULL	b2417bad4f8c3457
+variant/campaign/LAND_VIEW=SINGLE	af445183e8a07a52
+variant/campaign/LAND_VIEW=TUTORIAL	0fb2cb3504473894
+variant/campaign/LAND_VIEW=a.wav b.wav	684a2b4317b959e5
+variant/campaign/LAND_VIEW=abc	e9491662894de9b6
+variant/campaign/LAND_VIEW=allow	ea06547ace8b7ead
+variant/campaign/LAND_VIEW=only_one.wav	5814a5f54219223f
+variant/campaign/LAND_VIEW=xxxxxxxxxxxx...(300 chars)	210877920940fc02
+variant/campaign/LAND_VIEW=yyyyyyyyyyyy...(1100 chars)	62196d221f54ab42
+variant/campaign/MAPSIZE=	372841ea9e6cd082
+variant/campaign/MAPSIZE=   padded   	372841ea9e6cd082
+variant/campaign/MAPSIZE=-1	372841ea9e6cd082
+variant/campaign/MAPSIZE=-3 4	0c38eb4170cfc193
+variant/campaign/MAPSIZE=0	372841ea9e6cd082
+variant/campaign/MAPSIZE=0 5	38ffd30aa3f14cd2
+variant/campaign/MAPSIZE=1	a00c1b8bdd46ed56
+variant/campaign/MAPSIZE=12 34	bc5091f3024dcccc
+variant/campaign/MAPSIZE=12abc	b585f64f67880bfb
+variant/campaign/MAPSIZE=300 400 500	7189c6c083e6233e
+variant/campaign/MAPSIZE=7	e4df570f88509490
+variant/campaign/MAPSIZE=EXTRA	372841ea9e6cd082
+variant/campaign/MAPSIZE=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/MAPSIZE=LOCKED	372841ea9e6cd082
+variant/campaign/MAPSIZE=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/MAPSIZE=MAYBE	372841ea9e6cd082
+variant/campaign/MAPSIZE=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/MAPSIZE=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/MAPSIZE=NULL	372841ea9e6cd082
+variant/campaign/MAPSIZE=SINGLE	372841ea9e6cd082
+variant/campaign/MAPSIZE=TUTORIAL	372841ea9e6cd082
+variant/campaign/MAPSIZE=a.wav b.wav	372841ea9e6cd082
+variant/campaign/MAPSIZE=abc	372841ea9e6cd082
+variant/campaign/MAPSIZE=allow	372841ea9e6cd082
+variant/campaign/MAPSIZE=only_one.wav	372841ea9e6cd082
+variant/campaign/MAPSIZE=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/MAPSIZE=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=   padded   	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=-1	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=-3 4	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=0	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=0 5	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=1	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=12 34	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=12abc	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=300 400 500	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=7	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=EXTRA	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=LOCKED	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=MAYBE	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=NULL	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=SINGLE	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=TUTORIAL	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=a.wav b.wav	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=abc	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=allow	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=only_one.wav	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/MAP_FORMAT_VERSION=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/NAME_ID=	372841ea9e6cd082
+variant/campaign/NAME_ID=   padded   	372841ea9e6cd082
+variant/campaign/NAME_ID=-1	372841ea9e6cd082
+variant/campaign/NAME_ID=-3 4	372841ea9e6cd082
+variant/campaign/NAME_ID=0	372841ea9e6cd082
+variant/campaign/NAME_ID=0 5	372841ea9e6cd082
+variant/campaign/NAME_ID=1	91165504ba3c2763
+variant/campaign/NAME_ID=12 34	be6958948a986ece
+variant/campaign/NAME_ID=12abc	372841ea9e6cd082
+variant/campaign/NAME_ID=300 400 500	977f438719e7efd5
+variant/campaign/NAME_ID=7	877bb02b8ea44a65
+variant/campaign/NAME_ID=EXTRA	372841ea9e6cd082
+variant/campaign/NAME_ID=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/NAME_ID=LOCKED	372841ea9e6cd082
+variant/campaign/NAME_ID=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/NAME_ID=MAYBE	372841ea9e6cd082
+variant/campaign/NAME_ID=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/NAME_ID=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/NAME_ID=NULL	372841ea9e6cd082
+variant/campaign/NAME_ID=SINGLE	372841ea9e6cd082
+variant/campaign/NAME_ID=TUTORIAL	372841ea9e6cd082
+variant/campaign/NAME_ID=a.wav b.wav	372841ea9e6cd082
+variant/campaign/NAME_ID=abc	372841ea9e6cd082
+variant/campaign/NAME_ID=allow	372841ea9e6cd082
+variant/campaign/NAME_ID=only_one.wav	372841ea9e6cd082
+variant/campaign/NAME_ID=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/NAME_ID=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/NAME_TEXT=	372841ea9e6cd082
+variant/campaign/NAME_TEXT=   padded   	4b126c1b9b80c0d8
+variant/campaign/NAME_TEXT=-1	1b636e8bd07a7778
+variant/campaign/NAME_TEXT=-3 4	ec57221d0cef98be
+variant/campaign/NAME_TEXT=0	fb999747e14bd1b2
+variant/campaign/NAME_TEXT=0 5	4776a1efc10eb0af
+variant/campaign/NAME_TEXT=1	f578506e1e30e113
+variant/campaign/NAME_TEXT=12 34	62d9fba7bcac75b0
+variant/campaign/NAME_TEXT=12abc	f0900211d3f36c6d
+variant/campaign/NAME_TEXT=300 400 500	647a0f62d08cd910
+variant/campaign/NAME_TEXT=7	07714e115f72b4d5
+variant/campaign/NAME_TEXT=EXTRA	074053a4e653cb34
+variant/campaign/NAME_TEXT=GUI_NO_SUCH_ALIAS	b8c800ac9b199746
+variant/campaign/NAME_TEXT=LOCKED	e5ae923b41dca9e4
+variant/campaign/NAME_TEXT=Level Name With Spaces	281d4262919cde30
+variant/campaign/NAME_TEXT=MAYBE	9a0350f9052a321a
+variant/campaign/NAME_TEXT=MULTI BONUS FREE	ec3cdab5eaaecb86
+variant/campaign/NAME_TEXT=NO_SUCH_ENSIGN	34dcb9e6938116dc
+variant/campaign/NAME_TEXT=NULL	73b6040c823adcd7
+variant/campaign/NAME_TEXT=SINGLE	8c0e4d28a9293252
+variant/campaign/NAME_TEXT=TUTORIAL	9b7867bcab788794
+variant/campaign/NAME_TEXT=a.wav b.wav	31b6e1785a9e9fd5
+variant/campaign/NAME_TEXT=abc	cdb9c67e633b3fb6
+variant/campaign/NAME_TEXT=allow	f21b2c9caf1fa42d
+variant/campaign/NAME_TEXT=only_one.wav	4c6f92a1fe3fd8bf
+variant/campaign/NAME_TEXT=xxxxxxxxxxxx...(300 chars)	c996a16b35289d4a
+variant/campaign/NAME_TEXT=yyyyyyyyyyyy...(1100 chars)	f6a5b67aeb479d19
+variant/campaign/NOTAKEY=	a8cae6ec96433509
+variant/campaign/NOTAKEY=   padded   	a8cae6ec96433509
+variant/campaign/NOTAKEY=-1	a8cae6ec96433509
+variant/campaign/NOTAKEY=-3 4	a8cae6ec96433509
+variant/campaign/NOTAKEY=0	a8cae6ec96433509
+variant/campaign/NOTAKEY=0 5	a8cae6ec96433509
+variant/campaign/NOTAKEY=1	a8cae6ec96433509
+variant/campaign/NOTAKEY=12 34	a8cae6ec96433509
+variant/campaign/NOTAKEY=12abc	a8cae6ec96433509
+variant/campaign/NOTAKEY=300 400 500	a8cae6ec96433509
+variant/campaign/NOTAKEY=7	a8cae6ec96433509
+variant/campaign/NOTAKEY=EXTRA	a8cae6ec96433509
+variant/campaign/NOTAKEY=GUI_NO_SUCH_ALIAS	a8cae6ec96433509
+variant/campaign/NOTAKEY=LOCKED	a8cae6ec96433509
+variant/campaign/NOTAKEY=Level Name With Spaces	a8cae6ec96433509
+variant/campaign/NOTAKEY=MAYBE	a8cae6ec96433509
+variant/campaign/NOTAKEY=MULTI BONUS FREE	a8cae6ec96433509
+variant/campaign/NOTAKEY=NO_SUCH_ENSIGN	a8cae6ec96433509
+variant/campaign/NOTAKEY=NULL	a8cae6ec96433509
+variant/campaign/NOTAKEY=SINGLE	a8cae6ec96433509
+variant/campaign/NOTAKEY=TUTORIAL	a8cae6ec96433509
+variant/campaign/NOTAKEY=a.wav b.wav	a8cae6ec96433509
+variant/campaign/NOTAKEY=abc	a8cae6ec96433509
+variant/campaign/NOTAKEY=allow	a8cae6ec96433509
+variant/campaign/NOTAKEY=only_one.wav	a8cae6ec96433509
+variant/campaign/NOTAKEY=xxxxxxxxxxxx...(300 chars)	a8cae6ec96433509
+variant/campaign/NOTAKEY=yyyyyyyyyyyy...(1100 chars)	a8cae6ec96433509
+variant/campaign/OPTIONS=	372841ea9e6cd082
+variant/campaign/OPTIONS=   padded   	75b01eba0210dac5
+variant/campaign/OPTIONS=-1	c4a80c7df0d36484
+variant/campaign/OPTIONS=-3 4	98ba7fc845badcbd
+variant/campaign/OPTIONS=0	e73a27bc150137ba
+variant/campaign/OPTIONS=0 5	e73a27bc150137ba
+variant/campaign/OPTIONS=1	4ceeaac1029464a3
+variant/campaign/OPTIONS=12 34	961bf8a35f0735d2
+variant/campaign/OPTIONS=12abc	43ae5ddef9e20cad
+variant/campaign/OPTIONS=300 400 500	12f2f67b5534afcd
+variant/campaign/OPTIONS=7	670d1d66a9fd49bb
+variant/campaign/OPTIONS=EXTRA	15f749f80edb8f85
+variant/campaign/OPTIONS=GUI_NO_SUCH_ALIAS	c6710e752a127bbe
+variant/campaign/OPTIONS=LOCKED	38d87f83d2b8ff14
+variant/campaign/OPTIONS=Level Name With Spaces	1bdee4e3f175ccad
+variant/campaign/OPTIONS=MAYBE	e8dddd2740ba6360
+variant/campaign/OPTIONS=MULTI BONUS FREE	f01ccee07cfb349c
+variant/campaign/OPTIONS=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/OPTIONS=NULL	e094cf6efbd9e049
+variant/campaign/OPTIONS=SINGLE	3837e5115cfbdf88
+variant/campaign/OPTIONS=TUTORIAL	d41ad607f7033580
+variant/campaign/OPTIONS=a.wav b.wav	2186708c7eff9777
+variant/campaign/OPTIONS=abc	89c7976f8208ee71
+variant/campaign/OPTIONS=allow	940a4d4313a4e088
+variant/campaign/OPTIONS=only_one.wav	73fed763c7a1451f
+variant/campaign/OPTIONS=xxxxxxxxxxxx...(300 chars)	f4eb2e11760492a2
+variant/campaign/OPTIONS=yyyyyyyyyyyy...(1100 chars)	82fff5c3ee3892f5
+variant/campaign/PLAYERS=	372841ea9e6cd082
+variant/campaign/PLAYERS=   padded   	372841ea9e6cd082
+variant/campaign/PLAYERS=-1	372841ea9e6cd082
+variant/campaign/PLAYERS=-3 4	372841ea9e6cd082
+variant/campaign/PLAYERS=0	372841ea9e6cd082
+variant/campaign/PLAYERS=0 5	372841ea9e6cd082
+variant/campaign/PLAYERS=1	372841ea9e6cd082
+variant/campaign/PLAYERS=12 34	5bae5615fbf646cf
+variant/campaign/PLAYERS=12abc	5bae5615fbf646cf
+variant/campaign/PLAYERS=300 400 500	f10a61b348263af4
+variant/campaign/PLAYERS=7	c62a11735fb1c4c4
+variant/campaign/PLAYERS=EXTRA	372841ea9e6cd082
+variant/campaign/PLAYERS=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/PLAYERS=LOCKED	372841ea9e6cd082
+variant/campaign/PLAYERS=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/PLAYERS=MAYBE	372841ea9e6cd082
+variant/campaign/PLAYERS=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/PLAYERS=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/PLAYERS=NULL	372841ea9e6cd082
+variant/campaign/PLAYERS=SINGLE	372841ea9e6cd082
+variant/campaign/PLAYERS=TUTORIAL	372841ea9e6cd082
+variant/campaign/PLAYERS=a.wav b.wav	372841ea9e6cd082
+variant/campaign/PLAYERS=abc	372841ea9e6cd082
+variant/campaign/PLAYERS=allow	372841ea9e6cd082
+variant/campaign/PLAYERS=only_one.wav	372841ea9e6cd082
+variant/campaign/PLAYERS=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/PLAYERS=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=   padded   	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=-1	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=-3 4	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=0	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=0 5	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=1	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=12 34	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=12abc	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=300 400 500	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=7	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=EXTRA	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=GUI_NO_SUCH_ALIAS	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=LOCKED	88a79329fee8a340
+variant/campaign/SKIRMISH_SETUP=Level Name With Spaces	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=MAYBE	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=MULTI BONUS FREE	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=NO_SUCH_ENSIGN	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=NULL	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=SINGLE	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=TUTORIAL	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=a.wav b.wav	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=abc	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=allow	8e68994aee2ee723
+variant/campaign/SKIRMISH_SETUP=only_one.wav	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=xxxxxxxxxxxx...(300 chars)	372841ea9e6cd082
+variant/campaign/SKIRMISH_SETUP=yyyyyyyyyyyy...(1100 chars)	372841ea9e6cd082
+variant/campaign/SPEECH=	372841ea9e6cd082
+variant/campaign/SPEECH=   padded   	a5f95600a37936f8
+variant/campaign/SPEECH=-1	e2710adc9778dd78
+variant/campaign/SPEECH=-3 4	cb7675955e6acff6
+variant/campaign/SPEECH=0	75728be4a69541b2
+variant/campaign/SPEECH=0 5	03460f34e9a16da7
+variant/campaign/SPEECH=1	f6eed454afcee813
+variant/campaign/SPEECH=12 34	973c39b6afc3a6c2
+variant/campaign/SPEECH=12abc	fda823dd97b39d6d
+variant/campaign/SPEECH=300 400 500	3ec8470cb5397ea5
+variant/campaign/SPEECH=7	f9acb36458678dd5
+variant/campaign/SPEECH=EXTRA	ebbdeb726acacd34
+variant/campaign/SPEECH=GUI_NO_SUCH_ALIAS	b721cf9a438ebb46
+variant/campaign/SPEECH=LOCKED	70fc2d022c70dbe4
+variant/campaign/SPEECH=Level Name With Spaces	b33e5142224e7aab
+variant/campaign/SPEECH=MAYBE	169b5e4bd5498a1a
+variant/campaign/SPEECH=MULTI BONUS FREE	eef12e17f34894c0
+variant/campaign/SPEECH=NO_SUCH_ENSIGN	49fb7744a94380dc
+variant/campaign/SPEECH=NULL	bbe9e6c27c2fc7d7
+variant/campaign/SPEECH=SINGLE	118ab3df5adbc252
+variant/campaign/SPEECH=TUTORIAL	b66e1c668c726994
+variant/campaign/SPEECH=a.wav b.wav	7be930be5a7cac65
+variant/campaign/SPEECH=abc	aed8f28537dd93b6
+variant/campaign/SPEECH=allow	6327d5c66f3e952d
+variant/campaign/SPEECH=only_one.wav	674aacb5fece2bbf
+variant/campaign/SPEECH=xxxxxxxxxxxx...(300 chars)	e34486c913d6bc02
+variant/campaign/SPEECH=yyyyyyyyyyyy...(1100 chars)	bcc2fa5bc2550b42
+variant/lof/AUTHOR=	e86123a175b48c20
+variant/lof/AUTHOR=   padded   	0ebdfccaab39617a
+variant/lof/AUTHOR=-1	18c88ce4172dd81a
+variant/lof/AUTHOR=-3 4	91714a7bd9c75f5c
+variant/lof/AUTHOR=0	740143ee333ac650
+variant/lof/AUTHOR=0 5	55072f520e97dd0d
+variant/lof/AUTHOR=1	9935d2ffe5798f71
+variant/lof/AUTHOR=12 34	b24f986ddf31ca52
+variant/lof/AUTHOR=12abc	c1a17502eab6f7cf
+variant/lof/AUTHOR=300 400 500	f05b141153b08db2
+variant/lof/AUTHOR=7	69f23a959786ab37
+variant/lof/AUTHOR=EXTRA	6ffdddc8a501c5d6
+variant/lof/AUTHOR=GUI_NO_SUCH_ALIAS	1893ff00b49638e4
+variant/lof/AUTHOR=LOCKED	b4706c0d4360cc86
+variant/lof/AUTHOR=Level Name With Spaces	758c283910c7f2d2
+variant/lof/AUTHOR=MAYBE	144873a033b611b8
+variant/lof/AUTHOR=MULTI BONUS FREE	f15233a83b0fcd24
+variant/lof/AUTHOR=NO_SUCH_ENSIGN	033cb3bcaba51d7e
+variant/lof/AUTHOR=NULL	f7bb67a2ac97d435
+variant/lof/AUTHOR=SINGLE	571b502e5db985f0
+variant/lof/AUTHOR=TUTORIAL	dca314e868026236
+variant/lof/AUTHOR=a.wav b.wav	eef6856751bb1637
+variant/lof/AUTHOR=abc	e52d07cf1f29ba54
+variant/lof/AUTHOR=allow	30fef437421d708f
+variant/lof/AUTHOR=only_one.wav	b23fafcea729391d
+variant/lof/AUTHOR=xxxxxxxxxxxx...(300 chars)	c64cd102c0f108e8
+variant/lof/AUTHOR=yyyyyyyyyyyy...(1100 chars)	37f20d0b7818959b
+variant/lof/DATE=	e86123a175b48c20
+variant/lof/DATE=   padded   	e86123a175b48c20
+variant/lof/DATE=-1	e86123a175b48c20
+variant/lof/DATE=-3 4	e86123a175b48c20
+variant/lof/DATE=0	e86123a175b48c20
+variant/lof/DATE=0 5	e86123a175b48c20
+variant/lof/DATE=1	e86123a175b48c20
+variant/lof/DATE=12 34	e86123a175b48c20
+variant/lof/DATE=12abc	e86123a175b48c20
+variant/lof/DATE=300 400 500	e86123a175b48c20
+variant/lof/DATE=7	e86123a175b48c20
+variant/lof/DATE=EXTRA	e86123a175b48c20
+variant/lof/DATE=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/DATE=LOCKED	e86123a175b48c20
+variant/lof/DATE=Level Name With Spaces	e86123a175b48c20
+variant/lof/DATE=MAYBE	e86123a175b48c20
+variant/lof/DATE=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/DATE=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/DATE=NULL	e86123a175b48c20
+variant/lof/DATE=SINGLE	e86123a175b48c20
+variant/lof/DATE=TUTORIAL	e86123a175b48c20
+variant/lof/DATE=a.wav b.wav	e86123a175b48c20
+variant/lof/DATE=abc	e86123a175b48c20
+variant/lof/DATE=allow	e86123a175b48c20
+variant/lof/DATE=only_one.wav	e86123a175b48c20
+variant/lof/DATE=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/DATE=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/DESCRIPTION=	e86123a175b48c20
+variant/lof/DESCRIPTION=   padded   	80864f0b69c7b97a
+variant/lof/DESCRIPTION=-1	25f5928daf78b01a
+variant/lof/DESCRIPTION=-3 4	bd4afeb922c64f5c
+variant/lof/DESCRIPTION=0	f9269770bb628650
+variant/lof/DESCRIPTION=0 5	d5109facb7e0890d
+variant/lof/DESCRIPTION=1	d6ad7bba9623cb71
+variant/lof/DESCRIPTION=12 34	5a45927564098252
+variant/lof/DESCRIPTION=12abc	7650dcb799569bcf
+variant/lof/DESCRIPTION=300 400 500	0207deb8ca33c5b2
+variant/lof/DESCRIPTION=7	36c538dff72bef37
+variant/lof/DESCRIPTION=EXTRA	56afdfddd6678dd6
+variant/lof/DESCRIPTION=GUI_NO_SUCH_ALIAS	5c56a397ce3a48e4
+variant/lof/DESCRIPTION=LOCKED	a31c53cbdc855486
+variant/lof/DESCRIPTION=Level Name With Spaces	37b6b0fc74b9aad2
+variant/lof/DESCRIPTION=MAYBE	c8e8629a518071b8
+variant/lof/DESCRIPTION=MULTI BONUS FREE	1a222b210784dd24
+variant/lof/DESCRIPTION=NO_SUCH_ENSIGN	5a858f1f5153857e
+variant/lof/DESCRIPTION=NULL	be816646d6f52035
+variant/lof/DESCRIPTION=SINGLE	d1cf6c96fe01c5f0
+variant/lof/DESCRIPTION=TUTORIAL	f4ac2c526377aa36
+variant/lof/DESCRIPTION=a.wav b.wav	f8be4ecad60c5a37
+variant/lof/DESCRIPTION=abc	34f72fef46cc8a54
+variant/lof/DESCRIPTION=allow	7fe5621d1420148f
+variant/lof/DESCRIPTION=only_one.wav	0920c33d9747251d
+variant/lof/DESCRIPTION=xxxxxxxxxxxx...(300 chars)	a23e410249a060e8
+variant/lof/DESCRIPTION=yyyyyyyyyyyy...(1100 chars)	103919213fd4585b
+variant/lof/ENSIGN=	e86123a175b48c20
+variant/lof/ENSIGN=   padded   	ee9367b47170ca67
+variant/lof/ENSIGN=-1	4648a932bcd4b43a
+variant/lof/ENSIGN=-3 4	c692914e80b6fd9f
+variant/lof/ENSIGN=0	b25b4e0d697a9ae4
+variant/lof/ENSIGN=0 5	b25b4e0d697a9ae4
+variant/lof/ENSIGN=1	2ecdb6e728872e95
+variant/lof/ENSIGN=12 34	e6e75b9130df7ddc
+variant/lof/ENSIGN=12abc	f42caa2b1b72f62f
+variant/lof/ENSIGN=300 400 500	59d899702e499c63
+variant/lof/ENSIGN=7	adab89e428fd98a1
+variant/lof/ENSIGN=EXTRA	0d1a2f76fd80d953
+variant/lof/ENSIGN=GUI_NO_SUCH_ALIAS	3741765dba6200e8
+variant/lof/ENSIGN=LOCKED	9afb7eaf7c137842
+variant/lof/ENSIGN=Level Name With Spaces	49b6f66a2c71ed8f
+variant/lof/ENSIGN=MAYBE	de4f7471f71d664e
+variant/lof/ENSIGN=MULTI BONUS FREE	da083534d4a48c1e
+variant/lof/ENSIGN=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/ENSIGN=NULL	8481874c6e7f0a0b
+variant/lof/ENSIGN=SINGLE	dac35e0b4d4e8f2a
+variant/lof/ENSIGN=TUTORIAL	76a64f01e755e522
+variant/lof/ENSIGN=a.wav b.wav	857b8fe25d818c29
+variant/lof/ENSIGN=abc	2db44f4cf4ae1833
+variant/lof/ENSIGN=allow	2f932e925cd7d7ca
+variant/lof/ENSIGN=only_one.wav	ba9d43e146a19405
+variant/lof/ENSIGN=xxxxxxxxxxxx...(300 chars)	d204f56da251bbb8
+variant/lof/ENSIGN=yyyyyyyyyyyy...(1100 chars)	1ccbb7098d5dd2d7
+variant/lof/ENSIGN_POS=	e86123a175b48c20
+variant/lof/ENSIGN_POS=   padded   	e86123a175b48c20
+variant/lof/ENSIGN_POS=-1	e86123a175b48c20
+variant/lof/ENSIGN_POS=-3 4	275ea48444bf427b
+variant/lof/ENSIGN_POS=0	e86123a175b48c20
+variant/lof/ENSIGN_POS=0 5	4afca9ddebd03bda
+variant/lof/ENSIGN_POS=1	8c937a377f1409fb
+variant/lof/ENSIGN_POS=12 34	dd6f5dfe33bdfe5f
+variant/lof/ENSIGN_POS=12abc	9a0a6e7907d2f73a
+variant/lof/ENSIGN_POS=300 400 500	ca8ded0cf7eba3e1
+variant/lof/ENSIGN_POS=7	42c2717ddafb5b8d
+variant/lof/ENSIGN_POS=EXTRA	e86123a175b48c20
+variant/lof/ENSIGN_POS=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/ENSIGN_POS=LOCKED	e86123a175b48c20
+variant/lof/ENSIGN_POS=Level Name With Spaces	e86123a175b48c20
+variant/lof/ENSIGN_POS=MAYBE	e86123a175b48c20
+variant/lof/ENSIGN_POS=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/ENSIGN_POS=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/ENSIGN_POS=NULL	e86123a175b48c20
+variant/lof/ENSIGN_POS=SINGLE	e86123a175b48c20
+variant/lof/ENSIGN_POS=TUTORIAL	e86123a175b48c20
+variant/lof/ENSIGN_POS=a.wav b.wav	e86123a175b48c20
+variant/lof/ENSIGN_POS=abc	e86123a175b48c20
+variant/lof/ENSIGN_POS=allow	e86123a175b48c20
+variant/lof/ENSIGN_POS=only_one.wav	e86123a175b48c20
+variant/lof/ENSIGN_POS=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/ENSIGN_POS=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=   padded   	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=-1	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=-3 4	5ead87898f4ca27b
+variant/lof/ENSIGN_ZOOM=0	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=0 5	ea7a6f559eefe93a
+variant/lof/ENSIGN_ZOOM=1	c1d3ea193be1f803
+variant/lof/ENSIGN_ZOOM=12 34	e0745b4e2ad9b1ab
+variant/lof/ENSIGN_ZOOM=12abc	70b2db9099855a32
+variant/lof/ENSIGN_ZOOM=300 400 500	cbdef0a8f8eb5279
+variant/lof/ENSIGN_ZOOM=7	925ce231318ac339
+variant/lof/ENSIGN_ZOOM=EXTRA	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=LOCKED	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=Level Name With Spaces	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=MAYBE	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=NULL	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=SINGLE	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=TUTORIAL	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=a.wav b.wav	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=abc	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=allow	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=only_one.wav	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/ENSIGN_ZOOM=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/KIND=	e86123a175b48c20
+variant/lof/KIND=   padded   	e86123a175b48c20
+variant/lof/KIND=-1	e86123a175b48c20
+variant/lof/KIND=-3 4	e86123a175b48c20
+variant/lof/KIND=0	e86123a175b48c20
+variant/lof/KIND=0 5	e86123a175b48c20
+variant/lof/KIND=1	e86123a175b48c20
+variant/lof/KIND=12 34	e86123a175b48c20
+variant/lof/KIND=12abc	e86123a175b48c20
+variant/lof/KIND=300 400 500	e86123a175b48c20
+variant/lof/KIND=7	e86123a175b48c20
+variant/lof/KIND=EXTRA	c9009a4975ae8fc8
+variant/lof/KIND=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/KIND=LOCKED	e86123a175b48c20
+variant/lof/KIND=Level Name With Spaces	e86123a175b48c20
+variant/lof/KIND=MAYBE	e86123a175b48c20
+variant/lof/KIND=MULTI BONUS FREE	06adf39d40f084d6
+variant/lof/KIND=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/KIND=NULL	e86123a175b48c20
+variant/lof/KIND=SINGLE	c3be6a47dac88b81
+variant/lof/KIND=TUTORIAL	e86123a175b48c20
+variant/lof/KIND=a.wav b.wav	e86123a175b48c20
+variant/lof/KIND=abc	e86123a175b48c20
+variant/lof/KIND=allow	e86123a175b48c20
+variant/lof/KIND=only_one.wav	e86123a175b48c20
+variant/lof/KIND=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/KIND=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/LAND_VIEW=	e86123a175b48c20
+variant/lof/LAND_VIEW=   padded   	6f6e9f04f996439a
+variant/lof/LAND_VIEW=-1	e8636dae531aaa1a
+variant/lof/LAND_VIEW=-3 4	06042b084aaa7094
+variant/lof/LAND_VIEW=0	6f42cf4536401650
+variant/lof/LAND_VIEW=0 5	4dd5a1072037b005
+variant/lof/LAND_VIEW=1	742b770c58af3471
+variant/lof/LAND_VIEW=12 34	999429ced45d4260
+variant/lof/LAND_VIEW=12abc	04d425ecdb987acf
+variant/lof/LAND_VIEW=300 400 500	83098cedad597d07
+variant/lof/LAND_VIEW=7	857fad372a5ba637
+variant/lof/LAND_VIEW=EXTRA	34cc800c14beabd6
+variant/lof/LAND_VIEW=GUI_NO_SUCH_ALIAS	f4e5a47692b364e4
+variant/lof/LAND_VIEW=LOCKED	56f5e682a2624286
+variant/lof/LAND_VIEW=Level Name With Spaces	45dd0839ee438b09
+variant/lof/LAND_VIEW=MAYBE	840c8ecd1c7e99b8
+variant/lof/LAND_VIEW=MULTI BONUS FREE	5c9eb0105b14cd62
+variant/lof/LAND_VIEW=NO_SUCH_ENSIGN	5f5d71d6d32dbb7e
+variant/lof/LAND_VIEW=NULL	ac421e19ce73e535
+variant/lof/LAND_VIEW=SINGLE	607d333abfe835f0
+variant/lof/LAND_VIEW=TUTORIAL	b23e442ef499e836
+variant/lof/LAND_VIEW=a.wav b.wav	ed0b216bf2862dc7
+variant/lof/LAND_VIEW=abc	01143ba01dbb7654
+variant/lof/LAND_VIEW=allow	02d39ae4452f338f
+variant/lof/LAND_VIEW=only_one.wav	eb8304db03db021d
+variant/lof/LAND_VIEW=xxxxxxxxxxxx...(300 chars)	d2415948e088b7a0
+variant/lof/LAND_VIEW=yyyyyyyyyyyy...(1100 chars)	13524ed8f69c66e0
+variant/lof/MAPSIZE=	e86123a175b48c20
+variant/lof/MAPSIZE=   padded   	e86123a175b48c20
+variant/lof/MAPSIZE=-1	e86123a175b48c20
+variant/lof/MAPSIZE=-3 4	bd71ccf848177d31
+variant/lof/MAPSIZE=0	e86123a175b48c20
+variant/lof/MAPSIZE=0 5	ea38b4c17b390870
+variant/lof/MAPSIZE=1	5144fd42b48ea8f4
+variant/lof/MAPSIZE=12 34	88b3e23844ac8bae
+variant/lof/MAPSIZE=12abc	034af36cae0a2819
+variant/lof/MAPSIZE=300 400 500	c0ddf3546098581c
+variant/lof/MAPSIZE=7	8c686a076207abb2
+variant/lof/MAPSIZE=EXTRA	e86123a175b48c20
+variant/lof/MAPSIZE=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/MAPSIZE=LOCKED	e86123a175b48c20
+variant/lof/MAPSIZE=Level Name With Spaces	e86123a175b48c20
+variant/lof/MAPSIZE=MAYBE	e86123a175b48c20
+variant/lof/MAPSIZE=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/MAPSIZE=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/MAPSIZE=NULL	e86123a175b48c20
+variant/lof/MAPSIZE=SINGLE	e86123a175b48c20
+variant/lof/MAPSIZE=TUTORIAL	e86123a175b48c20
+variant/lof/MAPSIZE=a.wav b.wav	e86123a175b48c20
+variant/lof/MAPSIZE=abc	e86123a175b48c20
+variant/lof/MAPSIZE=allow	e86123a175b48c20
+variant/lof/MAPSIZE=only_one.wav	e86123a175b48c20
+variant/lof/MAPSIZE=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/MAPSIZE=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=   padded   	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=-1	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=-3 4	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=0	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=0 5	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=1	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=12 34	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=12abc	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=300 400 500	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=7	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=EXTRA	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=LOCKED	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=Level Name With Spaces	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=MAYBE	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=NULL	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=SINGLE	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=TUTORIAL	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=a.wav b.wav	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=abc	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=allow	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=only_one.wav	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/MAP_FORMAT_VERSION=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/NAME_ID=	e86123a175b48c20
+variant/lof/NAME_ID=   padded   	e86123a175b48c20
+variant/lof/NAME_ID=-1	e86123a175b48c20
+variant/lof/NAME_ID=-3 4	e86123a175b48c20
+variant/lof/NAME_ID=0	e86123a175b48c20
+variant/lof/NAME_ID=0 5	e86123a175b48c20
+variant/lof/NAME_ID=1	b891042b17d4e841
+variant/lof/NAME_ID=12 34	6fa23a4b61e02a6c
+variant/lof/NAME_ID=12abc	6fa23a4b61e02a6c
+variant/lof/NAME_ID=300 400 500	82d27d36b1da94b7
+variant/lof/NAME_ID=7	0c3ca65469711e47
+variant/lof/NAME_ID=EXTRA	e86123a175b48c20
+variant/lof/NAME_ID=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/NAME_ID=LOCKED	e86123a175b48c20
+variant/lof/NAME_ID=Level Name With Spaces	e86123a175b48c20
+variant/lof/NAME_ID=MAYBE	e86123a175b48c20
+variant/lof/NAME_ID=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/NAME_ID=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/NAME_ID=NULL	e86123a175b48c20
+variant/lof/NAME_ID=SINGLE	e86123a175b48c20
+variant/lof/NAME_ID=TUTORIAL	e86123a175b48c20
+variant/lof/NAME_ID=a.wav b.wav	e86123a175b48c20
+variant/lof/NAME_ID=abc	e86123a175b48c20
+variant/lof/NAME_ID=allow	e86123a175b48c20
+variant/lof/NAME_ID=only_one.wav	e86123a175b48c20
+variant/lof/NAME_ID=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/NAME_ID=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/NAME_TEXT=	e86123a175b48c20
+variant/lof/NAME_TEXT=   padded   	ed9de5158bd3707a
+variant/lof/NAME_TEXT=-1	eb68f43f9f7e371a
+variant/lof/NAME_TEXT=-3 4	0422475aa15d255c
+variant/lof/NAME_TEXT=0	1364bc8575b95e50
+variant/lof/NAME_TEXT=0 5	dae500d582d0908d
+variant/lof/NAME_TEXT=1	b660bc0dbea3d0f1
+variant/lof/NAME_TEXT=12 34	d7eb67e7ce4e1552
+variant/lof/NAME_TEXT=12abc	7550f83aaec0404f
+variant/lof/NAME_TEXT=300 400 500	0705885cc0df88b2
+variant/lof/NAME_TEXT=7	f2c487c0f76559b7
+variant/lof/NAME_TEXT=EXTRA	7c51bfe4f7f56ad6
+variant/lof/NAME_TEXT=GUI_NO_SUCH_ALIAS	6a00e263726152e4
+variant/lof/NAME_TEXT=LOCKED	b5b417ef10e06986
+variant/lof/NAME_TEXT=Level Name With Spaces	9d2eaea2a33e7dd2
+variant/lof/NAME_TEXT=MAYBE	4b3c32afdc71edb8
+variant/lof/NAME_TEXT=MULTI BONUS FREE	9d75bc6cc1f68724
+variant/lof/NAME_TEXT=NO_SUCH_ENSIGN	d76832e083d3c67e
+variant/lof/NAME_TEXT=NULL	6db6a67901228db5
+variant/lof/NAME_TEXT=SINGLE	3d472edf8070edf0
+variant/lof/NAME_TEXT=TUTORIAL	3e03e0b69bcb3736
+variant/lof/NAME_TEXT=a.wav b.wav	1d0a1b27f29144b7
+variant/lof/NAME_TEXT=abc	e584ebbbf7a8cc54
+variant/lof/NAME_TEXT=allow	0ae8730625c3590f
+variant/lof/NAME_TEXT=only_one.wav	dfddf187c001b89d
+variant/lof/NAME_TEXT=xxxxxxxxxxxx...(300 chars)	7acf83220c7058e8
+variant/lof/NAME_TEXT=yyyyyyyyyyyy...(1100 chars)	a8e0b95da4c580fb
+variant/lof/NOTAKEY=	d4db9893bffa9562
+variant/lof/NOTAKEY=   padded   	d4db9893bffa9562
+variant/lof/NOTAKEY=-1	d4db9893bffa9562
+variant/lof/NOTAKEY=-3 4	d4db9893bffa9562
+variant/lof/NOTAKEY=0	d4db9893bffa9562
+variant/lof/NOTAKEY=0 5	d4db9893bffa9562
+variant/lof/NOTAKEY=1	d4db9893bffa9562
+variant/lof/NOTAKEY=12 34	d4db9893bffa9562
+variant/lof/NOTAKEY=12abc	d4db9893bffa9562
+variant/lof/NOTAKEY=300 400 500	d4db9893bffa9562
+variant/lof/NOTAKEY=7	d4db9893bffa9562
+variant/lof/NOTAKEY=EXTRA	d4db9893bffa9562
+variant/lof/NOTAKEY=GUI_NO_SUCH_ALIAS	d4db9893bffa9562
+variant/lof/NOTAKEY=LOCKED	d4db9893bffa9562
+variant/lof/NOTAKEY=Level Name With Spaces	d4db9893bffa9562
+variant/lof/NOTAKEY=MAYBE	d4db9893bffa9562
+variant/lof/NOTAKEY=MULTI BONUS FREE	d4db9893bffa9562
+variant/lof/NOTAKEY=NO_SUCH_ENSIGN	d4db9893bffa9562
+variant/lof/NOTAKEY=NULL	d4db9893bffa9562
+variant/lof/NOTAKEY=SINGLE	d4db9893bffa9562
+variant/lof/NOTAKEY=TUTORIAL	d4db9893bffa9562
+variant/lof/NOTAKEY=a.wav b.wav	d4db9893bffa9562
+variant/lof/NOTAKEY=abc	d4db9893bffa9562
+variant/lof/NOTAKEY=allow	d4db9893bffa9562
+variant/lof/NOTAKEY=only_one.wav	d4db9893bffa9562
+variant/lof/NOTAKEY=xxxxxxxxxxxx...(300 chars)	d4db9893bffa9562
+variant/lof/NOTAKEY=yyyyyyyyyyyy...(1100 chars)	d4db9893bffa9562
+variant/lof/OPTIONS=	e86123a175b48c20
+variant/lof/OPTIONS=   padded   	ee9367b47170ca67
+variant/lof/OPTIONS=-1	4648a932bcd4b43a
+variant/lof/OPTIONS=-3 4	c692914e80b6fd9f
+variant/lof/OPTIONS=0	b25b4e0d697a9ae4
+variant/lof/OPTIONS=0 5	b25b4e0d697a9ae4
+variant/lof/OPTIONS=1	2ecdb6e728872e95
+variant/lof/OPTIONS=12 34	e6e75b9130df7ddc
+variant/lof/OPTIONS=12abc	f42caa2b1b72f62f
+variant/lof/OPTIONS=300 400 500	59d899702e499c63
+variant/lof/OPTIONS=7	adab89e428fd98a1
+variant/lof/OPTIONS=EXTRA	0d1a2f76fd80d953
+variant/lof/OPTIONS=GUI_NO_SUCH_ALIAS	3741765dba6200e8
+variant/lof/OPTIONS=LOCKED	9afb7eaf7c137842
+variant/lof/OPTIONS=Level Name With Spaces	49b6f66a2c71ed8f
+variant/lof/OPTIONS=MAYBE	de4f7471f71d664e
+variant/lof/OPTIONS=MULTI BONUS FREE	da083534d4a48c1e
+variant/lof/OPTIONS=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/OPTIONS=NULL	8481874c6e7f0a0b
+variant/lof/OPTIONS=SINGLE	dac35e0b4d4e8f2a
+variant/lof/OPTIONS=TUTORIAL	76a64f01e755e522
+variant/lof/OPTIONS=a.wav b.wav	857b8fe25d818c29
+variant/lof/OPTIONS=abc	2db44f4cf4ae1833
+variant/lof/OPTIONS=allow	2f932e925cd7d7ca
+variant/lof/OPTIONS=only_one.wav	ba9d43e146a19405
+variant/lof/OPTIONS=xxxxxxxxxxxx...(300 chars)	d204f56da251bbb8
+variant/lof/OPTIONS=yyyyyyyyyyyy...(1100 chars)	1ccbb7098d5dd2d7
+variant/lof/PLAYERS=	e86123a175b48c20
+variant/lof/PLAYERS=   padded   	e86123a175b48c20
+variant/lof/PLAYERS=-1	e86123a175b48c20
+variant/lof/PLAYERS=-3 4	e86123a175b48c20
+variant/lof/PLAYERS=0	e86123a175b48c20
+variant/lof/PLAYERS=0 5	e86123a175b48c20
+variant/lof/PLAYERS=1	e86123a175b48c20
+variant/lof/PLAYERS=12 34	55aef8827addf7ad
+variant/lof/PLAYERS=12abc	55aef8827addf7ad
+variant/lof/PLAYERS=300 400 500	c10fe7671729fa96
+variant/lof/PLAYERS=7	68b58a6d50047466
+variant/lof/PLAYERS=EXTRA	e86123a175b48c20
+variant/lof/PLAYERS=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/PLAYERS=LOCKED	e86123a175b48c20
+variant/lof/PLAYERS=Level Name With Spaces	e86123a175b48c20
+variant/lof/PLAYERS=MAYBE	e86123a175b48c20
+variant/lof/PLAYERS=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/PLAYERS=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/PLAYERS=NULL	e86123a175b48c20
+variant/lof/PLAYERS=SINGLE	e86123a175b48c20
+variant/lof/PLAYERS=TUTORIAL	e86123a175b48c20
+variant/lof/PLAYERS=a.wav b.wav	e86123a175b48c20
+variant/lof/PLAYERS=abc	e86123a175b48c20
+variant/lof/PLAYERS=allow	e86123a175b48c20
+variant/lof/PLAYERS=only_one.wav	e86123a175b48c20
+variant/lof/PLAYERS=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/PLAYERS=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=   padded   	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=-1	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=-3 4	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=0	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=0 5	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=1	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=12 34	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=12abc	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=300 400 500	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=7	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=EXTRA	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=GUI_NO_SUCH_ALIAS	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=LOCKED	96e1d2621538b962
+variant/lof/SKIRMISH_SETUP=Level Name With Spaces	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=MAYBE	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=MULTI BONUS FREE	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=NO_SUCH_ENSIGN	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=NULL	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=SINGLE	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=TUTORIAL	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=a.wav b.wav	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=abc	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=allow	3fa17b01c576a2c1
+variant/lof/SKIRMISH_SETUP=only_one.wav	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=xxxxxxxxxxxx...(300 chars)	e86123a175b48c20
+variant/lof/SKIRMISH_SETUP=yyyyyyyyyyyy...(1100 chars)	e86123a175b48c20
+variant/lof/SPEECH=	e86123a175b48c20
+variant/lof/SPEECH=   padded   	75fedbb4727cf69a
+variant/lof/SPEECH=-1	b2769090667c9d1a
+variant/lof/SPEECH=-3 4	161d13c5788cba94
+variant/lof/SPEECH=0	8d3db1223b02ce50
+variant/lof/SPEECH=0 5	96b46e1aab634d85
+variant/lof/SPEECH=1	b7d73ff45041d7f1
+variant/lof/SPEECH=12 34	48751b6d870b6260
+variant/lof/SPEECH=12abc	82691a067280714f
+variant/lof/SPEECH=300 400 500	57958d762bdd3387
+variant/lof/SPEECH=7	e4ffed13f05a32b7
+variant/lof/SPEECH=EXTRA	60cf57b27c6c6cd6
+variant/lof/SPEECH=GUI_NO_SUCH_ALIAS	685ab1511ad676e4
+variant/lof/SPEECH=LOCKED	4101b2b5fb749b86
+variant/lof/SPEECH=Level Name With Spaces	46acb027e4105a89
+variant/lof/SPEECH=MAYBE	c7d44002ac9145b8
+variant/lof/SPEECH=MULTI BONUS FREE	917ca711e39b4462
+variant/lof/SPEECH=NO_SUCH_ENSIGN	ec86f03e9996307e
+variant/lof/SPEECH=NULL	b5ea892efb1778b5
+variant/lof/SPEECH=SINGLE	c2c3959632237df0
+variant/lof/SPEECH=TUTORIAL	58f995607cc51936
+variant/lof/SPEECH=a.wav b.wav	00aa26e735498047
+variant/lof/SPEECH=abc	c6a417c2cc4b2054
+variant/lof/SPEECH=allow	7bf51c2fe5e24a0f
+variant/lof/SPEECH=only_one.wav	fab90b9bc0900b9d
+variant/lof/SPEECH=xxxxxxxxxxxx...(300 chars)	947d687feb1e77a0
+variant/lof/SPEECH=yyyyyyyyyyyy...(1100 chars)	6dfbdc12999cc6e0
+variant/lof/sequence	c5fb74caabacac3c

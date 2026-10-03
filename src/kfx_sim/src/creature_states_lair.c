@@ -46,6 +46,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -503,14 +504,11 @@ int64_t creature_going_home_to_sleep(struct Thing *thing)
 
 int64_t room_has_slab_adjacent(const struct Room *room, int64_t slbkind)
 {
-    uint64_t k = 0;
-    int64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk(room))
     {
-        // Per room tile code
         for (int64_t n = 0; n < AROUND_SLAB_LENGTH; n++)
         {
-            int64_t slab_num = i + kfx_sim_state.around_slab[n];
+            int64_t slab_num = slb_num + kfx_sim_state.around_slab[n];
             struct SlabMap* slb = get_slabmap_direct(slab_num);
             if (!slabmap_block_invalid(slb))
             {
@@ -518,14 +516,6 @@ int64_t room_has_slab_adjacent(const struct Room *room, int64_t slbkind)
                     return true;
                 }
             }
-        }
-        // Per room tile code ends
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > room->slabs_count)
-        {
-            ERRORLOG("Room slabs list length exceeded when sweeping");
-            break;
         }
     }
     return 0;

@@ -31,8 +31,6 @@ void api_seat_finish_view(VALUE *view, PlayerNumber plyr_idx, TbBool want_diff, 
 
 /** Diff of two arbitrary view trees, as described above. `out` must be an initialised dict. Exposed for tests. */
 void api_seat_diff_values(VALUE *out, const VALUE *prev, const VALUE *cur);
-/** Deep copy. Exposed for tests. */
-void api_seat_clone_value(VALUE *dst, const VALUE *src);
 /** Forgets every baseline (a new game). */
 void api_seat_diff_reset(void);
 

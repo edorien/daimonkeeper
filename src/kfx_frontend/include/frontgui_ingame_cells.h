@@ -53,9 +53,6 @@ void blit_fit_tex(ImDrawList *dl, void *tex, int64_t w, int64_t h, const ImVec2 
 // UI font (a real vector face, crisp at any requested px).
 void draw_big_glyph(ImDrawList *dl, const ImVec2 &p0, const ImVec2 &sz, const char *g, uint64_t col);
 
-// A word-wrapped tooltip (creature stat / instance descriptions are long
-// sentences that otherwise run off the screen edge).
-void wrapped_tooltip(const char *s);
 
 // §6 -- the shared interactive-cell skeleton behind build_icon/sell_icon/
 // unknown_cell/cell_button/instance_cell/stat_cell:

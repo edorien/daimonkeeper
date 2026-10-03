@@ -252,13 +252,6 @@ void frontnet_draw_net_session_players(struct GuiButton *gbtn)
     }
 }
 
-void frontnet_session_add(struct GuiButton *gbtn)
-{
-    turn_on_menu(GMnu_FEADD_SESSION);
-    //TODO NET When clicked, it should display a modal text field (for IP address) and OK/Cancel buttons.
-    set_menu_visible_on(GMnu_FEADD_SESSION);
-}
-
 /** frontnet_session_join's actual work, minus the state-transition call
  * itself: returns the FrontendMenuState to transition to (int, -1 =
  * nothing to do / join failed). Split out so the ImGui screen can request

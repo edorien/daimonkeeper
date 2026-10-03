@@ -3,6 +3,7 @@
 
 #include "frontgui_widgets.h"
 #include "frontgui_style.h"
+#include "frontgui_sprite_tex.h" // FeGuiPanelTexture / FeGuiPanelSpriteAvailable
 #include "config_keeperfx.h" // ingame_gui_use_classic_hud
 
 #include "globals.h"
@@ -10,7 +11,10 @@
 #include "front_input.h"           // update_time
 #include "player_data.h"           // get_my_player, my_player_number
 #include "dungeon_data.h"          // get_dungeon, turn_timers
-#include "lvl_script_conditions.h" // get_condition_value
+#include "lvl_script.h"            // struct ScriptVariableDetails
+#include "lvl_script_conditions.h" // get_condition_details
+#include "sprites.h"               // GPS_message_rpanel_msg_blank_std
+#include "bflib_video.h"           // units_per_pixel (get_condition_details' icon offsets)
 #include "game_merge.h"            // GGUI_ScriptTimer, game_flags2
 #include "kfx_game_state.h"        // kfx_game_state.script_*/timer_real/bonus_time/flags_gui
 #include "kfx_sim_state.h"         // kfx_sim_state.Timer / TimerGame / turns_per_second / armageddon_cast_turn
@@ -98,27 +102,98 @@ bool script_timer_line(char *buf, size_t n)
     return true;
 }
 
-bool script_variable_line(char *buf, size_t n)
+} // namespace
+
+int64_t script_variable_rows(struct ScriptVariableRow *rows, int64_t max)
 {
     if (!display_variable_enabled())
-        return false;
-    if (kfx_game_state.active_script_var_count == 0)
-        return false;
-    const struct ScriptVariable *scvar = &kfx_game_state.script_variables[0];
-    int64_t value = get_condition_value(scvar->variable_player,
-                                     scvar->value_type,
-                                     scvar->value_id);
-    const int64_t target = scvar->variable_target;
-    const unsigned char tt = scvar->variable_target_type;
-    if (target != 0)
+        return 0;
+    int64_t n = 0;
+    // get_condition_details() gives the icon offsets in screen pixels for a tile 22 units high, drawn 2.5 lower
+    const double tile_px = 22.0 * (double)units_per_pixel / 16.0;
+    for (int64_t i = 0; (i < kfx_game_state.active_script_var_count) && (n < max); i++)
     {
-        if (tt == 0 || tt == 2) value = target - value;
-        else if (tt == 1)       value = ((~target) + 1) + value;
+        const struct ScriptVariable *scvar = &kfx_game_state.script_variables[i];
+        if (!scvar->is_active)
+            continue;
+        const struct ScriptVariableDetails details = get_condition_details(scvar->variable_player, scvar->value_type,
+            scvar->value_id);
+        int64_t value = details.value;
+        const int64_t target = scvar->variable_target;
+        const unsigned char tt = scvar->variable_target_type;
+        if (target != 0)
+        {
+            if (tt == 0 || tt == 2) value = target - value;
+            else if (tt == 1)       value = ((~target) + 1) + value;
+        }
+        if (tt != 2 && value < 0)
+            value = 0;
+        struct ScriptVariableRow *r = &rows[n++];
+        std::snprintf(r->text, sizeof(r->text), "%" PRId64, (int64_t)(value));
+        r->icon = -1;
+        r->on_tile = false;
+        r->dx = r->dy = 0.0;
+        if (!scvar->include_icon)
+            continue;
+        if (scvar->icon_idx >= 0)
+        {
+            r->icon = scvar->icon_idx;
+        }
+        else if (tile_px > 0.0)
+        {
+            r->icon = details.icon_idx;
+            r->on_tile = true;
+            r->dx = (double)details.x_offset / tile_px;
+            // upstream drew the tile at a whole-pixel 2.5 units down, the icon at its whole-pixel offset
+            r->dy = (double)(details.y_offset - (int64_t)(2.5 * (double)units_per_pixel / 16.0)) / tile_px;
+        }
     }
-    if (tt != 2 && value < 0)
-        value = 0;
-    std::snprintf(buf, n, "%" PRId64, (int64_t)(value));
+    return n;
+}
+
+namespace {
+
+// An icon `h` high (keeping the sprite's aspect), at the cursor or, with `at`, drawn there without moving it;
+// false if the sprite can't be drawn now.
+bool panel_icon(int64_t sprite, double h, const ImVec2 *at = nullptr)
+{
+    if ((sprite < 0) || !FeGuiPanelSpriteAvailable(sprite))
+        return false;
+    int64_t sw = 0, sh = 0;
+    void *tex = FeGuiPanelTexture(sprite, &sw, &sh);
+    if ((tex == nullptr) || (sw <= 0) || (sh <= 0))
+        return false;
+    const ImVec2 size(h * (double)sw / (double)sh, h);
+    if (at != nullptr)
+        ImGui::GetWindowDrawList()->AddImage((ImTextureID)(intptr_t)tex, *at, ImVec2(at->x + size.x, at->y + size.y));
+    else
+        ImGui::Image((ImTextureID)(intptr_t)tex, size);
     return true;
+}
+
+void draw_script_variable_row(const struct ScriptVariableRow &r, double icon_h)
+{
+    const ImVec2 corner = ImGui::GetCursorScreenPos();
+    bool icon_drawn = false;
+    if (r.on_tile)
+    {
+        if (panel_icon(GPS_message_rpanel_msg_blank_std, icon_h))
+        {
+            const ImVec2 at(corner.x + r.dx * icon_h, corner.y + r.dy * icon_h);
+            panel_icon(r.icon, icon_h, &at);
+            icon_drawn = true;
+        }
+    }
+    else
+    {
+        icon_drawn = panel_icon(r.icon, icon_h);
+    }
+    if (icon_drawn)
+    {
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+    }
+    ImGui::TextUnformatted(r.text);
 }
 
 bool game_timer_line(char *buf, size_t n)
@@ -143,18 +218,21 @@ bool game_timer_line(char *buf, size_t n)
 
 void draw_script_readouts(void)
 {
-    char bonus[32], var[32], timer[32];
+    char bonus[32], timer[32];
+    struct ScriptVariableRow vars[DISPLAY_VARIABLES_LIMIT];
     const bool has_bonus = bonus_timer_line(bonus, sizeof(bonus)) || script_timer_line(bonus, sizeof(bonus));
-    const bool has_var   = script_variable_line(var, sizeof(var));
+    const int64_t nvars  = script_variable_rows(vars, DISPLAY_VARIABLES_LIMIT);
     const bool has_timer = game_timer_line(timer, sizeof(timer));
-    if (!has_bonus && !has_var && !has_timer)
+    if (!has_bonus && (nvars == 0) && !has_timer)
         return;
 
     if (begin_corner_overlay("##ingame_script_readouts", ImVec2(1.0, 0.0)))
     {
         FeStylePushFont(FeFont_Heading);
+        const double icon_h = ImGui::GetFrameHeight();
         if (has_bonus) ImGui::TextUnformatted(bonus);
-        if (has_var)   ImGui::TextUnformatted(var);
+        for (int64_t i = 0; i < nvars; i++)
+            draw_script_variable_row(vars[i], icon_h);
         if (has_timer) ImGui::TextUnformatted(timer);
         FeStylePopFont();
     }

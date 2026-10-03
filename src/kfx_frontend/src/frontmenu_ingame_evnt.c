@@ -29,6 +29,7 @@
 #include "bflib_enet.h"
 #include "custom_sprites.h"
 #include "player_data.h"
+#include "player_colours.h"
 #include "config_players.h"
 #include "player_utils.h"
 #include "dungeon_data.h"
@@ -61,6 +62,80 @@ int64_t battle_creature_over;
 // docs/refactor/stage-10-kfx-frontend.md).
 unsigned char my_event_button_state[EVENTS_COUNT];
 int64_t debug_display_network_stats = 0;
+
+/******************************************************************************/
+/* The battle panel's lists of each visible battle's fighters, and their upkeep. Moved from kfx_sim's
+ * creature_battle.c in refactor pass 4 (S08): only the panel reads them, and only the frontend called
+ * maintain_my_battle_list(). */
+int64_t friendly_battler_list[3*MESSAGE_BATTLERS_COUNT];
+int64_t enemy_battler_list[3*MESSAGE_BATTLERS_COUNT];
+
+static int64_t setup_my_battlers(unsigned char battle_idx, int64_t *friendly_battlers, int64_t *enemy_battlers)
+{
+    // Clear the battlers
+    clear_battlers(friendly_battlers, enemy_battlers);
+    // And fill them with new data
+    struct PlayerInfo* player = get_my_player();
+    struct CreatureBattle* battle = creature_battle_get(battle_idx);
+    if (creature_battle_invalid(battle)) {
+        ERRORLOG("Invalid battle %" PRId64,(int64_t)battle_idx);
+        return 0;
+    }
+    return setup_player_battlers(player, battle, friendly_battlers, enemy_battlers);
+}
+
+void maintain_my_battle_list(void)
+{
+    int64_t i;
+    // Find battle index
+    struct PlayerInfo* player = get_my_player();
+    struct Dungeon* dungeon = get_players_dungeon(player);
+    BattleIndex battle_id = 0;
+    for (i=0; i < 3; i++)
+    {
+        struct CreatureBattle* battle = creature_battle_get(dungeon->visible_battles[i]);
+        if (battle->fighters_num > 0) {
+            battle_id = dungeon->visible_battles[i];
+        } else {
+            dungeon->visible_battles[i] = 0;
+        }
+    }
+    // Move array items down to make sure empty slots are at end
+    for (i=0; i < 2; i++)
+    {
+      if (dungeon->visible_battles[i] <= 0)
+      {
+          // Got empty spot - fill it with first non-empty item
+          for (int64_t n = i + 1; n < 3; n++)
+          {
+              if (dungeon->visible_battles[n] > 0)
+              {
+                  dungeon->visible_battles[i] = dungeon->visible_battles[n];
+                  dungeon->visible_battles[n] = 0;
+                  break;
+              }
+          }
+      }
+    }
+    // Find battles to fill empty slots
+    for (i=0; i < 3; i++)
+    {
+      if (dungeon->visible_battles[i] <= 0)
+      {
+          battle_id = find_next_battle_of_mine_excluding_current_list(player->id_number, battle_id);
+          if (battle_id > 0) {
+              dungeon->visible_battles[i] = battle_id;
+          }
+      }
+    }
+    for (i=0; i < 3; i++)
+    {
+        battle_id = dungeon->visible_battles[i];
+        if (battle_id > 0) {
+            setup_my_battlers(dungeon->visible_battles[i], &friendly_battler_list[MESSAGE_BATTLERS_COUNT*i], &enemy_battler_list[MESSAGE_BATTLERS_COUNT*i]);
+        }
+    }
+}
 
 /******************************************************************************/
 EventIndex get_my_event_button_index(uint64_t button_idx)
@@ -679,130 +754,6 @@ void draw_script_timer(PlayerNumber plyr_idx, unsigned char timer_id, uint64_t l
 TbBool display_variable_enabled(void)
 {
   return ((kfx_game_state.flags_gui & GGUI_Variable) != 0);
-}
-
-void draw_script_variable_list(void)
-{
-    LbTextSetFont(winfont);    
-    int64_t valid_vars = 0;
-
-    for (int64_t i = 0; i < kfx_game_state.active_script_var_count; i++)
-    {
-        if (kfx_game_state.script_variables[i].is_active)
-            valid_vars++;
-    }
-    if(valid_vars > 0){
-        int64_t h = LbTextLineHeight();
-        int64_t row_height = h * units_per_pixel / 16;
-        
-        int64_t width = 10 * (LbTextCharWidth('0') * units_per_pixel / 16);
-        int64_t height = row_height + (row_height) / 2;
-        if (MyScreenHeight < 400)
-        {
-            height *= 2;
-            width *= 2;
-            if (dbc_initialized && dbc_enabled)
-            {
-                width += (width / 3);
-            }
-        }
-        RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
-        int64_t scr_x = MyScreenWidth - width - 16 * units_per_pixel / 16;
-        int64_t scr_y = 16 * units_per_pixel / 16;
-        if (kfx_sim_state.armageddon_cast_turn != 0)
-        {
-            struct GuiMenu *gmnu = get_active_menu(menu_id_to_number(GMnu_MAIN));
-            scr_x = (gmnu->width + (width >> 1) - 16 * units_per_pixel / 16);
-            if ( (bonus_timer_enabled()) || (script_timer_enabled()) )
-            {
-                scr_x += ((width + (width >> 1)) - 16 * units_per_pixel / 16);
-            }
-        }
-        else if ( (bonus_timer_enabled()) || (script_timer_enabled()) )
-        {
-            scr_x -= ((width + (width >> 1)) - 16 * units_per_pixel / 16);
-        }
-        int64_t padding = 8 * units_per_pixel / 16;
-        height += row_height*(valid_vars-1);
-        draw_round_slab64k(scr_x, scr_y, units_per_pixel, width, height + padding, ROUNDSLAB64K_DARK);
-    
-        scr_y += padding;
-        width -= 4 * units_per_pixel / 16;    
-        LbTextSetWindow(scr_x, scr_y, width, height);  
-        // draw_slab64k(scr_x, scr_y, units_per_pixel, width, height);
-        int64_t y;
-        int64_t tx_units_per_px;
-                
-        if ( (dbc_initialized && dbc_enabled) && (MyScreenWidth > 1280) )
-        {
-            tx_units_per_px = scale_ui_value(16 - (MyScreenWidth / 640));
-            y = height / 4;
-        }
-        else
-        {
-            tx_units_per_px = ( (MyScreenHeight < 400) && (dbc_initialized && dbc_enabled) ) ? scale_ui_value(32) : (22 * units_per_pixel) / LbTextLineHeight();
-            y = 0;
-        }
-        for (int64_t i = 0; i < kfx_game_state.active_script_var_count; i++)
-        {
-            struct ScriptVariable scval = kfx_game_state.script_variables[i];
-            int64_t sprite_x = scr_x + 4 * units_per_pixel / 16;
-            int64_t sprite_y = scr_y;
-
-            struct ScriptVariableDetails details = get_condition_details(scval.variable_player, scval.value_type, scval.value_id);
-        
-            int64_t icon_idx = scval.icon_idx;
-            if(scval.include_icon && icon_idx < 0)
-                icon_idx = details.icon_idx;
-            if (scval.variable_target != 0)
-            {
-                if ((scval.variable_target_type == 0) || (scval.variable_target_type == 2) )
-                {
-                    details.value = scval.variable_target - details.value;
-                }
-                else if (scval.variable_target_type == 1)
-                {
-                    details.value = ((~scval.variable_target)+1) + details.value;
-                }
-            }
-            if (scval.variable_target_type != 2)
-            {
-                if (details.value < 0)
-                {
-                    details.value = 0;
-                }
-            }
-            char value_text[32];
-            snprintf(value_text, sizeof(value_text), "%" PRId64, (int64_t)(details.value));
-
-            if ((icon_idx > -1 && scval.include_icon)) {
-                RendererSetDrawFlags(Lb_TEXT_HALIGN_RIGHT);          
-                LbTextDrawResized(4, y, tx_units_per_px, value_text);
-            } else {                
-                RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);          
-                LbTextDrawResized(0, y, tx_units_per_px, value_text);
-            }
-            if(icon_idx > -1 && scval.include_icon){
-                const struct TbSprite* spr;
-                int64_t ps_units_per_px = 0;
-                if(scval.icon_idx == -1){
-                    spr = get_panel_sprite(GPS_message_rpanel_msg_blank_std);                
-                    ps_units_per_px = (22 * units_per_pixel) / spr->SHeight;
-                    LbSpriteDrawResized(sprite_x, sprite_y + (2.5 * units_per_pixel / 16), ps_units_per_px, spr);
-                }
-                sprite_x += details.x_offset;                
-                sprite_y += details.y_offset;
-                spr = get_panel_sprite(icon_idx);
-                ps_units_per_px = (22 * units_per_pixel) / spr->SHeight;
-                LbSpriteDrawResized(sprite_x, sprite_y, ps_units_per_px, spr);
-            }            
-            y += row_height;
-            scr_y += row_height;
-        
-        }
-    }
-
-    LbTextSetWindow(0/pixel_size, 0/pixel_size, MyScreenWidth/pixel_size, MyScreenHeight/pixel_size);
 }
 
 void draw_script_variable(PlayerNumber plyr_idx, unsigned char valtype, unsigned char validx, int64_t target, unsigned char targettype)

@@ -47,6 +47,7 @@
 #include "kfx_sim_state.h"
 #include "ports/script_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -123,13 +124,10 @@ void person_search_for_food_again(struct Thing *creatng, struct Room *room)
 {
     int64_t near_food_dist = INT32_MAX;
     struct Thing* near_food_tng = INVALID_THING;
-    uint64_t k = 0;
-    uint64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk(room))
     {
-        MapSlabCoord slb_x = slb_num_decode_x(i);
-        MapSlabCoord slb_y = slb_num_decode_y(i);
-        // Per-slab code
+        MapSlabCoord slb_x = slb_num_decode_x(slb_num);
+        MapSlabCoord slb_y = slb_num_decode_y(slb_num);
         for (int64_t n = 0; n < 9; n++)
         {
             MapSubtlCoord x = slab_subtile(slb_x, n % 3);
@@ -144,14 +142,6 @@ void person_search_for_food_again(struct Thing *creatng, struct Room *room)
                     near_food_tng = thing;
                 }
             }
-        }
-        // Per-slab code ends
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > room->slabs_count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
         }
     }
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);

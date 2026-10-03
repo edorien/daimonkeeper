@@ -92,12 +92,7 @@ struct ManagedSetupValues
     std::vector<WinLoseRule> rules;
 };
 
-// Script command name / NamedCommand table for one availability kind, and
-// the item-name lookups the grid UI needs (tables are NULL-terminated,
-// dynamically filled from config at load time).
-const char *script_setup_availability_command_name(int64_t kind);
 const struct NamedCommand *script_setup_availability_desc(int64_t kind);
-const char *script_setup_availability_item_name(int64_t kind, int64_t item);
 
 // Finds the entry for exactly (kind, player, item), or nullptr.
 AvailabilityEntry *script_setup_availability_find(ManagedSetupValues &values, int64_t kind, int64_t player, int64_t item);

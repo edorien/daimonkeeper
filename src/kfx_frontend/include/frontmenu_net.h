@@ -97,7 +97,6 @@ void frontnet_players_down(struct GuiButton *gbtn);
 void frontnet_players_down_maintain(struct GuiButton *gbtn);
 void frontnet_draw_players_scroll_tab(struct GuiButton *gbtn);
 void frontnet_draw_net_session_players(struct GuiButton *gbtn);
-void frontnet_session_add(struct GuiButton *gbtn);
 // _resolve()/by-index siblings below return the FrontendMenuState to
 // transition to (int, -1 = nothing to do), for the ImGui screen to
 // request itself -- see frontnet_session_join_resolve's comment

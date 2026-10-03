@@ -47,6 +47,7 @@
 #include "custom_sprites.h"
 
 #include "kfx_frontend_state.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -74,27 +75,10 @@ int64_t calculate_efficiency(PlayerNumber plyr_idx)
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     for (int64_t rkind = 1; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
-        int64_t i = dungeon->room_list_start[rkind];
-        uint64_t k = 0;
-        while (i != 0)
+        FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
         {
-            struct Room* room = room_get(i);
-            if (room_is_invalid(room))
-            {
-                ERRORLOG("Jump to invalid room detected");
-                break;
-            }
-            i = room->next_of_owner;
-            // Per-room code
             count++;
             efficiency += room->efficiency;
-            // Per-room code ends
-            k++;
-            if (k > ROOMS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping rooms list");
-                break;
-            }
         }
     }
     if (count < 1)
@@ -108,26 +92,9 @@ int64_t calculate_style(int64_t plyr_idx)
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
     for (int64_t rkind = 1; rkind < kfx_config_state.conf.slab_conf.room_types_count; rkind++)
     {
-        int64_t i = dungeon->room_list_start[rkind];
-        uint64_t k = 0;
-        while (i != 0)
+        FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
         {
-            struct Room* room = room_get(i);
-            if (room_is_invalid(room))
-            {
-              ERRORLOG("Jump to invalid room detected");
-              break;
-            }
-            i = room->next_of_owner;
-            // Per-room code
             area += room->slabs_count;
-            // Per-room code ends
-            k++;
-            if (k > ROOMS_COUNT)
-            {
-              ERRORLOG("Infinite loop detected when sweeping rooms list");
-              break;
-            }
         }
     }
     int64_t half_area = (dungeon->total_area >> 1);

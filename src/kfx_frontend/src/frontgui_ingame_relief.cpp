@@ -132,18 +132,13 @@ void bevel(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b, double width, bool 
     }
 }
 
+static void mottle(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b);
+
 void face(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b)
 {
     const Tones &T = tones();
     fill_grad(dl, a, b, T.plateau_top, T.plateau_bot, 0.0);
     mottle(dl, a, b);
-}
-
-void plateau(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b, double rounding)
-{
-    const Tones &T = tones();
-    fill_grad(dl, a, b, T.plateau_top, T.plateau_bot, rounding);
-    bevel(dl, a, b, 2.0, true, rounding);
 }
 
 void well(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b, double rounding)
@@ -174,18 +169,6 @@ void well_tri(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b, const ImVec2 &c)
                                   : ImGui::GetColorU32(T.hi, 0.85), 1.5);
     };
     edge(a, b); edge(b, c); edge(c, a);
-}
-
-void boss(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b, double lit, double rounding, bool omit_bottom)
-{
-    const Tones &T = tones();
-    if (!omit_bottom)
-        dl->AddRectFilled(ImVec2(a.x + 1.5, a.y + 2.5), ImVec2(b.x + 1.5, b.y + 2.5),
-                          IM_COL32(0, 0, 0, 70), rounding);
-    const double k = (lit < 0.0) ? 0.0 : (lit > 1.0 ? 1.0 : lit);
-    const ImU32 crown = (k > 0.0) ? col_lerp(T.plateau_top, T.crown_lit, k) : T.plateau_top;
-    fill_grad(dl, a, b, crown, T.base, rounding);
-    bevel(dl, a, b, 2.0, true, rounding, omit_bottom);
 }
 
 void groove_h(ImDrawList *dl, double x0, double x1, double y)
@@ -246,7 +229,10 @@ void edge_frame(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b)
     bevel(dl, a, b, 3.0, true, 0.0);
 }
 
-void mottle(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b)
+// One faint static mottle pass over a rect. Fixed seed -> identical
+// between runs; the fleck grid walks the rect, so it re-lays on a
+// resolution / layout change (accepted, 09 §5).
+static void mottle(ImDrawList *dl, const ImVec2 &a, const ImVec2 &b)
 {
     const Tones &T = tones();
     const double x0 = a.x + 2.0, y0 = a.y + 2.0;

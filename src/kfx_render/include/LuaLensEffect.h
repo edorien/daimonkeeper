@@ -67,9 +67,6 @@ public:
     
     // LUA integration
     void SetDrawCallback(int64_t lua_ref);
-    void SetConfig(const LuaLensConfig& config);
-    void SetParameter(const std::string& name, double value);
-    double GetParameter(const std::string& name) const;
     
     const std::string& GetLensName() const { return m_lens_name; }
     

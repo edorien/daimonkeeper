@@ -34,6 +34,7 @@
 #include "frontend.h"
 #include "front_input.h"
 #include "player_data.h"
+#include "player_colours.h"
 #include "packet_data.h"
 #include "game_legacy.h"
 #include "creature_states.h"
@@ -55,6 +56,7 @@
 #include "local_camera.h"
 
 #include <math.h>
+#include "list_walk.h"
 #include "post_inc.h"
 
 // Local constants
@@ -262,8 +264,6 @@ static struct Coord2d thing_minimap_position(struct Thing* thing, const struct C
  */
 int64_t draw_overlay_call_to_arms(struct PlayerInfo *player, int64_t units_per_px, int64_t zoom)
 {
-    uint64_t k;
-    int64_t i;
     int64_t n;
     SYNCDBG(18,"Starting");
     struct Camera *cam = get_local_active_camera(player);
@@ -271,18 +271,8 @@ int64_t draw_overlay_call_to_arms(struct PlayerInfo *player, int64_t units_per_p
         return 0;
     n = 0;
     const struct StructureList *slist = get_list_for_thing_class(TCls_Object);
-    k = 0;
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing *thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_picked_up(thing))
         {
             if (thing->model == ObjMdl_CTAEnsign)//TODO CONFIG object model dependency, move to config
@@ -291,13 +281,6 @@ int64_t draw_overlay_call_to_arms(struct PlayerInfo *player, int64_t units_per_p
                 draw_call_to_arms_circle(thing->owner, 0, 0, pos.x.val, pos.y.val, zoom);
                 n++;
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -309,29 +292,17 @@ int64_t draw_overlay_call_to_arms(struct PlayerInfo *player, int64_t units_per_p
  * @param zoom Scale between map coordinates and minimap pixels.
  * @return Amount of traps drawn.
  */
-int64_t draw_overlay_traps(struct PlayerInfo *player, int64_t units_per_px, int64_t scaled_zoom, int64_t basic_zoom)
+static int64_t draw_overlay_traps(struct PlayerInfo *player, int64_t units_per_px, int64_t scaled_zoom, int64_t basic_zoom)
 {
-    uint64_t k;
-    int64_t i;
     int64_t n;
     SYNCDBG(18,"Starting");
     struct Camera *cam = get_local_active_camera(player);
     if (cam == NULL)
         return 0;
     n = 0;
-    k = 0;
     const struct StructureList *slist = get_list_for_thing_class(TCls_Trap);
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing *thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (player->id_number == thing->owner)
         {
             const struct Coord2d pos = thing_minimap_position(thing, cam, scaled_zoom);
@@ -370,13 +341,6 @@ int64_t draw_overlay_traps(struct PlayerInfo *player, int64_t units_per_px, int6
                 n++;
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return n;
 }
@@ -387,10 +351,8 @@ int64_t draw_overlay_traps(struct PlayerInfo *player, int64_t units_per_px, int6
  * @param zoom Zoom level of the minimap.
  * @return Amount of objects drawn.
  */
-int64_t draw_overlay_spells_and_boxes(struct PlayerInfo *player, int64_t units_per_px, int64_t scaled_zoom, int64_t basic_zoom)
+static int64_t draw_overlay_spells_and_boxes(struct PlayerInfo *player, int64_t units_per_px, int64_t scaled_zoom, int64_t basic_zoom)
 {
-    uint64_t k;
-    int64_t i;
     int64_t n;
     SYNCDBG(18,"Starting");
     struct Camera *cam = get_local_active_camera(player);
@@ -398,18 +360,8 @@ int64_t draw_overlay_spells_and_boxes(struct PlayerInfo *player, int64_t units_p
         return 0;
     n = 0;
     const struct StructureList *slist = get_list_for_thing_class(TCls_Object);
-    k = 0;
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing *thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_picked_up(thing))
         {
             if (thing_revealed(thing, player->id_number))
@@ -446,13 +398,6 @@ int64_t draw_overlay_spells_and_boxes(struct PlayerInfo *player, int64_t units_p
                     }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -504,7 +449,7 @@ int64_t draw_overlay_possessed_thing(struct PlayerInfo* player, int64_t mapos_x,
     return 1;
 }
 
-int64_t draw_overlay_creatures(struct PlayerInfo *player, int64_t units_per_px, int64_t zoom, int64_t basic_zoom)
+static int64_t draw_overlay_creatures(struct PlayerInfo *player, int64_t units_per_px, int64_t zoom, int64_t basic_zoom)
 {
     TbBool isLowRes = 0;
     if (units_per_px < 16)
@@ -512,27 +457,15 @@ int64_t draw_overlay_creatures(struct PlayerInfo *player, int64_t units_per_px, 
        isLowRes = 1;
     }
 
-    uint64_t k;
-    int64_t i;
     int64_t n;
     SYNCDBG(18,"Starting");
     struct Camera *cam = get_local_active_camera(player);
     if (cam == NULL)
         return 0;
     n = 0;
-    k = 0;
     const struct StructureList *slist = get_list_for_thing_class(TCls_Creature);
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing *thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         TbPixel col1;
         TbPixel col2;
         TbPixel col;
@@ -614,13 +547,6 @@ int64_t draw_overlay_creatures(struct PlayerInfo *player, int64_t units_per_px, 
                     panel_map_draw_creature_dot(x, y, basepos, col, basic_zoom, isLowRes);
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -939,7 +865,7 @@ static void *resize_scratch_array(void *old_ptr, size_t count, size_t elem_size)
     return calloc(count, elem_size);
 }
 
-void setup_background(int64_t units_per_px)
+static void setup_background(int64_t units_per_px)
 {
     if (MapDiagonalLength != 2*(PANEL_MAP_RADIUS*units_per_px/16))
     {

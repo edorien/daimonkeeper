@@ -993,11 +993,6 @@ int64_t LbTextCharWidth(const uint64_t chr)
     }
 }
 
-int64_t LbTextWordWidth(const char *str)
-{
-    return LbTextWordWidthM(str,16);
-}
-
 void LbTextUseByteCoding(TbBool is_enabled)
 {
     dbc_enabled = is_enabled;

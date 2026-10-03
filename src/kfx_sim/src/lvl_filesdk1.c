@@ -49,13 +49,6 @@
 extern "C" {
 #endif
 /******************************************************************************/
-/** Global storage for level file version number.
- * Note that the version number is not stored anywhere on load/save.
- * It is only valid while the level is being loaded, and cannot be used
- * during gameplay. Remember not to use it within script_process_value(),
- * or any other function used beyond first initialization of a level.
-  */
-int64_t level_file_version = 0;
 char *level_strings[STRINGS_MAX+1];
 char *level_strings_data;
 
@@ -346,12 +339,10 @@ TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
 {
     struct LevelInformation *lvinfo;
     int64_t pos;
-    char word_buf[32];
     int64_t lvnum;
     int64_t cmd_num;
     int64_t k;
     int64_t n;
-    word_buf[0] = 0;
     SYNCDBG(8,"Starting for \"%s\"",fname);
     if (buf == NULL)
         return false;
@@ -370,8 +361,9 @@ TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
     lvinfo->location = LvLc_Custom;
 
     render_load_sprites_for_multi_front(lvinfo->lvnum);
+    // The keys a campaign's [mapN] block has too are parse_level_info_key()'s (config_campaigns.c).
+    const struct LevelInfoSource src = {fname, NULL, false, true};
     pos = 0;
-#define COMMAND_TEXT(cmd_num) get_conf_parameter_text(cmpgn_map_commands,cmd_num)
     while (pos<len)
     {
         // Finding command number in this line
@@ -381,148 +373,6 @@ TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
         n = 0;
         switch (cmd_num)
         {
-        case 1: // NAME_TEXT
-            if (get_conf_parameter_whole(buf,&pos,len,lvinfo->name,LINEMSG_SIZE) <= 0)
-            {
-              WARNMSG("Couldn't read \"%s\" parameter in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-              break;
-            }
-            break;
-        case 2: // NAME_ID
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-              k = atoi(word_buf);
-              if (k > 0)
-              {
-                lvinfo->name_stridx = k;
-                n++;
-              }
-            }
-            if ((n < 1) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" number in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
-        case 3: // ENSIGN_POS
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                if (k > 0)
-                {
-                  lvinfo->ensign_x = k;
-                  n++;
-                }
-            }
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                if (k > 0)
-                {
-                  lvinfo->ensign_y = k;
-                  n++;
-                }
-            }
-            if ((n < 2) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" coordinates in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
-        case 4: // ENSIGN_ZOOM
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                if (k > 0)
-                {
-                  lvinfo->ensign_zoom_x = k;
-                  n++;
-                }
-            }
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                if (k > 0)
-                {
-                  lvinfo->ensign_zoom_y = k;
-                  n++;
-                }
-            }
-            if ((n < 2) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" coordinates in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
-        case 5: // PLAYERS
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-              k = atoi(word_buf);
-              if (k > 0)
-              {
-                lvinfo->players = k;
-                n++;
-              }
-            }
-            if ((n < 1) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" number in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
-        case 6: // ENSIGN
-            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-            {
-                k = get_id(cmpgn_map_ensign_flag_options, word_buf);
-                if (k >= 0)
-                {
-                    lvinfo->ensign_type = k;
-                }
-                else
-                {
-                    k = render_get_ensign_id(word_buf);
-
-                    if (k >= 0)
-                    {
-                        lvinfo->ensign_type = CUSTOM_ENSIGN_BASE + k;
-                    } else {
-                        WARNMSG("Invalid value '%s' for \"%s\" in '%s' file.", word_buf,
-                            COMMAND_TEXT(cmd_num), fname);
-                    }
-                }
-            }
-            break;
-        case 7: // SPEECH
-            if (get_conf_parameter_single(buf,&pos,len,lvinfo->speech_before,DISKPATH_SIZE) > 0)
-            {
-              n++;
-            }
-            if (get_conf_parameter_single(buf,&pos,len,lvinfo->speech_after,DISKPATH_SIZE) > 0)
-            {
-              n++;
-            }
-            if ((n < 2) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" file names in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
-        case 8: // LAND_VIEW
-            if (get_conf_parameter_single(buf,&pos,len,lvinfo->land_view,DISKPATH_SIZE) > 0)
-            {
-              n++;
-            }
-            if (get_conf_parameter_single(buf,&pos,len,lvinfo->land_window,DISKPATH_SIZE) > 0)
-            {
-              n++;
-            }
-            if ((n < 2) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" file names in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
         case 9: // KIND
             while ((k = recognize_conf_parameter(buf,&pos,len,cmpgn_map_cmnds_kind)) > 0)
             {
@@ -581,72 +431,21 @@ TbBool level_lof_file_parse(const char *fname, char *buf, int64_t len)
               }
             }
             break;
-        case 11: // DESCRIPTION
-            // docs/refactor/editor/05-script-and-level-settings.md -- the
-            // struct field already existed (LevelInformation::description,
-            // config_campaigns.h) but nothing populated it; AUTHOR has no
-            // equivalent field yet and stays ignored below, same as DATE/
-            // MAP_FORMAT_VERSION.
-            if (get_conf_parameter_whole(buf,&pos,len,lvinfo->description,LEVEL_DESCRIPTION_LEN) <= 0)
-            {
-              WARNMSG("Couldn't read \"%s\" parameter in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-              break;
-            }
-            break;
-        case 10: // AUTHOR
-        case 12: // DATE
         case 14: // MAP_FORMAT_VERSION
-            // As for now, ignore these
-            break;
-        case 13: // MAPSIZE
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                if (k > 0)
-                {
-                  lvinfo->mapsize_x = k;
-                  n++;
-                }
-            }
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = atoi(word_buf);
-                if (k > 0)
-                {
-                  lvinfo->mapsize_y = k;
-                  n++;
-                }
-            }
-            if ((n < 2) && (strlen(word_buf) != 0))
-            {
-              WARNMSG("Couldn't recognize \"%s\" mapsize in LOF file '%s'.",
-                  COMMAND_TEXT(cmd_num),fname);
-            }
-            break;
-        case 15: // SKIRMISH_SETUP
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-            {
-                k = get_id(cmpgn_map_skirmish_setup_options, word_buf);
-                if (k >= 0)
-                    lvinfo->skirmish_setup = (unsigned char)k;
-                else
-                    WARNMSG("Invalid value '%s' for \"%s\" in LOF file '%s'.", word_buf,
-                        COMMAND_TEXT(cmd_num),fname);
-            }
+            // As for now, ignore this
             break;
         case ccr_comment:
             break;
         case ccr_endOfFile:
             break;
         default:
-            WARNMSG("Unrecognized command (%" PRId64 ") in LOF file '%s', starting on byte %" PRId64 ".",(int64_t)(cmd_num),fname,(int64_t)(pos));
+            if (!parse_level_info_key(cmd_num, buf, &pos, len, lvinfo, &src))
+                WARNMSG("Unrecognized command (%" PRId64 ") in LOF file '%s', starting on byte %" PRId64 ".",(int64_t)(cmd_num),fname,(int64_t)(pos));
             break;
         }
         skip_conf_to_next_line(buf,&pos,len);
     }
     SYNCDBG(18,"Level %" PRId64 " ensign (%" PRId64 ",%" PRId64 ") zoom (%" PRId64 ",%" PRId64 ")",(int64_t)lvinfo->lvnum,(int64_t)lvinfo->ensign_x,(int64_t)lvinfo->ensign_y,(int64_t)lvinfo->ensign_zoom_x,(int64_t)lvinfo->ensign_zoom_y);
-#undef COMMAND_TEXT
     return true;
 }
 

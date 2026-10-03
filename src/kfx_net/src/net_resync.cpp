@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "ariadne_saved_state.h"
 #include "net_resync.h"
 #include "bflib_datetm.h"
 #include "net_exchange_gameplay.h"
@@ -31,6 +32,8 @@
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
 #include "light_registry.h"
+#include "kfx_config_state.h"
+#include "sound_manager.h"
 #include "state_versions.h"
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
@@ -343,6 +346,8 @@ struct ResyncVersions {
     uint64_t net_state;
     uint64_t game_state;
     uint64_t frontend_state;
+    uint64_t ariadne_state;
+    uint64_t config_state;
 };
 
 static struct ResyncVersions current_resync_versions(void)
@@ -353,6 +358,8 @@ static struct ResyncVersions current_resync_versions(void)
     v.net_state = KFX_NET_STATE_VER;
     v.game_state = KFX_GAME_STATE_VER;
     v.frontend_state = KFX_FRONTEND_STATE_VER;
+    v.ariadne_state = KFX_ARIADNE_STATE_VER;
+    v.config_state = KFX_CONFIG_STATE_VER;
     return v;
 }
 
@@ -390,8 +397,13 @@ TbBool send_resync_game(void)
     // 2, S11). game_state/frontend_state are each prefixed with their own u32
     // length now that they're opaque blobs of a size this file can't
     // sizeof() directly -- same framing lua_data already used below.
+    // Ariadne's navigation mesh follows kfx_net_state: it isn't rebuilt from the map on the receiving end, which
+    // would give a different mesh (refactor pass 4, P4-F7; ariadne_saved_state.h). Then kfx_config_state's saved
+    // part: the payday progress, the slabs' texture packs, the configuration as the level's script changed it
+    // (P4-F16; what upstream's struct Game held).
+    const size_t ariadne_state_len = ariadne_saved_state_size();
     size_t fixed_state_size = sizeof(struct ResyncVersions) + sizeof(uint64_t) + game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state)
-        + sizeof(uint64_t) + frontend_state_len;
+        + ariadne_state_len + KFX_CONFIG_STATE_SAVED_LEN + sizeof(uint64_t) + frontend_state_len;
     size_t lua_data_offset = fixed_state_size + sizeof(uint64_t);
     if (lua_data_len > UINT32_MAX - lua_data_offset) {
         ERRORLOG("Full resync data too large");
@@ -417,6 +429,8 @@ TbBool send_resync_game(void)
     memcpy(write_ptr, game_state_data, game_state_len); write_ptr += game_state_len;
     memcpy(write_ptr, &kfx_sim_state, sizeof(kfx_sim_state)); write_ptr += sizeof(kfx_sim_state);
     memcpy(write_ptr, &kfx_net_state, sizeof(kfx_net_state)); write_ptr += sizeof(kfx_net_state);
+    ariadne_saved_state_write(write_ptr); write_ptr += ariadne_state_len;
+    memcpy(write_ptr, KFX_CONFIG_STATE_SAVED_PTR, KFX_CONFIG_STATE_SAVED_LEN); write_ptr += KFX_CONFIG_STATE_SAVED_LEN;
     memcpy(write_ptr, &frontend_state_len32, sizeof(frontend_state_len32)); write_ptr += sizeof(frontend_state_len32);
     memcpy(write_ptr, frontend_state_data, frontend_state_len); write_ptr += frontend_state_len;
     memcpy(write_ptr, &lua_data_len32, sizeof(lua_data_len32)); write_ptr += sizeof(lua_data_len32);
@@ -465,15 +479,18 @@ TbBool receive_resync_game(void)
     memcpy(&versions, read_ptr, sizeof(versions)); read_ptr += sizeof(versions);
     if (memcmp(&versions, &expected, sizeof(versions)) != 0) {
         ERRORLOG("Resync data is from a build with other state layouts (sim %" PRIu64 "/%" PRIu64 ", net %" PRIu64 "/%" PRIu64
-            ", game %" PRIu64 "/%" PRIu64 ", frontend %" PRIu64 "/%" PRIu64 ", orig %" PRIu64 "/%" PRIu64 "; theirs/ours)",
+            ", game %" PRIu64 "/%" PRIu64 ", frontend %" PRIu64 "/%" PRIu64 ", orig %" PRIu64 "/%" PRIu64 ", ariadne %" PRIu64 "/%" PRIu64
+            ", config %" PRIu64 "/%" PRIu64 "; theirs/ours)",
             versions.sim_state, expected.sim_state, versions.net_state, expected.net_state,
             versions.game_state, expected.game_state, versions.frontend_state, expected.frontend_state,
-            versions.game_orig, expected.game_orig);
+            versions.game_orig, expected.game_orig, versions.ariadne_state, expected.ariadne_state,
+            versions.config_state, expected.config_state);
         free(full_resync_data);
         return false;
     }
     full_resync_len -= sizeof(versions);
-    size_t min_header_size = sizeof(uint64_t) + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(uint64_t);
+    const size_t ariadne_state_len = ariadne_saved_state_size();
+    size_t min_header_size = sizeof(uint64_t) + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + ariadne_state_len + KFX_CONFIG_STATE_SAVED_LEN + sizeof(uint64_t) + sizeof(uint64_t);
     if (full_resync_len < min_header_size) {
         ERRORLOG("Full resync data too small: %" PRIu64 " bytes", (uint64_t)full_resync_len);
         free(full_resync_data);
@@ -482,7 +499,7 @@ TbBool receive_resync_game(void)
 
     uint64_t game_state_len = 0;
     memcpy(&game_state_len, read_ptr, sizeof(game_state_len)); read_ptr += sizeof(game_state_len);
-    if ((size_t)(data_end - read_ptr) < (size_t)game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + sizeof(uint64_t) + sizeof(uint64_t)) {
+    if ((size_t)(data_end - read_ptr) < (size_t)game_state_len + sizeof(kfx_sim_state) + sizeof(kfx_net_state) + ariadne_state_len + KFX_CONFIG_STATE_SAVED_LEN + sizeof(uint64_t) + sizeof(uint64_t)) {
         ERRORLOG("Full resync data truncated (game state)");
         free(full_resync_data);
         return false;
@@ -491,6 +508,8 @@ TbBool receive_resync_game(void)
 
     const char * kfx_sim_state_data = read_ptr; read_ptr += sizeof(kfx_sim_state);
     const char * kfx_net_state_data = read_ptr; read_ptr += sizeof(kfx_net_state);
+    const char * ariadne_state_data = read_ptr; read_ptr += ariadne_state_len;
+    const char * config_state_data = read_ptr; read_ptr += KFX_CONFIG_STATE_SAVED_LEN;
 
     uint64_t frontend_state_len = 0;
     memcpy(&frontend_state_len, read_ptr, sizeof(frontend_state_len)); read_ptr += sizeof(frontend_state_len);
@@ -525,6 +544,11 @@ TbBool receive_resync_game(void)
 
     memcpy(&kfx_sim_state, kfx_sim_state_data, sizeof(kfx_sim_state));
     memcpy(&kfx_net_state, kfx_net_state_data, sizeof(kfx_net_state));
+    ariadne_saved_state_read(ariadne_state_data);
+    memcpy(KFX_CONFIG_STATE_SAVED_PTR, config_state_data, KFX_CONFIG_STATE_SAVED_LEN);
+    // the host's creature sound indices are its session's: this machine's custom sound banks may be laid out
+    // differently (as after a load)
+    sound_manager_reapply_creature_sounds();
     light_registry_invalidate_shading();
     free(full_resync_data);
 
@@ -542,6 +566,10 @@ void resync_game(void)
 {
     SYNCDBG(2,"Starting");
     ui_draw_out_of_sync_box(0, 32*units_per_pixel/16, local_state.engine_window_x);
+    // The eye lens (the possession view's effect) is this machine's: keep which lens it was, and set the lens system
+    // up again after the resync, as loading a game does (refactor pass 4, P4-F13: it was shut down here and never
+    // set up again, so lenses stopped working for the rest of the game on every machine).
+    const int64_t local_lens = kfx_sim_state.applied_lens_type;
     reset_eye_lenses();
     store_localised_game_structure();
     TbBool result;
@@ -552,6 +580,7 @@ void resync_game(void)
     }
     if (!result) {
         recall_localised_game_structure();
+        reinitialise_eye_lens(local_lens);
         return;
     }
     if (script_lua_script_active()) {
@@ -559,6 +588,7 @@ void resync_game(void)
     }
     recall_localised_game_structure();
     game_reinit_level_after_load();
+    reinitialise_eye_lens(local_lens);
 
     kfx_net_state.skip_initial_input_turns = calculate_skip_input();
     initialize_packet_history();

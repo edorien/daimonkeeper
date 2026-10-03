@@ -80,6 +80,8 @@ void play_thing_walking(struct Thing *thing);
 TbBool ambient_sound_prepare(void);
 TbBool ambient_sound_stop(void);
 void reset_ambient_sound_thing_idx(void);
+struct Camera;
+void update_footsteps_nearest_camera(struct Camera *cam);
 struct Thing *create_ambient_sound(const struct Coord3d *pos, ThingModel model, PlayerNumber owner);
 
 void mute_audio(TbBool mute);

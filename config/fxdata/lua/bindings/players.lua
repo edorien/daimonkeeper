@@ -11,7 +11,7 @@ function LoseGame(player) end
 ---Allows to set tendencies: IMPRISON and FLEE, for a player's creatures.
 ---@param player Player
 ---@param tendency "IMPRISON"|"FLEE"
----@param value boolean
+---@param value integer 1 to enable the tendency, 0 to disable it.
 function SetCreatureTendencies(player,tendency,value) end
 
 ---Sets the level at which units come from the portal.

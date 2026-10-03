@@ -186,12 +186,23 @@ static int player_set_field(lua_State *L) {
 
     int64_t value = luaL_checkinteger(L, 3);
 
+    if (strcmp(key, "max_creatures") == 0) {
+        struct Dungeon *dungeon = get_dungeon(player_idx);
+        if (!dungeon_invalid(dungeon)) {
+            dungeon->max_creatures_attracted = value;
+        }
+        return 0;
+    }
+
     int64_t variable_type;
     int64_t variable_id;
 
     if (parse_get_varib(key, &variable_id, &variable_type,1))
     {
-        set_variable(player_idx,variable_type,variable_id,value);
+        if (!variable_is_settable(variable_type))
+            WARNLOG("Lua: player variable '%s' can't be set", key);
+        else
+            set_variable(player_idx,variable_type,variable_id,value);
         return 0;
     }
 

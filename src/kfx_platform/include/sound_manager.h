@@ -77,29 +77,11 @@ public:
                               SoundVolume volume = 256);
     
     /**
-     * @brief Play a named sound effect
-     * @param name Sound name (e.g., "FIREBALL")
-     * @param priority Priority (1-6, default 3)
-     * @param volume Volume (0-256, default 256)
-     * @return Sound emitter ID, or 0 if failed/not found
-     */
-    SoundEmitterID playEffectNamed(const char* name,
-                                   int64_t priority = 3,
-                                   SoundVolume volume = 256);
-    
-    
-    /**
      * @brief Stop a playing sound
      * @param emitter_id Emitter ID returned by playEffect
      */
     void stopEffect(SoundEmitterID emitter_id);
     
-    /**
-     * @brief Check if sound is playing
-     * @param emitter_id Emitter ID
-     * @return true if sound is still playing
-     */
-    bool isEffectPlaying(SoundEmitterID emitter_id) const;
     
     // === Music ===
     
@@ -160,11 +142,6 @@ public:
      */
     bool isCustomSoundLoaded(const std::string& name) const;
     
-    /**
-     * @brief Get total number of custom sounds loaded
-     * @return Number of custom sounds
-     */
-    size_t getTotalCustomSounds() const;
     
     // === System ===
     
@@ -263,8 +240,6 @@ private:
 extern "C" {
 #endif // __cplusplus
 
-// C API for testing
-TbBool sound_manager_init(void);
 SoundEmitterID sound_manager_play_effect(SoundSmplTblID sample_id, int64_t priority, SoundVolume volume);
 void sound_manager_stop_effect(SoundEmitterID emitter_id);
 TbBool sound_manager_play_music(int64_t track_number);
@@ -284,10 +259,6 @@ SoundSmplTblID sound_manager_get_id(const char* name);
 TbBool sound_manager_register(const char* name, SoundSmplTblID id, int64_t count);
 TbBool sound_manager_is_registered(const char* name);
 int64_t sound_manager_get_count(const char* name);
-SoundEmitterID sound_manager_play_effect_named(const char* name, int64_t priority, SoundVolume volume);
-
-// Config parser bridge for loading custom sounds from creature cfg files
-int64_t load_creature_custom_sound(int64_t crtr_model, const char* sound_type, const char* wav_path, const char* config_textname);
 
 /**
  * @brief Load and register a named custom sound from sounds.cfg or any config file.

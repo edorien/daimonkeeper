@@ -44,6 +44,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -102,20 +103,8 @@ struct Thing *get_random_fellow_not_hated_creature(struct Thing *creatng)
         return INVALID_THING;
     }
     int64_t n = THING_RANDOM(creatng, dungeon->num_active_creatrs - 1);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if ((n <= 0) && (thing->index != creatng->index))
         {
             struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
@@ -125,13 +114,6 @@ struct Thing *get_random_fellow_not_hated_creature(struct Thing *creatng)
             }
         }
         n--;
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     return INVALID_THING;
 }
@@ -287,18 +269,8 @@ struct Thing *select_scavenger_target(const struct Thing *calltng)
     int64_t weakpts = INT32_MAX;
     SYNCDBG(18,"Starting");
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_is_valid_scavenge_target(calltng, thing))
         {
             SYNCDBG(18,"The %s index %" PRId64 " owner %" PRId64 " is valid target for %s index %" PRId64 " owner %" PRId64,
@@ -314,13 +286,6 @@ struct Thing *select_scavenger_target(const struct Thing *calltng)
                     weaktng = thing;
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     SYNCDBG(8,"The weakest valid target for %s index %" PRId64 " owner %" PRId64 " is %s index %" PRId64 " owner %" PRId64,

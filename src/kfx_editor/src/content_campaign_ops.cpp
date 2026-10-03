@@ -99,7 +99,9 @@ bool content_campaign_id_free(const std::string &id, ContentKind kind)
     return !std::filesystem::exists(content_root() + "/" + content_kind_folder(kind) + "/" + id + ".cfg", ec);
 }
 
-std::string content_campaign_default_land_source(void)
+/** A campaign land-view folder to copy the default images from (`rgmap00` + `viframe00`): keeporig's when present, else the first
+ *  any `campgns/..._lnd` folder that has them; empty when there is none. */
+static std::string content_campaign_default_land_source(void)
 {
     namespace fs = std::filesystem;
     const std::string base = content_root() + "/campgns/";

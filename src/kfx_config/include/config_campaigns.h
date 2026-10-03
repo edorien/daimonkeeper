@@ -201,6 +201,15 @@ extern const struct NamedCommand cmpgn_map_skirmish_setup_options[];
 extern const struct NamedCommand cmpgn_map_cmnds_kind[];
 extern const struct NamedCommand cmpgn_human_player_options[];
 /******************************************************************************/
+/** Where a level's information is read from, for parse_level_info_key(). */
+struct LevelInfoSource {
+    const char *file;                   /**< for warnings */
+    const char *block;                  /**< the campaign's "map00003" block, or NULL for a .lof file */
+    unsigned char name_id_by_alias;     /**< NAME_ID: a string alias or a number (campaign), or a number only (.lof) */
+    unsigned char reads_author;         /**< AUTHOR is read (both do since refactor pass 3 fixed its finding F5) */
+};
+TbBool parse_level_info_key(int64_t cmd_num, const char *buf, int64_t *pos, int64_t len,
+    struct LevelInformation *lvinfo, const struct LevelInfoSource *src);
 TbBool load_campaign(const char *cmpgn_fname,struct GameCampaign *campgn,int64_t flags, int64_t fgroup);
 TbBool free_campaign(struct GameCampaign *campgn);
 void clear_level_info(struct LevelInformation *lvinfo);

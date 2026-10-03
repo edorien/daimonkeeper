@@ -16,6 +16,7 @@
 #include "engine_arrays.h"
 #include "custom_sprites.h"
 #include "local_camera.h"
+#include "render_creature_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -29,13 +30,15 @@ static unsigned char get_lens_mode(void)
 }
 
 const struct RenderPort kfx_render_port = {
-    .tag_cursor_blocks_place_door = &tag_cursor_blocks_place_door,
     .tag_cursor_blocks_place_room = &tag_cursor_blocks_place_room,
     .tag_cursor_blocks_sell_area = &tag_cursor_blocks_sell_area,
     .set_engine_view = &set_engine_view,
     .setup_engine_window = &setup_engine_window,
     .load_texture_map_file = &load_texture_map_file,
-    .PaletteSetUserPalette = &PaletteSetUserPalette,
+    .PaletteSetUserViewPalette = &PaletteSetUserViewPalette,
+    .PaletteSetViewPalette = &PaletteSetViewPalette,
+    .PaletteFadeToView = &PaletteFadeToView,
+    .load_swipe_graphic_for_creature = &load_swipe_graphic_for_creature,
     .PaletteApplyPainToPlayer = &PaletteApplyPainToPlayer,
     .setup_eye_lens = &setup_eye_lens,
     .get_td_animation_sprite = &get_td_animation_sprite,

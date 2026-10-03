@@ -40,6 +40,7 @@
 #include "packet_data.h"
 #include "player_availability.h"
 #include "player_data.h"
+#include "player_colours.h"
 #include "player_instances.h"
 #include "power_hand.h"
 #include "room_data.h"

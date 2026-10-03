@@ -16,5 +16,4 @@ KFX_PORT_VOID(thing_play_sample, (struct Thing *thing, SoundSmplTblID smpl_idx, 
 KFX_PORT_VOID(stop_thing_playing_sample, (struct Thing *thing, SoundSmplTblID smpl_idx), (thing, smpl_idx))
 KFX_PORT_RET(struct Thing *, create_ambient_sound, (const struct Coord3d *pos, ThingModel model, PlayerNumber owner), (pos, model, owner), NULL)
 KFX_PORT_VOID(play_sound_if_close_to_receiver, (struct Coord3d *soundpos, SoundSmplTblID smpl_idx), (soundpos, smpl_idx))
-KFX_PORT_VOID(play_thing_walking, (struct Thing *thing), (thing))
 KFX_PORT_VOID(reset_ambient_sound_thing_idx, (void), ())

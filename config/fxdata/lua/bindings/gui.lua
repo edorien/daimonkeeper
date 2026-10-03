@@ -123,8 +123,8 @@ function DisplayVariableWithLabel(player, variable, icon) end
 
 ---Hides the variable that has been made visible with Display_variable
 ---@param player Player The player’s name, e.g. PLAYER1.
----@param variable? string optional variable to hide, if not populated will hide all
-function HideVariable(variable) end
+---@param variable? string optional variable to hide, if not populated will hide all of the player's
+function HideVariable(player, variable) end
 
 --- Displays on screen how long a specific script timer reaches the target turn.
 --- @param player Player The player’s name, e.g. PLAYER1.
@@ -153,9 +153,10 @@ function ClearMessage(amount) end
 function TutorialFlashButton(button,gameturns) end
 
 ---Displays an Objective message when the player lost his Dungeon Heart
+---@param slot integer The quick message slot to use, 0 to 255.
 ---@param msg string The message of the objective.
 ---@param zoom_location location The location to zoom to when the message is displayed.
-function HeartLostQuickObjective(msg,zoom_location) end
+function HeartLostQuickObjective(slot,msg,zoom_location) end
 
 ---Displays an Objective message when the player lost his Dungeon Heart
 ---@param msg_id integer The number of the message, assigned to it in .po or .pot translation file.
@@ -169,13 +170,27 @@ function HeartLostObjective(msg_id,zoom_location) end
 ---@param timer timer
 function SetTimer(player,timer) end
 
-function AddToTimer() end
-function DisplayTimer() end
+---Adds an amount of turns to a timer SetTimer started.
+---@param player playerrange
+---@param timer timer
+---@param amount integer Game turns to add (negative to take away).
+function AddToTimer(player,timer,amount) end
+
+---Shows a timer SetTimer started on screen, counting up.
+---@param player playersingle
+---@param timer timer
+---@param clocktime integer 1 to display hours/minutes/seconds, 0 to display turns.
+function DisplayTimer(player,timer,clocktime) end
+
+---Hides the timer DisplayTimer or DisplayCountdown shows.
 function HideTimer() end
 ---Sets time to be displayed on "bonus timer" - on-screen time field, used mostly for bonus levels.
 ---But now this command can be used to show bonus timer in any level, and may show clocktime instead of turns.
 ---Setting game turns to 0 will hide the timer.
 ---@param turns integer The amount of game turns the timer will count down from. That's 20 per second.
----@param clocktime? integer Set to 1 to display the countdown in hours/minutes/seconds. Set to 0 or don't add the param to display turns.
+---@param clocktime? integer|boolean Set to 1 (or true) to display the countdown in hours/minutes/seconds. Set to 0 (or false) or don't add the param to display turns.
 function BonusLevelTime(turns,clocktime) end
-function AddBonusTime() end
+
+---Adds turns to the bonus timer BonusLevelTime set.
+---@param turns integer Game turns to add (negative to take away).
+function AddBonusTime(turns) end

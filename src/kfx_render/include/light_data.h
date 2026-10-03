@@ -83,7 +83,6 @@ void clear_stat_light_map(void);
 void update_light_render_area(void);
 void light_stat_refresh();
 void light_drain_shading_signals(void);
-void update_global_lighting(void);
 
 // gpu-v2 Phase C.5 lighting pass -- see light_data.c. light_perpixel_active(): per-pixel lighting
 // is on for this frame (Vulkan renderer, standard perspective). light_perpixel_get(): the dynamic

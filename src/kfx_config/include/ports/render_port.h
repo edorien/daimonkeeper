@@ -35,6 +35,15 @@ struct TbSprite;
 struct RoomSpace;
 struct Thing;
 
+/** The palettes the simulation asks the local view to show (refactor pass 4, S08: the palette data is kfx_render's;
+ *  the sim names one, render resolves it). */
+enum ViewPalette {
+    VPal_Engine = 0, /**< The game's palette (data/palette.dat). */
+    VPal_Freeze,     /**< The Freeze spell's blue palette. */
+    VPal_Lightning,  /**< The lightning flash palette. */
+    VPal_White,      /**< All white, faded to and from by screen flashes and the zoom to the heart. */
+};
+
 struct RenderPort {
 #define KFX_PORT_VOID(name, params, args) void (*name) params;
 #define KFX_PORT_RET(ret, name, params, args, dflt) ret (*name) params;

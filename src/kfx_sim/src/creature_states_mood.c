@@ -41,6 +41,7 @@
 #include "player_utils.h"
 #include "kfx_sim_state.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 const struct NamedCommand anger_reason_desc[] = {
@@ -408,19 +409,8 @@ TbBool creature_will_go_postal_on_victim_during_job(const struct Thing *creatng,
 TbBool find_combat_target_passing_by_subtile_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t *found_dist, struct Thing **found_thing)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (creature_will_go_postal_on_victim_during_job(creatng, thing, job_kind))
         {
             int64_t dist = get_combat_distance(creatng, thing);
@@ -437,14 +427,6 @@ TbBool find_combat_target_passing_by_subtile_but_having_unrelated_job(const stru
                 *found_dist = dist;
                 *found_thing = thing;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return false;
@@ -491,23 +473,12 @@ TbBool find_combat_target_passing_by_slab_but_having_unrelated_job(const struct 
  */
 TbBool find_combat_target_passing_by_room_but_having_unrelated_job(const struct Thing *creatng, CreatureJob job_kind, const struct Room *room, uint64_t *found_dist, struct Thing **found_thing)
 {
-    uint64_t k = 0;
-    uint64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk(room))
     {
-        MapSubtlCoord slb_x = slb_num_decode_x(i);
-        MapSubtlCoord slb_y = slb_num_decode_y(i);
-        // Per-slab code
+        MapSubtlCoord slb_x = slb_num_decode_x(slb_num);
+        MapSubtlCoord slb_y = slb_num_decode_y(slb_num);
         if (find_combat_target_passing_by_slab_but_having_unrelated_job(creatng, job_kind, slb_x, slb_y, found_dist, found_thing)) {
             return true;
-        }
-        // Per-slab code ends
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > room->slabs_count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
         }
     }
     // If found a creature, but it's not on sight

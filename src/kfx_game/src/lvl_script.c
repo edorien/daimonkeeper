@@ -35,7 +35,7 @@
 
 #include "lvl_script_conditions.h"
 #include "lvl_script_value.h"
-#include "lvl_script_commands_old.h"
+#include "lvl_script_commands.h"
 #include "lvl_script_commands.h"
 #include "game_lifecycle.h"
 #include "creature_states_hero.h"
@@ -203,6 +203,24 @@ static struct CommandDesc const *find_command_desc(const struct CommandToken *to
  * Returns if the command is 'preloaded'. Preloaded commands are initialized
  * before the whole level data is loaded.
  */
+/** The commands that open a condition block, closed by ENDIF. */
+static TbBool script_command_opens_condition(int64_t cmnd_index)
+{
+    switch (cmnd_index)
+    {
+        case Cmd_IF:
+        case Cmd_IF_ACTION_POINT:
+        case Cmd_IF_AVAILABLE:
+        case Cmd_IF_CONTROLS:
+        case Cmd_IF_SLAB_OWNER:
+        case Cmd_IF_SLAB_TYPE:
+        case Cmd_IF_ALLIED:
+            return true;
+        default:
+            return false;
+    }
+}
+
 TbBool script_is_preloaded_command(int64_t cmnd_index)
 {
     switch (cmnd_index)
@@ -490,7 +508,7 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
             int64_t fi;
             struct MinMax ranges[COMMANDDESC_ARGS_COUNT];
             TbBool is_if_statement = ((scline->command == Cmd_IF) || (scline->command == Cmd_IF_AVAILABLE) || (scline->command == Cmd_IF_CONTROLS));
-            if (level_file_version > 0)
+            if (kfx_game_state.level_file_version > 0)
             {
                 char chr = cmd_desc->args[src];
                 int64_t ri;
@@ -568,12 +586,12 @@ static TbBool process_subfunc(char **line, struct ScriptLine *scline, const stru
                 SCRPTERRLOG("Arguments of function \"%s\" within command \"%s\" define no values to select from", funcmd_desc->textptr, scline->tcmnd);
                 break;
             }
-            if ((funcmd_desc->index != Cmd_RANDOM) && (level_file_version == 0)) {
+            if ((funcmd_desc->index != Cmd_RANDOM) && (kfx_game_state.level_file_version == 0)) {
                 SCRPTERRLOG("The function \"%s\" used within command \"%s\" is not supported in old level format", funcmd_desc->textptr, scline->tcmnd);
                 break;
             }
             // The new RANDOM command stores values to allow selecting different one every turn during gameplay
-            if ((funcmd_desc->index == Cmd_RANDOM) && (level_file_version > 0))
+            if ((funcmd_desc->index == Cmd_RANDOM) && (kfx_game_state.level_file_version > 0))
             {
                 //TODO RANDOM make implementation - store ranges as variable to be used for selecting random value during gameplay
                 SCRPTERRLOG("The function \"%s\" used within command \"%s\" is not supported yet", funcmd_desc->textptr, scline->tcmnd);
@@ -797,12 +815,16 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
     }
     line = get_next_token(line, &token);
     scline->command = cmd_desc->index;
+    scline->file_version = file_version;
     // selecting only preloaded/not preloaded commands
     if (script_is_preloaded_command(cmd_desc->index) != preloaded)
     {
         free(scline);
         return true;
     }
+    // An IF-type line opens a condition even when it's refused, so its ENDIF stays balanced (P4-F2).
+    const TbBool opens_condition = script_command_opens_condition(cmd_desc->index);
+    const int64_t conditions_before = kfx_game_state.script.conditions_num;
     int64_t args_count;
     if (token.type == TkEnd)
     {
@@ -817,6 +839,8 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
             SCRPTERRLOG("Syntax error at \"%s\"", line_start);
             SCRPTERRLOG("   near - -      %*c", (int)((int64_t) (line - line_start)), (int)('^'));
             free(scline);
+            if (opens_condition)
+                script_balance_refused_condition(conditions_before);
             return false;
         }
     }
@@ -825,6 +849,8 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
         SCRPTERRLOG("Syntax error: ( expected at \"%s\"", line_start);
         SCRPTERRLOG("   near - - - - - - -        %*c", (int)((int64_t) (line - line_start)), (int)('^'));
         free(scline);
+        if (opens_condition)
+            script_balance_refused_condition(conditions_before);
         return false;
     }
     if (args_count < COMMANDDESC_ARGS_COUNT)
@@ -834,6 +860,8 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
         {
             SCRPTERRLOG("Not enough parameters for \"%s\", got only %" PRId64, cmd_desc->textptr,(int64_t)args_count);
             free(scline);
+            if (opens_condition)
+                script_balance_refused_condition(conditions_before);
             return false;
         }
     }
@@ -845,7 +873,12 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
     {
         SCRPTERRLOG("Syntax error: Unexpected end of line");
     }
-    script_add_command(cmd_desc, scline, file_version);
+    if (cmd_desc->check_fn != NULL)
+        cmd_desc->check_fn(scline);
+    else
+        SCRPTERRLOG("Unhandled SCRIPT command '%s'", scline->tcmnd);
+    if (opens_condition)
+        script_balance_refused_condition(conditions_before);
     free(scline);
     SCRIPTDBG(13,"Finished");
     return true;
@@ -854,7 +887,7 @@ TbBool script_scan_line(char *line, TbBool preloaded, int64_t file_version)
 int64_t clear_script(void)
 {
     memset(&kfx_game_state.script, 0, sizeof(struct LevelScript));
-    set_script_current_condition(CONDITION_ALWAYS);
+    reset_script_conditions();
     text_line_number = 1;
     return true;
 }
@@ -918,7 +951,7 @@ static char* load_level_script_text(int64_t lvnum, int64_t *len)
 }
 
 /** Scans the override's prelude (if any) before the file's own lines.
- * The prelude is always v1 syntax, so level_file_version is forced to 1 for
+ * The prelude is always v1 syntax, so kfx_game_state.level_file_version is forced to 1 for
  * its lines only and restored to whatever it was on entry -- the file's own
  * version (which preload_script() leaves behind for load_script(), and which
  * the file's LEVEL_VERSION line sets) must not be disturbed. Nothing to do
@@ -936,9 +969,9 @@ static void scan_level_script_prelude(int64_t lvnum, TbBool preloaded)
     memcpy(copy, src, n);
     if (!preloaded)
         JUSTLOG("Level %" PRId64 ": running the Skirmish setup override (prelude %" PRId64 " bytes, file script masked)", (int64_t)(lvnum), (int64_t)n);
-    int64_t saved_version = level_file_version;
+    int64_t saved_version = kfx_game_state.level_file_version;
     int64_t saved_line = text_line_number;
-    level_file_version = 1;
+    kfx_game_state.level_file_version = 1;
     text_line_number = 0; // prelude errors read "line 0..n": distinct from the file's own lines
     char* line = copy;
     while (*line != '\0')
@@ -952,7 +985,7 @@ static void scan_level_script_prelude(int64_t lvnum, TbBool preloaded)
             break;
         line = end + 1;
     }
-    level_file_version = saved_version;
+    kfx_game_state.level_file_version = saved_version;
     text_line_number = saved_line;
     free(copy);
 }
@@ -984,7 +1017,7 @@ static void parse_txt_data(char *script_data, int64_t script_len)
       }
       //SCRPTLOG("Analyse");
       // Analyze the line
-      script_scan_line(buf, true, level_file_version);
+      script_scan_line(buf, true, kfx_game_state.level_file_version);
       // Set new line start
       text_line_number++;
       buf += lnlen;
@@ -1107,9 +1140,9 @@ TbBool script_preflight_file(const char *fname, struct ScriptPreflight *out)
 TbBool preload_script(int64_t lvnum)
 {
   SYNCDBG(7,"Starting");
-  set_script_current_condition(CONDITION_ALWAYS);
+  reset_script_conditions();
   next_command_reusable = 0;
-  level_file_version = DEFAULT_LEVEL_VERSION;
+  kfx_game_state.level_file_version = DEFAULT_LEVEL_VERSION;
   clear_quick_messages();
   if (level_script_override_is_set() && !level_script_override_matches(lvnum))
   {
@@ -1127,6 +1160,7 @@ TbBool preload_script(int64_t lvnum)
   }
   scan_level_script_prelude(lvnum, true);
   parse_txt_data(script_data, script_len);
+  reset_script_conditions();
   SYNCDBG(8,"Finished");
   return true;
 }
@@ -1138,7 +1172,7 @@ int64_t load_script(int64_t lvnum)
     // Clear script data
     ui_gui_set_button_flashing(0, 0);
     clear_script();
-    set_script_current_condition(CONDITION_ALWAYS);
+    reset_script_conditions();
     next_command_reusable = 0;
     text_line_number = 1;
     kfx_game_state.bonus_time = 0;
@@ -1180,7 +1214,7 @@ int64_t load_script(int64_t lvnum)
           p[-1] = 0;
       }
       // Analyze the line
-      script_scan_line(buf, false, level_file_version);
+      script_scan_line(buf, false, kfx_game_state.level_file_version);
       // Set new line start
       text_line_number++;
       buf = p;
@@ -1193,6 +1227,7 @@ int64_t load_script(int64_t lvnum)
       WARNMSG("No WIN GAME conditions in script file.");
     if (get_script_current_condition() != CONDITION_ALWAYS)
       WARNMSG("Missing ENDIF's in script file.");
+    reset_script_conditions();
     JUSTLOG("Used script resources: %" PRId64 "/%" PRId64 " tunneller triggers, %" PRId64 "/%" PRId64 " party triggers, %" PRId64 "/%" PRId64 " script values, %" PRId64 "/%" PRId64 " IF conditions, %" PRId64 "/%" PRId64 " party definitions",
         (int64_t)kfx_game_state.script.tunneller_triggers_num,(int64_t)(TUNNELLER_TRIGGERS_COUNT),
         (int64_t)kfx_game_state.script.party_triggers_num,(int64_t)(PARTY_TRIGGERS_COUNT),
@@ -1352,7 +1387,7 @@ void process_values(void)
         {
             if (is_condition_met(value->condit_idx))
             {
-                script_process_value(value->valtype, value->plyr_range, value->longs[0], value->longs[1], value->longs[2], value);
+                script_process_value(value->valtype, value->plyr_range, value);
                 if ((value->flags & TrgF_REUSABLE) == 0)
                   set_flag(value->flags, TrgF_DISABLED);
             }

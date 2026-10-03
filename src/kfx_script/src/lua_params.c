@@ -30,30 +30,30 @@
 
 /**********************************************/
 
+/** A number field set on the table itself, read without its metatable: the objects' __index raises an error for a
+ *  field their kind doesn't have, so asking a Player for ThingIndex (or a Thing for playerId) must not go there. */
+static TbBool raw_integer_field(lua_State *L, int64_t index, const char *key, int64_t *value)
+{
+    if ((index < 0) && (index > LUA_REGISTRYINDEX))
+        index = lua_gettop(L) + index + 1;
+    lua_pushstring(L, key);
+    lua_rawget(L, (int)index);
+    const TbBool found = lua_isnumber(L, -1);
+    if (found)
+        *value = lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    return found;
+}
+
 TbBool luaL_isThing(lua_State *L, int64_t index)
 {
     if (!lua_istable(L, index)) {
         return false;
     }
-
-    // Get idx field
-    lua_getfield(L, index, "ThingIndex");
-    if (!lua_isnumber(L, -1)) {
-        lua_pop(L, 1);
+    int64_t idx;
+    int64_t creation_turn;
+    if (!raw_integer_field(L, index, "ThingIndex", &idx) || !raw_integer_field(L, index, "creation_turn", &creation_turn))
         return false;
-    }
-    int64_t idx = lua_tointeger(L, -1);
-    lua_pop(L, 1);  // Pop the idx value off the stack
-
-    // Get creation_turn field
-    lua_getfield(L, index, "creation_turn");
-
-    if (!lua_isnumber(L, -1)) {
-        lua_pop(L, 1);
-        return false;
-    }
-    int64_t creation_turn = lua_tointeger(L, -1);
-    lua_pop(L, 1);  // Pop the creation_turn value off the stack
 
     struct Thing* thing = thing_get(idx);
     if (thing_is_invalid(thing) || thing->creation_turn != creation_turn) {
@@ -85,13 +85,8 @@ TbBool luaL_isPlayer(lua_State *L, int64_t index)
     }
     else if (lua_istable(L, index))
     {
-        lua_getfield(L, index, "playerId");
-        if (lua_isnumber(L, -1)) {
-            lua_pop(L, 1);
-            return true;
-        }
-        lua_pop(L, 1);
-        return false;
+        int64_t player_id;
+        return raw_integer_field(L, index, "playerId", &player_id);
     }
 
     return false;

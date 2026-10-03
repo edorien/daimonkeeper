@@ -112,7 +112,8 @@ void arg_limits(const char *args, int64_t &required, int64_t &maximum)
 
 } // namespace
 
-bool editor_script_command_opens_block(const std::string &name)
+// True if the command opens an IF block (IF, IF_AVAILABLE, IF_ACTION_POINT, ...).
+static bool editor_script_command_opens_block(const std::string &name)
 {
     return name.compare(0, 2, "IF") == 0 && (name.size() == 2 || name[2] == '_');
 }

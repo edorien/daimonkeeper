@@ -38,7 +38,6 @@ TbBool tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, M
 /** Whether `plyr_idx` may place a door on the slab under the subtile: its own claimed floor, with a wall on either side
  *  (a valid orientation), no trap across the doorway and no door already. No side effects (the cursor tag draws with
  *  it; the External seat checks place_door with it). */
-TbBool door_placement_allowed(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool tag_cursor_blocks_place_room(NetUserId user, MapSubtlCoord stl_x, MapSubtlCoord stl_y, TbBool full_slab);
 void tag_cursor_blocks_place_terrain(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);

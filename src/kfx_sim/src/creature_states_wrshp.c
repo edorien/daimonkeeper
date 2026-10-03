@@ -41,6 +41,7 @@
 
 #include "kfx_sim_state.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -75,32 +76,13 @@ TbBool setup_workshop_move(struct Thing *thing, SubtlCodedCoords stl_num)
 struct Thing *get_workshop_equipment_to_work_with_on_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_is_object(thing) && object_is_room_equipment(thing, RoK_WORKSHOP))
         {
             if (thing->owner == plyr_idx) {
               return thing;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -117,33 +99,14 @@ struct Thing *get_workshop_equipment_to_work_with_on_subtile(PlayerNumber plyr_i
 struct Thing *get_other_creature_manufacturing_on_subtile(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *othertng)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_is_creature(thing) && (thing->active_state == CrSt_Manufacturing) && (thing->index != othertng->index))
         {
             struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
             if ((cctrl->workshop.job_stage > JobStage_SearchingForWork) && (thing->owner == plyr_idx)) {
                 return thing;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;

@@ -403,18 +403,26 @@ cmake --build out/coverage-ftest --target coverage
 
 Unlike the unit-test path, this is a single target — no separate `ctest`
 step, since there's nothing to discover; `coverage` itself stages the
-data, runs `keeperfx -ftests -headless -exitonfailedtest` (wildcard, no
-test name: runs every `tests_list` entry, `long_running_tests_list`
-entries excluded unless `-includelongtests` is added), then captures/
-extracts/renders via the same `lcov`/`genhtml` calls §6 describes.
+data, runs every `tests_list` entry (not `long_running_tests_list`'s) as a
+process of its own through `scripts/run_ftest_coverage.sh` (`FTEST_JOBS`
+at a time, default 2; `build-coverage-core.sh -j N` sets it; each extra
+worker runs from a copy of the staged data under
+`ftest-coverage-runs/`), then captures/extracts/renders via the same
+`lcov`/`genhtml` calls §6 describes, and only then fails if a test failed
+(`ftest-coverage-results.txt`, a line per test; logs in
+`ftest-coverage-logs/`). Every process adds its counters to the same
+`.gcda` files (gcov merges them under a lock).
 
 **gcov only flushes `.gcda` on a clean process exit.** If the `-ftests`
 run is killed (a CI timeout, a hung test, Ctrl-C) before it finishes, the
 capture step runs against *zero* coverage data for the whole run, not a
 partial result — confirmed directly (a SIGTERM-killed run produced no
-`.gcda` at all; the next clean single-test run produced 288). This is why
-a test that stalls under `-headless` is a correctness problem for this
-target, not just a slowness annoyance (§7.5).
+`.gcda` at all; the next clean single-test run produced 288). With a
+process per test, a test killed by its timeout loses only its own
+counters (and shows as `rc=124` in the results), not the whole run's —
+the same reason one process for the whole list was replaced (refactor
+pass 5, S02): its first failure also ended the run. A test that stalls
+under `-headless` is still a correctness problem (§7.5).
 
 ### 7.5 Known gap: GUI-dependent tests don't run headlessly
 

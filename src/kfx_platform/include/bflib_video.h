@@ -377,7 +377,6 @@ typedef struct SSurface TSurface;
 #pragma pack()
 /******************************************************************************/
 extern volatile TbBool lbScreenInitialised;
-extern volatile TbBool lbUseSdk;
 extern volatile TbBool lbInteruptMouse;
 extern volatile TbDisplayStructEx lbDisplayEx;
 
@@ -482,7 +481,6 @@ TbScreenModeInfo *LbScreenGetModeInfo(TbScreenMode mode);
 TbScreenMode LbScreenActiveMode(void);
 TbScreenCoord LbScreenWidth(void);
 TbScreenCoord LbScreenHeight(void);
-int64_t LbGraphicsScreenBPP(void);
 TbScreenCoord LbGraphicsScreenWidth(void);
 TbScreenCoord LbGraphicsScreenHeight(void);
 

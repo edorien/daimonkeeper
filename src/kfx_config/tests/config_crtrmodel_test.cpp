@@ -24,6 +24,12 @@
 #include "kfx_config_state.h"
 
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <unistd.h>
+
+#include "config.h"
 
 namespace {
 struct ResetConfigState {
@@ -77,4 +83,29 @@ TEST_CASE_METHOD(ResetConfigState, "change_max_health_of_creature_kind updates h
     // config table itself got updated.
     CHECK_FALSE(change_max_health_of_creature_kind(1, 500));
     CHECK(crconf->health == 500);
+}
+
+TEST_CASE_METHOD(ResetConfigState, "a sound number in a later creature file keeps an earlier custom sound, for every sound key (pass 3 F12)", "[kfx_config][config_crtrmodel]") {
+    kfx_config_state.conf.crtr_conf.model_count = 2;
+    struct CreatureSounds *snd = &kfx_config_state.conf.crtr_conf.creature_sounds[1];
+    // Custom sounds (file paths) are stored as negative indices; an earlier file set these.
+    snd->hit.index = -3;
+    snd->die.index = -4;
+    snd->piss.index = -5;
+    snd->sad.index = -6;
+    snd->happy.index = 5;
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / ("kfx_crtrmodel_sounds_" + std::to_string(getpid()) + ".cfg");
+    {
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out << "; padded so the file is never too short to be read ................................\n";
+        out << "[sounds]\nHit = 12 1\nDie = 13 1\nPiss = 14 1\nSad = NONE\nHappy = 15 2\n";
+    }
+    load_creaturemodel_config_file(1, path.string().c_str(), CnfLd_AcceptPartial | CnfLd_IgnoreErrors);
+    std::filesystem::remove(path);
+    CHECK(snd->hit.index == -3);
+    CHECK(snd->die.index == -4);
+    CHECK(snd->piss.index == -5);
+    CHECK(snd->sad.index == 0);    // NONE silences, custom or not
+    CHECK(snd->happy.index == 15); // not custom: the number replaces it
+    CHECK(snd->happy.count == 2);
 }

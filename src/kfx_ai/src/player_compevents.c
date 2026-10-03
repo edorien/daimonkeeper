@@ -43,6 +43,7 @@
 #include "kfx_sim_state.h"
 #include "config_funcnames.h"
 #include "thing_stats.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -73,7 +74,7 @@ struct ComputerSpells {
 };
 /******************************************************************************/
 // Indexed by the values in computer_event_test_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
-Comp_EvntTest_Func computer_event_test_func_list[] = {
+Comp_EvntTest_Func const computer_event_test_func_list[] = {
   NULL,
   computer_event_battle_test,
   computer_event_check_fighters,
@@ -88,7 +89,7 @@ _Static_assert(sizeof(computer_event_test_func_list) / sizeof(computer_event_tes
     "computer_event_test_func_list must have a slot for every index in computer_event_test_func_type[] (config_funcnames.c)");
 
 // Indexed by the values in computer_event_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
-Comp_Event_Func computer_event_func_list[] = {
+Comp_Event_Func const computer_event_func_list[] = {
   NULL,
   computer_event_battle,
   computer_event_find_link,
@@ -232,62 +233,36 @@ int64_t computer_event_find_link(struct Computer2 *comp, struct ComputerEvent *c
  */
 struct Thing *find_creature_in_fight_with_enemy(struct Computer2 *comp)
 {
-    struct CreatureControl *cctrl;
-    struct Thing *creatng;
     struct Dungeon* dungeon = computer_dungeon(comp);
     // Search through special diggers
-    uint64_t k = 0;
-    int64_t i = dungeon->digger_list_start;
-    while (i != 0)
+    FOR_EACH_THING(creatng, thing_walk_creatures(dungeon->digger_list_start, CREATURES_COUNT))
     {
-        creatng = thing_get(i);
-        cctrl = creature_control_get_from_thing(creatng);
-        if (!thing_is_creature(creatng) || creature_control_invalid(cctrl))
+        struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
+        if (!thing_is_creature(creatng))
         {
             ERRORLOG("Jump to invalid creature detected");
             break;
         }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (cctrl->combat_flags != 0)
         {
             if (creature_is_being_attacked_by_enemy_player(creatng)) {
                 return creatng;
             }
         }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     // Search through normal creatures
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(creatng, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        creatng = thing_get(i);
-        cctrl = creature_control_get_from_thing(creatng);
-        if (!thing_is_creature(creatng) || creature_control_invalid(cctrl))
+        struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
+        if (!thing_is_creature(creatng))
         {
             ERRORLOG("Jump to invalid creature detected");
             break;
         }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (cctrl->combat_flags != 0) {
             if (creature_is_being_attacked_by_enemy_player(creatng)) {
                 return creatng;
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     return INVALID_THING;
@@ -486,7 +461,7 @@ int64_t computer_event_check_rooms_full(struct Computer2 *comp, struct ComputerE
     SYNCDBG(18,"Starting");
     int64_t ret = CTaskRet_Unk4;
     TbBool emergency_state = computer_player_in_emergency_state(comp);
-    for (struct ValidRooms* bldroom = valid_rooms_to_build; bldroom->rkind > 0; bldroom++)
+    for (const struct ValidRooms* bldroom = valid_rooms_to_build; bldroom->rkind > 0; bldroom++)
     {
         if (computer_get_room_kind_free_capacity(comp, bldroom->rkind) > 0) {
             continue;
@@ -720,17 +695,14 @@ int64_t computer_event_save_tortured(struct Computer2* comp, struct ComputerEven
             continue;
         }
         victdungeon = get_dungeon(j);
-        int64_t i = victdungeon->creatr_list_start;
-        while (i != 0)
+        FOR_EACH_THING(creatng, thing_walk_creatures(victdungeon->creatr_list_start, CREATURES_COUNT))
         {
-            struct Thing* creatng = thing_get(i);
             struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-            if (!thing_is_creature(creatng) || creature_control_invalid(cctrl))
+            if (!thing_is_creature(creatng))
             {
                 ERRORLOG("Jump to invalid creature detected");
                 break;
             }
-            i = cctrl->players_next_creature_idx;
             if (!creature_is_being_tortured(creatng))
             {
                 continue;
@@ -790,19 +762,14 @@ int64_t computer_event_check_imps_in_danger(struct Computer2 *comp, struct Compu
     // Do not check for PwrK_HAND here; this would prevent the computer from taking other actions without it!
     int64_t result = CTaskRet_Unk4;
     // Search through special diggers
-    uint64_t k = 0;
-    int64_t i = dungeon->digger_list_start;
-    while (i != 0)
+    FOR_EACH_THING(creatng, thing_walk_creatures(dungeon->digger_list_start, CREATURES_COUNT))
     {
-        struct Thing* creatng = thing_get(i);
         struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-        if (!thing_is_creature(creatng) || creature_control_invalid(cctrl))
+        if (!thing_is_creature(creatng))
         {
             ERRORLOG("Jump to invalid creature detected");
             break;
         }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if ((cctrl->combat_flags & (CmbtF_Melee|CmbtF_Ranged)) != 0)
         {
             if (!creature_is_being_unconscious(creatng) && !creature_under_spell_effect(creatng, CSAfF_Chicken))
@@ -844,13 +811,6 @@ int64_t computer_event_check_imps_in_danger(struct Computer2 *comp, struct Compu
                     }
                 }
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     return result;

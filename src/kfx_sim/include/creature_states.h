@@ -105,12 +105,6 @@ struct CreatureStateConfig *get_thing_continue_state_info(struct Thing *thing);
 struct CreatureStateConfig *get_thing_state_info_num(CrtrStateId state_id);
 struct CreatureStateConfig *get_creature_state_with_task_completion(struct Thing *thing);
 
-struct TunnelDistance{
-    uint64_t creatid;
-    uint64_t olddist;
-    uint64_t newdist;
-};
-
 TbBool state_info_invalid(struct CreatureStateConfig *stati);
 TbBool can_change_from_state_to(const struct Thing *thing, CrtrStateId curr_state, CrtrStateId next_state);
 TbBool internal_set_thing_state(struct Thing *thing, CrtrStateId nState);

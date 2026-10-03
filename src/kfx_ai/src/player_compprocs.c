@@ -42,6 +42,7 @@
 #include "player_availability.h"
 #include "player_complookup.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -73,7 +74,7 @@ int64_t computer_completed_build_a_room(struct Computer2 *comp, struct ComputerP
 
 /******************************************************************************/
 // Indexed by the values in computer_process_func_type[] (kfx_config/src/config_funcnames.c): keep both in step.
-Comp_Process_Func computer_process_func_list[] = {
+Comp_Process_Func const computer_process_func_list[] = {
   NULL,
   computer_check_build_all_rooms,
   computer_setup_any_room_continue,
@@ -272,7 +273,7 @@ int64_t computer_check_build_all_rooms(struct Computer2 *comp, struct ComputerPr
     if (count_no_room_build_tasks(comp) >= comp->max_room_build_tasks) {
         return CProcRet_Wait;
     }
-    for (struct ValidRooms* bldroom = valid_rooms_to_build; bldroom->rkind > 0; bldroom++)
+    for (const struct ValidRooms* bldroom = valid_rooms_to_build; bldroom->rkind > 0; bldroom++)
     {
         if (!dungeon_has_room(dungeon, bldroom->rkind))
         {
@@ -402,29 +403,12 @@ static PlayerNumber get_player_with_more_entrances_than_computer(const struct Co
 TbBool there_is_virgin_entrance_for_computer(const struct Computer2 *comp)
 {
     struct Dungeon* dungeon = computer_dungeon(comp);
-    int64_t i = kfx_sim_state.entrance_room_id;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_kind(kfx_sim_state.entrance_room_id))
     {
-        struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-        }
-        i = room->next_of_kind;
-        // Per-room code
         if (((room->player_interested[dungeon->owner] & 0x01) != 0) &&
           (room->owner != dungeon->owner))
         {
             return true;
-        }
-        // Per-room code ends
-        k++;
-        if (k > ROOMS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping rooms list");
-            break;
         }
     }
     return false;
@@ -603,20 +587,13 @@ int64_t move_imp_to_dig_here(struct Computer2 *comp, struct Coord3d *pos, int64_
     if (!is_task_in_progress_using_hand(comp))
     {
         struct Dungeon* dungeon = computer_dungeon(comp);
-        uint64_t k = 0;
-        int64_t i = dungeon->digger_list_start;
-        while (i != 0)
+        FOR_EACH_THING(creatng, thing_walk_creatures(dungeon->digger_list_start, THINGS_COUNT))
         {
-            const struct Thing* creatng = thing_get(i);
-            TRACE_THING(creatng);
-            const struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-            if (!thing_is_creature(creatng) || creature_control_invalid(cctrl))
+            if (!thing_is_creature(creatng))
             {
                 ERRORLOG("Jump to invalid creature detected");
                 break;
             }
-            i = cctrl->players_next_creature_idx;
-            // Thing list loop body
             if (amount_did >= max_amount)
                 break;
             if (can_thing_be_picked_up_by_player(creatng, dungeon->owner) && imp_can_be_moved_to_dig(creatng))
@@ -625,13 +602,6 @@ int64_t move_imp_to_dig_here(struct Computer2 *comp, struct Coord3d *pos, int64_
                     break;
                 }
                 amount_did++;
-            }
-            // Thing list loop body ends
-            k++;
-            if (k > THINGS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break;
             }
         }
     }
@@ -644,20 +614,13 @@ int64_t move_imp_to_mine_here(struct Computer2 *comp, struct Coord3d *pos, int64
     if (!is_task_in_progress_using_hand(comp))
     {
         struct Dungeon* dungeon = computer_dungeon(comp);
-        uint64_t k = 0;
-        int64_t i = dungeon->digger_list_start;
-        while (i != 0)
+        FOR_EACH_THING(creatng, thing_walk_creatures(dungeon->digger_list_start, THINGS_COUNT))
         {
-            const struct Thing* creatng = thing_get(i);
-            TRACE_THING(creatng);
-            const struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-            if (!thing_is_creature(creatng) || creature_control_invalid(cctrl))
+            if (!thing_is_creature(creatng))
             {
                 ERRORLOG("Jump to invalid creature detected");
                 break;
             }
-            i = cctrl->players_next_creature_idx;
-            // Thing list loop body
             if (amount_did >= max_amount)
                 break;
             if (can_thing_be_picked_up_by_player(creatng, dungeon->owner) && imp_can_be_moved_to_mine(creatng))
@@ -666,13 +629,6 @@ int64_t move_imp_to_mine_here(struct Computer2 *comp, struct Coord3d *pos, int64
                     break;
                 }
                 amount_did++;
-            }
-            // Thing list loop body ends
-            k++;
-            if (k > THINGS_COUNT)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break;
             }
         }
     }

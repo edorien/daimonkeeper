@@ -647,20 +647,12 @@ extern "C" void sound_register_id_redirect(SoundSmplTblID from_id, SoundSmplTblI
 	SYNCDBG(7, "Registered ID redirect: %" PRId64 " -> %" PRId64, (int64_t)(from_id), (int64_t)(to_id));
 }
 
-extern "C" void sound_clear_id_redirects(void) {
-	g_id_redirects.clear();
-}
-
 extern "C" void sound_register_stack_policy(SoundSmplTblID smptbl_id, unsigned char mode, int64_t max_instances) {
 	SoundStackPolicy policy;
 	policy.mode = mode;
 	policy.max_instances = (mode == SStack_Limit) ? std::max<int64_t>(max_instances, 1) : std::max<int64_t>(max_instances, 0);
 	g_stack_policies[smptbl_id] = policy;
 	SYNCDBG(7, "Registered stack policy for sample %" PRId64 ": mode %" PRId64 ", max %" PRId64, (int64_t)(smptbl_id), (int64_t)(mode), (int64_t)(policy.max_instances));
-}
-
-extern "C" void sound_clear_stack_policies(void) {
-	g_stack_policies.clear();
 }
 
 static std::unordered_map<SoundSmplTblID, SoundSmplTblID> g_id_redirects_snapshot;
@@ -972,12 +964,6 @@ extern "C" void MonitorStreamedSoundTrack() {
 			ERRORLOG("%s", e.what());
 		}
 	}
-}
-
-extern "C" void * GetSoundDriver() {
-	// This just needs to return any non-null pointer. FMV library appears to have standalone audio
-	static int64_t dummy = 0;
-	return &dummy;
 }
 
 extern "C" void StopAllSamples() {

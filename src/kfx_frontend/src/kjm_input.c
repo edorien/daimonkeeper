@@ -660,7 +660,7 @@ int64_t set_game_key(int64_t key_id, unsigned char key, uint64_t mods)
 // Shift/Ctrl/Alt" flexibility Gkey_RotateMod/SpeedMod etc. get) -- none of
 // the current editor keys need that, so it's not wired up here, though the
 // generalized helpers would support it if a future editor key ever does.
-int64_t set_editor_game_key(int64_t key_id, unsigned char key, uint64_t mods)
+static int64_t set_editor_game_key(int64_t key_id, unsigned char key, uint64_t mods)
 {
     if (!key_to_string[key])
     {

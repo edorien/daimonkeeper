@@ -54,6 +54,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -684,7 +685,6 @@ void update_effect_light_intensity(struct Thing *thing)
   }
 }
 
-unsigned char temp_pal[768];
 
 void effect_generate_effect_elements(const struct Thing *thing)
 {
@@ -765,24 +765,24 @@ void effect_generate_effect_elements(const struct Thing *thing)
         struct PlayerInfo* player;
         if (thing->health == effcst->start_health)
         {
-            memset(temp_pal, 63, PALETTE_SIZE);
+            // first turn: nothing to do (it filled a palette with white here; the fade's target is render's VPal_White)
         } else
         if (thing->health > i)
         {
-          LbPaletteFade(temp_pal, i, Lb_PALETTE_FADE_OPEN);
+          render_PaletteFadeToView(VPal_White, i);
         } else
         if (thing->health == i)
         {
           LbPaletteStopOpenFade();
-          RendererPaletteSet(temp_pal);
+          render_PaletteSetViewPalette(VPal_White);
         } else
         if (thing->health > 0)
         {
-            LbPaletteFade(engine_palette, 8, Lb_PALETTE_FADE_OPEN);
+            render_PaletteFadeToView(VPal_Engine, 8);
         } else
         {
             player = get_my_player();
-            render_PaletteSetUserPalette(player->user_id, engine_palette);
+            render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
             LbPaletteStopOpenFade();
         }
         break;
@@ -1184,18 +1184,8 @@ int64_t explosion_effect_affecting_map_block(struct Thing *efftng, struct Thing 
         tngsrc = efftng;
     }
     int64_t num_affected = 0;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Per thing processing block
         if ((thing->class_id == TCls_Door) && (efftng->shot_effect.hit_type != THit_CrtrsOnlyNotOwn)) //TODO: Find pretty way to say that WoP traps should not destroy doors. And make it configurable through configs.
         {
@@ -1212,13 +1202,6 @@ int64_t explosion_effect_affecting_map_block(struct Thing *efftng, struct Thing 
             }
         }
         // Per thing processing block ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
     }
     return num_affected;
 }
@@ -1343,18 +1326,8 @@ int64_t explosion_affecting_map_block(struct Thing *tngsrc, const struct Map *ma
     else
         owner = -1;
     int64_t num_affected = 0;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Should never happen - only existing thing shall be in list
         if (!thing_exists(thing))
         {
@@ -1377,13 +1350,6 @@ int64_t explosion_affecting_map_block(struct Thing *tngsrc, const struct Map *ma
             }
         }
         // Per thing processing block ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
     }
     return num_affected;
 }
@@ -1515,18 +1481,8 @@ int64_t poison_cloud_affecting_map_block(struct Thing *tngsrc, const struct Map 
     else
         owner = -1;
     int64_t num_affected = 0;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Should never happen - only existing thing shall be in list
         if (!thing_exists(thing))
         {
@@ -1540,13 +1496,6 @@ int64_t poison_cloud_affecting_map_block(struct Thing *tngsrc, const struct Map 
                 num_affected++;
         }
         // Per thing processing block ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
     }
     return num_affected;
 }
@@ -1822,12 +1771,6 @@ void process_keeper_spell_aura(struct Thing *thing)
     create_used_effect_or_element(&pos, cctrl->spell_aura, thing->owner, thing->index);
 }
 
-void affect_nearby_stuff_with_vortex(struct Thing *thing)
-{
-    //TODO implement vortex; it's not implemented in original DK
-    WARNLOG("Not implemented");
-}
-
 void affect_nearby_friends_with_alarm(struct Thing *traptng)
 {
     SYNCDBG(8,"Starting");
@@ -1835,25 +1778,10 @@ void affect_nearby_friends_with_alarm(struct Thing *traptng)
         return;
     }
     struct Dungeon *dungeon;
-    uint64_t k;
-    int64_t i;
     dungeon = get_players_num_dungeon(traptng->owner);
-    k = 0;
-    i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct CreatureControl *cctrl;
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        cctrl = creature_control_get_from_thing(thing);
-        if (creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
+        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (!thing_is_picked_up(thing) && !is_thing_directly_controlled(thing) &&
             !creature_is_being_unconscious(thing) && !creature_is_kept_in_custody(thing) &&
             (cctrl->combat_flags == 0) && !creature_is_dragging_something(thing) && !creature_is_dying(thing) && !creature_is_leaving_and_cannot_be_stopped(thing))
@@ -1874,13 +1802,6 @@ void affect_nearby_friends_with_alarm(struct Thing *traptng)
                     }
                 }
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
 }

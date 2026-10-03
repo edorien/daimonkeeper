@@ -39,11 +39,70 @@
 #include "thing_creature.h"
 #include "thing_data.h"
 #include "local_state.h"
+#include "config.h"
+#include "config_creature.h"
+#include "bflib_fileio.h"
+#include "thing_stats.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+/******************************************************************************/
+/* The possession swipe sprites and which creature's they are. Moved from kfx_sim (thing_creature.c, and
+ * kfx_sim_state.loaded_swipe_idx) in refactor pass 4, S08: presentation of the local player's view, not sim
+ * state -- it was saved and resynced with the game, so a resync could tell a client a sheet was loaded that wasn't. */
+struct TbSpriteSheet *swipe_sprites = NULL;
+static char loaded_swipe_idx = -1;
+
+void free_swipe_graphic(void)
+{
+    SYNCDBG(6,"Starting");
+    free_spritesheet(&swipe_sprites);
+    loaded_swipe_idx = -1;
+}
+
+TbBool load_swipe_graphic_for_creature(const struct Thing *thing)
+{
+    SYNCDBG(6,"Starting for %s",thing_model_name(thing));
+    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
+    if ((crconf->swipe_idx == 0) || (loaded_swipe_idx == crconf->swipe_idx))
+        return true;
+    free_swipe_graphic();
+    int64_t swpe_idx = crconf->swipe_idx;
+    char dat_fname[2048];
+    char tab_fname[2048];
+#ifdef SPRITE_FORMAT_V2
+    strcpy(dat_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 "-32.dat", (int64_t)(swpe_idx)));
+    strcpy(tab_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 "-32.tab", (int64_t)(swpe_idx)));
+    if (!LbFileExists(dat_fname)) {
+        strcpy(dat_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 "-32.dat", (int64_t)(swpe_idx)));
+        strcpy(tab_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 "-32.tab", (int64_t)(swpe_idx)));
+    }
+#else
+    strcpy(dat_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 ".dat", (int64_t)(swpe_idx)));
+    strcpy(tab_fname, prepare_file_fmtpath(FGrp_CmpgConfig, "swipe%02" PRId64 ".tab", (int64_t)(swpe_idx)));
+    if (!LbFileExists(dat_fname)) {
+        strcpy(dat_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 ".dat", (int64_t)(swpe_idx)));
+        strcpy(tab_fname, prepare_file_fmtpath(FGrp_StdData, "swipe%02" PRId64 ".tab", (int64_t)(swpe_idx)));
+    }
+#endif
+    swipe_sprites = load_spritesheet(dat_fname, tab_fname);
+    if (!swipe_sprites) {
+        free_swipe_graphic();
+        ERRORLOG("Unable to load swipe graphics for %s",thing_model_name(thing));
+        return false;
+    }
+    loaded_swipe_idx = swpe_idx;
+    return true;
+}
+
+/** After loading a game: the loaded sheet is no longer known to be the right one (the next possession loads it). */
+void forget_loaded_swipe_graphic(void)
+{
+    loaded_swipe_idx = -1;
+}
+/******************************************************************************/
 /******************************************************************************/
 /**
  * Randomise the draw direction of the swipe sprite in the first-person possession view.

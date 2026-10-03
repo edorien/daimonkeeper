@@ -87,10 +87,18 @@ struct TbLoadFiles front_load_files_minimal_640[] = {
 
 #endif
 
+/* The game, Freeze and lightning palettes: back from kfx_sim_state.h (pass 2's stage 13.3 moved them there because
+   kfx_sim passed them to the palette calls; since refactor pass 4, S08, it names them by enum ViewPalette). Asset
+   buffers, loaded once and freed at exit, so not in a state struct (a clear_complete_game() memset of one made them
+   NULL). */
+unsigned char *engine_palette;
+unsigned char *blue_palette;
+unsigned char *lightning_palette;
 unsigned char *red_palette;
 unsigned char *dog_palette;
 unsigned char *vampire_palette;
 unsigned char *scratch;
+unsigned char EngineSpriteDrawUsingAlpha;
 
 // Moved from kfx_frontend's gui_parchment.c -- see the doc comment at
 // its declaration in vidmode.h.

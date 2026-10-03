@@ -27,6 +27,7 @@
 #include "bflib_video.h"
 #include "config_settings.h" // kfx_runtime_settings, get/set_screen_vidmode (moved there, S03)
 #include "bflib_filelst.h"
+#include "game_palettes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -192,14 +193,13 @@ TbBool set_pointer_graphic(int64_t ptr_idx);
 
 void setup_stuff(void);
 
-// blue_palette/lightning_palette/engine_palette/EngineSpriteDrawUsingAlpha
-// moved to kfx_sim_state.h (stage 13.3, docs/refactor/
-// stage-13-enforce-and-document.md) -- kfx_sim is the lowest-ranked of
-// their real consumers.
 extern unsigned char *red_palette;
 extern unsigned char *dog_palette;
 extern unsigned char *vampire_palette;
 extern unsigned char *scratch;
+/** Whether the sprite being drawn is drawn with alpha (power hand, creature effects). Back from kfx_sim_state.h
+ *  in refactor pass 4 (S08): only kfx_render uses it. */
+extern unsigned char EngineSpriteDrawUsingAlpha;
 
 /* font_sprites/button_sprites/winfont/frontend_font/testfont/
    testfont_palette moved from kfx_frontend's frontend.h/frontend.cpp

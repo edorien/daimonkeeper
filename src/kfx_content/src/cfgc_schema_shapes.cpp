@@ -47,6 +47,8 @@ void cfgc_apply_shape(CfgFieldSpec &f, const std::string &shape, const CfgTableN
             p.kind = CfgKind_Number;
         else if (tok == "S")
             p.kind = CfgKind_Custom;
+        else if (tok == "I")
+            p.kind = CfgKind_Icon;
         else if (tok.compare(0, 2, "E:") == 0)
         {
             p.kind = CfgKind_Enum;

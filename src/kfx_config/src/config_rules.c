@@ -84,6 +84,10 @@ const struct NamedCommand rules_game_classicbugs_commands[] = {
   {"STUN_FRIENDLY_UNITS",           ClscBug_FriendlyFaint         },
   {"PASSIVE_NEUTRALS",              ClscBug_PassiveNeutrals       },
   {"NEUTRAL_TORTURE_CONVERTS",      ClscBug_NeutralTortureConverts},
+  {"LIBRARY_EXTRA_BOOK",            ClscBug_LibraryExtraBook      },
+  {"CREATURE_STATS_WRAP",           ClscBug_CreatureStatsWrap     },
+  {"CORNER_WALL_UNREVEALED",        ClscBug_CornerWallUnrevealed  },
+  {"CROOKED_SIGHT_LINES",           ClscBug_CrookedSightLines     },
   {NULL,                             0},
 };
 

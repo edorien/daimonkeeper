@@ -22,7 +22,7 @@
 #include "globals.h"
 #include "bflib_basics.h"
 
-#include "bflib_netsp.hpp"
+#include "bflib_netsession.h"
 #include "bflib_guibtns.h"
 #include "bflib_video.h"
 #include "bflib_vidraw.h"

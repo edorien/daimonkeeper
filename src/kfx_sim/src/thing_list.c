@@ -56,6 +56,7 @@
 #include "light_registry.h"
 #include "ports/script_port.h"
 #include "ports/ai_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -65,7 +66,7 @@ extern "C" {
 /******************************************************************************/
 #define ABYSS_FALL_SOUND_DELAY 2
 
-Thing_Class_Func class_functions[] = {
+Thing_Class_Func const class_functions[] = {
   NULL,//TCls_Empty
   update_object,
   update_shot,
@@ -996,17 +997,8 @@ void update_things_in_list(struct StructureList *list)
 {
     SYNCDBG(18,"Starting");
     uint64_t k = 0;
-    int64_t i = list->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(list->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-      }
-      i = thing->next_of_class;
-      // Per-thing code
       update_thing_interpolation(thing);
       if ((thing->alloc_flags & TAlF_IsFollowingLeader) == 0)
       {
@@ -1016,13 +1008,7 @@ void update_things_in_list(struct StructureList *list)
               update_thing(thing);
           }
       }
-      // Per-thing code ends
       k++;
-      if (k > THINGS_COUNT)
-      {
-        ERRORLOG("Infinite loop detected when sweeping things list");
-        break;
-      }
     }
     SYNCDBG(19,"Finished, %" PRId64 " items",(int64_t)k);
 }
@@ -1035,25 +1021,10 @@ static uint64_t update_cave_in_things(void)
 {
     uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_CaveIn);
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         update_cave_in(thing);
-        // Per-thing code ends
         k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return k;
 }
@@ -1066,25 +1037,10 @@ uint64_t update_things_sounds_in_list(struct StructureList *list)
 {
     SYNCDBG(18,"Starting");
     uint64_t k = 0;
-    int64_t i = list->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(list->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         update_thing_sound(thing);
-        // Per-thing code ends
         k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return k;
 }
@@ -1093,17 +1049,8 @@ uint64_t update_creatures_not_in_list(void)
 {
   SYNCDBG(18,"Starting");
   uint64_t k = 0;
-  int64_t i = kfx_sim_state.thing_lists[TngList_Creatures].index;
-  while (i != 0)
+  FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Creatures].index, THINGS_COUNT))
   {
-      struct Thing* thing = thing_get(i);
-      if (thing_is_invalid(thing))
-      {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-    }
-    i = thing->next_of_class;
-    // Per-thing code
     if (thing->index == 0)
     {
       ERRORLOG("Some THING has been deleted during the processing of another thing");
@@ -1117,13 +1064,7 @@ uint64_t update_creatures_not_in_list(void)
         update_thing(thing);
       }
     }
-    // Per-thing code ends
     k++;
-    if (k > THINGS_COUNT)
-    {
-      ERRORLOG("Infinite loop detected when sweeping things list");
-      break;
-    }
   }
   SYNCDBG(18,"Finished");
   return k;
@@ -1157,28 +1098,11 @@ void update_things(void)
 
 struct Thing *find_players_dungeon_heart(PlayerNumber plyridx)
 {
-    int64_t k = 0;
-    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Objects].index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_is_dungeon_heart(thing) && (thing->owner == plyridx))
         {
             return thing;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     SYNCDBG(6,"No heart for player %" PRId64,(int64_t)plyridx);
@@ -1188,28 +1112,11 @@ struct Thing *find_players_dungeon_heart(PlayerNumber plyridx)
 struct Thing* find_players_backup_dungeon_heart(PlayerNumber plyridx)
 {
     struct Dungeon* dungeon = get_dungeon(plyridx);
-    int64_t k = 0;
-    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Objects].index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_is_dungeon_heart(thing) && (thing->owner == plyridx) && (thing->index != dungeon->dnheart_idx))
         {
             return thing;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     SYNCDBG(6, "No secondary heart for player %" PRId64, (int64_t)plyridx);
@@ -1314,55 +1221,21 @@ void setup_zombie_players(void)
 
 void init_all_creature_states(void)
 {
-    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         init_creature_state(thing);
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
-        }
     }
 }
 
 void init_creature_states_for_player(PlayerNumber plyr_idx)
 {
-    int64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing->owner == plyr_idx)
         {
             init_creature_state(thing);
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
 }
@@ -1432,32 +1305,13 @@ void place_thing_in_mapwho(struct Thing *thing)
 struct Thing *find_base_thing_on_mapwho(ThingClass oclass, ThingModel model, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing->class_id == oclass)
         {
             if ((thing->model == model) || (model == 0)) {
                 return thing;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -1470,34 +1324,15 @@ struct Thing *find_base_thing_on_mapwho(ThingClass oclass, ThingModel model, Map
 struct Thing* find_object_of_genre_on_mapwho(int64_t genre, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
     struct ObjectConfigStats* objst;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing->class_id == TCls_Object)
         {
             objst = get_object_model_stats(thing->model);
             if ((objst->genre == genre) || (genre == 0)) {
                 return thing;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -1509,31 +1344,30 @@ struct Thing* find_object_of_genre_on_mapwho(int64_t genre, MapSubtlCoord stl_x,
  */
 struct Thing *find_hero_gate_of_number(int64_t num)
 {
-    int64_t i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Objects].index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-      }
-      i = thing->next_of_class;
-      // Per-thing code
       if ((object_is_hero_gate(thing)) && (thing->hero_gate.number == num))
       {
         return thing;
       }
-      // Per-thing code ends
-      k++;
-      if (k > THINGS_COUNT)
-      {
-        ERRORLOG("Infinite loop detected when sweeping things list");
-        break;
-      }
     }
     return INVALID_THING;
+}
+
+void hero_gate_set_hidden(struct Thing *thing, TbBool hide)
+{
+    if (hide)
+    {
+        light_turn_light_off(thing->light_id);
+        create_effect(&thing->mappos, TngEff_BallPuffWhite, thing->owner);
+        place_thing_in_creature_controlled_limbo(thing);
+    }
+    else
+    {
+        create_effect(&thing->mappos, TngEff_BallPuffWhite, thing->owner);
+        remove_thing_from_creature_controlled_limbo(thing);
+        light_turn_light_on(thing->light_id);
+    }
 }
 
 /**
@@ -1542,18 +1376,8 @@ struct Thing *find_hero_gate_of_number(int64_t num)
 struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel crmodel)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    int64_t i = get_mapwho_thing_index(mapblk);
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per-thing code
         if (thing->class_id == TCls_Object)
         {
             struct ObjectConfigStats* objst = get_object_model_stats(thing->model);
@@ -1562,14 +1386,6 @@ struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlC
                 if ((crmodel == 0) || (crmodel == CREATURE_ANY) || (objst->related_creatr_model == crmodel))
                     return thing;
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -1646,18 +1462,8 @@ int64_t count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngF
     if (slist == NULL) {
         return 0;
     }
-    int64_t i = slist->index;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         int64_t n = filter(thing, param, maximizer);
         if (n > maximizer)
         {
@@ -1667,13 +1473,6 @@ int64_t count_things_of_class_with_filter(Thing_Maximizer_Filter filter, MaxTngF
         if (n == maximizer)
         {
             match_count++;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return match_count;
@@ -1699,18 +1498,8 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
         return INVALID_THING;
     }
     creature_hostility_memo_begin_scan();
-    int64_t i = slist->index;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         int64_t n = filter(thing, param, maximizer);
         if (n > maximizer)
         {
@@ -1728,13 +1517,6 @@ struct Thing *get_nth_thing_of_class_with_filter(Thing_Maximizer_Filter filter, 
                 break;
             }
             curindex++;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     creature_hostility_memo_end_scan();
@@ -1759,29 +1541,12 @@ int64_t do_to_all_things_of_class_and_model(int64_t tngclass, int64_t tngmodel, 
         return 0;
     }
     int64_t n = 0;
-    int64_t i = slist->index;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing->model == tngmodel)
         {
             if (do_cb(thing))
                 n++;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -1937,28 +1702,11 @@ struct Thing *find_gold_laying_in_dungeon(const struct Dungeon *dungeon)
 int64_t creature_of_model_find_first(ThingModel crmodel)
 {
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int64_t i = slist->index;
-    int64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Thing list loop body
         if (thing_matches_model(thing,crmodel))
         {
-            return i;
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
+            return thing->index;
         }
     }
     return 0;
@@ -1967,29 +1715,12 @@ int64_t creature_of_model_find_first(ThingModel crmodel)
 struct Thing *creature_of_model_in_prison_or_tortured(ThingModel crmodel)
 {
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int64_t i = slist->index;
-    int64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Thing list loop body
         if (thing_matches_model(thing,crmodel))
         {
           if (creature_is_kept_in_prison(thing) || creature_is_being_tortured(thing))
               return thing;
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return 0;
@@ -2114,18 +1845,8 @@ int64_t electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immun
 {
     int64_t naffected = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    int64_t i = slist->index;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if (!thing_is_picked_up(thing))
         {
             if (thing->owner != immune_plyr_idx)
@@ -2136,13 +1857,6 @@ int64_t electricity_affecting_area(const struct Coord3d *pos, PlayerNumber immun
                       naffected++;
               }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return naffected;
@@ -2170,30 +1884,12 @@ int64_t do_on_player_list_all_creatures_of_model(int64_t thing_idx, int64_t crmo
     Thing_Bool_Modifier do_cb)
 {
     int64_t n = 0;
-    int64_t i = thing_idx;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
         if (thing_matches_model(thing, crmodel))
         {
             if (do_cb(thing))
                 n++;
-        }
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return n;
@@ -2304,29 +2000,11 @@ int64_t count_player_creatures_of_model_in_action_point(PlayerNumber plyr_idx, i
 int64_t count_player_list_creatures_of_model(int64_t thing_idx, ThingModel crmodel)
 {
     int64_t count = 0;
-    int64_t i = thing_idx;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
         if (thing_matches_model(thing,crmodel))
         {
             count++;
-        }
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return count;
@@ -2335,19 +2013,8 @@ int64_t count_player_list_creatures_of_model(int64_t thing_idx, ThingModel crmod
 int64_t count_player_list_creatures_of_model_on_territory(int64_t thing_idx, ThingModel crmodel, int64_t friendly)
 {
     int64_t count = 0;
-    int64_t i = thing_idx;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing))
-        {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
         int64_t slbwnr = get_slab_owner_thing_is_on(thing);
         if ( thing_matches_model(thing, crmodel) &&
             ( (players_are_enemies(thing->owner,slbwnr) && (friendly == 0)) ||
@@ -2355,13 +2022,6 @@ int64_t count_player_list_creatures_of_model_on_territory(int64_t thing_idx, Thi
               (slbwnr == kfx_config_state.neutral_player_num && (friendly == 2)) ) )
         {
             count++;
-        }
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return count;
@@ -2376,30 +2036,12 @@ TbBool reset_all_players_creatures_affected_by_cta(PlayerNumber plyr_idx)
 
 struct Thing *get_player_list_nth_creature_of_model(int64_t thing_idx, ThingModel crmodel, int64_t crtr_idx)
 {
-    int64_t i = thing_idx;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            return INVALID_THING;
-      }
-      struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-      i = cctrl->players_next_creature_idx;
-      // Per creature code
-      if (thing_matches_model(thing,crmodel))
-          crtr_idx--;
-      if (crtr_idx == -1)
-          return thing;
-      // Per creature code ends
-      k++;
-      if (k > THINGS_COUNT)
-      {
-        ERRORLOG("Infinite loop detected when sweeping things list");
-        return INVALID_THING;
-      }
+        if (thing_matches_model(thing,crmodel))
+            crtr_idx--;
+        if (crtr_idx == -1)
+            return thing;
     }
     ERRORLOG("Tried to get creature of index exceeding list");
     return INVALID_THING;
@@ -2407,30 +2049,12 @@ struct Thing *get_player_list_nth_creature_of_model(int64_t thing_idx, ThingMode
 
 struct Thing* get_player_list_nth_creature_with_property(int64_t thing_idx, uint64_t crmodelflag, int64_t crtr_idx)
 {
-    int64_t i = thing_idx;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            return INVALID_THING;
-        }
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
         if ((get_creature_model_flags(thing) & crmodelflag) == 0)
             crtr_idx--;
         if (crtr_idx == -1)
             return thing;
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            return INVALID_THING;
-        }
     }
     ERRORLOG("Tried to get creature of index exceeding list");
     return INVALID_THING;
@@ -2527,28 +2151,9 @@ GoldAmount compute_player_payday_total(const struct Dungeon *dungeon)
 {
     SYNCDBG(18,"Starting");
     GoldAmount total_pay = 0;
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature (%" PRId64 ") detected for %s.",(int64_t)(i), player_code_name(dungeon->owner));
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         total_pay += calculate_correct_creature_pay(thing);
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     SYNCDBG(19,"Finished");
     return total_pay;
@@ -2623,32 +2228,14 @@ int64_t count_player_list_creatures_with_filter(int64_t thing_idx, Thing_Maximiz
     SYNCDBG(9,"Starting");
     int64_t count = 0;
     int64_t maximizer = 0;
-    uint64_t k = 0;
-    int64_t i = thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
         int64_t n = filter(thing, param, maximizer);
         if (n >= maximizer)
         {
             maximizer = n;
             if (maximizer == INT32_MAX)
                 count++;
-        }
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return count;
@@ -2701,19 +2288,8 @@ struct Thing *get_player_list_creature_with_filter(ThingIndex thing_idx, Thing_M
     SYNCDBG(9,"Starting");
     struct Thing* retng = INVALID_THING;
     int64_t maximizer = 0;
-    uint64_t k = 0;
-    int64_t i = thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per creature code
         int64_t n = filter(thing, param, maximizer);
         if (n >= maximizer)
         {
@@ -2721,13 +2297,6 @@ struct Thing *get_player_list_creature_with_filter(ThingIndex thing_idx, Thing_M
             maximizer = n;
             if (maximizer == INT32_MAX)
                 break;
-        }
-        // Per creature code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return retng;
@@ -2803,17 +2372,8 @@ struct Thing *get_thing_on_map_block_with_filter(int64_t thing_idx, Thing_Maximi
 {
     SYNCDBG(19,"Starting");
     struct Thing* retng = INVALID_THING;
-    uint64_t k = 0;
-    int64_t i = thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_mapwho_from(thing_idx))
     {
-      struct Thing* thing = thing_get(i);
-      if (thing_is_invalid(thing))
-      {
-          ERRORLOG("Jump to invalid thing detected");
-          break;
-      }
-      i = thing->next_on_mapblk;
       // Begin per-loop code
       int64_t n = filter(thing, param, *maximizer);
       if (n > *maximizer)
@@ -2826,12 +2386,6 @@ struct Thing *get_thing_on_map_block_with_filter(int64_t thing_idx, Thing_Maximi
           }
       }
       // End of per-loop code
-      k++;
-      if (k > THINGS_COUNT)
-      {
-        ERRORLOG("Infinite loop detected when sweeping things list");
-        break;
-      }
     }
     return retng;
 }
@@ -2840,17 +2394,8 @@ struct Thing* get_other_thing_on_map_block_with_filter(int64_t thing_idx, Thing_
 {
     SYNCDBG(19, "Starting");
     struct Thing* retng = INVALID_THING;
-    uint64_t k = 0;
-    int64_t i = thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_mapwho_from(thing_idx))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Begin per-loop code
         int64_t n = filter(thing, param, *maximizer);
         if (n >= *maximizer)
@@ -2863,12 +2408,6 @@ struct Thing* get_other_thing_on_map_block_with_filter(int64_t thing_idx, Thing_
             }
         }
         // End of per-loop code
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return retng;
 }
@@ -2877,27 +2416,12 @@ int64_t do_to_things_on_map_block(int64_t thing_idx, Thing_Bool_Modifier do_cb)
 {
     SYNCDBG(19,"Starting");
     int64_t n = 0;
-    uint64_t k = 0;
-    int64_t i = thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_mapwho_from(thing_idx))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Begin per-loop code
         if (do_cb(thing))
             n++;
         // End of per-loop code
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return n;
 }
@@ -2906,27 +2430,12 @@ int64_t do_to_things_with_param_on_map_block(ThingIndex thing_idx, Thing_Modifie
 {
     SYNCDBG(19,"Starting");
     int64_t n = 0;
-    uint64_t k = 0;
-    int64_t i = thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_mapwho_from(thing_idx))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Begin per-loop code
         if (do_cb(thing, param) != TUFRet_Unchanged)
             n++;
         // End of per-loop code
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return n;
 }
@@ -3509,17 +3018,8 @@ TbBool imp_already_digging_at_excluding(struct Thing *excltng, MapSubtlCoord stl
     const struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return false;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Per thing processing block
         if ((thing->class_id == TCls_Creature) && (thing->index != excltng->index))
         {
@@ -3532,14 +3032,7 @@ TbBool imp_already_digging_at_excluding(struct Thing *excltng, MapSubtlCoord stl
             }
         }
         // Per thing processing block ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
-  }
+    }
   return false;
 }
 
@@ -3550,17 +3043,8 @@ struct Thing *smallest_gold_pile_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
     const struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return chosen_thing;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Per thing processing block
         if ((thing->class_id == TCls_Object) && (object_is_gold_laying_on_ground(thing)))
         {
@@ -3571,14 +3055,7 @@ struct Thing *smallest_gold_pile_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
             }
         }
         // Per thing processing block ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
-  }
+    }
   return chosen_thing;
 }
 
@@ -3606,29 +3083,10 @@ TbBool apply_anger_to_all_players_creatures_excluding(PlayerNumber plyr_idx, int
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (thing->index != excltng->index) {
             anger_apply_anger_to_creature(thing, anger, reason, 1);
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19,"Finished");
@@ -3640,17 +3098,8 @@ TbBool gold_pile_with_maximum_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
     const struct Map* mapblk = get_map_block_at(stl_x, stl_y);
     if (map_block_invalid(mapblk))
         return false;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
         // Per thing processing block
         if ((thing->class_id == TCls_Object) && (object_is_gold_laying_on_ground(thing)))
         {
@@ -3660,14 +3109,7 @@ TbBool gold_pile_with_maximum_at_xy(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
             }
         }
         // Per thing processing block ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
-  }
+    }
   return false;
 }
 
@@ -4135,23 +3577,13 @@ int64_t setup_excess_creatures_to_leave_or_die(int64_t max_remain)
 {
     struct CreatureControl* cctrl;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
-    uint64_t k = 0;
-    int64_t i = slist->index;
     int64_t count = 0;
     if (slist->count <= max_remain)
     {
         return count;
     }
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         cctrl = creature_control_get_from_thing(thing);
         if (cctrl->index > max_remain)
         {
@@ -4167,13 +3599,6 @@ int64_t setup_excess_creatures_to_leave_or_die(int64_t max_remain)
             {
                 setup_creature_leaves_or_dies(thing);
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return count;
@@ -4305,21 +3730,12 @@ struct Thing* get_timebomb_target(struct Thing *creatng)
 {
     struct Thing *retng = NULL;
     MapCoordDelta dist, new_dist;
-    struct Thing* thing;
     struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
     if (slist != NULL)
     {
         dist = INT32_MAX;
-        uint64_t i = slist->index;
-        uint64_t k = 0;
-        while (i != 0)
+        FOR_EACH_THING(thing, thing_walk_structure_list(slist))
         {
-            thing = thing_get(i);
-            if (thing_is_invalid(thing))
-            {
-                ERRORLOG("Jump to invalid thing detected");
-                break;
-            }
             if (players_are_enemies(creatng->owner, thing->owner))
             {
                 if (creature_will_attack_creature(creatng, thing))
@@ -4335,14 +3751,6 @@ struct Thing* get_timebomb_target(struct Thing *creatng)
                     }
                 }
             }
-            // Per-thing code ends
-            k++;
-            if (k > slist->count)
-            {
-                ERRORLOG("Infinite loop detected when sweeping things list");
-                break;
-            }
-            i = thing->next_of_class;
         }
     }
     if (thing_is_invalid(retng))
@@ -4352,16 +3760,16 @@ struct Thing* get_timebomb_target(struct Thing *creatng)
         {
             if (players_are_enemies(creatng->owner, plyr_idx))
             {
-                thing = get_player_soul_container(plyr_idx);
-                if (thing_exists(thing))
+                struct Thing *heartng = get_player_soul_container(plyr_idx);
+                if (thing_exists(heartng))
                 {
-                    new_dist = get_2d_distance(&creatng->mappos, &thing->mappos);
+                    new_dist = get_2d_distance(&creatng->mappos, &heartng->mappos);
                     if (new_dist < dist)
                     {
-                        if (creature_can_navigate_to(creatng, &thing->mappos, NavRtF_Default))
+                        if (creature_can_navigate_to(creatng, &heartng->mappos, NavRtF_Default))
                         {
                             dist = new_dist;
-                            retng = thing;
+                            retng = heartng;
                         }
                     }
                 }

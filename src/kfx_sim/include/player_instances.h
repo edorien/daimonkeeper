@@ -108,7 +108,6 @@ TbBool player_place_trap_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl
 /** Places a trap at exactly this subtile, whatever the trap's own PlaceOnSubtile setting: shipped campaign
  *  maps have several traps per slab (level editor). */
 TbBool player_place_trap_at_subtile_without_check(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
-TbBool player_place_trap_at_pos_without_check(const struct Coord3d *pos, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
 TbBool player_place_door_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel);
 TbBool player_place_door_without_check_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool free);
 
@@ -122,7 +121,6 @@ void level_lost_go_first_person(PlayerNumber plyr_idx);
 void level_editor_go_spectator_at(PlayerNumber plyr_idx, MapCoord pos_x, MapCoord pos_y);
 int64_t packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel tngmodel, TbBool allowed);
 
-extern unsigned char zoom_to_heart_palette[768];
 /******************************************************************************/
 #ifdef __cplusplus
 }

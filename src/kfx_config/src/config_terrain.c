@@ -494,18 +494,6 @@ TbBool slab_kind_is_room_wall(RoomKind slbkind)
 }
 
 /**
- * Returns if given slab kind is a reinforced wall, fortified by a player.
- * @param slbkind The slab kind to be checked.
- * @return True if the slab is a fortified wall, false otherwise.
- */
-TbBool slab_kind_is_fortified_wall(RoomKind slbkind)
-{
-    return (slbkind == SlbT_WALLDRAPE) || (slbkind == SlbT_WALLTORCH) ||
-           (slbkind == SlbT_WALLWTWINS) || (slbkind == SlbT_WALLWWOMAN) ||
-           (slbkind == SlbT_WALLPAIRSHR);
-}
-
-/**
  * Returns if given slab kind is a friable, unfortified and unowned dirt.
  * @param slbkind The slab kind to be checked.
  * @return True if the slab is an unowned dirt, false otherwise.

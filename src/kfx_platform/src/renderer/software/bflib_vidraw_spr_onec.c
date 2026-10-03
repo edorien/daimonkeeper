@@ -34,52 +34,12 @@
 #include "bflib_video.h"
 #include "bflib_sprite.h"
 #include "bflib_mouse.h"
+#include "bflib_vidraw_spr_scale.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-/******************************************************************************/
-
-/**
- * Ghost/invisible-creature blend: `output = (colour + 2*dest) / 3` -- a fixed
- * 1/3-weight tint of `colour` onto whatever's already at the destination.
- * Replaces the old `render_ghost[colour<<8 | dest]` table lookup every
- * "Trans1" variant in this file used to do -- see
- * docs/refactor/renderer/02a-pixel-format-design.md §2.2. `colour` is the
- * fixed silhouette colour; `dest` is the current framebuffer pixel being
- * drawn over.
- */
-static inline TbPixel ghost_blend_1(TbPixel colour, TbPixel dest)
-{
-    if (dest.a != 255)
-        return render_ghost_blend(colour, dest); // transparent GPU-layer window: alpha-aware (see bflib_render.h)
-    return TbPixel_RGB(
-        (uint8_t)((colour.r + 2 * dest.r) / 3),
-        (uint8_t)((colour.g + 2 * dest.g) / 3),
-        (uint8_t)((colour.b + 2 * dest.b) / 3));
-}
-
-/**
- * Ghost/invisible-creature blend, the "Trans2" (reverse) weighting used by
- * this file's Trans2 variants: `output = (2*colour + dest) / 3` -- mostly
- * the fixed silhouette colour, lightly blended toward the destination.
- * Replaces the old `render_ghost[dest<<8 | colour]` table lookup (note the
- * reversed index order vs. ghost_blend_1 -- deliberately a different blend,
- * confirmed by tracing the original `pxmap` computation, not the same
- * formula applied twice). See
- * docs/refactor/renderer/02a-pixel-format-design.md §2.2/§3.2.
- */
-static inline TbPixel ghost_blend_2(TbPixel colour, TbPixel dest)
-{
-    if (dest.a != 255)
-        return render_ghost_blend_2(colour, dest);
-    return TbPixel_RGB(
-        (uint8_t)((2 * colour.r + dest.r) / 3),
-        (uint8_t)((2 * colour.g + dest.g) / 3),
-        (uint8_t)((2 * colour.b + dest.b) / 3));
-}
-
 /******************************************************************************/
 /**
  * Draws a scaled up sprite on given buffer, with transparency mapping and one colour, from right to left.
@@ -95,93 +55,8 @@ static inline TbPixel ghost_blend_2(TbPixel colour, TbPixel dest)
  */
 TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0] + xcurstep[1];
-                        xcurstep -= 2 * pxlen;
-                        out_end += xcurstep[0] + xcurstep[1];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                for (;xdup > 0; xdup--)
-                                {
-                                    *out_end = ghost_blend_1(colour, *out_end);
-                                    out_end--;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep -= 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans1, true, &px);
 }
 
 /**
@@ -198,93 +73,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1RL(TbPixel *outbuf, int64_
  */
 TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0];
-                        xcurstep += 2 * pxlen;
-                        out_end += xcurstep[0];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                for (;xdup > 0; xdup--)
-                                {
-                                    *out_end = ghost_blend_1(colour, *out_end);
-                                    out_end++;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep += 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans1, false, &px);
 }
 
 /**
@@ -301,93 +91,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans1LR(TbPixel *outbuf, int64_
  */
 TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0] + xcurstep[1];
-                        xcurstep -= 2 * pxlen;
-                        out_end += xcurstep[0] + xcurstep[1];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                for (;xdup > 0; xdup--)
-                                {
-                                    *out_end = ghost_blend_2(colour, *out_end);
-                                    out_end--;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep -= 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans2, true, &px);
 }
 
 /**
@@ -404,93 +109,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2RL(TbPixel *outbuf, int64_
  */
 TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            unsigned char *prevdata;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            prevdata = sprdata;
-            while (ydup > 0)
-            {
-                sprdata = prevdata;
-                xcurstep = xstep;
-                TbPixel *out_end;
-                out_end = outbuf;
-                while ( 1 )
-                {
-                    int64_t pxlen;
-                    pxlen = (signed char)*sprdata;
-                    sprdata++;
-                    if (pxlen == 0)
-                        break;
-                    if (pxlen < 0)
-                    {
-                        pxlen = -pxlen;
-                        out_end -= xcurstep[0];
-                        xcurstep += 2 * pxlen;
-                        out_end += xcurstep[0];
-                    }
-                    else
-                    {
-                        for (;pxlen > 0; pxlen--)
-                        {
-                            xdup = xcurstep[1];
-                            if (xcurstep[0]+xdup > llabs(scanline))
-                                xdup = llabs(scanline)-xcurstep[0];
-                            if (xdup > 0)
-                            {
-                                for (;xdup > 0; xdup--)
-                                {
-                                    *out_end = ghost_blend_2(colour, *out_end);
-                                    out_end++;
-                                }
-                            }
-                            sprdata++;
-                            xcurstep += 2;
-                        }
-                    }
-                }
-                outbuf += scanline;
-                ydup--;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans2, false, &px);
 }
 
 /**
@@ -507,113 +127,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataTrans2LR(TbPixel *outbuf, int64_
  */
 TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t ycur;
-            int64_t solid_len;
-            TbPixel * out_line;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    TbPixel *out_start;
-                    out_start = out_end;
-                    for(;pxlen > 0; pxlen--)
-                    {
-                        xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > llabs(scanline))
-                            xdup = llabs(scanline)-xcurstep[0];
-                        if (xdup > 0)
-                        {
-                            TbPixel pxval;
-                            pxval = colour;
-                            for (;xdup > 0; xdup--)
-                            {
-                                *out_end = pxval;
-                                out_end--;
-                            }
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                    ycur = ydup - 1;
-                    if (ycur > 0)
-                    {
-                        solid_len = out_start - out_end;
-                        out_start = out_end;
-                        solid_len++;
-                        out_line = out_start + scanline;
-                        for (;ycur > 0; ycur--)
-                        {
-                            if (solid_len > 0) {
-                                LbPixelBlockCopyForward(out_line, out_start, solid_len);
-                            }
-                            out_line += scanline;
-                        }
-                    }
-                }
-            }
-            outbuf += scanline;
-            ycur = ydup - 1;
-            for (;ycur > 0; ycur--)
-            {
-                outbuf += scanline;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Solid, true, &px);
 }
 
 /**
@@ -630,111 +145,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidRL(TbPixel *outbuf, int64_t
  */
 TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t ycur;
-            int64_t solid_len;
-            TbPixel * out_line;
-            int64_t xdup;
-            int64_t ydup;
-            int64_t *xcurstep;
-            ydup = ycurstep[1];
-            if (ycurstep[0]+ydup > outheight)
-                ydup = outheight-ycurstep[0];
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    TbPixel *out_start;
-                    out_start = out_end;
-                    for(;pxlen > 0; pxlen--)
-                    {
-                        xdup = xcurstep[1];
-                        if (xcurstep[0]+xdup > llabs(scanline))
-                            xdup = llabs(scanline)-xcurstep[0];
-                        if (xdup > 0)
-                        {
-                            TbPixel pxval;
-                            pxval = colour;
-                            for (;xdup > 0; xdup--)
-                            {
-                                *out_end = pxval;
-                                out_end++;
-                            }
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                    ycur = ydup - 1;
-                    if (ycur > 0)
-                    {
-                        solid_len = out_end - out_start;
-                        out_line = out_start + scanline;
-                        for (;ycur > 0; ycur--)
-                        {
-                            if (solid_len > 0) {
-                                LbPixelBlockCopyForward(out_line, out_start, solid_len);
-                            }
-                            out_line += scanline;
-                        }
-                    }
-                }
-            }
-            outbuf += scanline;
-            ycur = ydup - 1;
-            for (;ycur > 0; ycur--)
-            {
-                outbuf += scanline;
-            }
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_up(outbuf, scanline, outheight, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Solid, false, &px);
 }
 
 /**
@@ -751,75 +163,8 @@ TbResult LbSpriteDrawOneColourUsingScalingUpDataSolidLR(TbPixel *outbuf, int64_t
  */
 TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            *out_end = ghost_blend_1(colour, *out_end);
-                            out_end--;
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans1, true, &px);
 }
 
 /**
@@ -836,75 +181,8 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1RL(TbPixel *outbuf, int6
  */
 TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            *out_end = ghost_blend_1(colour, *out_end);
-                            out_end++;
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans1, false, &px);
 }
 
 /**
@@ -921,83 +199,8 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans1LR(TbPixel *outbuf, int6
  */
 TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            /* Legacy bug fixed here, per docs/refactor/renderer/
-                             * 02b-legacy-bugs-found.md #1: the pre-migration code
-                             * computed `pxmap = (colour << 8)` then immediately
-                             * overwrote that byte with the destination pixel,
-                             * silently discarding `colour` (always read
-                             * ghost[dest<<8|0] instead of ghost[dest<<8|colour]).
-                             * Its LR counterpart never had this bug. Fixed to
-                             * match: use the real ghost_blend_2(colour, dest). */
-                            *out_end = ghost_blend_2(colour, *out_end);
-                            out_end--;
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans2, true, &px);
 }
 
 /**
@@ -1014,75 +217,8 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2RL(TbPixel *outbuf, int6
  */
 TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            *out_end = ghost_blend_2(colour, *out_end);
-                            out_end++;
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Trans2, false, &px);
 }
 
 /**
@@ -1099,75 +235,8 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataTrans2LR(TbPixel *outbuf, int6
  */
 TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0] + xcurstep[1];
-                    xcurstep -= 2 * pxlen;
-                    out_end += xcurstep[0] + xcurstep[1];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            *out_end = colour;
-                            out_end--;
-                        }
-                        sprdata++;
-                        xcurstep -= 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Solid, true, &px);
 }
 
 /**
@@ -1184,75 +253,8 @@ TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidRL(TbPixel *outbuf, int64
  */
 TbResult LbSpriteDrawOneColourUsingScalingDownDataSolidLR(TbPixel *outbuf, int64_t scanline, int64_t outheight, int64_t *xstep, int64_t *ystep, const struct TbSprite *sprite, TbPixel colour)
 {
-    SYNCDBG(17,"Drawing");
-    int64_t ystep_delta;
-    unsigned char *sprdata;
-    int64_t *ycurstep;
-
-    ystep_delta = 2;
-    if (scanline < 0) {
-        ystep_delta = -2;
-    }
-    sprdata = sprite->Data;
-    ycurstep = ystep;
-
-    int64_t h;
-    for (h=sprite->SHeight; h > 0; h--)
-    {
-        if (ycurstep[1] != 0)
-        {
-            int64_t *xcurstep;
-            xcurstep = xstep;
-            TbPixel *out_end;
-            out_end = outbuf;
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                    break;
-                if (pxlen < 0)
-                {
-                    pxlen = -pxlen;
-                    out_end -= xcurstep[0];
-                    xcurstep += 2 * pxlen;
-                    out_end += xcurstep[0];
-                }
-                else
-                {
-                    for (;pxlen > 0; pxlen--)
-                    {
-                        if (xcurstep[1] > 0)
-                        {
-                            *out_end = colour;
-                            out_end++;
-                        }
-                        sprdata++;
-                        xcurstep += 2;
-                    }
-                }
-            }
-            outbuf += scanline;
-        }
-        else
-        {
-            while ( 1 )
-            {
-                int64_t pxlen;
-                pxlen = (signed char)*sprdata;
-                sprdata++;
-                if (pxlen == 0)
-                  break;
-                if (pxlen > 0)
-                {
-                    sprdata += pxlen;
-                }
-            }
-        }
-        ycurstep += ystep_delta;
-    }
-    return 0;
+    const struct SprPixelSource px = {.colour = colour};
+    return spr_scaling_down(outbuf, scanline, xstep, ystep, sprite->Data, sprite->SHeight, SprPx_OneColour, SprBl_Solid, false, &px);
 }
 
 /**

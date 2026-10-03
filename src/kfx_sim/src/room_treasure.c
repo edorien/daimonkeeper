@@ -27,6 +27,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "thing_objects.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -65,30 +66,11 @@ void count_gold_slabs_div2(struct Room* room)
 struct Thing *find_gold_hoarde_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_is_object(thing) && object_is_gold_hoard(thing))
         {
             return thing;
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -160,12 +142,10 @@ void count_gold_hoardes_in_room(struct Room *room)
     // First, set the values to something big; this will prevent logging warnings on add/remove_gold_from_hoarde()
     room->used_capacity = room->total_capacity;
     room->capacity_used_for_storage = room->used_capacity * wealth_size_holds;
-    uint64_t k = 0;
-    int64_t i = room->slabs_list;
-    while (i > 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk_from(room->slabs_list, kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y))
     {
-        MapSlabCoord slb_x = slb_num_decode_x(i);
-        MapSlabCoord slb_y = slb_num_decode_y(i);
+        MapSlabCoord slb_x = slb_num_decode_x(slb_num);
+        MapSlabCoord slb_y = slb_num_decode_y(slb_num);
         struct Thing* gldtng = find_gold_hoarde_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
         GoldAmount gold_amount;
         if (!thing_is_invalid(gldtng) && (gldtng->valuable.gold_stored > max_hoard_size_in_room))
@@ -190,14 +170,6 @@ void count_gold_hoardes_in_room(struct Room *room)
         if (gold_amount > 0) {
             all_gold_amount += gold_amount;
             all_wealth_size += get_wealth_size_of_gold_amount(gold_amount);
-        }
-
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > kfx_sim_state.map_tiles_x * kfx_sim_state.map_tiles_y)
-        {
-            ERRORLOG("Infinite loop detected when sweeping room slabs");
-            break;
         }
     }
     room->capacity_used_for_storage = all_gold_amount;

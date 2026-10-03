@@ -174,14 +174,6 @@ void ConfigDocument::rebuild_index()
         sections_.push_back(current);
 }
 
-int64_t ConfigDocument::find_section(const std::string &name) const
-{
-    for (size_t i = 0; i < sections_.size(); i++)
-        if (sections_[i].header_line >= 0 && sections_[i].name == name)
-            return (int64_t)i;
-    return -1;
-}
-
 std::vector<int64_t> ConfigDocument::key_lines(int64_t section_index) const
 {
     std::vector<int64_t> out;

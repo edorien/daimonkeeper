@@ -55,6 +55,7 @@
 #include "kfx_sim_state.h"
 #include "room_workshop.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -212,25 +213,10 @@ TbBool imp_will_soon_be_working_at_excluding(const struct Thing *creatng, MapSub
     pos2.y.val = subtile_coord_center(stl_y);
     pos2.z.val = subtile_coord(1,0);
     struct Dungeon *dungeon;
-    uint64_t k;
-    int64_t i;
     dungeon = get_players_num_dungeon(creatng->owner);
-    k = 0;
-    i = dungeon->digger_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->digger_list_start, CREATURES_COUNT))
     {
-        struct CreatureControl *cctrl;
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        cctrl = creature_control_get_from_thing(thing);
-        if (creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
+        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (!thing_is_picked_up(thing) && !creature_is_being_unconscious(thing) && !creature_is_dying(thing))
         {
             if (thing->index != creatng->index)
@@ -248,40 +234,18 @@ TbBool imp_will_soon_be_working_at_excluding(const struct Thing *creatng, MapSub
               }
             }
         }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     return false;
 }
 
 TbBool imp_will_soon_be_getting_object(PlayerNumber plyr_idx, const struct Thing *objtng)
 {
-    const struct Thing *spdigtng;
-    const struct CreatureControl *cctrl;
     const struct Dungeon *dungeon;
-    uint64_t k;
-    int64_t i;
     SYNCDBG(8,"Starting");
     dungeon = get_players_num_dungeon(plyr_idx);
-    k = 0;
-    i = dungeon->digger_list_start;
-    while (i != 0)
+    FOR_EACH_THING(spdigtng, thing_walk_creatures(dungeon->digger_list_start, CREATURES_COUNT))
     {
-        spdigtng = thing_get(i);
-        TRACE_THING(spdigtng);
-        cctrl = creature_control_get_from_thing(spdigtng);
-        if (thing_is_invalid(spdigtng) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
+        const struct CreatureControl* cctrl = creature_control_get_from_thing(spdigtng);
         if (cctrl->pickup_object_id == objtng->index)
         {
             CrtrStateId crstate;
@@ -296,13 +260,6 @@ TbBool imp_will_soon_be_getting_object(PlayerNumber plyr_idx, const struct Thing
                 return true;
             // Note that picking up gold pile does not currently fill pickup_object_id, so can't be checked here
         }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
-        }
     }
     SYNCDBG(19,"Finished");
     return false;
@@ -316,22 +273,11 @@ TbBool imp_will_soon_be_getting_object(PlayerNumber plyr_idx, const struct Thing
 TbBool imp_will_soon_be_arming_trap(struct Thing *traptng)
 {
     struct Dungeon *dungeon;
-    struct Thing *thing;
-    struct CreatureControl *cctrl;
     int64_t crstate;
-    int64_t i;
-    uint64_t k;
     dungeon = get_dungeon(traptng->owner);
-    k = 0;
-    i = dungeon->digger_list_start;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->digger_list_start, THINGS_COUNT))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-            break;
-        cctrl = creature_control_get_from_thing(thing);
-        i = cctrl->players_next_creature_idx;
-        // Per-thing code
+        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (cctrl->arming_thing_id == traptng->index)
         {
             crstate = get_creature_state_besides_interruptions(thing);
@@ -341,13 +287,6 @@ TbBool imp_will_soon_be_arming_trap(struct Thing *traptng)
             if (crstate == CrSt_CreatureArmsTrap) {
                 return true;
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return false;
@@ -385,33 +324,16 @@ void force_any_creature_dragging_thing_to_drop_it(struct Thing *dragtng)
 
 struct Thing *check_for_empty_trap_for_imp_not_being_armed(struct Thing *digger, int64_t trpmodel)
 {
-    struct Thing *thing;
-    int64_t i;
-    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Trap);
-    k = 0;
-    i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-          break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ( (thing->model == trpmodel) && (thing->trap.num_shots == 0) && (thing->owner == digger->owner) )
         {
             if ( !imp_will_soon_be_arming_trap(thing) )
             {
                 return thing;
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-          ERRORLOG("Infinite loop detected when sweeping things list");
-          break;
         }
     }
     return INVALID_THING;
@@ -729,20 +651,9 @@ int64_t check_place_to_convert_excluding(struct Thing *creatng, MapSlabCoord slb
         return 0;
     }
     TRACE_THING(creatng);
-    uint64_t k = 0;
     struct Map *mapblk = get_map_block_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing *thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if ( thing_is_creature(thing) && (thing->index != creatng->index) )
         {
             if (!thing_is_picked_up(thing) && (thing->active_state == CrSt_ImpConvertsDungeon)) {
@@ -765,14 +676,6 @@ int64_t check_place_to_convert_excluding(struct Thing *creatng, MapSlabCoord slb
                     }
                 }
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return 1;
@@ -798,22 +701,8 @@ int64_t check_place_to_pretty_excluding(struct Thing *creatng, MapSlabCoord slb_
         SYNCDBG(8,"The slab %" PRId64 ",%" PRId64 " is not by players land",(int64_t)slb_x, (int64_t)slb_y);
         return 0;
     }
-    struct Thing *thing;
-    int64_t i;
-    uint64_t k;
-    k = 0;
-    i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if ( thing_is_creature(thing) && (thing->index != creatng->index) )
         {
             if (!thing_is_picked_up(thing) && (thing->active_state == CrSt_ImpImprovesDungeon)) {
@@ -821,14 +710,6 @@ int64_t check_place_to_pretty_excluding(struct Thing *creatng, MapSlabCoord slb_
                     (int64_t)slb_x,(int64_t)slb_y,thing_model_name(thing),(int64_t)thing->index);
                 return 0;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return 1;
@@ -1716,18 +1597,8 @@ TbBool thing_can_be_picked_to_place_in_player_room_of_role(const struct Thing* t
 
 struct Thing *get_next_unclaimed_gold_thing_pickable_by_digger(PlayerNumber owner, int64_t start_idx)
 {
-    struct Thing *thing;
-    int64_t i;
-    int64_t k;
-    k = 0;
-    i = start_idx;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_list(start_idx, THINGS_COUNT))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing_is_object(thing) && object_is_gold_pile(thing))
         {
             // TODO DIGGERS Use thing_can_be_picked_to_place_in_player_room_of_role() instead of single conditions
@@ -1747,13 +1618,6 @@ struct Thing *get_next_unclaimed_gold_thing_pickable_by_digger(PlayerNumber owne
                       }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     return INVALID_THING;
@@ -1803,11 +1667,8 @@ void setup_imp_stack(struct Dungeon *dungeon)
 
 int64_t add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
-    struct Thing *thing = NULL;
     struct Room *room;
     int64_t remain_num;
-    uint64_t k;
-    int64_t i;
     if (!dungeon_has_room_of_role(dungeon, RoRoF_Prison)) {
         SYNCDBG(8,"Dungeon %" PRId64 " has no %s",(int64_t)dungeon->owner,room_role_code_name(RoRoF_Prison));
         return 0;
@@ -1819,19 +1680,9 @@ int64_t add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, i
     room = find_room_of_role_with_spare_capacity(dungeon->owner, RoRoF_Prison, 1);
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Creature);
-    k = 0;
-    i = slist->index;
     remain_num = max_tasks;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if ( (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) || (remain_num <= 0) ) {
             break;
         }
@@ -1853,13 +1704,6 @@ int64_t add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, i
                 remain_num--;
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
@@ -1876,30 +1720,17 @@ int64_t add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, i
  */
 int64_t add_unsaved_unconscious_creature_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
-    struct Thing *thing = NULL;
     struct Room *room;
     int64_t remain_num;
-    uint64_t k;
-    int64_t i;
     if(!kfx_config_state.conf.rules[dungeon->owner].workers.drag_to_lair)
     {
         return 0;
     }
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Creature);
-    k = 0;
-    i = slist->index;
     remain_num = max_tasks;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if ( (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) || (remain_num <= 0) )
         {
             break;
@@ -1937,13 +1768,6 @@ int64_t add_unsaved_unconscious_creature_to_imp_stack(struct Dungeon *dungeon, i
                 remain_num--;
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
@@ -1951,12 +1775,9 @@ int64_t add_unsaved_unconscious_creature_to_imp_stack(struct Dungeon *dungeon, i
 
 int64_t add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
-    struct Thing *thing;
     struct Room *room;
     SubtlCodedCoords stl_num;
     int64_t remain_num;
-    uint64_t k;
-    int64_t i;
     if (!dungeon_has_room_of_role(dungeon, RoRoF_DeadStorage)) {
         SYNCDBG(8,"Dungeon %" PRId64 " has no %s",(int64_t)dungeon->owner,room_role_code_name(RoRoF_DeadStorage));
         return 0;
@@ -1964,19 +1785,9 @@ int64_t add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int64_t 
     room = find_room_of_role_with_spare_capacity(dungeon->owner, RoRoF_DeadStorage, 1);
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_DeadCreature);
-    k = 0;
-    i = slist->index;
     remain_num = max_tasks;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if ( (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) || (remain_num <= 0) ) {
             break;
         }
@@ -1998,13 +1809,6 @@ int64_t add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int64_t 
                 remain_num--;
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
@@ -2020,23 +1824,10 @@ int64_t add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int64_t max_t
     room = find_room_of_role_with_spare_room_item_capacity(dungeon->owner, RoRoF_PowersStorage);
     int64_t remain_num;
     remain_num = max_tasks;
-    int64_t i;
-    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Object);
-    k = 0;
-    i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing)) {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if ((dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) || (remain_num <= 0)) {
             break;
         }
@@ -2057,13 +1848,6 @@ int64_t add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int64_t max_t
             }
             remain_num--;
         }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
@@ -2071,19 +1855,8 @@ int64_t add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int64_t max_t
 
 TbBool add_object_for_trap_to_imp_stack(struct Dungeon *dungeon, struct Thing *armtng)
 {
-    uint64_t k;
-    int64_t i;
-    k = 0;
-    i = kfx_sim_state.thing_lists[TngList_Objects].index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_list(kfx_sim_state.thing_lists[TngList_Objects].index, THINGS_COUNT))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if (thing->model == trap_crate_object_model(armtng->model))
         {
             struct SlabMap *slb;
@@ -2099,13 +1872,6 @@ TbBool add_object_for_trap_to_imp_stack(struct Dungeon *dungeon, struct Thing *a
                 }
             }
         }
-        // Per-thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return false;
 }
@@ -2115,23 +1881,10 @@ int64_t add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
     SYNCDBG(18,"Starting");
     int64_t remain_num;
     remain_num = max_tasks;
-    int64_t i;
-    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Trap);
-    k = 0;
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Thing list loop body
         if ((dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) || (remain_num <= 0)) {
             break;
         }
@@ -2141,13 +1894,6 @@ int64_t add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
                 remain_num--;
             }
         }
-        // Thing list loop body ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
     return (max_tasks-remain_num);
@@ -2155,29 +1901,16 @@ int64_t add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 
 int64_t add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_tasks)
 {
-    struct Thing* thing;
     SYNCDBG(18,"Starting");
     // Checking if the workshop exists
     struct Room *room;
     room = find_room_of_role_with_spare_room_item_capacity(dungeon->owner, RoRoF_CratesStorage);
     int64_t remain_num;
     remain_num = max_tasks;
-    int64_t i;
-    uint64_t k;
     const struct StructureList *slist;
     slist = get_list_for_thing_class(TCls_Object);
-    k = 0;
-    i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing)) {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         if ((dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) || (remain_num <= 0)) {
             break;
         }
@@ -2197,13 +1930,6 @@ int64_t add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int64_t max_ta
                 break;
             }
             remain_num--;
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     SYNCDBG(8,"Done, added %" PRId64 " tasks",(int64_t)(max_tasks-remain_num));
@@ -2485,35 +2211,13 @@ int64_t check_place_to_dig_and_get_position(struct Thing *thing, SubtlCodedCoord
 
 struct Thing *check_place_to_pickup_dead_body(struct Thing *creatng, int64_t stl_x, int64_t stl_y)
 {
-    struct Thing *thing;
-    int64_t i;
-    uint64_t k;
     struct Map *mapblk;
     mapblk = get_map_block_at(stl_x,stl_y);
-    k = 0;
-    i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (corpse_ready_for_collection(thing))
         {
             return thing;
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;
@@ -2669,23 +2373,9 @@ int64_t check_place_to_reinforce(struct Thing *creatng, MapSlabCoord slb_x, MapS
 struct Thing *check_place_to_pickup_crate(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, int64_t flags, int64_t n)
 {
     struct Map *mapblk;
-    int64_t i;
-    uint64_t k;
     mapblk = get_map_block_at(stl_x,stl_y);
-    k = 0;
-    i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        TRACE_THING(creatng);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if (thing_can_be_picked_to_place_in_player_room_of_role(thing, creatng->owner, RoRoF_CratesStorage, flags))
         {
             if (n > 0) {
@@ -2693,14 +2383,6 @@ struct Thing *check_place_to_pickup_crate(const struct Thing *creatng, MapSubtlC
             } else {
                 return thing;
             }
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;

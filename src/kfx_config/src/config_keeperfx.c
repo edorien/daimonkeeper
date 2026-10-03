@@ -16,6 +16,7 @@
 #include "kfx_memory.h"
 #include "pre_inc.h"
 #include "config_keeperfx.h"
+#include "config_settingschema.h"
 
 #include <stdarg.h>
 #include "globals.h"
@@ -539,6 +540,19 @@ TbBool prepare_diskpath(char *buf,int64_t buflen)
     return true;
 }
 
+/**
+ * The next word of a config line as a whole number, or -1 when there is none or it isn't one: an empty value
+ * or text used to be read as 0 (atoi) and accepted, e.g. POINTER_SENSITIVITY=abc stopped the mouse (refactor
+ * pass 4 finding P4-F5). Every key read with it refuses -1.
+ */
+static int64_t conf_parameter_number(const char *buf, int64_t *pos, int64_t len)
+{
+    char word_buf[128];
+    if ((get_conf_parameter_single(buf, pos, len, word_buf, sizeof(word_buf)) <= 0) || !parameter_is_number(word_buf))
+        return -1;
+    return atoll(word_buf);
+}
+
 static void load_file_configuration(const char *fname, const char *sname, const char *config_textname, int64_t flags)
 {
   int64_t len = LbFileLengthRnc(fname);
@@ -574,7 +588,14 @@ static void load_file_configuration(const char *fname, const char *sname, const 
       // Now store the config item in correct place
       int64_t k;
       char word_buf[128];
-      switch (cmd_num)
+      // A key the options screen's schema row describes completely is read through that row
+      // (config_settingschema.c, cfg_read_by_row); the others have rules of their own, below
+      const struct SettingOption *read_by_row = (cmd_num > 0) ? setting_option_read_by_row(COMMAND_TEXT(cmd_num)) : NULL;
+      if (read_by_row != NULL)
+      {
+          setting_option_read_cfg_value(read_by_row, buf, &pos, len, config_textname);
+      }
+      else switch (cmd_num)
       {
       case 1: // INSTALL_PATH
           i = get_conf_parameter_whole(buf,&pos,len,install_info.inst_path,sizeof(install_info.inst_path));
@@ -595,26 +616,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               install_info.inst_path[sizeof(install_info.inst_path)-1] = '\0';
           }
           break;
-      case 3: // LANGUAGE
-          i = recognize_conf_parameter(buf,&pos,len,lang_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          install_info.lang_id = i;
-          break;
-      case 5: // SCREENSHOT
-          i = recognize_conf_parameter(buf,&pos,len,scrshot_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          kfx_runtime_settings.screenshot_format = (unsigned char)i;
-          break;
       case 7: // INGAME_RES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
@@ -630,44 +631,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
                 COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
-      case 8: // CENSORSHIP
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_Censorship;
-          else
-              features_enabled &= ~Ft_Censorship;
-          break;
-      case 9: // POINTER_SENSITIVITY
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
-          if ((i >= 0) && (i <= 10000)) {
-              kfx_runtime_settings.base_mouse_sensitivity = i*256/100;
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 10: // Atmospheric sound
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_Atmossounds;
-          else
-              features_enabled &= ~Ft_Atmossounds;
-          break;
       case 11: // Atmospheric Sound Volume
           i = -1;
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
@@ -679,25 +642,10 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           atmos_sound_volume = i;
           break;
-      case 12: // Atmospheric Sound Frequency - Chance of 1 in X
-          i = recognize_conf_parameter(buf,&pos,len,atmos_freq);
-          if (i <= 0)
-          {
-            CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          else
-          {
-            kfx_config_state.atmos_sound_frequency = i;
-            break;
-          }
       case 13: // Atmos_samples
           for (i=0; i<3; i++)
           {
-            if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-              k = atoi(word_buf);
-            else
-              k = -1;
+            k = conf_parameter_number(buf, &pos, len);
             if (k<=0)
             {
                 CONFWRNLOG("Couldn't recognize setting %" PRId64 " in \"%s\" command of %s file.",
@@ -733,105 +681,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
             features_enabled &= ~Ft_Resizemovies;
           }
           break;
-      case 15: // GUI_BLINK_RATE
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              i = atoi(word_buf);
-          }
-          if (i < 1)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.", COMMAND_TEXT(cmd_num), config_textname);
-              break;
-          }
-          else if (i > 160)
-          {
-              CONFWRNLOG("Value %" PRId64 " out of range for \"%s\" command of %s file. Set to 160.", (int64_t)(i), COMMAND_TEXT(cmd_num), config_textname);
-              i = 160;
-          }
-          keeperfx_ui_config.gui_blink_rate = i;
-          break;
-      case 16: // NEUTRAL_FLASH_RATE
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              i = atoi(word_buf);
-          }
-          if (i < 1)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.", COMMAND_TEXT(cmd_num), config_textname);
-              break;
-          }
-          else if (i > 160)
-          {
-              CONFWRNLOG("Value %" PRId64 " out of range for \"%s\" command of %s file. Set to 160.",(int64_t)(i), COMMAND_TEXT(cmd_num), config_textname);
-              i = 160;
-          }
-          keeperfx_ui_config.neutral_flash_rate = i;
-          break;
-      case 17: // FREEZE_GAME_ON_FOCUS_LOST
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_FreezeOnLoseFocus;
-          else
-              features_enabled &= ~Ft_FreezeOnLoseFocus;
-          break;
-      case 18: // UNLOCK_CURSOR_WHEN_GAME_PAUSED
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_UnlockCursorOnPause;
-          else
-              features_enabled &= ~Ft_UnlockCursorOnPause;
-          break;
-      case 19: // LOCK_CURSOR_IN_POSSESSION
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_LockCursorInPossession;
-          else
-              features_enabled &= ~Ft_LockCursorInPossession;
-          break;
-      case 20: // PAUSE_MUSIC_WHEN_GAME_PAUSED
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_PauseMusicOnGamePause;
-          else
-              features_enabled &= ~Ft_PauseMusicOnGamePause;
-          break;
-      case 21: // MUTE_AUDIO_ON_FOCUS_LOST
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_MuteAudioOnLoseFocus;
-          else
-              features_enabled &= ~Ft_MuteAudioOnLoseFocus;
-          break;
         case 22: // STARTUP
           start_params.startup_flags = 0;
           while (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
@@ -861,98 +710,12 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               }
           }
           break;
-        case 24: //CURSOR_EDGE_CAMERA_PANNING
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled &= ~Ft_DisableCursorCameraPanning;
-          else
-              features_enabled |= Ft_DisableCursorCameraPanning;
-          break;
-        case 25: //DELTA_TIME
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_DeltaTime;
-          else
-              features_enabled &= ~Ft_DeltaTime;
-          break;
-      case 26: // CREATURE_STATUS_SIZE
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
-          if ((i >= 0) && (i <= 32768)) {
-              keeperfx_ui_config.creature_status_size = i;
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
       case 27: // MAX_ZOOM_DISTANCE
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
+          i = conf_parameter_number(buf, &pos, len);
           if ((i >= 0) && (i <= 32768)) {
               if (i > 100) {i = 100;}
               kfx_config_state.zoom_distance_setting = LbLerp(4100, CAMERA_ZOOM_MIN, (double)i/100.0);
               kfx_config_state.frontview_zoom_distance_setting = LbLerp(16384, FRONTVIEW_CAMERA_ZOOM_MIN, (double)i/100.0);
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 28: // DISPLAY_NUMBER
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
-          if ((i >= 0) && (i <= 32768)) {
-              display_id = ((i == 0) ? 0 : (i - 1));
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 29: // MUSIC_FROM_DISK
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1)
-              features_enabled |= Ft_NoCdMusic;
-          else
-              features_enabled &= ~Ft_NoCdMusic;
-          break;
-      case 30: // HAND_SIZE
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
-          if ((i >= 0) && (i <= SHRT_MAX)) {
-              kfx_runtime_settings.hand_scale = i/100.0;
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 31: // LINE_BOX_SIZE
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
-          if ((i >= 0) && (i <= 32768)) {
-              keeperfx_ui_config.line_box_size = i;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
@@ -968,10 +731,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           api_enabled = (i == 1);
           break;
       case 34: // API_PORT
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
+          i = conf_parameter_number(buf, &pos, len);
           if ((i >= 0) && (i <= UINT16_MAX)) {
               api_port = i;
           } else {
@@ -989,10 +749,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           exit_on_lua_error = (i == 1);
           break;
       case 36: // TURNS_PER_SECOND
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-              i = atoi(word_buf);
-          }
+          i = conf_parameter_number(buf, &pos, len);
           if ((i >= 0) && (i <= INT32_MAX))
           {
               if (!start_params.overrides[Clo_GameTurns])
@@ -1004,61 +761,12 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.", COMMAND_TEXT(cmd_num), config_textname);
           }
           break;
-      case 37: // FLEE_BUTTON_DEFAULT
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-                break;
-          }
-          if (i == 1) {
-              FLEE_BUTTON_DEFAULT = true;
-          } else {
-              FLEE_BUTTON_DEFAULT = false;
-          }
-          break;
-      case 38: // IMPRISON_BUTTON_DEFAULT
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          if (i == 1) {
-              IMPRISON_BUTTON_DEFAULT = true;
-          } else {
-              IMPRISON_BUTTON_DEFAULT = false;
-          }
-          break;
       case 39: // FRAMES_PER_SECOND
           if (!start_params.overrides[Clo_FramesPerSecond] && get_conf_parameter_whole(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
           {
               i = parse_draw_fps_config_val(word_buf, &start_params.num_fps_draw_main, &start_params.num_fps_draw_secondary);
               if (i <= 0)
                   CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.", COMMAND_TEXT(cmd_num), config_textname);
-          }
-          break;
-      case 40: // TAG_MODE_TOGGLING
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-            break;
-          }
-          keeperfx_ui_config.right_click_tag_mode_toggle = (i == 1);
-          break;
-      case 41: // DEFAULT_TAG_MODE
-          i = recognize_conf_parameter(buf,&pos,len,tag_modes);
-          if (i <= 0)
-          {
-            CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          else
-          {
-            keeperfx_ui_config.default_tag_mode = i;
           }
           break;
       case 42: // ZOOM_TO_MOUSE
@@ -1200,10 +908,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
       case 52: // UI_FONT_SCALE -- ImGui-frontend text size, a percentage of
                 // FeStylePushFont's own resolution-derived base size
                 // (frontgui_style.cpp); no equivalent in original DK.
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
+          i = conf_parameter_number(buf, &pos, len);
           if ((i >= 50) && (i <= 200)) {
               keeperfx_ui_config.ui_font_scale_pct = i;
           } else {
@@ -1220,10 +925,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           break;
       case 54: // MULTIPLAYER_PORT
-          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
+          i = conf_parameter_number(buf, &pos, len);
           if (i > 0 && i <= UINT16_MAX) {
             enet_port = i;
           } else {
@@ -1256,45 +958,12 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
-      case 57: // MINIMAP_CORNER -- Minimal layout only
-                // (docs/refactor/ingame-gui/13-minimal-layout.md).
-          i = recognize_conf_parameter(buf, &pos, len, minimap_corner_type);
-          if (i > 0)
-          {
-              keeperfx_ui_config.minimap_corner = i;
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
       case 58: // REPLAY_MAX_SIZE
-          i = -1;
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-            i = atoi(word_buf);
-          }
+          i = conf_parameter_number(buf, &pos, len);
           if (i >= 0) {
               packetsave_max_kb = i;
           } else {
               CONFWRNLOG("Invalid \"%s\" value in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 59: // PANEL_CORNER -- Minimal layout only
-                // (docs/refactor/ingame-gui/13-minimal-layout.md).
-          i = recognize_conf_parameter(buf, &pos, len, panel_corner_type);
-          if (i > 0)
-          {
-              keeperfx_ui_config.panel_corner = i;
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 60: // RENDERER -- gpu-v2 Phase C.1
-          i = recognize_conf_parameter(buf, &pos, len, renderer_type);
-          if (i > 0)
-          {
-              RendererSetDesiredType((RendererType)i);
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
       case 64: // LOG_LEVEL -- docs/refactor-pass2/stage-02-logging-option.md
@@ -1307,26 +976,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           set_log_level_from_config(i - 1);
           break;
-      case 67: // AUTOSAVE_REPLAYS -- fork-only: upstream #5359 always records
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-              break;
-          }
-          autosave_replays = (i == 1);
-          break;
-      case 65: // GPU_DEBUG -- Vulkan validation layers, read at GPU device creation
-          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
-          if (i <= 0)
-          {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
-                COMMAND_TEXT(cmd_num),config_textname);
-              break;
-          }
-          RendererSetGpuDebug(i == 1);
-          break;
       case 61: // GPU_TRUE_DEPTH -- gpu-v2 Phase C.5 (experimental, no options-menu row)
           i = recognize_conf_parameter(buf,&pos,len,logicval_type);
           if (i <= 0)
@@ -1337,15 +986,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           RendererSetTrueDepth(i == 1);
           break;
-      case 62: // LIGHTING -- gpu-v2 Phase C.5
-          i = recognize_conf_parameter(buf, &pos, len, lighting_type);
-          if (i > 0)
-          {
-              RendererSetLightingMode((int)(i - 1));
-          } else {
-              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
       case 63: // OVERHEAD_FADE -- 0..100 (percent dimming at the screen edge)
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
@@ -1354,7 +994,8 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               else if (strcasecmp(word_buf, "SUBTLE") == 0) i = 35;
               else if (strcasecmp(word_buf, "MEDIUM") == 0) i = 60;
               else if (strcasecmp(word_buf, "STRONG") == 0) i = 85;
-              else i = atoi(word_buf);
+              else if (parameter_is_number(word_buf)) i = atoi(word_buf);
+              else i = -1; // text isn't 0 (P4-F5)
           } else {
               i = -1;
           }
@@ -1371,7 +1012,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           {
               if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
               {
-                  i = atoi(word_buf);
+                  i = parameter_is_number(word_buf) ? atoi(word_buf) : -1; // text isn't 0 (P4-F5)
                   if (i < 0) {
                       CONFWRNLOG("Invalid \"%s\" value in %s file.",COMMAND_TEXT(cmd_num),config_textname);
                       i = 0;
@@ -1402,6 +1043,12 @@ static void load_file_configuration(const char *fname, const char *sname, const 
   // Freeing
   KfxFree(buf);
 
+}
+
+void load_base_config_file_for_test(const char *fname)
+{
+    legacy_classic_pack_seen = false;
+    load_file_configuration(fname, "test.cfg", "Base config", 0);
 }
 
 static void load_configuration_for_mod(const struct ModConfigItem *mod_item)

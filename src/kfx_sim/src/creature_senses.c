@@ -33,6 +33,7 @@
 #include "config_settings.h"
 #include "map_blocks.h"
 #include "map_data.h"
+#include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "post_inc.h"
 
@@ -41,464 +42,156 @@ const int64_t CREATURE_EXPLORE_DISTANCE = 7;
 const int64_t CREATURE_EXPLORE_DISTANCE_POSSESSED = 10;
 
 /******************************************************************************/
-TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
-    const struct Coord3d *nextpos, const struct Thing *doortng)
+/******************************************************************************/
+/*
+ * Refactor pass 3, S02: the 3D line-of-sight variants share one stepper,
+ * los_walk(), and one diagonal-corner check, sibling_walk(). Each public
+ * function below is its variant's rules: which points count as solid, when
+ * a door at the target slab blocks, and nowibble_line_of_sight_3d's own
+ * start and end. The line's height goes straight to the target's and stops
+ * there; with the CROOKED_SIGHT_LINES classic bug it steps as it used to
+ * (pass 3 finding F3): line_of_sight_3d kept the first step's height until
+ * one more step would pass the target's, the others could pass it.
+ */
+struct LosContext {
+    const struct Thing *door; /**< the door a variant ignores, or INVALID_THING */
+    PlayerNumber plyr_idx;    /**< the player whose own doors a variant ignores */
+};
+
+typedef TbBool (*LosPointBlocked)(const struct Coord3d *pos, const struct LosContext *ctx);
+
+enum SiblingDoorRule {
+    SibDoor_UnlessDoorGiven = 0, /**< a door at the target slab blocks unless a door is given (thing_is_invalid) */
+    SibDoor_UnlessDoorExists,    /**< the same, testing thing_exists() */
+    SibDoor_Always,              /**< a door at the target slab always blocks */
+};
+
+struct SiblingRules {
+    unsigned char door_rule; /**< enum SiblingDoorRule */
+    unsigned char y_first;   /**< test the corner beside y before the one beside x */
+    unsigned char log;       /**< log which corner blocked */
+    LosPointBlocked blocked;
+};
+
+struct LosRules {
+    LosPointBlocked blocked;             /**< is the next point on the line solid */
+    const struct SiblingRules *sibling;  /**< the diagonal-corner check between two points */
+    unsigned char z_clamp;               /**< with CROOKED_SIGHT_LINES, line_of_sight_3d's stepping: z stops at the
+                                              target's height, and past the first step only moves when it gets there */
+    unsigned char nowibble;              /**< start one unit towards the target, take one step fewer */
+};
+
+static TbBool los_solid(const struct Coord3d *pos, const struct LosContext *ctx)
 {
-    // If we don't want to ignore any doors
-    if (thing_is_invalid(doortng))
+    return point_in_map_is_solid(pos);
+}
+
+static TbBool los_solid_ignoring_door(const struct Coord3d *pos, const struct LosContext *ctx)
+{
+    return point_in_map_is_solid_ignoring_door(pos, ctx->door);
+}
+
+static TbBool los_solid_flags_ignoring_door(const struct Coord3d *pos, const struct LosContext *ctx)
+{
+    return (get_point_in_map_solid_flags_ignoring_door(pos, ctx->door) & 0x01) != 0;
+}
+
+static TbBool los_solid_flags_ignoring_own_door(const struct Coord3d *pos, const struct LosContext *ctx)
+{
+    return (get_point_in_map_solid_flags_ignoring_own_door(pos, ctx->plyr_idx) & 0x01) != 0;
+}
+
+/**
+ * Whether the line may pass from prevpos to the neighbouring nextpos: a diagonal
+ * step is blocked when either subtile beside it is solid.
+ */
+static inline TbBool sibling_walk(const struct Coord3d *prevpos, const struct Coord3d *nextpos,
+    const struct SiblingRules *rules, const struct LosContext *ctx)
+{
+    TbBool check_door;
+    switch (rules->door_rule)
     {
-        // Check for door at central subtile
-        if (subtile_is_door(stl_slab_center_subtile(nextpos->x.stl.num),stl_slab_center_subtile(nextpos->y.stl.num))) {
-            return false;
-        }
-    }
-    // If only one dimensions changed, allow the pass
-    // (in that case the outcome has been decided before this call)
-    if ((nextpos->x.stl.num == prevpos->x.stl.num) ||
-        (nextpos->y.stl.num == prevpos->y.stl.num)) {
-        // change is (x,0) or (0,x)
-        return true;
-    }
-    struct Coord3d posmvx;
-    struct Coord3d posmvy;
-    MapSubtlDelta subdelta_x;
-    MapSubtlDelta subdelta_y;
-    subdelta_x = (nextpos->x.stl.num - (MapSubtlDelta)prevpos->x.stl.num);
-    subdelta_y = (nextpos->y.stl.num - (MapSubtlDelta)prevpos->y.stl.num);
-    switch (subdelta_x + 2 * subdelta_y)
-    {
-    case -3:
-        posmvx.x.val = prevpos->x.val - COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val - COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
-        if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
+    case SibDoor_UnlessDoorGiven:
+        check_door = thing_is_invalid(ctx->door);
         break;
-
-    case -1:
-        posmvx.x.val = prevpos->x.val + COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val - COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
-        if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
+    case SibDoor_UnlessDoorExists:
+        check_door = !thing_exists(ctx->door);
         break;
-
-    case 1:
-        posmvx.x.val = prevpos->x.val - COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val + COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
-        if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
-        break;
-
-    case 3:
-        posmvx.x.val = prevpos->x.val + COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val + COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (point_in_map_is_solid_ignoring_door(&posmvx, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") X",(int64_t)posmvx.x.stl.num,(int64_t)posmvx.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
-        if (point_in_map_is_solid_ignoring_door(&posmvy, doortng)) {
-            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") Y",(int64_t)posmvy.x.stl.num,(int64_t)posmvy.y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y);
-            return false;
-        }
-        break;
-
     default:
-        ERRORDBG(8,"Invalid use of sibling function, delta (%" PRId64 ",%" PRId64 ")",(int64_t)subdelta_x,(int64_t)subdelta_y);
+        check_door = true;
         break;
     }
-    return true;
-}
-
-
-TbBool line_of_sight_3d_ignoring_specific_door(const struct Coord3d *frpos,
-    const struct Coord3d *topos, const struct Thing *doortng)
-{
-    MapCoordDelta dx = topos->x.val - (MapCoordDelta)frpos->x.val;
-    MapCoordDelta dy = topos->y.val - (MapCoordDelta)frpos->y.val;
-    MapCoordDelta dz = topos->z.val - (MapCoordDelta)frpos->z.val;
-    if ((topos->x.stl.num == frpos->x.stl.num) &&
-        (topos->y.stl.num == frpos->y.stl.num)) {
-        return true;
-    }
-    MapCoord increase_x;
-    MapCoord increase_y;
-    MapCoord increase_z;
-    MapSubtlCoord distance;
-    if (dx >= 0) {
-        increase_x = COORD_PER_STL;
-    } else {
-        dx = -dx;
-        increase_x = -COORD_PER_STL;
-    }
-    if (dy >= 0) {
-        increase_y = COORD_PER_STL;
-    } else {
-        dy = -dy;
-        increase_y = -COORD_PER_STL;
-    }
-    if (dz >= 0) {
-        increase_z = COORD_PER_STL;
-    } else {
-        dz = -dz;
-        increase_z = -COORD_PER_STL;
-    }
-    { // Compute amount of steps for the loop
-        int64_t maxdim1;
-        int64_t maxdim2;
-        if (dy == dx)
-        {
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        else
-        if (dy > dx)
-        {
-            increase_x = dx * increase_x / dy;
-            increase_z = increase_z * dz / dy;
-            maxdim1 = frpos->y.stl.num;
-            maxdim2 = topos->y.stl.num;
-        } else
-        {
-            increase_y = increase_y * dy / dx;
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        distance = llabs(maxdim2 - maxdim1);
-    }
-    // Go through the distance with given increases
-    struct Coord3d prevpos;
-    prevpos.x.val = frpos->x.val;
-    prevpos.y.val = frpos->y.val;
-    prevpos.z.val = frpos->z.val;
-    struct Coord3d nextpos;
-    nextpos.x.val = prevpos.x.val + increase_x;
-    nextpos.y.val = prevpos.y.val + increase_y;
-    nextpos.z.val = prevpos.z.val + increase_z;
-    while (distance > 0)
-    {
-        if (point_in_map_is_solid_ignoring_door(&nextpos, doortng)) {
-            return false;
-        }
-        if (!sibling_line_of_sight_ignoring_door(&prevpos, &nextpos, doortng)) {
-            return false;
-        }
-        // Go to next sibling subtile
-        prevpos.x.val = nextpos.x.val;
-        prevpos.y.val = nextpos.y.val;
-        prevpos.z.val = nextpos.z.val;
-        nextpos.x.val += increase_x;
-        nextpos.y.val += increase_y;
-        nextpos.z.val += increase_z;
-        distance--;
-    }
-    return true;
-}
-
-TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_door(const struct Coord3d *prevpos,
-    const struct Coord3d *nextpos, const struct Thing *doortng)
-{
-    // If we don't want to ignore any doors
-    if (!thing_exists(doortng))
-    {
-        // Check for door at central subtile
-        if (subtile_is_door(stl_slab_center_subtile(nextpos->x.stl.num),stl_slab_center_subtile(nextpos->y.stl.num))) {
-            return false;
-        }
-    }
-    // If only one dimensions changed, allow the pass
-    // (in that case the outcome has been decided before this call)
-    if ((nextpos->x.stl.num == prevpos->x.stl.num) ||
-        (nextpos->y.stl.num == prevpos->y.stl.num)) {
-        // change is (x,0) or (0,x)
-        return true;
-    }
-    struct Coord3d posmvx;
-    struct Coord3d posmvy;
-    MapSubtlDelta subdelta_x;
-    MapSubtlDelta subdelta_y;
-    subdelta_x = (nextpos->x.stl.num - (MapSubtlDelta)prevpos->x.stl.num);
-    subdelta_y = (nextpos->y.stl.num - (MapSubtlDelta)prevpos->y.stl.num);
-    switch (subdelta_x + 2 * subdelta_y)
-    {
-    case -3:
-        posmvx.x.val = prevpos->x.val - COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val - COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvx, doortng) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvy, doortng) & 0x01) {
-            return false;
-        }
-        break;
-
-    case -1:
-        posmvx.x.val = prevpos->x.val + COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val - COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvx, doortng) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvy, doortng) & 0x01) {
-            return false;
-        }
-        break;
-
-    case 1:
-        posmvx.x.val = prevpos->x.val - COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val + COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvx, doortng) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvy, doortng) & 0x01) {
-            return false;
-        }
-        break;
-
-    case 3:
-        posmvx.x.val = prevpos->x.val + COORD_PER_STL;
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val + COORD_PER_STL;
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvx, doortng) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_door(&posmvy, doortng) & 0x01) {
-            return false;
-        }
-        break;
-
-    default:
-        ERRORDBG(8,"Invalid use of sibling function, delta (%" PRId64 ",%" PRId64 ")",(int64_t)subdelta_x,(int64_t)subdelta_y);
-        break;
-    }
-    return true;
-}
-
-TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_specific_door(const struct Coord3d *frpos,
-    const struct Coord3d *topos, const struct Thing *doortng)
-{
-    MapCoordDelta dx = topos->x.val - (MapCoordDelta)frpos->x.val;
-    MapCoordDelta dy = topos->y.val - (MapCoordDelta)frpos->y.val;
-    MapCoordDelta dz = topos->z.val - (MapCoordDelta)frpos->z.val;
-    if ((topos->x.stl.num == frpos->x.stl.num) &&
-        (topos->y.stl.num == frpos->y.stl.num)) {
-        return true;
-    }
-    MapCoord increase_x;
-    MapCoord increase_y;
-    MapCoord increase_z;
-    MapSubtlCoord distance;
-    if (dx >= 0) {
-        increase_x = COORD_PER_STL;
-    } else {
-        dx = -dx;
-        increase_x = -COORD_PER_STL;
-    }
-    if (dy >= 0) {
-        increase_y = COORD_PER_STL;
-    } else {
-        dy = -dy;
-        increase_y = -COORD_PER_STL;
-    }
-    if (dz >= 0) {
-        increase_z = COORD_PER_STL;
-    } else {
-        dz = -dz;
-        increase_z = -COORD_PER_STL;
-    }
-    { // Compute amount of steps for the loop
-        int64_t maxdim1;
-        int64_t maxdim2;
-        if (dy == dx)
-        {
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        else
-        if (dy > dx)
-        {
-            increase_x = dx * increase_x / dy;
-            increase_z = increase_z * dz / dy;
-            maxdim1 = frpos->y.stl.num;
-            maxdim2 = topos->y.stl.num;
-        } else
-        {
-            increase_y = increase_y * dy / dx;
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        distance = llabs(maxdim2 - maxdim1);
-    }
-    // Go through the distance with given increases
-    struct Coord3d prevpos;
-    prevpos.x.val = frpos->x.val;
-    prevpos.y.val = frpos->y.val;
-    prevpos.z.val = frpos->z.val;
-    struct Coord3d nextpos;
-    nextpos.x.val = prevpos.x.val + increase_x;
-    nextpos.y.val = prevpos.y.val + increase_y;
-    nextpos.z.val = prevpos.z.val + increase_z;
-    while (distance > 0)
-    {
-        if (get_point_in_map_solid_flags_ignoring_door(&nextpos, doortng) & 0x01) {
-            return false;
-        }
-        if (!sibling_line_of_sight_3d_including_lava_check_ignoring_door(&prevpos, &nextpos, doortng)) {
-            return false;
-        }
-        // Go to next sibling subtile
-        prevpos.x.val = nextpos.x.val;
-        prevpos.y.val = nextpos.y.val;
-        prevpos.z.val = nextpos.z.val;
-        nextpos.x.val += increase_x;
-        nextpos.y.val += increase_y;
-        nextpos.z.val += increase_z;
-        distance--;
-    }
-    return true;
-}
-
-TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_own_door(const struct Coord3d *prevpos,
-    const struct Coord3d *nextpos, PlayerNumber plyr_idx)
-{
     // Check for door at central subtile
-    if (subtile_is_door(stl_slab_center_subtile(nextpos->x.stl.num), stl_slab_center_subtile(nextpos->y.stl.num))) {
+    if (check_door && subtile_is_door(stl_slab_center_subtile(nextpos->x.stl.num), stl_slab_center_subtile(nextpos->y.stl.num))) {
         return false;
     }
     // If only one dimensions changed, allow the pass
     // (in that case the outcome has been decided before this call)
-    if ((nextpos->x.stl.num == prevpos->x.stl.num)
-     || (nextpos->y.stl.num == prevpos->y.stl.num)) {
-        // change is (x,0) or (0,x)
+    if ((nextpos->x.stl.num == prevpos->x.stl.num) ||
+        (nextpos->y.stl.num == prevpos->y.stl.num)) {
         return true;
     }
-    struct Coord3d posmvy;
-    struct Coord3d posmvx;
-    int64_t subdelta_x;
-    int64_t subdelta_y;
-    subdelta_x = (nextpos->x.stl.num - (MapSubtlDelta)prevpos->x.stl.num);
-    subdelta_y = (nextpos->y.stl.num - (MapSubtlDelta)prevpos->y.stl.num);
+    MapSubtlDelta subdelta_x = (nextpos->x.stl.num - (MapSubtlDelta)prevpos->x.stl.num);
+    MapSubtlDelta subdelta_y = (nextpos->y.stl.num - (MapSubtlDelta)prevpos->y.stl.num);
+    MapCoordDelta side_x;
+    MapCoordDelta side_y;
     switch (subdelta_x + 2 * subdelta_y)
     {
     case -3: // change is (-1,-1)
-        posmvx.x.val = prevpos->x.val - subtile_coord(1,0);
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val - subtile_coord(1,0);
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvy, plyr_idx) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvx, plyr_idx) & 0x01) {
-            return false;
-        }
+        side_x = -COORD_PER_STL;
+        side_y = -COORD_PER_STL;
         break;
-
     case -1: // change is (1,-1) as (-1,0) was eliminated earlier
-        posmvx.x.val = prevpos->x.val + subtile_coord(1,0);
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val - subtile_coord(1,0);
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvy, plyr_idx) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvx, plyr_idx) & 0x01) {
-            return false;
-        }
+        side_x = COORD_PER_STL;
+        side_y = -COORD_PER_STL;
         break;
-
     case 1: // change is (-1,1) as (1,0) was eliminated earlier
-        posmvx.x.val = prevpos->x.val - subtile_coord(1,0);
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val + subtile_coord(1,0);
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvy, plyr_idx) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvx, plyr_idx) & 0x01) {
-            return false;
-        }
+        side_x = -COORD_PER_STL;
+        side_y = COORD_PER_STL;
         break;
-
     case 3: // change is (1,1)
-        posmvx.x.val = prevpos->x.val + subtile_coord(1,0);
-        posmvx.y.val = prevpos->y.val;
-        posmvx.z.val = prevpos->z.val;
-        posmvy.x.val = prevpos->x.val;
-        posmvy.y.val = prevpos->y.val + subtile_coord(1,0);
-        posmvy.z.val = prevpos->z.val;
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvy, plyr_idx) & 0x01) {
-            return false;
-        }
-        if (get_point_in_map_solid_flags_ignoring_own_door(&posmvx, plyr_idx) & 0x01) {
-            return false;
-        }
+        side_x = COORD_PER_STL;
+        side_y = COORD_PER_STL;
         break;
-
     default:
         ERRORDBG(8,"Invalid use of sibling function, delta (%" PRId64 ",%" PRId64 ")",(int64_t)subdelta_x,(int64_t)subdelta_y);
-        break;
+        return true;
+    }
+    struct Coord3d posmvx;
+    posmvx.x.val = prevpos->x.val + side_x;
+    posmvx.y.val = prevpos->y.val;
+    posmvx.z.val = prevpos->z.val;
+    struct Coord3d posmvy;
+    posmvy.x.val = prevpos->x.val;
+    posmvy.y.val = prevpos->y.val + side_y;
+    posmvy.z.val = prevpos->z.val;
+    const struct Coord3d *first = rules->y_first ? &posmvy : &posmvx;
+    const struct Coord3d *second = rules->y_first ? &posmvx : &posmvy;
+    if (rules->blocked(first, ctx)) {
+        if (rules->log)
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") %s",(int64_t)first->x.stl.num,(int64_t)first->y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y, rules->y_first ? "Y" : "X");
+        return false;
+    }
+    if (rules->blocked(second, ctx)) {
+        if (rules->log)
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") with delta (%" PRId64 ",%" PRId64 ") %s",(int64_t)second->x.stl.num,(int64_t)second->y.stl.num,(int64_t)subdelta_x,(int64_t)subdelta_y, rules->y_first ? "X" : "Y");
+        return false;
     }
     return true;
 }
 
-TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struct Coord3d *frpos,
-    const struct Coord3d *topos, PlayerNumber plyr_idx)
+/** The line's height one step on: increase_z further, but not past the target's height. */
+static inline MapCoord los_step_z(MapCoord z, MapCoord increase_z, MapCoord target_z)
+{
+    const MapCoord next = z + increase_z;
+    if (((increase_z > 0) && (next > target_z)) || ((increase_z < 0) && (next < target_z)))
+        return target_z;
+    return next;
+}
+
+/** True if nothing blocks the line from frpos to topos, stepping one subtile at a time along its longer axis. */
+static inline TbBool los_walk(const struct Coord3d *frpos, const struct Coord3d *topos,
+    const struct LosRules *rules, const struct LosContext *ctx)
 {
     MapCoordDelta dx = topos->x.val - (MapCoordDelta)frpos->x.val;
     MapCoordDelta dy = topos->y.val - (MapCoordDelta)frpos->y.val;
@@ -506,8 +199,6 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
     // Allow the travel to the same subtile
     if ((topos->x.stl.num == frpos->x.stl.num) &&
         (topos->y.stl.num == frpos->y.stl.num)) {
-        SYNCDBG(17, "Player %" PRId64 " can see (%" PRId64 ",%" PRId64 ") as its on same subtile",
-            (int64_t)plyr_idx,(int64_t)topos->x.stl.num,(int64_t)topos->y.stl.num);
         return true;
     }
     // Initialize increases and do abs() of dx,dy and dz
@@ -545,7 +236,7 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
         else
         if (dy > dx)
         {
-            increase_x = increase_x * dx / dy;
+            increase_x = dx * increase_x / dy;
             increase_z = increase_z * dz / dy;
             maxdim1 = frpos->y.stl.num;
             maxdim2 = topos->y.stl.num;
@@ -557,27 +248,59 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
             maxdim2 = topos->x.stl.num;
         }
         distance = llabs(maxdim2 - maxdim1);
+        if (rules->nowibble) {
+            // One step fewer, to avoid floor/wall wibble lumps that block the explosion
+            // happening "within" them
+            distance--;
+        }
     }
     // Go through the distance with given increases
     struct Coord3d prevpos;
     prevpos.x.val = frpos->x.val;
     prevpos.y.val = frpos->y.val;
     prevpos.z.val = frpos->z.val;
+    if (rules->nowibble)
+    {
+        // Start one unit towards the target on each axis that moves
+        if (increase_x != 0)
+            prevpos.x.val += (increase_x / llabs(increase_x));
+        if (increase_y != 0)
+            prevpos.y.val += (increase_y / llabs(increase_y));
+        if (increase_z != 0)
+            prevpos.z.val += (increase_z / llabs(increase_z));
+    }
+    // CROOKED_SIGHT_LINES: each variant's old height stepping (pass 3 finding F3); otherwise a straight line
+    const TbBool crooked = flag_is_set(kfx_config_state.conf.rules[0].gameplay.classic_bugs_flags, ClscBug_CrookedSightLines);
+    const TbBool z_clamp = crooked && rules->z_clamp;
     struct Coord3d nextpos;
     nextpos.x.val = prevpos.x.val + increase_x;
     nextpos.y.val = prevpos.y.val + increase_y;
-    nextpos.z.val = prevpos.z.val + increase_z;
-
+    if (!crooked)
+    {
+        nextpos.z.val = los_step_z(prevpos.z.val, increase_z, topos->z.val);
+    }
+    else
+    if (z_clamp && ((increase_z >= 0 && ((prevpos.z.val + increase_z) >= topos->z.val)) ||
+        (increase_z < 0 && ((prevpos.z.val + increase_z) < topos->z.val))))
+    {
+        // Z position overshoots, which returns incorrect results. Workaround until a proper fix is made
+        nextpos.z.val = topos->z.val;
+        increase_z = 0;
+    }
+    else
+    {
+        nextpos.z.val = prevpos.z.val + increase_z;
+    }
     while (distance > 0)
     {
-        if (get_point_in_map_solid_flags_ignoring_own_door(&nextpos, plyr_idx) & 0x01) {
-            SYNCDBG(17, "Player %" PRId64 " cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
-                (int64_t)plyr_idx,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
+        if (rules->blocked(&nextpos, ctx)) {
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
+                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
-        if (!sibling_line_of_sight_3d_including_lava_check_ignoring_own_door(&prevpos, &nextpos, plyr_idx)) {
-            SYNCDBG(17, "Player %" PRId64 " cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
-                (int64_t)plyr_idx,(int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
+        if (!sibling_walk(&prevpos, &nextpos, rules->sibling, ctx)) {
+            SYNCDBG(17, "Cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
+                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
             return false;
         }
         // Go to next sibling subtile
@@ -586,12 +309,77 @@ TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struc
         prevpos.z.val = nextpos.z.val;
         nextpos.x.val += increase_x;
         nextpos.y.val += increase_y;
-        nextpos.z.val += increase_z;
+        if (!crooked)
+        {
+            nextpos.z.val = los_step_z(nextpos.z.val, increase_z, topos->z.val);
+        }
+        else
+        if (z_clamp)
+        {
+            // Z doesn't advance here: it only moves to the target's height once one more step would overshoot it
+            if ((increase_z >= 0 && ((nextpos.z.val + increase_z) >= topos->z.val)) ||
+                (increase_z < 0 && ((nextpos.z.val + increase_z) < topos->z.val)))
+            {
+                nextpos.z.val = topos->z.val;
+                increase_z = 0;
+            }
+        } else
+        {
+            nextpos.z.val += increase_z;
+        }
         distance--;
     }
-    SYNCDBG(17, "Player %" PRId64 " can see (%" PRId64 ",%" PRId64 ")",
-        (int64_t)plyr_idx,(int64_t)topos->x.stl.num,(int64_t)topos->y.stl.num);
     return true;
+}
+
+static const struct SiblingRules sibling_ignoring_door_rules = { SibDoor_UnlessDoorGiven, 0, 1, los_solid_ignoring_door };
+static const struct SiblingRules sibling_lava_ignoring_door_rules = { SibDoor_UnlessDoorExists, 0, 0, los_solid_flags_ignoring_door };
+static const struct SiblingRules sibling_lava_ignoring_own_door_rules = { SibDoor_Always, 1, 0, los_solid_flags_ignoring_own_door };
+
+TbBool sibling_line_of_sight_ignoring_door(const struct Coord3d *prevpos,
+    const struct Coord3d *nextpos, const struct Thing *doortng)
+{
+    const struct LosContext ctx = { doortng, 0 };
+    return sibling_walk(prevpos, nextpos, &sibling_ignoring_door_rules, &ctx);
+}
+
+
+TbBool line_of_sight_3d_ignoring_specific_door(const struct Coord3d *frpos,
+    const struct Coord3d *topos, const struct Thing *doortng)
+{
+    static const struct LosRules rules = { los_solid_ignoring_door, &sibling_ignoring_door_rules, 0, 0 };
+    const struct LosContext ctx = { doortng, 0 };
+    return los_walk(frpos, topos, &rules, &ctx);
+}
+
+TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_door(const struct Coord3d *prevpos,
+    const struct Coord3d *nextpos, const struct Thing *doortng)
+{
+    const struct LosContext ctx = { doortng, 0 };
+    return sibling_walk(prevpos, nextpos, &sibling_lava_ignoring_door_rules, &ctx);
+}
+
+TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_specific_door(const struct Coord3d *frpos,
+    const struct Coord3d *topos, const struct Thing *doortng)
+{
+    static const struct LosRules rules = { los_solid_flags_ignoring_door, &sibling_lava_ignoring_door_rules, 0, 0 };
+    const struct LosContext ctx = { doortng, 0 };
+    return los_walk(frpos, topos, &rules, &ctx);
+}
+
+TbBool sibling_line_of_sight_3d_including_lava_check_ignoring_own_door(const struct Coord3d *prevpos,
+    const struct Coord3d *nextpos, PlayerNumber plyr_idx)
+{
+    const struct LosContext ctx = { INVALID_THING, plyr_idx };
+    return sibling_walk(prevpos, nextpos, &sibling_lava_ignoring_own_door_rules, &ctx);
+}
+
+TbBool jonty_line_of_sight_3d_including_lava_check_ignoring_own_door(const struct Coord3d *frpos,
+    const struct Coord3d *topos, PlayerNumber plyr_idx)
+{
+    static const struct LosRules rules = { los_solid_flags_ignoring_own_door, &sibling_lava_ignoring_own_door_rules, 0, 0 };
+    const struct LosContext ctx = { INVALID_THING, plyr_idx };
+    return los_walk(frpos, topos, &rules, &ctx);
 }
 
 TbBool creature_can_see_thing(struct Thing *creatng, struct Thing *thing)
@@ -805,219 +593,16 @@ TbBool line_of_sight_2d(const struct Coord3d *frpos, const struct Coord3d *topos
 
 TbBool line_of_sight_3d(const struct Coord3d *frpos, const struct Coord3d *topos)
 {
-    MapCoordDelta dx = topos->x.val - (MapCoordDelta)frpos->x.val;
-    MapCoordDelta dy = topos->y.val - (MapCoordDelta)frpos->y.val;
-    MapCoordDelta dz = topos->z.val - (MapCoordDelta)frpos->z.val;
-    if ((topos->x.stl.num == frpos->x.stl.num) &&
-        (topos->y.stl.num == frpos->y.stl.num)) {
-        return true;
-    }
-
-    MapCoord increase_x;
-    MapCoord increase_y;
-    MapCoord increase_z;
-    MapSubtlCoord distance;
-    if (dx >= 0) {
-        increase_x = COORD_PER_STL;
-    } else {
-        dx = -dx;
-        increase_x = -COORD_PER_STL;
-    }
-    if (dy >= 0) {
-        increase_y = COORD_PER_STL;
-    } else {
-        dy = -dy;
-        increase_y = -COORD_PER_STL;
-    }
-    if (dz >= 0) {
-        increase_z = COORD_PER_STL;
-    } else {
-        dz = -dz;
-        increase_z = -COORD_PER_STL;
-    }
-    { // Compute amount of steps for the loop
-        int64_t maxdim1;
-        int64_t maxdim2;
-        if (dy == dx)
-        {
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        else
-        if (dy > dx)
-        {
-            increase_x = dx * increase_x / dy;
-            increase_z = increase_z * dz / dy;
-            maxdim1 = frpos->y.stl.num;
-            maxdim2 = topos->y.stl.num;
-        } else
-        {
-            increase_y = increase_y * dy / dx;
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        distance = llabs(maxdim2 - maxdim1);
-    }
-    // Go through the distance with given increases
-    struct Coord3d prevpos;
-    prevpos.x.val = frpos->x.val;
-    prevpos.y.val = frpos->y.val;
-    prevpos.z.val = frpos->z.val;
-    struct Coord3d nextpos;
-    nextpos.x.val = prevpos.x.val + increase_x;
-    nextpos.y.val = prevpos.y.val + increase_y;
-    
-    //Z position overshoots, which returns incorrect results. Workaround until a proper fix is made:
-    if ((increase_z >= 0 && ((prevpos.z.val + increase_z) >= topos->z.val)) ||
-        (increase_z < 0 && ((prevpos.z.val + increase_z) < topos->z.val)))
-    {
-        nextpos.z.val = topos->z.val;
-        increase_z = 0;
-    }
-    else
-    {
-        nextpos.z.val = prevpos.z.val + increase_z;
-    }
-
-    while (distance > 0)
-    {
-        if (point_in_map_is_solid(&nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
-                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
-            return false;
-        }
-        if (!sibling_line_of_sight(&prevpos, &nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
-                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
-            return false;
-        }
-        // Go to next sibling subtile
-        prevpos.x.val = nextpos.x.val;
-        prevpos.y.val = nextpos.y.val;
-        prevpos.z.val = nextpos.z.val;
-        nextpos.x.val += increase_x;
-        nextpos.y.val += increase_y;
-
-        //Z position overshoots, which returns incorrect results. Workaround until a proper fix is made:
-        if ((increase_z >= 0 && ((nextpos.z.val + increase_z) >= topos->z.val)) ||
-            (increase_z < 0 && ((nextpos.z.val + increase_z) < topos->z.val)))
-        {
-            nextpos.z.val = topos->z.val;
-            increase_z = 0;
-        }
-
-        distance--;
-    }
-    return true;
+    static const struct LosRules rules = { los_solid, &sibling_ignoring_door_rules, 1, 0 };
+    const struct LosContext ctx = { INVALID_THING, 0 };
+    return los_walk(frpos, topos, &rules, &ctx);
 }
 
 TbBool nowibble_line_of_sight_3d(const struct Coord3d *frpos, const struct Coord3d *topos)
 {
-    MapCoordDelta dx,dy,dz;
-    dx = topos->x.val - (MapCoordDelta)frpos->x.val;
-    dy = topos->y.val - (MapCoordDelta)frpos->y.val;
-    dz = topos->z.val - (MapCoordDelta)frpos->z.val;
-    if ((topos->x.stl.num == frpos->x.stl.num) &&
-        (topos->y.stl.num == frpos->y.stl.num)) {
-        return true;
-    }
-
-    MapCoord increase_x, increase_y, increase_z;
-    MapSubtlCoord distance;
-    if (dx >= 0) {
-        increase_x = COORD_PER_STL;
-    } else {
-        dx = -dx;
-        increase_x = -COORD_PER_STL;
-    }
-    if (dy >= 0) {
-        increase_y = COORD_PER_STL;
-    } else {
-        dy = -dy;
-        increase_y = -COORD_PER_STL;
-    }
-    if (dz >= 0) {
-        increase_z = COORD_PER_STL;
-    } else {
-        dz = -dz;
-        increase_z = -COORD_PER_STL;
-    }
-    { // Compute amount of steps for the loop
-        int64_t maxdim1, maxdim2;
-        if (dy == dx)
-        {
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        else
-        if (dy > dx)
-        {
-            increase_x = dx * increase_x / dy;
-            increase_z = increase_z * dz / dy;
-            maxdim1 = frpos->y.stl.num;
-            maxdim2 = topos->y.stl.num;
-        } else
-        {
-            increase_y = increase_y * dy / dx;
-            increase_z = increase_z * dz / dx;
-            maxdim1 = frpos->x.stl.num;
-            maxdim2 = topos->x.stl.num;
-        }
-        // Decreasing by 1 step compared to originally, to avoid floor/wall wibble lumps
-        // that block the explosion that is happening "within" them
-        distance = llabs(maxdim2 - maxdim1) - 1;
-    }
-    // Go through the distance with given increases
-    struct Coord3d prevpos;
-    struct Coord3d nextpos;
-
-    prevpos.x.val = frpos->x.val;
-    // avoid dividing by zero
-    if (increase_x != 0)
-    {
-        // add 1 to the x position, in the correct sign (1 or -1)
-        prevpos.x.val += (increase_x / llabs(increase_x));
-    }
-    prevpos.y.val = frpos->y.val;
-    if (increase_y != 0)
-    {
-        // add 1 to the y position, in the correct sign (1 or -1)
-        prevpos.y.val += (increase_y / llabs(increase_y));
-    }
-    prevpos.z.val = frpos->z.val;
-    if (increase_z != 0)
-    {
-        // add 1 to the z position, in the correct sign (1 or -1)
-        prevpos.z.val += (increase_z / llabs(increase_z));
-    }
-    nextpos.x.val = prevpos.x.val + increase_x;
-    nextpos.y.val = prevpos.y.val + increase_y;
-    nextpos.z.val = prevpos.z.val + increase_z;
-    while (distance > 0)
-    {
-        if (point_in_map_is_solid(&nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to linear path solid flags (downcount %" PRId64 ")",
-                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
-            return false;
-        }
-        if (!sibling_line_of_sight(&prevpos, &nextpos)) {
-            SYNCDBG(7, "Player cannot see through (%" PRId64 ",%" PRId64 ") due to 3D line of sight (downcount %" PRId64 ")",
-                (int64_t)nextpos.x.stl.num,(int64_t)nextpos.y.stl.num,(int64_t)distance);
-            return false;
-        }
-        // Go to next sibling subtile
-        prevpos.x.val = nextpos.x.val;
-        prevpos.y.val = nextpos.y.val;
-        prevpos.z.val = nextpos.z.val;
-        nextpos.x.val += increase_x;
-        nextpos.y.val += increase_y;
-        nextpos.z.val += increase_z;
-        distance--;
-    }
-    return true;
+    static const struct LosRules rules = { los_solid, &sibling_ignoring_door_rules, 0, 1 };
+    const struct LosContext ctx = { INVALID_THING, 0 };
+    return los_walk(frpos, topos, &rules, &ctx);
 }
 
 TbBool line_of_room_move_2d(const struct Coord3d *frpos, const struct Coord3d *topos, struct Room *room)

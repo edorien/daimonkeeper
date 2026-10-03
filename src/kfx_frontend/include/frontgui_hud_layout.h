@@ -83,17 +83,6 @@ struct HudLayout {
     double viewport_inset;
 };
 
-// Recompute every region rect for `kind` at the given display size.
-// `b_width_mode` only matters for HudLayout_HorizontalBottom (see
-// HudBottomWidthMode above); `corner` (the minimap cluster) and
-// `panel_corner` (the button cluster + pop-up) only matter for
-// HudLayout_Minimal (see HudMinimalCorner above) -- pass
-// HudBottomWidth_Normal / HudMinimalCorner_UpperLeft for every kind/param
-// they don't apply to. Cheap -- call it on resize / layout switch /
-// width-mode / corner change, not per frame.
-void hud_layout_build(HudLayout *out, HudPanelLayout kind, HudBottomWidthMode b_width_mode,
-                      HudMinimalCorner corner, HudMinimalCorner panel_corner,
-                      double display_w, double display_h);
 
 // The process-wide current layout, rebuilt by hud_layout_frame() when
 // `kind`, `b_width_mode`, either corner, or the display size changes.
@@ -112,7 +101,6 @@ inline const HudRect &hud_region_rect(HudRegion r) { return hud_layout_current()
 #ifdef __cplusplus
 extern "C" {
 #endif
-int64_t hud_layout_viewport_inset(void);
 #ifdef __cplusplus
 }
 #endif

@@ -50,6 +50,7 @@
 #include "player_availability.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -360,20 +361,8 @@ int64_t get_wanderer_possible_targets_count_in_list(int64_t first_thing_idx, str
 {
     int64_t victims_count = 0;
     // Get the amount of possible targets
-    uint64_t k = 0;
-    int64_t i = first_thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(first_thing_idx, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (!thing_is_picked_up(thing) && !creature_is_kept_in_custody_by_enemy(thing) && !creature_is_leaving_and_cannot_be_stopped(thing))
         {
             // Don't check for being navigable - it's too CPU-expensive to check all creatures
@@ -381,13 +370,6 @@ int64_t get_wanderer_possible_targets_count_in_list(int64_t first_thing_idx, str
             {
                 victims_count++;
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     return victims_count;
@@ -1388,6 +1370,26 @@ int64_t tunneller_doing_nothing(struct Thing *creatng)
     return 1;
 }
 
+
+/**
+ * Counts the turns a tunneller stays where it is without digging.
+ * @param pos Where it is this turn.
+ * @param digging Whether it is digging this turn (standing still to dig a slab is not being stuck).
+ * @return True once it has stood still, not digging, for 150 turns: the tunneller is stuck.
+ */
+TbBool tunneller_stuck_at(struct CreatureControl *cctrl, const struct Coord3d *pos, TbBool digging)
+{
+    if (digging || (pos->x.val != cctrl->party.tunnel_last_x) || (pos->y.val != cctrl->party.tunnel_last_y))
+    {
+        cctrl->party.tunnel_last_x = pos->x.val;
+        cctrl->party.tunnel_last_y = pos->y.val;
+        cctrl->party.tunnel_still_turns = 0;
+        return false;
+    }
+    cctrl->party.tunnel_still_turns++;
+    return (cctrl->party.tunnel_still_turns >= 150);
+}
+
 int64_t creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, int64_t speed)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
@@ -1424,7 +1426,10 @@ int64_t creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, int64_t s
             MapSubtlCoord stl_x = stl_num_decode_x(cctrl->navi.first_colliding_block);
             MapSubtlCoord stl_y = stl_num_decode_y(cctrl->navi.first_colliding_block);
             struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
-            if ( (slabmap_owner(slb) == creatng->owner) || (slb->kind == SlbT_EARTH || (slb->kind == SlbT_TORCHDIRT)) ) { // if this is false, that means the current tile must have changed to an undiggable wall
+            // Tunnellers dig earth and gold (gold since refactor pass 4, P4-F12), and their own slabs; if this is false,
+            // the tile must have changed to an undiggable wall
+            if ( (slabmap_owner(slb) == creatng->owner) || (slb->kind == SlbT_EARTH) || (slb->kind == SlbT_TORCHDIRT)
+              || (slb->kind == SlbT_GOLD) || (slb->kind == SlbT_DENSEGOLD) ) {
                 set_creature_instance(creatng, CrInst_TUNNEL, 0, 0);
             }
         else {
@@ -1448,26 +1453,13 @@ int64_t creature_tunnel_to(struct Thing *creatng, struct Coord3d *pos, int64_t s
         ERRORLOG("Move %s index %" PRId64 " to (%" PRId64 ",%" PRId64 ") reset - wallhug distance %" PRId64 " too large",thing_model_name(creatng),(int64_t)creatng->index,(int64_t)pos->x.stl.num,(int64_t)pos->y.stl.num,(int64_t)dist);
         return 0;
     }
-    // If the tunneler tries to tunnel the same distance for 150 times, he must be stuck. So push him.
-    static struct TunnelDistance tunnel;
-    tunnel.creatid = creatng->index;
-    tunnel.newdist = dist;
-    static uint64_t identical[CREATURES_COUNT];
-    if (tunnel.olddist == tunnel.newdist)
-    {
-        identical[creatng->ccontrol_idx] += 1;
-    }
-    else
-    {
-        tunnel.olddist = tunnel.newdist;
-        identical[creatng->ccontrol_idx] = 0;
-    }
-    if ( identical[creatng->ccontrol_idx] >= 150)
+    // If the tunneller has stood still without digging for 150 turns, it must be stuck. So push it.
+    if (tunneller_stuck_at(cctrl, &creatng->mappos, (cctrl->instance_id == CrInst_TUNNEL)))
     {
         if (creature_choose_random_destination_on_valid_adjacent_slab(creatng))
         {
             creatng->continue_state = CrSt_TunnellerDoingNothing;
-            ERRORLOG("%s index %" PRId64 " stuck - attempt %" PRIu64 " to dislodge",thing_model_name(creatng),(int64_t)creatng->index,(uint64_t)(identical[creatng->ccontrol_idx]-149));
+            ERRORLOG("%s index %" PRId64 " stuck - attempt %" PRIu64 " to dislodge",thing_model_name(creatng),(int64_t)creatng->index,(uint64_t)(cctrl->party.tunnel_still_turns-149));
         }
         return 0;
     }

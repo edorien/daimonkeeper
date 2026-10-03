@@ -44,7 +44,7 @@
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
-#include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -620,26 +620,11 @@ TngUpdateRet process_door(struct Thing *thing)
 int64_t count_player_deployed_doors_of_model(PlayerNumber owner, int64_t model)
 {
     int64_t n = 0;
-    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Door);
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ((thing->owner == owner) && ((thing->model == model) || (model == -1)))
             n++;
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return n;
 }
@@ -652,28 +637,13 @@ int64_t count_player_deployed_doors_of_model(PlayerNumber owner, int64_t model)
  */
 TbBool player_has_deployed_door_of_model(PlayerNumber owner, int64_t model, int64_t locked)
 {
-    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Door);
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ((thing->owner == owner) &&
             ((thing->model == model) || (model == -1)) &&
             ((thing->door.is_locked == locked) || (locked == -1)))
             return true;
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return false;
 }
@@ -687,26 +657,11 @@ TbBool player_has_deployed_door_of_model(PlayerNumber owner, int64_t model, int6
 int64_t count_player_deployed_traps_of_model(PlayerNumber owner, ThingModel model)
 {
     int64_t n = 0;
-    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ((thing->owner == owner) && ((thing->model == model) || (model == -1)) && (thing->trap.num_shots > 0))
             n++;
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return n;
 }
@@ -719,26 +674,11 @@ int64_t count_player_deployed_traps_of_model(PlayerNumber owner, ThingModel mode
  */
 TbBool player_has_deployed_trap_of_model(PlayerNumber owner, ThingModel model)
 {
-    uint64_t k = 0;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Trap);
-    int64_t i = slist->index;
-    while (i > 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-            break;
-        i = thing->next_of_class;
-        // Per-thing code
         if ((thing->owner == owner) && ((thing->model == model) || (model == -1)))
             return true;
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return false;
 }
@@ -809,13 +749,50 @@ void update_all_door_stats()
     }
 }
 
+/**
+ * Whether plyr_idx can put a door on the slab of the given subtile: their own claimed floor, revealed to them,
+ * between two walls (find_door_angle()), with no trap across the door's line and no door already there.
+ * The simulation's check (script, computer player, packets); drawing the cursor box over it is the renderer's
+ * tag_cursor_blocks_place_door().
+ */
+TbBool door_placement_allowed(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    MapSlabCoord slb_x = subtile_slab(stl_x);
+    MapSlabCoord slb_y = subtile_slab(stl_y);
+    struct SlabMap *slb = get_slabmap_block(slb_x, slb_y);
+    // floor, as the player knows it: revealed, not a wall or earth, not liquid
+    const struct SlabConfigStats *slabst = get_slab_stats(slb);
+    if (!subtile_revealed(slab_subtile_center(slb_x), slab_subtile_center(slb_y), plyr_idx)
+        || ((slabst->block_flags & (SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0)
+        || slab_kind_is_liquid(slb->kind))
+        return false;
+    char Orientation = find_door_angle(stl_x, stl_y, plyr_idx);
+    TbBool Check = false;
+    switch(Orientation)
+    {
+        case 0:
+        {
+            Check = (!slab_middle_row_has_trap_on(slb_x, slb_y) );
+            break;
+        }
+        case 1:
+        {
+            Check = (!slab_middle_column_has_trap_on(slb_x, slb_y) );
+            break;
+        }
+    }
+    return ( (slabmap_owner(slb) == plyr_idx) && (slb->kind == SlbT_CLAIMED) )
+        && (Orientation != -1) && ( Check )
+        && (!slab_has_door_thing_on(slb_x, slb_y));
+}
+
 void script_place_door(PlayerNumber plyridx, ThingModel doorkind, MapSlabCoord slb_x, MapSlabCoord slb_y, TbBool locked, TbBool free)
 {
     MapSubtlCoord stl_x = slab_subtile_center(slb_x);
     MapSubtlCoord stl_y = slab_subtile_center(slb_y);
     TbBool success;
 
-    if (render_tag_cursor_blocks_place_door(plyridx, stl_x, stl_y))
+    if (door_placement_allowed(plyridx, stl_x, stl_y))
     {
         if (!free)
         {

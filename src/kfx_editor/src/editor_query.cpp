@@ -19,7 +19,7 @@
 #include "post_inc.h"
 
 
-void editor_query_from_thing(const struct Thing *thing, EditorQueryResult *out)
+static void editor_query_from_thing(const struct Thing *thing, EditorQueryResult *out)
 {
     out->kind = EditorQueryResult::QR_Thing;
     snprintf(out->title, sizeof(out->title), "Thing #%" PRId64, (int64_t)(thing->index));
@@ -58,7 +58,7 @@ void editor_query_from_thing(const struct Thing *thing, EditorQueryResult *out)
     }
 }
 
-void editor_query_from_room(const struct Room *room, EditorQueryResult *out)
+static void editor_query_from_room(const struct Room *room, EditorQueryResult *out)
 {
     out->kind = EditorQueryResult::QR_Room;
     snprintf(out->title, sizeof(out->title), "Room #%" PRId64, (int64_t)(room->index));

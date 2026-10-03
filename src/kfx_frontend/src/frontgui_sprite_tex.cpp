@@ -13,7 +13,7 @@
 #include "bflib_video.h"                   // TbPixel, LbScreen*GraphicsWindow, TbGraphicsWindow
 #include "renderer/RendererManager.h"      // dynamic textures, draw-flag state
 #include "custom_sprites.h"                // get_button_sprite, get_panel_sprite
-#include "kfx_sim_state.h"                 // engine_palette (game palette for the sprite decode)
+#include "game_palettes.h"                 // engine_palette (game palette for the sprite decode)
 #include "frontgui_ingame_icon_overrides.h" // FeIconOverrideForStaticIndex -- docs/refactor/ingame-gui/12-png-icon-overrides.md
 
 #include <imgui_internal.h>                // GImGui->NavCursorVisible -- same use as frontgui_widgets.cpp
@@ -320,13 +320,6 @@ bool FeSpriteButton(const char *str_id, int64_t sprite_idx, const char *label, d
 {
     int64_t w = 0, h = 0;
     void *tex = FeSpriteTexture(sprite_idx, &w, &h);
-    return sprite_button_body(str_id, tex, w, h, label, nullptr, icon_h);
-}
-
-bool FeGuiPanelButton(const char *str_id, int64_t sprite_idx, const char *label, double icon_h)
-{
-    int64_t w = 0, h = 0;
-    void *tex = FeGuiPanelTexture(sprite_idx, &w, &h);
     return sprite_button_body(str_id, tex, w, h, label, nullptr, icon_h);
 }
 

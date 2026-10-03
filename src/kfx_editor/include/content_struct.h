@@ -76,7 +76,6 @@ public:
     void reset(const std::string &section, const std::string &key);
     void set_list(const std::string &section, const std::string &key, const std::vector<std::string> &lines);
     void reset_list(const std::string &section, const std::string &key);
-    bool is_pending(const std::string &section, const std::string &key) const;
 
     bool dirty() const { return !pending_.empty(); }
     size_t pending_count() const { return pending_.size(); }

@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "light_registry.h"
+#include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "thing_list.h" // TngList_StaticLights/TngList_DynamLights
 
@@ -152,57 +153,45 @@ TEST_CASE_METHOD(ResetLighting, "deleting a dynamic light gives its shadow cache
 // Registry -> shading signals (struct LightShadingSignals): what used to be
 // kfx_render clearing its static light map from inside the registry.
 
-TEST_CASE_METHOD(ResetLighting, "a change near a static light flags it and records the area for kfx_render", "[kfx_sim][light_registry]") {
+TEST_CASE_METHOD(ResetLighting, "a change in an area is recorded for kfx_render, which decides which lights it reaches", "[kfx_sim][light_registry]") {
+    struct InitLight stat = init_light(false, 10, 10);
+    REQUIRE(light_create_light(&stat) != 0);
+
+    light_signal_stat_light_update_in_area(12, 12, 14, 14);
+    light_signal_update_in_area(50, 50, 60, 60);
+
+    REQUIRE(light_shading_signals.areas_count == 2);
+    CHECK(light_shading_signals.areas[0].x1 == 12);
+    CHECK(light_shading_signals.areas[0].y2 == 14);
+    CHECK(light_shading_signals.areas[0].kind == LgtArea_StaticLights);
+    CHECK(light_shading_signals.areas[1].kind == LgtArea_AllLights);
+}
+
+TEST_CASE_METHOD(ResetLighting, "a new light, and moving a static light, are recorded with where it was", "[kfx_sim][light_registry]") {
     struct InitLight stat = init_light(false, 10, 10);
     int64_t idx = light_create_light(&stat);
     REQUIRE(idx != 0);
-    light(idx)->range = 3; // kfx_render sets it when it shades the light
-    light(idx)->flags &= ~LgtF_NeedUpdate;
+    CHECK(light_shading_signals.light_changed[idx] == (LgtCh_Created | LgtCh_Reshade));
+    light_shading_signals.light_changed[idx] = 0;
 
-    light_signal_stat_light_update_in_area(12, 12, 14, 14);
-
-    CHECK((light(idx)->flags & LgtF_NeedUpdate) != 0);
-    REQUIRE(light_shading_signals.areas_count == 1);
-    CHECK(light_shading_signals.areas[0].x1 == 12);
-    CHECK(light_shading_signals.areas[0].y2 == 14);
-}
-
-TEST_CASE_METHOD(ResetLighting, "a change away from every static light records nothing", "[kfx_sim][light_registry]") {
-    struct InitLight stat = init_light(false, 10, 10);
-    int64_t idx = light_create_light(&stat);
-    light(idx)->range = 3;
-    light(idx)->flags &= ~LgtF_NeedUpdate;
-
-    light_signal_stat_light_update_in_area(50, 50, 60, 60);
-
-    CHECK((light(idx)->flags & LgtF_NeedUpdate) == 0);
-    CHECK(light_shading_signals.areas_count == 0);
-}
-
-TEST_CASE_METHOD(ResetLighting, "moving a static light records the area it lit", "[kfx_sim][light_registry]") {
-    struct InitLight stat = init_light(false, 10, 10);
-    int64_t idx = light_create_light(&stat);
-    light(idx)->range = 2;
     struct Coord3d pos = light(idx)->mappos;
     pos.x.stl.num = 20;
     light_set_light_position(idx, &pos);
+    pos.x.stl.num = 30;
+    light_set_light_position(idx, &pos);
 
-    REQUIRE(light_shading_signals.areas_count == 1);
-    CHECK(light_shading_signals.areas[0].x1 == 8);
-    CHECK(light_shading_signals.areas[0].x2 == 12);
+    CHECK(light_shading_signals.light_changed[idx] == (LgtCh_OwnArea | LgtCh_Reshade));
+    CHECK(light_shading_signals.changed_stl_x[idx] == 10); // where it shaded, at the first move since the drain
+    CHECK(light_shading_signals.areas_count == 0);
 }
 
 TEST_CASE_METHOD(ResetLighting, "a repeat of the last recorded area isn't recorded twice", "[kfx_sim][light_registry]") {
-    struct InitLight stat = init_light(false, 10, 10);
-    light(light_create_light(&stat))->range = 3;
     light_signal_stat_light_update_in_area(9, 9, 11, 11);
     light_signal_stat_light_update_in_area(9, 9, 11, 11);
     CHECK(light_shading_signals.areas_count == 1);
 }
 
 TEST_CASE_METHOD(ResetLighting, "too many areas collapse into a full rebuild", "[kfx_sim][light_registry]") {
-    struct InitLight stat = init_light(false, 100, 100);
-    light(light_create_light(&stat))->range = 100;
     for (int64_t i = 0; i <= LIGHT_SHADING_AREAS_MAX; i++)
         light_signal_stat_light_update_in_area(i, i, i + 1, i + 1);
     CHECK(light_shading_signals.areas_overflowed);
@@ -217,12 +206,12 @@ TEST_CASE_METHOD(ResetLighting, "light_set_lights_on(false) goes fullbright and 
     REQUIRE(light_shading_signals.areas_count >= 1);
     CHECK(light_shading_signals.areas[0].x1 == 0);
     CHECK(light_shading_signals.areas[0].x2 == 255);
+    CHECK(light_shading_signals.areas[0].kind == LgtArea_ClearMap);
 }
 
 TEST_CASE_METHOD(ResetLighting, "light_registry_invalidate_shading asks for a full rebuild without touching the registry", "[kfx_sim][light_registry]") {
     struct InitLight stat = init_light(false, 10, 10);
     int64_t s = light_create_light(&stat);
-    light(s)->flags &= ~LgtF_NeedUpdate;
     light_shading_signals.areas_count = 5; // stale areas are dropped
     // A resync compares the received sim state byte for byte (ftest
     // net_resync_fake_multiplayer): the flags must be as they arrived.
@@ -233,4 +222,22 @@ TEST_CASE_METHOD(ResetLighting, "light_registry_invalidate_shading asks for a fu
     CHECK(light(s)->flags == flags_before);
     CHECK(light_shading_signals.registry_replaced);
     CHECK(light_shading_signals.areas_count == 0);
+}
+
+TEST_CASE_METHOD(ResetLighting, "update_global_lighting follows a rule change while the lights follow the rules", "[kfx_sim][light_registry]") {
+    kfx_config_state.conf.rules[0].gameplay.global_ambient_light = 20;
+    kfx_config_state.conf.rules[0].gameplay.light_enabled = 1;
+    light_registry_reset_lighting();
+    CHECK(kfx_sim_state.light_registry.global_ambient_light == 32);
+
+    kfx_sim_state.light_registry.light_auto_sync = false;
+    update_global_lighting();
+    CHECK(kfx_sim_state.light_registry.global_ambient_light == 32); // lights off: fullbright stays
+
+    kfx_sim_state.light_registry.light_auto_sync = true;
+    update_global_lighting();
+    CHECK(kfx_sim_state.light_registry.global_ambient_light == 20);
+    CHECK(kfx_sim_state.light_registry.light_enabled);
+    REQUIRE(light_shading_signals.areas_count >= 1);
+    CHECK(light_shading_signals.areas[0].kind == LgtArea_ClearMap);
 }

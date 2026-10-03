@@ -73,7 +73,8 @@ std::string lower(std::string s)
 
 } // namespace
 
-std::string content_strings_display(const std::string &raw)
+/** Display text of an entry: code page -> UTF-8, CR LF shown as a plain line break. */
+static std::string content_strings_display(const std::string &raw)
 {
     return to_lf(cfgc_strings_decode(raw));
 }

@@ -28,6 +28,7 @@
 #include "value_util.h"
 #include "kfx_sim_state.h"
 #include "ports/script_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -186,19 +187,8 @@ TbBool action_point_activated_by_player(ActionPointId apt_idx, PlayerNumber plyr
 TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, int64_t first_thing_idx)
 {
     SYNCDBG(8,"Starting");
-    uint64_t k = 0;
-    int64_t i = first_thing_idx;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(first_thing_idx, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature (%" PRId64 ") detected", (int64_t)(i));
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
         if (thing_is_picked_up(thing))
         {
             continue;
@@ -207,7 +197,6 @@ TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, 
         {
             continue;
         }
-        // Thing list loop body
         // Range of 0 means activate when on the same subtile
         if (apt->range <= 0)
         {
@@ -221,13 +210,6 @@ TbBool action_point_is_creature_from_list_within(const struct ActionPoint *apt, 
             if (apt->range > dist) {
                 return true;
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     return false;

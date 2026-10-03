@@ -53,6 +53,7 @@
 #endif
 
 #include "ports/ui_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -135,18 +136,8 @@ struct ComputerTask * able_to_build_room_at_task(struct Computer2 *comp, RoomKin
 struct ComputerTask * able_to_build_room_from_room(struct Computer2 *comp, RoomKind rkind, RoomKind look_kind, int64_t width_slabs, int64_t height_slabs, int64_t max_slabs_dist, int64_t perfect)
 {
     struct Dungeon* dungeon = computer_dungeon(comp);
-    int64_t i = dungeon->room_list_start[look_kind];
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[look_kind]))
     {
-        struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-        }
-        i = room->next_of_owner;
-        // Per-room code
         struct Coord3d pos;
         pos.x.val = subtile_coord_center(room->central_stl_x);
         pos.y.val = subtile_coord_center(room->central_stl_y);
@@ -154,13 +145,6 @@ struct ComputerTask * able_to_build_room_from_room(struct Computer2 *comp, RoomK
         struct ComputerTask* roomtask = able_to_build_room(comp, &pos, rkind, width_slabs, height_slabs, max_slabs_dist, perfect);
         if (!computer_task_invalid(roomtask)) {
             return roomtask;
-        }
-        // Per-room code ends
-        k++;
-        if (k > ROOMS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping rooms list");
-            break;
         }
     }
     return INVALID_COMPUTER_TASK;
@@ -393,32 +377,14 @@ uint64_t count_creatures_availiable_for_fight(struct Computer2 *comp, struct Coo
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = computer_dungeon(comp);
     uint64_t count = 0;
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         if (cctrl->combat_flags == 0)
         {
             if ((pos == NULL) || creature_can_navigate_to(thing, pos, NavRtF_NoOwner)) {
                 count++;
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19,"Finished");
@@ -578,29 +544,12 @@ int64_t count_entrances(const struct Computer2 *comp, PlayerNumber plyr_idx)
 {
     const struct Dungeon* dungeon = computer_dungeon(comp);
     int64_t count = 0;
-    int64_t i = kfx_sim_state.entrance_room_id;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_kind(kfx_sim_state.entrance_room_id))
     {
-        const struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-        }
-        i = room->next_of_kind;
-        // Per-room code
         if ((room->player_interested[dungeon->owner] & 0x01) == 0)
         {
             if ((plyr_idx < 0) || (room->owner == plyr_idx))
                 count++;
-        }
-        // Per-room code ends
-        k++;
-        if (k > ROOMS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping rooms list");
-            break;
         }
     }
     return count;
@@ -715,29 +664,12 @@ int64_t computer_find_more_trap_place_locations(struct Computer2 *comp)
     RoomKind rkind = AI_RANDOM(kfx_config_state.conf.slab_conf.room_types_count);
     for (int64_t m = 0; m < kfx_config_state.conf.slab_conf.room_types_count; m++, rkind = (rkind + 1) % kfx_config_state.conf.slab_conf.room_types_count)
     {
-        uint64_t k = 0;
-        int64_t i = dungeon->room_list_start[rkind];
-        while (i != 0)
+        FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
         {
-            struct Room* room = room_get(i);
-            if (room_is_invalid(room))
-            {
-                ERRORLOG("Jump to invalid room detected");
-                break;
-            }
-            i = room->next_of_owner;
-            // Per-room code
             int64_t nadded = computer_find_more_trap_place_locations_around_room(comp, room);
             if (nadded < 0)
                 break;
             num_added += nadded;
-            // Per-room code ends
-            k++;
-            if (k > ROOMS_COUNT)
-            {
-              ERRORLOG("Infinite loop detected when sweeping rooms list");
-              break;
-            }
         }
     }
     return num_added;
@@ -828,19 +760,8 @@ int64_t computer_pick_training_or_scavenging_creatures_and_place_on_room(struct 
 {
     int64_t new_tasks = 0;
     // Sweep through creatures list
-    int64_t i = thing_idx;
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(thing_idx, THINGS_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-      }
-      struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-      i = cctrl->players_next_creature_idx;
-      // Per creature code
       if (creature_is_training(thing) || creature_is_scavengering(thing)) // originally, only CrSt_Training and CrSt_Scavengering were accepted
       {
         if (!create_task_move_creature_to_subtile(comp, thing, room->central_stl_x, room->central_stl_y, CrSt_CreatureDoingNothing))
@@ -848,13 +769,6 @@ int64_t computer_pick_training_or_scavenging_creatures_and_place_on_room(struct 
         new_tasks++;
         if (new_tasks >= tasks_limit)
           break;
-      }
-      // Per creature code ends
-      k++;
-      if (k > THINGS_COUNT)
-      {
-        ERRORLOG("Infinite loop detected when sweeping things list");
-        break;
       }
     }
     return new_tasks;
@@ -1611,6 +1525,11 @@ void computer_set_dungeon(struct Computer2 *comp, struct Dungeon *dungeon)
 void restore_computer_player_after_load(void)
 {
     SYNCDBG(7,"Starting");
+    computer_players_set_dungeons();
+}
+
+void computer_players_set_dungeons(void)
+{
     for (int64_t plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
         struct PlayerInfo* player = get_player(plyr_idx);
@@ -1659,3 +1578,100 @@ TbBool toggle_computer_player(PlayerNumber plyr_idx)
 #ifdef __cplusplus
 }
 #endif
+
+/******************************************************************************/
+/* The computer player settings scripts and Lua change (refactor pass 3, S07). */
+
+void computer_set_globals(PlayerNumber plr_start, PlayerNumber plr_end, int64_t dig_stack_size, int64_t processes_time,
+    int64_t click_rate, int64_t max_room_build_tasks, int64_t turn_begin, int64_t sim_before_dig, int64_t task_delay)
+{
+    for (int64_t i = plr_start; i < plr_end; i++)
+    {
+        struct Computer2* comp = get_computer_player(i);
+        if (computer_player_invalid(comp))
+        {
+            continue;
+        }
+        comp->dig_stack_size = dig_stack_size;
+        comp->processes_time = processes_time;
+        comp->click_rate = click_rate;
+        comp->max_room_build_tasks = max_room_build_tasks;
+        comp->turn_begin = turn_begin;
+        comp->sim_before_dig = sim_before_dig;
+        if (task_delay != -1)
+        {
+            comp->task_delay = task_delay;
+        }
+    }
+}
+
+int64_t computer_set_process_config(PlayerNumber plr_start, PlayerNumber plr_end, const char *procname, int64_t priority,
+    int64_t config_value_2, int64_t config_value_3, int64_t config_value_4, int64_t config_value_5, TbBool report)
+{
+    int64_t n = 0;
+    for (int64_t i = plr_start; i < plr_end; i++)
+    {
+        struct Computer2* comp = get_computer_player(i);
+        if (computer_player_invalid(comp)) {
+            continue;
+        }
+        for (int64_t k = 0; k < COMPUTER_PROCESSES_COUNT; k++)
+        {
+            struct ComputerProcess* cproc = &comp->processes[k];
+            if (flag_is_set(cproc->flags, ComProc_ListEnd))
+                break;
+            if (strcasecmp(procname, cproc->name) == 0)
+            {
+                if (report)
+                    SCRPTLOG("Changing computer %" PRId64 " process '%s' config from (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ")", (int64_t)i, cproc->name,
+                        (int64_t)cproc->priority, (int64_t)cproc->process_configuration_value_2, (int64_t)cproc->process_configuration_value_3, (int64_t)cproc->process_configuration_value_4, (int64_t)cproc->process_configuration_value_5,
+                        (int64_t)priority, (int64_t)config_value_2, (int64_t)config_value_3, (int64_t)config_value_4, (int64_t)config_value_5);
+                cproc->priority = priority;
+                cproc->process_configuration_value_2 = config_value_2;
+                cproc->process_configuration_value_3 = config_value_3;
+                cproc->process_configuration_value_4 = config_value_4;
+                cproc->process_configuration_value_5 = config_value_5;
+                n++;
+            }
+        }
+    }
+    return n;
+}
+
+int64_t computer_set_check_config(PlayerNumber plr_start, PlayerNumber plr_end, const char *chkname, int64_t turns_interval,
+    int64_t primary_parameter, int64_t secondary_parameter, int64_t tertiary_parameter, int64_t last_run_turn,
+    TbBool stop_at_unnamed, TbBool report)
+{
+    int64_t n = 0;
+    for (int64_t i = plr_start; i < plr_end; i++)
+    {
+        struct Computer2* comp = get_computer_player(i);
+        if (computer_player_invalid(comp)) {
+            continue;
+        }
+        for (int64_t k = 0; k < COMPUTER_CHECKS_COUNT; k++)
+        {
+            struct ComputerCheck* ccheck = &comp->checks[k];
+            if ((ccheck->flags & ComChk_Unkn0002) != 0)
+                break;
+            // The script command stops at an unnamed check; the Lua function never did.
+            if (stop_at_unnamed && (ccheck->name[0] == '\0'))
+                break;
+            if (strcasecmp(chkname, ccheck->name) == 0)
+            {
+                if (report)
+                    SCRPTLOG("Changing computer %" PRId64 " check '%s' config from (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ",%" PRId64 ")", (int64_t)i, ccheck->name,
+                        (int64_t)ccheck->turns_interval, (int64_t)ccheck->primary_parameter, (int64_t)ccheck->secondary_parameter, (int64_t)ccheck->tertiary_parameter, (int64_t)ccheck->last_run_turn,
+                        (int64_t)turns_interval, (int64_t)primary_parameter, (int64_t)secondary_parameter, (int64_t)tertiary_parameter, (int64_t)last_run_turn);
+                ccheck->turns_interval = turns_interval;
+                ccheck->primary_parameter = primary_parameter;
+                ccheck->secondary_parameter = secondary_parameter;
+                ccheck->tertiary_parameter = tertiary_parameter;
+                ccheck->last_run_turn = last_run_turn;
+                n++;
+            }
+        }
+    }
+    return n;
+}
+

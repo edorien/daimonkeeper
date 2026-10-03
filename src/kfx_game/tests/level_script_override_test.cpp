@@ -5,6 +5,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "lvl_script.h"
+#include "lvl_script_lib.h"
+#include "lvl_script_value.h"
 #include "lvl_filesdk1.h"
 #include "level_script_override.h"
 #include "kfx_game_state.h"
@@ -21,12 +23,12 @@ struct LoaderFixture {
     {
         std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
         level_script_override_clear();
-        saved_version = level_file_version;
+        saved_version = kfx_game_state.level_file_version;
     }
     ~LoaderFixture()
     {
         level_script_override_clear();
-        level_file_version = saved_version;
+        kfx_game_state.level_file_version = saved_version;
         std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
     }
 };
@@ -69,7 +71,7 @@ TEST_CASE_METHOD(LoaderFixture, "the prelude is v1 even when the file is v0", "[
     // would be rejected and never recorded.
     level_script_override_set(kLevel, "IF(PLAYER0,TOTAL_DIGGERS == 0)\n\tWIN_GAME\nENDIF\n", "REM v0 file\n");
     REQUIRE(preload_script(kLevel));
-    CHECK(level_file_version == 0); // preload left the file's own version behind
+    CHECK(kfx_game_state.level_file_version == 0); // preload left the file's own version behind
     CHECK(load_script(kLevel));
     CHECK(kfx_game_state.script.conditions_num == 1);
     CHECK(kfx_game_state.script.win_conditions_num == 1);
@@ -82,21 +84,43 @@ TEST_CASE_METHOD(LoaderFixture, "control: without forcing v1 the same line is re
     level_script_override_set(kLevel, "REM nothing\n", "IF(PLAYER0,TOTAL_DIGGERS == 0)\n\tWIN_GAME\nENDIF\n");
     REQUIRE(preload_script(kLevel));
     CHECK(load_script(kLevel));
-    CHECK(kfx_game_state.script.conditions_num == 0);
+    // The refused IF opens a condition that is never true (refactor pass 4, P4-F2), not the real one.
+    REQUIRE(kfx_game_state.script.conditions_num == 1);
+    CHECK(kfx_game_state.script.conditions[0].variabl_type == SVar_NEVER_TRUE);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "the file's own version survives the prelude", "[kfx_game][script_override]") {
     level_script_override_set(kLevel, "REM p\n", "LEVEL_VERSION(1)\nREM f\n");
     REQUIRE(preload_script(kLevel));
-    CHECK(level_file_version == 1);
+    CHECK(kfx_game_state.level_file_version == 1);
     CHECK(load_script(kLevel));
-    CHECK(level_file_version == 1); // not left at, or reset to, anything else
+    CHECK(kfx_game_state.level_file_version == 1); // not left at, or reset to, anything else
 
     // And the other direction: entry version 0 stays 0 across the prelude.
     level_script_override_set(kLevel, "START_MONEY(PLAYER0,1)\n", "REM f\n");
-    level_file_version = 0;
+    kfx_game_state.level_file_version = 0;
     CHECK(load_script(kLevel));
-    CHECK(level_file_version == 0);
+    CHECK(kfx_game_state.level_file_version == 0);
+}
+
+TEST_CASE_METHOD(LoaderFixture, "the level version is game state: a save carries it to commands run in play", "[kfx_game][script_override]") {
+    // Refactor pass 4, P4-F8: the version was a global that a save and a resync didn't carry, so a command
+    // run after a load (here BONUS_LEVEL_TIME, whose real-time flag needs version 1) saw whatever the last
+    // level read in that session had -- 0 in a new session.
+    level_script_override_set(kLevel, "REM p\n", "LEVEL_VERSION(1)\nREM f\n");
+    REQUIRE(preload_script(kLevel));
+    REQUIRE(load_script(kLevel));
+    REQUIRE(kfx_game_state.level_file_version == 1);
+    struct KfxGameState saved;
+    std::memcpy(&saved, &kfx_game_state, sizeof(saved));       // what the save writes
+    std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));   // a new session
+    std::memcpy(&kfx_game_state, &saved, sizeof(saved));       // the load
+    struct ScriptValue value = {};
+    value.longs[0] = 100;
+    value.longs[1] = 1;
+    script_process_value(Cmd_BONUS_LEVEL_TIME, 0, &value);
+    CHECK(kfx_game_state.timer_real);
+    CHECK(kfx_game_state.bonus_time > 0);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "a stale override (another level) is discarded, not applied", "[kfx_game][script_override]") {

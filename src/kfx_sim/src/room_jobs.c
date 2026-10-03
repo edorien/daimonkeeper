@@ -45,6 +45,7 @@
 #include "kfx_sim_state.h"
 #include "light_registry.h"
 #include "ports/ui_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -278,13 +279,10 @@ struct Thing *find_object_in_room_for_creature_matching_bool_filter(struct Thing
         return rettng;
     }
     int64_t selected = THING_RANDOM(creatng, room->slabs_count);
-    uint64_t k = 0;
-    int64_t i = room->slabs_list;
-    while (i != 0)
+    FOR_EACH_ROOM_SLAB(slb_num, room_slab_walk(room))
     {
-        MapSubtlCoord stl_x = slab_subtile_center(slb_num_decode_x(i));
-        MapSubtlCoord stl_y = slab_subtile_center(slb_num_decode_y(i));
-        // Per room tile code
+        MapSubtlCoord stl_x = slab_subtile_center(slb_num_decode_x(slb_num));
+        MapSubtlCoord stl_y = slab_subtile_center(slb_num_decode_y(slb_num));
         struct Thing* tmptng = get_object_around_owned_by_and_matching_bool_filter(
             subtile_coord_center(stl_x), subtile_coord_center(stl_y), -1, matcher_cb);
         if (!thing_is_invalid(tmptng))
@@ -300,14 +298,6 @@ struct Thing *find_object_in_room_for_creature_matching_bool_filter(struct Thing
                     break;
                 }
             }
-        }
-        // Per room tile code ends
-        i = get_next_slab_number_in_room(i);
-        k++;
-        if (k > room->slabs_count)
-        {
-          ERRORLOG("Room slabs list length exceeded when sweeping");
-          break;
         }
     }
     return rettng;

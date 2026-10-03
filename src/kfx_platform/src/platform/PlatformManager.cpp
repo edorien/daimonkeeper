@@ -120,13 +120,6 @@ extern "C" int64_t PlatformManager_HasWindow(void)
     return (ws && ws->HasWindow()) ? 1 : 0;
 }
 
-extern "C" int64_t PlatformManager_GetIsAppActive(void)
-{
-    IWindowSystem* ws = GetSDLWindowSystem();
-    return (ws && ws->IsAppActive()) ? 1 : 0;
-}
-
-extern "C" int64_t PlatformManager_OwnsDisplay(void)             { return GetPlatform()->OwnsDisplay() ? 1 : 0; }
 // -headless (main.cpp): SDL's dummy driver reports zero real display
 // modes, so LbHwCheckIsModeAvailable() (bflib_video.c) would reject every
 // resolution -- including the 320x200 failsafe -- and fail startup
@@ -138,14 +131,6 @@ extern "C" uint64_t PlatformManager_GetWindowFlags(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return ws ? ws->GetWindowFlags() : 0;
-}
-
-extern "C" void PlatformManager_GetWindowSize(int64_t* out_w, int64_t* out_h)
-{
-    if (out_w) *out_w = 0;
-    if (out_h) *out_h = 0;
-    IWindowSystem* ws = GetSDLWindowSystem();
-    if (ws) ws->GetWindowSize(out_w, out_h);
 }
 
 extern "C" int64_t PlatformManager_GetWindowDisplayIndex(void)
@@ -232,12 +217,6 @@ extern "C" int64_t PlatformManager_IsCursorInWindow(void)
 {
     IWindowSystem* ws = GetSDLWindowSystem();
     return (ws && ws->IsCursorInWindow()) ? 1 : 0;
-}
-
-extern "C" int64_t PlatformManager_RecreateWindowForSoftwareRenderer(void)
-{
-    IWindowSystem* ws = GetSDLWindowSystem();
-    return (ws && ws->RecreateForSoftwareRenderer()) ? 1 : 0;
 }
 
 extern "C" int64_t PlatformManager_GetDisplayRefreshRate(void)

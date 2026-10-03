@@ -32,3 +32,11 @@ TEST_CASE_METHOD(ResetState, "ambient_sound_stop is false when the stored thing 
     reset_ambient_sound_thing_idx(); // -> index 0, thing_data.c's reserved slot
     CHECK_FALSE(ambient_sound_stop());
 }
+
+TEST_CASE_METHOD(ResetState, "reset_ambient_sound_thing_idx also restarts the footstep cycle, with no creature of the previous level", "[kfx_game][sounds]") {
+    kfx_game_local.footstep_timeslice = 2;
+    kfx_game_local.footstep_near_creatures[1] = 42;
+    reset_ambient_sound_thing_idx();
+    CHECK(kfx_game_local.footstep_timeslice == 0);
+    CHECK(kfx_game_local.footstep_near_creatures[1] == 0);
+}

@@ -38,6 +38,8 @@
 #include "kfx_sim_state.h"
 #include "ports/script_port.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
+#include "room_util.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -499,90 +501,49 @@ void research_found_room(PlayerNumber plyr_idx, RoomKind rkind)
     }
 }
 
-void reposition_all_books_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
+static TbBool library_stores(const struct Room *room, const struct Thing *thing)
 {
-    struct Dungeon* dungeon;
-    struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    if (map_block_invalid(mapblk))
-        return;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
-    {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code
-        if (thing_is_spellbook(thing))
-        {
-            ThingModel objkind = thing->model;
-            PowerKind spl_idx = book_thing_to_power_kind(thing);
-            if ((spl_idx > 0) && ((thing->alloc_flags & TAlF_IsDragged) == 0))
-            {
-                if (get_gameturn() > 10) //Function is used to place books in rooms before dungeons are intialized
-                {
-                    dungeon = get_players_num_dungeon(room->owner);
-                    if (dungeon->magic_level[spl_idx] < 2)
-                    {
-                        if (!store_reposition_entry(rrepos, objkind)) {
-                            WARNLOG("Too many things to reposition in %s.", room_code_name(room->kind));
-                        }
-                    }
-                    if (!is_neutral_thing(thing))
-                    {
-                        remove_power_from_player(spl_idx, room->owner);
-                        dungeon = get_dungeon(room->owner);
-                        dungeon->magic_resrchable[spl_idx] = 1;
-                    }
-                }
-                else
-                {
-                    if (!store_reposition_entry(rrepos, objkind))
-                    {
-                        WARNLOG("Too many things to reposition in %s.", room_code_name(room->kind));
-                    }
-                    if (!is_neutral_thing(thing))
-                    {
-                        remove_power_from_player(spl_idx, room->owner);
-                    }
-                }
-                destroy_object(thing);
-            }
-        }
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
-    }
+    return thing_is_spellbook(thing) && (book_thing_to_power_kind(thing) > 0) && ((thing->alloc_flags & TAlF_IsDragged) == 0);
 }
 
-TbBool recreate_repositioned_book_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
+static void library_take_out(struct Room *room, struct Thing *thing, struct RoomReposition *rrepos)
 {
-    if ((rrepos->used < 0) || (room->used_capacity >= room->total_capacity)) {
-        return false;
-    }
-    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    struct Dungeon* dungeon;
+    ThingModel objkind = thing->model;
+    PowerKind spl_idx = book_thing_to_power_kind(thing);
+    if (get_gameturn() > 10) //Function is used to place books in rooms before dungeons are intialized
     {
-        if (rrepos->models[ri] != 0)
+        dungeon = get_players_num_dungeon(room->owner);
+        if (dungeon->magic_level[spl_idx] < 2)
         {
-            struct Thing* objtng = create_spell_in_library(room, rrepos->models[ri], stl_x, stl_y);
-            if (!thing_is_invalid(objtng))
-            {
-                rrepos->used--;
-                rrepos->models[ri] = 0;
-                return true;
+            if (!store_reposition_entry(rrepos, objkind)) {
+                WARNLOG("Too many things to reposition in %s.", room_code_name(room->kind));
             }
         }
+        if (!is_neutral_thing(thing))
+        {
+            remove_power_from_player(spl_idx, room->owner);
+            dungeon = get_dungeon(room->owner);
+            dungeon->magic_resrchable[spl_idx] = 1;
+        }
     }
-    return false;
+    else
+    {
+        if (!store_reposition_entry(rrepos, objkind))
+        {
+            WARNLOG("Too many things to reposition in %s.", room_code_name(room->kind));
+        }
+        if (!is_neutral_thing(thing))
+        {
+            remove_power_from_player(spl_idx, room->owner);
+        }
+    }
+    destroy_object(thing);
+}
+
+static struct Thing *library_put_back(struct Room *room, ThingModel model, CrtrExpLevel exp_level, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    return create_spell_in_library(room, model, stl_x, stl_y);
 }
 
 int64_t position_books_in_room_with_capacity(PlayerNumber plyr_idx, RoomKind rkind, struct RoomReposition* rrepos)
@@ -671,25 +632,16 @@ int64_t check_books_on_subtile_for_reposition_in_room(struct Room *room, MapSubt
         return -1; // re-create all
     }
     int64_t matching_things_at_subtile = 0;
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            WARNLOG("Jump out of things array");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code
         if (thing_is_spellbook(thing))
         {
             PowerKind spl_idx = book_thing_to_power_kind(thing);
             if ((spl_idx > 0) && ((thing->alloc_flags & TAlF_IsDragged) == 0) && ((thing->owner == room->owner) || get_gameturn() < 10))//Function is used to integrate preplaced books at map startup too.
             {
-                // If exceeded capacity of the library
-                if (room->used_capacity > room->total_capacity)
+                // If the library is full (or already one book over it, with the LIBRARY_EXTRA_BOOK classic bug)
+                const TbBool extra_book = flag_is_set(kfx_config_state.conf.rules[room->owner].gameplay.classic_bugs_flags, ClscBug_LibraryExtraBook);
+                if (extra_book ? (room->used_capacity > room->total_capacity) : (room->used_capacity >= room->total_capacity))
                 {
                     SYNCDBG(7,"Room %" PRId64 " type %s capacity %" PRId64 " exceeded; space used is %" PRId64, (int64_t)(room->index), room_code_name(room->kind), (int64_t)room->total_capacity, (int64_t)room->used_capacity);
                     struct Dungeon* dungeon = get_players_num_dungeon(room->owner);
@@ -725,14 +677,6 @@ int64_t check_books_on_subtile_for_reposition_in_room(struct Room *room, MapSubt
                 }
             }
         }
-        // Per thing code ends
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
     }
     if (matching_things_at_subtile == 0)
     {
@@ -744,97 +688,36 @@ int64_t check_books_on_subtile_for_reposition_in_room(struct Room *room, MapSubt
     return matching_things_at_subtile; // Increase used capacity
 }
 
-void count_and_reposition_books_in_room_on_subtile(struct Room *room, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct RoomReposition * rrepos)
+/** Books that fit nowhere in this library move to the player's other libraries, as far as they have space. */
+static void library_overflow(struct Room *room, struct RoomReposition *rrepos)
 {
-    int64_t matching_things_at_subtile = check_books_on_subtile_for_reposition_in_room(room, stl_x, stl_y);
-    if (matching_things_at_subtile > 0) {
-        // This subtile contains spells
-        SYNCDBG(19,"Got %" PRId64 " matching things at (%" PRId64 ",%" PRId64 ")",(int64_t)matching_things_at_subtile,(int64_t)stl_x,(int64_t)stl_y);
-        room->used_capacity += matching_things_at_subtile;
-    } else
+    int64_t move_count = position_books_in_room_with_capacity(room->owner, room->kind, rrepos);
+    if (move_count > 0)
     {
-        switch (matching_things_at_subtile)
+        if (rrepos->used > 0)
         {
-        case -2:
-            // No matching things, but also cannot recreate anything on this subtile
-            break;
-        case -1:
-            // All matching things are to be removed from the subtile and stored for re-creation
-            reposition_all_books_in_room_on_subtile(room, stl_x, stl_y, rrepos);
-            break;
-        case 0:
-            // There are no matching things there, something can be re-created
-            recreate_repositioned_book_in_room_on_subtile(room, stl_x, stl_y, rrepos);
-            break;
-        default:
-            WARNLOG("Invalid value returned by reposition check");
-            break;
-        }
-    }
-}
-
-/**
- * Updates count of books (used capacity) in a library.
- * Also repositions spellbooks which are in solid rock.
- * @param room The room to be recomputed and repositioned.
- */
-void count_books_in_room(struct Room *room)
-{
-    SYNCDBG(17,"Starting for %s",room_code_name(room->kind));
-    struct RoomReposition rrepos;
-    init_reposition_struct(&rrepos);
-    // Making two loops guarantees that no rrepos things will be lost
-    for (int64_t n = 0; n < 2; n++)
-    {
-        // The correct count should be taken from last sweep
-        room->used_capacity = 0;
-        room->capacity_used_for_storage = 0;
-        uint64_t k = 0;
-        uint64_t i = room->slabs_list;
-        while (i > 0)
-        {
-            MapSubtlCoord slb_x = slb_num_decode_x(i);
-            MapSubtlCoord slb_y = slb_num_decode_y(i);
-            // Per-slab code
-            for (int64_t dy = 0; dy < STL_PER_SLB; dy++)
-            {
-                for (int64_t dx = 0; dx < STL_PER_SLB; dx++)
-                {
-                    count_and_reposition_books_in_room_on_subtile(room, slab_subtile(slb_x,dx), slab_subtile(slb_y,dy), &rrepos);
-                }
-            }
-            // Per-slab code ends
-            i = get_next_slab_number_in_room(i);
-            k++;
-            if (k > room->slabs_count)
-            {
-                ERRORLOG("Infinite loop detected when sweeping room slabs");
-                break;
-            }
-        }
-    }
-    if (rrepos.used > 0) 
-    {
-        int64_t move_count = position_books_in_room_with_capacity(room->owner, room->kind, &rrepos);
-        if (move_count > 0)
-        {
-            if (rrepos.used > 0)
-            {
-                SYNCLOG("The %s capacity wasn't enough, %" PRId64 " moved, but %" PRId64 " items belonging to player %" PRId64 " dropped",
-                    room_code_name(room->kind), (int64_t)(move_count), (int64_t)rrepos.used, (int64_t)room->owner);
-            }
-            else
-            {
-                SYNCDBG(7,"Moved %" PRId64 " items belonging to player %" PRId64 " to different %s",
-                    (int64_t)(move_count), (int64_t)room->owner, room_code_name(room->kind));
-            }
+            SYNCLOG("The %s capacity wasn't enough, %" PRId64 " moved, but %" PRId64 " items belonging to player %" PRId64 " dropped",
+                room_code_name(room->kind), (int64_t)(move_count), (int64_t)rrepos->used, (int64_t)room->owner);
         }
         else
         {
-            SYNCLOG("No %s capacity available to move, %" PRId64 " items belonging to player %" PRId64 " dropped",
-                room_code_name(room->kind), (int64_t)rrepos.used, (int64_t)room->owner);
-        }      
+            SYNCDBG(7,"Moved %" PRId64 " items belonging to player %" PRId64 " to different %s",
+                (int64_t)(move_count), (int64_t)room->owner, room_code_name(room->kind));
+        }
     }
-    room->capacity_used_for_storage = room->used_capacity;
+    else
+    {
+        SYNCLOG("No %s capacity available to move, %" PRId64 " items belonging to player %" PRId64 " dropped",
+            room_code_name(room->kind), (int64_t)rrepos->used, (int64_t)room->owner);
+    }
+}
+
+/** Books: the library has its own subtile check; capacity_used_for_storage follows the count, two sweeps. */
+static const struct RoomStorageKind library_storage = { "books", library_stores, library_take_out, library_put_back,
+    check_books_on_subtile_for_reposition_in_room, library_overflow, 0, 1, 0 };
+
+void count_books_in_room(struct Room *room)
+{
+    room_storage_recount(&library_storage, room);
 }
 /******************************************************************************/

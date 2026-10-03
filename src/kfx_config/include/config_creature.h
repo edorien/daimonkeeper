@@ -446,6 +446,13 @@ struct CreatureConfig {
 
 /******************************************************************************/
 extern const struct ConfigFileData keeper_creaturetp_file_data;
+/** creature.cfg's blocks as NamedField tables (refactor pass 3, S04). */
+extern const struct NamedField creaturetype_common_named_fields[];
+extern const struct NamedField creaturetype_experience_named_fields[];
+extern const struct NamedField creaturetype_instance_named_fields[];
+extern const struct NamedField creaturetype_job_named_fields[];
+extern const struct NamedField creaturetype_angerjob_named_fields[];
+extern const struct NamedField creaturetype_attackpref_named_fields[];
 extern struct NamedCommand creature_desc[];
 extern struct NamedCommand angerjob_desc[];
 extern struct NamedCommand creaturejob_desc[];

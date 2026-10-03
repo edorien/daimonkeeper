@@ -229,27 +229,6 @@ void LuaLensEffect::SetDrawCallback(int64_t lua_ref)
     SYNCDBG(7, "LUA lens '%s' draw callback set (ref=%" PRId64 ")", m_lens_name.c_str(), (int64_t)(lua_ref));
 }
 
-void LuaLensEffect::SetConfig(const LuaLensConfig& config)
-{
-    m_config = config;
-    SYNCDBG(8, "LUA lens '%s' configuration updated", m_lens_name.c_str());
-}
-
-void LuaLensEffect::SetParameter(const std::string& name, double value)
-{
-    m_config.custom_params[name] = value;
-    SYNCDBG(9, "LUA lens '%s' parameter '%s' = %f", m_lens_name.c_str(), name.c_str(), value);
-}
-
-double LuaLensEffect::GetParameter(const std::string& name) const
-{
-    auto it = m_config.custom_params.find(name);
-    if (it != m_config.custom_params.end()) {
-        return it->second;
-    }
-    return 0.0;
-}
-
 TbBool LuaLensEffect::InvokeLuaCallback(LensRenderContext* ctx)
 {
     if (m_lua_state == NULL) {

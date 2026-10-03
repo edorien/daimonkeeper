@@ -4,9 +4,9 @@
 // (load_terrain_config_file itself is `static`, and its real fixture
 // syntax -- three separate blocks: slab%d, [block_health], room%d --
 // is a bigger undertaking than this round attempts). Several
-// predicates (slab_kind_is_fortified_wall/_friable_dirt/_liquid/
-// _has_torches) turned out to be pure SlabKind-enum comparisons with
-// no config data dependency at all.
+// predicates (slab_kind_is_friable_dirt/_liquid/_has_torches) turned
+// out to be pure SlabKind-enum comparisons with no config data
+// dependency at all.
 //
 // enemies_may_work_in_room()/get_room_create_creature_model() reach
 // into config_creature.c's get_jobs_enemies_may_do_in_room() (a
@@ -25,13 +25,6 @@ namespace {
 struct ResetConfigState {
     ResetConfigState() { std::memset(&kfx_config_state, 0, sizeof(kfx_config_state)); }
 };
-}
-
-TEST_CASE("slab_kind_is_fortified_wall matches exactly the five wall-decoration slab kinds", "[kfx_config][config_terrain]") {
-    CHECK(slab_kind_is_fortified_wall(SlbT_WALLDRAPE));
-    CHECK(slab_kind_is_fortified_wall(SlbT_WALLTORCH));
-    CHECK_FALSE(slab_kind_is_fortified_wall(SlbT_EARTH));
-    CHECK_FALSE(slab_kind_is_fortified_wall(SlbT_WATER));
 }
 
 TEST_CASE("slab_kind_is_friable_dirt matches only EARTH/TORCHDIRT", "[kfx_config][config_terrain]") {

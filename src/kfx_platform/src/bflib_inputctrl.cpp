@@ -547,11 +547,6 @@ TbBool LbIsActive(void)
     return GetSDLWindowSystem()->IsAppActive();
 }
 
-TbBool LbIsMouseActive(void)
-{
-    return isMouseActive;
-}
-
 void LbMouseCheckPosition(TbBool grab_state_changed)
 {
     if (!GetSDLWindowSystem()->IsAppActive())

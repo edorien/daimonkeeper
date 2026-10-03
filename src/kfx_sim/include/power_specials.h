@@ -50,9 +50,6 @@ enum SpecialKinds {
 };
 
 /******************************************************************************/
-extern int64_t transfer_creature_scroll_offset;
-extern int64_t resurrect_creature_scroll_offset;
-extern int64_t dungeon_special_selected;
 
 #pragma pack()
 /******************************************************************************/

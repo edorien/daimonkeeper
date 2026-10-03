@@ -61,8 +61,8 @@ typedef void (*Room_Update_Func)(struct Room *);
 // check-layering-symbol-level-blind-spot.md): every element is a
 // kfx_sim function, and kfx_config never read these arrays itself, only
 // defined them for this file's own room_data.c to read.
-extern Room_Update_Func terrain_room_total_capacity_func_list[13];
-extern Room_Update_Func terrain_room_used_capacity_func_list[10];
+extern Room_Update_Func const terrain_room_total_capacity_func_list[13];
+extern Room_Update_Func const terrain_room_used_capacity_func_list[10];
 
 struct Room {
     unsigned char alloc_flags;

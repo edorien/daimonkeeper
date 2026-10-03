@@ -957,9 +957,4 @@ void Lens_register(lua_State *L)
            (int64_t)(sizeof(lens_methods)/sizeof(lens_methods[0]) - 1));
 }
 
-void Lens_cleanup_lua(void)
-{
-    g_lua_state = NULL;
-}
-
 /******************************************************************************/

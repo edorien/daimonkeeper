@@ -36,7 +36,6 @@ TbBool LbSleepFor(TbClockMSec delay);
 TbBool LbSleepUntil(TbClockMSec endtime);
 void LbSleepExtInit();
 TbBool LbSleepUntilExt(long double tick_ns_end);
-TbBool LbSleepDelayExt(long double tick_ns_delay);
 TbResult LbTime(struct TbTime *curr_time);
 TbTimeSec LbTimeSec(void);
 uint64_t LbSystemClockMilliseconds(void);

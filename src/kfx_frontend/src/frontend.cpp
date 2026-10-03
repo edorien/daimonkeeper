@@ -140,6 +140,12 @@ TbBool right_click_tag_mode_toggle = false;
 #define FE_MAINMENU_SUBROW_H   32
 #define FE_MAINMENU_SUBROW_W   130
 #define FE_MAINMENU_SUBROW_STEP 140
+static void frontend_main_menu_start_game_maintain(struct GuiButton *gbtn);
+static void frontend_main_menu_skirmish_maintain(struct GuiButton *gbtn);
+static void frontend_start_skirmish(struct GuiButton *gbtn);
+static void frontend_main_menu_options_maintain(struct GuiButton *gbtn);
+static void frontend_main_menu_quit_maintain(struct GuiButton *gbtn);
+
 struct GuiButtonInit frontend_main_menu_buttons[] = {
   { .gbtype = LbBtnT_NormalBtn, .id_num = BID_MENU_TITLE, .scr_pos_x = 999, .scr_pos_y = 26, .pos_x = 999, .pos_y = 26, .width = 371, .height = 46, .draw_call = frontend_draw_large_menu_button, .tooltip_stridx = GUIStr_Empty, .content = { FEBtn_MnuMainMenu } },
   { .gbtype = LbBtnT_NormalBtn, .click_event = frontend_start_new_game, .ptover_event = frontend_over_button, .btype_value = 3, .scr_pos_x = FE_MAINMENU_COL_X, .scr_pos_y = FE_ROW_Y(FE_MAINMENU_ROW_Y0, FE_MAINMENU_ROW_STEP, 0), .pos_x = FE_MAINMENU_COL_X, .pos_y = FE_ROW_Y(FE_MAINMENU_ROW_Y0, FE_MAINMENU_ROW_STEP, 0), .width = FE_MAINMENU_COL_W, .height = FE_MAINMENU_ROW_H, .draw_call = frontend_draw_button_icon, .tooltip_stridx = GUIStr_Empty, .content = { FEBtn_MnuStartNewGame }, .maintain_call = frontend_main_menu_start_game_maintain },
@@ -553,22 +559,6 @@ TbBool a_menu_window_is_active(void)
   return false;
 }
 
-int64_t frontend_font_char_width(int64_t fnt_idx,char c)
-{
-    int64_t i;
-    i = (int64_t)c - 31;
-    if (i >= 0) {
-        return get_sprite(frontend_font[fnt_idx], i)->SWidth;
-    }
-    return 0;
-}
-
-int64_t frontend_font_string_width(int64_t fnt_idx, const char *str)
-{
-    LbTextSetFont(frontend_font[fnt_idx]);
-    return LbTextStringWidth(str);
-}
-
 
 
 void add_message(int64_t plyr_idx, char *msg)
@@ -855,7 +845,7 @@ static int64_t frontend_main_menu_column_width(struct GuiButton *gbtn)
     return max_w;
 }
 
-void frontend_main_menu_start_game_maintain(struct GuiButton *gbtn)
+static void frontend_main_menu_start_game_maintain(struct GuiButton *gbtn)
 {
     gbtn->width = frontend_main_menu_column_width(gbtn);
 }
@@ -893,7 +883,7 @@ void frontend_main_menu_netservice_maintain(struct GuiButton *gbtn)
     gbtn->flags |= LbBtnF_Enabled;
 }
 
-void frontend_main_menu_skirmish_maintain(struct GuiButton *gbtn)
+static void frontend_main_menu_skirmish_maintain(struct GuiButton *gbtn)
 {
     gbtn->width = frontend_main_menu_column_width(gbtn);
     if (mp_mappacks_list.items_num > 0)
@@ -908,7 +898,7 @@ void frontend_main_menu_skirmish_maintain(struct GuiButton *gbtn)
 #define FE_MAINMENU_SUBROW_GAP 24
 #define FE_MAINMENU_MENU_W 640 // matches frontend_main_menu's declared GuiMenu width
 
-void frontend_main_menu_options_maintain(struct GuiButton *gbtn)
+static void frontend_main_menu_options_maintain(struct GuiButton *gbtn)
 {
     int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
     int64_t x = FE_MAINMENU_COL_X;
@@ -929,7 +919,7 @@ void frontend_main_menu_highscores_maintain(struct GuiButton *gbtn)
     gbtn->flags |= LbBtnF_Enabled;
 }
 
-void frontend_main_menu_quit_maintain(struct GuiButton *gbtn)
+static void frontend_main_menu_quit_maintain(struct GuiButton *gbtn)
 {
     int64_t units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, GFS_hugebutton_a05l, 100);
     int64_t w = frontend_menu_button_natural_width(FEBtn_MnuQuit, units_per_px);
@@ -1801,7 +1791,7 @@ int64_t frontend_start_skirmish_resolve(void)
     return FeSt_MAPPACK_SELECT;
 }
 
-void frontend_start_skirmish(struct GuiButton *gbtn)
+static void frontend_start_skirmish(struct GuiButton *gbtn)
 {
     int64_t next_state = frontend_start_skirmish_resolve();
     if (next_state >= 0)
@@ -2760,14 +2750,6 @@ void toggle_gui(void)
     set_gui_visible(visible);
 }
 
-void reinit_all_menus(void)
-{
-    TbBool visible = ((kfx_sim_state.operation_flags & GOF_ShowGui) != 0);
-    init_gui();
-    reset_gui_based_on_player_mode();
-    set_gui_visible(visible);
-}
-
 const char * mdlf_for_cd(const char * input)
 {
     if (input[0] != '*') {
@@ -3528,11 +3510,6 @@ char update_menu_fade_level(struct GuiMenu *gmnu)
         break;
     }
     return 0;
-}
-
-void toggle_gui_overlay_map(void)
-{
-    toggle_flag(kfx_sim_state.operation_flags, GOF_ShowGui);
 }
 
 void draw_menu_buttons(struct GuiMenu *gmnu)

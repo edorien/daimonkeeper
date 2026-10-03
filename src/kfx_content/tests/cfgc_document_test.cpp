@@ -116,8 +116,6 @@ TEST_CASE("document: sections and key lines", "[kfx_content][cfgc]") {
     ConfigDocument d = ConfigDocument::parse("A = 1\n[one]\nX = 1\n; c\nY = 2\n[two]\n[one]\nZ = 3\n");
     REQUIRE(d.sections().size() == 4);
     CHECK(d.sections()[0].header_line == -1); // preamble
-    CHECK(d.find_section("one") == 1);         // the first block of that name
-    CHECK(d.find_section("ONE") == -1);        // case-sensitive
     CHECK(d.key_lines(1).size() == 2);
     CHECK(d.key_lines(2).empty());
     CHECK(d.dominant_eol() == "\n");

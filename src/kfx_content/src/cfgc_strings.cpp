@@ -12,13 +12,6 @@
 #include "post_inc.h"
 
 /******************************************************************************/
-const std::vector<std::string> &cfgc_string_languages(void)
-{
-    static const std::vector<std::string> l = {"eng", "fre", "ger", "ita", "spa", "swe", "pol", "dut", "cze", "lat", "por",
-        "ukr", "rus", "chi", "cht", "jpn", "kor"};
-    return l;
-}
-
 bool cfgc_lang_is_legacy_codepage(const std::string &lang_code)
 {
     return lang_code != "chi" && lang_code != "cht" && lang_code != "jpn" && lang_code != "kor";

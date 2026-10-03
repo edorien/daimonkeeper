@@ -51,6 +51,9 @@
 #include "bflib_inputctrl.h"
 #include "game_heap.h"
 #include "thing_stats.h"
+#include "list_walk.h"
+#include "creature_control.h"
+#include "thing_creature.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "post_inc.h"
@@ -166,7 +169,8 @@ void play_thing_walking(struct Thing *thing)
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         if (thing_touching_floor(thing) && cctrl->distance_to_destination && get_foot_creature_has_down(thing))
         {
-            int64_t smpl_variant = foot_down_sound_sample_variant[4 * cctrl->footstep_variant + cctrl->footstep_counter];
+            struct FootstepSound *step = &kfx_game_local.footstep_sounds[thing->ccontrol_idx];
+            int64_t smpl_variant = foot_down_sound_sample_variant[4 * step->variant + step->counter];
             int64_t smpl_idx;
             if ((thing->movement_flags & TMvF_IsOnSnow) != 0) {
                 smpl_idx = snd_foot_snow + smpl_variant;
@@ -174,11 +178,11 @@ void play_thing_walking(struct Thing *thing)
                 struct CreatureSound* crsound = get_creature_sound(thing, CrSnd_Foot);
                 smpl_idx = (int64_t)creature_sound_unified_id(crsound, smpl_variant);
             }
-            cctrl->footstep_counter++;
-            if (cctrl->footstep_counter >= 4)
+            step->counter++;
+            if (step->counter >= 4)
             {
-                cctrl->footstep_variant = UNSYNC_RANDOM(4);
-                cctrl->footstep_counter = 0;
+                step->variant = UNSYNC_RANDOM(4);
+                step->counter = 0;
             }
             crconf = creature_stats_get(thing->model);
             thing_play_sample(thing, smpl_idx, crconf->footstep_pitch, 0, 3, 3, 1, loudness);
@@ -476,6 +480,116 @@ TbBool ambient_sound_prepare(void)
 void reset_ambient_sound_thing_idx(void)
 {
     kfx_game_state.ambient_sound_thing_idx = 0;
+    // the level's things are cleared: so is what the footsteps remember of them
+    kfx_game_local.footstep_timeslice = 0;
+    memset(kfx_game_local.footstep_near_creatures, 0, sizeof(kfx_game_local.footstep_near_creatures));
+}
+
+/** The (up to 3) creatures within 20 subtiles of srcpos, nearest first, that walk on the floor or fly. */
+static void update_near_creatures_for_footsteps(ThingIndex *near_creatures, const struct Coord3d *srcpos)
+{
+    int64_t near_distance[3];
+    // Don't allow creatures which are far by over 20 subtiles
+    near_distance[0] = subtile_coord(20,0);
+    near_distance[1] = subtile_coord(20,0);
+    near_distance[2] = subtile_coord(20,0);
+    near_creatures[0] = 0;
+    near_creatures[1] = 0;
+    near_creatures[2] = 0;
+    // Find the closest thing for footsteps
+    const struct StructureList *slist;
+    slist = get_list_for_thing_class(TCls_Creature);
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
+    {
+        if ( (!thing_is_picked_up(thing)) && (!thing_is_dragged_or_pulled(thing)) )
+        {
+            struct CreatureSound *crsound;
+            crsound = get_creature_sound(thing, CrSnd_Foot);
+            if (crsound->index != 0)
+            {
+                struct CreatureControl *cctrl;
+                cctrl = creature_control_get_from_thing(thing);
+                int64_t ndist;
+                ndist = get_chessboard_distance(srcpos, &thing->mappos);
+                if (ndist < near_distance[0])
+                {
+                    if (((cctrl->distance_to_destination != 0) && thing_touching_floor(thing)) || ((thing->movement_flags & TMvF_Flying) != 0))
+                    {
+                        // Insert the new item to our list
+                        int64_t n;
+                        for (n = 2; n>0; n--)
+                        {
+                            near_creatures[n] = near_creatures[n-1];
+                            near_distance[n] = near_distance[n-1];
+                        }
+                        near_distance[0] = ndist;
+                        near_creatures[0] = thing->index;
+                    }
+                }
+            }
+        }
+    }
+}
+
+static TbBool footsteps_near_camera(const struct Thing *thing)
+{
+    for (int64_t i = 0; i < 3; i++)
+    {
+        if (kfx_game_local.footstep_near_creatures[i] == thing->index)
+            return true;
+    }
+    return false;
+}
+
+/** Stops the flight sound of the flying creatures whose footsteps don't play. */
+static void stop_playing_flight_sample_in_all_flying_creatures(void)
+{
+    const struct StructureList *slist;
+    slist = get_list_for_thing_class(TCls_Creature);
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
+    {
+        if ((get_creature_model_flags(thing) & CMF_IsDiptera) && !footsteps_near_camera(thing))
+        {
+            if ( S3DEmitterIsPlayingSample(thing->snd_emitter_id, 25) ) {
+                S3DDeleteSampleFromEmitter(thing->snd_emitter_id, 25);
+            }
+        }
+    }
+}
+
+/** Plays the footsteps of the (up to 3) creatures nearest this machine's camera; the nearest are found again every
+ *  4th turn. Moved from kfx_sim's thing_creature.c (refactor pass 5 S04): what the local camera sees isn't
+ *  simulation state. */
+void update_footsteps_nearest_camera(struct Camera *cam)
+{
+    int64_t *timeslice = &kfx_game_local.footstep_timeslice;
+    ThingIndex *near_creatures = kfx_game_local.footstep_near_creatures;
+    struct Coord3d srcpos;
+    SYNCDBG(6,"Starting");
+    if (cam == NULL)
+        return;
+    srcpos.x.val = cam->mappos.x.val;
+    srcpos.y.val = cam->mappos.y.val;
+    srcpos.z.val = cam->mappos.z.val;
+    if (*timeslice == 0) {
+        update_near_creatures_for_footsteps(near_creatures, &srcpos);
+    }
+    int64_t i;
+    for (i=0; i < 3; i++)
+    {
+        struct Thing *thing;
+        if (near_creatures[i] == 0)
+            break;
+        thing = thing_get(near_creatures[i]);
+        if (thing_is_creature(thing)) {
+            play_thing_walking(thing);
+        }
+    }
+    if (*timeslice == 0)
+    {
+        stop_playing_flight_sample_in_all_flying_creatures();
+    }
+    *timeslice = (*timeslice + 1) % 4;
 }
 
 TbBool ambient_sound_stop(void)

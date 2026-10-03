@@ -343,7 +343,14 @@ namespace {
     }
 }
 
-void FeStyleInit()
+// Loads the display face -- Exocet from fxdata/ if the installer copied it
+// in (EXH_____.TTF/EXL_____.TTF, §4.1), the bundled Cinzel static
+// instances otherwise (Cinzel-Black.ttf/Cinzel-Regular.ttf as the
+// heavy/light stand-ins) -- and applies the KeeperFX ImGuiStyle. Call once
+// after the ImGui context exists (e.g. from the Phase B style-sheet
+// screen's first frame, or FeStyleEnsureInit() below), before the first
+// FeStylePushFont call.
+static void FeStyleInit()
 {
     load_fonts();
     apply_colours();

@@ -41,6 +41,7 @@
 
 #include "kfx_frontend_state.h"
 #include "player_availability.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 /**********************************************/
@@ -262,17 +263,22 @@ static int lua_Trap_available(lua_State *L)
 
 //Script flow control
 
+/** Win_game(), Lose_game(): a player range, or every player when the argument is left out. */
+static struct PlayerRange luaL_optPlayerRangeAll(lua_State *L, int idx)
+{
+    if (lua_isnone(L,idx))
+    {
+        struct PlayerRange all;
+        all.start_idx = 0;
+        all.end_idx = PLAYERS_COUNT;
+        return all;
+    }
+    return luaL_checkPlayerRange(L, idx);
+}
+
 static int lua_Win_game(lua_State *L)
 {
-    struct PlayerRange player_range;
-    if(lua_isnone(L,1))
-    {
-        player_range.start_idx = 0;
-        player_range.end_idx = PLAYERS_COUNT;
-    }
-    else
-        player_range = luaL_checkPlayerRange(L, 1);
-
+    struct PlayerRange player_range = luaL_optPlayerRangeAll(L, 1);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -284,14 +290,7 @@ static int lua_Win_game(lua_State *L)
 
 static int lua_Lose_game(lua_State *L)
 {
-    struct PlayerRange player_range;
-    if(lua_isnone(L,1))
-    {
-        player_range.start_idx = 0;
-        player_range.end_idx = PLAYERS_COUNT;
-    }
-    else
-        player_range = luaL_checkPlayerRange(L, 1);
+    struct PlayerRange player_range = luaL_optPlayerRangeAll(L, 1);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -362,7 +361,8 @@ static int lua_Hide_timer(lua_State *L)
 static int lua_Bonus_level_time(lua_State *L)
 {
     GameTurn turns = luaL_checkinteger(L, 1);
-    TbBool clocktime = lua_toboolean(L, 2);
+    // 1 or true: hours/minutes/seconds; 0, false or none: turns (as the binding documents; Lua counts 0 as true)
+    TbBool clocktime = lua_isnumber(L, 2) ? (lua_tointeger(L, 2) != 0) : lua_toboolean(L, 2);
     if (turns > 0)
     {
         kfx_game_state.bonus_time = get_gameturn() + turns;
@@ -893,26 +893,7 @@ static int lua_Display_variable(lua_State *L)
     luaL_checkVariable(L, 2, &varib_id, &varib_type);
     int64_t target = luaL_optinteger(L,3,0);
     unsigned char target_type = luaL_optinteger(L,4,0);
-
-    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
-    {
-        memcpy(&kfx_game_state.script_variables[i], &kfx_game_state.script_variables[i-1], sizeof(struct ScriptVariable));
-    }
-    kfx_game_state.script_variables[0].variable_player = player;
-    kfx_game_state.script_variables[0].value_type = varib_type;
-    kfx_game_state.script_variables[0].value_id = varib_id;
-    kfx_game_state.script_variables[0].variable_target = target;
-    kfx_game_state.script_variables[0].variable_target_type = target_type;
-    kfx_game_state.script_variables[0].is_active = true;
-
-    kfx_game_state.script_variables[0].include_icon = false;
-    kfx_game_state.script_variables[0].icon_idx = -1;
-    if (kfx_game_state.active_script_var_count < DISPLAY_VARIABLES_LIMIT) {
-        kfx_game_state.active_script_var_count++;
-    }
-
-    kfx_game_state.flags_gui |= GGUI_Variable;
-
+    script_display_variable(player, (unsigned char)varib_type, varib_id, target, target_type, false, -1);
     return 0;
 }
 
@@ -922,26 +903,12 @@ static int lua_DISPLAY_VARIABLE_WITH_LABEL(lua_State *L)
     PlayerNumber player   = luaL_checkPlayerSingle(L, 1);
     int64_t varib_id, varib_type;
     luaL_checkVariable(L, 2, &varib_id, &varib_type);
-    for (int64_t i = DISPLAY_VARIABLES_LIMIT - 1; i > 0; i--)
-    {
-        memcpy(&kfx_game_state.script_variables[i], &kfx_game_state.script_variables[i-1], sizeof(struct ScriptVariable));
-    }
-
     int64_t id;
     char type;
     luaL_checkMessageIcon(L, 3, &type, &id);
-    kfx_game_state.script_variables[0].variable_player = player;
-    kfx_game_state.script_variables[0].value_type = varib_type;
-    kfx_game_state.script_variables[0].value_id = varib_id;
-    kfx_game_state.script_variables[0].include_icon = true;
-    kfx_game_state.script_variables[0].is_active = true;
-    kfx_game_state.script_variables[0].icon_idx = id;
-    if (kfx_game_state.active_script_var_count < DISPLAY_VARIABLES_LIMIT) {
-        kfx_game_state.active_script_var_count++;
-    }
-
-    kfx_game_state.flags_gui |= GGUI_Variable;
-
+    // the icon as a panel sprite, as the script command's; none (-1) shows the variable kind's own
+    script_display_variable(player, (unsigned char)varib_type, varib_id, 0, 0, true,
+        get_chat_icon_sprite_idx_from_id(id, type));
     return 0;
 }
 
@@ -951,30 +918,11 @@ static int lua_Hide_variable(lua_State *L)
     PlayerNumber player   = luaL_checkPlayerSingle(L, 1);
     varib_id = -1;
     varib_type = -1;
-    const char* variable = luaL_checkstring(L, 2);
+    const char* variable = luaL_optstring(L, 2, "");
     if(variable[0] != '\0'){
-        luaL_checkVariable(L, 1, &varib_id, &varib_type);
+        luaL_checkVariable(L, 2, &varib_id, &varib_type);
     }
-
-    if(varib_id > -1 && varib_type > -1)
-    {
-        for (int64_t i = 0; i < DISPLAY_VARIABLES_LIMIT; i++)
-        {
-            if(kfx_game_state.script_variables[i].value_id == varib_id && kfx_game_state.script_variables[i].value_type == varib_type && kfx_game_state.script_variables[i].variable_player == player){
-                for (int64_t j = i; j < kfx_game_state.active_script_var_count - 1; j++)
-                {
-                    kfx_game_state.script_variables[j] = kfx_game_state.script_variables[j+1];
-                }
-                kfx_game_state.active_script_var_count--;
-                break;
-            }
-        }
-    } else {
-        memset(kfx_game_state.script_variables, 0, sizeof(kfx_game_state.script_variables));
-        kfx_game_state.active_script_var_count = 0;
-    }
-    if(kfx_game_state.active_script_var_count == 0)
-        kfx_game_state.flags_gui &= ~GGUI_Variable;
+    script_hide_variable(player, varib_type, varib_id);
     return 0;
 }
 
@@ -1520,23 +1468,31 @@ static int lua_Creature_entrance_level(lua_State *L)
 
 //Manipulating Research
 
+/** Research(), Research_order(): argument idx is the research type, idx+1 a power or a room by it. */
+static void luaL_checkResearchKind(lua_State *L, int idx, int64_t *research_type, int64_t *room_or_spell)
+{
+    *research_type = luaL_checkNamedCommand(L,idx,research_desc);
+    switch (*research_type)
+    {
+        case 1:
+            *room_or_spell = luaL_checkNamedCommand(L,idx+1,power_desc);
+            break;
+        case 2:
+            *room_or_spell = luaL_checkNamedCommand(L,idx+1,room_desc);
+            break;
+        default:
+            luaL_error (L,"invalid research_type %" PRId64,(int64_t)(*research_type));
+            *room_or_spell = 0;
+            break;
+    }
+}
+
 static int lua_Research(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    int64_t research_type              = luaL_checkNamedCommand(L,2,research_desc);
+    int64_t research_type;
     int64_t room_or_spell;
-    switch (research_type)
-    {
-        case 1:
-            room_or_spell = luaL_checkNamedCommand(L,3,power_desc);
-            break;
-        case 2:
-            room_or_spell = luaL_checkNamedCommand(L,3,room_desc);
-            break;
-        default:
-            luaL_error (L,"invalid research_type %" PRId64,(int64_t)(research_type));
-            return 0;
-    }
+    luaL_checkResearchKind(L, 2, &research_type, &room_or_spell);
     int64_t research_value         = luaL_checkint(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
@@ -1549,20 +1505,9 @@ static int lua_Research(lua_State *L)
 static int lua_Research_order(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    int64_t research_type              = luaL_checkNamedCommand(L,2,research_desc);
+    int64_t research_type;
     int64_t room_or_spell;
-    switch (research_type)
-    {
-        case 1:
-            room_or_spell = luaL_checkNamedCommand(L,3,power_desc);
-            break;
-        case 2:
-            room_or_spell = luaL_checkNamedCommand(L,3,room_desc);
-            break;
-        default:
-            luaL_error (L,"invalid research_type %" PRId64,(int64_t)(research_type));
-            return 0;
-    }
+    luaL_checkResearchKind(L, 2, &research_type, &room_or_spell);
     int64_t research_value         = luaL_checkint(L, 4);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
@@ -1595,27 +1540,8 @@ static int lua_Set_computer_process(lua_State *L)
     int64_t config_value_3 = luaL_checkinteger(L,5);
     int64_t config_value_4 = luaL_checkinteger(L,6);
     int64_t config_value_5 = luaL_checkinteger(L,7);
-    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
-    {
-        struct Computer2* comp = get_computer_player(i);
-        if (computer_player_invalid(comp)) {
-            continue;
-        }
-        for (int64_t k = 0; k < COMPUTER_PROCESSES_COUNT; k++)
-        {
-            struct ComputerProcess* cproc = &comp->processes[k];
-            if (flag_is_set(cproc->flags, ComProc_ListEnd))
-                break;
-            if (strcasecmp(procname, cproc->name) == 0)
-            {
-                cproc->priority = priority;
-                cproc->process_configuration_value_2 = config_value_2;
-                cproc->process_configuration_value_3 = config_value_3;
-                cproc->process_configuration_value_4 = config_value_4;
-                cproc->process_configuration_value_5 = config_value_5;
-            }
-        }
-    }
+    computer_set_process_config(player_range.start_idx, player_range.end_idx, procname, priority,
+        config_value_2, config_value_3, config_value_4, config_value_5, false);
     return 0;
 }
 
@@ -1628,28 +1554,8 @@ static int lua_Set_computer_checks(lua_State *L)
     int64_t secondary_parameter = luaL_checkinteger(L,5);
     int64_t tertiary_parameter = luaL_checkinteger(L,6);
     int64_t last_run_turn = luaL_checkinteger(L,7);
-
-    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
-    {
-        struct Computer2* comp = get_computer_player(i);
-        if (computer_player_invalid(comp)) {
-            continue;
-        }
-        for (int64_t k = 0; k < COMPUTER_CHECKS_COUNT; k++)
-        {
-            struct ComputerCheck* ccheck = &comp->checks[k];
-            if ((ccheck->flags & ComChk_Unkn0002) != 0)
-                break;
-            if (strcasecmp(chkname, ccheck->name) == 0)
-            {
-                ccheck->turns_interval = turns_interval;
-                ccheck->primary_parameter = primary_parameter;
-                ccheck->secondary_parameter = secondary_parameter;
-                ccheck->tertiary_parameter = tertiary_parameter;
-                ccheck->last_run_turn = last_run_turn;
-            }
-        }
-    }
+    computer_set_check_config(player_range.start_idx, player_range.end_idx, chkname, turns_interval,
+        primary_parameter, secondary_parameter, tertiary_parameter, last_run_turn, false, false);
     return 0;
 }
 
@@ -1663,25 +1569,8 @@ static int lua_Set_computer_globals(lua_State *L)
     int64_t turn_begin           = luaL_checkinteger(L,6);
     int64_t sim_before_dig       = luaL_checkinteger(L,7);
     int64_t min_drop_delay       = luaL_checkinteger(L,8);
-
-    for (int64_t i = player_range.start_idx; i < player_range.end_idx; i++)
-    {
-        struct Computer2* comp = get_computer_player(i);
-        if (computer_player_invalid(comp))
-        {
-            continue;
-        }
-        comp->dig_stack_size = dig_stack_size;
-        comp->processes_time = processes_time;
-        comp->click_rate = click_rate;
-        comp->max_room_build_tasks = max_room_build_tasks;
-        comp->turn_begin = turn_begin;
-        comp->sim_before_dig = sim_before_dig;
-        if (min_drop_delay != -1)
-        {
-            comp->task_delay = min_drop_delay;
-        }
-    }
+    computer_set_globals(player_range.start_idx, player_range.end_idx, dig_stack_size, processes_time, click_rate,
+        max_room_build_tasks, turn_begin, sim_before_dig, min_drop_delay);
     return 0;
 }
 
@@ -1722,15 +1611,8 @@ static int lua_Set_computer_event(lua_State *L)
 static int lua_Use_special_increase_level(lua_State *L)
 {
     struct PlayerRange player_range = luaL_checkPlayerRange(L, 1);
-    char count;
-    if(lua_isnone(L,2))
-    {
-        count = 1;
-    }
-    else
-    {
-        count = luaL_checkinteger(L, 2);
-    }
+    // Limited as the script command is, by script_use_special_increase_level (it was cut to a char here)
+    const int64_t count = lua_isnone(L, 2) ? 1 : (int64_t)luaL_checkinteger(L, 2);
 
     for (PlayerNumber i = player_range.start_idx; i < player_range.end_idx; i++)
     {
@@ -2098,20 +1980,7 @@ static int lua_Hide_hero_gate(lua_State *L)
 {
     int64_t gate_number = luaL_checkinteger(L, 1);
     TbBool hide = lua_toboolean(L, 2);
-
-    struct Thing* thing = find_hero_gate_of_number(gate_number);
-    if (hide)
-    {
-        light_turn_light_off(thing->light_id);
-        create_effect(&thing->mappos, TngEff_BallPuffWhite, thing->owner);
-        place_thing_in_creature_controlled_limbo(thing);
-    }
-    else
-    {
-        create_effect(&thing->mappos, TngEff_BallPuffWhite, thing->owner);
-        remove_thing_from_creature_controlled_limbo(thing);
-        light_turn_light_on(thing->light_id);
-    }
+    hero_gate_set_hidden(find_hero_gate_of_number(gate_number), hide);
     return 0;
 }
 
@@ -2240,33 +2109,15 @@ static int lua_get_things_of_class(lua_State *L)
     ThingClass class_id = luaL_checkNamedCommand(L,1,class_commands);
 
     const struct StructureList* slist = get_list_for_thing_class(class_id);
-    ThingIndex i = slist->index;
     int64_t k = 0;
 
     lua_newtable(L);
 
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_list(slist->index, THINGS_COUNT))
     {
-        struct Thing *thing;
-        thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
-
         lua_pushThing(L, thing);  // Push the value onto the stack
-        lua_rawseti(L, -2, k + 1);      // Set table[-2][i + 1] = value
-
-        // Per-thing code ends
+        lua_rawseti(L, -2, k + 1);      // Set table[-2][k + 1] = value
         k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
-        }
     }
     return 1; // return value is the amount of args you push back
 }
@@ -2277,35 +2128,17 @@ static int lua_get_things_on_subtile(lua_State *L)
     MapSubtlCoord stl_y = luaL_checkstl_y(L, 2);
     ThingClass class_id = luaL_optNamedCommand(L,3,class_commands);
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    struct Thing* thing = INVALID_THING;
 
     lua_newtable(L);
-    int64_t k = 0;
     int64_t table_index = 0;
 
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_mapwho_from(get_mapwho_thing_index(mapblk)))
     {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
         if (class_id == 0 || thing->class_id == class_id)
-        {   
+        {
             table_index ++;
             lua_pushThing(L, thing);
             lua_rawseti(L, -2, table_index);
-        }
-
-        i = thing->next_on_mapblk;
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things on tile");
-            break;
         }
     }
     return 1; // return value is the amount of args you push back
@@ -2318,7 +2151,6 @@ static int lua_get_things_on_slab(lua_State *L)
     ThingClass class_id = luaL_optNamedCommand(L,3,class_commands);
 
     lua_newtable(L);
-    int64_t k = 0;
     int64_t table_index = 0;
 
     for (int64_t x = 0; x < STL_PER_SLB; x++)
@@ -2328,30 +2160,13 @@ static int lua_get_things_on_slab(lua_State *L)
             MapSubtlCoord stl_x = slb_x * STL_PER_SLB + x;
             MapSubtlCoord stl_y = slb_y * STL_PER_SLB + y;
             struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-            struct Thing* thing = thing_get(get_mapwho_thing_index(mapblk));
-            int64_t i = get_mapwho_thing_index(mapblk);
-            while (i != 0)
+            FOR_EACH_THING(thing, thing_walk_mapwho_from(get_mapwho_thing_index(mapblk)))
             {
-                thing = thing_get(i);
-                TRACE_THING(thing);
-                if (thing_is_invalid(thing))
-                {
-                    ERRORLOG("Jump to invalid thing detected");
-                    break;
-                }
-                i = thing->next_on_mapblk;
                 if (class_id == 0 || thing->class_id == class_id)
-                {   
+                {
                     table_index++;
                     lua_pushThing(L, thing);
                     lua_rawseti(L, -2, table_index);
-                }
-
-                k++;
-                if (k > THINGS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping things on tile");
-                    break;
                 }
             }
         }

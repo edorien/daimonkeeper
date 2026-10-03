@@ -88,7 +88,6 @@ void update_all_players_cameras(void);
 void init_player_cameras(struct PlayerInfo *player);
 void update_first_person_position(struct Camera *cam, struct Thing *thing, int64_t eye_height);
 void update_first_person_camera(struct Camera *cam, struct Thing *thing);
-void set_player_cameras_position(struct PlayerInfo *player, int64_t pos_x, int64_t pos_y);
 TbBool any_player_close_enough_to_see(const struct Coord3d *pos);
 uint64_t lightning_is_close_to_player(struct PlayerInfo *player, struct Coord3d *pos);
 

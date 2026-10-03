@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "api_seat_diff.h"
+#include "api_json_out.h"
 #include "bflib_basics.h"
 #include "player_data.h"
 #include "post_inc.h"
@@ -20,50 +21,6 @@ extern "C" {
 static TbBool is_int_type(VALUE_TYPE t)
 {
     return (t == VALUE_INT32) || (t == VALUE_UINT32) || (t == VALUE_INT64) || (t == VALUE_UINT64);
-}
-
-// ---- clone ---------------------------------------------------------------------------------------------------------
-
-struct CloneCtx { VALUE *dst; };
-
-static int clone_member(const VALUE *key, VALUE *val, void *ctx)
-{
-    struct CloneCtx *c = (struct CloneCtx *)ctx;
-    VALUE *d = value_dict_add(c->dst, value_string(key));
-    if (d != NULL) {
-        api_seat_clone_value(d, val);
-    }
-    return 0;
-}
-
-void api_seat_clone_value(VALUE *dst, const VALUE *src)
-{
-    const VALUE_TYPE t = value_type(src);
-    if (is_int_type(t)) {
-        value_init_int64(dst, value_int64(src));
-        return;
-    }
-    switch (t) {
-    case VALUE_BOOL: value_init_bool(dst, value_bool(src)); break;
-    case VALUE_FLOAT: value_init_float(dst, value_float(src)); break;
-    case VALUE_DOUBLE: value_init_double(dst, value_double(src)); break;
-    case VALUE_STRING: value_init_string_(dst, value_string(src), value_string_length(src)); break;
-    case VALUE_ARRAY: {
-        value_init_array(dst);
-        for (size_t i = 0; i < value_array_size(src); i++) {
-            VALUE *e = value_array_append(dst);
-            if (e != NULL) api_seat_clone_value(e, value_array_get(src, i));
-        }
-        break;
-    }
-    case VALUE_DICT: {
-        struct CloneCtx c = { dst };
-        value_init_dict(dst);
-        value_dict_walk_sorted(src, clone_member, &c);
-        break;
-    }
-    default: value_init_null(dst); break;
-    }
 }
 
 // ---- equality and keys -----------------------------------------------------------------------------------------------
@@ -147,7 +104,7 @@ static TbBool is_coordinate(const VALUE *v)
 static void add_clone(VALUE *out, const char *key, const VALUE *v)
 {
     VALUE *d = value_dict_add(out, key);
-    if (d != NULL) api_seat_clone_value(d, v);
+    if (d != NULL) api_json_clone(d, v);
 }
 
 static int cell_changed(const char *a, const char *b, size_t x)
@@ -222,7 +179,7 @@ static void diff_array(VALUE *out_parent, const char *key, const VALUE *prev, co
         const VALUE *el = value_array_get(cur, i);
         if (j == np) {
             if (added == NULL) { added = value_dict_add(&d, "added"); value_init_array(added); }
-            api_seat_clone_value(value_array_append(added), el);
+            api_json_clone(value_array_append(added), el);
         } else if (elem_has_id(el) && !values_equal(el, value_array_get(prev, j))) {
             VALUE sub;
             value_init_dict(&sub);
@@ -244,8 +201,8 @@ static void diff_array(VALUE *out_parent, const char *key, const VALUE *prev, co
         if (i == nc) {
             if (removed == NULL) { removed = value_dict_add(&d, "removed"); value_init_array(removed); }
             const VALUE *el = value_array_get(prev, j);
-            if (elem_has_id(el)) api_seat_clone_value(value_array_append(removed), value_dict_get(el, "id"));
-            else api_seat_clone_value(value_array_append(removed), el);
+            if (elem_has_id(el)) api_json_clone(value_array_append(removed), value_dict_get(el, "id"));
+            else api_json_clone(value_array_append(removed), el);
         }
     }
     if (value_dict_size(&d) > 0) {
@@ -355,7 +312,7 @@ void api_seat_finish_view(VALUE *view, PlayerNumber plyr_idx, TbBool want_diff, 
     }
     // The new baseline is the full view just built.
     if (s_have[plyr_idx]) value_fini(&s_base[plyr_idx]);
-    api_seat_clone_value(&s_base[plyr_idx], view);
+    api_json_clone(&s_base[plyr_idx], view);
     s_have[plyr_idx] = true;
     s_id[plyr_idx] = id;
 

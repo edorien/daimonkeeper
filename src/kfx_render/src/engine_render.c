@@ -77,6 +77,8 @@
 #include "ports/session_loop_port.h"
 #include "ports/editor_port.h"
 #include "local_state.h"
+#include "list_walk.h"
+#include "player_colours.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -466,29 +468,32 @@ double interpolate_synced(double previous, double current)
 struct ThingInterpolateResult interpolate_thing(struct Thing *thing)
 {
     struct ThingInterpolateResult result;
+    struct Coord3d previous_mappos = thing->previous_mappos;
+    int64_t previous_floor_height = thing->previous_floor_height;
 
     if (get_gameturn() - thing->creation_turn <= 1)
     {
-        // Set initial interp position when Thing has just been created
-        thing->previous_mappos = thing->mappos;
-        thing->previous_floor_height = thing->floor_height;
+        // A thing just created starts where it is (read only: previous_mappos is the simulation's, set each turn
+        // by update_thing_interpolation(); writing it here made the bytes depend on what was drawn, refactor pass 5 S04)
+        previous_mappos = thing->mappos;
+        previous_floor_height = thing->floor_height;
     }
 
     // Interpolate position every frame
-    result.mappos.x.val = interpolate_synced(thing->previous_mappos.x.val, thing->mappos.x.val);
-    result.mappos.y.val = interpolate_synced(thing->previous_mappos.y.val, thing->mappos.y.val);
-    result.mappos.z.val = interpolate_synced(thing->previous_mappos.z.val, thing->mappos.z.val);
-    result.floor_height = interpolate_synced(thing->previous_floor_height, thing->floor_height);
+    result.mappos.x.val = interpolate_synced(previous_mappos.x.val, thing->mappos.x.val);
+    result.mappos.y.val = interpolate_synced(previous_mappos.y.val, thing->mappos.y.val);
+    result.mappos.z.val = interpolate_synced(previous_mappos.z.val, thing->mappos.z.val);
+    result.floor_height = interpolate_synced(previous_floor_height, thing->floor_height);
 
     // Cancel interpolation if distance to interpolate is too far. This is a
     // catch-all to solve any remaining interpolation bugs.
-    if ((llabs(thing->previous_mappos.x.val - thing->mappos.x.val) >= 10000) ||
-        (llabs(thing->previous_mappos.y.val - thing->mappos.y.val) >= 10000) ||
-        (llabs(thing->previous_mappos.z.val - thing->mappos.z.val) >= 10000))
+    if ((llabs(previous_mappos.x.val - thing->mappos.x.val) >= 10000) ||
+        (llabs(previous_mappos.y.val - thing->mappos.y.val) >= 10000) ||
+        (llabs(previous_mappos.z.val - thing->mappos.z.val) >= 10000))
     {
         ERRORLOG("The %s index %" PRId64 " owned by player %" PRId64 " moved an unrealistic distance((%" PRId64 ",%" PRId64 ",%" PRId64 ") to (%" PRId64 ",%" PRId64 ",%" PRId64 ")), refusing interpolation.",
                  thing_model_name(thing), (int64_t)thing->index, (int64_t)thing->owner,
-                 (int64_t)(thing->previous_mappos.x.stl.num), (int64_t)(thing->previous_mappos.y.stl.num), (int64_t)(thing->previous_mappos.z.stl.num),
+                 (int64_t)(previous_mappos.x.stl.num), (int64_t)(previous_mappos.y.stl.num), (int64_t)(previous_mappos.z.stl.num),
                  (int64_t)(thing->mappos.x.stl.num), (int64_t)(thing->mappos.y.stl.num), (int64_t)(thing->mappos.z.stl.num));
         result.mappos = thing->mappos;
         result.floor_height = thing->floor_height;
@@ -5585,6 +5590,18 @@ static int64_t choose_health_sprite(struct Thing* thing)
     }
 }
 
+/** A thing's drawing timer in kfx_render_state, cleared when its index holds another thing than when it was last drawn. */
+static struct DrawTimer *thing_draw_timer(struct DrawTimer *timers, int64_t idx, const struct Thing *thing)
+{
+    struct DrawTimer *timer = &timers[idx];
+    if (timer->creation_turn != thing->creation_turn)
+    {
+        memset(timer, 0, sizeof(*timer));
+        timer->creation_turn = thing->creation_turn;
+    }
+    return timer;
+}
+
 void fill_status_sprite_indexes(struct Thing *thing, struct CreatureControl *cctrl, int64_t *health_spridx,
                                 int64_t *state_spridx, int64_t *anger_spridx)
 {
@@ -5592,18 +5609,19 @@ void fill_status_sprite_indexes(struct Thing *thing, struct CreatureControl *cct
     if (is_my_player_number(thing->owner))
     {
         RendererAddDrawFlags(Lb_SPRITE_TRANSPAR4);
-        if (get_gameturn() - cctrl->thought_bubble_last_turn_drawn == 1)
+        struct DrawTimer *bubble = thing_draw_timer(kfx_render_state.thought_bubble_draw, thing->ccontrol_idx, thing);
+        if (get_gameturn() - bubble->last_turn_drawn == 1)
         {
-            if (cctrl->thought_bubble_display_timer < 40) {
-                cctrl->thought_bubble_display_timer++;
+            if (bubble->display_timer < 40) {
+                bubble->display_timer++;
             }
         } else {
-            if (get_gameturn() - cctrl->thought_bubble_last_turn_drawn > 1) {
-                cctrl->thought_bubble_display_timer = 0;
+            if (get_gameturn() - bubble->last_turn_drawn > 1) {
+                bubble->display_timer = 0;
             }
         }
-        cctrl->thought_bubble_last_turn_drawn = get_gameturn();
-        if (cctrl->thought_bubble_display_timer >= 40)
+        bubble->last_turn_drawn = get_gameturn();
+        if (bubble->display_timer >= 40)
         {
             struct CreatureStateConfig *stati;
             stati = get_creature_state_with_task_completion(thing);
@@ -5719,14 +5737,15 @@ void draw_status_sprites(int64_t scrpos_x, int64_t scrpos_y, struct Thing *thing
     }
     if (flag_is_set(kfx_sim_state.mode_flags,MFlg_NoHeroHealthFlower))
     {
+        struct DrawTimer *bubble = thing_draw_timer(kfx_render_state.thought_bubble_draw, thing->ccontrol_idx, thing);
         if (local_state.local_thing_under_hand != thing->index) {
-            cctrl->thought_bubble_last_turn_drawn = get_gameturn();
+            bubble->last_turn_drawn = get_gameturn();
             if (cctrl->force_health_flower_displayed == false)
             {
                 return;
             }
         }
-        cctrl->thought_bubble_display_timer = 40;
+        bubble->display_timer = 40;
     }
 
     int64_t health_spridx;
@@ -9312,18 +9331,19 @@ static void do_map_who_for_thing(struct Thing *thing)
         rotpers(&ecor, &camera_matrix);
         if (getpoly < poly_pool_end)
         {
-            if (get_gameturn() - thing->roomflag.last_turn_drawn == 1)
+            struct DrawTimer *flag = thing_draw_timer(kfx_render_state.roomflag_draw, thing->index, thing);
+            if (get_gameturn() - flag->last_turn_drawn == 1)
             {
-                if (thing->roomflag.display_timer < 10) {
-                    thing->roomflag.display_timer++;
+                if (flag->display_timer < 10) {
+                    flag->display_timer++;
                 }
             } else {
-                if (get_gameturn() - thing->roomflag.last_turn_drawn > 1) {
-                    thing->roomflag.display_timer = 0;
+                if (get_gameturn() - flag->last_turn_drawn > 1) {
+                    flag->display_timer = 0;
                 }
             }
-            thing->roomflag.last_turn_drawn = get_gameturn();
-            if (thing->roomflag.display_timer == 10)
+            flag->last_turn_drawn = get_gameturn();
+            if (flag->display_timer == 10)
             {
                 bckt_idx = (ecor.z - 64) / 16 - 6;
                 add_room_flag_pole_to_polypool(ecor.view_width, ecor.view_height, thing->roomflag.room_idx, bckt_idx);
@@ -9346,7 +9366,6 @@ static void do_map_who_for_thing(struct Thing *thing)
     default:
         break;
     }
-    thing->last_turn_drawn = get_gameturn();
 }
 
 static void do_map_who(int64_t tnglist_idx)
@@ -9428,18 +9447,19 @@ static void draw_frontview_thing_on_element(struct Thing *thing, struct Map *map
         convert_world_coord_to_front_view_screen_coord(&interp.mappos, cam, &cx, &cy, &cz);
         if (is_free_space_in_poly_pool(1))
         {
-            if (get_gameturn() - thing->roomflag.last_turn_drawn == 1)
+            struct DrawTimer *flag = thing_draw_timer(kfx_render_state.roomflag_draw, thing->index, thing);
+            if (get_gameturn() - flag->last_turn_drawn == 1)
             {
-                if (thing->roomflag.display_timer < 10) {
-                    thing->roomflag.display_timer++;
+                if (flag->display_timer < 10) {
+                    flag->display_timer++;
                 }
             } else {
-                if (get_gameturn() - thing->roomflag.last_turn_drawn > 1) {
-                    thing->roomflag.display_timer = 0;
+                if (get_gameturn() - flag->last_turn_drawn > 1) {
+                    flag->display_timer = 0;
                 }
             }
-            thing->roomflag.last_turn_drawn = get_gameturn();
-            if (thing->roomflag.display_timer == 10)
+            flag->last_turn_drawn = get_gameturn();
+            if (flag->display_timer == 10)
             {
                 add_room_flag_pole_to_polypool(cx, cy, thing->roomflag.room_idx, cz-3);
                 if (is_free_space_in_poly_pool(1))
@@ -9459,34 +9479,13 @@ static void draw_frontview_thing_on_element(struct Thing *thing, struct Map *map
     default:
         break;
     }
-    thing->last_turn_drawn = get_gameturn();
 }
 
 static void draw_frontview_things_on_element(struct Map *mapblk, struct Camera *cam)
 {
-    struct Thing *thing;
-    int64_t i;
-    uint64_t k;
-    k = 0;
-    i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
         draw_frontview_thing_on_element(thing, mapblk, cam);
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
-        }
     }
 }
 

@@ -37,6 +37,11 @@ extern struct GuiMenu dungeon_special_menu;
 extern struct GuiMenu resurrect_creature_menu;
 extern struct GuiMenu transfer_creature_menu;
 extern struct GuiMenu armageddon_menu;
+
+extern int64_t transfer_creature_scroll_offset;
+extern int64_t resurrect_creature_scroll_offset;
+extern int64_t dungeon_special_selected;
+void open_dungeon_special_menu(MenuID menu, ThingIndex special_idx);
 /******************************************************************************/
 void select_resurrect_creature(struct GuiButton *gbtn);
 void maintain_resurrect_creature_select(struct GuiButton *gbtn);

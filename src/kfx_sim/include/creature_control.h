@@ -164,8 +164,6 @@ struct CreatureControl {
     int64_t temple_cure_gameturn;
     unsigned char hunger_amount;
     unsigned char hunger_loss;
-    int64_t thought_bubble_last_turn_drawn;
-    unsigned char thought_bubble_display_timer;
     TbBool force_health_flower_displayed;
     TbBool force_health_flower_hidden;
     unsigned char paydays_owed;
@@ -178,8 +176,6 @@ struct CreatureControl {
     */
     int64_t annoyance_level[5];
     unsigned char mood_flags;
-    unsigned char footstep_variant;
-    unsigned char footstep_counter;
     /** Lair room index, that is the room which holds creature's lair object. */
     int64_t lair_room_id;
     /** Lair object thing index. */
@@ -232,6 +228,15 @@ struct CreatureControl {
       PlayerBitFlags player_broken_into_flags;
       int64_t tunnel_steps_counter;
       unsigned char tunnel_dig_direction;
+      /* Where the tunneller last was, and for how many turns it has stayed
+         there without digging (tunneller_stuck_at()). Were function
+         statics counting turns at an unchanged distance to the next step:
+         one distance for all tunnellers and a counter per creature-control
+         slot (refactor pass 4, P4-F11); and an unchanged distance is also
+         what standing to dig a slab looks like (P4-F12). */
+      MapCoord tunnel_last_x;
+      MapCoord tunnel_last_y;
+      uint64_t tunnel_still_turns;
       SubtlCodedCoords member_pos_stl[5];
   } party;
   struct {
@@ -427,8 +432,6 @@ struct Persons {
 // struct CreatureSound/CreatureSounds moved to kfx_config's
 // creature_sounds.h (stage 13.3) -- see there.
 
-extern int64_t creature_swap_idx[CREATURE_TYPES_MAX];
-
 #pragma pack()
 /******************************************************************************/
 struct CreatureControl *creature_control_get(CctrlIndex cctrl_idx);
@@ -464,6 +467,9 @@ static inline SoundSmplTblID creature_sound_unified_id(const struct CreatureSoun
     return (SoundSmplTblID)(crsound->index + i);
 }
 const char *creature_own_name(const struct Thing *creatng);
+/** The name a copy of the creature keeps (a transform, a conversion, a transfer to the next level): the name it was
+ *  given, or the one generated for it; "" for a one-of-a-kind creature, whose name is its kind's. */
+const char *creature_kept_name(const struct Thing *creatng);
 /******************************************************************************/
 #ifdef __cplusplus
 }

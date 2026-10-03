@@ -43,8 +43,6 @@ enum CfgLayer
     CfgLayer_Count
 };
 
-const char *cfgc_layer_name(CfgLayer layer); // "base", "campaign", "level"
-
 // Where the layers of a file live. Empty directories mean "no such layer".
 struct ConfigTarget
 {

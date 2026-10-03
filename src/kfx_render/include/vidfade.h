@@ -22,6 +22,7 @@
 #include "bflib_basics.h"
 #include "globals.h"
 #include "bflib_video.h"
+#include "ports/render_port.h"
 #include "bflib_netsp.h" // NetUserId
 
 #ifdef __cplusplus
@@ -77,6 +78,10 @@ int64_t PaletteFadePlayer(struct PlayerInfo *player);
 void PaletteApplyPainToPlayer(struct PlayerInfo *player, int64_t intense);
 
 void PaletteSetUserPalette(NetUserId user, unsigned char *pal);
+unsigned char *view_palette(enum ViewPalette pal);
+void PaletteSetUserViewPalette(NetUserId user, enum ViewPalette pal);
+void PaletteSetViewPalette(enum ViewPalette pal);
+void PaletteFadeToView(enum ViewPalette pal, int64_t fade_steps);
 TbBool set_gamma(char corrlvl, TbBool do_set);
 
 /******************************************************************************/

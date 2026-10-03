@@ -132,14 +132,6 @@ void store_engine_window(TbGraphicsWindow *ewnd,int64_t divider)
     ewnd->ptr = NULL;
 }
 
-void load_engine_window(TbGraphicsWindow *ewnd)
-{
-    local_state.engine_window_x = ewnd->x;
-    local_state.engine_window_y = ewnd->y;
-    local_state.engine_window_width = ewnd->width;
-    local_state.engine_window_height = ewnd->height;
-}
-
 /* fade_tbl/ghost_tbl (the palette-index render_fade_tables/map_fade_ghost_table
  * lookups the original used) are retired now that both buffers hold real
  * TbPixel colours instead of palette indices: shading a captured snapshot no
@@ -461,9 +453,6 @@ static void set_mouse_light(NetUserId user, TbBool valid, struct Coord3d pos)
         pos.z.val = get_floor_height_at(&pos);
         light_turn_light_on(idx);
         light_set_light_position(idx, &pos);
-
-        if (user == get_local_user())
-            kfx_render_state.mouse_light_pos = pos;
     }
     else
     {
@@ -471,10 +460,17 @@ static void set_mouse_light(NetUserId user, TbBool valid, struct Coord3d pos)
     }
 }
 
+/**
+ * Where this frame's mouse points: the local user's cursor light is drawn there (light_data.c), and the spell cursor.
+ * Nothing of the light registry changes: the cursor light moves in it from the user's packets
+ * (update_mouse_light()), as the other users' (refactor pass 5, S11: this moved and switched it every frame, and
+ * reset its interpolation, in simulation state).
+ */
 void update_local_mouse_light(void)
 {
     SYNCDBG(6,"Starting");
     struct PlayerInfo *player = get_my_player();
+    kfx_render_state.local_cursor_valid = false;
 
     // Avoid glitching during level intro or possess animation
     if (player->instance_num != PI_Unset)
@@ -488,13 +484,12 @@ void update_local_mouse_light(void)
 
     struct Camera *cam = get_local_active_camera(player);
     struct Coord3d pos;
-    const TbBool valid = screen_to_map(cam, GetMouseX(), GetMouseY(), &pos);
-
-    set_mouse_light(player->user_id, valid, pos);
-
-    int64_t cursor_light_idx = get_player_user_state(player)->cursor_light_idx;
-    if (cursor_light_idx != 0)
-        light_reset_interpolation(cursor_light_idx);
+    if (screen_to_map(cam, GetMouseX(), GetMouseY(), &pos))
+    {
+        pos.z.val = get_floor_height_at(&pos);
+        kfx_render_state.mouse_light_pos = pos;
+        kfx_render_state.local_cursor_valid = true;
+    }
 }
 
 void update_mouse_light(NetUserId user)

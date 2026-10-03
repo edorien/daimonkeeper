@@ -166,7 +166,7 @@ struct StructureList {
 
 #pragma pack()
 /******************************************************************************/
-extern Thing_Class_Func class_functions[];
+extern Thing_Class_Func const class_functions[];
 extern uint64_t thing_create_errors;
 extern const struct NamedCommand class_commands[];
 /******************************************************************************/
@@ -288,6 +288,8 @@ void remove_thing_from_mapwho(struct Thing *thing);
 void place_thing_in_mapwho(struct Thing *thing);
 
 struct Thing *find_hero_gate_of_number(int64_t num);
+/** HIDE_HERO_GATE and its Lua twin: hides a hero gate (puff, light off, into limbo) or shows it again. */
+void hero_gate_set_hidden(struct Thing *thing, TbBool hide);
 int64_t get_free_hero_gate_number(void);
 
 struct Thing *find_creature_lair_totem_at_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, ThingModel crmodel);

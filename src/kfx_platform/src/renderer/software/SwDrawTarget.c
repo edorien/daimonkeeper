@@ -23,7 +23,6 @@ int64_t SwTargetWindowWidth(void)  { return (int64_t)lbDisplay.GraphicsWindowWid
 int64_t SwTargetWindowHeight(void) { return (int64_t)lbDisplay.GraphicsWindowHeight; }
 
 TbPixel* SwTargetVecScreen(void)        { return vec_screen; }
-TbPixel* SwTargetPolyScreen(void)       { return poly_screen; }
 const unsigned char* SwTargetVecMap(void) { return vec_map; }
 uint64_t SwTargetVecScreenWidth(void) { return vec_screen_width; }
 int64_t SwTargetVecWindowWidth(void)       { return vec_window_width; }

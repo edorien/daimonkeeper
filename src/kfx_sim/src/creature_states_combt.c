@@ -48,6 +48,7 @@
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "ports/audio_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1261,20 +1262,9 @@ CrAttackType find_fellow_creature_to_fight_in_room(struct Thing *fightng, struct
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = get_players_num_dungeon(fightng->owner);
-    uint64_t k = 0;
-    int64_t i = dungeon->creatr_list_start;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_creatures(dungeon->creatr_list_start, CREATURES_COUNT))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
         struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-        if (thing_is_invalid(thing) || creature_control_invalid(cctrl))
-        {
-            ERRORLOG("Jump to invalid creature detected");
-            break;
-        }
-        i = cctrl->players_next_creature_idx;
-        // Thing list loop body
         for (int64_t j = 0; j < CREATURE_TYPES_MAX; j++)
         {
             if (crmodel[j] == 0)
@@ -1296,13 +1286,6 @@ CrAttackType find_fellow_creature_to_fight_in_room(struct Thing *fightng, struct
                     }
                 }
             }
-        }
-        // Thing list loop body ends
-        k++;
-        if (k > CREATURES_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping creatures list");
-            break;
         }
     }
     SYNCDBG(19,"Finished");
@@ -2200,29 +2183,10 @@ struct Thing *get_thing_collided_with_at_satisfying_filter_in_square_of_for_subt
     int64_t square_size, Thing_Collide_Func filter, ThingHitType filter_par1, int64_t filter_par2, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     struct Map* mapblk = get_map_block_at(stl_x, stl_y);
-    uint64_t k = 0;
-    int64_t i = get_mapwho_thing_index(mapblk);
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
     {
-        struct Thing* thing = thing_get(i);
-        TRACE_THING(thing);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_on_mapblk;
-        // Per thing code start
         if ((thing->index != creatng->index) && filter(thing, creatng, filter_par1, filter_par2) && thing_on_thing_at(creatng, pos, thing)) {
             return thing;
-        }
-        // Per thing code end
-        k++;
-        if (k > THINGS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break_mapwho_infinite_chain(mapblk);
-            break;
         }
     }
     return INVALID_THING;

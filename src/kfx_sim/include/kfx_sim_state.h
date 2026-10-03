@@ -23,6 +23,8 @@
 #ifndef DK_KFX_SIM_STATE_H
 #define DK_KFX_SIM_STATE_H
 
+#include "port_check.h"
+#include "state_versions.h"
 #include "bflib_basics.h"
 #include "bflib_math.h"
 #include "bflib_netsp.h"
@@ -236,7 +238,6 @@ struct KfxSimState {
     struct GoldLookup gold_lookup[GOLD_LOOKUP_COUNT];
     HitPoints block_health[10];
     int64_t entrance_room_id;
-    int64_t entrances_count;
 
     /* Player/computer-AI state (stage 6.7 increment 5) */
     struct PlayerInfo players[PLAYERS_COUNT];
@@ -419,8 +420,8 @@ struct KfxSimState {
        kfx_script/kfx_apploop readers -- kfx_sim is the lowest-ranked of
        every one of their real consumer sets. computer_chat_flags is
        written by kfx_sim's player_comp*.c (the AI implementation itself)
-       and only read by kfx_game for display; loaded_swipe_idx is read by
-       kfx_sim's thing_creature.c alongside kfx_game's own uses;
+       and only read by kfx_game for display (loaded_swipe_idx, which was
+       here too, is kfx_render's since refactor pass 4, S08);
        heart_lost_display_message is also written by kfx_sim's
        map_events.c (see kfx_game_state.h's comment on its 3 siblings,
        which have no kfx_sim consumer and stayed put). */
@@ -441,7 +442,6 @@ struct KfxSimState {
     int64_t human_players_count;
     TbBool replay_active;
     int64_t computer_chat_flags;
-    char loaded_swipe_idx;
     TbBool heart_lost_display_message;
 
     /* docs/refactor/editor/01-entry-and-editor-session.md §3 -- a neutral
@@ -461,25 +461,11 @@ struct KfxSimState {
 #pragma pack()
 /******************************************************************************/
 extern struct KfxSimState kfx_sim_state;
+/* In every file that includes this header, not only the struct's own: a file that sees another layout reads the
+   state at other offsets than the rest of the game (P4-F17). */
+KFX_STATIC_ASSERT(sizeof(struct KfxSimState) == KFX_SIM_STATE_SIZE,
+    "struct KfxSimState has another size in this file than state_versions.h says: a #pragma pack leaking into the headers it includes (refactor pass 4, P4-F17), or a layout change (bump KFX_SIM_STATE_VER and update KFX_SIM_STATE_SIZE)");
 
-// Moved from kfx_render's vidmode_data.cpp (stage 13.3, docs/refactor/
-// stage-13-enforce-and-document.md) -- engine_palette is read by
-// kfx_apploop/kfx_game/kfx_render/kfx_sim, blue_palette/lightning_palette/
-// EngineSpriteDrawUsingAlpha by kfx_render/kfx_sim; kfx_sim is the
-// lowest-ranked of every one of their consumer sets. red_palette/
-// dog_palette/vampire_palette stay in kfx_render's vidmode.h -- kfx_render
-// is their only real consumer.
-// Kept as standalone globals rather than struct KfxSimState members: these
-// are asset buffers loaded once (legal_load_files/game_load_files) and
-// freed once at program exit, not per-game-session state -- putting them
-// inside KfxSimState meant clear_complete_game()'s blanket
-// memset(&kfx_sim_state, 0, sizeof(...)) wiped them back to NULL on every
-// new game, crashing the very next screen-mode-zero call that dereferenced
-// engine_palette (see keeperfx.log EXCEPTION_ACCESS_VIOLATION reports).
-extern unsigned char *engine_palette;
-extern unsigned char *blue_palette;
-extern unsigned char *lightning_palette;
-extern unsigned char EngineSpriteDrawUsingAlpha;
 
 // Moved from kfx_game's game_legacy.c/.h (stage 13.3, docs/refactor/
 // stage-13-enforce-and-document.md) -- only reads kfx_sim_state.system_flags,

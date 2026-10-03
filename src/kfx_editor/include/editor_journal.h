@@ -94,7 +94,6 @@ void editor_journal_thing_props(int64_t thing_idx, struct EditorThingProps *out)
 // end() diffs against it and, if anything changed, journals one entry that
 // Ctrl+Z / Ctrl+Y move back and forth. end() returns true if it recorded one.
 void editor_journal_stroke_begin(void);
-TbBool editor_journal_stroke_open(void);
 TbBool editor_journal_stroke_end(const char *label);
 
 // Preview Motion support: remember the map and its things, and put them back.

@@ -33,7 +33,6 @@ enum ScriptMessageKind
 const int64_t kScriptMessageCount = 256;
 const size_t kScriptMessageMaxChars = 1023;
 
-const char *editor_script_message_command(int64_t kind);
 
 // One script line, e.g. QUICK_OBJECTIVE(12,"Build a lair.",PLAYER0). The
 // script tokenizer has no escape for a double quote inside a string, so

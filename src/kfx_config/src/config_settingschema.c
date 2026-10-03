@@ -754,6 +754,7 @@ const struct SettingOption setting_options[] = {
         .label_stridx = GUIStr_SetFreezeOnFocusLost,
         .help_stridx = GUIStr_HelpFreezeOnFocusLost,
         .get_bool = &get_freeze_on_focus_lost, .set_bool = &set_freeze_on_focus_lost,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "STARTUP", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_NeedsRestart,
@@ -780,36 +781,42 @@ const struct SettingOption setting_options[] = {
         .label_stridx = GUIStr_SetCensorship,
         .help_stridx = GUIStr_HelpCensorship,
         .get_bool = &get_censorship, .set_bool = &set_censorship,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "FLEE_BUTTON_DEFAULT", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetFleeButtonDefault,
         .help_stridx = GUIStr_HelpFleeButtonDefault,
         .get_bool = &get_flee_button_default, .set_bool = &set_flee_button_default,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "IMPRISON_BUTTON_DEFAULT", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetImprisonButtonDefault,
         .help_stridx = GUIStr_HelpImprisonButtonDefault,
         .get_bool = &get_imprison_button_default, .set_bool = &set_imprison_button_default,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "LANGUAGE", .type = SOptT_Enum, .category = SCat_Game, .apply_class = SApply_NeedsRestart,
         .label_stridx = GUIStr_SetLanguage,
         .help_stridx = GUIStr_HelpLanguage,
         .enum_table = lang_type, .get_enum = &get_language, .set_enum = &set_language,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "DELTA_TIME", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetDeltaTime,
         .help_stridx = GUIStr_HelpDeltaTime,
         .get_bool = &get_delta_time, .set_bool = &set_delta_time,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "DISPLAY_NUMBER", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_NeedsRestart,
         .label_stridx = GUIStr_SetDisplayNumber,
         .help_stridx = GUIStr_HelpDisplayNumber,
         .get_int = &get_display_number, .set_int = &set_display_number, .int_min = 1, .int_max = 8,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "FRAMES_PER_SECOND", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_Live,
@@ -831,42 +838,49 @@ const struct SettingOption setting_options[] = {
         .label_stridx = GUIStr_SetGuiBlinkRate,
         .help_stridx = GUIStr_HelpGuiBlinkRate,
         .get_int = &get_gui_blink_rate, .set_int = &set_gui_blink_rate, .int_min = 1, .int_max = 160,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "CREATURE_STATUS_SIZE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetCreatureStatusSize,
         .help_stridx = GUIStr_HelpCreatureStatusSize,
         .get_int = &get_creature_status_size, .set_int = &set_creature_status_size, .int_min = 8, .int_max = 64,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "LINE_BOX_SIZE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetLineBoxSize,
         .help_stridx = GUIStr_HelpLineBoxSize,
         .get_int = &get_line_box_size, .set_int = &set_line_box_size, .int_min = 0, .int_max = 500,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "NEUTRAL_FLASH_RATE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetNeutralFlashRate,
         .help_stridx = GUIStr_HelpNeutralFlashRate,
         .get_int = &get_neutral_flash_rate, .set_int = &set_neutral_flash_rate, .int_min = 1, .int_max = 160,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "PAUSE_MUSIC_WHEN_GAME_PAUSED", .type = SOptT_Bool, .category = SCat_Sound, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetPauseMusicOnPause,
         .help_stridx = GUIStr_HelpPauseMusicOnPause,
         .get_bool = &get_pause_music_on_pause, .set_bool = &set_pause_music_on_pause,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "MUTE_AUDIO_ON_FOCUS_LOST", .type = SOptT_Bool, .category = SCat_Sound, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetMuteAudioOnFocusLost,
         .help_stridx = GUIStr_HelpMuteAudioOnFocusLost,
         .get_bool = &get_mute_audio_on_focus_lost, .set_bool = &set_mute_audio_on_focus_lost,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "ATMOSPHERIC_SOUNDS", .type = SOptT_Bool, .category = SCat_Sound, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetAtmosphericSounds,
         .help_stridx = GUIStr_HelpAtmosphericSounds,
         .get_bool = &get_atmospheric_sounds, .set_bool = &set_atmospheric_sounds,
+        .cfg_read_by_row = true,
     },
     {
         // See get_use_cd_music()'s own comment -- this row's displayed
@@ -876,6 +890,7 @@ const struct SettingOption setting_options[] = {
         .help_stridx = GUIStr_HelpUseCdMusic,
         .get_bool = &get_use_cd_music, .set_bool = &set_use_cd_music,
         .cfg_bool_inverted = true,
+        .cfg_read_by_row = true,
     },
     {
         // A volume slider like the sound/music/mentor ones (0-255, shown 0-100). The parser
@@ -892,12 +907,14 @@ const struct SettingOption setting_options[] = {
         .label_stridx = GUIStr_SetAtmosFrequency,
         .help_stridx = GUIStr_HelpAtmosFrequency,
         .enum_table = atmos_freq, .get_enum = &get_atmos_frequency, .set_enum = &set_atmos_frequency,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "POINTER_SENSITIVITY", .type = SOptT_Int, .category = SCat_Input, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetPointerSensitivity,
         .help_stridx = GUIStr_HelpPointerSensitivity,
         .get_int = &get_pointer_sensitivity_pct, .set_int = &set_pointer_sensitivity_pct, .int_min = 0, .int_max = 500,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "ALT_INPUT", .type = SOptT_Bool, .category = SCat_Input, .apply_class = SApply_Live,
@@ -911,6 +928,7 @@ const struct SettingOption setting_options[] = {
         .help_stridx = GUIStr_HelpUnlockCursorOnPause,
         .get_bool = &get_unlock_cursor_on_pause, .set_bool = &set_unlock_cursor_on_pause,
         .is_enabled = &unlock_cursor_on_pause_enabled,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "LOCK_CURSOR_IN_POSSESSION", .type = SOptT_Bool, .category = SCat_Input, .apply_class = SApply_Live,
@@ -918,24 +936,28 @@ const struct SettingOption setting_options[] = {
         .help_stridx = GUIStr_HelpLockCursorInPossession,
         .get_bool = &get_lock_cursor_in_possession, .set_bool = &set_lock_cursor_in_possession,
         .is_enabled = &lock_cursor_in_possession_enabled,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "CURSOR_EDGE_CAMERA_PANNING", .type = SOptT_Bool, .category = SCat_Input, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetCursorEdgeCameraPanning,
         .help_stridx = GUIStr_HelpCursorEdgeCameraPanning,
         .get_bool = &get_cursor_edge_camera_panning, .set_bool = &set_cursor_edge_camera_panning,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "TAG_MODE_TOGGLING", .type = SOptT_Bool, .category = SCat_Input, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetTagModeToggling,
         .help_stridx = GUIStr_HelpTagModeToggling,
         .get_bool = &get_tag_mode_toggling, .set_bool = &set_tag_mode_toggling,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "DEFAULT_TAG_MODE", .type = SOptT_Enum, .category = SCat_Input, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetDefaultTagMode,
         .help_stridx = GUIStr_HelpDefaultTagMode,
         .enum_table = tag_modes, .get_enum = &get_default_tag_mode, .set_enum = &set_default_tag_mode,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "ZOOM_TO_MOUSE", .type = SOptT_Enum, .category = SCat_Input, .apply_class = SApply_Live,
@@ -966,6 +988,7 @@ const struct SettingOption setting_options[] = {
         .help_literal = "Record every game you play as a replay in the replays folder, keeping the "
                         "newest few of each kind (MAX_REPLAYS in " PRODUCT_SLUG ".cfg). Applies from the next game.",
         .get_bool = &get_autosave_replays, .set_bool = &set_autosave_replays,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "GPU_DEBUG", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_NeedsRestart,
@@ -974,18 +997,21 @@ const struct SettingOption setting_options[] = {
         .help_literal = "Vulkan validation layers, for developers: slow, and needs the Vulkan SDK's "
                         "validation layers installed. Vulkan renderer only. Takes effect after a restart.",
         .get_bool = &get_gpu_debug, .set_bool = &set_gpu_debug,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "SCREENSHOT", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetScreenshotFormat,
         .help_stridx = GUIStr_HelpScreenshotFormat,
         .enum_table = scrshot_type, .get_enum = &get_screenshot_format, .set_enum = &set_screenshot_format_val,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "HAND_SIZE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetHandSize,
         .help_stridx = GUIStr_HelpHandSize,
         .get_int = &get_hand_size_pct, .set_int = &set_hand_size_pct, .int_min = 10, .int_max = 500,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "RESIZE_MOVIES", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
@@ -1013,6 +1039,7 @@ const struct SettingOption setting_options[] = {
         .help_literal = "Software (CPU) or Vulkan (GPU). Vulkan is experimental and "
                         "falls back to Software if no GPU is available.",
         .enum_table = renderer_type, .get_enum = &get_renderer, .set_enum = &set_renderer,
+        .cfg_read_by_row = true,
     },
     {
         // gpu-v2 Phase C.5 lighting pass. Applies live; only has an effect with the Vulkan renderer.
@@ -1022,6 +1049,7 @@ const struct SettingOption setting_options[] = {
                         "(torches, spells, lava) are calculated per pixel, giving smoother light "
                         "pools. Vulkan renderer only; experimental.",
         .enum_table = lighting_type, .get_enum = &get_lighting, .set_enum = &set_lighting,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "OVERHEAD_FADE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
@@ -1061,6 +1089,7 @@ const struct SettingOption setting_options[] = {
         .help_literal = "Minimal layout only: which upper corner the minimap sits in.",
         .enum_table = minimap_corner_type, .get_enum = &get_minimap_corner, .set_enum = &set_minimap_corner,
         .is_enabled = &minimap_corner_enabled,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "PANEL_CORNER", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
@@ -1070,6 +1099,7 @@ const struct SettingOption setting_options[] = {
                         "a corner or take opposite ones.",
         .enum_table = panel_corner_type, .get_enum = &get_panel_corner, .set_enum = &set_panel_corner,
         .is_enabled = &panel_corner_enabled,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "GUI_ICON_PACK", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,
@@ -1108,6 +1138,58 @@ const struct SettingOption setting_options[] = {
 };
 
 const int64_t setting_options_count = sizeof(setting_options) / sizeof(setting_options[0]);
+
+/** The row the base config reader reads cfg_key through (see cfg_read_by_row), or NULL. */
+const struct SettingOption *setting_option_read_by_row(const char *cfg_key)
+{
+    for (int64_t i = 0; i < setting_options_count; i++)
+    {
+        const struct SettingOption *opt = &setting_options[i];
+        if (opt->cfg_read_by_row && (opt->cfg_key != NULL) && (strcasecmp(opt->cfg_key, cfg_key) == 0))
+            return opt;
+    }
+    return NULL;
+}
+
+/** Reads the value of opt's key from a config line into the option (see cfg_read_by_row). */
+void setting_option_read_cfg_value(const struct SettingOption *opt, const char *buf, int64_t *pos, int64_t len,
+    const char *config_textname)
+{
+    if (opt->type == SOptT_Int)
+    {
+        // A whole number within the screen's limits (refactor pass 4 finding P4-F6: the file took wider ranges)
+        char word_buf[128];
+        if ((get_conf_parameter_single(buf, pos, len, word_buf, sizeof(word_buf)) <= 0) || !parameter_is_number(word_buf))
+        {
+            CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.", opt->cfg_key, config_textname);
+            return;
+        }
+        int64_t val = atoll(word_buf);
+        const int64_t limited = (val < opt->int_min) ? opt->int_min : ((val > opt->int_max) ? opt->int_max : val);
+        if (limited != val)
+        {
+            CONFWRNLOG("Value %" PRId64 " out of range for \"%s\" command of %s file. Set to %" PRId64 ".",
+                val, opt->cfg_key, config_textname, limited);
+        }
+        opt->set_int(limited);
+        return;
+    }
+    const int64_t i = recognize_conf_parameter(buf, pos, len, (opt->type == SOptT_Bool) ? logicval_type : opt->enum_table);
+    if (i <= 0)
+    {
+        CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.", opt->cfg_key, config_textname);
+        return;
+    }
+    if (opt->type == SOptT_Bool)
+    {
+        const TbBool val = (i == 1);
+        opt->set_bool(opt->cfg_bool_inverted ? !val : val);
+    }
+    else
+    {
+        opt->set_enum(i);
+    }
+}
 
 void setting_option_apply_bool(const struct SettingOption *opt, TbBool val)
 {

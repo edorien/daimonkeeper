@@ -193,9 +193,6 @@ void extseat_note_chat(PlayerNumber plyr_idx, const char *text);
 int64_t extseat_chat_total(void);
 /** Recent chat messages, oldest first; returns how many were copied. */
 int64_t extseat_chat_log(struct ExtSeatChat *out, int64_t max);
-/** extseat_plan_dig_sweep starting from a chosen corner (0 top-left, 1 bottom-right, 2 top-right, 3 bottom-left): a
- *  pickaxe drag tags or untags depending on its first slab, so mark_dig starts on one not already marked. */
-int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int corner);
 /** Rectangles (x0, y0, x1, y1 slab quads) of mark_dig verbs submitted but not all tagged yet: the running one and the
  *  queued ones, in order. Returns how many were written (at most `max`). */
 int64_t extseat_pending_dig_rects(NetUserId user, int64_t *out4, int64_t max);

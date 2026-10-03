@@ -240,21 +240,6 @@ TEST_CASE("diagnostics report what the loader would clamp or ignore, without blo
     CHECK(d2.serialize() == "[trap1]\n");
 }
 
-TEST_CASE("create() writes a header line and reads back as the same content", "[cfgc_writer]")
-{
-    TrapDoorConfigWriter w(schema());
-    ChangeSet cs;
-    cs.set("trap2", "Name", "CANNON").set("trap2", "Health", "30").set("door1", "Health", "500");
-    const std::string text = w.create(cs, nullptr);
-    CHECK(text.compare(0, 11, "; KeeperFX ") == 0);
-    CHECK(text.find("written by the map editor") != std::string::npos);
-    const ConfigContent c = read(text, true);
-    REQUIRE(c.sections.size() == 2);
-    CHECK(*c.find_section("trap", 2)->last_value("Health") == "30");
-    CHECK(*c.find_section("door", 1)->last_value("Health") == "500");
-    CHECK(w.create(ChangeSet(), nullptr).empty());
-}
-
 TEST_CASE("write() puts, patches and deletes files through the batch", "[cfgc_writer]")
 {
     const fs::path root = fs::temp_directory_path() / ("kfx_writer_test_" + std::to_string(getpid()));

@@ -21,6 +21,8 @@
 #ifndef DK_KFX_FRONTEND_STATE_H
 #define DK_KFX_FRONTEND_STATE_H
 
+#include "port_check.h"
+#include "state_versions.h"
 #include "bflib_basics.h"
 #include "globals.h"
 #include "player_data.h"
@@ -109,6 +111,10 @@ struct KfxFrontendState {
 };
 
 extern struct KfxFrontendState kfx_frontend_state;
+/* In every file that includes this header, not only the struct's own: a file that sees another layout reads the
+   state at other offsets than the rest of the game (P4-F17). */
+KFX_STATIC_ASSERT(sizeof(struct KfxFrontendState) == KFX_FRONTEND_STATE_SIZE,
+    "struct KfxFrontendState has another size in this file than state_versions.h says: a #pragma pack leaking into the headers it includes (refactor pass 4, P4-F17), or a layout change (bump KFX_FRONTEND_STATE_VER and update KFX_FRONTEND_STATE_SIZE)");
 
 /** Process-local pointers of the frontend. Deliberately NOT part of struct KfxFrontendState: that struct is saved,
  *  loaded and network-resynced as raw bytes, and a pointer written by another process (another run, a

@@ -93,3 +93,30 @@ TEST_CASE("LbRandomSeries keeps the original 32-bit sequence and returns signed 
     CHECK(LbRandomSeries(-5, &seed, "t", 0) == 0);
     CHECK(seed == 7);
 }
+
+TEST_CASE("LbSinL covers the whole circle, its last entry included (pass 3 F1)", "[kfx_platform][bflib_math]") {
+    // The table had 2047 initialisers for 2048 entries, so sin(-1/2048 turn) read 0.
+    CHECK(LbSinL(2047) == -201);
+    CHECK(LbSinL(-1) == -201);
+    CHECK(LbSinL(0) == 0);
+    CHECK(LbSinL(512) == 65536);
+    CHECK(LbSinL(1536) == -65536);
+    for (int64_t a = 0; a < 2048; a++)
+    {
+        INFO("angle " << a);
+        CHECK(LbSinL(a) == -LbSinL(a + 1024));
+    }
+}
+
+TEST_CASE("LbCosL is the sine a quarter turn on, and gives the values of the cosine table it replaced", "[kfx_platform][bflib_math]") {
+    uint64_t h = 1469598103934665603ULL; // FNV-1a of the 2048 values, as the removed lbCosTable held them
+    for (int64_t a = 0; a < 2048; a++)
+    {
+        CHECK(LbCosL(a) == LbSinL(a + 512));
+        const int64_t v = LbCosL(a);
+        const unsigned char *b = reinterpret_cast<const unsigned char *>(&v);
+        for (size_t i = 0; i < sizeof(v); i++) { h ^= b[i]; h *= 1099511628211ULL; }
+    }
+    CHECK(h == 0x71677b2072a35db8ULL);
+    CHECK(LbCosL(-512) == LbCosL(1536));
+}

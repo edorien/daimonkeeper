@@ -37,8 +37,6 @@ int64_t SwTargetWindowHeight(void);
  * state through these accessors instead of externing the globals directly.
  */
 TbPixel* SwTargetVecScreen(void);
-/** Same base one scanline above SwTargetVecScreen() -- see setup_vecs()'s poly_screen assignment. */
-TbPixel* SwTargetPolyScreen(void);
 /**
  * Current texture-atlas source pointer, as last set by setup_vecs(). Stays
  * 8-bit palette-indexed (like TbSpriteData), NOT TbPixel -- this is source

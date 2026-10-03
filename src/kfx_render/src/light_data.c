@@ -18,6 +18,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "light_data.h"
+#include "packet_data.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
@@ -58,8 +59,6 @@ static int64_t light_out_of_date_stat_lights;
 
 void clear_stat_light_map(void)
 {
-    kfx_sim_state.light_registry.global_ambient_light = 32;
-    kfx_sim_state.light_registry.light_enabled = 0;
     // The whole map is zeroed below: pending area clears are moot.
     light_shading_signals.areas_count = 0;
     light_shading_signals.areas_overflowed = false;
@@ -835,20 +834,66 @@ void light_stat_refresh() {
  * right after kfx_render changes the registry itself, so an area is always
  * cleared before any light flagged with it is shaded again.
  */
+/** The lights whose shading reaches the area are shaded again (static ones; dynamic ones too if asked), and if a
+ *  static one does, the static light map's area is cleared (was the registry's
+ *  light_signal_stat_light_update_in_area(), with the range the renderer now keeps). */
+static void light_shade_again_in_area(int64_t x1, int64_t y1, int64_t x2, int64_t y2, TbBool dynamic_too)
+{
+    int64_t static_lights = 0;
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
+    {
+        const struct Light *lgt = &kfx_sim_state.light_registry.lights[i];
+        if ((lgt->flags & LgtF_Allocated) == 0)
+            continue;
+        const TbBool dynamic = ((lgt->flags & LgtF_Dynamic) != 0);
+        if (dynamic && !dynamic_too)
+            continue;
+        struct LightDrawState *draw = &kfx_render_state.light_draw[i];
+        int64_t range = draw->range;
+        MapSubtlCoord x = lgt->mappos.x.stl.num;
+        MapSubtlCoord y = lgt->mappos.y.stl.num;
+        if ((range + x >= x1) && (x - range <= x2) && (range + y >= y1) && (y - range <= y2))
+        {
+            draw->need_update = true;
+            if (!dynamic)
+                static_lights++;
+        }
+    }
+    if (static_lights > 0)
+        light_stat_light_map_clear_area(x1, y1, x2, y2);
+}
+
+/** A static light's own area: where it was (the signal's position) within the range it shaded. */
+static void light_shade_again_in_own_area(int64_t idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    int64_t range = kfx_render_state.light_draw[idx].range;
+    int64_t end_y = stl_y + range;
+    if (end_y > kfx_sim_state.map_subtiles_y)
+        end_y = kfx_sim_state.map_subtiles_y;
+    int64_t end_x = stl_x + range;
+    if (end_x > kfx_sim_state.map_subtiles_x)
+        end_x = kfx_sim_state.map_subtiles_x;
+    int64_t beg_y = stl_y - range;
+    if (beg_y < 0)
+        beg_y = 0;
+    int64_t beg_x = stl_x - range;
+    if (beg_x < 0)
+        beg_x = 0;
+    light_shade_again_in_area(beg_x, beg_y, end_x, end_y, false);
+}
+
 void light_drain_shading_signals(void)
 {
     struct LightShadingSignals *sig = &light_shading_signals;
     if (sig->registry_replaced)
     {
         sig->registry_replaced = false;
+        memset(kfx_render_state.light_draw, 0, sizeof(kfx_render_state.light_draw));
+        memset(sig->light_changed, 0, sizeof(sig->light_changed));
         for (int64_t i = 1; i < LIGHTS_COUNT; i++)
         {
-            struct Light *lgt = &kfx_sim_state.light_registry.lights[i];
-            if ((lgt->flags & LgtF_Allocated) != 0)
-            {
-                lgt->flags |= LgtF_NeedUpdate;
-                lgt->flags &= ~LgtF_OutOfDate;
-            }
+            if ((kfx_sim_state.light_registry.lights[i].flags & LgtF_Allocated) != 0)
+                kfx_render_state.light_draw[i].need_update = true;
         }
         sig->areas_overflowed = true;
         sig->reset_lightness = true;
@@ -860,14 +905,35 @@ void light_drain_shading_signals(void)
     }
     if (sig->areas_overflowed)
     {
+        // more areas than were kept: every light again, the whole static map
         sig->areas_overflowed = false;
         sig->areas_count = 0;
+        for (int64_t i = 1; i < LIGHTS_COUNT; i++)
+            kfx_render_state.light_draw[i].need_update = true;
         light_request_stat_refresh();
+    }
+    // the lights that changed: a static one's old area first (with the range it shaded), then a new light's
+    // drawing state starts clear
+    for (int64_t i = 1; i < LIGHTS_COUNT; i++)
+    {
+        const unsigned char change = sig->light_changed[i];
+        if (change == 0)
+            continue;
+        sig->light_changed[i] = 0;
+        if ((change & LgtCh_OwnArea) != 0)
+            light_shade_again_in_own_area(i, sig->changed_stl_x[i], sig->changed_stl_y[i]);
+        if ((change & LgtCh_Created) != 0)
+            memset(&kfx_render_state.light_draw[i], 0, sizeof(kfx_render_state.light_draw[i]));
+        if ((change & LgtCh_Reshade) != 0)
+            kfx_render_state.light_draw[i].need_update = true;
     }
     for (int64_t i = 0; i < sig->areas_count; i++)
     {
         const struct LightShadingArea *area = &sig->areas[i];
-        light_stat_light_map_clear_area(area->x1, area->y1, area->x2, area->y2);
+        if (area->kind == LgtArea_ClearMap)
+            light_stat_light_map_clear_area(area->x1, area->y1, area->x2, area->y2);
+        else
+            light_shade_again_in_area(area->x1, area->y1, area->x2, area->y2, (area->kind == LgtArea_AllLights));
     }
     sig->areas_count = 0;
 }
@@ -1334,16 +1400,44 @@ static int64_t light_render_light_static(struct Light *lgt, int64_t radius, int6
 
 static TbBool light_pp_skip_dynamic; /* see the per-pixel lighting block above light_render_area() */
 static TbBool light_has_colour(const struct Light *lgt);
+/** Where a light is drawn this frame: between where it was last turn and where it is, or where it is right after
+ *  a teleport (the registry's reset_interpolation, which the simulation clears when it next moves the light); the
+ *  local user's cursor light where the mouse is. */
+static void light_drawn_position(const struct Light *lgt, struct Coord3d *pos)
+{
+    *pos = lgt->mappos;
+    // the local user's cursor light: at this frame's mouse (update_local_mouse_light())
+    if (kfx_render_state.local_cursor_valid && (lgt->index == get_user_state(get_local_user())->cursor_light_idx))
+    {
+        *pos = kfx_render_state.mouse_light_pos;
+        return;
+    }
+    if (lgt->reset_interpolation)
+        return;
+    pos->x.val = interpolate_synced(lgt->previous_mappos.x.val, lgt->mappos.x.val);
+    pos->y.val = interpolate_synced(lgt->previous_mappos.y.val, lgt->mappos.y.val);
+}
+
+/** A flickering light's intensity offset this frame (0..512): a new random target each turn, interpolated. */
+static int64_t light_flicker(const struct Light *lgt)
+{
+    struct LightDrawState *draw = &kfx_render_state.light_draw[lgt->index];
+    if (get_gameturn() != draw->last_turn_randomized)
+    {
+        draw->previous_intensity_random = draw->intensity_random;
+        draw->intensity_random = UNSYNC_RANDOM(513);
+    }
+    draw->last_turn_randomized = get_gameturn();
+    return interpolate_synced(draw->previous_intensity_random, draw->intensity_random);
+}
+
+/* Shades one light. The drawing works on lgt->mappos, so the light's drawn position is put there for the call and
+ * the registry's position put back on every way out: nothing of the registry changes (refactor pass 5, S11). */
 static char light_render_light(struct Light* lgt)
 {
   const struct Coord3d original_mappos = lgt->mappos;
-  if (lgt->reset_interpolation)
-  {
-      lgt->reset_interpolation = false;
-      lgt->previous_mappos = lgt->mappos;
-  }
-  lgt->mappos.x.val = interpolate_synced(lgt->previous_mappos.x.val, lgt->mappos.x.val);
-  lgt->mappos.y.val = interpolate_synced(lgt->previous_mappos.y.val, lgt->mappos.y.val);
+  struct LightDrawState *draw = &kfx_render_state.light_draw[lgt->index];
+  light_drawn_position(lgt, &lgt->mappos);
 
   TbBool is_dynamic = (lgt->flags & LgtF_Dynamic) != 0;
   int64_t intensity;
@@ -1353,16 +1447,9 @@ static char light_render_light(struct Light* lgt)
 
   if ( (lgt->flags2 & 0xFE) != 0 )
   {
-    if (get_gameturn() != lgt->last_turn_randomized)
-    {
-      lgt->previous_intensity_random = lgt->intensity_random;
-      lgt->intensity_random = UNSYNC_RANDOM(513);
-    }
-    lgt->last_turn_randomized = get_gameturn();
-
     int64_t rand_minimum = (lgt->intensity - 1) << 8;
     intensity = (lgt->intensity << 8) + 257;
-    render_intensity = rand_minimum + interpolate_synced(lgt->previous_intensity_random, lgt->intensity_random);
+    render_intensity = rand_minimum + light_flicker(lgt);
   }
   else
   {
@@ -1378,9 +1465,13 @@ static char light_render_light(struct Light* lgt)
   }
   if (render_radius == 0)
   {
-      ERRORLOG("Light %" PRId64 " has no radius, deleting", (int64_t)(lgt->index));
-      light_delete_light(lgt->index);
-      light_drain_shading_signals();
+      // nothing to shade; not deleted here (the renderer deleted it, a simulation change only when it was drawn)
+      if (!draw->reported_no_radius)
+      {
+          draw->reported_no_radius = true;
+          WARNLOG("Light %" PRId64 " has no radius, not shaded", (int64_t)(lgt->index));
+      }
+      lgt->mappos = original_mappos;
       return 0;
   }
   uint64_t lighting_tables_idx;
@@ -1402,7 +1493,7 @@ static char light_render_light(struct Light* lgt)
     lighting_tables_idx = 0;
   }
 
-  lgt->range = lighting_tables_idx;
+  draw->range = lighting_tables_idx;
 
   if ( (radius > 0) && (render_intensity > 0) )
   {
@@ -1420,10 +1511,10 @@ static char light_render_light(struct Light* lgt)
       {
         lighting_tables_idx = light_render_light_dynamic_uncached(lgt, radius, render_intensity, lighting_tables_idx);
       }
-      else if ( (lgt->flags & LgtF_NeedUpdate) != 0 )
+      else if ( draw->need_update )
       {
         lighting_tables_idx = light_render_light_dynamic(lgt, radius, render_intensity, lighting_tables_idx);
-        lgt->flags &= ~LgtF_NeedUpdate;
+        draw->need_update = false;
       }
       else
       {
@@ -1549,15 +1640,18 @@ static void light_perpixel_add(const struct Light *lgt)
 {
     if (light_pp_count >= LIGHT_PP_MAX || (lgt->flags & LgtF_Allocated) == 0 || lgt->radius <= 0)
         return;
+    const struct LightDrawState *draw = &kfx_render_state.light_draw[lgt->index];
     int64_t render_intensity = lgt->intensity << 8;
     if ((lgt->flags2 & 0xFE) != 0)
-        render_intensity = ((lgt->intensity - 1) << 8) + interpolate_synced(lgt->previous_intensity_random, lgt->intensity_random);
+        render_intensity = ((lgt->intensity - 1) << 8) + interpolate_synced(draw->previous_intensity_random, draw->intensity_random);
     if (render_intensity <= 0)
         return;
     float *out = &light_pp_lights[light_pp_count * LIGHT_PP_FLOATS];
     const TbBool dynamic = (lgt->flags & LgtF_Dynamic) != 0;
-    out[0] = dynamic ? (float)interpolate_synced(lgt->previous_mappos.x.val, lgt->mappos.x.val) : (float)lgt->mappos.x.val;
-    out[1] = dynamic ? (float)interpolate_synced(lgt->previous_mappos.y.val, lgt->mappos.y.val) : (float)lgt->mappos.y.val;
+    struct Coord3d drawn;
+    light_drawn_position(lgt, &drawn);
+    out[0] = dynamic ? (float)drawn.x.val : (float)lgt->mappos.x.val;
+    out[1] = dynamic ? (float)drawn.y.val : (float)lgt->mappos.y.val;
     out[2] = (float)lgt->mappos.z.val;
     out[3] = (float)lgt->radius;
     out[4] = (float)render_intensity / 256.0f; // 8.8 lightness -> 0..63 shade units
@@ -1626,10 +1720,11 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
           lgt > kfx_sim_state.light_registry.lights;
           lgt = &kfx_sim_state.light_registry.lights[lgt->next_in_list] )
     {
-      if ( (lgt->flags & (LgtF_OutOfDate | LgtF_NeedUpdate)) != 0 )
+      struct LightDrawState *draw = &kfx_render_state.light_draw[lgt->index];
+      if ( draw->need_update )
       {
         ++light_out_of_date_stat_lights;
-        range = lgt->range;
+        range = draw->range;
 
 
 
@@ -1638,7 +1733,7 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
         {
           ++light_updated_stat_lights;
           light_render_light(lgt);
-          lgt->flags &= ~(LgtF_OutOfDate | LgtF_NeedUpdate);
+          draw->need_update = false;
         }
       }
     }
@@ -1668,70 +1763,13 @@ static void light_render_area(MapSubtlCoord startx, MapSubtlCoord starty, MapSub
   {
     for ( lgt = &kfx_sim_state.light_registry.lights[kfx_sim_state.thing_lists[TngList_DynamLights].index]; lgt > kfx_sim_state.light_registry.lights; lgt = &kfx_sim_state.light_registry.lights[lgt->next_in_list] )
     {
-      range = lgt->range;
+      range = kfx_render_state.light_draw[lgt->index].range;
       if ( (int64_t)llabs(half_width_x + startx - lgt->mappos.x.stl.num) < half_width_x + range
         && (int64_t)llabs(half_width_y + starty - lgt->mappos.y.stl.num) < half_width_y + range )
       {
         ++light_rendered_dynamic_lights;
-        if ( (lgt->flags & LgtF_NeedUpdate) == 0 )
+        if ( !kfx_render_state.light_draw[lgt->index].need_update )
           ++light_rendered_optimised_dynamic_lights;
-        if ( (lgt->flags & LgtF_RadiusOscillation) != 0 )
-        {
-          if ( lgt->radius_oscillation_direction == 1 )
-          {
-            if ( lgt->radius_delta + lgt->radius >= lgt->max_radius )
-            {
-              lgt->radius = lgt->max_radius;
-              lgt->radius_oscillation_direction = 2;
-            }
-            else
-            {
-              lgt->radius += lgt->radius_delta;
-            }
-          }
-          else if ( lgt->radius - lgt->radius_delta <= lgt->min_radius2 )
-          {
-            lgt->radius = lgt->min_radius2;
-            lgt->radius_oscillation_direction = 1;
-          }
-          else
-          {
-            lgt->radius -= lgt->radius_delta;
-          }
-          lgt->flags |= LgtF_NeedUpdate;
-        }
-        if ( (lgt->flags & LgtF_IntensityAnimation) != 0 )
-        {
-          if ( lgt->intensity_toggling_field == 1 )
-          {
-            if ( lgt->intensity_delta + lgt->intensity >= lgt->max_intensity )
-            {
-              lgt->intensity = lgt->max_intensity;
-              lgt->intensity_toggling_field = 2;
-            }
-            else
-            {
-              lgt->intensity = lgt->intensity_delta + lgt->intensity;
-            }
-          }
-          else
-          {
-            if ( lgt->intensity - lgt->intensity_delta <= lgt->max_intensity )
-            {
-              lgt->intensity = lgt->max_intensity;
-              lgt->intensity_toggling_field = 1;
-            }
-            else
-            {
-              lgt->intensity = lgt->intensity - lgt->intensity_delta;
-            }
-          }
-          lgt->flags |= LgtF_NeedUpdate;
-        }
-        if ( lgt->force_render_update )
-        {
-          lgt->flags |= LgtF_NeedUpdate;
-        }
         light_render_light(lgt);
         if (per_pixel)
           light_perpixel_add(lgt);
@@ -1806,39 +1844,6 @@ void update_light_render_area(void)
     if (endx > kfx_sim_state.map_subtiles_x) endx = kfx_sim_state.map_subtiles_x;
     // Set the area
     light_render_area(startx, starty, endx, endy);
-}
-
-/**
- * rules can change by dkscript/lua.
- * Checks if a gamerule for lighting has changed and updates the lights if they are.
- * This function also refreshes the light status of the map.
-*/
-void update_global_lighting(void)
-{
-    if (!kfx_sim_state.light_registry.light_auto_sync)
-        return;
-
-    // Check if any values have changed
-    if (
-        kfx_config_state.conf.rules[0].gameplay.global_ambient_light != kfx_sim_state.light_registry.global_ambient_light ||
-        kfx_config_state.conf.rules[0].gameplay.light_enabled != kfx_sim_state.light_registry.light_enabled
-    ){
-
-        // GlobalAmbientLight
-        if (kfx_config_state.conf.rules[0].gameplay.global_ambient_light != kfx_sim_state.light_registry.global_ambient_light)
-        {
-            kfx_sim_state.light_registry.global_ambient_light = kfx_config_state.conf.rules[0].gameplay.global_ambient_light;
-        }
-
-        // LightEnabled
-        if (kfx_config_state.conf.rules[0].gameplay.light_enabled != kfx_sim_state.light_registry.light_enabled)
-        {
-            kfx_sim_state.light_registry.light_enabled = kfx_config_state.conf.rules[0].gameplay.light_enabled;
-        }
-
-        // Refresh the lights
-        light_stat_refresh();
-    }
 }
 
 // Moved from game_lghtshdw.c alongside struct LightsShadows (stage 13.3,

@@ -24,7 +24,12 @@
 extern "C" {
 #endif
 
-void script_process_value(uint64_t var_index, uint64_t plr_range_id, int64_t param1, int64_t param2, int64_t param3, struct ScriptValue *value);
+/** The original game's commands that act on a player's creatures (refactor pass 4, S09: what their processes call). */
+void script_kill_creatures(PlayerNumber plyr_idx, int64_t crmodel, int64_t criteria, int64_t copies_num);
+TbBool script_level_up_creature(PlayerNumber plyr_idx, int64_t crmodel, int64_t criteria, int64_t count);
+TbBool script_change_creature_owner_with_criteria(PlayerNumber origin_plyr_idx, int64_t crmodel, int64_t criteria, PlayerNumber dest_plyr_idx);
+/** Runs a script value: its command's process, once for each player in the range. */
+void script_process_value(uint64_t var_index, uint64_t plr_range_id, struct ScriptValue *value);
 
 /******************************************************************************/
 #ifdef __cplusplus

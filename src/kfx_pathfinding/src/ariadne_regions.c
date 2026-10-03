@@ -17,6 +17,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "ariadne_saved_state.h"
 #include "ariadne_regions.h"
 #include "ariadne.h"
 
@@ -314,6 +315,17 @@ void region_unlock(int64_t ntri)
     }
 }
 
+/******************************************************************************/
+/** The regions, their store and queue: part of the saved navigation mesh (ariadne_saved_state.h). */
+void ariadne_regions_visit_saved_state(AriadneStateVisitor visit, void *ctx)
+{
+    visit(ctx, Regions, sizeof(Regions));
+    visit(ctx, &max_RegionStore, sizeof(max_RegionStore));
+    visit(ctx, &ix_RegionQput, sizeof(ix_RegionQput));
+    visit(ctx, &ix_RegionQget, sizeof(ix_RegionQget));
+    visit(ctx, &count_RegionQ, sizeof(count_RegionQ));
+    visit(ctx, RegionQueue, sizeof(RegionQueue));
+}
 /******************************************************************************/
 #ifdef __cplusplus
 }

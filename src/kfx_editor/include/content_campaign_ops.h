@@ -34,9 +34,6 @@ bool content_campaign_register_level(const std::string &campaign_fname, int64_t 
 bool content_campaign_create(const std::string &name, const std::string &id, const std::string &human_player, bool own_config,
     std::string *error);
 
-/** A campaign land-view folder to copy the default images from (`rgmap00` + `viframe00`): keeporig's when present, else the first
- *  any `campgns/..._lnd` folder that has them; empty when there is none. */
-std::string content_campaign_default_land_source(void);
 
 /** Whether `id` is free: no campaign .cfg file of that name (any letter case). */
 bool content_campaign_id_free(const std::string &id, ContentKind kind = ContentKind_Campaign);

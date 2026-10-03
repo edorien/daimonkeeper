@@ -34,15 +34,15 @@ extern "C" {
 /******************************************************************************/
 
 /******************************************************************************/
-extern struct ValidRooms valid_rooms_to_build[];
+extern const struct ValidRooms valid_rooms_to_build[];
 
-extern Comp_Process_Func computer_process_func_list[];
+extern Comp_Process_Func const computer_process_func_list[];
 
-extern Comp_Event_Func computer_event_func_list[];
+extern Comp_Event_Func const computer_event_func_list[];
 
-extern Comp_EvntTest_Func computer_event_test_func_list[];
+extern Comp_EvntTest_Func const computer_event_test_func_list[];
 
-extern Comp_Check_Func computer_check_func_list[];
+extern Comp_Check_Func const computer_check_func_list[];
 /******************************************************************************/
 int64_t set_autopilot_type(PlayerNumber plridx, int64_t aptype);
 /******************************************************************************/
@@ -125,7 +125,6 @@ int64_t count_entrances(const struct Computer2 *comp, PlayerNumber plyr_idx);
 int64_t count_diggers_in_dungeon(const struct Dungeon *dungeon);
 int64_t check_call_to_arms(struct Computer2 *comp);
 int64_t count_creatures_for_defend_pickup(struct Computer2 *comp);
-int64_t count_creatures_for_pickup(struct Computer2 *comp, struct Coord3d *pos, struct Room *room, int64_t a4);
 uint64_t count_creatures_availiable_for_fight(struct Computer2 *comp, struct Coord3d *pos);
 
 int64_t setup_computer_attack(struct Computer2 *comp, struct ComputerProcess *cproc, struct Coord3d *pos, int64_t victim_plyr_idx);
@@ -134,6 +133,10 @@ TbBool setup_a_computer_player(PlayerNumber plyr_idx, int64_t comp_model);
 void process_computer_players2(void);
 void setup_computer_players2(void);
 void restore_computer_player_after_load(void);
+/** Each player's computer points at the player's dungeon; a computer with no player is cleared and points at none.
+ *  At a level's start as after a load (refactor pass 5, P5-F21: at the start, a computer with no player, or a
+ *  player that isn't an active keeper, pointed at dungeon 0, after a load at none or its own). */
+void computer_players_set_dungeons(void);
 
 TbBool computer_force_dump_held_things_on_map(struct Computer2 *comp, const struct Coord3d *pos);
 TbBool computer_force_dump_specific_held_thing(struct Computer2 *comp, struct Thing *thing, const struct Coord3d *pos);
@@ -143,6 +146,16 @@ TbBool script_support_setup_player_as_computer_keeper(PlayerNumber plyr_idx, int
 TbBool script_support_setup_player_as_zombie_keeper(PlayerNumber plyr_idx);
 TbBool reactivate_build_process(struct Computer2* comp, RoomKind rkind);
 TbBool toggle_computer_player(PlayerNumber plyr_idx);
+/* What SET_COMPUTER_GLOBALS / _PROCESS / _CHECKS and their Lua twins do, for players plr_start..plr_end-1
+ * (refactor pass 3, S07). The process and check setters return how many they changed; with `report` set they
+ * log each change to the script log, as the script commands do. */
+void computer_set_globals(PlayerNumber plr_start, PlayerNumber plr_end, int64_t dig_stack_size, int64_t processes_time,
+    int64_t click_rate, int64_t max_room_build_tasks, int64_t turn_begin, int64_t sim_before_dig, int64_t task_delay);
+int64_t computer_set_process_config(PlayerNumber plr_start, PlayerNumber plr_end, const char *procname, int64_t priority,
+    int64_t config_value_2, int64_t config_value_3, int64_t config_value_4, int64_t config_value_5, TbBool report);
+int64_t computer_set_check_config(PlayerNumber plr_start, PlayerNumber plr_end, const char *chkname, int64_t turns_interval,
+    int64_t primary_parameter, int64_t secondary_parameter, int64_t tertiary_parameter, int64_t last_run_turn,
+    TbBool stop_at_unnamed, TbBool report);
 /******************************************************************************/
 #ifdef __cplusplus
 }

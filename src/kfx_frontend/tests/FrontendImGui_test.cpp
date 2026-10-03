@@ -17,8 +17,6 @@ TEST_CASE("FrontendImGuiEnsure fails cleanly with a null window/renderer", "[kfx
 
 TEST_CASE("FrontendImGui query functions are safe with no active context", "[kfx_frontend][FrontendImGui]") {
     CHECK_FALSE(FrontendImGuiIsActive());
-    CHECK_FALSE(FrontendImGuiWantCaptureMouse());
-    CHECK_FALSE(FrontendImGuiWantCaptureKeyboard());
 }
 
 TEST_CASE("FrontendImGui per-frame/lifecycle functions are safe with no active context", "[kfx_frontend][FrontendImGui]") {

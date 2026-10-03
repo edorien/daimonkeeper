@@ -15,6 +15,7 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include "ariadne_saved_state.h"
 #include "ariadne.h"
 #include "ariadne_tringls.h"
 #include "ariadne_findcache.h"
@@ -1687,7 +1688,8 @@ int64_t init_navigation(void)
     init_navigation_map();
     triangulate_map(IanMap);
     set_nav_rule_default();
-    
+    // idle between navigations; not what the previous level left (P5-F22)
+    kfx_pathfinding_state.owner_player_navigating = -1;
     kfx_pathfinding_state.map_changed_for_navigation = 1;
     return 1;
 }
@@ -1779,6 +1781,15 @@ void ariadne_mark_map_dirty_for_navigation(void)
     kfx_pathfinding_state.map_changed_for_navigation = 1;
 }
 
+/******************************************************************************/
+/** After the saved navigation mesh is restored (ariadne_saved_state_read()): what init_navigation() sets besides
+ *  the mesh, without building it again. */
+void ariadne_update_restored_state_ready(void)
+{
+    nav_map_initialised = 1;
+    tri_initialised = 1;
+    LastTriangulatedMap = kfx_pathfinding_state.navigation_map;
+}
 /******************************************************************************/
 #ifdef __cplusplus
 }

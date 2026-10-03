@@ -417,10 +417,16 @@ static int64_t get_map_index_of_first_block_thing_colliding_with_at(struct Thing
             if (!flag_is_set(creatng->movement_flags, TMvF_Flying) && world_subtile_has_abyss_on_top(current_stl_x, current_stl_y))
                 return ariadne_subtile_number(current_stl_x, current_stl_y);
 
+            // A tunneller digs gold as it digs earth (refactor pass 4, P4-F12): for its collisions a gold slab is
+            // diggable, not valuable. Gems, which have the same flags as gold, stay something to go round.
+            uint64_t blk_flags = mapblk->flags;
+            if ((slb->kind == SlbT_GOLD) || (slb->kind == SlbT_DENSEGOLD))
+                blk_flags = (blk_flags & ~(uint64_t)SlbAtFlg_Valuable) | SlbAtFlg_Digable;
+
             // If the current subtile has none of the attribute flags passed to this function (as slab_flags) and is not ROCK
             // OR the current subtile is a dungeon wall that we should dig through.
-            if (((mapblk->flags & slab_flags) == 0 && slb->kind != SlbT_ROCK)
-             || ((slab_flags & mapblk->flags & SlbAtFlg_Filled) != 0 && CHECK_SLAB_OWNER))
+            if (((blk_flags & slab_flags) == 0 && slb->kind != SlbT_ROCK)
+             || ((slab_flags & blk_flags & SlbAtFlg_Filled) != 0 && CHECK_SLAB_OWNER))
             {
                 // Note: "room pillars" get through the above check.
                 // If the subtile is a "room pillar"
@@ -465,9 +471,15 @@ static int64_t creature_cannot_move_directly_to_with_collide_sub(struct Thing *c
         {
             if (get_map_index_of_first_block_thing_colliding_with_at(creatng, &pos, slab_flags, crt_owner_flags) >= 0) {
                 return 4;
-            } else {
-                return 1;
             }
+            // Solid, but with none of the flags of something to go round: something to dig (1) -- if there is
+            // anything to dig. A solid column standing on a floor slab (a pillar a map can place; it has the floor's
+            // flags) has nothing, and was taken for a dig the tunnelling code then couldn't find, leaving the
+            // tunneller facing it until the stuck check pushed it away: go round it instead (refactor pass 4, P4-F12).
+            if (get_map_index_of_first_block_thing_colliding_with_at(creatng, &pos, SlbAtFlg_Filled|SlbAtFlg_Digable, IGNORE_SLAB_OWNER_CHECK) < 0) {
+                return 4;
+            }
+            return 1;
         }
     }
     return 0;

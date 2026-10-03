@@ -76,6 +76,7 @@
 #include "kfx_frontend_state.h"
 #include "player_availability.h"
 #include "local_state.h"
+#include "list_walk.h"
 #include "post_inc.h"
 #include "room_workshop.h"
 
@@ -519,27 +520,10 @@ int64_t find_room_type_capacity_total_percentage(PlayerNumber plyr_idx, RoomKind
     int64_t used_cap = 0;
     int64_t total_cap = 0;
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
-    int64_t i = dungeon->room_list_start[rkind];
-    uint64_t k = 0;
-    while (i != 0)
+    FOR_EACH_ROOM(room, room_walk_owner(dungeon->room_list_start[rkind]))
     {
-        struct Room* room = room_get(i);
-        if (room_is_invalid(room))
-        {
-            ERRORLOG("Jump to invalid room detected");
-            break;
-        }
-        i = room->next_of_owner;
-        // Per-room code
         used_cap += room->used_capacity;
         total_cap += room->total_capacity;
-        // Per-room code ends
-        k++;
-        if (k > ROOMS_COUNT)
-        {
-            ERRORLOG("Infinite loop detected when sweeping rooms list");
-            break;
-        }
     }
     if (total_cap < 1)
         return -1;

@@ -1365,24 +1365,6 @@ void set_level_name_text(LevelNumber lvnum, const char *lv_name)
     snprintf(level_name, sizeof(level_name), "%s %" PRId64, get_string(GUIStr_MnuLevel), (int64_t)lvinfo->lvnum);
 }
 
-int64_t order_number_for_bonus_level(LevelNumber bn_lvnum)
-{
-  int64_t orderNum = 1;
-  if (bn_lvnum < 1) return -1;
-  for (int64_t i = 0; i < CAMPAIGN_LEVELS_COUNT; i++)
-  {
-    if (campaign.bonus_levels[i] == bn_lvnum)
-    {
-      return orderNum;
-    }
-    else if (campaign.bonus_levels[i] != 0)
-    {
-      orderNum++;
-    }
-  }
-  return -1;
-}
-
 const char* get_level_description(struct LevelInformation *lvinfo)
 {
     if (lvinfo == NULL)

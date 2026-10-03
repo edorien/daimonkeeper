@@ -53,6 +53,7 @@
 #include "player_camera.h"
 #include "ports/audio_port.h"
 #include "ports/render_port.h"
+#include "list_walk.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -161,7 +162,7 @@ void process_armageddon(void)
                     event_kill_all_players_events(i);
                     set_player_as_lost_level(player);
                     if (is_my_player_number(i))
-                        RendererPaletteSet(engine_palette);
+                        render_PaletteSetViewPalette(VPal_Engine);
                     struct Thing* heartng = get_player_soul_container(player->id_number);
                     if (thing_exists(heartng)) {
                         heartng->health = -1;
@@ -226,18 +227,8 @@ void process_disease(struct Thing *creatng)
         for (int64_t n = 0; n < AROUND_MAP_LENGTH; n++)
         {
             struct Map *mapblk = get_map_block_at_pos(stl_num + kfx_sim_state.around_map[n]);
-            uint64_t k = 0;
-            int64_t i = get_mapwho_thing_index(mapblk);
-            while (i != 0)
+            FOR_EACH_THING(thing, thing_walk_map_block(mapblk))
             {
-                struct Thing *thing = thing_get(i);
-                if (thing_is_invalid(thing))
-                {
-                    WARNLOG("Jump out of things array");
-                    break;
-                }
-                i = thing->next_on_mapblk;
-                // Per thing code.
                 tngcctrl = creature_control_get_from_thing(thing);
                 if (thing_is_creature(thing)
                 && !creature_is_for_dungeon_diggers_list(thing)
@@ -248,14 +239,6 @@ void process_disease(struct Thing *creatng)
                 { // Apply the spell kind stored in 'active_disease_spell'.
                     apply_spell_effect_to_thing(thing, cctrl->active_disease_spell, cctrl->exp_level, creatng->owner);
                     tngcctrl->disease_caster_plyridx = cctrl->disease_caster_plyridx;
-                }
-                // Per thing code ends.
-                k++;
-                if (k > THINGS_COUNT)
-                {
-                    ERRORLOG("Infinite loop detected when sweeping things list");
-                    break_mapwho_infinite_chain(mapblk);
-                    break;
                 }
             }
         }
@@ -274,7 +257,7 @@ void lightning_modify_palette(struct Thing *thing)
 
     if (thing->health == 0)
     {
-      render_PaletteSetUserPalette(get_local_user(), engine_palette);
+      render_PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
       ustate->additional_flags &= ~UsrAF_LightningPaletteIsActive;
       return;
     }
@@ -289,7 +272,7 @@ void lightning_modify_palette(struct Thing *thing)
         {
             if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
             {
-                render_PaletteSetUserPalette(get_local_user(), engine_palette);
+                render_PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
                 ustate->additional_flags &= ~UsrAF_LightningPaletteIsActive;
             }
         }
@@ -301,7 +284,7 @@ void lightning_modify_palette(struct Thing *thing)
         {
                         if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
             {
-              render_PaletteSetUserPalette(get_local_user(), lightning_palette);
+              render_PaletteSetUserViewPalette(get_local_user(), VPal_Lightning);
               ustate->additional_flags |= UsrAF_LightningPaletteIsActive;
             }
         }
@@ -357,18 +340,8 @@ void god_lightning_choose_next_creature(struct Thing *shotng)
     struct Thing* best_thing = INVALID_THING;
     const struct StructureList* slist = get_list_for_thing_class(TCls_Creature);
     struct ShotConfigStats* shotst = get_shot_model_stats(shotng->model);
-    uint64_t k = 0;
-    int64_t i = slist->index;
-    while (i != 0)
+    FOR_EACH_THING(thing, thing_walk_structure_list(slist))
     {
-        struct Thing* thing = thing_get(i);
-        if (thing_is_invalid(thing))
-        {
-            ERRORLOG("Jump to invalid thing detected");
-            break;
-        }
-        i = thing->next_of_class;
-        // Per-thing code
         //TODO use hit_type instead of hard coded conditions
         if (!players_are_mutual_allies(shotng->owner,thing->owner) && !thing_is_picked_up(thing)
             && !creature_is_being_unconscious(thing) && !creature_is_dying(thing))
@@ -384,13 +357,6 @@ void god_lightning_choose_next_creature(struct Thing *shotng)
                     }
                 }
             }
-        }
-        // Per-thing code ends
-        k++;
-        if (k > slist->count)
-        {
-            ERRORLOG("Infinite loop detected when sweeping things list");
-            break;
         }
     }
     SYNCDBG(8,"The best target for %s index %" PRId64 " owner %" PRId64 " is %s index %" PRId64 " owner %" PRId64,
