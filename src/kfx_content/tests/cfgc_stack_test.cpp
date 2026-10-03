@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -160,7 +161,7 @@ TEST_CASE("list blocks are replaced whole by the highest layer that has them", "
 
 TEST_CASE("layers load from disk following the target", "[cfgc_stack]")
 {
-    const fs::path root = fs::temp_directory_path() / "kfx_stack_test";
+    const fs::path root = fs::temp_directory_path() / ("kfx_stack_test_" + std::to_string(getpid()));
     fs::remove_all(root);
     spit(root / "base" / "t.cfg", "[trap1]\nHealth = 1\n");
     spit(root / "camp" / "t.cfg", "[trap1]\nHealth = 2\n");

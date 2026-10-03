@@ -325,7 +325,7 @@ void interpolate_local_cameras(void)
     interpolate_camera_deviations();
 }
 
-void sync_local_camera(struct PlayerInfo *player)
+static void sync_local_camera_now(struct PlayerInfo *player)
 {
     if (!is_my_player(player) || !local_camera_ready) {
         return;
@@ -343,7 +343,7 @@ void sync_local_camera(struct PlayerInfo *player)
     }
 }
 
-void set_local_camera_destination(struct PlayerInfo *player)
+static void set_local_camera_destination_now(struct PlayerInfo *player)
 {
     if (!is_my_player(player) || !local_camera_ready || get_local_view_type(player) == PVT_MapScreen) {
         return;
@@ -356,14 +356,33 @@ void set_local_camera_destination(struct PlayerInfo *player)
     }
 }
 
+// The two entry points below write the local cameras, so they apply any
+// pending sim signal first: one applied later would overwrite what they
+// write. At level start, init_player_cameras() signals an init and the heart
+// zoom's set_engine_view() syncs the first-person camera to the spectator
+// straight after; applying that init on the next frame instead reset its
+// heading to the synced camera's ANGLE_EAST, so the zoom looked sideways.
+void sync_local_camera(struct PlayerInfo *player)
+{
+    apply_sim_camera_signals();
+    sync_local_camera_now(player);
+}
+
+void set_local_camera_destination(struct PlayerInfo *player)
+{
+    apply_sim_camera_signals();
+    set_local_camera_destination_now(player);
+}
+
 /**
  * Applies whatever kfx_sim asked of the local camera since the last call:
  * re-initialise (init_player_cameras() ran), snap to the synced cameras, then
  * ease towards them -- in that order, so a snap sets the base a retarget in
  * the same batch starts from. The sim used to make these three calls
  * directly; it now only bumps kfx_sim_view_signals (refactor pass 2, S07).
- * Called at the start of every function here that reads the local cameras,
- * so a change is seen by the next reader, just as the direct call was.
+ * Called at the start of every function here that reads or writes the local
+ * cameras, so a change is seen by the next reader, and not applied over a
+ * later write, just as the direct call was.
  */
 static void apply_sim_camera_signals(void)
 {
@@ -381,11 +400,11 @@ static void apply_sim_camera_signals(void)
     }
     if (sync_seq != seen_camera_sync_seq) {
         seen_camera_sync_seq = sync_seq;
-        sync_local_camera(player);
+        sync_local_camera_now(player);
     }
     if (retarget_seq != seen_camera_retarget_seq) {
         seen_camera_retarget_seq = retarget_seq;
-        set_local_camera_destination(player);
+        set_local_camera_destination_now(player);
     }
 }
 

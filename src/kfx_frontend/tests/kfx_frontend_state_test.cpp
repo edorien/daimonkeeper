@@ -14,6 +14,8 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <string>
+#include <unistd.h>
 
 TEST_CASE("get_frontend_state_size reports the real struct size", "[kfx_frontend][kfx_frontend_state]") {
     CHECK(get_frontend_state_size() == sizeof(struct KfxFrontendState));
@@ -33,7 +35,10 @@ TEST_CASE("reset_frontend_state zeroes the whole global struct", "[kfx_frontend]
 }
 
 namespace {
-const char *kTestFile = "kfx_frontend_utest_state_test.bin";
+// One file per process: ctest runs each test case as its own process, in
+// parallel, so a shared name lets one case delete another's file.
+const std::string kTestFileStr = "kfx_frontend_utest_state_test_" + std::to_string(getpid()) + ".bin";
+const char *const kTestFile = kTestFileStr.c_str();
 
 struct ScratchFile {
     ScratchFile() { std::remove(kTestFile); }

@@ -80,7 +80,7 @@ void thing_play_sample(struct Thing *thing, SoundSmplTblID smptbl_idx, SoundPitc
         return;
 
     // Apply sound volume setting to current sound's loudness level
-    SoundVolume volume_scale = LbLerp(0, FULL_LOUDNESS, (double)settings.sound_volume/127.0); // [0-127] rescaled to [0-256]
+    SoundVolume volume_scale = volume_setting_scale(settings.sound_volume);
     SoundVolume adjusted_loudness = (loudness * volume_scale) / FULL_LOUDNESS;
 
     // Convert raw sample IDs to unified ID space:
@@ -293,10 +293,12 @@ TbBool update_3d_sound_receiver(struct PlayerInfo* player)
         // Quieten sounds when zoomed out
         double upper_range_only = min(hud_scale*2.0, 1.0);
         double rescale_audio = max(min(fastPow(upper_range_only, 1.25), 1.0), 0.0);
-        S3DSetSoundReceiverSensitivity(LbLerp(2, 64, rescale_audio));
+        // Floor at a quarter (-12 dB): quieter when zoomed out, but not
+        // under the music (it was 2, -30 dB).
+        S3DSetSoundReceiverSensitivity(LbLerp(RECEIVER_FULL_SENSITIVITY / 4, RECEIVER_FULL_SENSITIVITY, rescale_audio));
     } else {
         S3DSetMaximumSoundDistance(5120);
-        S3DSetSoundReceiverSensitivity(64);
+        S3DSetSoundReceiverSensitivity(RECEIVER_FULL_SENSITIVITY);
     }
     return true;
 }

@@ -688,9 +688,10 @@ TbBool cmd_ver(PlayerNumber plyr_idx, char * args)
     return true;
 }
 
+// Volumes in and out are 0-100, as the settings screen shows them.
 TbBool cmd_volume(PlayerNumber plyr_idx, char * args)
 {
-    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s: %" PRId64 " %s: %" PRId64, get_string(340), (int64_t)(settings.sound_volume), get_string(341), (int64_t)(settings.music_volume));
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "%s: %" PRId64 " %s: %" PRId64, get_string(340), volume_setting_to_percent(settings.sound_volume), get_string(341), volume_setting_to_percent(settings.music_volume));
     return true;
 }
 
@@ -704,10 +705,8 @@ TbBool cmd_volume_sound(PlayerNumber plyr_idx, char * args)
             targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "parameter 1 requires a number");
         return false;
     }
-    settings.sound_volume = atoi(pr1str);
-    if (settings.sound_volume > 127) {
-        settings.sound_volume = 127;
-    }
+    // 0-100, as the settings screen shows it (volume_setting_from_percent() clamps)
+    settings.sound_volume = (unsigned char)volume_setting_from_percent(atoi(pr1str));
     save_settings();
     SetSoundMasterVolume(settings.sound_volume);
     return true;
@@ -723,10 +722,8 @@ TbBool cmd_volume_music(PlayerNumber plyr_idx, char * args)
             targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "parameter 1 requires a number");
         return false;
     }
-    settings.music_volume = atoi(pr1str);
-    if (settings.music_volume > 127) {
-        settings.music_volume = 127;
-    }
+    // 0-100, as the settings screen shows it (volume_setting_from_percent() clamps)
+    settings.music_volume = (unsigned char)volume_setting_from_percent(atoi(pr1str));
     save_settings();
     set_music_volume(settings.music_volume);
     return true;

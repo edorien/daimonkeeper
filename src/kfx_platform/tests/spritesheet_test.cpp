@@ -16,6 +16,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <unistd.h>
 
 namespace {
 struct SheetFixture {
@@ -31,8 +33,12 @@ struct IndexEntry {
 };
 #pragma pack()
 
-const char *kIndexFile = "kfx_platform_utest_spritesheet_index.dat";
-const char *kDataFile = "kfx_platform_utest_spritesheet_data.dat";
+// One file per process: ctest runs each test case as its own process, in
+// parallel, so a shared name lets one case delete another's file.
+const std::string kIndexFileStr = "kfx_platform_utest_spritesheet_index_" + std::to_string(getpid()) + ".dat";
+const char *const kIndexFile = kIndexFileStr.c_str();
+const std::string kDataFileStr = "kfx_platform_utest_spritesheet_data_" + std::to_string(getpid()) + ".dat";
+const char *const kDataFile = kDataFileStr.c_str();
 
 struct SpriteFilesFixture {
     SpriteFilesFixture() {

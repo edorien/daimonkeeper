@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <unistd.h>
 
 namespace {
 void touch(const std::filesystem::path &p) { std::ofstream(p) << "x"; }
@@ -20,7 +22,7 @@ TEST_CASE("sidecar classification separates written/derived from KeeperFX-only f
 }
 
 TEST_CASE("find_sidecars lists only this level's unhandled files", "[kfx_editor][sidecars]") {
-    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "kfx_sidecar_test";
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("kfx_sidecar_test_" + std::to_string(getpid()));
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
     touch(dir / "map07001.slb");
@@ -46,7 +48,7 @@ TEST_CASE("relocation detects a changed level number or folder", "[kfx_editor][s
 }
 
 TEST_CASE("copy renames sidecars to the target level and remove deletes them", "[kfx_editor][sidecars]") {
-    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "kfx_sidecar_copy_test";
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("kfx_sidecar_copy_test_" + std::to_string(getpid()));
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
     touch(dir / "map00007.sounds.cfg");

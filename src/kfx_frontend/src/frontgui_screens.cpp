@@ -442,10 +442,19 @@ namespace {
             }
             else if (opt->type == SOptT_Int)
             {
-                double v = (double)opt->get_int();
                 ImGui::SetNextItemWidth(220.0); // see the SOptT_Enum case's own comment
-                if (FeSlider(label, &v, (double)opt->int_min, (double)opt->int_max, "%.0f"))
-                    setting_option_apply_int(opt, (int64_t)v);
+                if (opt->int_is_volume)
+                {
+                    int64_t volume = opt->get_int();
+                    if (FeVolumeSlider(label, &volume))
+                        setting_option_apply_int(opt, volume);
+                }
+                else
+                {
+                    double v = (double)opt->get_int();
+                    if (FeSlider(label, &v, (double)opt->int_min, (double)opt->int_max, "%.0f"))
+                        setting_option_apply_int(opt, (int64_t)v);
+                }
             }
             else // SOptT_Action -- see draw_pending_action_confirm_modal()
             {
@@ -666,23 +675,22 @@ namespace {
             if (FeTab(get_string(frontend_button_info[FEBtn_MnuSoundOptions].capstr_idx)))
             {
                 FeBeginScrollArea("##sound_scroll", ImVec2(0, scroll_h));
-                double v;
                 bool sound_table_open = ImGui::BeginTable("##sound_options_grid", 2, ImGuiTableFlags_SizingStretchSame);
                 if (sound_table_open) ImGui::TableNextColumn();
-                v = (double)sound_volume_ctrl.get_value();
+                int64_t volume = sound_volume_ctrl.get_value();
                 ImGui::SetNextItemWidth(220.0);
-                if (FeSlider("Sound volume", &v, 0.0, 255.0, "%.0f"))
-                    sound_volume_ctrl.set_value((int64_t)v);
+                if (FeVolumeSlider("Sound volume", &volume))
+                    sound_volume_ctrl.set_value(volume);
                 if (sound_table_open) ImGui::TableNextColumn();
-                v = (double)music_volume_ctrl.get_value();
+                volume = music_volume_ctrl.get_value();
                 ImGui::SetNextItemWidth(220.0);
-                if (FeSlider("Music volume", &v, 0.0, 255.0, "%.0f"))
-                    music_volume_ctrl.set_value((int64_t)v);
+                if (FeVolumeSlider("Music volume", &volume))
+                    music_volume_ctrl.set_value(volume);
                 if (sound_table_open) ImGui::TableNextColumn();
-                v = (double)mentor_volume_ctrl.get_value();
+                volume = mentor_volume_ctrl.get_value();
                 ImGui::SetNextItemWidth(220.0);
-                if (FeSlider("Mentor volume", &v, 0.0, 255.0, "%.0f"))
-                    mentor_volume_ctrl.set_value((int64_t)v);
+                if (FeVolumeSlider("Mentor volume", &volume))
+                    mentor_volume_ctrl.set_value(volume);
                 if (sound_table_open) ImGui::EndTable();
                 FeSeparator();
                 draw_setting_options_for_category(SCat_Sound);

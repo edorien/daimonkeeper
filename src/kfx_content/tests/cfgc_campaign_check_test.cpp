@@ -11,6 +11,8 @@
 #include <set>
 #include <cstdlib>
 #include <sstream>
+#include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -161,7 +163,7 @@ TEST_CASE("a campaign's own location keeps the parent folder", "[cfgc_campaign_c
 
 TEST_CASE("a folder copy is staged whole, and refuses an existing target", "[cfgc_campaign_check]")
 {
-    const fs::path tmp = fs::temp_directory_path() / "kfx_copy_test";
+    const fs::path tmp = fs::temp_directory_path() / ("kfx_copy_test_" + std::to_string(getpid()));
     fs::remove_all(tmp);
     fs::create_directories(tmp / "src" / "sub");
     std::ofstream(tmp / "src" / "a.cfg", std::ios::binary) << "one";
@@ -262,7 +264,7 @@ TEST_CASE("per-level land view and speech entries are checked", "[cfgc_campaign_
 
 TEST_CASE("level files are found and copied under a new number, in any letter case", "[cfgc_campaign_check]")
 {
-    const fs::path tmp = fs::temp_directory_path() / "kfx_level_copy_test";
+    const fs::path tmp = fs::temp_directory_path() / ("kfx_level_copy_test_" + std::to_string(getpid()));
     fs::remove_all(tmp);
     fs::create_directories(tmp / "src");
     fs::create_directories(tmp / "dst");

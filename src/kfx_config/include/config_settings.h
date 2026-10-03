@@ -22,6 +22,7 @@
 #include "globals.h"
 #include "bflib_basics.h"
 #include "bflib_video.h" // TbScreenMode
+#include "bflib_sound.h" // VOLUME_SETTING_MAX
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,6 +133,14 @@ int64_t save_settings(void);
 void setup_default_settings(void);
 
 int64_t get_max_i_can_see_from_settings(void);
+
+// The volume settings (sound/music/mentor, and ATMOS_VOLUME) are stored
+// 0-VOLUME_SETTING_MAX (bflib_sound.h); the settings screen shows them as
+// 0-100, 1 point per step. Rounded to nearest both ways, so every percentage
+// maps to its own stored value and back. How loud each step plays is
+// volume_setting_gain()'s curve.
+int64_t volume_setting_to_percent(int64_t volume);
+int64_t volume_setting_from_percent(int64_t percent);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -900,12 +900,19 @@ static void append_git_sha(char *buf, size_t buflen)
 }
 
 /**
- * Every game is recorded to replays/<campaign|freeplay|multiplayer>/ unless
- * MAX_REPLAYS says 0 for its kind (or -packetsave/-packetload is in use);
- * the oldest recordings of that kind beyond the limit are deleted first.
+ * With AUTOSAVE_REPLAYS on, a game is recorded to replays/<campaign|freeplay|multiplayer>/
+ * unless MAX_REPLAYS says 0 for its kind; the oldest recordings of that kind beyond the
+ * limit are deleted first. Called for a normal level start only (startup_network_game_tail),
+ * never for editor playtests, -packetsave/-packetload or functional-test runs.
  */
 TbBool setup_auto_replay_save(void)
 {
+    if (!autosave_replays)
+        return false;
+#ifdef FUNCTESTING
+    if (flag_is_set(start_params.functest_flags, FTF_Enabled))
+        return false;
+#endif
     LevelNumber lvnum = get_loaded_level_number();
     int64_t type;
     if (is_multiplayer_level(lvnum))

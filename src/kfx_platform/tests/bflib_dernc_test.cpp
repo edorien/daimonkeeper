@@ -22,6 +22,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <unistd.h>
 
 TEST_CASE("rnc_crc of an empty buffer is 0", "[kfx_platform][bflib_dernc]") {
     CHECK(rnc_crc(const_cast<char*>(""), 0) == 0);
@@ -44,7 +46,10 @@ TEST_CASE("UnpackM1 returns 0 (not RNC-compressed) for a buffer whose signature 
 }
 
 namespace {
-const char *kTestFile = "kfx_platform_utest_dernc_test.bin";
+// One file per process: ctest runs each test case as its own process, in
+// parallel, so a shared name lets one case delete another's file.
+const std::string kTestFileStr = "kfx_platform_utest_dernc_test_" + std::to_string(getpid()) + ".bin";
+const char *const kTestFile = kTestFileStr.c_str();
 
 struct ScratchFile {
     ScratchFile() { std::remove(kTestFile); }
@@ -106,8 +111,10 @@ TEST_CASE("calculate_file_checksum returns 0 for a nonexistent file", "[kfx_plat
 // cleans kTestFile, so a failed assertion mid-test still doesn't leak a
 // stray .tmp file for the next test run to trip over.
 namespace {
-const char *kAtomicTestFile = "kfx_platform_utest_dernc_atomic_test.bin";
-const char *kAtomicTestFileTmp = "kfx_platform_utest_dernc_atomic_test.bin.tmp";
+const std::string kAtomicTestFileStr = "kfx_platform_utest_dernc_atomic_test_" + std::to_string(getpid()) + ".bin";
+const char *const kAtomicTestFile = kAtomicTestFileStr.c_str();
+const std::string kAtomicTestFileTmpStr = kAtomicTestFileStr + ".tmp";
+const char *const kAtomicTestFileTmp = kAtomicTestFileTmpStr.c_str();
 
 struct ScratchAtomicFile {
     ScratchAtomicFile() { std::remove(kAtomicTestFile); std::remove(kAtomicTestFileTmp); }

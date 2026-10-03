@@ -507,8 +507,6 @@ static TbBool init_level(void)
 static void post_init_level(void)
 {
     SYNCDBG(8,"Starting");
-    if (!kfx_net_state.packet_save_enable && !kfx_sim_state.replay_active)
-        setup_auto_replay_save();
     if (kfx_net_state.packet_save_enable)
         open_new_packet_file_for_save();
     calculate_dungeon_area_scores();
@@ -669,6 +667,10 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
         SYNCDBG(5,"Setting up uninitialized players as zombie players");
         setup_zombie_players();
     }
+    // Only a normal level start is autosaved (AUTOSAVE_REPLAYS): not an editor playtest,
+    // which runs post_init_level() from its own tail, nor a -packetsave/-packetload game.
+    if (!kfx_net_state.packet_save_enable && !kfx_sim_state.replay_active)
+        setup_auto_replay_save();
     post_init_level();
     post_init_players();
     post_init_packets();

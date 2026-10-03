@@ -58,6 +58,9 @@ extern "C" {
 #endif
 /******************************************************************************/
 
+static TbBool get_autosave_replays(void) { return autosave_replays; }
+static void set_autosave_replays(TbBool val) { autosave_replays = val; }
+
 static TbBool get_freeze_on_focus_lost(void) { return is_feature_on(Ft_FreezeOnLoseFocus); }
 static void set_freeze_on_focus_lost(TbBool val)
 {
@@ -440,7 +443,7 @@ static void set_delta_time(TbBool val)
 // config_keeperfx.c) checks logicval_type for ALWAYS/NEVER *before* falling
 // back to a dedicated table for the WHEEL/rotation-key tokens -- there's no
 // single existing NamedCommand table covering the whole value space the way
-// atmos_volume[]/tag_modes[] do for their options. These two purpose-built
+// atmos_freq[]/tag_modes[] do for their options. These two purpose-built
 // tables exist only for the schema: their names are literal tokens the
 // parser's combined ALWAYS/NEVER-then-fallback logic already accepts, and
 // their .num values match keeperfx_ui_config.zoom_to_mouse_option/
@@ -468,7 +471,7 @@ static int64_t get_rotate_around_mouse(void) { return keeperfx_ui_config.rotate_
 static void set_rotate_around_mouse(int64_t val) { keeperfx_ui_config.rotate_around_mouse_option = (int64_t)val; }
 
 // SCREENSHOT reuses scrshot_type[] (config_keeperfx.c) the same way
-// ATMOS_VOLUME reuses atmos_volume[] -- but unlike every other row so far,
+// ATMOS_FREQUENCY reuses atmos_freq[] -- but unlike every other row so far,
 // screenshot_format (kfx_render-owned, scrcapt.h) only had a *setter*
 // callback (config_keeperfx.c's own SCREENSHOT config-key case has never
 // needed to read it back). Added get_screenshot_format to
@@ -875,10 +878,14 @@ const struct SettingOption setting_options[] = {
         .cfg_bool_inverted = true,
     },
     {
-        .cfg_key = "ATMOS_VOLUME", .type = SOptT_Enum, .category = SCat_Sound, .apply_class = SApply_Live,
+        // A volume slider like the sound/music/mentor ones (0-255, shown 0-100). The parser
+        // (config_keeperfx.c, case 11) still reads KeeperFX's LOW/MEDIUM/HIGH
+        // (64/128/255); this writes the number.
+        .cfg_key = "ATMOS_VOLUME", .type = SOptT_Int, .category = SCat_Sound, .apply_class = SApply_Live,
         .label_stridx = GUIStr_SetAtmosVolume,
         .help_stridx = GUIStr_HelpAtmosVolume,
-        .enum_table = atmos_volume, .get_enum = &get_atmos_volume, .set_enum = &set_atmos_volume,
+        .get_int = &get_atmos_volume, .set_int = &set_atmos_volume, .int_min = 0, .int_max = ATMOS_VOLUME_MAX,
+        .int_is_volume = true,
     },
     {
         .cfg_key = "ATMOS_FREQUENCY", .type = SOptT_Enum, .category = SCat_Sound, .apply_class = SApply_Live,
@@ -951,6 +958,14 @@ const struct SettingOption setting_options[] = {
                         "NORMAL: errors, warnings and progress (the default). DEBUG: extra detail for bug "
                         "reports. DEBUGMAX: everything; the log grows quickly.",
         .enum_table = log_level_type, .get_enum = &get_log_level_opt, .set_enum = &set_log_level_opt,
+    },
+    {
+        // Read when a level starts (setup_auto_replay_save), so it applies from the next game.
+        .cfg_key = "AUTOSAVE_REPLAYS", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
+        .label_literal = "Save replays",
+        .help_literal = "Record every game you play as a replay in the replays folder, keeping the "
+                        "newest few of each kind (MAX_REPLAYS in keeperfx.cfg). Applies from the next game.",
+        .get_bool = &get_autosave_replays, .set_bool = &set_autosave_replays,
     },
     {
         .cfg_key = "GPU_DEBUG", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_NeedsRestart,

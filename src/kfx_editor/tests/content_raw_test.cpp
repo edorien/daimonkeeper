@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -32,7 +34,8 @@ struct Tree
     fs::path root;
     Tree()
     {
-        root = fs::temp_directory_path() / "kfx_content_raw_test";
+        // per process: ctest runs each case as its own process, in parallel
+        root = fs::temp_directory_path() / ("kfx_content_raw_test_" + std::to_string(getpid()));
         fs::remove_all(root);
         spit(root / "fxdata" / "trapdoor.cfg", "[trap1]\nName = A\nHealth = 7\nShots = 2\n");
         spit(root / "fxdata" / "notes.toml", "x = 1\n");

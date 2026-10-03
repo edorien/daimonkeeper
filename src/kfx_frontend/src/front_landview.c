@@ -341,15 +341,15 @@ void update_frontmap_ambient_sound(void)
         if ((features_enabled & Ft_AdvAmbSound) != 0)
         {
             int64_t factor = compute_sound_good_to_bad_factor();
-            SetSampleVolume(emit_id, campaign.ambient_good, (map_sound_fade * (((int64_t)settings.sound_volume * factor) / FULL_LOUDNESS)) / FULL_LOUDNESS);
-            SetSampleVolume(emit_id, campaign.ambient_bad, (map_sound_fade * (((int64_t)settings.sound_volume * (FULL_LOUDNESS - factor)) / FULL_LOUDNESS)) / FULL_LOUDNESS);
+            SetSampleVolume(emit_id, campaign.ambient_good, (map_sound_fade * (((int64_t)volume_setting_curve(settings.sound_volume) * factor) / FULL_LOUDNESS)) / FULL_LOUDNESS);
+            SetSampleVolume(emit_id, campaign.ambient_bad, (map_sound_fade * (((int64_t)volume_setting_curve(settings.sound_volume) * (FULL_LOUDNESS - factor)) / FULL_LOUDNESS)) / FULL_LOUDNESS);
         } else
         if (lvidx > 13)
         {
-            SetSampleVolume(emit_id, campaign.ambient_bad, ((int64_t)settings.sound_volume * map_sound_fade) / FULL_LOUDNESS);
+            SetSampleVolume(emit_id, campaign.ambient_bad, ((int64_t)volume_setting_curve(settings.sound_volume) * map_sound_fade) / FULL_LOUDNESS);
         } else
         {
-        SetSampleVolume(emit_id, campaign.ambient_good, ((int64_t)settings.sound_volume * map_sound_fade) / FULL_LOUDNESS);
+        SetSampleVolume(emit_id, campaign.ambient_good, ((int64_t)volume_setting_curve(settings.sound_volume) * map_sound_fade) / FULL_LOUDNESS);
         }
         set_streamed_sample_volume(((int64_t)settings.sound_volume * map_sound_fade) / FULL_LOUDNESS);
         set_music_volume((map_sound_fade * settings.music_volume) / FULL_LOUDNESS);

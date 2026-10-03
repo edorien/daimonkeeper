@@ -729,6 +729,18 @@ TbBool load_settings(void)
     return true;
 }
 
+int64_t volume_setting_to_percent(int64_t volume)
+{
+    volume = clamp(volume, 0, VOLUME_SETTING_MAX);
+    return (volume * 100 + VOLUME_SETTING_MAX / 2) / VOLUME_SETTING_MAX;
+}
+
+int64_t volume_setting_from_percent(int64_t percent)
+{
+    percent = clamp(percent, 0, 100);
+    return (percent * VOLUME_SETTING_MAX + 50) / 100;
+}
+
 int64_t save_settings(void)
 {
     bf_sound_set_volume_config(settings.sound_volume, settings.mentor_volume);

@@ -17,6 +17,9 @@
 #include "config_keeperfx.h"
 #include "game_saves.h"
 #include "ports/sim_port.h"
+#include "ports/file_path_port.h"
+#include "file_path_port_impl.h"
+#include "config_campaigns.h"
 #include "sim_port_impl.h"
 #include "save_catalogue.h"
 
@@ -235,4 +238,69 @@ TEST_CASE_METHOD(DropFixture, "a recorded chat message is replayed on its own tu
             CHECK(std::string(kfx_sim_state.players[0].mp_pending_message) == msg);
         }
     }
+}
+
+// Autosaved replays (upstream #5359) are opt-in in this fork: AUTOSAVE_REPLAYS, off by default.
+namespace {
+struct AutosaveFixture : DropFixture {
+    ReplayFile file; // scratch runtime dir, so replays/ lands in it
+    TbBool prev_autosave = autosave_replays;
+    uint64_t prev_max[ReplTyp_Count];
+    AutosaveFixture() {
+        std::memcpy(prev_max, max_replays, sizeof(prev_max));
+        set_file_path_port(&kfx_config_file_path_port);
+        std::memset(&campaign, 0, sizeof(campaign));
+        kfx_net_state.packet_save_enable = false;
+        kfx_net_state.packet_fname[0] = '\0';
+    }
+    ~AutosaveFixture() {
+        autosave_replays = prev_autosave;
+        std::memcpy(max_replays, prev_max, sizeof(prev_max));
+        set_file_path_port(nullptr);
+    }
+};
+}
+
+TEST_CASE_METHOD(AutosaveFixture, "no replay is recorded while AUTOSAVE_REPLAYS is off", "[kfx_game][game_replay]") {
+    autosave_replays = false;
+    CHECK_FALSE(setup_auto_replay_save());
+    CHECK_FALSE(kfx_net_state.packet_save_enable);
+    CHECK(kfx_net_state.packet_fname[0] == '\0');
+}
+
+TEST_CASE_METHOD(AutosaveFixture, "with AUTOSAVE_REPLAYS on, a campaign level records to replays/campaign/", "[kfx_game][game_replay]") {
+    autosave_replays = true;
+    REQUIRE(setup_auto_replay_save());
+    CHECK(kfx_net_state.packet_save_enable);
+    const std::string fname = kfx_net_state.packet_fname;
+    const std::string dir = (file.root / "replays" / "campaign").string() + "/";
+    CHECK(fname.rfind(dir, 0) == 0);
+    CHECK(fname.substr(dir.size() + 15, 3) == "_c1"); // timestamp, then kind and human count
+    CHECK(fname.size() > 4);
+    CHECK(fname.substr(fname.size() - 4) == ".pck");
+}
+
+TEST_CASE_METHOD(AutosaveFixture, "MAX_REPLAYS 0 for the kind records nothing", "[kfx_game][game_replay]") {
+    autosave_replays = true;
+    max_replays[ReplTyp_Campaign] = 0;
+    CHECK_FALSE(setup_auto_replay_save());
+    CHECK_FALSE(kfx_net_state.packet_save_enable);
+}
+
+TEST_CASE_METHOD(AutosaveFixture, "a new recording evicts the oldest ones of its kind beyond MAX_REPLAYS", "[kfx_game][game_replay]") {
+    namespace fs = std::filesystem;
+    autosave_replays = true;
+    max_replays[ReplTyp_Campaign] = 2; // room for one old one plus the new one
+    const fs::path dir = file.root / "replays" / "campaign";
+    fs::create_directories(dir);
+    for (const char *name : {"20200101T000000_c1_map00001_v100.pck", "20200102T000000_c1_map00001_v100.pck",
+                             "20200103T000000_c1_map00001_v100.pck", "notes.pck"})
+        std::ofstream(dir / name) << "x";
+
+    REQUIRE(setup_auto_replay_save());
+
+    CHECK_FALSE(fs::exists(dir / "20200101T000000_c1_map00001_v100.pck"));
+    CHECK_FALSE(fs::exists(dir / "20200102T000000_c1_map00001_v100.pck"));
+    CHECK(fs::exists(dir / "20200103T000000_c1_map00001_v100.pck"));
+    CHECK(fs::exists(dir / "notes.pck")); // not a replay name: never touched
 }

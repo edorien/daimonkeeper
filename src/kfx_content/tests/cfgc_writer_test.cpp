@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -256,7 +257,7 @@ TEST_CASE("create() writes a header line and reads back as the same content", "[
 
 TEST_CASE("write() puts, patches and deletes files through the batch", "[cfgc_writer]")
 {
-    const fs::path root = fs::temp_directory_path() / "kfx_writer_test";
+    const fs::path root = fs::temp_directory_path() / ("kfx_writer_test_" + std::to_string(getpid()));
     fs::remove_all(root);
     spit(root / "base" / "trapdoor.cfg", "[trap1]\nName = A\nHealth = 7\n");
     ConfigTarget t;

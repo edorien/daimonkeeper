@@ -1244,6 +1244,8 @@ static int64_t get_status_panel_keyboard_action_inputs(void)
   if (is_key_pressed(KC_1, KMod_NONE))
   {
     clear_key_pressed(KC_1);
+    if (ingame_minimal_tab_hotkey(GMnu_QUERY, true))
+      return false;
     struct GuiButton* gbtn = get_gui_button(BID_QUERY_2);
     if (gbtn != NULL)
     {
@@ -1268,6 +1270,8 @@ static int64_t get_status_panel_keyboard_action_inputs(void)
   if (is_key_pressed(KC_2, KMod_NONE))
   {
     clear_key_pressed(KC_2);
+    if (ingame_minimal_tab_hotkey(GMnu_ROOM, true))
+      return false;
     struct GuiButton *gbtn = get_gui_button(BID_ROOM_NXPG);
     if (gbtn != NULL)
     {
@@ -1303,6 +1307,8 @@ static int64_t get_status_panel_keyboard_action_inputs(void)
   if (is_key_pressed(KC_3, KMod_NONE))
   {
     clear_key_pressed(KC_3);
+    if (ingame_minimal_tab_hotkey(GMnu_SPELL, true))
+      return false;
     struct GuiButton *gbtn = get_gui_button(BID_POWER_NXPG);
     if (gbtn != NULL)
     {
@@ -1338,6 +1344,8 @@ static int64_t get_status_panel_keyboard_action_inputs(void)
   if (is_key_pressed(KC_4, KMod_NONE))
   {
     clear_key_pressed(KC_4);
+    if (ingame_minimal_tab_hotkey(GMnu_TRAP, true))
+      return false;
     struct GuiButton *gbtn = get_gui_button(BID_MNFCT_NXPG);
     if (gbtn != NULL)
     {
@@ -1373,15 +1381,19 @@ static int64_t get_status_panel_keyboard_action_inputs(void)
   if (is_key_pressed(KC_5, KMod_NONE))
   {
     clear_key_pressed(KC_5);
+    if (ingame_minimal_tab_hotkey(GMnu_CREATURE, true))
+      return false;
     fake_button_click(BID_CREATR_TAB);
   }
   
   if(is_game_key_pressed(Gkey_NextInstance, true, false))
   {
+    ingame_minimal_tab_hotkey(GMnu_QUERY, false);
     go_to_adjacent_menu_tab(1);
   }
   if(is_game_key_pressed(Gkey_PrevInstance, true, false))
   {
+      ingame_minimal_tab_hotkey(GMnu_QUERY, false);
       go_to_adjacent_menu_tab(-1);
   }   
 

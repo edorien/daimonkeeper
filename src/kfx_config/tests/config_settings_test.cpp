@@ -46,3 +46,28 @@ TEST_CASE("get_max_i_can_see_from_settings indexes the visibility table by view_
     int64_t at_0 = get_max_i_can_see_from_settings();
     CHECK(at_0 != at_3); // a real, distinct table entry, not a degenerate constant
 }
+
+TEST_CASE("volume_setting_to_percent/_from_percent map 0-255 onto 0-100, 100 being 255", "[kfx_config][config_settings]") {
+    CHECK(volume_setting_to_percent(0) == 0);
+    CHECK(volume_setting_to_percent(255) == 100);
+    CHECK(volume_setting_to_percent(127) == 50); // the default sound/mentor volume
+    CHECK(volume_setting_to_percent(90) == 35);  // the default music volume
+    CHECK(volume_setting_from_percent(0) == 0);
+    CHECK(volume_setting_from_percent(100) == 255);
+    CHECK(volume_setting_from_percent(50) == 128);
+    // out of range is clamped
+    CHECK(volume_setting_to_percent(-5) == 0);
+    CHECK(volume_setting_to_percent(300) == 100);
+    CHECK(volume_setting_from_percent(-1) == 0);
+    CHECK(volume_setting_from_percent(150) == 255);
+}
+
+TEST_CASE("volume_setting_from_percent gives every percentage its own stored value, which reads back as the same percentage", "[kfx_config][config_settings]") {
+    int64_t prev = -1;
+    for (int64_t percent = 0; percent <= 100; percent++) {
+        const int64_t volume = volume_setting_from_percent(percent);
+        CHECK(volume > prev);
+        CHECK(volume_setting_to_percent(volume) == percent);
+        prev = volume;
+    }
+}

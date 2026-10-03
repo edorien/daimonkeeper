@@ -1245,3 +1245,25 @@ void ingame_panel_frame(void)
 }
 
 bool ingame_minimal_popup_is_open(void) { return s_minimal_popup_open; }
+
+int ingame_minimal_tab_hotkey(int64_t menu_id, int toggle)
+{
+    if (keeperfx_ui_config.hud_position != 4 || ingame_gui_use_classic_hud()) // HudPos_Minimal
+        return 0;
+    if (toggle && s_minimal_popup_open)
+    {
+        // Each tab's second page counts as the same tab, as in
+        // go_to_adjacent_menu_tab().
+        bool sel = menu_is_active((MenuID)menu_id);
+        if ((MenuID)menu_id == GMnu_ROOM)  sel = sel || menu_is_active(GMnu_ROOM2);
+        if ((MenuID)menu_id == GMnu_SPELL) sel = sel || menu_is_active(GMnu_SPELL2);
+        if ((MenuID)menu_id == GMnu_TRAP)  sel = sel || menu_is_active(GMnu_TRAP2);
+        if (sel)
+        {
+            s_minimal_popup_open = false;
+            return 1;
+        }
+    }
+    s_minimal_popup_open = true;
+    return 0;
+}

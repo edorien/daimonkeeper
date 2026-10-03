@@ -97,8 +97,9 @@ struct SoundReceiver { // sizeof = 17
     int64_t rotation_angle_y;
     int64_t rotation_angle_z;
     uint64_t flags;
-    unsigned char sensivity;
+    unsigned char sensivity; // 0-RECEIVER_FULL_SENSITIVITY; the dungeon view lowers it as the camera zooms out
 };
+#define RECEIVER_FULL_SENSITIVITY 64
 
 struct S3DSample { // sizeof = 37
   uint64_t priority;
@@ -119,7 +120,12 @@ struct S3DSample { // sizeof = 37
 
 /******************************************************************************/
 // Exported variables
+// The volume settings (sound/music/mentor in settings.toml, ATMOS_VOLUME in
+// the base config) are stored 0-VOLUME_SETTING_MAX and shown as 0-100.
+#define VOLUME_SETTING_MAX 255
+// ATMOS_VOLUME: 0-ATMOS_VOLUME_MAX, a volume setting like the others.
 extern int64_t atmos_sound_volume;
+#define ATMOS_VOLUME_MAX VOLUME_SETTING_MAX
 extern TbBool SoundDisabled;
 extern int64_t MaxSoundDistance;
 extern struct SoundReceiver Receiver;
@@ -179,12 +185,30 @@ void S3DSetDeadzoneRadius(int64_t dzradius);
 void play_non_3d_sample(SoundSmplTblID);
 void play_non_3d_sample_no_overlap(SoundSmplTblID);
 void play_atmos_sound(SoundSmplTblID);
+// The loudness play_atmos_sound() uses, and keeps playing atmos sounds at:
+// atmos_volume (ATMOS_VOLUME) scaled by the sound effects volume and by the
+// receiver sensitivity (zooming out lowers it), 0 when muted.
+SoundVolume atmos_sound_loudness(int64_t atmos_volume, int64_t sound_volume, SoundVolume master_volume, int64_t sensitivity);
 
-// Registers the current sound/mentor volume settings (0-127, matching
+// Registers the current sound/mentor volume settings (0-VOLUME_SETTING_MAX, matching
 // struct GameSettings), so this file doesn't need config_settings.h's
 // mutable `settings` global directly. Called whenever the settings change.
 // See docs/refactor/stage-02-decouple-bflib.md.
 void bf_sound_set_volume_config(unsigned char sound_volume, int64_t mentor_volume);
+
+// Volume settings turn into gain on a curve, gain = (setting/max)^2, so the
+// sliders are even to the ear: a linear gain puts 10% at only -20 dB, which
+// still sounds about a quarter as loud as full. On the curve 10% is -40 dB,
+// 50% is -12 dB. Every place a volume setting becomes a gain goes through
+// one of these (music and streamed speech inside set_music_volume() and
+// play_streamed_sample()/set_streamed_sample_volume(), which take a setting,
+// possibly faded, and apply it themselves).
+double volume_setting_gain(int64_t setting);        // 0.0-1.0
+SoundVolume volume_setting_curve(int64_t setting);  // the same, back on the 0-VOLUME_SETTING_MAX scale
+// A sound effect's (or OpenAL speech's) loudness scale, 0-2*FULL_LOUDNESS:
+// FULL_LOUDNESS * 2 * gain, keeping the old headroom where a full slider
+// plays effects at twice their sample loudness.
+SoundVolume volume_setting_scale(int64_t setting);
 
 // Registers the configured atmospheric-sound sample ID range and enabled
 // flag (resolved once from config at startup), so this file doesn't need

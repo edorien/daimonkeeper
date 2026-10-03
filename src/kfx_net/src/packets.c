@@ -183,7 +183,7 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
         if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
         {
           SetSoundMasterVolume(settings.sound_volume >> 1);
-          set_music_volume(settings.music_volume >> 1);
+          set_music_volume((settings.music_volume * 181) >> 8); // half the gain: 1/sqrt(2) on volume_setting_gain()'s squared curve
         } else
         {
           SetSoundMasterVolume(settings.sound_volume);

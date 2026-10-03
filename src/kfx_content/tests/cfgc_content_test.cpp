@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -39,7 +40,8 @@ struct TempDir
     fs::path path;
     explicit TempDir(const char *tag)
     {
-        path = fs::temp_directory_path() / (std::string("kfx_wb_") + tag);
+        // per process: ctest runs each case as its own process, in parallel
+        path = fs::temp_directory_path() / (std::string("kfx_wb_") + tag + "_" + std::to_string(getpid()));
         fs::remove_all(path);
         fs::create_directories(path);
     }

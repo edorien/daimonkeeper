@@ -22,6 +22,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "bflib_basics.h"
 #include "bflib_math.h"
@@ -73,6 +74,22 @@ void bf_sound_set_volume_config(unsigned char sound_volume, int64_t mentor_volum
     bf_mentor_volume = mentor_volume;
 }
 
+double volume_setting_gain(int64_t setting)
+{
+    const double frac = (double)clamp(setting, 0, VOLUME_SETTING_MAX) / VOLUME_SETTING_MAX;
+    return frac * frac;
+}
+
+SoundVolume volume_setting_curve(int64_t setting)
+{
+    return (SoundVolume)lround(VOLUME_SETTING_MAX * volume_setting_gain(setting));
+}
+
+SoundVolume volume_setting_scale(int64_t setting)
+{
+    return (SoundVolume)lround(2.0 * FULL_LOUDNESS * volume_setting_gain(setting));
+}
+
 void bf_sound_set_atmos_config(int64_t atmos_start, int64_t atmos_end, int64_t atmos_repeat, TbBool atmos_enabled)
 {
     bf_atmos_start = atmos_start;
@@ -92,6 +109,7 @@ int64_t get_sample_id(struct S3DSample *sample);
 void kick_out_sample(int64_t smpl_id);
 TbBool emitter_is_playing(struct SoundEmitter *emit);
 TbBool remove_active_samples_from_emitter(struct SoundEmitter *emit);
+static void update_atmos_sound_volumes(struct SoundEmitter *emit);
 /******************************************************************************/
 // Functions
 
@@ -527,7 +545,10 @@ TbBool process_sound_emitters(void)
         {
             if ( emitter_is_playing(emit) )
             {
-                if (i == Non3DEmitter || i == SpeechEmitter) {
+                if (i == Non3DEmitter) {
+                    update_atmos_sound_volumes(emit); // its other samples are short; don't touch them
+                    continue;
+                } else if (i == SpeechEmitter) {
                     continue; // don't touch
                 } else {
                     get_emitter_pan_volume_pitch(&Receiver, emit, &pan, &volume, &pitch);
@@ -635,7 +656,7 @@ void play_non_3d_sample(SoundSmplTblID sample_idx)
         return;
 
     // Set sound volume setting
-    SoundVolume adjusted_volume = LbLerp(0, FULL_LOUDNESS, (double)bf_sound_volume/127.0); // [0-127] rescaled to [0-256]
+    SoundVolume adjusted_volume = volume_setting_scale(bf_sound_volume);
 
     if (Non3DEmitter != 0)
       if (!sound_emitter_in_use(Non3DEmitter))
@@ -660,7 +681,7 @@ void play_non_3d_sample_no_overlap(SoundSmplTblID smpl_idx)
         return;
 
     // Set sound volume setting
-    SoundVolume adjusted_volume = LbLerp(0, FULL_LOUDNESS, (double)bf_sound_volume/127.0); // [0-127] rescaled to [0-256]
+    SoundVolume adjusted_volume = volume_setting_scale(bf_sound_volume);
 
     if (Non3DEmitter != 0)
     {
@@ -680,6 +701,64 @@ void play_non_3d_sample_no_overlap(SoundSmplTblID smpl_idx)
     }
 }
 
+static TbBool is_atmos_sample(SoundSmplTblID smptbl_id)
+{
+    return ((smptbl_id >= bf_atmos_start) && (smptbl_id <= bf_atmos_end)) || (smptbl_id == bf_atmos_repeat);
+}
+
+/**
+ * The loudness an atmospheric sound plays at: the atmos volume scaled by the
+ * sound effects volume, like every other effect, and by the receiver's
+ * sensitivity -- which the dungeon view lowers as the camera zooms out
+ * (update_3d_sound_receiver()), quietening every 3D sound the same way,
+ * down to 1/4. Atmos sounds have no position, so they don't get the 3D
+ * sounds' distance or line-of-sight fall-off; without this they stayed at
+ * full level while everything else faded. 0 while the sound master volume
+ * is 0 (muted).
+ */
+SoundVolume atmos_sound_loudness(int64_t atmos_volume, int64_t sound_volume, SoundVolume master_volume, int64_t sensitivity)
+{
+    if (master_volume <= 0)
+        return 0;
+    sensitivity = clamp(sensitivity, 0, RECEIVER_FULL_SENSITIVITY);
+    const double loudness = VOLUME_SETTING_MAX * volume_setting_gain(atmos_volume) * volume_setting_scale(sound_volume) / FULL_LOUDNESS;
+    return (SoundVolume)lround(loudness * sensitivity / RECEIVER_FULL_SENSITIVITY);
+}
+
+static SoundVolume get_atmos_sound_loudness(void)
+{
+    return atmos_sound_loudness(atmos_sound_volume, bf_sound_volume, GetCurrentSoundMasterVolume(), Receiver.sensivity);
+}
+
+/**
+ * Brings the atmospheric sounds still playing on the non-3D emitter to the
+ * current get_atmos_sound_loudness(). The non-3D emitter is never
+ * re-volumed by process_sound_emitters(), so an atmos sample kept the
+ * loudness it started with: some run for many seconds (longer still at the
+ * lowered pitches play_atmos_sound() uses), and turning the sound or atmos
+ * volume down, or muting, left them playing at the old level.
+ */
+static void update_atmos_sound_volumes(struct SoundEmitter *emit)
+{
+    const SoundVolume loudness = get_atmos_sound_loudness();
+    for (int64_t i = 0; i < MaxNoSounds; i++)
+    {
+        struct S3DSample* sample = &SampleList[i];
+        if ((sample->is_playing == 0) || (sample->emit_ptr != emit) || !is_atmos_sample(sample->smptbl_id))
+            continue;
+        if (sample->base_volume == (uint64_t)loudness)
+            continue;
+        int64_t pan;
+        int64_t volume;
+        int64_t pitch;
+        get_emitter_pan_volume_pitch(&Receiver, emit, &pan, &volume, &pitch);
+        volume = (volume * loudness) / 256; // as start_emitter_playing() does
+        SetSampleVolume(get_emitter_id(emit), sample->smptbl_id, volume);
+        sample->volume = volume;
+        sample->base_volume = loudness;
+    }
+}
+
 void play_atmos_sound(SoundSmplTblID smpl_idx)
 {
     if (SoundDisabled)
@@ -687,9 +766,7 @@ void play_atmos_sound(SoundSmplTblID smpl_idx)
     if (GetCurrentSoundMasterVolume() <= 0)
         return;
 
-    // Apply sound volume setting to atmospheric volume
-    SoundVolume volume_scale = LbLerp(0, FULL_LOUDNESS, (double)bf_sound_volume/127.0); // [0-127] rescaled to [0-256]
-    SoundVolume adjusted_volume = (atmos_sound_volume * volume_scale) / FULL_LOUDNESS;
+    SoundVolume adjusted_volume = get_atmos_sound_loudness();
 
     int64_t ATMOS_SOUND_PITCH = (73 + (LbRandomSeries(10, soundhost_get_sound_random_seed(), __func__, __LINE__) * 6));
     // ATMOS0 has bigger range in pitch than other atmos sounds.
@@ -864,7 +941,7 @@ int64_t play_speech_sample(SoundSmplTblID smptbl_id)
       }
     }
     SpeechEmitter = sp_emiter;
-    int64_t adjusted_volume = LbLerp(0, FULL_LOUDNESS, (double)bf_mentor_volume/127.0); // [0-127] rescaled to [0-256]
+    int64_t adjusted_volume = volume_setting_scale(bf_mentor_volume);
     SoundSmplTblID unified_id = get_speech_offset() + smptbl_id;
 
     if (sp_emiter != 0)
@@ -927,7 +1004,7 @@ void stop_atmos_sounds(void)
             for (int64_t i = 0; i < MaxNoSounds; i++)
             {
                 struct S3DSample* sample = &SampleList[i];
-                if ( ( (sample->smptbl_id >= bf_atmos_start) && (sample->smptbl_id <= bf_atmos_end) ) || (sample->smptbl_id == bf_atmos_repeat) )
+                if (is_atmos_sample(sample->smptbl_id))
                 {
                     if ((sample->is_playing != 0) && (sample->emit_ptr == emit))
                     {

@@ -41,6 +41,15 @@ bool ingame_minimal_popup_is_open(void);
 extern "C" {
 #endif
 void ingame_panel_minimap_screen_pos(int64_t *x, int64_t *y);
+
+// Minimal layout only (docs/refactor/ingame-gui/13-minimal-layout.md §2.2):
+// the keyboard tab hotkeys (front_input.c: keys 1-5, Gkey_Next/PrevInstance)
+// drive the pop-up the way the button cluster's clicks do. Call before the
+// hotkey's own tab switch. With `toggle` set, pressing the key of the tab
+// that is already selected and open closes the pop-up and returns non-zero:
+// the caller then skips its tab switch. Otherwise the pop-up is opened and
+// 0 is returned. A no-op returning 0 in every other GUI_POSITION.
+int ingame_minimal_tab_hotkey(int64_t menu_id, int toggle);
 #ifdef __cplusplus
 }
 #endif

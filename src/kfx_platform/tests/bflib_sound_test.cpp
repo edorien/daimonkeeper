@@ -22,9 +22,12 @@
 // functions with real external linkage had no header declaration at
 // all either (only ever called from within this file); all added.
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include "bflib_sound.h"
+#include "bflib_sndlib.h" // GetCurrentSoundMasterVolume
 
+#include <cmath>
 #include <cstring>
 
 namespace {
@@ -449,4 +452,73 @@ TEST_CASE_METHOD(SoundFixture, "stop_atmos_sounds is a safe no-op when Non3DEmit
     // whole loop before it can reach the real stop_sample().
     stop_atmos_sounds();
     CHECK(true); // must not crash
+}
+
+// The non-3D emitter is skipped by process_sound_emitters()'s re-volume
+// pass, so an atmospheric sound (often many seconds long) used to keep the
+// loudness it started at: turning the sound or atmos volume down, or muting,
+// didn't reach it. process_sound_emitters() now re-volumes just the atmos
+// samples on it, to atmos_sound_loudness(). SetSampleVolume() only walks the
+// (here empty) OpenAL source list, so no real audio is touched. The sound
+// master volume can't be raised without a real OpenAL context, so the
+// process-level case is the muted one (master volume 0, as in this binary).
+TEST_CASE("volume_setting_gain is a squared curve: 10% of the slider is about -40 dB, 50% about -12 dB", "[kfx_platform][bflib_sound]") {
+    CHECK(volume_setting_gain(0) == 0.0);
+    CHECK(volume_setting_gain(VOLUME_SETTING_MAX) == 1.0);
+    CHECK(20.0 * std::log10(volume_setting_gain(26)) == Catch::Approx(-39.7).margin(0.1));   // 10%
+    CHECK(20.0 * std::log10(volume_setting_gain(128)) == Catch::Approx(-12.0).margin(0.1));  // 50%
+    CHECK(volume_setting_gain(-3) == 0.0); // clamped
+    CHECK(volume_setting_gain(300) == 1.0);
+    CHECK(volume_setting_gain(256) == 1.0); // mentor_volume's own clamp allows FULL_LOUDNESS
+}
+
+TEST_CASE("volume_setting_curve/_scale put the curve back on the setting and effect-loudness scales", "[kfx_platform][bflib_sound]") {
+    CHECK(volume_setting_curve(0) == 0);
+    CHECK(volume_setting_curve(VOLUME_SETTING_MAX) == VOLUME_SETTING_MAX);
+    CHECK(volume_setting_curve(128) == 64);
+    CHECK(volume_setting_scale(0) == 0);
+    CHECK(volume_setting_scale(VOLUME_SETTING_MAX) == 2 * FULL_LOUDNESS); // full slider: twice sample loudness, as before
+    CHECK(volume_setting_scale(127) == 127);                              // the default: about half what it was
+}
+
+TEST_CASE("atmos_sound_loudness puts both the atmos and the sound effects volume on the curve, and is 0 when muted", "[kfx_platform][bflib_sound]") {
+    const int64_t full = RECEIVER_FULL_SENSITIVITY;
+    CHECK(atmos_sound_loudness(255, 255, 127, full) == 510);
+    CHECK(atmos_sound_loudness(255, 127, 127, full) == 127);
+    CHECK(atmos_sound_loudness(128, 255, 127, full) == 129); // 255 * (128/255)^2 * 2 = 128.5
+    CHECK(atmos_sound_loudness(128, 0, 127, full) == 0);   // sound effects slider at 0
+    CHECK(atmos_sound_loudness(0, 255, 127, full) == 0);
+    CHECK(atmos_sound_loudness(255, 255, 0, full) == 0);   // mute_audio(true)
+}
+
+TEST_CASE("atmos_sound_loudness follows the receiver sensitivity, so zooming out quietens it like the 3D sounds", "[kfx_platform][bflib_sound]") {
+    CHECK(atmos_sound_loudness(255, 255, 127, RECEIVER_FULL_SENSITIVITY / 2) == 255);
+    CHECK(atmos_sound_loudness(255, 255, 127, RECEIVER_FULL_SENSITIVITY / 4) == 128); // update_3d_sound_receiver()'s furthest zoom: 1/4
+    CHECK(atmos_sound_loudness(255, 255, 127, 0) == 0);
+    CHECK(atmos_sound_loudness(255, 255, 127, 255) == 510); // clamped: never louder than full sensitivity
+}
+
+TEST_CASE_METHOD(SoundFixture, "process_sound_emitters silences a playing atmos sound while muted, leaving other non-3D samples alone", "[kfx_platform][bflib_sound]") {
+    REQUIRE(GetCurrentSoundMasterVolume() == 0); // never set in this binary: muted
+    bf_sound_set_atmos_config(1014, 1034, 1013, true);
+    Non3DEmitter = 3;
+    emitter[3].flags = Emi_IsAllocated | Emi_IsPlaying;
+    emitter[3].emitter_flags = 0x08; // the non-3D emitter: full volume, no distance
+    // An atmos sample started at ATMOS_VOLUME=MEDIUM, and a UI sample.
+    SampleList[0].is_playing = 1;
+    SampleList[0].emit_ptr = &emitter[3];
+    SampleList[0].smptbl_id = 1013;
+    SampleList[0].base_volume = 128;
+    SampleList[0].volume = 63;
+    SampleList[1].is_playing = 1;
+    SampleList[1].emit_ptr = &emitter[3];
+    SampleList[1].smptbl_id = 61;
+    SampleList[1].base_volume = 256;
+    SampleList[1].volume = 127;
+
+    CHECK(process_sound_emitters());
+    CHECK(SampleList[0].base_volume == 0);
+    CHECK(SampleList[0].volume == 0);
+    CHECK(SampleList[1].base_volume == 256);
+    CHECK(SampleList[1].volume == 127);
 }

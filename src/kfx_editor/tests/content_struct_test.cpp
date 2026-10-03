@@ -13,6 +13,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -38,7 +40,8 @@ struct Tree
     fs::path root;
     Tree()
     {
-        root = fs::temp_directory_path() / "kfx_content_struct_test";
+        // per process: ctest runs each case as its own process, in parallel
+        root = fs::temp_directory_path() / ("kfx_content_struct_test_" + std::to_string(getpid()));
         fs::remove_all(root);
         spit(root / "fxdata" / "rules.cfg",
             "[game]\n; pay\nPayDayGap = 10000\nPayDaySpeed = 100\n[research]\nResearch = MAGIC A 1\nResearch = MAGIC B 2\n");

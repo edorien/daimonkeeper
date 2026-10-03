@@ -282,9 +282,10 @@ extern char keeper_runtime_directory[152];
 extern uint64_t features_enabled;
 extern const struct NamedCommand lang_type[];
 extern const struct NamedCommand scrshot_type[];
-// Exposed for config_settingschema.c's SOptT_Enum rows (ATMOS_VOLUME/
-// ATMOS_FREQUENCY/DEFAULT_TAG_MODE) to reuse verbatim -- same tables the
-// parser itself matches keeperfx.cfg values against.
+// Exposed for config_settingschema.c's SOptT_Enum rows (ATMOS_FREQUENCY/
+// DEFAULT_TAG_MODE) to reuse verbatim -- same tables the parser itself
+// matches keeperfx.cfg values against. atmos_volume[] is only the parser's
+// named presets now: ATMOS_VOLUME is a 0-ATMOS_VOLUME_MAX slider row.
 extern const struct NamedCommand atmos_volume[];
 extern const struct NamedCommand atmos_freq[];
 extern const struct NamedCommand tag_modes[];
@@ -307,6 +308,8 @@ enum ReplayTypes {
     ReplTyp_Count,
 };
 extern uint64_t max_replays[ReplTyp_Count];
+// AUTOSAVE_REPLAYS: record every game under replays/ (off unless the player turns it on).
+extern TbBool autosave_replays;
 extern TbBool FLEE_BUTTON_DEFAULT;
 extern TbBool IMPRISON_BUTTON_DEFAULT;
 /******************************************************************************/
@@ -314,6 +317,7 @@ void load_configuration_for_mod_all(void);
 int64_t load_configuration(void);
 void process_cmdline_overrides(void);
 int64_t parse_draw_fps_config_val(const char *arg, int64_t *fps_draw_main, int64_t *fps_draw_secondary);
+int64_t parse_atmos_volume_config_val(const char *arg);
 /******************************************************************************/
 // docs/refactor/renderer/04-imgui-gui-foundation.md §6.2 finding 1: the
 // engine has never had a keeperfx.cfg writer -- save_settings() persists a

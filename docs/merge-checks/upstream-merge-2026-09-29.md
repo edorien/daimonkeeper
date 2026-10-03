@@ -14,7 +14,7 @@ Not run: ftests, real MP/replay sessions.
 | bdd73f153 COMMAND_CHAR removed (#5367) | merged |
 | dc3420dcd StandIn -> Placeholder (#5366) | merged; rename applied to the fork's kfx_sim home and tests too |
 | 62826be5c Lua AddShotToLevel parent (#5363) | merged (lua_params.c stack pops, `lua_isnoneornil`) |
-| 6f9d8cd17 autosaved/compressed replays (#5359) | hand-ported into kfx_game `game_replay.c` (upstream's new `replay.c/.h` not added); `PacketSaveHead.flags`, `PACKET_SAVE_HEAD_VER` 2; REPLAY_MAX_SIZE on fork id 58 (+ PACKETSAVE_MAX_SIZE alias), MAX_REPLAYS on id 66; `FGrp_Replays` in kfx_platform `globals.h` |
+| 6f9d8cd17 autosaved/compressed replays (#5359) | autosave made opt-in (see below); hand-ported into kfx_game `game_replay.c` (upstream's new `replay.c/.h` not added); `PacketSaveHead.flags`, `PACKET_SAVE_HEAD_VER` 2; REPLAY_MAX_SIZE on fork id 58 (+ PACKETSAVE_MAX_SIZE alias), MAX_REPLAYS on id 66; `FGrp_Replays` in kfx_platform `globals.h` |
 | 788c94f97 MP maps 621/623 | merged |
 | d19666f9a no interpolation on Lua move (#5369) | merged |
 | a7aff5e4f all played campaigns (#5360) | **`-s ours`**: legacy-menu Continue/progress rework, CONT chunk, progress files, lang/.po edits not taken (fork has `save/progress.cfg`; upstream's guitext:1124/1125 are the fork's MnuEnterLand/MnuPlayLevel). Ported 3 fixes: Free Play campaign-flag overrun in `reset_script_timers_and_flags`, ensign-override getter bound, `intralvl` cleared on MP start |
@@ -36,7 +36,12 @@ Not run: ftests, real MP/replay sessions.
   Player.type "Placeholder", Lua-teleported thing not sliding, spell-flying creature crossing lava, campaign then
   MP game (no carried-over creatures).
 
+## Follow-up: autosave is opt-in
+Upstream records every game. This fork adds `AUTOSAVE_REPLAYS` (keeperfx.cfg id 67, **default FALSE**, also an
+options-menu row "Save replays"). `setup_auto_replay_save()` moved out of `post_init_level()` into
+`startup_network_game_tail()`, so editor playtests (their own tail calls `post_init_level()`) never record; `-ftests`
+runs (`FTF_Enabled`) and -packetsave/-packetload games are skipped too. Tests: default off records nothing, on
+records under `replays/campaign/`, MAX_REPLAYS 0 records nothing, eviction keeps the newest.
+
 ## Flagged
-- Editor playtests go through `post_init_level`, so they are autosaved as replays too (upstream has no editor).
-- Functional-test runs will also autosave replays into the data dir's `replays/` (capped by MAX_REPLAYS).
 - Old `.pck` files (head version 1) are refused, as upstream.

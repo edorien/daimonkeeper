@@ -82,6 +82,9 @@ bool FeNavButton(const char *label, bool selected = false);
 // --- Settings controls; the schema renderer (§6.3) is built entirely
 // from these.
 bool FeSlider(const char *label, double *v, double v_min, double v_max, const char *fmt = "%.0f");
+// A 0-VOLUME_SETTING_MAX volume setting, shown as 0-100 in 1-point steps
+// (volume_setting_to_percent(), config_settings.h). Returns true when *volume changed.
+bool FeVolumeSlider(const char *label, int64_t *volume);
 bool FeCheckbox(const char *label, bool *v);
 bool FeCombo(const char *label, int64_t *current_item, const char *const items[], int64_t items_count);
 bool FeTextInput(const char *label, char *buf, size_t buf_size);

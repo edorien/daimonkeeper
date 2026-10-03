@@ -36,7 +36,7 @@ enum SettingOptionType {
     SOptT_Bool,
     SOptT_Int,
     // A small closed set of named values (config_keeperfx.c's
-    // struct NamedCommand tables, e.g. atmos_volume[]/tag_modes[]) --
+    // struct NamedCommand tables, e.g. atmos_freq[]/tag_modes[]) --
     // get_enum/set_enum trade in the table's own .num values, not a
     // 0-based UI index; setting_option_enum_*() below do that translation
     // for callers (a combo box wants an index, keeperfx.cfg wants a name).
@@ -113,7 +113,7 @@ struct SettingOption {
 
     // SOptT_Enum only. enum_table is NULL-name-terminated (struct
     // NamedCommand's own convention); get_enum/set_enum trade in a
-    // table entry's .num, e.g. atmos_volume[]'s 64/128/255, not an index.
+    // table entry's .num, e.g. atmos_freq[]'s 3200/800/400, not an index.
     const struct NamedCommand *enum_table;
     int64_t (*get_enum)(void);
     void (*set_enum)(int64_t val);
@@ -176,6 +176,12 @@ struct SettingOption {
     // _apply_int() call save_settings() instead of keeperfx_cfg_write_values()
     // when this is set.
     TbBool persist_via_save_settings;
+
+    // SOptT_Int only, opt-in: a 0-VOLUME_SETTING_MAX volume, which the
+    // settings screen shows as 0-100 like the other volume sliders
+    // (volume_setting_to_percent(), config_settings.h). int_min/int_max
+    // still bound the stored value.
+    TbBool int_is_volume;
 };
 
 extern const struct SettingOption setting_options[];

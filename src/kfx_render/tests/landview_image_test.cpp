@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include <set>
+#include <string>
+#include <unistd.h>
 
 #include "landview_image.h"
 
@@ -126,7 +128,7 @@ TEST_CASE("a PNG of the wrong size is refused with the sizes", "[landview_image]
 
 TEST_CASE("the loader prefers a PNG, and falls back to .raw + .pal", "[landview_image]")
 {
-    const fs::path dir = fs::temp_directory_path() / "kfx_landview_test";
+    const fs::path dir = fs::temp_directory_path() / ("kfx_landview_test_" + std::to_string(getpid()));
     fs::remove_all(dir);
     fs::create_directories(dir);
     std::vector<uint8_t> raw(LANDVIEW_PIXELS, 3), pal(768, 0);

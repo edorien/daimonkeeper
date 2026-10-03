@@ -93,6 +93,7 @@ int64_t api_enabled = false;
 int64_t api_port = 5599;
 uint64_t packetsave_max_kb = 0;
 uint64_t max_replays[ReplTyp_Count] = {5, 5, 10};
+TbBool autosave_replays = false;
 uint64_t features_enabled = 0;
 TbBool exit_on_lua_error = false;
 TbBool FLEE_BUTTON_DEFAULT = false;
@@ -286,6 +287,7 @@ const struct NamedCommand conf_commands[] = {
   {"LOG_LEVEL"                     , 64},
   {"GPU_DEBUG"                     , 65},
   {"MAX_REPLAYS"                   , 66}, // upstream id 53 collides with the fork's UI_FONT
+  {"AUTOSAVE_REPLAYS"              , 67},
   {NULL,                   0},
   };
 
@@ -662,17 +664,16 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               features_enabled &= ~Ft_Atmossounds;
           break;
       case 11: // Atmospheric Sound Volume
-          i = recognize_conf_parameter(buf,&pos,len,atmos_volume);
-          if (i <= 0)
+          i = -1;
+          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+              i = parse_atmos_volume_config_val(word_buf);
+          if (i < 0)
           {
             CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
             break;
           }
-          else
-          {
-            atmos_sound_volume = i;
-            break;
-          }
+          atmos_sound_volume = i;
+          break;
       case 12: // Atmospheric Sound Frequency - Chance of 1 in X
           i = recognize_conf_parameter(buf,&pos,len,atmos_freq);
           if (i <= 0)
@@ -1301,6 +1302,16 @@ static void load_file_configuration(const char *fname, const char *sname, const 
           }
           set_log_level_from_config(i - 1);
           break;
+      case 67: // AUTOSAVE_REPLAYS -- fork-only: upstream #5359 always records
+          i = recognize_conf_parameter(buf,&pos,len,logicval_type);
+          if (i <= 0)
+          {
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",
+                COMMAND_TEXT(cmd_num),config_textname);
+              break;
+          }
+          autosave_replays = (i == 1);
+          break;
       case 65: // GPU_DEBUG -- Vulkan validation layers, read at GPU device creation
           i = recognize_conf_parameter(buf,&pos,len,logicval_type);
           if (i <= 0)
@@ -1521,6 +1532,25 @@ void process_cmdline_overrides(void)
   {
     lbMouseGrab = false;
   }
+}
+
+/**
+ * ATMOS_VOLUME's value: KeeperFX's LOW/MEDIUM/HIGH presets (atmos_volume[]),
+ * or a number 0-ATMOS_VOLUME_MAX, which the settings screen's slider writes.
+ * @return the volume, or -1 if arg is neither.
+ */
+int64_t parse_atmos_volume_config_val(const char *arg)
+{
+    for (int64_t i = 0; atmos_volume[i].name != NULL; i++)
+    {
+        if (strcasecmp(arg, atmos_volume[i].name) == 0)
+            return atmos_volume[i].num;
+    }
+    char *endptr;
+    int64_t val = strtoll(arg, &endptr, 10);
+    if ((endptr == arg) || (*endptr != '\0') || (val < 0) || (val > ATMOS_VOLUME_MAX))
+        return -1;
+    return val;
 }
 
 int64_t parse_draw_fps_config_val(const char *arg, int64_t *fps_draw_main, int64_t *fps_draw_secondary)

@@ -704,9 +704,10 @@ extern "C" void SetSoundMasterVolume(SoundVolume volume) {
 extern "C" void set_music_volume(SoundVolume value) {
 	g_music_volume = value;
 	SetRedbookVolume(value);
-	// SDL3_mixer uses a per-track linear gain (0.0..1.0) rather than 0..128.
+	// SDL3_mixer uses a per-track linear gain (0.0..1.0); value is a volume
+	// setting (possibly faded), on volume_setting_gain()'s curve.
 	if (g_music_track != nullptr) {
-		MIX_SetTrackGain(g_music_track, double(value) / FULL_LOUDNESS);
+		MIX_SetTrackGain(g_music_track, volume_setting_gain(value));
 	}
 }
 
@@ -734,7 +735,7 @@ extern "C" TbBool play_music(const char * fname) {
 	// longer referenced by the track afterwards, so it is safe to destroy.
 	MIX_SetTrackAudio(g_music_track, new_audio);
 	// The volume may have been set before the track existed, or the gain reset by rebinding audio.
-	MIX_SetTrackGain(g_music_track, double(g_music_volume) / FULL_LOUDNESS);
+	MIX_SetTrackGain(g_music_track, volume_setting_gain(g_music_volume));
 	MIX_Audio* old_audio = std::exchange(g_music_audio, new_audio);
 	if (old_audio) {
 		MIX_DestroyAudio(old_audio);
@@ -1292,7 +1293,7 @@ extern "C" int64_t InitialiseSDLAudio()
 		return 0;
 	}
 	// set_music_volume() may have run before the track existed; apply the stored value now.
-	MIX_SetTrackGain(g_music_track, double(g_music_volume) / FULL_LOUDNESS);
+	MIX_SetTrackGain(g_music_track, volume_setting_gain(g_music_volume));
 	return 1;
 }
 
@@ -1349,8 +1350,8 @@ extern "C" TbBool play_streamed_sample(const char* fname, SoundVolume volume)
 		return false;
 	}
 	MIX_SetTrackAudio(g_speech_track, sample);
-	// SDL3_mixer gain is linear 0.0..1.0 (SoundVolume ranges 0..FULL_LOUDNESS).
-	MIX_SetTrackGain(g_speech_track, double(volume) / FULL_LOUDNESS);
+	// volume is a volume setting (possibly faded), on volume_setting_gain()'s curve.
+	MIX_SetTrackGain(g_speech_track, volume_setting_gain(volume));
 	if (!MIX_PlayTrack(g_speech_track, 0)) {
 		MIX_DestroyAudio(sample);
 		ERRORLOG("Cannot play \"%s\": %s", fname, SDL_GetError());
@@ -1375,8 +1376,8 @@ extern "C" void stop_streamed_samples()
 }
 
 extern "C" void set_streamed_sample_volume(SoundVolume volume) {
-	// SDL3_mixer gain is linear 0.0..1.0 (SoundVolume ranges 0..FULL_LOUDNESS).
-	if (g_speech_track) MIX_SetTrackGain(g_speech_track, double(volume) / FULL_LOUDNESS);
+	// volume is a volume setting (possibly faded), on volume_setting_gain()'s curve.
+	if (g_speech_track) MIX_SetTrackGain(g_speech_track, volume_setting_gain(volume));
 }
 
 // Replaces the SDL2 Mix_Playing(MIX_SPEECH_CHANNEL) query; keeps the MIX_ API

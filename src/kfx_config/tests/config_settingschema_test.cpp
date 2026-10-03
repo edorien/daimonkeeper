@@ -383,15 +383,19 @@ TEST_CASE_METHOD(ResetSchemaState, "MUSIC_FROM_DISK's row presents the inverse o
     CHECK_FALSE(is_feature_on(Ft_NoCdMusic));
 }
 
-TEST_CASE_METHOD(ResetSchemaState, "ATMOS_VOLUME/ATMOS_FREQUENCY round-trip through their own storage via the enum_table's .num values", "[kfx_config][config_settingschema]") {
+TEST_CASE_METHOD(ResetSchemaState, "ATMOS_VOLUME is a 0-255 slider and ATMOS_FREQUENCY an enum, each round-tripping through its own storage", "[kfx_config][config_settingschema]") {
     const struct SettingOption *vol = find_option("ATMOS_VOLUME");
     const struct SettingOption *freq = find_option("ATMOS_FREQUENCY");
     REQUIRE(vol != nullptr);
     REQUIRE(freq != nullptr);
 
-    vol->set_enum(128); // "MEDIUM"
-    CHECK(atmos_sound_volume == 128);
-    CHECK(vol->get_enum() == 128);
+    REQUIRE(vol->type == SOptT_Int);
+    CHECK(vol->int_min == 0);
+    CHECK(vol->int_max == 255);
+    CHECK(vol->int_is_volume); // shown 0-100 like the other volume sliders
+    vol->set_int(100); // between KeeperFX's LOW (64) and MEDIUM (128)
+    CHECK(atmos_sound_volume == 100);
+    CHECK(vol->get_int() == 100);
 
     freq->set_enum(400); // "HIGH"
     CHECK(kfx_config_state.atmos_sound_frequency == 400);
@@ -407,19 +411,19 @@ TEST_CASE_METHOD(ResetSchemaState, "DEFAULT_TAG_MODE round-trips through keeperf
 }
 
 TEST_CASE_METHOD(ResetSchemaState, "setting_option_enum_* translate between a combo box index and the enum_table's own .num values", "[kfx_config][config_settingschema]") {
-    const struct SettingOption *vol = find_option("ATMOS_VOLUME"); // LOW=64, MEDIUM=128, HIGH=255
-    REQUIRE(vol != nullptr);
-    REQUIRE(setting_option_enum_count(vol) == 3);
-    CHECK(std::strcmp(setting_option_enum_item_name(vol, 0), "LOW") == 0);
-    CHECK(std::strcmp(setting_option_enum_item_name(vol, 1), "MEDIUM") == 0);
-    CHECK(std::strcmp(setting_option_enum_item_name(vol, 2), "HIGH") == 0);
+    const struct SettingOption *freq = find_option("ATMOS_FREQUENCY"); // LOW=3200, MEDIUM=800, HIGH=400
+    REQUIRE(freq != nullptr);
+    REQUIRE(setting_option_enum_count(freq) == 3);
+    CHECK(std::strcmp(setting_option_enum_item_name(freq, 0), "LOW") == 0);
+    CHECK(std::strcmp(setting_option_enum_item_name(freq, 1), "MEDIUM") == 0);
+    CHECK(std::strcmp(setting_option_enum_item_name(freq, 2), "HIGH") == 0);
 
-    vol->set_enum(255); // HIGH, directly via the raw accessor
-    CHECK(setting_option_enum_current_index(vol) == 2);
+    freq->set_enum(400); // HIGH, directly via the raw accessor
+    CHECK(setting_option_enum_current_index(freq) == 2);
 
-    setting_option_apply_enum_index(vol, 0); // pick LOW by index
-    CHECK(atmos_sound_volume == 64);
-    CHECK(setting_option_enum_current_index(vol) == 0);
+    setting_option_apply_enum_index(freq, 0); // pick LOW by index
+    CHECK(kfx_config_state.atmos_sound_frequency == 3200);
+    CHECK(setting_option_enum_current_index(freq) == 0);
 }
 
 TEST_CASE_METHOD(ResetSchemaState, "setting_option_enum_* return 0/empty for a non-enum option rather than misreading its union of fields", "[kfx_config][config_settingschema]") {

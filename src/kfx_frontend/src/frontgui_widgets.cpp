@@ -4,6 +4,7 @@
 #include "frontgui_style.h"
 #include "bflib_guibtns.h" // do_sound_menu_click -- menu hover/click sound feedback lives in the wrapper, not per-screen (§5.2)
 #include "fe_noise.h"       // fe::fbm -- procedural marble list background
+#include "config_settings.h" // volume_setting_to_percent/_from_percent
 #include <imgui_internal.h> // GImGui->NavCursorVisible -- no public getter; the wrapper is the one place ImGui internals are allowed
 #include <cfloat>
 #include <cmath>            // std::sin
@@ -296,6 +297,19 @@ bool FeSlider(const char *label, double *v, double v_min, double v_max, const ch
     bool changed = kfximgui::SliderFloat(label, v, v_min, v_max, fmt);
     FeStylePopFont();
     return changed;
+}
+
+bool FeVolumeSlider(const char *label, int64_t *volume)
+{
+    const int64_t percent = volume_setting_to_percent(*volume);
+    double v = (double)percent;
+    if (!FeSlider(label, &v, 0.0, 100.0, "%.0f"))
+        return false;
+    const int64_t new_percent = (int64_t)lround(v);
+    if (new_percent == percent)
+        return false;
+    *volume = volume_setting_from_percent(new_percent);
+    return true;
 }
 
 bool FeCheckbox(const char *label, bool *v)

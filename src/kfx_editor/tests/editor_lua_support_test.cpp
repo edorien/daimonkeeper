@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <unistd.h>
 
 TEST_CASE("scan_api finds functions, class members and constants in the shipped stubs", "[kfx_editor][lua]") {
     const auto names = editor_lua_scan_api(std::string(KFX_SOURCE_DIR) + "/config/fxdata/lua");
@@ -14,7 +16,7 @@ TEST_CASE("scan_api finds functions, class members and constants in the shipped 
 }
 
 TEST_CASE("scan_api on a synthetic file", "[kfx_editor][lua]") {
-    const auto dir = std::filesystem::temp_directory_path() / "kfx_lua_api_test";
+    const auto dir = std::filesystem::temp_directory_path() / ("kfx_lua_api_test_" + std::to_string(getpid()));
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir / "sub");
     std::ofstream(dir / "sub" / "a.lua") << "function Foo(a) end\r\nfunction Bar.baz(x)\r\nlocal hidden = 1\r\nMAXV = 5\r\nif x == 1 then\r\n";
@@ -37,7 +39,7 @@ TEST_CASE("require_at finds the module under the cursor", "[kfx_editor][lua]") {
 }
 
 TEST_CASE("resolve_module walks the roots in order and maps dots to folders", "[kfx_editor][lua]") {
-    const auto dir = std::filesystem::temp_directory_path() / "kfx_lua_resolve_test";
+    const auto dir = std::filesystem::temp_directory_path() / ("kfx_lua_resolve_test_" + std::to_string(getpid()));
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir / "one");
     std::filesystem::create_directories(dir / "two" / "pkg");
@@ -115,7 +117,7 @@ TEST_CASE("event snippets are built from the Register*Event stubs", "[kfx_editor
 }
 
 TEST_CASE("module copy goes to the level folder, never overwrites, and writes atomically", "[kfx_editor][lua]") {
-    const auto dir = std::filesystem::temp_directory_path() / "kfx_lua_copy_test";
+    const auto dir = std::filesystem::temp_directory_path() / ("kfx_lua_copy_test_" + std::to_string(getpid()));
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir / "orig");
     std::ofstream(dir / "orig" / "m.lua", std::ios::binary) << "one\r\n";

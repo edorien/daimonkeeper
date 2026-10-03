@@ -43,7 +43,10 @@
 #include <unistd.h>
 
 namespace {
-const char *kTestFile = "kfx_platform_utest_fileio_test.bin";
+// One file per process: ctest runs each test case as its own process, in
+// parallel, so a shared name lets one case delete another's file.
+const std::string kTestFileStr = "kfx_platform_utest_fileio_test_" + std::to_string(getpid()) + ".bin";
+const char *const kTestFile = kTestFileStr.c_str();
 
 struct ScratchFile {
     ScratchFile() { std::remove(kTestFile); }

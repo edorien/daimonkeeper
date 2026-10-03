@@ -41,6 +41,8 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <unistd.h>
 
 namespace {
 struct ResetFeaturesEnabled {
@@ -174,6 +176,23 @@ TEST_CASE("parse_draw_fps_config_val stops after a negative second value, keepin
     CHECK(secondary_fps == -99);
 }
 
+TEST_CASE("parse_atmos_volume_config_val takes KeeperFX's LOW/MEDIUM/HIGH presets or a number 0-255", "[kfx_config][config_keeperfx]") {
+    CHECK(parse_atmos_volume_config_val("LOW") == 64);
+    CHECK(parse_atmos_volume_config_val("medium") == 128);
+    CHECK(parse_atmos_volume_config_val("HIGH") == 255);
+    CHECK(parse_atmos_volume_config_val("0") == 0);
+    CHECK(parse_atmos_volume_config_val("100") == 100);
+    CHECK(parse_atmos_volume_config_val("255") == 255);
+}
+
+TEST_CASE("parse_atmos_volume_config_val rejects anything else with -1", "[kfx_config][config_keeperfx]") {
+    CHECK(parse_atmos_volume_config_val("256") == -1);
+    CHECK(parse_atmos_volume_config_val("-1") == -1);
+    CHECK(parse_atmos_volume_config_val("LOUD") == -1);
+    CHECK(parse_atmos_volume_config_val("12x") == -1);
+    CHECK(parse_atmos_volume_config_val("") == -1);
+}
+
 TEST_CASE("parse_draw_fps_config_val returns 0 for an empty string", "[kfx_config][config_keeperfx]") {
     int64_t main_fps = -99, secondary_fps = -99;
     CHECK(parse_draw_fps_config_val("", &main_fps, &secondary_fps) == 0);
@@ -221,7 +240,10 @@ TEST_CASE("prepare_diskpath returns false for an empty string", "[kfx_config][co
 }
 
 namespace {
-const char *kCfgWriterTestFile = "kfx_config_utest_keeperfx_cfg_writer.cfg";
+// One file per process: ctest runs each test case as its own process, in
+// parallel, so a shared name lets one case delete another's file.
+const std::string kCfgWriterTestFileStr = "kfx_config_utest_keeperfx_cfg_writer_" + std::to_string(getpid()) + ".cfg";
+const char *const kCfgWriterTestFile = kCfgWriterTestFileStr.c_str();
 
 struct ScratchCfgFile {
     ScratchCfgFile() { std::remove(kCfgWriterTestFile); }

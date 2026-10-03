@@ -29,12 +29,12 @@
 
 namespace {
 
-// One battler cell: the creature's hand-symbol icon (a square, so it
-// matches the "vs" symbol and its neighbours) with a slim health bar
-// under it. Hovering it sets battle_creature_over (what gui_setup_*_over
-// did from the legacy button's mouse-x); click / right-click then run the
-// same actions.
-void battler_cell(int64_t thing_idx, double x, double cell, double icon_h)
+// One battler cell at screen point `p0`: the creature's hand-symbol icon
+// (a square, so it matches the "vs" symbol and its neighbours) with a slim
+// health bar under it. Hovering it sets battle_creature_over (what
+// gui_setup_*_over did from the legacy button's mouse-x); click /
+// right-click then run the same actions.
+void battler_cell(int64_t thing_idx, const ImVec2 &p0, double icon_h)
 {
     struct Thing *thing = thing_get(thing_idx);
     if (!thing_is_creature(thing))
@@ -46,7 +46,7 @@ void battler_cell(int64_t thing_idx, double x, double cell, double icon_h)
     if (tex == nullptr)
         tex = FeGuiPanelTexture(spr_idx, &sw, &sh);
 
-    ImGui::SameLine(x + (cell - icon_h) * 0.5);
+    ImGui::SetCursorScreenPos(p0);
     ImGui::PushID((int64_t)thing_idx);
     ImGui::BeginGroup();
 
@@ -83,17 +83,25 @@ void battler_cell(int64_t thing_idx, double x, double cell, double icon_h)
     ImGui::PopID();
 }
 
-int64_t battler_count(const int64_t *list, int64_t visbtl_id)
+// The non-empty entries of one side's battler list for this battle.
+int64_t collect_battlers(const int64_t *list, int64_t visbtl_id, int64_t *out)
 {
     int64_t n = 0;
     for (int64_t b = 0; b < MESSAGE_BATTLERS_COUNT - 1; b++)
-        if (list[MESSAGE_BATTLERS_COUNT * visbtl_id + b] != 0)
-            n++;
+    {
+        const int64_t idx = list[MESSAGE_BATTLERS_COUNT * visbtl_id + b];
+        if (idx != 0)
+            out[n++] = idx;
+    }
     return n;
 }
 
-// A row per visible battle: friendly cells | crossed-swords "vs" | enemy
-// cells, with the "vs" symbol centred on the row.
+// A block per visible battle: friendly cells | crossed-swords "vs" | enemy
+// cells. Each side fills outward from the "vs" symbol; when a side has
+// more battlers than fit in its half, the rest wrap onto further lines
+// below (friendlies stay right-aligned against the symbol, enemies
+// left-aligned), and the symbol is centred vertically across all lines --
+// a long side used to run over the symbol and into the other side.
 void battle_row(int64_t visbtl_id, double icon_h)
 {
     const struct Dungeon *dungeon = get_players_num_dungeon(my_player_number);
@@ -107,22 +115,35 @@ void battle_row(int64_t visbtl_id, double icon_h)
     const double gap  = icon_h * 0.35;
     const double half_vs = icon_h * 0.5;
     const double cx = avail * 0.5;
+    const double line_h = icon_h + 4.0 + icon_h * 0.12; // icon + health bar + spacing
 
-    const int64_t nf = battler_count(friendly_battler_list, visbtl_id);
+    int64_t friends[MESSAGE_BATTLERS_COUNT], enemies[MESSAGE_BATTLERS_COUNT];
+    const int64_t nf = collect_battlers(friendly_battler_list, visbtl_id, friends);
+    const int64_t ne = collect_battlers(enemy_battler_list, visbtl_id, enemies);
 
+    int64_t per_line = (int64_t)((cx - half_vs - gap) / cell);
+    if (per_line < 1) per_line = 1;
+    const int64_t lines_f = (nf + per_line - 1) / per_line;
+    const int64_t lines_e = (ne + per_line - 1) / per_line;
+    int64_t lines = lines_f > lines_e ? lines_f : lines_e;
+    if (lines < 1) lines = 1;
+    const double block_h = (double)lines * line_h - icon_h * 0.12;
+
+    const ImVec2 o = ImGui::GetCursorScreenPos();
     ImGui::PushID(visbtl_id);
 
-    double fx = cx - half_vs - gap - nf * cell;
-    if (fx < 0.0) fx = 0.0;
-    for (int64_t b = 0, drawn = 0; b < MESSAGE_BATTLERS_COUNT - 1; b++)
+    // Friendlies: the first per_line closest to the symbol, reading
+    // left-to-right like before.
+    for (int64_t i = 0; i < nf; i++)
     {
-        const int64_t idx = friendly_battler_list[MESSAGE_BATTLERS_COUNT * visbtl_id + b];
-        if (idx == 0) continue;
-        battler_cell(idx, fx + drawn * cell, cell, icon_h);
-        drawn++;
+        const int64_t line = i / per_line;
+        const int64_t col = i % per_line;
+        const int64_t on_line = (line + 1) * per_line <= nf ? per_line : nf - line * per_line;
+        const double x = cx - half_vs - gap - (double)(on_line - col) * cell + (cell - icon_h) * 0.5;
+        battler_cell(friends[i], ImVec2(o.x + x, o.y + (double)line * line_h), icon_h);
     }
 
-    ImGui::SameLine(cx - half_vs);
+    ImGui::SetCursorScreenPos(ImVec2(o.x + cx - half_vs, o.y + (block_h - icon_h) * 0.5));
     int64_t fw = 0, fh = 0;
     void *fight = FeSpriteTexture(GBS_guisymbols_sym_fight, &fw, &fh);
     if (fight != nullptr && fh > 0)
@@ -130,16 +151,18 @@ void battle_row(int64_t visbtl_id, double icon_h)
     else
         ImGui::TextUnformatted("vs");
 
-    const double ex = cx + half_vs + gap;
-    for (int64_t b = 0, drawn = 0; b < MESSAGE_BATTLERS_COUNT - 1; b++)
+    for (int64_t i = 0; i < ne; i++)
     {
-        const int64_t idx = enemy_battler_list[MESSAGE_BATTLERS_COUNT * visbtl_id + b];
-        if (idx == 0) continue;
-        battler_cell(idx, ex + drawn * cell, cell, icon_h);
-        drawn++;
+        const int64_t line = i / per_line;
+        const int64_t col = i % per_line;
+        const double x = cx + half_vs + gap + (double)col * cell + (cell - icon_h) * 0.5;
+        battler_cell(enemies[i], ImVec2(o.x + x, o.y + (double)line * line_h), icon_h);
     }
-    ImGui::NewLine();
-    ImGui::Dummy(ImVec2(0.0, icon_h * 0.35)); // row gap
+
+    // Reserve the whole block so the next battle (and the scroll area's
+    // extent) start below it.
+    ImGui::SetCursorScreenPos(o);
+    ImGui::Dummy(ImVec2(avail, block_h + icon_h * 0.35)); // + row gap
     ImGui::PopID();
 }
 

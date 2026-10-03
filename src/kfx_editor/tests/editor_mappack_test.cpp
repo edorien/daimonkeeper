@@ -5,9 +5,11 @@
 
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <unistd.h>
 
 TEST_CASE("next free level number skips maps already in the folder", "[kfx_editor][mappack]") {
-    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "kfx_mappack_test";
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("kfx_mappack_test_" + std::to_string(getpid()));
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
     CHECK(editor_maps_next_free_number(dir.string().c_str()) == 1);
