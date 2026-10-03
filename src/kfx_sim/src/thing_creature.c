@@ -2427,8 +2427,8 @@ TngUpdateRet process_creature_state(struct Thing *thing)
         {
             if ( can_change_from_state_to(thing, thing->active_state, CrSt_CreatureDoorCombat) )
             {
-                int64_t x = stl_num_decode_x(cctrl->collided_door_subtile);
-                int64_t y = stl_num_decode_y(cctrl->collided_door_subtile);
+                MapSubtlCoord x = stl_num_decode_x(cctrl->collided_door_subtile);
+                MapSubtlCoord y = stl_num_decode_y(cctrl->collided_door_subtile);
                 struct Thing* doortng = get_door_for_position(x, y);
                 if ((!thing_is_invalid(doortng)) && (thing->owner != PLAYER_NEUTRAL))
                 {

@@ -308,7 +308,8 @@ enum ReplayTypes {
     ReplTyp_Count,
 };
 extern uint64_t max_replays[ReplTyp_Count];
-// AUTOSAVE_REPLAYS: record every game under replays/ (off unless the player turns it on).
+// AUTOMATIC_REPLAYS (or AUTOSAVE_REPLAYS): record every game under replays/ (off unless the player turns it on;
+// upstream KeeperFX records by default).
 extern TbBool autosave_replays;
 extern TbBool FLEE_BUTTON_DEFAULT;
 extern TbBool IMPRISON_BUTTON_DEFAULT;

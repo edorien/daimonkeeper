@@ -166,8 +166,8 @@ void view_zoom_camera_out(struct Camera *cam, int64_t limit_max, int64_t limit_m
         new_zoom = (85 * old_zoom) / 100;
         if (new_zoom == old_zoom)
             new_zoom--;
-        if (new_zoom < max(FRONTVIEW_CAMERA_ZOOM_MIN, kfx_config_state.frontview_zoom_distance_setting)) {
-            new_zoom = max(FRONTVIEW_CAMERA_ZOOM_MIN, kfx_config_state.frontview_zoom_distance_setting);
+        if (new_zoom < max(FRONTVIEW_CAMERA_ZOOM_MIN, limit_min)) {
+            new_zoom = max(FRONTVIEW_CAMERA_ZOOM_MIN, limit_min);
         } else
         if (new_zoom > FRONTVIEW_CAMERA_ZOOM_MAX) {
             new_zoom = FRONTVIEW_CAMERA_ZOOM_MAX;
@@ -889,8 +889,11 @@ void process_camera_view_controls(struct Camera* cam, const struct Packet* pckt,
     // for play, not for surveying a whole map while editing. zoom_max is
     // left at the gameplay value; no evidence yet that the zoom-in limit
     // needs loosening too.
+    // Each player's own zoom-out floor, as it started the game (upstream #5376: the startup sync
+    // or a replay's header), not this machine's setting.
     const int64_t zoom_min = editorport_is_active() ? EDITOR_CAMERA_ZOOM_MIN
-        : max(CAMERA_ZOOM_MIN, kfx_config_state.zoom_distance_setting);
+        : (cam->view_mode == PVM_FrontView) ? player->frontview_zoom_distance
+        : max(CAMERA_ZOOM_MIN, player->zoom_distance);
     const int64_t zoom_max = CAMERA_ZOOM_MAX;
     const TbBool use_zoom_pos = flag_is_set(pckt->control_flags, PCtr_ViewZoomPos | PCtr_MapCoordsValid);
     const MapCoord zoom_x = use_zoom_pos ? pckt->pos_x : -1;

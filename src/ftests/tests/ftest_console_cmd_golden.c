@@ -280,7 +280,12 @@ static void golden_run_line(const char *line, char *result, size_t n)
     const int64_t count_before = kfx_sim_state.active_messages_count;
     char buf[512];
     golden_expand(line, buf, sizeof(buf));
-    const TbBool ret = cmd_exec(PLAYER0, buf);
+    // The command acts at the cursor it is given (upstream #5370): golden_place_cursor()'s, from the packet.
+    NetUserId user = get_player(PLAYER0)->user_id;
+    if (user < 0)
+        user = get_local_user();
+    const struct Packet *pckt = get_packet(user);
+    const TbBool ret = cmd_exec(PLAYER0, buf, pckt->pos_x, pckt->pos_y);
     // a "ver" reply holds the build number
     for (int64_t i = 0; i < GUI_MESSAGES_COUNT; i++)
     {

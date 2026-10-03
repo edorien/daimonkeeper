@@ -17,6 +17,7 @@
 #include "game_heap.h"
 #include "lvl_script_lib.h"
 #include "game_campaign_progress.h"
+#include "game_replay.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -43,6 +44,10 @@ const struct GamePort kfx_game_port = {
     .get_intralvl_next_level = &get_intralvl_next_level,
     .clear_intralvl_next_level = &clear_intralvl_next_level,
     .cmd_exec = &cmd_exec,
+    .stop_replay_recording = &stop_replay_recording,
+    .replay_record_network_stopped = &replay_record_network_stopped,
+    .replay_record_resync = &replay_record_resync,
+    .replay_record_chat_message = &replay_record_chat_message,
     .resync_export_game_state = &resync_export_game_state,
     .resync_import_game_state = &resync_import_game_state,
     .reinit_level_after_load = &reinit_level_after_load,

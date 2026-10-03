@@ -212,6 +212,13 @@ struct PlayerInfo {
     GameTurn display_objective_turn;
     uint64_t isometric_view_zoom_level;
     uint64_t frontview_zoom_level;
+    /* Each player's own start settings (upstream #5376): from the network startup sync, or a
+       replay's header, rather than this machine's settings. */
+    int64_t zoom_distance;
+    int64_t frontview_zoom_distance;
+    TbBool cheats_allowed;
+    TbBool skip_heart_zoom;
+    uint8_t highlight_mode;
     unsigned char hand_idx;
     struct RoomSpace render_roomspace;
     struct RoomSpace roomspace;

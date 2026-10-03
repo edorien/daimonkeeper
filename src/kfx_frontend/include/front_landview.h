@@ -107,7 +107,7 @@ void compressed_window_draw(void);
 const struct TbSprite *get_ensign_sprite_for_level(struct LevelInformation *lvinfo, int64_t anim_frame);
 void set_level_name_text(LevelNumber lvnum, const char *lv_name);
 void draw_map_level_descriptions(void);
-TbBool init_netfont_palette_remap(void);
+TbBool init_netfont_palette_remap(const char *land_view);
 void pop_palette_remap(void);
 
 // Reused as-is (no PhysicalScreenWidth/Height coupling) by

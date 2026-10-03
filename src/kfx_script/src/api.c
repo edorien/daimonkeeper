@@ -1199,8 +1199,11 @@ static void api_action_console_command(const struct ApiRequest *req)
         console_command += 1;
     }
 
-    // Execute console command
-    if (cmd_exec(req->player_id, console_command))
+    // Execute console command, at the centre of the player's view (upstream #5370)
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_default_cursor(req->player_id, &cursor_x, &cursor_y);
+    if (cmd_exec(req->player_id, console_command, cursor_x, cursor_y))
     {
         api_ok(req->ack_id);
     }

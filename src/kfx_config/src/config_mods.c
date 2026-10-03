@@ -23,6 +23,7 @@ static struct ModsConfig stored_mods_conf = {0};
 const struct ModsConfig *get_loaded_mods_conf(void)
 {
     static const struct ModsConfig empty_mods_conf = {0};
+    // a multiplayer game, live or replayed (main.cpp installs the check; upstream #5376)
     if (config_network_is_active())
         return &empty_mods_conf;
     return &stored_mods_conf;

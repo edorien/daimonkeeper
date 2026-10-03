@@ -5,7 +5,7 @@
 // GetRemoteUserCount()), so most of it isn't attempted here. The one
 // safe, deterministic slice: input_lag_skips_processing() and
 // input_lag_needs_lookahead() both short-circuit on network_is_active()
-// (a kfx_sim static inline reading kfx_sim_state.system_flags'
+// (a kfx_sim static inline reading local_system_flags'
 // GSF_NetworkActive bit, fully controllable) before touching any of
 // that state, so their "network session not active" early-return path
 // is pure pattern A.
@@ -23,7 +23,7 @@ struct ResetSimState {
 }
 
 TEST_CASE_METHOD(ResetSimState, "input_lag_skips_processing is false when no network session is active", "[kfx_net][net_input_lag]") {
-    // kfx_sim_state.system_flags left at 0: GSF_NetworkActive unset.
+    // local_system_flags left at 0: GSF_NetworkActive unset.
     CHECK_FALSE(input_lag_skips_processing());
 }
 

@@ -16,6 +16,7 @@
 #include "thing_objects.h" // ObSt_BeingDestroyed
 #include "kfx_sim_state.h"
 #include "kfx_config_state.h"
+#include "config_campaigns.h"
 
 #include <cstring>
 
@@ -93,4 +94,42 @@ TEST_CASE_METHOD(ResetSimState, "player_cannot_win is false for a player with an
     heart->active_state = ObSt_FoodMoves; // anything other than ObSt_BeingDestroyed
     kfx_sim_state.dungeon[0].dnheart_idx = 1;
     CHECK_FALSE(player_cannot_win(0));
+}
+
+// Upstream #5376: the score of a multiplayer game is doubled by the game's
+// kind, not by whether a network is up -- so a replay of a multiplayer game
+// (no network) scores like the game it records.
+namespace {
+struct FinalScoreFixture : ResetSimState {
+    struct GameCampaign saved_campaign;
+    FinalScoreFixture() {
+        std::memcpy(&saved_campaign, &campaign, sizeof(campaign));
+        std::memset(campaign.single_levels, 0, sizeof(campaign.single_levels));
+        campaign.single_levels[0] = 1; // first campaign level: no level bonus
+        kfx_sim_state.loaded_level_number = 1;
+    }
+    ~FinalScoreFixture() {
+        std::memcpy(&campaign, &saved_campaign, sizeof(campaign));
+    }
+};
+}
+
+TEST_CASE_METHOD(FinalScoreFixture, "compute_player_final_score: a local campaign game scores the gameplay score", "[kfx_sim][player_utils]") {
+    struct PlayerInfo *player = make_existing_player(0);
+    kfx_sim_state.game_kind = GKind_LocalGame;
+    CHECK(compute_player_final_score(player, 1000) == 1000);
+}
+
+TEST_CASE_METHOD(FinalScoreFixture, "compute_player_final_score: a networked multiplayer game doubles it", "[kfx_sim][player_utils]") {
+    struct PlayerInfo *player = make_existing_player(0);
+    kfx_sim_state.game_kind = GKind_MultiGame;
+    local_system_flags |= GSF_NetworkActive;
+    CHECK(compute_player_final_score(player, 1000) == 2000);
+}
+
+TEST_CASE_METHOD(FinalScoreFixture, "compute_player_final_score: a replayed multiplayer game, no network", "[kfx_sim][player_utils]") {
+    struct PlayerInfo *player = make_existing_player(0);
+    kfx_sim_state.game_kind = GKind_MultiGame;
+    // Before upstream #5376 only the live network doubled it, so this scored 1000.
+    CHECK(compute_player_final_score(player, 1000) == 2000);
 }

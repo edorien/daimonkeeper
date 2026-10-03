@@ -7348,3 +7348,100 @@ msgstr "Připojení k serveru bylo ztraceno."
 msgctxt "Network game message"
 msgid "Multiplayer is out of sync."
 msgstr "Hra pro více hráčů není synchronizovaná."
+
+#: guitext:1204
+#, fuzzy
+msgctxt "Network game interface"
+msgid "State"
+msgstr "Stav"
+
+#: guitext:1205
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Version"
+msgstr "Verze"
+
+#: guitext:1206
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Unknown"
+msgstr "Neznámý"
+
+#: guitext:1207
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby"
+msgstr "Lobby"
+
+#: guitext:1208
+#, fuzzy
+msgctxt "Network game interface"
+msgid "In-game"
+msgstr "Ve hře"
+
+#: guitext:1209
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Map"
+msgstr "Mapa"
+
+#: guitext:1210
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Player list unavailable"
+msgstr "Seznam hráčů není dostupný"
+
+#: guitext:1211
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Maximum players"
+msgstr "Maximum hráčů"
+
+#: guitext:1212
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Allow observers"
+msgstr "Povolit diváky"
+
+#: guitext:1213
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Settings"
+msgstr "Nastavení"
+
+#: guitext:1214
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Confirm"
+msgstr "Potvrdit"
+
+#: guitext:1215
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Game has already started."
+msgstr "Hra již začala."
+
+#: guitext:1216
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Joining is temporarily locked."
+msgstr "Připojení je dočasně uzamčeno."
+
+#: guitext:1217
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby is full."
+msgstr "Lobby je plné."
+
+#: guitext:1218
+#, fuzzy
+msgctxt "Network game interface"
+msgid "The host is using a different game version."
+msgstr "Hostitel používá jinou verzi hry."
+
+#: guitext:1219
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby Name"
+msgstr "Název lobby"
+

@@ -172,6 +172,29 @@ static NetUserId console_cmd_user(PlayerNumber plyr_idx)
     return user;
 }
 
+// Where the command was typed: the cursor position that came with it (upstream #5370),
+// so a queued, replayed or remote command acts where its sender pointed.
+static MapCoord console_cmd_cursor_x;
+static MapCoord console_cmd_cursor_y;
+
+static void console_cmd_cursor(MapCoord *x, MapCoord *y)
+{
+    *x = console_cmd_cursor_x;
+    *y = console_cmd_cursor_y;
+}
+
+// The cursor for a command with none of its own (API commands): the centre of the player's view.
+void console_cmd_default_cursor(PlayerNumber plyr_idx, MapCoord *x, MapCoord *y)
+{
+    const struct PlayerInfo *player = get_player(plyr_idx);
+    TbBool front_view = (player->view_mode == PVM_FrontView);
+    if ((player->view_mode != PVM_IsoWibbleView) && (player->view_mode != PVM_IsoStraightView) && !front_view)
+        front_view = (player->view_mode_restore == PVM_FrontView);
+    const struct Camera *cam = &player->cameras[front_view ? CamIV_FrontView : CamIV_Isometric];
+    *x = cam->mappos.x.val;
+    *y = cam->mappos.y.val;
+}
+
 static struct GuiBoxOption cmd_comp_procs_data[COMPUTER_PROCESSES_COUNT + 3] = {
   {"!", 1, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
@@ -228,7 +251,7 @@ static TbBool script_set_pool(PlayerNumber player_idx, const char *creature, con
 
 static char cmd_comp_events_label[COMPUTER_EVENTS_COUNT][COMMAND_WORD_LEN + 8];
 
-static PlayerNumber get_player_number_for_command(char *msg);
+static PlayerNumber get_player_number_for_command(PlayerNumber default_plyr_idx, char *msg);
 static char get_door_number_for_command(char* msg);
 static char get_trap_number_for_command(char* msg);
 static int64_t get_creature_model_for_command(char *msg);
@@ -829,9 +852,11 @@ TbBool cmd_reveal(PlayerNumber plyr_idx, char * args)
     }
     if (r > 0) {
         int64_t radius_offset = r / 2;
-        struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-        MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
-        MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
+        MapCoord cursor_x;
+        MapCoord cursor_y;
+        console_cmd_cursor(&cursor_x, &cursor_y);
+        MapSubtlCoord stl_x = coord_subtile(cursor_x);
+        MapSubtlCoord stl_y = coord_subtile(cursor_y);
         clear_dig_for_map_rect(player->id_number,
                                 subtile_slab(stl_x - radius_offset),
                                 subtile_slab(stl_x + r - radius_offset),
@@ -856,9 +881,11 @@ TbBool cmd_conceal(PlayerNumber plyr_idx, char * args)
     }
     if (r > 0) {
         int64_t radius_offset = r / 2;
-        struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-        MapSubtlCoord stl_x = coord_subtile((pckt->pos_x));
-        MapSubtlCoord stl_y = coord_subtile((pckt->pos_y));
+        MapCoord cursor_x;
+        MapCoord cursor_y;
+        console_cmd_cursor(&cursor_x, &cursor_y);
+        MapSubtlCoord stl_x = coord_subtile((cursor_x));
+        MapSubtlCoord stl_y = coord_subtile((cursor_y));
         conceal_map_area(player->id_number, stl_x - radius_offset, stl_x + r - radius_offset, stl_y - radius_offset, stl_y + r - radius_offset, false);
     } else {
         conceal_map_area(player->id_number, 0, kfx_sim_state.map_subtiles_x - 1, 0, kfx_sim_state.map_subtiles_y - 1, false);
@@ -890,7 +917,7 @@ TbBool cmd_comp_kill(PlayerNumber plyr_idx, char * args)
 TbBool cmd_player_score(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     struct Dungeon * dungeon = get_dungeon(id);
     if (dungeon_invalid(dungeon)) {
         console_reply(plyr_idx, "dungeon is invalid");
@@ -904,7 +931,7 @@ TbBool cmd_player_score(PlayerNumber plyr_idx, char * args)
 TbBool cmd_player_flag(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     struct Dungeon * dungeon = get_dungeon(id);
     if (dungeon_invalid(dungeon)) {
         console_reply(plyr_idx, "dungeon is invalid");
@@ -947,7 +974,7 @@ TbBool cmd_comp_me(PlayerNumber plyr_idx, char * args)
 static TbBool cmd_spectate(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     if (!player_enter_spectator_mode(id)) {
         console_reply(plyr_idx, "unable to spectate player %" PRId64, (int64_t)id);
         return false;
@@ -1032,8 +1059,10 @@ TbBool cmd_create_gold(PlayerNumber plyr_idx, char * args)
             console_reply(plyr_idx, "parameter 1 requires a number");
         return false;
     }
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-    struct Thing * thing = create_gold_pot_at(pckt->pos_x, pckt->pos_y, plyr_idx);
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
+    struct Thing * thing = create_gold_pot_at(cursor_x, cursor_y, plyr_idx);
     if (thing_is_invalid(thing)) {
         console_reply(plyr_idx, "coordinate thing is invalid");
         return false;
@@ -1044,8 +1073,8 @@ TbBool cmd_create_gold(PlayerNumber plyr_idx, char * args)
     }
     thing->valuable.gold_stored = atoi(pr1str);
     add_gold_to_pile(thing, 0);
-    MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
-    MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
+    MapSubtlCoord stl_x = coord_subtile(cursor_x);
+    MapSubtlCoord stl_y = coord_subtile(cursor_y);
     struct Room * room = subtile_room_get(stl_x, stl_y);
     if (room_exists(room)) {
         if (room_role_matches(room->kind, RoRoF_GoldStorage)) {
@@ -1102,10 +1131,12 @@ TbBool cmd_create_object(PlayerNumber plyr_idx, char * args)
         console_reply(plyr_idx, "require parameter 1 as object model");
         return false;
     }
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
     struct Coord3d pos = {0};
-    pos.x.stl.num = coord_subtile(pckt->pos_x);
-    pos.y.stl.num = coord_subtile(pckt->pos_y);
+    pos.x.stl.num = coord_subtile(cursor_x);
+    pos.y.stl.num = coord_subtile(cursor_y);
     if (subtile_coords_invalid(pos.x.stl.num, pos.y.stl.num)) {
         console_reply(plyr_idx, "subtile coord is invalid");
         return false;
@@ -1121,7 +1152,7 @@ TbBool cmd_create_object(PlayerNumber plyr_idx, char * args)
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr2str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr2str);
     struct Thing * thing = create_object(&pos, ObjModel, id, -1);
     if (!thing_is_object(thing)) {
         console_reply(plyr_idx, "thing is not object");
@@ -1170,9 +1201,11 @@ TbBool cmd_create_creature(PlayerNumber plyr_idx, char * args)
         console_reply(plyr_idx, "creature model [%" PRId64 "] exceeds (%" PRId64 ", %" PRId64 ")", (int64_t)(crmodel), (int64_t)(0), (int64_t)(kfx_config_state.conf.crtr_conf.model_count));
         return false;
     }
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-    MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
-    MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
+    MapSubtlCoord stl_x = coord_subtile(cursor_x);
+    MapSubtlCoord stl_y = coord_subtile(cursor_y);
     if (subtile_coords_invalid(stl_x, stl_y)) {
         console_reply(plyr_idx, "subtile coord is invalid");
         return false;
@@ -1182,7 +1215,7 @@ TbBool cmd_create_creature(PlayerNumber plyr_idx, char * args)
     char * pr3str = strsep_param_with_space(&args);
     uint64_t count = (pr3str != NULL) ? atoi(pr3str) : 1;
     char * pr4str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr4str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr4str);
     struct Coord3d pos = {0};
     pos.x.stl.num = stl_x;
     pos.y.stl.num = stl_y;
@@ -1258,17 +1291,19 @@ TbBool cmd_create_thing(PlayerNumber plyr_idx, char * args)
             console_reply(plyr_idx, "model is invalid");
         return false;
     }
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
     struct Coord3d pos = {0};
-    pos.x.stl.num = coord_subtile(pckt->pos_x);
-    pos.y.stl.num = coord_subtile(pckt->pos_y);
+    pos.x.stl.num = coord_subtile(cursor_x);
+    pos.y.stl.num = coord_subtile(cursor_y);
     if (subtile_coords_invalid(pos.x.stl.num, pos.y.stl.num)) {
         console_reply(plyr_idx, "subtile coord is invalid");
         return false;
     }
     pos.z.val = get_floor_height(pos.x.stl.num, pos.y.stl.num);
     char * pr3str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr3str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr3str);
     struct Thing * thing = create_thing(&pos, tngclass, tngmodel, id, -1);
     if (thing_is_invalid(thing)) {
         console_reply(plyr_idx, "thing is invalid");
@@ -1502,9 +1537,11 @@ TbBool cmd_place_slab(PlayerNumber plyr_idx, char * args)
         console_reply(plyr_idx, "require parameter 1 as slbkind");
         return false;
     }
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-    MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
-    MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
+    MapSubtlCoord stl_x = coord_subtile(cursor_x);
+    MapSubtlCoord stl_y = coord_subtile(cursor_y);
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
     struct SlabMap *slb = get_slabmap_block(slb_x, slb_y);
@@ -1513,7 +1550,7 @@ TbBool cmd_place_slab(PlayerNumber plyr_idx, char * args)
         return false;
     }
     char * pr2str = strsep_param_with_space(&args);
-    PlayerNumber id = (pr2str == NULL) ? slabmap_owner(slb) : get_player_number_for_command(pr2str);
+    PlayerNumber id = (pr2str == NULL) ? slabmap_owner(slb) : get_player_number_for_command(plyr_idx, pr2str);
     int64_t slbkind = get_rid(slab_desc, pr1str);
     if (slbkind < 0) {
         int64_t rid = get_rid(room_desc, pr1str);
@@ -1560,7 +1597,7 @@ TbBool cmd_room_available(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     TbBool available = (pr2str == NULL) ? 1 : atoi(pr2str);
     char * pr3str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr3str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr3str);
     int64_t roomid;
     if (strcasecmp(pr1str, "all") == 0) {
         for (roomid = RoK_TREASURE; roomid <= RoK_GUARDPOST; roomid++) {
@@ -1634,7 +1671,7 @@ void param_completion_for_give_power(PlayerNumber plyr_idx, char *args_str, size
 TbBool cmd_player_heart_health(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     struct Thing * thing = get_player_soul_container(id);
     if (!thing_is_dungeon_heart(thing)) {
         console_reply(plyr_idx, "thing is not dungeon heart");
@@ -1665,7 +1702,7 @@ TbBool cmd_creature_available(PlayerNumber plyr_idx, char * args)
     char * pr2str = strsep_param_with_space(&args);
     TbBool available = (pr2str == NULL) ? 1 : atoi(pr2str);
     char * pr3str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr3str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr3str);
     if (!set_creature_available(id, crmodel, available, available)) {
         WARNLOG("Setting creature %s availability for player %" PRId64 " failed.", creature_code_name(crmodel),
                 (int64_t) id);
@@ -1710,7 +1747,7 @@ TbBool cmd_send_digger_to(PlayerNumber plyr_idx, char * args)
     struct PlayerInfo * player = get_player(plyr_idx); // requesting player
     struct Thing * thing = thing_get(player->influenced_thing_idx);
     ThingModel model = get_players_special_digger_model(thing->owner);
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     player = get_player(id); // target player
     if (!player_exists(player)) {
         console_reply(plyr_idx, "player no exist");
@@ -1804,9 +1841,11 @@ TbBool cmd_mapwho_info(PlayerNumber plyr_idx, char * args)
     char * pr1str = strsep_param_with_space(&args);
     struct Coord3d pos = {0};
     if (pr1str == NULL) {
-        struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-        pos.x.val = pckt->pos_x;
-        pos.y.val = pckt->pos_y;
+        MapCoord cursor_x;
+        MapCoord cursor_y;
+        console_cmd_cursor(&cursor_x, &cursor_y);
+        pos.x.val = cursor_x;
+        pos.y.val = cursor_y;
     } else {
         char * pr2str = strsep_param_with_space(&args);
         if (pr2str == NULL) {
@@ -1865,7 +1904,7 @@ TbBool cmd_creature_attack_heart(PlayerNumber plyr_idx, char * args)
         console_reply(plyr_idx, "no thing selected or not creature");
         return false;
     }
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     struct Thing * heartng = get_player_soul_container(id);
     if (!thing_is_dungeon_heart(heartng)) {
         console_reply(plyr_idx, "thing is not dungeon heart");
@@ -1879,7 +1918,7 @@ TbBool cmd_creature_attack_heart(PlayerNumber plyr_idx, char * args)
 TbBool cmd_player_gold_add(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    PlayerNumber id = get_player_number_for_command(pr1str);
+    PlayerNumber id = get_player_number_for_command(plyr_idx, pr1str);
     struct PlayerInfo * player = get_player(id);
     if (!player_exists(player)) {
         console_reply(plyr_idx, "player no exist");
@@ -1896,10 +1935,12 @@ TbBool cmd_player_gold_add(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_cursor_pos(PlayerNumber plyr_idx, char * args)
 {
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
     struct Coord3d pos = {0};
-    pos.x.val = pckt->pos_x;
-    pos.y.val = pckt->pos_y;
+    pos.x.val = cursor_x;
+    pos.y.val = cursor_y;
     pos.z.val = get_floor_height_at(&pos);
     console_reply(plyr_idx, "Cursor at %" PRId64 ", %" PRId64 ", %" PRId64,
                             (int64_t) pos.x.stl.num, (int64_t) pos.y.stl.num, (int64_t) pos.z.stl.num);
@@ -1909,14 +1950,16 @@ TbBool cmd_cursor_pos(PlayerNumber plyr_idx, char * args)
 TbBool cmd_get_thing(PlayerNumber plyr_idx, char * args)
 {
     struct PlayerInfo * player = get_player(plyr_idx);
-    if (!cheat_mode_enabled()) {
+    if (!player_cheats_allowed(plyr_idx)) {
         console_reply(plyr_idx, "require 'cheat mode'");
         return false;
     }
     char * pr1str = strsep_param_with_space(&args);
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-    MapSubtlCoord stl_x = coord_subtile(pckt->pos_x);
-    MapSubtlCoord stl_y = coord_subtile(pckt->pos_y);
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
+    MapSubtlCoord stl_x = coord_subtile(cursor_x);
+    MapSubtlCoord stl_y = coord_subtile(cursor_y);
     struct Thing * thing = (pr1str != NULL) ? thing_get(atoi(pr1str)) : get_nearest_thing_at_position(stl_x, stl_y);
     if (thing_is_invalid(thing)) {
         console_reply(plyr_idx, "thing is invalid");
@@ -1979,9 +2022,11 @@ TbBool cmd_move_thing(PlayerNumber plyr_idx, char * args)
             pos.z.val = get_floor_height_at(&pos);
         }
     } else {
-        struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-        pos.x.val = pckt->pos_x;
-        pos.y.val = pckt->pos_y;
+        MapCoord cursor_x;
+        MapCoord cursor_y;
+        console_cmd_cursor(&cursor_x, &cursor_y);
+        pos.x.val = cursor_x;
+        pos.y.val = cursor_y;
         pos.z.val = get_floor_height_at(&pos);
     }
     move_thing_in_map(thing, &pos);
@@ -2003,14 +2048,16 @@ TbBool cmd_destroy_thing(PlayerNumber plyr_idx, char * args)
 TbBool cmd_get_room(PlayerNumber plyr_idx, char * args)
 {
     struct PlayerInfo * player = get_player(plyr_idx);
-    if (!cheat_mode_enabled()) {
+    if (!player_cheats_allowed(plyr_idx)) {
         console_reply(plyr_idx, "require 'cheat mode'");
         return false;
     }
     char * pr1str = strsep_param_with_space(&args);
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-    MapSubtlCoord stl_x = coord_subtile((pckt->pos_x));
-    MapSubtlCoord stl_y = coord_subtile((pckt->pos_y));
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
+    MapSubtlCoord stl_x = coord_subtile((cursor_x));
+    MapSubtlCoord stl_y = coord_subtile((cursor_y));
     struct Room * room = (pr1str != NULL) ? room_get(atoi(pr1str)) : subtile_room_get(stl_x, stl_y);
     if (!room_exists(room)) {
         console_reply(plyr_idx, "room no exist");
@@ -2041,9 +2088,11 @@ TbBool cmd_room_health(PlayerNumber plyr_idx, char * args)
 TbBool cmd_slab_health(PlayerNumber plyr_idx, char * args)
 {
     char * pr1str = strsep_param_with_space(&args);
-    struct Packet * pckt = get_packet(console_cmd_user(plyr_idx));
-    MapSubtlCoord stl_x = coord_subtile((pckt->pos_x));
-    MapSubtlCoord stl_y = coord_subtile((pckt->pos_y));
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    console_cmd_cursor(&cursor_x, &cursor_y);
+    MapSubtlCoord stl_x = coord_subtile((cursor_x));
+    MapSubtlCoord stl_y = coord_subtile((cursor_y));
     struct SlabMap * slb = get_slabmap_for_subtile(stl_x, stl_y);
     if (slabmap_block_invalid(slb)) {
         console_reply(plyr_idx, "slabmap block is invalid");
@@ -2326,7 +2375,7 @@ TbBool cmd_player_colour(PlayerNumber plyr_idx, char * args)
     }
     int64_t plr_start;
     int64_t plr_end;
-    PlayerNumber plr_range_id = get_player_number_for_command(pr1str);
+    PlayerNumber plr_range_id = get_player_number_for_command(plyr_idx, pr1str);
     get_players_range(plr_range_id, &plr_start, &plr_end);
 
     char * pr2str = strsep_param_with_space(&args);
@@ -2918,16 +2967,18 @@ void cmd_auto_completion(PlayerNumber plyr_idx, char *cmd_str, size_t cmd_size)
 
 
 
-TbBool cmd_exec(PlayerNumber plyr_idx, char * args)
+TbBool cmd_exec(PlayerNumber plyr_idx, char * args, MapCoord cursor_x, MapCoord cursor_y)
 {
     SYNCDBG(2, "Command (player %" PRId64 "): %s",(int64_t)plyr_idx, args);
+    console_cmd_cursor_x = cursor_x;
+    console_cmd_cursor_y = cursor_y;
     if (!player_exists(get_player(plyr_idx))) {
         WARNLOG("Command for non-existent player %" PRId64 " ignored: %s", (int64_t)plyr_idx, args);
         return false;
     }
     const char * command = strsep_param_with_space(&args);
     if (command == NULL) {
-        if (cheat_mode_enabled()) {
+        if (player_cheats_allowed(plyr_idx)) {
             console_reply(plyr_idx, "command is empty");
         }
         return false;
@@ -2935,14 +2986,14 @@ TbBool cmd_exec(PlayerNumber plyr_idx, char * args)
     // NOTE: execution can be optimized by pre-sorting commands by name and performing binary search
     for (int64_t i = 0; i < console_command_count; ++i) {
         if (strcasecmp(command, console_commands[i].name) == 0) {
-            if (console_commands[i].needs_cheats && (!cheat_mode_enabled())) {
+            if (console_commands[i].needs_cheats && (!player_cheats_allowed(plyr_idx))) {
                 console_reply(plyr_idx, "require 'cheat mode'");
                 return false;
             }
             return console_commands[i].function(plyr_idx, args);
         }
     }
-    if (cheat_mode_enabled()) {
+    if (player_cheats_allowed(plyr_idx)) {
         console_reply(plyr_idx, "unsupported command");
     }
     return false;
@@ -2993,9 +3044,9 @@ static int64_t get_creature_model_for_command(char *msg)
     }
 }
 
-static PlayerNumber get_player_number_for_command(char *msg)
+static PlayerNumber get_player_number_for_command(PlayerNumber default_plyr_idx, char *msg)
 {
-    PlayerNumber id = (msg == NULL || *msg == 0) ? my_player_number : get_rid(cmpgn_human_player_options, msg);
+    PlayerNumber id = (msg == NULL || *msg == 0) ? default_plyr_idx : get_rid(cmpgn_human_player_options, msg);
     if (id == -1)
     {
         id = get_rid(player_desc, msg);

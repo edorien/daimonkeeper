@@ -197,7 +197,7 @@ void update(void)
             creature_stats_debug_dump();
         }
         kfx_sim_state.play_gameturn++;
-        if (kfx_net_state.turns_packetoff == kfx_sim_state.play_gameturn)
+        if (replay.turns_packetoff == kfx_sim_state.play_gameturn)
             exit_keeper = 1;
     }
 
@@ -248,14 +248,14 @@ int64_t display_should_be_updated_this_turn(void)
 {
     if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
       return true;
-    if ( (kfx_net_state.turns_fastforward == 0) && (!kfx_net_state.packet_loading_in_progress) )
+    if ( (replay.turns_fastforward == 0) && (!replay.loading_in_progress) )
     {
       find_frame_rate();
       if ( (kfx_net_state.frame_skip == 0) || ((get_gameturn() % kfx_net_state.frame_skip) == 0) )
         return true;
     } else
     if ( ((get_gameturn() & 0x3F)==0) ||
-         ((kfx_net_state.packet_loading_in_progress) && ((get_gameturn() & 7)==0)) )
+         ((replay.loading_in_progress) && ((get_gameturn() & 7)==0)) )
     {
       packet_load_find_frame_rate(64);
       return true;
@@ -494,7 +494,7 @@ static void gameplay_loop_logic()
                 kfx_game_state.paused_at_gameturn = true;
 
                 kfx_net_state.frame_skip = 0;
-                if(kfx_sim_state.replay_active)
+                if(replay.load_enable)
                 {
                     disable_packet_mode();
                 }
@@ -648,7 +648,7 @@ static void gameplay_loop_timestep()
     if (! use_delta_time()) {
         frametime_start_measurement(Frametime_Sleep);
         // Make delay if the machine is too fast
-        if ( (!kfx_sim_state.replay_active) || (kfx_net_state.turns_fastforward == 0) ) {
+        if ( (!replay.load_enable) || (replay.turns_fastforward == 0) ) {
             keeper_wait_for_next_turn();
         }
         frametime_end_measurement(Frametime_Sleep);
@@ -745,7 +745,7 @@ static TbBool wait_at_frontend(void)
     if (kfx_sim_state.mode_flags & MFlg_IsDemoMode)
     {
       close_packet_file();
-      kfx_sim_state.replay_active = 0;
+      replay.load_enable = 0;
     }
     kfx_frontend_state.save_game_slot = -1;
     // Make sure campaigns are loaded
@@ -818,7 +818,7 @@ static TbBool wait_at_frontend(void)
     #endif
 
     // Prepare to enter PacketLoad game
-    if (kfx_sim_state.replay_active)
+    if (replay.load_enable)
     {
       faststartup_saved_packet_game();
       return true;
@@ -941,20 +941,20 @@ static TbBool wait_at_frontend(void)
     case FeSt_START_KPRLEVEL:
           my_player_number = default_loc_player;
           kfx_sim_state.game_kind = GKind_LocalGame;
-          clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          clear_flag(local_system_flags, GSF_NetworkActive);
           startup_network_game(&loop, true);
           break;
     case FeSt_START_MPLEVEL:
           // a multiplayer level carries nothing over from a campaign played before it
           memset(&intralvl, 0, sizeof(struct IntralevelData));
-          set_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          set_flag(local_system_flags, GSF_NetworkActive);
           skip_high_score_screen = 1;
           kfx_sim_state.game_kind = GKind_MultiGame;
           startup_network_game(&loop, false);
           break;
     case FeSt_LOAD_GAME:
           flgmem = kfx_frontend_state.save_game_slot;
-          clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          clear_flag(local_system_flags, GSF_NetworkActive);
           keeper_clear_screen_and_present();
           level_load_time_phase(LevelLoadTime_Data);
           if (!load_game(kfx_frontend_state.save_game_slot))
@@ -981,7 +981,7 @@ static TbBool wait_at_frontend(void)
           // right after coroutine_process() sees a fully loaded, paused sim.
           my_player_number = default_loc_player;
           kfx_sim_state.game_kind = GKind_LocalGame;
-          clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          clear_flag(local_system_flags, GSF_NetworkActive);
           if (editor_pending_is_new)
               editor_request_blank_map(editor_pending_new_map_w, editor_pending_new_map_h, editor_pending_new_map_texture);
           startup_local_game_for_editor(&loop, editor_pending_lvnum, /*suspend=*/true, /*trim_post_init=*/true);
@@ -1000,6 +1000,11 @@ static TbBool wait_at_frontend(void)
         editorport_request_open(editor_pending_lvnum, editor_pending_is_new);
     }
     return true;
+}
+
+static TbBool player_skips_heart_zoom(const struct PlayerInfo *player)
+{
+    return (kfx_sim_state.game_kind == GKind_LocalGame) && player->skip_heart_zoom;
 }
 
 void game_loop(void)
@@ -1021,33 +1026,21 @@ void game_loop(void)
       int64_t mspos_x_bak = lbDisplay.MMouseX;
       int64_t mspos_y_bak = lbDisplay.MMouseY;
 
-      if (kfx_sim_state.game_kind == GKind_LocalGame)
+      // Each player's own SKIP_HEART_ZOOM (upstream #5376: recorded in a replay), in a local game only.
+      if ((kfx_sim_state.game_kind != GKind_LocalGame) || (kfx_frontend_state.save_game_slot == -1))
       {
-        if (kfx_frontend_state.save_game_slot == -1)
-        {
-            if (is_feature_on(Ft_SkipHeartZoom) == false) {
-                for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
-                    struct PlayerInfo *player = get_player(i);
-                    if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0)) {
-                        set_player_instance(player, PI_HeartZoom, 0);
-                    }
-                }
-            } else {
-                if (!kfx_sim_state.replay_active) {
-                    toggle_status_menu(1); // Required when skipping PI_HeartZoom
-                }
-            }
-        } else
-        {
-          kfx_frontend_state.save_game_slot = -1;
-        }
-      } else {
           for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
               struct PlayerInfo *player = get_player(i);
-              if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0)) {
+              if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0) && !player_skips_heart_zoom(player)) {
                   set_player_instance(player, PI_HeartZoom, 0);
               }
           }
+          if (player_skips_heart_zoom(get_my_player()) && !replay.load_enable) {
+              toggle_status_menu(1); // Required when skipping PI_HeartZoom
+          }
+      } else
+      {
+          kfx_frontend_state.save_game_slot = -1;
       }
 
       // Try to keep the mouse position unchanged when entering the level.
@@ -1070,7 +1063,7 @@ void game_loop(void)
       kfx_sim_state.GameT.Hours = 0;
       if (!kfx_sim_state.TimerNoReset)
       {
-          if (is_feature_on(Ft_SkipHeartZoom))
+          if (player_skips_heart_zoom(get_my_player()))
           {
               kfx_sim_state.timerstarttime = starttime;
           }
@@ -1103,8 +1096,8 @@ void game_loop(void)
       SYNCDBG(0,"Play time is %" PRIu64 " seconds",(uint64_t)(playtime>>10));
       reset_eye_lenses();
       close_packet_file();
-      kfx_sim_state.replay_active = false;
-      kfx_net_state.packet_save_enable = false;
+      replay.load_enable = false;
+      replay.save_enable = false;
     } // end while
 
     ShutDownSDLAudio();

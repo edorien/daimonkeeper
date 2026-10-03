@@ -221,7 +221,7 @@ FTestActionResult ftest_net_enet_loopback_host_action005__wait_for_ack_stats_and
     FTESTLOG("Connection stats: ping=%" PRIu64 " packet_loss=%" PRIu64 " data_in_transit=%" PRIu64 " packets_lost=%" PRIu64 " upload_rate=%" PRIu64 " download_rate=%" PRIu64,
         (uint64_t)(ping), (uint64_t)(packet_loss), (uint64_t)(data_in_transit), (uint64_t)(packets_lost), (uint64_t)(upload_rate), (uint64_t)(download_rate));
 
-    netstate.sp->drop_user(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID);
+    netstate.sp->drop_user(FTEST_NET_ENET_LOOPBACK_JOIN_USER_ID, NetJoin_Accepted);
     netstate.sp->exit();
     memset(&netstate, 0, sizeof(netstate));
 

@@ -139,9 +139,10 @@ static size_t ftest_net_fake_readmsg(NetUserId source, char *buffer, size_t max_
     return copy_size;
 }
 
-static void ftest_net_fake_drop_user(NetUserId id)
+static void ftest_net_fake_drop_user(NetUserId id, enum NetJoinRejection reason)
 {
     (void)id;
+    (void)reason;
 }
 
 static struct NetSP ftest_net_fake_sp_instance = {

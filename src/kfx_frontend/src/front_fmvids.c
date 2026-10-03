@@ -189,9 +189,9 @@ void demo(void)
         fname = prepare_file_path(FGrp_FxData,demo_item[index].fname);
         if ( LbFileExists(fname) )
         {
-          strcpy(kfx_net_state.packet_fname, fname);
-          kfx_sim_state.replay_active = 1;
-          kfx_net_state.turns_fastforward = 0;
+          strcpy(replay.fname, fname);
+          replay.load_enable = 1;
+          replay.turns_fastforward = 0;
           frontend_set_state(FeSt_PACKET_DEMO);
         }
         break;

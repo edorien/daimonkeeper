@@ -7777,7 +7777,7 @@ static void run_after_victory_check(const struct ScriptLine *scline)
 {
     if (scline->np[0] == 1)
     {
-        kfx_sim_state.system_flags |= GSF_RunAfterVictory;
+        kfx_sim_state.run_after_victory = true;
     }
 }
 

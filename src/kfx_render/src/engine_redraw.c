@@ -476,7 +476,7 @@ void update_local_mouse_light(void)
     if (player->instance_num != PI_Unset)
         return;
     // ... or when watching a replay
-    if (kfx_sim_state.replay_active)
+    if (replay.load_enable)
         return;
     // ... or during text input (save menu)
     if (ui_game_is_busy_doing_gui_string_input())

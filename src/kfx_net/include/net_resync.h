@@ -31,6 +31,7 @@ void animate_resync_progress_bar(int64_t current_phase, int64_t total_phases);
 void store_localised_game_structure(void);
 void recall_localised_game_structure(void);
 void resync_game(void);
+TbBool apply_recorded_resync(const char *message_buffer, size_t message_size);
 
 // Declared here (previously only usable from within net_resync.cpp
 // itself) so a caller can drive the host/client halves of a resync

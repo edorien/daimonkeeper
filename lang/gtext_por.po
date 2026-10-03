@@ -7578,3 +7578,100 @@ msgstr "Conexão com o servidor perdida."
 msgctxt "Network game message"
 msgid "Multiplayer is out of sync."
 msgstr "O jogo multijogador está fora de sincronia."
+
+#: guitext:1204
+#, fuzzy
+msgctxt "Network game interface"
+msgid "State"
+msgstr "Estado"
+
+#: guitext:1205
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Version"
+msgstr "Versão"
+
+#: guitext:1206
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Unknown"
+msgstr "Descon."
+
+#: guitext:1207
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby"
+msgstr "Sala"
+
+#: guitext:1208
+#, fuzzy
+msgctxt "Network game interface"
+msgid "In-game"
+msgstr "Em jogo"
+
+#: guitext:1209
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Map"
+msgstr "Mapa"
+
+#: guitext:1210
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Player list unavailable"
+msgstr "Lista de jogadores indisponível"
+
+#: guitext:1211
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Maximum players"
+msgstr "Máx. jogadores"
+
+#: guitext:1212
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Allow observers"
+msgstr "Permitir espectadores"
+
+#: guitext:1213
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Settings"
+msgstr "Configurações"
+
+#: guitext:1214
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Confirm"
+msgstr "Confirmar"
+
+#: guitext:1215
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Game has already started."
+msgstr "A partida já começou."
+
+#: guitext:1216
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Joining is temporarily locked."
+msgstr "Entrada temporariamente bloqueada."
+
+#: guitext:1217
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby is full."
+msgstr "A sala está cheia."
+
+#: guitext:1218
+#, fuzzy
+msgctxt "Network game interface"
+msgid "The host is using a different game version."
+msgstr "O anfitrião usa outra versão do jogo."
+
+#: guitext:1219
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby Name"
+msgstr "Nome da sala"
+

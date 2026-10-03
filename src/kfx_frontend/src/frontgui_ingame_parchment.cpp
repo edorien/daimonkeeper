@@ -12,6 +12,7 @@
 #include "gui_parchment.h"            // draw_map_parchment, draw_2d_map, draw_zoom_box, load_parchment_file, get_map_level_name
 #include "player_data.h"              // get_my_player, PVM_ParchmentView
 #include "config_keeperfx.h"          // ingame_gui_use_classic_hud
+#include "frontend.h"                 // a_menu_window_is_active
 
 #include "post_inc.h"
 
@@ -71,7 +72,8 @@ void ingame_parchment_frame(void)
         load_parchment_file();
         draw_map_parchment();
         draw_2d_map();
-        draw_zoom_box();
+        if (!a_menu_window_is_active()) // no zoom box under an open menu (upstream #5370)
+            draw_zoom_box();
     }
     RendererUpdateDynamicTexture(s_tex, s_pixels.data(), w, h);
 

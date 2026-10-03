@@ -575,6 +575,24 @@ enum GUIStrings {
     GUIStr_HelpVideoShadows,
     GUIStr_SetViewDistance,
     GUIStr_HelpViewDistance,
+    // Upstream #5373's lobby strings (its guitext:1126-1141), appended here at guitext:1204-1219:
+    // upstream's numbers are this fork's own strings from 1124 on.
+    GUIStr_NetState,
+    GUIStr_NetVersion,
+    GUIStr_NetUnknown,
+    GUIStr_NetInLobby,
+    GUIStr_NetInGame,
+    GUIStr_NetInLandview,
+    GUIStr_NetPlayerListUnavailable,
+    GUIStr_NetMaximumPlayers,
+    GUIStr_NetAllowObservers,
+    GUIStr_NetSettings,
+    GUIStr_NetConfirm,
+    GUIStr_NetGameStarted,
+    GUIStr_NetJoiningLocked,
+    GUIStr_NetLobbyFull,
+    GUIStr_NetDifferentVersion,
+    GUIStr_NetLobbyName,
     GuiStrEnd
 };
 

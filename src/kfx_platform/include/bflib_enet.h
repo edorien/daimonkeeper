@@ -43,6 +43,7 @@ int64_t enet_matchmaking_host_update(void);
 extern int64_t external_ipv4_port;
 extern char external_ipv4_address[64];
 extern int64_t skip_holepunch;
+int64_t enet_get_bound_port(void);
 int64_t enet_get_bound_ipv6_port(void);
 
 struct _ENetHost;
@@ -74,8 +75,7 @@ struct EnetConnectivityServices {
     void (*holepunch_stun_keepalive)(struct _ENetHost *host);
     int64_t (*matchmaking_punch)(const char *lobby_id, const char *udp_ipv4, int64_t udp_ipv4_port, int64_t udp_ipv6_port, struct EnetPunchAddresses *output);
     int64_t (*matchmaking_poll_punch)(struct EnetPunchAddresses *output);
-    int64_t (*port_forward_add_mapping)(int64_t port);
-    void (*port_forward_remove_mapping)(void);
+    void (*port_forward_set_mapping)(uint16_t port); // 0 removes the mapping (upstream #5373)
 };
 
 void bf_enet_set_connectivity_services(const struct EnetConnectivityServices *services);

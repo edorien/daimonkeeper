@@ -7361,3 +7361,100 @@ msgstr "서버 연결이 끊어졌습니다."
 msgctxt "Network game message"
 msgid "Multiplayer is out of sync."
 msgstr "멀티플레이가 동기화되지 않았습니다."
+
+#: guitext:1204
+#, fuzzy
+msgctxt "Network game interface"
+msgid "State"
+msgstr "상태"
+
+#: guitext:1205
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Version"
+msgstr "버전"
+
+#: guitext:1206
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Unknown"
+msgstr "미상"
+
+#: guitext:1207
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby"
+msgstr "로비"
+
+#: guitext:1208
+#, fuzzy
+msgctxt "Network game interface"
+msgid "In-game"
+msgstr "게임 중"
+
+#: guitext:1209
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Map"
+msgstr "지도"
+
+#: guitext:1210
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Player list unavailable"
+msgstr "플레이어 목록을 볼 수 없습니다"
+
+#: guitext:1211
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Maximum players"
+msgstr "최대 인원"
+
+#: guitext:1212
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Allow observers"
+msgstr "관전 허용"
+
+#: guitext:1213
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Settings"
+msgstr "설정"
+
+#: guitext:1214
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Confirm"
+msgstr "확인"
+
+#: guitext:1215
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Game has already started."
+msgstr "게임이 이미 시작되었습니다."
+
+#: guitext:1216
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Joining is temporarily locked."
+msgstr "참가가 일시적으로 잠겨 있습니다."
+
+#: guitext:1217
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby is full."
+msgstr "로비가 만원입니다."
+
+#: guitext:1218
+#, fuzzy
+msgctxt "Network game interface"
+msgid "The host is using a different game version."
+msgstr "호스트의 게임 버전이 다릅니다."
+
+#: guitext:1219
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby Name"
+msgstr "로비 이름"
+

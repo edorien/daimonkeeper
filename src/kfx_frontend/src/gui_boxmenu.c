@@ -44,6 +44,7 @@
 #include "frontgui_ingame_boxmenu.h" // ImGui path: ingame_boxmenu_frame / _consumes_mouse
 #include "kjm_input.h" // left_button_clicked/released etc.
 
+#include "game_replay.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -879,7 +880,10 @@ TbBool gui_process_option_inputs(struct GuiBox *gbox, struct GuiBoxOption *goptn
     if (goptn->is_enabled == 1)
     {
       if (goptn->callback != NULL)
+      {
+        stop_replay_recording("cheat menu used");
         goptn->callback(gbox, goptn, button_num, &goptn->cb_param1);
+      }
     }
     return true;
   }

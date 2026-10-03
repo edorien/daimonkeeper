@@ -6747,3 +6747,100 @@ msgstr "Соединение с сервером потеряно."
 msgctxt "Network game message"
 msgid "Multiplayer is out of sync."
 msgstr "Сетевая игра рассинхронизирована."
+
+#: guitext:1204
+#, fuzzy
+msgctxt "Network game interface"
+msgid "State"
+msgstr "Статус"
+
+#: guitext:1205
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Version"
+msgstr "Версия"
+
+#: guitext:1206
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Unknown"
+msgstr "Неизвестно"
+
+#: guitext:1207
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby"
+msgstr "Лобби"
+
+#: guitext:1208
+#, fuzzy
+msgctxt "Network game interface"
+msgid "In-game"
+msgstr "В игре"
+
+#: guitext:1209
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Map"
+msgstr "Карта"
+
+#: guitext:1210
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Player list unavailable"
+msgstr "Список игроков недоступен"
+
+#: guitext:1211
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Maximum players"
+msgstr "Макс. игроков"
+
+#: guitext:1212
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Allow observers"
+msgstr "Разрешить зрителей"
+
+#: guitext:1213
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Settings"
+msgstr "Настройки"
+
+#: guitext:1214
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Confirm"
+msgstr "Подтвердить"
+
+#: guitext:1215
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Game has already started."
+msgstr "Игра уже началась."
+
+#: guitext:1216
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Joining is temporarily locked."
+msgstr "Вход временно заблокирован."
+
+#: guitext:1217
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby is full."
+msgstr "Лобби заполнено."
+
+#: guitext:1218
+#, fuzzy
+msgctxt "Network game interface"
+msgid "The host is using a different game version."
+msgstr "У хоста другая версия игры."
+
+#: guitext:1219
+#, fuzzy
+msgctxt "Network game interface"
+msgid "Lobby Name"
+msgstr "Название лобби"
+

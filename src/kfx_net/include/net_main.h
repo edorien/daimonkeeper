@@ -108,6 +108,7 @@ struct NetState {
     char msg_buffer[NET_MSG_BUFFER_SIZE];
     char msg_buffer_null;
     TbBool locked;
+    enum NetSessionPhase phase;
 };
 
 struct TbNetworkUserInfo {
@@ -214,7 +215,7 @@ static inline TbBool net_versions_match(const struct GameVersionPacket *version_
 }
 
 TbError LbNetwork_Init(uint64_t srvcindex, uint64_t maxplayrs, struct TbNetworkUserInfo *locplayr, struct ServiceInitData *init_data);
-TbBool OnNewUser(NetUserId *assigned_id);
+enum NetJoinRejection OnNewUser(NetUserId *assigned_id);
 void OnDroppedUser(NetUserId id, enum NetDropReason reason);
 TbBool IsUserActive(NetUserId id);
 int64_t GetRemoteUserCount(void);

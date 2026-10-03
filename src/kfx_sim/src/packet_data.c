@@ -36,6 +36,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct Packet sim_packets[PACKETS_COUNT];
+struct ReplayState replay;
 struct Packet bad_packet;
 
 /**
@@ -53,7 +54,7 @@ struct Packet bad_packet;
  * id genuinely isn't always 0, and nothing there ever reassigns it independently the way net_add_external_seat
  * does for a local game.
  *
- * kfx_sim_state.replay_active (replay) can't be checked here -- kfx_net is above kfx_sim -- so replay
+ * replay.load_enable (replay) can't be checked here -- kfx_net is above kfx_sim -- so replay
  * also takes the SOLO_HUMAN_ID branch; the one thing that costs is get_local_user()-derived effects (palette,
  * lightning) not following cycle_replay_player()'s Tab-cycling to a different recorded player's perspective,
  * a purely cosmetic replay-review detail, not a live-game concern.

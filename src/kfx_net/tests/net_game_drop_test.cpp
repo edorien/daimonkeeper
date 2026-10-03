@@ -29,7 +29,7 @@ struct DropFixture {
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         kfx_config_state.neutral_player_num = PLAYER_NEUTRAL; // zeroed state would make player 0 the neutral one
         std::memset(net_user_info, 0, sizeof(net_user_info));
-        kfx_sim_state.system_flags |= GSF_NetworkActive;
+        local_system_flags |= GSF_NetworkActive;
         net_user_info[SERVER_ID].network_user_active = 1;
         setup_network_player_numbers(); // host -> player 0
         for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
@@ -70,7 +70,7 @@ TEST_CASE_METHOD(DropFixture, "user_present is false for an unmapped user and tr
 
 TEST_CASE_METHOD(DropFixture, "user_present is false when no network game is active", "[kfx_net][net_game]") {
     make_human_enemy(1);
-    kfx_sim_state.system_flags &= ~GSF_NetworkActive;
+    local_system_flags &= ~GSF_NetworkActive;
     CHECK_FALSE(user_present(1));
 }
 
@@ -149,4 +149,38 @@ TEST_CASE_METHOD(DropFixture, "resolve_placeholders leaves ordinary computer kee
 
     CHECK(kfx_sim_state.players[1].victory_state == VicS_Undecided);
     CHECK(player_exists(&kfx_sim_state.players[1]));
+}
+
+// Upstream #5376: each user's start settings (network startup sync, replay header) go to its own player.
+// Cheats and skipping the heart zoom need the host to allow them too.
+TEST_CASE_METHOD(DropFixture, "apply_user_start_settings gives a player its own zoom, highlight and tendencies; cheats need the host's too", "[kfx_net][net_game]") {
+    struct PlayerInfo *player = &kfx_sim_state.players[1];
+    player->id_number = 1;
+    struct UserStartSettings us;
+    std::memset(&us, 0, sizeof(us));
+    us.video_rotate_mode = 2; // front view
+    us.isometric_view_zoom_level = 5000;
+    us.frontview_zoom_level = 6000;
+    us.zoom_distance = 3000;
+    us.frontview_zoom_distance = 7000;
+    us.highlight_mode = 1;
+    us.tendencies = CrTend_Flee;
+    us.flags = USF_CheatsEnabled | USF_SkipHeartZoom;
+    struct UserStartSettings host;
+    std::memset(&host, 0, sizeof(host));
+
+    apply_user_start_settings(player, &us, &host);
+    CHECK(player->view_mode_restore == PVM_FrontView);
+    CHECK(player->isometric_view_zoom_level == 5000);
+    CHECK(player->frontview_zoom_level == 6000);
+    CHECK(player->zoom_distance == 3000);
+    CHECK(player->frontview_zoom_distance == 7000);
+    CHECK(player->highlight_mode == 1);
+    CHECK_FALSE(player->cheats_allowed); // the host didn't allow cheats
+    CHECK_FALSE(player->skip_heart_zoom);
+
+    host.flags = USF_CheatsEnabled | USF_SkipHeartZoom;
+    apply_user_start_settings(player, &us, &host);
+    CHECK(player->cheats_allowed);
+    CHECK(player->skip_heart_zoom);
 }

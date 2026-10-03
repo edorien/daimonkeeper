@@ -39,7 +39,7 @@ struct ConsoleFixture {
     }
     TbBool exec(const char *line) {
         std::string buf = line;
-        return cmd_exec(0, &buf[0]);
+        return cmd_exec(0, &buf[0], 0, 0);
     }
     std::string last_reply() const { return reply_text; }
 };

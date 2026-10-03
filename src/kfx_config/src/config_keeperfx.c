@@ -293,7 +293,8 @@ const struct NamedCommand conf_commands[] = {
   {"LOG_LEVEL"                     , 64},
   {"GPU_DEBUG"                     , 65},
   {"MAX_REPLAYS"                   , 66}, // upstream id 53 collides with the fork's UI_FONT
-  {"AUTOSAVE_REPLAYS"              , 67},
+  {"AUTOMATIC_REPLAYS"             , 67}, // upstream #5374's name (its id 52 collides with UI_FONT_SCALE)
+  {"AUTOSAVE_REPLAYS"              , 67}, // the fork's name for it before upstream #5374
   {NULL,                   0},
   };
 

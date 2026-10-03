@@ -53,6 +53,8 @@ void set_packet_power_on_thing(struct Packet *pckt, PowerKind pwkind, ThingIndex
 void camera_packet_set_state(struct Packet *pckt);
 struct Packet *get_freecam_packet(void);
 TbBool replay_camera_detached(void);
+TbBool replay_playback_is_paused(void);
+void local_camera_set_replay_paused(TbBool paused);
 void replay_detach(void);
 void replay_attach(void);
 void replay_freecam_set_map(TbBool on);

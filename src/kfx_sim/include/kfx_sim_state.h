@@ -198,7 +198,6 @@ enum GameSystemFlags {
     GSF_CaptureMovie     = 0x0008,
     GSF_CaptureSShot     = 0x0010,
     GSF_AllowOnePlayer   = 0x0040,
-    GSF_RunAfterVictory  = 0x0080,
 };
 
 struct KfxSimState {
@@ -311,7 +310,9 @@ struct KfxSimState {
        kfx_script/kfx_apploop in various combinations), but kfx_sim is the
        lowest-ranked of every one of their consumer sets, so relocating
        here resolves every edge at once. */
-    unsigned char system_flags; // flags in enum GameSystemFlags below
+    /* Was system_flags (enum GameSystemFlags): its one flag that is the game's, run on after a
+       victory, became this (upstream #5376); the others are this machine's, local_system_flags. */
+    TbBool run_after_victory;
     unsigned char operation_flags;
     unsigned char view_mode_flags; //flags in enum GameNumfieldDFlags
     unsigned char mode_flags;
@@ -436,11 +437,11 @@ struct KfxSimState {
        the sim reads or writes each of them. level_human_player is the
        level's designated human seat (campaign.human_player), the same on
        every machine -- not the local machine's player, which is
-       my_player_number (it was kfx_net_state.local_plyr_idx); replay_active
-       is -packetload replay mode (was packet_load_enable). */
+       my_player_number (it was kfx_net_state.local_plyr_idx). replay_active
+       (-packetload replay mode) is replay.load_enable since upstream #5376
+       (packet_data.h): a resync or a loaded save must not switch it. */
     PlayerNumber level_human_player;
     int64_t human_players_count;
-    TbBool replay_active;
     int64_t computer_chat_flags;
     TbBool heart_lost_display_message;
 
@@ -468,12 +469,18 @@ KFX_STATIC_ASSERT(sizeof(struct KfxSimState) == KFX_SIM_STATE_SIZE,
 
 
 // Moved from kfx_game's game_legacy.c/.h (stage 13.3, docs/refactor/
-// stage-13-enforce-and-document.md) -- only reads kfx_sim_state.system_flags,
+// stage-13-enforce-and-document.md) -- only reads local_system_flags,
 // and kfx_config is the lowest-ranked of its real consumers (kfx_apploop/
 // kfx_frontend/kfx_game/kfx_net/kfx_script/kfx_sim also call it).
+/* This machine's system flags (enum GameSystemFlags): in no state blob, so a resync or a loaded
+   save doesn't change whether a network game is running here (upstream #5376). */
+extern unsigned char local_system_flags;
+
+/* True in an active multiplayer session -- always false when watching a replay, even of a
+   multiplayer game: kfx_sim_state.game_kind says which kind of game is being played. */
 static inline TbBool network_is_active(void)
 {
-    return flag_is_set(kfx_sim_state.system_flags, GSF_NetworkActive);
+    return flag_is_set(local_system_flags, GSF_NetworkActive);
 }
 
 // Moved from kfx_game's kfx_game_state.h as static inlines (stage 13.4,

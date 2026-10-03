@@ -51,15 +51,21 @@
       last_turn_drawn/display_timer, CreatureControl's thought bubble timers and footstep_variant/_counter,
       footstep_timeslice, footstep_near_creatures (now kfx_render_state's and kfx_game_local's)
   10: pass 5 S11 -- the light registry's drawing state left struct Light (range, the flicker, the never-used
-      animation fields, force_render_update) and the registry (stat_light_needs_updating) */
-#define KFX_SIM_STATE_VER          10
-#define KFX_SIM_STATE_SIZE         139795074
+      animation fields, force_render_update) and the registry (stat_light_needs_updating)
+  11: upstream #5376 -- replay_active left (replay.load_enable, packet_data.h's struct ReplayState)
+  12: upstream #5376 -- system_flags became run_after_victory (the rest are local_system_flags); PlayerInfo
+      gained each player's start settings (zoom_distance, frontview_zoom_distance, cheats_allowed,
+      skip_heart_zoom, highlight_mode) */
+#define KFX_SIM_STATE_VER          12
+#define KFX_SIM_STATE_SIZE         139795244
 
 /* struct KfxNetState (kfx_net_state.h), SGC_KfxNetState
    2: S10 -- packet_load_enable, local_plyr_idx, human_players_count moved
-      to kfx_sim_state */
-#define KFX_NET_STATE_VER          2
-#define KFX_NET_STATE_SIZE         2937522
+      to kfx_sim_state
+   3: upstream #5376 -- the packet save/replay file fields and pckt_gameturn left (struct ReplayState
+      replay, packet_data.h) */
+#define KFX_NET_STATE_VER          3
+#define KFX_NET_STATE_SIZE         2937132
 
 /* struct KfxGameState (kfx_game_state.h), SGC_KfxGameState
    2: S10 -- play_gameturn moved to kfx_sim_state

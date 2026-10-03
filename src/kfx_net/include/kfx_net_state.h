@@ -129,22 +129,10 @@ struct LogDetailedSnapshot {
 
 #pragma pack(1)
 struct KfxNetState {
-    // Packet save/replay file state (packets.c/packets_misc.c).
-    unsigned char packet_save_enable;
-    char packet_fname[150];
-    char packet_fopened;
-    uint64_t packet_file_pos;
-    struct PacketSaveHead packet_save_head;
-    uint64_t turns_stored;
-    uint64_t turns_fastforward;
-    unsigned char packet_loading_in_progress;
-    unsigned char packet_checksum_verify;
-    uint64_t log_things_start_turn;
-    uint64_t log_things_end_turn;
-    uint64_t turns_packetoff;
-    // packet_load_enable (now replay_active), local_plyr_idx (now
-    // level_human_player) and human_players_count moved to kfx_sim_state
-    // (refactor pass 2, S10).
+    // The packet save/replay file state (packet_save_enable ... turns_packetoff,
+    // pckt_gameturn) is the process's own, not the game's: struct ReplayState
+    // replay (kfx_sim's packet_data.h) since upstream #5376, so a resync or a
+    // loaded save can't overwrite a recording or a playback in progress.
 
     // Per-turn input packets moved to kfx_sim's sim_packets[] (packet_data.h,
     // docs/refactor/todo/remove-symbol-level-layering-residuals.md) --
@@ -179,11 +167,6 @@ struct KfxNetState {
     char comp_player_construct;
     char comp_player_creatrsonly;
 
-    /* Moved from kfx_game's kfx_game_state.h (stage 13.4, docs/refactor/
-       stage-13-enforce-and-document.md) -- written by kfx_net's
-       packets_misc.c, the lowest-ranked of its real consumers (kfx_game's
-       main_game.c and kfx_frontend's front_input.c also read it). */
-    GameTurn pckt_gameturn;
 };
 #pragma pack()
 /******************************************************************************/
@@ -196,7 +179,10 @@ KFX_STATIC_ASSERT(sizeof(struct KfxNetState) == KFX_NET_STATE_SIZE,
 /** Process-local state, NOT part of the saved/resynced KfxNetState blob: a FILE* is meaningless outside the
  *  process that opened it (a savegame or a multiplayer host would overwrite ours with a dead handle). */
 struct KfxNetLocal {
-    TbFileHandle packet_save_fp;
+    /* The action seed the level started with: a replay records it, and a
+       network game's startup sync checks every machine has the host's
+       (upstream #5370). Was game_replay.c's initial_replay_seed. */
+    uint64_t initial_replay_seed;
 };
 extern struct KfxNetLocal kfx_net_local;
 /******************************************************************************/

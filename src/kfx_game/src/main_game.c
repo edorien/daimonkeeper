@@ -95,7 +95,6 @@ extern TbBool FLEE_BUTTON_DEFAULT;
 extern uint64_t features_enabled;
 
 extern void setup_players_count();
-extern void set_skip_heart_zoom_feature(TbBool enable);
 
 CoroutineLoopState set_not_has_quit(CoroutineLoop *context);
 TbBool luascript_loaded = false;
@@ -212,8 +211,9 @@ void reinit_level_after_load(void)
     ariadne_set_map_dimensions(kfx_sim_state.map_subtiles_x, kfx_sim_state.map_subtiles_y, map_subtiles_z);
     // The navigation mesh came with the save or the resync (ariadne_saved_state.h): not built again from the map,
     // which gives a different mesh that creatures path through differently (refactor pass 4, P4-F7).
-    reinit_packets_after_load();
     kfx_sim_state.easter_eggs_enabled = start_params.easter_egg;
+    if (!network_is_active() && !replay.load_enable)
+        get_my_player()->cheats_allowed = kfx_sim_state.easter_eggs_enabled;
     ui_set_parchment_loaded(0);
     for (i=0; i < PLAYERS_COUNT; i++)
     {
@@ -337,9 +337,10 @@ int64_t complete_level(struct PlayerInfo *player)
     SYNCDBG(6,"Starting");
     if (!is_my_player(player))
         return false;
-    if (network_is_active())
+    if (kfx_sim_state.game_kind == GKind_MultiGame)
     {
-        LbNetwork_Stop();
+        if (network_is_active())
+            LbNetwork_Stop();
         quit_game = 1;
         return true;
     }
@@ -379,7 +380,7 @@ static TbBool init_level(void)
     //memcpy(&transfer_mem,&game.intralvl.transferred_creature,sizeof(struct CreatureStorage));
     memcpy(&transfer_mem,&intralvl,sizeof(struct IntralevelData));
     kfx_game_state.flags_gui = GGUI_SoloChatEnabled;
-    clear_flag(kfx_sim_state.system_flags, GSF_RunAfterVictory);
+    kfx_sim_state.run_after_victory = false;
     free_swipe_graphic();
     kfx_sim_state.play_gameturn = 0;
     kfx_game_state.paused_at_gameturn = false;
@@ -513,7 +514,7 @@ static TbBool init_level(void)
 static void post_init_level(void)
 {
     SYNCDBG(8,"Starting");
-    if (kfx_net_state.packet_save_enable)
+    if (replay.save_enable)
         open_new_packet_file_for_save();
     calculate_dungeon_area_scores();
     init_animating_texture_maps();
@@ -543,77 +544,77 @@ TbBool startup_saved_packet_game(void)
 {
     struct CatalogueEntry centry;
     clear_packets();
-    if (!open_packet_file_for_load(kfx_net_state.packet_fname,&centry))
+    if (!open_packet_file_for_load(replay.fname,&centry))
     {
         ERRORLOG("Cannot replay \"%s\": unreadable, or written by an incompatible version",
-            kfx_net_state.packet_fname);
+            replay.fname);
         return false;
     }
     if (!change_campaign(CampgnT_Default, centry.campaign_fname))
     {
         ERRORLOG("Unable to load campaign associated with packet file");
     }
-    set_selected_level_number(kfx_net_state.packet_save_head.level_num);
+    set_selected_level_number(replay.head.level_num);
     RendererSetDrawColour(kfx_sim_state.colours[15][15][15]);
-    kfx_net_state.pckt_gameturn = 0;
+    replay.pckt_gameturn = 0;
     if (KFX_DEBUG_ON(0))
     {
         SYNCDBG(0,"Initialising level %" PRId64, (int64_t)get_selected_level_number());
-        SYNCMSG("Packet Loading Active (File contains %" PRIu64 " turns)", (uint64_t)(kfx_net_state.turns_stored));
-        SYNCMSG("Packet Checksum Verification %s",kfx_net_state.packet_checksum_verify ? "Enabled" : "Disabled");
-        SYNCMSG("Fast Forward through %" PRIu64 " game turns", (uint64_t)(kfx_net_state.turns_fastforward));
-        if (kfx_net_state.turns_packetoff != -1)
-            SYNCMSG("Packet Quit at %" PRIu64, (uint64_t)(kfx_net_state.turns_packetoff));
-        if (kfx_sim_state.replay_active)
+        SYNCMSG("Packet Loading Active (File contains %" PRIu64 " turns)", (uint64_t)(replay.turns_stored));
+        SYNCMSG("Packet Checksum Verification %s",replay.checksum_verify ? "Enabled" : "Disabled");
+        SYNCMSG("Fast Forward through %" PRIu64 " game turns", (uint64_t)(replay.turns_fastforward));
+        if (replay.turns_packetoff != -1)
+            SYNCMSG("Packet Quit at %" PRIu64, (uint64_t)(replay.turns_packetoff));
+        if (replay.load_enable)
         {
-          if (kfx_net_state.log_things_end_turn != kfx_net_state.log_things_start_turn)
-            SYNCMSG("Logging things, game turns %" PRIu64 " -> %" PRIu64, (uint64_t)(kfx_net_state.log_things_start_turn), (uint64_t)(kfx_net_state.log_things_end_turn));
+          if (replay.log_things_end_turn != replay.log_things_start_turn)
+            SYNCMSG("Logging things, game turns %" PRIu64 " -> %" PRIu64, (uint64_t)(replay.log_things_start_turn), (uint64_t)(replay.log_things_end_turn));
         }
-        SYNCMSG("Packet file prepared on " PRODUCT_NAME " %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)kfx_net_state.packet_save_head.game_ver_major,(int64_t)kfx_net_state.packet_save_head.game_ver_minor,
-            (int64_t)kfx_net_state.packet_save_head.game_ver_release,(int64_t)kfx_net_state.packet_save_head.game_ver_build);
+        SYNCMSG("Packet file prepared on " PRODUCT_NAME " %" PRId64 ".%" PRId64 ".%" PRId64 ".%" PRId64,(int64_t)replay.head.game_ver_major,(int64_t)replay.head.game_ver_minor,
+            (int64_t)replay.head.game_ver_release,(int64_t)replay.head.game_ver_build);
     }
-    if ((kfx_net_state.packet_save_head.game_ver_major != VER_MAJOR) || (kfx_net_state.packet_save_head.game_ver_minor != VER_MINOR)
-        || (kfx_net_state.packet_save_head.game_ver_release != VER_RELEASE) || (kfx_net_state.packet_save_head.game_ver_build != VER_BUILD)) {
+    if ((replay.head.game_ver_major != VER_MAJOR) || (replay.head.game_ver_minor != VER_MINOR)
+        || (replay.head.game_ver_release != VER_RELEASE) || (replay.head.game_ver_build != VER_BUILD)) {
         WARNLOG("Packet file was created with different version of the game; this rarely works");
     }
-    kfx_sim_state.game_kind = GKind_LocalGame;
+    kfx_sim_state.game_kind = flag_is_set(replay.head.flags, PSHF_MultiGame) ? GKind_MultiGame : GKind_LocalGame;
     {
         PlayerNumber view_plyr = -1;
-        NetUserId rec_user = kfx_net_state.packet_save_head.recording_user;
+        NetUserId rec_user = replay.head.recording_user;
         if (!start_params.force_player_num && (rec_user >= 0) && (rec_user < MAX_NET_USERS))
-            view_plyr = kfx_net_state.packet_save_head.user_players[rec_user];
+            view_plyr = replay.head.user_players[rec_user];
         if (view_plyr < 0)
             view_plyr = kfx_sim_state.level_human_player;
-        if (!flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(view_plyr))
-            || flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(view_plyr)))
+        if (!flag_is_set(replay.head.players_exist, to_flag(view_plyr))
+            || flag_is_set(replay.head.players_comp, to_flag(view_plyr)))
             my_player_number = 0;
         else
             my_player_number = view_plyr;
     }
-    settings.isometric_view_zoom_level = kfx_net_state.packet_save_head.isometric_view_zoom_level;
-    settings.frontview_zoom_level = kfx_net_state.packet_save_head.frontview_zoom_level;
-    settings.isometric_tilt = kfx_net_state.packet_save_head.isometric_tilt;
-    settings.highlight_mode = kfx_net_state.packet_save_head.highlight_mode;
-    IMPRISON_BUTTON_DEFAULT = kfx_net_state.packet_save_head.default_imprison_tendency;
-    FLEE_BUTTON_DEFAULT = kfx_net_state.packet_save_head.default_flee_tendency;
-    set_skip_heart_zoom_feature(kfx_net_state.packet_save_head.skip_heart_zoom);
     if (!init_level())
         return false;
+    if (!verify_replay_map_checksums())
+        ERRORLOG("Replay \"%s\": level on disk differs from original", replay.fname);
     setup_zombie_players();
-    init_players(&kfx_net_state.packet_save_head);
+    init_players();
     restore_users_from_packet_save();
-    ui_set_frontend_alliances(kfx_net_state.packet_save_head.frontend_alliances);
+    // Each user's settings as they started the recorded game (upstream #5376), not this machine's.
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        const PlayerNumber plyr_idx = get_net_user_player_number(user);
+        if ((plyr_idx >= 0) && (replay.head.user_players[user] >= 0))
+            apply_user_start_settings(get_player(plyr_idx), &replay.head.user_start[user], &replay.head.user_start[SERVER_ID]);
+    }
+    ui_set_frontend_alliances(replay.head.frontend_alliances);
     ui_setup_alliances();
-    if (kfx_sim_state.human_players_count == 1)
-        kfx_sim_state.game_kind = GKind_LocalGame;
-    if (kfx_net_state.turns_stored < kfx_net_state.turns_fastforward)
-        kfx_net_state.turns_fastforward = kfx_net_state.turns_stored;
+    if (replay.turns_stored < replay.turns_fastforward)
+        replay.turns_fastforward = replay.turns_stored;
     post_init_level();
     post_init_players();
     computer_players_set_dungeons(); // as after a load (P5-F21)
     set_selected_level_number(0);
     struct PlayerInfo* player = get_my_player();
-    set_engine_view(player, rotate_mode_to_view_mode(kfx_net_state.packet_save_head.video_rotate_mode));
+    set_engine_view(player, player->view_mode_restore);
     return true;
 }
 
@@ -642,7 +643,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
     {
         kfx_sim_state.game_kind = GKind_LocalGame;
         net_clear_external_seats();
-        init_players_local_game(&kfx_net_state.packet_save_head);
+        init_players_local_game();
         net_apply_keeper_name(my_player_number);
         if (AssignCpuKeepers || campaign.assignCpuKeepers) {
             ShouldAssignCpuKeepers = 1;
@@ -675,9 +676,9 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
         SYNCDBG(5,"Setting up uninitialized players as zombie players");
         setup_zombie_players();
     }
-    // Only a normal level start is autosaved (AUTOSAVE_REPLAYS): not an editor playtest,
+    // Only a normal level start is autosaved (AUTOMATIC_REPLAYS): not an editor playtest,
     // which runs post_init_level() from its own tail, nor a -packetsave/-packetload game.
-    if (!kfx_net_state.packet_save_enable && !kfx_sim_state.replay_active)
+    if (!replay.save_enable && !replay.load_enable)
         setup_auto_replay_save();
     post_init_level();
     post_init_players();
@@ -720,7 +721,7 @@ void startup_local_game_for_editor(CoroutineLoop *context, LevelNumber lvnum, Tb
         return;
     }
     kfx_sim_state.game_kind = GKind_LocalGame;
-    init_players_local_game(&kfx_net_state.packet_save_head);
+    init_players_local_game();
     setup_count_players(); // It is reset by init_level
     int64_t args[COROUTINE_ARGS] = {trim_post_init, suspend};
     coroutine_add_args(context, &startup_local_game_for_editor_tail, args);
@@ -828,6 +829,10 @@ void clear_complete_game(void)
     // docs/refactor/stage-08-kfx-net.md) -- same "grows via sizeof()"
     // shape as kfx_sim_state above.
     memset(&kfx_net_state, 0, sizeof(struct KfxNetState));
+    // The replay state (upstream #5376) is in no state blob; it is reset here, as it was
+    // when it was part of kfx_net_state. An open file is closed rather than lost.
+    close_packet_file();
+    memset(&replay, 0, sizeof(struct ReplayState));
     // kfx_game's own field group, migrated out of struct Game (stage 9.3,
     // docs/refactor/stage-09-kfx-game.md) -- same "grows via sizeof()"
     // shape as kfx_sim_state/kfx_net_state above.
@@ -837,9 +842,9 @@ void clear_complete_game(void)
     // reset via UiPort since kfx_frontend owns the type.
     ui_reset_frontend_state();
     memset(&intralvl, 0, sizeof(struct IntralevelData));
-    kfx_net_state.turns_packetoff = -1;
+    replay.turns_packetoff = -1;
     kfx_sim_state.level_human_player = default_loc_player;
-    kfx_net_state.packet_checksum_verify = start_params.packet_checksum_verify;
+    replay.checksum_verify = start_params.packet_checksum_verify;
     // Set levels to 0, as we may not have the campaign loaded yet
     set_continue_level_number(first_singleplayer_level());
     if ((start_params.operation_flags & GOF_SingleLevel) != 0)
@@ -852,12 +857,15 @@ void clear_complete_game(void)
     fps_limit_secondary = start_params.num_fps_draw_secondary;
     kfx_sim_state.mode_flags = start_params.mode_flags;
     kfx_sim_state.easter_eggs_enabled = start_params.easter_egg;
-    set_flag_value(kfx_sim_state.system_flags, GSF_AllowOnePlayer, start_params.one_player);
+    // This machine's flags were part of kfx_sim_state, which the memset above clears; they still start
+    // a game cleared (upstream #5376 moved them out of the state).
+    local_system_flags = 0;
+    set_flag_value(local_system_flags, GSF_AllowOnePlayer, start_params.one_player);
     kfx_sim_state.computer_chat_flags = start_params.computer_chat_flags;
     kfx_sim_state.operation_flags = start_params.operation_flags;
-    snprintf(kfx_net_state.packet_fname,150, "%s", start_params.packet_fname);
-    kfx_net_state.packet_save_enable = start_params.packet_save_enable;
-    kfx_sim_state.replay_active = start_params.packet_load_enable;
+    snprintf(replay.fname,150, "%s", start_params.packet_fname);
+    replay.save_enable = start_params.packet_save_enable;
+    replay.load_enable = start_params.packet_load_enable;
     my_player_number = default_loc_player;
 }
 
@@ -877,8 +885,8 @@ void init_seeds()
         kfx_sim_state.sound_random_seed = calender_time * 7919 + 7927;
 
         // If doing -packetload then use the replay's stored seed
-        if ((kfx_net_state.packet_save_head.action_seed != 0) && (kfx_sim_state.replay_active == true)) {
-            kfx_sim_state.action_random_seed = kfx_net_state.packet_save_head.action_seed;
+        if ((replay.head.action_seed != 0) && (replay.load_enable == true)) {
+            kfx_sim_state.action_random_seed = replay.head.action_seed;
         } else {
             kfx_sim_state.action_random_seed = calender_time * 9311 + 9319;
         }
@@ -886,6 +894,6 @@ void init_seeds()
         kfx_sim_state.ai_random_seed = kfx_sim_state.action_random_seed * 9377 + 9391;
         kfx_sim_state.player_random_seed = kfx_sim_state.action_random_seed * 9473 + 9479;
         
-        initial_replay_seed = kfx_sim_state.action_random_seed;
+        kfx_net_local.initial_replay_seed = kfx_sim_state.action_random_seed;
     }
 }

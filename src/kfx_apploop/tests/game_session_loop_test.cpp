@@ -61,15 +61,15 @@ TEST_CASE_METHOD(AppLoopFixture, "display_should_be_updated_this_turn returns tr
 }
 
 TEST_CASE_METHOD(AppLoopFixture, "display_should_be_updated_this_turn returns true when frame_skip is disabled", "[kfx_apploop][game_session_loop]") {
-    kfx_net_state.turns_fastforward = 0;
-    kfx_net_state.packet_loading_in_progress = 0;
+    replay.turns_fastforward = 0;
+    replay.loading_in_progress = 0;
     kfx_net_state.frame_skip = 0;
     CHECK(display_should_be_updated_this_turn());
 }
 
 TEST_CASE_METHOD(AppLoopFixture, "display_should_be_updated_this_turn honors frame_skip against the current turn", "[kfx_apploop][game_session_loop]") {
-    kfx_net_state.turns_fastforward = 0;
-    kfx_net_state.packet_loading_in_progress = 0;
+    replay.turns_fastforward = 0;
+    replay.loading_in_progress = 0;
     kfx_net_state.frame_skip = 5;
 
     g_fake_gameturn = 10; // 10 % 5 == 0
@@ -80,8 +80,8 @@ TEST_CASE_METHOD(AppLoopFixture, "display_should_be_updated_this_turn honors fra
 }
 
 TEST_CASE_METHOD(AppLoopFixture, "display_should_be_updated_this_turn while fast-forwarding checks the turn's low bits", "[kfx_apploop][game_session_loop]") {
-    kfx_net_state.turns_fastforward = 1; // nonzero -- takes the fast-forward branch
-    kfx_net_state.packet_loading_in_progress = 0;
+    replay.turns_fastforward = 1; // nonzero -- takes the fast-forward branch
+    replay.loading_in_progress = 0;
 
     g_fake_gameturn = 0x40; // & 0x3F == 0
     CHECK(display_should_be_updated_this_turn());

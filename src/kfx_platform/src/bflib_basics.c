@@ -538,21 +538,15 @@ void LbLogFlush(void)
         fflush(file);
 }
 
-void write_log_to_array_for_live_viewing(const char* fmt_str, va_list args, const char* add_log_prefix) {
+void write_log_to_array_for_live_viewing(const char* message, const char* add_log_prefix) {
     if (consoleLogArraySize >= MAX_CONSOLE_LOG_COUNT) {
         // Array is full - so clear it. This is a bit of a stopgap solution, it will lose us the older entries.
         memset(consoleLogArray, 0, sizeof(consoleLogArray));
         consoleLogArraySize = 0;
     }
 
-    char formattedString[MAX_TEXT_LENGTH];
-    va_list copy;
-    va_copy(copy, args);
-    vsnprintf(formattedString, sizeof(formattedString), fmt_str, copy);
-    va_end(copy);
-
     char buffer[MAX_TEXT_LENGTH];
-    snprintf(buffer, sizeof(buffer), "%s%s", add_log_prefix, formattedString); // merge prefix and formatted string
+    snprintf(buffer, sizeof(buffer), "%s%s", add_log_prefix, message); // merge prefix and message
 
     // Add the combined message to the array
     strncpy(consoleLogArray[consoleLogArraySize], buffer, MAX_TEXT_LENGTH);
@@ -560,29 +554,247 @@ void write_log_to_array_for_live_viewing(const char* fmt_str, va_list args, cons
     consoleLogArraySize++;
 }
 
+/******************************************************************************/
+// Network addresses in log lines (upstream #5386): every IPv4/IPv6 address is replaced by a
+// number that stays the same within the run ("IPv4#1"), so a shared log names no one's address
+// but still tells the peers apart. Parsed by hand: no socket headers or Windows version needed.
+
+static TbBool log_parse_ipv4(const char *s, size_t n, unsigned char out[4])
+{
+    int64_t part = 0;
+    size_t i = 0;
+    for (; part < 4; part++)
+    {
+        size_t digits = 0;
+        int64_t value = 0;
+        while ((i < n) && (s[i] >= '0') && (s[i] <= '9') && (digits < 4))
+        {
+            value = value * 10 + (s[i] - '0');
+            i++;
+            digits++;
+        }
+        if ((digits == 0) || (digits > 3) || (value > 255))
+            return false;
+        out[part] = (unsigned char)value;
+        if (part < 3)
+        {
+            if ((i >= n) || (s[i] != '.'))
+                return false;
+            i++;
+        }
+    }
+    return (i == n);
+}
+
+static int64_t log_hex_digit(char c)
+{
+    if ((c >= '0') && (c <= '9')) return c - '0';
+    if ((c >= 'a') && (c <= 'f')) return c - 'a' + 10;
+    if ((c >= 'A') && (c <= 'F')) return c - 'A' + 10;
+    return -1;
+}
+
+static TbBool log_parse_ipv6(const char *s, size_t n, unsigned char out[16])
+{
+    uint16_t groups[8];
+    int64_t count = 0;
+    int64_t gap = -1; // where "::" stands
+    size_t i = 0;
+    if ((n >= 2) && (s[0] == ':') && (s[1] == ':'))
+    {
+        gap = 0;
+        i = 2;
+    }
+    while (i < n)
+    {
+        if (count >= 8)
+            return false;
+        // an IPv4 tail ("::ffff:1.2.3.4")
+        size_t j = i;
+        while ((j < n) && (s[j] != ':'))
+            j++;
+        if ((j == n) && (memchr(s + i, '.', n - i) != NULL))
+        {
+            unsigned char v4[4];
+            if ((count > 6) || !log_parse_ipv4(s + i, n - i, v4))
+                return false;
+            groups[count++] = (uint16_t)((v4[0] << 8) | v4[1]);
+            groups[count++] = (uint16_t)((v4[2] << 8) | v4[3]);
+            i = n;
+            break;
+        }
+        int64_t value = 0;
+        size_t digits = 0;
+        while ((i < n) && (log_hex_digit(s[i]) >= 0))
+        {
+            value = (value << 4) | log_hex_digit(s[i]);
+            i++;
+            digits++;
+            if (digits > 4)
+                return false;
+        }
+        if (digits == 0)
+            return false;
+        groups[count++] = (uint16_t)value;
+        if (i == n)
+            break;
+        if (s[i] != ':')
+            return false;
+        i++;
+        if ((i < n) && (s[i] == ':'))
+        {
+            if (gap >= 0)
+                return false;
+            gap = count;
+            i++;
+        } else if (i == n)
+        {
+            return false;
+        }
+    }
+    if ((gap < 0) ? (count != 8) : (count > 7))
+        return false;
+    memset(out, 0, 16);
+    int64_t tail = (gap < 0) ? 0 : count - gap;
+    for (int64_t k = 0; k < count; k++)
+    {
+        int64_t slot = ((gap >= 0) && (k >= gap)) ? 8 - tail + (k - gap) : k;
+        out[slot * 2] = (unsigned char)(groups[k] >> 8);
+        out[slot * 2 + 1] = (unsigned char)(groups[k] & 0xFF);
+    }
+    return true;
+}
+
+#define LOG_ADDRESS_IDS_MAX 256
+static unsigned char log_address_seen[LOG_ADDRESS_IDS_MAX][16];
+static int64_t log_address_seen_count;
+static SDL_SpinLock log_address_lock;
+
+static int64_t log_address_id(const unsigned char address[16])
+{
+    int64_t id = 0;
+    SDL_LockSpinlock(&log_address_lock);
+    for (int64_t i = 0; i < log_address_seen_count; i++)
+    {
+        if (memcmp(log_address_seen[i], address, 16) == 0)
+        {
+            id = i + 1;
+            break;
+        }
+    }
+    if ((id == 0) && (log_address_seen_count < LOG_ADDRESS_IDS_MAX))
+    {
+        memcpy(log_address_seen[log_address_seen_count], address, 16);
+        id = ++log_address_seen_count;
+    }
+    SDL_UnlockSpinlock(&log_address_lock);
+    return id;
+}
+
+size_t LbLogSanitizeAddresses(const char *message, char *output, size_t output_size)
+{
+    static const unsigned char ipv4_prefix[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255};
+    size_t used = 0;
+    if (output_size == 0)
+        return 0;
+    while ((*message != '\0') && (used + 1 < output_size))
+    {
+        size_t token_length = strspn(message, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.:_-");
+        if (token_length == 0)
+        {
+            output[used++] = *message++;
+            continue;
+        }
+        // only a token with a dot or a colon can be an address
+        size_t address_length = token_length;
+        unsigned char address[16];
+        TbBool parsed = false;
+        const char *dot = memchr(message, '.', token_length);
+        const char *colon = memchr(message, ':', token_length);
+        if ((dot != NULL) || (colon != NULL))
+        {
+            while ((address_length > 0) && (message[address_length - 1] == '.'))
+                address_length--;
+            // one colon: a port after an IPv4 address or a name
+            if ((colon != NULL) && (memchr(colon + 1, ':', message + address_length - (colon + 1)) == NULL))
+                address_length = (size_t)(colon - message);
+            if (log_parse_ipv6(message, address_length, address))
+            {
+                parsed = true;
+            } else if (log_parse_ipv4(message, address_length, address + 12))
+            {
+                memcpy(address, ipv4_prefix, sizeof(ipv4_prefix));
+                parsed = true;
+            }
+        }
+        if (!parsed)
+            address_length = token_length;
+        char replacement[24];
+        const char *piece = message;
+        size_t piece_length = address_length;
+        if (parsed)
+        {
+            const int64_t id = log_address_id(address);
+            const char *family = (memcmp(address, ipv4_prefix, sizeof(ipv4_prefix)) == 0) ? "IPv4" : "IPv6";
+            if (id > 0)
+                snprintf(replacement, sizeof(replacement), "%s#%" PRId64, family, id);
+            else
+                snprintf(replacement, sizeof(replacement), "IP#redacted");
+            piece = replacement;
+            piece_length = strlen(replacement);
+        }
+        if (piece_length > output_size - 1 - used)
+            piece_length = output_size - 1 - used;
+        memcpy(output + used, piece, piece_length);
+        used += piece_length;
+        message += address_length;
+    }
+    output[used] = '\0';
+    return used;
+}
+
+static int64_t LbLogWriteMessage(struct TbLog *log, const char *message);
+
 int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
+{
+  if (!log->Initialised)
+    return -1;
+  if ( log->Suspended )
+    return 1;
+  // Off writes nothing but crash reports (LbLogForceOn()).
+  if (!log_startup_buffering && (kfx_log_level == LogLvl_Off) && !log_forced_on)
+    return 1;
+  // The message, network addresses replaced (upstream #5386); every path below writes this.
+  char *raw_message = NULL;
+  if (SDL_vasprintf(&raw_message, fmt_str, arg) < 0)
+    return -1;
+  const size_t sanitized_size = strlen(raw_message) * 3 + 16;
+  char *message = (char *)SDL_malloc(sanitized_size);
+  if (message == NULL)
+  {
+    SDL_free(raw_message);
+    return -1;
+  }
+  LbLogSanitizeAddresses(raw_message, message, sanitized_size);
+  SDL_free(raw_message);
+  int64_t result = LbLogWriteMessage(log, message);
+  SDL_free(message);
+  return result;
+}
+
+static int64_t LbLogWriteMessage(struct TbLog *log, const char *message)
 {
   enum Header {
         NONE   = 0,
         CREATE = 1,
         APPEND = 2,
   };
-//  printf(fmt_str, arg);
-  if (!log->Initialised)
-    return -1;
-  if ( log->Suspended )
-    return 1;
   if (log_startup_buffering)
   {
       char line[MAX_TEXT_LENGTH];
-      va_list copy;
-      va_copy(copy, arg);
-      int64_t len = snprintf(line, sizeof(line), "%s", log->prefix);
-      if ((len >= 0) && (len < (int64_t)sizeof(line)))
-          vsnprintf(line + len, sizeof(line) - len, fmt_str, copy);
-      va_end(copy);
+      snprintf(line, sizeof(line), "%s%s", log->prefix, message);
       log_startup_append(line, strlen(line));
-      write_log_to_array_for_live_viewing(fmt_str, arg, log->prefix);
+      write_log_to_array_for_live_viewing(message, log->prefix);
       return 1;
   }
   // Off writes nothing but crash reports (LbLogForceOn()).
@@ -689,9 +901,9 @@ int64_t LbLog(struct TbLog *log, const char *fmt_str, va_list arg)
 
   // Write formatted message to the array
   if (!log_skip_live_view)
-    write_log_to_array_for_live_viewing(fmt_str, arg, log->prefix);
+    write_log_to_array_for_live_viewing(message, log->prefix);
 
-  vfprintf(file, fmt_str, arg);
+  fputs(message, file);
   log->position = ftell(file);
   // fclose is slow and automatically happens on normal program exit.
   // Opening/closing every time we log something hits performance hard.

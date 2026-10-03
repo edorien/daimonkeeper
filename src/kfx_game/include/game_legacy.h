@@ -312,7 +312,7 @@ TbBool resync_import_game_state(const char *data, size_t len);
 
 // network_is_active() moved to kfx_sim_state.h as a static inline
 // (stage 13.3, docs/refactor/stage-13-enforce-and-document.md) -- it
-// only reads kfx_sim_state.system_flags, and kfx_config is the
+// only reads local_system_flags, and kfx_config is the
 // lowest-ranked of its real consumers (kfx_apploop/kfx_frontend/
 // kfx_game/kfx_net/kfx_script/kfx_sim also call it).
 

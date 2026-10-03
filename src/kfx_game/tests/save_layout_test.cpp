@@ -31,6 +31,6 @@ TEST_CASE("Serialized game structs have platform-independent sizes", "[kfx_game]
     CHECK(sizeof(struct Condition) == 39);
     CHECK(sizeof(struct Thing) == 8649); // pass 5 S04: last_turn_drawn removed
     CHECK(sizeof(struct CreatureControl) == 20160); // pass 4 P4-F11, P4-F12: party.tunnel_last_x/_y, tunnel_still_turns; pass 5 S04: thought bubble and footstep fields removed
-    CHECK(sizeof(struct PlayerInfo) == 8554);
+    CHECK(sizeof(struct PlayerInfo) == 8573); // upstream #5376: each player's start settings (zoom distances, cheats_allowed, skip_heart_zoom, highlight_mode)
     CHECK(sizeof(struct Dungeon) == 163496); // S10: camera_deviate_quake/_jump moved out
 }

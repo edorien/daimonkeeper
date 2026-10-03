@@ -392,7 +392,7 @@ void update_player_sounds(void)
 
     // Music and sound control
     if ( !SoundDisabled ) {
-        if ( (kfx_net_state.turns_fastforward == 0) && (!kfx_net_state.packet_loading_in_progress) ) {
+        if ( (replay.turns_fastforward == 0) && (!replay.loading_in_progress) ) {
             MonitorStreamedSoundTrack();
         }
     }

@@ -42,7 +42,7 @@ struct ResetChecksumState {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         std::memset(net_user_info, 0, sizeof(net_user_info));
-        kfx_sim_state.system_flags |= GSF_NetworkActive;
+        local_system_flags |= GSF_NetworkActive;
         net_user_info[SERVER_ID].network_user_active = 1;
         setup_network_player_numbers(); // claims player number 0 for the host
     }

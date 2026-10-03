@@ -2,6 +2,8 @@
 // code from kfx_net's net_game_drop_test.cpp in refactor pass 2 (S12,
 // docs/refactor-pass2/stage-12-net-split.md), with that file's fixture.
 #include <catch2/catch_test_macros.hpp>
+#include "ports/ui_port.h"
+#include "kfx_config/tests/scoped_port_override.h"
 
 #include "game_replay.h"
 #include "net_game.h"
@@ -39,7 +41,7 @@ struct DropFixture {
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         kfx_config_state.neutral_player_num = PLAYER_NEUTRAL; // zeroed state would make player 0 the neutral one
         std::memset(net_user_info, 0, sizeof(net_user_info));
-        kfx_sim_state.system_flags |= GSF_NetworkActive;
+        local_system_flags |= GSF_NetworkActive;
         net_user_info[SERVER_ID].network_user_active = 1;
         setup_network_player_numbers(); // host -> player 0
         for (int64_t i = 0; i < PLAYERS_COUNT; i++) {
@@ -74,12 +76,12 @@ struct DropFixture {
 // network user controlled; restore_users_from_packet_save() rebuilds that user<->player
 // mapping (and each user's name) so the replayed packets reach the right players.
 TEST_CASE_METHOD(DropFixture, "restore_users_from_packet_save maps recorded users to their players", "[kfx_game][game_replay]") {
-    std::memset(&kfx_net_state.packet_save_head, 0, sizeof(kfx_net_state.packet_save_head));
-    std::memset(kfx_net_state.packet_save_head.user_players, -1, sizeof(kfx_net_state.packet_save_head.user_players));
-    kfx_net_state.packet_save_head.players_exist = (1 << 0) | (1 << 2);
-    kfx_net_state.packet_save_head.user_players[1] = 2; // user 1 drove player 2
-    kfx_net_state.packet_save_head.user_players[0] = 0; // the host drove player 0
-    std::snprintf(kfx_net_state.packet_save_head.user_names[1], sizeof(kfx_net_state.packet_save_head.user_names[1]), "Guest");
+    std::memset(&replay.head, 0, sizeof(replay.head));
+    std::memset(replay.head.user_players, -1, sizeof(replay.head.user_players));
+    replay.head.players_exist = (1 << 0) | (1 << 2);
+    replay.head.user_players[1] = 2; // user 1 drove player 2
+    replay.head.user_players[0] = 0; // the host drove player 0
+    std::snprintf(replay.head.user_names[1], sizeof(replay.head.user_names[1]), "Guest");
     my_player_number = 0;
 
     restore_users_from_packet_save();
@@ -91,11 +93,11 @@ TEST_CASE_METHOD(DropFixture, "restore_users_from_packet_save maps recorded user
 }
 
 TEST_CASE_METHOD(DropFixture, "restore_users_from_packet_save ignores a user mapped to a player the file says did not exist", "[kfx_game][game_replay]") {
-    std::memset(&kfx_net_state.packet_save_head, 0, sizeof(kfx_net_state.packet_save_head));
-    std::memset(kfx_net_state.packet_save_head.user_players, -1, sizeof(kfx_net_state.packet_save_head.user_players));
-    kfx_net_state.packet_save_head.players_exist = (1 << 0);
-    kfx_net_state.packet_save_head.user_players[0] = 0;
-    kfx_net_state.packet_save_head.user_players[3] = 4; // player 4 not in players_exist
+    std::memset(&replay.head, 0, sizeof(replay.head));
+    std::memset(replay.head.user_players, -1, sizeof(replay.head.user_players));
+    replay.head.players_exist = (1 << 0);
+    replay.head.user_players[0] = 0;
+    replay.head.user_players[3] = 4; // player 4 not in players_exist
     my_player_number = 0;
 
     restore_users_from_packet_save();
@@ -137,8 +139,8 @@ struct ReplayFile {
         std::snprintf(keeper_runtime_directory, sizeof(keeper_runtime_directory), "%s", root.string().c_str());
         path = (root / "roundtrip.pck").string();
         std::remove(path.c_str());
-        REQUIRE(path.size() < sizeof(kfx_net_state.packet_fname));
-        std::snprintf(kfx_net_state.packet_fname, sizeof(kfx_net_state.packet_fname), "%s", path.c_str());
+        REQUIRE(path.size() < sizeof(replay.fname));
+        std::snprintf(replay.fname, sizeof(replay.fname), "%s", path.c_str());
     }
     ~ReplayFile() {
         close_packet_file();
@@ -175,7 +177,7 @@ void fill_packet(struct Packet *pckt, uint32_t &rng, GameTurn turn) {
 TEST_CASE_METHOD(DropFixture, "save_packets then load_packets_for_turn gives back every recorded turn", "[kfx_game][game_replay]") {
     make_human_enemy(1);
     ReplayFile file;
-    kfx_net_state.packet_checksum_verify = false;
+    replay.checksum_verify = false;
     REQUIRE(open_new_packet_file_for_save());
 
     const GameTurn turns = 300;
@@ -192,12 +194,12 @@ TEST_CASE_METHOD(DropFixture, "save_packets then load_packets_for_turn gives bac
 
     std::memset(sim_packets, 0, sizeof(sim_packets));
     struct CatalogueEntry centry;
-    REQUIRE(open_packet_file_for_load(kfx_net_state.packet_fname, &centry));
-    REQUIRE(kfx_net_state.turns_stored == turns);
+    REQUIRE(open_packet_file_for_load(replay.fname, &centry));
+    REQUIRE(replay.turns_stored == turns);
     // upstream #5359: recordings are compressed; mostly-zero input must come out well below raw size
-    CHECK((kfx_net_state.packet_save_head.flags & PSHF_Compressed) != 0);
+    CHECK((replay.head.flags & PSHF_Compressed) != 0);
     const uint64_t raw_turn_data = turns * (2 * sizeof(struct Packet) + sizeof(TbBigChecksum));
-    CHECK(std::filesystem::file_size(file.path) - kfx_net_state.packet_file_pos < raw_turn_data / 2);
+    CHECK(std::filesystem::file_size(file.path) - replay.file_pos < raw_turn_data / 2);
     for (GameTurn t = 0; t < turns; t++) {
         load_packets_for_turn(t);
         for (NetUserId user = 0; user < 2; user++) {
@@ -207,37 +209,78 @@ TEST_CASE_METHOD(DropFixture, "save_packets then load_packets_for_turn gives bac
     }
 }
 
+// Upstream #5370: chat is recorded as it is processed (replay_record_chat_message(), a long
+// turn record) rather than as a PckA_PlyrMsgEnd packet, and played back by showing it again.
+namespace {
+std::vector<std::string> shown_chat;
+void record_shown_chat(char, int64_t, const char *msg) { shown_chat.push_back(msg); }
+}
+
 TEST_CASE_METHOD(DropFixture, "a recorded chat message is replayed on its own turn", "[kfx_game][game_replay]") {
+    ScopedPortOverride<UiPort> ui{ui_port, set_ui_port};
+    ui->message_add = record_shown_chat;
+    shown_chat.clear();
     ReplayFile file;
-    kfx_net_state.packet_checksum_verify = false;
+    replay.checksum_verify = false;
     REQUIRE(open_new_packet_file_for_save());
-    kfx_sim_state.system_flags &= ~GSF_NetworkActive; // chat is only recorded outside network games
+    replay.save_enable = true; // records are only written while recording
+    local_system_flags &= ~GSF_NetworkActive; // chat is only recorded outside network games
 
     const char *msg = "hello from turn 2";
     for (GameTurn t = 0; t < 4; t++) {
         std::memset(&sim_packets[0], 0, sizeof(struct Packet));
         sim_packets[0].turn = t;
-        if (t == 2) {
-            sim_packets[0].action = PckA_PlyrMsgEnd;
-            std::snprintf(kfx_sim_state.players[0].mp_pending_message, PLAYER_MP_MESSAGE_LEN, "%s", msg);
-        }
+        if (t == 2)
+            replay_record_chat_message(0, msg, -1, -1);
         REQUIRE(save_packets());
     }
     close_packet_file();
-    kfx_sim_state.system_flags |= GSF_NetworkActive; // the user->player map is read back as recorded
+    local_system_flags |= GSF_NetworkActive; // the user->player map is read back as recorded
 
-    std::memset(kfx_sim_state.players[0].mp_pending_message, 0, PLAYER_MP_MESSAGE_LEN);
     struct CatalogueEntry centry;
-    REQUIRE(open_packet_file_for_load(kfx_net_state.packet_fname, &centry));
-    REQUIRE(kfx_net_state.turns_stored == 4);
+    REQUIRE(open_packet_file_for_load(replay.fname, &centry));
+    REQUIRE(replay.turns_stored == 4);
     for (GameTurn t = 0; t < 4; t++) {
         load_packets_for_turn(t);
         CHECK(sim_packets[0].turn == t);
-        if (t == 2) {
-            CHECK(sim_packets[0].action == PckA_PlyrMsgEnd);
-            CHECK(std::string(kfx_sim_state.players[0].mp_pending_message) == msg);
-        }
+        CHECK(shown_chat.size() == ((t >= 2) ? 1u : 0u));
     }
+    REQUIRE(shown_chat.size() == 1);
+    CHECK(shown_chat[0] == msg);
+}
+
+// Upstream #5376: the header says whether a multiplayer game was recorded and holds every user's start
+// settings, so playback gives each player its own (cheats, zoom, ...) rather than the viewer's.
+TEST_CASE_METHOD(DropFixture, "the replay header records the game kind and each user's start settings", "[kfx_game][game_replay]") {
+    ReplayFile file;
+    replay.checksum_verify = false;
+    kfx_sim_state.game_kind = GKind_MultiGame;
+    kfx_sim_state.easter_eggs_enabled = true;
+    REQUIRE(open_new_packet_file_for_save());
+    REQUIRE(save_packets());
+    close_packet_file();
+    std::memset(&replay.head, 0, sizeof(replay.head));
+
+    struct CatalogueEntry centry;
+    REQUIRE(open_packet_file_for_load(replay.fname, &centry));
+    CHECK((replay.head.flags & PSHF_MultiGame) != 0);
+    CHECK((replay.head.user_start[SERVER_ID].flags & USF_CheatsEnabled) != 0);
+    CHECK(replay.head.user_players[SERVER_ID] == 0);
+}
+
+// Upstream #5385: the header records the level files' checksums; playing a replay against a level that
+// changed on disk is reported (the replay still plays).
+TEST_CASE_METHOD(DropFixture, "a replay notices when the level on disk is not the one it was recorded on", "[kfx_game][game_replay]") {
+    ReplayFile file;
+    replay.checksum_verify = false;
+    REQUIRE(open_new_packet_file_for_save());
+    REQUIRE(save_packets());
+    close_packet_file();
+    struct CatalogueEntry centry;
+    REQUIRE(open_packet_file_for_load(replay.fname, &centry));
+    CHECK(verify_replay_map_checksums());
+    replay.head.map_checksums[0] ^= 1;
+    CHECK_FALSE(verify_replay_map_checksums());
 }
 
 // Autosaved replays (upstream #5359) are opt-in in this fork: AUTOSAVE_REPLAYS, off by default.
@@ -250,8 +293,8 @@ struct AutosaveFixture : DropFixture {
         std::memcpy(prev_max, max_replays, sizeof(prev_max));
         set_file_path_port(&kfx_config_file_path_port);
         std::memset(&campaign, 0, sizeof(campaign));
-        kfx_net_state.packet_save_enable = false;
-        kfx_net_state.packet_fname[0] = '\0';
+        replay.save_enable = false;
+        replay.fname[0] = '\0';
     }
     ~AutosaveFixture() {
         autosave_replays = prev_autosave;
@@ -264,15 +307,15 @@ struct AutosaveFixture : DropFixture {
 TEST_CASE_METHOD(AutosaveFixture, "no replay is recorded while AUTOSAVE_REPLAYS is off", "[kfx_game][game_replay]") {
     autosave_replays = false;
     CHECK_FALSE(setup_auto_replay_save());
-    CHECK_FALSE(kfx_net_state.packet_save_enable);
-    CHECK(kfx_net_state.packet_fname[0] == '\0');
+    CHECK_FALSE(replay.save_enable);
+    CHECK(replay.fname[0] == '\0');
 }
 
 TEST_CASE_METHOD(AutosaveFixture, "with AUTOSAVE_REPLAYS on, a campaign level records to replays/campaign/", "[kfx_game][game_replay]") {
     autosave_replays = true;
     REQUIRE(setup_auto_replay_save());
-    CHECK(kfx_net_state.packet_save_enable);
-    const std::string fname = kfx_net_state.packet_fname;
+    CHECK(replay.save_enable);
+    const std::string fname = replay.fname;
     const std::string dir = (file.root / "replays" / "campaign").string() + "/";
     CHECK(fname.rfind(dir, 0) == 0);
     CHECK(fname.substr(dir.size() + 15, 3) == "_c1"); // timestamp, then kind and human count
@@ -284,7 +327,7 @@ TEST_CASE_METHOD(AutosaveFixture, "MAX_REPLAYS 0 for the kind records nothing", 
     autosave_replays = true;
     max_replays[ReplTyp_Campaign] = 0;
     CHECK_FALSE(setup_auto_replay_save());
-    CHECK_FALSE(kfx_net_state.packet_save_enable);
+    CHECK_FALSE(replay.save_enable);
 }
 
 TEST_CASE_METHOD(AutosaveFixture, "a new recording evicts the oldest ones of its kind beyond MAX_REPLAYS", "[kfx_game][game_replay]") {

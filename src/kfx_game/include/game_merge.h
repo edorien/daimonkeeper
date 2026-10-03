@@ -53,7 +53,7 @@ extern "C" {
 
 // enum GameSystemFlags moved to kfx_sim_state.h (stage 13.3,
 // docs/refactor/stage-13-enforce-and-document.md) -- it's the flag type
-// for kfx_sim_state.system_flags, and kfx_sim is the lowest-ranked of
+// for local_system_flags, and kfx_sim is the lowest-ranked of
 // its real consumers (kfx_net/kfx_render/kfx_frontend/kfx_apploop also
 // read it).
 

@@ -15,9 +15,9 @@ extern int64_t lan_session_count;
 
 void lan_host_start(const char *name, int64_t port);
 void lan_host_update(void);
+void lan_service(void);
 void lan_refresh_sessions(void);
 void lan_shutdown(void);
-void lan_set_lobby_id(const char *id);
 
 #ifdef __cplusplus
 }

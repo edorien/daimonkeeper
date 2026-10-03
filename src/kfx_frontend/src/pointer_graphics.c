@@ -23,6 +23,7 @@
 #include "pointer_graphics.h"
 #include "packets.h"               // unpausing_in_progress
 #include "frontend.h"
+#include "local_camera.h"
 #include "gui_parchment.h"
 #include "gui_draw.h"
 #include "gui_boxmenu.h"
@@ -160,6 +161,12 @@ void process_dungeon_top_pointer_graphic(struct PlayerInfo *player)
     if (dungeon_invalid(dungeon))
     {
         set_pointer_graphic(MousePG_Invisible);
+        return;
+    }
+    // A replay's free camera has nothing to point at
+    if (replay_camera_detached())
+    {
+        set_pointer_graphic(MousePG_Arrow);
         return;
     }
     // During fade

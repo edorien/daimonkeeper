@@ -27,7 +27,7 @@ https://github.com/edorien/keeperfx-refactor, records every change and its
 date. The copyright and author notices in the individual source files are
 kept as they were.
 
-Upstream base: KeeperFX master merged up to commit 3ca592163 (2026-09-29).
+Upstream base: KeeperFX master merged up to commit 225d19d44 (2026-10-03).
 Content compatibility: campaigns and map packs made for KeeperFX 1.4
 ("KFX 1.4" in the version label).
 

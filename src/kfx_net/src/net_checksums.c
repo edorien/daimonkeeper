@@ -38,6 +38,8 @@
 extern "C" {
 #endif
 
+KFX_STATIC_ASSERT(NETWORK_STARTUP_MAP_FILE_COUNT == PACKET_SAVE_MAP_FILE_COUNT,
+    "a replay header records the same level files the network startup compares (packet_data.h)");
 /******************************************************************************/
 #define CHECKSUM_ADD(checksum, value) checksum = ((checksum << 5) | (checksum >> 27)) ^ (uint64_t)(value)
 #define SNAPSHOT_BUFFER_SIZE 15
@@ -197,7 +199,7 @@ int64_t checksums_different(void)
     struct Packet* host_packet = get_packet(host_user_id);
     TbBigChecksum host_checksum = host_packet->checksum;
     TbBool mismatch = false;
-    TbBool already_desynced = (kfx_sim_state.system_flags & GSF_NetGameNoSync) != 0;
+    TbBool already_desynced = (local_system_flags & GSF_NetGameNoSync) != 0;
 
     for (NetUserId i = 0; i < MAX_NET_USERS; i++) {
         if (i == host_user_id) {

@@ -187,7 +187,7 @@ void set_player_as_won_level(struct PlayerInfo *player)
   // Computing player score
   dungeon->lvstats.player_score = compute_player_final_score(player, dungeon->max_gameplay_score);
   dungeon->lvstats.allow_save_score = 1;
-  if (!network_is_active())
+  if (kfx_sim_state.game_kind != GKind_MultiGame)
     player->display_objective_turn = get_gameturn() + 300;
   if (my_player)
   {
@@ -205,7 +205,7 @@ void set_player_as_lost_level(struct PlayerInfo *player)
     if (player->victory_state != VicS_Undecided)
     {
         // Suppress redundant warnings
-        if ((kfx_sim_state.system_flags & GSF_RunAfterVictory) == 0)
+        if (!kfx_sim_state.run_after_victory)
         {
             WARNLOG("Victory state already set to %" PRId64,(int64_t)player->victory_state);
         }
@@ -260,9 +260,9 @@ void set_player_as_lost_level(struct PlayerInfo *player)
         }
     }
     set_player_state(player, PSt_CtrlDungeon, 0);
-    if (!network_is_active())
+    if (kfx_sim_state.game_kind != GKind_MultiGame)
         player->display_objective_turn = get_gameturn() + 300;
-    if (network_is_active())
+    if (kfx_sim_state.game_kind == GKind_MultiGame)
         reveal_whole_map(player);
     if ((dungeon->computer_enabled & 0x01) != 0)
         ai_toggle_computer_player(player->id_number);
@@ -271,7 +271,7 @@ void set_player_as_lost_level(struct PlayerInfo *player)
 int64_t compute_player_final_score(struct PlayerInfo *player, int64_t gameplay_score)
 {
     int64_t i;
-    if (network_is_active()
+    if ((kfx_sim_state.game_kind == GKind_MultiGame)
       || !is_singleplayer_level(get_loaded_level_number())) {
         i = 2 * gameplay_score;
     } else {
@@ -803,7 +803,7 @@ void init_user_state(NetUserId user)
     }
 }
 
-void init_player(struct PlayerInfo *player, int64_t no_explore, const struct PacketSaveHead *replay_head)
+void init_player(struct PlayerInfo *player, int64_t no_explore)
 {
     SYNCDBG(5,"Starting");
     if (is_my_player(player))
@@ -814,6 +814,10 @@ void init_player(struct PlayerInfo *player, int64_t no_explore, const struct Pac
     player->work_state = PSt_CtrlDungeon;
     player->isometric_view_zoom_level = settings.isometric_view_zoom_level;
     player->frontview_zoom_level = settings.frontview_zoom_level;
+    player->zoom_distance = kfx_config_state.zoom_distance_setting;
+    player->frontview_zoom_distance = kfx_config_state.frontview_zoom_distance_setting;
+    player->cheats_allowed = kfx_sim_state.easter_eggs_enabled;
+    player->skip_heart_zoom = get_skip_heart_zoom_feature();
     if (is_my_player(player))
     {
         // Read keeperfx_ui_config directly rather than via a kfx_sim_state
@@ -826,6 +830,7 @@ void init_player(struct PlayerInfo *player, int64_t no_explore, const struct Pac
         {
             settings.highlight_mode = keeperfx_ui_config.default_tag_mode - 1;
         }
+        player->highlight_mode = settings.highlight_mode;
         player->roomspace_highlight_mode = settings.highlight_mode;
         player->roomspace_mode = settings.highlight_mode;
         set_flag(kfx_sim_state.operation_flags, GOF_ShowPanel);
@@ -848,11 +853,11 @@ void init_player(struct PlayerInfo *player, int64_t no_explore, const struct Pac
         }
         break;
     case GKind_MultiGame:
-        if (replay_head->isometric_view_zoom_level == 0)
+        if (player->isometric_view_zoom_level == 0)
         {
             player->isometric_view_zoom_level = CAMERA_ZOOM_MAX;
         }
-        if (replay_head->frontview_zoom_level == 0)
+        if (player->frontview_zoom_level == 0)
         {
             player->frontview_zoom_level = FRONTVIEW_CAMERA_ZOOM_MAX;
         }
@@ -885,27 +890,26 @@ void init_player(struct PlayerInfo *player, int64_t no_explore, const struct Pac
     }
 }
 
-void init_players(const struct PacketSaveHead *replay_head)
+void init_players(void)
 {
     for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
-        if (flag_is_set(replay_head->players_exist, to_flag(i)))
+        if (flag_is_set(replay.head.players_exist, to_flag(i)))
             player->allocflags |= PlaF_Allocated;
         else
             player->allocflags &= ~PlaF_Allocated;
         if (player_exists(player))
         {
             player->id_number = i;
-            if (flag_is_set(replay_head->players_comp, to_flag(i)))
+            if (flag_is_set(replay.head.players_comp, to_flag(i)))
                 player->allocflags |= PlaF_CompCtrl;
             else
                 player->allocflags &= ~PlaF_CompCtrl;
             if ((player->allocflags & PlaF_CompCtrl) == 0)
             {
               kfx_sim_state.human_players_count++;
-              kfx_sim_state.game_kind = GKind_MultiGame;
-              init_player(player, 0, replay_head);
+              init_player(player, 0);
             }
         }
     }
@@ -1126,7 +1130,7 @@ void post_init_players(void)
     }
 }
 
-void init_players_local_game(const struct PacketSaveHead *replay_head)
+void init_players_local_game(void)
 {
     SYNCDBG(4,"Starting");
     struct PlayerInfo* player = get_my_player();
@@ -1146,7 +1150,7 @@ void init_players_local_game(const struct PacketSaveHead *replay_head)
         case 2: player->view_mode_restore = PVM_FrontView; break;
         default: player->view_mode_restore = PVM_IsoWibbleView; break;
     }
-    init_player(player, 0, replay_head);
+    init_player(player, 0);
     init_user_state(player->user_id);
     set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
     set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);

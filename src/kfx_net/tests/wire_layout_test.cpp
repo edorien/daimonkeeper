@@ -30,7 +30,7 @@ TEST_CASE("struct Packet has one fixed byte layout on every ABI", "[kfx_net][lp6
 }
 
 TEST_CASE("Replay header, save catalogue entry and lobby version keep their on-disk/wire size", "[kfx_net][lp64][wire]") {
-    CHECK(sizeof(struct PacketSaveHead) == 180);
+    CHECK(sizeof(struct PacketSaveHead) == 319); // upstream #5376: per-user UserStartSettings; #5385: 17 map checksums
     CHECK(sizeof(struct CatalogueEntry) == 446);
     CHECK(sizeof(struct GameVersionPacket) == 16);
     CHECK(sizeof(struct ScreenPacket) == 9);

@@ -161,15 +161,51 @@ TbError process_network_unpause_message(void)
     return Lb_OK;
 }
 
-void process_gameplay_chat_message(NetUserId user, const char *message)
+#define GAMEPLAY_CHAT_QUEUE_LEN 16
+struct QueuedGameplayChat {
+    NetUserId user;
+    MapCoord cursor_x;
+    MapCoord cursor_y;
+    char message[PLAYER_MP_MESSAGE_LEN];
+};
+static struct QueuedGameplayChat gameplay_chat_queue[GAMEPLAY_CHAT_QUEUE_LEN];
+static int64_t gameplay_chat_queue_count;
+
+void queue_gameplay_chat_message(NetUserId user, const char *message, MapCoord cursor_x, MapCoord cursor_y)
 {
+    if (gameplay_chat_queue_count >= GAMEPLAY_CHAT_QUEUE_LEN)
+    {
+        ERRORLOG("Chat message queue overflow (%" PRId64 " messages); clearing it", gameplay_chat_queue_count);
+        game_stop_replay_recording("chat message queue overflow");
+        gameplay_chat_queue_count = 0;
+    }
+    struct QueuedGameplayChat *queued = &gameplay_chat_queue[gameplay_chat_queue_count++];
+    queued->user = user;
+    queued->cursor_x = cursor_x;
+    queued->cursor_y = cursor_y;
+    snprintf(queued->message, sizeof(queued->message), "%s", message);
+}
+
+void process_queued_chat_messages(void)
+{
+    for (int64_t i = 0; i < gameplay_chat_queue_count; i++)
+        process_gameplay_chat_message(gameplay_chat_queue[i].user, gameplay_chat_queue[i].message,
+            gameplay_chat_queue[i].cursor_x, gameplay_chat_queue[i].cursor_y);
+    gameplay_chat_queue_count = 0;
+}
+
+void process_gameplay_chat_message(NetUserId user, const char *message, MapCoord cursor_x, MapCoord cursor_y)
+{
+    if (message[0] != '\0')
+        game_replay_record_chat_message(user, message, cursor_x, cursor_y);
     PlayerNumber plyr_idx = get_net_user_player_number(user);
     struct PlayerInfo *player = prepare_network_chat_message(plyr_idx, message);
     if (message[0] != '\0') {
         SYNCLOG("Gameplay chat from user %" PRId64 " (player %" PRId64 "): %s", (int64_t)user, (int64_t)plyr_idx, message);
         extseat_note_chat(plyr_idx, player->mp_message_text); // External seats read the chat as the players do
         script_lua_on_chatmsg(plyr_idx, player->mp_message_text);
-        if (player->mp_message_text[0] != cmd_char || !game_cmd_exec(plyr_idx, player->mp_message_text + 1) || network_is_active()) {
+        const TbBool shown = (player->mp_message_text[0] != cmd_char) || !game_cmd_exec(plyr_idx, player->mp_message_text + 1, cursor_x, cursor_y) || network_is_active();
+        if (shown) {
             ui_message_add(MsgType_Player, plyr_idx, player->mp_message_text);
             play_non_3d_sample(snd_chat_message[user == get_local_user()]);
         }
@@ -456,8 +492,8 @@ static TbError wait_for_missing_packets(void *server_buf, size_t frame_size, Net
             break;
         }
         if (LbTimerClock() - wait_start_time >= FINAL_RESORT_RESYNC_RECOVERY) {
-            set_flag(kfx_sim_state.system_flags, GSF_NetGameNoSync);
-            clear_flag(kfx_sim_state.system_flags, GSF_NetSeedNoSync);
+            set_flag(local_system_flags, GSF_NetGameNoSync);
+            clear_flag(local_system_flags, GSF_NetSeedNoSync);
             wait_timed_out = true;
             break;
         }

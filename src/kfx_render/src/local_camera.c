@@ -64,7 +64,7 @@ static void apply_sim_camera_signals(void);
 
 static TbBool replay_is_detached(void)
 {
-    return kfx_sim_state.replay_active && local_state.replay_detached;
+    return replay.load_enable && local_state.replay_detached;
 }
 
 void camera_packet_set_state(struct Packet *pckt)
@@ -166,7 +166,7 @@ static void update_local_first_person_camera(struct Thing *ctrltng, const struct
     int64_t eye_height = get_creature_eye_height(ctrltng);
     update_first_person_position(cam, ctrltng, eye_height);
 
-    if ((flag_is_set(kfx_sim_state.operation_flags, GOF_Paused) && kfx_sim_state.game_kind != GKind_LocalGame)
+    if ((flag_is_set(kfx_sim_state.operation_flags, GOF_Paused) && network_is_active())
         || ! can_process_creature_input(ctrltng))
     {
         cam->rotation_angle_x = ctrltng->move_angle_xy;
@@ -216,6 +216,9 @@ void update_local_cameras(void)
         memset(&freecam_packet, 0, sizeof(freecam_packet));
         return;
     }
+    if (replay_playback_is_paused()) {
+        pckt = NULL;
+    }
     if (pckt != NULL) {
         process_camera_action(destination_local_cameras, pckt);
         // Skip interpolation for parchment jumps, while retaining it for minimap dragging.
@@ -246,7 +249,7 @@ void update_local_cameras(void)
     if (local_camera_move_cam != cam) {
         // Same as the packet camera: a parchment map jump ignores the packet's camera controls.
         if (pckt->action != PckA_ZoomFromMap) {
-            if (!kfx_sim_state.replay_active && cam->view_mode != PVM_ParchmentView) {
+            if (!replay.load_enable && cam->view_mode != PVM_ParchmentView) {
                 process_local_camera_movement(cam, player);
                 process_camera_view_controls(cam, pckt, player);
             } else {
@@ -450,6 +453,20 @@ struct Packet *get_freecam_packet(void)
 TbBool replay_camera_detached(void)
 {
     return replay_is_detached();
+}
+
+// Replay playback held while a menu is open (upstream #5370). Set by kfx_game's
+// set_replay_playback_paused(); kept here, with the replay camera, so the camera can read it.
+static TbBool replay_playback_paused;
+
+TbBool replay_playback_is_paused(void)
+{
+    return replay.load_enable && replay_playback_paused;
+}
+
+void local_camera_set_replay_paused(TbBool paused)
+{
+    replay_playback_paused = paused;
 }
 
 void replay_detach(void)

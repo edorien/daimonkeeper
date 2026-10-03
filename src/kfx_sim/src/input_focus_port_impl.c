@@ -11,6 +11,7 @@
 #include "config_keeperfx.h"
 #include "kfx_sim_state.h"
 #include "player_data.h"
+#include "packet_data.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -32,7 +33,7 @@ static TbBool is_possession_mode_active(void)
 
 static TbBool is_packet_load_enabled(void)
 {
-    return kfx_sim_state.replay_active != 0;
+    return replay.load_enable != 0;
 }
 
 

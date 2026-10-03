@@ -25,6 +25,7 @@
 #ifndef GIT_BFLIB_NETSP_H
 #define GIT_BFLIB_NETSP_H
 
+#include "bflib_netsession.h"
 #include "bflib_basics.h"
 
 #ifdef __cplusplus
@@ -50,7 +51,7 @@ enum NetDropReason {
     NETDROP_ERROR,
 };
 
-typedef TbBool (*NetNewUserCallback)(NetUserId *assigned_id);
+typedef enum NetJoinRejection (*NetNewUserCallback)(NetUserId *assigned_id);
 typedef void (*NetDropCallback)(NetUserId id, enum NetDropReason reason);
 
 struct NetSP
@@ -65,7 +66,7 @@ struct NetSP
     void (*sendmsg_all)(const char *buffer, size_t size);
     size_t (*msgready)(NetUserId source, uint64_t timeout);
     size_t (*readmsg)(NetUserId source, char *buffer, size_t max_size);
-    void (*drop_user)(NetUserId id);
+    void (*drop_user)(NetUserId id, enum NetJoinRejection reason);
 };
 
 #ifdef __cplusplus

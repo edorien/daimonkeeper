@@ -115,7 +115,7 @@ static int64_t resync_attempt_count = 0;
 
 TbBool is_desync_warning_active(void)
 {
-    return resync_attempt_count >= RESYNC_LIMIT_BEFORE_COOLDOWN && (kfx_sim_state.system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0;
+    return resync_attempt_count >= RESYNC_LIMIT_BEFORE_COOLDOWN && (local_system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0;
 }
 
 TbBool resync_game_allowed(void)
@@ -244,17 +244,20 @@ void exchange_packets(void)
 
     MULTIPLAYER_LOG("process_packets: === BEGIN turn=%" PRIu64 " ===", (uint64_t)get_gameturn());
     const NetUserId local_user = get_local_user();
-    input_lag_update(get_local_packet());
-    set_local_packet_turn();
-    update_turn_checksums();
+    if (!replay.load_enable)
+    {
+        input_lag_update(get_local_packet());
+        set_local_packet_turn();
+        update_turn_checksums();
+    }
     update_local_dig_tag_prediction(kfx_net_state.input_lag_turns);
-    if (!kfx_sim_state.replay_active)
+    if (!replay.load_enable)
         camera_packet_set_state(get_local_packet());
     store_packet_history(local_user, get_local_packet());
     host_spoof_dropped_user_packets();
-    if (kfx_sim_state.game_kind != GKind_LocalGame)
+    if (network_is_active())
     {
-        if (!kfx_sim_state.replay_active)
+        if (!replay.load_enable)
         {
             struct Packet* my_packet = get_local_packet();
             const char* player_name = (local_user == SERVER_ID) ? "Host" : "Client";
@@ -280,11 +283,11 @@ void exchange_packets(void)
     }
 
     if (network_is_active() && checksums_different()) {
-        set_flag(kfx_sim_state.system_flags, GSF_NetGameNoSync);
-        clear_flag(kfx_sim_state.system_flags, GSF_NetSeedNoSync);
+        set_flag(local_system_flags, GSF_NetGameNoSync);
+        clear_flag(local_system_flags, GSF_NetSeedNoSync);
     } else {
-        clear_flag(kfx_sim_state.system_flags, GSF_NetGameNoSync);
-        clear_flag(kfx_sim_state.system_flags, GSF_NetSeedNoSync);
+        clear_flag(local_system_flags, GSF_NetGameNoSync);
+        clear_flag(local_system_flags, GSF_NetSeedNoSync);
     }
 }
 

@@ -68,15 +68,11 @@ extern int64_t multiplayer_speed_adjustment_ns;
 #pragma pack(1)
 struct StartupSyncPacket {
     uint8_t startup_sync_packet_valid;
-    int64_t video_rotate_mode;
     TbBigChecksum map_checksums[NETWORK_STARTUP_MAP_FILE_COUNT];
     TbBigChecksum required_sprite_zip_checksums[REQUIRED_SPRITE_ZIP_COUNT];
-    int64_t initial_tendencies;
-    uint64_t isometric_view_zoom_level;
-    uint64_t frontview_zoom_level;
-    uint64_t zoom_distance_setting;
-    uint64_t frontview_zoom_distance_setting;
+    struct UserStartSettings user_start;
     uint8_t initial_input_lag_turns;
+    uint32_t initial_action_seed;
     // TODO: also record alliance matrix.
 };
 #pragma pack()
@@ -137,8 +133,7 @@ static const struct EnetConnectivityServices enet_connectivity_services = {
     .holepunch_stun_keepalive = &holepunch_stun_keepalive,
     .matchmaking_punch = &enet_services_matchmaking_punch,
     .matchmaking_poll_punch = &enet_services_matchmaking_poll_punch,
-    .port_forward_add_mapping = &port_forward_add_mapping,
-    .port_forward_remove_mapping = &port_forward_remove_mapping,
+    .port_forward_set_mapping = &port_forward_set_mapping,
 };
 
 int64_t setup_network_service(enum FrontendNetService service)
@@ -189,7 +184,7 @@ PlayerNumber get_net_user_player_number(NetUserId user)
     if ((user < 0) || (user >= MAX_NET_USERS)) {
         return -1;
     }
-    if (!network_is_active() && !kfx_sim_state.replay_active) {
+    if (!network_is_active() && !replay.load_enable) {
         return (user == SOLO_HUMAN_ID) ? my_player_number : net_local_external_player[user];
     }
     return net_user_player_number[user];
@@ -252,7 +247,7 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
     player->user_id = user;
     set_flag(player->allocflags, PlaF_Allocated | PlaF_ExternalSeat);
     player->view_mode_restore = PVM_IsoWibbleView;
-    init_player(player, 0, &kfx_net_state.packet_save_head);
+    init_player(player, 0);
     init_user_state(user);
     set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
     set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);
@@ -399,6 +394,53 @@ void set_net_user_player_number(NetUserId user, PlayerNumber plyr_idx)
     net_user_player_number[user] = plyr_idx;
 }
 
+void build_local_user_start_settings(struct UserStartSettings *us)
+{
+    memset(us, 0, sizeof(*us));
+    us->video_rotate_mode = settings.video_rotate_mode;
+    if (IMPRISON_BUTTON_DEFAULT)
+        us->tendencies |= CrTend_Imprison;
+    if (FLEE_BUTTON_DEFAULT)
+        us->tendencies |= CrTend_Flee;
+    us->isometric_view_zoom_level = settings.isometric_view_zoom_level;
+    us->frontview_zoom_level = settings.frontview_zoom_level;
+    us->zoom_distance = kfx_config_state.zoom_distance_setting;
+    us->frontview_zoom_distance = kfx_config_state.frontview_zoom_distance_setting;
+    if (kfx_sim_state.easter_eggs_enabled)
+        us->flags |= USF_CheatsEnabled;
+    if (get_skip_heart_zoom_feature())
+        us->flags |= USF_SkipHeartZoom;
+    us->highlight_mode = (keeperfx_ui_config.default_tag_mode != 3) ? keeperfx_ui_config.default_tag_mode - 1 : settings.highlight_mode;
+    us->isometric_tilt = settings.isometric_tilt;
+}
+
+void apply_user_start_settings(struct PlayerInfo *player, const struct UserStartSettings *us, const struct UserStartSettings *host)
+{
+    player->view_mode_restore = rotate_mode_to_view_mode(us->video_rotate_mode);
+    player->isometric_view_zoom_level = us->isometric_view_zoom_level;
+    player->frontview_zoom_level = us->frontview_zoom_level;
+    player->zoom_distance = us->zoom_distance;
+    player->frontview_zoom_distance = us->frontview_zoom_distance;
+    player->cheats_allowed = ((us->flags & USF_CheatsEnabled) != 0) && ((host->flags & USF_CheatsEnabled) != 0);
+    player->skip_heart_zoom = ((us->flags & USF_SkipHeartZoom) != 0) && ((host->flags & USF_SkipHeartZoom) != 0);
+    player->highlight_mode = us->highlight_mode;
+    player->roomspace_highlight_mode = us->highlight_mode;
+    player->roomspace_mode = us->highlight_mode;
+    struct Camera *iso_cam = &player->cameras[CamIV_Isometric];
+    iso_cam->rotation_angle_y = us->isometric_tilt;
+    iso_cam->view_mode = (us->video_rotate_mode == 1) ? PVM_IsoStraightView : PVM_IsoWibbleView;
+    iso_cam->zoom = us->isometric_view_zoom_level;
+    player->cameras[CamIV_FrontView].zoom = us->frontview_zoom_level;
+    TbBool imprison = (us->tendencies & CrTend_Imprison) != 0;
+    TbBool flee = (us->tendencies & CrTend_Flee) != 0;
+    set_creature_tendencies(player, CrTend_Imprison, imprison);
+    set_creature_tendencies(player, CrTend_Flee, flee);
+    if (player->id_number == my_player_number) {
+        kfx_sim_state.creatures_tend_imprison = imprison;
+        kfx_sim_state.creatures_tend_flee = flee;
+    }
+}
+
 static void setup_players_from_startup_packets(const struct StartupSyncPacket startup_sync_packets[MAX_NET_USERS])
 {
     for (NetUserId i = 0; i < MAX_NET_USERS; i++) {
@@ -414,23 +456,11 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
         player->id_number = k;
         player->user_id = i;
         player->allocflags |= PlaF_Allocated;
-        switch (sync->video_rotate_mode) {
-            case 0: player->view_mode_restore = PVM_IsoWibbleView; break;
-            case 1: player->view_mode_restore = PVM_IsoStraightView; break;
-            case 2: player->view_mode_restore = PVM_FrontView; break;
-            default: player->view_mode_restore = PVM_IsoWibbleView; break;
-        }
-        init_player(player, 0, &kfx_net_state.packet_save_head);
+        player->view_mode_restore = rotate_mode_to_view_mode(sync->user_start.video_rotate_mode);
+        init_player(player, 0);
         init_user_state(player->user_id);
-        player->isometric_view_zoom_level = sync->isometric_view_zoom_level;
-        player->frontview_zoom_level = sync->frontview_zoom_level;
-        TbBool imprison = (sync->initial_tendencies & CrTend_Imprison) != 0;
-        TbBool flee = (sync->initial_tendencies & CrTend_Flee) != 0;
-        set_creature_tendencies(player, CrTend_Imprison, imprison);
-        set_creature_tendencies(player, CrTend_Flee, flee);
+        apply_user_start_settings(player, &sync->user_start, &startup_sync_packets[SERVER_ID].user_start);
         if (player->id_number == my_player_number) {
-            kfx_sim_state.creatures_tend_imprison = imprison;
-            kfx_sim_state.creatures_tend_flee = flee;
             my_local_user_id = i;
         }
         snprintf(player->player_name, sizeof(struct TbNetworkPlayerName), "%s", network_user_name(i));
@@ -493,6 +523,17 @@ static TbBool verify_startup_sprite_zip_checksums(const struct StartupSyncPacket
 static struct StartupSyncPacket s_local_startup_sync;
 static struct StartupSyncPacket s_startup_sync_packets[MAX_NET_USERS];
 
+// the settings a user sent in the startup sync, for network games
+TbBool get_startup_user_settings(NetUserId user, struct UserStartSettings *us)
+{
+    if (!network_is_active() || (user < 0) || (user >= MAX_NET_USERS) || !s_startup_sync_packets[user].startup_sync_packet_valid)
+        return false;
+    *us = s_startup_sync_packets[user].user_start;
+    return true;
+}
+
+
+
 static uint8_t calculate_initial_input_lag(void)
 {
     int64_t player_count = 0;
@@ -524,18 +565,11 @@ static void build_local_startup_sync(void)
 {
     memset(&s_local_startup_sync, 0, sizeof(s_local_startup_sync));
     s_local_startup_sync.startup_sync_packet_valid = 1;
-    s_local_startup_sync.video_rotate_mode = settings.video_rotate_mode;
     calculate_network_startup_map_checksums(s_local_startup_sync.map_checksums);
     memcpy(s_local_startup_sync.required_sprite_zip_checksums, required_sprite_zip_checksums, sizeof(s_local_startup_sync.required_sprite_zip_checksums));
-    int64_t initial_tendencies = 0;
-    if (IMPRISON_BUTTON_DEFAULT) {initial_tendencies |= CrTend_Imprison;}
-    if (FLEE_BUTTON_DEFAULT) {initial_tendencies |= CrTend_Flee;}
-    s_local_startup_sync.initial_tendencies = initial_tendencies;
-    s_local_startup_sync.isometric_view_zoom_level = settings.isometric_view_zoom_level;
-    s_local_startup_sync.frontview_zoom_level = settings.frontview_zoom_level;
-    s_local_startup_sync.zoom_distance_setting = kfx_config_state.zoom_distance_setting;
-    s_local_startup_sync.frontview_zoom_distance_setting = kfx_config_state.frontview_zoom_distance_setting;
+    build_local_user_start_settings(&s_local_startup_sync.user_start);
     s_local_startup_sync.initial_input_lag_turns = calculate_initial_input_lag();
+    s_local_startup_sync.initial_action_seed = (uint32_t)kfx_net_local.initial_replay_seed;
 }
 
 static TbBool net_startup_sync_exchange_and_apply(void)
@@ -566,8 +600,11 @@ static TbBool net_startup_sync_exchange_and_apply(void)
     input_lag_reset();
     kfx_net_state.skip_initial_input_turns = calculate_skip_input();
     NETLOG("Startup input lag: %" PRId64, (int64_t)(kfx_net_state.input_lag_turns));
-    kfx_config_state.zoom_distance_setting = host_sync->zoom_distance_setting;
-    kfx_config_state.frontview_zoom_distance_setting = host_sync->frontview_zoom_distance_setting;
+    if (host_sync->initial_action_seed != (uint32_t)kfx_net_local.initial_replay_seed)
+    {
+        ERRORLOG("Initial action seed %" PRIu64 " differs from host's %" PRIu64, (uint64_t)kfx_net_local.initial_replay_seed, (uint64_t)host_sync->initial_action_seed);
+        kfx_net_local.initial_replay_seed = host_sync->initial_action_seed;
+    }
     setup_players_from_startup_packets(s_startup_sync_packets);
     return true;
 }
@@ -635,6 +672,9 @@ TbBool init_players_network_game(void)
         build_local_startup_sync();
         initialized = net_startup_sync_exchange_and_apply();
     }
+    if (initialized) {
+        net_lobby_set_phase(NetPhase_InGame);
+    }
     if (initialized && netstate.my_id == SERVER_ID && ui_frontnet_service_selected(FrontendNetSvc_Online)) {
         LevelNumber map_number = get_level_number();
         struct LevelInformation *level_info = get_level_info(map_number);
@@ -645,7 +685,7 @@ TbBool init_players_network_game(void)
                 map_name = get_string(level_info->name_stridx);
             }
         }
-        matchmaking_close_lobby(MMLobbyResult_Started, (int64_t)map_number, map_name);
+        matchmaking_start_game((int64_t)map_number, map_name);
     }
     if (!initialized) {
         LbNetwork_Stop();
@@ -702,6 +742,22 @@ static TbBool network_has_remote_users_remaining(void)
     return false;
 }
 
+static TbBool replay_has_remote_humans(void)
+{
+    const NetUserId local_user = replay.head.recording_user;
+    for (NetUserId user_id = 0; user_id < MAX_NET_USERS; user_id++) {
+        const PlayerNumber plyr_idx = get_net_user_player_number(user_id);
+        if ((user_id == local_user) || (plyr_idx < 0)) {
+            continue;
+        }
+        const struct PlayerInfo *player = get_player(plyr_idx);
+        if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void replace_network_player_with_ai(struct PlayerInfo *player)
 {
     player->allocflags |= PlaF_CompCtrl | PlaF_Placeholder;
@@ -712,9 +768,8 @@ static void replace_network_player_with_ai(struct PlayerInfo *player)
 
 // used when ending a netplay game or recording.
 // local single-player must have the local user in slot 0.
-void remap_local_user_to_solo(void)
+void remap_user_to_solo(struct PlayerInfo *myplyr)
 {
-    struct PlayerInfo *myplyr = get_my_player();
     NetUserId old_user = myplyr->user_id;
     for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
         if (user == old_user) {
@@ -750,10 +805,10 @@ void remap_local_user_to_solo(void)
 static void stop_network_game_state(void)
 {
     memset(net_user_info, 0, sizeof(net_user_info));
-    clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
-    remap_local_user_to_solo();
-    clear_flag(kfx_sim_state.system_flags, GSF_NetGameNoSync);
-    clear_flag(kfx_sim_state.system_flags, GSF_NetSeedNoSync);
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    remap_user_to_solo(get_my_player());
+    clear_flag(local_system_flags, GSF_NetGameNoSync);
+    clear_flag(local_system_flags, GSF_NetSeedNoSync);
     fe_network_active = 0;
     kfx_sim_state.game_kind = GKind_LocalGame;
     kfx_net_state.input_lag_turns = 0;
@@ -772,9 +827,19 @@ static void stop_network_game_and_quit_to_main_menu(void)
 
 static void stop_network_game_and_continue_locally(void)
 {
-    LbNetwork_Stop();
-    stop_network_game_state();
-    get_my_player()->display_objective_turn = get_gameturn() + 1;
+    struct PlayerInfo *survivor;
+    if (network_is_active()) {
+        LbNetwork_Stop();
+        stop_network_game_state();
+        survivor = get_my_player();
+    } else {
+        const PlayerNumber plyr_idx = get_net_user_player_number(replay.head.recording_user);
+        survivor = (plyr_idx >= 0) ? get_player(plyr_idx) : get_my_player();
+        remap_user_to_solo(survivor);
+        kfx_sim_state.game_kind = GKind_LocalGame;
+        setup_count_players();
+    }
+    survivor->display_objective_turn = get_gameturn() + 1;
 }
 
 static TbBool host_already_won_level(void)
@@ -839,7 +904,7 @@ static void leave_network_if_alone(void)
 void process_player_leave_game_packet(struct PlayerInfo *player)
 {
     if (player != get_my_player()) {
-        if (network_is_active() || kfx_sim_state.replay_active /* handle replays */) {
+        if (kfx_sim_state.game_kind == GKind_MultiGame) {
             NetUserId user = player->user_id;
             if (network_is_active()) {
                 OnDroppedUser(user, NETDROP_MANUAL);
@@ -847,6 +912,8 @@ void process_player_leave_game_packet(struct PlayerInfo *player)
             remove_user_from_game(user, user != SERVER_ID);
             if (network_is_active()) {
                 leave_network_if_alone();
+            } else if (replay.load_enable && !replay_has_remote_humans()) {
+                stop_network_game_and_continue_locally();
             }
             return;
         }
@@ -904,12 +971,26 @@ void process_disconnected_network_players(void)
             remove_user_from_game(user, false);
         }
     }
+    game_replay_record_network_stopped();
+    stop_network_game_and_continue_locally();
+}
+
+void apply_recorded_network_stop(void)
+{
+    ui_message_add(MsgType_Blank, 0, get_string(GUIStr_NetHostConnectionLost));
+    const NetUserId local_user = replay.head.recording_user;
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        if (user != local_user) {
+            remove_user_from_game(user, false);
+        }
+    }
     stop_network_game_and_continue_locally();
 }
 
 int64_t network_session_join(void)
 {
     int64_t plyr_num;
+    net_join_rejection = NetJoin_Accepted;
     ui_reset_attempting_to_join_cancel();
     ui_display_attempting_to_join_message(-1);
     if (ui_attempting_to_join_cancel_requested())
@@ -924,7 +1005,12 @@ int64_t network_session_join(void)
             net_session_index_active_id = -1;
             matchmaking_request_list();
         }
-        ui_process_network_error(-802);
+        const char *error = net_join_error_text(net_join_rejection);
+        if (error) {
+            ui_create_frontend_error_box(5000, error);
+        } else {
+            ui_process_network_error(-802);
+        }
     }
     return -1;
 }
@@ -940,6 +1026,7 @@ void sync_initial_network_seed(void)
    }
    kfx_sim_state.ai_random_seed = kfx_sim_state.action_random_seed * 9377 + 9391;
    kfx_sim_state.player_random_seed = kfx_sim_state.action_random_seed * 9473 + 9479;
+   kfx_net_local.initial_replay_seed = kfx_sim_state.action_random_seed;
    NETLOG("Initial network seed synced: action_seed=%" PRIu64, (uint64_t)(kfx_sim_state.action_random_seed));
 }
 /******************************************************************************/

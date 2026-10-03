@@ -18,6 +18,8 @@
 
 #include "config_players.h"
 #include "kfx_sim_state.h"
+#include "player_data.h"
+#include "packet_data.h"
 
 #include "post_inc.h"
 
@@ -30,6 +32,20 @@ TbBool game_refuses_cheats(void)
 TbBool cheat_mode_enabled(void)
 {
     return kfx_sim_state.easter_eggs_enabled && !game_refuses_cheats();
+}
+
+TbBool player_cheats_allowed(PlayerNumber plyr_idx)
+{
+    if (game_refuses_cheats())
+        return false;
+    // A replay plays each player's input with the cheat permission it was recorded with (upstream
+    // #5376: PlayerInfo.cheats_allowed, from the replay's start settings), not the viewer's.
+    if (replay.load_enable)
+    {
+        const struct PlayerInfo *player = get_player(plyr_idx);
+        return !player_invalid(player) && player->cheats_allowed;
+    }
+    return cheat_mode_enabled();
 }
 
 TbBool player_state_is_cheat(int64_t work_state)

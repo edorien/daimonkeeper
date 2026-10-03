@@ -24,6 +24,7 @@
 #include "ports/editor_port.h"
 
 #include <stdio.h>
+#include "packet_data.h"
 #include "post_inc.h"
 
 TbBool compat_review_wanted(void)
@@ -32,7 +33,7 @@ TbBool compat_review_wanted(void)
         return false;
     if (kfx_sim_state.game_kind != GKind_LocalGame)
         return false; // multiplayer: the report is logged only, for now
-    if (kfx_sim_state.replay_active)
+    if (replay.load_enable)
         return false;
     if (editorport_is_active())
         return false;

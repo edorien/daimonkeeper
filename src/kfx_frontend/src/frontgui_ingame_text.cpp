@@ -95,8 +95,8 @@ void draw_paused_caption(void)
 // The transient warning banner + out-of-sync lines (gui_topmsg.c).
 void draw_onscreen_banner(void)
 {
-    const bool oos  = (kfx_sim_state.system_flags & GSF_NetGameNoSync) != 0;
-    const bool seed = (kfx_sim_state.system_flags & GSF_NetSeedNoSync) != 0;
+    const bool oos  = (local_system_flags & GSF_NetGameNoSync) != 0;
+    const bool seed = (local_system_flags & GSF_NetSeedNoSync) != 0;
     const bool banner = onscreen_banner_visible() && onscreen_msg_text[0] != '\0';
     // Upstream #5320: a one-line "Multiplayer is out of sync." warning once resyncing has
     // given up (replaces the per-frame ERRORLOG spam), drawn where classic gui_topmsg.c does.

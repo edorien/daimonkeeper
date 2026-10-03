@@ -98,10 +98,10 @@ TbBool cumulative_screen_shot(void)
 TbBool perform_any_screen_capturing(void)
 {
     TbBool captured=0;
-    if ((kfx_sim_state.system_flags & GSF_CaptureSShot) != 0)
+    if ((local_system_flags & GSF_CaptureSShot) != 0)
     {
       captured |= cumulative_screen_shot();
-      clear_flag(kfx_sim_state.system_flags, GSF_CaptureSShot);
+      clear_flag(local_system_flags, GSF_CaptureSShot);
     }
     // docs/refactor/renderer/gpu-v2/01-phase-b-2d-compositing.md B2:
     // movie recording (GSF_CaptureMovie) retired -- nothing sets that

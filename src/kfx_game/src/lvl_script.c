@@ -1408,7 +1408,7 @@ void process_level_script(void)
   if (player->victory_state == VicS_Undecided) {
       process_script = true;
   }
-  if ((kfx_sim_state.system_flags & GSF_RunAfterVictory) != 0) {
+  if (kfx_sim_state.run_after_victory) {
       process_script = true;
   }
   // In network games every peer must keep executing scripts after the local player's defeat.

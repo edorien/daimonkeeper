@@ -1,5 +1,7 @@
 #include "pre_inc.h"
 #include "net_lan.h"
+#include "net_lobby.h"
+#include <json-dom.h>
 #include "bflib_basics.h"
 
 #include <enet6/enet.h>
@@ -7,6 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "post_inc.h"
 
@@ -18,16 +21,13 @@
 #define LAN_DISCOVER_MSG                 "DAIMONKEEPER_DISCOVER"
 #define LAN_HOST_REPLY_PREFIX            "DAIMONKEEPER_HOST:"
 #define LAN_IP_MAX                       64
-#define LAN_MSG_MAX                      256
+#define LAN_MSG_MAX                      4096
 
 struct TbNetworkSessionNameEntry lan_sessions[LAN_SESSIONS_MAX];
 int64_t lan_session_count = 0;
 
 struct LanSessionCache {
-    char ip[LAN_IP_MAX];
-    int64_t port;
-    char name[SESSION_NAME_MAX_LEN];
-    char lobby_id[SESSION_LOBBY_ID_MAX_LEN];
+    struct TbNetworkSessionNameEntry session;
     Uint32 last_seen_milliseconds;
 };
 
@@ -38,8 +38,8 @@ static ENetSocket host_socket = ENET_SOCKET_NULL;
 static ENetSocket joiner_socket = ENET_SOCKET_NULL;
 static int64_t joiner_socket_failed = 0;
 static char lan_hosted_name[SESSION_NAME_MAX_LEN] = {0};
-static char lan_hosted_lobby_id[SESSION_LOBBY_ID_MAX_LEN] = {0};
-static int64_t lan_hosted_port = 0;
+static uint16_t lan_hosted_port = 0;
+static SDL_Time lan_hosted_created_at = 0;
 static Uint32 last_broadcast_milliseconds = 0;
 
 static void socket_close(ENetSocket *socket)
@@ -50,12 +50,7 @@ static void socket_close(ENetSocket *socket)
     }
 }
 
-void lan_set_lobby_id(const char *id)
-{
-    snprintf(lan_hosted_lobby_id, sizeof(lan_hosted_lobby_id), "%s", id);
-}
-
-static int64_t receive_packet(ENetSocket socket, ENetAddress *sender, char *buffer, int64_t buffer_size)
+static int receive_packet(ENetSocket socket, ENetAddress *sender, char *buffer, int buffer_size)
 {
     enet_uint32 wait_flags = ENET_SOCKET_WAIT_RECEIVE;
     if (enet_socket_wait(socket, &wait_flags, 0) < 0 || !(wait_flags & ENET_SOCKET_WAIT_RECEIVE))
@@ -98,7 +93,10 @@ void lan_host_start(const char *name, int64_t port)
     }
     snprintf(lan_hosted_name, SESSION_NAME_MAX_LEN, "%s", name);
     lan_hosted_port = port;
-    LbNetLog("LAN: host discovery socket ready, discovery_port=%" PRId64 " game_port=%" PRId64 "\n", (int64_t)(LAN_DISCOVERY_PORT), (int64_t)(port));
+    lan_hosted_created_at = 0;
+    SDL_GetCurrentTime(&lan_hosted_created_at);
+    lan_hosted_created_at = SDL_NS_TO_MS(lan_hosted_created_at);
+    LbNetLog("LAN: host discovery socket ready, discovery_port=%d game_port=%d\n", LAN_DISCOVERY_PORT, (int)port);
 }
 
 void lan_host_update(void)
@@ -110,15 +108,24 @@ void lan_host_update(void)
     while (receive_packet(host_socket, &sender, buffer, sizeof(buffer)) > 0) {
         if (strcmp(buffer, LAN_DISCOVER_MSG) != 0)
             continue;
+        char metadata[SESSION_METADATA_MAX];
+        net_lobby_metadata(metadata);
         char reply[LAN_MSG_MAX];
-        int64_t reply_length = snprintf(reply, sizeof(reply), LAN_HOST_REPLY_PREFIX "%s|%s:%" PRId64,
-            lan_hosted_lobby_id, lan_hosted_name, (int64_t)lan_hosted_port);
+        int reply_length = snprintf(reply, sizeof(reply), LAN_HOST_REPLY_PREFIX "|%s:%d", lan_hosted_name, (int)lan_hosted_port);
+        if (!metadata[0] || reply_length < 0 || reply_length + strlen(metadata) + 4 >= sizeof(reply)) {
+            continue;
+        }
+        reply_length++;
+        reply_length += snprintf(reply + reply_length, sizeof(reply) - reply_length, "{\"createdAt\":%" PRId64 ",%s}", lan_hosted_created_at, metadata);
+        if (reply_length >= sizeof(reply)) {
+            continue;
+        }
         ENetBuffer send_buffer = {.data = reply, .dataLength = (size_t)reply_length};
         enet_socket_send(host_socket, &sender, &send_buffer, 1);
     }
 }
 
-void lan_refresh_sessions(void)
+void lan_service(void)
 {
     if (joiner_socket == ENET_SOCKET_NULL) {
         if (joiner_socket_failed)
@@ -153,7 +160,13 @@ void lan_refresh_sessions(void)
     }
     char buffer[LAN_MSG_MAX];
     ENetAddress sender;
-    while (receive_packet(joiner_socket, &sender, buffer, sizeof(buffer)) > 0) {
+    int packet_length;
+    while ((packet_length = receive_packet(joiner_socket, &sender, buffer, sizeof(buffer))) > 0) {
+        const char *metadata = "{}";
+        size_t legacy_length = strlen(buffer);
+        if (legacy_length + 1 < packet_length) {
+            metadata = buffer + legacy_length + 1;
+        }
         if (strncmp(buffer, LAN_HOST_REPLY_PREFIX, sizeof(LAN_HOST_REPLY_PREFIX) - 1) != 0)
             continue;
         char *payload = buffer + sizeof(LAN_HOST_REPLY_PREFIX) - 1;
@@ -170,50 +183,57 @@ void lan_refresh_sessions(void)
         if (!port_separator)
             continue;
         *port_separator = '\0';
-        int64_t game_port = atoi(port_separator + 1);
-        if (game_port <= 0)
+        int game_port = atoi(port_separator + 1);
+        if (game_port <= 0 || game_port > 65535) {
             continue;
+        }
         char sender_ip[LAN_IP_MAX];
         if (enet_address_get_host_ip(&sender, sender_ip, sizeof(sender_ip)) < 0)
             continue;
         strip_port_from_lan_sender_ipv4_address(&sender, sender_ip);
         if (host_socket != ENET_SOCKET_NULL && game_port == lan_hosted_port && strcmp(payload, lan_hosted_name) == 0)
             continue;
+        char join_address[SESSION_LOBBY_ID_MAX_LEN];
+        snprintf(join_address, sizeof(join_address), "LAN:%s:%d", sender_ip, game_port);
         struct LanSessionCache *entry = NULL;
-        for (int64_t i = 0; i < session_cache_count; i++) {
-            if (strcmp(session_cache[i].ip, sender_ip) == 0 && session_cache[i].port == game_port) {
+        for (int i = 0; i < session_cache_count; i++) {
+            if (strcmp(session_cache[i].session.join_address, join_address) == 0 && strcmp(session_cache[i].session.text, payload) == 0) {
                 entry = &session_cache[i];
                 break;
             }
         }
         if (!entry && session_cache_count < LAN_SESSIONS_MAX) {
             entry = &session_cache[session_cache_count++];
-            snprintf(entry->ip, LAN_IP_MAX, "%s", sender_ip);
-            entry->port = game_port;
         }
         if (entry) {
-            snprintf(entry->name, SESSION_NAME_MAX_LEN, "%s", payload);
-            snprintf(entry->lobby_id, SESSION_LOBBY_ID_MAX_LEN, "%s", parsed_lobby_id);
+            snprintf(entry->session.text, sizeof(entry->session.text), "%s", payload);
+            snprintf(entry->session.lobby_id, sizeof(entry->session.lobby_id), "%s", parsed_lobby_id);
+            snprintf(entry->session.join_address, sizeof(entry->session.join_address), "%s", join_address);
+            entry->session.in_use = 1;
+            VALUE root = {0};
+            json_dom_parse(metadata, strlen(metadata), NULL, 0, &root, NULL);
+            net_session_parse_metadata(&entry->session, &root);
+            value_fini(&root);
+            if (legacy_length + 1 >= packet_length) {
+                snprintf(entry->session.version, sizeof(entry->session.version), "%s", "1.4.0");
+            }
             entry->last_seen_milliseconds = now;
         }
     }
+}
+
+void lan_refresh_sessions(void)
+{
+    Uint32 now = (Uint32)SDL_GetTicks();
     lan_session_count = 0;
     int64_t write_index = 0;
     for (int64_t i = 0; i < session_cache_count; i++) {
         if (now - session_cache[i].last_seen_milliseconds > LAN_SESSION_TIMEOUT_MS)
             continue;
         session_cache[write_index++] = session_cache[i];
-        if (lan_session_count >= LAN_SESSIONS_MAX)
-            continue;
         struct TbNetworkSessionNameEntry *entry = &lan_sessions[lan_session_count++];
-        memset(entry, 0, sizeof(*entry));
-        entry->joinable = 1;
-        entry->in_use = 1;
-        entry->id = (uint64_t)lan_session_count;
-        snprintf(entry->text, SESSION_NAME_MAX_LEN, "%s", session_cache[i].name);
-        snprintf(entry->join_address, SESSION_LOBBY_ID_MAX_LEN, "LAN:%s:%" PRId64,
-            session_cache[i].ip, (int64_t)(session_cache[i].port));
-        snprintf(entry->lobby_id, SESSION_LOBBY_ID_MAX_LEN, "%s", session_cache[i].lobby_id);
+        *entry = session_cache[i].session;
+        entry->id = lan_session_count;
     }
     session_cache_count = write_index;
 }
@@ -224,7 +244,6 @@ void lan_shutdown(void)
         LbNetLog("LAN: host discovery socket closed\n");
     socket_close(&host_socket);
     lan_hosted_name[0] = '\0';
-    lan_hosted_lobby_id[0] = '\0';
     lan_hosted_port = 0;
     socket_close(&joiner_socket);
     joiner_socket_failed = 0;

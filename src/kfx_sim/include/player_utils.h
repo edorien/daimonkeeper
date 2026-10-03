@@ -64,13 +64,13 @@ struct PacketSaveHead;
    packet_save_head), which says which seats exist and are computer-played
    and the recorded view zoom levels. Passed in by the level-start code,
    since kfx_net is above kfx_sim (refactor pass 2, S10). */
-void init_players(const struct PacketSaveHead *replay_head);
-void init_player(struct PlayerInfo *player, int64_t no_explore, const struct PacketSaveHead *replay_head);
+void init_players(void);
+void init_player(struct PlayerInfo *player, int64_t no_explore);
 void init_user_state(NetUserId user);
 void turn_user_cursor_light(NetUserId user, TbBool turn_on);
 void post_init_players(void);
 void post_init_player(struct PlayerInfo* player);
-void init_players_local_game(const struct PacketSaveHead *replay_head);
+void init_players_local_game(void);
 void init_keeper_map_exploration_by_terrain(struct PlayerInfo *player);
 void init_keeper_map_exploration_by_creatures(struct PlayerInfo *player);
 void process_players(void);

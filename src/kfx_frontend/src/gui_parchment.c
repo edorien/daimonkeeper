@@ -915,7 +915,8 @@ void redraw_parchment_view(void)
   // Put zoom box, map name and tooltips
   if (!imgui_hud)
   {
-    draw_zoom_box();
+    if (!a_menu_window_is_active())
+        draw_zoom_box();
     draw_map_level_name();
   }
   draw_tooltip();

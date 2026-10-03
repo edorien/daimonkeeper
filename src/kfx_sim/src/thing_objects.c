@@ -1053,7 +1053,7 @@ int64_t process_temple_special(struct Thing *thing, int64_t sacowner)
     if (object_is_mature_food(thing))
     {
         dungeon->chickens_sacrificed++;
-        if (temple_check_for_arachnid_join_dungeon(dungeon) && cheat_mode_enabled())
+        if (cheat_mode_enabled() && temple_check_for_arachnid_join_dungeon(dungeon))
             return true;
     } else
     {

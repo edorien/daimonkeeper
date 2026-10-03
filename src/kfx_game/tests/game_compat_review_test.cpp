@@ -4,6 +4,7 @@
 // or a game the TCP API may be driving.
 #include <catch2/catch_test_macros.hpp>
 
+#include "packet_data.h"
 #include "game_compat_review.h"
 #include "compat_report.h"
 #include "config_keeperfx.h"
@@ -45,7 +46,7 @@ TEST_CASE_METHOD(LocalGameWithIssue, "nothing unsupported: no warning", "[kfx_ga
 
 TEST_CASE_METHOD(LocalGameWithIssue, "multiplayer, replays and API-driven games only log it", "[kfx_game][compat_review]") {
     SECTION("multiplayer") { kfx_sim_state.game_kind = GKind_MultiGame; }
-    SECTION("replay") { kfx_sim_state.replay_active = true; }
+    SECTION("replay") { replay.load_enable = true; }
     SECTION("TCP API enabled") { api_enabled = 1; }
     CHECK_FALSE(compat_review_wanted());
     compat_review_after_level_load(1);

@@ -92,6 +92,8 @@ const struct NamedCommand cmpgn_common_commands[] = {
   {"ASSIGN_CPU_KEEPERS", 21},
   {"SOUNDTRACK",         22},
   {"DESCRIPTION",        23},
+  {"SHOW_DESCRIPTION",   24}, // upstream #5352's land view text box: read, not used (no such box here)
+  {"DESCRIPTION_GEO",    25}, // same
   {NULL,                  0},
   };
 
@@ -112,6 +114,8 @@ const struct NamedCommand cmpgn_map_commands[] = {
   {"MAPSIZE",            13},
   {"MAP_FORMAT_VERSION", 14},
   {"SKIRMISH_SETUP",     15}, // ALLOW | LOCKED: may the Skirmish setup tab customise this level (LOF files only)
+  {"INTRO_DESC_ID",      16}, // upstream #5352's land view text box: read, not used (DESCRIPTION is shown instead)
+  {"DESCRIPTION_GEO",    17}, // same
   {NULL,                  0},
   };
 
@@ -726,6 +730,9 @@ int64_t parse_campaign_common_blocks(struct GameCampaign *campgn,char *buf,int64
                 COMMAND_TEXT(cmd_num), campgn->name, config_textname);
           }
           break;
+      case 24: // SHOW_DESCRIPTION
+      case 25: // DESCRIPTION_GEO
+          break;
       case ccr_comment:
           break;
       case ccr_endOfFile:
@@ -1016,6 +1023,9 @@ TbBool parse_level_info_key(int64_t cmd_num, const char *buf, int64_t *pos, int6
         return true;
     case 12: // DATE
         // As for now, ignore this
+        return true;
+    case 16: // INTRO_DESC_ID
+    case 17: // DESCRIPTION_GEO
         return true;
     case 15: // SKIRMISH_SETUP
         if (get_conf_parameter_single(buf,pos,len,word_buf,sizeof(word_buf)) > 0)

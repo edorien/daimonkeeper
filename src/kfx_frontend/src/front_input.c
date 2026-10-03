@@ -468,10 +468,27 @@ static int64_t get_players_message_inputs(void)
     struct UserState* ustate = get_local_user_state();
 
     if (is_key_pressed(KC_RETURN, KMod_NONE)) {
-        memcpy(player->mp_pending_message, player->mp_message_text, PLAYER_MP_MESSAGE_LEN);
-        set_players_packet_action(player, PckA_PlyrMsgEnd, 0, 0, 0, 0);
-        if (network_is_active()) {
-            send_network_chat_message(get_local_user(), player->mp_message_text);
+        char text[PLAYER_MP_MESSAGE_LEN];
+        memcpy(text, player->mp_message_text, PLAYER_MP_MESSAGE_LEN);
+        text[PLAYER_MP_MESSAGE_LEN - 1] = '\0';
+        if (replay.load_enable) {
+            if (text[0] != '\0')
+                message_add(MsgType_Player, player->id_number, text);
+        } else {
+            MapCoord cursor_x;
+            MapCoord cursor_y;
+            struct Coord3d pos;
+            if ((get_local_view_type(player) == PVT_DungeonTop) && screen_to_map(get_local_active_camera(player), GetMouseX(), GetMouseY(), &pos))
+            {
+                cursor_x = pos.x.val;
+                cursor_y = pos.y.val;
+            } else
+            {
+                console_cmd_default_cursor(player->id_number, &cursor_x, &cursor_y);
+            }
+            if (network_is_active())
+                send_network_chat_message_at(get_local_user(), text, cursor_x, cursor_y);
+            queue_gameplay_chat_message(get_local_user(), text, cursor_x, cursor_y);
         }
         ustate->init_flags &= ~UsrIF_NewMPMessage;
         memset(player->mp_message_text, 0, PLAYER_MP_MESSAGE_LEN);
@@ -539,7 +556,7 @@ int64_t get_screen_capture_inputs(void)
   is_game_key_pressed(Gkey_ScreenRecord, true, false);
   if (is_game_key_pressed(Gkey_ScreenShot, true, false))
   {
-      set_flag(kfx_sim_state.system_flags, GSF_CaptureSShot);
+      set_flag(local_system_flags, GSF_CaptureSShot);
   }
   return false;
 }
@@ -624,8 +641,8 @@ static void cycle_replay_player(int step)
 {
     for (int i = 1; i < PLAYERS_COUNT; i++) {
         const PlayerNumber plyr_idx = (my_player_number + step * i + PLAYERS_COUNT) % PLAYERS_COUNT;
-        if (!flag_is_set(kfx_net_state.packet_save_head.players_exist, to_flag(plyr_idx))
-         || flag_is_set(kfx_net_state.packet_save_head.players_comp, to_flag(plyr_idx)))
+        if (!flag_is_set(replay.head.players_exist, to_flag(plyr_idx))
+         || flag_is_set(replay.head.players_comp, to_flag(plyr_idx)))
             continue;
         my_player_number = plyr_idx;
         init_local_cameras(get_my_player());
@@ -679,9 +696,17 @@ static void get_snap_camera_inputs(const struct Camera *cam, struct Packet *pckt
     set_packet_action(pckt, PckA_SetMapRotation, angle, 0, 0, 0);
 }
 
+static TbBool wheel_reserved_by_menu(void)
+{
+    return menu_is_active(GMnu_RESURRECT_CREATURE) || menu_is_active(GMnu_TRANSFER_CREATURE)
+        || menu_is_active(GMnu_LOAD) || menu_is_active(GMnu_SAVE);
+}
+
 static TbBool replay_camera_keys_pressed(void)
 {
     static const long keys[] = {Gkey_ZoomIn, Gkey_ZoomOut, Gkey_TiltUp, Gkey_TiltDown, Gkey_TiltReset};
+    if ((wheel_scrolled_up || wheel_scrolled_down) && !wheel_reserved_by_menu())
+        return true;
     if ((get_game_key_axis_value(Gkey_MoveLeft, true) != 0.0f) || (get_game_key_axis_value(Gkey_MoveRight, true) != 0.0f)
      || (get_game_key_axis_value(Gkey_MoveUp, true) != 0.0f) || (get_game_key_axis_value(Gkey_MoveDown, true) != 0.0f))
         return true;
@@ -750,27 +775,57 @@ static void get_replay_freecam_inputs(void)
         replay_freecam_set_map(true);
         return;
     }
-    if (get_dungeon_small_map_inputs(get_freecam_packet()))
+    struct Packet* fpckt = get_freecam_packet();
+    struct Coord3d pos;
+    if (screen_to_map(camera, kfx_game_state.my_mouse_x, kfx_game_state.my_mouse_y, &pos))
+        set_players_packet_position(fpckt, pos.x.val, pos.y.val, 0);
+    if (zoom_to_mouse_option == ZoomToMouse_Always)
+        set_packet_control(fpckt, PCtr_ViewZoomPos);
+    if (rotate_around_mouse_option == RotateAroundMouse_Always)
+        set_packet_control(fpckt, PCtr_ViewRotatePos);
+    if (get_dungeon_small_map_inputs(fpckt))
         return;
     if (is_game_key_pressed(Gkey_SnapCamera, true, true))
     {
-        get_snap_camera_inputs(camera, get_freecam_packet());
+        get_snap_camera_inputs(camera, fpckt);
         return;
     }
     switch (camera->view_mode)
     {
     case PVM_IsoWibbleView:
     case PVM_IsoStraightView:
-        get_isometric_view_nonaction_inputs(get_freecam_packet());
+        get_isometric_view_nonaction_inputs(fpckt);
         break;
     case PVM_FrontView:
-        get_front_view_nonaction_inputs(get_freecam_packet());
+        get_front_view_nonaction_inputs(fpckt);
         break;
     }
 }
 
 static int64_t get_packet_load_game_control_inputs(void)
 {
+  if (is_key_pressed(KC_ESCAPE, KMod_DONTCARE))
+  {
+    const unsigned char view_type = get_local_view_type(get_my_player());
+    const TbBool possessed = (view_type == PVT_CreatureContrl) || (view_type == PVT_CreaturePasngr);
+    if (a_menu_window_is_active())
+    {
+      clear_key_pressed(KC_ESCAPE);
+      turn_off_all_window_menus();
+      return true;
+    }
+    if (replay_camera_detached() || !possessed)
+    {
+      clear_key_pressed(KC_ESCAPE);
+      turn_on_menu(GMnu_QUIT);
+      return true;
+    }
+  }
+  if (a_menu_window_is_active())
+  {
+    get_gui_inputs(1);
+    return true;
+  }
   if (is_game_key_pressed(Gkey_ToggleGui, true, true))
   {
     if (replay_camera_detached())
@@ -1497,7 +1552,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
     }
     if (is_game_key_pressed(Gkey_SwitchToMap, true, false))
     {
-      if (((kfx_sim_state.operation_flags & GOF_Paused) != 0) && (kfx_sim_state.game_kind != GKind_LocalGame))
+      if (((kfx_sim_state.operation_flags & GOF_Paused) != 0) && network_is_active())
       {
           return true;
       }
@@ -2342,8 +2397,7 @@ static void get_isometric_or_front_view_mouse_inputs(struct Packet *pckt,int64_t
 {
     // Reserve the scroll wheel for the resurrect and transfer creature specials, and
     // for the in-game Load/Save menus (there the wheel scrolls the savegame list).
-    if ((menu_is_active(GMnu_RESURRECT_CREATURE) || menu_is_active(GMnu_TRANSFER_CREATURE)
-        || menu_is_active(GMnu_LOAD) || menu_is_active(GMnu_SAVE) || rotate_pressed || mods_used) == 0)
+    if (!wheel_reserved_by_menu() && !rotate_pressed && !mods_used)
     {
         // mouse scroll zoom unaffected by frameskip
         if ((pckt->control_flags & PCtr_MapCoordsValid) != 0)
@@ -2814,8 +2868,21 @@ static void get_map_nonaction_inputs(void)
 
 static int64_t get_packet_load_game_inputs(void)
 {
-    load_packets_for_turn(kfx_net_state.pckt_gameturn);
-    kfx_net_state.pckt_gameturn++;
+    set_replay_playback_paused(a_menu_window_is_active());
+    if (replay_playback_is_paused())
+    {
+        clear_packets();
+    } else
+    {
+        if (flag_is_set(kfx_sim_state.operation_flags, GOF_Paused))
+        {
+            clear_users_button_state();
+            process_pause_packet(0, 0);
+        }
+        clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
+        load_packets_for_turn(replay.pckt_gameturn);
+        replay.pckt_gameturn++;
+    }
     if (!get_packet_load_game_control_inputs())
         get_replay_freecam_inputs();
     if (get_speed_control_inputs())
@@ -3094,12 +3161,12 @@ static int64_t get_inputs(void)
     if ((kfx_sim_state.mode_flags & MFlg_IsDemoMode) != 0)
     {
         SYNCDBG(5,"Starting for demo mode");
-        load_packets_for_turn(kfx_net_state.pckt_gameturn);
-        kfx_net_state.pckt_gameturn++;
+        load_packets_for_turn(replay.pckt_gameturn);
+        replay.pckt_gameturn++;
         get_packet_load_demo_inputs();
         return false;
     }
-    if (kfx_sim_state.replay_active)
+    if (replay.load_enable)
     {
         SYNCDBG(5,"Loading packet inputs");
         return get_packet_load_game_inputs();
@@ -3242,7 +3309,7 @@ void input(void)
     set_packet_modifier_keys(pckt);
 
     get_inputs();
-    if ((kfx_sim_state.mode_flags & MFlg_IsDemoMode) == 0 && !kfx_sim_state.replay_active) {
+    if ((kfx_sim_state.mode_flags & MFlg_IsDemoMode) == 0 && !replay.load_enable) {
         update_local_view_prediction(pckt);
     }
 

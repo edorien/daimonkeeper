@@ -6341,3 +6341,84 @@ msgstr ""
 msgctxt "Settings menu help text"
 msgid "Sets how far the dungeon view renders before fading to fog."
 msgstr ""
+
+#: guitext:1204
+msgctxt "Network game interface"
+msgid "State"
+msgstr ""
+
+#: guitext:1205
+msgctxt "Network game interface"
+msgid "Version"
+msgstr ""
+
+#: guitext:1206
+msgctxt "Network game interface"
+msgid "Unknown"
+msgstr ""
+
+#: guitext:1207
+msgctxt "Network game interface"
+msgid "Lobby"
+msgstr ""
+
+#: guitext:1208
+msgctxt "Network game interface"
+msgid "In-game"
+msgstr ""
+
+#: guitext:1209
+msgctxt "Network game interface"
+msgid "Map"
+msgstr ""
+
+#: guitext:1210
+msgctxt "Network game interface"
+msgid "Player list unavailable"
+msgstr ""
+
+#: guitext:1211
+msgctxt "Network game interface"
+msgid "Maximum players"
+msgstr ""
+
+#: guitext:1212
+msgctxt "Network game interface"
+msgid "Allow observers"
+msgstr ""
+
+#: guitext:1213
+msgctxt "Network game interface"
+msgid "Settings"
+msgstr ""
+
+#: guitext:1214
+msgctxt "Network game interface"
+msgid "Confirm"
+msgstr ""
+
+#: guitext:1215
+msgctxt "Network game interface"
+msgid "Game has already started."
+msgstr ""
+
+#: guitext:1216
+msgctxt "Network game interface"
+msgid "Joining is temporarily locked."
+msgstr ""
+
+#: guitext:1217
+msgctxt "Network game interface"
+msgid "Lobby is full."
+msgstr ""
+
+#: guitext:1218
+msgctxt "Network game interface"
+msgid "The host is using a different game version."
+msgstr ""
+
+#: guitext:1219
+msgctxt "Network game interface"
+msgid "Lobby Name"
+msgstr ""
+

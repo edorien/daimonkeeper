@@ -645,17 +645,17 @@ static void draw_bottom_right_text(const char *text, int line)
 // name of user to display during replay
 static const char *replay_get_displayed_user_name(void)
 {
-    if (!kfx_sim_state.replay_active || replay_camera_detached())
+    if (!replay.load_enable)
         return NULL;
     int users = 0;
     for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
-        if (kfx_net_state.packet_save_head.user_players[user] >= 0)
+        if (replay.head.user_players[user] >= 0)
             users++;
     }
     const NetUserId user = get_local_user();
     if ((users < 2) || (user < 0) || (user >= MAX_NET_USERS))
         return NULL;
-    return kfx_net_state.packet_save_head.user_names[user];
+    return replay.head.user_names[user];
 }
 
 void draw_gameturn_timer(void)
@@ -664,8 +664,8 @@ void draw_gameturn_timer(void)
     snprintf(text, sizeof(text), "GameTurn %" PRIu64, (uint64_t)(get_gameturn()));
     draw_bottom_right_text(text, 0);
     const char *name = replay_get_displayed_user_name();
-    if (name != NULL) {
-        snprintf(text, sizeof(text), "%.*s", (int)sizeof(kfx_net_state.packet_save_head.user_names[0]), name);
+    if ((name != NULL) || replay_camera_detached()) {
+        snprintf(text, sizeof(text), "%s%.*s", replay_camera_detached() ? "*" : "", (int)sizeof(replay.head.user_names[0]), (name != NULL) ? name : "");
         draw_bottom_right_text(text, 1);
     }
 }

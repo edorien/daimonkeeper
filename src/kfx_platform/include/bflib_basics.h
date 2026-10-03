@@ -234,6 +234,9 @@ int64_t LbFTestLog(const char *format, ...) __attribute__ ((format(printf, 1, 2)
 int64_t LbScriptLog(uint64_t line,const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(2)));
 int64_t LbConfigLog(uint64_t line,const char *format, ...) __attribute__ ((format(printf, 2, 3), nonnull(2)));
 
+/** Copies message to output with every IPv4/IPv6 address replaced by a per-run number ("IPv4#1"),
+ *  as every log line is written (upstream #5386). Returns the output's length. */
+size_t LbLogSanitizeAddresses(const char *message, char *output, size_t output_size);
 int64_t LbErrorLogSetup(const char *directory, const char *filename, TbBool flag);
 int64_t LbErrorLogClose(void);
 

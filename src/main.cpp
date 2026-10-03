@@ -174,6 +174,13 @@ TbBool initial_setup(void)
  */
 static TbBool ports_verify_wired(void);
 
+// kfx_config's mods check: a multiplayer game, live or watched as a replay (upstream #5376: a replay
+// has no network, its game kind says what it records).
+static TbBool multiplayer_game_running(void)
+{
+    return network_is_active() || (kfx_sim_state.game_kind == GKind_MultiGame);
+}
+
 static TbBool wire_ports(void)
 {
     set_file_path_port(&kfx_config_file_path_port);
@@ -195,7 +202,7 @@ static TbBool wire_ports(void)
     set_gameturn_source(&kfx_sim_state.play_gameturn);
     set_config_level_sources(&kfx_sim_state.selected_level_number, &kfx_sim_state.loaded_level_number);
     bf_sprfnt_set_font_role_resolver(resolve_font_role);
-    set_config_network_is_active_check(network_is_active);
+    set_config_network_is_active_check(multiplayer_game_running);
     return ports_verify_wired();
 }
 

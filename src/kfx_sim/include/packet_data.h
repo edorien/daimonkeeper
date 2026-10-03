@@ -42,6 +42,7 @@
 #include "bflib_basics.h"
 #include "bflib_keybrd.h"
 #include "bflib_netsp.h"
+#include "bflib_fileio.h"
 #include "globals.h"
 
 #ifdef __cplusplus
@@ -462,11 +463,34 @@ struct Packet {
 
 // save file header for .pck files.
 // (Bump the version if this struct or the .pck format changes.)
-#define PACKET_SAVE_HEAD_VER 2
+#define PACKET_SAVE_HEAD_VER 5
+/** The level files a replay checks are unchanged (upstream #5385): kfx_net's
+ *  network_startup_compare_files[], which net_checksums.c checks has this many. */
+#define PACKET_SAVE_MAP_FILE_COUNT 17
 
 enum PacketSaveHeadFlags {
     PSHF_Checksum   = 0x01,
     PSHF_Compressed = 0x02,
+    PSHF_MultiGame  = 0x04,
+};
+
+enum UserStartFlags {
+    USF_CheatsEnabled = 0x01,
+    USF_SkipHeartZoom = 0x02,
+};
+
+// A user's settings as they were at the start of a game (upstream #5376): sent in a network
+// game's startup sync, recorded for every user in a replay's header.
+struct UserStartSettings {
+    uint8_t video_rotate_mode;
+    uint8_t flags; // UserStartFlags
+    uint16_t tendencies; // CrTend_* flags
+    uint8_t highlight_mode;
+    int32_t isometric_tilt;
+    uint32_t isometric_view_zoom_level;
+    uint32_t frontview_zoom_level;
+    uint32_t zoom_distance;
+    uint32_t frontview_zoom_distance;
 };
 
 struct PacketSaveHead {
@@ -477,16 +501,10 @@ struct PacketSaveHead {
     uint64_t level_num;
     PlayerBitFlags players_exist;
     PlayerBitFlags players_comp;
-    uint64_t isometric_view_zoom_level;
-    uint64_t frontview_zoom_level;
-    int64_t isometric_tilt;
-    unsigned char video_rotate_mode;
     uint8_t flags; // PacketSaveHeadFlags
     uint64_t action_seed;
-    TbBool default_imprison_tendency;
-    TbBool default_flee_tendency;
-    TbBool skip_heart_zoom;
-    TbBool highlight_mode;
+    TbBigChecksum map_checksums[PACKET_SAVE_MAP_FILE_COUNT];
+    struct UserStartSettings user_start[MAX_NET_USERS];
     signed char user_players[MAX_NET_USERS];
     signed char recording_user;
     char frontend_alliances;
@@ -494,6 +512,31 @@ struct PacketSaveHead {
 };
 
 #pragma pack()
+
+/*
+ * Watching and saving replays (-packetload/-packetsave and the autosaved ones), including
+ * whether replay mode is on: the process's own state, not the game's (upstream #5376). It is in
+ * no state blob, so neither a resync (a recorded one, played back, included) nor a loaded save
+ * overwrites a recording or a playback; clear_complete_game() resets it.
+ */
+struct ReplayState {
+    unsigned char save_enable;
+    unsigned char load_enable;
+    char fname[150];
+    char fopened;
+    TbFileHandle fp;
+    uint64_t file_pos;
+    struct PacketSaveHead head;
+    uint64_t turns_stored;
+    uint64_t turns_fastforward;
+    unsigned char loading_in_progress;
+    unsigned char checksum_verify;
+    uint64_t log_things_start_turn;
+    uint64_t log_things_end_turn;
+    uint64_t turns_packetoff;
+    GameTurn pckt_gameturn;
+};
+extern struct ReplayState replay;
 
 // Moved down from kfx_net's net_game.h (docs/refactor/todo/
 // remove-symbol-level-layering-residuals.md) alongside sim_packets[]

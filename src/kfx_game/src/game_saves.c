@@ -53,6 +53,7 @@
 #include "agent_memory.h"
 #include "ariadne_saved_state.h"
 #include "render_creature_view.h"
+#include "game_replay.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -294,7 +295,7 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         hdr.ver = PACKET_SAVE_HEAD_VER;
         hdr.len = sizeof(struct PacketSaveHead);
         if (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
-        if (LbFileWrite(fhandle, &kfx_net_state.packet_save_head, sizeof(struct PacketSaveHead)) == sizeof(struct PacketSaveHead))
+        if (LbFileWrite(fhandle, &replay.head, sizeof(struct PacketSaveHead)) == sizeof(struct PacketSaveHead))
             chunks_done |= SGF_PacketHeader;
     }
     { // Info chunk
@@ -670,7 +671,7 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 WARNLOG("Incompatible PacketHeader chunk");
                 break;
             }
-            if (LbFileRead(fhandle, &kfx_net_state.packet_save_head, sizeof(struct PacketSaveHead))
+            if (LbFileRead(fhandle, &replay.head, sizeof(struct PacketSaveHead))
                 == sizeof(struct PacketSaveHead)) {
                 chunks_done |= SGF_PacketHeader;
             } else {
@@ -887,6 +888,9 @@ TbBool load_game(int64_t slot_num)
     sound_manager_reapply_creature_sounds();
     snprintf(kfx_game_state.campaign_fname, sizeof(kfx_game_state.campaign_fname), "%s", campaign.fname);
     reinit_level_after_load();
+    // Only after a load, not after a resync (whose reinit_level_after_load() a replay also runs
+    // for a recorded one): upstream #5376.
+    reinit_packets_after_load();
     initialize_packet_history();
     clear_packets();
     process_pause_packet(0, 0);

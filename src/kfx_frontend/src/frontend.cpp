@@ -592,7 +592,7 @@ void add_message(int64_t plyr_idx, char *msg)
  */
 void create_error_box(TextStringId msg_idx)
 {
-    if (!kfx_sim_state.replay_active)
+    if (!replay.load_enable)
     {
         //change the length into  when gui_error_text will not be exported
         snprintf(gui_error_text, sizeof(gui_error_text), "%s", get_string(msg_idx));
@@ -604,7 +604,7 @@ void create_error_box(TextStringId msg_idx)
 /** Like create_error_box(), for a message that has no translated string yet. */
 void create_error_box_text(const char *text)
 {
-    if (!kfx_sim_state.replay_active)
+    if (!replay.load_enable)
     {
         snprintf(gui_error_text, sizeof(gui_error_text), "%s", text);
         turn_on_menu(GMnu_ERROR_BOX);
@@ -1155,6 +1155,12 @@ int64_t frontend_scroll_tab_to_offset(struct GuiButton *gbtn, int64_t scr_pos, i
 
 void gui_quit_game(struct GuiButton *gbtn)
 {
+    if (replay.load_enable)
+    {
+        turn_off_all_menus();
+        quit_game = 1;
+        return;
+    }
     struct PlayerInfo *player = get_my_player();
     set_players_packet_action(player, PckA_QuitToMainMenu, 0, 0, 0, 0);
 }
@@ -1930,14 +1936,14 @@ int64_t frontend_save_continue_game(int64_t allow_lvnum_grow)
     // ==false, so it's still tracked; an actual network game is not.
     if (!network_is_active()
      && ((kfx_sim_state.operation_flags & GOF_SingleLevel) == 0)
-     && (!kfx_sim_state.replay_active)
+     && (!replay.load_enable)
      && (player->victory_state == VicS_WonLevel)
      && (is_freeplay_level(lvnum) || is_multiplayer_level(lvnum)))
         campaign_progress_record_pack_level_completed(lvnum);
     // Only save continue if level was won, not a free play level, not a multiplayer level and not in packet mode
     if (network_is_active()
      || ((kfx_sim_state.operation_flags & GOF_SingleLevel) != 0)
-     || (kfx_sim_state.replay_active)
+     || (replay.load_enable)
      || (is_freeplay_level(lvnum))
      || (is_multiplayer_level(lvnum)))
         return false;
@@ -2994,7 +3000,7 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
           kfx_frontend_state.last_mouse_y = GetMouseY();
           kfx_frontend_state.time_last_played_demo = LbTimerClock();
           fe_high_score_table_from_main_menu = true;
-          clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          clear_flag(local_system_flags, GSF_NetworkActive);
           skip_high_score_screen = 0;
           set_pointer_graphic_menu();
           break;
@@ -3019,7 +3025,7 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
       case FeSt_NET_SESSION:
           turn_on_menu(GMnu_FENET_SESSION);
           frontnet_session_setup();
-          clear_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          clear_flag(local_system_flags, GSF_NetworkActive);
           set_pointer_graphic_menu();
           break;
       case FeSt_NET_START:
@@ -3027,7 +3033,7 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
           if (frontend_menu_state != FeSt_MP_MAPPACK_SELECT)
             frontnet_start_setup();
           LbStartTextInput();
-          set_flag(kfx_sim_state.system_flags, GSF_NetworkActive);
+          set_flag(local_system_flags, GSF_NetworkActive);
           set_pointer_graphic_menu();
           break;
       // fade_palette_in cancellation removed here (and at every other write
@@ -3896,7 +3902,7 @@ void update_player_objectives(PlayerNumber plyr_idx)
     struct PlayerInfo *player;
     SYNCDBG(6,"Starting for player %" PRId64,(int64_t)plyr_idx);
     player = get_player(plyr_idx);
-    if (network_is_active())
+    if (kfx_sim_state.game_kind == GKind_MultiGame)
     {
       if ((!player->display_objective_turn) && (player->victory_state != VicS_Undecided))
         player->display_objective_turn = get_gameturn()+1;
@@ -3911,7 +3917,7 @@ void update_player_objectives(PlayerNumber plyr_idx)
           break;
       case VicS_LostLevel:
           TextStringId msg_idx = CpgStr_LevelLost;
-          if (network_is_active() && (player->id_number == get_net_user_player_number(SERVER_ID)) && network_human_contenders_remain()) {
+          if ((kfx_sim_state.game_kind == GKind_MultiGame) && (player->id_number == get_net_user_player_number(SERVER_ID)) && network_human_contenders_remain()) {
               msg_idx = GUIStr_NetHostLostWaitingForPlayers;
           }
           set_level_objective(player->id_number, get_string(msg_idx));

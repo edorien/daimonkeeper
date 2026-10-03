@@ -218,7 +218,7 @@ void process_user_dungeon_control_packet_control(NetUserId user)
         return;
     }
     process_camera_controls(cam, pckt, player);
-    if (is_my_player(player)) {
+    if (is_my_player(player) && !replay.load_enable) {
         TbBool settings_changed = false;
         if ((pckt->control_flags & (PCtr_ViewTiltUp | PCtr_ViewTiltDown | PCtr_ViewTiltReset)) != 0) {
             settings.isometric_tilt = cam->rotation_angle_y;
@@ -314,7 +314,7 @@ static TbBool global_finish_game(const struct GlobalAction *ctx)
       ui_turn_off_all_menus();
       free_swipe_graphic();
     }
-    if (network_is_active()) {
+    if (kfx_sim_state.game_kind == GKind_MultiGame) {
       if (victory_state == VicS_WonLevel) {
         player->victory_state = VicS_WonLevel;
         if (kfx_config_state.conf.rules[player->id_number].gameplay.winner_tortures_loser) {
@@ -356,10 +356,13 @@ static TbBool global_finish_game(const struct GlobalAction *ctx)
 }
 
 /** PckA_PlyrMsgEnd */
+// Local chat is queued with its cursor since upstream #5370 (queue_gameplay_chat_message());
+// this packet carries only an External seat's chat (external_seat.c), at its packet's position.
 static TbBool global_plyr_msg_end(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
-    process_gameplay_chat_message(player->user_id, player->mp_pending_message);
+    if (player->mp_pending_message[0] != '\0')
+        process_gameplay_chat_message(player->user_id, player->mp_pending_message, ctx->pckt->pos_x, ctx->pckt->pos_y);
     player->mp_pending_message[0] = '\0';
     return 0;
 }
@@ -412,7 +415,7 @@ static TbBool global_change_window_size(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
     struct Packet *pckt = ctx->pckt;
-    if (is_my_player(player))
+    if (is_my_player(player) && !replay.load_enable)
     {
       change_engine_window_relative_size(pckt->actn_par1, pckt->actn_par2);
       centre_engine_window();
@@ -425,7 +428,7 @@ static TbBool global_set_gamma_level(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
     struct Packet *pckt = ctx->pckt;
-    if (is_my_player(player))
+    if (is_my_player(player) && !replay.load_enable)
     {
       set_gamma(pckt->actn_par1, 1);
       save_settings();
@@ -889,7 +892,8 @@ static TbBool global_roomspace_highlight_toggle(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
     struct Packet *pckt = ctx->pckt;
-    if (is_my_player(player))
+    player->highlight_mode = pckt->actn_par1;
+    if (is_my_player(player) && !replay.load_enable)
     {
         settings.highlight_mode = pckt->actn_par1;
         if (keeperfx_ui_config.default_tag_mode == 3)
@@ -1069,6 +1073,8 @@ void process_user_packet(NetUserId user)
         return;
     }
     SYNCDBG(6, "Processing user %" PRId64 " packet of type %" PRId64 ".", (int64_t)(user), (int64_t)pckt->action);
+    if (flag_is_set(kfx_sim_state.operation_flags, GOF_Paused))
+        replay_record_paused_action(user, pckt);
     struct UserState* ustate = get_user_state(user);
     ustate->input_crtr_control = ((pckt->additional_packet_values & PCAdV_CrtrContrlPressed) != 0);
     ustate->input_crtr_query = ((pckt->additional_packet_values & PCAdV_CrtrQueryPressed) != 0);
@@ -1493,20 +1499,43 @@ void process_user_creature_control_packet_action(NetUserId user)
 }
 
 /**
+ * Releases every user's held mouse buttons, so a drag (tagging, a held slap) doesn't run on
+ * after a pause or a replay's playback pause.
+ */
+void clear_users_button_state(void)
+{
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        struct UserState *ustate = get_user_state(user);
+        if (user_state_invalid(ustate))
+            continue;
+        ustate->cursor_button_down = 0;
+        ustate->interpolated_tagging = false;
+    }
+}
+
+/**
  * Process all packets influencing local game state.
  */
 void process_packets(void)
 {
-    // Write packets into file, if requested
-    if ((kfx_net_state.packet_save_enable) && (kfx_net_state.packet_fopened)) {
+    if (!replay.load_enable && flag_is_set(kfx_sim_state.operation_flags, GOF_Paused))
+        clear_users_button_state();
+    process_queued_chat_messages();
+    if (replay.load_enable)
+        verify_replay_checksum();
+    // Write packets into file, if requested (a paused turn is not a turn of the game)
+    if ((replay.save_enable) && (replay.fopened) && !flag_is_set(kfx_sim_state.operation_flags, GOF_Paused)) {
         save_packets();
+    } else {
+        replay_forget_saved_turn();
     }
     //Debug code, to find packet errors
     #if DEBUG_NETWORK_PACKETS
     write_debug_packets();
     #endif
     // Process the packets
-    for (NetUserId user = 0; user < PACKETS_COUNT; user++)
+    for (NetUserId user = 0; (user < PACKETS_COUNT) && !replay_playback_is_paused(); user++)
     {
         const PlayerNumber plyr_idx = get_net_user_player_number(user);
         if (plyr_idx < 0) {
@@ -1528,13 +1557,15 @@ void process_packets(void)
         return;
     }
     if (network_is_active()
-     && ((kfx_sim_state.system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0))
+     && ((local_system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0))
     {
         if (resync_game_allowed()) {
             SYNCDBG(0,"Resyncing");
             resync_game();
         }
     }
+    if (replay.load_enable)
+        replay_apply_pending_resync();
     get_current_stutter_milliseconds();
     MULTIPLAYER_LOG("process_packets: === END turn=%" PRIu64 " ===", (uint64_t)get_gameturn());
     SYNCDBG(7,"Finished");

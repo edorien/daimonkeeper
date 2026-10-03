@@ -5,6 +5,8 @@
 #include "cheat_mode.h"
 #include "config_players.h"
 #include "kfx_sim_state.h"
+#include "packet_data.h"
+#include "player_data.h"
 
 #include <cstring>
 
@@ -37,4 +39,28 @@ TEST_CASE("the cheat and editor cursor modes are cheats, the dungeon's own aren'
         INFO(s);
         CHECK_FALSE(player_state_is_cheat(s));
     }
+}
+
+// Upstream #5376: a replay plays each player's input with the cheat permission it was recorded with,
+// not the watching machine's; live, a player's cheats follow cheat mode.
+TEST_CASE_METHOD(ResetSimState, "player_cheats_allowed: live it is cheat mode, in a replay the recorded permission", "[kfx_sim][cheat_mode]") {
+    struct ReplayState saved = replay;
+    kfx_sim_state.game_kind = GKind_LocalGame;
+    kfx_sim_state.players[1].id_number = 1;
+    kfx_sim_state.players[1].allocflags |= PlaF_Allocated;
+
+    replay.load_enable = false;
+    kfx_sim_state.easter_eggs_enabled = true;
+    kfx_sim_state.players[1].cheats_allowed = false;
+    CHECK(player_cheats_allowed(1));
+    kfx_sim_state.easter_eggs_enabled = false;
+    CHECK_FALSE(player_cheats_allowed(1));
+
+    replay.load_enable = true;
+    CHECK_FALSE(player_cheats_allowed(1));
+    kfx_sim_state.players[1].cheats_allowed = true;
+    CHECK(player_cheats_allowed(1)); // the viewer's cheat mode is off
+    kfx_sim_state.game_kind = GKind_MultiGame;
+    CHECK_FALSE(player_cheats_allowed(1)); // still none in a multiplayer game
+    replay = saved;
 }

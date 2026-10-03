@@ -106,7 +106,7 @@ TEST_CASE_METHOD(LocalGameFixture, "seats are refused for another human, an exis
     CHECK(net_add_external_seat(3) == -1);            // already a seat
     CHECK(net_add_external_seat(-1) == -1);
     CHECK(net_add_external_seat(PLAYERS_COUNT) == -1);
-    kfx_sim_state.system_flags |= GSF_NetworkActive;
+    local_system_flags |= GSF_NetworkActive;
     CHECK(net_add_external_seat(5) == -1);
 }
 
@@ -151,9 +151,9 @@ TEST_CASE_METHOD(LocalGameFixture, "restoring warns about and skips a seat with 
 
 TEST_CASE_METHOD(LocalGameFixture, "a networked game never consults the External seat mapping", "[kfx_net][external_seat]") {
     REQUIRE(net_add_external_seat(2) == 1);
-    kfx_sim_state.system_flags |= GSF_NetworkActive;
+    local_system_flags |= GSF_NetworkActive;
     CHECK(get_net_user_player_number(1) != 2); // answered from the network table, not the seat table
-    kfx_sim_state.system_flags &= ~GSF_NetworkActive;
+    local_system_flags &= ~GSF_NetworkActive;
     CHECK(get_net_user_player_number(1) == 2);
 }
 

@@ -1434,7 +1434,7 @@ int64_t creature_door_combat(struct Thing *creatng)
     struct Thing* doortng = thing_get(cctrl->combat.battle_enemy_idx);
     if ((cctrl->combat_flags & CmbtF_DoorFight) == 0)
     {
-        ERRORLOG("The %s index %" PRId64 " is not in door combat but should be", thing_model_name(creatng), (int64_t)creatng->index);
+        ERRORLOG("The %s index %" PRId64 " at %" PRId64 ",%" PRId64 " is not in door combat but should be", thing_model_name(creatng), (int64_t)creatng->index, (int64_t)creatng->mappos.x.stl.num, (int64_t)creatng->mappos.y.stl.num);
         set_start_state(creatng);
         return 0;
     }

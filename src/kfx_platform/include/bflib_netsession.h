@@ -19,6 +19,9 @@
 /******************************************************************************/
 #ifndef BFLIB_NETSESSION_H
 #define BFLIB_NETSESSION_H
+#include <stddef.h>
+#include <stdint.h>
+#include "version.h"
 
 
 #include <stdint.h>
@@ -31,6 +34,27 @@ extern "C" {
 #define SESSION_NAME_MAX_LEN     128
 #define SESSION_LOBBY_ID_MAX_LEN  64
 #define NETSP_PLAYER_NAME_MAX_LEN  32
+#define SESSION_HUMANS_MAX 4
+#define SESSION_METADATA_MAX 2048
+/** The version a hosted lobby advertises (upstream #5373's metadata): this game's slug and version (a build mismatch is refused at login). */
+#define NET_SESSION_VERSION PRODUCT_SLUG "-" VER_SHORT_STRING
+
+enum NetJoinRejection {
+    NetJoin_Accepted = 0,
+    NetJoin_InGame = 1,
+    NetJoin_Locked = 2,
+    NetJoin_Full = 3,
+    NetJoin_Version = 4,
+};
+
+extern enum NetJoinRejection net_join_rejection;
+
+enum NetSessionPhase {
+    NetPhase_Unknown,
+    NetPhase_Lobby,
+    NetPhase_InGame,
+    NetPhase_InLandview,
+};
 
 enum NetMsgType
 {
@@ -52,6 +76,13 @@ struct TbNetworkSessionNameEntry {
     char text[SESSION_NAME_MAX_LEN];
     char join_address[SESSION_LOBBY_ID_MAX_LEN];
     char lobby_id[SESSION_LOBBY_ID_MAX_LEN];
+    enum NetSessionPhase phase;
+    unsigned char roster_known;
+    unsigned char player_count;
+    unsigned char max_players;
+    int64_t created_at;
+    char version[32];
+    char players[SESSION_HUMANS_MAX][NETSP_PLAYER_NAME_MAX_LEN];
 };
 
 struct TbNetworkPlayerEntry {
@@ -82,6 +113,12 @@ struct ReceiveCallbacks {
 };
 /******************************************************************************/
 void net_copy_name_string(char *dst,const char *src,int64_t max_len);
+void net_json_escape(char *output, size_t output_size, const char *input);
+int net_session_metadata_json(const struct TbNetworkSessionNameEntry *session, char *output, size_t size);
+struct VALUE;
+void net_session_parse_metadata(struct TbNetworkSessionNameEntry *session, const struct VALUE *root);
+int net_session_incompatible(const struct TbNetworkSessionNameEntry *session);
+enum NetJoinRejection net_session_join_rejection(const struct TbNetworkSessionNameEntry *session);
 /******************************************************************************/
 #ifdef __cplusplus
 };

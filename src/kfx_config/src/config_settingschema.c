@@ -983,7 +983,7 @@ const struct SettingOption setting_options[] = {
     },
     {
         // Read when a level starts (setup_auto_replay_save), so it applies from the next game.
-        .cfg_key = "AUTOSAVE_REPLAYS", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
+        .cfg_key = "AUTOMATIC_REPLAYS", .type = SOptT_Bool, .category = SCat_Game, .apply_class = SApply_Live,
         .label_literal = "Save replays",
         .help_literal = "Record every game you play as a replay in the replays folder, keeping the "
                         "newest few of each kind (MAX_REPLAYS in " PRODUCT_SLUG ".cfg). Applies from the next game.",

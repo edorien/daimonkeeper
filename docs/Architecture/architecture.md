@@ -769,12 +769,16 @@ by its library:
 
 | State struct         | Owner          | Key contents                                                                                                                                                                             |
 | -------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kfx_sim_state`      | `kfx_sim`      | `map[]`, `slabmap[]`, `columns_data[]`, `things_data[]`, `cctrl_data[]`, `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, random seeds, timers, mode/operation flags; session values: `play_gameturn`, level numbers, `level_human_player`, `human_players_count`, `replay_active` |
-| `kfx_net_state`      | `kfx_net`      | `packets[]`, `input_lag_turns`, `active_players_count`, packet save/load state, desync snapshots + checksums                                                                             |
+| `kfx_sim_state`      | `kfx_sim`      | `map[]`, `slabmap[]`, `columns_data[]`, `things_data[]`, `cctrl_data[]`, `rooms[]`, `dungeon[]`, `players[]`, `computer_task[]`, `battles[]`, random seeds, timers, mode/operation flags; session values: `play_gameturn`, level numbers, `level_human_player`, `human_players_count`                  |
+| `kfx_net_state`      | `kfx_net`      | `packets[]`, `input_lag_turns`, `active_players_count`, desync snapshots + checksums                                                                                                      |
 | `kfx_game_state`     | `kfx_game`     | level script + timers, campaign name, pause/frame-step, music, sound settings                                                                                                             |
 | `kfx_config_state`   | `kfx_config`   | `struct Configs` (all `*.cfg` aggregates), texture-count constants                                                                                                                       |
 | `kfx_render_state`   | `kfx_render`   | active/applied lens, mouse-light position, `delta_time`, lighting state                                                                                                                  |
 | `kfx_frontend_state` | `kfx_frontend` | GUI cheat boxes, flash-button, east-egg counters, `save_game_slot`, `time_delta`                                                                                                         |
+
+The replay (packet file) state is deliberately in none of them: `struct ReplayState replay`
+(`kfx_sim/include/packet_data.h`, upstream #5376) holds recording/playback, the open file and whether replay mode is
+on, so neither a resync (a recorded one played back included) nor a loaded save overwrites it.
 
 `struct Game` itself (in `kfx_game/include/game_legacy.h`) is now a
 **near-empty placeholder** holding only `unsigned char _reserved;`. It is kept
@@ -1005,6 +1009,10 @@ same on every target (explicit `int64_t` fields, packed layouts).
 - Refactor pass 5, S04: sim state version 9 (the drawing and local-camera fields out of `Thing`, `CreatureControl`
   and `kfx_sim_state`); older saves can't be loaded.
 - Refactor pass 5, S11: sim state version 10 (the light registry's drawing state out of `struct Light`); older saves
+  can't be loaded.
+- Upstream merge 2026-10-03 (#5376): sim state version 11 and net state version 3 (the replay state out of both, into
+  `struct ReplayState replay`), then sim state version 12 (`system_flags` split: `run_after_victory` stays,
+  the machine's own flags became `local_system_flags`; each player's start settings in `PlayerInfo`); older saves
   can't be loaded.
 
 ---

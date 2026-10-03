@@ -120,9 +120,10 @@ void draw_map_screen(void)
         map_screen,LANDVIEW_MAP_WIDTH,LANDVIEW_MAP_HEIGHT);
 }
 
-TbBool init_netfont_palette_remap(void)
+TbBool init_netfont_palette_remap(const char *land_view)
 {
-    const char *fname = prepare_file_path(FGrp_LandView, "rgmap00.pal");
+    // the level's own land view palette (upstream #5395), not always the first level's
+    const char *fname = prepare_file_fmtpath(FGrp_LandView, "%s.pal", land_view);
 
     if (LbFileLoadAt(fname, netfont_source_palette) != PALETTE_SIZE)
     {
@@ -1082,6 +1083,7 @@ TbBool load_map_and_window(LevelNumber lvnum)
             return false;
         }
     }
+    init_netfont_palette_remap(land_view);
     SYNCDBG(9,"Finished");
     return true;
 }
@@ -1198,7 +1200,6 @@ TbBool frontmap_load(void)
         return false;
     }
     TbBool ensigns_loaded = load_map_ensign_sprites();
-    init_netfont_palette_remap();
     pop_palette_remap();
     map_font = load_spritesheet("ldata/netfont.dat", "ldata/netfont.tab");
     if (!ensigns_loaded)

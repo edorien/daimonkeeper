@@ -15,6 +15,7 @@ extern "C" {
 #endif
 /******************************************************************************/
 struct KfxSimState kfx_sim_state;
+unsigned char local_system_flags;
 // Saved/resynced as raw bytes: see state_versions.h before changing the layout.
 _Static_assert(sizeof(struct KfxSimState) == KFX_SIM_STATE_SIZE, "struct KfxSimState changed size: bump KFX_SIM_STATE_VER and update KFX_SIM_STATE_SIZE in state_versions.h");
 
