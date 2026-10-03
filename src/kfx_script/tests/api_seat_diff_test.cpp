@@ -104,6 +104,16 @@ TEST_CASE("the map's rows become runs of changed cells and runs of newly reveale
     CHECK(d.find("rows") == std::string::npos);
 }
 
+TEST_CASE("an unseen slab sensed as open ground ('.o') is a change, not a reveal; seeing it later is", "[kfx_script][seat_diff]") {
+    const char *a = R"({"map":{"width":3,"rows":["......"]}})";
+    const char *b = R"({"map":{"width":3,"rows":["..%0.o"]}})";   // slab 1 seen (a wall), slab 2 sensed behind it
+    const std::string d = diff_of(a, b);
+    CHECK(d.find(R"("changes":[{"cells":"%0.o","x":1,"y":0}])") != std::string::npos);
+    CHECK(d.find(R"("revealed":[{"len":1,"x":1,"y":0}])") != std::string::npos);
+    const std::string d2 = diff_of(b, R"({"map":{"width":3,"rows":["..%0+5"]}})");
+    CHECK(d2.find(R"("revealed":[{"len":1,"x":2,"y":0}])") != std::string::npos);
+}
+
 TEST_CASE("a map that changed size is carried whole", "[kfx_script][seat_diff]") {
     const std::string d = diff_of(R"({"map":{"rows":["....","...."]}})", R"({"map":{"rows":["......","......"]}})");
     CHECK(d.find(R"("rows")") != std::string::npos);

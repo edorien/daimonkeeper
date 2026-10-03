@@ -36,6 +36,7 @@
 #include "tests/ftest_ai_seat_order_creature.h"
 #include "tests/ftest_ai_seat_order_autorelease.h"
 #include "tests/ftest_ai_seat_dig_reach.h"
+#include "tests/ftest_ai_seat_wall_cue.h"
 #include "tests/ftest_ai_seat_pick_up_and_drop.h"
 #include "tests/ftest_ai_seat_scenario_text.h"
 #include "tests/ftest_ai_seat_force.h"
@@ -127,6 +128,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_order_creature",            .init_func=ftest_ai_seat_order_creature_init,           .pre_start_func=ftest_ai_seat_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_autorelease",         .init_func=ftest_ai_seat_order_autorelease_init,        .pre_start_func=ftest_ai_seat_order_autorelease_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_dig_reach",                 .init_func=ftest_ai_seat_dig_reach_init,                .pre_start_func=ftest_ai_seat_dig_reach_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_wall_cue",                  .init_func=ftest_ai_seat_wall_cue_init,                 .pre_start_func=ftest_ai_seat_wall_cue_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_pick_up_and_drop",          .init_func=ftest_ai_seat_pick_up_and_drop_init,         .pre_start_func=ftest_ai_seat_pick_up_and_drop_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_scenario_text",             .init_func=ftest_ai_seat_scenario_text_init,             .pre_start_func=ftest_ai_seat_scenario_text_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_force",                     .init_func=ftest_ai_seat_force_init,                     .pre_start_func=ftest_ai_seat_force_pre_start, .level_file="original", .level=50, .frame_skip=8 },

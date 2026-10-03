@@ -293,6 +293,24 @@ class PromptTests(unittest.TestCase):
         self.assertIn("DIG MARKS: 2 of 300 | UNREACHABLE 2 (no imp can get to them; connect them to walkable floor): (1,1) (2,1)",
                       prompt.render_state(st, first=True))
 
+    def test_open_ground_behind_walls_is_called_out(self):
+        st = ViewState()
+        st.view = make_view()
+        self.assertNotIn("OPEN BEHIND YOUR WALLS", prompt.render_state(st, first=True))
+        st.view["own"].update(open_behind_walls=[[50, 46], [49, 46]], open_behind_walls_count=2)
+        self.assertIn("OPEN BEHIND YOUR WALLS: 2 unseen slab(s) your walls are built facing", prompt.render_state(st, first=True))
+        self.assertIn("(50,46) (49,46)", prompt.render_state(st, first=True))
+
+    def test_map_news_counts_sensed_open_ground_apart_from_changes(self):
+        st = ViewState()
+        st.view = make_view()
+        # Two cells turn '.o' (sensed, still unseen) and one is dug: the sensed ones are neither revealed nor "changed".
+        st.last_diff = {"map": {"changes": [{"y": 2, "x": 4, "cells": ".o.o"}, {"y": 3, "x": 1, "cells": "+0"}]}}
+        text = prompt.render_state(st)
+        self.assertIn("2 unseen slabs now show as open ground ('.o') beside walls, e.g. (4,2) (5,2)", text)
+        self.assertIn("1 slabs changed", text)
+        self.assertNotIn("newly revealed", text)
+
     def test_prettify_state(self):
         self.assertEqual(prompt._prettify_state("IDLE"), "IDLE")
         self.assertEqual(prompt._prettify_state("CreatureCombatFlee"), "Combat Flee")

@@ -277,7 +277,8 @@ def main():
     check("the room was built over the following turns (12 slabs)", treasure_slabs(v) == 12, "slabs=%d" % treasure_slabs(v))
 
     r = api.call(action="submit_action", player=SEAT, verb="mark_dig", slab_rect=[hsx - 9, hsy - 1, hsx - 6, hsy + 1])
-    check("mark_dig is accepted as ten steps", r.get("success") and r["data"]["steps"] == 10, repr(r))
+    # setup 4 (incl. the pickaxe's box mode), press, 3 row sweeps and 2 row steps, release
+    check("mark_dig is accepted as eleven steps", r.get("success") and r["data"]["steps"] == 11, repr(r))
     for _ in range(20):
         v = advance(api, SEAT, 2)
         if len(v["own"]["dig_marks"]) >= 12:
@@ -285,6 +286,7 @@ def main():
     marks = {tuple(m) for m in v["own"]["dig_marks"]}
     want = {(x, y) for x in range(hsx - 9, hsx - 5) for y in range(hsy - 1, hsy + 2)}
     check("all twelve slabs of the rectangle are marked for digging", want <= marks, "marks=%r" % sorted(marks))
+    v = settle(api, SEAT)  # the marks show before the gesture's release step is written; a verb sent now would be refused
 
     check("the trap placed earlier is listed", len(v["own"]["traps"]) == 1, repr(v["own"]["traps"]))
     r = api.call(action="submit_action", player=SEAT, verb="sell", slab_rect=[hsx - 1, hsy + 2, hsx + 1, hsy + 2])

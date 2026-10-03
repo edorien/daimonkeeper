@@ -276,26 +276,29 @@ int64_t slab_of(const ExtSeatStep &s, bool y) { return (y ? s.pos_y : s.pos_x) /
 TEST_CASE("a dig sweep visits every row of the rectangle with a step down between rows", "[kfx_net][extseat]") {
     ExtSeatStep out[EXTSEAT_MAX_STEPS];
     const int64_t n = extseat_plan_dig_sweep(out, EXTSEAT_MAX_STEPS, 2, 5, 5, 7); // 4 wide, 3 tall
-    REQUIRE(n == 10);
+    REQUIRE(n == 11);
     CHECK(out[0].action == PckA_SetPlyrState);
     CHECK(out[0].par1 == PSt_CtrlDungeon);
     CHECK(out[1].action == PckA_SetRoomspaceMan);
     CHECK(out[1].par1 == 1);                     // a 1x1 brush
-    CHECK_FALSE(out[2].has_pos);                 // the idle turn between the mode and the press
-    CHECK(out[2].action == PckA_None);
+    CHECK(out[2].action == PckA_SetRoomspaceHighlight);
+    CHECK(out[2].par1 == box_placement_mode);    // the pickaxe's box mode, whatever the player's tag mode was
+    CHECK(out[2].par2 == 1);
+    CHECK_FALSE(out[3].has_pos);                 // the idle turn between the mode and the press
+    CHECK(out[3].action == PckA_None);
     // The cursor path: press at the corner, sweep the row, step down, sweep back, step down, sweep on, release.
     const int64_t want[7][2] = { {2,5}, {5,5}, {5,6}, {2,6}, {2,7}, {5,7}, {5,7} };
     for (int i = 0; i < 7; i++) {
-        const ExtSeatStep &s = out[3 + i];
+        const ExtSeatStep &s = out[4 + i];
         CAPTURE(i);
         CHECK(s.has_pos);
         CHECK(slab_of(s, false) == want[i][0]);
         CHECK(slab_of(s, true) == want[i][1]);
         CHECK(s.context == CSt_PickAxe);
     }
-    CHECK(out[3].control_flags == PRESS);
-    for (int i = 4; i < 9; i++) CHECK(out[i].control_flags == PCtr_LBtnHeld);
-    CHECK(out[9].control_flags == PCtr_LBtnRelease);
+    CHECK(out[4].control_flags == PRESS);
+    for (int i = 5; i < 10; i++) CHECK(out[i].control_flags == PCtr_LBtnHeld);
+    CHECK(out[10].control_flags == PCtr_LBtnRelease);
 }
 
 TEST_CASE("a dig sweep accepts the corners in any order and a single row", "[kfx_net][extseat]") {
@@ -304,7 +307,7 @@ TEST_CASE("a dig sweep accepts the corners in any order and a single row", "[kfx
     const int64_t nb = extseat_plan_dig_sweep(b, EXTSEAT_MAX_STEPS, 5, 7, 2, 5);
     REQUIRE(na == nb);
     for (int64_t i = 0; i < na; i++) { CHECK(a[i].pos_x == b[i].pos_x); CHECK(a[i].pos_y == b[i].pos_y); }
-    CHECK(extseat_plan_dig_sweep(a, EXTSEAT_MAX_STEPS, 4, 4, 9, 4) == 6); // one row: setup 3, press, sweep, release
+    CHECK(extseat_plan_dig_sweep(a, EXTSEAT_MAX_STEPS, 4, 4, 9, 4) == 7); // one row: setup 4, press, sweep, release
 }
 
 TEST_CASE("a dig sweep refuses an area taller than the cap or one that does not fit", "[kfx_net][extseat]") {
@@ -312,7 +315,7 @@ TEST_CASE("a dig sweep refuses an area taller than the cap or one that does not 
     CHECK(extseat_plan_dig_sweep(out, EXTSEAT_MAX_STEPS, 0, 0, 3, EXTSEAT_MAX_DIG_ROWS) == 0); // one row too many
     CHECK(extseat_plan_dig_sweep(out, EXTSEAT_MAX_STEPS, 0, 0, 3, EXTSEAT_MAX_DIG_ROWS - 1) > 0);
     CHECK(extseat_plan_dig_sweep(out, 5, 0, 0, 3, 3) == 0);                                   // output too small
-    static_assert(3 + 1 + 2 * EXTSEAT_MAX_DIG_ROWS + 1 <= EXTSEAT_MAX_STEPS, "the tallest dig must fit a queue");
+    static_assert(4 + 1 + 2 * EXTSEAT_MAX_DIG_ROWS + 1 <= EXTSEAT_MAX_STEPS, "the tallest dig must fit a queue");
 }
 
 TEST_CASE("selling clicks each slab once: press then release, in the sell tool", "[kfx_net][extseat]") {

@@ -737,7 +737,7 @@ int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_
     const int64_t ty = (y0 < y1) ? y0 : y1, by = (y0 < y1) ? y1 : y0;
     const int64_t rows = by - ty + 1;
     int64_t n = 0;
-    if (rows > EXTSEAT_MAX_DIG_ROWS || (3 + 1 + 2 * rows + 1) > max) {
+    if (rows > EXTSEAT_MAX_DIG_ROWS || (4 + 1 + 2 * rows + 1) > max) {
         return 0;
     }
     const TbBool rev_x = (corner == 1) || (corner == 2), rev_y = (corner == 1) || (corner == 3);
@@ -745,8 +745,11 @@ int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_
     const int64_t sy = rev_y ? by : ty, dy = rev_y ? -1 : 1;
     // The brush is a 1x1 box; the pickaxe cursor context makes the held button tag what the cursor crosses,
     // and the engine interpolates a fast move between turns, so each row is one sweep and each row change one step.
+    // That is the pickaxe's box mode, which is the player's own setting (a local player starts in DEFAULT_TAG_MODE,
+    // and in DRAG mode a drag tags only the box from press to release), so set it rather than inherit it.
     step_action(&out[n++], PckA_SetPlyrState, PSt_CtrlDungeon, 0);
     step_action(&out[n++], PckA_SetRoomspaceMan, 1, 0);
+    step_action(&out[n++], PckA_SetRoomspaceHighlight, box_placement_mode, 1);
     step_idle(&out[n++]);
     step_slab(&out[n++], sx, sy, PRESS, CSt_PickAxe);
     int64_t x = sx;
@@ -768,11 +771,13 @@ int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_
 static int64_t plan_slab_taps(struct ExtSeatStep *out, int64_t max, const int64_t *slab_xy, int64_t count, int64_t state, unsigned char context)
 {
     int64_t n = 0;
-    if (count < 1 || (3 + 2 * count) > max) {
+    if (count < 1 || (4 + 2 * count) > max) {
         return 0;
     }
     step_action(&out[n++], PckA_SetPlyrState, state, 0);
     step_action(&out[n++], PckA_SetRoomspaceMan, 1, 0);
+    // One slab per tap: the pickaxe's box mode, not the player's DRAG or auto-detect tag mode (see the dig sweep).
+    step_action(&out[n++], PckA_SetRoomspaceHighlight, box_placement_mode, 1);
     step_idle(&out[n++]);
     for (int64_t i = 0; i < count; i++) {
         step_slab(&out[n++], slab_xy[2 * i], slab_xy[2 * i + 1], PRESS, context);

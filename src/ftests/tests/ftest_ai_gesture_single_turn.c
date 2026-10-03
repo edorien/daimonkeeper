@@ -288,10 +288,20 @@ FTestActionResult a08_hand_pick(struct FTestActionArgs* const args)
     return FTRs_Go_To_Next_Action;
 }
 
+// The pick is the PI_Grab player instance: the creature is in the hand when it ends, 3 turns after the packet (the
+// External seat waits for it the same way, wait_hand_free). A fixed 2-turn gap checked one turn too early.
+static TbBool hand_instance_running(void)
+{
+    const int64_t inst = get_player(PLAYER0)->instance_num;
+    return (inst == PI_Grab) || (inst == PI_Drop);
+}
+
 FTestActionResult a09_hand_verify_and_drop(struct FTestActionArgs* const args)
 {
     struct Thing* c = crtr();
     if (c == NULL) { FTEST_FAIL_TEST("creature gone"); return FTRs_Go_To_Next_Action; }
+    if (!thing_is_picked_up(c) && hand_instance_running() && (get_gameturn() < args->intended_start_at_game_turn + 20))
+        return FTRs_Repeat_Current_Action;
     if (!thing_is_picked_up(c))
     {
         SOFT_FAIL("PckA_UsePwrHandPick did not pick the creature up");
@@ -306,6 +316,8 @@ FTestActionResult a10_trap_select(struct FTestActionArgs* const args)
 {
     struct Thing* c = crtr();
     if (c == NULL) { FTEST_FAIL_TEST("creature gone"); return FTRs_Go_To_Next_Action; }
+    if (thing_is_picked_up(c) && hand_instance_running() && (get_gameturn() < args->intended_start_at_game_turn + 20))
+        return FTRs_Repeat_Current_Action;
     if (thing_is_picked_up(c) || c->mappos.x.stl.num != vars.drop_stl_x || c->mappos.y.stl.num != vars.drop_stl_y)
     {
         SOFT_FAIL("PckA_UsePwrHandDrop did not put the creature at (%" PRId64 ",%" PRId64 "): held=%" PRId64 " at (%" PRId64 ",%" PRId64 ")",

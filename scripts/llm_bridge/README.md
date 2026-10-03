@@ -27,12 +27,49 @@ or in Claude Desktop's `claude_desktop_config.json`:
 "daimonkeeper": {"command": "python3", "args": ["/path/to/scripts/llm_bridge/mcp_server.py"]}
 ```
 
+**Over HTTP instead** (`mcp_http_server.py`): for a client that can no longer, or never could, start a local command
+itself -- e.g. a desktop app whose local-extension rules changed. Run the server yourself, next to the game, and give the
+client its URL:
+
+```bash
+python3 scripts/llm_bridge/mcp_http_server.py                     # listens on http://127.0.0.1:5600/mcp
+claude mcp add --transport http daimonkeeper http://127.0.0.1:5600/mcp
+```
+
+Same tools and prompt, MCP's Streamable HTTP transport (plain JSON answers, no SSE stream). Loopback only by default,
+with the Host/Origin headers checked (no DNS rebinding from a browser page); `--port` moves it, `--token SECRET` (or
+`DAIMONKEEPER_MCP_TOKEN`) requires `Authorization: Bearer SECRET` and is required for a non-loopback `--host`. The game
+connection belongs to the server process, not the client: a client that restarts finds the seat still connected, and
+stopping the server (Ctrl-C) disconnects it. Keep `wait_for_decision`'s `timeout_seconds` below the client's own request
+timeout (60 s in the reference SDKs; the default 50 fits).
+
+Start the server **before** the client session: a client connects to its MCP servers when the session starts, and one
+started first reports the server as failed (connection refused) until that session is restarted.
+
+**From a shell** (`mcp_http_client.py`): the same tools without an MCP client -- to check a server answers, to play from an
+agent that has a shell but no MCP connection to it, or when the connection failed as above.
+
+```bash
+python3 scripts/llm_bridge/mcp_http_client.py --list
+python3 scripts/llm_bridge/mcp_http_client.py connect '{"agent": "Claude"}'
+python3 scripts/llm_bridge/mcp_http_client.py --brief --save last.json wait_for_decision
+python3 scripts/llm_bridge/mcp_http_client.py submit_orders - < orders.json   # arguments from stdin: no shell quoting
+```
+
+`--brief` prints a decision without the plan/notes/recent-decisions echo, the experience text and the first decision's full
+map (`look` shows a window of it); `--save FILE` keeps the full text. Exit status 0 / 1 (tool error) / 2 (no server).
+`--url` / `DAIMONKEEPER_MCP_URL` and `--token` / `DAIMONKEEPER_MCP_TOKEN` as for the server.
+
+**Order freshness**: orders are refused `STALE_VIEW` once the game is `max_age_turns` past the decision they answer
+(default 1500 turns, about 75 s at normal speed). An agent that takes longer to decide can pass a larger `max_age_turns` to
+`connect`, at the cost of acting on an older view, or slow the game with `set_game_speed`.
+
 **Playing**: `daimonkeeper.cfg` needs `API_ENABLED=TRUE`; start a Skirmish game with a slot set to **External agent (API)** on
 the Slots & AI page (or the tool's `claim` argument converts a computer keeper in a running game). Then, in a
 conversation: `connect`, `get_instructions` (once, near the start), then repeatedly `wait_for_decision` -> decide ->
 `submit_orders`, for as long as you want to keep playing, `disconnect` when done. `wait_for_decision` blocks until the
 game says a decision is due (each quarter of a pay day, or an event: a fight, an attack, a breach, a room lost, a new
-creature kind) or its timeout elapses (`due: false`: call it again, e.g. from a scheduled wake-up in a client that
+creature kind, open ground appearing behind your walls) or its timeout elapses (`due: false`: call it again, e.g. from a scheduled wake-up in a client that
 supports one, so the conversation is not left blocking). The plan, notes and recent decisions are kept **by the game**
 and saved with it (see Memory below), so a reconnect picks up where it left off and a loaded save brings back the plan as
 it was. `connect(agent: "Claude")` names your seat; `experience_path` picks the experience store (`""`: none).
@@ -43,8 +80,10 @@ not just your seat), `get_log_tail` (the game's own recent log, for debugging a 
 `play_daimonkeeper` MCP prompt (`play_keeperfx` still works) offers the same instructions text for a client that surfaces prompts as slash commands.
 Each of your creatures keeps a stable name ("Orc #3") for its whole life; orders that take a creature accept `name` in
 place of `thing_id`.
-Tests: `test_mcp_server.py` (protocol, tool dispatch, and a fake-game integration test, offline); the real engine is
-covered by `scripts/run_ftest_ai_bridge_mcp.sh`.
+Tests: `test_mcp_server.py` (protocol, tool dispatch, and a fake-game integration test, offline), `test_mcp_http_server.py`
+(the HTTP transport: framing, batches, Host/Origin/token checks, the one tool thread, a fake game over HTTP, offline),
+`test_mcp_http_client.py` (the command-line client, against a stub and the fake game, offline); the
+real engine is covered by `scripts/run_ftest_ai_bridge_mcp.sh`.
 
 ## Automated / benchmarking: bridge.py
 
@@ -65,7 +104,7 @@ anything but an unattended, metered benchmark run. Design and protocol: `docs/re
    computer keeper in a running local game.
 3. Run the bridge. It never pauses the game. By default (`--beat decision`) it thinks when the game says a decision is due: it subscribes to
    `DECISION_DUE`, which the game pushes at each quarter of a pay day and on major events (a fight with a rival, an attack on the heart or a
-   room, a breach, a room lost, a new creature kind), and falls back to a timer (`--max-wait-seconds`). Fixed beats still exist (`quarter`,
+   room, a breach, a room lost, a new creature kind, open ground behind the seat's walls), and falls back to a timer (`--max-wait-seconds`). Fixed beats still exist (`quarter`,
    `turns:N`, `seconds:S`). Each time it fetches the view (a diff after the first), asks the policy, and sends the answer as queued,
    expiring orders (`--max-age-turns`). Something that becomes due while the model is thinking is handled right after, with all its reasons.
    The model's plan, notes and recent decisions are kept by the game and saved with it (`memory.py`; Memory below);
@@ -139,8 +178,8 @@ tool schemas), `orders.py` (turning a decided order into `submit_action`, shared
 `memory.py` (plan, notes, decision log; kept in the game), `experience.py` (game records and lessons across games),
 `mcp_session.py` (the MCP-tools-driven step-by-step session), `policies.py`
 (`ScriptedPolicy`), `anthropic_policy.py`, `bridge.py` (the autonomous loop), `agent_vs_agent.py` (the multi-seat
-harness), `mcp_server.py` (the MCP transport), `cost_report.py` (decision-log summarizer), `experience_report.py`
-(experience store viewer), `test_bridge.py` / `test_mcp_server.py` / `test_experience.py` / `test_cost_report.py`
+harness), `mcp_server.py` (the MCP transport, stdio), `mcp_http_server.py` (the same over HTTP), `mcp_http_client.py` (its tools from a shell), `cost_report.py` (decision-log summarizer), `experience_report.py`
+(experience store viewer), `test_bridge.py` / `test_mcp_server.py` / `test_mcp_http_server.py` / `test_mcp_http_client.py` / `test_experience.py` / `test_cost_report.py`
 (offline tests).
 Environment (bridge.py --policy anthropic only): `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default `claude-sonnet-5`),
 `ANTHROPIC_BASE_URL`.

@@ -674,6 +674,20 @@ static TbBool get_against(PlayerNumber agnst_plyr_idx, SlabKind agnst_slbkind, M
     || ((slabmap_owner(slb) != agnst_plyr_idx) && ((slabmap_owner(slb) != kfx_config_state.neutral_player_num) || (slb->kind == SlbT_CLAIMED) ));
 }
 
+TbBool wall_slab_shows_face_toward(MapSlabCoord wall_x, MapSlabCoord wall_y, MapSlabCoord nb_x, MapSlabCoord nb_y)
+{
+    struct SlabMap *wslb = get_slabmap_block(wall_x, wall_y);
+    if (slabmap_block_invalid(wslb) || slabmap_block_invalid(get_slabmap_block(nb_x, nb_y))) {
+        return false;
+    }
+    const struct SlabConfigStats *wslabst = get_slab_stats(wslb);
+    // Room walls (a non-zero slb_id) face everything but their own room, so they tell nothing about what is behind.
+    if ((wslabst->category != SlbAtCtg_FortifiedWall) || (wslabst->slb_id != 0)) {
+        return false;
+    }
+    return get_against(slabmap_owner(wslb), wslb->kind, nb_x, nb_y);
+}
+
 void delete_column(ColumnIndex col_idx)
 {
     struct Column *col;

@@ -31,6 +31,7 @@
 #include "room_data.h"
 #include "room_library.h"
 #include "creature_states.h"
+#include "map_blocks.h"
 #include "map_data.h"
 #include "magic_powers.h"
 #include "map_events.h"
@@ -130,6 +131,38 @@ static char kind_char(SlabKind kind)
 static TbBool slab_revealed(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx)
 {
     return subtile_revealed(slab_subtile_center(slb_x), slab_subtile_center(slb_y), plyr_idx);
+}
+
+// An unseen slab that a seen fortified wall beside it is built facing (wall_slab_shows_face_toward): not plain earth or
+// rock but open ground, a room, a door or another keeper's wall. A keeper sees that on the wall without seeing the slab,
+// e.g. heroes' tunnellers digging around the dungeon. `own_walls_only`: only the seat's own walls count.
+static TbBool slab_open_behind_seen_wall(PlayerNumber plyr_idx, MapSlabCoord x, MapSlabCoord y, TbBool own_walls_only)
+{
+    if (slab_revealed(x, y, plyr_idx)) {
+        return false;
+    }
+    static const int8_t dx[4] = { 0, 1, 0, -1 }, dy[4] = { -1, 0, 1, 0 };
+    for (int k = 0; k < 4; k++) {
+        const MapSlabCoord wx = x + dx[k], wy = y + dy[k];
+        if ((wx < 0) || (wy < 0) || (wx >= kfx_sim_state.map_tiles_x) || (wy >= kfx_sim_state.map_tiles_y)) continue;
+        if (!slab_revealed(wx, wy, plyr_idx)) continue;
+        if (own_walls_only && (slabmap_owner(get_slabmap_block(wx, wy)) != plyr_idx)) continue;
+        if (wall_slab_shows_face_toward(wx, wy, x, y)) return true;
+    }
+    return false;
+}
+
+int64_t api_seat_open_behind_walls(PlayerNumber plyr_idx, int64_t *out_xy, int64_t max)
+{
+    int64_t n = 0;
+    for (MapSlabCoord y = 0; y < kfx_sim_state.map_tiles_y; y++) {
+        for (MapSlabCoord x = 0; x < kfx_sim_state.map_tiles_x; x++) {
+            if (!slab_open_behind_seen_wall(plyr_idx, x, y, true)) continue;
+            if ((out_xy != NULL) && (n < max)) { out_xy[2 * n] = x; out_xy[2 * n + 1] = y; }
+            n++;
+        }
+    }
+    return n;
 }
 
 // Mirrors tag_blocks_for_digging_in_area's test: the slab would take a dig mark from this seat.
@@ -264,7 +297,8 @@ static void add_map(VALUE *out, PlayerNumber plyr_idx)
     value_init_dict(map);
     value_init_int32(value_dict_add(map, "width"), (int32_t)w);
     value_init_int32(value_dict_add(map, "height"), (int32_t)h);
-    value_init_string(value_dict_add(map, "cell"), "kind char + owner digit; '..' = not revealed");
+    value_init_string(value_dict_add(map, "cell"), "kind char + owner digit; '..' = not revealed; '.o' = not revealed, "
+        "but a wall you see is built facing it: open ground (dug, water, lava, a room or door) or another keeper's wall");
     TbBool seen[128];
     memset(seen, 0, sizeof(seen));
     VALUE *rows = value_dict_add(map, "rows");
@@ -277,7 +311,8 @@ static void add_map(VALUE *out, PlayerNumber plyr_idx)
         for (MapSlabCoord x = 0; x < w; x++) {
             char *c = &line[x * 2];
             if (!slab_revealed(x, y, plyr_idx)) {
-                c[0] = c[1] = '.';
+                c[0] = '.';
+                c[1] = slab_open_behind_seen_wall(plyr_idx, x, y, false) ? 'o' : '.';
                 continue;
             }
             const struct SlabMap *slb = get_slabmap_block(x, y);
@@ -1378,6 +1413,18 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
         value_init_int32(value_array_append(e), (int32_t)unreach_xy[2 * i + 1]);
     }
     value_init_int32(value_dict_add(own, "unreachable_dig_marks_count"), (int32_t)unreach);
+    // Unseen open ground one of the seat's own walls is built facing: someone digging around (or into) the dungeon.
+    int64_t open_xy[2 * 64];
+    const int64_t n_open = api_seat_open_behind_walls(plyr_idx, open_xy, 64);
+    VALUE *open_v = value_dict_add(own, "open_behind_walls");
+    value_init_array(open_v);
+    for (int64_t i = 0; (i < n_open) && (i < 64); i++) {
+        VALUE *e = value_array_append(open_v);
+        value_init_array(e);
+        value_init_int32(value_array_append(e), (int32_t)open_xy[2 * i]);
+        value_init_int32(value_array_append(e), (int32_t)open_xy[2 * i + 1]);
+    }
+    value_init_int32(value_dict_add(own, "open_behind_walls_count"), (int32_t)n_open);
 
     VALUE *own_traps = value_dict_add(own, "traps");
     value_init_array(own_traps);

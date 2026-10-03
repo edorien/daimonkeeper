@@ -74,6 +74,10 @@ void reinit_tagged_blocks_for_player(PlayerNumber plyr_idx);
 void initialise_map_collides(void);
 void initialise_map_health(void);
 void place_single_slab_type_on_map(SlabKind slbkind, MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);
+/** Whether the fortified wall at (wall_x, wall_y) is built with a face toward its neighbour (nb_x, nb_y): the rule its
+ *  columns are chosen by (get_against), so it holds whether or not the neighbour has been seen -- a keeper watching the
+ *  wall can tell open ground (or another keeper's wall) lies behind it. False if the slab is not a fortified wall. */
+TbBool wall_slab_shows_face_toward(MapSlabCoord wall_x, MapSlabCoord wall_y, MapSlabCoord nb_x, MapSlabCoord nb_y);
 /******************************************************************************/
 #ifdef __cplusplus
 }

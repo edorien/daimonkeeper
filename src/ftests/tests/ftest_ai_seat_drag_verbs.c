@@ -28,6 +28,7 @@
 #include "player_data.h"
 #include "player_instances.h"
 #include "room_data.h"
+#include "roomspace.h"
 #include "slab_data.h"
 #include "tasks_list.h"
 #include "thing_list.h"
@@ -57,7 +58,7 @@ static ThingModel trap_model;
 #define D_X0 (hsx - 9)
 #define D_Y0 (hsy - 1)
 #define D_W 4
-#define D_H 3
+#define D_H 4 /* an even row count: a serpentine released back in its start column once tagged only that column */
 #define S_Y (hsy + 7)
 #define CAST_X (R_X0 + 1)
 #define CAST_Y R_Y0
@@ -194,6 +195,9 @@ FTestActionResult sdv05_room_check_dig(struct FTestActionArgs* const args)
 {
     const int64_t have = room_slabs_in(R_X0, R_Y0, R_W, R_H);
     if (have != R_W * R_H) SOFT_FAIL("build_room built %" PRId64 " of %d slabs", have, R_W * R_H);
+    // The dig tool's mode is the player's, not the seat's: a local player gets it from DEFAULT_TAG_MODE, and DRAG tags
+    // the box from press to release instead of the brush path. mark_dig must set the mode it needs, whatever it finds.
+    get_player(P)->roomspace_highlight_mode = drag_placement_mode;
     submit_ok("mark_dig", rect(V(ESV_MarkDig, NULL), D_X0, D_Y0, D_X0 + D_W - 1, D_Y0 + D_H - 1));
     return FTRs_Go_To_Next_Action;
 }

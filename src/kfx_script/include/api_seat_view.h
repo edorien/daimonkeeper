@@ -20,6 +20,11 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx);
  *  Writes up to `max` slab (x, y) pairs to `out_xy` (may be NULL) and returns how many there are in all. */
 int64_t api_seat_unreachable_dig_slabs(PlayerNumber plyr_idx, const int64_t *assume4, int64_t n_assume, const int64_t *report4,
     int64_t *out_xy, int64_t max);
+/** Slabs the seat has not seen that one of its own fortified walls is built facing (wall_slab_shows_face_toward): open
+ *  ground -- dug earth, water or lava, a room, a door -- or another keeper's wall, known from the wall as a keeper
+ *  watching it knows it, e.g. a tunnel being dug around the dungeon. Writes up to `max` slab (x, y) pairs to `out_xy`
+ *  (may be NULL), in map order, and returns how many there are in all. */
+int64_t api_seat_open_behind_walls(PlayerNumber plyr_idx, int64_t *out_xy, int64_t max);
 
 #ifdef __cplusplus
 }

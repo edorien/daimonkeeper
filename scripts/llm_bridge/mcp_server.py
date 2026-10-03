@@ -26,11 +26,12 @@ wait_for_decision -> decide -> submit_orders, as long as you want to keep playin
 prompt this was designed against, for a client that has nowhere else to put it; `prompts/get "play_daimonkeeper"` offers the
 same text as an MCP prompt, for a client that surfaces those to the person as a slash command.
 
-**Protocol notes.** Implements just enough of MCP (2024-11-05) over stdio for this purpose: initialize, notifications/initialized,
+**Protocol notes.** Implements just enough of MCP (2024-11-05; later versions are answered the same) over stdio for this purpose: initialize, notifications/initialized,
 tools/list, tools/call, prompts/list, prompts/get, ping. One line of JSON per message, newline-terminated, on stdin/stdout; every
 diagnostic goes to stderr so stdout stays clean JSON-RPC. One Session (one game connection) per server process, matching the
 game's own "one API client at a time" rule. No `$/cancelRequest` support: a blocked wait_for_decision runs to its own timeout.
-Standard library only, like the rest of scripts/llm_bridge/.
+Standard library only, like the rest of scripts/llm_bridge/. The same Server over HTTP on localhost, for a client that
+cannot start a stdio server itself: mcp_http_server.py.
 """
 import json
 import os
@@ -44,6 +45,9 @@ from mcp_session import Session, SessionError  # noqa: E402
 _ORDER_ITEM_SCHEMA = {"type": "object", "properties": prompt.ORDER_ITEM_PROPERTIES, "required": prompt.ORDER_ITEM_REQUIRED}
 
 PROTOCOL_VERSION = "2024-11-05"
+# Versions this server can answer as: what it uses (initialize, tools, prompts, ping) is the same in each. The client's
+# requested one is echoed back when listed here (HTTP clients, mcp_http_server.py, ask for 2025-03-26 or later), else ours.
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
 SERVER_NAME, SERVER_VERSION = "daimonkeeper-bridge", "0.1.0"
 # The prompt's name before the game was renamed; still answered, so existing client setups keep working.
 OLD_PROMPT_NAME = "play_keeperfx"
@@ -59,6 +63,7 @@ TOOLS = [
                 "port": {"type": "integer", "description": "default 5599 (daimonkeeper.cfg API_PORT)"},
                 "claim": {"type": "integer", "description": "convert this player's computer keeper into the seat, if the game did not already make one"},
                 "min_interval_turns": {"type": "integer", "description": "least game turns between two decision-due notices (default 100)"},
+                "max_age_turns": {"type": "integer", "minimum": 1, "description": "game turns after a decision's view that its orders are still accepted (default 1500, about 75 s at normal speed); later ones are refused STALE_VIEW. Raise it if you decide slowly, at the risk of acting on an older view"},
                 "takeover": {"type": "boolean", "description": "let the built-in AI take the seat if this connection drops"},
                 "experience_path": {"type": "string", "description": "sqlite file of game records and lessons across games (default: experience.sqlite in the bridge's own folder; \"\" to play without one)"},
                 "agent": {"type": "string", "description": "a name for you in the game records (default: the MCP client's name)"},
@@ -227,10 +232,14 @@ class Server:
         is_notification = "id" not in req
         try:
             if method == "initialize":
-                client = ((req.get("params") or {}).get("clientInfo") or {}).get("name")
+                params = req.get("params") or {}
+                client = (params.get("clientInfo") or {}).get("name")
                 if client:
                     self.session.client_name = client
-                result = {"protocolVersion": PROTOCOL_VERSION, "capabilities": {"tools": {}, "prompts": {}},
+                version = params.get("protocolVersion")
+                if version not in SUPPORTED_PROTOCOL_VERSIONS:
+                    version = PROTOCOL_VERSION
+                result = {"protocolVersion": version, "capabilities": {"tools": {}, "prompts": {}},
                           "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION}}
             elif method == "notifications/initialized":
                 return None

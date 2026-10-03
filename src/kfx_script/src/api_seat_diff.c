@@ -175,12 +175,14 @@ static void diff_map_rows(VALUE *out, const VALUE *prev, const VALUE *cur)
             value_init_string_(value_dict_add(run, "cells"), b + 2 * x, 2 * (e - x));
             x = e;
         }
+        // Revealed: the slab's kind became known. A kind of '.' is unseen, whatever the second character says ('.o' is
+        // open ground sensed from a wall, not seen).
         for (size_t x = 0; x < w;) {
-            const TbBool was_hidden = (a[2 * x] == '.') && (a[2 * x + 1] == '.');
-            const TbBool now_hidden = (b[2 * x] == '.') && (b[2 * x + 1] == '.');
+            const TbBool was_hidden = (a[2 * x] == '.');
+            const TbBool now_hidden = (b[2 * x] == '.');
             if (!(was_hidden && !now_hidden)) { x++; continue; }
             size_t e = x;
-            while (e < w && (a[2 * e] == '.' && a[2 * e + 1] == '.') && !(b[2 * e] == '.' && b[2 * e + 1] == '.')) e++;
+            while (e < w && (a[2 * e] == '.') && (b[2 * e] != '.')) e++;
             if (revealed == NULL) { revealed = value_dict_add(out, "revealed"); value_init_array(revealed); }
             VALUE *run = value_array_append(revealed);
             value_init_dict(run);

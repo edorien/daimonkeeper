@@ -104,6 +104,14 @@ class ProtocolTests(unittest.TestCase):
         for t in resp["result"]["tools"]:
             self.assertIn("inputSchema", t)
 
+    def test_connect_schema_names_only_real_session_arguments(self):
+        import inspect
+        from mcp_session import Session
+        params = set(inspect.signature(Session.connect).parameters) - {"self"}
+        schema = next(t for t in mcp_server.TOOLS if t["name"] == "connect")["inputSchema"]["properties"]
+        self.assertLessEqual(set(schema), params)
+        self.assertIn("max_age_turns", schema)
+
     def test_prompts_list_and_get(self):
         resp = self.server.handle({"jsonrpc": "2.0", "id": 5, "method": "prompts/list"})
         self.assertEqual([p["name"] for p in resp["result"]["prompts"]], ["play_daimonkeeper"])

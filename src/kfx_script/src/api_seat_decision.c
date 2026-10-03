@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "api.h"
+#include "api_seat_view.h"
 #include "api_seat_decision.h"
 #include "bflib_basics.h"
 #include "config_creature.h"
@@ -31,6 +32,7 @@ extern "C" {
 #define OBJECTIVE_HISTORY 5
 #define CUSTODY_TRACKED 64
 #define SACRIFICE_OUTCOMES 5
+#define OPEN_TRACKED 64
 
 struct SacrificeOutcome {
     char text[160];
@@ -78,6 +80,9 @@ struct SeatDecision {
     unsigned char offered[CREATURE_TYPES_MAX]; /**< creature_sacrifice[] as last seen: a recipe firing resets its victims' */
     struct SacrificeOutcome outcomes[SACRIFICE_OUTCOMES];
     int outcome_count;
+    /** Unseen open ground the seat's own walls face (api_seat_open_behind_walls), as last seen: a new one is news. */
+    int64_t open_xy[2 * OPEN_TRACKED];
+    int64_t open_count;
 };
 
 static struct SeatDecision s_seat[PLAYERS_COUNT];
@@ -306,6 +311,26 @@ static void emit(PlayerNumber p, struct SeatDecision *d)
     api_event_with_data("DECISION_DUE", data, 6);
 }
 
+/** Open ground behind the seat's walls (a wall built facing a slab it has not seen: somebody digging around the
+ *  dungeon, the way a keeper watching the wall would notice it): raises wall_cue when a slab joins the set. */
+static void note_open_behind_walls(PlayerNumber p, struct SeatDecision *d, TbBool baseline)
+{
+    int64_t xy[2 * OPEN_TRACKED];
+    int64_t n = api_seat_open_behind_walls(p, xy, OPEN_TRACKED);
+    if (n > OPEN_TRACKED) n = OPEN_TRACKED;
+    if (!baseline) {
+        for (int64_t i = 0; i < n; i++) {
+            TbBool known = false;
+            for (int64_t k = 0; (k < d->open_count) && !known; k++) {
+                known = (d->open_xy[2 * k] == xy[2 * i]) && (d->open_xy[2 * k + 1] == xy[2 * i + 1]);
+            }
+            if (!known) { add_pending(d, "wall_cue"); break; }
+        }
+    }
+    memcpy(d->open_xy, xy, sizeof(xy[0]) * 2 * n);
+    d->open_count = n;
+}
+
 static void tick_seat(PlayerNumber p)
 {
     struct SeatDecision *d = &s_seat[p];
@@ -321,6 +346,7 @@ static void tick_seat(PlayerNumber p)
         note_objective(p, d, now); // the objective the level opened with is history, not news
         note_custody(p, d, true);
         note_sacrifices(p, d, true, now);
+        note_open_behind_walls(p, d, true);
         d->chat_seen = extseat_chat_total();
         memcpy(d->kind_owned, kinds, sizeof(kinds));
         for (int i = 0; i < EVENTS_COUNT; i++) {
@@ -351,6 +377,7 @@ static void tick_seat(PlayerNumber p)
     if (note_objective(p, d, now)) add_pending(d, "objective");
     note_custody(p, d, false);
     note_sacrifices(p, d, false, now);
+    note_open_behind_walls(p, d, false);
     {
         // Another player said something (the seat's own messages are not news to it).
         const int64_t total = extseat_chat_total();
