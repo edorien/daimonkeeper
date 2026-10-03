@@ -27,7 +27,7 @@ copied from an old CD or from a digital edition (EA, GOG, Steam).
 
 dAImon Keeper is **not affiliated with the KeeperFX team** and is maintained
 separately. Please direct issues, questions and pull requests **about dAImon
-Keeper** to [this repository](https://github.com/edorien/keeperfx-refactor) --
+Keeper** to [this repository](https://github.com/edorien/daimonkeeper) --
 not to KeeperFX's Discord, forums or issue tracker.
 
 For KeeperFX itself, its community and its releases, see
@@ -230,8 +230,8 @@ editor's KeeperFX-compatibility list.
 
 Contributions to dAImon Keeper are welcome.
 
-- Report bugs by opening [issues](https://github.com/edorien/keeperfx-refactor/issues).
-- Contribute code by opening [pull requests](https://github.com/edorien/keeperfx-refactor/pulls).
+- Report bugs by opening [issues](https://github.com/edorien/daimonkeeper/issues).
+- Contribute code by opening [pull requests](https://github.com/edorien/daimonkeeper/pulls).
 - Run `python3 scripts/check_layering.py --strict` before adding any cross-library `#include`.
 
 ## Acknowledgements

@@ -13,7 +13,7 @@ The repository's CLAUDE.md has the full detail behind every step below.
 
 1. Getting the code
 
-  git clone https://github.com/edorien/keeperfx-refactor.git
+  git clone https://github.com/edorien/daimonkeeper.git
 
 The game is built with CMake. It fetches and builds its own third-party
 dependencies (SDL3, OpenAL, FFmpeg, LuaJIT, curl, ...) when the system doesn't

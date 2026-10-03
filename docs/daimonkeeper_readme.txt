@@ -88,7 +88,7 @@ Logging and reporting problems:
   level used that this version doesn't support.
 
   Report bugs in dAImon Keeper here -- not to the KeeperFX developers:
-  https://github.com/edorien/keeperfx-refactor/issues
+  https://github.com/edorien/daimonkeeper/issues
   Include what you did, the first and last 20 or so lines of the log (or the
   whole log, compressed), and if it happens in a saved game, that save: it is
   "save/fx1gNNNN.sav", NNNN being its slot in the Load menu.
@@ -102,7 +102,7 @@ Command line options and controls:
 
 Changes:
 
-  https://github.com/edorien/keeperfx-refactor/commits
+  https://github.com/edorien/daimonkeeper/commits
 
 Licences:
 

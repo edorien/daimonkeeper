@@ -23,7 +23,7 @@ This version has been extensively modified from KeeperFX: the source has been
 reorganised into layered libraries, ported to SDL3 and native Linux, and
 extended (in-game level and content editor, Vulkan renderer, ImGui interface,
 external/AI player seats, and more). The git history of this project,
-https://github.com/edorien/keeperfx-refactor, records every change and its
+https://github.com/edorien/daimonkeeper, records every change and its
 date. The copyright and author notices in the individual source files are
 kept as they were.
 

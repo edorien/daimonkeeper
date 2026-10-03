@@ -19,7 +19,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: GUI Strings for KeeperFX\n"
-"Report-Msgid-Bugs-To: https://code.google.com/p/keeperfx/issues/list\n"
+"Report-Msgid-Bugs-To: https://github.com/edorien/daimonkeeper/issues\n"
 "POT-Creation-Date: 2012-09-02 01:12+0200\n"
 "PO-Revision-Date: 2025-10-15 18:43+0100\n"
 "Last-Translator: Tomasz Lis <listom@gmail.com>\n"
