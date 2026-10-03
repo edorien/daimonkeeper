@@ -141,7 +141,7 @@ int64_t computer_checks_hates(struct Computer2 *comp, struct ComputerCheck * che
         if (!player_exists(player) || (player->id_number == compdngn->owner)
          || (player->id_number == kfx_config_state.neutral_player_num))
             continue;
-        if (player->is_active != 1)
+        if (!is_active_keeper(player))
             continue;
         if (players_are_mutual_allies(compdngn->owner, i))
             continue;

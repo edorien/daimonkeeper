@@ -1179,25 +1179,42 @@ void process_check_new_tunneller_parties(void)
     }
 }
 
-void process_win_and_lose_conditions(PlayerNumber plyr_idx)
+// WIN_GAME / LOSE_GAME applies to every undecided human player
+// (and if they've disconnected, to their placeholders)
+static TbBool scripted_outcome_applies_to_player(const struct PlayerInfo *player)
 {
-    int64_t i;
-    int64_t k;
-    struct PlayerInfo* player = get_player(plyr_idx);
-    for (i=0; i < kfx_game_state.script.win_conditions_num; i++)
+    return player_exists(player)
+        && (!flag_is_set(player->allocflags, PlaF_CompCtrl) || flag_is_set(player->allocflags, PlaF_Placeholder))
+        && (player->victory_state == VicS_Undecided);
+}
+
+void process_win_and_lose_conditions(void)
+{
+    for (uint64_t i = 0; i < kfx_game_state.script.win_conditions_num; i++)
     {
-        k = kfx_game_state.script.win_conditions[i];
-        if (is_condition_met(k)) {
-            SYNCDBG(8,"Win condition %" PRId64 " (cond. %" PRId64 ") met for player %" PRId64 ".",(int64_t)i,(int64_t)k,(int64_t)plyr_idx);
+        int64_t k = kfx_game_state.script.win_conditions[i];
+        if (!is_condition_met(k))
+            continue;
+        for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
+        {
+            struct PlayerInfo* player = get_player(plyr_idx);
+            if (!scripted_outcome_applies_to_player(player))
+                continue;
+            SYNCDBG(8,"Win condition %" PRIu64 " (cond. %" PRId64 ") met for player %" PRId64 ".",i,k,(int64_t)plyr_idx);
             set_player_as_won_level(player);
         }
     }
-    for (i=0; i < kfx_game_state.script.lose_conditions_num; i++)
+    for (uint64_t i = 0; i < kfx_game_state.script.lose_conditions_num; i++)
     {
-        k = kfx_game_state.script.lose_conditions[i];
-        if (is_condition_met(k))
+        int64_t k = kfx_game_state.script.lose_conditions[i];
+        if (!is_condition_met(k))
+            continue;
+        for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
         {
-            SYNCDBG(8,"Lose condition %" PRId64 " (cond. %" PRId64 ") met for player %" PRId64 ".",(int64_t)i,(int64_t)k,(int64_t)plyr_idx);
+            struct PlayerInfo* player = get_player(plyr_idx);
+            if (!scripted_outcome_applies_to_player(player))
+                continue;
+            SYNCDBG(8,"Lose condition %" PRIu64 " (cond. %" PRId64 ") met for player %" PRId64 ".",i,k,(int64_t)plyr_idx);
             set_player_as_lost_level(player);
             setup_all_player_creatures_and_diggers_leave_or_die(plyr_idx);
         }
@@ -1245,7 +1262,7 @@ void process_level_script(void)
     //script_process_messages(); is not here, but it is in beta - check why
       process_check_new_tunneller_parties();
       process_values();
-      process_win_and_lose_conditions(my_player_number); //player->id_number may be uninitialized yet
+      process_win_and_lose_conditions();
     //  show_onscreen_msg(8, "Flags %d %d %d %d %d %d", (int64_t)(kfx_sim_state.dungeon[0].script_flags[0]),(int64_t)(kfx_sim_state.dungeon[0].script_flags[1]),
     //    kfx_sim_state.dungeon[0].script_flags[2],kfx_sim_state.dungeon[0].script_flags[3],kfx_sim_state.dungeon[0].script_flags[4],kfx_sim_state.dungeon[0].script_flags[5]);
   }

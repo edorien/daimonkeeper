@@ -1384,6 +1384,10 @@ static char *_resolve_file_path_internal(char *dst, size_t dst_size,
       mdir=keeper_runtime_directory;
       sdir="multiplayer";
       break;
+  case FGrp_Replays:
+      mdir=keeper_runtime_directory;
+      sdir="replays";
+      break;
   default:
       mdir=keeper_runtime_directory;
       sdir=NULL;

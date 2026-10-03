@@ -407,6 +407,7 @@ enum TbFileGroups {
         FGrp_CmpgMedia,
         FGrp_Music,
         FGrp_MpLevels,
+        FGrp_Replays,
 };
 
 // Moved from kfx_sim's map_events.h (stage 13.3) -- pure name/ID

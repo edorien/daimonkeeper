@@ -34,7 +34,6 @@ struct DriverFixture {
             kfx_sim_state.players[i].user_id = -1;
         }
         kfx_sim_state.players[0].allocflags |= PlaF_Allocated;
-        kfx_sim_state.players[0].is_active = 1;
         kfx_sim_state.players[0].user_id = SOLO_HUMAN_ID;
         net_clear_external_seats();
         seat_user = net_add_external_seat(2);

@@ -178,7 +178,6 @@ inline struct PlayerInfo *make_player_active(PlayerNumber plyr_idx)
     struct PlayerInfo *player = get_player(plyr_idx);
     player->id_number = plyr_idx;
     player->allocflags |= PlaF_Allocated;
-    player->is_active = 1;
     return player;
 }
 

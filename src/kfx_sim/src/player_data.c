@@ -162,6 +162,13 @@ TbBool player_exists(const struct PlayerInfo *player)
     return ((player->allocflags & PlaF_Allocated) != 0);
 }
 
+// has a computer or human keeper (possibly defeated)
+// Not a "zombie," hero, neutral, nor unused slot
+TbBool is_active_keeper(const struct PlayerInfo *player)
+{
+    return player_exists(player) && (player->player_type == PT_Keeper);
+}
+
 TbBool is_my_player(const struct PlayerInfo *player)
 {
     struct PlayerInfo* myplyr = &kfx_sim_state.players[my_player_number % PLAYERS_COUNT];
@@ -697,21 +704,14 @@ TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player)
     {
       if (i == win_plyr_idx)
         continue;
+      if (player_defeat_settled(i))
+        continue;
       if (!player_is_friendly_or_defeated(i,win_plyr_idx))
         return false;
     }
 
-    // KeeperFX behaviour on skirmish maps diverges from original in
-    // order to be more intuitive on existing multiplayer maps.
-    //
-    // This is to ensure that in competitive multiplayer, so long as
-    // two unallied humans can both plausibly win, the game will go on.
-    //
-    // (The unintuitive behaviour of the original is preserved for non-skirmish maps
-    // so that custom campaign levels built for the original behave faithfully.)
-    TbBool legacy_behaviour = !is_multiplayer_level(get_loaded_level_number());
-
-    if (!victory_candidates_fully_allied(legacy_behaviour))
+    // So long as two unallied humans can both plausibly win, the game goes on.
+    if (!human_victory_kernel_exists())
         return false;
     SYNCDBG(1,"Returning true for player %" PRId64,(int64_t)(win_plyr_idx));
     return true;

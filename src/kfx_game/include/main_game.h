@@ -42,7 +42,6 @@ void process_objective(const char *msg_text, PlayerNumber plyr_idx, TbMapLocatio
 void process_objective_with_icon(const char *msg_text, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx);
 void set_general_objective(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y);
 void set_general_objective_with_icon(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx);
-int64_t winning_player_quitting(struct PlayerInfo *player, int64_t *plyr_count);
 int64_t lose_level(struct PlayerInfo *player);
 int64_t resign_level(struct PlayerInfo *player);
 int64_t complete_level(struct PlayerInfo *player);

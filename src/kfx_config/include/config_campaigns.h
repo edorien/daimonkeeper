@@ -225,6 +225,7 @@ TbBool is_campaign_in_list(const char *cmpgn_fname, struct CampaignsList *clist)
 TbBool swap_campaigns_in_list(struct CampaignsList *clist, int64_t idx1, int64_t idx2);
 void sort_campaigns_quicksort(struct CampaignsList *clist, int64_t beg, int64_t end);
 uint8_t prepare_campaign_file_name(const char *cmpgn_fname, char *cmpgn_file, int64_t cmpgn_file_len);
+void get_campaign_sanitized_id(const char *cmpgn_fname, char *out, size_t outlen);
 TbBool is_map_pack(void);
 void set_default_mp_mappack(void);
 /******************************************************************************/

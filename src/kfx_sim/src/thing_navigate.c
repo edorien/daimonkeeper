@@ -410,12 +410,8 @@ TbBool terrain_toxic_for_creature_at_position(const struct Thing *creatng, MapSu
     if (!thing_can_traverse_abyss_at(creatng, stl_x, stl_y)) {
         return true;
     }
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
-    // If the position is over lava, and we can't continuously fly, then it's toxic
-    if ((crconf->hurt_by_lava > 0) && map_pos_is_lava(stl_x,stl_y)) {
-        // Check not only if a creature is now flying, but also whether it's natural ability
-        if (!flag_is_set(creatng->movement_flags, TMvF_Flying) || (!crconf->flying))
-            return true;
+    if (map_pos_is_lava(stl_x, stl_y) && !creature_can_travel_over_lava(creatng)) {
+        return true;
     }
     return false;
 }
@@ -446,7 +442,7 @@ TbBool creature_can_get_to_dungeon_heart(struct Thing *creatng, PlayerNumber ply
 {
     SYNCDBG(18,"Starting");
     struct PlayerInfo* player = get_player(plyr_idx);
-    if (!player_exists(player) || ((player->is_active != 1) && !player_is_roaming(plyr_idx)))
+    if (!player_exists(player) || (!is_active_keeper(player) && !player_is_roaming(plyr_idx)))
     {
         SYNCDBG(18,"The %s index %" PRId64 " cannot get to inactive player %" PRId64,thing_model_name(creatng),(int64_t)creatng->index,(int64_t)plyr_idx);
         return false;

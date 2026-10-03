@@ -113,17 +113,17 @@ TEST_CASE_METHOD(NavigateFixture, "terrain_toxic_for_creature_at_position is tru
     CHECK(terrain_toxic_for_creature_at_position(creatng, kStlX, kStlY));
 }
 
-TEST_CASE_METHOD(NavigateFixture, "terrain_toxic_for_creature_at_position is false only when flying is both active and the creature's natural ability", "[kfx_sim][thing_navigate]") {
+TEST_CASE_METHOD(NavigateFixture, "terrain_toxic_for_creature_at_position is false on lava while the creature is flying, natural flier or not", "[kfx_sim][thing_navigate]") {
     make_lava_subtile();
     kfx_config_state.conf.crtr_conf.model[0].hurt_by_lava = 5;
+    CHECK(terrain_toxic_for_creature_at_position(creatng, kStlX, kStlY)); // grounded
     creatng->movement_flags |= TMvF_Flying;
 
+    // Upstream #5372 ("Fix not being able to fly over lava"): this used to demand
+    // flying be the creature's natural ability as well, so a creature flying by a
+    // spell refused to cross lava. Now it goes by creature_can_travel_over_lava().
     kfx_config_state.conf.crtr_conf.model[0].flying = false;
-    // Currently flying (e.g. a temporary spell) but not a natural flier --
-    // still toxic. A real, if subtle, distinction found by reading the
-    // body's "!movement_flags_flying || !crconf->flying" condition rather
-    // than assuming "currently flying" alone is enough.
-    CHECK(terrain_toxic_for_creature_at_position(creatng, kStlX, kStlY));
+    CHECK_FALSE(terrain_toxic_for_creature_at_position(creatng, kStlX, kStlY));
 
     kfx_config_state.conf.crtr_conf.model[0].flying = true;
     CHECK_FALSE(terrain_toxic_for_creature_at_position(creatng, kStlX, kStlY));

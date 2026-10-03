@@ -45,7 +45,6 @@ const struct GamePort kfx_game_port = {
     .cmd_exec = &cmd_exec,
     .resync_export_game_state = &resync_export_game_state,
     .resync_import_game_state = &resync_import_game_state,
-    .winning_player_quitting = &winning_player_quitting,
     .reinit_level_after_load = &reinit_level_after_load,
     .setup_heap_manager = &setup_heap_manager,
     .reset_heap_manager = &reset_heap_manager,

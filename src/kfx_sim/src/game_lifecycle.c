@@ -109,7 +109,7 @@ void init_keepers_map_exploration(void)
     for (i=0; i < PLAYERS_COUNT; i++)
     {
       player = get_player(i);
-      if ((player_exists(player) && (player->is_active == 1)) || player_is_roaming(i))
+      if (is_active_keeper(player) || player_is_roaming(i))
       {
           // Additional init - the main one is in init_player()
           if ((player->allocflags & PlaF_CompCtrl) != 0) {
@@ -124,7 +124,7 @@ void clear_players_for_save(void)
 {
     struct PlayerInfo *player;
     int64_t saved_player_id;
-    int64_t saved_is_active;
+    int64_t saved_player_type;
     int64_t saved_allocation_flags;
     struct Camera cammem;
     int64_t i;
@@ -132,14 +132,15 @@ void clear_players_for_save(void)
     {
       player = get_player(i);
       saved_player_id = player->id_number;
-      saved_is_active = player->is_active;
+      saved_player_type = player->player_type;
       saved_allocation_flags = player->allocflags;
       memcpy(&cammem,&player->cameras[CamIV_FirstPerson],sizeof(struct Camera));
       memset(player, 0, sizeof(struct PlayerInfo));
       player->id_number = saved_player_id;
-      player->is_active = saved_is_active;
+      player->player_type = saved_player_type;
       set_flag_value(player->allocflags, PlaF_Allocated, ((saved_allocation_flags & PlaF_Allocated) != 0));
       set_flag_value(player->allocflags, PlaF_CompCtrl, ((saved_allocation_flags & PlaF_CompCtrl) != 0));
+      set_flag_value(player->allocflags, PlaF_Placeholder, ((saved_allocation_flags & PlaF_Placeholder) != 0));
       memcpy(&player->cameras[CamIV_FirstPerson],&cammem,sizeof(struct Camera));
       set_player_active_camera(player, CamIV_FirstPerson);
     }

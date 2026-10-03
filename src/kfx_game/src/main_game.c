@@ -119,7 +119,7 @@ void reset_script_timers_and_flags(void)
         for (k=0; k<SCRIPT_FLAGS_COUNT; k++)
         {
             dungeon->script_flags[k] = 0;
-            if (freeplay)
+            if (freeplay && (plyr_idx < PLAYERS_FOR_CAMPAIGN_FLAGS) && (k < CAMPAIGN_FLAGS_PER_PLAYER))
             {
                 intralvl.campaign_flags[plyr_idx][k] = 0;
             }
@@ -300,35 +300,6 @@ void set_general_objective(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation 
 void set_general_objective_with_icon(int64_t msg_id, PlayerNumber plyr_idx, TbMapLocation target, MapSubtlCoord x, MapSubtlCoord y, int64_t icon_idx)
 {
     process_objective_with_icon(get_string(msg_id), plyr_idx, target, x, y, icon_idx);
-}
-
-int64_t winning_player_quitting(struct PlayerInfo *player, int64_t *plyr_count)
-{
-    struct PlayerInfo *swplyr;
-    int64_t i;
-    int64_t k;
-    int64_t n;
-    if (player->victory_state == VicS_LostLevel)
-    {
-      return 0;
-    }
-    k = 0;
-    n = 0;
-    for (i=0; i < PLAYERS_COUNT; i++)
-    {
-      swplyr = get_player(i);
-      if (player_exists(swplyr))
-      {
-        if (swplyr->is_active == 1)
-        {
-          k++;
-          if (swplyr->victory_state == VicS_LostLevel)
-            n++;
-        }
-      }
-    }
-    *plyr_count = k;
-    return ((k - n) == 1);
 }
 
 int64_t lose_level(struct PlayerInfo *player)
@@ -536,6 +507,8 @@ static TbBool init_level(void)
 static void post_init_level(void)
 {
     SYNCDBG(8,"Starting");
+    if (!kfx_net_state.packet_save_enable && !kfx_sim_state.replay_active)
+        setup_auto_replay_save();
     if (kfx_net_state.packet_save_enable)
         open_new_packet_file_for_save();
     calculate_dungeon_area_scores();
@@ -626,7 +599,6 @@ TbBool startup_saved_packet_game(void)
     restore_users_from_packet_save();
     ui_set_frontend_alliances(kfx_net_state.packet_save_head.frontend_alliances);
     ui_setup_alliances();
-    are_disconnect_victories_allowed();
     if (kfx_sim_state.human_players_count == 1)
         kfx_sim_state.game_kind = GKind_LocalGame;
     if (kfx_net_state.turns_stored < kfx_net_state.turns_fastforward)
@@ -647,11 +619,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
     stop_streamed_samples();
     // A new level: no agent remembers anything about it yet (a loaded save brings its own, game_saves.c).
     agent_memory_clear_all();
-    uint64_t flgmem;
-    struct PlayerInfo *player;
     setup_count_players();
-    player = get_my_player();
-    flgmem = player->is_active;
     if (local && (campaign.human_player >= 0) && (!start_params.force_player_num))
     {
         default_loc_player = campaign.human_player;
@@ -662,8 +630,6 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
         coroutine_clear(context, true);
         return;
     }
-    player = get_my_player();
-    player->is_active = flgmem;
     //if (game.flagfield_14EA4A == 2) //was wrong because init_level sets this to 2. global variables are evil (though perhaps that's why they were chosen for DK? ;-))
     TbBool ShouldAssignCpuKeepers = 0;
     if (local)
@@ -693,7 +659,6 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
     TbBool ShouldAssignCpuKeepers = coroutine_args(context)[0];
     if (kfx_sim_state.game_kind == GKind_MultiGame) {
         ui_setup_alliances();
-        are_disconnect_victories_allowed();
     }
     if (ui_is_fe_computer_players_active() || ShouldAssignCpuKeepers)
     {
@@ -795,7 +760,6 @@ static CoroutineLoopState startup_local_game_for_editor_tail(CoroutineLoop *cont
 
 void faststartup_network_game(CoroutineLoop *context)
 {
-    struct PlayerInfo *player;
     SYNCDBG(3,"Starting");
     reenter_video_mode();
     my_player_number = default_loc_player;
@@ -805,8 +769,6 @@ void faststartup_network_game(CoroutineLoop *context)
         if (!change_campaign(CampgnT_Default,""))
             ERRORLOG("Unable to load campaign");
     }
-    player = get_my_player();
-    player->is_active = 1;
     startup_network_game(context, true);
     if (!context->error)
         coroutine_add(context, &set_not_has_quit);

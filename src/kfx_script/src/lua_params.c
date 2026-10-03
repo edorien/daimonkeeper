@@ -39,6 +39,7 @@ TbBool luaL_isThing(lua_State *L, int64_t index)
     // Get idx field
     lua_getfield(L, index, "ThingIndex");
     if (!lua_isnumber(L, -1)) {
+        lua_pop(L, 1);
         return false;
     }
     int64_t idx = lua_tointeger(L, -1);
@@ -46,7 +47,9 @@ TbBool luaL_isThing(lua_State *L, int64_t index)
 
     // Get creation_turn field
     lua_getfield(L, index, "creation_turn");
+
     if (!lua_isnumber(L, -1)) {
+        lua_pop(L, 1);
         return false;
     }
     int64_t creation_turn = lua_tointeger(L, -1);
@@ -84,8 +87,10 @@ TbBool luaL_isPlayer(lua_State *L, int64_t index)
     {
         lua_getfield(L, index, "playerId");
         if (lua_isnumber(L, -1)) {
+            lua_pop(L, 1);
             return true;
         }
+        lua_pop(L, 1);
         return false;
     }
 
@@ -131,7 +136,7 @@ int64_t luaL_optNamedCommand(lua_State *L, int64_t index,const struct NamedComma
 
 struct Thing *luaL_optCheckThing(lua_State* L, int64_t index)
 {
-    if (lua_isnone(L, index))
+    if (lua_isnoneornil(L, index))
         return 0;
     return luaL_checkThing(L, index);
 }
@@ -203,6 +208,7 @@ TbMapLocation luaL_checkLocation(lua_State *L, int64_t index)
         int64_t stl_x = lua_tointeger(L, -1);
         lua_getfield(L, index, "stl_y");
         int64_t stl_y = lua_tointeger(L, -1);
+        lua_pop(L,2);
 
         return get_coord_encoded_location(stl_x,stl_y);
     }
@@ -246,6 +252,7 @@ PlayerNumber luaL_checkPlayerRangeId(lua_State *L, int64_t index)
         lua_getfield(L, index, "playerId");
         if (lua_isnumber(L, -1)) {
             int64_t i = lua_tointeger(L, -1);
+            lua_pop(L, 1);
             return i;
         }
         luaL_argerror(L,index, "Expected table to be of class Player");
@@ -516,10 +523,13 @@ void luaL_checkCoord3d(lua_State *L, int64_t index, struct Coord3d* pos)
 
         lua_getfield(L, index, "val_x");
         pos->x.val = lua_tointeger(L, -1);
+        lua_pop(L, 1);
         lua_getfield(L, index, "val_y");
         pos->y.val = lua_tointeger(L, -1);
+        lua_pop(L, 1);
         lua_getfield(L, index, "val_z");
         pos->z.val = lua_tointeger(L, -1);
+        lua_pop(L, 1);
 
         return;
     }

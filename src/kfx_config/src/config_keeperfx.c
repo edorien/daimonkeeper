@@ -92,6 +92,7 @@ TbBool config_network_is_active(void)
 int64_t api_enabled = false;
 int64_t api_port = 5599;
 uint64_t packetsave_max_kb = 0;
+uint64_t max_replays[ReplTyp_Count] = {5, 5, 10};
 uint64_t features_enabled = 0;
 TbBool exit_on_lua_error = false;
 TbBool FLEE_BUTTON_DEFAULT = false;
@@ -275,7 +276,8 @@ const struct NamedCommand conf_commands[] = {
   {"GUI_POSITION"                  , 55},
   {"GUI_ICON_PACK"                 , 56},
   {"MINIMAP_CORNER"                , 57},
-  {"PACKETSAVE_MAX_SIZE"           , 58}, // upstream id 52 collides with the fork's UI_FONT_SCALE
+  {"REPLAY_MAX_SIZE"               , 58}, // upstream id 52 collides with the fork's UI_FONT_SCALE
+  {"PACKETSAVE_MAX_SIZE"           , 58}, // the setting's name before upstream #5359
   {"PANEL_CORNER"                  , 59},
   {"RENDERER"                      , 60},
   {"GPU_TRUE_DEPTH"                , 61},
@@ -283,6 +285,7 @@ const struct NamedCommand conf_commands[] = {
   {"OVERHEAD_FADE"                 , 63},
   {"LOG_LEVEL"                     , 64},
   {"GPU_DEBUG"                     , 65},
+  {"MAX_REPLAYS"                   , 66}, // upstream id 53 collides with the fork's UI_FONT
   {NULL,                   0},
   };
 
@@ -585,9 +588,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               install_info.inst_path[sizeof(install_info.inst_path)-1] = '\0';
           }
           break;
-      case 2: // INSTALL_TYPE
-          // This command is just skipped...
-          break;
       case 3: // LANGUAGE
           i = recognize_conf_parameter(buf,&pos,len,lang_type);
           if (i <= 0)
@@ -597,9 +597,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
             break;
           }
           install_info.lang_id = i;
-          break;
-      case 4: // KEYBOARD
-          // Works only in DK Premium
           break;
       case 5: // SCREENSHOT
           i = recognize_conf_parameter(buf,&pos,len,scrshot_type);
@@ -858,9 +855,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               }
           }
           break;
-        case 23: //SKIP_HEART_ZOOM
-          CONFLOG("The \"%s\" setting is unused. Use the -skipheartzoom command line option instead.", COMMAND_TEXT(cmd_num));
-          break;
         case 24: //CURSOR_EDGE_CAMERA_PANNING
           i = recognize_conf_parameter(buf,&pos,len,logicval_type);
           if (i <= 0)
@@ -955,12 +949,6 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               keeperfx_ui_config.line_box_size = i;
           } else {
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
-          }
-          break;
-      case 32: // COMMAND_CHAR
-          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
-          {
-              cmd_char = word_buf[0];
           }
           break;
       case 33: // API_ENABLED
@@ -1272,7 +1260,7 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
-      case 58: // PACKETSAVE_MAX_SIZE
+      case 58: // REPLAY_MAX_SIZE
           i = -1;
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
@@ -1361,9 +1349,30 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
+      case 66: // MAX_REPLAYS
+          i = 0;
+          for (int64_t typ = 0; typ < ReplTyp_Count; typ++)
+          {
+              if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+              {
+                  i = atoi(word_buf);
+                  if (i < 0) {
+                      CONFWRNLOG("Invalid \"%s\" value in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+                      i = 0;
+                  }
+              }
+              max_replays[typ] = i;
+          }
+          break;
       case ccr_comment:
           break;
       case ccr_endOfFile:
+          break;
+      case 2: // INSTALL_TYPE
+      case 4: // KEYBOARD
+      case 23: //SKIP_HEART_ZOOM
+      case 32: // COMMAND_CHAR
+          CONFLOG("The \"%s\" setting is depricated.", COMMAND_TEXT(cmd_num));
           break;
       default:
           CONFWRNLOG("Unrecognized command in %s file.",config_textname);

@@ -433,7 +433,7 @@ on:** `kfx_sim`, `kfx_platform`. **28 sources / 27 headers.**
   (`process_dungeon_destroy`).
 - `main_game` — level startup (`startup_network_game`,
   `faststartup_network_game`, `faststartup_saved_packet_game`), win/lose/resign
-  (`winning_player_quitting`, `lose_level`, `resign_level`, `complete_level`),
+  (`lose_level`, `resign_level`, `complete_level`),
   `clear_complete_game`, `init_seeds`.
 - Packet application (refactor pass 2, S12, from `kfx_net`):
   `game_commands` (`process_packets()` and the per-user global, dungeon,

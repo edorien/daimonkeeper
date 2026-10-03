@@ -40,8 +40,9 @@ struct PlayerInfo;
 /******************************************************************************/
 TbBool player_has_lost(PlayerNumber plyr_idx);
 TbBool player_cannot_win(PlayerNumber plyr_idx);
-TbBool player_is_victory_candidate(const struct PlayerInfo *player);
-TbBool victory_candidates_fully_allied(TbBool humans_only);
+TbBool player_defeat_settled(PlayerNumber plyr_idx);
+TbBool player_is_placeholder(const struct PlayerInfo *player);
+TbBool human_victory_kernel_exists(void);
 void set_player_as_won_level(struct PlayerInfo *player);
 void set_player_as_lost_level(struct PlayerInfo *player);
 
@@ -76,7 +77,7 @@ void process_players(void);
 
 void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx);
 
-void check_players_won(void);
+void resolve_placeholders(void);
 void check_players_lost(void);
 void blast_slab(MapSlabCoord slb_x, MapSlabCoord slb_y, PlayerNumber plyr_idx);
 int64_t set_players_creatures_to_get_paid(PlayerNumber plyr_idx);

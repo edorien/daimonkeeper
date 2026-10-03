@@ -122,9 +122,9 @@ TEST_CASE_METHOD(ResetSimAndConfig, "computer_checks_hates increments hate_amoun
     link_creature_into_player_list(&dungeon2->creatr_list_start, 21);
     dungeon2->total_rooms = 1;
 
-    // Player 3: same excess stats, but inactive -- must be skipped.
+    // Player 3: same excess stats, but not a keeper -- must be skipped.
     struct PlayerInfo *player3 = make_player_active(3);
-    player3->is_active = 0;
+    player3->player_type = PT_Roaming;
     struct Dungeon *dungeon3 = get_dungeon(3);
     make_creature(30, 30, 3)->model = 1;
     link_creature_into_player_list(&dungeon3->creatr_list_start, 30);

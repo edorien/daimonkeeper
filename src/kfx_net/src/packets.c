@@ -149,7 +149,7 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
   for (int64_t i = 0; i < PLAYERS_COUNT; i++)
   {
     player = get_player(i);
-    if (player_exists(player) && (player->is_active == 1))
+    if (is_active_keeper(player))
     {
         if ((player->allocflags & PlaF_CompCtrl) == 0)
         {

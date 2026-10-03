@@ -251,3 +251,23 @@ TEST_CASE("is_campaign_in_list is false for an empty or unallocated list", "[kfx
     struct CampaignsList clist{};
     CHECK_FALSE(is_campaign_in_list("anything.cfg", &clist));
 }
+
+// Upstream #5359: autosaved replay names carry the campaign as a pure [a-z0-9_]+ id.
+TEST_CASE("get_campaign_sanitized_id keeps the lowercased [a-z0-9_] part of the file name", "[kfx_config][config_campaigns]") {
+    char out[64];
+    get_campaign_sanitized_id("keeporig.cfg", out, sizeof(out));
+    CHECK(std::strcmp(out, "keeporig") == 0);
+    get_campaign_sanitized_id("campgns/My-Campaign 2.cfg", out, sizeof(out));
+    CHECK(std::strcmp(out, "mycampaign2") == 0);
+    get_campaign_sanitized_id("dir\\Sub_Dir\\Deeper_Pack.v2.cfg", out, sizeof(out));
+    CHECK(std::strcmp(out, "deeper_packv2") == 0);
+}
+
+TEST_CASE("get_campaign_sanitized_id falls back to \"unknown\" and respects the buffer size", "[kfx_config][config_campaigns]") {
+    char out[64];
+    get_campaign_sanitized_id("---.cfg", out, sizeof(out));
+    CHECK(std::strcmp(out, "unknown") == 0);
+    char small[4];
+    get_campaign_sanitized_id("abcdefgh.cfg", small, sizeof(small));
+    CHECK(std::strcmp(small, "abc") == 0);
+}

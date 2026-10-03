@@ -315,7 +315,7 @@ int64_t update_dungeons_scores(void)
         struct PlayerInfo* player = get_player(i);
         if (!player_exists(player))
             continue;
-        if (player->is_active == 1)
+        if (is_active_keeper(player))
         {
             if (update_dungeon_scores_for_player(player)) {
                 k++;

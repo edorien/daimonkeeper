@@ -300,6 +300,13 @@ extern int64_t api_enabled;
 extern int64_t api_port;
 extern TbBool exit_on_lua_error;
 extern uint64_t packetsave_max_kb;
+enum ReplayTypes {
+    ReplTyp_Campaign = 0,
+    ReplTyp_Freeplay,
+    ReplTyp_Multiplayer,
+    ReplTyp_Count,
+};
+extern uint64_t max_replays[ReplTyp_Count];
 extern TbBool FLEE_BUTTON_DEFAULT;
 extern TbBool IMPRISON_BUTTON_DEFAULT;
 /******************************************************************************/

@@ -107,35 +107,42 @@ TbBool player_cannot_win(PlayerNumber plyr_idx)
     return false;
 }
 
+// lost, and not still in the middle of the heart exploding
+TbBool player_defeat_settled(PlayerNumber plyr_idx)
+{
+    struct PlayerInfo* player = get_player(plyr_idx);
+    if (player->victory_state != VicS_LostLevel)
+        return false;
+    struct Thing* heartng = get_player_soul_container(plyr_idx);
+    return !(thing_exists(heartng) && (heartng->active_state == ObSt_BeingDestroyed));
+}
+
 // player dropped and is computer-controlled
-static TbBool player_is_ai_standin(const struct PlayerInfo *player)
+TbBool player_is_placeholder(const struct PlayerInfo *player)
 {
-    return flag_is_set(player->allocflags, PlaF_CompCtrl) && flag_is_set(player->allocflags, PlaF_OriginallyHuman);
+    return flag_is_set(player->allocflags, PlaF_Placeholder);
 }
 
-TbBool player_is_victory_candidate(const struct PlayerInfo *player)
+static TbBool player_belongs_in_victory_kernel(const struct PlayerInfo *player)
 {
-    return player_exists(player)
-        && player->is_active == 1
+    // is an undefeated human
+    return is_active_keeper(player)
         && player->id_number != kfx_config_state.neutral_player_num
-        && !player_is_ai_standin(player)
-        && !player_cannot_win(player->id_number);
+        && (player->victory_state != VicS_LostLevel)
+        && !flag_is_set(player->allocflags, PlaF_CompCtrl);
 }
 
-static TbBool counts_for_alliance_graph(const struct PlayerInfo *player, TbBool humans_only)
-{
-    return player_is_victory_candidate(player) && (!humans_only || ((player->allocflags & PlaF_CompCtrl) == 0));
-}
-
-// check that the graph of alliances among remaining (human/all) players is transitive and reflexive.
-TbBool victory_candidates_fully_allied(TbBool humans_only)
+// check if all undefeated human players form a "kernel"
+// of complete and fully-connected mutual alliances.
+// (On non-network games this is necessarily always true.)
+TbBool human_victory_kernel_exists(void)
 {
     for (PlayerNumber i = 0; i < PLAYERS_COUNT; i++) {
-        if (!counts_for_alliance_graph(get_player(i), humans_only)) {
+        if (!player_belongs_in_victory_kernel(get_player(i))) {
             continue;
         }
         for (PlayerNumber j = i + 1; j < PLAYERS_COUNT; j++) {
-            if (counts_for_alliance_graph(get_player(j), humans_only) && !players_are_mutual_allies(i, j)) {
+            if (player_belongs_in_victory_kernel(get_player(j)) && !players_are_mutual_allies(i, j)) {
                 return false;
             }
         }
@@ -486,7 +493,7 @@ int64_t update_dungeon_generation_speeds(void)
     for (plyr_idx=0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
         struct PlayerInfo* player = get_player(plyr_idx);
-        if (player_exists(player) && (player->is_active))
+        if (is_active_keeper(player))
         {
             struct Dungeon* dungeon = get_players_dungeon(player);
             if (dungeon->total_score > max_manage_score)
@@ -903,7 +910,7 @@ void init_player(struct PlayerInfo *player, int64_t no_explore, const struct Pac
         {
             player->frontview_zoom_level = FRONTVIEW_CAMERA_ZOOM_MAX;
         }
-        if (player->is_active != 1)
+        if (!is_active_keeper(player))
         {
           ERRORLOG("Non Keeper in Keeper game");
           break;
@@ -950,9 +957,7 @@ void init_players(const struct PacketSaveHead *replay_head)
                 player->allocflags &= ~PlaF_CompCtrl;
             if ((player->allocflags & PlaF_CompCtrl) == 0)
             {
-              player->allocflags |= PlaF_OriginallyHuman;
               kfx_sim_state.human_players_count++;
-              player->is_active = 1;
               kfx_sim_state.game_kind = GKind_MultiGame;
               init_player(player, 0, replay_head);
             }
@@ -1181,7 +1186,7 @@ void init_players_local_game(const struct PacketSaveHead *replay_head)
     struct PlayerInfo* player = get_my_player();
     player->id_number = my_player_number;
     player->user_id = SOLO_HUMAN_ID;
-    player->allocflags |= PlaF_Allocated | PlaF_OriginallyHuman;
+    player->allocflags |= PlaF_Allocated;
 
     if( player->id_number == PLAYER_GOOD)
     {
@@ -1234,7 +1239,7 @@ void process_players(void)
     for (int64_t i = 0; i < PLAYERS_COUNT; i++)
     {
         struct PlayerInfo* player = get_player(i);
-        if (player_exists(player) && (player->is_active == 1))
+        if (is_active_keeper(player))
         {
             SYNCDBG(6,"Doing updates for player %" PRId64,(int64_t)(i));
             wander_point_update(&player->wandr_within);
@@ -1445,21 +1450,38 @@ void set_player_colour(PlayerNumber plyr_idx, unsigned char colour_idx)
     }
 }
 
-void check_players_won(void)
+static TbBool placeholder_has_loadbearing_ally(const struct PlayerInfo *placeholder)
 {
-  SYNCDBG(8,"Starting");
+    for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++) {
+        struct PlayerInfo *other = get_player(plyr_idx);
+        if ((other == placeholder) || !is_active_keeper(other)
+            || flag_is_set(other->allocflags, PlaF_CompCtrl) || player_defeat_settled(plyr_idx)) {
+            continue;
+        }
+        if (players_are_mutual_allies(placeholder->id_number, plyr_idx)) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    if (!network_is_active())
-        return;
-
-    if (!victory_candidates_fully_allied(false))
-        return;
-
-    for (PlayerNumber playerIdx = 0; playerIdx < PLAYERS_COUNT; ++playerIdx)
-    {
-        struct PlayerInfo* curPlayer = get_player(playerIdx);
-        if (player_is_victory_candidate(curPlayer) && (curPlayer->victory_state == VicS_Undecided))
-            set_player_as_won_level(curPlayer);
+// placeholders with no human still propping them up are marked as defeated;
+// placeholders whose outcome is settled are deallocated
+void resolve_placeholders(void)
+{
+    for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++) {
+        struct PlayerInfo *player = get_player(plyr_idx);
+        if (!player_exists(player) || !player_is_placeholder(player)) {
+            continue;
+        }
+        if ((player->victory_state == VicS_Undecided) && !placeholder_has_loadbearing_ally(player)) {
+            JUSTLOG("p:%" PRId64 " defeated, no human allies remain", (int64_t)plyr_idx);
+            event_kill_all_players_events(plyr_idx);
+            set_player_as_lost_level(player);
+        }
+        if ((player->victory_state == VicS_WonLevel) || player_defeat_settled(plyr_idx)) {
+            player->allocflags &= ~PlaF_Allocated;
+        }
     }
 }
 
@@ -1473,7 +1495,7 @@ void check_players_lost(void)
   {
       player = get_player(i);
       dungeon = get_players_dungeon(player);
-      if (player_exists(player) && (player->is_active == 1))
+      if (is_active_keeper(player))
       {
           struct Thing *heartng;
           heartng = get_player_soul_container(i);
@@ -1490,7 +1512,7 @@ void check_players_lost(void)
             event_kill_all_players_events(i);
             set_player_as_lost_level(player);
             //this would easily prevent computer player activities on dead player, but it also makes dead player unable to use
-            //floating spirit, so it can't be done this way: player->is_active = 0;
+            //floating spirit, so defeated keepers must stay active keepers
             if (is_my_player_number(i)) {
                 RendererPaletteSet(engine_palette);
             }
@@ -1636,7 +1658,7 @@ void process_payday(void)
         }
         struct PlayerInfo *player;
         player = get_player(plyr_idx);
-        if (player_exists(player) && (player->is_active == 1))
+        if (is_active_keeper(player))
         {
             compute_and_update_player_payday_total(plyr_idx);
             compute_and_update_player_backpay_total(plyr_idx);
@@ -1663,8 +1685,8 @@ void process_payday(void)
 void process_dungeons(void)
 {
   SYNCDBG(7,"Starting");
-  check_players_won();
   check_players_lost();
+  resolve_placeholders();
   process_dungeon_power_magic();
   process_dungeon_devastation_effects();
   process_entrance_generation();

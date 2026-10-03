@@ -36,13 +36,11 @@ struct LocalGameFixture {
     void make_human(int64_t i) {
         struct PlayerInfo *p = &kfx_sim_state.players[i];
         p->allocflags |= PlaF_Allocated;
-        p->is_active = 1;
         p->user_id = (i == 0) ? SOLO_HUMAN_ID : -1;
     }
     void make_computer(int64_t i) {
         struct PlayerInfo *p = &kfx_sim_state.players[i];
         p->allocflags |= PlaF_Allocated | PlaF_CompCtrl;
-        p->is_active = 1;
         get_dungeon(i)->computer_enabled |= 0x01;
         kfx_sim_state.computer[i].task_state = 3; // non-zero so a reset is visible
     }
@@ -67,7 +65,7 @@ TEST_CASE_METHOD(LocalGameFixture, "an unclaimed slot becomes an External seat o
     CHECK(flag_is_set(p->allocflags, PlaF_ExternalSeat));
     CHECK(flag_is_set(p->allocflags, PlaF_Allocated));
     CHECK_FALSE(flag_is_set(p->allocflags, PlaF_CompCtrl));
-    CHECK(p->is_active == 1);
+    CHECK(is_active_keeper(p));
 }
 
 TEST_CASE_METHOD(LocalGameFixture, "further seats take the next ids until the user ids run out", "[kfx_net][external_seat]") {

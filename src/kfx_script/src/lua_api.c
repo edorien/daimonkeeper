@@ -1110,7 +1110,7 @@ static int lua_Add_shot_to_level(lua_State *L)
     int64_t hittype            = luaL_checkNamedCommand(L, 4, hit_type_desc);
     struct Thing *target   = luaL_optCheckThing(L, 5);
     int64_t speed          = luaL_optCheckinteger(L, 6);
-
+    struct Thing *parent   = luaL_optCheckThing(L,7);
     ThingIndex target_index;
 
     if (thing_is_invalid(target))
@@ -1122,6 +1122,10 @@ static int lua_Add_shot_to_level(lua_State *L)
         target_index = target->index;
     }
     struct Thing* shottng = script_process_new_shot(shot_id, location, owner, target_index, hittype);
+    if((!thing_is_invalid(shottng)) && (!thing_is_invalid(parent)))
+    {
+        shottng->parent_idx = parent->index;
+    }
     lua_pushThing(L, shottng);
     if (!thing_is_invalid(target))
     {

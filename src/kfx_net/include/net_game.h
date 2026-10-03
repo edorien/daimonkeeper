@@ -53,7 +53,6 @@ TbBool init_players_network_game(void);
 // into net_game.c's otherwise-private net_user_player_number[] directly.
 void setup_network_player_numbers(void);
 void setup_count_players(void);
-void are_disconnect_victories_allowed(void);
 
 int64_t network_session_join(void);
 

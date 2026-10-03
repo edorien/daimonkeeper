@@ -122,10 +122,10 @@ TEST_CASE_METHOD(ResetSimState, "init_keepers_map_exploration is a no-op when no
     CHECK(std::memcmp(&before, get_player(0), sizeof(before)) == 0);
 }
 
-TEST_CASE_METHOD(ResetSimState, "clear_players_for_save preserves id/active/allocation flags and the first-person camera, clears the rest", "[kfx_sim][game_lifecycle]") {
+TEST_CASE_METHOD(ResetSimState, "clear_players_for_save preserves id/player type/allocation flags and the first-person camera, clears the rest", "[kfx_sim][game_lifecycle]") {
     struct PlayerInfo *player = get_player(0);
     player->id_number = 3;
-    player->is_active = 1;
+    player->player_type = PT_Roaming;
     player->allocflags = PlaF_Allocated | PlaF_CompCtrl;
     player->cameras[CamIV_FirstPerson].mappos.x.val = 555;
     player->victory_state = 9; // an arbitrary field that must be cleared
@@ -133,7 +133,7 @@ TEST_CASE_METHOD(ResetSimState, "clear_players_for_save preserves id/active/allo
     clear_players_for_save();
 
     CHECK(player->id_number == 3);
-    CHECK(player->is_active == 1);
+    CHECK(player->player_type == PT_Roaming);
     CHECK((player->allocflags & PlaF_Allocated) != 0);
     CHECK((player->allocflags & PlaF_CompCtrl) != 0);
     CHECK(player->cameras[CamIV_FirstPerson].mappos.x.val == 555);
