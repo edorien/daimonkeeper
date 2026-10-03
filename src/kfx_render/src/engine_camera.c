@@ -739,7 +739,10 @@ void update_all_players_cameras(void)
   for (i=0; i<PLAYERS_COUNT; i++)
   {
     player = get_player(i);
-    if (player_exists(player) && ((player->allocflags & PlaF_CompCtrl) == 0))
+    // A CompCtrl player's camera is normally skipped -- nothing renders it -- but the local player can be
+    // CompCtrl too (player_enter_spectator_mode: a human watching their own AI-handed-off seat), and their
+    // camera IS on screen, so it must keep updating (first-person floating-spirit tracking in particular).
+    if (player_exists(player) && (((player->allocflags & PlaF_CompCtrl) == 0) || is_my_player_number(i)))
     {
           update_player_camera(player);
     }
@@ -784,7 +787,8 @@ TbBool any_player_close_enough_to_see(const struct Coord3d *pos)
     for (i=0; i < PLAYERS_COUNT; i++)
     {
         player = get_player(i);
-        if ( (player_exists(player)) && ((player->allocflags & PlaF_CompCtrl) == 0))
+        // Same local-spectator exception as update_all_players_cameras() above.
+        if ( (player_exists(player)) && (((player->allocflags & PlaF_CompCtrl) == 0) || is_my_player_number(i)))
         {
             struct Camera *camera = get_player_active_camera(player);
             if (camera == NULL)

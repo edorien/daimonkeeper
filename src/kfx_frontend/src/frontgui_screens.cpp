@@ -564,6 +564,17 @@ namespace {
             }
             FeHelpTooltip(get_string(o.help));
         }
+
+        ImGui::Separator();
+        struct PlayerInfo *me = get_my_player();
+        bool spectating = flag_is_set(me->allocflags, PlaF_CompCtrl);
+        // A step toward letting a campaign/scenario seat be watched instead of played (own seat only; the
+        // packet handler is player_enter_spectator_mode/player_leave_spectator_mode, player_utils.c): hands
+        // this seat fully to the built-in AI and reveals the whole map, rather than the assist personality
+        // above, which leaves human input active.
+        if (ImGui::Checkbox("Spectate (let the AI play this seat)", &spectating))
+            set_players_packet_action(me, PckA_ToggleSpectate, 0, 0, 0, 0);
+        FeHelpTooltip("You keep the camera and the floating-spirit view; the AI takes over building, digging and spells.");
     }
 
     // Defined further down, alongside frontgui_definekeys_frame() which
@@ -1482,6 +1493,42 @@ namespace {
             | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
         FeHeading(get_string(frontend_button_info[FEBtn_MnuLandSelection].capstr_idx));
+        {
+            // Upper right corner, same line as the title: letting a campaign/scenario seat be handed off instead
+            // of played directly (docs/refactor/AI/LLM/01-integration-plan.md, M9b/M10) -- either to the
+            // built-in AI (Spectate) or to a connected External agent, mutually exclusive (checking one unchecks
+            // the other, same as Skirmish's own per-slot controller choice, skirmish_setup.cpp
+            // skirmish_setup_set_controller). Spectate is consumed once at level start
+            // (main_game.c::startup_network_game_tail, via game_callbacks so kfx_game -- below kfx_frontend --
+            // doesn't need to see this file) as player_enter_spectator_mode on the local player. External agent
+            // is armed the same way Skirmish arms an External slot -- net_pending_external_seats_add(), consumed
+            // by the same net_claim_pending_external_seats() call already unconditional there -- from
+            // frontend_land_selection_enter_resolve() (frontmenu_select.c) right before a level actually starts,
+            // not here: this checkbox only records intent. Neither flag is reset here, so each stays checked
+            // across levels until the player unchecks it.
+            const char *spectate_label = "Spectate (let the AI play this level)";
+            const char *external_label = "External agent (let a connected LLM play this level)";
+            FeStylePushFont(FeFont_Body);
+            const double spectate_w = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(spectate_label).x;
+            const double external_w = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(external_label).x;
+            FeStylePopFont();
+            ImGui::SameLine(ImGui::GetWindowWidth() - spectate_w - ImGui::GetStyle().WindowPadding.x);
+            bool spectate = fe_spectate_campaign != 0;
+            if (FeCheckbox(spectate_label, &spectate))
+            {
+                fe_spectate_campaign = spectate ? 1 : 0;
+                if (spectate)
+                    fe_external_campaign = 0;
+            }
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - external_w - ImGui::GetStyle().WindowPadding.x);
+            bool external = fe_external_campaign != 0;
+            if (FeCheckbox(external_label, &external))
+            {
+                fe_external_campaign = external ? 1 : 0;
+                if (external)
+                    fe_spectate_campaign = 0;
+            }
+        }
         FeSeparator();
 
         double list_w = win_size.x * 0.3;

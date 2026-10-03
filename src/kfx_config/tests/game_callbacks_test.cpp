@@ -21,6 +21,7 @@ TEST_CASE("the default game_callbacks table's every stub is a safe no-op returni
     CHECK_FALSE(game_callbacks->close_creature_cheat_menu());
     game_callbacks->create_error_box(0);
     CHECK_FALSE(game_callbacks->is_fe_computer_players_active());
+    CHECK_FALSE(game_callbacks->is_fe_spectate_campaign_active());
     game_callbacks->set_gui_visible(true);
     CHECK(game_callbacks->is_menu_active(0) == 0);
 

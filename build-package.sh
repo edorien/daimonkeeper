@@ -81,13 +81,17 @@ build_platform_package() {
     echo "==> [$os] Building keeperfx + keeperfx_hvlog"
     cmake --build "$build_dir" --target keeperfx keeperfx_hvlog -j"$(nproc 2>/dev/null || echo 4)"
 
-    # Two separate --component calls, not a plain `cmake --install`: the
+    # Three separate --component calls, not a plain `cmake --install`: the
     # latter would also run every install() rule the fetched SDL3
     # subprojects register for themselves (headers, cmake config, docs,
-    # ...) -- see Packaging.cmake's COMPONENT runtime/gamedata comments.
+    # ...) -- see Packaging.cmake's COMPONENT runtime/gamedata/mcp comments.
+    # mcp (the LLM/agent bridge, scripts/llm_bridge/) is plain Python and
+    # identical either way, but still installed per-$os since dist/windows/
+    # and dist/linux/ are each meant to be standalone, portable trees.
     echo "==> [$os] Installing to $dist_dir"
     cmake --install "$build_dir" --prefix "$dist_dir" --component runtime >/dev/null
     cmake --install "$build_dir" --prefix "$dist_dir" --component gamedata >/dev/null
+    cmake --install "$build_dir" --prefix "$dist_dir" --component mcp >/dev/null
 
     echo "==> [$os] Packaged: $dist_dir/"
 }

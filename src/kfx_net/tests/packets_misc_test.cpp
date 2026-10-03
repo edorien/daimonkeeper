@@ -31,6 +31,13 @@ struct ResetStates {
     ResetStates() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
+        // Out of PLAYERS_COUNT's range on purpose: these tests exercise the raw get_packet(player->user_id)
+        // path with synthetic players that never bother setting id_number, so it stays at the memset default
+        // (0) -- matching my_player_number's own default unless this is set to something no real player can
+        // ever have. Without this, get_players_own_packet's (packets_misc.c) "am I the local player" redirect
+        // to get_local_packet() would kick in for every one of these player-index-0 players, same as it should
+        // for the real my_player_number, defeating the point of testing the raw path.
+        my_player_number = 255;
     }
 };
 }

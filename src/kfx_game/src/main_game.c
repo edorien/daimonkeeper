@@ -702,6 +702,10 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
         // Slots the Skirmish page marked External (docs/refactor/AI/LLM/01 M5): after the script has run, so the
         // keeper already exists, and consumed here so a later game does not inherit them.
         net_claim_pending_external_seats();
+        // Campaign/scenario "Spectate" checkbox (docs/refactor/AI/LLM/01 M9b): same timing requirement as
+        // above -- the local player's dungeon must already exist (post_init_players() just ran).
+        if (game_callbacks->is_fe_spectate_campaign_active())
+            player_enter_spectator_mode(my_player_number);
     }
     set_selected_level_number(0);
 

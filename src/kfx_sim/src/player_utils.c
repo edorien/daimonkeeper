@@ -1690,4 +1690,42 @@ int64_t clear_active_dungeons_stats(void)
   return i;
 }
 
+/** Hands a player's own seat to the built-in AI (full autopilot, not the co-op "computer assistant" that
+ *  leaves human input active -- see toggle_computer_player) and reveals the whole map for them, so a human
+ *  watching that seat's camera sees everything the AI does instead of only what it has explored. Unlike
+ *  script_support_setup_player_as_computer_keeper (lvl_script_commands.c), this never calls init_player_start
+ *  or the map-exploration resets: the player already has a live dungeon and those would wipe it. */
+TbBool player_enter_spectator_mode(PlayerNumber plyr_idx)
+{
+    struct PlayerInfo *player = get_player(plyr_idx);
+    if (!player_exists(player) || player_is_neutral(plyr_idx))
+        return false;
+    // Defensive, not reachable via the campaign select screen's own checkbox (fe_spectate_campaign and
+    // fe_external_campaign are mutually exclusive there) -- but PlaF_CompCtrl and PlaF_ExternalSeat
+    // (net_add_external_seat(), M10) are two different, mutually exclusive bits, and setting CompCtrl on top
+    // of an already-claimed External seat here would produce exactly that invalid dual-flag state.
+    if (flag_is_set(player->allocflags, PlaF_ExternalSeat))
+        return false;
+    if (!flag_is_set(player->allocflags, PlaF_CompCtrl))
+    {
+        if (!setup_a_computer_player(plyr_idx, comp_player_conf.player_assist_default))
+            return false;
+        set_flag(player->allocflags, PlaF_CompCtrl);
+    }
+    reveal_whole_map(player);
+    return true;
+}
+
+/** Hands a spectated seat back to its human: the inverse of player_enter_spectator_mode, but only the CompCtrl
+ *  flag -- the revealed map is left alone (there is no "conceal what the AI has seen" to undo, and a human who
+ *  just watched the AI play would not expect their vision to shrink back). */
+TbBool player_leave_spectator_mode(PlayerNumber plyr_idx)
+{
+    struct PlayerInfo *player = get_player(plyr_idx);
+    if (!player_exists(player) || player_is_neutral(plyr_idx))
+        return false;
+    clear_flag(player->allocflags, PlaF_CompCtrl);
+    return true;
+}
+
 /******************************************************************************/

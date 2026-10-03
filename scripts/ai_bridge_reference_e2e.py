@@ -74,7 +74,9 @@ def main():
     time.sleep(1.0)   # the game serves one API client at a time and notices the close on its next poll
 
     log = tempfile.NamedTemporaryFile(prefix="bridge-", suffix=".jsonl", delete=False).name
-    args = bridge.argparse.Namespace(host="127.0.0.1", port=PORT, claim=None, policy="scripted", model=None, beat="turns:150",
+    mem_path = log + ".memory.json"
+    args = bridge.argparse.Namespace(host="127.0.0.1", port=PORT, claim=None, policy="scripted", model=None, beat="decision",
+                                     min_interval=40, max_wait_seconds=120.0, memory=mem_path,
                                      max_age_turns=1500, max_decisions=4, max_turns=0, takeover=False, connect_timeout=90.0,
                                      log=log, quiet=False)
     summary, state = bridge.run(args)
@@ -88,6 +90,13 @@ def main():
         summary["diff_views"] > 0 and summary["avg_diff_bytes"] * 5 < summary["view_bytes_full"], summary)
     lines = [json.loads(l) for l in open(log)]
     check("the log has one line per decision, in real time (the game was never paused)", len(lines) == 4 and lines[-1]["turn"] > lines[0]["turn"], lines)
+    check("the first decision was 'start', the later ones were raised by the game (enemy_fight events)",
+          lines[0]["reasons"] == ["start"] and all("enemy_fight" in l["reasons"] for l in lines[1:]), [l["reasons"] for l in lines])
+    check("decisions came from game events, not a timer (turn gaps of at least the minimum interval)",
+          all(b["turn"] - a["turn"] >= 40 for a, b in zip(lines, lines[1:])), [l["turn"] for l in lines])
+    mem = json.load(open(mem_path))
+    check("the memory file holds the plan, notes and four decisions", mem["plan"].startswith("scripted") and len(mem["decisions"]) == 4, mem["plan"])
+    check("orders' outcomes were filled in from the game's results", any(o["status"] == "done" for d in mem["decisions"] for o in d["orders"]), mem["decisions"][0])
     check("the first decision sent the three scripted orders", [o["verb"] for o in lines[0]["sent"]] == ["cast_power", "build_room", "mark_dig"], lines[0])
 
     # Patched view == fresh full view, at one instant: pause, take a diff on the bridge's baseline, then a full view.
@@ -124,6 +133,7 @@ def main():
     api.call(action="set_var", var="FLAG0", value=2 if failures else 1, player=0)
     api.close()
     os.unlink(log)
+    os.unlink(mem_path)
     print("\n%d check(s) failed" % len(failures) if failures else "\nall checks passed")
     return 1 if failures else 0
 

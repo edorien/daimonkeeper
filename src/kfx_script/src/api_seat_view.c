@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "api_seat_view.h"
+#include "api_seat_decision.h"
 #include "config_creature.h"
 #include "config_crtrstates.h"
 #include "config_magic.h"
@@ -18,12 +19,14 @@
 #include "config_trapdoor.h"
 #include "creature_control.h"
 #include "creature_states.h"
+#include "creature_states_mood.h"
 #include "dungeon_data.h"
 #include "external_seat.h"
 #include "kfx_config_state.h"
 #include "kfx_sim_state.h"
 #include "player_data.h"
 #include "room_data.h"
+#include "room_library.h"
 #include "creature_states.h"
 #include "map_data.h"
 #include "magic_powers.h"
@@ -56,6 +59,19 @@ static void add_pos(VALUE *parent, const char *key, int64_t x, int64_t y)
     value_init_int32(value_array_append(arr), (int32_t)y);
 }
 
+// Names for AnnoyMotive (creature_control.h's AngR_*): a small, fixed, non-config vocabulary, so a lookup table here is
+// simpler than a config-driven code_name function for a single caller.
+static const char *annoy_motive_name(AnnoyMotive reason)
+{
+    switch (reason) {
+    case AngR_NotPaid: return "not_paid";
+    case AngR_Hungry: return "hungry";
+    case AngR_NoLair: return "no_lair";
+    case AngR_Other: return "other";
+    default: return "none";
+    }
+}
+
 static void add_creature_list(VALUE *arr, int64_t first, TbBool digger)
 {
     int64_t idx = first;
@@ -74,6 +90,15 @@ static void add_creature_list(VALUE *arr, int64_t first, TbBool digger)
         value_init_bool(value_dict_add(e, "digger"), digger);
         add_pos(e, "pos", thing->mappos.x.stl.num, thing->mappos.y.stl.num);
         value_init_string(value_dict_add(e, "state"), creature_state_code_name(get_creature_state_besides_interruptions(thing)));
+        // Why a creature is unhappy (already-tracked engine state, not a new signal: anger_is_creature_angry/
+        // anger_get_creature_anger_type read cctrl->annoyance_level[] against the model's own annoy_level threshold) and
+        // whether it is running from a fight, both otherwise invisible behind the raw "state" code above.
+        const TbBool angry = anger_is_creature_angry(thing);
+        value_init_bool(value_dict_add(e, "angry"), angry);
+        if (angry) {
+            value_init_string(value_dict_add(e, "angry_reason"), annoy_motive_name(anger_get_creature_anger_type(thing)));
+        }
+        value_init_bool(value_dict_add(e, "fleeing"), creature_is_fleeing_combat(thing));
         idx = cctrl->players_next_creature_idx;
     }
 }
@@ -278,6 +303,119 @@ static void add_visible(VALUE *out, PlayerNumber plyr_idx)
     add_traps_and_doors(traps, doors, plyr_idx, false);
 }
 
+// ---- creature summary and per-kind profile ---------------------------------------------------------------------------
+
+#define INTEL_MAX_KINDS 64
+
+// Combat class relative to the strongest and toughest kinds in the loaded config, e.g. "heavy melee fighter".
+static const char *combat_class(const struct CreatureModelConfig *c, int64_t max_strength, int64_t max_health)
+{
+    if ((c->model_flags & CMF_IsSpectator) != 0) return "spectator (does not fight)";
+    if (c->strength * 10 >= max_strength * 7) return "heavy melee fighter";
+    if (c->health * 10 >= max_health * 7) return "tough tank";
+    if (c->flying) return "flying skirmisher";
+    if (c->strength * 10 >= max_strength * 4) return "average fighter";
+    return "weak fighter";
+}
+
+static void add_job_names(VALUE *arr, int64_t mask)
+{
+    value_init_array(arr);
+    for (int bit = 0; bit < 62; bit++) {
+        if ((mask & (1LL << bit)) == 0) continue;
+        const char *name = creature_job_code_name((CreatureJob)(1LL << bit));
+        if ((name != NULL) && (name[0] != '\0')) value_init_string(value_array_append(arr), name);
+    }
+}
+
+static void add_creature_profile(VALUE *out, ThingModel model, int64_t mx_str, int64_t mx_hp)
+{
+    const struct CreatureModelConfig *c = creature_stats_get(model);
+    if (creature_stats_invalid(c)) return;
+    value_init_dict(out);
+    value_init_int64(value_dict_add(out, "health"), c->health);
+    value_init_int64(value_dict_add(out, "strength"), c->strength);
+    value_init_int32(value_dict_add(out, "armour"), c->armour);
+    value_init_int32(value_dict_add(out, "defence"), c->defense);
+    value_init_int32(value_dict_add(out, "dexterity"), c->dexterity);
+    value_init_int32(value_dict_add(out, "speed"), c->base_speed);
+    value_init_bool(value_dict_add(out, "flying"), c->flying != 0);
+    value_init_bool(value_dict_add(out, "evil"), (c->model_flags & CMF_IsEvil) != 0);
+    value_init_int64(value_dict_add(out, "pay"), c->pay);
+    value_init_int32(value_dict_add(out, "lair_size"), c->lair_size);
+    value_init_int64(value_dict_add(out, "hunger_rate"), c->hunger_rate);
+    value_init_int32(value_dict_add(out, "research_value"), c->research_value);
+    value_init_int32(value_dict_add(out, "training_value"), c->training_value);
+    value_init_int32(value_dict_add(out, "manufacture_value"), c->manufacture_value);
+    VALUE *ab = value_dict_add(out, "abilities");
+    value_init_array(ab);
+    for (int64_t i = 0; i < LEARNED_INSTANCES_COUNT; i++) {
+        if (c->learned_instance_id[i] == 0) continue;
+        VALUE *e = value_array_append(ab);
+        value_init_dict(e);
+        value_init_string(value_dict_add(e, "name"), creature_instance_code_name(c->learned_instance_id[i]));
+        value_init_int32(value_dict_add(e, "from_level"), c->learned_instance_level[i]);
+    }
+    // What it does for the dungeon (the jobs its own AI picks) and how it fights; the values above are the raw numbers.
+    add_job_names(value_dict_add(out, "primary_jobs"), c->job_primary);
+    add_job_names(value_dict_add(out, "secondary_jobs"), c->job_secondary);
+    value_init_string(value_dict_add(out, "combat"), combat_class(c, mx_str, mx_hp));
+}
+
+static void add_creature_intel(VALUE *own, const struct Dungeon *dungeon)
+{
+    struct Kind { int64_t count, level_sum, level_max, hp_sum; int64_t levels[CREATURE_MAX_LEVEL + 1]; TbBool digger; } kinds[INTEL_MAX_KINDS];
+    memset(kinds, 0, sizeof(kinds));
+    const int64_t nmodels = kfx_config_state.conf.crtr_conf.model_count;
+    for (int pass = 0; pass < 2; pass++) {
+        int64_t idx = (pass == 0) ? dungeon->creatr_list_start : dungeon->digger_list_start;
+        for (int64_t guard = 0; (idx > 0) && (guard < VIEW_LIST_CAP); guard++) {
+            const struct Thing *thing = thing_get((ThingIndex)idx);
+            if (thing_is_invalid(thing) || !thing_is_creature(thing)) break;
+            const struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
+            if ((thing->model > 0) && (thing->model < INTEL_MAX_KINDS) && (thing->model < nmodels + 1)) {
+                struct Kind *k = &kinds[thing->model];
+                const int64_t lvl = cctrl->exp_level + 1;
+                k->count++; k->level_sum += lvl; k->hp_sum += thing->health; k->digger = (pass == 1);
+                if (lvl > k->level_max) k->level_max = lvl;
+                if ((lvl >= 1) && (lvl <= CREATURE_MAX_LEVEL)) k->levels[lvl]++;
+            }
+            idx = cctrl->players_next_creature_idx;
+        }
+    }
+    int64_t mx_str = 1, mx_hp = 1;
+    for (int64_t m = 1; m <= nmodels; m++) {
+        const struct CreatureModelConfig *c = creature_stats_get((ThingModel)m);
+        if (creature_stats_invalid(c) || ((c->model_flags & CMF_IsSpectator) != 0)) continue;
+        if (c->strength > mx_str) mx_str = c->strength;
+        if (c->health > mx_hp) mx_hp = c->health;
+    }
+    VALUE *sum = value_dict_add(own, "creature_summary");
+    value_init_dict(sum);
+    VALUE *info = value_dict_add(own, "creature_info");
+    value_init_dict(info);
+    for (int64_t m = 1; (m < INTEL_MAX_KINDS) && (m <= nmodels); m++) {
+        const struct Kind *k = &kinds[m];
+        if (k->count == 0) continue;
+        VALUE *e = value_dict_add(sum, creature_code_name((ThingModel)m));
+        value_init_dict(e);
+        value_init_int64(value_dict_add(e, "count"), k->count);
+        value_init_int64(value_dict_add(e, "max_level"), k->level_max);
+        value_init_int64(value_dict_add(e, "avg_level_x10"), k->level_sum * 10 / k->count);
+        value_init_int64(value_dict_add(e, "avg_health"), k->hp_sum / k->count);
+        VALUE *lv = value_dict_add(e, "by_level");
+        value_init_dict(lv);
+        for (int64_t l = 1; l <= CREATURE_MAX_LEVEL; l++) {
+            if (k->levels[l] > 0) {
+                char key[8];
+                snprintf(key, sizeof(key), "%d", (int)l);
+                value_init_int64(value_dict_add(lv, key), k->levels[l]);
+            }
+        }
+        add_creature_profile(value_dict_add(info, creature_code_name((ThingModel)m)), (ThingModel)m, mx_str, mx_hp);
+    }
+}
+
 void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
 {
     const struct PlayerInfo *player = get_player(plyr_idx);
@@ -287,6 +425,9 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
     value_init_bool(value_dict_add(out, "paused"), flag_is_set(kfx_sim_state.operation_flags, GOF_Paused));
     value_init_bool(value_dict_add(out, "agent_pause"), extseat_agent_owns_pause());
     value_init_bool(value_dict_add(out, "advancing"), extseat_advancing());
+    // The simulation's real-time pace (set_game_speed), global to the game, not per seat -- shown so an agent that
+    // slowed the game down for itself to think can see the current rate, not just the value it last requested.
+    value_init_int64(value_dict_add(out, "turns_per_second"), (int64_t)kfx_sim_state.turns_per_second);
 
     VALUE *seat = value_dict_add(out, "seat");
     value_init_dict(seat);
@@ -313,6 +454,7 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
             value_init_int64(value_dict_add(e, "turn"), res[i].turn);
         }
     }
+    api_seat_decision_add_to_view(seat, plyr_idx);
     // Creatures sent somewhere with move_creature: how many are still held, and the ones the safety net handed back
     // (why: max_hold, payday, owed_pay, hungry, agent_lost) so the agent knows they are working again.
     value_init_int32(value_dict_add(seat, "ordered_creatures"), (int32_t)extseat_ordered_count(player->user_id));
@@ -404,6 +546,99 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
             value_init_string(value_array_append(powers), power_code_name((PowerKind)pk));
         }
     }
+
+    // What research has unlocked (research is the creatures' job; the agent only needs to know the result): rooms it may
+    // build, traps and doors it may manufacture, powers it may cast (own.powers above). Stock is in own.stock.
+    {
+        VALUE *av = value_dict_add(own, "unlocked");
+        value_init_dict(av);
+        VALUE *ar = value_dict_add(av, "rooms");
+        value_init_array(ar);
+        for (int64_t rk = 1; rk < TERRAIN_ITEMS_MAX; rk++) {
+            if (is_room_available(plyr_idx, (RoomKind)rk)) value_init_string(value_array_append(ar), room_code_name((RoomKind)rk));
+        }
+        // Gold per slab of each unlocked room, so build_room's cost (area x this) is computable without a submit round
+        // trip -- the same reason own.power_costs exists for cast_power. A flat per-slab rate (roomspace.c's own
+        // affordability check: slab_count * roomst->cost <= total_money_owned), not progressive with room size.
+        VALUE *rc = value_dict_add(own, "room_costs");
+        value_init_dict(rc);
+        for (int64_t rk = 1; rk < TERRAIN_ITEMS_MAX; rk++) {
+            if (is_room_available(plyr_idx, (RoomKind)rk)) {
+                value_init_int64(value_dict_add(rc, room_code_name((RoomKind)rk)), get_room_kind_stats((RoomKind)rk)->cost);
+            }
+        }
+        VALUE *at = value_dict_add(av, "traps");
+        value_init_array(at);
+        for (int64_t m = 1; m < kfx_config_state.conf.trapdoor_conf.trap_types_count; m++) {
+            if (is_trap_buildable(plyr_idx, m)) value_init_string(value_array_append(at), trap_code_name(m));
+        }
+        VALUE *ad = value_dict_add(av, "doors");
+        value_init_array(ad);
+        for (int64_t m = 1; m < kfx_config_state.conf.trapdoor_conf.door_types_count; m++) {
+            if (is_door_buildable(plyr_idx, m)) value_init_string(value_array_append(ad), door_code_name(m));
+        }
+    }
+
+    // Creature tendencies (set_tendency): imprison captured enemies instead of killing them, and let hurt creatures flee.
+    {
+        VALUE *td = value_dict_add(own, "tendencies");
+        value_init_dict(td);
+        value_init_bool(value_dict_add(td, "imprison"), (dungeon->creature_tendencies & CrTend_Imprison) != 0);
+        value_init_bool(value_dict_add(td, "flee"), (dungeon->creature_tendencies & CrTend_Flee) != 0);
+    }
+
+    // Research is the creatures' job, but "what's next and how far off" is what an agent needs to plan two steps
+    // ahead, not just the already-unlocked result (own.unlocked): dungeon->research[] is the ordered queue,
+    // current_research_idx the item in progress, research_progress its accumulated points (both in <<8 fixed point,
+    // hence the shift back before dividing) against that item's req_amount.
+    {
+        VALUE *rs = value_dict_add(own, "research");
+        value_init_dict(rs);
+        if ((dungeon->current_research_idx >= 0) && (dungeon->current_research_idx < DUNGEON_RESEARCH_COUNT)) {
+            const struct ResearchVal *cur = &dungeon->research[dungeon->current_research_idx];
+            const char *cat = (cur->rtyp == RsCat_Room) ? "room" : (cur->rtyp == RsCat_Power) ? "power"
+                : (cur->rtyp == RsCat_Creature) ? "creature" : "other";
+            const char *name = (cur->rtyp == RsCat_Room) ? room_code_name((RoomKind)cur->rkind)
+                : (cur->rtyp == RsCat_Power) ? power_code_name((PowerKind)cur->rkind)
+                : (cur->rtyp == RsCat_Creature) ? creature_code_name((ThingModel)cur->rkind) : "?";
+            const int64_t need = cur->req_amount << 8;
+            VALUE *c = value_dict_add(rs, "current");
+            value_init_dict(c);
+            value_init_string(value_dict_add(c, "category"), cat);
+            value_init_string(value_dict_add(c, "name"), name);
+            value_init_int32(value_dict_add(c, "progress_pct"), (need > 0) ? (int32_t)(dungeon->research_progress * 100 / need) : 0);
+        }
+        VALUE *q = value_dict_add(rs, "queue");
+        value_init_array(q);
+        for (int64_t i = 0; i < dungeon->research_num; i++) {
+            const struct ResearchVal *r = &dungeon->research[i];
+            if (!research_needed(r, dungeon)) continue;
+            const char *name = (r->rtyp == RsCat_Room) ? room_code_name((RoomKind)r->rkind)
+                : (r->rtyp == RsCat_Power) ? power_code_name((PowerKind)r->rkind)
+                : (r->rtyp == RsCat_Creature) ? creature_code_name((ThingModel)r->rkind) : "?";
+            value_init_string(value_array_append(q), name);
+        }
+    }
+
+    // Alliances (set_alliance): `declared` is who this seat has flagged as an ally (a one-way declaration, exactly what
+    // the human alliance button does); `mutual` is the subset where the other side has declared back, which is what
+    // the engine's own combat/vision-sharing rules actually check (players_are_mutual_allies).
+    {
+        VALUE *al = value_dict_add(own, "alliance");
+        value_init_dict(al);
+        VALUE *decl = value_dict_add(al, "declared");
+        value_init_array(decl);
+        VALUE *mut = value_dict_add(al, "mutual");
+        value_init_array(mut);
+        for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++) {
+            if (p == plyr_idx) continue;
+            if (player_allied_with(player, p)) value_init_int32(value_array_append(decl), (int32_t)p);
+            if (players_are_mutual_allies(plyr_idx, p)) value_init_int32(value_array_append(mut), (int32_t)p);
+        }
+    }
+
+    // The army at a glance, per creature kind, and (once per kind owned) what that kind is good at.
+    add_creature_intel(own, dungeon);
 
     // Gold cost of each available power at each charge level (level = held turns / 4, capped), so the agent can budget a
     // cast and know what an overcharge costs. Some powers charge only up to a lower level; the costs repeat past it.

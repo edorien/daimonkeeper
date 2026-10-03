@@ -67,4 +67,6 @@ class ScriptedPolicy:
                 orders.append({"verb": "mark_dig", "slab_rect": block})
                 self.did_dig = True
                 why.append("dig %s" % (block,))
-        return {"reasoning": "; ".join(why) or "nothing to do this beat", "orders": orders}
+        return {"reasoning": "; ".join(why) or "nothing to do this beat", "orders": orders,
+                "plan": "scripted: heal the wounded, build one treasure room, mark one dig patch, then wait",
+                "notes": "decisions so far: %d" % (ctx["memory"].count + 1 if ctx.get("memory") else 1)}

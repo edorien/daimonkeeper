@@ -1102,6 +1102,11 @@ static TbBool game_callbacks_is_fe_computer_players_active(void)
     return fe_computer_players != 0;
 }
 
+static TbBool game_callbacks_is_fe_spectate_campaign_active(void)
+{
+    return fe_spectate_campaign != 0;
+}
+
 static void game_callbacks_set_timer_turns(uint64_t value)
 {
     TimerTurns = value;
@@ -1622,7 +1627,7 @@ int64_t setup_game(void)
       &toggle_main_cheat_menu, &toggle_instance_cheat_menu, &toggle_secondary_cheat_menu,
       &toggle_creature_cheat_menu, &close_main_cheat_menu, &close_instance_cheat_menu,
       &close_secondary_cheat_menu, &close_creature_cheat_menu, &create_error_box,
-      &game_callbacks_is_fe_computer_players_active, &set_gui_visible, &menu_is_active,
+      &game_callbacks_is_fe_computer_players_active, &game_callbacks_is_fe_spectate_campaign_active, &set_gui_visible, &menu_is_active,
 
       &game_callbacks_set_timer_turns, &timer_enabled, &game_callbacks_toggle_debug_network_stats,
       &bonus_timer_enabled,

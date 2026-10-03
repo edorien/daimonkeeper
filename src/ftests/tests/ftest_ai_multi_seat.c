@@ -128,7 +128,15 @@ FTestActionResult m01_stage1_setup(struct FTestActionArgs* const args)
     FTESTLOG("seat A player %" PRId64 ", seat B player %" PRId64, (int64_t)PA, (int64_t)PB);
     CHECK_TRUE("both rivals start computer-controlled", flag_is_set(get_player(PA)->allocflags, PlaF_CompCtrl) && flag_is_set(get_player(PB)->allocflags, PlaF_CompCtrl));
 
-    CHECK_TRUE("the local human cannot be claimed", net_add_external_seat(my_player_number) < 0);
+    // M10: the local human's own seat is a deliberate exception now, not a refusal -- see the dedicated
+    // campaign_external_seat test for real coverage of that path (dispatch guard, release). Claimed and
+    // released immediately here, so this test's own seat numbering below (UA==1, etc.) stays undisturbed.
+    const NetUserId local_seat = net_add_external_seat(my_player_number);
+    CHECK_TRUE("the local human's own seat can be claimed (M10)", local_seat >= 0);
+    CHECK_TRUE("releasing it restores human control, not the built-in AI",
+        net_release_external_seat(my_player_number)
+        && !flag_is_set(get_player(my_player_number)->allocflags, PlaF_CompCtrl)
+        && !flag_is_set(get_player(my_player_number)->allocflags, PlaF_ExternalSeat));
     UA = net_add_external_seat(PA);
     CHECK_TRUE("seat A is user 1", UA == 1);
     CHECK_TRUE("claiming a seat twice is refused", net_add_external_seat(PA) < 0);

@@ -58,7 +58,9 @@ enum ExtSeatVerbKind {
     ESV_Sell,
     ESV_Cancel,
     ESV_MoveCreature,    /**< send one of our creatures to a subtile (the cheat menu's Order creature mode); it holds there until released */
+    ESV_SetTendency,     /**< imprison / flee tendency of all the seat's creatures: name "imprison" or "flee", `enabled` */
     ESV_ReleaseCreature, /**< hand an ordered creature back to its normal behaviour */
+    ESV_SetAlliance,     /**< declare (or withdraw) alliance with `target_player`: `enabled` */
 };
 
 /** A verb as the agent expressed it, already parsed out of JSON. Positions are subtile coordinates. */
@@ -72,8 +74,12 @@ struct ExtSeatVerb {
     TbBool has_rect;        /**< area verbs: an inclusive rectangle of SLABS, corners in any order */
     int64_t slab_x0, slab_y0, slab_x1, slab_y1;
     int64_t overcharge_turns; /**< cast_power on a subtile: turns to hold before releasing (level = turns / 4) */
+    TbBool has_enabled;     /**< set_tendency: `enabled` was given */
+    TbBool enabled;
     int64_t hold_turns;     /**< move_creature: automatic release after this many turns (0 = a quarter of the pay day gap) */
     int64_t expires_turn;   /**< 0 = never; else the verb is refused/dropped if it has not started by this game turn */
+    TbBool has_target_player; /**< set_alliance: `target_player` was given */
+    int64_t target_player;
 };
 
 /** What became of a submitted verb: it finished writing its steps, or was refused when its turn came. */
@@ -122,6 +128,12 @@ const char *extseat_submit_verb(NetUserId user, PlayerNumber plyr_idx, const str
  *  validated now (cheap refusal) and again against the live state when it starts, so an order that went stale while
  *  it waited is dropped and reported through extseat_results(), never applied blindly. */
 const char *extseat_submit_verb_ex(NetUserId user, PlayerNumber plyr_idx, const struct ExtSeatVerb *verb, TbBool queue, struct ExtSeatSubmitInfo *info);
+/** Validates `verb` for `plyr_idx` exactly as extseat_submit_verb_ex would, but never queues it, tracks it, or touches
+ *  the seat's queue-busy state -- a dry_run: an agent can check "would this be accepted, and how many steps would it
+ *  take" (e.g. before spending a real decision on an order it is not sure it can afford) at no cost, any number of
+ *  times, whatever the seat's current queue looks like. NULL and *out_steps on success, else the same error code a
+ *  real submit would give. */
+const char *extseat_check_verb(NetUserId user, PlayerNumber plyr_idx, const struct ExtSeatVerb *verb, int64_t *out_steps);
 /** Recent automatic releases, oldest first; returns how many were copied. */
 int64_t extseat_auto_releases(NetUserId user, struct ExtSeatAutoRelease *out, int64_t max);
 /** Creatures currently tracked as ordered by this seat. */

@@ -23,6 +23,7 @@ static TbBool noop_close_secondary_cheat_menu(void) { return false; }
 static TbBool noop_close_creature_cheat_menu(void) { return false; }
 static void noop_create_error_box(TextStringId msg_idx) {}
 static TbBool noop_is_fe_computer_players_active(void) { return false; }
+static TbBool noop_is_fe_spectate_campaign_active(void) { return false; }
 static void noop_set_gui_visible(TbBool visible) {}
 static int64_t noop_is_menu_active(int64_t idx) { return 0; }
 
@@ -86,6 +87,7 @@ static const struct GameCallbacks default_game_callbacks = {
     &noop_close_creature_cheat_menu,
     &noop_create_error_box,
     &noop_is_fe_computer_players_active,
+    &noop_is_fe_spectate_campaign_active,
     &noop_set_gui_visible,
     &noop_is_menu_active,
 

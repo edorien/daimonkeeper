@@ -26,6 +26,7 @@
 #include "dungeon_data.h"
 #include "external_seat.h"
 #include "frontend.h"
+#include "map_events.h"
 #include "net_game.h"
 #include "player_data.h"
 #include "room_data.h"
@@ -44,6 +45,7 @@ static TbClockMSec s_wait_started = 0;
 static PlayerNumber P = -1;
 static ThingIndex wounded = 0;
 static TbBool s_agent_paused_the_game = false;
+static int64_t s_next_fight_turn = 0;
 
 void ftest_ai_bridge_reference_pre_start() { fe_computer_players = 1; }
 
@@ -53,6 +55,7 @@ FTestActionResult ref_a02_wait_and_verify(struct FTestActionArgs* const args);
 TbBool ftest_ai_bridge_reference_init()
 {
     s_agent_paused_the_game = false;
+    s_next_fight_turn = 0;
     ftest_append_action(ref_a01_prepare, 0, NULL);
     ftest_append_action(ref_a02_wait_and_verify, 1, NULL);
     return true;
@@ -109,6 +112,18 @@ FTestActionResult ref_a02_wait_and_verify(struct FTestActionArgs* const args)
     // FLAG1: 1 = scene ready, 2 = the client has finished the bridge phase (it then pauses to compare views, which is fine).
     const int64_t phase = get_players_dungeon(get_player(my_player_number))->script_flags[1];
     if ((phase == 1) && (extseat_agent_owns_pause() || flag_is_set(kfx_sim_state.operation_flags, GOF_Paused))) s_agent_paused_the_game = true;
+    // Give the bridge something to react to: a fight event every 120 turns once it has started (its decisions are
+    // event-driven; a quarter of a pay day is 2500 turns, longer than this test runs).
+    if ((phase == 1) && (s_next_fight_turn == 0)) s_next_fight_turn = (int64_t)get_gameturn() + 120;
+    if ((phase == 1) && (s_next_fight_turn > 0) && ((int64_t)get_gameturn() >= s_next_fight_turn))
+    {
+        const struct Thing* h = find_players_dungeon_heart(P);
+        // A different place each time: an event near an existing one of the same kind only refreshes that one.
+        static int k = 0;
+        event_create_event_or_update_nearby_existing_event(subtile_coord_center(h->mappos.x.stl.num + 12 * (k % 4) - 20), subtile_coord_center(h->mappos.y.stl.num + 5 + 12 * (k / 4)), EvKind_EnemyFight, P, 0);
+        k++;
+        s_next_fight_turn += 120;
+    }
     const int64_t done = get_players_dungeon(get_player(my_player_number))->script_flags[0];
     if (done == 2) { FTEST_FAIL_TEST("the bridge client reported failure (see its output)"); return FTRs_Go_To_Next_Action; }
     if (done != 1)

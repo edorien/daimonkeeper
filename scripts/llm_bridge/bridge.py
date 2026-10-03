@@ -19,8 +19,9 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import prompt  # noqa: E402
 from api import Api, ApiError  # noqa: E402
+from memory import Memory  # noqa: E402
+from orders import submit_batch  # noqa: E402
 from viewstate import ViewState  # noqa: E402
 
 
@@ -90,10 +91,15 @@ def run(args):
     seat = find_seat(api, args.claim)
     if args.takeover:
         api.data(action="set_takeover", enabled=True)
+    by_decision = args.beat == "decision"
+    if by_decision:
+        api.data(action="subscribe_event", event="DECISION_DUE")
+        api.data(action="set_decision_policy", min_interval_turns=args.min_interval)
     state = ViewState()
-    beat = Beat(args.beat)
+    beat = Beat("quarter" if by_decision else args.beat)
     log = open(args.log, "a") if args.log else None
-    ctx = {}
+    memory = Memory(args.memory)
+    ctx = {"memory": memory, "reasons": ["start"] if not memory.decisions else ["restart"]}
     decisions, first_turn = 0, None
     started = time.time()
     summary = {"decisions": 0, "orders_sent": 0, "orders_refused": 0}
@@ -111,21 +117,21 @@ def run(args):
                 break
             if args.max_turns and v["turn"] - first_turn >= args.max_turns:
                 break
+            memory.note_results(v["seat"].get("results", []))
             t0 = time.time()
             decision = policy.decide(state, ctx)
             think = time.time() - t0
-            sent, refused = [], []
             decision_turn = v["turn"]
-            for order in decision["orders"]:
-                req = prompt.order_to_request(order, seat, decision_turn, args.max_age_turns)
-                r = api.call(**req)
-                if r.get("success"):
-                    sent.append({"verb": order["verb"], "id": r["data"].get("id"), "behind": r["data"].get("queued_behind")})
-                else:
-                    refused.append({"verb": order.get("verb"), "error": r.get("error")})
+            sent, refused = submit_batch(api, seat, decision["orders"], decision_turn, args.max_age_turns, memory=memory)
             decisions += 1
             summary["decisions"], summary["orders_sent"], summary["orders_refused"] = decisions, summary["orders_sent"] + len(sent), summary["orders_refused"] + len(refused)
-            rec = {"decision": decisions, "turn": decision_turn, "think_seconds": round(think, 3), "reasoning": decision["reasoning"],
+            warn = memory.update(plan=decision.get("plan"), notes=decision.get("notes"))
+            if warn:
+                ctx.setdefault("warnings", []).append(warn)
+            memory.record_decision(decision_turn, ctx.get("reasons", []), decision["reasoning"], sent, refused)
+            rec = {"decision": decisions, "turn": decision_turn, "reasons": ctx.get("reasons", []), "think_seconds": round(think, 3), "reasoning": decision["reasoning"],
+                   "plan_updated": decision.get("plan") is not None, "notes_updated": decision.get("notes") is not None,
+                   "memory_chars": len(memory.plan) + len(memory.notes), "warnings": ctx.pop("warnings", []),
                    "sent": sent, "refused": refused, "full_view_bytes": state.full_bytes, "diff_view_bytes": state.diff_bytes,
                    "model": dict(ctx.get("metrics", {}))}
             line = json.dumps(rec)
@@ -134,7 +140,20 @@ def run(args):
             if not args.quiet:
                 print("decision %d @turn %d: %s | sent %d refused %d | model %.1fs" % (
                     decisions, decision_turn, decision["reasoning"][:100], len(sent), len(refused), think))
-            # Wait for the next beat. Game turns keep running while the model thought, so measure from the view.
+            # Wait for the next decision. Game turns keep running while the model thought, so measure from the view.
+            if by_decision:
+                # Something that became due while the model was thinking counts: go again at once, with every reason.
+                events = api.drain_events("DECISION_DUE")
+                if not events:
+                    ev = api.wait_event("DECISION_DUE", args.max_wait_seconds)
+                    events = [ev] if ev else []
+                reasons = []
+                for ev in events:
+                    reasons += [x for x in ev["data"]["reasons"].split(",") if x and x not in reasons]
+                ctx["reasons"] = reasons or ["timer"]
+                state.update(api, seat)
+                continue
+            ctx["reasons"] = ["beat"]
             due = beat.next_due_turn(state.view)
             deadline = time.time() + beat.arg if beat.kind == "seconds" else 0
             state.update(api, seat)
@@ -158,7 +177,10 @@ def main(argv=None):
     p.add_argument("--claim", type=int, default=None, help="convert this player's computer keeper into the seat (default: use the seat the game made)")
     p.add_argument("--policy", choices=["scripted", "anthropic"], default="anthropic")
     p.add_argument("--model", default=None, help="model id (default $ANTHROPIC_MODEL or claude-sonnet-5)")
-    p.add_argument("--beat", default="quarter", help="quarter | turns:N | seconds:S")
+    p.add_argument("--beat", default="decision", help="decision (the game says when) | quarter | turns:N | seconds:S")
+    p.add_argument("--min-interval", type=int, default=100, help="decision beat: least game turns between two decisions")
+    p.add_argument("--max-wait-seconds", type=float, default=240.0, help="decision beat: think anyway after this long without a decision event")
+    p.add_argument("--memory", default=None, help="JSON file that keeps the agent's plan, notes and recent decisions across restarts")
     p.add_argument("--max-age-turns", type=int, default=1500, help="an order not started within this many turns is dropped")
     p.add_argument("--max-decisions", type=int, default=0)
     p.add_argument("--max-turns", type=int, default=0)

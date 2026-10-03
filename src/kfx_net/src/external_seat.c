@@ -2,6 +2,7 @@
 #include "external_seat.h"
 
 #include <string.h>
+#include <strings.h>
 
 #include "bflib_basics.h"
 #include "bflib_datetm.h"
@@ -776,6 +777,30 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
         step_action(&steps[n++], PckA_SetPlyrState, PSt_CtrlDungeon, 0); // leaving the mode clears the selection
         break;
     }
+    case ESV_SetTendency: {
+        if (!verb->has_enabled) return "MISSING_ENABLED";
+        int64_t tend;
+        if (strcasecmp(verb->name, "imprison") == 0) tend = CrTend_Imprison;
+        else if (strcasecmp(verb->name, "flee") == 0) tend = CrTend_Flee;
+        else return "UNKNOWN_KIND";
+        if (((dungeon->creature_tendencies & tend) != 0) == (verb->enabled != 0)) return "ALREADY_SET";
+        step_action(&steps[n++], PckA_ToggleTendency, tend, 0);
+        break;
+    }
+    case ESV_SetAlliance: {
+        // A one-way declaration, exactly what the human alliance button does (toggle_ally_with_player only ever
+        // touches the caller's own allied_players bit): the engine's own rules (players_are_mutual_allies) require
+        // both sides to declare before it actually changes combat/vision, and own.alliance in the view shows both.
+        if (!verb->has_target_player) return "MISSING_TARGET_PLAYER";
+        const PlayerNumber other = (PlayerNumber)verb->target_player;
+        if ((other < 0) || (other >= PLAYERS_COUNT) || (other == plyr_idx)) return "INVALID_PLAYER";
+        if (!player_exists(get_player(other))) return "INVALID_PLAYER";
+        if (!verb->has_enabled) return "MISSING_ENABLED";
+        if (is_player_ally_locked(plyr_idx, other)) return "ALLIANCE_LOCKED";
+        if (player_allied_with(player, other) == (verb->enabled != 0)) return "ALREADY_SET";
+        step_action(&steps[n++], PckA_PlyrToggleAlly, other, 0);
+        break;
+    }
     case ESV_BuildRoom: {
         if (!verb->has_rect) return "MISSING_RECT";
         const int64_t rx0 = verb->slab_x0, ry0 = verb->slab_y0, rx1 = verb->slab_x1, ry1 = verb->slab_y1;
@@ -938,6 +963,32 @@ const char *extseat_submit_verb(NetUserId user, PlayerNumber plyr_idx, const str
         *out_steps = info.steps;
     }
     return err;
+}
+
+const char *extseat_check_verb(NetUserId user, PlayerNumber plyr_idx, const struct ExtSeatVerb *verb, int64_t *out_steps)
+{
+    if (!user_ok(user) || (get_net_user_player_number(user) != plyr_idx)) {
+        return "NOT_A_VALID_SEAT";
+    }
+    if (verb->kind == ESV_Cancel) {
+        if (out_steps != NULL) {
+            *out_steps = 0;
+        }
+        return NULL; // a dry-run cancel is trivially "fine": the real one always succeeds, never mutates anything to check
+    }
+    if ((verb->expires_turn > 0) && ((int64_t)get_gameturn() > verb->expires_turn)) {
+        return "STALE_VIEW";
+    }
+    struct ExtSeatStep steps[EXTSEAT_MAX_STEPS];
+    int64_t n = 0;
+    const char *err = plan_verb(plyr_idx, verb, steps, &n);
+    if (err != NULL) {
+        return err;
+    }
+    if (out_steps != NULL) {
+        *out_steps = n;
+    }
+    return NULL;
 }
 
 #ifdef __cplusplus

@@ -54,10 +54,27 @@ extern TbBool keeper_screen_redraw(void);
 }
 #endif
 
+// These three "for player" writers are how the local human's own input (front_input.c, and every frontend/editor
+// menu action) reaches its packet -- always meaning "my own local input", never a specific remote/seat player,
+// the same assumption get_local_user()/get_local_packet() (packet_data.c) already encode for front_input.c's
+// other writes. Reading player->user_id directly broke that once net_add_external_seat() could reassign
+// my_player_number's own user_id (M10): converting the local player's own seat to an External one, everything
+// here would silently redirect into the seat's packet slot instead, racing extseat_tick()'s writes to that same
+// slot -- e.g. front_input.c's per-frame set_players_packet_control(get_my_player(), PCtr_Gui) would land on the
+// seat's packet turn after turn, and process_dungeon_control_packet_clicks()'s own early
+// `if (flag_is_set(pckt->control_flags,PCtr_Gui)) return false;` would then silently no-op the seat's
+// agent-submitted clicks, with no error anywhere.
+static struct Packet *get_players_own_packet(struct PlayerInfo *player)
+{
+    if (player->id_number == my_player_number) {
+        return get_local_packet();
+    }
+    return get_packet(player->user_id);
+}
+
 unsigned char get_players_packet_action(struct PlayerInfo *player)
 {
-    struct Packet* pckt = get_packet(player->user_id);
-    return pckt->action;
+    return get_players_own_packet(player)->action;
 }
 
 void set_packet_control(struct Packet *pckt, uint64_t flag)
@@ -67,8 +84,7 @@ void set_packet_control(struct Packet *pckt, uint64_t flag)
 
 void set_players_packet_control(struct PlayerInfo *player, uint64_t flag)
 {
-    struct Packet* pckt = get_packet(player->user_id);
-    pckt->control_flags |= flag;
+    get_players_own_packet(player)->control_flags |= flag;
 }
 
 void unset_packet_control(struct Packet *pckt, uint64_t flag)
@@ -78,8 +94,7 @@ void unset_packet_control(struct Packet *pckt, uint64_t flag)
 
 void unset_players_packet_control(struct PlayerInfo *player, uint64_t flag)
 {
-    struct Packet* pckt = get_packet(player->user_id);
-    pckt->control_flags &= ~flag;
+    get_players_own_packet(player)->control_flags &= ~flag;
 }
 
 void set_players_packet_position(struct Packet *pckt, int64_t x, int64_t y, unsigned char context)

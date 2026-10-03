@@ -769,6 +769,16 @@ TbBool process_user_global_packet_action(NetUserId user)
   case PckA_ToggleComputerProcessing:
       kfx_sim_state.view_mode_flags ^= GNFldD_ComputerPlayerProcessing;
       return 0;
+  case PckA_ToggleSpectate:
+      // Global, not PVT_DungeonTop-specific, on purpose: this is a session-level toggle like pause/quit above,
+      // and it must still reach a CompCtrl player -- the per-view dungeon-control dispatch below is exactly
+      // what stays blocked for one, so putting this there (as it used to be) would mean the only way out of
+      // spectator mode could never itself be processed once spectator mode was on.
+      if (flag_is_set(player->allocflags, PlaF_CompCtrl))
+          player_leave_spectator_mode(plyr_idx);
+      else
+          player_enter_spectator_mode(plyr_idx);
+      return 0;
   case PckA_PwrCTADis:
       turn_off_power_call_to_arms(plyr_idx);
       return 0;
@@ -988,8 +998,23 @@ void process_user_packet(NetUserId user)
       switch (player->view_type)
       {
           case PVT_DungeonTop:
-            process_user_dungeon_control_packet_control(user);
-            process_user_dungeon_control_packet_action(user);
+            // A CompCtrl player (spectator handoff, or a genuine AI rival) must never have build/dig/slap/
+            // spell click-input processed -- that is the one thing that must stay exclusively the AI's.
+            // Global actions above (pause, quit, camera, view switching, PckA_ToggleSpectate itself) are not
+            // gated here and still work for a spectating local player.
+            //
+            // An External seat on the local player's own number (net_add_external_seat's own exception, so an
+            // agent can play a campaign/scenario seat) is trickier: get_net_user_player_number(SOLO_HUMAN_ID)
+            // always resolves to my_player_number, so front_input.c's own packet for user 0 (still generated
+            // every frame regardless of seat type) and the seat's real packet (a different user, written by
+            // external_seat.c exactly like a human's) both resolve to the SAME player here. Only the packet
+            // from the seat's own current user_id may act -- the stale user-0 one must not, or the human's own
+            // leftover clicks and the agent's submitted verbs would both mutate the same dungeon.
+            if (((player->allocflags & PlaF_CompCtrl) == 0)
+             && (((player->allocflags & PlaF_ExternalSeat) == 0) || (user == player->user_id))) {
+                process_user_dungeon_control_packet_control(user);
+                process_user_dungeon_control_packet_action(user);
+            }
             break;
           case PVT_CreatureContrl:
             process_user_creature_control_packet_control(user);
@@ -1548,7 +1573,11 @@ void process_packets(void)
             continue;
         }
         struct PlayerInfo* packet_player = get_player(plyr_idx);
-        if (player_exists(packet_player) && ((packet_player->allocflags & PlaF_CompCtrl) == 0)) {
+        // Always dispatched, even for a CompCtrl player: process_user_packet()'s own global/per-view split
+        // (below) is where a CompCtrl player's dungeon-mutating input specifically gets skipped. A genuinely
+        // AI-only player's packet is simply empty here (nothing ever writes to it), so this is a no-op for them
+        // regardless.
+        if (player_exists(packet_player)) {
             process_user_packet(user);
         }
     }

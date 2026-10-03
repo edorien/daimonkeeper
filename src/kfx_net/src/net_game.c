@@ -205,13 +205,18 @@ void net_clear_external_seats(void)
 
 NetUserId net_add_external_seat(PlayerNumber plyr_idx)
 {
-    if (network_is_active() || (plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT) || (plyr_idx == my_player_number)) {
+    if (network_is_active() || (plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT)) {
         return -1;
     }
     struct PlayerInfo *player = get_player(plyr_idx);
     const TbBool exists = player_exists(player);
-    if (exists && !flag_is_set(player->allocflags, PlaF_CompCtrl)) {
-        return -1; // a human, or already an External seat
+    // The local player's own seat is the one deliberate exception to "a human seat can't be claimed": they are
+    // handing over their own dungeon, not someone else's. process_packets() (packets.c) is what keeps this
+    // safe once claimed -- PVT_DungeonTop's dispatch for a PlaF_ExternalSeat player only accepts packets from
+    // the seat's own user_id, so the local human's own leftover front_input.c packet (still generated every
+    // frame regardless of seat type) can no longer act on it.
+    if (exists && !flag_is_set(player->allocflags, PlaF_CompCtrl) && (plyr_idx != my_player_number)) {
+        return -1; // a human other than the local player, or already an External seat
     }
     NetUserId user = -1;
     for (NetUserId i = SOLO_HUMAN_ID + 1; i < MAX_NET_USERS; i++) {
@@ -234,8 +239,13 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
         struct Computer2 *comp = get_computer_player(plyr_idx);
         net_local_external_prev_model[user] = computer_player_invalid(comp) ? 0 : comp->model;
         if (!computer_player_invalid(comp)) {
-            memset(comp, 0, sizeof(struct Computer2));
-            computer_set_dungeon(comp, dungeon);
+            // A bare memset (the previous code here) leaves every ComputerProcess entry zeroed rather than
+            // populated from a real template -- harmless while computer_enabled stays off (just above), but a
+            // latent crash (a null process func pointer) waiting for whatever next turns that bit back on for
+            // this player, e.g. the co-op "computer assistant" option, still reachable for an External seat
+            // since it is a global action, not a dungeon-control one (packets.c). setup_a_computer_player()
+            // does the same memset plus populates a real (if never-ticked) process list.
+            setup_a_computer_player(plyr_idx, comp_player_conf.player_assist_default);
         }
     }
     player->id_number = plyr_idx;
@@ -272,6 +282,14 @@ TbBool net_release_external_seat(PlayerNumber plyr_idx)
     clear_flag(player->allocflags, PlaF_ExternalSeat);
     player->user_id = SOLO_HUMAN_ID;
     player->player_name[0] = '\0';
+    if (plyr_idx == my_player_number) {
+        // The local human reclaims their own seat: never hand it to the built-in AI --
+        // script_support_setup_player_as_computer_keeper is for releasing a RIVAL back to being an idle AI
+        // keeper, which is backwards for the human's own seat, and (like player_enter_spectator_mode's own
+        // comment on the same hazard) unsafe to call on a live, already-explored dungeon regardless.
+        SYNCLOG("External seat released: player %" PRId64 " is human-controlled again", (int64_t)plyr_idx);
+        return true;
+    }
     if (!script_support_setup_player_as_computer_keeper(plyr_idx, net_local_external_prev_model[user])) {
         WARNLOG("Released External seat %" PRId64 " could not be handed to the built-in AI", (int64_t)plyr_idx);
         return true; // still released: it is an idle keeper, not a seat
@@ -401,6 +419,7 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
         if (player->id_number == my_player_number) {
             kfx_sim_state.creatures_tend_imprison = imprison;
             kfx_sim_state.creatures_tend_flee = flee;
+            my_local_user_id = i;
         }
         snprintf(player->player_name, sizeof(struct TbNetworkPlayerName), "%s", network_user_name(i));
     }

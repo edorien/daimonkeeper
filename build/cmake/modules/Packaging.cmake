@@ -73,7 +73,7 @@ endif()
 # single flat archive instead of splitting into one archive per component.
 set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
-set(CPACK_COMPONENTS_ALL runtime gamedata)
+set(CPACK_COMPONENTS_ALL runtime gamedata mcp)
 
 # --- Install rules ---------------------------------------------------------
 
@@ -97,6 +97,19 @@ install(FILES "${CMAKE_BINARY_DIR}/keeperfx_hvlog.map" DESTINATION . OPTIONAL CO
 # build-package.sh request "runtime" + "gamedata" explicitly and skip
 # third-party subprojects' own untagged install() rules, instead of an
 # unfiltered `cmake --install` that would pull those in too.
+# The LLM/agent bridge (docs/refactor/AI/LLM/, scripts/llm_bridge/README.md): plain stdlib Python, the same on every
+# platform, so one rule serves both dist/windows/mcp/ and dist/linux/mcp/. COMPONENT mcp -- its own component, not folded
+# into runtime or gamedata, for the same reason those two are split: build-cmake-linux.sh/build-package.sh request each
+# component by name, and an unnamed "Unspecified" rule would also catch every third-party subproject's own install()
+# rules (see the COMPONENT runtime/gamedata comments above). Excludes the offline test modules (test_*.py) and any
+# __pycache__ -- dev-only, not something a person running the bridge against their own game needs.
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/scripts/llm_bridge/"
+    DESTINATION mcp
+    COMPONENT mcp
+    PATTERN "test_*" EXCLUDE
+    REGEX "__pycache__" EXCLUDE
+)
+
 install(CODE "
     set(_pkg_src \"${CMAKE_SOURCE_DIR}/pkg\")
     if(EXISTS \"\${_pkg_src}\")

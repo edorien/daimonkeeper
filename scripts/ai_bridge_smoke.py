@@ -220,6 +220,14 @@ def main():
     def treasure_slabs(view_):
         return sum(r["slabs"] for r in view_["own"]["rooms"] if r["kind"] == "TREASURE")
 
+    # dry_run: validated exactly like a real submit, but nothing is queued or built either way.
+    r = api.call(action="submit_action", player=SEAT, verb="build_room", kind="TREASURE", slab_rect=room_rect, dry_run=True)
+    check("a valid order dry-runs to would_succeed with the real step count", r.get("success") and r["data"] == {"would_succeed": True, "steps": 7}, repr(r))
+    check("nothing was queued by the dry run", view(api, SEAT)["seat"]["queued_steps"] == 0)
+    check("nothing was built by the dry run", treasure_slabs(view(api, SEAT)) == 0)
+    expect_error(api, "an invalid order dry-runs to the same error a real submit would give", "UNKNOWN_KIND",
+                 action="submit_action", player=SEAT, verb="build_room", kind="NOPE", slab_rect=room_rect, dry_run=True)
+
     r = api.call(action="submit_action", player=SEAT, verb="build_room", kind="TREASURE", slab_rect=room_rect)
     check("build_room is accepted as seven steps", r.get("success") and r["data"]["steps"] == 7, repr(r))
     for _ in range(40):
@@ -366,6 +374,40 @@ def main():
     check("a stale view_id gets the full view with a reason", d2.get("mode") == "full" and d2.get("reason") == "BASE_MISMATCH", repr({k: d2.get(k) for k in ("mode", "reason")}))
     d3 = api.call(action="get_player_view", player=SEAT, since=9999999)["data"]
     check("an unknown view_id also resyncs", d3.get("mode") == "full", repr(d3.get("mode")))
+
+    # set_alliance: a one-way declaration against the local human keeper (player 0); the engine's own mutual-alliance
+    # rule is exercised at the driver level (ftest ai_seat_alliance, which has two External seats to check both sides).
+    expect_error(api, "set_alliance needs a target", "MISSING_TARGET_PLAYER", action="submit_action", player=SEAT, verb="set_alliance", enabled=True)
+    expect_error(api, "set_alliance needs enabled", "MISSING_ENABLED", action="submit_action", player=SEAT, verb="set_alliance", ally_player=0)
+    expect_error(api, "allying with yourself is refused", "INVALID_PLAYER", action="submit_action", player=SEAT, verb="set_alliance", ally_player=SEAT, enabled=True)
+    r = api.call(action="submit_action", player=SEAT, verb="set_alliance", ally_player=0, enabled=True)
+    check("declaring an alliance with the human is accepted", r.get("success"), repr(r))
+    v = advance(api, SEAT, 2)  # the toggle is one queued step; it only takes effect once the game runs it
+    check("the view shows it declared but (until the human reciprocates) not mutual", 0 in v["own"]["alliance"]["declared"] and 0 not in v["own"]["alliance"]["mutual"], repr(v["own"]["alliance"]))
+    expect_error(api, "declaring it again is refused", "ALREADY_SET", action="submit_action", player=SEAT, verb="set_alliance", ally_player=0, enabled=True)
+    r = api.call(action="submit_action", player=SEAT, verb="set_alliance", ally_player="PLAYER0", enabled=False)
+    check("a player given by name is accepted, and withdrawing is accepted", r.get("success"), repr(r))
+    v = advance(api, SEAT, 2)
+    check("the view no longer shows it declared", 0 not in v["own"]["alliance"]["declared"])
+
+    # set_game_speed: global to the game, not per seat; the view's turns_per_second tracks it.
+    expect_error(api, "set_game_speed needs a value", "MISSING_TURNS_PER_SECOND", action="set_game_speed")
+    expect_error(api, "an out-of-range speed is refused", "BAD_TURNS_PER_SECOND", action="set_game_speed", turns_per_second=999)
+    expect_error(api, "a negative speed is refused", "BAD_TURNS_PER_SECOND", action="set_game_speed", turns_per_second=-1)
+    default_speed = view(api, SEAT)["turns_per_second"]
+    r = api.call(action="set_game_speed", turns_per_second=5)
+    check("a slower speed is accepted and echoed back", r.get("success") and r["data"]["turns_per_second"] == 5, repr(r))
+    check("the view reflects it", view(api, SEAT)["turns_per_second"] == 5)
+    r = api.call(action="set_game_speed", turns_per_second=0)
+    check("0 resets to the configured default", r.get("success") and r["data"]["turns_per_second"] == default_speed, repr(r))
+    check("the view reflects the reset", view(api, SEAT)["turns_per_second"] == default_speed)
+
+    # get_log_tail: the running game's own log, for debugging without a human tailing the file by hand.
+    r = api.call(action="get_log_tail", lines=5)
+    check("get_log_tail returns at most the lines asked for", r.get("success") and 0 < len(r["data"]["lines"]) <= 5, repr(r))
+    r2 = api.call(action="get_log_tail")
+    check("a default (no lines given) is used", r2.get("success") and len(r2["data"]["lines"]) >= len(r["data"]["lines"]), repr(r2))
+    check("the lines look like real log output, not something made up", all((":" in l) for l in r2["data"]["lines"]), r2["data"]["lines"][:3])
 
     # Report to the game side.
     status = 2 if failures else 1

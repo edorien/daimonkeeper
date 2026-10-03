@@ -527,6 +527,8 @@ char busy_doing_gui;
 int64_t gui_last_left_button_pressed_id;
 int64_t gui_last_right_button_pressed_id;
 int64_t fe_computer_players;
+int64_t fe_spectate_campaign;
+int64_t fe_external_campaign;
 int64_t old_mouse_over_button;
 int64_t frontend_mouse_over_button;
 

@@ -272,6 +272,14 @@ struct UserState {
 /******************************************************************************/
 
 extern unsigned char my_player_number;
+/** Which NetUserId THIS machine's own input device writes to -- distinct from
+ *  get_player(my_player_number)->user_id, which net_add_external_seat() can reassign (a campaign/scenario
+ *  seat handed to an agent) without moving where the local human's own camera/pause/quit/dungeon input goes.
+ *  Kept in sync with PlayerInfo::user_id everywhere ELSE the local player's own user_id is set (solo game
+ *  start, leaving a network session, replay's local-player fallback, and setup_players_from_startup_packets()
+ *  for a real network session) -- net_add_external_seat/net_release_external_seat are the one deliberate
+ *  exception. get_local_user() (packet_data.c) returns this, not PlayerInfo::user_id. */
+extern NetUserId my_local_user_id;
 
 #pragma pack()
 /******************************************************************************/

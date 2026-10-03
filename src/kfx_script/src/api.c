@@ -28,6 +28,9 @@
 #include "api.h"
 #include "api_seat_view.h"
 #include "api_seat_diff.h"
+#include "api_seat_decision.h"
+#include "api_log_tail.h"
+#include "bflib_basics.h"
 #include "external_seat.h"
 #include "net_game.h"
 #include "front_landview.h"
@@ -1461,6 +1464,76 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         return;
     }
 
+    if (strcasecmp("set_decision_policy", action) == 0)
+    {
+        // Minimum game turns between two DECISION_DUE events (default 100); reasons inside the window are held and delivered together.
+        VALUE *mi = value_dict_get(value, "min_interval_turns");
+        if (value_type(mi) != VALUE_INT32) { api_err("MISSING_MIN_INTERVAL", ack_id); value_fini(&json_data); return; }
+        api_seat_decision_set_min_interval(value_int32(mi));
+        extseat_note_activity();
+        api_ok(ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    if (strcasecmp("set_game_speed", action) == 0)
+    {
+        // The console's own "FPS"/turn-rate cheat (console_cmd.c), exposed here: how many simulated turns run per real
+        // second. Global to the game (not per seat) -- an agent buying itself more real-time to think this way slows
+        // the game for everyone watching, the same trade-off a human slowing it down for themselves would make.
+        // turns_per_second=0 resets to the level's/command line's own configured rate (start_params.num_fps).
+        VALUE *tv = value_dict_get(value, "turns_per_second");
+        if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS_PER_SECOND", ack_id); value_fini(&json_data); return; }
+        const int32_t requested = value_int32(tv);
+        if (requested == 0) {
+            kfx_sim_state.turns_per_second = start_params.num_fps;
+        } else if ((requested < 1) || (requested > 100)) {
+            api_err("BAD_TURNS_PER_SECOND", ack_id); value_fini(&json_data); return;
+        } else {
+            kfx_sim_state.turns_per_second = requested;
+        }
+        extseat_note_activity();
+        VALUE data_real; VALUE *data = &data_real;
+        value_init_dict(data);
+        value_init_int64(value_dict_add(data, "turns_per_second"), (int64_t)kfx_sim_state.turns_per_second);
+        api_return_data(true, data_real, ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
+    if (strcasecmp("get_log_tail", action) == 0)
+    {
+        // The running game's own log (log_file_name, normally keeperfx.log in its data directory), for an agent
+        // debugging a confusing session without a human tailing the file by hand. Reads only a bounded tail window
+        // of the file (never the whole thing, however large the log has grown) and returns at most `lines` of that
+        // window's complete lines (api_log_tail_lines does the actual splitting, and is what is unit-tested).
+        VALUE *lv = value_dict_get(value, "lines");
+        int64_t want = (value_type(lv) == VALUE_INT32) ? value_int32(lv) : 100;
+        if (want < 1) want = 1;
+        if (want > 500) want = 500;
+        FILE *f = fopen(log_file_name, "rb");
+        if (f == NULL) { api_err("LOG_UNAVAILABLE", ack_id); value_fini(&json_data); return; }
+        fseek(f, 0, SEEK_END);
+        const int64_t size = (int64_t)ftell(f);
+        const int64_t window = 262144; // comfortably more bytes than 500 lines will ever need
+        const int64_t start = (size > window) ? (size - window) : 0;
+        const size_t to_read = (size_t)(size - start);
+        char *buf = (char *)malloc(to_read);
+        if (buf == NULL) { fclose(f); api_err("LOG_UNAVAILABLE", ack_id); value_fini(&json_data); return; }
+        fseek(f, start, SEEK_SET);
+        const size_t got = fread(buf, 1, to_read, f);
+        fclose(f);
+        VALUE data_real; VALUE *data = &data_real;
+        value_init_dict(data);
+        VALUE *arr = value_dict_add(data, "lines");
+        value_init_array(arr);
+        api_log_tail_lines(buf, got, /*is_whole_buffer=*/(start == 0), want, arr);
+        free(buf);
+        api_return_data(true, data_real, ack_id);
+        value_fini(&json_data);
+        return;
+    }
+
     if (strcasecmp("get_seats", action) == 0)
     {
         // Every External seat in this game: the ones the Skirmish page created at start, plus any claimed since.
@@ -1547,8 +1620,10 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
             else if (strcasecmp(vname, "mark_dig") == 0) verb.kind = ESV_MarkDig;
             else if (strcasecmp(vname, "sell") == 0) verb.kind = ESV_Sell;
             else if (strcasecmp(vname, "cancel") == 0) verb.kind = ESV_Cancel;
+            else if (strcasecmp(vname, "set_tendency") == 0) verb.kind = ESV_SetTendency;
             else if (strcasecmp(vname, "move_creature") == 0) verb.kind = ESV_MoveCreature;
             else if (strcasecmp(vname, "release_creature") == 0) verb.kind = ESV_ReleaseCreature;
+            else if (strcasecmp(vname, "set_alliance") == 0) verb.kind = ESV_SetAlliance;
             else { api_err("UNKNOWN_VERB", ack_id); value_fini(&json_data); return; }
 
             const char *kind = value_string(value_dict_get(value, (verb.kind == ESV_CastPower) ? "power" : "kind"));
@@ -1569,6 +1644,11 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
                 verb.slab_x1 = value_int32(value_array_get(rect, 2));
                 verb.slab_y1 = value_int32(value_array_get(rect, 3));
             }
+            VALUE *en = value_dict_get(value, "enabled");
+            if ((value_type(en) == VALUE_BOOL) || (value_type(en) == VALUE_INT32)) {
+                verb.has_enabled = true;
+                verb.enabled = (value_type(en) == VALUE_BOOL) ? value_bool(en) : (value_int32(en) != 0);
+            }
             VALUE *ht = value_dict_get(value, "hold_turns");
             if (value_type(ht) == VALUE_INT32) verb.hold_turns = value_int32(ht);
             VALUE *ov = value_dict_get(value, "overcharge_turns");
@@ -1579,6 +1659,9 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
                 verb.has_thing = true;
                 verb.thing_id = value_int32(tid);
             }
+            VALUE *ap = value_dict_get(value, "ally_player");
+            if (value_type(ap) == VALUE_INT32) { verb.has_target_player = true; verb.target_player = value_int32(ap); }
+            else if (value_type(ap) == VALUE_STRING) { verb.has_target_player = true; verb.target_player = get_id(player_desc, (char *)value_string(ap)); }
             // Real-time play: queue=true lets a verb wait behind the running gesture. view_turn (the `turn` of the
             // view the decision was based on) with max_age_turns bounds how stale the order may be when it starts.
             VALUE *qv = value_dict_get(value, "queue");
@@ -1592,6 +1675,25 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
                     verb.expires_turn = (int64_t)value_int32(vt) + (int64_t)value_int32(ma);
                 }
             }
+            // dry_run: validated exactly as a real submit would be (same error codes), but never queued, tracked, or
+            // subject to the seat's queue-busy state -- so an agent can check "would this be accepted, and how many
+            // steps" before spending a real decision on an order it is not sure it can afford, any number of times.
+            VALUE *dr = value_dict_get(value, "dry_run");
+            const TbBool dry_run = ((value_type(dr) == VALUE_BOOL) && value_bool(dr)) || ((value_type(dr) == VALUE_INT32) && (value_int32(dr) != 0));
+            if (dry_run)
+            {
+                int64_t steps = 0;
+                const char *err = extseat_check_verb(seat_user, seat_id, &verb, &steps);
+                if (err != NULL) { api_err(err, ack_id); value_fini(&json_data); return; }
+                VALUE data_real; VALUE *data = &data_real;
+                value_init_dict(data);
+                value_init_bool(value_dict_add(data, "would_succeed"), true);
+                value_init_int32(value_dict_add(data, "steps"), (int32_t)steps);
+                api_return_data(true, data_real, ack_id);
+                value_fini(&json_data);
+                return;
+            }
+
             struct ExtSeatSubmitInfo info;
             memset(&info, 0, sizeof(info));
             const char *err = extseat_submit_verb_ex(seat_user, seat_id, &verb, queue, &info);
@@ -1835,6 +1937,7 @@ void api_update_server()
 {
     // Ends an agent's turn-advance and runs the stuck-pause watchdog; cheap, and needed even with no client.
     extseat_poll();
+    api_seat_decision_tick();
 
     // Return if the TCP server is not listening
     if (api.serverSocket == KFX_INVALID_SOCKET)

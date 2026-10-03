@@ -27,6 +27,7 @@
 #include "bflib_basics.h"
 #include "player_data.h"
 #include "camera_data.h"
+#include "kfx_sim_state.h"
 #include "map_data.h"
 #include "post_inc.h"
 
@@ -38,18 +39,32 @@ struct Packet sim_packets[PACKETS_COUNT];
 struct Packet bad_packet;
 
 /**
- * Gives the network user id of the local player. Defined purely in terms
- * of kfx_sim's own state (my_player_number/PlayerInfo.user_id) rather
- * than reading kfx_net's netstate directly (kfx_net is above kfx_sim) --
- * player->user_id is kept correct in both modes: set to SOLO_HUMAN_ID by
- * stop_network_game_state() and to the real NetUserId by
- * setup_players_from_startup_packets(), so this needs no network-mode
- * branch of its own.
- * @return The local player's associated NetUserId.
+ * Gives the NetUserId THIS machine's own input device writes to.
+ *
+ * For a genuinely local game (not networked, not replaying a packet file) this is always SOLO_HUMAN_ID,
+ * full stop -- independent of PlayerInfo::user_id, which net_add_external_seat() can now reassign on purpose
+ * (a campaign/scenario seat handed to an agent): front_input.c's writes (get_local_packet(), 90+ call sites)
+ * must keep going to the local human's own slot regardless of who is currently driving the dungeon they're
+ * watching. This used to just read player->user_id directly -- safe only because nothing had ever reassigned
+ * my_player_number's own user_id away from SOLO_HUMAN_ID before.
+ *
+ * The networked case is unaffected (my_local_user_id, mirrored by setup_players_from_startup_packets()
+ * alongside PlayerInfo::user_id there, same as before this existed): a real multiplayer session's local user
+ * id genuinely isn't always 0, and nothing there ever reassigns it independently the way net_add_external_seat
+ * does for a local game.
+ *
+ * kfx_net_state.packet_load_enable (replay) can't be checked here -- kfx_net is above kfx_sim -- so replay
+ * also takes the SOLO_HUMAN_ID branch; the one thing that costs is get_local_user()-derived effects (palette,
+ * lightning) not following cycle_replay_player()'s Tab-cycling to a different recorded player's perspective,
+ * a purely cosmetic replay-review detail, not a live-game concern.
+ * @return This machine's own NetUserId.
  */
 NetUserId get_local_user(void)
 {
-    return get_player(my_player_number)->user_id;
+    if (!network_is_active()) {
+        return SOLO_HUMAN_ID;
+    }
+    return my_local_user_id;
 }
 
 /**
@@ -82,10 +97,13 @@ void set_packet_action(struct Packet *pckt, unsigned char pcktype, int64_t par1,
     pckt->action = pcktype;
 }
 
+// "For player" writer: always means "my own local input" (see get_players_own_packet's comment in
+// packets_misc.c for why player->user_id alone stopped being safe once net_add_external_seat() could
+// reassign my_player_number's own user_id).
 void set_players_packet_action(struct PlayerInfo *player, unsigned char pcktype,
         uint64_t par1, uint64_t par2, int64_t par3, int64_t par4)
 {
-    struct Packet* pckt = get_packet(player->user_id);
+    struct Packet* pckt = (player->id_number == my_player_number) ? get_local_packet() : get_packet(player->user_id);
     pckt->actn_par1 = par1;
     pckt->actn_par2 = par2;
     pckt->actn_par3 = par3;

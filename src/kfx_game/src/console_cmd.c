@@ -984,6 +984,25 @@ TbBool cmd_comp_me(PlayerNumber plyr_idx, char * args)
     return true;
 }
 
+// Hands a seat (default: the caller's own) fully to the built-in AI and reveals its whole map, so a human can
+// watch that seat played by the AI via the normal camera / floating-spirit view without controlling it -- see
+// player_enter_spectator_mode (player_utils.c). Unlike comp.me, this is a full handoff, not a co-op assist.
+TbBool cmd_spectate(PlayerNumber plyr_idx, char * args)
+{
+    if (kfx_sim_state.easter_eggs_enabled == false) {
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "require 'cheat mode'");
+        return false;
+    }
+    char * pr1str = strsep_param_with_space(&args);
+    PlayerNumber id = get_player_number_for_command(pr1str);
+    if (!player_enter_spectator_mode(id)) {
+        targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "unable to spectate player %" PRId64, (int64_t)id);
+        return false;
+    }
+    targeted_message_add(MsgType_Player, plyr_idx, plyr_idx, GUI_MESSAGES_DELAY, "player %" PRId64 " is now AI-controlled; map revealed", (int64_t)id);
+    return true;
+}
+
 
 TbBool cmd_give_trap(PlayerNumber plyr_idx, char * args)
 {
@@ -2804,6 +2823,7 @@ static const struct ConsoleCommand console_commands[] = {
     { "player.score", cmd_player_score, NULL },
     { "player.flag", cmd_player_flag, NULL },
     { "comp.me", cmd_comp_me, NULL },
+    { "spectate", cmd_spectate, NULL },
     { "magic.instance", cmd_magic_instance, param_completion_for_magic_instance },
     { "give.trap", cmd_give_trap, param_completion_for_give_trap },
     { "trap.give", cmd_give_trap, param_completion_for_give_trap },

@@ -543,3 +543,53 @@ TEST_CASE_METHOD(DriverFixture, "cancel drops the waiting verbs too and reports 
     for (int64_t i = 0; i < n; i++) if (res[i].rejected && std::string(res[i].error) == "CANCELLED") cancelled++;
     CHECK(cancelled == 3);
 }
+
+TEST_CASE_METHOD(DriverFixture, "extseat_check_verb validates like a real submit but never queues, tracks, or is blocked", "[kfx_net][extseat][dry_run]") {
+    ExtSeatVerb dig = dig_verb(1, 1);
+    int64_t steps = -1;
+    CHECK(extseat_check_verb(1, 2, &dig, &steps) == nullptr);
+    CHECK(steps > 0);
+    CHECK(extseat_idle(1)); // nothing was queued
+
+    ExtSeatVerb bad; std::memset(&bad, 0, sizeof(bad)); bad.kind = ESV_BuildRoom; bad.has_rect = true;
+    bad.slab_x1 = 1; bad.slab_y1 = 1; // no name: get_rid("") is not a room
+    CHECK(std::string(extseat_check_verb(1, 2, &bad, nullptr)) == "UNKNOWN_KIND");
+
+    CHECK(std::string(extseat_check_verb(0, 2, &dig, nullptr)) == "NOT_A_VALID_SEAT"); // user 0 does not own player 2
+
+    REQUIRE(extseat_submit_verb_ex(1, 2, &dig, false, nullptr) == nullptr); // a real gesture, now running
+    CHECK_FALSE(extseat_idle(1));
+    ExtSeatVerb other = dig_verb(2, 2);
+    steps = -1;
+    CHECK(extseat_check_verb(1, 2, &other, &steps) == nullptr); // a dry run is never blocked by a busy seat
+    CHECK(steps > 0);
+    CHECK_FALSE(extseat_idle(1)); // and does not disturb the one that is running
+}
+
+TEST_CASE_METHOD(DriverFixture, "set_alliance validates a target and enabled, honours the lock, and toggles once", "[kfx_net][extseat][alliance]") {
+    ExtSeatVerb v; std::memset(&v, 0, sizeof(v)); v.kind = ESV_SetAlliance;
+    CHECK(std::string(extseat_submit_verb(1, 2, &v, nullptr)) == "MISSING_TARGET_PLAYER");
+    v.has_target_player = true; v.target_player = 2; // self
+    CHECK(std::string(extseat_submit_verb(1, 2, &v, nullptr)) == "INVALID_PLAYER");
+    v.target_player = PLAYERS_COUNT; // out of range
+    CHECK(std::string(extseat_submit_verb(1, 2, &v, nullptr)) == "INVALID_PLAYER");
+    v.target_player = 0; // the human, which the fixture makes exist
+    CHECK(std::string(extseat_submit_verb(1, 2, &v, nullptr)) == "MISSING_ENABLED");
+    v.has_enabled = true; v.enabled = false;
+    CHECK(std::string(extseat_submit_verb(1, 2, &v, nullptr)) == "ALREADY_SET"); // withdrawing what was never declared
+
+    set_player_ally_locked(2, 0, true);
+    v.enabled = true;
+    CHECK(std::string(extseat_submit_verb(1, 2, &v, nullptr)) == "ALLIANCE_LOCKED");
+    set_player_ally_locked(2, 0, false);
+
+    // A single step: the toggle packet, aimed at the target player. Whether packets.c's PckA_PlyrToggleAlly handler then
+    // actually flips player->allied_players is exercised end to end by the real engine in ftest ai_seat_alliance; this
+    // level only owns the verb's own validation and the step it produces.
+    ExtSeatSubmitInfo info{};
+    REQUIRE(extseat_submit_verb_ex(1, 2, &v, false, &info) == nullptr);
+    CHECK(info.steps == 1);
+    extseat_tick();
+    CHECK(sim_packets[1].action == PckA_PlyrToggleAlly);
+    CHECK(sim_packets[1].actn_par1 == 0);
+}

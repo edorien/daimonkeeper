@@ -86,11 +86,22 @@ TEST_CASE_METHOD(LocalGameFixture, "a computer slot is converted and stops runni
     CHECK_FALSE(flag_is_set(p->allocflags, PlaF_CompCtrl));
     CHECK(flag_is_set(p->allocflags, PlaF_ExternalSeat));
     CHECK((get_dungeon(1)->computer_enabled & 0x01) == 0);
-    CHECK(kfx_sim_state.computer[1].task_state == 0);
+    // M10: the conversion now reinitializes Computer2 via setup_a_computer_player() (a real process
+    // list) instead of a bare memset(0) -- the old memset left null process function pointers that
+    // crashed process_computer_players2() if computer_enabled was ever turned back on for this player.
+    // task_state ends up CTaskSt_Select (setup_a_computer_player's own normal starting value) rather
+    // than 0, which is fine: computer_enabled is cleared above, so process_computer_players2() skips
+    // this player regardless of task_state. action_status_flag == 1 is the telltale that real setup
+    // ran rather than a bare memset.
+    CHECK(kfx_sim_state.computer[1].task_state == CTaskSt_Select);
+    CHECK(kfx_sim_state.computer[1].action_status_flag == 1);
 }
 
-TEST_CASE_METHOD(LocalGameFixture, "seats are refused for the local player, a human, an existing seat, a bad slot, or a network game", "[kfx_net][external_seat]") {
-    CHECK(net_add_external_seat(0) == -1);            // the local human's slot
+TEST_CASE_METHOD(LocalGameFixture, "seats are refused for another human, an existing seat, a bad slot, or a network game; the local player's own is the one exception (M10)", "[kfx_net][external_seat]") {
+    REQUIRE(net_add_external_seat(0) >= 0);           // the local human's own slot: claimable on purpose
+    CHECK(net_release_external_seat(0));
+    CHECK_FALSE(flag_is_set(kfx_sim_state.players[0].allocflags, PlaF_CompCtrl));
+    CHECK_FALSE(flag_is_set(kfx_sim_state.players[0].allocflags, PlaF_ExternalSeat));
     make_human(2);
     CHECK(net_add_external_seat(2) == -1);            // another human
     REQUIRE(net_add_external_seat(3) == 1);

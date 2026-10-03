@@ -42,6 +42,7 @@ struct GameCallbacks {
     TbBool (*close_creature_cheat_menu)(void);
     void (*create_error_box)(TextStringId msg_idx);
     TbBool (*is_fe_computer_players_active)(void);
+    TbBool (*is_fe_spectate_campaign_active)(void);
     void (*set_gui_visible)(TbBool visible);
     int64_t (*is_menu_active)(int64_t idx);
 

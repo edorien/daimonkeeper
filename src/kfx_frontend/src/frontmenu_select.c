@@ -421,6 +421,14 @@ int64_t frontend_land_selection_enter_resolve(void)
     // front_landview.c) entirely. Set unconditionally, even on the early-return
     // below, so this stays correct regardless of what else changes here.
     fe_computer_players = 0;
+    // Arms the local player's own seat as External the same way Skirmish arms a rival's slot
+    // (skirmish_setup_install_for_play() below), consumed by the same net_claim_pending_external_seats() call
+    // main_game.c::startup_network_game_tail() already makes unconditionally for GKind_LocalGame. Cleared
+    // first regardless of the checkbox, so an earlier Skirmish visit this session can't leave a stale pending
+    // seat for a campaign level that never asked for one.
+    net_pending_external_seats_clear();
+    if (fe_external_campaign)
+        net_pending_external_seats_add(my_player_number);
     if (land_selection_highlighted_campaign == NULL)
         return -1;
     if (!frontend_start_new_campaign(land_selection_highlighted_campaign->fname))

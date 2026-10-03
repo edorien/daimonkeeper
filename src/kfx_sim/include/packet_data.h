@@ -163,7 +163,7 @@ enum TbPacketAction {
         PckA_SetComputerKind,
         PckA_GoSpectator,//110
         PckA_DumpHeldThingToOldPos,
-        PckA_UnusedSlot112,
+        PckA_ToggleSpectate,
         PckA_UnusedSlot113,
         PckA_PwrSOEDis,
         PckA_EventBoxActivate,//115

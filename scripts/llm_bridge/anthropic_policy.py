@@ -1,5 +1,13 @@
 """A policy that asks a Claude model (Anthropic Messages API, plain urllib) what to do each beat.
 
+**Not the recommended way to run this.** This calls the Messages API directly with a raw ANTHROPIC_API_KEY: that spend is
+metered on the key alone, separate from whatever usage governance the interactive product enforces for a person's own
+session, so a bridge running unattended with a key can spend past limits nobody is watching. It exists for the automated
+end-to-end test (scripts/ai_bridge_reference_e2e.py) and for offline benchmarking, where an unattended, deterministic,
+metered call is exactly what is wanted. For actually playing, use mcp_server.py (see its module docstring and
+scripts/llm_bridge/README.md "Recommended: MCP"): the assistant already open in Claude Desktop, Claude Code, or another
+MCP-capable client makes the decisions, so the spend goes through that session's own usage limits, not a bare key.
+
 Needs ANTHROPIC_API_KEY. ANTHROPIC_BASE_URL (default https://api.anthropic.com) exists so tests can point it at a local mock;
 ANTHROPIC_MODEL picks the model. The model may call `look` any number of times (up to max_rounds) and ends by calling
 `submit_orders`. Latency and token usage of every decision are recorded in ctx["metrics"].
@@ -22,7 +30,6 @@ class AnthropicPolicy:
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         self.max_rounds, self.max_tokens, self.timeout = max_rounds, max_tokens, timeout
         self.first = True
-        self.history = []   # earlier decisions as (state text, orders text), kept short: the state text carries the news
 
     def _post(self, body):
         req = urllib.request.Request(
@@ -35,10 +42,10 @@ class AnthropicPolicy:
             raise RuntimeError("Anthropic API error %d: %s" % (e.code, e.read().decode(errors="replace")[:500]))
 
     def decide(self, state, ctx):
-        text = prompt.render_state(state, first=self.first)
+        mem = ctx.get("memory")
+        text = prompt.render_for_agent(state, mem, reasons=ctx.get("reasons"), first=self.first)
         self.first = False
-        recent = "\n".join("Earlier decision: %s" % h for h in self.history[-3:])
-        messages = [{"role": "user", "content": (recent + "\n\n" if recent else "") + text}]
+        messages = [{"role": "user", "content": text}]
         metrics = ctx.setdefault("metrics", {"calls": 0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0})
         for _ in range(self.max_rounds):
             t0 = time.time()
@@ -54,8 +61,7 @@ class AnthropicPolicy:
             submit = next((b for b in uses if b["name"] == "submit_orders"), None)
             if submit is not None:
                 inp = submit["input"]
-                self.history.append("%s -> %d orders" % (inp.get("reasoning", ""), len(inp.get("orders", []))))
-                return {"reasoning": inp.get("reasoning", ""), "orders": inp.get("orders", [])}
+                return {"reasoning": inp.get("reasoning", ""), "orders": inp.get("orders", []), "plan": inp.get("plan"), "notes": inp.get("notes")}
             if not uses:   # the model answered in words only: treat as "wait"
                 return {"reasoning": "no tool call: " + " ".join(b.get("text", "") for b in blocks)[:200], "orders": []}
             messages.append({"role": "assistant", "content": blocks})

@@ -21,6 +21,16 @@
 #include "tests/ftest_ai_gesture_drag_verbs.h"
 #include "tests/ftest_ai_seat_identity.h"
 #include "tests/ftest_ai_multi_seat.h"
+#include "tests/ftest_ai_seat_research.h"
+#include "tests/ftest_spectator_handoff.h"
+#include "tests/ftest_campaign_spectate_checkbox.h"
+#include "tests/ftest_campaign_external_seat.h"
+#include "tests/ftest_campaign_external_seat_checkbox.h"
+#include "tests/ftest_ai_seat_speed.h"
+#include "tests/ftest_ai_seat_dry_run.h"
+#include "tests/ftest_ai_seat_alliance.h"
+#include "tests/ftest_ai_seat_intel.h"
+#include "tests/ftest_ai_seat_decision.h"
 #include "tests/ftest_ai_seat_order_creature.h"
 #include "tests/ftest_ai_seat_order_autorelease.h"
 #include "tests/ftest_ai_gesture_order_creature.h"
@@ -35,6 +45,7 @@
 #include "tests/ftest_ai_seat_view_fog.h"
 #include "tests/ftest_ai_bridge_smoke.h"
 #include "tests/ftest_ai_bridge_reference.h"
+#include "tests/ftest_ai_bridge_vs_agent.h"
 #include "tests/ftest_creature_temple_prayer.h"
 #include "tests/ftest_creature_lair_healing.h"
 #include "tests/ftest_creature_garden_eating.h"
@@ -99,6 +110,16 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_diff",                      .init_func=ftest_ai_seat_diff_init,                     .pre_start_func=ftest_ai_seat_diff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_creature",            .init_func=ftest_ai_seat_order_creature_init,           .pre_start_func=ftest_ai_seat_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_autorelease",         .init_func=ftest_ai_seat_order_autorelease_init,        .pre_start_func=ftest_ai_seat_order_autorelease_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_decision",                  .init_func=ftest_ai_seat_decision_init,                 .pre_start_func=ftest_ai_seat_decision_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_intel",                     .init_func=ftest_ai_seat_intel_init,                    .pre_start_func=ftest_ai_seat_intel_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_alliance",                  .init_func=ftest_ai_seat_alliance_init,                 .pre_start_func=ftest_ai_seat_alliance_pre_start, .level_file="original", .level=60, .frame_skip=8 },
+         { .test_name="ai_seat_dry_run",                   .init_func=ftest_ai_seat_dry_run_init,                  .pre_start_func=ftest_ai_seat_dry_run_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_speed",                     .init_func=ftest_ai_seat_speed_init,                    .pre_start_func=ftest_ai_seat_speed_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_research",                  .init_func=ftest_ai_seat_research_init,                 .pre_start_func=ftest_ai_seat_research_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="spectator_handoff",                 .init_func=ftest_spectator_handoff_init,                .pre_start_func=ftest_spectator_handoff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="campaign_spectate_checkbox",         .init_func=ftest_campaign_spectate_checkbox_init,       .pre_start_func=ftest_campaign_spectate_checkbox_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="campaign_external_seat",             .init_func=ftest_campaign_external_seat_init,           .pre_start_func=ftest_campaign_external_seat_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="campaign_external_seat_checkbox",    .init_func=ftest_campaign_external_seat_checkbox_init,  .pre_start_func=ftest_campaign_external_seat_checkbox_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_drag_verbs",                .init_func=ftest_ai_seat_drag_verbs_init,               .pre_start_func=ftest_ai_seat_drag_verbs_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_view_fog",                  .init_func=ftest_ai_seat_view_fog_init,                 .pre_start_func=ftest_ai_seat_view_fog_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="creature_temple_prayer",             .init_func=ftest_creature_temple_prayer_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
@@ -183,6 +204,8 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
         // scripts/run_ftest_ai_bridge_smoke.sh, not by hand (docs/refactor/AI/LLM/05-testing-and-rollout.md).
         // Half of a two-process test too: scripts/run_ftest_ai_bridge_reference.sh runs it with scripts/ai_bridge_reference_e2e.py.
         { .test_name="ai_bridge_reference",                .init_func=ftest_ai_bridge_reference_init,              .pre_start_func=ftest_ai_bridge_reference_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+        // Half of a two-process test too: scripts/run_ftest_ai_bridge_vs_agent.sh runs it with scripts/ai_bridge_vs_agent_e2e.py.
+        { .test_name="ai_bridge_vs_agent",                 .init_func=ftest_ai_bridge_vs_agent_init,               .pre_start_func=ftest_ai_bridge_vs_agent_pre_start, .level_file="original", .level=60, .frame_skip=8 },
         { .test_name="ai_bridge_smoke",                    .init_func=ftest_ai_bridge_smoke_init,                  .pre_start_func=ftest_ai_bridge_smoke_pre_start, .level_file="original", .level=50, .frame_skip=8 },
         { .test_name="bug_ai_bridge",                      .init_func=ftest_bug_ai_bridge_init,                    .level_file="keeporig", .level=15, .frame_skip=128, .seed=1, .repeat_n_times=100 },
 

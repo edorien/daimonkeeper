@@ -103,6 +103,9 @@ struct UserState bad_user_state;
 
 /** The current player's number. */
 unsigned char my_player_number;
+/** This machine's own NetUserId; see the doc comment on the declaration (player_data.h). Zero-initialized to
+ *  SOLO_HUMAN_ID (0), matching every explicit assignment below. */
+NetUserId my_local_user_id;
 /******************************************************************************/
 
 struct Camera *get_player_active_camera(const struct PlayerInfo *player)

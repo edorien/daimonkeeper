@@ -2,11 +2,11 @@
 #
 # Build keeperfx with CMake, at parity with the hand Makefiles.
 #
-#   KFX_OS=windows (default)  32-bit MinGW-w64 (i686) Windows binary, using the
-#                             same compiler/flags/prebuilt deps as `make`.
-#   KFX_OS=linux              native x86_64 Linux ELF (system/pkg-config deps,
+#   KFX_OS=linux (default)    native x86_64 Linux ELF (system/pkg-config deps,
 #                             falling back to a from-source build for anything
 #                             not found on the system).
+#   KFX_OS=windows            32-bit MinGW-w64 (i686) Windows binary, using the
+#                             same compiler/flags/prebuilt deps as `make`.
 #
 # Third-party deps are downloaded and built from source automatically on
 # first run (build/cmake/modules/Dependencies.cmake); neither platform needs
@@ -15,8 +15,8 @@
 # packaged, only falling back to a source build when one isn't found.
 #
 # Usage:
-#   ./build-cmake.sh                     # Windows keeperfx (standard log)
-#   KFX_OS=linux ./build-cmake.sh        # Linux keeperfx
+#   ./build-cmake.sh                     # Linux keeperfx (standard log, default)
+#   KFX_OS=windows ./build-cmake.sh      # Windows keeperfx
 #   ./build-cmake.sh keeperfx_hvlog      # heavy-log variant
 #   USE_DOCKER=1 ./build-cmake.sh        # build in an Ubuntu 24.04 container
 #   BUILD_DIR=out/foo ./build-cmake.sh   # override the build directory (default: out/<KFX_OS>/)
@@ -92,6 +92,9 @@ cmake --build "$BUILD_DIR" --target "$TARGET" -j"$(nproc 2>/dev/null || echo 4)"
 # convenient" means.
 DIST_DIR="dist/$KFX_OS"
 cmake --install "$BUILD_DIR" --prefix "$DIST_DIR" --component runtime >/dev/null
+# The MCP/LLM bridge (scripts/llm_bridge/, docs/refactor/AI/LLM/): plain Python, identical on every platform, so this
+# always runs regardless of $KFX_OS -- see Packaging.cmake's COMPONENT mcp rule.
+cmake --install "$BUILD_DIR" --prefix "$DIST_DIR" --component mcp >/dev/null
 
 echo
 if [ "$KFX_OS" = "linux" ]; then
@@ -101,3 +104,4 @@ else
     echo "Built: $BUILD_DIR/$TARGET.exe"
     echo "Copied to: $DIST_DIR/$TARGET.exe"
 fi
+echo "MCP bridge copied to: $DIST_DIR/mcp/ (see $DIST_DIR/mcp/README.md)"

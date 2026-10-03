@@ -78,6 +78,8 @@ int64_t set_players_creatures_to_get_paid(PlayerNumber plyr_idx);
 void process_payday(void);
 void process_dungeons(void);
 int64_t clear_active_dungeons_stats(void);
+TbBool player_enter_spectator_mode(PlayerNumber plyr_idx);
+TbBool player_leave_spectator_mode(PlayerNumber plyr_idx);
 /******************************************************************************/
 #ifdef __cplusplus
 }

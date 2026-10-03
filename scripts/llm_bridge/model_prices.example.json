@@ -1,0 +1,4 @@
+{
+  "_comment": "Example only -- these are illustrative placeholder numbers, NOT current, verified prices. Model pricing changes over time and this repo has no live source for it; copy this file, fill in real $/million-token rates for the model(s) you actually use, and pass it to cost_report.py with --prices. Without a --prices file, cost_report.py reports token counts only, which is always correct regardless of pricing changes.",
+  "claude-sonnet-5": { "input_per_mtok": 3.0, "output_per_mtok": 15.0 }
+}
