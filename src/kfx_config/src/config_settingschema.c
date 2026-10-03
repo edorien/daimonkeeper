@@ -58,8 +58,8 @@ extern "C" {
 #endif
 /******************************************************************************/
 
-static TbBool get_autosave_replays(void) { return autosave_replays; }
-static void set_autosave_replays(TbBool val) { autosave_replays = val; }
+static TbBool get_autosave_replays(void) { return automatic_replays; }
+static void set_autosave_replays(TbBool val) { automatic_replays = val; }
 
 static TbBool get_freeze_on_focus_lost(void) { return is_feature_on(Ft_FreezeOnLoseFocus); }
 static void set_freeze_on_focus_lost(TbBool val)

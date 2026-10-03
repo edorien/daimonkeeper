@@ -62,6 +62,17 @@ TEST_CASE("the base config is seeded once from KeeperFX's, which is left alone",
     std::remove(theirs.c_str());
 }
 
+TEST_CASE("KeeperFX's AUTOMATIC_REPLAYS isn't carried over: replays stay off unless chosen here", "[kfx_config][product_files]") {
+    const std::string ours = scratch(PRODUCT_SLUG "_replays.cfg");
+    const std::string theirs = scratch("keeperfx_replays.cfg");
+    std::remove(ours.c_str());
+    write_all(theirs, "LANGUAGE=ENG\n; Record every game\nAUTOMATIC_REPLAYS = ON\nAUTOMATIC_REPLAYS_X=1\nMAX_REPLAYS=5 5 10");
+    CHECK(import_kfx_base_config(ours.c_str(), theirs.c_str()));
+    CHECK(read_all(ours) == "LANGUAGE=ENG\n; Record every game\nAUTOMATIC_REPLAYS_X=1\nMAX_REPLAYS=5 5 10");
+    std::remove(ours.c_str());
+    std::remove(theirs.c_str());
+}
+
 TEST_CASE("no KeeperFX config to seed from: nothing is created", "[kfx_config][product_files]") {
     const std::string ours = scratch("fresh.cfg");
     const std::string theirs = scratch("missing_keeperfx.cfg");

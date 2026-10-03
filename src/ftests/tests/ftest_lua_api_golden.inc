@@ -1,23 +1,23 @@
-    {"lua:SetGenerateSpeed(200)", 0xf56e6c952194dd88ULL}, // 36 bytes; ok: 
-    {"lua:SetGenerateSpeed(200, PLAYER0)", 0xe97770d583464f98ULL}, // 4 bytes; ok: 
-    {"lua:ComputerPlayer(PLAYER1, 0)", 0x69d895dac2ce9d22ULL}, // 37975 bytes; ok: 
-    {"lua:ComputerPlayer(PLAYER1, 'ROAMING')", 0x37d4ffd64527d561ULL}, // 2 bytes; ok: 
-    {"lua:AllyPlayers(PLAYER0, PLAYER_GOOD, 1)", 0x6f8c7229376bc420ULL}, // 2530 bytes; ok: 
+    {"lua:SetGenerateSpeed(200)", 0x72c3ef29a9c1e2d0ULL}, // 36 bytes; ok: 
+    {"lua:SetGenerateSpeed(200, PLAYER0)", 0x100932564cb6be38ULL}, // 4 bytes; ok: 
+    {"lua:ComputerPlayer(PLAYER1, 0)", 0xb747010591bd79e0ULL}, // 37975 bytes; ok: 
+    {"lua:ComputerPlayer(PLAYER1, 'ROAMING')", 0xc2bc8bb0666fa08cULL}, // 2 bytes; ok: 
+    {"lua:AllyPlayers(PLAYER0, PLAYER_GOOD, 1)", 0x9770a798fe1a453cULL}, // 2530 bytes; ok: 
     {"lua:AllyPlayers(PLAYER0, PLAYER_GOOD)", 0x5d48ae1859796ce0ULL}, // 0 bytes; error: [string "AllyPlayers(PLAYER0, PLAYER_GOOD)"]:1: bad argument #3 to 'AllyPlayers' (number expected, got no value)
     {"lua:StartMoney(PLAYER0, 5000)", 0xafd13d0a779f2ef4ULL}, // 4 bytes; ok: 
     {"lua:StartMoney(ALL_PLAYERS, 0)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:MaxCreatures(PLAYER0, 3)", 0x4e197488df638df7ULL}, // 1 bytes; ok: 
-    {"lua:AddCreatureToPool('TROLL', 4)", 0x3d3f33bd45ec9c4fULL}, // 1 bytes; ok: 
+    {"lua:AddCreatureToPool('TROLL', 4)", 0x2e746177d0f5596eULL}, // 1 bytes; ok: 
     {"lua:AddCreatureToPool('NOT_A_CREATURE', 4)", 0x7294eaebbdc57f4eULL}, // 0 bytes; error: [string "AddCreatureToPool('NOT_A_CREATURE', 4)"]:1: bad argument #1 to 'AddCreatureToPool' (unrecognized command
     {"lua:CreatureAvailable(PLAYER0, 'TROLL', true, 2)", 0x147e1a08c2e63747ULL}, // 1 bytes; ok: 
-    {"lua:DeadCreaturesReturnToPool(false)", 0x4721fbf2457ed0f8ULL}, // 1 bytes; ok: 
+    {"lua:DeadCreaturesReturnToPool(false)", 0xf8fcc6eb05aa8af3ULL}, // 1 bytes; ok: 
     {"lua:RoomAvailable(PLAYER0, 'TEMPLE', 1, true)", 0x6ab2eef6c619bfc5ULL}, // 1 bytes; ok: 
     {"lua:RoomAvailable(PLAYER0, 'NOT_A_ROOM', 1, true)", 0x2d25461400b29527ULL}, // 0 bytes; error: [string "RoomAvailable(PLAYER0, 'NOT_A_ROOM', 1, true)"]:1: bad argument #2 to 'RoomAvailable' (unrecognized comm
     {"lua:MagicAvailable(PLAYER0, 'POWER_LIGHTNING', true, true)", 0x3b5e1bc2c0bb7d07ULL}, // 1 bytes; ok: 
     {"lua:DoorAvailable(PLAYER0, 'BRACED', true, 3)", 0xe0ecff8f5f44619fULL}, // 3 bytes; ok: 
     {"lua:TrapAvailable(PLAYER0, 'BOULDER', true, 2)", 0xae29b7b10d3ba8d8ULL}, // 3 bytes; ok: 
     {"lua:WinGame(PLAYER0)", 0x54ba70092e95a65eULL}, // 19 bytes; ok: 
-    {"lua:WinGame()", 0x60d31b78010756e6ULL}, // 51 bytes; ok: 
+    {"lua:WinGame()", 0x721a44aa505a611eULL}, // 51 bytes; ok: 
     {"lua:LoseGame(PLAYER0)", 0xffa6f777bb5fd27bULL}, // 18 bytes; ok: 
     {"lua:return CountCreaturesAtActionPoint(1, PLAYER0, 'ANY_CREATURE')", 0x7d8bcf55b7a206c6ULL}, // 0 bytes; ok: 0
     {"lua:return CountCreaturesAtActionPoint(1, ALL_PLAYERS, 'IMP')", 0x7d8bcf55b7a206c6ULL}, // 0 bytes; ok: 0
@@ -32,7 +32,7 @@
     {"lua:AddBonusTime(500)", 0x409b5d559537a21dULL}, // 2 bytes; ok: 
     {"lua:ResetActionPoint(1, PLAYER0)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:SetNextLevel(12)", 0x22d6e7c4e468deadULL}, // 1 bytes; ok: 
-    {"lua:TriggerActionPoint(1, PLAYER0)", 0x600df9202a518b72ULL}, // 1 bytes; ok: 
+    {"lua:TriggerActionPoint(1, PLAYER0)", 0xa5b1a31ac77ebe2dULL}, // 1 bytes; ok: 
     {"lua:return IsActionpointActivatedByPlayer(PLAYER0, 1)", 0x5cda8f81987f7453ULL}, // 0 bytes; ok: false
     {"lua:return AddCreatureToLevel(PLAYER0, 'TROLL', 1, 3, 100)", 0x350e6dff85d83373ULL}, // 73 bytes; ok: Thing#126
     {"lua:return AddCreatureToLevel(PLAYER_GOOD, 'KNIGHT', PLAYER0, 5, 0)", 0xd3c1597ff8318ec4ULL}, // 73 bytes; ok: Thing#126
@@ -45,33 +45,33 @@
     {"lua:CreateParty('GOLDEN') AddToParty('GOLDEN', 'ARCHER', 2, 0, 'ATTACK_DUNGEON_HEART', 0) return AddPartyToLevel(PLAYER_GOOD, 'GOLDEN', 1)", 0x0eecb177519de85dULL}, // 119 bytes; ok: {1=Thing#126}
     {"lua:CreateParty('GOLDEN') AddToParty('GOLDEN', 'ARCHER', 2, 0, 'ATTACK_DUNGEON_HEART', 0) AddTunnellerPartyToLevel(PLAYER_GOOD, 'GOLDEN', 1, 'DUNGEON_HEART', 0, 1, 0)", 0x243752a90ea094d7ULL}, // 226 bytes; ok: 
     {"lua:return AddPartyToLevel(PLAYER_GOOD, 'NO_SUCH_PARTY', 1)", 0xc6ac750cf662089aULL}, // 0 bytes; error: bad argument #2 to '?' (Party of requested name, 'NO_SUCH_PARTY', is not defined)
-    {"lua:DisplayObjective(1)", 0x44900ffc79cfdf0dULL}, // 412 bytes; ok: 
-    {"lua:DisplayObjective(1, 1)", 0xd2b4b4d5d4e79a45ULL}, // 388 bytes; ok: 
-    {"lua:DisplayObjectiveWithPos(1, 40, 40)", 0xf23c0ab34eb7dd45ULL}, // 396 bytes; ok: 
-    {"lua:DisplayInformation(2)", 0x3ec67e85030df58bULL}, // 183 bytes; ok: 
-    {"lua:DisplayInformationWithPos(2, 40, 40)", 0xc8c0720b2deb211bULL}, // 215 bytes; ok: 
-    {"lua:QuickObjective('golden objective')", 0x5d667d0eb038b894ULL}, // 187 bytes; ok: 
-    {"lua:QuickObjectiveWithPos('golden', 40, 40)", 0x95d84b33563c987fULL}, // 81 bytes; ok: 
-    {"lua:QuickInformation(1, 'golden info')", 0xcb273c251f0991e7ULL}, // 194 bytes; ok: 
-    {"lua:QuickInformationWithPos(1, 'golden', 40, 40)", 0xd56cc31c83e6d6f6ULL}, // 221 bytes; ok: 
-    {"lua:DisplayPlayerObjective(1, PLAYER0)", 0x5a1f3a46bdd49175ULL}, // 48 bytes; ok: 
-    {"lua:DisplayPlayerObjectiveWithPos(1, PLAYER0, 40, 40)", 0x740bfbda48d3819dULL}, // 46 bytes; ok: 
-    {"lua:DisplayPlayerInformation(2, PLAYER0)", 0x99a5987d26f3234bULL}, // 22 bytes; ok: 
-    {"lua:DisplayPlayerInformationWithPos(2, PLAYER0, 40, 40)", 0x7654d88c8e5d0bf7ULL}, // 26 bytes; ok: 
-    {"lua:QuickPlayerObjective('golden', PLAYER0)", 0x53f868e73ad78dcfULL}, // 13 bytes; ok: 
-    {"lua:QuickPlayerObjectiveWithPos('golden', PLAYER0, 40, 40)", 0x919f4501c4746b37ULL}, // 11 bytes; ok: 
-    {"lua:QuickPlayerInformation(1, PLAYER0, 'golden')", 0xecac12e8118c90e6ULL}, // 28 bytes; ok: 
-    {"lua:QuickPlayerInformationWithPos(1, PLAYER0, 'golden', 40, 40)", 0x6ffb38f4951796caULL}, // 32 bytes; ok: 
-    {"lua:DisplayMessage(1)", 0x6050a59f66a9fb75ULL}, // 99 bytes; ok: 
-    {"lua:DisplayMessage(1, PLAYER0)", 0xa69d6aadf27633f2ULL}, // 98 bytes; ok: 
-    {"lua:DisplayMessage(1, 'IMP')", 0x195f489a938d91bcULL}, // 100 bytes; ok: 
-    {"lua:QuickMessage('golden')", 0xb4df21ac2c322462ULL}, // 63 bytes; ok: 
-    {"lua:QuickMessage('golden', PLAYER0)", 0x59c847ea12b7b1cfULL}, // 62 bytes; ok: 
-    {"lua:QuickMessage('golden') ClearMessage()", 0xc2b1f34316d815abULL}, // 68 bytes; ok: 
-    {"lua:ClearMessage(1)", 0x7f259294288dff79ULL}, // 2 bytes; ok: 
-    {"lua:HeartLostObjective(1, PLAYER0)", 0xec1b3100531ba304ULL}, // 3 bytes; ok: 
+    {"lua:DisplayObjective(1)", 0x510dce694e490afbULL}, // 412 bytes; ok: 
+    {"lua:DisplayObjective(1, 1)", 0x11791f6db92b8b2bULL}, // 388 bytes; ok: 
+    {"lua:DisplayObjectiveWithPos(1, 40, 40)", 0xbed3b9d2b3112d3bULL}, // 396 bytes; ok: 
+    {"lua:DisplayInformation(2)", 0xedd3dbeb938c7accULL}, // 183 bytes; ok: 
+    {"lua:DisplayInformationWithPos(2, 40, 40)", 0x8583862c3db8883cULL}, // 215 bytes; ok: 
+    {"lua:QuickObjective('golden objective')", 0x223aac8aa51f9249ULL}, // 187 bytes; ok: 
+    {"lua:QuickObjectiveWithPos('golden', 40, 40)", 0x33a09bf890452e92ULL}, // 81 bytes; ok: 
+    {"lua:QuickInformation(1, 'golden info')", 0x813b1347ca2ee077ULL}, // 194 bytes; ok: 
+    {"lua:QuickInformationWithPos(1, 'golden', 40, 40)", 0x49e843da892b94bdULL}, // 221 bytes; ok: 
+    {"lua:DisplayPlayerObjective(1, PLAYER0)", 0xb043c6bff385afd7ULL}, // 48 bytes; ok: 
+    {"lua:DisplayPlayerObjectiveWithPos(1, PLAYER0, 40, 40)", 0x48b478056c148cb5ULL}, // 46 bytes; ok: 
+    {"lua:DisplayPlayerInformation(2, PLAYER0)", 0x543407898c8703c8ULL}, // 22 bytes; ok: 
+    {"lua:DisplayPlayerInformationWithPos(2, PLAYER0, 40, 40)", 0x566c8fc340d4ef08ULL}, // 26 bytes; ok: 
+    {"lua:QuickPlayerObjective('golden', PLAYER0)", 0x9b2b62bbcae4c5a6ULL}, // 13 bytes; ok: 
+    {"lua:QuickPlayerObjectiveWithPos('golden', PLAYER0, 40, 40)", 0x1f289bfc26f6b688ULL}, // 11 bytes; ok: 
+    {"lua:QuickPlayerInformation(1, PLAYER0, 'golden')", 0x6abf3366fc45cc39ULL}, // 28 bytes; ok: 
+    {"lua:QuickPlayerInformationWithPos(1, PLAYER0, 'golden', 40, 40)", 0xe44eed657d966879ULL}, // 32 bytes; ok: 
+    {"lua:DisplayMessage(1)", 0x5260a11e68bc96a2ULL}, // 99 bytes; ok: 
+    {"lua:DisplayMessage(1, PLAYER0)", 0x5faa29ff347170f0ULL}, // 98 bytes; ok: 
+    {"lua:DisplayMessage(1, 'IMP')", 0xfa840a4d65e81a98ULL}, // 100 bytes; ok: 
+    {"lua:QuickMessage('golden')", 0xaf4147d8e87a27f7ULL}, // 63 bytes; ok: 
+    {"lua:QuickMessage('golden', PLAYER0)", 0x959879a8a4ccf777ULL}, // 62 bytes; ok: 
+    {"lua:QuickMessage('golden') ClearMessage()", 0xed29e4af1a66bfcdULL}, // 68 bytes; ok: 
+    {"lua:ClearMessage(1)", 0xa919f5bf3132b2a5ULL}, // 2 bytes; ok: 
+    {"lua:HeartLostObjective(1, PLAYER0)", 0xcbb38f5ad1bc24b2ULL}, // 3 bytes; ok: 
     {"lua:HeartLostQuickObjective('golden', PLAYER0)", 0xb54c35592250ccbdULL}, // 0 bytes; error: [string "HeartLostQuickObjective('golden', PLAYER0)"]:1: bad argument #1 to 'HeartLostQuickObjective' (number exp
-    {"lua:HeartLostQuickObjective(1, 'golden', PLAYER0)", 0x6b8daad684f225baULL}, // 10 bytes; ok: 
+    {"lua:HeartLostQuickObjective(1, 'golden', PLAYER0)", 0x4d2c2cc299722cc0ULL}, // 10 bytes; ok: 
     {"lua:PlayMessage(PLAYER0, 'SOUND', 1)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:PlayMessage(PLAYER0, 'SPEECH', 1)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:TutorialFlashButton('TREASURE', 100)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
@@ -82,8 +82,8 @@
     {"lua:DisplayVariableWithLabel(PLAYER0, 'TOTAL_CREATURES', 'IMP')", 0xfd9c7e26b2fd66d6ULL}, // 7 bytes; ok: 
     {"lua:DisplayVariable(PLAYER0, 'MONEY') HideVariable(PLAYER0, 'MONEY')", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:DisplayVariable(PLAYER0, 'NOT_A_VARIABLE')", 0xc336f62fe482b173ULL}, // 0 bytes; error: [string "DisplayVariable(PLAYER0, 'NOT_A_VARIABLE')"]:1: bad argument #2 to 'DisplayVariable' (Unknown variable, 
-    {"lua:SetBoxTooltip(1, 'golden')", 0x341df6fe9c808591ULL}, // 6 bytes; ok: 
-    {"lua:SetBoxTooltipId(1, 5)", 0x5fab8cbc04502c30ULL}, // 136 bytes; ok: 
+    {"lua:SetBoxTooltip(1, 'golden')", 0xc094f887354f3e91ULL}, // 6 bytes; ok: 
+    {"lua:SetBoxTooltipId(1, 5)", 0x001beeb66c496b70ULL}, // 136 bytes; ok: 
     {"lua:RevealMapLocation(PLAYER0, 1, 5)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:RevealMapRect(PLAYER0, 40, 40, 10, 10)", 0x832f8d37dfa010c5ULL}, // 225 bytes; ok: 
     {"lua:ConcealMapRect(PLAYER0, 40, 40, 10, 10)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
@@ -95,25 +95,25 @@
     {"lua:ChangeSlabOwner(33, 37, PLAYER_GOOD)", 0xfacb82c257901a2aULL}, // 70 bytes; ok: 
     {"lua:ChangeSlabOwner(33, 37, PLAYER_GOOD, 'MATCH')", 0x839e6d84546341b2ULL}, // 270 bytes; ok: 
     {"lua:ChangeSlabType(33, 37, 'LAVA')", 0x5575b8e4ed213855ULL}, // 570 bytes; ok: 
-    {"lua:ChangeSlabType(33, 37, 'GOLD', 'FLOOR')", 0x7035605f4d7f1913ULL}, // 6062 bytes; ok: 
+    {"lua:ChangeSlabType(33, 37, 'GOLD', 'FLOOR')", 0x68552cf71e2495cfULL}, // 6062 bytes; ok: 
     {"lua:ChangeSlabTexture(33, 37, 'ANCIENT')", 0x5e33bd96d63ff4ecULL}, // 2 bytes; ok: 
     {"lua:HideHeroGate(1, true)", 0x8a5c8faa07064443ULL}, // 25 bytes; ok: 
-    {"lua:AddHeartHealth(PLAYER0, -100, true)", 0xfe5c8f6ba6ff7b39ULL}, // 21 bytes; ok: 
+    {"lua:AddHeartHealth(PLAYER0, -100, true)", 0x329f71948f8b98f9ULL}, // 21 bytes; ok: 
     {"lua:AddHeartHealth(PLAYER0, 100, false)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:MakeSafe(PLAYER0)", 0x822c23b44eee091bULL}, // 87 bytes; ok: 
-    {"lua:MakeUnsafe(PLAYER0)", 0x57b6f65453da4ef8ULL}, // 5234 bytes; ok: 
+    {"lua:MakeUnsafe(PLAYER0)", 0x62de9736581c18caULL}, // 5234 bytes; ok: 
     {"lua:LocateHiddenWorld()", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:return AddObjectToLevel('GOLD_CHEST', 1, 500)", 0x45aa26f9598956c3ULL}, // 45 bytes; ok: Thing#126
     {"lua:return AddObjectToLevel('GOLD_CHEST', 1, 500, PLAYER0, 0)", 0xc42465f9598956c3ULL}, // 45 bytes; ok: Thing#126
     {"lua:return AddObjectToLevelAtPos('BARREL', 100, 112, 0)", 0x26df0f95dd1f8ab9ULL}, // 43 bytes; ok: Thing#126
     {"lua:return AddObjectToLevel('NOT_AN_OBJECT', 1, 0)", 0x93f67e3d178af56fULL}, // 0 bytes; error: bad argument #1 to '?' (unrecognized command)
-    {"lua:return AddShotToLevel('SHOT_FIREBALL', 1, PLAYER0, 'CreaturesOnly')", 0xe9664163e1387feeULL}, // 60 bytes; ok: Thing#126
+    {"lua:return AddShotToLevel('SHOT_FIREBALL', 1, PLAYER0, 'CreaturesOnly')", 0x783283cefe24fb42ULL}, // 60 bytes; ok: Thing#126
     {"lua:AddEffectGeneratorToLevel('EFFECTGENERATOR_LAVA', 1, 5)", 0x37e2bec10a66270bULL}, // 30 bytes; ok: 
     {"lua:return AddCorpseToLevel('TROLL', 1, 2)", 0x064800dba2678a7cULL}, // 33 bytes; ok: Thing#126
     {"lua:return AddCorpseToLevel('TROLL', 1, 2, true, PLAYER0)", 0x917ad6c58db47f3dULL}, // 31 bytes; ok: Thing#126
-    {"lua:return CreateEffect('EFFECT_EXPLOSION_1', 1, 0)", 0xb714d794cad96976ULL}, // 47 bytes; ok: Thing#8283
-    {"lua:return CreateEffectAtPos('EFFECT_EXPLOSION_1', 40, 40, 0)", 0xf9cbcafc6e439fbeULL}, // 47 bytes; ok: Thing#8283
-    {"lua:CreateEffectsLine(1, 2, 0, 1, 1, 'EFFECT_EXPLOSION_1')", 0xe74ccc97c4bbfba3ULL}, // 23 bytes; ok: 
+    {"lua:return CreateEffect('EFFECT_EXPLOSION_1', 1, 0)", 0xfc01d71f95c31b0aULL}, // 47 bytes; ok: Thing#8283
+    {"lua:return CreateEffectAtPos('EFFECT_EXPLOSION_1', 40, 40, 0)", 0xd33c31589ab111b2ULL}, // 47 bytes; ok: Thing#8283
+    {"lua:CreateEffectsLine(1, 2, 0, 1, 1, 'EFFECT_EXPLOSION_1')", 0x271e5714eee72d98ULL}, // 23 bytes; ok: 
     {"lua:NewCreatureType('GOLDEN')", 0x038dd0336a1f9661ULL}, // 16 bytes; ok: 
     {"lua:CopyCreatureType('TROLL', 'GOLDEN')", 0xb503371ad940277cULL}, // 379 bytes; ok: 
     {"lua:SetDoorConfiguration('WOOD', 'Health', 999)", 0x6fc4462a47b76718ULL}, // 4 bytes; ok: 
@@ -134,20 +134,20 @@
     {"lua:SetCreatureInstance('IMP', 1, 'FIREBALL', 1)", 0xd74d13f502e82400ULL}, // 9 bytes; ok: 
     {"lua:SetCreatureMaxLevel(PLAYER0, 'IMP', 5)", 0xcf798300356831daULL}, // 1 bytes; ok: 
     {"lua:SetCreatureTendencies(PLAYER0, 'IMPRISON', true)", 0x9c40eb0c0c783c24ULL}, // 0 bytes; error: [string "SetCreatureTendencies(PLAYER0, 'IMPRISON', true)"]:1: bad argument #3 to 'SetCreatureTendencies' (number
-    {"lua:SetCreatureTendencies(PLAYER0, 'IMPRISON', 1)", 0xa037ede0076524b3ULL}, // 2 bytes; ok: 
+    {"lua:SetCreatureTendencies(PLAYER0, 'IMPRISON', 1)", 0xa58fce70fa93da0cULL}, // 2 bytes; ok: 
     {"lua:SetCreatureTendencies(PLAYER0, 'FLEE', 0)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:CreatureEntranceLevel(PLAYER0, 3)", 0x9c331d9fd448a7dfULL}, // 1 bytes; ok: 
     {"lua:ChangeCreaturesAnnoyance(PLAYER0, 'IMP', 'SET', 100)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:Research(PLAYER0, 'MAGIC', 'POWER_LIGHTNING', 100)", 0xf860854ab9d8b7f9ULL}, // 2 bytes; ok: 
     {"lua:Research(PLAYER0, 'ROOM', 'TEMPLE', 100)", 0xc8d6458416bb4be9ULL}, // 2 bytes; ok: 
     {"lua:Research_order(PLAYER0, 'ROOM', 'TEMPLE', 100)", 0xb011342893272423ULL}, // 5 bytes; ok: 
-    {"lua:SetDigger(PLAYER0, 'TROLL')", 0x4ee39746bec645e5ULL}, // 1 bytes; ok: 
+    {"lua:SetDigger(PLAYER0, 'TROLL')", 0xb77a6318306c94d4ULL}, // 1 bytes; ok: 
     {"lua:SetTexture(PLAYER0, 'ANCIENT')", 0x9aa944d39b0a956bULL}, // 433 bytes; ok: 
     {"lua:SetHandGraphic(PLAYER0, 'Default')", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
-    {"lua:ComputerDigToLocation(PLAYER1, 1, 2)", 0x5a5f6249e2343873ULL}, // 34 bytes; ok: 
+    {"lua:ComputerDigToLocation(PLAYER1, 1, 2)", 0x1c32b8f41d28f7b7ULL}, // 34 bytes; ok: 
     {"lua:SetComputerProcess(PLAYER1, 'BUILD ALL ROOM 3x3', 0, 1, 2, 3, 4)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:SetComputerChecks(PLAYER1, 'CHECK MONEY', 100, 1, 2, 3, 4)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
-    {"lua:SetComputerGlobals(PLAYER1, 1, 2, 3, 4, 5, 6, 7)", 0x6b1d140c3dabdecdULL}, // 7 bytes; ok: 
+    {"lua:SetComputerGlobals(PLAYER1, 1, 2, 3, 4, 5, 6, 7)", 0xf7cf468689a4f1ceULL}, // 7 bytes; ok: 
     {"lua:SetComputerEvent(PLAYER1, 'EVENT DUNGEON BREACH', 100, 1, 2, 3, 0)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:UseSpecialIncreaseLevel(PLAYER0)", 0x0787d447794485b1ULL}, // 11 bytes; ok: 
     {"lua:UseSpecialIncreaseLevel(PLAYER0, -1)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
@@ -160,7 +160,7 @@
     {"lua:UseSpellOnCreature(C0(), 'SPELL_ARMOUR', 1)", 0x1dbab499afaf8560ULL}, // 109 bytes; ok: 
     {"lua:return PayForPower(PLAYER0, 'POWER_LIGHTNING', 1, false)", 0xe1b25df4e19d5db0ULL}, // 4 bytes; ok: true
     {"lua:SetMusic(2)", 0xcd7c9f7ee37b52e0ULL}, // 1 bytes; ok: 
-    {"lua:ZoomToLocation(PLAYER0, 1)", 0x75dece0aac2a3639ULL}, // 18 bytes; ok: 
+    {"lua:ZoomToLocation(PLAYER0, 1)", 0xdffae414ab3cc608ULL}, // 18 bytes; ok: 
     {"lua:LockPossession(PLAYER0, true)", 0xf344bf4961324a10ULL}, // 1 bytes; ok: 
     {"lua:print('golden')", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:RunDKScriptCommand('SET_FLAG(PLAYER0,FLAG0,7)')", 0xdaaeb270161e1a67ULL}, // 1 bytes; ok: 
@@ -233,15 +233,15 @@
     {"lua:return C0() == C0()", 0xe7ddae4e62ee81a4ULL}, // 0 bytes; ok: true
     {"lua:return C0().NOT_A_FIELD", 0x68db543597519e46ULL}, // 0 bytes; error: [string "return C0().NOT_A_FIELD"]:1: Unknown field or method 'NOT_A_FIELD' for Creature thing
     {"lua:C0():walk_to(40, 40)", 0x09f9c65f64f53713ULL}, // 25 bytes; ok: 
-    {"lua:C0():kill()", 0x13fc1d32367b8967ULL}, // 97 bytes; ok: 
+    {"lua:C0():kill()", 0x362cca6011ad30c6ULL}, // 97 bytes; ok: 
     {"lua:C0():stun(100)", 0x50ede8a2d43d4505ULL}, // 3 bytes; ok: 
     {"lua:C0():remove_from_play(100)", 0xe411aa02f78e6ee6ULL}, // 8 bytes; ok: 
     {"lua:C0():destroy()", 0x7f4f99c03d688b18ULL}, // 0 bytes; error: [string "C0():destroy()"]:1: calling 'destroy' on bad self (Expected an object)
-    {"lua:C0():delete()", 0xf41fcf030d251b86ULL}, // 109 bytes; ok: 
-    {"lua:C0():transform('TROLL', 2)", 0x2a5e8c117482db9bULL}, // 177 bytes; ok: 
-    {"lua:C0():transfer(PLAYER_GOOD)", 0x65fd64365e022372ULL}, // 140 bytes; ok: 
+    {"lua:C0():delete()", 0x5f479a2c1fc5a1a7ULL}, // 109 bytes; ok: 
+    {"lua:C0():transform('TROLL', 2)", 0x25df294645978c12ULL}, // 177 bytes; ok: 
+    {"lua:C0():transfer(PLAYER_GOOD)", 0x5e17c25fee3fba21ULL}, // 140 bytes; ok: 
     {"lua:C0():level_up(2)", 0xa0e23c33e64689b5ULL}, // 6 bytes; ok: 
-    {"lua:C0():teleport(1, 'EFFECT_EXPLOSION_1')", 0xdfd0463f3d505c6dULL}, // 112 bytes; ok: 
+    {"lua:C0():teleport(1, 'EFFECT_EXPLOSION_1')", 0x3df291e393802aebULL}, // 112 bytes; ok: 
     {"lua:C0():change_owner(PLAYER_GOOD)", 0x956027142175188fULL}, // 13 bytes; ok: 
     {"lua:C0():set_velocity(10, 0, 0)", 0x8cf4fa1e3e2ab775ULL}, // 9 bytes; ok: 
     {"lua:return C0():get_annoyance('NOT_PAID')", 0x7d8bcf55b7a206c6ULL}, // 0 bytes; ok: 0

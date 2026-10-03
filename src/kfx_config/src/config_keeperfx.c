@@ -99,7 +99,7 @@ int64_t api_enabled = false;
 int64_t api_port = 5599;
 uint64_t packetsave_max_kb = 0;
 uint64_t max_replays[ReplTyp_Count] = {5, 5, 10};
-TbBool autosave_replays = false;
+TbBool automatic_replays = false;
 uint64_t features_enabled = 0;
 TbBool exit_on_lua_error = false;
 TbBool FLEE_BUTTON_DEFAULT = false;
@@ -293,8 +293,7 @@ const struct NamedCommand conf_commands[] = {
   {"LOG_LEVEL"                     , 64},
   {"GPU_DEBUG"                     , 65},
   {"MAX_REPLAYS"                   , 66}, // upstream id 53 collides with the fork's UI_FONT
-  {"AUTOMATIC_REPLAYS"             , 67}, // upstream #5374's name (its id 52 collides with UI_FONT_SCALE)
-  {"AUTOSAVE_REPLAYS"              , 67}, // the fork's name for it before upstream #5374
+  {"AUTOMATIC_REPLAYS"             , 67}, // upstream #5374 (its id 52 collides with UI_FONT_SCALE)
   {NULL,                   0},
   };
 
@@ -1092,6 +1091,12 @@ void load_configuration_for_mod_all(void)
     }
 }
 
+// Settings in a KeeperFX keeperfx.cfg that aren't carried over: KeeperFX's default for them
+// isn't this game's. AUTOMATIC_REPLAYS: upstream ships it ON, replays are off here unless chosen.
+static const char *const kfx_base_config_keys_not_imported[] = {"AUTOMATIC_REPLAYS", NULL};
+
+static TbBool cfg_line_matches_key(const char *buf, int64_t line_start, int64_t line_end, const char *key);
+
 TbBool import_kfx_base_config(const char *ours, const char *theirs)
 {
     if (LbFileExists(ours) || !LbFileExists(theirs))
@@ -1100,10 +1105,38 @@ TbBool import_kfx_base_config(const char *ours, const char *theirs)
     if (len <= 0)
         return false;
     char *buf = (char *)KfxCalloc((size_t)len, 1);
-    if (buf == NULL)
+    char *copy = (char *)KfxCalloc((size_t)len, 1);
+    if ((buf == NULL) || (copy == NULL))
+    {
+        KfxFree(buf);
+        KfxFree(copy);
         return false;
-    const TbBool ok = (LbFileLoadAt(theirs, buf) == len) && (LbFileSaveAt(ours, buf, len) == len);
+    }
+    TbBool ok = (LbFileLoadAt(theirs, buf) == len);
+    // line by line, leaving out the lines of the keys not imported
+    int64_t copy_len = 0;
+    for (int64_t line_start = 0; ok && (line_start < len); )
+    {
+        int64_t line_end = line_start;
+        while ((line_end < len) && (buf[line_end] != '\n'))
+            line_end++;
+        const int64_t next = (line_end < len) ? line_end + 1 : line_end;
+        TbBool keep = true;
+        for (int64_t k = 0; kfx_base_config_keys_not_imported[k] != NULL; k++)
+        {
+            if (cfg_line_matches_key(buf, line_start, line_end, kfx_base_config_keys_not_imported[k]))
+                keep = false;
+        }
+        if (keep)
+        {
+            memcpy(copy + copy_len, buf + line_start, (size_t)(next - line_start));
+            copy_len += next - line_start;
+        }
+        line_start = next;
+    }
+    ok = ok && (LbFileSaveAt(ours, copy, copy_len) == copy_len);
     KfxFree(buf);
+    KfxFree(copy);
     if (ok)
         SYNCMSG("No %s yet: copied settings from \"%s\" (that file is left untouched)", keeper_config_file, theirs);
     else

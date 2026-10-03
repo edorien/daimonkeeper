@@ -1306,7 +1306,7 @@ static void append_git_sha(char *buf, size_t buflen)
  */
 TbBool setup_auto_replay_save(void)
 {
-    if (!autosave_replays)
+    if (!automatic_replays)
         return false;
 #ifdef FUNCTESTING
     if (flag_is_set(start_params.functest_flags, FTF_Enabled))

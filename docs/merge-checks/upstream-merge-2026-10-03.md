@@ -69,3 +69,14 @@ playing back real replays.
 Linux release (`./build-cmake-linux.sh`), Windows mingw (`KFX_OS=windows`) and a `KFX_FUNCTESTING=ON` build all
 succeed; the functest build needed `ftest_net_fake.c`'s `drop_user` and the ENet loopback ftest's call updated
 for the join-refusal reason.
+
+## Follow-ups (merged in 13fb5d0f4)
+- Replays: `AUTOMATIC_REPLAYS` is the only key (`AUTOSAVE_REPLAYS` gone); importing a KeeperFX `keeperfx.cfg`
+  leaves it out, so replays stay off unless chosen.
+- Lobby screen: the ImGui online lobbies screen shows state, players, version, the roster and why a lobby can't
+  be joined; a lobby name and maximum players for a created game.
+- ftest goldens: cheats, console_cmd, lua_api and script_legacy regenerated. Layout-only but for the
+  RUN_AFTER_VICTORY byte (3 cases) and #5381 (EditorRectSetOwner): the pre-merge binary with replay_active cut
+  and the new one with PlayerInfo's new fields cut print the same 1396 of 1400 hashes. All 94 ftests pass one
+  process each. In one process, `sim_state_continuity` fails before and after the merge alike (eye lens flag in
+  the sim state): finding P5-F23 in docs/refactor-pass5/.

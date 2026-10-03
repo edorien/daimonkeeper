@@ -37,6 +37,8 @@
 #include "front_lvlstats.h"
 #include "frontmenu_net.h"
 #include "front_network.h"
+#include "net_lobby.h"
+#include "bflib_netsession.h"
 #include "net_main.h" // FrontendNetService, MAX_NET_USERS, net_player[]/net_session[]/etc.
 #include "net_game.h" // setup_old_network_service
 #include "bflib_enet.h" // GetPing
@@ -2299,34 +2301,108 @@ namespace {
             frontnet_session_set_player_name(nullptr); // no gbtn use in its body -- safe, same idiom frontend.cpp's own frontnet_session_create(NULL) call already uses
         FeSeparator();
 
+        // Upstream #5373's lobby settings, for a game created here: its name (empty: the player's)
+        // and how many may join.
+        if (ImGui::BeginTable("##net_lobby_settings", 2, ImGuiTableFlags_SizingStretchSame))
+        {
+            ImGui::TableNextColumn();
+            FeCaption(get_string(GUIStr_NetLobbyName));
+            FeTextInput("##net_lobby_name", net_config_info.net_lobby_name, sizeof(net_config_info.net_lobby_name));
+            if (ImGui::IsItemDeactivatedAfterEdit())
+                net_write_config_file();
+            ImGui::TableNextColumn();
+            FeCaption(get_string(GUIStr_NetMaximumPlayers));
+            FeInputInt("##net_lobby_max_players", &net_lobby_max_players, 1, 1, MIN_NET_USERS, MAX_NET_USERS);
+            ImGui::EndTable();
+        }
+        FeSeparator();
+
         double content_h = ImGui::GetContentRegionAvail().y - fe_bottom_row_reserve();
         FeCaption(get_string(frontend_button_info[FEBtn_NetSessions].capstr_idx));
+        // One row per lobby: its name, what it's doing, how full it is, its game version (the
+        // metadata a host advertises, upstream #5373). A lobby that can't be joined is dimmed.
         bool sess_open = FeBeginListBox("##net_session_list", ImVec2(0, content_h * 0.55));
         if (sess_open)
         {
-            for (int64_t i = 0; i < net_number_of_sessions; i++)
+            if (ImGui::BeginTable("##net_session_table", 4, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg))
             {
-                if (net_session[i] == nullptr)
-                    continue;
-                bool selected = (i == net_session_index_active);
-                if (FeListRow(net_session[i]->text, selected))
-                    frontnet_session_select_by_index(i); // no frontend_set_state() involved -- safe to call directly, see its own comment
+                ImGui::TableSetupColumn(get_string(GUIStr_NetLobbyName), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+                ImGui::TableSetupColumn(get_string(GUIStr_NetState), ImGuiTableColumnFlags_WidthStretch, 1.2f);
+                ImGui::TableSetupColumn(get_string(frontend_button_info[FEBtn_MnuPlayers].capstr_idx), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                ImGui::TableSetupColumn(get_string(GUIStr_NetVersion), ImGuiTableColumnFlags_WidthStretch, 1.6f);
+                ImGui::TableHeadersRow();
+                for (int64_t i = 0; i < net_number_of_sessions; i++)
+                {
+                    const struct TbNetworkSessionNameEntry *session = net_session[i];
+                    if (session == nullptr)
+                        continue;
+                    const bool joinable = (net_session_join_rejection(session) == NetJoin_Accepted);
+                    if (!joinable)
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::PushID((int)i);
+                    if (ImGui::Selectable(session->text, i == net_session_index_active, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        do_sound_menu_click();
+                        frontnet_session_select_by_index(i); // no frontend_set_state() involved -- safe to call directly, see its own comment
+                    }
+                    ImGui::PopID();
+                    ImGui::TableNextColumn();
+                    TextStringId phase = GUIStr_NetUnknown;
+                    if (session->phase == NetPhase_Lobby)
+                        phase = GUIStr_NetInLobby;
+                    else if (session->phase == NetPhase_InGame)
+                        phase = GUIStr_NetInGame;
+                    else if (session->phase == NetPhase_InLandview)
+                        phase = GUIStr_NetInLandview;
+                    ImGui::TextUnformatted(get_string(phase));
+                    ImGui::TableNextColumn();
+                    char players[24];
+                    if (session->roster_known && session->max_players)
+                        std::snprintf(players, sizeof(players), "%d/%d", (int)session->player_count, (int)session->max_players);
+                    else if (session->roster_known)
+                        std::snprintf(players, sizeof(players), "%d", (int)session->player_count);
+                    else
+                        std::snprintf(players, sizeof(players), "?");
+                    ImGui::TextUnformatted(players);
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(session->version[0] ? session->version : get_string(GUIStr_NetUnknown));
+                    if (!joinable)
+                        ImGui::PopStyleColor();
+                }
+                ImGui::EndTable();
             }
         }
         FeEndListBox(sess_open);
+
+        const struct TbNetworkSessionNameEntry *selected_session = nullptr;
+        if ((net_session_index_active >= 0) && (net_session_index_active < net_number_of_sessions))
+            selected_session = net_session[net_session_index_active];
 
         FeCaption(get_string(frontend_button_info[FEBtn_MnuPlayers].capstr_idx));
         bool ply_open = FeBeginListBox("##net_session_players", ImVec2(0, content_h * 0.3));
         if (ply_open)
         {
-            for (int64_t i = 0; i < net_number_of_enum_players; i++)
-                FeListRow(net_player[i].name, false);
+            // the selected lobby's roster as it advertises it; else the players the session lists
+            if ((selected_session != nullptr) && selected_session->roster_known)
+            {
+                for (int64_t i = 0; i < selected_session->player_count; i++)
+                    FeListRow(selected_session->players[i], false);
+            } else if (net_number_of_enum_players > 0)
+            {
+                for (int64_t i = 0; i < net_number_of_enum_players; i++)
+                    FeListRow(net_player[i].name, false);
+            } else if (selected_session != nullptr)
+            {
+                ImGui::TextDisabled("%s", get_string(GUIStr_NetPlayerListUnavailable));
+            }
         }
         FeEndListBox(ply_open);
 
         FeSeparator();
-        bool can_join = (net_session_index_active >= 0) && (net_session_index_active < net_number_of_sessions)
-            && (net_session[net_session_index_active] != nullptr);
+        const enum NetJoinRejection refusal = (selected_session != nullptr) ? net_session_join_rejection(selected_session) : NetJoin_Accepted;
+        bool can_join = (selected_session != nullptr) && (refusal == NetJoin_Accepted);
         ImGui::BeginDisabled(!can_join);
         if (FeButton(get_string(frontend_button_info[FEBtn_NetJoinGame].capstr_idx)))
         {
@@ -2348,6 +2424,13 @@ namespace {
             int64_t next_state = frontnet_return_to_main_menu_resolve();
             if (next_state >= 0)
                 request_frontend_state((FrontendMenuState)next_state);
+        }
+        // why the selected lobby can't be joined
+        const char *refusal_text = net_join_error_text(refusal);
+        if (refusal_text != nullptr)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", refusal_text);
         }
 
         ImGui::End();

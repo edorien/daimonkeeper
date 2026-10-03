@@ -283,11 +283,11 @@ TEST_CASE_METHOD(DropFixture, "a replay notices when the level on disk is not th
     CHECK_FALSE(verify_replay_map_checksums());
 }
 
-// Autosaved replays (upstream #5359) are opt-in in this fork: AUTOSAVE_REPLAYS, off by default.
+// Autosaved replays (upstream #5359) are opt-in in this fork: AUTOMATIC_REPLAYS, off by default.
 namespace {
 struct AutosaveFixture : DropFixture {
     ReplayFile file; // scratch runtime dir, so replays/ lands in it
-    TbBool prev_autosave = autosave_replays;
+    TbBool prev_autosave = automatic_replays;
     uint64_t prev_max[ReplTyp_Count];
     AutosaveFixture() {
         std::memcpy(prev_max, max_replays, sizeof(prev_max));
@@ -297,22 +297,22 @@ struct AutosaveFixture : DropFixture {
         replay.fname[0] = '\0';
     }
     ~AutosaveFixture() {
-        autosave_replays = prev_autosave;
+        automatic_replays = prev_autosave;
         std::memcpy(max_replays, prev_max, sizeof(prev_max));
         set_file_path_port(nullptr);
     }
 };
 }
 
-TEST_CASE_METHOD(AutosaveFixture, "no replay is recorded while AUTOSAVE_REPLAYS is off", "[kfx_game][game_replay]") {
-    autosave_replays = false;
+TEST_CASE_METHOD(AutosaveFixture, "no replay is recorded while AUTOMATIC_REPLAYS is off", "[kfx_game][game_replay]") {
+    automatic_replays = false;
     CHECK_FALSE(setup_auto_replay_save());
     CHECK_FALSE(replay.save_enable);
     CHECK(replay.fname[0] == '\0');
 }
 
-TEST_CASE_METHOD(AutosaveFixture, "with AUTOSAVE_REPLAYS on, a campaign level records to replays/campaign/", "[kfx_game][game_replay]") {
-    autosave_replays = true;
+TEST_CASE_METHOD(AutosaveFixture, "with AUTOMATIC_REPLAYS on, a campaign level records to replays/campaign/", "[kfx_game][game_replay]") {
+    automatic_replays = true;
     REQUIRE(setup_auto_replay_save());
     CHECK(replay.save_enable);
     const std::string fname = replay.fname;
@@ -324,7 +324,7 @@ TEST_CASE_METHOD(AutosaveFixture, "with AUTOSAVE_REPLAYS on, a campaign level re
 }
 
 TEST_CASE_METHOD(AutosaveFixture, "MAX_REPLAYS 0 for the kind records nothing", "[kfx_game][game_replay]") {
-    autosave_replays = true;
+    automatic_replays = true;
     max_replays[ReplTyp_Campaign] = 0;
     CHECK_FALSE(setup_auto_replay_save());
     CHECK_FALSE(replay.save_enable);
@@ -332,7 +332,7 @@ TEST_CASE_METHOD(AutosaveFixture, "MAX_REPLAYS 0 for the kind records nothing", 
 
 TEST_CASE_METHOD(AutosaveFixture, "a new recording evicts the oldest ones of its kind beyond MAX_REPLAYS", "[kfx_game][game_replay]") {
     namespace fs = std::filesystem;
-    autosave_replays = true;
+    automatic_replays = true;
     max_replays[ReplTyp_Campaign] = 2; // room for one old one plus the new one
     const fs::path dir = file.root / "replays" / "campaign";
     fs::create_directories(dir);

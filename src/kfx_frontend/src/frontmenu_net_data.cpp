@@ -39,6 +39,7 @@
 #include "net_lobby.h"
 #include "sprites.h"
 #include "custom_sprites.h"
+#include <cctype>
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -250,8 +251,27 @@ void frontnet_draw_session_button(struct GuiButton *gbtn)
  */
 int64_t frontnet_session_create_resolve(void)
 {
-    // Create a new session using the player name as the session name.
-    // Append a number to the session name if it already exists.
+    // The lobby name the player chose (upstream #5373), trimmed; without one, the player name,
+    // numbered if a lobby of that name exists.
+    char lobby_name[sizeof(net_config_info.net_lobby_name)];
+    const char *chosen = net_config_info.net_lobby_name;
+    while (isspace((unsigned char)*chosen))
+        chosen++;
+    snprintf(lobby_name, sizeof(lobby_name), "%s", chosen);
+    for (size_t length = strlen(lobby_name); (length > 0) && isspace((unsigned char)lobby_name[length - 1]); )
+        lobby_name[--length] = '\0';
+    if (lobby_name[0] != '\0')
+    {
+        uint64_t plyr_num;
+        if (LbNetwork_Create(lobby_name, net_player_name, &plyr_num, nullptr))
+        {
+            process_network_error(-801);
+            return -1;
+        }
+        frontend_set_player_number(plyr_num);
+        fe_computer_players = 0;
+        return FeSt_NET_START;
+    }
     int64_t idx = 0;
     for (int64_t i = 0; i < net_number_of_sessions; i++)
     {

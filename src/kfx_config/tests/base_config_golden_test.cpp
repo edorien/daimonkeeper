@@ -87,7 +87,7 @@ struct State {
         install = install_info; start = start_params; atmos_volume = atmos_sound_volume;
         atmos_start = AtmosStart; atmos_end = AtmosEnd; atmos_repeat = AtmosRepeat; display = display_id;
         api_en = api_enabled; api_p = api_port; enet_p = enet_port; mouse_grab = lbMouseGrab; vsync = vsync_enabled;
-        autosave = autosave_replays; exit_lua = exit_on_lua_error; flee = FLEE_BUTTON_DEFAULT;
+        autosave = automatic_replays; exit_lua = exit_on_lua_error; flee = FLEE_BUTTON_DEFAULT;
         imprison = IMPRISON_BUTTON_DEFAULT; vid_scale = vid_scale_flags; packetsave = packetsave_max_kb;
         std::memcpy(replays, max_replays, sizeof(replays));
         config_fields[0] = kfx_config_state.atmos_sound_frequency;
@@ -101,7 +101,7 @@ struct State {
         install_info = install; start_params = start; atmos_sound_volume = atmos_volume;
         AtmosStart = atmos_start; AtmosEnd = atmos_end; AtmosRepeat = atmos_repeat; display_id = display;
         api_enabled = api_en; api_port = api_p; enet_port = enet_p; lbMouseGrab = mouse_grab; vsync_enabled = vsync;
-        autosave_replays = autosave; exit_on_lua_error = exit_lua; FLEE_BUTTON_DEFAULT = flee;
+        automatic_replays = autosave; exit_on_lua_error = exit_lua; FLEE_BUTTON_DEFAULT = flee;
         IMPRISON_BUTTON_DEFAULT = imprison; vid_scale_flags = vid_scale; packetsave_max_kb = packetsave;
         std::memcpy(max_replays, replays, sizeof(replays));
         kfx_config_state.atmos_sound_frequency = config_fields[0];
@@ -119,7 +119,7 @@ uint64_t state_hash() {
     h.add_v(start_params); h.add_v(atmos_sound_volume); h.add_v(AtmosStart); h.add_v(AtmosEnd); h.add_v(AtmosRepeat);
     h.add_v(display_id); h.add_v(api_enabled); h.add_v(api_port); h.add_v(enet_port);
     const TbBool grab = lbMouseGrab;
-    h.add_v(grab); h.add_v(vsync_enabled); h.add_v(autosave_replays); h.add_v(exit_on_lua_error);
+    h.add_v(grab); h.add_v(vsync_enabled); h.add_v(automatic_replays); h.add_v(exit_on_lua_error);
     h.add_v(FLEE_BUTTON_DEFAULT); h.add_v(IMPRISON_BUTTON_DEFAULT); h.add_v(vid_scale_flags); h.add_v(packetsave_max_kb);
     h.add(max_replays, sizeof(max_replays)); h.add_v(kfx_config_state.atmos_sound_frequency); h.add_v(kfx_config_state.zoom_distance_setting);
     h.add_v(kfx_config_state.frontview_zoom_distance_setting);
