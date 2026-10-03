@@ -5,6 +5,8 @@
 // It only prepares the world and hands over: gives the rival keeper stock, a creature, a power, gold and a
 // claimed corridor for a door; then pauses the game as the agent's pause and waits. The Python client claims
 // the seat, plays, and signals with script flags on PLAYER0 -- FLAG1 = ready (set here), FLAG0 = 1 done / 2 failed.
+// FLAG2 asks this side to save (1) and then load that save (2), which only the game itself can do: the client checks
+// the GAME_SAVED / GAME_LOADED events it gets and that its agent memory comes back as saved (09-persistent-memory.md).
 // All assertions about what the agent sees and does live in the client; this side fails only if the client never
 // finishes or reports failure.
 #include "ftest_ai_bridge_smoke.h"
@@ -26,6 +28,8 @@
 #include "dungeon_data.h"
 #include "external_seat.h"
 #include "frontend.h"
+#include "game_saves.h"
+#include "kfx_sim_state.h"
 #include "player_data.h"
 #include "thing_list.h"
 
@@ -38,6 +42,9 @@ extern "C" {
 #define WAIT_LIMIT_MS 180000
 
 static TbClockMSec s_wait_started = 0;
+// Not in the dungeon's script flags: those come back from the save as they were when it was made.
+static int s_saveload_phase = 0;
+#define SAVELOAD_SLOT 7
 
 void ftest_ai_bridge_smoke_pre_start()
 {
@@ -49,6 +56,7 @@ FTestActionResult bridge_a02_wait_for_client(struct FTestActionArgs* const args)
 
 TbBool ftest_ai_bridge_smoke_init()
 {
+    s_saveload_phase = 0;
     ftest_append_action(bridge_a01_prepare_and_hand_over, 0, NULL);
     ftest_append_action(bridge_a02_wait_for_client, 1, NULL);
     return true;
@@ -98,6 +106,26 @@ FTestActionResult bridge_a01_prepare_and_hand_over(struct FTestActionArgs* const
 FTestActionResult bridge_a02_wait_for_client(struct FTestActionArgs* const args)
 {
     const int64_t done = get_players_dungeon(get_player(my_player_number))->script_flags[0];
+    const int64_t saveload = get_players_dungeon(get_player(my_player_number))->script_flags[2];
+    if ((s_saveload_phase == 0) && (saveload == 1))
+    {
+        s_saveload_phase = 1;
+        fill_game_catalogue_slot(SAVELOAD_SLOT, "ai_bridge_smoke");
+        const TbBool paused = flag_is_set(kfx_sim_state.operation_flags, GOF_Paused);
+        set_flag(kfx_sim_state.operation_flags, GOF_Paused);
+        if (!save_game(SAVELOAD_SLOT))
+            FTESTLOG("save for the client failed");
+        if (!paused)
+            clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
+        return FTRs_Repeat_Current_Action;
+    }
+    if ((s_saveload_phase == 1) && (saveload == 2))
+    {
+        s_saveload_phase = 2;
+        if (!load_game(SAVELOAD_SLOT))
+            FTESTLOG("load for the client failed");
+        return FTRs_Repeat_Current_Action;
+    }
     if (done == 1)
     {
         // The one thing the client can't see over the API: its claim_seat/release_seat of the local human's own

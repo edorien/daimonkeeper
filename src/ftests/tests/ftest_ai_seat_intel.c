@@ -1,6 +1,7 @@
 // What the agent is told about its own dungeon beyond raw lists: what research has unlocked (rooms, traps, doors; research is
 // the creatures' job, the agent only needs the result), the army per creature kind (count, levels, health) with a profile of each
-// kind it owns (what it is good at, its pay and hunger, abilities), and the imprison/flee tendencies with the set_tendency verb.
+// kind it owns (what it is good at, its pay and hunger, abilities), and the imprison/flee tendencies with the set_tendency verb
+// (imprison only with a prison: NO_PRISON otherwise, as the panel button).
 #include "ftest_ai_seat_intel.h"
 #include "thing_stats.h"
 
@@ -28,6 +29,7 @@
 #include "game_legacy.h"
 #include "net_game.h"
 #include "player_data.h"
+#include "player_availability.h"
 #include "room_data.h"
 #include "slab_data.h"
 #include "thing_list.h"
@@ -172,8 +174,20 @@ FTestActionResult i02_check_view_toggle(struct FTestActionArgs* const args)
     { const char* e = extseat_submit_verb(U, P, &x, NULL); CHECK_TRUE("an unknown tendency is refused", e && strcmp(e, "UNKNOWN_KIND") == 0); }
     x = tend("imprison", imprison_before ? 1 : 0);
     { const char* e = extseat_submit_verb(U, P, &x, NULL); CHECK_TRUE("setting what is already set is refused", e && strcmp(e, "ALREADY_SET") == 0); }
-    x = tend("imprison", imprison_before ? 0 : 1);
-    { const char* e = extseat_submit_verb(U, P, &x, NULL); CHECK_TRUE("flipping it is accepted", e == NULL); }
+    // Imprison needs a prison, as the panel button does (player_has_room_of_role(RoRoF_Prison)): refused without one,
+    // accepted once one is built. This seat must start with neither, or the rule is not being exercised.
+    const TbBool had_prison = player_has_room_of_role(P, RoRoF_Prison);
+    FTESTLOG("seat starts with imprison %d, prison %d", (int)imprison_before, (int)had_prison);
+    CHECK_TRUE("the seat starts with imprison off and no prison (else the NO_PRISON rule goes untested)", !imprison_before && !had_prison);
+    x = tend("imprison", 1);
+    { const char* e = extseat_submit_verb(U, P, &x, NULL); CHECK_TRUE("imprison with no prison is refused", e && strcmp(e, "NO_PRISON") == 0); }
+    const struct Thing* heart = find_players_dungeon_heart(P);
+    const MapSlabCoord hsx = subtile_slab(heart->mappos.x.stl.num), hsy = subtile_slab(heart->mappos.y.stl.num);
+    set_room_available(P, RoK_PRISON, 1, 1);
+    ftest_util_replace_slabs(hsx - 4, hsy + 6, hsx - 2, hsy + 8, SlbT_PRISON, P);
+    CHECK_TRUE("the prison was built", player_has_room_of_role(P, RoRoF_Prison));
+    x = tend("imprison", 1);
+    { const char* e = extseat_submit_verb(U, P, &x, NULL); CHECK_TRUE("with a prison, switching imprison on is accepted", e == NULL); }
     return FTRs_Go_To_Next_Action;
 }
 

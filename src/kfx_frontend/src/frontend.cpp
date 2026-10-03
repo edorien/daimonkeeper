@@ -3006,6 +3006,7 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
           if (!is_campaign_loaded()) {
               change_campaign(CampgnT_Default,"");
           }
+          frontend_keeper_name_load();
           turn_on_menu(GMnu_FEMAIN);
           kfx_frontend_state.last_mouse_x = GetMouseX();
           kfx_frontend_state.last_mouse_y = GetMouseY();

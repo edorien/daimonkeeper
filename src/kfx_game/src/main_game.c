@@ -80,6 +80,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "local_state.h"
+#include "agent_memory.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -644,6 +645,8 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
 {
     SYNCDBG(0,"Starting up network game");
     stop_streamed_samples();
+    // A new level: no agent remembers anything about it yet (a loaded save brings its own, game_saves.c).
+    agent_memory_clear_all();
     uint64_t flgmem;
     struct PlayerInfo *player;
     setup_count_players();
@@ -668,6 +671,7 @@ void startup_network_game(CoroutineLoop *context, TbBool local)
         kfx_sim_state.game_kind = GKind_LocalGame;
         net_clear_external_seats();
         init_players_local_game(&kfx_net_state.packet_save_head);
+        net_apply_keeper_name(my_player_number);
         if (AssignCpuKeepers || campaign.assignCpuKeepers) {
             ShouldAssignCpuKeepers = 1;
         }

@@ -271,15 +271,21 @@ CrCheckRet process_kinky_function(struct Thing *thing)
     return CrCkRet_Available;
 }
 
-void convert_creature_to_ghost(struct Room *room, struct Thing *thing)
+ThingModel torture_death_kind(const struct Thing *thing, const struct Room *room)
 {
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
+    const struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
     ThingModel crmodel = crconf->torture_kind;
     if ((crmodel > kfx_config_state.conf.crtr_conf.model_count) || (crmodel <= 0))
     {
         // If not assigned or is unknown, default to the room creature creation.
         crmodel = get_room_create_creature_model(room->kind);
     }
+    return crmodel;
+}
+
+void convert_creature_to_ghost(struct Room *room, struct Thing *thing)
+{
+    ThingModel crmodel = torture_death_kind(thing, room);
     struct Thing* newthing = INVALID_THING;
     if (creature_count_below_map_limit(1))
     {

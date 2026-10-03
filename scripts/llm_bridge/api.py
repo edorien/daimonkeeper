@@ -6,6 +6,10 @@ import socket
 import time
 
 
+# What a seat's bridge listens for: a decision is due, the game left the level, a save was loaded, the game was saved.
+SESSION_EVENTS = ("DECISION_DUE", "GAME_ENDED", "GAME_LOADED", "GAME_SAVED")
+
+
 class ApiError(Exception):
     """The game answered success=false. `code` is the stable error code (NOT_AVAILABLE, STALE_VIEW, ...)."""
 
@@ -72,12 +76,14 @@ class Api:
         return line
 
     def wait_event(self, name, timeout):
-        """The next pushed event called `name` (its whole dict), or None after `timeout` seconds. Other events are discarded."""
+        """The next pushed event called `name` (its whole dict), or None after `timeout` seconds. `name` may be a tuple of
+        names to wait for any of them. Other events are discarded."""
+        names = (name,) if isinstance(name, str) else tuple(name)
         deadline = time.time() + timeout
         while True:
             while self.events:
                 ev = self.events.popleft()
-                if ev.get("event") == name:
+                if ev.get("event") in names:
                     return ev
             line = self._read_line(max(0.0, deadline - time.time()))
             if line is None:
@@ -87,7 +93,9 @@ class Api:
                 self.events.append(resp)
 
     def drain_events(self, name):
-        """Pushed events called `name` that are already here (without waiting), oldest first."""
+        """Pushed events called `name` (or any of a tuple of names) that are already here (without waiting), oldest
+        first."""
+        names = (name,) if isinstance(name, str) else tuple(name)
         out = []
         while True:
             line = self._read_line(0.0) if (b"\n" in self.buf or select.select([self.sock], [], [], 0)[0]) else None
@@ -98,7 +106,7 @@ class Api:
                 self.events.append(resp)
         keep = collections.deque()
         for ev in self.events:
-            (out if ev.get("event") == name else keep).append(ev)
+            (out if ev.get("event") in names else keep).append(ev)
         self.events = keep
         return out
 

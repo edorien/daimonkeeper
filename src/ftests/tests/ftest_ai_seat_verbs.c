@@ -136,6 +136,8 @@ FTestActionResult v01_setup(struct FTestActionArgs* const args)
     dg()->total_money_owned += 5000;
     // Traps and doors are placed on the seat's own claimed floor; doors also need wall on two opposite sides.
     ftest_util_replace_slabs(subtile_slab(vars.hx), subtile_slab(vars.hy) + 2, subtile_slab(vars.hx), subtile_slab(vars.hy) + 2, SlbT_CLAIMED, vars.player);
+    // The seat must have seen where it builds (the verbs are checked against the seat's own view, as a human's cursor is).
+    ftest_util_reveal_map(vars.player);
     const MapSlabCoord dsx = subtile_slab(vars.hx) + 4, dsy = subtile_slab(vars.hy);
     ftest_util_replace_slabs(dsx - 1, dsy, dsx + 1, dsy, SlbT_CLAIMED, vars.player);
     ftest_util_replace_slabs(dsx - 1, dsy - 1, dsx + 1, dsy - 1, SlbT_WALLDRAPE, PLAYER_NEUTRAL);
@@ -203,6 +205,9 @@ FTestActionResult v06_slap_check_pick(struct FTestActionArgs* const args)
 FTestActionResult v07_pick_check_drop(struct FTestActionArgs* const args)
 {
     const struct Thing* c = thing_get(vars.crtr);
+    // The pick waits for the slap's whip and whip-end to finish (the engine ignores a hand action until then).
+    if ((thing_is_invalid(c) || !thing_is_picked_up(c)) && (args->intended_start_at_game_turn > 0)
+     && ((int64_t)get_gameturn() < args->intended_start_at_game_turn + 100)) return FTRs_Repeat_Current_Action;
     if (thing_is_invalid(c) || !thing_is_picked_up(c)) SOFT_FAIL("pick_up did not pick the creature up");
     submit_ok("drop", verb_at(ESV_Drop, NULL, vars.hx - 3, vars.hy + 3));
     return FTRs_Go_To_Next_Action;

@@ -61,6 +61,8 @@ void reset_attempting_to_join_cancel(void);
 TbBool attempting_to_join_cancel_requested(void);
 void setup_alliances(void);
 void frontnet_service_setup(void);
+/** Loads the keeper name (kept in the network config file) if nothing has set it yet this session. */
+void frontend_keeper_name_load(void);
 void frontnet_session_setup(void);
 void frontnet_start_setup(void);
 void frontnet_service_update(void);

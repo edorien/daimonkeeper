@@ -35,10 +35,22 @@ extern "C" {
  *  costs a creature its pay or its food (see extseat_auto_releases). */
 #define EXTSEAT_MAX_ORDERED 32
 #define EXTSEAT_AUTO_RELEASE_RING 8
-/** Release when pay day is this close (turns), or the creature is owed pay, or its hunger reaches 3/4 of its limit. */
+/** Release when an enemy attacks it, pay day is this close (turns), the creature is owed pay, or its hunger reaches 3/4
+ *  of its limit. */
 #define EXTSEAT_ORDER_PAYDAY_MARGIN_TURNS 300
 /** The shortest hold an order may ask for. The default hold is a quarter of the pay day gap, the longest half of it. */
 #define EXTSEAT_ORDER_MIN_HOLD_TURNS 200
+/** How long a hand step waits for the hand to be free, or for the picked creature to reach it, before giving up. */
+#define EXTSEAT_HAND_WAIT_TURNS 30
+/** send_message: at most this many characters (the engine's PLAYER_MP_MESSAGE_LEN, less its terminator), and at most
+ *  one message per this many turns -- short messages, not a stream. */
+#define EXTSEAT_CHAT_MAX_LEN 63
+#define EXTSEAT_CHAT_MIN_TURNS 100
+#define EXTSEAT_CHAT_LOG 16
+/** How long a build_room waits for the seat's previous room drag to finish building before giving up (BUILD_BUSY). */
+#define EXTSEAT_BUILD_WAIT_TURNS 600
+/** Most things one pick_up_and_drop may carry (the hand's own limit, rules MaxThingsInHand, is checked too). */
+#define EXTSEAT_MAX_HAND_SET 16
 /** Verbs that may wait behind the running gesture (submitted with queue=true), and results remembered per seat. */
 #define EXTSEAT_MAX_QUEUED_VERBS 16
 #define EXTSEAT_RESULT_RING 16
@@ -61,6 +73,12 @@ enum ExtSeatVerbKind {
     ESV_SetTendency,     /**< imprison / flee tendency of all the seat's creatures: name "imprison" or "flee", `enabled` */
     ESV_ReleaseCreature, /**< hand an ordered creature back to its normal behaviour */
     ESV_SetAlliance,     /**< declare (or withdraw) alliance with `target_player`: `enabled` */
+    ESV_PickUpAndDrop,   /**< pick things up with the hand (our creatures, our prisoners, food) and drop them at one spot */
+    ESV_UnmarkDig,       /**< take the dig marks off the marked slabs of a rectangle */
+    ESV_SetDoorLock,     /**< lock (`enabled`) or unlock one of our doors, at `pos` */
+    ESV_PowerOff,        /**< end a lasting power early: POWER_CALL_TO_ARMS, POWER_SIGHT, POWER_OBEY */
+    ESV_UseSpecial,      /**< use a dungeon special box (thing_id); resurrect needs `name` + `level`, transfer `target_thing` */
+    ESV_SendMessage,     /**< a short chat message to every player (`message`) */
 };
 
 /** A verb as the agent expressed it, already parsed out of JSON. Positions are subtile coordinates. */
@@ -80,6 +98,18 @@ struct ExtSeatVerb {
     int64_t expires_turn;   /**< 0 = never; else the verb is refused/dropped if it has not started by this game turn */
     TbBool has_target_player; /**< set_alliance: `target_player` was given */
     int64_t target_player;
+    int64_t thing_ids[EXTSEAT_MAX_HAND_SET]; /**< pick_up_and_drop: several things in one trip (in place of thing_id) */
+    int64_t thing_count;
+    TbBool has_room;        /**< pick_up_and_drop / drop: `room_id` in place of `pos`, resolved to a spot inside it */
+    int64_t room_id;
+    TbBool has_direction;   /**< slap on a trap that shoots (a boulder): the way it goes, as a map angle */
+    int64_t direction_angle;
+    int64_t level;          /**< use_special (resurrect): the dead creature's level, 1-based */
+    TbBool has_target_thing; /**< use_special (transfer): the creature to transfer */
+    int64_t target_thing;
+    char message[64];       /**< send_message: the text (PLAYER_MP_MESSAGE_LEN) */
+    TbBool release;         /**< hand drops: dropping a prisoner outside your prison/torture chamber frees it; say so */
+    TbBool sacrifice;       /**< hand drops: onto a temple pool (sacrificing the creature); refused otherwise */
 };
 
 /** What became of a submitted verb: it finished writing its steps, or was refused when its turn came. */
@@ -93,7 +123,7 @@ struct ExtSeatResult {
 /** A creature handed back to its own behaviour by the safety net rather than by the agent. */
 struct ExtSeatAutoRelease {
     int64_t thing_id;
-    char reason[16];        /**< "max_hold", "payday", "owed_pay", "hungry", "agent_lost", "seat_released" */
+    char reason[16];        /**< "attacked", "max_hold", "payday", "owed_pay", "hungry", "agent_lost", "seat_released" */
     int64_t turn;
 };
 
@@ -112,6 +142,14 @@ struct ExtSeatStep {
     uint64_t control_flags;
     unsigned char context;  /**< cursor state carried with the position (CSt_PickAxe for digging) */
     ThingIndex follow_thing; /**< if set, the position is that creature's subtile at the moment the step is written */
+    TbBool hand_set_drop;   /**< drops the top of the hand if it is one of the running verb's things (pick_up_and_drop);
+                             *   when none of them is left in the hand the verb ends: PICK_UP_FAILED if none arrived,
+                             *   PARTIAL if only some did -- whatever else might be held is never dropped */
+    TbBool send_chat;       /**< the running verb's message goes into the player's pending chat message before this step */
+    TbBool wait_build_free; /**< held back while the seat's previous room drag is still being built (one slab per turn):
+                             *   the engine drops a new drag outright while one is in progress */
+    TbBool wait_hand_free;  /**< held back while the hand is still grabbing or dropping (the engine ignores a hand action
+                             *   then); gives up with HAND_BUSY after EXTSEAT_HAND_WAIT_TURNS */
 };
 
 /** Steps of a serpentine brush that tags every slab of the rectangle (see ftest_ai_gesture_drag_verbs for why a
@@ -136,6 +174,31 @@ const char *extseat_submit_verb_ex(NetUserId user, PlayerNumber plyr_idx, const 
 const char *extseat_check_verb(NetUserId user, PlayerNumber plyr_idx, const struct ExtSeatVerb *verb, int64_t *out_steps);
 /** Recent automatic releases, oldest first; returns how many were copied. */
 int64_t extseat_auto_releases(NetUserId user, struct ExtSeatAutoRelease *out, int64_t max);
+/** build_room planning with the engine's own per-slab rule (can_build_room_at_slab), in the order it builds: returns
+ *  how many slabs of the rectangle would take the room; `corner_out` (may be NULL) is the drag start corner to use (0
+ *  top-left, 1 bottom-right, 2 top-right, 3 bottom-left -- only matters for bridges, which need the player's land beside
+ *  each slab by its turn); the slabs that would not are written to `bad_xy` (up to `max_bad` x,y pairs) and counted in
+ *  `bad_count`. */
+int64_t extseat_room_build_check(PlayerNumber plyr_idx, RoomKind rkind, int64_t x0, int64_t y0, int64_t x1, int64_t y1,
+    int *corner_out, int64_t *bad_xy, int64_t max_bad, int64_t *bad_count);
+/** A chat message as the game delivered it (any player's, the seat's own included). */
+struct ExtSeatChat {
+    int64_t player;
+    char text[64];
+    int64_t turn;
+};
+/** Called for every chat message the game delivers (process_gameplay_chat_message). */
+void extseat_note_chat(PlayerNumber plyr_idx, const char *text);
+/** How many chat messages have been delivered this game (for spotting new ones). */
+int64_t extseat_chat_total(void);
+/** Recent chat messages, oldest first; returns how many were copied. */
+int64_t extseat_chat_log(struct ExtSeatChat *out, int64_t max);
+/** extseat_plan_dig_sweep starting from a chosen corner (0 top-left, 1 bottom-right, 2 top-right, 3 bottom-left): a
+ *  pickaxe drag tags or untags depending on its first slab, so mark_dig starts on one not already marked. */
+int64_t extseat_plan_dig_sweep_from(struct ExtSeatStep *out, int64_t max, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int corner);
+/** Rectangles (x0, y0, x1, y1 slab quads) of mark_dig verbs submitted but not all tagged yet: the running one and the
+ *  queued ones, in order. Returns how many were written (at most `max`). */
+int64_t extseat_pending_dig_rects(NetUserId user, int64_t *out4, int64_t max);
 /** Creatures currently tracked as ordered by this seat. */
 int64_t extseat_ordered_count(NetUserId user);
 /** Hands every creature this seat has ordered back to its normal behaviour now. */

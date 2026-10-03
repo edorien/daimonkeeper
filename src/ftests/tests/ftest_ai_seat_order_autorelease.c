@@ -1,7 +1,8 @@
 // M6c safety net: a creature sent somewhere with move_creature is handed back automatically, so an order the agent forgets
 // never costs it pay or food. Conditions: the order's hold time (max_hold), pay day close (payday), pay owed (owed_pay),
-// hunger at 3/4 of its limit (hungry), the agent's connection lost (agent_lost). The same conditions refuse a new order up
-// front (PAYDAY_TOO_CLOSE, OWED_PAY, HUNGRY), and an oversized hold is BAD_HOLD. The view reports what was released and why.
+// hunger at 3/4 of its limit (hungry), an enemy attacking it (attacked: a held creature does not fight back on its own),
+// the agent's connection lost (agent_lost). The pay and hunger conditions also refuse a new order up front
+// (PAYDAY_TOO_CLOSE, OWED_PAY, HUNGRY), and an oversized hold is BAD_HOLD. The view reports what was released and why.
 #include "ftest_ai_seat_order_autorelease.h"
 #include "thing_stats.h"
 
@@ -24,6 +25,7 @@
 #include "config_players.h"
 #include "creature_control.h"
 #include "creature_states.h"
+#include "creature_states_combt.h"
 #include "dungeon_data.h"
 #include "external_seat.h"
 #include "frontend.h"
@@ -32,6 +34,7 @@
 #include "net_game.h"
 #include "player_data.h"
 #include "slab_data.h"
+#include "thing_creature.h"
 #include "thing_list.h"
 
 #include "post_inc.h"
@@ -85,6 +88,9 @@ FTestActionResult ar07_trigger_conditions(struct FTestActionArgs* const args);
 FTestActionResult ar08_check_conditions(struct FTestActionArgs* const args);
 FTestActionResult ar09_check_payday_order_last(struct FTestActionArgs* const args);
 FTestActionResult ar10_wait_arrive3(struct FTestActionArgs* const args);
+FTestActionResult ar10b_order_for_attack(struct FTestActionArgs* const args);
+FTestActionResult ar10c_attack_held_creature(struct FTestActionArgs* const args);
+FTestActionResult ar10d_check_attacked(struct FTestActionArgs* const args);
 FTestActionResult ar11_lost_agent_and_view(struct FTestActionArgs* const args);
 
 void ftest_ai_seat_order_autorelease_pre_start() { fe_computer_players = 1; }
@@ -102,6 +108,9 @@ TbBool ftest_ai_seat_order_autorelease_init()
     ftest_append_action(ar08_check_conditions, 2, NULL);
     ftest_append_action(ar09_check_payday_order_last, 1, NULL);
     ftest_append_action(ar10_wait_arrive3, 1, NULL);
+    ftest_append_action(ar10b_order_for_attack, 1, NULL);
+    ftest_append_action(ar10c_attack_held_creature, 1, NULL);
+    ftest_append_action(ar10d_check_attacked, 1, NULL);
     ftest_append_action(ar11_lost_agent_and_view, 1, NULL);
     return true;
 }
@@ -227,6 +236,46 @@ FTestActionResult ar10_wait_arrive3(struct FTestActionArgs* const args)
     return manual(4) ? FTRs_Go_To_Next_Action : FTRs_Repeat_Current_Action;
 }
 
+static ThingIndex s_hero = 0;
+static GameTurn s_hero_creation = 0;
+
+FTestActionResult ar10b_order_for_attack(struct FTestActionArgs* const args)
+{
+    // Creature 0 (free since its max_hold release) is held well away from creature 4, which stays held for ar11.
+    CHECK_TRUE("order for the attacked case", submit(mv(0, -8, 0)) == NULL);
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult ar10c_attack_held_creature(struct FTestActionArgs* const args)
+{
+    if (!extseat_idle(U) || !manual(0)) return FTRs_Repeat_Current_Action;
+    struct Thing* hero = ftest_util_create_creature(subtile_coord_center(T(0)->mappos.x.stl.num - 2), subtile_coord_center(T(0)->mappos.y.stl.num),
+        PLAYER_GOOD, 1, (ThingModel)creature_model_id("THIEF"));
+    if (thing_is_invalid(hero)) { SOFT_FAIL("no hero to attack with"); return FTRs_Go_To_Next_Action; }
+    s_hero = hero->index; s_hero_creation = hero->creation_turn;
+    // The same entry point a hero uses when it picks a fight: registers it in the held creature's opponent list.
+    CHECK_TRUE("the hero engages the held creature", set_creature_in_combat_to_the_death(hero, T(0), AttckT_Melee));
+    s_mark = (int64_t)get_gameturn();
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult ar10d_check_attacked(struct FTestActionArgs* const args)
+{
+    struct Thing* hero = thing_get(s_hero);
+    const TbBool hero_alive = !thing_is_invalid(hero) && thing_is_creature(hero) && (hero->creation_turn == s_hero_creation);
+    const TbBool released = !manual(0) && released_for(0, "attacked");
+    // Handed back, and then actually fighting: in combat, or it has already killed the hero.
+    if (released && (!hero_alive || T(0)->active_state == CrSt_CreatureInCombat)) {
+        if (hero_alive) kill_creature(hero, INVALID_THING, P, CrDed_NoEffects);
+        return FTRs_Go_To_Next_Action;
+    }
+    if ((int64_t)get_gameturn() < s_mark + 200) return FTRs_Repeat_Current_Action;
+    SOFT_FAIL("an attacked held creature was not handed back to fight: manual %d, released(attacked) %d, state %s, hero alive %d",
+        (int)manual(0), (int)released_for(0, "attacked"), creature_state_code_name(T(0)->active_state), (int)hero_alive);
+    if (hero_alive) kill_creature(hero, INVALID_THING, P, CrDed_NoEffects);
+    return FTRs_Go_To_Next_Action;
+}
+
 FTestActionResult ar11_lost_agent_and_view(struct FTestActionArgs* const args)
 {
     CHECK_TRUE("held before the connection drops", manual(4) && extseat_ordered_count(U) == 1);
@@ -239,15 +288,15 @@ FTestActionResult ar11_lost_agent_and_view(struct FTestActionArgs* const args)
     VALUE* seat = value_dict_get(&v, "seat");
     CHECK_TRUE("the view counts none held now", value_int64(value_dict_get(seat, "ordered_creatures")) == 0);
     VALUE* ar = value_dict_get(seat, "auto_released");
-    CHECK_TRUE("the view lists the five releases with their reasons", ar && value_array_size(ar) == 5);
-    TbBool has_reason[5] = {0};
-    static const char* reasons[5] = { "max_hold", "hungry", "owed_pay", "payday", "agent_lost" };
+    CHECK_TRUE("the view lists the six releases with their reasons", ar && value_array_size(ar) == 6);
+    TbBool has_reason[6] = {0};
+    static const char* reasons[6] = { "max_hold", "hungry", "owed_pay", "payday", "attacked", "agent_lost" };
     for (size_t k = 0; ar && k < value_array_size(ar); k++)
-        for (int r = 0; r < 5; r++) if (strcmp(value_string(value_dict_get(value_array_get(ar, k), "reason")), reasons[r]) == 0) has_reason[r] = true;
-    for (int r = 0; r < 5; r++) if (!has_reason[r]) SOFT_FAIL("the view does not list a release for %s", reasons[r]);
+        for (int r = 0; r < 6; r++) if (strcmp(value_string(value_dict_get(value_array_get(ar, k), "reason")), reasons[r]) == 0) has_reason[r] = true;
+    for (int r = 0; r < 6; r++) if (!has_reason[r]) SOFT_FAIL("the view does not list a release for %s", reasons[r]);
     value_fini(&v);
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " safety-net check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
-    FTESTLOG("Test passed: forgotten orders are handed back on hold time, pay day, owed pay, hunger and a lost agent");
+    FTESTLOG("Test passed: forgotten orders are handed back on hold time, pay day, owed pay, hunger, an attack and a lost agent");
     return FTRs_Go_To_Next_Action;
 }
 

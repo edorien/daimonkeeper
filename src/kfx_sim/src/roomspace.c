@@ -758,7 +758,10 @@ void get_dungeon_build_user_roomspace(struct RoomSpace *roomspace, NetUserId use
         ustate->ignore_next_PCtr_LBtnRelease = false;
         return;
     }
-    if (!player->render_roomspace.drag_mode) // reset drag start slab
+    // Reset the drag start slab -- also on a fresh press, as the sell path does: the release leaves
+    // one_click_lock_cursor set, and only a packet with map coordinates clears it again, so a press that follows
+    // packets without any (an External seat's idle step) would otherwise inherit the previous drag's start slab.
+    if (!player->render_roomspace.drag_mode || ((pckt->control_flags & PCtr_LBtnClick) != 0))
     {
         player->render_roomspace.drag_start_x = slb_x;
         player->render_roomspace.drag_start_y = slb_y;

@@ -106,6 +106,10 @@ void kill_oldest_my_event(struct Dungeon *dungeon);
 void event_kill_all_players_events(int64_t plyr_idx);
 void event_process_events(void);
 void update_all_events(void);
+/** The text the event box shows for `event` when `plyr_idx` opens it (the title for its kind plus whatever detail
+ *  the kind carries, or the objective / information / quick message text). No UI side effects: the External-seat
+ *  view reports the same text. */
+void event_text_for(const struct Event *event, PlayerNumber plyr_idx, char *buf, size_t len);
 /******************************************************************************/
 #ifdef __cplusplus
 }

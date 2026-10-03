@@ -56,9 +56,10 @@ TOOLS = [
                 "host": {"type": "string", "description": "default 127.0.0.1"},
                 "port": {"type": "integer", "description": "default 5599 (keeperfx.cfg API_PORT)"},
                 "claim": {"type": "integer", "description": "convert this player's computer keeper into the seat, if the game did not already make one"},
-                "memory_path": {"type": "string", "description": "JSON file to keep your plan/notes/decisions in across restarts"},
                 "min_interval_turns": {"type": "integer", "description": "least game turns between two decision-due notices (default 100)"},
                 "takeover": {"type": "boolean", "description": "let the built-in AI take the seat if this connection drops"},
+                "experience_path": {"type": "string", "description": "sqlite file of game records and lessons across games (default: experience.sqlite in the bridge's own folder; \"\" to play without one)"},
+                "agent": {"type": "string", "description": "a name for you in the game records (default: the MCP client's name)"},
             },
         },
     },
@@ -72,7 +73,9 @@ TOOLS = [
         "description": ("Waits for the game to say a decision is due (each quarter of a pay day, or an event such as a fight, "
                          "an attack, a breach, a new creature kind), up to timeout_seconds. Returns due=false if none arrived in "
                          "time (call it again); due=true with the full state text to decide from otherwise. Call submit_orders "
-                         "right after a due=true result."),
+                         "right after a due=true result. When the level is won or lost (or the game leaves it) the result has game_over=true "
+                         "and victory_state, and usually a debrief: answer it with record_debrief. After game over only "
+                         "record_debrief, get_experience, get_log_tail and disconnect are accepted."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -142,6 +145,22 @@ TOOLS = [
         },
     },
     {
+        "name": "get_recipes",
+        "description": "The active temple sacrifice recipes (listed once you own a temple): which creatures, dropped into the pool together, do what.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "get_experience",
+        "description": "Your lessons from earlier games that apply to this one (playbook, campaign, level, opponents) and your record here, in full: shown at the start of a game, and again here on demand.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "record_debrief",
+        "description": ("After a game ends (wait_for_decision gave game_over with a debrief): keep what it taught you. The summary "
+                         "goes on the game's record; each lessons text you give replaces that set of lessons (omit one to keep it)."),
+        "inputSchema": {"type": "object", "properties": prompt.DEBRIEF_PROPERTIES},
+    },
+    {
         "name": "disconnect",
         "description": "Close the connection to the game. Call this when you are done playing.",
         "inputSchema": {"type": "object", "properties": {}},
@@ -181,6 +200,15 @@ def _dispatch_tool(session, name, args):
         return session.set_speed(args["turns_per_second"])
     if name == "get_log_tail":
         return session.log_tail(args.get("lines", 100))
+    if name == "get_recipes":
+        return session.recipes()
+    if name == "get_experience":
+        return session.experience_text()
+    if name == "record_debrief":
+        return json.dumps(session.record_debrief(summary=args.get("summary"), playbook=args.get("playbook"),
+                                                 campaign_lessons=args.get("campaign_lessons"),
+                                                 level_lessons=args.get("level_lessons"),
+                                                 opponent_lessons=args.get("opponent_lessons")))
     if name == "disconnect":
         return session.disconnect()
     raise KeyError(name)
@@ -197,6 +225,9 @@ class Server:
         is_notification = "id" not in req
         try:
             if method == "initialize":
+                client = ((req.get("params") or {}).get("clientInfo") or {}).get("name")
+                if client:
+                    self.session.client_name = client
                 result = {"protocolVersion": PROTOCOL_VERSION, "capabilities": {"tools": {}, "prompts": {}},
                           "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION}}
             elif method == "notifications/initialized":

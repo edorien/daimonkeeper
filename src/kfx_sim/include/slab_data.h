@@ -72,6 +72,11 @@ uint64_t slabmap_wlb(struct SlabMap *slb);
 void slabmap_set_wlb(struct SlabMap *slb, uint64_t wlb_type);
 SlabCodedCoords get_next_slab_number_in_room(SlabCodedCoords slab_num);
 int64_t calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, PlayerNumber plyr_idx, int64_t synergy_slab_num);
+/** How one side of a room slab scores toward the room's efficiency (calculate_room_efficiency): 2 for more of the
+ *  same room (or its synergy slab), your own reinforced wall or door; 1 for natural earth, rock, gold, gems or someone
+ *  else's wall; 0 for anything else (open floor, a corridor, another room, liquid). `continues_room` (may be NULL) is
+ *  whether that side keeps the slab an inside slab. The External-seat view reports the 0-point sides as open_sides. */
+int64_t room_slab_side_score(SlabCodedCoords slab_num, SlabCodedCoords round_slab_num, int64_t synergy_slab_num, TbBool *continues_room);
 
 TbBool slab_is_safe_land(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
 TbBool slab_is_door(MapSlabCoord slb_x, MapSlabCoord slb_y);

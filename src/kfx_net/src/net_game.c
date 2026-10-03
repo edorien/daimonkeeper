@@ -263,6 +263,20 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
     return user;
 }
 
+TbBool keeper_name_is_set(void)
+{
+    return (net_player_name[0] != '\0') && (strcmp(net_player_name, get_string(GUIStr_MnuNoName)) != 0);
+}
+
+void net_apply_keeper_name(PlayerNumber plyr_idx)
+{
+    if ((plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT) || !keeper_name_is_set()) {
+        return;
+    }
+    struct PlayerInfo *player = get_player(plyr_idx);
+    snprintf(player->player_name, sizeof(player->player_name), "%s", net_player_name);
+}
+
 TbBool net_release_external_seat(PlayerNumber plyr_idx)
 {
     if ((plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT) || network_is_active()) {

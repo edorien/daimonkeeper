@@ -39,6 +39,8 @@
 # above; personal editor config, not shared project config.
 .idea/
 __pycache__/
+# The bridge keeps its experience store next to itself (scripts/llm_bridge/experience.py)
+scripts/llm_bridge/experience.sqlite*
 *.pyc
 # Scratch/manual build output outside the documented build-cmake.sh/Makefile
 # output dirs.

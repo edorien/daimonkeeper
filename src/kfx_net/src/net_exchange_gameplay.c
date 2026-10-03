@@ -42,6 +42,7 @@
 #include "ports/ui_port.h"
 #include "ports/game_port.h"
 #include "ports/session_loop_port.h"
+#include "external_seat.h"
 #include "post_inc.h"
 
 // Owning definition: this file manages the multiplayer clock-adjustment
@@ -166,6 +167,7 @@ void process_gameplay_chat_message(NetUserId user, const char *message)
     struct PlayerInfo *player = prepare_network_chat_message(plyr_idx, message);
     if (message[0] != '\0') {
         SYNCLOG("Gameplay chat from user %" PRId64 " (player %" PRId64 "): %s", (int64_t)user, (int64_t)plyr_idx, message);
+        extseat_note_chat(plyr_idx, player->mp_message_text); // External seats read the chat as the players do
         script_lua_on_chatmsg(plyr_idx, player->mp_message_text);
         if (player->mp_message_text[0] != cmd_char || !game_cmd_exec(plyr_idx, player->mp_message_text + 1) || network_is_active()) {
             ui_message_add(MsgType_Player, plyr_idx, player->mp_message_text);

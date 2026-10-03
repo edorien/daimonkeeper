@@ -21,6 +21,7 @@ class Api:
         self.sock = None
         self.buf = b""
         self.ack = 0
+        self.events = []     # pushed events that arrived while waiting for a reply
 
     def connect(self, timeout=90.0):
         deadline = time.time() + timeout
@@ -39,19 +40,45 @@ class Api:
             self.sock.close()
             self.sock = None
 
-    def call(self, **req):
-        self.ack += 1
-        req["ack"] = self.ack
-        self.sock.sendall((json.dumps(req) + "\n").encode())
+    def _line(self):
         while b"\n" not in self.buf:
             chunk = self.sock.recv(65536)
             if not chunk:
                 raise ConnectionError("server closed the connection")
             self.buf += chunk
         line, self.buf = self.buf.split(b"\n", 1)
-        resp = json.loads(line)
-        assert resp.get("ack") == self.ack, "response does not match the request: %r" % resp
-        return resp
+        return json.loads(line)
+
+    def call(self, **req):
+        self.ack += 1
+        req["ack"] = self.ack
+        self.sock.sendall((json.dumps(req) + "\n").encode())
+        while True:
+            resp = self._line()
+            if "event" in resp and "ack" not in resp:
+                self.events.append(resp)
+                continue
+            assert resp.get("ack") == self.ack, "response does not match the request: %r" % resp
+            return resp
+
+    def wait_event(self, name, timeout):
+        """The first pushed event called `name` (earlier ones of other names are kept), or None after `timeout` s."""
+        deadline = time.time() + timeout
+        while True:
+            for i, ev in enumerate(self.events):
+                if ev.get("event") == name:
+                    return self.events.pop(i)
+            if time.time() > deadline:
+                return None
+            self.sock.settimeout(max(0.05, deadline - time.time()))
+            try:
+                resp = self._line()
+            except socket.timeout:
+                continue
+            finally:
+                self.sock.settimeout(5)
+            if "event" in resp and "ack" not in resp:
+                self.events.append(resp)
 
 
 def check(what, cond, detail=""):
@@ -152,7 +179,7 @@ def main():
     check("unrevealed slabs are '..' (the map is not fully known)", any(".." in [r[i:i + 2] for i in range(0, len(r), 2)] for r in m["rows"]))
     check("the map legend names the slab kinds seen", len(m["legend"]) >= 2 and all("kind" in e for e in m["legend"]))
     check("the visible section is present and lists nothing the seat cannot see yet",
-          set(v["visible"]) == {"creatures", "rooms", "traps", "doors"} and all(c["owner"] != 1 for c in v["visible"]["creatures"]))
+          set(v["visible"]) == {"creatures", "rooms", "traps", "doors", "force_by_owner"} and all(c["owner"] != 1 for c in v["visible"]["creatures"]))
     print("     (view is %d bytes)" % len(json.dumps(v)))
     orc = orcs[0]
     hx, hy = orc["pos"][0] + 3, orc["pos"][1]  # the heart is 3 subtiles east of where the creature was made
@@ -186,8 +213,10 @@ def main():
     r = api.call(action="submit_action", player=SEAT, verb="slap", thing_id=orc["id"])
     check("a slap is accepted once the level is old enough", r.get("success"), repr(r))
     advance(api, SEAT, 3)
-    expect_error(api, "a second slap is refused while the first runs (so the first ran)", "SLAP_NOT_READY",
-                 action="submit_action", player=SEAT, verb="slap", thing_id=orc["id"])
+    # A second slap while the first's whip still plays is accepted and waits for it (the engine would ignore it
+    # otherwise), so slaps can be batched.
+    r = api.call(action="submit_action", player=SEAT, verb="slap", thing_id=orc["id"], queue=True)
+    check("a second slap while the first runs is accepted (it waits for the whip)", r.get("success"), repr(r))
     advance(api, SEAT, 40)
 
     expect_error(api, "drop with an empty hand is refused", "HAND_EMPTY", action="submit_action", player=SEAT, verb="drop", pos=[hx - 3, hy + 3])
@@ -419,6 +448,41 @@ def main():
     r2 = api.call(action="get_log_tail")
     check("a default (no lines given) is used", r2.get("success") and len(r2["data"]["lines"]) >= len(r["data"]["lines"]), repr(r2))
     check("the lines look like real log output, not something made up", all((":" in l) for l in r2["data"]["lines"]), r2["data"]["lines"][:3])
+
+    # Players (09-persistent-memory.md section 6.8): the view names everyone in the level; a seat can name itself.
+    players = {e["player"]: e for e in view(api, SEAT).get("players", [])}
+    check("players[] lists the seat as external, with its default name", players.get(SEAT, {}).get("kind") == "external" and players[SEAT].get("name", "").startswith("External"), repr(players.get(SEAT)))
+    check("players[] lists the local human", players.get(0, {}).get("kind") == "human", repr(players.get(0)))
+    expect_error(api, "set_player_name needs a name", "MISSING_NAME", action="set_player_name", player=SEAT)
+    expect_error(api, "a name longer than the game keeps is refused", "NAME_TOO_LONG", action="set_player_name", player=SEAT, name="x" * 20)
+    expect_error(api, "a control character in a name is refused", "BAD_NAME", action="set_player_name", player=SEAT, name="a\nb")
+    expect_error(api, "only a seat can be named", "NOT_A_VALID_SEAT", action="set_player_name", player=0, name="Robin")
+    r = api.call(action="set_player_name", player=SEAT, name="Claude")
+    check("the seat names itself", r.get("success"), repr(r))
+    players = {e["player"]: e for e in view(api, SEAT).get("players", [])}
+    check("the view shows the seat's new name", players.get(SEAT, {}).get("name") == "Claude", repr(players.get(SEAT)))
+
+    # Agent memory (09-persistent-memory.md): the game keeps one opaque text per seat and saves it with the game.
+    expect_error(api, "set_agent_memory needs data", "MISSING_DATA", action="set_agent_memory", player=SEAT)
+    expect_error(api, "a memory over 64 KiB is refused", "MEMORY_TOO_LARGE", action="set_agent_memory", player=SEAT, data="x" * 65537)
+    expect_error(api, "a player that is not a seat has no memory to set", "NOT_A_VALID_SEAT", action="set_agent_memory", player=0, data="x")
+    r = api.call(action="set_agent_memory", player=SEAT, data='{"plan": "A \u00e9"}')
+    check("set_agent_memory is accepted", r.get("success"), repr(r))
+    r = api.call(action="get_agent_memory", player=SEAT)
+    check("get_agent_memory gives back exactly what was set", r.get("success") and r["data"]["data"] == '{"plan": "A \u00e9"}', repr(r))
+    for ev in ("GAME_SAVED", "GAME_LOADED"):
+        api.call(action="subscribe_event", event=ev)
+    turn_saved = view(api, SEAT)["turn"]
+    api.call(action="set_var", var="FLAG2", value=1, player=0)          # the game side saves
+    ev = api.wait_event("GAME_SAVED", 30)
+    check("a save is announced with its turn", ev is not None and ev["data"]["turn"] >= turn_saved, repr(ev))
+    api.call(action="set_agent_memory", player=SEAT, data='{"plan": "B"}')
+    api.call(action="set_var", var="FLAG2", value=2, player=0)          # the game side loads that save
+    ev_loaded = api.wait_event("GAME_LOADED", 30)
+    check("a load in the running game is announced, with the saved turn", ev_loaded is not None and ev is not None and ev_loaded["data"]["turn"] == ev["data"]["turn"], repr(ev_loaded))
+    r = api.call(action="get_agent_memory", player=SEAT)
+    check("after the load the seat's memory is the one saved, not the later one", r.get("success") and r["data"]["data"] == '{"plan": "A \u00e9"}', repr(r))
+    check("the seat is still a seat after the load", api.call(action="get_player_view", player=SEAT).get("success"))
 
     # Report to the game side.
     status = 2 if failures else 1

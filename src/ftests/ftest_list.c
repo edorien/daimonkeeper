@@ -35,6 +35,19 @@
 #include "tests/ftest_ai_seat_decision.h"
 #include "tests/ftest_ai_seat_order_creature.h"
 #include "tests/ftest_ai_seat_order_autorelease.h"
+#include "tests/ftest_ai_seat_dig_reach.h"
+#include "tests/ftest_ai_seat_pick_up_and_drop.h"
+#include "tests/ftest_ai_seat_scenario_text.h"
+#include "tests/ftest_ai_seat_force.h"
+#include "tests/ftest_ai_seat_room_quality.h"
+#include "tests/ftest_ai_seat_custody.h"
+#include "tests/ftest_ai_seat_custody_torture.h"
+#include "tests/ftest_ai_seat_temple_graveyard.h"
+#include "tests/ftest_ai_seat_build_checks.h"
+#include "tests/ftest_ai_seat_parity_actions.h"
+#include "tests/ftest_ai_seat_specials_gold.h"
+#include "tests/ftest_ai_seat_agent_memory.h"
+#include "tests/ftest_ai_seat_players.h"
 #include "tests/ftest_ai_gesture_order_creature.h"
 #include "tests/ftest_ai_seat_diff.h"
 #include "tests/ftest_ai_seat_powers.h"
@@ -113,6 +126,19 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_diff",                      .init_func=ftest_ai_seat_diff_init,                     .pre_start_func=ftest_ai_seat_diff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_creature",            .init_func=ftest_ai_seat_order_creature_init,           .pre_start_func=ftest_ai_seat_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_autorelease",         .init_func=ftest_ai_seat_order_autorelease_init,        .pre_start_func=ftest_ai_seat_order_autorelease_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_dig_reach",                 .init_func=ftest_ai_seat_dig_reach_init,                .pre_start_func=ftest_ai_seat_dig_reach_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_pick_up_and_drop",          .init_func=ftest_ai_seat_pick_up_and_drop_init,         .pre_start_func=ftest_ai_seat_pick_up_and_drop_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_scenario_text",             .init_func=ftest_ai_seat_scenario_text_init,             .pre_start_func=ftest_ai_seat_scenario_text_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_force",                     .init_func=ftest_ai_seat_force_init,                     .pre_start_func=ftest_ai_seat_force_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_room_quality",              .init_func=ftest_ai_seat_room_quality_init,              .pre_start_func=ftest_ai_seat_room_quality_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_custody",                   .init_func=ftest_ai_seat_custody_init,                   .pre_start_func=ftest_ai_seat_custody_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_custody_torture",           .init_func=ftest_ai_seat_custody_torture_init,           .pre_start_func=ftest_ai_seat_custody_torture_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_temple_graveyard",          .init_func=ftest_ai_seat_temple_graveyard_init,          .pre_start_func=ftest_ai_seat_temple_graveyard_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_build_checks",              .init_func=ftest_ai_seat_build_checks_init,              .pre_start_func=ftest_ai_seat_build_checks_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_parity_actions",            .init_func=ftest_ai_seat_parity_actions_init,            .pre_start_func=ftest_ai_seat_parity_actions_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_specials_gold",             .init_func=ftest_ai_seat_specials_gold_init,             .pre_start_func=ftest_ai_seat_specials_gold_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_agent_memory",              .init_func=ftest_ai_seat_agent_memory_init,              .pre_start_func=ftest_ai_seat_agent_memory_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_players",                   .init_func=ftest_ai_seat_players_init,                   .pre_start_func=ftest_ai_seat_players_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_decision",                  .init_func=ftest_ai_seat_decision_init,                 .pre_start_func=ftest_ai_seat_decision_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_intel",                     .init_func=ftest_ai_seat_intel_init,                    .pre_start_func=ftest_ai_seat_intel_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_alliance",                  .init_func=ftest_ai_seat_alliance_init,                 .pre_start_func=ftest_ai_seat_alliance_pre_start, .level_file="original", .level=60, .frame_skip=8 },

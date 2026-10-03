@@ -30,6 +30,7 @@ extern "C" {
 #pragma pack(1)
 
 struct Thing;
+struct Room;
 
 enum CreatureTortureVisualStates {
     CTVS_TortureRandMove,
@@ -47,6 +48,9 @@ int64_t at_torture_room(struct Thing *thing);
 CrStateRet torturing(struct Thing *thing);
 CrCheckRet process_torture_function(struct Thing *thing);
 int64_t cleanup_torturing(struct Thing *thing);
+/** What a torture victim dying in `room` becomes for the room's owner (its kind's torture_kind, else the room's
+ *  creation model); whether it does is ghost_convert_chance. */
+ThingModel torture_death_kind(const struct Thing *thing, const struct Room *room);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -12,6 +12,17 @@ def summarize(order):
         bits.append("slabs%s" % (order["slab_rect"],))
     if order.get("pos"):
         bits.append("at%s" % (order["pos"],))
+    if order.get("to_room") is not None:
+        bits.append("to room %s" % order["to_room"])
+    if order.get("thing_ids"):
+        bits.append("things %s" % (order["thing_ids"],))
+    if order.get("direction"):
+        bits.append("towards %s" % order["direction"])
+    if order.get("message"):
+        bits.append('"%s"' % order["message"])
+    for flag in ("release", "sacrifice"):
+        if order.get(flag):
+            bits.append(flag)
     if order.get("name"):
         bits.append(order["name"])
     elif order.get("thing_id") is not None:
@@ -30,10 +41,13 @@ def submit_batch(api, seat, orders, decision_turn, max_age_turns, dry_run=False,
     import prompt   # local import: avoids a hard dependency for callers that only want summarize()
 
     sent, refused = [], []
+    batch_digs = []   # a dry run queues nothing, so the batch's earlier mark_digs are passed on as already marked
     for order in orders:
         req = prompt.order_to_request(order, seat, decision_turn, max_age_turns, memory=memory)
         if dry_run:
             req["dry_run"] = True
+            if batch_digs:
+                req["assume_dig_rects"] = list(batch_digs)
         r = api.call(**req)
         if r.get("success"):
             entry = {"verb": order.get("verb"), "summary": summarize(order)}
@@ -41,6 +55,17 @@ def submit_batch(api, seat, orders, decision_turn, max_age_turns, dry_run=False,
                 entry.update({"would_succeed": True, "steps": r["data"].get("steps")})
             else:
                 entry.update({"id": r["data"].get("id"), "behind": r["data"].get("queued_behind")})
+            if r["data"].get("warning") == "UNREACHABLE":
+                slabs = r["data"].get("unreachable_slabs") or []
+                entry["warning"] = "UNREACHABLE: %d slab(s) no imp can reach, e.g. %s -- extend the rectangle to touch walkable floor" % (
+                    r["data"].get("unreachable_count", len(slabs)), " ".join("(%d,%d)" % (x, y) for x, y in slabs[:8]))
+            elif r["data"].get("warning") == "PARTLY_UNBUILDABLE":
+                slabs = r["data"].get("unbuildable_slabs") or []
+                entry["warning"] = ("PARTLY_UNBUILDABLE: %d slab(s) will not take the room, e.g. %s -- rooms need your claimed floor; "
+                                    "a bridge needs water/lava with your land beside it" % (
+                                        r["data"].get("unbuildable_count", len(slabs)), " ".join("(%d,%d)" % (x, y) for x, y in slabs[:8])))
+            if order.get("verb") == "mark_dig" and order.get("slab_rect"):
+                batch_digs.append(list(order["slab_rect"]))
             sent.append(entry)
         else:
             refused.append({"verb": order.get("verb"), "error": r.get("error"), "summary": summarize(order)})

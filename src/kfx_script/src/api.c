@@ -48,6 +48,8 @@
 #include "player_instances.h"
 #include "game_legacy.h"
 #include "console_cmd.h"
+#include "agent_memory.h"
+#include "api_framing.h"
 #include "post_inc.h"
 #include "value_util.h"
 
@@ -176,6 +178,69 @@ size_t get_max_flags()
  * Send raw bytes over the active client socket (blocking until all sent or error).
  * Replaces SDLNet_TCP_Send().
  */
+
+// mark_dig: a corridor that touches no walkable ground is accepted (the engine tags it) but no imp can ever dig it, so
+// the reply warns and lists the slabs of the rectangle that would stay out of reach.
+// build_room: slabs of the rectangle the room would not take (not the seat's claimed floor; a bridge with no land
+// beside it by its turn) -- the rest is built, so the reply warns and names them.
+static void add_build_warning(VALUE *data, PlayerNumber plyr_idx, const struct ExtSeatVerb *verb)
+{
+    if ((verb->kind != ESV_BuildRoom) || !verb->has_rect) return;
+    const int64_t rkind = get_rid(room_desc, verb->name);
+    if (rkind < 1) return;
+    int64_t xy[2 * 32], nbad = 0;
+    extseat_room_build_check(plyr_idx, (RoomKind)rkind, verb->slab_x0, verb->slab_y0, verb->slab_x1, verb->slab_y1, NULL, xy, 32, &nbad);
+    if (nbad == 0) return;
+    value_init_string(value_dict_add(data, "warning"), "PARTLY_UNBUILDABLE");
+    value_init_int32(value_dict_add(data, "unbuildable_count"), (int32_t)nbad);
+    VALUE *arr = value_dict_add(data, "unbuildable_slabs");
+    value_init_array(arr);
+    for (int64_t i = 0; (i < nbad) && (i < 32); i++) {
+        VALUE *e = value_array_append(arr);
+        value_init_array(e);
+        value_init_int32(value_array_append(e), (int32_t)xy[2 * i]);
+        value_init_int32(value_array_append(e), (int32_t)xy[2 * i + 1]);
+    }
+}
+
+// `assume` (optional): a dry run's "assume_dig_rects", the batch's earlier mark_dig rectangles, counted as marked.
+static void add_dig_reach_warning(VALUE *data, PlayerNumber plyr_idx, const struct ExtSeatVerb *verb, VALUE *assume)
+{
+    if ((verb->kind != ESV_MarkDig) || !verb->has_rect) {
+        return;
+    }
+    int64_t extra[4 * 16];
+    int64_t n_extra = 0;
+    if (value_type(assume) == VALUE_ARRAY) {
+        for (size_t i = 0; (i < value_array_size(assume)) && (n_extra < 16); i++) {
+            VALUE *q = value_array_get(assume, i);
+            if ((value_type(q) != VALUE_ARRAY) || (value_array_size(q) != 4)) continue;
+            TbBool ok = true;
+            for (size_t k = 0; k < 4; k++) {
+                VALUE *c = value_array_get(q, k);
+                if (value_type(c) != VALUE_INT32) { ok = false; break; }
+                extra[4 * n_extra + (int64_t)k] = value_int32(c);
+            }
+            if (ok) n_extra++;
+        }
+    }
+    const int64_t rect[4] = { verb->slab_x0, verb->slab_y0, verb->slab_x1, verb->slab_y1 };
+    int64_t xy[2 * 32];
+    const int64_t n = api_seat_unreachable_dig_slabs(plyr_idx, extra, n_extra, rect, xy, 32);
+    if (n == 0) {
+        return;
+    }
+    value_init_string(value_dict_add(data, "warning"), "UNREACHABLE");
+    value_init_int32(value_dict_add(data, "unreachable_count"), (int32_t)n);
+    VALUE *arr = value_dict_add(data, "unreachable_slabs");
+    value_init_array(arr);
+    for (int64_t i = 0; (i < n) && (i < 32); i++) {
+        VALUE *e = value_array_append(arr);
+        value_init_array(e);
+        value_init_int32(value_array_append(e), (int32_t)xy[2 * i]);
+        value_init_int32(value_array_append(e), (int32_t)xy[2 * i + 1]);
+    }
+}
 static void api_send(const char *data, int64_t len)
 {
     if (api.activeSocket == KFX_INVALID_SOCKET || len <= 0)
@@ -1071,8 +1136,13 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
         return;
     }
 
-    // Decode the json object
-    int64_t ret = json_dom_parse(buffer, buf_size, NULL, 0, value, NULL);
+    // Decode the json object. The parser's own default caps a string at 64 KiB, which would refuse an agent memory of
+    // exactly the size set_agent_memory allows (and hide its MEMORY_TOO_LARGE); the message itself is capped at
+    // API_DATA_BUFFER by api_rx_append.
+    JSON_CONFIG json_config;
+    json_default_config(&json_config);
+    json_config.max_string_len = API_DATA_BUFFER;
+    int64_t ret = json_dom_parse(buffer, buf_size, &json_config, 0, value, NULL);
     if (ret != 0)
     {
         api_err("INVALID_JSON", NULL);
@@ -1573,7 +1643,9 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
     }
 
     if (strcasecmp("get_player_view", action) == 0 || strcasecmp("submit_action", action) == 0
-     || strcasecmp("set_pause", action) == 0 || strcasecmp("advance_turns", action) == 0)
+     || strcasecmp("set_pause", action) == 0 || strcasecmp("advance_turns", action) == 0
+     || strcasecmp("set_agent_memory", action) == 0 || strcasecmp("get_agent_memory", action) == 0
+     || strcasecmp("set_player_name", action) == 0)
     {
         VALUE *pv = value_dict_get(value, "player");
         PlayerNumber seat_id = -1;
@@ -1611,6 +1683,41 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
             if (want) extseat_pause(); else extseat_resume();
             api_ok(ack_id);
         }
+        else if (strcasecmp("set_agent_memory", action) == 0)
+        {
+            // The agent's own memory of this game, kept by the engine and saved with it (09-persistent-memory.md).
+            VALUE *dv = value_dict_get(value, "data");
+            if (value_type(dv) != VALUE_STRING) { api_err("MISSING_DATA", ack_id); value_fini(&json_data); return; }
+            const size_t len = value_string_length(dv);
+            if (len > AGENT_MEMORY_MAX) { api_err("MEMORY_TOO_LARGE", ack_id); value_fini(&json_data); return; }
+            if (!agent_memory_set(seat_id, value_string(dv), len)) { api_err("MEMORY_NOT_STORED", ack_id); value_fini(&json_data); return; }
+            api_ok(ack_id);
+        }
+        else if (strcasecmp("set_player_name", action) == 0)
+        {
+            // An agent names its own seat, as a human types a keeper name (09-persistent-memory.md section 6.8): the
+            // name other players see, and how agents that play it again know it.
+            const char *name = value_string(value_dict_get(value, "name"));
+            if ((name == NULL) || (name[0] == 0)) { api_err("MISSING_NAME", ack_id); value_fini(&json_data); return; }
+            struct PlayerInfo *named = get_player(seat_id);
+            const size_t len = strlen(name);
+            if (len >= sizeof(named->player_name)) { api_err("NAME_TOO_LONG", ack_id); value_fini(&json_data); return; }
+            for (size_t i = 0; i < len; i++) {
+                if ((unsigned char)name[i] < 0x20) { api_err("BAD_NAME", ack_id); value_fini(&json_data); return; }
+            }
+            snprintf(named->player_name, sizeof(named->player_name), "%s", name);
+            api_ok(ack_id);
+        }
+        else if (strcasecmp("get_agent_memory", action) == 0)
+        {
+            size_t len = 0;
+            const char *mem = agent_memory_get(seat_id, &len);
+            VALUE data_real; VALUE *data = &data_real;
+            value_init_dict(data);
+            if (mem != NULL) value_init_string_(value_dict_add(data, "data"), mem, len);
+            else value_init_null(value_dict_add(data, "data"));
+            api_return_data(true, data_real, ack_id);
+        }
         else if (strcasecmp("advance_turns", action) == 0)
         {
             VALUE *tv = value_dict_get(value, "turns");
@@ -1631,6 +1738,12 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
             else if (strcasecmp(vname, "slap") == 0) verb.kind = ESV_Slap;
             else if (strcasecmp(vname, "pick_up") == 0) verb.kind = ESV_PickUp;
             else if (strcasecmp(vname, "drop") == 0) verb.kind = ESV_Drop;
+            else if (strcasecmp(vname, "pick_up_and_drop") == 0) verb.kind = ESV_PickUpAndDrop;
+            else if (strcasecmp(vname, "unmark_dig") == 0) verb.kind = ESV_UnmarkDig;
+            else if (strcasecmp(vname, "set_door_lock") == 0) verb.kind = ESV_SetDoorLock;
+            else if (strcasecmp(vname, "power_off") == 0) verb.kind = ESV_PowerOff;
+            else if (strcasecmp(vname, "use_special") == 0) verb.kind = ESV_UseSpecial;
+            else if (strcasecmp(vname, "send_message") == 0) verb.kind = ESV_SendMessage;
             else if (strcasecmp(vname, "cast_power") == 0) verb.kind = ESV_CastPower;
             else if (strcasecmp(vname, "build_room") == 0) verb.kind = ESV_BuildRoom;
             else if (strcasecmp(vname, "mark_dig") == 0) verb.kind = ESV_MarkDig;
@@ -1642,7 +1755,7 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
             else if (strcasecmp(vname, "set_alliance") == 0) verb.kind = ESV_SetAlliance;
             else { api_err("UNKNOWN_VERB", ack_id); value_fini(&json_data); return; }
 
-            const char *kind = value_string(value_dict_get(value, (verb.kind == ESV_CastPower) ? "power" : "kind"));
+            const char *kind = value_string(value_dict_get(value, ((verb.kind == ESV_CastPower) || (verb.kind == ESV_PowerOff)) ? "power" : "kind"));
             if (kind != NULL) snprintf(verb.name, sizeof(verb.name), "%s", kind);
             VALUE *pos = value_dict_get(value, "pos");
             if (value_type(pos) == VALUE_ARRAY && value_array_size(pos) == 2)
@@ -1675,6 +1788,40 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
                 verb.has_thing = true;
                 verb.thing_id = value_int32(tid);
             }
+            VALUE *tids = value_dict_get(value, "thing_ids");
+            if (value_type(tids) == VALUE_ARRAY) {
+                if (value_array_size(tids) > EXTSEAT_MAX_HAND_SET) { api_err("TOO_MANY", ack_id); value_fini(&json_data); return; }
+                for (size_t i = 0; i < value_array_size(tids); i++) {
+                    VALUE *t = value_array_get(tids, i);
+                    if (value_type(t) != VALUE_INT32) { api_err("BAD_THING_IDS", ack_id); value_fini(&json_data); return; }
+                    verb.thing_ids[verb.thing_count++] = value_int32(t);
+                }
+            }
+            const char *dir = value_string(value_dict_get(value, "direction"));
+            if (dir != NULL) {
+                static const struct { const char *name; int64_t angle; } dirs[] = {
+                    { "N", ANGLE_NORTH }, { "NE", ANGLE_NORTHEAST }, { "E", ANGLE_EAST }, { "SE", ANGLE_SOUTHEAST },
+                    { "S", ANGLE_SOUTH }, { "SW", ANGLE_SOUTHWEST }, { "W", ANGLE_WEST }, { "NW", ANGLE_NORTHWEST } };
+                for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+                    if (strcasecmp(dir, dirs[i].name) == 0) { verb.has_direction = true; verb.direction_angle = dirs[i].angle; }
+                }
+                if (!verb.has_direction) { api_err("BAD_DIRECTION", ack_id); value_fini(&json_data); return; }
+            }
+            VALUE *lvl = value_dict_get(value, "level");
+            if (value_type(lvl) == VALUE_INT32) verb.level = value_int32(lvl);
+            VALUE *tgt = value_dict_get(value, "target_thing");
+            if (value_type(tgt) == VALUE_INT32) { verb.has_target_thing = true; verb.target_thing = value_int32(tgt); }
+            const char *msg = value_string(value_dict_get(value, "message"));
+            if (msg != NULL) {
+                if (strlen(msg) >= sizeof(verb.message)) { api_err("BAD_MESSAGE", ack_id); value_fini(&json_data); return; }
+                snprintf(verb.message, sizeof(verb.message), "%s", msg);
+            }
+            VALUE *tr = value_dict_get(value, "to_room");
+            if (value_type(tr) == VALUE_INT32) { verb.has_room = true; verb.room_id = value_int32(tr); }
+            VALUE *rel = value_dict_get(value, "release");
+            verb.release = ((value_type(rel) == VALUE_BOOL) && value_bool(rel)) || ((value_type(rel) == VALUE_INT32) && (value_int32(rel) != 0));
+            VALUE *sac = value_dict_get(value, "sacrifice");
+            verb.sacrifice = ((value_type(sac) == VALUE_BOOL) && value_bool(sac)) || ((value_type(sac) == VALUE_INT32) && (value_int32(sac) != 0));
             VALUE *ap = value_dict_get(value, "ally_player");
             if (value_type(ap) == VALUE_INT32) { verb.has_target_player = true; verb.target_player = value_int32(ap); }
             else if (value_type(ap) == VALUE_STRING) { verb.has_target_player = true; verb.target_player = get_id(player_desc, (char *)value_string(ap)); }
@@ -1705,6 +1852,8 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
                 value_init_dict(data);
                 value_init_bool(value_dict_add(data, "would_succeed"), true);
                 value_init_int32(value_dict_add(data, "steps"), (int32_t)steps);
+                add_dig_reach_warning(data, seat_id, &verb, value_dict_get(value, "assume_dig_rects"));
+                add_build_warning(data, seat_id, &verb);
                 api_return_data(true, data_real, ack_id);
                 value_fini(&json_data);
                 return;
@@ -1716,6 +1865,9 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
             if (err != NULL) { api_err(err, ack_id); value_fini(&json_data); return; }
             VALUE data_real; VALUE *data = &data_real;
             value_init_dict(data);
+            // After the submit: this verb now counts as pending itself, so only its own rectangle is being judged.
+            add_dig_reach_warning(data, seat_id, &verb, NULL);
+            add_build_warning(data, seat_id, &verb);
             value_init_int32(value_dict_add(data, "steps"), (int32_t)info.steps);
             value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
             value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
@@ -1892,54 +2044,75 @@ static void api_process_buffer(const char *buffer, size_t buf_size)
     value_fini(&json_data);
 }
 
-/**
- * Processes a buffer containing concatenated JSON objects, extracting and
- * processing each valid JSON object individually.
- *
- * @param buffer Pointer to the buffer containing concatenated JSON data.
- * @param buf_size Size of the buffer in bytes.
- */
-void api_process_multipart_json(const char *buffer, int64_t buf_size)
+// What the client has sent that is not yet a whole message: TCP is a stream, so a message may arrive over several
+// reads (an agent's memory is tens of kilobytes) and one read may hold several messages (api_framing.h).
+static char *api_rx = NULL;
+static size_t api_rx_len = 0;
+static size_t api_rx_cap = 0;
+
+static void api_rx_clear(void)
 {
-    int64_t start = -1;
-    int64_t depth = 0;
+    api_rx_len = 0;
+}
 
-    for (int64_t i = 0; i < buf_size; ++i)
+static void api_rx_append(const char *data, size_t len)
+{
+    if (api_rx_len + len > API_DATA_BUFFER)
     {
-        if (buffer[i] == '{')
-        {
-            if (depth == 0)
-            {
-                start = i; // Start of a new JSON object
-            }
-            depth++;
-        }
-        else if (buffer[i] == '}')
-        {
-            depth--;
-            if (depth == 0 && start != -1)
-            {
-                // Extract the JSON object from buffer[start] to buffer[i+1]
-                int64_t json_length = i - start + 1;
-                //char json_string[json_length + 1]; // +1 for null terminator
-                char* json_string = (char*)malloc((json_length + 1) * sizeof(char));
-                if (!json_string) return;
-                strncpy(json_string, buffer + start, json_length);
-                json_string[json_length] = '\0';
-
-                // Process the extracted JSON object
-                JUSTLOG("Received message from client: %s", json_string);
-                api_process_buffer(json_string, json_length);
-                free(json_string);
-                // Reset start to look for the next JSON object
-                start = -1;
-            }
-        }
+        // No message is this big: drop what is here rather than grow without bound.
+        api_err("MESSAGE_TOO_LARGE", NULL);
+        api_rx_clear();
+        if (len > API_DATA_BUFFER)
+            return;
     }
-
-    if (depth > 0)
+    if (api_rx_len + len > api_rx_cap)
     {
-        api_err("INVALID_JSON_IN_PACKET", NULL);
+        size_t cap = (api_rx_cap > 0) ? api_rx_cap : API_SERVER_BUFFER;
+        while (cap < api_rx_len + len)
+            cap *= 2;
+        char *grown = (char *)realloc(api_rx, cap);
+        if (grown == NULL)
+        {
+            api_err("MESSAGE_TOO_LARGE", NULL);
+            api_rx_clear();
+            return;
+        }
+        api_rx = grown;
+        api_rx_cap = cap;
+    }
+    memcpy(api_rx + api_rx_len, data, len);
+    api_rx_len += len;
+}
+
+/**
+ * Processes every whole JSON message received so far, keeping an unfinished one for the next read.
+ */
+static void api_rx_process(void)
+{
+    size_t start = 0;
+    size_t end = 0;
+    while ((api_rx_len > 0) && api_frame_next(api_rx, api_rx_len, &start, &end))
+    {
+        const size_t json_length = end - start;
+        char *json_string = (char *)malloc(json_length + 1);
+        if (json_string == NULL)
+            return;
+        memcpy(json_string, api_rx + start, json_length);
+        json_string[json_length] = '\0';
+        memmove(api_rx, api_rx + end, api_rx_len - end);
+        api_rx_len -= end;
+        JUSTLOG("Received message from client: %.*s%s", (int)((json_length > 400) ? 400 : json_length), json_string,
+            (json_length > 400) ? " ..." : "");
+        api_process_buffer(json_string, (int64_t)json_length);
+        free(json_string);
+        if (api.activeSocket == KFX_INVALID_SOCKET)
+            return;
+    }
+    // Nothing whole is left: bytes before an unfinished message (newlines, stray text) can go.
+    if (start > 0)
+    {
+        memmove(api_rx, api_rx + start, api_rx_len - start);
+        api_rx_len -= start;
     }
 }
 
@@ -1989,58 +2162,50 @@ void api_update_server()
                 fcntl(client, F_SETFL, flags | O_NONBLOCK);
 #endif
                 api.activeSocket = client;
+                api_rx_clear();
                 JUSTLOG("Client connected");
             }
         }
     }
 
-    // Read from the active client, if any (non-blocking).
+    // Read from the active client, if any (non-blocking): everything that is there, then the whole messages in it.
     if (api.activeSocket != KFX_INVALID_SOCKET)
     {
         char buffer[API_SERVER_BUFFER];
-        memset(buffer, 0, API_SERVER_BUFFER);
-
-        int64_t received = (int64_t)recv(api.activeSocket, buffer, API_SERVER_BUFFER - 1, 0);
-        if (received > 0)
+        TbBool lost = false;
+        for (int64_t reads = 0; reads < 256; reads++)
         {
-            // TODO: non nullbyte terminated buffers can crash
-            // For example: when pressing Ctrl C when conneted over telnet
-
-            // Remove any possible trailing newline from the data
-            // This makes it work with a Telnet connection as well
-            if (strlen(buffer) > 0 && buffer[strlen(buffer) - 1] == '\n')
+            const int64_t received = (int64_t)recv(api.activeSocket, buffer, API_SERVER_BUFFER, 0);
+            if (received > 0)
             {
-                buffer[strlen(buffer) - 1] = '\0';
+                api_rx_append(buffer, (size_t)received);
+                continue;
             }
-
-            // Process all JSON objects in the buffer
-            api_process_multipart_json(buffer, strlen(buffer));
+            if (received == 0)
+            {
+                lost = true; // graceful disconnect
+            }
+            else
+            {
+                // received < 0: EWOULDBLOCK/EAGAIN just means "no data yet"; any other error means the connection is gone.
+#ifdef _WIN32
+                lost = (WSAGetLastError() != WSAEWOULDBLOCK);
+#else
+                lost = (errno != EAGAIN && errno != EWOULDBLOCK);
+#endif
+            }
+            break;
         }
-        else if (received == 0)
+        // What arrived before a disconnect still counts (a client's last word is often a set_var).
+        api_rx_process();
+        if (lost && (api.activeSocket != KFX_INVALID_SOCKET))
         {
-            // Graceful disconnect
             api_clear_all_subscriptions();
             extseat_on_client_lost();
             kfx_closesocket(api.activeSocket);
             api.activeSocket = KFX_INVALID_SOCKET;
+            api_rx_clear();
             JUSTLOG("API connection closed");
-        }
-        else
-        {
-            // received < 0: EWOULDBLOCK/EAGAIN just means "no data yet"; any
-            // other error means the connection is gone.
-#ifdef _WIN32
-            if (WSAGetLastError() != WSAEWOULDBLOCK)
-#else
-            if (errno != EAGAIN && errno != EWOULDBLOCK)
-#endif
-            {
-                api_clear_all_subscriptions();
-                extseat_on_client_lost();
-                kfx_closesocket(api.activeSocket);
-                api.activeSocket = KFX_INVALID_SOCKET;
-                JUSTLOG("API connection closed");
-            }
         }
     }
 

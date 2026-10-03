@@ -501,6 +501,39 @@ SlabKind find_core_slab_type(MapSlabCoord slb_x, MapSlabCoord slb_y)
     return corekind;
 }
 
+int64_t room_slab_side_score(SlabCodedCoords slab_num, SlabCodedCoords round_slab_num, int64_t synergy_slab_num, TbBool *continues_room)
+{
+    const struct SlabMap* slb = get_slabmap_direct(slab_num);
+    const struct SlabMap* round_slb = get_slabmap_direct(round_slab_num);
+    if (continues_room != NULL) *continues_room = true;
+    if (slabmap_block_invalid(round_slb)) {
+        return 0; // off the map: neither scores nor stops the slab counting as inside
+    }
+    if ((slabmap_owner(round_slb) == slabmap_owner(slb)) && (round_slb->kind == slb->kind)) {
+        return 2;
+    }
+    if (((slabmap_owner(round_slb) == slabmap_owner(slb)) || !(get_slab_kind_stats(synergy_slab_num)->is_ownable))
+      && ((round_slb->kind == synergy_slab_num) && (synergy_slab_num >= 0))) {
+        return 2;
+    }
+    if (continues_room != NULL) *continues_room = false;
+    switch (find_core_slab_type(slb_num_decode_x(round_slab_num), slb_num_decode_y(round_slab_num)))
+    {
+      case SlbT_ROCK:
+      case SlbT_GOLD:
+      case SlbT_DENSEGOLD:
+      case SlbT_EARTH:
+      case SlbT_GEMS:
+        return 1;
+      case SlbT_WALLDRAPE:
+        return (slabmap_owner(round_slb) == slabmap_owner(slb)) ? 2 : 1;
+      case SlbT_DOORWOOD1:
+        return (slabmap_owner(round_slb) == slabmap_owner(slb)) ? 2 : 0;
+      default:
+        return 0;
+    }
+}
+
 int64_t calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, PlayerNumber plyr_idx, int64_t synergy_slab_num)
 {
     TbBool is_room_inside = true;
@@ -509,50 +542,10 @@ int64_t calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, Playe
     int64_t n;
     for (n=1; n < AROUND_SLAB_LENGTH; n+=2)
     {
-        int64_t round_slab_num = slab_num + kfx_sim_state.around_slab[n];
-        struct SlabMap* round_slb = get_slabmap_direct(round_slab_num);
-        if (!slabmap_block_invalid(round_slb))
-        {
-            MapSlabCoord slb_x = slb_num_decode_x(round_slab_num);
-            MapSlabCoord slb_y = slb_num_decode_y(round_slab_num);
-            // Per slab code
-            if ((slabmap_owner(round_slb) == slabmap_owner(slb)) && (round_slb->kind == slb->kind))
-            {
-                eff_score += 2;
-            } else if (((slabmap_owner(round_slb) == slabmap_owner(slb)) || !(get_slab_kind_stats(synergy_slab_num)->is_ownable)) && ((round_slb->kind == synergy_slab_num) && (synergy_slab_num >= 0)))
-            {
-                eff_score += 2;
-            } else
-            {
-                is_room_inside = false;
-                switch (find_core_slab_type(slb_x, slb_y))
-                {
-                  case SlbT_ROCK:
-                  case SlbT_GOLD:
-                  case SlbT_DENSEGOLD:
-                  case SlbT_EARTH:
-                  case SlbT_GEMS:
-                    eff_score++;
-                    break;
-                  case SlbT_WALLDRAPE:
-                      if (slabmap_owner(round_slb) == slabmap_owner(slb))
-                      {
-                          eff_score += 2;
-                      }
-                      else
-                      {
-                          eff_score++;
-                      }
-                    break;
-                  case SlbT_DOORWOOD1:
-                    if (slabmap_owner(round_slb) == slabmap_owner(slb))
-                        eff_score += 2;
-                    break;
-                  default:
-                    break;
-                }
-            }
-            // Per slab code ends
+        TbBool continues_room;
+        eff_score += room_slab_side_score(slab_num, slab_num + kfx_sim_state.around_slab[n], synergy_slab_num, &continues_room);
+        if (!continues_room) {
+            is_room_inside = false;
         }
     }
     // If we already know this is not an inside - finish

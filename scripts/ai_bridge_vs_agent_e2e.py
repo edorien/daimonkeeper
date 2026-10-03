@@ -7,6 +7,7 @@ Usage: ai_bridge_vs_agent_e2e.py [port]"""
 import argparse
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -14,6 +15,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm_bridge"))
 
 import agent_vs_agent  # noqa: E402
+import experience  # noqa: E402
 from api import Api  # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 5599
@@ -40,10 +42,10 @@ def main():
     probe.close()
     time.sleep(1.0)   # the game serves one API client at a time and notices the close on its next poll
 
-    mem_dir = tempfile.mkdtemp(prefix="agent-vs-agent-mem-")
     log_dir = tempfile.mkdtemp(prefix="agent-vs-agent-log-")
+    exp_path = os.path.join(log_dir, "experience.sqlite")
     args = agent_vs_agent.argparse.Namespace(host="127.0.0.1", port=PORT, claim=None, seats=None, policy="scripted",
-                                             model=None, min_interval=40, max_wait_seconds=120.0, memory_dir=mem_dir,
+                                             model=None, min_interval=40, max_wait_seconds=120.0, experience=exp_path, no_experience=False,
                                              log_dir=log_dir, max_age_turns=1500, max_decisions=2, max_turns=0,
                                              connect_timeout=90.0, quiet=False)
     summaries, seats = agent_vs_agent.run_multi(args)
@@ -69,23 +71,27 @@ def main():
     check("the second decision was raised by that seat's own enemy_fight event, for both",
           all("enemy_fight" in logs[p][1]["reasons"] for p in players), {p: logs[p][1]["reasons"] for p in players})
 
-    mems = {p: json.load(open(os.path.join(mem_dir, "seat_%d.json" % p))) for p in players}
-    check("each seat's memory file holds exactly its own two decisions", all(len(mems[p]["decisions"]) == 2 for p in players), mems)
-
     # No cross-talk at the API level either: the two seats' own views must show different dungeons.
     time.sleep(1.0)   # the game serves one API client at a time and notices run_multi's close on its next poll
     api = Api("127.0.0.1", PORT)
     api.connect(30)
     views = {p: api.data(action="get_player_view", player=p) for p in players}
+    # Each seat's memory is kept by the game, per seat (09-persistent-memory.md).
+    mems = {p: json.loads(api.data(action="get_agent_memory", player=p)["data"]) for p in players}
+    check("the game holds each seat's own two decisions", all(len(mems[p]["decisions"]) == 2 for p in players), mems)
+    check("the two seats' memories are two different games' records", mems[players[0]]["game_id"] != mems[players[1]]["game_id"], mems)
+    store = experience.Experience(exp_path)
+    rows = {r["player"]: dict(r) for r in store.db.execute("SELECT player, game_id, decisions FROM games")}
+    store.close()
+    check("one experience store holds each seat's own attempt with its two decisions",
+          sorted(rows) == players and all(rows[p]["game_id"] == mems[p]["game_id"] and rows[p]["decisions"] == 2 for p in players), rows)
     api.close()
     hearts = {p: next(r["pos"] for r in views[p]["own"]["rooms"] if r["kind"] == "DUNGEON_HEART") for p in players}
     check("the two seats' own dungeons are at different places on the map", hearts[players[0]] != hearts[players[1]], hearts)
 
     for p in players:
-        os.unlink(os.path.join(mem_dir, "seat_%d.json" % p))
         os.unlink(os.path.join(log_dir, "seat_%d.jsonl" % p))
-    os.rmdir(mem_dir)
-    os.rmdir(log_dir)
+    shutil.rmtree(log_dir, ignore_errors=True)
 
     time.sleep(1.0)
     api2 = Api("127.0.0.1", PORT)

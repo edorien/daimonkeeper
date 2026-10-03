@@ -26,6 +26,7 @@
 #include "net_game.h"
 #include "player_data.h"
 #include "slab_data.h"
+#include "thing_creature.h"
 #include "thing_list.h"
 
 #include "post_inc.h"
@@ -104,6 +105,8 @@ FTestActionResult m02_validation_and_batch(struct FTestActionArgs* const args)
     struct ExtSeatVerb v;
     v = mv(999999, ax, ay, ESV_MoveCreature);             expect_err("a thing that is not there", v, "NO_SUCH_THING");
     v = mv(foe, ax, ay, ESV_MoveCreature);                expect_err("someone else's creature", v, "NOT_YOURS");
+    // Only needed for that check: left alive, it walks over and attacks the held creatures, which hands them back (attacked).
+    kill_creature(thing_get(foe), INVALID_THING, P, CrDed_NoEffects);
     v = mv(a, ax, ay, ESV_MoveCreature); v.has_pos = false; expect_err("no target", v, "MISSING_POSITION");
     v = mv(a, 9999, 9999, ESV_MoveCreature);              expect_err("off the map", v, "POSITION_OFF_MAP");
     v = mv(a, T(a)->mappos.x.stl.num, T(a)->mappos.y.stl.num, ESV_MoveCreature); expect_err("its own subtile is a release, not a move", v, "ALREADY_THERE");

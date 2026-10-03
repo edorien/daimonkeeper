@@ -19,25 +19,29 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import experience  # noqa: E402
+import memory as memory_mod  # noqa: E402
+from bridge import open_experience  # noqa: E402
 from api import Api  # noqa: E402
-from memory import Memory  # noqa: E402
 from orders import submit_batch  # noqa: E402
 from viewstate import ViewState  # noqa: E402
 
 
 class SeatState:
-    def __init__(self, player, policy, memory_path, log_path):
+    def __init__(self, player, policy, log_path):
         self.player = player
         self.policy = policy   # each seat gets its own instance: ScriptedPolicy/AnthropicPolicy keep per-game state
         self.view = ViewState()
-        self.memory = Memory(memory_path)
+        self.memory = None       # attached once the seat's first view is in (memory.attach)
+        self.recorder = None
+        self.note = None
         self.log = open(log_path, "a") if log_path else None
         self.decisions = 0
         self.first_turn = None
         self.last_service_time = time.time()
         self.done = False
         self.summary = {"decisions": 0, "orders_sent": 0, "orders_refused": 0}
-        self.ctx = {"memory": self.memory, "reasons": []}   # kept across decisions, like bridge.py's ctx: metrics accumulate
+        self.ctx = {"reasons": []}   # kept across decisions, like bridge.py's ctx: metrics accumulate
 
 
 def find_seats(api, claim, seats_arg):
@@ -74,8 +78,11 @@ def service_decision(api, seat, args, reasons):
     if seat.first_turn is None:
         seat.first_turn = v["turn"]
     seat.memory.note_results(v["seat"].get("results", []))
+    seat.recorder.decision(seat.memory, v, seat.ctx)
     ctx = seat.ctx
     ctx["reasons"] = reasons
+    ctx["memory"] = seat.memory
+    ctx["note"], seat.note = seat.note, None
     t0 = time.time()
     decision = seat.policy.decide(seat.view, ctx)
     think = time.time() - t0
@@ -87,6 +94,7 @@ def service_decision(api, seat, args, reasons):
     seat.summary["orders_refused"] += len(refused)
     seat.memory.update(plan=decision.get("plan"), notes=decision.get("notes"))
     seat.memory.record_decision(decision_turn, reasons, decision["reasoning"], sent, refused)
+    seat.recorder.decided(seat.memory, decision_turn)
     rec = {"seat": seat.player, "decision": seat.decisions, "turn": decision_turn, "reasons": reasons,
            "think_seconds": round(think, 3), "sent": sent, "refused": refused, "model": dict(ctx.get("metrics", {}))}
     if seat.log:
@@ -105,15 +113,20 @@ def run_multi(args):
     api.connect(args.connect_timeout)
     players = find_seats(api, args.claim, args.seats)
     api.data(action="subscribe_event", event="DECISION_DUE")
+    api.data(action="subscribe_event", event="GAME_LOADED")
     api.data(action="set_decision_policy", min_interval_turns=args.min_interval)
 
     seats = {}
+    store = open_experience(args)     # one file, every seat's records (each seat is its own game in it)
     for p in players:
-        mem = os.path.join(args.memory_dir, "seat_%d.json" % p) if args.memory_dir else None
         log = os.path.join(args.log_dir, "seat_%d.jsonl" % p) if args.log_dir else None
-        seats[p] = SeatState(p, make_policy(args.policy, args.model), mem, log)
+        seats[p] = SeatState(p, make_policy(args.policy, args.model), log)
         seats[p].view.update(api, p)
-        service_decision(api, seats[p], args, ["start"] if not seats[p].memory.decisions else ["restart"])
+        # The game keeps each seat's memory: a seat that already has one is a game being resumed.
+        seats[p].memory, resumed = memory_mod.attach(api, p, seats[p].view.view)
+        seats[p].recorder = experience.Recorder(store, p, "%s seat %d" % (args.model or args.policy, p))
+        seats[p].recorder.start(seats[p].memory, seats[p].view.view, resumed)
+        service_decision(api, seats[p], args, ["restart"] if resumed else ["start"])
 
     started = time.time()
     try:
@@ -124,6 +137,9 @@ def run_multi(args):
                 s.view.update(api, s.player)
                 if s.view.view["seat"]["victory_state"] != "undecided":
                     print("seat %d is %s; stopping" % (s.player, s.view.view["seat"]["victory_state"]))
+                    if s.recorder.ended(s.memory, s.view.view, s.view.view["seat"]["victory_state"]):
+                        s.summary["debrief"] = experience.run_debrief(store, s.memory, s.recorder, s.view.view["seat"]["victory_state"],
+                                                                      s.view.view, s.policy, s.ctx)
                     s.done = True
                 elif args.max_decisions and s.decisions >= args.max_decisions:
                     s.done = True
@@ -133,13 +149,25 @@ def run_multi(args):
             if not active:
                 break
 
-            events = api.drain_events("DECISION_DUE")
+            events = api.drain_events(("DECISION_DUE", "GAME_LOADED"))
             if not events:
                 wait = min(args.max_wait_seconds - (time.time() - s.last_service_time) for s in active)
-                ev = api.wait_event("DECISION_DUE", max(0.05, wait))
+                ev = api.wait_event(("DECISION_DUE", "GAME_LOADED"), max(0.05, wait))
                 events = [ev] if ev else []
 
             by_player = {}
+            loads = [i for i, ev in enumerate(events) if ev.get("event") == "GAME_LOADED"]
+            if loads:
+                # A save was loaded: every seat starts over from it, with the memory saved with it.
+                events = events[loads[-1] + 1:]
+                for s in active:
+                    reached = s.view.view["turn"]
+                    s.view = ViewState()
+                    s.view.update(api, s.player)
+                    old = s.memory
+                    s.memory, s.note = memory_mod.reattach_after_load(api, s.player, s.view.view, reached)
+                    s.recorder.reloaded(old, reached, s.memory, s.view.view)
+                    by_player[s.player] = ["reloaded"]
             for ev in events:
                 p = ev["data"]["player"]
                 if p in seats and not seats[p].done:
@@ -155,6 +183,7 @@ def run_multi(args):
         for s in seats.values():
             if s.log:
                 s.log.close()
+        store.close()
         api.close()
 
     summaries = {}
@@ -176,7 +205,8 @@ def main(argv=None):
     p.add_argument("--model", default=None, help="model id (anthropic policy only; default $ANTHROPIC_MODEL or claude-sonnet-5)")
     p.add_argument("--min-interval", type=int, default=100, help="least game turns between two DECISION_DUE events, any seat")
     p.add_argument("--max-wait-seconds", type=float, default=240.0, help="think anyway after this long without an event, per seat")
-    p.add_argument("--memory-dir", default=None, help="directory for one seat_<player>.json memory file per seat")
+    p.add_argument("--experience", default=None, help="sqlite file of game records and lessons (default: %s)" % experience.default_path())
+    p.add_argument("--no-experience", action="store_true", help="keep no game record and read no lessons (a clean run)")
     p.add_argument("--log-dir", default=None, help="directory for one seat_<player>.jsonl decision log per seat")
     p.add_argument("--max-age-turns", type=int, default=1500)
     p.add_argument("--max-decisions", type=int, default=0, help="per seat")

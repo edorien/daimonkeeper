@@ -13,6 +13,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm_bridge"))
 
 import bridge  # noqa: E402
+import experience  # noqa: E402
 from api import Api  # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 5599
@@ -74,9 +75,9 @@ def main():
     time.sleep(1.0)   # the game serves one API client at a time and notices the close on its next poll
 
     log = tempfile.NamedTemporaryFile(prefix="bridge-", suffix=".jsonl", delete=False).name
-    mem_path = log + ".memory.json"
+    exp_path = log + ".experience.sqlite"
     args = bridge.argparse.Namespace(host="127.0.0.1", port=PORT, claim=None, policy="scripted", model=None, beat="decision",
-                                     min_interval=40, max_wait_seconds=120.0, memory=mem_path,
+                                     min_interval=40, max_wait_seconds=120.0, experience=exp_path, no_experience=False,
                                      max_age_turns=1500, max_decisions=4, max_turns=0, takeover=False, connect_timeout=90.0,
                                      log=log, quiet=False)
     summary, state = bridge.run(args)
@@ -94,9 +95,6 @@ def main():
           lines[0]["reasons"] == ["start"] and all("enemy_fight" in l["reasons"] for l in lines[1:]), [l["reasons"] for l in lines])
     check("decisions came from game events, not a timer (turn gaps of at least the minimum interval)",
           all(b["turn"] - a["turn"] >= 40 for a, b in zip(lines, lines[1:])), [l["turn"] for l in lines])
-    mem = json.load(open(mem_path))
-    check("the memory file holds the plan, notes and four decisions", mem["plan"].startswith("scripted") and len(mem["decisions"]) == 4, mem["plan"])
-    check("orders' outcomes were filled in from the game's results", any(o["status"] == "done" for d in mem["decisions"] for o in d["orders"]), mem["decisions"][0])
     check("the first decision sent the three scripted orders", [o["verb"] for o in lines[0]["sent"]] == ["cast_power", "build_room", "mark_dig"], lines[0])
 
     # Patched view == fresh full view, at one instant: pause, take a diff on the bridge's baseline, then a full view.
@@ -105,6 +103,20 @@ def main():
     api.connect(30)
     api.call(action="set_var", var="FLAG1", value=2, player=0)   # tells the game the bridge phase is over: pausing is now allowed
     seat = bridge.find_seat(api, None)
+    # The agent's memory is kept by the game (09-persistent-memory.md), not in a file.
+    mem = json.loads(api.data(action="get_agent_memory", player=seat)["data"])
+    check("the game holds the agent's plan, notes and four decisions", mem["plan"].startswith("scripted") and len(mem["decisions"]) == 4, mem["plan"])
+    check("the memory names this game and level", bool(mem["game_id"]) and bool(mem["branch"]) and ":" in mem["level"]["key"], mem["level"])
+    check("orders' outcomes were filled in from the game's results", any(o["status"] == "done" for d in mem["decisions"] for o in d["orders"]), mem["decisions"][0])
+    # The game's record in the experience store (09 section 6): one attempt, still open (the bridge stopped, the level
+    # did not end), with its four decisions and a checkpoint of the dungeon's numbers.
+    store = experience.Experience(exp_path)
+    rows = [dict(r) for r in store.db.execute("SELECT * FROM games")]
+    check("the experience store has this game's attempt, open, with four decisions",
+          len(rows) == 1 and rows[0]["game_id"] == mem["game_id"] and rows[0]["result"] is None and rows[0]["decisions"] == 4, rows)
+    cps = store.checkpoints(mem["game_id"], mem["branch"]) if rows else []
+    check("the attempt has a checkpoint with the dungeon's numbers", bool(cps) and cps[0].get("gold") is not None and "rooms" in cps[0], cps[:1])
+    store.close()
     api.data(action="set_pause", player=seat, paused=True)
     state.update(api, seat)
     patched = strip(state.view)
@@ -133,7 +145,9 @@ def main():
     api.call(action="set_var", var="FLAG0", value=2 if failures else 1, player=0)
     api.close()
     os.unlink(log)
-    os.unlink(mem_path)
+    for suffix in ("", "-wal", "-shm"):
+        if os.path.exists(exp_path + suffix):
+            os.unlink(exp_path + suffix)
     print("\n%d check(s) failed" % len(failures) if failures else "\nall checks passed")
     return 1 if failures else 0
 

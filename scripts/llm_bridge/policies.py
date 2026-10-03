@@ -70,3 +70,8 @@ class ScriptedPolicy:
         return {"reasoning": "; ".join(why) or "nothing to do this beat", "orders": orders,
                 "plan": "scripted: heal the wounded, build one treasure room, mark one dig patch, then wait",
                 "notes": "decisions so far: %d" % (ctx["memory"].count + 1 if ctx.get("memory") else 1)}
+
+    def debrief(self, text, ctx):
+        """A scripted player learns nothing; it only says how the game went (no lessons, so none are touched)."""
+        first = text.splitlines()[0] if text else ""
+        return {"summary": "scripted policy: " + first[len("DEBRIEF: "):] if first.startswith("DEBRIEF: ") else first}

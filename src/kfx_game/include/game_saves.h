@@ -49,7 +49,8 @@ enum SaveGameChunks {
      SGC_KfxSimState    = 0x4D49534B, //"KSIM"
      SGC_KfxNetState    = 0x54454E4B, //"KNET"
      SGC_KfxGameState   = 0x4D41474B, //"KGAM"
-     SGC_KfxFrontendState = 0x4F52464B //"KFRO"
+     SGC_KfxFrontendState = 0x4F52464B, //"KFRO"
+     SGC_AgentMemory    = 0x544E4741  //"AGNT" optional: External seat agents' memory (agent_memory.h)
 };
 
 enum SaveGameChunkFlags {

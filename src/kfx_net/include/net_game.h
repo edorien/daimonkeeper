@@ -81,6 +81,12 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx);
  * Deliberately does NOT reset the creatures' states (no init_creature_states_for_player): whatever they were doing
  * carries on, and the AI picks up from there. Returns false if plyr_idx is not a seat. */
 TbBool net_release_external_seat(PlayerNumber plyr_idx);
+/** Whether the keeper name (net_player_name: the network screen's name, or -nick) is one the player chose, not empty or
+ *  the "No Name" default. */
+TbBool keeper_name_is_set(void);
+/** A local game starts: the local human's keeper name becomes their player name, as in a network game, so other
+ *  players (agents included) can tell who they play against (09-persistent-memory.md section 6.8). */
+void net_apply_keeper_name(PlayerNumber plyr_idx);
 /** Releases every External seat; returns how many were handed back. */
 int64_t net_release_all_external_seats(void);
 /** Slots the Skirmish "Slots & AI" page marked External for the next local game (docs/refactor/AI/LLM/01 M5). The list

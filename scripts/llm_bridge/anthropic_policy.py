@@ -41,10 +41,32 @@ class AnthropicPolicy:
         except urllib.error.HTTPError as e:
             raise RuntimeError("Anthropic API error %d: %s" % (e.code, e.read().decode(errors="replace")[:500]))
 
+    def debrief(self, text, ctx):
+        """When a game has ended: one call, answered with record_debrief (its fields, or {} if the model gave none)."""
+        metrics = ctx.setdefault("metrics", {"calls": 0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0})
+        tool = {"name": "record_debrief", "description": "Keep what this game taught you: a summary and rewritten lessons.",
+                "input_schema": {"type": "object", "properties": prompt.DEBRIEF_PROPERTIES}}
+        t0 = time.time()
+        resp = self._post({"model": self.model, "max_tokens": max(self.max_tokens, 3000), "system": prompt.SYSTEM_PROMPT,
+                           "tools": [tool], "tool_choice": {"type": "tool", "name": "record_debrief"},
+                           "messages": [{"role": "user", "content": text}]})
+        metrics["seconds"] += time.time() - t0
+        metrics["calls"] += 1
+        usage = resp.get("usage", {})
+        metrics["input_tokens"] += usage.get("input_tokens", 0)
+        metrics["output_tokens"] += usage.get("output_tokens", 0)
+        use = next((b for b in resp.get("content", []) if b.get("type") == "tool_use" and b.get("name") == "record_debrief"), None)
+        return dict(use["input"]) if use else {}
+
     def decide(self, state, ctx):
         mem = ctx.get("memory")
-        text = prompt.render_for_agent(state, mem, reasons=ctx.get("reasons"), first=self.first)
+        # After a reload the model gets the whole picture again, as on the first decision.
+        first = self.first or ("reloaded" in (ctx.get("reasons") or []))
+        text = prompt.render_for_agent(state, mem, reasons=ctx.get("reasons"), first=first, note=ctx.pop("note", None),
+                                       experience=ctx.pop("experience", None))
         self.first = False
+        if mem is not None:
+            mem.flush()
         messages = [{"role": "user", "content": text}]
         metrics = ctx.setdefault("metrics", {"calls": 0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0})
         for _ in range(self.max_rounds):

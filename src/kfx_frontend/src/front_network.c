@@ -665,6 +665,16 @@ void net_write_config_file(void)
     }
 }
 
+void frontend_keeper_name_load(void)
+{
+    // One name for every game: the network screen's name, used for local games too (net_apply_keeper_name).
+    if (net_player_name[0] != '\0')
+        return;
+    net_load_config_file();
+    snprintf(net_player_name, sizeof(net_player_name), "%s", net_config_info.net_player_name);
+    snprintf(tmp_net_player_name, sizeof(tmp_net_player_name), "%s", net_config_info.net_player_name);
+}
+
 void frontnet_service_setup(void)
 {
     // Skirmish used to be appended here as an extra "Play one player" row

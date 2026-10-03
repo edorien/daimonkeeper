@@ -331,15 +331,25 @@ CrStateRet creature_in_prison(struct Thing *thing)
     }
 }
 
+ThingModel prison_death_kind(const struct Thing *thing, const struct Room *room)
+{
+    const struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
+    const TbBool has_prison_kind = (crconf->prison_kind <= kfx_config_state.conf.crtr_conf.model_count) && (crconf->prison_kind > 0);
+    // Only humanoids, or kinds configured with their own prison_kind, rise again from a prison.
+    if (!crconf->humanoid_creature && !has_prison_kind) {
+        return 0;
+    }
+    // If not assigned or is unknown, default to the room creature creation.
+    return has_prison_kind ? crconf->prison_kind : get_room_create_creature_model(room->kind);
+}
+
 TbBool prison_convert_creature_to_skeleton(struct Room *room, struct Thing *thing)
 {
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     struct Thing* crthing = INVALID_THING;
-    ThingModel crmodel = crconf->prison_kind;
-    if ((crmodel > kfx_config_state.conf.crtr_conf.model_count) || (crmodel <= 0))
+    ThingModel crmodel = prison_death_kind(thing, room);
+    if (crmodel <= 0)
     {
-        // If not assigned or is unknown, default to the room creature creation.
         crmodel = get_room_create_creature_model(room->kind);
     }
     if (creature_count_below_map_limit(1))
@@ -370,8 +380,7 @@ TbBool prison_convert_creature_to_skeleton(struct Room *room, struct Thing *thin
 
 TbBool process_prisoner_skelification(struct Thing *thing, struct Room *room)
 {
-    struct CreatureModelConfig* crconf = creature_stats_get_from_thing(thing);
-    if ((thing->health >= 0) || ((!crconf->humanoid_creature) && ((crconf->prison_kind > kfx_config_state.conf.crtr_conf.model_count) || (crconf->prison_kind <= 0)))) {
+    if ((thing->health >= 0) || (prison_death_kind(thing, room) <= 0)) {
         return false;
     }
     // TODO CONFIG: (?) Allow 'skelification' only if spent specific amount of turns in prison (set it to low value). (?)

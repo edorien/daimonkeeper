@@ -33,6 +33,10 @@
 #include "custom_sprites.h" // is_custom_icon
 #include "kfx_config_state.h"
 #include "sprites.h"
+#include "front_network.h" // tmp_net_player_name
+#include "frontmenu_net.h" // frontnet_session_set_player_name
+#include "net_game.h"      // keeper_name_is_set
+#include "net_main.h"      // net_player_name
 
 #include <algorithm>
 #include <cstdio>
@@ -306,6 +310,8 @@ int64_t player_symbol(int64_t slot)
 std::string player_name(int64_t slot)
 {
     const SkirmishSetup &s = skirmish_setup();
+    if ((slot == s.human_slot) && keeper_name_is_set())
+        return std::string(net_player_name) + " (you)";
     return "Player " + std::to_string(slot + 1) + ((slot == s.human_slot) ? " (you)" : "");
 }
 
@@ -740,6 +746,14 @@ void draw_slots()
     std::vector<const char *> model_ptrs;
     for (const std::string &n : model_names) model_ptrs.push_back(n.c_str());
 
+    // One keeper name for every game (the same one the network screen sets): the name other players, and agents
+    // playing against you, know you by.
+    FeCaption("Your keeper name (shown to the other players, and how agents playing you again recognise you)");
+    ImGui::SetNextItemWidth(300.0);
+    FeTextInput("##keeper_name", tmp_net_player_name, 20);
+    if (ImGui::IsItemDeactivatedAfterEdit())
+        frontnet_session_set_player_name(nullptr); // no gbtn use in its body (frontgui_netsession_frame does the same)
+    FeSeparator();
     FeCaption("Each computer keeper can use a different built-in AI. Unless the level says otherwise, the game picks a random skirmish preset for each.");
     lua_note({ SetupField_Controller, SetupField_Ally });
     for (int64_t p = 0; p < s.players; p++)

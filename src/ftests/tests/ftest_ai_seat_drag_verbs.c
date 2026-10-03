@@ -252,8 +252,9 @@ FTestActionResult sdv12_cast_wait_long(struct FTestActionArgs* const args)
 // cancel: start a room build, drop it after the drag has begun, and check nothing is built and the seat can act again.
 FTestActionResult sdv13_cancel_start(struct FTestActionArgs* const args)
 {
-    submit_ok("build_room to be cancelled", rect(V(ESV_BuildRoom, "TREASURE"), R_X0 + R_W + 2, R_Y0, R_X0 + R_W + 4, R_Y0 + 1));
+    // The floor first: build_room is checked when submitted (CANNOT_BUILD_HERE on no claimed floor).
     ftest_util_replace_slabs(R_X0 + R_W + 2, R_Y0, R_X0 + R_W + 4, R_Y0 + 1, SlbT_CLAIMED, P);
+    submit_ok("build_room to be cancelled", rect(V(ESV_BuildRoom, "TREASURE"), R_X0 + R_W + 2, R_Y0, R_X0 + R_W + 4, R_Y0 + 1));
     return FTRs_Go_To_Next_Action;
 }
 FTestActionResult sdv14_cancel(struct FTestActionArgs* const args)

@@ -379,12 +379,87 @@ void event_reset_scroll_window(void)
     kfx_sim_state.evntbox_scroll_window.window_height = 0;
 }
 
+void event_text_for(const struct Event *event, PlayerNumber plyr_idx, char *buf, size_t len)
+{
+    if ((buf == NULL) || (len == 0)) {
+        return;
+    }
+    buf[0] = 0;
+    const struct Thing *thing;
+    int64_t i;
+    snprintf(buf, len, "%s", get_string(ui_get_event_button_info(event->kind)->msg_stridx));
+    switch (event->kind)
+    {
+        case EvKind_Objective:
+            snprintf(buf, len, "%s", kfx_sim_state.evntbox_text_objective[plyr_idx]);
+            break;
+        case EvKind_NewRoomResrch:
+        case EvKind_RoomTakenOver:
+        case EvKind_WorkRoomUnreachable:
+        case EvKind_StorageRoomUnreachable:
+            str_appendf(buf, len, ":\n%s", get_string(get_room_kind_stats(event->target)->name_stridx));
+            break;
+        case EvKind_NewCreature:
+        case EvKind_CreatrScavenged:
+        case EvKind_CreatrIsAnnoyed:
+            // If the thing is gone the message is left without the creature's name.
+            thing = thing_get(event->target);
+            if (thing_exists(thing)) {
+                str_appendf(buf, len, ":\n%s", get_string(creature_stats_get_from_thing(thing)->namestr_idx));
+            }
+            break;
+        case EvKind_NewSpellResrch:
+            str_appendf(buf, len, ":\n%s", get_string(get_power_name_strindex(event->target)));
+            break;
+        case EvKind_NewTrap:
+            str_appendf(buf, len, ":\n%s", get_string(get_trap_model_stats(event->target)->name_stridx));
+            break;
+        case EvKind_NewDoor:
+            str_appendf(buf, len, ":\n%s", get_string(get_door_model_stats(event->target)->name_stridx));
+            break;
+        case EvKind_CreaturePayday:
+            str_appendf(buf, len, ":\n%" PRId64, (int64_t)(event->target));
+            break;
+        case EvKind_SpellPickedUp:
+            thing = thing_get(event->target);
+            if (thing_exists(thing)) {
+                str_appendf(buf, len, ":\n%s", get_string(get_power_name_strindex(book_thing_to_power_kind(thing))));
+            }
+            break;
+        case EvKind_Information:
+            i = (int64_t)event->target;
+            snprintf(buf, len, "%s", get_string((i < 0) ? -i : i));
+            break;
+        case EvKind_TrapCrateFound:
+            thing = thing_get(event->target);
+            if (thing_exists(thing)) {
+                str_appendf(buf, len, ":\n%s", get_string(get_trap_model_stats(crate_thing_to_workshop_item_model(thing))->name_stridx));
+            }
+            break;
+        case EvKind_DoorCrateFound:
+            thing = thing_get(event->target);
+            if (thing_exists(thing)) {
+                str_appendf(buf, len, ":\n%s", get_string(get_door_model_stats(crate_thing_to_workshop_item_model(thing))->name_stridx));
+            }
+            break;
+        case EvKind_DnSpecialFound:
+            thing = thing_get(event->target);
+            if (thing_exists(thing)) {
+                str_appendf(buf, len, ":\n%s", get_string(get_special_description_strindex(box_thing_to_special(thing))));
+            }
+            break;
+        case EvKind_QuickInformation:
+            i = (int64_t)event->target;
+            snprintf(buf, len, "%s", kfx_sim_state.quick_messages[((i < 0) ? -i : i) % QUICK_MESSAGES_COUNT]);
+            break;
+        default:
+            break;
+    }
+}
+
 void activate_event_box(EventIndex evidx)
 {
-    struct CreatureModelConfig* crconf;
-    struct DoorConfigStats *doorst;
-    struct TrapConfigStats *trapst;
-    struct Thing *thing;
+    const struct Thing *thing;
     int64_t i;
     PlayerNumber plyr_idx = my_player_number;
     struct Dungeon* dungeon = get_my_dungeon();
@@ -392,8 +467,9 @@ void activate_event_box(EventIndex evidx)
     SYNCDBG(6,"Starting for event kind %" PRId64,(int64_t)(event->kind));
     ui_set_visible_event_idx(evidx);
     ui_mark_event_button_read(evidx);
-    i = ui_get_event_button_info(event->kind)->msg_stridx;
-    strcpy(kfx_sim_state.evntbox_scroll_window.text, get_string(i));
+    // The text is event_text_for's (the same text the External-seat view reports); what follows is only which
+    // panels open around it.
+    event_text_for(event, plyr_idx, kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text));
     if ((event->kind == EvKind_FriendlyFight) || (event->kind == EvKind_EnemyFight)) {
         // Restart the list of visible battles from the first one; the other slots are
         // refilled by maintain_my_battle_list(), which skips battles already on the list.
@@ -417,7 +493,6 @@ void activate_event_box(EventIndex evidx)
             break;
         case EvKind_Objective:
         {
-            strcpy(kfx_sim_state.evntbox_scroll_window.text, kfx_sim_state.evntbox_text_objective[plyr_idx]);
             int64_t k;
             for (i = EVENT_BUTTONS_COUNT; i >= 0; i--)
             {
@@ -433,103 +508,18 @@ void activate_event_box(EventIndex evidx)
             break;
         }
         case EvKind_NewRoomResrch:
-        {
-            other_off = 1;
-            const struct RoomConfigStats* roomst = get_room_kind_stats(event->target);
-            i = roomst->name_stridx;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
-        }
         case EvKind_NewCreature:
-            other_off = 1;
-            thing = thing_get(event->target);
-            // If thing is invalid - leave the message without it.
-            // Otherwise, put creature type in it.
-            if (thing_exists(thing))
-            {
-                crconf = creature_stats_get_from_thing(thing);
-                i = crconf->namestr_idx;
-                str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            }
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
         case EvKind_NewSpellResrch:
-            other_off = 1;
-            i = get_power_name_strindex(event->target);
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
         case EvKind_NewTrap:
-            other_off = 1;
-            trapst = get_trap_model_stats(event->target);
-            i = trapst->name_stridx;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
         case EvKind_NewDoor:
-            other_off = 1;
-            doorst = get_door_model_stats(event->target);
-            i = doorst->name_stridx;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
-        case EvKind_CreatrScavenged: // Scavenge detected
-            other_off = 1;
-            thing = thing_get(event->target);
-            // If thing is invalid - leave the message without it.
-            // Otherwise, put creature type in it.
-            if (thing_exists(thing))
-            {
-                crconf = creature_stats_get_from_thing(thing);
-                i = crconf->namestr_idx;
-                str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            }
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
+        case EvKind_CreatrScavenged:
         case EvKind_TreasureRoomFull:
         case EvKind_AreaDiscovered:
-            other_off = 1;
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
         case EvKind_CreaturePayday:
-            other_off = 1;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%" PRId64, (int64_t)(event->target));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
-        case EvKind_SpellPickedUp:
-            other_off = 1;
-            thing = thing_get(event->target);
-            if (!thing_exists(thing))
-                break;
-            i = get_power_name_strindex(book_thing_to_power_kind(thing));
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
         case EvKind_RoomTakenOver:
         case EvKind_WorkRoomUnreachable:
         case EvKind_StorageRoomUnreachable:
-        {
-            other_off = 1;
-            const struct RoomConfigStats* roomst = get_room_kind_stats(event->target);
-            i = roomst->name_stridx;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
-        }
         case EvKind_CreatrIsAnnoyed:
-            other_off = 1;
-            thing = thing_get(event->target);
-            // If thing is invalid - leave the message without it.
-            // Otherwise, put creature type in it.
-            if (thing_exists(thing))
-            {
-                crconf = creature_stats_get_from_thing(thing);
-                i = crconf->namestr_idx;
-                str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            }
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
         case EvKind_NoMoreLivingSet:
         case EvKind_AlarmTriggered:
         case EvKind_RoomUnderAttack:
@@ -541,52 +531,20 @@ void activate_event_box(EventIndex evidx)
             other_off = 1;
             ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
-        case EvKind_Information:
-            i = (int64_t)event->target;
-            if (i < 0) {
-                i = -i;
-            }
-            snprintf(kfx_sim_state.evntbox_text_buffer, sizeof(kfx_sim_state.evntbox_text_buffer), "%s", get_string(i));
-            snprintf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), "%s", kfx_sim_state.evntbox_text_buffer);
-            other_off = 1;
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
+        case EvKind_SpellPickedUp:
         case EvKind_TrapCrateFound:
+        case EvKind_DoorCrateFound:
+        case EvKind_DnSpecialFound:
+            // These open the text panel only while the item still exists.
             other_off = 1;
             thing = thing_get(event->target);
             if (!thing_exists(thing))
                 break;
-            trapst = get_trap_model_stats(crate_thing_to_workshop_item_model(thing));
-            i = trapst->name_stridx;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
             ui_turn_on_menu(GMnu_TEXT_INFO);
             break;
-        case EvKind_DoorCrateFound:
-            other_off = 1;
-            thing = thing_get(event->target);
-            if (!thing_exists(thing))
-              break;
-            doorst = get_door_model_stats(crate_thing_to_workshop_item_model(thing));
-            i = doorst->name_stridx;
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
-        case EvKind_DnSpecialFound:
-            other_off = 1;
-            thing = thing_get(event->target);
-            if (!thing_exists(thing))
-              break;
-            i = get_special_description_strindex(box_thing_to_special(thing));
-            str_appendf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), ":\n%s", get_string(i));
-            ui_turn_on_menu(GMnu_TEXT_INFO);
-            break;
+        case EvKind_Information:
         case EvKind_QuickInformation:
-            i = (int64_t)event->target;
-            if (i < 0) {
-              i = -i;
-            }
-            snprintf(kfx_sim_state.evntbox_text_buffer, sizeof(kfx_sim_state.evntbox_text_buffer), "%s", kfx_sim_state.quick_messages[i % QUICK_MESSAGES_COUNT]);
-            snprintf(kfx_sim_state.evntbox_scroll_window.text, sizeof(kfx_sim_state.evntbox_scroll_window.text), "%s", kfx_sim_state.evntbox_text_buffer);
+            snprintf(kfx_sim_state.evntbox_text_buffer, sizeof(kfx_sim_state.evntbox_text_buffer), "%s", kfx_sim_state.evntbox_scroll_window.text);
             other_off = 1;
             ui_turn_on_menu(GMnu_TEXT_INFO);
             break;

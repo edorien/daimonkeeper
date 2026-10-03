@@ -161,40 +161,40 @@ TbBool tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, M
     return (colour != SLC_RED);
 }
 
+TbBool door_placement_allowed(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    MapSlabCoord slb_x = subtile_slab(stl_x);
+    MapSlabCoord slb_y = subtile_slab(stl_y);
+    struct SlabMap *slb = get_slabmap_block(slb_x, slb_y);
+    if (floor_height_for_volume_box(plyr_idx, slb_x, slb_y) != 1)
+        return false;
+    char Orientation = find_door_angle(stl_x, stl_y, plyr_idx);
+    TbBool Check = false;
+    switch(Orientation)
+    {
+        case 0:
+        {
+            Check = (!slab_middle_row_has_trap_on(slb_x, slb_y) );
+            break;
+        }
+        case 1:
+        {
+            Check = (!slab_middle_column_has_trap_on(slb_x, slb_y) );
+            break;
+        }
+    }
+    return ( (slabmap_owner(slb) == plyr_idx) && (slb->kind == SlbT_CLAIMED) )
+        && (Orientation != -1) && ( Check )
+        && (!slab_has_door_thing_on(slb_x, slb_y));
+}
+
 TbBool tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
 {
     SYNCDBG(7,"Starting");
     MapSlabCoord slb_x = subtile_slab(stl_x);
     MapSlabCoord slb_y = subtile_slab(stl_y);
-    struct SlabMap *slb;
-    slb = get_slabmap_block(slb_x, slb_y);
-    TbBool allowed = false;
-    char Orientation;
-    TbBool Check = false;
     int64_t floor_height_z = floor_height_for_volume_box(plyr_idx, slb_x, slb_y);
-    if (floor_height_z == 1)
-    {
-        Orientation = find_door_angle(stl_x, stl_y, plyr_idx);
-        switch(Orientation)
-        {
-            case 0:
-            {
-                Check = (!slab_middle_row_has_trap_on(slb_x, slb_y) );
-                break;
-            }
-            case 1:
-            {
-                Check = (!slab_middle_column_has_trap_on(slb_x, slb_y) );
-                break;
-            }
-        }
-        if ( ( (slabmap_owner(slb) == plyr_idx) && (slb->kind == SlbT_CLAIMED) )
-            && (Orientation != -1) && ( Check ) 
-            && (!slab_has_door_thing_on(slb_x, slb_y)) )
-        {
-            allowed = true;
-        }
-    }
+    const TbBool allowed = door_placement_allowed(plyr_idx, stl_x, stl_y);
     if ( is_my_player_number(plyr_idx) && !ui_game_is_busy_doing_gui() && kfx_sim_state.small_map_state != 2 )
     {
         struct PlayerInfo* player = get_player(plyr_idx);

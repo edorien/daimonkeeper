@@ -7,13 +7,15 @@ instead. Run through scripts/run_ftest_ai_bridge_mcp.sh, not by hand.
 Usage: ai_bridge_mcp_e2e.py [port]"""
 import json
 import os
+import shutil
+import tempfile
 import subprocess
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm_bridge"))
 
+import experience  # noqa: E402
 from api import Api  # noqa: E402
 from policies import _find_block  # noqa: E402
 
@@ -109,7 +111,8 @@ def main():
         raise SystemExit("could not find a claimed-floor or earth patch near the heart (room_rect=%r dig_rect=%r)" % (room_rect, dig_rect))
 
     server_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "llm_bridge", "mcp_server.py")
-    mem_path = tempfile.mktemp(suffix=".mcp_memory.json")
+    exp_dir = tempfile.mkdtemp(prefix="mcp-e2e-exp-")
+    exp_path = os.path.join(exp_dir, "experience.sqlite")
     client = McpClient(server_path)
     decisions = []
     try:
@@ -120,7 +123,8 @@ def main():
         instructions = client.call_tool("get_instructions")
         check("get_instructions returns the system prompt", "Dungeon Keeper" in instructions, instructions[:80])
 
-        connected = client.call_tool("connect", {"host": "127.0.0.1", "port": PORT, "memory_path": mem_path, "min_interval_turns": 40})
+        connected = client.call_tool("connect", {"host": "127.0.0.1", "port": PORT, "min_interval_turns": 40,
+                                                "experience_path": exp_path, "agent": "mcp-e2e"})
         check("connect reports the seat", ("player %d" % seat_player) in connected, connected)
 
         for i in range(4):
@@ -149,18 +153,22 @@ def main():
     finally:
         client.close()
 
-    if os.path.exists(mem_path):
-        mem = json.load(open(mem_path))
-        check("the memory file recorded the plan and four decisions", mem.get("plan") == "grow the dungeon" and len(mem.get("decisions", [])) == 4, mem)
-        os.unlink(mem_path)
-    else:
-        check("the memory file was written", False, "not found: %s" % mem_path)
-
     # Signal the bridge phase is over (the game side stops treating a pause as a bug from here) and report the verdict.
     # The game answers one client at a time and needs a moment to notice the MCP subprocess's connection closed.
     time.sleep(1.0)
     report = Api("127.0.0.1", PORT)
     report.connect(30)
+    # The agent's memory is kept by the game (09-persistent-memory.md), not in a file.
+    held = report.data(action="get_agent_memory", player=seat_player)["data"]
+    mem = json.loads(held) if held else {}
+    check("the game holds the plan and four decisions", mem.get("plan") == "grow the dungeon" and len(mem.get("decisions", [])) == 4, mem)
+    store = experience.Experience(exp_path)
+    rows = [dict(r) for r in store.db.execute("SELECT game_id, result, decisions, agent FROM games")]
+    store.close()
+    shutil.rmtree(exp_dir, ignore_errors=True)
+    check("the experience store holds this game's attempt: open, four decisions, the agent's name",
+          len(rows) == 1 and rows[0]["game_id"] == mem.get("game_id") and rows[0]["result"] is None
+          and rows[0]["decisions"] == 4 and rows[0]["agent"] == "mcp-e2e", rows)
     report.call(action="set_var", var="FLAG1", value=2, player=0)
     report.call(action="set_var", var="FLAG0", value=2 if failures else 1, player=0)
     report.close()

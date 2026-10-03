@@ -83,6 +83,7 @@ FTestActionResult dr01_setup(struct FTestActionArgs* const args)
     d->total_money_owned = 100000;
     d->room_buildable[treasure] |= 1;
     ftest_util_replace_slabs(hsx + 3, hsy - 2, hsx + 7, hsy + 2, SlbT_CLAIMED, P);
+    ftest_util_reveal_map(P); // the build is checked against what the seat has seen
     return FTRs_Go_To_Next_Action;
 }
 

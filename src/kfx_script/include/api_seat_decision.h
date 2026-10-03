@@ -4,7 +4,7 @@
  *
  * A real-time agent should think at natural moments, not on a fixed timer: at each quarter of a pay day, and when
  * something important happens (a fight with a rival, an attack on the heart or a room, a breach, a room lost, the first
- * creature of a new kind arriving). Once per turn the seat's situation is compared with the last look; when a reason has
+ * creature of a new kind arriving, a new objective or information message, victory or defeat). Once per turn the seat's situation is compared with the last look; when a reason has
  * appeared and the minimum interval since the last decision has passed, the decision counter goes up and the client that
  * subscribed to the DECISION_DUE event is told ({player, seq, turn, reasons, quarter}). The latest decision is also in
  * the view as seat.decision, for clients that poll. Reasons that arrive inside the minimum interval are held and
@@ -24,7 +24,14 @@ extern "C" {
 void api_seat_decision_tick(void);
 /** Adds seat.decision to a view being built for `plyr_idx`. */
 void api_seat_decision_add_to_view(VALUE *seat, PlayerNumber plyr_idx);
-/** Minimum game turns between two decisions (default 100). */
+struct SacrificeRecipe;
+/** A sacrifice recipe as text, in rules.cfg's own names: "POSUNIQFUNC COMPLETE_RESEARCH <- FLY FLY". */
+void api_seat_recipe_text(const struct SacrificeRecipe *sac, char *buf, size_t len);
+/** Adds `outcomes` (recipes seen firing for `plyr_idx`, oldest first) to a view's own.sacrifices. */
+void api_seat_decision_add_sacrifice_outcomes(VALUE *sacrifices, PlayerNumber plyr_idx);
+/** Adds own.objective_history (the level's objectives as they appeared, oldest first) to a view for `plyr_idx`. */
+void api_seat_decision_add_objectives(VALUE *own, PlayerNumber plyr_idx);
+/** Minimum game turns between two decisions (default 100; victory / defeat are never held back by it). */
 void api_seat_decision_set_min_interval(int64_t turns);
 /** Forgets every seat's baseline (a new game). */
 void api_seat_decision_reset(void);

@@ -50,6 +50,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "local_state.h"
+#include "agent_memory.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -207,6 +208,23 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
         if (LbFileWrite(fhandle, lua_data, lua_data_len) == lua_data_len)
             chunks_done |= SGF_LuaData;
         script_cleanup_serialized_data();
+    }
+
+    // Optional: what External seat agents keep about this game (09-persistent-memory.md section 4.2). Written only
+    // when an agent holds something, so a save from a game without one is unchanged; older builds skip the chunk.
+    {
+        char *agent_data = NULL;
+        const size_t agent_len = agent_memory_serialise(&agent_data);
+        if (agent_len > 0)
+        {
+            hdr.id = SGC_AgentMemory;
+            hdr.ver = AGENT_MEMORY_CHUNK_VER;
+            hdr.len = agent_len;
+            if ((LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) != sizeof(struct FileChunkHeader))
+             || (LbFileWrite(fhandle, agent_data, agent_len) != (int64_t)agent_len))
+                WARNLOG("Could not write the agent memory chunk");
+        }
+        free(agent_data);
     }
 
     if (chunks_done != SGF_SavedGame)
@@ -388,9 +406,21 @@ static TbBool chunk_version_ok(TbFileHandle fhandle, const struct FileChunkHeade
     return false;
 }
 
+// The AGNT chunk of the save being loaded, installed by load_game() only once the whole load has succeeded.
+static char *loaded_agent_memory = NULL;
+static size_t loaded_agent_memory_len = 0;
+
+static void forget_loaded_agent_memory(void)
+{
+    free(loaded_agent_memory);
+    loaded_agent_memory = NULL;
+    loaded_agent_memory_len = 0;
+}
+
 int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     int64_t chunks_done = 0;
+    forget_loaded_agent_memory();
     save_refused = !validate_save_chunks(fhandle);
     if (save_refused)
     {
@@ -560,6 +590,18 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 }
             }
             break;
+        case SGC_AgentMemory:
+            if (!chunk_version_ok(fhandle, &hdr, AGENT_MEMORY_CHUNK_VER))
+                break;
+            forget_loaded_agent_memory();
+            loaded_agent_memory = (char *)malloc(hdr.len ? hdr.len : 1);
+            if ((loaded_agent_memory == NULL) || (LbFileRead(fhandle, loaded_agent_memory, hdr.len) != (int64_t)hdr.len)) {
+                WARNLOG("Could not read the agent memory chunk");
+                forget_loaded_agent_memory();
+                break;
+            }
+            loaded_agent_memory_len = hdr.len;
+            break;
         default:
             WARNLOG("Unrecognized chunk, ID = %08" PRIx64, (uint64_t)(hdr.id));
             if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
@@ -605,7 +647,15 @@ TbBool save_game(int64_t slot_num)
         return false;
     }
     LbFileClose(handle);
-    script_api_event("GAME_SAVED");
+    {
+        // The turn the save holds: an agent uses it to tell a quit right after a save (the game will be continued)
+        // from an abandoned one (09-persistent-memory.md section 6.4).
+        const struct ApiEventData event_data[] = {
+            {"turn", API_EVENT_DATA_INT64, {.int64_value = (int64_t)get_gameturn()}},
+            {"slot", API_EVENT_DATA_INT32, {.int32_value = (int64_t)slot_num}},
+        };
+        script_api_event_with_data("GAME_SAVED", event_data, sizeof(event_data) / sizeof(event_data[0]));
+    }
     return true;
 }
 
@@ -677,6 +727,7 @@ TbBool load_game(int64_t slot_num)
     // Here is the actual loading
     if (load_game_chunks(fh,centry) != GLoad_SavedGame)
     {
+        forget_loaded_agent_memory();
         LbFileClose(fh);
         if (kfx_sim_state.loaded_level_number == 0)
         {
@@ -687,6 +738,10 @@ TbBool load_game(int64_t slot_num)
     }
     my_player_number = kfx_sim_state.level_human_player;
     LbFileClose(fh);
+    // The agents' memory comes back exactly as it was saved; a save without the chunk leaves none.
+    if (!agent_memory_deserialise(loaded_agent_memory, loaded_agent_memory_len))
+        WARNLOG("Malformed agent memory chunk; the agents start without memory");
+    forget_loaded_agent_memory();
     // Re-apply creature sound overrides: SGC_GameOrig restored kfx_config_state.conf with
     // session-specific negative bank indices from the save; fix them to match
     // the current session's custom bank layout.
@@ -737,7 +792,12 @@ TbBool load_game(int64_t slot_num)
     kfx_sim_state.loaded_swipe_idx = -1;
     JUSTMSG("Loaded level %" PRId64 " from %s", (int64_t)(kfx_sim_state.continue_level_number), campaign.name);
 
-    script_api_event("GAME_LOADED");
+    {
+        const struct ApiEventData event_data[] = {
+            {"turn", API_EVENT_DATA_INT64, {.int64_value = (int64_t)get_gameturn()}},
+        };
+        script_api_event_with_data("GAME_LOADED", event_data, sizeof(event_data) / sizeof(event_data[0]));
+    }
 
     return true;
 }

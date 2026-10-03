@@ -100,12 +100,15 @@ install(FILES "${CMAKE_BINARY_DIR}/keeperfx.map" DESTINATION . OPTIONAL COMPONEN
 # into runtime or gamedata, for the same reason those two are split: build-cmake-linux.sh/build-package.sh request each
 # component by name, and an unnamed "Unspecified" rule would also catch every third-party subproject's own install()
 # rules (see the COMPONENT runtime/gamedata comments above). Excludes the offline test modules (test_*.py) and any
-# __pycache__ -- dev-only, not something a person running the bridge against their own game needs.
+# __pycache__ -- dev-only, not something a person running the bridge against their own game needs -- and any
+# experience.sqlite (the agent's game records and lessons, which the bridge keeps next to itself): a developer's own
+# must never ship, nor overwrite the one in an install the bridge has been learning in.
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/scripts/llm_bridge/"
     DESTINATION mcp
     COMPONENT mcp
     PATTERN "test_*" EXCLUDE
     REGEX "__pycache__" EXCLUDE
+    REGEX "experience\\.sqlite" EXCLUDE
 )
 
 install(CODE "
