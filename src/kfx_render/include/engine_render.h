@@ -25,6 +25,7 @@
 #include "bflib_sprite.h"
 #include "engine_lenses.h"
 #include "renderer/WorldFrame.h"
+#include "keeper_sprites.h"
 
 #ifdef __cplusplus
 extern "C" {

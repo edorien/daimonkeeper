@@ -66,32 +66,6 @@ static unsigned char backup_explored[26][26];
 }
 #endif
 /******************************************************************************/
-/**
- * Sets keeper power selected by local human player.
- *
- * @param pwkind Power to select.
- * @param sptooltip Tooltip string index.
- * @note Was set_chosen_spell()
- */
-void set_chosen_power(PowerKind pwkind, TextStringId sptooltip)
-{
-    const struct PowerConfigStats* powerst = get_power_model_stats(pwkind);
-    if (power_model_stats_invalid(powerst))
-      pwkind = 0;
-    SYNCDBG(6,"Setting to %" PRIu64,(uint64_t)(pwkind));
-    kfx_sim_state.chosen_spell_type = pwkind;
-    kfx_sim_state.chosen_spell_spridx = powerst->bigsym_sprite_idx;
-    kfx_sim_state.chosen_spell_tooltip = sptooltip;
-}
-
-void set_chosen_power_none(void)
-{
-    SYNCDBG(6,"Setting to %" PRId64,(int64_t)(0));
-    kfx_sim_state.chosen_spell_type = 0;
-    kfx_sim_state.chosen_spell_spridx = 0;
-    kfx_sim_state.chosen_spell_tooltip = 0;
-}
-
 unsigned char general_expand_check(void)
 {
     struct PlayerInfo* player = get_my_player();
@@ -249,53 +223,11 @@ void process_disease(struct Thing *creatng)
     }
 }
 
-void lightning_modify_palette(struct Thing *thing)
-{
-    struct PlayerInfo* myplyr = get_my_player();
-    struct UserState* ustate = get_user_state(get_local_user());
-    struct Camera* camera = get_player_active_camera(myplyr);
-
-    if (thing->health == 0)
-    {
-      render_PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
-      ustate->additional_flags &= ~UsrAF_LightningPaletteIsActive;
-      return;
-    }
-    if (camera == NULL)
-    {
-        ERRORLOG("No active camera");
-        return;
-    }
-    if (((thing->health % 8) != 7) && (thing->health != 1) && (UNSYNC_RANDOM(4) != 0))
-    {
-        if ((ustate->additional_flags & UsrAF_LightningPaletteIsActive) != 0)
-        {
-            if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
-            {
-                render_PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
-                ustate->additional_flags &= ~UsrAF_LightningPaletteIsActive;
-            }
-        }
-        return;
-    }
-    if ((camera->view_mode != PVM_ParchFadeIn) && (camera->view_mode != PVM_ParchFadeOut) && (camera->view_mode != PVM_ParchmentView))
-    {
-        if ((ustate->additional_flags & UsrAF_LightningPaletteIsActive) == 0)
-        {
-                        if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
-            {
-              render_PaletteSetUserViewPalette(get_local_user(), VPal_Lightning);
-              ustate->additional_flags |= UsrAF_LightningPaletteIsActive;
-            }
-        }
-    }
-}
-
 void update_god_lightning_ball(struct Thing *thing)
 {
     if (thing->health <= 0)
     {
-        lightning_modify_palette(thing);
+        render_lightning_modify_palette(thing);
         return;
     }
     struct ShotConfigStats* shotst;

@@ -35,6 +35,7 @@
 #include "lens_api.h"
 #include "config_settings.h"
 #include "creature_graphics.h"
+#include "keeper_sprites.h"
 #include "sprites.h"
 #include "kfx_sim_state.h"
 #include "post_inc.h"

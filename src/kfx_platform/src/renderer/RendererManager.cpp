@@ -13,7 +13,11 @@
 #include "renderer/IUIRenderer.h"
 #include "bflib_vidraw.h"   // LbSpriteDraw*Immediate
 #include "ports/display_host_port.h"
+#include "bflib_colour_transform.h"
 #include "post_inc.h"
+
+#include <cstring>
+#include <vector>
 
 static IRenderer*   s_active_renderer = nullptr;
 static RendererType s_active_type     = RENDERER_INVALID;
@@ -185,6 +189,97 @@ int RendererGetLightingMode(void)
     return s_lighting_mode;
 }
 
+static int s_texture_filter = RENDERER_TEXFILTER_NEAREST;
+static TbBool s_texture_mipmaps = 0;
+
+// HD reference palette and the transform from it to the active palette, rebuilt when the active palette changes.
+static unsigned char s_hd_reference[768];
+static bool s_hd_reference_valid = false;
+static unsigned char s_hd_transform_for[768];
+static bool s_hd_transform_valid = false;
+static ColourTransform s_hd_transform = {};
+static std::vector<uint8_t> s_hd_transform_table;
+static std::vector<uint8_t> s_hd_nearest;
+
+void RendererSetHdReferencePalette(const unsigned char *palette)
+{
+    s_hd_transform_valid = false;
+    s_hd_reference_valid = (palette != nullptr);
+    if (palette == nullptr)
+        return;
+    memcpy(s_hd_reference, palette, sizeof(s_hd_reference));
+    s_hd_nearest.assign(COLOUR_TRANSFORM_TABLE_SIZE, 0);
+    s_hd_transform_table.assign(4 * COLOUR_TRANSFORM_TABLE_SIZE, 0);
+    colour_transform_nearest_entries(s_hd_reference, s_hd_nearest.data());
+    s_hd_transform.table = s_hd_transform_table.data();
+}
+
+static void hd_transform_update(void)
+{
+    const unsigned char *active = RendererGetActivePalette();
+    if (!s_hd_reference_valid || active == nullptr)
+        return;
+    if (s_hd_transform_valid && memcmp(s_hd_transform_for, active, sizeof(s_hd_transform_for)) == 0)
+        return;
+    colour_transform_build(&s_hd_transform, s_hd_reference, active, s_hd_nearest.data());
+    memcpy(s_hd_transform_for, active, sizeof(s_hd_transform_for));
+    s_hd_transform_valid = true;
+}
+
+TbBool RendererHdUsable(void)
+{
+    if (!s_hd_reference_valid)
+        return 0;
+    hd_transform_update();
+    return (s_hd_transform.mode != CTM_Unsupported) ? 1 : 0;
+}
+
+const struct ColourTransform *RendererHdColourTransform(void)
+{
+    if (!s_hd_reference_valid)
+        return nullptr;
+    hd_transform_update();
+    return ((s_hd_transform.mode == CTM_Curves) || (s_hd_transform.mode == CTM_Table)) ? &s_hd_transform : nullptr;
+}
+
+const unsigned char *RendererHdReferencePalette(void)
+{
+    return s_hd_reference_valid ? s_hd_reference : nullptr;
+}
+
+void RendererSetTextureFilter(int filter)
+{
+    s_texture_filter = ((filter == RENDERER_TEXFILTER_SHARP) || (filter == RENDERER_TEXFILTER_BILINEAR) ||
+        (filter == RENDERER_TEXFILTER_TRILINEAR)) ? filter : RENDERER_TEXFILTER_NEAREST;
+}
+
+int RendererGetTextureFilter(void)
+{
+    return s_texture_filter;
+}
+
+static uint64_t s_hd_sprite_atlas_cap;
+
+void RendererSetHdSpriteAtlasCap(uint64_t bytes)
+{
+    s_hd_sprite_atlas_cap = bytes;
+}
+
+uint64_t RendererGetHdSpriteAtlasCap(void)
+{
+    return (s_hd_sprite_atlas_cap > 0) ? s_hd_sprite_atlas_cap : (3ull << 30);
+}
+
+void RendererSetTextureMipmaps(TbBool on)
+{
+    s_texture_mipmaps = on ? 1 : 0;
+}
+
+TbBool RendererGetTextureMipmaps(void)
+{
+    return s_texture_mipmaps;
+}
+
 TbBool RendererPerPixelLightingActive(void)
 {
     return (s_lighting_mode == RENDERER_LIGHTING_PERPIXEL && RendererWorldFrameActive()) ? 1 : 0;
@@ -229,6 +324,20 @@ void RendererSetGpuDebug(TbBool enabled)
 TbBool RendererGetGpuDebug(void)
 {
     return s_gpu_debug ? 1 : 0;
+}
+
+void RendererWorldFrameTexturesChanged(void)
+{
+    if (s_active_renderer != nullptr)
+        s_active_renderer->WorldTexturesChanged();
+}
+
+TbBool RendererGetWorldTextureStats(struct WorldFrameTextureStats *out)
+{
+    if (out == nullptr)
+        return 0;
+    *out = WorldFrameTextureStats{};
+    return ((s_active_renderer != nullptr) && s_active_renderer->GetWorldTextureStats(out)) ? 1 : 0;
 }
 
 void RendererSetTrueDepth(TbBool enabled)
@@ -294,13 +403,14 @@ TbBool RendererWorldFrameCapturing(void)
 void RendererWorldFrameAddPoly(const struct PolyPoint *a, const struct PolyPoint *b, const struct PolyPoint *c, unsigned char *texture)
 {
     if (s_world_capturing || s_overlay_capturing)
-        s_world_recorder.AddPoly(a, b, c, texture);
+        s_world_recorder.AddPoly(a, b, c, texture, (uint8_t)vec_map_shift, (uint8_t)(vec_map_parity ? 1 : 0), vec_map_rgba,
+            (uint8_t)(vec_map_original_at_32 ? 1 : 0));
 }
 
 TbBool RendererWorldFrameAddShadowTri(const struct PolyPoint *a, const struct PolyPoint *b, const struct PolyPoint *c,
-                                      const unsigned char *mask, int64_t shade)
+                                      const unsigned char *mask, int64_t shade, int64_t scale, TbBool coverage)
 {
-    return ((s_world_capturing || s_overlay_capturing) && s_world_recorder.AddShadowTri(a, b, c, mask, shade)) ? 1 : 0;
+    return ((s_world_capturing || s_overlay_capturing) && s_world_recorder.AddShadowTri(a, b, c, mask, shade, scale, coverage != 0)) ? 1 : 0;
 }
 
 void RendererWorldFrameAddSprite(const unsigned char *rle, int32_t src_w, int32_t src_h,
@@ -310,6 +420,17 @@ void RendererWorldFrameAddSprite(const unsigned char *rle, int32_t src_w, int32_
 {
     if (s_world_capturing || s_overlay_capturing)
         s_world_recorder.AddSprite(rle, src_w, src_h, dst_x, dst_y, dst_w, dst_h, xmap, ymap, cmap, mode, rgba);
+}
+
+void RendererWorldFrameAddSpriteHd(const void *texels, const void *sub_texels, uint64_t id, int32_t hd_w, int32_t hd_h, int32_t hd_stride, int32_t hd_scale,
+                                   const unsigned char *rle, int32_t src_w, int32_t src_h,
+                                   int32_t dst_x, int32_t dst_y, int32_t dst_w, int32_t dst_h,
+                                   const uint16_t *xmap, const uint16_t *ymap,
+                                   const uint32_t *curve_row, uint32_t table, const uint32_t *index_cmap, uint32_t mode, uint32_t rgba)
+{
+    if (s_world_capturing || s_overlay_capturing)
+        s_world_recorder.AddSpriteHd(texels, sub_texels, id, hd_w, hd_h, hd_stride, hd_scale, rle, src_w, src_h, dst_x, dst_y, dst_w, dst_h,
+            xmap, ymap, curve_row, table, index_cmap, mode, rgba);
 }
 
 const unsigned char* RendererGetActivePalette(void)

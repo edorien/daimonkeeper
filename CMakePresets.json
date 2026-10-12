@@ -16,10 +16,10 @@
         },
 
         {
-            "name": "x86",
+            "name": "x64",
             "hidden": true,
             "architecture": {
-                "value": "x86",
+                "value": "x64",
                 "strategy": "external"
             }
         },
@@ -56,7 +56,7 @@
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
-                    "intelliSenseMode": "windows-clang-x86"
+                    "intelliSenseMode": "windows-clang-x64"
                 }
             }
         },
@@ -64,60 +64,60 @@
         {
             "name": "Debug-Clang",
             "displayName": "Debug Clang",
-            "inherits": [ "base", "x86", "Debug", "Clang" ],
+            "inherits": [ "base", "x64", "Debug", "Clang" ],
             "hidden": true
         },
         {
             "name": "Release-Clang",
             "displayName": "Release Clang",
-            "inherits": [ "base", "x86", "Release", "Clang" ],
+            "inherits": [ "base", "x64", "Release", "Clang" ],
             "hidden": true
         },
         {
             "name": "Debug-MSVC",
             "displayName": "Debug MSVC",
-            "inherits": [ "base", "x86", "Debug", "MSVC" ],
+            "inherits": [ "base", "x64", "Debug", "MSVC" ],
             "hidden": true
         },
         {
             "name": "Release-MSVC",
             "displayName": "Release MSVC",
-            "inherits": [ "base", "x86", "Release", "MSVC" ],
+            "inherits": [ "base", "x64", "Release", "MSVC" ],
             "hidden": true
         },
 
         {
-            "name": "MingGW32-Base",
+            "name": "MinGW64-Base",
             "hidden": true,
             "inherits": "base",
             "environment": {
-                "PATH": "C:/msys64/mingw32/bin;$penv{PATH}"
+                "PATH": "C:/msys64/mingw64/bin;$penv{PATH}"
             },
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "gcc.exe",
                 "CMAKE_CXX_COMPILER": "g++.exe",
-                "VCPKG_TARGET_TRIPLET": "x86-mingw-dynamic"
+                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
-                    "intelliSenseMode": "windows-clang-x86"
+                    "intelliSenseMode": "windows-clang-x64"
                 }
             }
         },
 
         {
-            "name": "x86-MinGW32-Debug",
-            "displayName": "x86-MinGW32-Debug",
-            "inherits": [ "MingGW32-Base", "x86", "Debug" ],
+            "name": "x64-MinGW64-Debug",
+            "displayName": "x64-MinGW64-Debug",
+            "inherits": [ "MinGW64-Base", "x64", "Debug" ],
             "binaryDir": "${sourceDir}/out/windows/cmake-build-debug",
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "on"
             }
         },
         {
-            "name": "x86-MinGW32-Release",
-            "displayName": "x86-MinGW32-Release",
-            "inherits": [ "MingGW32-Base", "x86", "Release" ],
+            "name": "x64-MinGW64-Release",
+            "displayName": "x64-MinGW64-Release",
+            "inherits": [ "MinGW64-Base", "x64", "Release" ],
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "on"
             }
@@ -178,16 +178,16 @@
         },
 
         {
-            "name": "Debug-MinGW32-Standard",
-            "displayName": "Debug MinGW32 Standard",
+            "name": "Debug-MinGW64-Standard",
+            "displayName": "Debug MinGW64 Standard",
             "inherits": "StandardLog",
-            "configurePreset": "x86-MinGW32-Debug"
+            "configurePreset": "x64-MinGW64-Debug"
         },
         {
-            "name": "Release-MinGW32-Standard",
-            "displayName": "Release MinGW32 Standard",
+            "name": "Release-MinGW64-Standard",
+            "displayName": "Release MinGW64 Standard",
             "inherits": "StandardLog",
-            "configurePreset": "x86-MinGW32-Release"
+            "configurePreset": "x64-MinGW64-Release"
         }
     ]
 }

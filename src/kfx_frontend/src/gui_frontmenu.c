@@ -35,6 +35,7 @@
 
 #include "kfx_frontend_state.h"
 #include "packets.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -410,7 +411,7 @@ void turn_on_menu(MenuID mnu_idx)
     if (create_menu(gmnu) >= 0)
     {
       if (gmnu->is_active_panel)
-        kfx_sim_state.active_panel_mnu_idx = mnu_idx;
+        kfx_local_view.active_panel_mnu_idx = mnu_idx;
     }
 }
 
@@ -635,16 +636,16 @@ void reset_gui_based_on_player_mode(void)
     else
     {
         turn_on_menu(GMnu_MAIN);
-        if (kfx_sim_state.active_panel_mnu_idx > 0)
+        if (kfx_local_view.active_panel_mnu_idx > 0)
         {
-            initialise_tab_tags(kfx_sim_state.active_panel_mnu_idx);
+            initialise_tab_tags(kfx_local_view.active_panel_mnu_idx);
             if ( (player->work_state == PSt_CreatrInfo) || (player->work_state == PSt_CreatrInfoAll) )
             {
                 turn_on_menu(vid_change_query_menu);
             }
             else
             {
-                turn_on_menu(kfx_sim_state.active_panel_mnu_idx);
+                turn_on_menu(kfx_local_view.active_panel_mnu_idx);
             }
             MenuNumber mnuidx = menu_id_to_number(GMnu_MAIN);
             if (mnuidx != MENU_INVALID_ID) {

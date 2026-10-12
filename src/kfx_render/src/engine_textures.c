@@ -18,6 +18,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "engine_textures.h"
+#include "engine_textures_hd.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
@@ -40,6 +41,8 @@ extern "C" {
 /******************************************************************************/
 unsigned char block_mem[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_STAT_COUNT * 32 * 32];
 unsigned char *block_ptrs[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT];
+
+struct TextureMapFile texture_map_files[TEXTURE_VARIATIONS_COUNT][2];
 
 int64_t block_dimension = 32;
 int64_t block_count_per_row = 8;
@@ -109,6 +112,8 @@ int64_t update_animating_texture_maps(void)
               ((j>=TEX_B_START_POINT) && (j<(TEX_B_START_POINT + TEXTURE_BLOCKS_STAT_COUNT_B))))
           {
             dst[TEXTURE_BLOCKS_STAT_COUNT_A + i] = dst[j];
+            // engine_textures_hd.h: the HD version shows the same frame.
+            texture_hd_copy(f * TEXTURE_BLOCKS_COUNT + TEXTURE_BLOCKS_STAT_COUNT_A + i, f * TEXTURE_BLOCKS_COUNT + j);
           }
           else
           {
@@ -118,6 +123,20 @@ int64_t update_animating_texture_maps(void)
       dst += TEXTURE_BLOCKS_COUNT;
   }
   return result;
+}
+
+void texture_hd_sync_animation(void)
+{
+    for (int64_t f = 0; f < TEXTURE_VARIATIONS_COUNT; f++)
+    {
+        for (int64_t i = 0; i < TEXTURE_BLOCKS_ANIM_COUNT; i++)
+        {
+            const int64_t j = kfx_config_state.texture_animation[TEXTURE_BLOCKS_ANIM_FRAMES*i+anim_counter];
+            if (((j>=0) && (j<TEXTURE_BLOCKS_STAT_COUNT_A)) ||
+                ((j>=TEX_B_START_POINT) && (j<(TEX_B_START_POINT + TEXTURE_BLOCKS_STAT_COUNT_B))))
+                texture_hd_copy(f * TEXTURE_BLOCKS_COUNT + TEXTURE_BLOCKS_STAT_COUNT_A + i, f * TEXTURE_BLOCKS_COUNT + j);
+        }
+    }
 }
 
 static char *prepare_letter_one_file_path_for_mod(uint64_t tmapidx, char letter, LevelNumber lvnum, int64_t fgroup, const struct ModConfigItem *mod_item)
@@ -215,11 +234,15 @@ TbBool texture_pack_available(uint64_t tmapidx, LevelNumber lvnum, int64_t fgrou
     return (fname != NULL) && LbFileExists(fname);
 }
 
-static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, uint64_t dst_size, LevelNumber lvnum, int64_t fgroup)
+static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, uint64_t dst_size, LevelNumber lvnum, int64_t fgroup,
+    struct TextureMapFile *record)
 {
     SYNCDBG(9,"Starting");
 
     char* fname = prepare_letter_one_file_path(tmapidx, letter, lvnum, fgroup);
+    record->loaded = false;
+    snprintf(record->stem, sizeof(record->stem), "tmap%c%03" PRIu64, letter, tmapidx);
+    record->path[0] = '\0';
     if (!LbFileExists(fname))
     {
         SYNCDBG(10, "Texture file \"%s\" doesn't exist.",fname);
@@ -240,6 +263,8 @@ static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, uin
             fname, file_size, dst_size, dst_size);
     }
     SYNCDBG(6, "Texture file \"%s\" succesfully loaded.", fname);
+    record->loaded = true;
+    snprintf(record->path, sizeof(record->path), "%s", fname);
     return true;
 }
 
@@ -247,27 +272,43 @@ TbBool load_texture_map_file(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup
 {
     SYNCDBG(7,"Starting");
     memset(block_mem, 130, sizeof(block_mem));
+    // Every caller (level start, map loading, Lua, the editor's preview) comes through here: the GPU renderer
+    // drops the blocks it cached from block_mem before its next frame.
+    RendererWorldFrameTexturesChanged();
+    texture_hd_clear();
     const uint64_t slot_size_a = TEXTURE_BLOCKS_STAT_COUNT_A * 32 * 32;
     const uint64_t slot_size_b = TEXTURE_BLOCKS_STAT_COUNT_B * 32 * 32;
-    if (!load_letter_one_file(tmapidx,'a', block_mem, slot_size_a, lvnum,fgroup))
+    memset(texture_map_files, 0, sizeof(texture_map_files));
+    if (!load_letter_one_file(tmapidx,'a', block_mem, slot_size_a, lvnum,fgroup, &texture_map_files[0][0]))
     {
         return false;
     }
     unsigned char *dst = block_mem + slot_size_a;
-    load_letter_one_file(tmapidx,'b', dst, slot_size_b, lvnum, fgroup);
+    load_letter_one_file(tmapidx,'b', dst, slot_size_b, lvnum, fgroup, &texture_map_files[0][1]);
     dst += slot_size_b;
 
     for (int64_t i = 0; i < TEXTURE_VARIATIONS_COUNT-1; i++)
 
     {
-        load_letter_one_file(i,'a', dst, slot_size_a, lvnum, fgroup);
+        load_letter_one_file(i,'a', dst, slot_size_a, lvnum, fgroup, &texture_map_files[i + 1][0]);
 
         dst += slot_size_a;
-        load_letter_one_file(i,'b', dst, slot_size_b, lvnum, fgroup);
+        load_letter_one_file(i,'b', dst, slot_size_b, lvnum, fgroup, &texture_map_files[i + 1][1]);
         dst += slot_size_b;
 
     }
+    // engine_textures_hd.h: HD versions of the blocks just loaded, by their content; the animated ids show the
+    // frame they show now.
+    texture_hd_load();
+    texture_hd_sync_animation();
     return true;
+}
+
+void texture_hd_reload(void)
+{
+    RendererWorldFrameTexturesChanged();
+    texture_hd_load();
+    texture_hd_sync_animation();
 }
 
 void scale_tmap2(int64_t texture_block_index, int64_t flags, int64_t fade_level, int64_t screen_x, int64_t screen_y, int64_t scaled_width, int64_t scaled_height)

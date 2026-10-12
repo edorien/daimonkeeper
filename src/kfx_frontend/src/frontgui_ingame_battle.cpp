@@ -11,7 +11,7 @@
 #include "frontmenu_ingame_evnt.h"    // gui_next/previous_battle, gui_get_creature_in_battle, gui_go_to_person_in_battle, battle_creature_over
 #include "frontend.h"                 // gui_close_objective
 #include "player_data.h"              // my_player_number
-#include "dungeon_data.h"             // get_players_num_dungeon, visible_battles
+#include "dungeon_data.h"             // get_players_num_dungeon
 #include "creature_battle.h"          // friendly_battler_list, enemy_battler_list, creature_battle_get, MESSAGE_BATTLERS_COUNT
 #include "creature_control.h"         // creature_control_get_from_thing, max_health
 #include "creature_graphics.h"        // get_creature_model_graphics, CGI_HandSymbol
@@ -23,6 +23,7 @@
 #include "config_keeperfx.h"           // keeperfx_ui_config.hud_position -- GUI_POSITION
 #include "frontgui_ingame_icon_overrides.h" // FeIconOverrideSingle -- docs/refactor/ingame-gui/12-png-icon-overrides.md
 
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #include <imgui.h>
@@ -104,8 +105,7 @@ int64_t collect_battlers(const int64_t *list, int64_t visbtl_id, int64_t *out)
 // a long side used to run over the symbol and into the other side.
 void battle_row(int64_t visbtl_id, double icon_h)
 {
-    const struct Dungeon *dungeon = get_players_num_dungeon(my_player_number);
-    const BattleIndex battle_id = dungeon->visible_battles[visbtl_id];
+    const BattleIndex battle_id = kfx_local_view.visible_battles[visbtl_id];
     const struct CreatureBattle *battle = creature_battle_get(battle_id);
     if (creature_battle_invalid(battle) || battle->fighters_num == 0)
         return;

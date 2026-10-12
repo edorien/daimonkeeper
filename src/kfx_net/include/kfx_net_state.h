@@ -158,15 +158,8 @@ struct KfxNetState {
        library, can't reach kfx_net_state directly). */
     int64_t frame_skip;
 
-    /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
-       stage-13-enforce-and-document.md) -- read/written by net_resync.cpp
-       (full-resync sync), the lowest-ranked of the two real consumers
-       (kfx_frontend also reads/writes them for the AI-tendency buttons). */
-    char comp_player_aggressive;
-    char comp_player_defensive;
-    char comp_player_construct;
-    char comp_player_creatrsonly;
-
+    /* comp_player_aggressive/_defensive/_construct/_creatrsonly: kfx_render's kfx_local_view (refactor pass 5,
+       S05). */
 };
 #pragma pack()
 /******************************************************************************/

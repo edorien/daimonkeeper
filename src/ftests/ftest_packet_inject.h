@@ -49,6 +49,10 @@ void ftest_packet_inject_queue_local(const struct FtestPacketInject *req);
 void ftest_packet_inject_reset(void);
 /** Called once per turn from gameplay_loop_logic(), after exchange_packets(). */
 void ftest_packet_inject_tick(void);
+/** Called once per turn from gameplay_loop_logic(), just before exchange_packets(): in a multiplayer game, applies the
+ *  local user's request to the packet that goes over the wire (the other machines see it; after the exchange only
+ *  this one would). Other games keep the after-the-exchange timing. */
+void ftest_packet_inject_tick_before_exchange(void);
 
 #ifdef __cplusplus
 }

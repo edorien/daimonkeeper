@@ -30,6 +30,14 @@ struct SDL_GPURenderPass;
 // shade never invalidates the atlas. Destination pixels find their source
 // texel through the CPU path's own scaling step tables (uploaded as a
 // lookup texture), so scaling, flips and clipping match it exactly.
+//
+// HD sprites (docs/refactor/sprites/, Phase 4; WorldFrameSpriteOp's hd_* fields) are cached as RGBA in a second
+// atlas, a 2D array of 4096x4096 layers that grows (doubling, its layers copied on the GPU) as HD frames arrive, up
+// to the HD sprite store's own 3 GiB; keyed by their id. Their lookups give HD texel coordinates and their LUT row is
+// a curve row (the remap after the HD colour transform), with the transform's 64^3 table uploaded when the op needs
+// it (hd_table). The shader tells them apart by bit 8 of the vertex mode (bit 16: apply the table; the layer from
+// bit 256 up). Only when the array can't grow (the cap, or the GPU refusing a bigger one) does an HD op draw its
+// original, and the atlas start over.
 class GpuSpriteRenderer {
 public:
     struct DrawCall {
@@ -74,18 +82,25 @@ private:
     };
     struct Entry {
         int32_t x = 0, y = 0;
+        int32_t layer = 0;      // HD atlas only
         uint64_t hash = 0;
         uint64_t frame_seen = 0;
     };
     struct PendingUpload {
         uint32_t staging_offset;
         int32_t x, y, w, h;
+        int32_t layer = 0;
     };
 
     bool create_pipelines();
     bool resolve(const WorldFrameSpriteOp& op, int32_t& ax, int32_t& ay);
     bool resolve_mask(const WorldFrameShadowOp& op, const unsigned char* pixels, int32_t& ax, int32_t& ay);
     bool alloc_rect(int32_t w, int32_t h, int32_t& x, int32_t& y);
+    bool resolve_hd(const WorldFrameSpriteOp& op, int32_t& ax, int32_t& ay, int32_t& layer);
+    bool alloc_hd_rect(int32_t w, int32_t h, int32_t& x, int32_t& y, int32_t& layer);
+    bool grow_hd_atlas();
+    SDL_GPUTexture* create_hd_atlas(int32_t size, int32_t layers);
+    void upload_transform_table(SDL_GPUCopyPass* copy);
 
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUShader* m_vs = nullptr;
@@ -104,6 +119,35 @@ private:
     int32_t m_cursor_x = 0, m_cursor_y = 0, m_shelf_h = 0;
     bool m_atlas_full = false;
     bool m_atlas_reset_pending = false;
+
+    // HD sprites: RGBA array atlas (own shelf allocator over its layers), its uploads, and the colour transform's table.
+    SDL_GPUTexture* m_hd_atlas = nullptr;
+    int32_t m_hd_atlas_size = 0;               // a layer's side
+    int32_t m_hd_layers = 0;                   // layers the texture has
+    int32_t m_hd_layer_refused = 0;            // the most layers the GPU took when it refused more (0: none refused)
+    int32_t hd_layer_cap() const;              // the most it may grow to now
+    SDL_GPUTexture* m_hd_atlas_old = nullptr;  // grown this frame: copied from in Upload(), then released
+    int32_t m_hd_old_layers = 0;
+    int32_t m_hd_layer = 0;                    // the layer the allocator fills
+    SDL_GPUTransferBuffer* m_hd_staging = nullptr;
+    std::unordered_map<uint64_t, Entry> m_hd_entries;
+    int32_t m_hd_cursor_x = 0, m_hd_cursor_y = 0, m_hd_shelf_h = 0;
+    bool m_hd_atlas_full = false;
+    bool m_hd_atlas_reset_pending = false;
+    std::vector<uint32_t> m_hd_pending_pixels; // RGBA for the HD uploads
+    std::vector<PendingUpload> m_hd_pending;
+    SDL_GPUTexture* m_transform_tex = nullptr;   // 4096 x 64 RGBA: entry (r6 << 12 | g6 << 6 | b6)
+    SDL_GPUTransferBuffer* m_transform_staging = nullptr;
+    unsigned char m_transform_palette[768] = {}; // the active palette the uploaded table is for
+    bool m_transform_valid = false;
+    bool m_transform_needed = false;             // an op this frame applies the table
+    static const uint32_t kHdStagingBytes = 64u * 1024u * 1024u;
+
+public:
+    // Tests: the most layers the HD atlas may grow to (0: as RendererGetHdSpriteAtlasCap() allows). Read whenever it
+    // grows.
+    static int32_t hd_layer_limit;
+private:
 
     SDL_GPUTexture* m_lut = nullptr;
     SDL_GPUTexture* m_lookup = nullptr;

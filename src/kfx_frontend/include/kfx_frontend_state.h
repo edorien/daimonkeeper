@@ -48,9 +48,9 @@ struct GuiBox;
 // lowest-ranked of all real consumers.
 
 struct KfxFrontendState {
-    // active_panel_mnu_idx moved to kfx_sim_state.h; comp_player_*
-    // moved to kfx_net_state.h; creatures_tend_imprison/
-    // creatures_tend_flee moved to kfx_sim_state.h; gui_cheat_box_2
+    // active_panel_mnu_idx, comp_player_* moved to kfx_sim_state.h and
+    // kfx_net_state.h, then to kfx_render's kfx_local_view.h (refactor pass 5,
+    // S05); creatures_tend_imprison/_flee are gone (S05); gui_cheat_box_2
     // moved to kfx_game_state.h (stage 13.2, docs/refactor/
     // stage-13-enforce-and-document.md) -- each moved to the
     // lowest-ranked of its real consumers.

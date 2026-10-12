@@ -9,7 +9,7 @@
  *     down. Each of the 36 public LbSprite*UsingScaling{Up,Down}Data* functions is a call to one of
  *     the two bodies here with constant pixel operation, blend and direction, which the compiler
  *     specialises (refactor pass 3, S08). Private to the software renderer: include only from those
- *     three files.
+ *     three files, and bflib_vidraw_spr_hd.c (HD sprites) for its row helpers.
  * @par Comment:
  *     Sprite data is rows of: n > 0 then n pixel bytes, n < 0 to skip -n pixels, 0 to end the row.
  *     xstep/ystep hold (position, length) pairs per source column/row; a length of 0 means the

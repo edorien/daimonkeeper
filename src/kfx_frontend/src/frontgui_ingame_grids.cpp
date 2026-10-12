@@ -29,6 +29,7 @@
 #include "frontgui_ingame_icon_overrides.h" // FeIconOverrideActiveInactive -- docs/refactor/ingame-gui/12-png-icon-overrides.md
 #include "player_availability.h"
 
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #include <algorithm>
@@ -156,9 +157,9 @@ struct GridItem { int64_t kind; int64_t order; };
 
 void do_sell_rooms(void)
 {
-    kfx_sim_state.chosen_room_kind = 0;
-    kfx_sim_state.chosen_room_spridx = 0;
-    kfx_sim_state.chosen_room_tooltip = 0;
+    kfx_local_view.chosen_room_kind = 0;
+    kfx_local_view.chosen_room_spridx = 0;
+    kfx_local_view.chosen_room_tooltip = 0;
     set_players_packet_action(get_my_player(), PckA_SetPlyrState, PSt_Sell, 0, 0, 0);
 }
 
@@ -201,7 +202,7 @@ void room_grid(void)
 
         char sid[16]; std::snprintf(sid, sizeof(sid), "rm%" PRId64, (int64_t)(k));
         const int64_t hit = build_icon(sid, (int64_t)rs->medsym_sprite_idx, have_one, afford,
-                                   kfx_sim_state.chosen_room_kind == k,
+                                   kfx_local_view.chosen_room_kind == k,
                                    grid_cell_pos(g, slot), ImVec2(g.cell_w, g.cell_h),
                                    "room", room_code_name(k));
         if (ImGui::IsItemHovered())
@@ -211,9 +212,9 @@ void room_grid(void)
         else if (hit == 2)
         {
             go_to_my_next_room_of_type(k);
-            kfx_sim_state.chosen_room_kind = k;
-            kfx_sim_state.chosen_room_spridx = rs->bigsym_sprite_idx;
-            kfx_sim_state.chosen_room_tooltip = rs->tooltip_stridx;
+            kfx_local_view.chosen_room_kind = k;
+            kfx_local_view.chosen_room_spridx = rs->bigsym_sprite_idx;
+            kfx_local_view.chosen_room_tooltip = rs->tooltip_stridx;
         }
         slot++;
     }
@@ -228,7 +229,7 @@ void room_grid(void)
     // Info strip -- always drawn (the recess stays put); only its contents
     // change with the hovered (else chosen) room.
     int64_t info_kind = hovered_now;
-    if (info_kind <= 0) info_kind = kfx_sim_state.chosen_room_kind;
+    if (info_kind <= 0) info_kind = kfx_local_view.chosen_room_kind;
     if (info_kind > 0 && info_kind < count)
     {
         const struct RoomConfigStats *rs = get_room_kind_stats(info_kind);
@@ -294,7 +295,7 @@ void spell_grid(void)
 
         char sid[16]; std::snprintf(sid, sizeof(sid), "pw%" PRId64, (int64_t)(k));
         const int64_t hit = build_icon(sid, (int64_t)ps->medsym_sprite_idx, false, afford,
-                                   kfx_sim_state.chosen_spell_type == k,
+                                   kfx_local_view.chosen_spell_type == k,
                                    grid_cell_pos(g, slot), ImVec2(g.cell_w, g.cell_h),
                                    "power", ps->code_name);
         if (ImGui::IsItemHovered())
@@ -313,7 +314,7 @@ void spell_grid(void)
     grid_end(g, slot);
 
     int64_t info = hovered_now;
-    if (info <= 0) info = kfx_sim_state.chosen_spell_type;
+    if (info <= 0) info = kfx_local_view.chosen_spell_type;
     if (info > 0 && info < count)
     {
         const struct PowerConfigStats *ps = get_power_model_stats(info);
@@ -330,9 +331,9 @@ void spell_grid(void)
 
 void do_sell_traps(void)
 {
-    kfx_sim_state.manufactr_element = 0;
-    kfx_sim_state.manufactr_spridx = 0;
-    kfx_sim_state.manufactr_tooltip = 0;
+    kfx_local_view.manufactr_element = 0;
+    kfx_local_view.manufactr_spridx = 0;
+    kfx_local_view.manufactr_tooltip = 0;
     set_players_packet_action(get_my_player(), PckA_SetPlyrState, PSt_Sell, 0, 0, 0);
 }
 
@@ -395,7 +396,7 @@ void trap_grid(void)
             : dungeon->mnfct_info.trap_amount_placeable[md->tngmodel];
         const bool afford = amount >= 1;
         const int64_t hit = build_icon(sid, (int64_t)md->medsym_sprite_idx, false, afford,
-                                   kfx_sim_state.manufactr_element == m,
+                                   kfx_local_view.manufactr_element == m,
                                    grid_cell_pos(g, slot), ImVec2(g.cell_w, g.cell_h),
                                    "trap", ov_code);
         if (ImGui::IsItemHovered())
@@ -408,9 +409,9 @@ void trap_grid(void)
         else if (hit == 2)
         {
             go_to_next_trap_of_type(md->tngmodel, player->id_number);
-            kfx_sim_state.manufactr_element = m;
-            kfx_sim_state.manufactr_spridx = md->bigsym_sprite_idx;
-            kfx_sim_state.manufactr_tooltip = md->tooltip_stridx;
+            kfx_local_view.manufactr_element = m;
+            kfx_local_view.manufactr_spridx = md->bigsym_sprite_idx;
+            kfx_local_view.manufactr_tooltip = md->tooltip_stridx;
         }
         slot++;
     }
@@ -422,7 +423,7 @@ void trap_grid(void)
     gui_trap_type_highlighted = (char)hovered_model;
 
     int64_t info_m = hovered_m;
-    if (info_m <= 0) info_m = kfx_sim_state.manufactr_element;
+    if (info_m <= 0) info_m = kfx_local_view.manufactr_element;
     if (info_m > 0 && info_m < count)
     {
         const struct ManufactureData *md = get_manufacture_data(info_m);

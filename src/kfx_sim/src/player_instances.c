@@ -721,7 +721,7 @@ int64_t pinstfe_control_creature_fade(struct PlayerInfo *player, int64_t *n)
   struct UserState* ustate = get_player_user_state(player);
   if (is_my_player(player))
   {
-    if ((ustate->additional_flags & UsrAF_FreezePaletteIsActive) != 0)
+    if (render_user_freeze_palette_active(player->user_id))
       render_PaletteSetUserViewPalette(player->user_id, VPal_Freeze);
     else
       render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);

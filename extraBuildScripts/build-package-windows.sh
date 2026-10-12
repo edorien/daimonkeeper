@@ -1,29 +1,30 @@
 #!/usr/bin/env bash
 #
-# Native-Windows MinGW build + full package, run from an MSYS2 MINGW32 shell.
+# Native-Windows MinGW build + full package, run from an MSYS2 MINGW64 shell.
 #
 # Does exactly the Windows half of build-package.sh -- compiles keeperfx
-# with the 32-bit MinGW toolchain, assembles the game data,
+# with the 64-bit (x86_64) MinGW toolchain, assembles the game data,
 # and produces both the .7z release archive (CPack) and the unpacked
 # dist/windows/ tree. It deliberately does NOT do the Linux build or the
 # coverage / unit-test pass.
 #
 # Unlike build-cmake-linux.sh / build-package.sh (which cross-compile from Linux
-# via build/cmake/toolchains/mingw32.cmake), this expects to already be
-# running inside MSYS2's MINGW32 environment, where `gcc` IS the 32-bit
+# via build/cmake/toolchains/mingw64.cmake), this expects to already be
+# running inside MSYS2's MINGW64 environment, where `gcc` IS the x86_64
 # mingw-w64 compiler -- so no toolchain file is passed; the plain WIN32
-# branch of CMakeLists.txt / Dependencies.cmake (prebuilt i686 static libs)
-# is what runs.
+# branch of CMakeLists.txt / Dependencies.cmake (third-party libs built from
+# source, SDL3's prebuilt x86_64 mingw DLLs) is what runs. 32-bit Windows
+# (MINGW32) is no longer a target.
 #
 # Requirements (MSYS2 -- https://www.msys2.org):
 #   pacman -S --needed git make p7zip curl unzip \
-#     mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-ninja
+#     mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 #
-# First run needs network access: Dependencies.cmake fetches the prebuilt
-# third-party libs, and `make pkg-enginegfx` clones dkfans/FXGraphics and
+# First run needs network access: Dependencies.cmake fetches the
+# third-party libs (sources, plus SDL3's prebuilt DLLs), and `make pkg-enginegfx` clones dkfans/FXGraphics and
 # downloads the pngpal2raw tool.
 #
-# Usage (in an MSYS2 MINGW32 shell; the script cd's to the repo root itself,
+# Usage (in an MSYS2 MINGW64 shell; the script cd's to the repo root itself,
 # so it can be run from any directory):
 #   extraBuildScripts/build-package-windows.sh
 #   BUILD_NUMBER=1234 PACKAGE_SUFFIX=Alpha extraBuildScripts/build-package-windows.sh
@@ -45,14 +46,19 @@ JOBS="$(nproc 2>/dev/null || echo 4)"
 
 # --- Environment sanity ----------------------------------------------------
 case "${MSYSTEM:-}" in
-    MINGW32) ;;
-    MINGW64|UCRT64|CLANG64)
-        echo "error: this is the $MSYSTEM shell, but the prebuilt deps are 32-bit." >&2
-        echo "       Start the 'MSYS2 MINGW32' shell and re-run." >&2
+    MINGW64) ;;
+    MINGW32)
+        echo "error: this is the MINGW32 (32-bit) shell; the Windows build is 64-bit now." >&2
+        echo "       Start the 'MSYS2 MINGW64' shell and re-run." >&2
+        exit 1 ;;
+    UCRT64|CLANG64)
+        echo "error: this is the $MSYSTEM shell; the build (and the Linux cross-compile" >&2
+        echo "       it mirrors) uses MINGW64's msvcrt GCC toolchain." >&2
+        echo "       Start the 'MSYS2 MINGW64' shell and re-run." >&2
         exit 1 ;;
     *)
-        echo "warning: \$MSYSTEM is '${MSYSTEM:-unset}', not MINGW32 -- continuing," >&2
-        echo "         but the build only works with the 32-bit MinGW toolchain." >&2 ;;
+        echo "warning: \$MSYSTEM is '${MSYSTEM:-unset}', not MINGW64 -- continuing," >&2
+        echo "         but the build only works with the x86_64 MinGW toolchain." >&2 ;;
 esac
 
 for tool in git make cmake ninja gcc; do
@@ -67,7 +73,14 @@ echo "==> Engine graphics (make pkg-enginegfx)"
 echo "==> Game data (make pkg-assemble)"
 "${MK[@]}" pkg-assemble
 
-echo "==> Configure (CMake, native MinGW32)"
+# A tree configured from the old MINGW32 shell has the 32-bit compiler baked
+# into its CMakeCache.txt -- reset it so this configure picks up MINGW64's.
+if [ -f "$BUILD_DIR/CMakeCache.txt" ] && grep -q -E 'i686-w64-mingw32|/mingw32/bin/' "$BUILD_DIR/CMakeCache.txt"; then
+    echo "note: $BUILD_DIR was configured for 32-bit Windows; resetting its CMake cache." >&2
+    rm -rf "$BUILD_DIR/CMakeCache.txt" "$BUILD_DIR/CMakeFiles"
+fi
+
+echo "==> Configure (CMake, native MinGW64)"
 cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DBUILD_NUMBER="$BUILD_NUMBER" -DPACKAGE_SUFFIX="$PACKAGE_SUFFIX"
 

@@ -55,6 +55,8 @@
 #include "ariadne_saved_state.h"
 #include "render_creature_view.h"
 #include "game_replay.h"
+#include "kfx_local_view.h"
+#include "kfx_render_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -184,6 +186,17 @@ static TbBool write_config_state_chunk(TbFileHandle fhandle)
         && (LbFileWrite(fhandle, KFX_CONFIG_STATE_SAVED_PTR, KFX_CONFIG_STATE_SAVED_LEN) == (int64_t)KFX_CONFIG_STATE_SAVED_LEN);
 }
 
+/** Writes the SGC_KfxLocalView chunk: this machine's view of the game (refactor pass 5, S05). */
+static TbBool write_local_view_chunk(TbFileHandle fhandle)
+{
+    struct FileChunkHeader hdr;
+    hdr.id = SGC_KfxLocalView;
+    hdr.ver = KFX_LOCAL_VIEW_VER;
+    hdr.len = sizeof(struct KfxLocalView);
+    return (LbFileWrite(fhandle, &hdr, sizeof(struct FileChunkHeader)) == sizeof(struct FileChunkHeader))
+        && (LbFileWrite(fhandle, &kfx_local_view, sizeof(struct KfxLocalView)) == (int64_t)sizeof(struct KfxLocalView));
+}
+
 TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
 {
     struct FileChunkHeader hdr;
@@ -242,6 +255,8 @@ TbBool save_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
         if (ui_save_frontend_state(fhandle))
             chunks_done |= SGF_KfxFrontendState;
     }
+    if (write_local_view_chunk(fhandle))
+        chunks_done |= SGF_KfxLocalView;
     { // IntralevelData data chunk
         hdr.id = SGC_IntralevelData;
         hdr.ver = KFX_INTRALEVEL_VER;
@@ -356,6 +371,8 @@ TbBool save_packet_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
             if (ui_save_frontend_state(fhandle))
                 chunks_done |= SGF_KfxFrontendState;
         }
+        if (write_local_view_chunk(fhandle))
+            chunks_done |= SGF_KfxLocalView;
     }
     { // Packet file data start indicator
         hdr.id = SGC_PacketData;
@@ -389,6 +406,7 @@ static TbBool expected_chunk_layout(uint64_t id, uint64_t *ver, uint64_t *len)
     case SGC_KfxNetState:      *ver = KFX_NET_STATE_VER;       *len = sizeof(struct KfxNetState); return true;
     case SGC_KfxGameState:     *ver = KFX_GAME_STATE_VER;      *len = sizeof(struct KfxGameState); return true;
     case SGC_KfxFrontendState: *ver = KFX_FRONTEND_STATE_VER;  *len = ui_get_frontend_state_size(); return true;
+    case SGC_KfxLocalView:     *ver = KFX_LOCAL_VIEW_VER;      *len = sizeof(struct KfxLocalView); return true;
     case SGC_IntralevelData:   *ver = KFX_INTRALEVEL_VER;      *len = sizeof(struct IntralevelData); return true;
     case SGC_PacketHeader:     *ver = PACKET_SAVE_HEAD_VER;    *len = sizeof(struct PacketSaveHead); return true;
     case SGC_PacketData:       *ver = PACKET_VER;              *len = 0; return true;
@@ -659,6 +677,20 @@ int64_t load_game_chunks(TbFileHandle fhandle, struct CatalogueEntry *centry)
                 WARNLOG("Could not read KfxFrontendState chunk");
             }
             break;
+        case SGC_KfxLocalView:
+            if (hdr.len != sizeof(struct KfxLocalView))
+            {
+                if (LbFileSeek(fhandle, hdr.len, Lb_FILE_SEEK_CURRENT) < 0)
+                    LbFileSeek(fhandle, 0, Lb_FILE_SEEK_END);
+                WARNLOG("Incompatible KfxLocalView chunk");
+                break;
+            }
+            if (LbFileRead(fhandle, &kfx_local_view, sizeof(struct KfxLocalView)) == sizeof(struct KfxLocalView)) {
+                chunks_done |= SGF_KfxLocalView;
+            } else {
+                WARNLOG("Could not read KfxLocalView chunk");
+            }
+            break;
         case SGC_PacketHeader:
             if (hdr.ver != PACKET_SAVE_HEAD_VER)
             {
@@ -908,9 +940,8 @@ TbBool load_game(int64_t slot_num)
     calculate_moon_phase(false,false);
     update_extra_levels_visibility();
     struct PlayerInfo* player = get_my_player();
-    struct UserState* ustate = get_user_state(get_local_user());
-    clear_flag(ustate->additional_flags, UsrAF_LightningPaletteIsActive);
-    clear_flag(ustate->additional_flags, UsrAF_FreezePaletteIsActive);
+    clear_flag(kfx_render_state.palette_flags[get_local_user()], RPF_LightningPaletteIsActive);
+    clear_flag(kfx_render_state.palette_flags[get_local_user()], RPF_FreezePaletteIsActive);
     local_state.view_type = PVT_None;
     local_state.palette_fade_step_pain = 0;
     local_state.palette_fade_step_possession = 0;
@@ -920,7 +951,7 @@ TbBool load_game(int64_t slot_num)
     local_state.minimap_zoom = settings.minimap_zoom;
     local_state.roomspace_size = DEFAULT_USER_ROOMSPACE_WIDTH;
     // Reinitialize lens first (restores lens_palette pointer from config)
-    reinitialise_eye_lens(kfx_sim_state.applied_lens_type);
+    reinitialise_eye_lens(kfx_local_view.applied_lens_type);
     // Apply the appropriate palette (lens palette if active, otherwise engine default)
     PaletteSetUserPalette(player->user_id, local_state.lens_palette ? local_state.lens_palette : engine_palette);
     init_local_cameras(player);

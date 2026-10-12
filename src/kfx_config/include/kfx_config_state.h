@@ -104,7 +104,8 @@ enum ClassicBugFlags {
     ClscBug_CreatureStatsWrap             = 0x8000, // dAImon Keeper: pass 3 finding F10
     ClscBug_CornerWallUnrevealed          = 0x10000, // dAImon Keeper: pass 3 finding F2
     ClscBug_CrookedSightLines             = 0x20000, // dAImon Keeper: pass 3 finding F3
-    ClscBug_ListEnd                       = 0x40000,
+    ClscBug_NeutralRoomJobs               = 0x40000, // dAImon Keeper: pass 5 finding P5-F39 (KeeperFX's behaviour)
+    ClscBug_ListEnd                       = 0x80000,
 };
 
 struct Configs {

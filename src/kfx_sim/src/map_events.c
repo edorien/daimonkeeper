@@ -39,6 +39,7 @@
 #include "kfx_config_state.h"
 #include "thing_objects.h"
 #include "thing_stats.h"
+#include "ports/render_port.h"
 #include "ports/ui_port.h"
 #include "post_inc.h"
 
@@ -474,9 +475,7 @@ void activate_event_box(EventIndex evidx)
         // Restart the list of visible battles from the first one; the other slots are
         // refilled by maintain_my_battle_list(), which skips battles already on the list.
         // Overwriting just the first slot could put the same battle on the list twice.
-        dungeon->visible_battles[0] = find_first_battle_of_mine(plyr_idx);
-        dungeon->visible_battles[1] = 0;
-        dungeon->visible_battles[2] = 0;
+        render_local_view_battles_restart(find_first_battle_of_mine(plyr_idx));
     }
     int64_t other_off = 0;
     switch (event->kind)

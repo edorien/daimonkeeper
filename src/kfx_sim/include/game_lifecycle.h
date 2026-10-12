@@ -23,6 +23,12 @@
 extern "C" {
 #endif
 /******************************************************************************/
+/** A level starts from the simulation state as start-up left it (sim_state_take_level_baseline(), at the end of
+ *  start-up), with the session's own fields kept: sim_state_reset_for_level(), before the level's clears and set-up
+ *  (refactor pass 5, S12). Nothing of a previous level is left in it, so a level's saved state doesn't depend on what
+ *  was played before it in the process. */
+void sim_state_take_level_baseline(void);
+void sim_state_reset_for_level(void);
 void clear_creature_pool(void);
 void clear_map(void);
 void clear_things_and_persons_data(void);

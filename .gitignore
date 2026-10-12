@@ -4,6 +4,7 @@
 /sdl
 /pkg
 /gfx
+/gfx.partial
 /sfx
 # Local working copy of the dkfans/FXGraphics source-art repo (the raw PNGs
 # `make pkg-gfx`/`pkg-enginegfx` build the .dat/.tab sprite sheets from, and
@@ -68,9 +69,11 @@ docs/latex
 # CMake's own fetches (build/cmake/modules/Dependencies.cmake): every
 # third-party dependency's download+build output, kept outside out/<platform>
 # so deleting that build tree doesn't force a re-download/rebuild from
-# source of ffmpeg/curl/openal/luajit/etc. too. One dir per platform (mingw32
+# source of ffmpeg/curl/openal/luajit/etc. too. One dir per platform (mingw64
 # cross-compile vs native lin64) since they use different toolchains for the
 # same dependencies, same reasoning /out/* needs separate linux/windows trees.
+# .cache-mingw32 is the leftover cache from the old 32-bit Windows build.
+/deps/.cache-mingw64/
 /deps/.cache-mingw32/
 /deps/.cache-lin64/
 /deps/*-mingw32

@@ -373,6 +373,12 @@ void RendererSoftware::SubmitWorldFrame(const WorldFrame& frame)
         WorldFramePolyItem item = frame.ops[i].u.poly; // copy: draw_gpoly() takes non-const PolyPoint*
         vec_mode = VM_QuadTextured;
         vec_map = item.texture;
+        vec_map_shift = item.block_shift;
+        vec_map_parity = item.parity;
+        vec_map_rgba = item.texture_rgba;
         draw_gpoly(&item.v0, &item.v1, &item.v2);
+        vec_map_shift = 0;
+        vec_map_parity = 0;
+        vec_map_rgba = nullptr;
     }
 }

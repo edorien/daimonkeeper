@@ -109,7 +109,7 @@ message(STATUS "We are using ${CMAKE_CXX_COMPILER_ID}")
 # Kept identical to Makefile's WARNFLAGS (line 448) -- this list had drifted
 # out of sync (missing -Wno-format-truncation/-Wno-maybe-uninitialized),
 # which only surfaces as build failures on GCC 13, i.e. exactly the
-# compiler CI's g++-mingw-w64-i686 install actually provides.
+# compiler CI's g++-mingw-w64-x86-64 install actually provides.
 set(WARNFLAGS -Wall -W -Wshadow -Wno-sign-compare -Wno-unused-parameter -Wno-maybe-uninitialized -Wno-strict-aliasing -Wno-unknown-pragmas -Wno-format-truncation -Werror)
 set(GNU_COMPILER_FLAG -march=x86-64 -fno-omit-frame-pointer -fmessage-length=0)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wimplicit")
@@ -215,7 +215,7 @@ target_compile_definitions(kfx_log_opts INTERFACE BFDEBUG_LEVEL=0)
 # per src/kfx_*/ library (see stage-01-framework-and-scaffold.md for the
 # full design). Native Linux only for now -- there's no Windows CI runner
 # or Wine step to execute a mingw-cross-compiled test binary, so this
-# isn't wired into the mingw32 toolchain path. Off by default: contributors
+# isn't wired into the mingw64 toolchain path. Off by default: contributors
 # who never pass -DKFX_BUILD_TESTS=ON see no new targets, no FetchContent,
 # no new required tools.
 option(KFX_BUILD_TESTS "Build Catch2 unit tests for each kfx_* library (native Linux only, see docs/refactor/testing/stage-01-framework-and-scaffold.md)" OFF)
@@ -577,9 +577,9 @@ endif()
 if(WIN32)
     # The default bfd linker in MinGW is extremely slow. LLVM linker (LLD) is
     # much much faster -- but isn't guaranteed to be installed alongside
-    # g++-mingw-w64-i686 (it isn't, in a plain apt install), so this is a
+    # g++-mingw-w64-x86-64 (it isn't, in a plain apt install), so this is a
     # speed optimization, not a hard requirement.
-    find_program(KFX_LLD_LINKER NAMES ld.lld i686-w64-mingw32-ld.lld)
+    find_program(KFX_LLD_LINKER NAMES ld.lld x86_64-w64-mingw32-ld.lld)
     if(KFX_LLD_LINKER)
         set_property(TARGET keeperfx PROPERTY LINKER_TYPE LLD)
     endif()

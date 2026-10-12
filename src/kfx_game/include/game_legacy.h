@@ -113,8 +113,8 @@ struct Game {
     // active_lens_type moved to kfx_render_state.h, mouse_light_pos/
     // something_light_x/_y below moved there too (stage 13, docs/refactor/
     // stage-13-enforce-and-document.md); applied_lens_type moved to
-    // kfx_sim_state.h in the same pass since kfx_sim is the lowest-ranked
-    // of its three consumers (kfx_game/kfx_render/kfx_sim).
+    // kfx_sim_state.h in the same pass, then to kfx_render's kfx_local_view.h
+    // (refactor pass 5, S05).
     // players, columns_data, slabset_num/slabset, slabobjs_num/
     // slabobjs_idx/slabobjs, navigation_map, map, slabmap, around_map/
     // around_slab/around_slab_eight/small_around_slab moved to
@@ -188,7 +188,8 @@ struct Game {
     // time_delta moved to kfx_frontend_state.h (stage 13) -- see
     // docs/refactor/stage-13-enforce-and-document.md.
     // top_cube, small_map_state moved to kfx_sim_state.h (stage 13) -- see
-    // docs/refactor/stage-13-enforce-and-document.md.
+    // docs/refactor/stage-13-enforce-and-document.md; small_map_state then
+    // to kfx_render's kfx_local_view.h (refactor pass 5, S05).
     // packets[], input_lag_turns, human_players_count moved to
     // kfx_net_state.h (stage 8.3) -- see docs/refactor/stage-08-kfx-net.md.
     // neutral_player_num moved to kfx_config_state.h (stage 13) -- a
@@ -223,9 +224,9 @@ struct Game {
     // docs/refactor/stage-06-kfx-sim.md.
     // evntbox_text_objective, evntbox_scroll_window, flash_button_index,
     // active_panel_mnu_idx, comp_player_aggressive/_defensive/_construct/
-    // _creatrsonly, creatures_tend_imprison/_flee moved to
-    // kfx_frontend_state.h (stage 10) -- see
-    // docs/refactor/stage-10-kfx-frontend.md. evntbox_text_buffer,
+    // _creatrsonly moved to kfx_frontend_state.h (stage 10), then to
+    // kfx_render's kfx_local_view.h (refactor pass 5, S05);
+    // creatures_tend_imprison/_flee are gone (S05). evntbox_text_buffer,
     // loaded_swipe_idx moved to kfx_sim_state.h/kfx_game_state.h instead,
     // same stage -- mischaracterized as kfx_frontend in the doc's initial
     // research; actual usage is exclusively kfx_sim/kfx_game.
@@ -236,8 +237,8 @@ struct Game {
     // docs/refactor/stage-13-enforce-and-document.md.
     // hand_over_subtile_x/y, chosen_room_kind/spridx/tooltip,
     // chosen_spell_type/spridx/tooltip, manufactr_element/spridx/tooltip
-    // moved to kfx_sim_state.h (stage 6.7 increment 6) -- see
-    // docs/refactor/stage-06-kfx-sim.md.
+    // moved to kfx_sim_state.h (stage 6.7 increment 6), then to kfx_render's
+    // kfx_local_view.h (refactor pass 5, S05).
     // conf moved to kfx_config_state.h (stage 13) -- see
     // docs/refactor/stage-13-enforce-and-document.md.
     // turn_last_checked_for_gold, max_custom_box_kind moved to

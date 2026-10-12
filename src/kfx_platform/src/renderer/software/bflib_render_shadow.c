@@ -33,6 +33,7 @@
 
 #include "bflib_basics.h"
 #include "bflib_vidraw.h"
+#include "compiler_compat.h"
 #include "post_inc.h"
 
 /** A triangle ready to draw, rows counted from its top vertex: at row i the left edge is at xl, the right at xr
@@ -220,6 +221,29 @@ static TbBool shadow_setup(struct ShadowTriangle *t, enum ShadowShape shape,
     }
 }
 
+int64_t vec_map_scale = 1;
+TbBool vec_map_coverage = false;
+
+/** A coverage map's value (vec_map_scale texels per original texel): the original texel u, v pick (8 bits each, as
+ *  the original's), then the sub-texel within it from their fractions. */
+static KFX_FORCE_INLINE unsigned char cover_at(const unsigned char *map, uint32_t u, uint32_t v, int64_t k)
+{
+    const uint64_t tx = ((u >> 16) & 0xFF) * (uint64_t)k + (((uint64_t)(u & 0xFFFF) * (uint64_t)k) >> 16);
+    const uint64_t ty = ((v >> 16) & 0xFF) * (uint64_t)k + (((uint64_t)(v & 0xFFFF) * (uint64_t)k) >> 16);
+    return map[ty * 256 * (uint64_t)k + tx];
+}
+
+/** The pixel shaded as far as `cover` (0..255) of it is under the shadow. */
+static KFX_FORCE_INLINE TbPixel cover_shade(TbPixel dest, uint8_t shade, unsigned char cover)
+{
+    const TbPixel full = render_shade(dest, shade);
+    if (cover == 255)
+        return full;
+    return TbPixel_RGBA((uint8_t)(dest.r + ((int)full.r - (int)dest.r) * cover / 255),
+        (uint8_t)(dest.g + ((int)full.g - (int)dest.g) * cover / 255),
+        (uint8_t)(dest.b + ((int)full.b - (int)dest.b) * cover / 255), dest.a);
+}
+
 /** Draws the rows inside the window. */
 static void shadow_draw(const struct ShadowTriangle *t)
 {
@@ -248,6 +272,18 @@ static void shadow_draw(const struct ShadowTriangle *t)
         }
         right = min(right, vec_window_width);
         TbPixel *o = poly_screen + (t->top + i + 1) * vec_screen_width + x;
+        if (vec_map_coverage)
+        {
+            for (; x < right; x++, o++)
+            {
+                const unsigned char c = cover_at(map, u, v, vec_map_scale);
+                if (c != 0)
+                    *o = cover_shade(*o, (uint8_t)vec_shade, c);
+                u += row_u_step;
+                v += row_v_step;
+            }
+            continue;
+        }
         for (; x < right; x++, o++)
         {
             if (map[((v >> 8) & 0xFF00) | ((u >> 16) & 0xFF)])
@@ -264,7 +300,7 @@ void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint
     // instead, while one is being built (the vec window is then the frame's
     // window -- see RendererWorldFrameBegin()).
     if (vec_mode == VM_SpriteTranslucent && RendererWorldFrameCapturing()
-        && RendererWorldFrameAddShadowTri(point_a, point_b, point_c, vec_map, vec_shade))
+        && RendererWorldFrameAddShadowTri(point_a, point_b, point_c, vec_map, vec_shade, vec_map_scale, vec_map_coverage))
         return;
     if (vec_mode != VM_SpriteTranslucent) {
         ERRORLOG("only creature shadows (VM_SpriteTranslucent) are drawn here, not mode %d", (int)vec_mode);

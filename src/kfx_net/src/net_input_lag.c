@@ -28,6 +28,7 @@ static int64_t input_lag_target;
 static int64_t input_lag_increase_turns;
 static GameTurn input_lag_next_increase_turn;
 static int64_t input_lag_adjustment_time = INPUT_LAG_ADJUSTMENT_TIME_1V1_MS;
+static int64_t input_lag_fixed_turns = -1;
 
 static void input_lag_update_increase_sample(uint64_t current_time)
 {
@@ -128,7 +129,7 @@ void input_lag_update(struct Packet *packet)
     }
     uint64_t current_time = LbTimerClock();
     input_lag_update_increase_sample(current_time);
-    if ((kfx_sim_state.operation_flags & GOF_Paused) == 0 && kfx_net_state.skip_initial_input_turns == 0 && get_gameturn() >= INPUT_LAG_SAMPLE_START_TURN) {
+    if (input_lag_fixed_turns < 0 && (kfx_sim_state.operation_flags & GOF_Paused) == 0 && kfx_net_state.skip_initial_input_turns == 0 && get_gameturn() >= INPUT_LAG_SAMPLE_START_TURN) {
         uint64_t sample_time = current_time - input_lag_decrease_last_update;
         if (sample_time > input_lag_adjustment_time) {
             sample_time = input_lag_adjustment_time;
@@ -179,7 +180,7 @@ void input_lag_note_packet_wait(int64_t wait_time)
             input_lag_time_spent_waiting += 1;
         }
     }
-    if (input_lag_time_spent_waiting >= INPUT_LAG_INCREASE_WAIT_MS && local_input_lag_request < MAXIMUM_INPUT_LAG_TURNS && get_gameturn() >= input_lag_next_increase_turn) {
+    if (input_lag_fixed_turns < 0 && input_lag_time_spent_waiting >= INPUT_LAG_INCREASE_WAIT_MS && local_input_lag_request < MAXIMUM_INPUT_LAG_TURNS && get_gameturn() >= input_lag_next_increase_turn) {
         local_input_lag_request += 1;
         input_lag_next_increase_turn = get_gameturn() + (int64_t)input_lag_adjustment_time * kfx_sim_state.turns_per_second / 1000;
         MULTIPLAYER_LOG("Input lag request increased after %" PRId64 "ms spent waiting: request=%" PRId64, (int64_t)(input_lag_time_spent_waiting), (int64_t)(local_input_lag_request));
@@ -207,6 +208,16 @@ void input_lag_observe_host_packet(const struct Packet *packet)
 TbBool input_lag_needs_lookahead(void)
 {
     return network_is_active() && (kfx_sim_state.operation_flags & GOF_Paused) == 0 && kfx_net_state.skip_initial_input_turns == 0 && input_lag_increase_turns == 0 && input_lag_target < kfx_net_state.input_lag_turns;
+}
+
+void input_lag_set_fixed(int64_t turns)
+{
+    input_lag_fixed_turns = (turns < 0) ? -1 : min(turns, MAXIMUM_INPUT_LAG_TURNS);
+}
+
+int64_t input_lag_fixed(void)
+{
+    return input_lag_fixed_turns;
 }
 
 #ifdef __cplusplus

@@ -107,6 +107,10 @@ struct KfxGameState {
 };
 
 extern struct KfxGameState kfx_game_state;
+/** A level starts from kfx_game_state as start-up left it, like kfx_sim_state (game_lifecycle.h): the baseline is
+ *  taken at the end of start-up, the reset runs at a level's start (refactor pass 5, S12). */
+void game_state_take_level_baseline(void);
+void game_state_reset_for_level(void);
 /* In every file that includes this header, not only the struct's own: a file that sees another layout reads the
    state at other offsets than the rest of the game (P4-F17). */
 KFX_STATIC_ASSERT(sizeof(struct KfxGameState) == KFX_GAME_STATE_SIZE,

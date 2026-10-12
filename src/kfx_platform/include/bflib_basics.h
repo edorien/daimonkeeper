@@ -31,6 +31,9 @@ extern "C" {
 // Buffer sizes
 // Disk path max length
 #define DISKPATH_SIZE    144
+// The log file's full path: the current directory plus the -log name, which can be
+// far longer than DISKPATH_SIZE (a build tree under .claude/worktrees/<name>/out/...).
+#define LOG_PATH_SIZE   4096
 #define LINEMSG_SIZE     160
 #define READ_BUFSIZE     256
 #define LOOPED_FILE_LEN 4096
@@ -94,7 +97,7 @@ typedef int64_t TbScreenPos;
 #define LOG_PREFIX_LEN 32
 
 struct TbLog {
-        char filename[DISKPATH_SIZE];
+        char filename[LOG_PATH_SIZE];
         char prefix[LOG_PREFIX_LEN];
         uint64_t flags;
         TbBool Initialised;

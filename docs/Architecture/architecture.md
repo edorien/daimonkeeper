@@ -426,11 +426,27 @@ on:** `kfx_sim`, `kfx_platform`. **28 sources / 27 headers.**
   camera; it reads `kfx_sim_view_signals` before it reads its own state, and
   owns the local view-type prediction, `local_view_type_settle()`),
   `roomspace_prediction` (the local dig prediction).
+- Thing sprites: `keeper_sprites` owns the sprite tables (`struct KeeperSprite`,
+  `creature.tab`'s `creature_table`, the custom sprites' `creature_table_add`,
+  `creature_list`, the frame geometry). As they load (`main.cpp`'s
+  `initial_setup()`, `custom_sprites` after each zip) they publish each
+  animation's frame count to `kfx_sim` (`creature_graphics`'
+  `keepersprite_frames()`), the only thing the simulation needs of them; it
+  never sees a sprite's size, offsets or pixels. `engine_sprites_hd`: HD
+  sprite packs (frame content keys, the sprite draw audit;
+  docs/refactor/sprites/, git-ignored).
 - `local_state.h/.c` — `struct LocalState local_state`, the local machine's
   presentation state (predicted view type, palette fades, the map's UI hold,
   minimap, the thing under the hand). Never saved, synced or checksummed.
   Moved out of `kfx_sim` in refactor pass 2's S15; kfx_sim reaches it only
   through `UiPort.local_view_transition` and `RenderPort.local_view_type_settle`.
+- `kfx_local_view.h/.c` — `struct KfxLocalView kfx_local_view`, this machine's view of the game: the room, power
+  and workshop item chosen on the panels, the minimap's hand, the eye lens in use, the open panel menu, the computer
+  assistant's settings, the battle panel's list. Saved as its own chunk (`SGC_KfxLocalView`, `KLOC`) so a load
+  restores it; not in the resync message, so a resync leaves it alone (refactor pass 5, S05: it was in
+  `kfx_sim_state`/`kfx_net_state`, with a keep-list putting it back after a resync). kfx_game and kfx_frontend read
+  it directly; kfx_sim through `RenderPort.local_view_*`. `kfx_render_state` also holds the eye lens's readiness and
+  each user's palette flags (never saved).
 - `landview_image` — decodes a land-view background from a PNG (indexed as
   it is, anything else quantised to 256 colours) or the classic `.raw` +
   `.pal` pair; shared by the game's own land-view loader (`kfx_frontend`)
@@ -948,6 +964,10 @@ clear missed carried that level's data into the next level's saves and resyncs (
   easter eggs, turn rate, level numbers, the level's human player, computer chat and the timer group;
   `game_state_reset_for_level()` keeps this machine's mouse and a pending frame step. Campaign carry-over is
   `intralvl`'s, outside these structs.
+- `kfx_render_state` isn't restored (much of it is this machine's view, kept across levels).
+  `render_state_reset_for_level()` resets only what the engine sets while drawing a frame and input reads before the
+  level's first frame: what the pointer points at, and the local cursor light's spot (P5-F32: turn 0's packet took
+  its map position from the last level's frame).
 
 **For contributors:** a new per-level field needs nothing (it starts each level as start-up left it). A new
 *session* field -- set before a level starts (command line, menus, network set-up) and meant to outlive it -- must go
@@ -1036,6 +1056,8 @@ same on every target (explicit `int64_t` fields, packed layouts).
   `struct ReplayState replay`), then sim state version 12 (`system_flags` split: `run_after_victory` stays,
   the machine's own flags became `local_system_flags`; each player's start settings in `PlayerInfo`); older saves
   can't be loaded.
+- Refactor pass 5, S05: sim state version 14 and net state version 4 (this machine's view out of both, into
+  kfx_render's `kfx_local_view`, saved as a new chunk, version 1); older saves can't be loaded.
 
 ---
 
@@ -1043,8 +1065,8 @@ same on every target (explicit `int64_t` fields, packed layouts).
 
 **CMake is the only build definition that compiles the game**, for every
 target: native Linux, Windows via MSVC/clang-cl (vcpkg), and Windows via
-mingw-w64 cross-compile (`build/cmake/toolchains/mingw32.cmake`). It is what
-CI runs.
+mingw-w64 cross-compile (`build/cmake/toolchains/mingw64.cmake`; 64-bit x86_64,
+like Linux -- 32-bit Windows was dropped on 2026-10-05). It is what CI runs.
 
 | Build file                                    | Role                                                                                     | How it lists sources                                       |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |

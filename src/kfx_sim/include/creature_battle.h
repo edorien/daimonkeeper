@@ -58,8 +58,6 @@ BattleIndex find_next_battle_of_mine(PlayerNumber plyr_idx, BattleIndex prev_idx
 BattleIndex find_previous_battle_of_mine(PlayerNumber plyr_idx, BattleIndex next_idx);
 TbBool clear_battlers(int64_t *friendly_battlers, int64_t *enemy_battlers);
 int64_t setup_player_battlers(struct PlayerInfo *player, struct CreatureBattle *battle, int64_t *friendly_battlers, int64_t *enemy_battlers);
-BattleIndex find_next_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex prev_idx);
-BattleIndex find_previous_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex next_idx);
 uint64_t count_active_battles(PlayerNumber plyr_idx);
 
 TbBool has_melee_combat_attackers(struct Thing *victim);
@@ -72,8 +70,6 @@ int64_t get_flee_position(struct Thing *creatng, struct Coord3d *pos);
 void set_creature_in_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_type);
 int64_t get_combat_state_for_combat(struct Thing *fightng, struct Thing *enmtng, CrAttackType attack_pref);
 
-TbBool active_battle_exists(PlayerNumber plyr_idx);
-TbBool step_battles_forward(PlayerNumber plyr_idx);
 int64_t battle_move_player_towards_battle(struct PlayerInfo *player, BattleIndex battle_id);
 void battle_initialise(void);
 /******************************************************************************/

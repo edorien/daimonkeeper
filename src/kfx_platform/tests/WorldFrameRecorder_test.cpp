@@ -29,6 +29,25 @@ TEST_CASE("AddPoly copies all three vertices and the texture pointer losslessly,
     CHECK(p.texture == texture_data);
 }
 
+TEST_CASE("AddPoly records a block's size, parity and HD version, 32x32, normal and none by default", "[kfx_platform][WorldFrameRecorder]") {
+    // docs/newFeatures/texture-resolution/02-design.md section 5.1.2: the replay and the GPU need the block's size
+    // and its true-colour HD version.
+    struct PolyPoint pt = {};
+    unsigned char texture_data[4] = {};
+    TbPixel rgba[4] = {};
+    WorldFrameRecorder rec;
+    rec.AddPoly(&pt, &pt, &pt, texture_data);
+    rec.AddPoly(&pt, &pt, &pt, texture_data, 2, 1, rgba);
+    WorldFrame f = rec.Build();
+    REQUIRE(f.op_count == 2);
+    CHECK(f.ops[0].u.poly.block_shift == 0);
+    CHECK(f.ops[0].u.poly.parity == 0);
+    CHECK(f.ops[0].u.poly.texture_rgba == nullptr);
+    CHECK(f.ops[1].u.poly.block_shift == 2);
+    CHECK(f.ops[1].u.poly.parity == 1);
+    CHECK(f.ops[1].u.poly.texture_rgba == rgba);
+}
+
 TEST_CASE("ops keep draw order across kinds", "[kfx_platform][WorldFrameRecorder]") {
     struct PolyPoint pt = {};
     unsigned char rle[2] = { 0, 0 };
@@ -267,4 +286,33 @@ TEST_CASE("WorldFrameLighting carries per-light colour through the recorder", "[
     CHECK(f.lighting->lights[0].b == 0.25f);
     CHECK(f.lighting->lights[1].g == 1.0f);
     CHECK(f.lighting->lights[1].r == 0.0f);
+}
+
+TEST_CASE("AddShadowTri: a soft shadow's coverage map is copied at its scale, its values kept", "[kfx_platform][worldframe]")
+{
+    const int k = 2;
+    std::vector<unsigned char> cover((size_t)(256 * k * 256 * k), 0);
+    for (int y = 0; y < 256 * k; y++)
+        for (int x = 0; x < 256 * k; x++)
+            cover[(size_t)(y * 256 * k + x)] = (unsigned char)((x + y) & 0xFF);
+    WorldFrameRecorder rec;
+    struct PolyPoint a = {}, b = {}, c = {};
+    a.X = 10; a.Y = 10; a.U = 4 << 16; a.V = 6 << 16;
+    b.X = 40; b.Y = 10; b.U = 20 << 16; b.V = 6 << 16;
+    c.X = 10; c.Y = 40; c.U = 4 << 16; c.V = 30 << 16;
+    REQUIRE(rec.AddShadowTri(&a, &b, &c, cover.data(), 16, k, true));
+    WorldFrame wf = rec.Build();
+    const WorldFrameShadowOp *s = nullptr;
+    for (size_t i = 0; i < wf.op_count; i++)
+        if (wf.ops[i].kind == WF_OP_SHADOW)
+            s = &wf.ops[i].u.shadow;
+    REQUIRE(s != nullptr);
+    CHECK(s->coverage == 1);
+    CHECK(s->w == (20 - 4 + 1) * k);
+    CHECK(s->h == (30 - 6 + 1) * k);
+    CHECK(s->u[1] == (float)((20 - 4) * k));
+    CHECK(s->v[2] == (float)((30 - 6) * k));
+    // the first texel of the copy is cover at (4k, 6k); one row down, one more
+    CHECK(wf.pixels[s->pix_off] == (unsigned char)((4 * k + 6 * k) & 0xFF));
+    CHECK(wf.pixels[s->pix_off + (size_t)s->w] == (unsigned char)((4 * k + 6 * k + 1) & 0xFF));
 }

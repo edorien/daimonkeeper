@@ -35,6 +35,7 @@
 #include "game_legacy.h"
 #include "sprites.h"
 #include "kfx_frontend_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -92,10 +93,10 @@ struct GuiButtonInit pause_buttons[] = {
 
 struct GuiButtonInit autopilot_menu_buttons[] = {
   { .gbtype = LbBtnT_NormalBtn, .scr_pos_x = 999, .scr_pos_y = 10, .pos_x = 999, .pos_y = 10, .width = 155, .height = 32, .draw_call = gui_area_text, .sprite_idx = 1, .tooltip_stridx = GUIStr_MnuComputer },
-  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .scr_pos_x = FE_ROW_Y(12, 48, 0), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 0), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_orange, .tooltip_stridx = GUIStr_AggressiveAssistDesc, .content = { .ptr = &kfx_net_state.comp_player_aggressive }, .maintain_call = maintain_compsetting_button },
-  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .btype_value = 1, .scr_pos_x = FE_ROW_Y(12, 48, 1), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 1), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_yellow, .tooltip_stridx = GUIStr_DefensiveAssistDesc, .content = { .ptr = &kfx_net_state.comp_player_defensive }, .maintain_call = maintain_compsetting_button },
-  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .btype_value = 2, .scr_pos_x = FE_ROW_Y(12, 48, 2), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 2), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_pink, .tooltip_stridx = GUIStr_ConstructionAssistDesc, .content = { .ptr = &kfx_net_state.comp_player_construct }, .maintain_call = maintain_compsetting_button },
-  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .btype_value = 3, .scr_pos_x = FE_ROW_Y(12, 48, 3), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 3), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_green, .tooltip_stridx = GUIStr_MoveOnlyAssistDesc, .content = { .ptr = &kfx_net_state.comp_player_creatrsonly }, .maintain_call = maintain_compsetting_button },
+  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .scr_pos_x = FE_ROW_Y(12, 48, 0), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 0), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_orange, .tooltip_stridx = GUIStr_AggressiveAssistDesc, .content = { .ptr = &kfx_local_view.comp_player_aggressive }, .maintain_call = maintain_compsetting_button },
+  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .btype_value = 1, .scr_pos_x = FE_ROW_Y(12, 48, 1), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 1), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_yellow, .tooltip_stridx = GUIStr_DefensiveAssistDesc, .content = { .ptr = &kfx_local_view.comp_player_defensive }, .maintain_call = maintain_compsetting_button },
+  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .btype_value = 2, .scr_pos_x = FE_ROW_Y(12, 48, 2), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 2), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_pink, .tooltip_stridx = GUIStr_ConstructionAssistDesc, .content = { .ptr = &kfx_local_view.comp_player_construct }, .maintain_call = maintain_compsetting_button },
+  { .gbtype = LbBtnT_RadioBtn, .click_event = gui_set_autopilot, .btype_value = 3, .scr_pos_x = FE_ROW_Y(12, 48, 3), .scr_pos_y = 36, .pos_x = FE_ROW_Y(12, 48, 3), .pos_y = 36, .width = 46, .height = 64, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_options_cassist_btn_green, .tooltip_stridx = GUIStr_MoveOnlyAssistDesc, .content = { .ptr = &kfx_local_view.comp_player_creatrsonly }, .maintain_call = maintain_compsetting_button },
   { .gbtype = -1 },
 };
 

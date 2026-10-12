@@ -6,12 +6,8 @@
 // violation itself isn't going away without restructuring netcode, but
 // the surrounding functions in the same file are still worth covering.
 //
-// store_localised_game_structure()/recall_localised_game_structure()
-// (the "boing" struct) are a clean self-contained round-trip pair, no
-// blob/memcpy involved -- pattern A on kfx_sim_state/kfx_net_state.
-// Neither had a header declaration anywhere (only called from within
-// net_resync.cpp itself) -- added both to net_resync.h, the same "add
-// the missing declaration" fix used repeatedly across this plan.
+// (store/recall_localised_game_structure(), the resync's keep-list, are gone: this machine's view is kfx_render's
+// kfx_local_view, which a resync doesn't touch -- refactor pass 5, S05.)
 //
 // animate_resync_progress_bar() is the first kfx_net test to combine
 // two simultaneous fakes (the get_gameturn() source and UiPort)
@@ -37,71 +33,6 @@ struct ResetStates {
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
     }
 };
-}
-
-TEST_CASE_METHOD(ResetStates, "store_localised_game_structure/recall_localised_game_structure round-trip every field", "[kfx_net][net_resync]") {
-    kfx_sim_state.active_panel_mnu_idx = 3;
-    kfx_net_state.comp_player_aggressive = 1;
-    kfx_net_state.comp_player_defensive = 2;
-    kfx_net_state.comp_player_construct = 3;
-    kfx_net_state.comp_player_creatrsonly = 4;
-    kfx_sim_state.creatures_tend_imprison = 5;
-    kfx_sim_state.creatures_tend_flee = 6;
-    kfx_sim_state.hand_over_subtile_x = 100;
-    kfx_sim_state.hand_over_subtile_y = 200;
-    kfx_sim_state.chosen_room_kind = 7;
-    kfx_sim_state.chosen_room_spridx = 8;
-    kfx_sim_state.chosen_room_tooltip = 9;
-    kfx_sim_state.chosen_spell_type = 10;
-    kfx_sim_state.chosen_spell_spridx = 11;
-    kfx_sim_state.chosen_spell_tooltip = 12;
-    kfx_sim_state.manufactr_element = 13;
-    kfx_sim_state.manufactr_spridx = 14;
-    kfx_sim_state.manufactr_tooltip = 15;
-
-    store_localised_game_structure();
-
-    // Overwrite everything with different values -- recall must restore
-    // the stored snapshot, not just leave these alone.
-    kfx_sim_state.active_panel_mnu_idx = 99;
-    kfx_net_state.comp_player_aggressive = 99;
-    kfx_net_state.comp_player_defensive = 99;
-    kfx_net_state.comp_player_construct = 99;
-    kfx_net_state.comp_player_creatrsonly = 99;
-    kfx_sim_state.creatures_tend_imprison = 99;
-    kfx_sim_state.creatures_tend_flee = 99;
-    kfx_sim_state.hand_over_subtile_x = 999;
-    kfx_sim_state.hand_over_subtile_y = 999;
-    kfx_sim_state.chosen_room_kind = 99;
-    kfx_sim_state.chosen_room_spridx = 99;
-    kfx_sim_state.chosen_room_tooltip = 99;
-    kfx_sim_state.chosen_spell_type = 99;
-    kfx_sim_state.chosen_spell_spridx = 99;
-    kfx_sim_state.chosen_spell_tooltip = 99;
-    kfx_sim_state.manufactr_element = 99;
-    kfx_sim_state.manufactr_spridx = 99;
-    kfx_sim_state.manufactr_tooltip = 99;
-
-    recall_localised_game_structure();
-
-    CHECK(kfx_sim_state.active_panel_mnu_idx == 3);
-    CHECK(kfx_net_state.comp_player_aggressive == 1);
-    CHECK(kfx_net_state.comp_player_defensive == 2);
-    CHECK(kfx_net_state.comp_player_construct == 3);
-    CHECK(kfx_net_state.comp_player_creatrsonly == 4);
-    CHECK(kfx_sim_state.creatures_tend_imprison == 5);
-    CHECK(kfx_sim_state.creatures_tend_flee == 6);
-    CHECK(kfx_sim_state.hand_over_subtile_x == 100);
-    CHECK(kfx_sim_state.hand_over_subtile_y == 200);
-    CHECK(kfx_sim_state.chosen_room_kind == 7);
-    CHECK(kfx_sim_state.chosen_room_spridx == 8);
-    CHECK(kfx_sim_state.chosen_room_tooltip == 9);
-    CHECK(kfx_sim_state.chosen_spell_type == 10);
-    CHECK(kfx_sim_state.chosen_spell_spridx == 11);
-    CHECK(kfx_sim_state.chosen_spell_tooltip == 12);
-    CHECK(kfx_sim_state.manufactr_element == 13);
-    CHECK(kfx_sim_state.manufactr_spridx == 14);
-    CHECK(kfx_sim_state.manufactr_tooltip == 15);
 }
 
 namespace {

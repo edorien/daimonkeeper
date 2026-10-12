@@ -923,7 +923,12 @@ static TbBool global_apply_roomspace_dig_tag(const struct GlobalAction *ctx)
     struct Packet *pckt = ctx->pckt;
     struct UserState *ustate = ctx->ustate;
     player->roomspace_mode = pckt->actn_par1;
-    if ( (pckt->actn_par2 == 1) || (pckt->actn_par1 == roomspace_detection_mode) )
+    // Leaving click-and-drag mode is the player changing the highlight (SetRoomspaceHighlight, the toggle). A dig tag
+    // (sent by the local dig prediction when a drag ends, its par2 the 1x1 brush width) must not leave it: the drag
+    // area it tags is worked out from drag mode just after this, and left without it tagged only the slab under the
+    // release in a multiplayer game (P5-F34).
+    if ((pckt->action != PckA_ApplyRoomspaceDigTag)
+     && ((pckt->actn_par2 == 1) || (pckt->actn_par1 == roomspace_detection_mode)))
     {
         // exit out of click and drag mode
         if (player->render_roomspace.drag_mode)

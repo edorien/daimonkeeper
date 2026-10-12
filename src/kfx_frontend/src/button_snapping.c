@@ -28,6 +28,7 @@
 #include "map_data.h"
 #include "game_legacy.h"
 #include "frontmenu_ingame_evnt.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -150,8 +151,7 @@ static double get_button_score(int64_t mouse_x, int64_t mouse_y, int64_t btn_cen
 static double get_battle_buttons_top_score(const struct GuiButton* gbtn, int64_t *btn_center_x, int64_t *btn_center_y, int64_t mouse_x, int64_t mouse_y, double dx, double dy, double MIN_DOT)
 {
     int64_t visbtl_id = gbtn->btype_value & LbBFeF_IntValueMask;
-    struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
-    BattleIndex battle_id = dungeon->visible_battles[visbtl_id];
+    BattleIndex battle_id = kfx_local_view.visible_battles[visbtl_id];
     struct CreatureBattle* battle = creature_battle_get(battle_id);
     if (creature_battle_invalid(battle)) {
         return -1.0;

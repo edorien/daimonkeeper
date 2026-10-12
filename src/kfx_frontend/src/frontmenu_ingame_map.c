@@ -57,6 +57,7 @@
 
 #include <math.h>
 #include "list_walk.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 // Local constants
@@ -786,8 +787,8 @@ int64_t do_left_map_drag(int64_t begin_x, int64_t begin_y, int64_t curr_x, int64
   const MapSubtlCoord stl_y = coord_y / COORD_PER_STL;
   frac_x = exact_x - coord_x;
   frac_y = exact_y - coord_y;
-  kfx_sim_state.hand_over_subtile_x = stl_x;
-  kfx_sim_state.hand_over_subtile_y = stl_y;
+  kfx_local_view.hand_over_subtile_x = stl_x;
+  kfx_local_view.hand_over_subtile_y = stl_y;
   if (subtile_has_slab(stl_x, stl_y))
   {
     set_packet_action(pckt, PckA_BookmarkLoad, coord_x, coord_y, 0, 0);
@@ -804,13 +805,13 @@ int64_t do_left_map_click(int64_t begin_x, int64_t begin_y, int64_t curr_x, int6
   {
       if (grabbed_small_map)
       {
-        kfx_sim_state.small_map_state = 2;
+        kfx_local_view.small_map_state = 2;
         LbMouseSetPosition(begin_x + MapDiagonalLength/2, begin_y + MapDiagonalLength/2);
       } else
       {
         do_map_rotate_stuff_subtile(curr_x - begin_x - MapDiagonalLength/2, curr_y - begin_y - MapDiagonalLength/2, &curr_x, &curr_y, zoom);
-        kfx_sim_state.hand_over_subtile_x = curr_x;
-        kfx_sim_state.hand_over_subtile_y = curr_y;
+        kfx_local_view.hand_over_subtile_x = curr_x;
+        kfx_local_view.hand_over_subtile_y = curr_y;
         if (subtile_has_slab(curr_x, curr_y))
         {
           const MapCoord x = subtile_coord_center(curr_x);
@@ -834,14 +835,14 @@ int64_t do_right_map_click(int64_t start_x, int64_t start_y, int64_t curr_mx, in
     struct PlayerInfo *player;
     struct Thing *thing;
     do_map_rotate_stuff_subtile(curr_mx - start_x - MapDiagonalLength/2, curr_my - start_y - MapDiagonalLength/2, &x, &y, zoom);
-    kfx_sim_state.hand_over_subtile_x = x;
-    kfx_sim_state.hand_over_subtile_y = y;
+    kfx_local_view.hand_over_subtile_x = x;
+    kfx_local_view.hand_over_subtile_y = y;
     player = get_my_player();
     thing = get_first_thing_in_power_hand(player);
     if (!thing_is_invalid(thing))
     {
         if (can_place_thing_here(thing, x, y, player->id_number))
-          kfx_sim_state.small_map_state = 1;
+          kfx_local_view.small_map_state = 1;
     }
     if (right_button_clicked)
       right_button_clicked = 0;

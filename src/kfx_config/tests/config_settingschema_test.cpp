@@ -16,6 +16,11 @@
 // (WARNMSG, return false) in this environment; only the live-apply half
 // (set_bool/set_int actually being called) is checked.
 #include <catch2/catch_test_macros.hpp>
+#include <unistd.h>
+#include <string>
+#include <map>
+#include <fstream>
+#include <filesystem>
 
 #include "kfx_config/tests/scoped_port_override.h"
 #include "ports/game_port.h"
@@ -32,6 +37,7 @@
 #include "renderer/RendererManager.h" // RENDERER's row
 
 #include <cstring>
+#include <cstdlib>
 #include <cstdio>
 
 namespace {
@@ -120,8 +126,8 @@ struct ResetSchemaState {
 const struct SettingOption *find_option(const char *cfg_key)
 {
     for (int64_t i = 0; i < setting_options_count; i++) {
-        if (std::strcmp(setting_options[i].cfg_key, cfg_key) == 0)
-            return &setting_options[i];
+        if ((setting_options[i].cfg_key != nullptr) && (std::strcmp(setting_options[i].cfg_key, cfg_key) == 0))
+            return &setting_options[i]; // (rows without a cfg_key are skipped: a missing key reaches them)
     }
     return nullptr;
 }
@@ -424,6 +430,154 @@ TEST_CASE_METHOD(ResetSchemaState, "setting_option_enum_* translate between a co
     setting_option_apply_enum_index(freq, 0); // pick LOW by index
     CHECK(kfx_config_state.atmos_sound_frequency == 3200);
     CHECK(setting_option_enum_current_index(freq) == 0);
+}
+
+TEST_CASE_METHOD(ResetSchemaState, "an enum row's on-screen labels can differ from the names written to the file", "[kfx_config][config_settingschema]") {
+    // ASSET_PACK: "Original" on screen, NONE in the file; a pack shows its pack.toml name, its folder is written.
+    const struct SettingOption *tt = find_option("ASSET_PACK");
+    REQUIRE(tt != nullptr);
+    REQUIRE(tt->enum_item_label != nullptr);
+    REQUIRE(setting_option_enum_count(tt) >= 1);
+    CHECK(std::strcmp(tt->enum_table[0].name, "NONE") == 0);
+    CHECK(std::strcmp(setting_option_enum_item_name(tt, 0), "Original") == 0);
+
+    // A row without labels shows its names; a label hook that has none for an entry falls back to the name.
+    static const struct NamedCommand table[] = { {"FIRST", 1}, {"SECOND", 2}, {NULL, 0} };
+    struct SettingOption opt = {};
+    opt.type = SOptT_Enum;
+    opt.enum_table = table;
+    CHECK(std::strcmp(setting_option_enum_item_name(&opt, 1), "SECOND") == 0);
+    opt.enum_item_label = [](int64_t index) -> const char * { return (index == 0) ? "First one" : nullptr; };
+    CHECK(std::strcmp(setting_option_enum_item_name(&opt, 0), "First one") == 0);
+    CHECK(std::strcmp(setting_option_enum_item_name(&opt, 1), "SECOND") == 0);
+}
+
+TEST_CASE_METHOD(ResetSchemaState, "ASSET_PACK lists the fxdata/asset_packs/ folders by their pack.toml name; SPRITE_TRUE_COLOUR is a live switch", "[kfx_config][config_settingschema]") {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / ("kfx_asset_pack_" + std::to_string(getpid()));
+    fs::remove_all(root);
+    const fs::path packs = root / "fxdata" / "asset_packs";
+    fs::create_directories(packs / "lovely" / "sprites");
+    fs::create_directories(packs / "lovely" / "textures");
+    fs::create_directories(packs / "tiles_only" / "textures");
+    fs::create_directories(root / "fxdata" / "sprites" / "old_place"); // the folders before ASSET_PACK: not listed
+    std::ofstream(packs / "lovely" / "pack.toml") << "name = \"Lovely HD\"\n";
+    std::ofstream(packs / "lovely" / "sprites" / "pack.toml") << "name = \"Lovely creatures\"\nscale = 4\n";
+    std::ofstream(packs / "tiles_only" / "textures" / "pack.toml") << "size = 64\n";
+    const std::string prev = keeper_runtime_directory;
+    std::snprintf(keeper_runtime_directory, sizeof(keeper_runtime_directory), "%s", root.string().c_str());
+    setting_option_asset_pack_rescan();
+
+    const struct SettingOption *ap = find_option("ASSET_PACK");
+    REQUIRE(ap != nullptr);
+    CHECK(ap->apply_class == SApply_Live);
+    CHECK(find_option("TERRAIN_TEXTURES") == nullptr);
+    CHECK(find_option("THING_SPRITES") == nullptr);
+    std::map<std::string, std::string> label_of;
+    for (int64_t i = 0; i < setting_option_enum_count(ap); i++)
+        label_of[ap->enum_table[i].name] = setting_option_enum_item_name(ap, i);
+    CHECK(label_of.size() == 3);
+    CHECK(label_of["NONE"] == "Original");
+    CHECK(label_of["lovely"] == "Lovely HD"); // the pack's own pack.toml, not its sprites'
+    CHECK(label_of["tiles_only"] == "tiles_only"); // no pack.toml at its root: the folder's name
+    CHECK(label_of.count("old_place") == 0);
+    // Choosing it writes the folder name, not the label.
+    for (int64_t i = 0; i < setting_option_enum_count(ap); i++)
+        if (std::strcmp(ap->enum_table[i].name, "lovely") == 0)
+            ap->set_enum(ap->enum_table[i].num);
+    CHECK(std::strcmp(keeperfx_ui_config.asset_pack, "lovely") == 0);
+    CHECK(ap->get_enum() == ap->enum_table[setting_option_enum_current_index(ap)].num);
+
+    // Each kind's folder of the chosen pack; none without a pack.
+    char dir[1024];
+    REQUIRE(asset_pack_dir(keeperfx_ui_config.asset_pack, "textures", dir, sizeof(dir)));
+    CHECK(fs::equivalent(fs::path(dir), packs / "lovely" / "textures"));
+    CHECK_FALSE(asset_pack_dir("NONE", "sprites", dir, sizeof(dir)));
+    CHECK(dir[0] == '\0');
+    CHECK_FALSE(asset_pack_dir("", "sprites", dir, sizeof(dir)));
+
+    const struct SettingOption *tc = find_option("SPRITE_TRUE_COLOUR");
+    REQUIRE(tc != nullptr);
+    CHECK(tc->type == SOptT_Bool);
+    CHECK(tc->apply_class == SApply_Live);
+    CHECK(tc->cfg_read_by_row);
+    tc->set_bool(true);
+    CHECK(keeperfx_ui_config.sprite_true_colour == 1);
+    CHECK(tc->get_bool());
+    tc->set_bool(false);
+    CHECK(keeperfx_ui_config.sprite_true_colour == 0);
+
+    std::snprintf(keeper_runtime_directory, sizeof(keeper_runtime_directory), "%s", prev.c_str());
+    std::snprintf(keeperfx_ui_config.asset_pack, sizeof(keeperfx_ui_config.asset_pack), "NONE");
+    setting_option_asset_pack_rescan();
+    fs::remove_all(root);
+}
+
+TEST_CASE_METHOD(ResetSchemaState, "ASSET_PACK_MEMORY: Auto is a quarter of the system's memory, at least 3 GiB; a size is that size", "[kfx_config][config_settingschema]") {
+    const struct SettingOption *am = find_option("ASSET_PACK_MEMORY");
+    REQUIRE(am != nullptr);
+    CHECK(am->apply_class == SApply_Live);
+    CHECK(am->cfg_read_by_row);
+    const int64_t prev = keeperfx_ui_config.asset_pack_memory;
+    const uint64_t gib = (uint64_t)1 << 30;
+    // The default, and what the screen shows for each entry.
+    CHECK(prev == 1);
+    CHECK(std::strcmp(setting_option_enum_item_name(am, 0), "Auto") == 0);
+    CHECK(std::strcmp(am->enum_table[0].name, "AUTO") == 0);
+    CHECK(asset_pack_memory_bytes(8 * gib) == 3 * gib);   // a quarter would be 2 GiB: the floor
+    CHECK(asset_pack_memory_bytes(32 * gib) == 8 * gib);
+    CHECK(asset_pack_memory_bytes(0) == 3 * gib);         // SDL couldn't tell
+    for (int64_t i = 0; i < setting_option_enum_count(am); i++)
+    {
+        CAPTURE(am->enum_table[i].name);
+        am->set_enum(am->enum_table[i].num);
+        CHECK(am->get_enum() == am->enum_table[i].num);
+        if (i == 0)
+            continue;
+        // "16GB" is 16 GiB whatever the computer has; the label says the same.
+        const uint64_t want = (uint64_t)std::strtoull(am->enum_table[i].name, nullptr, 10) * gib;
+        CHECK(asset_pack_memory_bytes(64 * gib) == want);
+        CHECK(asset_pack_memory_bytes(4 * gib) == want);
+        CHECK(std::string(setting_option_enum_item_name(am, i)) == std::to_string(want / gib) + " GiB");
+    }
+    // Read from the file by the row: a size by name; anything else refused, the value kept.
+    namespace fs = std::filesystem;
+    const fs::path cfg = fs::temp_directory_path() / ("kfx_asset_pack_memory_" + std::to_string(getpid()) + ".cfg");
+    std::ofstream(cfg) << "ASSET_PACK_MEMORY=8GB\n";
+    load_base_config_file_for_test(cfg.string().c_str());
+    CHECK(keeperfx_ui_config.asset_pack_memory == 7);
+    CHECK(asset_pack_memory_bytes(64 * gib) == 8 * gib);
+    std::ofstream(cfg) << "ASSET_PACK_MEMORY=LOTS\n";
+    load_base_config_file_for_test(cfg.string().c_str());
+    CHECK(keeperfx_ui_config.asset_pack_memory == 7);
+    std::ofstream(cfg) << "ASSET_PACK_MEMORY=AUTO\n";
+    load_base_config_file_for_test(cfg.string().c_str());
+    CHECK(keeperfx_ui_config.asset_pack_memory == 1);
+    fs::remove(cfg);
+    keeperfx_ui_config.asset_pack_memory = prev;
+}
+
+TEST_CASE_METHOD(ResetSchemaState, "ASSET_PACK_FILL is a live switch, off by default, read from the file by its row", "[kfx_config][config_settingschema]") {
+    const struct SettingOption *af = find_option("ASSET_PACK_FILL");
+    REQUIRE(af != nullptr);
+    CHECK(af->type == SOptT_Bool);
+    CHECK(af->apply_class == SApply_Live);
+    CHECK(af->cfg_read_by_row);
+    const int64_t prev = keeperfx_ui_config.asset_pack_fill;
+    CHECK(prev == 0);
+    CHECK_FALSE(af->get_bool());
+    af->set_bool(true);
+    CHECK(keeperfx_ui_config.asset_pack_fill == 1);
+    namespace fs = std::filesystem;
+    const fs::path cfg = fs::temp_directory_path() / ("kfx_asset_pack_fill_" + std::to_string(getpid()) + ".cfg");
+    std::ofstream(cfg) << "ASSET_PACK_FILL=OFF\n";
+    load_base_config_file_for_test(cfg.string().c_str());
+    CHECK(keeperfx_ui_config.asset_pack_fill == 0);
+    std::ofstream(cfg) << "ASSET_PACK_FILL=ON\n";
+    load_base_config_file_for_test(cfg.string().c_str());
+    CHECK(keeperfx_ui_config.asset_pack_fill == 1);
+    fs::remove(cfg);
+    keeperfx_ui_config.asset_pack_fill = prev;
 }
 
 TEST_CASE_METHOD(ResetSchemaState, "setting_option_enum_* return 0/empty for a non-enum option rather than misreading its union of fields", "[kfx_config][config_settingschema]") {

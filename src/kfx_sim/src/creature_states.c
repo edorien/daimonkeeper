@@ -2802,6 +2802,16 @@ TbBool init_creature_state(struct Thing *creatng)
             SYNCDBG(3,"Trying to assign initial job at (%" PRId64 ",%" PRId64 ") for neutral %s index %" PRId64 " owner %" PRId64,(int64_t)(stl_x),(int64_t)(stl_y),thing_model_name(creatng),(int64_t)(creatng->index),(int64_t)(creatng->owner));
             return false;
         }
+        // A neutral room is the map's, not the neutral creatures': standing in one, they were its "owned creatures"
+        // and took its job -- a torture device, a cell, guard duty (P5-F39; KeeperFX's way, kept as the
+        // NEUTRAL_ROOM_JOBS classic bug). Only a keeper's room holds a neutral.
+        struct Room* room = get_room_thing_is_on(creatng);
+        if (!room_is_invalid(room) && (room->owner == creatng->owner)
+            && !flag_is_set(kfx_config_state.conf.rules[creatng->owner].gameplay.classic_bugs_flags, ClscBug_NeutralRoomJobs))
+        {
+            SYNCDBG(3,"No initial job in a neutral %s for neutral %s index %" PRId64,room_code_name(room->kind),thing_model_name(creatng),(int64_t)(creatng->index));
+            return false;
+        }
         SYNCDBG(3,"Assigning initial job at (%" PRId64 ",%" PRId64 ") for neutral %s index %" PRId64 " owner %" PRId64,(int64_t)(stl_x),(int64_t)(stl_y),thing_model_name(creatng),(int64_t)(creatng->index),(int64_t)(creatng->owner));
     }
     CreatureJob new_job = get_job_for_subtile(creatng, stl_x, stl_y, JoKF_AssignCeatureInit);

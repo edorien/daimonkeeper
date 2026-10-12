@@ -29,6 +29,7 @@
 #include "kfx_net_state.h"
 #include "kfx_sim_state.h"
 #include "kfx_pathfinding_state.h"
+#include "kfx_render_state.h"
 #include "map_blocks.h"
 #include "player_computer.h"
 #include "packets.h"
@@ -43,6 +44,7 @@
 #include "renderer/RendererManager.h"
 #include "game_merge.h"
 #include "game_lifecycle.h"
+#include "ariadne_saved_state.h"
 #include "lvl_script.h"
 #include "config_sounds.h"
 #include "config_slabsets.h"
@@ -87,6 +89,7 @@
 #include "game_compat_review.h"
 #include "render_creature_view.h"
 #include "keeper_assist_outbox.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -180,6 +183,8 @@ void clear_game_for_summary(void)
     clear_players();
     memset(&local_state, 0, sizeof(local_state));
     clear_dungeons();
+    // The battle panel's list was each Dungeon's, cleared with it (refactor pass 5, S05).
+    memset(kfx_local_view.visible_battles, 0, sizeof(kfx_local_view.visible_battles));
 }
 
 void clear_game(void)
@@ -384,12 +389,16 @@ static TbBool init_level(void)
     struct IntralevelData transfer_mem;
     //memcpy(&transfer_mem,&game.intralvl.transferred_creature,sizeof(struct CreatureStorage));
     memcpy(&transfer_mem,&intralvl,sizeof(struct IntralevelData));
+    game_state_reset_for_level();
     kfx_game_state.flags_gui = GGUI_SoloChatEnabled;
     kfx_sim_state.run_after_victory = false;
     free_swipe_graphic();
     kfx_sim_state.play_gameturn = 0;
     kfx_game_state.paused_at_gameturn = false;
     game_flags2 &= (GF2_PERSISTENT_FLAGS | GF2_Timer);
+    sim_state_reset_for_level();
+    ariadne_reset_for_level();
+    render_state_reset_for_level();
     clear_game();
     reset_heap_manager();
     lens_mode = 0;
@@ -500,13 +509,13 @@ static TbBool init_level(void)
     audio_clear_sound_messages();
     show_ignored_fxdata_zip_messages();
     memset(kfx_config_state.pay_day_progress, 0, sizeof(kfx_config_state.pay_day_progress));
-    kfx_sim_state.chosen_room_kind = 0;
-    kfx_sim_state.chosen_room_spridx = 0;
-    kfx_sim_state.chosen_room_tooltip = 0;
+    kfx_local_view.chosen_room_kind = 0;
+    kfx_local_view.chosen_room_spridx = 0;
+    kfx_local_view.chosen_room_tooltip = 0;
     set_chosen_power_none();
-    kfx_sim_state.manufactr_element = 0;
-    kfx_sim_state.manufactr_spridx = 0;
-    kfx_sim_state.manufactr_tooltip = 0;
+    kfx_local_view.manufactr_element = 0;
+    kfx_local_view.manufactr_spridx = 0;
+    kfx_local_view.manufactr_tooltip = 0;
     reset_postal_instance_cache();
     JUSTMSG("Started level %" PRIu64 " from %s", (uint64_t)(get_selected_level_number()), campaign.name);
 
@@ -834,6 +843,8 @@ void clear_complete_game(void)
     // docs/refactor/stage-08-kfx-net.md) -- same "grows via sizeof()"
     // shape as kfx_sim_state above.
     memset(&kfx_net_state, 0, sizeof(struct KfxNetState));
+    // This machine's view of the game, which was in the two above (refactor pass 5, S05).
+    memset(&kfx_local_view, 0, sizeof(struct KfxLocalView));
     // The replay state (upstream #5376) is in no state blob; it is reset here, as it was
     // when it was part of kfx_net_state. An open file is closed rather than lost.
     close_packet_file();

@@ -234,8 +234,7 @@ struct Dungeon {
     struct DiggerStack digger_stack[DIGGER_TASK_MAX_COUNT];
     uint64_t digger_stack_update_turn;
     uint64_t digger_stack_length;
-    /** Array with battle indexes with the battles currently visible in fight event message */
-    unsigned char visible_battles[3];
+    // visible_battles[3] (the battle panel's list): kfx_render's kfx_local_view, the local player's (refactor pass 5, S05)
     int64_t zoom_annoyed_creature_idx;
     int64_t total_experience_creatures_gained;
     int64_t total_research_points;

@@ -30,11 +30,15 @@
 #
 #   KFX_FTEST_DATA_DIR=/path/to/keeperfx/install ./build-package.sh
 #
-# Network access is needed: pkg-enginegfx clones dkfans/FXGraphics, and a
-# first run fetches every third-party dependency (see build-cmake-linux.sh) --
+# Network access is needed on a first run: pkg-enginegfx clones
+# dkfans/FXGraphics into gfx/ if there isn't a checkout there already (a git
+# worktree reuses its main checkout's gfx/ instead; scripts/ensure_gfx.sh),
+# and every third-party dependency is fetched (see build-cmake-linux.sh) --
 # once per build tree (out/windows/, out/linux/, out/coverage/ each fetch
 # their own, since a CMakeCache.txt bakes in its compiler/toolchain and
-# trees can't share one).
+# trees can't share one). An existing gfx/ is never updated unless asked:
+#
+#   REFRESH_GFX=1 ./build-package.sh    # also pull FXGraphics' latest art
 #
 # Usage:
 #   ./build-package.sh                              # Windows + Linux packages, coverage report
@@ -72,8 +76,15 @@ build_platform_package() {
         cmake -S . -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DBUILD_NUMBER="$BUILD_NUMBER" -DPACKAGE_SUFFIX="$PACKAGE_SUFFIX"
     else
+        # A tree configured while the Windows build was 32-bit (i686) still
+        # has that compiler in its CMakeCache.txt -- reset it so this
+        # configure picks up the x86_64 toolchain.
+        if [ -f "$build_dir/CMakeCache.txt" ] && grep -q 'i686-w64-mingw32' "$build_dir/CMakeCache.txt"; then
+            echo "==> [$os] $build_dir was configured for 32-bit Windows (i686); resetting its CMake cache for x86_64" >&2
+            rm -rf "$build_dir/CMakeCache.txt" "$build_dir/CMakeFiles"
+        fi
         cmake -S . -B "$build_dir" -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw64.cmake \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DBUILD_NUMBER="$BUILD_NUMBER" -DPACKAGE_SUFFIX="$PACKAGE_SUFFIX"
     fi
@@ -157,14 +168,14 @@ LINUX_STATUS="skipped (SKIP_LINUX=1)"
 COVERAGE_STATUS="skipped (SKIP_COVERAGE=1)"
 
 if [ "${SKIP_WINDOWS:-0}" != "1" ]; then
-    if command -v i686-w64-mingw32-gcc >/dev/null 2>&1; then
+    if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
         build_platform_package windows
         WINDOWS_STATUS="built -> dist/windows/"
     else
-        echo "==> [windows] SKIPPING: i686-w64-mingw32-gcc not found on PATH." >&2
-        echo "              Install a MinGW-w64 i686 toolchain (Ubuntu: 'sudo apt install g++-mingw-w64-i686')" >&2
+        echo "==> [windows] SKIPPING: x86_64-w64-mingw32-gcc not found on PATH." >&2
+        echo "              Install a MinGW-w64 x86_64 toolchain (Ubuntu: 'sudo apt install g++-mingw-w64-x86-64')" >&2
         echo "              to include the Windows package, or set SKIP_WINDOWS=1 to silence this." >&2
-        WINDOWS_STATUS="SKIPPED (no i686-w64-mingw32-gcc on PATH)"
+        WINDOWS_STATUS="SKIPPED (no x86_64-w64-mingw32-gcc on PATH)"
     fi
 fi
 

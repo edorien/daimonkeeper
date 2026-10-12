@@ -128,6 +128,11 @@ struct SettingOption {
     // enum row's fixed NamedCommand table.
     void (*ensure_enum_table)(void);
 
+    // SOptT_Enum only, optional: the on-screen label of the entry at `index`, when it isn't the entry's name
+    // (which is what gets written to the file). NULL for every row whose names are their labels. ASSET_PACK:
+    // a pack's own name (pack.toml) for its folder name, "Original" for NONE.
+    const char *(*enum_item_label)(int64_t index);
+
     // §6.2 finding 4 ("some controls gate others"): NULL means always
     // enabled; otherwise the settings screen should show this option
     // disabled (but still visible) when this returns false.
@@ -213,7 +218,11 @@ void setting_option_apply_int(const struct SettingOption *opt, int64_t val);
 // box widget wants). All three return/accept 0 for a NULL or malformed opt.
 int64_t setting_option_enum_count(const struct SettingOption *opt);
 int64_t setting_option_enum_current_index(const struct SettingOption *opt);
+// The entry's on-screen text: the row's enum_item_label when it has one, else the entry's name.
 const char *setting_option_enum_item_name(const struct SettingOption *opt, int64_t index);
+// ASSET_PACK's list of fxdata/asset_packs/ folders and their pack names is read the first time it is shown; this
+// reads it again then (tests; a pack added while running).
+void setting_option_asset_pack_rescan(void);
 // Applies enum_table[index]'s value via set_enum, then persists
 // enum_table[index]'s own *name* (the literal keeperfx.cfg token, e.g.
 // "MEDIUM") under cfg_key.

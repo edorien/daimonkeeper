@@ -95,6 +95,7 @@
 #include "ports/editor_port.h"
 #include "local_state.h"
 #include "local_view.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -875,7 +876,7 @@ static int64_t get_small_map_inputs(int64_t x, int64_t y, int64_t zoom, struct P
   int64_t curr_mx = GetMouseX();
   int64_t curr_my = GetMouseY();
   if (!grabbed_small_map)
-    kfx_sim_state.small_map_state = 0;
+    kfx_local_view.small_map_state = 0;
   if (((kfx_sim_state.operation_flags & GOF_ShowGui) != 0) && (mouse_is_over_panel_map(x,y) || grabbed_small_map))
   {
     if (left_button_clicked)
@@ -901,7 +902,7 @@ static int64_t get_small_map_inputs(int64_t x, int64_t y, int64_t zoom, struct P
   old_mx = curr_mx;
   old_my = curr_my;
   if (grabbed_small_map)
-    kfx_sim_state.small_map_state = 2;
+    kfx_local_view.small_map_state = 2;
   SYNCDBG(8,"Finished");
   return result;
 }
@@ -1556,7 +1557,7 @@ static TbBool get_dungeon_control_pausable_action_inputs(void)
       {
           return true;
       }
-      if ((player->view_mode != PVM_ParchFadeOut) && (kfx_sim_state.small_map_state != 2))
+      if ((player->view_mode != PVM_ParchFadeOut) && (kfx_local_view.small_map_state != 2))
       {
           turn_off_all_window_menus();
           zoom_to_parchment_map();

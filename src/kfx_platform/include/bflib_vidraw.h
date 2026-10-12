@@ -165,6 +165,19 @@ extern TbPixel *vec_screen;
  * palette-indexed, like TbSpriteData, not a TbPixel framebuffer pointer.
  * See docs/refactor/renderer/02a-pixel-format-design.md §2/§3. */
 extern unsigned char *vec_map;
+/* The block vec_map points at is 32 << vec_map_shift texels wide (0..3; 0: the 32x32 blocks; -1..-5: the mip
+ * levels 16x16 down to 1x1), in the same 256-texel-wide atlas rows; UVs stay in 32-res texels. vec_map_parity: sample as the 32 block would, on a
+ * nearest-neighbour upscale (the texture-resolution equivalence test). Read by draw_gpoly() only. */
+extern int64_t vec_map_shift;
+extern TbBool vec_map_parity;
+/* A true-colour HD block (texture resolution, 02-design.md section 3.3): when set, draw_gpoly() samples this
+ * page of TbPixels -- 256 texels a row, like vec_map -- instead of expanding vec_map's indices, and maps each
+ * texel from the HD reference palette's colours to the active palette's (RendererHdColourTransform()). Alpha 0
+ * texels are texture index 0's black. NULL: vec_map, as before. */
+extern const TbPixel *vec_map_rgba;
+/* With vec_map_rgba: its 32x32 level is the original indexed block (vec_map's), not a reduction of it -- the GPU
+ * builds its mip levels from the finest level and needs to know (texture-resolution Phase 4). */
+extern TbBool vec_map_original_at_32;
 extern uint64_t vec_screen_width;
 extern int64_t vec_window_width;
 extern int64_t vec_window_height;
@@ -187,6 +200,58 @@ extern TbPixel lbSpriteRemapTable[256];
  * 8-bit renderer's per-pixel palette-snap no longer amplifies weak tints. */
 #define SPRITE_TINT_LEGACY  85
 #define SPRITE_TINT_STRONG  128
+/** What the last SetupSpriteRemap*() built lbSpriteRemapTable from, as a colour operation: HD sprites, which have
+ *  colours and not palette indices, apply it as SpriteRemapCurves() (docs/refactor/sprites/02-design.md section 5).
+ *  Valid while lbSpriteReMapPtr points at lbSpriteRemapTable (a caller with a table of its own leaves it stale). */
+enum SpriteRemapKind {
+    SprRemap_Shade = 1, ///< render_shade(c, shade)
+    SprRemap_Ghost,     ///< (ref * strength + c * (255 - strength)) / 255, ref resolved through the palette at setup
+    SprRemap_Flash,     ///< render_flash_blend(c, shift[0], shift[1], shift[2])
+};
+struct SpriteRemapOp {
+    uint8_t kind;      ///< enum SpriteRemapKind (0: none set yet)
+    uint8_t strength;  ///< Ghost
+    int16_t shift[3];  ///< Flash, in the original's 6-bit steps
+    int64_t shade;     ///< Shade
+    TbPixel ref;       ///< Ghost
+};
+extern struct SpriteRemapOp lbSpriteRemapOp;
+/** An op as three per-channel curves: out[c][v] is what channel c (0 red, 1 green, 2 blue) of value v becomes. Every
+ *  op is per channel, so for a colour c, (out[0][c.r], out[1][c.g], out[2][c.b]) is exactly what the op's table gives
+ *  a palette entry of colour c. An op of kind 0 gives the identity. */
+void SpriteRemapCurves(const struct SpriteRemapOp *op, uint8_t out[3][256]);
+/** An HD sprite frame (one level of it) for LbSpriteDrawHdUsingScalingData(): texels (RGBA in the HD reference
+ *  palette's colours, alpha below 128 transparent) of `scale` x the original frame, `stride` texels a row; and the
+ *  original frame it stands for: its run-length data (parity mode walks it) and size, orig_height cut short by the
+ *  caller as the original's is (the water cutoff). */
+struct TbHdSpriteSource {
+    const TbPixel *texels;
+    int64_t stride;
+    int64_t scale;
+    const unsigned char *rle;
+    int64_t orig_width;
+    int64_t orig_height;
+    int64_t full_height;  ///< the original's whole height: the texels are scale x that many rows
+    uint64_t id;          ///< names these texels for the GPU's cache: never reused for other texels
+    TbBool parity;
+    /** Art past the original's crop, whole original texels (left, top, right, bottom): the texels hold that much
+     *  around the original's (stride included). Precision mode draws it through the scaling arrays extended by their
+     *  own rule; parity mode ignores it. */
+    int64_t spill[4];
+    /** Additive art for an alpha-ramp draw (DrawAlphaSpriteUsingScalingData(), Phase 9): texels' RGB is what each
+     *  draws adds to the destination (alpha below 128: nothing, or in parity mode black, as the original's index 0
+     *  or above 64 writes), sub_texels' RGB (same layout; NULL: none) what it subtracts. No colour transform. */
+    TbBool additive;
+    const TbPixel *sub_texels;
+};
+/** Draws an HD sprite where LbSpriteDrawUsingScalingData(posx, posy, original) would draw its original, through the
+ *  scaling data LbSpriteSetScalingData() set for that original, with the draw flags' flips, blends and remap
+ *  (bflib_vidraw_spr_hd.c). Returns false, drawing nothing, when it can't and the caller should draw the original:
+ *  a GPU world frame is being recorded, or the remap is a caller's own table (not lbSpriteRemapTable). The alpha
+ *  ramps (DrawAlphaSpriteUsingScalingData()) draw additive art (src->additive), whatever the flags. */
+TbBool LbSpriteDrawHdUsingScalingData(int64_t posx, int64_t posy, const struct TbHdSpriteSource *src);
+/** Records an HD sprite into the GPU world frame (bflib_vidraw.c), as SwCaptureSprite() records an original. */
+TbBool SwCaptureSpriteHd(int64_t posx, int64_t posy, const struct TbHdSpriteSource *src, uint32_t mode, TbBool remap);
 /** Fills lbSpriteRemapTable[i] with ref_index tinted over source byte i at the given strength, and points lbSpriteReMapPtr at it. */
 void SetupSpriteRemapGhost(uint8_t ref_index, uint8_t strength);
 /** Fills lbSpriteRemapTable[i] = render_shade(i, shade) for every possible source byte i, and points lbSpriteReMapPtr at it. */
@@ -195,6 +260,11 @@ void SetupSpriteRemapShade(int64_t shade);
 void SetupSpriteRemapWhiteFlash(void);
 /** Fills lbSpriteRemapTable with the damage-flash remap (replaces the old red_pal[256]) and points lbSpriteReMapPtr at it. */
 void SetupSpriteRemapRedFlash(void);
+/** What LbSpriteSetScalingData() was last given (HD sprites extend its arrays over art past the original's crop). */
+struct TbSpriteScaling {
+    int64_t x, y, swidth, sheight, dwidth, dheight;
+};
+extern struct TbSpriteScaling lbSpriteScaling;
 extern int64_t scale_up;
 extern int64_t xsteps_array[2*SPRITE_SCALING_XSTEPS];
 extern int64_t ysteps_array[2*SPRITE_SCALING_YSTEPS];

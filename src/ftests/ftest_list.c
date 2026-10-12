@@ -89,6 +89,7 @@
 #include "tests/ftest_creature_barracks.h"
 #include "tests/ftest_creature_prison_capture.h"
 #include "tests/ftest_creature_torture_ownership.h"
+#include "tests/ftest_creature_neutral_rooms.h"
 #include "tests/ftest_net_resync_fake_multiplayer.h"
 #include "tests/ftest_net_enet_loopback_host.h"
 #include "tests/ftest_net_enet_loopback_join.h"
@@ -109,7 +110,12 @@
 #include "tests/ftest_harness_setup_failure.h"
 #include "tests/ftest_config_content.h"
 #include "tests/ftest_terrain_rough_mesh.h"
+#include "tests/ftest_texture_density.h"
+#include "tests/ftest_texture_hd_switch.h"
+#include "tests/ftest_sprite_hd_switch.h"
+#include "tests/ftest_sprite_density.h"
 #include "tests/ftest_terrain_rough_reinforce.h"
+#include "tests/ftest_thing_pointed_at_creature.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
 
 #include "post_inc.h"
@@ -204,6 +210,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="creature_barracks",                  .init_func=ftest_creature_barracks_init,                .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_prison_capture",             .init_func=ftest_creature_prison_capture_init,          .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="creature_torture_ownership",          .init_func=ftest_creature_torture_ownership_init,       .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="creature_neutral_rooms",              .init_func=ftest_creature_neutral_rooms_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="net_resync_fake_multiplayer",         .init_func=ftest_net_resync_fake_multiplayer_init,      .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="gui_packet_parity",                   .init_func=ftest_gui_packet_parity_init,                .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="gui_seam_ingame",                     .init_func=ftest_gui_seam_ingame_init,                  .level_file="keeporig", .level=11, .frame_skip=8 },
@@ -270,11 +277,22 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          // WIP TEST { .test_name="bug_invisible_units_cant_select",    .init_func=ftest_bug_invisible_units_cant_select_init,  .level_file="lostlvls", .level=103, .frame_skip=0 },
          { .test_name="terrain_rough_mesh",                 .init_func=ftest_terrain_rough_mesh_init,               .level_file="keeporig", .level=1,  .frame_skip=8 },
          { .test_name="terrain_rough_reinforce",            .init_func=ftest_terrain_rough_reinforce_init,          .level_file="keeporig", .level=1,  .frame_skip=0 },
+         // docs/newFeatures/texture-resolution/: the texture options switched live change only what they should
+         { .test_name="texture_hd_switch",                  .init_func=ftest_texture_hd_switch_init,                .level_file="keeporig", .level=1,  .frame_skip=0 },
+         { .test_name="sprite_hd_switch",                   .init_func=ftest_sprite_hd_switch_init,                 .level_file="keeporig", .level=1,  .frame_skip=0 },
+         // the pointer over a creature picks it (its thought bubble) whichever way its sprite faces
+         { .test_name="thing_pointed_at_creature",          .init_func=ftest_thing_pointed_at_creature_init,        .level_file="keeporig", .level=1,  .frame_skip=0 },
          // append your test to tests_list here, eg: { .test_name="your_test_name",    .init_func=ftest_your_test_name_init, .level_file="lostlvls", .level=103 },
     },
 
     // place long-running tests in this list, to include them use the -includelongtests flag
     .long_running_tests_list = {
+        // A measurement, not a regression test (docs/newFeatures/texture-resolution/03-verification-and-phases.md
+        // section A): run it alone, -ftests texture_density -includelongtests, and read its TRNTEX/GPUTEX lines.
+        { .test_name="texture_density",                    .init_func=ftest_texture_density_init,                 .level_file="keeporig", .level=1,  .frame_skip=0 },
+        // A measurement too (docs/refactor/sprites/, HD sprite packs Phase 0): -ftests sprite_density -includelongtests,
+        // then read its SPRDEN lines.
+        { .test_name="sprite_density",                     .init_func=ftest_sprite_density_init,                  .level_file="keeporig", .level=1,  .frame_skip=0 },
         // Half of a two-process test: needs scripts/ai_bridge_smoke.py talking to the in-game API; run it through
         // scripts/run_ftest_ai_bridge_smoke.sh, not by hand (docs/refactor/AI/LLM/05-testing-and-rollout.md).
         // Half of a two-process test too: scripts/run_ftest_ai_bridge_reference.sh runs it with scripts/ai_bridge_reference_e2e.py.

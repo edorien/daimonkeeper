@@ -137,6 +137,34 @@ TEST_CASE("the Off level writes nothing; startup lines are buffered until the le
     std::filesystem::remove_all(full_dir);
 }
 
+TEST_CASE("a log path longer than DISKPATH_SIZE is still written", "[kfx_platform][bflib_basics][log_level]") {
+    // A run directory deep in a worktree's build tree used to lose the whole log:
+    // the full path did not fit DISKPATH_SIZE, so LbErrorLogSetup failed silently.
+    const int64_t saved = get_log_level();
+    const std::string dir_name = "kfx_long_log_path_test_" + std::string(DISKPATH_SIZE, 'x');
+    const std::filesystem::path full_dir = std::filesystem::current_path() / dir_name;
+    std::filesystem::remove_all(full_dir);
+    std::filesystem::create_directories(full_dir);
+    const std::string path = (full_dir / "test.log").string();
+    REQUIRE(path.size() >= DISKPATH_SIZE);
+
+    set_log_level(LogLvl_Normal);
+    REQUIRE(LbErrorLogSetup((dir_name + "/").c_str(), "test.log", 1) == 1);
+    LbSyncLog("long path line\n");
+    LbErrorLogClose();
+    REQUIRE(std::filesystem::exists(path));
+    std::ifstream in(path);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(text.find("long path line") != std::string::npos);
+
+    // Past LOG_PATH_SIZE the setup fails (and says so on stderr) instead of overflowing.
+    const std::string too_long(LOG_PATH_SIZE, 'y');
+    CHECK(LbErrorLogSetup("/", too_long.c_str(), 1) == -1);
+
+    set_log_level(saved);
+    std::filesystem::remove_all(full_dir);
+}
+
 TEST_CASE("a pinned session level ignores keeperfx.cfg but not an explicit change", "[kfx_platform][bflib_basics][log_level]") {
     const int64_t saved = get_log_level();
     set_log_level_from_config(LogLvl_Debug); // not pinned: the config applies

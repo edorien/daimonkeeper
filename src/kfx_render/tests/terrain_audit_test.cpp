@@ -4,6 +4,9 @@
 // one position is fine and at two positions is a mismatch, and edges are
 // counted by how many triangles share them.
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+
+#include <cmath>
 
 #include "terrain_audit.h"
 #include "terrain_lattice.h"
@@ -114,4 +117,102 @@ TEST_CASE("terrain_audit records nothing while disabled, and pins only while ena
     terrain_audit_frame_begin(3);
     terrain_audit_frame_end();
     CHECK(terrain_audit_last()->frame == frames);
+}
+
+// Texel density (docs/newFeatures/texture-resolution/03-verification-and-phases.md section A).
+TEST_CASE("terrain_texel_density: a block drawn 96 pixels wide shows 3-pixel texels", "[terrain_audit][texel]")
+{
+    // A whole 32-texel block (0..0x1FFFFF is just under 32.0) on a 96x96 pixel right triangle.
+    const int64_t xy[3][2] = { { 10, 10 }, { 106, 10 }, { 10, 106 } };
+    const int64_t uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 0, 32 << 16 } };
+    double area = 0, texel_px = 0, rate = 0;
+    REQUIRE(terrain_texel_density(xy, uv, &area, &texel_px, &rate) == 1);
+    CHECK(area == Catch::Approx(96.0 * 96.0 / 2.0));
+    CHECK(texel_px == Catch::Approx(3.0));
+    CHECK(rate == Catch::Approx(1.0 / 3.0));
+}
+
+TEST_CASE("terrain_texel_density: anisotropy, rotation and winding", "[terrain_audit][texel]")
+{
+    double area = 0, texel_px = 0, rate = 0;
+    SECTION("squashed: the texel is 4 pixels one way and half a pixel the other")
+    {
+        const int64_t xy[3][2] = { { 0, 0 }, { 128, 0 }, { 0, 16 } };
+        const int64_t uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 0, 32 << 16 } };
+        REQUIRE(terrain_texel_density(xy, uv, &area, &texel_px, &rate) == 1);
+        CHECK(texel_px == Catch::Approx(4.0));   // most magnified: 128 px over 32 texels
+        CHECK(rate == Catch::Approx(2.0));       // most minified: 32 texels over 16 px
+    }
+    SECTION("rotated 90 degrees in the texture and wound the other way: same numbers")
+    {
+        const int64_t xy[3][2] = { { 0, 0 }, { 0, 64 }, { 64, 0 } };
+        const int64_t uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 0, 32 << 16 } };
+        REQUIRE(terrain_texel_density(xy, uv, &area, &texel_px, &rate) == 1);
+        CHECK(texel_px == Catch::Approx(2.0));
+        CHECK(rate == Catch::Approx(0.5));
+        CHECK(area == Catch::Approx(64.0 * 64.0 / 2.0));
+    }
+    SECTION("degenerate on screen or in the texture: no sample")
+    {
+        const int64_t line[3][2] = { { 0, 0 }, { 10, 10 }, { 20, 20 } };
+        const int64_t uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 0, 32 << 16 } };
+        const int64_t xy[3][2] = { { 0, 0 }, { 64, 0 }, { 0, 64 } };
+        const int64_t flat_uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 64 << 16, 0 } };
+        CHECK(terrain_texel_density(line, uv, &area, &texel_px, &rate) == 0);
+        CHECK(terrain_texel_density(xy, flat_uv, &area, &texel_px, &rate) == 0);
+    }
+}
+
+TEST_CASE("terrain_audit texel histograms: area-weighted, reset per frame, percentiles", "[terrain_audit][texel]")
+{
+    AuditOn on;
+    terrain_audit_frame_begin(1);
+    // 3-pixel texels over 4608 px of area, 1-pixel texels over 512 px.
+    const int64_t big[3][2] = { { 0, 0 }, { 96, 0 }, { 0, 96 } };
+    const int64_t small[3][2] = { { 0, 0 }, { 32, 0 }, { 0, 32 } };
+    const int64_t uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 0, 32 << 16 } };
+    terrain_audit_texel_triangle(big, uv, 640, 480);
+    terrain_audit_texel_triangle(small, uv, 640, 480);
+    terrain_audit_frame_end();
+    const TerrainAuditStats *st = terrain_audit_last();
+    CHECK(st->texel_polys == 2);
+    CHECK(st->texel_area == Catch::Approx(4608.0 + 512.0));
+    // Half-octave bins: 3 px falls in [2^1.5, 2^2), 1 px in [2^0, 2^0.5).
+    CHECK(terrain_texel_percentile(st->texel_size_hist, 0.05) == Catch::Approx(exp2(0.25)));
+    CHECK(terrain_texel_percentile(st->texel_size_hist, 0.50) == Catch::Approx(exp2(1.75)));
+    CHECK(terrain_texel_percentile(st->texel_rate_hist, 0.50) == Catch::Approx(exp2(-1.75))); // 1/3 in [2^-2, 2^-1.5)
+    double empty[TERRAIN_TEXEL_BINS] = {};
+    CHECK(terrain_texel_percentile(empty, 0.5) == 0.0);
+    terrain_audit_frame_begin(2);
+    terrain_audit_frame_end();
+    CHECK(terrain_audit_last()->texel_polys == 0);
+    CHECK(terrain_audit_last()->texel_area == 0.0);
+}
+
+TEST_CASE("terrain_triangle_area_in_window: clipped to the view, off-screen parts don't count", "[terrain_audit][texel]")
+{
+    const int64_t inside[3][2] = { { 10, 10 }, { 106, 10 }, { 10, 106 } };
+    CHECK(terrain_triangle_area_in_window(inside, 640, 480) == Catch::Approx(96.0 * 96.0 / 2.0));
+    // Half of it left of x = 0: a 100x100 right triangle cut by the y axis keeps the part from 0 to 50.
+    const int64_t half[3][2] = { { -50, 0 }, { 50, 0 }, { -50, 100 } };
+    CHECK(terrain_triangle_area_in_window(half, 640, 480) == Catch::Approx(50.0 * 50.0 / 2.0));
+    // Huge and covering the window: the window's area.
+    const int64_t huge[3][2] = { { -100000, -100000 }, { 100000, -100000 }, { 0, 100000 } };
+    CHECK(terrain_triangle_area_in_window(huge, 640, 480) == Catch::Approx(640.0 * 480.0));
+    const int64_t outside[3][2] = { { 700, 10 }, { 800, 10 }, { 700, 100 } };
+    CHECK(terrain_triangle_area_in_window(outside, 640, 480) == 0.0);
+}
+
+TEST_CASE("terrain_audit texel histograms weight by the area on screen", "[terrain_audit][texel]")
+{
+    AuditOn on;
+    terrain_audit_frame_begin(1);
+    const int64_t uv[3][2] = { { 0, 0 }, { 32 << 16, 0 }, { 0, 32 << 16 } };
+    const int64_t off_screen[3][2] = { { 1000, 1000 }, { 1096, 1000 }, { 1000, 1096 } };
+    const int64_t half[3][2] = { { -48, 0 }, { 48, 0 }, { -48, 96 } };
+    terrain_audit_texel_triangle(off_screen, uv, 640, 480);
+    terrain_audit_texel_triangle(half, uv, 640, 480);
+    terrain_audit_frame_end();
+    CHECK(terrain_audit_last()->texel_polys == 1);
+    CHECK(terrain_audit_last()->texel_area == Catch::Approx(48.0 * 48.0 / 2.0));
 }

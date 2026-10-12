@@ -39,34 +39,13 @@
 #include "ports/ui_port.h"
 #include "ports/game_port.h"
 #include "local_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct Boing {
-  unsigned char active_panel_menu_index;
-  unsigned char comp_player_aggressive;
-  unsigned char comp_player_defensive;
-  unsigned char comp_player_construct;
-  unsigned char comp_player_creatrsonly;
-  unsigned char creatures_tend_imprison;
-  unsigned char creatures_tend_flee;
-  int64_t hand_over_subtile_x;
-  int64_t hand_over_subtile_y;
-  uint64_t chosen_room_kind;
-  uint64_t chosen_room_spridx;
-  uint64_t chosen_room_tooltip;
-  uint64_t chosen_spell_type;
-  uint64_t chosen_spell_spridx;
-  uint64_t chosen_spell_tooltip;
-  uint64_t manufactr_element;
-  uint64_t manufactr_spridx;
-  uint64_t manufactr_tooltip;
-};
-
-static struct Boing boing;
 
 TbBool detailed_multiplayer_logging = false;
 
@@ -114,48 +93,6 @@ void animate_resync_progress_bar(int64_t current_phase, int64_t total_phases) {
     const int64_t max_progress = (int64_t)(32 * units_per_pixel / 16);
     const int64_t progress_pixels = (int64_t)((double)max_progress * current_phase / total_phases);
     ui_draw_out_of_sync_box(progress_pixels, max_progress, ui_get_status_panel_width());
-}
-
-void store_localised_game_structure(void) {
-    boing.active_panel_menu_index = kfx_sim_state.active_panel_mnu_idx;
-    boing.comp_player_aggressive = kfx_net_state.comp_player_aggressive;
-    boing.comp_player_defensive = kfx_net_state.comp_player_defensive;
-    boing.comp_player_construct = kfx_net_state.comp_player_construct;
-    boing.comp_player_creatrsonly = kfx_net_state.comp_player_creatrsonly;
-    boing.creatures_tend_imprison = kfx_sim_state.creatures_tend_imprison;
-    boing.creatures_tend_flee = kfx_sim_state.creatures_tend_flee;
-    boing.hand_over_subtile_x = kfx_sim_state.hand_over_subtile_x;
-    boing.hand_over_subtile_y = kfx_sim_state.hand_over_subtile_y;
-    boing.chosen_room_kind = kfx_sim_state.chosen_room_kind;
-    boing.chosen_room_spridx = kfx_sim_state.chosen_room_spridx;
-    boing.chosen_room_tooltip = kfx_sim_state.chosen_room_tooltip;
-    boing.chosen_spell_type = kfx_sim_state.chosen_spell_type;
-    boing.chosen_spell_spridx = kfx_sim_state.chosen_spell_spridx;
-    boing.chosen_spell_tooltip = kfx_sim_state.chosen_spell_tooltip;
-    boing.manufactr_element = kfx_sim_state.manufactr_element;
-    boing.manufactr_spridx = kfx_sim_state.manufactr_spridx;
-    boing.manufactr_tooltip = kfx_sim_state.manufactr_tooltip;
-}
-
-void recall_localised_game_structure(void) {
-    kfx_sim_state.active_panel_mnu_idx = boing.active_panel_menu_index;
-    kfx_net_state.comp_player_aggressive = boing.comp_player_aggressive;
-    kfx_net_state.comp_player_defensive = boing.comp_player_defensive;
-    kfx_net_state.comp_player_construct = boing.comp_player_construct;
-    kfx_net_state.comp_player_creatrsonly = boing.comp_player_creatrsonly;
-    kfx_sim_state.creatures_tend_imprison = boing.creatures_tend_imprison;
-    kfx_sim_state.creatures_tend_flee = boing.creatures_tend_flee;
-    kfx_sim_state.hand_over_subtile_x = boing.hand_over_subtile_x;
-    kfx_sim_state.hand_over_subtile_y = boing.hand_over_subtile_y;
-    kfx_sim_state.chosen_room_kind = boing.chosen_room_kind;
-    kfx_sim_state.chosen_room_spridx = boing.chosen_room_spridx;
-    kfx_sim_state.chosen_room_tooltip = boing.chosen_room_tooltip;
-    kfx_sim_state.chosen_spell_type = boing.chosen_spell_type;
-    kfx_sim_state.chosen_spell_spridx = boing.chosen_spell_spridx;
-    kfx_sim_state.chosen_spell_tooltip = boing.chosen_spell_tooltip;
-    kfx_sim_state.manufactr_element = boing.manufactr_element;
-    kfx_sim_state.manufactr_spridx = boing.manufactr_spridx;
-    kfx_sim_state.manufactr_tooltip = boing.manufactr_tooltip;
 }
 
 // A resync message: a ResyncHeader, then the zlib-compressed data. Built once, so the host can both
@@ -629,7 +566,6 @@ static void finish_resync(int64_t local_lens)
     if (script_lua_script_active()) {
         script_lua_set_random_seed(kfx_sim_state.action_random_seed);
     }
-    recall_localised_game_structure();
     game_reinit_level_after_load();
     reinitialise_eye_lens(local_lens);
 
@@ -648,9 +584,8 @@ void resync_game(void)
     // The eye lens (the possession view's effect) is this machine's: keep which lens it was, and set the lens system
     // up again after the resync, as loading a game does (refactor pass 4, P4-F13: it was shut down here and never
     // set up again, so lenses stopped working for the rest of the game on every machine).
-    const int64_t local_lens = kfx_sim_state.applied_lens_type;
+    const int64_t local_lens = kfx_local_view.applied_lens_type;
     reset_eye_lenses();
-    store_localised_game_structure();
     TbBool result;
     if (network_is_host()) {
         result = send_resync_game();
@@ -658,7 +593,6 @@ void resync_game(void)
         result = receive_resync_game();
     }
     if (!result) {
-        recall_localised_game_structure();
         reinitialise_eye_lens(local_lens);
         return;
     }
@@ -668,11 +602,9 @@ void resync_game(void)
 // A resync recorded in a replay, applied at the end of its turn as the live game did (upstream #5376).
 TbBool apply_recorded_resync(const char * message_buffer, size_t message_size)
 {
-    const int64_t local_lens = kfx_sim_state.applied_lens_type;
+    const int64_t local_lens = kfx_local_view.applied_lens_type;
     reset_eye_lenses();
-    store_localised_game_structure();
     if (!apply_resync_game_message(message_buffer, message_size)) {
-        recall_localised_game_structure();
         reinitialise_eye_lens(local_lens);
         return false;
     }

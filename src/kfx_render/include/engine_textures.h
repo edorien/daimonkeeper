@@ -32,6 +32,16 @@ extern "C" {
 extern unsigned char block_mem[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_STAT_COUNT * 32 * 32];
 extern unsigned char *block_ptrs[TEXTURE_VARIATIONS_COUNT * TEXTURE_BLOCKS_COUNT];
 extern int64_t block_dimension;
+
+/** The file a slot of block_mem was loaded from, by the last load_texture_map_file(): for the HD loader
+ *  (engine_textures_hd.h), which looks for a content folder beside it and breaks ties by its stem.
+ *  [variation][0] is the tmapa file, [1] the tmapb file. */
+struct TextureMapFile {
+    TbBool loaded;
+    char stem[16];   ///< "tmapa005": the slot's own name, whichever folder (map, campaign, mod, data) it came from
+    char path[512];  ///< as found
+};
+extern struct TextureMapFile texture_map_files[TEXTURE_VARIATIONS_COUNT][2];
 /******************************************************************************/
 void setup_texture_block_mem(void);
 int64_t init_animating_texture_maps(void);

@@ -143,7 +143,25 @@ struct FTestConfig {
      * 
      */
     int64_t repeat_n_times;
+
+    /**
+     * @brief A multiplayer test's half (optional): FTNet_Host or FTNet_Join. The level then starts the way a real
+     * multiplayer game does -- the host serves (-server), waits in the lobby for net_users players and starts the
+     * test's campaign and level there, the client connects (-connect) and logs in -- over ENet on 127.0.0.1, port
+     * KFX_FTEST_NET_PORT (default FTEST_NET_DEFAULT_PORT). The two halves run as two processes
+     * (scripts/run_ftest_coverage.sh pairs them), so such tests go in long_running_tests_list. The input lag is
+     * pinned to FTEST_NET_INPUT_LAG turns, so the game doesn't depend on the machine's load (input_lag_set_fixed()).
+     */
+    int64_t net_role;
+    int64_t net_users; /**< players the host waits for (default 2) */
 };
+
+enum FTestNetRole { FTNet_None = 0, FTNet_Host, FTNet_Join };
+#define FTEST_NET_DEFAULT_PORT 5571
+#define FTEST_NET_INPUT_LAG 2
+
+/** For a multiplayer test (net_role): sets the session up to go through the lobby. True if the test is one. */
+TbBool ftest_net_prepare_session(const struct FTestConfig *test_config);
 
 struct ftest_onlyappendtests__config
 {

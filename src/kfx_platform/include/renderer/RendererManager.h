@@ -53,6 +53,7 @@ RendererType RendererGetDesiredType(void);
 // when it returns true it has cleared that window to transparent so the GPU
 // output shows under whatever the CPU still draws there.
 struct WorldFrame;
+struct WorldFrameTextureStats;
 struct PolyPoint;
 TbBool RendererWorldFrameActive(void);
 void   RendererSubmitWorldFrame(const struct WorldFrame *frame);
@@ -81,6 +82,13 @@ void   RendererSetTrueDepth(TbBool enabled);
 // is created. Used to be tied to the heavy-log build (docs/refactor-pass2/stage-02-logging-option.md).
 void   RendererSetGpuDebug(TbBool enabled);
 TbBool RendererGetGpuDebug(void);
+// The terrain texture blocks were rewritten in place (load_texture_map_file()): the GPU renderer drops its
+// cached copies before the next world frame. A block's pointer is its cache key, and only a texture-set load
+// changes the texels behind a pointer, so the cache doesn't compare contents each frame.
+void   RendererWorldFrameTexturesChanged(void);
+// The active renderer's terrain texture cache counters (WorldFrame.h); false (out zeroed)
+// when it has none, i.e. the Software renderer.
+TbBool RendererGetWorldTextureStats(struct WorldFrameTextureStats *out);
 
 // gpu-v2 Phase C.5 lighting pass. RENDERER_LIGHTING_CLASSIC: the engine bakes every light into
 // its per-subtile lightness grid (vertex shade, gouraud). RENDERER_LIGHTING_PERPIXEL: with the
@@ -98,6 +106,34 @@ int64_t RendererSpriteLightGet(void);
 TbBool  RendererWorldFrameHasLighting(void);
 void   RendererSetLightingMode(int mode);
 int    RendererGetLightingMode(void);
+// TEXTURE_FILTER (docs/newFeatures/texture-resolution/02-design.md section 5.1.3): how the Vulkan renderer
+// samples terrain textures. NEAREST draws what the Software renderer draws; SHARP keeps texels crisp and blends
+// one pixel across their edges; BILINEAR blends. The Software renderer always samples nearest.
+#define RENDERER_TEXFILTER_NEAREST  0
+#define RENDERER_TEXFILTER_SHARP    1
+#define RENDERER_TEXFILTER_BILINEAR 2
+#define RENDERER_TEXFILTER_TRILINEAR 3 // Bilinear, blending between mip levels too
+void   RendererSetTextureFilter(int filter);
+int    RendererGetTextureFilter(void);
+// The video memory the Vulkan renderer's HD sprite atlas may grow to (ASSET_PACK_MEMORY's sprite share, set each
+// frame by engine_sprites_hd.c); 0: 3 GiB. A smaller value stops growth, it doesn't shrink an atlas already grown.
+void     RendererSetHdSpriteAtlasCap(uint64_t bytes);
+uint64_t RendererGetHdSpriteAtlasCap(void);
+// TEXTURE_MIPMAPS (texture resolution, Phase 4): terrain mip levels below 32x32 (down to 1x1), for the far zooms,
+// on both renderers. Off: nothing is drawn coarser than the original 32x32 blocks (today's far-zoom look).
+void   RendererSetTextureMipmaps(TbBool on);
+TbBool RendererGetTextureMipmaps(void);
+// True-colour HD textures (texture resolution, Phase 3) are in the colours of a reference palette (the
+// game's own palette.dat: HD art is made against it); a palette effect or gamma reaches them as a colour
+// transform from it to the active palette (bflib_colour_transform.h). Set once when HD textures are loaded
+// (NULL: none). Usable: the transform to the active palette is exact (or there's no change), so HD draws
+// this frame; otherwise (a lens palette) the engine draws the 32x32 originals. The transform: NULL when the
+// active palette is the reference.
+struct ColourTransform;
+void   RendererSetHdReferencePalette(const unsigned char *palette);
+TbBool RendererHdUsable(void);
+const struct ColourTransform *RendererHdColourTransform(void);
+const unsigned char *RendererHdReferencePalette(void);
 TbBool RendererPerPixelLightingActive(void);
 // Feed this frame's per-pixel lighting inputs (between Begin and End): the view->map x/y/z
 // affine rows (4 doubles each), the perspective (lens, centre), the vertex-shade distance fade
@@ -112,13 +148,20 @@ void   RendererWorldFrameAddPoly(const struct PolyPoint *a, const struct PolyPoi
 // per destination column/row, the source column/row; cmap: 256 RGBA8
 // entries (r | g<<8 | b<<16 | a<<24) or NULL for the active palette.
 // One triangle of a creature shadow -- see WorldFrameShadowOp. `mask` is the
-// engine's 256x256 shadow buffer, copied at call time. Returns whether it was recorded.
+// engine's 256x256 shadow buffer (256 * scale texels a row; coverage: soft shadows' 0..255 values), copied at call
+// time. Returns whether it was recorded.
 TbBool RendererWorldFrameAddShadowTri(const struct PolyPoint *a, const struct PolyPoint *b, const struct PolyPoint *c,
-                                      const unsigned char *mask, int64_t shade);
+                                      const unsigned char *mask, int64_t shade, int64_t scale, TbBool coverage);
 void   RendererWorldFrameAddSprite(const unsigned char *rle, int32_t src_w, int32_t src_h,
                                    int32_t dst_x, int32_t dst_y, int32_t dst_w, int32_t dst_h,
                                    const uint16_t *xmap, const uint16_t *ymap,
                                    const uint32_t *cmap, uint32_t mode, uint32_t rgba);
+// An HD sprite (WorldFrameSpriteOp's hd_* fields; bflib_vidraw.c's SwCaptureSpriteHd()).
+void   RendererWorldFrameAddSpriteHd(const void *texels, const void *sub_texels, uint64_t id, int32_t hd_w, int32_t hd_h, int32_t hd_stride, int32_t hd_scale,
+                                     const unsigned char *rle, int32_t src_w, int32_t src_h,
+                                     int32_t dst_x, int32_t dst_y, int32_t dst_w, int32_t dst_h,
+                                     const uint16_t *xmap, const uint16_t *ymap,
+                                     const uint32_t *curve_row, uint32_t table, const uint32_t *index_cmap, uint32_t mode, uint32_t rgba);
 void         RendererSetDesiredType(RendererType type);
 
 // The currently-active 6-bit VGA palette (768 bytes) that indexed drawing samples.

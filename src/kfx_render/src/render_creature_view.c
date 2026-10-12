@@ -43,6 +43,7 @@
 #include "config_creature.h"
 #include "bflib_fileio.h"
 #include "thing_stats.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -232,7 +233,7 @@ void draw_creature_view(struct Thing *thing)
       RendererCopyFrameRect(srcmem, src_width, vx, vy, vw, vh);
       setup_engine_window(0, 0, MyScreenWidth, MyScreenHeight);
       draw_lens_effect(RendererGetFramebuffer() + vy * lbDisplay.GraphicsScreenWidth + vx,
-          lbDisplay.GraphicsScreenWidth, srcmem, src_width, vw, vh, vx, kfx_sim_state.applied_lens_type);
+          lbDisplay.GraphicsScreenWidth, srcmem, src_width, vw, vh, vx, kfx_local_view.applied_lens_type);
       return;
   }
   // So there is an eye lens - we have to put a buffer in place of screen,
@@ -268,7 +269,7 @@ void draw_creature_view(struct Thing *thing)
   // Calculate 2D viewport offset for destination buffer
   int64_t dst_offset = view_y * lbDisplay.GraphicsScreenWidth + view_x;
   draw_lens_effect(RendererGetFramebuffer() + dst_offset, lbDisplay.GraphicsScreenWidth,
-      scrmem, render_width, view_width, view_height, view_x, kfx_sim_state.applied_lens_type);
+      scrmem, render_width, view_width, view_height, view_x, kfx_local_view.applied_lens_type);
 }
 
 /******************************************************************************/

@@ -20,11 +20,13 @@ layout(location = 2) in float in_shade;   // 0..63, bflib_render.h render_shade(
 layout(location = 3) in float in_layer;   // texture-array layer of the block this triangle samples
 layout(location = 5) in float in_zpos;    // hyperbolic view depth (PolyPoint::Z), for per-pixel lighting only
 layout(location = 4) in float in_depth;   // 0 near .. 1 far (WorldFrameOp::depth); the depth buffer is cleared to 1
+layout(location = 6) in vec2 in_uv_whole; // in_uv in whole texels (the CPU's 32-res truncation)
 
 layout(location = 0) out vec2 v_uv;
 layout(location = 1) out float v_shade;
 layout(location = 2) out float v_layer;
 layout(location = 3) out float v_depth; // 0 near .. 1 far, for per-pixel lighting's position reconstruction
+layout(location = 4) out vec2 v_uv_whole;
 
 // SDL_GPU's SPIR-V convention: vertex-stage uniform buffers are set = 1.
 layout(set = 1, binding = 0) uniform ViewportUniforms {
@@ -43,6 +45,7 @@ void main()
                     1.0 - in_position.y / viewport_size.y * 2.0);
     gl_Position = vec4(ndc, in_depth, 1.0);
     v_uv = in_uv;
+    v_uv_whole = in_uv_whole;
     v_shade = in_shade;
     v_layer = in_layer;
     v_depth = in_zpos;

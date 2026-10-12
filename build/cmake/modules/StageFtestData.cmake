@@ -51,7 +51,7 @@ endif()
 # each run's starting data depend on what the previous one did. Only the data directories this script itself
 # stages are removed (none of these names is a CMake build output), and
 # re-staging is cheap (~1-2s for ~145MB).
-foreach(_staged_dir campgns levels multiplayer data fxdata creatrs mods save replays)
+foreach(_staged_dir campgns levels multiplayer data fxdata creatrs mods save replays ldata)
     file(REMOVE_RECURSE "${DEST_DIR}/${_staged_dir}")
 endforeach()
 
@@ -226,9 +226,16 @@ if(EXISTS "${_mods_load_order}")
     endforeach()
 endif()
 
+# ldata/ (the frontend's sprites and screens): only a multiplayer test (a .net_role entry, ftest.h) starts its level
+# through the frontend's lobby, which loads them; no other test touches it.
+file(READ "${FTEST_LIST}" _ftest_list_text)
+if(_ftest_list_text MATCHES "\\.net_role[ \t]*=[ \t]*FTNet_")
+    file(COPY "${SOURCE_DIR}/ldata" DESTINATION "${DEST_DIR}")
+endif()
+
 # Not staged at all -- confirmed unused for these tests via strace against
 # a real run: sound/, music/ (SoundDisabled, set by -headless, skips
 # audio device init and file access entirely), unearth/, scrshots/,
-# ldata/, and every mods/ subdirectory load_order.cfg doesn't reference.
+# and every mods/ subdirectory load_order.cfg doesn't reference.
 # save/ is write-only game output, not input data -- just needs to exist.
 file(MAKE_DIRECTORY "${DEST_DIR}/save")

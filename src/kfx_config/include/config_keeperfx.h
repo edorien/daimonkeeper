@@ -133,6 +133,10 @@ struct StartupParameters {
     char autostart_multiplayer_campaign[80];
     int64_t autostart_multiplayer_level;
     int64_t autostart_multiplayer_users_expected;
+    /** -framehash: draw a frame exactly when the turn says so (no interpolation, no frame limiter), and log a hash of
+     *  each drawn world frame as "FRAMEHASH <turn> <hash>": the same binary and input give the same lines (refactor
+     *  pass 5, S10). For proving that render changes change nothing. */
+    TbBool frame_hash;
     TbBool force_player_num;
 #ifdef FUNCTESTING
     unsigned char functest_flags;
@@ -244,6 +248,22 @@ struct KeeperFxUiConfig {
     // KeeperFX-only, live (checked lazily by the icon-override cache, same
     // poll-and-reload shape as UI_FONT's refresh_fonts_if_changed()).
     char gui_icon_pack[64];
+    // HD asset pack (ASSET_PACK; docs/hd_sprite_packs.md, docs/hd_texture_packs.md): "NONE" (default) or a
+    // sub-directory of fxdata/asset_packs/ holding a pack: its sprites/ an HD sprite pack, its textures/ an HD terrain
+    // texture pack, either or both (asset_pack_dir()). Content folders (sprites-hd/, textures-hd/) apply either way.
+    // Live: engine_sprites_hd.c and engine_textures_hd.c reload when it changes.
+    char asset_pack[64];
+    // The memory the asset pack's HD art may take (ASSET_PACK_MEMORY, asset_pack_memory_type[]: 1 AUTO, else a size;
+    // asset_pack_memory_bytes()). Live: the stores and the Vulkan sprite atlas follow it at the next frame.
+    int64_t asset_pack_memory;
+    // Generated HD art for what no asset pack covers (ASSET_PACK_FILL; engine_hd_generate.h): the originals' frames and
+    // terrain blocks, mods' included, enlarged x4 with Lanczos smoothing. 0 off (default), 1 on. Live: the sprites
+    // from the next frame, the terrain reloaded.
+    int64_t asset_pack_fill;
+    // Mods' zip sprites in their own colours (docs/refactor/sprites/ Phase 6, SPRITE_TRUE_COLOUR): the PNGs' RGBA drawn
+    // instead of their palette-quantised frames (same geometry). 0 off (default), 1 on. Live: engine_sprites_hd.c
+    // reads the zips again when it changes.
+    int64_t sprite_true_colour;
     // Minimal layout only (hud_position == 4, config_settingschema.c
     // MINIMAP_CORNER row, docs/refactor/ingame-gui/13-minimal-layout.md):
     // which upper corner the minimap+gold+event-marker cluster sits in --
@@ -301,6 +321,8 @@ extern const struct NamedCommand tag_modes[];
 // RENDERER (gpu-v2 Phase C.1) -- same reuse as above.
 extern const struct NamedCommand renderer_type[];
 extern const struct NamedCommand lighting_type[];
+extern const struct NamedCommand texture_filter_type[];
+extern const struct NamedCommand asset_pack_memory_type[];
 extern const struct NamedCommand rough_terrain_type[];
 extern const struct NamedCommand log_level_type[];
 extern const struct NamedCommand hud_position_type[];
@@ -361,6 +383,12 @@ TbBool keeperfx_cfg_write_values_to_file(const char *fname, const struct Keeperf
 // remembered at load time so a settings screen writes back to the file the
 // game actually read, not a freshly re-resolved default.
 TbBool keeperfx_cfg_write_values(const struct KeeperfxCfgEdit *edits, int64_t edits_count);
+/** The `kind` part ("sprites" or "textures") of the selected asset pack, fxdata/asset_packs/<ASSET_PACK>/<kind>, in
+ *  buf; false (buf empty) with no pack selected. Whether the folder exists is the caller's to find out. */
+TbBool asset_pack_dir(const char *pack, const char *kind, char *buf, size_t size);
+/** ASSET_PACK_MEMORY in bytes: the size chosen, or with AUTO a quarter of system_bytes (the system's memory), at
+ *  least 3 GiB. The terrain textures may take a quarter of it, the sprites the rest (engine_*_hd.c). */
+uint64_t asset_pack_memory_bytes(uint64_t system_bytes);
 /******************************************************************************/
 TbBool is_feature_on(uint64_t feature);
 void set_skip_heart_zoom_feature(TbBool enable);

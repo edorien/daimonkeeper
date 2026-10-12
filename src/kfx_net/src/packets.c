@@ -96,6 +96,7 @@
 #include "player_camera.h"
 #include "ports/ui_port.h"
 #include "editor_types.h"
+#include "kfx_render_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -170,7 +171,6 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
   if ( can )
   {
       player = get_my_player();
-      struct UserState* ustate = get_user_state(get_local_user());
       set_flag_value(kfx_sim_state.operation_flags, GOF_Paused, curr_pause);
       if ((kfx_sim_state.operation_flags & GOF_Paused) != 0) {
           set_flag_value(kfx_sim_state.operation_flags, GOF_WorldInfluence, new_pause);
@@ -192,10 +192,10 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
       }
       if ((kfx_sim_state.operation_flags & GOF_Paused) != 0)
       {
-          if ((ustate->additional_flags & UsrAF_LightningPaletteIsActive) != 0)
+          if ((kfx_render_state.palette_flags[get_local_user()] & RPF_LightningPaletteIsActive) != 0)
           {
               PaletteSetUserPalette(player->user_id, engine_palette);
-              get_player_user_state(player)->additional_flags &= ~UsrAF_LightningPaletteIsActive;
+              kfx_render_state.palette_flags[player->user_id] &= ~RPF_LightningPaletteIsActive;
           }
       }
   }

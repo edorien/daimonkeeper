@@ -12,6 +12,7 @@
 #include "net_game.h"
 #include "packet_data.h"
 #include "config_players.h"
+#include "roomspace.h"
 
 #include <cstring>
 
@@ -175,4 +176,33 @@ TEST_CASE("global_action_allowed_for_seat_watcher keeps pause, chat and camera, 
                        PckA_ApplyRoomspaceDigTag, PckA_DumpHeldThingToOldPos}) {
         CHECK_FALSE(global_action_allowed_for_seat_watcher(no));
     }
+}
+
+// P5-F34: the local dig prediction ends a drag with PckA_ApplyRoomspaceDigTag (par2 the 1x1 brush width). It shared
+// SetRoomspaceHighlight's handler, whose "width 1: leave click-and-drag mode" ran first, so the drag area the
+// dungeon-control step then works out was only the slab under the release (a multiplayer game's drag-dig tagged one
+// slab). Setting the highlight still leaves drag mode; a dig tag must not.
+TEST_CASE_METHOD(ResetStates, "a dig tag keeps click-and-drag mode; setting the highlight leaves it", "[kfx_game][game_commands_input]") {
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    replay.load_enable = 0;
+    struct PlayerInfo* player = &kfx_sim_state.players[0];
+    player->allocflags = PlaF_Allocated;
+    player->id_number = 0;
+    player->user_id = SOLO_HUMAN_ID;
+    my_player_number = 0;
+    struct UserState* ustate = get_user_state(SOLO_HUMAN_ID);
+    struct Packet* pckt = get_packet(SOLO_HUMAN_ID);
+
+    player->render_roomspace.drag_mode = true;
+    ustate->one_click_lock_cursor = true;
+    set_packet_action(pckt, PckA_ApplyRoomspaceDigTag, drag_placement_mode, 1, 0, 0);
+    process_user_global_packet_action(SOLO_HUMAN_ID);
+    CHECK(player->render_roomspace.drag_mode);
+    CHECK(ustate->one_click_lock_cursor);
+    CHECK(player->roomspace_highlight_mode == drag_placement_mode);
+
+    set_packet_action(pckt, PckA_SetRoomspaceHighlight, drag_placement_mode, 1, 0, 0);
+    process_user_global_packet_action(SOLO_HUMAN_ID);
+    CHECK_FALSE(player->render_roomspace.drag_mode);
+    CHECK_FALSE(ustate->one_click_lock_cursor);
 }

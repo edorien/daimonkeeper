@@ -24,6 +24,7 @@
 
 #include "bflib_basics.h"
 #include "globals.h"
+#include "bflib_netsp.h"
 #include "light_registry.h"
 #include "thing_list.h"
 #include "thing_types.h"
@@ -59,8 +60,16 @@ struct Map;
 // the lens currently being applied/animated, applied_lens_type is read by
 // kfx_sim (thing_creature.c) too, hence living in kfx_sim_state.h instead
 // -- see docs/refactor/stage-13-enforce-and-document.md.
+enum RenderPaletteFlags {
+    RPF_FreezePaletteIsActive    = 0x01, // blue_palette is being used during Freeze Spell
+    RPF_LightningPaletteIsActive = 0x02, // lightning_palette is being used during Lightning Spell
+};
+
 struct KfxRenderState {
     char active_lens_type;
+    /** Which palette each user's view has on (RenderPaletteFlags): the Freeze spell's, the lightning's. Were
+     *  UserState.additional_flags bits in the simulation state (refactor pass 5, S05). By NetUserId. */
+    unsigned char palette_flags[MAX_NET_USERS];
     /** This machine's eye lens system has its buffers set up (initialise_eye_lenses(); reset_eye_lenses() clears it).
      *  It was MFlg_EyeLensReady in kfx_sim_state.mode_flags, so a save or a resync carried it (P5-F23). */
     TbBool eye_lens_ready;
@@ -125,6 +134,11 @@ struct KfxRenderState {
 #pragma pack()
 /******************************************************************************/
 extern struct KfxRenderState kfx_render_state;
+
+/** A level's start: what the pointer points at, and the local cursor light's spot, go back to how the process
+ *  started. The engine sets them when it draws a frame, so before a level's first frame they were the last level's,
+ *  and the first packet's map position came from that map (P5-F32). */
+void render_state_reset_for_level(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -20,10 +20,12 @@
 #include "renderer/RendererManager.h"
 #include "ports/display_host_port.h"
 #include "renderer/WorldFrameRecorder.h"
+#include "renderer/GpuSpriteRenderer.h"
 #include "bflib_video.h"
 #include "bflib_vidsurface.h"
 #include "bflib_vidraw.h"
 #include "bflib_render.h"
+#include "bflib_colour_transform.h"
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include <vector>
@@ -119,16 +121,18 @@ int main()
     ok &= px_is(cap, 55, 55, 0, 0, 0, "outside triangle (nothing drawn)");
     SDL_DestroySurface(cap);
 
-    // Frame 2: palette entry 5 changes to blue -> cache must re-resolve.
+    // Frame 2: palette entry 5 changes to blue -> the colour transform (or a re-expansion) shows it blue.
     memset(&lbDisplay.Palette[3 * 5], 0, 3); lbDisplay.Palette[3 * 5 + 2] = 63;
     cpu_frame(); f = mkframe(R, &item, 1, f.view_x, f.view_y, f.view_w, f.view_h); r.SubmitWorldFrame(f);
     cap = present_and_capture(r);
     printf("frame 2 (palette 5 -> blue):\n");
-    ok &= px_is(cap, 30, 10, 0, 0, 255, "palette change re-uploaded");
+    ok &= px_is(cap, 30, 10, 0, 0, 255, "palette change applied");
     SDL_DestroySurface(cap);
 
-    // Frame 3: same pointer, contents rewritten to index 6 (animated texture) -> green.
+    // Frame 3: same pointer, contents rewritten to index 6 -> green, once announced as a texture-set load does
+    // (RendererWorldFrameTexturesChanged(); the cache no longer compares contents every frame).
     memset(atlas, 6, sizeof(atlas));
+    r.WorldTexturesChanged();
     cpu_frame(); f = mkframe(R, &item, 1, f.view_x, f.view_y, f.view_w, f.view_h); r.SubmitWorldFrame(f);
     cap = present_and_capture(r);
     printf("frame 3 (block contents rewritten in place):\n");
@@ -137,6 +141,7 @@ int main()
 
     // Frame 4: view window offset+clip: window (32,0,32,32) -> triangle only inside that rect, offset applied.
     memset(atlas, 5, sizeof(atlas)); memset(&lbDisplay.Palette[3 * 5], 0, 3); lbDisplay.Palette[3 * 5] = 63;
+    r.WorldTexturesChanged();
     f.view_x = 32; f.view_y = 0; f.view_w = 32; f.view_h = 32;
     cpu_frame(); f = mkframe(R, &item, 1, 32, 0, 32, 32); r.SubmitWorldFrame(f);
     cap = present_and_capture(r);
@@ -312,9 +317,32 @@ int main()
         ok &= px_is(cap, 10, 10, 255, 0, 0, "outside shadow untouched");
         SDL_DestroySurface(cap);
     }
+    {   // soft shadow (Phase 10): the same square as coverage at 2x -- full inside: as the mask; half: half as dark
+        for (int half = 0; half < 2; half++) {
+            static unsigned char cover[512 * 512];
+            memset(cover, 0, sizeof(cover));
+            for (int y = 20; y < 52; y++) for (int x = 20; x < 52; x++) cover[y * 512 + x] = half ? 128 : 255;
+            WorldFrameRecorder rec;
+            struct PolyPoint t0 = { 0, 0, 0, 0, sh, 0 }, t1 = { W, 0, 0, 0, sh, 0 }, t2 = { 0, H, 0, 0, sh, 0 };
+            rec.AddPoly(&t0, &t1, &t2, atlas);
+            struct PolyPoint a = { 20, 20, (int64_t)10 << 16, (int64_t)10 << 16, 0, 0 }, b = { 36, 20, (int64_t)26 << 16, (int64_t)10 << 16, 0, 0 };
+            struct PolyPoint c = { 36, 36, (int64_t)26 << 16, (int64_t)26 << 16, 0, 0 }, d = { 20, 36, (int64_t)10 << 16, (int64_t)26 << 16, 0, 0 };
+            bool r1 = rec.AddShadowTri(&a, &b, &d, cover, 16, 2, true), r2 = rec.AddShadowTri(&b, &c, &d, cover, 16, 2, true);
+            ok &= r1 && r2;
+            cap = run_frame(rec);
+            if (!half) {
+                ok &= px_is(cap, 28, 28, 128, 0, 0, "soft shadow, full cover: as the mask");
+                ok &= px_is(cap, 10, 10, 255, 0, 0, "soft shadow: outside untouched");
+            } else {
+                ok &= px_is(cap, 28, 28, 191, 0, 0, "soft shadow, half cover: half as dark");
+            }
+            SDL_DestroySurface(cap);
+        }
+    }
 
     // Frame 6: CPU-rasterizer vs GPU parity on a patterned, UV-mapped, gouraud-shaded triangle.
     for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++) atlas[y * 256 + x] = (((x / 4) + (y / 4)) & 1) ? 5 : 6;
+    r.WorldTexturesChanged();
     memset(&lbDisplay.Palette[3 * 5], 0, 3); lbDisplay.Palette[3 * 5] = 63;
     WorldFramePolyItem pat;
     pat.v0 = { 4, 4, 0, 0, (int64_t)24 << 16, 0 };
@@ -373,6 +401,7 @@ int main()
         SDL_DestroySurface(lbDrawSurface);
         lbDrawSurface = SDL_CreateSurface(48, 40, SDL_PIXELFORMAT_RGBA32);
         memset(atlas, 5, sizeof(atlas));
+        r.WorldTexturesChanged();
         memset(&lbDisplay.Palette[3 * 5], 0, 3); lbDisplay.Palette[3 * 5] = 63;
         r.ClearScreen(0);
         SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
@@ -595,6 +624,7 @@ int main()
         // blended against the GPU image, not against the transparent CPU layer. Red terrain, then a
         // green ghost1 rect: (ref + 2*dest)/3 = (85,85,0)... per channel (0+2*255)/3=170, (255+0)/3=85.
         memset(atlas, 5, sizeof(atlas));
+        r.WorldTexturesChanged();
         memset(&lbDisplay.Palette[3 * 5], 0, 3); lbDisplay.Palette[3 * 5] = 63;     // index 5 red
         memset(&lbDisplay.Palette[3 * 6], 0, 3); lbDisplay.Palette[3 * 6 + 1] = 63; // index 6 green
         WorldFrameRecorder rec14;
@@ -739,6 +769,645 @@ int main()
             SDL_DestroySurface(c18);
         }
         SDL_DestroySurface(cpu18);
+
+        // Frame 19 (upload ring overflow; texture resolution Phase 1): twelve new blocks in one frame through
+        // a 4-layer upload ring -- the renderer submits each full batch and refills the ring mid-frame. Every
+        // block must show its own colour, none white.
+        static unsigned char atlas_ring[12][32 * 256];
+        for (int k = 0; k < 12; k++) {
+            memset(atlas_ring[k], 20 + k, sizeof(atlas_ring[k]));
+            lbDisplay.Palette[3 * (20 + k) + 0] = (unsigned char)(5 * k);
+            lbDisplay.Palette[3 * (20 + k) + 1] = (unsigned char)(63 - 5 * k);
+            lbDisplay.Palette[3 * (20 + k) + 2] = (unsigned char)(2 * k + 10);
+        }
+        WorldFramePolyItem ring[12];
+        for (int k = 0; k < 12; k++) {
+            const int64_t x0 = (k % 4) * 12, y0 = (k / 4) * 13;
+            ring[k].v0 = { x0, y0, 0, 0, sh, 0 }; ring[k].v1 = { x0 + 12, y0, 0, 0, sh, 0 }; ring[k].v2 = { x0, y0 + 13, 0, 0, sh, 0 };
+            ring[k].texture = atlas_ring[k];
+        }
+        r.SetUploadRingLayersForTesting(4);
+        Rec R19; WorldFrame f19 = mkframe(R19, ring, 12, 0, 0, 48, 40);
+        r.ClearScreen(0);
+        SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+        r.SubmitWorldFrame(f19);
+        SDL_Surface* c19 = present_and_capture(r);
+        printf("frame 19 (12 new blocks through a 4-layer upload ring):\n");
+        if (!c19) ok = false; else {
+            int good = 0;
+            for (int k = 0; k < 12; k++) {
+                const int x = (k % 4) * 12 + 2, y = (k / 4) * 13 + 2;
+                Uint8 pr, pg, pb, pa;
+                SDL_ReadSurfacePixel(c19, (2 * x + 1) * 64 / 96, (2 * y + 1) * 64 / 80, &pr, &pg, &pb, &pa);
+                const int er = (5 * k) * 255 / 63, eg = (63 - 5 * k) * 255 / 63, eb = (2 * k + 10) * 255 / 63;
+                if (abs(pr - er) <= 2 && abs(pg - eg) <= 2 && abs(pb - eb) <= 2) good++;
+                else printf("  block %d: (%d,%d,%d) expected (%d,%d,%d)\n", k, pr, pg, pb, er, eg, eb);
+            }
+            printf("  %d of 12 blocks in their own colour\n", good);
+            ok &= (good == 12);
+            SDL_DestroySurface(c19);
+        }
+        r.SetUploadRingLayersForTesting(0xFFFFFFFFu);
+
+        // Frame 20 (palette effects as a colour transform): the same twelve blocks, already cached, under a
+        // per-channel fade (every entry at half brightness: curves) and then the white palette (every entry
+        // white). Each block must show the colour the new palette gives it -- with no re-upload -- and the
+        // index-0 half of frame 18's wall must stay black under white.
+        unsigned char saved_pal[768];
+        memcpy(saved_pal, lbDisplay.Palette, sizeof(saved_pal));
+        struct WorldFrameTextureStats ts0, ts1;
+        r.GetWorldTextureStats(&ts0);
+        for (int i = 0; i < 768; i++) lbDisplay.Palette[i] = (unsigned char)(saved_pal[i] / 2);
+        r.ClearScreen(0);
+        SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+        Rec R20; WorldFrame f20 = mkframe(R20, ring, 12, 0, 0, 48, 40);
+        r.SubmitWorldFrame(f20);
+        SDL_Surface* c20 = present_and_capture(r);
+        r.GetWorldTextureStats(&ts1);
+        printf("frame 20 (half-brightness palette: curves, no re-upload; then white with index 0):\n");
+        if (!c20) ok = false; else {
+            int good = 0;
+            for (int k = 0; k < 12; k++) {
+                const int x = (k % 4) * 12 + 2, y = (k / 4) * 13 + 2;
+                Uint8 pr, pg, pb, pa;
+                SDL_ReadSurfacePixel(c20, (2 * x + 1) * 64 / 96, (2 * y + 1) * 64 / 80, &pr, &pg, &pb, &pa);
+                const int er = ((5 * k) / 2) * 255 / 63, eg = ((63 - 5 * k) / 2) * 255 / 63, eb = ((2 * k + 10) / 2) * 255 / 63;
+                if (abs(pr - er) <= 2 && abs(pg - eg) <= 2 && abs(pb - eb) <= 2) good++;
+                else printf("  block %d: (%d,%d,%d) expected (%d,%d,%d)\n", k, pr, pg, pb, er, eg, eb);
+            }
+            printf("  %d of 12 blocks faded; uploads during the frame: %llu, flushes: %llu\n", good,
+                (unsigned long long)(ts1.uploads - ts0.uploads), (unsigned long long)(ts1.palette_flushes - ts0.palette_flushes));
+            ok &= (good == 12) && (ts1.uploads == ts0.uploads) && (ts1.palette_flushes == ts0.palette_flushes);
+            SDL_DestroySurface(c20);
+        }
+        memset(lbDisplay.Palette, 63, 768); // white
+        r.ClearScreen(0);
+        SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+        Rec R20w; WorldFrame f20w = mkframe(R20w, z18, 3, 0, 0, 48, 40);
+        r.SubmitWorldFrame(f20w);
+        SDL_Surface* c20w = present_and_capture(r);
+        if (!c20w) ok = false; else {
+            ok &= px_is(c20w, 8, 8, 0, 0, 0, "index 0 stays black under the white palette");
+            ok &= px_is(c20w, 50, 30, 255, 255, 255, "index 5 white under the white palette");
+            SDL_DestroySurface(c20w);
+        }
+        memcpy(lbDisplay.Palette, saved_pal, sizeof(saved_pal));
+
+        // Frame 21 (TEXTURE_FILTER, texture resolution Phase 2). A block whose column 0 is red, column 31 blue
+        // and the rest green:
+        // (a) Bilinear over the whole block: at its right edge the clamp keeps blue, no red from column 0
+        //     wrapping in (REPEAT would blend it: the hairline);
+        // (b) Bilinear, scrolled to U 16..48 (a liquid): it still wraps, so red shows around U = 32;
+        // (c) magnified to 12 pixels a texel (columns alternating red and green): Sharp shows a texel's own colour
+        //     3 pixels inside it, Bilinear a blend there.
+        static unsigned char atlas_edges[32 * 256];
+        static unsigned char atlas_stripes[32 * 256];
+        for (int y = 0; y < 32; y++)
+            for (int x = 0; x < 256; x++) {
+                atlas_edges[y * 256 + x] = (x == 0) ? 40 : ((x == 31) ? 41 : 42);
+                atlas_stripes[y * 256 + x] = (x & 1) ? 42 : 40;
+            }
+        r.WorldTexturesChanged();
+        memset(&lbDisplay.Palette[3 * 40], 0, 9);
+        lbDisplay.Palette[3 * 40 + 0] = 63; // 40 red
+        lbDisplay.Palette[3 * 41 + 2] = 63; // 41 blue
+        lbDisplay.Palette[3 * 42 + 1] = 63; // 42 green
+        auto quad = [&](WorldFramePolyItem* q, unsigned char* block, int64_t u0, int64_t u1) {
+            const int64_t v1 = 0x1FFFFF;
+            q[0].v0 = { 0, 0, u0, 0, sh, 0 }; q[0].v1 = { 48, 0, u1, 0, sh, 0 }; q[0].v2 = { 0, 40, u0, v1, sh, 0 };
+            q[1].v0 = { 48, 0, u1, 0, sh, 0 }; q[1].v1 = { 48, 40, u1, v1, sh, 0 }; q[1].v2 = { 0, 40, u0, v1, sh, 0 };
+            q[0].texture = q[1].texture = block;
+        };
+        auto draw21 = [&](WorldFramePolyItem* q, int filter) -> SDL_Surface* {
+            RendererSetTextureFilter(filter);
+            Rec R21; WorldFrame f21 = mkframe(R21, q, 2, 0, 0, 48, 40);
+            r.ClearScreen(0);
+            SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+            r.SubmitWorldFrame(f21);
+            return present_and_capture(r);
+        };
+        auto read = [](SDL_Surface* c, int x, int y, Uint8* px) {
+            Uint8 a; SDL_ReadSurfacePixel(c, (2 * x + 1) * 64 / 96, (2 * y + 1) * 64 / 80, &px[0], &px[1], &px[2], &a);
+        };
+        printf("frame 21 (texture filters: clamp at a block's edge, wrap when scrolled, Sharp vs Bilinear):\n");
+        WorldFramePolyItem q21[2];
+        Uint8 px[3];
+        quad(q21, atlas_edges, 0, 0x1FFFFF);
+        SDL_Surface* c21a = draw21(q21, RENDERER_TEXFILTER_BILINEAR);
+        if (!c21a) ok = false; else {
+            read(c21a, 47, 20, px);
+            printf("  (a) right edge, clamped: (%d,%d,%d)\n", px[0], px[1], px[2]);
+            ok &= (px[0] < 16) && (px[2] > 100);
+            SDL_DestroySurface(c21a);
+        }
+        quad(q21, atlas_edges, (int64_t)16 << 16, (int64_t)48 << 16);
+        SDL_Surface* c21b = draw21(q21, RENDERER_TEXFILTER_BILINEAR);
+        if (!c21b) ok = false; else {
+            read(c21b, 24, 20, px);
+            printf("  (b) scrolled across U = 32, wraps: (%d,%d,%d)\n", px[0], px[1], px[2]);
+            ok &= (px[0] > 60);
+            SDL_DestroySurface(c21b);
+        }
+        quad(q21, atlas_stripes, 0, (int64_t)4 << 16);
+        SDL_Surface* c21s = draw21(q21, RENDERER_TEXFILTER_SHARP);
+        SDL_Surface* c21l = draw21(q21, RENDERER_TEXFILTER_BILINEAR);
+        if (!c21s || !c21l) ok = false; else {
+            Uint8 ps[3], pl[3];
+            read(c21s, 15, 20, ps);
+            read(c21l, 15, 20, pl);
+            printf("  (c) 3 px inside a texel: Sharp (%d,%d,%d), Bilinear (%d,%d,%d)\n", ps[0], ps[1], ps[2], pl[0], pl[1], pl[2]);
+            const bool sharp_pure = ((ps[0] > 250 && ps[1] < 5) || (ps[1] > 250 && ps[0] < 5));
+            const bool bilinear_blend = (pl[0] > 20 && pl[1] > 20);
+            ok &= sharp_pure && bilinear_blend;
+        }
+        if (c21s) SDL_DestroySurface(c21s);
+        if (c21l) SDL_DestroySurface(c21l);
+        RendererSetTextureFilter(RENDERER_TEXFILTER_NEAREST);
+        memcpy(lbDisplay.Palette, saved_pal, sizeof(saved_pal));
+
+        // Frame 22 (true-colour HD blocks, texture resolution Phase 3), Nearest, reference palette = the active one:
+        // (a) a 128x128 HD block whose texels alternate red/green column by column (finer than a 32 texel), drawn in
+        //     precision mode 3 pixels an HD texel, shows its own detail; in the same frame a 32x32 block (columns
+        //     alternating blue/green) shares the now 128-texel array, nearest-upscaled, as before;
+        // (b) parity: an HD block that is the x4 upscale of that 32x32 block, drawn in parity mode, gives the
+        //     32x32 block's image pixel for pixel (a slanted triangle, fractional UVs);
+        // (c) a half-brightness palette reaches the HD block through the colour transform: no upload, no flush.
+        lbDisplay.Palette[3 * 50 + 0] = 63; lbDisplay.Palette[3 * 50 + 1] = 0;  lbDisplay.Palette[3 * 50 + 2] = 0;  // red
+        lbDisplay.Palette[3 * 51 + 0] = 0;  lbDisplay.Palette[3 * 51 + 1] = 63; lbDisplay.Palette[3 * 51 + 2] = 0;  // green
+        lbDisplay.Palette[3 * 52 + 0] = 0;  lbDisplay.Palette[3 * 52 + 1] = 0;  lbDisplay.Palette[3 * 52 + 2] = 63; // blue
+        unsigned char ref_pal[768];
+        memcpy(ref_pal, lbDisplay.Palette, sizeof(ref_pal));
+        RendererSetHdReferencePalette(ref_pal);
+        static unsigned char atlas_bg[32 * 256];
+        static TbPixel hd_fine[128 * 256];
+        static TbPixel hd_parity[128 * 256];
+        for (int y = 0; y < 32; y++)
+            for (int x = 0; x < 256; x++)
+                atlas_bg[y * 256 + x] = (x & 1) ? 51 : 52;
+        for (int y = 0; y < 128; y++)
+            for (int x = 0; x < 256; x++) {
+                hd_fine[y * 256 + x] = expand_indexed_pixel((x & 1) ? 51 : 50, ref_pal);
+                hd_parity[y * 256 + x] = expand_indexed_pixel(atlas_bg[(y >> 2) * 256 + (x >> 2)], ref_pal);
+            }
+        auto hd_frame = [&](Rec& rec22, const WorldFramePolyItem* q, int n) -> SDL_Surface* {
+            rec22.rec.Reset();
+            for (int i = 0; i < n; i++)
+                rec22.rec.AddPoly(&q[i].v0, &q[i].v1, &q[i].v2, q[i].texture, q[i].block_shift, q[i].parity, q[i].texture_rgba);
+            rec22.frame = rec22.rec.Build();
+            rec22.frame.view_x = 0; rec22.frame.view_y = 0; rec22.frame.view_w = 48; rec22.frame.view_h = 40;
+            r.ClearScreen(0);
+            SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+            r.SubmitWorldFrame(rec22.frame);
+            return present_and_capture(r);
+        };
+        printf("frame 22 (HD blocks: own detail, 32x32 beside them, parity, palette fade through the transform):\n");
+        // (a) top half: HD, U 0..4 (16 HD texels) across 48 pixels; bottom half: the 32x32 block, U 0..4 likewise.
+        WorldFramePolyItem q22[4] = {};
+        // V spans 4 texels too: magnified both ways, so the hardware stays at the finest level now that there are mips.
+        const int64_t u4 = (int64_t)4 << 16, vb = (int64_t)4 << 16;
+        q22[0].v0 = { 0, 0, 0, 0, sh, 0 };   q22[0].v1 = { 48, 0, u4, 0, sh, 0 };  q22[0].v2 = { 0, 20, 0, vb, sh, 0 };
+        q22[1].v0 = { 48, 0, u4, 0, sh, 0 }; q22[1].v1 = { 48, 20, u4, vb, sh, 0 }; q22[1].v2 = { 0, 20, 0, vb, sh, 0 };
+        for (int i = 0; i < 2; i++) { q22[i].texture = atlas_bg; q22[i].texture_rgba = hd_fine; q22[i].block_shift = 2; q22[i].parity = 0; }
+        q22[2].v0 = { 0, 20, 0, 0, sh, 0 };   q22[2].v1 = { 48, 20, u4, 0, sh, 0 };  q22[2].v2 = { 0, 40, 0, vb, sh, 0 };
+        q22[3].v0 = { 48, 20, u4, 0, sh, 0 }; q22[3].v1 = { 48, 40, u4, vb, sh, 0 }; q22[3].v2 = { 0, 40, 0, vb, sh, 0 };
+        q22[2].texture = q22[3].texture = atlas_bg;
+        Rec R22a;
+        SDL_Surface* c22a = hd_frame(R22a, q22, 4);
+        if (!c22a) ok = false; else {
+            Uint8 p0[3], p1[3], s0[3], s1[3];
+            read(c22a, 1, 8, p0); read(c22a, 4, 8, p1);    // HD texels 0 and 1
+            read(c22a, 5, 30, s0); read(c22a, 17, 30, s1); // 32-res texels 0 and 1
+            printf("  (a) HD texels 0,1: (%d,%d,%d) (%d,%d,%d); 32x32 texels 0,1: (%d,%d,%d) (%d,%d,%d)\n",
+                p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], s0[0], s0[1], s0[2], s1[0], s1[1], s1[2]);
+            ok &= (p0[0] > 250 && p0[1] < 5) && (p1[1] > 250 && p1[0] < 5);
+            ok &= (s0[2] > 250 && s0[1] < 5) && (s1[1] > 250 && s1[2] < 5);
+            SDL_DestroySurface(c22a);
+        }
+        // (b) one slanted triangle, fractional UVs: the 32x32 block, then its x4 upscale in parity mode.
+        WorldFramePolyItem t22 = {};
+        t22.v0 = { 2, 1, 0x18000, 0x6000, sh, 0 }; t22.v1 = { 46, 9, 0x1C4000, 0x3A000, sh, 0 }; t22.v2 = { 7, 39, 0x2A000, 0x1E8000, sh, 0 };
+        t22.texture = atlas_bg;
+        Rec R22b, R22c;
+        SDL_Surface* c22b = hd_frame(R22b, &t22, 1);
+        t22.texture_rgba = hd_parity; t22.block_shift = 2; t22.parity = 1;
+        SDL_Surface* c22c = hd_frame(R22c, &t22, 1);
+        if (!c22b || !c22c) ok = false; else {
+            long diff = 0, drawn = 0;
+            for (int y = 0; y < c22b->h; y++)
+                for (int x = 0; x < c22b->w; x++) {
+                    Uint8 ar, ag, ab, aa, br, bg, bb, ba;
+                    SDL_ReadSurfacePixel(c22b, x, y, &ar, &ag, &ab, &aa);
+                    SDL_ReadSurfacePixel(c22c, x, y, &br, &bg, &bb, &ba);
+                    if (ar != br || ag != bg || ab != bb) diff++;
+                    if (ag != 0 || ab != 0) drawn++;
+                }
+            printf("  (b) parity HD vs its 32x32 original: %ld differing pixels of %ld drawn\n", diff, drawn);
+            ok &= (diff == 0) && (drawn > 500);
+        }
+        if (c22b) SDL_DestroySurface(c22b);
+        if (c22c) SDL_DestroySurface(c22c);
+        // (c) half brightness: the HD block's red and green at half, through the transform alone.
+        if (SDL_Surface* warm = hd_frame(R22a, q22, 4)) SDL_DestroySurface(warm); // both blocks cached under the reference palette
+        struct WorldFrameTextureStats ts22a, ts22b;
+        r.GetWorldTextureStats(&ts22a);
+        for (int i = 0; i < 768; i++) lbDisplay.Palette[i] = (unsigned char)(ref_pal[i] / 2);
+        SDL_Surface* c22d = hd_frame(R22a, q22, 4);
+        r.GetWorldTextureStats(&ts22b);
+        if (!c22d) ok = false; else {
+            Uint8 p0[3], p1[3];
+            read(c22d, 1, 8, p0); read(c22d, 4, 8, p1);
+            const int half = 31 * 255 / 63;
+            printf("  (c) half brightness, HD texels 0,1: (%d,%d,%d) (%d,%d,%d), expected %d; uploads %llu, flushes %llu\n",
+                p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], half,
+                (unsigned long long)(ts22b.uploads - ts22a.uploads), (unsigned long long)(ts22b.palette_flushes - ts22a.palette_flushes));
+            ok &= (abs(p0[0] - half) <= 2 && p0[1] < 5) && (abs(p1[1] - half) <= 2 && p1[0] < 5);
+            ok &= (ts22b.uploads == ts22a.uploads) && (ts22b.palette_flushes == ts22a.palette_flushes);
+            SDL_DestroySurface(c22d);
+        }
+        memcpy(lbDisplay.Palette, ref_pal, sizeof(ref_pal));
+
+        // Frame 23 (mip levels, texture resolution Phase 4), Nearest: a 128 HD block whose texels alternate red and
+        // green column by column, its original 32x32 block all blue (use_original_at_32):
+        // (a) 96 HD texels over 48 x 40 pixels (2 to 2.4 texels a pixel: level 1): the 64 level, a red/green blend;
+        // (b) 128 over 24 x 24 (5.3: level 2): the 32 level, which is the original block: blue;
+        // (c) TEXTURE_MIPMAPS on, 128 over 3 x 3: a level below 32, the original's colour still.
+        static TbPixel hd_cols[128 * 256];
+        static unsigned char atlas_blue[32 * 256];
+        for (int y = 0; y < 128; y++)
+            for (int x = 0; x < 256; x++)
+                hd_cols[y * 256 + x] = expand_indexed_pixel((x & 1) ? 51 : 50, ref_pal);
+        memset(atlas_blue, 52, sizeof(atlas_blue));
+        // u: the texels (32-res) the quad spans each way, so the minification is the same both ways.
+        auto mip_quad = [&](WorldFramePolyItem* q, int64_t w, int64_t h, int64_t texels) {
+            const int64_t u = (texels << 16) - 1;
+            q[0] = {}; q[1] = {};
+            q[0].v0 = { 0, 0, 0, 0, sh, 0 }; q[0].v1 = { w, 0, u, 0, sh, 0 }; q[0].v2 = { 0, h, 0, u, sh, 0 };
+            q[1].v0 = { w, 0, u, 0, sh, 0 }; q[1].v1 = { w, h, u, u, sh, 0 }; q[1].v2 = { 0, h, 0, u, sh, 0 };
+            for (int i = 0; i < 2; i++) {
+                q[i].texture = atlas_blue; q[i].texture_rgba = hd_cols; q[i].block_shift = 2; q[i].parity = 0; q[i].original_at_32 = 1;
+            }
+        };
+        auto mip_frame = [&](Rec& rec23, const WorldFramePolyItem* q) -> SDL_Surface* {
+            rec23.rec.Reset();
+            for (int i = 0; i < 2; i++)
+                rec23.rec.AddPoly(&q[i].v0, &q[i].v1, &q[i].v2, q[i].texture, q[i].block_shift, q[i].parity, q[i].texture_rgba,
+                    q[i].original_at_32);
+            rec23.frame = rec23.rec.Build();
+            rec23.frame.view_x = 0; rec23.frame.view_y = 0; rec23.frame.view_w = 48; rec23.frame.view_h = 40;
+            r.ClearScreen(0);
+            SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+            r.SubmitWorldFrame(rec23.frame);
+            return present_and_capture(r);
+        };
+        printf("frame 23 (mip levels: 64 level blended, 32 level the original, below 32 with TEXTURE_MIPMAPS):\n");
+        WorldFramePolyItem q23[2];
+        Rec R23;
+        mip_quad(q23, 48, 40, 24);
+        SDL_Surface* c23a = mip_frame(R23, q23);
+        mip_quad(q23, 24, 24, 32);
+        SDL_Surface* c23b = mip_frame(R23, q23);
+        RendererSetTextureMipmaps(1);
+        mip_quad(q23, 3, 3, 32);
+        SDL_Surface* c23c = mip_frame(R23, q23);
+        RendererSetTextureMipmaps(0);
+        if (!c23a || !c23b || !c23c) ok = false; else {
+            Uint8 pa[3], pb[3], pc[3];
+            read(c23a, 20, 20, pa);
+            read(c23b, 10, 10, pb);
+            read(c23c, 1, 1, pc);
+            printf("  (a) 64 level: (%d,%d,%d); (b) 32 level: (%d,%d,%d); (c) below 32: (%d,%d,%d)\n",
+                pa[0], pa[1], pa[2], pb[0], pb[1], pb[2], pc[0], pc[1], pc[2]);
+            ok &= (pa[0] > 60) && (pa[1] > 60) && (pa[2] < 10);
+            ok &= (pb[2] > 240) && (pb[0] < 10) && (pb[1] < 10);
+            ok &= (pc[2] > 240) && (pc[0] < 10) && (pc[1] < 10);
+        }
+        if (c23a) SDL_DestroySurface(c23a);
+        if (c23b) SDL_DestroySurface(c23b);
+        if (c23c) SDL_DestroySurface(c23c);
+
+        RendererSetHdReferencePalette(nullptr);
+        memcpy(lbDisplay.Palette, saved_pal, sizeof(saved_pal));
+    }
+
+    // Frame 24 (HD sprites, docs/refactor/sprites/ Phase 4): an HD op (an x2 upscale of an 8x8 sprite, its lookups the
+    // middle HD texel of each original texel) draws exactly what its indexed twin draws -- solid, both ghosts, a
+    // shade remap as a curve row, and under a palette only the transform's table reproduces (channels rotated); and
+    // HD ops too big for the HD atlas together draw their originals instead (the fallback), still the same.
+    {
+        unsigned char saved_pal[768];
+        memcpy(saved_pal, lbDisplay.Palette, sizeof(saved_pal));
+        unsigned char ref_pal[768];
+        {   // pseudo-random (as bflib_colour_transform_test.cpp's): rotating its channels is no per-channel function
+            uint32_t seed = 12345;
+            for (int i = 0; i < 768; i++) { seed = seed * 1103515245u + 12345u; ref_pal[i] = (unsigned char)((seed >> 16) & 63); }
+            ref_pal[0] = ref_pal[1] = ref_pal[2] = 0;
+            for (int i = 1; i < 256; i++) if ((ref_pal[3*i] | ref_pal[3*i+1] | ref_pal[3*i+2]) == 0) ref_pal[3*i] = 1;
+        }
+        memcpy(lbDisplay.Palette, ref_pal, sizeof(ref_pal));
+        // 8x8, varied indices, a transparent column and row.
+        std::vector<unsigned char> px(64);
+        for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) px[y*8+x] = (x == 3 || y == 6) ? 0 : (unsigned char)(1 + (x * 29 + y * 53) % 250);
+        std::vector<unsigned char> rle8 = rle_encode(8, 8, px);
+        const int S = 2;
+        std::vector<TbPixel> hd((size_t)64 * S * S);
+        for (int y = 0; y < 8 * S; y++) for (int x = 0; x < 8 * S; x++) {
+            const unsigned char i = px[(y / S) * 8 + x / S];
+            hd[(size_t)(y * 8 * S + x)] = i ? resolve_indexed_pixel(i, ref_pal) : TbPixel_Transparent;
+        }
+        // 40 x 32 destination: the original's texel per pixel (x5 wide, x4 tall), and the HD texel in its middle.
+        std::vector<uint16_t> xm(40), ym(32), hxm(40), hym(32);
+        // HD lookups are the texel's centre in sixteenths (HD_MAP_SUBTEXELS).
+        for (int i = 0; i < 40; i++) { xm[i] = (uint16_t)(i / 5); hxm[i] = (uint16_t)((xm[i] * S + (S - 1) / 2) * HD_MAP_SUBTEXELS + HD_MAP_SUBTEXELS / 2); }
+        for (int i = 0; i < 32; i++) { ym[i] = (uint16_t)(i / 4); hym[i] = (uint16_t)((ym[i] * S + (S - 1) / 2) * HD_MAP_SUBTEXELS + HD_MAP_SUBTEXELS / 2); }
+        auto curve_row = [](const SpriteRemapOp* op, const ColourTransform* ct, uint32_t row[256]) {
+            uint8_t fc[3][256];
+            SpriteRemapCurves(op, fc);
+            const bool curves = ct != nullptr && ct->mode == CTM_Curves;
+            for (int v = 0; v < 256; v++) {
+                const uint8_t rr = curves ? ct->curves[0][v] : (uint8_t)v, gg = curves ? ct->curves[1][v] : (uint8_t)v, bb = curves ? ct->curves[2][v] : (uint8_t)v;
+                row[v] = (uint32_t)fc[0][rr] | ((uint32_t)fc[1][gg] << 8) | ((uint32_t)fc[2][bb] << 16) | (0xFFu << 24);
+            }
+            for (int c = 0; c < 3; c++) row[c] = (row[c] & 0x00FFFFFFu) | ((uint32_t)fc[c][0] << 24);
+        };
+        auto shot = [&](WorldFrameRecorder& rec) {
+            r.ClearScreen(0);
+            SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+            WorldFrame wf = rec.Build(); wf.view_w = W; wf.view_h = H;
+            r.SubmitWorldFrame(wf);
+            return present_and_capture(r);
+        };
+        auto same = [](SDL_Surface* a, SDL_Surface* b) {
+            if (a == nullptr || b == nullptr) return false;
+            int diffs = 0;
+            for (int y = 0; y < a->h; y++) for (int x = 0; x < a->w; x++) {
+                Uint8 ar, ag, ab, aa, br, bg, bb, ba;
+                SDL_ReadSurfacePixel(a, x, y, &ar, &ag, &ab, &aa);
+                SDL_ReadSurfacePixel(b, x, y, &br, &bg, &bb, &ba);
+                if (ar != br || ag != bg || ab != bb) diffs++;
+            }
+            return diffs == 0;
+        };
+        printf("frame 24 (HD sprites):\n");
+        struct SpriteRemapOp none = {};
+        uint64_t next_id = 1;
+        auto compare = [&](const char* what, uint32_t mode, const uint32_t* index_cmap, const SpriteRemapOp* op, uint32_t table) {
+            WorldFrameRecorder ri, rh;
+            ri.AddSprite(rle8.data(), 8, 8, 10, 12, 40, 32, xm.data(), ym.data(), index_cmap, mode, 0);
+            uint32_t row[256];
+            curve_row(op, RendererHdColourTransform(), row);
+            rh.AddSpriteHd(hd.data(), nullptr, next_id++, 8 * S, 8 * S, 8 * S, S, rle8.data(), 8, 8, 10, 12, 40, 32, hxm.data(), hym.data(), row, table,
+                index_cmap, mode, 0);
+            SDL_Surface* a = shot(ri);
+            SDL_Surface* b = shot(rh);
+            const bool eq = same(a, b);
+            printf("  %-44s %s\n", what, eq ? "ok, identical" : "MISMATCH");
+            if (a) SDL_DestroySurface(a);
+            if (b) SDL_DestroySurface(b);
+            return eq;
+        };
+        ok &= compare("solid", WFS_SOLID, nullptr, &none, 0);
+        ok &= compare("ghost 1", WFS_GHOST1, nullptr, &none, 0);
+        ok &= compare("ghost 2", WFS_GHOST2, nullptr, &none, 0);
+        SetupSpriteRemapShade(20);
+        uint32_t shade_cmap[256];
+        for (int i = 0; i < 256; i++) shade_cmap[i] = (uint32_t)lbSpriteRemapTable[i].r | ((uint32_t)lbSpriteRemapTable[i].g << 8) | ((uint32_t)lbSpriteRemapTable[i].b << 16) | ((uint32_t)lbSpriteRemapTable[i].a << 24);
+        ok &= compare("shade remap as a curve row", WFS_SOLID, shade_cmap, &lbSpriteRemapOp, 0);
+        // Per-pixel lit (WFS_LIT; frame 15's light): a plainly shaded sprite (its colours, the GPU shading them) and a
+        // tinted one (the tint kept, lit on top).
+        {
+            WorldFrameLighting lit = {};
+            lit.map_x[0] = 1.0; lit.map_y[1] = 1.0;
+            lit.lens = 1000; lit.centre_x = 24; lit.centre_y = 20;
+            lit.fade_min = 1e9; lit.fade_max = 2e9; lit.fade_scaler = 3e9; lit.fade_range = 1e9;
+            lit.light_count = 1;
+            lit.lights[0] = { 0.0f, 0.0f, 0.0f, 30.0f, 63.0f, 1.0f, 1.0f, 1.0f };
+            static uint8_t lit_grid[512 * 4];
+            memset(lit_grid, 0, sizeof(lit_grid));
+            auto compare_lit = [&](const char* what, const uint32_t* index_cmap, const SpriteRemapOp* op) {
+                WorldFrameRecorder ri, rh;
+                for (WorldFrameRecorder* rr : { &ri, &rh }) {
+                    rr->SetMonotoneDepth(false);
+                    rr->SetDepth(static_cast<float>(worldframe_depth_from_view_z_f(1000)));
+                }
+                ri.AddSprite(rle8.data(), 8, 8, 4, 4, 40, 32, xm.data(), ym.data(), index_cmap, WFS_LIT, (uint32_t)(8 * 256));
+                uint32_t row[256];
+                curve_row(op, RendererHdColourTransform(), row);
+                rh.AddSpriteHd(hd.data(), nullptr, next_id++, 8 * S, 8 * S, 8 * S, S, rle8.data(), 8, 8, 4, 4, 40, 32, hxm.data(), hym.data(), row, 0,
+                    index_cmap, WFS_LIT, (uint32_t)(8 * 256));
+                SDL_Surface* shots[2] = {};
+                WorldFrameRecorder* recs[2] = { &ri, &rh };
+                for (int k = 0; k < 2; k++) {
+                    recs[k]->SetLighting(lit, lit_grid, 512, 4);
+                    r.ClearScreen(0);
+                    SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+                    WorldFrame wf = recs[k]->Build(); wf.view_x = 0; wf.view_y = 0; wf.view_w = 48; wf.view_h = 40; wf.true_depth = 1;
+                    r.SubmitWorldFrame(wf);
+                    shots[k] = present_and_capture(r);
+                }
+                const bool eq = same(shots[0], shots[1]);
+                printf("  %-44s %s\n", what, eq ? "ok, identical" : "MISMATCH");
+                for (SDL_Surface* c : shots) if (c) SDL_DestroySurface(c);
+                return eq;
+            };
+            ok &= compare_lit("lit, plain colours", nullptr, &none);
+            SetupSpriteRemapGhost(77, SPRITE_TINT_STRONG);
+            uint32_t tint_cmap[256];
+            for (int i = 0; i < 256; i++) tint_cmap[i] = (uint32_t)lbSpriteRemapTable[i].r | ((uint32_t)lbSpriteRemapTable[i].g << 8) | ((uint32_t)lbSpriteRemapTable[i].b << 16) | ((uint32_t)lbSpriteRemapTable[i].a << 24);
+            ok &= compare_lit("lit, tinted", tint_cmap, &lbSpriteRemapOp);
+        }
+        // The active palette's channels rotated: the HD texels (reference colours) go through the transform's table.
+        RendererSetHdReferencePalette(ref_pal);
+        for (int i = 1; i < 256; i++) {
+            lbDisplay.Palette[3*i] = ref_pal[3*i+1]; lbDisplay.Palette[3*i+1] = ref_pal[3*i+2]; lbDisplay.Palette[3*i+2] = ref_pal[3*i];
+        }
+        const ColourTransform* ct = RendererHdColourTransform();
+        printf("  (transform mode %d, 2 = table)\n", ct ? (int)ct->mode : -1);
+        ok &= (ct != nullptr && ct->mode == CTM_Table);
+        ok &= compare("rotated palette through the table", WFS_SOLID, nullptr, &none, 1);
+        // Additive art (Phase 9): an alpha-ramp sprite (every ramp, the subtracting black one too) over a grey ground,
+        // and its HD version (each texel's ramp delta as add / sub texels): the two passes draw the same.
+        {
+            static const int ramp_deltas[8][3] = { { 4, 4, 4 }, { 6, 4, 0 }, { 6, 1, 1 }, { 2, 2, 6 }, { 2, 6, 2 }, { 3, 0, 3 },
+                { -2, -2, -2 }, { 6, 3, 1 } };
+            std::vector<unsigned char> apx(64);
+            for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) apx[y*8+x] = (x == 3 || y == 6) ? 0 : (unsigned char)(1 + (x * 29 + y * 53) % 64);
+            std::vector<unsigned char> arle = rle_encode(8, 8, apx);
+            std::vector<TbPixel> add((size_t)64 * S * S, TbPixel_Transparent), sub((size_t)64 * S * S, TbPixel_Transparent);
+            for (int y = 0; y < 8 * S; y++) for (int x = 0; x < 8 * S; x++) {
+                const int i = apx[(y / S) * 8 + x / S];
+                if (i < 1 || i > 64) continue;
+                int pa[3], pm[3];
+                for (int c = 0; c < 3; c++) {
+                    const int d = ramp_deltas[(i - 1) / 8][c] * ((i - 1) % 8) * 255 / 63;
+                    pa[c] = d > 0 ? d : 0; pm[c] = d < 0 ? -d : 0;
+                }
+                add[(size_t)(y * 8 * S + x)] = TbPixel_RGBA((uint8_t)pa[0], (uint8_t)pa[1], (uint8_t)pa[2], 255);
+                sub[(size_t)(y * 8 * S + x)] = TbPixel_RGBA((uint8_t)pm[0], (uint8_t)pm[1], (uint8_t)pm[2], 255);
+            }
+            std::vector<unsigned char> gpx((size_t)8 * 8, 140);
+            std::vector<unsigned char> grle = rle_encode(8, 8, gpx);
+            uint32_t row[256];
+            curve_row(&none, nullptr, row);
+            WorldFrameRecorder ri, rh;
+            const uint32_t grey = 120u | (110u << 8) | (100u << 16) | (255u << 24);
+            for (WorldFrameRecorder* rr : { &ri, &rh })
+                rr->AddSprite(grle.data(), 8, 8, 10, 12, 40, 32, xm.data(), ym.data(), nullptr, WFS_ONECOLOUR, grey);
+            ri.AddSprite(arle.data(), 8, 8, 10, 12, 40, 32, xm.data(), ym.data(), nullptr, WFS_ALPHA, 0);
+            rh.AddSpriteHd(add.data(), sub.data(), next_id++, 8 * S, 8 * S, 8 * S, S, arle.data(), 8, 8, 10, 12, 40, 32, hxm.data(), hym.data(),
+                row, HD_OP_NEAREST, nullptr, WFS_ALPHA, 0);
+            SDL_Surface* a = shot(ri);
+            SDL_Surface* b = shot(rh);
+            const bool eq = same(a, b);
+            // and the ramps draw: against the ground alone, some pixels lighter, some darker (the black ramp's subtract pass)
+            bool darker = false, lighter = false;
+            WorldFrameRecorder rg;
+            rg.AddSprite(grle.data(), 8, 8, 10, 12, 40, 32, xm.data(), ym.data(), nullptr, WFS_ONECOLOUR, grey);
+            SDL_Surface* g = shot(rg);
+            if (a && g) {
+                for (int y = 0; y < a->h; y++) for (int x = 0; x < a->w; x++) {
+                    Uint8 r1, g1, b1, a1, r2, g2, b2, a2;
+                    SDL_ReadSurfacePixel(g, x, y, &r1, &g1, &b1, &a1);
+                    SDL_ReadSurfacePixel(a, x, y, &r2, &g2, &b2, &a2);
+                    if ((r1 | g1 | b1) == 0)
+                        continue;
+                    darker |= (r2 + g2 + b2) < (r1 + g1 + b1);
+                    lighter |= (r2 + g2 + b2) > (r1 + g1 + b1);
+                }
+            }
+            if (g) SDL_DestroySurface(g);
+            printf("  %-44s %s%s\n", "additive art: add and subtract passes", eq ? "ok, identical" : "MISMATCH",
+                (darker && lighter) ? "" : " (but no visible add/subtract)");
+            ok &= eq && darker && lighter;
+            if (a) SDL_DestroySurface(a);
+            if (b) SDL_DestroySurface(b);
+        }
+        RendererSetHdReferencePalette(nullptr);
+        memcpy(lbDisplay.Palette, ref_pal, sizeof(ref_pal));
+        // TEXTURE_FILTER (Phase 8): the same HD sprite with each pixel's own sub-texel position (precision mode's
+        // lookups). Nearest draws the texel under the pixel centre; Bilinear blends across texels (other pixels, the
+        // silhouette within 10%); Sharp keeps each texel's colour inside it and blends only across its edges (fewer
+        // pixels than Bilinear change); a parity-mode op (HD_OP_NEAREST) ignores the filter.
+        {
+            std::vector<uint16_t> pxm(40), pym(32);
+            for (int i = 0; i < 40; i++) pxm[i] = (uint16_t)(((2 * i + 1) * 8 * S * HD_MAP_SUBTEXELS) / 80);
+            for (int i = 0; i < 32; i++) pym[i] = (uint16_t)(((2 * i + 1) * 8 * S * HD_MAP_SUBTEXELS) / 64);
+            uint32_t row[256];
+            curve_row(&none, nullptr, row);
+            auto filtered = [&](int filter_mode, uint32_t flags) {
+                RendererSetTextureFilter(filter_mode);
+                WorldFrameRecorder rh;
+                rh.AddSpriteHd(hd.data(), nullptr, next_id++, 8 * S, 8 * S, 8 * S, S, rle8.data(), 8, 8, 10, 12, 40, 32, pxm.data(), pym.data(), row,
+                    flags, nullptr, WFS_SOLID, 0);
+                SDL_Surface* captured = shot(rh);
+                RendererSetTextureFilter(0);
+                return captured;
+            };
+            auto count = [](SDL_Surface* a, SDL_Surface* b, int* lit_a, int* lit_b) {
+                int diffs = 0; *lit_a = *lit_b = 0;
+                for (int y = 0; y < a->h; y++) for (int x = 0; x < a->w; x++) {
+                    Uint8 ar, ag, ab, aa, br, bg, bb, ba;
+                    SDL_ReadSurfacePixel(a, x, y, &ar, &ag, &ab, &aa);
+                    SDL_ReadSurfacePixel(b, x, y, &br, &bg, &bb, &ba);
+                    diffs += (ar != br || ag != bg || ab != bb);
+                    *lit_a += (ar | ag | ab) != 0; *lit_b += (br | bg | bb) != 0;
+                }
+                return diffs;
+            };
+            SDL_Surface* nearest = filtered(0, 0);
+            SDL_Surface* bilinear = filtered(2, 0);
+            SDL_Surface* sharp = filtered(1, 0);
+            SDL_Surface* parity = filtered(2, HD_OP_NEAREST);
+            if (nearest && bilinear && sharp && parity) {
+                int ln, lb, ls, lp;
+                const int db = count(nearest, bilinear, &ln, &lb);
+                const int ds = count(nearest, sharp, &ln, &ls);
+                const int dp = count(nearest, parity, &ln, &lp);
+                const bool fb = db > 0 && std::abs(lb - ln) * 10 <= ln, fs = ds > 0 && ds < db, fp = dp == 0;
+                printf("  %-44s %s (%d pixels differ; silhouette %d vs %d)\n", "filter: Bilinear blends", fb ? "ok" : "FAIL", db, lb, ln);
+                printf("  %-44s %s (%d pixels differ, Bilinear %d)\n", "filter: Sharp blends only at texel edges", fs ? "ok" : "FAIL", ds, db);
+                printf("  %-44s %s\n", "filter: parity draws nearest", fp ? "ok, identical" : "FAIL");
+                ok &= fb && fs && fp;
+            } else {
+                printf("  filter: capture failed\n");
+                ok = false;
+            }
+            for (SDL_Surface* c : { nearest, bilinear, sharp, parity }) if (c) SDL_DestroySurface(c);
+        }
+        // The HD atlas grows: a 300x300 original at x7 is 2100x2100 texels, one to a 4096x4096 layer. (a) Three draw their
+        // HD texels (all white here, so the HD path shows), the array growing from 1 layer to 4. (b) With growth capped
+        // at those 4 layers, the next three: the first fills the last free layer (white), the other two draw their
+        // originals (the fallback), exactly as their indexed twins do.
+        {
+            const int O = 300, BS = 7;
+            std::vector<unsigned char> big((size_t)O * O);
+            for (int y = 0; y < O; y++) for (int x = 0; x < O; x++) big[(size_t)(y * O + x)] = (x % 7 == 3) ? 0 : (unsigned char)(1 + (x * 13 + y * 7) % 250);
+            std::vector<unsigned char> rbig = rle_encode(O, O, big);
+            std::vector<TbPixel> hbig((size_t)O * BS * O * BS);
+            for (int y = 0; y < O * BS; y++) for (int x = 0; x < O * BS; x++)
+                hbig[(size_t)y * O * BS + x] = big[(size_t)((y / BS) * O + x / BS)] ? TbPixel_RGBA(255, 255, 255, 255) : TbPixel_Transparent;
+            // 12x12 on screen, at x 0, 21, 42 (the frame's window places them; measured below).
+            const int SW = 12, SX = 21;
+            std::vector<uint16_t> bx(SW), by(SW), hbx(SW), hby(SW);
+            for (int i = 0; i < SW; i++) { bx[i] = by[i] = (uint16_t)(i * 3 + 1); hbx[i] = hby[i] = (uint16_t)((bx[i] * BS + (BS - 1) / 2) * HD_MAP_SUBTEXELS + HD_MAP_SUBTEXELS / 2); }
+            uint32_t row[256];
+            curve_row(&none, nullptr, row);
+            auto three = [&](uint64_t first_id, SDL_Surface** idx_shot) {
+                WorldFrameRecorder ri, rh;
+                for (int k = 0; k < 3; k++) {
+                    ri.AddSprite(rbig.data(), O, O, SX * k, 30, SW, SW, bx.data(), by.data(), nullptr, WFS_SOLID, 0);
+                    rh.AddSpriteHd(hbig.data(), nullptr, first_id + (uint64_t)k, O * BS, O * BS, O * BS, BS, rbig.data(), O, O, SX * k, 30, SW, SW,
+                        hbx.data(), hby.data(), row, 0, nullptr, WFS_SOLID, 0);
+                }
+                *idx_shot = shot(ri);
+                return shot(rh);
+            };
+            auto pixel = [](SDL_Surface* c, int x, int y, Uint8 out[3]) { Uint8 a; SDL_ReadSurfacePixel(c, x, y, &out[0], &out[1], &out[2], &a); };
+            // Each sprite's column band, every row: where the window put them is measured on the indexed shot (its
+            // leftmost drawn column is sprite 0's first). HD: every pixel the indexed twin draws is white; as indexed:
+            // every pixel the same.
+            auto first_col = [&](SDL_Surface* cidx) {
+                for (int x = 0; x < W; x++) for (int y = 0; y < H; y++) { Uint8 q[3]; pixel(cidx, x, y, q); if (q[0] | q[1] | q[2]) return x; }
+                return 0;
+            };
+            auto white = [&](SDL_Surface* c, SDL_Surface* cidx, int k) {
+                int drawn = 0;
+                const int x0 = first_col(cidx) + SX * k;
+                for (int y = 0; y < H; y++) for (int x = x0; x < x0 + SW && x < W; x++) {
+                    Uint8 p[3], q[3]; pixel(c, x, y, p); pixel(cidx, x, y, q);
+                    if (q[0] == 0 && q[1] == 0 && q[2] == 0) continue;
+                    drawn++;
+                    if (p[0] != 255 || p[1] != 255 || p[2] != 255) return false;
+                }
+                return drawn > 10;
+            };
+            auto as_indexed = [&](SDL_Surface* c, SDL_Surface* cidx, int k) {
+                int drawn = 0;
+                const int x0 = first_col(cidx) + SX * k;
+                for (int y = 0; y < H; y++) for (int x = x0; x < x0 + SW && x < W; x++) {
+                    Uint8 p[3], q[3]; pixel(c, x, y, p); pixel(cidx, x, y, q);
+                    if (p[0] != q[0] || p[1] != q[1] || p[2] != q[2]) return false;
+                    if (q[0] | q[1] | q[2]) drawn++;
+                }
+                return drawn > 10;
+            };
+            GpuSpriteRenderer::hd_layer_limit = 0;
+            SDL_Surface* ci = nullptr;
+            SDL_Surface* ca = three(1000, &ci);
+            const bool grew = ca && ci && white(ca, ci, 0) && white(ca, ci, 1) && white(ca, ci, 2);
+            printf("  %-44s %s\n", "(a) three 2100x2100 HD frames, atlas grown", grew ? "ok, all HD" : "MISMATCH");
+            ok &= grew;
+            if (ca) SDL_DestroySurface(ca);
+            if (ci) SDL_DestroySurface(ci);
+            GpuSpriteRenderer::hd_layer_limit = 4;
+            SDL_Surface* cb = three(2000, &ci);
+            const bool fell_back = cb && ci && white(cb, ci, 0) && as_indexed(cb, ci, 1) && as_indexed(cb, ci, 2);
+            printf("  %-44s %s\n", "(b) atlas capped: 1 HD, 2 originals", fell_back ? "ok, the originals as indexed" : "MISMATCH");
+            ok &= fell_back;
+            if (cb) SDL_DestroySurface(cb);
+            if (ci) SDL_DestroySurface(ci);
+            GpuSpriteRenderer::hd_layer_limit = 0;
+        }
+        memcpy(lbDisplay.Palette, saved_pal, sizeof(saved_pal));
     }
     r.Shutdown();
     printf(ok ? "VERIFICATION PASSED\n" : "VERIFICATION FAILED\n");

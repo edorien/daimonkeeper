@@ -1703,8 +1703,7 @@ TngUpdateRet update_shot(struct Thing *thing)
                   {
                       if ((thing->parent_idx > 0) && (myplyr->controlled_thing_idx == thing->parent_idx))
                       {
-                          render_PaletteSetUserViewPalette(get_local_user(), VPal_Lightning);
-                          get_user_state(get_local_user())->additional_flags |= UsrAF_LightningPaletteIsActive;
+                          render_lightning_palette_on(get_local_user());
                       }
                   }
                 }
@@ -1718,7 +1717,7 @@ TngUpdateRet update_shot(struct Thing *thing)
                 break;
             case ShUL_GodLightning:
                 draw_god_lightning(thing);
-                lightning_modify_palette(thing);
+                render_lightning_modify_palette(thing);
                 break;
             case ShUL_Lizard:
                 thing->move_angle_xy = (thing->move_angle_xy + DEGREES_20) & ANGLE_MASK;

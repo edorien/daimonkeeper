@@ -2690,18 +2690,22 @@ void free_room_structure(struct Room *room)
 
     struct Dungeon *dungeon = get_dungeon(owner);
 
+    // a neighbour of index 0 is no room: room_get() gives the invalid room, which must not be written (P5-F30)
     if ( room->index == dungeon->room_list_start[room->kind] )
     {
         dungeon->room_list_start[room->kind] = room->next_of_owner;
         struct Room *next_room = room_get(room->next_of_owner);
-        next_room->prev_of_owner = 0;
+        if (!room_is_invalid(next_room))
+            next_room->prev_of_owner = 0;
     }
     else
     {
         struct Room *next_room = room_get(room->next_of_owner);
-        next_room->prev_of_owner = room->prev_of_owner;
+        if (!room_is_invalid(next_room))
+            next_room->prev_of_owner = room->prev_of_owner;
         struct Room *prev_room = room_get(room->prev_of_owner);
-        prev_room->next_of_owner = room->next_of_owner;
+        if (!room_is_invalid(prev_room))
+            prev_room->next_of_owner = room->next_of_owner;
     }
     --dungeon->room_discrete_count[room->kind];
 

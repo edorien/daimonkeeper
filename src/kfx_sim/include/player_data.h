@@ -101,8 +101,8 @@ enum UserAdditionalFlags {
     UsrAF_None                      = 0x00,
     UsrAF_NoThingUnderPowerHand     = 0x01, // Chosen subtile has nothing to interact with with the Power Hand (no creature to slap etc) (But the power hand is active)
     UsrAF_ChosenSubTileIsHigh       = 0x02, // Chosen subtile is at ceiling height (dirt/rock/wall etc)
-    UsrAF_FreezePaletteIsActive     = 0x04, // blue_palette is being used during Freeze Spell
-    UsrAF_LightningPaletteIsActive  = 0x08, // lightning_palette is being used during Lightning Spell
+    UsrAF_Unkn04                    = 0x04, // was UsrAF_FreezePaletteIsActive: kfx_render_state.palette_flags now
+    UsrAF_Unkn08                    = 0x08, // was UsrAF_LightningPaletteIsActive: kfx_render_state.palette_flags now
     UsrAF_UnlockedLordTorture       = 0x10, // if this flag is set, the user will be sent to the Lord Torture Mini-game
     UsrAF_Unkn20                    = 0x20,
     UsrAF_Unkn40                    = 0x40,

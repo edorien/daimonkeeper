@@ -49,6 +49,10 @@ void init_custom_sprites(LevelNumber level_no);
 void init_custom_campaign_sprites(const char *dir_path, const char *dir_desc);
 void show_ignored_fxdata_zip_messages(void);
 void load_sprites_for_multi_front(LevelNumber lvnum);
+/** A PNG of a sprite zip decoded to RGBA (malloc'd, *w x *h), or NULL: SPRITE_TRUE_COLOUR switched on after the
+ *  zips were loaded reads their frames again (engine_sprites_hd.c). The zip stays open for the next call; a NULL
+ *  zip_path closes it. Not while sprite zips are being loaded (they share the name cache). */
+unsigned char *custom_sprite_png_rgba(const char *zip_path, const char *png, int64_t *w, int64_t *h);
 
 extern TbBigChecksum required_sprite_zip_checksums[REQUIRED_SPRITE_ZIP_COUNT];
 

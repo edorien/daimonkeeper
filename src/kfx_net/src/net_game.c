@@ -537,6 +537,10 @@ TbBool get_startup_user_settings(NetUserId user, struct UserStartSettings *us)
 
 static uint8_t calculate_initial_input_lag(void)
 {
+    if (input_lag_fixed() >= 0) {
+        JUSTLOG("Initial input lag: pinned to %" PRId64 " turns", input_lag_fixed());
+        return input_lag_fixed();
+    }
     int64_t player_count = 0;
     for (int64_t i = 0; i < MAX_NET_USERS; i++) {
         if (net_user_info[i].network_user_active) {

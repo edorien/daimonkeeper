@@ -358,10 +358,16 @@ pkg/data/%.jty:
 	$(BUILD_JONTY_SPRITES_CMD)
 
 
-gfx/%:: | gfx/LICENSE ;
+# gfx/ is a checkout of dkfans/FXGraphics. Every file under it is order-only
+# on the phony gfx-checkout, so scripts/ensure_gfx.sh runs once per make
+# invocation that reads gfx/: it reuses an existing checkout (or, in a git
+# worktree, the main checkout's via a symlink) and clones only when there is
+# none -- see the script for details. REFRESH_GFX=1 pulls upstream's latest.
+.PHONY: gfx-checkout
+gfx-checkout:
+	@REFRESH_GFX="$(REFRESH_GFX)" bash scripts/ensure_gfx.sh
 
-gfx/LICENSE:
-	git clone --depth=1 https://github.com/dkfans/FXGraphics.git gfx
+gfx/%:: | gfx-checkout ;
 
 # The package is extracted only if targets does not exits; the "|" causes file dates to be ignored
 # Note that ignoring timestamp means it is possible to have outadated files after a new

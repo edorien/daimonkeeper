@@ -182,22 +182,25 @@ _backtrace(int64_t depth , LPCONTEXT context)
         LbWarnLog("No " PRODUCT_SLUG ".map file found for stacktrace map lookups\n");
     }
 
-    STACKFRAME frame;
+    // The Windows build is x86_64 (it was 32-bit i386 until 2026-10): walk with the 64-bit
+    // dbghelp API and the AMD64 machine type, which unwinds through the .pdata tables
+    // mingw-w64 emits, starting from the Rip/Rsp/Rbp registers.
+    STACKFRAME64 frame;
     memset(&frame,0,sizeof(frame));
 
-    frame.AddrPC.Offset = context->Eip;
+    frame.AddrPC.Offset = context->Rip;
 
     frame.AddrPC.Mode = AddrModeFlat;
-    frame.AddrStack.Offset = context->Esp;
+    frame.AddrStack.Offset = context->Rsp;
     frame.AddrStack.Mode = AddrModeFlat;
-    frame.AddrFrame.Offset = context->Ebp;
+    frame.AddrFrame.Offset = context->Rbp;
     frame.AddrFrame.Mode = AddrModeFlat;
 
     HANDLE process = GetCurrentProcess();
     HANDLE thread = GetCurrentThread();
 
     // Loop through all traces in the stack
-    while (StackWalk(IMAGE_FILE_MACHINE_I386, process, thread, &frame, context, 0, SymFunctionTableAccess, SymGetModuleBase, 0))
+    while (StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, thread, &frame, context, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL))
     {
         --depth;
         if (depth < 0)
@@ -207,13 +210,13 @@ _backtrace(int64_t depth , LPCONTEXT context)
 
         // Get the base address in the module
         // This is where the address space of the functions start
-        DWORD module_base = SymGetModuleBase(process, frame.AddrPC.Offset);
+        DWORD64 module_base = SymGetModuleBase64(process, frame.AddrPC.Offset);
 
         // Get the name of the module
         // The module will be the keeperfx bin or a library
         const char * module_name = "[unknown module]";
         char module_name_raw[MAX_PATH];
-        if (module_base && GetModuleFileNameA((HINSTANCE)module_base, module_name_raw, MAX_PATH))
+        if (module_base && GetModuleFileNameA((HINSTANCE)(uintptr_t)module_base, module_name_raw, MAX_PATH))
         {
             module_name = strrchr(module_name_raw,'\\');
             if (module_name != NULL)
@@ -631,11 +634,13 @@ void LbErrorParachuteInstall(void)
     install_posix_handler(SIGTRAP);
 #endif
 #else
+    // No SIGSEGV/SIGILL/SIGFPE handlers on Windows: those come from SEH exceptions, and on
+    // x86_64 mingw's startup code wraps main() in an SEH filter (_gnu_exception_handler) that
+    // passes them to a signal() handler, if one is set, before the unhandled-exception filter
+    // runs. ctrl_handler would then log only the signal name and exit, and ctrl_handler_w32
+    // (which logs the exception and the stack trace) would never be reached.
     signal(SIGINT,ctrl_handler);
-    signal(SIGILL,ctrl_handler);
     signal(SIGABRT,ctrl_handler);
-    signal(SIGFPE,ctrl_handler);
-    signal(SIGSEGV,ctrl_handler);
     signal(SIGTERM,ctrl_handler);
 #if defined(BF_POSIX_CRASH)
     signal(SIGHUP,ctrl_handler);

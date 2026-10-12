@@ -54,6 +54,7 @@
 #include "config_combat_assist.h"
 #include "config_magic.h"
 #include "keeper_assist_outbox.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 namespace {
@@ -578,10 +579,10 @@ namespace {
             { "Construction", 3, GUIStr_ConstructionAssistDesc },
             { "Move only",    4, GUIStr_MoveOnlyAssistDesc },
         };
-        int64_t current = kfx_net_state.comp_player_aggressive   ? 1
-                    : kfx_net_state.comp_player_defensive    ? 2
-                    : kfx_net_state.comp_player_construct    ? 3
-                    : kfx_net_state.comp_player_creatrsonly  ? 4 : 0;
+        int64_t current = kfx_local_view.comp_player_aggressive   ? 1
+                    : kfx_local_view.comp_player_defensive    ? 2
+                    : kfx_local_view.comp_player_construct    ? 3
+                    : kfx_local_view.comp_player_creatrsonly  ? 4 : 0;
         for (const AssistOpt &o : opts)
         {
             // No FeRadio wrapper exists; ImGui::RadioButton direct, same
@@ -593,10 +594,10 @@ namespace {
                 // flag set locally, then gui_set_autopilot() reads it and
                 // sends PckA_SetComputerKind (the flags are GUI-display
                 // state; the packet does the real setup on every client).
-                kfx_net_state.comp_player_aggressive  = (o.kind == 1);
-                kfx_net_state.comp_player_defensive   = (o.kind == 2);
-                kfx_net_state.comp_player_construct   = (o.kind == 3);
-                kfx_net_state.comp_player_creatrsonly = (o.kind == 4);
+                kfx_local_view.comp_player_aggressive  = (o.kind == 1);
+                kfx_local_view.comp_player_defensive   = (o.kind == 2);
+                kfx_local_view.comp_player_construct   = (o.kind == 3);
+                kfx_local_view.comp_player_creatrsonly = (o.kind == 4);
                 gui_set_autopilot(nullptr);
             }
             FeHelpTooltip(get_string(o.help));

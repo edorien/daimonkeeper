@@ -25,6 +25,7 @@
 #include "bflib_vidraw.h"
 #include "renderer/software/SwDrawTarget.h"
 #include "renderer/RendererManager.h"
+#include "bflib_colour_transform.h"
 #include "post_inc.h"
 
 #ifdef __GNUC__
@@ -345,7 +346,10 @@ static int32_t delta_s_x,        delta_u_x,        delta_v_x;
 static int32_t delta_s_y_top,    delta_u_y_top,    delta_v_y_top;    // Along edge AB or AC
 static int32_t delta_s_y_bottom, delta_u_y_bottom, delta_v_y_bottom; // Along edge BC
 
-#define TEXTURE_UV_WRAP_MASK 0x1F1F
+// The texel index wraps inside a block: (V << 8) | U masked to the block's size, (32 << vec_map_shift) - 1 on
+// each axis (0x1F1F for the 32x32 blocks). Blocks of 64, 128 or 256 texels sit in the same 256-texel-wide atlas
+// rows (docs/newFeatures/texture-resolution/02-design.md section 5.1.1).
+static uint16_t texture_uv_wrap_mask = 0x1F1F;
 
 // Bit layout for packed texture coordinates (fractional part in lowercase):
 //            msb                    lsb
@@ -633,6 +637,24 @@ static void calculate_texture_mapping(void)
     }
 }
 
+/** Parity mode: the 32-res starts and steps times `scale` (exact, so floor(position) >> shift is the 32-res
+ *  texel at every pixel). */
+static void scale_texture_mapping(int32_t scale)
+{
+    delta_u_x *= scale;
+    delta_v_x *= scale;
+    delta_u_y_top *= scale;
+    delta_v_y_top *= scale;
+    delta_u_y_bottom *= scale;
+    delta_v_y_bottom *= scale;
+    vertex_a_texture_u *= scale;
+    vertex_a_texture_v *= scale;
+    vertex_b_texture_u *= scale;
+    vertex_b_texture_v *= scale;
+    vertex_c_texture_u *= scale;
+    vertex_c_texture_v *= scale;
+}
+
 static void pack_texcoords(void)
 {
     {
@@ -680,16 +702,44 @@ static void pack_texcoords(void)
     texcoord_delta_y = texcoord_delta_y_top;
 }
 
-static void draw_gpoly_line(TbPixel *restrict pixel_dst, int32_t length, TexCoord texcoord)
+/** draw_gpoly_line() for a true-colour block (vec_map_rgba): the same texel addressing, no palette expansion; a
+ *  palette effect maps each texel through the colour transform. */
+static void draw_gpoly_line_rgba(TbPixel *restrict pixel_dst, int32_t length, TexCoord texcoord)
 {
-    const uint8_t *const restrict texture = SwTargetVecMap();
-    const unsigned char *const restrict palette = RendererGetActivePalette();
+    const TbPixel *const restrict texture = vec_map_rgba;
+    const struct ColourTransform *const transform = RendererHdColourTransform();
     const uint64_t texture_step = texcoord_as_uint64(texcoord_delta_x);
+    const uint16_t wrap_mask = texture_uv_wrap_mask;
     uint64_t texture_position = texcoord_as_uint64(texcoord_truncate(texcoord));
 
     for (int i = 0; i < length; i++)
     {
-        const uint16_t uv = rol32(texture_position >> 32, 8) & TEXTURE_UV_WRAP_MASK;
+        const uint16_t uv = rol32(texture_position >> 32, 8) & wrap_mask;
+        const int shade = (texture_position & 0xFF00) >> 8;
+        TbPixel texel = texture[uv];
+        if (transform != NULL)
+            texel = colour_transform_apply(transform, texel);
+        pixel_dst[i] = render_shade(texel, shade);
+        texture_position += texture_step;
+    }
+}
+
+static void draw_gpoly_line(TbPixel *restrict pixel_dst, int32_t length, TexCoord texcoord)
+{
+    if (vec_map_rgba != NULL)
+    {
+        draw_gpoly_line_rgba(pixel_dst, length, texcoord);
+        return;
+    }
+    const uint8_t *const restrict texture = SwTargetVecMap();
+    const unsigned char *const restrict palette = RendererGetActivePalette();
+    const uint64_t texture_step = texcoord_as_uint64(texcoord_delta_x);
+    const uint16_t wrap_mask = texture_uv_wrap_mask;
+    uint64_t texture_position = texcoord_as_uint64(texcoord_truncate(texcoord));
+
+    for (int i = 0; i < length; i++)
+    {
+        const uint16_t uv = rol32(texture_position >> 32, 8) & wrap_mask;
         const int shade = (texture_position & 0xFF00) >> 8;
         const uint8_t texel = texture[uv];
         pixel_dst[i] = render_shade(expand_indexed_pixel(texel, palette), shade);
@@ -855,15 +905,25 @@ void draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct Pol
     if (! validate_triangle())
         return;
 
+    // UVs come in 32-res texels (16.16); a block of 32 << shift texels scales them by 2^shift. Precision mode
+    // keeps that many more bits of each vertex UV; parity mode computes exactly as for a 32 block and scales the
+    // resulting starts and steps, so it samples texel floor(uv) of a nearest-neighbour upscale at every pixel
+    // (texture-resolution 02-design.md section 4.1).
+    // A mip level below 32 (texture-resolution Phase 4) has a negative shift, down to -5 (1x1): UVs lose bits
+    // instead, and parity doesn't apply.
+    const int shift = (vec_map_shift > -5) ? ((vec_map_shift < 3) ? (int)vec_map_shift : 3) : -5;
+    const int uv_shift = (vec_map_parity && (shift > 0)) ? 0 : shift;
+    const unsigned side = (shift >= 0) ? (32u << shift) : (32u >> -shift);
+    texture_uv_wrap_mask = (uint16_t)((side - 1u) * 0x101u);
     vertex_a_shade     = point_a->S >> 16;
     vertex_b_shade     = point_b->S >> 16;
     vertex_c_shade     = point_c->S >> 16;
-    vertex_a_texture_u = point_a->U >> 16;
-    vertex_a_texture_v = point_a->V >> 16;
-    vertex_b_texture_u = point_b->U >> 16;
-    vertex_b_texture_v = point_b->V >> 16;
-    vertex_c_texture_u = point_c->U >> 16;
-    vertex_c_texture_v = point_c->V >> 16;
+    vertex_a_texture_u = point_a->U >> (16 - uv_shift);
+    vertex_a_texture_v = point_a->V >> (16 - uv_shift);
+    vertex_b_texture_u = point_b->U >> (16 - uv_shift);
+    vertex_b_texture_v = point_b->V >> (16 - uv_shift);
+    vertex_c_texture_u = point_c->U >> (16 - uv_shift);
+    vertex_c_texture_v = point_c->V >> (16 - uv_shift);
 
     const bool clip_x = (  (vertex_a_x) | (SwTargetVecWindowWidth() - vertex_a_x)
                          | (vertex_b_x) | (SwTargetVecWindowWidth() - vertex_b_x)
@@ -871,6 +931,8 @@ void draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct Pol
 
     calculate_slopes();
     calculate_texture_mapping();
+    if (vec_map_parity && (shift > 0))
+        scale_texture_mapping(1 << shift);
     pack_texcoords();
 
     if (clip_x)

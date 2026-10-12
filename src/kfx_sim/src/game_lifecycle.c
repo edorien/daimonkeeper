@@ -10,6 +10,9 @@
 /******************************************************************************/
 #include "pre_inc.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "game_lifecycle.h"
 
 #include "globals.h"
@@ -31,12 +34,83 @@
 #include "thing_list.h"
 #include "light_registry.h"
 #include "ports/audio_port.h"
+#include "tasks_list.h"
+#include "packet_data.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 /******************************************************************************/
+
+/** The simulation state at the end of start-up: tables start-up builds (colours, the top-cube table, creature
+ *  scores, the thing free lists, ...) and nothing of any level. */
+static struct KfxSimState *sim_level_baseline = NULL;
+
+void sim_state_take_level_baseline(void)
+{
+    if (sim_level_baseline == NULL)
+        sim_level_baseline = (struct KfxSimState *)malloc(sizeof(struct KfxSimState));
+    if (sim_level_baseline != NULL)
+        memcpy(sim_level_baseline, &kfx_sim_state, sizeof(struct KfxSimState));
+}
+
+void sim_state_reset_for_level(void)
+{
+    if (sim_level_baseline == NULL)
+        return;
+    // The session's fields: set before a level starts (the command line, the menus, the network set-up, the
+    // campaign) and not set again by the level's own clears. Everything else of a level is set at its start.
+    const unsigned char operation_flags = kfx_sim_state.operation_flags;
+    const unsigned char view_mode_flags = kfx_sim_state.view_mode_flags;
+    const unsigned char mode_flags = kfx_sim_state.mode_flags;
+    const enum GameKinds game_kind = kfx_sim_state.game_kind;
+    const TbBool easter_eggs_enabled = kfx_sim_state.easter_eggs_enabled;
+    const int64_t turns_per_second = kfx_sim_state.turns_per_second;
+    const LevelNumber continue_level_number = kfx_sim_state.continue_level_number;
+    const LevelNumber selected_level_number = kfx_sim_state.selected_level_number;
+    const int64_t loaded_level_number = kfx_sim_state.loaded_level_number;
+    const PlayerNumber level_human_player = kfx_sim_state.level_human_player;
+    const int64_t computer_chat_flags = kfx_sim_state.computer_chat_flags;
+    // the timer (-timer: "continuous" carries it from level to level; the level's start resets the rest)
+    const TbClockMSec timerstarttime = kfx_sim_state.timerstarttime;
+    const struct TimerTime timer = kfx_sim_state.Timer;
+    const TbBool timer_game = kfx_sim_state.TimerGame;
+    const TbBool timer_no_reset = kfx_sim_state.TimerNoReset;
+    const TbBool timer_freeze = kfx_sim_state.TimerFreeze;
+    const TbBool timer_game_real = kfx_sim_state.TimerGameReal;
+    const uint64_t game_seconds = kfx_sim_state.GameSeconds;
+    const struct GameTime game_time = kfx_sim_state.GameT;
+
+    memcpy(&kfx_sim_state, sim_level_baseline, sizeof(struct KfxSimState));
+
+    kfx_sim_state.operation_flags = operation_flags;
+    kfx_sim_state.view_mode_flags = view_mode_flags;
+    kfx_sim_state.mode_flags = mode_flags;
+    kfx_sim_state.game_kind = game_kind;
+    kfx_sim_state.easter_eggs_enabled = easter_eggs_enabled;
+    kfx_sim_state.turns_per_second = turns_per_second;
+    kfx_sim_state.continue_level_number = continue_level_number;
+    kfx_sim_state.selected_level_number = selected_level_number;
+    kfx_sim_state.loaded_level_number = loaded_level_number;
+    kfx_sim_state.level_human_player = level_human_player;
+    kfx_sim_state.computer_chat_flags = computer_chat_flags;
+    kfx_sim_state.timerstarttime = timerstarttime;
+    kfx_sim_state.Timer = timer;
+    kfx_sim_state.TimerGame = timer_game;
+    kfx_sim_state.TimerNoReset = timer_no_reset;
+    kfx_sim_state.TimerFreeze = timer_freeze;
+    kfx_sim_state.TimerGameReal = timer_game_real;
+    kfx_sim_state.GameSeconds = game_seconds;
+    kfx_sim_state.GameT = game_time;
+    // The "invalid" stand-ins outside the saved state get what a caller writes into one; they start each level as
+    // they started the process (clear_players() and clear_dungeons() reset bad_player, bad_user_state and
+    // bad_dungeon). P5-F31 was a list kept in bad_map_block from one level to the next.
+    memset(&bad_map_block, 0, sizeof(bad_map_block));
+    memset(&bad_slabmap_block, 0, sizeof(bad_slabmap_block));
+    memset(&bad_map_task, 0, sizeof(bad_map_task));
+    memset(&bad_packet, 0, sizeof(bad_packet));
+}
 
 void clear_creature_pool(void)
 {

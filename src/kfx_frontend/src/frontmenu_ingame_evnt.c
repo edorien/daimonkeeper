@@ -52,6 +52,7 @@
 #include "sprites.h"
 
 #include "kfx_frontend_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 extern int64_t multiplayer_speed_adjustment_ns;
@@ -62,6 +63,84 @@ int64_t battle_creature_over;
 // docs/refactor/stage-10-kfx-frontend.md).
 unsigned char my_event_button_state[EVENTS_COUNT];
 int64_t debug_display_network_stats = 0;
+
+/******************************************************************************/
+/* The battles on the battle panel (kfx_local_view.visible_battles, the local player's) and moving through them.
+ * Moved from kfx_sim's creature_battle.c in refactor pass 5 (S05), with the list from each Dungeon: only the panel
+ * used them. */
+TbBool battle_in_list(PlayerNumber plyr_idx, BattleIndex battle_id)
+{
+    for (int64_t i = 0; i < 3; i++)
+    {
+        if (battle_id > 0)
+        {
+            if (kfx_local_view.visible_battles[i] == battle_id)
+                return true;
+        }
+    }
+    return false;
+}
+
+BattleIndex find_next_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex prev_idx)
+{
+    BattleIndex battle_idx = find_next_battle_of_mine(plyr_idx, prev_idx);
+    BattleIndex first_idx = battle_idx;
+    while (battle_in_list(plyr_idx, battle_idx))
+    {
+        battle_idx = find_next_battle_of_mine(plyr_idx, battle_idx);
+        if (battle_idx == first_idx)
+            return 0;
+    }
+    return battle_idx;
+}
+
+BattleIndex find_previous_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex next_idx)
+{
+    BattleIndex battle_id = find_previous_battle_of_mine(plyr_idx, next_idx);
+    BattleIndex last_idx = battle_id;
+    while (battle_in_list(plyr_idx, battle_id))
+    {
+        battle_id = find_previous_battle_of_mine(plyr_idx, battle_id);
+        if (battle_id == last_idx)
+            return 0;
+    }
+    return battle_id;
+}
+
+TbBool active_battle_exists(PlayerNumber plyr_idx)
+{
+    return (kfx_local_view.visible_battles[0] != 0);
+}
+
+TbBool step_battles_forward(PlayerNumber plyr_idx)
+{
+    if (dungeon_invalid(get_players_num_dungeon(plyr_idx))) {
+        ERRORDBG(8,"Cannot do; player %" PRId64 " has no dungeon",(int64_t)plyr_idx);
+        return false;
+    }
+    BattleIndex i = kfx_local_view.visible_battles[2];
+    if (i > 0) {
+        i = find_next_battle_of_mine_excluding_current_list(plyr_idx, i);
+    }
+    if (i > 0) {
+        kfx_local_view.visible_battles[2] = i;
+        i = find_previous_battle_of_mine_excluding_current_list(plyr_idx, i);
+        kfx_local_view.visible_battles[1] = i;
+        i = find_previous_battle_of_mine_excluding_current_list(plyr_idx, i);
+        kfx_local_view.visible_battles[0] = i;
+    } else if (kfx_local_view.visible_battles[1] > 0) {
+        i = kfx_local_view.visible_battles[0];
+        kfx_local_view.visible_battles[0] = kfx_local_view.visible_battles[1];
+        kfx_local_view.visible_battles[1] = kfx_local_view.visible_battles[2];
+        if (kfx_local_view.visible_battles[1] == 0) {
+            kfx_local_view.visible_battles[1] = i;
+        } else {
+            kfx_local_view.visible_battles[2] = i;
+        }
+    }
+    return active_battle_exists(plyr_idx);
+}
+
 
 /******************************************************************************/
 /* The battle panel's lists of each visible battle's fighters, and their upkeep. Moved from kfx_sim's
@@ -89,29 +168,28 @@ void maintain_my_battle_list(void)
     int64_t i;
     // Find battle index
     struct PlayerInfo* player = get_my_player();
-    struct Dungeon* dungeon = get_players_dungeon(player);
     BattleIndex battle_id = 0;
     for (i=0; i < 3; i++)
     {
-        struct CreatureBattle* battle = creature_battle_get(dungeon->visible_battles[i]);
+        struct CreatureBattle* battle = creature_battle_get(kfx_local_view.visible_battles[i]);
         if (battle->fighters_num > 0) {
-            battle_id = dungeon->visible_battles[i];
+            battle_id = kfx_local_view.visible_battles[i];
         } else {
-            dungeon->visible_battles[i] = 0;
+            kfx_local_view.visible_battles[i] = 0;
         }
     }
     // Move array items down to make sure empty slots are at end
     for (i=0; i < 2; i++)
     {
-      if (dungeon->visible_battles[i] <= 0)
+      if (kfx_local_view.visible_battles[i] <= 0)
       {
           // Got empty spot - fill it with first non-empty item
           for (int64_t n = i + 1; n < 3; n++)
           {
-              if (dungeon->visible_battles[n] > 0)
+              if (kfx_local_view.visible_battles[n] > 0)
               {
-                  dungeon->visible_battles[i] = dungeon->visible_battles[n];
-                  dungeon->visible_battles[n] = 0;
+                  kfx_local_view.visible_battles[i] = kfx_local_view.visible_battles[n];
+                  kfx_local_view.visible_battles[n] = 0;
                   break;
               }
           }
@@ -120,19 +198,19 @@ void maintain_my_battle_list(void)
     // Find battles to fill empty slots
     for (i=0; i < 3; i++)
     {
-      if (dungeon->visible_battles[i] <= 0)
+      if (kfx_local_view.visible_battles[i] <= 0)
       {
           battle_id = find_next_battle_of_mine_excluding_current_list(player->id_number, battle_id);
           if (battle_id > 0) {
-              dungeon->visible_battles[i] = battle_id;
+              kfx_local_view.visible_battles[i] = battle_id;
           }
       }
     }
     for (i=0; i < 3; i++)
     {
-        battle_id = dungeon->visible_battles[i];
+        battle_id = kfx_local_view.visible_battles[i];
         if (battle_id > 0) {
-            setup_my_battlers(dungeon->visible_battles[i], &friendly_battler_list[MESSAGE_BATTLERS_COUNT*i], &enemy_battler_list[MESSAGE_BATTLERS_COUNT*i]);
+            setup_my_battlers(kfx_local_view.visible_battles[i], &friendly_battler_list[MESSAGE_BATTLERS_COUNT*i], &enemy_battler_list[MESSAGE_BATTLERS_COUNT*i]);
         }
     }
 }
@@ -192,17 +270,17 @@ void turn_on_event_info_panel_if_necessary(EventIndex evidx)
 void gui_previous_battle(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    BattleIndex battle_id = dungeon->visible_battles[0];
+    BattleIndex battle_id = kfx_local_view.visible_battles[0];
     if (battle_id != 0)
     {
         battle_id = find_previous_battle_of_mine_excluding_current_list(dungeon->owner, battle_id);
         if (battle_id > 0)
         {
-            dungeon->visible_battles[0] = battle_id;
+            kfx_local_view.visible_battles[0] = battle_id;
             battle_id = find_next_battle_of_mine_excluding_current_list(dungeon->owner, battle_id);
-            dungeon->visible_battles[1] = battle_id;
+            kfx_local_view.visible_battles[1] = battle_id;
             battle_id = find_next_battle_of_mine_excluding_current_list(dungeon->owner, battle_id);
-            dungeon->visible_battles[2] = battle_id;
+            kfx_local_view.visible_battles[2] = battle_id;
         }
     }
 }
@@ -210,17 +288,17 @@ void gui_previous_battle(struct GuiButton *gbtn)
 void gui_next_battle(struct GuiButton *gbtn)
 {
     struct Dungeon* dungeon = get_my_dungeon();
-    BattleIndex battle_id = dungeon->visible_battles[2];
+    BattleIndex battle_id = kfx_local_view.visible_battles[2];
     if (battle_id != 0)
     {
         battle_id = find_next_battle_of_mine_excluding_current_list(dungeon->owner, battle_id);
         if (battle_id > 0)
         {
-            dungeon->visible_battles[2] = battle_id;
+            kfx_local_view.visible_battles[2] = battle_id;
             battle_id = find_previous_battle_of_mine_excluding_current_list(dungeon->owner, battle_id);
-            dungeon->visible_battles[1] = battle_id;
+            kfx_local_view.visible_battles[1] = battle_id;
             battle_id = find_previous_battle_of_mine_excluding_current_list(dungeon->owner, battle_id);
-            dungeon->visible_battles[0] = battle_id;
+            kfx_local_view.visible_battles[0] = battle_id;
         }
     }
 }
@@ -270,7 +348,7 @@ void gui_setup_friend_over(struct GuiButton *gbtn)
     {
         struct Dungeon* dungeon = get_my_dungeon();
         struct Thing* thing = INVALID_THING;
-        if (dungeon->visible_battles[visbtl_id] != 0)
+        if (kfx_local_view.visible_battles[visbtl_id] != 0)
         {
             int64_t battlr_id = (gbtn->scr_pos_x - lbDisplay.MMouseX * pixel_size) / (gbtn->width / 7) + 6;
             if (battlr_id < MESSAGE_BATTLERS_COUNT-1) {
@@ -329,8 +407,7 @@ void draw_battle_head(struct Thing *thing, int64_t scr_x, int64_t scr_y, int64_t
 void gui_area_friendly_battlers(struct GuiButton *gbtn)
 {
     int64_t visbtl_id = gbtn->btype_value & LbBFeF_IntValueMask;
-    struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
-    BattleIndex battle_id = dungeon->visible_battles[visbtl_id];
+    BattleIndex battle_id = kfx_local_view.visible_battles[visbtl_id];
     struct CreatureBattle* battle = creature_battle_get(battle_id);
     if (creature_battle_invalid(battle)) {
         return;
@@ -375,7 +452,7 @@ void gui_setup_enemy_over(struct GuiButton *gbtn)
     {
         struct Dungeon* dungeon = get_my_dungeon();
         struct Thing* thing = INVALID_THING;
-        if (dungeon->visible_battles[visbtl_id] != 0)
+        if (kfx_local_view.visible_battles[visbtl_id] != 0)
         {
             int64_t battlr_id = (lbDisplay.MMouseX * pixel_size - gbtn->scr_pos_x) / (gbtn->width / 7);
             if (battlr_id < MESSAGE_BATTLERS_COUNT-1) {
@@ -392,8 +469,7 @@ void gui_setup_enemy_over(struct GuiButton *gbtn)
 void gui_area_enemy_battlers(struct GuiButton *gbtn)
 {
     int64_t visbtl_id = gbtn->btype_value & LbBFeF_IntValueMask;
-    struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
-    BattleIndex battle_id = dungeon->visible_battles[visbtl_id];
+    BattleIndex battle_id = kfx_local_view.visible_battles[visbtl_id];
     struct CreatureBattle* battle = creature_battle_get(battle_id);
     if (creature_battle_invalid(battle)) {
         return;
@@ -435,8 +511,7 @@ int64_t zoom_to_fight(PlayerNumber plyr_idx)
 {
     if (active_battle_exists(plyr_idx))
     {
-        struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
-        struct CreatureBattle* battle = creature_battle_get(dungeon->visible_battles[0]);
+        struct CreatureBattle* battle = creature_battle_get(kfx_local_view.visible_battles[0]);
         struct Thing* thing = thing_get(battle->first_creatr);
         if (thing_exists(thing)) {
             move_local_camera_to_position(thing->mappos.x.val, thing->mappos.y.val);

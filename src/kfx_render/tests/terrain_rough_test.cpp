@@ -954,8 +954,12 @@ TEST_CASE("terrain_rough: texture stretch survey", "[.][stretch]")
             prm.corner_radius = v.radius;
             TerrainCellSource src = f.g->source();
             StretchStats st = face_stretch(src, prm, f.o, f.ea, f.eb, f.na, f.nb);
-            printf("%-13s %-22s min %.2f max %.2f  >1.4: %4.1f%%  <0.7: %4.1f%%   min at (%lld,%lld,%lld)%c max at (%lld,%lld,%lld)%c\n", v.name, f.name, st.lo, st.hi,
-                100.0 * st.over / st.n, 100.0 * st.under / st.n, (long long)st.lo_at[0], (long long)st.lo_at[1], (long long)st.lo_at[2], st.lo_e,
+            // The worst stretched texel, in map units (a 32-res texel is 8: 256 to a subtile), at 32/64/128: HD
+            // texture packs (docs/newFeatures/texture-resolution/) shrink it by 2 per level.
+            printf("%-13s %-22s min %.2f max %.2f  >1.4: %4.1f%%  <0.7: %4.1f%%  worst texel 32/64/128: %4.1f/%4.1f/%4.1f units"
+                "   min at (%lld,%lld,%lld)%c max at (%lld,%lld,%lld)%c\n", v.name, f.name, st.lo, st.hi,
+                100.0 * st.over / st.n, 100.0 * st.under / st.n, 8.0 * st.hi, 4.0 * st.hi, 2.0 * st.hi,
+                (long long)st.lo_at[0], (long long)st.lo_at[1], (long long)st.lo_at[2], st.lo_e,
                 (long long)st.hi_at[0], (long long)st.hi_at[1], (long long)st.hi_at[2], st.hi_e);
         }
 }

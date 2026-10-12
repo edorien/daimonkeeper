@@ -34,6 +34,12 @@
 extern "C" {
 #endif
 
+/** Texel density histograms (docs/newFeatures/texture-resolution/03-verification-and-phases.md section A):
+ *  half an octave per bin, bin i covering [2^(TERRAIN_TEXEL_LOG2_MIN + i/2), 2^(TERRAIN_TEXEL_LOG2_MIN + (i+1)/2));
+ *  the first and last bins also hold everything beyond them. */
+#define TERRAIN_TEXEL_BINS 32
+#define TERRAIN_TEXEL_LOG2_MIN (-6)
+
 /** One audited frame. */
 struct TerrainAuditStats {
     uint64_t frame;          ///< audited frames so far, this one included
@@ -60,6 +66,10 @@ struct TerrainAuditStats {
     int64_t cam_zoom;        ///< camera zoom, as drawn
     int64_t build_us;        ///< microseconds from the frame's start to its draw list (building the mesh)
     int64_t draw_us;         ///< microseconds drawing the draw list
+    uint64_t texel_polys;    ///< textured triangles sampled for texel density
+    double texel_area;       ///< their screen area inside the view window, in pixels
+    double texel_size_hist[TERRAIN_TEXEL_BINS]; ///< area by a texel's size on screen, in pixels, along its most magnified direction
+    double texel_rate_hist[TERRAIN_TEXEL_BINS]; ///< area by texels per pixel along the most minified direction (what a mip level covers)
 };
 
 /** A registered triangle corner: its lattice id and where it ended up. */
@@ -87,6 +97,21 @@ void terrain_audit_mark_drawlist(void);
  *  apart from shading that follows moving lights). */
 void terrain_audit_hash_polygon(const int64_t *all, size_t n_all, const int64_t *geom, size_t n_geom,
     const int64_t *tex, size_t n_tex, const int64_t *shade, size_t n_shade);
+/** Texel density of one textured triangle: its corners on screen (xy, pixels) and in the texture (uv, 16.16
+ *  32-res texels). The screen-to-texture map's singular values give *texel_px, a texel's size on screen along
+ *  the direction it is magnified most, and *texels_per_px along the direction it is minified most; *area is
+ *  the triangle's screen area. Returns 0 (outputs untouched) for a triangle degenerate on screen or in the
+ *  texture. */
+int terrain_texel_density(const int64_t xy[3][2], const int64_t uv[3][2], double *area, double *texel_px, double *texels_per_px);
+/** The area of a screen triangle inside the window [0, w] x [0, h]. */
+double terrain_triangle_area_in_window(const int64_t xy[3][2], int64_t w, int64_t h);
+/** Adds one drawn textured triangle to the frame's texel histograms, weighted by its area inside the view
+ *  window (w x h): a first-person triangle can reach far off screen. */
+void terrain_audit_texel_triangle(const int64_t xy[3][2], const int64_t uv[3][2], int64_t view_w, int64_t view_h);
+/** The value below which fraction p (0..1) of a histogram's area lies, as the geometric centre of its bin;
+ *  0 for an empty histogram. */
+double terrain_texel_percentile(const double hist[TERRAIN_TEXEL_BINS], double p);
+
 /** Registers one emitted terrain triangle. */
 void terrain_audit_triangle(const struct TerrainAuditVertex *a, const struct TerrainAuditVertex *b, const struct TerrainAuditVertex *c);
 

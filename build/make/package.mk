@@ -31,6 +31,7 @@ PKG_FXDATA_FILES = \
 	$(patsubst config/fxdata/%,pkg/fxdata/%,$(wildcard config/fxdata/*.cfg)) \
 	$(patsubst config/fxdata/%,pkg/fxdata/%,$(wildcard config/fxdata/*.toml)) \
 	$(patsubst config/fxdata/%,pkg/fxdata/%,$(wildcard config/fxdata/*.txt)) \
+	$(patsubst config/fxdata/%,pkg/fxdata/%,$(wildcard config/fxdata/asset_packs/*.txt)) \
 	$(patsubst config/%,pkg/%,$(wildcard config/fxdata/lua/**/*.lua)) \
 	$(patsubst config/%,pkg/%,$(wildcard config/fxdata/lua/*.lua)) \
 	$(patsubst config/fxdata/%,pkg/fxdata/%,$(wildcard config/fxdata/*.ttf)) \

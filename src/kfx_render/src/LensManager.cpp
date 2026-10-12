@@ -37,6 +37,7 @@
 #include "kfx_render_state.h"
 
 #include "kfx_sim_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -148,7 +149,7 @@ TbBool LensManager::SetLens(int64_t lens_idx)
         m_applied_lens = 0;
         m_active_custom_lens.clear();  // Also clear custom lens
         kfx_render_state.active_lens_type = 0;
-        kfx_sim_state.applied_lens_type = 0;
+        kfx_local_view.applied_lens_type = 0;
         return true;
     }
     
@@ -209,7 +210,7 @@ TbBool LensManager::SetLens(int64_t lens_idx)
         m_applied_lens = lens_idx;
         m_active_custom_lens.clear();  // Clear custom lens name when using standard lens
         kfx_render_state.active_lens_type = lens_idx;
-        kfx_sim_state.applied_lens_type = lens_idx;
+        kfx_local_view.applied_lens_type = lens_idx;
     }
     
     return success;
@@ -359,9 +360,9 @@ TbBool LensManager::SetLensByName(const char* name)
     // CRITICAL: Update game state to indicate custom lens is active
     // Use 255 as sentinel value for custom lenses (vs 0=none, 1-5=standard)
     kfx_render_state.active_lens_type = 255;
-    kfx_sim_state.applied_lens_type = 255;
+    kfx_local_view.applied_lens_type = 255;
     
-    SYNCDBG(0, "Activated custom lens '%s', set kfx_sim_state.applied_lens_type=255", name);
+    SYNCDBG(0, "Activated custom lens '%s', set kfx_local_view.applied_lens_type=255", name);
     return true;
 }
 

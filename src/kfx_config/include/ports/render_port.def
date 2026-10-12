@@ -33,3 +33,17 @@ KFX_PORT_VOID(load_sprites_for_multi_front, (LevelNumber lvnum), (lvnum))
    nview. Clears the local view-type prediction (local_camera.c) if it
    predicted nview; true while a prediction is still pending. */
 KFX_PORT_RET(TbBool, local_view_type_settle, (int64_t nview), (nview), false)
+/* A player lost a keeper power: if it's the one the local player has chosen on the panel, nothing is chosen
+   (refactor pass 5, S05: the choice is kfx_render's local view). */
+KFX_PORT_VOID(local_view_power_removed, (PowerKind pwkind), (pwkind))
+/* The panel menu the local player has open (MenuID, or 0): the FEAR effect opens it again after the local player's
+   control of a possessed creature changes (refactor pass 5, S05). */
+KFX_PORT_RET(char, local_view_active_panel_menu, (void), (), 0)
+/* The battle panel's list starts again from this battle (opening a fight event; refactor pass 5, S05). */
+KFX_PORT_VOID(local_view_battles_restart, (BattleIndex first), (first))
+/* A lightning ball's flash in the local view (its palette; refactor pass 5, S05). */
+KFX_PORT_VOID(lightning_modify_palette, (struct Thing *thing), (thing))
+/* Whether the user's view has the Freeze spell's palette on (kfx_render_state.palette_flags; refactor pass 5, S05). */
+KFX_PORT_RET(TbBool, user_freeze_palette_active, (NetUserId user), (user), false)
+/* The user's view gets the lightning's palette, flagged so it's turned off again (refactor pass 5, S05). */
+KFX_PORT_VOID(lightning_palette_on, (NetUserId user), (user))

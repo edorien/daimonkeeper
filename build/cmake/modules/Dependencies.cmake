@@ -11,7 +11,9 @@
 # dkfans/kfx-deps's own build recipe (its .github/workflows/build.yml), which
 # already worked out these versions and flags for the mingw32/lin64 targets;
 # this file just runs the same source builds in-tree instead of downloading
-# their outputs.
+# their outputs. (kfx-deps only ever targeted 32-bit mingw; the Windows build
+# is now 64-bit x86_64-w64-mingw32, which the source builds below handle
+# with no recipe changes beyond the cross-prefix/arch.)
 #
 # Targets are defined here; kfx_link_dependencies(<target>) links them onto
 # the game executables (called from BuildTargets, once they exist).
@@ -40,14 +42,15 @@ endif()
 # scratch too, rather than just the game's own object files. Lives under
 # deps/ alongside this project's other vendored/fetched third-party
 # content (deps/centitoml, deps/imgui); gitignored (.gitignore's
-# /deps/.cache-mingw32/ and /deps/.cache-lin64/ entries -- mingw32/lin64 is
-# the same platform-tag vocabulary the kfx-deps tarball names this file
-# used to pull from already used). Windows and native Linux need separate
-# subdirectories: they use different toolchains for the same
-# dependencies, same reasoning out/linux/ and out/windows/ can't share a
-# CMake build tree.
+# /deps/.cache-mingw64/ and /deps/.cache-lin64/ entries). Windows and
+# native Linux need separate subdirectories: they use different toolchains
+# for the same dependencies, same reasoning out/linux/ and out/windows/
+# can't share a CMake build tree. The Windows tag was mingw32 while the
+# Windows build was 32-bit (i686); it changed with the switch to x86_64 so a
+# stale 32-bit cache (luajit/ffmpeg's ExternalProject stamps in particular)
+# is never picked up by a 64-bit build.
 if(WIN32)
-    set(KFX_DEP_CACHE_TAG mingw32)
+    set(KFX_DEP_CACHE_TAG mingw64)
 else()
     set(KFX_DEP_CACHE_TAG lin64)
 endif()
@@ -175,7 +178,8 @@ if(WIN32)
 endif()
 
 if(WIN32)
-    # --- SDL3 (prebuilt MinGW dev tarballs; each wraps <name>-<ver>/i686-w64-mingw32/*)
+    # --- SDL3 (prebuilt MinGW dev tarballs; each wraps <name>-<ver>/<triplet>/*
+    # for both i686-w64-mingw32 and x86_64-w64-mingw32 -- we take the x86_64 one)
     # SDL_net is intentionally absent: api.c now uses a native Winsock socket
     # layer (SDL3_net is not reliably packaged). See docs SDL3-MIGRATION notes.
     # Unlike everything else in this file, SDL3's tarballs come straight from
@@ -189,9 +193,9 @@ if(WIN32)
     kfx_fetch(sdl3_mixer "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${SDL3_MIX_VER}/SDL3_mixer-devel-${SDL3_MIX_VER}-mingw.tar.gz")
     kfx_fetch(sdl3_image "https://github.com/libsdl-org/SDL_image/releases/download/release-${SDL3_IMG_VER}/SDL3_image-devel-${SDL3_IMG_VER}-mingw.tar.gz")
 
-    set(SDL3_PREFIX      "${D}/sdl3/SDL3-${SDL3_VER}/i686-w64-mingw32")
-    set(SDL3_MIX_PREFIX  "${D}/sdl3_mixer/SDL3_mixer-${SDL3_MIX_VER}/i686-w64-mingw32")
-    set(SDL3_IMG_PREFIX  "${D}/sdl3_image/SDL3_image-${SDL3_IMG_VER}/i686-w64-mingw32")
+    set(SDL3_PREFIX      "${D}/sdl3/SDL3-${SDL3_VER}/x86_64-w64-mingw32")
+    set(SDL3_MIX_PREFIX  "${D}/sdl3_mixer/SDL3_mixer-${SDL3_MIX_VER}/x86_64-w64-mingw32")
+    set(SDL3_IMG_PREFIX  "${D}/sdl3_image/SDL3_image-${SDL3_IMG_VER}/x86_64-w64-mingw32")
 
     add_library(kfx_sdl3 INTERFACE)
     # SDL3 headers live under include/SDL3/*.h; code uses <SDL3/SDL.h>,
@@ -256,7 +260,9 @@ if(WIN32)
     # --- spng: same libspng source/options as the native-Linux fallback
     # below, minus the "is it already on the system" check (nothing is, when
     # cross-compiling) and with ENABLE_OPT off -- matches dkfans/kfx-deps'
-    # own mingw32 recipe, avoiding libspng's x86 SIMD path on a 32-bit target.
+    # own mingw recipe (which avoided libspng's x86 SIMD path on its 32-bit
+    # target). Kept off for x86_64 too: PNG decode isn't hot here, and it
+    # keeps the Windows build's spng identical to what has shipped so far.
     set(ENABLE_OPT     OFF CACHE BOOL "" FORCE)
     set(SPNG_SHARED    OFF CACHE BOOL "" FORCE)
     set(SPNG_STATIC    ON  CACHE BOOL "" FORCE)
@@ -287,9 +293,10 @@ if(WIN32)
     # --- LuaJIT: its own hand-written Makefile (bootstraps minilua/buildvm,
     # generates lj_bcdef.h etc.), shelled out to via ExternalProject like the
     # native-Linux fallback below -- but cross-compiling needs the host
-    # (minilua/buildvm, which run during the build to generate target code)
-    # built 32-bit to match the target's pointer width, hence HOST_CC="gcc
-    # -m32" (needs gcc-multilib) alongside the real i686-w64-mingw32 CC.
+    # tools (minilua/buildvm, which run during the build to generate target
+    # code) built with the target's pointer width. The target is x86_64 and so
+    # is the build host, so a plain host gcc does (no -m32/gcc-multilib, which
+    # the old 32-bit i686 target needed); CC is the x86_64-w64-mingw32 one.
     kfx_populate(luajit_src
         URL "https://github.com/openresty/luajit2/archive/refs/tags/v2.1-20260724.tar.gz")
     ExternalProject_Add(luajit_build
@@ -298,7 +305,7 @@ if(WIN32)
         CONFIGURE_COMMAND ""
         BUILD_IN_SOURCE   1
         BUILD_COMMAND     make -j${KFX_NPROC} amalg
-                            "HOST_CC=gcc -m32"
+                            HOST_CC=gcc
                             CC=${CMAKE_C_COMPILER}
                             TARGET_SYS=Windows
                             BUILDMODE=static
@@ -337,7 +344,7 @@ if(WIN32)
     set(BUILD_SHARED_LIBS OFF)
     add_subdirectory("${natpmp_src_SOURCE_DIR}" "${natpmp_src_BINARY_DIR}" EXCLUDE_FROM_ALL)
     # net_portforward.cpp #includes <natpmp/natpmp.h> on Windows specifically
-    # (the old kfx-deps mingw32 tarball packaged it under include/natpmp/) --
+    # (the old kfx-deps 32-bit mingw tarball packaged it under include/natpmp/) --
     # natpmp's own source tree has natpmp.h at its root with no such
     # subdirectory, so symlink one in, same shim trick as miniupnpc above.
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/natpmp_shim")
@@ -380,8 +387,8 @@ if(WIN32)
             --enable-demuxer=smacker
             --enable-decoder=smacker,smackaud
             --enable-protocol=file
-            --arch=i686 --target-os=mingw32
-            --cross-prefix=i686-w64-mingw32- --enable-cross-compile
+            --arch=x86_64 --target-os=mingw32
+            --cross-prefix=x86_64-w64-mingw32- --enable-cross-compile
         BUILD_COMMAND make -j${KFX_NPROC}
         INSTALL_COMMAND make install
         BUILD_BYPRODUCTS

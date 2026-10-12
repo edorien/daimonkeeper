@@ -252,6 +252,10 @@ int64_t process_command_line(int64_t argc, char *argv[])
       {
           detailed_multiplayer_logging = true;
       } else
+      if (strcasecmp(parstr, "framehash") == 0)
+      {
+          start_params.frame_hash = true;
+      } else
       if (strcasecmp(parstr, "netstats") == 0)
       {
           debug_display_network_stats = 1;

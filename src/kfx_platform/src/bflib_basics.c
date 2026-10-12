@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <ctype.h>
 #include <SDL3/SDL.h>
 
@@ -258,6 +259,7 @@ int64_t error_dialog_fatal(const char *codefile,const int64_t ecode,const char *
 /******************************************************************************/
 int64_t error_log_initialised=false;
 struct TbLog error_log;
+FILE *file = NULL;
 
 // Normal until keeperfx.cfg's LOG_LEVEL (or a session override, main.cpp) says otherwise.
 int64_t kfx_log_level = LogLvl_Normal;
@@ -502,22 +504,23 @@ int64_t LbErrorLogSetup(const char *directory, const char *filename, TbBool flag
   if ((filename == NULL) || (strlen(filename) == 0)) {
     filename = "error.log";
   }
-  char log_filename[DISKPATH_SIZE];
-  int64_t result;
-  if ( LbFileMakeFullPath(true, directory, filename, log_filename, DISKPATH_SIZE) != 1 ) {
+  char log_filename[LOG_PATH_SIZE];
+  // No log file means no log at all, and nothing else would say so: report it on stderr.
+  if ( LbFileMakeFullPath(true, directory, filename, log_filename, sizeof(log_filename)) != 1 ) {
+    fprintf(stderr, "Cannot set up the log file '%s' (directory '%s'): the current directory "
+        "plus the name does not fit in %d characters, or the current directory is unreadable. "
+        "Running without a log.\n", filename, (directory != NULL) ? directory : "", LOG_PATH_SIZE);
     return -1;
   }
   uint64_t flags = (flag == 0) + 1;
   flags |= LbLog_TimeInHeader | LbLog_DateInHeader | 0x04;
-  if ( LbLogSetup(&error_log, log_filename, flags) == 1 )
+  if ( LbLogSetup(&error_log, log_filename, flags) != 1 )
   {
-    error_log_initialised = 1;
-    result = 1;
-  } else
-  {
-    result = -1;
+    fprintf(stderr, "Cannot set up the log file '%s'. Running without a log.\n", log_filename);
+    return -1;
   }
-  return result;
+  error_log_initialised = 1;
+  return 1;
 }
 
 int64_t LbErrorLogClose(void)
@@ -527,10 +530,16 @@ int64_t LbErrorLogClose(void)
     // Closing before the level was known (an early exit): keep the lines.
     LbLogEndStartupBuffering(true);
     LbLogFlush();
+    // Release the file too, so a later LbErrorLogSetup() opens its own path
+    // rather than being refused or writing into this one.
+    if (file != NULL)
+    {
+        fclose(file);
+        file = NULL;
+    }
+    error_log_initialised = 0;
     return LbLogClose(&error_log);
 }
-
-FILE *file = NULL;
 
 void LbLogFlush(void)
 {
@@ -831,7 +840,15 @@ static int64_t LbLogWriteMessage(struct TbLog *log, const char *message)
       file = fopen(log->filename, accmode);
       // Couldn't open. Abort
       if (file == NULL)
+      {
+        static TbBool open_failure_reported = false;
+        if (!open_failure_reported)
+        {
+          open_failure_reported = true;
+          fprintf(stderr, "Cannot open the log file '%s' (%s). Log lines are lost.\n", log->filename, strerror(errno));
+        }
         return -1;
+      }
       // Larger buffer for the Debug levels, which flush less often (LbLogFlush()).
       setvbuf(file, NULL, _IOFBF, 64 * 1024);
     }
@@ -937,15 +954,15 @@ int64_t LbLogSetPrefixFmt(struct TbLog *log, const char *format, ...)
 int64_t LbLogSetup(struct TbLog *log, const char *filename, uint64_t flags)
 {
   log->Initialised = false;
-  memset(log->filename, 0, DISKPATH_SIZE);
+  memset(log->filename, 0, sizeof(log->filename));
   memset(log->prefix, 0, LOG_PREFIX_LEN);
   log->Initialised=false;
   log->Created=false;
   log->Suspended=false;
-  if (strlen(filename) >= DISKPATH_SIZE || strlen(filename) == 0) {
+  if (strlen(filename) >= sizeof(log->filename) || strlen(filename) == 0) {
     return -1;
   }
-  snprintf(log->filename, DISKPATH_SIZE, "%s", filename);
+  snprintf(log->filename, sizeof(log->filename), "%s", filename);
   log->flags = flags;
   log->Initialised = true;
   log->position = 0;
@@ -956,7 +973,7 @@ int64_t LbLogClose(struct TbLog *log)
 {
   if ( !log->Initialised )
     return -1;
-  memset(log->filename, 0, DISKPATH_SIZE);
+  memset(log->filename, 0, sizeof(log->filename));
   memset(log->prefix, 0, LOG_PREFIX_LEN);
   log->flags = 0;
   log->Initialised = false;

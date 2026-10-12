@@ -80,6 +80,7 @@
 #include "render_power_hand.h"
 #include "render_creature_view.h"
 #include "local_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -178,7 +179,7 @@ void process_dungeon_top_pointer_graphic(struct PlayerInfo *player)
     // Mouse over panel map
     if (((kfx_sim_state.operation_flags & GOF_ShowGui) != 0) && mouse_is_over_panel_map(local_state.minimap_pos_x, local_state.minimap_pos_y))
     {
-        if (kfx_sim_state.small_map_state == 2) {
+        if (kfx_local_view.small_map_state == 2) {
             set_pointer_graphic(MousePG_Invisible);
         } else {
             set_pointer_graphic(MousePG_Arrow);

@@ -14,12 +14,12 @@ REM
 REM  The Linux build and the coverage / unit-test pass are intentionally
 REM  excluded.
 REM
-REM  This is a thin wrapper: it boots the MSYS2 "MINGW32" environment and runs
+REM  This is a thin wrapper: it boots the MSYS2 "MINGW64" environment and runs
 REM  build-package-windows.sh inside it. See that script's header for the full
 REM  requirements. In short, install MSYS2 (https://www.msys2.org) and:
 REM
 REM    pacman -S --needed git make p7zip curl unzip ^
-REM      mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-ninja
+REM      mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 REM
 REM  First run needs network access (fetches third-party libs, clones
 REM  dkfans/FXGraphics, downloads the pngpal2raw tool).
@@ -49,12 +49,12 @@ if not exist "%MSYS2_SHELL%" (
 REM This script lives in extraBuildScripts\; build from the repo root one level up.
 cd /d "%~dp0.."
 
-REM -mingw32   : MSYSTEM=MINGW32 (32-bit toolchain, matches the prebuilt deps)
+REM -mingw64   : MSYSTEM=MINGW64 (64-bit x86_64 toolchain; 32-bit Windows is no longer a target)
 REM -defterm   : don't open a new terminal window
 REM -no-start  : run in this console and wait for it to finish
 REM -here      : keep the current directory (the repo root)
 REM -c         : the command to run
-call "%MSYS2_SHELL%" -mingw32 -defterm -no-start -here -c "./extraBuildScripts/build-package-windows.sh"
+call "%MSYS2_SHELL%" -mingw64 -defterm -no-start -here -c "./extraBuildScripts/build-package-windows.sh"
 set "RC=%ERRORLEVEL%"
 
 echo.

@@ -252,18 +252,8 @@ struct KfxSimState {
     struct Computer2 computer[PLAYERS_COUNT];
     struct CreaturePool pool;
 
-    /* Power/hand UI-adjacent state (stage 6.7 increment 6) */
-    MapSubtlCoord hand_over_subtile_x;
-    MapSubtlCoord hand_over_subtile_y;
-    int64_t chosen_room_kind;
-    int64_t chosen_room_spridx;
-    int64_t chosen_room_tooltip;
-    int64_t chosen_spell_type;
-    int64_t chosen_spell_spridx;
-    int64_t chosen_spell_tooltip;
-    int64_t manufactr_element;
-    int64_t manufactr_spridx;
-    int64_t manufactr_tooltip;
+    /* hand_over_subtile_x/y, chosen_room_*, chosen_spell_*, manufactr_*: kfx_render's kfx_local_view (refactor
+       pass 5, S05). */
 
     /* Battles + random seeds (stage 6.7 increment 7, final) */
     struct CreatureBattle battles[BATTLES_COUNT];
@@ -300,10 +290,7 @@ struct KfxSimState {
     int64_t active_fx_lines;
     char evntbox_text_buffer[MESSAGE_TEXT_LEN];
 
-    /* Moved from struct Game (stage 13, docs/refactor/
-       stage-13-enforce-and-document.md) -- read by kfx_render/kfx_game
-       too, but kfx_sim is the lowest-ranked of its three consumers. */
-    unsigned char applied_lens_type;
+    /* applied_lens_type: kfx_render's kfx_local_view (refactor pass 5, S05). */
 
     /* Moved from struct Game (stage 13, docs/refactor/
        stage-13-enforce-and-document.md) -- each of these is read by at
@@ -324,7 +311,7 @@ struct KfxSimState {
     // literal. Must stay in sync manually if engine_textures.h's texture
     // block counts ever change.
     int64_t top_cube[1544]; // if you ask for top cube on a column without cubes, it'll return the first cube it finds with said texture at the top
-    unsigned char small_map_state;
+    // small_map_state: kfx_render's kfx_local_view (refactor pass 5, S05).
     enum GameKinds game_kind; /**< Kind of the game being played, from GameKinds enumeration. Originally was GameMode. */
     struct Bookmark bookmark[BOOKMARKS_COUNT];
     struct Coord3d armageddon_mappos;
@@ -342,14 +329,8 @@ struct KfxSimState {
        library, can't reach kfx_sim_state directly). */
     TbBool easter_eggs_enabled;
 
-    /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
-       stage-13-enforce-and-document.md) -- comment at the old site said
-       "Used for GUI only; the real tendency is a flag inside Dungeon",
-       but kfx_sim reads/writes these directly too (player_compchecks.c,
-       player_utils.c), which is the lowest-ranked of all real
-       consumers (kfx_game/kfx_net/kfx_script also read them). */
-    TbBool creatures_tend_imprison;
-    TbBool creatures_tend_flee;
+    /* creatures_tend_imprison/_flee, a mirror of the local player's dungeon->creature_tendencies for the buttons:
+       gone, the buttons read the dungeon (refactor pass 5, S05). */
 
     /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
        stage-13-enforce-and-document.md) -- read/written by kfx_sim's
@@ -376,11 +357,7 @@ struct KfxSimState {
     char box_tooltip[CUSTOM_BOX_COUNT][MESSAGE_TEXT_LEN];
     unsigned char active_messages_count;
 
-    /* Moved from kfx_frontend_state (stage 13.2, docs/refactor/
-       stage-13-enforce-and-document.md) -- read/written by kfx_sim's
-       thing_creature.c, the lowest-ranked of all real consumers
-       (kfx_net/kfx_frontend also read/write it). */
-    char active_panel_mnu_idx; /**< The MenuID of currently active panel menu, or 0 if none. */
+    /* active_panel_mnu_idx: kfx_render's kfx_local_view (refactor pass 5, S05). */
 
     /* Moved from game_legacy.h's standalone extern (stage 13.3,
        docs/refactor/stage-13-enforce-and-document.md) -- read broadly

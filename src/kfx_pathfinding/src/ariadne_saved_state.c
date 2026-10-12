@@ -8,12 +8,14 @@
  */
 /******************************************************************************/
 #include "pre_inc.h"
+#include <stdlib.h>
 #include "ariadne_saved_state.h"
 
 #include <string.h>
 
 #include "ariadne.h"
 #include "kfx_pathfinding_state.h"
+#include "ariadne_tringls.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -72,6 +74,30 @@ void ariadne_saved_state_read(const void *buf)
     visit_all(visit_read, &c);
     ariadne_update_restored_state_ready();
     set_nav_rule_default();
+}
+/* What a level's mesh starts from: the saved state's parts as start-up left them, restored at a level's start
+ * before the level builds its mesh, so no part of the previous level's mesh is left (refactor pass 5, S12; P5-F22
+ * and P5-F28 were two such parts). Only the data: the level's own set-up follows. */
+static unsigned char *ariadne_level_baseline = NULL;
+
+void ariadne_take_level_baseline(void)
+{
+    if (ariadne_level_baseline == NULL)
+        ariadne_level_baseline = (unsigned char *)malloc(ariadne_saved_state_size());
+    if (ariadne_level_baseline != NULL)
+        ariadne_saved_state_write(ariadne_level_baseline);
+}
+
+void ariadne_reset_for_level(void)
+{
+    if (ariadne_level_baseline == NULL)
+        return;
+    struct ReadCursor c = {(const unsigned char *)ariadne_level_baseline};
+    visit_all(visit_read, &c);
+    // the stand-in for an invalid triangle, outside the saved state: as the process started it
+    memset(&bad_triangle, 0, sizeof(bad_triangle));
+    // and the mesh is built from nothing, as in a process's first level
+    ariadne_update_reset_for_level();
 }
 /******************************************************************************/
 #ifdef __cplusplus

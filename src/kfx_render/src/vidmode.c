@@ -46,6 +46,7 @@
 #include "kfx_sim_state.h"
 #include "ports/ui_port.h"
 #include "ports/game_port.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -592,7 +593,7 @@ TbScreenMode setup_screen_mode(TbScreenMode nmode, TbBool failsafe)
     }
   }
   TbBool hi_res = ((LbGraphicsScreenHeight() < 400) ? false : true);
-  int64_t lens_mem = kfx_sim_state.applied_lens_type;
+  int64_t lens_mem = kfx_local_view.applied_lens_type;
   uint64_t flg_mem = RendererGetDrawFlags();
   TbBool was_minimal_res = (MinimalResolutionSetup || force_video_mode_reset);
   set_pointer_graphic_none();

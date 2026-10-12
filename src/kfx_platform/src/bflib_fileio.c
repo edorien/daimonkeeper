@@ -438,7 +438,8 @@ int64_t LbFileMakeFullPath(const int64_t append_cur_dir,
     }
     buf[namestart] = '\0';
   }
-  if ( strlen(filename)+namestart-1 < len )
+  // The name and its terminating NUL must both fit.
+  if ( strlen(filename)+namestart < len )
   {
     const char *ptr = filename;
     int64_t invlen;

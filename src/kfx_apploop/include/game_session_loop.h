@@ -44,6 +44,9 @@ TbBool keeper_screen_swap(void);
 TbBool keeper_wait_for_next_turn(void);
 void keeper_gameplay_loop(void);
 void game_loop(void);
+/** -framehash: the hash of the last world frame drawn (log_frame_hash()) and how many frames have been hashed so
+ *  far; false before the first. */
+TbBool game_last_frame_hash(uint64_t *hash, uint64_t *count);
 
 /* Called via SessionLoopPort (ports/session_loop_port.def) by
  * kfx_net while blocked on network I/O -- kfx_net is ranked below

@@ -37,16 +37,18 @@ target is called "keeperfx"; the file it produces is "daimonkeeper".
 
 3. Building for Windows
 
-Cross-compiled from Linux (what CI does) -- needs the MinGW-w64 i686 toolchain
-(g++-mingw-w64-i686), cmake and ninja:
+The Windows build is 64-bit (x86_64); 32-bit Windows isn't supported.
+
+Cross-compiled from Linux (what CI does) -- needs the MinGW-w64 x86_64 toolchain
+(g++-mingw-w64-x86-64), cmake and ninja:
 
   KFX_OS=windows ./build-cmake-linux.sh   # out/windows/daimonkeeper.exe, dist/windows/
 
-Natively on Windows -- from an MSYS2 MINGW32 environment with
-mingw-w64-i686-{gcc,cmake,ninja}, make, git, p7zip, curl and unzip:
+Natively on Windows -- from an MSYS2 MINGW64 environment with
+mingw-w64-x86_64-{gcc,cmake,ninja}, make, git, p7zip, curl and unzip:
 
   extraBuildScripts\build-package-windows.bat   (from a Command Prompt)
-  extraBuildScripts/build-package-windows.sh    (from a MINGW32 shell)
+  extraBuildScripts/build-package-windows.sh    (from a MINGW64 shell)
 
 4. Building a package
 

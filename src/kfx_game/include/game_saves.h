@@ -53,7 +53,8 @@ enum SaveGameChunks {
      SGC_AgentMemory    = 0x544E4741, //"AGNT" optional: External seat agents' memory (agent_memory.h)
      SGC_AriadneState   = 0x41495241, //"ARIA" the navigation mesh (ariadne_saved_state.h)
      SGC_KfxConfigState = 0x4746434B, //"KCFG" kfx_config_state's saved part (KFX_CONFIG_STATE_SAVED_*)
-     SGC_Product        = 0x444F5250  //"PROD" which game wrote the file (struct ProductChunk)
+     SGC_Product        = 0x444F5250, //"PROD" which game wrote the file (struct ProductChunk)
+     SGC_KfxLocalView   = 0x434F4C4B  //"KLOC" this machine's view of the game (kfx_render's kfx_local_view.h)
 };
 
 enum SaveGameChunkFlags {
@@ -70,10 +71,11 @@ enum SaveGameChunkFlags {
      SGF_KfxFrontendState = 0x8000,
      SGF_AriadneState   = 0x10000,
      SGF_KfxConfigState = 0x20000,
+     SGF_KfxLocalView   = 0x40000,
 };
-#define SGF_SavedGame      (SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_AriadneState|SGF_KfxConfigState|SGF_IntralevelData|SGF_LuaData)
+#define SGF_SavedGame      (SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_KfxLocalView|SGF_AriadneState|SGF_KfxConfigState|SGF_IntralevelData|SGF_LuaData)
 #define SGF_PacketStart    (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product)
-#define SGF_PacketContinue (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_AriadneState|SGF_KfxConfigState)
+#define SGF_PacketContinue (SGF_PacketHeader|SGF_PacketData|SGF_InfoBlock|SGF_Product|SGF_GameOrig|SGF_KfxSimState|SGF_KfxNetState|SGF_KfxGameState|SGF_KfxFrontendState|SGF_KfxLocalView|SGF_AriadneState|SGF_KfxConfigState)
 
 /* enum GameLoadStatus, enum CatalogueEntryFlags, struct CatalogueEntry
    moved to save_catalogue.h (kfx_net, stage 13.3) -- kfx_net's

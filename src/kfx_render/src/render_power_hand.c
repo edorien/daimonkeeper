@@ -53,6 +53,7 @@
 #include "ports/ui_port.h"
 #include "local_state.h"
 #include "local_camera.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -72,7 +73,7 @@ void draw_power_hand(void)
     struct UserState* ustate = get_user_state(get_local_user());
     if (local_state.display_needs_update)
         return;
-    if (kfx_sim_state.small_map_state == 2)
+    if (kfx_local_view.small_map_state == 2)
         return;
     if (replay_camera_detached())
         return;
@@ -88,13 +89,13 @@ void draw_power_hand(void)
         ps_units_per_px = calculate_relative_upp(46, get_video_scale_values()->units_per_pixel_ui, spr->SHeight);
     }
     // Now draw
-    if (((kfx_sim_state.operation_flags & GOF_ShowGui) != 0) && (kfx_sim_state.small_map_state != 2)
+    if (((kfx_sim_state.operation_flags & GOF_ShowGui) != 0) && (kfx_local_view.small_map_state != 2)
       && ui_mouse_is_over_panel_map(local_state.minimap_pos_x, local_state.minimap_pos_y))
     {
         MapSubtlCoord stl_x;
         MapSubtlCoord stl_y;
-        stl_x = kfx_sim_state.hand_over_subtile_x;
-        stl_y = kfx_sim_state.hand_over_subtile_y;
+        stl_x = kfx_local_view.hand_over_subtile_x;
+        stl_y = kfx_local_view.hand_over_subtile_y;
         SYNCDBG(7,"Drawing over pannel map");
         room = subtile_room_get(stl_x,stl_y);
         if ((!room_is_invalid(room)) && (subtile_revealed(stl_x, stl_y, player->id_number)))
@@ -103,7 +104,7 @@ void draw_power_hand(void)
 
             ui_draw_gui_panel_sprite_centered(GetMouseX()+scale_ui_value(24*kfx_runtime_settings.hand_scale), GetMouseY()+scale_ui_value(32*kfx_runtime_settings.hand_scale), ps_units_per_px, roomst->medsym_sprite_idx);
         }
-        if ((!power_hand_is_empty(player)) && (kfx_sim_state.small_map_state == 1))
+        if ((!power_hand_is_empty(player)) && (kfx_local_view.small_map_state == 1))
         {
             draw_mini_things_in_hand(GetMouseX()+scale_ui_value(10*kfx_runtime_settings.hand_scale), GetMouseY()+scale_ui_value(10*kfx_runtime_settings.hand_scale));
         }

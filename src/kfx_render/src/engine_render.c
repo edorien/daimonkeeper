@@ -80,6 +80,8 @@
 #include "list_walk.h"
 #include "player_colours.h"
 #include "terrain_audit.h"
+#include "engine_textures_hd.h"
+#include "engine_sprites_hd.h"
 #include "terrain_rough.h"
 #include "post_inc.h"
 
@@ -400,6 +402,7 @@ static void do_map_who(int64_t tnglist_idx);
 static void (*render_sprite_debug_fn) (struct Thing*, int64_t scrpos_x, int64_t scrpos_y) = NULL;
 static int64_t render_sprite_debug_level = 0;
 static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, unsigned char current_frame, unsigned char *outbuf);
+static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int64_t *scale_out);
 static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr);
 
 static TbBool animation_sprite_id_invalid(int64_t animation_sprite)
@@ -4090,7 +4093,8 @@ static TbBool terrain_subdivide_triangle(enum TerrainEmitKind kind, struct Engin
     return true;
 }
 
-/** Half a texel (16.16) kept clear of each edge of a texture block while rough terrain is on. */
+/** Half a texel (16.16) kept clear of each edge of a texture block while rough terrain is on: of a 32-res texel,
+ *  or of the finest HD texel while HD draws in precision mode (texture_hd_uv_shift()). */
 #define TERRAIN_UV_INSET 0x8000
 
 static void terrain_emit(enum TerrainEmitKind kind, struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, const int64_t uv[3][2], int64_t textr_id, int64_t a5)
@@ -4104,9 +4108,10 @@ static void terrain_emit(enum TerrainEmitKind kind, struct EngineCoord *ec1, str
     // liquids keep the full block: their scrolling relies on the wrap.
     if ((terrain_rough_settings.mode != TSM_Off) && (kind != TEK_GpolyUnlit))
     {
+        const int64_t uv_inset = TERRAIN_UV_INSET >> texture_hd_uv_shift();
         for (int i = 0; i < 3; i++)
             for (int c = 0; c < 2; c++)
-                inset[i][c] = TERRAIN_UV_INSET + uv[i][c] * (0x1FFFFF - 2 * TERRAIN_UV_INSET) / 0x1FFFFF;
+                inset[i][c] = uv_inset + uv[i][c] * (0x1FFFFF - 2 * uv_inset) / 0x1FFFFF;
         uv = (const int64_t (*)[2])inset;
     }
     if (terrain_subdivide_triangle(kind, ec1, ec2, ec3, uv, textr_id, a5))
@@ -4404,6 +4409,10 @@ static int64_t get_abyss_liquid_scroll(const struct CubeConfigStats *texturing)
     if (flag_is_set(texturing->properties_flags, CPF_IsWater)) {
         scroll += render_abyss_water_scroll;
     }
+    // Whole 32-res texels, a 4-texel jump at 128: with HD drawing in precision mode, the fraction too (02-design.md
+    // section 4.3).
+    if (texture_hd_uv_shift() > 0)
+        return (int64_t)(scroll * 65536.0);
     return TO_FIXED((int64_t)scroll);
 }
 
@@ -6235,8 +6244,69 @@ static void submit_perpixel_lighting(void)
                                   fade, sorted, light_count, heights, grid_w, grid_h);
 }
 
+/** Points the rasteriser at the texture of a block id (variation included): its HD version when it has one
+ *  this frame (engine_textures_hd.h), else the 32x32 block. */
+// Texture level of detail (texture resolution, Phase 4; docs/newFeatures/texture-resolution/02-design.md section
+// 5.3), for the Software renderer: the level whose texel is nearest a pixel. The isometric views draw
+// every block at one level per frame (a parallel projection: a top face's texel is the same size everywhere), so
+// no seams; first person picks per parent face, the front view per quad. The GPU gets the finest level and mips
+// in hardware.
+static int texture_lod_frame;
+
+/** The level of detail for a triangle: from its texel's size on screen, the geometric mean of its two axes. */
+static int texture_lod_for_triangle(const struct PolyPoint *a, const struct PolyPoint *b, const struct PolyPoint *c)
+{
+    if (!texture_hd_lod_matters())
+        return 0;
+    const int64_t xy[3][2] = { { a->X, a->Y }, { b->X, b->Y }, { c->X, c->Y } };
+    const int64_t uv[3][2] = { { a->U, a->V }, { b->U, b->V }, { c->U, c->V } };
+    double area, texel_px, texels_per_px;
+    if (!terrain_texel_density(xy, uv, &area, &texel_px, &texels_per_px))
+        return 0;
+    return texture_hd_lod_for_texel(sqrt(texel_px / texels_per_px));
+}
+
+/** The isometric views' level for this frame, from the projection of a top face: hori_offset and vert_offset are
+ *  the screen steps for 65536 map units along x and y, a texel is 8 units (32 to a 256-unit subtile). */
+static int texture_lod_isometric(void)
+{
+    if (!texture_hd_lod_matters())
+        return 0;
+    const double cross = fabs((double)hori_offset[0] * (double)vert_offset[1] - (double)hori_offset[1] * (double)vert_offset[0]);
+    return texture_hd_lod_for_texel(sqrt(cross) * 8.0 / 65536.0);
+}
+
+static void set_texture_block(int64_t block, int lod)
+{
+    struct TextureHdDraw draw;
+    // The GPU samples the finest level and picks its own (its texture array has the mip levels).
+    texture_hd_select(block, RendererWorldFrameCapturing() ? 3 : lod, &draw);
+    vec_map = (draw.indexed != NULL) ? (unsigned char *)draw.indexed : block_ptrs[block];
+    vec_map_rgba = draw.rgba;
+    vec_map_shift = draw.shift;
+    vec_map_parity = draw.parity;
+    vec_map_original_at_32 = draw.original_at_32;
+}
+
+/** Back to plain 32x32 blocks after the terrain is drawn. */
+static void reset_texture_block(void)
+{
+    vec_map_original_at_32 = 0;
+    vec_map_rgba = NULL;
+    vec_map_shift = 0;
+    vec_map_parity = 0;
+}
+
 static void world_draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c)
 {
+    // terrain_audit.h: every terrain triangle drawn (the overhead, first-person and front views' alike) counts
+    // towards the frame's texel density, by its area inside the view window.
+    if (terrain_audit_is_enabled())
+    {
+        const int64_t xy[3][2] = { { point_a->X, point_a->Y }, { point_b->X, point_b->Y }, { point_c->X, point_c->Y } };
+        const int64_t uv[3][2] = { { point_a->U, point_a->V }, { point_b->U, point_b->V }, { point_c->U, point_c->V } };
+        terrain_audit_texel_triangle(xy, uv, vec_window_width, vec_window_height);
+    }
     if (RendererWorldFrameCapturing())
         RendererWorldFrameAddPoly(point_a, point_b, point_c, vec_map);
     else
@@ -6262,7 +6332,9 @@ static void draw_subdivided_near_polygon(struct BucketKindPolygonNearFP *polygon
     struct PolyPoint point_j;
     struct PolyPoint point_k;
     struct PolyPoint point_l;
-    vec_map = block_ptrs[polygon_data->block];
+    // One level for the whole parent face, so its subdivided triangles share it.
+    set_texture_block(polygon_data->block, texture_lod_for_triangle(&polygon_data->vertex_first, &polygon_data->vertex_second,
+        &polygon_data->vertex_third));
     switch (polygon_data->subtype)
     {
     case 0:
@@ -6751,7 +6823,9 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
                     audit_hash_polygon(bucket_num, item.b->kind, 0, item.polygonStandard->block, pts, NULL);
                 }
                 vec_mode = VM_QuadTextured;
-                vec_map = block_ptrs[item.polygonStandard->block];
+                set_texture_block(item.polygonStandard->block, (lens_mode == 0) ? texture_lod_frame :
+                    texture_lod_for_triangle(&item.polygonStandard->vertex_first, &item.polygonStandard->vertex_second,
+                        &item.polygonStandard->vertex_third));
                 world_draw_gpoly(&item.polygonStandard->vertex_first, &item.polygonStandard->vertex_second, &item.polygonStandard->vertex_third);
                 break;
             case QK_PolygonNearFP: // 'Near' textured polygons (closer to camera) in 1st person view
@@ -6772,10 +6846,26 @@ static void display_drawlist(void) // Draws isometric and 1st person view. Not f
                 // TODO: this could be cached
                 draw_keepsprite_unscaled_in_buffer(item.creatureShadow->anim_sprite, item.creatureShadow->angle, item.creatureShadow->current_frame, big_scratch);
                 vec_map = big_scratch;
+                vec_map_scale = 1;
+                vec_map_coverage = false;
+                // With an HD sprite pack, soft shadows: coverage at the art's scale (Phase 10).
+                if (sprite_hd_soft_shadows())
+                {
+                    int64_t cover_scale = 1;
+                    const unsigned char *cover = soft_shadow_coverage(big_scratch, &cover_scale);
+                    if (cover != NULL)
+                    {
+                        vec_map = (unsigned char *)cover;
+                        vec_map_scale = cover_scale;
+                        vec_map_coverage = true;
+                    }
+                }
                 vec_mode = VM_SpriteTranslucent;
                 vec_shade = (int64_t)clamp(item.creatureShadow->vertex_first.S, 0, 63);
                 trig(&item.creatureShadow->vertex_first, &item.creatureShadow->vertex_second, &item.creatureShadow->vertex_third);
                 trig(&item.creatureShadow->vertex_first, &item.creatureShadow->vertex_third, &item.creatureShadow->vertex_fourth);
+                vec_map_scale = 1;
+                vec_map_coverage = false;
                 break;
             case QK_SlabSelector: // Selection outline box for placing/digging slabs
                 draw_clipped_line(
@@ -6986,7 +7076,10 @@ void draw_view(struct Camera *cam, unsigned char a2)
     getpoly = poly_pool;
     memset(buckets, 0, sizeof(buckets));
     terrain_audit_frame_begin(get_gameturn());
+    sprite_audit_frame_begin(get_gameturn());
     terrain_rough_frame_begin();
+    texture_hd_frame_begin();
+    sprite_hd_frame_begin();
     terrain_audit_note_camera(x, y, z, cam->rotation_angle_x, camera_zoom);
     if (terrain_audit_is_enabled())
     {
@@ -7050,6 +7143,7 @@ void draw_view(struct Camera *cam, unsigned char a2)
         do_perspective_rotation(x, y, z);
         cells_away = compute_cells_away();
     }
+    texture_lod_frame = (lens_mode == 0) ? texture_lod_isometric() : 0;
 
     xcell = (x >> 8);
     aposc = -(x & 0xFF);
@@ -7068,6 +7162,7 @@ void draw_view(struct Camera *cam, unsigned char a2)
 
     terrain_audit_mark_drawlist();
     display_drawlist();
+    reset_texture_block();
     terrain_audit_frame_end();
     cam->zoom = zoom_mem;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
     SYNCDBG(9,"Finished");
@@ -7086,17 +7181,20 @@ static void draw_texturedquad_block(struct BucketKindTexturedQuad *txquad)
     struct PolyPoint point_c;
     struct PolyPoint point_d;
     vec_mode = VM_QuadTextured;
+    // The front view's level, per quad: one block across zoom_x by zoom_y (<< 8) screen units.
+    const int64_t quad_px = min((txquad->zoom_x >> 8), (txquad->zoom_y >> 8)) / pixel_size;
+    const int lod = texture_hd_lod_matters() ? texture_hd_lod_for_texel((double)quad_px / 32.0) : 0;
     switch (txquad->marked_mode) // Is visible/selected
     {
     case 0:
-        vec_map = block_ptrs[TEXTURE_LAND_MARKED_LAND];
+        set_texture_block(TEXTURE_LAND_MARKED_LAND, lod);
         break;
     case 1:
-        vec_map = block_ptrs[TEXTURE_LAND_MARKED_GOLD];
+        set_texture_block(TEXTURE_LAND_MARKED_GOLD, lod);
         break;
     case 3:
     default:
-        vec_map = block_ptrs[txquad->texture_idx];
+        set_texture_block(txquad->texture_idx, lod);
         break;
     }
     point_a.X = (txquad->texture_x >> 8) / pixel_size;
@@ -7772,6 +7870,18 @@ static void draw_keepersprite(int64_t x, int64_t y, const struct KeeperSprite * 
         WARNDBG(9,"Unallocated KeeperSprite %" PRId64 " can't be drawn at (%" PRId64 ",%" PRId64 ")",(int64_t)(kspr_idx),(int64_t)(x),(int64_t)(y));
         return;
     }
+    // HD sprites (engine_sprites_hd.c): the same geometry, the HD frame's colours; an alpha-ramp draw, the frame's
+    // additive art.
+    {
+        struct TbHdSpriteSource hd;
+        if (EngineSpriteDrawUsingAlpha)
+            sprite_hd_note_alpha_frame(kspr_idx);
+        const TbBool have = EngineSpriteDrawUsingAlpha
+            ? sprite_hd_alpha_source(kspr_idx, *sprite_data_ptr, kspr->SWidth, kspr->SHeight, clipped_height, global_scaler, &hd)
+            : sprite_hd_source(kspr_idx, *sprite_data_ptr, kspr->SWidth, kspr->SHeight, clipped_height, global_scaler, &hd);
+        if (have && LbSpriteDrawHdUsingScalingData(x, y, &hd))
+            return;
+    }
     const struct TbSourceBuffer buffer = {
         *sprite_data_ptr,
         kspr->SWidth,
@@ -7793,28 +7903,6 @@ static void set_thing_pointed_at(struct Thing *thing)
     }
 }
 
-static void draw_single_keepersprite_omni_xflip(int64_t kspos_x, int64_t kspos_y, struct KeeperSprite *kspr, int64_t kspr_idx, int64_t scale)
-{
-    int64_t src_dy = (int64_t)kspr->FrameHeight;
-    int64_t src_dx = (int64_t)kspr->FrameWidth;
-    int64_t x = src_dx - (int64_t)kspr->FrameOffsW - (int64_t)kspr->SWidth;
-    int64_t y = kspr->FrameOffsH;
-    int64_t sp_dy = (src_dy * scale) >> 5;
-    int64_t sp_dx = (src_dx * scale) >> 5;
-    LbSpriteSetScalingData(kspos_x, kspos_y, src_dx, src_dy, sp_dx, sp_dy);
-    if ( thing_being_displayed_is_creature )
-    {
-      if ( (kfx_render_state.pointer_x >= kspos_x) && (kfx_render_state.pointer_x <= sp_dx + kspos_x) )
-      {
-          if ( (kfx_render_state.pointer_y >= kspos_y) && (kfx_render_state.pointer_y <= sp_dy + kspos_y) )
-          {
-              set_thing_pointed_at(thing_being_displayed);
-          }
-      }
-    }
-    draw_keepersprite(x, y, kspr, kspr_idx);
-}
-
 static void draw_single_keepersprite_omni(int64_t kspos_x, int64_t kspos_y, struct KeeperSprite *kspr, int64_t kspr_idx, int64_t scale)
 {
     int64_t src_dy = (int64_t)kspr->FrameHeight;
@@ -7824,6 +7912,7 @@ static void draw_single_keepersprite_omni(int64_t kspos_x, int64_t kspos_y, stru
     int64_t sp_dy = (src_dy * scale) >> 5;
     int64_t sp_dx = (src_dx * scale) >> 5;
     LbSpriteSetScalingData(kspos_x, kspos_y, src_dx, src_dy, sp_dx, sp_dy);
+    sprite_audit_draw(kspos_x, kspos_y, src_dx, src_dy, sp_dx, sp_dy);
     if ( thing_being_displayed_is_creature )
     {
       if ( (kfx_render_state.pointer_x >= kspos_x) && (kfx_render_state.pointer_x <= sp_dx + kspos_x) )
@@ -7849,6 +7938,7 @@ static void draw_single_keepersprite_xflip(int64_t kspos_x, int64_t kspos_y, str
     int64_t sp_dy = (src_dy * scale) >> 5;
     int64_t sp_dx = (src_dx * scale) >> 5;
     LbSpriteSetScalingData(sp_x, sp_y, src_dx, src_dy, sp_dx, sp_dy);
+    sprite_audit_draw(sp_x, sp_y, src_dx, src_dy, sp_dx, sp_dy);
     if ( thing_being_displayed_is_creature )
     {
       if ( (kfx_render_state.pointer_x >= sp_x) && (kfx_render_state.pointer_x <= sp_dx + sp_x) )
@@ -7875,11 +7965,12 @@ static void draw_single_keepersprite(int64_t kspos_x, int64_t kspos_y, struct Ke
     int64_t sp_dy = (src_dy * scale) >> 5;
     int64_t sp_dx = (src_dx * scale) >> 5;
     LbSpriteSetScalingData(sp_x, sp_y, src_dx, src_dy, sp_dx, sp_dy);
+    sprite_audit_draw(sp_x, sp_y, src_dx, src_dy, sp_dx, sp_dy);
     if ( thing_being_displayed_is_creature )
     {
-        if ( (kfx_render_state.pointer_x >= x) && (kfx_render_state.pointer_x <= sp_dx + x) )
+        if ( (kfx_render_state.pointer_x >= sp_x) && (kfx_render_state.pointer_x <= sp_dx + sp_x) )
         {
-            if ( (kfx_render_state.pointer_y >= y) && (kfx_render_state.pointer_y <= sp_dy + y) )
+            if ( (kfx_render_state.pointer_y >= sp_y) && (kfx_render_state.pointer_y <= sp_dy + sp_y) )
             {
                 set_thing_pointed_at(thing_being_displayed);
             }
@@ -7987,13 +8078,8 @@ void process_keeper_sprite(int64_t x, int64_t y, int64_t kspr_base, int64_t kspr
         }
         kspr = &creature_sprites[sprite_group];
         draw_idx = sprite_group + kspr_idx;
-        if ( needs_xflip )
-        {
-            draw_single_keepersprite_omni_xflip(scaled_x, scaled_y, kspr, draw_idx, scale);
-        } else
-        {
-            draw_single_keepersprite_omni(scaled_x, scaled_y, kspr, draw_idx, scale);
-        }
+        // needs_xflip is only ever set for Rotable 2, so an omni sprite is never flipped.
+        draw_single_keepersprite_omni(scaled_x, scaled_y, kspr, draw_idx, scale);
     } else
     if (creature_sprites->Rotable == 2)
     {
@@ -8413,8 +8499,137 @@ static void sprite_to_sbuff_xflip(const TbSpriteData sprdata, unsigned char *out
     }
 }
 
+/** What draw_keepsprite_unscaled_in_buffer() last drew: the frame (its table index or custom slot id, data and size),
+ *  whether mirrored, and the area of the buffer it cleared. For the soft shadow (Phase 10). */
+struct ShadowFrameInfo {
+    TbBool valid;
+    uint64_t keepsprite_id;
+    TbSpriteData data;
+    int64_t width, height;
+    TbBool flip;
+    int64_t fill_w, fill_h;
+};
+static struct ShadowFrameInfo shadow_frame;
+
+#define SOFT_SHADOW_MAX_SCALE 4
+/** The soft shadow's coverage (Phase 10), 256 * scale texels a row. */
+static unsigned char soft_shadow_cover[256 * SOFT_SHADOW_MAX_SCALE * 256 * SOFT_SHADOW_MAX_SCALE];
+static unsigned char soft_shadow_line[256 * SOFT_SHADOW_MAX_SCALE];
+
+/** One pass of a box blur of radius r along a run of n values `step` apart. */
+static void soft_shadow_box(unsigned char *p, int64_t n, int64_t step, int64_t r)
+{
+    int64_t sum = 0;
+    for (int64_t i = 0; i < n; i++)
+        soft_shadow_line[i] = p[i * step];
+    for (int64_t i = -r; i < r; i++)
+        sum += ((i >= 0) && (i < n)) ? soft_shadow_line[i] : 0;
+    for (int64_t i = 0; i < n; i++)
+    {
+        sum += (i + r < n) ? soft_shadow_line[i + r] : 0;
+        p[i * step] = (unsigned char)(sum / (2 * r + 1));
+        sum -= (i - r >= 0) ? soft_shadow_line[i - r] : 0;
+    }
+}
+
+/**
+ * Soft creature shadows (docs/refactor/sprites/ Phase 10, with an HD sprite pack): the shadow's coverage, 0..255, at
+ * `scale` texels per original texel -- the frame's HD art's alpha (its pack's scale), else the original silhouette
+ * `mask` (256x256, what draw_keepsprite_unscaled_in_buffer() drew) at 2x -- blurred by about an original texel. The
+ * HD art is placed where the original's drawn texels are (their box against the frame's own opaque columns), which
+ * follows draw_keepsprite_unscaled_in_buffer()'s placement, mirroring included. NULL when there is nothing to draw.
+ */
+static const unsigned char *soft_shadow_coverage(const unsigned char *mask, int64_t *scale_out)
+{
+    if (!shadow_frame.valid)
+        return NULL;
+    // The original's drawn box in the buffer (its cleared area, and the column past it a mirrored frame reaches).
+    const int64_t area_w = min(shadow_frame.fill_w + 1, (int64_t)256), area_h = min(shadow_frame.fill_h, (int64_t)256);
+    int64_t x0 = 256, y0 = 256, x1 = -1, y1 = -1;
+    for (int64_t y = 0; y < area_h; y++)
+        for (int64_t x = 0; x < area_w; x++)
+            if (mask[y * 256 + x])
+            {
+                x0 = min(x0, x); x1 = max(x1, x);
+                y0 = min(y0, y); y1 = max(y1, y);
+            }
+    if (x1 < 0)
+        return NULL;
+    const TbPixel *art = NULL;
+    int64_t stride = 0, k = 2;
+    const int64_t w = shadow_frame.width, h = shadow_frame.height;
+    const int64_t kspr_idx = (int64_t)shadow_frame.keepsprite_id;
+    if (!sprite_hd_shadow_art(kspr_idx, shadow_frame.data, w, h, &art, &stride, &k) || (k < 1) || (k > SOFT_SHADOW_MAX_SCALE))
+    {
+        art = NULL;
+        k = 2;
+    }
+    const int64_t span = 256 * k;
+    const int64_t margin = 2 * k;
+    const int64_t rx0 = max((int64_t)0, x0 * k - margin), ry0 = max((int64_t)0, y0 * k - margin);
+    const int64_t rx1 = min(span, (x1 + 1) * k + margin), ry1 = min(span, (y1 + 1) * k + margin);
+    for (int64_t y = ry0; y < ry1; y++)
+        memset(&soft_shadow_cover[y * span + rx0], 0, (size_t)(rx1 - rx0));
+    if (art == NULL)
+    {
+        for (int64_t y = y0; y <= y1; y++)
+            for (int64_t x = x0; x <= x1; x++)
+                if (mask[y * 256 + x])
+                    for (int64_t dy = 0; dy < k; dy++)
+                        memset(&soft_shadow_cover[(y * k + dy) * span + x * k], 255, (size_t)k);
+    }
+    else
+    {
+        // The frame's opaque columns and rows, to put its crop where the original's drawn box is.
+        int64_t c0 = w, c1 = -1, r0 = h, r1 = -1;
+        const unsigned char *p = shadow_frame.data;
+        for (int64_t r = 0; r < h; r++)
+        {
+            int64_t c = 0;
+            for (;;)
+            {
+                const int64_t n = (signed char)*p++;
+                if (n == 0)
+                    break;
+                if (n < 0) { c -= n; continue; }
+                c0 = min(c0, c); c1 = max(c1, c + n - 1);
+                r0 = min(r0, r); r1 = max(r1, r);
+                c += n;
+                p += n;
+            }
+        }
+        if (c1 < 0)
+            return NULL;
+        for (int64_t hy = 0; hy < h * k; hy++)
+        {
+            const int64_t Y = (y0 - r0) * k + hy;
+            if ((Y < ry0) || (Y >= ry1))
+                continue;
+            for (int64_t hx = 0; hx < w * k; hx++)
+            {
+                const int64_t X = shadow_frame.flip ? ((x1 + c0 + 1) * k - 1 - hx) : ((x0 - c0) * k + hx);
+                if ((X < rx0) || (X >= rx1))
+                    continue;
+                soft_shadow_cover[Y * span + X] = art[hy * stride + hx].a;
+            }
+        }
+    }
+    // Two box passes each way: a soft edge about an original texel wide.
+    const int64_t r = max((int64_t)1, k / 2);
+    for (int pass = 0; pass < 2; pass++)
+    {
+        for (int64_t y = ry0; y < ry1; y++)
+            soft_shadow_box(&soft_shadow_cover[y * span + rx0], rx1 - rx0, 1, r);
+        for (int64_t x = rx0; x < rx1; x++)
+            soft_shadow_box(&soft_shadow_cover[ry0 * span + x], ry1 - ry0, span, r);
+    }
+    *scale_out = k;
+    return soft_shadow_cover;
+}
+
 static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, unsigned char current_frame, unsigned char *outbuf)
 {
+    shadow_frame.valid = false;
     struct KeeperSprite *kspr_arr;
     uint64_t kspr_idx;
     struct KeeperSprite *kspr;
@@ -8469,6 +8684,7 @@ static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, un
         kspr = &kspr_arr[current_frame];
         fill_w = kspr->FrameWidth;
         fill_h = kspr->FrameHeight;
+        shadow_frame = (struct ShadowFrameInfo){ true, keepsprite_id, sprite_data, kspr->SWidth, kspr->SHeight, flip_range, fill_w, fill_h };
         if ( flip_range )
         {
             tmpbuf = outbuf;
@@ -8517,6 +8733,7 @@ static void draw_keepsprite_unscaled_in_buffer(int64_t kspr_n, int64_t angle, un
         {
             sprite_data = *keepsprite[keepsprite_id];
         }
+        shadow_frame = (struct ShadowFrameInfo){ true, keepsprite_id, sprite_data, kspr->SWidth, kspr->SHeight, flip_range, fill_w, fill_h };
         if ( flip_range )
         {
             tmpbuf = outbuf;
@@ -9221,6 +9438,9 @@ void draw_frontview_engine(struct Camera *cam)
     calculate_hud_scale(cam);
     camera_zoom = scale_camera_zoom_to_screen(cam->zoom);
     frame_wibble_generate();
+    // Before the quads are built: their liquid scroll depends on whether HD draws (texture_hd_uv_shift()).
+    texture_hd_frame_begin();
+    sprite_hd_frame_begin();
     zoom_mem = cam->zoom;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
     cam->zoom = camera_zoom;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
     cam_x = cam->mappos.x.val;
@@ -9282,6 +9502,10 @@ void draw_frontview_engine(struct Camera *cam)
         return;
     }
 
+    // terrain_audit.h: the front view has no lattice mesh, but its quads count towards texel density.
+    terrain_audit_frame_begin(get_gameturn());
+    sprite_audit_frame_begin(get_gameturn());
+    terrain_audit_note_camera(cam_x, cam_y, cam->mappos.z.val, cam->rotation_angle_x, camera_zoom);
     update_frontview_pointed_block(zoom, qdrant, px, py, qx, qy);
     update_local_mouse_light();
     if ( (map_volume_box.visible) && (!ui_game_is_busy_doing_gui()) && !replay_camera_detached() )
@@ -9330,7 +9554,10 @@ void draw_frontview_engine(struct Camera *cam)
         stl_y += y_step2[qdrant];
     }
 
+    terrain_audit_mark_drawlist();
     display_fast_drawlist(cam);
+    reset_texture_block();
+    terrain_audit_frame_end();
     LbScreenLoadGraphicsWindow(&grwnd);
     cam->zoom = zoom_mem;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
     SYNCDBG(9,"Finished");

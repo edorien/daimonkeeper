@@ -32,94 +32,32 @@ extern "C" {
 
 // enum CreatureGraphicsInstances moved to globals.h (stage 13.3) -- see there.
 /******************************************************************************/
-#pragma pack(1)
-
 struct Thing;
 
-/**
- * Enhanced TbSprite structure, with additional fields for thing animation sprites.
- */
-enum FrameFlags {
-    FFL_NoShadows = 1,
-};
-
-struct KeeperSprite {
-  uint64_t DataOffset;
-
-  int64_t SWidth;
-  int64_t SHeight;
-  int64_t FrameWidth;
-  int64_t FrameHeight;
-  unsigned char Rotable;
-  unsigned char FramesCount;
-  int64_t FrameOffsW;
-  int64_t FrameOffsH;
-
-  int64_t offset_x;
-  int64_t offset_y;
-
-  int64_t shadow_offset;
-  int64_t frame_flags;
-};
-
-// Layout of one entry of the original game's data/creature.tab: a FILE FORMAT, so fixed-width on purpose (the
-// in-memory struct KeeperSprite above is widened on load, see creature_table_load_unpack()).
-#pragma pack(1)
-struct KeeperSpriteDisk {
-    uint32_t DataOffset;
-    unsigned char SWidth;
-    unsigned char SHeight;
-    unsigned char FrameWidth;
-    unsigned char FrameHeight;
-    unsigned char Rotable;
-    unsigned char FramesCount;
-    unsigned char FrameOffsW;
-    unsigned char FrameOffsH;
-    int16_t offset_x;
-    int16_t offset_y;
-};
-#pragma pack()
-
-// Duplicated from kfx_render's engine_render.h (KEEPERSPRITE_ADD_OFFSET/
-// KEEPERSPRITE_ADD_NUM) rather than included, to avoid a kfx_sim ->
-// kfx_render layering violation for two stable sprite-index-range
-// constants -- moved here from creature_graphics.c so creature_table_add[]'s
-// extern declaration below can also use it (needs a complete array type
-// for sizeof() at every #include site, e.g. kfx_render's custom_sprites.c).
-// See docs/refactor/stage-13-enforce-and-document.md.
+// The thing sprites themselves (struct KeeperSprite, creature.tab, the custom sprites' tables) are kfx_render's:
+// keeper_sprites.h. The simulation needs only each animation's frame count (keepersprite_frames() below).
+// The custom sprites' animation ids (kfx_render's KEEPERSPRITE_ADD_OFFSET/_NUM are these): ids from
+// SIM_KEEPERSPRITE_ADD_OFFSET on are the sprites mods' zips add (custom_sprites.c).
 #define SIM_KEEPERSPRITE_ADD_OFFSET 16384
 #define SIM_KEEPERSPRITE_ADD_NUM 16383
 
 /******************************************************************************/
-//extern unsigned short creature_graphics[][22];
-extern struct KeeperSprite *creature_table;
-// creature_table_add[] is now defined here too (creature_graphics.c),
-// next to creature_table above -- moved down from kfx_render's
-// custom_sprites.c (docs/refactor/todo/
-// remove-symbol-level-layering-residuals.md), which still legitimately
-// *populates* it during sprite loading from its higher-ranked layer.
-extern struct KeeperSprite creature_table_add[SIM_KEEPERSPRITE_ADD_NUM];
-extern size_t creature_table_length;
-/******************************************************************************/
-
-#pragma pack()
-/******************************************************************************/
 struct PickedUpOffset *get_creature_picked_up_offset(struct Thing *thing);
 
-uint64_t keepersprite_index(int64_t n);
-struct KeeperSprite * keepersprite_array(int64_t n);
-unsigned char keepersprite_frames(int64_t n); // This returns number of frames in animation
-unsigned char keepersprite_rotable(int64_t n);
-void get_keepsprite_unscaled_dimensions(int64_t kspr_anim, int64_t angle, int64_t frame, int64_t *orig_w, int64_t *orig_h, int64_t *unsc_w, int64_t *unsc_h);
+/** The number of frames of animation id n: what times the animation (the original ids below
+ *  CREATURE_FRAMELIST_LENGTH, the custom ones from SIM_KEEPERSPRITE_ADD_OFFSET). 0, with an error logged, for an
+ *  original id no sprite table has published. */
+unsigned char keepersprite_frames(int64_t n);
+/** Publishes animation id n's frame count: kfx_render's sprite tables call it as they load (keeper_sprites.c). */
+void keepersprite_set_frames(int64_t n, unsigned char frames);
+/** Forgets animation id n's frame count (tests; an original id then reads as unpublished). */
+void keepersprite_forget_frames(int64_t n);
 int64_t get_lifespan_of_animation(int64_t ani, int64_t speed);
 int64_t get_creature_anim(struct Thing *thing, int64_t frame);
 int64_t get_creature_model_graphics(int64_t crmodel, int64_t frame);
 // set_creature_model_graphics moved to kfx_config's config_creature.h (stage 13.3).
 void set_creature_graphic(struct Thing *thing);
 void update_creature_rendering_flags(struct Thing *thing);
-
-size_t creature_table_load_get_size(size_t disk_size);
-void creature_table_load_unpack(unsigned char *src, size_t disk_size);
 
 void init_censorship(void);
 /******************************************************************************/

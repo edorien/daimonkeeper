@@ -1069,7 +1069,7 @@ static TbBool spell_effect_apply_fear(const struct SpellEffectContext *ctx)
             struct PlayerInfo* player = get_player(thing->owner);
             if (player->controlled_thing_idx == thing->index)
             {
-                char active_menu = kfx_sim_state.active_panel_mnu_idx;
+                char active_menu = render_local_view_active_panel_menu();
                 leave_creature_as_controller(player, thing);
                 control_creature_as_passenger(player, thing);
                 if (is_my_player(player))
@@ -1102,7 +1102,7 @@ static TbBool spell_effect_remove_fear(const struct SpellEffectContext *ctx)
     if (is_thing_passenger_controlled_by_player(thing,thing->owner))
     {
         struct PlayerInfo* player = get_player(thing->owner);
-        char active_menu = kfx_sim_state.active_panel_mnu_idx;
+        char active_menu = render_local_view_active_panel_menu();
         leave_creature_as_passenger(player, thing);
         control_creature_as_controller(player, thing);
         if (is_my_player(player))
@@ -1546,9 +1546,8 @@ void process_thing_spell_teleport_effects(struct Thing *thing, struct CastedSpel
                 }
                 case 16: // Fight
                 {
-                    // visible_battles[] is battle panel state, refilled by
-                    // maintain_my_battle_list() only for the local client's own player;
-                    // for every other player it stays zeroed. Ask the battle list itself.
+                    // The battle panel's list is this machine's view (kfx_local_view);
+                    // ask the battle list itself.
                     if (find_first_battle_of_mine(thing->owner) != 0)
                     {
                         int64_t count = 0;
@@ -6100,17 +6099,16 @@ TngUpdateRet update_creature(struct Thing *thing)
             }
         }
         struct PlayerInfo* player = get_player(thing->owner);
-        struct UserState* ustate = get_user_state(player->user_id);
         if (creature_under_spell_effect(thing, CSAfF_Freeze))
         {
-            if (!flag_is_set(ustate->additional_flags, UsrAF_FreezePaletteIsActive))
+            if (!render_user_freeze_palette_active(player->user_id))
             {
                 render_PaletteSetUserViewPalette(player->user_id, VPal_Freeze);
             }
         }
         else
         {
-            if (flag_is_set(ustate->additional_flags, UsrAF_FreezePaletteIsActive))
+            if (render_user_freeze_palette_active(player->user_id))
             {
                 render_PaletteSetUserViewPalette(player->user_id, VPal_Engine);
             }

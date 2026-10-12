@@ -163,16 +163,18 @@ SKIP_WINDOWS=1 ./build-package.sh             # full package -> dist/linux/
 
 ### Windows
 
-**Cross-compiled from Linux** (this is what CI runs) — needs a MinGW-w64 i686
-toolchain (`g++-mingw-w64-i686`), `cmake`, `ninja`:
+The Windows build is 64-bit (x86_64); 32-bit Windows isn't supported.
+
+**Cross-compiled from Linux** (this is what CI runs) — needs a MinGW-w64 x86_64
+toolchain (`g++-mingw-w64-x86-64`), `cmake`, `ninja`:
 
 ```bash
 KFX_OS=windows ./build-cmake-linux.sh                 # build out/windows/daimonkeeper.exe
 USE_DOCKER=1 KFX_OS=windows ./build-cmake-linux.sh    # do it in an Ubuntu 24.04 container
 ```
 
-**Natively on Windows** — from an [MSYS2](https://www.msys2.org) *MINGW32*
-environment with `mingw-w64-i686-{gcc,cmake,ninja}`, `make`, `git`, `p7zip`,
+**Natively on Windows** — from an [MSYS2](https://www.msys2.org) *MINGW64*
+environment with `mingw-w64-x86_64-{gcc,cmake,ninja}`, `make`, `git`, `p7zip`,
 `curl`, `unzip` installed:
 
 ```bat
@@ -180,7 +182,7 @@ build-package-windows.bat        REM MinGW build + full package -> pkg\*.7z and 
 ```
 
 Run it from an ordinary Command Prompt; it boots MSYS2 and calls
-`build-package-windows.sh` (which also works if run directly from a MINGW32
+`build-package-windows.sh` (which also works if run directly from a MINGW64
 shell). It does not do the Linux build or the coverage pass.
 
 - Build details, layout and conventions: [CLAUDE.md](CLAUDE.md)

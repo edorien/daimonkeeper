@@ -80,6 +80,9 @@ struct KeeperFxUiConfig keeperfx_ui_config = {
     .ui_font = "AUTO",
     .hud_position = 1, // HudPos_Left
     .gui_icon_pack = "NONE",
+    .asset_pack = "NONE",
+    .asset_pack_memory = 1, // AUTO
+    .asset_pack_fill = 0,
     .minimap_corner = 1, // HudMinimalCorner_UpperLeft
     .overhead_fade = 60,
     .rough_terrain = 2, // walls
@@ -165,6 +168,33 @@ const struct NamedCommand lighting_type[] = {
   {"CLASSIC",  1},
   {"PERPIXEL", 2},
   {NULL,       0},
+  };
+
+// TEXTURE_FILTER (docs/newFeatures/texture-resolution/), 1-based like the others: config value - 1 is
+// RENDERER_TEXFILTER_*.
+const struct NamedCommand texture_filter_type[] = {
+  {"NEAREST",  1},
+  {"SHARP",    2},
+  {"BILINEAR", 3},
+  {"TRILINEAR",4},
+  {NULL,       0},
+  };
+
+// ASSET_PACK_MEMORY: the memory the HD art of asset packs may take (asset_pack_memory_bytes()), 1-based like the
+// others; AUTO is a quarter of the system's memory, at least 3 GiB.
+const struct NamedCommand asset_pack_memory_type[] = {
+  {"AUTO",  1},
+  {"1GB",   2},
+  {"2GB",   3},
+  {"3GB",   4},
+  {"4GB",   5},
+  {"6GB",   6},
+  {"8GB",   7},
+  {"12GB",  8},
+  {"16GB",  9},
+  {"24GB", 10},
+  {"32GB", 11},
+  {NULL,    0},
   };
 
 // ROUGH_TERRAIN (docs/newFeatures/terrain-v2/), 1-based like the others.
@@ -308,6 +338,14 @@ const struct NamedCommand conf_commands[] = {
   {"ROUGH_TERRAIN"                 , 68}, // read through its options-screen row
   {"ROUGH_TERRAIN_DEPTH"           , 69}, // likewise
   {"ROUGH_TERRAIN_CORNERS"         , 70}, // likewise
+  {"TEXTURE_FILTER"                , 71}, // likewise
+  {"TERRAIN_TEXTURES"              , 72}, // replaced by ASSET_PACK (2026-10-12): ignored
+  {"TEXTURE_MIPMAPS"               , 73}, // read through its options-screen row
+  {"THING_SPRITES"                 , 74}, // likewise
+  {"SPRITE_TRUE_COLOUR"            , 75}, // read through its options-screen row
+  {"ASSET_PACK"                    , 76},
+  {"ASSET_PACK_MEMORY"             , 77}, // read through its options-screen row
+  {"ASSET_PACK_FILL"               , 78}, // likewise
   {NULL,                   0},
   };
 
@@ -972,6 +1010,13 @@ static void load_file_configuration(const char *fname, const char *sname, const 
               CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
           }
           break;
+      case 76: // ASSET_PACK -- "NONE" or an fxdata/asset_packs/ sub-dir name, an HD sprite and/or texture pack
+                // (engine_sprites_hd.c and engine_textures_hd.c reload when it changes).
+          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+              snprintf(keeperfx_ui_config.asset_pack, sizeof(keeperfx_ui_config.asset_pack), "%s", word_buf);
+          else
+              CONFWRNLOG("Couldn't recognize \"%s\" command parameter in %s file.",COMMAND_TEXT(cmd_num),config_textname);
+          break;
       case 58: // REPLAY_MAX_SIZE
           i = conf_parameter_number(buf, &pos, len);
           if (i >= 0) {
@@ -1043,6 +1088,8 @@ static void load_file_configuration(const char *fname, const char *sname, const 
       case 4: // KEYBOARD
       case 23: //SKIP_HEART_ZOOM
       case 32: // COMMAND_CHAR
+      case 72: // TERRAIN_TEXTURES (ASSET_PACK now)
+      case 74: // THING_SPRITES (likewise)
           CONFLOG("The \"%s\" setting is depricated.", COMMAND_TEXT(cmd_num));
           break;
       default:
@@ -1466,6 +1513,25 @@ TbBool keeperfx_cfg_write_values(const struct KeeperfxCfgEdit *edits, int64_t ed
         return false;
     }
     return keeperfx_cfg_write_values_to_file(loaded_keeperfx_cfg_path, edits, edits_count);
+}
+
+uint64_t asset_pack_memory_bytes(uint64_t system_bytes)
+{
+    static const int64_t gib[] = {0, 0, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32}; // by asset_pack_memory_type[] value
+    const int64_t v = keeperfx_ui_config.asset_pack_memory;
+    if ((v >= 2) && (v < (int64_t)(sizeof(gib) / sizeof(gib[0]))))
+        return (uint64_t)gib[v] << 30;
+    const uint64_t floor = (uint64_t)3 << 30;
+    return (system_bytes / 4 > floor) ? system_bytes / 4 : floor;
+}
+
+TbBool asset_pack_dir(const char *pack, const char *kind, char *buf, size_t size)
+{
+    buf[0] = '\0';
+    if ((pack == NULL) || (pack[0] == '\0') || (strcasecmp(pack, "NONE") == 0))
+        return false;
+    snprintf(buf, size, "%s/%s/%s", prepare_file_path(FGrp_FxData, "asset_packs"), pack, kind);
+    return true;
 }
 
 /******************************************************************************/

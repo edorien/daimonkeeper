@@ -1784,6 +1784,16 @@ void ariadne_mark_map_dirty_for_navigation(void)
 }
 
 /******************************************************************************/
+/** A level's start, after its saved state went back to start-up's (ariadne_reset_for_level()): the mesh is built
+ *  again from nothing, as in a process's first level -- the incremental build works on what triangulation_init()
+ *  set up, which the reset took away (refactor pass 5, S12: leaving these set broke every level after the first). */
+void ariadne_update_reset_for_level(void)
+{
+    nav_map_initialised = 0;
+    tri_initialised = 0;
+    LastTriangulatedMap = NULL;
+}
+
 /** After the saved navigation mesh is restored (ariadne_saved_state_read()): what init_navigation() sets besides
  *  the mesh, without building it again. */
 void ariadne_update_restored_state_ready(void)

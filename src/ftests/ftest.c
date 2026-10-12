@@ -17,6 +17,12 @@
 #include "bflib_mouse.h"
 #include "frontend.h"
 #include "net_main.h"
+#include "net_lobby.h"
+#include "net_input_lag.h"
+#include "game_merge.h"
+
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "post_inc.h"
 
@@ -675,6 +681,39 @@ void ftest_restart_actions()
 struct FTestConfig* ftest_get_current_test_config()
 {
     return ftest_donottouch__vars.tests_to_run[ftest_donottouch__vars.current_test];
+}
+
+TbBool ftest_net_prepare_session(const struct FTestConfig *test_config)
+{
+    if ((test_config == NULL) || (test_config->net_role == FTNet_None))
+        return false;
+    const char *env = getenv("KFX_FTEST_NET_PORT");
+    const int64_t port = ((env != NULL) && (atoi(env) > 0)) ? atoi(env) : FTEST_NET_DEFAULT_PORT;
+    // The input lag adapts to the ping and to how long a machine waited for the others' packets, so the turn an input
+    // takes effect at -- and with it the game -- would depend on the machine's load: pinned, on every machine.
+    input_lag_set_fixed(FTEST_NET_INPUT_LAG);
+    if (test_config->net_role == FTNet_Host)
+    {
+        // what -server <port> -waitusers <n> -campaign <c> -level <n> set up (command_line.cpp)
+        LbNetwork_SetServerPort(port);
+        game_flags2 |= GF2_Server;
+        start_params.autostart_multiplayer_users_expected = (test_config->net_users > 0) ? test_config->net_users : 2;
+        snprintf(start_params.autostart_multiplayer_campaign, sizeof(start_params.autostart_multiplayer_campaign), "%s",
+            test_config->level_file);
+        start_params.autostart_multiplayer_level = test_config->level;
+        FTESTLOG("Multiplayer test: hosting on port %" PRId64 ", waiting for %" PRId64 " players", port,
+            start_params.autostart_multiplayer_users_expected);
+    }
+    else
+    {
+        // what -connect <address> sets up
+        char address[32];
+        snprintf(address, sizeof(address), "127.0.0.1:%" PRId64, port);
+        LbNetwork_InitSessionsFromCmdLine(address);
+        game_flags2 |= GF2_Connect;
+        FTESTLOG("Multiplayer test: joining %s", address);
+    }
+    return true;
 }
 
 #ifdef __cplusplus

@@ -198,7 +198,7 @@ jobs:
         path: out/coverage/coverage-html/**
 
   build-prototype:
-    name: "Build Prototype Windows x86"
+    name: "Build Prototype Windows x86_64"
     runs-on: ubuntu-24.04
     environment:
       name: Windows Prototype
@@ -215,20 +215,20 @@ jobs:
       run: |
         set -eux
         sudo apt update
-        sudo apt install -y build-essential g++-mingw-w64-i686 cmake ninja-build libpng16-16t64 7zip
+        sudo apt install -y build-essential g++-mingw-w64-x86-64 cmake ninja-build libpng16-16t64 7zip
 
     # Dependencies.cmake now cross-compiles every non-SDL3 third-party dep
-    # from source for this mingw32 target (ffmpeg/curl/openal/luajit
-    # included) -- cache the build output (deps/.cache-mingw32/, not
+    # from source for this mingw64 (x86_64) target (ffmpeg/curl/openal/luajit
+    # included) -- cache the build output (deps/.cache-mingw64/, not
     # out/_deps: Dependencies.cmake deliberately caches outside the out/
     # build tree) so a re-run doesn't redo all of that. Shared with every
-    # other mingw32 job in this file and in build-alpha/release-patch-
-    # unsigned.yml, which all run the identical mingw32 configure+build.
+    # other mingw64 job in this file and in build-alpha/release-patch-
+    # unsigned.yml, which all run the identical mingw64 configure+build.
     - name: Cache third-party dependencies
       uses: actions/cache@v4
       with:
-        path: deps/.cache-mingw32
-        key: ${{ runner.os }}-kfx-deps-mingw32-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
+        path: deps/.cache-mingw64
+        key: ${{ runner.os }}-kfx-deps-mingw64-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
 
     - name: Configure and build package
       run: |
@@ -236,8 +236,8 @@ jobs:
         BUILD_NUMBER=$(git rev-list --count origin/master)
         GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
         PACKAGE_SUFFIX=Prototype_$(git rev-parse --short=7 "$GITHUB_SHA")
-        # Compile both binaries with CMake (MinGW-w64 i686 cross-compile).
-        cmake -S . -B out -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake \
+        # Compile both binaries with CMake (MinGW-w64 x86_64 cross-compile).
+        cmake -S . -B out -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw64.cmake \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DBUILD_NUMBER=$BUILD_NUMBER -DPACKAGE_SUFFIX=$PACKAGE_SUFFIX
         cmake --build out --target keeperfx -j"$(nproc)"
@@ -270,14 +270,14 @@ jobs:
   # CMake is the canonical, cross-platform build description (single
   # GLOB source list for main.cpp/ftests + src/kfx_*/CMakeLists.txt for
   # everything else -- see build/cmake/modules/Dependencies.cmake and
-  # build/cmake/toolchains/mingw32.cmake). The job above drives packaging
+  # build/cmake/toolchains/mingw64.cmake). The job above drives packaging
   # through CMake too, but that goes via the `package` target (CPack), which
   # doesn't exercise CMake's own native compile of the keeperfx
   # target directly outside that pipeline. This job does, so
   # a regression in CMake's own compile still gets caught even though it's
   # redundant compute today.
   build-prototype-windows-cmake:
-    name: "Build Prototype Windows x86 (CMake native compile, verification only)"
+    name: "Build Prototype Windows x86_64 (CMake native compile, verification only)"
     runs-on: ubuntu-24.04
 
     steps:
@@ -289,20 +289,20 @@ jobs:
       run: |
         set -eux
         sudo apt update
-        sudo apt install -y build-essential g++-mingw-w64-i686 ninja-build
+        sudo apt install -y build-essential g++-mingw-w64-x86-64 ninja-build
 
     # See build-prototype's identical cache step above for why this is
-    # needed; same key too -- deps/.cache-mingw32/ is a repo-relative path
+    # needed; same key too -- deps/.cache-mingw64/ is a repo-relative path
     # independent of build dir (out/ vs build/), so this job shares that
     # job's cache.
     - name: Cache third-party dependencies
       uses: actions/cache@v4
       with:
-        path: deps/.cache-mingw32
-        key: ${{ runner.os }}-kfx-deps-mingw32-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
+        path: deps/.cache-mingw64
+        key: ${{ runner.os }}-kfx-deps-mingw64-${{ hashFiles('build/cmake/modules/Dependencies.cmake') }}
 
     - name: Configure
-      run: cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake -DCMAKE_BUILD_TYPE=Release
+      run: cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw64.cmake -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
       run: cmake --build build --target keeperfx -j"$(nproc)"

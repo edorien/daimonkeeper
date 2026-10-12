@@ -77,6 +77,7 @@
 #include "player_availability.h"
 #include "local_state.h"
 #include "list_walk.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 #include "room_workshop.h"
 
@@ -508,9 +509,9 @@ void gui_area_progress_bar_wide(struct GuiButton *gbtn, int64_t units_per_px, in
 
 void gui_remove_area_for_rooms(struct GuiButton *gbtn)
 {
-    kfx_sim_state.chosen_room_kind = 0;
-    kfx_sim_state.chosen_room_spridx = 0;
-    kfx_sim_state.chosen_room_tooltip = 0;
+    kfx_local_view.chosen_room_kind = 0;
+    kfx_local_view.chosen_room_spridx = 0;
+    kfx_local_view.chosen_room_tooltip = 0;
     struct Packet* pckt = get_local_packet();
     set_packet_action(pckt, PckA_SetPlyrState, PSt_Sell, 0, 0, 0);
 }
@@ -576,7 +577,7 @@ void gui_area_big_room_button(struct GuiButton *gbtn)
     }
     if (player->render_roomspace.total_roomspace_cost <= dungeon->total_money_owned)
     {
-        if ((player->work_state == PSt_BuildRoom) && (ustate->chosen_room_kind == kfx_sim_state.chosen_room_kind)
+        if ((player->work_state == PSt_BuildRoom) && (ustate->chosen_room_kind == kfx_local_view.chosen_room_kind)
           && ((get_gameturn() % (2 * kfx_config_state.gui_blink_rate)) < kfx_config_state.gui_blink_rate))
         {
             draw_gui_panel_sprite_rmleft(gbtn->scr_pos_x - 4*units_per_px/16, gbtn->scr_pos_y - 32*units_per_px/16, ps_units_per_px, gbtn->sprite_idx, 44);
@@ -808,9 +809,9 @@ void choose_workshop_item(int64_t manufctr_idx, TextStringId tooltip_id)
     {
         set_players_packet_action(player, PckA_SetPlyrState, PSt_CtrlDungeon, 0, 0, 0);
     }
-    kfx_sim_state.manufactr_element = manufctr_idx;
-    kfx_sim_state.manufactr_spridx = manufctr->bigsym_sprite_idx;
-    kfx_sim_state.manufactr_tooltip = tooltip_id;
+    kfx_local_view.manufactr_element = manufctr_idx;
+    kfx_local_view.manufactr_spridx = manufctr->bigsym_sprite_idx;
+    kfx_local_view.manufactr_tooltip = tooltip_id;
 }
 
 void gui_choose_workshop_item(struct GuiButton *gbtn)
@@ -935,9 +936,9 @@ void gui_go_to_next_trap(struct GuiButton *gbtn)
     struct PlayerInfo* player = get_my_player();
     struct ManufactureData* manufctr = get_manufacture_data(manufctr_idx);
     go_to_next_trap_of_type(manufctr->tngmodel, player->id_number);
-    kfx_sim_state.manufactr_element = manufctr_idx;
-    kfx_sim_state.manufactr_spridx = manufctr->bigsym_sprite_idx;
-    kfx_sim_state.manufactr_tooltip = manufctr->tooltip_stridx;
+    kfx_local_view.manufactr_element = manufctr_idx;
+    kfx_local_view.manufactr_spridx = manufctr->bigsym_sprite_idx;
+    kfx_local_view.manufactr_tooltip = manufctr->tooltip_stridx;
 }
 
 void gui_over_trap_button(struct GuiButton *gbtn)
@@ -993,7 +994,7 @@ void gui_area_trap_button(struct GuiButton *gbtn)
         if (gbtn->button_state_left_pressed || gbtn->button_state_right_pressed)
         {
             draw_gui_panel_sprite_rmleft(gbtn->scr_pos_x, gbtn->scr_pos_y, ps_units_per_px, GPS_portrt_qmark, 22);
-        } else if (kfx_sim_state.manufactr_element == manufctr_idx)
+        } else if (kfx_local_view.manufactr_element == manufctr_idx)
         {
             //Draw here when the trap is selected
             draw_gui_panel_sprite_rmleft(gbtn->scr_pos_x, gbtn->scr_pos_y, ps_units_per_px, GPS_portrt_qmark, 44);
@@ -1044,9 +1045,9 @@ void gui_go_to_next_door(struct GuiButton *gbtn)
     struct PlayerInfo* player = get_my_player();
     struct ManufactureData* manufctr = get_manufacture_data(manufctr_idx);
     go_to_next_door_of_type(manufctr->tngmodel, player->id_number);
-    kfx_sim_state.manufactr_element = manufctr_idx;
-    kfx_sim_state.manufactr_spridx = manufctr->bigsym_sprite_idx;
-    kfx_sim_state.manufactr_tooltip = manufctr->tooltip_stridx;
+    kfx_local_view.manufactr_element = manufctr_idx;
+    kfx_local_view.manufactr_spridx = manufctr->bigsym_sprite_idx;
+    kfx_local_view.manufactr_tooltip = manufctr->tooltip_stridx;
 }
 
 void gui_over_creature_button(struct GuiButton* gbtn)
@@ -1074,9 +1075,9 @@ void gui_over_door_button(struct GuiButton *gbtn)
 void gui_remove_area_for_traps(struct GuiButton *gbtn)
 {
     struct PlayerInfo* player = get_my_player();
-    kfx_sim_state.manufactr_element = 0;
-    kfx_sim_state.manufactr_spridx = 0;
-    kfx_sim_state.manufactr_tooltip = 0;
+    kfx_local_view.manufactr_element = 0;
+    kfx_local_view.manufactr_spridx = 0;
+    kfx_local_view.manufactr_tooltip = 0;
     set_players_packet_action(player, PckA_SetPlyrState, PSt_Sell, 0, 0, 0);
 }
 
@@ -1158,13 +1159,13 @@ void gui_area_big_trap_button(struct GuiButton *gbtn)
 
 void maintain_big_spell(struct GuiButton *gbtn)
 {
-    int64_t spl_idx = kfx_sim_state.chosen_spell_type;
+    int64_t spl_idx = kfx_local_view.chosen_spell_type;
     if ((spl_idx < 0) || (spl_idx >= kfx_config_state.conf.magic_conf.power_types_count)) {
         return;
     }
     gbtn->content.lval = spl_idx;
-    gbtn->sprite_idx = kfx_sim_state.chosen_spell_spridx;
-    gbtn->tooltip_stridx = kfx_sim_state.chosen_spell_tooltip;
+    gbtn->sprite_idx = kfx_local_view.chosen_spell_spridx;
+    gbtn->tooltip_stridx = kfx_local_view.chosen_spell_tooltip;
     struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
     if (dungeon->magic_level[spl_idx] > 0) {
         gbtn->btype_value &= LbBFeF_IntValueMask;
@@ -1197,7 +1198,7 @@ void maintain_room(struct GuiButton *gbtn)
 
 void maintain_big_room(struct GuiButton *gbtn)
 {
-    int64_t rkind = kfx_sim_state.chosen_room_kind;
+    int64_t rkind = kfx_local_view.chosen_room_kind;
     struct Dungeon* dungeon = get_dungeon(my_player_number);
     if ((rkind < 1) || (rkind >= kfx_config_state.conf.slab_conf.room_types_count)) {
         return;
@@ -1207,8 +1208,8 @@ void maintain_big_room(struct GuiButton *gbtn)
         return;
     }
     gbtn->content.lval = rkind;
-    gbtn->sprite_idx = kfx_sim_state.chosen_room_spridx;
-    gbtn->tooltip_stridx = kfx_sim_state.chosen_room_tooltip;
+    gbtn->sprite_idx = kfx_local_view.chosen_room_spridx;
+    gbtn->tooltip_stridx = kfx_local_view.chosen_room_tooltip;
     if (dungeon->room_buildable[rkind] & 1) {
         gbtn->btype_value &= LbBFeF_IntValueMask;
         gbtn->flags |= LbBtnF_Enabled;
@@ -1297,11 +1298,11 @@ void maintain_door(struct GuiButton *gbtn)
 
 void maintain_big_trap(struct GuiButton *gbtn)
 {
-    int64_t manufctr_idx = kfx_sim_state.manufactr_element % kfx_config_state.conf.trapdoor_conf.manufacture_types_count;
+    int64_t manufctr_idx = kfx_local_view.manufactr_element % kfx_config_state.conf.trapdoor_conf.manufacture_types_count;
     struct ManufactureData* manufctr = get_manufacture_data(manufctr_idx);
     gbtn->content.lval = manufctr_idx;
-    gbtn->sprite_idx = kfx_sim_state.manufactr_spridx;
-    gbtn->tooltip_stridx = kfx_sim_state.manufactr_tooltip;
+    gbtn->sprite_idx = kfx_local_view.manufactr_spridx;
+    gbtn->tooltip_stridx = kfx_local_view.manufactr_tooltip;
     if ( ((manufctr->tngclass == TCls_Trap) && is_trap_placeable(my_player_number, manufctr->tngmodel))
       || ((manufctr->tngclass == TCls_Door) && is_door_placeable(my_player_number, manufctr->tngmodel)) )
     {
@@ -1327,7 +1328,7 @@ void maintain_big_trap(struct GuiButton *gbtn)
 
 void maintain_buildable_info(struct GuiButton* gbtn)
 {
-    int64_t manufctr_idx = kfx_sim_state.manufactr_element % kfx_config_state.conf.trapdoor_conf.manufacture_types_count;
+    int64_t manufctr_idx = kfx_local_view.manufactr_element % kfx_config_state.conf.trapdoor_conf.manufacture_types_count;
     struct ManufactureData* manufctr = get_manufacture_data(manufctr_idx);
     gbtn->content.lval = manufctr_idx;
     if (((manufctr->tngclass == TCls_Trap) && (is_trap_placeable(my_player_number, manufctr->tngmodel) || is_trap_built(my_player_number, manufctr->tngmodel)))
@@ -1594,10 +1595,10 @@ void gui_go_to_next_room(struct GuiButton *gbtn)
 {
     RoomKind rkind = gbtn->content.lval;
     go_to_my_next_room_of_type(rkind);
-    kfx_sim_state.chosen_room_kind = rkind;
+    kfx_local_view.chosen_room_kind = rkind;
     struct RoomConfigStats* roomst = get_room_kind_stats(rkind);
-    kfx_sim_state.chosen_room_spridx = roomst->bigsym_sprite_idx;
-    kfx_sim_state.chosen_room_tooltip = gbtn->tooltip_stridx;
+    kfx_local_view.chosen_room_spridx = roomst->bigsym_sprite_idx;
+    kfx_local_view.chosen_room_tooltip = gbtn->tooltip_stridx;
 }
 
 void gui_over_room_button(struct GuiButton *gbtn)

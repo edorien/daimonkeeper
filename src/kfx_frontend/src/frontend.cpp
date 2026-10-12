@@ -101,6 +101,7 @@
 #include "frontgui_skirmish_setup.h"
 #include "player_availability.h"
 #include "local_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -992,9 +993,9 @@ void activate_room_build_mode(RoomKind rkind, TextStringId tooltip_id)
     set_players_packet_action(player, PckA_SetPlyrState, PSt_BuildRoom, rkind, 0, 0);
     struct RoomConfigStats *roomst;
     roomst = get_room_kind_stats(rkind);
-    kfx_sim_state.chosen_room_kind = rkind;
-    kfx_sim_state.chosen_room_spridx = roomst->bigsym_sprite_idx;
-    kfx_sim_state.chosen_room_tooltip = tooltip_id;
+    kfx_local_view.chosen_room_kind = rkind;
+    kfx_local_view.chosen_room_spridx = roomst->bigsym_sprite_idx;
+    kfx_local_view.chosen_room_tooltip = tooltip_id;
 }
 
 int64_t player_state_to_packet(PlayerState work_state, PowerKind pwkind, TbBool already_in)
@@ -1039,7 +1040,7 @@ int64_t player_state_to_packet(PlayerState work_state, PowerKind pwkind, TbBool 
 
 TbBool set_players_packet_change_spell(struct PlayerInfo *player,PowerKind pwkind)
 {
-    if (power_is_instinctive(kfx_sim_state.chosen_spell_type) && (kfx_sim_state.chosen_spell_type != 0))
+    if (power_is_instinctive(kfx_local_view.chosen_spell_type) && (kfx_local_view.chosen_spell_type != 0))
         return false;
     const struct PowerConfigStats *powerst;
     powerst = get_power_model_stats(pwkind);
@@ -1113,7 +1114,7 @@ void choose_spell(PowerKind pwkind, TextStringId tooltip_id)
     // Disable previous spell
     if (!set_players_packet_change_spell(player, pwkind)) {
         WARNLOG("Inconsistency when switching spell %" PRId64 " to %" PRId64,
-            (int64_t)kfx_sim_state.chosen_spell_type, (int64_t)pwkind);
+            (int64_t)kfx_local_view.chosen_spell_type, (int64_t)pwkind);
     }
 
     set_chosen_power(pwkind, tooltip_id);
@@ -3860,19 +3861,19 @@ void gui_set_autopilot(struct GuiButton *gbtn)
   struct PlayerInfo *player;
   player = get_my_player();
   int64_t ntype;
-  if (kfx_net_state.comp_player_aggressive)
+  if (kfx_local_view.comp_player_aggressive)
   {
     ntype = 1;
   } else
-  if (kfx_net_state.comp_player_defensive)
+  if (kfx_local_view.comp_player_defensive)
   {
     ntype = 2;
   } else
-  if (kfx_net_state.comp_player_construct)
+  if (kfx_local_view.comp_player_construct)
   {
     ntype = 3;
   } else
-  if (kfx_net_state.comp_player_creatrsonly)
+  if (kfx_local_view.comp_player_creatrsonly)
   {
     ntype = 4;
   } else

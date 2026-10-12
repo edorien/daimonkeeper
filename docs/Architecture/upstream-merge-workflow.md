@@ -283,6 +283,18 @@ patterns from the 2026-09 merge:
   "width 1: leave click-and-drag mode" step this fork skips for the dig tag
   (P5-F34, `global_apply_roomspace_dig_tag()` in `game_commands.c`): keep that
   condition when merging changes to that case.
+- **Neutral creatures in neutral rooms** (refactor pass 5, P5-F39). Upstream's `init_creature_state()` gives a
+  neutral standing in a neutral prison, torture chamber or guard post that room's job; here it gets none unless the
+  `NEUTRAL_ROOM_JOBS` classic bug is set (the check after the `PASSIVE_NEUTRALS` one). Keep that check when merging
+  changes to the function; a new classic bug upstream takes the next free bit after this fork's own (the console's
+  `bug.toggle <n>` numbers follow the bits). Run the `creature_neutral_rooms` ftest.
+- **The software triangle filler, `bflib_render_trig.c`** (refactor pass 5, S10). Gone here: the game drew one
+  of its 26 modes, the creature shadows (`VM_SpriteTranslucent`), and `trig()` is now the plain shadow
+  rasteriser in `kfx_platform/src/renderer/software/bflib_render_shadow.c`. Skip upstream changes to
+  `bflib_render_trig.c`; read each one for a fix to the shadow path (`trig_reorder_input_points`, the
+  `trig_*_md02` edge setups, `trig_render_md10`) and port that by hand, against `kfx_platform_utest
+  "[trig_golden]"`. Upstream's scaled-sprite blitters (`bflib_vidraw_spr_norm/onec/remp.c`, one shared body
+  here) still start a mirrored scaled-up row one pixel early (P5-F38): don't merge that back.
 - **Upstream debug logging.** Upstream still has the `keeperfx_hvlog` build and
   `#if (BFDEBUG_LEVEL > N)` blocks; this fork has one binary with a runtime
   `LOG_LEVEL` (refactor pass 2, S02). The `*DBG` macros keep their names and

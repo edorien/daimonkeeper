@@ -87,6 +87,12 @@ LONG __stdcall Vex_handler(_EXCEPTION_POINTERS *ExceptionInfo)
         return EXCEPTION_EXECUTE_HANDLER; // Thrown by luaJIT for some reason
     } else if (exception_code == 0x406d1388) {
         return EXCEPTION_CONTINUE_SEARCH;
+    } else if (exception_code == GCC_CXX_EXCEPTION) {
+        // x86_64 mingw raises every C++ throw through RaiseException (SEH unwinding), so this
+        // handler sees each one, including the ones our own code throws and catches (e.g.
+        // SetSoundMasterVolume's openal_error). The 32-bit build's unwinder never raised them.
+        // An uncaught one still reaches ctrl_handler_w32, which logs it.
+        return EXCEPTION_CONTINUE_SEARCH;
     }
     // Software exceptions are raised from inside RaiseException(), so their exception address
     // always lands in KERNELBASE and never names the module at fault. A MSVC C++ throw does

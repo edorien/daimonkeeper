@@ -20,6 +20,8 @@
 #include "custom_sprites.h"
 #include "custom_zip.h"
 #include "creature_graphics.h"
+#include "keeper_sprites.h"
+#include "engine_sprites_hd.h"
 #include "sim_scratch.h"
 #include "engine_render.h"
 #include "bflib_fileio.h"
@@ -62,11 +64,8 @@ TbSpriteData keepersprite_add[KEEPERSPRITE_ADD_NUM] = {
         0
 };
 
-// creature_table_add[] itself moved down to kfx_sim's creature_graphics.c
-// (docs/refactor/todo/remove-symbol-level-layering-residuals.md), next to
-// its sibling creature_table -- this file still populates it directly
-// during sprite loading below, exactly as before; only its storage's
-// physical location changed.
+// creature_table_add[] lives beside creature_table in keeper_sprites.c; this file fills it while loading, and
+// publishes each custom animation's frame count to the simulation after every zip (keepersprite_frames()).
 
 struct SpriteContext
 {
@@ -216,6 +215,9 @@ static int64_t load_file_sprites(const char *path, const char *file_desc, uint64
     {
         add_flag |= CLF_Sprites;
     }
+    // The simulation times the animations by their frame counts (docs/refactor/sprites/02-design.md section 13).
+    if (load_flags & CLF_Sprites)
+        keeper_sprites_publish_custom_frames();
 
     if (load_flags & CLF_Icons && add_custom_json(path, "icons.json", &process_icon))
     {
@@ -358,6 +360,49 @@ void load_sprites_for_multi_front(LevelNumber lvnum)
         load_file_sprites(fname, "lof map file", campaign_load_flags);
 }
 
+/** The HD sprite content folders (docs/refactor/sprites/02-design.md 2.3): a sprites-hd/ folder in each place
+ *  init_custom_sprites() reads sprite zips from, noted in its load order. */
+static char **hd_content_dirs;
+static int64_t hd_content_count, hd_content_capacity;
+static TbBool hd_content_noting;
+
+/** Notes the sprites-hd/ folder of a place sprites load from: a folder, or the folder a zip file is in. */
+static void note_hd_content_dir(const char *path, TbBool is_file)
+{
+    if (!hd_content_noting || (path == NULL) || (path[0] == '\0'))
+        return;
+    char dir[1024];
+    snprintf(dir, sizeof(dir), "%s", path);
+    if (is_file)
+    {
+        char *sep = strrchr(dir, '/');
+        char *bsep = strrchr(dir, '\\');
+        if ((sep == NULL) || ((bsep != NULL) && (bsep > sep)))
+            sep = bsep;
+        if (sep == NULL)
+            snprintf(dir, sizeof(dir), ".");
+        else
+            *sep = '\0';
+    }
+    char hd_dir[1100];
+    snprintf(hd_dir, sizeof(hd_dir), "%s/sprites-hd", dir);
+    for (int64_t i = 0; i < hd_content_count; i++)
+        if (strcmp(hd_content_dirs[i], hd_dir) == 0)
+            return;
+    if (hd_content_count == hd_content_capacity)
+    {
+        const int64_t cap = (hd_content_capacity == 0) ? 16 : hd_content_capacity * 2;
+        char **grown = (char **)realloc(hd_content_dirs, (size_t)cap * sizeof(char *));
+        if (grown == NULL)
+            return;
+        hd_content_dirs = grown;
+        hd_content_capacity = cap;
+    }
+    char *copy = strdup(hd_dir);
+    if (copy != NULL)
+        hd_content_dirs[hd_content_count++] = copy;
+}
+
 /* @comment
  *     The loading items of init_custom_sprites and load_sprites_for_mod need to be consistent.
  */
@@ -376,6 +421,7 @@ static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *
         {
             sprintf(desc, "Mod[%s] FxData dir", mod_item->name);
             load_dir_sprites(dname, desc, load_flags);
+            note_hd_content_dir(dname, false);
         }
     }
 
@@ -386,12 +432,14 @@ static void load_sprites_for_mod(LevelNumber lvnum, const struct ModConfigItem *
         {
             sprintf(desc, "Mod[%s] CmpgConfig dir", mod_item->name);
             load_dir_sprites(dname, desc, load_flags);
+            note_hd_content_dir(dname, false);
         }
     }
 
     if (mod_state->cmpg_lvls)
     {
         fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05" PRId64 ".zip", (int64_t)(lvnum));
+        note_hd_content_dir(fname, true);
         if (strlen(fname) > 0 && LbFileExists(fname))
         {
             sprintf(desc, "Mod[%s] CmpgLvls file", mod_item->name);
@@ -463,6 +511,7 @@ void init_custom_sprites(LevelNumber lvnum)
     {
         ERRORLOG("Invalid level number %" PRId64 " for loading custom sprites", (int64_t)(lvnum));
     }
+    sprite_hd_zip_frames_clear();
     // Clear sprite data
     for (int64_t i = 0; i < KEEPERSPRITE_ADD_NUM; i++)
     {
@@ -500,6 +549,7 @@ void init_custom_sprites(LevelNumber lvnum)
 
     // Clear creature table (there sprites live)
     memset(creature_table_add, 0, sizeof(creature_table_add));
+    keeper_sprites_publish_custom_frames();
     memset(td_to_fp_sprite_add, 0, sizeof(td_to_fp_sprite_add));
     memset(fp_to_td_sprite_add, 0, sizeof(fp_to_td_sprite_add));
     next_free_sprite = 0;
@@ -536,6 +586,10 @@ void init_custom_sprites(LevelNumber lvnum)
         LbJustLog("Loaded /fxdata/ sprite zips: %s, sprite slots: %" PRId64 "/%" PRId64 ", animations: %" PRId64 ", icons: %" PRId64 ".\n", loaded_zip_names, (int64_t)(next_free_sprite), (int64_t)(KEEPERSPRITE_ADD_NUM), (int64_t)(cnt_sprite), (int64_t)(cnt_icon));
     }
 
+    for (int64_t i = 0; i < hd_content_count; i++)
+        free(hd_content_dirs[i]);
+    hd_content_count = 0;
+    hd_content_noting = true;
     if (mods_conf.after_base_cnt > 0)
     {
         load_sprites_for_mod_list(lvnum, mods_conf.after_base_item, mods_conf.after_base_cnt, normal_load_flags);
@@ -543,6 +597,7 @@ void init_custom_sprites(LevelNumber lvnum)
 
     dname = prepare_file_path(FGrp_CmpgConfig, NULL);
     load_dir_sprites(dname, "Main CmpgConfig dir", normal_load_flags);
+    note_hd_content_dir(dname, false);
 
     if (mods_conf.after_campaign_cnt > 0)
     {
@@ -550,6 +605,7 @@ void init_custom_sprites(LevelNumber lvnum)
     }
 
     char *fname = prepare_file_fmtpath(get_level_fgroup(lvnum), "map%05" PRId64 ".zip", (int64_t)(lvnum));
+    note_hd_content_dir(fname, true);
     if (LbFileExists(fname))
         load_file_sprites(fname, "Main CmpgLvls file", normal_load_flags);
 
@@ -557,6 +613,8 @@ void init_custom_sprites(LevelNumber lvnum)
     {
         load_sprites_for_mod_list(lvnum, mods_conf.after_map_item, mods_conf.after_map_cnt, normal_load_flags);
     }
+    hd_content_noting = false;
+    sprite_hd_set_content_folders((const char *const *)hd_content_dirs, hd_content_count);
 
 }
 
@@ -1042,6 +1100,8 @@ static int64_t read_png_data(unzFile zip, const char *path, struct SpriteContext
     keepersprite_add[sprite_idx] = malloc(sz);
     context->sprite.Data = keepersprite_add[sprite_idx];
     compress_raw(&context->sprite, dst_buf, context->x, context->y, dst_w, dst_h, NULL);
+    // HD sprites: the frame's key and where it came from, and its own colours (SPRITE_TRUE_COLOUR).
+    sprite_hd_zip_frame_loaded(sprite_idx, dst_buf, dst_w, dst_h, path, subpath);
     struct KeeperSprite *ksprite = &creature_table_add[sprite_idx];
 
     if (context->ksp_first == NULL)
@@ -1096,6 +1156,63 @@ static int64_t read_png_data(unzFile zip, const char *path, struct SpriteContext
     return 1;
 }
 #pragma clang diagnostic pop
+
+unsigned char *custom_sprite_png_rgba(const char *zip_path, const char *png, int64_t *w, int64_t *h)
+{
+    // One zip stays open (with its name cache) between calls: a reload reads a zip's frames one after another.
+    static unzFile open_zip = NULL;
+    static char open_path[2048];
+    if (w != NULL)
+        *w = 0;
+    if (h != NULL)
+        *h = 0;
+    if ((open_zip != NULL) && ((zip_path == NULL) || (strcmp(zip_path, open_path) != 0)))
+    {
+        fastUnzClearCache();
+        unzClose(open_zip);
+        open_zip = NULL;
+    }
+    if ((zip_path == NULL) || (png == NULL))
+        return NULL;
+    if (open_zip == NULL)
+    {
+        open_zip = unzOpen(zip_path);
+        if (open_zip == NULL)
+            return NULL;
+        snprintf(open_path, sizeof(open_path), "%s", zip_path);
+        fastUnzConstructCache(open_zip);
+    }
+    unzFile zip = open_zip;
+    unsigned char *rgba = NULL;
+    if ((fastUnzLocateFile(zip, png, 0) == UNZ_OK) && (unzOpenCurrentFile(zip) == UNZ_OK))
+    {
+        spng_ctx *ctx = spng_ctx_new(0);
+        if (ctx != NULL)
+        {
+            struct spng_ihdr ihdr;
+            size_t size = 0;
+            spng_set_png_stream(ctx, zip_read_fn, (void *)zip);
+            if ((spng_get_ihdr(ctx, &ihdr) == 0) && (ihdr.bit_depth == 8) && (ihdr.width < 255) && (ihdr.height < 255) &&
+                (spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &size) == 0))
+            {
+                rgba = malloc(size);
+                if ((rgba != NULL) && (spng_decode_image(ctx, rgba, size, SPNG_FMT_RGBA8, SPNG_DECODE_TRNS) == 0))
+                {
+                    *w = ihdr.width;
+                    *h = ihdr.height;
+                }
+                else
+                {
+                    free(rgba);
+                    rgba = NULL;
+                }
+            }
+            spng_ctx_free(ctx);
+        }
+        unzCloseCurrentFile(zip);
+    }
+    return rgba;
+}
 
 static void convert_row(unsigned char *dst_buf, uint32_t *src_buf, int64_t len, const uint8_t *conversion_table)
 {

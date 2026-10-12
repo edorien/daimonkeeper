@@ -13,7 +13,9 @@ class WorldFrameRecorder {
 public:
     void Reset();
 
-    void AddPoly(const struct PolyPoint* a, const struct PolyPoint* b, const struct PolyPoint* c, unsigned char* texture);
+    // block_shift / parity: see WorldFramePolyItem (0 / 0: a 32x32 block, as before).
+    void AddPoly(const struct PolyPoint* a, const struct PolyPoint* b, const struct PolyPoint* c, unsigned char* texture,
+                 uint8_t block_shift = 0, uint8_t parity = 0, const TbPixel* texture_rgba = nullptr, uint8_t original_at_32 = 0);
 
     // xmap/ymap: per destination column/row, the source column/row (see
     // WorldFrameSpriteOp); copied. cmap: the 256-entry RGBA colour table the
@@ -24,13 +26,22 @@ public:
                    const uint16_t* xmap, const uint16_t* ymap,
                    const uint32_t* cmap, uint32_t mode, uint32_t rgba);
 
+    // An HD sprite (see WorldFrameSpriteOp's hd_* fields): xmap/ymap give HD texel columns/rows, curve_row is its
+    // 256-entry curve row, index_cmap the original's colour table (nullptr: the active palette); both copied and
+    // de-duplicated as cmap is.
+    void AddSpriteHd(const void* texels, const void* sub_texels, uint64_t id, int32_t hd_w, int32_t hd_h, int32_t hd_stride, int32_t hd_scale,
+                     const unsigned char* rle, int32_t src_w, int32_t src_h,
+                     int32_t dst_x, int32_t dst_y, int32_t dst_w, int32_t dst_h,
+                     const uint16_t* xmap, const uint16_t* ymap,
+                     const uint32_t* curve_row, uint32_t table, const uint32_t* index_cmap, uint32_t mode, uint32_t rgba);
+
     // One triangle of a creature shadow (trig() in VM_SpriteTranslucent):
     // copies the used rectangle of the 256x256 mask `tex` (the engine's
     // scratch buffer, overwritten by the next shadow) at record time.
     // Vertices are PolyPoints as the CPU path receives them (X/Y pixels,
     // U/V 16.16 fixed point). Returns false if the triangle was ignored.
     bool AddShadowTri(const struct PolyPoint* a, const struct PolyPoint* b, const struct PolyPoint* c,
-                      const unsigned char* tex, int64_t shade);
+                      const unsigned char* tex, int64_t shade, int64_t scale = 1, bool coverage = false);
 
     // The depth stamped on ops recorded from now on (0 near .. 1 far, see
     // WorldFrameOp::depth). With monotone depth on (the default) each op's
@@ -55,6 +66,8 @@ public:
 
 private:
     void push(WorldFrameOp& op);
+    // The LUT row of a 256-entry table (copied, or one already recorded this frame); 0 for nullptr.
+    uint32_t lut_row_for(const uint32_t* cmap);
     bool m_has_lighting = false;
     WorldFrameLighting m_lighting = {};
     std::vector<uint8_t> m_grid;

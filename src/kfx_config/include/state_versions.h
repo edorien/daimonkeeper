@@ -56,17 +56,21 @@
   12: upstream #5376 -- system_flags became run_after_victory (the rest are local_system_flags); PlayerInfo
       gained each player's start settings (zoom_distance, frontview_zoom_distance, cheats_allowed,
       skip_heart_zoom, highlight_mode)
-  13: gained keeper_assist[] (the combat assistant's rules and counters, docs/newFeatures/llm/) */
-#define KFX_SIM_STATE_VER          13
-#define KFX_SIM_STATE_SIZE         139827536
+  13: gained keeper_assist[] (the combat assistant's rules and counters, docs/newFeatures/llm/)
+  14: pass 5 S05 -- this machine's view left for kfx_render's kfx_local_view (SGC_KfxLocalView): hand_over_subtile_*,
+      chosen_room_*, chosen_spell_*, manufactr_*, applied_lens_type, small_map_state, active_panel_mnu_idx and
+      struct Dungeon's visible_battles; the tendency mirror creatures_tend_imprison/_flee is gone */
+#define KFX_SIM_STATE_VER          14
+#define KFX_SIM_STATE_SIZE         139827371
 
 /* struct KfxNetState (kfx_net_state.h), SGC_KfxNetState
    2: S10 -- packet_load_enable, local_plyr_idx, human_players_count moved
       to kfx_sim_state
    3: upstream #5376 -- the packet save/replay file fields and pckt_gameturn left (struct ReplayState
-      replay, packet_data.h) */
-#define KFX_NET_STATE_VER          3
-#define KFX_NET_STATE_SIZE         2937132
+      replay, packet_data.h)
+   4: pass 5 S05 -- comp_player_* (the computer assistant's settings) left for kfx_render's kfx_local_view */
+#define KFX_NET_STATE_VER          4
+#define KFX_NET_STATE_SIZE         2937128
 
 /* struct KfxGameState (kfx_game_state.h), SGC_KfxGameState
    2: S10 -- play_gameturn moved to kfx_sim_state
@@ -79,6 +83,11 @@
 /* struct KfxFrontendState (kfx_frontend_state.h), SGC_KfxFrontendState */
 #define KFX_FRONTEND_STATE_VER     1
 #define KFX_FRONTEND_STATE_SIZE    1229104
+
+/* struct KfxLocalView (kfx_render's kfx_local_view.h), SGC_KfxLocalView: this machine's view of the game.
+   1: refactor pass 5, S05 -- the fields left kfx_sim_state and kfx_net_state. */
+#define KFX_LOCAL_VIEW_VER         1
+#define KFX_LOCAL_VIEW_SIZE        98
 
 /* Ariadne's navigation mesh (kfx_pathfinding's ariadne_saved_state.h: kfx_pathfinding_state, the triangles,
    points, regions and point-location cache, in that order), SGC_AriadneState and the resync blob.

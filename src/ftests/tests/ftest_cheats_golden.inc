@@ -1,160 +1,160 @@
     {"cheat:a:CheatEnter", 0x44bd24d473ccebb4ULL}, // 0 bytes; 
     {"cheat:a:CheatAllFree", 0x2e44f15a4fb96f95ULL}, // 431 bytes; 
-    {"cheat:a:CheatCrtSpells", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:CheatRevealMap", 0x6fe05b69d8e7a1f7ULL}, // 21664 bytes; 
-    {"cheat:a:CheatCrAllSpls", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:CheatAllMagic", 0x10057ad407c0d271ULL}, // 70 bytes; 
-    {"cheat:a:CheatAllRooms", 0x411ae2d7a20c3f3aULL}, // 60 bytes; 
-    {"cheat:a:CheatAllResrchbl", 0xdad8b362802f8c34ULL}, // 117 bytes; 
-    {"cheat:a:CheatSwitchTerrain 12", 0xf02e96753c53497dULL}, // 110 bytes; 
-    {"cheat:a:CheatSwitchTerrain 0", 0x41b537781cf218dfULL}, // 109 bytes; 
-    {"cheat:a:CheatSwitchPlayer 1", 0x637ae3781cf218dfULL}, // 109 bytes; 
-    {"cheat:a:CheatSwitchCreature 5", 0xec575ae480549a36ULL}, // 56 bytes; 
-    {"cheat:a:CheatSwitchHero 3", 0xb11c729b9a9a711fULL}, // 56 bytes; 
-    {"cheat:a:CheatSwitchExperience 4", 0xe7300d8c512db750ULL}, // 56 bytes; 
-    {"cheat:a:CheatSwitchTrap 2", 0x7803a929f52febfeULL}, // 56 bytes; 
-    {"cheat:a:CheatSwitchDoor 2", 0x21017ba2a8eed346ULL}, // 56 bytes; 
-    {"cheat:a:CheatAllDoors", 0xdc7f45847a61f1e4ULL}, // 59 bytes; 
-    {"cheat:a:CheatAllTraps", 0x992bac68069e0accULL}, // 60 bytes; 
-    {"cheat:a:CheatGiveDoorTrap", 0x0633a326d91858afULL}, // 73 bytes; 
-    {"cheat:a:CheatWinLevel", 0xdadec17e3a3ee8e8ULL}, // 74 bytes; 
-    {"cheat:a:CheatLoseLevel", 0xc5db8377db772e3bULL}, // 73 bytes; 
-    {"cheat:a:CheatLevelUp", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:possess ; a:CheatLevelUp", 0xd27ea88d4c4f8722ULL}, // 38 bytes;  possess=1 ;
-    {"cheat:a:CheatLevelDown", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:possess ; a:CheatLevelDown", 0x77d5148ccdef3968ULL}, // 46 bytes;  possess=1 ;
-    {"cheat:a:CheatApplySpell 3", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:possess ; a:CheatApplySpell 3", 0x5cf78ea4c0ac34eaULL}, // 40 bytes;  possess=1 ;
-    {"cheat:a:CheatKillCreature", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:possess ; a:CheatKillCreature", 0xc8747323dd42f441ULL}, // 102 bytes;  possess=1 ;
-    {"cheat:a:CheatPlaceTerrain 12 0", 0x37dfeaee83b05662ULL}, // 2190 bytes; 
-    {"cheat:a:CheatPlaceTerrain 11 1 @ROOM", 0x99a1083b10beeb66ULL}, // 1315 bytes; 
-    {"cheat:a:CheatPlaceTerrain 0 5 @40,40", 0xfb3b50d61f70394cULL}, // 903 bytes; 
-    {"cheat:a:CheatMakeCreature 5 0", 0x86b7b2a9721298aeULL}, // 123 bytes; 
-    {"cheat:a:CheatMakeCreature 5 772", 0x189ba5633333b421ULL}, // 125 bytes; 
-    {"cheat:a:CheatMakeCreature 5 4 @40,40", 0x36c81dbbe07d9108ULL}, // 81 bytes; 
-    {"cheat:a:CheatMakeDigger 0 2", 0xecf1440acb3cb380ULL}, // 123 bytes; 
-    {"cheat:a:CheatMakeDigger 1 0", 0xc364db72600e373dULL}, // 119 bytes; 
-    {"cheat:a:CheatStealSlab 11 1", 0xae35387acd5619d4ULL}, // 2132 bytes; 
-    {"cheat:a:CheatStealSlab 11 260", 0x02bf3d4bcaca269dULL}, // 2158 bytes; 
-    {"cheat:a:CheatStealSlab 4 260", 0xb64638fa6120c462ULL}, // 2185 bytes; 
-    {"cheat:a:CheatStealSlab 12 0 @40,40", 0x356a0abc46384a01ULL}, // 652 bytes; 
-    {"cheat:a:CheatStealRoom 1 0 @ROOM", 0xe96d4f67632a640aULL}, // 463 bytes; 
-    {"cheat:a:CheatStealRoom 4 1 @ROOM", 0x6a7474f3120e2d8dULL}, // 708 bytes; 
-    {"cheat:a:CheatStealRoom 1 0 @40,40", 0x163bfa968b88060fULL}, // 17 bytes; 
-    {"cheat:a:CheatHeartHealth 0 1000", 0xa0b283aad6643de1ULL}, // 57 bytes; 
-    {"cheat:a:CheatHeartHealth 0 0", 0xa0977202b2aea6dfULL}, // 59 bytes; 
-    {"cheat:a:CheatHeartHealth 1 500", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:CheatKillPlayer 0", 0xa0977202b2aea6dfULL}, // 59 bytes; 
-    {"cheat:a:CheatKillPlayer 1", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:CheatConvertCreature 4", 0x477de861e9cb3ec3ULL}, // 68 bytes; 
-    {"cheat:c:ConvertCreatr ; a:CheatConvertCreature 4", 0xd593229e024bfe66ULL}, // 72 bytes;  "" ;
-    {"cheat:a:EditorFloodFill 12 0", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:EditorFloodFill 11 0 @40,40", 0x426b4f6ed5296d36ULL}, // 134447 bytes; 
-    {"cheat:a:EditorPlaceObject #120 #128 5 0", 0x2e3a488f8c5d499eULL}, // 118 bytes; 
-    {"cheat:a:EditorPlaceObject #120 #128 3 0", 0x7043b7ab215ef712ULL}, // 97 bytes; 
-    {"cheat:a:EditorPlaceObject #500 #500 5 0", 0xed3a11cfce9427d9ULL}, // 120 bytes; 
-    {"cheat:a:EditorPlaceTrap 1 0", 0xaa0ca32e9c7ae989ULL}, // 99 bytes; 
-    {"cheat:a:EditorPlaceTrap 2 0 @40,40", 0x68d5734a2b797745ULL}, // 53 bytes; 
-    {"cheat:a:EditorPlaceDoor 1 0", 0xc8e41052c8d6628bULL}, // 258 bytes; 
-    {"cheat:a:EditorPlaceDoor 1 0 @ROOM", 0x0f971c1f609f477cULL}, // 267 bytes; 
-    {"cheat:a:EditorToggleDoorLock $C0", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:EditorToggleDoorLock 0", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:EditorUndo $C0", 0x190372681a002d95ULL}, // 161 bytes; 
-    {"cheat:a:EditorUndo $HEART", 0x65bf292a58c8ff89ULL}, // 118 bytes; 
-    {"cheat:a:EditorUndo 0", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:EditorSetGoldValue $C0 500", 0x47256353e68ea47eULL}, // 55 bytes; 
-    {"cheat:a:EditorSetThingPosition #120 #128 $C0 0", 0xda97c2e1666f7880ULL}, // 61 bytes; 
-    {"cheat:a:EditorPlaceTerrainRect #120 #125 12 0", 0x59ac40fa75a56fdcULL}, // 96927 bytes; 
-    {"cheat:a:EditorRectClearEarth #120 #125", 0xaa207bab4c459aa5ULL}, // 88502 bytes; 
-    {"cheat:a:EditorRectDeleteThings #120 #125", 0x6253bfeef9a873efULL}, // 5783 bytes; 
-    {"cheat:a:EditorRectSetOwner #120 #125 1", 0xdc3f6054b03854dfULL}, // 12557 bytes; 
-    {"cheat:a:EditorRectSetOwner #120 #125 0 @ROOM", 0x30fe3b0d6875e3fdULL}, // 20335 bytes; 
-    {"cheat:a:EditorRedoCreature #126 #131 5 0", 0x86b7b2a9721298aeULL}, // 123 bytes; 
-    {"cheat:a:EditorRedoDigger #126 #131 0 1", 0x4a712e5f52c65bf4ULL}, // 122 bytes; 
-    {"cheat:a:EditorRedoTrap #126 #131 1 0", 0xaa0ca32e9c7ae989ULL}, // 99 bytes; 
-    {"cheat:a:EditorRedoDoor #126 #131 1 0", 0xc8e41052c8d6628bULL}, // 258 bytes; 
-    {"cheat:a:EditorGoSpectator #126 #131", 0x5666815872c6e5c2ULL}, // 139 bytes; 
-    {"cheat:c:MkDigger", 0xd3d9717ff94fc3c8ULL}, // 78 bytes;  "1"
-    {"cheat:c:MkDigger click", 0xecc8f40ccc10b144ULL}, // 148 bytes;  "1"
-    {"cheat:c:MkDigger click @40,40", 0x5381bfd0eb19693bULL}, // 143 bytes;  "1"
-    {"cheat:c:MkGoodCreatr", 0x1b894e8016cc1b22ULL}, // 78 bytes;  "?"
-    {"cheat:a:CheatSwitchHero 3 ; c:MkGoodCreatr click", 0x168d0348adde4829ULL}, // 188 bytes;  "Archer 1"
-    {"cheat:c:MkBadCreatr", 0xa1cf3c8016cc1b22ULL}, // 78 bytes;  "?"
-    {"cheat:a:CheatSwitchCreature 5 ; a:CheatSwitchExperience 3 ; c:MkBadCreatr click", 0x14f75f289fbdfb57ULL}, // 189 bytes;  "Mountain Dwarf 4"
-    {"cheat:c:MkGoldPot", 0xc38561317f47196fULL}, // 26 bytes; 
-    {"cheat:c:MkGoldPot click", 0xf465d9b32bf09df0ULL}, // 75 bytes; 
-    {"cheat:c:OrderCreatr", 0x1b11b5b921862bd5ULL}, // 19 bytes; 
-    {"cheat:c:OrderCreatr click", 0x2d2ed4cfa4f933f4ULL}, // 26 bytes; 
-    {"cheat:c:OrderCreatr click ; c:OrderCreatr click @ROOM", 0x5b267353d3da30ffULL}, // 48 bytes; 
-    {"cheat:c:FreeDestroyWalls", 0x41bd5f1c38c8156dULL}, // 18 bytes; 
-    {"cheat:c:FreeDestroyWalls click", 0x6131523440405b6eULL}, // 21 bytes; 
-    {"cheat:c:FreeDestroyWalls click @40,40", 0x0ddc663440405b6eULL}, // 21 bytes; 
-    {"cheat:c:FreeTurnChicken click", 0xa5bdec3440405b6eULL}, // 21 bytes; 
-    {"cheat:c:FreeCastDisease click", 0xef725b3440405b6eULL}, // 21 bytes; 
-    {"cheat:c:FreeCastDisease click @40,40", 0xf7c8f33440405b6eULL}, // 21 bytes; 
-    {"cheat:c:StealRoom @ROOM", 0x10898ad6d397a4a1ULL}, // 70 bytes;  ""
-    {"cheat:c:StealRoom click @ROOM", 0x25d6b82d2805a018ULL}, // 73 bytes;  ""
-    {"cheat:a:CheatSwitchPlayer 1 ; c:StealRoom click @ROOM", 0x91b3d638a31c8a3bULL}, // 558 bytes;  "Ok"
-    {"cheat:c:DestroyRoom click @ROOM", 0x3c4760256b85556fULL}, // 3232 bytes;  "Ok"
-    {"cheat:c:DestroyRoom click", 0x02dc3d57764926d1ULL}, // 3951 bytes;  "Ok"
-    {"cheat:c:KillCreatr", 0x9b106cb921862bd5ULL}, // 19 bytes; 
-    {"cheat:c:KillCreatr click", 0xa3dde366fd511c12ULL}, // 119 bytes; 
-    {"cheat:c:KillCreatr click @40,40", 0xc7ce4d3440405b6eULL}, // 21 bytes; 
-    {"cheat:c:ConvertCreatr click", 0xe13e862d2805a018ULL}, // 73 bytes;  ""
-    {"cheat:a:CheatSwitchPlayer 4 ; c:ConvertCreatr click", 0x0459b6e27a742309ULL}, // 126 bytes;  ""
-    {"cheat:c:StealSlab", 0xf7980bf5dcb9ea47ULL}, // 77 bytes;  ""
-    {"cheat:c:StealSlab click", 0x511dd0cac558815eULL}, // 80 bytes;  ""
-    {"cheat:a:CheatSwitchPlayer 1 ; c:StealSlab click", 0x41bbb2827484de4eULL}, // 119 bytes;  ""
-    {"cheat:c:StealSlab click @40,40", 0xecf0c9cac558815eULL}, // 80 bytes;  ""
-    {"cheat:c:LevelCreatureUp click", 0x3a42305f4ed1131dULL}, // 23 bytes; 
-    {"cheat:c:LevelCreatureDown click", 0x6cd9f9e40c974ae7ULL}, // 31 bytes; 
-    {"cheat:c:LevelCreatureUp click @40,40", 0x3407f43440405b6eULL}, // 21 bytes; 
-    {"cheat:c:KillPlayer @HEART", 0x2bf46ad6d397a4a1ULL}, // 70 bytes;  ""
-    {"cheat:c:KillPlayer click @HEART", 0xed0efa19ad8ad487ULL}, // 77 bytes;  ""
-    {"cheat:c:KillPlayer click", 0xefb10419ad8ad487ULL}, // 77 bytes;  ""
-    {"cheat:c:HeartHealth @HEART", 0xb612b4e743dee862ULL}, // 70 bytes;  "30000/30000"
-    {"cheat:c:HeartHealth click @HEART", 0x91f6925955c40259ULL}, // 73 bytes;  "30000/30000"
-    {"cheat:c:QueryAll", 0x78b6abb921862bd5ULL}, // 19 bytes; 
-    {"cheat:c:QueryAll click", 0x310ba975c3c4b267ULL}, // 27 bytes; 
-    {"cheat:c:CreatrInfoAll click", 0xa65d64dd002cac2eULL}, // 26 bytes; 
-    {"cheat:c:MkHappy click", 0x9ec83ee6478e1fb6ULL}, // 22 bytes; 
-    {"cheat:c:MkAngry click", 0xa44141e6478e1fb6ULL}, // 22 bytes; 
-    {"cheat:c:MkAngry click @40,40", 0x17fa363440405b6eULL}, // 21 bytes; 
-    {"cheat:c:PlaceTerrain", 0x597e6d8b706cb633ULL}, // 77 bytes;  "Impenetrable Rock"
-    {"cheat:a:CheatSwitchTerrain 12 ; c:PlaceTerrain click", 0xab4317e6ae726ab0ULL}, // 2256 bytes;  "Lava"
-    {"cheat:a:CheatSwitchTerrain 11 ; c:PlaceTerrain click", 0xf406f17fd6241960ULL}, // 2230 bytes;  "Claimed area"
-    {"cheat:c:DestroyThing", 0xf73e37b921862bd5ULL}, // 19 bytes; 
-    {"cheat:c:DestroyThing click", 0xf1ef2b1c0a910da5ULL}, // 130 bytes; 
-    {"cheat:c:DestroyThing click @HEART", 0xd69c6f11520bb005ULL}, // 89 bytes; 
-    {"cheat:c:DestroyThing click @40,40", 0x5fe8fc3440405b6eULL}, // 21 bytes; 
-    {"cheat:c:EditorPlaceTerrainRect press @120,125 ; c:EditorPlaceTerrainRect release", 0x7d5544df2f95a0a8ULL}, // 3937 bytes; 
-    {"cheat:c:EditorRectClearEarth press @120,125 ; c:EditorRectClearEarth release", 0x47fa1eb2a3fb96b7ULL}, // 3964 bytes; 
-    {"cheat:c:EditorRectDeleteThings press @120,125 ; c:EditorRectDeleteThings release", 0xe543ed074f2bf577ULL}, // 356 bytes; 
-    {"cheat:c:EditorRectSetOwner press @120,125 ; c:EditorRectSetOwner release", 0xf32bd592389ee20cULL}, // 3284 bytes; 
-    {"cheat:c:EditorFill click", 0xf2db02a012dea0f8ULL}, // 28 bytes; 
-    {"cheat:c:EditorPlaceObject click", 0xd05aa08645a061d8ULL}, // 29 bytes; 
-    {"cheat:c:EditorEyedropper click", 0xd726d9a012dea0f8ULL}, // 28 bytes; 
-    {"cheat:c:EditorStamp click", 0x79c85da012dea0f8ULL}, // 28 bytes; 
-    {"cheat:c:EditorQuery click", 0x0750cb8645a061d8ULL}, // 29 bytes; 
-    {"cheat:c:EditorPlaceTrap click", 0x33db3f9eeead797fULL}, // 58 bytes; 
-    {"cheat:c:EditorPlaceDoor click", 0x10d3dba012dea0f8ULL}, // 28 bytes; 
-    {"cheat:c:EditorPlaceDoor click @ROOM", 0x231e90a012dea0f8ULL}, // 28 bytes; 
-    {"cheat:multiplayer", 0xab912ab9e220e851ULL}, // 1 bytes; 
-    {"cheat:multiplayer ; a:CheatRevealMap", 0xab912ab9e220e851ULL}, // 1 bytes; 
-    {"cheat:multiplayer ; a:CheatWinLevel", 0xab912ab9e220e851ULL}, // 1 bytes; 
-    {"cheat:multiplayer ; a:CheatAllRooms", 0xab912ab9e220e851ULL}, // 1 bytes; 
-    {"cheat:multiplayer ; a:CheatMakeCreature 5 0", 0x4db612aa6fa2b4ffULL}, // 56 bytes; 
-    {"cheat:multiplayer ; a:CheatPlaceTerrain 12 0", 0x4db612aa6fa2b4ffULL}, // 56 bytes; 
-    {"cheat:multiplayer ; a:EditorUndo $C0", 0x4db612aa6fa2b4ffULL}, // 56 bytes; 
-    {"cheat:multiplayer ; a:EditorRectClearEarth #120 #125", 0x4db612aa6fa2b4ffULL}, // 56 bytes; 
-    {"cheat:multiplayer ; possess ; a:CheatKillCreature", 0xf88898ff72bb0862ULL}, // 35 bytes;  possess=1 ;
-    {"cheat:multiplayer ; c:KillCreatr click", 0xd87ceb8ab0a56159ULL}, // 21 bytes; 
-    {"cheat:multiplayer ; c:DestroyThing click @HEART", 0x0381e18ab0a56159ULL}, // 21 bytes; 
-    {"cheat:multiplayer ; a:SetPlyrState 28 0", 0x4db612aa6fa2b4ffULL}, // 56 bytes; 
-    {"cheat:a:SetPlyrState 28 0", 0x9b106cb921862bd5ULL}, // 19 bytes; 
-    {"cheat:multiplayer ; a:SetPlyrState 2 1", 0x3059c7a1b5210785ULL}, // 28 bytes; 
-    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorUndo $C0", 0x190372681a002d95ULL}, // 161 bytes; 
-    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; c:DestroyThing click", 0xf1ef2b1c0a910da5ULL}, // 130 bytes; 
-    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorRectDeleteThings #120 #125", 0x641743791fd7e186ULL}, // 5784 bytes; 
-    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorUndo $HEART", 0x5a7296f6143f618aULL}, // 119 bytes; 
+    {"cheat:a:CheatCrtSpells", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:CheatRevealMap", 0xaeb07ddfa2345c38ULL}, // 21664 bytes;
+    {"cheat:a:CheatCrAllSpls", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:CheatAllMagic", 0x9dab47c135e6d35aULL}, // 70 bytes;
+    {"cheat:a:CheatAllRooms", 0x43b92730797a24bdULL}, // 60 bytes;
+    {"cheat:a:CheatAllResrchbl", 0x21aa69f533ab050fULL}, // 117 bytes;
+    {"cheat:a:CheatSwitchTerrain 12", 0x787a8c90aa5235caULL}, // 110 bytes;
+    {"cheat:a:CheatSwitchTerrain 0", 0x94506a63c43ac594ULL}, // 109 bytes;
+    {"cheat:a:CheatSwitchPlayer 1", 0xc1281663c43ac594ULL}, // 109 bytes;
+    {"cheat:a:CheatSwitchCreature 5", 0x012ca3c6e024b541ULL}, // 56 bytes;
+    {"cheat:a:CheatSwitchHero 3", 0x932082c772f8f718ULL}, // 56 bytes;
+    {"cheat:a:CheatSwitchExperience 4", 0x9744ee9452bf1bd3ULL}, // 56 bytes;
+    {"cheat:a:CheatSwitchTrap 2", 0xfc75788c8ca0eb39ULL}, // 56 bytes;
+    {"cheat:a:CheatSwitchDoor 2", 0x5d658e5f1923bdf1ULL}, // 56 bytes;
+    {"cheat:a:CheatAllDoors", 0xfb135903f1c01747ULL}, // 59 bytes;
+    {"cheat:a:CheatAllTraps", 0xb8922879b8bf3be7ULL}, // 60 bytes;
+    {"cheat:a:CheatGiveDoorTrap", 0x06e87dc85d516de0ULL}, // 73 bytes;
+    {"cheat:a:CheatWinLevel", 0x38dcec6b71e3f13bULL}, // 74 bytes;
+    {"cheat:a:CheatLoseLevel", 0x3f15f9127b5ab014ULL}, // 73 bytes;
+    {"cheat:a:CheatLevelUp", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:possess ; a:CheatLevelUp", 0xf1b8d31e8e0289ccULL}, // 38 bytes;  possess=1 ;
+    {"cheat:a:CheatLevelDown", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:possess ; a:CheatLevelDown", 0x396c2187facf63daULL}, // 46 bytes;  possess=1 ;
+    {"cheat:a:CheatApplySpell 3", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:possess ; a:CheatApplySpell 3", 0x368364c222e1bd34ULL}, // 40 bytes;  possess=1 ;
+    {"cheat:a:CheatKillCreature", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:possess ; a:CheatKillCreature", 0xa405d96124586149ULL}, // 102 bytes;  possess=1 ;
+    {"cheat:a:CheatPlaceTerrain 12 0", 0x8278441f032b6bccULL}, // 2189 bytes;
+    {"cheat:a:CheatPlaceTerrain 11 1 @ROOM", 0x2bf87b66d4ddc564ULL}, // 1314 bytes;
+    {"cheat:a:CheatPlaceTerrain 0 5 @40,40", 0x392060a9e2660dc9ULL}, // 903 bytes;
+    {"cheat:a:CheatMakeCreature 5 0", 0x06ce2c7e7153b4c1ULL}, // 123 bytes;
+    {"cheat:a:CheatMakeCreature 5 772", 0xa33b746e3f971d9aULL}, // 125 bytes;
+    {"cheat:a:CheatMakeCreature 5 4 @40,40", 0x357bd5ff8959ae6bULL}, // 81 bytes;
+    {"cheat:a:CheatMakeDigger 0 2", 0xa4f2d53c74ddedcbULL}, // 123 bytes;
+    {"cheat:a:CheatMakeDigger 1 0", 0x9d85639ca47efbeeULL}, // 119 bytes;
+    {"cheat:a:CheatStealSlab 11 1", 0x55e096a8f61054d5ULL}, // 2132 bytes;
+    {"cheat:a:CheatStealSlab 11 260", 0x51afda4259ed5178ULL}, // 2158 bytes;
+    {"cheat:a:CheatStealSlab 4 260", 0x87b2472b83bdff61ULL}, // 2185 bytes;
+    {"cheat:a:CheatStealSlab 12 0 @40,40", 0x4b452f072bd76050ULL}, // 652 bytes;
+    {"cheat:a:CheatStealRoom 1 0 @ROOM", 0xbc68927798e2e56dULL}, // 463 bytes;
+    {"cheat:a:CheatStealRoom 4 1 @ROOM", 0xf20785cb53f6cc2aULL}, // 708 bytes;
+    {"cheat:a:CheatStealRoom 1 0 @40,40", 0x730ea87dec8af6c8ULL}, // 17 bytes;
+    {"cheat:a:CheatHeartHealth 0 1000", 0x803c9fb5061946caULL}, // 57 bytes;
+    {"cheat:a:CheatHeartHealth 0 0", 0xb938bbb1e7a70d70ULL}, // 59 bytes;
+    {"cheat:a:CheatHeartHealth 1 500", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:CheatKillPlayer 0", 0xb938bbb1e7a70d70ULL}, // 59 bytes;
+    {"cheat:a:CheatKillPlayer 1", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:CheatConvertCreature 4", 0x4773f3c354e0475cULL}, // 68 bytes;
+    {"cheat:c:ConvertCreatr ; a:CheatConvertCreature 4", 0xcb7006279e6ed6f7ULL}, // 72 bytes;  "" ;
+    {"cheat:a:EditorFloodFill 12 0", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:EditorFloodFill 11 0 @40,40", 0xf8d3503ea93271efULL}, // 134447 bytes;
+    {"cheat:a:EditorPlaceObject #120 #128 5 0", 0xc61dd1a4e71a6784ULL}, // 118 bytes;
+    {"cheat:a:EditorPlaceObject #120 #128 3 0", 0x59b4c41916bad59dULL}, // 97 bytes;
+    {"cheat:a:EditorPlaceObject #500 #500 5 0", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:EditorPlaceTrap 1 0", 0xe0efb453a618f81aULL}, // 99 bytes;
+    {"cheat:a:EditorPlaceTrap 2 0 @40,40", 0xef4009e61e35eb76ULL}, // 53 bytes;
+    {"cheat:a:EditorPlaceDoor 1 0", 0xb54e6c08401da780ULL}, // 258 bytes;
+    {"cheat:a:EditorPlaceDoor 1 0 @ROOM", 0x272f73e2067692f5ULL}, // 267 bytes;
+    {"cheat:a:EditorToggleDoorLock $C0", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:EditorToggleDoorLock 0", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:EditorUndo $C0", 0x65d5e94055cc9aeeULL}, // 161 bytes;
+    {"cheat:a:EditorUndo $HEART", 0xacc9c05b8a992337ULL}, // 118 bytes;
+    {"cheat:a:EditorUndo 0", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:EditorSetGoldValue $C0 500", 0x36da3487086b5541ULL}, // 55 bytes;
+    {"cheat:a:EditorSetThingPosition #120 #128 $C0 0", 0xec37635cd96df3fbULL}, // 61 bytes;
+    {"cheat:a:EditorPlaceTerrainRect #120 #125 12 0", 0x0c055485fa74d9ecULL}, // 96158 bytes;
+    {"cheat:a:EditorRectClearEarth #120 #125", 0x28dc81420c8ad8d3ULL}, // 87733 bytes;
+    {"cheat:a:EditorRectDeleteThings #120 #125", 0x641da36a307380aaULL}, // 5780 bytes;
+    {"cheat:a:EditorRectSetOwner #120 #125 1", 0xd8b232af2d604f58ULL}, // 12556 bytes;
+    {"cheat:a:EditorRectSetOwner #120 #125 0 @ROOM", 0x17425b4d1dacab22ULL}, // 20334 bytes;
+    {"cheat:a:EditorRedoCreature #126 #131 5 0", 0x06ce2c7e7153b4c1ULL}, // 123 bytes;
+    {"cheat:a:EditorRedoDigger #126 #131 0 1", 0x128062bf03514db7ULL}, // 122 bytes;
+    {"cheat:a:EditorRedoTrap #126 #131 1 0", 0xe0efb453a618f81aULL}, // 99 bytes;
+    {"cheat:a:EditorRedoDoor #126 #131 1 0", 0xb54e6c08401da780ULL}, // 258 bytes;
+    {"cheat:a:EditorGoSpectator #126 #131", 0xd3e93089562ec41fULL}, // 139 bytes;
+    {"cheat:c:MkDigger", 0x5ec7c3e2e2a24c2fULL}, // 78 bytes;  "1"
+    {"cheat:c:MkDigger click", 0x595455d6fa1c9f9bULL}, // 148 bytes;  "1"
+    {"cheat:c:MkDigger click @40,40", 0x860108971943ed50ULL}, // 143 bytes;  "1"
+    {"cheat:c:MkGoodCreatr", 0x0091c8e2ff4c8511ULL}, // 78 bytes;  "?"
+    {"cheat:a:CheatSwitchHero 3 ; c:MkGoodCreatr click", 0x873a76211d4348ecULL}, // 188 bytes;  "Archer 1"
+    {"cheat:c:MkBadCreatr", 0xb8601ee2ff4c8511ULL}, // 78 bytes;  "?"
+    {"cheat:a:CheatSwitchCreature 5 ; a:CheatSwitchExperience 3 ; c:MkBadCreatr click", 0x2dc5fe56a8db0d82ULL}, // 189 bytes;  "Mountain Dwarf 4"
+    {"cheat:c:MkGoldPot", 0x00c655d4a95cecd0ULL}, // 26 bytes;
+    {"cheat:c:MkGoldPot click", 0x82419181bf96d563ULL}, // 75 bytes;
+    {"cheat:c:OrderCreatr", 0xd32c07a9f376eebeULL}, // 19 bytes;
+    {"cheat:c:OrderCreatr click", 0x651c8f61df7ffa77ULL}, // 26 bytes;
+    {"cheat:c:OrderCreatr click ; c:OrderCreatr click @ROOM", 0xa0cef62f9fd70d00ULL}, // 48 bytes;
+    {"cheat:c:FreeDestroyWalls", 0x26ee8ef3df05cc5eULL}, // 18 bytes;
+    {"cheat:c:FreeDestroyWalls click", 0x7bef656ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:FreeDestroyWalls click @40,40", 0x7d9ffb6ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:FreeTurnChicken click", 0x5f36576ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:FreeCastDisease click", 0xceee526ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:FreeCastDisease click @40,40", 0x974bf86ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:StealRoom @ROOM", 0xa3636e8c3c8e10b8ULL}, // 70 bytes;  ""
+    {"cheat:c:StealRoom click @ROOM", 0x4dacf7db0a785015ULL}, // 73 bytes;  ""
+    {"cheat:a:CheatSwitchPlayer 1 ; c:StealRoom click @ROOM", 0x8ed612c9937d677aULL}, // 558 bytes;  "Ok"
+    {"cheat:c:DestroyRoom click @ROOM", 0x90ee8e0ddcbaa0e6ULL}, // 3232 bytes;  "Ok"
+    {"cheat:c:DestroyRoom click", 0x527071ac52022fd0ULL}, // 3951 bytes;  "Ok"
+    {"cheat:c:KillCreatr", 0x831cb6a9f376eebeULL}, // 19 bytes;
+    {"cheat:c:KillCreatr click", 0x032006998706f9ddULL}, // 119 bytes;
+    {"cheat:c:KillCreatr click @40,40", 0x375c8a6ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:ConvertCreatr click", 0x15dc3ddb0a785015ULL}, // 73 bytes;  ""
+    {"cheat:a:CheatSwitchPlayer 4 ; c:ConvertCreatr click", 0xed497e9229bde034ULL}, // 126 bytes;  ""
+    {"cheat:c:StealSlab", 0xda024e86ab1f20a6ULL}, // 77 bytes;  ""
+    {"cheat:c:StealSlab click", 0x5f36216b8da4426bULL}, // 80 bytes;  ""
+    {"cheat:a:CheatSwitchPlayer 1 ; c:StealSlab click", 0x648ccafc2905293fULL}, // 119 bytes;  ""
+    {"cheat:c:StealSlab click @40,40", 0x3e60d86b8da4426bULL}, // 80 bytes;  ""
+    {"cheat:c:LevelCreatureUp click", 0x8ad8bc31f73c090eULL}, // 23 bytes;
+    {"cheat:c:LevelCreatureDown click", 0x7e5285482bc657c8ULL}, // 31 bytes;
+    {"cheat:c:LevelCreatureUp click @40,40", 0x7bcd096ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:KillPlayer @HEART", 0x3228348c3c8e10b8ULL}, // 70 bytes;  ""
+    {"cheat:c:KillPlayer click @HEART", 0x4872ad7928fcba36ULL}, // 77 bytes;  ""
+    {"cheat:c:KillPlayer click", 0x9c0fc97928fcba36ULL}, // 77 bytes;  ""
+    {"cheat:c:HeartHealth @HEART", 0x93a3bea7e285a2f9ULL}, // 70 bytes;  "30000/30000"
+    {"cheat:c:HeartHealth click @HEART", 0x565f1fe7b304b026ULL}, // 73 bytes;  "30000/30000"
+    {"cheat:c:QueryAll", 0x980fada9f376eebeULL}, // 19 bytes;
+    {"cheat:c:QueryAll click", 0xddbb035b410d3190ULL}, // 27 bytes;
+    {"cheat:c:CreatrInfoAll click", 0x0cffcda437b22871ULL}, // 26 bytes;
+    {"cheat:c:MkHappy click", 0xb6037396df2a6699ULL}, // 22 bytes;
+    {"cheat:c:MkAngry click", 0x18197e96df2a6699ULL}, // 22 bytes;
+    {"cheat:c:MkAngry click @40,40", 0xa87f6b6ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:PlaceTerrain", 0x11ecd401aa96fd30ULL}, // 77 bytes;  "Impenetrable Rock"
+    {"cheat:a:CheatSwitchTerrain 12 ; c:PlaceTerrain click", 0x119f77e3f0d58a3cULL}, // 2255 bytes;  "Lava"
+    {"cheat:a:CheatSwitchTerrain 11 ; c:PlaceTerrain click", 0x2431966a41e7a96aULL}, // 2229 bytes;  "Claimed area"
+    {"cheat:c:DestroyThing", 0xd61d79a9f376eebeULL}, // 19 bytes;
+    {"cheat:c:DestroyThing click", 0xe6410619c570fcbeULL}, // 130 bytes;
+    {"cheat:c:DestroyThing click @HEART", 0xb178cf0e9c321cc3ULL}, // 89 bytes;
+    {"cheat:c:DestroyThing click @40,40", 0x1114616ba23204b9ULL}, // 21 bytes;
+    {"cheat:c:EditorPlaceTerrainRect press @120,125 ; c:EditorPlaceTerrainRect release", 0x298522be3aea9dfdULL}, // 3936 bytes;
+    {"cheat:c:EditorRectClearEarth press @120,125 ; c:EditorRectClearEarth release", 0xb9c915510d382913ULL}, // 3963 bytes;
+    {"cheat:c:EditorRectDeleteThings press @120,125 ; c:EditorRectDeleteThings release", 0x59ef0d0272a8e1c4ULL}, // 356 bytes;
+    {"cheat:c:EditorRectSetOwner press @120,125 ; c:EditorRectSetOwner release", 0xa7a8f417f3e86333ULL}, // 3283 bytes;
+    {"cheat:c:EditorFill click", 0x04563712958d48b3ULL}, // 28 bytes;
+    {"cheat:c:EditorPlaceObject click", 0x0ee409518b4fe04bULL}, // 29 bytes;
+    {"cheat:c:EditorEyedropper click", 0x70dcfa12958d48b3ULL}, // 28 bytes;
+    {"cheat:c:EditorStamp click", 0x80420e12958d48b3ULL}, // 28 bytes;
+    {"cheat:c:EditorQuery click", 0x720608518b4fe04bULL}, // 29 bytes;
+    {"cheat:c:EditorPlaceTrap click", 0x7c23aab311ff4218ULL}, // 58 bytes;
+    {"cheat:c:EditorPlaceDoor click", 0xa142a412958d48b3ULL}, // 28 bytes;
+    {"cheat:c:EditorPlaceDoor click @ROOM", 0x98ffa912958d48b3ULL}, // 28 bytes;
+    {"cheat:multiplayer", 0xb0432ab9e61d3f9fULL}, // 1 bytes;
+    {"cheat:multiplayer ; a:CheatRevealMap", 0xb0432ab9e61d3f9fULL}, // 1 bytes;
+    {"cheat:multiplayer ; a:CheatWinLevel", 0xb0432ab9e61d3f9fULL}, // 1 bytes;
+    {"cheat:multiplayer ; a:CheatAllRooms", 0xb0432ab9e61d3f9fULL}, // 1 bytes;
+    {"cheat:multiplayer ; a:CheatMakeCreature 5 0", 0x8858296e0e775352ULL}, // 56 bytes;
+    {"cheat:multiplayer ; a:CheatPlaceTerrain 12 0", 0x8858296e0e775352ULL}, // 56 bytes;
+    {"cheat:multiplayer ; a:EditorUndo $C0", 0x8858296e0e775352ULL}, // 56 bytes;
+    {"cheat:multiplayer ; a:EditorRectClearEarth #120 #125", 0x8858296e0e775352ULL}, // 56 bytes;
+    {"cheat:multiplayer ; possess ; a:CheatKillCreature", 0x5bfbe0cf9268cf02ULL}, // 35 bytes;  possess=1 ;
+    {"cheat:multiplayer ; c:KillCreatr click", 0x50922ada39943450ULL}, // 21 bytes;
+    {"cheat:multiplayer ; c:DestroyThing click @HEART", 0x009ce8da39943450ULL}, // 21 bytes;
+    {"cheat:multiplayer ; a:SetPlyrState 28 0", 0x8858296e0e775352ULL}, // 56 bytes;
+    {"cheat:a:SetPlyrState 28 0", 0x831cb6a9f376eebeULL}, // 19 bytes;
+    {"cheat:multiplayer ; a:SetPlyrState 2 1", 0x54db221ed1736bbcULL}, // 28 bytes;
+    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorUndo $C0", 0x65d5e94055cc9aeeULL}, // 161 bytes;
+    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; c:DestroyThing click", 0xe6410619c570fcbeULL}, // 130 bytes;
+    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorRectDeleteThings #120 #125", 0x2c70ac0d1819a78fULL}, // 5781 bytes;
+    {"cheat:lua:function OnObjectDestroyed(t) PLAYER0.FLAG5 = 7 end ; a:EditorUndo $HEART", 0xc20f7c0e0166e29cULL}, // 119 bytes;

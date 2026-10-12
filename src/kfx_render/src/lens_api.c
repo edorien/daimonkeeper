@@ -29,6 +29,7 @@
 
 
 #include "kfx_sim_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -106,7 +107,7 @@ void setup_eye_lens(int64_t nlens)
         return;
     }
     
-    // Note: LensManager updates kfx_render_state.active_lens_type and kfx_sim_state.applied_lens_type internally
+    // Note: LensManager updates kfx_render_state.active_lens_type and kfx_local_view.applied_lens_type internally
     SYNCDBG(8, "Lens %" PRId64 " setup complete", (int64_t)(nlens));
 }
 
@@ -225,7 +226,7 @@ TbBool lens_is_ready(void)
         return false;
     
     // Check if a lens is actually applied
-    if (kfx_sim_state.applied_lens_type == 0)
+    if (kfx_local_view.applied_lens_type == 0)
         return false;
     
     return true;

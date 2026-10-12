@@ -85,6 +85,7 @@
 #include "render_creature_view.h"
 #include "ports/ui_port.h"
 #include "local_state.h"
+#include "kfx_local_view.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -485,7 +486,7 @@ void redraw_display(void)
     local_state.display_needs_update = false;
     if (kfx_sim_state.game_kind == GKind_NonInteractiveState)
       return;
-    if (kfx_sim_state.small_map_state == 2)
+    if (kfx_local_view.small_map_state == 2)
       set_pointer_graphic_none();
     else
       process_pointer_graphic();

@@ -42,6 +42,11 @@ extern int64_t battle_creature_over;
 extern int64_t friendly_battler_list[];
 extern int64_t enemy_battler_list[];
 void maintain_my_battle_list(void);
+TbBool battle_in_list(PlayerNumber plyr_idx, BattleIndex battle_id);
+BattleIndex find_next_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex prev_idx);
+BattleIndex find_previous_battle_of_mine_excluding_current_list(PlayerNumber plyr_idx, BattleIndex next_idx);
+TbBool active_battle_exists(PlayerNumber plyr_idx);
+TbBool step_battles_forward(PlayerNumber plyr_idx);
 // my_visible_event_idx moved to gui_frontmenu.h (stage 10,
 // docs/refactor/stage-10-kfx-frontend.md).
 extern unsigned char my_event_button_state[];

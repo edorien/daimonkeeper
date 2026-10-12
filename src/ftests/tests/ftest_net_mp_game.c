@@ -58,6 +58,7 @@ static int64_t s_n, s_i;
 static GameTurn s_next_hash;
 static int64_t s_rooms_at_start, s_imps_at_start;
 static int64_t s_paused_calls;
+static GameTurn s_pause_requested_turn;
 
 static void S_act(unsigned char a, int64_t p1, int64_t p2) { struct Step s = {0}; s.action = a; s.p1 = p1; s.p2 = p2; s_script[s_n++] = s; }
 static void S_pos(MapSlabCoord sx, MapSlabCoord sy, unsigned char ctx, uint64_t ctrl) { struct Step s = {0}; s.pos = true; s.sx = sx; s.sy = sy; s.ctx = ctx; s.ctrl = ctrl; s_script[s_n++] = s; }
@@ -220,9 +221,9 @@ static FTestActionResult net_mp_game_wait(struct FTestActionArgs* const args)
     return (get_gameturn() < (GameTurn)(intptr_t)args->data) ? FTRs_Repeat_Current_Action : FTRs_Go_To_Next_Action;
 }
 
-/** The host pauses the game, then unpauses it, as the pause key does (set_packet_pause_toggle(): a pause packet; the
- *  unpause, once the toggle's cooldown has passed, a NETMSG_UNPAUSE to the client). Turns don't pass while the game is
- *  paused: this counts calls. */
+/** The host pauses the game, then unpauses it, as the pause key does (set_packet_pause_toggle(): a pause packet, which
+ *  takes effect input_lag_turns later on every machine; the unpause, once the toggle's cooldown has passed, a
+ *  NETMSG_UNPAUSE to the client). Turns don't pass while the game is paused: this counts calls. */
 static FTestActionResult net_mp_game_host_pause(struct FTestActionArgs* const args)
 {
     log_hash();
@@ -230,6 +231,7 @@ static FTestActionResult net_mp_game_host_pause(struct FTestActionArgs* const ar
     if (s_paused_calls == 0)
     {
         set_packet_pause_toggle();
+        s_pause_requested_turn = get_gameturn();
         s_paused_calls = 1;
         return FTRs_Repeat_Current_Action;
     }
@@ -246,10 +248,11 @@ static FTestActionResult net_mp_game_host_pause(struct FTestActionArgs* const ar
     }
     if (s_paused_calls > 1)
     {
-        FTESTLOG("paused and unpaused at turn %" PRId64 " (%" PRId64 " calls paused)", (int64_t)get_gameturn(), s_paused_calls);
+        FTESTLOG("paused and unpaused at turn %" PRId64 " (%" PRId64 " calls paused)", (int64_t)get_gameturn(), s_paused_calls - 1);
         return FTRs_Go_To_Next_Action;
     }
-    if (++s_paused_calls > 500)
+    // the pause packet hasn't taken effect yet: it does input_lag_turns after the turn it was sent in
+    if (get_gameturn() > s_pause_requested_turn + kfx_net_state.input_lag_turns + 2)
     {
         FTEST_FAIL_TEST("the pause wasn't taken");
         return FTRs_Go_To_Next_Action;

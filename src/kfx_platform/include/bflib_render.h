@@ -267,6 +267,10 @@ void draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct Pol
 /******************************************************************************/
 void gtblock_set_clipping_window(unsigned char *screen_addr, int64_t clip_width, int64_t clip_height, int64_t screen_width);
 /******************************************************************************/
+/** The shadow sprite vec_map is 256 * vec_map_scale texels a row (1: the original's 256x256 mask); with
+ *  vec_map_coverage its values are coverage 0..255 (soft shadows, docs/refactor/sprites/ Phase 10), else set/unset. */
+extern int64_t vec_map_scale;
+extern TbBool vec_map_coverage;
 /** Draws one creature shadow triangle (vec_mode VM_SpriteTranslucent, vec_map the shadow sprite, vec_shade its
  *  darkness) into poly_screen: bflib_render_shadow.c. */
 void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c);

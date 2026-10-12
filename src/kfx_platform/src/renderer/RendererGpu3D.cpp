@@ -25,6 +25,8 @@ struct GpuVertex {
     float layer;
     float depth; // 0 near .. 1 far -- WorldFrameOp::depth (visibility)
     float zpos;  // hyperbolic view depth for per-pixel lighting (PolyPoint::Z / WorldFrameOp::view_depth)
+    float uw, vw; // u, v in whole texels (the CPU's 32-res truncation): an HD frame samples the original 32x32 level
+                  // with these where a frame without HD would (world_polygon.frag)
 };
 
 } // namespace
@@ -81,8 +83,8 @@ bool RendererGpu3D::init_pipeline()
     fs_info.entrypoint = "main";
     fs_info.format = SDL_GPU_SHADERFORMAT_SPIRV;
     fs_info.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-    fs_info.num_samplers = 2; // set=2: binding 0 u_block_textures (2D array), binding 1 u_light_grid
-    fs_info.num_uniform_buffers = 1; // set=3 binding=0: Lighting (per-pixel lighting pass)
+    fs_info.num_samplers = 4; // set=2: 0 u_block_textures (2D array), 1 u_light_grid, 2 u_transform_curves, 3 u_transform_table
+    fs_info.num_uniform_buffers = 2; // set=3: binding 0 Lighting (per-pixel lighting pass), binding 1 Transform (palette effects)
     m_fragment_shader = SDL_CreateGPUShader(m_device, &fs_info);
     if (m_fragment_shader == nullptr)
     {
@@ -96,7 +98,7 @@ bool RendererGpu3D::init_pipeline()
     vb_desc.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
     vb_desc.instance_step_rate = 0;
 
-    SDL_GPUVertexAttribute attrs[6] = {};
+    SDL_GPUVertexAttribute attrs[7] = {};
     attrs[0].location = 0;
     attrs[0].buffer_slot = 0;
     attrs[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
@@ -121,6 +123,10 @@ bool RendererGpu3D::init_pipeline()
     attrs[5].buffer_slot = 0;
     attrs[5].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT;
     attrs[5].offset = offsetof(GpuVertex, zpos);
+    attrs[6].location = 6;
+    attrs[6].buffer_slot = 0;
+    attrs[6].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+    attrs[6].offset = offsetof(GpuVertex, uw);
 
     SDL_GPUColorTargetDescription color_target = {};
     color_target.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -138,7 +144,7 @@ bool RendererGpu3D::init_pipeline()
     pipe_info.vertex_input_state.vertex_buffer_descriptions = &vb_desc;
     pipe_info.vertex_input_state.num_vertex_buffers = 1;
     pipe_info.vertex_input_state.vertex_attributes = attrs;
-    pipe_info.vertex_input_state.num_vertex_attributes = 6;
+    pipe_info.vertex_input_state.num_vertex_attributes = 7;
     pipe_info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     pipe_info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     pipe_info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE; // bucket order, no culling yet -- 04's "no depth buffer" scope
@@ -167,8 +173,22 @@ bool RendererGpu3D::init_pipeline()
     sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT; // reproduces TEXTURE_UV_WRAP_MASK's wrap (bflib_render_gpoly.c)
     sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
     sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+    // Mip levels (texture resolution Phase 4): the hardware picks per pixel among what the array has.
+    sampler_info.min_lod = 0.0f;
+    sampler_info.max_lod = 1000.0f;
     m_sampler = SDL_CreateGPUSampler(m_device, &sampler_info);
-    if (m_sampler == nullptr)
+    // TEXTURE_FILTER Sharp/Bilinear: linear, clamped at the block's edge, or repeating for scrolled polygons.
+    sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
+    sampler_info.mag_filter = SDL_GPU_FILTER_LINEAR;
+    m_sampler_linear_repeat = SDL_CreateGPUSampler(m_device, &sampler_info);
+    sampler_info.address_mode_u = sampler_info.address_mode_v = sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    m_sampler_linear_clamp = SDL_CreateGPUSampler(m_device, &sampler_info);
+    sampler_info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    m_sampler_trilinear_clamp = SDL_CreateGPUSampler(m_device, &sampler_info);
+    sampler_info.address_mode_u = sampler_info.address_mode_v = sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+    m_sampler_trilinear_repeat = SDL_CreateGPUSampler(m_device, &sampler_info);
+    if (m_sampler == nullptr || m_sampler_linear_repeat == nullptr || m_sampler_linear_clamp == nullptr ||
+        m_sampler_trilinear_repeat == nullptr || m_sampler_trilinear_clamp == nullptr)
     {
         ERRORLOG("SDL_CreateGPUSampler failed: %s", SDL_GetError());
         return false;
@@ -176,6 +196,40 @@ bool RendererGpu3D::init_pipeline()
     return true;
 }
 
+uint32_t RendererGpu3D::layer_bytes() const
+{
+    uint32_t bytes = 0;
+    for (uint32_t l = 0; l < m_block_levels; ++l)
+        bytes += (m_block_side >> l) * (m_block_side >> l) * 4;
+    return bytes;
+}
+
+// Copies one staged layer (all its levels, one after another in the ring) to its place in the array.
+void RendererGpu3D::copy_layer_levels(SDL_GPUCopyPass* copy, uint32_t ring_slot, uint32_t layer)
+{
+    Uint32 offset = ring_slot * layer_bytes();
+    for (uint32_t l = 0; l < m_block_levels; ++l)
+    {
+        const Uint32 side = m_block_side >> l;
+        SDL_GPUTextureTransferInfo src = {};
+        src.transfer_buffer = m_block_transfer;
+        src.offset = offset;
+        src.pixels_per_row = side;
+        src.rows_per_layer = side;
+        SDL_GPUTextureRegion dst = {};
+        dst.texture = m_block_array;
+        dst.mip_level = l;
+        dst.layer = layer;
+        dst.w = side;
+        dst.h = side;
+        dst.d = 1;
+        SDL_UploadToGPUTexture(copy, &src, &dst, false);
+        offset += side * side * 4;
+    }
+}
+
+// The texture array, m_block_side texels a layer: 32 until a frame draws HD blocks, with m_block_levels levels
+// (ensure_block_array()).
 bool RendererGpu3D::init_block_array()
 {
     // Try a generous layer count first; Vulkan only guarantees 256.
@@ -186,10 +240,10 @@ bool RendererGpu3D::init_block_array()
         tex_info.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
         tex_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
         tex_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-        tex_info.width = WORLDFRAME_BLOCK_SIZE;
-        tex_info.height = WORLDFRAME_BLOCK_SIZE;
+        tex_info.width = m_block_side;
+        tex_info.height = m_block_side;
         tex_info.layer_count_or_depth = layers;
-        tex_info.num_levels = 1;
+        tex_info.num_levels = m_block_levels;
         tex_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
         m_block_array = SDL_CreateGPUTexture(m_device, &tex_info);
         if (m_block_array != nullptr)
@@ -204,10 +258,16 @@ bool RendererGpu3D::init_block_array()
         return false;
     }
 
-    const Uint32 layer_bytes = WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE * 4;
+    const Uint32 layer_size = layer_bytes();
+    m_upload_ring_capacity = kUploadRingBytes / layer_size;
+    if (m_upload_ring_capacity > m_block_layers)
+        m_upload_ring_capacity = m_block_layers;
+    if (m_upload_ring_capacity < 1)
+        m_upload_ring_capacity = 1;
+    m_upload_ring_layers = m_upload_ring_capacity;
     SDL_GPUTransferBufferCreateInfo tb_info = {};
     tb_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    tb_info.size = layer_bytes * m_block_layers;
+    tb_info.size = layer_size * m_upload_ring_capacity;
     m_block_transfer = SDL_CreateGPUTransferBuffer(m_device, &tb_info);
     if (m_block_transfer == nullptr)
     {
@@ -222,43 +282,88 @@ bool RendererGpu3D::init_block_array()
         ERRORLOG("SDL_MapGPUTransferBuffer (block cache) failed: %s", SDL_GetError());
         return false;
     }
-    SDL_memset(mapped, 255, layer_bytes);
+    SDL_memset(mapped, 255, layer_size);
     SDL_UnmapGPUTransferBuffer(m_device, m_block_transfer);
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(m_device);
     SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTextureTransferInfo src = {};
-    src.transfer_buffer = m_block_transfer;
-    src.pixels_per_row = WORLDFRAME_BLOCK_SIZE;
-    src.rows_per_layer = WORLDFRAME_BLOCK_SIZE;
-    SDL_GPUTextureRegion dst = {};
-    dst.texture = m_block_array;
-    dst.layer = 0;
-    dst.w = WORLDFRAME_BLOCK_SIZE;
-    dst.h = WORLDFRAME_BLOCK_SIZE;
-    dst.d = 1;
-    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    copy_layer_levels(copy, 0, 0);
     SDL_EndGPUCopyPass(copy);
     SDL_SubmitGPUCommandBuffer(cmd);
     return true;
 }
 
-// Returns the texture-array layer for a block pointer, queueing an upload
-// (RGBA into upload_dst's next slot) when the block is new or its palette
-// indices changed since it was last uploaded. Layer 0 (white) for null or
-// once the array is exhausted (the cache is then flushed at the next frame).
-uint32_t RendererGpu3D::resolve_block_layer(const unsigned char* texture, uint32_t& upload_count, unsigned char* upload_dst)
+// HD blocks of `side` texels need layers that big, TEXTURE_MIPMAPS levels below 32: the array and the upload ring
+// are made again (the cache flushed). 32x32 blocks then upload nearest-neighbour upscaled, which Nearest samples
+// exactly as before; their levels down to 32 are the same texels. The layers only ever grow.
+bool RendererGpu3D::ensure_block_array(uint32_t side, uint32_t levels)
+{
+    if (side < m_block_side)
+        side = m_block_side;
+    if ((side == m_block_side) && (levels == m_block_levels))
+        return true;
+    if (m_block_array != nullptr) { SDL_ReleaseGPUTexture(m_device, m_block_array); m_block_array = nullptr; }
+    if (m_block_transfer != nullptr) { SDL_ReleaseGPUTransferBuffer(m_device, m_block_transfer); m_block_transfer = nullptr; }
+    flush_block_cache();
+    m_upload_layers.clear();
+    const uint32_t old_side = m_block_side, old_levels = m_block_levels;
+    m_block_side = side;
+    m_block_levels = levels;
+    if (!init_block_array())
+    {
+        ERRORLOG("RendererGpu3D: no %u-texel, %u-level texture array; back to %u, %u", side, levels, old_side, old_levels);
+        m_block_side = old_side;
+        m_block_levels = old_levels;
+        init_block_array();
+        return false;
+    }
+    JUSTLOG("RendererGpu3D: texture array now %u texels a layer, %u levels, %u layers", m_block_side, m_block_levels, m_block_layers);
+    return true;
+}
+
+void RendererGpu3D::SetUploadRingLayersForTesting(uint32_t layers)
+{
+    m_upload_ring_layers = (layers < 1) ? 1 : ((layers > m_upload_ring_capacity) ? m_upload_ring_capacity : layers);
+}
+
+// The upload ring is full mid-frame: submit the batch so far (the queue runs it before this frame's draws) and
+// map a fresh ring for the rest.
+void RendererGpu3D::flush_block_uploads(uint32_t& upload_count, unsigned char*& upload_dst)
+{
+    SDL_UnmapGPUTransferBuffer(m_device, m_block_transfer);
+    upload_dst = nullptr;
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(m_device);
+    if (cmd != nullptr)
+    {
+        SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+        for (uint32_t k = 0; k < upload_count; ++k)
+            copy_layer_levels(copy, k, m_upload_layers[k]);
+        SDL_EndGPUCopyPass(copy);
+        SDL_SubmitGPUCommandBuffer(cmd);
+    }
+    else
+        ERRORLOG("SDL_AcquireGPUCommandBuffer (upload batch) failed: %s", SDL_GetError());
+    upload_count = 0;
+    m_upload_layers.clear();
+    upload_dst = static_cast<unsigned char*>(SDL_MapGPUTransferBuffer(m_device, m_block_transfer, true));
+    if (upload_dst == nullptr)
+        ERRORLOG("SDL_MapGPUTransferBuffer (block cache) failed: %s", SDL_GetError());
+}
+
+uint32_t RendererGpu3D::resolve_block_layer(const unsigned char* texture, const TbPixel* texture_rgba, uint8_t rgba_shift,
+    bool original_at_32, uint32_t& upload_count, unsigned char*& upload_dst)
 {
     if (texture == nullptr)
         return 0;
 
-    unsigned char gathered[WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE];
-    auto it = m_block_cache.find(texture);
+    // An HD block is keyed by its own page: the same 32x32 block may also draw as itself (a frame HD can't follow
+    // the palette in).
+    const void* key = (texture_rgba != nullptr) ? static_cast<const void*>(texture_rgba) : static_cast<const void*>(texture);
+    auto it = m_block_cache.find(key);
     if (it != m_block_cache.end() && it->second.frame_seen == m_frame_id)
-        return it->second.layer; // already verified this frame
-
-    for (int row = 0; row < WORLDFRAME_BLOCK_SIZE; ++row)
-        SDL_memcpy(gathered + row * WORLDFRAME_BLOCK_SIZE, texture + row * WORLDFRAME_BLOCK_STRIDE, WORLDFRAME_BLOCK_SIZE);
+        return it->second.layer; // already seen this frame
+    ++m_texture_stats.blocks;
+    ++m_texture_stats.last_frame_blocks;
 
     uint32_t layer;
     if (it == m_block_cache.end())
@@ -268,6 +373,7 @@ uint32_t RendererGpu3D::resolve_block_layer(const unsigned char* texture, uint32
             // Full: reclaim the layers of blocks not used this frame (a
             // camera fly-through accumulates far more distinct blocks over
             // time than are ever visible at once) before giving up.
+            ++m_texture_stats.reclaims;
             for (auto e = m_block_cache.begin(); e != m_block_cache.end(); )
             {
                 if (e->second.frame_seen != m_frame_id)
@@ -296,38 +402,108 @@ uint32_t RendererGpu3D::resolve_block_layer(const unsigned char* texture, uint32
         }
         else
             layer = m_next_layer++;
-        it = m_block_cache.emplace(texture, BlockEntry()).first;
+        it = m_block_cache.emplace(key, BlockEntry()).first;
         it->second.layer = layer;
     }
     else
     {
-        layer = it->second.layer;
-        if (SDL_memcmp(it->second.indices, gathered, sizeof(gathered)) == 0)
-        {
-            it->second.frame_seen = m_frame_id;
-            return layer;
-        }
+        // Cached: its texels only change through a texture-set load, which flushes (WorldTexturesChanged()).
+        it->second.frame_seen = m_frame_id;
+        return it->second.layer;
     }
-    SDL_memcpy(it->second.indices, gathered, sizeof(gathered));
     it->second.frame_seen = m_frame_id;
 
-    const unsigned char* palette = RendererGetActivePalette();
-    unsigned char* out = upload_dst + static_cast<size_t>(upload_count) * WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE * 4;
-    for (int i = 0; i < WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE; ++i)
+    if (upload_count >= m_upload_ring_layers)
+        flush_block_uploads(upload_count, upload_dst);
+    if (upload_dst == nullptr)
     {
-        // Same expansion the CPU rasterizer applies per texel
-        // (bflib_render_gpoly.c), except index 0: in terrain it is art
-        // (bookshelves, reliefs), not a hole. The CPU writes it as
-        // (0,0,0,0) over whatever was there and presents it black; left
-        // transparent here, the shader would discard it and show what lies
-        // behind. So it is opaque black, whatever palette entry 0 holds.
-        TbPixel px = (gathered[i] == 0) ? TbPixel_RGB(0, 0, 0) : expand_indexed_pixel(gathered[i], palette);
-        out[i * 4 + 0] = px.r;
-        out[i * 4 + 1] = px.g;
-        out[i * 4 + 2] = px.b;
-        out[i * 4 + 3] = px.a;
+        // Can't stage it: forget the block so a later frame uploads it; white meanwhile.
+        m_block_cache.erase(it);
+        m_free_layers.push_back(layer);
+        return 0;
+    }
+    const uint32_t side = m_block_side;
+    unsigned char* out = upload_dst + static_cast<size_t>(upload_count) * layer_bytes();
+    if (texture_rgba != nullptr)
+    {
+        // True-colour HD, in the reference palette's colours (the layer palette while HD draws:
+        // update_palette_state()), each texel repeated to fill the layer; alpha 0 is texture index 0's black,
+        // opaque as for the 32x32 blocks below.
+        const uint32_t bside = 32u << rgba_shift;
+        const uint32_t rep = (bside < side) ? (side / bside) : 1;
+        for (uint32_t y = 0; y < side; ++y)
+        {
+            const TbPixel* row = texture_rgba + static_cast<size_t>(y / rep) * WORLDFRAME_BLOCK_STRIDE;
+            for (uint32_t x = 0; x < side; ++x)
+            {
+                const TbPixel px = row[x / rep];
+                unsigned char* o = out + (static_cast<size_t>(y) * side + x) * 4;
+                o[0] = px.r; o[1] = px.g; o[2] = px.b; o[3] = 255;
+            }
+        }
+    }
+    else
+    {
+        unsigned char gathered[WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE];
+        for (int row = 0; row < WORLDFRAME_BLOCK_SIZE; ++row)
+            SDL_memcpy(gathered + row * WORLDFRAME_BLOCK_SIZE, texture + row * WORLDFRAME_BLOCK_STRIDE, WORLDFRAME_BLOCK_SIZE);
+        const unsigned char* palette = m_layer_palette; // see update_palette_state()
+        const uint32_t rep = side / WORLDFRAME_BLOCK_SIZE; // 1, or the HD layers' size over 32: nearest upscale
+        for (uint32_t y = 0; y < side; ++y)
+        {
+            for (uint32_t x = 0; x < side; ++x)
+            {
+                // Same expansion the CPU rasterizer applies per texel
+                // (bflib_render_gpoly.c), except index 0: in terrain it is art
+                // (bookshelves, reliefs), not a hole. The CPU writes it as
+                // (0,0,0,0) over whatever was there and presents it black; left
+                // transparent here, the shader would discard it and show what lies
+                // behind. So it is opaque black, whatever palette entry 0 holds.
+                const unsigned char index = gathered[(y / rep) * WORLDFRAME_BLOCK_SIZE + x / rep];
+                const TbPixel px = (index == 0) ? TbPixel_RGB(0, 0, 0) : expand_indexed_pixel(index, palette);
+                unsigned char* o = out + (static_cast<size_t>(y) * side + x) * 4;
+                o[0] = px.r; o[1] = px.g; o[2] = px.b; o[3] = px.a;
+            }
+        }
+    }
+    // The mip levels, each after the one above in the ring: box-filtered, except an HD block's 32x32 level when it
+    // is the original block (use_original_at_32: the far zooms look as they always did).
+    const unsigned char* above = out;
+    unsigned char* level = out + static_cast<size_t>(side) * side * 4;
+    for (uint32_t l = 1; l < m_block_levels; ++l)
+    {
+        const uint32_t ls = side >> l;
+        if ((texture_rgba != nullptr) && original_at_32 && (ls == WORLDFRAME_BLOCK_SIZE))
+        {
+            for (uint32_t y = 0; y < ls; ++y)
+                for (uint32_t x = 0; x < ls; ++x)
+                {
+                    const unsigned char index = texture[y * WORLDFRAME_BLOCK_STRIDE + x];
+                    const TbPixel px = (index == 0) ? TbPixel_RGB(0, 0, 0) : expand_indexed_pixel(index, m_layer_palette);
+                    unsigned char* o = level + (static_cast<size_t>(y) * ls + x) * 4;
+                    o[0] = px.r; o[1] = px.g; o[2] = px.b; o[3] = 255;
+                }
+        }
+        else
+        {
+            const uint32_t as = ls * 2;
+            for (uint32_t y = 0; y < ls; ++y)
+                for (uint32_t x = 0; x < ls; ++x)
+                {
+                    const unsigned char* a = above + (static_cast<size_t>(2 * y) * as + 2 * x) * 4;
+                    const unsigned char* b = a + static_cast<size_t>(as) * 4;
+                    unsigned char* o = level + (static_cast<size_t>(y) * ls + x) * 4;
+                    for (int c = 0; c < 4; ++c)
+                        o[c] = static_cast<unsigned char>((a[c] + a[4 + c] + b[c] + b[4 + c] + 2) >> 2);
+                }
+        }
+        above = level;
+        level += static_cast<size_t>(ls) * ls * 4;
     }
     ++upload_count;
+    ++m_texture_stats.uploads;
+    ++m_texture_stats.last_frame_uploads;
+    m_texture_stats.upload_bytes += layer_bytes();
     m_upload_layers.push_back(layer);
     return layer;
 }
@@ -428,7 +604,7 @@ bool RendererGpu3D::Init()
 {
     if (!init_gpu_device())
         return false;
-    if (!init_pipeline() || !init_block_array() || !init_light_grid() || !m_sprites.Init(m_device))
+    if (!init_pipeline() || !init_block_array() || !init_light_grid() || !init_colour_transform() || !m_sprites.Init(m_device))
     {
         destroy_gpu();
         return false;
@@ -470,10 +646,110 @@ bool RendererGpu3D::init_light_grid()
     return true;
 }
 
+// Palette effects as a colour transform (bflib_colour_transform.h, docs/newFeatures/texture-resolution/02-design.md
+// section 5.1.3): the curves and the 64^3 table the fragment shader reads with texelFetch.
+bool RendererGpu3D::init_colour_transform()
+{
+    SDL_GPUTextureCreateInfo ti = {};
+    ti.type = SDL_GPU_TEXTURETYPE_2D;
+    ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    ti.width = 256; ti.height = 1;
+    ti.layer_count_or_depth = 1; ti.num_levels = 1;
+    ti.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    m_transform_curves_tex = SDL_CreateGPUTexture(m_device, &ti);
+    ti.type = SDL_GPU_TEXTURETYPE_3D;
+    ti.width = ti.height = ti.layer_count_or_depth = COLOUR_TRANSFORM_TABLE_SIDE;
+    m_transform_table_tex = SDL_CreateGPUTexture(m_device, &ti);
+    SDL_GPUTransferBufferCreateInfo tb = {};
+    tb.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    tb.size = 256 * 4 + 4 * COLOUR_TRANSFORM_TABLE_SIZE;
+    m_transform_transfer = SDL_CreateGPUTransferBuffer(m_device, &tb);
+    SDL_GPUSamplerCreateInfo si = {};
+    si.min_filter = SDL_GPU_FILTER_NEAREST;
+    si.mag_filter = SDL_GPU_FILTER_NEAREST;
+    si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+    si.address_mode_u = si.address_mode_v = si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    m_transform_sampler = SDL_CreateGPUSampler(m_device, &si);
+    if (m_transform_curves_tex == nullptr || m_transform_table_tex == nullptr || m_transform_transfer == nullptr || m_transform_sampler == nullptr)
+    {
+        ERRORLOG("RendererGpu3D: colour transform resources failed: %s", SDL_GetError());
+        return false;
+    }
+    m_transform_table.assign(4 * COLOUR_TRANSFORM_TABLE_SIZE, 0);
+    m_transform_nearest.assign(COLOUR_TRANSFORM_TABLE_SIZE, 0);
+    m_transform.table = m_transform_table.data();
+    return true;
+}
+
+// Every cached layer is stale: layers are simply reassigned.
+void RendererGpu3D::flush_block_cache()
+{
+    m_block_cache.clear();
+    m_free_layers.clear();
+    m_next_layer = 1;
+    m_overflow_logged = false;
+}
+
+// Decides how this frame's palette is drawn: the layers as they are (the palette they were expanded through is
+// active), through the colour transform (a palette effect a colour function reproduces exactly), or flushed and
+// re-expanded through the new palette (anything else). Output equals expanding every texel through the active
+// palette in all three cases.
+void RendererGpu3D::update_palette_state(const unsigned char* active_palette, const unsigned char* hd_reference)
+{
+    // A frame with HD blocks: they are in the reference palette's colours, so the layers must be too (one
+    // transform for both; the engine draws HD only while that transform is exact, RendererHdUsable()).
+    if ((hd_reference != nullptr) && (!m_layer_palette_valid || SDL_memcmp(m_layer_palette, hd_reference, sizeof(m_layer_palette)) != 0))
+    {
+        flush_block_cache();
+        SDL_memcpy(m_layer_palette, hd_reference, sizeof(m_layer_palette));
+        m_layer_palette_valid = true;
+        m_transform_valid = false;
+        m_transform_nearest_valid = false;
+        m_transform.mode = CTM_Identity;
+    }
+    if (m_layer_palette_valid && SDL_memcmp(m_layer_palette, active_palette, sizeof(m_layer_palette)) == 0)
+        return;
+    if (m_layer_palette_valid)
+    {
+        if (!m_transform_valid || SDL_memcmp(m_transform_palette, active_palette, sizeof(m_transform_palette)) != 0)
+        {
+            enum ColourTransformMode mode = colour_transform_build(&m_transform, m_layer_palette, active_palette,
+                m_transform_nearest_valid ? m_transform_nearest.data() : nullptr);
+            if ((mode == CTM_Unsupported) && !m_transform_nearest_valid)
+            {
+                // A table is needed: its nearest-entry map, once per layer palette.
+                colour_transform_nearest_entries(m_layer_palette, m_transform_nearest.data());
+                m_transform_nearest_valid = true;
+                mode = colour_transform_build(&m_transform, m_layer_palette, active_palette, m_transform_nearest.data());
+            }
+            SDL_memcpy(m_transform_palette, active_palette, sizeof(m_transform_palette));
+            m_transform_valid = true;
+            m_transform_upload_pending = (mode == CTM_Curves) || (mode == CTM_Table);
+        }
+        if (m_transform.mode != CTM_Unsupported)
+            return;
+        ++m_texture_stats.palette_flushes;
+    }
+    flush_block_cache();
+    SDL_memcpy(m_layer_palette, active_palette, sizeof(m_layer_palette));
+    m_layer_palette_valid = true;
+    m_transform_valid = false;
+    m_transform_nearest_valid = false;
+    m_transform.mode = CTM_Identity;
+}
+
 void RendererGpu3D::destroy_gpu()
 {
     if (m_device == nullptr)
         return;
+    if (m_transform_curves_tex != nullptr) { SDL_ReleaseGPUTexture(m_device, m_transform_curves_tex); m_transform_curves_tex = nullptr; }
+    if (m_transform_table_tex != nullptr) { SDL_ReleaseGPUTexture(m_device, m_transform_table_tex); m_transform_table_tex = nullptr; }
+    if (m_transform_transfer != nullptr) { SDL_ReleaseGPUTransferBuffer(m_device, m_transform_transfer); m_transform_transfer = nullptr; }
+    if (m_transform_sampler != nullptr) { SDL_ReleaseGPUSampler(m_device, m_transform_sampler); m_transform_sampler = nullptr; }
+    m_layer_palette_valid = false;
+    m_transform_valid = false;
+    m_transform_nearest_valid = false;
     if (m_light_grid != nullptr) { SDL_ReleaseGPUTexture(m_device, m_light_grid); m_light_grid = nullptr; }
     if (m_light_grid_transfer != nullptr) { SDL_ReleaseGPUTransferBuffer(m_device, m_light_grid_transfer); m_light_grid_transfer = nullptr; }
     if (m_light_sampler != nullptr) { SDL_ReleaseGPUSampler(m_device, m_light_sampler); m_light_sampler = nullptr; }
@@ -494,6 +770,10 @@ void RendererGpu3D::destroy_gpu()
     m_free_layers.clear();
     m_next_layer = 1;
     if (m_sampler != nullptr) { SDL_ReleaseGPUSampler(m_device, m_sampler); m_sampler = nullptr; }
+    if (m_sampler_linear_repeat != nullptr) { SDL_ReleaseGPUSampler(m_device, m_sampler_linear_repeat); m_sampler_linear_repeat = nullptr; }
+    if (m_sampler_linear_clamp != nullptr) { SDL_ReleaseGPUSampler(m_device, m_sampler_linear_clamp); m_sampler_linear_clamp = nullptr; }
+    if (m_sampler_trilinear_repeat != nullptr) { SDL_ReleaseGPUSampler(m_device, m_sampler_trilinear_repeat); m_sampler_trilinear_repeat = nullptr; }
+    if (m_sampler_trilinear_clamp != nullptr) { SDL_ReleaseGPUSampler(m_device, m_sampler_trilinear_clamp); m_sampler_trilinear_clamp = nullptr; }
     if (m_pipeline != nullptr) { SDL_ReleaseGPUGraphicsPipeline(m_device, m_pipeline); m_pipeline = nullptr; }
     if (m_vertex_shader != nullptr) { SDL_ReleaseGPUShader(m_device, m_vertex_shader); m_vertex_shader = nullptr; }
     if (m_fragment_shader != nullptr) { SDL_ReleaseGPUShader(m_device, m_fragment_shader); m_fragment_shader = nullptr; }
@@ -516,25 +796,50 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
     RPROF_SCOPE(RPS_SUBMIT);
 
     ++m_frame_id;
-    const unsigned char* palette = RendererGetActivePalette();
-    if (!m_palette_valid || SDL_memcmp(m_palette_copy, palette, sizeof(m_palette_copy)) != 0)
+    ++m_texture_stats.frames;
+    m_texture_stats.last_frame_blocks = 0;
+    m_texture_stats.last_frame_uploads = 0;
+    if (m_textures_changed)
     {
-        // Palette changed (fade, lighting churn): every cached RGBA layer is
-        // stale. Layers are simply reassigned.
-        m_block_cache.clear();
-        m_free_layers.clear();
-        m_next_layer = 1;
-        SDL_memcpy(m_palette_copy, palette, sizeof(m_palette_copy));
-        m_palette_valid = true;
-        m_overflow_logged = false;
+        flush_block_cache();
+        m_textures_changed = false;
     }
+    // HD blocks in this frame: their size sets the layers' (ensure_block_array()), their colours the layer palette.
+    uint8_t hd_shift = 0;
+    bool frame_has_hd = false;
+    for (int64_t i = 0; i < frame.op_count; ++i)
+    {
+        if ((frame.ops[i].kind == WF_OP_POLY) && (frame.ops[i].u.poly.texture_rgba != nullptr))
+        {
+            frame_has_hd = true;
+            if (frame.ops[i].u.poly.block_shift > hd_shift)
+                hd_shift = frame.ops[i].u.poly.block_shift;
+        }
+    }
+    // Levels: down to 32, and to 1x1 with TEXTURE_MIPMAPS.
+    {
+        const uint32_t side = frame_has_hd ? (static_cast<uint32_t>(WORLDFRAME_BLOCK_SIZE) << hd_shift) : m_block_side;
+        const uint32_t final_side = (side > m_block_side) ? side : m_block_side;
+        uint32_t levels = 1;
+        while ((final_side >> (levels - 1)) > WORLDFRAME_BLOCK_SIZE)
+            ++levels;
+        if (RendererGetTextureMipmaps())
+            levels += 5;
+        if (!ensure_block_array(side, levels))
+            frame_has_hd = frame_has_hd && (m_block_side >= side);
+    }
+    update_palette_state(RendererGetActivePalette(), frame_has_hd ? RendererHdReferencePalette() : nullptr);
 
     // Walk the ops once, in draw order: terrain triangles become float
     // vertices in one stream, sprite ops quads in GpuSpriteRenderer's; draws
     // are recorded per contiguous run so the two interleave exactly as the
     // painter's algorithm did on the CPU.
     RPROF_BEGIN(RPS_BUILD);
-    struct DrawRun { bool sprite; GpuSpriteRenderer::DrawCall sprite_draw; uint32_t first, count; };
+    // wrap: a terrain run whose polygons may leave their block (scrolled UVs) and so sample with REPEAT; the rest
+    // clamp at the block's edge when a filter is on (texture-resolution 02-design.md section 5.1.3).
+    struct DrawRun { bool sprite; GpuSpriteRenderer::DrawCall sprite_draw; uint32_t first, count; bool wrap; };
+    const int texture_filter = RendererGetTextureFilter();
+    const bool filtered = (texture_filter != RENDERER_TEXFILTER_NEAREST);
     std::vector<DrawRun> runs;
     // Consecutive sprite draws of the same mode over adjacent vertices (a
     // creature shadow's two triangles, runs of plain sprites) merge into one draw.
@@ -543,7 +848,7 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
             runs.back().sprite_draw.first + runs.back().sprite_draw.count == d.first)
             runs.back().sprite_draw.count += d.count;
         else
-            runs.push_back({ true, d, 0, 0 });
+            runs.push_back({ true, d, 0, 0, false });
     };
     std::vector<GpuVertex> vertices;
     vertices.reserve(static_cast<size_t>(frame.op_count) * 3);
@@ -572,16 +877,41 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
         if (op.kind == WF_OP_POLY)
         {
             const WorldFramePolyItem& item = op.u.poly;
-            const float layer = static_cast<float>(resolve_block_layer(item.texture, upload_count, upload_dst));
+            const TbPixel* rgba = frame_has_hd ? item.texture_rgba : nullptr;
+            const float layer = static_cast<float>(resolve_block_layer(item.texture, rgba, item.block_shift, item.original_at_32 != 0,
+                upload_count, upload_dst));
             const struct PolyPoint* src[3] = { &item.v0, &item.v1, &item.v2 };
             const uint32_t first = static_cast<uint32_t>(vertices.size());
+            // Nearest samples like the CPU path: UVs truncated to whole texels, REPEAT (its mask wraps). Filtered:
+            // the UVs' fractions, and REPEAT only for a polygon whose UVs leave [0, 32) -- inside, every point is
+            // a mix of its corners' UVs, so it stays in its block and can clamp at the block's edge.
+            bool wrap = true;
+            if (filtered)
+            {
+                const int64_t block_end = (int64_t)WORLDFRAME_BLOCK_SIZE << 16;
+                wrap = false;
+                for (int v = 0; v < 3; ++v)
+                    wrap |= (src[v]->U < 0) || (src[v]->U >= block_end) || (src[v]->V < 0) || (src[v]->V >= block_end);
+            }
             for (int v = 0; v < 3; ++v)
             {
                 GpuVertex dst;
                 dst.x = static_cast<float>(src[v]->X) + off_x;
                 dst.y = static_cast<float>(src[v]->Y) + off_y;
-                dst.u = static_cast<float>(src[v]->U >> 16);
-                dst.v = static_cast<float>(src[v]->V >> 16);
+                // Fractions kept when filtered, or for an HD block in precision mode (Nearest then samples it at
+                // the UV's own position); whole texels otherwise -- the CPU's 32-res truncation, which parity keeps.
+                if (filtered || ((rgba != nullptr) && !item.parity))
+                {
+                    dst.u = static_cast<float>(static_cast<double>(src[v]->U) / 65536.0);
+                    dst.v = static_cast<float>(static_cast<double>(src[v]->V) / 65536.0);
+                }
+                else
+                {
+                    dst.u = static_cast<float>(src[v]->U >> 16);
+                    dst.v = static_cast<float>(src[v]->V >> 16);
+                }
+                dst.uw = static_cast<float>(src[v]->U >> 16);
+                dst.vw = static_cast<float>(src[v]->V >> 16);
                 dst.shade = static_cast<float>(src[v]->S >> 16);
                 dst.layer = layer;
                 dst.depth = op.depth;
@@ -596,10 +926,10 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
                 }
                 vertices.push_back(dst);
             }
-            if (!runs.empty() && !runs.back().sprite && runs.back().first + runs.back().count == first)
+            if (!runs.empty() && !runs.back().sprite && (runs.back().wrap == wrap) && runs.back().first + runs.back().count == first)
                 runs.back().count += 3;
             else
-                runs.push_back({ false, {}, first, 3 });
+                runs.push_back({ false, {}, first, 3, wrap });
         }
         else if (op.kind == WF_OP_SPRITE)
         {
@@ -646,9 +976,48 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
     const WorldFrameLighting* lighting = frame.lighting;
     const bool lit = lighting != nullptr && lighting->grid != nullptr && lighting->grid_w > 0 && lighting->grid_h > 0 &&
                      lighting->grid_w <= static_cast<int32_t>(kLightGridSize) && lighting->grid_h <= static_cast<int32_t>(kLightGridSize);
-    if (vertex_count > 0 || upload_count > 0 || m_sprites.HasWork() || lit)
+    if (vertex_count > 0 || upload_count > 0 || m_sprites.HasWork() || lit || m_transform_upload_pending)
     {
         SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+        if (m_transform_upload_pending)
+        {
+            unsigned char* tmap = static_cast<unsigned char*>(SDL_MapGPUTransferBuffer(m_device, m_transform_transfer, true));
+            if (tmap != nullptr)
+            {
+                for (int x = 0; x < 256; ++x)
+                {
+                    tmap[x * 4 + 0] = m_transform.curves[0][x];
+                    tmap[x * 4 + 1] = m_transform.curves[1][x];
+                    tmap[x * 4 + 2] = m_transform.curves[2][x];
+                    tmap[x * 4 + 3] = 255;
+                }
+                const bool table = (m_transform.mode == CTM_Table);
+                if (table)
+                    SDL_memcpy(tmap + 256 * 4, m_transform_table.data(), m_transform_table.size());
+                SDL_UnmapGPUTransferBuffer(m_device, m_transform_transfer);
+                SDL_GPUTextureTransferInfo csrc = {};
+                csrc.transfer_buffer = m_transform_transfer;
+                csrc.pixels_per_row = 256;
+                csrc.rows_per_layer = 1;
+                SDL_GPUTextureRegion cdst = {};
+                cdst.texture = m_transform_curves_tex;
+                cdst.w = 256; cdst.h = 1; cdst.d = 1;
+                SDL_UploadToGPUTexture(copy, &csrc, &cdst, true);
+                if (table)
+                {
+                    SDL_GPUTextureTransferInfo tsrc = {};
+                    tsrc.transfer_buffer = m_transform_transfer;
+                    tsrc.offset = 256 * 4;
+                    tsrc.pixels_per_row = COLOUR_TRANSFORM_TABLE_SIDE;
+                    tsrc.rows_per_layer = COLOUR_TRANSFORM_TABLE_SIDE;
+                    SDL_GPUTextureRegion tdst = {};
+                    tdst.texture = m_transform_table_tex;
+                    tdst.w = tdst.h = tdst.d = COLOUR_TRANSFORM_TABLE_SIDE;
+                    SDL_UploadToGPUTexture(copy, &tsrc, &tdst, true);
+                }
+            }
+            m_transform_upload_pending = false;
+        }
         if (lit)
         {
             unsigned char* gmap = static_cast<unsigned char*>(SDL_MapGPUTransferBuffer(m_device, m_light_grid_transfer, true));
@@ -668,22 +1037,8 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
                 SDL_UploadToGPUTexture(copy, &gsrc, &gdst, true);
             }
         }
-        const Uint32 layer_bytes = WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE * 4;
         for (uint32_t k = 0; k < upload_count; ++k)
-        {
-            SDL_GPUTextureTransferInfo src = {};
-            src.transfer_buffer = m_block_transfer;
-            src.offset = k * layer_bytes;
-            src.pixels_per_row = WORLDFRAME_BLOCK_SIZE;
-            src.rows_per_layer = WORLDFRAME_BLOCK_SIZE;
-            SDL_GPUTextureRegion dst = {};
-            dst.texture = m_block_array;
-            dst.layer = m_upload_layers[k];
-            dst.w = WORLDFRAME_BLOCK_SIZE;
-            dst.h = WORLDFRAME_BLOCK_SIZE;
-            dst.d = 1;
-            SDL_UploadToGPUTexture(copy, &src, &dst, false);
-        }
+            copy_layer_levels(copy, k, m_upload_layers[k]);
         if (vertex_count > 0)
         {
             SDL_GPUTransferBufferLocation src_loc = {};
@@ -742,6 +1097,23 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
         }
     }
     SDL_PushGPUFragmentUniformData(cmd, 0, &lighting_uniform, sizeof(lighting_uniform));
+    {
+        // world_polygon.frag's Transform: x = 0 identity, 1 curves, 2 table (bflib_colour_transform.h).
+        const bool layers_current = m_layer_palette_valid && (SDL_memcmp(m_layer_palette, RendererGetActivePalette(), sizeof(m_layer_palette)) == 0);
+        // y: the texture filter (RENDERER_TEXFILTER_*). z: in a Nearest frame with HD blocks, the level of the original
+        // 32x32 block in the layers (log2(side / 32)), where the shader samples as a frame without HD would; 0 else.
+        float transform_uniform[4] = { 0.0f, static_cast<float>(RendererGetTextureFilter()), 0.0f, 0.0f };
+        if (frame_has_hd && (RendererGetTextureFilter() == RENDERER_TEXFILTER_NEAREST))
+        {
+            uint32_t level32 = 0;
+            while ((m_block_side >> level32) > WORLDFRAME_BLOCK_SIZE)
+                ++level32;
+            transform_uniform[2] = static_cast<float>(level32);
+        }
+        if (!layers_current && (m_transform.mode == CTM_Curves || m_transform.mode == CTM_Table))
+            transform_uniform[0] = static_cast<float>(m_transform.mode);
+        SDL_PushGPUFragmentUniformData(cmd, 1, transform_uniform, sizeof(transform_uniform));
+    }
 
     SDL_GPUDepthStencilTargetInfo depth_target = {};
     depth_target.texture = m_depth_target;
@@ -769,12 +1141,18 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
             SDL_GPUBufferBinding vb_binding = {};
             vb_binding.buffer = m_vertex_buffer;
             SDL_BindGPUVertexBuffers(pass, 0, &vb_binding, 1);
-            SDL_GPUTextureSamplerBinding tex_bindings[2] = {};
+            SDL_GPUTextureSamplerBinding tex_bindings[4] = {};
             tex_bindings[0].texture = m_block_array;
-            tex_bindings[0].sampler = m_sampler;
+            tex_bindings[0].sampler = !filtered ? m_sampler :
+                ((texture_filter == RENDERER_TEXFILTER_TRILINEAR) ? (run.wrap ? m_sampler_trilinear_repeat : m_sampler_trilinear_clamp) :
+                    (run.wrap ? m_sampler_linear_repeat : m_sampler_linear_clamp));
             tex_bindings[1].texture = m_light_grid;
             tex_bindings[1].sampler = m_light_sampler;
-            SDL_BindGPUFragmentSamplers(pass, 0, tex_bindings, 2);
+            tex_bindings[2].texture = m_transform_curves_tex;
+            tex_bindings[2].sampler = m_transform_sampler;
+            tex_bindings[3].texture = m_transform_table_tex;
+            tex_bindings[3].sampler = m_transform_sampler;
+            SDL_BindGPUFragmentSamplers(pass, 0, tex_bindings, 4);
             SDL_DrawGPUPrimitives(pass, run.count, 1, run.first, 0);
         }
     }
@@ -795,7 +1173,7 @@ void RendererGpu3D::SubmitWorldFrame(const WorldFrame& frame)
         RPROF_COUNT(RPC_SHADOWS, shadows);
         RPROF_COUNT(RPC_VERTICES, vertex_count);
         RPROF_COUNT(RPC_DRAW_RUNS, runs.size());
-        RPROF_COUNT(RPC_BLOCK_UPLOADS, upload_count);
+        RPROF_COUNT(RPC_BLOCK_UPLOADS, (int64_t)m_texture_stats.last_frame_uploads);
     }
     if (RPROF_SYNC_GPU())
     {

@@ -337,11 +337,15 @@ void render_minimap(void)
     s_mm_px = scale_value_for_resolution_with_upp(local_state.minimap_pos_x, mm_upp);
     s_mm_py = scale_value_for_resolution_with_upp(local_state.minimap_pos_y, mm_upp);
 
-    // Buffer generously covers [0 .. px + diamond]. Fixed slack (512) so a
-    // stale MapDiagonalLength never makes it too small (which showed as
-    // half-drawn rows). Capped at 1024.
-    int64_t dim = (int64_t)(s_mm_px + 512);
-    if (dim > 1024) dim = 1024;
+    // The buffer covers [0 .. pos + diamond] on both axes: setup_background()
+    // and panel_map_draw_slabs() write rows PanelMapY .. +MapDiagonalLength
+    // and columns PanelMapX .. +MapDiagonalLength. The diamond is computed
+    // here with setup_background()'s own formula, not read from
+    // MapDiagonalLength (stale until panel_map_draw_slabs() rebuilds it).
+    // A fixed slack of 512, capped at 1024, was used before: from a minimap
+    // larger than 512 pixels (4K) the drawing wrote past the buffer.
+    const int64_t mm_diag = 2 * (PANEL_MAP_RADIUS * mm_upp / 16);
+    int64_t dim = std::max(s_mm_px, s_mm_py) + mm_diag + 1;
     if (dim < 128) dim = 128;
     if (dim != s_mm_tex_dim || s_mm_tex == nullptr)
     {

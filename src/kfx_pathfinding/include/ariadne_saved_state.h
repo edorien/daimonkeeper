@@ -35,12 +35,17 @@ size_t ariadne_saved_state_size(void);
 void ariadne_saved_state_write(void *buf);
 /** Restores the saved state from buf, then sets up what init_navigation() would besides the mesh. */
 void ariadne_saved_state_read(const void *buf);
+/** A level's mesh starts from the mesh as start-up left it (refactor pass 5, S12): the baseline is taken at the end of
+ *  start-up, the reset runs at a level's start. */
+void ariadne_take_level_baseline(void);
+void ariadne_reset_for_level(void);
 
 void ariadne_tringls_visit_saved_state(AriadneStateVisitor visit, void *ctx);
 void ariadne_points_visit_saved_state(AriadneStateVisitor visit, void *ctx);
 void ariadne_regions_visit_saved_state(AriadneStateVisitor visit, void *ctx);
 void ariadne_findcache_visit_saved_state(AriadneStateVisitor visit, void *ctx);
 void ariadne_update_restored_state_ready(void);
+void ariadne_update_reset_for_level(void);
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -34,8 +34,6 @@
 #include "thing_list.h"
 #include "power_specials.h"
 #include "power_hand.h"
-// Real usage: set_chosen_power_none() (add_power_to_player()/
-// remove_power_from_player(), moved from config_magic.c).
 #include "power_process.h"
 #include "thing_creature.h"
 #include "thing_objects.h"
@@ -66,6 +64,7 @@
 #include "ports/script_port.h"
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
+#include "ports/render_port.h"
 #include "list_walk.h"
 #include "post_inc.h"
 
@@ -2388,10 +2387,9 @@ void remove_power_from_player(PowerKind pwkind, PlayerNumber plyr_idx)
         }
         break;
     }
-    if (kfx_sim_state.chosen_spell_type == pwkind)
-    {
-        set_chosen_power_none();
-    }
+    // the local player's chosen power, only when the local player lost it (P5-F27)
+    if (is_my_player_number(plyr_idx))
+        render_local_view_power_removed(pwkind);
 }
 
 /******************************************************************************/

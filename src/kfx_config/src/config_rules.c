@@ -88,6 +88,7 @@ const struct NamedCommand rules_game_classicbugs_commands[] = {
   {"CREATURE_STATS_WRAP",           ClscBug_CreatureStatsWrap     },
   {"CORNER_WALL_UNREVEALED",        ClscBug_CornerWallUnrevealed  },
   {"CROOKED_SIGHT_LINES",           ClscBug_CrookedSightLines     },
+  {"NEUTRAL_ROOM_JOBS",             ClscBug_NeutralRoomJobs       },
   {NULL,                             0},
 };
 

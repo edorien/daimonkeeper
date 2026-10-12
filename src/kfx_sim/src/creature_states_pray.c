@@ -334,21 +334,16 @@ void kill_all_players_chickens(PlayerNumber plyr_idx)
 int64_t creature_being_summoned(struct Thing *thing)
 {
     struct CreatureControl *cctrl;
-    int64_t orig_w;
-    int64_t orig_h;
-    int64_t unsc_w;
-    int64_t unsc_h;
     cctrl = creature_control_get_from_thing(thing);
     if (creature_control_invalid(cctrl)) {
         return 0;
     }
     if (cctrl->sacrifice.animation_counter <= 0)
     {
-        get_keepsprite_unscaled_dimensions(thing->anim_sprite, thing->move_angle_xy, thing->current_frame, &orig_w, &orig_h, &unsc_w, &unsc_h);
         create_effect(&thing->mappos, TngEff_Explosion4, thing->owner);
         thing->movement_flags |= TMvF_BeingSacrificed;
         cctrl->sacrifice.animation_counter = 1;
-        cctrl->sacrifice.animation_duration = 48;//orig_h;
+        cctrl->sacrifice.animation_duration = 48;
         return 0;
     }
     cctrl->sacrifice.animation_counter++;

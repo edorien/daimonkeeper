@@ -948,7 +948,8 @@ across 15 accepted call sites:
   smaller, but genuinely zero-dependency functions the original pass
   hadn't reached. What's *actually* left after this second look is
   narrower and more confidently real: `bflib_render_trig.c` (4,631
-  lines)/`bflib_render_gpoly.c`/`bflib_vidraw_spr_*.c`/`bflib_sprfnt.c`'s
+  lines; since refactor pass 5, S10, the ~300-line `bflib_render_shadow.c`,
+  covered by the `[trig_golden]` shadow golden)/`bflib_render_gpoly.c`/`bflib_vidraw_spr_*.c`/`bflib_sprfnt.c`'s
   remaining real-framebuffer drawing code, `bflib_vidsurface.c` (calls
   `SDL_CreateSurface`/`SDL_BlitSurface` directly), `platform/*.cpp` (real
   OS window creation), `renderer/RendererSoftware.cpp`/

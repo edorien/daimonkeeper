@@ -28,8 +28,6 @@ extern "C" {
 
 TbBool LbNetwork_Resync(void *data_buffer, size_t buffer_length);
 void animate_resync_progress_bar(int64_t current_phase, int64_t total_phases);
-void store_localised_game_structure(void);
-void recall_localised_game_structure(void);
 void resync_game(void);
 TbBool apply_recorded_resync(const char *message_buffer, size_t message_size);
 

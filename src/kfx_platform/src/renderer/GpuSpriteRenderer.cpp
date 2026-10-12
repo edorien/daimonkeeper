@@ -3,6 +3,7 @@
 #include "renderer/RendererProfile.h"
 #include "renderer/RendererManager.h" // RendererGetActivePalette
 #include "bflib_video.h"              // expand_indexed_pixel
+#include "bflib_colour_transform.h"   // HD sprites: the transform table
 #include <SDL3/SDL_gpu.h>
 #include "renderer/shaders/world_sprite.vert.spv.h"
 #include "renderer/shaders/world_sprite.frag.spv.h"
@@ -71,6 +72,20 @@ void decode_rle(const unsigned char* rle, int32_t w, int32_t h, unsigned char* o
 
 } // namespace
 
+int32_t GpuSpriteRenderer::hd_layer_limit = 0;
+
+SDL_GPUTexture* GpuSpriteRenderer::create_hd_atlas(int32_t size, int32_t layers)
+{
+    SDL_GPUTextureCreateInfo hi = {};
+    hi.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
+    hi.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    hi.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    hi.width = size; hi.height = size;
+    hi.layer_count_or_depth = layers; hi.num_levels = 1;
+    hi.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    return SDL_CreateGPUTexture(m_device, &hi);
+}
+
 bool GpuSpriteRenderer::create_pipelines()
 {
     SDL_GPUShaderCreateInfo vs_info = {};
@@ -87,7 +102,7 @@ bool GpuSpriteRenderer::create_pipelines()
     fs_info.entrypoint = "main";
     fs_info.format = SDL_GPU_SHADERFORMAT_SPIRV;
     fs_info.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-    fs_info.num_samplers = 4; // atlas, lut, lookup, light grid
+    fs_info.num_samplers = 6; // atlas, lut, lookup, light grid, HD atlas, HD colour transform table
     fs_info.num_uniform_buffers = 1; // set=3 binding=0: Lighting (shared with the terrain shader)
     m_fs = SDL_CreateGPUShader(m_device, &fs_info);
     if (m_vs == nullptr || m_fs == nullptr)
@@ -225,7 +240,17 @@ bool GpuSpriteRenderer::Init(SDL_GPUDevice* device)
     ti.format = SDL_GPU_TEXTUREFORMAT_R16_UNORM; // not R16_UINT: SDL_GPU forbids SAMPLER usage on integer formats
     ti.width = kLookupWidth; ti.height = kLookupHeight;
     m_lookup = SDL_CreateGPUTexture(m_device, &ti);
-    if (m_atlas == nullptr || m_lut == nullptr || m_lookup == nullptr)
+    // HD sprites: an RGBA array atlas, one layer to start (it grows as HD frames arrive), and the colour
+    // transform's 64^3 table as 4096 x 64.
+    for (int32_t size : sizes)
+    {
+        m_hd_atlas = create_hd_atlas(size, 1);
+        if (m_hd_atlas != nullptr) { m_hd_atlas_size = size; m_hd_layers = 1; break; }
+    }
+    ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    ti.width = 4096; ti.height = 64;
+    m_transform_tex = SDL_CreateGPUTexture(m_device, &ti);
+    if (m_atlas == nullptr || m_lut == nullptr || m_lookup == nullptr || m_hd_atlas == nullptr || m_transform_tex == nullptr)
     {
         ERRORLOG("GpuSpriteRenderer: texture creation failed: %s", SDL_GetError());
         return false;
@@ -240,7 +265,11 @@ bool GpuSpriteRenderer::Init(SDL_GPUDevice* device)
     m_lut_staging = SDL_CreateGPUTransferBuffer(m_device, &tb);
     tb.size = kLookupWidth * kLookupHeight * 2;
     m_lookup_staging = SDL_CreateGPUTransferBuffer(m_device, &tb);
-    if (m_atlas_staging == nullptr || m_lut_staging == nullptr || m_lookup_staging == nullptr)
+    tb.size = kHdStagingBytes;
+    m_hd_staging = SDL_CreateGPUTransferBuffer(m_device, &tb);
+    tb.size = 4096 * 64 * 4;
+    m_transform_staging = SDL_CreateGPUTransferBuffer(m_device, &tb);
+    if (m_atlas_staging == nullptr || m_lut_staging == nullptr || m_lookup_staging == nullptr || m_hd_staging == nullptr || m_transform_staging == nullptr)
     {
         ERRORLOG("GpuSpriteRenderer: staging buffer creation failed: %s", SDL_GetError());
         return false;
@@ -257,6 +286,16 @@ void GpuSpriteRenderer::Destroy()
     if (m_atlas_staging != nullptr) SDL_ReleaseGPUTransferBuffer(m_device, m_atlas_staging);
     if (m_lut_staging != nullptr) SDL_ReleaseGPUTransferBuffer(m_device, m_lut_staging);
     if (m_lookup_staging != nullptr) SDL_ReleaseGPUTransferBuffer(m_device, m_lookup_staging);
+    if (m_hd_staging != nullptr) SDL_ReleaseGPUTransferBuffer(m_device, m_hd_staging);
+    if (m_transform_staging != nullptr) SDL_ReleaseGPUTransferBuffer(m_device, m_transform_staging);
+    if (m_hd_atlas != nullptr) SDL_ReleaseGPUTexture(m_device, m_hd_atlas);
+    if (m_hd_atlas_old != nullptr) SDL_ReleaseGPUTexture(m_device, m_hd_atlas_old);
+    m_hd_atlas_old = nullptr;
+    m_hd_layers = m_hd_old_layers = 0;
+    if (m_transform_tex != nullptr) SDL_ReleaseGPUTexture(m_device, m_transform_tex);
+    m_hd_staging = nullptr; m_transform_staging = nullptr; m_hd_atlas = nullptr; m_transform_tex = nullptr;
+    m_hd_entries.clear();
+    m_transform_valid = false;
     if (m_atlas != nullptr) SDL_ReleaseGPUTexture(m_device, m_atlas);
     if (m_lut != nullptr) SDL_ReleaseGPUTexture(m_device, m_lut);
     if (m_lookup != nullptr) SDL_ReleaseGPUTexture(m_device, m_lookup);
@@ -280,7 +319,23 @@ void GpuSpriteRenderer::BeginFrame(const WorldFrame& frame)
     m_vertices.clear();
     m_pending_pixels.clear();
     m_pending.clear();
+    m_hd_pending_pixels.clear();
+    m_hd_pending.clear();
+    m_transform_needed = false;
     m_bound_pipeline = -1;
+    // An HD atlas that can't grow any more starts a frame with room: three quarters of its last layer used, it is
+    // cleared now rather than when a frame runs out mid-way.
+    if ((m_hd_layer == m_hd_layers - 1) && (m_hd_layers >= hd_layer_cap())
+        && (m_hd_cursor_y + m_hd_shelf_h > (m_hd_atlas_size / 4) * 3))
+        m_hd_atlas_reset_pending = true;
+    if (m_hd_atlas_reset_pending)
+    {
+        m_hd_entries.clear();
+        m_hd_layer = 0;
+        m_hd_cursor_x = m_hd_cursor_y = m_hd_shelf_h = 0;
+        m_hd_atlas_full = false;
+        m_hd_atlas_reset_pending = false;
+    }
     if (m_atlas_reset_pending)
     {
         // Last frame ran out of atlas: start over (visible sprites re-upload on demand).
@@ -361,6 +416,160 @@ bool GpuSpriteRenderer::alloc_rect(int32_t w, int32_t h, int32_t& x, int32_t& y)
     return true;
 }
 
+// The most layers the HD atlas may grow to now: RendererGetHdSpriteAtlasCap() (ASSET_PACK_MEMORY's sprite share, live),
+// what the GPU took when it refused more, and the tests' limit.
+int32_t GpuSpriteRenderer::hd_layer_cap() const
+{
+    const uint64_t layer_bytes = static_cast<uint64_t>(m_hd_atlas_size) * m_hd_atlas_size * 4;
+    int32_t cap = (layer_bytes > 0) ? static_cast<int32_t>(RendererGetHdSpriteAtlasCap() / layer_bytes) : 1;
+    if (cap < 1) cap = 1;
+    if (m_hd_layer_refused > 0 && m_hd_layer_refused < cap) cap = m_hd_layer_refused;
+    if (hd_layer_limit > 0 && hd_layer_limit < cap) cap = hd_layer_limit;
+    return cap;
+}
+
+// More layers for the HD atlas (twice as many, up to hd_layer_cap()): a new texture; Upload() copies the old layers
+// into it before this frame's uploads. False when it can't grow: at the cap, or the GPU refused a bigger texture.
+bool GpuSpriteRenderer::grow_hd_atlas()
+{
+    const int32_t cap = hd_layer_cap();
+    int32_t layers = m_hd_layers * 2;
+    if (layers > cap) layers = cap;
+    if (layers <= m_hd_layers)
+        return false;
+    SDL_GPUTexture* grown = create_hd_atlas(m_hd_atlas_size, layers);
+    if (grown == nullptr)
+    {
+        WARNLOG("GpuSpriteRenderer: the GPU refused an HD sprite atlas of %d layers (%s); staying at %d", (int)layers, SDL_GetError(), (int)m_hd_layers);
+        m_hd_layer_refused = m_hd_layers;
+        return false;
+    }
+    if (m_hd_atlas_old == nullptr)
+    {
+        // The current texture is copied into the new one in Upload().
+        m_hd_atlas_old = m_hd_atlas;
+        m_hd_old_layers = m_hd_layers;
+    }
+    else
+    {
+        // Grown twice in one frame: the first new texture never got anything; copy from the original.
+        SDL_ReleaseGPUTexture(m_device, m_hd_atlas);
+    }
+    m_hd_atlas = grown;
+    m_hd_layers = layers;
+    JUSTLOG("GpuSpriteRenderer: HD sprite atlas grown to %d layers of %dx%d (%d MiB)", (int)layers, (int)m_hd_atlas_size, (int)m_hd_atlas_size,
+        (int)((static_cast<int64_t>(layers) * m_hd_atlas_size * m_hd_atlas_size * 4) >> 20));
+    return true;
+}
+
+bool GpuSpriteRenderer::alloc_hd_rect(int32_t w, int32_t h, int32_t& x, int32_t& y, int32_t& layer)
+{
+    if (m_hd_atlas_full || w > m_hd_atlas_size || h > m_hd_atlas_size)
+        return false;
+    for (;;)
+    {
+        if (m_hd_cursor_x + w > m_hd_atlas_size)
+        {
+            m_hd_cursor_y += m_hd_shelf_h; m_hd_cursor_x = 0; m_hd_shelf_h = 0;
+        }
+        if (m_hd_cursor_y + h <= m_hd_atlas_size)
+            break;
+        // This layer is full: the next one, growing the texture for it if need be.
+        if ((m_hd_layer + 1 >= m_hd_layers) && !grow_hd_atlas())
+        {
+            m_hd_atlas_full = true;
+            m_hd_atlas_reset_pending = true;
+            WARNLOG("GpuSpriteRenderer: HD sprite atlas full at %d layers; clearing it next frame", (int)m_hd_layers);
+            return false;
+        }
+        m_hd_layer++;
+        m_hd_cursor_x = m_hd_cursor_y = m_hd_shelf_h = 0;
+    }
+    x = m_hd_cursor_x; y = m_hd_cursor_y; layer = m_hd_layer;
+    m_hd_cursor_x += w;
+    if (h > m_hd_shelf_h) m_hd_shelf_h = h;
+    return true;
+}
+
+// An HD sprite's texels in the HD atlas: uploaded the first time its id is seen (its texels never change under one id).
+bool GpuSpriteRenderer::resolve_hd(const WorldFrameSpriteOp& op, int32_t& ax, int32_t& ay, int32_t& layer)
+{
+    auto it = m_hd_entries.find(op.hd_id);
+    if (it != m_hd_entries.end())
+    {
+        it->second.frame_seen = m_frame_id;
+        ax = it->second.x; ay = it->second.y; layer = it->second.layer;
+        return true;
+    }
+    // A transparent texel round the frame, so a filtered sample at its edge never reaches a neighbour's texels. Additive
+    // art (WFS_ALPHA) has its sub texels beside its add texels, at x + hd_w + 2 (zero when it has none).
+    const bool additive = (op.mode == WFS_ALPHA);
+    const int32_t pw1 = op.hd_w + 2, pw = additive ? 2 * pw1 : pw1, ph = op.hd_h + 2;
+    if ((m_hd_pending_pixels.size() + static_cast<size_t>(pw) * ph) * 4 > kHdStagingBytes)
+        return false; // this frame's upload budget is spent
+    int32_t x, y, l;
+    if (!alloc_hd_rect(pw, ph, x, y, l))
+        return false;
+    Entry e;
+    e.x = x + 1; e.y = y + 1; e.layer = l; e.hash = op.hd_id; e.frame_seen = m_frame_id;
+    m_hd_entries.emplace(op.hd_id, e);
+    PendingUpload up;
+    up.staging_offset = static_cast<uint32_t>(m_hd_pending_pixels.size() * 4);
+    up.x = x; up.y = y; up.w = pw; up.h = ph; up.layer = l;
+    const uint32_t* src = static_cast<const uint32_t*>(op.hd_texels);
+    m_hd_pending_pixels.insert(m_hd_pending_pixels.end(), static_cast<size_t>(pw), 0u);
+    const uint32_t* sub = static_cast<const uint32_t*>(op.hd_sub_texels);
+    for (int32_t row = 0; row < op.hd_h; ++row)
+    {
+        m_hd_pending_pixels.push_back(0u);
+        m_hd_pending_pixels.insert(m_hd_pending_pixels.end(), src + static_cast<size_t>(row) * op.hd_stride,
+            src + static_cast<size_t>(row) * op.hd_stride + op.hd_w);
+        m_hd_pending_pixels.push_back(0u);
+        if (additive)
+        {
+            m_hd_pending_pixels.push_back(0u);
+            if (sub != nullptr)
+                m_hd_pending_pixels.insert(m_hd_pending_pixels.end(), sub + static_cast<size_t>(row) * op.hd_stride,
+                    sub + static_cast<size_t>(row) * op.hd_stride + op.hd_w);
+            else
+                m_hd_pending_pixels.insert(m_hd_pending_pixels.end(), static_cast<size_t>(op.hd_w), 0u);
+            m_hd_pending_pixels.push_back(0u);
+        }
+    }
+    m_hd_pending_pixels.insert(m_hd_pending_pixels.end(), static_cast<size_t>(pw), 0u);
+    m_hd_pending.push_back(up);
+    ax = x + 1; ay = y + 1; layer = l;
+    return true;
+}
+
+// The HD colour transform's table for this frame's palette, when an HD op needs it and it changed.
+void GpuSpriteRenderer::upload_transform_table(SDL_GPUCopyPass* copy)
+{
+    if (!m_transform_needed)
+        return;
+    const unsigned char* active = RendererGetActivePalette();
+    if (m_transform_valid && active != nullptr && std::memcmp(m_transform_palette, active, sizeof(m_transform_palette)) == 0)
+        return;
+    const struct ColourTransform* ct = RendererHdColourTransform();
+    if (ct == nullptr || ct->mode != CTM_Table || ct->table == nullptr || active == nullptr)
+        return;
+    void* tmap = SDL_MapGPUTransferBuffer(m_device, m_transform_staging, true);
+    if (tmap == nullptr)
+        return;
+    std::memcpy(tmap, ct->table, static_cast<size_t>(4) * COLOUR_TRANSFORM_TABLE_SIZE);
+    SDL_UnmapGPUTransferBuffer(m_device, m_transform_staging);
+    SDL_GPUTextureTransferInfo src = {};
+    src.transfer_buffer = m_transform_staging;
+    src.pixels_per_row = 4096;
+    src.rows_per_layer = 64;
+    SDL_GPUTextureRegion dst = {};
+    dst.texture = m_transform_tex;
+    dst.w = 4096; dst.h = 64; dst.d = 1;
+    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    std::memcpy(m_transform_palette, active, sizeof(m_transform_palette));
+    m_transform_valid = true;
+}
+
 bool GpuSpriteRenderer::resolve_mask(const WorldFrameShadowOp& op, const unsigned char* pixels, int32_t& ax, int32_t& ay)
 {
     auto it = m_mask_entries.find(op.hash);
@@ -405,7 +614,7 @@ int GpuSpriteRenderer::AddShadow(const WorldFrameShadowOp& op, const unsigned ch
     v.atlas_x = static_cast<float>(ax); v.atlas_y = static_cast<float>(ay);
     v.xmap_off = static_cast<float>(op.w); v.ymap_off = static_cast<float>(op.h);
     v.lut_row = factor;
-    v.mode = static_cast<float>(WFS_SHADOW);
+    v.mode = static_cast<float>(WFS_SHADOW | (op.coverage ? 8u : 0u)); // 8: coverage, sampled filtered (soft shadows)
     out[0].mode = WFS_SHADOW;
     out[0].first = static_cast<uint32_t>(m_vertices.size());
     out[0].count = 3;
@@ -428,11 +637,39 @@ int GpuSpriteRenderer::AddOp(const WorldFrameSpriteOp& op, float off_x, float of
     if (static_cast<int64_t>(op.xmap_off) + op.dst_w > m_frame->lookup_count || static_cast<int64_t>(op.ymap_off) + op.dst_h > m_frame->lookup_count ||
         static_cast<int64_t>(op.xmap_off) + op.dst_w > cap || static_cast<int64_t>(op.ymap_off) + op.dst_h > cap)
         return 0;
-    int32_t ax, ay;
-    if (!resolve(op, ax, ay))
+    int32_t ax, ay, hd_layer = 0;
+    // HD: bit 8 of the shader's mode, bit 16 to apply the transform table (a curve row is never row 0), the atlas
+    // layer from bit 256 up. An HD sprite
+    // whose texels can't be placed (the HD atlas full) draws its original: the shader divides the lookups' HD
+    // coordinates by the scale in bits 32..224.
+    uint32_t hd_bits = 0;
+    uint32_t row = op.lut_row;
+    uint32_t rgba = op.rgba;
+    if (op.hd_texels != nullptr)
+    {
+        if ((op.lut_row != 0) && (op.lut_row < static_cast<uint32_t>(kLutRows)) && resolve_hd(op, ax, ay, hd_layer))
+        {
+            // TEXTURE_FILTER (the shader: 0 Nearest, 1 Sharp, 2 Bilinear, 3 Trilinear = Bilinear, the level being
+            // chosen per draw) from bit 16384 up, above the layer; parity mode draws nearest.
+            const uint32_t filter = (op.hd_table & HD_OP_NEAREST) ? 0u : static_cast<uint32_t>(RendererGetTextureFilter()) & 3u;
+            hd_bits = 8u | ((op.hd_table & HD_OP_TABLE) ? 16u : 0u) | (static_cast<uint32_t>(hd_layer) << 8) | (filter << 14);
+            if ((op.hd_table & HD_OP_TABLE) && (op.mode != WFS_ALPHA))
+                m_transform_needed = true;
+            if (op.mode == WFS_ALPHA)
+                rgba = static_cast<uint32_t>(op.hd_w + 2); // where the sub texels start, for the shader's subtract pass
+        }
+        else if ((op.rle != nullptr) && (op.hd_scale >= 1) && (op.hd_scale <= 7) && resolve(op, ax, ay))
+        {
+            hd_bits = op.hd_scale << 5;
+            row = op.index_lut_row;
+        }
+        else
+            return 0;
+    }
+    else if (!resolve(op, ax, ay))
         return 0;
 
-    const uint32_t lut_row = (op.lut_row < static_cast<uint32_t>(kLutRows)) ? op.lut_row : 0;
+    const uint32_t lut_row = (row < static_cast<uint32_t>(kLutRows)) ? row : 0;
     const int quads = (op.mode == WFS_ALPHA) ? 2 : 1;
     const float x0 = static_cast<float>(op.dst_x) + off_x, y0 = static_cast<float>(op.dst_y) + off_y;
     const float x1 = x0 + op.dst_w, y1 = y0 + op.dst_h;
@@ -444,13 +681,14 @@ int GpuSpriteRenderer::AddOp(const WorldFrameSpriteOp& op, float off_x, float of
         v.atlas_x = static_cast<float>(ax); v.atlas_y = static_cast<float>(ay);
         v.xmap_off = static_cast<float>(op.xmap_off); v.ymap_off = static_cast<float>(op.ymap_off);
         v.lut_row = static_cast<float>(lut_row);
-        v.mode = static_cast<float>((op.mode == WFS_ALPHA) ? (q == 0 ? static_cast<uint32_t>(WFS_ALPHA) : 4u) : op.mode);
-        v.rgba[0] = op.rgba & 0xFF; v.rgba[1] = (op.rgba >> 8) & 0xFF; v.rgba[2] = (op.rgba >> 16) & 0xFF; v.rgba[3] = (op.rgba >> 24) & 0xFF;
+        const uint32_t pipeline_mode = (op.mode == WFS_ALPHA) ? (q == 0 ? static_cast<uint32_t>(WFS_ALPHA) : 4u) : op.mode;
+        v.mode = static_cast<float>(pipeline_mode | hd_bits);
+        v.rgba[0] = rgba & 0xFF; v.rgba[1] = (rgba >> 8) & 0xFF; v.rgba[2] = (rgba >> 16) & 0xFF; v.rgba[3] = (rgba >> 24) & 0xFF;
         const float xs[6] = { x0, x1, x0, x1, x1, x0 };
         const float ys[6] = { y0, y0, y1, y0, y1, y1 };
         const float ls[6] = { 0, static_cast<float>(op.dst_w), 0, static_cast<float>(op.dst_w), static_cast<float>(op.dst_w), 0 };
         const float ts[6] = { 0, 0, static_cast<float>(op.dst_h), 0, static_cast<float>(op.dst_h), static_cast<float>(op.dst_h) };
-        out[q].mode = static_cast<uint32_t>(v.mode);
+        out[q].mode = pipeline_mode;
         out[q].first = static_cast<uint32_t>(m_vertices.size());
         out[q].count = 6;
         for (int i = 0; i < 6; ++i)
@@ -466,6 +704,45 @@ void GpuSpriteRenderer::Upload(SDL_GPUCopyPass* copy)
 {
     if (m_vertices.empty() || m_frame == nullptr)
         return;
+
+    // HD sprites: a grown atlas gets the old one's layers first, then the newly seen texels, and the transform table.
+    if (m_hd_atlas_old != nullptr)
+    {
+        for (int32_t l = 0; l < m_hd_old_layers; ++l)
+        {
+            SDL_GPUTextureLocation from = {};
+            from.texture = m_hd_atlas_old; from.layer = static_cast<Uint32>(l);
+            SDL_GPUTextureLocation to = {};
+            to.texture = m_hd_atlas; to.layer = static_cast<Uint32>(l);
+            SDL_CopyGPUTextureToTexture(copy, &from, &to, static_cast<Uint32>(m_hd_atlas_size), static_cast<Uint32>(m_hd_atlas_size), 1, false);
+        }
+        SDL_ReleaseGPUTexture(m_device, m_hd_atlas_old);
+        m_hd_atlas_old = nullptr;
+        m_hd_old_layers = 0;
+    }
+    if (!m_hd_pending.empty())
+    {
+        unsigned char* hmap = static_cast<unsigned char*>(SDL_MapGPUTransferBuffer(m_device, m_hd_staging, true));
+        if (hmap != nullptr)
+        {
+            std::memcpy(hmap, m_hd_pending_pixels.data(), m_hd_pending_pixels.size() * 4);
+            SDL_UnmapGPUTransferBuffer(m_device, m_hd_staging);
+            for (const PendingUpload& p : m_hd_pending)
+            {
+                SDL_GPUTextureTransferInfo src = {};
+                src.transfer_buffer = m_hd_staging;
+                src.offset = p.staging_offset;
+                src.pixels_per_row = p.w;
+                src.rows_per_layer = p.h;
+                SDL_GPUTextureRegion dst = {};
+                dst.texture = m_hd_atlas;
+                dst.layer = static_cast<Uint32>(p.layer);
+                dst.x = p.x; dst.y = p.y; dst.w = p.w; dst.h = p.h; dst.d = 1;
+                SDL_UploadToGPUTexture(copy, &src, &dst, false);
+            }
+        }
+    }
+    upload_transform_table(copy);
 
     // Vertices.
     const uint32_t vcount = static_cast<uint32_t>(m_vertices.size());
@@ -580,12 +857,14 @@ void GpuSpriteRenderer::Draw(SDL_GPURenderPass* pass, const DrawCall& d)
     SDL_GPUBufferBinding vb = {};
     vb.buffer = m_vertex_buffer;
     SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
-    SDL_GPUTextureSamplerBinding tex[4] = {};
+    SDL_GPUTextureSamplerBinding tex[6] = {};
     tex[0].texture = m_atlas;  tex[0].sampler = m_sampler;
     tex[1].texture = m_lut;    tex[1].sampler = m_sampler;
     tex[2].texture = m_lookup; tex[2].sampler = m_sampler;
     tex[3].texture = m_light_grid; tex[3].sampler = m_light_sampler;
-    SDL_BindGPUFragmentSamplers(pass, 0, tex, 4);
+    tex[4].texture = m_hd_atlas; tex[4].sampler = m_sampler;
+    tex[5].texture = m_transform_tex; tex[5].sampler = m_sampler;
+    SDL_BindGPUFragmentSamplers(pass, 0, tex, 6);
     if (d.mode == WFS_GHOST1)
         SDL_SetGPUBlendConstants(pass, SDL_FColor{ 2.0f / 3.0f, 2.0f / 3.0f, 2.0f / 3.0f, 1.0f });
     else if (d.mode == WFS_GHOST2)

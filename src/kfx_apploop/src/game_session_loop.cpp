@@ -107,10 +107,12 @@
 #include "frame_compose.h"
 
 #include <cstdint>
+#include <vector>
 
 #include "ports/editor_port.h"
 #include "keeper_assist.h"
 #include "keeper_assist_outbox.h"
+#include "kfx_render_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -144,7 +146,6 @@ void update(void)
         return;
     }
     player = get_my_player();
-    struct UserState *ustate = get_user_state(get_local_user());
 
     // docs/refactor/editor/01-entry-and-editor-session.md §3 -- simulation_suspended
     // checked here directly, not just via editor_frame()'s GOF_Paused
@@ -159,10 +160,10 @@ void update(void)
         for (int64_t i = 1; i < EVENTS_COUNT; i++) {
             kfx_sim_state.event[i].flags &= ~EvF_BtnFalling;
         }
-        if (flag_is_set(ustate->additional_flags,UsrAF_LightningPaletteIsActive))
+        if (flag_is_set(kfx_render_state.palette_flags[get_local_user()], RPF_LightningPaletteIsActive))
         {
             PaletteSetUserPalette(player->user_id, engine_palette);
-            clear_flag(ustate->additional_flags, UsrAF_LightningPaletteIsActive);
+            clear_flag(kfx_render_state.palette_flags[get_local_user()], RPF_LightningPaletteIsActive);
         }
         clear_active_dungeons_stats();
         update_creature_pool_state();
@@ -354,8 +355,60 @@ TbBool keeper_wait_for_next_turn(void)
 
 static bool use_delta_time()
 {
+    // -framehash: a frame shows its turn, not a point between two turns
+    if (start_params.frame_hash)
+        return false;
     // Always enable interpolation in multiplayer games.
     return is_feature_on(Ft_DeltaTime) || network_is_active();
+}
+
+/** -framehash: a hash of the world frame just drawn (the visible part of the software framebuffer, before the
+ *  on-screen messages), logged with its turn. With the Vulkan renderer the world is drawn on the GPU, so the
+ *  hash is of the GPU world layer read back with the CPU layer over it (RendererCopyFrameRect(), what the
+ *  screen shows), logged as "FRAMEHASH <turn> <hash> gpu". */
+static uint64_t s_last_frame_hash;
+static uint64_t s_frame_hash_count;
+
+TbBool game_last_frame_hash(uint64_t *hash, uint64_t *count)
+{
+    if (s_frame_hash_count == 0)
+        return false;
+    *hash = s_last_frame_hash;
+    *count = s_frame_hash_count;
+    return true;
+}
+
+static void log_frame_hash(void)
+{
+    uint64_t h = 1469598103934665603ULL;
+    const unsigned char *row = (const unsigned char *)lbDisplay.WScreen;
+    if (row == NULL)
+        return;
+    if (RendererGetActiveType() == RENDERER_GPU3D)
+    {
+        static std::vector<TbPixel> frame;
+        const int64_t w = lbDisplay.PhysicalScreenWidth, ht = lbDisplay.PhysicalScreenHeight;
+        frame.assign((size_t)w * (size_t)ht, TbPixel{0, 0, 0, 0});
+        RendererCopyFrameRect(frame.data(), (uint64_t)w, 0, 0, w, ht);
+        for (const TbPixel &px : frame)
+        {
+            h = (h ^ px.r) * 1099511628211ULL;
+            h = (h ^ px.g) * 1099511628211ULL;
+            h = (h ^ px.b) * 1099511628211ULL;
+        }
+        JUSTLOG("FRAMEHASH %" PRIu64 " %016" PRIx64 " gpu", (uint64_t)get_gameturn(), h);
+        s_last_frame_hash = h;
+        s_frame_hash_count++;
+        return;
+    }
+    const size_t pitch = (size_t)lbDisplay.GraphicsScreenWidth * sizeof(TbPixel);
+    const size_t width = (size_t)lbDisplay.PhysicalScreenWidth * sizeof(TbPixel);
+    for (int64_t y = 0; y < lbDisplay.PhysicalScreenHeight; y++, row += pitch)
+        for (size_t x = 0; x < width; x++)
+            h = (h ^ row[x]) * 1099511628211ULL;
+    JUSTLOG("FRAMEHASH %" PRIu64 " %016" PRIx64, (uint64_t)get_gameturn(), h);
+    s_last_frame_hash = h;
+    s_frame_hash_count++;
 }
 
 static void update_frontend_delta_time()
@@ -430,8 +483,8 @@ static void gameplay_loop_draw()
     if (kfx_net_state.process_turn_time > 1.0 && time_since_last_draw < 1.0)
         do_draw = false;
 
-    // Frame rate limiter
-    if (fps_limit_current > 0)
+    // Frame rate limiter (-framehash: a frame is drawn when the turn says so, never skipped for time)
+    if ((fps_limit_current > 0) && !start_params.frame_hash)
     {
         frametime_start_measurement(Frametime_Sleep);
         if (process_frame_time < 1.0)
@@ -462,12 +515,17 @@ static void gameplay_loop_draw()
         kfx_render_state.delta_time = min(time_since_last_draw, 1.L);
         time_since_last_draw = 0;
         interpolate_time = min(max(kfx_net_state.process_turn_time, 0.L), 1.L);
+        // -framehash: what the drawing draws at random starts from the turn
+        if (start_params.frame_hash)
+            kfx_sim_state.unsync_random_seed = (uint32_t)get_gameturn();
         keeper_screen_redraw();
     }
     keeper_wait_for_screen_focus();
     // Direct information/error messages
     if (RendererLockFramebuffer() == Lb_SUCCESS) {
         if ( do_draw ) {
+            if (start_params.frame_hash)
+                log_frame_hash();
             perform_any_screen_capturing();
         }
         draw_onscreen_direct_messages();
@@ -550,6 +608,10 @@ static void gameplay_loop_logic()
     input();
     // The player's combat assistant profile, as packets in their own packet (only when their input left it empty).
     keeper_assist_outbox_tick(get_local_packet(), my_player_number);
+#ifdef FUNCTESTING
+    if (flag_is_set(start_params.functest_flags, FTF_Enabled))
+        ftest_packet_inject_tick_before_exchange();
+#endif
     exchange_packets();
     extseat_tick();
 #ifdef FUNCTESTING
@@ -817,9 +879,14 @@ static TbBool wait_at_frontend(void)
             exit_keeper = true;
             return true;
         }
-        faststartup_network_game(&loop);
-        coroutine_process(&loop);
-        return true;
+        // a multiplayer test's half goes through the frontend's lobby, as -server/-connect do; any other test
+        // starts its level directly
+        if (!((ft_current_state == FTSt_TestIsProcessingActions) && ftest_net_prepare_session(ftest_get_current_test_config())))
+        {
+            faststartup_network_game(&loop);
+            coroutine_process(&loop);
+            return true;
+        }
     }
     #endif
 

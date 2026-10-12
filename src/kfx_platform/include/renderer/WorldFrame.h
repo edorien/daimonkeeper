@@ -70,11 +70,28 @@ static inline int64_t worldframe_depth_from_view_z(int64_t z)
     return (int64_t)(worldframe_depth_from_view_z_f((double)z) * WORLDFRAME_DEPTH_ONE + 0.5);
 }
 
+/** The GPU renderer's terrain texture cache, counted since it started (docs/newFeatures/texture-resolution/
+ *  03-verification-and-phases.md section A.2). The last_frame_* fields are the most recent world frame's own. */
+struct WorldFrameTextureStats {
+    uint64_t frames;             ///< world frames submitted
+    uint64_t blocks;             ///< distinct texture blocks drawn, summed over frames
+    uint64_t uploads;            ///< blocks expanded through the palette and uploaded
+    uint64_t upload_bytes;       ///< bytes of those uploads
+    uint64_t palette_flushes;    ///< whole-cache flushes because the active palette changed
+    uint64_t reclaims;           ///< passes that reclaimed layers because the array was full
+    uint64_t last_frame_blocks;
+    uint64_t last_frame_uploads;
+};
+
 typedef struct WorldFramePolyItem {
     struct PolyPoint v0;
     struct PolyPoint v1;
     struct PolyPoint v2;
     unsigned char *texture; // block texture source; see WORLDFRAME_BLOCK_*
+    uint8_t block_shift;    // the block is 32 << block_shift texels wide (vec_map_shift); 0 for the 32x32 blocks
+    uint8_t parity;         // sampled as its 32-res original would be (vec_map_parity)
+    const TbPixel *texture_rgba; // its true-colour HD version (vec_map_rgba; 256 texels a row), or NULL
+    uint8_t original_at_32;      // with texture_rgba: its 32x32 mip level is `texture` (vec_map_original_at_32)
 } WorldFramePolyItem;
 
 enum WorldFrameOpKind {
@@ -114,7 +131,29 @@ typedef struct WorldFrameSpriteOp {
     uint32_t lut_row;
     uint32_t mode;
     uint32_t rgba; // WFS_ONECOLOUR: r | g<<8 | b<<16 | a<<24
+    // HD sprites (docs/refactor/sprites/): hd_texels non-NULL -- the frame's RGBA texels (TbPixel, alpha below 128
+    // transparent), hd_w x hd_h, hd_stride texels a row, identified by hd_id (the texels never change under one id),
+    // hd_scale texels per original texel. rle, src_w x src_h are the original's and index_lut_row its colour table
+    // (as an indexed op's lut_row): drawn when the HD texels can't be (the HD atlas full), at the original texel
+    // xmap/ymap / (16 hd_scale). xmap/ymap give the HD texel coordinate of each destination column/row's centre in
+    // sixteenths (HD_MAP_SUBTEXELS: the texel is the value >> 4, the fraction for TEXTURE_FILTER), and lut_row is a
+    // curve row: entry v holds what an 8-bit red, green, blue value v becomes (r, g, b), and the alpha of entries 0,
+    // 1, 2 what black's red, green, blue become (black skips the colour transform, colour_transform_apply()).
+    // hd_table: bit 0 (HD_OP_TABLE) applies the HD colour transform's 64^3 table (RendererHdColourTransform(),
+    // CTM_Table) to a texel before the curve row; bit 1 (HD_OP_NEAREST) draws the texels nearest whatever the filter
+    // (parity mode, which must draw exactly what the CPU draws).
+    const void *hd_texels;
+    // WFS_ALPHA (additive art, Phase 9): hd_texels' RGB is added, hd_sub_texels' (same layout, NULL: none) subtracted.
+    const void *hd_sub_texels;
+    uint64_t hd_id;
+    int32_t hd_w, hd_h, hd_stride;
+    uint32_t hd_table;
+    uint32_t hd_scale;
+    uint32_t index_lut_row;
 } WorldFrameSpriteOp;
+#define HD_MAP_SUBTEXELS 16
+#define HD_OP_TABLE 1u
+#define HD_OP_NEAREST 2u
 
 // One triangle of a creature shadow. The mask is a w x h byte rectangle
 // (WorldFrame::pixels + pix_off, row stride w; non-zero = inside the shadow)
@@ -129,6 +168,7 @@ typedef struct WorldFrameShadowOp {
     int32_t w, h;
     uint64_t hash; // of the mask bytes, for the GPU-side mask cache
     uint32_t shade;
+    uint32_t coverage; // soft shadow (Phase 10): the mask bytes are coverage 0..255, sampled filtered
 } WorldFrameShadowOp;
 
 typedef struct WorldFrameOp {

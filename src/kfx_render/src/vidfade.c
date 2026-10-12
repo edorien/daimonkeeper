@@ -22,6 +22,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "bflib_planar.h"
 #include "bflib_video.h"
 #include "bflib_datetm.h"
 #include "bflib_video.h"
@@ -36,6 +37,7 @@
 #include "config_keeperfx.h"
 #include "kfx_sim_state.h"
 #include "local_state.h"
+#include "kfx_render_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -328,6 +330,65 @@ void PaletteFadeToView(enum ViewPalette pal, int64_t fade_steps)
     LbPaletteFade(view_palette(pal), fade_steps, Lb_PALETTE_FADE_OPEN);
 }
 
+/** The lightning's flashes in the local view: a lightning ball near the local camera turns the palette on and off at
+ *  random (UNSYNC_RANDOM). Was kfx_sim's (power_process.c), with its flag in the simulation state; the simulation
+ *  calls it through RenderPort (refactor pass 5, S05). */
+void lightning_modify_palette(struct Thing *thing)
+{
+    struct PlayerInfo* myplyr = get_my_player();
+    unsigned char *palette_flags = &kfx_render_state.palette_flags[get_local_user()];
+    struct Camera* camera = get_player_active_camera(myplyr);
+
+    if (thing->health == 0)
+    {
+      PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
+      *palette_flags &= ~RPF_LightningPaletteIsActive;
+      return;
+    }
+    if (camera == NULL)
+    {
+        ERRORLOG("No active camera");
+        return;
+    }
+    if (((thing->health % 8) != 7) && (thing->health != 1) && (UNSYNC_RANDOM(4) != 0))
+    {
+        if ((*palette_flags & RPF_LightningPaletteIsActive) != 0)
+        {
+            if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
+            {
+                PaletteSetUserViewPalette(get_local_user(), VPal_Engine);
+                *palette_flags &= ~RPF_LightningPaletteIsActive;
+            }
+        }
+        return;
+    }
+    if ((camera->view_mode != PVM_ParchFadeIn) && (camera->view_mode != PVM_ParchFadeOut) && (camera->view_mode != PVM_ParchmentView))
+    {
+        if ((*palette_flags & RPF_LightningPaletteIsActive) == 0)
+        {
+                        if (get_chessboard_distance(&camera->mappos, &thing->mappos) < 11520)
+            {
+              PaletteSetUserViewPalette(get_local_user(), VPal_Lightning);
+              *palette_flags |= RPF_LightningPaletteIsActive;
+            }
+        }
+    }
+}
+
+void lightning_palette_on(NetUserId user)
+{
+    PaletteSetUserViewPalette(user, VPal_Lightning);
+    if ((user >= 0) && (user < MAX_NET_USERS))
+        kfx_render_state.palette_flags[user] |= RPF_LightningPaletteIsActive;
+}
+
+TbBool user_freeze_palette_active(NetUserId user)
+{
+    if ((user < 0) || (user >= MAX_NET_USERS))
+        return false;
+    return ((kfx_render_state.palette_flags[user] & RPF_FreezePaletteIsActive) != 0);
+}
+
 void PaletteSetUserPalette(NetUserId user, unsigned char *pal)
 {
     struct UserState* ustate = get_user_state(user);
@@ -335,12 +396,12 @@ void PaletteSetUserPalette(NetUserId user, unsigned char *pal)
         return;
     if (pal == blue_palette) // if the requested palette is the Freeze palette
     {
-      if ((ustate->additional_flags & UsrAF_FreezePaletteIsActive) != 0)
+      if ((kfx_render_state.palette_flags[user] & RPF_FreezePaletteIsActive) != 0)
         return; // Freeze palette is already on
-      ustate->additional_flags |= UsrAF_FreezePaletteIsActive; // flag Freeze palette is active
+      kfx_render_state.palette_flags[user] |= RPF_FreezePaletteIsActive; // flag Freeze palette is active
     } else
     {
-      ustate->additional_flags &= ~UsrAF_FreezePaletteIsActive; // flag Freeze palette is not active
+      kfx_render_state.palette_flags[user] &= ~RPF_FreezePaletteIsActive; // flag Freeze palette is not active
     }
     if (user != get_local_user())
         return;

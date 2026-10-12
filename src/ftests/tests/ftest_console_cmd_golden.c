@@ -145,7 +145,7 @@ static const char *const golden_cases[] = {
     "room.health",
     // the rules
     "bug.toggle", "bug.toggle 3", "bug.toggle RESURRECT_FOREVER", "bug.toggle CLAIM_ROOM_ALL_THINGS",
-    "bug.toggle ALWAYS_TUNNEL_TO_RED", "bug.toggle 19", "bug.toggle 0", "bug.toggle notabug",
+    "bug.toggle ALWAYS_TUNNEL_TO_RED", "bug.toggle 19", "bug.toggle 20", "bug.toggle 0", "bug.toggle notabug",
     // sound, display, scripts, the rest
     "music.set 2", "music.set", "sound.test 1", "sound.test", "speech.test 1", "speech.test",
     "toggle.tooltip.land.coord ; toggle.tooltip.land.coord", "toggle.lights",

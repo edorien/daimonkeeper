@@ -29,6 +29,13 @@ void input_lag_get_stats(int64_t *increase_wait_time, int64_t *increase_turn_tim
 void input_lag_note_packet_wait(int64_t wait_time);
 void input_lag_observe_host_packet(const struct Packet *packet);
 TbBool input_lag_needs_lookahead(void);
+/** Pins this process's input lag to `turns` (the startup lag, a re-negotiated one, and no adjustment by how long it
+ *  waited for packets: those depend on the machine's load and the network's timing), or lets it adapt again (-1).
+ *  Every machine of a game must pin the same value. A multiplayer functional test does, so an input takes effect at
+ *  the same turn every run and the game is the same every run. */
+void input_lag_set_fixed(int64_t turns);
+/** The pinned input lag, or -1 when it adapts. */
+int64_t input_lag_fixed(void);
 
 #ifdef __cplusplus
 }

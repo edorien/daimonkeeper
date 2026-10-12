@@ -8,7 +8,7 @@ dAImon Keeper — a free, open-source reimplementation of Bullfrog's *Dungeon Ke
 
 ## Build
 
-**CMake (`CMakeLists.txt` + `src/kfx_*/CMakeLists.txt`, glob-based) is the only build definition that compiles the game**, for every target — native Linux, Windows via MSVC/clang-cl (vcpkg), and Windows via mingw-w64 cross-compile (`build/cmake/toolchains/mingw32.cmake`). This is what `.github/workflows/*.yml` actually runs to produce the game (target `keeperfx`, output file `daimonkeeper`). `file(GLOB ...)` per library means a new file under `src/kfx_<name>/src/` is picked up automatically — no file list to maintain.
+**CMake (`CMakeLists.txt` + `src/kfx_*/CMakeLists.txt`, glob-based) is the only build definition that compiles the game**, for every target — native Linux, Windows via MSVC/clang-cl (vcpkg), and Windows via mingw-w64 cross-compile (`build/cmake/toolchains/mingw64.cmake`). This is what `.github/workflows/*.yml` actually runs to produce the game (target `keeperfx`, output file `daimonkeeper`). Both platforms are 64-bit x86_64 only: the Windows build was 32-bit (i686) until 2026-10-05 and was switched for address space (HD true-colour textures don't fit a 2 GiB 32-bit process); there is no 32-bit target to keep compiling. `file(GLOB ...)` per library means a new file under `src/kfx_<name>/src/` is picked up automatically — no file list to maintain.
 
 The historical `Makefile` (`mingw32-make standard`/`heavylog`, hand-maintained `OBJS =` list) no longer builds the game in CI and isn't documented/wired to fetch its own SDL3 mingw dev headers (`sdl/include`, `sdl/lib`) — treat it as unmaintained for compiling source. CI does still shell out to it for the **asset/data pipeline only**: `make pkg-languages`/`pkg-gfx`/`pkg-enginegfx` (regenerate .dat files from .po/.pot and PNGs) and `make pkg-assemble` (stage config/campaign/level data for packaging) — none of these touch `OBJS` or compile any `.c`/`.cpp`. Final packaging is CMake/CPack (`cmake --build out --target package`), not `make package`. `Makefile` itself stays at the repo root (where `make` looks by default); everything it `include`s (`version.mk`, `prebuilds.mk`, `package.mk`, `pkg_gfx.mk`, `pkg_lang.mk`, `pkg_sfx.mk`, the still-active `tool_*.mk` files) lives under `build/make/` — mirroring `build/cmake/`'s CMake modules. Anything referencing one of these by path (`CMakeLists.txt`'s own `version.mk` read, `.github/workflows/*.yml`) must use the `build/make/` path too.
 
@@ -20,21 +20,21 @@ The historical `Makefile` (`mingw32-make standard`/`heavylog`, hand-maintained `
 
 ```bash
 ./build-cmake-linux.sh                                  # native Linux ELF build (default)
-KFX_OS=windows ./build-cmake-linux.sh                   # Windows target, cross-compiled (needs mingw-w64 i686 toolchain)
+KFX_OS=windows ./build-cmake-linux.sh                   # Windows target, cross-compiled (needs the mingw-w64 x86_64 toolchain, g++-mingw-w64-x86-64)
 USE_DOCKER=1 ./build-cmake-linux.sh                     # build inside an Ubuntu 24.04 container matching CI (combine with KFX_OS)
 BUILD_DIR=out/foo ./build-cmake-linux.sh                # override the build tree (default: out/<KFX_OS>/, git-ignored)
 
 # what build-cmake-linux.sh's Windows path wraps, and what CI's release workflows run directly:
-cmake -S . -B out/windows -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -S . -B out/windows -G Ninja -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw64.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build out/windows --target keeperfx
 ```
 
-The script takes one target per run (first argument, default `keeperfx`) and must be run from the repo root (the configure step uses the current directory as the source tree).
+The script takes one target per run (first argument, default `keeperfx`) and must be run from the repo root (the configure step uses the current directory as the source tree). A Windows tree still configured for the old i686 compiler has its `CMakeCache.txt`/`CMakeFiles/` reset automatically (by this script, `build-package.sh` and `extraBuildScripts/`), and the Windows dependency cache is `deps/.cache-mingw64/` (the old `deps/.cache-mingw32/` is unused and can be deleted).
 
 `extraBuildScripts/` holds the pre-move scripts:
 
 - `build-cmake.sh` — legacy, superseded by `build-cmake-linux.sh` (defaults to `KFX_OS=windows`, doesn't install the `mcp` component). Run it from the repo root as `extraBuildScripts/build-cmake.sh`.
-- `build-package-windows.sh` / `build-package-windows.bat` — **native Windows** build + package (no cross-compile): the Windows half of `build-package.sh` run inside MSYS2's MINGW32 shell, producing the CPack `.7z` in `pkg/` plus `dist/windows/` (installs the same `runtime`, `gamedata` and `mcp` components). Both switch to the repo root themselves, so they run from any directory: `extraBuildScripts/build-package-windows.sh` from a MINGW32 shell, or `extraBuildScripts\build-package-windows.bat` from a plain Command Prompt (bootstraps MSYS2; set `MSYS2_ROOT` if it isn't at `C:\msys64`).
+- `build-package-windows.sh` / `build-package-windows.bat` — **native Windows** build + package (no cross-compile): the Windows half of `build-package.sh` run inside MSYS2's MINGW64 shell, producing the CPack `.7z` in `pkg/` plus `dist/windows/` (installs the same `runtime`, `gamedata` and `mcp` components). Both switch to the repo root themselves, so they run from any directory: `extraBuildScripts/build-package-windows.sh` from a MINGW64 shell, or `extraBuildScripts\build-package-windows.bat` from a plain Command Prompt (bootstraps MSYS2; set `MSYS2_ROOT` if it isn't at `C:\msys64`).
 
 Build tree: `out/<KFX_OS>/daimonkeeper` (or `.exe` on Windows; the CMake target is still `keeperfx`, `OUTPUT_NAME` is the product slug) — `out/linux/` and `out/windows/` are separate trees (a `CMakeCache.txt` bakes in its compiler/toolchain, so they can't share one). There is one executable: how much it logs is the `LOG_LEVEL` option (`OFF`/`NORMAL`/`DEBUG`/`DEBUGMAX` in `daimonkeeper.cfg` or the options screen, applied live), not a build variant — the old `keeperfx_hvlog` heavy-log build is gone (docs/refactor-pass2/stage-02-logging-option.md). Functional-test runs (`-ftests`) always log at `NORMAL`, whatever `daimonkeeper.cfg` says.
 
@@ -51,7 +51,7 @@ BUILD_NUMBER=1234 PACKAGE_SUFFIX=Alpha ./build-package.sh
 KFX_FTEST_DATA_DIR=/path/to/keeperfx/install ./build-package.sh   # also ftest coverage, merged report
 ```
 
-It runs `make pkg-enginegfx` and `make pkg-assemble` once (stages the shared game data into `pkg/`), then per platform the CMake configure+build (both variants) into `out/<os>/` and three `cmake --install ... --component <c>` calls — `runtime`, `gamedata` (the `pkg/`-staging `install(CODE ...)` block in `Packaging.cmake`, tagged the same way as the SDL3 libs) and `mcp` (`scripts/llm_bridge/`) — into `dist/<os>/`. If `i686-w64-mingw32-gcc` isn't on `PATH` the Windows pass is skipped with a warning rather than aborting. The coverage pass writes `out/coverage/coverage-html/index.html`; with `KFX_FTEST_DATA_DIR` set it also builds `out/coverage-ftest/` and merges both into `out/coverage-merged/`. Needs network access (clones `dkfans/FXGraphics` for `pkg-enginegfx`, plus the usual first-run dependency fetches, once per build tree).
+It runs `make pkg-enginegfx` and `make pkg-assemble` once (stages the shared game data into `pkg/`), then per platform the CMake configure+build (both variants) into `out/<os>/` and three `cmake --install ... --component <c>` calls — `runtime`, `gamedata` (the `pkg/`-staging `install(CODE ...)` block in `Packaging.cmake`, tagged the same way as the SDL3 libs) and `mcp` (`scripts/llm_bridge/`) — into `dist/<os>/`. If `x86_64-w64-mingw32-gcc` isn't on `PATH` the Windows pass is skipped with a warning rather than aborting. The coverage pass writes `out/coverage/coverage-html/index.html`; with `KFX_FTEST_DATA_DIR` set it also builds `out/coverage-ftest/` and merges both into `out/coverage-merged/`. Needs network access on a first run: `pkg-enginegfx` clones `dkfans/FXGraphics` into `gfx/` only when no checkout is there (a git worktree symlinks its main checkout's `gfx/` instead — `scripts/ensure_gfx.sh`; `REFRESH_GFX=1` pulls upstream's latest), plus the usual first-run dependency fetches, once per build tree.
 
 For **coverage only** (no packages, no `make pkg-*`, no `dist/` output), `build-coverage-core.sh` runs the unit-test coverage, the ftest coverage and the merge, pre-pointed at the git-ignored local game data in `core_files/` (it exits early if that doesn't contain `daimonkeeper.cfg` or `keeperfx.cfg`, and `data/`):
 

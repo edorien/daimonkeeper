@@ -100,13 +100,19 @@ int64_t get_ceiling_height(const struct Coord3d *pos)
     return kfx_sim_state.map[i].filled_subtiles * COORD_PER_STL;
 }
 
+/* The invalid map block (get_map_block_at() off the map) holds no things: it isn't in the saved state, so a list
+ * kept there outlived a load and pointed at slots the load had freed (P5-F31). A thing off the map is on no list. */
 ThingIndex get_mapwho_thing_index(const struct Map *mapblk)
 {
+  if (mapblk == INVALID_MAP_BLOCK)
+      return 0;
   return mapblk->mapwho;
 }
 
 void set_mapwho_thing_index(struct Map *mapblk, ThingIndex thing_idx)
 {
+  if (mapblk == INVALID_MAP_BLOCK)
+      return;
   mapblk->mapwho = thing_idx;
 }
 

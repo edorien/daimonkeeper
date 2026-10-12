@@ -46,6 +46,7 @@
 #include "config.h"       // prepare_file_path -- UI_FONT's fxdata/font/ scan
 #include "platform/PlatformManager.h" // INGAME_RES modes, UI_FONT sub-dir scan
 #include "renderer/RendererManager.h" // RENDERER -- RendererGetDesiredType/RendererSetDesiredType
+#include "value_util.h"   // load_toml_file -- ASSET_PACK's pack names
 
 #include <stdio.h>
 #include <string.h>
@@ -652,6 +653,145 @@ static void set_lighting(int64_t val)
     RendererSetLightingMode((int)(val - 1));
 }
 
+// TEXTURE_FILTER (texture resolution, Phase 2): config values are 1-based (see texture_filter_type[]).
+static int64_t get_texture_filter(void)
+{
+    return (int64_t)RendererGetTextureFilter() + 1;
+}
+
+static void set_texture_filter(int64_t val)
+{
+    RendererSetTextureFilter((int)(val - 1));
+}
+
+// The HD pack row (ASSET_PACK): "NONE" or a sub-directory of an fxdata/ folder holding a pack --
+// the same shape as GUI_ICON_PACK above. The file's value is read verbatim (config_keeperfx.c), so a pack folder
+// added later still loads; the row offers the folders there when it is first shown, each by its pack.toml name.
+// The stores reload when the value changes (live).
+// (One row since 2026-10-12, when the sprite and texture rows were merged; the struct stays general.)
+#define PACK_ROW_MAX_ENTRIES 32
+#define PACK_ROW_NAME_LEN 48
+#define PACK_ROW_LABEL_LEN 64
+struct PackRow {
+    const char *fxdata_dir;  ///< the packs' folder in fxdata/
+    char *value;             ///< the config field the row sets
+    size_t value_size;
+    struct NamedCommand enum_table[PACK_ROW_MAX_ENTRIES + 1];
+    char names[PACK_ROW_MAX_ENTRIES][PACK_ROW_NAME_LEN];
+    char labels[PACK_ROW_MAX_ENTRIES][PACK_ROW_LABEL_LEN]; ///< what the screen shows: "Original", a pack's name, a folder's
+    TbBool ready;
+};
+
+static void pack_row_add(struct PackRow *row, int64_t *n, const char *name)
+{
+    if (*n >= PACK_ROW_MAX_ENTRIES)
+        return;
+    for (int64_t i = 0; i < *n; i++)
+        if (strcasecmp(row->enum_table[i].name, name) == 0)
+            return;
+    snprintf(row->names[*n], PACK_ROW_NAME_LEN, "%s", name);
+    snprintf(row->labels[*n], PACK_ROW_LABEL_LEN, "%s", (strcasecmp(name, "NONE") == 0) ? "Original" : name);
+    if (strcasecmp(name, "NONE") != 0)
+    {
+        char toml_path[1024];
+        snprintf(toml_path, sizeof(toml_path), "%s/%s/pack.toml", prepare_file_path(FGrp_FxData, row->fxdata_dir), name);
+        VALUE root;
+        if (LbFileExists(toml_path) && load_toml_file(toml_path, &root, CnfLd_IgnoreErrors))
+        {
+            VALUE *label = value_dict_get(&root, "name");
+            if ((value_type(label) == VALUE_STRING) && (value_string(label)[0] != '\0'))
+                snprintf(row->labels[*n], PACK_ROW_LABEL_LEN, "%s", value_string(label));
+            value_fini(&root);
+        }
+    }
+    row->enum_table[*n].name = row->names[*n];
+    row->enum_table[*n].num = *n;
+    (*n)++;
+}
+
+static void pack_row_ensure(struct PackRow *row)
+{
+    if (row->ready)
+        return;
+    row->ready = true;
+    int64_t n = 0;
+    pack_row_add(row, &n, "NONE");
+    char *dir = prepare_file_path(FGrp_FxData, row->fxdata_dir);
+    if (dir != NULL)
+    {
+        char subs[PACK_ROW_MAX_ENTRIES][PACK_ROW_NAME_LEN];
+        int64_t count = PlatformManager_ListSubdirectories(dir, &subs[0][0], PACK_ROW_NAME_LEN, PACK_ROW_MAX_ENTRIES);
+        for (int64_t i = 0; i < count; i++)
+            pack_row_add(row, &n, subs[i]);
+    }
+    // The file's value, if its folder wasn't found (yet): kept, not shown as NONE.
+    pack_row_add(row, &n, row->value);
+    row->enum_table[n].name = NULL;
+    row->enum_table[n].num = 0;
+}
+
+static const char *pack_row_label(struct PackRow *row, int64_t index)
+{
+    if ((index < 0) || (index >= PACK_ROW_MAX_ENTRIES) || (row->enum_table[index].name == NULL))
+        return NULL;
+    return row->labels[index];
+}
+
+static int64_t pack_row_get(struct PackRow *row)
+{
+    pack_row_ensure(row);
+    for (int64_t i = 0; row->enum_table[i].name != NULL; i++)
+        if (strcasecmp(row->enum_table[i].name, row->value) == 0)
+            return i;
+    return 0; // NONE
+}
+
+static void pack_row_set(struct PackRow *row, int64_t idx)
+{
+    pack_row_ensure(row);
+    if ((idx < 0) || (idx >= PACK_ROW_MAX_ENTRIES) || (row->enum_table[idx].name == NULL))
+        return;
+    snprintf(row->value, row->value_size, "%s", row->enum_table[idx].name);
+}
+
+// ASSET_PACK (HD sprites and terrain textures): fxdata/asset_packs/, each pack's sprites/ and/or textures/.
+static struct PackRow asset_pack_row = { .fxdata_dir = "asset_packs", .value = keeperfx_ui_config.asset_pack,
+    .value_size = sizeof(keeperfx_ui_config.asset_pack) };
+static void ensure_asset_pack_enum(void) { pack_row_ensure(&asset_pack_row); }
+void setting_option_asset_pack_rescan(void) { asset_pack_row.ready = false; }
+static const char *asset_pack_label(int64_t index) { return pack_row_label(&asset_pack_row, index); }
+static int64_t get_asset_pack(void) { return pack_row_get(&asset_pack_row); }
+static void set_asset_pack(int64_t idx) { pack_row_set(&asset_pack_row, idx); }
+
+// ASSET_PACK_MEMORY: asset_pack_memory_type[]'s values are the field's.
+static int64_t get_asset_pack_memory(void) { return keeperfx_ui_config.asset_pack_memory; }
+static void set_asset_pack_memory(int64_t val) { keeperfx_ui_config.asset_pack_memory = val; }
+static const char *asset_pack_memory_label(int64_t index)
+{
+    static const char *labels[] = {"Auto", "1 GiB", "2 GiB", "3 GiB", "4 GiB", "6 GiB", "8 GiB", "12 GiB", "16 GiB",
+                                   "24 GiB", "32 GiB"};
+    return ((index >= 0) && (index < (int64_t)(sizeof(labels) / sizeof(labels[0])))) ? labels[index] : NULL;
+}
+
+// ASSET_PACK_FILL: generated HD art for what no asset pack covers.
+static TbBool get_asset_pack_fill(void) { return keeperfx_ui_config.asset_pack_fill != 0; }
+static void set_asset_pack_fill(TbBool val) { keeperfx_ui_config.asset_pack_fill = val ? 1 : 0; }
+
+// SPRITE_TRUE_COLOUR (HD sprite packs, Phase 6/8): mods' zip sprites in their PNGs' own colours.
+static TbBool get_sprite_true_colour(void) { return keeperfx_ui_config.sprite_true_colour != 0; }
+static void set_sprite_true_colour(TbBool val) { keeperfx_ui_config.sprite_true_colour = val ? 1 : 0; }
+
+// TEXTURE_MIPMAPS (texture resolution, Phase 4).
+static TbBool get_texture_mipmaps(void)
+{
+    return RendererGetTextureMipmaps();
+}
+
+static void set_texture_mipmaps(TbBool val)
+{
+    RendererSetTextureMipmaps(val);
+}
+
 // POINTER_SENSITIVITY's own config-key parsing (case 9, config_keeperfx.c)
 // stores an integer percentage in the file (0-10000) but scales it by
 // 256/100 before handing it to set_base_mouse_sensitivity -- same
@@ -1059,6 +1199,69 @@ const struct SettingOption setting_options[] = {
         .cfg_read_by_row = true,
     },
     {
+        // docs/newFeatures/texture-resolution/: applies live; only has an effect with the Vulkan renderer.
+        .cfg_key = "TEXTURE_FILTER", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Texture Filtering",
+        .help_literal = "How terrain textures are drawn up close. Nearest: the classic square texels. Sharp "
+                        "(suggested): square texels with smooth edges between them. Bilinear: blended, softer. "
+                        "Trilinear: Bilinear, blending between texture sizes too. Vulkan renderer only; the "
+                        "Software renderer always draws them nearest.",
+        .enum_table = texture_filter_type, .get_enum = &get_texture_filter, .set_enum = &set_texture_filter,
+        .cfg_read_by_row = true,
+    },
+    {
+        // docs/hd_sprite_packs.md, docs/hd_texture_packs.md: applies live (the packs reload at the next frame), both
+        // renderers.
+        .cfg_key = "ASSET_PACK", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Asset Pack",
+        .help_literal = "An HD asset pack from a fxdata/asset_packs/ sub-folder: creatures, objects and effects "
+                        "and/or terrain textures drawn from higher-resolution art. Original: the game's own art. "
+                        "Campaigns, maps and mods can bring their own HD art as well.",
+        .enum_table = asset_pack_row.enum_table, .get_enum = &get_asset_pack, .set_enum = &set_asset_pack,
+        .ensure_enum_table = &ensure_asset_pack_enum, .enum_item_label = &asset_pack_label,
+    },
+    {
+        // Applies live: the HD stores (and the Vulkan sprite atlas) take the new size at the next frame.
+        .cfg_key = "ASSET_PACK_MEMORY", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Asset Pack Memory",
+        .help_literal = "How much memory the asset pack's HD art may take: terrain textures up to a quarter of it, "
+                        "sprites the rest (and as much video memory, with the Vulkan renderer). Over it, the sprites "
+                        "drawn least recently are dropped and loaded again when needed, and terrain the level "
+                        "doesn't use stays original. Auto: a quarter of this computer's memory, at least 3 GiB.",
+        .enum_table = asset_pack_memory_type, .get_enum = &get_asset_pack_memory, .set_enum = &set_asset_pack_memory,
+        .enum_item_label = &asset_pack_memory_label, .cfg_read_by_row = true,
+    },
+    {
+        // engine_hd_generate.h: applies live (sprites at the next frame, the terrain reloaded), both renderers.
+        .cfg_key = "ASSET_PACK_FILL", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Generate Missing HD Art",
+        .help_literal = "Creatures, objects, effects and terrain that the asset pack doesn't cover -- or all of them, "
+                        "with no pack -- drawn from their original art enlarged four times with Lanczos smoothing and "
+                        "sharpening, their outlines rounded. Mods' sprites and terrain too. Made while playing, a "
+                        "moment's background work, and takes memory as a pack would (Asset Pack Memory). Off: the "
+                        "original art.",
+        .get_bool = &get_asset_pack_fill, .set_bool = &set_asset_pack_fill,
+        .cfg_read_by_row = true,
+    },
+    {
+        // docs/refactor/sprites/ (Phases 6 and 8): applies live (the zips' PNGs are read again), both renderers.
+        .cfg_key = "SPRITE_TRUE_COLOUR", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Mod Sprites in True Colour",
+        .help_literal = "Creatures and objects that mods add (druid, maiden, time mage, traps...) drawn in their own "
+                        "colours instead of the game's 256-colour palette. Off: as the classic game draws them.",
+        .get_bool = &get_sprite_true_colour, .set_bool = &set_sprite_true_colour,
+        .cfg_read_by_row = true,
+    },
+    {
+        // docs/newFeatures/texture-resolution/ (Phase 4): applies live, on both renderers.
+        .cfg_key = "TEXTURE_MIPMAPS", .type = SOptT_Bool, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Texture Mipmaps",
+        .help_literal = "Smaller, smoothed versions of the terrain textures for the far zooms, against shimmer. "
+                        "Off: the classic far-zoom look.",
+        .get_bool = &get_texture_mipmaps, .set_bool = &set_texture_mipmaps,
+        .cfg_read_by_row = true,
+    },
+    {
         .cfg_key = "OVERHEAD_FADE", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
         .label_literal = "Overhead Fade",
         .help_literal = "Darkens the overhead view toward the edges of the screen (from about 3 tiles "
@@ -1311,6 +1514,12 @@ const char *setting_option_enum_item_name(const struct SettingOption *opt, int64
     // setting_option_enum_count() below already calls ensure_enum_table().
     if ((index < 0) || (index >= setting_option_enum_count(opt)))
         return "";
+    if (opt->enum_item_label != NULL)
+    {
+        const char *label = opt->enum_item_label(index);
+        if ((label != NULL) && (label[0] != '\0'))
+            return label;
+    }
     return opt->enum_table[index].name;
 }
 

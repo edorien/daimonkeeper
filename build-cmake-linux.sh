@@ -5,7 +5,7 @@
 #   KFX_OS=linux (default)    native x86_64 Linux ELF (system/pkg-config deps,
 #                             falling back to a from-source build for anything
 #                             not found on the system).
-#   KFX_OS=windows            32-bit MinGW-w64 (i686) Windows binary, using the
+#   KFX_OS=windows            64-bit MinGW-w64 (x86_64) Windows binary, using the
 #                             same compiler/flags/prebuilt deps as `make`.
 #
 # Third-party deps are downloaded and built from source automatically on
@@ -23,7 +23,7 @@
 #   BUILD_DIR=out/foo ./build-cmake-linux.sh   # override the build directory (default: out/<KFX_OS>/)
 #
 # Requirements (native):
-#   windows: a MinGW-w64 i686 toolchain (Ubuntu: g++-mingw-w64-i686), cmake, ninja
+#   windows: a MinGW-w64 x86_64 toolchain (Ubuntu: g++-mingw-w64-x86-64), cmake, ninja
 #   linux:   gcc/g++, cmake, ninja, pkg-config + the ffmpeg/openal/luajit/
 #            spng/minizip/zlib/miniupnpc/natpmp/openssl/zstd -dev packages, plus
 #            SDL3's build deps (X11/GL/audio + png/ogg/vorbis/flac/mpg123/opus)
@@ -57,7 +57,7 @@ if [ "${USE_DOCKER:-0}" = "1" ]; then
               libpng-dev libjpeg-dev libogg-dev libvorbis-dev libflac-dev \
               libmpg123-dev libopusfile-dev"
     else
-        PKGS="g++-mingw-w64-i686 cmake ninja-build git curl ca-certificates"
+        PKGS="g++-mingw-w64-x86-64 cmake ninja-build git curl ca-certificates"
     fi
     exec docker run --rm -v "$PWD:/src" -w /src ubuntu:24.04 bash -c "
         set -eux
@@ -69,17 +69,30 @@ if [ "${USE_DOCKER:-0}" = "1" ]; then
     "
 fi
 
+# A Windows build tree configured before the switch from 32-bit (i686) to
+# 64-bit (x86_64) Windows has the i686 compiler baked into its CMakeCache.txt.
+# Reset that cache once (the object files are rebuilt anyway) so the
+# reconfigure picks up the x86_64 toolchain instead of reusing the old one.
+reset_stale_i686_cache() {
+    local dir="$1"
+    if [ -f "$dir/CMakeCache.txt" ] && grep -q 'i686-w64-mingw32' "$dir/CMakeCache.txt"; then
+        echo "note: $dir was configured for 32-bit Windows (i686); resetting its CMake cache for x86_64." >&2
+        rm -rf "$dir/CMakeCache.txt" "$dir/CMakeFiles"
+    fi
+}
+
 if [ "$KFX_OS" = "linux" ]; then
     cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 else
-    if ! command -v i686-w64-mingw32-gcc >/dev/null 2>&1; then
-        echo "error: i686-w64-mingw32-gcc not found on PATH." >&2
-        echo "       Install a MinGW-w64 i686 toolchain (Ubuntu: 'sudo apt install g++-mingw-w64-i686')," >&2
+    if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+        echo "error: x86_64-w64-mingw32-gcc not found on PATH." >&2
+        echo "       Install a MinGW-w64 x86_64 toolchain (Ubuntu: 'sudo apt install g++-mingw-w64-x86-64')," >&2
         echo "       or re-run with USE_DOCKER=1, or KFX_OS=linux for a native Linux build." >&2
         exit 1
     fi
+    reset_stale_i686_cache "$BUILD_DIR"
     cmake -S . -B "$BUILD_DIR" -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw32.cmake \
+        -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/mingw64.cmake \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo
 fi
 

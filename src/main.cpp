@@ -24,6 +24,7 @@
 
 #include "api.h"
 #include "custom_sprites.h"
+#include "keeper_sprites.h"
 #include "front_simple.h"
 #include "frontend.h"
 #include "front_input.h"
@@ -61,6 +62,9 @@
 #include "session_loop_port_impl.h"
 #include "editor_port_impl.h"
 #include "command_line.h"
+#include "kfx_local_view.h"
+#include "game_lifecycle.h"
+#include "ariadne_saved_state.h"
 #include "post_inc.h"
 
 #ifdef _MSC_VER
@@ -103,10 +107,10 @@ void init_keeper(void)
     poly_pool_end = &poly_pool[sizeof(poly_pool)-128];
     lbDisplay.GlassMap = pixmap.ghost;
     RendererSetDrawColour(kfx_sim_state.colours[15][15][15]);
-    kfx_net_state.comp_player_aggressive  = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[0]);
-    kfx_net_state.comp_player_defensive   = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[1]);
-    kfx_net_state.comp_player_construct   = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[2]);
-    kfx_net_state.comp_player_creatrsonly = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[3]);
+    kfx_local_view.comp_player_aggressive  = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[0]);
+    kfx_local_view.comp_player_defensive   = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[1]);
+    kfx_local_view.comp_player_construct   = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[2]);
+    kfx_local_view.comp_player_creatrsonly = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[3]);
     kfx_sim_state.operation_flags |= GOF_ShowPanel;
     kfx_sim_state.view_mode_flags |= (GNFldD_StatusPanelDisplay | GNFldD_RoomFlameProcessing);
     init_censorship();
@@ -128,6 +132,8 @@ TbBool initial_setup(void)
         ERRORLOG("Unable to load game_load_files");
         return false;
     }
+    // creature.tab is in: the simulation's animation frame counts come from it (keeper_sprites.h).
+    keeper_sprites_publish_frames();
     load_pointer_file(0);
     update_screen_mode_data(320, 200);
     clear_game();
@@ -497,6 +503,10 @@ int64_t setup_game(void)
       SetSoundMasterVolume(settings.sound_volume);
       setup_mesh_randomizers();
       setup_stuff();
+      // what every level starts from (refactor pass 5, S12)
+      sim_state_take_level_baseline();
+      game_state_take_level_baseline();
+      ariadne_take_level_baseline();
   }
 
   return result;

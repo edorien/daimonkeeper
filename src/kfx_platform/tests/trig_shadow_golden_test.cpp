@@ -195,3 +195,68 @@ TEST_CASE("golden: creature shadow triangles (trig, VM_SpriteTranslucent)", "[kf
     CHECK(unchanged < all.size() * 3 / 2); // three quarters of the triangles: the random ones far off screen draw nothing
     CHECK(digest == 0x753c10923b086f98ULL);
 }
+
+TEST_CASE("Soft shadows: a coverage map at 2-4x that is the mask upscaled shades exactly the mask's pixels",
+    "[kfx_platform][trig_golden]")
+{
+    // The coverage sampler (vec_map_scale, vec_map_coverage; docs/refactor/sprites/ Phase 10) picks the original texel
+    // u, v name (wrapping at 256 as the mask does), then the sub-texel: an upscaled mask, full where set, must shade
+    // the same pixels the same way, for every case of the golden set (random UVs far off the mask included).
+    Target target;
+    const std::vector<Tri> all = cases();
+    for (int64_t k : {2, 3, 4})
+    {
+        std::vector<unsigned char> cover((size_t)(256 * k * 256 * k));
+        for (int64_t y = 0; y < 256 * k; y++)
+            for (int64_t x = 0; x < 256 * k; x++)
+                cover[(size_t)(y * 256 * k + x)] = target.sprite[(size_t)((y / k) * 256 + x / k)] ? 255 : 0;
+        size_t same = 0;
+        for (const Tri &t : all)
+        {
+            vec_map = target.sprite.data();
+            vec_map_scale = 1;
+            vec_map_coverage = false;
+            const uint64_t want = draw_and_hash(target, t);
+            vec_map = cover.data();
+            vec_map_scale = k;
+            vec_map_coverage = true;
+            same += (draw_and_hash(target, t) == want);
+        }
+        vec_map = target.sprite.data();
+        vec_map_scale = 1;
+        vec_map_coverage = false;
+        INFO("x" << k);
+        CHECK(same == all.size());
+    }
+}
+
+TEST_CASE("Soft shadows: partial coverage shades part of the way", "[kfx_platform][trig_golden]")
+{
+    Target target;
+    const int64_t k = 2;
+    std::vector<unsigned char> cover((size_t)(256 * k * 256 * k), 128);
+    const Tri t = {{10, 70, 40}, {10, 10, 50}, {0, 255 * S, 128 * S}, {0, 0, 255 * S}, 8};
+    target.clear();
+    const std::vector<TbPixel> before = target.pixels;
+    vec_map = cover.data();
+    vec_map_scale = k;
+    vec_map_coverage = true;
+    draw_and_hash(target, t);
+    vec_map = target.sprite.data();
+    vec_map_scale = 1;
+    vec_map_coverage = false;
+    int64_t changed = 0, between = 0;
+    for (size_t i = 0; i < before.size(); i++)
+    {
+        const TbPixel a = before[i], b = target.pixels[i];
+        if ((a.r == b.r) && (a.g == b.g) && (a.b == b.b))
+            continue;
+        changed++;
+        const TbPixel full = render_shade(a, 8);
+        auto mid = [](int x, int lo, int hi) { return (lo <= hi) ? (x >= lo && x <= hi) : (x >= hi && x <= lo); };
+        between += mid(b.r, a.r, full.r) && mid(b.g, a.g, full.g) && mid(b.b, a.b, full.b) &&
+            ((b.r != full.r) || (b.g != full.g) || (b.b != full.b) || ((a.r == full.r) && (a.g == full.g) && (a.b == full.b)));
+    }
+    CHECK(changed > 500);
+    CHECK(between == changed);
+}

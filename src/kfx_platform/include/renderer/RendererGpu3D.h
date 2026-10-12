@@ -3,6 +3,7 @@
 
 #include "renderer/RendererSoftware.h"
 #include "renderer/GpuSpriteRenderer.h"
+#include "bflib_colour_transform.h"
 
 #include <unordered_map>
 #include <vector>
@@ -12,6 +13,7 @@ struct SDL_GPUDevice;
 struct SDL_GPUShader;
 struct SDL_GPUGraphicsPipeline;
 struct SDL_GPUSampler;
+struct SDL_GPUCopyPass;
 struct SDL_GPUTexture;
 struct SDL_GPUBuffer;
 struct SDL_GPUTransferBuffer;
@@ -35,11 +37,13 @@ struct SDL_GPUTransferBuffer;
 // C.1/C.2 scope: SubmitWorldFrame() renders the recorded world-view ops in
 // draw order -- terrain polygons (QK_PolygonStandard + QK_PolygonNearFP, via
 // engine_render.c's gpoly wrapper) with real textures from a block cache -- a 2D-array texture, one
-// 32x32 layer per distinct texture block, resolved through the active
-// palette once and re-uploaded only when the block's palette indices or the
-// palette change (docs/refactor/renderer/gpu-v2/03-pixel-format-and-texture-cache.md;
-// invalidation by content comparison rather than a generation counter, which
-// also catches in-place animated-texture rewrites) -- interleaved with the
+// 32x32 layer per distinct texture block, expanded through a palette once
+// (docs/refactor/renderer/gpu-v2/03-pixel-format-and-texture-cache.md). Since
+// texture resolution's Phase 1 the cache is keyed by block pointer and flushed
+// only when a texture set is (re)loaded (WorldTexturesChanged(); animation
+// re-points blocks, it doesn't rewrite them), and a palette effect is applied
+// as a colour transform in the shader instead of re-expanding every block
+// (update_palette_state()) -- interleaved with the
 // scaled sprites the software sprite dispatchers record (GpuSpriteRenderer),
 // so walls occlude creatures exactly as in the CPU painter's algorithm.
 // What still draws on the CPU, over everything: see 07-phased-delivery.md's C.2 note.
@@ -75,6 +79,8 @@ public:
     // C.3: GPU -> CPU read-back of the world target (see IRenderer). Only
     // valid for a frame submitted since the last ClearScreen().
     bool ReadbackWorldLayer(TbPixel* dst, int64_t dst_pitch, int64_t x, int64_t y, int64_t w, int64_t h) override;
+    bool GetWorldTextureStats(struct WorldFrameTextureStats* out) const override { *out = m_texture_stats; return true; }
+    void WorldTexturesChanged() override { m_textures_changed = true; }
 
     // Test/diagnostic only: the render target SubmitWorldFrame() draws
     // into, so a verification program can read it back; null before the
@@ -82,13 +88,23 @@ public:
     SDL_GPUTexture* GetWorldTargetForTesting() const { return m_world_target; }
     SDL_GPUTexture* GetDepthTargetForTesting() const { return m_depth_target; }
     SDL_GPUDevice*  GetDeviceForTesting() const { return m_device; }
+    // Test only: fewer layers per upload batch, to exercise flush_block_uploads() (at most the ring's size).
+    void SetUploadRingLayersForTesting(uint32_t layers);
 
 private:
     bool init_gpu_device();
     bool init_pipeline();
     bool init_block_array();
     bool init_light_grid();
-    uint32_t resolve_block_layer(const unsigned char* texture, uint32_t& upload_count, unsigned char* upload_dst);
+    bool init_colour_transform();
+    void update_palette_state(const unsigned char* active_palette, const unsigned char* hd_reference);
+    void flush_block_cache();
+    uint32_t resolve_block_layer(const unsigned char* texture, const TbPixel* texture_rgba, uint8_t rgba_shift,
+                                 bool original_at_32, uint32_t& upload_count, unsigned char*& upload_dst);
+    bool ensure_block_array(uint32_t side, uint32_t levels);
+    uint32_t layer_bytes() const;
+    void copy_layer_levels(SDL_GPUCopyPass* copy, uint32_t ring_slot, uint32_t layer);
+    void flush_block_uploads(uint32_t& upload_count, unsigned char*& upload_dst);
     bool ensure_world_target(int64_t width, int64_t height);
     bool ensure_vertex_buffer(uint32_t vertex_count);
     void destroy_gpu();
@@ -101,11 +117,20 @@ private:
     SDL_GPUShader* m_fragment_shader = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;
     SDL_GPUSampler* m_sampler = nullptr;
+    SDL_GPUSampler* m_sampler_linear_repeat = nullptr; // TEXTURE_FILTER Sharp/Bilinear, scrolled polygons
+    SDL_GPUSampler* m_sampler_linear_clamp = nullptr;  // ... the rest
+    SDL_GPUSampler* m_sampler_trilinear_repeat = nullptr; // TEXTURE_FILTER Trilinear: linear between mip levels too
+    SDL_GPUSampler* m_sampler_trilinear_clamp = nullptr;
 
     // Block texture cache -- see class comment. Layer 0 is solid white (used
     // for null texture pointers and once the array is full).
     SDL_GPUTexture* m_block_array = nullptr;
-    SDL_GPUTransferBuffer* m_block_transfer = nullptr;
+    SDL_GPUTransferBuffer* m_block_transfer = nullptr; // the upload ring: m_upload_ring_layers layers
+    // The upload ring's size, in layers: at most kUploadRingBytes, not one slot per array layer. A frame whose new
+    // blocks don't fit submits a batch and refills it (flush_block_uploads()).
+    static constexpr uint32_t kUploadRingBytes = 8u << 20;
+    uint32_t m_upload_ring_layers = 0;
+    uint32_t m_upload_ring_capacity = 0;
     uint32_t m_block_layers = 0;
     uint32_t m_next_layer = 1;
     uint64_t m_frame_id = 0;
@@ -114,11 +139,30 @@ private:
     struct BlockEntry {
         uint32_t layer = 0;
         uint64_t frame_seen = 0;
-        unsigned char indices[WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE];
     };
-    std::unordered_map<const unsigned char*, BlockEntry> m_block_cache;
-    unsigned char m_palette_copy[768] = {};
-    bool m_palette_valid = false;
+    bool m_textures_changed = false; // WorldTexturesChanged(): flush before the next frame
+    std::unordered_map<const void*, BlockEntry> m_block_cache; // key: the block's 32x32 pointer, or its HD page
+    uint32_t m_block_side = WORLDFRAME_BLOCK_SIZE; // texels a layer: 32, or the largest HD block drawn so far
+    // Mip levels a layer has: from m_block_side down to 32, and 5 more (to 1x1) with TEXTURE_MIPMAPS. Uploaded
+    // whole with the layer (the levels follow each other in the upload ring).
+    uint32_t m_block_levels = 1;
+    // The palette the cached layers were expanded through. A palette effect that a colour function reproduces
+    // exactly (bflib_colour_transform.h: the fades, white, freeze, lightning) leaves the layers as they are and is
+    // applied in the shader; any other palette change (a lens palette, gamma) flushes and re-expands, as before.
+    unsigned char m_layer_palette[768] = {};
+    bool m_layer_palette_valid = false;
+    unsigned char m_transform_palette[768] = {}; // the active palette m_transform was built for
+    bool m_transform_valid = false;
+    bool m_transform_upload_pending = false;
+    ColourTransform m_transform = {};
+    std::vector<uint8_t> m_transform_table;      // RGBA, COLOUR_TRANSFORM_TABLE_SIZE texels
+    std::vector<uint8_t> m_transform_nearest;    // colour_transform_nearest_entries(m_layer_palette), built when first needed
+    bool m_transform_nearest_valid = false;
+    SDL_GPUTexture* m_transform_curves_tex = nullptr; // 256 x 1 RGBA8: the r, g, b curves in their channels
+    SDL_GPUTexture* m_transform_table_tex = nullptr;  // 64 x 64 x 64 RGBA8
+    SDL_GPUTransferBuffer* m_transform_transfer = nullptr;
+    SDL_GPUSampler* m_transform_sampler = nullptr;    // nearest, clamped (read with texelFetch)
+    WorldFrameTextureStats m_texture_stats = {};
     std::vector<uint32_t> m_upload_layers; // layers queued for upload this frame, in transfer-slot order
 
     bool m_world_frame_valid = false; // a world frame was submitted since the last ClearScreen()

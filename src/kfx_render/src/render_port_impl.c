@@ -16,6 +16,7 @@
 #include "engine_arrays.h"
 #include "custom_sprites.h"
 #include "local_camera.h"
+#include "kfx_local_view.h"
 #include "render_creature_view.h"
 #include "post_inc.h"
 
@@ -50,6 +51,12 @@ const struct RenderPort kfx_render_port = {
     .init_custom_campaign_sprites = &init_custom_campaign_sprites,
     .load_sprites_for_multi_front = &load_sprites_for_multi_front,
     .local_view_type_settle = &local_view_type_settle,
+    .local_view_power_removed = &local_view_power_removed,
+    .local_view_active_panel_menu = &local_view_active_panel_menu,
+    .local_view_battles_restart = &local_view_battles_restart,
+    .lightning_modify_palette = &lightning_modify_palette,
+    .user_freeze_palette_active = &user_freeze_palette_active,
+    .lightning_palette_on = &lightning_palette_on,
 };
 /******************************************************************************/
 #ifdef __cplusplus

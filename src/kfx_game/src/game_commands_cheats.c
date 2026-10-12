@@ -137,6 +137,18 @@ static void packet_slab_box(const struct Packet *pckt, struct PacketSlabBox *box
     box->beg_y = min(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
     box->end_x = max(subtile_slab(drag_stl_x), subtile_slab(end_stl_x));
     box->end_y = max(subtile_slab(drag_stl_y), subtile_slab(end_stl_y));
+    // the part on the map (a packet's corners can be anywhere: they walked thousands of slabs off it, all the
+    // invalid map block; P5-F31); a box wholly off it is empty (beg > end)
+    box->beg_x = max(box->beg_x, 0);
+    box->beg_y = max(box->beg_y, 0);
+    box->end_x = min(box->end_x, kfx_sim_state.map_tiles_x - 1);
+    box->end_y = min(box->end_y, kfx_sim_state.map_tiles_y - 1);
+}
+
+/** Whether an action's position (map coordinates from its parameters) is on the map (P5-F31). */
+static TbBool packet_coords_on_map(int64_t x, int64_t y)
+{
+    return (x >= 0) && (y >= 0) && (coord_subtile(x) < kfx_sim_state.map_subtiles_x) && (coord_subtile(y) < kfx_sim_state.map_subtiles_y);
 }
 
 // Shared by PckA_EditorPlaceTerrainRect and PckA_EditorRectClearEarth's
@@ -2016,6 +2028,8 @@ static void dungeon_editor_place_object(const struct DungeonCheatAction *ctx)
     // showed MapCoordsValid=0 pos=(0,0)) and model/owner in
     // actn_par3/actn_par4 (int16_t is plenty for those, unlike a
     // max-size map's subtile position).
+    if (!packet_coords_on_map(pckt->actn_par1, pckt->actn_par2))
+        return;
     pos.x.val = pckt->actn_par1;
     pos.y.val = pckt->actn_par2;
     pos.z.val = 0;
@@ -2186,7 +2200,7 @@ static void dungeon_editor_set_thing_position(const struct DungeonCheatAction *c
     // subtile boundary, same as any other in-world thing move
     // rather than a raw thing->mappos write.
     thing = thing_get(pckt->actn_par3);
-    if (!thing_is_invalid(thing))
+    if (!thing_is_invalid(thing) && packet_coords_on_map(pckt->actn_par1, pckt->actn_par2))
     {
         struct Coord3d newpos;
         newpos.x.val = pckt->actn_par1;
@@ -2325,6 +2339,8 @@ static void dungeon_editor_redo_creature(const struct DungeonCheatAction *ctx)
     // instead of the packet's own ambient pos_x/pos_y, which
     // can't reliably carry a value from a previous turn through to
     // this one (see this verb's own enum comment).
+    if (!packet_coords_on_map(pckt->actn_par1, pckt->actn_par2))
+        return;
     pos.x.val = pckt->actn_par1;
     pos.y.val = pckt->actn_par2;
     pos.z.val = 0;

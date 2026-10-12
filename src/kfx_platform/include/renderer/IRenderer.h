@@ -83,6 +83,13 @@ public:
     // eye-lens system) from a GPU-rendered scene.
     virtual bool ReadbackWorldLayer(TbPixel* dst, int64_t dst_pitch, int64_t x, int64_t y, int64_t w, int64_t h)
     { (void)dst; (void)dst_pitch; (void)x; (void)y; (void)w; (void)h; return false; }
+
+    // The texture blocks behind WorldFramePolyItem::texture were rewritten in place (a texture set (re)loaded):
+    // drop whatever was cached from them. Nothing else changes block texels.
+    virtual void WorldTexturesChanged() {}
+
+    // The terrain texture cache's counters (WorldFrame.h); false for a renderer without one.
+    virtual bool GetWorldTextureStats(struct WorldFrameTextureStats* out) const { (void)out; return false; }
 };
 
 #endif // RENDERER_IRENDERER_H

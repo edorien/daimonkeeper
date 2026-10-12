@@ -184,3 +184,17 @@ TEST_CASE_METHOD(ScratchAbsoluteTree, "LbFileOpen in NEW mode creates every miss
     CHECK(LbFileExists(nested_file.c_str()) != 0);
     CHECK(LbFileLength(nested_file.c_str()) == (int64_t)std::strlen(payload));
 }
+
+TEST_CASE("LbFileMakeFullPath refuses a name whose terminating NUL would not fit", "[kfx_platform][bflib_fileio]") {
+    // A guard byte after the buffer: the old bound (strlen+namestart-1 < len)
+    // accepted a name exactly len long and wrote its NUL one past the end.
+    const char *name = "exactly16chars.x";
+    REQUIRE(std::strlen(name) == 16);
+    char buf[17 + 1];
+    std::memset(buf, '#', sizeof(buf));
+    CHECK(LbFileMakeFullPath(false, nullptr, name, buf, 16) == -1);
+    CHECK(buf[16] == '#');
+    CHECK(LbFileMakeFullPath(false, nullptr, name, buf, 17) == 1);
+    CHECK(std::string(buf) == name);
+    CHECK(buf[17] == '#');
+}

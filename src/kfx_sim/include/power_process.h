@@ -34,8 +34,6 @@ struct PlayerInfo;
 
 #pragma pack()
 /******************************************************************************/
-void set_chosen_power(PowerKind pwkind, TextStringId sptooltip);
-void set_chosen_power_none(void);
 
 TbBool players_disease_can_infect_target_players_creatures(PlayerNumber source_player, PlayerNumber target_player);
 void process_disease(struct Thing *thing);
@@ -69,7 +67,6 @@ TbBool player_uses_power_hold_audience(PlayerNumber plyr_idx);
 unsigned char general_expand_check(void);
 unsigned char sight_of_evil_expand_check(void);
 unsigned char call_to_arms_expand_check(void);
-void lightning_modify_palette(struct Thing *thing);
 
 // Moved from kfx_config's config_magic.c/.h (see docs/refactor/todo/
 // check-layering-symbol-level-blind-spot.md): every element is a
