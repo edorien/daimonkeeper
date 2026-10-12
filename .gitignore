@@ -109,3 +109,7 @@ third_party/
 /docs/refactor-pass5/
 /docs/rebadge/
 /docs/newFeatures/
+/docs/security-pass/
+/docs/merge-checks/lua-sandbox/
+/docs/merge-checks/lua-sandbox-evaluation-2026-10-12.md
+docs/merge-checks/
