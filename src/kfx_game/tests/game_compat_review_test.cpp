@@ -15,6 +15,7 @@
 namespace {
 struct LocalGameWithIssue {
     int64_t saved_api_enabled = api_enabled;
+    unsigned char saved_replay_load_enable = replay.load_enable;
     LocalGameWithIssue() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
         kfx_sim_state.game_kind = GKind_LocalGame;
@@ -24,6 +25,7 @@ struct LocalGameWithIssue {
     }
     ~LocalGameWithIssue() {
         api_enabled = saved_api_enabled;
+        replay.load_enable = saved_replay_load_enable;
         compat_report_clear();
     }
 };

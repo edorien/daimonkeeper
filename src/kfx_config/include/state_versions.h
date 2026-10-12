@@ -90,9 +90,11 @@
    Saved and resynced: the part from texture_animation to pay_day_progress (KFX_CONFIG_STATE_SAVED_*),
    SGC_KfxConfigState and the resync blob.
    1: pass 4 P4-F16 -- first saved (the split out of struct Game left it out: a load or resync lost the level's
-      configuration as its script changed it, the payday progress and the slabs' texture packs). */
+      configuration as its script changed it, the payday progress and the slabs' texture packs).
+   2: SlabConfigStats.roughness (terrain.cfg's Roughness, rough terrain) -- in what was padding, so the size
+      stayed; the byte's meaning changed. */
 #define KFX_CONFIG_STATE_SIZE         11391840
-#define KFX_CONFIG_STATE_VER          1
+#define KFX_CONFIG_STATE_VER          2
 #define KFX_CONFIG_STATE_SAVED_SIZE   11391800
 
 /* struct IntralevelData (kfx_game's game_merge.h), SGC_IntralevelData */

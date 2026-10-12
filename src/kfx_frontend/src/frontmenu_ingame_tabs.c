@@ -2281,8 +2281,32 @@ void maintain_ally(struct GuiButton *gbtn)
     }
 }
 
+/** The classic panel's tendency toggles' values. A click toggles a value at once and sends the packet; the dungeon's
+ *  tendencies change when it's processed. So the values follow the local player's dungeon only when its tendencies
+ *  change (from the packet, the computer assistant, a script), as kfx_sim_state's mirror did, which every place that
+ *  changed the local player's tendencies used to write (refactor pass 5, S05). */
+TbBool tendency_button_imprison;
+TbBool tendency_button_flee;
+static int64_t tendency_buttons_seen = -1;
+
+static void maintain_tendency_buttons(void)
+{
+    const struct Dungeon *dungeon = get_my_dungeon();
+    if (dungeon_invalid(dungeon) || (dungeon->creature_tendencies == tendency_buttons_seen))
+        return;
+    tendency_buttons_seen = dungeon->creature_tendencies;
+    tendency_button_imprison = ((dungeon->creature_tendencies & CrTend_Imprison) != 0);
+    tendency_button_flee = ((dungeon->creature_tendencies & CrTend_Flee) != 0);
+}
+
+void maintain_flee_button(struct GuiButton *gbtn)
+{
+    maintain_tendency_buttons();
+}
+
 void maintain_prison_bar(struct GuiButton *gbtn)
 {
+    maintain_tendency_buttons();
     if (player_has_room_of_role(my_player_number, RoRoF_Prison))
     {
         gbtn->sprite_idx = GPS_rpanel_tendency_prisne_act;

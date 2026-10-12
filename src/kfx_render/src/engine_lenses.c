@@ -49,6 +49,15 @@ RotPers_Func rotpers_routines[] = {
   rotpers_fisheye,
 };
 
+/* The projection half of each rotpers routine, for a point already in view space (x, y, z set,
+   clip_flags cleared): rough terrain (terrain_rough.h) makes its points there. */
+Project_Func project_routines[] = {
+  project_parallel,
+  project_standard,
+  project_circular,
+  project_fisheye,
+};
+
 // Lens buffer dimensions
 uint64_t eye_lens_width = 0;
 uint64_t eye_lens_height = 0;
@@ -60,6 +69,7 @@ TbPixel *eye_lens_spare_screen_memory = NULL;
 int64_t lens;
 Perspect_Func perspective;
 RotPers_Func rotpers;
+Project_Func project;
 unsigned char lens_mode;
 /******************************************************************************/
 #ifdef __cplusplus
@@ -139,9 +149,8 @@ void pers_set_view_height(struct EngineCoord *epos, int64_t len)
     }
 }
 
-void rotpers_parallel(struct EngineCoord *epos, const struct M33 *matx)
+void project_parallel(struct EngineCoord *epos)
 {
-    pers_set_transform_matrix(epos, matx);
     int64_t zoom = camera_zoom / pixel_size;
     int64_t tx = view_width_over_2 + ((epos->x * zoom) >> 16);
     int64_t ty = view_height_over_2 - ((epos->y * zoom) >> 16);
@@ -170,9 +179,14 @@ void rotpers_parallel(struct EngineCoord *epos, const struct M33 *matx)
     }
 }
 
-void rotpers_standard(struct EngineCoord *epos, const struct M33 *matx)
+void rotpers_parallel(struct EngineCoord *epos, const struct M33 *matx)
 {
     pers_set_transform_matrix(epos, matx);
+    project_parallel(epos);
+}
+
+void project_standard(struct EngineCoord *epos)
+{
     int64_t tx = epos->x;
     int64_t ty = epos->y;
     int64_t tz = epos->z;
@@ -210,9 +224,14 @@ void rotpers_standard(struct EngineCoord *epos, const struct M33 *matx)
     // clip properly against the near plane (engine_render.c, near_clip_triangle()) instead.
 }
 
-void rotpers_circular(struct EngineCoord *epos, const struct M33 *matx)
+void rotpers_standard(struct EngineCoord *epos, const struct M33 *matx)
 {
     pers_set_transform_matrix(epos, matx);
+    project_standard(epos);
+}
+
+void project_circular(struct EngineCoord *epos)
+{
     int64_t tx = epos->x;
     int64_t ty = epos->y;
     int64_t tz = epos->z;
@@ -248,9 +267,14 @@ void rotpers_circular(struct EngineCoord *epos, const struct M33 *matx)
     flicker_fix(epos);
 }
 
-void rotpers_fisheye(struct EngineCoord *epos, const struct M33 *matx)
+void rotpers_circular(struct EngineCoord *epos, const struct M33 *matx)
 {
     pers_set_transform_matrix(epos, matx);
+    project_circular(epos);
+}
+
+void project_fisheye(struct EngineCoord *epos)
+{
     int64_t tx = epos->x;
     int64_t ty = epos->y;
     int64_t tz = epos->z;
@@ -281,5 +305,11 @@ void rotpers_fisheye(struct EngineCoord *epos, const struct M33 *matx)
     }
     epos->clip_flags |= 0x0400;
     flicker_fix(epos);
+}
+
+void rotpers_fisheye(struct EngineCoord *epos, const struct M33 *matx)
+{
+    pers_set_transform_matrix(epos, matx);
+    project_fisheye(epos);
 }
 /******************************************************************************/

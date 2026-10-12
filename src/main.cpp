@@ -107,8 +107,6 @@ void init_keeper(void)
     kfx_net_state.comp_player_defensive   = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[1]);
     kfx_net_state.comp_player_construct   = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[2]);
     kfx_net_state.comp_player_creatrsonly = (comp_player_conf.player_assist_default == comp_player_conf.computer_assist_types[3]);
-    kfx_sim_state.creatures_tend_imprison = 0;
-    kfx_sim_state.creatures_tend_flee = 0;
     kfx_sim_state.operation_flags |= GOF_ShowPanel;
     kfx_sim_state.view_mode_flags |= (GNFldD_StatusPanelDisplay | GNFldD_RoomFlameProcessing);
     init_censorship();
@@ -362,9 +360,6 @@ int64_t setup_game(void)
       ERRORLOG("Error on allocation/loading of legal_load_files.");
       return 0;
   }
-
-  // Setup polyscans
-  setup_bflib_render();
 
   // View the legal screen
   if (!setup_screen_mode_zero(get_screen_vidmode()))

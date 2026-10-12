@@ -32,11 +32,11 @@ TbBool ftest_editor_thumbs_init()
     return true;
 }
 
-static bool opaque_count_at_least(const std::vector<uint64_t>& pixels, size_t n)
+static bool opaque_count_at_least(const std::vector<TbPixel>& pixels, size_t n)
 {
     size_t c = 0;
-    for (uint64_t p : pixels)
-        if ((p >> 24) != 0)
+    for (const TbPixel &p : pixels)
+        if (p.a != 0)
             c++;
     return c >= n;
 }
@@ -52,7 +52,7 @@ FTestActionResult ftest_editor_thumbs_action001__build(struct FTestActionArgs* c
         if ((g == ETG_Rooms) || (editor_door_of_slab((SlabKind)k) > 0))
             continue; // rooms and doors use their in-game icons
         slabs_total++;
-        std::vector<uint64_t> px;
+        std::vector<TbPixel> px;
         int64_t w = 0, h = 0;
         if (editor_thumb_slab_pixels((SlabKind)k, px, w, h) && (w > 0) && (h > 0) && opaque_count_at_least(px, 16))
             slabs_ok++;
@@ -72,7 +72,7 @@ FTestActionResult ftest_editor_thumbs_action001__build(struct FTestActionArgs* c
         if ((g == EOG_Spells) || (g == EOG_Crates))
             continue; // those use power / workshop icons
         objs_total++;
-        std::vector<uint64_t> px;
+        std::vector<TbPixel> px;
         int64_t w = 0, h = 0;
         if (editor_thumb_object_pixels(m, px, w, h) && (w > 0) && (h > 0) && opaque_count_at_least(px, 4))
             objs_ok++;
@@ -85,7 +85,7 @@ FTestActionResult ftest_editor_thumbs_action001__build(struct FTestActionArgs* c
     JUSTLOG("Thumbnails: %" PRId64 "/%" PRId64 " objects ok; missing: %s", (int64_t)(objs_ok), (int64_t)(objs_total), objs_missing.c_str());
 
     // The shapes we rely on must work: rock (a wall) and a path (a floor).
-    std::vector<uint64_t> px;
+    std::vector<TbPixel> px;
     int64_t w = 0, h = 0;
     if (!editor_thumb_slab_pixels(SlbT_ROCK, px, w, h) || w != 32 || h != 32)
     {

@@ -67,6 +67,7 @@
 #include "ports/ui_port.h"
 #include "ports/audio_port.h"
 #include "ports/game_port.h"
+#include "ports/editor_port.h"
 #include "ports/render_port.h"
 #include "ports/ai_port.h"
 #include "list_walk.h"
@@ -1154,8 +1155,6 @@ void init_players_local_game(void)
     init_user_state(player->user_id);
     set_creature_tendencies(player, CrTend_Imprison, IMPRISON_BUTTON_DEFAULT);
     set_creature_tendencies(player, CrTend_Flee, FLEE_BUTTON_DEFAULT);
-    kfx_sim_state.creatures_tend_imprison = IMPRISON_BUTTON_DEFAULT;
-    kfx_sim_state.creatures_tend_flee = FLEE_BUTTON_DEFAULT;
 }
 
 void process_player_states(void)
@@ -1424,6 +1423,22 @@ void check_players_lost(void)
   SYNCDBG(8,"Starting");
   struct PlayerInfo* player;
   struct Dungeon* dungeon;
+  // Found live: a blank New Map starts with no Dungeon Heart at all (the
+  // editor's own Heart tool is how one gets placed) -- indistinguishable
+  // below from "the Heart was just destroyed", which is exactly what the
+  // loop's !thing_exists(heartng) check is for. Normal gameplay never hits
+  // this gap (every real level ships with a Heart already standing before
+  // this function's first call), so an editor session is the only caller
+  // that can have an active keeper with no Heart and no loss intended.
+  // simulation_suspended already keeps this function from running most of
+  // the time during a session (process_dungeons()'s own gate), but Preview
+  // Motion deliberately lifts that for a real turn -- which must not be
+  // able to instantly defeat the player and kick the session back to the
+  // frontend before a Heart can even be placed. There is no good "lost the
+  // level" concept for an editing session at all, so skip outright, same
+  // as kfx_sim_state.simulation_suspended's own editor accommodation.
+  if (editorport_is_active())
+      return;
   for (i=0; i < PLAYERS_COUNT; i++)
   {
       player = get_player(i);

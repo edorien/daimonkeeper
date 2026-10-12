@@ -136,7 +136,15 @@ struct SlabConfigStats {
     unsigned char wlb_type;
     unsigned char is_ownable;
     unsigned char indestructible;
+    unsigned char roughness; ///< SlabRoughness: how rough terrain draws it (render only)
     GoldAmount gold_held;
+};
+
+/** terrain.cfg's Roughness: how rough terrain (docs/newFeatures/terrain-v2/) draws a slab kind. */
+enum SlabRoughness {
+    SlbRgh_None = 0, ///< drawn as it is (claimed, fortified, rooms, liquids...)
+    SlbRgh_Rough,    ///< hand-dug: walls recess, a floor-only slab dips (with rough floors on)
+    SlbRgh_Subtle,   ///< impenetrable: corners round, a little of a rough wall's noise
 };
 
 struct RoomConfigStats {

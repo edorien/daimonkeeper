@@ -2100,6 +2100,7 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
             struct Coord3d cur_pos = thing->mappos;
             pos.x.val = cur_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, hug_angle);
             pos.y.val = cur_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, hug_angle);
+            pos.z.val = cur_pos.z.val; // what the height is where the thing doesn't fit (P5-F33)
             pos.z.val = world_get_thing_height_at(thing, &pos);
             if (ariadne_check_forward_for_wallhug_gap(thing, arid, &pos, hug_angle)) {
                 wallhug_distance_right = i;
@@ -2123,6 +2124,7 @@ static void ariadne_get_starting_angle_and_side_of_wallhug_for_desireable_move(s
             struct Coord3d cur_pos = thing->mappos;
             pos.x.val = cur_pos.x.val + distance_with_angle_to_coord_x(arid->move_speed, hug_angle);
             pos.y.val = cur_pos.y.val + distance_with_angle_to_coord_y(arid->move_speed, hug_angle);
+            pos.z.val = cur_pos.z.val; // what the height is where the thing doesn't fit (P5-F33)
             pos.z.val = world_get_thing_height_at(thing, &pos);
             if (ariadne_check_forward_for_wallhug_gap(thing, arid, &pos, hug_angle)) {
                 wallhug_distance_left = i;
@@ -2433,6 +2435,7 @@ static int64_t ariadne_init_movement_to_current_waypoint(struct Thing *thing, st
     delta_y = distance_with_angle_to_coord_y(arid->move_speed, angle);
     requested_pos.x.val = (int64_t)thing_pos.x.val + delta_x;
     requested_pos.y.val = (int64_t)thing_pos.y.val + delta_y;
+    requested_pos.z.val = thing_pos.z.val; // what the height is where the thing doesn't fit (P5-F33)
     requested_pos.z.val = world_get_thing_height_at(thing, &requested_pos);
     if (!ariadne_creature_blocked_by_wall_at(thing, &requested_pos))
     {
@@ -2492,6 +2495,7 @@ static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thin
         }
         pos_xlim.x.val = coord_fix;
         pos_xlim.y.val = thing_pos.y.val;
+        pos_xlim.z.val = thing_pos.z.val; // what the height is where the thing doesn't fit (P5-F33)
         pos_xlim.z.val = world_get_thing_height_at(thing, &pos_xlim);
         coord_fix = thing_pos.y.val;
         if (pos_dlim.y.val > thing_pos.y.val) {
@@ -2502,6 +2506,7 @@ static int64_t ariadne_creature_can_continue_direct_line_to_waypoint(struct Thin
         }
         pos_ylim.x.val = thing_pos.x.val;
         pos_ylim.y.val = coord_fix;
+        pos_ylim.z.val = thing_pos.z.val; // what the height is where the thing doesn't fit (P5-F33)
         pos_ylim.z.val = world_get_thing_height_at(thing, &pos_ylim);
     }
     if (!ariadne_creature_blocked_by_wall_at(thing, &pos_xlim))
@@ -2872,7 +2877,8 @@ static AriadneReturn ariadne_update_state_on_line(struct Thing *thing, struct Ar
 
 static TbBool ariadne_check_forward_for_wallhug_gap(struct Thing *thing, struct Ariadne *arid, struct Coord3d *pos, int64_t hug_angle)
 {
-    struct Coord3d nav_boundry_pos;
+    // the cases below move x or y to the subtile boundary; z stays the position's (P5-F33: it was never set)
+    struct Coord3d nav_boundry_pos = *pos;
     struct Coord3d potentional_next_pos_3d;
     struct Coord3d original_mappos;
 

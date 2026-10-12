@@ -804,7 +804,7 @@ int64_t dump_first_held_thing_on_map(PlayerNumber plyr_idx, MapSubtlCoord stl_x,
         return 0;
     }
     // Check if object will fit into that position
-    struct Coord3d pos;
+    struct Coord3d pos = droptng->mappos; // z: its height until set (P5-F33)
     pos.x.val = subtile_coord_center(stl_x);
     pos.y.val = subtile_coord_center(stl_y);
     pos.z.val = get_thing_height_at(droptng, &pos);
@@ -1225,7 +1225,7 @@ TbBool can_drop_thing_here(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumbe
 
 int64_t can_place_thing_here(struct Thing *thing, int64_t stl_x, int64_t stl_y, int64_t dngn_idx)
 {
-    struct Coord3d pos;
+    struct Coord3d pos = thing->mappos; // z: its height until set (P5-F33)
     TbBool allow_unclaimed_path;
     allow_unclaimed_path = is_creature_droppable_on_path(thing);
     if (!can_drop_thing_here(stl_x, stl_y, dngn_idx, allow_unclaimed_path)) {

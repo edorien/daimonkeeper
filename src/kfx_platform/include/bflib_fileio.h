@@ -47,6 +47,8 @@ struct TbFileEntry {
 /******************************************************************************/
 
 int64_t LbFileExists(const char *fname);
+// Creates every missing directory on the way to fname; true on success.
+int64_t create_directory_for_file(const char *fname);
 int64_t LbFilePosition(TbFileHandle handle);
 TbFileHandle LbFileOpen(const char *fname, unsigned char accmode);
 TbBool LbFileEof(TbFileHandle handle);

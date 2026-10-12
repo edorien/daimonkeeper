@@ -13,8 +13,8 @@
 // their palette/in-place invalidation, view-window offset and clipping, CPU overlay
 // compositing, underlay persistence, texture-cache eviction beyond capacity, every
 // sprite mode (solid/scaled/flipped/remap/ghost1/ghost2/alpha/one-colour), painter's
-// order between sprites and terrain, shadow masks, and a CPU-rasterizer-vs-GPU parity
-// image comparison. Prints VERIFICATION PASSED/FAILED; exit code 0 on pass.
+// order between sprites and terrain, shadow masks, CPU-rasterizer-vs-GPU parity
+// image comparisons, and terrain palette index 0 drawn opaque black like the CPU path. Prints VERIFICATION PASSED/FAILED; exit code 0 on pass.
 
 #include "renderer/RendererGpu3D.h"
 #include "renderer/RendererManager.h"
@@ -691,6 +691,54 @@ int main()
             ok &= (std::abs(ur - 25) <= 2 && std::abs(ug - 37) <= 2 && std::abs(ub - 64) <= 2 && tb > ub && tb > tr + 40);
             SDL_DestroySurface(c17);
         }
+
+        // Frame 18 (terrain palette index 0): terrain blocks use index 0 as art -- palette entry 0,
+        // black (library bookshelves, workshop/temple reliefs) -- and the CPU rasterizer writes it like
+        // any other texel, so it shows black. A wall block, left half index 0 and right half red, drawn
+        // over a farther green floor (upper-left half of the window) with a blue clear colour: the
+        // index-0 half must be black over both the floor and the clear colour, and match the CPU path.
+        static unsigned char atlas_zero[32 * 256];
+        for (int y = 0; y < 32; y++) for (int x = 0; x < 256; x++) atlas_zero[y * 256 + x] = (x < 16) ? 0 : 5;
+        memset(&lbDisplay.Palette[3 * 5], 0, 3); lbDisplay.Palette[3 * 5] = 63;
+        WorldFramePolyItem z18[3];
+        z18[0].v0 = { 0, 0, 0, 0, sh, 0 }; z18[0].v1 = { 48, 0, 0, 0, sh, 0 }; z18[0].v2 = { 0, 40, 0, 0, sh, 0 };
+        z18[0].texture = atlas_green;   // far floor
+        const int64_t U32 = (int64_t)32 << 16;
+        z18[1].v0 = { 0, 0, 0, 0, sh, 0 }; z18[1].v1 = { 48, 0, U32, 0, sh, 0 }; z18[1].v2 = { 0, 40, 0, U32, sh, 0 };
+        z18[2].v0 = { 48, 0, U32, 0, sh, 0 }; z18[2].v1 = { 48, 40, U32, U32, sh, 0 }; z18[2].v2 = { 0, 40, 0, U32, sh, 0 };
+        z18[1].texture = z18[2].texture = atlas_zero;   // nearer wall
+        Rec R18; WorldFrame f18 = mkframe(R18, z18, 3, 0, 0, 48, 40);
+        f18.clear_r = 0; f18.clear_g = 0; f18.clear_b = 255;
+        // CPU reference: the same ops through the CPU rasterizer onto the blue-cleared view.
+        SDL_FillSurfaceRect(lbDrawSurface, nullptr, SDL_MapSurfaceRGBA(lbDrawSurface, 0, 0, 255, 255));
+        lbDisplay.WScreen = (TbPixel*)lbDrawSurface->pixels;
+        setup_vecs((TbPixel*)lbDrawSurface->pixels, atlas_zero, 48, 48, 40);
+        sw.SubmitWorldFrame(f18);
+        SDL_Surface* cpu18 = SDL_DuplicateSurface(lbDrawSurface);
+        r.ClearScreen(0);
+        SDL_FillSurfaceRect(lbDrawSurface, nullptr, 0);
+        r.SubmitWorldFrame(f18);
+        SDL_Surface* c18 = present_and_capture(r);
+        printf("frame 18 (terrain index 0 = opaque black; capture is the 48x40 frame scaled to 64x64):\n");
+        if (!c18) ok = false; else {
+            ok &= px_is(c18, 8, 8, 0, 0, 0, "index 0 over a farther floor");
+            ok &= px_is(c18, 20, 50, 0, 0, 0, "index 0 over the clear colour");
+            ok &= px_is(c18, 50, 30, 255, 0, 0, "index 5 beside it");
+            // Whole-view parity: the CPU pixel as presented (straight alpha over black) vs the GPU.
+            long bad = 0;
+            for (int y = 0; y < 40; y++) for (int x = 0; x < 48; x++) {
+                Uint8 a[4], b[4];
+                SDL_ReadSurfacePixel(cpu18, x, y, &a[0], &a[1], &a[2], &a[3]);
+                SDL_ReadSurfacePixel(c18, (2 * x + 1) * 64 / 96, (2 * y + 1) * 64 / 80, &b[0], &b[1], &b[2], &b[3]);
+                int d = 0; for (int k = 0; k < 3; k++) d += abs(a[k] * a[3] / 255 - b[k]);
+                if (d > 24) bad++;
+            }
+            printf("  CPU-vs-GPU mismatching pixels: %ld/%d\n", bad, 48 * 40);
+            ok &= (bad <= 40); // at most the texel-boundary column (x=24), where the CPU's fixed-point U step rounds differently
+            SDL_SaveBMP(cpu18, "/tmp/gpu3d_verify_index0_cpu.bmp"); SDL_SaveBMP(c18, "/tmp/gpu3d_verify_index0_gpu.bmp");
+            SDL_DestroySurface(c18);
+        }
+        SDL_DestroySurface(cpu18);
     }
     r.Shutdown();
     printf(ok ? "VERIFICATION PASSED\n" : "VERIFICATION FAILED\n");

@@ -516,6 +516,18 @@ void editor_open(LevelNumber lvnum, TbBool is_new)
     // few turns through. Restored in editor_close().
     s_prev_skip_heart_zoom = get_skip_heart_zoom_feature();
     set_skip_heart_zoom_feature(true);
+    // Found live: init_players_local_game() (startup_local_game_for_editor(),
+    // kfx_game's main_game.c) already ran -- and already cached
+    // get_my_player()->skip_heart_zoom from the feature flag's old (off)
+    // value -- before this function could set the flag above. game_loop()'s
+    // player_skips_heart_zoom() check (game_session_loop.cpp), which runs
+    // right after editor_open() returns, reads that cached field, not the
+    // live feature flag, so the PI_HeartZoom intro still got queued despite
+    // the line above -- and then could never finish, because
+    // simulation_suspended (just set true) freezes the per-turn update it
+    // needs several of, wedging the whole session in the intro. Flip the
+    // cached field directly too.
+    get_my_player()->skip_heart_zoom = true;
 
     // User feedback: rendering both the normal in-game GUI (sidebar,
     // minimap, tab panel) and the editor's own File/Edit/View menu bar +

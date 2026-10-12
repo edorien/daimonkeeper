@@ -60,6 +60,13 @@ const struct ConfigFileData keeper_terrain_file_data = {
     .post_load_func = NULL,
 };
 
+static const struct NamedCommand terrain_roughness_desc[] = {
+    {"NONE",              SlbRgh_None            },
+    {"ROUGH",             SlbRgh_Rough           },
+    {"SUBTLE",            SlbRgh_Subtle          },
+    {NULL,                0                      },
+};
+
 static const struct NamedCommand terrain_flags[] = {
     {"VALUABLE",          SlbAtFlg_Valuable      },
     {"IS_ROOM",           SlbAtFlg_IsRoom        },
@@ -130,6 +137,7 @@ static const struct NamedField terrain_slab_named_fields[] = {
     {"ISOWNABLE",         0, field_t(struct SlabConfigStats, is_ownable),                    0, INT32_MIN,UINT32_MAX, NULL,          value_default,    assign_default},
     {"INDESTRUCTIBLE",    0, field_t(struct SlabConfigStats, indestructible),                0, INT32_MIN,UINT32_MAX, NULL,          value_default,    assign_default},
     {"GOLDHELD",          0, field_t(struct SlabConfigStats, gold_held),                     0, INT32_MIN,UINT32_MAX, NULL,          value_default,    assign_default},
+    {"ROUGHNESS",         0, field_t(struct SlabConfigStats, roughness),           SlbRgh_None, SlbRgh_None, SlbRgh_Subtle, terrain_roughness_desc, value_default, assign_default},
     {NULL},
 };
 

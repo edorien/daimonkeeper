@@ -449,6 +449,12 @@ int64_t frontend_land_selection_enter_resolve(void)
     LevelNumber lvnum = (land_preview.highlighted_lvnum != SINGLEPLAYER_NOTSTARTED)
         ? land_preview.highlighted_lvnum : first_singleplayer_level();
     set_selected_level_number(lvnum);
+    // frontend_start_new_campaign() just reset the continue level to the
+    // campaign's first level and cleared intralvl: put the campaign's
+    // recorded progress back, so winning lvnum unlocks the level after it
+    // (instead of being recorded as the first level) and carried-over
+    // creatures/flags/bonuses survive.
+    campaign_progress_begin_level(lvnum);
     return FeSt_START_KPRLEVEL;
 }
 

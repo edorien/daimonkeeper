@@ -893,7 +893,7 @@ TbBool move_object_to_nearest_free_position(struct Thing *thing)
         ERRORLOG("Attempt to move non-existing object out of wall.");
         return false;
     }
-    struct Coord3d pos;
+    struct Coord3d pos = thing->mappos; // z: its height until set (P5-F33)
     MapCoordDelta nav_radius = thing_nav_sizexy(thing) / 2;
 
     MapSubtlCoord start_stl_x = thing->mappos.x.stl.num;

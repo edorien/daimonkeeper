@@ -82,6 +82,9 @@ struct KeeperFxUiConfig keeperfx_ui_config = {
     .gui_icon_pack = "NONE",
     .minimap_corner = 1, // HudMinimalCorner_UpperLeft
     .overhead_fade = 60,
+    .rough_terrain = 2, // walls
+    .rough_terrain_depth = 96,
+    .rough_terrain_corners = 320,
     .panel_corner = 2, // HudMinimalCorner_UpperRight -- matches the pre-decoupling diagonally-opposite default
 };
 static NetworkIsActiveFn g_network_is_active_fn = NULL;
@@ -162,6 +165,14 @@ const struct NamedCommand lighting_type[] = {
   {"CLASSIC",  1},
   {"PERPIXEL", 2},
   {NULL,       0},
+  };
+
+// ROUGH_TERRAIN (docs/newFeatures/terrain-v2/), 1-based like the others.
+const struct NamedCommand rough_terrain_type[] = {
+  {"OFF",              1},
+  {"WALLS",            2},
+  {"WALLS_AND_FLOORS", 3},
+  {NULL,               0},
   };
 
 // LOG_LEVEL -- docs/refactor-pass2/stage-02-logging-option.md. 1-based like
@@ -294,6 +305,9 @@ const struct NamedCommand conf_commands[] = {
   {"GPU_DEBUG"                     , 65},
   {"MAX_REPLAYS"                   , 66}, // upstream id 53 collides with the fork's UI_FONT
   {"AUTOMATIC_REPLAYS"             , 67}, // upstream #5374 (its id 52 collides with UI_FONT_SCALE)
+  {"ROUGH_TERRAIN"                 , 68}, // read through its options-screen row
+  {"ROUGH_TERRAIN_DEPTH"           , 69}, // likewise
+  {"ROUGH_TERRAIN_CORNERS"         , 70}, // likewise
   {NULL,                   0},
   };
 

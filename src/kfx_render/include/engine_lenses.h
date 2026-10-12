@@ -38,6 +38,7 @@ struct EngineCoord;
 struct M33;
 
 typedef void (*RotPers_Func)(struct EngineCoord *epos, const struct M33 *matx);
+typedef void (*Project_Func)(struct EngineCoord *epos);
 typedef void (*Perspect_Func)(struct XYZ *cor, struct PolyPoint *ppt);
 
 struct XYZ { // sizeof = 12
@@ -51,10 +52,13 @@ extern unsigned char lens_mode;
 extern int64_t lens;
 extern Perspect_Func perspective;
 extern RotPers_Func rotpers;
+/** The projection half of rotpers, for a point already in view space. */
+extern Project_Func project;
 #pragma pack()
 /******************************************************************************/
 extern Perspect_Func perspective_routines[];
 extern RotPers_Func rotpers_routines[];
+extern Project_Func project_routines[];
 /******************************************************************************/
 void pers_set_transform_matrix(struct EngineCoord *epos, const struct M33 *matx);
 void perspective_standard(struct XYZ *cor, struct PolyPoint *ppt);
@@ -63,6 +67,10 @@ void rotpers_parallel(struct EngineCoord *epos, const struct M33 *matx);
 void rotpers_standard(struct EngineCoord *epos, const struct M33 *matx);
 void rotpers_circular(struct EngineCoord *epos, const struct M33 *matx);
 void rotpers_fisheye(struct EngineCoord *epos, const struct M33 *matx);
+void project_parallel(struct EngineCoord *epos);
+void project_standard(struct EngineCoord *epos);
+void project_circular(struct EngineCoord *epos);
+void project_fisheye(struct EngineCoord *epos);
 /******************************************************************************/
 #ifdef __cplusplus
 }

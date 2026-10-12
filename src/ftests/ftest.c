@@ -15,6 +15,8 @@
 #include "config_campaigns.h"
 #include "bflib_fileio.h"
 #include "bflib_mouse.h"
+#include "frontend.h"
+#include "net_main.h"
 
 #include "post_inc.h"
 
@@ -178,6 +180,24 @@ TbBool ftest_parse_arg(char * const arg)
     return false;
 }
 
+/** Whether the test is named in list: one name, or several separated by commas (run in ftest_list.c's order, in one
+ *  process -- to see whether one test changes what a later one does without running every test between them). */
+static TbBool ftest_name_in_list(const char *list, const char *test_name)
+{
+    const size_t len = strlen(test_name);
+    for (const char *p = list; *p != '\0'; )
+    {
+        const char *end = strchr(p, ',');
+        const size_t n = (end != NULL) ? (size_t)(end - p) : strlen(p);
+        if ((n == len) && (strncmp(p, test_name, len) == 0))
+            return true;
+        if (end == NULL)
+            break;
+        p = end + 1;
+    }
+    return false;
+}
+
 TbBool ftest_fill_teststorun_by_name(char* const name)
 {
     struct ftest_onlyappendtests__config* const conf = &ftest_onlyappendtests__conf;
@@ -239,7 +259,7 @@ TbBool ftest_fill_teststorun_by_name(char* const name)
                 FTESTLOG("Added test '%s' via wildcard match", test_config->test_name);
                 vars->tests_to_run[vars->total_tests++] = test_config;
             }
-            else if(strcmp(name, test_config->test_name) == 0)
+            else if(ftest_name_in_list(name, test_config->test_name))
             {
                 FTESTLOG("Added test '%s' via exact match", test_config->test_name);
                 vars->tests_to_run[vars->total_tests++] = test_config;
@@ -324,6 +344,20 @@ TbBool ftest_setup_test(struct FTestConfig* const test_config)
     }
 
     set_selected_level_number(selected_level);
+    // The session settings a pre_start_func may set, as the first test had them: one test's choice (the keeper's
+    // name, how many computer players) would otherwise reach the tests after it in the same process -- the local
+    // player's name, for one, is in the state the goldens hash.
+    static TbBool settings_kept = false;
+    static int64_t first_computer_players;
+    static char first_player_name[sizeof(net_player_name)];
+    if (!settings_kept)
+    {
+        settings_kept = true;
+        first_computer_players = fe_computer_players;
+        memcpy(first_player_name, net_player_name, sizeof(first_player_name));
+    }
+    fe_computer_players = first_computer_players;
+    memcpy(net_player_name, first_player_name, sizeof(net_player_name));
     if(test_config->pre_start_func)
     {
         test_config->pre_start_func();

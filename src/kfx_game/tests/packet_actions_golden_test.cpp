@@ -95,6 +95,11 @@ void bare_level() {
     std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
     std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
     std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
+    // Were in kfx_sim_state (system_flags) and kfx_net_state (the packet_save/packet_load fields) until upstream
+    // #5376 and 5aa2d1b46 moved them out: a test that left GSF_NetworkActive or a replay on would otherwise send
+    // the quit action into stop_network_game_and_quit_to_main_menu().
+    local_system_flags = 0;
+    std::memset(&replay, 0, sizeof(replay));
     kfx_config_state.neutral_player_num = PLAYER_NEUTRAL;
     kfx_sim_state.map_tiles_x = 85; kfx_sim_state.map_tiles_y = 85;
     kfx_sim_state.map_subtiles_x = 255; kfx_sim_state.map_subtiles_y = 255;

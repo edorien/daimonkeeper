@@ -782,496 +782,485 @@ TbBool free_spell_slot(struct Thing *thing, int64_t slot_idx)
     return true;
 }
 
-TbBool set_thing_spell_flags_f(struct Thing *thing, SpellKind spell_idx, GameTurnDelta duration, CrtrExpLevel spell_level, const char *func_name)
+/** A spell effect being applied to a creature or removed from it: the creature, the effect's flag and, when applied,
+ *  the spell (its duration and level) that applies it. */
+struct SpellEffectContext {
+    struct Thing *thing;
+    struct CreatureControl *cctrl;
+    struct CreatureModelConfig *crconf;
+    uint64_t flag;
+    SpellKind spell_idx;
+    struct SpellConfig *spconf;
+    GameTurnDelta duration;
+    CrtrExpLevel spell_level;
+};
+
+/* Each effect's apply and remove. An apply runs when the spell has the effect and the creature isn't immune to it, and
+ * returns whether the creature was affected; a remove runs when the effect is cleared from a creature under it (the
+ * heal: whenever it's cleared), and returns whether it was cleared. */
+
+/** Sets the effect's flag if the creature isn't under it already (or its flag was cleared before the spell ended);
+ *  returns whether it wasn't. */
+static TbBool spell_effect_start(const struct SpellEffectContext *ctx)
 {
-    struct CreatureModelConfig *crconf = creature_stats_get(thing->model);
-    struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
-    struct SpellConfig *spconf = get_spell_config(spell_idx);
-    const struct PowerConfigStats *powerst = get_power_model_stats(spconf->linked_power);
-    struct ComponentVector cvect;
-    struct Coord3d pos;
-    struct Thing *ntng;
-    TbBool affected = false;
-    // SLOW.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Slow)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Slow)))
+    if (creature_under_spell_effect(ctx->thing, ctx->flag))
+        return false;
+    set_flag(ctx->cctrl->spell_flags, ctx->flag);
+    return true;
+}
+
+/** SLOW, SPEED: the speed is calculated again. */
+static TbBool spell_effect_apply_speed(const struct SpellEffectContext *ctx)
+{
+    spell_effect_start(ctx);
+    ctx->cctrl->max_speed = calculate_correct_creature_maxspeed(ctx->thing);
+    return true;
+}
+
+static TbBool spell_effect_remove_speed(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    ctx->cctrl->max_speed = calculate_correct_creature_maxspeed(ctx->thing);
+    return true;
+}
+
+/** REBOUND, SIGHT, MAD_KILLING apply: the flag alone. */
+static TbBool spell_effect_apply_flag(const struct SpellEffectContext *ctx)
+{
+    spell_effect_start(ctx);
+    return true;
+}
+
+/** REBOUND, SIGHT remove: the flag alone. */
+static TbBool spell_effect_remove_flag(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    return true;
+}
+
+/** ARMOUR: two light balls circle the creature. */
+static TbBool spell_effect_apply_armour(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    if (spell_effect_start(ctx))
     {
-        if (!creature_under_spell_effect(thing, CSAfF_Slow))
+        struct ComponentVector cvect;
+        struct Coord3d pos;
+        int64_t num_protect = 0;
+        for (int64_t k = 0; k < 2; k++)
         {
-            // Re-set the flag if it was cleared before spell termination.
-            set_flag(cctrl->spell_flags, CSAfF_Slow);
-        }
-        cctrl->max_speed = calculate_correct_creature_maxspeed(thing);
-        affected = true;
-    }
-    // SPEED.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Speed)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Speed)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Speed))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Speed);
-        }
-        cctrl->max_speed = calculate_correct_creature_maxspeed(thing);
-        affected = true;
-    }
-    // ARMOUR.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Armour)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Armour)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Armour))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Armour);
-            int64_t num_protect = 0;
-            for (int64_t k = 0; k < 2; k++)
+            set_coords_to_cylindric_shift(&pos, &thing->mappos, 32, num_protect, k * (thing->clipbox_size_z >> 1));
+            struct Thing *ntng = create_object(&pos, ObjMdl_LightBall, thing->owner, -1); // TODO: Make this configurable.
+            if (!thing_is_invalid(ntng))
             {
-                set_coords_to_cylindric_shift(&pos, &thing->mappos, 32, num_protect, k * (thing->clipbox_size_z >> 1));
-                ntng = create_object(&pos, ObjMdl_LightBall, thing->owner, -1); // TODO: Make this configurable.
-                if (!thing_is_invalid(ntng))
+                ctx->cctrl->spell_thing_index_armour[k] = ntng->index;
+                ntng->health = ctx->duration + 1;
+                ntng->armor.belongs_to = thing->index;
+                ntng->armor.shspeed = k;
+                ntng->move_angle_xy = thing->move_angle_xy;
+                ntng->move_angle_z = thing->move_angle_z;
+                angles_to_vector(ntng->move_angle_xy, ntng->move_angle_z, 32, &cvect);
+                ntng->veloc_push_add.x.val += cvect.x;
+                ntng->veloc_push_add.y.val += cvect.y;
+                ntng->veloc_push_add.z.val += cvect.z;
+                ntng->state_flags |= TF1_PushAdd;
+            }
+            num_protect += DEGREES_120;
+        }
+    }
+    return true;
+}
+
+static TbBool spell_effect_remove_armour(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    delete_armour_effects_attached_to_creature(ctx->thing);
+    return true;
+}
+
+static TbBool spell_effect_apply_flying(const struct SpellEffectContext *ctx)
+{
+    if (spell_effect_start(ctx))
+        ctx->thing->movement_flags |= TMvF_Flying;
+    return true;
+}
+
+static TbBool spell_effect_remove_flying(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    // TODO: Strange condition regarding the fly, check why it's here?
+    if (!flag_is_set(kfx_config_state.conf.crtr_conf.model[ctx->thing->model].model_flags, CMF_IsDiptera))
+    {
+        clear_flag(ctx->thing->movement_flags, TMvF_Flying);
+    }
+    return true;
+}
+
+/** INVISIBILITY: no longer forced visible. */
+static TbBool spell_effect_apply_invisibility(const struct SpellEffectContext *ctx)
+{
+    if (spell_effect_start(ctx))
+        ctx->cctrl->force_visible = 0;
+    return true;
+}
+
+static TbBool spell_effect_remove_invisibility(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    ctx->cctrl->force_visible = 0;
+    return true;
+}
+
+/** LIGHT: not for a creature that is illuminated anyway. */
+static TbBool spell_effect_apply_light(const struct SpellEffectContext *ctx)
+{
+    if (ctx->crconf->illuminated)
+        return false;
+    if (spell_effect_start(ctx))
+        illuminate_creature(ctx->thing);
+    return true;
+}
+
+static TbBool spell_effect_remove_light(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    if (ctx->crconf->illuminated)
+        return false;
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    if (thing->light_id != 0)
+    {
+        if (flag_is_set(thing->rendering_flags, TRF_Invisible))
+        {
+            light_set_light_intensity(thing->light_id, (light_get_light_intensity(thing->light_id) - 20));
+            light_set_light_radius(thing->light_id, 2560);
+        }
+        else
+        {
+            light_delete_light(thing->light_id);
+            thing->light_id = 0;
+        }
+    }
+    return true;
+}
+
+/** DISEASE: three disease clouds circle the creature; the spell is kept for later. */
+static TbBool spell_effect_apply_disease(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    struct CreatureControl *cctrl = ctx->cctrl;
+    if (spell_effect_start(ctx))
+    {
+        struct ComponentVector cvect;
+        struct Coord3d pos;
+        if (cctrl->disease_caster_plyridx == thing->owner)
+        {
+            cctrl->disease_caster_plyridx = kfx_config_state.neutral_player_num;
+        }
+        int64_t num_disease = 0;
+        cctrl->disease_start_turn = get_gameturn();
+        for (int64_t j = 0; j < 3; j++)
+        {
+            pos.x.val = thing->mappos.x.val;
+            pos.y.val = thing->mappos.y.val;
+            pos.z.val = thing->mappos.z.val;
+            pos.x.val += distance_with_angle_to_coord_x(32, num_disease);
+            pos.y.val += distance_with_angle_to_coord_y(32, num_disease);
+            pos.z.val += j * (int64_t)(thing->clipbox_size_z >> 1);
+            struct Thing *ntng = create_object(&pos, ObjMdl_Disease, thing->owner, -1); // TODO: Make this configurable.
+            if (!thing_is_invalid(ntng))
+            {
+                cctrl->spell_thing_index_disease[j] = ntng->index;
+                ntng->health = ctx->duration + 1;
+                ntng->disease.belongs_to = thing->index;
+                ntng->disease.effect_slot = j;
+                ntng->move_angle_xy = thing->move_angle_xy;
+                ntng->move_angle_z = thing->move_angle_z;
+                angles_to_vector(ntng->move_angle_xy, ntng->move_angle_z, 32, &cvect);
+                ntng->veloc_push_add.x.val += cvect.x;
+                ntng->veloc_push_add.y.val += cvect.y;
+                ntng->veloc_push_add.z.val += cvect.z;
+                ntng->state_flags |= TF1_PushAdd;
+            }
+            num_disease += DEGREES_120;
+        }
+    }
+    cctrl->active_disease_spell = ctx->spell_idx; // Remember the spell_idx for a later use.
+    return true;
+}
+
+static TbBool spell_effect_remove_disease(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    delete_disease_effects_attached_to_creature(ctx->thing);
+    ctx->cctrl->active_disease_spell = 0;
+    return true;
+}
+
+/** CHICKEN: the creature changes; reapplied, the countdown is a fifth of the spell's. */
+static TbBool spell_effect_apply_chicken(const struct SpellEffectContext *ctx)
+{
+    const TbBool first = spell_effect_start(ctx);
+    external_set_thing_state(ctx->thing, CrSt_CreatureChangeToChicken);
+    ctx->cctrl->countdown = first ? ctx->spconf->countdown : (ctx->spconf->countdown / 5);
+    return true;
+}
+
+static TbBool spell_effect_remove_chicken(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    external_set_thing_state(ctx->thing, CrSt_CreatureChangeFromChicken);
+    ctx->cctrl->countdown = 10;
+    set_creature_size_stuff(ctx->thing);
+    return true;
+}
+
+/** FREEZE: a flying (or unconscious flier) creature is grounded; the creature stops. */
+static TbBool spell_effect_apply_freeze(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    if (spell_effect_start(ctx))
+    {
+        set_flag(ctx->cctrl->stateblock_flags, CCSpl_Freeze);
+        if ((thing->movement_flags & TMvF_Flying) != 0 || (creature_is_being_unconscious(thing) && (ctx->crconf->flying || creature_under_spell_effect(thing, CSAfF_Flying))))
+        {
+            set_flag(thing->movement_flags, TMvF_Grounded);
+            clear_flag(thing->movement_flags, TMvF_Flying);
+        }
+    }
+    creature_set_speed(thing, 0);
+    return true;
+}
+
+static TbBool spell_effect_remove_freeze(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    clear_flag(ctx->cctrl->stateblock_flags, CCSpl_Freeze);
+    if (flag_is_set(thing->movement_flags, TMvF_Grounded))
+    {
+        if (!creature_is_being_unconscious(thing)) {
+            restore_creature_flight_flag(thing);
+        }
+        clear_flag(thing->movement_flags, TMvF_Grounded);
+    }
+    return true;
+}
+
+static TbBool spell_effect_remove_mad_killing(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    remove_all_traces_of_combat(ctx->thing);
+    return true;
+}
+
+/** FEAR: only a creature that can be frightened; it flees (a possessed one is left to itself); reapplied, the
+ *  flight starts again. */
+static TbBool spell_effect_apply_fear(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    struct CreatureControl *cctrl = ctx->cctrl;
+    if (ctx->crconf->fear_stronger <= 0)
+        return false;
+    if (spell_effect_start(ctx))
+    {
+        setup_combat_flee_position(thing);
+        if (is_thing_directly_controlled(thing))
+        {
+            struct PlayerInfo* player = get_player(thing->owner);
+            if (player->controlled_thing_idx == thing->index)
+            {
+                char active_menu = kfx_sim_state.active_panel_mnu_idx;
+                leave_creature_as_controller(player, thing);
+                control_creature_as_passenger(player, thing);
+                if (is_my_player(player))
                 {
-                    cctrl->spell_thing_index_armour[k] = ntng->index;
-                    ntng->health = duration + 1;
-                    ntng->armor.belongs_to = thing->index;
-                    ntng->armor.shspeed = k;
-                    ntng->move_angle_xy = thing->move_angle_xy;
-                    ntng->move_angle_z = thing->move_angle_z;
-                    angles_to_vector(ntng->move_angle_xy, ntng->move_angle_z, 32, &cvect);
-                    ntng->veloc_push_add.x.val += cvect.x;
-                    ntng->veloc_push_add.y.val += cvect.y;
-                    ntng->veloc_push_add.z.val += cvect.z;
-                    ntng->state_flags |= TF1_PushAdd;
-                }
-                num_protect += DEGREES_120;
-            }
-        }
-        affected = true;
-    }
-    // REBOUND.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Rebound)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Rebound)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Rebound))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Rebound);
-        }
-        affected = true;
-    }
-    // FLYING.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Flying)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Flying)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Flying))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Flying);
-            thing->movement_flags |= TMvF_Flying;
-        }
-        affected = true;
-    }
-    // INVISIBILITY.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Invisibility)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Invisibility)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Invisibility))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Invisibility);
-            cctrl->force_visible = 0;
-        }
-        affected = true;
-    }
-    // SIGHT.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Sight)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Sight)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Sight))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Sight);
-        }
-        affected = true;
-    }
-    // LIGHT.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Light)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Light)))
-    {
-        if (!crconf->illuminated)
-        {
-            if (!creature_under_spell_effect(thing, CSAfF_Light))
-            {
-                    set_flag(cctrl->spell_flags, CSAfF_Light);
-                    illuminate_creature(thing);
-            }
-            affected = true;
-        }
-    }
-    // DISEASE.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Disease)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Disease)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Disease))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Disease);
-            if (cctrl->disease_caster_plyridx == thing->owner)
-            {
-                cctrl->disease_caster_plyridx = kfx_config_state.neutral_player_num;
-            }
-            int64_t num_disease = 0;
-            cctrl->disease_start_turn = get_gameturn();
-            for (int64_t j = 0; j < 3; j++)
-            {
-                pos.x.val = thing->mappos.x.val;
-                pos.y.val = thing->mappos.y.val;
-                pos.z.val = thing->mappos.z.val;
-                pos.x.val += distance_with_angle_to_coord_x(32, num_disease);
-                pos.y.val += distance_with_angle_to_coord_y(32, num_disease);
-                pos.z.val += j * (int64_t)(thing->clipbox_size_z >> 1);
-                ntng = create_object(&pos, ObjMdl_Disease, thing->owner, -1); // TODO: Make this configurable.
-                if (!thing_is_invalid(ntng))
-                {
-                    cctrl->spell_thing_index_disease[j] = ntng->index;
-                    ntng->health = duration + 1;
-                    ntng->disease.belongs_to = thing->index;
-                    ntng->disease.effect_slot = j;
-                    ntng->move_angle_xy = thing->move_angle_xy;
-                    ntng->move_angle_z = thing->move_angle_z;
-                    angles_to_vector(ntng->move_angle_xy, ntng->move_angle_z, 32, &cvect);
-                    ntng->veloc_push_add.x.val += cvect.x;
-                    ntng->veloc_push_add.y.val += cvect.y;
-                    ntng->veloc_push_add.z.val += cvect.z;
-                    ntng->state_flags |= TF1_PushAdd;
-                }
-                num_disease += DEGREES_120;
-            }
-        }
-        cctrl->active_disease_spell = spell_idx; // Remember the spell_idx for a later use.
-        affected = true;
-    }
-    // CHICKEN.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Chicken)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Chicken)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Chicken))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Chicken);
-            external_set_thing_state(thing, CrSt_CreatureChangeToChicken);
-            cctrl->countdown = spconf->countdown;
-        }
-        else // If spell is reapplied countdown is spconf->countdown / 5.
-        {
-            external_set_thing_state(thing, CrSt_CreatureChangeToChicken);
-            cctrl->countdown = spconf->countdown / 5;
-        }
-        affected = true;
-    }
-    // FREEZE.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Freeze)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Freeze)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Freeze))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Freeze);
-            set_flag(cctrl->stateblock_flags, CCSpl_Freeze);
-            if ((thing->movement_flags & TMvF_Flying) != 0 || (creature_is_being_unconscious(thing) && (crconf->flying || creature_under_spell_effect(thing, CSAfF_Flying))))
-            {
-                set_flag(thing->movement_flags, TMvF_Grounded);
-                clear_flag(thing->movement_flags, TMvF_Flying);
-            }
-        }
-        creature_set_speed(thing, 0);
-        affected = true;
-    }
-    // MAD_KILLING.
-    if (flag_is_set(spconf->spell_flags, CSAfF_MadKilling)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_MadKilling)))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_MadKilling))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_MadKilling);
-        }
-        affected = true;
-    }
-    // FEAR.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Fear)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Fear))
-    && (crconf->fear_stronger > 0))
-    {
-        if (!creature_under_spell_effect(thing, CSAfF_Fear))
-        {
-            set_flag(cctrl->spell_flags, CSAfF_Fear);
-            setup_combat_flee_position(thing);
-            if (is_thing_directly_controlled(thing))
-            {
-                struct PlayerInfo* player = get_player(thing->owner);
-                if (player->controlled_thing_idx == thing->index)
-                {
-                    char active_menu = kfx_sim_state.active_panel_mnu_idx;
-                    leave_creature_as_controller(player, thing);
-                    control_creature_as_passenger(player, thing);
-                    if (is_my_player(player))
-                    {
-                        ui_turn_off_all_panel_menus();
-                        ui_turn_on_menu(active_menu);
-                    }
+                    ui_turn_off_all_panel_menus();
+                    ui_turn_on_menu(active_menu);
                 }
             }
-            if (external_set_thing_state(thing, CrSt_CreatureCombatFlee))
-            {
-                cctrl->flee_start_turn = get_gameturn();
-            }
         }
-        else // If spell is reapplied reset flee_start_turn and state.
+        if (external_set_thing_state(thing, CrSt_CreatureCombatFlee))
         {
             cctrl->flee_start_turn = get_gameturn();
-            if (get_creature_state_besides_interruptions(thing) != CrSt_CreatureCombatFlee)
-            {
-                external_set_thing_state(thing, CrSt_CreatureCombatFlee);
-            }
         }
-        affected = true;
     }
-    // TELEPORT.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Teleport)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Teleport)))
+    else // If spell is reapplied reset flee_start_turn and state.
     {
-        if (!creature_under_spell_effect(thing, CSAfF_Teleport))
+        cctrl->flee_start_turn = get_gameturn();
+        if (get_creature_state_besides_interruptions(thing) != CrSt_CreatureCombatFlee)
         {
-            set_flag(cctrl->spell_flags, CSAfF_Teleport);
-            set_flag(cctrl->stateblock_flags, CCSpl_Teleport);
+            external_set_thing_state(thing, CrSt_CreatureCombatFlee);
         }
-        cctrl->active_teleport_spell = spell_idx; // Remember the spell_idx for a later use.
-        affected = true;
     }
-    // TIMEBOMB.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Timebomb)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Timebomb)))
+    return true;
+}
+
+static TbBool spell_effect_remove_fear(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    if (is_thing_passenger_controlled_by_player(thing,thing->owner))
     {
-        if (!creature_under_spell_effect(thing, CSAfF_Timebomb))
+        struct PlayerInfo* player = get_player(thing->owner);
+        char active_menu = kfx_sim_state.active_panel_mnu_idx;
+        leave_creature_as_passenger(player, thing);
+        control_creature_as_controller(player, thing);
+        if (is_my_player(player))
         {
-            set_flag(cctrl->spell_flags, CSAfF_Timebomb);
-            cctrl->timebomb_countdown = duration;
+            ui_turn_off_all_panel_menus();
+            ui_turn_on_menu(active_menu);
         }
-        cctrl->active_timebomb_spell = spell_idx; // Remember the spell_idx for a later use.
-        affected = true;
     }
-    // HEAL.
-    if (flag_is_set(spconf->spell_flags, CSAfF_Heal)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_Heal)))
+    return true;
+}
+
+/** TELEPORT: the spell is kept for later. */
+static TbBool spell_effect_apply_teleport(const struct SpellEffectContext *ctx)
+{
+    if (spell_effect_start(ctx))
+        set_flag(ctx->cctrl->stateblock_flags, CCSpl_Teleport);
+    ctx->cctrl->active_teleport_spell = ctx->spell_idx; // Remember the spell_idx for a later use.
+    return true;
+}
+
+static TbBool spell_effect_remove_teleport(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    clear_flag(ctx->cctrl->stateblock_flags, CCSpl_Teleport);
+    ctx->cctrl->active_teleport_spell = 0;
+    return true;
+}
+
+/** TIMEBOMB: the countdown is the spell's duration; the spell is kept for later. */
+static TbBool spell_effect_apply_timebomb(const struct SpellEffectContext *ctx)
+{
+    if (spell_effect_start(ctx))
+        ctx->cctrl->timebomb_countdown = ctx->duration;
+    ctx->cctrl->active_timebomb_spell = ctx->spell_idx; // Remember the spell_idx for a later use.
+    return true;
+}
+
+static TbBool spell_effect_remove_timebomb(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    thing->veloc_push_add.x.val = 0;
+    thing->veloc_push_add.y.val = 0;
+    clear_flag(thing->state_flags, TF1_PushAdd);
+    cleanup_current_thing_state(thing);
+    set_start_state(thing);
+    ctx->cctrl->active_timebomb_spell = 0;
+    return true;
+}
+
+/** HEAL: once, by the spell's recovery (or its power's strength at the level); its flag is never set. */
+static TbBool spell_effect_apply_heal(const struct SpellEffectContext *ctx)
+{
+    struct Thing *thing = ctx->thing;
+    HitPoints healing_recovery;
+    if (ctx->spconf->linked_power == PwrK_None)
     {
-        // 'CSAfF_Heal' is only for checking config or immunity, flag is never set to creature.
-        HitPoints healing_recovery;
-        if (spconf->linked_power == PwrK_None)
-        {
-            healing_recovery = (thing->health + spconf->healing_recovery);
-        }
-        else
-        {
-            healing_recovery = (thing->health + powerst->strength[spell_level]);
-        }
-        if (healing_recovery < 0)
-        {
-            thing->health = 0;
-        }
-        else
-        {
-            thing->health = min(healing_recovery, cctrl->max_health);
-        }
-        affected = true;
+        healing_recovery = (thing->health + ctx->spconf->healing_recovery);
     }
-    // Spell Blocks.
-    if (flag_is_set(spconf->spell_flags, CSAfF_SpellBlocks)
-    && (!creature_is_immune_to_spell_effect(thing, CSAfF_SpellBlocks)))
+    else
     {
-        set_flag(cctrl->spell_flags, CSAfF_SpellBlocks);
-        cctrl->cleanse_flags = spconf->cleanse_flags;
-        affected = true;
+        const struct PowerConfigStats *powerst = get_power_model_stats(ctx->spconf->linked_power);
+        healing_recovery = (thing->health + powerst->strength[ctx->spell_level]);
+    }
+    if (healing_recovery < 0)
+    {
+        thing->health = 0;
+    }
+    else
+    {
+        thing->health = min(healing_recovery, ctx->cctrl->max_health);
+    }
+    return true;
+}
+
+/** HEAL remove: nothing to undo, but it counts as cleared, so the spell's slot is freed. */
+static TbBool spell_effect_remove_heal(const struct SpellEffectContext *ctx)
+{
+    (void)ctx;
+    return true;
+}
+
+/** SPELL_BLOCKS: the spell's cleanse flags block those effects. */
+static TbBool spell_effect_apply_spell_blocks(const struct SpellEffectContext *ctx)
+{
+    set_flag(ctx->cctrl->spell_flags, ctx->flag);
+    ctx->cctrl->cleanse_flags = ctx->spconf->cleanse_flags;
+    return true;
+}
+
+static TbBool spell_effect_remove_spell_blocks(const struct SpellEffectContext *ctx)
+{
+    clear_flag(ctx->cctrl->spell_flags, ctx->flag);
+    ctx->cctrl->cleanse_flags = 0;
+    return true;
+}
+
+/** The spell effects, in the order they're applied and removed (the order is behaviour: e.g. the speed is calculated
+ *  after SLOW and again after SPEED). POISON_CLOUD and WIND are only immunities: no row. */
+static const struct SpellEffectRow {
+    uint64_t flag;
+    TbBool (*apply)(const struct SpellEffectContext *ctx);
+    TbBool (*remove)(const struct SpellEffectContext *ctx);
+} spell_effect_rows[] = {
+    {CSAfF_Slow,         spell_effect_apply_speed,        spell_effect_remove_speed},
+    {CSAfF_Speed,        spell_effect_apply_speed,        spell_effect_remove_speed},
+    {CSAfF_Armour,       spell_effect_apply_armour,       spell_effect_remove_armour},
+    {CSAfF_Rebound,      spell_effect_apply_flag,         spell_effect_remove_flag},
+    {CSAfF_Flying,       spell_effect_apply_flying,       spell_effect_remove_flying},
+    {CSAfF_Invisibility, spell_effect_apply_invisibility, spell_effect_remove_invisibility},
+    {CSAfF_Sight,        spell_effect_apply_flag,         spell_effect_remove_flag},
+    {CSAfF_Light,        spell_effect_apply_light,        spell_effect_remove_light},
+    {CSAfF_Disease,      spell_effect_apply_disease,      spell_effect_remove_disease},
+    {CSAfF_Chicken,      spell_effect_apply_chicken,      spell_effect_remove_chicken},
+    {CSAfF_Freeze,       spell_effect_apply_freeze,       spell_effect_remove_freeze},
+    {CSAfF_MadKilling,   spell_effect_apply_flag,         spell_effect_remove_mad_killing},
+    {CSAfF_Fear,         spell_effect_apply_fear,         spell_effect_remove_fear},
+    {CSAfF_Teleport,     spell_effect_apply_teleport,     spell_effect_remove_teleport},
+    {CSAfF_Timebomb,     spell_effect_apply_timebomb,     spell_effect_remove_timebomb},
+    {CSAfF_Heal,         spell_effect_apply_heal,         spell_effect_remove_heal},
+    {CSAfF_SpellBlocks,  spell_effect_apply_spell_blocks, spell_effect_remove_spell_blocks},
+};
+
+TbBool set_thing_spell_flags_f(struct Thing *thing, SpellKind spell_idx, GameTurnDelta duration, CrtrExpLevel spell_level, const char *func_name)
+{
+    struct SpellEffectContext ctx = {thing, creature_control_get_from_thing(thing), creature_stats_get(thing->model), 0,
+        spell_idx, get_spell_config(spell_idx), duration, spell_level};
+    TbBool affected = false;
+    for (size_t i = 0; i < sizeof(spell_effect_rows) / sizeof(spell_effect_rows[0]); i++)
+    {
+        ctx.flag = spell_effect_rows[i].flag;
+        if (flag_is_set(ctx.spconf->spell_flags, ctx.flag) && !creature_is_immune_to_spell_effect(thing, ctx.flag))
+        {
+            if (spell_effect_rows[i].apply(&ctx))
+                affected = true;
+        }
     }
     if (!affected)
     {
-        SYNCDBG(7, "%s: No spell flags %" PRId64 " to set on %s index %" PRId64, func_name, (int64_t)((uint64_t)spconf->spell_flags), thing_model_name(thing), (int64_t)thing->index);
+        SYNCDBG(7, "%s: No spell flags %" PRId64 " to set on %s index %" PRId64, func_name, (int64_t)((uint64_t)ctx.spconf->spell_flags), thing_model_name(thing), (int64_t)thing->index);
     }
     return affected;
 }
 
 TbBool clear_thing_spell_flags_f(struct Thing *thing, uint64_t spell_flags, const char *func_name)
 {
-    struct CreatureModelConfig *crconf = creature_stats_get(thing->model);
-    struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
+    struct SpellEffectContext ctx = {thing, creature_control_get_from_thing(thing), creature_stats_get(thing->model), 0,
+        0, NULL, 0, 0};
     TbBool cleared = false;
-    // SLOW.
-    if (flag_is_set(spell_flags, CSAfF_Slow)
-    && (creature_under_spell_effect(thing, CSAfF_Slow)))
+    for (size_t i = 0; i < sizeof(spell_effect_rows) / sizeof(spell_effect_rows[0]); i++)
     {
-        clear_flag(cctrl->spell_flags, CSAfF_Slow);
-        cctrl->max_speed = calculate_correct_creature_maxspeed(thing);
-        cleared = true;
-    }
-    // SPEED.
-    if (flag_is_set(spell_flags, CSAfF_Speed)
-    && (creature_under_spell_effect(thing, CSAfF_Speed)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Speed);
-        cctrl->max_speed = calculate_correct_creature_maxspeed(thing);
-        cleared = true;
-    }
-    // ARMOUR.
-    if (flag_is_set(spell_flags, CSAfF_Armour)
-    && (creature_under_spell_effect(thing, CSAfF_Armour)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Armour);
-        delete_armour_effects_attached_to_creature(thing);
-        cleared = true;
-    }
-    // REBOUND.
-    if (flag_is_set(spell_flags, CSAfF_Rebound)
-    && (creature_under_spell_effect(thing, CSAfF_Rebound)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Rebound);
-        cleared = true;
-    }
-    // FLYING.
-    if (flag_is_set(spell_flags, CSAfF_Flying)
-    && (creature_under_spell_effect(thing, CSAfF_Flying)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Flying);
-        // TODO: Strange condition regarding the fly, check why it's here?
-        if (!flag_is_set(kfx_config_state.conf.crtr_conf.model[thing->model].model_flags, CMF_IsDiptera))
+        ctx.flag = spell_effect_rows[i].flag;
+        // the heal's flag is never set: it's removed whenever it's cleared
+        if (flag_is_set(spell_flags, ctx.flag) && ((ctx.flag == CSAfF_Heal) || creature_under_spell_effect(thing, ctx.flag)))
         {
-            clear_flag(thing->movement_flags, TMvF_Flying);
+            if (spell_effect_rows[i].remove(&ctx))
+                cleared = true;
         }
-        cleared = true;
-    }
-    // INVISIBILITY.
-    if (flag_is_set(spell_flags, CSAfF_Invisibility)
-    && (creature_under_spell_effect(thing, CSAfF_Invisibility)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Invisibility);
-        cctrl->force_visible = 0;
-        cleared = true;
-    }
-    // SIGHT.
-    if (flag_is_set(spell_flags, CSAfF_Sight)
-    && (creature_under_spell_effect(thing, CSAfF_Sight)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Sight);
-        cleared = true;
-    }
-    // LIGHT.
-    if (flag_is_set(spell_flags, CSAfF_Light)
-    && (creature_under_spell_effect(thing, CSAfF_Light)))
-    {
-        if (!crconf->illuminated)
-        {
-            clear_flag(cctrl->spell_flags, CSAfF_Light);
-            if (thing->light_id != 0)
-            {
-                if (flag_is_set(thing->rendering_flags, TRF_Invisible))
-                {
-                    light_set_light_intensity(thing->light_id, (light_get_light_intensity(thing->light_id) - 20));
-                    light_set_light_radius(thing->light_id, 2560);
-                }
-                else
-                {
-                    light_delete_light(thing->light_id);
-                    thing->light_id = 0;
-                }
-            }
-            cleared = true;
-        }
-    }
-    // DISEASE.
-    if (flag_is_set(spell_flags, CSAfF_Disease)
-    && (creature_under_spell_effect(thing, CSAfF_Disease)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Disease);
-        delete_disease_effects_attached_to_creature(thing);
-        cctrl->active_disease_spell = 0;
-        cleared = true;
-    }
-    // CHICKEN.
-    if (flag_is_set(spell_flags, CSAfF_Chicken)
-    && (creature_under_spell_effect(thing, CSAfF_Chicken)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Chicken);
-        external_set_thing_state(thing, CrSt_CreatureChangeFromChicken);
-        cctrl->countdown = 10;
-        cleared = true;
-        set_creature_size_stuff(thing);
-    }
-    // FREEZE.
-    if (flag_is_set(spell_flags, CSAfF_Freeze)
-    && (creature_under_spell_effect(thing, CSAfF_Freeze)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Freeze);
-        clear_flag(cctrl->stateblock_flags, CCSpl_Freeze);
-        if (flag_is_set(thing->movement_flags, TMvF_Grounded))
-        {
-            if (!creature_is_being_unconscious(thing)) {
-                restore_creature_flight_flag(thing);
-            }
-            clear_flag(thing->movement_flags, TMvF_Grounded);
-        }
-        cleared = true;
-    }
-    // MAD_KILLING.
-    if (flag_is_set(spell_flags, CSAfF_MadKilling)
-    && (creature_under_spell_effect(thing, CSAfF_MadKilling)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_MadKilling);
-        remove_all_traces_of_combat(thing);
-        cleared = true;
-    }
-    // FEAR.
-    if (flag_is_set(spell_flags, CSAfF_Fear)
-    && (creature_under_spell_effect(thing, CSAfF_Fear)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Fear);
-        if (is_thing_passenger_controlled_by_player(thing,thing->owner))
-        {
-            struct PlayerInfo* player = get_player(thing->owner);
-            char active_menu = kfx_sim_state.active_panel_mnu_idx;
-            leave_creature_as_passenger(player, thing);
-            control_creature_as_controller(player, thing);
-            if (is_my_player(player))
-            {
-                ui_turn_off_all_panel_menus();
-                ui_turn_on_menu(active_menu);
-            }
-        }
-        cleared = true;
-    }
-    // TELEPORT.
-    if (flag_is_set(spell_flags, CSAfF_Teleport)
-    && (creature_under_spell_effect(thing, CSAfF_Teleport)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Teleport);
-        clear_flag(cctrl->stateblock_flags, CCSpl_Teleport);
-        cctrl->active_teleport_spell = 0;
-        cleared = true;
-    }
-    // TIMEBOMB.
-    if (flag_is_set(spell_flags, CSAfF_Timebomb)
-    && (creature_under_spell_effect(thing, CSAfF_Timebomb)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_Timebomb);
-        thing->veloc_push_add.x.val = 0;
-        thing->veloc_push_add.y.val = 0;
-        clear_flag(thing->state_flags, TF1_PushAdd);
-        cleanup_current_thing_state(thing);
-        set_start_state(thing);
-        cctrl->active_timebomb_spell = 0;
-        cleared = true;
-    }
-    // HEAL.
-    if (flag_is_set(spell_flags, CSAfF_Heal))
-    {
-        // 'CSAfF_Heal' is never set but we still want to mark it cleared to free the spell slot.
-        cleared = true;
-    }
-    // Spell Blocks.
-    if (flag_is_set(spell_flags, CSAfF_SpellBlocks)
-    && (creature_under_spell_effect(thing, CSAfF_SpellBlocks)))
-    {
-        clear_flag(cctrl->spell_flags, CSAfF_SpellBlocks);
-        cctrl->cleanse_flags = 0;
-        cleared = true;
     }
     if (!cleared)
     {

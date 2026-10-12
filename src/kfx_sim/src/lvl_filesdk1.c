@@ -1113,6 +1113,7 @@ static TbBool load_static_light_file(uint64_t lv_num)
     {
         struct LegacyInitLight legilght;
         struct InitLight ilght;
+        memset(&ilght, 0, sizeof(ilght)); // the fields a legacy light doesn't have (its colour) (P5-F33)
         memcpy(&legilght, &buf[i], sizeof(struct LegacyInitLight));
         ilght.attached_slb = legilght.attached_slb;
         ilght.flags      = legilght.flags;

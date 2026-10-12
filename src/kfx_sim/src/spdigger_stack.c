@@ -146,7 +146,7 @@ int64_t find_reachable_imp_tasks_excluding_start(struct Thing *creatng, SpDigger
             } else {
                 stl_x = stl_num_decode_x(dstack->stl_num);
                 stl_y = stl_num_decode_y(dstack->stl_num);
-                struct Coord3d pos;
+                struct Coord3d pos = creatng->mappos; // z: its height until set (P5-F33)
                 pos.x.val = subtile_coord_center(stl_x);
                 pos.y.val = subtile_coord_center(stl_y);
                 pos.z.val = get_thing_height_at(creatng, &pos);
@@ -343,7 +343,7 @@ int64_t check_out_unprettied_or_unconverted_area(struct Thing *thing)
 {
     struct Dungeon *dungeon;
     struct DiggerStack *dstack;
-    struct Coord3d navpos;
+    struct Coord3d navpos = thing->mappos; // z: its height until set (P5-F33)
     SYNCDBG(9,"Starting");
     dungeon = get_dungeon(thing->owner);
     int64_t min_dist;

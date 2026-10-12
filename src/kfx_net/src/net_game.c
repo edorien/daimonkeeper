@@ -435,10 +435,6 @@ void apply_user_start_settings(struct PlayerInfo *player, const struct UserStart
     TbBool flee = (us->tendencies & CrTend_Flee) != 0;
     set_creature_tendencies(player, CrTend_Imprison, imprison);
     set_creature_tendencies(player, CrTend_Flee, flee);
-    if (player->id_number == my_player_number) {
-        kfx_sim_state.creatures_tend_imprison = imprison;
-        kfx_sim_state.creatures_tend_flee = flee;
-    }
 }
 
 static void setup_players_from_startup_packets(const struct StartupSyncPacket startup_sync_packets[MAX_NET_USERS])

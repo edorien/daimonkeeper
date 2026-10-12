@@ -631,6 +631,13 @@ static void set_log_level_opt(int64_t val) { set_log_level(val - 1); }
 static TbBool get_gpu_debug(void) { return RendererGetGpuDebug(); }
 static void set_gpu_debug(TbBool val) { RendererSetGpuDebug(val); }
 
+static int64_t get_rough_terrain(void) { return keeperfx_ui_config.rough_terrain; }
+static void set_rough_terrain(int64_t val) { keeperfx_ui_config.rough_terrain = val; }
+static int64_t get_rough_terrain_depth(void) { return keeperfx_ui_config.rough_terrain_depth; }
+static void set_rough_terrain_depth(int64_t val) { keeperfx_ui_config.rough_terrain_depth = val; }
+static int64_t get_rough_terrain_corners(void) { return keeperfx_ui_config.rough_terrain_corners; }
+static void set_rough_terrain_corners(int64_t val) { keeperfx_ui_config.rough_terrain_corners = val; }
+
 static int64_t get_overhead_fade(void) { return keeperfx_ui_config.overhead_fade; }
 static void set_overhead_fade(int64_t val) { keeperfx_ui_config.overhead_fade = val; }
 
@@ -1057,6 +1064,31 @@ const struct SettingOption setting_options[] = {
         .help_literal = "Darkens the overhead view toward the edges of the screen (from about 3 tiles "
                         "out to 10). The number is how many percent darker the edge gets; 0 is off.",
         .get_int = &get_overhead_fade, .set_int = &set_overhead_fade, .int_min = 0, .int_max = 100,
+    },
+    {
+        .cfg_key = "ROUGH_TERRAIN", .type = SOptT_Enum, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Rough Terrain",
+        .help_literal = "Draws freshly dug, unclaimed rock as hand-cut: its walls are carved unevenly into the "
+                        "rock, and with floors on, path floors dip a little too. Claimed and reinforced tiles "
+                        "look as they always have.",
+        .enum_table = rough_terrain_type, .get_enum = &get_rough_terrain, .set_enum = &set_rough_terrain,
+        .cfg_read_by_row = true,
+    },
+    {
+        .cfg_key = "ROUGH_TERRAIN_DEPTH", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Rough Terrain Depth",
+        .help_literal = "How deep rough walls are carved, in map units (a tile is 768 across). Floors dip a "
+                        "quarter as much; edges and corners of rock move at most 64.",
+        .get_int = &get_rough_terrain_depth, .set_int = &set_rough_terrain_depth, .int_min = 32, .int_max = 128,
+        .cfg_read_by_row = true,
+    },
+    {
+        .cfg_key = "ROUGH_TERRAIN_CORNERS", .type = SOptT_Int, .category = SCat_Graphics, .apply_class = SApply_Live,
+        .label_literal = "Rough Terrain Corners",
+        .help_literal = "How round the corners of rough rock become, in map units: 0 keeps them square, 384 turns a "
+                        "lone tile of rock into a column. Inside corners are carved into bays up to 320.",
+        .get_int = &get_rough_terrain_corners, .set_int = &set_rough_terrain_corners, .int_min = 0, .int_max = 384,
+        .cfg_read_by_row = true,
     },
     {
         .cfg_key = "UI_FONT_SCALE", .type = SOptT_Enum, .category = SCat_GUI, .apply_class = SApply_Live,

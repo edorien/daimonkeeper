@@ -316,8 +316,12 @@ uint32_t RendererGpu3D::resolve_block_layer(const unsigned char* texture, uint32
     for (int i = 0; i < WORLDFRAME_BLOCK_SIZE * WORLDFRAME_BLOCK_SIZE; ++i)
     {
         // Same expansion the CPU rasterizer applies per texel
-        // (bflib_render_gpoly.c): index 0 is transparent.
-        TbPixel px = expand_indexed_pixel(gathered[i], palette);
+        // (bflib_render_gpoly.c), except index 0: in terrain it is art
+        // (bookshelves, reliefs), not a hole. The CPU writes it as
+        // (0,0,0,0) over whatever was there and presents it black; left
+        // transparent here, the shader would discard it and show what lies
+        // behind. So it is opaque black, whatever palette entry 0 holds.
+        TbPixel px = (gathered[i] == 0) ? TbPixel_RGB(0, 0, 0) : expand_indexed_pixel(gathered[i], palette);
         out[i * 4 + 0] = px.r;
         out[i * 4 + 1] = px.g;
         out[i * 4 + 2] = px.b;

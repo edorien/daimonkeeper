@@ -29,7 +29,6 @@
 #include "creature_control.h"          // struct CreatureControl
 #include "config_strings.h"
 #include "kfx_config_state.h"          // conf.crtr_conf.model_count, conf.rules[...].gameplay.pay_day_gap
-#include "kfx_sim_state.h"             // creatures_tend_imprison / _flee
 #include "frontgui_ingame_icon_overrides.h" // FeIconOverride* -- docs/refactor/ingame-gui/12-png-icon-overrides.md
 #include "player_availability.h"
 #include "local_camera.h"
@@ -573,10 +572,10 @@ void query_panel(void)
     const bool imp_avail = player_has_room_of_role(my_player_number, RoRoF_Prison);
     if (sprite_toggle("tImp", grid_pt(30.0, 192.0), grid_sz(34.0, 26.0),
                       imp_avail ? (int64_t)GPS_rpanel_tendency_prisnd_act : (int64_t)GPS_rpanel_tendency_prisnu_dis,
-                      imp_avail && kfx_sim_state.creatures_tend_imprison != 0, imp_avail))
+                      imp_avail && (dungeon->creature_tendencies & CrTend_Imprison) != 0, imp_avail))
         set_players_packet_action(me, PckA_ToggleTendency, CrTend_Imprison, 0, 0, 0);
     if (sprite_toggle("tFlee", grid_pt(72.0, 192.0), grid_sz(34.0, 26.0),
-                      GPS_rpanel_tendency_fleed_act, kfx_sim_state.creatures_tend_flee != 0, true))
+                      GPS_rpanel_tendency_fleed_act, (dungeon->creature_tendencies & CrTend_Flee) != 0, true))
         set_players_packet_action(me, PckA_ToggleTendency, CrTend_Flee, 0, 0, 0);
 
     // Payday / research / workshop -- legacy icon + ImGui progress bar.
@@ -690,10 +689,10 @@ void query_panel_horizontal(void)
     const bool imp_avail = player_has_room_of_role(my_player_number, RoRoF_Prison);
     if (sprite_toggle("htImp", ImVec2(x, py), ImVec2(tend_w - 4.0, tend_h),
                       imp_avail ? (int64_t)GPS_rpanel_tendency_prisnd_act : (int64_t)GPS_rpanel_tendency_prisnu_dis,
-                      imp_avail && kfx_sim_state.creatures_tend_imprison != 0, imp_avail))
+                      imp_avail && (dungeon->creature_tendencies & CrTend_Imprison) != 0, imp_avail))
         set_players_packet_action(me, PckA_ToggleTendency, CrTend_Imprison, 0, 0, 0);
     if (sprite_toggle("htFlee", ImVec2(x, py + tend_h + 4.0), ImVec2(tend_w - 4.0, tend_h),
-                      GPS_rpanel_tendency_fleed_act, kfx_sim_state.creatures_tend_flee != 0, true))
+                      GPS_rpanel_tendency_fleed_act, (dungeon->creature_tendencies & CrTend_Flee) != 0, true))
         set_players_packet_action(me, PckA_ToggleTendency, CrTend_Flee, 0, 0, 0);
     x += tend_w + 8.0;
 

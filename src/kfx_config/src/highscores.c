@@ -21,16 +21,41 @@
 #include "globals.h"
 #include "config.h"
 #include "config_campaigns.h"
+#include "bflib_fileio.h"
+
+#include <stdio.h>
 
 
 #include "post_inc.h"
 
 /******************************************************************************/
 
+/**
+ * Path of a campaign's or map pack's high score table: save/scores/<HIGH_SCORES>
+ * (one file per campaign and pack, so they get a folder of their own rather
+ * than cluttering save/). A table still at the old place, straight in save/,
+ * is moved over the first time it's looked for.
+ */
+static char *high_score_file_path(const struct GameCampaign *campgn)
+{
+    if (campgn->hiscore_fname[0] == '\0')
+        return prepare_file_path(FGrp_Save, campgn->hiscore_fname);
+    char old_fname[4096]; // get_game_file_path()'s own buffer size
+    prepare_file_path_buf(old_fname, sizeof(old_fname), FGrp_Save, campgn->hiscore_fname);
+    char *fname = prepare_file_fmtpath(FGrp_Save, "scores/%s", campgn->hiscore_fname);
+    if (!LbFileExists(fname) && LbFileExists(old_fname))
+    {
+        if (create_directory_for_file(fname) && (rename(old_fname, fname) == 0))
+            SYNCMSG("Moved high score table \"%s\" to \"%s\"", old_fname, fname);
+        else
+            WARNMSG("Couldn't move high score table \"%s\" to \"%s\"", old_fname, fname);
+    }
+    return fname;
+}
 
 static TbBool load_high_score_table(void)
 {
-    char* fname = prepare_file_path(FGrp_Save, campaign.hiscore_fname);
+    char* fname = high_score_file_path(&campaign);
     int64_t arr_size = campaign.hiscore_count * sizeof(struct HighScore);
     if (arr_size <= 0)
     {
@@ -98,7 +123,7 @@ void ensure_high_score_table_loaded(struct GameCampaign *campgn)
     int64_t arr_size = campgn->hiscore_count * sizeof(struct HighScore);
     if (arr_size <= 0)
         return;
-    char *fname = prepare_file_path(FGrp_Save, campgn->hiscore_fname);
+    char *fname = high_score_file_path(campgn);
     if (LbFileLengthRnc(fname) != arr_size)
         return; // no save file for this pack yet -- leave hiscore_table NULL, "no scores yet"
     struct HighScore *table = (struct HighScore *)calloc(arr_size, 1);
@@ -112,7 +137,7 @@ void ensure_high_score_table_loaded(struct GameCampaign *campgn)
 
 TbBool save_high_score_table(void)
 {
-    char* fname = prepare_file_path(FGrp_Save, campaign.hiscore_fname);
+    char* fname = high_score_file_path(&campaign);
     int64_t fsize = campaign.hiscore_count * sizeof(struct HighScore);
     if (fsize <= 0)
         return true;

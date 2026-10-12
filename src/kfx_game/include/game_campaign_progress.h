@@ -78,6 +78,12 @@ struct CampaignProgressEntry {
 // be tested for "no file present" behaviour, never real parsing.
 void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, const char *buf, int64_t len, int64_t pos);
 
+// Parses a whole progress.cfg buffer, creating an in-memory entry for every
+// `[name]` block in it (whether or not that campaign is currently listed).
+// Adds to the in-memory table; load_campaign_progress_file() clears it first.
+// Exposed for the same reason as parse_progress_cfg_campaign_block() above.
+void parse_progress_cfg_buffer(const char *buf, int64_t len);
+
 // Loads save/progress.cfg into the in-memory table. Safe to call more than
 // once (re-reads from disk, discarding any prior in-memory state) -- not
 // meant to be called mid-session after campaign_progress_save_now() has
@@ -143,6 +149,14 @@ TbBool any_campaign_progress_exists(void);
 // level" is itself meaningful and still updates next_level (nothing gets
 // added to unlocked_levels for it, since it isn't a real level).
 TbBool campaign_progress_record_level_completed(LevelNumber lvnum);
+
+// Campaign Select's "Enter this land" (frontend_land_selection_enter_resolve(),
+// frontmenu_select.c), right after frontend_start_new_campaign() has reset
+// the live state: makes `lvnum` the continue level (if it's a singleplayer
+// level of the loaded campaign), so that winning it advances the campaign,
+// and puts the campaign's stored intralvl (transferred creatures, campaign
+// flags, ensign overrides) and bonus availability back into the live game.
+void campaign_progress_begin_level(LevelNumber lvnum);
 
 // Skirmish/Free Play counterpart of campaign_progress_record_level_completed()
 // above: same self-contained "reload progress.cfg, mutate the currently

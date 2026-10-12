@@ -350,9 +350,27 @@ int64_t light_is_light_allocated(int64_t lgt_id)
     return true;
 }
 
+/** The light, if lgt_id is a light in use; else NULL, logged: a caller with a stale index (a light deleted under
+ *  it) wrote into a free light, which then carried that data into the saved state of later levels (P5-F32). */
+static struct Light *light_in_use(int64_t lgt_id, const char *func_name)
+{
+    if ((lgt_id <= 0) || (lgt_id >= LIGHTS_COUNT)) {
+        ERRORLOG("%s: invalid light %" PRId64, func_name, (int64_t)lgt_id);
+        return NULL;
+    }
+    struct Light *lgt = &kfx_sim_state.light_registry.lights[lgt_id];
+    if ((lgt->flags & LgtF_Allocated) == 0) {
+        ERRORLOG("%s: light %" PRId64 " is not in use", func_name, (int64_t)lgt_id);
+        return NULL;
+    }
+    return lgt;
+}
+
 void light_set_light_position(int64_t lgt_id, struct Coord3d *pos)
 {
-  struct Light *lgt = &kfx_sim_state.light_registry.lights[lgt_id];
+  struct Light *lgt = light_in_use(lgt_id, __func__);
+  if (lgt == NULL)
+      return;
 
   if (get_gameturn() > lgt->last_turn_moved)
   {
@@ -594,7 +612,9 @@ int64_t light_get_light_radius(int64_t idx)
 
 void light_set_light_radius(int64_t idx, int64_t radius)
 {
-    struct Light *lgt = &kfx_sim_state.light_registry.lights[idx];
+    struct Light *lgt = light_in_use(idx, __func__);
+    if (lgt == NULL)
+        return;
     lgt->radius = radius;
 }
 
@@ -723,7 +743,10 @@ void light_init_dungeon_heart(int64_t lgt_id, int64_t min_radius, int64_t min_in
 // value (stage 13.3, docs/refactor/stage-13-enforce-and-document.md).
 void light_set_attached_slab(int64_t lgt_id, SlabCodedCoords slb_num)
 {
-    kfx_sim_state.light_registry.lights[lgt_id].attached_slb = slb_num;
+    struct Light *lgt = light_in_use(lgt_id, __func__);
+    if (lgt == NULL)
+        return;
+    lgt->attached_slb = slb_num;
 }
 
 void delete_lights_attached_to_slab_in_area(SlabCodedCoords place_slbnum,

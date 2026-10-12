@@ -103,7 +103,7 @@ TbBool LensManager::Init()
     LoadAccessibilityConfig();
     
     m_initialized = true;
-    set_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+    kfx_render_state.eye_lens_ready = true;
     
     SYNCDBG(7, "Lens manager initialized with %" PRId64 " effects", (int64_t)m_effects.size());
     return true;
@@ -127,7 +127,7 @@ void LensManager::Reset()
     m_applied_lens = 0;
     m_active_custom_lens.clear();
     m_initialized = false;
-    clear_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+    kfx_render_state.eye_lens_ready = false;
     
     SYNCDBG(9, "Lens manager reset complete");
 }

@@ -364,9 +364,15 @@ void trap_grid(void)
     {
         const int64_t m = it.kind;
         const struct ManufactureData *md = get_manufacture_data(m);
-        const bool placeable = is_trap_placeable(player->id_number, md->tngmodel)
-                            || is_trap_built(player->id_number, md->tngmodel);
-        const bool buildable = is_trap_buildable(player->id_number, md->tngmodel);
+        // Doors and traps number their models separately (a door's tngmodel is not a trap model), so ask the
+        // matching set: asking the trap functions for a door showed the steel door whenever trap model 3 (poison
+        // gas) was in stock, and hid the wooden door unless a boulder trap was.
+        const bool is_door = (md->tngclass == TCls_Door);
+        const bool placeable = is_door
+            ? (is_door_placeable(player->id_number, md->tngmodel) || is_door_built(player->id_number, md->tngmodel))
+            : (is_trap_placeable(player->id_number, md->tngmodel) || is_trap_built(player->id_number, md->tngmodel));
+        const bool buildable = is_door ? is_door_buildable(player->id_number, md->tngmodel)
+                                       : is_trap_buildable(player->id_number, md->tngmodel);
         if (!placeable)
         {
             if (buildable) hidden++;
@@ -422,18 +428,22 @@ void trap_grid(void)
         const struct ManufactureData *md = get_manufacture_data(info_m);
         int64_t bigsym = (int64_t)md->bigsym_sprite_idx;
         const char *name = "";
-        int64_t req = -1;
+        // How many are ready to place, as gui_area_big_trap_button shows it ("x<amount>") -- not manufct_required,
+        // the workshop effort to make one, which read as a stock count ("Poison Gas Trap 20000").
+        int64_t amount = 0;
         if (md->tngclass == TCls_Trap)
         {
             const struct TrapConfigStats *ts = get_trap_model_stats(md->tngmodel);
-            if (ts != nullptr) { name = get_string(ts->name_stridx); req = (int64_t)ts->manufct_required; }
+            if (ts != nullptr) name = get_string(ts->name_stridx);
+            amount = (int64_t)dungeon->mnfct_info.trap_amount_placeable[md->tngmodel];
         }
         else
         {
             const struct DoorConfigStats *ds = get_door_model_stats(md->tngmodel);
-            if (ds != nullptr) { name = get_string(ds->name_stridx); req = (int64_t)ds->manufct_required; }
+            if (ds != nullptr) name = get_string(ds->name_stridx);
+            amount = (int64_t)dungeon->mnfct_info.door_amount_placeable[md->tngmodel];
         }
-        info_band(bigsym, name, -1, req, -1.0);
+        info_band(bigsym, name, amount, -1, -1.0);
     }
     else
     {

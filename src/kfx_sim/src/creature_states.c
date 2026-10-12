@@ -992,6 +992,7 @@ int64_t arrive_at_call_to_arms(struct Thing *creatng)
  */
 TbBool creature_find_safe_position_to_move_within_slab(struct Coord3d *pos, const struct Thing *thing, MapSlabCoord slb_x, MapSlabCoord slb_y, MapSubtlCoord start_stl)
 {
+    pos->z.val = thing->mappos.z.val; // the height where the thing doesn't fit, until a position is found (P5-F33)
     SYNCDBG(7,"Finding at (%" PRId64 ",%" PRId64 ")",(int64_t)slb_x,(int64_t)slb_y);
     MapSubtlCoord stl_x = thing->mappos.x.stl.num;
     MapSubtlCoord stl_y = thing->mappos.y.stl.num;
@@ -1037,6 +1038,7 @@ TbBool creature_find_safe_position_to_move_within_slab(struct Coord3d *pos, cons
  */
 TbBool creature_find_any_position_to_move_within_slab(struct Coord3d *pos, const struct Thing *thing, MapSlabCoord slb_x, MapSlabCoord slb_y, MapSubtlCoord start_stl)
 {
+    pos->z.val = thing->mappos.z.val; // the height where the thing doesn't fit, until a position is found (P5-F33)
     MapSubtlCoord stl_x = thing->mappos.x.stl.num;
     MapSubtlCoord stl_y = thing->mappos.y.stl.num;
     MapSubtlCoord base_x = slab_subtile(slb_x, 0);
@@ -3467,7 +3469,7 @@ void instruct_creature_to_damage_wall(struct Thing *creatng, MapSubtlCoord wall_
         const MapSubtlCoord stand_y = wall_y + (2 * small_around[around_idx].delta_y);
         if ( is_good_spot_to_stand_to_damage_wall(creatng->owner, stand_x, stand_y) )
         {
-            struct Coord3d pos;
+            struct Coord3d pos = creatng->mappos; // z: its height until set (P5-F33)
             pos.x.val = subtile_coord_center(stand_x);
             pos.y.val = subtile_coord_center(stand_y);
             pos.z.val = get_thing_height_at(creatng, &pos);

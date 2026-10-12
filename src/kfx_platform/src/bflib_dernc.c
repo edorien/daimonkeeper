@@ -533,6 +533,54 @@ int64_t LbFileLoadAt(const char *fname, void *buffer)
   return result;
 }
 
+int64_t LbFileLoadAtMax(const char *fname, void *buffer, uint64_t buf_size)
+{
+  int64_t filelength = LbFileLengthRnc(fname);
+  if (filelength == -1)
+  {
+      ERRORLOG("Couldn't read \"%s\", errno %" PRId64, fname, (int64_t)errno);
+      return -1;
+  }
+  if ((uint64_t)filelength <= buf_size)
+      return LbFileLoadAt(fname, buffer);
+
+  TbFileHandle handle = LbFileOpen(fname, Lb_FILE_MODE_READ_ONLY);
+  if (!handle)
+  {
+      ERRORLOG("Couldn't read \"%s\", errno %" PRId64, fname, (int64_t)errno);
+      return -1;
+  }
+  uint32_t signature = 0;
+  TbBool is_rnc = (LbFileRead(handle, &signature, sizeof(signature)) == sizeof(signature))
+      && (signature == RNC_SIGNATURE);
+  if (!is_rnc)
+  {
+      // A plain file can simply be read short.
+      LbFileSeek(handle, 0, Lb_FILE_SEEK_BEGINNING);
+      int64_t read_status = LbFileRead(handle, buffer, buf_size);
+      LbFileClose(handle);
+      if (read_status == -1)
+      {
+          ERRORLOG("Couldn't read \"%s\", errno %" PRId64, fname, (int64_t)errno);
+          return -1;
+      }
+      return filelength;
+  }
+  LbFileClose(handle);
+  // An RNC file only has its first bytes once it is unpacked whole.
+  void *unpacked = malloc(filelength);
+  if (unpacked == NULL)
+  {
+      ERRORLOG("Can't allocate %" PRId64 " bytes to unpack \"%s\"", filelength, fname);
+      return -1;
+  }
+  int64_t result = LbFileLoadAt(fname, unpacked);
+  if (result > 0)
+      memcpy(buffer, unpacked, ((uint64_t)result < buf_size) ? (uint64_t)result : buf_size);
+  free(unpacked);
+  return result;
+}
+
 int64_t LbFileSaveAt(const char *fname, const void *buffer,uint64_t len)
 {
   TbFileHandle handle = LbFileOpen(fname, Lb_FILE_MODE_NEW);

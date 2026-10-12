@@ -129,9 +129,11 @@ static char *prepare_letter_one_file_path_for_mod(uint64_t tmapidx, char letter,
     char mod_dir[256] = {0};
     sprintf(mod_dir, "%s/%s", MODS_DIR_NAME, mod_item->name);
 
-    if (mod_state->cmpg_lvls)
+    // The level's own folder group, as in the non-mod lookup. Only
+    // FGrp_CmpgLvls has an existence flag; other groups rely on LbFileExists.
+    if ((fgroup != FGrp_CmpgLvls) || mod_state->cmpg_lvls)
     {
-        fname = prepare_file_fmtpath_mod(mod_dir, FGrp_CmpgLvls, "map%05" PRIu64 ".tmap%c%03" PRIu64 ".dat", (uint64_t)lvnum, (int)(letter), (uint64_t)(tmapidx));
+        fname = prepare_file_fmtpath_mod(mod_dir, fgroup, "map%05" PRIu64 ".tmap%c%03" PRIu64 ".dat", (uint64_t)lvnum, (int)(letter), (uint64_t)(tmapidx));
         if (fname[0] != 0 && LbFileExists(fname))
             return fname;
     }
@@ -162,7 +164,7 @@ static char *prepare_letter_one_file_path_for_mod_list(uint64_t tmapidx, char le
         if (mod_item->state.mod_dir == 0)
             continue;
 
-        char *fname = prepare_letter_one_file_path_for_mod(tmapidx, letter, fgroup, lvnum, mod_item);
+        char *fname = prepare_letter_one_file_path_for_mod(tmapidx, letter, lvnum, fgroup, mod_item);
         if (fname != NULL)
             return fname;
     }
@@ -213,7 +215,7 @@ TbBool texture_pack_available(uint64_t tmapidx, LevelNumber lvnum, int64_t fgrou
     return (fname != NULL) && LbFileExists(fname);
 }
 
-static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, LevelNumber lvnum, int64_t fgroup)
+static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, uint64_t dst_size, LevelNumber lvnum, int64_t fgroup)
 {
     SYNCDBG(9,"Starting");
 
@@ -224,10 +226,18 @@ static TbBool load_letter_one_file(uint64_t tmapidx, char letter, void *dst, Lev
         return false;
     }
 
-    if (LbFileLoadAt(fname, dst) < 1024)
+    int64_t file_size = LbFileLoadAtMax(fname, dst, dst_size);
+    if (file_size < 1024)
     {
         WARNMSG("Texture file \"%s\" can't be loaded or is too small.",fname);
         return false;
+    }
+    if ((uint64_t)file_size > dst_size)
+    {
+        // A map, campaign or mod file larger than its slot would otherwise
+        // overrun the next slot, or block_mem itself for the last one.
+        WARNMSG("Texture file \"%s\" is %" PRId64 " bytes, larger than its %" PRIu64 "-byte slot; only the first %" PRIu64 " bytes were loaded.",
+            fname, file_size, dst_size, dst_size);
     }
     SYNCDBG(6, "Texture file \"%s\" succesfully loaded.", fname);
     return true;
@@ -237,22 +247,24 @@ TbBool load_texture_map_file(uint64_t tmapidx, LevelNumber lvnum, int64_t fgroup
 {
     SYNCDBG(7,"Starting");
     memset(block_mem, 130, sizeof(block_mem));
-    if (!load_letter_one_file(tmapidx,'a', block_mem,lvnum,fgroup))
+    const uint64_t slot_size_a = TEXTURE_BLOCKS_STAT_COUNT_A * 32 * 32;
+    const uint64_t slot_size_b = TEXTURE_BLOCKS_STAT_COUNT_B * 32 * 32;
+    if (!load_letter_one_file(tmapidx,'a', block_mem, slot_size_a, lvnum,fgroup))
     {
         return false;
     }
-    unsigned char *dst = block_mem + (TEXTURE_BLOCKS_STAT_COUNT_A * 32 * 32);
-    load_letter_one_file(tmapidx,'b', dst, lvnum, fgroup);
-    dst += (TEXTURE_BLOCKS_STAT_COUNT_B * 32 * 32);
+    unsigned char *dst = block_mem + slot_size_a;
+    load_letter_one_file(tmapidx,'b', dst, slot_size_b, lvnum, fgroup);
+    dst += slot_size_b;
 
     for (int64_t i = 0; i < TEXTURE_VARIATIONS_COUNT-1; i++)
 
     {
-        load_letter_one_file(i,'a', dst, lvnum, fgroup);
+        load_letter_one_file(i,'a', dst, slot_size_a, lvnum, fgroup);
 
-        dst += (TEXTURE_BLOCKS_STAT_COUNT_A * 32 * 32);
-        load_letter_one_file(i,'b', dst, lvnum, fgroup);
-        dst += (TEXTURE_BLOCKS_STAT_COUNT_B * 32 * 32);
+        dst += slot_size_a;
+        load_letter_one_file(i,'b', dst, slot_size_b, lvnum, fgroup);
+        dst += slot_size_b;
 
     }
     return true;

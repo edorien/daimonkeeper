@@ -41,7 +41,7 @@ std::string rooms_group_of(const std::string &basename, const std::string &key)
             {"Digging", {"isdiggable", "blockhealthindex", "indestructible", "goldheld"}},
             {"Ownership", {"isownable", "issafeland"}},
             {"Block flags", {"blockflags", "noblockflags", "blockflagsheight"}},
-            {"Look and type", {"tooltiptextid", "fillstyle", "category", "slbid", "wibble", "animated", "wlbtype"}},
+            {"Look and type", {"tooltiptextid", "fillstyle", "category", "slbid", "wibble", "animated", "wlbtype", "roughness"}},
         }},
     };
     const auto kind = table.find(basename);

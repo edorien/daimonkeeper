@@ -36,7 +36,13 @@
 
 namespace {
 struct DropFixture {
+    // Outside kfx_sim_state/kfx_net_state, so no later test's reset of those clears them: put back as found
+    // (a network flag or a replay left on sends the packet golden test's quit action into stopping a network game).
+    const unsigned char saved_local_system_flags = local_system_flags;
+    const struct ReplayState saved_replay = replay;
+    struct TbNetworkUserInfo saved_net_user_info[MAX_NET_USERS];
     DropFixture() {
+        std::memcpy(saved_net_user_info, net_user_info, sizeof(net_user_info));
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         kfx_config_state.neutral_player_num = PLAYER_NEUTRAL; // zeroed state would make player 0 the neutral one
@@ -50,6 +56,11 @@ struct DropFixture {
         }
         kfx_sim_state.players[0].user_id = SERVER_ID;
         make_player(0);
+    }
+    ~DropFixture() {
+        local_system_flags = saved_local_system_flags;
+        replay = saved_replay;
+        std::memcpy(net_user_info, saved_net_user_info, sizeof(net_user_info));
     }
     void make_player(int64_t i) {
         struct PlayerInfo *player = &kfx_sim_state.players[i];

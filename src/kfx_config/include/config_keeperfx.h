@@ -61,7 +61,7 @@ enum CmdLineOverrides {
 // mode_flags field (kfx_game/game_legacy.h).
 enum ModeFlags {
     MFlg_IsDemoMode         =  0x01,
-    MFlg_EyeLensReady       =  0x02,
+    MFlg_Unusedparam02      =  0x02, // was MFlg_EyeLensReady, now kfx_render_state.eye_lens_ready (P5-F23)
     MFlg_Unusedparam04      =  0x04,
     MFlg_DeadBackToPool     =  0x08,
     MFlg_NoCdMusic          =  0x10, // unused
@@ -264,6 +264,15 @@ struct KeeperFxUiConfig {
     // overhead_fade_shade()), 0..100: the edge of the screen is dimmed by this many percent
     // (0 = off, default 60). KeeperFX-only.
     int64_t overhead_fade;
+    // ROUGH_TERRAIN: unclaimed rock drawn hand-dug (kfx_render, terrain_rough.h;
+    // docs/newFeatures/terrain-v2/) -- 1 = off, 2 = walls (default), 3 = walls and floors.
+    int64_t rough_terrain;
+    // ROUGH_TERRAIN_DEPTH: deepest recess of a rough wall, map units (a subtile is 256);
+    // floors dip a quarter of it. 32..128, default 96.
+    int64_t rough_terrain_depth;
+    // ROUGH_TERRAIN_CORNERS: radius rough rock corners are rounded to, map units (0 keeps them square,
+    // 384 makes a lone tile a circle; inside corners' bays stop at 320). 0..384, default 320.
+    int64_t rough_terrain_corners;
 };
 extern struct KeeperFxUiConfig keeperfx_ui_config;
 
@@ -292,6 +301,7 @@ extern const struct NamedCommand tag_modes[];
 // RENDERER (gpu-v2 Phase C.1) -- same reuse as above.
 extern const struct NamedCommand renderer_type[];
 extern const struct NamedCommand lighting_type[];
+extern const struct NamedCommand rough_terrain_type[];
 extern const struct NamedCommand log_level_type[];
 extern const struct NamedCommand hud_position_type[];
 extern const struct NamedCommand minimap_corner_type[];

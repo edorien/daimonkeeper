@@ -2229,7 +2229,7 @@ int64_t creature_move_to_a_space_around_enemy(struct Thing *creatng, struct Thin
 {
     int64_t req_distance = enm_distance + (creatng->clipbox_size_xy + enmtng->clipbox_size_xy) / 2;
     // This will be out new position
-    struct Coord3d pos;
+    struct Coord3d pos = creatng->mappos; // z: its height until set (P5-F33)
     pos.x.val = creatng->mappos.x.val;
     pos.y.val = creatng->mappos.y.val;
     pos.z.val = creatng->mappos.z.val;
@@ -3321,7 +3321,7 @@ TbBool creature_look_for_enemy_door_combat(struct Thing *thing)
 
 TbResult creature_retreat_from_combat(struct Thing *figtng, struct Thing *enmtng, CrtrStateId continue_state, int64_t try_opposite_direction)
 {
-    struct Coord3d pos;
+    struct Coord3d pos = figtng->mappos; // z: its height until set (P5-F33)
     int64_t i;
     TRACE_THING(figtng);
     TRACE_THING(enmtng);

@@ -196,7 +196,7 @@ TbBool setup_person_move_close_to_position(struct Thing *thing, MapSubtlCoord st
         WARNLOG("Tried to move invalid creature to (%" PRId64 ",%" PRId64 ")",(int64_t)stl_x,(int64_t)stl_y);
         return false;
     }
-    struct Coord3d navpos;
+    struct Coord3d navpos = thing->mappos; // z: its height until set (P5-F33)
     get_nearest_navigable_point_for_thing(thing, &trgpos, &navpos, flags);
     if (!creature_can_navigate_to_with_storage(thing, &navpos, flags))
     {

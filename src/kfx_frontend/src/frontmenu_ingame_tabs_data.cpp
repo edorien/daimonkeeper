@@ -111,6 +111,9 @@ void maintain_event_button(struct GuiButton *gbtn);
 void gui_toggle_ally(struct GuiButton *gbtn);
 void maintain_ally(struct GuiButton *gbtn);
 void maintain_prison_bar(struct GuiButton *gbtn);
+void maintain_flee_button(struct GuiButton *gbtn);
+extern TbBool tendency_button_imprison;
+extern TbBool tendency_button_flee;
 void maintain_room_button(struct GuiButton *gbtn);
 void maintain_creature_button(struct GuiButton* gbtn);
 void pick_up_next_wanderer(struct GuiButton *gbtn);
@@ -356,8 +359,8 @@ struct GuiButtonInit creature_menu_buttons[] = {
 struct GuiButtonInit query_menu_buttons[] = {
   { .gbtype = LbBtnT_NormalBtn, .click_event = gui_set_query, .scr_pos_x = 44, .scr_pos_y = 374, .pos_x = 44, .pos_y = 374, .width = 52, .height = 20, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_rpanel_rpanel_btn_crinfo_act, .tooltip_stridx = GUIStr_GoToQueryMode, .maintain_call = maintain_query_button },
   { .gbtype = LbBtnT_NormalBtn, .id_num = BID_QUERY_2, .click_event = gui_switch_players_visible, .scr_pos_x = 14, .scr_pos_y = 374, .pos_x = 14, .pos_y = 374, .width = 52, .height = 20, .draw_call = gui_area_new_normal_button, .sprite_idx = GPS_rpanel_rpanel_btn_nxpage_act, .tooltip_stridx = GUIStr_MoreInformation, .maintain_call = maintain_player_page2 },
-  { .gbtype = LbBtnT_ToggleBtn, .id_num = BID_QRY_IMPRSN, .click_event = gui_set_tend_to, .btype_value = 1, .scr_pos_x = 36, .scr_pos_y = 190, .pos_x = 36, .pos_y = 190, .width = 32, .height = 26, .draw_call = gui_area_flash_cycle_button, .sprite_idx = GPS_rpanel_tendency_prisne_act, .tooltip_stridx = GUIStr_CreatureImprisonDesc, .content = { .ptr = &kfx_sim_state.creatures_tend_imprison }, .maxval = 1, .maintain_call = maintain_prison_bar },
-  { .gbtype = LbBtnT_ToggleBtn, .id_num = BID_QRY_FLEE, .click_event = gui_set_tend_to, .btype_value = 2, .scr_pos_x = 74, .scr_pos_y = 190, .pos_x = 74, .pos_y = 190, .width = 32, .height = 26, .draw_call = gui_area_flash_cycle_button, .sprite_idx = GPS_rpanel_tendency_fleee_act, .tooltip_stridx = GUIStr_CreatureFleeDesc, .content = { .ptr = &kfx_sim_state.creatures_tend_flee }, .maxval = 1 },
+  { .gbtype = LbBtnT_ToggleBtn, .id_num = BID_QRY_IMPRSN, .click_event = gui_set_tend_to, .btype_value = 1, .scr_pos_x = 36, .scr_pos_y = 190, .pos_x = 36, .pos_y = 190, .width = 32, .height = 26, .draw_call = gui_area_flash_cycle_button, .sprite_idx = GPS_rpanel_tendency_prisne_act, .tooltip_stridx = GUIStr_CreatureImprisonDesc, .content = { .ptr = &tendency_button_imprison }, .maxval = 1, .maintain_call = maintain_prison_bar },
+  { .gbtype = LbBtnT_ToggleBtn, .id_num = BID_QRY_FLEE, .click_event = gui_set_tend_to, .btype_value = 2, .scr_pos_x = 74, .scr_pos_y = 190, .pos_x = 74, .pos_y = 190, .width = 32, .height = 26, .draw_call = gui_area_flash_cycle_button, .sprite_idx = GPS_rpanel_tendency_fleee_act, .tooltip_stridx = GUIStr_CreatureFleeDesc, .content = { .ptr = &tendency_button_flee }, .maxval = 1, .maintain_call = maintain_flee_button },
   { .gbtype = LbBtnT_NormalBtn, .scr_pos_x = 4, .scr_pos_y = 216, .pos_x = 4, .pos_y = 222, .width = 132, .height = 24, .draw_call = gui_area_payday_button, .sprite_idx = GPS_rpanel_rpanel_payday_counter, .tooltip_stridx = GUIStr_PayTimeDesc },
   { .gbtype = LbBtnT_NormalBtn, .scr_pos_x = 2, .scr_pos_y = 246, .pos_x = 2, .pos_y = 246, .width = 60, .height = 24, .draw_call = gui_area_research_bar, .sprite_idx = GPS_room_research_std_s, .tooltip_stridx = GUIStr_ResearchTimeDesc },
   { .gbtype = LbBtnT_NormalBtn, .scr_pos_x = 74, .scr_pos_y = 246, .pos_x = 74, .pos_y = 246, .width = 60, .height = 24, .draw_call = gui_area_workshop_bar, .sprite_idx = GPS_room_workshop_std_s, .tooltip_stridx = GUIStr_WorkshopTimeDesc },

@@ -281,4 +281,13 @@ TEST_CASE_METHOD(ResetSimAndConfig, "gold_object_typical_value/add_gold_to_pile 
     kfx_config_state.conf.rules[0].gameplay.gold_pile_value = 100;
     CHECK(add_gold_to_pile(pile, 50));
     CHECK(pile->valuable.gold_stored == 50);
+    CHECK(pile->sprite_size == 196 * 50 / 100 + 128);   // half the typical gold: smaller than typical
+    CHECK(add_gold_to_pile(pile, 50));
+    CHECK(pile->sprite_size == 196 + 128);              // exactly typical
+    CHECK(add_gold_to_pile(pile, 100));
+    CHECK(pile->sprite_size == 196 + 24 + 128);         // overfull grows slowly
+    // Ten times the typical gold (a death-drop pot of 2500 against 250) is capped at 1.4x the typical size,
+    // not the old 640 (about twice it).
+    CHECK(add_gold_to_pile(pile, 800));
+    CHECK(pile->sprite_size == (196 + 128) * 7 / 5);
 }

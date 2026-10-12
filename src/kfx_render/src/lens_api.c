@@ -47,7 +47,7 @@ void initialise_eye_lenses(void)
     if ((features_enabled & Ft_EyeLens) == 0)
     {
         SYNCDBG(7, "Eye lens feature disabled");
-        clear_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+        kfx_render_state.eye_lens_ready = false;
         return;
     }
     
@@ -56,14 +56,14 @@ void initialise_eye_lenses(void)
     if (mgr == NULL)
     {
         ERRORLOG("Failed to get LensManager instance");
-        clear_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+        kfx_render_state.eye_lens_ready = false;
         return;
     }
     
     if (!LensManager_Init(mgr))
     {
         ERRORLOG("Failed to initialize LensManager");
-        clear_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+        kfx_render_state.eye_lens_ready = false;
         return;
     }
     
@@ -71,7 +71,7 @@ void initialise_eye_lenses(void)
     // are set automatically by LensManager::AllocateBuffers()
     
     // Mark system as ready
-    set_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+    kfx_render_state.eye_lens_ready = true;
     
     SYNCDBG(9, "Lens system initialized");
 }
@@ -84,7 +84,7 @@ void initialise_eye_lenses(void)
 void setup_eye_lens(int64_t nlens)
 {
     // Check if lens system is initialized
-    if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
+    if (!kfx_render_state.eye_lens_ready)
     {
         WARNLOG("Can't setup lens - system not initialized");
         return;
@@ -125,7 +125,7 @@ void reinitialise_eye_lens(int64_t nlens)
     initialise_eye_lenses();
     
     // Apply the requested lens
-    if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) != 0)
+    if (kfx_render_state.eye_lens_ready)
     {
         setup_eye_lens(nlens);
     }
@@ -150,7 +150,7 @@ void reset_eye_lenses(void)
     // They are cleared automatically by LensManager::FreeBuffers()
     
     // Clear game state (LensManager already cleared active_lens_type/applied_lens_type)
-    clear_flag(kfx_sim_state.mode_flags, MFlg_EyeLensReady);
+    kfx_render_state.eye_lens_ready = false;
     
     SYNCDBG(9, "Done");
 }
@@ -213,7 +213,7 @@ TbBool lens_is_ready(void)
         return false;
     
     // Check mode flag
-    if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
+    if (!kfx_render_state.eye_lens_ready)
         return false;
     
     // Check manager is initialized
@@ -244,7 +244,7 @@ TbBool lens_is_ready(void)
  */
 TbPixel* lens_get_render_target(void)
 {
-    if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
+    if (!kfx_render_state.eye_lens_ready)
         return NULL;
 
     return eye_lens_spare_screen_memory;
@@ -257,7 +257,7 @@ TbPixel* lens_get_render_target(void)
  */
 uint64_t lens_get_render_target_width(void)
 {
-    if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
+    if (!kfx_render_state.eye_lens_ready)
         return 0;
     
     return eye_lens_width;
@@ -270,7 +270,7 @@ uint64_t lens_get_render_target_width(void)
  */
 uint64_t lens_get_render_target_height(void)
 {
-    if ((kfx_sim_state.mode_flags & MFlg_EyeLensReady) == 0)
+    if (!kfx_render_state.eye_lens_ready)
         return 0;
     
     return eye_lens_height;

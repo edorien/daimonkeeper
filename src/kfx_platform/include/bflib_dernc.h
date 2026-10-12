@@ -57,6 +57,10 @@ extern "C" {
 /******************************************************************************/
 int64_t LbFileLengthRnc(const char *fname);
 int64_t LbFileLoadAt(const char *fname, void *buffer);
+// LbFileLoadAt() that never writes more than buf_size bytes to buffer.
+// Returns the file's full (unpacked) length, which is larger than buf_size
+// when the file was cut short, or -1 on failure.
+int64_t LbFileLoadAtMax(const char *fname, void *buffer, uint64_t buf_size);
 int64_t LbFileSaveAt(const char *fname, const void *buffer,uint64_t len);
 // docs/refactor/editor/phase3/05-slice6-atomic-write-lif.md -- write to a
 // sibling `<fname>.tmp` first, then rename it over `fname`, so a failure

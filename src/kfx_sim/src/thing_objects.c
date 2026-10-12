@@ -1490,7 +1490,7 @@ static TngUpdateRet object_update_call_to_arms(struct Thing *thing)
         if (thing->max_frames - 1 == thing->current_frame)
         {
             struct PowerConfigStats* powerst = get_power_model_stats(PwrK_CALL2ARMS);
-            struct Coord3d pos;
+            struct Coord3d pos = thing->mappos; // z: its height until set (P5-F33)
             pos.x.val = subtile_coord_center(dungeon->cta_stl_x);
             pos.y.val = subtile_coord_center(dungeon->cta_stl_y);
             pos.z.val = get_thing_height_at(thing, &pos);
@@ -2183,6 +2183,10 @@ GoldAmount gold_object_typical_value(struct Thing *thing)
  * @param value
  * @return
  */
+/** A gold object's sprite size at its typical value, and the most an overfull one may reach (1.4x that). */
+#define GOLD_OBJECT_TYPICAL_SPRITE_SIZE (196 + 128)
+#define GOLD_OBJECT_MAX_SPRITE_SIZE (GOLD_OBJECT_TYPICAL_SPRITE_SIZE * 7 / 5)
+
 TbBool add_gold_to_pile(struct Thing *thing, int64_t value)
 {
     int64_t scaled_val;
@@ -2204,8 +2208,11 @@ TbBool add_gold_to_pile(struct Thing *thing, int64_t value)
         scaled_val = 196 * thing->valuable.gold_stored / typical_value + 128;
     else
         scaled_val = 196 + (24 * (thing->valuable.gold_stored-typical_value) / typical_value) + 128;
-    if (scaled_val > 640)
-      scaled_val = 640;
+    // An overfull object grows a little past its typical size, never to twice it: the old 640 cap let the pots a
+    // level-script hero throws out on death (keeporig:4's Knight carries 20000, 8 pots of 2500 against a typical
+    // 250) stand taller than the Knight. The original game's pots stayed close to their normal size.
+    if (scaled_val > GOLD_OBJECT_MAX_SPRITE_SIZE)
+      scaled_val = GOLD_OBJECT_MAX_SPRITE_SIZE;
     thing->sprite_size = scaled_val;
     return true;
 }

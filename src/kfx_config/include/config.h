@@ -360,6 +360,7 @@ TbBool iterate_conf_blocks(const char * buf, int64_t * pos, int64_t buflen, cons
 int64_t recognize_conf_command(const char *buf,int64_t *pos,int64_t buflen,const struct NamedCommand *commands);
 int64_t get_conf_line(const char *buf, int64_t *pos, int64_t buflen, char *dst, int64_t dstlen);
 TbBool skip_conf_to_next_line(const char *buf,int64_t *pos,int64_t buflen);
+TbBool skip_conf_spaces(const char *buf, int64_t *pos, int64_t buflen);
 int64_t get_conf_parameter_single(const char *buf,int64_t *pos,int64_t buflen,char *dst,int64_t dstlen);
 int64_t get_conf_parameter_whole(const char *buf,int64_t *pos,int64_t buflen,char *dst,int64_t dstlen);
 

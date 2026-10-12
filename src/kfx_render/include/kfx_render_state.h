@@ -61,6 +61,9 @@ struct Map;
 // -- see docs/refactor/stage-13-enforce-and-document.md.
 struct KfxRenderState {
     char active_lens_type;
+    /** This machine's eye lens system has its buffers set up (initialise_eye_lenses(); reset_eye_lenses() clears it).
+     *  It was MFlg_EyeLensReady in kfx_sim_state.mode_flags, so a save or a resync carried it (P5-F23). */
+    TbBool eye_lens_ready;
 
     // Nearest-light-to-camera search state (light_data.c's
     // update_local_mouse_light() family) -- despite the placeholder name,

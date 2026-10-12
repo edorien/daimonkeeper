@@ -1342,6 +1342,8 @@ static void triangulation_initxy(int64_t startx, int64_t starty, int64_t endx, i
     {
         struct Triangle *tri;
         tri = &Triangles[i];
+        // all of it, not the previous level's (P5-F28): the mesh is saved and resynced
+        memset(tri, 0, sizeof(*tri));
         tri->tree_alt = NAV_COL_UNSET;
     }
     tri_initialised = 1;

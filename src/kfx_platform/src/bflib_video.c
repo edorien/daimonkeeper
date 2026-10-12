@@ -620,8 +620,6 @@ TbResult LbScreenSetup(TbScreenMode mode, TbScreenCoord width, TbScreenCoord hei
         }
     }
 
-    reset_bflib_render();
-
     redetect_screen_refresh_rate_for_draw();
 
     SYNCDBG(8,"Finished");
@@ -745,6 +743,7 @@ TbBool LbScreenIsLocked(void)
 
 TbResult LbScreenReset(TbBool exiting_application)
 {
+    (void)exiting_application; // it freed the old triangle filler's scan buffer, gone (refactor pass 5, S10)
     if (!lbScreenInitialised)
       return Lb_FAIL;
     LbMouseChangeSprite(NULL);
@@ -754,11 +753,6 @@ TbResult LbScreenReset(TbBool exiting_application)
     lbDrawSurface = NULL;
     // Mark as not initialized
     lbScreenInitialised = false;
-    if (exiting_application)
-    {
-        // we get here when we are actually closing the application
-        finish_bflib_render();
-    }
     return Lb_SUCCESS;
 }
 

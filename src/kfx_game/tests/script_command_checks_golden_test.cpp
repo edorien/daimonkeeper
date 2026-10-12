@@ -22,6 +22,7 @@
 #include "config_magic.h"
 #include "config_terrain.h"
 #include "ports/ui_port.h"
+#include "ports/sim_port.h"
 #include "kfx_config/tests/scoped_port_override.h"
 
 #include <cstdint>
@@ -70,6 +71,14 @@ struct NameTables {
     }
 };
 
+// A top-level objective or information message looks its text up in the level's strings (none loaded here).
+char **stub_level_strings(void) {
+    static char text[] = "text";
+    static char *strings[TRANSLATION_STRINGS_START];
+    for (char *&s : strings)
+        s = text;
+    return strings;
+}
 // A top-level quick message creates an event, which asks UiPort for the event kind's timings.
 const struct EventTypeInfo *stub_event_button_info(EventKind) {
     static const struct EventTypeInfo info = {};
@@ -136,6 +145,17 @@ const std::vector<const char *> kLines = {
     "IF(PLAYER0,SACRIFICED[IMP > 0)", "IF(PLAYER0,KEEPERS_DESTROYED[PLAYER1] == 1)", "IF(PLAYER0,BOX3_ACTIVATE == 1)",
     "IF(PLAYER0,TRAP2_ACTIVATED == 1)", "SET_FLAG(PLAYER0,SACRIFICED[IMP],1)", "SET_FLAG(PLAYER0,REWARDED[WIZARD],2)",
     "SET_FLAG(PLAYER0,BOX3_ACTIVATE,1)", "SET_FLAG(PLAYER0,BOX3_ACTIVATED,1)",
+    // objectives and information (refactor pass 5, S09: their four checks share a helper)
+    "DISPLAY_OBJECTIVE(1,PLAYER0)", "DISPLAY_OBJECTIVE(NOT_A_TEXT_ALIAS,PLAYER0)", "DISPLAY_OBJECTIVE(1,NOWHERE)",
+    "DISPLAY_OBJECTIVE(1,PLAYER0,NOT_AN_ICON)", "DISPLAY_OBJECTIVE_WITH_POS(2,10,20)",
+    "DISPLAY_OBJECTIVE_WITH_POS(2,10,20,NOT_AN_ICON)", "DISPLAY_PLAYER_OBJECTIVE(3,PLAYER1,PLAYER0)",
+    "DISPLAY_PLAYER_OBJECTIVE(NOT_A_TEXT_ALIAS,PLAYER1,PLAYER0)", "DISPLAY_PLAYER_OBJECTIVE(3,PLAYER1,NOWHERE)",
+    "DISPLAY_PLAYER_OBJECTIVE(3,PLAYER1,PLAYER0,NOT_AN_ICON)", "DISPLAY_PLAYER_OBJECTIVE_WITH_POS(4,PLAYER1,5,6)",
+    "DISPLAY_INFORMATION(5)", "DISPLAY_INFORMATION(5,PLAYER0)", "DISPLAY_INFORMATION(NOT_A_TEXT_ALIAS)",
+    "DISPLAY_INFORMATION(5,PLAYER0,NOT_AN_ICON)", "DISPLAY_INFORMATION_WITH_POS(6,7,8)",
+    "DISPLAY_PLAYER_INFORMATION(7,PLAYER2)", "DISPLAY_PLAYER_INFORMATION(7,PLAYER2,PLAYER0)",
+    "DISPLAY_PLAYER_INFORMATION(7,PLAYER2,NOWHERE)", "DISPLAY_PLAYER_INFORMATION(NOT_A_TEXT_ALIAS,PLAYER2)",
+    "DISPLAY_PLAYER_INFORMATION_WITH_POS(8,PLAYER2,9,10)",
 };
 
 } // namespace
@@ -145,6 +165,8 @@ TEST_CASE("golden: what the script command checks store", "[kfx_game][script_gol
     NameTables names;
     ScopedPortOverride<UiPort> ui{ui_port, set_ui_port};
     ui->get_event_button_info = stub_event_button_info;
+    ScopedPortOverride<SimPort> sim{sim_port, set_sim_port};
+    sim->get_level_strings = stub_level_strings;
     const std::map<std::string, uint64_t> expected = {
 #include "script_command_checks_golden.inc"
     };
@@ -255,6 +277,30 @@ TEST_CASE("a legacy command's values are the same run at once and run inside an 
             INFO("player " << p << " flag " << (3 + f));
             CHECK(kfx_sim_state.dungeon[p].script_flags[3 + f] == at_once[p][f]);
         }
+    std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
+    std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+}
+
+TEST_CASE("a message command refusing its text keeps the command before it (P5-F35)", "[kfx_game][script_golden]")
+{
+    // DISPLAY_PLAYER_OBJECTIVE, DISPLAY_INFORMATION and DISPLAY_PLAYER_INFORMATION gave their stored value back twice
+    // when the text was unknown: inside an IF the second time took the slot of the command before, which the next
+    // command then overwrote. The SET_FLAG before each must keep its value and still run.
+    ScopedPortOverride<UiPort> ui{ui_port, set_ui_port};
+    ui->get_event_button_info = stub_event_button_info;
+    NameTables names;
+    for (const char *refused : {"DISPLAY_PLAYER_OBJECTIVE(NOT_A_TEXT_ALIAS,PLAYER0,PLAYER0)",
+                                "DISPLAY_INFORMATION(NOT_A_TEXT_ALIAS,PLAYER0)",
+                                "DISPLAY_PLAYER_INFORMATION(NOT_A_TEXT_ALIAS,PLAYER0,PLAYER0)"})
+    {
+        INFO(refused);
+        load_and_hash(std::string("IF(PLAYER0,GAME_TURN >= 0)\nSET_FLAG(PLAYER0,FLAG2,7)\n") + refused +
+            "\nSET_FLAG(PLAYER0,FLAG3,9)\nENDIF\n");
+        CHECK(kfx_game_state.script.values_num == 2);
+        process_level_script();
+        CHECK(kfx_sim_state.dungeon[0].script_flags[2] == 7);
+        CHECK(kfx_sim_state.dungeon[0].script_flags[3] == 9);
+    }
     std::memset(&kfx_game_state, 0, sizeof(kfx_game_state));
     std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
 }

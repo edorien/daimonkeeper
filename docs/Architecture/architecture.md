@@ -486,8 +486,10 @@ on:** `kfx_sim`, `kfx_platform`. **28 sources / 27 headers.**
 - `game_saves`, `game_merge` (level visibility / next-level), `game_heap`,
   `sounds`, `console_cmd` (debug console — has the one accepted direct call
   into `update()`, see §8).
-- Level scripting: `lvl_script`, `lvl_script_commands` (+ `_old`),
-  `lvl_script_conditions`, `lvl_script_value`, `lvl_script_lib`.
+- Level scripting: `lvl_script`, `lvl_script_commands` (the command tables, `IF`/`ENDIF` and the helpers the
+  families share) with one `lvl_script_cmd_<family>.c` per command family (refactor pass 5, S09: `config`,
+  `creatures`, `parties`, `powers`, `map`, `messages`, `players`; what they share is declared in
+  `src/kfx_game/src/lvl_script_commands_private.h`), `lvl_script_conditions`, `lvl_script_value`, `lvl_script_lib`.
 - `kfx_game_state.h/.c` — level script + timers, campaign name,
   pause/frame-step, music, sound settings.
 
@@ -930,6 +932,26 @@ its library (e.g. `extern struct KfxSimState kfx_sim_state;`). The refactor
 migrated `struct Game`'s ~176 fields into these structs **one field-group at a
 time**, timed to land alongside each library's physical extraction (stages
 6–10), and continued field-by-field through stage 13.
+
+### 6.1a A level starts from the start-up state
+
+Refactor pass 5, S12. A level doesn't start from what the previous level left, cleared part by part: each part a
+clear missed carried that level's data into the next level's saves and resyncs (P5-F22, F28, F30, F31). Instead:
+
+- At the end of start-up (`setup_game()` in `main.cpp`) copies are taken of `kfx_sim_state`
+  (`sim_state_take_level_baseline()`, `game_lifecycle.c`), `kfx_game_state` (`game_state_take_level_baseline()`) and
+  the navigation mesh's saved state (`ariadne_take_level_baseline()`).
+- `init_level()` restores them before `clear_game()` and the level's set-up (`*_reset_for_level()`), and zeroes the
+  "invalid" stand-ins kept outside the saved state (`bad_map_block`, `bad_slabmap_block`, `bad_map_task`,
+  `bad_packet`, `bad_triangle`; `clear_players()`/`clear_dungeons()` reset the others).
+- What survives a level change is a short keep list in `sim_state_reset_for_level()`: the session's flags, game kind,
+  easter eggs, turn rate, level numbers, the level's human player, computer chat and the timer group;
+  `game_state_reset_for_level()` keeps this machine's mouse and a pending frame step. Campaign carry-over is
+  `intralvl`'s, outside these structs.
+
+**For contributors:** a new per-level field needs nothing (it starts each level as start-up left it). A new
+*session* field -- set before a level starts (command line, menus, network set-up) and meant to outlive it -- must go
+on the keep list, or the reset wipes it.
 
 ### 6.2 Raw-blob serialization (a deliberate invariant)
 

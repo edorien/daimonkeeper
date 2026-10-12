@@ -19,6 +19,7 @@
 #define DK_EDITOR_THUMBS_H
 
 #include "globals.h"
+#include "bflib_video.h" // TbPixel
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -36,10 +37,11 @@ struct EditorThumb
 EditorThumb editor_thumb_slab(SlabKind kind);
 EditorThumb editor_thumb_object(ThingModel model);
 
-// The RGBA pixels behind a thumbnail (0xAABBGGRR, alpha 0 = transparent), for
-// tests and for the caches above. False if the item has nothing to show.
-bool editor_thumb_slab_pixels(SlabKind kind, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height);
-bool editor_thumb_object_pixels(ThingModel model, std::vector<uint64_t> &pixels, int64_t &width, int64_t &height);
+// The RGBA pixels behind a thumbnail (TbPixel {r,g,b,a}, alpha 0 =
+// transparent), for tests and for the caches above. False if the item has
+// nothing to show.
+bool editor_thumb_slab_pixels(SlabKind kind, std::vector<TbPixel> &pixels, int64_t &width, int64_t &height);
+bool editor_thumb_object_pixels(ThingModel model, std::vector<TbPixel> &pixels, int64_t &width, int64_t &height);
 
 // Drops cached thumbnails so they rebuild against the level / palette now
 // loaded (called when an editor session opens).

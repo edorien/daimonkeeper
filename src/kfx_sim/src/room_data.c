@@ -1378,6 +1378,7 @@ TbBool room_has_enough_free_capacity_for_creature_job(const struct Room *room, c
 
 TbBool find_random_valid_position_for_thing_in_room(struct Thing *thing, struct Room *room, struct Coord3d *pos)
 {
+    pos->z.val = thing->mappos.z.val; // the height where the thing doesn't fit, until a position is found (P5-F33)
     if (!room_exists(room)) {
         ERRORLOG("Received nonexisting room for creature");
         return false;
@@ -1690,6 +1691,7 @@ struct Room *find_room_of_role_with_most_spare_capacity(const struct Dungeon *du
  */
 TbBool find_first_valid_position_for_thing_anywhere_in_room(const struct Thing *thing, struct Room *room, struct Coord3d *pos)
 {
+    pos->z.val = thing->mappos.z.val; // the height where the thing doesn't fit, until a position is found (P5-F33)
     if (!room_exists(room))
     {
         ERRORLOG("Tried to find position in non-existing room");
@@ -2295,6 +2297,7 @@ void delete_room_slab_when_no_free_room_structures(MapCoord slb_x, MapCoord slb_
 
 TbBool find_random_valid_position_for_thing_in_room_avoiding_object_excluding_room_slab(struct Thing *thing, struct Room *room, struct Coord3d *pos, int64_t slbnum)
 {
+    pos->z.val = thing->mappos.z.val; // the height where the thing doesn't fit, until a position is found (P5-F33)
     int64_t nav_sizexy = subtile_coord(thing_nav_block_sizexy(thing), 0);
     if (room_is_invalid(room) || (room->slabs_count <= 0)) {
         ERRORLOG("Invalid room or number of slabs is zero");

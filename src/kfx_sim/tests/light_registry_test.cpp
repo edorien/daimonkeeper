@@ -48,8 +48,16 @@ TEST_CASE_METHOD(ResetLighting, "light_is_invalid rejects null and out-of-range 
 }
 
 TEST_CASE_METHOD(ResetLighting, "light_get_light_radius/light_set_light_radius round-trip", "[kfx_sim][light_registry]") {
+    light(1)->flags |= LgtF_Allocated;
+    light(1)->index = 1;
     light_set_light_radius(1, 500);
     CHECK(light_get_light_radius(1) == 500);
+}
+
+TEST_CASE_METHOD(ResetLighting, "light_set_light_radius leaves a light that isn't in use alone", "[kfx_sim][light_registry]") {
+    // a caller with a stale index must not write into a free light (it would reach later levels' saves)
+    light_set_light_radius(1, 500);
+    CHECK(light(1)->radius == 0);
 }
 
 TEST_CASE_METHOD(ResetLighting, "light_is_light_allocated reflects the Allocated flag", "[kfx_sim][light_registry]") {

@@ -10,7 +10,7 @@
     {"lua:AddCreatureToPool('TROLL', 4)", 0x2e746177d0f5596eULL}, // 1 bytes; ok: 
     {"lua:AddCreatureToPool('NOT_A_CREATURE', 4)", 0x7294eaebbdc57f4eULL}, // 0 bytes; error: [string "AddCreatureToPool('NOT_A_CREATURE', 4)"]:1: bad argument #1 to 'AddCreatureToPool' (unrecognized command
     {"lua:CreatureAvailable(PLAYER0, 'TROLL', true, 2)", 0x147e1a08c2e63747ULL}, // 1 bytes; ok: 
-    {"lua:DeadCreaturesReturnToPool(false)", 0xf8fcc6eb05aa8af3ULL}, // 1 bytes; ok: 
+    {"lua:DeadCreaturesReturnToPool(false)", 0xdc8938eb05aa8af3ULL}, // 1 bytes; ok: 
     {"lua:RoomAvailable(PLAYER0, 'TEMPLE', 1, true)", 0x6ab2eef6c619bfc5ULL}, // 1 bytes; ok: 
     {"lua:RoomAvailable(PLAYER0, 'NOT_A_ROOM', 1, true)", 0x2d25461400b29527ULL}, // 0 bytes; error: [string "RoomAvailable(PLAYER0, 'NOT_A_ROOM', 1, true)"]:1: bad argument #2 to 'RoomAvailable' (unrecognized comm
     {"lua:MagicAvailable(PLAYER0, 'POWER_LIGHTNING', true, true)", 0x3b5e1bc2c0bb7d07ULL}, // 1 bytes; ok: 
@@ -67,7 +67,7 @@
     {"lua:DisplayMessage(1, 'IMP')", 0xfa840a4d65e81a98ULL}, // 100 bytes; ok: 
     {"lua:QuickMessage('golden')", 0xaf4147d8e87a27f7ULL}, // 63 bytes; ok: 
     {"lua:QuickMessage('golden', PLAYER0)", 0x959879a8a4ccf777ULL}, // 62 bytes; ok: 
-    {"lua:QuickMessage('golden') ClearMessage()", 0xed29e4af1a66bfcdULL}, // 68 bytes; ok: 
+    {"lua:QuickMessage('golden') ClearMessage()", 0x1c7d983c0682f5ebULL}, // 63 bytes; ok: 
     {"lua:ClearMessage(1)", 0xa919f5bf3132b2a5ULL}, // 2 bytes; ok: 
     {"lua:HeartLostObjective(1, PLAYER0)", 0xcbb38f5ad1bc24b2ULL}, // 3 bytes; ok: 
     {"lua:HeartLostQuickObjective('golden', PLAYER0)", 0xb54c35592250ccbdULL}, // 0 bytes; error: [string "HeartLostQuickObjective('golden', PLAYER0)"]:1: bad argument #1 to 'HeartLostQuickObjective' (number exp
@@ -134,7 +134,7 @@
     {"lua:SetCreatureInstance('IMP', 1, 'FIREBALL', 1)", 0xd74d13f502e82400ULL}, // 9 bytes; ok: 
     {"lua:SetCreatureMaxLevel(PLAYER0, 'IMP', 5)", 0xcf798300356831daULL}, // 1 bytes; ok: 
     {"lua:SetCreatureTendencies(PLAYER0, 'IMPRISON', true)", 0x9c40eb0c0c783c24ULL}, // 0 bytes; error: [string "SetCreatureTendencies(PLAYER0, 'IMPRISON', true)"]:1: bad argument #3 to 'SetCreatureTendencies' (number
-    {"lua:SetCreatureTendencies(PLAYER0, 'IMPRISON', 1)", 0xa58fce70fa93da0cULL}, // 2 bytes; ok: 
+    {"lua:SetCreatureTendencies(PLAYER0, 'IMPRISON', 1)", 0xd96b73f1e70e3637ULL}, // 1 bytes; ok: 
     {"lua:SetCreatureTendencies(PLAYER0, 'FLEE', 0)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 
     {"lua:CreatureEntranceLevel(PLAYER0, 3)", 0x9c331d9fd448a7dfULL}, // 1 bytes; ok: 
     {"lua:ChangeCreaturesAnnoyance(PLAYER0, 'IMP', 'SET', 100)", 0xdcf298ae650faca0ULL}, // 0 bytes; ok: 

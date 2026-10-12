@@ -231,10 +231,35 @@ static void golden_dump(const char *name)
     }
 }
 
+/* KFX_FTEST_GOLDEN_SHARD=<k>/<n>: only the cases whose name hashes to k of n (the cases are independent: each loads the
+ * save), so n processes can run one golden together; run_ftest_coverage.sh's GOLDEN_SHARDS does. Printed hashes then
+ * carry the case's position ("GOLDEN#<case>.<check>:"), which puts the shards' lines back in order when they are
+ * merged. */
+static int64_t golden_case_seq = -1;
+static int64_t golden_check_seq = 0;
+
+static TbBool golden_shard(int64_t *k, int64_t *n)
+{
+    const char *spec = getenv("KFX_FTEST_GOLDEN_SHARD");
+    return (spec != NULL) && (sscanf(spec, "%" SCNd64 "/%" SCNd64, k, n) == 2) && (*n > 1) && (*k >= 0) && (*k < *n);
+}
+
 TbBool ftest_golden_selected(const char *name)
 {
+    golden_case_seq++;
+    golden_check_seq = 0;
     const char *only = getenv("KFX_FTEST_GOLDEN_ONLY");
-    return (only == NULL) || (strstr(name, only) != NULL);
+    if ((only != NULL) && (strstr(name, only) == NULL))
+        return false;
+    int64_t k, n;
+    if (golden_shard(&k, &n))
+    {
+        uint64_t h = 1469598103934665603ULL;
+        for (const char *p = name; *p != '\0'; p++)
+            h = (h ^ (unsigned char)*p) * 0x100000001b3ULL;
+        return ((int64_t)(h % (uint64_t)n) == k);
+    }
+    return true;
 }
 
 void ftest_golden_check(struct FTestGolden *g, const char *name)
@@ -264,6 +289,10 @@ void ftest_golden_check_result(struct FTestGolden *g, const char *name, const ch
             quoted[q++] = *p;
         }
         quoted[q] = '\0';
+        char tag[40] = "GOLDEN:";
+        int64_t k, n;
+        if (golden_shard(&k, &n))
+            snprintf(tag, sizeof(tag), "GOLDEN#%06" PRId64 ".%03" PRId64 ":", golden_case_seq, golden_check_seq++);
         if (result != NULL)
         {
             char shown[121];
@@ -271,10 +300,10 @@ void ftest_golden_check_result(struct FTestGolden *g, const char *name, const ch
             for (char *p = shown; *p != '\0'; p++)
                 if ((*p == '\n') || (*p == '\r'))
                     *p = ' ';
-            FTESTLOG("GOLDEN:    {\"%s\", 0x%016" PRIx64 "ULL}, // %" PRId64 " bytes; %s", quoted, h, changed, shown);
+            FTESTLOG("%s    {\"%s\", 0x%016" PRIx64 "ULL}, // %" PRId64 " bytes; %s", tag, quoted, h, changed, shown);
         }
         else
-            FTESTLOG("GOLDEN:    {\"%s\", 0x%016" PRIx64 "ULL}, // %" PRId64 " bytes", quoted, h, changed);
+            FTESTLOG("%s    {\"%s\", 0x%016" PRIx64 "ULL}, // %" PRId64 " bytes", tag, quoted, h, changed);
         return;
     }
     const struct FTestGoldenExpected *e = g->expected;

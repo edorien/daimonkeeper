@@ -473,13 +473,7 @@ static TbBool global_toggle_tendency(const struct GlobalAction *ctx)
 {
     struct PlayerInfo *player = ctx->player;
     struct Packet *pckt = ctx->pckt;
-    struct Dungeon *dungeon;
     toggle_creature_tendencies(player, pckt->actn_par1);
-    if (is_my_player(player)) {
-        dungeon = get_players_dungeon(player);
-        kfx_sim_state.creatures_tend_imprison = ((dungeon->creature_tendencies & CrTend_Imprison) != 0);
-        kfx_sim_state.creatures_tend_flee = ((dungeon->creature_tendencies & CrTend_Flee) != 0);
-    }
     return 0;
 }
 

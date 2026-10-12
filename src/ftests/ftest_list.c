@@ -30,7 +30,13 @@
 #include "tests/ftest_lua_api_golden.h"
 #include "tests/ftest_console_cmd_golden.h"
 #include "tests/ftest_cheats_golden.h"
+#include "tests/ftest_script_power_config_golden.h"
 #include "tests/ftest_script_creature_config_golden.h"
+#include "tests/ftest_spell_effects_golden.h"
+#include "tests/ftest_level_change_mesh.h"
+#include "tests/ftest_level_change_pointer.h"
+#include "tests/ftest_computer_play_golden.h"
+#include "tests/ftest_net_mp_game.h"
 #include "tests/ftest_campaign_spectate_checkbox.h"
 #include "tests/ftest_campaign_external_seat.h"
 #include "tests/ftest_campaign_external_seat_checkbox.h"
@@ -96,6 +102,8 @@
 #include "tests/ftest_skirmish_setup.h"
 #include "tests/ftest_harness_setup_failure.h"
 #include "tests/ftest_config_content.h"
+#include "tests/ftest_terrain_rough_mesh.h"
+#include "tests/ftest_terrain_rough_reinforce.h"
 // append your test include here, eg: #include "tests/ftest_your_test_header.h"
 
 #include "post_inc.h"
@@ -158,11 +166,18 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="spectator_handoff",                 .init_func=ftest_spectator_handoff_init,                .pre_start_func=ftest_spectator_handoff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="sim_state_continuity",              .init_func=ftest_sim_state_continuity_init,             .pre_start_func=ftest_sim_state_continuity_pre_start, .level_file="original", .level=60, .frame_skip=8 },
          { .test_name="sim_state_continuity_restart",      .init_func=ftest_sim_state_continuity_restart_init,     .pre_start_func=ftest_sim_state_continuity_pre_start, .level_file="original", .level=60, .frame_skip=8, .repeat_n_times=2 },
+         { .test_name="level_change_mesh",                 .init_func=ftest_level_change_mesh_init,                .level_file="keeporig", .level=11, .frame_skip=8, .repeat_n_times=2 },
+         { .test_name="level_change_pointer",              .init_func=ftest_level_change_pointer_init,             .level_file="keeporig", .level=11, .frame_skip=8, .repeat_n_times=2 },
+         { .test_name="computer_play_golden",              .init_func=ftest_computer_play_golden_init,             .pre_start_func=ftest_computer_play_golden_pre_start, .level_file="original", .level=60, .frame_skip=8 },
+         { .test_name="computer_play_small_golden",        .init_func=ftest_computer_play_golden_init,             .pre_start_func=ftest_computer_play_golden_pre_start, .level_file="original", .level=78, .frame_skip=8 },
+         { .test_name="computer_arena_golden",             .init_func=ftest_computer_arena_golden_init,            .pre_start_func=ftest_computer_play_golden_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="script_legacy_golden",              .init_func=ftest_script_legacy_golden_init,             .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="lua_api_golden",                    .init_func=ftest_lua_api_golden_init,                   .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="console_cmd_golden",                .init_func=ftest_console_cmd_golden_init,               .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="cheats_golden",                     .init_func=ftest_cheats_golden_init,                    .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="script_creature_config_golden",     .init_func=ftest_script_creature_config_golden_init,    .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="script_power_config_golden",        .init_func=ftest_script_power_config_golden_init,       .level_file="keeporig", .level=11, .frame_skip=8 },
+         { .test_name="spell_effects_golden",              .init_func=ftest_spell_effects_golden_init,             .level_file="keeporig", .level=11, .frame_skip=8 },
          { .test_name="campaign_spectate_checkbox",         .init_func=ftest_campaign_spectate_checkbox_init,       .pre_start_func=ftest_campaign_spectate_checkbox_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="campaign_external_seat",             .init_func=ftest_campaign_external_seat_init,           .pre_start_func=ftest_campaign_external_seat_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="campaign_external_seat_checkbox",    .init_func=ftest_campaign_external_seat_checkbox_init,  .pre_start_func=ftest_campaign_external_seat_checkbox_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -241,6 +256,8 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          // { .test_name="bug_invisible_units_cant_select", .init_func=ftest_bug_invisible_units_cant_select_init,  .level_file="keeporig", .level=1,  .frame_skip=0 },
 
          // WIP TEST { .test_name="bug_invisible_units_cant_select",    .init_func=ftest_bug_invisible_units_cant_select_init,  .level_file="lostlvls", .level=103, .frame_skip=0 },
+         { .test_name="terrain_rough_mesh",                 .init_func=ftest_terrain_rough_mesh_init,               .level_file="keeporig", .level=1,  .frame_skip=8 },
+         { .test_name="terrain_rough_reinforce",            .init_func=ftest_terrain_rough_reinforce_init,          .level_file="keeporig", .level=1,  .frame_skip=0 },
          // append your test to tests_list here, eg: { .test_name="your_test_name",    .init_func=ftest_your_test_name_init, .level_file="lostlvls", .level=103 },
     },
 
@@ -267,6 +284,11 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
         // scripts/run_ftest_net_enet_loopback.sh, not via -includelongtests.
         { .test_name="net_enet_loopback_host",              .init_func=ftest_net_enet_loopback_host_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
         { .test_name="net_enet_loopback_join",              .init_func=ftest_net_enet_loopback_join_init,           .level_file="keeporig", .level=11, .frame_skip=8 },
+        // A real two-player multiplayer game, host and client as two processes (ftest.h's net_role; refactor pass 5,
+        // S03): scripts/run_ftest_coverage.sh runs each *_host test with its *_join partner and compares their NETHASH
+        // lines.
+        { .test_name="net_mp_game_host",                     .init_func=ftest_net_mp_game_host_init,                 .level_file="original", .level=50, .frame_skip=8, .net_role=FTNet_Host },
+        { .test_name="net_mp_game_join",                     .init_func=ftest_net_mp_game_join_init,                 .level_file="original", .level=50, .frame_skip=8, .net_role=FTNet_Join },
 
         // Not long-running either, and fails on purpose: its pre_start_func calls FTEST_FAIL_TEST to
         // prove a failed setup aborts the run instead of hanging. In tests_list it stopped every

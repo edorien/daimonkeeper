@@ -1226,11 +1226,6 @@ int64_t computer_check_prison_tendency(struct Computer2* comp, struct ComputerCh
         {
             if (set_creature_tendencies(player, CrTend_Imprison, true))
             {
-                if (is_my_player(player)) {
-                    dungeon = get_players_dungeon(player);
-                    kfx_sim_state.creatures_tend_imprison = ((dungeon->creature_tendencies & CrTend_Imprison) != 0);
-                    kfx_sim_state.creatures_tend_flee = ((dungeon->creature_tendencies & CrTend_Flee) != 0);
-                }
                 SYNCDBG(18, "Player %" PRId64 " has enabled imprisonment with %" PRId64 " total prison capacity", (int64_t)(player->id_number), (int64_t)(total_capacity));
                 return CTaskRet_Unk1;
             }
@@ -1258,11 +1253,6 @@ int64_t computer_check_prison_tendency(struct Computer2* comp, struct ComputerCh
         {
             if (set_creature_tendencies(player, CrTend_Imprison, false))
             {
-                if (is_my_player(player)) {
-                    dungeon = get_players_dungeon(player);
-                    kfx_sim_state.creatures_tend_imprison = ((dungeon->creature_tendencies & CrTend_Imprison) != 0);
-                    kfx_sim_state.creatures_tend_flee = ((dungeon->creature_tendencies & CrTend_Flee) != 0);
-                }
                 SYNCDBG(18, "Player %" PRId64 " has disabled imprisonment with %" PRId64 " total prison capacity", (int64_t)(player->id_number), (int64_t)(total_capacity));
                 return CTaskRet_Unk1;
             }

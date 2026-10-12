@@ -96,30 +96,12 @@ struct GtBlock { // sizeof = 48
 
 #pragma pack()
 /******************************************************************************/
-/* vec_colour: for VecModes that resolve to a genuine flat COLOUR
- * (VM_SolidColor, VM_FlatColor, VM_QuadFlatColor) -- the pre-migration code
- * always used this as a raw palette-index byte for these modes (confirmed by
- * tracing every write site: a shade average, a distance value, and a direct
- * `->colour` field access all fed the exact same `*dst = vec_colour`-shaped
- * consumption in bflib_render_trig.c), so every writer now resolves through
- * expand_indexed_pixel() once, here, rather than the consumer re-deriving a
- * colour from a raw int at render time. */
-extern TbPixel vec_colour;
-/* vec_shade: for VecModes that need a raw shade/intensity value instead of a
- * resolved colour: VM_SpriteTranslucent (creature shadows, shading whatever
- * is already on screen -- trig_render_md10()) and, despite its name,
- * VM_SolidColor too (trig_render_md07() -- confirmed by tracing the
- * original's `vec_colour<<8 | texel` bit-packing: it samples vec_map and
- * shades the sample by this value, it is not a flat single colour). Both
- * combine a base pixel with a translucency/distance-based intensity via
- * render_shade(), the same shading formula draw_gpoly_line() uses. 0-63
- * nominal range, same as fade_tables' shade axis -- see
- * docs/refactor/renderer/02a-pixel-format-design.md §2.1. Kept as a
- * separate global from vec_colour rather than overloading one TbPixel-typed
- * variable for two incompatible purposes. */
+/* vec_shade: how dark a creature shadow is (VM_SpriteTranslucent, trig()): where the shadow sprite is set, the
+ * pixel already on screen becomes render_shade(pixel, vec_shade), the same shading formula draw_gpoly_line() uses.
+ * 0-63 nominal range, same as fade_tables' shade axis -- see docs/refactor/renderer/02a-pixel-format-design.md
+ * §2.1. (The original's VM_SolidColor used it too; nothing draws in that mode any more.) */
 extern int64_t vec_shade;
 extern unsigned char vec_mode;
-extern struct PolyPoint *polyscans;
 
 /**
  * Shading/lighting blend -- replaces the old `render_fade_tables[(shade<<8)|
@@ -285,11 +267,10 @@ void draw_gpoly(struct PolyPoint *point_a, struct PolyPoint *point_b, struct Pol
 /******************************************************************************/
 void gtblock_set_clipping_window(unsigned char *screen_addr, int64_t clip_width, int64_t clip_height, int64_t screen_width);
 /******************************************************************************/
+/** Draws one creature shadow triangle (vec_mode VM_SpriteTranslucent, vec_map the shadow sprite, vec_shade its
+ *  darkness) into poly_screen: bflib_render_shadow.c. */
 void trig(struct PolyPoint *point_a, struct PolyPoint *point_b, struct PolyPoint *point_c);
 /******************************************************************************/
-void setup_bflib_render();
-void reset_bflib_render();
-void finish_bflib_render();
 
 #ifdef __cplusplus
 }

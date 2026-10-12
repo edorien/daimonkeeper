@@ -1502,7 +1502,10 @@ namespace {
         // the window behind it. This is the box's own "fixed line count,
         // scroll for the rest" -- the text equivalent of a listbox's fixed
         // item count with its own scrollbar.
-        if (FeBeginPanel("", ImVec2(0, height), true))
+        //
+        // The column's whole width: FeBeginPanel() reads a 0 width as "size to content", and wrapped text has no
+        // width of its own, so the box shrank to a narrow strip under the slider (found live, 2026-10-07).
+        if (FeBeginPanel("", ImVec2(ImGui::GetContentRegionAvail().x, height), true))
         {
             FeSubheading(name);
             if ((description != nullptr) && (description[0] != '\0'))

@@ -783,6 +783,9 @@ static int lua_Clear_message(lua_State* L)
     {
         count = GUI_MESSAGES_COUNT;
     }
+    // no more than there are, as CLEAR_MESSAGE (with one message shown, the default count wrote messages[-1..-5],
+    // the fields before the array: P5-F29)
+    count = min(count, kfx_sim_state.active_messages_count);
     for (int64_t k = kfx_sim_state.active_messages_count - 1; k >= (kfx_sim_state.active_messages_count - count); k--)
     {
         kfx_sim_state.messages[k].expiration_turn = get_gameturn();
@@ -1439,12 +1442,6 @@ static int lua_Set_creature_tendencies(lua_State *L)
     {
         struct PlayerInfo *player = get_player(i);
         set_creature_tendencies(player, tendancy, val);
-        if (is_my_player(player))
-        {
-            struct Dungeon* dungeon = get_players_dungeon(player);
-            kfx_sim_state.creatures_tend_imprison = ((dungeon->creature_tendencies & CrTend_Imprison) != 0);
-            kfx_sim_state.creatures_tend_flee = ((dungeon->creature_tendencies & CrTend_Flee) != 0);
-        }
     }
     return 0;
 }

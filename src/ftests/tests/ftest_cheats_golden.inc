@@ -116,8 +116,8 @@
     {"cheat:c:HeartHealth @HEART", 0xb612b4e743dee862ULL}, // 70 bytes;  "30000/30000"
     {"cheat:c:HeartHealth click @HEART", 0x91f6925955c40259ULL}, // 73 bytes;  "30000/30000"
     {"cheat:c:QueryAll", 0x78b6abb921862bd5ULL}, // 19 bytes; 
-    {"cheat:c:QueryAll click", 0x6002945ec07c774eULL}, // 28 bytes; 
-    {"cheat:c:CreatrInfoAll click", 0x786424b76cca56a1ULL}, // 27 bytes; 
+    {"cheat:c:QueryAll click", 0x310ba975c3c4b267ULL}, // 27 bytes; 
+    {"cheat:c:CreatrInfoAll click", 0xa65d64dd002cac2eULL}, // 26 bytes; 
     {"cheat:c:MkHappy click", 0x9ec83ee6478e1fb6ULL}, // 22 bytes; 
     {"cheat:c:MkAngry click", 0xa44141e6478e1fb6ULL}, // 22 bytes; 
     {"cheat:c:MkAngry click @40,40", 0x17fa363440405b6eULL}, // 21 bytes; 

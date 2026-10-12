@@ -191,6 +191,98 @@ patterns from the 2026-09 merge:
   `SET_CREATURE_CONFIGURATION` checks share helpers in
   `lvl_script_commands.c`; `move_ledger.py lookup` names them. Run
   `kfx_game_utest "[script_golden]"`.
+- **`SET_CREATURE_CONFIGURATION` / `SET_POWER_CONFIGURATION` cases**
+  (refactor pass 5, S06). Upstream's `_check` and `_process` branch on the
+  key's number (`creatvar == 34 // LAIROBJECT`, `case 6: // Artifact`); here
+  both commands are tables keyed by name in `lvl_script_cmd_config.c`, so
+  those branches have no counterpart. An upstream change becomes: for a
+  creature key, a row in `creature_configuration_checks` {block, key name,
+  check} only if its value isn't parsed like the rest of its block (the
+  block's `NULL` row), and a row in `creature_configuration_hooks` only if it
+  does more than assign its values to the creature file's `NamedField` rows
+  of that name; for a power key, a row in `power_configuration_checks` only
+  if its value isn't a plain number (the name-list keys take the list of
+  their `magic_powers_named_fields` row) and a row in
+  `power_configuration_hooks` only if it does more than assign to that row.
+  A new key also needs its row in the config file's `NamedField` table and
+  key list (the bullet on block parsers above). Upstream's power command
+  still has the bugs P5-F24..F26 fixed here (five keys set 0, unchecked
+  Power/Cost slots, unbounded Artifact/PlayerState/ParentPower numbers):
+  don't merge those parts back. Run the `script_creature_config_golden` and
+  `script_power_config_golden` ftests: a changed hash must be the upstream
+  change's intent.
+- **The script commands, split by family** (refactor pass 5, S09). Upstream's one
+  `lvl_script_commands.c` is here `lvl_script_commands.c` (the three command tables, `IF`/`ENDIF`, the helpers more
+  than one family uses) and `lvl_script_cmd_{config,creatures,parties,powers,map,messages,players}.c`. An upstream
+  change to a command's `_check`/`_process` goes to the file `python3 scripts/move_ledger.py upstream
+  src/lvl_script_commands.c` names for that function (the ledger's P5S09 rows); a new command goes to its family's
+  file (the command name decides: `SET_*_CONFIGURATION`/rules/new types -> config, `USE_POWER*`/`USE_SPECIAL*`/spells
+  -> powers, objectives/information/messages/on-screen timers -> messages, availability/money/computer
+  players/alliances/flags/timers/game end -> players, slabs/doors/traps/objects/effects/revealing/action points ->
+  map, parties and tunnellers -> parties, the rest of the creature commands -> creatures), its row in the table in
+  `lvl_script_commands.c`, and its functions declared in `lvl_script_commands_private.h`. Git's rename detection
+  doesn't follow such a split, so expect the conflicts in `lvl_script_commands.c` and move the hunks by hand. The
+  checks this fork folds into helpers (the `USE_POWER*` power and free arguments, the tunneller arguments, the
+  objective/information checks, the spells' level, the `SET_COMPUTER_*` checks) take an upstream fix in the helper.
+  Upstream still has P5-F35..F37 (a refused message text removing the command before it inside an IF, a spell level
+  over 10 becoming 9, `SET_COMPUTER_EVENT` refusing player ranges): don't merge those back. Run the legacy-script
+  golden and `kfx_game_utest "[script_golden]"`.
+- **Level-start clears** (refactor pass 5, S12). Each level here starts from a copy of `kfx_sim_state`,
+  `kfx_game_state` and the navigation mesh taken at the end of start-up (architecture.md §6.1a), so upstream's
+  piecemeal clears in `clear_game()` and friends are mostly redundant but harmless: merge them as written. An upstream
+  field that must *outlive* a level (set before the level starts, read after) has to be added to the keep list in
+  `sim_state_reset_for_level()` (`game_lifecycle.c`) or `game_state_reset_for_level()`, or it will be wiped. Run the
+  short list in one process (`daimonkeeper -ftests -exitonfailedtest -headless`) to check a level still starts like
+  a fresh process's.
+- **This machine's view of the game** (refactor pass 5, S05). Upstream's
+  `game.chosen_room_*`/`chosen_spell_*`/`manufactr_*`,
+  `hand_over_subtile_*`, `small_map_state`, `applied_lens_type`,
+  `active_panel_mnu_idx`, `comp_player_*` and `dungeon->visible_battles`
+  are kfx_render's `kfx_local_view.<field>` here (saved as its own chunk,
+  not resynced; `visible_battles` is one list, the local player's).
+  kfx_sim code can't include it: an upstream sim change that reads or
+  writes one goes through `RenderPort.local_view_*` (add an entry if
+  needed). `creatures_tend_imprison/_flee` are gone: drop upstream's writes
+  of them (the buttons read `dungeon->creature_tendencies`). The resync's
+  keep-list (`store/recall_localised_game_structure`, `struct Boing`) is
+  gone too: an upstream field added to it goes to `kfx_local_view` instead
+  (a layout change: `KFX_LOCAL_VIEW_VER`). The palette flags
+  `UsrAF_FreezePaletteIsActive`/`UsrAF_LightningPaletteIsActive` are
+  `kfx_render_state.palette_flags[user]` (`RPF_*`); `lightning_modify_palette()`
+  is kfx_render's (`vidfade.c`). `MFlg_EyeLensReady` is
+  `kfx_render_state.eye_lens_ready`.
+- **A spell effect's block in `set_thing_spell_flags_f` /
+  `clear_thing_spell_flags_f`** (refactor pass 5, S07). Upstream has one
+  `if (flag_is_set(…, CSAfF_X) …)` block per effect in each function; here
+  each effect is a row of `spell_effect_rows[]` (`thing_creature.c`) with
+  an apply and a remove function side by side, and the two functions are
+  loops. An upstream change inside one effect's set block goes into its
+  `spell_effect_apply_<what>()` (the "set the flag if it isn't" part is
+  `spell_effect_start()`), a change to its clear block into
+  `spell_effect_remove_<what>()`. A new `CSAfF_` effect is a new row, at the
+  position upstream's block has (the order is behaviour). Run the
+  `spell_effects_golden` ftest: a changed hash must be the upstream change's
+  intent; a new effect also needs nothing there (its flag is one of the
+  set/clear cases once `GOLDEN_FLAGS_COUNT` covers it).
+- **The computer-play goldens.** `computer_play_golden`, `computer_play_small_golden`
+  and `computer_arena_golden` hash whole games (8000 turns of computer keepers),
+  so almost any upstream change to the simulation, the computer player or
+  pathfinding changes some of their hashes. The first checkpoint that changes
+  says from when: a change in an early one, with nothing else changed, is
+  worth a closer look. Reprint the table (`KFX_FTEST_GOLDEN_PRINT=1`) only
+  once the other goldens explain the change. If two processes print different
+  hashes, something reads uninitialised memory (P5-F33): build a tree with
+  `-DCMAKE_C_FLAGS=-ftrivial-auto-var-init=pattern` (and `CXX`) and one with
+  `=zero`, compare their prints, and watch the bytes that differ (0xFE) with
+  gdb in the pattern build.
+- **The multiplayer pair, and the dig-tag handler.** `net_mp_game_host`/`_join`
+  (run together by `run_ftest_coverage.sh`) play a real two-process game; run
+  them after any upstream change to `kfx_net`, the packet handlers or the lobby
+  (they fail when the two machines' games go apart). Upstream's
+  `PckA_ApplyRoomspaceDigTag` shares `PckA_SetRoomspaceHighlight`'s case, whose
+  "width 1: leave click-and-drag mode" step this fork skips for the dig tag
+  (P5-F34, `global_apply_roomspace_dig_tag()` in `game_commands.c`): keep that
+  condition when merging changes to that case.
 - **Upstream debug logging.** Upstream still has the `keeperfx_hvlog` build and
   `#if (BFDEBUG_LEVEL > N)` blocks; this fork has one binary with a runtime
   `LOG_LEVEL` (refactor pass 2, S02). The `*DBG` macros keep their names and

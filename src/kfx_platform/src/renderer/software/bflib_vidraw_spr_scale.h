@@ -225,9 +225,11 @@ static KFX_FORCE_INLINE const unsigned char *spr_draw_row(TbPixel *out_end, int6
             TbPixel * out_line;
             if (right_to_left)
             {
+                // drawn leftwards: out_end is one past the leftmost pixel drawn (P5-F38: the copy started there,
+                // one pixel early, carrying the pixel left of the run down -- at the left edge the previous row's
+                // last one, at the top row memory before the framebuffer)
                 solid_len = out_start - out_end;
-                out_start = out_end;
-                solid_len++;
+                out_start = out_end + 1;
             }
             else
             {

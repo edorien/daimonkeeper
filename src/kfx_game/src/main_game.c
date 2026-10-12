@@ -494,8 +494,6 @@ static TbBool init_level(void)
     kfx_sim_state.armageddon_over_turn = 0;
     audio_clear_sound_messages();
     show_ignored_fxdata_zip_messages();
-    kfx_sim_state.creatures_tend_imprison = 0;
-    kfx_sim_state.creatures_tend_flee = 0;
     memset(kfx_config_state.pay_day_progress, 0, sizeof(kfx_config_state.pay_day_progress));
     kfx_sim_state.chosen_room_kind = 0;
     kfx_sim_state.chosen_room_spridx = 0;

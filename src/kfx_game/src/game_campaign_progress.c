@@ -39,6 +39,7 @@
 // struct LevelEnsignOverride: game_merge.h, already pulled in via
 // game_campaign_progress.h.
 #include "player_data.h"      // get_my_player
+#include "kfx_sim_state.h"    // get_loaded_level_number/set_continue_level_number
 #include "bflib_basics.h"
 #include "bflib_fileio.h"
 #include "bflib_dernc.h"      // LbFileLengthRnc/LbFileLoadAt
@@ -200,7 +201,7 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
             break;
         case 2: // NEXT_LEVEL
             if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
-                entry->intralvl.next_level = (char)atoi(word_buf);
+                entry->intralvl.next_level = (LevelNumber)atoi(word_buf);
             else
                 CONFWRNLOG("Couldn't recognize \"%s\" parameter in '%s' file.", COMMAND_TEXT(cmd_num), progress_cfg_filename);
             break;
@@ -343,6 +344,50 @@ void parse_progress_cfg_campaign_block(struct CampaignProgressEntry *entry, cons
 #undef COMMAND_TEXT
 }
 
+void parse_progress_cfg_buffer(const char *buf, int64_t len)
+{
+    // Every `[name]` block in the file, whether or not that campaign/mappack
+    // is in campaigns_list/mappacks_list/mp_mappacks_list right now: the
+    // file is rewritten whole on every save, so a block skipped here would
+    // be deleted from disk by the next save (e.g. a campaign whose mod is
+    // briefly uninstalled, or a pack list not loaded yet at this call site).
+    int64_t pos = 0;
+    while (pos < len)
+    {
+        if (!skip_conf_spaces(buf, &pos, len))
+            break;
+        if (buf[pos] != '[')
+        {
+            skip_conf_to_next_line(buf, &pos, len);
+            continue;
+        }
+        pos++;
+        int64_t name_start = pos;
+        while ((pos < len) && (buf[pos] != ']') && (buf[pos] != '\n') && (buf[pos] != '\r'))
+            pos++;
+        int64_t name_end = pos;
+        while ((name_end > name_start) && ((buf[name_end - 1] == ' ') || (buf[name_end - 1] == '\t')))
+            name_end--;
+        while ((name_start < name_end) && ((buf[name_start] == ' ') || (buf[name_start] == '\t')))
+            name_start++;
+        TbBool well_formed = (pos < len) && (buf[pos] == ']') && (name_end > name_start)
+                          && (name_end - name_start < CAMPAIGN_FNAME_LEN);
+        skip_conf_to_next_line(buf, &pos, len);
+        if (!well_formed)
+            continue;
+        char cmpgn_fname[CAMPAIGN_FNAME_LEN];
+        memcpy(cmpgn_fname, &buf[name_start], (size_t)(name_end - name_start));
+        cmpgn_fname[name_end - name_start] = '\0';
+        struct CampaignProgressEntry *entry = get_campaign_progress(cmpgn_fname, true);
+        if (entry == NULL)
+            continue;
+        // Parses up to the next `[` line (ccr_endOfBlock); the outer loop
+        // then picks that line up as the next block's header.
+        int64_t block_pos = pos;
+        parse_progress_cfg_campaign_block(entry, buf, len, block_pos);
+    }
+}
+
 TbBool load_campaign_progress_file(void)
 {
     campaign_progress_entries_num = 0;
@@ -363,33 +408,7 @@ TbBool load_campaign_progress_file(void)
     len = LbFileLoadAt(fname, buf);
     TbBool result = (len > 0);
     if (result)
-    {
-        // Three lists, identical reconcile steps each -- campaigns_list for
-        // singleplayer campaigns' unlocked_levels/intralvl, mappacks_list/
-        // mp_mappacks_list (Free Play/Skirmish, config_campaigns.h) for
-        // completed_levels (see struct CampaignProgressEntry's own comment).
-        // Harmless if a list isn't populated yet at this call site --
-        // items_num is just 0 -- callers that need pack completion state
-        // fresh regardless of load ordering reload via this same function
-        // (frontend_mappack_list_load(), frontmenu_select.c).
-        struct CampaignsList *lists[3] = { &campaigns_list, &mappacks_list, &mp_mappacks_list };
-        for (int64_t l = 0; l < 3; l++)
-        {
-            struct CampaignsList *clist = lists[l];
-            for (uint64_t i = 0; i < clist->items_num; i++)
-            {
-                struct GameCampaign *campgn = &clist->items[i];
-                int64_t pos = 0;
-                int64_t k = find_conf_block(buf, &pos, len, campgn->fname);
-                if (k < 0)
-                    continue; // no progress recorded for this campaign/pack yet
-                struct CampaignProgressEntry *entry = get_campaign_progress(campgn->fname, true);
-                if (entry == NULL)
-                    continue;
-                parse_progress_cfg_campaign_block(entry, buf, len, pos);
-            }
-        }
-    }
+        parse_progress_cfg_buffer(buf, len);
     KfxFree(buf);
     return result;
 }
@@ -493,6 +512,19 @@ TbBool save_campaign_progress_file(void)
     return ok;
 }
 
+/******************************************************************************/
+// True if `a` is further along the loaded campaign's singleplayer order than
+// `b`. SINGLEPLAYER_FINISHED is beyond every level; a level number the
+// campaign doesn't list (or SINGLEPLAYER_NOTSTARTED) is before every level.
+static TbBool level_is_further(LevelNumber a, LevelNumber b)
+{
+    if (b == SINGLEPLAYER_FINISHED)
+        return false;
+    if (a == SINGLEPLAYER_FINISHED)
+        return true;
+    return array_index_for_singleplayer_level(a) > array_index_for_singleplayer_level(b);
+}
+
 TbBool campaign_progress_record_level_completed(LevelNumber lvnum)
 {
     // SINGLEPLAYER_FINISHED (-1, config.h) is a real, meaningful value here
@@ -507,8 +539,15 @@ TbBool campaign_progress_record_level_completed(LevelNumber lvnum)
     struct CampaignProgressEntry *entry = get_campaign_progress(campaign.fname, true);
     if (entry == NULL)
         return false;
+    // The level just played was playable, so it stays unlocked -- without
+    // this a level won on the first attempt was never itself recorded
+    // (only its successor was), and dropped off Campaign Select.
+    LevelNumber played_lvnum = get_loaded_level_number();
+    if (array_index_for_singleplayer_level(played_lvnum) >= 0)
+        campaign_progress_unlock_level(entry, played_lvnum);
     if (lvnum != SINGLEPLAYER_FINISHED)
         campaign_progress_unlock_level(entry, lvnum);
+    const LevelNumber prev_next_level = entry->intralvl.next_level;
 
     // Called right after a level completes, with `campaign`/the global
     // `intralvl` both genuinely corresponding to this entry's own campaign
@@ -518,7 +557,10 @@ TbBool campaign_progress_record_level_completed(LevelNumber lvnum)
     // Overloaded meaning for progress.cfg's own purposes -- see this
     // struct's field comment (game_campaign_progress.h) -- not
     // intralvl's own (largely unused) next_level value just copied above.
-    entry->intralvl.next_level = (char)lvnum;
+    // Only ever forwards: replaying an earlier level (Campaign Select
+    // allows any unlocked one) or quitting/losing it must not pull the
+    // campaign's resume point back to that level.
+    entry->intralvl.next_level = level_is_further(lvnum, prev_next_level) ? lvnum : prev_next_level;
 
     // bonuses_found[]'s bit index is only meaningful relative to `campaign`
     // (storage_index_for_bonus_level(), config.h) -- valid right here,
@@ -539,6 +581,34 @@ TbBool campaign_progress_record_level_completed(LevelNumber lvnum)
     }
 
     return save_campaign_progress_file();
+}
+
+void campaign_progress_begin_level(LevelNumber lvnum)
+{
+    // Winning `lvnum` then advances from it (complete_level() /
+    // frontend_save_continue_game() only move the campaign on when the
+    // loaded level is the continue level). A bonus/extra level isn't in the
+    // singleplayer order, so it leaves the continue level as it is.
+    if (array_index_for_singleplayer_level(lvnum) >= 0)
+        set_continue_level_number(lvnum);
+    load_campaign_progress_file();
+    reconcile_fx1contn_into_progress();
+    struct CampaignProgressEntry *entry = get_campaign_progress(campaign.fname, false);
+    if (entry == NULL)
+        return; // nothing played yet -- the fresh state frontend_start_new_campaign() set up is right
+    // What the old fx1contn.sav load restored: transferred creatures,
+    // campaign flags, ensign overrides carried between levels.
+    memcpy(&intralvl, &entry->intralvl, sizeof(struct IntralevelData));
+    // progress.cfg reuses next_level as the campaign's resume point; in the
+    // live struct it means a pending SET_NEXT_LEVEL jump
+    // (next_singleplayer_level(), config.c), which nothing has asked for yet.
+    intralvl.next_level = 0;
+    // bonuses_found[] is rebuilt from the raw level numbers, now that
+    // `campaign` is this entry's campaign (struct CampaignProgressEntry's
+    // comment on bonus_available[]).
+    hide_all_bonus_levels(get_my_player());
+    for (uint64_t i = 0; i < entry->bonus_available_count; i++)
+        set_bonus_level_visibility(entry->bonus_available[i], true);
 }
 
 TbBool campaign_progress_record_pack_level_completed(LevelNumber lvnum)
@@ -597,7 +667,7 @@ void reconcile_fx1contn_into_progress(void)
     // IntralevelData's own next_level field -- it's repurposed here as
     // "the continue level" for progress.cfg's own purposes, so set it
     // explicitly from fx1contn.sav's separate continue_level_number instead.
-    entry->intralvl.next_level = (char)continue_lvnum;
+    entry->intralvl.next_level = continue_lvnum;
 
     // KNOWN LIMITATION: old_intralvl.bonuses_found[] just got copied above
     // along with everything else, but its bit index is only meaningful

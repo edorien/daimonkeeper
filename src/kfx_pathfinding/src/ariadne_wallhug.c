@@ -52,7 +52,7 @@ const uint8_t wallhug_xy_blocked_priorities[22] = { 2,0,0,1,0,2,1,0,0,2,0,6,1,0,
 /******************************************************************************/
 static TbBool wallhug_angle_with_collide_valid(struct Thing *thing, int64_t slab_flags, int64_t speed, int64_t angle, PlayerBitFlags crt_owner_flags)
 {
-    struct Coord3d pos;
+    struct Coord3d pos = thing->mappos; // z: its height until set (P5-F33)
     struct Coord3d thing_pos = thing->mappos;
     pos.x.val = thing_pos.x.val + distance_with_angle_to_coord_x(speed, angle);
     pos.y.val = thing_pos.y.val + distance_with_angle_to_coord_y(speed, angle);
@@ -308,7 +308,7 @@ int64_t get_hugging_blocked_flags(struct Thing *creatng, struct Coord3d *pos, in
 
 void set_hugging_pos_using_blocked_flags(struct Coord3d *dstpos, struct Thing *creatng, int64_t block_flags, int64_t nav_radius)
 {
-    struct Coord3d tmpos;
+    struct Coord3d tmpos = creatng->mappos; // z: its height until set (P5-F33)
     int64_t coord;
     struct Coord3d creatng_pos = creatng->mappos;
     tmpos.x.val = creatng_pos.x.val;
@@ -677,7 +677,7 @@ int64_t creature_cannot_move_directly_to_with_collide(struct Thing *creatng, str
 static TbBool thing_can_continue_direct_line_to(struct Thing *creatng, struct Coord3d *pos1, struct Coord3d *pos2, int64_t slab_flags, int64_t speed, PlayerBitFlags crt_owner_flags)
 {
     int64_t angle = get_angle_xy_to(pos1, pos2);
-    struct Coord3d direct_line_position;
+    struct Coord3d direct_line_position = creatng->mappos; // z: its height until set (P5-F33)
     direct_line_position.x.val = pos1->x.val;
     direct_line_position.y.val = pos1->y.val;
     direct_line_position.z.val = pos1->z.val;
@@ -691,7 +691,7 @@ static TbBool thing_can_continue_direct_line_to(struct Thing *creatng, struct Co
     if (coord > direct_line_position.x.val) {
         coord -= speed;
     }
-    struct Coord3d horizontal_step_position;
+    struct Coord3d horizontal_step_position = creatng->mappos; // z: its height until set (P5-F33)
     horizontal_step_position.x.val = coord;
     horizontal_step_position.y.val = pos1->y.val;
     horizontal_step_position.z.val = world_get_thing_height_at(creatng, &horizontal_step_position);
@@ -702,7 +702,7 @@ static TbBool thing_can_continue_direct_line_to(struct Thing *creatng, struct Co
     if (coord > direct_line_position.y.val) {
         coord -= speed;
     }
-    struct Coord3d vertical_step_position;
+    struct Coord3d vertical_step_position = creatng->mappos; // z: its height until set (P5-F33)
     vertical_step_position.y.val = coord;
     vertical_step_position.x.val = pos1->x.val;
     vertical_step_position.z.val = world_get_thing_height_at(creatng, &vertical_step_position);
@@ -725,8 +725,8 @@ static int64_t get_starting_angle_and_side_of_hug_sub2(
     PlayerBitFlags crt_owner_flags)
 {
 
-    struct Coord3d pos;
-    struct Coord3d next_position;
+    struct Coord3d pos = creatng->mappos; // z: its height until set (P5-F33)
+    struct Coord3d next_position = creatng->mappos; // z: its height until set (P5-F33)
     struct Coord3d saved_creature_position;
     struct Navigation temp_navi;
 
@@ -1013,7 +1013,7 @@ static int64_t get_starting_angle_and_side_of_hug_sub1(
     PlayerBitFlags crt_owner_flags)
 {
 
-    struct Coord3d adjusted_navigation_position;
+    struct Coord3d adjusted_navigation_position = creatng->mappos; // z: its height until set (P5-F33)
 
     int64_t hugging_blocked_flags = get_hugging_blocked_flags(creatng, pos, slab_flags, crt_owner_flags);
     MapCoordDelta nav_radius = thing_nav_sizexy(creatng) / 2;
@@ -1124,7 +1124,7 @@ static signed char get_starting_angle_and_side_of_hug(
     int64_t stored_move_angle;
     int64_t best_distance_squared;
     int64_t primary_pathfinding_cost;
-    struct Coord3d target_movement_position;
+    struct Coord3d target_movement_position = creatng->mappos; // z: its height until set (P5-F33)
     int64_t movement_angle_difference;
     char v44_2;
     int64_t accumulated_movement_distance;
@@ -1354,8 +1354,8 @@ finalize_pathfinding_cost:
 static TbBool check_forward_for_prospective_hugs(struct Thing *creatng, struct Coord3d *pos_a, int64_t angle, int64_t side, int64_t slab_flags, int64_t speed, PlayerBitFlags crt_owner_flags)
 {
     int64_t quadrant_angle;
-    struct Coord3d pos;
-    struct Coord3d next_pos;
+    struct Coord3d pos = creatng->mappos; // z: its height until set (P5-F33)
+    struct Coord3d next_pos = creatng->mappos; // z: its height until set (P5-F33)
     struct Coord3d stored_creature_pos;
 
     struct Navigation *navi = world_creature_get_navigation(creatng);
@@ -1698,7 +1698,7 @@ int64_t get_next_position_and_angle_required_to_tunnel_creature_to(struct Thing 
     MapSubtlCoord stl_y;
     SubtlCodedCoords stl_num;
     MapCoordDelta dist_to_next;
-    struct Coord3d tmpos;
+    struct Coord3d tmpos = creatng->mappos; // z: its height until set (P5-F33)
     int64_t nav_radius;
     int64_t angle;
     int64_t block_flags;

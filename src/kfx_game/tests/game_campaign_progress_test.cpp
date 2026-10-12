@@ -152,6 +152,49 @@ TEST_CASE_METHOD(ResetCampaignProgress, "parsing NEXT_LEVEL sets intralvl.next_l
     CHECK(entry->intralvl.next_level == 6);
 }
 
+TEST_CASE_METHOD(ResetCampaignProgress, "parsing NEXT_LEVEL keeps level numbers above 127", "[kfx_game][game_campaign_progress]") {
+    // Was stored through a (char) cast, wrapping 200 to -56.
+    struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
+    const char *buf = "NEXT_LEVEL = 200\n";
+    parse_progress_cfg_campaign_block(entry, buf, (int64_t)std::strlen(buf), 0);
+    CHECK(entry->intralvl.next_level == 200);
+}
+
+TEST_CASE_METHOD(ResetCampaignProgress, "parse_progress_cfg_buffer keeps every block, listed campaign or not", "[kfx_game][game_campaign_progress]") {
+    // campaigns_list/mappacks_list are empty here: before, only blocks of
+    // listed campaigns were loaded, and the next save deleted the rest.
+    const char *buf =
+        "[keeporig.cfg]\n"
+        "UNLOCKED_LEVELS = 1 2 3\n"
+        "NEXT_LEVEL = 3\n"
+        "\n"
+        "[  someskirmishpack.cfg ]\n"
+        "COMPLETED_LEVELS = 202 205\n"
+        "\n"
+        "[]\n"
+        "UNLOCKED_LEVELS = 9\n"
+        "[ancntkpr.cfg]\n"
+        "UNLOCKED_LEVELS = 150\n";
+    parse_progress_cfg_buffer(buf, (int64_t)std::strlen(buf));
+
+    const struct CampaignProgressEntry *orig = get_campaign_progress("keeporig.cfg", false);
+    REQUIRE(orig != nullptr);
+    CHECK(orig->unlocked_levels_count == 3);
+    CHECK(orig->intralvl.next_level == 3);
+
+    const struct CampaignProgressEntry *pack = get_campaign_progress("someskirmishpack.cfg", false);
+    REQUIRE(pack != nullptr);
+    CHECK(pack->unlocked_levels_count == 0);
+    CHECK(campaign_progress_has_completed_level(pack, 202));
+    CHECK(campaign_progress_has_completed_level(pack, 205));
+
+    const struct CampaignProgressEntry *anc = get_campaign_progress("ancntkpr.cfg", false);
+    REQUIRE(anc != nullptr);
+    CHECK(anc->unlocked_levels_count == 1);
+    CHECK(campaign_progress_has_unlocked_level(anc, 150));
+    CHECK(get_campaign_progress("", false) == nullptr); // the nameless block is skipped
+}
+
 TEST_CASE_METHOD(ResetCampaignProgress, "parsing BONUS_AVAILABLE records raw level numbers, not IntralevelData.bonuses_found", "[kfx_game][game_campaign_progress]") {
     struct CampaignProgressEntry *entry = make_entry("keeporig.cfg");
     const char *buf = "BONUS_AVAILABLE = 105\nBONUS_AVAILABLE = 106\n";
