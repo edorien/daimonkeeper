@@ -29,6 +29,10 @@
 #include "api_seat_view.h"
 #include "api_seat_diff.h"
 #include "api_seat_decision.h"
+#include "api_seat_combatstats.h"
+#include "api_seat_assist.h"
+#include "keeper_assist_packets.h"
+#include "keeper_assist_state.h"
 #include "api_log_tail.h"
 #include "bflib_basics.h"
 #include "external_seat.h"
@@ -389,6 +393,29 @@ static void api_err(const char *err, VALUE *ack_id)
     VALUE *val_err = value_dict_add(json_root, "error");
     value_init_string(val_err, (char *)err);
 
+    api_send_json(json_root, NULL);
+}
+
+/** An error about one rule of a set_assist request: the code, and which rule (by its index in the request). */
+static void api_err_rule(const char *err, int rule, VALUE *ack_id)
+{
+    if (!api.activeSocket)
+    {
+        return;
+    }
+    VALUE json_root_real;
+    VALUE *json_root = &json_root_real;
+    value_init_dict(json_root);
+    if (ack_id != NULL)
+    {
+        api_json_clone(value_dict_add(json_root, "ack"), ack_id);
+    }
+    value_init_bool(value_dict_add(json_root, "success"), false);
+    value_init_string(value_dict_add(json_root, "error"), (char *)err);
+    if (rule >= 0)
+    {
+        value_init_int32(value_dict_add(json_root, "rule"), rule);
+    }
     api_send_json(json_root, NULL);
 }
 
@@ -1411,12 +1438,23 @@ static void api_action_get_player_view(const struct ApiRequest *req)
     api_return_data(true, view_real, req->ack_id);
 }
 
-/** set_pause: Pauses or resumes the game for the seat's agent. */
+/** An agent may stop the game only when no human plays a keeper in it (extseat_human_playing): pausing a game a human
+ *  plays would hold them up. `force` (tests and tools) pauses anyway. */
+static TbBool api_pause_refused(const struct ApiRequest *req)
+{
+    VALUE *fv = value_dict_get(req->root, "force");
+    const TbBool force = ((value_type(fv) == VALUE_BOOL) && value_bool(fv)) || ((value_type(fv) == VALUE_INT32) && (value_int32(fv) != 0));
+    if (!force && extseat_human_playing()) { api_err("HUMAN_PLAYING", req->ack_id); return true; }
+    return false;
+}
+
+/** set_pause: Pauses or resumes the game for the seat's agent (pausing: only with no human playing, or `force`). */
 static void api_action_set_pause(const struct ApiRequest *req)
 {
     VALUE *pa = value_dict_get(req->root, "paused");
     if (value_type(pa) != VALUE_BOOL && value_type(pa) != VALUE_INT32) { api_err("MISSING_PAUSED", req->ack_id); return; }
     const TbBool want = (value_type(pa) == VALUE_BOOL) ? value_bool(pa) : (value_int32(pa) != 0);
+    if (want && api_pause_refused(req)) return;
     if (want) extseat_pause(); else extseat_resume();
     api_ok(req->ack_id);
 }
@@ -1469,6 +1507,7 @@ static void api_action_advance_turns(const struct ApiRequest *req)
     if (value_type(tv) != VALUE_INT32) { api_err("MISSING_TURNS", req->ack_id); return; }
     const int32_t turns = value_int32(tv);
     if ((turns < 1) || (turns > 100000)) { api_err("BAD_TURNS", req->ack_id); return; }
+    if (api_pause_refused(req)) return; // it pauses again when the turns are run
     extseat_advance(turns);
     api_ok(req->ack_id);
 }
@@ -1569,6 +1608,14 @@ static void api_action_submit_action(const struct ApiRequest *req)
     verb.release = ((value_type(rel) == VALUE_BOOL) && value_bool(rel)) || ((value_type(rel) == VALUE_INT32) && (value_int32(rel) != 0));
     VALUE *sac = value_dict_get(req->root, "sacrifice");
     verb.sacrifice = ((value_type(sac) == VALUE_BOOL) && value_bool(sac)) || ((value_type(sac) == VALUE_INT32) && (value_int32(sac) != 0));
+    VALUE *imp = value_dict_get(req->root, "imprison");
+    verb.imprison = ((value_type(imp) == VALUE_BOOL) && value_bool(imp)) || ((value_type(imp) == VALUE_INT32) && (value_int32(imp) != 0));
+    VALUE *tor = value_dict_get(req->root, "torture");
+    verb.torture = ((value_type(tor) == VALUE_BOOL) && value_bool(tor)) || ((value_type(tor) == VALUE_INT32) && (value_int32(tor) != 0));
+    VALUE *dis = value_dict_get(req->root, "dismiss");
+    verb.dismiss = ((value_type(dis) == VALUE_BOOL) && value_bool(dis)) || ((value_type(dis) == VALUE_INT32) && (value_int32(dis) != 0));
+    VALUE *ls = value_dict_get(req->root, "lose_spells");
+    verb.lose_spells = ((value_type(ls) == VALUE_BOOL) && value_bool(ls)) || ((value_type(ls) == VALUE_INT32) && (value_int32(ls) != 0));
     VALUE *ap = value_dict_get(req->root, "ally_player");
     if (value_type(ap) == VALUE_INT32) { verb.has_target_player = true; verb.target_player = value_int32(ap); }
     else if (value_type(ap) == VALUE_STRING) { verb.has_target_player = true; verb.target_player = get_id(player_desc, (char *)value_string(ap)); }
@@ -1609,6 +1656,7 @@ static void api_action_submit_action(const struct ApiRequest *req)
     memset(&info, 0, sizeof(info));
     const char *err = extseat_submit_verb_ex(req->seat_user, req->seat_id, &verb, queue, &info);
     if (err != NULL) { api_err(err, req->ack_id); return; }
+    api_seat_combatstats_note_order(req->seat_id);
     VALUE data_real; VALUE *data = &data_real;
     value_init_dict(data);
     // After the submit: this verb now counts as pending itself, so only its own rectangle is being judged.
@@ -1618,6 +1666,92 @@ static void api_action_submit_action(const struct ApiRequest *req)
     value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
     value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
     if (age >= 0) value_init_int32(value_dict_add(data, "age_turns"), (int32_t)age);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** set_assist: the combat assistant's rules and settings for this seat (docs/newFeatures/llm/02-rule-language.md). The whole
+ *  set is given; only what changed is sent to the game, as packets that go live together a few turns later. */
+static void api_action_set_assist(const struct ApiRequest *req)
+{
+    const struct KeeperAssistState *st = &kfx_sim_state.keeper_assist[req->seat_id];
+    struct ExtSeatVerb verb;
+    memset(&verb, 0, sizeof(verb));
+    verb.kind = ESV_SetAssist;
+    int bad_rule = -1;
+    const char *err = keeper_assist_parse_set(req->root, st->live, &st->globals, verb.assist_rules, &verb.assist_globals, &bad_rule);
+    if (err != NULL) { api_err_rule(err, bad_rule, req->ack_id); return; }
+    VALUE *dr = value_dict_get(req->root, "dry_run");
+    const TbBool dry_run = ((value_type(dr) == VALUE_BOOL) && value_bool(dr)) || ((value_type(dr) == VALUE_INT32) && (value_int32(dr) != 0));
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    // Against the rules live now (a set_assist still queued would change that; the game plans again when it starts).
+    struct KeeperAssistPacket pk[KEEPER_ASSIST_MAX_PACKETS];
+    const int np = keeper_assist_plan_packets(st, verb.assist_rules, &verb.assist_globals, pk);
+    int changed = 0;
+    for (int i = 0; i < np; i++) if (pk[i].action == PckA_AssistStageRule) changed++;
+    value_init_int32(value_dict_add(data, "steps"), np);
+    value_init_int32(value_dict_add(data, "rules_changed"), changed);
+    if (dry_run || (np == 0))
+    {
+        int64_t steps = 0;
+        err = (np == 0) ? NULL : extseat_check_verb(req->seat_user, req->seat_id, &verb, &steps);
+        if (err != NULL) { value_fini(data); api_err(err, req->ack_id); return; }
+        value_init_bool(value_dict_add(data, (np == 0) ? "unchanged" : "would_succeed"), true);
+        api_return_data(true, data_real, req->ack_id);
+        return;
+    }
+    VALUE *qv = value_dict_get(req->root, "queue");
+    const TbBool queue = (qv == NULL) || ((value_type(qv) == VALUE_BOOL) && value_bool(qv)) || ((value_type(qv) == VALUE_INT32) && (value_int32(qv) != 0));
+    struct ExtSeatSubmitInfo info;
+    memset(&info, 0, sizeof(info));
+    err = extseat_submit_verb_ex(req->seat_user, req->seat_id, &verb, queue, &info);
+    if (err != NULL) { value_fini(data); api_err(err, req->ack_id); return; }
+    api_seat_combatstats_note_order(req->seat_id);
+    value_init_int32(value_dict_add(data, "id"), (int32_t)info.id);
+    value_init_int32(value_dict_add(data, "queued_behind"), (int32_t)info.queued_behind);
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** get_assist_presets: the combat assistant's presets (fxdata/combat_assist_presets.toml) as written -- each one a
+ *  set_assist request -- with "error" (and "rule") on any the game would refuse. */
+static void api_action_get_assist_presets(const struct ApiRequest *req)
+{
+    VALUE presets;
+    keeper_assist_load_presets(NULL, &presets);
+    const VALUE *keys[64];
+    const size_t n = value_dict_keys_ordered(&presets, keys, sizeof(keys) / sizeof(keys[0]));
+    for (size_t i = 0; i < n; i++) {
+        const char *name = value_string(keys[i]);
+        struct KeeperAssistRule rules[KEEPER_ASSIST_RULES];
+        struct KeeperAssistGlobals globals;
+        int bad = -1;
+        const char *err = keeper_assist_preset_set(&presets, name, rules, &globals, &bad);
+        if (err != NULL) {
+            VALUE *p = value_dict_get(&presets, name);
+            if (value_type(p) == VALUE_DICT) {
+                value_init_string(value_dict_add(p, "error"), err);
+                if (bad >= 0) value_init_int32(value_dict_add(p, "rule"), bad);
+            }
+        }
+    }
+    VALUE data_real; VALUE *data = &data_real;
+    value_init_dict(data);
+    VALUE *dst = value_dict_add(data, "presets");
+    *dst = presets; // moved, not copied: `presets` is not used again
+    api_return_data(true, data_real, req->ack_id);
+}
+
+/** get_combat_stats: Fights, combat deaths, casts, upkeep, pay days and decision latency for one keeper played by a
+ *  person or an agent (docs/newFeatures/llm/03 P0). `player` is a number or a name (PLAYER0...). */
+static void api_action_get_combat_stats(const struct ApiRequest *req)
+{
+    VALUE *pv = value_dict_get(req->root, "player");
+    PlayerNumber plyr_idx = -1;
+    if (value_type(pv) == VALUE_INT32) plyr_idx = value_int32(pv);
+    else if (value_type(pv) == VALUE_STRING) plyr_idx = get_id(player_desc, (char *)value_string(pv));
+    else { api_err("MISSING_PLAYER", req->ack_id); return; }
+    VALUE data_real;
+    if (!api_seat_combatstats_build(&data_real, plyr_idx)) { api_err("NOT_TRACKED", req->ack_id); return; }
     api_return_data(true, data_real, req->ack_id);
 }
 
@@ -1800,6 +1934,7 @@ static const struct ApiAction api_actions[] = {
     {"set_decision_policy",   api_action_set_decision_policy,    ApiNeeds_LocalGame},
     {"set_game_speed",        api_action_set_game_speed,         ApiNeeds_LocalGame},
     {"get_log_tail",          api_action_get_log_tail,           ApiNeeds_LocalGame},
+    {"get_combat_stats",      api_action_get_combat_stats,       ApiNeeds_LocalGame},
     {"get_seats",             api_action_get_seats,              ApiNeeds_LocalGame},
     {"get_player_view",       api_action_get_player_view,        ApiNeeds_Seat},
     {"set_pause",             api_action_set_pause,              ApiNeeds_Seat},
@@ -1808,6 +1943,8 @@ static const struct ApiAction api_actions[] = {
     {"get_agent_memory",      api_action_get_agent_memory,       ApiNeeds_Seat},
     {"advance_turns",         api_action_advance_turns,          ApiNeeds_Seat},
     {"submit_action",         api_action_submit_action,          ApiNeeds_Seat},
+    {"set_assist",            api_action_set_assist,             ApiNeeds_Seat},
+    {"get_assist_presets",    api_action_get_assist_presets,     ApiNeeds_LocalGame},
     {"read_var",              api_action_read_var,               ApiNeeds_LocalGame},
     {"set_var",               api_action_set_var,                ApiNeeds_LocalGame},
     {"get_level_info",        api_action_get_level_info,         ApiNeeds_LocalGame},
@@ -2002,6 +2139,7 @@ void api_update_server()
     // Ends an agent's turn-advance and runs the stuck-pause watchdog; cheap, and needed even with no client.
     extseat_poll();
     api_seat_decision_tick();
+    api_seat_combatstats_tick();
 
     // Return if the TCP server is not listening
     if (api.serverSocket == KFX_INVALID_SOCKET)

@@ -17,6 +17,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "creature_jobs.h"
+#include "kfx_sim_test_fixtures.h"
 #include "creature_control.h"
 #include "thing_data.h"
 #include "player_data.h"
@@ -187,4 +188,58 @@ TEST_CASE_METHOD(ResetState, "creature_can_do_barracking_for_player requires mor
 
     get_dungeon(0)->num_active_creatrs = 2;
     CHECK(creature_can_do_barracking_for_player(creatng, 0, kTestJob));
+}
+
+// predict_hand_drop_job: the job a hand drop would give a creature on landing, decided before the drop -- what an
+// External seat checks so that a drop on its portal (EXEMPT: the creature leaves) or an own creature's drop in its
+// prison (CAPTIVITY) is never an accident. A portal-like room (RoRoF_CrPoolLeave) at slab (1,1), owned by player 0,
+// with a job for it that, like the stock EXEMPT, takes owned creatures dropped by a human hand anywhere in the room.
+namespace {
+constexpr CreatureJob kLeaveJob = Job_EXEMPT;
+struct DropFixture : kfx_test::ResetSimAndConfig {
+    struct Thing *creatng;
+    struct Room *portal;
+    DropFixture() {
+        creatng = kfx_test::make_creature(1, 1, 0);
+        creatng->model = 3; // a regular creature, not a digger
+        creatng->mappos.x.val = subtile_coord_center(7); // standing outside the room, at slab (2,2)
+        creatng->mappos.y.val = subtile_coord_center(7);
+        portal = kfx_test::make_room_at_slab(1, 1, 1, RoK_ENTRANCE, 0);
+        kfx_test::configure_room_role(RoK_ENTRANCE, RoRoF_CrPoolLeave);
+        kfx_test::configure_job(kLeaveJob, RoRoF_CrPoolLeave, JoKF_OwnedCreatures | JoKF_EnemyCreatures | JoKF_AssignHumanDrop
+            | JoKF_AssignAreaWithinRoom | JoKF_AssignOnAreaBorder | JoKF_AssignOnAreaCenter | JoKF_AssignOneTime);
+        kfx_config_state.conf.crtr_conf.jobs[16].func_cord_check_idx = 1; // can_do_job_always
+    }
+};
+}
+
+TEST_CASE_METHOD(DropFixture, "predict_hand_drop_job gives the room's job at the drop spot, not where the creature stands", "[kfx_sim][creature_jobs]") {
+    CHECK(predict_hand_drop_job(creatng, 0, 4, 4) == kLeaveJob);
+    CHECK(predict_hand_drop_job(creatng, 0, 3, 5) == kLeaveJob); // a border subtile of the same slab
+    // get_job_for_subtile asks about the room the creature is standing in (none, at slab (2,2)): the reason for the
+    // separate prediction.
+    CHECK(get_job_for_subtile(creatng, 4, 4, JoKF_AssignHumanDrop) == Job_NULL);
+    CHECK(predict_hand_drop_job(creatng, 0, 7, 7) == Job_NULL); // outside any room
+}
+
+TEST_CASE_METHOD(DropFixture, "predict_hand_drop_job: nothing in a room another player owns, as creature_being_dropped", "[kfx_sim][creature_jobs]") {
+    portal->owner = 1;
+    get_slabmap_block(1, 1)->owner = 1;
+    CHECK(predict_hand_drop_job(creatng, 0, 4, 4) == Job_NULL);
+}
+
+TEST_CASE_METHOD(DropFixture, "predict_hand_drop_job honours the job's assign flags and checks", "[kfx_sim][creature_jobs]") {
+    kfx_config_state.conf.crtr_conf.jobs[16].job_flags &= ~JoKF_AssignHumanDrop; // only a computer's drop assigns it
+    CHECK(predict_hand_drop_job(creatng, 0, 4, 4) == Job_NULL);
+    kfx_config_state.conf.crtr_conf.jobs[16].job_flags |= JoKF_AssignHumanDrop;
+    creatng->model = CREATURE_DIGGER; // the job takes no owned diggers: an imp is not dismissed
+    CHECK(predict_hand_drop_job(creatng, 0, 4, 4) == Job_NULL);
+    creatng->model = 3;
+    kfx_config_state.conf.crtr_conf.jobs[16].func_cord_check_idx = 0; // no coords check: the job cannot start
+    CHECK(predict_hand_drop_job(creatng, 0, 4, 4) == Job_NULL);
+}
+
+TEST_CASE_METHOD(DropFixture, "predict_hand_drop_job is Job_NULL for anything but a creature", "[kfx_sim][creature_jobs]") {
+    creatng->class_id = TCls_Object;
+    CHECK(predict_hand_drop_job(creatng, 0, 4, 4) == Job_NULL);
 }

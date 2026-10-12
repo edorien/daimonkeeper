@@ -17,6 +17,7 @@
 #include "globals.h"
 #include "bflib_netsp.h"
 #include "packet_data.h"
+#include "keeper_assist_rules.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,6 +80,9 @@ enum ExtSeatVerbKind {
     ESV_PowerOff,        /**< end a lasting power early: POWER_CALL_TO_ARMS, POWER_SIGHT, POWER_OBEY */
     ESV_UseSpecial,      /**< use a dungeon special box (thing_id); resurrect needs `name` + `level`, transfer `target_thing` */
     ESV_SendMessage,     /**< a short chat message to every player (`message`) */
+    ESV_SetAssist,       /**< replace the combat assistant's rules and globals (`assist_rules`, `assist_globals`):
+                          *   only what changed is sent, as packets that go live together (keeper_assist_packets.h) */
+    ESV_AssistEnable,    /**< switch the combat assistant on or off (`enabled`) without touching its rules */
 };
 
 /** A verb as the agent expressed it, already parsed out of JSON. Positions are subtile coordinates. */
@@ -110,6 +114,12 @@ struct ExtSeatVerb {
     char message[64];       /**< send_message: the text (PLAYER_MP_MESSAGE_LEN) */
     TbBool release;         /**< hand drops: dropping a prisoner outside your prison/torture chamber frees it; say so */
     TbBool sacrifice;       /**< hand drops: onto a temple pool (sacrificing the creature); refused otherwise */
+    TbBool imprison;        /**< hand drops: yes, put this creature of the seat's own in its prison (it is jailed) */
+    TbBool torture;         /**< hand drops: yes, put this creature of the seat's own on its torture chamber's rack */
+    TbBool dismiss;         /**< hand drops: yes, drop this creature on the seat's portal (it leaves the dungeon for good) */
+    TbBool lose_spells;     /**< sell: yes, sell library slabs whose spellbooks have nowhere else to go (the spells are lost) */
+    struct KeeperAssistRule assist_rules[KEEPER_ASSIST_RULES]; /**< set_assist: the whole wanted set, slot = index */
+    struct KeeperAssistGlobals assist_globals;                 /**< set_assist */
 };
 
 /** What became of a submitted verb: it finished writing its steps, or was refused when its turn came. */
@@ -233,6 +243,14 @@ TbBool extseat_agent_owns_pause(void);
 TbBool extseat_advancing(void);
 /** Any seat command counts as the agent being alive. */
 void extseat_note_activity(void);
+/** Whether a human plays a keeper in this game: any keeper still in the game that is neither an External seat nor run
+ *  by the built-in AI (a spectating human's keeper is), or any network game. An agent may pause only when none does. */
+TbBool extseat_human_playing(void);
+/** Level start (startup_network_game_tail, after the pending seats are claimed) and a loaded save (load_game, once
+ *  the seats are restored): a local game whose keepers are all External seats or built-in AI starts paused, the pause
+ *  the agent's, so it can look the level over -- or the save it was handed, with the memory saved with it -- before
+ *  anything moves. Not in a replay. Returns whether it paused. */
+TbBool extseat_pause_for_agent_start(void);
 /** The agent's connection went away: resume if the agent was holding the pause. */
 void extseat_on_client_lost(void);
 void extseat_set_watchdog_ms(int64_t ms);

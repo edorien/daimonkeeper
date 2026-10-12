@@ -18,6 +18,12 @@ for f in "$DATA"/*; do
     case "$(basename "$f")" in keeperfx.cfg|keeperfx.log|keeperfx|daimonkeeper.cfg|daimonkeeper.log|daimonkeeper) ;; *) ln -s "$f" "$RUN/" ;; esac
 done
 cp "$BIN" "$RUN/daimonkeeper"
+# fxdata files this tree added that the data dir predates (the combat assistant's presets): overlay them.
+if [ ! -e "$DATA/fxdata/combat_assist_presets.toml" ] && [ -L "$RUN/fxdata" ]; then
+    rm "$RUN/fxdata"; mkdir "$RUN/fxdata"
+    for f in "$DATA"/fxdata/*; do ln -s "$f" "$RUN/fxdata/"; done
+    ln -s "$ROOT/config/fxdata/combat_assist_presets.toml" "$RUN/fxdata/"
+fi
 CFG_SRC="$DATA/daimonkeeper.cfg"; [ -f "$CFG_SRC" ] || CFG_SRC="$DATA/keeperfx.cfg"   # a KeeperFX data dir has only the latter
 sed -e 's/^API_ENABLED=.*/API_ENABLED=TRUE/' -e '/^API_PORT=/d' "$CFG_SRC" > "$RUN/daimonkeeper.cfg"
 echo "API_PORT=$PORT" >> "$RUN/daimonkeeper.cfg"

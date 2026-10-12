@@ -24,6 +24,7 @@ TbClockMSec (*saved_clock)(void) = nullptr;
 struct DriverFixture {
     DriverFixture() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+        local_system_flags = 0; // out of kfx_sim_state since 1ec821fa4, so the memset no longer clears it
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         std::memset(sim_packets, 0, sizeof(sim_packets));
         kfx_config_state.neutral_player_num = PLAYER_NEUTRAL;
@@ -593,4 +594,47 @@ TEST_CASE_METHOD(DriverFixture, "set_alliance validates a target and enabled, ho
     extseat_tick();
     CHECK(sim_packets[1].action == PckA_PlyrToggleAlly);
     CHECK(sim_packets[1].actn_par1 == 0);
+}
+
+// Agent-only games (no human plays a keeper): the agent may pause, the level starts paused for it, and the watchdog
+// leaves its pause alone -- it is there to keep a stalled agent from holding a human up.
+TEST_CASE_METHOD(DriverFixture, "a human plays while the local keeper is neither a seat nor the built-in AI's, and is still in", "[kfx_net][extseat][agent_only]") {
+    CHECK(extseat_human_playing());
+    set_flag(kfx_sim_state.players[0].allocflags, PlaF_CompCtrl); // the human spectates: the built-in AI plays the keeper
+    CHECK_FALSE(extseat_human_playing());
+    clear_flag(kfx_sim_state.players[0].allocflags, PlaF_CompCtrl);
+    kfx_sim_state.players[0].victory_state = VicS_LostLevel;       // out of the game
+    CHECK_FALSE(extseat_human_playing());
+    kfx_sim_state.players[0].victory_state = VicS_Undecided;
+    kfx_sim_state.game_kind = GKind_MultiGame;                      // a network game always has humans elsewhere
+    CHECK(extseat_human_playing());
+}
+
+TEST_CASE_METHOD(DriverFixture, "a level with External seats and no human keeper starts paused for the agent", "[kfx_net][extseat][agent_only]") {
+    kfx_sim_state.players[2].allocflags |= PlaF_Allocated;
+    CHECK_FALSE(extseat_pause_for_agent_start());                   // the human plays: no pause
+    CHECK_FALSE(paused());
+    set_flag(kfx_sim_state.players[0].allocflags, PlaF_CompCtrl);
+    replay.load_enable = true;                                      // a replay: no agent to wait for
+    CHECK_FALSE(extseat_pause_for_agent_start());
+    CHECK_FALSE(paused());
+    replay.load_enable = false;
+    CHECK(extseat_pause_for_agent_start());
+    CHECK(paused());
+    CHECK(extseat_agent_owns_pause());
+    clear_flag(kfx_sim_state.players[2].allocflags, PlaF_ExternalSeat); // no seat at all: nobody to wait for
+    clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
+    CHECK_FALSE(extseat_pause_for_agent_start());
+    CHECK_FALSE(paused());
+}
+
+TEST_CASE_METHOD(DriverFixture, "with no human playing the watchdog never takes the agent's pause away", "[kfx_net][extseat][agent_only]") {
+    set_flag(kfx_sim_state.players[0].allocflags, PlaF_CompCtrl);
+    extseat_pause();
+    g_clock += 100 * EXTSEAT_DEFAULT_WATCHDOG_MS;
+    extseat_poll();
+    CHECK(paused());
+    CHECK(extseat_agent_owns_pause());
+    extseat_resume();
+    CHECK_FALSE(paused());
 }

@@ -20,6 +20,7 @@
 #include "map_events.h"
 #include "player_data.h"
 #include "thing_list.h"
+#include "keeper_assist_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -67,7 +68,7 @@ struct SeatDecision {
     int64_t latest_turn;
     char latest[MAX_REASONS][REASON_LEN];
     int latest_count;
-    unsigned char last_victory;  /**< victory_state at the last look: a change is urgent (victory / defeat) */
+    unsigned char last_victory;  /**< victory_state at the last look: a change is urgent (victory / defeat; an alarm is too) */
     TbBool urgent;               /**< a pending reason that must not wait out the minimum interval */
     /** The level's objectives as they appeared, oldest first. The sim keeps only the latest
      *  (evntbox_text_objective), so one replaced while the agent was busy would otherwise be lost. */
@@ -83,6 +84,9 @@ struct SeatDecision {
     /** Unseen open ground the seat's own walls face (api_seat_open_behind_walls), as last seen: a new one is news. */
     int64_t open_xy[2 * OPEN_TRACKED];
     int64_t open_count;
+    /** The combat assistant, as last seen: each rule's refusal, and how many of its actions were logged. */
+    uint8_t assist_refusal[KEEPER_ASSIST_RULES];
+    uint64_t assist_log_seen;
 };
 
 static struct SeatDecision s_seat[PLAYERS_COUNT];
@@ -114,6 +118,7 @@ static const char *event_reason(unsigned char kind)
     case EvKind_Information:
     case EvKind_QuickInformation: return "information";
     case EvKind_DnSpecialFound: return "special_found";
+    case EvKind_AlarmTriggered: return "alarm";
     default: return NULL;
     }
 }
@@ -123,6 +128,29 @@ static int64_t quarter_of(PlayerNumber p)
     const int64_t gap = (int64_t)kfx_config_state.conf.rules[p].gameplay.pay_day_gap;
     const int64_t progress = (int64_t)kfx_config_state.pay_day_progress[p];
     return (gap > 0) ? (4 * progress / gap) % 4 : 0;
+}
+
+/** The combat assistant hit one of its limits since the last look: a rule's budget is spent, a cast was held back only by
+ *  the reserve, or the gold guard switched a power off. The agent should look at its standing orders. */
+static void note_assist(PlayerNumber p, struct SeatDecision *d, TbBool baseline)
+{
+    const struct KeeperAssistState *ka = &kfx_sim_state.keeper_assist[p];
+    for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+        const uint8_t now = ka->live[s].used ? ka->run[s].last_refusal : KAR_None;
+        if (!baseline && (now != d->assist_refusal[s])) {
+            if (now == KAR_Budget) add_pending(d, "assist_budget");
+            else if (now == KAR_Reserve) add_pending(d, "assist_reserve");
+        }
+        d->assist_refusal[s] = now;
+    }
+    if (!baseline) {
+        const uint64_t from = (ka->log_total > d->assist_log_seen + KEEPER_ASSIST_LOG) ? ka->log_total - KEEPER_ASSIST_LOG : d->assist_log_seen;
+        for (uint64_t i = from; i < ka->log_total; i++) {
+            const struct KeeperAssistCast *c = &ka->log[i % KEEPER_ASSIST_LOG];
+            if ((c->target == 0) && ((c->power == PwrK_CALL2ARMS) || (c->power == PwrK_OBEY))) add_pending(d, "assist_gold_guard");
+        }
+    }
+    d->assist_log_seen = ka->log_total;
 }
 
 static void owned_kinds(PlayerNumber p, TbBool *out)
@@ -342,6 +370,7 @@ static void tick_seat(PlayerNumber p)
         note_custody(p, d, true);
         note_sacrifices(p, d, true, now);
         note_open_behind_walls(p, d, true);
+        note_assist(p, d, true);
         d->chat_seen = extseat_chat_total();
         memcpy(d->kind_owned, kinds, sizeof(kinds));
         for (int i = 0; i < EVENTS_COUNT; i++) {
@@ -365,6 +394,10 @@ static void tick_seat(PlayerNumber p)
         if (exists && (!d->event_seen[i] || (d->event_kind[i] != ev->kind))) {
             const char *why = event_reason(ev->kind);
             if (why != NULL) add_pending(d, why);
+            // An alarm trap going off is the early warning a human hears and sees at once (sound, flashing event icon):
+            // it does not wait out the minimum interval. The engine already spaces alarm events (turns_between_events),
+            // so it cannot become a stream.
+            if (ev->kind == EvKind_AlarmTriggered) d->urgent = true;
         }
         d->event_seen[i] = exists;
         d->event_kind[i] = ev->kind;
@@ -373,6 +406,7 @@ static void tick_seat(PlayerNumber p)
     note_custody(p, d, false);
     note_sacrifices(p, d, false, now);
     note_open_behind_walls(p, d, false);
+    note_assist(p, d, false);
     {
         // Another player said something (the seat's own messages are not news to it).
         const int64_t total = extseat_chat_total();
@@ -415,6 +449,22 @@ void api_seat_decision_tick(void)
         }
         tick_seat(p);
     }
+}
+
+TbBool api_seat_decision_latest(PlayerNumber plyr_idx, int64_t *seq, int64_t *turn, TbBool *combat)
+{
+    if ((plyr_idx < 0) || (plyr_idx >= PLAYERS_COUNT) || !s_seat[plyr_idx].initialised) return false;
+    const struct SeatDecision *d = &s_seat[plyr_idx];
+    *seq = d->seq;
+    *turn = d->latest_turn;
+    *combat = false;
+    static const char *const fight_reasons[] = { "enemy_fight", "heart_attacked", "room_under_attack", "breach" };
+    for (int i = 0; i < d->latest_count; i++) {
+        for (size_t k = 0; k < sizeof(fight_reasons) / sizeof(fight_reasons[0]); k++) {
+            if (strcmp(d->latest[i], fight_reasons[k]) == 0) *combat = true;
+        }
+    }
+    return true;
 }
 
 void api_seat_decision_add_to_view(VALUE *seat, PlayerNumber plyr_idx)

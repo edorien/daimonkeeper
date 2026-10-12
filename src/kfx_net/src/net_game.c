@@ -26,6 +26,7 @@
 #include "bflib_coroutine.h"
 #include "bflib_datetm.h"
 #include "bflib_enet.h"
+#include "bflib_inputctrl.h"
 #include "net_exchange_common.h"
 #include "net_holepunch.h"
 #include "net_lobby.h"
@@ -254,6 +255,9 @@ NetUserId net_add_external_seat(PlayerNumber plyr_idx)
     snprintf(player->player_name, sizeof(player->player_name), "External %d", (int)user);
     net_local_external_player[user] = plyr_idx;
     SYNCLOG("External seat: user %" PRId64 " -> player %" PRId64, (int64_t)user, (int64_t)plyr_idx);
+    if (plyr_idx == my_player_number) {
+        LbGrabMouseCheck(MG_OnFocusGained); // the human now only watches: free the cursor (focus_is_local_seat_external)
+    }
     return user;
 }
 
@@ -296,6 +300,7 @@ TbBool net_release_external_seat(PlayerNumber plyr_idx)
         // keeper, which is backwards for the human's own seat, and (like player_enter_spectator_mode's own
         // comment on the same hazard) unsafe to call on a live, already-explored dungeon regardless.
         SYNCLOG("External seat released: player %" PRId64 " is human-controlled again", (int64_t)plyr_idx);
+        LbGrabMouseCheck(MG_OnFocusGained); // back to the human's own cursor-grab setting
         return true;
     }
     if (!script_support_setup_player_as_computer_keeper(plyr_idx, net_local_external_prev_model[user])) {

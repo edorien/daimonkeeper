@@ -8,9 +8,11 @@ cannot silently drift apart.
 """
 import time
 
+import combat_report
 import experience
 import memory as memory_mod
 import prompt
+import standing_orders
 from api import Api, SESSION_EVENTS
 from bridge import find_seat
 from orders import submit_batch
@@ -38,9 +40,11 @@ class Session:
         self.client_name = None      # the MCP client's own name (initialize clientInfo), for the game record
         self.store = None            # experience.Experience: game records and lessons across games
         self.recorder = None
+        self.last_combat = None      # the game's latest get_combat_stats for the seat, kept on the record at the end
 
     def connect(self, host="127.0.0.1", port=5599, claim=None, min_interval_turns=100,
-                max_age_turns=1500, connect_timeout=60.0, takeover=False, experience_path=None, agent=None):
+                max_age_turns=1500, connect_timeout=60.0, takeover=False, experience_path=None, agent=None,
+                start_paused=True):
         if self.connected:
             raise SessionError("already connected; call disconnect first")
         api = Api(host, port)
@@ -68,8 +72,15 @@ class Session:
         self.game_over = None
         self.last_save_turn = None
         self._note = None
+        self.last_combat = None
         self.state.update(self.api, self.seat)
         v = self.state.view
+        # No human plays a keeper: the game is the agent's to pause. A level that started with the seat is already
+        # paused for it; one it has just claimed is paused now, so it can look the level over before anything moves.
+        if v.get("agent_only") and start_paused and not v.get("paused"):
+            self.api.data(action="set_pause", player=self.seat, paused=True)
+            self.state.update(self.api, self.seat)
+            v = self.state.view
         # The game keeps the agent's memory (and saves it): a seat that already has one is a game being resumed.
         self.memory, resumed = memory_mod.attach(self.api, self.seat, v)
         self.pending_reasons = ["restart"] if resumed else ["start"]
@@ -88,9 +99,12 @@ class Session:
                 self.api.data(action="set_player_name", player=self.seat, name=agent[:19])
             except Exception:  # noqa: BLE001 - an older game without the action: play on unnamed
                 pass
+        held = v.get("paused") and v.get("agent_pause")
         return ("connected: player %d, turn %d, gold %s, victory %s. Call wait_for_decision next; it returns when a "
-                "decision is due (each quarter of a pay day, or a major event) and gives the full state to decide from."
-                % (self.seat, v["turn"], v["own"]["gold"], v["seat"]["victory_state"]))
+                "decision is due (each quarter of a pay day, or a major event) and gives the full state to decide from.%s"
+                % (self.seat, v["turn"], v["own"]["gold"], v["seat"]["victory_state"],
+                   " The game is PAUSED for you (no human plays a keeper): look the level over, send your first orders, then "
+                   "set_pause(paused=false) to start it." if held else ""))
 
     def _require_connected(self, allow_over=False):
         if not self.connected:
@@ -111,11 +125,13 @@ class Session:
         except Exception:   # the level (and with it the seat) may already be gone
             result["state"] = "The level has ended (%s). No more orders can be given." % why
         # The game's record: won and lost close it; leaving the level undecided is a quit, or a pause if just saved.
+        self._refresh_combat()   # the level may be gone; then the last decision's statistics stand
         if why in ("won", "lost"):
-            self.recorder.ended(self.memory, last_view or {}, why)
+            self.recorder.ended(self.memory, last_view or {}, why, combat=self.last_combat)
             result["record"], wanted = why, True
         else:
-            result["record"], wanted = self.recorder.left(self.memory, last_view, self.last_save_turn)
+            result["record"], wanted = self.recorder.left(self.memory, last_view, self.last_save_turn,
+                                                          combat=self.last_combat)
         if wanted and self.store is not None and self.store.enabled:
             text = experience.debrief_text(self.store, self.memory, result["record"], experience.final_from_view(last_view),
                                            self.recorder.opponents)
@@ -143,8 +159,11 @@ class Session:
             self.state.update(self.api, self.seat)
             self.memory.note_results(self.state.view["seat"].get("results", []))
             self.recorder.decision(self.memory, self.state.view)
+            self._refresh_combat()
             return {"due": True, "reasons": self.pending_reasons, "turn": self.state.view["turn"], "state": self._render()}
-        events = self._collect_events(timeout_seconds)
+        # While the agent holds the pause nothing happens in the game, so nothing would come: answer at once.
+        held = self._holding_pause()
+        events = self._collect_events(0 if held else timeout_seconds)
         if any(ev.get("event") == "GAME_ENDED" for ev in events):
             last = (self.state.view or {}).get("seat", {}).get("victory_state", "undecided")
             return self._over(last if last in ("won", "lost") else "ended", ["game_ended"])
@@ -165,13 +184,40 @@ class Session:
         if vic in ("won", "lost"):
             return self._over(vic, reasons or (["victory"] if vic == "won" else ["defeat"]))
         if reasons is None:
+            if held:
+                return {"due": False, "paused": True, "turn": self.state.view["turn"],
+                        "note": "The game is paused and you hold the pause: nothing moves and no decision comes until "
+                                "set_pause(paused=false) (or set_pause(paused=false, turns=N) to run N turns and pause again)."}
             if not treat_timeout_as_decision:
                 return {"due": False, "turn": self.state.view["turn"]}
             reasons = ["timer"]
         self.pending_reasons = reasons
         self.memory.note_results(self.state.view["seat"].get("results", []))
         self.recorder.decision(self.memory, self.state.view)
+        self._refresh_combat()
         return {"due": True, "reasons": reasons, "turn": self.state.view["turn"], "state": self._render()}
+
+    def _holding_pause(self):
+        """Whether the game is paused by this agent and not running an advance (a fresh view)."""
+        self.state.update(self.api, self.seat)
+        v = self.state.view
+        return bool(v.get("paused") and v.get("agent_pause") and not v.get("advancing"))
+
+    def set_pause(self, paused, turns=None):
+        """Pauses or resumes the game -- only in a game no human plays a keeper in (the engine refuses HUMAN_PLAYING
+        otherwise). With paused=False and `turns`, runs that many turns and pauses again."""
+        self._require_connected()
+        self.state.update(self.api, self.seat)
+        if paused or turns:
+            if not self.state.view.get("agent_only"):
+                raise SessionError("a human plays a keeper in this game, so you cannot pause it; set_game_speed slows it "
+                                   "down for everyone instead")
+        if turns:
+            self.api.data(action="advance_turns", player=self.seat, turns=int(turns))
+            return "running %d turn(s) from turn %d, then paused again" % (int(turns), self.state.view["turn"])
+        self.api.data(action="set_pause", player=self.seat, paused=bool(paused))
+        return ("paused at turn %d: nothing moves (orders you send wait) until set_pause(paused=false)" if paused
+                else "running from turn %d") % self.state.view["turn"]
 
     def _collect_events(self, timeout_seconds):
         """The session events that are here, or else the first to arrive within the timeout. A save alone is noted, not
@@ -215,8 +261,9 @@ class Session:
 
     def look(self, slab_rect):
         self._require_connected()
-        if self.state.view is None:
-            self.state.update(self.api, self.seat)
+        # Always a fresh view: the cached one is the last decision's, so a room built or a slab dug since then would not
+        # show (a bridge just built still read as lava).
+        self.state.update(self.api, self.seat)
         return prompt.render_window(self.state.view, slab_rect)
 
     def _render(self):
@@ -260,6 +307,80 @@ class Session:
         self._require_connected()
         data = self.api.data(action="set_game_speed", turns_per_second=turns_per_second)
         return "turns_per_second is now %s" % data["turns_per_second"]
+
+    # ---- the combat assistant: standing orders for fights (docs/newFeatures/llm/) -----------------------------------
+    def set_combat_rules(self, rules=None, dry_run=False, **settings):
+        """Replaces the standing orders (`rules`, in priority order, each with an optional "name"; left out = keep them)
+        and/or the settings (enabled, reserve, interval, min_gap, max_spend, charge_time). Only what changed is sent;
+        it goes live a few turns later, all together. Errors come back as data naming the rule at fault."""
+        self._require_connected()
+        try:
+            req, names = standing_orders.prepare(rules, settings)
+        except standing_orders.RulesError as e:
+            return {"error": e.code, "rule": e.rule, "name": e.name}
+        r = self.api.call(action="set_assist", player=self.seat, dry_run=bool(dry_run), **req)
+        if not r.get("success"):
+            out = {"error": r.get("error")}
+            if r.get("rule") is not None:
+                out["rule"] = r["rule"]
+                if r["rule"] < len(names):
+                    out["name"] = names[r["rule"]]
+            return out
+        data = r["data"]
+        if not dry_run and rules is not None:
+            self.memory.rule_names = names
+            self.memory.flush()
+        out = {"rules_changed": data.get("rules_changed", 0), "packets": data.get("steps", 0)}
+        if data.get("unchanged"):
+            out["unchanged"] = True
+        elif dry_run:
+            out["would_succeed"] = True
+        else:
+            out["live_in_turns"] = data.get("steps", 0) + 1 + 2 * data.get("queued_behind", 0)
+        return out
+
+    def check_combat_rules(self, rules=None, **settings):
+        """set_combat_rules as a dry run: checked exactly as the game would, nothing sent."""
+        return self.set_combat_rules(rules, dry_run=True, **settings)
+
+    def get_combat_rules(self):
+        """The standing orders as they are live now, by name, ready to edit and send back, and what they did."""
+        self._require_connected(allow_over=True)
+        self.state.update(self.api, self.seat)
+        out = standing_orders.rules_in_words(self.state.view, self.memory)
+        out["summary"] = "\n".join(standing_orders.render(self.state.view, self.memory, dict(self.memory._assist_seen)))
+        return out
+
+    def apply_combat_preset(self, name=None, overrides=None, dry_run=False):
+        """Applies one of the game's presets (fxdata/combat_assist_presets.toml), with `overrides` (settings, "drop":
+        [rule names], "rules": {name: fields}). Without a name: the presets and what each does."""
+        self._require_connected()
+        presets = self.api.data(action="get_assist_presets").get("presets") or {}
+        if not name:
+            return {"presets": {n: {"description": p.get("description", ""),
+                                    "rules": ["%s: %s" % (r.get("name", "?"), standing_orders.describe(r)) for r in p.get("rules", [])]}
+                                for n, p in presets.items()}}
+        if name not in presets:
+            return {"error": "UNKNOWN_PRESET", "presets": sorted(presets)}
+        req = standing_orders.apply_overrides(presets[name], overrides)
+        rules = req.pop("rules")
+        return self.set_combat_rules(rules, dry_run=dry_run, **req)
+
+    def _refresh_combat(self):
+        """The game's combat statistics for the seat (docs/newFeatures/llm/03 P0), kept for the game's record. A game
+        too old to have them, or a level already gone, leaves the last ones standing."""
+        try:
+            self.last_combat = self.api.data(action="get_combat_stats", player=self.seat)
+        except Exception:
+            pass
+
+    def combat_stats(self):
+        """How fast fights are being answered: the game's own measurements for this seat, as text."""
+        self._require_connected(allow_over=True)
+        self._refresh_combat()
+        if self.last_combat is None:
+            return "(the game has no combat statistics for this seat)"
+        return combat_report.render_text(self.last_combat)
 
     def log_tail(self, lines=100):
         """The game's own recent log (get_log_tail), for debugging a confusing session."""

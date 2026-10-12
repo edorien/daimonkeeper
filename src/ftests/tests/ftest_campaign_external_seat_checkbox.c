@@ -10,7 +10,9 @@
 // net_claim_pending_external_seats() call startup_network_game_tail() already makes unconditionally for
 // GKind_LocalGame -- this test proves that draining actually reaches my_player_number, not just a rival (every
 // other seat/pending-queue test uses a rival slot; ftest_campaign_external_seat.c covers net_add_external_seat()
-// itself for the local player directly, bypassing the pending queue this test is about).
+// itself for the local player directly, bypassing the pending queue this test is about). With no human keeper left
+// (the rivals are the built-in AI's), the level starts paused for the agent (extseat_pause_for_agent_start): the pause
+// is the agent's, the watchdog leaves it alone, and the game runs once it is resumed.
 #include "ftest_campaign_external_seat_checkbox.h"
 
 #ifdef FUNCTESTING
@@ -21,6 +23,7 @@
 
 #include "config_keeperfx.h"
 #include "external_seat.h"
+#include "kfx_sim_state.h"
 #include "frontend.h"
 #include "net_game.h"
 #include "player_data.h"
@@ -59,6 +62,15 @@ FTestActionResult cesc01_check(struct FTestActionArgs* const args)
     CHECK_TRUE("the queued seat was claimed as External by level start",
         flag_is_set(player->allocflags, PlaF_ExternalSeat) && !flag_is_set(player->allocflags, PlaF_CompCtrl));
     CHECK_TRUE("the player's user_id points at a real seat", player->user_id > SOLO_HUMAN_ID);
+    const TbBool paused = flag_is_set(kfx_sim_state.operation_flags, GOF_Paused);
+    FTESTLOG("at level start: turn %d, paused %d, agent's pause %d, human playing %d", (int)get_gameturn(), (int)paused,
+        (int)extseat_agent_owns_pause(), (int)extseat_human_playing());
+    CHECK_TRUE("no human plays a keeper", !extseat_human_playing());
+    CHECK_TRUE("so the level started paused, the pause the agent's", paused && extseat_agent_owns_pause());
+    extseat_poll(); // the watchdog's check: not for an agent-only game's pause
+    CHECK_TRUE("the watchdog leaves it alone", flag_is_set(kfx_sim_state.operation_flags, GOF_Paused));
+    extseat_resume();
+    CHECK_TRUE("resumed, the game runs", !flag_is_set(kfx_sim_state.operation_flags, GOF_Paused));
 
     // Cross-test contamination lesson (same as ftest_spectator_handoff.c/ftest_campaign_spectate_checkbox.c):
     // consecutive ftests share one process, so leave the player exactly as ftest_campaign_external_seat.c's
@@ -67,7 +79,7 @@ FTestActionResult cesc01_check(struct FTestActionArgs* const args)
 
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " campaign external seat checkbox check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
     FTESTLOG("Test passed: the campaign select screen's Seat control dropdown (LLM) arms the local player's own "
-             "seat, claimed at level start the same way Skirmish's own External slots are");
+             "seat, claimed at level start the same way Skirmish's own External slots are, the level paused for it");
     return FTRs_Go_To_Next_Action;
 }
 

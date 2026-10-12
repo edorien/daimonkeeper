@@ -32,7 +32,7 @@ NAMES_PRUNE_AT = 400      # past this many names, those of creatures no longer i
 CHECKPOINTS_CAP = 120     # past this, every other old checkpoint is dropped (a coarser history, never a gap at the end)
 
 _FIELDS = ("format", "game_id", "level", "started_at", "start_turn", "branch", "parent_branch", "plan", "notes", "decisions", "seen_kinds",
-           "count", "creature_names", "_kind_counters", "checkpoints", "stats")
+           "count", "creature_names", "_kind_counters", "checkpoints", "stats", "rule_names")
 
 
 def creature_key(thing_id, born=None):
@@ -59,6 +59,8 @@ class Memory:
         self._kind_counters = {}     # {kind: next index to assign}
         self.checkpoints = []        # [{"turn", ...stats}], one per pay day (experience.py)
         self.stats = {"decisions": 0, "sent": 0, "refused": 0, "refusals": {}}   # the whole game's, for its record
+        self.rule_names = []         # the combat assistant's rules by slot: the agent's own name for each (set_combat_rules)
+        self._assist_seen = {}       # each rule's [fired, spent] at the last decision, for STANDING ORDERS (not saved)
         self._live = None            # keys of the creatures in the latest view (not saved)
         self._sink = None            # where flush() sends the blob
         self._pushed = None
@@ -215,6 +217,12 @@ class Memory:
             if val == name and (self._live is None or key in self._live):
                 return int(key.split("@")[0])
         return None
+
+    def rule_name(self, slot):
+        """The agent's name for the combat assistant's rule in `slot` (or "rule N" for one set without a name)."""
+        if 0 <= slot < len(self.rule_names) and self.rule_names[slot]:
+            return self.rule_names[slot]
+        return "rule %d" % slot
 
     def new_kinds(self, kinds):
         """The kinds in `kinds` the model has not been shown yet (and remember them)."""

@@ -11,6 +11,7 @@
 
 #include "api_seat_view.h"
 #include "api_seat_decision.h"
+#include "api_seat_assist.h"
 #include "config_creature.h"
 #include "config_crtrstates.h"
 #include "config_magic.h"
@@ -414,16 +415,7 @@ static void add_traps_and_doors(VALUE *traps, VALUE *doors, PlayerNumber plyr_id
     }
 }
 
-// A creature's worth in a fight: the engine's own per-kind, per-level score (the table the dungeon score uses), scaled
-// by how much health it has left, so a half-dead army counts as half.
-static int64_t creature_force_score(const struct Thing *thing)
-{
-    const struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
-    const int64_t full = get_creature_thing_score(thing);
-    if (creature_control_invalid(cctrl) || (cctrl->max_health <= 0)) return full;
-    const int64_t hp = (thing->health < 0) ? 0 : ((thing->health > cctrl->max_health) ? cctrl->max_health : thing->health);
-    return full * hp / cctrl->max_health;
-}
+// A creature's worth in a fight: creature_force_score (thing_creature.c), shared with the combat assistant's rules.
 
 // Fighters and workers (diggers: imps, tunnellers -- they dig, claim and carry, and barely fight) by owner.
 struct ForceTally { int64_t fighters, workers, score; };
@@ -753,13 +745,25 @@ static void add_active_powers(VALUE *own, PlayerNumber plyr_idx)
 }
 
 // Things lying about that the hand can use: dungeon special boxes the seat can see (and whether its hand can reach
-// them), with its dead creatures once a resurrect box is among them; and loose gold outside its treasure rooms.
+// them), with its dead creatures once a resurrect box is among them; and loose gold outside its treasure rooms --
+// the largest piles in detail, and the id of every pile the hand can reach (largest first), so that an agent with no
+// imps left can carry all of it home with pick_up_and_drop(thing_ids, to_room), not just the piles it was shown.
 #define LOOSE_GOLD_LISTED 16
+#define LOOSE_GOLD_MAX 1024
+struct LoosePile { int64_t id; int64_t gold; MapSubtlCoord x, y; TbBool reachable; };
+static int cmp_pile_gold_desc(const void *a, const void *b)
+{
+    const struct LoosePile *pa = (const struct LoosePile *)a, *pb = (const struct LoosePile *)b;
+    if (pa->gold != pb->gold) return (pa->gold < pb->gold) ? 1 : -1;
+    return (pa->id > pb->id) - (pa->id < pb->id);
+}
 static void add_pickups(VALUE *own, PlayerNumber plyr_idx, const struct Dungeon *dungeon)
 {
-    VALUE *specials = NULL, *gold = NULL;
+    VALUE *specials = NULL;
     TbBool resurrect = false;
     int64_t gold_total = 0, gold_piles = 0;
+    static struct LoosePile piles[LOOSE_GOLD_MAX];
+    int64_t npiles = 0;
     int64_t idx = kfx_sim_state.thing_lists[TngList_Objects].index;
     for (int64_t guard = 0; (idx > 0) && (guard < 20000); guard++) {
         struct Thing *thing = thing_get((ThingIndex)idx);
@@ -783,20 +787,44 @@ static void add_pickups(VALUE *own, PlayerNumber plyr_idx, const struct Dungeon 
             if (!room_is_invalid(room) && room_role_matches(room->kind, RoRoF_GoldStorage)) continue;
             gold_piles++;
             gold_total += thing->valuable.gold_stored;
-            if (gold == NULL) { gold = value_dict_add(own, "loose_gold"); value_init_dict(gold); value_init_array(value_dict_add(gold, "piles")); }
-            if (value_array_size(value_dict_get(gold, "piles")) < LOOSE_GOLD_LISTED) {
-                VALUE *e = value_array_append(value_dict_get(gold, "piles"));
-                value_init_dict(e);
-                value_init_int32(value_dict_add(e, "id"), (int32_t)thing->index);
-                value_init_int64(value_dict_add(e, "gold"), thing->valuable.gold_stored);
-                value_init_bool(value_dict_add(e, "reachable"), can_thing_be_picked_up_by_player(thing, plyr_idx));
-                add_pos(e, "pos", thing->mappos.x.stl.num, thing->mappos.y.stl.num);
+            if (npiles < LOOSE_GOLD_MAX) {
+                struct LoosePile *pl = &piles[npiles++];
+                pl->id = thing->index;
+                pl->gold = thing->valuable.gold_stored;
+                pl->x = thing->mappos.x.stl.num;
+                pl->y = thing->mappos.y.stl.num;
+                pl->reachable = can_thing_be_picked_up_by_player(thing, plyr_idx);
             }
         }
     }
-    if (gold != NULL) {
+    if (gold_piles > 0) {
+        qsort(piles, (size_t)npiles, sizeof(piles[0]), cmp_pile_gold_desc);
+        VALUE *gold = value_dict_add(own, "loose_gold");
+        value_init_dict(gold);
         value_init_int64(value_dict_add(gold, "total"), gold_total);
         value_init_int64(value_dict_add(gold, "count"), gold_piles);
+        VALUE *list = value_dict_add(gold, "piles");
+        value_init_array(list);
+        VALUE *ids = value_dict_add(gold, "ids");
+        value_init_array(ids);
+        int64_t reach_gold = 0, reach_count = 0;
+        for (int64_t i = 0; i < npiles; i++) {
+            if (i < LOOSE_GOLD_LISTED) {
+                VALUE *e = value_array_append(list);
+                value_init_dict(e);
+                value_init_int32(value_dict_add(e, "id"), (int32_t)piles[i].id);
+                value_init_int64(value_dict_add(e, "gold"), piles[i].gold);
+                value_init_bool(value_dict_add(e, "reachable"), piles[i].reachable);
+                add_pos(e, "pos", piles[i].x, piles[i].y);
+            }
+            if (piles[i].reachable) {
+                value_init_int32(value_array_append(ids), (int32_t)piles[i].id);
+                reach_gold += piles[i].gold;
+                reach_count++;
+            }
+        }
+        value_init_int64(value_dict_add(gold, "reachable_gold"), reach_gold);
+        value_init_int64(value_dict_add(gold, "reachable_count"), reach_count);
     }
     if (resurrect) {
         VALUE *dead = value_dict_add(own, "dead_creatures");
@@ -1036,6 +1064,8 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
     value_init_bool(value_dict_add(out, "paused"), flag_is_set(kfx_sim_state.operation_flags, GOF_Paused));
     value_init_bool(value_dict_add(out, "agent_pause"), extseat_agent_owns_pause());
     value_init_bool(value_dict_add(out, "advancing"), extseat_advancing());
+    // No human plays a keeper: the agent may pause (set_pause), and the level started paused for it.
+    value_init_bool(value_dict_add(out, "agent_only"), !extseat_human_playing());
     // The simulation's real-time pace (set_game_speed), global to the game, not per seat -- shown so an agent that
     // slowed the game down for itself to think can see the current rate, not just the value it last requested.
     value_init_int64(value_dict_add(out, "turns_per_second"), (int64_t)kfx_sim_state.turns_per_second);
@@ -1181,6 +1211,7 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
     // evntbox_text_objective), and the ones before it, since the sim keeps only the latest.
     value_init_string(value_dict_add(own, "objective"), kfx_sim_state.evntbox_text_objective[plyr_idx]);
     api_seat_decision_add_objectives(own, plyr_idx);
+    api_assist_add_to_view(own, plyr_idx); // the combat assistant: its rules and what they did
 
     VALUE *crs = value_dict_add(own, "creatures");
     value_init_array(crs);
@@ -1305,6 +1336,38 @@ void api_seat_build_view(VALUE *out, PlayerNumber plyr_idx)
                 : (r->rtyp == RsCat_Creature) ? creature_code_name((ThingModel)r->rkind) : "?";
             value_init_string(value_array_append(q), name);
         }
+        // Why nothing may be moving: current is absent only when nothing is left to research (get_next_research_item),
+        // but present even while nobody works on it -- no library (process_player_research stops), or a library with
+        // no creature researching in it. `status` says which, so "nothing to do" and "stalled" never read alike.
+        // `books`: spellbooks on the seat's library shelves -- every researched spell is one, and a book that loses
+        // its shelf (a library sold with no free shelf elsewhere) takes its spell with it.
+        const TbBool library = player_has_room_of_role(plyr_idx, RoRoF_Research);
+        int64_t researchers = 0;
+        int64_t ci = dungeon->creatr_list_start;
+        for (int64_t guard = 0; (ci > 0) && (guard < VIEW_LIST_CAP); guard++) {
+            const struct Thing *thing = thing_get((ThingIndex)ci);
+            if (thing_is_invalid(thing)) break;
+            const CrtrStateId st = get_creature_state_besides_interruptions(thing);
+            if ((st == CrSt_Researching) || (st == CrSt_AtResearchRoom)) researchers++;
+            ci = creature_control_get_from_thing(thing)->players_next_creature_idx;
+        }
+        int64_t books = 0;
+        int64_t oi = kfx_sim_state.thing_lists[TngList_Objects].index;
+        for (int64_t guard = 0; (oi > 0) && (guard < 20000); guard++) {
+            const struct Thing *thing = thing_get((ThingIndex)oi);
+            if (thing_is_invalid(thing)) break;
+            oi = thing->next_of_class;
+            if (!thing_is_spellbook(thing) || (thing->owner != plyr_idx)) continue;
+            const struct Room *room = get_room_thing_is_on(thing);
+            if (!room_is_invalid(room) && (room->owner == plyr_idx) && room_role_matches(room->kind, RoRoF_PowersStorage)) books++;
+        }
+        const TbBool has_current = (dungeon->current_research_idx >= 0) && (dungeon->current_research_idx < DUNGEON_RESEARCH_COUNT);
+        const char *status = (!has_current && (value_array_size(q) == 0)) ? "done"
+            : !library ? "no_library" : (researchers == 0) ? "no_researchers" : "researching";
+        value_init_string(value_dict_add(rs, "status"), status);
+        value_init_bool(value_dict_add(rs, "library"), library);
+        value_init_int64(value_dict_add(rs, "researchers"), researchers);
+        value_init_int64(value_dict_add(rs, "books"), books);
     }
 
     // Alliances (set_alliance): `declared` is who this seat has flagged as an ally (a one-way declaration, exactly what

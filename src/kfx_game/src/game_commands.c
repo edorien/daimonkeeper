@@ -106,6 +106,7 @@
 #include "editor_types.h"
 #include "local_state.h"
 #include "render_creature_view.h"
+#include "keeper_assist_packets.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -634,6 +635,21 @@ static TbBool global_toggle_computer_processing(const struct GlobalAction *ctx)
     return 0;
 }
 
+/** PckA_Assist*: the combat assistant's rules (kfx_ai/keeper_assist_packets.c). Never in a multiplayer game, the same
+ *  test that refuses cheats there (docs/newFeatures/llm/01 section 10.4). */
+static TbBool global_keeper_assist(const struct GlobalAction *ctx)
+{
+    if (game_refuses_cheats()) {
+        SYNCLOG("Combat assistant action %d from player %d refused: not in a multiplayer game", (int)ctx->pckt->action, (int)ctx->plyr_idx);
+        return 0;
+    }
+    if ((ctx->plyr_idx < 0) || (ctx->plyr_idx >= PLAYERS_COUNT)) {
+        return 0;
+    }
+    keeper_assist_apply_packet(&kfx_sim_state.keeper_assist[ctx->plyr_idx], ctx->pckt->action, ctx->pckt->actn_par1, ctx->pckt->actn_par2);
+    return 0;
+}
+
 /** PckA_ToggleSpectate */
 static TbBool global_toggle_spectate(const struct GlobalAction *ctx)
 {
@@ -1002,7 +1018,57 @@ static const struct GlobalActionHandler global_actions[] = {
     {PckA_ApplyRoomspaceDigTag, global_apply_roomspace_dig_tag},
     {PckA_SetRoomspaceHighlight, global_apply_roomspace_dig_tag},
     {PckA_PlyrQueryCreature, global_plyr_query_creature},
+    {PckA_AssistStageRule, global_keeper_assist},
+    {PckA_AssistStageRuleMoney, global_keeper_assist},
+    {PckA_AssistStageCond, global_keeper_assist},
+    {PckA_AssistStageGlobal, global_keeper_assist},
+    {PckA_AssistCommit, global_keeper_assist},
+    {PckA_AssistEnable, global_keeper_assist},
 };
+
+/**
+ * Whether a global packet action may come from a user watching an External seat's player rather than
+ * driving it: the local human whose own keeper an agent plays (net_add_external_seat's exception). They may
+ * pause and quit, chat, work event boxes and move or zoom the camera; anything that changes the dungeon or the
+ * player's control state (selected room/trap/door/power, hand, tendencies, alliances, the view type the seat's
+ * clicks are dispatched by) belongs to the seat alone, or a panel click lands between the seat's steps and its
+ * order is silently lost.
+ */
+TbBool global_action_allowed_for_seat_watcher(int64_t action)
+{
+    switch (action)
+    {
+    case PckA_QuitToMainMenu:
+    case PckA_ForceApplicationClose:
+    case PckA_NoOperation:
+    case PckA_FinishGame:
+    case PckA_PlyrMsgEnd:
+    case PckA_PlyrMsgClear:
+    case PckA_PlyrFastMsg:
+    case PckA_TogglePause:
+    case PckA_UpdatePause:
+    case PckA_ToggleLights:
+    case PckA_SetCluedo:
+    case PckA_ChangeWindowSize:
+    case PckA_SetGammaLevel:
+    case PckA_SetMinimapConf:
+    case PckA_SwitchView:
+    case PckA_ZoomFromMap:
+    case PckA_ZoomToEvent:
+    case PckA_ZoomToRoom:
+    case PckA_ZoomToTrap:
+    case PckA_ZoomToDoor:
+    case PckA_ZoomToPosition:
+    case PckA_ZoomToBattle:
+    case PckA_ZoomToSpell:
+    case PckA_EventBoxTurnOff:
+    case PckA_EventBoxActivate:
+    case PckA_EventBoxClose:
+        return true;
+    default:
+        return false;
+    }
+}
 
 TbBool process_user_global_packet_action(NetUserId user)
 {
@@ -1015,6 +1081,14 @@ TbBool process_user_global_packet_action(NetUserId user)
   SYNCDBG(6,"Processing user %" PRId64 " action %" PRId64,(int64_t)user,(int64_t)pckt->action);
 
   process_camera_action(player->cameras, pckt);
+
+  if ((pckt->action != PckA_None) && player_exists(player) && flag_is_set(player->allocflags, PlaF_ExternalSeat)
+   && (player->user_id != user) && !global_action_allowed_for_seat_watcher(pckt->action))
+  {
+      SYNCDBG(6,"User %" PRId64 " action %" PRId64 " ignored: player %" PRId64 " is an External seat",
+          (int64_t)user, (int64_t)pckt->action, (int64_t)plyr_idx);
+      return true; // consumed: neither the action nor the dungeon-control part acts for a watcher
+  }
 
   const struct GlobalAction ctx = { user, plyr_idx, player, pckt, ustate, local_ustate };
   for (size_t n = 0; n < sizeof(global_actions) / sizeof(global_actions[0]); n++)
@@ -1492,16 +1566,29 @@ void process_user_creature_control_packet_action(NetUserId user)
   }
 }
 
+/** Whether `user` drives an External seat (the seat's own user only, as in process_user_packet()). */
+static TbBool user_is_external_seat(NetUserId user)
+{
+    const PlayerNumber plyr_idx = get_net_user_player_number(user);
+    if (plyr_idx < 0)
+        return false;
+    const struct PlayerInfo *player = get_player(plyr_idx);
+    return player_exists(player) && flag_is_set(player->allocflags, PlaF_ExternalSeat) && (player->user_id == user);
+}
+
 /**
  * Releases every user's held mouse buttons, so a drag (tagging, a held slap) doesn't run on
  * after a pause or a replay's playback pause.
+ * An External seat's are kept: its drag spans the agent's own pauses (advance_turns pauses between
+ * advances, so a mark_dig sweep lost every row after the first), its steps are only written on
+ * unpaused turns, and its queue always ends a drag with its own release.
  */
 void clear_users_button_state(void)
 {
     for (NetUserId user = 0; user < MAX_NET_USERS; user++)
     {
         struct UserState *ustate = get_user_state(user);
-        if (user_state_invalid(ustate))
+        if (user_state_invalid(ustate) || user_is_external_seat(user))
             continue;
         ustate->cursor_button_down = 0;
         ustate->interpolated_tagging = false;

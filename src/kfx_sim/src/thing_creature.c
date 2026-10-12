@@ -5931,6 +5931,15 @@ int64_t get_creature_thing_score(const struct Thing *thing)
     return kfx_sim_state.creature_scores[crmodel].value[exp];
 }
 
+int64_t creature_force_score(const struct Thing *thing)
+{
+    const struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
+    const int64_t full = get_creature_thing_score(thing);
+    if (creature_control_invalid(cctrl) || (cctrl->max_health <= 0)) return full;
+    const int64_t hp = (thing->health < 0) ? 0 : ((thing->health > cctrl->max_health) ? cctrl->max_health : thing->health);
+    return full * hp / cctrl->max_health;
+}
+
 void transfer_creature_data_and_gold(struct Thing *oldtng, struct Thing *newtng)
 {
     struct CreatureControl* oldcctrl = creature_control_get_from_thing(oldtng);

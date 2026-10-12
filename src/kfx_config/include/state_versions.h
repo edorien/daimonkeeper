@@ -55,9 +55,10 @@
   11: upstream #5376 -- replay_active left (replay.load_enable, packet_data.h's struct ReplayState)
   12: upstream #5376 -- system_flags became run_after_victory (the rest are local_system_flags); PlayerInfo
       gained each player's start settings (zoom_distance, frontview_zoom_distance, cheats_allowed,
-      skip_heart_zoom, highlight_mode) */
-#define KFX_SIM_STATE_VER          12
-#define KFX_SIM_STATE_SIZE         139795244
+      skip_heart_zoom, highlight_mode)
+  13: gained keeper_assist[] (the combat assistant's rules and counters, docs/newFeatures/llm/) */
+#define KFX_SIM_STATE_VER          13
+#define KFX_SIM_STATE_SIZE         139827536
 
 /* struct KfxNetState (kfx_net_state.h), SGC_KfxNetState
    2: S10 -- packet_load_enable, local_plyr_idx, human_players_count moved

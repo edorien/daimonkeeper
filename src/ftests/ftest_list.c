@@ -54,6 +54,7 @@
 #include "tests/ftest_ai_seat_force.h"
 #include "tests/ftest_ai_seat_room_quality.h"
 #include "tests/ftest_ai_seat_custody.h"
+#include "tests/ftest_ai_seat_hand_guards.h"
 #include "tests/ftest_ai_seat_custody_torture.h"
 #include "tests/ftest_ai_seat_temple_graveyard.h"
 #include "tests/ftest_ai_seat_build_checks.h"
@@ -64,6 +65,11 @@
 #include "tests/ftest_ai_gesture_order_creature.h"
 #include "tests/ftest_ai_seat_diff.h"
 #include "tests/ftest_ai_seat_powers.h"
+#include "tests/ftest_combat_stats.h"
+#include "tests/ftest_keeper_assist_casts.h"
+#include "tests/ftest_keeper_assist_money.h"
+#include "tests/ftest_ai_seat_assist.h"
+#include "tests/ftest_assist_human.h"
 #include "tests/ftest_ai_seat_queue.h"
 #include "tests/ftest_ai_seat_release.h"
 #include "tests/ftest_skirmish_external_slot.h"
@@ -140,6 +146,11 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_release",                   .init_func=ftest_ai_seat_release_init,                  .pre_start_func=ftest_ai_seat_release_pre_start, .level_file="original", .level=60, .frame_skip=8 },
          { .test_name="ai_seat_queue",                     .init_func=ftest_ai_seat_queue_init,                    .pre_start_func=ftest_ai_seat_queue_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_powers",                    .init_func=ftest_ai_seat_powers_init,                   .pre_start_func=ftest_ai_seat_powers_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="combat_stats",                      .init_func=ftest_combat_stats_init,                     .pre_start_func=ftest_combat_stats_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="keeper_assist_casts",               .init_func=ftest_keeper_assist_casts_init,              .pre_start_func=ftest_keeper_assist_casts_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="keeper_assist_money",               .init_func=ftest_keeper_assist_money_init,              .pre_start_func=ftest_keeper_assist_money_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_assist",                    .init_func=ftest_ai_seat_assist_init,                   .pre_start_func=ftest_ai_seat_assist_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="assist_human",                      .init_func=ftest_assist_human_init,                     .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_diff",                      .init_func=ftest_ai_seat_diff_init,                     .pre_start_func=ftest_ai_seat_diff_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_creature",            .init_func=ftest_ai_seat_order_creature_init,           .pre_start_func=ftest_ai_seat_order_creature_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_order_autorelease",         .init_func=ftest_ai_seat_order_autorelease_init,        .pre_start_func=ftest_ai_seat_order_autorelease_pre_start, .level_file="original", .level=50, .frame_skip=8 },
@@ -150,6 +161,7 @@ struct ftest_onlyappendtests__config ftest_onlyappendtests__conf = {
          { .test_name="ai_seat_force",                     .init_func=ftest_ai_seat_force_init,                     .pre_start_func=ftest_ai_seat_force_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_room_quality",              .init_func=ftest_ai_seat_room_quality_init,              .pre_start_func=ftest_ai_seat_room_quality_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_custody",                   .init_func=ftest_ai_seat_custody_init,                   .pre_start_func=ftest_ai_seat_custody_pre_start, .level_file="original", .level=50, .frame_skip=8 },
+         { .test_name="ai_seat_hand_guards",               .init_func=ftest_ai_seat_hand_guards_init,               .pre_start_func=ftest_ai_seat_hand_guards_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_custody_torture",           .init_func=ftest_ai_seat_custody_torture_init,           .pre_start_func=ftest_ai_seat_custody_torture_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_temple_graveyard",          .init_func=ftest_ai_seat_temple_graveyard_init,          .pre_start_func=ftest_ai_seat_temple_graveyard_pre_start, .level_file="original", .level=50, .frame_skip=8 },
          { .test_name="ai_seat_build_checks",              .init_func=ftest_ai_seat_build_checks_init,              .pre_start_func=ftest_ai_seat_build_checks_pre_start, .level_file="original", .level=50, .frame_skip=8 },

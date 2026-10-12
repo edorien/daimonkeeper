@@ -8,6 +8,7 @@ import tempfile
 import subprocess
 import sys
 import threading
+import time
 import unittest
 
 import tempfile as _tempfile
@@ -99,8 +100,9 @@ class ProtocolTests(unittest.TestCase):
         resp = self.server.handle({"jsonrpc": "2.0", "id": 4, "method": "tools/list"})
         names = {t["name"] for t in resp["result"]["tools"]}
         self.assertEqual(names, {"connect", "get_instructions", "wait_for_decision", "status", "look", "submit_orders",
-                                  "check_orders", "set_game_speed", "get_log_tail", "get_recipes", "get_experience",
-                                  "record_debrief", "disconnect"})
+                                  "check_orders", "set_game_speed", "set_pause", "get_log_tail", "get_combat_stats", "get_recipes",
+                                  "get_experience", "record_debrief", "disconnect", "set_combat_rules", "check_combat_rules",
+                                  "get_combat_rules", "apply_combat_preset"})
         for t in resp["result"]["tools"]:
             self.assertIn("inputSchema", t)
 
@@ -199,6 +201,21 @@ class ToolDispatchTests(unittest.TestCase):
         self.assertEqual(r["content"][0]["text"], "SYSTEM PROMPT TEXT")
 
 
+def fake_combat_stats(player, turn):
+    """get_combat_stats as the game answers it (api_seat_combatstats.c), with two fights and one death."""
+    return {"player": player, "since_turn": 10, "turn": turn, "low_pct": 35, "critical_pct": 20,
+            "fights": {"count": 2, "turns": 300, "with_cast": 1, "median_first_cast_after": 140,
+                       "median_decision_after": 40, "median_orders_after": 160,
+                       "recent": [{"start": 100, "end": 250, "casts": 1}, {"start": 400, "end": 550, "casts": 0}]},
+            "deaths": {"total": 1, "combat": 1, "combat_diggers": 0, "seen_low": 1, "healed": 0,
+                       "median_window_low": 60, "median_window_critical": -1, "recent": []},
+            "casts": {"count": 1, "gold": 300, "by_power": {"POWER_HEAL_CREATURE": {"count": 1, "gold": 300}}},
+            "upkeep": {"cta_gold": 120, "cta_paying_turns": 120, "obey_gold": 0, "obey_turns": 0},
+            "paydays": {"count": 1, "short": 0, "recent": []},
+            "decisions": {"count": 5, "answered": 4, "median_latency": 180, "combat_answered": 1,
+                          "median_latency_combat": 120, "recent": []}}
+
+
 class FakeGame:
     """A minimal stand-in for keeperfx's TCP API: get_seats/claim_seat, subscribe_event, set_decision_policy,
     set_takeover, get_player_view (always a full view with an incrementing view_id -- diffs have their own coverage
@@ -221,6 +238,15 @@ class FakeGame:
         self.memory = {}         # player -> the agent memory text the game holds (set_agent_memory)
         self.names = {0: "Robin"}  # player -> name (set_player_name)
         self.saved = None        # (turn, memory) of the one save slot
+        self.combat_calls = 0    # get_combat_stats requests
+        self.assist = {"enabled": False, "interval": 2, "charge_time": True, "min_gap": 4, "reserve": 0, "max_spend": 0,
+                       "spent_this_payday": 0, "rules": [], "casts": []}
+        self.assist_requests = []   # set_assist requests, real ones only
+        self.map_rows = None     # replaces make_view's map rows when set (a slab changed in the game)
+        self.agent_only = False  # no human plays a keeper: the agent may pause
+        self.paused = False
+        self.agent_pause = False
+        self.pause_requests = []  # set_pause / advance_turns requests
         self._write_lock = threading.Lock()
         self._buf = b""
         self._thread = threading.Thread(target=self._accept, daemon=True)
@@ -268,19 +294,30 @@ class FakeGame:
             self.turn += 1
             self.view_id += 1
             v = make_view(turn=self.turn)
+            if self.map_rows is not None:
+                v["map"]["rows"] = list(self.map_rows)
             v["seat"]["victory_state"] = self.victory_state
             v["level"] = {"number": 7, "campaign": "keeporig.cfg", "name": "Flowerhat"}
             v["players"] = [{"id": 0, "player": 0, "kind": "human", "name": self.names.get(0), "alive": True},
                             {"id": 1, "player": 1, "kind": "external", "name": self.names.get(1, "External 1"), "alive": True},
                             {"id": 2, "player": 2, "kind": "computer", "ai_type": "Build and defend Computer.", "alive": True}]
             v["view_id"] = self.view_id
+            v["paused"], v["agent_pause"], v["agent_only"] = self.paused, self.agent_pause, self.agent_only
             v["mode"] = "full"
+            v["own"]["assist"] = json.loads(json.dumps(self.assist))
             return {"ack": ack, "success": True, "data": v}
         if action == "submit_action":
             if req.get("dry_run"):
                 return {"ack": ack, "success": True, "data": {"would_succeed": True, "steps": 1}}
             self.submitted.append(req)
             return {"ack": ack, "success": True, "data": {"id": len(self.submitted), "queued_behind": 0, "steps": 1}}
+        if action in ("set_pause", "advance_turns"):
+            self.pause_requests.append(req)
+            if not self.agent_only and (req.get("paused") or action == "advance_turns"):
+                return {"ack": ack, "success": False, "error": "HUMAN_PLAYING"}
+            if action == "set_pause":
+                self.paused = self.agent_pause = bool(req["paused"])
+            return {"ack": ack, "success": True}
         if action == "set_player_name":
             self.names[req["player"]] = req["name"]
             return {"ack": ack, "success": True}
@@ -292,6 +329,34 @@ class FakeGame:
         if action == "set_game_speed":
             self.turns_per_second = req.get("turns_per_second") or 20
             return {"ack": ack, "success": True, "data": {"turns_per_second": self.turns_per_second}}
+        if action == "set_assist":
+            rules = req.get("rules")
+            for i, r in enumerate(rules or []):
+                if r.get("power") == "POWER_NOPE":
+                    return {"ack": ack, "success": False, "error": "UNKNOWN_POWER", "rule": i}
+            n = len(rules or [])
+            if req.get("dry_run"):
+                return {"ack": ack, "success": True, "data": {"would_succeed": True, "steps": 3 * n + 1, "rules_changed": n}}
+            self.assist_requests.append(req)
+            for k in ("enabled", "interval", "reserve", "min_gap", "max_spend", "charge_time"):
+                if k in req:
+                    self.assist[k] = req[k]
+            if rules is not None:
+                self.assist["rules"] = [dict({k: v for k, v in r.items() if k != "name"}, slot=i, fired=0, spent=0, state="ok",
+                                             level=r.get("level", 0), target=r.get("target", "ally_in_fight"))
+                                        if "power" in r else dict({k: v for k, v in r.items() if k != "name"}, slot=i, fired=0, spent=0, state="ok")
+                                        for i, r in enumerate(rules)]
+            return {"ack": ack, "success": True, "data": {"steps": 3 * n + 1, "rules_changed": n, "id": 1, "queued_behind": 0}}
+        if action == "get_assist_presets":
+            return {"ack": ack, "success": True, "data": {"presets": {
+                "guardian": {"description": "heal and guard", "enabled": True, "reserve": 1000, "rules": [
+                    {"name": "heal", "power": "POWER_HEAL_CREATURE", "level": 2, "when": [["health_pct", "<", 35]]},
+                    {"name": "cta_floor", "power_off": "POWER_CALL_TO_ARMS", "when": [["gold", "<", 1000]]}]},
+                "miser": {"description": "guards only", "enabled": True, "rules": [
+                    {"name": "obey_floor", "power_off": "POWER_OBEY", "when": [["gold", "<", 1000]]}]}}}}
+        if action == "get_combat_stats":
+            self.combat_calls += 1
+            return {"ack": ack, "success": True, "data": fake_combat_stats(req["player"], self.turn)}
         if action == "get_log_tail":
             want = req.get("lines", 100)
             return {"ack": ack, "success": True, "data": {"lines": ["fake log line %d" % i for i in range(want)]}}
@@ -443,6 +508,104 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertNotIn("Build a treasure room first.", later["state"])
         self.call("disconnect")
 
+    def test_combat_stats_are_shown_and_kept_on_the_games_record(self):
+        path = self._exp_path()
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path})
+        self.call("wait_for_decision", {"timeout_seconds": 0.2})
+        self.assertGreaterEqual(self.game.combat_calls, 1)               # fetched with the decision
+        text = self.call("get_combat_stats")["content"][0]["text"]
+        self.assertIn("fights 2; your creatures killed in them 1", text)
+        self.assertIn("under 35% -> death: 60 (3.0s); under 20% -> death: -", text)   # -1 from the game = no sample
+        self.assertIn("decision due -> your orders: 180 (9.0s)", text)
+        self.assertIn("heal_creature 1 (300 gold)", text)
+        self.game.victory_state = "won"
+        self.game.push_event(["victory"])
+        over = json.loads(self.call("wait_for_decision", {"timeout_seconds": 2})["content"][0]["text"])
+        self.assertEqual(over["record"], "won")
+        self.assertFalse(self.call("get_combat_stats").get("isError"))   # still answered after the game is over
+        self.call("disconnect")
+        import combat_report
+        rows = combat_report.rows_from_store(path)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("won", rows[0][0])
+        self.assertEqual((rows[0][1]["fights"], rows[0][1]["median_window_low"], rows[0][1]["median_window_critical"]),
+                         (2, 60, None))
+
+    def _tool(self, name, args=None):
+        r = self.call(name, args)
+        self.assertFalse(r.get("isError"), r)
+        return json.loads(r["content"][0]["text"])
+
+    def test_combat_rules_named_set_checked_read_back_and_kept_in_memory(self):
+        self._connect_and_start()
+        rules = [{"name": "save-the-dying", "power": "POWER_HEAL_CREATURE", "level": 2, "when": [["health_pct", "<", 35]]},
+                 {"name": "cta-floor", "power_off": "POWER_CALL_TO_ARMS", "when": [["gold", "<", 1500]]}]
+        checked = self._tool("check_combat_rules", {"rules": rules, "enabled": True})
+        self.assertEqual((checked.get("would_succeed"), checked["rules_changed"]), (True, 2))
+        self.assertEqual(self.game.assist_requests, [])                  # a check sends nothing
+        done = self._tool("set_combat_rules", {"rules": rules, "enabled": True, "reserve": 1500})
+        self.assertEqual(done["rules_changed"], 2)
+        self.assertGreater(done["live_in_turns"], done["packets"])
+        sent = self.game.assist_requests[-1]
+        self.assertEqual((sent["enabled"], sent["reserve"], len(sent["rules"])), (True, 1500, 2))
+        held = json.loads(self.game.memory[1])                            # the names live with the game's memory
+        self.assertEqual(held["rule_names"], ["save-the-dying", "cta-floor"])
+        back = self._tool("get_combat_rules")
+        self.assertEqual([r["name"] for r in back["rules"]], ["save-the-dying", "cta-floor"])
+        self.assertEqual(back["rules"][0]["when"], [["health_pct", "<", 35]])
+        self.assertIn("save-the-dying: POWER_HEAL_CREATURE L2 on ally_in_fight when health_pct < 35", back["summary"])
+        # only the settings: the rules (and their names) stay
+        self._tool("set_combat_rules", {"enabled": False})
+        self.assertNotIn("rules", self.game.assist_requests[-1])
+        self.assertEqual(json.loads(self.game.memory[1])["rule_names"], ["save-the-dying", "cta-floor"])
+        self.call("disconnect")
+
+    def test_combat_rule_errors_name_the_rule(self):
+        self._connect_and_start()
+        bad = self._tool("set_combat_rules", {"rules": [{"name": "ok", "power": "POWER_SPEED"}, {"name": "oops", "power": "POWER_NOPE"}]})
+        self.assertEqual(bad, {"error": "UNKNOWN_POWER", "rule": 1, "name": "oops"})
+        dup = self._tool("set_combat_rules", {"rules": [{"name": "a", "power": "POWER_SPEED"}, {"name": "a", "power": "POWER_SPEED"}]})
+        self.assertEqual((dup["error"], dup["rule"], dup["name"]), ("DUPLICATE_NAME", 1, "a"))
+        self.assertEqual(self.game.assist_requests, [])
+        self.call("disconnect")
+
+    def test_combat_presets_listed_and_applied_with_overrides(self):
+        self._connect_and_start()
+        listed = self._tool("apply_combat_preset")
+        self.assertIn("guardian", listed["presets"])
+        self.assertIn("heal: POWER_HEAL_CREATURE L2", listed["presets"]["guardian"]["rules"][0])
+        self.assertEqual(self._tool("apply_combat_preset", {"name": "berserker"})["error"], "UNKNOWN_PRESET")
+        self._tool("apply_combat_preset", {"name": "guardian", "overrides": {
+            "reserve": 3000, "drop": ["cta_floor"], "rules": {"heal": {"level": 4}, "chicken": {"power": "POWER_CHICKEN"}}}})
+        sent = self.game.assist_requests[-1]
+        self.assertEqual(sent["reserve"], 3000)
+        self.assertEqual([r.get("name") for r in sent["rules"]], ["heal", "chicken"])
+        self.assertEqual(sent["rules"][0]["level"], 4)
+        self.assertNotIn("description", sent)
+        self.assertEqual(json.loads(self.game.memory[1])["rule_names"], ["heal", "chicken"])
+        self.call("disconnect")
+
+    def test_standing_orders_in_the_decision_say_what_each_rule_did(self):
+        self._connect_and_start()
+        self._tool("set_combat_rules", {"enabled": True, "rules": [
+            {"name": "heal", "power": "POWER_HEAL_CREATURE", "when": [["health_pct", "<", 35]]},
+            {"name": "floor", "power_off": "POWER_OBEY", "when": [["gold", "<", 800]]}]})
+        self.game.push_event(["quarter_2"])
+        first = json.loads(self.call("wait_for_decision", {"timeout_seconds": 2})["content"][0]["text"])
+        self.assertIn("STANDING ORDERS (combat assistant ON", first["state"])
+        self.assertIn("heal: POWER_HEAL_CREATURE L0 on ally_in_fight when health_pct < 35 | fired 0, spent 0", first["state"])
+        # The game heals twice and runs into the reserve before the next decision.
+        self.game.assist["rules"][0].update(fired=2, spent=600, state="reserve")
+        self.game.assist["casts"] = [{"turn": self.game.turn + 1, "rule": 0, "power": "POWER_HEAL_CREATURE", "level": 0, "target": 4242, "cost": 300},
+                                     {"turn": self.game.turn + 2, "rule": 1, "power": "POWER_OBEY", "level": 0, "target": 0, "cost": 0}]
+        self.game.push_event(["assist_reserve"])
+        nxt = json.loads(self.call("wait_for_decision", {"timeout_seconds": 2})["content"][0]["text"])
+        self.assertIn("assist_reserve", nxt["reasons"])
+        self.assertIn("fired 2, spent 600 (+2, +600 gold since last decision) | held back by the reserve", nxt["state"])
+        self.assertIn("heal POWER_HEAL_CREATURE -> #4242 (gone)", nxt["state"])
+        self.assertIn("floor POWER_OBEY (switched off)", nxt["state"])
+        self.call("disconnect")
+
     def test_leaving_right_after_a_save_suspends_the_game_without_a_debrief(self):
         path = self._exp_path()
         self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "experience_path": path})
@@ -541,6 +704,69 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertEqual(r["content"][0]["text"], "disconnected")
         r = self.call("status")
         self.assertTrue(r.get("isError"))
+
+    def test_hand_drop_and_sell_flags_reach_the_game(self):
+        self._connect_and_start()
+        schema = next(t for t in mcp_server.TOOLS if t["name"] == "submit_orders")["inputSchema"]
+        for flag in ("imprison", "torture", "dismiss", "lose_spells"):
+            self.assertIn(flag, schema["properties"]["orders"]["items"]["properties"])
+        r = self.call("submit_orders", {"orders": [{"verb": "pick_up_and_drop", "thing_ids": [7, 8], "to_room": 3, "dismiss": True},
+                                                   {"verb": "pick_up_and_drop", "thing_id": 9, "pos": [10, 10], "imprison": True},
+                                                   {"verb": "pick_up_and_drop", "thing_id": 10, "to_room": 4, "torture": True},
+                                                   {"verb": "sell", "slab_rect": [1, 1, 2, 2], "lose_spells": True}]})
+        self.assertEqual(len(json.loads(r["content"][0]["text"])["sent"]), 4)
+        self.assertIs(self.game.submitted[-4]["dismiss"], True)
+        self.assertIs(self.game.submitted[-3]["imprison"], True)
+        self.assertIs(self.game.submitted[-2]["torture"], True)
+        self.assertIs(self.game.submitted[-1]["lose_spells"], True)
+        self.call("disconnect")
+
+    def test_a_game_no_human_plays_is_paused_for_the_agent_until_it_resumes(self):
+        self.game.agent_only = True
+        r = self.call("connect", {"host": "127.0.0.1", "port": self.game.port})
+        self.assertIn("PAUSED for you", r["content"][0]["text"])
+        self.assertEqual(self.game.pause_requests[-1], dict(self.game.pause_requests[-1], action="set_pause", paused=True))
+        first = json.loads(self.call("wait_for_decision", {"timeout_seconds": 5})["content"][0]["text"])
+        self.assertEqual(first["reasons"], ["start"])
+        self.assertIn("PAUSED by you", first["state"])
+        # Held by the agent: nothing will come, so the wait answers at once instead of using up its timeout.
+        t0 = time.time()
+        held = json.loads(self.call("wait_for_decision", {"timeout_seconds": 10})["content"][0]["text"])
+        self.assertLess(time.time() - t0, 3)
+        self.assertEqual((held["due"], held["paused"]), (False, True))
+        self.assertIn("set_pause(paused=false)", held["note"])
+        self.assertIn("running", self.call("set_pause", {"paused": False})["content"][0]["text"])
+        self.assertFalse(self.game.paused)
+        self.call("set_pause", {"paused": True})
+        self.assertTrue(self.game.paused)
+        self.assertIn("then paused again", self.call("set_pause", {"paused": False, "turns": 20})["content"][0]["text"])
+        self.assertEqual((self.game.pause_requests[-1]["action"], self.game.pause_requests[-1]["turns"]), ("advance_turns", 20))
+        self.call("disconnect")
+
+    def test_a_game_a_human_plays_is_not_paused_and_refuses_the_pause(self):
+        r = self.call("connect", {"host": "127.0.0.1", "port": self.game.port})
+        self.assertNotIn("PAUSED", r["content"][0]["text"])
+        self.assertEqual(self.game.pause_requests, [])
+        r = self.call("set_pause", {"paused": True})
+        self.assertTrue(r.get("isError"))
+        self.assertIn("a human plays", r["content"][0]["text"])
+        self.assertFalse(self.game.paused)
+        self.call("disconnect")
+
+    def test_start_paused_false_leaves_an_agent_only_game_running(self):
+        self.game.agent_only = True
+        self.call("connect", {"host": "127.0.0.1", "port": self.game.port, "start_paused": False})
+        self.assertFalse(self.game.paused)
+        self.call("disconnect")
+
+    def test_look_shows_the_map_as_it_is_now_not_as_at_the_last_decision(self):
+        self._connect_and_start()
+        self.assertIn("..A1A1..", self.call("look", {"slab_rect": [0, 0, 3, 3]})["content"][0]["text"])
+        # A slab changes after the decision (a bridge built, a slab dug): look must show it without a new decision.
+        self.game.map_rows = ["........", "..A1C1..", "..A1C1..", "........"]
+        text = self.call("look", {"slab_rect": [0, 0, 3, 3]})["content"][0]["text"]
+        self.assertIn("..A1C1..", text.split("\n")[2])
+        self.call("disconnect")
 
     def test_check_orders_and_set_game_speed_against_a_real_session(self):
         self.call("connect", {"host": "127.0.0.1", "port": self.game.port})

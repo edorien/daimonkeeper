@@ -7,7 +7,8 @@
 The game must run with API_ENABLED=TRUE and have an External seat (Skirmish: Slots & AI -> "External agent (API)"), or pass
 --claim PLAYER to convert a computer keeper in a running game. The loop (docs/refactor/AI/LLM/02 section 4a):
     view (a diff after the first) -> policy -> batched, expiring, queued orders -> sleep until the next planning beat
-The game is never paused. Beats are quarters of a pay day (--beat quarter), a fixed number of game turns (--beat turns:N)
+The game is not paused by this loop; a level (or a loaded save) with no human keeper starts paused for the agent
+(agent_only), and the loop resumes it once the decision it prompts is sent. Beats are quarters of a pay day (--beat quarter), a fixed number of game turns (--beat turns:N)
 or wall-clock seconds (--beat seconds:S). Every decision is logged as one JSON line (--log FILE) with timings, token usage
 and view sizes, which is the budget data the plan asked for.
 """
@@ -21,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import experience  # noqa: E402
 import memory as memory_mod  # noqa: E402
+import standing_orders  # noqa: E402
 from api import Api, ApiError, SESSION_EVENTS  # noqa: E402
 from orders import submit_batch  # noqa: E402
 from viewstate import ViewState  # noqa: E402
@@ -34,6 +36,15 @@ def find_seat(api, claim):
     if not seats:
         raise SystemExit("the game has no External seat; start one from Skirmish (Slots & AI) or pass --claim PLAYER")
     return seats[0]["player"]
+
+
+def resume_agent_pause(api, seat, view):
+    """A level with no human keeper starts paused for the agent (the view's agent_only and agent_pause): an autonomous
+    loop, which never pauses on its own, lets it run once its first decision is made. Returns whether it resumed."""
+    if view.get("agent_only") and view.get("paused") and view.get("agent_pause"):
+        api.data(action="set_pause", player=seat, paused=False)
+        return True
+    return False
 
 
 class Beat:
@@ -79,6 +90,24 @@ class Beat:
             time.sleep(min(2.0, max(0.05, remaining / self.turns_per_second() * 0.8)))
 
 
+def apply_assist_preset(api, seat, memory, name):
+    """Starts the game's combat assistant from one of its presets (standing_orders.py; the automated runs use this, an
+    MCP agent calls apply_combat_preset itself). Prints what it did; a game without the assistant is told, not fatal."""
+    try:
+        presets = api.data(action="get_assist_presets").get("presets") or {}
+        if name not in presets:
+            print("no combat assistant preset %r (have: %s)" % (name, ", ".join(sorted(presets)) or "none"), file=sys.stderr)
+            return
+        req = standing_orders.apply_overrides(presets[name], {})
+        req, names = standing_orders.prepare(req.pop("rules"), req)
+        data = api.data(action="set_assist", player=seat, **req)
+        memory.rule_names = names
+        memory.flush()
+        print("combat assistant: preset %s, %d rule(s), %s packet(s)" % (name, len(names), data.get("steps")))
+    except ApiError as e:
+        print("combat assistant preset %s not applied: %s" % (name, e.code), file=sys.stderr)
+
+
 def run(args):
     if args.policy == "scripted":
         from policies import ScriptedPolicy
@@ -119,6 +148,8 @@ def run(args):
         memory, resumed = memory_mod.attach(api, seat, state.view)
         ctx.update({"memory": memory, "reasons": ["restart"] if resumed else ["start"]})
         recorder.start(memory, state.view, resumed)
+        if getattr(args, "assist_preset", None):
+            apply_assist_preset(api, seat, memory, args.assist_preset)
         while True:
             v = state.view
             beat.observe(v["turn"])
@@ -147,6 +178,9 @@ def run(args):
                 ctx.setdefault("warnings", []).append(warn)
             memory.record_decision(decision_turn, ctx.get("reasons", []), decision["reasoning"], sent, refused)
             recorder.decided(memory, decision_turn)
+            # A level, or a loaded save, with no human keeper starts paused for the agent: decided, so play.
+            if resume_agent_pause(api, seat, state.view) and not args.quiet:
+                print("the game was paused for the agent (level start or load): resumed after the decision")
             rec = {"decision": decisions, "turn": decision_turn, "reasons": ctx.get("reasons", []), "think_seconds": round(think, 3), "reasoning": decision["reasoning"],
                    "plan_updated": decision.get("plan") is not None, "notes_updated": decision.get("notes") is not None,
                    "memory_chars": len(memory.plan) + len(memory.notes), "warnings": ctx.pop("warnings", []),
@@ -246,6 +280,7 @@ def main(argv=None):
     p.add_argument("--takeover", action="store_true", help="arm the built-in AI takeover if this bridge disconnects")
     p.add_argument("--connect-timeout", type=float, default=60.0)
     p.add_argument("--log", default=None)
+    p.add_argument("--assist-preset", default=None, help="start the game's combat assistant from this preset (guardian, striker, miser)")
     p.add_argument("--quiet", action="store_true")
     args = p.parse_args(argv)
     summary, _ = run(args)

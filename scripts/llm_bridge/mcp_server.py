@@ -52,6 +52,41 @@ SERVER_NAME, SERVER_VERSION = "daimonkeeper-bridge", "0.1.0"
 # The prompt's name before the game was renamed; still answered, so existing client setups keep working.
 OLD_PROMPT_NAME = "play_keeperfx"
 
+_ASSIST_RULE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "description": "your name for the rule"},
+        "power": {"type": "string", "enum": ["POWER_HEAL_CREATURE", "POWER_SPEED", "POWER_PROTECT", "POWER_CONCEAL",
+                                             "POWER_CHICKEN", "POWER_DISEASE", "POWER_LIGHTNING", "POWER_CAVE_IN"],
+                  "description": "cast this (the first four on your creatures, the rest on enemies)"},
+        "power_off": {"type": "string", "enum": ["POWER_CALL_TO_ARMS", "POWER_OBEY"],
+                      "description": "instead of a cast: switch this power off (a gold guard)"},
+        "level": {"type": "integer", "minimum": 0, "maximum": 8},
+        "target": {"type": "string", "enum": ["ally_in_fight", "ally_any", "enemy_in_fight"],
+                   "description": "default: ally_in_fight for your powers, enemy_in_fight for the others"},
+        "pick": {"type": "string", "enum": ["lowest_health", "strongest", "highest_level", "most_valuable"]},
+        "when": {"type": "array", "maxItems": 4, "items": {"type": "array", "minItems": 3, "maxItems": 3},
+                 "description": ("conditions, all must hold: [fact, op, value]. op: < <= > >= == !=. Target facts: health_pct, "
+                                 "health, level, force, is_digger, on_own_ground, fleeing, kind (a creature name, == or !=), "
+                                 "battle_ally_force, battle_enemy_force, force_ratio (enemy force x100 / yours: over 100 you are "
+                                 "losing), battle_size, allies_near (your or your allies' creatures the power's area would hit). "
+                                 "Dungeon facts: gold, gold_after_wages, payday_turns, fights, fighters, cta_active, cta_paying, "
+                                 "obey_active, heart_health_pct.")},
+        "cooldown": {"type": "integer", "minimum": 0, "maximum": 10000, "description": "turns between two casts by this rule (default 20)"},
+        "target_cooldown": {"type": "integer", "minimum": 0, "maximum": 10000, "description": "turns before the same creature again (default 100 for your creatures)"},
+        "budget": {"type": "integer", "minimum": 0, "description": "gold this rule may spend per pay day (0 = no limit)"},
+        "max_allies_hit": {"type": "integer", "minimum": 0, "maximum": 15, "description": "Lightning / Cave-in: how many of yours it may also hit (default 0)"},
+    },
+}
+_ASSIST_SETTINGS = {
+    "enabled": {"type": "boolean"},
+    "reserve": {"type": "integer", "minimum": 0},
+    "interval": {"type": "integer", "minimum": 1, "maximum": 20},
+    "min_gap": {"type": "integer", "minimum": 1, "maximum": 200},
+    "max_spend": {"type": "integer", "minimum": 0},
+    "charge_time": {"type": "boolean"},
+}
+
 TOOLS = [
     {
         "name": "connect",
@@ -67,6 +102,7 @@ TOOLS = [
                 "takeover": {"type": "boolean", "description": "let the built-in AI take the seat if this connection drops"},
                 "experience_path": {"type": "string", "description": "sqlite file of game records and lessons across games (default: experience.sqlite in the bridge's own folder; \"\" to play without one)"},
                 "agent": {"type": "string", "description": "a name for you in the game records (default: the MCP client's name)"},
+                "start_paused": {"type": "boolean", "description": "in a game no human plays a keeper in: pause it on connect, for you to resume (default true)"},
             },
         },
     },
@@ -82,7 +118,7 @@ TOOLS = [
                          "time (call it again); due=true with the full state text to decide from otherwise. Call submit_orders "
                          "right after a due=true result. When the level is won or lost (or the game leaves it) the result has game_over=true "
                          "and victory_state, and usually a debrief: answer it with record_debrief. After game over only "
-                         "record_debrief, get_experience, get_log_tail and disconnect are accepted."),
+                         "record_debrief, get_experience, get_log_tail, get_combat_stats, get_combat_rules and disconnect are accepted."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -132,6 +168,48 @@ TOOLS = [
         },
     },
     {
+        "name": "set_combat_rules",
+        "description": ("Set your standing orders for fights: rules the game itself carries out every couple of turns, between "
+                         "your decisions, so a creature dropping low is healed in a second, not after your next call. Give the "
+                         "whole list, in priority order (the first rule that can act each time wins); each rule may have a "
+                         "\"name\" you refer to it by. Only what changed is sent; it goes live a few turns later, all at once. "
+                         "Settings: enabled, reserve (gold no cast may go below), interval (turns between looks, 1-20), "
+                         "min_gap (turns between any two casts), max_spend (gold per pay day, 0 = no cap), charge_time "
+                         "(wait 4 turns per level as a human charging must; default on). Leave rules out to change only "
+                         "settings. An error names the rule at fault."),
+        "inputSchema": {
+            "type": "object",
+            "properties": dict({"rules": {"type": "array", "items": _ASSIST_RULE_SCHEMA, "maxItems": 16}}, **_ASSIST_SETTINGS),
+        },
+    },
+    {
+        "name": "check_combat_rules",
+        "description": "set_combat_rules without sending anything: the same checks the game would make, and how many rules would change.",
+        "inputSchema": {
+            "type": "object",
+            "properties": dict({"rules": {"type": "array", "items": _ASSIST_RULE_SCHEMA, "maxItems": 16}}, **_ASSIST_SETTINGS),
+        },
+    },
+    {
+        "name": "get_combat_rules",
+        "description": "Your standing orders as they are live now, by name, ready to edit and send back, with what each did and why any is held back.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "apply_combat_preset",
+        "description": ("Apply one of the game's preset standing orders (guardian, striker, miser; call without a name to see "
+                         "what each does), optionally changed: overrides = {settings..., \"drop\": [rule names], "
+                         "\"rules\": {name: {fields to change}}} (a new name adds a rule)."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "overrides": {"type": "object"},
+                "dry_run": {"type": "boolean"},
+            },
+        },
+    },
+    {
         "name": "set_game_speed",
         "description": ("Slow down or speed up the simulation's real-time pace (how many simulated turns run per real "
                          "second) so you have more or less wall-clock time to decide. Global to the game, not just your "
@@ -144,12 +222,33 @@ TOOLS = [
         },
     },
     {
+        "name": "set_pause",
+        "description": ("Pause or resume the game, in a game where no human plays a keeper (otherwise refused: use "
+                         "set_game_speed). Such a level starts paused so you can look it over first; pause again whenever "
+                         "you need longer to think -- nothing moves while paused, and the orders you send wait for it to "
+                         "run. paused=false with turns=N runs N turns, then pauses again."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"paused": {"type": "boolean"},
+                           "turns": {"type": "integer", "minimum": 1, "maximum": 100000,
+                                     "description": "with paused=false: run this many turns, then pause again"}},
+            "required": ["paused"],
+        },
+    },
+    {
         "name": "get_log_tail",
         "description": "The game's own recent log output, for debugging a confusing session without a human tailing daimonkeeper.log by hand.",
         "inputSchema": {
             "type": "object",
             "properties": {"lines": {"type": "integer", "minimum": 1, "maximum": 500, "description": "default 100"}},
         },
+    },
+    {
+        "name": "get_combat_stats",
+        "description": ("How quickly fights are being answered, as the game measured it: creatures lost in fights and how long "
+                         "they had between dropping low and dying, time from a fight's start to the first power cast and to your "
+                         "orders, what Call to Arms and Must Obey cost in upkeep, pay days short of gold."),
+        "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "get_recipes",
@@ -205,8 +304,19 @@ def _dispatch_tool(session, name, args):
         return json.dumps(session.check_orders(args.get("orders", [])))
     if name == "set_game_speed":
         return session.set_speed(args["turns_per_second"])
+    if name == "set_pause":
+        return session.set_pause(bool(args["paused"]), args.get("turns"))
     if name == "get_log_tail":
         return session.log_tail(args.get("lines", 100))
+    if name in ("set_combat_rules", "check_combat_rules"):
+        fn = session.set_combat_rules if name == "set_combat_rules" else session.check_combat_rules
+        return json.dumps(fn(args.get("rules"), **{k: args[k] for k in _ASSIST_SETTINGS if k in args}))
+    if name == "get_combat_rules":
+        return json.dumps(session.get_combat_rules())
+    if name == "apply_combat_preset":
+        return json.dumps(session.apply_combat_preset(args.get("name"), args.get("overrides"), bool(args.get("dry_run"))))
+    if name == "get_combat_stats":
+        return session.combat_stats()
     if name == "get_recipes":
         return session.recipes()
     if name == "get_experience":

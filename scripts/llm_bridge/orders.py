@@ -20,7 +20,7 @@ def summarize(order):
         bits.append("towards %s" % order["direction"])
     if order.get("message"):
         bits.append('"%s"' % order["message"])
-    for flag in ("release", "sacrifice"):
+    for flag in ("release", "sacrifice", "imprison", "torture", "dismiss", "lose_spells"):
         if order.get(flag):
             bits.append(flag)
     if order.get("name"):

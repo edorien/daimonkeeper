@@ -55,6 +55,9 @@ void update_explored_flags_for_power_sight(struct PlayerInfo *player);
 void remove_explored_flags_for_power_sight(struct PlayerInfo *player);
 
 TbBool player_uses_power_call_to_arms(PlayerNumber plyr_idx);
+/** Call to Arms is on and costs upkeep: its banner is off the keeper's own ground (and off a mutual ally's, where
+ *  allies_share_cta lets it stand for free) and was not cast free. The rule process_magic_power_call_to_arms pays by. */
+TbBool player_call_to_arms_is_charged(PlayerNumber plyr_idx);
 void turn_off_power_call_to_arms(PlayerNumber plyr_idx);
 void creature_stop_affected_by_call_to_arms(struct Thing *thing);
 TbBool reset_creature_if_affected_by_cta(struct Thing *thing);

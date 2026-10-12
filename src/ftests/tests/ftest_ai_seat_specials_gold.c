@@ -2,7 +2,8 @@
 // whether its hand can reach them: its own land only), and its dead creatures once a resurrect box is among them.
 // use_special: an increase-level box levels the seat's creatures; a resurrect box brings back the dead creature the
 // order names (refused MISSING_CHOICE without one); a transfer box takes the creature the order names; a box on land
-// not the seat's is CANNOT_REACH. Loose gold outside the treasure room is listed and carried into it with the hand.
+// not the seat's is CANNOT_REACH. Loose gold outside the treasure room is listed -- every pile the hand can reach by id,
+// beyond the few shown in detail -- and carried into it with the hand.
 #include "ftest_ai_seat_specials_gold.h"
 
 #ifdef FUNCTESTING
@@ -48,6 +49,8 @@ static PlayerNumber P = -1;
 static NetUserId U = -1;
 static MapSlabCoord hsx, hsy;
 static ThingIndex s_level_box = 0, s_res_box = 0, s_trans_box = 0, s_far_box = 0, s_orc = 0, s_troll = 0, s_gold = 0;
+#define EXTRA_PILES 20
+static ThingIndex s_extra[EXTRA_PILES], s_far_gold = 0;
 static RoomIndex s_treasure = 0;
 static int64_t s_orcs_before = 0, s_treasure_gold_before = 0;
 static CrtrExpLevel s_orc_level_before = 0;
@@ -84,6 +87,33 @@ static TbBool view_lists(const char* list, ThingIndex id, TbBool* reachable)
     }
     value_fini(&v);
     return found;
+}
+/** own.loose_gold.ids: every pile the hand can reach, largest first; and the detailed piles, largest first too. */
+static TbBool gold_ids_complete(void)
+{
+    VALUE v; api_seat_build_view(&v, P);
+    VALUE* lg = value_dict_get(value_dict_get(&v, "own"), "loose_gold");
+    VALUE* ids = value_dict_get(lg, "ids");
+    VALUE* piles = value_dict_get(lg, "piles");
+    TbBool ok = (ids != NULL) && (piles != NULL) && ((int64_t)value_array_size(ids) == value_int64(value_dict_get(lg, "reachable_count")))
+        && (value_array_size(piles) <= 16);
+    for (size_t i = 1; ok && i < value_array_size(piles); i++)
+        ok = value_int64(value_dict_get(value_array_get(piles, i - 1), "gold")) >= value_int64(value_dict_get(value_array_get(piles, i), "gold"));
+    if (!ok) FTESTLOG("loose_gold: ids %d, reachable_count %d, piles %d (or not largest first)", ids ? (int)value_array_size(ids) : -1,
+        (int)value_int64(value_dict_get(lg, "reachable_count")), piles ? (int)value_array_size(piles) : -1);
+    int64_t found = 0, far = 0;
+    for (size_t i = 0; ids && i < value_array_size(ids); i++) {
+        const int32_t id = value_int32(value_array_get(ids, i));
+        if (id == s_gold) found++;
+        if (id == s_far_gold) far++;
+        for (int k = 0; k < EXTRA_PILES; k++) if (s_extra[k] && id == s_extra[k]) found++;
+    }
+    int64_t want = (s_gold != 0);
+    for (int k = 0; k < EXTRA_PILES; k++) want += (s_extra[k] != 0);
+    const TbBool far_reach = (s_far_gold != 0) && can_thing_be_picked_up_by_player(thing_get(s_far_gold), P);
+    FTESTLOG("loose_gold ids: %d of the %d reachable test piles; the pile on unclaimed path listed %d, reachable %d", (int)found, (int)want, (int)far, (int)far_reach);
+    value_fini(&v);
+    return ok && (found == want) && (want == 1 + EXTRA_PILES) && (s_far_gold != 0) && ((far != 0) == far_reach);
 }
 static TbBool dead_listed(const char* kind, int level)
 {
@@ -141,6 +171,16 @@ FTestActionResult sg01_setup(struct FTestActionArgs* const args)
     struct Coord3d gpos; set_coords_to_slab_center(&gpos, hsx + 3, hsy + 5);
     struct Thing* gold = drop_gold_pile(400, &gpos);
     s_gold = thing_is_invalid(gold) ? 0 : gold->index;
+    // More small piles than the view details (LOOSE_GOLD_LISTED): every reachable one must still be named by id; and
+    // one on unclaimed path, named exactly when the engine says the hand can take it from there.
+    for (int i = 0; i < EXTRA_PILES; i++) {
+        struct Coord3d p; p.x.val = subtile_coord_center(slab_subtile(hsx - 6 + i / 3, i % 3)); p.y.val = subtile_coord_center(slab_subtile(hsy + 6, 1)); p.z.val = 0;
+        struct Thing* g = drop_gold_pile(10 + i, &p);
+        s_extra[i] = thing_is_invalid(g) ? 0 : g->index;
+    }
+    struct Coord3d fpos; set_coords_to_slab_center(&fpos, hsx + 4, hsy + 7);
+    struct Thing* far_gold = drop_gold_pile(30, &fpos);
+    s_far_gold = thing_is_invalid(far_gold) ? 0 : far_gold->index;
     return FTRs_Go_To_Next_Action;
 }
 
@@ -151,6 +191,7 @@ FTestActionResult sg02_check_view_then_use(struct FTestActionArgs* const args)
     CHECK_TRUE("the box on unclaimed path is listed, not reachable", view_lists("specials", s_far_box, &reach) && !reach);
     CHECK_TRUE("with a resurrect box about, the seat's dead are listed", dead_listed("ORC", 3));
     CHECK_TRUE("the loose gold pile is listed", s_gold && view_lists("gold", s_gold, &reach) && reach);
+    CHECK_TRUE("every reachable pile is named in loose_gold.ids, more than the detailed list holds", gold_ids_complete());
     const char* e = submit(special(s_far_box));
     CHECK_TRUE("a box the hand cannot reach is CANNOT_REACH", e && strcmp(e, "CANNOT_REACH") == 0);
     e = submit(special(s_res_box));

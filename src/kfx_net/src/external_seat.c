@@ -12,6 +12,7 @@
 #include "config_terrain.h"
 #include "config_trapdoor.h"
 #include "creature_control.h"
+#include "creature_jobs.h"
 #include "creature_states.h"
 #include "creature_states_combt.h"
 #include "dungeon_data.h"
@@ -35,8 +36,12 @@
 #include "thing_traps.h"
 #include "thing_doors.h"
 #include "thing_navigate.h"
+#include "thing_physics.h"
 #include "player_availability.h"
 #include "thing_stats.h"
+#include "cheat_mode.h"
+#include "keeper_assist_packets.h"
+#include "keeper_assist_state.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -626,6 +631,39 @@ void extseat_set_watchdog_ms(int64_t ms)
     s_watchdog_ms = ms;
 }
 
+TbBool extseat_human_playing(void)
+{
+    if (kfx_sim_state.game_kind != GKind_LocalGame) {
+        return true;
+    }
+    for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++) {
+        const struct PlayerInfo *player = get_player(p);
+        if (!player_exists(player) || !player_is_keeper(p)) continue;
+        if (flag_is_set(player->allocflags, PlaF_ExternalSeat) || flag_is_set(player->allocflags, PlaF_CompCtrl)) continue;
+        if ((player->victory_state == VicS_LostLevel) || flag_is_set(player->display_flags, PlaF6_PlyrHasQuit)) continue;
+        return true;
+    }
+    return false;
+}
+
+TbBool extseat_pause_for_agent_start(void)
+{
+    // A replay plays the recorded seats' packets back: there is no agent to wait for.
+    if ((kfx_sim_state.game_kind != GKind_LocalGame) || replay.load_enable) {
+        return false;
+    }
+    TbBool seat = false;
+    for (PlayerNumber p = 0; p < PLAYERS_COUNT; p++) {
+        if (player_exists(get_player(p)) && flag_is_set(get_player(p)->allocflags, PlaF_ExternalSeat)) seat = true;
+    }
+    if (!seat || extseat_human_playing()) {
+        return false;
+    }
+    extseat_pause();
+    SYNCLOG("No human plays a keeper: the level starts paused for the agent (set_pause to begin)");
+    return true;
+}
+
 static void takeover_if_armed(const char *why)
 {
     if (s_takeover) {
@@ -655,7 +693,9 @@ void extseat_poll(void)
         extseat_note_activity();
         return;
     }
-    if (s_agent_owns_pause && game_paused() && (s_watchdog_ms > 0)
+    // The watchdog keeps a stalled agent from holding a human up; with no human playing, the pause is the agent's to
+    // hold for as long as it thinks.
+    if (s_agent_owns_pause && game_paused() && (s_watchdog_ms > 0) && extseat_human_playing()
      && ((int64_t)(LbTimerClock() - s_last_activity) > s_watchdog_ms)) {
         WARNLOG("No seat command for %" PRId64 " ms while the agent held the pause; resuming the game", (int64_t)s_watchdog_ms);
         extseat_resume();
@@ -890,23 +930,57 @@ static struct Thing *hand_thing(PlayerNumber plyr_idx, int64_t id, const char **
     return thing;
 }
 
-/** Whether dropping `thing` at the subtile is what the order says it means. A prisoner dropped anywhere but the
- *  seat's own prison or torture chamber goes free (unless the order says `release`); anything dropped on a temple pool
- *  is sacrificed (unless the order says `sacrifice`, only on the pool). */
-static const char *check_drop_intent(PlayerNumber plyr_idx, const struct Thing *thing, MapSubtlCoord x, MapSubtlCoord y,
-    TbBool release, TbBool sacrifice)
+/** Whether dropping `thing` at the subtile is what the order says it means. The hand does more than move a creature:
+ *  anything dropped on a temple pool is sacrificed (unless the order says `sacrifice`, only on the pool); a creature
+ *  that lands on the seat's own portal walks out of the dungeon for good (unless it says `dismiss`, only on the portal);
+ *  one of the seat's own creatures that lands in its prison is jailed there (unless it says `imprison`, only in the
+ *  prison), and one that lands in its torture chamber is put on the rack (unless it says `torture`, only in the
+ *  chamber); and a prisoner dropped anywhere but the seat's own prison or torture chamber goes free (unless it says
+ *  `release`). Dismissal, jailing and the rack are the job the engine gives the creature on landing
+ *  (predict_hand_drop_job, the creature_being_dropped rule: with the stock jobs, anywhere on the portal, in the prison
+ *  or in the chamber, not for imps). A torture job the creature keeps its own will in (no JoKF_NoSelfControl: the stock
+ *  KINKY_TORTURE a dark mistress enjoys) is what it would choose anyway, and is not refused. */
+static const char *check_drop_intent(PlayerNumber plyr_idx, struct Thing *thing, MapSubtlCoord x, MapSubtlCoord y,
+    const struct ExtSeatVerb *verb)
 {
     if (!thing_is_creature(thing)) return NULL;
     const TbBool pool = subtile_has_sacrificial_on_top(x, y);
-    if (pool && !sacrifice) return "WOULD_SACRIFICE";
-    if (!pool && sacrifice) return "NOT_A_POOL";
-    if ((thing->owner != plyr_idx) && !pool && !release) {
-        const struct Room *room = subtile_room_get(x, y);
-        const TbBool holds = !room_is_invalid(room) && (room->owner == plyr_idx)
-            && (room_role_matches(room->kind, RoRoF_Prison) || room_role_matches(room->kind, RoRoF_Torture));
+    if (pool && !verb->sacrifice) return "WOULD_SACRIFICE";
+    if (!pool && verb->sacrifice) return "NOT_A_POOL";
+    const struct Room *room = subtile_room_get(x, y);
+    const TbBool own_room = !room_is_invalid(room) && (room->owner == plyr_idx);
+    if (verb->dismiss && !(own_room && room_role_matches(room->kind, RoRoF_CrPoolLeave))) return "NOT_A_PORTAL";
+    if (verb->imprison && !(own_room && room_role_matches(room->kind, RoRoF_Prison))) return "NOT_A_PRISON";
+    if (verb->torture && !(own_room && room_role_matches(room->kind, RoRoF_Torture))) return "NOT_A_TORTURE_CHAMBER";
+    const CreatureJob job = pool ? Job_NULL : predict_hand_drop_job(thing, plyr_idx, x, y);
+    const RoomRole role = (job != Job_NULL) ? get_room_role_for_job(job) : RoRoF_None;
+    const TbBool dismissed = (role & RoRoF_CrPoolLeave) != 0;
+    if (dismissed && !verb->dismiss) return "WOULD_DISMISS";
+    if ((thing->owner == plyr_idx) && ((role & RoRoF_Prison) != 0) && !verb->imprison) return "WOULD_IMPRISON";
+    if ((thing->owner == plyr_idx) && ((role & RoRoF_Torture) != 0) && ((get_flags_for_job(job) & JoKF_NoSelfControl) != 0)
+     && !verb->torture) return "WOULD_TORTURE";
+    if ((thing->owner != plyr_idx) && !pool && !dismissed && !verb->release) {
+        const TbBool holds = own_room && (room_role_matches(room->kind, RoRoF_Prison) || room_role_matches(room->kind, RoRoF_Torture));
         if (!holds) return "WOULD_RELEASE_PRISONER";
     }
     return NULL;
+}
+
+/** can_place_thing_here refused: say which of its tests failed, in the log (CANNOT_DROP_HERE is all the agent gets). */
+static void log_drop_refusal(PlayerNumber plyr_idx, const struct Thing *thing, MapSubtlCoord x, MapSubtlCoord y)
+{
+    const struct Map *mapblk = get_map_block_at(x, y);
+    const struct SlabMap *slb = get_slabmap_for_subtile(x, y);
+    struct Coord3d pos = thing->mappos;
+    pos.x.val = subtile_coord_center(x);
+    pos.y.val = subtile_coord_center(y);
+    pos.z.val = get_thing_height_at(thing, &pos);
+    SYNCLOG("External seat %d: CANNOT_DROP_HERE for %s %d at (%d,%d): revealed %d, blocking %d, door %d, slab %s owner %d,"
+        " in wall %d (z %d from %d, size %dx%d, floor %d, ceiling %d)", (int)plyr_idx, thing_model_name(thing), (int)thing->index,
+        (int)x, (int)y, (int)map_block_revealed(mapblk, plyr_idx), (int)((mapblk->flags & SlbAtFlg_Blocking) != 0),
+        (int)((mapblk->flags & SlbAtFlg_IsDoor) != 0), slab_code_name(slb->kind), (int)slabmap_owner(slb),
+        (int)thing_in_wall_at(thing, &pos), (int)pos.z.val, (int)thing->mappos.z.val, (int)thing->clipbox_size_xy,
+        (int)thing->clipbox_size_z, (int)get_map_floor_height(mapblk), (int)get_map_ceiling_height(mapblk));
 }
 
 /** A prisoner dropped into a prison or torture chamber with no room left for it is not held: on arrival the engine's
@@ -959,6 +1033,49 @@ static const char *resolve_room_drop(PlayerNumber plyr_idx, int64_t room_id, str
         sn = get_next_slab_number_in_room(sn);
     }
     return sacrifice ? "NO_POOL" : "CANNOT_DROP_HERE";
+}
+
+/** sell: the spellbooks on the seat's library slabs being sold are moved to another of its libraries with shelf space
+ *  (position_books_in_room_with_capacity), and any that do not fit are destroyed, taking their spells away from the
+ *  seat (remove_power_from_player) -- an agent that sells "the finished library" loses every spell it researched.
+ *  Refused (WOULD_LOSE_SPELLS) when the books on the sold slabs outnumber the free space in the seat's libraries that
+ *  keep all their slabs; the room being cut down is not counted, since how much it still holds afterwards depends on
+ *  its new size and efficiency. */
+static const char *check_sell_keeps_spells(PlayerNumber plyr_idx, int64_t lx, int64_t ty, int64_t rx, int64_t by)
+{
+    int64_t books = 0;
+    int64_t idx = kfx_sim_state.thing_lists[TngList_Objects].index;
+    for (int64_t guard = 0; (idx > 0) && (guard < THINGS_COUNT); guard++) {
+        const struct Thing *thing = thing_get((ThingIndex)idx);
+        if (thing_is_invalid(thing)) break;
+        idx = thing->next_of_class;
+        if (!thing_is_spellbook(thing) || (thing->owner != plyr_idx)) continue;
+        const int64_t sx = subtile_slab(thing->mappos.x.stl.num), sy = subtile_slab(thing->mappos.y.stl.num);
+        if ((sx < lx) || (sx > rx) || (sy < ty) || (sy > by)) continue;
+        const struct Room *room = subtile_room_get(thing->mappos.x.stl.num, thing->mappos.y.stl.num);
+        if (!room_is_invalid(room) && (room->owner == plyr_idx) && room_role_matches(room->kind, RoRoF_PowersStorage)) books++;
+    }
+    if (books == 0) return NULL;
+    const struct Dungeon *dungeon = get_players_num_dungeon(plyr_idx);
+    int64_t spare = 0;
+    for (int64_t rkind = 1; rkind < TERRAIN_ITEMS_MAX; rkind++) {
+        if (!room_role_matches((RoomKind)rkind, RoRoF_PowersStorage)) continue;
+        int64_t ridx = dungeon->room_list_start[rkind];
+        for (int64_t guard = 0; (ridx > 0) && (guard < ROOMS_COUNT); guard++) {
+            const struct Room *room = room_get((RoomIndex)ridx);
+            if (room_is_invalid(room)) break;
+            ridx = room->next_of_owner;
+            TbBool cut = false;
+            SlabCodedCoords sn = room->slabs_list;
+            for (int64_t g2 = 0; (sn != 0) && (g2 < 4096) && !cut; g2++) {
+                const int64_t sx = slb_num_decode_x(sn), sy = slb_num_decode_y(sn);
+                cut = (sx >= lx) && (sx <= rx) && (sy >= ty) && (sy <= by);
+                sn = get_next_slab_number_in_room(sn);
+            }
+            if (!cut && (room->total_capacity > room->used_capacity)) spare += room->total_capacity - room->used_capacity;
+        }
+    }
+    return (books > spare) ? "WOULD_LOSE_SPELLS" : NULL;
 }
 
 /** send_message: at most one per EXTSEAT_CHAT_MIN_TURNS -- short messages, not a stream. */
@@ -1069,8 +1186,11 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
             if (err != NULL) return err;
         }
         for (int64_t i = 0; i < count; i++) {
-            if (!can_place_thing_here(things[i], x, y, plyr_idx)) return "CANNOT_DROP_HERE";
-            const char *err = check_drop_intent(plyr_idx, things[i], (MapSubtlCoord)x, (MapSubtlCoord)y, verb->release, verb->sacrifice);
+            if (!can_place_thing_here(things[i], x, y, plyr_idx)) {
+                log_drop_refusal(plyr_idx, things[i], (MapSubtlCoord)x, (MapSubtlCoord)y);
+                return "CANNOT_DROP_HERE";
+            }
+            const char *err = check_drop_intent(plyr_idx, things[i], (MapSubtlCoord)x, (MapSubtlCoord)y, verb);
             if (err != NULL) return err;
         }
         if (2 * count > EXTSEAT_MAX_STEPS) return "TOO_MANY";
@@ -1099,7 +1219,7 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
             return "MISSING_POSITION";
         }
         if (!thing_is_invalid(held)) {
-            const char *err = check_drop_intent(plyr_idx, held, (MapSubtlCoord)x, (MapSubtlCoord)y, verb->release, verb->sacrifice);
+            const char *err = check_drop_intent(plyr_idx, held, (MapSubtlCoord)x, (MapSubtlCoord)y, verb);
             if (err == NULL) err = check_room_admission(plyr_idx, (MapSubtlCoord)x, (MapSubtlCoord)y, &held, 1);
             if (err != NULL) return err;
         }
@@ -1418,10 +1538,38 @@ static const char *plan_verb(PlayerNumber plyr_idx, const struct ExtSeatVerb *ve
             }
         }
         if (count == 0) return "NOTHING_TO_SELL";
+        if (!verb->lose_spells) {
+            const char *err = check_sell_keeps_spells(plyr_idx, lx, ty, rx, by);
+            if (err != NULL) return err;
+        }
         n = extseat_plan_slab_clicks(steps, EXTSEAT_MAX_STEPS, xy, count);
         if (n == 0) return "AREA_TOO_LARGE";
         break;
     }
+    case ESV_SetAssist: {
+        if (game_refuses_cheats()) return "NOT_IN_MULTIPLAYER";
+        for (int s = 0; s < KEEPER_ASSIST_RULES; s++) {
+            if (!verb->assist_rules[s].used) continue;
+            const char *err = keeper_assist_rule_validate(&verb->assist_rules[s]);
+            if (err != NULL) return err;
+        }
+        const char *gerr = keeper_assist_globals_validate(&verb->assist_globals);
+        if (gerr != NULL) return gerr;
+        // Planned when the verb starts, against the rules live then: only what changed is sent.
+        struct KeeperAssistPacket pk[KEEPER_ASSIST_MAX_PACKETS];
+        const int np = keeper_assist_plan_packets(&kfx_sim_state.keeper_assist[plyr_idx], verb->assist_rules, &verb->assist_globals, pk);
+        if (np == 0) return "UNCHANGED";
+        if (np > EXTSEAT_MAX_STEPS) return "TOO_MANY_STEPS";
+        for (int i = 0; i < np; i++) {
+            step_action(&steps[n++], pk[i].action, pk[i].par1, pk[i].par2);
+        }
+        break;
+    }
+    case ESV_AssistEnable:
+        if (game_refuses_cheats()) return "NOT_IN_MULTIPLAYER";
+        if (!verb->has_enabled) return "MISSING_ENABLED";
+        step_action(&steps[n++], PckA_AssistEnable, verb->enabled ? 1 : 0, 0);
+        break;
     default:
         return "UNKNOWN_VERB";
     }

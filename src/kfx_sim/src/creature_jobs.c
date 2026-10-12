@@ -1203,7 +1203,8 @@ TbBool creature_try_doing_secondary_job(struct Thing *creatng)
  * @param stl_y
  * @return
  */
-CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags)
+static CreatureJob get_job_for_subtile_in_room(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y,
+    uint64_t drop_kind_flags, const struct Room *room)
 {
     // Detect the job which we will do in the area
     uint64_t required_kind_flags = drop_kind_flags;
@@ -1213,7 +1214,6 @@ CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x
         required_kind_flags |= JoKF_AssignOnAreaBorder;
     }
     struct SlabMap* slb = get_slabmap_for_subtile(stl_x, stl_y);
-    struct Room* room = get_room_thing_is_on(creatng);
     RoomKind rkind = room_is_invalid(room) ? RoK_NONE : room->kind;
     struct CreatureModelConfig* crconf = creature_stats_get_from_thing(creatng);
     if (rkind != RoK_NONE)
@@ -1258,6 +1258,34 @@ CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x
         }
     }
     return get_job_for_room(rkind, required_kind_flags, crconf->job_primary | crconf->job_secondary);
+}
+
+CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags)
+{
+    return get_job_for_subtile_in_room(creatng, stl_x, stl_y, drop_kind_flags, get_room_thing_is_on(creatng));
+}
+
+/**
+ * The job a creature dropped by a player's hand at a subtile would be given when it lands: creature_being_dropped()'s
+ * choice made before the drop -- nothing in a room another player owns, else get_job_for_subtile() at that spot (the
+ * room under it, not the one the creature stands in now), kept only if the job's own checks would let it start.
+ * A fight the creature finds on landing, and a digger finding digger work, come first in the real drop and are not
+ * predicted, so this says what the drop does when nothing else intervenes.
+ */
+CreatureJob predict_hand_drop_job(struct Thing *creatng, PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y)
+{
+    if (!thing_is_creature(creatng)) {
+        return Job_NULL;
+    }
+    const struct Room* room = subtile_room_get(stl_x, stl_y);
+    if (!room_is_invalid(room) && (room->owner != plyr_idx)) {
+        return Job_NULL;
+    }
+    CreatureJob new_job = get_job_for_subtile_in_room(creatng, stl_x, stl_y, JoKF_AssignHumanDrop, room);
+    if ((new_job != Job_NULL) && !creature_can_do_job_near_position(creatng, stl_x, stl_y, new_job, 0)) {
+        return Job_NULL;
+    }
+    return new_job;
 }
 
 /******************************************************************************/

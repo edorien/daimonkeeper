@@ -355,12 +355,13 @@ class Recorder:
             self.store.close_branch(old_mem, "reloaded", reached)
         self.store.open_branch(new_mem, self.player, self.agent, self.opponents, turn=view.get("turn"))
 
-    def ended(self, mem, view, result):
-        """The seat won or lost: the attempt is over. Returns True if this closed it (False if already closed)."""
+    def ended(self, mem, view, result, combat=None):
+        """The seat won or lost: the attempt is over. Returns True if this closed it (False if already closed).
+        `combat`: the game's get_combat_stats for the seat, kept on the record (combat_report.py reads it)."""
         observe(mem, view)
-        return self.store.close_branch(mem, result, view.get("turn"), final_from_view(view))
+        return self.store.close_branch(mem, result, view.get("turn"), _with_combat(final_from_view(view), combat))
 
-    def left(self, mem, view, last_save_turn):
+    def left(self, mem, view, last_save_turn, combat=None):
         """The game left the level while undecided. Returns (result, worth_a_debrief): "suspended" when it was saved
         within the last pay day (it will be continued; the debrief comes when it ends), else "quit" -- worth a debrief
         only once the game had run at least a pay day."""
@@ -371,8 +372,15 @@ class Recorder:
         else:
             result = "quit"
             debrief = turn - (mem.start_turn or 0) >= pd
-        self.store.close_branch(mem, result, turn, final_from_view(view))
+        self.store.close_branch(mem, result, turn, _with_combat(final_from_view(view), combat))
         return result, debrief
+
+
+def _with_combat(final, combat):
+    if combat:
+        final = dict(final or {})
+        final["combat"] = combat
+    return final
 
 
 def opponents_from_view(view, player):

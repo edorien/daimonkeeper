@@ -21,6 +21,7 @@ namespace {
 struct LocalGameFixture {
     LocalGameFixture() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+        local_system_flags = 0; // out of kfx_sim_state since 1ec821fa4, so the memset no longer clears it
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         kfx_config_state.neutral_player_num = PLAYER_NEUTRAL;
         kfx_sim_state.game_kind = GKind_LocalGame;

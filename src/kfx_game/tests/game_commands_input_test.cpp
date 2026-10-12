@@ -9,6 +9,9 @@
 #include "player_data.h"
 #include "kfx_sim_state.h"
 #include "kfx_net_state.h"
+#include "net_game.h"
+#include "packet_data.h"
+#include "config_players.h"
 
 #include <cstring>
 
@@ -116,4 +119,60 @@ TEST_CASE_METHOD(ResetStates, "remember_cursor_subtile clears interpolated_taggi
     sim_packets[1].control_flags = PCtr_LBtnClick;
     remember_cursor_subtile(1);
     CHECK_FALSE(get_user_state(1)->interpolated_tagging);
+}
+
+// clear_users_button_state (game_commands.c) runs on every paused turn. An External seat's held button
+// must survive it: advance_turns pauses between advances, and clearing it there cut a mark_dig sweep
+// down to its first row (ai_bridge_smoke, after the 2026-10-03 upstream merge of #5370).
+TEST_CASE_METHOD(ResetStates, "clear_users_button_state releases a human's held button but keeps an External seat's", "[kfx_game][game_commands_input]") {
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    replay.load_enable = 0;
+    struct PlayerInfo* seat = &kfx_sim_state.players[1];
+    seat->allocflags = PlaF_Allocated | PlaF_ExternalSeat;
+    seat->id_number = 1;
+    seat->user_id = 1;
+    net_restore_external_seats_after_load();
+    for (NetUserId user : {(NetUserId)SOLO_HUMAN_ID, (NetUserId)1}) {
+        get_user_state(user)->cursor_button_down = 1;
+        get_user_state(user)->interpolated_tagging = true;
+    }
+    clear_users_button_state();
+    CHECK(get_user_state(SOLO_HUMAN_ID)->cursor_button_down == 0);
+    CHECK_FALSE(get_user_state(SOLO_HUMAN_ID)->interpolated_tagging);
+    CHECK(get_user_state(1)->cursor_button_down == 1);
+    CHECK(get_user_state(1)->interpolated_tagging);
+    net_clear_external_seats();
+}
+
+// An agent playing the local human's own keeper (net_add_external_seat's exception): the human's panel clicks
+// arrive as global packet actions for the same player, and one landing between the seat's steps (a door chosen
+// from the workshop panel while the seat places another) silently lost the seat's order. Only the seat's own user
+// may change the player's control state; the watcher keeps pause, chat, event boxes and the camera.
+TEST_CASE_METHOD(ResetStates, "a watcher's control-state action on an External seat's player is ignored", "[kfx_game][game_commands_input]") {
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    replay.load_enable = 0;
+    struct PlayerInfo* seat = &kfx_sim_state.players[1];
+    seat->allocflags = PlaF_Allocated | PlaF_ExternalSeat;
+    seat->id_number = 1;
+    seat->user_id = 1;
+    seat->work_state = PSt_CtrlDungeon;
+    net_restore_external_seats_after_load();
+    my_player_number = 1; // the seat is the local human's own keeper: user 0 resolves to it too
+    struct Packet* watcher = get_packet(SOLO_HUMAN_ID);
+    set_packet_action(watcher, PckA_SetPlyrState, PSt_PlaceDoor, 1, 0, 0);
+    CHECK(process_user_global_packet_action(SOLO_HUMAN_ID)); // consumed, not acted on
+    CHECK(seat->work_state == PSt_CtrlDungeon);
+    net_clear_external_seats();
+}
+
+TEST_CASE("global_action_allowed_for_seat_watcher keeps pause, chat and camera, refuses control actions", "[kfx_game][game_commands_input]") {
+    for (int64_t ok : {PckA_TogglePause, PckA_UpdatePause, PckA_QuitToMainMenu, PckA_PlyrMsgEnd, PckA_PlyrFastMsg,
+                       PckA_ZoomToEvent, PckA_ZoomToPosition, PckA_SwitchView, PckA_EventBoxClose}) {
+        CHECK(global_action_allowed_for_seat_watcher(ok));
+    }
+    for (int64_t no : {PckA_SetPlyrState, PckA_UsePwrHandPick, PckA_UsePwrHandDrop, PckA_GenericLevelPower,
+                       PckA_ToggleTendency, PckA_PlyrToggleAlly, PckA_SetViewType, PckA_SetRoomspaceDrag,
+                       PckA_ApplyRoomspaceDigTag, PckA_DumpHeldThingToOldPos}) {
+        CHECK_FALSE(global_action_allowed_for_seat_watcher(no));
+    }
 }

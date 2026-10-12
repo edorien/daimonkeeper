@@ -109,6 +109,8 @@
 #include <cstdint>
 
 #include "ports/editor_port.h"
+#include "keeper_assist.h"
+#include "keeper_assist_outbox.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -178,6 +180,8 @@ void update(void)
         lua_on_game_tick();
         if ((kfx_sim_state.view_mode_flags & GNFldD_ComputerPlayerProcessing) != 0)
             process_computer_players2();
+        // The combat assistant: the keepers' own standing orders, so not behind the computer-processing switch.
+        process_keeper_assists();
         process_players();
         process_action_points();
         player = get_my_player();
@@ -544,6 +548,8 @@ static void gameplay_loop_logic()
     poll_inputs();
     input_eastegg();
     input();
+    // The player's combat assistant profile, as packets in their own packet (only when their input left it empty).
+    keeper_assist_outbox_tick(get_local_packet(), my_player_number);
     exchange_packets();
     extseat_tick();
 #ifdef FUNCTESTING

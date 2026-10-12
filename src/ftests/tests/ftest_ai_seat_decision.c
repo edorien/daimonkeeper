@@ -1,7 +1,8 @@
 // "A decision is due" (api_seat_decision.c): an External seat's agent should think at natural moments -- each quarter of a
 // pay day and when something important happens -- not on a timer. Drives the engine: a quarter boundary, a pay day wrap,
-// a fight event, a new creature kind; checks the counter and reasons in the view (seat.decision), that reasons inside the
-// minimum interval are held and delivered together after it, and that nothing fires spuriously or for a non-seat player.
+// a fight event, a new creature kind, an alarm trap going off; checks the counter and reasons in the view (seat.decision),
+// that reasons inside the minimum interval are held and delivered together after it, that an alarm does not wait (a human
+// hears it at once), and that nothing fires spuriously or for a non-seat player.
 #include "ftest_ai_seat_decision.h"
 
 #ifdef FUNCTESTING
@@ -20,6 +21,7 @@
 #include "api_seat_view.h"
 #include "config_creature.h"
 #include "config_keeperfx.h"
+#include "config_trapdoor.h"
 #include "dungeon_data.h"
 #include "frontend.h"
 #include "game_legacy.h"
@@ -29,6 +31,7 @@
 #include "player_data.h"
 #include "slab_data.h"
 #include "thing_list.h"
+#include "thing_traps.h"
 
 #include "post_inc.h"
 
@@ -74,6 +77,8 @@ FTestActionResult dc04_check_wrap_then_fight(struct FTestActionArgs* const args)
 FTestActionResult dc05_check_fight_then_coalesce(struct FTestActionArgs* const args);
 FTestActionResult dc06_check_held_then_kind(struct FTestActionArgs* const args);
 FTestActionResult dc07_check_kind(struct FTestActionArgs* const args);
+FTestActionResult dc08_alarm(struct FTestActionArgs* const args);
+FTestActionResult dc09_check_alarm(struct FTestActionArgs* const args);
 
 void ftest_ai_seat_decision_pre_start() { fe_computer_players = 1; }
 
@@ -87,6 +92,8 @@ TbBool ftest_ai_seat_decision_init()
     ftest_append_action(dc05_check_fight_then_coalesce, 3, NULL);
     ftest_append_action(dc06_check_held_then_kind, 3, NULL);
     ftest_append_action(dc07_check_kind, 3, NULL);
+    ftest_append_action(dc08_alarm, 1, NULL);
+    ftest_append_action(dc09_check_alarm, 1, NULL);
     return true;
 }
 
@@ -170,8 +177,48 @@ FTestActionResult dc07_check_kind(struct FTestActionArgs* const args)
     // Nothing more happens: no further decisions.
     char r2[200];
     CHECK_TRUE("no spurious decisions", decision(r2, sizeof(r2), &pend) == 4 && pend == 0);
+    return FTRs_Go_To_Next_Action;
+}
+
+static MapSubtlCoord s_trap_x, s_trap_y;
+
+FTestActionResult dc08_alarm(struct FTestActionArgs* const args)
+{
+    // An interval far longer than the test: anything not urgent would be held.
+    api_seat_decision_set_min_interval(5000);
+    s_trap_x = hx + 3; s_trap_y = hy + 4;
+    struct Coord3d pos; memset(&pos, 0, sizeof(pos));
+    pos.x.val = subtile_coord_center(s_trap_x); pos.y.val = subtile_coord_center(s_trap_y);
+    struct Thing* trap = create_trap(&pos, (ThingModel)trap_model_id("ALARM"), P);
+    struct Thing* hero = ftest_util_create_creature(pos.x.val, pos.y.val, PLAYER_GOOD, 1, (ThingModel)creature_model_id("THIEF"));
+    if (thing_is_invalid(trap) || thing_is_invalid(hero)) { FTEST_FAIL_TEST("could not create the alarm trap and the hero"); return FTRs_Go_To_Next_Action; }
+    activate_trap(trap, hero); // what the engine does when a creature steps on it
+    s_mark = (int64_t)get_gameturn();
+    return FTRs_Go_To_Next_Action;
+}
+
+FTestActionResult dc09_check_alarm(struct FTestActionArgs* const args)
+{
+    char r[200]; int64_t pend;
+    if ((int64_t)get_gameturn() < s_mark + 2) return FTRs_Repeat_Current_Action;
+    const int64_t seq = decision(r, sizeof(r), &pend);
+    FTESTLOG("after the alarm: seq %" PRId64 " reasons '%s' pending %" PRId64, seq, r, pend);
+    CHECK_TRUE("an alarm raises a decision at once, inside the minimum interval", seq == 5 && has(r, "alarm") && pend == 0);
+    // The view's event says where (what the event box shows a human).
+    VALUE v; api_seat_build_view(&v, P);
+    VALUE* evs = value_dict_get(value_dict_get(&v, "own"), "events");
+    TbBool found = false;
+    for (size_t i = 0; evs && i < value_array_size(evs); i++) {
+        VALUE* e = value_array_get(evs, i);
+        VALUE* at = value_dict_get(e, "pos");
+        if (strcmp(value_string(value_dict_get(e, "kind")), "alarm_triggered") == 0 && at
+         && (value_int32(value_array_get(at, 0)) == s_trap_x) && (value_int32(value_array_get(at, 1)) == s_trap_y)) found = true;
+    }
+    value_fini(&v);
+    CHECK_TRUE("the view has the alarm_triggered event at the trap", found);
+    api_seat_decision_set_min_interval(100);
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " decision check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
-    FTESTLOG("Test passed: decisions are raised at quarters and major events, held inside the interval, and coalesced");
+    FTESTLOG("Test passed: decisions are raised at quarters and major events, held inside the interval, and coalesced; an alarm does not wait");
     return FTRs_Go_To_Next_Action;
 }
 

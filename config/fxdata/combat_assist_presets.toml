@@ -1,0 +1,96 @@
+# The combat assistant's presets: starting sets of standing orders for fights.
+# An agent applies them through the API (get_assist_presets, then set_assist); the Options screen offers them to a
+# player. Each [preset] takes the same fields as set_assist (docs/newFeatures/llm/02-rule-language.md): the settings,
+# then the rules, tried in the order given. A rule's `name` is how a player's sliders find it (heal, buff, cta_floor,
+# obey_floor); the game itself ignores it.
+
+[guardian]
+description = "Heal fighters in trouble, speed them up when a fight is going badly, and keep Call to Arms and Must Obey from draining the treasury."
+enabled = true
+reserve = 1000
+
+[[guardian.rules]]
+name = "heal"
+power = "POWER_HEAL_CREATURE"
+level = 2
+target = "ally_in_fight"
+when = [["health_pct", "<", 35], ["gold_after_wages", ">", 1500], ["level", ">=", 2], ["is_digger", "==", 0]]
+target_cooldown = 160
+
+[[guardian.rules]]
+name = "buff"
+power = "POWER_SPEED"
+level = 1
+target = "ally_in_fight"
+when = [["force_ratio", ">", 110], ["gold_after_wages", ">", 3000], ["is_digger", "==", 0]]
+
+[[guardian.rules]]
+name = "cta_floor"
+power_off = "POWER_CALL_TO_ARMS"
+when = [["gold", "<", 1000], ["cta_paying", "==", 1]]
+
+[[guardian.rules]]
+name = "obey_floor"
+power_off = "POWER_OBEY"
+when = [["gold", "<", 800]]
+
+[striker]
+description = "Guardian, and also Chicken on the strongest enemy on your ground when a fight is going badly, and Lightning to finish off a hurt enemy when none of your allies' creatures is in reach."
+enabled = true
+reserve = 1000
+
+[[striker.rules]]
+name = "heal"
+power = "POWER_HEAL_CREATURE"
+level = 2
+target = "ally_in_fight"
+when = [["health_pct", "<", 35], ["gold_after_wages", ">", 1500], ["level", ">=", 2], ["is_digger", "==", 0]]
+target_cooldown = 160
+
+[[striker.rules]]
+name = "buff"
+power = "POWER_SPEED"
+level = 1
+target = "ally_in_fight"
+when = [["force_ratio", ">", 110], ["gold_after_wages", ">", 3000], ["is_digger", "==", 0]]
+
+[[striker.rules]]
+name = "chicken"
+power = "POWER_CHICKEN"
+target = "enemy_in_fight"
+pick = "strongest"
+when = [["force_ratio", ">", 120], ["on_own_ground", "==", 1], ["is_digger", "==", 0], ["gold_after_wages", ">", 4000]]
+cooldown = 60
+
+[[striker.rules]]
+name = "lightning"
+power = "POWER_LIGHTNING"
+level = 3
+target = "enemy_in_fight"
+pick = "strongest"
+when = [["health_pct", "<", 40], ["allies_near", "==", 0], ["gold_after_wages", ">", 4000]]
+cooldown = 40
+
+[[striker.rules]]
+name = "cta_floor"
+power_off = "POWER_CALL_TO_ARMS"
+when = [["gold", "<", 1000], ["cta_paying", "==", 1]]
+
+[[striker.rules]]
+name = "obey_floor"
+power_off = "POWER_OBEY"
+when = [["gold", "<", 800]]
+
+[miser]
+description = "No casts at all: only switch Call to Arms and Must Obey off before they empty the treasury."
+enabled = true
+
+[[miser.rules]]
+name = "cta_floor"
+power_off = "POWER_CALL_TO_ARMS"
+when = [["gold", "<", 1500], ["cta_paying", "==", 1]]
+
+[[miser.rules]]
+name = "obey_floor"
+power_off = "POWER_OBEY"
+when = [["gold", "<", 1000]]

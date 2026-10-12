@@ -64,6 +64,17 @@ map (`look` shows a window of it); `--save FILE` keeps the full text. Exit statu
 (default 1500 turns, about 75 s at normal speed). An agent that takes longer to decide can pass a larger `max_age_turns` to
 `connect`, at the cost of acting on an older view, or slow the game with `set_game_speed`.
 
+**Pausing (games no human plays a keeper in)**: a campaign or scenario started with **Seat control: LLM** (or a Skirmish
+whose keepers are all External agents and built-in AI) starts **paused**, and so does a save of one when loaded, the pause the agent's (the view's
+`agent_only`, `agent_pause`), so it can read the objective, look at the map and send first orders before anything moves;
+`connect` also pauses such a game when the seat is claimed in one already running (`start_paused: false` leaves it
+running). `set_pause(paused)` resumes or pauses it again whenever a decision needs more thought, and
+`set_pause(paused: false, turns: N)` runs N turns and pauses again. Orders sent while paused wait for the game to run.
+`wait_for_decision` answers at once while the agent holds the pause (`due: false, paused: true`). In such a game the
+engine's 60 s pause watchdog does not fire. With a human playing, the engine refuses an agent's pause and advance
+(`HUMAN_PLAYING`; the raw API's `force: true` is for tests and tools), and `set_game_speed` is the only lever. `bridge.py`
+and `agent_vs_agent.py` resume a level that started paused once their first decision is sent.
+
 **Playing**: `daimonkeeper.cfg` needs `API_ENABLED=TRUE`; start a Skirmish game with a slot set to **External agent (API)** on
 the Slots & AI page (or the tool's `claim` argument converts a computer keeper in a running game). Then, in a
 conversation: `connect`, `get_instructions` (once, near the start), then repeatedly `wait_for_decision` -> decide ->
@@ -76,10 +87,38 @@ it was. `connect(agent: "Claude")` names your seat; `experience_path` picks the 
 
 Tools: `connect`, `get_instructions`, `wait_for_decision`, `status`, `look`, `submit_orders`, `check_orders` (validate a
 batch, including cost, without spending it), `set_game_speed` (slow the whole game down to buy more thinking time -- global,
-not just your seat), `get_log_tail` (the game's own recent log, for debugging a confusing session), `get_recipes` (the active temple sacrifice recipes, once you own a temple), `get_experience` (your lessons from earlier games, in full), `record_debrief` (after a game ends: a summary and rewritten lessons), `disconnect`. One
+not just your seat), `set_pause` (pause/resume, or run N turns, in a game no human plays), `get_log_tail` (the game's own recent log, for debugging a confusing session), `get_recipes` (the active temple sacrifice recipes, once you own a temple), `get_experience` (your lessons from earlier games, in full), `record_debrief` (after a game ends: a summary and rewritten lessons), `disconnect`. One
 `play_daimonkeeper` MCP prompt (`play_keeperfx` still works) offers the same instructions text for a client that surfaces prompts as slash commands.
 Each of your creatures keeps a stable name ("Orc #3") for its whole life; orders that take a creature accept `name` in
 place of `thing_id`.
+
+Orders that do more than they seem to are refused unless the order says it means it (each flag is refused off the spot
+it is for). A hand drop gives a creature the job of the room it lands in, which the seat predicts with the engine's own
+rule (`predict_hand_drop_job`): one of your creatures in your prison is jailed (`WOULD_IMPRISON`; `imprison: true`,
+else `NOT_A_PRISON` -- for a skeleton, or to hold an angry creature), one in your torture chamber goes on the rack
+(`WOULD_TORTURE`; `torture: true`, else `NOT_A_TORTURE_CHAMBER` -- for a ghost, or to make its kind work harder; a job
+the creature keeps its own will in, the dark mistress's kinky torture, needs no flag), and any creature but an imp anywhere on your portal leaves the dungeon (`WOULD_DISMISS`;
+`dismiss: true`, else `NOT_A_PORTAL` -- worth doing on purpose at the creature limit, to make room for stronger kinds);
+a prisoner outside your prison/torture chamber goes free (`WOULD_RELEASE_PRISONER`; `release: true`) and anything on a
+temple pool is sacrificed (`WOULD_SACRIFICE`; `sacrifice: true`, else `NOT_A_POOL`). A sell of library slabs whose
+spellbooks have no free shelf in another library destroys them and the spells with them (`WOULD_LOSE_SPELLS`;
+`lose_spells: true`). Every order is checked against the map when it is sent, so a drop onto a bridge an order in the
+same batch builds is `CANNOT_DROP_HERE` (the engine lays a bridge one slab per turn); each `CANNOT_DROP_HERE` from
+`pick_up_and_drop` logs which test failed (`log_drop_refusal`, a SYNCLOG line: revealed, blocking, slab and owner,
+heights). The state shows LOOSE GOLD with the id of every pile the hand can reach, split into hand-sized trips, and
+RESEARCH as DONE (nothing left) or STALLED (no library, or nobody researching) with the spellbooks on the shelves.
+
+Standing orders for fights (the combat assistant, `docs/newFeatures/llm/`): the game itself carries out rules every
+couple of turns, between the agent's decisions -- heal a fighter dropping low, speed fighters in a losing fight, chicken
+a strong enemy on your ground, switch Call to Arms or Must Obey off before they empty the treasury. `set_combat_rules`
+(the whole list, in priority order, each rule with an optional `name`; or only settings: `enabled`, `reserve`,
+`interval`, `min_gap`, `max_spend`, `charge_time`), `check_combat_rules` (the same checks, nothing sent),
+`get_combat_rules` (the live rules by name, ready to edit, and what they did), `apply_combat_preset` (`guardian`,
+`striker`, `miser` from `fxdata/combat_assist_presets.toml`, with overrides; no name lists them), `get_combat_stats`
+(fights, losses and reaction times as the game measured them). The rules' names live in the agent's memory, which the game
+saves. Each decision's state has a STANDING ORDERS section; `assist_budget`, `assist_reserve` and `assist_gold_guard`
+call the agent when a rule hits a limit. Code: `standing_orders.py`; tests: `test_standing_orders.py`. `bridge.py
+--assist-preset NAME` starts an automated run from a preset.
 Tests: `test_mcp_server.py` (protocol, tool dispatch, and a fake-game integration test, offline), `test_mcp_http_server.py`
 (the HTTP transport: framing, batches, Host/Origin/token checks, the one tool thread, a fake game over HTTP, offline),
 `test_mcp_http_client.py` (the command-line client, against a stub and the fake game, offline); the

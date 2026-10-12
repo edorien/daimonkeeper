@@ -26,6 +26,7 @@ namespace {
 struct DropFixture {
     DropFixture() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+        local_system_flags = 0; // out of kfx_sim_state since 1ec821fa4, so the memset no longer clears it
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         kfx_config_state.neutral_player_num = PLAYER_NEUTRAL; // zeroed state would make player 0 the neutral one
         std::memset(net_user_info, 0, sizeof(net_user_info));

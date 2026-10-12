@@ -30,6 +30,7 @@ namespace {
 struct ResetStates {
     ResetStates() {
         std::memset(&kfx_sim_state, 0, sizeof(kfx_sim_state));
+        local_system_flags = 0; // out of kfx_sim_state since 1ec821fa4, so the memset no longer clears it
         std::memset(&kfx_net_state, 0, sizeof(kfx_net_state));
         // Out of PLAYERS_COUNT's range on purpose: these tests exercise the raw get_packet(player->user_id)
         // path with synthetic players that never bother setting id_number, so it stays at the memset default

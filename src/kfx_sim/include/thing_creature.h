@@ -186,6 +186,9 @@ TbBool change_creature_owner_if_near_dungeon_heart(struct Thing *creatng);
 
 void init_creature_scores(void);
 int64_t get_creature_thing_score(const struct Thing *thing);
+/** A creature's worth in a fight: get_creature_thing_score (its kind's score at its level, the table the dungeon score
+ *  uses) scaled by the health it has left, so a half-dead army counts as half. */
+int64_t creature_force_score(const struct Thing *thing);
 TbBool add_creature_score_to_owner(struct Thing *thing);
 TbBool remove_creature_score_from_owner(struct Thing *thing);
 int64_t calculate_melee_damage(struct Thing *thing, int64_t damage_percent);

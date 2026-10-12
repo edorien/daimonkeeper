@@ -101,7 +101,7 @@ def view(api, seat):
 
 
 def advance(api, seat, turns):
-    r = api.call(action="advance_turns", player=seat, turns=turns)
+    r = api.call(action="advance_turns", player=seat, turns=turns, force=True)
     assert r.get("success"), r
     deadline = time.time() + 60
     while time.time() < deadline:
@@ -151,6 +151,8 @@ def main():
     # we are done. Released straight away, so the rival below still gets user 1.
     r = api.call(action="claim_seat", player=0)
     check("the local human's own slot can be claimed (M10)", r.get("success") and r["data"] == {"player": 0, "user": 1}, repr(r))
+    check("with the human's own keeper a seat and the rival the built-in AI's, no human plays: agent_only",
+          view(api, 0)["agent_only"])
     r = api.call(action="get_seats")
     check("get_seats lists the local human's seat", r.get("success") and [(e["player"], e["user"]) for e in r["data"]["seats"]] == [(0, 1)], repr(r))
     r = api.call(action="release_seat", player=0)
@@ -164,6 +166,9 @@ def main():
 
     v = view(api, SEAT)
     check("the game is paused and the agent holds the pause", v["paused"] and v["agent_pause"])
+    check("the human plays player 0: not agent_only", v["agent_only"] is False)
+    expect_error(api, "an agent may not pause a game a human plays", "HUMAN_PLAYING", action="set_pause", player=SEAT, paused=True)
+    expect_error(api, "nor run it a few turns at a time", "HUMAN_PLAYING", action="advance_turns", player=SEAT, turns=1)
     check("the seat reports itself", v["seat"]["player"] == SEAT and v["seat"]["user"] == 1)
     check("victory state is undecided", v["seat"]["victory_state"] == "undecided")
     check("gold is reported", v["own"]["gold"] >= 5000, "gold=%r" % v["own"].get("gold"))
@@ -315,14 +320,14 @@ def main():
     advance(api, SEAT, 8)
 
     # The watchdog: an agent that goes quiet while holding the pause does not wedge the game.
-    r = api.call(action="set_pause", player=SEAT, paused=True, watchdog_ms=1500)
+    r = api.call(action="set_pause", player=SEAT, paused=True, force=True, watchdog_ms=1500)
     check("set_pause is accepted with a short watchdog", r.get("success"), repr(r))
     time.sleep(3.2)
     v = view(api, SEAT)
     check("the watchdog resumed the game", (not v["paused"]) and (not v["agent_pause"]), repr({k: v[k] for k in ("paused", "agent_pause")}))
 
     # Disconnect: the agent going away while it holds the pause also resumes the game.
-    api.call(action="set_pause", player=SEAT, paused=True, watchdog_ms=600000)
+    api.call(action="set_pause", player=SEAT, paused=True, force=True, watchdog_ms=600000)
     check("the pause is held", view(api, SEAT)["paused"])
     api.close()
     time.sleep(1.0)
@@ -360,7 +365,7 @@ def main():
     check("without the takeover armed, losing the client leaves the seat alone", r.get("success") and [e["player"] for e in r["data"]["seats"]] == [SEAT], repr(r))
 
     # Real-time cadence (M6): a batch with queue=true, results in the view, staleness bounds, pay day fields.
-    api.call(action="set_pause", player=SEAT, paused=True, watchdog_ms=600000)
+    api.call(action="set_pause", player=SEAT, paused=True, force=True, watchdog_ms=600000)
     v = settle(api, SEAT)
     check("the view has the pay day fields", set(v["seat"]["payday"]) >= {"progress", "gap", "quarter"} and v["seat"]["payday"]["gap"] > 0, repr(v["seat"].get("payday")))
     t0 = v["turn"]
@@ -392,11 +397,11 @@ def main():
     check("cancel on an idle seat succeeds", r.get("success"), repr(r))
 
     # Diff views: a full view carries a view_id; since=<that id> answers with only the changes; a wrong id resyncs.
-    api.call(action="set_pause", player=SEAT, paused=True, watchdog_ms=600000)
+    api.call(action="set_pause", player=SEAT, paused=True, force=True, watchdog_ms=600000)
     v1 = api.call(action="get_player_view", player=SEAT)["data"]
     check("a plain view is full and numbered", v1.get("mode") == "full" and v1.get("view_id", 0) > 0, repr({k: v1.get(k) for k in ("mode", "view_id")}))
     # Run 3 turns, polling with `since` only (any plain view would replace the baseline the diff is measured against).
-    api.call(action="advance_turns", player=SEAT, turns=3)
+    api.call(action="advance_turns", player=SEAT, turns=3, force=True)
     last, top, first_diff = v1["view_id"], {"paused": False, "advancing": True}, None
     for _ in range(500):
         d = api.call(action="get_player_view", player=SEAT, since=last)["data"]
@@ -450,6 +455,52 @@ def main():
     r2 = api.call(action="get_log_tail")
     check("a default (no lines given) is used", r2.get("success") and len(r2["data"]["lines"]) >= len(r["data"]["lines"]), repr(r2))
     check("the lines look like real log output, not something made up", all((":" in l) for l in r2["data"]["lines"]), r2["data"]["lines"][:3])
+
+    # get_combat_stats (docs/newFeatures/llm/03 P0): kept for every keeper a person or an agent plays, not the built-in AI's.
+    r = api.call(action="get_combat_stats", player=SEAT)
+    data = r.get("data") or {}
+    check("get_combat_stats answers for the seat", r.get("success") and data.get("player") == SEAT
+          and all(k in data for k in ("fights", "deaths", "casts", "upkeep", "paydays", "decisions")), repr(r)[:300])
+    check("the seat's orders so far answered its decisions", data.get("decisions", {}).get("answered", -1) >= 0, repr(data.get("decisions")))
+    r = api.call(action="get_combat_stats", player="PLAYER0")
+    check("the local human is tracked too, by name", r.get("success") and r["data"]["player"] == 0, repr(r)[:200])
+    expect_error(api, "get_combat_stats needs a player", "MISSING_PLAYER", action="get_combat_stats")
+    expect_error(api, "the heroes are not a keeper anyone plays", "NOT_TRACKED", action="get_combat_stats", player="PLAYER_GOOD")
+
+    # set_assist (docs/newFeatures/llm/02): the combat assistant's rules, sent as packets that go live together.
+    rules = {"enabled": True, "reserve": 1500, "rules": [
+        {"power": "POWER_HEAL_CREATURE", "level": 1, "when": [["health_pct", "<", 35], ["gold_after_wages", ">", 2000]]},
+        {"power_off": "POWER_CALL_TO_ARMS", "when": [["gold", "<", 1000], ["cta_paying", "==", 1]]}]}
+    r = api.call(action="set_assist", player=SEAT, rules=[{"power": "POWER_HEAL_CREATURE"}, {"power": "POWER_NOPE"}])
+    check("a bad rule is refused, naming the rule", (not r.get("success")) and r.get("error") == "UNKNOWN_POWER" and r.get("rule") == 1, repr(r))
+    r = api.call(action="set_assist", player=SEAT, dry_run=True, **rules)
+    check("a dry run says how many packets", r.get("success") and r["data"].get("would_succeed") and r["data"]["steps"] > 0
+          and r["data"]["rules_changed"] == 2, repr(r))
+    check("a dry run changes nothing", not view(api, SEAT)["own"]["assist"]["rules"], repr(view(api, SEAT)["own"].get("assist")))
+    r = api.call(action="set_assist", player=SEAT, **rules)
+    check("set_assist is accepted", r.get("success") and r["data"]["steps"] > 0, repr(r))
+    settle(api, SEAT)
+    a = advance(api, SEAT, 2)["own"]["assist"]
+    check("the rules are live, in the agent's own words", a["enabled"] and a["reserve"] == 1500 and len(a["rules"]) == 2
+          and a["rules"][0]["power"] == "POWER_HEAL_CREATURE" and a["rules"][0]["level"] == 1
+          and a["rules"][0]["when"][0] == ["health_pct", "<", 35] and a["rules"][1]["power_off"] == "POWER_CALL_TO_ARMS", repr(a))
+    r = api.call(action="set_assist", player=SEAT, **rules)
+    check("the same rules again change nothing", r.get("success") and r["data"].get("unchanged") and r["data"]["steps"] == 0, repr(r))
+    r = api.call(action="set_assist", player=SEAT, enabled=False)
+    check("switching off keeps the rules", r.get("success") and r["data"]["rules_changed"] == 0, repr(r))
+    settle(api, SEAT)
+    a = advance(api, SEAT, 2)["own"]["assist"]
+    check("off, rules kept", (not a["enabled"]) and len(a["rules"]) == 2, repr(a))
+    r = api.call(action="set_assist", player=SEAT, rules=[])
+    settle(api, SEAT)
+    check("an empty list clears them", r.get("success") and not advance(api, SEAT, 2)["own"]["assist"]["rules"], repr(r))
+    r = api.call(action="get_assist_presets")
+    presets = (r.get("data") or {}).get("presets") or {}
+    check("the presets are offered, none refused", r.get("success") and {"guardian", "striker", "miser"} <= set(presets)
+          and not any("error" in p for p in presets.values()), repr(r)[:400])
+    if "guardian" in presets:
+        r = api.call(action="set_assist", player=SEAT, dry_run=True, **presets["guardian"])
+        check("a preset is a set_assist request as it stands", r.get("success") and r["data"]["rules_changed"] == len(presets["guardian"]["rules"]), repr(r))
 
     # Players (09-persistent-memory.md section 6.8): the view names everyone in the level; a seat can name itself.
     players = {e["player"]: e for e in view(api, SEAT).get("players", [])}

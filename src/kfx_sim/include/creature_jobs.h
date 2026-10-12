@@ -75,6 +75,7 @@ TbBool get_drop_position_for_creature_job_in_room(struct Coord3d *pos, const str
 // same-file extern in kfx_config's config_creature.c. See
 // docs/refactor/todo/check-layering-symbol-level-blind-spot.md.
 CreatureJob get_job_for_subtile(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y, uint64_t drop_kind_flags);
+CreatureJob predict_hand_drop_job(struct Thing *creatng, PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 /******************************************************************************/
 #ifdef __cplusplus
 }

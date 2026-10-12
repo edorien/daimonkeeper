@@ -1,6 +1,7 @@
 // own.research: what's currently being researched and how far off (dungeon->research[]/current_research_idx/
 // research_progress, all already-tracked engine state -- research_needed() is the same test the engine's own research
-// job uses to decide what a research_room creature works on next), and the rest of the queue.
+// job uses to decide what a research_room creature works on next), and the rest of the queue; and `status`, which tells
+// "nothing left to research" (done) from "something is, but no library or nobody in it researching" (stalled).
 #include "ftest_ai_seat_research.h"
 
 #ifdef FUNCTESTING
@@ -97,10 +98,29 @@ FTestActionResult rs02_check(struct FTestActionArgs* const args)
     VALUE* q = value_dict_get(rs, "queue");
     CHECK_TRUE("the queue lists the current room item", array_has_str(q, "RESEARCH"));
     CHECK_TRUE("and the power item still waiting behind it", array_has_str(q, "POWER_SPEED"));
+    const TbBool library = player_has_room_of_role(P, RoRoF_Research);
+    const char* status = value_string(value_dict_get(rs, "status"));
+    FTESTLOG("status %s, library %d, researchers %d, books %d", status ? status : "-", (int)value_bool(value_dict_get(rs, "library")),
+        (int)value_int64(value_dict_get(rs, "researchers")), (int)value_int64(value_dict_get(rs, "books")));
+    CHECK_TRUE("library says whether the seat has one", value_bool(value_dict_get(rs, "library")) == library);
+    CHECK_TRUE("with items left the status is never done: no_library without a library, else who is researching",
+        status && (library ? ((strcmp(status, "researching") == 0) == (value_int64(value_dict_get(rs, "researchers")) > 0))
+                                && (strcmp(status, "done") != 0) && (strcmp(status, "no_library") != 0)
+                           : strcmp(status, "no_library") == 0));
+    CHECK_TRUE("the books on the shelves are counted", value_dict_get(rs, "books") != NULL);
+    value_fini(&v);
+    // Nothing left to research: done, whatever the library.
+    struct Dungeon* d = get_players_dungeon(get_player(P));
+    d->research_num = 0;
+    d->current_research_idx = -1;
+    api_seat_build_view(&v, P);
+    rs = value_dict_get(value_dict_get(&v, "own"), "research");
+    status = value_string(value_dict_get(rs, "status"));
+    CHECK_TRUE("an empty queue with nothing current is done", status && strcmp(status, "done") == 0 && value_dict_get(rs, "current") == NULL);
     value_fini(&v);
 
     if (s_failures > 0) { FTEST_FAIL_TEST("%" PRId64 " research check(s) failed", s_failures); return FTRs_Go_To_Next_Action; }
-    FTESTLOG("Test passed: own.research reports what is currently being researched, its progress, and the rest of the queue");
+    FTESTLOG("Test passed: own.research reports what is currently being researched, its progress, the rest of the queue, and done vs stalled");
     return FTRs_Go_To_Next_Action;
 }
 

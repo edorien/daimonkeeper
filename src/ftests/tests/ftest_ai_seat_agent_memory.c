@@ -2,6 +2,8 @@
 // is held by the engine and written into the save (the optional AGNT chunk), so loading a save brings the agent's
 // plan back exactly as it stood when the game was saved, and a save made while no agent held anything loads with
 // nothing. The payload's own format and its malformed cases are covered by kfx_net's Catch2 agent_memory tests.
+// A loaded save runs at once while a human plays a keeper, but one where no human does (the human spectating, the
+// seat the agent's) comes back paused for the agent, as a level start does (extseat_pause_for_agent_start).
 #include "ftest_ai_seat_agent_memory.h"
 
 #ifdef FUNCTESTING
@@ -15,6 +17,8 @@
 #include "game_legacy.h"
 #include "config_keeperfx.h"
 #include "game_saves.h"
+#include "external_seat.h"
+#include "player_utils.h"
 #include "net_game.h"
 #include "frontend.h"
 #include "player_data.h"
@@ -35,6 +39,7 @@ static PlayerNumber s_seat = -1;
 FTestActionResult am01_seat_and_save(struct FTestActionArgs* const args);
 FTestActionResult am02_change_and_load(struct FTestActionArgs* const args);
 FTestActionResult am03_save_without_memory(struct FTestActionArgs* const args);
+FTestActionResult am04_agent_only_load_is_paused(struct FTestActionArgs* const args);
 
 void ftest_ai_seat_agent_memory_pre_start()
 {
@@ -47,6 +52,7 @@ TbBool ftest_ai_seat_agent_memory_init()
     ftest_append_action(am01_seat_and_save, 0, NULL);
     ftest_append_action(am02_change_and_load, 2, NULL);
     ftest_append_action(am03_save_without_memory, 2, NULL);
+    ftest_append_action(am04_agent_only_load_is_paused, 2, NULL);
     return true;
 }
 
@@ -102,6 +108,7 @@ FTestActionResult am02_change_and_load(struct FTestActionArgs* const args)
         CHECK_TRUE("after load: the seat's memory is the one saved, not the later one", memory_is(s_seat, "{\"plan\":\"A\"}"));
         CHECK_TRUE("after load: another player's memory came back too", memory_is(my_player_number, "other"));
         CHECK_TRUE("after load: the seat is still an External seat", get_net_user_player_number(get_player(s_seat)->user_id) == s_seat);
+        CHECK_TRUE("after load with a human playing: the game runs", !flag_is_set(kfx_sim_state.operation_flags, GOF_Paused));
     }
     if (s_failures > 0)
         FTEST_FAIL_TEST("%" PRId64 " load check(s) failed", s_failures);
@@ -122,9 +129,32 @@ FTestActionResult am03_save_without_memory(struct FTestActionArgs* const args)
     }
     if (s_failures > 0) {
         FTEST_FAIL_TEST("%" PRId64 " no-memory check(s) failed", s_failures);
+    }
+    return FTRs_Go_To_Next_Action;
+}
+
+// The human hands their keeper to the built-in AI (spectates): no human plays, so a save loaded now waits for the agent.
+FTestActionResult am04_agent_only_load_is_paused(struct FTestActionArgs* const args)
+{
+    CHECK_TRUE("the human spectates", player_enter_spectator_mode(my_player_number));
+    CHECK_TRUE("no human plays a keeper now", !extseat_human_playing());
+    CHECK_TRUE("save_game of the agent-only game", save_to(7, "ai_seat_agent_memory_3"));
+    const TbBool loaded = load_game(7);
+    CHECK_TRUE("load_game", loaded);
+    if (loaded) {
+        FTESTLOG("after the agent-only load: paused %d, agent's pause %d", (int)flag_is_set(kfx_sim_state.operation_flags, GOF_Paused),
+            (int)extseat_agent_owns_pause());
+        CHECK_TRUE("after the agent-only load: paused, the pause the agent's",
+            flag_is_set(kfx_sim_state.operation_flags, GOF_Paused) && extseat_agent_owns_pause());
+        extseat_resume();
+        CHECK_TRUE("resumed, the game runs", !flag_is_set(kfx_sim_state.operation_flags, GOF_Paused));
+    }
+    player_leave_spectator_mode(my_player_number); // later tests share the process
+    if (s_failures > 0) {
+        FTEST_FAIL_TEST("%" PRId64 " agent memory check(s) failed", s_failures);
         return FTRs_Go_To_Next_Action;
     }
-    FTESTLOG("Test passed: agent memory is saved with the game and comes back exactly as saved");
+    FTESTLOG("Test passed: agent memory is saved with the game and comes back exactly as saved; an agent-only game loads paused");
     return FTRs_Go_To_Next_Action;
 }
 

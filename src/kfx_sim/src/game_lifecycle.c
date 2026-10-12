@@ -105,6 +105,11 @@ void clear_computer(void)
     }
 }
 
+void clear_keeper_assists(void)
+{
+    memset(kfx_sim_state.keeper_assist, 0, sizeof(kfx_sim_state.keeper_assist));
+}
+
 void init_keepers_map_exploration(void)
 {
     struct PlayerInfo *player;

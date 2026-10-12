@@ -416,6 +416,22 @@ TbBool reset_creature_if_affected_by_cta(struct Thing *thing)
     return false;
 }
 
+TbBool player_call_to_arms_is_charged(PlayerNumber plyr_idx)
+{
+    if (!player_uses_power_call_to_arms(plyr_idx)) {
+        return false;
+    }
+    const struct Dungeon *dungeon = get_players_num_dungeon(plyr_idx);
+    if (dungeon->cta_free) {
+        return false;
+    }
+    const PlayerNumber owner = slabmap_owner(get_slabmap_for_subtile(dungeon->cta_stl_x, dungeon->cta_stl_y));
+    if (owner == plyr_idx) {
+        return false;
+    }
+    return !(kfx_config_state.conf.rules[plyr_idx].gameplay.allies_share_cta && players_are_mutual_allies(plyr_idx, owner));
+}
+
 void turn_off_power_call_to_arms(PlayerNumber plyr_idx)
 {
     if (!player_uses_power_call_to_arms(plyr_idx)) {

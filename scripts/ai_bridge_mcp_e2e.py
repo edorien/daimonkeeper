@@ -127,12 +127,31 @@ def main():
                                                 "experience_path": exp_path, "agent": "mcp-e2e"})
         check("connect reports the seat", ("player %d" % seat_player) in connected, connected)
 
+        # Standing orders (docs/newFeatures/llm/): the presets the game offers, then a rule of our own -- heal any of our
+        # creatures under half health -- that the game carries out before the model has ordered anything.
+        presets = json.loads(client.call_tool("apply_combat_preset"))
+        check("the game's presets are offered", {"guardian", "striker", "miser"} <= set(presets.get("presets", {})), presets)
+        patch_up = [{"name": "patch-up", "power": "POWER_HEAL_CREATURE", "target": "ally_any", "when": [["health_pct", "<", 50]]}]
+        checked = json.loads(client.call_tool("check_combat_rules", {"rules": patch_up, "enabled": True, "charge_time": False}))
+        check("check_combat_rules would take the rule", checked.get("would_succeed") and checked.get("rules_changed") == 1, checked)
+        set_result = json.loads(client.call_tool("set_combat_rules", {"rules": patch_up, "enabled": True, "charge_time": False}))
+        check("set_combat_rules sends it", set_result.get("rules_changed") == 1 and set_result.get("packets", 0) > 0, set_result)
+
         for i in range(4):
             due = json.loads(client.call_tool("wait_for_decision", {"timeout_seconds": 120}))
             check("decision %d arrived" % (i + 1), due.get("due") is True, due)
             decisions.append(due)
             if i == 0:
                 check("the first decision was because the session started", due["reasons"] == ["start"], due["reasons"])
+                deadline, rules_now = time.time() + 30, {}
+                while time.time() < deadline:
+                    rules_now = json.loads(client.call_tool("get_combat_rules"))
+                    if "fired 1" in rules_now.get("summary", ""):
+                        break
+                    time.sleep(0.5)
+                check("the standing order healed the wounded creature before the model ordered anything",
+                      "patch-up:" in rules_now.get("summary", "") and "fired 1" in rules_now.get("summary", ""), rules_now)
+                check("get_combat_rules gives the rule back by its name", [r.get("name") for r in rules_now.get("rules", [])] == ["patch-up"], rules_now)
                 orders = [
                     {"verb": "cast_power", "power": "POWER_HEAL_CREATURE", "thing_id": wounded["id"], "overcharge_turns": 8},
                     {"verb": "build_room", "kind": "TREASURE", "slab_rect": room_rect},
@@ -162,6 +181,7 @@ def main():
     held = report.data(action="get_agent_memory", player=seat_player)["data"]
     mem = json.loads(held) if held else {}
     check("the game holds the plan and four decisions", mem.get("plan") == "grow the dungeon" and len(mem.get("decisions", [])) == 4, mem)
+    check("the game's memory keeps the standing order's name", mem.get("rule_names") == ["patch-up"], mem.get("rule_names"))
     store = experience.Experience(exp_path)
     rows = [dict(r) for r in store.db.execute("SELECT game_id, result, decisions, agent FROM games")]
     store.close()

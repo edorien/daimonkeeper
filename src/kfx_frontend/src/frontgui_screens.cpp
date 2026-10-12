@@ -50,6 +50,10 @@
 #include <cstdio>
 #include <vector>
 #include "ports/editor_port.h"
+#include "cheat_mode.h"
+#include "config_combat_assist.h"
+#include "config_magic.h"
+#include "keeper_assist_outbox.h"
 #include "post_inc.h"
 
 namespace {
@@ -610,6 +614,121 @@ namespace {
         FeHelpTooltip("You keep the camera and the floating-spirit view; the AI takes over building, digging and spells.");
     }
 
+    /* docs/newFeatures/llm/01 section 10.2: the combat assistant -- the player's standing orders for fights, from a preset
+       with a few sliders. The profile (save/combat_assistant.toml) is written when a change is finished (a slider let
+       go, a box ticked), and in game the changed rules are then sent as the player's own packets
+       (keeper_assist_outbox.c). Shown from the main menu too, to set it up before playing. */
+    static void draw_combat_assistant_controls(bool in_game)
+    {
+        if (!ImGui::CollapsingHeader("Combat assistant"))
+            return;
+        if (game_refuses_cheats())
+        {
+            FeCaption("Not available in a multiplayer game.");
+            return;
+        }
+        static VALUE presets;
+        static bool presets_loaded = false;
+        if (!presets_loaded)
+        {
+            keeper_assist_load_presets(NULL, &presets);
+            presets_loaded = true;
+        }
+        struct KeeperAssistProfile *p = keeper_assist_profile();
+        bool commit = false;
+
+        bool enabled = p->globals.enabled != 0;
+        if (FeCheckbox("Use the combat assistant", &enabled))
+        {
+            p->globals.enabled = enabled ? 1 : 0;
+            commit = true;
+        }
+        FeHelpTooltip("Standing orders for fights, carried out by the game every couple of turns: heal your fighters when "
+                      "they drop low, speed them up when a fight is going badly, keep Call to Arms and Must Obey from "
+                      "draining your gold. Each cast costs its normal price. It works alongside the computer assistant; "
+                      "if that one casts spells too, both spend gold.");
+
+        double reserve = (double)p->globals.reserve;
+        if (p->custom_count > 0)
+        {
+            char line[128];
+            snprintf(line, sizeof(line), "Custom rules (%d), edited in combat_assistant.toml", p->custom_count);
+            FeCaption(line);
+        }
+        else
+        {
+            const VALUE *keys[16];
+            const size_t n = value_dict_keys_ordered(&presets, keys, sizeof(keys) / sizeof(keys[0]));
+            const char *names[16];
+            int64_t current = 0;
+            for (size_t i = 0; i < n; i++)
+            {
+                names[i] = value_string(keys[i]);
+                if (strcmp(names[i], p->preset) == 0)
+                    current = (int64_t)i;
+            }
+            if ((n > 0) && FeCombo("Preset", &current, names, (int64_t)n))
+            {
+                snprintf(p->preset, sizeof(p->preset), "%s", names[current]);
+                int32_t preset_reserve = p->globals.reserve;
+                keeper_assist_tuning_from_preset(&presets, p->preset, &p->tuning, &preset_reserve); // the sliders take its values
+                p->globals.reserve = preset_reserve;
+                reserve = (double)preset_reserve;
+                commit = true;
+            }
+            if (n > 0)
+                FeHelpTooltip(value_string(value_dict_get(value_dict_get(&presets, p->preset), "description")));
+            else
+                FeCaption("No presets found (fxdata/combat_assist_presets.toml).");
+
+            struct { const char *label; int32_t *value; double lo, hi; const char *fmt; const char *help; } sliders[] = {
+                { "Heal below (% health)", &p->tuning.heal_below_pct, 5, 90, "%.0f%%", "Heal one of your fighters in a fight when its health drops under this." },
+                { "Heal strength (level)", &p->tuning.heal_level, 0, KEEPER_ASSIST_MAX_LEVEL, "%.0f", "The heal's power level: stronger costs more, and a human would hold the button longer to charge it." },
+                { "Speed up when the enemy is stronger (%)", &p->tuning.buff_force_ratio, 100, 300, "%.0f%%", "Speed your fighters when the enemies in a fight are this strong compared with yours." },
+                { "Switch Call to Arms off below (gold)", &p->tuning.cta_floor, 0, 20000, "%.0f", "Call to Arms costs gold every turn while its banner is off your ground." },
+                { "Switch Must Obey off below (gold)", &p->tuning.obey_floor, 0, 20000, "%.0f", "Must Obey costs gold all the time it is on." },
+            };
+            for (auto &sl : sliders)
+            {
+                double v = (double)*sl.value;
+                ImGui::SetNextItemWidth(220.0);
+                if (FeSlider(sl.label, &v, sl.lo, sl.hi, sl.fmt))
+                    *sl.value = (int32_t)v;
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                    commit = true;
+                FeHelpTooltip(sl.help);
+            }
+            FeCaption("Powers it may use:");
+            static const struct { PowerKind k; const char *label; } powers[] = {
+                { PwrK_HEALCRTR, "Heal" }, { PwrK_SPEEDCRTR, "Speed" }, { PwrK_PROTECT, "Armour" }, { PwrK_CONCEAL, "Conceal" },
+                { PwrK_CHICKEN, "Chicken" }, { PwrK_DISEASE, "Disease" }, { PwrK_LIGHTNING, "Lightning" }, { PwrK_CAVEIN, "Cave-in" },
+                { PwrK_CALL2ARMS, "Call to Arms off" }, { PwrK_OBEY, "Must Obey off" } };
+            for (size_t i = 0; i < sizeof(powers) / sizeof(powers[0]); i++)
+            {
+                bool on = (p->tuning.powers & (1u << powers[i].k)) != 0;
+                if ((i % 4) != 0)
+                    ImGui::SameLine();
+                if (FeCheckbox(powers[i].label, &on))
+                {
+                    p->tuning.powers = on ? (p->tuning.powers | (1u << powers[i].k)) : (p->tuning.powers & ~(1u << powers[i].k));
+                    commit = true;
+                }
+            }
+        }
+        ImGui::SetNextItemWidth(220.0);
+        if (FeSlider("Keep at least (gold)", &reserve, 0, 20000, "%.0f"))
+            p->globals.reserve = (int32_t)reserve;
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            commit = true;
+        FeHelpTooltip("The assistant never spends you below this.");
+        if (commit)
+        {
+            keeper_assist_profile_save();
+            if (in_game)
+                keeper_assist_outbox_request();
+        }
+    }
+
     // Defined further down, alongside frontgui_definekeys_frame() which
     // shares them -- forward-declared here so the Options screen's
     // "Keyboard" tab (below) can call them too.
@@ -674,6 +793,7 @@ namespace {
                 draw_setting_options_for_category(SCat_Game);
                 if (in_game)
                     draw_ingame_autopilot_controls();
+                draw_combat_assistant_controls(in_game);
                 FeEndScrollArea();
                 draw_setting_options_restart_note(SCat_Game);
                 FeEndTab();
@@ -2606,6 +2726,11 @@ namespace {
         }
         FeEndModal(open);
     }
+}
+
+void frontgui_combat_assistant_section(TbBool in_game)
+{
+    draw_combat_assistant_controls(in_game != 0);
 }
 
 void frontend_request_content_tool_play(uint8_t pack, const char *campaign_fname, LevelNumber lvnum, int64_t tool)

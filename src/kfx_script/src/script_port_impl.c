@@ -11,6 +11,7 @@
 #include "lua_triggers.h"
 #include "lua_cfg_funcs.h"
 #include "api.h"
+#include "api_seat_combatstats.h"
 #include "lua_base.h"
 #include "post_inc.h"
 
@@ -23,11 +24,25 @@ static TbBool lua_script_active_now(void)
     return Lvl_script != NULL;
 }
 
+// Two script-port events also feed the combat statistics (api_seat_combatstats.h), which only watch.
+static void on_power_cast(PlayerNumber plyr_idx, PowerKind pwkind, int64_t splevel, MapSubtlCoord stl_x,
+    MapSubtlCoord stl_y, struct Thing *thing)
+{
+    api_seat_combatstats_note_cast(plyr_idx, pwkind, splevel, thing);
+    lua_on_power_cast(plyr_idx, pwkind, splevel, stl_x, stl_y, thing);
+}
+
+static void on_creature_death(struct Thing *crtng)
+{
+    api_seat_combatstats_note_death(crtng);
+    lua_on_creature_death(crtng);
+}
+
 
 const struct ScriptPort kfx_script_port = {
-    .lua_on_power_cast = &lua_on_power_cast,
+    .lua_on_power_cast = &on_power_cast,
     .lua_on_special_box_activate = &lua_on_special_box_activate,
-    .lua_on_creature_death = &lua_on_creature_death,
+    .lua_on_creature_death = &on_creature_death,
     .lua_on_creature_fell_into_abyss = &lua_on_creature_fell_into_abyss,
     .lua_on_creature_rebirth = &lua_on_creature_rebirth,
     .lua_on_trap_placed = &lua_on_trap_placed,

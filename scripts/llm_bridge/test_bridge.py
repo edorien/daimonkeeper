@@ -19,6 +19,7 @@ os.environ["DAIMONKEEPER_EXPERIENCE"] = os.path.join(_TEST_DATA_HOME, "experienc
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import orders  # noqa: E402
 import prompt  # noqa: E402
 from api import Api  # noqa: E402
 import experience  # noqa: E402
@@ -332,13 +333,92 @@ class PromptTests(unittest.TestCase):
         self.assertIn("Orc #1", text2)          # the first creature's name did not change
         self.assertIn("Troll #1 (id 8, TROLL L2, hp90): Combat Flee [fleeing] at (5,5)", text2)
 
+    def test_the_turn_line_says_whose_pause_it_is(self):
+        st = ViewState()
+        st.view = make_view()
+        self.assertNotIn("paused", prompt.render_state(st).split("\n")[0])
+        st.view.update(paused=True, agent_pause=True, agent_only=True)
+        self.assertIn("(PAUSED by you: set_pause(paused=false) to run)", prompt.render_state(st))
+        st.view.update(agent_pause=False)       # a human's pause
+        self.assertIn("TURN %d (paused) |" % st.view["turn"], prompt.render_state(st))
+        self.assertIn("set_pause", prompt.SYSTEM_PROMPT)
+        self.assertIn("HUMAN_PLAYING", prompt.SYSTEM_PROMPT)
+
+    def test_an_autonomous_loop_resumes_a_level_started_paused_for_it(self):
+        from bridge import resume_agent_pause
+
+        class FakeApi:
+            def __init__(self):
+                self.calls = []
+
+            def data(self, **req):
+                self.calls.append(req)
+                return {}
+        api = FakeApi()
+        self.assertTrue(resume_agent_pause(api, 1, {"agent_only": True, "paused": True, "agent_pause": True}))
+        self.assertEqual(api.calls, [{"action": "set_pause", "player": 1, "paused": False}])
+        for v in ({"agent_only": False, "paused": True, "agent_pause": True},   # a human's game: not ours to resume
+                  {"agent_only": True, "paused": True, "agent_pause": False},   # a human's pause
+                  {"agent_only": True, "paused": False, "agent_pause": False}):
+            self.assertFalse(resume_agent_pause(api, 1, v))
+        self.assertEqual(len(api.calls), 1)
+
     def test_research_line(self):
         st = ViewState()
         st.view = make_view()
         st.view["own"]["research"] = {"current": {"category": "room", "name": "RESEARCH", "progress_pct": 40}, "queue": ["RESEARCH", "POWER_SPEED"]}
         self.assertIn("RESEARCH: working on room RESEARCH (40%) | queue: RESEARCH, POWER_SPEED", prompt.render_state(st))
         st.view["own"]["research"] = {"queue": []}
-        self.assertIn("working on nothing", prompt.render_state(st))
+        self.assertIn("RESEARCH: DONE -- nothing left to research", prompt.render_state(st))
+
+    def test_research_done_and_stalled_never_read_alike(self):
+        # The agent once read "working on nothing (fully researched, or no library worker)" as "finished", sold its
+        # library and lost every spell: the engine's status now tells the cases apart, and the books are counted.
+        cur = {"category": "power", "name": "POWER_SPEED", "progress_pct": 10}
+        r = prompt.render_research({"status": "done", "queue": [], "library": True, "researchers": 0, "books": 7})
+        self.assertEqual(r, "RESEARCH: DONE -- nothing left to research | 7 spellbook(s) on your library shelves (your researched spells: keep a library)")
+        r = prompt.render_research({"status": "no_researchers", "current": cur, "queue": ["POWER_SPEED"], "library": True, "researchers": 0})
+        self.assertIn("RESEARCH: STALLED, nobody researching in your library -- power POWER_SPEED (10%) waits", r)
+        self.assertNotIn("DONE", r)
+        r = prompt.render_research({"status": "no_library", "current": cur, "queue": ["POWER_SPEED"], "library": False, "researchers": 0})
+        self.assertIn("RESEARCH: STALLED, no library", r)
+        r = prompt.render_research({"status": "researching", "current": cur, "queue": ["POWER_SPEED"], "library": True, "researchers": 3})
+        self.assertIn("RESEARCH: working on power POWER_SPEED (10%) by 3 creature(s)", r)
+        self.assertNotIn("spellbook", r)   # no books, no line about them
+
+    def test_loose_gold_gives_every_reachable_id_in_hand_sized_trips(self):
+        piles = [{"id": 100 + i, "gold": 1000 - 10 * i, "pos": [i, i], "reachable": i != 1} for i in range(16)]
+        ids = [100 + i for i in range(20) if i != 1]   # 19 reachable piles, more than the 16 listed in detail
+        lg = {"total": 9000, "count": 21, "piles": piles, "ids": ids, "reachable_gold": 8500, "reachable_count": 19}
+        line = prompt.render_loose_gold(lg, hand=8)
+        self.assertIn("LOOSE GOLD: 9000 in 21 pile(s) outside your treasure rooms; 8500 in 19 your hand can reach", line)
+        self.assertIn("largest #100 1000 at (0,0); #102 980 at (2,2); #103 970 at (3,3)", line)   # #101 is out of reach
+        self.assertIn("[100,102,103,104,105,106,107,108] [109,110,111,112,113,114,115,116] [117,118,119]", line)
+        self.assertNotIn("more pile", line)
+        many = dict(lg, ids=list(range(1, 61)), reachable_count=60)
+        line = prompt.render_loose_gold(many, hand=8, max_trips=6)
+        self.assertIn("[41,42,43,44,45,46,47,48] +12 more pile(s) once these are home", line)
+        self.assertNotIn("49", line.split("|")[1])
+        self.assertIn("none your hand can reach", prompt.render_loose_gold(dict(lg, ids=[], reachable_count=0)))
+        # A game without the id list: the old example line.
+        self.assertIn("e.g. #100 1000 at (0,0)", prompt.render_loose_gold({"total": 900, "count": 2, "piles": piles[:1]}))
+
+    def test_loose_gold_trips_follow_the_hand_limit_in_the_rules(self):
+        view = make_view()
+        view["rules"] = {"custody": {"max_things_in_hand": 4}}
+        view["own"]["loose_gold"] = {"total": 50, "count": 5, "piles": [], "ids": [1, 2, 3, 4, 5], "reachable_gold": 50, "reachable_count": 5}
+        self.assertIn("[1,2,3,4] [5]", "\n".join(prompt.render_placed_and_pickups(view)))
+
+    def test_hand_drop_flags_reach_the_request_and_the_decision_log(self):
+        for flag, verb in (("imprison", "pick_up_and_drop"), ("torture", "pick_up_and_drop"), ("dismiss", "pick_up_and_drop"), ("lose_spells", "sell")):
+            req = prompt.order_to_request({"verb": verb, "thing_id": 5, flag: True}, 1, 100, 400)
+            self.assertIs(req[flag], True)
+            self.assertIn(flag, prompt.ORDER_ITEM_PROPERTIES)
+            self.assertIn(flag, orders.summarize({"verb": verb, flag: True}))
+        self.assertIn("WOULD_IMPRISON", prompt.SYSTEM_PROMPT)
+        self.assertIn("WOULD_TORTURE", prompt.SYSTEM_PROMPT)
+        self.assertIn("WOULD_DISMISS", prompt.SYSTEM_PROMPT)
+        self.assertIn("WOULD_LOSE_SPELLS", prompt.SYSTEM_PROMPT)
 
     def test_map_news_from_a_diff(self):
         st = ViewState()
@@ -605,6 +685,10 @@ class NewSectionsTests(unittest.TestCase):
         text = prompt.render_state(st, reasons=["enemy_fight", "quarter_2"], fresh_kinds=["ORC"])
         self.assertTrue(text.startswith("DECISION DUE because: enemy_fight, quarter_2"))
         self.assertIn("UNLOCKED: rooms TREASURE, LAIR | traps BOULDER | doors none", text)
+        self.assertNotIn("ROOM_COSTS", text)   # an older game's view without room_costs: no line
+        v["own"]["room_costs"] = {"TREASURE": 50, "LAIR": 100}
+        self.assertIn("ROOM_COSTS (gold per slab; a room costs area x this): LAIR 100, TREASURE 50",
+                      prompt.render_state(st, reasons=[], fresh_kinds=[]))
         self.assertIn("imprison captured enemies on, hurt creatures flee off", text)
         self.assertIn("ORC x2 (max level 3, avg 2.0, avg hp 350)", text)
         self.assertIn("NEW CREATURE KIND(S)", text)

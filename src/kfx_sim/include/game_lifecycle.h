@@ -27,6 +27,8 @@ void clear_creature_pool(void);
 void clear_map(void);
 void clear_things_and_persons_data(void);
 void clear_computer(void);
+/** Forgets every keeper's combat assistant rules and counters (a new level). */
+void clear_keeper_assists(void);
 void init_keepers_map_exploration(void);
 void clear_players_for_save(void);
 void delete_all_thing_structures(void);

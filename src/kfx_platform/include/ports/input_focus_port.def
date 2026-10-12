@@ -14,3 +14,5 @@ KFX_PORT_RET(TbBool, is_game_paused, (void), (), false)
 KFX_PORT_RET(TbBool, is_possession_mode_active, (void), (), false)
 KFX_PORT_RET(TbBool, is_packet_load_enabled, (void), (), false)
 KFX_PORT_RET(TbBool, use_relative_mouse_mode, (void), (), false)
+/* The local player's keeper is an External seat (an agent plays it): the cursor stays free for the human. */
+KFX_PORT_RET(TbBool, is_local_seat_external, (void), (), false)

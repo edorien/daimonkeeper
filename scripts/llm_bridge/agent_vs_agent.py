@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import experience  # noqa: E402
 import memory as memory_mod  # noqa: E402
-from bridge import open_experience  # noqa: E402
+from bridge import open_experience, resume_agent_pause  # noqa: E402
 from api import Api  # noqa: E402
 from orders import submit_batch  # noqa: E402
 from viewstate import ViewState  # noqa: E402
@@ -127,6 +127,10 @@ def run_multi(args):
         seats[p].recorder = experience.Recorder(store, p, "%s seat %d" % (args.model or args.policy, p))
         seats[p].recorder.start(seats[p].memory, seats[p].view.view, resumed)
         service_decision(api, seats[p], args, ["restart"] if resumed else ["start"])
+    # A level with no human keeper starts paused for the agents: every seat has made its first decision, so play.
+    if players:
+        seats[players[0]].view.update(api, players[0])
+        resume_agent_pause(api, players[0], seats[players[0]].view.view)
 
     started = time.time()
     try:
@@ -179,6 +183,10 @@ def run_multi(args):
             for p, reasons in by_player.items():
                 seats[p].view.update(api, p)
                 service_decision(api, seats[p], args, reasons or ["timer"])
+            if loads and by_player:
+                # A loaded save with no human keeper is paused for the agents: every seat has decided on it, so play.
+                p = next(iter(by_player))
+                resume_agent_pause(api, p, seats[p].view.view)
     finally:
         for s in seats.values():
             if s.log:

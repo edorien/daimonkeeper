@@ -79,7 +79,7 @@ def main():
     args = bridge.argparse.Namespace(host="127.0.0.1", port=PORT, claim=None, policy="scripted", model=None, beat="decision",
                                      min_interval=40, max_wait_seconds=120.0, experience=exp_path, no_experience=False,
                                      max_age_turns=1500, max_decisions=4, max_turns=0, takeover=False, connect_timeout=90.0,
-                                     log=log, quiet=False)
+                                     log=log, quiet=False, assist_preset="miser")
     summary, state = bridge.run(args)
     print(json.dumps(summary))
 
@@ -106,6 +106,9 @@ def main():
     # The agent's memory is kept by the game (09-persistent-memory.md), not in a file.
     mem = json.loads(api.data(action="get_agent_memory", player=seat)["data"])
     check("the game holds the agent's plan, notes and four decisions", mem["plan"].startswith("scripted") and len(mem["decisions"]) == 4, mem["plan"])
+    check("the preset's standing orders are kept by name in the game's memory", mem.get("rule_names") == ["cta_floor", "obey_floor"], mem.get("rule_names"))
+    assist = api.data(action="get_player_view", player=seat)["own"]["assist"]
+    check("and are live: the miser's two gold guards, on", assist["enabled"] and [r.get("power_off") for r in assist["rules"]] == ["POWER_CALL_TO_ARMS", "POWER_OBEY"], assist)
     check("the memory names this game and level", bool(mem["game_id"]) and bool(mem["branch"]) and ":" in mem["level"]["key"], mem["level"])
     check("orders' outcomes were filled in from the game's results", any(o["status"] == "done" for d in mem["decisions"] for o in d["orders"]), mem["decisions"][0])
     # The game's record in the experience store (09 section 6): one attempt, still open (the bridge stopped, the level
@@ -117,7 +120,7 @@ def main():
     cps = store.checkpoints(mem["game_id"], mem["branch"]) if rows else []
     check("the attempt has a checkpoint with the dungeon's numbers", bool(cps) and cps[0].get("gold") is not None and "rooms" in cps[0], cps[:1])
     store.close()
-    api.data(action="set_pause", player=seat, paused=True)
+    api.data(action="set_pause", player=seat, paused=True, force=True)
     state.update(api, seat)
     patched = strip(state.view)
     raw_full = api.data(action="get_player_view", player=seat)
@@ -130,7 +133,7 @@ def main():
     # A hand-fed diff cycle on top: change something, take a diff, patch, compare again (the check above may be trivial when
     # nothing changed since the last update).
     time.sleep(1.0)
-    api.data(action="set_pause", player=seat, paused=True)
+    api.data(action="set_pause", player=seat, paused=True, force=True)
     state.update(api, seat)
     if state.last_diff is not None:
         print("last diff sizes by key:", {k: len(json.dumps(v)) for k, v in state.last_diff.items()})

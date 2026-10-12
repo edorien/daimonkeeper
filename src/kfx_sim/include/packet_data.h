@@ -355,6 +355,16 @@ enum TbPacketAction {
         // Map has none at all) -- this carries the position explicitly
         // instead (the current camera's own center, from kfx_editor).
         PckA_EditorGoSpectator,
+        // The combat assistant's rules (docs/newFeatures/llm/02-rule-language.md section 8; kfx_ai/
+        // keeper_assist_packets.c packs and applies them). Rule changes are written into the keeper's staging copy
+        // one packet at a time and go live together on the commit, so a half-sent set is never live. Only
+        // actn_par1/actn_par2 are used (par3/par4 share the camera position). Refused in a multiplayer game.
+        PckA_AssistStageRule,      // par1: slot, action, power, level, target, pick, cond count; par2: cooldowns
+        PckA_AssistStageRuleMoney, // par1: slot, max_allies_hit; par2: budget
+        PckA_AssistStageCond,      // par1: slot, index, fact, op; par2: value
+        PckA_AssistStageGlobal,    // par1: field; par2: value
+        PckA_AssistCommit,         // par1: slots in the new set (low 16 bits), slots that changed (high 16); par2: 1 = the globals too
+        PckA_AssistEnable,         // par1: 0 / 1, at once (no commit)
 };
 
 /** Packet flags for non-action player operation. */

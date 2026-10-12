@@ -4,11 +4,14 @@
  *
  * A real-time agent should think at natural moments, not on a fixed timer: at each quarter of a pay day, and when
  * something important happens (a fight with a rival, an attack on the heart or a room, a breach, a room lost, the first
- * creature of a new kind arriving, a new objective or information message, victory or defeat). Once per turn the seat's situation is compared with the last look; when a reason has
+ * creature of a new kind arriving, a new objective or information message, an alarm trap going off, victory or defeat). Once per turn the seat's situation is compared with the last look; when a reason has
  * appeared and the minimum interval since the last decision has passed, the decision counter goes up and the client that
  * subscribed to the DECISION_DUE event is told ({player, seq, turn, reasons, quarter}). The latest decision is also in
  * the view as seat.decision, for clients that poll. Reasons that arrive inside the minimum interval are held and
- * delivered together when it ends, so a long battle does not become a stream of calls.
+ * delivered together when it ends, so a long battle does not become a stream of calls. Victory, defeat and an alarm
+ * trap going off (reason "alarm") are urgent and never wait.
+ * The combat assistant raises assist_budget (a rule spent its budget), assist_reserve (a cast was held back only by the
+ * reserve) and assist_gold_guard (it switched Call to Arms or Must Obey off), so the agent reviews its standing orders.
  */
 #ifndef DK_API_SEAT_DECISION_H
 #define DK_API_SEAT_DECISION_H
@@ -31,6 +34,9 @@ void api_seat_recipe_text(const struct SacrificeRecipe *sac, char *buf, size_t l
 void api_seat_decision_add_sacrifice_outcomes(VALUE *sacrifices, PlayerNumber plyr_idx);
 /** Adds own.objective_history (the level's objectives as they appeared, oldest first) to a view for `plyr_idx`. */
 void api_seat_decision_add_objectives(VALUE *own, PlayerNumber plyr_idx);
+/** The latest decision raised for `plyr_idx`: its counter (0 = none yet), turn, and whether its reasons included a fight,
+ *  an attack on the heart or a room, or a breach. False if the player is not an External seat being watched. */
+TbBool api_seat_decision_latest(PlayerNumber plyr_idx, int64_t *seq, int64_t *turn, TbBool *combat);
 /** Minimum game turns between two decisions (default 100; victory / defeat are never held back by it). */
 void api_seat_decision_set_min_interval(int64_t turns);
 

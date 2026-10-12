@@ -56,6 +56,7 @@
 #include "actionpt.h"
 #include "net_exchange_common.h"
 #include "net_exchange_gameplay.h"
+#include "external_seat.h"
 #include "net_game.h"
 #include "net_lobby.h"
 #include "net_resync.h"
@@ -85,6 +86,7 @@
 #include "compat_report.h"
 #include "game_compat_review.h"
 #include "render_creature_view.h"
+#include "keeper_assist_outbox.h"
 #include "post_inc.h"
 
 // force_player_num now lives in kfx_config's struct StartupParameters
@@ -187,6 +189,8 @@ void clear_game(void)
     kfx_game_state.music_track = 0;
     clear_map();
     clear_computer();
+    clear_keeper_assists();
+    keeper_assist_outbox_reset();
     clear_script();
     clear_events();
     clear_things_and_persons_data();
@@ -199,6 +203,7 @@ void clear_game(void)
 
 void reinit_level_after_load(void)
 {
+    keeper_assist_outbox_reset(); // the save brought its own rules: send only what the profile changes
     struct PlayerInfo *player;
     int64_t i;
     SYNCDBG(6,"Starting");
@@ -690,6 +695,8 @@ static CoroutineLoopState startup_network_game_tail(CoroutineLoop *context)
         // above -- the local player's dungeon must already exist (post_init_players() just ran).
         if (ui_is_fe_spectate_campaign_active())
             player_enter_spectator_mode(my_player_number);
+        // No human keeper left (every keeper an External seat or the built-in AI): start paused for the agent.
+        extseat_pause_for_agent_start();
     }
     set_selected_level_number(0);
 

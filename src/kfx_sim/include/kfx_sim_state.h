@@ -44,6 +44,7 @@
 #include "config.h"
 #include "game_time.h" // struct GameTime
 #include "light_registry.h"
+#include "keeper_assist_state.h"
 
 // struct TimerTime moved here from kfx_frontend_state.h (stage 13.2,
 // docs/refactor/stage-13-enforce-and-document.md) -- the only global of
@@ -457,6 +458,10 @@ struct KfxSimState {
        refactor pass 2 (S11). The sim creates, moves and deletes them and
        reads their intensity back; kfx_render shades from them. */
     struct LightRegistry light_registry;
+
+    /* The combat assistant (keeper_assist_state.h, docs/newFeatures/llm/): each keeper's standing orders for fights
+       and what became of them. Here so a save, a resync and a replay all carry them; evaluated by kfx_ai. */
+    struct KeeperAssistState keeper_assist[PLAYERS_COUNT];
 };
 
 #pragma pack()

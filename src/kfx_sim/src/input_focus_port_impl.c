@@ -36,6 +36,12 @@ static TbBool is_packet_load_enabled(void)
     return replay.load_enable != 0;
 }
 
+static TbBool is_local_seat_external(void)
+{
+    const struct PlayerInfo *player = get_my_player();
+    return player_exists(player) && ((player->allocflags & PlaF_ExternalSeat) != 0);
+}
+
 
 const struct InputFocusPort kfx_sim_input_focus_port = {
     .freeze_game_on_focus_lost = &freeze_game_on_focus_lost,
@@ -46,6 +52,7 @@ const struct InputFocusPort kfx_sim_input_focus_port = {
     .is_possession_mode_active = &is_possession_mode_active,
     .is_packet_load_enabled = &is_packet_load_enabled,
     .use_relative_mouse_mode = &use_relative_mouse_mode,
+    .is_local_seat_external = &is_local_seat_external,
 };
 /******************************************************************************/
 #ifdef __cplusplus

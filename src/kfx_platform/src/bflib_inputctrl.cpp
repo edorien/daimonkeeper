@@ -716,6 +716,10 @@ void LbGrabMouseCheck(int64_t grab_event)
             grab_cursor = lbMouseGrab; // keep the default grab state if the player is viewing a saved packet
         }
     }
+    // An agent plays the local keeper: the human only watches (and types to the agent in another window), so the
+    // cursor is never captured.
+    if (focus_is_local_seat_external())
+        grab_cursor = false;
     LbSetMouseGrab(grab_cursor);
 }
 

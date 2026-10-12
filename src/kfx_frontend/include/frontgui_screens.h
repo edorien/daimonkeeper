@@ -38,6 +38,10 @@ void FrontendImGuiFrame(void);
 // pause-menu launcher when "Options" is expanded.
 void frontgui_options_frame_ingame(void);
 
+// The Options screen's "Combat assistant" section (docs/newFeatures/llm/01 section 10.2), on its own for a test: a
+// collapsing header, so it draws its controls only once opened.
+void frontgui_combat_assistant_section(TbBool in_game);
+
 #ifdef __cplusplus
 }
 #endif

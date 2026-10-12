@@ -51,6 +51,7 @@
 #include "ports/audio_port.h"
 #include "local_state.h"
 #include "agent_memory.h"
+#include "external_seat.h"
 #include "ariadne_saved_state.h"
 #include "render_creature_view.h"
 #include "game_replay.h"
@@ -896,6 +897,8 @@ TbBool load_game(int64_t slot_num)
     process_pause_packet(0, 0);
     clear_flag(kfx_sim_state.operation_flags, GOF_Paused);
     clear_flag(kfx_sim_state.operation_flags, GOF_WorldInfluence);
+    // An agent-only game (no human keeper; the seats came back with the save) waits for its agent, as at level start.
+    extseat_pause_for_agent_start();
     ui_close_main_cheat_menu();
     ui_close_creature_cheat_menu();
     ui_close_instance_cheat_menu();
