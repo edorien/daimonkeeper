@@ -5,8 +5,9 @@
 //
 // Each keeper plays a short script through its own packets, injected before the exchange so the other machine runs
 // them too (ftest_packet_inject.h), once the game takes input: tag a block for digging next to its heart, build a
-// treasury on its claimed floor, make an imp. The host then pauses and unpauses the game, and forces a desync (intentional_desync(), the console's
-// `desync`): the checksums must find it and the resync bring the client back. Every NET_HASH_EVERY turns, outside the
+// treasury on its claimed floor, make an imp. The host then pauses and unpauses the game, and the client forces a desync of
+// its own state (intentional_desync(), the console's `desync`, which does nothing on the host since upstream #5405:
+// the host's state is the game's): the checksums must find it and the host's resync bring the client back. Every NET_HASH_EVERY turns, outside the
 // desync's window, each side logs a hash of what replays check (compute_replay_integrity()) as "NETHASH <turn> <hash>":
 // scripts/run_ftest_coverage.sh, which runs the two together, fails the pair when the two sides' lines differ. At
 // NET_LAST_TURN the client leaves and the host goes on until it has seen it go (the drop path).
@@ -26,6 +27,7 @@
 #include "game_replay.h"
 #include "kfx_sim_state.h"
 #include "net_main.h"
+#include "net_game.h"
 #include "kfx_net_state.h"
 #include "net_resync.h"
 #include "packets.h"
@@ -155,7 +157,7 @@ static void log_hash(void)
     const GameTurn turn = get_gameturn();
     if (turn < s_next_hash)
         return;
-    // the desync's window (the host's state is changed, then sent to the client) is left out
+    // the desync's window (the client's state is changed, then replaced by the host's) is left out
     if ((turn < NET_DESYNC_TURN) || (turn >= NET_DESYNC_TURN + NET_RESYNC_BUDGET))
         FTESTLOG("NETHASH %" PRId64 " %016" PRIx64, (int64_t)s_next_hash, (uint64_t)compute_replay_integrity());
     s_next_hash += NET_HASH_EVERY;
@@ -260,16 +262,17 @@ static FTestActionResult net_mp_game_host_pause(struct FTestActionArgs* const ar
     return FTRs_Repeat_Current_Action;
 }
 
-/** The host changes its own state at NET_DESYNC_TURN (intentional_desync()); the checksums must notice and the host
- *  resync the client. Found and resynced within a turn, so what's checked is the resync's mark: it starts the input
- *  skip of a game's start again (kfx_net_state.skip_initial_input_turns, 0 long before this turn). */
-static FTestActionResult net_mp_game_host_desync(struct FTestActionArgs* const args)
+/** The client changes its own state at NET_DESYNC_TURN (intentional_desync(): only a client does); the checksums must
+ *  notice and the host resync it. Found and resynced within a turn, so what's checked, on either machine, is the
+ *  resync's mark: it starts the input skip of a game's start again (kfx_net_state.skip_initial_input_turns, 0 long
+ *  before this turn). The host only waits for it. */
+static FTestActionResult net_mp_game_desync(struct FTestActionArgs* const args)
 {
     log_hash();
     const GameTurn turn = get_gameturn();
     if (turn < NET_DESYNC_TURN)
         return FTRs_Repeat_Current_Action;
-    if (turn == NET_DESYNC_TURN)
+    if ((turn == NET_DESYNC_TURN) && !network_is_host())
     {
         FTESTLOG("forcing a desync at turn %" PRId64, (int64_t)turn);
         intentional_desync();
@@ -323,7 +326,7 @@ TbBool ftest_net_mp_game_host_init()
     ftest_append_action(net_mp_game_wait, 0, (void *)(intptr_t)NET_CHECK_TURN);
     ftest_append_action(net_mp_game_check_script, 0, NULL);
     ftest_append_action(net_mp_game_host_pause, 0, NULL);
-    ftest_append_action(net_mp_game_host_desync, 0, NULL);
+    ftest_append_action(net_mp_game_desync, 0, NULL);
     ftest_append_action(net_mp_game_play, 0, NULL);
     ftest_append_action(net_mp_game_host_wait_for_drop, 0, NULL);
     return true;
@@ -337,6 +340,7 @@ TbBool ftest_net_mp_game_join_init()
     ftest_append_action(net_mp_game_script, 0, NULL);
     ftest_append_action(net_mp_game_wait, 0, (void *)(intptr_t)NET_CHECK_TURN);
     ftest_append_action(net_mp_game_check_script, 0, NULL);
+    ftest_append_action(net_mp_game_desync, 0, NULL);
     ftest_append_action(net_mp_game_play, 0, NULL);
     return true;
 }

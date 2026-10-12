@@ -171,7 +171,10 @@ void process_pause_packet(int64_t curr_pause, int64_t new_pause)
   if ( can )
   {
       player = get_my_player();
+      const TbBool was_paused = flag_is_set(kfx_sim_state.operation_flags, GOF_Paused);
       set_flag_value(kfx_sim_state.operation_flags, GOF_Paused, curr_pause);
+      if (was_paused && !curr_pause && (get_local_user() == SERVER_ID) && !replay.load_enable)
+          request_timestamp_packet();
       if ((kfx_sim_state.operation_flags & GOF_Paused) != 0) {
           set_flag_value(kfx_sim_state.operation_flags, GOF_WorldInfluence, new_pause);
           if (network_is_active()) {
@@ -252,7 +255,10 @@ void exchange_packets(void)
     }
     update_local_dig_tag_prediction(kfx_net_state.input_lag_turns);
     if (!replay.load_enable)
+    {
+        set_pending_timestamp_packet_action(get_local_packet());
         camera_packet_set_state(get_local_packet());
+    }
     store_packet_history(local_user, get_local_packet());
     host_spoof_dropped_user_packets();
     if (network_is_active())

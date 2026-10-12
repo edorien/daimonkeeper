@@ -168,8 +168,8 @@ struct Thing *create_object(const struct Coord3d *pos, ThingModel model, int64_t
     thing->solid_size_z = objst->size_z;
     thing->health = saturate_set_signed(objst->health,32);
     thing->fall_acceleration = objst->fall_acceleration;
-    thing->inertia_floor = 204;
-    thing->inertia_air = 51;
+    thing->inertia_floor = objst->inertia_floor;
+    thing->inertia_air = objst->inertia_air;
     thing->bounce_angle = 0;
     thing->movement_flags |= TMvF_ZeroVerticalVelocity;
 
@@ -440,6 +440,15 @@ void update_all_objects_of_model(ThingModel model)
                 try_set_backup_heart_idx(thing->owner, thing->index);
             }
         }
+
+        thing->clipbox_size_xy = objst->size_xy;
+        thing->clipbox_size_z = objst->size_z;
+        thing->solid_size_xy = objst->size_xy;
+        thing->solid_size_z = objst->size_z;
+        thing->fall_acceleration = objst->fall_acceleration;
+        thing->inertia_floor = objst->inertia_floor;
+        thing->inertia_air = objst->inertia_air;
+        set_flag_value(thing->movement_flags, TMvF_Immobile, objst->immobile);
 
         if (thing->light_id != 0)
         {

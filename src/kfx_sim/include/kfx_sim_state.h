@@ -263,6 +263,11 @@ struct KfxSimState {
     uint32_t player_random_seed;
     uint32_t unsync_random_seed;
     uint32_t sound_random_seed;
+    /** Posix time of the most recent timestamp (the host's clock, see take_game_timestamp()), 0 if unknown: lets
+        peers and replays agree about the current time (Lua's GetGameTimestamp, upstream #5383). */
+    int64_t timestamp;
+    int64_t timestamp_tz; /**< seconds east of UTC, the host's */
+    GameTurn timestamp_turn; /**< the game turn the timestamp was taken on */
 
     /* Map ceiling-height computation state (stage 7.2) -- mischaracterized
        as "render" in stage-05's ownership table; used exclusively by

@@ -155,7 +155,12 @@ static struct Thing *garden_put_back(struct Room *room, ThingModel model, CrtrEx
     pos.x.val = subtile_coord_center(stl_x);
     pos.y.val = subtile_coord_center(stl_y);
     pos.z.val = 0;
-    return create_object(&pos, model, room->owner, -1);
+    // A chicken put back remembers this hatchery as its home (upstream #5420).
+    struct Thing *foodtng = create_object(&pos, model, room->owner, room->index);
+    if (!thing_is_invalid(foodtng) && object_is_mature_food(foodtng)) {
+        foodtng->food.life_remaining = -1;
+    }
+    return foodtng;
 }
 
 /** Food: nothing sinks into the floor, capacity_used_for_storage follows the count, two sweeps. */

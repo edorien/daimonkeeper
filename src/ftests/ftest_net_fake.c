@@ -118,6 +118,16 @@ static size_t ftest_net_fake_msgready(NetUserId source, uint64_t timeout)
     return ftest_net_fake_inbox_head[source]->size;
 }
 
+static size_t ftest_net_fake_peekmsg(NetUserId source, const char **buffer)
+{
+    *buffer = NULL;
+    if (source < 0 || source >= MAX_NET_USERS || ftest_net_fake_inbox_head[source] == NULL) {
+        return 0;
+    }
+    *buffer = (const char *)ftest_net_fake_inbox_head[source]->data;
+    return ftest_net_fake_inbox_head[source]->size;
+}
+
 static size_t ftest_net_fake_readmsg(NetUserId source, char *buffer, size_t max_size)
 {
     if (source < 0 || source >= MAX_NET_USERS) {
@@ -155,6 +165,7 @@ static struct NetSP ftest_net_fake_sp_instance = {
     .sendmsg_single_unsequenced = ftest_net_fake_sendmsg_single_unsequenced,
     .sendmsg_all = ftest_net_fake_sendmsg_all,
     .msgready = ftest_net_fake_msgready,
+    .peekmsg = ftest_net_fake_peekmsg,
     .readmsg = ftest_net_fake_readmsg,
     .drop_user = ftest_net_fake_drop_user,
 };

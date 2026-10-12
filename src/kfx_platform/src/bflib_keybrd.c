@@ -37,6 +37,8 @@ static unsigned char lbIInkeyFlags;
 static unsigned char lbIInkey;
 static unsigned char lbExtendedKeyPress;
 unsigned char lbKeyOn[KC_LIST_END];
+unsigned char lbKeyPressed[KC_LIST_END];
+TbBool lbBufferKeyPresses;
 TbKeyCode lbInkey;
 
 /******************************************************************************/
@@ -111,6 +113,9 @@ void keyboardControl(uint64_t action, TbKeyCode code, TbKeyMods modifiers, int64
         lbInkeyFlags |= KMod_ALT;
     if (lbKeyOn[code] != 0)
         lbKeyOn[code] |= lbInkeyFlags;
+    if (lbBufferKeyPresses && action == KActn_KEYDOWN) {
+        lbKeyPressed[code] = 1 | lbInkeyFlags;
+    }
     if (lbInkey < 0x80)
     {
         if (lbIInkey == 0)
@@ -133,9 +138,13 @@ uint64_t key_modifiers;
  */
 int64_t is_key_pressed(TbKeyCode key, TbKeyMods kmodif)
 {
-  if ((kmodif == KMod_DONTCARE) || (kmodif == key_modifiers))
-    return lbKeyOn[key];
-  return 0;
+    if (((kmodif == KMod_DONTCARE) || (kmodif == key_modifiers)) && lbKeyOn[key] != 0) {
+        return lbKeyOn[key];
+    }
+    if ((kmodif == KMod_DONTCARE) || (kmodif == (lbKeyPressed[key] & (KMod_SHIFT | KMod_CONTROL | KMod_ALT)))) {
+        return lbKeyPressed[key];
+    }
+    return 0;
 }
 
 /**
@@ -155,6 +164,7 @@ void clear_key_pressed(int64_t key)
         }
     }
     lbKeyOn[key] = 0;
+    lbKeyPressed[key] = 0;
     if (key == lbInkey)
     {
         lbInkey = KC_UNASSIGNED;

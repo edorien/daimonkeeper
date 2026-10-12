@@ -5368,7 +5368,7 @@ static void draw_fastview_mapwho(struct Camera *cam, struct BucketKindJontySprit
             RendererAddDrawFlags(Lb_SPRITE_REMAP);
             SetupSpriteRemapWhiteFlash();
         } else {
-            if (thing->last_turn_damaged == kfx_sim_state.play_gameturn)
+            if (thing->last_turn_damaged == get_gameturn())
             {
                 RendererAddDrawFlags(Lb_SPRITE_REMAP);
                 SetupSpriteRemapRedFlash();
@@ -8274,7 +8274,7 @@ static void draw_jonty_mapwho(struct BucketKindJontySprite *jspr)
               }
           }
         } else {
-            if (thing->last_turn_damaged == kfx_sim_state.play_gameturn)
+            if (thing->last_turn_damaged == get_gameturn())
             {
                 RendererAddDrawFlags(Lb_SPRITE_REMAP);
                 SetupSpriteRemapRedFlash();

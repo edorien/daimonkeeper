@@ -22,6 +22,7 @@
 #include "bflib_basics.h"
 #include "bflib_netsession.h"
 #include "bflib_netsp.h"
+#include "port_check.h"
 #include "ver_defs.h"
 
 #ifdef __cplusplus
@@ -69,6 +70,8 @@ enum NetMessageType {
     NETMSG_GAMEPLAY_TURN_SYNC,
 };
 
+KFX_STATIC_ASSERT(NETMSG_RESYNC_DATA == 7, "NETSP_RESYNC_DATA_TAG (bflib_netsp.h) must match NETMSG_RESYNC_DATA");
+
 enum NetUserProgress {
     USER_UNUSED = 0,
     USER_CONNECTED,
@@ -81,7 +84,6 @@ struct GameVersionPacket {
     int32_t release;
     int32_t build;
 };
-
 struct NetUser {
     NetUserId id;
     char name[32];
@@ -105,8 +107,10 @@ struct NetState {
     NetUserId my_id;
     int64_t seq_nbr;
     uint64_t max_users;
+    uint32_t gameplay_generation;
     char msg_buffer[NET_MSG_BUFFER_SIZE];
     char msg_buffer_null;
+    TbBool resync_pending;
     TbBool locked;
     enum NetSessionPhase phase;
 };

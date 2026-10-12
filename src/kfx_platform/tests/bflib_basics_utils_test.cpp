@@ -5,11 +5,9 @@
 // registered provider) since none of these need any fake/provider setup
 // at all -- every one is a bare pure function.
 //
-// get_rid's "RANDOM" branch is deliberately not tested: it reads the
-// global rand() stream, so its return value can't be pinned down without
-// either seeding rand() (fragile across libc versions) or changing the
-// function to take a seed/RNG parameter (out of scope for a test-only
-// change).
+// get_rid's "RANDOM" branch draws from a wired seed (upstream #5389: the game's
+// synchronised action seed, so every machine picks the same item); only that
+// wired form is tested, the unwired fallback reads the global rand() stream.
 #include <inttypes.h>
 #include <catch2/catch_test_macros.hpp>
 
@@ -126,4 +124,30 @@ TEST_CASE("natoi returns -1 when the very first character isn't a digit", "[kfx_
 
 TEST_CASE("natoi returns -1 for a zero-length input", "[kfx_platform][bflib_basics]") {
     CHECK(natoi("", 0) == -1);
+}
+
+// Upstream #5389: RANDOM in a script (SET_*(RANDOM)) is drawn from the game's action seed, not rand(), so the
+// machines of a network game and a replay agree.
+TEST_CASE("get_rid RANDOM draws from the wired seed, the same items for the same seed", "[kfx_platform][bflib_basics]") {
+    const struct NamedCommand table[] = {
+        {"Foo", 11}, {"Bar", 22}, {"Baz", 33}, {"Qux", 44}, {NULL, 0},
+    };
+    uint32_t seed = 12345;
+    set_rid_random_seed_source(&seed);
+    int64_t first[24];
+    for (int64_t &v : first)
+        v = get_rid(table, "random");
+    CHECK(seed != 12345); // the draws advanced the seed
+    seed = 12345;
+    bool seen[4] = {false, false, false, false};
+    for (int64_t v : first) {
+        CHECK(get_rid(table, "RANDOM") == v);
+        REQUIRE((v == 11 || v == 22 || v == 33 || v == 44));
+        seen[v / 11 - 1] = true;
+    }
+    int64_t kinds = 0;
+    for (bool s : seen)
+        kinds += s;
+    CHECK(kinds >= 2); // not a constant
+    set_rid_random_seed_source(nullptr);
 }

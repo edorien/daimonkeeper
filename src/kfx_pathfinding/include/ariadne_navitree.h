@@ -41,6 +41,7 @@ extern int64_t ix_delaunay;
 
 #pragma pack()
 /******************************************************************************/
+void navitree_reset(void);
 void tags_init(void);
 int64_t update_border_tags(int64_t tag_id, int64_t *border_pt, int64_t border_len);
 int64_t border_tags_to_current(int64_t *border_pt, int64_t border_len);

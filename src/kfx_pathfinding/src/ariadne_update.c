@@ -17,6 +17,7 @@
 #include "pre_inc.h"
 #include "ariadne_saved_state.h"
 #include "ariadne.h"
+#include "ariadne_update.h"
 #include "ariadne_tringls.h"
 #include "ariadne_findcache.h"
 #include "ariadne_points.h"
@@ -1553,9 +1554,8 @@ static TbBool triangulate_area(NavColour *imap, int64_t start_x, int64_t start_y
         start_y = 0;
         end_y = kfx_pathfinding_state.map_subtiles_y + 1;
     }
-    triangulation_init();
-    if ( not_whole_map )
-    {
+    if (not_whole_map) {
+        triangulation_init();
         triangulation_successful &= border_clip_horizontal(imap, start_x, end_x, start_y, 0);
         triangulation_successful &= border_clip_horizontal(imap, start_x, end_x, end_y, -1);
         triangulation_successful &= border_clip_vertical(imap, start_x, -1, start_y, end_y);
@@ -1678,21 +1678,25 @@ static void init_navigation_map(void)
     nav_map_initialised = 1;
 }
 
-static void triangulate_map(NavColour *imap)
+/** Triangulates the whole navigation map afresh, leaving no trace of the earlier mesh (upstream #5405: the
+ *  tags, the border list and the triangle pools are reset, so every machine rebuilds the same mesh). */
+void rebuild_navigation(void)
 {
-    triangulate_area(imap, 0, 0, kfx_pathfinding_state.navigation_map_size_x, kfx_pathfinding_state.navigation_map_size_y);
-}
-
-int64_t init_navigation(void)
-{
-    
-    NavColour *IanMap = (NavColour *)&kfx_pathfinding_state.navigation_map;
-    init_navigation_map();
-    triangulate_map(IanMap);
+    ix_Border = 0;
+    navitree_reset();
+    triangulate_area((NavColour *)&kfx_pathfinding_state.navigation_map, 0, 0,
+        kfx_pathfinding_state.navigation_map_size_x, kfx_pathfinding_state.navigation_map_size_y);
+    nav_map_initialised = 1;
     set_nav_rule_default();
     // idle between navigations; not what the previous level left (P5-F22)
     kfx_pathfinding_state.owner_player_navigating = -1;
     kfx_pathfinding_state.map_changed_for_navigation = 1;
+}
+
+int64_t init_navigation(void)
+{
+    init_navigation_map();
+    rebuild_navigation();
     return 1;
 }
 

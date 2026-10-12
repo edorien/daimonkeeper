@@ -19,6 +19,7 @@ static const char *const kfx_ref_forkonly_lua_functions[] = {
     "CopyCreatureType",
     "DisplayVariableWithLabel",
     "GetCustomSoundId",
+    "GetGameTimestamp",
     "IsCustomSoundLoaded",
     "LoadCustomSound",
     "PlayMusic",

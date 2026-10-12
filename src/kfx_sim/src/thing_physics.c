@@ -55,8 +55,7 @@ extern "C" {
 
 void destroy_thing(struct Thing* thing)
 {
-    switch (thing->class_id)
-    {
+    switch (thing->class_id) {
         case TCls_Door:
         {
             destroy_door(thing);
@@ -70,6 +69,13 @@ void destroy_thing(struct Thing* thing)
         case TCls_Object:
         {
             destroy_object(thing);
+            break;
+        }
+        case TCls_DeadCreature: {
+            if (flag_is_set(thing->alloc_flags, TAlF_IsControlled)) {
+                prepare_to_controlled_creature_death(thing);
+            }
+            delete_thing_structure(thing, 0);
             break;
         }
         default:

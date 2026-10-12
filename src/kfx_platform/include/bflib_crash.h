@@ -28,6 +28,12 @@
 extern "C" {
 #endif
 /******************************************************************************/
+// The packet file in use, for the crash log (set by kfx_game's game_replay.c;
+// state 0 = none, 1 = recording, 2 = playing back).
+extern char replay_crashlog_fname[OS_ABSPATH_SIZE];
+extern volatile uint8_t replay_crashlog_state;
+extern volatile GameTurn replay_crashlog_turn;
+
 void LbErrorParachuteInstall(void);
 void LbErrorParachuteUpdate(void);
 /******************************************************************************/

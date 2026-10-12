@@ -241,6 +241,11 @@ static void record_or_compare(enum ContinuityPhase phase, int64_t first_turn)
     const int64_t k = t - first_turn;
     if ((k < 0) || (k >= s_run.n_turns))
         return;
+    // The game's timestamp is the host's wall clock, taken again by every load and resync (upstream #5383): it is
+    // meant to differ between the runs, and nothing here reads it.
+    kfx_sim_state.timestamp = 0;
+    kfx_sim_state.timestamp_tz = 0;
+    kfx_sim_state.timestamp_turn = 0;
     struct Region r[MAX_REGIONS];
     regions(r);
     const uint64_t integrity = compute_replay_integrity();

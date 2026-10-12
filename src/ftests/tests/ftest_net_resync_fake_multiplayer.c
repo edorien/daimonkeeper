@@ -139,7 +139,9 @@ FTestActionResult ftest_net_resync_fake_multiplayer_action001__host_client_round
     // intentional_desync()'s one unconditional effect (net_resync.cpp) --
     // check it directly rather than assuming which snapshot it landed in.
     vars->instance_remain_before = get_player(0)->instance_remain_turns;
-    intentional_desync();
+    // (intentional_desync() itself does nothing on a host since upstream #5405, and this fake game isn't a
+    // network_is_active() one: do the same change here.)
+    get_player(0)->instance_remain_turns += 1;
     if (get_player(0)->instance_remain_turns != vars->instance_remain_before + 1)
     {
         FTEST_FAIL_TEST("intentional_desync() didn't corrupt state as expected -- can't prove the receive side actually fixes anything");

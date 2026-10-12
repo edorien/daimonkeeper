@@ -31,6 +31,17 @@ extern "C" {
 // Buffer sizes
 // Disk path max length
 #define DISKPATH_SIZE    144
+
+// Maximum disk path size OS can handle
+#if defined(_WIN32)
+#define OS_ABSPATH_SIZE  260 /* ANSI */
+#elif defined(__linux__)
+#define OS_ABSPATH_SIZE  4096
+#else
+// arbitrary fallback
+#define OS_ABSPATH_SIZE  512
+#endif
+
 // The log file's full path: the current directory plus the -log name, which can be
 // far longer than DISKPATH_SIZE (a build tree under .claude/worktrees/<name>/out/...).
 #define LOG_PATH_SIZE   4096
@@ -173,6 +184,8 @@ int64_t get_rid(const struct NamedCommand *desc, const char *itmname);
 typedef TbBool (*EmulateIntegerOverflowFunc)(int64_t nbits);
 extern EmulateIntegerOverflowFunc emulate_integer_overflow_provider;
 void set_emulate_integer_overflow_provider(EmulateIntegerOverflowFunc provider);
+/** Where get_rid()'s RANDOM draws from (see bflib_basics.c); nullptr: rand(). */
+void set_rid_random_seed_source(uint32_t *seed);
 /******************************************************************************/
 /**
  * How much the game writes to keeperfx.log: the LOG_LEVEL game option.

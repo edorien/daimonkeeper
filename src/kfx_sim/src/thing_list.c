@@ -56,6 +56,7 @@
 #include "light_registry.h"
 #include "ports/script_port.h"
 #include "ports/ai_port.h"
+#include "ports/audio_port.h"
 #include "list_walk.h"
 #include "post_inc.h"
 
@@ -2731,7 +2732,26 @@ TbBool update_thing(struct Thing *thing)
             if (!flag_is_set(thing->state_flags, TF1_FallingIntoAbyss)) {
                 return true;
             }
-            kill_creature(thing, INVALID_THING, -1, CrDed_Default);
+            PlayerNumber killer = -1;
+            CrDeathFlags flags = CrDed_Default;
+            if ((get_gameturn() - thing->last_turn_pushed) < 15)
+            {
+                flags = CrDed_DiedInBattle;
+                killer = thing->pushed_by_player;
+                if (is_my_player_number(thing->owner))
+                {
+                    audio_output_message_far_from_thing(thing, SMsg_BattleDeath, MESSAGE_DURATION_BATTLE);
+                }
+            }
+            else if (flag_is_set(thing->movement_flags, TMvF_Grounded))
+            {
+                flags = CrDed_DiedInBattle;
+                if (is_my_player_number(thing->owner))
+                {
+                    audio_output_message_far_from_thing(thing, SMsg_BattleDeath, MESSAGE_DURATION_BATTLE);
+                }
+            }
+            kill_creature(thing, INVALID_THING, killer, flags);
         } else {
             destroy_thing(thing);
         }

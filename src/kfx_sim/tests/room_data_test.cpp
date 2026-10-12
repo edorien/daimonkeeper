@@ -98,3 +98,24 @@ TEST_CASE_METHOD(ResetObjectsConfig, "get_required_room_capacity_for_object size
     CHECK(get_required_room_capacity_for_object(RoRoF_DeadStorage, 0, 1) == 1);
     CHECK(get_required_room_capacity_for_object(RoRoF_DeadStorage, 0, 0) == 0); // model 0 is the invalid slot
 }
+
+// Upstream #5419: store_reposition_entry() keeps every entry it is given (two chickens of one model are two
+// entries; collapsing them lost one when a hatchery was rebuilt), and store_unique_reposition_entry() is the
+// de-duplicating variant the library's spellbooks use.
+TEST_CASE("store_reposition_entry keeps duplicates, store_unique_reposition_entry does not", "[kfx_sim][room_data]") {
+    struct RoomReposition rrepos;
+    init_reposition_struct(&rrepos);
+    CHECK(store_reposition_entry(&rrepos, 7));
+    CHECK(store_reposition_entry(&rrepos, 7));
+    CHECK(rrepos.used == 2);
+    CHECK(rrepos.models[0] == 7);
+    CHECK(rrepos.models[1] == 7);
+
+    init_reposition_struct(&rrepos);
+    CHECK(store_unique_reposition_entry(&rrepos, 7));
+    CHECK(store_unique_reposition_entry(&rrepos, 7));
+    CHECK(store_unique_reposition_entry(&rrepos, 9));
+    CHECK(rrepos.used == 2);
+    CHECK(rrepos.models[0] == 7);
+    CHECK(rrepos.models[1] == 9);
+}

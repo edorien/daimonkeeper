@@ -18,6 +18,7 @@
 /******************************************************************************/
 #include "pre_inc.h"
 #include "game_saves.h"
+#include "game_lifecycle.h"
 #include "vidmode.h"
 #include "vidfade.h"
 #include "main_game.h"
@@ -73,7 +74,7 @@ int64_t const VersionBuild    = VER_BUILD;
 
 const char *continue_game_filename="fx1contn.sav";
 const char *saved_game_filename="fx1g%04" PRId64 ".sav";
-const char *packet_filename="fx1rp%04" PRId64 ".pck";
+const char *packet_filename="fx1rp%04" PRId64 ".fxpkt";
 
 /* Dynamically-grown savegame catalogue (see game_saves.h): holds one CatalogueEntry per
  * reachable save slot. It is sized on load to (highest existing slot + 2), min
@@ -921,6 +922,7 @@ TbBool load_game(int64_t slot_num)
     sound_manager_reapply_creature_sounds();
     snprintf(kfx_game_state.campaign_fname, sizeof(kfx_game_state.campaign_fname), "%s", campaign.fname);
     reinit_level_after_load();
+    take_game_timestamp();
     // Only after a load, not after a resync (whose reinit_level_after_load() a replay also runs
     // for a recorded one): upstream #5376.
     reinit_packets_after_load();

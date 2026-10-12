@@ -236,8 +236,8 @@ struct Thing *script_create_creature_at_location(PlayerNumber plyr_idx, ThingMod
 void script_process_new_creatures(PlayerNumber plyr_idx, ThingModel crmodel, TbMapLocation location, int64_t copies_num, int64_t carried_gold, CrtrExpLevel exp_level, char spawn_type);
 PlayerNumber get_appropriate_player_for_creature(struct Thing *creatng);
 struct Thing* script_get_creature_by_criteria(PlayerNumber plyr_idx, ThingModel crmodel, int64_t criteria);
-void script_move_creature_with_criteria(PlayerNumber plyr_idx, ThingModel crmodel, int64_t select_id, TbMapLocation location, ThingModel effect_id, int64_t count);
-void script_move_creature(struct Thing* thing, TbMapLocation location, ThingModel effect_id);
+void script_move_creature_with_criteria(PlayerNumber plyr_idx, ThingModel crmodel, int64_t select_id, TbMapLocation location, EffectOrEffElModel effect_id, int64_t count);
+void script_move_creature(struct Thing* thing, TbMapLocation location, EffectOrEffElModel effect_id);
 TbBool script_change_creatures_annoyance(PlayerNumber plyr_idx, ThingModel crmodel, int64_t operation, int64_t anger);
 /******************************************************************************/
 void throw_out_gold(struct Thing* thing, int64_t amount);

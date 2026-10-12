@@ -54,6 +54,10 @@ enum NetDropReason {
 typedef enum NetJoinRejection (*NetNewUserCallback)(NetUserId *assigned_id);
 typedef void (*NetDropCallback)(NetUserId id, enum NetDropReason reason);
 
+/** First byte of a resync data message: net_main.h's NETMSG_RESYNC_DATA, which the enet service needs to
+ *  recognise (it sends such a message in a wider window); net_main.h asserts the two agree. */
+#define NETSP_RESYNC_DATA_TAG 7
+
 struct NetSP
 {
     TbError (*init)(NetDropCallback drop_callback, NetNewUserCallback new_user_callback);
@@ -65,6 +69,8 @@ struct NetSP
     void (*sendmsg_single_unsequenced)(NetUserId destination, const char *buffer, size_t size);
     void (*sendmsg_all)(const char *buffer, size_t size);
     size_t (*msgready)(NetUserId source, uint64_t timeout);
+    /** The oldest queued message of a user, left queued; *buffer is nullptr and 0 returned if there is none. */
+    size_t (*peekmsg)(NetUserId source, const char **buffer);
     size_t (*readmsg)(NetUserId source, char *buffer, size_t max_size);
     void (*drop_user)(NetUserId id, enum NetJoinRejection reason);
 };

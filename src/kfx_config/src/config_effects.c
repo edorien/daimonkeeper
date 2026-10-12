@@ -89,7 +89,7 @@ int64_t const imp_spangle_effects[] = {
     TngEff_None, TngEff_ImpSpanglePurple, TngEff_ImpSpangleBlack, TngEff_ImpSpangleOrange
 };
 
-int64_t const ball_puff_effects[] = {
+int64_t const ball_puff_effects[BALL_PUFF_EFFECTS_COUNT] = {
     TngEff_BallPuffRed, TngEff_BallPuffBlue, TngEff_BallPuffGreen, TngEff_BallPuffYellow, TngEff_BallPuffWhite,
     TngEff_BallPuffWhite, TngEff_BallPuffPurple, TngEff_BallPuffBlack, TngEff_BallPuffOrange
 };

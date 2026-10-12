@@ -204,6 +204,7 @@ static TbBool wire_ports(void)
     set_editor_port(&kfx_editor_port);
     set_emulate_integer_overflow_provider(&emulate_integer_overflow);
     set_gameturn_source(&kfx_sim_state.play_gameturn);
+    set_rid_random_seed_source(&kfx_sim_state.action_random_seed);
     set_config_level_sources(&kfx_sim_state.selected_level_number, &kfx_sim_state.loaded_level_number);
     bf_sprfnt_set_font_role_resolver(resolve_font_role);
     set_config_network_is_active_check(multiplayer_game_running);

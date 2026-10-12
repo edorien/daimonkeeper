@@ -2447,11 +2447,8 @@ static void dungeon_cheat_steal_slab(const struct DungeonCheatAction *ctx)
             }
             for (int64_t n = 0; n < SMALL_AROUND_LENGTH; n++)
             {
-                pos.x.stl.pos = 128;
-                pos.y.stl.pos = 128;
-                pos.z.stl.pos = 128;
-                pos.x.stl.num = stl_x + 2 * small_around[n].delta_x;
-                pos.y.stl.num = stl_y + 2 * small_around[n].delta_y;
+                pos.x.val = subtile_coord_center(stl_x + 2 * small_around[n].delta_x);
+                pos.y.val = subtile_coord_center(stl_y + 2 * small_around[n].delta_y);
                 struct Map* mapblk = get_map_block_at(pos.x.stl.num, pos.y.stl.num);
                 if (map_block_revealed(mapblk, id) && ((mapblk->flags & SlbAtFlg_Blocking) == 0))
                 {

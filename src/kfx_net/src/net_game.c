@@ -1025,10 +1025,14 @@ void sync_initial_network_seed(void)
    if (!network_is_active()) {
       return;
    }
-   if (!LbNetwork_Resync(&kfx_sim_state.action_random_seed, sizeof(kfx_sim_state.action_random_seed))) {
+   struct { uint32_t action_seed; int32_t timestamp_tz; int64_t timestamp; } initial = { kfx_sim_state.action_random_seed, (int32_t)kfx_sim_state.timestamp_tz, kfx_sim_state.timestamp };
+   if (!LbNetwork_Resync(&initial, sizeof(initial))) {
       ERRORLOG("Initial sync failed");
       return;
    }
+   kfx_sim_state.action_random_seed = initial.action_seed;
+   kfx_sim_state.timestamp = initial.timestamp;
+   kfx_sim_state.timestamp_tz = initial.timestamp_tz;
    kfx_sim_state.ai_random_seed = kfx_sim_state.action_random_seed * 9377 + 9391;
    kfx_sim_state.player_random_seed = kfx_sim_state.action_random_seed * 9473 + 9479;
    kfx_net_local.initial_replay_seed = kfx_sim_state.action_random_seed;

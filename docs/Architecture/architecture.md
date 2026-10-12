@@ -1058,6 +1058,10 @@ same on every target (explicit `int64_t` fields, packed layouts).
   can't be loaded.
 - Refactor pass 5, S05: sim state version 14 and net state version 4 (this machine's view out of both, into
   kfx_render's `kfx_local_view`, saved as a new chunk, version 1); older saves can't be loaded.
+- Upstream merge 2026-10-12: sim state versions 15 (`Thing.last_turn_pushed`/`pushed_by_player`, #5396) and 16 (the
+  host's clock, `timestamp*`, #5383) and config state versions 3 and 4 (the creature models' and the objects'
+  `inertia_floor`/`inertia_air`, the creatures' `fall_acceleration`, #5394 and #5402); replays: packet file header version 6 (the timestamp); older saves and
+  replays can't be loaded.
 
 ---
 

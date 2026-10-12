@@ -23,6 +23,8 @@
 #include "globals.h"
 #include "bflib_basics.h"
 #include "bflib_enet.h"
+#include "engine_redraw.h"
+#include "frame_compose.h"
 
 #include "net_exchange_common.h"
 #include "net_lobby.h"
@@ -220,6 +222,7 @@ void draw_out_of_sync_box(int64_t a1, int64_t a2, int64_t box_width)
         min_width = 0;
     }
     int64_t units_per_px = units_per_pixel;
+    keeper_screen_redraw();
     if (RendererLockFramebuffer() == Lb_SUCCESS)
     {
         int64_t ornate_width = 200 * units_per_px / 16;

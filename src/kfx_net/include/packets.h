@@ -85,6 +85,8 @@ TbBool resync_game_allowed(void);
 void set_local_packet_turn(void);
 void clear_packets(void);
 void set_packet_pause_toggle(void);
+void request_timestamp_packet(void);
+void set_pending_timestamp_packet_action(struct Packet *pckt);
 /******************************************************************************/
 // Applying the packets (process_packets() and the rest) is kfx_game's
 // game_commands.h; replay file I/O is game_replay.h (refactor pass 2, S12).

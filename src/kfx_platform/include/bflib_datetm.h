@@ -38,6 +38,10 @@ void LbSleepExtInit();
 TbBool LbSleepUntilExt(long double tick_ns_end);
 TbResult LbTime(struct TbTime *curr_time);
 TbTimeSec LbTimeSec(void);
+    
+TbBool get_local_timezone(int32_t *utc_offset, int *isdst);
+TbBool decode_posix_time(int64_t posix_time, int32_t utc_offset, struct TbDate *date, struct TbTime *time);
+    
 uint64_t LbSystemClockMilliseconds(void);
 TbResult LbDate(struct TbDate *curr_date);
 TbResult LbDateTime(struct TbDate *curr_date, struct TbTime *curr_time);

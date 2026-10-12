@@ -29,6 +29,7 @@
 #include "net_input_lag.h"
 #include "net_checksums.h"
 #include "net_lobby.h"
+#include "net_main.h"
 
 #include <math.h>
 
@@ -807,6 +808,21 @@ static TbBool global_set_computer_kind(const struct GlobalAction *ctx)
     return 0;
 }
 
+/** PckA_SetTimestamp: the host's clock (upstream #5383); see set_pending_timestamp_packet_action(). */
+static TbBool global_set_timestamp(const struct GlobalAction *ctx)
+{
+    const struct Packet *pckt = ctx->pckt;
+    if (ctx->user != SERVER_ID) {
+        WARNLOG("Ignoring timestamp from user %" PRId64 "; only the host may set it", (int64_t)ctx->user);
+        return 0;
+    }
+    kfx_sim_state.timestamp = (int64_t)(((uint64_t)((uint32_t)pckt->actn_par2 & 0x1FFFFF) << 32) | (uint32_t)pckt->actn_par1);
+    const int32_t tz_minutes = (int32_t)((uint32_t)pckt->actn_par2 >> 21);
+    kfx_sim_state.timestamp_tz = ((tz_minutes >= 1024) ? tz_minutes - 2048 : tz_minutes) * 60;
+    kfx_sim_state.timestamp_turn = ((GameTurn)(uint16_t)pckt->actn_par4 << 16) | (uint16_t)pckt->actn_par3;
+    return 0;
+}
+
 /** PckA_GoSpectator */
 static TbBool global_go_spectator(const struct GlobalAction *ctx)
 {
@@ -1006,6 +1022,7 @@ static const struct GlobalActionHandler global_actions[] = {
     {PckA_PlyrFastMsg, global_plyr_fast_msg},
     {PckA_SetComputerKind, global_set_computer_kind},
     {PckA_GoSpectator, global_go_spectator},
+    {PckA_SetTimestamp, global_set_timestamp},
     {PckA_DumpHeldThingToOldPos, global_dump_held_thing_to_old_pos},
     {PckA_PwrSOEDis, global_pwr_soe_dis},
     {PckA_UsePwrOnThing, global_use_pwr_on_thing},
@@ -1058,6 +1075,7 @@ TbBool global_action_allowed_for_seat_watcher(int64_t action)
     case PckA_SetGammaLevel:
     case PckA_SetMinimapConf:
     case PckA_SwitchView:
+    case PckA_SetTimestamp:
     case PckA_ZoomFromMap:
     case PckA_ZoomToEvent:
     case PckA_ZoomToRoom:
@@ -1642,10 +1660,9 @@ void process_packets(void)
     if (quit_game || exit_keeper) {
         return;
     }
-    if (network_is_active()
-     && ((local_system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0))
+    if (network_is_active() && (netstate.resync_pending || (local_system_flags & (GSF_NetGameNoSync | GSF_NetSeedNoSync)) != 0))
     {
-        if (resync_game_allowed()) {
+        if (netstate.resync_pending || (network_is_host() && resync_game_allowed())) {
             SYNCDBG(0,"Resyncing");
             resync_game();
         }

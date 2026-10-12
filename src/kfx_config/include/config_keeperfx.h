@@ -116,7 +116,7 @@ struct StartupParameters {
     int64_t num_fps_draw_secondary;
     TbBool packet_save_enable;
     TbBool packet_load_enable;
-    char packet_fname[150];
+    char packet_fname[OS_ABSPATH_SIZE];
     unsigned char packet_checksum_verify;
     int64_t frame_skip;
     char selected_campaign[CMDLN_MAXLEN+1];

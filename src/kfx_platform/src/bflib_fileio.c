@@ -139,7 +139,7 @@ int64_t create_directory_for_file(const char * fname)
 {
   const int64_t size = strlen(fname) + 1;
   char * tmp = (char *) malloc(size);
-  const char * separator = strchr(fname, '/');
+  const char * separator = strchr(fname[0] == '/' ? fname + 1 : fname, '/');
 
   while (separator != NULL) {
     // Found live (docs/refactor/editor/phase3/00-slice1-native-save.md):

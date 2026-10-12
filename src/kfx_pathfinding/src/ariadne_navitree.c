@@ -71,6 +71,12 @@ int64_t copy_tree_to_route(int64_t tag_start_id, int64_t tag_end_id, int64_t *ro
     return ipt;
 }
 
+void navitree_reset(void)
+{
+    memset(Tags, 0, sizeof(Tags));
+    tag_current = 0;
+}
+
 void tags_init(void)
 {
     //Note that tag_current is a tag value, not tag index

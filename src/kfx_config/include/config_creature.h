@@ -323,6 +323,9 @@ struct CreatureModelConfig {
     int64_t shot_shift_x; /**< Initial position of shot created by the creature relative to creature position, X coord. */
     int64_t shot_shift_y; /**< Initial position of shot created by the creature relative to creature position, Y coord. */
     int64_t shot_shift_z; /**< Initial position of shot created by the creature relative to creature position, Z coord. */
+    int64_t fall_acceleration;
+    int64_t inertia_floor;
+    int64_t inertia_air;
     int64_t walking_anim_speed;
     TbBool flying;
     TbBool fixed_anim_speed;

@@ -121,3 +121,42 @@ TEST_CASE("framerate_measurement_capture is a no-op for a framerate_kind at or p
     framerate_measurement_capture(TOTAL_FRAMERATE_KINDS); // one past the last valid index
     SUCCEED();
 }
+
+// Upstream #5383: Lua's GetGameTimestamp splits the host's posix time into calendar fields as seen in the host's
+// time zone.
+TEST_CASE("decode_posix_time splits a posix time into the date and time of a zone", "[kfx_platform][bflib_datetm]") {
+    struct TbDate date{};
+    struct TbTime time{};
+    // 2001-09-09 01:46:40 UTC, a Sunday
+    REQUIRE(decode_posix_time(1000000000, 0, &date, &time));
+    CHECK(date.Year == 2001);
+    CHECK(date.Month == 9);
+    CHECK(date.Day == 9);
+    CHECK(date.DayOfWeek == 0);
+    CHECK(time.Hour == 1);
+    CHECK(time.Minute == 46);
+    CHECK(time.Second == 40);
+    // five hours west of UTC: the day before, and still a Saturday
+    REQUIRE(decode_posix_time(1000000000, -5 * 3600, &date, &time));
+    CHECK(date.Day == 8);
+    CHECK(date.DayOfWeek == 6);
+    CHECK(time.Hour == 20);
+    CHECK(time.Minute == 46);
+    // east of UTC across a year boundary
+    REQUIRE(decode_posix_time(1735689600 - 60, 3600, &date, &time)); // 2024-12-31 23:59 UTC
+    CHECK(date.Year == 2025);
+    CHECK(date.Month == 1);
+    CHECK(date.Day == 1);
+    CHECK(time.Hour == 0);
+    CHECK(time.Minute == 59);
+}
+
+TEST_CASE("get_local_timezone gives an offset within the real world's range", "[kfx_platform][bflib_datetm]") {
+    int32_t offset = 99999;
+    int isdst = -1;
+    if (get_local_timezone(&offset, &isdst)) {
+        CHECK(offset >= -12 * 3600);
+        CHECK(offset <= 14 * 3600);
+        CHECK((isdst == 0 || isdst == 1));
+    }
+}

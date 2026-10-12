@@ -20,6 +20,7 @@
 #include "pre_inc.h"
 #include "bflib_basics.h"
 #include "globals.h"
+#include "bflib_math.h"
 
 #include <string.h>
 #include <strings.h>
@@ -71,6 +72,15 @@ void set_gameturn_source(const GameTurn *source)
     lb_gameturn_source = source ? source : &unwired_gameturn;
 }
 
+// The seed a RANDOM item name draws from: the game's synchronised action seed (wired by main.cpp), so that
+// every machine of a network game, and a replay, picks the same item (upstream #5389). Unwired: rand().
+static uint32_t *rid_random_seed = NULL;
+
+void set_rid_random_seed_source(uint32_t *seed)
+{
+    rid_random_seed = seed;
+}
+
 /**
  * Returns ID of given item using NamedCommands list, or any item if the string is 'RANDOM'.
  * Similar to recognize_conf_parameter(), but for use only if the buffer stores
@@ -89,8 +99,10 @@ int64_t get_rid(const struct NamedCommand *desc, const char *itmname)
   }
   if (strcasecmp("RANDOM", itmname) == 0)
   {
-      i = (rand() % i);
-      return desc[i].num;
+      if (i <= 0)
+          return -1;
+      int64_t idx = (rid_random_seed != NULL) ? LbRandomSeries(i, rid_random_seed, __func__, __LINE__) : (rand() % i);
+      return desc[idx].num;
   }
   return -1;
 }

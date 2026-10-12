@@ -258,21 +258,13 @@ void init_reposition_struct(struct RoomReposition * rrepos)
 
 TbBool store_reposition_entry(struct RoomReposition * rrepos, ThingModel tngmodel)
 {
-    int64_t ri;
-    // Don't store the same entry two times
-    for (ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
-    {
-        if (rrepos->models[ri] == tngmodel) {
-            return true;
-        }
-    }
     if (rrepos->used > ROOM_REPOSITION_COUNT)
     {
         ERRORLOG("Reposition entries to store (%" PRId64 ") exceed maximum %" PRId64, (int64_t)(rrepos->used),(int64_t)(ROOM_REPOSITION_COUNT));
         rrepos->used = ROOM_REPOSITION_COUNT;
         return false;
     }
-    for (ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    for (int64_t ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
     {
         if (rrepos->models[ri] == 0) {
             rrepos->models[ri] = tngmodel;
@@ -281,6 +273,19 @@ TbBool store_reposition_entry(struct RoomReposition * rrepos, ThingModel tngmode
         }
     }
     return true;
+}
+
+TbBool store_unique_reposition_entry(struct RoomReposition* rrepos, ThingModel tngmodel)
+{
+    int ri;
+    // Don't store the same entry two times
+    for (ri = 0; ri < ROOM_REPOSITION_COUNT; ri++)
+    {
+        if (rrepos->models[ri] == tngmodel) {
+            return true;
+        }
+    }
+    return store_reposition_entry(rrepos, tngmodel);
 }
 
 TbBool store_creature_reposition_entry(struct RoomReposition * rrepos, ThingModel tngmodel, CrtrExpLevel exp_level)

@@ -6,6 +6,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "game_commands.h"
+#include "packets.h"
 #include "player_data.h"
 #include "kfx_sim_state.h"
 #include "kfx_net_state.h"
@@ -14,6 +15,7 @@
 #include "config_players.h"
 #include "roomspace.h"
 
+#include <cstdlib>
 #include <cstring>
 
 namespace {
@@ -205,4 +207,45 @@ TEST_CASE_METHOD(ResetStates, "a dig tag keeps click-and-drag mode; setting the 
     process_user_global_packet_action(SOLO_HUMAN_ID);
     CHECK_FALSE(player->render_roomspace.drag_mode);
     CHECK_FALSE(ustate->one_click_lock_cursor);
+}
+
+// Upstream #5383: the host sends its clock as a packet now and then (Lua's GetGameTimestamp); everyone, a replay
+// included, reads the same time from it. Only the host's packet counts.
+TEST_CASE_METHOD(ResetStates, "the host's timestamp packet sets the game's timestamp; another user's is ignored", "[kfx_game][game_commands_input]") {
+    clear_flag(local_system_flags, GSF_NetworkActive);
+    replay.load_enable = 0;
+    for (int64_t u = 0; u < 2; u++) {
+        struct PlayerInfo* player = &kfx_sim_state.players[u];
+        player->allocflags = PlaF_Allocated;
+        player->id_number = u;
+        player->user_id = u;
+    }
+    my_player_number = 0; // the local user is the host
+    kfx_sim_state.play_gameturn = 128; // set_pending_timestamp_packet_action() sends on turn % 256 == 128
+    set_gameturn_source(&kfx_sim_state.play_gameturn);
+    struct Packet host{};
+    set_pending_timestamp_packet_action(&host);
+    REQUIRE(host.action == PckA_SetTimestamp);
+
+    // the packet carries the sender's clock in 21 + 32 bits and the zone in minutes: sent as it is
+    *get_packet(1) = host;
+    CHECK(process_user_global_packet_action(1) == 0);
+    CHECK(kfx_sim_state.timestamp == 0); // user 1 isn't the host
+
+    *get_packet(SERVER_ID) = host;
+    process_user_global_packet_action(SERVER_ID);
+    CHECK(kfx_sim_state.timestamp > 1700000000); // a real clock reading, past 2023
+    CHECK(kfx_sim_state.timestamp_turn == 128);
+    CHECK(llabs(kfx_sim_state.timestamp_tz) <= 14 * 3600);
+    CHECK(kfx_sim_state.timestamp_tz % 60 == 0);
+
+    // a time zone west of UTC survives the 11-bit field
+    struct Packet west{};
+    set_packet_action(&west, PckA_SetTimestamp, 1000000000, (uint32_t)((-300) & 0x7FF) << 21, 7, 0);
+    *get_packet(SERVER_ID) = west;
+    process_user_global_packet_action(SERVER_ID);
+    CHECK(kfx_sim_state.timestamp == 1000000000);
+    CHECK(kfx_sim_state.timestamp_tz == -300 * 60);
+    CHECK(kfx_sim_state.timestamp_turn == 7);
+    set_gameturn_source(nullptr);
 }

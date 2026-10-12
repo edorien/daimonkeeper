@@ -2456,6 +2456,12 @@ TbBool cmd_toggle_lights(PlayerNumber plyr_idx, char * args)
 
 TbBool cmd_lua(PlayerNumber plyr_idx, char * args)
 {
+    // Arbitrary Lua from a chat line would run on the sender's machine only, and in a network game any
+    // player could send it: not allowed there, cheat mode or not (upstream #5401).
+    if (network_is_active()) {
+        console_reply(plyr_idx, "not available in multiplayer");
+        return false;
+    }
     script_execute_lua_code_from_console(args);
     return true;
 }

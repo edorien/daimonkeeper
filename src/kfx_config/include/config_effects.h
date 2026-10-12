@@ -131,7 +131,8 @@ struct EffectsConfig {
 extern const struct ConfigFileData keeper_effects_file_data;
 extern struct NamedCommand effect_desc[EFFECTS_TYPES_MAX];
 extern int64_t const imp_spangle_effects[];
-extern int64_t const ball_puff_effects[];
+#define BALL_PUFF_EFFECTS_COUNT 9
+extern int64_t const ball_puff_effects[BALL_PUFF_EFFECTS_COUNT];
 
 extern struct NamedCommand effectgen_desc[EFFECTSGEN_TYPES_MAX];
 extern struct NamedCommand effectelem_desc[EFFECTSELLEMENTS_TYPES_MAX];

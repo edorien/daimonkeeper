@@ -4683,10 +4683,10 @@ struct Thing *create_creature(struct Coord3d *pos, ThingModel model, PlayerNumbe
     crtng->clipbox_size_z = crconf->size_z;
     crtng->solid_size_xy = crconf->thing_size_xy;
     crtng->solid_size_z = crconf->thing_size_z;
-    crtng->fall_acceleration = CREATURE_FALL_ACCELERATION;
+    crtng->fall_acceleration = crconf->fall_acceleration;
     crtng->bounce_angle = 0;
-    crtng->inertia_floor = 32;
-    crtng->inertia_air = 8;
+    crtng->inertia_floor = crconf->inertia_floor;
+    crtng->inertia_air = crconf->inertia_air;
     crtng->movement_flags |= TMvF_ZeroVerticalVelocity;
     crtng->owner = owner;
     crtng->move_angle_xy = ANGLE_NORTH;
@@ -7526,14 +7526,8 @@ TbResult script_use_spell_on_creature_with_criteria(PlayerNumber plyr_idx, Thing
     return script_use_spell_on_creature(plyr_idx, thing, spell_idx, charge);
 }
 
-void script_move_creature(struct Thing* thing, TbMapLocation location, ThingModel effect_id)
+void script_move_creature(struct Thing* thing, TbMapLocation location, EffectOrEffElModel effect_id)
 {
-
-    if (effect_id < 0)
-    {
-        effect_id = ball_puff_effects[thing->owner];
-    }
-
     struct Coord3d pos;
     if(!get_coords_at_location(&pos,location,false)) {
         SYNCDBG(5,"No valid coords for location %" PRId64,(int64_t)location);
@@ -7542,13 +7536,14 @@ void script_move_creature(struct Thing* thing, TbMapLocation location, ThingMode
     struct CreatureControl *cctrl;
     cctrl = creature_control_get_from_thing(thing);
 
-    if (effect_id > 0)
+    if (effect_id != 0)
     {
-        create_effect(&thing->mappos, effect_id, kfx_config_state.neutral_player_num);
-        create_effect(&pos, effect_id, kfx_config_state.neutral_player_num);
+        create_used_effect_or_element(&thing->mappos, effect_id, kfx_config_state.neutral_player_num, 0);
+        create_used_effect_or_element(&pos, effect_id, kfx_config_state.neutral_player_num, 0);
     }
     move_thing_in_map(thing, &pos);
-    if (flag_is_set(thing->state_flags, TF1_FallingIntoAbyss)) {
+    if (flag_is_set(thing->state_flags, TF1_FallingIntoAbyss))
+    {
         clear_flag(thing->state_flags, TF1_FallingIntoAbyss);
         clear_thing_acceleration(thing);
         clear_thing_velocity(thing);
@@ -7559,7 +7554,7 @@ void script_move_creature(struct Thing* thing, TbMapLocation location, ThingMode
     check_map_explored(thing, thing->mappos.x.stl.num, thing->mappos.y.stl.num);
 }
 
-void script_move_creature_with_criteria(PlayerNumber plyr_idx, ThingModel crmodel, int64_t select_id, TbMapLocation location, ThingModel effect_id, int64_t count)
+void script_move_creature_with_criteria(PlayerNumber plyr_idx, ThingModel crmodel, int64_t select_id, TbMapLocation location, EffectOrEffElModel effect_id, int64_t count)
 {
     for (int64_t i = 0; i < count; i++)
     {

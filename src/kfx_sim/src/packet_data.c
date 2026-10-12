@@ -120,6 +120,7 @@ TbBool packet_action_has_camera_position(enum TbPacketAction action)
     switch (action)
     {
     case PckA_ApplyRoomspaceDigTag:
+    case PckA_SetTimestamp:
     case PckA_UsePwrOnThing:
     // In-game level editor verbs (docs/refactor/editor/): these carry real
     // per-action data in actn_par3/actn_par4 (model/owner/thing_idx/z/...),

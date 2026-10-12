@@ -29,6 +29,11 @@ extern "C" {
  *  was played before it in the process. */
 void sim_state_take_level_baseline(void);
 void sim_state_reset_for_level(void);
+
+/** Stores this machine's clock (posix time, time zone, and the game turn) as the game's timestamp, for Lua's
+ *  GetGameTimestamp: the host's is the one that counts, sent to the others (PckA_SetTimestamp, the initial sync,
+ *  a resync) and recorded in replays (upstream #5383). */
+void take_game_timestamp(void);
 void clear_creature_pool(void);
 void clear_map(void);
 void clear_things_and_persons_data(void);

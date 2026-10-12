@@ -207,6 +207,11 @@ TbBool ftest_golden_begin(struct FTestGolden *g, int64_t slot, const struct FTes
         memset(golden_blocks[0].volatile_mask + ((char *)&st->end_time - (char *)&kfx_sim_state), 1, sizeof(st->end_time));
         memset(golden_blocks[0].volatile_mask + ((char *)&st->gameplay_time - (char *)&kfx_sim_state), 1, sizeof(st->gameplay_time));
     }
+    // the game's timestamp, the wall clock taken by every load (upstream #5383); two loads in one second agree
+    // and would put its value in the hashes
+    memset(golden_blocks[0].volatile_mask + ((char *)&kfx_sim_state.timestamp - (char *)&kfx_sim_state), 1, sizeof(kfx_sim_state.timestamp));
+    memset(golden_blocks[0].volatile_mask + ((char *)&kfx_sim_state.timestamp_tz - (char *)&kfx_sim_state), 1, sizeof(kfx_sim_state.timestamp_tz));
+    memset(golden_blocks[0].volatile_mask + ((char *)&kfx_sim_state.timestamp_turn - (char *)&kfx_sim_state), 1, sizeof(kfx_sim_state.timestamp_turn));
     int64_t volatile_bytes = 0;
     for (int i = 0; i < GOLDEN_BLOCKS_COUNT; i++)
         for (size_t k = 0; k < golden_blocks[i].size; k++)

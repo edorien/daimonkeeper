@@ -22,6 +22,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "version.h"
+#include "bflib_basics.h"
 
 
 #include <stdint.h>
@@ -113,7 +114,7 @@ struct ReceiveCallbacks {
 };
 /******************************************************************************/
 void net_copy_name_string(char *dst,const char *src,int64_t max_len);
-void net_json_escape(char *output, size_t output_size, const char *input);
+TbBool net_json_escape(char *output, size_t output_size, const char *input);
 int net_session_metadata_json(const struct TbNetworkSessionNameEntry *session, char *output, size_t size);
 struct VALUE;
 void net_session_parse_metadata(struct TbNetworkSessionNameEntry *session, const struct VALUE *root);

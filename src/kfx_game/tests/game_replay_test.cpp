@@ -330,8 +330,8 @@ TEST_CASE_METHOD(AutosaveFixture, "with AUTOMATIC_REPLAYS on, a campaign level r
     const std::string dir = (file.root / "replays" / "campaign").string() + "/";
     CHECK(fname.rfind(dir, 0) == 0);
     CHECK(fname.substr(dir.size() + 15, 3) == "_c1"); // timestamp, then kind and human count
-    CHECK(fname.size() > 4);
-    CHECK(fname.substr(fname.size() - 4) == ".pck");
+    CHECK(fname.size() > 6);
+    CHECK(fname.substr(fname.size() - 6) == ".fxpkt");
 }
 
 TEST_CASE_METHOD(AutosaveFixture, "MAX_REPLAYS 0 for the kind records nothing", "[kfx_game][game_replay]") {
@@ -347,14 +347,15 @@ TEST_CASE_METHOD(AutosaveFixture, "a new recording evicts the oldest ones of its
     max_replays[ReplTyp_Campaign] = 2; // room for one old one plus the new one
     const fs::path dir = file.root / "replays" / "campaign";
     fs::create_directories(dir);
-    for (const char *name : {"20200101T000000_c1_map00001_v100.pck", "20200102T000000_c1_map00001_v100.pck",
+    // The old .pck extension still counts as a replay; the new .fxpkt does too.
+    for (const char *name : {"20200101T000000_c1_map00001_v100.pck", "20200102T000000_c1_map00001_v100.fxpkt",
                              "20200103T000000_c1_map00001_v100.pck", "notes.pck"})
         std::ofstream(dir / name) << "x";
 
     REQUIRE(setup_auto_replay_save());
 
     CHECK_FALSE(fs::exists(dir / "20200101T000000_c1_map00001_v100.pck"));
-    CHECK_FALSE(fs::exists(dir / "20200102T000000_c1_map00001_v100.pck"));
+    CHECK_FALSE(fs::exists(dir / "20200102T000000_c1_map00001_v100.fxpkt"));
     CHECK(fs::exists(dir / "20200103T000000_c1_map00001_v100.pck"));
     CHECK(fs::exists(dir / "notes.pck")); // not a replay name: never touched
 }

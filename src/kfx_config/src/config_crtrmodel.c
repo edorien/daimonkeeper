@@ -110,6 +110,8 @@ const struct NamedCommand creatmodel_attributes_commands[] = {
   {"TORTUREKIND",        36},
   {"SPELLIMMUNITY",      37},
   {"HOSTILETOWARDS",     38},
+  {"INERTIA",            39},
+  {"FALLACCELERATION",   40},
   {NULL,                  0},
   };
 
@@ -560,6 +562,9 @@ const struct NamedField creaturemodel_attributes_named_fields[] = {
     {"TORTUREKIND",           0, CRMODEL_FIELD(torture_kind),                     0, NAMFIELD_NO_BOUNDS, creature_desc,                  value_id_positive,       assign_cast},
     {"SPELLIMMUNITY",        -2, CRMODEL_FIELD(immunity_flags),                   0, NAMFIELD_NO_BOUNDS, spell_effect_flags,             value_spell_immunity,    assign_null},
     {"HOSTILETOWARDS",       -2, CRMODEL_FIELD(hostile_towards),                  0, NAMFIELD_NO_BOUNDS, creature_desc,                  value_creature_list,     assign_null},
+    {"INERTIA",               0, CRMODEL_FIELD(inertia_floor),                    0, NAMFIELD_NO_BOUNDS, NULL,                           value_creature_number, assign_creature_number},
+    {"INERTIA",               1, CRMODEL_FIELD(inertia_air),                      0, NAMFIELD_NO_BOUNDS, NULL,                           value_creature_number, assign_creature_number},
+    {"FALLACCELERATION",      0, CRMODEL_FIELD(fall_acceleration),                0, NAMFIELD_NO_BOUNDS, NULL,                           value_creature_number, assign_creature_number},
     {NULL,                    0, CRMODEL_NONE,                                    0, 0, 0, NULL,                           NULL,                    NULL},
 };
 

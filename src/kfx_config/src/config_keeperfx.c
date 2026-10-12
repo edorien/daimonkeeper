@@ -103,7 +103,7 @@ TbBool config_network_is_active(void)
 }
 int64_t api_enabled = false;
 int64_t api_port = 5599;
-uint64_t packetsave_max_kb = 0;
+uint64_t packetsave_max_kb = 32768;
 uint64_t max_replays[ReplTyp_Count] = {5, 5, 10};
 TbBool automatic_replays = false;
 uint64_t features_enabled = 0;

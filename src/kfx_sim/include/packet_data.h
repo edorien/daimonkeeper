@@ -365,6 +365,10 @@ enum TbPacketAction {
         PckA_AssistStageGlobal,    // par1: field; par2: value
         PckA_AssistCommit,         // par1: slots in the new set (low 16 bits), slots that changed (high 16); par2: 1 = the globals too
         PckA_AssistEnable,         // par1: 0 / 1, at once (no commit)
+        // Upstream #5383: the host's clock, so every machine and a replay agree about the time (Lua's
+        // GetGameTimestamp). par1 = posix time low 32 bits; par2 = bits 32-52 of it, then the time zone in minutes
+        // (11 bits) above; par3/par4 = the game turn it was taken on (low/high 16 bits). Only the host may send it.
+        PckA_SetTimestamp,
 };
 
 /** Packet flags for non-action player operation. */
@@ -473,7 +477,7 @@ struct Packet {
 
 // save file header for .pck files.
 // (Bump the version if this struct or the .pck format changes.)
-#define PACKET_SAVE_HEAD_VER 5
+#define PACKET_SAVE_HEAD_VER 6
 /** The level files a replay checks are unchanged (upstream #5385): kfx_net's
  *  network_startup_compare_files[], which net_checksums.c checks has this many. */
 #define PACKET_SAVE_MAP_FILE_COUNT 17
@@ -513,6 +517,9 @@ struct PacketSaveHead {
     PlayerBitFlags players_comp;
     uint8_t flags; // PacketSaveHeadFlags
     uint64_t action_seed;
+    int64_t timestamp; // kfx_sim_state.timestamp when the recording started (upstream #5383)
+    int64_t timestamp_tz;
+    GameTurn timestamp_turn;
     TbBigChecksum map_checksums[PACKET_SAVE_MAP_FILE_COUNT];
     struct UserStartSettings user_start[MAX_NET_USERS];
     signed char user_players[MAX_NET_USERS];
@@ -532,7 +539,7 @@ struct PacketSaveHead {
 struct ReplayState {
     unsigned char save_enable;
     unsigned char load_enable;
-    char fname[150];
+    char fname[OS_ABSPATH_SIZE];
     char fopened;
     TbFileHandle fp;
     uint64_t file_pos;

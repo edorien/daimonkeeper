@@ -30,6 +30,7 @@ extern "C" {
 /******************************************************************************/
 int64_t update_navigation_triangulation(int64_t start_x, int64_t start_y, int64_t end_x, int64_t end_y);
 int64_t init_navigation(void);
+void rebuild_navigation(void);
 
 // Ariadne-owned navigation-map bookkeeping (see docs/refactor/
 // stage-06a-ariadne-pathfinding-interface.md, Track 1). navigation_map/

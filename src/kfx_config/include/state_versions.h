@@ -59,9 +59,12 @@
   13: gained keeper_assist[] (the combat assistant's rules and counters, docs/newFeatures/llm/)
   14: pass 5 S05 -- this machine's view left for kfx_render's kfx_local_view (SGC_KfxLocalView): hand_over_subtile_*,
       chosen_room_*, chosen_spell_*, manufactr_*, applied_lens_type, small_map_state, active_panel_mnu_idx and
-      struct Dungeon's visible_battles; the tendency mirror creatures_tend_imprison/_flee is gone */
-#define KFX_SIM_STATE_VER          14
-#define KFX_SIM_STATE_SIZE         139827371
+      struct Dungeon's visible_battles; the tendency mirror creatures_tend_imprison/_flee is gone
+  15: upstream #5396 -- Thing gained last_turn_pushed, pushed_by_player (a creature pushed into the abyss
+      counts as dead in battle)
+  16: upstream #5383 -- timestamp, timestamp_tz, timestamp_turn (the host's clock, Lua's GetGameTimestamp) */
+#define KFX_SIM_STATE_VER          16
+#define KFX_SIM_STATE_SIZE         139937987
 
 /* struct KfxNetState (kfx_net_state.h), SGC_KfxNetState
    2: S10 -- packet_load_enable, local_plyr_idx, human_players_count moved
@@ -102,10 +105,13 @@
    1: pass 4 P4-F16 -- first saved (the split out of struct Game left it out: a load or resync lost the level's
       configuration as its script changed it, the payday progress and the slabs' texture packs).
    2: SlabConfigStats.roughness (terrain.cfg's Roughness, rough terrain) -- in what was padding, so the size
-      stayed; the byte's meaning changed. */
-#define KFX_CONFIG_STATE_SIZE         11391840
-#define KFX_CONFIG_STATE_VER          2
-#define KFX_CONFIG_STATE_SAVED_SIZE   11391800
+      stayed; the byte's meaning changed.
+   3: upstream #5394 -- CreatureModelConfig gained fall_acceleration, inertia_floor, inertia_air
+   4: upstream #5402 -- ObjectConfigStats gained inertia_floor, inertia_air (in what was padding: the size
+      stayed, the fields after them moved) */
+#define KFX_CONFIG_STATE_SIZE         11394912
+#define KFX_CONFIG_STATE_VER          4
+#define KFX_CONFIG_STATE_SAVED_SIZE   11394872
 
 /* struct IntralevelData (kfx_game's game_merge.h), SGC_IntralevelData */
 #define KFX_INTRALEVEL_VER         1

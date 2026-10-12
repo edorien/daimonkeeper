@@ -295,6 +295,8 @@ struct Thing {
     int64_t prev_of_class;
     uint64_t flags; //ThingAddFlags
     GameTurn last_turn_damaged;
+    GameTurn last_turn_pushed;
+    PlayerNumber pushed_by_player;
     int64_t previous_floor_height;
     struct Coord3d previous_mappos;
     uint32_t random_seed; // 32-bit RNG state, see LbRandomSeries

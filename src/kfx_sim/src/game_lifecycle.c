@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "game_lifecycle.h"
+#include "bflib_datetm.h"
 
 #include "globals.h"
 #include "bflib_basics.h"
@@ -272,6 +273,17 @@ void clear_game_for_save(void)
     clear_columns();
     clear_players_for_save();
     clear_dungeons();
+}
+
+void take_game_timestamp(void)
+{
+    int32_t utc_offset = 0;
+    if (!get_local_timezone(&utc_offset, NULL))
+        utc_offset = 0;
+    kfx_sim_state.timestamp_tz = utc_offset;
+    const TbTimeSec now = LbTimeSec();
+    kfx_sim_state.timestamp = (now == (TbTimeSec)-1) ? 0 : (int64_t)now;
+    kfx_sim_state.timestamp_turn = get_gameturn();
 }
 
 void reset_creature_max_levels(void)

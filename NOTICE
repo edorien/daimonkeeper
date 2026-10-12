@@ -27,7 +27,8 @@ https://github.com/edorien/daimonkeeper, records every change and its
 date. The copyright and author notices in the individual source files are
 kept as they were.
 
-Upstream base: KeeperFX master merged up to commit 225d19d44 (2026-10-03).
+Upstream base: KeeperFX master merged up to commit fb0ab7f4d (2026-10-09), apart from the camera refactor and the
+commits built on it (docs/merge-checks/upstream-merge-2026-10-12.md).
 Content compatibility: campaigns and map packs made for KeeperFX 1.4
 ("KFX 1.4" in the version label).
 

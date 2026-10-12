@@ -34,6 +34,7 @@ enum {
 struct NetSP;
 struct NetSP* InitEnetSP();
 uint64_t GetPing(int64_t id, int64_t local_player_id);
+int32_t GetResyncProgress(void);
 uint64_t GetPacketLoss(int64_t id, int64_t local_player_id);
 uint64_t GetClientDataInTransit();
 uint64_t GetClientPacketsLost();

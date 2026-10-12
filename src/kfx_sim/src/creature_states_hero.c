@@ -114,10 +114,14 @@ PlayerNumber good_find_best_enemy_dungeon(struct Thing* creatng)
 
     for (PlayerNumber plyr_idx = 0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
-        if (player_is_friendly_or_defeated(plyr_idx, creatng->owner)) {
-            continue;
-        }
         player = get_player(plyr_idx);
+        if (!player_exists(player))
+            continue;
+        if (player_allied_with(get_player(creatng->owner), plyr_idx))
+            continue;
+        if (player->victory_state == VicS_LostLevel)
+            continue;
+
         if (flag_is_set(kfx_config_state.conf.rules[creatng->owner].gameplay.classic_bugs_flags,ClscBug_AlwaysTunnelToRed))
         {
             if (creature_can_get_to_dungeon_heart(creatng, plyr_idx))

@@ -406,6 +406,13 @@ static TbBool init_level(void)
 
     wait_for_all_players();
     init_seeds();
+    if (replay.load_enable) {
+        kfx_sim_state.timestamp = replay.head.timestamp;
+        kfx_sim_state.timestamp_tz = replay.head.timestamp_tz;
+        kfx_sim_state.timestamp_turn = replay.head.timestamp_turn;
+    } else {
+        take_game_timestamp();
+    }
     sync_initial_network_seed();
 
     recheck_all_mod_exist();
@@ -879,7 +886,7 @@ void clear_complete_game(void)
     set_flag_value(local_system_flags, GSF_AllowOnePlayer, start_params.one_player);
     kfx_sim_state.computer_chat_flags = start_params.computer_chat_flags;
     kfx_sim_state.operation_flags = start_params.operation_flags;
-    snprintf(replay.fname,150, "%s", start_params.packet_fname);
+    snprintf(replay.fname, sizeof(replay.fname), "%s", start_params.packet_fname);
     replay.save_enable = start_params.packet_save_enable;
     replay.load_enable = start_params.packet_load_enable;
     my_player_number = default_loc_player;
