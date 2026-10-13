@@ -1173,6 +1173,45 @@ blobs via ports (`GamePort`/`UiPort`) instead of `#include`-ing their headers di
 
 ---
 
+## 8a. Trust tiers (security)
+
+Not every byte the game reads is equally trustworthy, and the code that reads it has to know which side it is on. The
+rule for all of it: **everything outside the game's own binary and shipped data is data.** Data may make the game do any
+*in-game* thing; it may never run native code, touch a file outside the game's folders, or index memory out of bounds.
+(`SECURITY.md` is the public policy; `upstream-merge-workflow.md` §6b is the checklist for merged code.)
+
+| Tier | What | Comes in through | What stands between it and the engine |
+| --- | --- | --- | --- |
+| **0 -- trusted** | the binary, `config/fxdata` and its Lua (`fxdata/lua`), loaded at start-up before any content | the install | nothing; it is the engine. The shipped Lua is loaded first and keeps what it needs in locals. |
+| **1 -- content** | campaigns, map packs, mods: level scripts, `.cfg`/`.toml` configs, map files, strings, sprite/texture/sound packs, `LEVELS_LOCATION`-style paths | files in the user's folders, downloaded from anywhere | parsers with size caps; paths resolved in one place (`_resolve_file_path_internal`, `path_cannot_escape`); config numbers bounded against the tables they index; level Lua in the locked-down interpreter (`lua_sandbox.c`: no files, processes, native code, debug or bytecode; instruction and memory budget; handlers looked up by global name); Lua API arguments read through `lua_params.c` |
+| **2 -- state** | saved games, replays, a host's resync | files; the network | version and size checks, then a validator for each raw blob before it replaces anything (`sim_state_validate`, `game_state_validate`, `config_state_validate`, `ariadne_saved_state_check`); script data holds functions as references to installed code, never bytecode; a replay's packets go through the packet validator like any other |
+| **3 -- peer** | other players and the host of a multiplayer game | UDP (enet), LAN discovery, hole-punch datagrams | `process_network_message` bounds every length and user id; one packet validator for every action (`packet_validate.c`) with cheat actions dropped in multiplayer; the chat sender is checked; resync length is capped |
+| **4 -- local** | a program on this machine talking to the remote API | `127.0.0.1:5599`, off by default | first byte must be `{` (kills cross-protocol requests from a browser); optional token; `lua` refused over the console command |
+| **5 -- service** | the matchmaking server, the router | HTTPS/WSS (libcurl), NAT-PMP/UPnP | verified TLS, https/wss only, no redirects, libcurl built without other protocols; router mappings are time-limited leases |
+
+Rules for code that sits on a tier boundary:
+
+1. **Validate where the data enters, not where it is used.** A size, index or kind read from tiers 1-5 is checked against
+   the array or table it will select from *before* it is stored in state, and the check uses the array's dimension, not a
+   loaded configuration that might be absent. A state validator then repeats that for everything a blob can carry
+   (§6.2), so a stored value can be trusted by the code that reads it back.
+2. **A refusal is deterministic.** In a lock-step game every client must refuse the same input the same way (a packet
+   loses its action; a script is stopped at the same instruction), or the game desyncs.
+3. **New capability is opt-in.** The Lua sandbox, the Lua function allowlist, the packet table and the validators are
+   lists of what is allowed. A new library function, packet action or state field is not reachable until someone adds it
+   on purpose; an upstream merge that adds one gets the check in `upstream-merge-workflow.md` §6b.
+4. **Fix the parser, then fuzz it.** A new reader of tier 1-3 bytes gets a `FUZZ_TARGET` (`fuzz/README.md`) and is run
+   under the sanitizers (`scripts/build-fuzz.sh`). Findings are fixed in the product; the harness is only changed when the
+   input could not reach the code in the real game.
+5. **No new route out of the game.** A Lua or API function that opens a file, starts a process, loads native code or
+   opens a socket does not exist. If a mod needs persistent data, design it (a per-mod directory, a size cap) as a new
+   capability with a test; don't open the generic one.
+
+Build-level defences (stack protector, fortify, PIE/RELRO or ASLR/DEP; dependency pins and advisory check) are in
+CLAUDE.md's "Hardening and dependency checks" and are verified by `scripts/check_hardening.py` in every CI build job.
+
+---
+
 ## 9. Testing
 
 - **`src/ftests/`** — a functional-test framework (CUnit-based scaffolding:
@@ -1466,6 +1505,9 @@ there is one, and how much it logs is the `LOG_LEVEL` option
    surface in `kfx_script`. Don't add new top-ranked libraries casually.
 6. **Functional tests go in `src/ftests/`** (exempt tier). Register them in
    `ftest_list.c` with a level file / level / `frame_skip`.
+7. **Know which trust tier your input is on (§8a).** Anything read from a file,
+   the network or a script that isn't the shipped data is data: bound it where
+   it enters, and a new reader of it gets a fuzz target.
 
 ---
 
@@ -1482,4 +1524,5 @@ there is one, and how much it logs is the `LOG_LEVEL` option
 | How the `KFX_BUILD_TESTS` unit-test/coverage harness works | [`testing-harness.md`](testing-harness.md)                                       |
 | How to merge upstream (dkfans/keeperfx) into this fork | [`upstream-merge-workflow.md`](upstream-merge-workflow.md)                          |
 | How this tree stays apart from, and compatible with, KeeperFX | this doc (§10a) + [`upstream-merge-workflow.md`](upstream-merge-workflow.md) §6a |
+| What the game trusts, and how to report or review a security problem | this doc (§8a), [`SECURITY.md`](../../SECURITY.md), [`upstream-merge-workflow.md`](upstream-merge-workflow.md) §6b |
 |                                                   |                                                                                           |

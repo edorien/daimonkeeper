@@ -340,6 +340,8 @@ turned into a port entry, for example). Record it with a `merge` row in
 or `(deleted)`, the merge commit, and the upstream change in the notes) until
 `check` is clean.
 
+Also run the security checks of step 6b for whatever the range touched.
+
 A clean full build is the real test of whether every conflict resolution was
 correct — the compiler and linker will surface anything a conflict-marker
 diff alone can miss. Two classes of error are common and not really about
@@ -399,6 +401,36 @@ What upstream's content can use is what dAImon Keeper promises to play ("KFX
    `PRODUCT_NAME` / `PRODUCT_SLUG` (`version.h`); "KeeperFX" stays where it
    names the content format or the project's origin.
 
+## 6b. Security checklist
+
+Upstream's code is written for a world where content is trusted, and a merge can bring that assumption back in: a new
+Lua library, a packet action, a file format, a path in a config key. Read the range for the items below (a `git diff
+--stat <range>` and a grep of the incoming diff for the keywords is enough to find them) and do the matching check. The
+reasons and the tiers are in architecture.md §8a; `SECURITY.md` is the public policy.
+
+| The range adds or changes... | Do this |
+| --- | --- |
+| a Lua standard-library function, a global, `require`/`load`/`dofile`-style loader, `package.*`, `ffi`, `os`/`io` use | `lua_sandbox.c` is an allowlist: a new library function is **not** reachable until added there on purpose, and nothing that opens files, runs programs or loads native code is added. Run `lua_sandbox_test`, `lua_limits_test`. |
+| a Lua API function (`lua_api*.c`) | Read its arguments with the `lua_params.c` helpers (`luaL_checkstring` etc., never a bare `lua_tostring` result), check every index against its array, no path argument unless it goes through `path_is_plain_relative()`. Add it to the `lua_api` fuzz run (`scripts/fuzz_all.sh 300 lua_api`). |
+| how a function or data is saved into script data (`core/serialisation.lua`, `external/binser.lua`, `TriggerSystem.lua`, the Lua chunk of `game_saves.c`) | **Keep ours.** Bytecode (`binser` type 210) stays refused; functions are saved as references (S03). After the merge: `lua_saved_functions_test`. |
+| a game packet action (`PckA_*`) | Add its row to the table in `packet_validate.c` (flags, parameter kinds); the count test fails until you do. Cheat/editor actions are `PAF_CHEAT`. Run `packet_validate_test`, `packet_actions_golden_test`. |
+| a network message, lobby or chat change | Every length read from a peer is checked against the buffer before use; user ids and stages are range-checked (see `process_login_message`). Run the `net_message` fuzz target. |
+| an action on the local API | It goes through the token/first-byte checks of `api.c`; `console_command` must not reach `lua`. Run `api_security_test`, and the `api_json` fuzz target. |
+| a file format read from content or the network, or a new parser | Sizes from the file are capped before they allocate; no `strcpy`/`sprintf`/unbounded `scanf`; load through `LbFileLoadAt`/`LbFileLoadAtMax`. Add a `FUZZ_TARGET` in `fuzz/` and seeds in `scripts/fuzz_seeds.py` (see `fuzz/README.md`), then run it for a few minutes. |
+| a config key that holds a path | It is resolved through `_resolve_file_path_internal()` (so `path_cannot_escape()` applies); a campaign `*_LOCATION` goes through `campaign_drop_unsafe_paths()`. The editor and checker (`content_target.cpp`, `cfgc_*`) must refuse `..` too. |
+| a config number that selects a function from a table or indexes an array (state/job/instance/power/room/object function indexes, sound counts, kinds) | Bound it by the table's slot count (`*_FUNC_SLOTS` in `config_funcnames.h`, with its `_Static_assert`) and add it to `config_state_validate.c`; a `NamedCommand` table must end with a NULL row. |
+| a field in a raw-blob state struct (`kfx_sim_state`, `kfx_game_state`, `kfx_net_state`, config saved part, the Ariadne mesh) | Bump its version in `state_versions.h` (layout) **and** add what the field may hold to the matching validator (`state_validate.c`, `game_state_validate`, `config_state_validate.c`, `ariadne_saved_state_check`). Run the `state_corruption_fuzz` ftest (`-includelongtests`). |
+| a dependency, or a new download | Every `URL` has a `URL_HASH SHA256` (`KFX_SHA256_*`); `python3 scripts/check_dep_vulns.py`; step 6a item 4 for the notices. libcurl is built with `http https ws wss` only. |
+| a new use of libcurl, sockets, or router port mapping | Matchmaking handles go through `matchmaking_secure_handle()`; a router mapping is a lease, never permanent. |
+| link flags, the toolchain file, `CMakeLists.txt` compile options | `python3 scripts/check_hardening.py` on the Linux and the Windows binary. |
+
+Then, for any merge that touched one of the rows above: the sanitizer pass over the unit suite
+(`scripts/build-fuzz.sh asan`, then `cd out/asan && ASAN_OPTIONS=detect_leaks=0 ctest -j 24`) and the strict ftest sweep
+(`GOLDEN_SHARDS=8 FTEST_JOBS=14 scripts/run_ftest_coverage.sh <build-dir>`, expect every test `rc=0`).
+
+If upstream **fixes** a security problem, take the fix and re-check whether our hardening already covers it; if upstream
+removes a guard of ours by rewriting the function around it, put the guard back and say so in the merge commit.
+
 ## 7. Commit and record gaps
 
 One merge commit, `git commit` (not `--no-edit` at this point — write a real
@@ -408,7 +440,7 @@ check — so a future contributor can tell "no test" was a decision, not an
 oversight. If verification surfaces a pre-existing, unrelated gap (e.g. a
 test file already broken by an *earlier* merge, needing more than a
 mechanical fix), don't scope-creep it into this merge — flag it separately
-and note it in the merge commit as a known, tracked gap.
+and note it in the merge commit as a known, tracked gap. The same goes for a row of step 6b you skipped, and why.
 
 ## Worked example
 

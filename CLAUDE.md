@@ -141,3 +141,4 @@ This tree ships as **dAImon Keeper** (slug `daimonkeeper`), not KeeperFX. The ru
 - World state belongs in the owning library's state struct, not `struct Game`.
 - New cross-layer call needed → add one line to the provider's port `.def` (`KFX_PORT_VOID`/`KFX_PORT_RET`/…, with its unwired default) and the real function to the provider's table in its `*_port_impl.c(pp)`; callers use the `PREFIX_name()` wrapper. A whole new port also needs its generated header and defaults file (copy an existing one) and a `set_*_port()` + `KFX_TABLE_COMPLETE` line in `main.cpp` (architecture.md §5.2).
 - Functional tests go in `src/ftests/`, registered in `ftest_list.c`.
+- Content, saves, replays, the network and the local API are untrusted input: see architecture.md §8a (trust tiers) and, for merged upstream code, upstream-merge-workflow.md §6b. `SECURITY.md` is the public policy.
